@@ -1,0 +1,31 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    { "query": "[\"type\":concept]", "color": { "a": 1, "rgb": 3900150 } },
+    { "query": "[\"type\":théorie]", "color": { "a": 1, "rgb": 6514417 } },
+    { "query": "[\"type\":personne]", "color": { "a": 1, "rgb": 2278750 } },
+    { "query": "[\"type\":expérience]", "color": { "a": 1, "rgb": 16347926 } },
+    { "query": "[\"type\":controverse]", "color": { "a": 1, "rgb": 15680580 } },
+    { "query": "[\"type\":école]", "color": { "a": 1, "rgb": 15381256 } },
+    { "query": "[\"type\":méthode]", "color": { "a": 1, "rgb": 440020 } },
+    { "query": "[\"type\":terme]", "color": { "a": 1, "rgb": 10265519 } },
+    { "query": "[\"type\":débat]", "color": { "a": 1, "rgb": 9133302 } }
+  ],
+  "collapse-display": false,
+  "showArrow": false,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1.2,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": false,
+  "centerStrength": 0.4,
+  "repelStrength": 12,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 0.6
+}
