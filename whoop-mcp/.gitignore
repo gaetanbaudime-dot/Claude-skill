@@ -1,0 +1,6 @@
+# Ne jamais versionner les identifiants / tokens WHOOP
+credentials.json
+
+# Bytecode Python
+__pycache__/
+*.pyc
