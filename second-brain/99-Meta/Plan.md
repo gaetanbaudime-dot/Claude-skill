@@ -274,7 +274,7 @@ Relecture avocat du diable effectuée : fusion de "Biais de statu quo" dans [[Ef
 - **Type** : expérience
 - **Priorité** : 2 (standard)
 - **Résumé** : Face à un groupe unanime qui se trompe, une proportion notable des sujets se rallie à la réponse fausse. Classique des années 1950, souvent mal résumé (la majorité des réponses restent indépendantes), à la frontière biais cognitif / influence sociale.
-- **Wikilinks pressentis** : [[Erreur fondamentale d'attribution]], [[Effet de faux consensus|Biais d'autocomplaisance]], [[Amorçage social]], [[Biais de confirmation]]
+- **Wikilinks pressentis** : [[Erreur fondamentale d'attribution]], [[Biais d'autocomplaisance]], [[Amorçage social]], [[Biais de confirmation]]
 - **Niveau controverse** : medium
 - **Fact-check requis** : oui (protocole, chiffres exacts)
 
