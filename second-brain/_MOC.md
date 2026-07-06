@@ -22,12 +22,13 @@ Vault multi-clusters généré et maintenu par Claude (pattern "compiler une foi
 - [[_MOC Investissement|Investissement]] : intérêts composés, allocation, indiciel, psychologie de l'investisseur.
 - [[_MOC Santé|Santé]] : sommeil, nutrition, entraînement, récupération, énergie (hygiène de vie evidence-based uniquement).
 
-## Ton contexte (à nourrir)
+## Ton contexte (importé de claude.ai le 2026-07-06)
 
-- [[Profil]] : qui tu es, objectifs, préférences de travail avec Claude.
-- [[Projets]] : registre des projets actifs et de leurs décisions.
-- [[Insights]] : journal des prises de conscience.
-- [[Journal de coaching]] : décisions, prédictions écrites, revues de calibration.
+- [[Profil]] : qui tu es, objectifs, préférences de travail avec Claude (distillées de 6 mois d'usage).
+- [[LTP Models]] : le hub business, modèle, roster, équipe, chiffres, priorités actives.
+- [[Projets]] : registre complet, actifs, en veille, clos.
+- [[Insights]] : les principes déjà payés pour être appris, avec valeur de jurisprudence.
+- [[Journal de coaching]] : agenda des décisions ouvertes, prédictions écrites, calibration.
 
 ## Les rapports actionnables (98-Rapports/)
 
