@@ -87,6 +87,56 @@ Les outils de collection (`recovery`, `sleep`, `cycles`, `workouts`) acceptent
 - L'access token dure ~1 h et se **rafraîchit tout seul** (refresh token rotatif).
 - **Ne versionne jamais `credentials.json`.**
 
+## Aller plus loin : entrepôt SQLite + requêtes + dashboard
+
+Le serveur ci-dessus lit tes données **à la demande**. Pour donner à Claude tout ton
+historique et des tendances longues sans saturer le contexte, trois fichiers en plus
+(même connexion OAuth, mêmes `credentials.json`) :
+
+| Fichier | Rôle |
+|---|---|
+| `sync.py` | Tire tout l'historique (recovery, sommeil, cycles, workouts) dans `~/.whoop-mcp/whoop.db`. Idempotent : 1er run = complet, runs suivants = fenêtre glissante de 60 j. |
+| `dashboard.py` | Génère un dashboard HTML autonome (graphiques SVG, zéro dépendance) et l'ouvre dans le navigateur. |
+| `launchd/com.whoop.sync.plist` | Sync quotidien automatique à 7 h 30 (macOS). |
+
+Le serveur MCP (`server.py`) expose en plus **2 outils entrepôt** dès que `whoop.db` existe :
+
+- `whoop_tables` — schéma des tables (à consulter avant une requête).
+- `whoop_query` — SQL **lecture seule** (SELECT / WITH) sur tout l'historique, pour
+  calculer n'importe quelle tendance ou corrélation. Ex. dans Claude Code :
+  « corrèle le strain de la veille avec la recovery du lendemain sur 6 mois ».
+
+### Mise en place
+
+```bash
+# 1. Copie les 3 nouveaux fichiers (en plus de server.py / auth.py)
+cp whoop-mcp/sync.py whoop-mcp/dashboard.py ~/.whoop-mcp/
+
+# 2. Premier sync : tire tout l'historique (peut prendre 1-2 min)
+uv run --python 3.11 --script ~/.whoop-mcp/sync.py
+
+# 3. Génère le dashboard (90 j par défaut, ou passe un nombre de jours)
+uv run --python 3.11 --script ~/.whoop-mcp/dashboard.py 120
+
+# 4. (macOS) Sync quotidien automatique
+cp whoop-mcp/launchd/com.whoop.sync.plist ~/Library/LaunchAgents/
+launchctl load  ~/Library/LaunchAgents/com.whoop.sync.plist
+launchctl start com.whoop.sync        # test immédiat ; logs -> ~/.whoop-mcp/sync.log
+```
+
+Après le premier sync, **redémarre Claude Code** : `whoop_query` et `whoop_tables`
+apparaîtront. Exemples de questions :
+
+- « Quel est mon HRV moyen par jour de la semaine sur les 3 derniers mois ? »
+- « Montre l'évolution de ma performance de sommeil sur 90 jours. »
+- « Y a-t-il une corrélation entre mes jours de gros strain et une recovery basse le lendemain ? »
+
+### Tables de `whoop.db`
+
+`cycles` (strain, kJ, FC), `recovery` (score, HRV, FC repos, SpO2, temp. peau),
+`sleep` (perf, efficacité, stades, fréquence respiratoire), `workouts` (sport, strain, distance).
+Chaque table garde aussi la réponse brute de l'API dans une colonne `raw` (JSON).
+
 ## Dépannage
 
 | Symptôme | Cause probable | Fix |

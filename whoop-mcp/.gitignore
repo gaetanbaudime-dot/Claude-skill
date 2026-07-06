@@ -4,3 +4,9 @@ credentials.json
 # Bytecode Python
 __pycache__/
 *.pyc
+
+# Artefacts locaux générés (entrepôt, dashboard, logs)
+whoop.db
+whoop.db-*
+whoop-dashboard.html
+sync.log
