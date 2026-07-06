@@ -38,7 +38,7 @@ Un : la structure a un coût d'expérience candidat si elle est administrée com
 
 ## Liens et implications
 
-Application chirurgicale du [[Débiaisage]] (procédure > vigilance) au recrutement ; kit complet (déroulé, questions types, grille) dans `98-Rapports/Rapport Recrutement`. La même mécanique s'exporte : évaluations annuelles, comités d'investissement, revues de projets, partout où des humains notent des humains ([[Management humain|cluster Management]]).
+Application chirurgicale du [[Débiaisage]] (procédure > vigilance) au recrutement ; kit complet (déroulé, questions types, grille) dans `98-Rapports/Rapport Recrutement`. La même mécanique s'exporte : évaluations annuelles, comités d'investissement, revues de projets, partout où des humains notent des humains ([[_MOC Management humain|cluster Management]]).
 
 ## Sources
 

@@ -18,7 +18,7 @@ tags: [contexte/insights]
 - **Contexte** : où/comment c'est apparu
 - **Insight** :
 - **Action qui en découle** :
-- **Lien vault** : [[...]]
+- **Lien vault** : `[[...]]`
 
 ---
 
