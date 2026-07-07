@@ -21,8 +21,9 @@ Base de connaissances Obsidian générée et maintenue par Claude Code (pattern 
 ## Structure
 
 ```
-_MOC.md              → index maître
-00-Contexte/         → profil, projets, insights, journal de coaching
+_MOC.md              → index maître (action-first)
+00-Contexte/         → profil, LTP Models, projets, insights, journal de coaching
+97-Plan Maître/      → Plan Maître 500K + Sprint 90 jours
 pages/<Cluster>/     → pages + _MOC par cluster (11 clusters)
 98-Rapports/         → rapports de synthèse actionnables
 99-Meta/             → plans, schéma YAML, fact-check log, audit, debriefs

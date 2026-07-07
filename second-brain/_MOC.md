@@ -1,43 +1,42 @@
 # Second cerveau : Map of Content maître
 
-Vault multi-clusters généré et maintenu par Claude (pattern "compiler une fois, réutiliser toujours"). 11 clusters, ~110 pages interconnectées, chaque cluster ayant son MOC détaillé et son rapport de synthèse actionnable dans `98-Rapports/`.
+Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis les outils, puis la bibliothèque. Généré et maintenu par Claude, synchronisé Git↔Obsidian.
 
-## Le cluster fondateur
+## 🎯 L'action (commence ici)
 
-- [[_MOC Biais cognitifs|Biais cognitifs]] (40 pages) : la théorie de tout le reste. Heuristiques, biais, crise de la réplication, débat sur la rationalité. Chaque page porte son statut épistémique (verified / débattu / débunké).
+- **[[Plan Maître 500K]]** : la stratégie complète 35K → 500K€/mois, coaching Maxime croisé avec les benchmarks marché 2025-2026, 4 phases avec gates chiffrés, 5 risques en pré-mortem.
+- **[[Sprint 90 jours]]** : la phase 1 en actions datées, avec tableau de bord hebdomadaire et règles de sprint.
+- **[[Journal de coaching]]** : les décisions ouvertes (renégociation Maxence, chatter manager, Sophie, Jade, Georgina...), prédictions écrites, calibration.
 
-## Les clusters business
+## 👤 Ton contexte (importé de claude.ai)
 
-- [[_MOC Marketing|Marketing]] : offre, acquisition, copy, tunnel, rétention, marque.
-- [[_MOC Alex Hormozi|Alex Hormozi]] : Grand Slam Offer, équation de valeur, Core Four, philosophie du volume.
-- [[_MOC Finance|Finance]] : unit economics, trésorerie, pricing, marges, états financiers.
-- [[_MOC Décision business|Décision business]] : cadres de décision, coût d'opportunité, espérance, pré-mortem.
-- [[_MOC Recrutement|Recrutement]] : scorecard, sourcing, entretien structuré, onboarding, erreurs de casting.
-- [[_MOC Management humain|Management humain]] : motivation, feedback, délégation, culture, rituels.
-- [[_MOC Scaling|Scaling]] : systèmes, théorie des contraintes, effet de levier, documentation.
-- [[_MOC OFM|OFM]] : le modèle d'agence, avec sa page risques légaux et éthiques en lecture conditionnelle.
-
-## Les clusters personnels
-
-- [[_MOC Investissement|Investissement]] : intérêts composés, allocation, indiciel, psychologie de l'investisseur.
-- [[_MOC Santé|Santé]] : sommeil, nutrition, entraînement, récupération, énergie (hygiène de vie evidence-based uniquement).
-
-## Ton contexte (importé de claude.ai le 2026-07-06)
-
-- [[Profil]] : qui tu es, objectifs, préférences de travail avec Claude (distillées de 6 mois d'usage).
-- [[LTP Models]] : le hub business, modèle, roster, équipe, chiffres, priorités actives.
-- [[Projets]] : registre complet, actifs, en veille, clos.
+- [[Profil]] : identité, objectifs, préférences de travail avec Claude distillées de 6 mois d'usage.
+- [[LTP Models]] : le hub business — modèle, roster, équipe, chiffres, priorités actives.
+- [[Projets]] : registre complet (actifs, veille, clos).
 - [[Insights]] : les principes déjà payés pour être appris, avec valeur de jurisprudence.
-- [[Journal de coaching]] : agenda des décisions ouvertes, prédictions écrites, calibration.
 
-## Les rapports actionnables (98-Rapports/)
+## 🛠️ Les outils (98-Rapports/)
 
-Un par cluster : checklists, grilles, protocoles prêts à l'emploi. À utiliser en travaillant, pas à lire au calme : Rapport Marketing, Rapport Alex Hormozi, Rapport Décision business, Rapport Finance, Rapport Investissement, Rapport Recrutement, Rapport Management humain, Rapport Scaling, Rapport OFM, Rapport Santé.
+Checklists et protocoles prêts à l'emploi, un par cluster : Marketing, Alex Hormozi, Décision business, Finance, Investissement, Recrutement, Management humain, Scaling, OFM, Santé. À utiliser en travaillant, pas à lire au calme.
 
-## Comment ce vault grandit
+## 📚 La bibliothèque (11 clusters)
 
-Chaque session Claude peut : densifier un cluster (+30-40 pages/session, listes "à densifier" en bas de chaque MOC), créer un nouveau cluster, mettre à jour le contexte, ou produire des rapports croisés. La méthode, les conventions et les coûts sont documentés dans `99-Meta/` (Plan-Production, Schema, Fact-Check-Log, Audit, Debrief).
+Le savoir de fond qui alimente le plan. Par pertinence pour l'objectif 500K :
 
-## Le fil rouge du vault
+- [[_MOC OFM|OFM]] : ton métier — lire [[Risques légaux et éthiques de l'OFM]] avant tout le reste.
+- [[_MOC Scaling|Scaling]] : systèmes, [[Théorie des contraintes]] (le cadre de Maxime), levier, documentation.
+- [[_MOC Marketing|Marketing]] et [[_MOC Alex Hormozi|Alex Hormozi]] : offre, acquisition, rétention/LTV, tes cadres de référence.
+- [[_MOC Recrutement|Recrutement]] : scorecard, entretien structuré, onboarding — pour le chatter manager et les créatrices.
+- [[_MOC Management humain|Management humain]] : motivation, feedback, délégation, rituels — pour la phase 3.
+- [[_MOC Décision business|Décision business]] : cadres, coût d'opportunité, pré-mortem — l'hygiène de chaque arbitrage.
+- [[_MOC Finance|Finance]] : unit economics, trésorerie, pricing — les gates se mesurent ici.
+- [[_MOC Biais cognitifs|Biais cognitifs]] (40 pages) : la théorie de tout le reste, avec statuts épistémiques.
+- [[_MOC Investissement|Investissement]] et [[_MOC Santé|Santé]] : le patrimoine et le moteur (toi).
 
-Les procédures battent la vigilance, les systèmes battent les héros, les asymétries battent les moyennes, et le savoir compilé bat le savoir requêté : quatre déclinaisons de la même idée, documentées respectivement dans [[Débiaisage]], [[Systèmes et process]], [[Espérance mathématique et asymétries]] et ce vault lui-même.
+## ⚙️ La méthode (99-Meta/)
+
+Conventions, plans, fact-check log, audits, debriefs. Comment ce vault grandit : chaque session Claude densifie un cluster (30-40 pages), met à jour le contexte, ou produit un rapport croisé. Les pistes sont dans les sections "à densifier" de chaque MOC.
+
+## Le fil rouge
+
+Les procédures battent la vigilance ([[Débiaisage]]), les systèmes battent les héros ([[Systèmes et process]]), les asymétries battent les moyennes ([[Espérance mathématique et asymétries]]), la LTV bat le trafic ([[Rétention et LTV]]), et le savoir compilé bat le savoir requêté : ce vault.
