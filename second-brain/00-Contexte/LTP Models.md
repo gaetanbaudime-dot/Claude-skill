@@ -18,23 +18,49 @@ Agence OFM francophone basée à Dubaï (entité free zone EAU, contrats de droi
 
 Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plateforme". Trafic par Reels/TikTok/YouTube (armée de clippers rémunérés à la performance, 0,35€/abonnement, tracking GetAllMyLinks/Infloww/MyPulse), publication par téléphones virtuels Geelark avec proxies français, conversion par chatting structuré (méthodo Golden Ratio 2-3%, Unlock Rate >30% OF / >10% MYM, LTV cible 15€).
 
-## Les chiffres (juillet 2026)
+## Les chiffres (mise à jour 2026-07-08)
 
-- Revenu : **~35-36K€/mois** (pic historique ~47K€/mois à l'époque Georgina+Jade) ; marge nette personnelle ~15% du brut.
-- LTV : métrique maîtresse = revenu 30 jours ÷ nouveaux abonnés 30 jours (fenêtre 90 j sous 800 abonnés/mois). Cible : 800 abonnés/mois/créatrice.
-- MYM : ~83% du revenu vient du chatting (médias privés, tips), ~17% des abonnements. Le MYM payant pré-filtre les gros payeurs (~30% du revenu agence sur ~192 fans payants).
+- **Vitesse juillet** : 14 600€ en 7 jours = 2 085€/jour ≈ **~64 600€ de run-rate** sur le mois (en accélération vs les ~35-40K€ des mois précédents).
+- LTV : métrique maîtresse = revenu 30 j ÷ nouveaux abonnés 30 j (fenêtre 90 j sous 800 abonnés/mois). Les chiffres ci-dessous sont **basés sur les nouveaux subs** (pas le revenu total, qui inclut les fans existants).
 
-## Le roster (état à l'export)
+### Tableau LTV par créatrice-plateforme (30 derniers jours, au 8 juillet)
+
+| Créatrice-plateforme | Revenu 30 j | Nouveaux fans | LTV | Lecture |
+|---|---|---|---|---|
+| Sophie OF | 9 000$ | 1 470 | **6,1$** | Volume max du roster, LTV moyenne = la fuite (lever = chatting) |
+| Chloé OF | 7 900$ | 1 083 | 7,3$ | Fort volume + LTV correcte |
+| Maddie MYM | 7 860€ | 1 325 | 6€ | Fort volume, **gros besoin de management** |
+| Chloé MYM | 6 441€ | 117 | **55€** | Payant → meilleure LTV/fan mais en chute (désabo au renouvellement 30 j) |
+| Sarah MYM | 4 420€ | 742 | 6€ | Passée en abonnement **gratuit**, en croissance |
+| Jade OF | 2 220$ | 203 | **11$** | Meilleure LTV OF du roster, bridée par son refus de TikTok |
+| Jade MYM | 1 758€ | 358 | 4,9€ | |
+| Amanda OF | 963$ | 300 | 3,2$ | Économie faible |
+| Amanda MYM | 770€ | 445 | **1,7€** | La plus faible du roster = candidate consolidation/sortie |
+
+Écart de LTV **~30x** entre le meilleur fan (Chloé MYM 55€) et le plus faible (Amanda MYM 1,7€) : c'est ce qui rend la concentration décisive (un "pixel" ne se transforme pas en euros au même taux selon la créatrice).
+
+### Non lancées (faute de main-d'œuvre clipping)
+Sarah OF, Capucine OF, Lila Doré OF, Alice (toutes plateformes). Lancer un compte de zéro consomme énormément de ressources clipping → goulot main-d'œuvre.
+
+## Le roster (priorités stratégiques, à jour 2026-07-08)
 
 | Créatrice | Statut | Note stratégique |
 |---|---|---|
-| Chloé | Top performeuse (~41% du revenu) | Meilleure LTV (~46-51€/fan MYM payant), transition full management, YouTube actif |
-| Sophie | Volume leader | LTV cassée (~4-5$) = fuite n°1 ; réparer le chatting AVANT d'ajouter du trafic ; capturer MYM/Unifan par avenant à palier |
-| Jade | Meilleure économie unitaire (~2,7x Sophie) | Plafonnée par son refus de TikTok → conversation prérequise |
-| Maddie | Moteur secondaire | Pousser au-dessus de 800 subs pour valider la LTV |
-| Amandine, Naomie | Sorties | Économie unitaire faible |
-| Capucine, Lila, Lily | Lancements à zéro | Consomment des ressources clippers, à arbitrer |
+| Chloé | Top performeuse | Meilleure LTV/fan (MYM payant 55€, en chute au renouvellement), YouTube actif = beaucoup de matière à clipper ; enjeu = renouvellement (chatting/offre), pas le contenu frais |
+| Sophie | Volume leader (1 470 nouveaux fans/mois OF) | LTV 6,1$ = fuite n°1 en absolu ; lever = **chatting**, pas plus de trafic ; peut déposer ses rushs en direct (Rianah clippe) |
+| Jade | Meilleure LTV OF (11$) | Bridée par son refus de TikTok → **conversation prérequise** avant tout investissement contenu/clipping |
+| Maddie | Fort volume MYM (1 325), LTV 6€ | Besoin de management lourd (attention, félicitations, relances) = terrain idéal pour Emma |
+| Sarah | Passée en gratuit, en croissance | Phase de croissance affamée de contenu ; OF pas encore lancé |
+| Amanda | LTV la plus faible (1,7-3,2) | **Candidate consolidation/sortie** → décider cut-ou-garde AVANT d'y investir des ressources |
+| Capucine, Lila Doré, Alice | Lancements à zéro | En attente de main-d'œuvre clipping |
 | Georgina | Ex-créatrice de référence | Reconquête en cours (déjeuner prévu au voyage France) |
+
+## La chaîne d'approvisionnement en contenu (goulot actuel)
+
+Créatrice filme du brut → **(Emma : fait produire + coache)** → dépôt Drive → **Rianah clippe** (Opus Clips ~30 reels/vidéo YouTube, variations, captions) + programme Metricool + poste → trafic IG/FB → subs → **chatting (Maxence)** → LTV.
+
+- **Goulot confirmé (2026-07-08)** : Rianah signale être **à court de rushs** ("y'en a plus") — elle a de la capacité de clipping mais plus de matière première. Donc **le contenu frais est bien la contrainte**, pas un non-goulot → le rôle d'Emma tape juste.
+- **Risque à surveiller** : Rianah est un **point de défaillance unique** (crée tous les reels/stories, programme, poste ; fait des nuits blanches, pas de backup, un trou si elle s'absente). Si Emma réussit, la contrainte se **déplacera** vers la capacité de clipping de Rianah → prévoir backup/renfort clipping ([[Théorie des contraintes]] étape 5 : la contrainte bouge).
 
 ## L'équipe
 

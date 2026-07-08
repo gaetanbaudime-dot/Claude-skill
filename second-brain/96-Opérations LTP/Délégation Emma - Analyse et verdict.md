@@ -36,18 +36,26 @@ Conséquence pratique : tu ne peux pas juste "donner un process qui marche" à E
 
 ## Est-ce un bon levier ? Oui, sous 3 conditions
 
-C'est un levier **côté trafic**. Or ton Plan Maître (Maxime) dit que la contrainte PRIMAIRE est le **chatting / la LTV** (côté Maxence). Donc :
+C'est un levier **côté trafic**. Or ton Plan Maître (Maxime) dit que la contrainte PRIMAIRE est le **chatting / la LTV** (côté Maxence). Les données du 8 juillet tranchent les conditions :
 
-1. **Concentration sur les LTV saines.** Pomper du contenu → trafic → subs vers Sophie (LTV cassée ~4-5$) **aggrave la fuite** (principe exact de Maxime, [[Rétention et LTV]]). Priorité contenu d'Emma : **Chloé, Jade, Maddie**. Sophie seulement une fois son chatting réparé.
-2. **Vérifier que le contenu est bien LE goulot du trafic.** Si les clippeurs ont déjà un stock de contenu créatrice non utilisé qui dort, alors faire produire PLUS optimise un non-goulot — et le vrai levier d'Emma serait la coordination du **posting**, pas la production. Question ouverte, voir en bas. ([[Théorie des contraintes]], et ton propre [[Insights|"ne pas optimiser les non-goulots"]]).
+1. **Le contenu frais EST le goulot** (question résolue) : Rianah confirme sur le terrain être à court de rushs ("y'en a plus") — elle a de la capacité de clipping mais plus de matière. Le rôle d'Emma tape donc juste sur la contrainte, ce n'est pas un non-goulot. Voir [[LTP Models#La chaîne d'approvisionnement en contenu goulot actuel]].
+2. **"Pixels = euros" est vrai, mais le taux de conversion varie ~30x** selon la créatrice (LTV de 1,7€ à 55€/fan). Donc on concentre Emma là où le pixel se transforme le mieux en euros ET où il y a une pénurie de contenu frais ET où le besoin de management colle à ses forces :
+   1. **Maddie** — contenu à sec + besoin de management lourd (félicitations, encadrement) = terrain idéal Emma, 6€ LTV, volume prouvé (1 325).
+   2. **Sarah** — passée en gratuit, phase de croissance affamée de contenu, 6€ LTV.
+   3. **Jade** — meilleure LTV OF (11$), MAIS **gate : la conversation TikTok d'abord**, sinon le contenu bute sur son plafond de distribution auto-imposé.
+   4. **Sophie** (secondaire) — volume énorme mais son vrai lever est le **chatting**, pas plus de trafic ; elle a de la matière à clipper et peut déposer ses rushs en direct → self-serve, pas la priorité du temps rare d'Emma.
+   5. **Amanda** (park) — LTV la plus faible (1,7-3,2), ta candidate consolidation/sortie → **décide cut-ou-garde AVANT** d'y mettre Emma ([[Insights|formule de routage]]).
+   6. **Chloé** — pas un problème de contenu frais (matière YouTube abondante) ; son enjeu MYM payant est le renouvellement (chatting/offre), autre chantier.
 3. **Ne pas en faire une échappatoire.** Ce rôle est côté Gaëtan, il tourne EN PARALLÈLE sans concurrencer la vraie bataille (pousser Maxence sur la supervision chatting). Il ne doit pas devenir la raison de repousser le combat plus dur.
 
-## L'économie (15€/h)
+## L'économie (le point qui change tout)
 
-- Emma ~12h/semaine sur ce rôle ≈ **~720€/mois** (≈900€ si 15h).
-- Seuil de rentabilité : générer >720€/mois de revenu agence incrémental.
-- Une créatrice saine rapporte 500-5000€/mois à l'agence, et le volume de contenu safe est le carburant direct de la portée IG/FB → subs. Un uplift de 15-20% de contenu sur 3-4 créatrices saines **dépasse largement 720€/mois**.
-- **Verdict ROI : favorable**, à condition (1) concentration créatrices saines et (2) contenu = vrai goulot.
+Réalité au 8 juillet : Emma est payée **420€/mois flat** pour ~1h/jour (en pratique 30 min-1h, soit ~15-22h/mois), et tu veux **garder les 420€** en augmentant sa charge. Conséquence :
+
+- Ajouter le rôle contenu dans les 420€ flat = **coût marginal ≈ 0€** : elle est déjà payée et sous-utilisée. Le ROI incrémental est quasi infini — chaque euro de contenu supplémentaire est du gain net.
+- Ça déplace la vraie contrainte du **coût** vers ses **heures dispo** et sa **capacité à bien tenir la charge**.
+- **Garde-fou rémunération** : ne pas écraser une ressource rare. À ~1h/jour → 420€ = 14€/h. Si le rôle monte à ~1,5-2h/jour (~10h/semaine, ~43h/mois) → ~10€/h, plancher acceptable pour une Française de confiance mais à ne pas descendre en dessous. Si le système marche et grossit, **rehausse la paie** ou ajoute un petit bonus lié au volume de contenu régulier (à poser seulement une fois le système rodé, sinon on récompense le mauvais comportement, [[Motivation|le juste salaire est un facteur d'hygiène]]). Sous-payer durablement une manageuse de confiance = risque de rétention, penny-wise pound-foolish.
+- **Verdict ROI : très favorable** (coût marginal nul), à condition de concentrer sur les bonnes créatrices (voir plus haut).
 
 ## Le vrai déblocage : le tournage batch
 

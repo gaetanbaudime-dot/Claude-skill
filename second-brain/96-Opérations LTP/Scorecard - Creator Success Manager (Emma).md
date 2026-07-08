@@ -20,7 +20,7 @@ Maximiser le **volume et la régularité** du contenu safe des créatrices à fo
 ## Outcomes à 90 jours (mesurables)
 
 1. **Régularité** : chaque créatrice prioritaire produit un batch (≈40-50 clips) ≥ 90% des semaines. *Mesure : tableau de contenu hebdo.*
-2. **Zéro semaine à vide** sur les créatrices prioritaires (Chloé, Jade, Maddie).
+2. **Zéro semaine à vide** sur les créatrices prioritaires (Maddie, Sarah, Jade).
 3. **Délai brief → dépôt Drive < 4 jours** en moyenne.
 4. **Créneau de tournage hebdo fixe** posé et tenu pour chaque créatrice prioritaire.
 5. **Bibliothèque de trends US** alimentée et taguée par créatrice chaque lundi.
@@ -48,8 +48,8 @@ Maximiser le **volume et la régularité** du contenu safe des créatrices à fo
 
 ## Rémunération / charge
 
-- ~15€/h, cible ~12h/semaine sur ce périmètre (à ajuster selon le nombre de créatrices couvertes).
-- Évolution possible : bonus lié à un KPI de volume de contenu régulier une fois le système rodé (à ne poser qu'après stabilisation, sinon on récompense le mauvais comportement — [[Culture et valeurs|"ce que tu récompenses, tu l'obtiens"]]).
+- **420€/mois flat** conservés (aujourd'hui ~1h/jour, sous-utilisée). Cible : monter à ~1,5h/jour (~10h/semaine) pour un coût marginal ≈ 0€. Plancher à ne pas dépasser : ~10€/h effectif → si le rôle grossit, rehausser la paie ([[Délégation Emma - Analyse et verdict#L'économie le point qui change tout]]).
+- Évolution possible : bonus lié au volume de contenu régulier une fois le système rodé (à ne poser qu'après stabilisation, sinon on récompense le mauvais comportement — [[Culture et valeurs|"ce que tu récompenses, tu l'obtiens"]]).
 
 ## Niveau d'autonomie cible
 

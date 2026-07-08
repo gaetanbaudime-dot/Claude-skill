@@ -43,11 +43,14 @@ Une **session de tournage batch** par créatrice et par semaine = 5 tenues × 10
 
 Remplir le **tableau de contenu** :
 
-| Créatrice | Clips produits | Batch complet ? | Blocage récurrent | Action semaine +1 |
+| Créatrice | Rushs déposés | Batch complet ? | Blocage récurrent | Action semaine +1 |
 |---|---|---|---|---|
-| Chloé | | | | |
-| Jade | | | | |
-| Maddie | | | | |
+| Maddie (P1) | | | | |
+| Sarah (P1) | | | | |
+| Jade (P1, si TikTok débloqué) | | | | |
+| Sophie (P2, self-serve) | | | | |
+
+> Priorités contenu frais : **Maddie, Sarah, Jade** (tier 1) ; Sophie en secondaire (self-serve, son lever est le chatting). Amanda en attente (décision cut/garde). Chloé = matière YouTube, pas de manque de contenu frais. Justification dans [[Délégation Emma - Analyse et verdict]].
 
 Ce tableau remonte à Gaëtan (revue mensuelle). Il rend visible la **régularité**, le vrai KPI du rôle.
 

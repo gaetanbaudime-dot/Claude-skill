@@ -52,8 +52,10 @@ tags: [contexte/coaching]
 ### Rôle d'Emma : clippeuse ou Creator Success Manager ?
 - **Enjeu** : optimiser une ressource rare (manageuse FR de confiance, ~15€/h). Option clippeuse vs enabler contenu créatrices.
 - **Verdict rendu (2026-07-07)** : Creator Success Manager, pas clippeuse (erreur de coût d'opportunité). Analyse complète et livrables : [[Délégation Emma - Analyse et verdict]].
-- **Conditions actées** : concentrer sur les LTV saines (Chloé, Jade, Maddie), pas Sophie tant que le chatting n'est pas réparé ; vérifier que le contenu est bien le goulot trafic.
-- **Prochaine action** : répondre aux 3 questions de cadrage (goulot contenu vs posting, périmètre créatrices, heures dispo d'Emma) puis lancer le [[Plan de formation Emma|plan de formation 3 semaines]].
+- **Données du 8 juillet intégrées** : (1) contenu frais = goulot confirmé (Rianah à court de rushs) ; (2) concentration révisée = **Maddie, Sarah, Jade** (gate TikTok), Sophie secondaire, Amanda en attente de décision cut/garde, Chloé hors périmètre (matière YouTube) ; (3) Emma à **420€ flat sous-utilisée** → coût marginal ≈ 0, ROI quasi infini, garde-fou paie ≥ ~10€/h.
+- **Décision liée à trancher** : Amanda cut-ou-garde (LTV 1,7-3,2, la plus faible) AVANT d'y investir Emma ou du clipping.
+- **Risque soulevé** : Rianah = point de défaillance unique (nuit blanche, pas de backup) ; le succès d'Emma déplacera la contrainte vers son clipping → prévoir backup/renfort.
+- **Prochaine action** : lancer le [[Plan de formation Emma|plan de formation 3 semaines]] sur Maddie + Sarah en premier.
 
 ## Sessions
 
