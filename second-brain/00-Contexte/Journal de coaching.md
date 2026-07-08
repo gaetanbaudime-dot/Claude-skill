@@ -49,6 +49,12 @@ tags: [contexte/coaching]
 ### Pôle Latina
 - **Enjeu** : levier de marge actionnable unilatéralement (salaire fixe vs commission) ; décision réversible → pilote possible à petite échelle ([[Cadres de décision]]).
 
+### Rôle d'Emma : clippeuse ou Creator Success Manager ?
+- **Enjeu** : optimiser une ressource rare (manageuse FR de confiance, ~15€/h). Option clippeuse vs enabler contenu créatrices.
+- **Verdict rendu (2026-07-07)** : Creator Success Manager, pas clippeuse (erreur de coût d'opportunité). Analyse complète et livrables : [[Délégation Emma - Analyse et verdict]].
+- **Conditions actées** : concentrer sur les LTV saines (Chloé, Jade, Maddie), pas Sophie tant que le chatting n'est pas réparé ; vérifier que le contenu est bien le goulot trafic.
+- **Prochaine action** : répondre aux 3 questions de cadrage (goulot contenu vs posting, périmètre créatrices, heures dispo d'Emma) puis lancer le [[Plan de formation Emma|plan de formation 3 semaines]].
+
 ## Sessions
 
 ### 2026-07-06 : Import du contexte et mise en place du second cerveau

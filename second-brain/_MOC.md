@@ -15,6 +15,10 @@ Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis le
 - [[Projets]] : registre complet (actifs, veille, clos).
 - [[Insights]] : les principes déjà payés pour être appris, avec valeur de jurisprudence.
 
+## ⚙️ Les opérations LTP (96-Opérations LTP/)
+
+Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. En ce moment : [[_MOC Opérations LTP|la délégation à Emma]] (Creator Success Manager, machine à contenu hebdo).
+
 ## 🛠️ Les outils (98-Rapports/)
 
 Checklists et protocoles prêts à l'emploi, un par cluster : Marketing, Alex Hormozi, Décision business, Finance, Investissement, Recrutement, Management humain, Scaling, OFM, Santé. À utiliser en travaillant, pas à lire au calme.
