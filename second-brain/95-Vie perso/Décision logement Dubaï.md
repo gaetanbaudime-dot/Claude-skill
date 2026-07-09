@@ -50,8 +50,29 @@ Règle d'or : **ne jamais mentionner** Maxence, Zac, coloc, famille, OFM, financ
 > I checked the current live market in Peninsula and found several comparable studios listed around AED 60,000–65,000 per year, including some in Peninsula One with a similar size. My current rent is AED 90,000, which is now quite above the current available market.
 > I'm not asking for the absolute lowest market price, but would you be open to renewing at AED 70,000 per year? I think it would be fair for both sides and would allow us to settle everything early and avoid any hassle. I attached a few examples below for reference.
 
-- **Si "send me"** : 3 comparables max (Peninsula One ~69-70k et ~75-82k selon vue), ton calme et factuel ("aligner sur le marché, rester locataire fiable").
+- **Si "send me"** : bascule sur le Message B (ci-dessous) avec 3 captures fraîches, ton calme et factuel ("aligner sur le marché, rester locataire fiable").
 - **Si refus sec** : "Could you let me know what renewal price the landlord would consider? My preference is to stay, but at 90k I'd have to compare seriously." Puis 2e couche : DLD/RERA (hausse notifiée 90 j avant, pas de frais de renouvellement).
+
+### Message A — sans liens (à envoyer en premier)
+
+> Hi Najwa, hope you're doing well 😊
+> I wanted to reach out early about the renewal, before I travel this summer, so we can settle it calmly and in good time.
+> I've always paid on time and taken good care of the unit, so my clear preference is to stay — if we can align on fair, updated terms. Looking at the current live market in Peninsula, several comparable studios of a similar size (including in Peninsula One) are now listed well below my current AED 90,000.
+> Would you be open to renewing at AED 70,000 for the year? I think that's fair for both sides and lets us lock everything in early, with the same reliable, hassle-free arrangement from my side. Happy to share a few current examples if useful.
+
+### Message B — avec comparables (si "send me" ou refus)
+
+> Hi Najwa, hope you're doing well 😊
+> I wanted to discuss the renewal early, before I travel this summer, so we can settle it calmly.
+> I've always paid on time and looked after the unit well, so I'd genuinely prefer to stay if we can agree on fair, updated terms. I checked the current live market in Peninsula and there are now several comparable studios listed clearly below my current AED 90,000 — including similar-size, unfurnished units in Peninsula One. A few current examples:
+> • Peninsula One studio (~407 sqft, unfurnished) — around AED 60,000–65,000
+> • Peninsula One studio (similar size) — around AED 65,000
+> • Peninsula Three studio (~420 sqft) — around AED 65,000
+> I'm not asking for the absolute lowest number — but would you be open to renewing at AED 70,000 for the year? It would be fair for both sides and let us settle everything early, avoiding any hassle. I've attached the listings for reference.
+
+### Comment tirer les 3 captures (2 min)
+
+Sur propertyfinder.ae (ou Bayut en backup) : rechercher "Peninsula One" → filtres For Rent / Studio / Yearly → trier par prix croissant → capturer les 2 studios ~400-410 sqft les moins chers (même building = comparables imbattables) + 1 Peninsula Three ~420 sqft vers 65k (angle amenities). Vérifier non meublé et taille proche, prix + surface visibles sur la capture.
 
 ## Coûts de changement à intégrer (si déménagement)
 
