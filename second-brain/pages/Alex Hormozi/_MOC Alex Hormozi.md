@@ -10,6 +10,13 @@ Cluster consacré à la doctrine Hormozi : qui il est, ses trois cadres majeurs,
 - [[Core Four]] : les 4 seuls canaux d'acquisition qui existent, et la règle des 100.
 - [[Philosophie du volume et des compétences]] : "the work works", les compétences comme actif, l'ennui comme signal de scaling, avec les contrepoids nécessaires.
 
+## Playbooks $100M (ajoutés 2026-07-08)
+
+- [[Crazy 8 - augmenter la LTV]] : les 8 leviers de monétisation (le cadre "LTV avant trafic" de Maxime), appliqués à LTP.
+- [[Marketing Machine]] : transformer les preuves clients en flux de pubs sans dépendre de ton visage (usage direct pour OFM Blueprint).
+- [[Scaling Roadmap (10 étapes)]] : les 10 étapes de scaling par contrainte, avec où se situe LTP (4-6).
+- [[42 secrets d'argent (anti-récession)]] : les principes d'argent d'Hormozi, croisés avec les clusters Décision et Investissement.
+
 ## Ordre de lecture
 
 Équation de valeur → Grand Slam Offer → Core Four → Philosophie du volume. La page personne se lit en dernier, comme mise en contexte critique.
