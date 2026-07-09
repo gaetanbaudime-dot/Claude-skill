@@ -49,6 +49,12 @@ tags: [contexte/coaching]
 ### Pôle Latina
 - **Enjeu** : levier de marge actionnable unilatéralement (salaire fixe vs commission) ; décision réversible → pilote possible à petite échelle ([[Cadres de décision]]).
 
+### Logement Dubaï : renouveler, déménager ou pont Zac ?
+- **Enjeu** : le bail Peninsula One (90k AED, au-dessus du marché) se termine le 22 nov. 2026 ; optimiser environnement/coût/sommeil/frontières cofondateur.
+- **Verdict rendu (2026-07-08)** : vivre seul au prix du marché à Peninsula ; négocier durement le bail actuel d'abord, sinon studio solo ; Maxence écarté, Zac = pont temporaire. Analyse : [[Décision logement Dubaï]].
+- **Action urgente** : envoyer la négo à Najwa (ancre 70k) AVANT le 20 juillet ; pré-visiter 1-2 studios de repli.
+- **Prédiction à écrire** : à quel prix penses-tu closer ? (écris-le avant sa réponse, calibration).
+
 ### Rôle d'Emma : clippeuse ou Creator Success Manager ?
 - **Enjeu** : optimiser une ressource rare (manageuse FR de confiance, ~15€/h). Option clippeuse vs enabler contenu créatrices.
 - **Verdict rendu (2026-07-07)** : Creator Success Manager, pas clippeuse (erreur de coût d'opportunité). Analyse complète et livrables : [[Délégation Emma - Analyse et verdict]].

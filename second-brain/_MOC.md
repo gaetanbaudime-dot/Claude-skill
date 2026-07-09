@@ -15,6 +15,15 @@ Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis le
 - [[Projets]] : registre complet (actifs, veille, clos).
 - [[Insights]] : les principes déjà payés pour être appris, avec valeur de jurisprudence.
 
+## 🧭 Ta vie perso (95-Vie perso/)
+
+Le pendant personnel du plan business : environnement, nutrition, corps, finances, mental.
+
+- [[Roadmap perso]] : les 5 domaines à optimiser + timeline 2026 perso × business.
+- [[Décision logement Dubaï]] : vivre seul au marché, matrice de décision, playbook de négo (novembre 2026).
+- [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique.
+- [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
+
 ## ⚙️ Les opérations LTP (96-Opérations LTP/)
 
 Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. En ce moment : [[_MOC Opérations LTP|la délégation à Emma]] (Creator Success Manager, machine à contenu hebdo).

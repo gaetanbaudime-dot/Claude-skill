@@ -18,7 +18,8 @@ tags: [contexte/profil]
 - **Activité principale** : fondateur de **LTP Models** (ex G&M Management), agence OFM francophone, voir [[LTP Models]].
 - **Activité secondaire** : SEO freelance pour Agencity (agences immobilières, dont un architecte parisien).
 - **Fiscalité** : non-résidence fiscale française gérée activement (calendrier de voyages, certificat de résidence fiscale EAU = protection non négociable, facturation cross-border UAE→FR hors TVA).
-- **Personnel** : période de reconstruction et de travail sur l'équilibre et l'estime de soi. Intérêts : natation (compétition), trottinette électrique, bonsaï Ficus Ginseng, développement personnel. Voyage en France prévu (dont revoir Georgina, ex-créatrice de l'agence).
+- **Personnel** : période de reconstruction et de travail sur l'équilibre et l'estime de soi. Intérêts : natation (compétition), trottinette électrique, bonsaï Ficus Ginseng, développement personnel. Voyage en France prévu (dont revoir Georgina, ex-créatrice de l'agence). Absent tout l'été (20 juil. → 20 sept. 2026).
+- **Logement** : studio Peninsula One (Business Bay), bail à renouveler/quitter en nov. 2026 → décision et optimisation de vie dans le cluster [[_MOC Vie perso|Vie perso]]. Objectif de vie : optimiser environnement, temps, focus, nutrition, sommeil pour maximiser deep work ET reconstruction.
 
 ## Objectifs
 
