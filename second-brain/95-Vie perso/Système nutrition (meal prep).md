@@ -37,6 +37,7 @@ Tester **3 services, pas 10**. Le vrai critère : *"est-ce que je peux manger ç
 - Semaine 1 : **Calo** (app-first, flexible, tracking, entrepreneur-friendly)
 - Semaine 2 : **Kcal** (fitness/healthy, stable, macro-compatible, fiable)
 - Semaine 3 : **Right Bite** ou **Fitbar** (diet clean / angle muscu)
+- **SuperMeals** : à tester en priorité pour le high-protein optimisé (repas protéinés prêts, angle muscu/prise de masse propre) — vérifier grammes de protéines/repas, goût sur la durée, livraison Peninsula/Business Bay, facilité de pause.
 - Second batch éventuel : Meals on Me / PrepHero / Colour My Plate (parfois meilleurs goût/prix, mais fiabilité variable)
 
 **Scorecard par repas (noter /5)** :

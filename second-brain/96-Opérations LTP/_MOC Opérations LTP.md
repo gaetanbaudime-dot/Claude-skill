@@ -6,9 +6,15 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 - [[Délégation Emma - Analyse et verdict]] : verdict (Creator Success Manager, pas clippeuse), pourquoi, les 3 conditions, l'économie.
 - [[Scorecard - Creator Success Manager (Emma)]] : la fiche de poste (mission, outcomes, compétences, frontières).
-- [[SOP - Machine à contenu hebdomadaire]] : le rythme lundi → week-end + reporting + profils de tournage.
+- [[Méthode de délégation - Emma (kit de passation)]] : la mécanique de passation (contrat, Loom, échelle d'autonomie, script).
+- [[SOP - Machine à contenu hebdomadaire]] : le rythme lundi → week-end + reporting + profils de tournage + x2/x3.
 - [[Checklist créatrice - Tournage batch]] : l'artefact remis aux créatrices (50 clips/session).
 - [[Plan de formation Emma]] : onboarding 3 semaines par niveaux d'autonomie.
+
+## Pôle clipping
+
+- [[Reporting clippers]] : le tableau individuel (BAN / IG actifs / FB actifs / cadence) pour piloter à distance.
+- [[Checklist formation clipping]] : l'onboarding d'un clippeur (anti-ban, cadence, reporting).
 
 ## Ancrage vault
 

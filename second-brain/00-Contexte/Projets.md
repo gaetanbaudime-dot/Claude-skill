@@ -19,7 +19,7 @@ tags: [contexte/projets]
 - **Détail complet** : [[LTP Models]] (roster, équipe, priorités, chiffres)
 - **Référence** : roadmap 200 jours + cadre du mentor Maxime ([[Théorie des contraintes]], LTV d'abord)
 - **Prochaines actions** : refonte supervision chatting, réparation LTV Sophie, scaling SFS, embauche chatter manager
-- **Liens vault** : [[_MOC OFM|OFM]], [[Rétention et LTV]], [[Recrutement]]
+- **Liens vault** : [[_MOC OFM|OFM]], [[Rétention et LTV]], [[_MOC Recrutement|Recrutement]]
 
 ### OFM Blueprint (coaching)
 - **Statut** : lancé (offre construite, contrat 15 articles droit français rédigé, prix 2 997€)
