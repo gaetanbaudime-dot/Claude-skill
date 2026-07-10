@@ -28,6 +28,7 @@ Croissance = **volume × LTV**. Maintenant que la LTV tient, tu scales le volume
 | **Contenu frais** | Emma | Batch (~40-50 clips) déposé /semaine sur Maddie, Sarah, Jade | 0 semaine à vide ; qualité safe plateforme |
 | **Clipping / posting** | Rianah + clippers | Cadence de posts/jour/compte tenue ; backlog de contenu jamais vide | Comptes actifs (voir reporting ci-dessous) ; **backup Rianah** obligatoire |
 | **SFS** | Rianah | **2/sem/créa sur OF, 1/sem/créa sur MYM** | revenu/clic par SFS tracké |
+| **Trafic interne MYM** | Emma + Rianah | SOP 5 publics/jour + stories + règle publique/privé sur les comptes MYM ([[Playbook trafic interne MYM (5 créatrices)]]) | KPI roi = CA net/post public ; ne pas casser *ability to convert* |
 | **Chatting / LTV** | Maxence + chatter manager | LTV maintenue pendant que le volume monte | **LTV = le garde-fou n°1** ; si elle baisse, on ralentit le trafic |
 | **Recrutement créatrices** | toi + équipe | **Signer** 1-2 créatrices cet été | voir l'avertissement ci-dessous sur le lancement |
 

@@ -11,6 +11,10 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Checklist créatrice - Tournage batch]] : l'artefact remis aux créatrices (50 clips/session).
 - [[Plan de formation Emma]] : onboarding 3 semaines par niveaux d'autonomie.
 
+## Pôle trafic MYM
+
+- [[Playbook trafic interne MYM (5 créatrices)]] : la SOP quotidienne (5 publics/jour, stories, règle publique/privé), le test A/B sur 5 créatrices, le dashboard (KPI roi = CA net/post public), et le diagnostic du rapport Judith (deal juillet 20k, goulots external traffic + profile attraction). Le pourquoi : [[Stratégie trafic interne MYM]].
+
 ## Pôle clipping
 
 - [[Reporting clippers]] : le tableau individuel (BAN / IG actifs / FB actifs / cadence) pour piloter à distance.

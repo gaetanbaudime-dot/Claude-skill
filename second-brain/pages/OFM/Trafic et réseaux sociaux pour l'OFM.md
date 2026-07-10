@@ -38,7 +38,7 @@ Ce terrain évolue plus vite que n'importe quelle page : algorithmes, CGU et out
 
 ## Liens et implications
 
-Le trafic applique le cluster [[_MOC Marketing|Marketing]] sous contraintes maximales, ce qui en fait paradoxalement une excellente école d'acquisition. Tableau de bord par source et règles de diversification dans `98-Rapports/Rapport OFM`.
+Le trafic applique le cluster [[_MOC Marketing|Marketing]] sous contraintes maximales, ce qui en fait paradoxalement une excellente école d'acquisition. Tableau de bord par source et règles de diversification dans `98-Rapports/Rapport OFM`. Cas particulier : le trafic *interne* MYM, un canal gratuit fourni par la plateforme elle-même (recommandation aux non-abonnés) qui se cumule à l'acquisition externe — modèle et playbook dans [[Stratégie trafic interne MYM]].
 
 ## Sources
 
