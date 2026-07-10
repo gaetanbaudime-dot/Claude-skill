@@ -49,6 +49,7 @@ Le savoir de fond qui alimente le plan. Par pertinence pour l'objectif 500K :
 - [[_MOC Finance|Finance]] : unit economics, trésorerie, pricing — les gates se mesurent ici.
 - [[_MOC Biais cognitifs|Biais cognitifs]] (40 pages) : la théorie de tout le reste, avec statuts épistémiques.
 - [[_MOC Investissement|Investissement]] et [[_MOC Santé|Santé]] : le patrimoine et le moteur (toi).
+- [[_MOC Livres|Livres]] : les grands bouquins de scaling, recrutement, délégation, focus et décision — chacun distillé en « ce qu'il change dans ton business » (Who, Buy Back Your Time, E-Myth, The One Thing, Deep Work, Principles, Brunson, Leila Hormozi).
 
 ## ⚙️ La méthode (99-Meta/)
 
