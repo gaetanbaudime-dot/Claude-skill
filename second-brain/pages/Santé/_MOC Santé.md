@@ -22,6 +22,10 @@ Sommeil d'abord (tout en dépend), puis Énergie et productivité (le rendement 
 
 `98-Rapports/Rapport Santé` : protocole sommeil, programme minimal viable, journée type énergie, signaux d'alerte.
 
+## Application personnelle
+
+La version opérationnelle de ce cluster pour Gaëtan vit dans `95-Vie perso/` : [[Protocole santé entrepreneur (Dubaï)]] (les 6 règles, la journée type, le pilotage Whoop) et [[Bilan sanguin Dubaï (avant le départ)]] (le panel de biomarqueurs de départ).
+
 ## À densifier lors des prochains runs
 
-Biomarqueurs et bilans préventifs, alcool et substances, santé mentale de l'entrepreneur, longévité (état réel de la science vs marketing), voyage et jetlag.
+Alcool et substances (page théorique dédiée), santé mentale de l'entrepreneur, longévité (état réel de la science vs marketing), voyage et jetlag. (Biomarqueurs : traités côté perso, une page théorique générale reste possible.)

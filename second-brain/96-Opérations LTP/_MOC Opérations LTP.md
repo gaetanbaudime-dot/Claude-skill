@@ -11,6 +11,11 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Checklist créatrice - Tournage batch]] : l'artefact remis aux créatrices (50 clips/session).
 - [[Plan de formation Emma]] : onboarding 3 semaines par niveaux d'autonomie.
 
+## Pôle marketing de masse (Instagram + Facebook)
+
+- [[Machine Instagram-Facebook en masse]] : le modèle en pods (1 VA × 1 créatrice × 3 IG + 3 pages FB), Geelark + proxies FR, warmup 3 semaines, création de comptes France depuis Madagascar, cadences, taux de ban comme coût d'exploitation.
+- [[Équipe marketing - structure et rémunération (FR × MG)]] : fixe conditionnel + commission (MG 200 € + 0,10 €/sub, FR 350 € + 0,20 €/sub), l'économie vérifiée contre les LTV, deux canaux Discord, l'offre créatrice décommoditisée.
+
 ## Pôle trafic MYM
 
 - [[Playbook trafic interne MYM (5 créatrices)]] : la SOP quotidienne (5 publics/jour, stories, règle publique/privé), le test A/B sur 5 créatrices, le tableau de bord (KPI roi = CA net/post public), et le diagnostic du rapport Judith (deal juillet 20k, goulots part du trafic externe + attractivité du profil). Le pourquoi : [[Stratégie trafic interne MYM]].

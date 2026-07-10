@@ -10,6 +10,8 @@ Le côté personnel de ton second cerveau, en miroir du côté business (`00-Con
 
 - [[Décision logement Dubaï]] : vivre seul au marché à Peninsula, matrice de décision, timeline, playbook de négo avec la propriétaire.
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique, high-protein livré, test 7 jours.
+- [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles (sommeil, caféine, surplus propre, glucides du soir, force+sauna, alcool), la journée type, le pilotage Whoop en n=1.
+- [[Bilan sanguin Dubaï (avant le départ)]] : le panel à ~150 € (Unilabs ou comparables), les marqueurs qui comptent pour toi, à faire AVANT le 20 juillet.
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi > épargner, mesurer ton compte, l'entourage, les expériences uniques.
 
 ## Ponts vers le vault
@@ -18,4 +20,4 @@ Santé ([[Sommeil]], [[Entraînement physique]], [[Stress et récupération]], [
 
 ## À densifier lors des prochains runs
 
-Routine quotidienne détaillée (matin/deep work/soir), setup ménage & lessive externalisés, plan reconstruction émotionnelle et estime de soi, sport (natation compétition), plan des expériences uniques (voyages), bilan santé/biomarqueurs, réseau et communauté à Dubaï.
+Setup ménage & lessive externalisés, plan reconstruction émotionnelle et estime de soi, sport (natation compétition), plan des expériences uniques (voyages), réseau et communauté à Dubaï. (Routine quotidienne et biomarqueurs : faits — voir [[Protocole santé entrepreneur (Dubaï)]] et [[Bilan sanguin Dubaï (avant le départ)]].)

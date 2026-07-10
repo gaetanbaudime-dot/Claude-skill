@@ -74,7 +74,7 @@ Créatrice filme du brut → **(Emma : fait produire + coache)** → dépôt Dri
    - **Trafic interne MYM** (canal gratuit) : deal juillet avec Judith (ambassadrice) = cible **20 000 €** → 2 slots carrousel août, condition = Chloé/Jade MYM ne baissent pas vs juin. Rapport KPI : goulots = *part du trafic externe* (~6%) et *attractivité du profil* (~8%), pendant que *capacité à convertir* (~23%) et *chatting qualifié* (~39%) sont excellents. Modèle et exécution : [[Stratégie trafic interne MYM]] + [[Playbook trafic interne MYM (5 créatrices)]].
 4. **Test A/B alta compte sur Sophie** (hypothèse funnel : conversion Chloé ~2x Sophie).
 5. **Discipline Instagram** : meilleur volume mais pire revenu/clic et risque de ban max (détection Meta = signal sexuel + signal de sollicitation) ; allocation clippers 70-80% TikTok. Facebook Pages = surface résiliente sous-exploitée.
-6. **Recrutement clippers** : passage du CPM au paiement à l'abonnement vérifié ; goulot = volume top-of-funnel, pas le filtrage ; construire une communauté propriétaire (Discord/Whop) plutôt que braconner ; mineurs = non négociable absolu, vérification d'âge manuelle à la signature.
+6. **Recrutement clippers → équipe marketing en pods** : le 0,35€/sub pur ne recrute pas (batch 122 candidats qui fond à la signature) → **nouvelle grille : fixe conditionnel + commission** (MG 200€ + 0,10€/sub, FR 350€ + 0,20€/sub), FR sur Chloé/Sophie, MG sur le reste — détail et économie dans [[Équipe marketing - structure et rémunération (FR × MG)]], le modèle opérationnel dans [[Machine Instagram-Facebook en masse]] ; mineurs = non négociable absolu, vérification d'âge manuelle à la signature.
 
 ## Ce que le vault doit challenger (rôle de Claude)
 

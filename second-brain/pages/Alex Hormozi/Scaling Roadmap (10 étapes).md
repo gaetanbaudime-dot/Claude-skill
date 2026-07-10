@@ -45,6 +45,8 @@ Avec ~65K€/mois, une équipe (chatteurs, clippeurs, VAs, manageuse), un roster
 
 Puis *Categorize/Specialize (7-8)* = les managers de pôles et le canal agence propriétaire (phase 3), et *Capitalize (9)* = la structure et l'éventuelle sortie.
 
+**Le diagnostic détaillé et les conditions de passage chiffrées pour LTP** sont dans [[Scaling Roadmap appliquée à LTP]] (97-Plan Maître) : étape 5 en cours, test de l'été = la condition 5→6.
+
 ## La leçon transversale
 
 À chaque étape, **une seule contrainte**. L'erreur est de travailler sur l'étape 6 (optimiser) quand ton goulot est encore l'étape 4 (tu es le goulot). C'est la [[Théorie des contraintes]] et ton propre [[Insights|"ne pas optimiser les non-goulots"]]. La roadmap donne le nom de ta contrainte actuelle ; le [[Plan Maître 500K]] donne comment la lever.

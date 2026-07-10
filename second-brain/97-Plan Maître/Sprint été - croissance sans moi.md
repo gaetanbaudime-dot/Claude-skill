@@ -27,7 +27,7 @@ Croissance = **volume × LTV**. Maintenant que la LTV tient, tu scales le volume
 |---|---|---|---|
 | **Contenu frais** | Emma | Batch (~40-50 clips) déposé /semaine sur Maddie, Sarah, Jade | 0 semaine à vide ; qualité safe plateforme |
 | **Clipping / posting** | Rianah + clippers | Cadence de posts/jour/compte tenue ; backlog de contenu jamais vide | Comptes actifs (voir reporting ci-dessous) ; **backup Rianah** obligatoire |
-| **SFS** | Rianah | **2/sem/créa sur OF, 1/sem/créa sur MYM** | revenu/clic par SFS tracké |
+| **SFS** | Rianah | **2/sem/créa sur OF, 1/sem/créa sur MYM** (ajustable à 1/mois selon la préférence de la créatrice, jamais zéro) | revenu/clic par SFS tracké |
 | **Trafic interne MYM** | Emma + Rianah | SOP 5 publics/jour + stories + règle public/privé sur les comptes MYM ([[Playbook trafic interne MYM (5 créatrices)]]) | KPI roi = CA net/post public ; ne pas casser la *capacité à convertir* |
 | **Chatting / LTV** | Maxence + chatter manager | LTV maintenue pendant que le volume monte | **LTV = le garde-fou n°1** ; si elle baisse, on ralentit le trafic |
 | **Recrutement créatrices** | toi + équipe | **Signer** 1-2 créatrices cet été | voir l'avertissement ci-dessous sur le lancement |
@@ -38,6 +38,7 @@ Croissance = **volume × LTV**. Maintenant que la LTV tient, tu scales le volume
 2. **Reporting clippers individuel** : BAN / IG actifs / FB actifs / cadence par clippeur → nouvelle SOP [[Reporting clippers]]. C'est ce qui te dit à distance si la machine trafic tourne ou meurt.
 3. **Checklist + mise à jour formation clipping** → dans [[Reporting clippers]] et la formation, pour que les nouveaux soient opérationnels sans toi.
 4. **SOP Emma parfaite pour x2/x3 la production de Reels** (management + process + itération) → [[SOP - Machine à contenu hebdomadaire]] mise à jour.
+5. **Machine IG/FB en pods + recrutement marketing** : le modèle et le warmup dans [[Machine Instagram-Facebook en masse]], la grille qui débloque le recrutement (fixe conditionnel + commission, FR sur Chloé/Sophie, MG sur le reste) dans [[Équipe marketing - structure et rémunération (FR × MG)]]. La contrainte actuelle = le nombre de personnes en marketing ; l'offre dérisquée est le levier.
 
 ## L'avertissement que tu veux entendre (avocat du diable)
 

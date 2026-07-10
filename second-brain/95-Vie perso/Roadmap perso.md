@@ -18,7 +18,7 @@ liens_forts: ["[[Plan Maître 500K]]", "[[Décision logement Dubaï]]", "[[Éner
 1. **Environnement (logement)** → vivre seul, au marché, Peninsula. Décision et playbook de négo : [[Décision logement Dubaï]].
 2. **Nutrition** → infrastructure automatique, high-protein livré, zéro décision 5h-18h : [[Système nutrition (meal prep)]].
 3. **Ménage & logistique** → externaliser (femme de ménage régulière, lessive au pressing/service, courses en livraison). Même logique que la bouffe : tu n'optimises pas le prix, tu optimises l'heure de deep work récupérée ([[Effet de levier]], [[Coût d'opportunité]]).
-4. **Corps & sommeil** → le socle de la qualité de décision. Cluster [[_MOC Santé|Santé]] : [[Sommeil]] (protégé, c'est LE critère du choix logement), [[Entraînement physique]] (salle proche = critère #9 des leçons), [[Stress et récupération]] (reconstruction émotionnelle en cours, [[Profil]]).
+4. **Corps & sommeil** → le socle de la qualité de décision. Le protocole complet est écrit : [[Protocole santé entrepreneur (Dubaï)]] (6 règles, journée type, Whoop) + [[Bilan sanguin Dubaï (avant le départ)]] (ligne de base avant le 20 juillet). Théorie : cluster [[_MOC Santé|Santé]] ([[Sommeil]], [[Entraînement physique]], [[Stress et récupération]]).
 5. **Finances & mental** → investir en toi > épargner, mesurer ton compte chaque matin, t'autoriser les expériences uniques : [[Finances perso - 14 leçons de la vingtaine]] et [[42 secrets d'argent (anti-récession)]].
 
 ## La timeline 2026 (perso × business)
@@ -46,6 +46,8 @@ Ce dossier `95-Vie perso/` est ton journal de vie structuré, en miroir de `00-C
 ## Prochaines actions (cette semaine)
 
 1. **Logement** : envoyer le message de négo à Najwa (ancre 70k) avant le 20 juillet.
-2. **Nutrition** : commander la semaine 1 de test (Calo) avant de partir, ou planifier le test au retour.
-3. **Ménage/lessive** : décider d'un service récurrent (à externaliser sur la même logique).
-4. **Journaliser** la décision logement et sa prédiction dans [[Journal de coaching]].
+2. **Bilan sanguin** : réserver le panel cette semaine (résultats en 24-48 h) — [[Bilan sanguin Dubaï (avant le départ)]] : la ligne de base AVANT les 2 mois d'absence.
+3. **Santé** : lancer les 2 règles à plus fort ROI du [[Protocole santé entrepreneur (Dubaï)|protocole]] : caféine ≤ 14h et lever fixe ; premier test Whoop n=1 (caféine) au journal.
+4. **Nutrition** : commander la semaine 1 de test (Calo ou SuperMeals) avant de partir, ou planifier le test au retour.
+5. **Ménage/lessive** : décider d'un service récurrent (à externaliser sur la même logique).
+6. **Journaliser** la décision logement et sa prédiction dans [[Journal de coaching]].

@@ -7,6 +7,7 @@ Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis le
 - **[[Plan Maître 500K]]** : la stratégie complète 35K → 500K€/mois, coaching Maxime croisé avec les benchmarks marché 2025-2026, 4 phases avec gates chiffrés, 5 risques en pré-mortem.
 - **[[Sprint été - croissance sans moi]]** : le plan des 2 mois d'absence (20 juil.-20 sept.) — LTV réparée, contrainte repassée côté trafic, les 5 pôles avec propriétaire/cible/garde-fou.
 - **[[Sprint 90 jours]]** : la phase 1 en actions datées, avec tableau de bord hebdomadaire et règles de sprint.
+- **[[Scaling Roadmap appliquée à LTP]]** : où en est le business sur les 10 étapes d'Hormozi (étape 5, Productize) et les conditions de passage chiffrées — le « quand structurel » du plan.
 - **[[Journal de coaching]]** : les décisions ouvertes (logement, chatter manager, Sophie, Jade, Georgina...), prédictions écrites, calibration.
 
 ## 👤 Ton contexte (importé de claude.ai)
@@ -22,12 +23,14 @@ Le pendant personnel du plan business : environnement, nutrition, corps, finance
 
 - [[Roadmap perso]] : les 5 domaines à optimiser + timeline 2026 perso × business.
 - [[Décision logement Dubaï]] : vivre seul au marché, matrice de décision, playbook de négo (novembre 2026).
+- [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles santé-performance (sommeil, caféine, prise de masse, sauna, alcool), la journée type, le pilotage Whoop.
+- [[Bilan sanguin Dubaï (avant le départ)]] : le panel de biomarqueurs à ~150 €, à faire avant le 20 juillet.
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique.
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
 
 ## ⚙️ Les opérations LTP (96-Opérations LTP/)
 
-Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. En ce moment : [[_MOC Opérations LTP|la délégation à Emma]] (Creator Success Manager, machine à contenu hebdo).
+Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. En ce moment : [[_MOC Opérations LTP|la délégation à Emma]] (machine à contenu hebdo), la [[Machine Instagram-Facebook en masse|machine IG/FB en pods]] et sa [[Équipe marketing - structure et rémunération (FR × MG)|grille de rémunération FR × MG]], le [[Playbook trafic interne MYM (5 créatrices)|trafic interne MYM]].
 
 ## 🛠️ Les outils (98-Rapports/)
 

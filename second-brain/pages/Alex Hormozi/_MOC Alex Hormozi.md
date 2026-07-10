@@ -16,6 +16,9 @@ Cluster consacré à la doctrine Hormozi : qui il est, ses trois cadres majeurs,
 - [[Marketing Machine]] : transformer les preuves clients en flux de pubs sans dépendre de ton visage (usage direct pour OFM Blueprint).
 - [[Scaling Roadmap (10 étapes)]] : les 10 étapes de scaling par contrainte, avec où se situe LTP (4-6).
 - [[42 secrets d'argent (anti-récession)]] : les principes d'argent d'Hormozi, croisés avec les clusters Décision et Investissement.
+- [[Playbook augmentation de prix (RAISE)]] : monter les prix sans hémorragie — les deux cycles, le tableau conversion × churn × LTV, la lettre RAISE (ajouté 2026-07-10).
+
+L'implémentation business de la roadmap : [[Scaling Roadmap appliquée à LTP]] (97-Plan Maître).
 
 ## Ordre de lecture
 
