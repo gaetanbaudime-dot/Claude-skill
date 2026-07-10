@@ -13,7 +13,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## Pôle trafic MYM
 
-- [[Playbook trafic interne MYM (5 créatrices)]] : la SOP quotidienne (5 publics/jour, stories, règle publique/privé), le test A/B sur 5 créatrices, le dashboard (KPI roi = CA net/post public), et le diagnostic du rapport Judith (deal juillet 20k, goulots external traffic + profile attraction). Le pourquoi : [[Stratégie trafic interne MYM]].
+- [[Playbook trafic interne MYM (5 créatrices)]] : la SOP quotidienne (5 publics/jour, stories, règle publique/privé), le test A/B sur 5 créatrices, le tableau de bord (KPI roi = CA net/post public), et le diagnostic du rapport Judith (deal juillet 20k, goulots part du trafic externe + attractivité du profil). Le pourquoi : [[Stratégie trafic interne MYM]].
 
 ## Pôle clipping
 
