@@ -13,9 +13,27 @@ liens_forts: ["[[Protocole santé entrepreneur (Dubaï)]]", "[[Roadmap perso]]",
 > [!tip] Verdict
 > **Oui, fais-le, et fais-le cette semaine** (résultats en 24-48 h, tu pars dans ~10 jours). ~150 € (~550-600 AED) suffisent largement à Dubaï pour un panel complet : les prix du marché vont de ~99 AED le panel basique à 230-500 AED le panel bien-être complet — ton budget couvre un panel + les 3-4 ajouts qui comptent vraiment pour toi (vitamine D, testostérone, HbA1c, ferritine). L'enjeu n'est pas de « détecter une maladie » à 24 ans : c'est d'établir ta **ligne de base** avant 2 mois d'absence et le début de la prise de masse — sans mesure de départ, tu pilotes à l'aveugle ([[Roadmap perso|ce qui est mesuré s'améliore]]).
 
+## Le ROI (le rapport)
+
+> [!tip] Verdict ROI
+> **Pari asymétrique franchement gagnant : ~150-230 € + 1h de ton temps, contre un upside sur 4 canaux indépendants dont au moins un paie quasi à coup sûr.** Le downside est borné et minuscule ; l'upside ne l'est pas. Le vrai coût n'est pas les 590 AED — c'est de continuer à faire tourner ton corps (le moteur d'un business à ~65 K€/mois) sur **zéro instrumentation**. Tu n'en fais jamais = la ligne de base n'existe pas = chaque euro dépensé aujourd'hui achète de l'information que tu n'as pas.
+
+**Le coût (côté débours).** Panel intelligent en labo milieu de gamme : **~600-900 AED (150-230 €)**. Unilabs est une marque premium (européenne, DHCC) → plutôt en haut de fourchette ; des labos moins chers (Medsol, Aafiyah, DCDC) font le même sang pour moins cher si le budget serre. Temps total : **< 1h** (prélèvement à domicile ~30 min + 20 min de lecture). À la carte pour calibrer : HbA1c 60-85 AED · vitamine D ~200 AED · testostérone totale ~200 AED · ferritine ~150 AED · TSH ~70-90 AED.
+
+**Le bénéfice (espérance, pas certitude).** Quatre scénarios, largement indépendants :
+
+| Scénario | Probabilité (profil 24 ans, Dubaï) | Ce que ça débloque | Valeur vs coût |
+|---|---|---|---|
+| **A — Vitamine D basse** | Élevée (carence quasi générale à Dubaï : tout se vit en AC) | Correction ~5-10 €/mois → énergie, testostérone, immunité, humeur | Très élevée |
+| **B — Ferritine / B12 / thyroïde suboptimales** | Moyenne | Résout une « fatigue d'entrepreneur » → protège tes heures de deep work (ton actif le + cher) | Élevée : 2-3h productives/sem récupérées = plusieurs fois le test en semaines |
+| **C — Trajectoire métabolique/lipidique (HbA1c, ApoB)** | Faible en absolu, haute conséquence | À 24 ans ça se corrige avec des micro-ajustements ; à 45 non | Assurance bon marché ([[Intérêts composés|intérêt composé]] appliqué aux artères) |
+| **D — Ligne de base** | Certaine | Référence avant 2 mois d'absence **et** avant la prise de masse (surplus + protéines) | Structurelle : sans elle tu pilotes à l'aveugle |
+
+**L'espérance mathématique.** Le scénario D paie à **100 %** (tu repars avec une référence), le scénario A paie avec **forte probabilité** (et pour ~200 AED de test + un supplément dérisoire). Rien que A+D justifie déjà le débours. B et C sont du bonus à upside élevé. C'est exactement le genre de pari que tes [[Espérance mathématique et asymétries|asymétries]] disent de prendre : **coût fixe et plafonné, gains multiples et non corrélés.** ROI attendu nettement positif.
+
 ## Où et combien
 
-**Unilabs** (Dubai Healthcare City, prélèvement à domicile gratuit, résultats en ligne) propose un panel « Complete Health » ~65 biomarqueurs, et des panels homme 100+ marqueurs. Alternatives moins chères à comparer 5 min : les agrégateurs type Zavis listent des panels basiques dès **99 AED** et des panels bien-être **230-499 AED** dans d'autres labos. ⚠️ Prix exacts à confirmer au moment de réserver (statut `to-verify`) — demande le détail du panel AVANT de payer, et complète à l'unité ce qui manque plutôt que de monter en gamme de package.
+**Unilabs** (Dubai Healthcare City, prélèvement à domicile, résultats en ligne) propose un panel « Complete Health » ~65 biomarqueurs et des panels homme 100+ marqueurs — marque premium, donc haut de fourchette (packages Dubaï : basique dès ~300 AED, standard avec vit D + TSH, complet 800-6 000 AED). Alternatives moins chères pour le même sang (Zavis compare 10-12 labos) : panels basiques dès **~99-300 AED**, à la carte bon marché (HbA1c 60 AED, ferritine 150 AED). ⚠️ Prix Unilabs exacts à confirmer à la réservation (statut `to-verify`) — **demande le détail du panel AVANT de payer**, et complète à l'unité ce qui manque plutôt que de monter en gamme de package (souvent moins cher).
 
 ## Le panel à demander (par ordre de priorité)
 
