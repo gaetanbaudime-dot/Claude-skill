@@ -19,11 +19,13 @@ liens_forts: ["[[Trafic et réseaux sociaux pour l'OFM]]", "[[Reporting clippers
 ## L'architecture (ce que fait Maxime, formalisé)
 
 ```
-Créatrice → rushs (Emma) → clips uniquisés (Rianah/Opus Clip)
-    → POD (1 VA) : 3 IG + 3 pages FB sur Geelark + proxies FR
-        → link-in-bio intermédiaire → OF/MYM (tracking par lien dédié)
-            → chatting (Maxence) → LTV
+Emma (trends + management) → créatrice filme → Drive / vidéos YouTube
+    → POD (1 VA) : clippe (Opus Clip) + poste sur 3 IG + 3 pages FB
+        → link-in-bio intermédiaire → subs OF/MYM (tracking par lien dédié)
+            → chatting + masse messages payants (Maxence) → €€€
 ```
+
+Le pod **clippe ET poste** (accès Opus Clip fourni aux FR ; les MG démarrent avec les clips fournis par Rianah puis montent en autonomie) : un maillon de moins dans la chaîne, une file d'attente et un point de défaillance en moins ([[Théorie des contraintes|note TOC]]).
 
 - **Geelark** : téléphones Android dans le cloud — chaque profil est un vrai environnement mobile isolé (empreinte device unique), avec gestion d'équipe intégrée (rôles, permissions par profil, logs d'opérations, transfert de profils). C'est ce qui permet de donner à un VA malgache l'accès à SES 6 profils et rien d'autre — et de récupérer le pod en 1 clic si la personne part. Déjà dans ta stack ([[LTP Models]]).
 - **Proxies** : 1 proxy **français résidentiel ou mobile 4G** dédié par compte (jamais de datacenter, jamais partagé entre comptes). L'IP fait partie de l'identité du compte : elle ne change pas de pays, jamais.

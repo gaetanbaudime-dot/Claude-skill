@@ -55,12 +55,18 @@ Sarah OF, Capucine OF, Lila Doré OF, Alice (toutes plateformes). Lancer un comp
 | Capucine, Lila Doré, Alice | Lancements à zéro | En attente de main-d'œuvre clipping |
 | Georgina | Ex-créatrice de référence | Reconquête en cours (déjeuner prévu au voyage France) |
 
-## La chaîne d'approvisionnement en contenu (goulot actuel)
+## La chaîne d'approvisionnement en contenu
 
-Créatrice filme du brut → **(Emma : fait produire + coache)** → dépôt Drive → **Rianah clippe** (Opus Clips ~30 reels/vidéo YouTube, variations, captions) + programme Metricool + poste → trafic IG/FB → subs → **chatting (Maxence)** → LTV.
+**Chaîne cible (à jour 2026-07-11, en place « dans quelques jours »)** :
 
-- **Goulot confirmé (2026-07-08)** : Rianah signale être **à court de rushs** ("y'en a plus") — elle a de la capacité de clipping mais plus de matière première. Donc **le contenu frais est bien la contrainte**, pas un non-goulot → le rôle d'Emma tape juste.
-- **Risque à surveiller** : Rianah est un **point de défaillance unique** (crée tous les reels/stories, programme, poste ; fait des nuits blanches, pas de backup, un trou si elle s'absente). Si Emma réussit, la contrainte se **déplacera** vers la capacité de clipping de Rianah → prévoir backup/renfort clipping ([[Théorie des contraintes]] étape 5 : la contrainte bouge).
+```
+Emma (envoie les trends + manage les créatrices) → créatrice filme → dépôt Drive / vidéos YouTube → PODS marketing (clippent via Opus Clip + postent, FR sur Chloé/Sophie, MG sur le reste) → subs OF/MYM → chatting + masse messages payants (Maxence) → €€€
+```
+
+Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans les pods** (accès Opus Clip aux FR) — l'étape « Rianah clippe tout » disparaît comme maillon central, ce qui supprime une file d'attente ET le point de défaillance unique. **Rianah bascule** sur : support clipping MG, SFS (prospection + exécution des 2 mois programmés), et backup. Ancienne chaîne (référence) : créatrice → Emma → Drive → Rianah clippe/programme/poste → trafic → subs → chatting.
+
+- **Historique goulots** : 2026-07-08, Rianah à court de rushs (« y'en a plus ») → le contenu frais était la contrainte → rôle d'Emma confirmé. 2026-07-11 : contrainte actuelle = **capacité des pods marketing** (d'où les 10-15 recrutements, [[Recruter et déléguer 20-30 marketeurs (playbook)]]).
+- **Risque SPOF Rianah : fortement réduit** par la nouvelle chaîne (les pods clippent eux-mêmes) — mais elle reste seule sur les SFS et le support MG → les 5 Loom de la [[Semaine de passation (14-20 juillet)|semaine de passation]] documentent aussi son périmètre. Prochaine contrainte probable : la **matière première** (rushs des créatrices — surveiller le stock/créatrice au reporting) ou le **chatting** si le volume monte ([[Théorie des contraintes]] étape 5 : la contrainte bouge).
 
 ## L'équipe
 

@@ -38,13 +38,13 @@ Le lien psychologique : sans discipline de contrainte, l'attention va aux améli
 
 L'idée contre-intuitive — et c'est pour ça qu'on « a du mal » avec la TOC — c'est qu'elle dit : **améliorer 4 pôles sur 5 de ton business ne sert à rien.** Notre instinct veut tout améliorer partout (ça occupe, ça rassure, ça se voit). La TOC répond : ton business n'est pas une somme de pôles, c'est un **flux** — et un flux va à la vitesse de son étape la plus lente, point.
 
-**Ta chaîne, concrètement** ([[LTP Models]]) :
+**Ta chaîne réelle** (à jour 2026-07-11, [[LTP Models]]) :
 
 ```
-Créatrice filme → Emma fait produire → Rianah clippe → pods postent → subs arrivent → chatting convertit → LTV
+Emma (trends + management) → créatrice filme → Drive / vidéos YouTube → PODS marketing (clippent + postent) → subs OF/MYM → chatting + masse messages payants → €€€
 ```
 
-Le CA du mois = le débit de cette chaîne. Il est fixé par UNE étape à la fois. Exemple chiffré : si Rianah peut produire 100 reels/semaine mais que tes marketeurs ne peuvent en poster que 60, alors embaucher un 2e clippeur ajoute **zéro euro** — les 40 clips en trop s'empilent dans le Drive (du stock, pas du débit). Inversement, si les pods peuvent poster 200 reels mais que Rianah n'en produit que 100, recruter 10 marketeurs ajoute **zéro euro** — ils attendent de la matière. C'est pour ça que « où est le goulot ? » se pose AVANT « qu'est-ce que j'améliore ? » : la même action (embaucher un clippeur) vaut zéro ou une fortune selon la position de la contrainte.
+Le CA du mois = le débit de cette chaîne. Il est fixé par UNE étape à la fois. Exemple chiffré sur TA chaîne : si les créatrices déposent de quoi faire 100 reels/semaine mais que tes pods ne peuvent en produire-poster que 60, ajouter du contenu ne rapporte **zéro euro** — les rushs s'empilent dans le Drive (du stock, pas du débit). Inversement, si tes pods peuvent sortir 200 reels mais que le Drive est vide (« y'en a plus »), recruter 10 marketeurs ajoute **zéro euro** — ils attendent la matière. C'est pour ça que « où est le goulot ? » se pose AVANT « qu'est-ce que j'améliore ? » : la même action vaut zéro ou une fortune selon la position de la contrainte. Note TOC sur ta nouvelle chaîne : en fusionnant clipping et posting **dans** les pods (Opus Clip aux FR), tu as supprimé un maillon entier (l'étape « Rianah clippe » et sa file d'attente) — chaque maillon en moins est une contrainte potentielle et un point de défaillance en moins. C'est une amélioration de structure, pas juste de capacité.
 
 **Les 5 étapes appliquées à TON cas actuel** (contrainte identifiée : la capacité marketing) :
 
@@ -52,9 +52,9 @@ Le CA du mois = le débit de cette chaîne. Il est fixé par UNE étape à la fo
 |---|---|---|
 | 1. **Identifier** | Où le travail s'empile ? Qu'attend tout le monde ? | ✅ Fait : les clips existent, les créatrices convertissent — c'est le **posting** qui manque de bras |
 | 2. **Exploiter** | La contrainte ne perd jamais une minute | Tes marketeurs actuels ne font QUE poster/engager — jamais de clipping, d'admin, d'attente de clips. Chaque heure de pod perdue = du CA perdu pour toute la chaîne |
-| 3. **Subordonner** | Tout le reste se cale sur son rythme | Rianah produit AU rythme de consommation des pods (pas plus — le surplus est du gaspillage déguisé) ; Emma cale les batchs dessus ; et TES heures vont au recrutement de marketeurs, pas ailleurs |
+| 3. **Subordonner** | Tout le reste se cale sur son rythme | Emma cale les trends et les batchs de tournage sur la consommation réelle des pods (le Drive ne doit **jamais** être vide, ni déborder) ; et TES heures vont au recrutement de marketeurs, pas ailleurs |
 | 4. **Élever** | Investir pour agrandir la contrainte | Les 10-15 recrutements + la nouvelle grille de rému ([[Recruter et déléguer 20-30 marketeurs (playbook)]]) — c'est LE bon investissement en ce moment précis |
-| 5. **Recommencer** | La contrainte a bougé — la chercher à nouveau | Quand les pods tourneront, elle ira probablement vers le **clipping** (Rianah, point de défaillance unique) ou le **chatting** (si le volume sature Maxence) — la LTV garde-fou te le dira |
+| 5. **Recommencer** | La contrainte a bougé — la chercher à nouveau | Quand les pods tourneront, elle ira probablement vers la **matière première** (les créatrices qui filment — surveille le stock de rushs/créatrice dans le reporting) ou le **chatting/masse messages payants** (si le volume sature Maxence) — la LTV garde-fou te le dira |
 
 **Les 3 pièges dans lesquels tu tombes naturellement** (tout le monde y tombe) :
 1. **Optimiser le non-goulot parce que c'est plus fun** : lancer une nouvelle créatrice, un nouvel outil, une nouvelle plateforme quand le marketing sature = élargir l'autoroute pendant que le péage bouchonne. Ton historique de chantiers ouverts (VEIL, L'EXPO, pôle Latina…) est exactement ce réflexe ([[Scaling Roadmap appliquée à LTP|l'anti-pattern documenté]]).
