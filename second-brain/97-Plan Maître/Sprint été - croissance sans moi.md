@@ -8,7 +8,10 @@ tags: [plan/sprint, contexte/business]
 liens_forts: ["[[Sprint 90 jours]]", "[[Systèmes et process]]", "[[Théorie des contraintes]]"]
 ---
 
-# Sprint été : faire grandir le business 2 mois sans toi (20 juil. → 20 sept.)
+# Sprint été : faire grandir le business 2 mois sans toi (21 juil. → 21 sept.)
+
+> [!note] Dates confirmées (2026-07-11)
+> Vol aller-retour réservé : **départ 21 juillet, retour 21 septembre** (300-400 €). La semaine du 14-20 juillet est structurée jour par jour dans [[Semaine de passation (14-20 juillet)]] — c'est elle qui installe les systèmes que ce sprint fait tourner.
 
 > [!tip] Le contexte a changé
 > La LTV est réparée (chatting réglé avec Maxence, partenariat 50/50 acté). Donc **ta contrainte a bougé** ([[Théorie des contraintes]], étape 5) : elle est repassée **côté trafic** (contenu → clip → post). "Faire plus" est maintenant le bon move — le seau ne fuit plus, chaque euro de trafic vaut à nouveau plein pot.

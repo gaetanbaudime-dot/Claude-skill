@@ -38,6 +38,19 @@ Créatrice → rushs (Emma) → clips uniquisés (Rianah/Opus Clip)
 3. **Alternative** : comptes IG **aged français** achetés — plus rapides mais risqués (origine invérifiable, revente multiple) ; si tu en achètes, change tout (mot de passe, mail, 2FA) et warmup 2 semaines avant le premier post.
 4. **Cohérence permanente** : le VA se connecte toujours via Geelark (donc IP FR), jamais depuis son appareil. Fuseau de publication = heures françaises (géré par la planification, pas par le VA qui se lève la nuit).
 
+### Le test targeting MG (lancé semaine du 14 juillet, verdict à J+15-20)
+
+Décision de Gaëtan : tester d'abord la **création depuis les téléphones malgaches** (zéro coût, zéro friction) avant d'imposer Geelark. Honnêteté sur le pari : un compte né sur IP malgache démarre avec un signal géo défavorable (l'explore initial servira de l'audience locale/africaine francophone) — la langue, les sons FR et les hashtags peuvent le rattraper, mais ce n'est pas garanti. D'où le test empirique, **avec les critères écrits AVANT** (sinon le verdict se fera au feeling) :
+
+| Critère (à J+15-20) | Seuil de succès | Où le lire |
+|---|---|---|
+| Audience FR + Europe francophone | **≥ 40-50 %** des vues | Statistiques IG (audience/villes) |
+| Clics link-in-bio géolocalisés FR | Majorité FR | GetAllMyLinks/Infloww |
+| Subs attribués | > 0 et LTV normale | Tracking par compte |
+| Taux de ban du batch | < 25 % | Reporting dimanche |
+
+**Verdict** (~31 juil.-5 août, depuis la France) : seuils atteints → on continue sur téléphones MG (économie réelle) ; seuils ratés → bascule **Geelark + proxies FR** pour les MG (la ligne budget était prévue) ; la **ferme de téléphones physiques** reste l'option de septembre, à construire en France ([[Semaine de passation (14-20 juillet)|hors périmètre de la semaine de départ]]). Ne pas prolonger un test raté « pour voir » : 20 jours suffisent, chaque semaine de plus coûte du volume sur les créatrices ([[Coût d'opportunité]]).
+
 ## Le warmup (les 3 semaines qui décident de la durée de vie)
 
 Un compte neuf qui poste du contenu sexy à J+1 avec un lien en bio est mort en 2 semaines. Le trust d'un compte se construit :

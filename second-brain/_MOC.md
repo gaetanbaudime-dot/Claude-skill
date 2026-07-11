@@ -4,6 +4,7 @@ Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis le
 
 ## 🎯 L'action (commence ici)
 
+- **[[Semaine de passation (14-20 juillet)]]** 🔥 : TA semaine, jour par jour, avant le vol du 21 — décisions tranchées (rému 200/100 + 0,50, paie hebdo lundi, Google Forms dimanche, appel de groupe, test targeting MG), et le test de réussite en 7 points.
 - **[[Plan Maître 500K]]** : la stratégie complète 35K → 500K€/mois, coaching Maxime croisé avec les benchmarks marché 2025-2026, 4 phases avec gates chiffrés, 5 risques en pré-mortem.
 - **[[Sprint été - croissance sans moi]]** : le plan des 2 mois d'absence (20 juil.-20 sept.) — LTV réparée, contrainte repassée côté trafic, les 5 pôles avec propriétaire/cible/garde-fou.
 - **[[Sprint 90 jours]]** : la phase 1 en actions datées, avec tableau de bord hebdomadaire et règles de sprint.

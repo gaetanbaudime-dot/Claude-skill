@@ -21,7 +21,10 @@ La contrainte actuelle de l'agence n'est plus la LTV (réparée), c'est le **nom
 - **Le point mort psychologique est trop loin** : à 0,35 €/sub, il faut ~570 subs/mois pour toucher 200 € — un pod neuf en fait 0-100 le premier mois. Les gens abandonnent avant la rampe, rationnellement.
 - Résultat : tu ne recrutes que des joueurs (rares) ou des désespérés (mauvais), et ton pipeline de 122 candidats produit des fantômes. **Une offre de poste est une offre commerciale** ([[Grand Slam Offer]] appliqué au recrutement) : dérisquer le démarrage EST la garantie qui fait signer.
 
-## La structure recommandée
+> [!note] Arbitrage final de Gaëtan (2026-07-11)
+> Grille retenue : **FR 200 € fixe conditionnel + 0,50 €/sub OF vérifié · MG 100 € + 0,50 €/sub** — fixe plus bas, commission plus forte que la proposition initiale ci-dessous (qui reste comme scénario de repli). Logique : pousser au résultat, même taux de commission FR/MG (équité au mérite), fixes au marché local. **Paie hebdomadaire le lundi pendant 4-6 semaines** (la confiance s'achète en fréquence), puis mensuelle. Garde-fous ajoutés : (1) sub **vérifié** uniquement, (2) **LTV par pod surveillée** — 0,50 € est généreux, sans contrôle qualité tu paies du volume poubelle ; si la LTV des subs d'un pod s'effondre, gel et diagnostic ; (3) revue de soutenabilité à J+45 : si le coût marketing dépasse ~50 % de ta part du LTV, la grille des **nouvelles** recrues descend à 0,35-0,40 € (jamais rétroactif). Détail chiffré et calendrier : [[Semaine de passation (14-20 juillet)]].
+
+## La structure initialement proposée (repli si le 0,50 ne tient pas)
 
 | | Équipe France | Équipe Madagascar |
 |---|---|---|
@@ -65,6 +68,13 @@ Lecture : **un pod MG passe sous le seuil dès ~300 subs/mois sur une créatrice
 - **Une seule scorecard, un seul SLA, un seul reporting** ([[Reporting clippers]] étendu) : l'équité se joue sur le **process**, pas sur le montant. Mêmes règles de warmup, mêmes cadences, même définition du sub vérifié, mêmes délais de paiement.
 - **Paiement** : virement/Wise mensuel à date fixe, suivi des subs **visible par le VA** (tableau de bord partagé en lecture) — la confiance dans le comptage est la première cause de départ des équipes à la commission.
 - **Évolution** : un VA MG qui tient 3 mois de SLA à 500+ subs → passage à 250-300 € fixe ou un 2e pod (et à terme, un rôle de **manager de pods MG** — c'est ton futur étage de [[Scaling Roadmap appliquée à LTP|Specialize]]).
+
+## Le rituel de management hebdo (arbitré)
+
+- **Dimanche soir** : reporting Google Forms (2 min/personne, 8 questions — template dans [[Reporting clippers]]).
+- **Lundi** : **appel de GROUPE unique, 20 min max** (format : wins de la semaine → le chiffre focus → shoutouts → questions) + **versement de la paie hebdo**. La boucle reporting → reconnaissance → paiement dans les 24 h est le système de confiance le plus puissant que tu puisses construire à distance ([[Motivation]] : le lien effort-récompense doit être court et visible ; [[Rituels de management]]).
+- **1:1 individuels : NON en hebdo systématique** — 15 personnes × 30 min = 7-8 h/semaine, tu redeviendrais le goulot ([[Théorie des contraintes]]). Les 1:1 se déclenchent sur signal : sous-performance 2 semaines de suite ([[Reporting clippers|règles de lecture]]), demande explicite, ou onboarding (un 1:1 à J+7 pour chaque nouveau). À terme, les 1:1 réguliers appartiennent aux chefs de pods.
+- **Pourquoi le groupe d'abord** : l'appel collectif crée la norme sociale (les performeurs tirent les autres), l'esprit d'équipe que la commission seule ne crée pas, et il coûte 20 min quel que soit l'effectif — il scale, le 1:1 non ([[Effet de levier]]).
 
 ## Ton offre créatrice est-elle commoditisée ? (l'autre moitié de la question)
 
