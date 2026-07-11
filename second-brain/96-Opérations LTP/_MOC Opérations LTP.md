@@ -16,6 +16,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Machine Instagram-Facebook en masse]] : le modèle en pods (1 VA × 1 créatrice × 3 IG + 3 pages FB), Geelark + proxies FR, warmup 3 semaines, création de comptes France depuis Madagascar, cadences, taux de ban comme coût d'exploitation.
 - [[Équipe marketing - structure et rémunération (FR × MG)]] : fixe conditionnel + commission (MG 200 € + 0,10 €/sub, FR 350 € + 0,20 €/sub), l'économie vérifiée contre les LTV, deux canaux Discord, l'offre créatrice décommoditisée.
 - [[Recruter et déléguer 20-30 marketeurs (playbook)]] : la synthèse (Who + Buy Back Your Time + E-Myth appliqués à ta contrainte n°1) — scorecard, sourcing par cooptation, sélection allégée, onboarding par SOP filmées, 2 chefs de pods, l'arbitrage téléphone perso vs Geelark.
+- [[Entretien clipper - questions et grille de notation]] : les 10 questions de l'entretien FR (mêmes questions pour tous, notation immédiate 1-4, double évaluation toi + Claude), seuils de décision, et le circuit MG sans entretien (formulaire + vocal de formation).
 
 ## Pôle trafic MYM
 

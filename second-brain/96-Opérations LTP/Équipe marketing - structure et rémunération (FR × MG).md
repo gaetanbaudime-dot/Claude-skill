@@ -22,7 +22,7 @@ La contrainte actuelle de l'agence n'est plus la LTV (réparée), c'est le **nom
 - Résultat : tu ne recrutes que des joueurs (rares) ou des désespérés (mauvais), et ton pipeline de 122 candidats produit des fantômes. **Une offre de poste est une offre commerciale** ([[Grand Slam Offer]] appliqué au recrutement) : dérisquer le démarrage EST la garantie qui fait signer.
 
 > [!note] Arbitrage final de Gaëtan (2026-07-11)
-> Grille retenue : **FR 200 € fixe conditionnel + 0,50 €/sub OF vérifié · MG 100 € + 0,50 €/sub** — fixe plus bas, commission plus forte que la proposition initiale ci-dessous (qui reste comme scénario de repli). Logique : pousser au résultat, même taux de commission FR/MG (équité au mérite), fixes au marché local. **Paie hebdomadaire le lundi pendant 4-6 semaines** (la confiance s'achète en fréquence), puis mensuelle. Garde-fous ajoutés : (1) sub **vérifié** uniquement, (2) **LTV par pod surveillée** — 0,50 € est généreux, sans contrôle qualité tu paies du volume poubelle ; si la LTV des subs d'un pod s'effondre, gel et diagnostic ; (3) revue de soutenabilité à J+45 : si le coût marketing dépasse ~50 % de ta part du LTV, la grille des **nouvelles** recrues descend à 0,35-0,40 € (jamais rétroactif). Détail chiffré et calendrier : [[Semaine de passation (14-20 juillet)]].
+> Grille retenue : **FR 200 € fixe conditionnel + 0,50 €/sub OF gratuit vérifié · MG 100 € + 0,50 €/sub** — fixe plus bas, commission plus forte que la proposition initiale ci-dessous (qui reste comme scénario de repli). Logique : pousser au résultat, même taux de commission FR/MG (équité au mérite), fixes au marché local. **Paie hebdomadaire le premier mois (50 €/semaine FR, 25 €/semaine MG), le lundi**, puis mensuelle — la confiance s'achète en fréquence. Garde-fous ajoutés : (1) sub **vérifié** uniquement, (2) **LTV par pod surveillée** — 0,50 € est généreux, sans contrôle qualité tu paies du volume poubelle ; si la LTV des subs d'un pod s'effondre, gel et diagnostic ; (3) revue de soutenabilité à J+45 : si le coût marketing dépasse ~50 % de ta part du LTV, la grille des **nouvelles** recrues descend à 0,35-0,40 € (jamais rétroactif). Détail chiffré et calendrier : [[Semaine de passation (14-20 juillet)]].
 
 ## La structure initialement proposée (repli si le 0,50 ne tient pas)
 
@@ -39,28 +39,31 @@ La contrainte actuelle de l'agence n'est plus la LTV (réparée), c'est le **nom
 
 **Le fixe est conditionnel, pas acquis** : c'est un salaire au SLA, pas une rente. Pod inactif ou reporting manquant 2 semaines de suite = pas de fixe, conversation, puis sortie. La [[Scorecard et définition de poste|scorecard]] fait le travail de management à ta place.
 
-## L'économie (la vérification qui rend la décision sûre)
+## L'économie (recalculée avec les vrais chiffres, 2026-07-11)
 
-Ta part par sub ≈ LTV × 0,85 (coûts chatting) × 0,5 (split Maxence) ≈ **~42 % de la LTV**. Règle : le **coût marketing total par sub ≤ ~30 % de TA part** — au-delà, tu travailles pour tes VAs.
+**La formule réelle** (corrigée par Gaëtan) : créatrice signée à 50 % → part agence = 50 % du CA ; coûts chatting ≈ 15 % du CA → **marge boîte ≈ 35 % de la LTV**. Charges marketing partagées 50/50 avec Maxence depuis la renégo → profit Gaëtan = (0,35 × LTV − coût marketing) ÷ 2. La commission porte sur les **subs OF gratuits vérifiés par le tracking** (c'est le fan gratuit que le chatting monétise ensuite). LTV réelle des créatrices ciblées pods : **3 à 8 $**.
 
-| Créatrice-plateforme | LTV | Ta part/sub (~42 %) | Coût max/sub (30 %) | Verdict pod |
-|---|---:|---:|---:|---|
-| Chloé MYM | 55 € | ~23 € | ~7 € | ✅ énorme marge |
-| Jade OF | 11 $ | ~4,6 $ | ~1,4 $ | ✅ |
-| Chloé OF | 7,3 $ | ~3,1 $ | ~0,9 $ | ✅ |
-| Sophie OF / Maddie / Sarah MYM | ~6 € | ~2,5 € | ~0,75 € | ✅ si volume |
-| Amanda MYM | 1,7 € | ~0,7 € | ~0,21 € | ❌ **aucun pod** avant la décision cut-ou-garde |
+**Coût marketing réel par sub** (fixe FR 200 € / MG 100 € amorti + 0,50 €/sub) :
 
-Scénarios de coût réel par sub (fixe + commission ÷ subs du pod/mois) :
-
-| Subs/mois du pod | MG (200 € + 0,10) | FR (350 € + 0,20) |
+| Subs/mois du pod | FR (200 € + 0,50) | MG (100 € + 0,50) |
 |---:|---:|---:|
-| 100 (mois 1, rampe) | 2,10 € | 3,70 € |
-| 300 | 0,77 € | 1,37 € |
-| 500 | 0,50 € | 0,90 € |
-| 800 | 0,35 € | 0,64 € |
+| 100 (mois 1, rampe) | 2,50 € | 1,50 € |
+| 300 | 1,17 € | 0,83 € |
+| 500 | 0,90 € | 0,70 € |
+| 800 | 0,75 € | 0,63 € |
 
-Lecture : **un pod MG passe sous le seuil dès ~300 subs/mois sur une créatrice à 6 € de LTV** ; un pod FR l'atteint vers 400-500 subs — d'où leur affectation aux volumes Chloé/Sophie où c'est atteignable dès le mois 2-3. Le mois 1 est structurellement déficitaire : c'est ton **investissement d'acquisition de talent**, borné à 200-350 € par tête — comparer au [[Coût d'opportunité|coût de la contrainte non levée]] (chaque mois sans pods = du trafic que tu ne fais pas sur des créatrices qui convertissent déjà).
+**Marge boîte par sub selon la LTV** (35 % × LTV, en $ ; 1 € ≈ 1,08 $) vs coût FR :
+
+| LTV | Marge boîte/sub | À 300 subs (coût ~1,26 $) | À 500 subs (coût ~0,97 $) | À 800 subs (coût ~0,81 $) |
+|---:|---:|---|---|---|
+| 3 $ | 1,05 $ | ❌ −0,21 $ | ⚠️ +0,08 $ | ⚠️ +0,24 $ |
+| 4 $ | 1,40 $ | ⚠️ +0,14 $ | ✅ +0,43 $ | ✅ +0,59 $ |
+| 6 $ | 2,10 $ | ✅ +0,84 $ | ✅ +1,13 $ | ✅ +1,29 $ |
+| 7-8 $ | 2,45-2,80 $ | ✅ +1,19-1,54 $ | ✅ +1,48-1,83 $ | ✅ +1,64-1,99 $ |
+
+**Verdict honnête : correct et scalable, mais pas partout.** Le point mort en LTV : **~3,6 $ à 300 subs/pod, ~2,8 $ à 500, ~2,3 $ à 800**. Donc : à LTV 3 $ tu perds de l'argent sur le revenu 30 jours sauf très gros volume ; à 4 $ tu es à peine positif ; **à 6-8 $ la machine imprime**. Deux amortisseurs jouent en ta faveur : (1) la « LTV » est du revenu à 30 jours — la traîne des mois 2+ et les SFS s'ajoutent par-dessus (les cases ⚠️ deviennent souvent vertes à 60-90 j) ; (2) le fixe s'amortit avec le volume. Mais un piège de trésorerie : **tu paies les 0,50 € maintenant, la traîne arrive plus tard** — à 15 pods, ce décalage se sent.
+
+**La règle d'allocation qui en découle** : une créatrice est éligible pod si **0,35 × LTV ≥ 1,5 × le coût/sub visé** (marge de sécurité 50 %) → en pratique **LTV ≥ 5 $ = pod prioritaire · LTV 3-4 $ = pod seulement si le volume attendu dépasse 500 subs/mois OU après réparation du chatting de cette créatrice · LTV < 3 $ = jamais** (Amanda : toujours ❌ avant la décision cut-ou-garde). Et le levier caché : à ces marges, **+1 $ de LTV rapporte plus que −0,10 € de commission** — le chatting/masse messages payants reste ton multiplicateur ([[Crazy 8 - augmenter la LTV]]).
 
 ## FR × MG : gérer deux marchés sans créer une injustice
 
@@ -68,6 +71,48 @@ Lecture : **un pod MG passe sous le seuil dès ~300 subs/mois sur une créatrice
 - **Une seule scorecard, un seul SLA, un seul reporting** ([[Reporting clippers]] étendu) : l'équité se joue sur le **process**, pas sur le montant. Mêmes règles de warmup, mêmes cadences, même définition du sub vérifié, mêmes délais de paiement.
 - **Paiement** : virement/Wise mensuel à date fixe, suivi des subs **visible par le VA** (tableau de bord partagé en lecture) — la confiance dans le comptage est la première cause de départ des équipes à la commission.
 - **Évolution** : un VA MG qui tient 3 mois de SLA à 500+ subs → passage à 250-300 € fixe ou un 2e pod (et à terme, un rôle de **manager de pods MG** — c'est ton futur étage de [[Scaling Roadmap appliquée à LTP|Specialize]]).
+
+## La scorecard clipper FR (arbitrée 2026-07-11)
+
+**Mission** : marketer Instagram + Facebook d'une créatrice pour générer un flux régulier de subs OnlyFans sur son compte.
+
+| Jalon | Outcome attendu | Récompense |
+|---|---|---|
+| Semaine 1 | 3 IG + 3 FB actifs + reporting du dimanche soir | Fixe hebdo (50 €) versé |
+| Semaine 2 | 2 reels/jour × 2 comptes + reporting | — |
+| Semaine 3 | 3 reels/jour × 2 + reporting | — |
+| Semaine 4 | 4 reels/jour × 2 + reporting | — |
+| **J+30** | **500 subs** sur le premier mois | Commission déplafonnée en rythme |
+| **J+60** | 6 reels/jour × 2 + reporting + **1 000 subs** | **iPhone ou promotion team leader** |
+| **J+90** | 6 reels/jour × 2 + reporting tenu | **iPhone ou poste de team leader** (ce qui n'a pas été pris à J+60) |
+
+⚠️ **Tension à assumer dans le brief** : les semaines 1-3 sont du warmup ([[Machine Instagram-Facebook en masse]]) — les comptes neufs ne convertissent presque pas avant J+21. **500 subs à J+30 n'est réaliste que sur des comptes déjà chauds ou repris** ; sur un pod qui part de zéro, c'est un objectif *stretch* — le dire à l'embauche, sinon tu fabriques de la démotivation en semaine 3 exactement quand le fixe hebdo doit les faire tenir (Q4 de l'[[Entretien clipper - questions et grille de notation|entretien]]). L'incentive iPhone à 1 000 subs est rationnel : 1 000 subs × marge boîte ≥ 1 $ ≈ l'iPhone est autofinancé, et il crée un jalon mémorable qui vaut plus que son coût ([[Motivation]]).
+
+## L'annonce FR (les 5 F, prêts à poster)
+
+- **Fit** : « Deviens le meilleur clippeur de France — lance-toi dans le business et génère tes premiers revenus en ligne depuis ton téléphone. »
+- **Freedom** : « Ta créatrice, ton téléphone, ton rythme, 100 % à distance. »
+- **Fortune** : « Fixe 200 €/mois (versé chaque semaine le premier mois) + commissions déplafonnées » (version MG : fixe 100 €/mois).
+- **Fun** : « Discord d'équipe, appels de groupe, canal dopamine du serveur » (les wins postés en continu — la preuve sociale interne est ton meilleur outil de rétention).
+- **Family** (le 5e F, à ajouter) : pour les étudiants/jeunes actifs, « un revenu qui ne demande pas de quitter tes études/ton job ».
+
+## Le parrainage FR (structure actée)
+
+Condition de validation : le filleul est **sélectionné** (entretien vidéo réussi) ET a **travaillé sérieusement 30 jours** dans l'agence. Parrainage par simple envoi du contact en MP.
+
+| Parrainages validés | Gain | Total cumulé |
+|---:|---|---:|
+| 1 | 50 € cash | 50 € |
+| 3 | +50 € de bonus | 200 € |
+| 5 | +100 € de bonus | 400 € |
+| 10 | +200 € de bonus + cadeau mystère | 850 € + 🎁 |
+
+C'est le canal **Source** n°1 de [[Who (Geoff Smart & Randy Street)|Who]] : les A recrutent des A, et à 850 € les 10 filleuls, ton coût d'acquisition par recrue validée (85 €) reste très inférieur à un mois de fixe. Parrainage MG : à structurer séparément (salon dédié, montants au marché local — même logique, échelle différente) une fois les premiers MG stabilisés.
+
+## Le process de sélection (deux circuits)
+
+- **FR** : annonce/parrainage → **entretien vidéo structuré** (10 questions, notation immédiate 1-4, double évaluation toi + Claude — [[Entretien clipper - questions et grille de notation]]) → **test payé semaine 1** (50 €, warmup encadré) → formation Discord + vocal → scorecard 90 jours.
+- **MG** : **pas d'entretien** — filtre Google Forms (motivation, matériel, disponibilité) → **vocal de formation (~1 h) posté dans le Discord** → l'assiduité au vocal (écouté en entier, consignes appliquées dès le premier exercice) EST le filtre — ceux qui ne l'écoutent pas s'éliminent seuls, gratuitement. C'est un entretien structuré inversé : au lieu de payer ton temps pour évaluer, tu fais produire un signal comportemental ([[Débiaisage|le comportement bat la déclaration]]).
 
 ## Le rituel de management hebdo (arbitré)
 
