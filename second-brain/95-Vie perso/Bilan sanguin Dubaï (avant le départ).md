@@ -70,7 +70,7 @@ liens_forts: ["[[Protocole santé entrepreneur (Dubaï)]]", "[[Roadmap perso]]",
 ## Le protocole pratique
 
 1. **Cette semaine** : réserver (à domicile ou DHCC), **à jeun 10-12 h** (eau OK, pas de café), idéalement le matin, **pas de sport intense ni d'alcool 24-48 h avant** (fausse la testostérone, les transaminases et la CK), nuit normale avant (le sommeil court fausse la glycémie et la testo).
-2. **Avant de partir** : résultats dans l'app → colle-les moi en session, je croise avec le [[Protocole santé entrepreneur (Dubaï)|protocole]] et on ajuste (suppléments, cibles).
+2. **Avant de partir** : résultats dans l'app du labo → **dépose le PDF/les valeurs dans le repo (ou colle-les en session)**, je crée la page de résultats interprétée et on ajuste (suppléments, cibles). ⚠️ Ne cherche pas à importer les résultats DANS Whoop : Whoop n'accepte pas les bilans de labos externes (son offre de prises de sang « Advanced Labs » est un service à part, États-Unis d'abord — pas un import). Le bon hub, c'est **ce repo** : les données Whoop y sont déjà (branche d'intégration), les résultats sanguins à côté → je croise les deux (ex. « la supplémentation vitamine D bouge-t-elle ma HRV sur 3 mois ? »), sans dépendre d'une plateforme.
 3. **Rythme** : re-test complet **1×/an** ; re-test ciblé (vitamine D, ferritine, ou ce qui était limite) **3 mois après** avoir commencé une supplémentation. Les résultats se journalisent dans [[Journal de coaching]] comme n'importe quelle décision trackée.
 
 ## Sources

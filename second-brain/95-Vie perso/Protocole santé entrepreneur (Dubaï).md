@@ -61,7 +61,16 @@ Le cadre est dans [[Stress et récupération]] (le burnout = du surentraînement
 
 ## 7. Whoop : le tableau de bord (et ses limites)
 
-Je ne peux pas me connecter directement à ta Whoop depuis ici (pas de connecteur disponible). Le protocole pour qu'elle serve à quelque chose :
+**Mise à jour 2026-07-11 : l'intégration Whoop→Claude existe** (session « Whoop integration », branche `claude/whoop-integration-asgdvw` du repo : historique synchronisé, ~580 mesures de récupération sur ~1,5 an, requêtes SQL + tableau de bord). Première trouvaille sur TES données réelles :
+
+| Signal | Chiffre | Lecture |
+|---|---|---|
+| HRV moyenne en semaine | ~78,1 ms (pic mardi-mercredi ~79,5-79,9) | Ton corps se recharge en semaine |
+| HRV moyenne le week-end | ~73,9 ms (**creux le dimanche : 73,0**) | Tu récupères **~5 % moins bien** le week-end |
+
+C'est l'« effet week-end » classique : sorties, alcool, couchers tardifs, repas lourds du vendredi/samedi soir. **Le premier test n=1 est donc tout trouvé** : choisis UN levier (dernier verre ≥ 3-4 h avant le coucher OU dernier repas plus tôt le vendredi/samedi), tiens-le 2 semaines, et regarde si le creux du dimanche remonte — quelques ms de HRV se regagnent souvent sur un seul levier. À journaliser dans le journal Whoop et dans [[Journal de coaching]].
+
+Le protocole de lecture au quotidien :
 
 - **Le matin (30 secondes)** : récupération **verte** → grosse séance / journée chargée OK ; **jaune** → séance normale, pas de PR ; **rouge** → zone 2 légère ou repos, et cherche la cause d'hier (alcool ? repas tardif ? coucher décalé ?). Les tendances qui comptent : **HRV sur 7-14 jours** (pas le chiffre du jour) et **fréquence cardiaque de repos** (si elle monte 3 jours de suite : sommeil insuffisant, maladie qui couve, ou surmenage).
 - **Le journal Whoop = ton labo n=1** : coche alcool, caféine tardive, repas tardif, sauna, écrans — au bout de 30 jours l'app te sort l'impact moyen de chaque variable sur TA récupération. **Un seul test à la fois, par quinzaine** (ce mois-ci : caféine après 14h vs avant).
