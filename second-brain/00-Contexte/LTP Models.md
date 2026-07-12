@@ -42,7 +42,9 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 ### Non lancées (faute de main-d'œuvre clipping)
 Sarah OF, Capucine OF, Lila Doré OF, Alice (toutes plateformes). Lancer un compte de zéro consomme énormément de ressources clipping → goulot main-d'œuvre.
 
-## Le roster (priorités stratégiques, à jour 2026-07-08)
+## Le roster (priorités stratégiques, à jour 2026-07-12)
+
+**Ordre de montée en l'air (affectation des pods FR, décision du 2026-07-12)** : **Chloé → Sophie → Maddie → Sarah → Jade → Alice → Amanda → Lila Doré & Capucine** (piste faceless à évaluer pour ces deux dernières, [[Journal de coaching|question ouverte]]). Règle : on **sature** une créatrice (ses pods tournent, cadence tenue, subs qui arrivent) avant d'affecter la suivante. Garde-fous : Jade après sa conversation TikTok ; Amanda seulement si sa LTV remonte ; Alice/Lila/Capucine = lancements à zéro → après les 5 actives, de fait septembre.
 
 | Créatrice | Statut | Note stratégique |
 |---|---|---|
@@ -80,7 +82,7 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
    - **Trafic interne MYM** (canal gratuit) : deal juillet avec Judith (ambassadrice) = cible **20 000 €** → 2 slots carrousel août, condition = Chloé/Jade MYM ne baissent pas vs juin. Rapport KPI : goulots = *part du trafic externe* (~6%) et *attractivité du profil* (~8%), pendant que *capacité à convertir* (~23%) et *chatting qualifié* (~39%) sont excellents. Modèle et exécution : [[Stratégie trafic interne MYM]] + [[Playbook trafic interne MYM (5 créatrices)]].
 4. **Test A/B alta compte sur Sophie** (hypothèse funnel : conversion Chloé ~2x Sophie).
 5. **Discipline Instagram** : meilleur volume mais pire revenu/clic et risque de ban max (détection Meta = signal sexuel + signal de sollicitation) ; allocation clippers 70-80% TikTok. Facebook Pages = surface résiliente sous-exploitée.
-6. **Recrutement clippers → équipe marketing en pods** : le 0,35€/sub pur ne recrute pas (batch 122 candidats qui fond à la signature) → **nouvelle grille : fixe conditionnel + commission** (MG 200€ + 0,10€/sub, FR 350€ + 0,20€/sub), FR sur Chloé/Sophie, MG sur le reste — détail et économie dans [[Équipe marketing - structure et rémunération (FR × MG)]], le modèle opérationnel dans [[Machine Instagram-Facebook en masse]] ; mineurs = non négociable absolu, vérification d'âge manuelle à la signature.
+6. **Recrutement clippers → ALL IN français (2026-07-12)** : le 0,35€/sub pur ne recrutait pas → **grille FR : 200€ fixe conditionnel (versé 50€/sem le 1er mois) + 0,50€/sub OF vérifié** ; objectif **50 FR cet été**, circuit unique (1 annonce → 1 form → 1 sheet → 1 entretien) ; MG/Bénin en vivier jusqu'à septembre (phase 2 via Geelark + proxy FR). Détail et économie dans [[Équipe marketing - structure et rémunération (FR × MG)]], le modèle opérationnel dans [[Machine Instagram-Facebook en masse]] ; mineurs = non négociable absolu, vérification d'âge manuelle à la signature.
 
 ## Ce que le vault doit challenger (rôle de Claude)
 

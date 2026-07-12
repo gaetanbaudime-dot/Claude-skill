@@ -22,7 +22,7 @@ liens_forts: ["[[Sprint été - croissance sans moi]]", "[[Équipe marketing - s
 | **Fréquence de paie** | **Hebdo (le lundi) pendant 4-6 semaines**, puis mensuel | La confiance s'achète en fréquence, pas en montant. Lundi = lendemain du reporting → boucle parfaite |
 | **Reporting** | **Google Forms, dimanche soir**, 2 min/personne | 8 questions (voir [[Reporting clippers]]), Sheet auto, tu lis lundi matin en 10 min |
 | **Appels** | **1 appel de GROUPE le lundi (20 min max)** + 1:1 seulement à la demande ou sous-performance | 15 appels individuels/sem = 8h de ton temps = tu redeviens le goulot. Le groupe crée l'équipe |
-| **Targeting MG** | **Test empirique : création depuis leurs téléphones, verdict à J+15-20** | Critères écrits AVANT (voir [[Machine Instagram-Facebook en masse]]) ; si échec → Geelark, sinon ferme de téléphones à ton retour |
+| **Circuit de recrutement** | **ALL IN FR : 1 annonce → 1 form → 1 sheet → 1 entretien, objectif 50 Français** | Test targeting MG **annulé cet été** (reporté septembre, via Geelark + proxy FR) ; candidats MG/Bénin → vivier « recontact septembre ». [[Journal de coaching|Journalisé]] |
 | **Garde-fou commission** | Sub **vérifié** + **LTV du pod surveillée** | 0,50 €/sub est généreux → sans garde-fou qualité, tu paies du volume poubelle. Si la LTV des subs d'un pod s'effondre, on gèle et on diagnostique |
 
 **Soutenabilité (l'avocat du diable que tu demandes).** 15 FR à 300 subs/mois chacun = 3 000 € de fixes + 2 250 € de commissions = **~5 250 €/mois**, pas 2 000-3 000. MAIS ces 4 500 subs × LTV ~6 € ≈ 27 000 € de CA nouveau → ta part ~42 % ≈ 11 300 € → coût marketing ≈ 46 % de ta part le premier mois. C'est **cher mais viable**, pour deux raisons : ta métrique « LTV » est du revenu à 30 jours (la valeur réelle d'un fan dépasse les 30 j), et le fixe s'amortit quand le volume/pod monte (à 500 subs/pod, le coût tombe à ~0,90 €/sub). Conditions non négociables : pods uniquement sur les créatrices à LTV ≥ 6 € (jamais Amanda), et revue du ratio à J+45. Si à 2 mois le coût dépasse 50 % de ta part, tu baisses la commission des NOUVELLES recrues à 0,35-0,40 € (jamais rétroactivement — [[Playbook augmentation de prix (RAISE)|on ne reprend pas ce qu'on a donné]]).
@@ -47,9 +47,10 @@ liens_forts: ["[[Sprint été - croissance sans moi]]", "[[Équipe marketing - s
 - Ce qui se programme se programme ; ce qui dépend d'une réponse du partenaire = Rianah owner de la relance (pas toi).
 - **Mettre en place le paiement hebdo** : modèle de batch Wise/virement, 30 min, testé avec un vrai paiement.
 
-### Mercredi 16 — le jour test MG + onboarding
-- **Lancer le test targeting Madagascar** : les MG créent leurs comptes IG depuis LEURS téléphones. Les critères de verdict sont écrits AVANT le lancement (sinon tu jugeras au feeling) : voir le protocole dans [[Machine Instagram-Facebook en masse]]. Verdict J+15-20 (≈ 31 juil.-5 août, depuis la France) : si < 40-50 % d'audience FR/EU → bascule Geelark ; la ferme de téléphones physique attend ton retour.
-- **Onboarder les recrues de la semaine** : parcours Loom + comptes tests, [[Recruter et déléguer 20-30 marketeurs (playbook)|test pratique payé d'une semaine]].
+### Mercredi 16 — le jour recrutement FR à fond (le test MG est annulé)
+- **Blitz du vivier FR** : reprendre les ~58 candidats FR du formulaire existant → screening 4 questions ([[Entretien clipper - questions et grille de notation]]) sur les meilleurs, planifier 5-8 entretiens vidéo sur jeudi-vendredi. Poster l'annonce OPTI sur les canaux FR (Discord, parrainage relancé).
+- **Répondre au vivier international** (message type « recontact septembre » — [[Recrutement clippers - annonces et formulaire]]).
+- **Onboarder les recrues déjà validées** : parcours Loom + comptes tests, [[Recruter et déléguer 20-30 marketeurs (playbook)|test pratique payé d'une semaine]] — affectation dans l'ordre : Chloé d'abord, puis Sophie.
 - Résultats sanguins → me les coller en session, ajustements avant départ.
 
 ### Jeudi 17 — le jour SOP (la bibliothèque Camcorder)

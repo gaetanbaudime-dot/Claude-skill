@@ -13,6 +13,9 @@ liens_forts: ["[[Équipe marketing - structure et rémunération (FR × MG)]]", 
 > [!tip] Ce qui change vs tes anciennes annonces
 > **On supprime le CPM (« 0,30-0,50 €/1000 vues »)** — le modèle est maintenant **fixe conditionnel + commission au sub** ([[Équipe marketing - structure et rémunération (FR × MG)|détail]]). On garde tes bons éléments (preuve Julien 400-600 €, « responsable acquisition », « si tu lâches à 3 jours passe ton tour »), on ajoute le **fixe de démarrage** comme argument dérisqueur, et on aligne le message sur la vraie mécanique. Contexte pool : sur tes 143 candidatures, **~58 FR / ~40 % hors France** (Madagascar 18, Bénin 14, Cameroun 6) et **85 % OK payé au sub** — donc les deux circuits (FR entretien / MG-Bénin formulaire) sont justifiés par la data.
 
+> [!tip] DÉCISION 2026-07-12 : ALL IN français — 1 annonce → 1 form → 1 sheet → 1 entretien
+> Circuit unique cet été : **annonces FR uniquement**, un seul formulaire, un seul sheet, un seul process (entretien + test payé). Objectif : **50 Français**. Les candidatures MG/Bénin qui arrivent quand même → **réponse type vivier** (« merci, on ouvre l'international en septembre, on te recontacte ») + onglet « Vivier international » dans le sheet. L'annonce internationale (section 4) est **en réserve, ne pas poster avant septembre**. Décision journalisée dans [[Journal de coaching]].
+
 > [!warning] Arbitrage à valider : afficher le fixe ou pas ?
 > Afficher « 200 € fixe » **élargit** le haut de tunnel (ton goulot = le volume de candidats) mais attire quelques passagers clandestins → filtrés par le SLA + l'entretien + la semaine test payée. Je recommande de l'afficher **framé comme « fixe de démarrage pour les sérieux »**, pas comme un dû. Si tu préfères ne pas l'afficher publiquement, garde la version « perf + fixe révélé au formulaire » (je te la mets en variante en bas).
 
@@ -97,9 +100,9 @@ Tout est expliqué dans mon formulaire (niche, conditions, comment ça marche). 
 Je traite les candidatures au fur et à mesure, donc fais-le tant que c'est frais 🚀
 ```
 
-## 4) Adaptation internationale (Madagascar 🇲🇬 + Bénin 🇧🇯) — même voix OPTI
+## 4) Adaptation internationale (Madagascar 🇲🇬 + Bénin 🇧🇯) — EN RÉSERVE (ne pas poster avant septembre)
 
-Même annonce, deux seuls ajustements : « depuis ton téléphone, où que tu sois », et « payé en euros (Wise) ». (À poster sur tes canaux Telegram internationaux.)
+Même annonce, deux seuls ajustements : « depuis ton téléphone, où que tu sois », et « payé en euros (Wise) ». ⚠️ **Phase 2 uniquement** : à activer en septembre avec le circuit Geelark + proxy FR. Réponse type pour les candidatures internationales qui arrivent quand même cet été : *« Merci pour ta candidature ! On recrute d'abord en France cet été et on ouvre l'international en septembre — je garde ton profil et je te recontacte à ce moment-là 🙏 »*
 
 ```
 🎬 ON RECRUTE — CLIPPEUR INSTAGRAM (100 % à distance) 🌍

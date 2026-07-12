@@ -20,6 +20,17 @@ tags: [contexte/coaching]
 4. Décision majeure et irréversible = [[Pré-mortem et débiaisage business|pré-mortem]] obligatoire.
 5. Signaler toute stratégie qui violerait les CGU des plateformes ([[Risques légaux et éthiques de l'OFM]]).
 
+## Décisions prises
+
+### 2026-07-12 — ALL IN recrutement français (simplification radicale)
+- **Décision** : abandon du double circuit FR/MG cet été. **1 annonce → 1 formulaire → 1 sheet → 1 entretien.** Objectif : **50 Français recrutés cet été** (fixe 200 € + 0,50 €/sub OF). Les candidats MG/Bénin vont en vivier (« recontact en septembre ») ; le circuit international (Geelark + proxy FR, vocal de formation) s'active en phase 2, au retour.
+- **Pourquoi** : le double circuit = 2 grilles, 2 parrainages, 1 problème de targeting non résolu et 1 test à superviser à distance — le tout pour servir les créatrices à plus faible LTV. Le fixe rend l'offre FR nettement plus recrutante, et 58 candidats FR sont déjà en stock. Simplifier = exploiter la contrainte au lieu de la contourner ([[Théorie des contraintes]]).
+- **Ordre de montée des créatrices** (pods FR affectés dans cet ordre, saturation avant de passer à la suivante) : **Chloé → Sophie → Maddie → Sarah → Jade → Alice → Amanda → Lila Doré & Capucine** (piste **faceless** à évaluer pour ces deux dernières). Garde-fous maintenus : Jade = conversation TikTok d'abord ; Amanda = seulement si sa LTV remonte ([[Sophisme des coûts irrécupérables]]) ; les lancements à zéro (Alice, Lila, Capucine) n'arrivent qu'après saturation des 5 actives → de fait septembre, cohérent avec l'avertissement du [[Sprint été - croissance sans moi|sprint]].
+- **Prédiction (écrite avant l'issue, revue au 21 septembre)** : réaliste = 25-35 FR signés cet été, 10-15 pods réellement actifs à J+60, attrition ~50 % ; optimiste = 50 signés, 20+ actifs. Si < 15 signés au 15 août → le goulot est le sourcing/l'annonce, pas l'offre.
+
+### Question ouverte associée : Lila Doré & Capucine en faceless ?
+- **Enjeu** : sans visage = production plus simple et moins de dépendance à la créatrice, mais conversion/LTV généralement plus faibles (le lien parasocial vend). À trancher en septembre par un test borné.
+
 ## Agenda des décisions ouvertes (import du 2026-07-06)
 
 ### Renégociation du partenariat avec Maxence

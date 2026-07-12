@@ -56,9 +56,9 @@ Le pod **clippe ET poste** (accès Opus Clip fourni aux FR ; les MG démarrent a
 
 **Donc la stratégie en escalier** : (1) tester le téléphone brut MG/Bénin avec les 6 leviers à fond (budget zéro) ; (2) si le test échoue, **Geelark + proxy FR** pour ces pods (c'est le vrai « sûr à 100 % » que tu demandes) ; (3) ferme physique = option de septembre. Ne compte pas sur le téléphone brut comme solution définitive : compte dessus comme sur un pari à valider, avec le repli Geelark déjà budgété.
 
-### Le test targeting MG/Bénin (lancé semaine du 14 juillet, verdict à J+15-20)
+### Le test targeting MG/Bénin — ⏸️ REPORTÉ À SEPTEMBRE (décision ALL IN FR du 2026-07-12)
 
-Décision de Gaëtan : tester d'abord la **création depuis les téléphones MG/Bénin** (zéro coût, zéro friction), avec les 6 leviers ci-dessus appliqués intégralement, avant d'imposer Geelark. Test empirique **avec les critères écrits AVANT** (sinon le verdict se fera au feeling) :
+**Ce test ne se lance plus cet été** : la décision [[Journal de coaching|ALL IN français]] met tout le circuit international en phase 2. Les pods FR utilisent leurs téléphones en France = IP FR native = **zéro problème de targeting**. En septembre, l'international repartira directement sur **Geelark + proxy FR** (la voie sûre) — le test « téléphone brut » ci-dessous reste documenté si on veut quand même le tenter à ce moment-là, avec ses critères écrits :
 
 | Critère (à J+15-20) | Seuil de succès | Où le lire |
 |---|---|---|

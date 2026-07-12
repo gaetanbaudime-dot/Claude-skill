@@ -41,7 +41,7 @@ Croissance = **volume × LTV**. Maintenant que la LTV tient, tu scales le volume
 2. **Reporting clippers individuel** : BAN / IG actifs / FB actifs / cadence par clippeur → nouvelle SOP [[Reporting clippers]]. C'est ce qui te dit à distance si la machine trafic tourne ou meurt.
 3. **Checklist + mise à jour formation clipping** → dans [[Reporting clippers]] et la formation, pour que les nouveaux soient opérationnels sans toi.
 4. **SOP Emma parfaite pour x2/x3 la production de Reels** (management + process + itération) → [[SOP - Machine à contenu hebdomadaire]] mise à jour.
-5. **Machine IG/FB en pods + recrutement marketing** : le modèle et le warmup dans [[Machine Instagram-Facebook en masse]], la grille qui débloque le recrutement (fixe conditionnel + commission, FR sur Chloé/Sophie, MG sur le reste) dans [[Équipe marketing - structure et rémunération (FR × MG)]]. La contrainte actuelle = le nombre de personnes en marketing ; l'offre dérisquée est le levier.
+5. **Machine IG en pods + recrutement marketing ALL IN FR (décision 2026-07-12)** : **50 Français cet été**, circuit unique (1 annonce → 1 form → 1 sheet → 1 entretien), affectation dans l'ordre Chloé → Sophie → Maddie → Sarah → Jade → puis lancements. Le modèle et le warmup dans [[Machine Instagram-Facebook en masse]], la grille (200 € + 0,50 €/sub, paie hebdo mois 1) dans [[Équipe marketing - structure et rémunération (FR × MG)]], les annonces dans [[Recrutement clippers - annonces et formulaire]]. La contrainte actuelle = le nombre de personnes en marketing ; l'offre dérisquée est le levier. MG/Bénin = phase 2 en septembre.
 
 ## L'avertissement que tu veux entendre (avocat du diable)
 

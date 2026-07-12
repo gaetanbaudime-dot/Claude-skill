@@ -10,8 +10,8 @@ liens_forts: ["[[Équipe marketing - structure et rémunération (FR × MG)]]", 
 
 # Recruter et déléguer 20-30 marketeurs (le playbook)
 
-> [!tip] Verdict
-> C'est **ta contrainte n°1** ([[Scaling Roadmap appliquée à LTP|étape 5]]) : le nombre de personnes en marketing bloque à la fois le trafic ET le recrutement de créatrices. La séquence qui la lève : (1) écrire **une scorecard par rôle** ([[Who (Geoff Smart & Randy Street)|Who]]), (2) industrialiser le **sourcing par cooptation** (ton vrai goulot), (3) **filtrer vite** (screening 4 questions), (4) **onboarder par SOP filmées** ([[Buy Back Your Time (Dan Martell)|Camcorder Method]]), (5) **manager par le résultat via 2 chefs de pods** quand tu dépasses ~10 personnes. Objectif : que 20-30 marketeurs tournent en te prenant **< 5 h/semaine**, ce qui te rend disponible pour closer 10 créatrices de plus.
+> [!tip] Verdict (objectif mis à jour 2026-07-12 : 50 Français, circuit unique)
+> C'est **ta contrainte n°1** ([[Scaling Roadmap appliquée à LTP|étape 5]]) : le nombre de personnes en marketing bloque à la fois le trafic ET le recrutement de créatrices. **Décision ALL IN FR** ([[Journal de coaching]]) : 1 annonce → 1 formulaire → 1 sheet → 1 entretien, objectif **50 Français signés cet été** (réaliste : 25-35 signés → 10-15 pods actifs à J+60 avec l'attrition normale). La séquence qui lève la contrainte : (1) **une scorecard par rôle** ([[Who (Geoff Smart & Randy Street)|Who]]), (2) le **sourcing par cooptation** (ton vrai goulot), (3) **filtrer vite** (screening 4 questions), (4) **onboarder par SOP filmées** ([[Buy Back Your Time (Dan Martell)|Camcorder Method]]), (5) **manager par le résultat via des chefs de pods** dès ~10 personnes actives. Les MG/Bénin = phase 2 (septembre, Geelark + proxy FR).
 
 ## Pourquoi c'est LA chose à faire ([[The One Thing (Gary Keller)|the One Thing]])
 
