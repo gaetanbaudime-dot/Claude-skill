@@ -35,6 +35,7 @@ liens_forts: ["[[Sprint été - croissance sans moi]]", "[[Équipe marketing - s
 - **Écrire les 2 annonces** (FR et MG) avec la nouvelle grille + préparer les 2 canaux Discord (`#team-fr`, `#team-mg`).
 - **Préparer le brief Emma** (l'ordre du jour de lundi, voir ci-dessous).
 - ⚠️ **Najwa** : si le message de négo logement n'est pas parti, il part CE week-end ([[Décision logement Dubaï]] — ancre 65-70k).
+- ⚠️ **Juridique** : prendre 1 RDV avocat/expert-comptable droit social sur le statut des clippers FR AVANT de scaler ([[Conformité recrutement (droit FR, RGPD, CGU)|risque salariat déguisé]]) — dérisoire vs le risque, à caler cette semaine ou début septembre.
 
 ### Lundi 14 — le jour Emma + lancement des rituels
 - **Matin : prise de sang à jeun** (résultats mercredi max).

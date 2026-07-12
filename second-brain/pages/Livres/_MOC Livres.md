@@ -8,7 +8,7 @@ Cluster « lecture → action » : chaque livre distillé non pas en résumé, m
 - [[Buy Back Your Time (Dan Martell)]] : la délégation (Buyback Principle, DRIP, Replacement Ladder, Camcorder Method, 10-80-10).
 - [[E-Myth Revisited (Michael Gerber)]] : travailler SUR le business, le prototype de franchise, « les systèmes font tourner le business ».
 - [[Leila Hormozi - doctrine opérations et management]] : la machine humaine — caractère > compétence, feedback système, A-player environment.
-- **Synthèse actionnable** : [[Recruter et déléguer 20-30 marketeurs (playbook)]] (côté Opérations LTP).
+- **Synthèses actionnables** (côté Opérations LTP) : [[Pôle recrutement, management & délégation]] (le hub), [[Recruter et déléguer 20-30 marketeurs (playbook)]], [[Rétention et motivation des marketeurs]], et [[Se licencier de son propre poste]] (côté Plan Maître).
 
 ## 🧠 Focus · exécution (maximiser tes heures)
 

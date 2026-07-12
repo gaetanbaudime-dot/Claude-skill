@@ -11,6 +11,14 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Checklist créatrice - Tournage batch]] : l'artefact remis aux créatrices (50 clips/session).
 - [[Plan de formation Emma]] : onboarding 3 semaines par niveaux d'autonomie.
 
+## 🎯 Pôle prioritaire : recrutement, management & délégation
+
+- [[Pôle recrutement, management & délégation]] : **le hub** — objectif « 50 FR qui restent et se donnent », de l'annonce à ta sortie de l'opérationnel, avec le pré-mortem.
+- [[Allocation budget recrutement et IA]] : le CPA que tu peux te permettre (700-1200 €/hire), le classement des canaux (Indeed d'abord), le verdict IA (Team > Max individuel).
+- [[Conformité recrutement (droit FR, RGPD, CGU)]] ⚠️ : les 4 risques (salariat déguisé, anti-discrimination, RGPD, mass-DM) — à lire avant de scaler à 50.
+- [[Rétention et motivation des marketeurs]] : garder les tops (autonomie/progression/appartenance), pourquoi « ne partent jamais » est le mauvais objectif.
+- [[Entretien clipper - questions et grille de notation]] · [[Recrutement clippers - annonces et formulaire]] · [[Équipe marketing - structure et rémunération (FR × MG)]] : le funnel opérationnel.
+
 ## Pôle marketing de masse (Instagram + Facebook)
 
 - [[Machine Instagram-Facebook en masse]] : le modèle en pods (1 VA × 1 créatrice × 3 IG + 3 pages FB), Geelark + proxies FR, warmup 3 semaines, création de comptes France depuis Madagascar, cadences, taux de ban comme coût d'exploitation.

@@ -31,7 +31,7 @@ Le pendant personnel du plan business : environnement, nutrition, corps, finance
 
 ## ⚙️ Les opérations LTP (96-Opérations LTP/)
 
-Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. En ce moment : [[_MOC Opérations LTP|la délégation à Emma]] (machine à contenu hebdo), la [[Machine Instagram-Facebook en masse|machine IG/FB en pods]] et sa [[Équipe marketing - structure et rémunération (FR × MG)|grille de rémunération FR × MG]], le [[Playbook trafic interne MYM (5 créatrices)|trafic interne MYM]].
+Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. **Pôle prioritaire** : [[Pôle recrutement, management & délégation]] (recruter 50 FR, les garder, te retirer). Aussi : [[_MOC Opérations LTP|la délégation à Emma]], la [[Machine Instagram-Facebook en masse|machine IG en pods]], le [[Playbook trafic interne MYM (5 créatrices)|trafic interne MYM]]. Le fil rouge du pôle : [[Se licencier de son propre poste]] — l'agence ne croît que quand elle cesse de dépendre de toi.
 
 ## 🛠️ Les outils (98-Rapports/)
 

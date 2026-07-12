@@ -27,12 +27,22 @@ liens_opposition: []
 - **Extreme ownership du résultat de l'équipe.** Si un membre échoue, le manager regarde d'abord son propre système (recrutement ? onboarding ? clarté des attentes ?) avant de blâmer la personne. Rejoint le diagnostic cause-racine de [[Principles (Ray Dalio)|Dalio]].
 - **Le « A-player environment ».** Les A players restent si l'environnement est exigeant, clair et méritocratique ; ils partent si on tolère les C players autour d'eux. → cohérent avec la grille A/B/C de [[Who (Geoff Smart & Randy Street)|Who]].
 
+## Les frameworks structurants (le cœur du pôle)
+
+- **La transition « founder-led → manager-led ».** Le passage le plus dur du scaling : arrêter d'être le héros qui fait, devenir celui qui construit des managers. Sa thèse rejoint [[Se licencier de son propre poste]] : ton job n'est plus l'output, c'est de créer des gens qui créent l'output. Elle insiste : on ne délègue pas une tâche, on délègue un **résultat + le contexte + l'autorité** de décider.
+- **Les valeurs opérationnalisées.** Une valeur d'entreprise n'existe que si elle est **testable en comportement** et sert à embaucher, féliciter et licencier. « Discipline » ne veut rien dire ; « poste tous les jours même quand personne ne regarde » est une valeur qu'on peut noter. → à écrire dans ta [[Culture et valeurs|culture d'agence]].
+- **La clarté comme acte de management n°1.** La plupart des sous-performances viennent d'attentes floues, pas de mauvaise volonté. Le manager doit rendre **explicite** ce qui est « bon » (la scorecard, le standard de qualité, le SLA). L'ambiguïté est un impôt sur la performance.
+- **Le hiring « hell yes ».** Ne recruter que sur une conviction forte ; un « peut-être » est un « non ». À l'échelle de 50, tu ne peux pas te le permettre partout — d'où le [[Entretien clipper - questions et grille de notation|test payé]] qui remplace la conviction par la preuve terrain.
+- **Le feedback qui ne blesse pas mais qui change.** Séparer les trois : **coaching** (améliorer une compétence), **feedback de développement** (corriger un comportement), **reconnaissance** (renforcer). Le donner tôt, souvent, factuel, sans le charger d'émotion — un feedback rare et lourd fait plus de mal qu'un flux régulier et léger ([[Feedback]]).
+- **Construire des managers, pas juste des exécutants.** Au-delà de ~10 personnes, tu ne scales plus en ajoutant des exécutants mais en formant des **managers de managers**. Ton étage *Leadership* ([[Buy Back Your Time (Dan Martell)|Replacement Ladder]]) = tes futurs chefs de pods.
+
 ## Application LTP (recruter/déléguer 20-30 marketeurs)
 
 - **Ta contrainte est un problème de management, pas juste de recrutement** : recruter 20-30 personnes sans système de management (feedback, onboarding, standards) = 20-30 problèmes. La doctrine Leila est le complément « côté humain » de ta [[Machine Instagram-Facebook en masse|machine IG/FB]].
 - **Caractère > compétence** pour des rôles de confiance avec accès à des comptes et des téléphones : mets la fiabilité et la discrétion en tête de scorecard.
 - **Onboarding structuré des 90 jours** : chaque marketeur a un parcours clair (semaine 1 warmup, semaine 2-3 première créatrice, J30/J60/J90 jalons) — c'est ce qui rend le scaling humain pilotable ([[Plan de formation Emma|comme pour Emma]]).
 - **Deux managers de pods** (FR, MG) à terme = ton étage *Leadership* de la [[Buy Back Your Time (Dan Martell)|Replacement Ladder]] : quand tu as 20-30 personnes, tu ne les gères plus toi-même, tu gères 2 managers.
+- **C'est le pôle « côté humain » de ton gros chantier** : la doctrine Leila alimente directement le hub [[Pôle recrutement, management & délégation]], la [[Rétention et motivation des marketeurs|rétention]] (A-player environment, clarté), et ta sortie de l'opérationnel ([[Se licencier de son propre poste]]).
 
 ## Nuances
 

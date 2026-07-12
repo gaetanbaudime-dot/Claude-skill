@@ -141,7 +141,7 @@ Objectif : **filtrer en 3 min** et **router FR vs MG/Bénin**. Pour les MG/Béni
 1. Prénom
 2. WhatsApp / Telegram (tu seras contacté si retenu)
 3. **Dans quel pays résides-tu ?** *(liste : France · Belgique · Suisse · Madagascar · Bénin · Cameroun · Autre)* → **route le circuit**
-4. Quel âge as-tu ? *(numérique)* — et **Es-tu majeur (18+) ?** *(Oui/Non — Non = fin)*
+4. **Es-tu majeur (18+) ?** *(Oui/Non — Non = fin)* — ⚠️ ne PAS demander l'âge/la date de naissance exacts (RGPD + anti-discrimination FR, voir [[Conformité recrutement (droit FR, RGPD, CGU)]])
 5. Combien de téléphones as-tu, quels modèles ?
 
 **Section 3 — Compétence (le cœur du filtre)**

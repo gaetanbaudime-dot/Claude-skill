@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-12 — Allocation recrutement + flag juridique (2 deep research croisés)
+- **Insight central** : ~550 €/mois de profit par clipper rentable → CPA acceptable **700-1 200 €/hire retenu**. Conséquence : arrêter le tout-mass-DM gratuit, **pouvoir payer** de l'intention d'emploi. Séquence d'allocation : vivier gratuit → **Indeed sponsorisé** (200 €) → volume (1-2 K€) une fois le funnel qui convertit. Détail : [[Allocation budget recrutement et IA]].
+- **Verdict IA** : tu utilises déjà Claude à fond (ce vault) → ne pas mettre les euros marginaux dans un 2e abonnement mais dans l'acquisition. Envisager le **plan Team** (cerveau partagé Emma + managers) plutôt que Max individuel quand l'équipe de management existe.
+- **⚠️ FLAG JURIDIQUE MAJEUR (statut to-verify)** : « 50 auto-entrepreneurs FR qui bossent tous les jours pour moi » = risque de **requalification en salariat déguisé** (client unique + cadence imposée + reporting + fixe + matériel fourni + sanctions = faisceau d'indices lourd). Sanctions jusqu'à 225 000 € pénal + redressement 3 ans. **Action avant de passer 5-10 FR : 1 consultation avocat/expert-comptable droit social.** Atténuateurs dans [[Conformité recrutement (droit FR, RGPD, CGU)]].
+- **Prédiction (revue au 15 août)** : si je lance Indeed sponsorisé à 200 €, j'obtiens des candidats de meilleure *intention* (rétention 7j supérieure au mass-DM) — à vérifier par la donnée. Si la rétention 7j n'est pas meilleure que le vivier gratuit, le problème est le funnel/onboarding, pas la source.
+
 ### 2026-07-12 — ALL IN recrutement français (simplification radicale)
 - **Décision** : abandon du double circuit FR/MG cet été. **1 annonce → 1 formulaire → 1 sheet → 1 entretien.** Objectif : **50 Français recrutés cet été** (fixe 200 € + 0,50 €/sub OF). Les candidats MG/Bénin vont en vivier (« recontact en septembre ») ; le circuit international (Geelark + proxy FR, vocal de formation) s'active en phase 2, au retour.
 - **Pourquoi** : le double circuit = 2 grilles, 2 parrainages, 1 problème de targeting non résolu et 1 test à superviser à distance — le tout pour servir les créatrices à plus faible LTV. Le fixe rend l'offre FR nettement plus recrutante, et 58 candidats FR sont déjà en stock. Simplifier = exploiter la contrainte au lieu de la contourner ([[Théorie des contraintes]]).
