@@ -24,100 +24,107 @@ liens_forts: ["[[Équipe marketing - structure et rémunération (FR × MG)]]", 
 
 ---
 
-## 1) Annonce FR — AVEC lien
+> [!note] Base = tes 3 annonces « OPTI » · Instagram uniquement (2026-07-11)
+> On repart **exclusivement de tes 3 annonces OPTI** (la voix que tu préfères) et on ne change que 2 choses : (1) **Instagram uniquement** — TikTok et Facebook retirés (« on parlera de Facebook plus tard ») ; (2) la ligne paie passe de « payé à la performance » à **fixe de démarrage + commission au sub**. Tout le reste (Julien 400-600 €, « faire des vues », méthode +millions de vues, « si tu lâches à 3 jours passe ton tour », responsable acquisition) est conservé mot pour esprit.
+
+## 1) Annonce Instagram FR — AVEC lien (OPTI)
 
 ```
-🎬 ON RECRUTE — CLIPPEUR IG / TIKTOK 🇫🇷
+🎬 ON RECRUTE — CLIPPEUR INSTAGRAM 🇫🇷
 
-Tu montes des Reels qui font des vues ? On veut te parler.
+Julien, un de nos clippeurs, fait déjà 400-600 €/mois à côté de son job, 100 % depuis son téléphone. Nos meilleurs gagnent dans les 1000 €/mois.
 
-Julien, un de nos clippeurs, fait déjà 400-600 €/mois en 1 mois à côté de son job — 100 % depuis son téléphone. Nos meilleurs visent 1000 €+.
+On fait exploser des créateurs sur Instagram, et on cherche des clippeurs pour faire grimper ça avec nous.
 
-🎯 Ton rôle
-→ Monter et poster des Reels & TikToks chaque jour, depuis ton tel
-→ Contenu 100 % fourni (niche créateurs), on te forme à la méthode (+11M de vues générées)
+🎯 Ton rôle :
+→ Faire des vues. Tu montes et publies des Reels qui performent, depuis ton tel.
+→ Contenu 100 % fourni. On te forme à la méthode qui fait des millions de vues.
+→ Payé : un fixe de démarrage chaque mois + une commission déplafonnée sur chaque abonné que tu ramènes. Pas de chiffre bidon, juste tes vraies perfs (comme Julien).
 
-💰 Comment tu es payé
-→ Fixe de démarrage 200 €/mois (versé chaque semaine le 1er mois pour te lancer sereinement)
-→ + commission déplafonnée sur chaque abonné que tu ramènes. Pas de chiffre bidon : tes vraies perfs, comme Julien.
+✅ Ce qu'on offre :
+- 100 % télétravail, à ton rythme
+- Démarrage en quelques jours
+- Méthode déjà validée (zéro improvisation)
+- Évolution réelle → responsable acquisition 📈
 
-✅ Ce qu'on offre
-• 100 % télétravail, à ton rythme
-• Démarrage en quelques jours
-• Méthode déjà validée (zéro impro)
-• Évolution réelle → responsable acquisition 📈
+🔍 Le profil :
+Discipliné, autonome, comprend l'algorithme, et poste sérieusement TOUS les jours.
+Si tu lâches au bout de 3 jours, passe ton tour.
 
-🔎 Le profil
-Discipliné, autonome, tu comprends l'algo et tu postes sérieusement TOUS les jours.
-Si tu lâches au bout de 3 jours, passe ton tour ⚠️
+🔞 Niche créateurs OnlyFans : ce que TU postes reste 100 % SFW et conforme Instagram. 18 ans min, à l'aise avec la niche.
 
-🔞 Transparence : les vidéos viennent des créatrices OnlyFans de notre agence. Tout ce que TU postes reste 100 % SFW (rien d'explicite), conforme IG/TikTok. Il faut être à l'aise avec la niche et avoir 18 ans min.
-
-📩 Postuler (3 min) 👉 [LIEN FORMULAIRE]
-⚡ Places limitées, premiers arrivés premiers formés.
+📩 Pour postuler (3 min) 👉 [LIEN FORMULAIRE]
 ```
 
-## 2) Annonce FR — SANS lien (DM / commentaires)
+## 2) Annonce Instagram FR — SANS lien (DM) (OPTI)
 
 ```
-🎬 ON RECRUTE — CLIPPEUR IG / TIKTOK 🇫🇷
+🎬 ON RECRUTE — CLIPPEUR INSTAGRAM 🇫🇷
 
-Tu montes des Reels qui performent ? On fait exploser des créateurs sur Insta/TikTok et on cherche nos prochains clippeurs.
+Julien, un de nos clippeurs, fait déjà 400-600 €/mois à côté de son job, 100 % depuis son téléphone. Nos meilleurs gagnent dans les 1000 €/mois.
 
-Julien fait déjà 400-600 €/mois en 1 mois à côté de son job, 100 % depuis son tél. Nos meilleurs visent 1000 €+.
+On fait exploser des créateurs sur Instagram, et on cherche des clippeurs pour faire grimper ça avec nous.
 
-🎯 Ton rôle : monter + poster des Reels & TikToks chaque jour depuis ton tel. Contenu fourni, formation à une méthode déjà rodée.
+🎯 Ton rôle :
+→ Faire des vues. Tu montes et publies des Reels qui performent, depuis ton tel.
+→ Contenu 100 % fourni. On te forme à la méthode qui fait des millions de vues.
+→ Payé : un fixe de démarrage chaque mois + une commission déplafonnée sur chaque abonné que tu ramènes. Pas de chiffre bidon, juste tes vraies perfs (comme Julien).
 
-💰 Payé : fixe de démarrage 200 €/mois (versé chaque semaine le 1er mois) + commission déplafonnée sur chaque abonné ramené.
+✅ Ce qu'on offre :
+- 100 % télétravail, à ton rythme
+- Démarrage en quelques jours
+- Méthode déjà validée (zéro improvisation)
+- Évolution réelle → responsable acquisition 📈
 
-✅ 100 % télétravail · démarrage rapide · évolution → responsable acquisition 📈
+🔍 Le profil :
+Discipliné, autonome, comprend l'algorithme, et poste sérieusement TOUS les jours.
+Si tu lâches au bout de 3 jours, passe ton tour.
 
-🔎 Discipliné, autonome, comprend l'algo, poste sérieusement tous les jours. Si tu lâches à 3 jours, passe ton tour.
+🔞 Niche créateurs OnlyFans : ce que TU postes reste 100 % SFW et conforme Instagram. 18 ans min.
 
-🔞 Niche créateurs OnlyFans (ce que tu postes reste 100 % SFW). 18 ans min, à l'aise avec la niche.
-
-📩 Intéressé ? Écris-moi « CLIP » en DM et je t'envoie le formulaire (3 min) 🚀
+📩 Intéressé ? DM moi
 ```
 
-## 3) Annonce Telegram — International francophone (Madagascar 🇲🇬 + Bénin 🇧🇯 + Afrique FR)
+## 3) Réponse type (DM entrant, Discord) (OPTI)
 
 ```
-🎬 ON RECRUTE — CLIPPEUR / MONTEUR VIDÉO (100 % à distance) 🌍
+Hello 🙏 merci pour ton message et content que l'annonce te parle :)
 
-Agence marketing française en pleine croissance cherche ses prochains clippeurs francophones. Tu montes des Reels qui font des vues ? Cette place est pour toi 👇
+Pour te résumer rapidement : on bosse avec des créatrices qu'on fait exploser sur Instagram, et nos clippeurs sont payés un fixe de démarrage + une commission sur les abonnés qu'ils ramènent. Julien, un des nôtres, est à 400-600 €/mois en 1 mois à côté de son job de monteur.
 
-🎯 Ta mission
-→ Monter et publier des Reels & TikToks chaque jour, 100 % depuis ton téléphone
-→ Contenu 100 % fourni (créatrices FR), formation complète à une méthode déjà rodée (+11M de vues)
+Tout est expliqué dans mon formulaire (niche, conditions, comment ça marche). Ça ne prend que 3 min 👉 [LIEN FORMULAIRE]
 
-💰 Ce que tu gagnes (payé en euros, Wise)
-→ Fixe de démarrage 100 €/mois + commission déplafonnée sur chaque abonné que tu ramènes
-→ Plus tu produis de résultats, plus tu gagnes — aucun plafond
-
-✅ 100 % télétravail · horaires libres · démarrage en quelques jours · accompagnement continu
-📈 Évolution réelle → responsable acquisition
-
-🔎 Le profil
-Discipliné, autonome, tu comprends l'algorithme et tu postes sérieusement TOUS les jours. Un bon téléphone et une connexion stable.
-Si tu lâches au bout de 3 jours, passe ton tour ⚠️
-
-🔞 Niche créateurs OnlyFans : les vidéos viennent de nos créatrices, ce que TU postes reste 100 % SFW et conforme IG/TikTok. 18 ans min, à l'aise avec la niche.
-
-📩 Postuler (3 min) 👉 [LIEN FORMULAIRE]
-Je traite les candidatures au fil de l'eau — fais-le tant que c'est frais 🚀
+Je traite les candidatures au fur et à mesure, donc fais-le tant que c'est frais 🚀
 ```
 
-## 4) Réponse type (DM entrant, Discord/Telegram)
+## 4) Adaptation internationale (Madagascar 🇲🇬 + Bénin 🇧🇯) — même voix OPTI
+
+Même annonce, deux seuls ajustements : « depuis ton téléphone, où que tu sois », et « payé en euros (Wise) ». (À poster sur tes canaux Telegram internationaux.)
 
 ```
-Hello 🙏 content que l'annonce te parle !
+🎬 ON RECRUTE — CLIPPEUR INSTAGRAM (100 % à distance) 🌍
 
-En résumé : on bosse avec des créatrices qu'on fait exploser sur Insta/TikTok, et nos clippeurs sont payés fixe de démarrage + commission sur les résultats. Julien, un des nôtres, est à 400-600 €/mois en 1 mois à côté de son job.
+Julien, un de nos clippeurs, fait déjà 400-600 €/mois à côté de son job, 100 % depuis son téléphone. Nos meilleurs gagnent dans les 1000 €/mois.
 
-Tout est expliqué dans le formulaire (niche, conditions, comment ça marche). 3 min 👉 [LIEN]
+Agence marketing française : on fait exploser des créateurs sur Instagram et on cherche des clippeurs francophones pour faire grimper ça avec nous.
 
-Je traite au fur et à mesure, donc fais-le tant que c'est frais 🚀
+🎯 Ton rôle :
+→ Faire des vues. Tu montes et publies des Reels qui performent, depuis ton tel.
+→ Contenu 100 % fourni (créatrices FR). On te forme à la méthode qui fait des millions de vues.
+→ Payé en euros (Wise) : un fixe de démarrage chaque mois + une commission déplafonnée sur chaque abonné que tu ramènes.
+
+✅ 100 % télétravail, à ton rythme · démarrage en quelques jours · méthode validée · évolution → responsable acquisition 📈
+
+🔍 Discipliné, autonome, comprend l'algorithme, poste sérieusement TOUS les jours. Bon téléphone + connexion stable.
+Si tu lâches au bout de 3 jours, passe ton tour.
+
+🔞 Niche créateurs OnlyFans : ce que TU postes reste 100 % SFW et conforme Instagram. 18 ans min.
+
+📩 Pour postuler (3 min) 👉 [LIEN FORMULAIRE]
 ```
+
+> [!tip] Où insérer le montant exact
+> Ces annonces disent « un fixe de démarrage » sans le chiffre (fidèle au style OPTI, qui vend par la preuve Julien plus que par une ligne de salaire). Si tu veux afficher le nombre pour élargir encore le tunnel, remplace par **« un fixe de démarrage de 200 €/mois (versé chaque semaine le 1er mois) + commission »** (FR) / **« 100 €/mois + commission »** (MG-Bénin). Le tradeoff est dans l'encadré plus haut.
 
 ---
 
@@ -136,11 +143,11 @@ Objectif : **filtrer en 3 min** et **router FR vs MG/Bénin**. Pour les MG/Béni
 
 **Section 3 — Compétence (le cœur du filtre)**
 6. Que fais-tu dans la vie ? (études, job, OFM…)
-7. Ton expérience Instagram/TikTok — explique concrètement
+7. Ton expérience Instagram — explique concrètement
 8. Tu montes avec quoi ? (CapCut, autre)
-9. **Raconte une vidéo qui a bien marché : combien de vues et pourquoi, à ton avis ?** *(lien si possible)* — la question qui sépare les vrais des curieux
+9. **Raconte un Reel qui a bien marché : combien de vues et pourquoi, à ton avis ?** *(lien si possible)* — la question qui sépare les vrais des curieux
 10. **Combien de Reels peux-tu poster/jour, régulièrement et sur la durée** (pas juste la 1re semaine) ?
-11. Les shadowbans / bans IG-TikTok : explique avec tes mots ce que tu en sais
+11. Les shadowbans / bans Instagram : explique avec tes mots ce que tu en sais
 12. Comment l'algorithme pousse une vidéo, selon toi ? (tes mots)
 
 **Section 4 — Engagement & rému** *(la partie qui change)*
