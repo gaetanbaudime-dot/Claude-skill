@@ -40,9 +40,25 @@ Le pod **clippe ET poste** (accès Opus Clip fourni aux FR ; les MG démarrent a
 3. **Alternative** : comptes IG **aged français** achetés — plus rapides mais risqués (origine invérifiable, revente multiple) ; si tu en achètes, change tout (mot de passe, mail, 2FA) et warmup 2 semaines avant le premier post.
 4. **Cohérence permanente** : le VA se connecte toujours via Geelark (donc IP FR), jamais depuis son appareil. Fuseau de publication = heures françaises (géré par la planification, pas par le VA qui se lève la nuit).
 
-### Le test targeting MG (lancé semaine du 14 juillet, verdict à J+15-20)
+### Peut-on cibler la France depuis un téléphone au Bénin / Madagascar ? (la réponse ferme)
 
-Décision de Gaëtan : tester d'abord la **création depuis les téléphones malgaches** (zéro coût, zéro friction) avant d'imposer Geelark. Honnêteté sur le pari : un compte né sur IP malgache démarre avec un signal géo défavorable (l'explore initial servira de l'audience locale/africaine francophone) — la langue, les sons FR et les hashtags peuvent le rattraper, mais ce n'est pas garanti. D'où le test empirique, **avec les critères écrits AVANT** (sinon le verdict se fera au feeling) :
+**Oui, c'est possible — mais ce n'est PAS automatique, et l'IP est le handicap réel à compenser.** Instagram décide où pousser un Reel à partir de plusieurs signaux de localisation : **IP, SIM/opérateur, langue de l'appareil, langue du contenu, sons utilisés, hashtags, et géographie de l'audience déjà acquise**. Un téléphone brut au Bénin/Madagascar donne une **IP africaine** = le signal le plus fort pointe vers la mauvaise géo, et l'explore initial servira de l'audience locale. La bonne nouvelle : les **Reels ont un moteur de distribution à part, très piloté par l'audio et la langue** — donc les signaux de contenu peuvent dominer si on les empile délibérément. Ce n'est jamais garanti à 100 %, d'où le test.
+
+**Les 6 leviers pour forcer le ciblage FR depuis l'Afrique (à appliquer TOUS, pas au choix) :**
+1. **Langue de l'appareil ET du compte en français** (réglages téléphone inclus).
+2. **Audio tendance FR** sur chaque Reel (le signal n°1 du moteur Reels — un son FR viral tire la distribution vers la France).
+3. **Hashtags FR réels** (ceux qu'utilisent les créateurs FR de la niche, pas des traductions).
+4. **Légendes + texte à l'écran en français.**
+5. **Warmup ciblé FR** (phase 1 ci-dessous) : suivre et interagir avec des comptes FR de la niche → tu **ensemences la géographie de l'audience**, que l'algo réutilise ensuite (point clé : l'algo montre d'abord tes Reels à une audience proche de tes premiers followers).
+6. **Heures de publication françaises.**
+
+**La limite honnête** : sans IP française, tu joues « contenu vs IP ». Sur Reels c'est jouable (l'audio/langue pèsent lourd), mais tu pars avec un frein. Le **fix fiable à 100 %** = une **IP française** : soit **Geelark + proxy FR résidentiel/mobile** (l'IP devient française, tout s'aligne, et tu **possèdes/récupères** le compte — imbattable), soit la ferme de téléphones physiques en France. Un proxy FR installé sur le téléphone perso du VA est fragile (il l'oublie, le wifi maison fuit) → pas fiable à distance.
+
+**Donc la stratégie en escalier** : (1) tester le téléphone brut MG/Bénin avec les 6 leviers à fond (budget zéro) ; (2) si le test échoue, **Geelark + proxy FR** pour ces pods (c'est le vrai « sûr à 100 % » que tu demandes) ; (3) ferme physique = option de septembre. Ne compte pas sur le téléphone brut comme solution définitive : compte dessus comme sur un pari à valider, avec le repli Geelark déjà budgété.
+
+### Le test targeting MG/Bénin (lancé semaine du 14 juillet, verdict à J+15-20)
+
+Décision de Gaëtan : tester d'abord la **création depuis les téléphones MG/Bénin** (zéro coût, zéro friction), avec les 6 leviers ci-dessus appliqués intégralement, avant d'imposer Geelark. Test empirique **avec les critères écrits AVANT** (sinon le verdict se fera au feeling) :
 
 | Critère (à J+15-20) | Seuil de succès | Où le lire |
 |---|---|---|
