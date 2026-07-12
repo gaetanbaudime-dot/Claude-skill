@@ -54,7 +54,7 @@ Le savoir de fond qui alimente le plan. Par pertinence pour l'objectif 500K :
 
 ## ⚙️ La méthode (99-Meta/)
 
-Conventions, plans, fact-check log, audits, debriefs. Comment ce vault grandit : chaque session Claude densifie un cluster (30-40 pages), met à jour le contexte, ou produit un rapport croisé. Les pistes sont dans les sections "à densifier" de chaque MOC.
+Conventions, plans, fact-check log, audits, debriefs. Comment ce vault grandit : chaque session Claude densifie un cluster, met à jour le contexte, ou produit un rapport croisé. Les pistes sont dans les sections "à densifier" de chaque MOC. **La méthode elle-même est figée** dans [[Méthode de travail Claude]] (miroir de la skill `second-brain` chargée à chaque session) : c'est ce qui garantit que toutes tes conversations Claude pensent et écrivent de la même façon — verdict d'abord, honnêteté brutale, tout en français, tout chiffré.
 
 ## Le fil rouge
 
