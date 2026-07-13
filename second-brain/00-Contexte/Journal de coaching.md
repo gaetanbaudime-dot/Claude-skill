@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 (nuit) — 4 flags levés d'un coup (réponses de Gaëtan)
+- **Déclaration 2025** : déposée avant le départ ✅ — mais profil déclaratif historique mince (« étudiant, jamais rien déclaré à part la SAS ») → le fiscaliste vérifie que le **départ y est bien signalé** (sinon rectificative rapide).
+- **Corporate Tax UAE** : FZ LLC **enregistrée** ✅ — reste l'élection du Small Business Relief à confirmer dans la déclaration.
+- **« Marie » = Maddy** (même créatrice, prénoms différents selon le contexte) — [[LTP Models]] corrigé.
+- **Cabinet comptable SAS : déjà résilié** ✅ — frais coupés ; il faudra un mandat one-shot pour les comptes de liquidation.
+- **Leçon synchro** : premier pull Obsidian bloqué par des modifs locales (YAML réécrit par le panneau Propriétés) → procédure « Commit all changes puis Pull » ajoutée à [[Méthode de travail Claude]] ; passer à « Commit-and-sync ».
+
 ### 2026-07-13 (soir) — Opération fiscalité propre : tout à Dubaï au 31/12
 - **Décision** : fermer la France une bonne fois — TRC déposé, flux MYM/OF re-routés vers la FZ LLC AVANT toute fermeture, SAS liquidée (le Qonto prouve qu'elle n'est **pas** clôturée : OF la créditait encore en févr. 2026), micro radiée, comptes perso FR fermés en dernier. Budget ~1 800-2 600 €. Plan complet : [[Opération fiscalité propre (France → Dubaï)]].
 - **Découverte Qonto (4e compte analysé)** : même pattern que les 3 autres — transit, jamais de rétention (solde max ~8,8 k€ en 3 ans). Et surtout : **un système Profit First existait sur le Qonto en 2024-2025** (sous-comptes Taxes/Profit/Owner Pay) et a été perdu dans le déménagement à Dubaï.

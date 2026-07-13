@@ -57,7 +57,7 @@ Le jour où ta part arrive : **30 % → coffre intouchable AVANT toute dépense*
 
 - La CT émirienne = **9 % au-delà de ~375 000 AED de bénéfice/an** (~94 k€). Votre run-rate (~9,4 k€/mois ≈ 415 k AED/an) est **au-dessus du seuil** — vous êtes dans le champ.
 - MAIS le **Small Business Relief** ramène l'impôt à 0 si le CA ≤ 3 M AED (élection à faire dans la déclaration), pour les exercices allant jusqu'à fin 2026. Votre CA (~800 k AED/an) est **largement éligible**.
-- **L'enregistrement à la Corporate Tax est obligatoire même à 0 % d'impôt** — la pénalité d'enregistrement tardif est de **10 000 AED**. Question à poser à l'agent de la free zone cette semaine : *« LTP FZ LLC est-elle enregistrée à la CT, et le Small Business Relief est-il prévu ? »* — même question à mettre à l'ordre du jour de la [[Opération fiscalité propre (France → Dubaï)|consultation fiscaliste]].
+- **L'enregistrement à la Corporate Tax : ✅ fait** (confirmé par Gaëtan le 13/07 — la FZ LLC est enregistrée, pas de pénalité). Reste UNE chose à verrouiller : **l'élection du Small Business Relief dans la déclaration CT** (elle ne s'applique pas automatiquement — à confirmer avec l'agent free zone / le fiscaliste, [[Opération fiscalité propre (France → Dubaï)|même rendez-vous]]).
 
 ## Les règles du rituel
 

@@ -51,7 +51,7 @@ Le Qonto le prouve : frais prélevés et OF encaissé en 2026 ([[Analyse finance
 3. **AG de clôture de liquidation** → annonce légale n°2 (~110-150 €) → **radiation**.
 4. Boni de liquidation : si l'actif net est ~0, pas d'enjeu ; sinon, question fiscaliste (traitement non-résident).
 
-**Coût total réaliste : ~900-1 600 €** (formalités ~400-600 € + expert-comptable ~500-1 000 €). **Délai : 2-3 mois** → lancé cette semaine = radiée à l'automne. ⚠️ **Vérifie si le cabinet comptable facture toujours ~167 €/mois** : si oui, c'est ~2 000 €/an qui brûlent pour une coquille vide — raison de plus d'aller vite.
+**Coût total réaliste : ~900-1 600 €** (formalités ~400-600 € + expert-comptable ~500-1 000 €). **Délai : 2-3 mois** → lancé cette semaine = radiée à l'automne. Le cabinet comptable est **déjà résilié** (confirmé 13/07) — bien joué pour les frais, mais ça veut dire qu'il faudra **mandater quelqu'un ponctuellement** pour les comptes de liquidation et la liasse finale (l'ancien cabinet en mission one-shot, ou un service de liquidation en ligne).
 
 ## Étape 4 — La micro-entreprise : radiation (le plus facile)
 
@@ -69,7 +69,7 @@ Une fois les flux re-routés et observés : vider le Revolut (et tout autre comp
 
 ## Étape 6 — La déclaration de départ + la consultation qui verrouille tout
 
-**Question à laquelle il faut répondre honnêtement** : as-tu déposé ta **déclaration de revenus 2025 avec signalement du départ** (date de départ novembre 2025, adresse à Dubaï, imprimés résident + non-résident pour l'année à cheval) au printemps 2026 ? Si non, **c'est la régularisation n°1** — c'est LA pièce que l'administration regarde pour acter la non-résidence. Ni moi ni toi ne tranchons ça seuls : c'est le premier point de l'ordre du jour de la **consultation fiscaliste franco-émirati** (déjà flaguée, ~300-600 €), avec : la SAS (étape 3), le traitement des revenus 2025-2026 à cheval, et la conformité du montage FZ LLC. **Cette page est le brief à lui envoyer avant le rendez-vous** — l'[[Espérance mathématique et asymétries|asymétrie]] est écrasante : quelques centaines d'euros contre un risque à 5-6 chiffres.
+**État au 13/07 (réponses de Gaëtan)** : la **déclaration 2025 est déposée** (faite avant le départ au printemps) ✅ — mais son profil déclaratif historique est mince (« étudiant, jamais vraiment rien déclaré à part la SAS »), donc le fiscaliste doit **vérifier que le départ y est correctement signalé** (date de départ novembre 2025, adresse Dubaï, imprimé non-résident pour la part post-départ) — si ce n'est pas le cas, une déclaration rectificative se fait en ligne en quelques minutes et c'est LA pièce que l'administration regarde. Ni moi ni toi ne tranchons ça seuls : c'est le premier point de l'ordre du jour de la **consultation fiscaliste franco-émirati** (déjà flaguée, ~300-600 €), avec : la SAS (étape 3), le traitement des revenus 2025-2026 à cheval, et la conformité du montage FZ LLC. **Cette page est le brief à lui envoyer avant le rendez-vous** — l'[[Espérance mathématique et asymétries|asymétrie]] est écrasante : quelques centaines d'euros contre un risque à 5-6 chiffres.
 
 ## Le calendrier récapitulatif
 
