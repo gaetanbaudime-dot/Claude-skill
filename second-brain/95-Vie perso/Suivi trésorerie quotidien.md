@@ -17,7 +17,9 @@ liens_forts: ["[[LTP Models]]", "[[Analyse dashboard OFM (13 juillet 2026)]]", "
 
 **Les données vivent dans un Google Sheet** (« Suivi Trésorerie Quotidien — Gaëtan », créé par Claude dans ton Drive) — pas dans cette page. Raisons : un tableau de chiffres quotidiens en markdown mobile casse (ta crainte est fondée), le Sheet est fait pour ça (app mobile native, zéro risque pour le vault), et **Claude lit ton Drive en session** → il retrouve le Sheet et sort l'analyse à la demande. Cette page garde les **règles de lecture** ; le Sheet garde les **chiffres**.
 
-1. **Chaque matin (20 s)** : ouvre l'app Google Sheets → ligne du jour → 3 soldes (Revolut · Wio perso · Wio business) + une note si un gros mouvement a eu lieu. Épingle le Sheet en favori. Le rappel = une alarme téléphone à heure fixe.
+1. **Chaque matin (20 s)** : ouvre l'app Google Sheets → **« 💰 TRÉSORERIE Gaëtan ✅ »** (dans ton Drive) → ligne du jour → 3 soldes bruts : **Revolut en €, Wio perso et Wio business en AED** (tu tapes les AED tels quels, la colonne EUR se calcule toute seule) + une note si gros mouvement. Épingle le Sheet en favori. Le rappel = une alarme téléphone à heure fixe.
+   - **AED→EUR automatique** : le taux est en case **B1** (= combien d'AED pour 1 €, mets **4**, ou affine à **3,95**). Les colonnes « … (EUR) » et le **TOTAL (EUR)** se recalculent seuls. Un **convertisseur rapide** est en ligne 2 (tape des AED en B2 → EUR en D2).
+   - ⚠️ J'ai créé plusieurs brouillons en calant les formules — **garde uniquement celui avec le ✅ dans le titre, supprime les autres** (« Suivi Trésorerie… », « (AED→EUR) », « VERSION FINALE »).
 2. **Quand tu veux l'analyse** (1×/semaine ou avant une décision) : demande en session « lis mon suivi trésorerie » → Claude lit le Sheet via Drive et sort burn, runway, feu vert/rouge recrutement.
 3. Les montants restent dans TON Drive — rien n'est commité dans le repo (meilleure hygiène que l'option markdown).
 4. Apple Notes : écarté — Claude ne peut pas le lire, données piégées, aucune structure.
