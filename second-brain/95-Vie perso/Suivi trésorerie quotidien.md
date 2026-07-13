@@ -34,6 +34,10 @@ liens_forts: ["[[LTP Models]]", "[[Analyse dashboard OFM (13 juillet 2026)]]", "
 - **Le cycle mensuel des créatrices** : les fans FR paient début et fin de mois → tes encaissements suivent, planifie les grosses sorties (paies, vagues) juste après les pics d'encaissement ([[Analyse dashboard OFM (13 juillet 2026)|créneaux]]).
 - **Séparer les 3 poches** : Revolut + Wio perso = ta vie (loyer 4 k/2 mois inclus) ; Wio business = le carburant de l'agence. Ne jamais financer le business avec la poche loyer sans le savoir ([[Finances perso - 14 leçons de la vingtaine|mesurer chaque matin]]).
 
+## L'objectif et la règle (arbitré 2026-07-13)
+
+**Cible : 50 k€ de trésorerie totale au 31/12/2026** (= ×5 le record historique de 10 042 € — voir [[Analyse finances perso (13 juillet 2026)]] ; 100k = north star mi-2027). La mécanique : **30 % de ta part de profit part au coffre intouchable le jour même du partage avec Maxence, avant toute dépense.** Le coffre = autre banque, pas de carte, de la friction. Et la règle anti-fuite n°1 : tout « investissement » doit nommer par écrit la contrainte qu'il lève + son payback, sinon c'est de la consommation déguisée → refusé.
+
 ## Contexte de départ (au 13/07)
 
 Cash agence ~2 000 € · perso ~2 000 € (réservé loyer) · loyer ~4 000 €/2 mois · **gros encaissement attendu le 15/07** (assouplit la contrainte, permet la 1re vague de clippers). Recrutement clippers **par vagues financées par le cash** (décidé : « petit à petit »), jamais 50 d'un bloc ([[Journal de coaching]]).

@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 — Audit finances perso (3 comptes, 5 ans) : le mécanisme du plafond identifié
+- **Diagnostic** (données, pas impression) : record absolu de trésorerie = **10 042 €** (pas 20k). Le mécanisme : pas de salaire fixe (ponction au feeling) + BNPL (achats au-dessus du cash) + « investissements » impulsifs (rafales crypto, stacks SaaS, formations) + pockets siphonnées (62 retraits). La conso de fond est raisonnable — **le problème est la rétention, pas la dépense**. Rapport complet : [[Analyse finances perso (13 juillet 2026)]].
+- **Décision — le système** : coffre intouchable (autre banque, friction) + **30 % de la part de profit virés le jour du partage, avant tout** + règle anti-investissement-impulsif (2 questions écrites : quelle contrainte ça lève ? payback ?) + BNPL soldé et interdit + suivi quotidien des 3 soldes (en place).
+- **Objectif recalibré** : 100 k€ au 31/12 exigerait ~105 k€/mois de CA moyen — hors de portée au run-rate. **Cible engageante : 50 k€ au 31/12** (= ×5 le record historique) ; 100k = north star mi-2027.
+- **⚠️ Flag fiscal (to-verify)** : flux SAS française encore sur le Revolut perso + comptes FR censés être fermés + bascule de résidence fiscale → **1 consultation expert-comptable/fiscaliste franco-émirati avant/pendant l'été**. Confusion des patrimoines = risque qualifiable sévèrement, précisément quand tu réussis.
+- **Prédiction (écrite avant l'issue, revue au 30 septembre)** : si le coffre + virement automatique des 30 % sont en place avant le **1er août**, la trésorerie totale dépasse **20 k€ (record battu) avant le 30 septembre**. Si le système n'est pas en place au 1er août, le cash du 15/07 sera largement dépensé d'ici là — c'est le test du mécanisme contre la volonté.
+
 ### 2026-07-13 — Trésorerie & recrutement par vagues
 - **Décision** : recrutement clippers **« petit à petit »**, par vagues financées par le cash entrant (cohérent avec le garde-fou trésorerie du rapport du 13/07). **Gros encaissement attendu le 15/07** → assouplit la contrainte, autorise la 1re vague.
 - **Rituel installé** : suivi trésorerie quotidien (Revolut + Wio perso + Wio business) façon Hormozi → [[Suivi trésorerie quotidien]]. Objectif : ne jamais lancer une vague de recrutement sans regarder le runway.
