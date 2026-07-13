@@ -54,6 +54,12 @@ Ces règles viennent de l'instruction de Gaëtan : *« Sois toujours honnête, 1
 
 Créatrices par nom de scène uniquement, équipe par prénoms, jamais de handles réels / noms légaux / téléphones / emails / IDs, jamais de raw exports commités. Le détail est dans le [[Schema]] et le SKILL.md.
 
+## Synchro Git↔Obsidian (améliorer les pulls)
+
+Le vault arrive dans Obsidian via le plugin **Obsidian Git** (auto-pull). Deux réglages qui fiabilisent les `git pull`, retenus des debriefs de production :
+- **Committer/pousser par unité logique** (une page ou un lot cohérent), pas en un seul gros commit de fin — le vault arrive au fil de l'eau et le run survit aux coupures.
+- **Vérifier qu'Obsidian pull la BONNE branche** : le travail vit sur `claude/second-brain-execution-qo4gb2`. Si ton Obsidian suit `main`, tu ne vois rien arriver → soit tu configures Obsidian Git sur la branche de travail, soit (recommandé quand un lot est validé) **on fusionne la branche dans `main`** pour simplifier la synchro (à faire sur ta demande explicite, jamais sans). En cas de conflit de pull, `git pull` avec stratégie `-X theirs` sur le vault côté Obsidian est généralement sûr puisque la source de vérité est le repo.
+
 ## Faire évoluer la méthode
 
 Quand une session révèle une meilleure façon de faire (une convention, un garde-fou, une préférence de style), l'ajouter ICI **et** dans le SKILL.md **et**, si c'est une règle permanente, dans le `CLAUDE.md`. La méthode est vivante : elle se densifie comme le reste du vault. Les décisions de méthode importantes se journalisent aussi dans [[Journal de coaching]].

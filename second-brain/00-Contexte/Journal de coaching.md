@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 — Corrections issues des dashboards réels (données vs suppositions)
+- **Amanda dé-classée « à couper » → reclassée #1 OnlyFans** : le vault la jugeait sur sa seule LTV MYM (1,6 €) ; les données OF montrent **38 073 $/an** (le 1er de l'agence), monétisée par le chatting. Correction : problème de canal, pas de créatrice. On concentre son OF, on réévalue son MYM. Détail : [[Analyse dashboard OFM (13 juillet 2026)]] + [[LTP Models]]. **Leçon générale journalisée : juger une créatrice sur son meilleur canal, pas son pire.**
+- **Ordre de montée révisé** (à valider) : Chloé → Sarah → Amanda (OF) → Maddy → Jade → Sophie → lancements. Les données bougent Amanda vers le haut.
+- **Concentration = risque de ruine confirmé par la donnée** : ~2/3 du CA sur 2 créatrices quelle que soit la fenêtre — exactement la config de l'effondrement Georgina. La diversification du roster est une assurance, pas une option.
+- **Prédiction (Chloé MYM gratuit, revue au 15 août)** : le passage en gratuit le 14-15/07 fait **exploser le volume d'abonnés et écraser la LTV/fan**. Succès si le CA total 30 j monte malgré la LTV/fan en chute ; échec si le volume ne compense pas (alors le gratuit était une erreur pour elle). À mesurer précisément.
+- **Prédiction (chatting, revue au 21 sept)** : cloner le top 5 chatteurs (scripts, séquences) fait plus pour le CA que +20 chatteurs médiocres. Test : former 5 chatteurs médians sur les méthodes du top 5, mesurer leur golden ratio avant/après.
+
 ### 2026-07-12 — Allocation recrutement + flag juridique (2 deep research croisés)
 - **Insight central** : ~550 €/mois de profit par clipper rentable → CPA acceptable **700-1 200 €/hire retenu**. Conséquence : arrêter le tout-mass-DM gratuit, **pouvoir payer** de l'intention d'emploi. Séquence d'allocation : vivier gratuit → **Indeed sponsorisé** (200 €) → volume (1-2 K€) une fois le funnel qui convertit. Détail : [[Allocation budget recrutement et IA]].
 - **Verdict IA** : tu utilises déjà Claude à fond (ce vault) → ne pas mettre les euros marginaux dans un 2e abonnement mais dans l'acquisition. Envisager le **plan Team** (cerveau partagé Emma + managers) plutôt que Max individuel quand l'équipe de management existe.

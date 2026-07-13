@@ -14,48 +14,67 @@ tags: [contexte/business, ofm/agence]
 
 ## Le modèle
 
-Agence OFM francophone basée à Dubaï (entité free zone EAU, contrats de droit français, juridiction Paris). Co-fondée avec **Maxence** : Gaëtan possède le pôle marketing/trafic/recrutement, Maxence le pôle chatting/monétisation (~30 chatteurs à la commission, à Madagascar et au Bénin). Split de profit 50/50 après structure de coûts chatting (~15% du brut). **Asymétrie structurelle identifiée** : Gaëtan porte l'essentiel des coûts opérationnels (clippers, VAs, ~46% du revenu) sur un split égal → renégociation à l'agenda, voir [[Journal de coaching]].
+Agence OFM francophone basée à Dubaï (entité free zone EAU, contrats de droit français, juridiction Paris). Co-fondée avec **Maxence** : Gaëtan possède le pôle marketing/trafic/recrutement, Maxence le pôle chatting/monétisation (**~40 chatteurs + ~5 managers** à la commission, Madagascar/Bénin). Split de profit 50/50 (calculé et partagé ~1×/mois, Gaëtan reçoit les fonds des créatrices puis répartit). **Asymétrie structurelle identifiée** : Gaëtan porte l'essentiel des coûts opérationnels (clippers, VAs) sur un split égal → renégociation à l'agenda, voir [[Journal de coaching]].
 
 Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plateforme". Trafic par Reels/TikTok/YouTube (armée de clippers rémunérés à la performance, 0,35€/abonnement, tracking GetAllMyLinks/Infloww/MyPulse), publication par téléphones virtuels Geelark avec proxies français, conversion par chatting structuré (méthodo Golden Ratio 2-3%, Unlock Rate >30% OF / >10% MYM, LTV cible 15€).
 
-## Les chiffres (mise à jour 2026-07-08)
+## Les chiffres RÉELS (dashboards du 2026-07-13)
 
-- **Vitesse juillet** : 14 600€ en 7 jours = 2 085€/jour ≈ **~64 600€ de run-rate** sur le mois (en accélération vs les ~35-40K€ des mois précédents).
-- LTV : métrique maîtresse = revenu 30 j ÷ nouveaux abonnés 30 j (fenêtre 90 j sous 800 abonnés/mois). Les chiffres ci-dessous sont **basés sur les nouveaux subs** (pas le revenu total, qui inclut les fans existants).
+> [!info] Deux plateformes, deux devises — ne jamais additionner sans conversion ni aligner les périodes
+> **MYM/MyPuls en € · OnlyFans en $** (≈ 0,92 €/$). Juillet = 01-13/07 (partiel, ne pas comparer à un mois plein) · 30 j glissants = 14/06-13/07 · année = 01/01-13/07 (MYM) ou 13/07/25-12/07/26 (OF, glissant).
 
-### Tableau LTV par créatrice-plateforme (30 derniers jours, au 8 juillet)
+**MYM/MyPuls (€) :** juillet partiel **12 292 € (945/j)** · 30 j **21 943 € (731/j)** · année 2026 **140 314 € (723/j)**. Composition annuelle : **médias privés 67 947 € (48 %)**, pourboires 19 430 € (14 %), renouvellements 17 427 €, abonnements 12 987 €, MOD 12 044 €, push 10 401 €. → **Le modèle vit des médias privés + tips, PAS des abonnements** (l'abo est une porte d'entrée, le chat fait l'argent).
 
-| Créatrice-plateforme | Revenu 30 j | Nouveaux fans | LTV | Lecture |
-|---|---|---|---|---|
-| Sophie OF | 9 000$ | 1 470 | **6,1$** | Volume max du roster, LTV moyenne = la fuite (lever = chatting) |
-| Chloé OF | 7 900$ | 1 083 | 7,3$ | Fort volume + LTV correcte |
-| Maddie MYM | 7 860€ | 1 325 | 6€ | Fort volume, **gros besoin de management** |
-| Chloé MYM | 6 441€ | 117 | **55€** | Payant → meilleure LTV/fan mais en chute (désabo au renouvellement 30 j) |
-| Sarah MYM | 4 420€ | 742 | 6€ | Passée en abonnement **gratuit**, en croissance |
-| Jade OF | 2 220$ | 203 | **11$** | Meilleure LTV OF du roster, bridée par son refus de TikTok |
-| Jade MYM | 1 758€ | 358 | 4,9€ | |
-| Amanda OF | 963$ | 300 | 3,2$ | Économie faible |
-| Amanda MYM | 770€ | 445 | **1,7€** | La plus faible du roster = candidate consolidation/sortie |
+### MYM par créatrice — 30 j glissants (14/06-13/07)
 
-Écart de LTV **~30x** entre le meilleur fan (Chloé MYM 55€) et le plus faible (Amanda MYM 1,7€) : c'est ce qui rend la concentration décisive (un "pixel" ne se transforme pas en euros au même taux selon la créatrice).
+| Rang | Créatrice (handle) | CA 30 j | Part | Nouveaux subs | LTV/new | Abonnés actifs (12/07) |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | Maddy (Maaaaad) | 8 098 € | 37 % | 1 329 | 6,09 € | 2 037 |
+| 2 | Chloé (Chloe_callista) | 6 301 € | 29 % | 129 | **48,84 €** | 417 |
+| 3 | Sarah (Sxgame) | 4 926 € | 22 % | 883 | 5,58 € | 1 599 |
+| 4 | Jade (Jadetora_) | 1 909 € | 9 % | 358 | 5,33 € | 4 949 |
+| 5 | Amandine (La_mandiise) | 710 € | 3 % | 443 | **1,60 €** | 2 681 |
 
-### Non lancées (faute de main-d'œuvre clipping)
-Sarah OF, Capucine OF, Lila Doré OF, Alice (toutes plateformes). Lancer un compte de zéro consomme énormément de ressources clipping → goulot main-d'œuvre.
+### MYM par créatrice — année 2026 (01/01-13/07)
 
-## Le roster (priorités stratégiques, à jour 2026-07-12)
+| Rang | Créatrice | CA année | Part | LTV/new an |
+|---:|---|---:|---:|---:|
+| 1 | Chloé | 60 411 € | 43 % | 32,19 € |
+| 2 | Sarah (Sxgame) | 31 406 € | 22 % | 20,09 € |
+| 3 | Jade | 21 003 € | 15 % | 4,38 € |
+| 4 | Maddy | 19 253 € | 14 % | 7,97 € |
+| 5 | Amandine | 8 242 € | 6 % | 3,07 € |
 
-**Ordre de montée en l'air (affectation des pods FR, décision du 2026-07-12)** : **Chloé → Sophie → Maddie → Sarah → Jade → Alice → Amanda → Lila Doré & Capucine** (piste faceless à évaluer pour ces deux dernières, [[Journal de coaching|question ouverte]]). Règle : on **sature** une créatrice (ses pods tournent, cadence tenue, subs qui arrivent) avant d'affecter la suivante. Garde-fous : Jade après sa conversation TikTok ; Amanda seulement si sa LTV remonte ; Alice/Lila/Capucine = lancements à zéro → après les 5 actives, de fait septembre.
+### OnlyFans par créatrice — année glissante (13/07/25-12/07/26, net $)
 
-| Créatrice | Statut | Note stratégique |
+| Créatrice (handle OF) | CA an | dont messages/PPV | Lecture |
+|---|---:|---:|---|
+| **Amanda** (= Amandine) | **38 073 $** | 34 465 $ | ⚠️ **#1 OF de l'agence** — la même créatrice « faible » sur MYM (LTV 1,6 €) est une **star OF via le chatting**. Voir correction ci-dessous |
+| Jade | 30 714 $ | 27 904 $ | Grosse machine OF (msg/PPV), cohérent avec sa base MYM énorme |
+| Sophie | 23 011 $ | 18 218 $ | Solide, abo payant réel (2 352 $) |
+| Chloé | 18 370 $ | 15 618 $ | Page **gratuite** (abo 0 $), tout au PPV/tips ; = le fichier « Top fans » de 261 fans |
+| Lila Doré (= Sarah OF) | 1 412 $ | 818 $ | Vient de lancer |
+| Alice · Capucine · Lily | 0 $ | — | Non lancées |
+
+**Total OF glissant ≈ 111 580 $ (~103 k€).** Blended récent : ~21,9 k€ MYM (30 j) + ~8,6 k€ OF/mois ≈ **~30 k€/mois brut** (cohérent avec le ralentissement vs le pic ~50 k€ de janvier).
+
+> [!warning] Correction majeure : Amanda n'est PAS une candidate à couper
+> Le vault la classait « consolidation/sortie » **sur sa seule LTV MYM (1,6 €)**. La donnée OF inverse le diagnostic : **Amanda = 38 073 $/an, le premier revenu OF de l'agence**, monétisée à 34 465 $ par le chatting/PPV. Diagnostic corrigé : **acquisition MYM faible + monétisation OF excellente** — c'est un problème de *canal*, pas de créatrice. On ne coupe pas, on **concentre son OF** et on décide si le MYM vaut encore l'effort. (Statut `to-verify` sur l'identité Amanda-OF = Amandine-MYM : cohérent avec le contexte, à confirmer.)
+
+## Le roster (à jour 2026-07-13)
+
+**Ordre de montée en l'air révisé** (à valider) : la donnée réelle bouge Amanda vers le haut (OF fort) et confirme Chloé/Sarah en tête. Chloé → Sarah → **Amanda (OF)** → Maddy → Jade → Sophie → Alice → Lila Doré & Capucine (faceless ?). Garde-fous : Jade après conversation TikTok ; lancements à zéro (Alice, Lila, Capucine) après saturation des actives. Décision journalisée dans [[Journal de coaching]].
+
+| Créatrice | Plateformes | Note stratégique (données réelles) |
 |---|---|---|
-| Chloé | Top performeuse | Meilleure LTV/fan (MYM payant 55€, en chute au renouvellement), YouTube actif = beaucoup de matière à clipper ; enjeu = renouvellement (chatting/offre), pas le contenu frais |
-| Sophie | Volume leader (1 470 nouveaux fans/mois OF) | LTV 6,1$ = fuite n°1 en absolu ; lever = **chatting**, pas plus de trafic ; peut déposer ses rushs en direct (Rianah clippe) |
-| Jade | Meilleure LTV OF (11$) | Bridée par son refus de TikTok → **conversation prérequise** avant tout investissement contenu/clipping |
-| Maddie | Fort volume MYM (1 325), LTV 6€ | Besoin de management lourd (attention, félicitations, relances) = terrain idéal pour Emma |
-| Sarah | Passée en gratuit, en croissance | Phase de croissance affamée de contenu ; OF pas encore lancé |
-| Amanda | LTV la plus faible (1,7-3,2) | **Candidate consolidation/sortie** → décider cut-ou-garde AVANT d'y investir des ressources |
-| Capucine, Lila Doré, Alice | Lancements à zéro | En attente de main-d'œuvre clipping |
-| Georgina | Ex-créatrice de référence | Reconquête en cours (déjeuner prévu au voyage France) |
+| **Chloé** (Chloe_callista) | OF gratuit + MYM (payant→**gratuit le 14-15/07**) | Moteur de VALEUR : 43 % du CA MYM annuel, LTV 32-49 €, mais base d'abonnés faible (417). Le **passage MYM en gratuit** = événement majeur à surveiller (explosion d'acquisition attendue, LTV/fan va mécaniquement chuter — c'est voulu si le volume compense) |
+| **Maddy** (Maaaaad) | MYM only | Moteur de CA RÉCENT : #1 sur 30 j (37 %), monétisation qui explose (CA/new 31,77 € en juillet). Dure à convaincre d'ouvrir un OF → **le convaincre = le plus gros upside latent** |
+| **Sarah** (Sxgame MYM / Lila Doré OF) | MYM + OF (Lila Doré) | Forte accélération (MYM 20 € LTV annuel, abonnés actifs 200→1 599 en un mois) ; OF Lila Doré vient de lancer (1 412 $) = à scaler |
+| **Amanda** (= Amandine / La_mandiise) | OF + MYM | **#1 OF (38 k$)** via chatting ; MYM faible (1,6 €). Concentrer l'OF, réévaluer le MYM. **Plus une candidate à couper** |
+| **Jade** (Jadetora_) | OF + MYM | Plus grosse base (4 949 abonnés MYM) mais LTV MYM faible (4,38 €) = **enjeu de monétisation, pas d'acquisition** ; OF solide (30 k$). Refus de TikTok = frein à lever |
+| **Sophie** | OF (+ MYM difficile à négocier) | OF solide (23 k$, abo payant réel) ; bascule MYM dure à négocier avec elle |
+| Alice · Capucine · Lily | Lancements à zéro | Capucine/Lila = piste faceless. En attente de main-d'œuvre clipping |
+| **Georgina** | Ex-créatrice majeure | 0→35 k€/mois par le passé ; indispo juil.-août, reprise de contact possible en septembre |
 
 ## La chaîne d'approvisionnement en contenu
 
@@ -83,6 +102,19 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 4. **Test A/B alta compte sur Sophie** (hypothèse funnel : conversion Chloé ~2x Sophie).
 5. **Discipline Instagram** : meilleur volume mais pire revenu/clic et risque de ban max (détection Meta = signal sexuel + signal de sollicitation) ; allocation clippers 70-80% TikTok. Facebook Pages = surface résiliente sous-exploitée.
 6. **Recrutement clippers → ALL IN français (2026-07-12)** : le 0,35€/sub pur ne recrutait pas → **grille FR : 200€ fixe conditionnel (versé 50€/sem le 1er mois) + 0,50€/sub OF vérifié** ; objectif **50 FR cet été**, circuit unique (1 annonce → 1 form → 1 sheet → 1 entretien) ; MG/Bénin en vivier jusqu'à septembre (phase 2 via Geelark + proxy FR). Détail et économie dans [[Équipe marketing - structure et rémunération (FR × MG)]], le modèle opérationnel dans [[Machine Instagram-Facebook en masse]] ; mineurs = non négociable absolu, vérification d'âge manuelle à la signature.
+
+## Trésorerie (au 13/07 — le vrai garde-fou)
+
+- **~2 000 € de cash agence disponible** + ~2 000 € perso réservés au loyer. Loyer perso ~4 000 €/2 mois.
+- **La trésorerie est faible au regard de l'ambition « 50 clippers »** : 50 × 200 € de fixe = 10 000 €/mois d'engagement, incompatible avec 2 000 € de cash. → Le recrutement doit être **séquencé sur le cash entrant**, pas lancé d'un bloc. Analyse dédiée : [[Analyse dashboard OFM (13 juillet 2026)|le rapport du 13/07]] et [[Allocation budget recrutement et IA]].
+
+## Historique (la leçon qui structure tout)
+
+Gaëtan a bâti l'agence de zéro à **~50 000 €/mois en janvier 2026**, mais sur **seulement deux créatrices** (Jade + Georgina, cette dernière montée de 0 à ~35 k€/mois). **Georgina est partie du jour au lendemain avec les deux bras droits marketing** (Lucas + Justine) → **~80 % de l'agence perdue d'un coup**. Gaëtan a « fait le grand chevalier » (facilité son départ au lieu de protéger l'agence). C'est LE traumatisme fondateur et la justification n°1 de la **diversification du roster ET de l'équipe** ([[Insights]], [[Se licencier de son propre poste|ne dépendre de personne]]) : concentrer le revenu sur peu de créatrices ou de personnes clés est un risque de ruine déjà réalisé une fois.
+
+## Objectifs personnels (le pourquoi)
+
+Villa ~10 M€ sur le lac de Côme ; plusieurs appartements à Dubaï en Airbnb pour le cash-flow et la sécurité patrimoniale. Le business est le moteur ; le patrimoine (Dubaï en rente, Côme en aboutissement) est la destination — voir [[Roadmap perso]] et [[Finances perso - 14 leçons de la vingtaine]].
 
 ## Ce que le vault doit challenger (rôle de Claude)
 
