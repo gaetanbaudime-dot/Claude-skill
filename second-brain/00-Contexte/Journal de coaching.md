@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 — Bibliothèque : 6 livres distillés (pack de 15 textes complets)
+- **Livré par agents parallèles** (1 agent = 1 livre, la bonne méthode) : [[Way of the Wolf (Jordan Belfort)]] (Straight Line → chatting, controverse high assumée), [[Exactly What to Say (Phil M. Jones)]] (16 formules FR prêtes à coller), [[Cashvertising (Drew Eric Whitman)]] (LF8 → hooks/annonces), [[Traction (Gino Wickman)]] (l'appel du lundi = L10 en réduction), [[Built to Sell (John Warrillow)]] (le test de l'été = test de vendabilité), [[Tax-Free Wealth (Tom Wheelwright)]] (fiscaliste annuel, US-centrisme flaggé). Cross-linkés dans les deux sens, MOC Livres réorganisé, triage des 9 restants acté.
+- **Directives de Gaëtan intégrées** : densifier **Hormozi** et **la théorie des contraintes/Goldratt** en priorité (« j'adore ») ; Cialdini au prochain run en version **mécanique de vente** (garde-fous éthiques en section, pas en angle).
+- **Garde-fou posé par un agent, à valider en pratique** : la formule chatting « la plupart de mes vrais fans le débloquent dès le premier soir » ne s'utilise QUE si les stats Infloww le confirment — sinon c'est un mensonge, pas une technique.
+
+### 2026-07-14 — Formation clipping : diagnostic (pas nulle, mal packagée)
+- **Constat de Gaëtan** : « trop longue, ils me posent les mêmes questions, ils ne regardent pas — je devrais faire un vocal ? »
+- **Diagnostic** : le contenu est bon (stratégie claire, preuves réelles, checklists) ; le défaut est le FORMAT — 36 min linéaires sans point de contrôle = personne ne finit, et répondre aux questions déjà couvertes récompense le non-visionnage. Un vocal ne règle rien (ne se scanne pas, ne se met pas à jour, ne prouve rien).
+- **Reco (chantier identifié, à construire)** : découper en **fiches 1 page par étape** (modèle [[Kit Emma - mode d'emploi]]) + **quiz de 10 questions obligatoire** avant le 1er compte + règle « question déjà couverte → renvoi au chapitre » + FAQ vivante (« expliqué 2 fois = écrit », [[Documentation et SOP]]) + mindset déplacé en fin. Mesure : le taux de complétion Loom.
+- **⚠️ Flag sécurité relevé au passage** : la vidéo YouTube publique « stratégie » référencée dans la formation expose les tactiques multi-comptes/warm-up — exactement ce que la [[Rituel documentation hebdomadaire (vidéo du dimanche)|ligne rouge éditoriale]] interdit. À passer en non répertoriée.
+
 ### 2026-07-13 (nuit) — Distillation des 5 grandes vidéos Hormozi en 20 actions
 - **Constat qui compte** : 9 des 20 actions étaient **déjà installées** dans le système (inputs-pas-outputs, clôture Profit First, deep work matinal, méthode scientifique/prédictions, documentation, ALL IN un canal…) — le vault applique la doctrine, pas juste la cite. Page : [[Les 20 actions Hormozi de Gaëtan]].
 - **Les 5 nouvelles à effet immédiat** : baseline du délai de 1er message (mardi, avec Maxence) · exercice d'inversion 15 min (« comment garantir l'échec de LTP ? ») · PR de compte en banque dans le suivi trésorerie · alarme de coucher + sobriété jusqu'au 21/09 · question filtre candidats (« comment ce que tu fais rapporte-t-il de l'argent ? »).

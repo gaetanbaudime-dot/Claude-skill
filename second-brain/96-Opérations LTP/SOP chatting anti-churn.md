@@ -45,7 +45,7 @@ liens_forts: ["[[Opérations de chatting]]", "[[Analyse dashboard OFM (13 juille
 ## Séquence 4 — Cloner le top 5 (l'industrialisation)
 
 1. **Extraire les scripts réels du top 5 ACTUEL** (mise à jour 13/07 sur la fenêtre depuis le 01/06) : **Hardy (18,9 % des ventes), Tefyh, Ckycia, Lionel, Donassole** — 60 % des ventes à eux 5 sur 29 actifs. ⚠️ L'ancien top annuel (Sarindra, Boni…) était l'ère Georgina — ne pas cloner le passé. Fait remarquable : ces 5 étaient déjà les **meilleurs ratios** de l'année (Tefyh 7,15 % golden ratio, Lionel 45 % unlock, Ckycia/Hardy 41 %) — les ratios prédisent les futurs top vendeurs ([[Analyse créatrices 30-60 jours (13 juillet 2026)]]). Extraire : leurs ouvertures, séquences de vente, relances, horaires.
-2. **Bibliothèque de scripts par situation** ([[Documentation et SOP]]) : accueil, 1er PPV, relance silencieux, whale, objection prix, win-back — dans le Discord chatting, par créatrice (persona et limites respectées).
+2. **Bibliothèque de scripts par situation** ([[Documentation et SOP]] ; la structure de vente : [[Way of the Wolf (Jordan Belfort)|Straight Line]], les formules : [[Exactly What to Say (Phil M. Jones)]]) : accueil, 1er PPV, relance silencieux, whale, objection prix, win-back — dans le Discord chatting, par créatrice (persona et limites respectées).
 3. **Former les médians dessus** (les 5 managers déroulent, Maxence contrôle par échantillonnage de conversations).
 4. **Mesurer avant/après** : golden ratio et unlock rate des formés. La prédiction est [[Journal de coaching|déjà journalisée]] (revue 21/09) : cloner le top 5 > recruter 20 chatteurs médiocres.
 

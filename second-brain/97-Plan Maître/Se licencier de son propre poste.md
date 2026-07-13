@@ -5,7 +5,7 @@ cluster: "97-Plan Maître"
 statut: verified
 créé: 2026-07-12
 tags: [plan/délégation, plan/scaling, contexte/business]
-liens_forts: ["[[Buy Back Your Time (Dan Martell)]]", "[[E-Myth Revisited (Michael Gerber)]]", "[[Plan Maître 500K]]", "[[Sprint été - croissance sans moi]]"]
+liens_forts: ["[[Buy Back Your Time (Dan Martell)]]", "[[E-Myth Revisited (Michael Gerber)]]", "[[Built to Sell (John Warrillow)]]", "[[Plan Maître 500K]]", "[[Sprint été - croissance sans moi]]"]
 ---
 
 # Se licencier de son propre poste (pour que l'agence croisse)

@@ -36,4 +36,4 @@ Marketing (exécution directe), [[Unit economics]] et [[Rétention et LTV]] (la 
 
 ## À densifier lors des prochains runs
 
-$100M Money Models (les modèles de monétisation), Leila Hormozi et la doctrine opérations/culture, la thèse d'investissement Acquisition.com, les mécaniques de contenu (format, hooks, distribution).
+🔥 **PRIORITÉ (demande explicite du 13/07 : « densifie Alex Hormozi, j'adore »)** : $100M Money Models (les modèles de monétisation), les textes complets de $100M Offers et $100M Leads sont désormais fournis (pack du 13/07) → densifier Grand Slam Offer et Core Four avec les détails des livres (stack de valeur, garanties, la matrice lead magnet, les scripts ACA), Leila Hormozi et la doctrine opérations/culture, la thèse d'investissement Acquisition.com, les mécaniques de contenu (format, hooks, distribution).
