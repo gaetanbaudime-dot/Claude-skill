@@ -13,24 +13,14 @@ liens_forts: ["[[LTP Models]]", "[[Analyse dashboard OFM (13 juillet 2026)]]", "
 > [!tip] Verdict
 > Hormozi le répète : **connais ton solde chaque matin.** Ce n'est pas de la compta, c'est de la conscience — le simple fait de regarder tes 3 comptes chaque jour change tes décisions (tu ne lances pas une vague de clippers un matin où le cash agence est à 1 200 €). Cette page est **ton endroit sur le téléphone** : chaque matin, tu ajoutes une ligne dans le tableau ci-dessous depuis Obsidian mobile (3 chiffres, 20 secondes). Quand tu me l'apportes en session, je te sors la lecture : burn, runway, et le feu vert/rouge pour la prochaine vague de recrutement.
 
-## Comment ça marche (zéro friction)
+## Comment ça marche (décision 2026-07-13 : Google Sheet, pas markdown)
 
-1. **Chaque matin**, ouvre cette page sur Obsidian mobile → ajoute une ligne : date, Revolut, Wio perso, Wio business. Le total se fait de tête ou je le recalcule.
-2. Ça se synchronise via Git (ton repo) → je le lis dans n'importe quelle session.
-3. **1×/semaine** (ou quand tu me pings), je te sors l'analyse : tendance, burn hebdo, runway agence, et la décision recrutement.
+**Les données vivent dans un Google Sheet** (« Suivi Trésorerie Quotidien — Gaëtan », créé par Claude dans ton Drive) — pas dans cette page. Raisons : un tableau de chiffres quotidiens en markdown mobile casse (ta crainte est fondée), le Sheet est fait pour ça (app mobile native, zéro risque pour le vault), et **Claude lit ton Drive en session** → il retrouve le Sheet et sort l'analyse à la demande. Cette page garde les **règles de lecture** ; le Sheet garde les **chiffres**.
 
-> [!warning] Choix sur la confidentialité des montants (à toi de trancher)
-> Ce sont **tes propres comptes** (pas des tiers), donc le risque est le tien. Deux options : **(A)** tu logges les montants ici, ils partent dans le repo (simple, tout au même endroit) ; **(B)** si tu préfères qu'ils ne quittent jamais tes appareils, on met ce fichier en `.gitignore` et tu me colles les chiffres en session au lieu de les pousser. Par défaut = A. Dis-moi si tu veux B et je bascule.
-
-## Le tableau (à remplir chaque matin)
-
-| Date | Revolut | Wio perso | Wio business | Total cash | Note (entrée/sortie du jour) |
-|---|---:|---:|---:|---:|---|
-| 2026-07-13 | | | | | *cash agence ~2 000 € (contexte) ; gros encaissement prévu le 15* |
-| | | | | | |
-| | | | | | |
-
-*(Ajoute une ligne par jour. Garde 30-60 jours visibles, archive le reste plus bas si ça devient long.)*
+1. **Chaque matin (20 s)** : ouvre l'app Google Sheets → ligne du jour → 3 soldes (Revolut · Wio perso · Wio business) + une note si un gros mouvement a eu lieu. Épingle le Sheet en favori. Le rappel = une alarme téléphone à heure fixe.
+2. **Quand tu veux l'analyse** (1×/semaine ou avant une décision) : demande en session « lis mon suivi trésorerie » → Claude lit le Sheet via Drive et sort burn, runway, feu vert/rouge recrutement.
+3. Les montants restent dans TON Drive — rien n'est commité dans le repo (meilleure hygiène que l'option markdown).
+4. Apple Notes : écarté — Claude ne peut pas le lire, données piégées, aucune structure.
 
 ## Ce que je surveille pour toi (les règles de lecture)
 
