@@ -10,6 +10,9 @@ liens_forts: ["[[LTP Models]]", "[[Rétention et LTV]]", "[[Opérations de chatt
 
 # Analyse dashboard OFM — snapshot du 13 juillet 2026
 
+> [!warning] Mise à jour du 13/07 au soir — la fenêtre 30-60 jours corrige deux verdicts
+> L'analyse ci-dessous travaille surtout sur l'**année glissante** ; or l'agence réelle a 3-4 mois. La fenêtre récente ([[Analyse créatrices 30-60 jours (13 juillet 2026)]]) corrige : (1) **Amanda n'est ni « à couper » ni « ta #1 OF »** — ses 38 k$ datent d'avant mars, elle est à **-53 % sur 30 j** → diagnostic (relance Twitter) avant tout investissement ; (2) **le top 5 chatteurs actuel est Hardy/Tefyh/Ckycia/Lionel/Donassole** (60 % des ventes depuis le 01/06), pas le top annuel de l'ère Georgina ; (3) les vraies locomotives actuelles sont **Sophie (+27 %, explosion) et Chloé (~13 k€/30 j toutes plateformes)**.
+
 > [!tip] Les 6 verdicts qui sortent des données
 > 1. **Ton business vit du chatting, pas de l'acquisition** : 48 % du CA MYM = médias privés, 14 % = tips, et l'abo ne pèse presque rien. Le levier n°1 reste la LTV/chatting, pas le volume de subs.
 > 2. **Amanda n'est pas à couper — c'est ton #1 OnlyFans (38 k$/an).** Le vault se trompait en la jugeant sur sa seule LTV MYM. Correction actée.

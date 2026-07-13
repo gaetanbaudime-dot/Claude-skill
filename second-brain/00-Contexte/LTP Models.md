@@ -62,12 +62,12 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 
 **Commissions d'agence 14 890 €** (≠ CA géré : c'est la part agence encaissée) — Chloé 5 661 · Sophie 3 687 · Marie 2 310 · Jade 2 074 (58 % de part) · Amanda 657 · Sarah 501. **Dépenses business 5 474 €** → **profit agence 9 416 € (marge 63 %)** → après dépenses perso partagées (colocation) : 3 533 €/associé. **0 € capitalisé** — le défaut que la [[SOP clôture mensuelle avec Maxence]] corrige à partir du 1er août. (« Marie » = **Maddy** — confirmé par Gaëtan le 13/07 : même créatrice, « Marie » dans le calcul de juin, Maaaaad sur MYM.)
 
-> [!warning] Correction majeure : Amanda n'est PAS une candidate à couper
-> Le vault la classait « consolidation/sortie » **sur sa seule LTV MYM (1,6 €)**. La donnée OF inverse le diagnostic : **Amanda = 38 073 $/an, le premier revenu OF de l'agence**, monétisée à 34 465 $ par le chatting/PPV. Diagnostic corrigé : **acquisition MYM faible + monétisation OF excellente** — c'est un problème de *canal*, pas de créatrice. On ne coupe pas, on **concentre son OF** et on décide si le MYM vaut encore l'effort. (Statut `to-verify` sur l'identité Amanda-OF = Amandine-MYM : cohérent avec le contexte, à confirmer.)
+> [!warning] Amanda — le diagnostic en deux temps (corrigé 2 fois, leçon de méthode)
+> 1er temps : le vault la classait « à couper » sur sa LTV MYM (1,6 €) → l'OF annuel (38 073 $, #1) a inversé le verdict. 2e temps : la fenêtre **30-60 jours** corrige la correction — **~33 k$ de ses 38 k$ datent d'avant mars ; elle est à -53 % sur 30 j (~940 $)**. Ses tracking links montrent pourquoi : ses canaux forts historiques (Twitter 22 % de conversion, 14 % de payeurs) se sont éteints, remplacés par du trafic FB qui ne paie pas (171 subs → 16 $). Verdict final : **ni star ni coupe — un actif en déclin à diagnostiquer** (relance Twitter à petit coût, sinon volume-cash). Leçon : juger sur le bon canal **ET la bonne fenêtre** ([[Analyse créatrices 30-60 jours (13 juillet 2026)]]).
 
 ## Le roster (à jour 2026-07-13)
 
-**Ordre de montée en l'air révisé** (à valider) : la donnée réelle bouge Amanda vers le haut (OF fort) et confirme Chloé/Sarah en tête. Chloé → Sarah → **Amanda (OF)** → Maddy → Jade → Sophie → Alice → Lila Doré & Capucine (faceless ?). Garde-fous : Jade après conversation TikTok ; lancements à zéro (Alice, Lila, Capucine) après saturation des actives. Décision journalisée dans [[Journal de coaching]].
+**Ordre de montée (re-confirmé le 13/07 au soir sur la fenêtre 30-60 j)** : **Chloé → Sophie → Maddy → Sarah → Jade (gate : diagnostic du déclin + conversation TikTok) → Amanda (gate : relance Twitter, sinon volume-cash)** → lancements (Alice, Capucine, Lily) en septembre. La révision qui remontait Amanda sur son OF annuel est **annulée** : ses 38 k$ dataient d'avant mars, elle est à -53 % sur 30 j — la fenêtre récente prime ([[Analyse créatrices 30-60 jours (13 juillet 2026)]]). [[Journal de coaching|Journalisé]].
 
 | Créatrice | Plateformes | Note stratégique (données réelles) |
 |---|---|---|

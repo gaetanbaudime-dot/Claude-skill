@@ -37,7 +37,7 @@ Commissions par créatrice (mêmes colonnes chaque mois) − **dépenses busines
 Dans cet ordre, le jour même :
 1. **Réserve impôts : 5 % du profit** → sous-compte dédié Wio. Voir l'encadré CT ci-dessous — même si l'impôt dû est probablement 0 % jusqu'à fin 2026, **la réserve se constitue quand même** (la discipline vaut plus que le taux, et 2027 arrive vite).
 2. **Coffre boîte : 10 % du profit** → réserve opérationnelle, cible **3 mois de charges fixes (~15-20 k€)**. C'est elle qui finance les vagues de clippers sans stress et encaisse un ban plateforme ([[Analyse dashboard OFM (13 juillet 2026)|le risque n°1]]).
-3. **Le reste = distribuable**, split 50/50, ajustements tracés dans le Sheet (Amanda → Maxence, etc.).
+3. **Le reste = distribuable**, split 50/50, ajustements tracés dans le Sheet (Amanda → Maxence, etc.). ⚠️ **Rappel structurel** : Maxence a **sa propre société** — son versement est un **règlement inter-sociétés**, pas une distribution interne. Il doit s'appuyer sur un contrat + une facture mensuelle (point [[Opération fiscalité propre (France → Dubaï)|fiscaliste]]) ; la clôture fournit justement le montant à facturer.
 
 ### Couche 3 — Le perso (chacun chez soi, plus jamais dans le calcul)
 Le jour où ta part arrive : **30 % → coffre intouchable AVANT toute dépense** ([[Analyse finances perso (13 juillet 2026)|le système anti-plafond]]), le reste = ta vie et tes investissements (filtrés par la règle anti-impulsion : quelle contrainte ça lève + payback écrit). Les dépenses perso **ne remontent jamais** dans la clôture business.

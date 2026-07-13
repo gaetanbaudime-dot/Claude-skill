@@ -22,6 +22,14 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 (nuit) — Analyse 30-60 jours : la fenêtre récente renverse l'annuel
+- **Demande de Gaëtan** : « prends les 30-60 derniers jours, l'agence a réellement 3-4 mois ». Résultat : [[Analyse créatrices 30-60 jours (13 juillet 2026)]].
+- **Corrections actées** : Sophie en **explosion** (+27 %, ×11 en 3 mois, run-rate ~11 k$/mois) ; Chloé **n°1 toutes plateformes** (~13,1 k€/30 j) ; **Amanda -53 %** (ses 38 k$ annuels dataient d'avant mars → la remontée d'Amanda décidée le matin même est **annulée**) ; Jade -40 %. **Ordre de montée re-confirmé : Chloé → Sophie → Maddy → Sarah → Jade (gate) → Amanda (gate).**
+- **Top 5 chatteurs actuel** (depuis 01/06) : Hardy, Tefyh, Ckycia, Lionel, Donassole — 60 % des ventes. L'ancien top annuel = ère Georgina. Insight : **les ratios (golden ratio, unlock) prédisent les futurs top vendeurs mieux que le volume**.
+- **Découvertes tracking links** : SFS = 48-85 % de conversion (jusqu'à 8,12 $/clic = ×12 le lien social) ; landing LinkMe 18 % vs lien direct 2 % (×9) → standardiser les landings partout ; ajouter « payeurs à J+30 par lien » au reporting pods.
+- **Leçon de méthode (2e correction Amanda en 24 h)** : juger sur le bon canal ET la bonne fenêtre — pour une agence de 3-4 mois, l'année glissante décrit une autre entreprise. Ajoutée à la skill.
+- **Prédictions (revue 15 août)** : (1) Sophie OF > **10 k$ nets** sur les 30 prochains jours si le trafic actuel est maintenu ; (2) la semaine faible de Chloé (-50 %) est le **creux de mi-mois**, pas une cassure — son CA OF 14-31 juillet reviendra ≥ 4 500 $ hors effet MYM gratuit. Si l'une des deux rate, le diagnostic est à refaire.
+
 ### 2026-07-13 (nuit) — 4 flags levés d'un coup (réponses de Gaëtan)
 - **Déclaration 2025** : déposée avant le départ ✅ — mais profil déclaratif historique mince (« étudiant, jamais rien déclaré à part la SAS ») → le fiscaliste vérifie que le **départ y est bien signalé** (sinon rectificative rapide).
 - **Corporate Tax UAE** : FZ LLC **enregistrée** ✅ — reste l'élection du Small Business Relief à confirmer dans la déclaration.

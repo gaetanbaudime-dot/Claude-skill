@@ -36,7 +36,7 @@ Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. **Pôl
 
 ## 🛠️ Les outils (98-Rapports/)
 
-Checklists et protocoles prêts à l'emploi, un par cluster : Marketing, Alex Hormozi, Décision business, Finance, Investissement, Recrutement, Management humain, Scaling, OFM, Santé. À utiliser en travaillant, pas à lire au calme. **Analyses chiffrées les plus récentes** : [[Analyse dashboard OFM (13 juillet 2026)]] (revenus, roster, chatting, fans), [[Analyse finances perso (13 juillet 2026)]] (3 comptes bancaires, 5 ans — le mécanisme du plafond de trésorerie et le système pour le casser), et [[Croisement des deep research marché OFM]] (les 3 rapports de marché filtrés par tes vraies données — ce qui survit vs ce qu'on ignore).
+Checklists et protocoles prêts à l'emploi, un par cluster : Marketing, Alex Hormozi, Décision business, Finance, Investissement, Recrutement, Management humain, Scaling, OFM, Santé. À utiliser en travaillant, pas à lire au calme. **Analyses chiffrées les plus récentes** : [[Analyse créatrices 30-60 jours (13 juillet 2026)]] (qui monter, qui diagnostiquer — la fenêtre récente qui renverse l'annuel, tracking links, marges), [[Analyse dashboard OFM (13 juillet 2026)]] (revenus, roster, chatting, fans — année glissante), [[Analyse finances perso (13 juillet 2026)]] (4 comptes bancaires, 5 ans — le mécanisme du plafond de trésorerie et le système pour le casser), et [[Croisement des deep research marché OFM]] (les 3 rapports de marché filtrés par tes vraies données).
 
 ## 📚 La bibliothèque (11 clusters)
 
