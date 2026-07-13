@@ -13,6 +13,7 @@ Le côté personnel de ton second cerveau, en miroir du côté business (`00-Con
 - [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles (sommeil, caféine, surplus propre, glucides du soir, force+sauna, alcool), la journée type, le pilotage Whoop en n=1.
 - [[Bilan sanguin Dubaï (avant le départ)]] : le panel à ~150 € (Unilabs ou comparables), les marqueurs qui comptent pour toi, à faire AVANT le 20 juillet.
 - [[Pôle Deep Work & The One Thing]] : ton système de focus — un bloc profond 8h-12h sur ta One Thing, l'opérationnel batché l'après-midi ou délégué. Le pendant perso de [[Se licencier de son propre poste]].
+- [[Suivi trésorerie quotidien]] : le rituel Hormozi — logger tes 3 soldes chaque matin (Revolut, Wio perso, Wio business), runway et feu vert/rouge pour les vagues de clippers.
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi > épargner, mesurer ton compte, l'entourage, les expériences uniques.
 
 ## Ponts vers le vault

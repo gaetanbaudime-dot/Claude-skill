@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 — Trésorerie & recrutement par vagues
+- **Décision** : recrutement clippers **« petit à petit »**, par vagues financées par le cash entrant (cohérent avec le garde-fou trésorerie du rapport du 13/07). **Gros encaissement attendu le 15/07** → assouplit la contrainte, autorise la 1re vague.
+- **Rituel installé** : suivi trésorerie quotidien (Revolut + Wio perso + Wio business) façon Hormozi → [[Suivi trésorerie quotidien]]. Objectif : ne jamais lancer une vague de recrutement sans regarder le runway.
+- **Branche `main` créée** (2026-07-13) à partir de tout le travail, pour simplifier la synchro (il n'existait pas de main ; défaut du repo = une branche parasite). Obsidian à pointer sur `main` si souhaité.
+
 ### 2026-07-13 — Corrections issues des dashboards réels (données vs suppositions)
 - **Amanda dé-classée « à couper » → reclassée #1 OnlyFans** : le vault la jugeait sur sa seule LTV MYM (1,6 €) ; les données OF montrent **38 073 $/an** (le 1er de l'agence), monétisée par le chatting. Correction : problème de canal, pas de créatrice. On concentre son OF, on réévalue son MYM. Détail : [[Analyse dashboard OFM (13 juillet 2026)]] + [[LTP Models]]. **Leçon générale journalisée : juger une créatrice sur son meilleur canal, pas son pire.**
 - **Ordre de montée révisé** (à valider) : Chloé → Sarah → Amanda (OF) → Maddy → Jade → Sophie → lancements. Les données bougent Amanda vers le haut.
