@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 (nuit) — Kit Emma : 11 fiches A4 imprimables
+- **Décision** : la passation Emma se fait sur des **one-pagers d'exécution** (PDF), pas sur les pages denses du vault — 4 fiches socle (mission, semaine type, checklist tournage, escalade 1-3-1) + 1 modèle + 6 profils créatrice avec les leviers de management dictés par Gaëtan (Sophie = directive · Chloé = un format unique · Sarah = flexible · Maddy = confiance/félicitations · Alice = ultra soft · Jade = cadence + diagnostic). [[Kit Emma - mode d'emploi]] ; générateur versionné (`tools/kit_emma/`).
+- **Remise en couches** (pas le paquet d'un bloc) : fiche 1-2 à la conversation de lundi, profils un par un dans la semaine, fiche 4 vendredi.
+- **À confirmer** : le prénom « Alice » (entendu « Axel » en vocal) ; préférences de contenu Jade.
+- **Prédiction (revue au 15 août)** : avec le kit + le Loom + le tableau, Emma tient le lancement du lundi **sans escalade** dès la 2e semaine ; si elle escalade encore tout en semaine 3, le problème est le niveau d'autonomie accordé, pas elle.
+
 ### 2026-07-13 (nuit) — Analyse 30-60 jours : la fenêtre récente renverse l'annuel
 - **Demande de Gaëtan** : « prends les 30-60 derniers jours, l'agence a réellement 3-4 mois ». Résultat : [[Analyse créatrices 30-60 jours (13 juillet 2026)]].
 - **Corrections actées** : Sophie en **explosion** (+27 %, ×11 en 3 mois, run-rate ~11 k$/mois) ; Chloé **n°1 toutes plateformes** (~13,1 k€/30 j) ; **Amanda -53 %** (ses 38 k$ annuels dataient d'avant mars → la remontée d'Amanda décidée le matin même est **annulée**) ; Jade -40 %. **Ordre de montée re-confirmé : Chloé → Sophie → Maddy → Sarah → Jade (gate) → Amanda (gate).**
