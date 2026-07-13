@@ -36,6 +36,10 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 - [[SOP chatting anti-churn]] : les 4 séquences (accueil + 1er PPV < 48 h, vie du fan, win-back, clonage du top 5), les 6 KPI hebdo, l'éthique et le flag CGU. **Le levier n°1 confirmé par les données.**
 
+## Rituels de pilotage
+
+- [[Rituel documentation hebdomadaire (vidéo du dimanche)]] : la vidéo une-prise du dimanche (script en 5 questions, 90 min max, 3 sujets interdits), transcript distillé au vault — la « strategy guide » Hormozi appliquée.
+
 ## Pôle finances
 
 - [[SOP clôture mensuelle avec Maxence]] : le calcul du 1er du mois en 3 couches (P&L agence → allocations → distribution), ce qui remplace le calcul WhatsApp.

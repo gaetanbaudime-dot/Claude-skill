@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 (nuit) — Rituel vidéo du dimanche (documentation Hormozi)
+- **Décision** : une vidéo YouTube par dimanche (une prise, 20-30 min, zéro montage, 90 min porte-à-porte max), script fixe en 5 questions, transcript distillé en session dans le vault. Première : **dimanche 26 juillet**, pas pendant la passation. SOP : [[Rituel documentation hebdomadaire (vidéo du dimanche)]] — avec les **3 sujets interdits à vie** (tactiques plateformes, coulisses chatting, identités créatrices).
+- **Leçon déjà journalisable** (dite par Gaëtan en vocal) : *« quand on paye plus cher, c'est plus facile de recruter — ils restent plus longtemps et sont plus motivés »* — confirmée par le passage au fixe conditionnel (200 €) vs le 0,35 €/sub pur qui ne recrutait pas. La rémunération est un filtre de qualité, pas juste un coût.
+- **Prédiction (revue fin août)** : réaliste = 4 vidéos sur 5 dimanches publiées et distillées ; si ≤ 2, le format est trop lourd → on le redessine (audio seul ou notes vocales) au lieu d'abandonner le rituel.
+
 ### 2026-07-13 (nuit) — Kit Emma : 11 fiches A4 imprimables
 - **Décision** : la passation Emma se fait sur des **one-pagers d'exécution** (PDF), pas sur les pages denses du vault — 4 fiches socle (mission, semaine type, checklist tournage, escalade 1-3-1) + 1 modèle + 6 profils créatrice avec les leviers de management dictés par Gaëtan (Sophie = directive · Chloé = un format unique · Sarah = flexible · Maddy = confiance/félicitations · Alice = ultra soft · Jade = cadence + diagnostic). [[Kit Emma - mode d'emploi]] ; générateur versionné (`tools/kit_emma/`).
 - **Remise en couches** (pas le paquet d'un bloc) : fiche 1-2 à la conversation de lundi, profils un par un dans la semaine, fiche 4 vendredi.

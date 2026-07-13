@@ -55,7 +55,7 @@ La LTV est réparée → la contrainte est repassée **côté trafic** ([[Théor
 
 ## Le rituel qui remplace ta présence (et les 3 règles du sprint)
 
-**Dimanche soir** : reporting Google Forms de chaque pôle → **lundi matin** : tu lis LE tableau consolidé en 20 min depuis la France, appel de groupe 20 min, paie hebdo. Règle anti-singe : un pôle remonte un problème → *« qu'est-ce que tu proposes ? »* (1-3-1, [[Délégation]]). Tu ne rentres pas dans l'opérationnel. **+ le 1er du mois : la [[SOP clôture mensuelle avec Maxence|clôture]] (30 min, à distance).**
+**Dimanche soir** : reporting Google Forms de chaque pôle **+ ta [[Rituel documentation hebdomadaire (vidéo du dimanche)|vidéo de documentation]] (une prise, 90 min max, à partir du 26/07)** → **lundi matin** : tu lis LE tableau consolidé en 20 min depuis la France, appel de groupe 20 min, paie hebdo. Règle anti-singe : un pôle remonte un problème → *« qu'est-ce que tu proposes ? »* (1-3-1, [[Délégation]]). Tu ne rentres pas dans l'opérationnel. **+ le 1er du mois : la [[SOP clôture mensuelle avec Maxence|clôture]] (30 min, à distance).**
 
 1. **Rien ne s'ajoute au sprint sans qu'autre chose en sorte** ([[Coût d'opportunité]]) — les bonnes idées vont dans les MOC « à densifier », pas dans le sprint.
 2. **Les prédictions s'écrivent avant** ([[Journal de coaching]]) — chaque test a son chiffre attendu daté (Chloé gratuit, clonage top 5, vagues FR : déjà journalisés).
