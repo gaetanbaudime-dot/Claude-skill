@@ -27,6 +27,7 @@ Le pendant personnel du plan business : environnement, nutrition, corps, finance
 - [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles santé-performance (sommeil, caféine, prise de masse, sauna, alcool), la journée type, le pilotage Whoop.
 - [[Bilan sanguin Dubaï (avant le départ)]] : le panel de biomarqueurs à ~150 €, à faire avant le 20 juillet.
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique.
+- [[Pôle Deep Work & The One Thing]] : le système de focus — bloc profond quotidien sur la seule chose qui compte, le reste batché ou délégué.
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
 
 ## ⚙️ Les opérations LTP (96-Opérations LTP/)

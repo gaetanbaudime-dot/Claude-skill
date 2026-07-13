@@ -53,6 +53,32 @@ Déléguer sans les trois, c'est abdiquer : soit ça casse (pas de système), so
 
 Une agence qui dépend de toi vaut **ton temps** (plafonné à 24h/jour). Une agence qui tourne sans toi vaut **son système** (illimité) — et c'est la seule qui peut atteindre 500K€, se vendre, ou te libérer pour la [[Plan Maître 500K|phase suivante]]. Te licencier n'est pas te rendre inutile : c'est **passer de la personne qui fait le travail à la personne qui construit la machine qui fait le travail**. C'est le job le mieux payé de l'entreprise, et c'est le seul que tu ne délégueras jamais.
 
-## Prochaine action
+## L'inventaire réel (rempli le 2026-07-12, à partir de ta liste)
 
-Écris **la liste de tes 6 casquettes** et, en face de chacune, la réponse à « si je disparais 30 jours, qu'est-ce qui casse ? ». Ce que tu ne peux pas déléguer aujourd'hui = ta feuille de route de documentation des 3 prochains mois. À journaliser dans [[Journal de coaching]], avec revue au 21 septembre (fin du test).
+> [!warning] Le diagnostic qui compte
+> Tu as listé 6 casquettes — et **les 6 sont opérationnelles, donc délégables**. Aucune n'est un travail de fondateur. Les casquettes qui sont VRAIMENT à toi (7-10 ci-dessous), tu ne les as pas listées — parce que tu es tellement immergé dans l'exécution que ton « vrai job » ne te semble même pas être un job. C'est le symptôme classique du [[E-Myth Revisited (Michael Gerber)|technicien]] : la machine occupe tout l'écran, la construction de la machine devient invisible.
+
+### Tes 6 casquettes déclarées (toutes à rendre)
+
+| # | Casquette (tes mots) | Si tu disparais 30 j, qu'est-ce qui casse ? | Repreneur cible | Échéance |
+|---|---|---|---|---|
+| 1 | **Recrutement clippers** (Discord, IG, Telegram, formulaire) | Le pipeline s'assèche, l'attrition n'est plus compensée | Toi + IA cet été → **responsable acquisition/team leader** | Sept.-oct. |
+| 2 | **Management clippers** (onboarding, création IG/2FA, formation, coaching, questions) | Les nouveaux stagnent, les questions s'empilent, les comptes ne se créent plus | **5 Loom + FAQ IA** (questions) dès cette semaine → **chefs de pods** (coaching) | Loom : 17 juil. · Chefs : sept. |
+| 3 | **Structure marketing** (liens bio, tracking, contenu, Drive) | Rien ne casse vite, mais plus personne ne répare (liens morts, tracking faux) | **SOP + Rianah/team leader ops** | Août |
+| 4 | **Feed interne MYM** (programmer 1 mois/créa, stratégie + push) | Le canal gratuit MYM s'éteint en ~4-6 semaines | La stratégie est déjà figée ([[Playbook trafic interne MYM (5 créatrices)]]) → **exécution = Emma/VA formé** | Août |
+| 5 | **SFS programmation OF + MYM** | Les SFS s'arrêtent = ton meilleur revenu/clic disparaît | **Rianah** (déjà décidé, [[Sprint été - croissance sans moi|sprint]]) — les 2 mois programmés le 15 juil. la couvrent | ✅ Mardi 15 |
+| 6 | **Paiements** (chatteurs crypto les 1er/15, factures créatrices Wio les 1er/15) | Personne n'est payé = confiance détruite en 1 cycle | **Préparation déléguée** (ops de confiance prépare les batchs) + **TA validation** (tu restes le signataire — 30 min 2×/mois, incompressible et c'est sain) | Préparation : sept. |
+
+Lecture : les casquettes 3-4-5 sont les plus proches d'être rendues (SOP existantes). La 2 se coupe en deux : la partie *répétable* (onboarding, 2FA, questions) part cette semaine en Loom+FAQ ; la partie *coaching* attend les chefs de pods. La 1 est la dernière à partir (c'est la contrainte actuelle : tu dois d'abord la résoudre TOI, puis la systématiser). La 6 ne part jamais complètement — un fondateur qui délègue la signature des paiements sans contrôle se fait plumer ([[Espérance mathématique et asymétries|risque asymétrique]]).
+
+### Les casquettes que tu n'as PAS listées (les tiennes pour de vrai)
+
+| # | Casquette invisible | Pourquoi c'est TON job |
+|---|---|---|
+| 7 | **Recrutement & closing des créatrices** | Ta zone Production ([[Buy Back Your Time (Dan Martell)|DRIP]]) — c'est LE but de toute la délégation : te libérer pour signer les 10 suivantes |
+| 8 | **Deals & relations clés** (Judith/MYM, Maxence, négos type logement) | Le capital relationnel ne se délègue pas — les slots carrousel et le partenariat 50/50 reposent sur TOI |
+| 9 | **Stratégie & allocation du capital** (pricing, budgets, ordre de montée, cut-ou-garde Amanda, grille de rému) | Celui qui alloue les ressources EST le fondateur ([[Scaling Roadmap appliquée à LTP]]) |
+| 10 | **Culture & standards** (ce qu'on tolère, ce qu'on célèbre, qui on garde) | [[Leila Hormozi - doctrine opérations et management|Leila]] : la culture est le seul système que le fondateur ne peut pas sous-traiter |
+| 11 | **Ton moteur** (santé, énergie, deep work) | Non délégable par définition — [[Protocole santé entrepreneur (Dubaï)]] + [[Pôle Deep Work & The One Thing]] |
+
+**Le total : 11 casquettes, 6 à rendre, 5 à garder.** Le test du 21 septembre mesure exactement ça : combien des casquettes 1-6 ont tourné 8 semaines sans toi. Revue journalisée dans [[Journal de coaching]].
