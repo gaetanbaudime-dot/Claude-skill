@@ -30,22 +30,25 @@ Chaque cluster reçoit ses **pages piliers** (5-6 pages denses, interconnectées
 
 La demande "1000 références par sujet" est traitée comme un objectif de long terme : ce run pose l'architecture et les piliers ; chaque session ultérieure densifie un cluster (30-40 pages/session, voir `Debrief.md` du pilote pour les coûts et la méthode multi-agent).
 
-## Statut des clusters
+## Statut des clusters (mis à jour 2026-07-13)
+
+> [!info] Les 11 clusters de bibliothèque sont livrés. Le vault a changé de phase : de « poser la bibliothèque » à « piloter le business sur les vraies données ». Le travail actif s'est déplacé vers `95-Vie perso/`, `96-Opérations LTP/`, `97-Plan Maître/` et `98-Rapports/` (voir [[Debrief-Production]], section « Suite 13/07 »).
 
 | Cluster | Piliers prévus | Statut |
 |---|---|---|
 | Biais cognitifs | 40 pages | ✅ terminé (pilote) |
-| Marketing | Offre, Acquisition, Copywriting, Tunnel de conversion, Rétention et LTV, Positionnement | ce run |
-| Finance | Unit economics, Trésorerie, Pricing, Marges, Lecture des états financiers | ce run |
-| OFM | Modèle d'agence, Acquisition de modèles, Chatting, Trafic, Risques légaux et éthiques | ce run |
-| Santé | Sommeil, Nutrition, Entraînement, Stress et récupération, Énergie et productivité | ce run |
-| Décision business | Cadres de décision, Coût d'opportunité, Espérance et asymétries, Vitesse vs justesse, Pré-mortem | ce run |
-| Investissement | Intérêts composés, Allocation d'actifs, Bourse indicielle, Immobilier, Psychologie de l'investisseur | ce run |
-| Recrutement | Scorecard, Sourcing, Entretien structuré, Onboarding, Erreurs de casting | ce run |
-| Management humain | Motivation, Feedback, Délégation, Culture, Rituels de management | ce run |
-| Scaling | Systèmes et process, Théorie des contraintes, Effet de levier, Documentation, Équipe A-players | ce run |
-| Alex Hormozi | Alex Hormozi, Grand Slam Offer, Équation de valeur, Core Four (leads), Philosophie volume et compétences | ce run |
-| 00-Contexte | Profil, Projets, Insights, Journal de coaching | structure + templates (à nourrir par l'utilisateur) |
+| Marketing | Offre, Acquisition, Copywriting, Tunnel de conversion, Rétention et LTV, Positionnement | ✅ livré |
+| Finance | Unit economics, Trésorerie, Pricing, Marges, Lecture des états financiers | ✅ livré |
+| OFM | Modèle d'agence, Acquisition de modèles, Chatting, Trafic, Risques légaux et éthiques | ✅ livré |
+| Santé | Sommeil, Nutrition, Entraînement, Stress et récupération, Énergie et productivité | ✅ livré |
+| Décision business | Cadres de décision, Coût d'opportunité, Espérance et asymétries, Vitesse vs justesse, Pré-mortem | ✅ livré |
+| Investissement | Intérêts composés, Allocation d'actifs, Bourse indicielle, Immobilier, Psychologie de l'investisseur | ✅ livré |
+| Recrutement | Scorecard, Sourcing, Entretien structuré, Onboarding, Erreurs de casting | ✅ livré |
+| Management humain | Motivation, Feedback, Délégation, Culture, Rituels de management | ✅ livré |
+| Scaling | Systèmes et process, Théorie des contraintes, Effet de levier, Documentation, Équipe A-players | ✅ livré |
+| Alex Hormozi | Alex Hormozi, Grand Slam Offer, Équation de valeur, Core Four (leads), Philosophie volume et compétences | ✅ livré |
+| **Livres** | Who, Buy Back Your Time, E-Myth, The One Thing, Deep Work, Principles, Brunson, Leila Hormozi | ✅ ajouté (hors plan initial) |
+| 00-Contexte | Profil, Projets, Insights, Journal de coaching | ✅ **nourri en données réelles** (roster, CA MYM/OF, 3 comptes bancaires, 126k messages, équipe) — [[LTP Models]] réécrit sur les vrais chiffres |
 
 ## Règles héritées du pilote
 

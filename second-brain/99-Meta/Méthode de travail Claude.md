@@ -60,6 +60,16 @@ Le vault arrive dans Obsidian via le plugin **Obsidian Git** (auto-pull). Deux r
 - **Committer/pousser par unité logique** (une page ou un lot cohérent), pas en un seul gros commit de fin — le vault arrive au fil de l'eau et le run survit aux coupures.
 - **Vérifier qu'Obsidian pull la BONNE branche** : le travail vit sur `claude/second-brain-execution-qo4gb2`. Si ton Obsidian suit `main`, tu ne vois rien arriver → soit tu configures Obsidian Git sur la branche de travail, soit (recommandé quand un lot est validé) **on fusionne la branche dans `main`** pour simplifier la synchro (à faire sur ta demande explicite, jamais sans). En cas de conflit de pull, `git pull` avec stratégie `-X theirs` sur le vault côté Obsidian est généralement sûr puisque la source de vérité est le repo.
 
+## Leçons de terrain (durables, issues des debriefs)
+
+Ajoutées à la skill parce qu'elles ont coûté une vraie erreur ou un aller-retour — elles priment sur l'intuition :
+
+1. **La donnée réelle bat le savoir générique.** Avant toute analyse business, réclamer tes vrais chiffres (exports, dashboards, relevés). Ton analyse de TES données vaut dix deep research marché ([[Croisement des deep research marché OFM]]). Un chiffre de marché générique n'est jamais cité comme un fait.
+2. **Ne jamais juger un actif sur un seul canal.** Une créatrice faible sur MYM peut être n°1 sur OF (erreur Amanda, [[Journal de coaching|journalisée]]). Croiser tous les canaux avant « couper/garder ».
+3. **Artefacts externes fragiles → recette manuelle.** Google Sheet / xlsx généré casse facilement (formules, locale FR, mobile). Mieux vaut une recette courte que tu exécutes toi-même ; les chiffres sensibles restent dans TON Drive, hors repo.
+4. **Multi-agent = un gros jeu de données séparable** (1 agent = 1 relevé bancaire), pas de la rédaction de pages.
+5. **Mesurer, ne pas promettre** : mots, fantômes, PII se vérifient par script avant commit.
+
 ## Faire évoluer la méthode
 
 Quand une session révèle une meilleure façon de faire (une convention, un garde-fou, une préférence de style), l'ajouter ICI **et** dans le SKILL.md **et**, si c'est une règle permanente, dans le `CLAUDE.md`. La méthode est vivante : elle se densifie comme le reste du vault. Les décisions de méthode importantes se journalisent aussi dans [[Journal de coaching]].

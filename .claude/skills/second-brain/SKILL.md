@@ -57,7 +57,8 @@ Gaëtan a autorisé le contenu sensible dans ce repo GitHub **à condition d'ali
 - **Créatrices : nom de scène/prénom d'usage uniquement** — jamais de nom légal, jamais de handle de compte réel (pas de @handle MYM/IG/OF dans le vault ; rôles ou prénoms d'usage à la place).
 - **Équipe : prénoms seuls** (Maxence, Emma, Rianah, Maxime, Judith…).
 - **Jamais** : téléphones, emails, adresses exactes, numéros de contrats/licences, IDs de sheets/docs, montants de comptes bancaires perso non déjà établis.
-- **Jamais de raw exports commités** (exports claude.ai, zips, xlsx de candidatures…) — on distille dans le scratchpad, on supprime, seule la synthèse aliasée entre au vault.
+- **Fans** : jamais de liste de noms de fans dans le vault. Beaucoup de « pseudos » de fans sont en réalité des noms réels complets ; couplés à de la dépense sur contenu adulte = risque RGPD/atteinte réel. Le lookup pseudo↔nom réel d'un fan reste dans l'outil ops (Infloww), jamais commité — même si Gaëtan dit « ce sont des pseudos ».
+- **Jamais de raw exports commités** (exports claude.ai, zips, xlsx de candidatures, relevés bancaires…) — on distille dans le scratchpad, on supprime, seule la synthèse aliasée entre au vault.
 - **Scan avant commit** : `grep -rniE "@gmail|@outlook|\+971|\+33[0-9]|\b0[67][0-9]{8}\b" <fichiers modifiés>` + vérification visuelle des noms/handles.
 
 ## 5. Le process de session (comment livrer)
@@ -79,6 +80,16 @@ print('PHANTOMS:', sorted(set(bad)) if bad else 'NONE')"
 5. **Scan sécurité** (section 4), puis **commit en français** (message descriptif : quoi + pourquoi) et **push** sur la branche de travail avec retry backoff (2s/4s/8s/16s).
 6. **Réponse chat** : verdict → ce qui a changé → flags honnêtes → prochaine action proposée. Ne jamais annoncer un push non vérifié.
 
-## 6. Le contexte business minimal (pour ne pas repartir de zéro)
+## 6. Leçons de terrain (durables — issues des debriefs de production)
+
+Retenues parce qu'elles ont coûté un aller-retour ou une erreur réelle. Elles priment sur l'intuition :
+
+1. **La donnée réelle bat le savoir générique — toujours.** Avant d'écrire une analyse business, réclame ou cherche les vrais chiffres de Gaëtan (exports, dashboards, relevés). Une analyse de SES données vaut dix deep research « marché OFM ». Un chiffre de marché générique n'est **jamais** cité comme un fait : `to-verify` obligatoire (cf. `98-Rapports/Croisement des deep research marché OFM.md`).
+2. **Ne juge jamais un actif sur un seul canal.** Une créatrice faible en LTV MYM peut être n°1 sur OF. Croise TOUS les canaux avant de trancher « couper / garder » (erreur Amanda, journalisée).
+3. **Artefacts externes fragiles → recette manuelle.** Pour tout ce qui vit hors du repo (Google Sheet, xlsx), un fichier généré casse facilement (base64 tronqué, formules GOOGLEFINANCE qui sautent à l'import, locale FR qui lit `0.25` comme du texte). Préfère une **recette courte que Gaëtan exécute chez lui** ; les chiffres sensibles restent dans SON Drive, jamais dans le repo. Sur du markdown mobile, éviter les gros tableaux mis en forme (ils cassent la synchro).
+4. **Multi-agent = un jeu de données lourd et séparable, pas de la rédaction.** Le bon usage : 1 agent = 1 relevé/1 dataset à éplucher en parallèle, synthèse fusionnée ensuite. Mauvais usage : « écris-moi 3 pages » (le fais toi-même, tu tiens le contexte).
+5. **Mesure, ne promets pas.** Le nombre de mots, l'absence de fantômes, le PII : ça se vérifie par script avant commit, ça ne s'affirme pas. Pages 500-1200 mots, denses.
+
+## 7. Le contexte business minimal (pour ne pas repartir de zéro)
 
 Le hub est `00-Contexte/LTP Models.md` (à lire en premier). En bref : agence OFM co-fondée avec Maxence (50/50 profit, charges partagées, lui = chatting, Gaëtan = marketing/trafic/recrutement). Mentor : Maxime (cadre = théorie des contraintes + LTV avant trafic). Roster ~9 créatrices-plateformes, LTV 1,7-55 €. Marge boîte ≈ 35 % du CA (50 % part agence − 15 % chatting). Équipe : Emma (Creator Success Manager), Rianah (VA), clippers FR en recrutement (200 € fixe + 0,50 €/sub OF). Absent du 21 juillet au 21 septembre 2026 (sprint « croissance sans moi »). Les plans actifs vivent dans `97-Plan Maître/`.
