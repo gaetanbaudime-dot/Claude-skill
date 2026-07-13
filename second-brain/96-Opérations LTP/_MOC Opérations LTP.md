@@ -31,6 +31,15 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 - [[Playbook trafic interne MYM (5 créatrices)]] : la SOP quotidienne (5 publics/jour, stories, règle publique/privé), le test A/B sur 5 créatrices, le tableau de bord (KPI roi = CA net/post public), et le diagnostic du rapport Judith (deal juillet 20k, goulots part du trafic externe + attractivité du profil). Le pourquoi : [[Stratégie trafic interne MYM]].
 
+## Pôle chatting (Maxence)
+
+- [[SOP chatting anti-churn]] : les 4 séquences (accueil + 1er PPV < 48 h, vie du fan, win-back, clonage du top 5), les 6 KPI hebdo, l'éthique et le flag CGU. **Le levier n°1 confirmé par les données.**
+
+## Pôle finances
+
+- [[SOP clôture mensuelle avec Maxence]] : le calcul du 1er du mois en 3 couches (P&L agence → allocations → distribution), ce qui remplace le calcul WhatsApp.
+- [[Suivi trésorerie quotidien]] : les 3 soldes chaque matin, les seuils de décision recrutement.
+
 ## Pôle clipping
 
 - [[Reporting clippers]] : le tableau individuel (BAN / IG actifs / FB actifs / cadence) pour piloter à distance.
@@ -38,8 +47,8 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## Ancrage vault
 
-Cadres appliqués : [[Délégation]], [[Effet de levier]], [[Théorie des contraintes]], [[Coût d'opportunité]], [[Documentation et SOP]], [[Systèmes et process]], [[Scorecard et définition de poste]]. Garde-fou : [[Risques légaux et éthiques de l'OFM]]. Rattachement stratégique : [[Sprint 90 jours]] (côté trafic).
+Cadres appliqués : [[Délégation]], [[Effet de levier]], [[Théorie des contraintes]], [[Coût d'opportunité]], [[Documentation et SOP]], [[Systèmes et process]], [[Scorecard et définition de poste]]. Garde-fou : [[Risques légaux et éthiques de l'OFM]]. Rattachement stratégique : [[Sprint été - croissance sans moi]] (côté trafic).
 
 ## À densifier lors des prochains runs
 
-SOP chatting (pôle Maxence), SOP onboarding créatrice, SOP recrutement clippeurs, profils de tournage par créatrice, playbook trends US par niche.
+SOP onboarding créatrice, SOP recrutement clippeurs, profils de tournage par créatrice, playbook trends US par niche. (SOP chatting : ✅ faite le 13/07.)

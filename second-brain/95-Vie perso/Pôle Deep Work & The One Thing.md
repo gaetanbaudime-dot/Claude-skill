@@ -49,7 +49,7 @@ La question de Gary Keller, à te poser **chaque semaine et chaque jour** :
 
 ## Le lien avec le reste du vault
 
-Ce pôle est le **pendant perso** de ta sortie de l'opérationnel : [[Se licencier de son propre poste]] te retire des 6 casquettes, ce pôle décide quoi faire du temps gagné. Il s'appuie sur ton [[Protocole santé entrepreneur (Dubaï)|moteur]] (le deep work sans sommeil ni énergie est un moteur sans carburant — casquette n°11) et sert directement la [[Scaling Roadmap appliquée à LTP|roadmap]] : le fondateur qui protège son travail profond est celui qui construit la machine au lieu de la faire tourner à la main. Théorie complète : [[Deep Work (Cal Newport)]] et [[The One Thing (Gary Keller)]].
+Ce pôle est le **pendant perso** de ta sortie de l'opérationnel : [[Se licencier de son propre poste]] te retire des 6 casquettes, ce pôle décide quoi faire du temps gagné. Il s'appuie sur ton [[Protocole santé entrepreneur (Dubaï)|moteur]] (le deep work sans sommeil ni énergie est un moteur sans carburant — casquette n°11) et sert directement la [[Plan Maître 500K|roadmap]] : le fondateur qui protège son travail profond est celui qui construit la machine au lieu de la faire tourner à la main. Théorie complète : [[Deep Work (Cal Newport)]] et [[The One Thing (Gary Keller)]].
 
 ## Prochaine action
 

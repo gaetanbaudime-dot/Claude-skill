@@ -41,7 +41,7 @@ liens_forts: ["[[Recruter et déléguer 20-30 marketeurs (playbook)]]", "[[Réte
 - La méthode : [[Buy Back Your Time (Dan Martell)]] (Replacement Ladder, Camcorder Method, 1-3-1, 10-80-10).
 - Le plan : [[Se licencier de son propre poste]] (l'ordre des 6 casquettes à rendre).
 - La délégation d'Emma : [[Méthode de délégation - Emma (kit de passation)]].
-- Le rattachement stratégique : [[Scaling Roadmap appliquée à LTP]] (étape 5→6, le test de l'été).
+- Le rattachement stratégique : [[Plan Maître 500K]] (étape 5→6, le test de l'été).
 
 ## L'objectif chiffré (réaliste, pas fantasmé)
 

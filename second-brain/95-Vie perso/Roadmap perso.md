@@ -25,7 +25,7 @@ liens_forts: ["[[Plan Maître 500K]]", "[[Décision logement Dubaï]]", "[[Éner
 
 | Période | Perso | Business (rappel) |
 |---|---|---|
-| **Juillet (maintenant)** | Envoyer la négo logement à Najwa AVANT le 20 ; pré-visiter 1-2 studios de repli ; lancer le test meal prep si le temps | Lancer le [[Sprint 90 jours]] (chatter manager, matraquage Sophie), délégation [[Délégation Emma - Analyse et verdict|Emma]] |
+| **Juillet (maintenant)** | Envoyer la négo logement à Najwa AVANT le 20 ; pré-visiter 1-2 studios de repli ; lancer le test meal prep si le temps | Boucler la passation et lancer le [[Sprint été - croissance sans moi]], délégation [[Délégation Emma - Analyse et verdict|Emma]] |
 | **20 juil. → 20 sept.** | Absent l'été ; gérer la négo logement à distance ; expériences uniques ([[Finances perso - 14 leçons de la vingtaine|#14]]) | Systèmes qui tournent sans toi (le test de la [[Marketing Machine|non-dépendance au fondateur]]) |
 | **Sept. (retour)** | Décision logement finale (renégo / studio solo / pont Zac) avant le préavis ~22 sept. | Revue de gate du sprint |
 | **22 nov.** | Fin du bail → pont Zac 3 mois OU nouveau studio | Phase 2 (réplicabilité) |

@@ -5,61 +5,73 @@ cluster: "97-Plan Maître"
 statut: verified
 créé: 2026-07-07
 tags: [plan/scaling, contexte/business]
+liens_forts: ["[[Sprint été - croissance sans moi]]", "[[Se licencier de son propre poste]]", "[[Scaling Roadmap (10 étapes)]]", "[[Théorie des contraintes]]"]
 ---
 
-# Plan Maître : LTP de 35K à 500K€/mois
+# Plan Maître : LTP de ~30K à 500K€/mois, par étapes de scaling
 
-> [!tip] Document de tête du vault
-> Croisement du coaching de Maxime (roadmap 3 mois + appels, distillés dans [[LTP Models]] et [[Insights]]) avec les benchmarks marché 2025-2026. Tout le vault sert ce plan : chaque phase pointe vers ses pages théoriques et ses rapports. Exécution : [[Sprint 90 jours]].
+> [!tip] Verdict (réorganisé le 2026-07-13 : par étape, pas par mois)
+> Le plan tient en une phrase : **prouver que la machine tourne sans toi (étape 5→6, c'est l'été), puis optimiser l'économie unitaire (étape 6, l'automne), puis déléguer le management (étape 7, l'hiver), puis multiplier (2027)**. Il est organisé **par étapes de scaling avec gates chiffrés**, pas par calendrier — les contraintes bougent tout le temps (tu l'as dit toi-même), mais un gate reste vérifiable quel que soit le mois où tu le passes. Trois pages seulement dans ce dossier : **cette page = le OÙ et le QUAND structurel** · [[Sprint été - croissance sans moi]] = le COMMENT des 8 prochaines semaines · [[Se licencier de son propre poste]] = le QUI (te sortir des casquettes). Tout le reste du vault sert ces trois pages.
 
-## La thèse (Maxime, confirmée par le marché)
+## La thèse (Maxime, confirmée par tes données)
 
-**La LTV avant le trafic.** Doubler la LTV = doubler le trafic gratuitement ; scaler du trafic sur une économie cassée industrialise la fuite ([[Rétention et LTV]], [[Théorie des contraintes]]). Le marché confirme : les opérations top-tier convertissent 30-60% des nouveaux abonnés en premier PPV sous 7 jours (le moment de levier n°1 du cycle fan), tiennent un churn de 15-25% contre 40-60% pour la longue traîne, et atteignent des LTV de 50-500$/fan en mid-tier[^1]. Ton LTV cible de 15€ est un plancher de réparation, pas une ambition : Chloé prouve déjà ~46-51€/fan sur MYM payant.
+**La LTV avant le trafic.** Doubler la LTV = doubler le trafic gratuitement ; scaler du trafic sur une économie cassée industrialise la fuite ([[Rétention et LTV]], [[Théorie des contraintes]]). Tes propres chiffres le confirment brutalement : **48 % du CA MYM = médias privés, ~90 % du CA OF = messages/PPV** — c'est le chatting qui transforme les subs en euros, et 5 chatteurs sur 104 font 50 % des ventes ([[Analyse dashboard OFM (13 juillet 2026)]]). Benchmarks marché qui cadrent l'ambition : conversion 30-60 % des nouveaux subs en premier PPV sous 7 jours, churn managé 15-25 % vs 40-60 %, LTV mid-tier 50-500 $/fan[^1]. La réponse opérationnelle est écrite : [[SOP chatting anti-churn]].
 
-**La contrainte actuelle n'est pas le trafic, c'est la supervision du chatting.** Le chatting représente 70-80% du temps opérationnel d'une agence[^1] et ta structure n'a pas de couche de management (constat Maxime : c'est ce levier qui a doublé sa LTV en ~6 semaines). Toute heure investie ailleurs qu'au goulot est un mirage ([[Théorie des contraintes]]).
+## Où tu es sur les 10 étapes (diagnostic à jour 2026-07-13)
 
-## Le marché (état 2025-2026)
+La [[Scaling Roadmap (10 étapes)]] d'Hormozi = la théorie des contraintes appliquée au cycle de vie : **une contrainte dominante par étape, une condition de passage chiffrée**. Travailler sur la mauvaise étape = optimiser un non-goulot.
 
-OnlyFans a encaissé 7,2 Md$ de paiements fans en 2024 (+9%), reversé 5,8 Md$ aux créateurs, 4,6 M de comptes créateurs pour 377 M de comptes fans[^2]. Lecture stratégique : la plateforme croît mais la concurrence créateurs croît plus vite (+13% de créateurs pour +24% de fans) ; la moyenne créateur est à ~131$/mois, la valeur est dans le top 1% : **le métier d'agence est précisément de faire passer des créatrices de la moyenne au top percentile**, et une créatrice bien gérée rapporte 500-5000€/mois net à l'agence[^3]. Le modèle 500K est donc mathématiquement banal pour le marché (Maxime : 600K/mois), c'est une question d'exécution par paliers.
+| # | Étape | État LTP | Preuve |
+|---|---|---|---|
+| 0-3 | Improvise → Stabilize | ✅ Passées | ~30 k€/mois blended, LTV réparée (chatting Maxence), machine à contenu qui tourne |
+| 4 | Prioritize | ✅ En sortie | Chaque pôle a un propriétaire ([[Sprint été - croissance sans moi|les 5 pôles]]) ; tu restes le seul intégrateur |
+| 5 | **Productize** | 🔶 **TU ES ICI** | SOP écrites ([[SOP - Machine à contenu hebdomadaire]], [[Playbook trafic interne MYM (5 créatrices)]], [[Machine Instagram-Facebook en masse]], [[SOP chatting anti-churn]], [[SOP clôture mensuelle avec Maxence]]) — pas encore **prouvées sans toi** |
+| 6 | Optimize | ⏳ L'automne | Marges par créatrice-plateforme, coût/sub par pod, pricing ([[Playbook augmentation de prix (RAISE)]]) |
+| 7-8 | Categorize / Specialize | 🚫 Pas avant le test | Managers (chatter manager, chefs de pods) — on ne met pas un manager sur un process non prouvé |
+| 9 | Capitalize | Horizon 2027+ | Business vendable = celui qui grandit sans toi |
 
-## Les maths du 500K
+## Les maths du 500K (les paliers)
 
-Revenu agence = nb créatrices actives × revenu/créatrice × part agence. Trois chemins, le plan retient le mixte :
+Revenu agence = nb créatrices actives × revenu géré/créatrice × part agence (~40-50 %) :
 
-| Palier | Créatrices | Revenu géré moyen | Revenu agence (~40%) | Verrou à lever |
-|---|---|---|---|---|
-| Aujourd'hui | ~6 actives | ~15K€/créatrice (très inégal) | 35K€ | Supervision chatting |
-| Phase 1 → 60K | 5-6 concentrées | LTV réparée (Sophie, Maddie >800 subs) | 50-60K€ | Chatter manager + SFS |
-| Phase 2 → 120K | 8-10 | Playbook chatting documenté et réplicable | 100-120K€ | Machine de recrutement créatrices |
-| Phase 3 → 250K | 12-15 | Pods par créatrice, Gaëtan hors ops | 220-260K€ | Managers de pôles + canal agence (VEIL/L'EXPO) |
-| Phase 4 → 500K | 20-25 | ~50K€ gérés/créatrice top, mix Latina | 450-550K€ | Structure et cash ([[Trésorerie]]) |
+| Palier | Créatrices | Verrou à lever | Étape roadmap |
+|---|---|---|---|
+| Aujourd'hui ~30 k€ | ~6-9 actives, **2/3 du CA sur 2 têtes** | Capacité marketing (pods FR) + chatting anti-churn | 5 |
+| → 60 k€ | 5-6 concentrées, LTV tenue | Le test de l'été réussi + vagues de clippers | 5→6 |
+| → 120 k€ | 8-10 | Playbook onboarding créatrice réplicable (10 k€/mois en 90 j, 2 fois de suite) | 6 |
+| → 250 k€ | 12-15, pods par créatrice | Managers de pôles, toi ≤ 10 h/sem d'ops, canal agence propriétaire | 7 |
+| → 500 k€ | 20-25 | Structure managériale complète, marge nette ≥ 20 % tenue 3 mois, réserve 90 j | 8 |
 
-Chaque passage de phase a son **gate** : on ne monte pas tant que le critère n'est pas tenu 8 semaines (anti-[[Biais d'optimisme|planification fallacieuse]]).
+On ne monte pas tant que le gate n'est pas tenu **8 semaines** (anti-[[Biais d'optimisme|planification fallacieuse]]).
 
-## Les 4 phases
+## Les gates (chiffrés, vérifiables — c'est eux qui commandent, pas le calendrier)
 
-### Phase 1 (mois 1-3) : réparer l'économie unitaire → gate : LTV moyenne ≥ 15€ ET 2 créatrices > 800 subs/mois
-Le contenu exact est le [[Sprint 90 jours]] : embauche chatter manager (LE recrutement, [[Scorecard et définition de poste]]), supervision quotidienne (coaching, Discord par créatrice, bibliothèques de scripts, KPI par chatteur : Golden Ratio 2-3%, Unlock >30% OF), matraquage test 6 semaines sur Sophie avec critère de sortie écrit, SFS 1-2/semaine/créatrice (6-15x le revenu/clic d'Instagram), routage du roster (cut/volume-cash/réparable), renégociation Maxence AVANT de scaler ([[Journal de coaching]]).
+**5 → 6 · Le test de l'été (verdict au 21 septembre).** Les SOP ont produit **8 semaines consécutives sans intervention opérationnelle de ta part** : batchs contenu déposés, cadence pods tenue, SFS au rythme, **LTV maintenue pendant que le volume monte**, reporting dominical complet 8/8. Si un pôle a eu besoin de toi > 2 fois, sa SOP n'est pas finie : tu restes en 5. Détail d'exécution : [[Sprint été - croissance sans moi]].
 
-### Phase 2 (mois 3-8) : prouver la réplicabilité → gate : playbook onboarding qui amène une créatrice nouvelle à 10K€/mois en 90 jours, 2 fois de suite
-Documenter TOUT pendant la phase 1 ([[Documentation et SOP]] : le playbook chatting de Maxence, l'onboarding créatrice, les SOP clippers). Machine de recrutement créatrices : upsell path validé (chatting-only à commission réduite → confiance → full management, modèle Chloé), closing consultatif ([[Acquisition de créatrices]]). Pilote du pôle Latina en parallèle (salaire fixe, décision réversible, actionnable sans Maxence).
+**6 → 7 · L'optimisation (automne-hiver).** Coût/sub connu par pod, marge connue par créatrice-plateforme, pricing revu ([[Crazy 8 - augmenter la LTV]], [[Playbook augmentation de prix (RAISE)]]), non-rentables coupés, et la [[SOP clôture mensuelle avec Maxence|clôture mensuelle]] qui capitalise (réserve + coffre alimentés 3 mois de suite). Alors seulement, embaucher les managers a un sens.
 
-### Phase 3 (mois 8-15) : multiplier → gate : Gaëtan ≤ 10h/semaine d'opérations
-Pods par créatrice (clipper + chatteurs dédiés + manager), managers de pôles (Julien candidat côté clippers), [[Délégation]] par niveaux d'autonomie explicites, [[Rituels de management]] installés. Lancement du canal agence propriétaire (VEIL ou L'EXPO : l'actif qui survit aux départs de créatrices). Les outils back-office attendent cette phase (décision déjà actée, [[Insights]]).
+**7 → 8 · La multiplication (2027).** Toi ≤ 10 h/semaine d'opérations ([[Se licencier de son propre poste|les casquettes rendues]]), pods par créatrice avec chefs de pods, canal agence propriétaire lancé (l'actif qui survit aux départs de créatrices), onboarding créatrice prouvé 2 fois.
 
-### Phase 4 (mois 15-24) : l'échelle → gate : 500K tenus 3 mois avec marge nette ≥ 20%
-20-25 créatrices, mix commission/Latina, structure managériale complète, [[Culture et valeurs|culture]] écrite (ce que tu tolères à 6 créatrices devient ta culture à 25). Vigilance cash : la croissance consomme du BFR ([[Trésorerie]]), et le secteur vit sous risque processeur/plateforme permanent → réserve 90 jours de charges, diversification plateformes (MYM payant = 10-50x plus efficace par fan, capturer systématiquement).
+## La lecture par levier (qui possède quoi)
 
-## Les 5 risques qui tuent le plan (pré-mortem intégré)
+- **Trafic** : pods FR + SFS + trafic interne MYM → Emma, Rianah, clippers ([[Machine Instagram-Facebook en masse]], [[Playbook trafic interne MYM (5 créatrices)]]).
+- **Chatting / LTV** : le garde-fou n°1 → Maxence ([[SOP chatting anti-churn]]).
+- **Organisation** : recruter, onboarder, te retirer → toi, en te licenciant casquette par casquette ([[Pôle recrutement, management & délégation]], [[Se licencier de son propre poste]]).
+- **Cash** : clôture mensuelle qui capitalise + suivi quotidien + fiscalité propre → toi ([[SOP clôture mensuelle avec Maxence]], [[Suivi trésorerie quotidien]], [[Opération fiscalité propre (France → Dubaï)]]).
 
-1. **Ban/gel plateforme ou processeur** : le risque existentiel du secteur ([[Risques légaux et éthiques de l'OFM]]) → conformité irréprochable, 70-80% TikTok, Facebook Pages, réserve cash, jamais un seul point de défaillance.
-2. **La renégociation Maxence échoue ou pourrit** : l'asymétrie de coûts devient insoutenable en phase 2+ → la traiter en phase 1, préparée au [[Pré-mortem et débiaisage business|pré-mortem]], pas en crise.
-3. **Scaler le trafic avant la LTV** : la tentation permanente → les gates sont là pour ça.
-4. **Départ d'une créatrice majeure** (Chloé = 41% du revenu) : concentration dangereuse → le gate phase 2 est aussi un dé-risquage, et le canal agence (phase 3) est l'assurance structurelle.
-5. **Toi** : sommeil, récupération, équilibre en reconstruction → [[_MOC Santé|cluster Santé]] ; le plan tient 24 mois, pas 24 jours ([[Philosophie du volume et des compétences|intensité soutenable]]).
+## Les 5 risques qui tuent le plan (pré-mortem)
 
-## Sources marché
+1. **Ban/gel plateforme ou processeur** — le risque existentiel du secteur ([[Risques légaux et éthiques de l'OFM]]) → conformité, diversification des surfaces, réserve 90 jours ([[SOP clôture mensuelle avec Maxence|le coffre boîte]]).
+2. **Concentration du roster** — ~2/3 du CA sur 2 têtes, la config exacte de l'effondrement Georgina → la diversification est une assurance-vie, pas de la croissance ([[Analyse dashboard OFM (13 juillet 2026)]]).
+3. **Scaler le trafic avant que le chatting absorbe** — la tentation permanente → la LTV est le garde-fou qui ralentit le trafic, jamais l'inverse.
+4. **La renégociation Maxence** mal traitée — l'asymétrie de coûts devient insoutenable en phase de croissance → préparée au [[Pré-mortem et débiaisage business|pré-mortem]], jouée avec des données ([[Journal de coaching]]).
+5. **Toi** — sommeil, récupération, et **l'anti-pattern documenté** : tu aimes ouvrir des chantiers (VEIL, L'EXPO, pôle Latina, TikFusion…). Une étape à la fois : chaque nouveau chantier se juge à UNE question — *« est-ce que ça rend la livraison plus réplicable sans moi ? »* Sinon → [[Journal de coaching|journaliser]] et reporter ([[Coût d'opportunité]], [[_MOC Santé|le moteur]]).
 
-[^1]: Benchmarks agences 2025-2026 : LTV 50-500$/fan mid-tier et 300-3000$ top-tier, conversion 1er PPV 30-60% à 7 jours, churn 15-25% vs 40-60%, chatting 70-80% du temps opérationnel, revenu agence 500-5000€/mois/créatrice (synthèse CreatorHero, Desirely, Aruna Talent, everything-pr, 2025-2026).
+## Le marché (contexte de fond, pas source de décision)
+
+OnlyFans 2024 : 7,2 Md$ de paiements fans (+9 %), 4,6 M créateurs pour 377 M comptes fans — la plateforme croît, la concurrence créateurs croît plus vite, la valeur est dans le top 1 %[^2]. Le métier d'agence est précisément de faire passer des créatrices de la moyenne au top percentile. Le modèle 500K est banal pour le marché (Maxime : ~600 k€/mois) — c'est une question d'exécution par gates, pas de marché.
+
+## Sources
+
+[^1]: Benchmarks agences 2025-2026 : LTV 50-500 $/fan mid-tier, conversion 1er PPV 30-60 % à 7 j, churn 15-25 % vs 40-60 %, chatting 70-80 % du temps opérationnel (synthèse CreatorHero, Desirely, Aruna Talent, everything-pr, 2025-2026) ; recoupés par [[Croisement des deep research marché OFM]] et les données internes du 13/07.
 [^2]: Fenix International, résultats fiscaux 2024 (Variety, 2025) : 7,22 Md$ brut, 5,80 Md$ reversés, 4,63 M créateurs, 377,5 M comptes fans.
-[^3]: Structures et commissions d'agences : 30-50% full-service, rôles opérationnels et couverture 16h+/jour avec réponse <15 min (Supercreator, Fanbase Accelerator, 2025).

@@ -67,7 +67,7 @@ Le pod **clippe ET poste** (accès Opus Clip fourni aux FR ; les MG démarrent a
 | Subs attribués | > 0 et LTV normale | Tracking par compte |
 | Taux de ban du batch | < 25 % | Reporting dimanche |
 
-**Verdict** (~31 juil.-5 août, depuis la France) : seuils atteints → on continue sur téléphones MG (économie réelle) ; seuils ratés → bascule **Geelark + proxies FR** pour les MG (la ligne budget était prévue) ; la **ferme de téléphones physiques** reste l'option de septembre, à construire en France ([[Semaine de passation (14-20 juillet)|hors périmètre de la semaine de départ]]). Ne pas prolonger un test raté « pour voir » : 20 jours suffisent, chaque semaine de plus coûte du volume sur les créatrices ([[Coût d'opportunité]]).
+**Verdict** (~31 juil.-5 août, depuis la France) : seuils atteints → on continue sur téléphones MG (économie réelle) ; seuils ratés → bascule **Geelark + proxies FR** pour les MG (la ligne budget était prévue) ; la **ferme de téléphones physiques** reste l'option de septembre, à construire en France ([[Sprint été - croissance sans moi|hors périmètre de la semaine de départ]]). Ne pas prolonger un test raté « pour voir » : 20 jours suffisent, chaque semaine de plus coûte du volume sur les créatrices ([[Coût d'opportunité]]).
 
 ## Le warmup (les 3 semaines qui décident de la durée de vie)
 

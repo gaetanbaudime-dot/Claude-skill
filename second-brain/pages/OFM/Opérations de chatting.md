@@ -38,6 +38,10 @@ Les lignes de conduite qui séparent l'opération défendable de l'indéfendable
 
 La controverse high est structurelle et il faut la regarder en face : même « propre », le chatting vend une intimité perçue fabriquée en équipe, et chacun placera différemment la frontière entre théâtre commercial accepté (comme le ghostwriting ou le service client au nom d'une marque personnelle) et tromperie relationnelle. L'arrivée de l'IA déplace encore la question (des agents conversationnels à persona rendent le volume infini et la frontière plus floue), et la régulation comme les plateformes bougent sur le sujet ; quiconque opère ici doit suivre l'évolution réglementaire de près, voir [[Risques légaux et éthiques de l'OFM]].
 
+## Application LTP (à jour 2026-07-13)
+
+Chez LTP, cette théorie est devenue une SOP opérationnelle : la **[[SOP chatting anti-churn]]** (pôle Maxence) — accueil et premier PPV < 48 h, win-back avant/après désabo, clonage des scripts du top 5 chatteurs, 6 KPI hebdo. Les données qui la justifient : 48 % du CA MYM en médias privés, ~90 % du CA OF en messages, top 5 chatteurs = 50 % des ventes ([[Analyse dashboard OFM (13 juillet 2026)]]).
+
 ## Liens et implications
 
 Le chatting concentre l'économie du [[Modèle d'agence OFM|modèle]] et ses risques ; il applique [[Copywriting et persuasion]], [[_MOC Management humain|Management]] (équipes, qualité, rémunération) et [[Documentation et SOP]]. KPI et garde-fous opérationnels dans `98-Rapports/Rapport OFM`.

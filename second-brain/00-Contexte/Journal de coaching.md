@@ -22,6 +22,21 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 (soir) — Opération fiscalité propre : tout à Dubaï au 31/12
+- **Décision** : fermer la France une bonne fois — TRC déposé, flux MYM/OF re-routés vers la FZ LLC AVANT toute fermeture, SAS liquidée (le Qonto prouve qu'elle n'est **pas** clôturée : OF la créditait encore en févr. 2026), micro radiée, comptes perso FR fermés en dernier. Budget ~1 800-2 600 €. Plan complet : [[Opération fiscalité propre (France → Dubaï)]].
+- **Découverte Qonto (4e compte analysé)** : même pattern que les 3 autres — transit, jamais de rétention (solde max ~8,8 k€ en 3 ans). Et surtout : **un système Profit First existait sur le Qonto en 2024-2025** (sous-comptes Taxes/Profit/Owner Pay) et a été perdu dans le déménagement à Dubaï.
+- **Prédictions (écrites avant l'issue)** : TRC déposé + micro radiée **avant le 20/07** (revue au départ) ; SAS radiée **avant le 31/10** ; zéro flux business sur un compte perso FR **au 30/09** (revue au retour). Si le TRC n'est pas déposé avant le vol, il glissera à novembre — c'est le test « 45 minutes maintenant vs 4 mois de retard ».
+
+### 2026-07-13 (soir) — SOP clôture mensuelle : le calcul WhatsApp remplacé
+- **Constat sur juin** (calcul du 01/07) : 14 890 € de commissions, 9 416 € de profit, **0 € capitalisé** — perso déduit avant le split, 0 % retenu en boîte, ~3 500 € de dépenses non détaillées, ~2,4 % de frais de change subis.
+- **Décision** : clôture en 3 couches le 1er du mois (P&L ligne à ligne → **réserve impôts 5 % + coffre boîte 10 % avant distribution** → 30 % de la part perso au coffre intouchable). La couche « dépenses perso partagées » meurt avec la colocation. Sheet partagé, plus de WhatsApp. [[SOP clôture mensuelle avec Maxence]].
+- **⚠️ À vérifier cette semaine** : enregistrement Corporate Tax de la FZ LLC (pénalité 10 000 AED si tardif) + élection Small Business Relief (CA < 3 M AED → 0 % jusqu'à fin 2026).
+- **Prédiction (revue au 5 octobre)** : si la clôture 3 couches est appliquée les 1er août, 1er septembre et 1er octobre, le cumul capitalisé (réserve + coffre boîte + coffre perso) dépasse **7 000 €** — soit plus que tout ce qui a été capitalisé depuis la création de l'agence. Si elle n'est pas appliquée dès le 1er août à distance, elle ne le sera jamais (c'est le test de la SOP contre l'habitude).
+
+### 2026-07-13 (soir) — SOP chatting anti-churn écrite + Plan Maître resserré 6→3
+- **SOP chatting** ([[SOP chatting anti-churn]]) : 4 séquences (1er PPV < 48 h, vie du fan, win-back, clonage top 5), 6 KPI, propriétaire Maxence. **Condition d'existence : le créneau d'1 h avec Maxence avant le 20/07** pour poser les baselines — sinon c'est un document, pas un système. (La prédiction « cloner le top 5 > 20 chatteurs de plus » est déjà journalisée, revue 21/09.)
+- **Méthode vault** : 97-Plan Maître resserré de 6 à 3 pages (demande explicite : « moins de choses, plus cohérentes ») — [[Plan Maître 500K]] (stratégie **par étapes de scaling**, pas par mois : les contraintes bougent, les gates restent) + [[Sprint été - croissance sans moi]] (passation + 2 mois + règles) + [[Se licencier de son propre poste]] (organisation). Scaling Roadmap appliquée, Semaine de passation et Sprint 90 jours fusionnés dedans, tous les liens re-routés.
+
 ### 2026-07-13 — Audit finances perso (3 comptes, 5 ans) : le mécanisme du plafond identifié
 - **Diagnostic** (données, pas impression) : record absolu de trésorerie = **10 042 €** (pas 20k). Le mécanisme : pas de salaire fixe (ponction au feeling) + BNPL (achats au-dessus du cash) + « investissements » impulsifs (rafales crypto, stacks SaaS, formations) + pockets siphonnées (62 retraits). La conso de fond est raisonnable — **le problème est la rétention, pas la dépense**. Rapport complet : [[Analyse finances perso (13 juillet 2026)]].
 - **Décision — le système** : coffre intouchable (autre banque, friction) + **30 % de la part de profit virés le jour du partage, avant tout** + règle anti-investissement-impulsif (2 questions écrites : quelle contrainte ça lève ? payback ?) + BNPL soldé et interdit + suivi quotidien des 3 soldes (en place).

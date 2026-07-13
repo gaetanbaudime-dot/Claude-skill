@@ -2,14 +2,12 @@
 
 Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis les outils, puis la bibliothèque. Généré et maintenu par Claude, synchronisé Git↔Obsidian.
 
-## 🎯 L'action (commence ici)
+## 🎯 L'action (3 pages, réorganisé le 13/07 — moins de plans, mieux faits)
 
-- **[[Semaine de passation (14-20 juillet)]]** 🔥 : TA semaine, jour par jour, avant le vol du 21 — décisions tranchées (rému 200/100 + 0,50, paie hebdo lundi, Google Forms dimanche, appel de groupe, test targeting MG), et le test de réussite en 7 points.
-- **[[Plan Maître 500K]]** : la stratégie complète 35K → 500K€/mois, coaching Maxime croisé avec les benchmarks marché 2025-2026, 4 phases avec gates chiffrés, 5 risques en pré-mortem.
-- **[[Sprint été - croissance sans moi]]** : le plan des 2 mois d'absence (20 juil.-20 sept.) — LTV réparée, contrainte repassée côté trafic, les 5 pôles avec propriétaire/cible/garde-fou.
-- **[[Sprint 90 jours]]** : la phase 1 en actions datées, avec tableau de bord hebdomadaire et règles de sprint.
-- **[[Scaling Roadmap appliquée à LTP]]** : où en est le business sur les 10 étapes d'Hormozi (étape 5, Productize) et les conditions de passage chiffrées — le « quand structurel » du plan.
-- **[[Journal de coaching]]** : les décisions ouvertes (logement, chatter manager, Sophie, Jade, Georgina...), prédictions écrites, calibration.
+- **[[Sprint été - croissance sans moi]]** 🔥 : LE plan d'exécution — la semaine de passation (14-20/07) jour par jour, puis les 2 mois sans toi (6 pôles, reporting du dimanche, LTV en garde-fou), les 3 règles du sprint et le test de réussite du 20/09.
+- **[[Plan Maître 500K]]** : LA stratégie, organisée **par étapes de scaling avec gates chiffrés** (tu es en étape 5, Productize) — pas par mois, parce que les contraintes bougent mais les gates restent vérifiables. Inclut les maths des paliers, la lecture par levier et le pré-mortem.
+- **[[Se licencier de son propre poste]]** : le fil rouge organisationnel — rendre les casquettes une par une jusqu'à ce que l'agence grandisse sans toi.
+- **[[Journal de coaching]]** : les décisions et les prédictions datées, la calibration.
 
 ## 👤 Ton contexte (importé de claude.ai)
 
@@ -29,10 +27,12 @@ Le pendant personnel du plan business : environnement, nutrition, corps, finance
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique.
 - [[Pôle Deep Work & The One Thing]] : le système de focus — bloc profond quotidien sur la seule chose qui compte, le reste batché ou délégué.
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
+- [[Suivi trésorerie quotidien]] : les 3 soldes chaque matin (Google Sheet), les seuils de décision recrutement.
+- **[[Opération fiscalité propre (France → Dubaï)]]** 🧹 : le chantier de l'année — TRC, liquidation SAS, radiation micro, fermeture des comptes FR, re-routage des flux MYM/OF. Tout à Dubaï au 31/12.
 
 ## ⚙️ Les opérations LTP (96-Opérations LTP/)
 
-Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. **Pôle prioritaire** : [[Pôle recrutement, management & délégation]] (recruter 50 FR, les garder, te retirer). Aussi : [[_MOC Opérations LTP|la délégation à Emma]], la [[Machine Instagram-Facebook en masse|machine IG en pods]], le [[Playbook trafic interne MYM (5 créatrices)|trafic interne MYM]]. Le fil rouge du pôle : [[Se licencier de son propre poste]] — l'agence ne croît que quand elle cesse de dépendre de toi.
+Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. **Pôle prioritaire** : [[Pôle recrutement, management & délégation]] (recruter 50 FR, les garder, te retirer). Les deux SOP du 13/07 : la **[[SOP chatting anti-churn]]** (le levier n°1 — pôle Maxence) et la **[[SOP clôture mensuelle avec Maxence]]** (la clôture en 3 couches qui capitalise enfin). Aussi : [[_MOC Opérations LTP|la délégation à Emma]], la [[Machine Instagram-Facebook en masse|machine IG en pods]], le [[Playbook trafic interne MYM (5 créatrices)|trafic interne MYM]]. Le fil rouge du pôle : [[Se licencier de son propre poste]] — l'agence ne croît que quand elle cesse de dépendre de toi.
 
 ## 🛠️ Les outils (98-Rapports/)
 

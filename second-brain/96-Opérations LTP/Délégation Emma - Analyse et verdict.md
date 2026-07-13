@@ -74,4 +74,4 @@ Vraie difficulté, vraie solution : une couche **par créatrice** au-dessus du S
 
 ## Ce que ça débloque dans le Plan Maître
 
-Ce rôle est l'exécution côté trafic de la [[Sprint 90 jours|phase 1]] : il alimente les clippeurs, donc la portée IG/FB, donc les subs — mais **sur les créatrices dont la LTV est déjà saine**. Il prépare aussi la phase 3 ([[Plan Maître 500K]]) : Emma en Creator Success Manager est le prototype du "pod par créatrice" que tu multiplieras.
+Ce rôle est l'exécution côté trafic de la [[Plan Maître 500K|phase 1]] : il alimente les clippeurs, donc la portée IG/FB, donc les subs — mais **sur les créatrices dont la LTV est déjà saine**. Il prépare aussi la phase 3 ([[Plan Maître 500K]]) : Emma en Creator Success Manager est le prototype du "pod par créatrice" que tu multiplieras.

@@ -9,7 +9,7 @@ source_knowledge: internal
 sources_count: 1
 tags: [livre/systèmes, méthode/scaling, pont/ofm]
 créé: 2026-07-10
-liens_forts: ["[[Systèmes et process]]", "[[Documentation et SOP]]", "[[Scaling Roadmap appliquée à LTP]]", "[[Délégation Emma - Analyse et verdict]]"]
+liens_forts: ["[[Systèmes et process]]", "[[Documentation et SOP]]", "[[Plan Maître 500K]]", "[[Délégation Emma - Analyse et verdict]]"]
 liens_opposition: []
 ---
 
@@ -29,7 +29,7 @@ Tout entrepreneur porte trois personnages en conflit :
 - **Le Manager** (ordre, systèmes, planification).
 - **Le Technicien** (le faiseur, le présent, « laisse-moi le faire moi-même »).
 
-Chez la plupart, le Technicien mange 70 % du temps → le business plafonne à ce que le fondateur peut faire de ses mains. Ton enjeu : **basculer du Technicien vers l'Entrepreneur/Manager** — c'est exactement ton [[Scaling Roadmap appliquée à LTP|passage étape 4→5]] et la [[Délégation Emma - Analyse et verdict|délégation]].
+Chez la plupart, le Technicien mange 70 % du temps → le business plafonne à ce que le fondateur peut faire de ses mains. Ton enjeu : **basculer du Technicien vers l'Entrepreneur/Manager** — c'est exactement ton [[Plan Maître 500K|passage étape 4→5]] et la [[Délégation Emma - Analyse et verdict|délégation]].
 
 ## Le prototype de franchise (le cœur)
 

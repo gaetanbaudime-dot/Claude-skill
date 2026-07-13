@@ -5,7 +5,7 @@ cluster: "97-Plan Maître"
 statut: verified
 créé: 2026-07-12
 tags: [plan/délégation, plan/scaling, contexte/business]
-liens_forts: ["[[Buy Back Your Time (Dan Martell)]]", "[[E-Myth Revisited (Michael Gerber)]]", "[[Scaling Roadmap appliquée à LTP]]", "[[Sprint été - croissance sans moi]]"]
+liens_forts: ["[[Buy Back Your Time (Dan Martell)]]", "[[E-Myth Revisited (Michael Gerber)]]", "[[Plan Maître 500K]]", "[[Sprint été - croissance sans moi]]"]
 ---
 
 # Se licencier de son propre poste (pour que l'agence croisse)
@@ -77,7 +77,7 @@ Lecture : les casquettes 3-4-5 sont les plus proches d'être rendues (SOP exista
 |---|---|---|
 | 7 | **Recrutement & closing des créatrices** | Ta zone Production ([[Buy Back Your Time (Dan Martell)|DRIP]]) — c'est LE but de toute la délégation : te libérer pour signer les 10 suivantes |
 | 8 | **Deals & relations clés** (Judith/MYM, Maxence, négos type logement) | Le capital relationnel ne se délègue pas — les slots carrousel et le partenariat 50/50 reposent sur TOI |
-| 9 | **Stratégie & allocation du capital** (pricing, budgets, ordre de montée, cut-ou-garde Amanda, grille de rému) | Celui qui alloue les ressources EST le fondateur ([[Scaling Roadmap appliquée à LTP]]) |
+| 9 | **Stratégie & allocation du capital** (pricing, budgets, ordre de montée, cut-ou-garde Amanda, grille de rému) | Celui qui alloue les ressources EST le fondateur ([[Plan Maître 500K]]) |
 | 10 | **Culture & standards** (ce qu'on tolère, ce qu'on célèbre, qui on garde) | [[Leila Hormozi - doctrine opérations et management|Leila]] : la culture est le seul système que le fondateur ne peut pas sous-traiter |
 | 11 | **Ton moteur** (santé, énergie, deep work) | Non délégable par définition — [[Protocole santé entrepreneur (Dubaï)]] + [[Pôle Deep Work & The One Thing]] |
 

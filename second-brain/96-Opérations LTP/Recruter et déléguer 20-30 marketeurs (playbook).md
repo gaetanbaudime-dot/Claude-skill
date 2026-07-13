@@ -11,7 +11,7 @@ liens_forts: ["[[Équipe marketing - structure et rémunération (FR × MG)]]", 
 # Recruter et déléguer 20-30 marketeurs (le playbook)
 
 > [!tip] Verdict (objectif mis à jour 2026-07-12 : 50 Français, circuit unique)
-> C'est **ta contrainte n°1** ([[Scaling Roadmap appliquée à LTP|étape 5]]) : le nombre de personnes en marketing bloque à la fois le trafic ET le recrutement de créatrices. **Décision ALL IN FR** ([[Journal de coaching]]) : 1 annonce → 1 formulaire → 1 sheet → 1 entretien, objectif **50 Français signés cet été** (réaliste : 25-35 signés → 10-15 pods actifs à J+60 avec l'attrition normale). La séquence qui lève la contrainte : (1) **une scorecard par rôle** ([[Who (Geoff Smart & Randy Street)|Who]]), (2) le **sourcing par cooptation** (ton vrai goulot), (3) **filtrer vite** (screening 4 questions), (4) **onboarder par SOP filmées** ([[Buy Back Your Time (Dan Martell)|Camcorder Method]]), (5) **manager par le résultat via des chefs de pods** dès ~10 personnes actives. Les MG/Bénin = phase 2 (septembre, Geelark + proxy FR).
+> C'est **ta contrainte n°1** ([[Plan Maître 500K|étape 5]]) : le nombre de personnes en marketing bloque à la fois le trafic ET le recrutement de créatrices. **Décision ALL IN FR** ([[Journal de coaching]]) : 1 annonce → 1 formulaire → 1 sheet → 1 entretien, objectif **50 Français signés cet été** (réaliste : 25-35 signés → 10-15 pods actifs à J+60 avec l'attrition normale). La séquence qui lève la contrainte : (1) **une scorecard par rôle** ([[Who (Geoff Smart & Randy Street)|Who]]), (2) le **sourcing par cooptation** (ton vrai goulot), (3) **filtrer vite** (screening 4 questions), (4) **onboarder par SOP filmées** ([[Buy Back Your Time (Dan Martell)|Camcorder Method]]), (5) **manager par le résultat via des chefs de pods** dès ~10 personnes actives. Les MG/Bénin = phase 2 (septembre, Geelark + proxy FR).
 
 ## Pourquoi c'est LA chose à faire ([[The One Thing (Gary Keller)|the One Thing]])
 
@@ -58,7 +58,7 @@ La seule façon d'onboarder 20-30 personnes sans t'épuiser : une **bibliothèqu
 ## Étape 5 — Management par le résultat (au-delà de ~10 personnes)
 
 Tu ne gères pas 20-30 personnes en direct — sinon **tu redeviens le goulot** ([[E-Myth Revisited (Michael Gerber)|le technicien]]). La structure cible :
-- **2 chefs de pods** (1 FR, 1 MG) qui managent 8-12 marketeurs chacun → c'est ton étage *Leadership* de la [[Buy Back Your Time (Dan Martell)|Replacement Ladder]] et *Specialize* de la [[Scaling Roadmap appliquée à LTP|roadmap]].
+- **2 chefs de pods** (1 FR, 1 MG) qui managent 8-12 marketeurs chacun → c'est ton étage *Leadership* de la [[Buy Back Your Time (Dan Martell)|Replacement Ladder]] et *Specialize* de la [[Plan Maître 500K|roadmap]].
 - **Règle 1-3-1** : un problème remonté arrive avec 3 solutions + 1 reco. Tu valides, tu n'exécutes pas ([[Délégation|anti-singe]]).
 - **Rituel hebdo** : un seul tableau de bord le vendredi ([[Reporting clippers]], [[Sprint été - croissance sans moi|rituel du sprint]]), lu en 20 min depuis ton téléphone.
 - **Culture** ([[Leila Hormozi - doctrine opérations et management|Leila]]) : standards clairs, feedback direct et régulier, on coupe les C players (garder un C bloque la place d'un A).
@@ -67,7 +67,7 @@ Tu ne gères pas 20-30 personnes en direct — sinon **tu redeviens le goulot** 
 
 1. **Cette semaine** : écrire la scorecard marketeur-pod + l'annonce FR/MG dérisquée + lancer la cooptation.
 2. **Juillet** : recruter et onboarder les **2-3 premiers pods FR** (Chloé, Sophie) en modèle hybride ; filmer la bibliothèque Loom au passage.
-3. **Été (à distance)** : prouver que 2-3 pods tournent sans toi (le [[Scaling Roadmap appliquée à LTP|test 5→6]]).
+3. **Été (à distance)** : prouver que 2-3 pods tournent sans toi (le [[Plan Maître 500K|test 5→6]]).
 4. **Septembre (retour)** : nommer 1-2 chefs de pods, passer à l'échelle vers 20-30, **puis** recruter les créatrices supplémentaires (le contenu n'est plus le goulot).
 
 > [!warning] L'ordre compte

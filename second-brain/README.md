@@ -23,10 +23,12 @@ Base de connaissances Obsidian générée et maintenue par Claude Code (pattern 
 ```
 _MOC.md              → index maître (action-first)
 00-Contexte/         → profil, LTP Models, projets, insights, journal de coaching
-97-Plan Maître/      → Plan Maître 500K + Sprint 90 jours
-pages/<Cluster>/     → pages + _MOC par cluster (11 clusters)
-98-Rapports/         → rapports de synthèse actionnables
-99-Meta/             → plans, schéma YAML, fact-check log, audit, debriefs
+95-Vie perso/        → santé, logement, finances perso, fiscalité, focus
+96-Opérations LTP/   → SOP, scorecards, annonces, checklists (la couche exécution)
+97-Plan Maître/      → 3 pages : Plan Maître 500K (stratégie par gates) + Sprint été (exécution) + Se licencier de son propre poste (organisation)
+pages/<Cluster>/     → pages + _MOC par cluster (12 clusters dont Livres)
+98-Rapports/         → rapports de synthèse actionnables + analyses chiffrées datées
+99-Meta/             → plans, schéma YAML, fact-check log, audit, debriefs, méthode
 ```
 
 ## Utilisation

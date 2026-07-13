@@ -4,56 +4,65 @@ type: plan
 cluster: "97-Plan Maître"
 statut: verified
 créé: 2026-07-08
-tags: [plan/sprint, contexte/business]
-liens_forts: ["[[Sprint 90 jours]]", "[[Systèmes et process]]", "[[Théorie des contraintes]]"]
+tags: [plan/sprint, plan/passation, contexte/business]
+liens_forts: ["[[Plan Maître 500K]]", "[[Se licencier de son propre poste]]", "[[Systèmes et process]]", "[[Théorie des contraintes]]"]
 ---
 
-# Sprint été : faire grandir le business 2 mois sans toi (21 juil. → 21 sept.)
+# Sprint été : la passation (14-20/07) puis 2 mois de croissance sans toi (21/07 → 21/09)
 
-> [!note] Dates confirmées (2026-07-11)
-> Vol aller-retour réservé : **départ 21 juillet, retour 21 septembre** (300-400 €). La semaine du 14-20 juillet est structurée jour par jour dans [[Semaine de passation (14-20 juillet)]] — c'est elle qui installe les systèmes que ce sprint fait tourner.
+> [!tip] Verdict (page fusionnée le 2026-07-13 : la semaine de passation + le sprint + les règles, en UN plan d'exécution)
+> Tu ne pars pas « en ayant tout fini », tu pars **en ayant tout transféré**. Cette page est LE plan d'exécution du [[Plan Maître 500K|gate 5→6]] : la semaine du 14-20 juillet installe les systèmes (jour par jour ci-dessous), les 2 mois d'été les font tourner sans toi, et le 21 septembre le test est réussi ou pas — **8 semaines sans intervention opérationnelle, LTV tenue pendant que le volume monte**. La règle de tri de la semaine : *« est-ce que ça tournera encore le 15 août sans moi ? »* Si non → tu l'installes cette semaine ou tu le reportes à septembre, pas d'entre-deux.
 
-> [!tip] Le contexte a changé
-> La LTV est réparée (chatting réglé avec Maxence, partenariat 50/50 acté). Donc **ta contrainte a bougé** ([[Théorie des contraintes]], étape 5) : elle est repassée **côté trafic** (contenu → clip → post). "Faire plus" est maintenant le bon move — le seau ne fuit plus, chaque euro de trafic vaut à nouveau plein pot.
+## Les décisions tranchées (pour ne plus y revenir)
 
-## LA règle qui change tout : la LTV devient le garde-fou, pas la cible
+| Décision | Arbitrage |
+|---|---|
+| **Rému FR** | **200 € fixe conditionnel + 0,50 €/sub OF vérifié** (fixe si SLA tenu ; versé 50 €/sem le 1er mois) |
+| **Rému MG** (phase 2, sept.) | **100 € fixe conditionnel + 0,50 €/sub** (même commission = équité au mérite, fixe au marché local) |
+| **Paie** | **Hebdo le lundi pendant 4-6 semaines**, puis mensuel — la confiance s'achète en fréquence |
+| **Reporting** | **Google Forms le dimanche soir** (2 min/personne, 8 questions — [[Reporting clippers]]), lecture lundi matin en 10 min |
+| **Appels** | **1 appel de GROUPE le lundi (20 min max)** + 1:1 seulement à la demande ou sous-performance |
+| **Recrutement** | **ALL IN FR : 1 annonce → 1 form → 1 sheet → 1 entretien**, objectif 50 FR ; MG/Bénin en vivier « recontact septembre » |
+| **Garde-fou commission** | Sub **vérifié** + **LTV du pod surveillée** : si la LTV des subs d'un pod s'effondre, gel et diagnostic |
 
-Croissance = **volume × LTV**. Maintenant que la LTV tient, tu scales le volume — MAIS tu surveilles la LTV comme métrique de garde-fou. Si la LTV commence à craquer quand le volume monte, c'est que la couche chatting sature : tu ralentis le trafic ou tu renforces le chatting AVANT de continuer. Tu ne pousses jamais le trafic plus vite que le chatting ne peut l'absorber.
+**Soutenabilité (l'avocat du diable chiffré)** : 15 FR à 300 subs/mois = ~5 250 €/mois de coût marketing, ~46 % de ta part le premier mois — cher mais viable (la « LTV » mesurée est du revenu à 30 j, et le fixe s'amortit au volume : à 500 subs/pod, ~0,90 €/sub). Conditions : pods uniquement sur créatrices à LTV ≥ 6 €, revue du ratio à J+45, et si le coût dépasse 50 % de ta part à 2 mois → commission des NOUVELLES recrues à 0,35-0,40 € (jamais rétroactif — [[Playbook augmentation de prix (RAISE)|on ne reprend pas ce qu'on a donné]]).
 
-## La seule et unique chose à rendre vraie cette semaine
+## La semaine de passation, jour par jour (14-20 juillet, vol le 21)
 
-**Un système hebdomadaire auto-reporté : chaque pôle a un propriétaire, une cible chiffrée, et envoie ses chiffres le vendredi dans UN tableau de bord que tu lis depuis ton téléphone.** Si ça tourne 2 semaines avant ton départ (preuve que ça marche), le business grandit sans toi. Tes 4 idées de juillet-août ne sont pas 4 tâches : ce sont les **lignes de ce tableau**. Le système EST la chose ; le reste en découle ([[Systèmes et process]], [[Rituels de management]]).
+- **Week-end 12-13** : réserver Unilabs (à jeun, sobre 48 h — [[Bilan sanguin Dubaï (avant le départ)]]) · créer le Google Form + Sheet · écrire l'annonce OPTI · brief Emma · ⚠️ négo logement à Najwa si pas partie ([[Décision logement Dubaï]]) · ⚠️ caler le RDV juridique statut clippers ([[Conformité recrutement (droit FR, RGPD, CGU)|salariat déguisé]]) **et la consultation fiscaliste ([[Opération fiscalité propre (France → Dubaï)|le brief est prêt]])**.
+- **Lundi 14 — le jour Emma + rituels** : prise de sang à jeun · conversation Emma 1 h (périmètre, règle 1-3-1, ce qu'elle ne décide pas seule — [[Méthode de délégation - Emma (kit de passation)]]) · annonce de la grille aux équipes · appel de groupe test n°1. **+ TRC : déposer le dossier EmaraTax** (45 min, checklist dans [[Opération fiscalité propre (France → Dubaï)]]) et **radier la micro-entreprise** (10 min).
+- **Mardi 15 — le jour SFS + chatting** : session Rianah 2-3 h → programmer TOUS les SFS de l'été (~70-90, méthode [[Les tunnels de vente (Russell Brunson)|Dream 100]], Sheet date·créatrice·partenaire·statut·revenu/clic) · paiement hebdo testé en réel · **créneau 1 h avec Maxence : lire la [[SOP chatting anti-churn]] ensemble, poser les baselines des 6 KPI**. (Gros encaissement attendu aujourd'hui → [[Suivi trésorerie quotidien|le noter et appliquer le coffre]].)
+- **Mercredi 16 — le jour recrutement FR** : blitz du vivier (~58 candidats) → screening 4 questions ([[Entretien clipper - questions et grille de notation]]) → 5-8 entretiens planifiés jeudi-vendredi · annonce OPTI postée · réponse type « septembre » au vivier international · onboarding des validés (Chloé d'abord, puis Sophie) · résultats sanguins → à coller en session.
+- **Jeudi 17 — le jour SOP** : filmer les **5 Loom fondamentaux** (~2 h, [[Buy Back Your Time (Dan Martell)|Camcorder Method]]) : warmup compte neuf · journée type de publication · remplir le reporting · SFS de A à Z · quoi faire si compte restreint/banni → liens dans [[Checklist formation clipping]].
+- **Vendredi 18 — la répétition générale** : test à blanc du rituel complet (chaque pôle envoie ses chiffres comme dimanche, tu consolides, tu corriges les trous) · revue de semaine avec Claude (vault + arbitrages).
+- **Samedi 19 - dimanche 20** : buffer planifié (il y aura du glissement) · **dimanche soir : premier VRAI reporting** de toute l'équipe.
+- **Lundi 21 — départ** : **paie hebdo n°1 versée le matin** (même depuis l'aéroport — le signal de fiabilité le plus fort à J-0) · message vocal Discord : « le système est en place, on se voit dans le tableau chaque lundi » · [[Protocole santé entrepreneur (Dubaï)|pas d'alcool la veille du vol]].
 
-## Les 5 pôles : propriétaire × cible × garde-fou
+## Les 2 mois : les 6 pôles, propriétaire × cible × garde-fou
+
+La LTV est réparée → la contrainte est repassée **côté trafic** ([[Théorie des contraintes]]). LA règle : **croissance = volume × LTV, et la LTV devient le garde-fou, pas la cible**. Tu ne pousses jamais le trafic plus vite que le chatting ne peut l'absorber — si la LTV craque, on ralentit le trafic ou on renforce le chat AVANT de continuer.
 
 | Pôle | Propriétaire | Cible hebdo | Garde-fou |
 |---|---|---|---|
-| **Contenu frais** | Emma | Batch (~40-50 clips) déposé /semaine sur Maddie, Sarah, Jade | 0 semaine à vide ; qualité safe plateforme |
-| **Clipping / posting** | Rianah + clippers | Cadence de posts/jour/compte tenue ; backlog de contenu jamais vide | Comptes actifs (voir reporting ci-dessous) ; **backup Rianah** obligatoire |
-| **SFS** | Rianah | **2/sem/créa sur OF, 1/sem/créa sur MYM** (ajustable à 1/mois selon la préférence de la créatrice, jamais zéro) | revenu/clic par SFS tracké |
-| **Trafic interne MYM** | Emma + Rianah | SOP 5 publics/jour + stories + règle public/privé sur les comptes MYM ([[Playbook trafic interne MYM (5 créatrices)]]) | KPI roi = CA net/post public ; ne pas casser la *capacité à convertir* |
-| **Chatting / LTV** | Maxence + chatter manager | LTV maintenue pendant que le volume monte | **LTV = le garde-fou n°1** ; si elle baisse, on ralentit le trafic |
-| **Recrutement créatrices** | toi + équipe | **Signer** 1-2 créatrices cet été | voir l'avertissement ci-dessous sur le lancement |
+| **Contenu frais** | Emma | Batch ~40-50 clips/sem sur Maddy, Sarah, Jade ([[SOP - Machine à contenu hebdomadaire]]) | 0 semaine à vide ; qualité safe plateforme |
+| **Clipping / posting** | Pods FR + Rianah (support) | Cadence posts/jour/compte tenue ([[Machine Instagram-Facebook en masse]]) | Comptes actifs au [[Reporting clippers|reporting]] ; backup Rianah |
+| **SFS** | Rianah | 2/sem/créa OF, 1/sem/créa MYM (jamais zéro) | Revenu/clic tracké par SFS |
+| **Trafic interne MYM** | Emma + Rianah | SOP 5 publics/jour + stories ([[Playbook trafic interne MYM (5 créatrices)]]) | KPI roi = CA net/post public |
+| **Chatting / LTV** | Maxence + managers | Les 6 KPI de la [[SOP chatting anti-churn]] (1er achat < 7 j, churn, win-back…) | **LTV = garde-fou n°1 du sprint** |
+| **Recrutement FR** | toi (asynchrone) | Vagues financées par le cash ([[Allocation budget recrutement et IA]]) ; **signer** 1-2 créatrices, ne PAS les lancer | Runway ≥ 1 mois de burn avant chaque vague ([[Suivi trésorerie quotidien]]) |
 
-## Tes 4 chantiers de juillet-août (structurés)
+**L'avertissement lancement** : signer une créatrice cet été = oui ; la **lancer de zéro pendant ton absence = non** (ça diluerait le contenu frais de celles qui convertissent), sauf audience chaude existante + pod dédié. Les lancements structurés = septembre.
 
-1. **SFS** : 2/sem/créa OF + 1/sem/créa MYM → dans le tableau, colonne "SFS faits / prévus".
-2. **Reporting clippers individuel** : BAN / IG actifs / FB actifs / cadence par clippeur → nouvelle SOP [[Reporting clippers]]. C'est ce qui te dit à distance si la machine trafic tourne ou meurt.
-3. **Checklist + mise à jour formation clipping** → dans [[Reporting clippers]] et la formation, pour que les nouveaux soient opérationnels sans toi.
-4. **SOP Emma parfaite pour x2/x3 la production de Reels** (management + process + itération) → [[SOP - Machine à contenu hebdomadaire]] mise à jour.
-5. **Machine IG en pods + recrutement marketing ALL IN FR (décision 2026-07-12)** : **50 Français cet été**, circuit unique (1 annonce → 1 form → 1 sheet → 1 entretien), affectation dans l'ordre Chloé → Sophie → Maddie → Sarah → Jade → puis lancements. Le modèle et le warmup dans [[Machine Instagram-Facebook en masse]], la grille (200 € + 0,50 €/sub, paie hebdo mois 1) dans [[Équipe marketing - structure et rémunération (FR × MG)]], les annonces dans [[Recrutement clippers - annonces et formulaire]]. La contrainte actuelle = le nombre de personnes en marketing ; l'offre dérisquée est le levier. MG/Bénin = phase 2 en septembre.
+## Le rituel qui remplace ta présence (et les 3 règles du sprint)
 
-## L'avertissement que tu veux entendre (avocat du diable)
+**Dimanche soir** : reporting Google Forms de chaque pôle → **lundi matin** : tu lis LE tableau consolidé en 20 min depuis la France, appel de groupe 20 min, paie hebdo. Règle anti-singe : un pôle remonte un problème → *« qu'est-ce que tu proposes ? »* (1-3-1, [[Délégation]]). Tu ne rentres pas dans l'opérationnel. **+ le 1er du mois : la [[SOP clôture mensuelle avec Maxence|clôture]] (30 min, à distance).**
 
-**Recruter 1-2 créatrices cet été : oui. Les LANCER de zéro cet été pendant ton absence : non**, sauf exception. Ton propre [[Insights|insight]] le dit : lancer un compte de zéro consomme énormément de ressources clipping — les tiennes sont déjà tendues, et tu ne seras pas là pour piloter. Donc :
-- **Signe** cet été (outreach + calls → l'équipe peut le faire).
-- **Lance en septembre**, structuré, quand tu es rentré et les clippeurs staffés.
-- **Exception** : une créatrice qui arrive avec une **audience chaude existante** (pas un zéro) ET un pod dédié → lançable cet été sans te cannibaliser. Sinon, tu diluerais le contenu frais de Maddie/Sarah/Jade qui, elles, convertissent déjà.
+1. **Rien ne s'ajoute au sprint sans qu'autre chose en sorte** ([[Coût d'opportunité]]) — les bonnes idées vont dans les MOC « à densifier », pas dans le sprint.
+2. **Les prédictions s'écrivent avant** ([[Journal de coaching]]) — chaque test a son chiffre attendu daté (Chloé gratuit, clonage top 5, vagues FR : déjà journalisés).
+3. **Le lundi matin, le tableau est rempli ou le sprint est en danger** — une semaine sans mesure est une semaine aveugle ([[Rituels de management]]).
 
-## Le rituel qui remplace ta présence
+## Le test de réussite
 
-**Chaque vendredi** : chaque propriétaire de pôle envoie ses chiffres (1 message) → tu les consolides dans UN tableau → tu revois en async depuis la France, 20 min. Règle anti-singe : quand un pôle remonte un problème, tu réponds "qu'est-ce que tu proposes ?" ([[Délégation]]). Tu ne rentres pas dans l'opérationnel ; tu regardes le tableau.
+**Au 21 juillet (dans l'avion), 7 vrais** : 1. Emma sait ce qu'elle possède et comment escalader. 2. Les SFS de l'été sont programmés. 3. La grille est annoncée et la paie hebdo a tourné une fois. 4. Le Google Form a produit son premier tableau complet. 5. La SOP chatting est lue avec Maxence, baselines posées. 6. Les 5 Loom existent. 7. Prise de sang faite + TRC déposé + micro radiée.
 
-## Le test de réussite du sprint
-
-Au 20 septembre : le volume de trafic a monté (contenu + SFS + clippeurs), **la LTV a tenu**, et tu n'as touché à rien d'opérationnel depuis la France. Si c'est vrai, tu viens de prouver que le business grandit sans toi — le seul truc qui le rend vendable et qui te libère pour la phase 3 du [[Plan Maître 500K]].
+**Au 20 septembre (le gate 5→6)** : le volume de trafic a monté, **la LTV a tenu**, le reporting est complet 8/8, et tu n'as touché à rien d'opérationnel depuis la France. Si c'est vrai, le business grandit sans toi — la seule chose qui le rende vendable et qui ouvre la phase suivante du [[Plan Maître 500K]].

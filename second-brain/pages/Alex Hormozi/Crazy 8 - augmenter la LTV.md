@@ -26,7 +26,7 @@ Si tu monétises mieux chaque fan que tes concurrents, tu peux **surpayer l'acqu
 
 1. **Augmenter les prix.** Le levier le plus puissant : sur un business à 10% de marge, +20% de prix ≈ ×3 le profit, direct au résultat. Tester chaque trimestre. → LTP : MYM payant (Chloé prouve 55€/fan vs 6€ en gratuit), pricing des customs, tiers VIP. Voir [[Pricing]].
 2. **Baisser le coût de livraison.** Ratio chatteurs/fans, offshore (déjà fait : Madagascar/Bénin), productiser (scripts réutilisables), cap sur les demandes, remote. → attention : ne pas casser la qualité de chatting qui FAIT la LTV. Voir [[Marges et structure de coûts]].
-3. **Augmenter le nombre d'achats** (récurrence + churn + relance). **LE levier n°1 pour LTP** : réduire le churn double la LTV (prix ÷ churn). C'est exactement la supervision chatting de Maxime. Relance des fans dormants (Hormozi : promo trimestrielle + valeur le reste du temps). Voir [[Rétention et LTV]], [[Sprint 90 jours]].
+3. **Augmenter le nombre d'achats** (récurrence + churn + relance). **LE levier n°1 pour LTP** : réduire le churn double la LTV (prix ÷ churn). C'est exactement la supervision chatting de Maxime. Relance des fans dormants (Hormozi : promo trimestrielle + valeur le reste du temps). Voir [[Rétention et LTV]], [[SOP chatting anti-churn]].
 4. **Cross-sell (vendre autre chose).** Un produit complémentaire. → LTP : customs, sexting, appels vidéo, capture d'une 2e plateforme (MYM/Unifan pour Sophie par avenant à palier).
 5. **Upsell quantité (vendre plus à la fois).** Bundles, PPV groupés, prépaiement multi-mois. → LTP : offres de packs de médias, abonnements longue durée remisés.
 6. **Upsell qualité (version premium).** Réponse plus rapide, contenu personnalisé, accès prioritaire. → LTP : tier VIP whales (le top 1% des fans fait l'essentiel du revenu), traitement premium des gros payeurs.
@@ -39,7 +39,7 @@ Hormozi passe les 8 en revue sur CHAQUE produit — il en fait un réflexe ("flu
 
 ## Liens
 
-Levier maître du [[Plan Maître 500K]] (LTV avant trafic) et du [[Sprint 90 jours]] (n°3 = supervision chatting). Complète l'[[Équation de valeur]] (valeur perçue AVANT achat) côté monétisation APRÈS achat. Pricing détaillé dans [[Pricing]].
+Levier maître du [[Plan Maître 500K]] (LTV avant trafic) et de la [[SOP chatting anti-churn]] (supervision chatting). Complète l'[[Équation de valeur]] (valeur perçue AVANT achat) côté monétisation APRÈS achat. Pricing détaillé dans [[Pricing]].
 
 ## Sources
 

@@ -45,7 +45,7 @@ Avec ~65K€/mois, une équipe (chatteurs, clippeurs, VAs, manageuse), un roster
 
 Puis *Categorize/Specialize (7-8)* = les managers de pôles et le canal agence propriétaire (phase 3), et *Capitalize (9)* = la structure et l'éventuelle sortie.
 
-**Le diagnostic détaillé et les conditions de passage chiffrées pour LTP** sont dans [[Scaling Roadmap appliquée à LTP]] (97-Plan Maître) : étape 5 en cours, test de l'été = la condition 5→6.
+**Le diagnostic détaillé et les conditions de passage chiffrées pour LTP** sont dans [[Plan Maître 500K]] (97-Plan Maître) : étape 5 en cours, test de l'été = la condition 5→6.
 
 ## La leçon transversale
 

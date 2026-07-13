@@ -9,14 +9,14 @@ source_knowledge: internal
 sources_count: 1
 tags: [livre/délégation, méthode/scaling, pont/ofm]
 créé: 2026-07-10
-liens_forts: ["[[Délégation]]", "[[Effet de levier]]", "[[Documentation et SOP]]", "[[Scaling Roadmap appliquée à LTP]]"]
+liens_forts: ["[[Délégation]]", "[[Effet de levier]]", "[[Documentation et SOP]]", "[[Plan Maître 500K]]"]
 liens_opposition: []
 ---
 
 # Buy Back Your Time — Dan Martell (2023)
 
 > [!info] Verdict
-> Le manuel de délégation qui répond exactement à « déléguer à des personnes de confiance pour que je m'occupe du reste ». Thèse centrale (**le Buyback Principle**) : *« on n'embauche pas pour faire grandir le business, on embauche pour se racheter du temps. »* Tu ne recrutes pas tes 20-30 marketeurs pour « faire plus », tu les recrutes pour **te sortir des tâches qui t'empêchent de recruter des créatrices**. C'est ton [[Scaling Roadmap appliquée à LTP|étape 4→5]] mise en méthode.
+> Le manuel de délégation qui répond exactement à « déléguer à des personnes de confiance pour que je m'occupe du reste ». Thèse centrale (**le Buyback Principle**) : *« on n'embauche pas pour faire grandir le business, on embauche pour se racheter du temps. »* Tu ne recrutes pas tes 20-30 marketeurs pour « faire plus », tu les recrutes pour **te sortir des tâches qui t'empêchent de recruter des créatrices**. C'est ton [[Plan Maître 500K|étape 4→5]] mise en méthode.
 
 ## Le piège à éviter : le DRIP
 
