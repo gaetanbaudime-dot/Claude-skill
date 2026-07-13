@@ -18,6 +18,8 @@ Cluster consacré à la doctrine Hormozi : qui il est, ses trois cadres majeurs,
 - [[42 secrets d'argent (anti-récession)]] : les principes d'argent d'Hormozi, croisés avec les clusters Décision et Investissement.
 - [[Playbook augmentation de prix (RAISE)]] : monter les prix sans hémorragie — les deux cycles, le tableau conversion × churn × LTV, la lettre RAISE (ajouté 2026-07-10).
 
+- **[[Les 20 actions Hormozi de Gaëtan]]** (2026-07-13) : la distillation des 5 grandes vidéos (levier, focus, mieux avant nouveau, talent, standards) en 20 actions calibrées sur les chiffres réels — dont 9 déjà installées dans le système, et les 5 flags où Hormozi se discute (sommeil, marshmallow, « balance »).
+
 L'implémentation business de la roadmap : [[Plan Maître 500K]] (97-Plan Maître).
 
 ## Ordre de lecture

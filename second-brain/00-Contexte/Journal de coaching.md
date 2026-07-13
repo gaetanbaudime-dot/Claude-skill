@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-13 (nuit) — Distillation des 5 grandes vidéos Hormozi en 20 actions
+- **Constat qui compte** : 9 des 20 actions étaient **déjà installées** dans le système (inputs-pas-outputs, clôture Profit First, deep work matinal, méthode scientifique/prédictions, documentation, ALL IN un canal…) — le vault applique la doctrine, pas juste la cite. Page : [[Les 20 actions Hormozi de Gaëtan]].
+- **Les 5 nouvelles à effet immédiat** : baseline du délai de 1er message (mardi, avec Maxence) · exercice d'inversion 15 min (« comment garantir l'échec de LTP ? ») · PR de compte en banque dans le suivi trésorerie · alarme de coucher + sobriété jusqu'au 21/09 · question filtre candidats (« comment ce que tu fais rapporte-t-il de l'argent ? »).
+- **Flags épistémiques posés** (on filtre le gourou) : dette de sommeil refusée malgré son folklore, marshmallow nuancé (Watts 2018 — mais « la stratégie bat la volonté » tient), « balance is a myth » recadré en saisons.
+
 ### 2026-07-13 (nuit) — Rituel vidéo du dimanche (documentation Hormozi)
 - **Décision** : une vidéo YouTube par dimanche (une prise, 20-30 min, zéro montage, 90 min porte-à-porte max), script fixe en 5 questions, transcript distillé en session dans le vault. Première : **dimanche 26 juillet**, pas pendant la passation. SOP : [[Rituel documentation hebdomadaire (vidéo du dimanche)]] — avec les **3 sujets interdits à vie** (tactiques plateformes, coulisses chatting, identités créatrices).
 - **Leçon déjà journalisable** (dite par Gaëtan en vocal) : *« quand on paye plus cher, c'est plus facile de recruter — ils restent plus longtemps et sont plus motivés »* — confirmée par le passage au fixe conditionnel (200 €) vs le 0,35 €/sub pur qui ne recrutait pas. La rémunération est un filtre de qualité, pas juste un coût.
