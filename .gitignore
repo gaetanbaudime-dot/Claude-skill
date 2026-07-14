@@ -9,3 +9,7 @@ tools/bot_clippers/donnees/
 
 # macOS
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
