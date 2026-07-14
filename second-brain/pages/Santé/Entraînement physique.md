@@ -45,3 +45,5 @@ L'entraînement s'adosse à la [[Nutrition de base|nutrition]] (protéines, éne
 [^1]: OMS, "Guidelines on physical activity and sedentary behaviour", 2020.
 [^2]: Méta-analyses VO2max/mortalité (Mandsager 2018, JAMA Network Open) ; exercice et dépression (revues Cochrane et BJSM 2023).
 [^3]: Littérature surcharge progressive et hypertrophie (Schoenfeld et al., revues 2016-2021).
+
+> Programme appliqué : [[Protocole prise de muscle (corps grec)]].

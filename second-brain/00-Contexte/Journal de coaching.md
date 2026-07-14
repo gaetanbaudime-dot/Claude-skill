@@ -22,7 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
-### 2026-07-14 (soir) — Prise de sang interprétée : rien de cassé, moteur d'élite
+### 2026-07-14 (soir) — Protocoles muscle + productivité (objectif « corps grec » + « 10h productives »)
+- **Prise de muscle** ([[Protocole prise de muscle (corps grec)]]) : calibré sur son sang (HOMA 0,59 = prise sèche idéale, testo solide). Cible = proportions en V (deltoïde latéral prioritaire, dos, bras, abdos visibles), pas la masse. Lean bulk +250-400 kcal, 130-160 g protéines, surcharge progressive tracée, split Upper/Lower ×2. **Avocat du diable posé** : « corps grec » = 1-3 ans de constance, pas un été (transformation nette en 4-6 mois).
+- **Productivité** ([[Protocole journée productive (10h soutenables)]]) : **reformulation honnête de sa demande** — « 10h d'affilée » est neurologiquement impossible (plafond ~4h de deep work/jour). Livré : architecture 3 Deep Blocks (matin, sur LA one thing = recrutement) + shallow batché l'après-midi + sport, pilotée par la Whoop (récup pique mardi-mercredi). Le sang confirme : aucune cause biologique de fatigue → c'est l'architecture le levier, pas le corps.
+- **Fil rouge des deux** : le frein commun est **la régularité du sommeil (56 %)** — muscle (l'hormone de croissance pique en sommeil profond) ET deep work (cerveau sous-dormi = 1,5h de deep au lieu de 4). Tout ramène au coucher fixe 21h30.
+- **Prédiction (revue 15 septembre)** : s'il tient le split 4 jours + surplus léger + sommeil régulier, +2-4 kg de muscle et silhouette visiblement changée au retour. S'il chasse le « 10h d'affilée » au lieu des blocs, sa Whoop décroche et il produit MOINS.
 - **Résultats du 12/07** ([[Bilan sanguin Dubaï (avant le départ)]]) : bilan **excellent pour 23 ans** — HbA1c 5,0, HOMA 0,59 (insulino-sensibilité d'élite), CRP < 0,16 (inflammation nulle), testostérone totale 5,4/libre 111 (solide — enterre le mythe tofu→testo), foie parfait, ferritine 171 normale (**l'inverse de Johnson**).
 - **Calibration de ma prédiction** : j'avais annoncé « vitamine D probablement basse à Dubaï » → réalité **34 = adéquate mais basse** (pas carencée). Directionnellement juste, pas « déficience ». Honnête.
 - **3 points à faire voir à un médecin s'ils persistent** (aucun alarmant) : globules blancs/neutrophiles bas (NFS à recontrôler 2-3 mois), saturation transferrine haute 56 % + ferritine normale (→ ne PAS supplémenter en fer ; dépister hémochromatose si ça persiste — pertinent chez un Français), créatinine 1,11 limite (probable déshydratation + muscle, DFG normal 96).

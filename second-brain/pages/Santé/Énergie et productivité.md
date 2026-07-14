@@ -43,3 +43,5 @@ Cette page est la jonction santé-business du vault : l'énergie fabriquée par 
 [^1]: Cal Newport, *Deep Work*, 2016 ; Jim Loehr, Tony Schwartz, *The Power of Full Engagement*, 2003.
 [^2]: K. Anders Ericsson et al., 1993 (limites de la pratique délibérée quotidienne) ; Sophie Leroy, "Why is it so hard to do my work?" (résidu attentionnel), 2009.
 [^3]: Littérature chronobiologie de la vigilance (creux post-prandial, siestes courtes : méta-analyses sommeil et performance).
+
+> Appliqué : [[Protocole journée productive (10h soutenables)]].

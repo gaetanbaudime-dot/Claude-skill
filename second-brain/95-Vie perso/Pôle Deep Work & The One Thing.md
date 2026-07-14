@@ -54,3 +54,5 @@ Ce pôle est le **pendant perso** de ta sortie de l'opérationnel : [[Se licenci
 ## Prochaine action
 
 Demain matin, **bloque 8h-12h**, téléphone dans une autre pièce, et travaille uniquement sur : *« comment rendre la machine de pods autonome »*. Une seule matinée profonde par jour cette semaine, et note dans [[Journal de coaching]] si tu tiens le bloc (le suivi de l'habitude est le début de l'habitude).
+
+> L'architecture concrète d'une journée de 10h (blocs + shallow batché, pilotée par la Whoop) : [[Protocole journée productive (10h soutenables)]].

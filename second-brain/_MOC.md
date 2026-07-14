@@ -27,6 +27,8 @@ Le pendant personnel du plan business : environnement, nutrition, corps, finance
 - [[Bilan sanguin Dubaï (avant le départ)]] : le panel de biomarqueurs à ~150 €, à faire avant le 20 juillet (les 65 marqueurs à m'envoyer pour croisement).
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique.
 - [[Pôle Deep Work & The One Thing]] : le système de focus — bloc profond quotidien sur la seule chose qui compte, le reste batché ou délégué.
+- **[[Protocole prise de muscle (corps grec)]]** 💪 : le programme hypertrophie calibré sur ton sang (insuline d'élite = prise sèche idéale) — proportions en V, surcharge progressive, calendrier réaliste.
+- **[[Protocole journée productive (10h soutenables)]]** : l'architecture d'une vraie journée de 10h (4h de deep + shallow batché) — pourquoi « 10h d'affilée » est un mythe et quoi faire à la place.
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
 - [[Suivi trésorerie quotidien]] : les 3 soldes chaque matin (Google Sheet), les seuils de décision recrutement.
 - **[[Opération fiscalité propre (France → Dubaï)]]** 🧹 : le chantier de l'année — TRC, liquidation SAS, radiation micro, fermeture des comptes FR, re-routage des flux MYM/OF. Tout à Dubaï au 31/12.
