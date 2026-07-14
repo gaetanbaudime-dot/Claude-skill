@@ -61,14 +61,15 @@ Le cadre est dans [[Stress et récupération]] (le burnout = du surentraînement
 
 ## 7. Whoop : le tableau de bord (et ses limites)
 
-**Mise à jour 2026-07-11 : l'intégration Whoop→Claude existe** (session « Whoop integration », branche `claude/whoop-integration-asgdvw` du repo : historique synchronisé, ~580 mesures de récupération sur ~1,5 an, requêtes SQL + tableau de bord). Première trouvaille sur TES données réelles :
+**Mise à jour 2026-07-14 : analyse complète sur 365 jours → [[Analyse santé Whoop 365 jours (14 juillet 2026)]].** Les 3 trouvailles majeures sur TES vraies données (249 recoveries, 276 nuits) :
 
 | Signal | Chiffre | Lecture |
 |---|---|---|
-| HRV moyenne en semaine | ~78,1 ms (pic mardi-mercredi ~79,5-79,9) | Ton corps se recharge en semaine |
-| HRV moyenne le week-end | ~73,9 ms (**creux le dimanche : 73,0**) | Tu récupères **~5 % moins bien** le week-end |
+| Trajectoire 10 mois | HRV **54 → 87 ms**, FC repos **62,6 → 50,1** | Ton corps va **nettement mieux** depuis mai — identifie ce que tu as changé |
+| **Consistance du sommeil** | **56 %** (ta pire métrique) | **Le levier n°1** : tu dors assez (7,6 h) mais à des heures trop variables |
+| Effet week-end | récup dimanche 57 vs mardi 67, HRV 65,5 vs 74 | ~15 % de récup perdue le week-end (sorties/alcool/couchers) |
 
-C'est l'« effet week-end » classique : sorties, alcool, couchers tardifs, repas lourds du vendredi/samedi soir. **Le premier test n=1 est donc tout trouvé** : choisis UN levier (dernier verre ≥ 3-4 h avant le coucher OU dernier repas plus tôt le vendredi/samedi), tiens-le 2 semaines, et regarde si le creux du dimanche remonte — quelques ms de HRV se regagnent souvent sur un seul levier. À journaliser dans le journal Whoop et dans [[Journal de coaching]].
+C'est l'« effet week-end » classique. **Premier test n=1** : choisis UN levier (dernier verre ≥ 3-4 h avant le coucher OU coucher vendredi/samedi ≤ 1 h après l'heure de semaine), tiens-le 2 semaines, regarde si le dimanche remonte. **Et le chantier de fond = la régularité de l'heure de coucher**, qui commande aussi ta question du lever à 5h ([[Analyse santé Whoop 365 jours (14 juillet 2026)|§4 : oui, mais coucher 21h30]]). Le protocole longévité qui étend tout ça (Blueprint de Bryan Johnson filtré par le cost-bénéfice) : [[Protocole longévité (Blueprint adapté)]]. À journaliser dans le journal Whoop et [[Journal de coaching]].
 
 Le protocole de lecture au quotidien :
 

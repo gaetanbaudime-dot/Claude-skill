@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 — Analyse santé Whoop 365 jours + protocole Blueprint adapté
+- **Data lue** (249 recoveries, 276 nuits) : trajectoire nette HRV **54 → 87 ms** et FC repos **62,6 → 50,1** en 10 mois (bascule depuis mai — variable à identifier). Point faible n°1 = **consistance du sommeil 56 %** (pas la durée, 7,6 h correcte). Effet week-end chiffré (récup dimanche 57 vs mardi 67). Pages : [[Analyse santé Whoop 365 jours (14 juillet 2026)]] + [[Protocole longévité (Blueprint adapté)]].
+- **⚠️ Angle mort honnête** : les 65 biomarqueurs annoncés ne sont PAS dans l'export (l'API Whoop n'exporte pas les labos, table `labs` vide). À réclamer : PDF/photo Unilabs pour remplir [[Bilan sanguin Dubaï (avant le départ)]] et croiser (vit. D basse probable à Dubaï, ferritine, thyroïde, testostérone).
+- **Blueprint filtré** : les 5 piliers gratuits de Bryan Johnson = 90 % du bénéfice ; niveau 3 (100+ suppléments, thérapies) = zéro pour lui. Leçon posée : Johnson vient d'annoncer une gastrite auto-immune → le corps n'est pas un logiciel, ROI décroissant, et c'est un bilan **sanguin** (ferritine) qui l'a alerté.
+- **Décision « lever à 5h comme Hormozi »** : oui MAIS coucher 21h30 non négociable (sa consistance 56 % est déjà son point faible ; 5h − 7,6 h = 21h20). Transition −15 min/sem coucher+lever ensemble.
+- **Prédiction (écrite avant l'issue, revue au 15 août)** : s'il régularise l'heure de coucher (±30 min) 3 semaines, la consistance passe de 56 % à > 70 % ET la récup moyenne du dimanche remonte de ≥ 5 points. S'il passe à 5h sans avancer le coucher, la récup moyenne BAISSE — et alors le verdict est « ton chronotype n'est pas celui d'Hormozi, reste à 6h30 avec 8 h pleines ».
+
 ### 2026-07-14 — Bibliothèque : 6 livres distillés (pack de 15 textes complets)
 - **Livré par agents parallèles** (1 agent = 1 livre, la bonne méthode) : [[Way of the Wolf (Jordan Belfort)]] (Straight Line → chatting, controverse high assumée), [[Exactly What to Say (Phil M. Jones)]] (16 formules FR prêtes à coller), [[Cashvertising (Drew Eric Whitman)]] (LF8 → hooks/annonces), [[Traction (Gino Wickman)]] (l'appel du lundi = L10 en réduction), [[Built to Sell (John Warrillow)]] (le test de l'été = test de vendabilité), [[Tax-Free Wealth (Tom Wheelwright)]] (fiscaliste annuel, US-centrisme flaggé). Cross-linkés dans les deux sens, MOC Livres réorganisé, triage des 9 restants acté.
 - **Directives de Gaëtan intégrées** : densifier **Hormozi** et **la théorie des contraintes/Goldratt** en priorité (« j'adore ») ; Cialdini au prochain run en version **mécanique de vente** (garde-fous éthiques en section, pas en angle).

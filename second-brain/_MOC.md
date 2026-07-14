@@ -23,7 +23,8 @@ Le pendant personnel du plan business : environnement, nutrition, corps, finance
 - [[Roadmap perso]] : les 5 domaines à optimiser + timeline 2026 perso × business.
 - [[Décision logement Dubaï]] : vivre seul au marché, matrice de décision, playbook de négo (novembre 2026).
 - [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles santé-performance (sommeil, caféine, prise de masse, sauna, alcool), la journée type, le pilotage Whoop.
-- [[Bilan sanguin Dubaï (avant le départ)]] : le panel de biomarqueurs à ~150 €, à faire avant le 20 juillet.
+- **[[Protocole longévité (Blueprint adapté)]]** : le Blueprint de Bryan Johnson filtré par le cost-bénéfice (3 niveaux de ROI) — santé = infrastructure de ton deep work, pas du bien-être.
+- [[Bilan sanguin Dubaï (avant le départ)]] : le panel de biomarqueurs à ~150 €, à faire avant le 20 juillet (les 65 marqueurs à m'envoyer pour croisement).
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique.
 - [[Pôle Deep Work & The One Thing]] : le système de focus — bloc profond quotidien sur la seule chose qui compte, le reste batché ou délégué.
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
@@ -36,7 +37,7 @@ Le "comment on fait tourner l'agence" : SOP, fiches de poste, checklists. **Pôl
 
 ## 🛠️ Les outils (98-Rapports/)
 
-Checklists et protocoles prêts à l'emploi, un par cluster : Marketing, Alex Hormozi, Décision business, Finance, Investissement, Recrutement, Management humain, Scaling, OFM, Santé. À utiliser en travaillant, pas à lire au calme. **Analyses chiffrées les plus récentes** : [[Analyse créatrices 30-60 jours (13 juillet 2026)]] (qui monter, qui diagnostiquer — la fenêtre récente qui renverse l'annuel, tracking links, marges), [[Analyse dashboard OFM (13 juillet 2026)]] (revenus, roster, chatting, fans — année glissante), [[Analyse finances perso (13 juillet 2026)]] (4 comptes bancaires, 5 ans — le mécanisme du plafond de trésorerie et le système pour le casser), et [[Croisement des deep research marché OFM]] (les 3 rapports de marché filtrés par tes vraies données).
+Checklists et protocoles prêts à l'emploi, un par cluster : Marketing, Alex Hormozi, Décision business, Finance, Investissement, Recrutement, Management humain, Scaling, OFM, Santé. À utiliser en travaillant, pas à lire au calme. **Analyses chiffrées les plus récentes** : [[Analyse créatrices 30-60 jours (13 juillet 2026)]] (qui monter, qui diagnostiquer — la fenêtre récente qui renverse l'annuel, tracking links, marges), [[Analyse dashboard OFM (13 juillet 2026)]] (revenus, roster, chatting, fans — année glissante), [[Analyse finances perso (13 juillet 2026)]] (4 comptes bancaires, 5 ans — le mécanisme du plafond de trésorerie et le système pour le casser), [[Croisement des deep research marché OFM]] (les 3 rapports de marché filtrés par tes vraies données), et [[Analyse santé Whoop 365 jours (14 juillet 2026)]] (365 j de récup/HRV/sommeil — le levier n°1 = la régularité, et la réponse chiffrée au lever à 5h).
 
 ## 📚 La bibliothèque (11 clusters)
 
