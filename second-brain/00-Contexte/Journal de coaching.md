@@ -22,6 +22,10 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 — Synchro Obsidian : Option A actée (pull seul, pas de token)
+- **Décision** : suite à l'échec de push depuis Obsidian (« No anonymous write access »), Gaëtan choisit l'**Option A recommandée** — Obsidian en lecture seule, aucun token GitHub sur ses appareils, Claude reste le seul écrivain du repo. Réglages et procédure de secours gravés dans [[Méthode de travail Claude]] (miroir dans le SKILL.md).
+- **Conséquence à retenir** : une note éditée directement dans Obsidian ne remonte jamais — toute modification passe par Claude. Moins de surface d'erreur (pas de token à protéger, pas de conflits de push), un seul sens de synchro.
+
 ### 2026-07-14 — Densification du cluster Alex Hormozi sur textes intégraux
 - **Demande explicite** (« Densifie stp », après le « densifie Alex Hormozi, j'adore » du 13/07). Fait : [[Grand Slam Offer]] et [[Core Four]] réécrits sur les **textes intégraux** de *$100M Offers* et *$100M Leads* (pack du 13/07) — 5 étapes de construction, 5 amplificateurs, garanties (4 types + la maths 130 %/10 %), naming MAGIC, leads engagés, lead magnets, ACA, règle des 100, LTGP:CAC 3:1, acquisition auto-financée. Créées : [[Mécanique de contenu (hook, retain, reward)]] (branchée sur vidéo du dimanche + clippers + SOP contenu) et [[$100M Money Models (monétisation séquencée)]]. Thèse Acquisition.com ajoutée à [[Alex Hormozi]], [[Leila Hormozi - doctrine opérations et management|Leila]] reliée au cluster.
 - **Flag épistémique assumé** : le texte de *Money Models* n'est PAS dans le pack → page en `to-verify` sur sources publiques, taxonomie marquée « probable ». **Action Gaëtan : fournir le texte au prochain pack.**

@@ -77,7 +77,7 @@ for f in [<fichiers modifiés>]:
         if m.strip() not in pages: bad.append((os.path.basename(f),m.strip()))
 print('PHANTOMS:', sorted(set(bad)) if bad else 'NONE')"
 ```
-5. **Scan sécurité** (section 4), puis **commit en français** (message descriptif : quoi + pourquoi) et **push** sur la branche de travail avec retry backoff (2s/4s/8s/16s).
+5. **Scan sécurité** (section 4), puis **commit en français** (message descriptif : quoi + pourquoi) et **push** sur la branche de travail **ET sur `main`** avec retry backoff (2s/4s/8s/16s) — l'Obsidian de Gaëtan suit `main` en **pull seul** (doctrine actée le 14/07 : pas de token côté Obsidian, « Disable push » activé, toute modification du vault passe par Claude ; détail dans `99-Meta/Méthode de travail Claude.md`).
 6. **Réponse chat** : verdict → ce qui a changé → flags honnêtes → prochaine action proposée. Ne jamais annoncer un push non vérifié.
 
 ## 6. Leçons de terrain (durables — issues des debriefs de production)

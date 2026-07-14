@@ -54,12 +54,19 @@ Ces règles viennent de l'instruction de Gaëtan : *« Sois toujours honnête, 1
 
 Créatrices par nom de scène uniquement, équipe par prénoms, jamais de handles réels / noms légaux / téléphones / emails / IDs, jamais de raw exports commités. Le détail est dans le [[Schema]] et le SKILL.md.
 
-## Synchro Git↔Obsidian (améliorer les pulls)
+## Synchro Git↔Obsidian — doctrine actée le 14/07 : PULL SEUL (Option A)
 
-Le vault arrive dans Obsidian via le plugin **Obsidian Git** (auto-pull). Deux réglages qui fiabilisent les `git pull`, retenus des debriefs de production :
-- **Committer/pousser par unité logique** (une page ou un lot cohérent), pas en un seul gros commit de fin — le vault arrive au fil de l'eau et le run survit aux coupures.
-- **Vérifier qu'Obsidian pull la BONNE branche** : le travail vit sur `claude/second-brain-execution-qo4gb2` et est fusionné dans `main` à chaque push. Si ton Obsidian suit `main`, tu ne vois rien arriver → soit tu configures Obsidian Git sur la branche de travail, soit (recommandé quand un lot est validé) **on fusionne la branche dans `main`** pour simplifier la synchro (à faire sur ta demande explicite, jamais sans). En cas de conflit de pull, `git pull` avec stratégie `-X theirs` sur le vault côté Obsidian est généralement sûr puisque la source de vérité est le repo.
-- **« Pull failed : your local changes would be overwritten »** (vécu le 13 ET le 14/07) : Obsidian a des modifications locales non commitées. **Cause n°1 identifiée le 14/07 : `.obsidian/workspace.json`** (l'état d'interface d'Obsidian, réécrit à CHAQUE navigation) — un `Pull` seul se plante dessus. **Fix permanent en 3 volets** : (1) un `.gitignore` à la racine du repo ignore désormais `workspace.json`, `workspace-mobile.json` et `.obsidian/cache` (fait le 14/07) ; (2) côté Obsidian Git, **régler « Auto pull interval » à 0** et ne garder QUE « Auto commit-and-sync » (le commit-and-sync commit AVANT de puller → jamais de conflit ; le pull seul, si, d'où le bug) ; (3) déblocage immédiat = palette → **« Obsidian Git: Commit-and-sync »** (jamais « Pull » seul). Si `workspace.json` est encore suivi localement, l'untracker une fois : `git rm --cached second-brain/.obsidian/workspace.json`.
+**Décision de Gaëtan (14/07/2026) : Obsidian est en lecture seule côté synchro.** Le téléphone/PC n'a pas de token GitHub et n'en aura pas — c'est Claude qui écrit et pousse depuis le cloud ; Obsidian ne fait que **puller**. Conséquence assumée : **toute modification du vault passe par Claude** (message, vocal, capture) — une note éditée directement dans Obsidian ne remonte JAMAIS dans le repo et sera source de conflit de pull si Claude modifie la même page.
+
+**Les réglages Obsidian Git (à faire une fois)** :
+1. **Auto commit-and-sync interval = 0** (off) — plus jamais de commit local, donc plus jamais d'échec de push.
+2. **Auto pull interval = 10** (minutes) + « Pull on startup » activé si dispo.
+3. **« Disable push » = ON** (le toggle existe dans les réglages du plugin) — supprime définitivement l'erreur « No anonymous write access ».
+4. Rafraîchissement manuel : palette → **« Obsidian Git: Pull »**.
+
+**Si un pull bloque quand même** (« local changes would be overwritten ») : c'est qu'une page a été éditée localement ET modifiée par Claude. La source de vérité est le repo → palette → « Obsidian Git: Discard all changes » (⚠️ efface les éditions locales) puis Pull. Si l'édition locale avait de la valeur, l'envoyer à Claude AVANT de discard. En dernier recours (état git local irrécupérable) : supprimer le vault local et re-cloner via la commande du plugin « Clone an existing remote repo » — sans risque, le repo a tout.
+
+**Côté Claude (inchangé)** : committer/pousser par unité logique (le vault arrive au fil de l'eau), et pousser **sur la branche de travail ET sur `main`** à chaque lot (l'Obsidian de Gaëtan suit `main`). Le `.gitignore` racine ignore `workspace.json`, `workspace-mobile.json` et `.obsidian/cache` (fix du 14/07) ; côté repo, seul `.obsidian/graph.json` est suivi et Claude n'y touche jamais.
 
 ## Leçons de terrain (durables, issues des debriefs)
 
