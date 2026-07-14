@@ -1,79 +1,68 @@
 ---
-titre: "Bilan sanguin Dubaï (avant le départ)"
-type: décision
+titre: "Bilan sanguin Dubaï (résultats 12/07/2026)"
+type: rapport
 cluster: "95-Vie perso"
-statut: to-verify
+statut: verified
 créé: 2026-07-10
 tags: [perso/santé, perso/décision, contexte/dubaï]
-liens_forts: ["[[Protocole santé entrepreneur (Dubaï)]]", "[[Roadmap perso]]", "[[Système nutrition (meal prep)]]"]
+liens_forts: ["[[Protocole santé entrepreneur (Dubaï)]]", "[[Protocole longévité (Blueprint adapté)]]", "[[Analyse santé Whoop 365 jours (14 juillet 2026)]]", "[[Journal de coaching]]"]
 ---
 
-# Bilan sanguin Dubaï : quoi demander, avant le 20 juillet
+# Bilan sanguin Dubaï — résultats interprétés (prélevé 12/07/2026, à jeun)
 
 > [!tip] Verdict
-> **Oui, fais-le, et fais-le cette semaine** (résultats en 24-48 h, tu pars dans ~10 jours). ~150 € (~550-600 AED) suffisent largement à Dubaï pour un panel complet : les prix du marché vont de ~99 AED le panel basique à 230-500 AED le panel bien-être complet — ton budget couvre un panel + les 3-4 ajouts qui comptent vraiment pour toi (vitamine D, testostérone, HbA1c, ferritine). L'enjeu n'est pas de « détecter une maladie » à 24 ans : c'est d'établir ta **ligne de base** avant 2 mois d'absence et le début de la prise de masse — sans mesure de départ, tu pilotes à l'aveugle ([[Roadmap perso|ce qui est mesuré s'améliore]]).
+> **Bilan globalement excellent pour tes 23 ans — ton moteur métabolique est d'élite.** Les stars : glycémie et sensibilité à l'insuline parfaites (HbA1c 5,0 %, HOMA 0,59), **inflammation quasi nulle** (CRP < 0,16), **testostérone solide** (totale 5,4 ng/mL, libre 111 — au passage, ça enterre le mythe « tofu = moins de testo »), foie impeccable, et **ferritine normale (171) — exactement l'inverse de Bryan Johnson**. Le sang CONFIRME ce que ta Whoop montrait (trajectoire HRV 54→87) : tu as un corps sain et bien récupéré. Il y a **une poignée de points à surveiller, aucun alarmant**, dont **3 à montrer à un médecin s'ils persistent** (globules blancs bas, saturation en fer haute, créatinine limite). Et **2 petits leviers d'optimisation** : vitamine D à pousser (34 → 45-50) et homocystéine à baisser (complexe B). ⚠️ Je ne suis pas médecin — cette page prépare tes questions au toubib, elle ne le remplace pas.
 
-## Le ROI (le rapport)
+## 1. Ce qui est excellent (à protéger)
 
-> [!tip] Verdict ROI
-> **Pari asymétrique franchement gagnant : ~150-230 € + 1h de ton temps, contre un upside sur 4 canaux indépendants dont au moins un paie quasi à coup sûr.** Le downside est borné et minuscule ; l'upside ne l'est pas. Le vrai coût n'est pas les 590 AED — c'est de continuer à faire tourner ton corps (le moteur d'un business à ~65 K€/mois) sur **zéro instrumentation**. Tu n'en fais jamais = la ligne de base n'existe pas = chaque euro dépensé aujourd'hui achète de l'information que tu n'as pas.
-
-**Le coût (côté débours).** Panel intelligent en labo milieu de gamme : **~600-900 AED (150-230 €)**. Unilabs est une marque premium (européenne, DHCC) → plutôt en haut de fourchette ; des labos moins chers (Medsol, Aafiyah, DCDC) font le même sang pour moins cher si le budget serre. Temps total : **< 1h** (prélèvement à domicile ~30 min + 20 min de lecture). À la carte pour calibrer : HbA1c 60-85 AED · vitamine D ~200 AED · testostérone totale ~200 AED · ferritine ~150 AED · TSH ~70-90 AED.
-
-**Le bénéfice (espérance, pas certitude).** Quatre scénarios, largement indépendants :
-
-| Scénario | Probabilité (profil 24 ans, Dubaï) | Ce que ça débloque | Valeur vs coût |
+| Marqueur | Ta valeur | Réf. | Lecture |
 |---|---|---|---|
-| **A — Vitamine D basse** | Élevée (carence quasi générale à Dubaï : tout se vit en AC) | Correction ~5-10 €/mois → énergie, testostérone, immunité, humeur | Très élevée |
-| **B — Ferritine / B12 / thyroïde suboptimales** | Moyenne | Résout une « fatigue d'entrepreneur » → protège tes heures de deep work (ton actif le + cher) | Élevée : 2-3h productives/sem récupérées = plusieurs fois le test en semaines |
-| **C — Trajectoire métabolique/lipidique (HbA1c, ApoB)** | Faible en absolu, haute conséquence | À 24 ans ça se corrige avec des micro-ajustements ; à 45 non | Assurance bon marché ([[Intérêts composés|intérêt composé]] appliqué aux artères) |
-| **D — Ligne de base** | Certaine | Référence avant 2 mois d'absence **et** avant la prise de masse (surplus + protéines) | Structurelle : sans elle tu pilotes à l'aveugle |
+| **HbA1c** | **5,0 %** | < 5,7 | Glycémie moyenne 3 mois parfaite |
+| **Glucose à jeun** | 80 mg/dL | 70-100 | Parfait |
+| **Insuline à jeun** | 3,01 | < 25 | Très basse = très bon |
+| **HOMA (résistance insuline)** | **0,59** | < 2,0 | **Sensibilité à l'insuline d'élite** — c'est ce qui te donne une énergie stable, zéro coup de barre |
+| **CRP-hs (inflammation)** | **< 0,16** | < 1 (bas risque) | **Quasi nulle** — ton corps n'est pas enflammé |
+| Triglycérides | 64 mg/dL | < 150 | Excellent |
+| **Testostérone totale** | 5,40 ng/mL | 2,64-9,16 | Solide, milieu-haut |
+| **Testostérone libre** | 111 pg/mL | 47,7-173,9 | Bon milieu de range |
+| Foie (ALT 15 / AST 21) | — | < 49 / < 34 | Impeccable (le foie d'un non-buveur) |
+| Lp(a) | 50,4 nmol/L | < 75 | Bon — ton risque génétique cardiovasculaire est bas |
+| **Ferritine** | 171 ng/mL | 10,5-307 | Normale — **l'inverse de la ferritine basse de Johnson** |
+| DFG (rein) | 96 | > 90 | Fonction rénale normale |
 
-**L'espérance mathématique.** Le scénario D paie à **100 %** (tu repars avec une référence), le scénario A paie avec **forte probabilité** (et pour ~200 AED de test + un supplément dérisoire). Rien que A+D justifie déjà le débours. B et C sont du bonus à upside élevé. C'est exactement le genre de pari que tes [[Espérance mathématique et asymétries|asymétries]] disent de prendre : **coût fixe et plafonné, gains multiples et non corrélés.** ROI attendu nettement positif.
+## 2. Les points à surveiller (aucun alarmant, mais honnêtes)
 
-## Où et combien
+> [!warning] Les 3 à faire regarder par un médecin s'ils persistent (recontrôle à 2-3 mois)
+> Rien ici n'est une urgence à 23 ans avec le reste du bilan aussi propre. Mais ce sont exactement les valeurs qu'un généraliste doit voir, pas moi.
 
-**Unilabs** (Dubai Healthcare City, prélèvement à domicile, résultats en ligne) propose un panel « Complete Health » ~65 biomarqueurs et des panels homme 100+ marqueurs — marque premium, donc haut de fourchette (packages Dubaï : basique dès ~300 AED, standard avec vit D + TSH, complet 800-6 000 AED). Alternatives moins chères pour le même sang (Zavis compare 10-12 labos) : panels basiques dès **~99-300 AED**, à la carte bon marché (HbA1c 60 AED, ferritine 150 AED). ⚠️ Prix Unilabs exacts à confirmer à la réservation (statut `to-verify`) — **demande le détail du panel AVANT de payer**, et complète à l'unité ce qui manque plutôt que de monter en gamme de package (souvent moins cher).
+- **Globules blancs bas + neutrophiles bas** (GB 3,90 pour 4,0-10 · neutrophiles 1,65 pour 2,0-7,0 · lymphocytes % 44,5 pour 20-40). Léger, très courant, souvent **bénin** (variation individuelle, suite de virus, « neutropénie ethnique »). **Action** : recontrôle une NFS dans 2-3 mois ; si ça persiste ou baisse, montre-le à un médecin. Rien d'inquiétant en isolé avec une CRP à zéro.
+- **Saturation de la transferrine haute** (56,3 % pour 20-50), fer 165 (haut-normal), mais **ferritine normale** (171). **Action** : ne supplémente PAS en fer (tu n'en as pas besoin, contrairement au réflexe « biohacker »). Recontrôle fer + ferritine à jeun ; si la saturation reste > 50 % et que la ferritine grimpe avec le temps, **fais dépister l'hémochromatose** (surcharge en fer, la maladie génétique la plus fréquente chez les Européens — un simple test, souvent pertinent chez un Français). Là encore : à surveiller, pas à paniquer.
+- **Créatinine juste au-dessus** (1,11 pour 0,60-1,10) + ratio BUN/créat haut (19). **Cause la plus probable : déshydratation** (Dubaï + prélèvement à jeun) + **masse musculaire / apport protéique élevé** (tu soulèves, 150 g de protéines/jour) ± créatine. Le DFG à 96 dit que tes reins vont bien. **Action** : hydrate mieux (3-4 L + électrolytes, [[Protocole santé entrepreneur (Dubaï)|déjà au protocole]]) et recontrôle bien hydraté.
 
-## Le panel à demander (par ordre de priorité)
+**Le lipidique, en nuance** : LDL 127 et non-HDL 139 sont « au-dessus du souhaitable », le ratio Chol/HDL 4,21 est flaggé — mais c'est surtout un **HDL un peu bas** (43,5) qui tire le ratio. Avec des triglycérides à 64, une insuline parfaite et une CRP nulle, ton **risque cardiovasculaire réel est bas**. À 23 ans, on **optimise** (on ne s'inquiète pas) : le HDL monte avec le **cardio zone 2 et les oméga-3**, l'ApoB (86, ta vraie particule à suivre) reste correct. C'est le levier « intérêt composé sur les artères » ([[Espérance mathématique et asymétries]]).
 
-**Le socle (dans tous les packages) :**
+## 3. Les 2 petits leviers d'optimisation (faciles, chiffrés)
 
-| Marqueur | Pourquoi pour toi |
-|---|---|
-| NFS (numération complète) | Immunité, anémie, base générale |
-| Glycémie à jeun + **HbA1c** | L'HbA1c = ta moyenne glycémique sur 3 mois — le vrai chiffre métabolique |
-| Bilan lipidique (+ **ApoB** si dispo) | Risque cardiovasculaire long terme ; l'ApoB est le marqueur le plus prédictif, demande-le à l'unité s'il n'est pas dans le panel |
-| Foie (ALAT, ASAT, GGT) | Base avant tout supplément ; la GGT bouge avec l'alcool |
-| Rein (créatinine, DFG) | Important en régime hyperprotéiné — ta référence avant les 150 g/j |
-| Électrolytes (Na, K) | Sauna + chaleur + sport à Dubaï |
+| Levier | Ta valeur | Cible | Action |
+|---|---|---|---|
+| **Vitamine D** | 33,8 ng/mL (adéquate mais basse) | 40-50 | J'avais prédit « basse à Dubaï » — c'est **adéquate-limite**, pas carencée. **1 000-2 000 UI/jour de D3** te met dans l'optimal (énergie, testo, immunité). Recontrôle à 3 mois |
+| **Homocystéine** | 12,4 (limite haute) | < 8-10 | Un **complexe B (folate + B12 + B6)** la fait baisser. Marqueur cardiovasculaire + cognitif. Léger, mais gratuit à corriger |
 
-**Les ajouts qui valent chaque dirham (spécifiques à ta situation) :**
+Note honnête sur DHEA-S (117, bas dans la norme 74-492) et phosphatase alcaline légèrement basse (44) : dans les normes, pas d'action, juste à re-noter au prochain bilan pour voir la tendance.
 
-| Marqueur | Pourquoi |
-|---|---|
-| **Vitamine D (25-OH)** | Le paradoxe de Dubaï : soleil écrasant, carence quasi générale (personne ne s'expose, tout se vit en AC). Impacte testostérone, énergie, immunité, humeur |
-| **Testostérone totale** (+ SHBG si budget) | La ligne de base de la prise de masse ; à 24 ans elle doit être franchement bonne — si elle ne l'est pas, c'est un signal sommeil/stress à creuser |
-| **Ferritine + fer** | Énergie et performance ; une ferritine basse = fatigue inexpliquée, une très haute = inflammation |
-| **TSH** | La thyroïde règle le métabolisme et l'énergie — un seul chiffre pour éliminer la question |
-| **hs-CRP** | Inflammation de fond (stress chronique, récupération) |
-| B12 + folates | Surtout si tu montes la part de tofu/végétal |
-| Lp(a) *(optionnel, une fois dans la vie)* | Génétique, ne bouge jamais : à connaître une fois, jamais à re-tester |
+## 4. Le croisement avec ta Whoop (le vrai intérêt)
 
-## Comment lire les résultats (orienté objectifs)
+Ton sang **explique** ta [[Analyse santé Whoop 365 jours (14 juillet 2026)|trajectoire Whoop]] : un corps insulino-sensible, non enflammé, avec une bonne testostérone et une ferritine normale = **exactement le profil biologique d'une HRV qui monte** (54 → 87 ms) et d'une FC de repos qui baisse (50 bpm). Il n'y a **pas de frein caché** dans ton sang — ta récupération est bridée par le **comportement** (régularité du sommeil à 56 %, effet week-end), pas par la biologie. C'est une excellente nouvelle : ça veut dire que ton levier n°1 reste gratuit (le sommeil régulier), et que les 2 micro-leviers sang (vit D, homocystéine) ne feront que peaufiner.
 
-- **Prise de masse** : testostérone, vitamine D, ferritine → si l'un des trois est bas, c'est le premier levier (et souvent c'est la vitamine D à Dubaï : supplémentation banale et efficace, à doser selon le résultat avec le médecin).
-- **Heures productives** : TSH, ferritine, B12, HbA1c → la « fatigue d'entrepreneur » a parfois une cause à 40 AED de supplément.
-- **Long terme (le business a besoin de toi 30 ans)** : ApoB/lipides, HbA1c, hs-CRP → à 24 ans, ces chiffres se corrigent avec des ajustements minuscules ; à 45, plus difficilement. C'est [[Intérêts composés|de l'intérêt composé]] appliqué aux artères.
-- ⚠️ **Règle du vault ([[_MOC Santé]])** : aucun auto-diagnostic — tout résultat hors norme se discute avec un médecin (consultation à Dubaï ou téléconsultation depuis la France). Mon rôle : t'aider à préparer les bonnes questions, pas remplacer l'avis médical.
+## 5. Le plan (récapitulé)
 
-## Le protocole pratique
-
-1. **Cette semaine** : réserver (à domicile ou DHCC), **à jeun 10-12 h** (eau OK, pas de café), idéalement le matin, **pas de sport intense ni d'alcool 24-48 h avant** (fausse la testostérone, les transaminases et la CK), nuit normale avant (le sommeil court fausse la glycémie et la testo).
-2. **Avant de partir** : résultats dans l'app du labo → **dépose le PDF/les valeurs dans le repo (ou colle-les en session)**, je crée la page de résultats interprétée et on ajuste (suppléments, cibles). ⚠️ Ne cherche pas à importer les résultats DANS Whoop : Whoop n'accepte pas les bilans de labos externes (son offre de prises de sang « Advanced Labs » est un service à part, États-Unis d'abord — pas un import). Le bon hub, c'est **ce repo** : les données Whoop y sont déjà (branche d'intégration), les résultats sanguins à côté → je croise les deux (ex. « la supplémentation vitamine D bouge-t-elle ma HRV sur 3 mois ? »), sans dépendre d'une plateforme.
-3. **Rythme** : re-test complet **1×/an** ; re-test ciblé (vitamine D, ferritine, ou ce qui était limite) **3 mois après** avoir commencé une supplémentation. Les résultats se journalisent dans [[Journal de coaching]] comme n'importe quelle décision trackée.
+1. **Ne change rien à ce qui est excellent** : sobriété, protéines, force, whole foods — ton sang prouve que ça marche.
+2. **Supplémente léger et ciblé** ([[Protocole longévité (Blueprint adapté)|niveau 2]]) : **D3 1 000-2 000 UI/j + complexe B + oméga-3** (HDL) + créatine/magnésium déjà prévus. **PAS de fer.**
+3. **Hydrate** (créatinine) et **bouge en zone 2** (HDL) — deux gestes, deux marqueurs corrigés.
+4. **Recontrôle ciblé à 3 mois** : NFS (globules blancs), fer + ferritine + saturation, vitamine D. Complet **1×/an**.
+5. **Montre ce bilan à un généraliste** (Dubaï ou téléconsult FR) — surtout la NFS, le fer et la créatinine. Les valeurs sont ci-dessus, prêtes à lui présenter. Résultats et cibles [[Journal de coaching|journalisés]].
 
 ## Sources
 
-[^1]: Unilabs UAE, packages santé (Complete Health ~65 biomarqueurs, panels homme), unilabs.ae/health-packages — prix à confirmer à la réservation.
-[^2]: Comparateurs de laboratoires Dubaï (Zavis, 2026) : panels basiques dès 99 AED, bien-être 230-499 AED.
+[^1]: Bilan Unilabs Middle East, prélevé le 12/07/2026 à jeun, ~40 biomarqueurs (métabolique, lipidique, hormonal, fer, foie, rein, NFS, vitamines). Valeurs et normes du laboratoire extraites du PDF ; **identité et données personnelles non conservées dans le repo** (hygiène PII). Interprétation croisée avec [[Analyse santé Whoop 365 jours (14 juillet 2026)]].
+[^2]: Interprétation à visée d'hygiène de vie uniquement, **pas un diagnostic** — tout marqueur flaggé se discute avec un médecin ([[_MOC Santé|règle du cluster Santé]]).

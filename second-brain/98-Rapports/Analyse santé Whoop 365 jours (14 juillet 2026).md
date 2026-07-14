@@ -15,7 +15,7 @@ liens_forts: ["[[Protocole longévité (Blueprint adapté)]]", "[[Protocole sant
 > 2. **Ton plafond n'est pas la durée de sommeil (7,6 h, correct) — c'est la RÉGULARITÉ** : consistance à **56 %**, ta pire métrique de loin. C'est LE levier n°1, et il entre en collision frontale avec ton envie de te lever à 5h (§4).
 > 3. **L'effet week-end est chiffré** : récupération dimanche **57 %** vs mardi **67 %**, HRV dimanche **65,5** vs mardi **74**. Tu perds ~15 % de récup le week-end — sorties, couchers décalés, alcool.
 > 4. **Base de départ déjà solide pour 24 ans** : HRV médiane 70 ms, FC repos médiane 53, SpO2 97,3 %, efficacité du sommeil 93 %. Tu ne pars pas de zéro, tu optimises un moteur déjà bon.
-> 5. **La prise de sang manque** (l'API Whoop ne l'exporte pas) — c'est le seul angle mort, et c'est justement là que se cachent les vraies surprises (ferritine, thyroïde, vitamine D à Dubaï, testostérone). À importer, cadre prêt dans [[Bilan sanguin Dubaï (avant le départ)]].
+> 5. ~~La prise de sang manque~~ → **✅ ARRIVÉE et interprétée** ([[Bilan sanguin Dubaï (avant le départ)]]) : bilan excellent (insuline/inflammation/testostérone/ferritine au top), **aucun frein biologique** — ta récup est bridée par le comportement (sommeil), pas par le sang. Deux micro-leviers seulement (vitamine D 34→45, homocystéine).
 
 ## 1. La trajectoire — l'histoire que raconte l'année
 
@@ -65,14 +65,11 @@ Tu veux te lever à 5h. Verdict honnête, appuyé sur tes chiffres : **oui, mais
 
 **La règle** : tu passes à 5h **progressivement** (−15 min/semaine sur le lever ET le coucher ensemble), tu tiens le coucher à 21h30 comme un rendez-vous business, et **tu laisses la Whoop arbitrer** : si après 3 semaines à 5h ta récup moyenne et ta consistance baissent, c'est que ton chronotype n'est pas celui d'Hormozi — et un lever à 6h avec 8 h pleines te rendra plus de deep work qu'un 5h à 6 h de sommeil. La discipline, c'est de suivre la donnée, pas l'influenceur.
 
-## 5. Ce qui manque (le sang) et pourquoi ça compte
+## 5. Le sang (arrivé le 14/07) — il n'y a AUCUN frein caché
 
-L'export Whoop ne contient **aucun biomarqueur sanguin** (l'API ne les expose pas). Or c'est là que se cachent les leviers invisibles qu'aucune montre ne voit :
-- **Ferritine / fer** : une ferritine basse plombe l'énergie et la récup (c'est justement ce qui a mis Bryan Johnson sur la piste de sa maladie — [[Protocole longévité (Blueprint adapté)]]).
-- **Vitamine D** : paradoxalement souvent **basse à Dubaï** (on vit en intérieur/AC, on fuit le soleil) — impact direct sur immunité, humeur, testostérone.
-- **Thyroïde (TSH), testostérone, glycémie/HbA1c, lipides, CRP (inflammation), homocystéine** : le tableau de bord métabolique que la Whoop ne mesure pas.
+La prise de sang du 12/07 est interprétée dans [[Bilan sanguin Dubaï (avant le départ)]]. Le verdict qui compte pour ta récupération : **ta biologie est excellente et n'explique aucune limite** — insuline parfaite (HOMA 0,59), inflammation quasi nulle (CRP < 0,16), testostérone solide, ferritine normale (l'inverse de Johnson). Autrement dit, **ce qui bride ta récupération n'est pas dans ton sang, c'est dans ton comportement** (régularité du sommeil à 56 %, effet week-end). C'est une bonne nouvelle : ton levier n°1 reste gratuit.
 
-**Action** : envoie-moi ton PDF/photo Unilabs (65 biomarqueurs) en session → je remplis le cadre de [[Bilan sanguin Dubaï (avant le départ)]] avec tes vraies valeurs, je flague ce qui est hors norme, et je croise avec la Whoop (ex. si ta vitamine D est basse ET ta récup traîne, on a un levier). Les 65 marqueurs ne servent que **croisés et priorisés** — sinon c'est de l'angoisse, pas de l'information.
+Les seuls micro-leviers biologiques, mineurs : **vitamine D adéquate-limite** (34, à pousser vers 45-50 avec 1 000-2 000 UI/j — j'avais prédit « basse », c'est plutôt « pas optimale ») et **homocystéine limite** (12,4, un complexe B la baisse). Test de croisement à faire sur 3 mois : est-ce que corriger la vit D bouge ta HRV moyenne ? À journaliser.
 
 ## Sources
 

@@ -22,6 +22,15 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 (soir) — Prise de sang interprétée : rien de cassé, moteur d'élite
+- **Résultats du 12/07** ([[Bilan sanguin Dubaï (avant le départ)]]) : bilan **excellent pour 23 ans** — HbA1c 5,0, HOMA 0,59 (insulino-sensibilité d'élite), CRP < 0,16 (inflammation nulle), testostérone totale 5,4/libre 111 (solide — enterre le mythe tofu→testo), foie parfait, ferritine 171 normale (**l'inverse de Johnson**).
+- **Calibration de ma prédiction** : j'avais annoncé « vitamine D probablement basse à Dubaï » → réalité **34 = adéquate mais basse** (pas carencée). Directionnellement juste, pas « déficience ». Honnête.
+- **3 points à faire voir à un médecin s'ils persistent** (aucun alarmant) : globules blancs/neutrophiles bas (NFS à recontrôler 2-3 mois), saturation transferrine haute 56 % + ferritine normale (→ ne PAS supplémenter en fer ; dépister hémochromatose si ça persiste — pertinent chez un Français), créatinine 1,11 limite (probable déshydratation + muscle, DFG normal 96).
+- **2 micro-leviers** : D3 1 000-2 000 UI/j (34→45-50), complexe B (homocystéine 12,4→<10). HDL un peu bas → zone 2 + oméga-3.
+- **Le croisement qui compte** : le sang ne montre **aucun frein biologique** → ta récup Whoop est bridée par le comportement (sommeil régulier), pas par la biologie. Protocole suppléments recalibré ([[Protocole longévité (Blueprint adapté)]]).
+- **Prédiction (revue au bilan de contrôle ~octobre)** : D3 + complexe B + hydratation ramènent vit D > 42, homocystéine < 10 et créatinine dans la norme. La NFS et le fer, eux, sont à trancher par un médecin, pas par une prédiction.
+- **⚠️ Sécurité** : PDF brut (nom légal, passeport, tél, email, DDN) **hors repo** ; seules les valeurs cliniques dé-identifiées sont dans le vault.
+
 ### 2026-07-14 — Analyse santé Whoop 365 jours + protocole Blueprint adapté
 - **Data lue** (249 recoveries, 276 nuits) : trajectoire nette HRV **54 → 87 ms** et FC repos **62,6 → 50,1** en 10 mois (bascule depuis mai — variable à identifier). Point faible n°1 = **consistance du sommeil 56 %** (pas la durée, 7,6 h correcte). Effet week-end chiffré (récup dimanche 57 vs mardi 67). Pages : [[Analyse santé Whoop 365 jours (14 juillet 2026)]] + [[Protocole longévité (Blueprint adapté)]].
 - **⚠️ Angle mort honnête** : les 65 biomarqueurs annoncés ne sont PAS dans l'export (l'API Whoop n'exporte pas les labos, table `labs` vide). À réclamer : PDF/photo Unilabs pour remplir [[Bilan sanguin Dubaï (avant le départ)]] et croiser (vit. D basse probable à Dubaï, ferritine, thyroïde, testostérone).
