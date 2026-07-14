@@ -18,20 +18,11 @@ Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis le
 
 ## 🧭 Ta vie perso (95-Vie perso/)
 
-Le pendant personnel du plan business : environnement, nutrition, corps, finances, mental.
+Le pendant personnel du plan business : corps, focus, nutrition, finances, décisions. **La carte complète du cluster est dans [[_MOC Vie perso]]** (santé, data, argent, cap) — pour éviter les pages dans tous les sens, passe par là. Les trois entrées à retenir :
 
-- [[Roadmap perso]] : les 5 domaines à optimiser + timeline 2026 perso × business.
-- [[Décision logement Dubaï]] : vivre seul au marché, matrice de décision, playbook de négo (novembre 2026).
-- [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles santé-performance (sommeil, caféine, prise de masse, sauna, alcool), la journée type, le pilotage Whoop.
-- **[[Protocole longévité (Blueprint adapté)]]** : le Blueprint de Bryan Johnson filtré par le cost-bénéfice (3 niveaux de ROI) — santé = infrastructure de ton deep work, pas du bien-être.
-- [[Bilan sanguin Dubaï (avant le départ)]] : le panel de biomarqueurs à ~150 €, à faire avant le 20 juillet (les 65 marqueurs à m'envoyer pour croisement).
-- [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique.
-- [[Pôle Deep Work & The One Thing]] : le système de focus — bloc profond quotidien sur la seule chose qui compte, le reste batché ou délégué.
-- **[[Protocole prise de muscle (corps grec)]]** 💪 : le programme hypertrophie calibré sur ton sang (insuline d'élite = prise sèche idéale) — proportions en V, surcharge progressive, calendrier réaliste.
-- **[[Protocole journée productive (10h soutenables)]]** : l'architecture d'une vraie journée de 10h (4h de deep + shallow batché) — pourquoi « 10h d'affilée » est un mythe et quoi faire à la place.
-- [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
-- [[Suivi trésorerie quotidien]] : les 3 soldes chaque matin (Google Sheet), les seuils de décision recrutement.
-- **[[Opération fiscalité propre (France → Dubaï)]]** 🧹 : le chantier de l'année — TRC, liquidation SAS, radiation micro, fermeture des comptes FR, re-routage des flux MYM/OF. Tout à Dubaï au 31/12.
+- **[[Routine maîtresse (lever 5h, coucher 21h30)]]** 🔥 : TA journée et TA semaine heure par heure — la source de vérité unique de l'emploi du temps (Deep Blocks, repas, salle, sauna, règle des 21h).
+- **[[Bilan sanguin Dubaï (avant le départ)]]** + **[[Analyse santé Whoop 365 jours (14 juillet 2026)]]** : tes vraies données (moteur métabolique d'élite, frein n°1 = régularité du sommeil).
+- **[[Opération fiscalité propre (France → Dubaï)]]** 🧹 : le chantier de l'année — tout à Dubaï au 31/12.
 
 ## ⚙️ Les opérations LTP (96-Opérations LTP/)
 

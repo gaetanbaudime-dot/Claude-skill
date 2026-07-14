@@ -22,7 +22,7 @@ liens_forts: ["[[Pôle Deep Work & The One Thing]]", "[[Deep Work (Cal Newport)]
 
 ## L'architecture d'une vraie journée de 10h productive
 
-L'idée : **3 blocs de deep work encadrés de récupération + le shallow batché**. Adapté à ton envie de te lever tôt et à ton [[Pôle Deep Work & The One Thing|système de focus]].
+L'idée : **3 blocs de deep work encadrés de récupération + le shallow batché**. Adapté à ton envie de te lever tôt et à ton [[Pôle Deep Work & The One Thing|système de focus]]. Le tableau ci-dessous est le **principe générique** ; ton emploi du temps concret (heures réelles, repas, salle) est dans [[Routine maîtresse (lever 5h, coucher 21h30)|la routine maîtresse]] — cette page-ci explique *pourquoi* les blocs sont faits ainsi.
 
 | Créneau | Type | Contenu | Pourquoi |
 |---|---|---|---|

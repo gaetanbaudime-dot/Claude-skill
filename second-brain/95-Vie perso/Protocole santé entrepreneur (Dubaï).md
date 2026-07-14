@@ -80,17 +80,7 @@ Le protocole de lecture au quotidien :
 
 ## La journée type (tout assemblé)
 
-| Heure | Action | Pourquoi |
-|---|---|---|
-| 6h30-7h | Lever fixe, lumière dehors 10 min, hydratation + électrolytes | Horloge circadienne, avant la fournaise |
-| 7h-7h30 | Café n°1 + petit-déj protéiné (40-60 g, déjà standardisé) | Prise protéique 1/4 |
-| 8h-12h | **Deep work** (le pic cognitif, protégé) | [[Énergie et productivité]] |
-| 12h30 | Repas livré (35-55 g prot + glucides) — dernier café ≤ 14h | Prise 2/4, garde-fou caféine |
-| 17h-19h | Force (ou zone 2) + **sauna 15-20 min** + électrolytes | Stimulus + récupération |
-| 19h30 | Dîner livré **avec glucides** (riz/patates) | Prise 3/4, recharge + sommeil |
-| 22h30 | Collation caséine (skyr/cottage 30-40 g) | Prise 4/4, synthèse nocturne |
-| 23h-23h30 | Écrans off, chambre 18-19 °C, noir total | Latence d'endormissement |
-| 23h30-7h | **~8 h de sommeil** | La variable racine |
+> [!info] La journée et la semaine heure par heure vivent dans **UNE seule page** : [[Routine maîtresse (lever 5h, coucher 21h30)]] (lever 5h, 3 Deep Blocks, repas et shakers, salle+sauna, règle des 21h). Cette page-ci donne les *règles de fond* ; la Routine maîtresse donne l'*emploi du temps*. Ne les duplique jamais — si un horaire change, il change là-bas.
 
 ## Ce qui est confirmé vs à tester (honnêteté épistémique)
 

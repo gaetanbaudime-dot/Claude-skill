@@ -1,25 +1,41 @@
 # Vie perso : Map of Content
 
-Le côté personnel de ton second cerveau, en miroir du côté business (`00-Contexte/` + `97-Plan Maître/`). Objectif : une roadmap perso claire, actionnable, qui maximise ton ROI de vie (temps, focus, énergie, argent, reconstruction) — pas seulement le business.
+Le côté personnel de ton second cerveau, en miroir du business (`00-Contexte/` + `97-Plan Maître/`). Objectif : **maximiser ton ROI de vie** (énergie, focus, corps, argent) au service du deep work et du business. Architecture en 5 blocs — chaque page a UN rôle, pas de doublon.
 
-## Le plan
+## 🎯 La routine (commence ici — source de vérité unique)
 
-- [[Roadmap perso]] : l'ombrelle — les 5 domaines à optimiser, la timeline 2026 perso × business, le fil rouge.
+- **[[Routine maîtresse (lever 5h, coucher 21h30)]]** 🔥 : TA journée et TA semaine heure par heure — les 3 Deep Blocks du matin, les repas et shakers, la salle, le sauna, la règle des 21h, le tracking Hevy. **Toutes les autres pages perso pointent ici pour l'emploi du temps** ; elles, elles expliquent le *pourquoi*.
 
-## Les décisions et systèmes
+## 💪 Santé & performance (le pourquoi de la routine)
 
-- [[Décision logement Dubaï]] : vivre seul au marché à Peninsula, matrice de décision, timeline, playbook de négo avec la propriétaire.
-- [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique, high-protein livré, test 7 jours.
-- [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles (sommeil, caféine, surplus propre, glucides du soir, force+sauna, alcool), la journée type, le pilotage Whoop en n=1.
-- [[Bilan sanguin Dubaï (avant le départ)]] : le panel à ~150 € (Unilabs ou comparables), les marqueurs qui comptent pour toi, à faire AVANT le 20 juillet.
-- [[Pôle Deep Work & The One Thing]] : ton système de focus — un bloc profond 8h-12h sur ta One Thing, l'opérationnel batché l'après-midi ou délégué. Le pendant perso de [[Se licencier de son propre poste]].
-- [[Suivi trésorerie quotidien]] : le rituel Hormozi — logger tes 3 soldes chaque matin (Revolut, Wio perso, Wio business), runway et feu vert/rouge pour les vagues de clippers.
-- [[Finances perso - 14 leçons de la vingtaine]] : investir en toi > épargner, mesurer ton compte, l'entourage, les expériences uniques.
+- [[Protocole santé entrepreneur (Dubaï)]] : les 6 règles de fond (sommeil, caféine, surplus propre, glucides du soir, force+sauna, alcool) — la doctrine.
+- [[Protocole prise de muscle (corps grec)]] : le programme hypertrophie (proportions en V, split Upper/Lower, surcharge progressive) calibré sur ton sang.
+- [[Protocole journée productive (10h soutenables)]] : pourquoi « 10h d'affilée » est un mythe et l'architecture réelle du deep work (le *quoi faire* dans les blocs de la routine).
+- [[Testostérone naturelle (les vrais leviers)]] : tes hormones sont déjà bonnes — ne pas les saboter, gratter la marge (sommeil, sec, vit D). Zéro gélule.
+- [[Protocole longévité (Blueprint adapté)]] : le Blueprint de Bryan Johnson filtré par le cost-bénéfice (3 niveaux de ROI) — santé = infrastructure du deep work.
+- [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique, high-protein livré.
+- [[Pôle Deep Work & The One Thing]] : le système de focus (le pendant perso de [[Se licencier de son propre poste]]).
+
+## 📊 Tes données (piloter, pas deviner)
+
+- [[Analyse santé Whoop 365 jours (14 juillet 2026)]] : 365 j de récup/HRV/sommeil — la trajectoire (HRV 54→87), le frein n°1 (consistance 56 %), la réponse chiffrée au lever à 5h.
+- [[Bilan sanguin Dubaï (avant le départ)]] : les ~40 biomarqueurs du 12/07 interprétés — moteur métabolique d'élite, 3 points à surveiller, 2 leviers (vit D, homocystéine).
+
+## 💶 Argent perso
+
+- [[Suivi trésorerie quotidien]] : le rituel Hormozi — 3 soldes chaque matin, runway, feu vert/rouge recrutement.
+- [[Opération fiscalité propre (France → Dubaï)]] : TRC, liquidation SAS, radiation micro, fermeture des comptes FR — tout à Dubaï au 31/12.
+- [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
+
+## 🧭 Décisions & cap
+
+- [[Roadmap perso]] : l'ombrelle — les 5 domaines à optimiser, la timeline 2026 perso × business.
+- [[Décision logement Dubaï]] : vivre seul au marché à Peninsula, matrice, playbook de négo (novembre 2026).
 
 ## Ponts vers le vault
 
-Santé ([[Sommeil]], [[Entraînement physique]], [[Stress et récupération]], [[Énergie et productivité]]) · Décision ([[Cadres de décision]], [[Coût d'opportunité]]) · Hormozi ([[42 secrets d'argent (anti-récession)]], [[Philosophie du volume et des compétences]]) · Investissement ([[Intérêts composés]], [[Allocation d'actifs]]) · Contexte ([[Profil]], [[Journal de coaching]]).
+Santé ([[Sommeil]], [[Entraînement physique]], [[Stress et récupération]], [[Énergie et productivité]]) · Décision ([[Cadres de décision]], [[Coût d'opportunité]]) · Hormozi ([[Les 20 actions Hormozi de Gaëtan]], [[Philosophie du volume et des compétences]]) · Investissement ([[Intérêts composés]]) · Contexte ([[Profil]], [[Journal de coaching]]).
 
 ## À densifier lors des prochains runs
 
-Setup ménage & lessive externalisés, plan reconstruction émotionnelle et estime de soi, sport (natation compétition), plan des expériences uniques (voyages), réseau et communauté à Dubaï. (Routine quotidienne et biomarqueurs : faits — voir [[Protocole santé entrepreneur (Dubaï)]] et [[Bilan sanguin Dubaï (avant le départ)]].)
+Plan reconstruction émotionnelle et estime de soi, réseau/communauté à Dubaï, plan des expériences uniques (voyages), natation compétition. (Routine quotidienne, biomarqueurs, muscle, productivité, testostérone : faits — cette page les architecture.)

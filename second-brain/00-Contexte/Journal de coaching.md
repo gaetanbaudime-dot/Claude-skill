@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 (nuit) — Réarchitecture du cluster Vie perso + routine maîtresse
+- **Demande** : « tout bien linké et cohérent, pas de pages qui se répètent, pas de journées types dans tous les sens ». Fait : création de **[[Routine maîtresse (lever 5h, coucher 21h30)]]** = source de vérité UNIQUE de l'emploi du temps (journée + semaine + shakers + Hevy + règle des 21h). Les journées types redondantes (Protocole santé, Protocole productivité) pointent désormais vers elle au lieu de la dupliquer.
+- **[[_MOC Vie perso]] réarchitecturé** en 5 blocs (Routine / Santé / Data / Argent / Décisions) ; le _MOC maître resserré (12 bullets → 3 entrées + renvoi au MOC cluster).
+- **Doublon détecté et résolu** : une session parallèle a créé « Testostérone naturelle (les vrais leviers) » (incomplète, 20 lignes) pendant que je créais « Booster sa testostérone » — j'ai supprimé mon doublon et complété la page existante (meilleur titre). ⚠️ **Signal méthode** : une autre session écrit dans le même worktree → risque de collision, à garder en tête (fusionner, ne pas empiler).
+- **Décisions routine** : extinction 21h30 / lever 5h (transition −15 min/sem, pas brutale) · règle des 21h (Ne pas déranger, dire NON) · shaker 60 g whey + créatine · split Upper/Lower ×2 + rando le samedi · tracking Hevy (export CSV mensuel à m'envoyer, pas de connecteur direct).
+- **Prédiction (revue 15 septembre)** : la règle des 21h + le coucher fixe font passer la consistance de sommeil de 56 % à > 70 % — le seul KPI qui débloque muscle, testo ET deep work en même temps.
+
 ### 2026-07-14 (soir) — Protocoles muscle + productivité (objectif « corps grec » + « 10h productives »)
 - **Prise de muscle** ([[Protocole prise de muscle (corps grec)]]) : calibré sur son sang (HOMA 0,59 = prise sèche idéale, testo solide). Cible = proportions en V (deltoïde latéral prioritaire, dos, bras, abdos visibles), pas la masse. Lean bulk +250-400 kcal, 130-160 g protéines, surcharge progressive tracée, split Upper/Lower ×2. **Avocat du diable posé** : « corps grec » = 1-3 ans de constance, pas un été (transformation nette en 4-6 mois).
 - **Productivité** ([[Protocole journée productive (10h soutenables)]]) : **reformulation honnête de sa demande** — « 10h d'affilée » est neurologiquement impossible (plafond ~4h de deep work/jour). Livré : architecture 3 Deep Blocks (matin, sur LA one thing = recrutement) + shallow batché l'après-midi + sport, pilotée par la Whoop (récup pique mardi-mercredi). Le sang confirme : aucune cause biologique de fatigue → c'est l'architecture le levier, pas le corps.
