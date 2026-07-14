@@ -15,7 +15,10 @@ liens_forts: ["[[Kit Clippers - mode d'emploi]]", "[[Journal de coaching]]", "[[
 
 ## Ce que c'est (et ce que ce n'est pas)
 
-- **C'est** : un répondeur sur le périmètre du kit (comptes, warm-up, Reels, cadence, bans, reporting), accès par code, 30 questions/jour/personne, journal des questions.
+- **C'est** : un répondeur sur le périmètre du kit + la stratégie marketing officielle (v2 du 15/07 : les 3 piliers cadence/qualité/A-B testing, le circuit des 50 rushs, les carrousels au pic, le feedback quotidien — distillés des 2 vidéos YouTube de Gaëtan, recentrés Instagram + Facebook uniquement). Accès par code, 30 questions/jour/personne, journal des questions, réponses courtes forcées (2-4 phrases, niveau collège).
+- **Entrées acceptées** : texte + photos/captures d'écran (lues par la vision de Claude). Vocaux : pas en v1 (l'API ne transcrit pas l'audio) — le bot demande d'écrire.
+- **Amélioration continue** : les connaissances se rechargent seules (fichier modifié = pris en compte sans redémarrage) ; Gaëtan enrichit la FAQ depuis Telegram avec `/apprendre Question | Réponse` et suit l'usage avec `/stats`. Le bot n'écrit jamais lui-même dans sa base sans validation humaine (garde-fou anti-erreur).
+- **Le lien** : `t.me/<nom_du_bot>` — permanent, à épingler dans Discord avec le code d'accès.
 - **Ce n'est PAS** : un accès au playbook complet, aux identités des créatrices, aux chiffres de l'agence, ou à quoi que ce soit hors kit — le prompt système le verrouille et la base de connaissances (`connaissances.md`) ne contient rien d'autre.
 - **La règle du renvoi reste la doctrine** ([[Kit Clippers - mode d'emploi]]) : le bot EST le renvoi automatisé — il cite la fiche concernée à chaque réponse.
 

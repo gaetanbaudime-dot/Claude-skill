@@ -159,6 +159,52 @@ Les 3 chiffres à ne jamais oublier :
 
 Le mindset : à la fin du Loom, à écouter les jours difficiles. En une phrase : tu ne peux pas échouer si tu n'abandonnes jamais — et le meilleur clipper devient manager.
 
+## LA STRATÉGIE MARKETING (comprendre pourquoi on fait tout ça)
+
+Le kit (fiches 1 à 6) dit QUOI faire. Cette partie explique POURQUOI ça marche. Source : la stratégie officielle de Gaëtan (à jour juillet 2026). On travaille UNIQUEMENT sur Instagram et les pages Facebook.
+
+### Pourquoi Instagram (et Facebook en plus)
+
+- Tous les visiteurs ne se valent pas. Un abonné qui vient d'Instagram a regardé la créatrice, il l'a trouvée jolie ou drôle, il s'est attaché AVANT de cliquer. Il rapporte beaucoup plus qu'un visiteur venu d'une pub au hasard.
+- Instagram, c'est gratuit, c'est facile à faire tourner, et un bon compte peut ramener du monde pendant des années. C'est pour ça que l'équipe met presque tous ses efforts sur Instagram.
+- Les pages Facebook republient les mêmes Reels : des vues en plus, gratuites, et les pages ne sautent presque jamais.
+
+### Pilier 1 — La cadence (publier beaucoup)
+
+- Personne ne sait à l'avance quel Reel va marcher. C'est comme une machine à sous : en gros, une pépite tous les 20 Reels. Donc plus tu publies, plus vite tu trouves la pépite. Celui qui publie 6 Reels par jour trouve sa pépite en 3 jours ; celui qui en publie 1 attend 20 jours.
+- Mieux vaut monter la cadence sur UN compte que créer trop de comptes. Avec du contenu propre, un compte peut encaisser beaucoup de publications par jour sans risque.
+- La vitesse de croisière de l'équipe : 6 Reels par jour sur un compte, publiés par vagues de 2 dans la journée. Un clipper y arrive PROGRESSIVEMENT en suivant la montée de la fiche 4 (1, puis 2, puis 3 par jour…). On ne démarre jamais à 6.
+- On garde toujours des rushs d'avance (la créatrice tourne un peu plus qu'on ne publie), au cas où elle est malade ou en vacances.
+
+### Pilier 2 — La qualité (elle vient APRÈS la quantité)
+
+- On ne devient pas bon en publiant moins. On devient bon en publiant beaucoup, puis en améliorant un petit détail à chaque fois.
+- Côté créatrice, l'équipe s'occupe du matériel (miroir derrière le téléphone, caméra arrière, tenues, micro, tournages organisés).
+- Côté clipper, la qualité c'est : un hook fort dès la première seconde, un montage propre, une durée proche de la vidéo d'origine de la trend.
+
+### Pilier 3 — Reproduire ce qui marche (le plus important)
+
+- Si un Reel plafonne à 200 vues, ce n'est pas un « shadowban » : c'est que le contenu ne plaît pas. On change le contenu, pas d'excuse.
+- Chaque semaine, on regarde les Reels qui ont le mieux marché. Les meilleurs repartent en tournage chez la créatrice : on refait LE MÊME Reel en changeant seulement la tenue et le décor. Jamais le concept — il a déjà prouvé qu'il marche.
+- Environ 10 trends gagnantes suffisent : on les repasse en boucle pendant des mois. Un compte est monté de 0 à 200 000 abonnés en 6 mois comme ça.
+- Pourquoi répéter ne lasse personne : plus de 90 % des gens qui voient un Reel ne suivent pas encore le compte. Pour eux, c'est la première fois. Les abonnés existants, eux, sont nourris par les carrousels et les stories.
+
+### La machine complète (le circuit du contenu)
+
+1. On repère les trends qui marchent (chez la créatrice ou chez 10-15 créatrices surveillées) : simples à refaire, dans sa niche, beaucoup de vues ET d'abonnés gagnés.
+2. On en tire une liste de 10 trends faciles (pas de voyage, pas de duo, pas de montage compliqué).
+3. La créatrice tourne UNE session par semaine : 5 tenues × 10 trends = 50 rushs (2-3 h, téléphone en mode avion, trépied).
+4. Les clippers montent et publient (fiche 3 + fiche 4).
+5. Le dimanche, on regarde ce qui a marché : les 5 meilleures trends restent, on en ajoute 5 nouvelles, et la boucle repart. À l'infini.
+
+### Le carrousel au bon moment
+
+Quand un Reel pète, on poste un carrousel dans la foulée : c'est là qu'ils explosent. Les carrousels et les stories transforment les vues en abonnés et font cliquer vers la bio. C'est pour ça que la fiche 4 demande 2-3 carrousels par semaine et 1-3 stories par jour.
+
+### Le feedback quotidien (comment on progresse)
+
+La règle de l'équipe : un retour par Reel, tous les jours. Exemples de retours : « ton hook pouvait démarrer une seconde plus tôt », « la trend d'origine dure 8 secondes, la tienne 13 », « prends plutôt cette partie du rush ». C'est en publiant beaucoup ET en recevant des retours tous les jours qu'on devient très bon. D'où l'importance du canal Discord et du formulaire du dimanche : pas de retours = pas de progrès = pas de revenus.
+
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
-(vide pour l'instant — Gaëtan y ajoute les questions récurrentes et leurs réponses)
+(vide pour l'instant — Gaëtan y ajoute les questions récurrentes et leurs réponses, directement depuis Telegram avec la commande /apprendre)

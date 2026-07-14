@@ -1,8 +1,33 @@
 # Bot FAQ Clippers (Telegram + Claude)
 
-Un bot Telegram qui répond aux questions des clippers **uniquement à partir du Kit Clipper v2**
-(`connaissances.md`). S'il ne sait pas → il renvoie vers le canal Discord. Il n'invente jamais.
+Un bot Telegram qui répond aux questions des clippers **uniquement à partir de `connaissances.md`**
+(Kit Clipper v2 + stratégie marketing officielle, Instagram + Facebook uniquement). S'il ne sait
+pas → il renvoie vers le canal Discord. Il n'invente jamais. Réponses courtes, niveau collège.
 Accès protégé par un code. Chaque question est journalisée (mesure du besoin réel).
+
+## Ce que les clippers peuvent envoyer
+
+- **Du texte** : leur question, en une phrase.
+- **Des photos / captures d'écran** (ex. un message de blocage Instagram) : le bot lit l'image et répond.
+- **Des vocaux** : pas encore — le bot demande gentiment d'écrire la question. (L'API Claude ne
+  transcrit pas l'audio ; ajoutable plus tard avec un service de transcription si le besoin est réel.)
+
+## Le lien à partager sur Discord
+
+Une fois le bot créé chez @BotFather, son lien est **`t.me/<nom_du_bot>`** (ex. `t.me/ltp_assistant_bot`).
+Ce lien ne change JAMAIS, même si tu redémarres, redéploies ou modifies le bot — épingle-le dans
+Discord avec le code d'accès et c'est réglé.
+
+## L'améliorer avec le temps (sans toucher au code)
+
+- **Depuis ton téléphone** : `/apprendre La question ? | La réponse.` ajoute une entrée à la FAQ
+  vivante — le bot l'utilise **immédiatement** (les connaissances se rechargent toutes seules).
+- **`/stats`** : volume de questions, % hors kit, nombre de clippers autorisés.
+- **Depuis Claude Code** : demande-moi de mettre à jour `connaissances.md` (il est versionné dans
+  le repo) — à chaque évolution du kit ou du SOP, je le mets à jour en même temps.
+- **Il s'améliore tout seul ?** Presque : chaque question hors kit est marquée `escalade` dans le
+  journal. Ce journal me sert à enrichir la base à chaque session. Le bot n'écrit jamais lui-même
+  dans sa base sans validation humaine — c'est voulu (sinon une erreur inventée deviendrait une règle).
 
 ## Ce qu'il te reste à faire (~15 minutes, une seule fois)
 
@@ -20,7 +45,7 @@ Accès protégé par un code. Chaque question est journalisée (mesure du besoin
 ### 3. Configurer et lancer (5 min)
 ```bash
 cd tools/bot_clippers
-cp .env.example .env        # puis remplis les 3 valeurs dans .env
+cp .env.example .env        # puis remplis les 4 valeurs dans .env (dont ADMIN_IDS = ton id Telegram)
 pip install -r requirements.txt
 python3 bot.py
 ```
