@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 (nuit) — Suppléments : analyse de 2 produits réels + stack calibré
+- **Photos de 2 produits** : 21st Century Cal-Mag-Zinc+D3 et Himalaya Ashwagandha. Verdict honnête ([[Suppléments (protocole calibré sur le sang)]]) : le Cal-Mag-Zinc est **mauvais pour ses objectifs** (D3 400 UI = 4× trop peu, magnésium oxyde = pire forme, calcium/zinc inutiles et antagonistes) → à ne pas racheter. Ashwagandha = optionnel (cortisol normal → effet marginal), à cycler, préférer un KSM-66 standardisé.
+- **Correction de croyance (rigueur)** : Gaëtan se dit « en carence de vit D » → **faux**, il est à 33,8 = « adéquate » (>30). Carence = <20. Il est « adéquat mais bas », objectif 45-50 légitime mais pas une urgence. Corrigé fermement.
+- **Stack acté** (croisé sources web) : D3 **2 000 UI/j** (règle 1 000 UI ≈ +10 ng/mL), magnésium **glycinate** 300-400 mg soir, oméga-3 2 g, créatine 5 g, complexe B. ~40 €/mois. PAS de fer/calcium/testo-booster.
+- **Règle posée** : aucun supplément ne rattrape un mauvais sommeil — ordre du ROI sommeil > bouffe > sport > suppléments.
+
 ### 2026-07-14 (nuit) — Réarchitecture du cluster Vie perso + routine maîtresse
 - **Demande** : « tout bien linké et cohérent, pas de pages qui se répètent, pas de journées types dans tous les sens ». Fait : création de **[[Routine maîtresse (lever 5h, coucher 21h30)]]** = source de vérité UNIQUE de l'emploi du temps (journée + semaine + shakers + Hevy + règle des 21h). Les journées types redondantes (Protocole santé, Protocole productivité) pointent désormais vers elle au lieu de la dupliquer.
 - **[[_MOC Vie perso]] réarchitecturé** en 5 blocs (Routine / Santé / Data / Argent / Décisions) ; le _MOC maître resserré (12 bullets → 3 entrées + renvoi au MOC cluster).

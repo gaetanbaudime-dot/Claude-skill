@@ -13,6 +13,7 @@ Le côté personnel de ton second cerveau, en miroir du business (`00-Contexte/`
 - [[Protocole journée productive (10h soutenables)]] : pourquoi « 10h d'affilée » est un mythe et l'architecture réelle du deep work (le *quoi faire* dans les blocs de la routine).
 - [[Testostérone naturelle (les vrais leviers)]] : tes hormones sont déjà bonnes — ne pas les saboter, gratter la marge (sommeil, sec, vit D). Zéro gélule.
 - [[Protocole longévité (Blueprint adapté)]] : le Blueprint de Bryan Johnson filtré par le cost-bénéfice (3 niveaux de ROI) — santé = infrastructure du deep work.
+- [[Suppléments (protocole calibré sur le sang)]] : le stack evidence-based (D3, magnésium glycinate, oméga-3, créatine, complexe B) — et pourquoi le Cal-Mag-Zinc générique ne sert pas tes objectifs.
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique, high-protein livré.
 - [[Pôle Deep Work & The One Thing]] : le système de focus (le pendant perso de [[Se licencier de son propre poste]]).
 
