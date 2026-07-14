@@ -39,7 +39,7 @@ Hormozi passe les 8 en revue sur CHAQUE produit — il en fait un réflexe ("flu
 
 ## Liens
 
-Levier maître du [[Plan Maître 500K]] (LTV avant trafic) et de la [[SOP chatting anti-churn]] (supervision chatting). Complète l'[[Équation de valeur]] (valeur perçue AVANT achat) côté monétisation APRÈS achat. Pricing détaillé dans [[Pricing]].
+Levier maître du [[Plan Maître 500K]] (LTV avant trafic) et de la [[SOP chatting anti-churn]] (supervision chatting). Complète l'[[Équation de valeur]] (valeur perçue AVANT achat) côté monétisation APRÈS achat. Pricing détaillé dans [[Pricing]]. La version « séquence d'offres qui auto-finance l'acquisition » (cash 30 jours) : [[$100M Money Models (monétisation séquencée)]].
 
 ## Sources
 

@@ -43,7 +43,7 @@ Et une prudence : parler de « mon équipe de 50 auto-entrepreneurs qui bossent 
 
 1. **Crystalliser** : raconter la leçon la fixe (le contexte fait tenir le savoir — l'argument du moteur d'Elon repris dans la vidéo).
 2. **Être tenu responsable** : dire publiquement « je ne lance pas de nouveau chantier avant septembre » rend le [[Plan Maître 500K|garde-fou anti-chantiers]] coûteux à trahir.
-3. **La marque** (bonus) : dans 18 mois, ces vidéos sont l'actif qui crédibilise un canal agence, du recrutement, ou une offre — mais on ne le fait pas pour ça, sinon on optimise les vues au lieu des leçons.
+3. **La marque** (bonus) : dans 18 mois, ces vidéos sont l'actif qui crédibilise un canal agence, du recrutement, ou une offre — mais on ne le fait pas pour ça, sinon on optimise les vues au lieu des leçons. Le jour où tu voudras quand même travailler les titres et la rétention, la grammaire est dans [[Mécanique de contenu (hook, retain, reward)]] (« passé récent » + « histoire en cours » = exactement ce format), et la stratégie de monétisation reste « give until they ask » : zéro ask pendant des mois.
 
 ## Le circuit complet (qui fait quoi)
 

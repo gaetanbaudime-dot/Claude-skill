@@ -15,7 +15,7 @@ liens_forts: ["[[Documentation et SOP]]", "[[Rituels de management]]", "[[Checkl
 
 ## Principe directeur
 
-Une **session de tournage batch** par créatrice et par semaine = 5 tenues × 10 trends = **~50 clips**. Le job d'Emma = faire que ce batch arrive, chaque semaine, sur chaque créatrice prioritaire. Tout le SOP sert ça.
+Une **session de tournage batch** par créatrice et par semaine = 5 tenues × 10 trends = **~50 clips**. Le job d'Emma = faire que ce batch arrive, chaque semaine, sur chaque créatrice prioritaire. Tout le SOP sert ça. La grille pour choisir les trends qui valent le tournage : [[Mécanique de contenu (hook, retain, reward)]] — une trend doit cocher au moins 2 composants de titre (pertinence, conflit, insolite…) sinon on ne la tourne pas.
 
 ## Objectif : x2/x3 la production de Reels (management + process + itération)
 

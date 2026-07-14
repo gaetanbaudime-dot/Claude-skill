@@ -27,7 +27,7 @@ liens_forts: ["[[Opérations de chatting]]", "[[Analyse dashboard OFM (13 juille
 4. **< 48 h : premier PPV soft** à prix d'entrée (9-15 €) : facile à déverrouiller, il **ancre le réflexe d'achat** ([[Biais d'ancrage|ancre basse assumée]] — le Crazy 8 montera les paniers ensuite). Un fan qui a acheté une fois sous 48 h a une LTV sans commune mesure avec un silencieux.
 5. **J+2 si silence total** : relance angle différent (question, pas vente).
 
-**KPI de la séquence : % de nouveaux subs avec 1er achat < 7 j** — à mesurer dès maintenant (baseline), cible de progression vers 30 %+.
+**KPI de la séquence : % de nouveaux subs avec 1er achat < 7 j** — à mesurer dès maintenant (baseline), cible de progression vers 30 %+. Cette séquence est un money model au sens Hormozi : le cash des 30 premiers jours du fan doit couvrir son coût d'acquisition ([[$100M Money Models (monétisation séquencée)]]).
 
 ## Séquence 2 — La vie du fan (J3 → J30)
 

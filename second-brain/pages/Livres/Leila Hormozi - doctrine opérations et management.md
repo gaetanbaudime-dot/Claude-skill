@@ -16,7 +16,7 @@ liens_opposition: []
 # Leila Hormozi — la doctrine opérations & management
 
 > [!info] Verdict
-> Leila Hormozi est la moitié « opérations & équipe » d'Acquisition.com (Alex fait l'offre/marketing, elle fait la machine humaine). Elle n'a **pas de livre best-seller unique** à date — sa doctrine vit dans son podcast *Build* et son contenu public (statut `to-verify` sur les formulations exactes). Mais c'est **la source la plus pertinente pour ta contrainte** : comment construire une équipe et une culture qui scalent, exactement ton problème des 20-30 marketeurs. Sa thèse : *« on ne scale pas un business, on scale des gens qui scalent le business. »*
+> Leila Hormozi est la moitié « opérations & équipe » d'Acquisition.com ([[Alex Hormozi]] fait l'offre/marketing, elle fait la machine humaine). Elle n'a **pas de livre best-seller unique** à date — sa doctrine vit dans son podcast *Build* et son contenu public (statut `to-verify` sur les formulations exactes). Mais c'est **la source la plus pertinente pour ta contrainte** : comment construire une équipe et une culture qui scalent, exactement ton problème des 20-30 marketeurs. Sa thèse : *« on ne scale pas un business, on scale des gens qui scalent le business. »*
 
 ## Les idées-force (contenu public)
 

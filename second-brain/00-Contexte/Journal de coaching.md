@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 — Densification du cluster Alex Hormozi sur textes intégraux
+- **Demande explicite** (« Densifie stp », après le « densifie Alex Hormozi, j'adore » du 13/07). Fait : [[Grand Slam Offer]] et [[Core Four]] réécrits sur les **textes intégraux** de *$100M Offers* et *$100M Leads* (pack du 13/07) — 5 étapes de construction, 5 amplificateurs, garanties (4 types + la maths 130 %/10 %), naming MAGIC, leads engagés, lead magnets, ACA, règle des 100, LTGP:CAC 3:1, acquisition auto-financée. Créées : [[Mécanique de contenu (hook, retain, reward)]] (branchée sur vidéo du dimanche + clippers + SOP contenu) et [[$100M Money Models (monétisation séquencée)]]. Thèse Acquisition.com ajoutée à [[Alex Hormozi]], [[Leila Hormozi - doctrine opérations et management|Leila]] reliée au cluster.
+- **Flag épistémique assumé** : le texte de *Money Models* n'est PAS dans le pack → page en `to-verify` sur sources publiques, taxonomie marquée « probable ». **Action Gaëtan : fournir le texte au prochain pack.**
+- **Insight structurant** : le modèle rev-share de LTP est la « garantie implicite » préférée d'Hormozi, et le funnel fan (PPV < 48 h → bundles → rebill) est déjà un money model complet — le manquant n'est pas le cadre, c'est le **KPI cash-30-jours par nouveau fan** à instrumenter.
+- **Prédiction datée (14/07, avant l'issue)** : si la grille « ≥ 2 composants de titre sinon on ne tourne pas » est appliquée aux briefs trends dès la semaine de passation, le taux de Reels > 10k vues augmente d'au moins un tiers d'ici fin août. À vérifier sur le reporting clippers de septembre.
+
 ### 2026-07-14 (nuit) — Suppléments : analyse de 2 produits réels + stack calibré
 - **Photos de 2 produits** : 21st Century Cal-Mag-Zinc+D3 et Himalaya Ashwagandha. Verdict honnête ([[Suppléments (protocole calibré sur le sang)]]) : le Cal-Mag-Zinc est **mauvais pour ses objectifs** (D3 400 UI = 4× trop peu, magnésium oxyde = pire forme, calcium/zinc inutiles et antagonistes) → à ne pas racheter. Ashwagandha = optionnel (cortisol normal → effet marginal), à cycler, préférer un KSM-66 standardisé.
 - **Correction de croyance (rigueur)** : Gaëtan se dit « en carence de vit D » → **faux**, il est à 33,8 = « adéquate » (>30). Carence = <20. Il est « adéquat mais bas », objectif 45-50 légitime mais pas une urgence. Corrigé fermement.

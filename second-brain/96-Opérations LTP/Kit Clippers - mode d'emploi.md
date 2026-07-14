@@ -24,6 +24,8 @@ liens_forts: ["[[Checklist formation clipping]]", "[[Machine Instagram-Facebook 
 | **5 — Reels d'essai & évolutions** | À 200 followers | Variantes non-followers, paliers (compte pro, repost auto, Metricool, 2e téléphone, Clipper Manager) |
 | **6 — Quand ça coince** | Toujours (avec la 1) | Bans = coût d'exploitation, le circuit question (Loom → #faq → reporting), la règle du renvoi |
 
+La théorie derrière la fiche 3 (pourquoi hook + partage sont LES deux critères) : [[Mécanique de contenu (hook, retain, reward)]] — à injecter dans la prochaine version des fiches si les clips plafonnent.
+
 Régénération : `python3 tools/kit_clippers/generer_fiches.py` (générateur versionné, même outil que le [[Kit Emma - mode d'emploi|Kit Emma]]).
 
 ## Le quiz d'onboarding (à coller dans un Google Form, mode « quiz auto-corrigé »)
