@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-15 (nuit) — Bot FAQ clippers construit (décision « septembre » avancée par Gaëtan)
+- **Contexte honnête** : le 14/07 au soir, verdict rendu = reporter le bot à septembre (déclencheur : 20+ clippers OU >2 h/semaine de questions documentées). Quelques heures plus tard, Gaëtan demande de le développer cette nuit — **sa décision, actée**. L'argument qui la rend défendable : le coût de développement est porté par Claude pendant qu'il dort, et le périmètre retenu neutralise les deux vrais risques (fuite du playbook → base = kit v2 uniquement, déjà en PDF chez les clippers ; maintenance → base = un seul fichier versionné).
+- **Livré** : `tools/bot_clippers/` — bot Telegram complet (code d'accès, quota 30 q/jour, escalade Discord si hors kit, journal des questions avec marqueur « escalade » = la donnée du déclencheur de septembre, désormais instrumentée). Testé hors-ligne (flux complet). Page vault : [[Bot FAQ clippers (Telegram)]]. Reste côté Gaëtan : token @BotFather + clé API + `.env` (~15 min).
+- **Prédiction datée (15/07, avant l'issue)** : si le kit v2 fait son travail, le journal montrera **moins de 10 questions/semaine** et **moins de 20 % d'escalades** sur les 4 premières semaines — auquel cas le bot aura surtout servi de preuve que le kit suffisait. À vérifier sur `journal_questions.jsonl` fin août.
+
 ### 2026-07-15 (2h du matin) — Recalage sommeil en un coup : validé avec conditions
 - **Situation** : 2h à Dubaï, pas encore couché, récup Whoop 97 %, aucun événement du soir jusqu'au départ du 24/07, journée du 15 sacrifiable. Demande : dormir ~3 h, lever 5h30, pour se recaler d'un coup sur la [[Routine maîtresse (lever 5h, coucher 21h30)]].
 - **Verdict rendu** : OUI — c'est la fenêtre idéale pour un recalage par ancrage du réveil (coussin de récup, enjeu du lendemain nul, 9 jours pour consolider). MAIS le 15 est un jour de mise en place, pas de performance : la « grosse session deep work » se juge à partir du 16. Conditions non négociables : caféine avant midi seulement, pas de sieste après 14h (20 min max avant), lumière extérieure avant 8h, coucher 21h30 pile le 15 au soir (la nuit 2 installe le rythme, pas la courte). Récup Whoop du 15 à ignorer (rouge prévu). Outil exceptionnel, pas une habitude — la consistance 56 % reste le chantier.

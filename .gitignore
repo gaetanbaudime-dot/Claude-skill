@@ -3,5 +3,9 @@ second-brain/.obsidian/workspace.json
 second-brain/.obsidian/workspace-mobile.json
 second-brain/.obsidian/cache
 
+# Bot clippers — secrets et données locales (jamais commités)
+tools/bot_clippers/.env
+tools/bot_clippers/donnees/
+
 # macOS
 .DS_Store

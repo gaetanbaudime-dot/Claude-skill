@@ -1,0 +1,164 @@
+# Base de connaissances — Kit Clipper LTP (v2, 14 juillet 2026)
+
+> Ce fichier est LA seule source du bot. Il reprend le Kit Clipper v2 (PDF officiel).
+> Pour le mettre à jour : modifier ce fichier puis redémarrer le bot.
+> ⚠️ Ne JAMAIS ajouter ici : identités de créatrices, chiffres de l'agence, méthodes hors kit.
+
+## L'objectif du clipper (dans l'ordre)
+
+1. Créer des comptes Instagram propres.
+2. Poster tous les jours.
+3. Tester beaucoup de formats.
+4. Refaire ce qui marche.
+5. Ramener des abonnés OnlyFans avec son lien — c'est ça qui paie.
+
+## Le matériel de travail (pour 1 téléphone)
+
+- 2 comptes Instagram de croissance : ils font des vues. Leur bio contient UNIQUEMENT l'arobase @ du compte privé (jamais de lien).
+- 1 compte Instagram privé : c'est LUI qui a le lien. Il reçoit les curieux envoyés par les comptes de croissance.
+- 3 pages Facebook par créatrice : elles republient les Reels et font des vues en plus. Facebook marche très fort en ce moment et les pages ne sautent presque jamais.
+
+## La règle la plus importante de toutes
+
+On ne poste JAMAIS une vidéo brute du Google Drive. Chaque vidéo doit être modifiée avant publication : début changé, coupes, zoom, texte (caption), sous-titres, musique, miniature. Pourquoi : Instagram repère les copies (le « contenu dupliqué ») et coupe les vues.
+
+## FICHE 1 — Créer tes comptes (Jour 0)
+
+Avant de commencer : quiz validé (8/10 minimum) + adresse Gmail envoyée à Gaëtan (accès au Drive de la créatrice).
+
+Instagram, les règles d'or :
+- 1 SEUL compte Instagram créé par jour. Jamais 2 ou 3 le même jour.
+- Pour chaque compte : 1 adresse mail + 1 mot de passe rien qu'à lui (créés avec Gaëtan).
+- Photo, bio et arobase @ uniques pour chaque compte → tout se note dans le canal Discord.
+- JAMAIS ton numéro de téléphone sur un compte Instagram. Vérification : Profil → Paramètres → Informations personnelles. S'il y a un numéro, on l'enlève.
+- Jamais associer les comptes entre eux (et jamais dans le Meta Center).
+- ⚠️ Le piège de l'association : si Instagram crée le nouveau compte SANS demander une adresse mail et un mot de passe, c'est qu'il est associé à l'ancien. Aller dans les paramètres et le dissocier. Sinon, un seul ban peut emporter tous les comptes d'un coup.
+
+Le lien (celui qui fait gagner de l'argent) :
+- Le lien GetAllMyLinks va UNIQUEMENT sur le compte Instagram privé, et seulement à J+7 (le lien se demande à Gaëtan).
+- Les 2 comptes de croissance n'ont JAMAIS de lien : seulement l'arobase @ du compte privé dans la bio.
+
+Facebook, les pages :
+- Le compte Facebook personnel du clipper = le compte « mère ». Il sert uniquement à créer et gérer les pages. Les amis et la famille ne voient PAS les pages gérées.
+- 1 compte mère peut gérer jusqu'à 10 pages. Un clipper en gère 3 par créatrice.
+- Sur Facebook c'est plus simple : le lien dès le premier jour (bio + profil) et on peut publier dès le premier jour.
+
+Rappel : contenu 100 % propre, toujours. Un compte qui saute n'est pas un drame : on le note, on recrée (1 par jour) et on continue (voir fiche 6).
+
+## FICHE 2 — Le warm-up (48 heures)
+
+Le but : montrer à Instagram que le compte est celui d'une vraie créatrice française. Facebook n'a PAS besoin de warm-up : on y publie dès le premier jour.
+
+Les 48 premières heures (aucune publication) :
+- Zéro publication pendant 48 heures.
+- Regarder uniquement du contenu de créatrices françaises (la liste est dans le Discord).
+- S'abonner aux créatrices de la liste + activer les notifications Reels et carrousels.
+- Liker, regarder les Reels en entier, commenter un peu — comme une vraie utilisatrice.
+- Enregistrer les meilleurs Reels (pour les reproduire plus tard).
+
+Pourquoi activer les notifications : commenter un Reel dans les minutes après sa publication chez une grosse créatrice = commentaire vu par 10 000 à 200 000 personnes. Visibilité gratuite — seulement si le commentaire est bien écrit, drôle ou utile. Les commentaires de robot font bloquer le compte. Le guide des bons commentaires est dans le Discord.
+
+LE test de fin de warm-up (le seul qui compte) : ouvrir l'onglet Explorer.
+- Il montre des créatrices françaises → warm-up terminé, passer à la fiche 3.
+- Il montre autre chose → warm-up pas fini, continuer les interactions naturelles. Ce n'est pas une question de durée mais de signal. Si ça ne vient pas après plusieurs jours : trop d'actions trop vite, demander conseil.
+
+Les erreurs qui cassent un warm-up :
+- Publier avant la fin des 48 heures.
+- Regarder du contenu hors sujet (le fil doit rester 100 % créatrices françaises).
+- Les rafales : 50 likes en 5 minutes = comportement de robot.
+- Mettre le lien trop tôt (il arrive à J+7, sur le compte privé seulement).
+- Se connecter au même compte depuis plusieurs appareils.
+
+## FICHE 3 — Monter et poster un Reel
+
+L'application : Edits (le monteur vidéo d'Instagram). La routine : 1 heure le matin en brouillons, publication étalée dans la journée.
+
+La préparation (une seule fois) :
+- Télécharger les « bases » depuis le Discord (= le top 10 des Reels de SA créatrice, ce qui a déjà marché).
+- Les importer en template dans Edits : extraire le son, dupliquer la caption.
+
+La boucle par Reel (10-15 min au début, 5 min avec l'habitude) :
+1. Télécharger un rush depuis le Google Drive de la créatrice.
+2. Dans Edits : « Remplacer le rush » du template par celui qu'on vient de prendre.
+3. Modifier : filtre, début et fin coupés, zoom ou cadrage, son (celui de la base ou un son populaire), caption (celle de la base ou une variante — 100 idées dans le Discord), sous-titres si elle parle (varier les couleurs), miniature.
+4. Mettre en brouillon le matin → publier étalé dans la journée (pas de programmation automatique : moins de vues).
+5. Publier sur Instagram ET sur une page Facebook.
+
+Avant de publier, UNE question : est-ce que ma vidéo ressemble encore au rush du Drive ? Si oui → on ne poste pas, on modifie encore.
+
+Ce qui fait performer un Reel (tout le reste compte moins) :
+- Le hook : la première seconde doit donner envie de rester.
+- Le partage : une vidéo qu'on a envie d'envoyer à un ami.
+
+Contenu AUTORISÉ : tenues couvertes, street/décontracté/sport, tenue de soirée habillée, hooks sur la personnalité, humour, une histoire, une situation où on se reconnaît, des vidéos qui donnent envie de commenter.
+Contenu INTERDIT : bikinis trop sexy, sous-vêtements, poses trop provocantes, les textes « écris-moi en privé » / « lien en bio » / « contenu exclusif », toute mention d'argent, de drogue ou d'OnlyFans, les émojis trop chauds.
+Objectif : des comptes propres qui durent le plus longtemps possible.
+
+## FICHE 4 — La routine et la semaine
+
+La routine du jour :
+1. Prendre un rush sur le Google Drive et faire le montage sur Edits.
+2. Publier sur les comptes Instagram.
+3. Republier sur les pages Facebook.
+4. Faire quelques commentaires naturels.
+5. Regarder les statistiques et REFAIRE les formats qui marchent.
+
+La montée en puissance, semaine par semaine (sur chacun des 2 comptes de croissance) :
+- Semaine 1 : 1 Reel par jour et par compte.
+- Semaine 2 : 2 Reels par jour et par compte.
+- Semaine 3 : 3 Reels par jour et par compte.
+- Semaine 4 : on tient le rythme (+1 par semaine ensuite, si ça tient) + le formulaire chaque dimanche.
+- Vers J+30 : un compte bien tenu peut viser ~500 abonnés → les évolutions de la fiche 5 se débloquent.
+
+Autour des Reels : 2-3 carrousels par semaine (dès qu'un Reel pète → poster un carrousel, c'est là qu'ils explosent), 1-10 commentaires par jour chez les créatrices suivies, 1-3 stories par jour (sondages, quiz, lifestyle).
+
+Le reporting du dimanche (NON NÉGOCIABLE) :
+- 1 fois par semaine, chaque dimanche : remplir LE formulaire (le lien est dans le Discord).
+- En semaine : possibilité de poster un petit retour dans son canal Discord privé → on regarde les Reels et on fait des retours → plus de vues → plus de revenus.
+- Sans le formulaire du dimanche : pas de suivi, pas d'évolution, pas de revenus → PAS DE RÉMUNÉRATION.
+
+La traversée du désert : les 2-3 premières semaines, les vues sont basses. C'est normal, c'est prévu, et c'est là que tout le monde abandonne. La courbe est plate — puis un Reel pète et fait boule de neige. On ne peut pas échouer si on publie tous les jours et qu'on s'améliore chaque semaine.
+
+## FICHE 5 — Reels d'essai et évolutions
+
+Débloqués vers 200 abonnés (environ J+10 / J+15 si la cadence est bonne).
+
+Les Reels d'essai (Instagram uniquement) :
+- Des variantes d'un Reel existant, montrées uniquement à des gens qui ne suivent pas le compte → zéro risque pour l'audience.
+- On varie : le hook, la description, les sous-titres (couleurs), le filtre, le son, la caption.
+- Un même contenu = plusieurs variantes = beaucoup plus de chances d'en avoir une qui pète.
+- Monter en volume : +1 Reel d'essai par jour, chaque semaine.
+- Le Loom « Comment dupliquer un Reel viral en Reels d'essai » est dans le Discord.
+
+Les évolutions (vers J+30 / J+60, selon les résultats) :
+- 500-1 000 abonnés, compte stable qui fait des vues → passage en compte professionnel + association de la page Facebook → republication automatique depuis Edits (gros gain de temps).
+- L'installation tourne bien → migration des comptes sur Metricool (gestion sur ordinateur) → on recrée des comptes neufs sur le téléphone → tu gères plus, tu gagnes plus.
+- Passage à la vitesse supérieure → 2e ou 3e téléphone fourni = deux ou trois fois plus de comptes, donc deux ou trois fois plus de revenus.
+- Meilleur clipper de la promo → Clipper Manager : tu accompagnes les autres et tu touches une commission sur leur part.
+
+Rappels : pas de Reels d'essai sur Facebook (là-bas on publie tout, directement, dès le premier jour). Pas de TikTok : ça ne fait ni clics ni abonnés OnlyFans.
+
+## FICHE 6 — Quand ça coince
+
+Compte restreint ou banni :
+1. Pas de panique : ça fait partie du métier, ce n'est pas une faute. Les pages Facebook, elles, ne sautent presque jamais.
+2. Le noter dans son canal Discord et mentionner Gaëtan (quel compte, depuis quand, ce qu'on faisait) → prévoir un créneau ensemble.
+3. Si les bans s'enchaînent : recréer un compte propre (fiche 1) ET demander un diagnostic à Gaëtan. La cause presque à chaque fois : des comptes connectés entre eux — même adresse mail, même numéro de téléphone, ou même appareil.
+
+Une question ? Le circuit, dans CET ordre :
+1. Le chapitre du Loom (la formation est découpée : Mindset, Stratégie, Création des comptes, Warm-up, Publication, Cadence, Essais, Évolutions). 90 % des réponses y sont.
+2. Le canal #faq sur Discord : toutes les questions déjà posées 2 fois y sont écrites.
+3. Le formulaire du dimanche soir, avec une capture d'écran.
+
+La règle (assumée) : si la réponse à une question est dans la formation ou la FAQ, on renvoie le lien du chapitre, pas une réponse personnalisée. Le temps gagné sert à regarder les Reels et à faire des retours — ce qui fait réellement gagner de l'argent.
+
+Les 3 chiffres à ne jamais oublier :
+- 1 compte créé par jour, maximum.
+- 48 h sans publier au début du warm-up — et le test de l'Explorer avant de poster.
+- +1 Reel par jour chaque semaine — la régularité bat l'intensité.
+
+Le mindset : à la fin du Loom, à écouter les jours difficiles. En une phrase : tu ne peux pas échouer si tu n'abandonnes jamais — et le meilleur clipper devient manager.
+
+## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
+
+(vide pour l'instant — Gaëtan y ajoute les questions récurrentes et leurs réponses)
