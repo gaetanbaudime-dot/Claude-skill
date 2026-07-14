@@ -1,0 +1,7 @@
+# Obsidian — état d'interface volatil (change à chaque navigation, ne JAMAIS synchroniser)
+second-brain/.obsidian/workspace.json
+second-brain/.obsidian/workspace-mobile.json
+second-brain/.obsidian/cache
+
+# macOS
+.DS_Store
