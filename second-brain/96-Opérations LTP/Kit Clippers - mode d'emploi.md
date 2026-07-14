@@ -11,18 +11,19 @@ liens_forts: ["[[Checklist formation clipping]]", "[[Machine Instagram-Facebook 
 # Kit Clippers : la refonte de la formation (mode d'emploi)
 
 > [!tip] Verdict
-> La formation Loom de 36 min était bonne mais mal packagée : linéaire, sans point de contrôle, donc « ils posent les mêmes questions et ne regardent pas ». La refonte : **le Loom reste la bibliothèque** (chapitré, on n'y touche pas), l'exécution passe sur **6 fiches A4** (dossier `Kit Clippers/`, une page = une étape) + **un quiz de 10 questions obligatoire avant le premier compte** + **la règle du renvoi** (question déjà couverte → lien du chapitre, jamais de re-réponse). Diagnostic et décision [[Journal de coaching|journalisés]].
+> La formation Loom de 36 min était bonne mais mal packagée : linéaire, sans point de contrôle, donc « ils posent les mêmes questions et ne regardent pas ». La refonte : **le Loom reste la bibliothèque** (chapitré, on n'y touche pas), l'exécution passe sur **UN SEUL PDF de 7 pages** (`Kit Clippers/Kit Clipper LTP (v2).pdf` : page de bienvenue + 6 fiches, une page = une étape, langage collégien) + **un quiz de 10 questions obligatoire avant le premier compte** + **la règle du renvoi** (question déjà couverte → lien du chapitre, jamais de re-réponse). Diagnostic et décision [[Journal de coaching|journalisés]].
 
-## Les 6 fiches (une par étape, remises au fil de l'onboarding)
+## Le PDF v2 (14/07 — relecture ligne à ligne de Gaëtan + consignes Discord du 09/07)
 
-| Fiche | Quand la donner | Contenu |
+| Page | Quand la donner | Contenu |
 |---|---|---|
-| **1 — J0 : création des comptes** | Après le quiz validé | 1 compte/jour, identités uniques, jamais Meta Center, lien J+7 IG / J0 FB, les 4 paires, les 3 méthodes de lien |
-| **2 — Warm-up Instagram** | Avec la fiche 1 | 48 h sans publier, consommation niche FR, notifications, **LE test de l'Explorer** |
-| **3 — Posting quotidien** | Quand l'Explorer est bon | La checklist Edit complète (bases → rush 👍 → variantes → brouillons matin), hook + partage |
-| **4 — Cadence** | Avec la fiche 3 | 1→10 Reels/jour (+1/sem), carrousels, commentaires, stories, reporting quotidien, la traversée du désert |
-| **5 — Reels d'essai & évolutions** | À 200 followers | Variantes non-followers, paliers (compte pro, repost auto, Metricool, 2e téléphone, Clipper Manager) |
-| **6 — Quand ça coince** | Toujours (avec la 1) | Bans = coût d'exploitation, le circuit question (Loom → #faq → reporting), la règle du renvoi |
+| **Bienvenue** | Avec le quiz | L'objectif en 5 étapes, le setup cible visuel (2 IG croissance + 1 IG privé + 3 pages FB), LA règle (jamais de rush brut), le parcours |
+| **1 — Créer tes comptes (J0)** | Après le quiz validé | 1 compte/jour (jamais 2-3 d'un coup), mail+mdp+photo+bio+arobase uniques notés dans Discord, **jamais de numéro de téléphone** (vérif. Informations personnelles), piège de l'association (dissocier), lien GetAllMyLinks **J+7 sur le compte privé uniquement** (croissance = arobase en bio), compte FB mère → 10 pages max, 3 pages/créatrice, lien FB dès J0 |
+| **2 — Warm-up** | Avec la fiche 1 | 48 h sans publier, consommation niche FR, notifications, **LE test de l'Explorer**, les erreurs qui cassent un warm-up |
+| **3 — Monter et poster un Reel** | Quand l'Explorer est bon | Boucle Edits **sans renommage** (les clippers sont en lecteur sur le Drive), la question unique avant de publier (≠ rush brut), hook + partage, tableau autorisé/interdit |
+| **4 — Routine et semaine** | Avec la fiche 3 | Routine du jour, montée S1=1 → S2=2 → S3=3 Reels/jour/compte, ~500 abonnés visés vers J+30, **reporting hebdomadaire : LE formulaire chaque dimanche, lié à la rémunération** + retours libres dans le canal Discord privé, la traversée du désert |
+| **5 — Reels d'essai & évolutions** | À 200 abonnés | Variantes non-abonnés, paliers (compte pro, republication auto, Metricool, 2e téléphone, Clipper Manager) |
+| **6 — Quand ça coince** | Toujours (avec la 1) | Ban → noter dans le canal Discord + mentionner Gaëtan (créneau) ; bans en chaîne → recréer + **diagnostic Gaëtan** (comptes connectés par mail, numéro ou appareil) ; circuit question (Loom → #faq → formulaire du dimanche), la règle du renvoi |
 
 La théorie derrière la fiche 3 (pourquoi hook + partage sont LES deux critères) : [[Mécanique de contenu (hook, retain, reward)]] — à injecter dans la prochaine version des fiches si les clips plafonnent.
 
@@ -32,17 +33,17 @@ Régénération : `python3 tools/kit_clippers/generer_fiches.py` (générateur v
 
 **Réglage** : Google Forms → Paramètres → « Convertir en quiz » → note auto. **Seuil : 8/10** pour recevoir la fiche 1 et créer le premier compte. En dessous : on re-regarde les chapitres ratés, on repasse le quiz. ✅ = bonne réponse.
 
-1. **Combien de comptes Instagram crées-tu par jour ?** — a) Les 4 d'un coup pour gagner du temps · b) ✅ Un seul par jour · c) Deux le matin, deux le soir
-2. **Quand mets-tu le lien sur un compte Instagram neuf ?** — a) Dès la création · b) ✅ À J+7 · c) Quand le compte atteint 1 000 followers
+1. **Combien de comptes Instagram crées-tu par jour ?** — a) Les 3 d'un coup pour gagner du temps · b) ✅ Un seul par jour · c) Deux le matin, un le soir
+2. **Où et quand mets-tu ton lien GetAllMyLinks ?** — a) Sur tous les comptes dès la création · b) ✅ Uniquement sur le compte Instagram privé, à J+7 · c) Sur les comptes de croissance à J+7
 3. **Et sur une page Facebook ?** — a) ✅ Dès J0, bio + profil · b) À J+7 · c) Jamais de lien sur Facebook
-4. **Peut-on associer les comptes dans le Meta Center ?** — a) Oui, c'est plus pratique · b) Seulement les comptes de la même créatrice · c) ✅ Jamais : ça provoque des bans en chaîne
-5. **Comment sais-tu que ton warm-up Instagram est terminé ?** — a) Après exactement 48 h · b) ✅ Quand l'Explorer montre des créatrices OF françaises · c) Quand j'ai 100 follows
+4. **Peut-on associer les comptes Instagram entre eux (Meta Center) ?** — a) Oui, c'est plus pratique · b) Seulement les comptes de la même créatrice · c) ✅ Jamais : un ban peut emporter tous les comptes d'un coup (dissocier si Instagram crée un compte sans demander mail + mot de passe)
+5. **Comment sais-tu que ton warm-up Instagram est terminé ?** — a) Après exactement 48 h · b) ✅ Quand l'Explorer montre des créatrices françaises · c) Quand j'ai 100 abonnements
 6. **Les 2 critères qui font performer un Reel ?** — a) La durée et le filtre · b) ✅ Le hook et le taux de partage · c) Le nombre de hashtags et l'heure de publication
-7. **Que fais-tu AVANT d'utiliser un rush du Drive ?** — a) Je le compresse · b) ✅ Je le renomme avec un 👍 pour qu'aucun autre clipper ne le reprenne · c) Je demande l'autorisation
-8. **La montée en cadence, c'est :** — a) 10 Reels/jour dès la semaine 1 · b) ✅ +1 Reel/jour chaque semaine (semaine 1 = 1/jour, semaine 2 = 2/jour…) · c) On publie quand on a l'inspiration
-9. **Les Reels d'essai se débloquent à :** — a) ✅ 200 followers, variantes montrées aux non-followers · b) 1 000 followers · c) Ils sont disponibles dès la création
-10. **On publie sur TikTok ?** — a) Oui, c'est le plus gros volume · b) ✅ Non : pas de clics ni de subs — Instagram + pages Facebook uniquement
-*(Bonus/11 : la fréquence du reporting Discord ? → quotidienne.)*
+7. **Ton numéro de téléphone sur un compte Instagram ?** — a) Oui, pour sécuriser le compte · b) Seulement sur le compte privé · c) ✅ Jamais — vérifier dans Profil → Paramètres → Informations personnelles, et l'enlever s'il y en a un
+8. **La montée en cadence, c'est :** — a) 10 Reels/jour dès la semaine 1 · b) ✅ +1 Reel/jour chaque semaine et par compte (semaine 1 = 1/jour, semaine 2 = 2/jour, semaine 3 = 3/jour) · c) On publie quand on a l'inspiration
+9. **Les Reels d'essai se débloquent à :** — a) ✅ 200 abonnés, variantes montrées aux non-abonnés · b) 1 000 abonnés · c) Ils sont disponibles dès la création
+10. **Le reporting, c'est :** — a) Un message quand j'y pense · b) ✅ LE formulaire chaque dimanche — sans lui : pas de suivi, pas d'évolution, pas de rémunération · c) Uniquement quand un compte est banni
+*(Bonus/11 : on publie sur TikTok ? → Non : pas de clics ni d'abonnés OnlyFans — Instagram + pages Facebook uniquement.)*
 
 ## Les 3 règles de fonctionnement (côté Gaëtan/manager)
 
@@ -53,6 +54,8 @@ Régénération : `python3 tools/kit_clippers/generer_fiches.py` (générateur v
 ## Ce qui a changé vs la formation d'origine
 
 Le **mindset (8 min) passe à la fin** du parcours — c'est la partie la plus zappée en ouverture, et la plus utile les jours de traversée du désert (la fiche 4 y renvoie). L'opérationnel commence à la 30e seconde. Le Loom n'est pas re-tourné : on le re-chapitre au besoin, c'est tout.
+
+**v2 (14/07)** — relecture ligne à ligne de Gaëtan : un seul PDF au lieu de 6 fichiers, setup cible corrigé (2 IG croissance + 1 IG privé + 3 pages FB — fin des « 4 paires » et des 3 méthodes de lien : une seule méthode, arobase → compte privé → lien), règle « jamais de numéro de téléphone » ajoutée, étape de renommage des rushs supprimée (les clippers sont en lecteur sur le Drive), **reporting quotidien remplacé par LE formulaire du dimanche lié à la rémunération**, langage simplifié niveau collège, aération et logos. Les émojis natifs ne passant pas dans le moteur PDF, ils sont remplacés par des glyphes sûrs (✔ ✘ ⚠ ★ ☑) et des logos SVG (Instagram, Facebook, téléphone, flamme).
 
 > [!warning] Sécurité
 > Ces fiches et la formation décrivent des tactiques multi-comptes qui vivent en zone grise CGU ([[Machine Instagram-Facebook en masse|dette structurelle documentée]], [[Risques légaux et éthiques de l'OFM]]) — **documents internes, jamais publics**. ⚠️ Rappel du flag journalisé : la vidéo YouTube « stratégie » publique référencée dans le Loom est à passer **en non répertoriée**.

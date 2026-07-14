@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-14 — Kit Clipper v2 : un seul PDF de 7 pages, relu ligne à ligne
+- **Demande** : reprendre les 6 fiches « le plus simple possible, langage collège, un seul PDF, très visuel ». Fait : `Kit Clippers/Kit Clipper LTP (v2).pdf` (bienvenue + 6 fiches), consignes Discord du 09/07 intégrées. Changements de fond : setup cible corrigé (**2 IG croissance + 1 IG privé + 3 pages FB**, une seule méthode de redirection arobase → privé → lien), règle **« jamais de numéro de téléphone sur un compte Instagram »**, lien GetAllMyLinks **J+7 sur le compte privé uniquement**, suppression du renommage des rushs (accès lecteur), **reporting quotidien → formulaire du dimanche lié à la rémunération**, cadence explicite S1=1/S2=2/S3=3 Reels/jour/compte, ~500 abonnés visés à J+30. Quiz mis à jour (questions renommage → numéro de téléphone, reporting).
+- **Décision liée (même jour)** : le chatbot « questions clippers » évalué et **reporté** — le kit v2 + règle du renvoi est la solution à tester d'abord. Déclencheur de réévaluation : **20+ clippers actifs OU >2 h/semaine de questions déjà documentées** malgré la règle du renvoi (bilan en septembre).
+- **Prédiction datée (14/07, avant l'issue)** : avec le PDF unique + le quiz v2, les questions « déjà couvertes » posées en direct baissent d'au moins moitié sur les 4 prochaines semaines vs la semaine du 07/07. À vérifier au canal #faq fin août.
+
 ### 2026-07-14 — Synchro Obsidian : Option A actée (pull seul, pas de token)
 - **Décision** : suite à l'échec de push depuis Obsidian (« No anonymous write access »), Gaëtan choisit l'**Option A recommandée** — Obsidian en lecture seule, aucun token GitHub sur ses appareils, Claude reste le seul écrivain du repo. Réglages et procédure de secours gravés dans [[Méthode de travail Claude]] (miroir dans le SKILL.md).
 - **Conséquence à retenir** : une note éditée directement dans Obsidian ne remonte jamais — toute modification passe par Claude. Moins de surface d'erreur (pas de token à protéger, pas de conflits de push), un seul sens de synchro.
