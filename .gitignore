@@ -1,7 +1,8 @@
-# Obsidian — état d'interface volatil (change à chaque navigation, ne JAMAIS synchroniser)
+# Obsidian — état d'interface + réglages plugins volatils (changent tout le temps, ne JAMAIS synchroniser)
 second-brain/.obsidian/workspace.json
 second-brain/.obsidian/workspace-mobile.json
 second-brain/.obsidian/cache
+second-brain/.obsidian/plugins/obsidian-git/data.json
 
 # Bot clippers — secrets et données locales (jamais commités)
 tools/bot_clippers/.env
