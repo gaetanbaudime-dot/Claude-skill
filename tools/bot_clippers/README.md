@@ -72,9 +72,9 @@ Pour révoquer quelqu'un : supprime sa ligne dans `donnees/autorises.json` et ch
 
 ## Coût (ordre de grandeur)
 
-Avec le modèle par défaut (`claude-opus-4-8`) et le cache activé : **~1 centime par question**
-(≈ 5-10 €/mois pour 500-1000 questions). Pour diviser par ~5, mets `MODELE=claude-haiku-4-5`
-dans `.env` (réponses un peu moins fines — à tester sur tes questions réelles).
+Modèle par défaut : **`claude-haiku-4-5`** (rapide, quasi gratuit, largement assez pour une FAQ).
+Coût API ≈ **1-2 €/mois** même à fort volume. Le total est dominé par l'hébergement (~5 $/mois).
+Pour des réponses plus fines : `MODELE=claude-opus-4-8` dans `.env` (~5x plus cher, reste sous ~10 €/mois).
 
 ## Mettre à jour les connaissances
 

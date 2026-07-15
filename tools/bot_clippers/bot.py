@@ -34,7 +34,9 @@ charger_env()
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 CODE_ACCES = os.environ.get("CODE_ACCES", "")
-MODELE = os.environ.get("MODELE", "claude-opus-4-8")
+# Haiku par défaut : largement assez pour répondre depuis une base figée, ~5x moins cher qu'Opus
+# et plus rapide (meilleure UX). Mettre MODELE=claude-opus-4-8 dans .env pour des réponses plus fines.
+MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
 ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.strip()}
 
