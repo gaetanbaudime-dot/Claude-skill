@@ -61,7 +61,7 @@ Créatrices par nom de scène uniquement, équipe par prénoms, jamais de handle
 **Les réglages Obsidian Git (à faire une fois)** :
 1. **Auto commit-and-sync interval = 0** (off) — plus jamais de commit local, donc plus jamais d'échec de push.
 2. **Auto pull interval = 10** (minutes) + « Pull on startup » activé si dispo.
-3. **« Disable push » = ON** (le toggle existe dans les réglages du plugin) — supprime définitivement l'erreur « No anonymous write access ».
+3. **Couper le push** — supprime l'erreur « No anonymous write access ». Selon la version du plugin, le réglage s'appelle **« Disable push »** (anciennes versions) OU **« Push on commit-and-sync » à désactiver** (versions récentes, section « Commit-and-sync » : « Turning this off turns a commit-and-sync action into commit and pull only »). Dans les versions récentes il faut AUSSI désactiver **« Auto commit-and-sync after stopping file edits »** (section « Automatic ») pour couper tout commit automatique résiduel. Vécu le 15/07 : le Mac de Gaëtan avait « Push on commit-and-sync » et pas de « Disable push ».
 4. Rafraîchissement manuel : palette → **« Obsidian Git: Pull »**.
 
 **Si un pull bloque quand même** (« local changes would be overwritten ») : c'est qu'une page a été éditée localement ET modifiée par Claude. La source de vérité est le repo → palette → « Obsidian Git: Discard all changes » (⚠️ efface les éditions locales) puis Pull. Si l'édition locale avait de la valeur, l'envoyer à Claude AVANT de discard. En dernier recours (état git local irrécupérable) : supprimer le vault local et re-cloner via la commande du plugin « Clone an existing remote repo » — sans risque, le repo a tout.
