@@ -11,6 +11,7 @@ import base64
 import json
 import logging
 import os
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -34,7 +35,8 @@ def charger_env():
 charger_env()
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
-CANAL_BOT_ID = os.environ.get("CANAL_BOT_ID", "").strip()   # id du canal où le bot répond à tout
+CANAL_BOT_ID = os.environ.get("CANAL_BOT_ID", "").strip()   # id du canal (texte) où le bot répond à tout
+FORUM_BOT_ID = os.environ.get("FORUM_BOT_ID", "").strip()   # id du forum : le bot répond dans chaque post
 MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
 ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.strip()}
@@ -185,8 +187,12 @@ client = discord.Client(intents=intents)
 
 
 def doit_repondre(message) -> bool:
-    """On répond si : le message est dans le canal dédié, OU le bot est mentionné."""
-    if CANAL_BOT_ID and str(message.channel.id) == CANAL_BOT_ID:
+    """On répond si : canal dédié, OU post d'un forum dédié, OU le bot est mentionné."""
+    canal = message.channel
+    if CANAL_BOT_ID and str(canal.id) == CANAL_BOT_ID:
+        return True
+    parent = getattr(canal, "parent_id", None)  # dans un forum, chaque post est un thread
+    if FORUM_BOT_ID and parent and str(parent) == FORUM_BOT_ID:
         return True
     return client.user in message.mentions
 
@@ -196,6 +202,44 @@ def nettoyer(message) -> str:
     for forme in (f"<@{client.user.id}>", f"<@!{client.user.id}>"):
         texte = texte.replace(forme, "")
     return texte.strip()
+
+
+# ------------------------------------------------------------------ tri automatique par sujet (forum)
+# La fiche que le bot cite en fin de réponse -> nom du tag du forum (à créer côté Discord).
+SUJET_VERS_TAG = {"1": "Comptes", "2": "Warm-up", "3": "Reels",
+                  "4": "Routine", "5": "Reels", "6": "Blocages"}
+
+
+def tag_du_sujet(reponse: str):
+    """Déduit le tag forum à appliquer, à partir de ce que le bot vient de répondre."""
+    if MESSAGE_ESCALADE in reponse:
+        return "Hors kit"                        # rend visibles les trous du kit
+    trouve = re.search(r"[Ff]iche\s*(\d)", reponse)
+    if trouve:
+        return SUJET_VERS_TAG.get(trouve.group(1))
+    if "stratégie" in reponse.lower():
+        return "Stratégie"
+    return None
+
+
+async def etiqueter_forum(message, reponse: str):
+    """Sur un forum, applique automatiquement le tag du sujet au post du clipper."""
+    canal = message.channel
+    if not isinstance(canal, discord.Thread) or canal.applied_tags:
+        return                                   # pas un post de forum, ou déjà tagué à la main
+    forum = canal.parent
+    if not isinstance(forum, discord.ForumChannel):
+        return
+    nom = tag_du_sujet(reponse)
+    if not nom:
+        return
+    tag = discord.utils.find(lambda t: t.name.lower() == nom.lower(), forum.available_tags)
+    if not tag:
+        return
+    try:
+        await canal.add_tags(tag)
+    except (discord.Forbidden, discord.HTTPException):
+        pass                                     # sans la permission « Gérer les publications » : on ignore
 
 
 async def image_en_base64(piece_jointe):
@@ -276,6 +320,7 @@ async def on_message(message):
 
     journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
     await message.reply(reponse[:1990])  # limite Discord = 2000 caractères
+    await etiqueter_forum(message, reponse)  # range le post par sujet (si c'est un forum)
 
 
 def main():

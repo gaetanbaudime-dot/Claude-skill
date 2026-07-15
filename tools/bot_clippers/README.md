@@ -47,6 +47,23 @@ Le bot doit rester allumé quand ton Mac est éteint.
 **Pour tester d'abord sur ton Mac** (facultatif) : remplis `.env`, `pip install -r requirements.txt`,
 `python3 bot_discord.py`. Ça tourne tant que le terminal est ouvert.
 
+## Canal propre + tri automatique par sujet (salon Forum, recommandé)
+
+Pour que chaque question soit **son propre post rangé** (au lieu d'un mur qui défile) et que le tout
+soit **trié par sujet**, utilise un **salon Forum** au lieu d'un canal texte :
+
+1. Crée un **salon → Forum** (ex. `#assistant-ia`).
+2. Dans ses réglages, crée ces **tags** (étiquettes de post), noms exacts :
+   `Comptes`, `Warm-up`, `Reels`, `Routine`, `Blocages`, `Stratégie`, `Hors kit`.
+3. Clic droit sur le forum → **Copier l'identifiant** → mets-le dans `FORUM_BOT_ID` (Railway).
+4. **Auto-tri** : donne au bot la permission **Gérer les publications** sur ce forum (réglages du
+   forum → Permissions → rôle du bot). Le bot pose alors tout seul le bon tag (il sait de quelle fiche
+   il parle). Sans cette permission, il répond quand même — il ne pose juste pas le tag.
+
+Le tag **`Hors kit`** est précieux : il marque les questions auxquelles le bot n'a pas su répondre →
+tu filtres dessus pour voir exactement quoi ajouter au kit. `CANAL_BOT_ID` (canal texte) et
+`FORUM_BOT_ID` peuvent coexister ; tu peux retirer le canal texte une fois le forum en place.
+
 ## Distribution aux clippers
 
 Rien à distribuer ! Ils sont déjà dans le serveur. Dis-leur juste : « pose tes questions dans #assistant ».
