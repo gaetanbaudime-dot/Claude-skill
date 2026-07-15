@@ -119,7 +119,6 @@ def repondre_sync(contenu) -> str:
         reponse = claude.messages.create(
             model=MODELE,
             max_tokens=500,
-            output_config={"effort": "low"},
             system=bloc_systeme(),
             messages=[{"role": "user", "content": contenu}],
         )
