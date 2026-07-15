@@ -49,7 +49,7 @@ Régénération : `python3 tools/kit_clippers/generer_fiches.py` (générateur v
 
 ## Les 3 règles de fonctionnement (côté Gaëtan/manager)
 
-1. **La règle du renvoi** : toute question dont la réponse est dans la formation ou la FAQ → **on renvoie le lien du chapitre**, on ne re-répond pas. Répondre récompense le non-visionnage (« ce que tu récompenses, tu l'obtiens »). Le temps gagné va dans les retours sur les Reels — ce qui fait vraiment progresser. Version automatisée : le [[Bot FAQ clippers (Telegram)]] répond 24/7 sur le périmètre du kit et cite la fiche.
+1. **La règle du renvoi** : toute question dont la réponse est dans la formation ou la FAQ → **on renvoie le lien du chapitre**, on ne re-répond pas. Répondre récompense le non-visionnage (« ce que tu récompenses, tu l'obtiens »). Le temps gagné va dans les retours sur les Reels — ce qui fait vraiment progresser. Version automatisée : le [[Bot FAQ clippers (Discord)]] répond 24/7 sur le périmètre du kit et cite la fiche.
 2. **FAQ vivante** : une question posée 2 fois = une ligne dans le canal `#faq` (« expliqué 2 fois = écrit », [[Documentation et SOP]]). La FAQ est triée par fiche (J0 / warm-up / posting / cadence / essais).
 3. **Mesurer au lieu de deviner** : Loom donne le **taux de complétion par viewer** — à regarder avant de conclure « ils ne regardent pas ». Le quiz donne la vraie mesure d'entrée ; les fiches réduisent le besoin de re-visionnage.
 
