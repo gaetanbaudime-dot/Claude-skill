@@ -1,10 +1,12 @@
-# Génère le Kit Clipper v2 : UN SEUL PDF de 7 pages (bienvenue + 6 fiches)
-# dans second-brain/96-Opérations LTP/Kit Clippers/
+# Génère le Kit Clipper v2 dans second-brain/96-Opérations LTP/Kit Clippers/ :
+#   - Kit Clipper LTP (v2).pdf      = le PDF complet (bienvenue + 6 fiches)
+#   - Fiches séparées/*.pdf          = chaque fiche en fichier séparé (étape par étape)
 # Usage : python3 tools/kit_clippers/generer_fiches.py
 # Sources de vérité : formation Loom (13/07) + consignes Discord de Gaëtan (09/07) + corrections du 14/07.
 # v2 (14/07/2026) : setup 3 IG + 3 FB par téléphone, jamais de numéro de téléphone,
 # lien GetAllMyLinks J+7 sur le compte privé uniquement, plus de renommage des rushs,
 # reporting hebdomadaire du dimanche (formulaire) lié à la rémunération, langage collégien.
+# 15/07/2026 : ajout des fiches séparées (une par fichier) en plus du PDF complet.
 
 from weasyprint import HTML
 import os
@@ -366,12 +368,36 @@ Résumé en une phrase : <b>tu ne peux pas échouer si tu n&#8217;abandonnes jam
 </div>
 """)
 
+# Noms des fichiers séparés, dans le même ordre que PAGES ci-dessus (une entrée = une page/fiche).
+NOMS_FICHES = [
+    "00 - Bienvenue.pdf",
+    "Fiche 1 - Creer tes comptes (Jour 0).pdf",
+    "Fiche 2 - Le warm-up (48 heures).pdf",
+    "Fiche 3 - Monter et poster un Reel.pdf",
+    "Fiche 4 - Ta routine et ta semaine.pdf",
+    "Fiche 5 - Reels d essai et evolutions.pdf",
+    "Fiche 6 - Quand ca coince.pdf",
+]
+
+def enrober(corps_html):
+    return f"<html><head><style>{CSS}</style></head><body>{corps_html}</body></html>"
+
 def main():
     os.makedirs(SORTIE, exist_ok=True)
-    html = f"<html><head><style>{CSS}</style></head><body>{''.join(PAGES)}</body></html>"
-    chemin = os.path.join(SORTIE, "Kit Clipper LTP (v2).pdf")
-    HTML(string=html).write_pdf(chemin)
-    print("OK", chemin)
+
+    # 1. Le PDF complet (toutes les fiches à la suite).
+    complet = os.path.join(SORTIE, "Kit Clipper LTP (v2).pdf")
+    HTML(string=enrober("".join(PAGES))).write_pdf(complet)
+    print("OK (complet)", complet)
+
+    # 2. Chaque fiche en fichier séparé, dans un sous-dossier.
+    dossier_fiches = os.path.join(SORTIE, "Fiches séparées")
+    os.makedirs(dossier_fiches, exist_ok=True)
+    assert len(NOMS_FICHES) == len(PAGES), "NOMS_FICHES et PAGES doivent avoir la même longueur"
+    for nom, page in zip(NOMS_FICHES, PAGES):
+        chemin = os.path.join(dossier_fiches, nom)
+        HTML(string=enrober(page)).write_pdf(chemin)
+        print("OK (fiche) ", chemin)
 
 if __name__ == "__main__":
     main()
