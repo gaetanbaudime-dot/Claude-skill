@@ -24,7 +24,12 @@ liens_forts: ["[[Kit Clippers - mode d'emploi]]", "[[Journal de coaching]]", "[[
 
 ## Mise en service (côté Gaëtan, ~15 min, une fois)
 
-Le mode d'emploi complet est dans `tools/bot_clippers/README.md` : (1) créer le bot chez @BotFather → token, (2) créer la clé API sur console.anthropic.com avec une limite de dépense, (3) remplir `.env`, `pip install`, `python3 bot.py`. Hébergement 24/7 quand validé : Railway (~5 $/mois). Coût d'usage : **~1 centime/question** (~5-10 €/mois à l'échelle actuelle).
+Le mode d'emploi complet est dans `tools/bot_clippers/README.md`. Il ne reste que ce que Claude ne peut pas faire à distance (créer les 2 clés) :
+1. **Bot Telegram** : @BotFather → `/newbot` → token. Le lien à partager est `t.me/<nom_du_bot>` (permanent, à épingler sur Discord avec le code d'accès).
+2. **Clé API Claude** : console.anthropic.com → une limite de dépense (25 $/mois) → clé.
+3. **Hébergement always-on (recommandé, car Gaëtan voyage)** : Railway (~5 $/mois), déploiement depuis le repo GitHub, root dir `tools/bot_clippers`, 4 variables d'env + `DONNEES_DIR=/data`, **un volume monté sur `/data`** pour que le journal et la FAQ apprise survivent aux redéploiements. Test rapide possible sur le Mac (`python3 bot.py`) avant de déployer.
+
+**Architecture** : la base curée (`connaissances.md`) est versionnée dans le repo (mise à jour par Claude/Gaëtan) ; les ajouts `/apprendre` vont dans `faq_apprise.md` sur le volume persistant. Le bot charge les deux. Coût d'usage : **~1 centime/question** (~5-10 €/mois à l'échelle actuelle).
 
 ## La mesure (ce qui remplace le débat)
 

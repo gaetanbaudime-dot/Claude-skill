@@ -52,10 +52,18 @@ python3 bot.py
 Le bot tourne tant que le terminal est ouvert. Envoie-lui `/start` sur Telegram,
 puis le code d'accès, puis une question test (« combien de comptes je crée par jour ? »).
 
-### 4. Le faire tourner 24 h/24 (plus tard, quand validé)
-Le plus simple : **Railway.app** (~5 $/mois) — nouveau projet → Deploy from repo →
-variables d'environnement = le contenu de ton `.env` → start command `python3 tools/bot_clippers/bot.py`.
-Alternative : n'importe quel petit VPS avec `nohup python3 bot.py &`.
+### 4. Le faire tourner 24 h/24 sur un serveur (recommandé — tu voyages)
+Le bot doit rester allumé quand ton Mac est éteint. Le plus simple : **Railway.app** (~5 $/mois).
+
+1. Va sur **railway.app** → connecte ton compte GitHub → **New Project → Deploy from GitHub repo** → choisis `gaetanbaudime-dot/Claude-skill`.
+2. **Settings → Root Directory** → mets `tools/bot_clippers` (le `Procfile` et `requirements.txt` y sont, Railway détecte tout seul).
+3. **Variables** → ajoute les mêmes qu'en local : `TELEGRAM_TOKEN`, `ANTHROPIC_API_KEY`, `CODE_ACCES`, `ADMIN_IDS`. Ajoute aussi **`DONNEES_DIR=/data`**.
+4. **Volume** (pour que le journal et la FAQ apprise survivent aux redémarrages) : **New → Volume**, monté sur **`/data`**. C'est ce que pointe `DONNEES_DIR`.
+5. Déploie. Les logs doivent afficher « Bot démarré ». Envoie `/start` à ton bot sur Telegram pour vérifier.
+
+> Sans le volume (étape 4), le bot marche quand même, mais il oublie qui est autorisé et son journal à chaque redéploiement. Le volume est ce qui rend la mesure (déclencheur de septembre) fiable.
+
+**Pour tester d'abord sur ton Mac** (facultatif, avant de déployer) : suis l'étape 3 ci-dessus, `python3 bot.py`. Ça tourne tant que le terminal est ouvert — bien pour valider en 5 min, pas pour la production.
 
 ## Distribution aux clippers
 

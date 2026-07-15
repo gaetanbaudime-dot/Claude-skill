@@ -40,12 +40,16 @@ ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.
 
 API_TG = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 FICHIERS_TG = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}"
-DONNEES = DOSSIER / "donnees"
-DONNEES.mkdir(exist_ok=True)
+# Dossier des données persistantes. En local : ./donnees. Sur un serveur (Railway…) :
+# pointer DONNEES_DIR vers un volume persistant pour que le journal et la FAQ apprise
+# survivent aux redémarrages.
+DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
+DONNEES.mkdir(parents=True, exist_ok=True)
 FICHIER_AUTORISES = DONNEES / "autorises.json"
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
 JOURNAL = DONNEES / "journal_questions.jsonl"
-FICHIER_CONNAISSANCES = DOSSIER / "connaissances.md"
+FICHIER_CONNAISSANCES = DOSSIER / "connaissances.md"          # base curée, versionnée dans le repo
+FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via /apprendre, sur le volume persistant
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 journal = logging.getLogger("bot_clippers")
@@ -88,15 +92,22 @@ puis réponds selon la base de connaissances (même règle d'escalade si tu ne s
 10. Si la question est floue, pose UNE question de clarification au lieu de deviner."""
 
 # ------------------------------------------------------------------ connaissances (rechargées automatiquement)
-_connaissances = {"texte": "", "date_fichier": 0.0}
+_connaissances = {"texte": "", "signature": None}
 
 def connaissances() -> str:
-    """Relit connaissances.md si le fichier a changé — le bot reste à jour sans redémarrage."""
-    date_fichier = FICHIER_CONNAISSANCES.stat().st_mtime
-    if date_fichier != _connaissances["date_fichier"]:
-        _connaissances["texte"] = FICHIER_CONNAISSANCES.read_text(encoding="utf-8")
-        _connaissances["date_fichier"] = date_fichier
-        journal.info("Connaissances rechargées (%d caractères)", len(_connaissances["texte"]))
+    """Base curée (connaissances.md) + FAQ apprise (faq_apprise.md). Rechargées si un fichier change,
+    donc le bot reste à jour sans redémarrage."""
+    sig_base = FICHIER_CONNAISSANCES.stat().st_mtime
+    sig_faq = FICHIER_FAQ_APPRISE.stat().st_mtime if FICHIER_FAQ_APPRISE.exists() else 0.0
+    signature = (sig_base, sig_faq)
+    if signature != _connaissances["signature"]:
+        texte = FICHIER_CONNAISSANCES.read_text(encoding="utf-8")
+        if FICHIER_FAQ_APPRISE.exists():
+            texte += "\n\n## FAQ apprise (ajouts au fil de l'eau via /apprendre)\n" + \
+                     FICHIER_FAQ_APPRISE.read_text(encoding="utf-8")
+        _connaissances["texte"] = texte
+        _connaissances["signature"] = signature
+        journal.info("Connaissances rechargées (%d caractères)", len(texte))
     return _connaissances["texte"]
 
 
@@ -235,7 +246,7 @@ def commande_admin(tchat: int, texte: str) -> bool:
             return True
         question, _, reponse = corps.partition("|")
         ajout = f"\n**Q : {question.strip()}**\nR : {reponse.strip()}\n"
-        with FICHIER_CONNAISSANCES.open("a", encoding="utf-8") as flux:
+        with FICHIER_FAQ_APPRISE.open("a", encoding="utf-8") as flux:
             flux.write(ajout)
         envoyer(tchat, "✅ Appris ! C'est ajouté à la FAQ vivante, je l'utilise dès maintenant.")
         journal.info("FAQ enrichie via /apprendre : %s", question.strip()[:80])
