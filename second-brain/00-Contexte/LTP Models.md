@@ -110,6 +110,7 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 ## Trésorerie (au 13/07 — le vrai garde-fou)
 
 - **~2 000 € de cash agence disponible** + ~2 000 € perso réservés au loyer. Loyer perso ~4 000 €/2 mois. Les rituels : [[Suivi trésorerie quotidien|les 3 soldes chaque matin]] + [[SOP clôture mensuelle avec Maxence|la clôture du 1er]] (réserve impôts 5 % + coffre boîte 10 % avant distribution).
+- ⚠️ **Risque fiscal roster FR (identifié 2026-07-16)** : les créatrices FR en micro-entreprise qui reversent 50 % à l'agence sont taxées sur leur CA brut (commission agence non déductible) et franchissent les seuils TVA (37 500 €) et micro (83 600 €). Maddy alertée par MYM (~30 k€), Chloé très au-dessus (60 k€ MYM + OF). Le fil remonte vers la structure de Gaëtan → traiter avec [[Opération fiscalité propre (France → Dubaï)]]. Marche à suivre : [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]].
 - **La trésorerie est faible au regard de l'ambition « 50 clippers »** : 50 × 200 € de fixe = 10 000 €/mois d'engagement, incompatible avec 2 000 € de cash. → Le recrutement doit être **séquencé sur le cash entrant**, pas lancé d'un bloc. Analyse dédiée : [[Analyse dashboard OFM (13 juillet 2026)|le rapport du 13/07]] et [[Allocation budget recrutement et IA]].
 
 ## Historique (la leçon qui structure tout)

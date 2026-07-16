@@ -44,6 +44,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 ## Pôle finances
 
 - [[SOP clôture mensuelle avec Maxence]] : le calcul du 1er du mois en 3 couches (P&L agence → allocations → distribution), ce qui remplace le calcul WhatsApp.
+- [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]] ⚠️ : le piège du micro quand l'agence prend 50 % (taxée sur le brut), les seuils TVA/micro 2026, la sortie vers le réel, et le lien avec la fiscalité propre du fondateur — le brief pour le comptable.
 - [[Suivi trésorerie quotidien]] : les 3 soldes chaque matin, les seuils de décision recrutement.
 
 ## Pôle clipping
