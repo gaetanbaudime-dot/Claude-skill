@@ -54,6 +54,11 @@ NOMS_RANGS = ("Rookie", "Confirmé", "Elite")                              # rô
 # Salons-compteurs (verrouillés) dont le bot met à jour le TITRE automatiquement (comme HoA, mais vrais chiffres).
 CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # « 💸 Déjà payés : X € »
 CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # « 🎬 Clippers : N »
+
+# Rappel de /bump Disboard : le bot détecte les bumps réussis et rappelle quand le cooldown (2 h) est fini.
+# Jamais d'auto-bump (interdit par Discord et Disboard) — le bot rappelle, un humain tape /bump.
+CANAL_BUMP_ID = os.environ.get("CANAL_BUMP_ID", "").strip()                   # canal du rappel (vide = désactivé)
+DISBOARD_ID = 302050872383242240                                              # id officiel du bot DISBOARD
 ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) comptés pour « Clippers », séparés par des virgules (ex. Rookie,Confirmé,Élite)
 
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
@@ -65,6 +70,7 @@ FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via !appre
 FICHIER_COMPTEUR_VERSE = DONNEES / "compteur_verse.json"     # {"total": float, "message_id": int}
 FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des joins par invitation
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
+FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 journal = logging.getLogger("bot_clippers")
@@ -382,6 +388,56 @@ async def boucle_stats():
         except Exception as erreur:                # jamais laisser la boucle mourir
             journal.warning("Boucle stats : %s", erreur)
         await asyncio.sleep(600)
+
+
+# ------------------------------------------------------------------ v2 : rappel de /bump Disboard
+async def detecter_bump(message):
+    """Détecte le message de succès de DISBOARD, remercie le bumpeur, arme le prochain rappel."""
+    if not message.embeds:
+        return
+    desc = (message.embeds[0].description or "").lower()
+    if "bump" not in desc or not ("effectué" in desc or "done" in desc):
+        return
+    etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}})
+    etat["dernier"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    etat["rappele"] = False
+    meta = getattr(message, "interaction_metadata", None) or getattr(message, "interaction", None)
+    bumpeur = getattr(meta, "user", None)
+    if bumpeur:
+        cle = str(bumpeur.id)
+        etat["par_membre"][cle] = etat["par_membre"].get(cle, 0) + 1
+        try:
+            await message.channel.send(f"🙏 Merci **{bumpeur.display_name}** pour le bump "
+                                       f"({etat['par_membre'][cle]} au total) ! Prochain dans 2 h — je préviens ici.")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    ecrire_json(FICHIER_BUMP, etat)
+    journal.info("Bump Disboard détecté (%s)", getattr(bumpeur, "id", "inconnu"))
+
+
+async def boucle_bump():
+    """Poste un rappel dans CANAL_BUMP_ID dès que le cooldown Disboard (2 h) est terminé."""
+    await client.wait_until_ready()
+    while not client.is_closed():
+        try:
+            etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}})
+            pret = True
+            if etat.get("dernier"):
+                ecoule = datetime.now(timezone.utc) - datetime.fromisoformat(etat["dernier"])
+                pret = ecoule.total_seconds() >= 2 * 3600
+            if pret and not etat.get("rappele"):
+                canal = await canal_par_id(CANAL_BUMP_ID)
+                if canal is not None:
+                    try:
+                        await canal.send("⏰ Le `/bump` est disponible ! Le premier qui le tape fait grimper "
+                                         "le serveur dans les recherches Disboard 🚀")
+                        etat["rappele"] = True
+                        ecrire_json(FICHIER_BUMP, etat)
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+        except Exception as erreur:                # jamais laisser la boucle mourir
+            journal.warning("Boucle bump : %s", erreur)
+        await asyncio.sleep(300)
 
 
 # ------------------------------------------------------------------ v2 : invitations (tracker, JAMAIS payer au join)
@@ -706,9 +762,12 @@ async def on_ready():
     if ACTIVER_V2:
         for guild in client.guilds:
             await cacher_invites(guild)
-    if not _taches_demarrees and (CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID):
+    if not _taches_demarrees and (CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID or CANAL_BUMP_ID):
         _taches_demarrees = True          # on_ready peut refire à la reconnexion : une seule boucle
-        client.loop.create_task(boucle_stats())
+        if CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID:
+            client.loop.create_task(boucle_stats())
+        if CANAL_BUMP_ID:
+            client.loop.create_task(boucle_bump())
 
 
 @client.event
@@ -731,6 +790,9 @@ async def on_member_join(member):
 
 @client.event
 async def on_message(message):
+    if message.author.id == DISBOARD_ID:      # les messages de DISBOARD servent à détecter les bumps
+        await detecter_bump(message)
+        return
     if message.author.bot:
         return
 
