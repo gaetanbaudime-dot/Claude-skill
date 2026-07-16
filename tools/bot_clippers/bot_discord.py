@@ -54,7 +54,7 @@ NOMS_RANGS = ("Rookie", "Confirmé", "Elite")                              # rô
 # Salons-compteurs (verrouillés) dont le bot met à jour le TITRE automatiquement (comme HoA, mais vrais chiffres).
 CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # « 💸 Déjà payés : X € »
 CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # « 🎬 Clippers : N »
-ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle compté pour « Clippers »
+ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) comptés pour « Clippers », séparés par des virgules (ex. Rookie,Confirmé,Élite)
 
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
@@ -364,12 +364,13 @@ async def mettre_a_jour_stats():
         total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
         await _renommer_salon(CANAL_STAT_PAYES_ID, f"💸 Déjà payés : {total:,.0f} €".replace(",", " "))
     if CANAL_STAT_CLIPPERS_ID and ACTIVER_V2:      # le comptage par rôle exige l'intent Members
-        n = 0
+        noms = [normaliser(n.strip()) for n in ROLE_CLIPPER_NOM.split(",") if n.strip()]
+        membres = set()                             # union des rôles, sans doublons
         for guild in client.guilds:
-            role = discord.utils.find(lambda r: normaliser(ROLE_CLIPPER_NOM) in normaliser(r.name), guild.roles)
-            if role:
-                n += len(role.members)
-        await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {n}")
+            for role in guild.roles:
+                if any(nom in normaliser(role.name) for nom in noms):
+                    membres.update(m.id for m in role.members if not m.bot)
+        await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {len(membres)}")
 
 
 async def boucle_stats():
