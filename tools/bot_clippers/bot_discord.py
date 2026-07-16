@@ -290,9 +290,10 @@ async def canal_par_id(canal_id: str):
 
 
 def texte_compteur(total: float) -> str:
-    return (f"💰 **{total:,.2f} € déjà versés aux clippers de l'équipe** 💰\n"
-            f"Paiements chaque lundi, reporting le dimanche. Rejoins-nous, prouve, encaisse. 🚀\n"
-            f"-# Mis à jour le {datetime.now(timezone.utc).strftime('%d/%m/%Y')}").replace(",", " ")
+    montant = f"{total:,.2f}".replace(",", " ")   # 1,234.50 -> 1 234.50 (sans toucher au texte)
+    return (f"💰 **{montant} € déjà versés aux clippers de l'équipe** 💰\n"
+            f"Paiements chaque lundi / reporting le dimanche. Rejoins-nous, performe, encaisse. 🚀\n"
+            f"-# Mis à jour le {datetime.now(timezone.utc).strftime('%d/%m/%Y')}")
 
 
 async def actualiser_compteur():
