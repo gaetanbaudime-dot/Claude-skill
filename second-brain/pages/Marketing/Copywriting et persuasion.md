@@ -38,7 +38,7 @@ Trois garde-fous. Un : les "déclencheurs psychologiques" s'usent et se retourne
 
 ## Liens et implications
 
-Le copy s'exécute dans le [[Tunnel de conversion]] et amplifie l'[[L'offre et la valeur perçue|offre]] ; il est le terrain d'application le plus direct du cluster [[Biais cognitifs]], à relire avant chaque campagne (checklist dans `98-Rapports/Rapport Marketing`). Pour l'IA générative : elle industrialise le premier jet mais pas la recherche client ni le jugement d'angle, qui restent le goulot, voir [[Systèmes et process]].
+Le copy s'exécute dans le [[Tunnel de conversion]] et amplifie l'[[L'offre et la valeur perçue|offre]] ; il est le terrain d'application le plus direct du cluster [[Biais cognitifs]], à relire avant chaque campagne (checklist dans `98-Rapports/Rapport Marketing`). Pour l'IA générative : elle industrialise le premier jet mais pas la recherche client ni le jugement d'angle, qui restent le goulot, voir [[Systèmes et process]]. Le registre conversationnel (DM, relances, messages 1:1) a son guide dédié : [[Écrire comme un humain (messages et DM)]] — les marqueurs qui trahissent la campagne ou la machine, et la structure du message qui obtient une réponse.
 
 ## Sources
 

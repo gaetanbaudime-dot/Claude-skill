@@ -7,6 +7,7 @@ Cluster couvrant la chaîne complète : construire une offre forte, l'amener au 
 - [[L'offre et la valeur perçue]] : la variable maîtresse, travaillée avant le trafic.
 - [[Acquisition de clients]] : les 4 familles de canaux et les maths CAC/LTV/payback.
 - [[Copywriting et persuasion]] : la psychologie du cluster biais appliquée à la vente écrite.
+- [[Écrire comme un humain (messages et DM)]] : le registre conversationnel — les 10 marqueurs qui trahissent la machine/la campagne, la structure du DM qui répond, le tableau des registres LTP (conversation/affiche/manuel/collège).
 - [[Tunnel de conversion]] : mesurer, trouver le goulot, réduire la friction.
 - [[Rétention et LTV]] : la variable composée qui décide qui peut scaler.
 - [[Positionnement et marque]] : la case mentale et la mémoire qui abaissent le CAC.

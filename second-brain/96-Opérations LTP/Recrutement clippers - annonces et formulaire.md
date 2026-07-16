@@ -207,7 +207,46 @@ les bonnes questions fait partie du test 😉
 
 ⚠️ La vidéo du test = un extrait **public et neutre** (podcast FR), jamais du contenu des créatrices. Le rendu = un **fichier envoyé**, jamais un post public. Notation : à l'heure · hook/rythme · brief respecté.
 
-**Choix figés au lancement (16/07)** : fixe affiché **200 €/mois + 0,50 €/sub + bonus** (factuel : grilles bonus performance et parrainage postées dans `#bonus-fr` le 11/07) ; **la grille de parrainage ne va PAS dans le message 1** (une grille à paliers dès le 1er contact = odeur de campagne de masse, ça tue l'effet message perso) — une ligne teaser « jusqu'à 850 € » et la grille part en message 2 à ceux qui mordent ; une seule relance aux silencieux (« dernier appel, on ferme lundi »), puis on passe. Couperet du 1er test : samedi 12h (envoi jeudi soir → notation samedi → onboarding de la vague avant le départ du 21/07).
+**Choix figés au lancement (16/07)** : fixe affiché **200 €/mois + 0,50 €/sub + bonus** (factuel : grilles bonus performance et parrainage postées dans `#bonus-fr` le 11/07) ; **la grille de parrainage ne va PAS dans le message 1** (une grille à paliers dès le 1er contact = odeur de campagne de masse, ça tue l'effet message perso) — une ligne teaser « jusqu'à 850 € » et la grille part en message 2 à ceux qui mordent ; une seule relance aux silencieux (« dernier appel, on ferme lundi »), puis on passe. Couperet du 1er test : samedi 12h (envoi jeudi soir → notation samedi → onboarding de la vague avant le départ du 21/07). Vidéo du test retenue : un extrait **YouTube public de Chloé** — acceptable car contenu déjà public + rendu en fichier uniquement (et ça teste la vraie matière + le confort avec la niche) ; la ligne rouge reste **les rushs privés / le Drive**, jamais à un non-embauché.
+
+### Version conversation (v3 WhatsApp — à privilégier en DM)
+
+Registre conversation, pas affiche ([[Écrire comme un humain (messages et DM)|le guide]]) : 2-3 bulles courtes, zéro titre, zéro liste numérotée, une question. **Étaler les envois (10-15/heure)** — 55 messages à la même seconde = campagne détectable (par le lecteur ET par WhatsApp).
+
+**Relance (3 bulles) :**
+
+```
+Salut [Prénom] ! C'est Gaëtan, tu avais postulé chez nous comme clippeur 👋
+```
+```
+je reviens vers toi parce qu'on prend les dernières places de l'équipe
+française cette semaine, et l'offre a changé depuis : 200€ de fixe par
+mois + 0,50€ par abonné + des bonus chaque mois
+```
+```
+du coup 2 questions : t'es toujours chaud ? (réponds juste « MOI » et je
+t'envoie le test direct, pas d'entretien) — et sinon t'as quelqu'un de
+sérieux à me recommander ? le parrainage peut te rapporter jusqu'à 850€
+```
+
+**Brief test (3 bulles, envoyé à ceux qui répondent « MOI ») :**
+
+```
+go 🔥 le test est simple : le job d'un clippeur c'est transformer une
+vidéo longue en Reel qui scotche, donc c'est exactement ce que tu vas faire
+```
+```
+tu prends cette vidéo : [LIEN]
+tu trouves LE meilleur moment et tu m'en fais un Reel de 20-40 secondes,
+vertical. hook fort dès la 1re seconde, sous-titres, coupes rythmées.
+pas un copier-coller du passage, je veux voir ta patte
+```
+```
+tu m'envoies le fichier ici avant samedi 12h (heure FR), pas une minute
+de plus. pas de rattrapage : ceux qui livrent à l'heure passent devant
+tout le monde. et si t'as une question pose-la, savoir poser les bonnes
+questions fait partie du test 😉
+```
 
 ## Note sourcing (Disboard, déjà dans ta liste)
 
