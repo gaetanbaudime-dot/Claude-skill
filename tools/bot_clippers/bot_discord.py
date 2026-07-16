@@ -398,17 +398,21 @@ async def detecter_bump(message):
     desc = (message.embeds[0].description or "").lower()
     if "bump" not in desc or not ("effectué" in desc or "done" in desc):
         return
-    etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}})
+    etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}, "par_mois": {}})
     etat["dernier"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     etat["rappele"] = False
     meta = getattr(message, "interaction_metadata", None) or getattr(message, "interaction", None)
     bumpeur = getattr(meta, "user", None)
     if bumpeur:
         cle = str(bumpeur.id)
-        etat["par_membre"][cle] = etat["par_membre"].get(cle, 0) + 1
+        mois = date.today().strftime("%Y-%m")            # concours mensuel : remise à zéro naturelle
+        etat.setdefault("par_membre", {})[cle] = etat["par_membre"].get(cle, 0) + 1
+        mois_donnees = etat.setdefault("par_mois", {}).setdefault(mois, {})
+        mois_donnees[cle] = mois_donnees.get(cle, 0) + 1
         try:
             await message.channel.send(f"🙏 Merci **{bumpeur.display_name}** pour le bump "
-                                       f"({etat['par_membre'][cle]} au total) ! Prochain dans 2 h — je préviens ici.")
+                                       f"({mois_donnees[cle]} ce mois-ci) ! Prochain dans 2 h — je préviens ici. "
+                                       f"Classement : `!bumps`")
         except (discord.Forbidden, discord.HTTPException):
             pass
     ecrire_json(FICHIER_BUMP, etat)
@@ -804,6 +808,18 @@ async def on_message(message):
 
     texte = nettoyer(message)
     utilisateur = message.author.id
+
+    # Commande PUBLIQUE : classement des bumps du mois (transparence du concours)
+    if texte.startswith("!bumps"):
+        mois = date.today().strftime("%Y-%m")
+        donnees = lire_json(FICHIER_BUMP, {}).get("par_mois", {}).get(mois, {})
+        classement = sorted(donnees.items(), key=lambda kv: -kv[1])[:10]
+        if not classement:
+            await message.reply("Aucun bump ce mois-ci pour l'instant — tape `/bump` dans le salon bumperie ! 🚀")
+        else:
+            lignes = [f"{i + 1}. <@{uid}> — {n} bump(s)" for i, (uid, n) in enumerate(classement)]
+            await message.reply(f"🏆 **Classement des bumps — {mois}**\n" + "\n".join(lignes))
+        return
 
     # Commandes admin : disponibles depuis N'IMPORTE quel canal (ex. !paiement dans #dopamine)
     if str(utilisateur) in ADMIN_IDS and texte.startswith("!") and await commande_admin(message, texte):
