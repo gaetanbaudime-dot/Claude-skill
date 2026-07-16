@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-16 — Sourcing 100 leads FR : la carte des canaux étendue (analyse de 257 candidatures réelles)
+- **Contexte** : Gaëtan veut 100 leads FR qualifiés et 13 clippeurs « tueurs » avant son départ du 21/07. Analyse du sheet réel (257 candidatures) : 121 réelles → 65 FR → **55 FR qualifiés dormants dans le sheet**. Le diagnostic « candidatures de merde » était à moitié faux : le problème est le **tri** (aucun mécanisme ne classe les 55), pas le volume. Sources mesurées : Discord n°1 (11), Telegram (5), Instagram (4).
+- **Décisions** : (1) sélection par **test 48 h standardisé** (1 Reel selon la Fiche 3), le rendu choisit les 13 — jamais le formulaire ; (2) reroutage des candidats Mada/Bénin/Cameroun vers le Discord **gaté** (salle d'attente sans accès kit — flag : ne pas offrir le playbook à des non-embauchés) ; (3) extension de la base sourcing → [[Sourcing 100 leads clippers FR (plan juillet 2026)]] : 10 canaux chiffrés dont 4 personas de reconversion (community managers sous-payés, ex-ecommerçants ayant cramé leur budget ads, monteurs débutants, clippeurs gaming bénévoles). Exclusions CGU maintenues (ComeUp/Fiverr, mass-DM, Meta Ads emploi).
+- **Prédiction datée (16/07, avant l'issue)** : la **réactivation des 55 + le parrainage des 7** produiront plus de clippeurs onboardés au 1er août que tous les nouveaux canaux réunis (les leads chauds battent les leads froids) ; et si la Q17 « source » devient obligatoire, fin août le canal gagnant en *clippeurs qui livrent* (pas en volume de leads) sera **Discord ou parrainage**, pas les jobboards. À vérifier au sheet + reporting fin août.
+
 ### 2026-07-15 (nuit, plus tard) — Pivot Telegram → Discord pour le bot FAQ (décision UX/ROI)
 - **Question de Gaëtan** : « combien ça coûte en tout, peut-on compresser les coûts et rendre plus simple ? Je veux la meilleure UX pour les clippers et le meilleur ROI. »
 - **Honnêteté sur le coût** : le total (~5-7 $/mois) est **dominé par l'hébergement Railway** (~5 $ plancher), pas par l'API. Passer le modèle par défaut sur **Haiku 4.5** rend l'API quasi gratuite (~1-2 €/mois même à fort volume) mais ne change pas le plancher. Conclusion assumée : grappiller ces 5 $ est le **pire ROI** possible d'une soirée à 65 k€/mois de CA — le vrai levier n'est pas le prix, c'est l'**adoption**.

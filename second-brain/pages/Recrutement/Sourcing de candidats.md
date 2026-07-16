@@ -38,7 +38,7 @@ Le canal referral, excellent en qualité, a un effet de bord documenté : il clo
 
 ## Liens et implications
 
-Le sourcing alimente l'[[Entretien structuré]] sur la base de la [[Scorecard et définition de poste|scorecard]], et sa version marketing complète s'appuie sur le cluster [[_MOC Marketing|Marketing]]. Scripts d'approche et système de referrals dans `98-Rapports/Rapport Recrutement`.
+Le sourcing alimente l'[[Entretien structuré]] sur la base de la [[Scorecard et définition de poste|scorecard]], et sa version marketing complète s'appuie sur le cluster [[_MOC Marketing|Marketing]]. Scripts d'approche et système de referrals dans `98-Rapports/Rapport Recrutement`. **Application opérationnelle LTP** : la carte des 10 canaux clippers avec funnel mesuré et personas de reconversion est dans [[Sourcing 100 leads clippers FR (plan juillet 2026)]].
 
 ## Sources
 

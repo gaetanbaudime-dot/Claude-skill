@@ -165,3 +165,5 @@ Objectif : **filtrer en 3 min** et **router FR vs MG/Bénin**. Pour les MG/Béni
 ## Note sourcing (Disboard, déjà dans ta liste)
 
 Tes ~44 tags Disboard restent valides pour le volume (le goulot [[Who (Geoff Smart & Randy Street)|Source]]). Priorise les serveurs « éditeurs/freelance/UGC » avec canal *hiring* (annonce légitime), trie par `?sort=-member_count`, filtre langue `/fr/` pour le FR et laisse large pour l'international francophone. Le **parrainage** ([[Équipe marketing - structure et rémunération (FR × MG)|50 € → 850 €]]) reste ton meilleur canal qualité — les A ramènent des A.
+
+**Extension 2026-07-16** : la carte complète des canaux (10 canaux chiffrés, dont 4 personas de reconversion — community managers, ex-ecommerçants, monteurs débutants, clippeurs gaming — avec leurs accroches) est dans [[Sourcing 100 leads clippers FR (plan juillet 2026)]].
