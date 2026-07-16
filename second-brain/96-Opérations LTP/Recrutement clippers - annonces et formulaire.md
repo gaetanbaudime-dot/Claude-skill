@@ -207,6 +207,32 @@ les bonnes questions fait partie du test 😉
 
 ⚠️ La vidéo du test = un extrait **public et neutre** (podcast FR), jamais du contenu des créatrices. Le rendu = un **fichier envoyé**, jamais un post public. Notation : à l'heure · hook/rythme · brief respecté.
 
+### Version terrain — nouveaux leads chauds (validée en prod le 16/07, la voix de Gaëtan)
+
+Pour les candidats qui **viennent de postuler** (Indeed, formulaire) — pas la relance des dormants. Le squelette vient du template, la peau vient de Gaëtan (« Reeee », 🙂, « :) ») : c'est ça qui rend 15 envois identiques indétectables. 3 bulles WhatsApp :
+
+```
+Reeee [Prénom] ! J'ai lu ta candidature pour le poste de clippeur et ton
+profil me plaît 🙂 Je te fais passer direct au test de sélection
+(pas d'entretien chez nous : ceux qui livrent sont pris)
+```
+```
+Le test est simple : le job d'un clippeur c'est transformer une vidéo
+longue en Reel viral, donc c'est exactement ce que tu vas faire :
+
+Tu prends cette vidéo : [LIEN VIDÉO PUBLIQUE] tu trouves LE meilleur
+moment et tu m'en fais un Reel de 20-40 secondes, vertical. hook fort
+dès la 1re seconde, sous-titres, coupes rythmées. Je veux voir ta patte :)
+```
+```
+Tu m'envoies le fichier ici avant [JOUR] 12H (heure française). Pas de
+rattrapage : ceux qui livrent à l'heure passent devant tout le monde
+pour intégrer l'équipe. Et si t'as une question pose-la, savoir poser
+les bonnes questions fait partie du test 😉
+```
+
+Discipline d'envoi : à chaque contact, noter dans le sheet **source + « test envoyé » + heure** — au couperet, on coche « livré / pas livré », on ne fouille pas sa mémoire. Un seul couperet par fournée ; les retardataires vont à la session suivante (la rareté travaille pour nous).
+
 **Choix figés au lancement (16/07)** : fixe affiché **200 €/mois + 0,50 €/sub + bonus** (factuel : grilles bonus performance et parrainage postées dans `#bonus-fr` le 11/07) ; **la grille de parrainage ne va PAS dans le message 1** (une grille à paliers dès le 1er contact = odeur de campagne de masse, ça tue l'effet message perso) — une ligne teaser « jusqu'à 850 € » et la grille part en message 2 à ceux qui mordent ; une seule relance aux silencieux (« dernier appel, on ferme lundi »), puis on passe. Couperet du 1er test : samedi 12h (envoi jeudi soir → notation samedi → onboarding de la vague avant le départ du 21/07). Vidéo du test retenue : un extrait **YouTube public de Chloé** — acceptable car contenu déjà public + rendu en fichier uniquement (et ça teste la vraie matière + le confort avec la niche) ; la ligne rouge reste **les rushs privés / le Drive**, jamais à un non-embauché.
 
 ### Version conversation (v3 WhatsApp — à privilégier en DM)
