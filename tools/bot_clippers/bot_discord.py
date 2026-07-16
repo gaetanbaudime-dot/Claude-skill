@@ -41,12 +41,24 @@ MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
 ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.strip()}
 
+# ---- v2 (programme clippers) ----
+CANAL_DOPAMINE_ID = os.environ.get("CANAL_DOPAMINE_ID", "").strip()       # canal des paiements/wins
+CANAL_CANDIDATURE_ID = os.environ.get("CANAL_CANDIDATURE_ID", "").strip() # canal d'accueil des candidats
+LIEN_FORMULAIRE = os.environ.get("LIEN_FORMULAIRE", "").strip()           # formulaire de candidature
+# ACTIVER_V2=1 exige l'intent privilégié « Server Members » dans le Developer Portal.
+# Sans lui, le tracking d'invitations et l'accueil numéroté restent éteints (déploiement sans risque).
+ACTIVER_V2 = os.environ.get("ACTIVER_V2", "").strip() == "1"
+NOMS_RANGS = ("Rookie", "Confirmé", "Elite")                              # rôles à créer sur le serveur
+
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
 JOURNAL = DONNEES / "journal_questions.jsonl"
 FICHIER_CONNAISSANCES = DOSSIER / "connaissances.md"          # base curée, versionnée dans le repo
 FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via !apprendre, sur le volume persistant
+FICHIER_COMPTEUR_VERSE = DONNEES / "compteur_verse.json"     # {"total": float, "message_id": int}
+FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des joins par invitation
+JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 journal = logging.getLogger("bot_clippers")
@@ -183,6 +195,8 @@ def quota_atteint(utilisateur) -> bool:
 # ------------------------------------------------------------------ Discord
 intents = discord.Intents.default()
 intents.message_content = True  # à activer aussi dans le Developer Portal (voir README)
+if ACTIVER_V2:
+    intents.members = True      # intent privilégié « Server Members » — OBLIGATOIRE dans le portail avant ACTIVER_V2=1
 client = discord.Client(intents=intents)
 
 
@@ -252,8 +266,184 @@ async def image_en_base64(piece_jointe):
     return base64.standard_b64encode(donnees).decode("utf-8"), media
 
 
+# ------------------------------------------------------------------ v2 : compteur public + paiements
+async def canal_par_id(canal_id: str):
+    if not canal_id:
+        return None
+    try:
+        return client.get_channel(int(canal_id)) or await client.fetch_channel(int(canal_id))
+    except (ValueError, discord.NotFound, discord.Forbidden):
+        return None
+
+
+def texte_compteur(total: float) -> str:
+    return (f"💰 **{total:,.2f} € déjà versés aux clippers de l'équipe** 💰\n"
+            f"Paiements chaque lundi, reporting le dimanche. Rejoins-nous, prouve, encaisse. 🚀\n"
+            f"-# Mis à jour le {datetime.now(timezone.utc).strftime('%d/%m/%Y')}").replace(",", " ")
+
+
+async def actualiser_compteur():
+    """Crée ou met à jour le message épinglé « X € versés » dans #dopamine."""
+    canal = await canal_par_id(CANAL_DOPAMINE_ID)
+    if canal is None:
+        return
+    etat = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0, "message_id": None})
+    contenu = texte_compteur(etat["total"])
+    try:
+        if etat.get("message_id"):
+            msg = await canal.fetch_message(etat["message_id"])
+            await msg.edit(content=contenu)
+            return
+    except (discord.NotFound, discord.Forbidden):
+        pass  # message supprimé -> on en recrée un
+    try:
+        msg = await canal.send(contenu)
+        await msg.pin()
+        etat["message_id"] = msg.id
+        ecrire_json(FICHIER_COMPTEUR_VERSE, etat)
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Compteur non épinglable : %s", erreur)
+
+
+async def annoncer_paiement(message, montant: float, beneficiaire, raison: str):
+    """Enregistre le paiement, poste la dopamine, met à jour le compteur."""
+    with JOURNAL_PAIEMENTS.open("a", encoding="utf-8") as flux:
+        flux.write(json.dumps({
+            "horodatage": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "beneficiaire": beneficiaire.id, "montant": montant, "raison": raison,
+        }, ensure_ascii=False) + "\n")
+    etat = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0, "message_id": None})
+    etat["total"] = round(etat.get("total", 0.0) + montant, 2)
+    ecrire_json(FICHIER_COMPTEUR_VERSE, etat)
+
+    canal = await canal_par_id(CANAL_DOPAMINE_ID) or message.channel
+    suffixe = f" — {raison}" if raison else ""
+    await canal.send(f"💸 **{beneficiaire.display_name}** vient de recevoir **{montant:.2f} €** !{suffixe} 🔥")
+    await actualiser_compteur()
+
+
+# ------------------------------------------------------------------ v2 : invitations (tracker, JAMAIS payer au join)
+_invites_cache: dict = {}   # {guild_id: {code: uses}}
+
+
+async def cacher_invites(guild):
+    try:
+        self_invites = await guild.invites()
+        _invites_cache[guild.id] = {i.code: (i.uses or 0, i.inviter.id if i.inviter else None)
+                                    for i in self_invites}
+    except (discord.Forbidden, discord.HTTPException):
+        journal.warning("Invites illisibles sur %s (permission « Gérer le serveur » requise)", guild.name)
+
+
+def trouver_parrain(guild_id: int, invites_apres) -> int | None:
+    """Compare le cache avant/après un join pour trouver l'invitation utilisée."""
+    avant = _invites_cache.get(guild_id, {})
+    for inv in invites_apres:
+        uses_avant = avant.get(inv.code, (0, None))[0]
+        if (inv.uses or 0) > uses_avant and inv.inviter:
+            return inv.inviter.id
+    return None
+
+
+async def accueillir(member):
+    """Bienvenue numérotée + attribution du parrain (preuve pour la grille de parrainage)."""
+    guild = member.guild
+    parrain_id = None
+    try:
+        invites_apres = await guild.invites()
+        parrain_id = trouver_parrain(guild.id, invites_apres)
+        _invites_cache[guild.id] = {i.code: (i.uses or 0, i.inviter.id if i.inviter else None)
+                                    for i in invites_apres}
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+
+    donnees = lire_json(FICHIER_INVITES, {"par_parrain": {}, "attribution": {}})
+    if parrain_id and parrain_id != member.id:
+        cle = str(parrain_id)
+        donnees["par_parrain"][cle] = donnees["par_parrain"].get(cle, 0) + 1
+        donnees["attribution"][str(member.id)] = parrain_id
+        ecrire_json(FICHIER_INVITES, donnees)
+
+    canal = await canal_par_id(CANAL_CANDIDATURE_ID)
+    if canal is None:
+        return
+    lignes = [f"🎬 Bienvenue **{member.display_name}** — tu es le **{guild.member_count}ᵉ** futur clipper de l'équipe !"]
+    if LIEN_FORMULAIRE:
+        lignes.append(f"Pour candidater (3 min) : {LIEN_FORMULAIRE} — ensuite un test de 48 h, pas d'entretien. "
+                      f"Ceux qui livrent sont pris. 🚀")
+    if parrain_id and parrain_id != member.id:
+        total = lire_json(FICHIER_INVITES, {}).get("par_parrain", {}).get(str(parrain_id), 1)
+        lignes.append(f"-# Invité par <@{parrain_id}> ({total} au total) — le parrainage paie quand le filleul devient clipper actif.")
+    try:
+        await canal.send("\n".join(lignes))
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+
+
 async def commande_admin(message, texte: str) -> bool:
-    """!stats et !apprendre, réservés aux ADMIN_IDS. Renvoie True si traité."""
+    """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    # ---- v2 : !paiement @membre MONTANT [raison] ----
+    if texte.startswith("!paiement"):
+        if not message.mentions:
+            await message.reply("Format : !paiement @clippeur 50 [raison courte]")
+            return True
+        beneficiaire = message.mentions[0]
+        nombres = re.findall(r"\d+(?:[.,]\d+)?", texte.replace(f"<@{beneficiaire.id}>", "").replace(f"<@!{beneficiaire.id}>", ""))
+        if not nombres:
+            await message.reply("Il me faut un montant. Format : !paiement @clippeur 50 [raison]")
+            return True
+        montant = float(nombres[0].replace(",", "."))
+        raison = texte.split(nombres[0], 1)[-1].strip(" €").strip()
+        await annoncer_paiement(message, montant, beneficiaire, raison)
+        await message.add_reaction("✅")
+        journal.info("Paiement annoncé : %.2f € -> %s", montant, beneficiaire.id)
+        return True
+
+    if texte.startswith("!compteur"):
+        await actualiser_compteur()
+        total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
+        await message.reply(f"Compteur à jour : {total:.2f} € versés.")
+        return True
+
+    if texte.startswith("!invites"):
+        donnees = lire_json(FICHIER_INVITES, {"par_parrain": {}})
+        classement = sorted(donnees["par_parrain"].items(), key=lambda kv: -kv[1])[:10]
+        if not classement:
+            await message.reply("Aucune invitation trackée pour l'instant" +
+                                ("" if ACTIVER_V2 else " (ACTIVER_V2 est éteint)") + ".")
+            return True
+        lignes = [f"{i+1}. <@{uid}> — {n} invitations" for i, (uid, n) in enumerate(classement)]
+        await message.reply("🎟️ **Classement des invitations**\n" + "\n".join(lignes) +
+                            "\n-# On tracke au join, on paie à l'activation (grille de parrainage).")
+        return True
+
+    # ---- v2 : !rang @membre Rookie|Confirmé|Elite ----
+    if texte.startswith("!rang"):
+        if not message.mentions or not message.guild:
+            await message.reply("Format : !rang @clippeur Rookie | Confirmé | Elite")
+            return True
+        membre_vise = message.mentions[0]
+        demande = texte.lower()
+        nom_rang = next((r for r in NOMS_RANGS if r.lower() in demande or
+                         (r == "Confirmé" and "confirme" in demande)), None)
+        if not nom_rang:
+            await message.reply("Rang inconnu. Choix : Rookie, Confirmé, Elite.")
+            return True
+        roles = {r.name: r for r in message.guild.roles if r.name in NOMS_RANGS}
+        if nom_rang not in roles:
+            await message.reply(f"Le rôle « {nom_rang} » n'existe pas sur le serveur — crée les rôles "
+                                f"{', '.join(NOMS_RANGS)} dans les réglages, puis réessaie.")
+            return True
+        try:
+            membre = message.guild.get_member(membre_vise.id) or await message.guild.fetch_member(membre_vise.id)
+            await membre.remove_roles(*[r for n, r in roles.items() if n != nom_rang])
+            await membre.add_roles(roles[nom_rang])
+            emoji = {"Rookie": "🐣", "Confirmé": "🎯", "Elite": "👑"}[nom_rang]
+            await message.reply(f"{emoji} **{membre.display_name}** passe **{nom_rang}** !")
+        except (discord.Forbidden, discord.HTTPException):
+            await message.reply("Je n'ai pas la permission « Gérer les rôles » (ou mon rôle est trop bas dans la liste).")
+        return True
+
     if texte.startswith("!stats"):
         lignes = JOURNAL.read_text(encoding="utf-8").splitlines() if JOURNAL.exists() else []
         escalades = sum(1 for l in lignes if '"escalade": true' in l)
@@ -278,22 +468,45 @@ async def commande_admin(message, texte: str) -> bool:
 
 @client.event
 async def on_ready():
-    journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s)",
-                 client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule")
+    journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s, v2 %s)",
+                 client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
+                 "ON" if ACTIVER_V2 else "off")
+    if ACTIVER_V2:
+        for guild in client.guilds:
+            await cacher_invites(guild)
+
+
+@client.event
+async def on_invite_create(invite):
+    if ACTIVER_V2 and invite.guild:
+        await cacher_invites(invite.guild)
+
+
+@client.event
+async def on_invite_delete(invite):
+    if ACTIVER_V2 and invite.guild:
+        await cacher_invites(invite.guild)
+
+
+@client.event
+async def on_member_join(member):
+    if ACTIVER_V2 and not member.bot:
+        await accueillir(member)
 
 
 @client.event
 async def on_message(message):
     if message.author.bot:
         return
-    if not doit_repondre(message):
-        return
 
     texte = nettoyer(message)
     utilisateur = message.author.id
 
-    # Commandes admin
+    # Commandes admin : disponibles depuis N'IMPORTE quel canal (ex. !paiement dans #dopamine)
     if str(utilisateur) in ADMIN_IDS and texte.startswith("!") and await commande_admin(message, texte):
+        return
+
+    if not doit_repondre(message):
         return
 
     # Vocaux : pas pris en charge
