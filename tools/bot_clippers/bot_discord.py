@@ -460,6 +460,26 @@ async def commande_admin(message, texte: str) -> bool:
         journal.info("Paiement annoncé : %.2f € -> %s", montant, beneficiaire.id)
         return True
 
+    if texte.startswith("!ajuster"):
+        nombres = re.findall(r"-?\d+(?:[.,]\d+)?", texte)
+        if not nombres:
+            await message.reply("Format : !ajuster -150 [raison] — corrige le total du compteur (+ ou −).")
+            return True
+        delta = float(nombres[0].replace(",", "."))
+        etat = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0, "message_id": None})
+        etat["total"] = round(etat.get("total", 0.0) + delta, 2)
+        ecrire_json(FICHIER_COMPTEUR_VERSE, etat)
+        raison = texte.split(nombres[0], 1)[-1].strip(" €").strip()
+        with JOURNAL_PAIEMENTS.open("a", encoding="utf-8") as flux:
+            flux.write(json.dumps({
+                "horodatage": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "ajustement": delta, "raison": raison or "ajustement admin",
+            }, ensure_ascii=False) + "\n")
+        await actualiser_compteur()
+        await message.reply(f"✅ Compteur ajusté de {delta:+.2f} € → total {etat['total']:.2f} €.")
+        journal.info("Ajustement compteur : %+.2f € (%s)", delta, raison or "sans raison")
+        return True
+
     if texte.startswith("!compteur"):
         probleme = await actualiser_compteur()
         total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
