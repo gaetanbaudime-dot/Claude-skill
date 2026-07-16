@@ -58,6 +58,12 @@ Le clippeur idéal n'est pas « quelqu'un qui cherche un job de clippeur » — 
 3. **Q17 source rendue obligatoire** dans le formulaire + un mot-code par canal si possible (« viens de la part de… ») → fin août, on saura enfin **quel canal produit les clippeurs qui livrent**, pas juste des leads.
 4. Tout lead atterrit dans le circuit existant : formulaire → sheet → **test 48 h** ([[Entretien clipper - questions et grille de notation|grille]]) → onboarding par vagues sous la règle cash (solde ≥ 3 000 €). Le Discord candidats reste **gaté** (salle d'attente sans accès au kit).
 
+## Les messages de la réactivation (canal n°1, validés le 16/07)
+
+**Relance WhatsApp — la mécanique « parrainage d'abord »** (idée de Gaëtan, validée) : on ne demande PAS « t'es toujours intéressé ? » (posture de demandeur), on demande **« tu connais quelqu'un ? l'offre s'est améliorée et on ferme les places cette semaine »** — l'aversion à la perte fait lever la main (« non non, MOI ! »), et au pire on récolte un parrainage. Garde-fou d'honnêteté : n'écrire « revu à la hausse » que si c'est factuel, sinon « on a finalisé la grille ». Le message type et le brief sont dans [[Recrutement clippers - annonces et formulaire]] (section relance) — réponse attendue en un mot (« MOI ») pour une friction nulle.
+
+**Le test 48 h (le brief auto-porté, hors kit)** : une **vidéo YouTube publique neutre** (extrait de podcast FR — jamais du contenu des créatrices : pas de contenu maison à des non-embauchés, pas de Reels d'elles publiés sans contrôle) → un Reel 20-40 s vertical, hook 1re seconde, sous-titres, coupes — **fichier envoyé, pas posté**. Notation en 3 axes : à l'heure (fiabilité) · hook/rythme (skill) · brief respecté (coachabilité) ; question intelligente = bonus. Deadline ferme, pas de rattrapage — l'auto-sélection est le but (« ceux qui ont la foi le feront »). Les ~13 meilleurs rendus intègrent l'équipe ; **8 bons > 13 tièdes**.
+
 ## Application LTP — la semaine type (avant le départ du 21/07)
 
 **J1** : relance des 55 (message : « ta candidature est retenue pour le test — 1 Reel selon la méthode, 48 h ») + brief parrainage aux 7. **J2** : vague Disboard (10 serveurs/jour, canaux hiring) + 3 groupes Telegram. **J3** : posts personas (2 groupes CM, 2 groupes e-com, 2 groupes monteurs). **J4-J5** : jobboards + Reel recrutement lancé chez les clippers. **Ensuite** : le responsable acquisition (manager en cours de nomination) reprend la cadence — 30 min/jour de reposting, le pipeline ne dépend plus de Gaëtan ([[Se licencier de son propre poste]]).

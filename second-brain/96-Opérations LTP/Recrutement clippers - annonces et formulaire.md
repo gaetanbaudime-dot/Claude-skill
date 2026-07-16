@@ -162,6 +162,51 @@ Objectif : **filtrer en 3 min** et **router FR vs MG/Bénin**. Pour les MG/Béni
 
 **Champs qui alimentent le tri automatique** : Q3 (pays) → onglet FR / onglet MG-Bénin ; Q4 (majeur) → élimination auto si Non ; Q13 + Q15 → un « Non » sur l'un des deux = écarté. Les FR retenus passent en entretien ; les MG/Bénin retenus reçoivent le vocal de formation.
 
+## 5) Relance des candidats du sheet + brief test 48 h (2026-07-16)
+
+Mécanique « parrainage d'abord » (voir [[Sourcing 100 leads clippers FR (plan juillet 2026)|le plan sourcing]] pour le pourquoi psychologique et les garde-fous).
+
+**Relance WhatsApp :**
+
+```
+Salut [Prénom] ! C'est Gaëtan 👋 Tu avais postulé chez nous comme clippeur.
+
+Petite question : tu connais quelqu'un de sérieux qui serait chaud pour
+le poste ? On a revu l'offre à la hausse depuis (fixe de démarrage +
+commission déplafonnée sur chaque abonné + bonus), et on prend les
+dernières places de l'équipe française cette semaine avant de fermer
+le recrutement pour l'été.
+
+Si tu penses à quelqu'un, envoie-lui ce lien : [LIEN FORMULAIRE]
+
+Et si finalement c'est TOI que ça intéresse toujours 😄 réponds-moi
+juste « MOI » et je t'envoie le test de sélection direct (pas
+d'entretien, 48h, ceux qui livrent sont pris).
+```
+
+**Brief test 48 h (envoyé à ceux qui répondent « MOI ») :**
+
+```
+🎬 TEST DE SÉLECTION (48h chrono)
+
+Le job d'un clippeur : transformer une vidéo longue en Reel qui scotche.
+C'est exactement ce que tu vas faire.
+
+1. Prends cette vidéo : [LIEN VIDÉO YOUTUBE PUBLIQUE]
+2. Trouve LE meilleur moment et monte un Reel de 20 à 40 secondes,
+   format vertical.
+3. Les règles : un hook fort dans la 1re seconde (texte à l'écran),
+   sous-titres lisibles, coupes dynamiques. Pas un simple copier-coller
+   du passage : ta patte doit se voir.
+4. Envoie-moi le fichier ici avant [JOUR + HEURE PILE].
+
+Pas de rattrapage : ceux qui livrent à l'heure passent devant tout le
+monde pour intégrer l'équipe. Une question ? Pose-la — savoir poser
+les bonnes questions fait partie du test 😉
+```
+
+⚠️ La vidéo du test = un extrait **public et neutre** (podcast FR), jamais du contenu des créatrices. Le rendu = un **fichier envoyé**, jamais un post public. Notation : à l'heure · hook/rythme · brief respecté.
+
 ## Note sourcing (Disboard, déjà dans ta liste)
 
 Tes ~44 tags Disboard restent valides pour le volume (le goulot [[Who (Geoff Smart & Randy Street)|Source]]). Priorise les serveurs « éditeurs/freelance/UGC » avec canal *hiring* (annonce légitime), trie par `?sort=-member_count`, filtre langue `/fr/` pour le FR et laisse large pour l'international francophone. Le **parrainage** ([[Équipe marketing - structure et rémunération (FR × MG)|50 € → 850 €]]) reste ton meilleur canal qualité — les A ramènent des A.
