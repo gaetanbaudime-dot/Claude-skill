@@ -284,7 +284,8 @@ async def canal_par_id(canal_id: str):
         return None
     try:
         return client.get_channel(int(canal_id)) or await client.fetch_channel(int(canal_id))
-    except (ValueError, discord.NotFound, discord.Forbidden):
+    except (ValueError, discord.NotFound, discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Canal %s inaccessible : %s", canal_id, erreur)
         return None
 
 
@@ -295,26 +296,36 @@ def texte_compteur(total: float) -> str:
 
 
 async def actualiser_compteur():
-    """Crée ou met à jour le message épinglé « X € versés » dans #dopamine."""
+    """Crée/met à jour le compteur épinglé. Renvoie None si OK, sinon le problème exact (pour l'admin)."""
+    if not CANAL_DOPAMINE_ID:
+        return "la variable CANAL_DOPAMINE_ID n'est pas définie dans Railway."
     canal = await canal_par_id(CANAL_DOPAMINE_ID)
     if canal is None:
-        return
+        return (f"je ne trouve pas le canal `{CANAL_DOPAMINE_ID}` — soit l'ID est incorrect "
+                f"(clic droit sur #dopamine → Copier l'identifiant, compare), soit il me manque "
+                f"« Voir le salon » : ajoute MON rôle en exception dans les permissions du salon.")
     etat = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0, "message_id": None})
     contenu = texte_compteur(etat["total"])
     try:
         if etat.get("message_id"):
             msg = await canal.fetch_message(etat["message_id"])
             await msg.edit(content=contenu)
-            return
-    except (discord.NotFound, discord.Forbidden):
-        pass  # message supprimé -> on en recrée un
+            return None
+    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+        pass  # message supprimé/inaccessible -> on en recrée un
     try:
         msg = await canal.send(contenu)
+    except (discord.Forbidden, discord.HTTPException):
+        return (f"je vois {canal.mention} mais je ne peux pas y écrire — coche "
+                f"« Envoyer des messages » pour mon rôle dans les permissions de ce salon.")
+    etat["message_id"] = msg.id
+    ecrire_json(FICHIER_COMPTEUR_VERSE, etat)
+    try:
         await msg.pin()
-        etat["message_id"] = msg.id
-        ecrire_json(FICHIER_COMPTEUR_VERSE, etat)
-    except (discord.Forbidden, discord.HTTPException) as erreur:
-        journal.warning("Compteur non épinglable : %s", erreur)
+    except (discord.Forbidden, discord.HTTPException):
+        return (f"compteur posté dans {canal.mention} mais PAS épinglé — coche "
+                f"« Gérer les messages » pour mon rôle dans les permissions de ce salon.")
+    return None
 
 
 async def annoncer_paiement(message, montant: float, beneficiaire, raison: str):
@@ -449,9 +460,12 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     if texte.startswith("!compteur"):
-        await actualiser_compteur()
+        probleme = await actualiser_compteur()
         total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
-        await message.reply(f"Compteur à jour : {total:.2f} € versés.")
+        if probleme:
+            await message.reply(f"⚠️ Compteur NON affiché : {probleme}")
+        else:
+            await message.reply(f"✅ Compteur épinglé dans <#{CANAL_DOPAMINE_ID}> : {total:.2f} € versés.")
         return True
 
     if texte.startswith("!invites"):
