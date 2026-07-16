@@ -20,6 +20,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Rétention et motivation des marketeurs]] : garder les tops (autonomie/progression/appartenance), pourquoi « ne partent jamais » est le mauvais objectif.
 - [[Entretien clipper - questions et grille de notation]] · [[Recrutement clippers - annonces et formulaire]] · [[Équipe marketing - structure et rémunération (FR × MG)]] : le funnel opérationnel.
 - [[Sourcing 100 leads clippers FR (plan juillet 2026)]] : la carte des 10 canaux chiffrée sur le funnel mesuré (257 candidatures analysées le 16/07) — réactivation du sheet, parrainage, Discord, et 4 personas de reconversion (CM, ex-ecommerçants, monteurs, clippeurs gaming).
+- [[Programme clipping public (analyse concurrents + plan septembre)]] : l'autopsie des programmes FR (fermes à membres : CPM ~0,20 €/1000, top réel 187 €/mois, primes de joins), la validation US du modèle per-résultat (Whop), notre kill zone (on paie 3-5x plus), et le plan phasé — construire l'été, ouvrir les vannes en septembre.
 
 ## Pôle marketing de masse (Instagram + Facebook)
 
