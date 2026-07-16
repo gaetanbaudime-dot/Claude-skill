@@ -38,6 +38,10 @@ Modèle par défaut **`claude-haiku-4-5`** (rapide, quasi gratuit, largement ass
 
 Base curée (`connaissances.md`) versionnée dans le repo (mise à jour par Claude/Gaëtan) ; ajouts `!apprendre` dans `faq_apprise.md` sur le volume persistant. Le bot charge les deux. `bot.py` (version Telegram) est conservé en option mais non utilisé.
 
+## v2 (17/07) — le bot du programme clippers
+
+Le bot opère désormais la boucle de la [[Machine de recrutement clippers (100 leads par mois)|machine de recrutement]] : **`!paiement @x 50 [raison]`** (annonce dopamine + **compteur épinglé « X € déjà versés »** + trace `paiements.jsonl`), **`!compteur`**, **`!rang @x Rookie/Confirmé/Elite`** (rôles à créer sur le serveur), **`!invites`** (classement). Avec `ACTIVER_V2=1` (exige l'intent privilégié Server Members + permission « Gérer le serveur ») : **tracking d'invitations** (attribution du parrain à chaque join — on tracke au join, on ne paie jamais au join) + **accueil numéroté** (« tu es le Nᵉ futur clipper ») dans `#candidature` avec le lien du formulaire. Les commandes admin marchent depuis n'importe quel canal. Déploiement sans risque : v2 éteinte par défaut. Mise en service : `tools/bot_clippers/README.md`, section v2.
+
 ## La mesure (ce qui remplace le débat)
 
 `donnees/journal_questions.jsonl` enregistre chaque question + un marqueur `escalade` (= réponse hors kit). Bilan rentrée (via `!stats` ou le journal) : beaucoup d'escalades → enrichir `connaissances.md` (et le kit) ; peu de questions → le kit v2 suffisait, le bot aura servi de preuve.
