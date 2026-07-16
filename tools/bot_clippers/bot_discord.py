@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+import unicodedata
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -266,6 +267,12 @@ async def image_en_base64(piece_jointe):
     return base64.standard_b64encode(donnees).decode("utf-8"), media
 
 
+def normaliser(texte: str) -> str:
+    """Minuscules, sans accents — pour matcher « Élite ✨ » avec « Elite »."""
+    texte = unicodedata.normalize("NFD", texte)
+    return "".join(c for c in texte if unicodedata.category(c) != "Mn").lower()
+
+
 # ------------------------------------------------------------------ v2 : compteur public + paiements
 async def canal_par_id(canal_id: str):
     if not canal_id:
@@ -424,15 +431,19 @@ async def commande_admin(message, texte: str) -> bool:
             return True
         membre_vise = message.mentions[0]
         demande = texte.lower()
-        nom_rang = next((r for r in NOMS_RANGS if r.lower() in demande or
-                         (r == "Confirmé" and "confirme" in demande)), None)
+        nom_rang = next((r for r in NOMS_RANGS if normaliser(r) in normaliser(demande)), None)
         if not nom_rang:
             await message.reply("Rang inconnu. Choix : Rookie, Confirmé, Elite.")
             return True
-        roles = {r.name: r for r in message.guild.roles if r.name in NOMS_RANGS}
+        # Tolère les noms de rôles stylés côté serveur (« Élite ✨ », « Confirmé 👍 », « Rookie 🔰 »…)
+        roles = {}
+        for role in message.guild.roles:
+            for nom in NOMS_RANGS:
+                if normaliser(nom) in normaliser(role.name):
+                    roles.setdefault(nom, role)
         if nom_rang not in roles:
-            await message.reply(f"Le rôle « {nom_rang} » n'existe pas sur le serveur — crée les rôles "
-                                f"{', '.join(NOMS_RANGS)} dans les réglages, puis réessaie.")
+            await message.reply(f"Je ne trouve pas de rôle contenant « {nom_rang} » sur le serveur — crée les rôles "
+                                f"{', '.join(NOMS_RANGS)} (emojis bienvenus) dans les réglages, puis réessaie.")
             return True
         try:
             membre = message.guild.get_member(membre_vise.id) or await message.guild.fetch_member(membre_vise.id)
