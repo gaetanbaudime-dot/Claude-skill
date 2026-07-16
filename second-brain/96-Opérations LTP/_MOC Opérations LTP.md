@@ -21,6 +21,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Entretien clipper - questions et grille de notation]] · [[Recrutement clippers - annonces et formulaire]] · [[Équipe marketing - structure et rémunération (FR × MG)]] : le funnel opérationnel.
 - [[Sourcing 100 leads clippers FR (plan juillet 2026)]] : la carte des 10 canaux chiffrée sur le funnel mesuré (257 candidatures analysées le 16/07) — réactivation du sheet, parrainage, Discord, et 4 personas de reconversion (CM, ex-ecommerçants, monteurs, clippeurs gaming).
 - [[Programme clipping public (analyse concurrents + plan septembre)]] : l'autopsie des programmes FR (fermes à membres : CPM ~0,20 €/1000, top réel 187 €/mois, primes de joins), la validation US du modèle per-résultat (Whop), notre kill zone (on paie 3-5x plus), et le plan phasé — construire l'été, ouvrir les vannes en septembre.
+- [[Machine de recrutement clippers (100 leads par mois)]] : l'étude des 3 géants mondiaux (Whop, Vyro, Reach.cat — 3 agents de recherche) distillée en machine à 7 composants opérée par le bot + le manager + les clippers (zéro cold DM) : méta-campagne, preuves systématiques, funnel à ticket, validation humaine 48 h, premier cash < 7 jours, drop mensuel, visibilité permanente.
 
 ## Pôle marketing de masse (Instagram + Facebook)
 
