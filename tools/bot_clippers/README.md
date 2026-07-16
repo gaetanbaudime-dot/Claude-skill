@@ -97,6 +97,12 @@ poste « Bienvenue X — tu es le Nᵉ futur clipper ! » dans `#candidature` (a
 formulaire) et note l'attribution. **On tracke au join, on ne paie JAMAIS au join** — le
 parrainage (50 €) se paie quand le filleul devient clipper actif.
 
+⚠️ **Piège des salons verrouillés** : `#dopamine` et `#candidature` sont fermés à l'écriture
+pour `@everyone` (voulu) — mais le bot hérite de ce blocage ! Ajoute une **exception pour le
+rôle du bot** sur chaque salon verrouillé : Permissions → + → rôle du bot → ✅ Voir le salon,
+✅ Envoyer des messages, ✅ **Gérer les messages** (nécessaire pour épingler le compteur).
+Bonus : laisse « Ajouter des réactions » à ✅ pour `@everyone` (les 🔥 sans le bruit).
+
 **Mise en service v2 (3 min, dans cet ordre)** :
 1. Developer Portal → Bot → activer **SERVER MEMBERS INTENT** (2e interrupteur privilégié).
 2. Donner au bot la permission **Gérer le serveur** (lecture des invitations) et
