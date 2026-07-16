@@ -45,6 +45,10 @@ Illustratif sur **60 k€ de CA/an** dont 30 k€ reversés à l'agence (à conf
 
 Le mail TVA de MYM est arrivé à **Maddy** (~30 k€/12 mois, accélération ~10 k€/mois → dépassera 83 600 € dans l'année). Mais **Chloé** a fait **60 411 € de MYM annuel + son OF** ([[LTP Models|hub]]) : elle est **très au-dessus** des seuils TVA et probablement du plafond micro, sans forcément le savoir. **Sarah** accélère fort. → **Risque fiscal sur tout le roster FR simultané**, avec le fil qui remonte vers la structure du fondateur. Maddy est juste la première alertée.
 
+## Fausses pistes déjà écartées (ne pas re-creuser)
+
+**Portage salarial (Jump, ~99 €/mois) — écarté le 16/07.** Trois verrous : (1) les frais professionnels y sont **plafonnés à ~30 % du salaire brut** et validés un par un → la commission agence de 50 % vers une entité Dubaï ne passera jamais ; (2) le portage vise les **prestations intellectuelles facturées à des entreprises clientes** (conseil, dev, formation) — une créatrice n'y rentre pas et le contenu adulte serait très probablement refusé par la société de portage (`to-verify` sur les CGU exactes de Jump, mais le plafond des frais suffit à écarter) ; (3) portage = salariat = **~45-50 % de cotisations** sur ce qui devient salaire, plus cher que le réel. Le « entre SAS et micro sans gérer une boîte » qui marche vraiment = **EI au régime réel** (charges réelles déductibles, pas de société à créer), SASU pour les plus grosses — arbitrage comptable.
+
 ## La marche à suivre (guider sans être le conseiller fiscal)
 
 1. **Ne jamais donner de conseil fiscal engageant à une créatrice** (responsabilité + hors périmètre). Le rôle de l'agence : orienter, pas prescrire.
