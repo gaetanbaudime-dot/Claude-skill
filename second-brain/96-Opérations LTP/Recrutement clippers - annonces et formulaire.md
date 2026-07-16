@@ -252,9 +252,12 @@ questions fait partie du test 😉
 
 Huit variantes prêtes à coller pour les canaux 3-10 du [[Sourcing 100 leads clippers FR (plan juillet 2026)|plan sourcing]], toutes sur la même base : **200 €/mois de fixe de démarrage + 0,50 €/abonné déplafonné + bonus**, preuve Julien 400-600 €, niche annoncée (créatrices OnlyFans, posts 100 % SFW), 18+, « test 48 h, pas d'entretien ». Ce qui change par canal : **le hook du persona**.
 
+> [!tip] Doctrine Discord actée le 16/07 : divulgation progressive (anti-ban)
+> Sur Discord, **pas de mention OnlyFans dans l'annonce publique** (ban des serveurs) : annonce neutre « créatrices de contenu » → DM qui annonce « la niche exacte est dans le formulaire » → **niche explicite au formulaire** (Q15/Q18). Le garde-fou non négociable : personne n'arrive au test sans connaître la niche — si la niche sortait aussi du formulaire, on fabriquerait des leads morts. Détails de la version soft : « créer des comptes » jamais en 1re puce (odeur grey-hat), fixe 200 € affiché mais **pas** le 0,50 €/abonné (ambigu hors contexte OF : serait lu « abonnés Instagram »), 18+ affiché (pré-filtre mineurs sans révéler la niche), « test 48 h, pas d'entretien » dès l'annonce. Version de production ci-dessous.
+
 | Canal | Hook de la variante |
 |---|---|
-| Discord (hiring Disboard) | l'annonce OPTI complète + « dernières places cette semaine » |
+| Discord (hiring Disboard) | **version soft sans OF** (divulgation progressive, voir encadré) + « dernières places cette semaine » |
 | Telegram (argent en ligne) | « 400-600 €/mois depuis ton téléphone » |
 | Community managers (FB/LinkedIn) | « tes posts te paient à la performance, plus au forfait » |
 | Ex-ecommerçants (drop) | « t'as cramé un budget ads pour des vues ? ici on te PAIE pour tes vues. zéro capital » |
@@ -264,6 +267,54 @@ Huit variantes prêtes à coller pour les canaux 3-10 du [[Sourcing 100 leads cl
 | Reel de recrutement (les 7) | script 20-30 s (hook « on me paie pour poster des Reels »), recrue via Reel = parrainage (grille #bonus-fr), chiffres réels uniquement |
 
 Les textes complets sont dans la conversation Claude du 16/07 — à re-générer depuis ce tableau si besoin (le hook + la base commune suffisent). Règles de diffusion : canaux hiring uniquement, envois étalés (10 serveurs/jour), rien d'autre à gérer — le formulaire et le test 48 h absorbent tout.
+
+### Version Discord soft — LA version de production (16/07)
+
+```
+🎬 ON RECRUTE — CLIPPEUR / MONTEUR VIDÉO 🇫🇷
+
+Julien, un de nos clippeurs, fait déjà 400-600€/mois à côté de son job,
+100% depuis son téléphone. Nos meilleurs gagnent dans les 1000€/mois.
+
+On fait exploser des créatrices de contenu sur Instagram et Facebook,
+et on prend les dernières places de l'équipe française cette semaine 📈
+
+🎯 Ton rôle :
+→ Publier des Reels tous les jours, depuis ton tel
+→ Monter tes comptes Instagram + pages Facebook (on te guide pas à pas)
+→ Contenu 100% fourni. On te forme à la méthode qui fait des millions de vues.
+
+💰 Rémunération : fixe de démarrage 200€/mois + commission déplafonnée
+sur tes résultats + bonus chaque mois. Pas de chiffre bidon, juste tes
+vraies performances (comme Julien).
+
+🔍 Le profil :
+18 ans minimum. Discipliné, autonome, comprend l'algorithme, et poste
+sérieusement TOUS LES JOURS.
+Si tu lâches au bout de 3 jours, passe ton tour ⚠️
+
+📩 Intéressé ? DM moi — pas d'entretien, juste un test de 48h.
+Ceux qui livrent sont pris.
+```
+
+**Réponse DM (après leur premier message) :**
+
+```
+Hello 🙏 merci pour ton message, content que l'annonce te parle :)
+
+Pour te résumer : on bosse avec des créatrices de contenu qu'on fait
+exploser sur Insta/Facebook. Nos clippeurs sont payés un fixe de
+démarrage de 200€/mois + une commission déplafonnée sur les résultats
++ des bonus. Julien, un des nôtres, est à 400-600€/mois en 1 mois à
+côté de son job de monteur.
+
+Tout est expliqué dans le formulaire (la niche exacte, les conditions,
+comment ça marche) — ça prend 3 min 👉 [LIEN FORMULAIRE]
+
+On prend les dernières places de l'équipe FR cette semaine et je traite
+les candidatures au fur et à mesure, donc fais-le tant que c'est frais 🚀
+Ensuite : un test de 48h, pas d'entretien. Ceux qui livrent sont pris.
+```
 
 ## Note sourcing (Disboard, déjà dans ta liste)
 
