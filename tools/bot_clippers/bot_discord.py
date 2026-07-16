@@ -464,8 +464,72 @@ async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renom
     return [f"✅ {nom} : {canal.mention}"]
 
 
+# Doctrine des 3 étages : ce qui doit être public (vitrine/lead magnet) vs réservé.
+NOMS_PUBLICS = ("candidature", "annonce", "dopamine", "formation", "checklist", "tips",
+                "ressource", "assistant", "arrivee", "bienvenue", "deja paye", "clippers")
+NOMS_RESERVES = ("reporting", "remuneration", "bonus", "discussion", "disccusion", "rush")
+
+
+async def envoyer_long(message, lignes: list):
+    """Envoie une liste de lignes en respectant la limite Discord de 2000 caractères."""
+    bloc = ""
+    for ligne in lignes:
+        if len(bloc) + len(ligne) + 1 > 1900:
+            await message.channel.send(bloc)
+            bloc = ""
+        bloc += ligne + "\n"
+    if bloc.strip():
+        await message.channel.send(bloc)
+
+
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    # ---- !audit : carte complète du serveur + écarts à la doctrine des 3 étages ----
+    if texte.startswith("!audit"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        carte = ["🗺️ **Carte du serveur — qui voit quoi**"]
+        problemes = []
+        for categorie, canaux in g.by_category():
+            nom_cat = categorie.name if categorie else "(sans catégorie)"
+            carte.append(f"\n__{nom_cat}__")
+            cat_reservee = categorie and any(m in normaliser(categorie.name)
+                                             for m in ("creatrice", "metricool"))
+            for canal in canaux:
+                if not isinstance(canal, (discord.TextChannel, discord.VoiceChannel, discord.ForumChannel)):
+                    continue
+                public = canal.permissions_for(g.default_role).view_channel
+                if public:
+                    visibilite = "public"
+                else:
+                    roles = [t.name for t, ow in canal.overwrites.items()
+                             if isinstance(t, discord.Role) and ow.view_channel and t != g.default_role]
+                    visibilite = ("réservé → " + ", ".join(roles)) if roles else "verrouillé (aucun rôle ?)"
+                carte.append(f"· #{canal.name} — {visibilite}")
+                n = normaliser(canal.name)
+                if any(m in n for m in NOMS_PUBLICS) and not public and not cat_reservee:
+                    problemes.append(f"⚠️ **#{canal.name}** devrait être PUBLIC (étage vitrine) mais est caché — "
+                                     f"la vitrine ne vend rien si personne ne la voit.")
+                if (any(m in n for m in NOMS_RESERVES) or cat_reservee) and public:
+                    problemes.append(f"❌ **#{canal.name}** est visible par TOUT LE MONDE alors qu'il devrait être "
+                                     f"réservé (retire « Voir le salon » à @everyone, garde-le pour les bons rôles).")
+        for nom_rang in NOMS_RANGS:
+            role = discord.utils.find(lambda r: normaliser(nom_rang) in normaliser(r.name), g.roles)
+            if role and not role.hoist:
+                problemes.append(f"ℹ️ Rôle « {role.name} » : active « Afficher les membres séparément » "
+                                 f"(le statut visible = rétention gratuite).")
+        vides = [r.name for r in g.roles
+                 if not r.managed and r != g.default_role and len(r.members) == 0]
+        if vides:
+            note = " (v2 éteinte : comptage possiblement incomplet)" if not ACTIVER_V2 else ""
+            problemes.append(f"ℹ️ Rôles sans membre{note} : {', '.join(vides[:10])}.")
+        await envoyer_long(message, carte)
+        await envoyer_long(message, ["🩺 **Écarts à la doctrine**"] +
+                           (problemes if problemes else ["✅ Aucune incohérence détectée — la structure est propre."]))
+        return True
+
     # ---- !verifier : audit complet de la configuration ----
     if texte.startswith("!verifier"):
         g = message.guild
