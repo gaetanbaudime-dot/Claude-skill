@@ -248,6 +248,23 @@ tout le monde. et si t'as une question pose-la, savoir poser les bonnes
 questions fait partie du test 😉
 ```
 
+## 6) Variantes par canal (pack du 16/07, aligné sur le plan sourcing)
+
+Huit variantes prêtes à coller pour les canaux 3-10 du [[Sourcing 100 leads clippers FR (plan juillet 2026)|plan sourcing]], toutes sur la même base : **200 €/mois de fixe de démarrage + 0,50 €/abonné déplafonné + bonus**, preuve Julien 400-600 €, niche annoncée (créatrices OnlyFans, posts 100 % SFW), 18+, « test 48 h, pas d'entretien ». Ce qui change par canal : **le hook du persona**.
+
+| Canal | Hook de la variante |
+|---|---|
+| Discord (hiring Disboard) | l'annonce OPTI complète + « dernières places cette semaine » |
+| Telegram (argent en ligne) | « 400-600 €/mois depuis ton téléphone » |
+| Community managers (FB/LinkedIn) | « tes posts te paient à la performance, plus au forfait » |
+| Ex-ecommerçants (drop) | « t'as cramé un budget ads pour des vues ? ici on te PAIE pour tes vues. zéro capital » |
+| Monteurs / étudiants MMI-BTS | « arrête de chasser des clients à 20 € la vidéo — volume garanti » |
+| Clippeurs gaming/Twitch | « tu clippes des streamers gratos ? on te paie pour la même compétence » |
+| Indeed / Leboncoin | registre jobboard posé — ⚠️ toujours « mission freelance / statut indépendant », jamais « emploi » ([[Conformité recrutement (droit FR, RGPD, CGU)|salariat déguisé]]) |
+| Reel de recrutement (les 7) | script 20-30 s (hook « on me paie pour poster des Reels »), recrue via Reel = parrainage (grille #bonus-fr), chiffres réels uniquement |
+
+Les textes complets sont dans la conversation Claude du 16/07 — à re-générer depuis ce tableau si besoin (le hook + la base commune suffisent). Règles de diffusion : canaux hiring uniquement, envois étalés (10 serveurs/jour), rien d'autre à gérer — le formulaire et le test 48 h absorbent tout.
+
 ## Note sourcing (Disboard, déjà dans ta liste)
 
 Tes ~44 tags Disboard restent valides pour le volume (le goulot [[Who (Geoff Smart & Randy Street)|Source]]). Priorise les serveurs « éditeurs/freelance/UGC » avec canal *hiring* (annonce légitime), trie par `?sort=-member_count`, filtre langue `/fr/` pour le FR et laisse large pour l'international francophone. Le **parrainage** ([[Équipe marketing - structure et rémunération (FR × MG)|50 € → 850 €]]) reste ton meilleur canal qualité — les A ramènent des A.
