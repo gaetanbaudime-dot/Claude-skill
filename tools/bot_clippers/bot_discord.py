@@ -453,8 +453,13 @@ async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renom
     manquant = []
     if not perms.view_channel:
         manquant.append("Voir le salon")
-    if besoin_renommage and not perms.manage_channels:
-        manquant.append("Gérer les salons (renommage)")
+    if besoin_renommage:
+        try:
+            await canal.edit(name=canal.name, reason="!verifier : test de renommage à blanc")
+        except discord.Forbidden:
+            manquant.append("Gérer les salons (renommage)")
+        except discord.HTTPException:
+            pass  # limite de débit Discord : on ne conclut pas à une permission manquante
     if not besoin_renommage and not perms.send_messages:
         manquant.append("Envoyer des messages")
     if besoin_pin and not perms.manage_messages:
