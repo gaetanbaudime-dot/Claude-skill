@@ -51,6 +51,11 @@ LIEN_FORMULAIRE = os.environ.get("LIEN_FORMULAIRE", "").strip()           # form
 ACTIVER_V2 = os.environ.get("ACTIVER_V2", "").strip() == "1"
 NOMS_RANGS = ("Rookie", "Confirmé", "Elite")                              # rôles à créer sur le serveur
 
+# Salons-compteurs (verrouillés) dont le bot met à jour le TITRE automatiquement (comme HoA, mais vrais chiffres).
+CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # « 💸 Déjà payés : X € »
+CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # « 🎬 Clippers : N »
+ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle compté pour « Clippers »
+
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
@@ -327,6 +332,43 @@ async def annoncer_paiement(message, montant: float, beneficiaire, raison: str):
     suffixe = f" — {raison}" if raison else ""
     await canal.send(f"💸 **{beneficiaire.display_name}** vient de recevoir **{montant:.2f} €** !{suffixe} 🔥")
     await actualiser_compteur()
+    client.loop.create_task(mettre_a_jour_stats())  # rafraîchit le salon-compteur « Déjà payés »
+
+
+# ------------------------------------------------------------------ v2 : salons-compteurs (titres auto)
+async def _renommer_salon(canal_id: str, nouveau_nom: str):
+    canal = await canal_par_id(canal_id)
+    if canal is None or canal.name == nouveau_nom:
+        return
+    try:
+        await canal.edit(name=nouveau_nom)  # Discord limite à ~2 renommages / 10 min / salon
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Renommage du salon-compteur impossible (%s) : %s", nouveau_nom, erreur)
+
+
+async def mettre_a_jour_stats():
+    """Met à jour les titres des salons-compteurs à partir des vrais chiffres."""
+    if CANAL_STAT_PAYES_ID:
+        total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
+        await _renommer_salon(CANAL_STAT_PAYES_ID, f"💸 Déjà payés : {total:,.0f} €".replace(",", " "))
+    if CANAL_STAT_CLIPPERS_ID and ACTIVER_V2:      # le comptage par rôle exige l'intent Members
+        n = 0
+        for guild in client.guilds:
+            role = discord.utils.find(lambda r: normaliser(ROLE_CLIPPER_NOM) in normaliser(r.name), guild.roles)
+            if role:
+                n += len(role.members)
+        await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {n}")
+
+
+async def boucle_stats():
+    """Rafraîchit les salons-compteurs toutes les 10 min (respecte la limite de renommage Discord)."""
+    await client.wait_until_ready()
+    while not client.is_closed():
+        try:
+            await mettre_a_jour_stats()
+        except Exception as erreur:                # jamais laisser la boucle mourir
+            journal.warning("Boucle stats : %s", erreur)
+        await asyncio.sleep(600)
 
 
 # ------------------------------------------------------------------ v2 : invitations (tracker, JAMAIS payer au join)
@@ -477,14 +519,21 @@ async def commande_admin(message, texte: str) -> bool:
     return False
 
 
+_taches_demarrees = False
+
+
 @client.event
 async def on_ready():
+    global _taches_demarrees
     journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s, v2 %s)",
                  client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
                  "ON" if ACTIVER_V2 else "off")
     if ACTIVER_V2:
         for guild in client.guilds:
             await cacher_invites(guild)
+    if not _taches_demarrees and (CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID):
+        _taches_demarrees = True          # on_ready peut refire à la reconnexion : une seule boucle
+        client.loop.create_task(boucle_stats())
 
 
 @client.event
