@@ -47,6 +47,17 @@ La viral loop (paiement → preuve → contenu → clippers) est le but, mais **
 4. **Rangs Rookie → Confirmé → Elite : GO.** Tests payés par défaut : **abandonnés** — réservés comme outil de débauchage ciblé (DM d'un top de leaderboard : « 30 € pour un test 48 h »).
 5. **Canal `#dopamine` unique** (paiements + vues + clics + subs + wins) : l'effet de masse prime — division seulement quand le canal dépassera ~15-20 posts/jour (vers 30-50 clippers). Compteur « X € versés » en épingle du même canal.
 
+## Le tunnel complet (figé le 16/07 au soir)
+
+**Acquisition** (Reels satellites, parrainage/invitations trackées, annonces Telegram/Indeed/Leboncoin/Disboard, Insta/YTB, relances sheet) → deux portes : **A. le lien** (annonce → formulaire, niche explicite, Q17 source) ou **B. le serveur** (invitation/Disboard → accueil numéroté par le bot → tri France/Mada → formation et checklist visibles = lead magnet → formulaire) → **test 48 h** (le seul juge : à l'heure · hook · brief ; ~10 % passent ; échec = vivier, re-test possible à M+1) → **rangs** → **paiement du lundi** → `#dopamine` + STATS → screenshots → Reels de recrutement → ♻️ retour en haut. Le tunnel est un cercle, pas une ligne.
+
+**Les rangs (critères chiffrés, mappés sur la grille de paie existante)** :
+- **🔰 Rookie (mois 1)** = a réussi le test. Fixe 50 €/sem + 0,50 €/sub, rôle créatrice (pod), warm-up → cadence → reporting dimanche.
+- **🎯 Confirmé (mois 2+)** = a tenu le mois 1 (cadence respectée + reporting sans trou — un critère de **fiabilité**, pas de performance). Fixe 200 €/mois + 0,50 €/sub — le passage hebdo→mensuel de la paie EST le passage de rang.
+- **✨ Élite** = 250+ subs validés sur un mois OU top 3 du classement 2 mois de suite. Avantages à coût nul : priorité sur les nouvelles créatrices, statut affiché séparément — et pépinière des futurs reviewers/managers payés (septembre).
+
+**Rendements attendus (calibrés sur la data du 16/07)** : 100 candidatures → ~50 qualifiées → ~25 tests → **8-10 Rookies** → ~5-6 Confirmés à M+1 → 1-2 Élites. Outillage : `!verifier` (audit auto de la config Discord), `!paiement`/`!ajuster`/`!compteur` (compteur public), `!rang`, `!invites`, salons-compteurs STATS, accueil numéroté (`ACTIVER_V2`).
+
 ## Interdits (les dettes que les géants normalisent)
 
 Jamais : primes de joins Discord · multi-compte · spoofing/fermes de comptes façon Reach.cat · paiement aux vues (bottable) · promesses déconnectées de la médiane. **Dette CGU assumée et bornée** : les comptes satellites TikTok « side hustle » des clippers risquent des bans (contenu incentivé) → angle générique obligatoire, jamais de mention OFM à l'écran, compte satellite ≠ compte de clipping. Garde-fou fixe : le 200 € reste **conditionnel à un volume minimum vérifié** ([[Équipe marketing - structure et rémunération (FR × MG)|grille]]) — protection anti-passifs relevée par l'étude. Conformité : [[Conformité recrutement (droit FR, RGPD, CGU)]].
