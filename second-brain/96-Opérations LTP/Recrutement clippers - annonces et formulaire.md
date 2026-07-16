@@ -207,6 +207,8 @@ les bonnes questions fait partie du test 😉
 
 ⚠️ La vidéo du test = un extrait **public et neutre** (podcast FR), jamais du contenu des créatrices. Le rendu = un **fichier envoyé**, jamais un post public. Notation : à l'heure · hook/rythme · brief respecté.
 
+**Choix figés au lancement (16/07)** : fixe affiché **200 €/mois + 0,50 €/sub + bonus** (factuel : grilles bonus performance et parrainage postées dans `#bonus-fr` le 11/07) ; **la grille de parrainage ne va PAS dans le message 1** (une grille à paliers dès le 1er contact = odeur de campagne de masse, ça tue l'effet message perso) — une ligne teaser « jusqu'à 850 € » et la grille part en message 2 à ceux qui mordent ; une seule relance aux silencieux (« dernier appel, on ferme lundi »), puis on passe. Couperet du 1er test : samedi 12h (envoi jeudi soir → notation samedi → onboarding de la vague avant le départ du 21/07).
+
 ## Note sourcing (Disboard, déjà dans ta liste)
 
 Tes ~44 tags Disboard restent valides pour le volume (le goulot [[Who (Geoff Smart & Randy Street)|Source]]). Priorise les serveurs « éditeurs/freelance/UGC » avec canal *hiring* (annonce légitime), trie par `?sort=-member_count`, filtre langue `/fr/` pour le FR et laisse large pour l'international francophone. Le **parrainage** ([[Équipe marketing - structure et rémunération (FR × MG)|50 € → 850 €]]) reste ton meilleur canal qualité — les A ramènent des A.
