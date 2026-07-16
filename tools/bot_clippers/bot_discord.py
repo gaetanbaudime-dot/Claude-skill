@@ -442,8 +442,71 @@ async def accueillir(member):
         pass
 
 
+async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renommage=False) -> list:
+    """Une ligne d'audit ✅/❌ pour un salon configuré."""
+    if not canal_id:
+        return [f"⚠️ {nom} : variable non définie dans Railway."]
+    canal = await canal_par_id(canal_id)
+    if canal is None:
+        return [f"❌ {nom} : canal `{canal_id}` introuvable — ID incorrect ou « Voir le salon » manquant pour mon rôle."]
+    perms = canal.permissions_for(canal.guild.me)
+    manquant = []
+    if not perms.view_channel:
+        manquant.append("Voir le salon")
+    if besoin_renommage and not perms.manage_channels:
+        manquant.append("Gérer les salons (renommage)")
+    if not besoin_renommage and not perms.send_messages:
+        manquant.append("Envoyer des messages")
+    if besoin_pin and not perms.manage_messages:
+        manquant.append("Gérer les messages (épingler)")
+    if manquant:
+        return [f"❌ {nom} : {canal.mention} — il me manque : {', '.join(manquant)}."]
+    return [f"✅ {nom} : {canal.mention}"]
+
+
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    # ---- !verifier : audit complet de la configuration ----
+    if texte.startswith("!verifier"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        moi = g.me
+        lignes = ["🔎 **Audit de la configuration**"]
+        lignes += await verifier_salon(CANAL_DOPAMINE_ID, "Dopamine", besoin_pin=True)
+        lignes += await verifier_salon(CANAL_CANDIDATURE_ID, "Candidature")
+        lignes += await verifier_salon(CANAL_STAT_PAYES_ID, "Stat « Déjà payés »", besoin_renommage=True)
+        lignes += await verifier_salon(CANAL_STAT_CLIPPERS_ID, "Stat « Clippers »", besoin_renommage=True)
+        lignes.append("✅ Lien du formulaire défini" if LIEN_FORMULAIRE
+                      else "⚠️ LIEN_FORMULAIRE vide — l'accueil n'aura pas de lien de candidature.")
+        lignes.append("✅ v2 active (accueil numéroté + invitations)" if ACTIVER_V2
+                      else "⚠️ v2 éteinte — pose ACTIVER_V2=1 dans Railway (APRÈS le Server Members Intent).")
+        lignes.append(("✅" if moi.guild_permissions.manage_guild else "❌")
+                      + " Permission « Gérer le serveur » (lecture des invitations)")
+        lignes.append(("✅" if moi.guild_permissions.manage_roles else "❌")
+                      + " Permission « Gérer les rôles » (!rang)")
+        for nom_rang in NOMS_RANGS:
+            role = discord.utils.find(lambda r: normaliser(nom_rang) in normaliser(r.name), g.roles)
+            if role is None:
+                lignes.append(f"❌ Rôle « {nom_rang} » introuvable — crée-le dans Réglages → Rôles.")
+            elif moi.top_role <= role:
+                lignes.append(f"⚠️ Rôle « {role.name} » au-dessus du mien — monte mon rôle pour que !rang marche.")
+            else:
+                lignes.append(f"✅ Rôle « {role.name} » ({len(role.members)} membre(s))")
+        noms = [normaliser(n.strip()) for n in ROLE_CLIPPER_NOM.split(",") if n.strip()]
+        comptes = {m.id for role in g.roles if any(nm in normaliser(role.name) for nm in noms)
+                   for m in role.members if not m.bot}
+        lignes.append(f"ℹ️ Compteur « Clippers » ({ROLE_CLIPPER_NOM}) : {len(comptes)} compté(s)"
+                      + ("" if ACTIVER_V2 else " — v2 éteinte, liste possiblement incomplète"))
+        total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
+        lignes.append(f"ℹ️ Total du compteur : {total:.2f} €")
+        parfait = all(not l.startswith(("❌", "⚠️")) for l in lignes[1:])
+        lignes.append("\n🏆 **Tout est parfait — tu n'as plus à y toucher.**" if parfait
+                      else "\n👉 Corrige les lignes ❌/⚠️ puis relance !verifier.")
+        await message.reply("\n".join(lignes)[:1990])
+        return True
+
     # ---- v2 : !paiement @membre MONTANT [raison] ----
     if texte.startswith("!paiement"):
         if not message.mentions:
