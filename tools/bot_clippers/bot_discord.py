@@ -418,6 +418,12 @@ async def detecter_bump(message):
 async def boucle_bump():
     """Poste un rappel dans CANAL_BUMP_ID dès que le cooldown Disboard (2 h) est terminé."""
     await client.wait_until_ready()
+    # Au démarrage sans historique (premier lancement ou redéploiement pile pendant un bump),
+    # on considère le cooldown comme relancé MAINTENANT : jamais de rappel à froid.
+    etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}})
+    if not etat.get("dernier"):
+        etat["dernier"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        ecrire_json(FICHIER_BUMP, etat)
     while not client.is_closed():
         try:
             etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}})
