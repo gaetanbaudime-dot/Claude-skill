@@ -80,9 +80,9 @@ Le Qonto le prouve : frais prélevés et OF encaissé en 2026 ([[Analyse finance
 
 **Coût total réaliste : ~900-1 600 €** (formalités ~400-600 € + expert-comptable ~500-1 000 €). **Délai : 2-3 mois** → lancé cette semaine = radiée à l'automne. Le cabinet comptable est **déjà résilié** (confirmé 13/07) — bien joué pour les frais, mais ça veut dire qu'il faudra **mandater quelqu'un ponctuellement** pour les comptes de liquidation et la liasse finale (l'ancien cabinet en mission one-shot, ou un service de liquidation en ligne).
 
-## Étape 4 — La micro-entreprise : ✅ DÉJÀ RADIÉE (découvert le 17/07)
+## Étape 4 — La micro-entreprise : ✅ RADIÉE (Kbis radié le 17/07/2026)
 
-Formalité de **cessation totale déposée au guichet unique le 10/04/2026** (synthèse J00233146752 retrouvée par Gaëtan — le plan du 13/07 la croyait encore active). Restes à vérifier : la **dernière déclaration URSSAF de CA** a-t-elle été faite, et la **CFE** de l'année de cessation (`to-verify` : un prorata peut tomber en décembre) — deux points pour le comptable.
+Cessation déposée au guichet unique le **10/04/2026** (synthèse J00233146752) → **radiation du RCS effective le 17/07/2026** (Kbis radié en main, mention « radiation suite à la cessation d'activité le 10/04/2026 » ; bordereau du greffe : **0 € à payer**). L'EI historique (e-commerce 2021) n'existe plus — pièce archivée pour le dossier fiscaliste. Restes à vérifier : la **dernière déclaration URSSAF de CA** post-cessation a-t-elle été faite en avril, et la **CFE** de l'année de cessation (`to-verify` : un prorata peut tomber en décembre) — deux points pour le comptable.
 
 ## Étape 5 — Les comptes perso FR : vider, puis fermer (en dernier)
 
