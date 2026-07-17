@@ -104,8 +104,9 @@ Une fois les flux re-routés et observés : vider le Revolut (et tout autre comp
 
 | Quand | Quoi | Coût |
 |---|---|---|
-| **Cette semaine (14-20/07)** | Rapport ICP tiré ✅ · Yoursafe ouvert + RIB posé sur MYM Ambassadeur ✅ · Jade prévenue (bascule sur SON compte) ✅ (17/07) · **fiscaliste mandaté** (l'action n°1, avec le compte de jours) · micro radiée · devis liquidation SAS demandé | ~30 € (rapport) |
-| **Août (à distance)** | Liquidation SAS lancée par le cabinet · nouveaux flux observés · déclaration départ vérifiée/régularisée | ~900-1 600 € |
+| **Cette semaine (14-20/07)** | Rapport ICP ✅ · Yoursafe + RIB MYM Ambassadeur ✅ · Jade prévenue ✅ · micro radiée ✅ (Kbis 17/07) · outils pro + salaires équipe + virement mensuel migrés sur Wio ✅ · mail bail parti ✅ · **PayPal FR fermé** (export → solde → clôture) · **3 mails fiscaliste + 2-3 devis liquidation envoyés** | ~30 € (rapport) |
+| **Avant le départ (≤ 26/07)** | **Re-router les 2 payouts OF** (Qonto + Revolut perso) vers Yoursafe AVANT dissolution · prestataire liquidation choisi sur devis · projets de PV d'AG + annonce légale n°1 préparés (Claude) | — |
+| **Août (à distance)** | AG de dissolution signée en ligne → annonce → dépôt guichet unique · premier payout Yoursafe vérifié · nouveaux flux observés · déclaration départ vérifiée/régularisée (fiscaliste) | ~1 000-1 400 € (liquidation low-cost : formalités en ligne ~300-500 + annonces ~300 + comptable one-shot ~400-600) |
 | **26/09 (impératif ≤ 01/11)** | **Retour à Dubaï** — chaque jour de retard consomme la marge des 183 jours (~39 j de marge) | — |
 | **25 novembre** | **TRC treaty France déposé** (183 j atteints ~22/11) · rapport ICP réédité à jour | ~265 € (TRC) |
 | **Au 31/12** | **Un seul système : Wio perso + Wio business + coffre.** TRC en poche, zéro flux FR · SAS radiée · comptes FR fermés | — |
