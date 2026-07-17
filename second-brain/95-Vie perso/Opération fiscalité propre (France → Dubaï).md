@@ -84,6 +84,20 @@ L'enquête publique du 17/07 (RNE/INPI + BODACC + INSEE, 2 agents) a renversé l
 
 **Le fin mot (pièces de Gaëtan, 17/07 après-midi)** : la fermeture a été **engagée et payée dès le 16/11/2025 via LegalPlace (706,32 € TTC, incluant l'annonce de clôture et le greffe de liquidation)**. Le dossier LegalPlace est vivant : 3/6 justificatifs validés (Kbis, statuts, pièce d'identité), **3 en attente depuis novembre** : ① comptes de clôture certifiés conformes, ② attestation de régularité fiscale, ③ attestation de vigilance URSSAF. Le kit DIY du matin est **obsolète** — le chemin est de finir ce dossier payé.
 
+### Le plan d'exécution verrouillé (17/07 soir, vérifié sources officielles[^5])
+
+1. Espace pro impots.gouv de la SAS : messagerie + état de la liasse + solde (0 €).
+2. **Payer les 1 200 €** par télépaiement — « clôturer avant de payer » est impossible (l'attestation de régularité fiscale contrôle dépôts ET paiement intégral des pénalités depuis N-4) et payer ne renonce à rien : le dégrèvement gracieux est **remboursable après paiement** (écrit dans le courrier du 30/10/2025).
+3. **Liasse 2065 ex. 30/06/2025 en DIY via Teledec** (~119-179 € TTC, import du FEC d'Acasi, EDI-TDFC sans comptable) — ou Acasi one-shot si < 200 €.
+4. Remise gracieuse des 1 200 € via messagerie (précédent du 30/10/2025 à citer) — option gratuite, non bloquante.
+5. Attestation de régularité fiscale (en ligne, sinon 3666-SD via le SIE).
+6. Attestation URSSAF « entreprise sans personnel » via le 3957 (exigée pour les clôtures depuis le 01/10/2024 même sans salarié).
+7. Comptes de clôture : montage par Claude (base bilan Acasi 30/06/2025 + relevés Qonto), certification/signature Gaëtan (0 €).
+8. LegalPlace finalise (déjà payé) — prévenir leur support que la dissolution du 16/11/2025 existe déjà, ne PAS en régénérer une.
+9. Après clôture : liasse de cessation (60 j) + TVA finale + liasse ex. 30/06/2026 (Teledec ×2, ~240 €).
+
+**⏰ Fenêtre critique : attestation fiscale à obtenir AVANT le 30/09/2026** (exigibilité de la liasse 30/06/2026, qui re-bloquerait). Budget total : **~360-420 € certains + 1 200 € récupérables**. Étapes 1-3 avant le départ du 26/07, le reste à distance en août.
+
 **Le vrai verrou, découvert dans 5 mois de courrier non lu à la domiciliation** : la **liasse IS 2065 de l'exercice clos au 30/06/2025 n'a pas été déposée** (mise en demeure du 21/11/2025) → **amendes 8×150 € = 1 200 €**, mises en recouvrement le 30/01/2026, **commandement de payer du 16/02/2026** (saisie possible, y compris SATD sur le Qonto). Sans régularisation, pas d'attestation fiscale → pas de clôture. **Précédent favorable au dossier** : la pénalité PAS de 250 € (05/2025) a été **dégrevée gracieusement le 30/10/2025** sur simple demande — la même voie (régularisation de la liasse PUIS demande de remise gracieuse au SIE Paris 1er-2e, dont l'interlocutrice est nommée sur les courriers) a une vraie chance sur les 1 200 €. Atout : **Acasi (l'ancien comptable de la SAS) a produit les comptes 2024-2025** (bilan, FEC, plaquette — dispo sur son dashboard) → base directe pour la liasse ET les comptes de clôture. « Laisser mourir » la SAS reste **écarté** (taxation d'office, radiation d'office qui n'éteint rien, torpille le dossier de non-résidence). Après radiation : **résilier la domiciliation HELLODOM** — et d'ici là, la relever chaque semaine (leçon à 1 200 €).
 
 ## Étape 4 — La micro-entreprise : ✅ RADIÉE (Kbis radié le 17/07/2026)
@@ -123,3 +137,4 @@ Le gain n'est pas que fiscal : **moins de comptes = moins de fuites** ([[Analyse
 [^2]: Export OCR Qonto SAS (2023-2026) : flux Fenix/AIR MEDIAS, frais courants 2026 — la preuve que la SAS n'est pas clôturée. Barèmes TRC, délais et règles de liquidation : `to-verify` en consultation (rien ici n'est un conseil juridique ou fiscal).
 [^3]: FTA, « Issuance of Tax Certificates for Tax Residency » (tax.gov.ae) + guides praticiens 2026 (movingo.ae, emirabiz.com) — parcours EmaraTax, pièces personne physique, frais 50 AED dossier + 500-1 000 AED émission (+250 AED copie papier/formulaire spécial), délai 5-20 j ouvrés. Vérifié le 17/07/2026.
 [^4]: Yoursafe.com (conditions + FAQ compte YOU) et Azola Legal, « Opening an account in Yoursafe » — EMI licencié DNB depuis 2019, compte personnel gratuit, clients de tout pays (priorité UE), IBAN NL multi-devises, SEPA/SWIFT/ACH, KYC vidéo. Vérifié le 17/07/2026.
+[^5]: impots.gouv.fr « Comment obtenir une attestation de régularité fiscale » + BOFiP BOI-DJC-ARF (contrôle dépôts et paiement intégral droits+pénalités depuis N-4, délivrance en ligne immédiate si conforme, sinon 3666-SD) ; Teledec.fr (liasse EDI-TDFC sans intermédiaire, 99-149 € HT, import FEC) ; Urssaf/Revue Fiduciaire (attestation sociale exigée aux clôtures depuis le 01/10/2024, « entreprise sans personnel » via le 3957). Vérifié le 17/07/2026.
