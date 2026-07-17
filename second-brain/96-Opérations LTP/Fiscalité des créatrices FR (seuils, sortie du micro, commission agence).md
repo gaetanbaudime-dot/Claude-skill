@@ -66,6 +66,21 @@ Question posée par Gaëtan le 27/07 (« Elle doit passer dans un régime diffé
 
 **Condition côté agence** : la facture de commission envoyée le 27/07 à Maddy (paiement attendu au 1er août) est exactement la pièce qui rend la déduction possible — libellé de prestation réel, numérotation, contrat derrière. Sans ça, l'étage 2 ne tient pas (mine n°1 ci-dessus).
 
+## La réponse à LA question : le réel, sans grande hésitation (analyse du 27/07, document remis à Maddy)
+
+La question posée au comptable a une réponse mathématique : **dès que les frais réels dépassent l'abattement forfaitaire de 34 %, le réel gagne** — et une créatrice qui reverse 50 % à l'agence est à ~55 % de frais réels. Le match est plié ; il reste à l'exécuter proprement. Chiffrage remis (ordres de grandeur 2026, célibataire sans autre revenu, `to-verify` par le comptable) :
+
+| Scénario CA annuel | Prélèvements micro | Prélèvements réel | Reste en poche micro | Reste en poche réel | Écart |
+|---|---:|---:|---:|---:|---:|
+| **60 k€** (rythme actuel) | ~17,0-20,7 k€ | ~9,2 k€ | ~9,3-13,0 k€ | ~17,8 k€ | **+8 à 11 k€/an** |
+| **100 k€** (si accélération) | ~28,3-39,1 k€ | ~17,0 k€ | ~10,9-21,7 k€ | ~29,0 k€ | **+7 à 18 k€/an** |
+
+Détail du mécanisme au réel : bénéfice = CA − commission 50 % − frais réels (~3-4 k€) ; cotisations TNS ≈ 31 % de ce bénéfice (vs ~26 % du **CA total** en micro) ; IR sur le bénéfice après cotisations. La fourchette basse des écarts correspond au micro **avec versement libératoire** (2,2 % du CA, sous condition de RFR, `to-verify` l'éligibilité) — même avec cette option, le réel reste devant. À 100 k€ la question disparaît : micro interdit après deux années consécutives > 83 600 €.
+
+**Les 3 cas honnêtes où le micro resterait mieux** (avocat du diable, dit aussi dans le document) : commission non facturée proprement (pas de facture = pas de déduction — la mine n°1), chute d'activité ramenant les frais réels sous 34 %, ou volonté absolue de zéro compta. **Société (SASU/EURL)** = l'étape d'après, pas maintenant : le réel en EI fait 90 % du travail pour 10 % de la complexité ; seuil de bascule à demander au comptable. **Effet secondaire assumé** : cotisations plus basses = base retraite plus basse — payer ~8 k€/an de plus pour un léger bonus retraite est un mauvais placement.
+
+**Comptable pressenti : Acasi** (l'ancien comptable en ligne de Gaëtan, spécialiste indépendants BNC — intro possible, cohérence avec l'historique). `to-verify` : qu'ils acceptent l'activité créatrice de contenu adulte (certains cabinets en ligne refusent) ; sinon cabinet spécialisé créateurs, type Indy ou spécialiste OFM. Un document complet de 5 pages (résumé 1 page + chiffrage + plan d'action + 6 questions à poser au comptable) a été remis à Maddy le 27/07 — **non versionné dans le repo** (document nominatif, règle PII).
+
 ## Le récap type à envoyer à une créatrice qui reçoit le mail seuil MYM (validé 27/07, envoyé à Maddy)
 
 Message WhatsApp prêt à copier — remplacer [Prénom] :
