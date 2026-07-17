@@ -76,11 +76,13 @@ Le Qonto le prouve : frais prélevés et OF encaissé en 2026 ([[Analyse finance
 3. **AG de clôture de liquidation** → annonce légale n°2 (~110-150 €) → **radiation**.
 4. Boni de liquidation : si l'actif net est ~0, pas d'enjeu ; sinon, question fiscaliste (traitement non-résident).
 
+**⚠️ Trous juridiques découverts le 17/07 (à mettre dans le brief du liquidateur)** : le **transfert de siège déposé en juin 2024 a été REJETÉ par le greffe en sept. 2024** (actes manquants + **déclaration des bénéficiaires effectifs jamais fournie** + complément de 138,56 € réclamé), formalité invalidée et remboursée — jamais reprise. La fiche annuaire affiche « **en sommeil ou présumée inactive** » (INSEE) alors que le Qonto encaissait encore OnlyFans en février 2026. Le devis de liquidation doit inclure la **régularisation RBE/siège** (ou leur purge dans la dissolution), sinon surprise au greffe en cours de route.
+
 **Coût total réaliste : ~900-1 600 €** (formalités ~400-600 € + expert-comptable ~500-1 000 €). **Délai : 2-3 mois** → lancé cette semaine = radiée à l'automne. Le cabinet comptable est **déjà résilié** (confirmé 13/07) — bien joué pour les frais, mais ça veut dire qu'il faudra **mandater quelqu'un ponctuellement** pour les comptes de liquidation et la liasse finale (l'ancien cabinet en mission one-shot, ou un service de liquidation en ligne).
 
-## Étape 4 — La micro-entreprise : radiation (le plus facile)
+## Étape 4 — La micro-entreprise : ✅ DÉJÀ RADIÉE (découvert le 17/07)
 
-Cessation d'activité **gratuite, en ligne, ~10 minutes** (guichet unique des formalités). Ensuite : dernière déclaration de CA à l'URSSAF (même à 0 €) dans le délai de ton régime, et vérifier la **CFE** de l'année de cessation (`to-verify` : un prorata peut tomber en décembre). À faire **cette semaine** — aucune raison d'attendre.
+Formalité de **cessation totale déposée au guichet unique le 10/04/2026** (synthèse J00233146752 retrouvée par Gaëtan — le plan du 13/07 la croyait encore active). Restes à vérifier : la **dernière déclaration URSSAF de CA** a-t-elle été faite, et la **CFE** de l'année de cessation (`to-verify` : un prorata peut tomber en décembre) — deux points pour le comptable.
 
 ## Étape 5 — Les comptes perso FR : vider, puis fermer (en dernier)
 
