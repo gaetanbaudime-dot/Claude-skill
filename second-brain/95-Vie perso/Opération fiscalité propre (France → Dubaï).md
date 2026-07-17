@@ -98,7 +98,7 @@ L'enquête publique du 17/07 (RNE/INPI + BODACC + INSEE, 2 agents) a renversé l
 4. **Garde-fou de temps** : sans réponse favorable au ~10-15 août, ou au moindre signal de saisie sur le Qonto → **payer les 1 200 €** (remboursables si remise ultérieure — écrit dans l'avis du 30/10/2025). L'attestation fiscale exige dépôts + paiement intégral des pénalités : pas de clôture tant que la dette vit.
 5. Attestation de régularité fiscale (en ligne, sinon 3666-SD via le SIE).
 6. Attestation URSSAF « entreprise sans personnel » via le 3957 (exigée pour les clôtures depuis le 01/10/2024 même sans salarié) — **compte employeur déjà radié à l'été 2025** (courrier de confirmation dans le dossier Acasi, à joindre).
-7. Comptes de clôture : montage par Claude (base bilan Acasi 30/06/2025 + relevés Qonto), certification/signature Gaëtan (0 €).
+7. Comptes de clôture : montage par Claude (base bilan Acasi 30/06/2025 + relevés Qonto complets reçus le 18/07). **Point clé du CSV Qonto** : compte à **0 € depuis le 02/04/2026**, vidé vers le Revolut perso de Gaëtan. Trésorerie de clôture = 0 → comptes simples ; ⚠️ vérifier au montage que le total viré vers Revolut ne dépasse pas le C/C associé créditeur (2 156 € au 30/06/2025) + apports — l'excédent serait un **boni de liquidation** (imposable, PFU 31,4 %) ou une distribution à requalifier. Certification/signature Gaëtan (0 €).
 8. LegalPlace finalise (déjà payé) — prévenir leur support que la dissolution du 16/11/2025 existe déjà, ne PAS en régénérer une.
 9. Après clôture : liasse de cessation (60 j) + TVA finale + liasse ex. 30/06/2026 (Teledec ×2, ~240 €).
 
