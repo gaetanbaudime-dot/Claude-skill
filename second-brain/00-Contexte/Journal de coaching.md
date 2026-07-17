@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-18 — 🏆 Liasse SAS télétransmise en autonomie (Teledec, sans comptable) — le verrou racine levé
+- **Fait** : la liasse fiscale 2065 de l'exercice clos 30/06/2025 (celle sous mise en demeure, à l'origine des 1 200 € d'amendes) **télétransmise par EDI-TDFC via Teledec** (100,80 € promo inclus), saisie manuelle depuis la plaquette Acasi, **sans repayer de comptable**. Tous les contrôles recoupés au centime (21 549 / 75 056 / 7 851 / 9 237 / IS 1 386). Guidage case par case (2033-A à G + 2065 + 2065-bis), plusieurs erreurs de saisie interceptées en direct (CA en ventes de marchandises, 65 k€ en salaires alors que 0 salarié, IS en charges exceptionnelles).
+- **Ce que ça débloque** : la défaillance déclarative est régularisée → l'accusé EDI se poste sur la demande SIE 1238917900 → remise gracieuse des 1 200 € désormais très défendable → attestation de régularité fiscale obtenable → clôture LegalPlace → radiation avant 31/12. **Coût total du volet liasse : 100,80 € au lieu d'un comptable one-shot (~400-600 €).**
+- **Leçon** : un dossier qui « paraît » nécessiter un pro (liasse fiscale) était en réalité de la recopie guidée depuis un document déjà certifié. Le pro n'ajoutait que sa responsabilité — pas le travail. À réserver aux cas où sa signature protège vraiment (ici, société morte sans enjeu : inutile).
+
 ### 2026-07-18 — Deux entités révélées (LLC + Cosmo), billets raccourcis (retour 26/08), micro soldée
 - **Révélation** : une **LLC** jamais cartographiée (Revolut Business **gelé pour OFM** — sort des fonds inconnu) + un **compte Cosmo Business**. 5 questions posées à Gaëtan (juridiction, fonds gelés, flux, **formulaires US 5472/1120 — pénalité 25 000 $/an si LLC US jamais déclarée**, titulaire Cosmo). Section ajoutée au plan fiscalité (Étape 2 ter). C'est potentiellement le plus gros drapeau du dossier — au-dessus des 1 200 € d'amendes.
 - **Billets : 26/07 → 26/09 confirmé** (le « 26/08 » du matin était un lapsus, corrigé par Gaëtan dans l'heure) : les dates TRC du 17/07 restent valables — 183ᵉ jour ~22/11, **dépôt le 25/11**, retour dur ≤ 1er/11. Rappels inchangés.
