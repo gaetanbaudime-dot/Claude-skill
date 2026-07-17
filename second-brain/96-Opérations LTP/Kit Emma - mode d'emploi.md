@@ -25,6 +25,7 @@ liens_forts: ["[[Méthode de délégation - Emma (kit de passation)]]", "[[SOP -
 - **Droit à l'erreur renforcé** : « la seule vraie erreur serait de laisser une créatrice tourner du contenu trop osé pour les plateformes ».
 - **Fiche 4 élargie** : 9 pannes couvertes (au lieu de 5), section absence supprimée, rappel « tu as le droit de décider, de te tromper et d'ajuster la semaine suivante — sans pression ».
 - **Profils** : « garde-fous » supprimé (→ « Particularités », « Ce qu'elle ne fait pas »), sections aérées, **version provisoire — à ajuster avec Gaëtan après le call** (retour d'Emma + infos prises en réunion).
+- **Corrections dictées (2e passe, 18/07)** : résultat n°3 = dossier Drive **+ brief** du lundi ; règle 1-3-1 développée avec un mini-exemple par élément et remontée **dans le groupe WhatsApp** ; droit à l'erreur complété (« …ou de ne pas tourner du contenu du tout ») ; fiche 2 : trends validées dans le salon Telegram « idées », nouvelles trends **US**, une seule étape d'envoi du dossier (Drive → Partager → Copier le lien → Telegram avec le brief), freins du vendredi à la ligne, aération entre les jours ; fiche 3 : nommage « Tenue X – Trend Y » supprimé, citation de motivation en pied (Jim Rohn) ; fiche 4 : la panne « lot non déposé » renvoie au réflexe du vendredi (fiche 2). Chaque fiche tient toujours sur une page.
 
 ## Les 11 fiches
 

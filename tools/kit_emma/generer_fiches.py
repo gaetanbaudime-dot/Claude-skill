@@ -45,6 +45,9 @@ tr { page-break-inside: avoid; }
 .ligne { border-bottom: 1px dotted #9aa7b5; height: 16px; }
 b.t { color: #17324f; }
 .petit { font-size: 8.5pt; color: #555; line-height: 1.5; }
+.ex { font-size: 8.2pt; color: #555; font-style: italic; }
+.espace { height: 8px; }
+.citation { text-align: center; font-style: italic; color: #17324f; margin-top: 14px; font-size: 9.6pt; }
 """
 
 def bandeau(num, titre):
@@ -64,7 +67,7 @@ pour les créatrices (et pour l'agence). <b>Tu es la personne qui fait tourner c
 <ul class="check">
 <li>Un <b>lot complet</b> (~40-50 clips) déposé par créatrice prioritaire, <b>2 fois par mois</b></li>
 <li><b>Zéro mois à vide</b> sur les créatrices prioritaires</li>
-<li>Le <b>dossier Drive de la semaine envoyé chaque lundi</b> sur Telegram (note courte ou vocal)</li>
+<li>Le <b>dossier Drive + le brief de la semaine envoyés chaque lundi</b> sur Telegram (note courte ou vocal)</li>
 <li>Le <b>formulaire du dimanche soir</b> rempli chaque semaine (10 min)</li>
 </ul>
 
@@ -90,10 +93,10 @@ pour les créatrices (et pour l'agence). <b>Tu es la personne qui fait tourner c
 
 <h2>La règle 1-3-1 (pour remonter un sujet)</h2>
 <div class="box">
-<b class="t">1</b> — le problème, posé en deux phrases.<br/>
-<b class="t">3</b> — trois solutions possibles.<br/>
-<b class="t">1</b> — ta recommandation.<br/>
-<span class="petit">Par écrit, quand tu veux. Je suis toujours disponible pour te répondre.</span></div>
+<b class="t">1</b> — le problème, posé en deux phrases. <span class="ex">« Chloé n'a plus d'idées qui lui plaisent, elle a sauté sa séance. »</span><br/>
+<b class="t">3</b> — trois solutions possibles. <span class="ex">« Je re-filtre la banque d'idées / on refait 10 variantes ensemble / on décale à jeudi. »</span><br/>
+<b class="t">1</b> — ta recommandation. <span class="ex">« Les 10 variantes ensemble : 20 min d'appel et elle repart lancée. »</span><br/>
+<span class="petit">À remonter <b>dans le groupe WhatsApp</b>, quand tu veux. Je suis toujours disponible pour te répondre.</span></div>
 
 <h2 style="color:#a33025;border-color:#a33025;">Le non-négociable</h2>
 <div class="box rouge"><b class="t">100 % safe plateforme.</b> Aucune nudité, aucune sollicitation, aucune référence
@@ -102,8 +105,8 @@ explicite à OF/MYM dans le contenu Instagram/Facebook. C'est ce qui garde les c
 C'est le seul sujet où on décide toujours à deux.</div>
 
 <p class="petit"><b>Droit à l'erreur :</b> une trend qui ne prend pas, un lot imparfait — c'est un coût
-d'apprentissage, jamais une faute. La seule vraie erreur serait de laisser une créatrice tourner du contenu
-trop osé pour les plateformes. Tout le reste s'apprend.</p>
+d'apprentissage, jamais une faute. Les deux seules vraies erreurs : laisser une créatrice tourner du contenu
+trop osé pour les plateformes, ou ne pas tourner du contenu du tout. Tout le reste s'apprend.</p>
 """
 
 FICHES["Fiche 2 - Ta semaine type (Emma).pdf"] = bandeau("Fiche 2 / 4", "Ta semaine type") + """
@@ -116,37 +119,45 @@ par créatrice prioritaire, <b>2 fois par mois</b>.</div>
 <h2>Lundi — lancement (ton gros bloc)</h2>
 <ul class="check">
 <li>Commencer par <b>ce qui a déjà marché</b> : les trends déjà validées par la créatrice
-et les idées des canaux Telegram d'idées</li>
-<li>Compléter avec des <b>nouvelles trends</b> reproductibles en France et safe plateforme</li>
-<li>Préparer le <b>dossier Drive de la semaine</b> — ex. : Marketing &gt; Instagram Reels &gt; Juillet &gt; Semaine 3</li>
-<li><b>Envoyer le dossier à chaque créatrice sur Telegram</b>, avec une note courte ou un vocal qui explique ce qu'elle reproduit</li>
-<li>Confirmer son <b>créneau de tournage</b></li>
+dans le salon Telegram « idées »</li>
+<li>Compléter avec des <b>nouvelles trends US</b>, reproductibles en France et safe plateforme</li>
+<li><b>Envoyer le dossier de la semaine à chaque créatrice</b> — dans le Drive
+(ex. : Marketing &gt; Instagram Reels &gt; Juillet &gt; Semaine 3) : <b>Partager → Copier le lien</b>,
+puis envoyer le lien sur Telegram avec le <b>brief de la semaine</b> (note courte ou vocal)</li>
+<li>Confirmer son <b>créneau de tournage</b>, selon l'organisation de chaque créatrice</li>
 </ul>
 
+<div class="espace"></div>
 <h2>Mercredi — point en douceur</h2>
 <ul class="check">
 <li>Elle a planifié ou commencé ? Si non : comprendre ce qui bloque
 (agenda ? consigne pas claire ? motivation ?) et <b>l'aider aujourd'hui</b></li>
 </ul>
 
+<div class="espace"></div>
 <h2>Vendredi — point livraison</h2>
 <ul class="check">
-<li>Les rushs sont déposés sur le Drive ? Si non : identifier le frein —
-<b>technique</b> (réglages, lumière) · <b>créatif</b> (ne sait pas quoi filmer) · <b>motivation</b> —
-et aider concrètement, pas juste relancer</li>
+<li>Les rushs sont déposés sur le Drive ? Si non : identifier le frein —<br/>
+· <b>technique</b> (réglages, lumière)<br/>
+· <b>créatif</b> (ne sait pas quoi filmer)<br/>
+· <b>motivation</b><br/>
+— et aider concrètement, pas juste relancer</li>
 </ul>
 
+<div class="espace"></div>
 <h2>Week-end — rattrapage</h2>
 <ul class="check">
 <li>Pour les retardataires : relance douce + <b>aide concrète</b> (réexpliquer une trend, décaler le créneau).
 Objectif : aucune prioritaire laissée de côté</li>
 </ul>
 
+<div class="espace"></div>
 <h2>Dimanche soir — le formulaire (10 min)</h2>
 <div class="box">Tu remplis le <b>formulaire Google du dimanche</b> (Gaëtan te donne le lien). Pour chaque créatrice :
 les <b>rushs déposés</b> cette semaine · le <b>lot est-il complet ?</b> · le <b>blocage</b> éventuel ·
 ton <b>action pour la semaine suivante</b>.</div>
 
+<div class="espace"></div>
 <h2>Pourquoi ça marche</h2>
 <div class="box">
 <b class="t">La relation</b> — une créatrice suivie de près produit deux à trois fois plus.<br/>
@@ -184,7 +195,6 @@ jamais l'inverse (changer de tenue à chaque trend fait perdre un temps fou).</d
 <li><b>Tenue 4</b> → filme les 10 trends</li>
 <li><b>Tenue 5</b> → filme les 10 trends &nbsp;&nbsp;→&nbsp; <b>= 50 clips prêts, en une séance</b></li>
 <li><b>Dépose tout</b> dans ton dossier Drive de la semaine</li>
-<li>Nomme simplement : <b>Tenue X – Trend Y</b></li>
 <li><b>Préviens Emma</b> que c'est déposé</li>
 </ul>
 
@@ -195,6 +205,8 @@ pas de nudité, pas de sollicitation, pas de référence explicite. Un doute sur
 <p class="petit"><b>Pourquoi ce système :</b> plus tu produis, plus on peut poster sur les réseaux,
 plus tu gagnes d'abonnés OnlyFans ou MYM — et donc d'argent. Une séance par semaine =
 des semaines de contenu d'avance pour nos clippeurs.</p>
+
+<p class="citation">« La motivation te fait commencer, l'habitude te fait continuer. » — Jim Rohn</p>
 """
 
 FICHES["Fiche 4 - Quand ca coince (Emma).pdf"] = bandeau("Fiche 4 / 4", "Quand ça coince") + """
@@ -207,7 +219,7 @@ Je suis toujours joignable — un doute ne reste jamais bloqué.</p>
 <td>Relance douce à J+1 sur un autre canal ; propose un créneau précis plutôt qu'un « quand tu peux »</td>
 <td>Silence total <b>&gt; 5 jours</b></td></tr>
 <tr><td><b>2. Le lot n'est pas déposé / plus de rushs</b></td>
-<td>Identifier le frein : technique / créatif / motivation. Aide concrète : réexpliquer une trend, refaire un réglage, décaler le créneau</td>
+<td>Reviens au réflexe du vendredi (fiche 2, point livraison) : identifier le frein — technique, créatif ou motivation — puis aide concrète : réexpliquer une trend, refaire un réglage, décaler le créneau</td>
 <td><b>Un mois sans lot</b> sur une prioritaire</td></tr>
 <tr><td><b>3. Une trend ne prend pas, doute créatif</b></td>
 <td>Coût d'apprentissage, pas une faute : remplace la trend, note-le au formulaire, ajuste les idées suivantes</td>
@@ -236,7 +248,8 @@ Je suis toujours joignable — un doute ne reste jamais bloqué.</p>
 <div class="box">
 <b class="t">1</b> — le problème, posé en deux phrases.<br/>
 <b class="t">3</b> — trois options possibles.<br/>
-<b class="t">1</b> — ta recommandation.<br/><br/>
+<b class="t">1</b> — ta recommandation.<br/>
+À envoyer <b>dans le groupe WhatsApp</b>.<br/><br/>
 <span class="petit">Exemple : « Maddy n'a rien déposé depuis dix jours et ne confirme pas son créneau (1).
 Options : je l'accompagne pour filmer ensemble / on décale d'une semaine et je renvoie les idées lundi /
 Gaëtan l'appelle (3). Je recommande la séance ensemble jeudi, elle produit toujours mieux accompagnée (1). »</span></div>
