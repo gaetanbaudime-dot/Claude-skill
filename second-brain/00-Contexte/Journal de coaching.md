@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-17 — Liquidation SAS en autonomie (sans fiscaliste) : décision de Gaëtan, kit livré
+- **Décision (Gaëtan, contre ma recommandation maintenue deux fois)** : fermer la SAS **sans fiscaliste**, au coût minimal. Acté et outillé plutôt que combattu : kit complet livré (hors repo — décision de dissolution, 2 annonces, non-condamnation, clôture, ordre exact, budget ~500 € vs ~1 000-1 400 € en prestataire). Garde-fou posé une fois : le mur technique restant est la **liasse fiscale de cessation** (TVA/autoliquidation OnlyFans) — filet de sécurité comptable one-shot ~500 € si blocage, décision au moment venu. « Laisser mourir la SAS » écarté fermement (taxation d'office sur revenus estimés + radiation d'office qui n'éteint rien + torpille le dossier de non-résidence).
+- **Exécuté le jour même** : payouts OF (Qonto + Revolut perso) re-routés vers Yoursafe ✅ · outils pro + salaires équipe + virement mensuel migrés sur Wio ✅ · PayPal en cours de fermeture · demandes de devis parties en parallèle (benchmark).
+- **Prédiction datée (17/07, avant l'issue)** : si la RBE est régularisée AVANT le dépôt et le kit suivi dans l'ordre, la dissolution passe au greffe sans rejet en août et la **radiation tombe avant le 31/12** pour ~500 € ; le point de rupture le plus probable est la liasse de cessation (60 j post-clôture) — s'il y a rejet du greffe ou blocage liasse, le surcoût de rattrapage dépassera ce que le prestataire aurait coûté. Revue : à l'accusé du greffe (août) et à la radiation.
+
 ### 2026-07-17 — Re-routage des flux : le pont Wise retiré (dette CGU), rail EMI adopté
 - **Question de Gaëtan** : router les payouts MYM vers Wio Business risque-t-il un ban « adulte » côté banque émiratie ? Sinon PayPal FR ?
 - **Analyse actée** : oui, la banque voit tout (nom d'expéditeur screené sur chaque virement entrant) — MYM/Fenix en direct sur Wio = risque réel de clôture compliance. **Wise et PayPal écartés** (CGU interdisent l'adulte — la page suggérait Wise en pont : dette CGU retirée, conforme à la doctrine « jamais normaliser une violation de CGU »). PayPal FR recréerait en plus l'empreinte française.
