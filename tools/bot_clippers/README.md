@@ -121,6 +121,26 @@ Bonus : laisse « Ajouter des réactions » à ✅ pour `@everyone` (les 🔥 sa
 n'est pas posé, tout le reste (paiements, compteur, rangs, FAQ) marche normalement —
 le déploiement est sans risque.
 
+## ⚠️ Compteurs remis à zéro ? (persistance des données)
+
+Vécu le 17/07 : « Déjà payés : 0 € » et classement des bumps reparti de zéro. Cause : les données
+(`compteur_verse.json`, `bump.json`, `paiements.jsonl`, `faq_apprise.md`…) vivent dans `DONNEES_DIR`
+— si la variable saute ou si le volume n'est plus monté, le bot écrit dans le conteneur, **effacé à
+chaque déploiement**.
+
+**Checklist Railway (dans l'ordre)** :
+1. **Variables** → `DONNEES_DIR=/data` toujours présent ?
+2. Le **Volume** est-il toujours attaché au service, monté sur **`/data`** ? (Un incident Railway
+   peut le détacher — le réattacher suffit.)
+3. **Settings → Watch Paths** → ajouter `tools/bot_clippers/**` : sans ça, **chaque push du repo
+   (même le vault Obsidian) redéploie le bot** — restarts inutiles et fenêtres de perte.
+
+**Auto-guérison intégrée** : au démarrage, si le compteur local est vide, le bot **relit le total
+depuis son message épinglé dans #dopamine** (Discord sert de sauvegarde durable) — le compteur
+public survit donc à toute perte du volume. `!verifier` contrôle désormais la persistance (variable,
+écriture, historique). En dernier recours : `!ajuster 608,55 rattrapage` avec le montant du message
+épinglé. Les compteurs de bumps, eux, ne sont pas restaurables — ils repartent du bump suivant.
+
 ## L'améliorer avec le temps (sans toucher au code)
 
 - **Depuis Discord** : `!apprendre La question ? | La réponse.` ajoute une entrée — le bot l'utilise

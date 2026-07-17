@@ -72,6 +72,11 @@ FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des j
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
 FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
 
+# Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
+# remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
+SUR_RAILWAY = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_PROJECT_ID"))
+DONNEES_PERSISTANTES = bool(os.environ.get("DONNEES_DIR", "").strip())
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 journal = logging.getLogger("bot_clippers")
 
@@ -333,6 +338,36 @@ async def actualiser_compteur():
         return (f"compteur posté dans {canal.mention} mais PAS épinglé — coche "
                 f"« Gérer les messages » pour mon rôle dans les permissions de ce salon.")
     return None
+
+
+async def recuperer_compteur():
+    """Auto-guérison : si le compteur local est vide (volume neuf, DONNEES_DIR perdu, incident
+    Railway), on relit le total depuis le compteur épinglé de #dopamine — le message Discord
+    sert de sauvegarde durable. Idempotent : ne fait rien si l'état local existe déjà."""
+    etat = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0, "message_id": None})
+    if etat.get("total", 0.0) > 0 or etat.get("message_id"):
+        return
+    canal = await canal_par_id(CANAL_DOPAMINE_ID)
+    if canal is None:
+        return
+    try:
+        epingles = await canal.pins()
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Récupération du compteur impossible (lecture des épinglés) : %s", erreur)
+        return
+    meilleur = None                                   # (total, message_id) — on garde le plus haut
+    for msg in epingles:
+        if not client.user or msg.author.id != client.user.id:
+            continue
+        trouve = re.search(r"(\d[\d  ]*[.,]\d{2}) € déjà versés", msg.content)
+        if not trouve:
+            continue
+        total = float(trouve.group(1).replace(" ", "").replace(" ", "").replace(",", "."))
+        if meilleur is None or total > meilleur[0]:
+            meilleur = (total, msg.id)
+    if meilleur:
+        ecrire_json(FICHIER_COMPTEUR_VERSE, {"total": meilleur[0], "message_id": meilleur[1]})
+        journal.warning("Compteur restauré depuis le message épinglé : %.2f € (données locales perdues)", meilleur[0])
 
 
 async def annoncer_paiement(message, montant: float, beneficiaire, raison: str):
@@ -641,6 +676,24 @@ async def commande_admin(message, texte: str) -> bool:
                    for m in role.members if not m.bot}
         lignes.append(f"ℹ️ Compteur « Clippers » ({ROLE_CLIPPER_NOM}) : {len(comptes)} compté(s)"
                       + ("" if ACTIVER_V2 else " — v2 éteinte, liste possiblement incomplète"))
+        # Persistance des données (le piège du compteur remis à zéro, vécu le 17/07)
+        if DONNEES_PERSISTANTES:
+            lignes.append(f"✅ Données persistantes : `{DONNEES}`")
+        elif SUR_RAILWAY:
+            lignes.append("❌ DONNEES_DIR non défini — compteurs REMIS À ZÉRO à chaque déploiement : "
+                          "pose DONNEES_DIR=/data + un volume monté sur /data dans Railway.")
+        else:
+            lignes.append(f"ℹ️ Données locales : `{DONNEES}` (normal en test sur Mac).")
+        try:
+            test = DONNEES / ".test_ecriture"
+            test.write_text("ok", encoding="utf-8")
+            test.unlink()
+            lignes.append("✅ Écriture sur le dossier de données")
+        except OSError as erreur:
+            lignes.append(f"❌ Impossible d'écrire dans `{DONNEES}` : {erreur}")
+        nb_paiements = (sum(1 for _ in JOURNAL_PAIEMENTS.open(encoding="utf-8"))
+                        if JOURNAL_PAIEMENTS.exists() else 0)
+        lignes.append(f"ℹ️ Historique : {nb_paiements} paiement(s)/ajustement(s) journalisé(s)")
         total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
         lignes.append(f"ℹ️ Total du compteur : {total:.2f} €")
         parfait = all(not l.startswith(("❌", "⚠️")) for l in lignes[1:])
@@ -769,6 +822,15 @@ async def on_ready():
     journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s, v2 %s)",
                  client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
                  "ON" if ACTIVER_V2 else "off")
+    fichiers = sorted(p.name for p in DONNEES.glob("*") if p.is_file())
+    journal.info("Données : %s (%s) — fichiers : %s", DONNEES,
+                 "persistant via DONNEES_DIR" if DONNEES_PERSISTANTES else "ÉPHÉMÈRE (dossier local)",
+                 ", ".join(fichiers) or "aucun")
+    if SUR_RAILWAY and not DONNEES_PERSISTANTES:
+        journal.error("DONNEES_DIR absent sur Railway : compteurs REMIS À ZÉRO à chaque déploiement — "
+                      "pose DONNEES_DIR=/data + un volume monté sur /data.")
+    if CANAL_DOPAMINE_ID:
+        await recuperer_compteur()    # avant les boucles : le salon-stat ne doit pas afficher 0 € à tort
     if ACTIVER_V2:
         for guild in client.guilds:
             await cacher_invites(guild)
