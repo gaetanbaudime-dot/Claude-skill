@@ -100,7 +100,7 @@ Une fois les flux re-routés et observés : vider le Revolut (et tout autre comp
 
 | Quand | Quoi | Coût |
 |---|---|---|
-| **Cette semaine (14-20/07)** | Rapport ICP tiré ✅ (17/07) · **fiscaliste mandaté** (l'action n°1, avec le compte de jours) · micro radiée · payouts MYM/OF changés | ~30 € (rapport) |
+| **Cette semaine (14-20/07)** | Rapport ICP tiré ✅ · Yoursafe ouvert + RIB posé sur MYM Ambassadeur ✅ · Jade prévenue (bascule sur SON compte) ✅ (17/07) · **fiscaliste mandaté** (l'action n°1, avec le compte de jours) · micro radiée · devis liquidation SAS demandé | ~30 € (rapport) |
 | **Août (à distance)** | Liquidation SAS lancée par le cabinet · nouveaux flux observés · déclaration départ vérifiée/régularisée | ~900-1 600 € |
 | **21/09 (impératif ≤ 29/10)** | **Retour à Dubaï** — chaque jour de retard consomme la marge des 183 jours (~39 j de marge) | — |
 | **Fin novembre** | **TRC treaty France déposé** (183 j atteints ~22-23/11) · rapport ICP réédité à jour | ~265 € (TRC) |
