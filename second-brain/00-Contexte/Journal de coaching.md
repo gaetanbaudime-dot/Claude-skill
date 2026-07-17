@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-17 — Re-routage des flux : le pont Wise retiré (dette CGU), rail EMI adopté
+- **Question de Gaëtan** : router les payouts MYM vers Wio Business risque-t-il un ban « adulte » côté banque émiratie ? Sinon PayPal FR ?
+- **Analyse actée** : oui, la banque voit tout (nom d'expéditeur screené sur chaque virement entrant) — MYM/Fenix en direct sur Wio = risque réel de clôture compliance. **Wise et PayPal écartés** (CGU interdisent l'adulte — la page suggérait Wise en pont : dette CGU retirée, conforme à la doctrine « jamais normaliser une violation de CGU »). PayPal FR recréerait en plus l'empreinte française.
+- **Décision** : rail principal inchangé (factures payées par les créatrices — le modèle Sarah) ; MYM de Jade = fix structurel (payout chez elle + facture agence) ; filiation MYM et OF résiduel = **EMI tolérant l'adulte (Yoursafe/Paxum, `to-verify`)** puis virement de compte à compte propre vers Wio. Jamais de libellé maquillé ni de fractionnement ; si la banque demande, réponse = la vérité. Bancabilité du modèle aux UAE ajoutée à l'agenda fiscaliste (5e point).
+- **Décision liée (même échange)** : « tout batcher en octobre » refusé sur chiffrage — l'attente coûte (~100-1 000 € + 3 mois de flux compromettants) et n'économise rien ; le séquençage du plan reste : gratuits maintenant (micro, IBAN, fiscaliste), liquidation en août, fermetures FR en octobre, TRC fin novembre.
+
 ### 2026-07-17 — TRC : le rapport ICP contredit le plan — dépôt repoussé à fin novembre
 - **Découverte (sur pièce)** : le rapport d'entrées/sorties officiel montre **~148 jours** de présence EAU depuis l'arrivée (03/11/2025), pas les 183 supposés — deux absences oubliées du plan : ~30 j en décembre, ~81 j mars-mai. Année civile 2026 : ~120 j au départ du 21/07. Correction consignée au [[Fact-Check-Log]], page [[Opération fiscalité propre (France → Dubaï)]] révisée.
 - **Décision** : (1) demande TRC treaty **non déposée** (rejet certain, frais perdus) → **dépôt fin novembre 2026** (183 j atteints ~22-23/11 avec retour le 21/09), rappel posé au 24/11 ; (2) le rapport ICP est finalisé et archivé pour le fiscaliste ; (3) **la consultation fiscaliste devient l'action n°1 de la semaine**, enrichie de deux questions : TRC domestic 90 j comme pièce intermédiaire ? et localisation des ~111 jours hors EAU 2026 (si France → le dossier se joue sur foyer/intérêts économiques, pas sur les jours).

@@ -58,11 +58,12 @@ Aujourd'hui : la **filiation MYM** (parrainage) et le **MYM de Jade** arrivent s
 
 | Flux actuel | Où il arrive (mal) | Où il doit arriver | Comment |
 |---|---|---|---|
-| Filiation/parrainage MYM | Revolut perso FR | Compte de la FZ LLC | Changer l'IBAN de payout côté MYM |
-| MYM de Jade | Revolut perso FR | Circuit propre : part créatrice chez elle, part agence sur le compte business | À régulariser avec elle — du revenu d'une créatrice qui transite par TON compte perso est aussi un risque pour ELLE |
-| OnlyFans (Fenix) résiduel | Qonto de la SAS (encore en févr. 2026 !) | Compte de la FZ LLC | Changer les coordonnées bancaires du compte OF concerné |
+| Part agence (l'essentiel du CA) | — | Wio Business, **par factures payées par les créatrices** | ✅ Déjà le rail principal (modèle Sarah) — la banque voit des clientes payer une agence marketing, ne rien changer |
+| Filiation/parrainage MYM | Revolut perso FR | **EMI tolérant l'adulte** (Yoursafe, Paxum — `to-verify`) au nom du bénéficiaire → virement de compte à compte propre vers Wio | Changer l'IBAN de payout côté MYM vers l'EMI |
+| MYM de Jade | Revolut perso FR | **Chez ELLE** (son payout), puis elle paie la facture agence comme les autres | Fix structurel, pas bancaire — ce flux ne transite plus jamais par un compte de Gaëtan (risque pour lui ET pour elle) |
+| OnlyFans (Fenix) résiduel | Qonto de la SAS (encore en févr. 2026 !) | Même rail EMI (« Fenix International » = expéditeur immédiatement reconnaissable) | Changer les coordonnées bancaires du compte OF concerné |
 
-**Si le payout EUR vers Wio coince** (MYM paie en SEPA) : ouvrir un **Wise Business au nom de la FZ LLC** (IBAN EUR non français, SEPA-compatible) comme pont — ce n'est pas un compte français, donc compatible avec ta décision. **Garde-fou : observer 1-2 cycles de paiement complets (≈ 1 mois) sur la nouvelle route avant de fermer l'ancienne** — l'erreur classique est de fermer le compte qui reçoit et de perdre un virement dans le vide.
+**⚠️ Risque bancaire UAE (analysé le 17/07)** : les payouts de plateformes adultes **en direct sur Wio = risque réel de clôture compliance** — banque émiratie, catégorie interdite, nom d'expéditeur screené sur chaque virement entrant. ~~Pont Wise Business~~ **retiré du plan** : les CGU de Wise (comme celles de PayPal) interdisent le contenu adulte — c'était une dette CGU, pas une solution ; PayPal FR recréerait en plus l'empreinte française. **Règles** : jamais de libellé maquillé ni de fractionnement (ça transforme un refus commercial en dossier AML) ; si la banque interroge, la réponse est la vérité (« agence marketing, honoraires clients + commissions d'apport ») — le rail EMI sert à rendre cette conversation rare, pas à mentir. La bancabilité du modèle aux UAE = **5e point d'agenda du fiscaliste/avocat** ([[Risques légaux et éthiques de l'OFM]]). **Garde-fou inchangé : observer 1-2 cycles de paiement complets (≈ 1 mois) sur la nouvelle route avant de fermer l'ancienne** — l'erreur classique est de fermer le compte qui reçoit et de perdre un virement dans le vide.
 
 ## Étape 3 — La SAS : liquidation définitive (elle n'est PAS fermée)
 
