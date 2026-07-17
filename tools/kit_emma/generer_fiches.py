@@ -17,32 +17,32 @@ SORTIE = os.path.join(os.path.dirname(__file__), "..", "..",
 
 CSS = """
 @page {
-  size: A4; margin: 13mm 15mm 15mm 15mm;
+  size: A4; margin: 12mm 14mm 14mm 14mm;
   @bottom-center { content: "Kit Emma · LTP · juillet 2026 · v2"; font-size: 7.5pt; color: #8a8a8a; }
 }
 * { box-sizing: border-box; }
-body { font-family: "DejaVu Sans", sans-serif; font-size: 9.8pt; color: #1c1c1c; line-height: 1.55; margin: 0; }
-.bandeau { background: #17324f; color: #fff; padding: 8px 13px; border-radius: 6px;
+body { font-family: "DejaVu Sans", sans-serif; font-size: 9.6pt; color: #1c1c1c; line-height: 1.46; margin: 0; }
+.bandeau { background: #17324f; color: #fff; padding: 7px 12px; border-radius: 6px;
   display: flex; justify-content: space-between; align-items: baseline; }
 .bandeau .num { font-size: 8.5pt; letter-spacing: 1px; text-transform: uppercase; color: #b8cbe0; }
 .bandeau .titre { font-size: 15pt; font-weight: bold; }
-.sous { color: #4a4a4a; font-size: 9.2pt; margin: 8px 2px 14px; }
-h2 { font-size: 10.5pt; color: #17324f; margin: 16px 0 7px; text-transform: uppercase; letter-spacing: .5px;
-  border-bottom: 1.5px solid #17324f; padding-bottom: 3px; }
-.box { background: #f1f4f8; border-left: 3.5px solid #17324f; padding: 9px 12px; border-radius: 4px;
-  margin: 9px 0; page-break-inside: avoid; }
+.sous { color: #4a4a4a; font-size: 9.1pt; margin: 6px 2px 10px; }
+h2 { font-size: 10.3pt; color: #17324f; margin: 12px 0 5px; text-transform: uppercase; letter-spacing: .5px;
+  border-bottom: 1.5px solid #17324f; padding-bottom: 2px; }
+.box { background: #f1f4f8; border-left: 3.5px solid #17324f; padding: 8px 11px; border-radius: 4px;
+  margin: 7px 0; page-break-inside: avoid; }
 .rouge { background: #fdf0ef; border-left-color: #a33025; }
 .rouge h2, .rouge b.t { color: #a33025; }
-ul.check { list-style: none; padding-left: 2px; margin: 7px 0; }
-ul.check li { padding-left: 20px; text-indent: -20px; margin: 6px 0; }
+ul.check { list-style: none; padding-left: 2px; margin: 5px 0; }
+ul.check li { padding-left: 20px; text-indent: -20px; margin: 4px 0; }
 ul.check li::before { content: "\\2610\\00a0\\00a0"; font-size: 11pt; color: #17324f; }
-ul.puces { margin: 7px 0 7px 16px; padding: 0; }
-ul.puces li { margin: 6px 0; }
-table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-th { background: #17324f; color: #fff; font-size: 8.3pt; padding: 5px 7px; text-align: left; }
-td { border: 1px solid #c9d2dc; padding: 5px 7px; font-size: 8.8pt; vertical-align: top; }
+ul.puces { margin: 5px 0 5px 16px; padding: 0; }
+ul.puces li { margin: 4px 0; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0; }
+th { background: #17324f; color: #fff; font-size: 8.3pt; padding: 4px 6px; text-align: left; }
+td { border: 1px solid #c9d2dc; padding: 4px 6px; font-size: 8.7pt; vertical-align: top; }
 tr { page-break-inside: avoid; }
-.ligne { border-bottom: 1px dotted #9aa7b5; height: 17px; }
+.ligne { border-bottom: 1px dotted #9aa7b5; height: 16px; }
 b.t { color: #17324f; }
 .petit { font-size: 8.5pt; color: #555; line-height: 1.5; }
 """
@@ -56,7 +56,7 @@ FICHES["Fiche 1 - Ta mission (Emma).pdf"] = bandeau("Fiche 1 / 4", "Ta mission")
 <p class="sous">Ton rôle en une page — écrit pour toi, Emma. Bienvenue dans la machine.</p>
 
 <div class="box"><b class="t">Ta mission :</b> faire que chaque créatrice prioritaire dépose régulièrement
-un <b>lot de contenu frais</b> — un lot complet <b>au moins 2 fois par mois</b>.<br/><br/>
+un <b>lot de contenu frais</b> — un lot complet <b>au moins 2 fois par mois</b>.<br/>
 Pourquoi c'est important : plus de contenu → plus de clips → plus d'abonnés → plus de revenus
 pour les créatrices (et pour l'agence). <b>Tu es la personne qui fait tourner cette chaîne.</b></div>
 
@@ -64,7 +64,7 @@ pour les créatrices (et pour l'agence). <b>Tu es la personne qui fait tourner c
 <ul class="check">
 <li>Un <b>lot complet</b> (~40-50 clips) déposé par créatrice prioritaire, <b>2 fois par mois</b></li>
 <li><b>Zéro mois à vide</b> sur les créatrices prioritaires</li>
-<li>Le <b>dossier Drive de la semaine envoyé chaque lundi</b> sur Telegram, avec une note courte ou un vocal</li>
+<li>Le <b>dossier Drive de la semaine envoyé chaque lundi</b> sur Telegram (note courte ou vocal)</li>
 <li>Le <b>formulaire du dimanche soir</b> rempli chaque semaine (10 min)</li>
 </ul>
 
@@ -143,12 +143,9 @@ Objectif : aucune prioritaire laissée de côté</li>
 </ul>
 
 <h2>Dimanche soir — le formulaire (10 min)</h2>
-<div class="box">Tu remplis le <b>formulaire Google du dimanche</b> (Gaëtan te donne le lien).
-Pour chaque créatrice :<br/><br/>
-· les <b>rushs déposés</b> cette semaine<br/>
-· le <b>lot est-il complet</b> ?<br/>
-· le <b>blocage</b> éventuel<br/>
-· ton <b>action pour la semaine suivante</b></div>
+<div class="box">Tu remplis le <b>formulaire Google du dimanche</b> (Gaëtan te donne le lien). Pour chaque créatrice :
+les <b>rushs déposés</b> cette semaine · le <b>lot est-il complet ?</b> · le <b>blocage</b> éventuel ·
+ton <b>action pour la semaine suivante</b>.</div>
 
 <h2>Pourquoi ça marche</h2>
 <div class="box">

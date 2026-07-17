@@ -15,7 +15,7 @@ liens_forts: ["[[Méthode de délégation - Emma (kit de passation)]]", "[[SOP -
 
 ## Ce qui a changé en v2 (18/07 — brief dicté avant le call)
 
-- **Ton** : écrit pour une personne qu'on considère, encourageant, jamais brutal. Sauts de ligne partout, les fiches prennent la place qu'il faut (fiches 1-2 = 2 pages).
+- **Ton** : écrit pour une personne qu'on considère, encourageant, jamais brutal. Sauts de ligne partout, mais **chaque fiche tient sur une page** (demande du 18/07).
 - **Zéro mot anglais** : « batch » → **lot / séance de tournage groupée** partout. Reste uniquement le jargon d'usage (trend, Reels, Drive, Telegram, safe, brief, clips, rushs).
 - **Cadence réaliste** : un lot complet (~40-50 clips) par créatrice prioritaire **2 fois par mois** (plus le « 9 semaines sur 10 » hebdo).
 - **Ordre de priorité affiché** : **Maddy → Chloé → Sophie → Sarah → Jade**.
