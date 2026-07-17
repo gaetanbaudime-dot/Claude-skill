@@ -59,7 +59,7 @@ Aujourd'hui : la **filiation MYM** (parrainage) et le **MYM de Jade** arrivent s
 | Flux actuel | Où il arrive (mal) | Où il doit arriver | Comment |
 |---|---|---|---|
 | Part agence (l'essentiel du CA) | — | Wio Business, **par factures payées par les créatrices** | ✅ Déjà le rail principal (modèle Sarah) — la banque voit des clientes payer une agence marketing, ne rien changer |
-| Filiation/parrainage MYM | Revolut perso FR | **EMI tolérant l'adulte** (Yoursafe, Paxum — `to-verify`) au nom du bénéficiaire → virement de compte à compte propre vers Wio | Changer l'IBAN de payout côté MYM vers l'EMI |
+| Filiation/parrainage MYM | Revolut perso FR | **Yoursafe compte YOU personnel** (vérifié 17/07 : EMI néerlandais régulé DNB, gratuit, non-UE acceptés, IBAN NL, SEPA+SWIFT[^4]) au nom de Gaëtan, adresse Dubaï → sweep SWIFT trimestriel vers Wio | Inscription lancée le 17/07 ; bascule du RIB côté MYM Ambassadeur dès l'IBAN reçu |
 | MYM de Jade | Revolut perso FR | **Chez ELLE** (son payout), puis elle paie la facture agence comme les autres | Fix structurel, pas bancaire — ce flux ne transite plus jamais par un compte de Gaëtan (risque pour lui ET pour elle) |
 | OnlyFans (Fenix) résiduel | Qonto de la SAS (encore en févr. 2026 !) | Même rail EMI (« Fenix International » = expéditeur immédiatement reconnaissable) | Changer les coordonnées bancaires du compte OF concerné |
 
@@ -113,3 +113,4 @@ Le gain n'est pas que fiscal : **moins de comptes = moins de fuites** ([[Analyse
 [^1]: Déclarations de Gaëtan (13/07/2026) : filiation MYM + MYM Jade sur Revolut perso, volonté de tout fermer, prêt étudiant 227 €/mois, expatriation novembre 2025, Ejari annuel.
 [^2]: Export OCR Qonto SAS (2023-2026) : flux Fenix/AIR MEDIAS, frais courants 2026 — la preuve que la SAS n'est pas clôturée. Barèmes TRC, délais et règles de liquidation : `to-verify` en consultation (rien ici n'est un conseil juridique ou fiscal).
 [^3]: FTA, « Issuance of Tax Certificates for Tax Residency » (tax.gov.ae) + guides praticiens 2026 (movingo.ae, emirabiz.com) — parcours EmaraTax, pièces personne physique, frais 50 AED dossier + 500-1 000 AED émission (+250 AED copie papier/formulaire spécial), délai 5-20 j ouvrés. Vérifié le 17/07/2026.
+[^4]: Yoursafe.com (conditions + FAQ compte YOU) et Azola Legal, « Opening an account in Yoursafe » — EMI licencié DNB depuis 2019, compte personnel gratuit, clients de tout pays (priorité UE), IBAN NL multi-devises, SEPA/SWIFT/ACH, KYC vidéo. Vérifié le 17/07/2026.
