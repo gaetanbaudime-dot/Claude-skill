@@ -35,6 +35,14 @@ Arrivé en **novembre 2025**, tu as ~8 mois de présence au 13/07 → le critèr
 
 **Honnêteté** : je ne peux pas déposer à ta place (pas d'accès EmaraTax) — mais avec cette checklist c'est une tâche de 45 minutes, pas un projet. Si une pièce bloque, le fiscaliste de l'étape 6 la débloque.
 
+### Le pas-à-pas vérifié (à jour 2026-07-17)
+
+1. **Rapport d'entrées/sorties d'abord** : smartservices.icp.gov.ae (ou app UAEICP), connexion UAE Pass, service « Entry and Exit Report » (gratuit). Compter les jours depuis le 01/01/2026 : **≥ 183 j → période demandée = année civile 2026** (la meilleure face au fisc FR) ; sinon → 12 mois glissants depuis l'arrivée (nov. 2025).
+2. **Pièces** (PDF/JPG) : passeport + page visa (valide sur toute la période) · Emirates ID recto-verso · Ejari · relevés Wio perso 6 mois · licence FZ LLC + **attestation de salaire signée sur en-tête de sa propre société** (le format attendu pour « source de revenus ») · rapport ICP.
+3. **EmaraTax** (eservices.tax.gov.ae, via UAE Pass — le compte existe déjà par l'enregistrement CT de la FZ LLC) → **Other Services → Tax Residency Certificate** → type « **For the purposes of a Double Taxation Agreement** » → pays **France** → **Natural Person** → TRN = **« No TRN »** (certificat personnel : ne PAS sélectionner le TRN CT de la société) → start date = étape 1 → upload → frais de dossier ~50 AED → soumission.
+4. **Suivi** : pré-approbation FTA sous ~5 j ouvrés (jusqu'à 20) ; compléments répondables en ligne depuis l'étranger ; à l'approbation, frais d'émission ~500-1 000 AED selon statut d'enregistrement (le portail affiche le montant exact) → **e-certificat PDF**[^3].
+5. **Après** : archiver + envoyer au fiscaliste avec cette page ; lui demander si le fisc FR exigera le **formulaire conventionnel** (type 5000-SD) — la FTA tamponne un formulaire spécial papier (+250 AED) uniquement si nécessaire. Rappel : le TRC est une **pièce**, pas un bouclier — le re-routage des flux (étape 2) reste le vrai chantier.
+
 ## Étape 2 — Re-router les flux AVANT toute fermeture
 
 | Flux actuel | Où il arrive (mal) | Où il doit arriver | Comment |
@@ -89,3 +97,4 @@ Le gain n'est pas que fiscal : **moins de comptes = moins de fuites** ([[Analyse
 
 [^1]: Déclarations de Gaëtan (13/07/2026) : filiation MYM + MYM Jade sur Revolut perso, volonté de tout fermer, prêt étudiant 227 €/mois, expatriation novembre 2025, Ejari annuel.
 [^2]: Export OCR Qonto SAS (2023-2026) : flux Fenix/AIR MEDIAS, frais courants 2026 — la preuve que la SAS n'est pas clôturée. Barèmes TRC, délais et règles de liquidation : `to-verify` en consultation (rien ici n'est un conseil juridique ou fiscal).
+[^3]: FTA, « Issuance of Tax Certificates for Tax Residency » (tax.gov.ae) + guides praticiens 2026 (movingo.ae, emirabiz.com) — parcours EmaraTax, pièces personne physique, frais 50 AED dossier + 500-1 000 AED émission (+250 AED copie papier/formulaire spécial), délai 5-20 j ouvrés. Vérifié le 17/07/2026.
