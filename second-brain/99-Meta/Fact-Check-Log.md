@@ -94,6 +94,8 @@ Les pages suivantes citent des faits classiques non re-vérifiés en ligne penda
 
 ## Auto-corrections
 
+- **2026-07-17 — Erreur de date corrigée** : deux entrées du [[Journal de coaching]] et les annotations de [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]] avaient été datées du **27/07** sur la foi d'un lapsus oral (« dix-sept » ↔ « vingt-sept ») ; les preuves matérielles (horodatage VIES, facture du 16/07 échéance 23/07, départ Dubaï prévu le 21/07 encore à venir) établissent le **17/07**. Toutes les occurrences corrigées, y compris le contexte « J+6 de l'absence » devenu « J-4 avant le départ ». Leçon : une date affirmée oralement se recoupe avec les horodatages système avant d'être gravée.
+
 - Plan initial : "Biais de statu quo" et "Effet de faux consensus" prévus comme pages séparées ont été fusionnés respectivement dans [[Effet de dotation]] et [[Biais d'autocomplaisance]] (quasi-doublons détectés à la relecture du plan).
 - Page [[Daniel Kahneman]] : la mention de la mort assistée (révélation Jason Zweig, WSJ 2025) est rapportée avec sa source ; c'est le fait le plus récent du vault, à re-vérifier si le vault est utilisé comme référence.
 - Aucune hallucination détectée après coup dans les pages rédigées ; les chiffres sensibles (36% RPP, d=0,04 ego depletion, 4,26 Forer, 75% Asch) ont été soit vérifiés par WebSearch, soit signalés ci-dessus comme non re-vérifiés.

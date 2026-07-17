@@ -49,9 +49,9 @@ Le mail TVA de MYM est arrivé à **Maddy** (~30 k€/12 mois, accélération ~1
 
 **Portage salarial (Jump, ~99 €/mois) — écarté le 16/07.** Trois verrous : (1) les frais professionnels y sont **plafonnés à ~30 % du salaire brut** et validés un par un → la commission agence de 50 % vers une entité Dubaï ne passera jamais ; (2) le portage vise les **prestations intellectuelles facturées à des entreprises clientes** (conseil, dev, formation) — une créatrice n'y rentre pas et le contenu adulte serait très probablement refusé par la société de portage (`to-verify` sur les CGU exactes de Jump, mais le plafond des frais suffit à écarter) ; (3) portage = salariat = **~45-50 % de cotisations** sur ce qui devient salaire, plus cher que le réel. Le « entre SAS et micro sans gérer une boîte » qui marche vraiment = **EI au régime réel** (charges réelles déductibles, pas de société à créer), SASU pour les plus grosses — arbitrage comptable.
 
-## Facturation Wio → créatrices UE : le piège TRN vs numéro de TVA (réglé le 27/07)
+## Facturation Wio → créatrices UE : le piège TRN vs numéro de TVA (réglé le 17/07)
 
-Détecté par Sarah (assujettie TVA en Belgique) sur ses factures de commission : le module de facturation de Wio (banque émiratie) étiquette le champ client « Tax/VAT number » façon **TRN** (*Tax Registration Number*, le numéro de TVA version Émirats, 15 chiffres) — à la saisie, le préfixe pays de son numéro européen avait sauté et des zéros avaient été ajoutés, produisant un pseudo-TRN invalide sur toutes ses factures. **Règle gravée** : une créatrice UE n'a pas de TRN ; son numéro se saisit **complet avec le préfixe pays** (`BExxxxxxxxxx`, `FRxxxxxxxxxxx`…), sans points ni espaces, et se **vérifie sur VIES** (registre officiel UE, gratuit : `ec.europa.eu/taxation_customs/vies`) avant d'émettre — la vérification du 27/07 a confirmé nom + adresse en 10 secondes. Si Wio refuse les lettres : champ vide (il est optionnel) + numéro dans les notes de la facture. **Mention à ajouter aux factures des assujetties UE** : « TVA non applicable — autoliquidation par le preneur (prestation fournie depuis hors UE) » (`to-verify` par son comptable, mécanisme standard hors-UE→UE en B2B). Factures anciennes : duplicatas corrigés uniquement si le comptable de la créatrice les demande.
+Détecté par Sarah (assujettie TVA en Belgique) sur ses factures de commission : le module de facturation de Wio (banque émiratie) étiquette le champ client « Tax/VAT number » façon **TRN** (*Tax Registration Number*, le numéro de TVA version Émirats, 15 chiffres) — à la saisie, le préfixe pays de son numéro européen avait sauté et des zéros avaient été ajoutés, produisant un pseudo-TRN invalide sur toutes ses factures. **Règle gravée** : une créatrice UE n'a pas de TRN ; son numéro se saisit **complet avec le préfixe pays** (`BExxxxxxxxxx`, `FRxxxxxxxxxxx`…), sans points ni espaces, et se **vérifie sur VIES** (registre officiel UE, gratuit : `ec.europa.eu/taxation_customs/vies`) avant d'émettre — la vérification du 17/07 a confirmé nom + adresse en 10 secondes. Si Wio refuse les lettres : champ vide (il est optionnel) + numéro dans les notes de la facture. **Mention à ajouter aux factures des assujetties UE** : « TVA non applicable — autoliquidation par le preneur (prestation fournie depuis hors UE) » (`to-verify` par son comptable, mécanisme standard hors-UE→UE en B2B). Factures anciennes : duplicatas corrigés uniquement si le comptable de la créatrice les demande.
 
 ## La marche à suivre (guider sans être le conseiller fiscal)
 
@@ -60,17 +60,17 @@ Détecté par Sarah (assujettie TVA en Belgique) sur ses factures de commission 
 3. **Assainir l'invoicing agence → créatrices** (contrat de prestation, factures mensuelles propres) : condition pour que la déduction des 50 % tienne. C'est aussi le prérequis de la [[SOP clôture mensuelle avec Maxence|clôture mensuelle]].
 4. **Rétention** : une créatrice qui gère mal ce virage se sent seule et churne ([[Rétention et motivation des marketeurs]]). Accompagner Maddy (top-4 du CA, 23 %) sur ce point est un **investissement de rétention**, pas de l'administratif.
 
-## Concrètement pour la créatrice : deux étages, un seul vrai choix (à jour 2026-07-27)
+## Concrètement pour la créatrice : deux étages, un seul vrai choix (à jour 2026-07-17)
 
-Question posée par Gaëtan le 27/07 (« Elle doit passer dans un régime différent ? Qu'est-ce qu'elle doit faire concrètement ? ») — la réponse tient en deux étages qu'il ne faut pas confondre :
+Question posée par Gaëtan le 17/07 (« Elle doit passer dans un régime différent ? Qu'est-ce qu'elle doit faire concrètement ? ») — la réponse tient en deux étages qu'il ne faut pas confondre :
 
 **Étage 1 — TVA : automatique, PAS un changement de régime.** Elle reste micro-entrepreneuse. Sous 37 500 € de CA annuel : rien. Entre 37 500 et 41 250 € : TVA à partir du 1er janvier suivant. Au-delà de 41 250 € : TVA immédiate dès le dépassement. En pratique : compte **MYM PRO**, numéro de TVA via son SIE (démarche faite par le comptable), déclarations TVA = comptable. Économiquement ≈ **neutre** : MYM (société française) récupère la TVA facturée, et la TVA sur ses achats pro devient déductible (`to-verify` le circuit exact MYM PRO).
 
 **Étage 2 — micro → réel : le vrai choix, optionnel avant 83 600 €.** C'est là que se joue l'écart chiffré plus haut (~7-8 k€/an à son rythme, jusqu'à 8-12 k€/an à 60 k€ de CA). Concrètement ce n'est **pas créer une société** : elle reste entreprise individuelle, l'option pour la déclaration contrôlée (BNC réel) est **une lettre au SIE** que le comptable rédige en choisissant la date d'effet optimale (`to-verify` les fenêtres d'option), puis le comptable tient la compta et les cotisations passent sur le bénéfice réel. La seule action de la créatrice : poser au comptable LA question (« micro ou réel, vu que je reverse 50 % à mon agence ? »).
 
-**Condition côté agence** : la facture de commission envoyée le 27/07 à Maddy (paiement attendu au 1er août) est exactement la pièce qui rend la déduction possible — libellé de prestation réel, numérotation, contrat derrière. Sans ça, l'étage 2 ne tient pas (mine n°1 ci-dessus).
+**Condition côté agence** : la facture de commission envoyée le 17/07 à Maddy (paiement attendu au 1er août) est exactement la pièce qui rend la déduction possible — libellé de prestation réel, numérotation, contrat derrière. Sans ça, l'étage 2 ne tient pas (mine n°1 ci-dessus).
 
-## La réponse à LA question : le réel, sans grande hésitation (analyse du 27/07, document remis à Maddy)
+## La réponse à LA question : le réel, sans grande hésitation (analyse du 17/07, document remis à Maddy)
 
 La question posée au comptable a une réponse mathématique : **dès que les frais réels dépassent l'abattement forfaitaire de 34 %, le réel gagne** — et une créatrice qui reverse 50 % à l'agence est à ~55 % de frais réels. Le match est plié ; il reste à l'exécuter proprement. Chiffrage remis (ordres de grandeur 2026, célibataire sans autre revenu, `to-verify` par le comptable) :
 
@@ -83,9 +83,9 @@ Détail du mécanisme au réel : bénéfice = CA − commission 50 % − frais r
 
 **Les 3 cas honnêtes où le micro resterait mieux** (avocat du diable, dit aussi dans le document) : commission non facturée proprement (pas de facture = pas de déduction — la mine n°1), chute d'activité ramenant les frais réels sous 34 %, ou volonté absolue de zéro compta. **Société (SASU/EURL)** = l'étape d'après, pas maintenant : le réel en EI fait 90 % du travail pour 10 % de la complexité ; seuil de bascule à demander au comptable. **Effet secondaire assumé** : cotisations plus basses = base retraite plus basse — payer ~8 k€/an de plus pour un léger bonus retraite est un mauvais placement.
 
-**Comptable pressenti : Acasi** (l'ancien comptable en ligne de Gaëtan, spécialiste indépendants BNC — intro possible, cohérence avec l'historique). `to-verify` : qu'ils acceptent l'activité créatrice de contenu adulte (certains cabinets en ligne refusent) ; sinon cabinet spécialisé créateurs, type Indy ou spécialiste OFM. Un document complet de 5 pages (résumé 1 page + chiffrage + plan d'action + 6 questions à poser au comptable) a été remis à Maddy le 27/07 — **non versionné dans le repo** (document nominatif, règle PII).
+**Comptable pressenti : Acasi** (l'ancien comptable en ligne de Gaëtan, spécialiste indépendants BNC — intro possible, cohérence avec l'historique). `to-verify` : qu'ils acceptent l'activité créatrice de contenu adulte (certains cabinets en ligne refusent) ; sinon cabinet spécialisé créateurs, type Indy ou spécialiste OFM. Un document complet de 5 pages (résumé 1 page + chiffrage + plan d'action + 6 questions à poser au comptable) a été remis à Maddy le 17/07 — **non versionné dans le repo** (document nominatif, règle PII).
 
-## Le récap type à envoyer à une créatrice qui reçoit le mail seuil MYM (validé 27/07, envoyé à Maddy)
+## Le récap type à envoyer à une créatrice qui reçoit le mail seuil MYM (validé 17/07, envoyé à Maddy)
 
 Message WhatsApp prêt à copier — remplacer [Prénom] :
 
