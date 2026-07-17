@@ -24,7 +24,7 @@ tags: [contexte/coaching]
 
 ### 2026-07-18 — Deux entités révélées (LLC + Cosmo), billets raccourcis (retour 26/08), micro soldée
 - **Révélation** : une **LLC** jamais cartographiée (Revolut Business **gelé pour OFM** — sort des fonds inconnu) + un **compte Cosmo Business**. 5 questions posées à Gaëtan (juridiction, fonds gelés, flux, **formulaires US 5472/1120 — pénalité 25 000 $/an si LLC US jamais déclarée**, titulaire Cosmo). Section ajoutée au plan fiscalité (Étape 2 ter). C'est potentiellement le plus gros drapeau du dossier — au-dessus des 1 200 € d'amendes.
-- **Billets définitifs 26/07 → 26/08** (un mois, pas deux) : 183ᵉ jour EAU ~**22 octobre** → **dépôt TRC avancé au 26 octobre** (rappel du 25/11 remplacé), garde-fou du 1er novembre sans objet. Bonus : présence Dubaï accrue = dossier de résidence renforcé.
+- **Billets : 26/07 → 26/09 confirmé** (le « 26/08 » du matin était un lapsus, corrigé par Gaëtan dans l'heure) : les dates TRC du 17/07 restent valables — 183ᵉ jour ~22/11, **dépôt le 25/11**, retour dur ≤ 1er/11. Rappels inchangés.
 - **Micro** : déclaration T1 2026 faite le 18/07 ✅ — la micro est intégralement soldée (radiée + déclarations à jour).
 
 ### 2026-07-17 — Liquidation SAS en autonomie (sans fiscaliste) : décision de Gaëtan, kit livré
