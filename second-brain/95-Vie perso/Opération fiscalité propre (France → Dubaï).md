@@ -104,7 +104,7 @@ Une fois les flux re-routés et observés : vider le Revolut (et tout autre comp
 
 | Quand | Quoi | Coût |
 |---|---|---|
-| **Cette semaine (14-20/07)** | Rapport ICP ✅ · Yoursafe + RIB MYM Ambassadeur ✅ · Jade prévenue ✅ · micro radiée ✅ (Kbis 17/07) · outils pro + salaires équipe + virement mensuel migrés sur Wio ✅ · mail bail parti ✅ · **PayPal FR fermé** (export → solde → clôture) · **3 mails fiscaliste + 2-3 devis liquidation envoyés** | ~30 € (rapport) |
+| **Cette semaine (14-20/07)** | Rapport ICP ✅ · Yoursafe + RIB MYM Ambassadeur ✅ · Jade prévenue ✅ · micro radiée ✅ (Kbis 17/07) · outils pro + salaires équipe + virement mensuel migrés sur Wio ✅ · mail bail parti ✅ · PayPal FR **fermé** ✅ (confirmation reçue 17/07 13h03) · payouts OF re-routés vers Yoursafe ✅ · devis liquidation en cours (benchmark) · **audit pré-dissolution lancé** (2 agents : dossier public + règles/tarifs 2026) — GO/NO-GO avant toute signature | ~30 € (rapport) |
 | **Avant le départ (≤ 26/07)** | **Re-router les 2 payouts OF** (Qonto + Revolut perso) vers Yoursafe AVANT dissolution · prestataire liquidation choisi sur devis · projets de PV d'AG + annonce légale n°1 préparés (Claude) | — |
 | **Août (à distance)** | AG de dissolution signée en ligne → annonce → dépôt guichet unique · premier payout Yoursafe vérifié · nouveaux flux observés · déclaration départ vérifiée/régularisée (fiscaliste) | ~1 000-1 400 € (liquidation low-cost : formalités en ligne ~300-500 + annonces ~300 + comptable one-shot ~400-600) |
 | **26/09 (impératif ≤ 01/11)** | **Retour à Dubaï** — chaque jour de retard consomme la marge des 183 jours (~39 j de marge) | — |
