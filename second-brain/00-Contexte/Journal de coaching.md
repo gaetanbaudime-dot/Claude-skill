@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-17 — TRC : le rapport ICP contredit le plan — dépôt repoussé à fin novembre
+- **Découverte (sur pièce)** : le rapport d'entrées/sorties officiel montre **~148 jours** de présence EAU depuis l'arrivée (03/11/2025), pas les 183 supposés — deux absences oubliées du plan : ~30 j en décembre, ~81 j mars-mai. Année civile 2026 : ~120 j au départ du 21/07. Correction consignée au [[Fact-Check-Log]], page [[Opération fiscalité propre (France → Dubaï)]] révisée.
+- **Décision** : (1) demande TRC treaty **non déposée** (rejet certain, frais perdus) → **dépôt fin novembre 2026** (183 j atteints ~22-23/11 avec retour le 21/09), rappel posé au 24/11 ; (2) le rapport ICP est finalisé et archivé pour le fiscaliste ; (3) **la consultation fiscaliste devient l'action n°1 de la semaine**, enrichie de deux questions : TRC domestic 90 j comme pièce intermédiaire ? et localisation des ~111 jours hors EAU 2026 (si France → le dossier se joue sur foyer/intérêts économiques, pas sur les jours).
+- **Garde-fou chiffré** : marge totale ~39 jours — **retour à Dubaï après le ~29/10 = année 2026 définitivement sous 183 jours.** Le voyage ne doit pas glisser.
+- **Prédiction datée (17/07, avant l'issue)** : si le retour a lieu le 21/09 comme prévu et le dossier part la semaine du 24/11, le TRC 2026 est émis avant Noël et le dossier France est complet pour la déclaration 2026 ; si le voyage glisse au-delà de mi-octobre, la marge s'évapore et on finira l'année à négocier des jours — la revue se fait au retour (21/09) puis au dépôt (24/11).
+
 ### 2026-07-17 — Incident compteurs : « Déjà payés : 0 € » + auto-guérison déployée
 - **Symptôme** : le salon-stat « Déjà payés » retombé à 0 € et le compteur de bumps reparti à « 1 ce mois-ci » — données du volume perdues entre le 16/07 18h15 et le 17/07 07h10. Cause probable : volume Railway détaché / `DONNEES_DIR` perdu (suite d'incident Railway), aggravé par le fait que **chaque push du vault sur `main` redéploie le bot** (Railway surveille tout le repo).
 - **Correctif déployé (4e leçon technique du bot)** : *le message Discord épinglé est la vraie sauvegarde durable* — au démarrage, si le compteur local est vide, le bot relit le total depuis son épinglé de #dopamine et se restaure seul ; `!verifier` contrôle désormais la persistance (variable, écriture, historique) ; README : checklist Railway + **Watch Paths `tools/bot_clippers/**`** pour que les pushes du vault ne redéploient plus le bot.

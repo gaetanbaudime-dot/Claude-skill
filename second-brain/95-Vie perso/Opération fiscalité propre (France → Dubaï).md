@@ -11,7 +11,7 @@ liens_forts: ["[[Analyse finances perso (13 juillet 2026)]]", "[[SOP clôture me
 # Opération fiscalité propre : tout rapatrier à Dubaï d'ici le 31/12
 
 > [!tip] Verdict
-> Décision actée (2026-07-13) : **fermer la France proprement, une bonne fois pour toutes** — SAS liquidée, micro-entreprise radiée, comptes perso FR fermés, TRC émirien en poche. L'ordre des opérations est **non négociable** : (1) déposer le dossier **TRC cette semaine** (tu as largement les 183 jours), (2) **re-router les flux MYM/OF vers l'entité Dubaï AVANT de fermer quoi que ce soit**, (3) lancer la liquidation de la SAS (elle n'est **pas** clôturée — OnlyFans la créditait encore en février 2026), (4) radier la micro (10 min, gratuit), (5) fermer les comptes perso FR en dernier, après 1 mois de flux propres. Budget total : **~1 800-2 600 €** étalés sur l'été. Ce plan est le **brief de ta consultation fiscaliste franco-émirati** — pas son remplacement (`to-verify` sur chaque règle citée).
+> Décision actée (2026-07-13, **révisée le 17/07**) : **fermer la France proprement, une bonne fois pour toutes** — SAS liquidée, micro-entreprise radiée, comptes perso FR fermés, TRC émirien en poche. L'ordre révisé : (1) ~~TRC cette semaine~~ **TRC treaty repoussé à fin novembre 2026** — le rapport ICP officiel du 17/07 montre **~148 jours de présence, pas 183** (voir Étape 1) ; l'action de la semaine devient **la consultation fiscaliste**, avec le compte de jours comme pièce n°1 ; (2) **re-router les flux MYM/OF vers l'entité Dubaï AVANT de fermer quoi que ce soit**, (3) lancer la liquidation de la SAS (elle n'est **pas** clôturée — OnlyFans la créditait encore en février 2026), (4) radier la micro (10 min, gratuit), (5) fermer les comptes perso FR en dernier, après 1 mois de flux propres. Budget total : **~1 800-2 600 €** étalés sur l'été. Ce plan est le **brief de ta consultation fiscaliste franco-émirati** — pas son remplacement (`to-verify` sur chaque règle citée).
 
 > [!warning] Ce chantier a un jumeau côté créatrices (2026-07-16)
 > Les créatrices FR en micro qui reversent 50 % à l'agence Dubaï ont le **même problème en miroir** : déduire ces 50 % suppose que ta structure soit propre, sinon un contrôle sur elles **remonte jusqu'à toi**. Les deux dossiers se traitent avec le **même fiscaliste**, dans le bon ordre (ta structure d'abord). Détail : [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]].
@@ -20,9 +20,20 @@ liens_forts: ["[[Analyse finances perso (13 juillet 2026)]]", "[[SOP clôture me
 
 Aujourd'hui : la **filiation MYM** (parrainage) et le **MYM de Jade** arrivent sur ton **Revolut perso français**. C'est le pire pattern possible : du revenu business, sur un compte personnel, en France, alors que tu te déclares résident émirien. Le TRC seul ne te protège pas — côté France, la résidence s'apprécie **aux faits** (foyer, séjour principal, centre des intérêts économiques), et des flux business récurrents sur un compte FR sont exactement le genre de fait qui fait douter ([[Analyse finances perso (13 juillet 2026)|le flag fiscal]]). La règle cible, simple : **aucun revenu business ne touche un compte perso, aucun revenu ne touche la France.**
 
-## Étape 1 — Le TRC (Tax Residency Certificate), à déposer CETTE SEMAINE
+## Étape 1 — Le TRC (Tax Residency Certificate) : dépôt fin novembre 2026 (révisé le 17/07)
 
-Arrivé en **novembre 2025**, tu as ~8 mois de présence au 13/07 → le critère des **183 jours sur 12 mois** est atteint (même avec tes voyages — le portail croise avec le rapport officiel d'entrées/sorties). Tu pars le 21/07 pour 2 mois : dépose **avant de partir** (c'est en ligne, mais réunir les pièces est plus simple depuis Dubaï).
+~~« Arrivé en novembre 2025, tu as largement les 183 jours »~~ — **FAUX**, corrigé le 17/07 sur pièce (rapport ICP officiel, consigné au [[Fact-Check-Log]]). Le vrai compte :
+
+| Période | Où | Jours EAU |
+|---|---|---:|
+| 03/11 → 04/12/2025 | EAU | 32 |
+| 04/12/2025 → 03/01/2026 | hors EAU (~30 j) | — |
+| 03/01 → 28/02/2026 | EAU | 57 |
+| 28/02 → 20/05/2026 | hors EAU (~81 j) | — |
+| 20/05 → 21/07/2026 (départ) | EAU | 63 |
+| **Total depuis l'arrivée** | | **~152 j** · année civile 2026 : **~120 j** |
+
+**Conséquences (à ±2 j près)** : le TRC « treaty » (183 j) est inaccessible avant l'automne. Avec le retour prévu du **21/09**, les 183 jours sur l'année civile 2026 tombent **vers le 22-23 novembre** → **dépôt fin novembre 2026**, période demandée = année 2026. **Garde-fou vital** : entre le 21/09 et le 31/12 il y a 102 jours pour un besoin de 63 → marge totale ~39 jours ; **un retour après ~le 29 octobre tue définitivement l'année 2026**. Rappel posé : « Déposer TRC treaty France — 24 novembre 2026 ». Deux questions transférées au fiscaliste : (a) le **TRC domestic 90 jours** (éligible dès maintenant : visa + Ejari + >90 j) vaut-il comme pièce intermédiaire face à la France ; (b) **où étaient les ~111 jours hors EAU de 2026** (décembre + mars-mai) — s'ils sont majoritairement français, le dossier de non-résidence se joue sur le foyer et le centre des intérêts économiques, pas sur les jours.
 
 **La checklist du dossier (portail EmaraTax de la FTA, ~30-45 min)** :
 1. Passeport + visa de résidence + Emirates ID (scans).
@@ -86,10 +97,11 @@ Une fois les flux re-routés et observés : vider le Revolut (et tout autre comp
 
 | Quand | Quoi | Coût |
 |---|---|---|
-| **Cette semaine (14-20/07)** | TRC déposé · micro radiée · payouts MYM/OF changés · fiscaliste mandaté (visio possible de France) | ~265 € (TRC) |
+| **Cette semaine (14-20/07)** | Rapport ICP tiré ✅ (17/07) · **fiscaliste mandaté** (l'action n°1, avec le compte de jours) · micro radiée · payouts MYM/OF changés | ~30 € (rapport) |
 | **Août (à distance)** | Liquidation SAS lancée par le cabinet · nouveaux flux observés · déclaration départ vérifiée/régularisée | ~900-1 600 € |
-| **Sept.-oct.** | SAS radiée · comptes FR vidés et fermés · Revolut clôturé | 0 € |
-| **Au 31/12** | **Un seul système : Wio perso + Wio business + coffre.** TRC en poche, zéro flux FR | — |
+| **21/09 (impératif ≤ 29/10)** | **Retour à Dubaï** — chaque jour de retard consomme la marge des 183 jours (~39 j de marge) | — |
+| **Fin novembre** | **TRC treaty France déposé** (183 j atteints ~22-23/11) · rapport ICP réédité à jour | ~265 € (TRC) |
+| **Au 31/12** | **Un seul système : Wio perso + Wio business + coffre.** TRC en poche, zéro flux FR · SAS radiée · comptes FR fermés | — |
 
 Le gain n'est pas que fiscal : **moins de comptes = moins de fuites** ([[Analyse finances perso (13 juillet 2026)|le pattern des 4 comptes]]), un seul système à surveiller le matin, et une charge mentale rendue. Décision et prédiction [[Journal de coaching|journalisées]].
 

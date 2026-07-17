@@ -94,6 +94,8 @@ Les pages suivantes citent des faits classiques non re-vérifiés en ligne penda
 
 ## Auto-corrections
 
+- **2026-07-17 — « Tu as largement les 183 jours » : FAUX.** [[Opération fiscalité propre (France → Dubaï)]] affirmait le critère TRC atteint sur la base du déclaratif (« arrivé en novembre, ~8 mois de présence ») ; le **rapport ICP officiel** tiré le 17/07 montre **~148 jours** de présence réelle (sorties : ~30 j en décembre + ~81 j mars-mai). La page et le calendrier sont corrigés (dépôt TRC repoussé fin novembre 2026, garde-fou retour ≤ 29/10). Leçon : **un critère de jours ne se déclare pas, il se tire du rapport officiel** — même quand l'intéressé est de bonne foi, la mémoire lisse les absences.
+
 - **2026-07-17 — Erreur de date corrigée** : deux entrées du [[Journal de coaching]] et les annotations de [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]] avaient été datées du **27/07** sur la foi d'un lapsus oral (« dix-sept » ↔ « vingt-sept ») ; les preuves matérielles (horodatage VIES, facture du 16/07 échéance 23/07, départ Dubaï prévu le 21/07 encore à venir) établissent le **17/07**. Toutes les occurrences corrigées, y compris le contexte « J+6 de l'absence » devenu « J-4 avant le départ ». Leçon : une date affirmée oralement se recoupe avec les horodatages système avant d'être gravée.
 
 - Plan initial : "Biais de statu quo" et "Effet de faux consensus" prévus comme pages séparées ont été fusionnés respectivement dans [[Effet de dotation]] et [[Biais d'autocomplaisance]] (quasi-doublons détectés à la relecture du plan).
