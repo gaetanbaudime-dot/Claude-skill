@@ -87,11 +87,11 @@ L'enquête publique du 17/07 (RNE/INPI + BODACC + INSEE, 2 agents) a renversé l
 ### Le plan d'exécution verrouillé (17/07 soir, vérifié sources officielles[^5])
 
 1. Espace pro impots.gouv de la SAS : messagerie + état de la liasse + solde (0 €).
-2. **Payer les 1 200 €** par télépaiement — « clôturer avant de payer » est impossible (l'attestation de régularité fiscale contrôle dépôts ET paiement intégral des pénalités depuis N-4) et payer ne renonce à rien : le dégrèvement gracieux est **remboursable après paiement** (écrit dans le courrier du 30/10/2025).
-3. **Liasse 2065 ex. 30/06/2025 en DIY via Teledec** (~119-179 € TTC, import du FEC d'Acasi, EDI-TDFC sans comptable) — ou Acasi one-shot si < 200 €.
-4. Remise gracieuse des 1 200 € via messagerie (précédent du 30/10/2025 à citer) — option gratuite, non bloquante.
+2. **Liasse 2065 ex. 30/06/2025 D'ABORD, vite** — DIY via Teledec (~119-179 € TTC, import du FEC d'Acasi, EDI-TDFC sans comptable) ou Acasi one-shot (ils ont géré tout l'historique). C'est l'unique problème racine restant.
+3. **Dès la liasse déposée : demande de remise gracieuse des 1 200 € + suspension des poursuites** via la messagerie (interlocutrice constante : la contrôleuse du SIE). **Historique gracieux 4/4 découvert le 17/07 soir** (messagerie complète) : amendes PAS de févr., mars, avril et mai 2025 TOUTES annulées ou remises — dont une à l'initiative du service ; DSN toujours déposées (bulletins à 0 €), **compte URSSAF déjà radié à l'été 2025**. Les chances de remise sont réelles, pas théoriques.
+4. **Garde-fou de temps** : sans réponse favorable au ~10-15 août, ou au moindre signal de saisie sur le Qonto → **payer les 1 200 €** (remboursables si remise ultérieure — écrit dans l'avis du 30/10/2025). L'attestation fiscale exige dépôts + paiement intégral des pénalités : pas de clôture tant que la dette vit.
 5. Attestation de régularité fiscale (en ligne, sinon 3666-SD via le SIE).
-6. Attestation URSSAF « entreprise sans personnel » via le 3957 (exigée pour les clôtures depuis le 01/10/2024 même sans salarié).
+6. Attestation URSSAF « entreprise sans personnel » via le 3957 (exigée pour les clôtures depuis le 01/10/2024 même sans salarié) — **compte employeur déjà radié à l'été 2025** (courrier de confirmation dans le dossier Acasi, à joindre).
 7. Comptes de clôture : montage par Claude (base bilan Acasi 30/06/2025 + relevés Qonto), certification/signature Gaëtan (0 €).
 8. LegalPlace finalise (déjà payé) — prévenir leur support que la dissolution du 16/11/2025 existe déjà, ne PAS en régénérer une.
 9. Après clôture : liasse de cessation (60 j) + TVA finale + liasse ex. 30/06/2026 (Teledec ×2, ~240 €).
