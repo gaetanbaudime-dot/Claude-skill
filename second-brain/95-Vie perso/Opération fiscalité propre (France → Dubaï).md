@@ -33,7 +33,7 @@ Aujourd'hui : la **filiation MYM** (parrainage) et le **MYM de Jade** arrivent s
 | 20/05 → 21/07/2026 (départ) | EAU | 63 |
 | **Total depuis l'arrivée** | | **~152 j** · année civile 2026 : **~120 j** |
 
-**Conséquences (à ±2 j près)** : le TRC « treaty » (183 j) est inaccessible avant l'automne. Avec le retour prévu du **21/09**, les 183 jours sur l'année civile 2026 tombent **vers le 22-23 novembre** → **dépôt fin novembre 2026**, période demandée = année 2026. **Garde-fou vital** : entre le 21/09 et le 31/12 il y a 102 jours pour un besoin de 63 → marge totale ~39 jours ; **un retour après ~le 29 octobre tue définitivement l'année 2026**. Rappel posé : « Déposer TRC treaty France — 24 novembre 2026 ». Deux questions transférées au fiscaliste : (a) le **TRC domestic 90 jours** (éligible dès maintenant : visa + Ejari + >90 j) vaut-il comme pièce intermédiaire face à la France ; (b) **où étaient les ~111 jours hors EAU de 2026** (décembre + mars-mai) — s'ils sont majoritairement français, le dossier de non-résidence se joue sur le foyer et le centre des intérêts économiques, pas sur les jours.
+**Conséquences (à ±2 j près, dates de voyage actualisées le 17/07 : départ 26/07, retour 26/09)** : le TRC « treaty » (183 j) est inaccessible avant l'automne. ~125 j au décollage du 26/07, reste 58 j à faire → les 183 jours sur l'année civile 2026 tombent **vers le 22 novembre** → **dépôt le 25 novembre 2026** (marge de comptage incluse), période demandée = année 2026. **Garde-fou vital** : marge totale ~39 jours ; **un retour après le ~3 novembre tue définitivement l'année 2026** — rappel posé en dur au **1er novembre** (les 2 jours d'incertitude de comptage ne servent pas de marge). Rappels : « Déposer TRC treaty France — 25 novembre 2026 » + « Être rentré à Dubaï — deadline dure 1er novembre ». Deux questions transférées au fiscaliste : (a) le **TRC domestic 90 jours** (éligible dès maintenant : visa + Ejari + >90 j) vaut-il comme pièce intermédiaire face à la France ; (b) **où étaient les ~111 jours hors EAU de 2026** (décembre + mars-mai) — s'ils sont majoritairement français, le dossier de non-résidence se joue sur le foyer et le centre des intérêts économiques, pas sur les jours.
 
 **La checklist du dossier (portail EmaraTax de la FTA, ~30-45 min)** :
 1. Passeport + visa de résidence + Emirates ID (scans).
@@ -104,8 +104,8 @@ Une fois les flux re-routés et observés : vider le Revolut (et tout autre comp
 |---|---|---|
 | **Cette semaine (14-20/07)** | Rapport ICP tiré ✅ · Yoursafe ouvert + RIB posé sur MYM Ambassadeur ✅ · Jade prévenue (bascule sur SON compte) ✅ (17/07) · **fiscaliste mandaté** (l'action n°1, avec le compte de jours) · micro radiée · devis liquidation SAS demandé | ~30 € (rapport) |
 | **Août (à distance)** | Liquidation SAS lancée par le cabinet · nouveaux flux observés · déclaration départ vérifiée/régularisée | ~900-1 600 € |
-| **21/09 (impératif ≤ 29/10)** | **Retour à Dubaï** — chaque jour de retard consomme la marge des 183 jours (~39 j de marge) | — |
-| **Fin novembre** | **TRC treaty France déposé** (183 j atteints ~22-23/11) · rapport ICP réédité à jour | ~265 € (TRC) |
+| **26/09 (impératif ≤ 01/11)** | **Retour à Dubaï** — chaque jour de retard consomme la marge des 183 jours (~39 j de marge) | — |
+| **25 novembre** | **TRC treaty France déposé** (183 j atteints ~22/11) · rapport ICP réédité à jour | ~265 € (TRC) |
 | **Au 31/12** | **Un seul système : Wio perso + Wio business + coffre.** TRC en poche, zéro flux FR · SAS radiée · comptes FR fermés | — |
 
 Le gain n'est pas que fiscal : **moins de comptes = moins de fuites** ([[Analyse finances perso (13 juillet 2026)|le pattern des 4 comptes]]), un seul système à surveiller le matin, et une charge mentale rendue. Décision et prédiction [[Journal de coaching|journalisées]].
