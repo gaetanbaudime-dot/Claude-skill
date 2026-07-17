@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-27 — Fiscalité Maddy : récap envoyé, facture partie (paiement attendu 01/08)
+- **Fait** : récap fiscalité 5 points envoyé à Maddy (mail seuil MYM démystifié, 3 actions, LA question micro-vs-réel pour le comptable) — modèle gravé dans [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]] pour resservir sur Chloé/Sarah quand leur tour viendra. Facture de commission envoyée dans la foulée (décision du 16/07 « la facture part sans délai » exécutée avec 11 jours de retard), paiement attendu au **1er août**.
+- **Clarification actée** : la TVA n'est PAS un changement de régime (automatique, elle reste micro, ≈ neutre via MYM PRO) ; le vrai choix est **micro → réel** (~7-8 k€/an d'enjeu à son rythme), qui se joue chez le comptable, pas dans un DM.
+- **Prédiction datée (27/07, avant l'issue)** : si Maddy paie la facture au 01/08 et prend un comptable avant fin août, la bascule fiscale se fait sans friction et sans impact sur sa production ; si elle repousse le comptable (« je verrai plus tard »), le sujet reviendra en panique au T4 au moment de sa première déclaration TVA, pendant l'absence de Gaëtan — et c'est Maxence qui devra gérer. Revue : clôture du 1er août (paiement) + reporting fin août (comptable pris ou non).
+
 ### 2026-07-27 — ONE THING : la passation Emma (appel à 3 ce soir, Gaëtan × Maxence × Emma)
 - **Contexte honnête** : J+6 de l'absence, le brief Emma (prévu avant le départ) n'a pas été fait — le seul maillon non transféré de la chaîne. La machine consomme des rushs (~15 clippers payés au fixe qui postent chaque jour) : si le Drive se vide, la panne du 08/07 (« y'en a plus ») se reproduit en version XXL, fixes payés à vide et boucle preuve→contenu éteinte.
 - **ONE THING actée** : préparer l'appel cet après-midi (fiches 1+2 en pré-lecture à Emma, stock de rushs par créatrice vérifié avant l'appel) et verrouiller ce soir 3 sorties : (1) Emma possède le cycle hebdo, (2) l'escalade pendant l'absence va vers Maxence (format 1-3-1), (3) le reporting du dimanche inclut désormais **le stock de rushs par créatrice**. Passation en couches ensuite : profils créatrice un par un, Maddy d'abord.

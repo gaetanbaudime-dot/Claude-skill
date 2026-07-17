@@ -56,6 +56,36 @@ Le mail TVA de MYM est arrivé à **Maddy** (~30 k€/12 mois, accélération ~1
 3. **Assainir l'invoicing agence → créatrices** (contrat de prestation, factures mensuelles propres) : condition pour que la déduction des 50 % tienne. C'est aussi le prérequis de la [[SOP clôture mensuelle avec Maxence|clôture mensuelle]].
 4. **Rétention** : une créatrice qui gère mal ce virage se sent seule et churne ([[Rétention et motivation des marketeurs]]). Accompagner Maddy (top-4 du CA, 23 %) sur ce point est un **investissement de rétention**, pas de l'administratif.
 
+## Concrètement pour la créatrice : deux étages, un seul vrai choix (à jour 2026-07-27)
+
+Question posée par Gaëtan le 27/07 (« Elle doit passer dans un régime différent ? Qu'est-ce qu'elle doit faire concrètement ? ») — la réponse tient en deux étages qu'il ne faut pas confondre :
+
+**Étage 1 — TVA : automatique, PAS un changement de régime.** Elle reste micro-entrepreneuse. Sous 37 500 € de CA annuel : rien. Entre 37 500 et 41 250 € : TVA à partir du 1er janvier suivant. Au-delà de 41 250 € : TVA immédiate dès le dépassement. En pratique : compte **MYM PRO**, numéro de TVA via son SIE (démarche faite par le comptable), déclarations TVA = comptable. Économiquement ≈ **neutre** : MYM (société française) récupère la TVA facturée, et la TVA sur ses achats pro devient déductible (`to-verify` le circuit exact MYM PRO).
+
+**Étage 2 — micro → réel : le vrai choix, optionnel avant 83 600 €.** C'est là que se joue l'écart chiffré plus haut (~7-8 k€/an à son rythme, jusqu'à 8-12 k€/an à 60 k€ de CA). Concrètement ce n'est **pas créer une société** : elle reste entreprise individuelle, l'option pour la déclaration contrôlée (BNC réel) est **une lettre au SIE** que le comptable rédige en choisissant la date d'effet optimale (`to-verify` les fenêtres d'option), puis le comptable tient la compta et les cotisations passent sur le bénéfice réel. La seule action de la créatrice : poser au comptable LA question (« micro ou réel, vu que je reverse 50 % à mon agence ? »).
+
+**Condition côté agence** : la facture de commission envoyée le 27/07 à Maddy (paiement attendu au 1er août) est exactement la pièce qui rend la déduction possible — libellé de prestation réel, numérotation, contrat derrière. Sans ça, l'étage 2 ne tient pas (mine n°1 ci-dessus).
+
+## Le récap type à envoyer à une créatrice qui reçoit le mail seuil MYM (validé 27/07, envoyé à Maddy)
+
+Message WhatsApp prêt à copier — remplacer [Prénom] :
+
+> Hello [Prénom] ! J'ai regardé le mail MYM en détail, voilà le récap simple 👇
+>
+> 1️⃣ **Ce que dit le mail** : MYM prévient dès 30 000 € de CA, mais c'est leur alerte interne — le vrai seuil légal 2026 c'est **37 500 €** (avec une tolérance jusqu'à 41 250 €). Rien d'urgent, rien d'illégal, tu n'as rien fait de mal.
+>
+> 2️⃣ **Ce qui ne change PAS** : aucun impôt rétroactif, tu restes micro-entrepreneuse (le plafond micro est bien plus haut, ~83 600 €), et la facture avec l'agence ne change pas.
+>
+> 3️⃣ **Ce qui change au passage du seuil** : tu factureras la TVA sur MYM (quasi transparent pour toi avec le compte MYM PRO), et en bonus la TVA sur tes achats pro devient récupérable. L'administratif, c'est le boulot du comptable, pas le tien.
+>
+> 4️⃣ **Tes 3 actions** : ① passer ton compte en MYM PRO, ② prendre un comptable (50-80 €/mois, vite rentabilisé — je peux t'en présenter un), ③ garder toutes tes factures.
+>
+> 5️⃣ **LA question à poser au comptable** : « est-ce que je reste en micro ou est-ce que je passe au réel, sachant que je reverse 50 % de mon CA à mon agence ? » — en micro tu es taxée sur TOUT ton CA, y compris la moitié que tu reverses. C'est la question qui peut te faire économiser plusieurs milliers d'euros par an.
+>
+> Je suis là si tu veux qu'on en parle 5 min, et je te fais l'intro comptable quand tu veux 🙌
+
+**Les 3 notes côté agence (à garder pour soi)** : (1) l'enjeu micro-vs-réel à son rythme (~60 k€/an) ≈ **7-8 k€/an** de cotisations+impôts payés sur de l'argent qu'elle ne garde pas — c'est un argument de rétention, pas de l'administratif ; (2) les seuils du message sont les **vrais seuils 2026 vérifiés** (le « 30 000 € » de MYM est leur alerte précoce, pas la loi) ; (3) nuance de timing à ne pas promettre à sa place : 37,5-41,25 k€ → TVA au 1er janvier suivant, > 41,25 k€ → TVA immédiate — le comptable date la bascule exacte.
+
 ## Sources
 
 [^1]: Autoentrepreneur.urssaf.fr, « 2026 : modification des seuils de chiffre d'affaires ou de recettes », 2026 — plafonds micro et abandon de la réforme franchise TVA.
