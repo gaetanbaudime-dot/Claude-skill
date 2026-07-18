@@ -648,9 +648,10 @@ async def envoyer_test_candidat(membre, score=""):
         + "\nLa régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
 
 
-async def traiter_quiz_webhook(message):
+async def traiter_quiz_webhook(message, silencieux=False):
     """Message « QUIZ_OK|pseudo|score » posté par l'Apps Script de la feuille du quiz
-    (via webhook Discord, dans le salon admin) → envoi automatique du test."""
+    (via webhook Discord, dans le salon admin) → envoi automatique du test.
+    silencieux=True (rattrapage au démarrage) : pas de notification pour les cas déjà traités."""
     morceaux = (message.content.split("|", 2) + ["", ""])[:3]
     pseudo, score = morceaux[1].strip(), morceaux[2].strip()
     pseudo_n = normaliser(pseudo)
@@ -674,15 +675,18 @@ async def traiter_quiz_webhook(message):
             if membre_trouve:
                 break
     if membre_trouve is None:
-        await message.channel.send(f"⚠️ Quiz validé ({score}) mais membre « {pseudo} » introuvable sur le serveur — "
-                                   f"pseudo mal orthographié ? Fais `!quiz-ok @membre` à la main.")
+        if not silencieux:
+            await message.channel.send(f"⚠️ Quiz validé ({score}) mais membre « {pseudo} » introuvable sur le serveur — "
+                                       f"pseudo mal orthographié ? Fais `!quiz-ok @membre` à la main.")
         return
     if not LIEN_TEST:
-        await message.channel.send("⚠️ Quiz validé mais LIEN_TEST est vide dans Railway — test non envoyé.")
+        if not silencieux:
+            await message.channel.send("⚠️ Quiz validé mais LIEN_TEST est vide dans Railway — test non envoyé.")
         return
     etat_actuel = lire_json(FICHIER_PIPELINE, {}).get("etats", {}).get(str(membre_trouve.id), {}).get("etat")
-    if etat_actuel in ("test_envoye", "valide"):
-        await message.channel.send(f"ℹ️ {membre_trouve.mention} a déjà reçu le test (état : {etat_actuel}) — rien renvoyé.")
+    if etat_actuel in ("test_envoye", "test_rendu", "valide"):
+        if not silencieux:
+            await message.channel.send(f"ℹ️ {membre_trouve.mention} a déjà reçu le test (état : {etat_actuel}) — rien renvoyé.")
         return
     envoye = await envoyer_test_candidat(membre_trouve, score)
     await message.channel.send(
@@ -690,6 +694,27 @@ async def traiter_quiz_webhook(message):
         if envoye else
         (f"⚠️ {membre_trouve.mention} a validé le quiz ({score}) mais ses MP sont fermés — envoie-lui le lien à la main."))
     journal.info("Quiz webhook : test %s -> membre %s", "envoyé" if envoye else "MP fermés", membre_trouve.id)
+
+
+async def rattraper_webhooks():
+    """Au démarrage : relit l'historique récent du salon admin et traite les messages webhook
+    (QUIZ_OK / CANDIDATURE) arrivés pendant que le bot était éteint — un redéploiement Railway
+    coupe le bot ~1-2 min et un quiz validé dans cette fenêtre était perdu (vécu le 18/07 au
+    soir, candidat Hugo). Idempotent : un quiz déjà traité est ignoré en silence, une
+    candidature se réécrit à l'identique."""
+    canal = await canal_par_id(CANAL_BOT_ID)
+    if canal is None:
+        return
+    try:
+        async for ancien in canal.history(limit=100):
+            if not ancien.webhook_id:
+                continue
+            if ancien.content.startswith("QUIZ_OK|"):
+                await traiter_quiz_webhook(ancien, silencieux=True)
+            elif ancien.content.startswith("CANDIDATURE|"):
+                await traiter_candidature_webhook(ancien, silencieux=True)
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Rattrapage des webhooks impossible : %s", erreur)
 
 
 async def enregistrer_candidatures(quadruplets):
@@ -818,11 +843,12 @@ async def traiter_liaison(auteur, brut):
                  "candidature retrouvée" if cand else "sans candidature")
 
 
-async def traiter_candidature_webhook(message):
+async def traiter_candidature_webhook(message, silencieux=False):
     """Lignes « CANDIDATURE|prénom|tel|pays|pseudo » postées par l'Apps Script de la feuille
     de candidatures (même webhook Discord que le quiz, plusieurs lignes par message possibles
     pour le rattrapage) → fiche d'identité indexée par téléphone normalisé. Si un membre a déjà
-    fait !lier avec ce numéro, sa liaison est complétée (prénom, pays) et il est renommé."""
+    fait !lier avec ce numéro, sa liaison est complétée (prénom, pays) et il est renommé.
+    silencieux=True (rattrapage au démarrage) : réécriture des fiches sans récapitulatif."""
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     enregistrees, rapprochees, rejets = [], [], 0
     for ligne in message.content.split("\n"):
@@ -855,6 +881,8 @@ async def traiter_candidature_webhook(message):
                 rapprochees.append(f"<@{uid}>")
     if enregistrees or rejets:
         ecrire_json(FICHIER_PIPELINE, donnees)
+        if silencieux:
+            return
         await message.channel.send((
             f"📋 **{len(enregistrees)} candidature(s) enregistrée(s)** :\n"
             + "\n".join("· " + l for l in enregistrees[:20])
@@ -1441,16 +1469,19 @@ async def commande_admin(message, texte: str) -> bool:
 
     # ---- Pipeline candidat : !quiz-ok, !test-ok, !test-non, !pipeline, !fiche ----
     if texte.startswith("!quiz-ok"):
-        if not message.mentions:
-            await message.reply("Format : `!quiz-ok @membre [score]` — enregistre le quiz validé et "
-                                "envoie automatiquement le lien du test 48 h en MP.")
+        corps = texte[len("!quiz-ok"):].strip()
+        score = next(iter(re.findall(r"\d+\s*/\s*\d+", corps)), "")
+        nom = re.sub(r"<@!?\d+>", "", corps.replace(score, "")).strip()
+        membre = message.mentions[0] if message.mentions else (chercher_membre(nom) if nom else None)
+        if membre is None:
+            await message.reply("Format : `!quiz-ok @membre [score]` — ou `!quiz-ok Hugo 32/34` (nom en "
+                                "toutes lettres). Enregistre le quiz validé et envoie le test 48 h en MP.")
             return True
         if not LIEN_TEST:
             await message.reply("❌ LIEN_TEST vide — pose le lien du dossier de test dans Railway d'abord.")
             return True
-        membre = message.mentions[0]
-        score = next(iter(re.findall(r"\d+\s*/\s*\d+|\d+", texte.replace(f"<@{membre.id}>", "")
-                                     .replace(f"<@!{membre.id}>", ""))), "")
+        if not score:
+            score = next(iter(re.findall(r"\d+", re.sub(r"<@!?\d+>", "", corps))), "") if message.mentions else ""
         envoye = await envoyer_test_candidat(membre, score)
         await message.reply(f"✅ {membre.mention} → test envoyé en MP, deadline 48 h, relance auto à 24 h."
                             if envoye else
@@ -1847,6 +1878,7 @@ async def on_ready():
         client.loop.create_task(boucle_pipeline())    # relances de test : toujours actif
         if LIEN_TRESORERIE or CANAL_REPORTING_ID:
             client.loop.create_task(boucle_rappels())  # trésorerie du matin + reporting du dimanche
+        client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
 
 
 @client.event
