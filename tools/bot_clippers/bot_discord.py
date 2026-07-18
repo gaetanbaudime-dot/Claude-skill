@@ -792,7 +792,7 @@ async def commande_admin(message, texte: str) -> bool:
                 continue
             porteurs = {m.id for m in role.members if not m.bot}
             valides = {int(mid) for mid, info in registre.items() if info.get("equipe") == code}
-            lignes.append(f"__Team {nom_court}__ : {len(porteurs)} avec le rôle · {len(valides)} au registre")
+            lignes.append(f"__{role.name}__ : {len(porteurs)} avec le rôle · {len(valides)} au registre")
             intrus = porteurs - valides
             manquants = valides - porteurs
             if intrus:
