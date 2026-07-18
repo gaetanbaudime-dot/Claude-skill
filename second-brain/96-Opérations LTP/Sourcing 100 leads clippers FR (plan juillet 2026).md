@@ -64,8 +64,27 @@ Le clippeur idéal n'est pas « quelqu'un qui cherche un job de clippeur » — 
 
 **Le test 48 h (le brief auto-porté, hors kit)** : une **vidéo YouTube publique neutre** (extrait de podcast FR — jamais du contenu des créatrices : pas de contenu maison à des non-embauchés, pas de Reels d'elles publiés sans contrôle) → un Reel 20-40 s vertical, hook 1re seconde, sous-titres, coupes — **fichier envoyé, pas posté**. Notation en 3 axes : à l'heure (fiabilité) · hook/rythme (skill) · brief respecté (coachabilité) ; question intelligente = bonus. Deadline ferme, pas de rattrapage — l'auto-sélection est le but (« ceux qui ont la foi le feront »). Les ~13 meilleurs rendus intègrent l'équipe ; **8 bons > 13 tièdes**.
 
-## Application LTP — la semaine type (avant le départ du 21/07)
+## Extension à 200 leads (demandée le 18/07 — « bombarder avant le départ du 26 »)
 
-**J1** : relance des 55 (message : « ta candidature est retenue pour le test — 1 Reel selon la méthode, 48 h ») + brief parrainage aux 7. **J2** : vague Disboard (10 serveurs/jour, canaux hiring) + 3 groupes Telegram. **J3** : posts personas (2 groupes CM, 2 groupes e-com, 2 groupes monteurs). **J4-J5** : jobboards + Reel recrutement lancé chez les clippers. **Ensuite** : le responsable acquisition (manager en cours de nomination) reprend la cadence — 30 min/jour de reposting, le pipeline ne dépend plus de Gaëtan ([[Se licencier de son propre poste]]).
+Objectif doublé : **200 leads = ~400-500 candidatures brutes ciblées FR** au rendement mesuré. La pile ci-dessus reste l'ossature (elle porte 150-245 leads en l'exécutant à fond) ; s'y ajoutent **4 canaux** issus du rapport talents de la [[Machine de recrutement clippers (100 leads par mois)|machine v2]] :
+
+| # | Canal ajouté | Leads quali attendus | Mode d'emploi |
+|---|---|---:|---|
+| 11 | **Débauchage leaderboards** (Whop/Notify : annuaires publics nominatifs des tops) | 5-10 (très chauds) | 10 DM **individuels et personnalisés par jour** (jamais de masse) : « j'ai vu ton rang sur X, on paie fixe + 0,50 €/sub tracké, review 72 h, virement le lundi » — test 48 h **payé 20-30 €** pour eux seuls (décision du 17/07) |
+| 12 | **ofmjobs.com** (pipeline déjà acculturé à la niche) | 10-20 | poster l'annonce des 5 F + parcourir les profils monteurs/clippeurs, contact direct |
+| 13 | **Communautés de monteurs anglo-FR** : Discord « video editors » (~130 k), communauté X Video Editors — filtrer francophones | 10-15 | posts dans les canaux *hiring* uniquement, mention « FR only » |
+| 14 | **Outreach TikTok/IG sur les monteurs qui s'affichent** (#capcut #montagevidéo FR : ils publient leurs montages = candidature ouverte) | 10-20 | commenter + DM individuel sur leur travail (ciblé, pas de masse) |
+
+Total étendu : **175-300 leads quali** → 200 atteignable en 10-14 jours, dont la moitié avant le départ. Les canaux 11-14 respectent [[Conformité recrutement (droit FR, RGPD, CGU)]] : DM individuels motivés par le profil public de la personne, jamais de spam.
+
+**Amplificateurs transverses** (coût zéro) : le bot annonce la **prime parrainage à chaque annonce de paiement** du lundi (le moment où les 7 actifs y croient le plus) ; chaque clipper actif glisse **1 Reel de recrutement/semaine** dans sa rotation (chiffres réels des tops uniquement — honnêteté = filtre de qualité) ; dès le premier screenshot de paiement, lancer la **méta-campagne** (composant 1 de la machine : 2-3 clippers payés pour clipper les success stories).
+
+**Friction du test corrigée (18/07)** : le brief « vidéo YouTube longue » démotivait (40 min à télécharger). Nouveau brief : **extrait fourni de ≤ 10 min avec timestamps** (toujours une vidéo publique neutre, jamais du contenu créatrices) → 2 clips en 48 h. La compétence testée est identique (hook, rythme, sous-titres), la friction de téléchargement disparaît — la leçon Whop : c'est la friction d'entrée qui tue le volume. L'épreuve lourde reste pour le débauchage/rang Elite. **Mesurer le ratio candidatures → tests rendus → validés dans [[Reporting clippers]]** : on saura en une semaine si le test était le frein.
+
+⚠️ **Garde-fou trésorerie (à ne pas perdre en route)** : 20 clippeurs FR = **~4 000 €/mois d'engagement de fixes** (conditionnels, mais à provisionner). L'onboarding reste **par vagues sous la règle cash** (solde ≥ 3 000 €) — juin a capitalisé 0 € ([[LTP Models]]) ; la première [[SOP clôture mensuelle avec Maxence|clôture]] du 1er août doit confirmer que la trésorerie suit avant la vague 2.
+
+## Application LTP — la cadence datée (mise à jour 18/07, départ le 26/07)
+
+**Dim 19** : relance des 55 (message : « ta candidature est retenue pour le test — 2 clips selon la méthode, 48 h », nouveau brief allégé) + brief parrainage aux 7 + annonce postée sur ofmjobs. **Lun 20** : vague Disboard (10 serveurs, canaux hiring) + 3 groupes Telegram + 10 DM débauchage leaderboards. **Mar 21** : posts personas (2 groupes CM, 2 e-com, 2 monteurs) + 10 DM débauchage + relance des sans-réponse de dimanche. **Mer 22** : jobboards (Indeed, Leboncoin, jobs étudiants) + communautés video editors (Discord 130 k, X) + brief Reel de recrutement aux 7. **Jeu 23 → sam 26** : reposting 30 min/jour + outreach TikTok monteurs 10/jour + tests 48 h en continu, validations par vagues (règle cash). **Après le 26** : le responsable acquisition/le bot reprend la cadence — 30 min/jour de reposting, le pipeline ne dépend plus de Gaëtan ([[Se licencier de son propre poste]]) ; objectif 200 leads atteint ~fin juillet, les validations continuent à distance en août.
 
 La théorie derrière la manœuvre : [[Sourcing de candidats]] (le recrutement est un problème de marketing — mêmes canaux que [[Core Four]], cible = talents) ; le goulot se déplace des leads vers le tri, conformément à [[Théorie des contraintes]].

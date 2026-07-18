@@ -42,6 +42,23 @@ La contrainte actuelle de l'agence n'est plus la LTV (réparée), c'est le **nom
 
 **Le fixe est conditionnel, pas acquis** : c'est un salaire au SLA, pas une rente. Pod inactif ou reporting manquant 2 semaines de suite = pas de fixe, conversation, puis sortie. La [[Scorecard et définition de poste|scorecard]] fait le travail de management à ta place.
 
+## Le verrou anti-passager clandestin (détaillé le 18/07 — réponse à « qu'ils prennent le fixe et s'en aillent »)
+
+Le fixe hebdo (50 €, versé le lundi **après** la semaine — jamais d'avance) tombe si et seulement si les **4 conditions** sont vertes, calculées par le bot :
+
+| # | Condition | Mesure | Exemption |
+|---|---|---|---|
+| 1 | **Volume publié** | posts réels/prévus ≥ 90 %, lus dans les **analytics natifs** (jamais de captures d'écran) | — |
+| 2 | **Comptes actifs et sains** | 6 comptes vivants (3 IG + 3 FB), aucun compte mort/gelé non signalé, warmup respecté | ban de compte signalé < 24 h = neutralisé |
+| 3 | **Signal de subs trackés** | **≥ 5 subs trackés sur 14 jours glissants** (GetAllMyLinks, réconcilié Infloww) | semaines 1-2 exemptées (warmup : comptes froids, ne pas punir la physique) |
+| 4 | **Reporting envoyé** | le formulaire hebdo rempli à l'heure | indispo annoncée ≥ 72 h à l'avance = semaine « pausée » (ni fixe ni strike) |
+
+**Pourquoi 5 subs et pas 100** : ce seuil ne mesure pas la rentabilité (ça, c'est la grille et les rangs) — il détecte le **volume fantôme**. Un vrai clipper qui publie 90 % de sa cadence sur 6 comptes chauds dépasse quasi toujours 5 subs/14 j ; un faux fait zéro. Seuil montable à 10-15 fin août, sur données.
+
+**L'escalade automatique** : 1 condition rouge = **pas de fixe cette semaine** + message bot (pas de négociation, pas de rétroactif) · 2 semaines consécutives rouges = **gel du pod**, conversation, récupération des accès (les comptes appartiennent à l'agence — condition d'onboarding), sortie si pas de plan crédible. **La commission n'est jamais gelée** : les 0,50 €/sub vérifiés restent dus même quand le fixe saute — le fixe paie le process, la commission paie le résultat ; c'est ce qui rend le gel du fixe incontestable (et RGPD/prud'hommes-propre : on ne retient jamais du travail livré).
+
+**Le coût maximal d'un passager clandestin** avec ce verrou : 2 × 50 € = **100 €**, et seulement s'il a réellement publié à 90 % pendant 2 semaines — c'est-à-dire s'il a travaillé. « Prendre le fixe et partir » devient économiquement impossible : pour toucher 50 €, il faut livrer une semaine de travail vérifiable. Les contre-pouvoirs déjà actés complètent : audit aléatoire 10 % des posts, tableau de bord partagé en lecture (la transparence tue la contestation), rétrogradation de rang.
+
 ## L'économie (recalculée avec les vrais chiffres, 2026-07-11)
 
 **La formule réelle** (corrigée par Gaëtan) : créatrice signée à 50 % → part agence = 50 % du CA ; coûts chatting ≈ 15 % du CA → **marge boîte ≈ 35 % de la LTV**. Charges marketing partagées 50/50 avec Maxence depuis la renégo → profit Gaëtan = (0,35 × LTV − coût marketing) ÷ 2. La commission porte sur les **subs OF gratuits vérifiés par le tracking** (c'est le fan gratuit que le chatting monétise ensuite). LTV réelle des créatrices ciblées pods : **3 à 8 $**.
