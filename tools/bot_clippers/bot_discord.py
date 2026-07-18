@@ -79,6 +79,7 @@ FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des sign
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
+CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
 
 # Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
 # remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
@@ -500,8 +501,10 @@ async def envoyer_test_candidat(membre, score=""):
         "· Monte **2 clips verticaux** à partir des rushs du dossier (hook dès la 1re seconde, sous-titres, rythme).\n"
         "· **Deadline : 48 h** à partir de maintenant.\n"
         "· Dépose tes 2 clips **en réponse ici, en message privé** (fichiers ou lien Drive/WeTransfer) — "
-        "je les transmets directement pour la review, personne d'autre ne les voit.\n\n"
-        "La régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
+        "je les transmets directement pour la review, personne d'autre ne les voit.\n"
+        + ((f"· Une question pour bien réussir ton test (réglages, format, méthode) ? Demande à "
+            f"**l'assistant IA** dans <#{CANAL_ASSISTANT_ID}> — il répond 24h/24.\n") if CANAL_ASSISTANT_ID else "")
+        + "\nLa régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
 
 
 async def traiter_quiz_webhook(message):
