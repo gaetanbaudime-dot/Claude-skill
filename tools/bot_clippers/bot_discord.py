@@ -817,8 +817,8 @@ async def commande_admin(message, texte: str) -> bool:
         reste = normaliser(texte.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", ""))
         if "retirer" in reste or "enlever" in reste:
             equipe = None
-        elif "mg" in reste.split() or "mada" in reste:
-            equipe = "mg"
+        elif "mg" in reste.split() or "mada" in reste or "int" in reste.split() or "international" in reste:
+            equipe = "mg"          # code interne historique « mg » = Team International (renommée le 18/07)
         elif "fr" in reste.split() or "france" in reste:
             equipe = "fr"
         else:
