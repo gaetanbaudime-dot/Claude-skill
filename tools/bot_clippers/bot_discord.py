@@ -92,6 +92,7 @@ FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat :
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
 CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
+CANAL_FORMATION_ID = os.environ.get("CANAL_FORMATION_ID", "").strip()   # forum formation, lié dans le parcours MP étape 2
 
 # Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
 # remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
@@ -688,6 +689,52 @@ async def enregistrer_candidatures(quadruplets):
     return nb, grilles, incoherences, rejets, rapproches
 
 
+async def traiter_liaison(auteur, brut):
+    """Cœur de la liaison (via `!lier` ou un numéro envoyé BRUT en MP, sans commande) :
+    retrouve la candidature, renomme le membre, puis envoie l'étape suivante — une seule
+    à la fois : formation + lien de quiz personnel (parcours sans friction du 18/07)."""
+    lectures = interpretations_tel(brut)
+    if not lectures:
+        await envoyer_mp(auteur, "Envoie-moi simplement **ton numéro de téléphone** (celui du formulaire), "
+                                 "par exemple : `06 12 34 56 78` — rien d'autre à écrire.")
+        return
+    donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    # Numéro ambigu (06 FR ? 03x malgache ? 01x béninois ?) : la lecture qui matche une candidature l'emporte.
+    tel = next((l for l in lectures if l in donnees.get("candidatures", {})), lectures[0])
+    cand = donnees.get("candidatures", {}).get(tel, {})
+    liaison = {"tel": tel, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    if cand:
+        liaison["prenom"], liaison["pays"] = cand.get("prenom", ""), cand.get("pays", "")
+    donnees.setdefault("liaisons", {})[str(auteur.id)] = liaison
+    ecrire_json(FICHIER_PIPELINE, donnees)
+    if cand.get("prenom"):
+        membre_serveur = membre_par_id(auteur.id)
+        if membre_serveur:
+            try:                         # surnom serveur = prénom du formulaire : tout le monde s'y retrouve
+                await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée")
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+    etape1 = (f"✅ **Étape 1 réussie — candidature retrouvée : {cand.get('prenom') or 'toi'} "
+              f"({cand.get('pays') or 'pays ?'})**. Ton compte est relié au numéro **…{tel[-4:]}**."
+              if cand else
+              f"🔗 Numéro **…{tel[-4:]}** enregistré. ⚠️ Je ne retrouve pas (encore) de candidature avec ce "
+              "numéro — vérifie que c'est EXACTEMENT celui du formulaire (renvoie-le si besoin), "
+              "sinon continue normalement : on vérifiera ensemble à la fin.")
+    formation = f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le forum **formation**"
+    await envoyer_mp(auteur, etape1 + "\n\n"
+        "**Étape 2 — la formation 🎓**\n"
+        f"→ Va dans {formation}, post « Bienvenue » : regarde la vidéo (54 min) **en entier** — "
+        "4 mots-clés y sont cachés, note-les dans l'ordre, ils te seront demandés.\n"
+        + ((f"→ Puis passe ton quiz avec **TON lien personnel** (ne modifie pas la case déjà remplie) :\n"
+            f"{LIEN_QUIZ}{auteur.id}\n"
+            f"Seuil : **27/34** · deux essais maximum.\n\n") if LIEN_QUIZ else "\n")
+        + "**Étape 3 — le test 🎬**\n"
+          "Quiz réussi → ton test de montage (48 h) arrive **ici automatiquement**. Rien d'autre à faire "
+          "d'ici là. Bonne formation 🚀")
+    journal.info("Liaison téléphone : membre %s -> …%s (%s)", auteur.id, tel[-4:],
+                 "candidature retrouvée" if cand else "sans candidature")
+
+
 async def traiter_candidature_webhook(message):
     """Lignes « CANDIDATURE|prénom|tel|pays|pseudo » postées par l'Apps Script de la feuille
     de candidatures (même webhook Discord que le quiz, plusieurs lignes par message possibles
@@ -882,24 +929,21 @@ async def accueillir(member):
         cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
         retrouvee = (f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
                      f"({cand.get('pays') or 'pays ?'}).\n" if cand else "")
+        # Une seule étape à la fois : d'abord le numéro, le reste arrive au fil de l'eau.
         guide = (f"🎬 **Bienvenue {member.display_name} — ta candidature est bien arrivée !**\n"
                  + retrouvee +
-                 "Ton parcours, dans l'ordre :\n"
-                 "1️⃣ Réponds-moi **ici** : `!lier <ton numéro de téléphone>` — le MÊME que dans le "
-                 "formulaire, c'est lui qui relie ta candidature à ton compte.\n"
-                 "2️⃣ Forum **formation** → post « Bienvenue » : regarde la vidéo (54 min) **en entier** "
-                 "— 4 mots-clés y sont cachés, tu en auras besoin au quiz.\n"
-                 "3️⃣ Tape `!quiz` pour recevoir ton lien personnel (seuil : 27/34).\n"
-                 "4️⃣ Quiz validé → ton test de montage de 48 h arrive ici automatiquement.\n"
-                 f"Pas d'entretien : ceux qui livrent sont pris 🚀{aide}")
+                 "**Étape 1 — relie ton compte 🔗**\n"
+                 "Réponds-moi simplement avec **ton numéro de téléphone** (le MÊME que dans le "
+                 "formulaire), par exemple : `06 12 34 56 78`.\n"
+                 f"Je m'occupe de tout le reste, étape par étape.{aide}")
     else:
         # Porte Disboard/découverte : il n'a probablement pas encore candidaté — le formulaire d'abord.
         guide = (f"🎬 **Bienvenue {member.display_name} sur le serveur des clippers !**\n"
                  + ((f"📝 **Pas encore candidaté ?** Tout commence par le formulaire (3 min) : "
                      f"{LIEN_FORMULAIRE} — à la fin il te ramène ici, et je te guide.\n") if LIEN_FORMULAIRE else "")
-                 + "✅ **Déjà candidaté ?** Réponds-moi **ici** : `!lier <ton numéro de téléphone>` (celui du "
-                   "formulaire), puis direction le forum **formation** (post « Bienvenue » : vidéo + quiz).\n"
-                 f"Ensuite : quiz → test de montage 48 h. Pas d'entretien : ceux qui livrent sont pris 🚀{aide}")
+                 + "✅ **Déjà candidaté ?** Réponds-moi simplement avec **ton numéro de téléphone** ici "
+                   "(celui du formulaire) — je te guide ensuite étape par étape.\n"
+                 f"Pas d'entretien : formation → quiz → test de montage 48 h. Ceux qui livrent sont pris 🚀{aide}")
     mp_ok = await envoyer_mp(member, guide)
 
     canal = await canal_par_id(CANAL_CANDIDATURE_ID)
@@ -912,9 +956,10 @@ async def accueillir(member):
             lignes = [f"🎬 Bienvenue {member.mention} — **{guild.member_count}ᵉ** futur clipper ! "
                       f"⚠️ Tes MP sont fermés (Paramètres de confidentialité du serveur) : ouvre-les, tout "
                       f"ton parcours passe par moi en privé. En attendant : "
-                      + ("`!lier <ton numéro>` puis forum **formation**." if source.startswith("formulaire")
-                         else (f"formulaire (3 min) : {LIEN_FORMULAIRE} puis `!lier`." if LIEN_FORMULAIRE
-                               else "`!lier <ton numéro>` puis forum **formation**."))]
+                      + ("envoie-moi ton numéro de téléphone en MP dès qu'ils sont ouverts."
+                         if source.startswith("formulaire")
+                         else (f"formulaire (3 min) : {LIEN_FORMULAIRE} — puis ton numéro en MP." if LIEN_FORMULAIRE
+                               else "envoie-moi ton numéro de téléphone en MP dès qu'ils sont ouverts."))]
         if parrain_id and parrain_id != member.id:
             total = donnees.get("par_parrain", {}).get(str(parrain_id), 1)
             lignes.append(f"-# Invité par <@{parrain_id}> ({total} au total) — le parrainage paie quand le filleul devient clipper actif.")
@@ -1236,19 +1281,63 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     if texte.startswith("!test-ok"):
-        if not message.mentions:
-            await message.reply("Format : `!test-ok @membre`")
+        corps = texte[len("!test-ok"):].strip()
+        membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
+        if membre is None:
+            await message.reply("Format : `!test-ok @membre` — ou `!test-ok Prénom`.")
             return True
-        membre = message.mentions[0]
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         donnees.setdefault("etats", {}).setdefault(str(membre.id), {})["etat"] = "valide"
         donnees["etats"][str(membre.id)]["validation"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         ecrire_json(FICHIER_PIPELINE, donnees)
-        await envoyer_mp(membre, "✅ **Test validé — bravo, tu rejoins l'équipe !**\n\n"
-                                 "Prochaine étape : la **signature du contrat** (on te contacte très vite pour ça). "
-                                 "Dès signature, tu reçois ton rôle d'équipe, l'accès à ton espace et ton lien de tracking. "
-                                 "À très vite 🔥")
-        await message.reply(f"🏆 {membre.mention} validé — prochaine étape : contrat, puis `!equipe @membre fr|mg`.")
+        # Aiguillage acté le 18/07 au soir : FR validé → contrat AVANT le rôle ;
+        # International validé → rôle + onboarding directs (déclenchés par CE !test-ok, donc
+        # toujours par un humain — la doctrine « jamais d'auto-attribution » reste vraie).
+        liaison = donnees.get("liaisons", {}).get(str(membre.id), {})
+        pays, tel_liaison = liaison.get("pays", ""), liaison.get("tel", "")
+        grille_tel = equipe_de_l_indicatif(tel_liaison)
+        incoherent = bool(pays and grille_tel and equipe_du_pays(pays) != grille_tel)
+        grille = "" if incoherent else (grille_tel or (equipe_du_pays(pays) if pays else ""))
+        if grille == "fr":
+            await envoyer_mp(membre, "🏆 **Test validé — bravo, tu rejoins l'équipe France !**\n\n"
+                                     "Dernière étape avant tes accès : la **signature du contrat** — il arrive "
+                                     "très vite (surveille tes messages). Dès signature : ton rôle Team France, "
+                                     "ton espace, ton lien de tracking, et la paie chaque lundi. 🔥")
+            await message.reply(f"🏆 {membre.mention} validé (grille FR) → envoie le contrat, "
+                                f"puis `!equipe {membre.display_name} fr` à la signature.")
+        elif grille == "mg" and message.guild is not None:
+            role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name),
+                                         message.guild.roles)
+            attribue = False
+            if role_mg is not None:
+                try:
+                    await membre.add_roles(role_mg, reason=f"Test validé — !test-ok par {message.author}")
+                    registre = lire_json(FICHIER_EQUIPES, {})
+                    registre[str(membre.id)] = {"equipe": "mg", "par": str(message.author.id),
+                                                "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                    ecrire_json(FICHIER_EQUIPES, registre)
+                    attribue = True
+                except discord.Forbidden:
+                    pass
+            await envoyer_mp(membre, "🏆 **Test validé — bienvenue dans la Team International !**\n\n"
+                                     "Tes accès équipe viennent de s'ouvrir. La suite, dans l'ordre :\n"
+                                     "1️⃣ Envoie-moi ton **adresse Gmail** ici — elle sert à t'ouvrir le Drive "
+                                     "(rushs et modèles).\n"
+                                     "2️⃣ **Fiche 1** (forum formation) : création de tes comptes.\n"
+                                     "3️⃣ **Warm-up 48 h** (Fiche 2), puis posting quotidien.\n"
+                                     "4️⃣ Chaque dimanche : ton **reporting** (obligatoire pour le fixe).\n"
+                                     "Ton lien de tracking arrive avec l'accès au Drive. Au travail 💪")
+            await message.reply(f"🏆 {membre.mention} validé → **Team International attribuée** "
+                                + ("(+ registre) · MP d'onboarding envoyé." if attribue else
+                                   "— ⚠️ rôle non attribué (introuvable ou permission) : fais `!equipe "
+                                   f"{membre.display_name} int`. MP d'onboarding envoyé."))
+        else:
+            await envoyer_mp(membre, "🏆 **Test validé — bravo, tu rejoins l'équipe !** On te contacte très "
+                                     "vite pour la dernière étape. 🔥")
+            await message.reply(f"🏆 {membre.mention} validé — grille indéterminée "
+                                + ("(pays déclaré ≠ indicatif, tranche à la main)" if incoherent
+                                   else "(candidature non liée)")
+                                + f" : vérifie puis `!equipe {membre.display_name} fr` ou `int`.")
         return True
 
     if texte.startswith("!test-non"):
@@ -1607,48 +1696,20 @@ async def on_message(message):
             await message.reply(f"🏆 **Classement des bumps — {mois}**\n" + "\n".join(lignes))
         return
 
-    # Commande PUBLIQUE : !lier <téléphone> — la clé de jointure exacte avec le formulaire.
-    # En salon public, le message est supprimé (le numéro ne doit jamais rester visible).
-    if texte.startswith("!lier"):
-        lectures = interpretations_tel(texte[len("!lier"):])
+    # Liaison téléphone — la clé de jointure exacte avec le formulaire. Deux chemins :
+    # `!lier <numéro>` (historique) OU le numéro envoyé BRUT, sans commande (parcours sans
+    # friction du 18/07 : en MP c'est la voie normale ; dans #candidature on efface et on
+    # bascule en privé, un numéro ne doit jamais rester visible).
+    numero_brut = (message.guild is None or (CANAL_CANDIDATURE_ID and str(message.channel.id) == CANAL_CANDIDATURE_ID)) \
+        and re.fullmatch(r"[\d\s+().\-]{8,}", texte or "") and len(re.sub(r"\D", "", texte)) >= 8
+    if texte.startswith("!lier") or numero_brut:
+        brut = texte if numero_brut else texte[len("!lier"):]
         if message.guild is not None:
             try:
                 await message.delete()
             except (discord.Forbidden, discord.HTTPException):
                 pass
-        if not lectures:
-            await envoyer_mp(message.author, "Format : `!lier 0612345678` (le numéro que tu as mis dans le "
-                                             "formulaire de candidature). Envoie-le-moi **ici, en message privé**.")
-            return
-        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        # Numéro ambigu (06 FR ? 03x malgache ? 01x béninois ?) : la lecture qui matche une
-        # candidature l'emporte — la jointure marche quel que soit le pays.
-        tel = next((l for l in lectures if l in donnees.get("candidatures", {})), lectures[0])
-        cand = donnees.get("candidatures", {}).get(tel, {})
-        liaison = {"tel": tel, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-        if cand:
-            liaison["prenom"], liaison["pays"] = cand.get("prenom", ""), cand.get("pays", "")
-        donnees.setdefault("liaisons", {})[str(utilisateur)] = liaison
-        ecrire_json(FICHIER_PIPELINE, donnees)
-        if cand.get("prenom"):
-            membre_serveur = membre_par_id(utilisateur)
-            if membre_serveur:
-                try:                     # surnom serveur = prénom du formulaire : tout le monde s'y retrouve
-                    await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée (!lier)")
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
-        debut = (f"✅ Candidature retrouvée : **{cand.get('prenom') or 'toi'}** ({cand.get('pays') or 'pays ?'}) — "
-                 f"ton compte Discord est maintenant relié au numéro **…{tel[-4:]}**. "
-                 "Ton avancement (quiz, test, contrat) est suivi automatiquement."
-                 if cand else
-                 f"🔗 Numéro **…{tel[-4:]}** enregistré — mais je ne retrouve pas (encore) de candidature avec ce "
-                 "numéro. Vérifie que c'est EXACTEMENT celui du formulaire, ou refais `!lier` avec le bon.")
-        confirme = await envoyer_mp(message.author, debut
-            + ((f"\n\n📝 Quand tu as terminé la formation, passe ton quiz avec **TON lien personnel** "
-                f"(ne modifie pas le champ pré-rempli) :\n{LIEN_QUIZ}{utilisateur}") if LIEN_QUIZ else ""))
-        if not confirme and message.guild is None:
-            await message.reply("🔗 Lié ! (numéro enregistré)")
-        journal.info("Liaison téléphone : membre %s -> …%s", utilisateur, tel[-4:])
+        await traiter_liaison(message.author, brut)
         return
 
     # Commande PUBLIQUE : !quiz — le bot envoie en MP le lien de quiz PERSONNEL (ID Discord pré-rempli,

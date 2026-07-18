@@ -12,16 +12,16 @@
 4. Refaire ce qui marche.
 5. Ramener des abonnés OnlyFans avec son lien — c'est ça qui paie.
 
-## LE PARCOURS CANDIDAT (de la candidature à l'équipe, dans l'ordre)
+## LE PARCOURS CANDIDAT (tout se passe en MESSAGE PRIVÉ avec le bot, étape par étape)
 
-1. **Formulaire de candidature** (lien dans #candidature). Tu y mets ton prénom, ton pays, ton numéro de téléphone et ton pseudo Discord.
-2. **Relier ton compte** : envoie `!lier 06XXXXXXXX` au bot **en message privé** — avec EXACTEMENT le même numéro que dans le formulaire. C'est ce qui relie ta candidature à ton Discord (et le serveur affiche alors ton prénom).
-3. **La formation** : forum « formation », post « Bienvenue ». Une seule vidéo (54 minutes) + les 6 fiches. **4 mots-clés sont cachés dans la vidéo** : note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne — ni le bot, ni un autre clipper. Les demander = disqualifié.
-4. **Le quiz** : tape `!quiz` sur le serveur, le bot t'envoie TON lien personnel en message privé (ne modifie pas le champ pré-rempli). Seuil : **27/34**. Deux essais maximum.
-5. **Le test de montage** : si tu passes le quiz, le bot t'envoie automatiquement le test en message privé — 2 clips à monter en **48 h**. Tu rends tes 2 clips **en message privé au bot** (jamais dans un salon public). Réponse sous 72 h maximum.
-6. **Le contrat puis l'équipe** : test validé → signature du contrat (18 ans minimum obligatoire) → tu reçois ton rôle (Team France pour France/Belgique/Suisse, Team International pour les autres pays), ton accès équipe et ton lien de tracking. Ensuite seulement : création des comptes (Fiche 1).
+1. **Formulaire de candidature** (lien dans #candidature). Tu y mets ton prénom, ton pays et ton numéro de téléphone. À la fin, le formulaire te donne le lien du Discord.
+2. **Relier ton compte** : à ton arrivée, le bot t'écrit en message privé et te demande UNE chose — ton numéro de téléphone. **Envoie-lui juste le numéro, sans commande** (par exemple : `06 12 34 56 78`), le MÊME que dans le formulaire. Il retrouve ta candidature et le serveur affiche ton prénom. (La commande `!lier 06XXXXXXXX` marche aussi.)
+3. **La formation** : juste après ton numéro, le bot t'envoie en message privé le lien du forum « formation » ET **ton lien de quiz personnel**. Regarde la vidéo (54 minutes) **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne — ni le bot, ni un autre clipper. Les demander = disqualifié.
+4. **Le quiz** : ton lien personnel (ne modifie pas la case déjà remplie). Seuil : **27/34**. Deux essais maximum. Lien perdu → tape `!quiz`, le bot te le renvoie en message privé.
+5. **Le test de montage** : si tu passes le quiz, le test arrive **automatiquement en message privé** — 2 clips à monter en **48 h**. Tu rends tes 2 clips **en message privé au bot** (jamais dans un salon public). Réponse sous 72 h maximum.
+6. **Après le test validé** : équipe **France** (France/Belgique/Suisse) → signature du contrat (18 ans minimum obligatoire), puis ton rôle Team France, ton espace et ton lien de tracking. Équipe **internationale** (autres pays) → ton rôle Team International s'ouvre directement et le bot t'envoie ton onboarding en message privé : ta Gmail (accès au Drive), Fiche 1 (comptes), warm-up, reporting du dimanche.
 
-Problèmes fréquents : pas reçu le lien du quiz ou le test → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis retape `!quiz` ; quiz raté → revois la vidéo, il te reste un essai ; test non rendu à temps → repassage possible 15 jours plus tard, reste sur le serveur.
+Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis envoie-lui ton numéro en MP ; lien du quiz perdu → tape `!quiz` ; quiz raté → revois la vidéo, il te reste un essai ; test non rendu à temps → repassage possible 15 jours plus tard, reste sur le serveur.
 
 ## LES SALONS DU SERVEUR (qui va où)
 
@@ -34,7 +34,7 @@ Problèmes fréquents : pas reçu le lien du quiz ou le test → ouvre tes messa
 - **#bump** : tape `/bump` quand le bot le rappelle — classement mensuel avec `!bumps`.
 - **#annonces** : les annonces officielles. On lit, on ne répond pas.
 
-Commandes utiles pour tous : `!lier` (relier sa candidature, en MP), `!quiz` (recevoir son lien personnel), `!bumps` (classement du mois).
+Commandes utiles pour tous : ton numéro envoyé en MP au bot = candidature reliée (pas besoin de commande ; `!lier` marche aussi), `!quiz` (recevoir à nouveau son lien personnel), `!bumps` (classement du mois).
 
 ## Le matériel de travail (pour 1 téléphone)
 
@@ -48,7 +48,7 @@ On ne poste JAMAIS une vidéo brute du Google Drive. Chaque vidéo doit être mo
 
 ## FICHE 1 — Créer tes comptes (Jour 0)
 
-Avant de commencer : quiz validé (8/10 minimum) + adresse Gmail envoyée à Gaëtan (accès au Drive de la créatrice).
+Avant de commencer : quiz validé (**27/34**) + test de montage validé + adresse Gmail envoyée **au bot en message privé** (elle ouvre l'accès au Drive de la créatrice). Pour l'équipe France : contrat signé d'abord.
 
 Instagram, les règles d'or :
 - 1 SEUL compte Instagram créé par jour. Jamais 2 ou 3 le même jour.
