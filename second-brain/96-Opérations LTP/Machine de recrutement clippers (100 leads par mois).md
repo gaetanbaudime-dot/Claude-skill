@@ -81,7 +81,7 @@ Le modèle verrouillé :
 4. **Rôle « Candidat » par défaut** : accès bienvenue + candidature + salons de preuve publics (compteur, dopamine) — rien d'autre ; le kit et la formation restent derrière le contrat (tunnel v3).
 5. **Audit périodique** : Paramètres → Membres → filtrer par rôle → chaque titulaire FR/MG correspond à un validé sous contrat.
 6. **La réponse à l'écart FR/MG, prête d'avance** (il sera vu un jour) : *même commission pour tous — 0,50 €/sub, l'équité au mérite ; les fixes sont indexés sur le coût de la vie locale, comme dans toute équipe internationale.* Déjà la doctrine de [[Équipe marketing - structure et rémunération (FR × MG)]].
-7. **Candidats hors périmètre** (Bénin/international) : décision actée = FR uniquement cet été, l'international ouvre en phase 2 (septembre) — réponse type : candidature en vivier prioritaire, retrait du rôle, pas d'exception qui casse la grille.
+7. **Deux équipes, pas une par pays (acté le 18/07)** : les équipes suivent les **grilles de paie**, pas la géographie. **Team France** = France + Belgique + Suisse (grille FR 200 €) ; **Team International** (ex-« Team Madagascar », rôle renommé + `ROLE_TEAM_MG_NOM=Team International` dans Railway) = Madagascar, Bénin, Cameroun, Maroc… (grille internationale 100 €, identique sur ces marchés VA). Le pays reste une **donnée d'analyse** (formulaire → garde-fou LTV par cohorte du [[Journal de coaching|journal]]), jamais une structure de salons. Conséquence : les candidats Bénin/Cameroun entrent dans le tunnel normal (formation → quiz → test → contrat), pas de rôle avant signature.
 
 ### Onboarding natif Discord (réglé le 18/07 — la frontière vitrine/moteur)
 
