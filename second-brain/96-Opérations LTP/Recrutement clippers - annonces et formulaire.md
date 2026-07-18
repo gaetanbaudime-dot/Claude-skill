@@ -162,7 +162,10 @@ Objectif : **filtrer en 3 min** et **router FR vs MG/Bénin**. Pour les MG/Béni
 
 **Champs qui alimentent le tri automatique** : Q3 (pays) → onglet FR / onglet MG-Bénin ; Q4 (majeur) → élimination auto si Non ; Q13 + Q15 → un « Non » sur l'un des deux = écarté. Les FR retenus passent en entretien ; les MG/Bénin retenus reçoivent le vocal de formation.
 
-## 5) Relance des candidats du sheet + brief test 48 h (2026-07-16)
+## 5) Relance des candidats du sheet + brief test 48 h (2026-07-16) — ⚠️ OBSOLÈTE
+
+> [!warning] Remplacée le 18/07 par la section 8
+> Ces messages envoyaient le test **directement par WhatsApp**, en dehors du tunnel — plus de quiz, plus de fiche d'identité, plus de traçage. Depuis le tunnel v5, TOUT candidat passe par le Discord (`!lier` → formation → quiz → test automatique). Utiliser la **section 8** ; celle-ci reste pour l'historique.
 
 Mécanique « parrainage d'abord » (voir [[Sourcing 100 leads clippers FR (plan juillet 2026)|le plan sourcing]] pour le pourquoi psychologique et les garde-fous).
 
@@ -408,3 +411,74 @@ Aucun diplôme exigé. Une formation complète et des consignes précises sont f
 - Peux-tu remplir un reporting chaque dimanche ?
 
 **Lieu du poste** : Télétravail
+
+## 8) Messages-ponts v5 — tout le monde entre par le tunnel Discord (2026-07-18)
+
+> [!tip] Verdict
+> Depuis le 18/07, **aucun test ne part par WhatsApp** : chaque message-pont pousse vers UNE des deux portes. Ceux qui ont déjà candidaté reçoivent directement le **lien Discord de leur grille** (FR `discord.gg/FrMuRp38CB` · INT `discord.gg/RwWmVcZ5QT`) ; les nouveaux reçoivent le **formulaire** (qui les aiguillera lui-même). La liste de relance exacte sort de `!pipeline` (« candidatures sans Discord lié ») après la reprise d'historique — trier la sheet par pays, puis vagues de 20-30 messages/jour depuis WhatsApp Business (au-delà, risque de restriction du numéro).
+
+**A. Relance sheet — pays FR/BE/CH (a déjà candidaté) :**
+
+```
+Salut [Prénom] ! C'est Gaëtan 👋 Tu avais postulé chez nous comme
+clippeur (montage de Reels rémunéré depuis ton téléphone).
+
+Bonne nouvelle : la sélection est ouverte. Tout se passe sur notre
+Discord maintenant — formation offerte, quiz, puis test de montage de
+48 h. Pas d'entretien : ceux qui livrent sont pris.
+
+👉 Rejoins ici : https://discord.gg/FrMuRp38CB
+Sur place, envoie au bot en message privé : !lier + ton numéro de
+téléphone (celui de ta candidature) — tout s'enchaîne automatiquement.
+
+Rému : fixe hebdo + 0,50 € par abonné tracké, payé chaque lundi.
+On prend les dernières places de l'équipe française de l'été 🚀
+```
+
+**B. Relance sheet — pays internationaux (a déjà candidaté) :**
+
+```
+Salut [Prénom] ! C'est Gaëtan 👋 Tu avais postulé chez nous comme
+clippeur. On ouvre le recrutement dans ton pays dans les 30 prochains
+jours — et les premiers formés seront les premiers sélectionnés.
+
+👉 Prends de l'avance, rejoins le Discord : https://discord.gg/RwWmVcZ5QT
+Sur place : !lier + ton numéro (celui de ta candidature) en message
+privé au bot, puis la formation (forum « formation ») et le quiz.
+
+Formation offerte, pas d'entretien : ceux qui livrent sont pris 💪
+```
+
+**C. Relance J+2 (sans réponse au message A ou B) :**
+
+```
+[Prénom], il reste peu de places dans l'équipe de juillet — ta
+formation et ton test t'attendent sur le Discord (pas d'entretien).
+👉 [LIEN DE SA PORTE] puis !lier + ton numéro en MP au bot.
+Tu me dis quand c'est fait ? 🙂
+```
+
+Deux relances maximum (J+2 puis J+7), ensuite on classe sans suite — un candidat qu'il faut supplier ne tiendra pas la cadence de publication.
+
+**D. Réponse aux nouvelles candidatures Indeed (pas encore de formulaire) :**
+
+```
+Salut [Prénom] ! Merci pour ta candidature, ton profil me plaît 🙂
+Chez nous pas d'entretien : une candidature de 3 min, une formation
+offerte, un quiz et un test de montage de 48 h — ceux qui livrent
+sont pris.
+👉 Commence ici : [LIEN FORMULAIRE]
+(à la fin, le formulaire t'emmène sur notre Discord — c'est là-bas
+que tout se passe)
+```
+
+**E. DM court (Telegram, Instagram, communautés de monteurs) :**
+
+```
+Salut ! On recrute des clippeurs FR : montage de Reels depuis ton
+téléphone, ~2 h/jour. Fixe hebdo + 0,50 €/abonné tracké, payé chaque
+lundi, formation offerte. Pas d'entretien : candidature 3 min puis
+test de montage 48 h. 👉 [LIEN FORMULAIRE]
+```
+
+Règle transverse : les messages neufs (D, E) donnent **toujours le formulaire**, jamais un lien Discord direct — c'est le formulaire qui crée la fiche d'identité ([[Machine de recrutement clippers (100 leads par mois)|tunnel v5]]) et qui choisit la bonne porte. Les relances (A, B, C) donnent le lien Discord direct **uniquement parce que la candidature existe déjà** dans la base.
