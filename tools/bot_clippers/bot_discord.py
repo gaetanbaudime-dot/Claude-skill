@@ -484,6 +484,62 @@ async def envoyer_mp(membre, texte):
         return False
 
 
+async def envoyer_test_candidat(membre, score=""):
+    """Enregistre l'état test_envoye et envoie le test 48 h en MP. Retourne True si le MP est parti."""
+    donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    maintenant = datetime.now(timezone.utc)
+    donnees.setdefault("etats", {})[str(membre.id)] = {
+        "etat": "test_envoye", "score_quiz": score, "relance": False,
+        "envoi": maintenant.isoformat(timespec="seconds"),
+        "echeance": (maintenant + timedelta(hours=48)).isoformat(timespec="seconds")}
+    ecrire_json(FICHIER_PIPELINE, donnees)
+    return await envoyer_mp(membre,
+        "🎉 **Quiz validé — bienvenue dans la sélection !**\n\n"
+        f"Voici ton test : {LIEN_TEST}\n"
+        "· Monte **2 clips verticaux** à partir des rushs du dossier (hook dès la 1re seconde, sous-titres, rythme).\n"
+        "· **Deadline : 48 h** à partir de maintenant.\n"
+        "· Dépose tes 2 clips **en réponse ici, en message privé** (fichiers ou lien Drive/WeTransfer) — "
+        "je les transmets directement pour la review, personne d'autre ne les voit.\n\n"
+        "La régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
+
+
+async def traiter_quiz_webhook(message):
+    """Message « QUIZ_OK|pseudo|score » posté par l'Apps Script de la feuille du quiz
+    (via webhook Discord, dans le salon admin) → envoi automatique du test."""
+    morceaux = (message.content.split("|", 2) + ["", ""])[:3]
+    pseudo, score = morceaux[1].strip(), morceaux[2].strip()
+    pseudo_n = normaliser(pseudo)
+    membre_trouve = None
+    for g in client.guilds:
+        for m in g.members:
+            if m.bot:
+                continue
+            noms = {normaliser(m.name), normaliser(m.display_name),
+                    normaliser(getattr(m, "global_name", "") or "")}
+            if pseudo_n and pseudo_n in noms:
+                membre_trouve = m
+                break
+        if membre_trouve:
+            break
+    if membre_trouve is None:
+        await message.channel.send(f"⚠️ Quiz validé ({score}) mais membre « {pseudo} » introuvable sur le serveur — "
+                                   f"pseudo mal orthographié ? Fais `!quiz-ok @membre` à la main.")
+        return
+    if not LIEN_TEST:
+        await message.channel.send("⚠️ Quiz validé mais LIEN_TEST est vide dans Railway — test non envoyé.")
+        return
+    etat_actuel = lire_json(FICHIER_PIPELINE, {}).get("etats", {}).get(str(membre_trouve.id), {}).get("etat")
+    if etat_actuel in ("test_envoye", "valide"):
+        await message.channel.send(f"ℹ️ {membre_trouve.mention} a déjà reçu le test (état : {etat_actuel}) — rien renvoyé.")
+        return
+    envoye = await envoyer_test_candidat(membre_trouve, score)
+    await message.channel.send(
+        (f"🧪 Test envoyé automatiquement en MP à {membre_trouve.mention} (quiz {score}). Relance auto à 24 h.")
+        if envoye else
+        (f"⚠️ {membre_trouve.mention} a validé le quiz ({score}) mais ses MP sont fermés — envoie-lui le lien à la main."))
+    journal.info("Quiz webhook : test %s -> membre %s", "envoyé" if envoye else "MP fermés", membre_trouve.id)
+
+
 async def boucle_pipeline():
     """Relance à mi-parcours et clôt les tests expirés (candidats en état test_envoye)."""
     while True:
@@ -863,20 +919,7 @@ async def commande_admin(message, texte: str) -> bool:
         membre = message.mentions[0]
         score = next(iter(re.findall(r"\d+\s*/\s*\d+|\d+", texte.replace(f"<@{membre.id}>", "")
                                      .replace(f"<@!{membre.id}>", ""))), "")
-        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        maintenant = datetime.now(timezone.utc)
-        donnees.setdefault("etats", {})[str(membre.id)] = {
-            "etat": "test_envoye", "score_quiz": score, "relance": False,
-            "envoi": maintenant.isoformat(timespec="seconds"),
-            "echeance": (maintenant + timedelta(hours=48)).isoformat(timespec="seconds")}
-        ecrire_json(FICHIER_PIPELINE, donnees)
-        envoye = await envoyer_mp(membre,
-            "🎉 **Quiz validé — bienvenue dans la sélection !**\n\n"
-            f"Voici ton test : {LIEN_TEST}\n"
-            "· Monte **2 clips verticaux** à partir des rushs du dossier (hook dès la 1re seconde, sous-titres, rythme).\n"
-            "· **Deadline : 48 h** à partir de maintenant.\n"
-            "· Dépose tes 2 clips en réponse dans #candidature (ou en MP ici) et préviens.\n\n"
-            "La régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
+        envoye = await envoyer_test_candidat(membre, score)
         await message.reply(f"✅ {membre.mention} → test envoyé en MP, deadline 48 h, relance auto à 24 h."
                             if envoye else
                             f"⚠️ {membre.mention} a ses MP fermés — état enregistré, mais envoie-lui le lien à la main.")
@@ -922,7 +965,8 @@ async def commande_admin(message, texte: str) -> bool:
         compte = {}
         for info in etats.values():
             compte[info.get("etat", "?")] = compte.get(info.get("etat", "?"), 0) + 1
-        libelles = {"test_envoye": "🧪 Test en cours", "valide": "✅ Validés (→ contrat)",
+        libelles = {"test_envoye": "🧪 Test en cours", "test_rendu": "📥 Tests rendus (à reviewer)",
+                    "valide": "✅ Validés (→ contrat)",
                     "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés"}
         lignes = ["📈 **Pipeline candidats**",
                   f"🔗 Numéros liés (!lier) : {len(donnees.get('liaisons', {}))}"]
@@ -1120,6 +1164,11 @@ async def on_message(message):
     if message.author.id == DISBOARD_ID:      # les messages de DISBOARD servent à détecter les bumps
         await detecter_bump(message)
         return
+    # Automatisation quiz → test : l'Apps Script de la feuille du quiz poste « QUIZ_OK|pseudo|score »
+    # via un webhook Discord (salon admin verrouillé) — le bot envoie alors le test tout seul.
+    if message.webhook_id and message.content.startswith("QUIZ_OK|"):
+        await traiter_quiz_webhook(message)
+        return
     if message.author.bot:
         return
 
@@ -1162,6 +1211,26 @@ async def on_message(message):
             await message.reply("🔗 Lié ! (numéro enregistré)")
         journal.info("Liaison téléphone : membre %s -> …%s", utilisateur, tel[-4:])
         return
+
+    # Rendu de test en MP : un candidat en état test_envoye envoie ses fichiers/lien au bot,
+    # qui les transmet au salon admin (personne d'autre ne voit les tests → zéro copie).
+    if message.guild is None:
+        donnees_pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        info = donnees_pipe.get("etats", {}).get(str(utilisateur))
+        if info and info.get("etat") == "test_envoye" and (message.attachments or "http" in texte.lower()):
+            info["etat"] = "test_rendu"
+            info["rendu"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            ecrire_json(FICHIER_PIPELINE, donnees_pipe)
+            canal = await canal_par_id(CANAL_BOT_ID)
+            if canal:
+                liens = "\n".join(p.url for p in message.attachments)
+                await canal.send((f"📥 **Test rendu** par {message.author.mention} "
+                                  f"(quiz {info.get('score_quiz') or '?'}) :\n"
+                                  + (liens + "\n" if liens else "") + (texte + "\n" if texte else "")
+                                  + "→ `!test-ok` ou `!test-non` en mentionnant le membre.")[:1990])
+            await message.reply("📥 Bien reçu ! Ton test part en review — réponse sous 72 h maximum. 🤞")
+            journal.info("Test rendu en MP par %s", utilisateur)
+            return
 
     # Commandes admin : disponibles depuis N'IMPORTE quel canal (ex. !paiement dans #dopamine)
     if str(utilisateur) in ADMIN_IDS and texte.startswith("!") and await commande_admin(message, texte):
