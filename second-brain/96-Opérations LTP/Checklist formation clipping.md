@@ -50,36 +50,36 @@ liens_forts: ["[[Reporting clippers]]", "[[Sourcing de candidats]]", "[[Document
 
 Google Forms en mode quiz, passage obligatoire après la formation et AVANT la création des comptes (le bot l'exige : « quiz validé + Gmail envoyée »). **Réalité technique** : Forms ne tire pas N questions au hasard dans une banque — l'anti-partage repose sur le **double mélange natif** (ordre des questions + ordre des options par question), qui rend inutile tout partage « Q3 = réponse B » : chaque candidat voit un ordre différent. Partager les 30 réponses en texte intégral = apprendre le contenu = objectif atteint de toute façon. **Un seul Form, 34 points, seuil ≥ 27 (~80 %)** : 30 QCM (1 pt) + 4 réponses courtes mots-clés (1 pt, preuve de visionnage : 3 mots dans la vidéo longue, 1 dans la vidéo courte/checklists — prévoir les variantes d'orthographe dans la clé de correction). **Jamais afficher les bonnes réponses au répondant.** En tête, non noté : pseudo Discord (obligatoire). Alternative si le tirage aléatoire devient indispensable un jour : question pivot « dernier chiffre de ton numéro » → routage vers 3 sections-variantes de 10 (vérifiable contre la feuille de candidatures) — documenté, non retenu (charge de maintenance).
 
-1. Combien de comptes Instagram crées-tu par jour, maximum ? → **1 seul** · 3 · 5 · autant que possible
-2. Pour créer un compte proprement, il faut : → **une adresse mail et un mot de passe uniques, sans numéro de téléphone** · mon numéro perso · le même mail partout · un compte prêté
-3. Pendant les 48 h de warm-up, tu : → **regardes du contenu de créatrices françaises, t'abonnes, likes, commentes — zéro publication** · publies 3 Reels/jour · envoies des DM · ne touches pas au compte
-4. Comment sais-tu que le warm-up a fonctionné ? → **l'Explorer affiche des créatrices françaises** · j'ai 100 abonnés · au bout d'une heure · Instagram m'envoie un mail
-5. Ta première publication a lieu au plus tôt : → **le dimanche de ta première semaine** · dès la création du compte · après un mois · quand je veux
-6. Quel contenu est interdit sur les comptes ? → **toute nudité, sollicitation ou référence explicite aux plateformes adultes** · les sous-titres · la musique tendance · les trends américaines
-7. Tu as un doute sur un contenu limite : → **je demande AVANT de publier** · je publie et on verra · je demande après · je saute ma journée
-8. Les messages privés (DM) en masse : → **jamais — c'est la cause n°1 des restrictions de compte** · 10 par jour maximum · uniquement le soir · autorisés si safe
-9. Le reporting se remplit : → **chaque dimanche, et tout ban se signale immédiatement** · une fois par mois · seulement en cas de problème · à la demande
-10. Tes abonnés générés sont comptés : → **via ton lien de tracking individuel** · au nombre de vues · à la main en fin de mois · au nombre de posts
-11. Où trouves-tu les rushs à monter ? → **dans le dossier Drive partagé après envoi de ta Gmail** · sur YouTube · je filme moi-même · dans un groupe WhatsApp
-12. Ton lien de tracking se place : → **dans la bio du compte** · dans chaque commentaire · en message privé · nulle part
-13. Un de tes comptes est restreint ou banni : → **je le signale immédiatement** · je supprime tout · je crée 5 comptes pour compenser · j'attends que ça passe
-14. Acheter des abonnés ou utiliser des robots : → **interdit — seuls les abonnés réels trackés comptent** · autorisé au début · toléré à petite dose · autorisé le week-end
-15. Publier exactement le même fichier vidéo partout : → **non — chaque exécution se varie pour éviter la détection de doublons** · oui, plus rapide · oui si je change le titre · une fois sur deux
-16. Le fixe est versé si : → **le travail demandé, la cadence de publication et le reporting du dimanche sont respectés** · automatiquement · si je le demande · à la tête du client
-17. Le paiement du premier mois : → **chaque semaine, le lundi** · en fin de mois · quand je veux · à 100 € atteints
+1. Combien de comptes Instagram crées-tu par jour, maximum ? → **Un seul** · Trois · Cinq · Autant que possible
+2. Pour créer un compte proprement, il faut : → **Une adresse mail et un mot de passe uniques, sans numéro de téléphone** · Mon numéro perso · Le même mail partout · Un compte prêté
+3. Pendant les 48 h de warm-up, tu : → **Regardes du contenu de créatrices françaises, t'abonnes, likes, commentes — zéro publication** · Publies 3 Reels/jour · Envoies des DM · Ne touches pas au compte
+4. Comment sais-tu que le warm-up a fonctionné ? → **L'Explorer affiche des créatrices françaises** · J'ai 100 abonnés · Au bout d'une heure · Instagram m'envoie un mail
+5. Ta première publication a lieu au plus tôt : → **Le dimanche de ta première semaine** · Dès la création du compte · Après un mois · Quand je veux
+6. Quel contenu est interdit sur les comptes ? → **Toute nudité, sollicitation ou référence explicite aux plateformes adultes** · Les sous-titres · La musique tendance · Les trends américaines
+7. Tu as un doute sur un contenu limite : → **Je demande AVANT de publier** · Je publie et on verra · Je demande après · Je saute ma journée
+8. Les messages privés (DM) en masse : → **Jamais — c'est la cause n°1 des restrictions de compte** · 10 par jour maximum · Uniquement le soir · Autorisés si safe
+9. Le reporting se remplit : → **Chaque dimanche, et tout ban se signale immédiatement** · Une fois par mois · Seulement en cas de problème · À la demande
+10. Tes abonnés générés sont comptés : → **Via ton lien de tracking individuel** · Au nombre de vues · À la main en fin de mois · Au nombre de posts
+11. Où trouves-tu les rushs à monter ? → **Dans le dossier Drive partagé après envoi de ta Gmail** · Sur YouTube · Je filme moi-même · Dans un groupe WhatsApp
+12. Ton lien de tracking se place : → **Dans la bio du compte** · Dans chaque commentaire · En message privé · Nulle part
+13. Un de tes comptes est restreint ou banni : → **Je le signale immédiatement** · Je supprime tout · Je crée 5 comptes pour compenser · J'attends que ça passe
+14. Acheter des abonnés ou utiliser des robots : → **Interdit — seuls les abonnés réels trackés comptent** · Autorisé au début · Toléré à petite dose · Autorisé le week-end
+15. Publier exactement le même fichier vidéo partout : → **Non — chaque exécution se varie pour éviter la détection de doublons** · Oui, plus rapide · Oui si je change le titre · Une fois sur deux
+16. Le fixe est versé si : → **Le travail demandé, la cadence de publication et le reporting du dimanche sont respectés** · Automatiquement · Si je le demande · À la tête du client
+17. Le paiement du premier mois : → **Chaque semaine, le lundi** · En fin de mois · Quand je veux · À 100 € atteints
 18. 100 abonnés trackés = → **50 €** · 100 € · 5 € · 500 €
-19. Ce qui est payé, c'est : → **les abonnés venus de TON lien de tracking** · les vues · les likes · les heures passées
-20. Ta Gmail envoyée à Gaëtan sert à : → **recevoir l'accès au Drive (rushs et modèles)** · créer les comptes · recevoir la paie · rien
-21. Le warm-up dure : → **48 heures** · 24 heures · une semaine · un mois
-22. Dans les commentaires et messages des comptes : → **jamais de sollicitation ni de lien vers les plateformes adultes** · je réponds avec le lien · je propose des ventes · je relance en privé
-23. Les mots de passe des comptes : → **uniques par compte et stockés proprement, jamais partagés hors équipe** · le même partout · celui de ma boîte mail · postés dans Discord
-24. Les comptes que tu crées appartiennent : → **à l'agence (accès remis, récupérables)** · à moi · à la créatrice · à personne
-25. Les idées et trends à monter viennent d'abord : → **des trends validées et du dossier envoyé chaque semaine** · de mon inspiration libre · de n'importe quel concurrent · des fans
-26. Un Reel efficace commence par : → **une accroche dans les 3 premières secondes** · un logo de 10 secondes · une longue intro · un écran noir
-27. Les sous-titres sur les clips : → **systématiques** · inutiles · seulement le week-end · interdits
-28. Tu ne peux pas travailler plusieurs jours : → **je préviens à l'avance pour mettre ma semaine en pause** · je disparais · je fais semblant · je compense en spammant
-29. Une question sur le kit ou une étape : → **je demande à l'assistant ou à Gaëtan sur le serveur** · j'improvise · je demande ses réponses de quiz à un autre clippeur · je laisse tomber
-30. Le but du système : → **plus de contenu posté → plus d'abonnés trackés → plus de revenus pour tout le monde** · le plus de comptes possible · le plus de vues possible · finir vite
+19. Ce qui est payé, c'est : → **Les abonnés venus de TON lien de tracking** · Les vues · Les likes · Les heures passées
+20. Ta Gmail envoyée à Gaëtan sert à : → **Recevoir l'accès au Drive (rushs et modèles)** · Créer les comptes · Recevoir la paie · Rien
+21. Le warm-up dure : → **48 heures** · 24 heures · Une semaine · Un mois
+22. Dans les commentaires et messages des comptes : → **Jamais de sollicitation ni de lien vers les plateformes adultes** · Je réponds avec le lien · Je propose des ventes · Je relance en privé
+23. Les mots de passe des comptes : → **Uniques par compte et stockés proprement, jamais partagés hors équipe** · Le même partout · Celui de ma boîte mail · Postés dans Discord
+24. Les comptes que tu crées appartiennent : → **À l'agence (accès remis, récupérables)** · À moi · À la créatrice · À personne
+25. Les idées et trends à monter viennent d'abord : → **Des trends validées et du dossier envoyé chaque semaine** · De mon inspiration libre · De n'importe quel concurrent · Des fans
+26. Un Reel efficace commence par : → **Une accroche dans les 3 premières secondes** · Un logo de 10 secondes · Une longue intro · Un écran noir
+27. Les sous-titres sur les clips : → **Systématiques** · Inutiles · Seulement le week-end · Interdits
+28. Tu ne peux pas travailler plusieurs jours : → **Je préviens à l'avance pour mettre ma semaine en pause** · Je disparais · Je fais semblant · Je compense en spammant
+29. Une question sur le kit ou une étape : → **Je demande à l'assistant ou à Gaëtan sur le serveur** · J'improvise · Je demande ses réponses de quiz à un autre clippeur · Je laisse tomber
+30. Le but du système : → **Plus de contenu posté → plus d'abonnés trackés → plus de revenus pour tout le monde** · Le plus de comptes possible · Le plus de vues possible · Finir vite
 
 ## Mise à jour continue
 
