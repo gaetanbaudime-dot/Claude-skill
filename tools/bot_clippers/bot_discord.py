@@ -100,6 +100,7 @@ FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des j
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
 FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
+FICHIER_RAPPELS = DONNEES / "rappels.json"                   # anti-doublon des rappels quotidiens/hebdo
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
@@ -113,6 +114,10 @@ DOCUSEAL_API_KEY = os.environ.get("DOCUSEAL_API_KEY", "").strip()
 DOCUSEAL_TEMPLATE_ID = os.environ.get("DOCUSEAL_TEMPLATE_ID", "").strip()
 DOCUSEAL_URL = os.environ.get("DOCUSEAL_URL", "https://api.docuseal.com").strip()
 DOCUSEAL_EMAIL_AGENCE = os.environ.get("DOCUSEAL_EMAIL_AGENCE", "").strip()   # contresignataire (rôle Agence)
+
+# ---- Rappels récurrents (18/07 soir) : trésorerie chaque matin (MP admin), reporting le dimanche ----
+LIEN_TRESORERIE = os.environ.get("LIEN_TRESORERIE", "").strip()        # sheet de suivi trésorerie quotidien
+CANAL_REPORTING_ID = os.environ.get("CANAL_REPORTING_ID", "").strip()  # salon #reporting des clippers
 
 # Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
 # remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
@@ -928,6 +933,54 @@ async def boucle_pipeline():
         except Exception as erreur:                                     # la boucle ne doit jamais mourir
             journal.warning("Boucle pipeline : %s", erreur)
         await asyncio.sleep(1800)
+
+
+def heure_paris():
+    """Heure Europe/Paris (repli UTC+2 si la base de fuseaux manque sur le conteneur)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Europe/Paris"))
+    except Exception:
+        return datetime.now(timezone.utc) + timedelta(hours=2)
+
+
+async def boucle_rappels():
+    """Rappels récurrents (18/07) : suivi trésorerie chaque matin en MP à l'admin, et rappel
+    du reporting aux clippers le dimanche après-midi. Anti-doublon persistant par date."""
+    await client.wait_until_ready()
+    while not client.is_closed():
+        try:
+            etat = lire_json(FICHIER_RAPPELS, {})
+            maintenant = heure_paris()
+            aujourdhui = maintenant.strftime("%Y-%m-%d")
+            # Trésorerie : chaque matin à partir de 08:00 (heure de Paris), une fois par jour.
+            if LIEN_TRESORERIE and ADMIN_IDS and maintenant.hour >= 8 and etat.get("treso") != aujourdhui:
+                admin = membre_par_id(next(iter(ADMIN_IDS)))
+                if admin and await envoyer_mp(admin,
+                        "☀️ **Suivi trésorerie du matin** (2 minutes, avant tout le reste) :\n"
+                        f"👉 {LIEN_TRESORERIE}\n"
+                        "· Soldes des comptes (pro, Wise, perso) · achats de la veille · paiements "
+                        "clippers/chatteurs à venir · anomalie ou prélèvement inconnu ?\n"
+                        "-# La ligne du jour remplie = l'esprit libre pour exécuter."):
+                    etat["treso"] = aujourdhui
+                    ecrire_json(FICHIER_RAPPELS, etat)
+            # Reporting clippers : le dimanche à partir de 17:00, une fois.
+            if CANAL_REPORTING_ID and maintenant.weekday() == 6 and maintenant.hour >= 17 \
+                    and etat.get("reporting") != aujourdhui:
+                canal = await canal_par_id(CANAL_REPORTING_ID)
+                if canal is not None:
+                    try:
+                        await canal.send("⏰ **Rappel reporting !** Avant **minuit ce soir** : ton récap de la "
+                                         "semaine par compte (captures des tableaux de bord, vues, abonnés "
+                                         "gagnés, incidents éventuels). Le reporting du dimanche conditionne "
+                                         "le fixe de la semaine — 5 minutes et tu es tranquille 💪")
+                        etat["reporting"] = aujourdhui
+                        ecrire_json(FICHIER_RAPPELS, etat)
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+        except Exception as erreur:                       # la boucle ne doit jamais mourir
+            journal.warning("Boucle rappels : %s", erreur)
+        await asyncio.sleep(600)
 
 
 async def boucle_bump():
@@ -1764,6 +1817,8 @@ async def on_ready():
         if CANAL_BUMP_ID:
             client.loop.create_task(boucle_bump())
         client.loop.create_task(boucle_pipeline())    # relances de test : toujours actif
+        if LIEN_TRESORERIE or CANAL_REPORTING_ID:
+            client.loop.create_task(boucle_rappels())  # trésorerie du matin + reporting du dimanche
 
 
 @client.event
