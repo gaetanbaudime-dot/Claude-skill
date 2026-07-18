@@ -65,6 +65,16 @@ ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # 
 ROLE_TEAM_FR_NOM = os.environ.get("ROLE_TEAM_FR_NOM", "Team France").strip()
 ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
 
+# Portes d'entrée : une invitation Discord DÉDIÉE par canal permet de savoir d'où arrive chaque
+# membre (fin du formulaire, Disboard, Indeed…) et d'adapter l'accueil.
+# Format : SOURCES_INVITES=aBcD123:formulaire,xYz789:disboard,qRs456:indeed (code = fin du lien discord.gg/CODE)
+SOURCES_INVITES = {}
+for _paire in os.environ.get("SOURCES_INVITES", "").split(","):
+    if ":" in _paire:
+        _code, _etiquette = _paire.split(":", 1)
+        if _code.strip():
+            SOURCES_INVITES[_code.strip()] = _etiquette.strip().lower() or "autre"
+
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
@@ -725,55 +735,96 @@ async def cacher_invites(guild):
         journal.warning("Invites illisibles sur %s (permission « Gérer le serveur » requise)", guild.name)
 
 
-def trouver_parrain(guild_id: int, invites_apres) -> int | None:
-    """Compare le cache avant/après un join pour trouver l'invitation utilisée."""
+def trouver_invitation(guild_id: int, invites_apres):
+    """Compare le cache avant/après un join : renvoie l'invitation utilisée (None si indécidable)."""
     avant = _invites_cache.get(guild_id, {})
     for inv in invites_apres:
         uses_avant = avant.get(inv.code, (0, None))[0]
-        if (inv.uses or 0) > uses_avant and inv.inviter:
-            return inv.inviter.id
+        if (inv.uses or 0) > uses_avant:
+            return inv
+    return None
+
+
+def source_du_code(code: str) -> str:
+    """Étiquette de la porte d'entrée (SOURCES_INVITES=code:étiquette,…) — « autre » si inconnue."""
+    return SOURCES_INVITES.get(code or "", "autre")
+
+
+def candidature_par_pseudo(donnees, membre):
+    """Retrouve une candidature par le pseudo Discord déclaré au formulaire (indice, pas une preuve —
+    seule la clé téléphone de !lier fait foi)."""
+    noms = {normaliser(membre.name), normaliser(membre.display_name),
+            normaliser(getattr(membre, "global_name", "") or "")}
+    noms.discard("")
+    for tel, cand in donnees.get("candidatures", {}).items():
+        pseudo = normaliser(cand.get("pseudo", ""))
+        if pseudo and (pseudo in noms or any(pseudo in n or n in pseudo for n in noms)):
+            return cand
     return None
 
 
 async def accueillir(member):
-    """Bienvenue numérotée + attribution du parrain (preuve pour la grille de parrainage)."""
+    """Bienvenue numérotée + parrainage + aiguillage par porte d'entrée : l'invitation dédiée du
+    formulaire (SOURCES_INVITES) distingue « vient de candidater » de « découvre le serveur »."""
     guild = member.guild
-    parrain_id = None
+    parrain_id, source, code = None, "autre", ""
     try:
         invites_apres = await guild.invites()
-        parrain_id = trouver_parrain(guild.id, invites_apres)
+        invitation = trouver_invitation(guild.id, invites_apres)
+        if invitation is not None:
+            code = invitation.code
+            source = source_du_code(code)
+            # Une invitation ÉTIQUETÉE (formulaire, disboard…) est créée par l'agence : son inviteur
+            # n'est pas un parrain — seule une invitation perso non étiquetée crédite le parrainage.
+            if invitation.inviter and source == "autre":
+                parrain_id = invitation.inviter.id
         _invites_cache[guild.id] = {i.code: (i.uses or 0, i.inviter.id if i.inviter else None)
                                     for i in invites_apres}
     except (discord.Forbidden, discord.HTTPException):
         pass
 
     donnees = lire_json(FICHIER_INVITES, {"par_parrain": {}, "attribution": {}})
+    donnees.setdefault("sources", {})[str(member.id)] = {"code": code, "source": source}
     if parrain_id and parrain_id != member.id:
         cle = str(parrain_id)
         donnees["par_parrain"][cle] = donnees["par_parrain"].get(cle, 0) + 1
         donnees["attribution"][str(member.id)] = parrain_id
-        ecrire_json(FICHIER_INVITES, donnees)
+    ecrire_json(FICHIER_INVITES, donnees)
 
     canal = await canal_par_id(CANAL_CANDIDATURE_ID)
-    if canal is None:
-        return
     lignes = [f"🎬 Bienvenue **{member.display_name}** — tu es le **{guild.member_count}ᵉ** futur clipper de l'équipe !"]
-    # Accueil à deux branches : ceux qui viennent de candidater (redirigés ici par le formulaire)
-    # et ceux qui découvrent le serveur (Disboard) — le bot ne peut pas les distinguer, le message si.
-    lignes.append("✅ **Déjà candidaté via le formulaire ?** Envoie-moi `!lier <ton numéro de téléphone>` "
-                  "en **message privé** (le numéro du formulaire) — ta candidature est reliée, puis direction "
-                  "le forum **formation** : post « Bienvenue » (vidéo + quiz), puis les fiches.")
-    if LIEN_FORMULAIRE:
-        lignes.append(f"📝 **Pas encore candidaté ?** Remplis le formulaire (3 min) : {LIEN_FORMULAIRE} — "
-                      f"puis reviens m'envoyer `!lier`. Ensuite : formation → quiz → test de 48 h, "
-                      f"pas d'entretien. Ceux qui livrent sont pris. 🚀")
+    if source == "formulaire":
+        # Arrivé par l'invitation de FIN de formulaire : sa candidature vient d'être déposée.
+        lignes.append("✅ **Ta candidature est bien arrivée.** Dernière étape pour la relier à ton compte : "
+                      "envoie-moi `!lier <ton numéro de téléphone>` en **message privé** (le même numéro que "
+                      "dans le formulaire). Ensuite : forum **formation**, post « Bienvenue » (vidéo + quiz).")
+    else:
+        # Porte Disboard/découverte : impossible de savoir s'il a déjà candidaté — deux branches.
+        lignes.append("✅ **Déjà candidaté via le formulaire ?** Envoie-moi `!lier <ton numéro de téléphone>` "
+                      "en **message privé** (le numéro du formulaire) — ta candidature est reliée, puis direction "
+                      "le forum **formation** : post « Bienvenue » (vidéo + quiz), puis les fiches.")
+        if LIEN_FORMULAIRE:
+            lignes.append(f"📝 **Pas encore candidaté ?** Remplis le formulaire (3 min) : {LIEN_FORMULAIRE} — "
+                          f"puis reviens m'envoyer `!lier`. Ensuite : formation → quiz → test de 48 h, "
+                          f"pas d'entretien. Ceux qui livrent sont pris. 🚀")
     if parrain_id and parrain_id != member.id:
-        total = lire_json(FICHIER_INVITES, {}).get("par_parrain", {}).get(str(parrain_id), 1)
+        total = donnees.get("par_parrain", {}).get(str(parrain_id), 1)
         lignes.append(f"-# Invité par <@{parrain_id}> ({total} au total) — le parrainage paie quand le filleul devient clipper actif.")
-    try:
-        await canal.send("\n".join(lignes))
-    except (discord.Forbidden, discord.HTTPException):
-        pass
+    if canal is not None:
+        try:
+            await canal.send("\n".join(lignes))
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+    # MP personnalisé (jamais de prénom/pays en public) : candidature retrouvée par le pseudo déclaré.
+    if source == "formulaire":
+        cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
+        if cand:
+            await envoyer_mp(member,
+                f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
+                f"({cand.get('pays') or 'pays ?'}). Confirme-la en m'envoyant ici : "
+                "`!lier <ton numéro de téléphone>` — celui du formulaire. "
+                "Ensuite, direction le forum **formation** (post « Bienvenue »).")
 
 
 async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renommage=False) -> list:
@@ -1128,6 +1179,14 @@ async def commande_admin(message, texte: str) -> bool:
                   f"📋 Candidatures reçues (webhook formulaire) : {len(cands)}"
                   + (f" · **{orphelines} sans Discord lié** (à relancer)" if orphelines else ""),
                   f"🔗 Numéros liés (!lier) : {len(donnees.get('liaisons', {}))}"]
+        srcs = lire_json(FICHIER_INVITES, {}).get("sources", {})
+        if srcs:
+            compte_src = {}
+            for s in srcs.values():
+                etiquette = s.get("source", "autre")
+                compte_src[etiquette] = compte_src.get(etiquette, 0) + 1
+            lignes.append("🚪 Portes d'entrée Discord : "
+                          + " · ".join(f"{k} {v}" for k, v in sorted(compte_src.items(), key=lambda kv: -kv[1])))
         lignes += [f"{libelles.get(e, e)} : {n}" for e, n in sorted(compte.items())]
         en_retard = [uid for uid, i in etats.items() if i.get("etat") == "test_envoye"
                      and datetime.now(timezone.utc) > datetime.fromisoformat(i["echeance"]) - timedelta(hours=12)]
@@ -1155,10 +1214,13 @@ async def commande_admin(message, texte: str) -> bool:
         pays = liaison.get("pays") or cand.get("pays") or ""
         reco = ("🇫🇷 Team France" if equipe_du_pays(pays) == "fr" else "🌍 Team International") if pays else "—"
         signee = ("FR" if equipe.get("equipe") == "fr" else "INTERNATIONAL") if equipe else "—"
+        src = lire_json(FICHIER_INVITES, {}).get("sources", {}).get(str(membre.id), {})
+        porte = src.get("source", "") or "inconnue (arrivé avant le tracker)"
         lignes = [f"🗂️ **{membre.display_name}**" + (f" — {prenom}" if prenom
                       and normaliser(prenom) not in normaliser(membre.display_name) else ""),
                   f"📞 Téléphone (clé formulaire) : {tel_masque}",
                   f"🌍 Pays : {pays or 'inconnu'} · grille recommandée : {reco}",
+                  f"🚪 Porte d'entrée : {porte}",
                   "🧾 Parcours : "
                   + ("📋 candidature ✓ → " if cand else "📋 candidature ? → ")
                   + ("🔗 lié ✓ → " if tel else "🔗 lié ✗ → ")
