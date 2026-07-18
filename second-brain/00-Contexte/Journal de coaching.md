@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-18 — 🏆 Tunnel clippers v4 opérationnel de bout en bout, testé en conditions réelles
+- **Fait en une journée**, du tableau blanc au test réussi : annonces (Indeed ×2) → formulaire → Discord (accueil à deux branches, onboarding natif vitrine) → `!lier` (jointure téléphone) → formation unifiée (vidéo 45 min, 4 mots-clés incrustés) → **quiz personnel pré-rempli avec l'ID Discord** (jointure infaillible) → **webhook Apps Script → envoi automatique du test 48 h en MP** (relance auto 24 h, expiration J+15) → rendu des clips en MP privé (anti-copie) → transmission au salon admin → `!test-ok`/`!test-non` → contrat → `!equipe fr|int` (registre + audit). Test de bout en bout validé le jour même : quiz 29/34 soumis → test reçu en MP en une seconde, match par ID.
+- **Ce qui reste humain, par design** : la review des 2 clips (le seul juge), la signature du contrat (18+ vérifié), et la paie du lundi. Tout le reste tourne sans personne — condition du départ du 26/07.
+- **Structure actée au passage** : 2 équipes calées sur les grilles (Team France = FR+BE+CH · Team International = ex-MG, tous pays VA), formation en un forum unique, tests jamais publics. Prochaine revue : le premier `!pipeline` rempli + les ratios du funnel au reporting de dimanche.
+
 ### 2026-07-18 — Circuit Madagascar relancé de facto + verrou des rôles Discord
 - **Constat (à acter, pas à combattre)** : la décision du 11/07 « FR uniquement cet été, MG en phase 2 septembre » est inversée sur le terrain — salons TEAM MADAGASCAR actifs avec grille postée (25 €/sem le 1er mois puis 100 €/mois + 0,50 €/sub), candidats MG et Bénin dans le formulaire, objectif verbalisé ~100 recrues MG sur l'été. Les manques qui justifiaient le report sont partiellement comblés depuis : bot autonome, quiz de validation auto-corrigé (30 questions), tunnel v3 (contrat avant Discord), grille MG déjà écrite.
 - **Risque n°1 inchangé** : la qualité du trafic recruté côté MG (le report du 11/07 citait le targeting non résolu). **Prédiction datée (18/07, avant l'issue)** : si à J+30 la cohorte MG médiane fait **< 50 subs trackés/mois** OU un LTV de cohorte **< 2 $**, gel des nouvelles entrées MG et diagnostic. Revue : clôture du 30/08.
