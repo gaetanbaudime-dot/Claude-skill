@@ -30,6 +30,7 @@ Funnel réel : 257 brutes → **121 avec un vrai prénom** → **65 FR/BE** → 
 | 7 | **Monteurs débutants + étudiants MMI/BTS audiovisuel** | 8-15 | 1-2 h | 5-10 j |
 | 8 | **Clippeurs gaming/Twitch** (ils clippent déjà gratuitement) | 8-12 | 1-2 h | 5-10 j |
 | 9 | **Jobboards généralistes gratuits** (Indeed, Leboncoin emploi, jobs étudiants) | 10-20 | 1 h | 5-10 j |
+| 9b | ↳ **Indeed mesuré le 18/07** (annonce gratuite « Monteur vidéo & gestionnaire de réseaux sociaux – Télétravail », en ligne depuis le 01/07) : **912 impressions → 218 clics (24 % de CTR) → 40 candidatures (18 % clic→candidature), coût 0 €** — le canal jobboard le plus performant à date ; rendement FR/quali à confirmer au tri (~21-40 % mesuré ailleurs → ~10-16 quali attendus) | 10-16 | déjà fait | acquis |
 | 10 | **Reel de recrutement** (owned : tes comptes + ceux des 7 clippers) | 10-30 | déjà la machine | 3-14 j |
 | | **Total nouveau** | **90-190** | | |
 
