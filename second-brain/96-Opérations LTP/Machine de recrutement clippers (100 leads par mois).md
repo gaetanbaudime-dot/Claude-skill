@@ -90,16 +90,17 @@ Jamais : primes de joins Discord · multi-compte · spoofing/fermes de comptes f
 
 Session tableau blanc de Gaëtan (photo distillée ici, décision au [[Journal de coaching]]) : le goulot nommé est la **délivrabilité marketing** — confirmé par la data MYM du 18/07 (trafic externe agence 4 % vs 10-35 % benchmark, voir [[Playbook trafic interne MYM (5 créatrices)]]) — et le ONE THING est **7 → 20 clippeurs**, en cohérence avec la [[Sprint été - croissance sans moi|deadline du départ (26/07)]].
 
-| Poste (cas Julien, le référent) | Valeur |
+| Poste (estimation conservatrice = ½ Julien) | Valeur |
 |---|---|
-| Subs trackés | **300/mois** |
+| Subs trackés | **300/mois** (Julien réel : ~600 son premier mois) |
 | LTV hypothèse | **5 $/sub** → 1 500 $/mois de CA |
+| Marge boîte | **~30 %** ≈ 500 $/mois |
 | Coût clippeur | 50 €/sem (~200 €) + 0,50 €/sub (150 €) = **350 €/mois** |
-| Profit pur (à marge boîte ~35 %) | **≈ 150 €/mois par clipper niveau Julien** |
-| 20 clippeurs niveau Julien | **+30 k$/mois de CA · +3 k€/mois de profit** |
+| Profit pur | **≈ 100-150 €/mois par clipper à 300 subs** (~330 € au niveau Julien réel) |
+| 20 clippeurs à 300 subs | **+30 k$/mois de CA · +3 k€/mois de profit** |
 
 Trois garde-fous chiffrés (à jour 2026-07-18) :
-1. **Point mort ≈ 220 subs/mois par clipper à LTV 5 $** — Julien est au-dessus, mais la distribution des programmes de clipping est une loi de puissance : le clipper **médian** (80-100 subs/mois) coûte ~200-250 €/mois net. Le « ×20 Julien » est un plafond, pas une projection.
+1. **Point mort ≈ 230-250 subs/mois par clipper à LTV 5 $ et marge 30 %** — Julien est largement au-dessus, mais la distribution des programmes de clipping est une loi de puissance : le clipper **médian** (80-100 subs/mois) coûte ~200-250 €/mois net. Le « ×20 » est un plafond, pas une projection.
 2. **Hyper-sensibilité au LTV** : 5 $ → 150 € de profit/clipper ; 8 $ → ~420 €. Le LTV du sub clipper est une **hypothèse à mesurer par cohorte** dès les premiers payeurs (contre-mesure n°2 ci-dessus, déjà actée).
 3. **« Pour 10x il en faut 200 »** : c'est 10x le canal clippers (200 × 150 € = 30 k€/mois), pas 10x le profit agence — et à 200 clippeurs le goulot bascule sur la production de contenu (« mais d'autres créas avant », écrit par Gaëtan lui-même) : la machine [[SOP - Machine à contenu hebdomadaire|à contenu]] et le roster redeviennent la contrainte.
 
