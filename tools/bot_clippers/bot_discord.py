@@ -603,8 +603,8 @@ async def accueillir(member):
     # Accueil à deux branches : ceux qui viennent de candidater (redirigés ici par le formulaire)
     # et ceux qui découvrent le serveur (Disboard) — le bot ne peut pas les distinguer, le message si.
     lignes.append("✅ **Déjà candidaté via le formulaire ?** Envoie-moi `!lier <ton numéro de téléphone>` "
-                  "en **message privé** (le numéro du formulaire) — ta candidature est reliée, et fonce sur "
-                  "la formation dans les fiches et #formation.")
+                  "en **message privé** (le numéro du formulaire) — ta candidature est reliée, puis direction "
+                  "le forum **formation** : post « Bienvenue » (vidéo + quiz), puis les fiches.")
     if LIEN_FORMULAIRE:
         lignes.append(f"📝 **Pas encore candidaté ?** Remplis le formulaire (3 min) : {LIEN_FORMULAIRE} — "
                       f"puis reviens m'envoyer `!lier`. Ensuite : formation → quiz → test de 48 h, "
