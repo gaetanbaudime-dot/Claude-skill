@@ -46,11 +46,20 @@ Le marché est coupé en deux : annonces corporate (CDI, salaire caché) et far 
 
 **Matrice d'angles** (pour les déclinaisons hors Indeed ou le slot mensuel) : clippeur anti-vues (Discord/TikTok — « 200 € fixes garantis, pas de paiement aux vues bottables ») · monteur débutant (MMI/CapCut) · CM junior (référentiel salaire CDI à cadrer) · job étudiant en ligne (vivier le plus arrosé d'arnaques → maximum de preuves) · side hustle 25-35 ans · growth/étudiant entrepreneur (risque : churn + copie) · assistant marketing digital (flou, tri coûteux).
 
+## Retour terrain (18/07, ~36 min après publication) : l'annonce CM signalée
+
+L'annonce « Community Manager Instagram Facebook - Télétravail » a été **signalée automatiquement** (« doit être sponsorisée afin d'apparaître sur Indeed », 0 impression) 36 minutes après publication — un flag algorithmique, pas un signalement candidat. **Le compte fournit un test A/B involontaire** : l'annonce monteur (lieu **Paris (75)**, salaire 200-1 500 €, secteur identique, formulation SFW identique) passe et produit (948 impressions, 40 candidatures, 0 €) ; l'annonce CM (lieu **type « Télétravail »**, salaire 200-800 € pourtant plus sage) est flaggée en 36 min. Causes probables, réordonnées par l'évidence terrain :
+1. **Le type de lieu « Télétravail » sans ville** : les annonces 100 % remote à bas seuil d'entrée sont LA catégorie des arnaques à la tâche (documenté par cybermalveillance.gouv.fr) — Indeed force le sponsoring sur ces catégories à risque (« certains types d'annonces doivent être sponsorisés »). ⚠️ Correction d'une reco antérieure de cette page : la théorie disait « type Télétravail pour le bassin national » ; **la pratique dit : lieu = ville (Paris 75) + « 100 % télétravail — ouvert à toute la France » dans la description** — c'est la config de l'annonce monteur, qui marche.
+2. **Classification « title variation »/doublon** avec l'annonce monteur (2e annonce proche du même compte, sanction documentée = obligation de sponsoriser).
+3. **Politique « commission-only remote must sponsor »** si la rémunération est lue comme essentiellement variable.
+
+**Séquence de sortie (sans payer, sans risquer le compte)** : (1) modifier l'annonce CM en place — **lieu → Paris (75)** + « 100 % télétravail — ouvert à toute la France » en 1re ligne + différenciation renforcée des missions vs monteur ; (2) si le statut ne repasse pas en « Ouverte » sous 24-48 h, contacter le support employeur (gratuit) : motif précis + re-revue après modification ; (3) si le flag tient → **fermer l'annonce CM sans payer** et basculer : à l'expiration de l'annonce monteur (~fin juillet), la republication réécrite prend le **titre CM** (une seule annonce active = zéro risque doublon, fraîcheur neuve, bon persona) ; le vivier CM se travaille en attendant via les 170 réponses Forms et les groupes CM du [[Sourcing 100 leads clippers FR (plan juillet 2026)|plan sourcing]]. **Jamais de fermer/reposter à chaud sur un compte déjà flaggé** — l'escalade documentée va jusqu'au blocage permanent.
+
 ## Plan d'exécution (daté 18-19/07)
 
 1. **Corriger les 2 titres** (retirer « & » et caractères spéciaux) : « Monteur vidéo Reels TikTok - Télétravail » · « Community Manager Instagram Facebook - Télétravail ». Mise à jour de l'annonce existante = autorisé, jamais fermer/reposter.
 2. **Salaire affiché** → « À partir de 200 €/mois + commissions » sur les deux.
-3. **Lieu = type « Télétravail »** vérifié sur les deux + 1re ligne « 100 % télétravail — ouvert à toute la France ».
+3. **Lieu = ville (Paris 75) + « 100 % télétravail — ouvert à toute la France » en 1re ligne** — corrigé le 18/07 par le test A/B terrain : le type de lieu « Télétravail » sans ville a déclenché le flag « doit être sponsorisée » sur l'annonce CM, alors que la config Paris (75) de l'annonce monteur passe et produit.
 4. **Différencier agressivement** les 2 descriptions (monteur = livrables clips/volume ; CM = croissance et animation de comptes) — tuer le risque « title variation ».
 5. **Présélection** : 1-2 obligatoires binaires max, le reste en souhaité ; répondre à 100 % des candidatures → badge réactif.
 6. **Slot gratuit n°3 : en réserve.** Déclenché seulement si le flux CM déçoit d'ici jeudi (< 10 candidatures/sem) ET tri à jour — angle prioritaire alors : « montage TikTok » pur ou « job étudiant en ligne » blindé de preuves.
