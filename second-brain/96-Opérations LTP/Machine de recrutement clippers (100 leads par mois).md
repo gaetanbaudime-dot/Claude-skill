@@ -68,7 +68,7 @@ La viral loop (paiement → preuve → contenu → clippers) est le but, mais **
 
 Le modèle verrouillé :
 1. **Onboarding** : supprimer la question « Team » (Paramètres serveur → Onboarding) ; vérifier qu'aucune intégration/réaction-rôle ne distribue FR/MG.
-2. **Attribution des rôles d'accès à la signature du contrat uniquement**, par l'admin, pays vérifié via le formulaire (la feuille de réponses contient le pays).
+2. **Attribution des rôles d'accès à la signature du contrat uniquement**, pays vérifié via le formulaire (la feuille de réponses contient le pays) — outillée le 18/07 : **`!equipe @membre fr|mg|retirer`** (bot, admin seulement, registre persistant des signatures) et **`!equipes`** (audit : les porteurs de rôle sans signature enregistrée ressortent en une commande). Coût réel à l'échelle : ~5 secondes par recrue — l'automatisation complète formulaire→Discord (compte de service Google) reste une option de phase 2, non nécessaire.
 3. **Permissions par catégorie** : TEAM FRANCE → @everyone ❌ voir, rôle Team France ✅ (idem MG) ; audit salon par salon des overrides.
 4. **Rôle « Candidat » par défaut** : accès bienvenue + candidature + salons de preuve publics (compteur, dopamine) — rien d'autre ; le kit et la formation restent derrière le contrat (tunnel v3).
 5. **Audit périodique** : Paramètres → Membres → filtrer par rôle → chaque titulaire FR/MG correspond à un validé sous contrat.
