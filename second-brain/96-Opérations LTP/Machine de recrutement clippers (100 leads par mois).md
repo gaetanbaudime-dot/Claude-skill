@@ -86,6 +86,23 @@ Jamais : primes de joins Discord · multi-compte · spoofing/fermes de comptes f
 
 **Les 4 contre-mesures anti-HoA (structurelles, non négociables)** : (1) **redondance de tracking** — GetAllMyLinks primaire + réconciliation Infloww hebdo, écart > 10 % = alerte ; (2) **mesurer la LTV 30/60/90 j par lien de clippeur**, pas le volume brut de subs (un clippeur qui amène des subs à LTV nulle coûte 0,50 € pour rien) ; (3) **compartimenter les pods de comptes** (Meta mappe les réseaux : un réseau non isolé meurt entier — dette CGU à provisionner, jamais une stratégie) ; (4) **diversifier vers Reddit/X à moyen terme** — être 100 % Instagram/Facebook reproduit exactement le point de rupture de House of Aphrodite.
 
+## L'économie unitaire d'un clipper (tableau blanc du 18/07)
+
+Session tableau blanc de Gaëtan (photo distillée ici, décision au [[Journal de coaching]]) : le goulot nommé est la **délivrabilité marketing** — confirmé par la data MYM du 18/07 (trafic externe agence 4 % vs 10-35 % benchmark, voir [[Playbook trafic interne MYM (5 créatrices)]]) — et le ONE THING est **7 → 20 clippeurs**, en cohérence avec la [[Sprint été - croissance sans moi|deadline du départ (26/07)]].
+
+| Poste (cas Julien, le référent) | Valeur |
+|---|---|
+| Subs trackés | **300/mois** |
+| LTV hypothèse | **5 $/sub** → 1 500 $/mois de CA |
+| Coût clippeur | 50 €/sem (~200 €) + 0,50 €/sub (150 €) = **350 €/mois** |
+| Profit pur (à marge boîte ~35 %) | **≈ 150 €/mois par clipper niveau Julien** |
+| 20 clippeurs niveau Julien | **+30 k$/mois de CA · +3 k€/mois de profit** |
+
+Trois garde-fous chiffrés (à jour 2026-07-18) :
+1. **Point mort ≈ 220 subs/mois par clipper à LTV 5 $** — Julien est au-dessus, mais la distribution des programmes de clipping est une loi de puissance : le clipper **médian** (80-100 subs/mois) coûte ~200-250 €/mois net. Le « ×20 Julien » est un plafond, pas une projection.
+2. **Hyper-sensibilité au LTV** : 5 $ → 150 € de profit/clipper ; 8 $ → ~420 €. Le LTV du sub clipper est une **hypothèse à mesurer par cohorte** dès les premiers payeurs (contre-mesure n°2 ci-dessus, déjà actée).
+3. **« Pour 10x il en faut 200 »** : c'est 10x le canal clippers (200 × 150 € = 30 k€/mois), pas 10x le profit agence — et à 200 clippeurs le goulot bascule sur la production de contenu (« mais d'autres créas avant », écrit par Gaëtan lui-même) : la machine [[SOP - Machine à contenu hebdomadaire|à contenu]] et le roster redeviennent la contrainte.
+
 ## Sources
 
 Rapports des 6 agents de recherche du 17/07/2026 (Whop · Vyro · Reach.cat/écosystème FR · US OFM clipping · matrice mondiale des rémunérations · attraction des top talents). Sources principales : docs.whop.com, whop.com/blog, Digiday, NPR, Forbes, TechBuzz, Trends.vc, vyro.com, Tubefilter, Ssemble, reach.cat, FindClout, clipping.net, ClipAffiliates, JoinBrands, OnlyTraffic, CrakRevenue, Overlap, Disboard, notify-clipping.fr, ofmjobs.com, Vice, TechCrunch. Chiffres datés déc. 2025 - juil. 2026 ; auto-déclarés signalés comme tels. Data concurrents FR : exports Discord fournis par Gaëtan (agrégats anonymisés).
