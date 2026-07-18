@@ -543,6 +543,15 @@ def equipe_du_pays(pays: str) -> str:
     return "mg"                          # code interne historique « mg » = Team International
 
 
+def equipe_de_l_indicatif(tel: str) -> str:
+    """Grille déduite de l'INDICATIF du numéro (+33 FR, +32 BE, +41 CH → Team France) — signal
+    plus dur à falsifier que le pays déclaré : il faut posséder un vrai numéro du pays et le
+    retaper à l'identique dans !lier. Vide si pas de numéro."""
+    if not tel:
+        return ""
+    return "fr" if tel.startswith(("+33", "+32", "+41")) else "mg"
+
+
 async def envoyer_test_candidat(membre, score=""):
     """Enregistre l'état test_envoye et envoie le test 48 h en MP. Retourne True si le MP est parti."""
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -628,8 +637,11 @@ async def traiter_candidature_webhook(message):
         donnees.setdefault("candidatures", {})[tel] = {
             "prenom": prenom, "pays": pays, "pseudo": pseudo,
             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        grille_tel = equipe_de_l_indicatif(tel)
         enregistrees.append(f"{prenom or '?'} ({pays or 'pays ?'}, …{tel[-4:]}) → grille "
-                            + ("FR" if equipe_du_pays(pays) == "fr" else "International"))
+                            + ("FR" if grille_tel == "fr" else "International")
+                            + (" ⚠️ **pays déclaré ≠ indicatif**"
+                               if pays and equipe_du_pays(pays) != grille_tel else ""))
         for uid, liaison in donnees.get("liaisons", {}).items():   # le Discord est peut-être déjà lié
             if liaison.get("tel") == tel:
                 liaison["prenom"], liaison["pays"] = prenom, pays
@@ -774,9 +786,10 @@ async def accueillir(member):
         if invitation is not None:
             code = invitation.code
             source = source_du_code(code)
-            # Une invitation ÉTIQUETÉE (formulaire, disboard…) est créée par l'agence : son inviteur
-            # n'est pas un parrain — seule une invitation perso non étiquetée crédite le parrainage.
-            if invitation.inviter and source == "autre":
+            # Une invitation ÉTIQUETÉE (formulaire, disboard…) est créée par l'agence, et une
+            # invitation créée par un BOT (les liens Disboard ont DISBOARD pour hôte) n'a pas de
+            # parrain — seule une invitation perso non étiquetée d'un humain crédite le parrainage.
+            if invitation.inviter and not invitation.inviter.bot and source == "autre":
                 parrain_id = invitation.inviter.id
         _invites_cache[guild.id] = {i.code: (i.uses or 0, i.inviter.id if i.inviter else None)
                                     for i in invites_apres}
@@ -1075,15 +1088,24 @@ async def commande_admin(message, texte: str) -> bool:
         elif dernier in ("fr", "france"):
             equipe = "fr"
         else:
-            # Pas de mot d'équipe (ou « auto ») : on déduit du pays du formulaire (candidature liée par !lier)
-            pays = lire_json(FICHIER_PIPELINE, {"liaisons": {}}).get("liaisons", {}).get(str(membre.id), {}).get("pays", "")
-            if not pays:
+            # Pas de mot d'équipe (ou « auto ») : indicatif téléphonique d'abord (dur à falsifier),
+            # pays déclaré en repli — et JAMAIS d'auto quand les deux signaux se contredisent.
+            liaison = lire_json(FICHIER_PIPELINE, {"liaisons": {}}).get("liaisons", {}).get(str(membre.id), {})
+            pays, tel_liaison = liaison.get("pays", ""), liaison.get("tel", "")
+            grille_tel = equipe_de_l_indicatif(tel_liaison)
+            if not grille_tel and not pays:
                 await message.reply("Termine la commande par l'équipe : `!equipe Raphaël fr` — ou `int`, ou `retirer`. "
-                                    "(Sans mot d'équipe je choisis d'après le pays du formulaire, mais sa candidature "
-                                    "n'est pas liée : fais-lui faire `!lier`.)")
+                                    "(Sans mot d'équipe je choisis d'après sa candidature, mais elle n'est pas "
+                                    "liée : fais-lui faire `!lier`.)")
                 return True
-            equipe = equipe_du_pays(pays)
-            note_auto = f" · équipe déduite du pays du formulaire : {pays}"
+            if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
+                await message.reply(f"⚠️ Incohérence pour **{membre.display_name}** : pays déclaré « {pays} » mais "
+                                    f"indicatif {tel_liaison[:4]}… — je ne tranche pas à ta place. Vérifie à la "
+                                    f"signature puis tape `!equipe {membre.display_name} fr` ou `int`.")
+                return True
+            equipe = grille_tel or equipe_du_pays(pays)
+            note_auto = (f" · équipe déduite de l'indicatif {tel_liaison[:4]}…" if grille_tel
+                         else f" · équipe déduite du pays déclaré : {pays}")
         role_fr = discord.utils.find(lambda r: normaliser(ROLE_TEAM_FR_NOM) in normaliser(r.name), g.roles)
         role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name), g.roles)
         if role_fr is None or role_mg is None:
@@ -1212,14 +1234,18 @@ async def commande_admin(message, texte: str) -> bool:
         tel_masque = (tel[:4] + "•" * max(0, len(tel) - 7) + tel[-3:]) if tel else "non lié (!lier)"
         prenom = liaison.get("prenom") or cand.get("prenom") or ""
         pays = liaison.get("pays") or cand.get("pays") or ""
-        reco = ("🇫🇷 Team France" if equipe_du_pays(pays) == "fr" else "🌍 Team International") if pays else "—"
+        grille_tel = equipe_de_l_indicatif(tel)
+        reco_code = grille_tel or (equipe_du_pays(pays) if pays else "")
+        reco = ("🇫🇷 Team France" if reco_code == "fr" else "🌍 Team International") if reco_code else "—"
+        incoherent = bool(pays and grille_tel and equipe_du_pays(pays) != grille_tel)
         signee = ("FR" if equipe.get("equipe") == "fr" else "INTERNATIONAL") if equipe else "—"
         src = lire_json(FICHIER_INVITES, {}).get("sources", {}).get(str(membre.id), {})
         porte = src.get("source", "") or "inconnue (arrivé avant le tracker)"
         lignes = [f"🗂️ **{membre.display_name}**" + (f" — {prenom}" if prenom
                       and normaliser(prenom) not in normaliser(membre.display_name) else ""),
                   f"📞 Téléphone (clé formulaire) : {tel_masque}",
-                  f"🌍 Pays : {pays or 'inconnu'} · grille recommandée : {reco}",
+                  f"🌍 Pays : {pays or 'inconnu'} · grille recommandée : {reco}"
+                  + (" · ⚠️ **pays déclaré ≠ indicatif téléphonique**" if incoherent else ""),
                   f"🚪 Porte d'entrée : {porte}",
                   "🧾 Parcours : "
                   + ("📋 candidature ✓ → " if cand else "📋 candidature ? → ")
@@ -1303,7 +1329,10 @@ async def commande_admin(message, texte: str) -> bool:
 
     if texte.startswith("!invites"):
         donnees = lire_json(FICHIER_INVITES, {"par_parrain": {}})
-        classement = sorted(donnees["par_parrain"].items(), key=lambda kv: -kv[1])[:10]
+        # Les crédits historiques attribués à des bots (liens Disboard) sont filtrés du classement.
+        humains = {uid: n for uid, n in donnees["par_parrain"].items()
+                   if not getattr(membre_par_id(uid), "bot", False)}
+        classement = sorted(humains.items(), key=lambda kv: -kv[1])[:10]
         if not classement:
             await message.reply("Aucune invitation trackée pour l'instant" +
                                 ("" if ACTIVER_V2 else " (ACTIVER_V2 est éteint)") + ".")
