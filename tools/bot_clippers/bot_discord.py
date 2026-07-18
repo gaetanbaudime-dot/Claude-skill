@@ -78,6 +78,7 @@ FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, 
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
+LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
 
 # Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
 # remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
@@ -510,17 +511,24 @@ async def traiter_quiz_webhook(message):
     pseudo, score = morceaux[1].strip(), morceaux[2].strip()
     pseudo_n = normaliser(pseudo)
     membre_trouve = None
-    for g in client.guilds:
-        for m in g.members:
-            if m.bot:
-                continue
-            noms = {normaliser(m.name), normaliser(m.display_name),
-                    normaliser(getattr(m, "global_name", "") or "")}
-            if pseudo_n and pseudo_n in noms:
-                membre_trouve = m
+    # Cas infaillible : le lien de quiz pré-rempli (!quiz) envoie l'ID Discord numérique
+    if pseudo.isdigit():
+        for g in client.guilds:
+            membre_trouve = g.get_member(int(pseudo))
+            if membre_trouve:
                 break
-        if membre_trouve:
-            break
+    if membre_trouve is None:                     # repli : correspondance par nom (lien générique, pseudo tapé à la main)
+        for g in client.guilds:
+            for m in g.members:
+                if m.bot:
+                    continue
+                noms = {normaliser(m.name), normaliser(m.display_name),
+                        normaliser(getattr(m, "global_name", "") or "")}
+                if pseudo_n and pseudo_n in noms:
+                    membre_trouve = m
+                    break
+            if membre_trouve:
+                break
     if membre_trouve is None:
         await message.channel.send(f"⚠️ Quiz validé ({score}) mais membre « {pseudo} » introuvable sur le serveur — "
                                    f"pseudo mal orthographié ? Fais `!quiz-ok @membre` à la main.")
@@ -1206,10 +1214,27 @@ async def on_message(message):
         ecrire_json(FICHIER_PIPELINE, donnees)
         confirme = await envoyer_mp(message.author,
             f"🔗 C'est noté : ton compte Discord est lié au numéro se terminant par **…{tel[-4:]}**. "
-            "Ta candidature et ton avancement sont maintenant reliés automatiquement. Bonne suite !")
+            "Ta candidature et ton avancement sont maintenant reliés automatiquement. Bonne suite !"
+            + ((f"\n\n📝 Quand tu as terminé la formation, passe ton quiz avec **TON lien personnel** "
+                f"(ne modifie pas le champ pré-rempli) :\n{LIEN_QUIZ}{utilisateur}") if LIEN_QUIZ else ""))
         if not confirme and message.guild is None:
             await message.reply("🔗 Lié ! (numéro enregistré)")
         journal.info("Liaison téléphone : membre %s -> …%s", utilisateur, tel[-4:])
+        return
+
+    # Commande PUBLIQUE : !quiz — le bot envoie en MP le lien de quiz PERSONNEL (ID Discord pré-rempli,
+    # jointure infaillible avec la feuille). « !quiz-ok » reste la commande admin, exclue ici.
+    if texte.startswith("!quiz") and not texte.startswith("!quiz-ok"):
+        if not LIEN_QUIZ:
+            await message.reply("Le lien du quiz n'est pas encore configuré — demande à Gaëtan.")
+            return
+        ok = await envoyer_mp(message.author,
+            "📝 Voici **ton lien de quiz personnel** — il contient ton identifiant Discord, "
+            f"ne modifie pas le champ pré-rempli :\n{LIEN_QUIZ}{utilisateur}\n\n"
+            "Seuil : **27/34**. Si tu le passes, le test de montage arrive ici automatiquement. Bonne chance 🍀")
+        if message.guild is not None:
+            await message.reply("📬 Lien de quiz personnel envoyé en message privé !" if ok else
+                                "⚠️ Tes MP sont fermés — active-les (Paramètres de confidentialité du serveur) puis retape `!quiz`.")
         return
 
     # Rendu de test en MP : un candidat en état test_envoye envoie ses fichiers/lien au bot,
