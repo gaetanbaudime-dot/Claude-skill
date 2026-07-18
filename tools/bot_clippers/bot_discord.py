@@ -445,7 +445,9 @@ async def detecter_bump(message):
         mois_donnees = etat.setdefault("par_mois", {}).setdefault(mois, {})
         mois_donnees[cle] = mois_donnees.get(cle, 0) + 1
         try:
-            await message.channel.send(f"🙏 Merci **{bumpeur.display_name}** pour le bump "
+            # Mention (et non display_name) : garantit le MÊME nom que dans le classement `!bumps`
+            # (un membre avec un surnom serveur différent de son pseudo créait deux noms pour une personne).
+            await message.channel.send(f"🙏 Merci {bumpeur.mention} pour le bump "
                                        f"({mois_donnees[cle]} ce mois-ci) ! Prochain dans 2 h — je préviens ici. "
                                        f"Classement : `!bumps`")
         except (discord.Forbidden, discord.HTTPException):
