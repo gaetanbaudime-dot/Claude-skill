@@ -8,6 +8,8 @@
 
 import asyncio
 import base64
+import csv
+import io
 import json
 import logging
 import os
@@ -649,6 +651,41 @@ async def traiter_quiz_webhook(message):
         if envoye else
         (f"⚠️ {membre_trouve.mention} a validé le quiz ({score}) mais ses MP sont fermés — envoie-lui le lien à la main."))
     journal.info("Quiz webhook : test %s -> membre %s", "envoyé" if envoye else "MP fermés", membre_trouve.id)
+
+
+async def enregistrer_candidatures(quadruplets):
+    """Enregistre une liste (prénom, tel_brut, pays, pseudo) dans la base d'identité.
+    Renvoie (nb_enregistrées, comptes_par_grille, incohérences pays/indicatif, rejets, rapprochés)."""
+    donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    nb, grilles = 0, {"fr": 0, "mg": 0}
+    incoherences, rejets, rapproches = [], [], []
+    for prenom, tel_brut, pays, pseudo in quadruplets:
+        prenom = (prenom or "").strip().title()
+        pays, pseudo = (pays or "").strip(), (pseudo or "").strip()
+        tel = tel_selon_pays(tel_brut or "", pays)
+        if not tel:
+            rejets.append(prenom or "(sans prénom)")
+            continue
+        donnees.setdefault("candidatures", {})[tel] = {
+            "prenom": prenom, "pays": pays, "pseudo": pseudo,
+            "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        nb += 1
+        grille = equipe_de_l_indicatif(tel)
+        grilles[grille] = grilles.get(grille, 0) + 1
+        if pays and equipe_du_pays(pays) != grille:
+            incoherences.append(f"{prenom or '?'} ({pays}, {tel[:4]}…)")
+        for uid, liaison in donnees.get("liaisons", {}).items():   # Discord déjà lié à ce numéro ?
+            if liaison.get("tel") == tel:
+                liaison["prenom"], liaison["pays"] = prenom, pays
+                membre = membre_par_id(uid)
+                if membre and prenom:
+                    try:
+                        await membre.edit(nick=prenom, reason="Candidature reliée (import)")
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                rapproches.append(f"<@{uid}>")
+    ecrire_json(FICHIER_PIPELINE, donnees)
+    return nb, grilles, incoherences, rejets, rapproches
 
 
 async def traiter_candidature_webhook(message):
@@ -1302,6 +1339,54 @@ async def commande_admin(message, texte: str) -> bool:
                   + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else ""),
                   f"✍️ Équipe signée (!equipe) : {signee}"]
         await message.reply("\n".join(lignes)[:1990])
+        return True
+
+    # ---- !importer : import direct du CSV de la feuille (aucun webhook, aucune limite Discord) ----
+    if texte.startswith("!importer"):
+        if not message.attachments:
+            await message.reply("Joins le **CSV de la feuille** à ton message `!importer` "
+                                "(Sheets → Fichier → Télécharger → Valeurs séparées par des virgules).")
+            return True
+        brut = (await message.attachments[0].read()).decode("utf-8", errors="replace")
+        lignes_csv = [l for l in csv.reader(io.StringIO(brut)) if any(c.strip() for c in l)]
+        if len(lignes_csv) < 2:
+            await message.reply("CSV vide ou illisible — vérifie le fichier téléchargé.")
+            return True
+        entetes = [normaliser(c) for c in lignes_csv[0]]
+
+        def colonne(mots):
+            for i, e in enumerate(entetes):
+                if any(m in e for m in mots):
+                    return i
+            return -1
+
+        i_prenom = colonne(["prenom"])
+        i_tel = colonne(["whatsapp", "telephone", "numero", "tel"])
+        i_pays = colonne(["pays", "resides"])
+        i_pseudo = colonne(["discord", "pseudo"])
+        if i_tel < 0:
+            await message.reply(("Colonne du numéro introuvable — entêtes lues : "
+                                 + " · ".join(lignes_csv[0]))[:1990])
+            return True
+
+        def cellule(ligne, i):
+            return ligne[i] if 0 <= i < len(ligne) else ""
+
+        quadruplets = [(cellule(l, i_prenom), cellule(l, i_tel), cellule(l, i_pays), cellule(l, i_pseudo))
+                       for l in lignes_csv[1:]]
+        nb, grilles, incoherences, rejets, rapproches = await enregistrer_candidatures(quadruplets)
+        lignes_rep = [f"📋 **Import CSV : {nb} candidature(s) enregistrée(s)** "
+                      f"(🇫🇷 grille FR {grilles.get('fr', 0)} · 🌍 International {grilles.get('mg', 0)})"]
+        if rejets:
+            lignes_rep.append(f"⚠️ {len(rejets)} sans numéro exploitable : " + ", ".join(rejets[:20])
+                              + (" …" if len(rejets) > 20 else "") + " — à traiter à la main.")
+        if incoherences:
+            lignes_rep.append("🚨 Pays déclaré ≠ indicatif : " + " · ".join(incoherences[:15]))
+        if rapproches:
+            lignes_rep.append("🔗 Fiches reliées à un Discord existant : " + ", ".join(rapproches[:15]))
+        lignes_rep.append("Vérification : `!pipeline`.")
+        await envoyer_long(message, lignes_rep)
+        journal.info("Import CSV : %d candidatures, %d rejets", nb, len(rejets))
         return True
 
     # ---- !sync-noms : renomme chaque membre lié avec le prénom du formulaire ----
