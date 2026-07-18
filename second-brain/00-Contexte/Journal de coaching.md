@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-18 (nuit) — Passage en « roue libre » : grand audit + cap sur 200 clippers
+- **Mandat donné par Gaëtan** : audit complet (business, tunnel, second cerveau), recherches à pousser (Dalio, management, psychologie), compression du vault, automatisations perso, et le cap : **~200 clippers / 6 mois, ≥ 3 000 subs par créatrice**, « en abusant un peu grâce à l'accélération du CA ».
+- **3 décisions actées** : ① budget scale = **autofinancement par cohortes** (ratio R = marge nette clippers ÷ fixes ; R ≥ 1,2 ouvre la vague suivante, R < 1 deux mois = gel) — plan chiffré dans [[Plan 200 clippers en 6 mois (autofinancé)]] ; ② rappel trésorerie quotidien = **MP Discord du bot à 8 h Paris** (canal déjà habité, zéro nouvel outil ; bascule Telegram si non-réaction après une semaine) + rappel reporting clippers le dimanche 17 h ; ③ format long → shorts (stratégie Legend) = **analyse d'abord** (agent en cours), pilote choisi ensuite.
+- **Insight systémique du plan 200** : le goulot va se déplacer — recrutement (réglé le 18/07) → **contenu** vers ~60 actifs (360 comptes affamés). Le format long n'est pas une idée créative, c'est la condition d'existence du palier 100+.
+- **Prédiction datée (18/07, avant l'issue)** : à la clôture de fin août (M1), **R ≥ 1** et **≥ 15 recrues actives** issues de la machine ; si R < 0,8 ou < 10 recrues, l'hypothèse de médiane (150-250 subs) est fausse et le plan se recale d'un cran. Revue à la clôture mensuelle d'août avec Maxence.
+
 ### 2026-07-18 — 🏆 Tunnel clippers v4 opérationnel de bout en bout, testé en conditions réelles
 - **Fait en une journée**, du tableau blanc au test réussi : annonces (Indeed ×2) → formulaire → Discord (accueil à deux branches, onboarding natif vitrine) → `!lier` (jointure téléphone) → formation unifiée (vidéo 54 min, 4 mots-clés incrustés) → **quiz personnel pré-rempli avec l'ID Discord** (jointure infaillible) → **webhook Apps Script → envoi automatique du test 48 h en MP** (relance auto 24 h, expiration J+15) → rendu des clips en MP privé (anti-copie) → transmission au salon admin → `!test-ok`/`!test-non` → contrat → `!equipe fr|int` (registre + audit). Test de bout en bout validé le jour même : quiz 29/34 soumis → test reçu en MP en une seconde, match par ID.
 - **Ce qui reste humain, par design** : la review des 2 clips (le seul juge), la signature du contrat (18+ vérifié), et la paie du lundi. Tout le reste tourne sans personne — condition du départ du 26/07.

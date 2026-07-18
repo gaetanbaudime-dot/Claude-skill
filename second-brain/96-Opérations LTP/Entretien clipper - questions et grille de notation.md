@@ -2,13 +2,16 @@
 titre: "Entretien clipper - questions et grille de notation"
 type: sop
 cluster: "96-Opérations LTP"
-statut: verified
+statut: obsolète
 créé: 2026-07-11
 tags: [ops/recrutement, ops/entretien, ops/sop]
 liens_forts: ["[[Recruter et déléguer 20-30 marketeurs (playbook)]]", "[[Entretien structuré]]", "[[Who (Geoff Smart & Randy Street)]]", "[[Équipe marketing - structure et rémunération (FR × MG)]]"]
 ---
 
 # Entretien clipper FR : les 10 questions et la grille
+
+> [!warning] OBSOLÈTE depuis le 18/07 — le tunnel v5 n'a plus d'entretien
+> « Pas d'entretien : ceux qui livrent sont pris » est devenu la promesse publique — la sélection passe par le quiz (27/34) + le test de montage 48 h ([[Machine de recrutement clippers (100 leads par mois)|tunnel v5]]). Cette page reste pour : (1) la **grille de notation 1-4** (réutilisable telle quelle pour la review des tests de montage) ; (2) le retour de l'entretien si un poste de **clipper manager** l'exige (là, un entretien redevient pertinent). Archivage prévu au [[Plan de compression du vault]].
 
 > [!tip] Le process (tel qu'arbitré)
 > **Mêmes questions pour tous · notation immédiate 1-4 par question · deux évaluateurs indépendants** (toi en entretien, puis Claude en second évaluateur sur le transcript/les notes — les notes se posent AVANT de comparer, sinon l'un contamine l'autre) · **période d'essai = test payé semaine 1** (warmup réel) · formation intégrée au Discord en message vocal (~1 h). C'est l'[[Entretien structuré]] au sens strict : la structure bat l'intuition, et la note posée immédiatement évite que le dernier candidat sympa efface les précédents ([[Débiaisage]]). Pour les MG : **pas d'entretien** — filtre Google Forms + assiduité au vocal de formation (qui l'écoute en entier et applique = signal de sérieux plus fiable qu'un call).

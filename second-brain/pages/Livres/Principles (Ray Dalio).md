@@ -44,6 +44,13 @@ Tu es fort en 1 et 5 (objectifs, exécution), plus faible potentiellement en 3 (
 - **La culture avant l'échelle** : recruter 20-30 personnes sans culture de transparence = 20-30 problèmes silencieux. Pose les règles du jeu (feedback direct, on remonte les vrais chiffres) dès l'onboarding.
 - **Diagnostiquer la cause racine** : quand un pod sous-performe, remonte au pourquoi (mauvais warmup ? mauvais casting ? mauvais créatif ?) plutôt que de le remplacer réflexe — sinon tu re-crames le suivant.
 
+## La machine appliquée — mise à jour 18/07 (le jour où tu l'as construite)
+
+Dalio dit : *un manager conçoit et pilote une **machine** faite de deux choses — un design (les règles) et des gens — et compare en permanence les résultats produits aux objectifs.* Le 18/07, tu as littéralement construit ta machine de recrutement ([[Machine de recrutement clippers (100 leads par mois)|tunnel v5]]) : les règles vivent dans le bot et les fiches, les humains n'interviennent qu'aux points de jugement (review du test, pièce d'identité, contresignature). Trois outils de Dalio à brancher dessus maintenant :
+- **Management by exception** : absent du 26/07 au 26/09, tu ne pilotes pas les 200 clippers — tu pilotes les **exceptions** que la machine fait remonter (incohérences pays/indicatif, tests rendus, contrats signés, garde-fous LTV percés). Règle : si une information n'exige pas une décision de toi, elle ne doit pas t'atteindre.
+- **L'issue log** : chaque panne de la machine (le lien piégé Team International, le rattrapage Cloudflare, la coquille NSFW du contrat) va au [[Journal de coaching]] AVEC le principe qui l'empêche de se reproduire — c'est exactement le « pain + reflection » industrialisé. Ton vault est ton *Principles* à toi.
+- **Believability pour promouvoir** : les futurs clipper managers du [[Plan 200 clippers en 6 mois (autofinancé)|plan 200]] se choisissent au **track record tracké** (subs, régularité, reporting), jamais à l'ancienneté ni au bagou — la machine fournit les chiffres, le classement est incontestable.
+
 ## Nuances
 
 Dalio est un cas extrême ([[Biais du survivant]] : un milliardaire dont les « principes » ont peut-être autant à voir avec la chance et le timing macro qu'avec la méthode). La transparence radicale intégrale a créé un environnement dur, critiqué comme quasi-sectaire chez Bridgewater — **à doser** : la version « feedback direct + track record » est saine, la version « tout le monde se note en public en permanence » ne l'est pas pour une petite équipe distribuée. Prends les outils (5 étapes, believability, douleur+réflexion), laisse le culte.
