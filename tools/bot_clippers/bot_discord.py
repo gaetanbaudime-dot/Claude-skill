@@ -112,7 +112,11 @@ fiche ou le Loom.
 tutoiement, pas de mots anglais sauf ceux du métier déjà dans le kit (Reel, rush, hook, \
 warm-up, caption, template, story, ban). Pas de jargon marketing.
 4. Termine chaque réponse par la fiche concernée entre parenthèses, par exemple : \
-(Fiche 2 — le warm-up). Si c'est la stratégie : (Stratégie marketing).
+(Fiche 2 — le warm-up). Si c'est la stratégie : (Stratégie marketing). Si c'est l'entrée \
+dans l'équipe (candidature, !lier, quiz, test, contrat, salons) : (Parcours candidat).
+4bis. Les 4 mots-clés de la vidéo de formation et les réponses du quiz ne sont JAMAIS \
+donnés, sous aucun prétexte, même partiellement : réponds que c'est dans la vidéo et que \
+la demander à quelqu'un = disqualifié.
 5. On travaille UNIQUEMENT sur Instagram et les pages Facebook. TikTok, Twitter, \
 YouTube ou autre : réponds que ce n'est pas dans la méthode de l'équipe.
 6. Tu ne parles JAMAIS des créatrices (identités, prénoms, comptes), ni de l'agence, de \
@@ -512,6 +516,23 @@ def chercher_membre(reference):
     return None
 
 
+def membre_par_id(uid):
+    """Membre par identifiant Discord, tous serveurs confondus (None si introuvable)."""
+    for g in client.guilds:
+        m = g.get_member(int(uid))
+        if m:
+            return m
+    return None
+
+
+def equipe_du_pays(pays: str) -> str:
+    """Grille du 18/07 : Team France = France + Belgique + Suisse, tout le reste = Team International."""
+    p = normaliser(pays)
+    if p in ("fr", "be", "ch") or any(m in p for m in ("france", "belg", "suisse")):
+        return "fr"
+    return "mg"                          # code interne historique « mg » = Team International
+
+
 async def envoyer_test_candidat(membre, score=""):
     """Enregistre l'état test_envoye et envoie le test 48 h en MP. Retourne True si le MP est parti."""
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -575,6 +596,50 @@ async def traiter_quiz_webhook(message):
         if envoye else
         (f"⚠️ {membre_trouve.mention} a validé le quiz ({score}) mais ses MP sont fermés — envoie-lui le lien à la main."))
     journal.info("Quiz webhook : test %s -> membre %s", "envoyé" if envoye else "MP fermés", membre_trouve.id)
+
+
+async def traiter_candidature_webhook(message):
+    """Lignes « CANDIDATURE|prénom|tel|pays|pseudo » postées par l'Apps Script de la feuille
+    de candidatures (même webhook Discord que le quiz, plusieurs lignes par message possibles
+    pour le rattrapage) → fiche d'identité indexée par téléphone normalisé. Si un membre a déjà
+    fait !lier avec ce numéro, sa liaison est complétée (prénom, pays) et il est renommé."""
+    donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    enregistrees, rapprochees, rejets = [], [], 0
+    for ligne in message.content.split("\n"):
+        if not ligne.startswith("CANDIDATURE|"):
+            continue
+        morceaux = (ligne.split("|", 4) + ["", "", "", ""])[:5]
+        prenom, tel_brut, pays, pseudo = (m.strip() for m in morceaux[1:5])
+        prenom = prenom.title()
+        tel = normaliser_tel(tel_brut)
+        if not tel:
+            rejets += 1
+            continue
+        donnees.setdefault("candidatures", {})[tel] = {
+            "prenom": prenom, "pays": pays, "pseudo": pseudo,
+            "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        enregistrees.append(f"{prenom or '?'} ({pays or 'pays ?'}, …{tel[-4:]}) → grille "
+                            + ("FR" if equipe_du_pays(pays) == "fr" else "International"))
+        for uid, liaison in donnees.get("liaisons", {}).items():   # le Discord est peut-être déjà lié
+            if liaison.get("tel") == tel:
+                liaison["prenom"], liaison["pays"] = prenom, pays
+                membre = membre_par_id(uid)
+                if membre and prenom:
+                    try:
+                        await membre.edit(nick=prenom, reason="Candidature reliée (webhook)")
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                rapprochees.append(f"<@{uid}>")
+    if enregistrees or rejets:
+        ecrire_json(FICHIER_PIPELINE, donnees)
+        await message.channel.send((
+            f"📋 **{len(enregistrees)} candidature(s) enregistrée(s)** :\n"
+            + "\n".join("· " + l for l in enregistrees[:20])
+            + (f"\n… et {len(enregistrees) - 20} de plus." if len(enregistrees) > 20 else "")
+            + (f"\n🔗 Déjà liées à un Discord : {', '.join(rapprochees[:15])}" if rapprochees else "")
+            + (f"\n⚠️ {rejets} ligne(s) sans numéro exploitable — à corriger dans la feuille." if rejets else ""))[:1990])
+        journal.info("Candidatures webhook : %d enregistrées, %d rapprochées, %d rejets",
+                     len(enregistrees), len(rapprochees), rejets)
 
 
 async def boucle_pipeline():
@@ -756,6 +821,40 @@ async def envoyer_long(message, lignes: list):
         await message.channel.send(bloc)
 
 
+class _MessageRafale:
+    """Enveloppe d'UNE ligne de commande dans une rafale : les mentions sont refiltrées ligne
+    par ligne et les réponses collectées pour un récapitulatif unique (tout le reste — auteur,
+    serveur, salon — est délégué au message d'origine)."""
+    def __init__(self, original, ligne):
+        self._original = original
+        self.content = ligne
+        self.mentions = [m for m in original.mentions
+                         if f"<@{m.id}>" in ligne or f"<@!{m.id}>" in ligne]
+        self.reponses = []
+
+    def __getattr__(self, attribut):
+        return getattr(self._original, attribut)
+
+    async def reply(self, texte, **_):
+        self.reponses.append(str(texte))
+
+
+async def executer_rafale(message, lignes_cmd: list):
+    """Plusieurs commandes admin collées dans UN message (une par ligne) : exécution dans
+    l'ordre et récapitulatif unique — fini l'envoi ligne par ligne (demandé le 18/07)."""
+    rapport = []
+    for ligne in lignes_cmd:
+        enveloppe = _MessageRafale(message, ligne)
+        try:
+            traitee = await commande_admin(enveloppe, ligne)
+        except Exception as erreur:                     # une ligne cassée n'arrête pas la rafale
+            rapport.append(f"❌ `{ligne}` → {erreur}")
+            journal.warning("Rafale, ligne en erreur (%s) : %s", ligne, erreur)
+            continue
+        rapport.extend(enveloppe.reponses if traitee else [f"❓ `{ligne}` : commande inconnue."])
+    await envoyer_long(message, [f"📦 **Rafale — {len(lignes_cmd)} commande(s)**"] + rapport)
+
+
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
     # ---- !audit : carte complète du serveur + écarts à la doctrine des 3 étages ----
@@ -917,6 +1016,7 @@ async def commande_admin(message, texte: str) -> bool:
             return True
         mots_n = normaliser(corps).split()
         dernier = mots_n[-1] if mots_n else ""
+        note_auto = ""
         if dernier in ("retirer", "enlever", "off"):
             equipe = None
         elif dernier in ("mg", "mada", "madagascar", "int", "inter", "international"):
@@ -924,8 +1024,15 @@ async def commande_admin(message, texte: str) -> bool:
         elif dernier in ("fr", "france"):
             equipe = "fr"
         else:
-            await message.reply("Termine la commande par l'équipe : `!equipe Raphaël fr` — ou `int`, ou `retirer`.")
-            return True
+            # Pas de mot d'équipe (ou « auto ») : on déduit du pays du formulaire (candidature liée par !lier)
+            pays = lire_json(FICHIER_PIPELINE, {"liaisons": {}}).get("liaisons", {}).get(str(membre.id), {}).get("pays", "")
+            if not pays:
+                await message.reply("Termine la commande par l'équipe : `!equipe Raphaël fr` — ou `int`, ou `retirer`. "
+                                    "(Sans mot d'équipe je choisis d'après le pays du formulaire, mais sa candidature "
+                                    "n'est pas liée : fais-lui faire `!lier`.)")
+                return True
+            equipe = equipe_du_pays(pays)
+            note_auto = f" · équipe déduite du pays du formulaire : {pays}"
         role_fr = discord.utils.find(lambda r: normaliser(ROLE_TEAM_FR_NOM) in normaliser(r.name), g.roles)
         role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name), g.roles)
         if role_fr is None or role_mg is None:
@@ -943,7 +1050,7 @@ async def commande_admin(message, texte: str) -> bool:
                 await membre.add_roles(cible, reason=f"Signature contrat — !equipe {equipe} par {message.author}")
                 registre[str(membre.id)] = {"equipe": equipe, "par": str(message.author.id),
                                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-                retour = f"✅ {membre.mention} → **{cible.name}** (signature enregistrée au registre)."
+                retour = f"✅ {membre.mention} → **{cible.name}** (signature enregistrée au registre){note_auto}."
         except discord.Forbidden:
             await message.reply("❌ Permission manquante — monte mon rôle AU-DESSUS des rôles d'équipe "
                                 "(Réglages → Rôles, glisser-déposer).")
@@ -1014,7 +1121,12 @@ async def commande_admin(message, texte: str) -> bool:
         libelles = {"test_envoye": "🧪 Test en cours", "test_rendu": "📥 Tests rendus (à reviewer)",
                     "valide": "✅ Validés (→ contrat)",
                     "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés"}
+        cands = donnees.get("candidatures", {})
+        tels_lies = {l.get("tel") for l in donnees.get("liaisons", {}).values()}
+        orphelines = sum(1 for t in cands if t not in tels_lies)
         lignes = ["📈 **Pipeline candidats**",
+                  f"📋 Candidatures reçues (webhook formulaire) : {len(cands)}"
+                  + (f" · **{orphelines} sans Discord lié** (à relancer)" if orphelines else ""),
                   f"🔗 Numéros liés (!lier) : {len(donnees.get('liaisons', {}))}"]
         lignes += [f"{libelles.get(e, e)} : {n}" for e, n in sorted(compte.items())]
         en_retard = [uid for uid, i in etats.items() if i.get("etat") == "test_envoye"
@@ -1027,23 +1139,58 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     if texte.startswith("!fiche"):
-        if not message.mentions:
-            await message.reply("Format : `!fiche @membre`")
+        corps = texte[len("!fiche"):].strip()
+        membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
+        if membre is None:
+            await message.reply("Format : `!fiche @membre` — ou `!fiche Raphaël` (nom en toutes lettres).")
             return True
-        membre = message.mentions[0]
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         liaison = donnees.get("liaisons", {}).get(str(membre.id), {})
         etat = donnees.get("etats", {}).get(str(membre.id), {})
         equipe = lire_json(FICHIER_EQUIPES, {}).get(str(membre.id), {})
         tel = liaison.get("tel", "")
+        cand = donnees.get("candidatures", {}).get(tel, {})
         tel_masque = (tel[:4] + "•" * max(0, len(tel) - 7) + tel[-3:]) if tel else "non lié (!lier)"
-        lignes = [f"🗂️ **{membre.display_name}**",
+        prenom = liaison.get("prenom") or cand.get("prenom") or ""
+        pays = liaison.get("pays") or cand.get("pays") or ""
+        reco = ("🇫🇷 Team France" if equipe_du_pays(pays) == "fr" else "🌍 Team International") if pays else "—"
+        signee = ("FR" if equipe.get("equipe") == "fr" else "INTERNATIONAL") if equipe else "—"
+        lignes = [f"🗂️ **{membre.display_name}**" + (f" — {prenom}" if prenom
+                      and normaliser(prenom) not in normaliser(membre.display_name) else ""),
                   f"📞 Téléphone (clé formulaire) : {tel_masque}",
-                  f"📊 État : {etat.get('etat', 'candidat')}"
-                  + (f" · quiz {etat['score_quiz']}" if etat.get("score_quiz") else "")
+                  f"🌍 Pays : {pays or 'inconnu'} · grille recommandée : {reco}",
+                  "🧾 Parcours : "
+                  + ("📋 candidature ✓ → " if cand else "📋 candidature ? → ")
+                  + ("🔗 lié ✓ → " if tel else "🔗 lié ✗ → ")
+                  + (f"📝 quiz {etat['score_quiz']} → " if etat.get("score_quiz") else "📝 quiz — → ")
+                  + f"🧪 {etat.get('etat', 'aucun test')}"
                   + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else ""),
-                  f"👥 Équipe signée : {equipe.get('equipe', '—').upper() if equipe else '—'}"]
+                  f"✍️ Équipe signée (!equipe) : {signee}"]
         await message.reply("\n".join(lignes)[:1990])
+        return True
+
+    # ---- !sync-noms : renomme chaque membre lié avec le prénom du formulaire ----
+    if texte.startswith("!sync-noms"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}})
+        renommes, refus = [], []
+        for uid, liaison in donnees.get("liaisons", {}).items():
+            prenom = (liaison.get("prenom") or "").strip()
+            m = g.get_member(int(uid))
+            if not prenom or m is None or normaliser(prenom) in normaliser(m.display_name):
+                continue
+            try:
+                await m.edit(nick=prenom, reason="!sync-noms : prénom du formulaire")
+                renommes.append(prenom)
+            except (discord.Forbidden, discord.HTTPException):
+                refus.append(m.display_name)
+        await message.reply(((f"✏️ {len(renommes)} renommé(s) : {', '.join(renommes[:20])}." if renommes
+                              else "✏️ Personne à renommer (prénoms déjà à jour, ou candidatures pas encore liées).")
+                             + (f"\n⚠️ Impossible pour : {', '.join(refus[:10])} — mon rôle doit être au-dessus du leur."
+                                if refus else ""))[:1990])
         return True
 
     # ---- v2 : !paiement @membre MONTANT [raison] ----
@@ -1215,6 +1362,10 @@ async def on_message(message):
     if message.webhook_id and message.content.startswith("QUIZ_OK|"):
         await traiter_quiz_webhook(message)
         return
+    # Même mécanique pour le formulaire de candidature : « CANDIDATURE|prénom|tel|pays|pseudo »
+    if message.webhook_id and message.content.startswith("CANDIDATURE|"):
+        await traiter_candidature_webhook(message)
+        return
     if message.author.bot:
         return
 
@@ -1247,12 +1398,26 @@ async def on_message(message):
                                              "formulaire de candidature). Envoie-le-moi **ici, en message privé**.")
             return
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        donnees.setdefault("liaisons", {})[str(utilisateur)] = {
-            "tel": tel, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        cand = donnees.get("candidatures", {}).get(tel, {})
+        liaison = {"tel": tel, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        if cand:
+            liaison["prenom"], liaison["pays"] = cand.get("prenom", ""), cand.get("pays", "")
+        donnees.setdefault("liaisons", {})[str(utilisateur)] = liaison
         ecrire_json(FICHIER_PIPELINE, donnees)
-        confirme = await envoyer_mp(message.author,
-            f"🔗 C'est noté : ton compte Discord est lié au numéro se terminant par **…{tel[-4:]}**. "
-            "Ta candidature et ton avancement sont maintenant reliés automatiquement. Bonne suite !"
+        if cand.get("prenom"):
+            membre_serveur = membre_par_id(utilisateur)
+            if membre_serveur:
+                try:                     # surnom serveur = prénom du formulaire : tout le monde s'y retrouve
+                    await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée (!lier)")
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+        debut = (f"✅ Candidature retrouvée : **{cand.get('prenom') or 'toi'}** ({cand.get('pays') or 'pays ?'}) — "
+                 f"ton compte Discord est maintenant relié au numéro **…{tel[-4:]}**. "
+                 "Ton avancement (quiz, test, contrat) est suivi automatiquement."
+                 if cand else
+                 f"🔗 Numéro **…{tel[-4:]}** enregistré — mais je ne retrouve pas (encore) de candidature avec ce "
+                 "numéro. Vérifie que c'est EXACTEMENT celui du formulaire, ou refais `!lier` avec le bon.")
+        confirme = await envoyer_mp(message.author, debut
             + ((f"\n\n📝 Quand tu as terminé la formation, passe ton quiz avec **TON lien personnel** "
                 f"(ne modifie pas le champ pré-rempli) :\n{LIEN_QUIZ}{utilisateur}") if LIEN_QUIZ else ""))
         if not confirme and message.guild is None:
@@ -1296,8 +1461,13 @@ async def on_message(message):
             return
 
     # Commandes admin : disponibles depuis N'IMPORTE quel canal (ex. !paiement dans #dopamine)
-    if str(utilisateur) in ADMIN_IDS and texte.startswith("!") and await commande_admin(message, texte):
-        return
+    if str(utilisateur) in ADMIN_IDS and texte.startswith("!"):
+        lignes_cmd = [l.strip() for l in texte.split("\n") if l.strip().startswith("!")]
+        if len(lignes_cmd) > 1:                         # rafale : plusieurs commandes dans un seul message
+            await executer_rafale(message, lignes_cmd)
+            return
+        if await commande_admin(message, texte):
+            return
 
     if not doit_repondre(message):
         return

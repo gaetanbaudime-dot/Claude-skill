@@ -1,6 +1,6 @@
-# Base de connaissances — Kit Clipper LTP (v2, 14 juillet 2026)
+# Base de connaissances — Kit Clipper LTP (v3, 18 juillet 2026)
 
-> Ce fichier est LA seule source du bot. Il reprend le Kit Clipper v2 (PDF officiel).
+> Ce fichier est LA seule source du bot. Il reprend le Kit Clipper v2 (PDF officiel) + le parcours candidat du 18/07.
 > Pour le mettre à jour : modifier ce fichier puis redémarrer le bot.
 > ⚠️ Ne JAMAIS ajouter ici : identités de créatrices, chiffres de l'agence, méthodes hors kit.
 
@@ -11,6 +11,30 @@
 3. Tester beaucoup de formats.
 4. Refaire ce qui marche.
 5. Ramener des abonnés OnlyFans avec son lien — c'est ça qui paie.
+
+## LE PARCOURS CANDIDAT (de la candidature à l'équipe, dans l'ordre)
+
+1. **Formulaire de candidature** (lien dans #candidature). Tu y mets ton prénom, ton pays, ton numéro de téléphone et ton pseudo Discord.
+2. **Relier ton compte** : envoie `!lier 06XXXXXXXX` au bot **en message privé** — avec EXACTEMENT le même numéro que dans le formulaire. C'est ce qui relie ta candidature à ton Discord (et le serveur affiche alors ton prénom).
+3. **La formation** : forum « formation », post « Bienvenue ». Une seule vidéo (54 minutes) + les 6 fiches. **4 mots-clés sont cachés dans la vidéo** : note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne — ni le bot, ni un autre clipper. Les demander = disqualifié.
+4. **Le quiz** : tape `!quiz` sur le serveur, le bot t'envoie TON lien personnel en message privé (ne modifie pas le champ pré-rempli). Seuil : **27/34**. Deux essais maximum.
+5. **Le test de montage** : si tu passes le quiz, le bot t'envoie automatiquement le test en message privé — 2 clips à monter en **48 h**. Tu rends tes 2 clips **en message privé au bot** (jamais dans un salon public). Réponse sous 72 h maximum.
+6. **Le contrat puis l'équipe** : test validé → signature du contrat (18 ans minimum obligatoire) → tu reçois ton rôle (Team France pour France/Belgique/Suisse, Team International pour les autres pays), ton accès équipe et ton lien de tracking. Ensuite seulement : création des comptes (Fiche 1).
+
+Problèmes fréquents : pas reçu le lien du quiz ou le test → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis retape `!quiz` ; quiz raté → revois la vidéo, il te reste un essai ; test non rendu à temps → repassage possible 15 jours plus tard, reste sur le serveur.
+
+## LES SALONS DU SERVEUR (qui va où)
+
+- **#candidature** : l'accueil. Le lien du formulaire, et c'est là que tu écris si tu es bloqué au début.
+- **Forum formation** : post « Bienvenue » (vidéo + quiz) puis Fiche 1 à 6 et le Kit Clipper à imprimer. Tout le parcours d'apprentissage est là.
+- **#assistant-ia** : ici, pose-moi tes questions 24h/24 (kit, méthode, parcours). Si je ne sais pas : demande à Gaëtan.
+- **#tips et #ressources** : astuces et modèles (captions, tutos) à consulter avant de demander.
+- **#reporting** (réservé à l'équipe) : ton compte-rendu chaque dimanche — obligatoire pour le fixe.
+- **#dopamine** : les paiements et les victoires de l'équipe, en public.
+- **#bump** : tape `/bump` quand le bot le rappelle — classement mensuel avec `!bumps`.
+- **#annonces** : les annonces officielles. On lit, on ne répond pas.
+
+Commandes utiles pour tous : `!lier` (relier sa candidature, en MP), `!quiz` (recevoir son lien personnel), `!bumps` (classement du mois).
 
 ## Le matériel de travail (pour 1 téléphone)
 
