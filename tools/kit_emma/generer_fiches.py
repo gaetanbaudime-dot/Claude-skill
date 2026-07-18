@@ -251,8 +251,9 @@ Je suis toujours joignable — un doute ne reste jamais bloqué.</p>
 <b class="t">1</b> — ta recommandation.<br/>
 À envoyer <b>dans le groupe WhatsApp</b>.<br/><br/>
 <span class="petit">Exemple : « Maddy n'a rien déposé depuis dix jours et ne confirme pas son créneau (1).
-Options : je l'accompagne pour filmer ensemble / on décale d'une semaine et je renvoie les idées lundi /
-Gaëtan l'appelle (3). Je recommande la séance ensemble jeudi, elle produit toujours mieux accompagnée (1). »</span></div>
+Options : je conviens d'un rendez-vous avec elle et je l'aide en direct, en appel pendant qu'elle tourne /
+on décale d'une semaine et je renvoie les idées lundi / Gaëtan l'appelle (3).
+Je recommande le rendez-vous en appel jeudi, elle produit toujours mieux accompagnée (1). »</span></div>
 
 <div class="box"><b class="t">Rappel :</b> tu as le droit de décider, de te tromper et d'ajuster
 la semaine suivante — <b>sans pression</b>. C'est comme ça qu'on avance.</div>
