@@ -978,6 +978,21 @@ async def boucle_rappels():
                         ecrire_json(FICHIER_RAPPELS, etat)
                     except (discord.Forbidden, discord.HTTPException):
                         pass
+            # Sauvegarde automatique des JSON : le dimanche à partir de 20:00, une fois.
+            if CANAL_BOT_ID and maintenant.weekday() == 6 and maintenant.hour >= 20 \
+                    and etat.get("sauvegarde") != aujourdhui:
+                canal = await canal_par_id(CANAL_BOT_ID)
+                fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
+                                        FICHIER_INVITES, FICHIER_BUMP, FICHIER_COMPTEURS) if p.exists()]
+                if canal is not None and fichiers:
+                    try:
+                        await canal.send("💾 **Sauvegarde hebdomadaire automatique** (la mémoire de la machine "
+                                         "— fiches, registre, compteurs) :",
+                                         files=[discord.File(str(p)) for p in fichiers[:10]])
+                        etat["sauvegarde"] = aujourdhui
+                        ecrire_json(FICHIER_RAPPELS, etat)
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
         except Exception as erreur:                       # la boucle ne doit jamais mourir
             journal.warning("Boucle rappels : %s", erreur)
         await asyncio.sleep(600)
@@ -1649,6 +1664,19 @@ async def commande_admin(message, texte: str) -> bool:
         lignes_rep.append("Vérification : `!pipeline`.")
         await envoyer_long(message, lignes_rep)
         journal.info("Import CSV : %d candidatures, %d rejets", nb, len(rejets))
+        return True
+
+    # ---- !sauvegarde : les JSON du volume postés en pièces jointes (mémoire de la machine) ----
+    if texte.startswith("!sauvegarde"):
+        fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
+                                FICHIER_INVITES, FICHIER_BUMP, FICHIER_COMPTEURS) if p.exists()]
+        if not fichiers:
+            await message.reply("Aucune donnée à sauvegarder (volume vide ?).")
+            return True
+        await message.channel.send(
+            f"💾 **Sauvegarde du {heure_paris().strftime('%d/%m/%Y %H:%M')}** — à garder en lieu sûr "
+            "(ces fichiers SONT la mémoire de la machine : fiches, registre, compteurs).",
+            files=[discord.File(str(p)) for p in fichiers[:10]])
         return True
 
     # ---- !sync-noms : renomme chaque membre lié avec le prénom du formulaire ----
