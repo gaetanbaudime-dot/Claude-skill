@@ -143,6 +143,14 @@ fiche 6.
 puis réponds selon la base de connaissances (même règle d'escalade si tu ne sais pas).
 10. Si la question est floue, pose UNE question de clarification au lieu de deviner."""
 
+# Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
+# « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
+if CANAL_FORMATION_ID:
+    INSTRUCTIONS += (f"\n11. Dès que tu diriges vers le forum « formation », écris le lien cliquable "
+                     f"<#{CANAL_FORMATION_ID}> (jamais le nom seul).")
+if CANAL_ASSISTANT_ID:
+    INSTRUCTIONS += f"\n12. Le salon de l'assistant se donne aussi en lien cliquable : <#{CANAL_ASSISTANT_ID}>."
+
 # ------------------------------------------------------------------ connaissances (rechargées automatiquement)
 _connaissances = {"texte": "", "signature": None}
 
@@ -1320,13 +1328,16 @@ async def commande_admin(message, texte: str) -> bool:
                 except discord.Forbidden:
                     pass
             await envoyer_mp(membre, "🏆 **Test validé — bienvenue dans la Team International !**\n\n"
-                                     "Tes accès équipe viennent de s'ouvrir. La suite, dans l'ordre :\n"
-                                     "1️⃣ Envoie-moi ton **adresse Gmail** ici — elle sert à t'ouvrir le Drive "
-                                     "(rushs et modèles).\n"
-                                     "2️⃣ **Fiche 1** (forum formation) : création de tes comptes.\n"
-                                     "3️⃣ **Warm-up 48 h** (Fiche 2), puis posting quotidien.\n"
-                                     "4️⃣ Chaque dimanche : ton **reporting** (obligatoire pour le fixe).\n"
-                                     "Ton lien de tracking arrive avec l'accès au Drive. Au travail 💪")
+                                     "Avant d'ouvrir ton accès, confirme les règles de l'équipe :\n"
+                                     "1. Les comptes créés pour la mission **appartiennent à l'agence** — tu "
+                                     "remets les accès à la demande.\n"
+                                     "2. Formation, méthodes et contenus : **confidentiels**, rien ne se "
+                                     "partage, rien ne se copie.\n"
+                                     "3. Tu as **18 ans ou plus**.\n"
+                                     "4. Paie : **0,50 € par abonné vérifié** via TON lien + fixe selon la "
+                                     "grille, conditionné au travail réel (volume, comptes sains, reporting "
+                                     "du dimanche). Toute fraude au suivi = exclusion immédiate.\n\n"
+                                     "Réponds **J'ACCEPTE** ici pour recevoir la suite (Drive, comptes, warm-up).")
             await message.reply(f"🏆 {membre.mention} validé → **Team International attribuée** "
                                 + ("(+ registre) · MP d'onboarding envoyé." if attribue else
                                    "— ⚠️ rôle non attribué (introuvable ou permission) : fais `!equipe "
@@ -1725,6 +1736,31 @@ async def on_message(message):
         if message.guild is not None:
             await message.reply("📬 Lien de quiz personnel envoyé en message privé !" if ok else
                                 "⚠️ Tes MP sont fermés — active-les (Paramètres de confidentialité du serveur) puis retape `!quiz`.")
+        return
+
+    # MP : « J'ACCEPTE » — acceptation horodatée des conditions Team International (remplace le
+    # contrat côté International, décision du 18/07). Enregistrée au registre, puis onboarding.
+    if message.guild is None and normaliser(texte).replace("'", "").replace("’", "").replace(" ", "") == "jaccepte":
+        registre = lire_json(FICHIER_EQUIPES, {})
+        fiche_eq = registre.get(str(utilisateur))
+        if fiche_eq and fiche_eq.get("equipe") == "mg":
+            if not fiche_eq.get("conditions"):
+                fiche_eq["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                ecrire_json(FICHIER_EQUIPES, registre)
+                canal = await canal_par_id(CANAL_BOT_ID)
+                if canal:
+                    await canal.send(f"✍️ {message.author.mention} a accepté les **conditions International** "
+                                     "(horodaté au registre) — sa Gmail arrive, prépare l'accès Drive.")
+            await message.reply("✅ **Conditions acceptées et enregistrées !** La suite, dans l'ordre :\n"
+                                "1️⃣ Envoie-moi ton **adresse Gmail** ici — elle sert à t'ouvrir le Drive "
+                                "(rushs et modèles).\n"
+                                "2️⃣ **Fiche 1** (forum formation) : création de tes comptes.\n"
+                                "3️⃣ **Warm-up 48 h** (Fiche 2), puis posting quotidien.\n"
+                                "4️⃣ Chaque dimanche : ton **reporting** (obligatoire pour le fixe).\n"
+                                "Ton lien de tracking arrive avec l'accès au Drive. Au travail 💪")
+        else:
+            await message.reply("Noté ! (Cette confirmation concerne l'onboarding Team International — "
+                                "si tu es en cours de sélection, continue ton parcours normalement.)")
         return
 
     # Rendu de test en MP : un candidat en état test_envoye envoie ses fichiers/lien au bot,
