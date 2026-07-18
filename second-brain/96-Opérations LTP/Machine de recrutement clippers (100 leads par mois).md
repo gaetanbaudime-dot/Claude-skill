@@ -62,6 +62,19 @@ La viral loop (paiement → preuve → contenu → clippers) est le but, mais **
 
 **Entrée unique = le Google Forms**, quel que soit le canal (Indeed, Instagram, Telegram, Disboard… — la Q17 source trace tout ; message-pont type : « ton profil passe notre première présélection, remplis ce court formulaire de 3-5 min ») → **test 48 h** : dossier Drive dédié de 6-7 rushs courts à monter (des **prises non retenues** : jamais publiées, une fuite ne coûte presque rien) → oui/non → **contrat AVANT tout accès** (presta + confidentialité + propriété des comptes par l'agence — le [[Équipe marketing - structure et rémunération (FR × MG)|verrou du fixe]] s'appuie dessus) → **Discord = formation complète** : un **vocal obligatoire par module** + des **mots-clés dissimulés en texte dans les vidéos de montage** que le candidat doit citer (preuve de visionnage réel — à **varier par cohorte**, sinon ils se les échangent) → création des comptes (warmup) → posting. Le Discord ne contient plus de candidats : le kit n'est accessible qu'aux embauchés sous contrat.
 
+### Structure Discord verrouillée (18/07 — incident : un candidat du Bénin auto-assigné « Team France »)
+
+**La faille n'était pas les permissions, c'était le chemin d'attribution** : l'onboarding natif Discord laissait les membres **choisir eux-mêmes** leur rôle Team France / Team Madagascar — donc voir la grille de rémunération de l'autre équipe (FR 200 € fixe vs MG 100 €) et en changer à volonté. Règle gravée : **un rôle qui ouvre des salons ne s'auto-attribue JAMAIS** — l'onboarding ne distribue que des rôles cosmétiques (notifications, centres d'intérêt), jamais des rôles d'accès.
+
+Le modèle verrouillé :
+1. **Onboarding** : supprimer la question « Team » (Paramètres serveur → Onboarding) ; vérifier qu'aucune intégration/réaction-rôle ne distribue FR/MG.
+2. **Attribution des rôles d'accès à la signature du contrat uniquement**, par l'admin, pays vérifié via le formulaire (la feuille de réponses contient le pays).
+3. **Permissions par catégorie** : TEAM FRANCE → @everyone ❌ voir, rôle Team France ✅ (idem MG) ; audit salon par salon des overrides.
+4. **Rôle « Candidat » par défaut** : accès bienvenue + candidature + salons de preuve publics (compteur, dopamine) — rien d'autre ; le kit et la formation restent derrière le contrat (tunnel v3).
+5. **Audit périodique** : Paramètres → Membres → filtrer par rôle → chaque titulaire FR/MG correspond à un validé sous contrat.
+6. **La réponse à l'écart FR/MG, prête d'avance** (il sera vu un jour) : *même commission pour tous — 0,50 €/sub, l'équité au mérite ; les fixes sont indexés sur le coût de la vie locale, comme dans toute équipe internationale.* Déjà la doctrine de [[Équipe marketing - structure et rémunération (FR × MG)]].
+7. **Candidats hors périmètre** (Bénin/international) : décision actée = FR uniquement cet été, l'international ouvre en phase 2 (septembre) — réponse type : candidature en vivier prioritaire, retrait du rôle, pas d'exception qui casse la grille.
+
 > [!warning] Règle de sécurité du dossier de test (incident évité le 18/07)
 > Un fichier Drive **uploadé par la créatrice elle-même affiche son compte personnel en métadonnées** (nom légal, adresse email) à quiconque a le lien. Le dossier de test envoyé aux candidats doit donc contenir des **copies re-uploadées par le compte agence**, dans un dossier **hors arborescence de production**, avec des noms neutres (`rush_01.mov`…), partagé en lecteur par lien. Jamais le dossier de prod directement, jamais les fichiers d'origine. Accord de la créatrice pour l'usage recrutement + rushs les plus soft du lot.
 
