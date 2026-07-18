@@ -18,6 +18,7 @@ import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+import aiohttp
 import discord
 import anthropic
 
@@ -104,6 +105,14 @@ LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du 
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
 CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
 CANAL_FORMATION_ID = os.environ.get("CANAL_FORMATION_ID", "").strip()   # forum formation, lié dans le parcours MP étape 2
+
+# ---- Contrat DocuSeal (v2 du 18/07) : le bot crée le contrat depuis le modèle et envoie le
+# lien de signature EN MP Discord (send_email: false) dès que le validé FR donne son e-mail.
+# Suivi par sondage API dans boucle_pipeline (pas de webhook entrant nécessaire).
+DOCUSEAL_API_KEY = os.environ.get("DOCUSEAL_API_KEY", "").strip()
+DOCUSEAL_TEMPLATE_ID = os.environ.get("DOCUSEAL_TEMPLATE_ID", "").strip()
+DOCUSEAL_URL = os.environ.get("DOCUSEAL_URL", "https://api.docuseal.com").strip()
+DOCUSEAL_EMAIL_AGENCE = os.environ.get("DOCUSEAL_EMAIL_AGENCE", "").strip()   # contresignataire (rôle Agence)
 
 # Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
 # remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
@@ -713,6 +722,48 @@ async def enregistrer_candidatures(quadruplets):
     return nb, grilles, incoherences, rejets, rapproches
 
 
+async def docuseal_requete(methode, chemin, corps=None):
+    """Appel à l'API DocuSeal (None si non configurée, en erreur ou injoignable — jamais d'exception)."""
+    if not DOCUSEAL_API_KEY:
+        return None
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.request(methode, DOCUSEAL_URL.rstrip("/") + chemin, json=corps,
+                                       headers={"X-Auth-Token": DOCUSEAL_API_KEY},
+                                       timeout=aiohttp.ClientTimeout(total=30)) as reponse:
+                if reponse.status >= 300:
+                    journal.warning("DocuSeal %s %s -> HTTP %s : %s", methode, chemin, reponse.status,
+                                    (await reponse.text())[:300])
+                    return None
+                return await reponse.json()
+    except Exception as erreur:
+        journal.warning("DocuSeal injoignable : %s", erreur)
+        return None
+
+
+async def creer_contrat_docuseal(email, tel=""):
+    """Crée une soumission depuis le modèle (send_email: false) : renvoie (submission_id,
+    lien_de_signature) — le lien part en MP Discord, l'e-mail ne sert qu'à la copie PDF."""
+    if not (DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID.isdigit()):
+        return None, None
+    submitters = [{"role": "Clipper", "email": email,
+                   "values": {c: v for c, v in (("Email", email), ("Telephone", tel)) if v}}]
+    if DOCUSEAL_EMAIL_AGENCE:
+        submitters.append({"role": "Agence", "email": DOCUSEAL_EMAIL_AGENCE})
+    reponse = await docuseal_requete("POST", "/submissions", {
+        "template_id": int(DOCUSEAL_TEMPLATE_ID), "send_email": False,
+        "order": "preserved", "submitters": submitters})
+    if reponse is None:
+        return None, None
+    liste = reponse if isinstance(reponse, list) else reponse.get("submitters", [])
+    clipper = next((s for s in liste if s.get("role") == "Clipper"), liste[0] if liste else None)
+    if not clipper:
+        return None, None
+    submission_id = clipper.get("submission_id") or (reponse.get("id") if isinstance(reponse, dict) else None)
+    lien = clipper.get("embed_src") or (f"https://docuseal.com/s/{clipper['slug']}" if clipper.get("slug") else None)
+    return submission_id, lien
+
+
 async def traiter_liaison(auteur, brut):
     """Cœur de la liaison (via `!lier` ou un numéro envoyé BRUT en MP, sans commande) :
     retrouve la candidature, renomme le membre, puis envoie l'étape suivante — une seule
@@ -841,6 +892,37 @@ async def boucle_pipeline():
                     if membre:
                         await envoyer_mp(membre, "⏰ Rappel : il te reste **moins de 24 h** pour rendre ton test "
                                                  "(2 clips). Dépose-les et préviens dans #candidature. Tu tiens le bon bout 💪")
+            # Suivi des contrats DocuSeal par sondage (pas de webhook entrant nécessaire) :
+            # clipper signé → « vérifie + contresigne » ; les deux signés → « !equipe » prêt.
+            for uid, info in list(donnees.get("etats", {}).items()):
+                contrat = info.get("contrat")
+                if not contrat or contrat.get("statut") == "complet" or not contrat.get("submission_id"):
+                    continue
+                reponse = await docuseal_requete("GET", f"/submissions/{contrat['submission_id']}")
+                if not isinstance(reponse, dict):
+                    continue
+                signataires = reponse.get("submitters", [])
+                clipper_signe = any(s.get("role") == "Clipper" and s.get("completed_at") for s in signataires)
+                tous_signes = bool(signataires) and all(s.get("completed_at") for s in signataires)
+                membre = membre_par_id(uid)
+                canal = await canal_par_id(CANAL_BOT_ID)
+                if tous_signes:
+                    contrat["statut"] = "complet"
+                    modifie = True
+                    if membre:
+                        await envoyer_mp(membre, "✅ **Contrat signé des deux côtés — bienvenue "
+                                                 "officiellement dans l'équipe France !** Tes accès "
+                                                 "s'ouvrent tout de suite. 🔥")
+                    if canal and membre:
+                        await canal.send(f"🖋️ **Contrat complet** pour {membre.mention} → "
+                                         f"`!equipe {membre.display_name} fr` pour ouvrir ses accès.")
+                elif clipper_signe and contrat.get("statut") == "envoye":
+                    contrat["statut"] = "signe_clipper"
+                    modifie = True
+                    if canal and membre:
+                        await canal.send(f"🖋️ {membre.mention} a **signé son contrat** — vérifie sa pièce "
+                                         "d'identité (18+, WhatsApp) puis **contresigne sur DocuSeal** ; "
+                                         "je préviens ici quand c'est complet.")
             if modifie:
                 ecrire_json(FICHIER_PIPELINE, donnees)
         except Exception as erreur:                                     # la boucle ne doit jamais mourir
@@ -1461,7 +1543,10 @@ async def commande_admin(message, texte: str) -> bool:
                   + (f"📝 quiz {etat['score_quiz']} → " if etat.get("score_quiz") else "📝 quiz — → ")
                   + f"🧪 {etat.get('etat', 'aucun test')}"
                   + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else ""),
-                  f"✍️ Équipe signée (!equipe) : {signee}"]
+                  f"✍️ Équipe signée (!equipe) : {signee}"
+                  + {"envoye": " · 🖋️ contrat envoyé (en attente)", "signe_clipper": " · 🖋️ signé par le "
+                     "clipper (à contresigner)", "complet": " · 🖋️ contrat ✅ complet"}.get(
+                        etat.get("contrat", {}).get("statut"), "")]
         await message.reply("\n".join(lignes)[:1990])
         return True
 
@@ -1794,17 +1879,38 @@ async def on_message(message):
         donnees_pipe.setdefault("liaisons", {}).setdefault(str(utilisateur), {})["email"] = email_brut
         ecrire_json(FICHIER_PIPELINE, donnees_pipe)
         etat_cand = donnees_pipe.get("etats", {}).get(str(utilisateur), {}).get("etat", "")
+        canal = await canal_par_id(CANAL_BOT_ID)
         if etat_cand == "valide":
+            # v2 : le contrat part tout seul — création DocuSeal + lien de signature EN MP.
+            tel_liaison = donnees_pipe.get("liaisons", {}).get(str(utilisateur), {}).get("tel", "")
+            submission_id, lien_contrat = await creer_contrat_docuseal(email_brut, tel_liaison)
+            if lien_contrat:
+                donnees_pipe.setdefault("etats", {}).setdefault(str(utilisateur), {})["contrat"] = {
+                    "submission_id": submission_id, "statut": "envoye",
+                    "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                ecrire_json(FICHIER_PIPELINE, donnees_pipe)
+                await message.reply("📧 Bien reçu ! **Ton contrat est prêt — signe-le ici (2 minutes)** :\n"
+                                    f"{lien_contrat}\n"
+                                    "1️⃣ Remplis tes informations directement dans le document (nom complet, "
+                                    "date de naissance, adresse…).\n"
+                                    "2️⃣ Signe en bas.\n"
+                                    "3️⃣ Après vérification, l'Agence contresigne et **tes accès s'ouvrent** "
+                                    "(rôle, espace, lien de tracking). Ta copie PDF arrivera sur ton e-mail. 🔥")
+                if canal:
+                    await canal.send(f"📨 Contrat DocuSeal **envoyé automatiquement** en MP à "
+                                     f"{message.author.mention} — je te préviens ici dès qu'il aura signé.")
+                journal.info("Contrat DocuSeal créé pour %s (soumission %s)", utilisateur, submission_id)
+                return
             await message.reply("📧 Bien reçu ! Ton **contrat** arrive sur cette adresse — signe-le dès "
                                 "réception, tes accès s'ouvrent à la contresignature. 🔥")
+            if canal:
+                await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — "
+                                 f"**validé FR** : ⚠️ envoi automatique DocuSeal indisponible (clé/modèle/API ?), "
+                                 f"envoie le contrat depuis le modèle, puis `!equipe {message.author.display_name} fr`.")
         else:
             await message.reply("📧 Adresse enregistrée sur ta fiche !")
-        canal = await canal_par_id(CANAL_BOT_ID)
-        if canal:
-            await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — "
-                             + (f"**validé FR** : envoie le contrat depuis le modèle, puis "
-                                f"`!equipe {message.author.display_name} fr` à la signature."
-                                if etat_cand == "valide" else "fiche mise à jour."))
+            if canal:
+                await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — fiche mise à jour.")
         journal.info("E-mail enregistré : membre %s", utilisateur)
         return
 
