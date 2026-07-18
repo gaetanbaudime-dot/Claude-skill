@@ -142,7 +142,7 @@ Avant de commencer, confirme que tu acceptes les règles de l'équipe :
 4. Paie : 0,50 € par abonné vérifié via TON lien + fixe selon la grille,
    conditionné au travail réel (volume, comptes sains, reporting du
    dimanche). Toute fraude au suivi = exclusion immédiate.
-Réponds « J'ACCEPTE » pour ouvrir ton accès au Drive.
+Réponds « J'ACCEPTE » pour ouvrir tes accès.
 ```
 
 Cette acceptation ne vaut pas un contrat — c'est la dette assumée du 18/07 ([[Machine de recrutement clippers (100 leads par mois)|décision]]) : le risque International est borné par le [[Équipe marketing - structure et rémunération (FR × MG)|verrou du fixe]] à ~100 €/personne. Si un incident de fuite ou de détournement de comptes survient côté International, on repasse au contrat pour tous.

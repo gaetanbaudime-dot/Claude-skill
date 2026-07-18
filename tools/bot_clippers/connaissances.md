@@ -19,7 +19,7 @@
 3. **La formation** : juste après ton numéro, le bot t'envoie en message privé le lien du forum « formation » ET **ton lien de quiz personnel**. Regarde la vidéo (54 minutes) **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne — ni le bot, ni un autre clipper. Les demander = disqualifié.
 4. **Le quiz** : ton lien personnel (ne modifie pas la case déjà remplie). Seuil : **27/34**. Deux essais maximum. Lien perdu → tape `!quiz`, le bot te le renvoie en message privé.
 5. **Le test de montage** : si tu passes le quiz, le test arrive **automatiquement en message privé** — 2 clips à monter en **48 h**. Tu rends tes 2 clips **en message privé au bot** (jamais dans un salon public). Réponse sous 72 h maximum.
-6. **Après le test validé** : équipe **France** (France/Belgique/Suisse) → signature du contrat (18 ans minimum obligatoire), puis ton rôle Team France, ton espace et ton lien de tracking. Équipe **internationale** (autres pays) → ton rôle Team International s'ouvre directement et le bot t'envoie ton onboarding en message privé : ta Gmail (accès au Drive), Fiche 1 (comptes), warm-up, reporting du dimanche.
+6. **Après le test validé** : équipe **France** (France/Belgique/Suisse) → signature du contrat (18 ans minimum obligatoire), puis ton rôle Team France, ton espace et ton lien de tracking. Équipe **internationale** (autres pays) → ton rôle Team International s'ouvre directement et le bot t'envoie ton onboarding en message privé : le dossier de ta créatrice (rushs et modèles) est en lecture directe dans son salon grâce à ton rôle, puis Fiche 1 (comptes), warm-up, reporting du dimanche.
 
 Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis envoie-lui ton numéro en MP ; lien du quiz perdu → tape `!quiz` ; quiz raté → revois la vidéo, il te reste un essai ; test non rendu à temps → repassage possible 15 jours plus tard, reste sur le serveur.
 
@@ -48,7 +48,7 @@ On ne poste JAMAIS une vidéo brute du Google Drive. Chaque vidéo doit être mo
 
 ## FICHE 1 — Créer tes comptes (Jour 0)
 
-Avant de commencer : quiz validé (**27/34**) + test de montage validé + adresse Gmail envoyée **au bot en message privé** (elle ouvre l'accès au Drive de la créatrice). Pour l'équipe France : contrat signé d'abord.
+Avant de commencer : quiz validé (**27/34**) + test de montage validé. Pour l'équipe France : contrat signé d'abord. Les rushs et modèles de ta créatrice sont dans **son salon Discord** (dossier Drive en lecture, accessible avec ton rôle) — pas besoin d'envoyer d'adresse Gmail.
 
 Instagram, les règles d'or :
 - 1 SEUL compte Instagram créé par jour. Jamais 2 ou 3 le même jour.

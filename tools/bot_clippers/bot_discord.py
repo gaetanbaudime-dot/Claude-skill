@@ -1774,14 +1774,14 @@ async def on_message(message):
                 canal = await canal_par_id(CANAL_BOT_ID)
                 if canal:
                     await canal.send(f"✍️ {message.author.mention} a accepté les **conditions International** "
-                                     "(horodaté au registre) — sa Gmail arrive, prépare l'accès Drive.")
+                                     "(horodaté au registre) — attribue-lui sa créatrice + envoie son lien de tracking.")
             await message.reply("✅ **Conditions acceptées et enregistrées !** La suite, dans l'ordre :\n"
-                                "1️⃣ Envoie-moi ton **adresse Gmail** ici — elle sert à t'ouvrir le Drive "
-                                "(rushs et modèles).\n"
+                                "1️⃣ Le **dossier de ta créatrice** (rushs et modèles) est en lecture directe "
+                                "dans son salon — ton rôle t'y donne accès.\n"
                                 "2️⃣ **Fiche 1** (forum formation) : création de tes comptes.\n"
                                 "3️⃣ **Warm-up 48 h** (Fiche 2), puis posting quotidien.\n"
                                 "4️⃣ Chaque dimanche : ton **reporting** (obligatoire pour le fixe).\n"
-                                "Ton lien de tracking arrive avec l'accès au Drive. Au travail 💪")
+                                "Ton lien de tracking arrive très vite. Au travail 💪")
         else:
             await message.reply("Noté ! (Cette confirmation concerne l'onboarding Team International — "
                                 "si tu es en cours de sélection, continue ton parcours normalement.)")
@@ -1794,11 +1794,7 @@ async def on_message(message):
         donnees_pipe.setdefault("liaisons", {}).setdefault(str(utilisateur), {})["email"] = email_brut
         ecrire_json(FICHIER_PIPELINE, donnees_pipe)
         etat_cand = donnees_pipe.get("etats", {}).get(str(utilisateur), {}).get("etat", "")
-        equipe_cand = lire_json(FICHIER_EQUIPES, {}).get(str(utilisateur), {}).get("equipe", "")
-        if equipe_cand == "mg":
-            await message.reply("📧 Bien reçu ! Ton accès au **Drive** (rushs et modèles) arrive sur cette "
-                                "adresse, avec ton lien de tracking. En attendant : **Fiche 1**, création des comptes 💪")
-        elif etat_cand == "valide":
+        if etat_cand == "valide":
             await message.reply("📧 Bien reçu ! Ton **contrat** arrive sur cette adresse — signe-le dès "
                                 "réception, tes accès s'ouvrent à la contresignature. 🔥")
         else:
@@ -1806,11 +1802,9 @@ async def on_message(message):
         canal = await canal_par_id(CANAL_BOT_ID)
         if canal:
             await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — "
-                             + ("**International** : ouvre le Drive + envoie le lien de tracking."
-                                if equipe_cand == "mg" else
-                                (f"**validé FR** : envoie le contrat depuis le modèle, puis "
-                                 f"`!equipe {message.author.display_name} fr` à la signature."
-                                 if etat_cand == "valide" else "fiche mise à jour.")))
+                             + (f"**validé FR** : envoie le contrat depuis le modèle, puis "
+                                f"`!equipe {message.author.display_name} fr` à la signature."
+                                if etat_cand == "valide" else "fiche mise à jour."))
         journal.info("E-mail enregistré : membre %s", utilisateur)
         return
 
