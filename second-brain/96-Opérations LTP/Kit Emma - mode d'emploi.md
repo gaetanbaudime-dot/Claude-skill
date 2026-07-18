@@ -49,6 +49,9 @@ liens_forts: ["[[Méthode de délégation - Emma (kit de passation)]]", "[[SOP -
 
 ## Comment s'en servir (la passation en couches)
 
+> [!info] Calendrier acté au call du 18/07
+> Emma peu disponible avant le retour en France → **semaine du 27/07 : Gaëtan exécute le cycle complet en suivant les fiches, Emma observe** (démonstration en direct, remplace le Loom du point 2) **et écrit son SOP avec ses mots au fil de la semaine** ; **semaine du 03/08 : Emma pilote**, Gaëtan répond et continue la formation. Ensuite passation en couches normale (profils un par un, Maddy d'abord). Détail et prédiction au [[Journal de coaching]].
+
 1. **Conversation Emma (1 h)** : dérouler le [[Méthode de délégation - Emma (kit de passation)|script]], remettre la **fiche 1** et la lire ensemble (2 min), puis la **fiche 2**.
 2. **Le Loom** : tu fais un cycle complet commenté ; Emma écrit le SOP avec ses mots ; tu valides.
 3. **Dans la semaine** : donner les **profils créatrice un par un**, au moment où Emma prend chaque créatrice (l'échelle d'autonomie : Maddy d'abord).
