@@ -687,13 +687,13 @@ async def commande_admin(message, texte: str) -> bool:
                 else:
                     roles = [t.name for t, ow in canal.overwrites.items()
                              if isinstance(t, discord.Role) and ow.view_channel and t != g.default_role]
-                    directs = sum(1 for t, ow in canal.overwrites.items()
-                                  if isinstance(t, (discord.Member, discord.User)) and ow.view_channel)
+                    directs = [t.display_name for t, ow in canal.overwrites.items()
+                               if isinstance(t, (discord.Member, discord.User)) and ow.view_channel]
                     parts = []
                     if roles:
                         parts.append(", ".join(roles))
                     if directs:
-                        parts.append(f"{directs} membre(s) direct(s)")
+                        parts.append("direct : " + ", ".join(sorted(directs)))
                     visibilite = ("réservé → " + " + ".join(parts)) if parts else "verrouillé (personne n'y accède ?)"
                 carte.append(f"· #{canal.name} — {visibilite}")
                 n = normaliser(canal.name)
