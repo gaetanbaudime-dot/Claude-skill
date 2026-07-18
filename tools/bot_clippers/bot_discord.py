@@ -13,7 +13,7 @@ import logging
 import os
 import re
 import unicodedata
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import discord
@@ -76,6 +76,8 @@ FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des j
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
 FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
+FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
+LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 
 # Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
 # remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
@@ -461,6 +463,66 @@ async def detecter_bump(message):
     journal.info("Bump Disboard détecté (%s)", getattr(bumpeur, "id", "inconnu"))
 
 
+def normaliser_tel(brut):
+    """Numéro canonique : +33612345678. Gère 0033, 06…, +261 (MG), +229 (Bénin)."""
+    t = re.sub(r"[^\d+]", "", brut)
+    if t.startswith("00"):
+        t = "+" + t[2:]
+    if t.startswith("0") and len(t) == 10:      # numéro FR national
+        t = "+33" + t[1:]
+    if t and not t.startswith("+"):
+        t = "+" + t
+    return t if len(re.sub(r"\D", "", t)) >= 8 else ""
+
+
+async def envoyer_mp(membre, texte):
+    """MP avec vraie réponse : False si les MP du membre sont fermés."""
+    try:
+        await membre.send(texte)
+        return True
+    except (discord.Forbidden, discord.HTTPException):
+        return False
+
+
+async def boucle_pipeline():
+    """Relance à mi-parcours et clôt les tests expirés (candidats en état test_envoye)."""
+    while True:
+        try:
+            donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+            maintenant = datetime.now(timezone.utc)
+            modifie = False
+            for uid, info in list(donnees.get("etats", {}).items()):
+                if info.get("etat") != "test_envoye":
+                    continue
+                echeance = datetime.fromisoformat(info["echeance"])
+                envoi = datetime.fromisoformat(info["envoi"])
+                membre = None
+                for g in client.guilds:
+                    membre = g.get_member(int(uid))
+                    if membre:
+                        break
+                if maintenant > echeance:
+                    info["etat"] = "test_expire"
+                    info["retest"] = (maintenant + timedelta(days=15)).isoformat(timespec="seconds")
+                    modifie = True
+                    if membre:
+                        await envoyer_mp(membre, "⌛ Le délai de 48 h de ton test est passé sans dépôt. "
+                                                 "Pas grave — tu peux retenter à partir du "
+                                                 f"{info['retest'][:10]}. Reste sur le serveur, revois les fiches, "
+                                                 "et écris VALIDÉ dans #candidature quand tu seras prêt.")
+                elif maintenant > envoi + timedelta(hours=24) and not info.get("relance"):
+                    info["relance"] = True
+                    modifie = True
+                    if membre:
+                        await envoyer_mp(membre, "⏰ Rappel : il te reste **moins de 24 h** pour rendre ton test "
+                                                 "(2 clips). Dépose-les et préviens dans #candidature. Tu tiens le bon bout 💪")
+            if modifie:
+                ecrire_json(FICHIER_PIPELINE, donnees)
+        except Exception as erreur:                                     # la boucle ne doit jamais mourir
+            journal.warning("Boucle pipeline : %s", erreur)
+        await asyncio.sleep(1800)
+
+
 async def boucle_bump():
     """Poste un rappel dans CANAL_BUMP_ID dès que le cooldown Disboard (2 h) est terminé."""
     await client.wait_until_ready()
@@ -783,6 +845,111 @@ async def commande_admin(message, texte: str) -> bool:
         journal.info("Équipe %s -> membre %s (par %s)", equipe or "retirée", membre.id, message.author.id)
         return True
 
+    # ---- Pipeline candidat : !quiz-ok, !test-ok, !test-non, !pipeline, !fiche ----
+    if texte.startswith("!quiz-ok"):
+        if not message.mentions:
+            await message.reply("Format : `!quiz-ok @membre [score]` — enregistre le quiz validé et "
+                                "envoie automatiquement le lien du test 48 h en MP.")
+            return True
+        if not LIEN_TEST:
+            await message.reply("❌ LIEN_TEST vide — pose le lien du dossier de test dans Railway d'abord.")
+            return True
+        membre = message.mentions[0]
+        score = next(iter(re.findall(r"\d+\s*/\s*\d+|\d+", texte.replace(f"<@{membre.id}>", "")
+                                     .replace(f"<@!{membre.id}>", ""))), "")
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        maintenant = datetime.now(timezone.utc)
+        donnees.setdefault("etats", {})[str(membre.id)] = {
+            "etat": "test_envoye", "score_quiz": score, "relance": False,
+            "envoi": maintenant.isoformat(timespec="seconds"),
+            "echeance": (maintenant + timedelta(hours=48)).isoformat(timespec="seconds")}
+        ecrire_json(FICHIER_PIPELINE, donnees)
+        envoye = await envoyer_mp(membre,
+            "🎉 **Quiz validé — bienvenue dans la sélection !**\n\n"
+            f"Voici ton test : {LIEN_TEST}\n"
+            "· Monte **2 clips verticaux** à partir des rushs du dossier (hook dès la 1re seconde, sous-titres, rythme).\n"
+            "· **Deadline : 48 h** à partir de maintenant.\n"
+            "· Dépose tes 2 clips en réponse dans #candidature (ou en MP ici) et préviens.\n\n"
+            "La régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
+        await message.reply(f"✅ {membre.mention} → test envoyé en MP, deadline 48 h, relance auto à 24 h."
+                            if envoye else
+                            f"⚠️ {membre.mention} a ses MP fermés — état enregistré, mais envoie-lui le lien à la main.")
+        return True
+
+    if texte.startswith("!test-ok"):
+        if not message.mentions:
+            await message.reply("Format : `!test-ok @membre`")
+            return True
+        membre = message.mentions[0]
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        donnees.setdefault("etats", {}).setdefault(str(membre.id), {})["etat"] = "valide"
+        donnees["etats"][str(membre.id)]["validation"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        ecrire_json(FICHIER_PIPELINE, donnees)
+        await envoyer_mp(membre, "✅ **Test validé — bravo, tu rejoins l'équipe !**\n\n"
+                                 "Prochaine étape : la **signature du contrat** (on te contacte très vite pour ça). "
+                                 "Dès signature, tu reçois ton rôle d'équipe, l'accès à ton espace et ton lien de tracking. "
+                                 "À très vite 🔥")
+        await message.reply(f"🏆 {membre.mention} validé — prochaine étape : contrat, puis `!equipe @membre fr|mg`.")
+        return True
+
+    if texte.startswith("!test-non"):
+        if not message.mentions:
+            await message.reply("Format : `!test-non @membre [raison courte]`")
+            return True
+        membre = message.mentions[0]
+        raison = texte.replace("!test-non", "").replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", "").strip()
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        retest = (datetime.now(timezone.utc) + timedelta(days=15)).isoformat(timespec="seconds")
+        donnees.setdefault("etats", {})[str(membre.id)] = {"etat": "refuse", "retest": retest, "note": raison}
+        ecrire_json(FICHIER_PIPELINE, donnees)
+        await envoyer_mp(membre, "Merci pour ton test — **pas retenu cette fois**."
+                                 + (f" Le point à travailler : {raison}." if raison else "")
+                                 + f"\n\nTu peux retenter à partir du **{retest[:10]}**. D'ici là : reste sur le serveur, "
+                                   "revois les fiches de formation, entraîne-toi — beaucoup de nos validés ont réussi "
+                                   "au 2e essai 💪")
+        await message.reply(f"📋 {membre.mention} → refusé, re-test possible le {retest[:10]}.")
+        return True
+
+    if texte.startswith("!pipeline"):
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        etats = donnees.get("etats", {})
+        compte = {}
+        for info in etats.values():
+            compte[info.get("etat", "?")] = compte.get(info.get("etat", "?"), 0) + 1
+        libelles = {"test_envoye": "🧪 Test en cours", "valide": "✅ Validés (→ contrat)",
+                    "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés"}
+        lignes = ["📈 **Pipeline candidats**",
+                  f"🔗 Numéros liés (!lier) : {len(donnees.get('liaisons', {}))}"]
+        lignes += [f"{libelles.get(e, e)} : {n}" for e, n in sorted(compte.items())]
+        en_retard = [uid for uid, i in etats.items() if i.get("etat") == "test_envoye"
+                     and datetime.now(timezone.utc) > datetime.fromisoformat(i["echeance"]) - timedelta(hours=12)]
+        if en_retard:
+            lignes.append("⏳ Bientôt à échéance : " + ", ".join(f"<@{u}>" for u in en_retard[:10]))
+        signes = lire_json(FICHIER_EQUIPES, {})
+        lignes.append(f"✍️ Sous contrat (!equipe) : {len(signes)}")
+        await message.reply("\n".join(lignes)[:1990])
+        return True
+
+    if texte.startswith("!fiche"):
+        if not message.mentions:
+            await message.reply("Format : `!fiche @membre`")
+            return True
+        membre = message.mentions[0]
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        liaison = donnees.get("liaisons", {}).get(str(membre.id), {})
+        etat = donnees.get("etats", {}).get(str(membre.id), {})
+        equipe = lire_json(FICHIER_EQUIPES, {}).get(str(membre.id), {})
+        tel = liaison.get("tel", "")
+        tel_masque = (tel[:4] + "•" * max(0, len(tel) - 7) + tel[-3:]) if tel else "non lié (!lier)"
+        lignes = [f"🗂️ **{membre.display_name}**",
+                  f"📞 Téléphone (clé formulaire) : {tel_masque}",
+                  f"📊 État : {etat.get('etat', 'candidat')}"
+                  + (f" · quiz {etat['score_quiz']}" if etat.get("score_quiz") else "")
+                  + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else ""),
+                  f"👥 Équipe signée : {equipe.get('equipe', '—').upper() if equipe else '—'}"]
+        await message.reply("\n".join(lignes)[:1990])
+        return True
+
     # ---- v2 : !paiement @membre MONTANT [raison] ----
     if texte.startswith("!paiement"):
         if not message.mentions:
@@ -915,12 +1082,13 @@ async def on_ready():
     if ACTIVER_V2:
         for guild in client.guilds:
             await cacher_invites(guild)
-    if not _taches_demarrees and (CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID or CANAL_BUMP_ID):
+    if not _taches_demarrees:
         _taches_demarrees = True          # on_ready peut refire à la reconnexion : une seule boucle
         if CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID:
             client.loop.create_task(boucle_stats())
         if CANAL_BUMP_ID:
             client.loop.create_task(boucle_bump())
+        client.loop.create_task(boucle_pipeline())    # relances de test : toujours actif
 
 
 @client.event
@@ -962,6 +1130,31 @@ async def on_message(message):
         else:
             lignes = [f"{i + 1}. <@{uid}> — {n} bump(s)" for i, (uid, n) in enumerate(classement)]
             await message.reply(f"🏆 **Classement des bumps — {mois}**\n" + "\n".join(lignes))
+        return
+
+    # Commande PUBLIQUE : !lier <téléphone> — la clé de jointure exacte avec le formulaire.
+    # En salon public, le message est supprimé (le numéro ne doit jamais rester visible).
+    if texte.startswith("!lier"):
+        tel = normaliser_tel(texte[len("!lier"):])
+        if message.guild is not None:
+            try:
+                await message.delete()
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        if not tel:
+            await envoyer_mp(message.author, "Format : `!lier 0612345678` (le numéro que tu as mis dans le "
+                                             "formulaire de candidature). Envoie-le-moi **ici, en message privé**.")
+            return
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        donnees.setdefault("liaisons", {})[str(utilisateur)] = {
+            "tel": tel, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        ecrire_json(FICHIER_PIPELINE, donnees)
+        confirme = await envoyer_mp(message.author,
+            f"🔗 C'est noté : ton compte Discord est lié au numéro se terminant par **…{tel[-4:]}**. "
+            "Ta candidature et ton avancement sont maintenant reliés automatiquement. Bonne suite !")
+        if not confirme and message.guild is None:
+            await message.reply("🔗 Lié ! (numéro enregistré)")
+        journal.info("Liaison téléphone : membre %s -> …%s", utilisateur, tel[-4:])
         return
 
     # Commandes admin : disponibles depuis N'IMPORTE quel canal (ex. !paiement dans #dopamine)
