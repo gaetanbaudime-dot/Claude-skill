@@ -77,6 +77,17 @@ for _paire in os.environ.get("SOURCES_INVITES", "").split(","):
         if _code.strip():
             SOURCES_INVITES[_code.strip()] = _etiquette.strip().lower() or "autre"
 
+# Posts du forum formation (chaque post d'un forum a son propre identifiant — clic droit → Copier).
+# Format : POSTS_FORMATION=bienvenue:111,1:222,2:333,3:444,4:555,5:666,6:777,kit:888
+# Sert deux usages : l'assistant IA cite la BONNE fiche en lien cliquable, et l'étape 2 du parcours
+# MP pointe directement sur le post Bienvenue.
+POSTS_FORMATION = {}
+for _paire in os.environ.get("POSTS_FORMATION", "").split(","):
+    if ":" in _paire:
+        _cle, _pid = _paire.split(":", 1)
+        if _cle.strip() and _pid.strip().isdigit():
+            POSTS_FORMATION[_cle.strip().lower()] = _pid.strip()
+
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
@@ -150,6 +161,11 @@ if CANAL_FORMATION_ID:
                      f"<#{CANAL_FORMATION_ID}> (jamais le nom seul).")
 if CANAL_ASSISTANT_ID:
     INSTRUCTIONS += f"\n12. Le salon de l'assistant se donne aussi en lien cliquable : <#{CANAL_ASSISTANT_ID}>."
+if POSTS_FORMATION:
+    _libelles = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
+    _liens = " · ".join(f"{_libelles.get(c, 'Fiche ' + c)} = <#{p}>" for c, p in sorted(POSTS_FORMATION.items()))
+    INSTRUCTIONS += ("\n13. Chaque post du forum formation a son lien cliquable — quand ta réponse "
+                     "renvoie à une fiche, TERMINE par le lien du bon post : " + _liens + ".")
 
 # ------------------------------------------------------------------ connaissances (rechargées automatiquement)
 _connaissances = {"texte": "", "signature": None}
@@ -728,10 +744,13 @@ async def traiter_liaison(auteur, brut):
               f"🔗 Numéro **…{tel[-4:]}** enregistré. ⚠️ Je ne retrouve pas (encore) de candidature avec ce "
               "numéro — vérifie que c'est EXACTEMENT celui du formulaire (renvoie-le si besoin), "
               "sinon continue normalement : on vérifiera ensemble à la fin.")
-    formation = f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le forum **formation**"
+    post_bienvenue = POSTS_FORMATION.get("bienvenue", "")
+    formation = (f"<#{post_bienvenue}>" if post_bienvenue
+                 else (f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le forum **formation**"))
     await envoyer_mp(auteur, etape1 + "\n\n"
         "**Étape 2 — la formation 🎓**\n"
-        f"→ Va dans {formation}, post « Bienvenue » : regarde la vidéo (54 min) **en entier** — "
+        f"→ Va dans {formation}" + ("" if post_bienvenue else ", post « Bienvenue »")
+        + " : regarde la vidéo (54 min) **en entier** — "
         "4 mots-clés y sont cachés, note-les dans l'ordre, ils te seront demandés.\n"
         + ((f"→ Puis passe ton quiz avec **TON lien personnel** (ne modifie pas la case déjà remplie) :\n"
             f"{LIEN_QUIZ}{auteur.id}\n"
@@ -1308,11 +1327,13 @@ async def commande_admin(message, texte: str) -> bool:
         grille = "" if incoherent else (grille_tel or (equipe_du_pays(pays) if pays else ""))
         if grille == "fr":
             await envoyer_mp(membre, "🏆 **Test validé — bravo, tu rejoins l'équipe France !**\n\n"
-                                     "Dernière étape avant tes accès : la **signature du contrat** — il arrive "
-                                     "très vite (surveille tes messages). Dès signature : ton rôle Team France, "
-                                     "ton espace, ton lien de tracking, et la paie chaque lundi. 🔥")
-            await message.reply(f"🏆 {membre.mention} validé (grille FR) → envoie le contrat, "
-                                f"puis `!equipe {membre.display_name} fr` à la signature.")
+                                     "Dernière étape : le **contrat**. Envoie-moi ici ton **adresse e-mail** — "
+                                     "ton contrat à signer arrivera dessus (signature électronique, 2 minutes). "
+                                     "Dès signature : ton rôle Team France, ton espace, ton lien de tracking, "
+                                     "et la paie chaque lundi. 🔥")
+            await message.reply(f"🏆 {membre.mention} validé (grille FR) → je lui demande son e-mail en MP ; "
+                                f"dès qu'il tombe ici, envoie le contrat depuis le modèle, puis "
+                                f"`!equipe {membre.display_name} fr` à la signature.")
         elif grille == "mg" and message.guild is not None:
             role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name),
                                          message.guild.roles)
@@ -1428,6 +1449,9 @@ async def commande_admin(message, texte: str) -> bool:
         lignes = [f"🗂️ **{membre.display_name}**" + (f" — {prenom}" if prenom
                       and normaliser(prenom) not in normaliser(membre.display_name) else ""),
                   f"📞 Téléphone (clé formulaire) : {tel_masque}",
+                  f"📧 E-mail (contrat/Drive) : "
+                  + ((liaison.get("email", "")[0] + "•••" + liaison["email"][liaison["email"].index("@"):])
+                     if "@" in liaison.get("email", "") else "—"),
                   f"🌍 Pays : {pays or 'inconnu'} · grille recommandée : {reco}"
                   + (" · ⚠️ **pays déclaré ≠ indicatif téléphonique**" if incoherent else ""),
                   f"🚪 Porte d'entrée : {porte}",
@@ -1761,6 +1785,33 @@ async def on_message(message):
         else:
             await message.reply("Noté ! (Cette confirmation concerne l'onboarding Team International — "
                                 "si tu es en cours de sélection, continue ton parcours normalement.)")
+        return
+
+    # MP : une adresse e-mail envoyée brute — la clé du contrat (FR) et du Drive (International).
+    email_brut = texte.strip().strip("<>")
+    if message.guild is None and re.fullmatch(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", email_brut):
+        donnees_pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        donnees_pipe.setdefault("liaisons", {}).setdefault(str(utilisateur), {})["email"] = email_brut
+        ecrire_json(FICHIER_PIPELINE, donnees_pipe)
+        etat_cand = donnees_pipe.get("etats", {}).get(str(utilisateur), {}).get("etat", "")
+        equipe_cand = lire_json(FICHIER_EQUIPES, {}).get(str(utilisateur), {}).get("equipe", "")
+        if equipe_cand == "mg":
+            await message.reply("📧 Bien reçu ! Ton accès au **Drive** (rushs et modèles) arrive sur cette "
+                                "adresse, avec ton lien de tracking. En attendant : **Fiche 1**, création des comptes 💪")
+        elif etat_cand == "valide":
+            await message.reply("📧 Bien reçu ! Ton **contrat** arrive sur cette adresse — signe-le dès "
+                                "réception, tes accès s'ouvrent à la contresignature. 🔥")
+        else:
+            await message.reply("📧 Adresse enregistrée sur ta fiche !")
+        canal = await canal_par_id(CANAL_BOT_ID)
+        if canal:
+            await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — "
+                             + ("**International** : ouvre le Drive + envoie le lien de tracking."
+                                if equipe_cand == "mg" else
+                                (f"**validé FR** : envoie le contrat depuis le modèle, puis "
+                                 f"`!equipe {message.author.display_name} fr` à la signature."
+                                 if etat_cand == "valide" else "fiche mise à jour.")))
+        journal.info("E-mail enregistré : membre %s", utilisateur)
         return
 
     # Rendu de test en MP : un candidat en état test_envoye envoie ses fichiers/lien au bot,
