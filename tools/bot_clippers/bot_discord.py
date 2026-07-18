@@ -491,6 +491,40 @@ def normaliser_tel(brut):
     return t if len(re.sub(r"\D", "", t)) >= 8 else ""
 
 
+def interpretations_tel(brut):
+    """Un numéro local « 0… » à 10 chiffres est AMBIGU : 06 français, 03x malgache, 01x béninois
+    (découvert le 18/07 : « 0157152595 » d'un candidat du Bénin lu comme un fixe parisien).
+    Renvoie les lectures plausibles, la française d'abord ; un numéro en +indicatif n'en a qu'une."""
+    t = re.sub(r"[^\d+]", "", brut or "")
+    if t.startswith("00"):
+        t = "+" + t[2:]
+    if not t:
+        return []
+    if t.startswith("+"):
+        return [t] if len(re.sub(r"\D", "", t)) >= 8 else []
+    if t.startswith("0") and len(t) == 10:
+        return ["+33" + t[1:],       # France
+                "+261" + t[1:],      # Madagascar (03x…)
+                "+229" + t,          # Bénin (le 01 fait partie du numéro depuis 2021)
+                "+237" + t[1:]]      # Cameroun
+    canonique = normaliser_tel(t)
+    return [canonique] if canonique else []
+
+
+def tel_selon_pays(brut, pays=""):
+    """Numéro canonique en s'aidant du pays déclaré au formulaire (webhook candidature)."""
+    lectures = interpretations_tel(brut)
+    if not lectures:
+        return ""
+    p = normaliser(pays)
+    for nom, prefixe in (("madagascar", "+261"), ("benin", "+229"), ("cameroun", "+237")):
+        if nom in p:
+            for lecture in lectures:
+                if lecture.startswith(prefixe):
+                    return lecture
+    return lectures[0]
+
+
 async def envoyer_mp(membre, texte):
     """MP avec vraie réponse : False si les MP du membre sont fermés."""
     try:
@@ -630,7 +664,7 @@ async def traiter_candidature_webhook(message):
         morceaux = (ligne.split("|", 4) + ["", "", "", ""])[:5]
         prenom, tel_brut, pays, pseudo = (m.strip() for m in morceaux[1:5])
         prenom = prenom.title()
-        tel = normaliser_tel(tel_brut)
+        tel = tel_selon_pays(tel_brut, pays)
         if not tel:
             rejets += 1
             continue
@@ -1491,17 +1525,20 @@ async def on_message(message):
     # Commande PUBLIQUE : !lier <téléphone> — la clé de jointure exacte avec le formulaire.
     # En salon public, le message est supprimé (le numéro ne doit jamais rester visible).
     if texte.startswith("!lier"):
-        tel = normaliser_tel(texte[len("!lier"):])
+        lectures = interpretations_tel(texte[len("!lier"):])
         if message.guild is not None:
             try:
                 await message.delete()
             except (discord.Forbidden, discord.HTTPException):
                 pass
-        if not tel:
+        if not lectures:
             await envoyer_mp(message.author, "Format : `!lier 0612345678` (le numéro que tu as mis dans le "
                                              "formulaire de candidature). Envoie-le-moi **ici, en message privé**.")
             return
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        # Numéro ambigu (06 FR ? 03x malgache ? 01x béninois ?) : la lecture qui matche une
+        # candidature l'emporte — la jointure marche quel que soit le pays.
+        tel = next((l for l in lectures if l in donnees.get("candidatures", {})), lectures[0])
         cand = donnees.get("candidatures", {}).get(tel, {})
         liaison = {"tel": tel, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         if cand:
