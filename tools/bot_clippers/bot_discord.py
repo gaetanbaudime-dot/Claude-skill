@@ -486,6 +486,32 @@ async def envoyer_mp(membre, texte):
         return False
 
 
+def chercher_membre(reference):
+    """Résout un membre par mention brute, ID ou nom (pseudo/surnom, partiel accepté) —
+    indispensable dans les salons privés où l'autocomplétion des @ ne propose pas tout le monde."""
+    ref = reference.strip().strip("<@!>")
+    if ref.isdigit():
+        for g in client.guilds:
+            m = g.get_member(int(ref))
+            if m:
+                return m
+    ref_n = normaliser(ref)
+    if not ref_n:
+        return None
+    for g in client.guilds:
+        for m in g.members:
+            if m.bot:
+                continue
+            if ref_n in {normaliser(m.name), normaliser(m.display_name),
+                         normaliser(getattr(m, "global_name", "") or "")}:
+                return m
+    for g in client.guilds:              # dernier recours : correspondance partielle sur le surnom
+        for m in g.members:
+            if not m.bot and ref_n in normaliser(m.display_name):
+                return m
+    return None
+
+
 async def envoyer_test_candidat(membre, score=""):
     """Enregistre l'état test_envoye et envoie le test 48 h en MP. Retourne True si le MP est parti."""
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -875,21 +901,30 @@ async def commande_admin(message, texte: str) -> bool:
     # ---- !equipe @membre fr|mg|retirer : attribution des rôles d'accès à la signature du contrat ----
     if texte.startswith("!equipe"):
         g = message.guild
-        if g is None or not message.mentions:
-            await message.reply("Format : `!equipe @membre fr` (ou `mg`, ou `retirer`) — à faire APRÈS la "
-                                "signature du contrat. Les rôles d'équipe ne s'auto-attribuent jamais. "
-                                "Audit : `!equipes`.")
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
             return True
-        membre = message.mentions[0]
-        reste = normaliser(texte.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", ""))
-        if "retirer" in reste or "enlever" in reste:
+        corps = texte[len("!equipe"):].strip()
+        if message.mentions:
+            membre = message.mentions[0]
+        else:
+            mots = corps.split()
+            membre = chercher_membre(" ".join(mots[:-1])) if len(mots) >= 2 else None
+        if membre is None:
+            await message.reply("Format : `!equipe @membre fr` (ou `mg`/`int`, ou `retirer`) — le nom en toutes "
+                                "lettres marche aussi : `!equipe Raphaël fr`. À faire APRÈS la signature du "
+                                "contrat. Audit : `!equipes`.")
+            return True
+        mots_n = normaliser(corps).split()
+        dernier = mots_n[-1] if mots_n else ""
+        if dernier in ("retirer", "enlever", "off"):
             equipe = None
-        elif "mg" in reste.split() or "mada" in reste or "int" in reste.split() or "international" in reste:
+        elif dernier in ("mg", "mada", "madagascar", "int", "inter", "international"):
             equipe = "mg"          # code interne historique « mg » = Team International (renommée le 18/07)
-        elif "fr" in reste.split() or "france" in reste:
+        elif dernier in ("fr", "france"):
             equipe = "fr"
         else:
-            await message.reply("Précise l'équipe : `!equipe @membre fr` — ou `mg`, ou `retirer`.")
+            await message.reply("Termine la commande par l'équipe : `!equipe Raphaël fr` — ou `int`, ou `retirer`.")
             return True
         role_fr = discord.utils.find(lambda r: normaliser(ROLE_TEAM_FR_NOM) in normaliser(r.name), g.roles)
         role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name), g.roles)
