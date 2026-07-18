@@ -804,40 +804,53 @@ async def accueillir(member):
         donnees["attribution"][str(member.id)] = parrain_id
     ecrire_json(FICHIER_INVITES, donnees)
 
-    canal = await canal_par_id(CANAL_CANDIDATURE_ID)
-    lignes = [f"🎬 Bienvenue **{member.display_name}** — tu es le **{guild.member_count}ᵉ** futur clipper de l'équipe !"]
+    # Le guide COMPLET part en message privé — #candidature reste propre (demande du 18/07) :
+    # le salon ne garde qu'une ligne de preuve sociale (compteur + parrainage).
+    aide = f" Une question ? <#{CANAL_ASSISTANT_ID}> répond 24h/24." if CANAL_ASSISTANT_ID else ""
     if source.startswith("formulaire"):
-        # Arrivé par l'invitation de FIN de formulaire : sa candidature vient d'être déposée.
-        lignes.append("✅ **Ta candidature est bien arrivée.** Dernière étape pour la relier à ton compte : "
-                      "envoie-moi `!lier <ton numéro de téléphone>` en **message privé** (le même numéro que "
-                      "dans le formulaire). Ensuite : forum **formation**, post « Bienvenue » (vidéo + quiz).")
+        cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
+        retrouvee = (f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
+                     f"({cand.get('pays') or 'pays ?'}).\n" if cand else "")
+        guide = (f"🎬 **Bienvenue {member.display_name} — ta candidature est bien arrivée !**\n"
+                 + retrouvee +
+                 "Ton parcours, dans l'ordre :\n"
+                 "1️⃣ Réponds-moi **ici** : `!lier <ton numéro de téléphone>` — le MÊME que dans le "
+                 "formulaire, c'est lui qui relie ta candidature à ton compte.\n"
+                 "2️⃣ Forum **formation** → post « Bienvenue » : regarde la vidéo (54 min) **en entier** "
+                 "— 4 mots-clés y sont cachés, tu en auras besoin au quiz.\n"
+                 "3️⃣ Tape `!quiz` pour recevoir ton lien personnel (seuil : 27/34).\n"
+                 "4️⃣ Quiz validé → ton test de montage de 48 h arrive ici automatiquement.\n"
+                 f"Pas d'entretien : ceux qui livrent sont pris 🚀{aide}")
     else:
-        # Porte Disboard/découverte : impossible de savoir s'il a déjà candidaté — deux branches.
-        lignes.append("✅ **Déjà candidaté via le formulaire ?** Envoie-moi `!lier <ton numéro de téléphone>` "
-                      "en **message privé** (le numéro du formulaire) — ta candidature est reliée, puis direction "
-                      "le forum **formation** : post « Bienvenue » (vidéo + quiz), puis les fiches.")
-        if LIEN_FORMULAIRE:
-            lignes.append(f"📝 **Pas encore candidaté ?** Remplis le formulaire (3 min) : {LIEN_FORMULAIRE} — "
-                          f"puis reviens m'envoyer `!lier`. Ensuite : formation → quiz → test de 48 h, "
-                          f"pas d'entretien. Ceux qui livrent sont pris. 🚀")
-    if parrain_id and parrain_id != member.id:
-        total = donnees.get("par_parrain", {}).get(str(parrain_id), 1)
-        lignes.append(f"-# Invité par <@{parrain_id}> ({total} au total) — le parrainage paie quand le filleul devient clipper actif.")
+        # Porte Disboard/découverte : il n'a probablement pas encore candidaté — le formulaire d'abord.
+        guide = (f"🎬 **Bienvenue {member.display_name} sur le serveur des clippers !**\n"
+                 + ((f"📝 **Pas encore candidaté ?** Tout commence par le formulaire (3 min) : "
+                     f"{LIEN_FORMULAIRE} — à la fin il te ramène ici, et je te guide.\n") if LIEN_FORMULAIRE else "")
+                 + "✅ **Déjà candidaté ?** Réponds-moi **ici** : `!lier <ton numéro de téléphone>` (celui du "
+                   "formulaire), puis direction le forum **formation** (post « Bienvenue » : vidéo + quiz).\n"
+                 f"Ensuite : quiz → test de montage 48 h. Pas d'entretien : ceux qui livrent sont pris 🚀{aide}")
+    mp_ok = await envoyer_mp(member, guide)
+
+    canal = await canal_par_id(CANAL_CANDIDATURE_ID)
     if canal is not None:
+        if mp_ok:
+            lignes = [f"🎬 Bienvenue {member.mention} — tu es le **{guild.member_count}ᵉ** futur clipper "
+                      f"de l'équipe ! 📬 Ton guide d'arrivée est en message privé."]
+        else:
+            # MP fermés : mieux vaut un guide public qu'un candidat perdu — version condensée.
+            lignes = [f"🎬 Bienvenue {member.mention} — **{guild.member_count}ᵉ** futur clipper ! "
+                      f"⚠️ Tes MP sont fermés (Paramètres de confidentialité du serveur) : ouvre-les, tout "
+                      f"ton parcours passe par moi en privé. En attendant : "
+                      + ("`!lier <ton numéro>` puis forum **formation**." if source.startswith("formulaire")
+                         else (f"formulaire (3 min) : {LIEN_FORMULAIRE} puis `!lier`." if LIEN_FORMULAIRE
+                               else "`!lier <ton numéro>` puis forum **formation**."))]
+        if parrain_id and parrain_id != member.id:
+            total = donnees.get("par_parrain", {}).get(str(parrain_id), 1)
+            lignes.append(f"-# Invité par <@{parrain_id}> ({total} au total) — le parrainage paie quand le filleul devient clipper actif.")
         try:
             await canal.send("\n".join(lignes))
         except (discord.Forbidden, discord.HTTPException):
             pass
-
-    # MP personnalisé (jamais de prénom/pays en public) : candidature retrouvée par le pseudo déclaré.
-    if source.startswith("formulaire"):
-        cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
-        if cand:
-            await envoyer_mp(member,
-                f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
-                f"({cand.get('pays') or 'pays ?'}). Confirme-la en m'envoyant ici : "
-                "`!lier <ton numéro de téléphone>` — celui du formulaire. "
-                "Ensuite, direction le forum **formation** (post « Bienvenue »).")
 
 
 async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renommage=False) -> list:
