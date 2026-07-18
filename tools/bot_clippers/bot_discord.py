@@ -600,9 +600,15 @@ async def accueillir(member):
     if canal is None:
         return
     lignes = [f"🎬 Bienvenue **{member.display_name}** — tu es le **{guild.member_count}ᵉ** futur clipper de l'équipe !"]
+    # Accueil à deux branches : ceux qui viennent de candidater (redirigés ici par le formulaire)
+    # et ceux qui découvrent le serveur (Disboard) — le bot ne peut pas les distinguer, le message si.
+    lignes.append("✅ **Déjà candidaté via le formulaire ?** Envoie-moi `!lier <ton numéro de téléphone>` "
+                  "en **message privé** (le numéro du formulaire) — ta candidature est reliée, et fonce sur "
+                  "la formation dans les fiches et #formation.")
     if LIEN_FORMULAIRE:
-        lignes.append(f"Pour candidater (3 min) : {LIEN_FORMULAIRE} — ensuite un test de 48 h, pas d'entretien. "
-                      f"Ceux qui livrent sont pris. 🚀")
+        lignes.append(f"📝 **Pas encore candidaté ?** Remplis le formulaire (3 min) : {LIEN_FORMULAIRE} — "
+                      f"puis reviens m'envoyer `!lier`. Ensuite : formation → quiz → test de 48 h, "
+                      f"pas d'entretien. Ceux qui livrent sont pris. 🚀")
     if parrain_id and parrain_id != member.id:
         total = lire_json(FICHIER_INVITES, {}).get("par_parrain", {}).get(str(parrain_id), 1)
         lignes.append(f"-# Invité par <@{parrain_id}> ({total} au total) — le parrainage paie quand le filleul devient clipper actif.")
