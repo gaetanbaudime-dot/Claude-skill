@@ -793,7 +793,7 @@ async def accueillir(member):
 
     canal = await canal_par_id(CANAL_CANDIDATURE_ID)
     lignes = [f"🎬 Bienvenue **{member.display_name}** — tu es le **{guild.member_count}ᵉ** futur clipper de l'équipe !"]
-    if source == "formulaire":
+    if source.startswith("formulaire"):
         # Arrivé par l'invitation de FIN de formulaire : sa candidature vient d'être déposée.
         lignes.append("✅ **Ta candidature est bien arrivée.** Dernière étape pour la relier à ton compte : "
                       "envoie-moi `!lier <ton numéro de téléphone>` en **message privé** (le même numéro que "
@@ -817,7 +817,7 @@ async def accueillir(member):
             pass
 
     # MP personnalisé (jamais de prénom/pays en public) : candidature retrouvée par le pseudo déclaré.
-    if source == "formulaire":
+    if source.startswith("formulaire"):
         cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
         if cand:
             await envoyer_mp(member,
