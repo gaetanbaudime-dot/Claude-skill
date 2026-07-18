@@ -60,6 +60,10 @@ CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # 
 CANAL_BUMP_ID = os.environ.get("CANAL_BUMP_ID", "").strip()                   # canal du rappel (vide = désactivé)
 DISBOARD_ID = 302050872383242240                                              # id officiel du bot DISBOARD
 ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) comptés pour « Clippers », séparés par des virgules (ex. Rookie,Confirmé,Élite)
+# Rôles d'ÉQUIPE (accès aux salons rémunération/discussion par pays) : attribution UNIQUEMENT via
+# !equipe après signature du contrat — jamais par l'onboarding Discord (incident du 18/07).
+ROLE_TEAM_FR_NOM = os.environ.get("ROLE_TEAM_FR_NOM", "Team France").strip()
+ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
 
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
@@ -71,6 +75,7 @@ FICHIER_COMPTEUR_VERSE = DONNEES / "compteur_verse.json"     # {"total": float, 
 FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des joins par invitation
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
 FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
+FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
 
 # Persistance : sur Railway, DONNEES_DIR doit pointer vers un volume (/data) sinon TOUT est
 # remis à zéro à chaque déploiement (compteur public compris — vécu le 17/07).
@@ -702,6 +707,80 @@ async def commande_admin(message, texte: str) -> bool:
         lignes.append("\n🏆 **Tout est parfait — tu n'as plus à y toucher.**" if parfait
                       else "\n👉 Corrige les lignes ❌/⚠️ puis relance !verifier.")
         await message.reply("\n".join(lignes)[:1990])
+        return True
+
+    # ---- !equipes : audit registre des signatures vs rôles réellement portés ----
+    if texte.startswith("!equipes"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        registre = lire_json(FICHIER_EQUIPES, {})
+        lignes = ["👥 **Équipes — registre des signatures vs rôles portés**"]
+        for nom_court, nom_role, code in (("France", ROLE_TEAM_FR_NOM, "fr"), ("Madagascar", ROLE_TEAM_MG_NOM, "mg")):
+            role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name), g.roles)
+            if role is None:
+                lignes.append(f"❌ Rôle « {nom_role} » introuvable (variable ROLE_TEAM_*_NOM).")
+                continue
+            porteurs = {m.id for m in role.members if not m.bot}
+            valides = {int(mid) for mid, info in registre.items() if info.get("equipe") == code}
+            lignes.append(f"__Team {nom_court}__ : {len(porteurs)} avec le rôle · {len(valides)} au registre")
+            intrus = porteurs - valides
+            manquants = valides - porteurs
+            if intrus:
+                lignes.append("❌ Rôle SANS signature enregistrée : " + ", ".join(f"<@{i}>" for i in list(intrus)[:15])
+                              + " → `!equipe @membre fr|mg` pour régulariser, ou retirer le rôle.")
+            if manquants:
+                lignes.append("⚠️ Signés mais SANS le rôle : " + ", ".join(f"<@{i}>" for i in list(manquants)[:15]))
+        if all(not l.startswith(("❌", "⚠️")) for l in lignes[1:]):
+            lignes.append("✅ Registre et rôles parfaitement alignés.")
+        await message.reply("\n".join(lignes)[:1990])
+        return True
+
+    # ---- !equipe @membre fr|mg|retirer : attribution des rôles d'accès à la signature du contrat ----
+    if texte.startswith("!equipe"):
+        g = message.guild
+        if g is None or not message.mentions:
+            await message.reply("Format : `!equipe @membre fr` (ou `mg`, ou `retirer`) — à faire APRÈS la "
+                                "signature du contrat. Les rôles d'équipe ne s'auto-attribuent jamais. "
+                                "Audit : `!equipes`.")
+            return True
+        membre = message.mentions[0]
+        reste = normaliser(texte.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", ""))
+        if "retirer" in reste or "enlever" in reste:
+            equipe = None
+        elif "mg" in reste.split() or "mada" in reste:
+            equipe = "mg"
+        elif "fr" in reste.split() or "france" in reste:
+            equipe = "fr"
+        else:
+            await message.reply("Précise l'équipe : `!equipe @membre fr` — ou `mg`, ou `retirer`.")
+            return True
+        role_fr = discord.utils.find(lambda r: normaliser(ROLE_TEAM_FR_NOM) in normaliser(r.name), g.roles)
+        role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name), g.roles)
+        if role_fr is None or role_mg is None:
+            await message.reply("❌ Rôle d'équipe introuvable — vérifie ROLE_TEAM_FR_NOM / ROLE_TEAM_MG_NOM.")
+            return True
+        registre = lire_json(FICHIER_EQUIPES, {})
+        try:
+            if equipe is None:
+                await membre.remove_roles(role_fr, role_mg, reason=f"!equipe retirer par {message.author}")
+                registre.pop(str(membre.id), None)
+                retour = f"🚪 {membre.mention} retiré des deux équipes (et du registre)."
+            else:
+                cible, autre = (role_fr, role_mg) if equipe == "fr" else (role_mg, role_fr)
+                await membre.remove_roles(autre, reason=f"!equipe {equipe} par {message.author}")
+                await membre.add_roles(cible, reason=f"Signature contrat — !equipe {equipe} par {message.author}")
+                registre[str(membre.id)] = {"equipe": equipe, "par": str(message.author.id),
+                                            "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                retour = f"✅ {membre.mention} → **{cible.name}** (signature enregistrée au registre)."
+        except discord.Forbidden:
+            await message.reply("❌ Permission manquante — monte mon rôle AU-DESSUS des rôles d'équipe "
+                                "(Réglages → Rôles, glisser-déposer).")
+            return True
+        ecrire_json(FICHIER_EQUIPES, registre)
+        await message.reply(retour)
+        journal.info("Équipe %s -> membre %s (par %s)", equipe or "retirée", membre.id, message.author.id)
         return True
 
     # ---- v2 : !paiement @membre MONTANT [raison] ----
