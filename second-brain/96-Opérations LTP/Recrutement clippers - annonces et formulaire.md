@@ -347,3 +347,64 @@ Ensuite : un test de 48h, pas d'entretien. Ceux qui livrent sont pris.
 Tes ~44 tags Disboard restent valides pour le volume (le goulot [[Who (Geoff Smart & Randy Street)|Source]]). Priorise les serveurs « éditeurs/freelance/UGC » avec canal *hiring* (annonce légitime), trie par `?sort=-member_count`, filtre langue `/fr/` pour le FR et laisse large pour l'international francophone. Le **parrainage** ([[Équipe marketing - structure et rémunération (FR × MG)|50 € → 850 €]]) reste ton meilleur canal qualité — les A ramènent des A.
 
 **Extension 2026-07-16** : la carte complète des canaux (10 canaux chiffrés, dont 4 personas de reconversion — community managers, ex-ecommerçants, monteurs débutants, clippeurs gaming — avec leurs accroches) est dans [[Sourcing 100 leads clippers FR (plan juillet 2026)]].
+
+## 7) Annonce Indeed — Community Manager (2026-07-18, repositionnement)
+
+**Pourquoi** : l'annonce « Monteur vidéo & gestionnaire de réseaux sociaux » (912 impressions, 40 candidatures, 0 €) attire des monteurs pro sur-qualifiés (After Effects, étalonnage…) alors que le poste réel = **faire vivre et grandir des comptes** — le montage se fait dans Edits/CapCut en quelques minutes. Cette 2e annonce vise le persona CM (le n°1 des personas de reconversion du [[Sourcing 100 leads clippers FR (plan juillet 2026)|plan sourcing]]) ; différenciée du monteur pour la politique anti-doublons Indeed. Mots-clés SEO intégrés au texte : Social Media Manager, Community Manager, CM, gestion de réseaux sociaux, Instagram, Reels, Edits. À affiner avec les profils qui intéressent Gaëtan (à recevoir). Salaire affiché défendable : 200-800 €/mois (fixe + variable à la grille réelle — jamais de « jusqu'à X » gonflé, règle Indeed + interdits maison).
+
+Le texte complet vit dans l'annonce Indeed (copie de travail ci-dessous, structure identique à l'annonce monteur : niche annoncée, SFW explicite, 18+, rému détaillée avec méthode de calcul, process aligné sur le tunnel v3 — formulaire → test 48 h, PAS d'« entretien vidéo »).
+
+### Le texte (v1 du 18/07)
+
+**Titre** : Community Manager Instagram & Facebook – Télétravail (freelance)
+
+**Salaire** : 200,00 € à 800,00 € par mois
+
+Nous recherchons une personne sérieuse pour **créer, gérer et faire grandir des comptes Instagram et des pages Facebook** pour des créatrices de contenu.
+
+Certaines créatrices accompagnées par notre agence utilisent également des plateformes réservées aux adultes. Le travail demandé concerne **uniquement du contenu public SFW** : aucune nudité ; aucun contenu explicite ; aucun échange privé avec les abonnés ; aucune vente de contenu pour adultes. Tout ce que tu publies respecte les règles d'Instagram et de Facebook.
+
+**Ce poste n'est pas un poste de monteur vidéo.** Les vidéos se montent en quelques minutes dans **Edits** (l'application de montage d'Instagram) ou **CapCut**, à partir de rushs fournis. Ton vrai travail, c'est la **gestion de réseaux sociaux** : faire vivre les comptes, suivre ce qui marche et faire grandir l'audience.
+
+**Tes missions**
+- Créer et paramétrer des comptes Instagram et des pages Facebook selon notre méthode.
+- Monter des Reels courts dans Edits ou CapCut à partir des rushs fournis (sous-titres, musique, rythme).
+- Publier chaque jour selon le calendrier fourni.
+- Gérer 2 comptes Instagram de croissance, 1 compte principal et 3 pages Facebook.
+- Suivre les statistiques des comptes et repérer les contenus qui performent.
+- Remplir un reporting chaque dimanche.
+- Appliquer les formations et consignes de l'agence (montée en température des comptes, formats, fréquence).
+
+**Rémunération**
+- 200 € fixes par mois ;
+- + 0,50 € par abonné gratuit généré, mesuré par un lien de tracking individuel ;
+- + bonus à la performance.
+Le premier mois, la rémunération est versée chaque semaine le lundi, sous réserve du reporting rempli. À partir du deuxième mois, versement mensuel.
+
+**Profil recherché**
+- Tu as déjà géré des comptes Instagram ou des pages Facebook (les tiens ou ceux d'une marque) et tu connais les codes : trends, hooks, stories, hashtags.
+- Tu es à l'aise avec Edits ou CapCut (montage simple et rythmé — pas besoin d'After Effects).
+- Tu écris un français propre (légendes, descriptions).
+- Tu es organisé, régulier et autonome : les comptes vivent tous les jours.
+- Tu disposes d'un téléphone récent et d'une connexion stable.
+- Tu acceptes de travailler pour une agence dont certaines clientes utilisent des plateformes pour adultes, même si tes missions restent entièrement SFW.
+- 18 ans minimum.
+
+Aucun diplôme exigé. Une formation complète et des consignes précises sont fournies.
+
+**Processus de recrutement**
+1. Candidature sur Indeed.
+2. Réponse aux questions de présélection.
+3. Court formulaire (3 à 5 minutes).
+4. Test pratique clairement encadré (48 h).
+5. Début de la mission.
+
+**Questions de présélection**
+- As-tu déjà géré des comptes Instagram ou des pages Facebook (perso ou pour une marque) ? Lesquels, et avec quels résultats ?
+- As-tu déjà utilisé Edits ou CapCut pour monter des Reels ?
+- Combien de temps peux-tu consacrer à cette mission chaque jour ?
+- Peux-tu publier du contenu tous les jours ?
+- Es-tu à l'aise avec le fait que certaines clientes de l'agence utilisent des plateformes réservées aux adultes, sachant que ton travail restera entièrement SFW ?
+- Peux-tu remplir un reporting chaque dimanche ?
+
+**Lieu du poste** : Télétravail
