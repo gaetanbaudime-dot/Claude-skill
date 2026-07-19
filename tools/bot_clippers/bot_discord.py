@@ -40,6 +40,10 @@ charger_env()
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
 CANAL_BOT_ID = os.environ.get("CANAL_BOT_ID", "").strip()   # id du canal (texte) où le bot répond à tout
+# Salon ADMIN (privé) : notifications sensibles — tests rendus, e-mails, contrats, sauvegardes.
+# Découvert le 19/07 : CANAL_BOT_ID servait aussi de salon admin ; si l'assistant répond dans un
+# salon PUBLIC, les rendus de test y partaient devant tout le monde. Repli sur CANAL_BOT_ID si vide.
+CANAL_ADMIN_ID = os.environ.get("CANAL_ADMIN_ID", "").strip()
 FORUM_BOT_ID = os.environ.get("FORUM_BOT_ID", "").strip()   # id du forum : le bot répond dans chaque post
 MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
@@ -67,6 +71,12 @@ ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # 
 # !equipe après signature du contrat — jamais par l'onboarding Discord (incident du 18/07).
 ROLE_TEAM_FR_NOM = os.environ.get("ROLE_TEAM_FR_NOM", "Team France").strip()
 ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
+# Rôles de GRILLE (décision du 19/07) : attribués AUTOMATIQUEMENT à la liaison du numéro
+# (grille déduite de l'indicatif, jamais si pays/indicatif se contredisent). Ils n'ouvrent QUE
+# les salons rémunération/bonus de la grille — le quiz pose des questions sur la paie, le
+# candidat doit pouvoir la lire. Les discussions restent derrière les rôles Team (signés/actifs).
+ROLE_GRILLE_FR_NOM = os.environ.get("ROLE_GRILLE_FR_NOM", "Grille France").strip()
+ROLE_GRILLE_INT_NOM = os.environ.get("ROLE_GRILLE_INT_NOM", "Grille International").strip()
 
 # Portes d'entrée : une invitation Discord DÉDIÉE par canal permet de savoir d'où arrive chaque
 # membre (fin du formulaire, Disboard, Indeed…) et d'adapter l'accueil.
@@ -362,6 +372,12 @@ async def canal_par_id(canal_id: str):
     except (ValueError, discord.NotFound, discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Canal %s inaccessible : %s", canal_id, erreur)
         return None
+
+
+async def canal_admin():
+    """Le salon admin privé (CANAL_ADMIN_ID, repli CANAL_BOT_ID) — toutes les notifications
+    sensibles passent par ici, jamais par le salon public de l'assistant."""
+    return await canal_par_id(CANAL_ADMIN_ID or CANAL_BOT_ID)
 
 
 def texte_compteur(total: float) -> str:
@@ -702,7 +718,7 @@ async def rattraper_webhooks():
     coupe le bot ~1-2 min et un quiz validé dans cette fenêtre était perdu (vécu le 18/07 au
     soir, candidat Hugo). Idempotent : un quiz déjà traité est ignoré en silence, une
     candidature se réécrit à l'identique."""
-    canal = await canal_par_id(CANAL_BOT_ID)
+    canal = await canal_admin()
     if canal is None:
         return
     try:
@@ -812,13 +828,29 @@ async def traiter_liaison(auteur, brut):
         liaison["prenom"], liaison["pays"] = cand.get("prenom", ""), cand.get("pays", "")
     donnees.setdefault("liaisons", {})[str(auteur.id)] = liaison
     ecrire_json(FICHIER_PIPELINE, donnees)
-    if cand.get("prenom"):
-        membre_serveur = membre_par_id(auteur.id)
-        if membre_serveur:
-            try:                         # surnom serveur = prénom du formulaire : tout le monde s'y retrouve
-                await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée")
-            except (discord.Forbidden, discord.HTTPException):
-                pass
+    membre_serveur = membre_par_id(auteur.id)
+    if cand.get("prenom") and membre_serveur:
+        try:                             # surnom serveur = prénom du formulaire : tout le monde s'y retrouve
+            await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    # Rôle de GRILLE automatique (19/07) : rémunération/bonus visibles avant le quiz — grille
+    # déduite de l'indicatif (dur à falsifier), pays en repli, RIEN si les deux se contredisent.
+    grille_vue = ""
+    if cand and membre_serveur:
+        pays_cand = cand.get("pays", "")
+        grille_tel = equipe_de_l_indicatif(tel)
+        if not (pays_cand and grille_tel and equipe_du_pays(pays_cand) != grille_tel):
+            code = grille_tel or (equipe_du_pays(pays_cand) if pays_cand else "")
+            nom_role = {"fr": ROLE_GRILLE_FR_NOM, "mg": ROLE_GRILLE_INT_NOM}.get(code, "")
+            role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name),
+                                      membre_serveur.guild.roles) if nom_role else None
+            if role is not None:
+                try:
+                    await membre_serveur.add_roles(role, reason="Grille visible à la liaison (indicatif)")
+                    grille_vue = ("🇫🇷 France" if code == "fr" else "🌍 International")
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
     etape1 = (f"✅ **Étape 1 réussie — candidature retrouvée : {cand.get('prenom') or 'toi'} "
               f"({cand.get('pays') or 'pays ?'})**. Ton compte est relié au numéro **…{tel[-4:]}**."
               if cand else
@@ -829,7 +861,10 @@ async def traiter_liaison(auteur, brut):
     formation = (f"<#{post_bienvenue}>" if post_bienvenue
                  else (f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le forum **formation**"))
     await envoyer_mp(auteur, etape1 + "\n\n"
-        "**Étape 2 — la formation 🎓**\n"
+        + ((f"💰 Les salons **rémunération et bonus de ta grille {grille_vue}** viennent de s'ouvrir "
+            "pour toi sur le serveur — va voir exactement comment tu seras payé, le quiz pose des "
+            "questions dessus.\n\n") if grille_vue else "")
+        + "**Étape 2 — la formation 🎓**\n"
         f"→ Va dans {formation}" + ("" if post_bienvenue else ", post « Bienvenue »")
         + " : regarde la vidéo (54 min) **en entier** — "
         "4 mots-clés y sont cachés, note-les dans l'ordre, ils te seront demandés.\n"
@@ -938,7 +973,7 @@ async def boucle_pipeline():
                 clipper_signe = any(s.get("role") == "Clipper" and s.get("completed_at") for s in signataires)
                 tous_signes = bool(signataires) and all(s.get("completed_at") for s in signataires)
                 membre = membre_par_id(uid)
-                canal = await canal_par_id(CANAL_BOT_ID)
+                canal = await canal_admin()
                 if tous_signes:
                     contrat["statut"] = "complet"
                     modifie = True
@@ -1007,9 +1042,9 @@ async def boucle_rappels():
                     except (discord.Forbidden, discord.HTTPException):
                         pass
             # Sauvegarde automatique des JSON : le dimanche à partir de 20:00, une fois.
-            if CANAL_BOT_ID and maintenant.weekday() == 6 and maintenant.hour >= 20 \
+            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.weekday() == 6 and maintenant.hour >= 20 \
                     and etat.get("sauvegarde") != aujourdhui:
-                canal = await canal_par_id(CANAL_BOT_ID)
+                canal = await canal_admin()
                 fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
                                         FICHIER_INVITES, FICHIER_BUMP, FICHIER_COMPTEURS) if p.exists()]
                 if canal is not None and fichiers:
@@ -1449,6 +1484,14 @@ async def commande_admin(message, texte: str) -> bool:
         try:
             if equipe is None:
                 await membre.remove_roles(role_fr, role_mg, reason=f"!equipe retirer par {message.author}")
+                # Les rôles de grille (rémunération/bonus) sautent aussi au retrait.
+                for nom_grille in (ROLE_GRILLE_FR_NOM, ROLE_GRILLE_INT_NOM):
+                    role_grille = discord.utils.find(lambda r: normaliser(nom_grille) in normaliser(r.name), g.roles)
+                    if role_grille is not None and role_grille in membre.roles:
+                        try:
+                            await membre.remove_roles(role_grille, reason=f"!equipe retirer par {message.author}")
+                        except (discord.Forbidden, discord.HTTPException):
+                            pass
                 registre.pop(str(membre.id), None)
                 retour = f"🚪 {membre.mention} retiré des deux équipes (et du registre)."
             else:
@@ -1971,7 +2014,7 @@ async def on_message(message):
             if not fiche_eq.get("conditions"):
                 fiche_eq["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
                 ecrire_json(FICHIER_EQUIPES, registre)
-                canal = await canal_par_id(CANAL_BOT_ID)
+                canal = await canal_admin()
                 if canal:
                     await canal.send(f"✍️ {message.author.mention} a accepté les **conditions International** "
                                      "(horodaté au registre) — attribue-lui sa créatrice + envoie son lien de tracking.")
@@ -1994,7 +2037,7 @@ async def on_message(message):
         donnees_pipe.setdefault("liaisons", {}).setdefault(str(utilisateur), {})["email"] = email_brut
         ecrire_json(FICHIER_PIPELINE, donnees_pipe)
         etat_cand = donnees_pipe.get("etats", {}).get(str(utilisateur), {}).get("etat", "")
-        canal = await canal_par_id(CANAL_BOT_ID)
+        canal = await canal_admin()
         if etat_cand == "valide":
             # v2 : le contrat part tout seul — création DocuSeal + lien de signature EN MP.
             tel_liaison = donnees_pipe.get("liaisons", {}).get(str(utilisateur), {}).get("tel", "")
@@ -2034,19 +2077,23 @@ async def on_message(message):
     if message.guild is None:
         donnees_pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         info = donnees_pipe.get("etats", {}).get(str(utilisateur))
-        if info and info.get("etat") == "test_envoye" and (message.attachments or "http" in texte.lower()):
+        if info and info.get("etat") in ("test_envoye", "test_rendu") \
+                and (message.attachments or "http" in texte.lower()):
+            complement = info.get("etat") == "test_rendu"        # 2ᵉ fichier envoyé dans un autre message
             info["etat"] = "test_rendu"
-            info["rendu"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            info["rendu"] = info.get("rendu") or datetime.now(timezone.utc).isoformat(timespec="seconds")
             ecrire_json(FICHIER_PIPELINE, donnees_pipe)
-            canal = await canal_par_id(CANAL_BOT_ID)
+            canal = await canal_admin()
             if canal:
                 liens = "\n".join(p.url for p in message.attachments)
-                await canal.send((f"📥 **Test rendu** par {message.author.mention} "
-                                  f"(quiz {info.get('score_quiz') or '?'}) :\n"
+                await canal.send(((f"📥 **Complément de test** de {message.author.mention} :\n" if complement else
+                                   f"📥 **Test rendu** par {message.author.mention} "
+                                   f"(quiz {info.get('score_quiz') or '?'}) :\n")
                                   + (liens + "\n" if liens else "") + (texte + "\n" if texte else "")
-                                  + "→ `!test-ok` ou `!test-non` en mentionnant le membre.")[:1990])
-            await message.reply("📥 Bien reçu ! Ton test part en review — réponse sous 72 h maximum. 🤞")
-            journal.info("Test rendu en MP par %s", utilisateur)
+                                  + "→ `!test-ok` ou `!test-non` (mention ou nom).")[:1990])
+            await message.reply("📥 Bien reçu ! " + ("Fichier ajouté à ton rendu." if complement else
+                                "Ton test part en review — réponse sous 72 h maximum. 🤞"))
+            journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
             return
 
     # Commandes admin : disponibles depuis N'IMPORTE quel canal (ex. !paiement dans #dopamine)
