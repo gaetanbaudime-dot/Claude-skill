@@ -39,6 +39,10 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 - [[Playbook trafic interne MYM (5 créatrices)]] : la SOP quotidienne (5 publics/jour, stories, règle publique/privé), le test A/B sur 5 créatrices, le tableau de bord (KPI roi = CA net/post public), et le diagnostic du rapport Judith (deal juillet 20k, goulots part du trafic externe + attractivité du profil). Le pourquoi : [[Stratégie trafic interne MYM]].
 
+## Pôle gouvernance & association
+
+- [[Pacte d'association LTP (partenariat 50-50 avec Maxence)]] : le contrat signé le 26/03/2026 (droit UAE, arbitrage DIFC/ADGM) distillé et dépersonnalisé — les 5 points que le départ en France rend brûlants (**Key Person Art 10.2 = renégociation possible du 50/50 au-delà de 60 j « en solo »**, le plan clippers qui exige l'accord écrit de Maxence, la dette CGU juridiquement portée seul, l'IP commune, l'asymétrie de coûts réconciliée), la carte des 21 articles, et les 3 actions avant le départ.
+
 ## Pôle chatting (Maxence)
 
 - [[SOP chatting anti-churn]] : les 4 séquences (accueil + 1er PPV < 48 h, vie du fan, win-back, clonage du top 5), les 6 KPI hebdo, l'éthique et le flag CGU. **Le levier n°1 confirmé par les données.**
