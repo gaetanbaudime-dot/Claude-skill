@@ -769,45 +769,57 @@ async def enregistrer_candidatures(quadruplets):
 
 
 async def docuseal_requete(methode, chemin, corps=None):
-    """Appel à l'API DocuSeal (None si non configurée, en erreur ou injoignable — jamais d'exception)."""
+    """Appel à l'API DocuSeal → (données, erreur). données=None si échec, erreur=message lisible."""
     if not DOCUSEAL_API_KEY:
-        return None
+        return None, "DOCUSEAL_API_KEY absente"
     try:
         async with aiohttp.ClientSession() as session:
             async with session.request(methode, DOCUSEAL_URL.rstrip("/") + chemin, json=corps,
-                                       headers={"X-Auth-Token": DOCUSEAL_API_KEY},
+                                       headers={"X-Auth-Token": DOCUSEAL_API_KEY, "Content-Type": "application/json"},
                                        timeout=aiohttp.ClientTimeout(total=30)) as reponse:
+                brut = await reponse.text()
                 if reponse.status >= 300:
-                    journal.warning("DocuSeal %s %s -> HTTP %s : %s", methode, chemin, reponse.status,
-                                    (await reponse.text())[:300])
-                    return None
-                return await reponse.json()
+                    journal.warning("DocuSeal %s %s -> HTTP %s : %s", methode, chemin, reponse.status, brut[:300])
+                    detail = brut[:150].strip()
+                    aide = {401: " (clé API invalide)", 403: " (clé API sans droits)",
+                            404: " (URL ou template introuvable — vérifie DOCUSEAL_TEMPLATE_ID et DOCUSEAL_URL)",
+                            422: " (données refusées : rôles du modèle ≠ « Clipper »/« Agence » ?)"}.get(reponse.status, "")
+                    return None, f"HTTP {reponse.status}{aide} — {detail}"
+                try:
+                    return await reponse.json(content_type=None), None
+                except Exception:
+                    return None, f"réponse illisible : {brut[:150]}"
     except Exception as erreur:
         journal.warning("DocuSeal injoignable : %s", erreur)
-        return None
+        return None, f"injoignable ({type(erreur).__name__}) — vérifie DOCUSEAL_URL"
 
 
 async def creer_contrat_docuseal(email, tel=""):
-    """Crée une soumission depuis le modèle (send_email: false) : renvoie (submission_id,
-    lien_de_signature) — le lien part en MP Discord, l'e-mail ne sert qu'à la copie PDF."""
-    if not (DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID.isdigit()):
-        return None, None
+    """Crée une soumission depuis le modèle (send_email: false) → (submission_id, lien, erreur).
+    Le lien de signature part en MP Discord ; erreur=message précis si échec (None si OK)."""
+    if not DOCUSEAL_API_KEY:
+        return None, None, "DOCUSEAL_API_KEY absente dans Railway"
+    if not DOCUSEAL_TEMPLATE_ID.isdigit():
+        return None, None, (f"DOCUSEAL_TEMPLATE_ID invalide (valeur reçue : « {DOCUSEAL_TEMPLATE_ID or 'vide'} ») "
+                            "— c'est le NOMBRE dans l'URL du modèle : docuseal.com/templates/XXXX")
     submitters = [{"role": "Clipper", "email": email,
                    "values": {c: v for c, v in (("Email", email), ("Telephone", tel)) if v}}]
     if DOCUSEAL_EMAIL_AGENCE:
         submitters.append({"role": "Agence", "email": DOCUSEAL_EMAIL_AGENCE})
-    reponse = await docuseal_requete("POST", "/submissions", {
+    reponse, erreur = await docuseal_requete("POST", "/submissions", {
         "template_id": int(DOCUSEAL_TEMPLATE_ID), "send_email": False,
         "order": "preserved", "submitters": submitters})
     if reponse is None:
-        return None, None
+        return None, None, erreur or "réponse vide de DocuSeal"
     liste = reponse if isinstance(reponse, list) else reponse.get("submitters", [])
     clipper = next((s for s in liste if s.get("role") == "Clipper"), liste[0] if liste else None)
     if not clipper:
-        return None, None
+        return None, None, "aucun signataire renvoyé (le modèle a-t-il bien un rôle « Clipper » ?)"
     submission_id = clipper.get("submission_id") or (reponse.get("id") if isinstance(reponse, dict) else None)
     lien = clipper.get("embed_src") or (f"https://docuseal.com/s/{clipper['slug']}" if clipper.get("slug") else None)
-    return submission_id, lien
+    if not lien:
+        return submission_id, None, "soumission créée mais aucun lien de signature (slug) renvoyé"
+    return submission_id, lien, None
 
 
 async def traiter_liaison(auteur, brut):
@@ -966,7 +978,7 @@ async def boucle_pipeline():
                 contrat = info.get("contrat")
                 if not contrat or contrat.get("statut") == "complet" or not contrat.get("submission_id"):
                     continue
-                reponse = await docuseal_requete("GET", f"/submissions/{contrat['submission_id']}")
+                reponse, _ = await docuseal_requete("GET", f"/submissions/{contrat['submission_id']}")
                 if not isinstance(reponse, dict):
                     continue
                 signataires = reponse.get("submitters", [])
@@ -1753,6 +1765,54 @@ async def commande_admin(message, texte: str) -> bool:
             files=[discord.File(str(p)) for p in fichiers[:10]])
         return True
 
+    # ---- !contrat @membre : diagnostic DocuSeal + (re)création du contrat à la demande ----
+    if texte.startswith("!contrat"):
+        corps = texte[len("!contrat"):].strip()
+        # Sans argument : état de la config DocuSeal (le « pourquoi ça marche pas »).
+        if not corps:
+            lignes = ["🔧 **Config DocuSeal**",
+                      ("✅" if DOCUSEAL_API_KEY else "❌") + " DOCUSEAL_API_KEY"
+                      + (f" (…{DOCUSEAL_API_KEY[-4:]})" if DOCUSEAL_API_KEY else " — absente"),
+                      ("✅" if DOCUSEAL_TEMPLATE_ID.isdigit() else "❌")
+                      + f" DOCUSEAL_TEMPLATE_ID = « {DOCUSEAL_TEMPLATE_ID or 'vide'} »"
+                      + ("" if DOCUSEAL_TEMPLATE_ID.isdigit() else " — doit être le NOMBRE de docuseal.com/templates/XXXX"),
+                      ("✅" if DOCUSEAL_EMAIL_AGENCE else "⚠️")
+                      + f" DOCUSEAL_EMAIL_AGENCE = {DOCUSEAL_EMAIL_AGENCE or 'vide (contresignature manuelle)'}",
+                      f"🌐 DOCUSEAL_URL = {DOCUSEAL_URL}"]
+            if DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID.isdigit():
+                _, err = await docuseal_requete("GET", f"/templates/{DOCUSEAL_TEMPLATE_ID}")
+                lignes.append("✅ Modèle joignable via l'API" if err is None else f"❌ Test API : {err}")
+            lignes.append("\nUsage : `!contrat Hugo` pour (re)créer et envoyer son contrat.")
+            await message.reply("\n".join(lignes)[:1990])
+            return True
+        membre = message.mentions[0] if message.mentions else chercher_membre(corps)
+        if membre is None:
+            await message.reply("Membre introuvable. Usage : `!contrat @membre` ou `!contrat Prénom` "
+                                "(ou `!contrat` seul pour le diagnostic de config).")
+            return True
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        liaison = donnees.get("liaisons", {}).get(str(membre.id), {})
+        email = liaison.get("email", "")
+        if not email:
+            await message.reply(f"❌ Pas d'e-mail sur la fiche de {membre.mention} — il doit d'abord m'envoyer "
+                                "son adresse en MP (le bot la demande au `!test-ok`).")
+            return True
+        submission_id, lien, err = await creer_contrat_docuseal(email, liaison.get("tel", ""))
+        if not lien:
+            await message.reply(f"❌ DocuSeal a refusé : **{err}**")
+            return True
+        donnees.setdefault("etats", {}).setdefault(str(membre.id), {})["contrat"] = {
+            "submission_id": submission_id, "statut": "envoye",
+            "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        ecrire_json(FICHIER_PIPELINE, donnees)
+        envoye = await envoyer_mp(membre,
+            "📧 **Ton contrat est prêt — signe-le ici (2 minutes)** :\n" + lien + "\n"
+            "Remplis tes infos dans le document, signe en bas. L'Agence contresigne ensuite et tes accès s'ouvrent. 🔥")
+        await message.reply(f"✅ Contrat créé pour {membre.mention} → lien de signature "
+                            + ("**envoyé en MP**." if envoye else f"**MP fermés**, envoie-lui : {lien}")
+                            + " Je préviens ici dès qu'il signe.")
+        return True
+
     # ---- !sync-noms : renomme chaque membre lié avec le prénom du formulaire ----
     if texte.startswith("!sync-noms"):
         g = message.guild
@@ -2041,7 +2101,7 @@ async def on_message(message):
         if etat_cand == "valide":
             # v2 : le contrat part tout seul — création DocuSeal + lien de signature EN MP.
             tel_liaison = donnees_pipe.get("liaisons", {}).get(str(utilisateur), {}).get("tel", "")
-            submission_id, lien_contrat = await creer_contrat_docuseal(email_brut, tel_liaison)
+            submission_id, lien_contrat, err_contrat = await creer_contrat_docuseal(email_brut, tel_liaison)
             if lien_contrat:
                 donnees_pipe.setdefault("etats", {}).setdefault(str(utilisateur), {})["contrat"] = {
                     "submission_id": submission_id, "statut": "envoye",
@@ -2063,8 +2123,9 @@ async def on_message(message):
                                 "réception, tes accès s'ouvrent à la contresignature. 🔥")
             if canal:
                 await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — "
-                                 f"**validé FR** : ⚠️ envoi automatique DocuSeal indisponible (clé/modèle/API ?), "
-                                 f"envoie le contrat depuis le modèle, puis `!equipe {message.author.display_name} fr`.")
+                                 f"**validé FR** mais ⚠️ DocuSeal a échoué : **{err_contrat}**.\n"
+                                 f"→ Contrat à envoyer à la main depuis le modèle vers `{email_brut}`, puis "
+                                 f"`!equipe {message.author.display_name} fr`. (Diagnostic complet : `!contrat {message.author.display_name}`.)")
         else:
             await message.reply("📧 Adresse enregistrée sur ta fiche !")
             if canal:
