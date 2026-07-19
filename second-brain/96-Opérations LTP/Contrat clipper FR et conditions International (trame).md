@@ -147,8 +147,23 @@ Réponds « J'ACCEPTE » pour ouvrir tes accès.
 
 Cette acceptation ne vaut pas un contrat — c'est la dette assumée du 18/07 ([[Machine de recrutement clippers (100 leads par mois)|décision]]) : le risque International est borné par le [[Équipe marketing - structure et rémunération (FR × MG)|verrou du fixe]] à ~100 €/personne. Si un incident de fuite ou de détournement de comptes survient côté International, on repasse au contrat pour tous.
 
+## ⚠️ Le risque salariat déguisé à l'échelle 200 (deep research du 19/07)
+
+Chiffré et gravé après le [[Croisement deep research 2 (statuts, clips, agence, juillet 2026)|croisement des rapports externes]] : la requalification d'une prestation « indépendante » en contrat de travail expose la LLC à **rappel de tous les salaires et cotisations dus + dommages + amende jusqu'à 225 000 € (personne morale)**. À 200 clippers FR payés un fixe conditionnel avec reporting hebdomadaire, ce n'est plus théorique — un contrôle URSSAF OU un clipper qui saisit les prud'hommes suffit. Les **6 garde-fous non négociables** (à respecter dans le contrat ET dans la pratique quotidienne, car c'est le réel qui est jugé, pas le papier) :
+1. **Aucun horaire imposé** — le clipper organise librement son temps (art. 2 du contrat). Jamais de « connecte-toi à 18h ».
+2. **Cadence = condition de rémunération, jamais directive** (annexe/art. 4.3) — « le fixe est versé si X clips » ≠ « tu DOIS faire X clips à telle heure ».
+3. **Pas d'exclusivité de fait** — le clipper reste libre d'autres activités.
+4. **Méthode par renvoi à la formation**, pas dictée pas à pas dans le contrat (déjà fait v2).
+5. **Facturation freelance réelle** — le clipper émet une facture, fournit un statut/SIRET avant paiement (art. 6.5).
+6. **Pas d'intégration façon salarié** — vocabulaire « prestataire/mission », jamais « employé/poste/embauche ».
+Corollaire stratégique : ce risque **renforce la logique de faire porter le volume par l'International** (hors droit du travail FR), le FR restant l'élite encadrée. Relecture juriste avant la première vague de 20+ signatures : priorité absolue. Détail conformité : [[Conformité recrutement (droit FR, RGPD, CGU)]].
+
+## ⚠️ Le risque « exploitation sexuelle en ligne » (côté créatrices, rapport 7)
+
+Un projet de loi au Sénat criminaliserait l'exploitation des créateurs adultes en visant **nommément les intermédiaires (agences, managers, agents)** — jusqu'à 7 ans / 150 000 € en cas de violence, contrainte, menace ou abus d'autorité. Ce contrat concerne les clippers, mais la parade côté **créatrices** doit être posée en parallèle : contrat créatrice avec **clause de sortie libre**, transparence totale de la répartition des revenus, volontariat documenté, aucune pression. Risque réglementaire à suivre au [[Journal de coaching]] (revue mensuelle).
+
 ## Ce qui ferait échouer ça
 
-- **La requalification en salariat (FR)** : des consignes horaires strictes ou une cadence imposée jour par jour ressembleraient à de la subordination — les objectifs de volume doivent rester des **conditions de prime** (annexe), jamais des ordres d'emploi du temps. Détail dans [[Conformité recrutement (droit FR, RGPD, CGU)]].
+- **La requalification en salariat (FR)** : voir la section dédiée ci-dessus — c'est LE risque à l'échelle, pas une note de bas de page.
 - **L'entité signataire non tranchée** : tant que les questions LLC/Cosmo sont ouvertes, chaque contrat signé est fragile — trancher avant la première vague de signatures.
 - **L'outil sous-dimensionné** : DocuSign Personal (≈ 5 envois/mois) bloquerait la 2ᵉ semaine de recrutement.

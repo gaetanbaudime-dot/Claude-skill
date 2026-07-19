@@ -49,7 +49,7 @@ Honnêtement, une agence OFM **se vend mal aujourd'hui** : risque plateforme per
 - **Des SOP qui tournent sans toi** — [[Kit Emma - mode d'emploi]] côté créatrices, [[SOP chatting anti-churn]] côté rétention (le revenu récurrent de Warrillow, version LTV) : la preuve que l'acheteur achèterait des [[Systèmes et process]], pas un héros.
 - **Une clôture propre inter-sociétés** : deux boîtes distinctes avec Maxence, donc la [[SOP clôture mensuelle avec Maxence]] doit s'appuyer sur un **contrat écrit** — première pièce qu'une due diligence demanderait, et aujourd'hui elle manque.
 
-Chaque case cochée sert d'abord [[Se licencier de son propre poste]] ; la vendabilité n'est que le thermomètre.
+Chaque case cochée sert d'abord [[Se licencier de son propre poste]] ; la vendabilité n'est que le thermomètre. Le fork « agence vs plateforme » qui en découle est développé dans [[Bâtisseurs appliqués à LTP (Buffett, Red Bull, Dalio)]] : grossir en empilant des têtes (agence) détruit la vendabilité ; bâtir des systèmes possédés (plateforme) la crée.
 
 ## Sources
 

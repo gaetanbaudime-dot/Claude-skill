@@ -14,6 +14,9 @@ tags: [contexte/business, ofm/agence]
 
 ## Le modèle
 
+> [!info] Reframe stratégique (19/07) : LTP n'est pas une agence OF
+> Modèle mental à la Red Bull ([[Bâtisseurs appliqués à LTP (Buffett, Red Bull, Dalio)]]) : LTP est une **machine de distribution d'attention** (l'armée de clippers + la fabrique de contenu) qui **monétise via l'abonnement OF**. L'actif à faire croître n'est pas « le nombre de créatrices », c'est la **portée de distribution possédée** et la **douve** (systèmes, data, clippers formés). Chaque euro se juge en allocateur de capital (Buffett) : « ça agrandit ma distribution / ma douve ? ».
+
 Agence OFM francophone basée à Dubaï (entité free zone EAU, contrats de droit français, juridiction Paris). Co-fondée avec **Maxence** : Gaëtan possède le pôle marketing/trafic/recrutement, Maxence le pôle chatting/monétisation (**~40 chatteurs + ~5 managers** à la commission, Madagascar/Bénin). Split de profit 50/50, calculé le 1er du mois — désormais selon la **[[SOP clôture mensuelle avec Maxence]]** (3 couches : P&L → allocations → distribution ; l'ancien calcul WhatsApp capitalisait 0 €). **Asymétrie structurelle identifiée** : Gaëtan porte l'essentiel des coûts opérationnels (clippers, VAs) sur un split égal → renégociation à l'agenda, voir [[Journal de coaching]]. ⚠️ Chantier fiscal 2026 : la SAS française n'est pas liquidée et des flux MYM arrivent encore sur des comptes perso FR → [[Opération fiscalité propre (France → Dubaï)]].
 
 Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plateforme". Trafic par Reels/TikTok/YouTube (armée de clippers rémunérés à la performance, 0,35€/abonnement, tracking GetAllMyLinks/Infloww/MyPulse), publication par téléphones virtuels Geelark avec proxies français, conversion par chatting structuré (méthodo Golden Ratio 2-3%, Unlock Rate >30% OF / >10% MYM, LTV cible 15€).

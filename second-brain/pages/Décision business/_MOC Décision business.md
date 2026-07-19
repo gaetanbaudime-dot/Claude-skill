@@ -22,6 +22,10 @@ Tout le cluster [[Biais cognitifs]] est la théorie sous-jacente : [[Excès de c
 
 `98-Rapports/Rapport Décision business` : grille de tri, protocole pré-mortem 30 minutes, registre de paris.
 
+## Modèles de bâtisseurs
+
+- [[Bâtisseurs appliqués à LTP (Buffett, Red Bull, Dalio)]] : trois grilles de décision transférées à LTP — Red Bull (média-first : LTP est une machine de distribution d'attention), Buffett (allocation de capital, douve, float), Dalio (la machine). La synthèse : bâtir une plateforme, pas une agence.
+
 ## À densifier lors des prochains runs
 
 Théorie des jeux appliquée (négociation, concurrence), decision journals avancés, delegation of authority (qui décide quoi), gestion de crise, options réelles.
