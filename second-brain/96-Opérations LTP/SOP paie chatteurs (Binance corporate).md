@@ -11,7 +11,8 @@ liens_forts: ["[[Architecture bancaire Profit First (comptes, coffres, crypto, c
 # SOP paie chatteurs — le rail Binance corporate (Binance Pay)
 
 > [!tip] Verdict
-> **Le rail propre = un compte Binance CORPORATE (au nom de LTP FZ-LLC, via l'entité VARA Binance FZE), financé depuis Wio Business, qui paie les chatteurs en USDT via Binance Pay (transfert gratuit entre comptes Binance).** Jamais ton compte perso (= violation CGU + gel + casse la déductibilité CT). Sur Binance ne dort que le **fond de roulement de paie** (2 cycles max), rien d'autre. Coût du rail ≈ **0,1-0,5 % tout compris** (vs 2-7 % en virement bancaire classique), règlement en minutes. **Le vrai risque n'est pas technique, c'est le KYB** : une agence de contenu adulte peut déclencher une due diligence renforcée ou un refus → **déclare honnêtement + prépare un fallback** (Rain/BitOasis corporate, ou un prestataire de payout licencié). Ne jamais maquiller l'activité pour passer le KYC — c'est ça qui te fait geler *après* onboarding, le pire moment.
+> **Le rail propre = un compte Binance CORPORATE (au nom de LTP FZ-LLC, via l'entité VARA Binance FZE), financé depuis Wio Business, qui paie les chatteurs en USDT via Binance Pay (transfert gratuit entre comptes Binance).** Jamais ton compte perso (= violation CGU + gel + casse la déductibilité CT). Sur Binance ne dort que le **fond de roulement de paie** (1 cycle max), rien d'autre. Coût du rail ≈ **0,1-0,5 % tout compris** (vs 2-7 % en virement bancaire classique), règlement en minutes.
+> **⚠️ Le principe qui prime sur tout le reste (peur légitime de Gaëtan) : tu ne rendras JAMAIS ce compte imbannable — un gel arrive même sur un corporate propre (faux positifs AML, volumes de payout qui ressemblent à un MSB, décision opaque, appel = semaines). Donc on ne vise PAS « ne jamais se faire ban » : on rend le ban NON-FATAL.** Ton business ne repose pas sur Binance, il repose sur *payer les chatteurs à l'heure* → **2 rails allumés en permanence + ≤ 1 cycle de fonds dessus + un rail non-crypto de secours** (voir section Résilience). Le vrai risque à l'ouverture, c'est le **KYB** (nexus adulte) : **déclare honnêtement, jamais maquiller** (le maquillage = gel *après* onboarding, le pire moment).
 
 ## Étape 0 — À faire à Dubaï AVANT le départ (présence quasi exigée)
 
@@ -61,18 +62,32 @@ Chaque chatteur doit avoir **son propre compte Binance** (KYC fait de son côté
 | Garde-fou | Pourquoi |
 |---|---|
 | **Compte corporate uniquement**, jamais le perso | CGU Binance (perso pour de la paie = motif de gel) + déductibilité + commingling |
-| **Seul le fond de roulement de paie** dort sur Binance (≤ 2 cycles) | Un exchange n'est pas un coffre ; le patrimoine est ailleurs (IBKR), **0 % crypto détenu** ([[Setup argent (le plan riche en 10 actions)|décision 0 % crypto]]) |
+| **Seul le fond de roulement de paie** dort sur Binance (≤ 1 cycle) | Un exchange n'est pas un coffre ; un gel ne piège alors que 2 semaines de paie, jamais ta tréso ; patrimoine ailleurs (IBKR), **0 % crypto détenu** ([[Setup argent (le plan riche en 10 actions)|décision 0 % crypto]]) |
+| **2 rails VARA allumés en permanence** (Binance + Rain/BitOasis) + 1 rail non-crypto de secours | Un ban arrive un jour ; la redondance rend le gel indolore (bascule en 10 min) — voir Résilience |
 | **Contrat de sous-traitance + facture/relevé par chatteur** | Statut *contractor* (pas salarié déguisé) + charge déductible substantiable |
 | **Déclaration source honnête** + **fallback prêt** | Le nexus adulte peut déclencher EDD/refus — mentir = gel post-onboarding |
 | **Chatteurs = contractors** dans leur juridiction | Certains pays restreignent le paiement crypto ; c'est leur cash-out qui doit être clean ([[Risques légaux et éthiques de l'OFM]]) |
 | **La paie est sacrée** (les 1er/15) | Un cycle raté = confiance détruite → [[Continuité du bot et paie sacrée (plan anti-panne)|préparation déléguée + ta validation]] |
 
-## Le risque n°1 : le KYB adulte — et le fallback
+## La résilience — un ban Binance est INÉVITABLE un jour, rends-le NON-FATAL
 
-Si Binance corporate **refuse ou gèle** sur le nexus adulte :
-- **Rain** ou **BitOasis** (les deux **licenciés VARA**) en compte corporate = 2ᵉ on-ramp de secours.
-- Ou un **prestataire de payout crypto** dédié (0xProcessing, Transfi…) qui gère la conformité — coût plus élevé (~0,5-1 %) mais assume le risque.
-- **Ne réagis jamais en maquillant l'activité** : ouvre plutôt le rail chez qui l'accepte déclaré. La règle : le rail doit survivre à un audit, pas juste à l'onboarding.
+> [!warning] La bonne peur, la mauvaise cible
+> Se faire geler/bannir un exchange **arrive** — même avec un corporate propre (faux positifs AML, volumes de payout qui « ressemblent » à un money-service-business non licencié, décision opaque, appel de plusieurs semaines). **Tu ne rendras JAMAIS un compte tiers imbannable.** Donc on ne vise pas « ne jamais se faire ban » (impossible) — on vise « **un ban = une contrariété d'une journée, jamais une catastrophe** ». Ton business ne repose pas sur *Binance*, il repose sur *payer les chatteurs à l'heure* : **découple la fonction du fournisseur** ([[Systèmes et process|systèmes > héros]], [[Espérance mathématique et asymétries|survivre à la perte de n'importe quelle pièce]]).
+
+**Les 5 moves qui rendent un ban indolore :**
+1. **Deux rails ALLUMÉS en permanence — pas un + un « fallback » sur étagère.** Binance corporate **ET** Rain ou BitOasis (les deux **VARA**) déjà ouverts et testés (un vrai petit paiement/mois pour les garder vivants). Un gel = tu bascules le batch en **10 min**, tu ne t'arrêtes pas.
+2. **≤ 1 cycle de paie sur le rail.** Jamais plus que la paie du cycle en cours ne dort sur Binance → un gel piège **au pire 2 semaines**, jamais ta tréso (Wio Business + IBKR).
+3. **Portabilité par l'USDT/USDC.** Tu paies en stablecoin → si tu changes de rail, **les wallets des chatteurs ne bougent pas**, juste ton point d'envoi. Zéro friction côté équipe.
+4. **Un rail NON-crypto de secours** (Wise Business / Payoneer, prêts) — pour survivre à un **de-risking crypto total**, le seul scénario que le crypto seul ne couvre pas. Plus cher, mais c'est l'extincteur du pire cas. (Ou un prestataire payout dédié type Transfi/0xProcessing, ~0,5-1 %, qui assume la conformité.)
+5. **La tréso vit AILLEURS** (déjà acté) : Binance ne tient que le fond de roulement de paie. Un gel Binance ne touche **rien** d'autre.
+
+**Réduire les déclencheurs (ce qui fait geler, concrètement) :**
+- **Corporate + KYB honnête** (déjà acté) : un compte corporate déclaré *supporte* des flux business ; un perso, non. **Ne maquille jamais l'activité** — ouvre le rail chez qui l'accepte déclaré (le rail doit survivre à un audit, pas juste à l'onboarding).
+- **Volumes réguliers et prévisibles** — pas de pic soudain, pas de rafale vers 30 nouveaux comptes le même jour (ça crie « MSB non licencié »). Lisse, garde les mêmes bénéficiaires.
+- **Contrats + relevés par chatteur archivés**, montrables sous 24 h si due diligence.
+- **Pas d'aller-retour fiat perso** sur le compte, pas de structuring · bénéficiaires **KYC'd de leur côté** (un chatteur au P2P douteux contamine la réputation de tes transferts).
+
+> **Le renversement à retenir** : « tout mon business repose sur Binance » **EST** le problème — pas Binance. Deux rails en parallèle + 2 semaines de fonds max sur chacun = tu peux te faire bannir un lundi et payer tes chatteurs le mardi **sur l'autre rail, sans qu'ils le remarquent**. La sécurité n'est pas un compte parfait ; c'est un système qui survit à la perte de n'importe quelle pièce.
 
 ## Rattachement
 
