@@ -18,17 +18,17 @@ liens_forts: ["[[Plan richesse (100 actions triées par levier)]]", "[[Architect
 
 ## Les 10 actions
 
-**1 — La répartition (Profit First, sur TA moitié).** Après les frais communs (chatteurs, VA, ads) et la **facture de Maxence** (sa moitié = charge déductible), il reste **ta moitié (~4 k€)**. Tu la découpes en montants FIXES posés à la clôture : **10 % coffre boîte · 15 % extraction · 5 % BTC · 70 % vie**. Ratchet l'extraction vers **25-30 %** quand ta part grandit.
+**1 — La répartition (Profit First, sur TA moitié).** Après les frais communs (chatteurs, VA, ads) et la **facture de Maxence** (sa moitié = charge déductible), il reste **ta moitié (~4 k€)**. Tu la découpes en montants FIXES posés à la clôture : **10 % coffre boîte · 15 % extraction · 0-5 % BTC (optionnel) · 70 % vie**. Ratchet l'extraction vers **25-30 %** quand ta part grandit.
 
-**2 — Le rail bancaire propre.** **Wio Business Essential** (encaisse les commissions €, paie frais + Maxence) + **Wio Perso** (ta vie) + **FAB** (coussin verrouillé, décorrélé) + **IBKR** (patrimoine). Wio = orchestration quotidienne (Spaces, Autopilot, export CSV → Google Sheet) ; FAB et IBKR, tu les regardes 1×/mois. Détail : [[Architecture bancaire Profit First (comptes, coffres, crypto, compta)]].
+**2 — Le rail bancaire propre (simplifié 20/07).** **Wio** (Business Essential + Perso : orchestration + ta vie + **1 mois de tampon instantané**) + **IBKR** (coussin ET patrimoine, un seul nouveau compte, **en ligne**). **Un seul compte à ouvrir : IBKR** ; **FAB (banque physique) devient OPTIONNEL** — seulement si tu veux un accès AED instantané en local. Wio = quotidien (Spaces, Autopilot, export CSV → Google Sheet) ; IBKR tu le regardes 1×/mois. Détail : [[Architecture bancaire Profit First (comptes, coffres, crypto, compta)]].
 
-**3 — Le coussin de survie (l'assurance).** FAB, échelle de dépôts à terme AED, **15-30 k€** (6-12 mois de charges), **vrai verrou** (Wio ne bloque pas vraiment : un Fixed Space se casse avec pénalité douce). Il doit survivre à un **gel de ton compte Wio** (revenu adulte = risque réel). On n'optimise pas le rendement de son extincteur (~3 %).
+**3 — Le coussin de survie (l'assurance).** **15-30 k€** (6-12 mois de charges) en **fonds monétaire / T-bills USD chez IBKR** (~3,6-4 %, décorrélé, ségrégué) — **hors Wio**, pour survivre à un gel Wio (revenu adulte = risque réel). Retrait 1-3 jours (OK pour un choc business) → garde **1 mois de tampon sur Wio Perso** pour l'urgence immédiate. *(Option FAB en DAT AED si tu veux l'accès local instantané — mais c'est un compte de plus.)*
 
 **4 — Le patrimoine ETF (LE moteur de richesse).** IBKR, **ETF monde UCITS irlandais capitalisant** (CSPX / VUAA / SWDA — jamais US-domicilié : estate tax US 40 % > 60 k$, ~176 k$ évitables). **DCA automatique, jamais interrompu**, ~7 % net décorrélé. Politique d'investissement **signée à froid** : vendre = besoin planifié / rééquilibrage, **jamais « ça baisse »** ; regarder ≤ 1×/mois. C'est ça qui te rend riche sur 10-20 ans, pas le cash rémunéré.
 
 **5 — Le 0 % protégé (le plus gros levier de tous).** Ta résidence UAE = **×1,4 sur ton capital composé** vs la France. La protéger (ne pas piloter LTP depuis la France, retour ≤ 1/11, dossier « intérêts vitaux = Dubaï ») vaut plus que n'importe quel placement. + **compta propre** : **SBR = 0 % de Corporate Tax en 2026** (à élire, tu es à ~720 k AED ≪ 3 M), salaire documenté (visa/immo), bookkeeper (~5-10 k AED/an). Les **dividendes ne réduisent PAS la CT** — le 0 % vient du SBR, pas d'un montage.
 
-**6 — Le crypto borné (coffre BTC).** **BTC uniquement, ≤ 5 % de l'investissable, DCA automatique** (jamais en manuel), **cold storage** (Ledger/Trezor). Achète sur exchange **VARA** (Binance FZE / BitOasis / Rain), **retire sur le cold wallet**. Dimensionne pour qu'un **−80 %** soit tenable (à 5 %, = −4 % du total). ⚠️ **Un coffre crypto n'est PAS un tas de stablecoins** (UST → 0,04 $, USDC dépeg SVB) : ta réserve stable = monétaire USD IBKR / DAT AED.
+**6 — Le crypto borné (OPTIONNEL, et surtout PAS un diversifieur).** Soyons honnête, parce que tu m'as posé la question directement : le BTC **ne décorrèle rien**. Il s'effondre **AVEC** les actions dans les paniques (mars 2020 : −50 % en même temps que le S&P ; 2022 : −65 % pendant que les actions baissaient). C'est un **pari asymétrique** (peut faire ×5 ou −80 %), **pas une assurance**. Le diversifieur, c'est le monétaire USD, pas le BTC. Et pour TON profil précis (rafales Binance à 6 058 € documentées), c'est **la ligne la plus dangereuse du plan** — celle qui rappelle ton impulsivité. Donc : **optionnel, ≤ 5 % de l'investissable, BTC seul, DCA 100 % automatique** (jamais en manuel — c'est le manuel qui te ruine), **cold storage** (Ledger). **Si tu doutes de ta discipline dessus : mets 0 % et n'y reviens pas.** L'ETF fait le travail sans te tenter. ⚠️ Un coffre crypto n'est **jamais** un tas de stablecoins (UST → 0,04 $, USDC dépeg SVB) : ta réserve stable = monétaire USD IBKR.
 
 **7 — Binance corporate pour la paie (pas ton perso).** Compte **Binance au nom de LTP FZ-LLC**, financé **depuis Wio Business**, paie les chatteurs en **Binance Pay P2P (gratuit)**. **Jamais Wio Business → Wio Perso → Binance** : le hop perso casse la déductibilité CT (~6,5-13 k$/an), mélange les patrimoines, fragilise la résidence 0 %, et viole les CGU Binance. Sur Binance : seulement le **fond de roulement de paie** (le coffre BTC est en cold, ailleurs).
 
@@ -43,21 +43,21 @@ liens_forts: ["[[Plan richesse (100 actions triées par levier)]]", "[[Architect
 | Box | % | € | Compte | Rôle |
 |---|---:|---:|---|---|
 | **Coffre boîte** | 10 % | ~400 | Wio Business (Space) | réserve société, **stop à 15-20 k€** puis redirige vers l'extraction |
-| **Extraction** | 15 % → 25 % | ~600 | **FAB** (coussin) puis **IBKR** (ETF) | remplit d'abord le coussin 15-30 k€, ensuite l'ETF |
-| **BTC** | 5 % | ~200 | Binance corp → **cold storage** | spéculation bornée décorrélée |
+| **Extraction** | 15 % → 25 % | ~600 | **IBKR** (coussin monétaire → ETF) | remplit d'abord le coussin 15-30 k€, ensuite l'ETF — **un seul compte, en ligne** |
+| **BTC** *(optionnel)* | 0-5 % | 0-200 | Binance corp → **cold storage** | pari asymétrique, **PAS un diversifieur** — 0 % si tu doutes de ta discipline |
 | **Ta vie** | 70 % | ~2 800 | Wio Perso | 2 500 charges + ~300 marge |
 
 **→ ~30 % mis de côté = ~1 200 €/mois = ~14 k€/an capitalisés, sans un euro de CA en plus.** (Automatisé via Autopilot Wio en montants fixes — Wio n'a pas de split en %, tu réajustes à chaque clôture.)
 
 ## L'ordre d'exécution (ce qui débloque le reste)
 
-1. **Avant le départ** : ouvrir **FAB** + **Binance corporate** (impossibles à distance) · couper le hop chatteurs perso · poser les Spaces Wio + Autopilot.
-2. **Cette semaine** : lancer le **KYC IBKR** (2-3 sem.) · salaire documenté + bookkeeper · confirmer l'élection **SBR** · commander un **Ledger**.
+1. **Cette semaine, TOUT en ligne (aucune course contre ton départ)** : lancer le **KYC IBKR** (2-3 sem., 100 % en ligne) · ouvrir **Binance corporate** (docs LTP uploadés en ligne) · couper le hop chatteurs perso · poser les Spaces Wio + Autopilot · confirmer l'élection **SBR** · salaire documenté + bookkeeper · commander un **Ledger** (si tu gardes la ligne crypto).
+2. **Le SEUL point qui dépend de Dubaï** : **FAB** (guichet physique) — et il est **optionnel**. Si tu le veux, c'est le seul truc à caler avant le 26/07. Sinon, **rien** dans ce plan n'exige ta présence physique : Wio existe déjà, IBKR et Binance sont en ligne.
 3. **Chaque 1er** : clôture → cascade → montants fixes vers les box → export CSV dans le Sheet.
 
 ## Prédiction falsifiable ([[Journal de coaching|journal]])
 
-Au **31/12/2026** : **≥ 15 k€ capitalisés hors business** (coussin FAB + premier ETF IBKR) et le KPI « cash hors business » **> 0 chaque mois** depuis le premier closing post-setup. Si le KPI est encore ~0 au 31/12, le problème n'est pas le plan — c'est l'automatisation qui n'a pas été posée (Autopilot), et rien d'autre ne compte avant de la réparer.
+Au **31/12/2026** : **≥ 15 k€ capitalisés hors business** (coussin monétaire + premier ETF, chez IBKR) et le KPI « cash hors business » **> 0 chaque mois** depuis le premier closing post-setup. Si le KPI est encore ~0 au 31/12, le problème n'est pas le plan — c'est l'automatisation qui n'a pas été posée (Autopilot), et rien d'autre ne compte avant de la réparer.
 
 ## Rattachement
 

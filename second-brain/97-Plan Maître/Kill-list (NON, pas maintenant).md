@@ -27,7 +27,7 @@ liens_forts: ["[[Plan richesse (100 actions triées par levier)]]", "[[Théorie 
 | 4 | **Wholesale de trafic à d'autres agences OFM** | Vendre à 1,3× une ressource qui rend 10× en interne tant que le roster n'est pas saturé |
 | 5 | **Service clipping SFW mainstream** (podcasteurs, retainers) | La distraction la plus insidieuse — déguisée en prudence ; seulement quand les clippers sont en surplus |
 | 6 | **Réseau de pages faceless SFW** | Un pod SFW = un pod OF en moins ; carte anti-purge pour plus tard |
-| 7 | **Immobilier Dubaï** | Redouble le point de défaillance Dubaï ; 2027+, après coussin + socle ETF |
+| 7 | **Immobilier Dubaï — achat, crédit, Airbnb, flipping atypique** | Séduisant mais **3 problèmes** : (a) ça **re-concentre** ton risque sur Dubaï (déjà ton seul actif fragile) alors que tout le plan cherche à décorréler ; (b) le **crédit résident** existe (~75-80 % LTV, ton salaire documenté aide à qualifier) mais lever de la dette AVANT d'avoir un socle liquide = fragilité, pas levier ; (c) Airbnb/flipping = **un métier à temps plein** (gestion, réno, vacance locative), l'inverse de « se licencier de son poste ». L'immo Dubaï est une **rente qu'on s'offre AVEC les gains d'un patrimoine déjà bâti** (l'ETF est la base), **jamais la base elle-même**. Gate **2027+**, après coussin 15-30 k€ + socle ETF constitué. |
 | 8 | **Equity/co-ownership de créatrices (dont IA)** | Capital immobilisé sur ~2 k€ de tréso = risque de ruine ; config Georgina |
 | 9 | **Coaching/consulting high-ticket** | Te réinstalle en goulot (temps contre argent) — l'inverse de [[Se licencier de son propre poste]] |
 | 10 | **Marque de fondateur / newsletter > 2 h/sem** | Vanity + exposition personnelle sur un secteur sensible |
