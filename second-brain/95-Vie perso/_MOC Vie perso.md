@@ -13,7 +13,8 @@ Le côté personnel de ton second cerveau, en miroir du business (`00-Contexte/`
 - [[Protocole journée productive (10h soutenables)]] : pourquoi « 10h d'affilée » est un mythe et l'architecture réelle du deep work (le *quoi faire* dans les blocs de la routine).
 - [[Testostérone naturelle (les vrais leviers)]] : tes hormones sont déjà bonnes — ne pas les saboter, gratter la marge (sommeil, sec, vit D). Zéro gélule.
 - [[Protocole longévité (Blueprint adapté)]] : le Blueprint de Bryan Johnson filtré par le cost-bénéfice (3 niveaux de ROI) — santé = infrastructure du deep work.
-- [[Suppléments (protocole calibré sur le sang)]] : le stack evidence-based (D3, magnésium glycinate, oméga-3, créatine, complexe B) — et pourquoi le Cal-Mag-Zinc générique ne sert pas tes objectifs.
+- [[Suppléments (protocole calibré sur le sang)]] : le stack evidence-based (D3, magnésium glycinate, oméga-3, créatine, complexe B) — et pourquoi le Cal-Mag-Zinc générique ne sert pas tes objectifs. Section 6 : le protocole poignet De Quervain (trottinette) et la vraie place du collagène.
+- [[Sommeil pendant le séjour France (protocole réaliste)]] : le fondamental n°10 adapté — la science mesure la RÉGULARITÉ, pas l'heure : fenêtre 23h ± 1h tenue 7 j/7 avec 2-3 sorties budgétées/semaine bat un 21h30 intenable ; le 21h30 strict se réinstalle au retour Dubaï. KPI : consistance Whoop ≥ 70 %.
 - [[Système nutrition (meal prep)]] : la bouffe comme infrastructure automatique, high-protein livré.
 - [[Pôle Deep Work & The One Thing]] : le système de focus (le pendant perso de [[Se licencier de son propre poste]]).
 
@@ -26,6 +27,8 @@ Le côté personnel de ton second cerveau, en miroir du business (`00-Contexte/`
 
 - [[Suivi trésorerie quotidien]] : le rituel Hormozi — 3 soldes chaque matin, runway, feu vert/rouge recrutement.
 - [[Opération fiscalité propre (France → Dubaï)]] : TRC, liquidation SAS, radiation micro, fermeture des comptes FR — tout à Dubaï au 31/12.
+- [[Protocole séjour France (résidence fiscale sous surveillance)]] : le fondamental n°3 du plan richesse — les 4 critères alternatifs de l'art. 4 B (aucun compteur de jours), zéro pilotage depuis le sol FR, aucun foyer disponible, retour ≤ 1er/11, le dossier de preuve « intérêts vitaux = Dubaï ».
+- [[Brief fiscaliste unique (LLC US en tête)]] : le fondamental n°4 — les 6 questions priorisées du rendez-vous (LLC US/5472 en n°1 : exposition potentielle 50-75 k$), les 5 réponses à rassembler avant, le profil du pro (franco-émirati + CPA US).
 - [[Finances perso - 14 leçons de la vingtaine]] : investir en toi, mesurer, entourage, expériences.
 
 ## 🧭 Décisions & cap

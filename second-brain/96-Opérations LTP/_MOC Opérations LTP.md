@@ -26,6 +26,9 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Optimisation Indeed (annonces gratuites, ranking, sponsoring)]] : la mécanique Indeed vérifiée par 2 agents (18/07) — 3 annonces gratuites/mois, anti-doublons, ranking, règle de sponsoring, purple cow et matrice d'angles.
 - [[Programme clipping public (analyse concurrents + plan septembre)]] : l'autopsie des programmes FR (fermes à membres : CPM ~0,20 €/1000, top réel 187 €/mois, primes de joins), la validation US du modèle per-résultat (Whop), notre kill zone (on paie 3-5x plus), et le plan phasé — construire l'été, ouvrir les vannes en septembre.
 - [[Machine de recrutement clippers (100 leads par mois)]] : l'étude des 3 géants mondiaux (Whop, Vyro, Reach.cat — 3 agents de recherche) distillée en machine à 7 composants opérée par le bot + le manager + les clippers (zéro cold DM) : méta-campagne, preuves systématiques, funnel à ticket, validation humaine 48 h, premier cash < 7 jours, drop mensuel, visibilité permanente.
+- [[Continuité du bot et paie sacrée (plan anti-panne)]] : le fondamental n°7 — les 6 verrous avant le départ (moniteur externe, restauration testée, page « si le bot est mort », Maxence payeur de secours, rythme J+7/J+8 sans exception, gel des déploiements) + le plan anti-Goodhart écrit avant le premier fraudeur.
+- [[Les 5 Loom de passation]] : le fondamental n°8 (Camcorder Method) — warmup, journée type, reporting, SFS, compte banni ; 1 Loom + 1 checklist + captures, transcrits en SOP et câblés au bot FAQ. ~2 h de tournage qui onboardent 50 recrues.
+- [[Atterrissage du funnel (mesure propre avant optimisation)]] : le fondamental n°6 rétracté puis reconstruit (19/07) — les stats fondatrices étaient des artefacts (bascule payant→gratuit de Jade) ; le protocole de baseline propre (1 lien par canal par créatrice, 14 j à régime constant, LTV 30 j par source) avant toute optimisation.
 
 ## Pôle marketing de masse (Instagram + Facebook)
 
@@ -42,10 +45,12 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 ## Pôle gouvernance & association
 
 - [[Pacte d'association LTP (partenariat 50-50 avec Maxence)]] : le contrat signé le 26/03/2026 (droit UAE, arbitrage DIFC/ADGM) distillé et dépersonnalisé — les 5 points que le départ en France rend brûlants (**Key Person Art 10.2 = renégociation possible du 50/50 au-delà de 60 j « en solo »**, le plan clippers qui exige l'accord écrit de Maxence, la dette CGU juridiquement portée seul, l'IP commune, l'asymétrie de coûts réconciliée), la carte des 21 articles, et les 3 actions avant le départ.
+- [[Avenant au pacte (apport, buy-sell, prime d'apport)]] : le fondamental n°1 du plan richesse — l'annexe des 8 créatrices comme apport, le buy-sell avec formule de valorisation figée pendant que l'actif est bon marché, et la **prime d'apport symétrique** (la vraie réponse au « +5 % » : X % prélevé avant le split pour l'entité apporteuse, prospectif, acceptable) avec son séquencement de négociation.
 
 ## Pôle chatting (Maxence)
 
 - [[SOP chatting anti-churn]] : les 4 séquences (accueil + 1er PPV < 48 h, vie du fan, win-back, clonage du top 5), les 6 KPI hebdo, l'éthique et le flag CGU. **Le levier n°1 confirmé par les données.**
+- [[Supervision chatting (top 5) et le cas Sarah]] : le fondamental n°5 corrigé le 19/07 — Sarah n'est PAS un chantier de conversion (débordement de trafic interne MYM à LTV structurelle ~3 €, confirmé Maxime) ; les deux étages : cloner le top 5 sur toute la base (+3-5 k€/mois) et **répliquer le débordement** sur les créatrices qui monétisent (protocole 3 semaines).
 
 ## Rituels de pilotage
 

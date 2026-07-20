@@ -107,3 +107,15 @@ Les pages suivantes citent des faits classiques non re-vérifiés en ligne penda
 - Plan initial : "Biais de statu quo" et "Effet de faux consensus" prévus comme pages séparées ont été fusionnés respectivement dans [[Effet de dotation]] et [[Biais d'autocomplaisance]] (quasi-doublons détectés à la relecture du plan).
 - Page [[Daniel Kahneman]] : la mention de la mort assistée (révélation Jason Zweig, WSJ 2025) est rapportée avec sa source ; c'est le fait le plus récent du vault, à re-vérifier si le vault est utilisé comme référence.
 - Aucune hallucination détectée après coup dans les pages rédigées ; les chiffres sensibles (36% RPP, d=0,04 ego depletion, 4,26 Forer, 75% Asch) ont été soit vérifiés par WebSearch, soit signalés ci-dessus comme non re-vérifiés.
+
+### Diagnostic Sarah « goulot conversion » (19/07/2026)
+- **Affirmation initiale** : Sarah (LTV 2,8 €, 3 000 subs/30 j) aurait un goulot de conversion réparable par le chat, cible « +6 600 à +9 600 €/mois » (agent monétisation du 19/07, repris dans la matrice d'allocation).
+- **Correction (Gaëtan + Maxime, 19/07)** : le compte se fait **déborder de trafic interne MYM à LTV structurelle ~3 €** — phénomène connu et normal selon Maxime. Vérification arithmétique : 8 500 € ÷ 3 000 = 2,83 €, cohérent. La LTV reflète la source, pas un échec du chat.
+- **Conséquences** : cible chat Sarah recalibrée à +1 500-3 000 €/mois (accueil/win-back sur flux massif) ; nouveau chantier ouvert = comprendre et répliquer le débordement ([[Supervision chatting (top 5) et le cas Sarah]]) ; matrice [[LTP Models]] corrigée.
+- **Statut** : corrigé — j'avais surestimé sur une hypothèse non vérifiée.
+
+### Stats d'atterrissage du funnel (19/07/2026)
+- **Affirmation initiale** : « part de trafic externe 4 % vs 10-35 % benchmark » et « LinkMe 18 % vs GAML direct 2 % (×9) » → promesse « ×3-4 le rendement de chaque clipper » (agent acquisition du 19/07, fondamental n°6 du plan richesse).
+- **Correction (Gaëtan, 19/07)** : ces stats couvrent la période de **bascule payant → gratuit du compte de Jade** — un changement de régime qui rend les comparaisons invalides (une page gratuite convertit mécaniquement différemment).
+- **Conséquences** : le « ×3-4 » est **rétracté** ; le fondamental n°6 devient « baseline propre d'abord » ([[Atterrissage du funnel (mesure propre avant optimisation)]]) — règle gravée : toute stat de conversion s'accompagne de son régime, sa source et sa fenêtre.
+- **Statut** : corrigé — artefact de mesure, pas un levier.

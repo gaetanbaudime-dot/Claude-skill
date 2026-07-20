@@ -29,6 +29,7 @@ Cluster « lecture → action » : chaque livre distillé non pas en résumé, m
 ## 💶 Argent & fiscalité (ajouté 2026-07-13)
 
 - [[Tax-Free Wealth (Tom Wheelwright)]] ⚠️ US-centrique assumé : les principes qui voyagent (documentation quotidienne, fiscaliste proactif annuel, planifier AVANT la transaction) — nourrit l'[[Opération fiscalité propre (France → Dubaï)]].
+- [[Profit First (Mike Michalowicz)]] : la formule inversée (CA − profit = dépenses), Parkinson appliqué au cash, le Vault en banque distante — le livre que Gaëtan appliquait déjà avec les sous-comptes Qonto 2024-2025 et que Dubaï a perdu ; inclut l'architecture bancaire Dubaï (Wio opérationnel + coffre perso en banque physique à dépôts à terme).
 
 ## 🧭 Décision · culture
 
