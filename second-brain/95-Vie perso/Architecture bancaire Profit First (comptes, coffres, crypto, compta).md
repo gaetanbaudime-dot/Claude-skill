@@ -17,15 +17,16 @@ liens_forts: ["[[Profit First (Mike Michalowicz)]]", "[[SOP clôture mensuelle a
 
 Les créatrices encaissent OF ($) et MYM (€) sur **leurs propres comptes en France** ; **tu leur factures la commission d'agence** (Chloé 40 %, Sarah/Maddy/Sophie 50 %, le reste 50 %). **Le revenu de LTP = la somme des commissions facturées**, qui arrivent en **€** sur Wio Business. Pas de pass-through créatrice chez toi. → La conversion de devises se joue donc à l'**entrée** (€ → AED/USDT), pas sur les payouts plateforme.
 
-## Les 5 poches et leurs rôles
+## Les 4 poches et leurs rôles
+
+*(Le « coffre crypto » a été **retiré le 20/07** — décision 0 % crypto, raisonnement dans la section dédiée plus bas. Il ne reste de crypto que le **rail Binance corporate pour PAYER les chatteurs**, pas pour détenir.)*
 
 | Compte | Rôle | Spaces / sous-comptes |
 |---|---|---|
 | **① Wio Business** (banque, pas EMI¹) | Encaisse les commissions €, porte le business | Paie chatteurs · Réserve CT 5 % · Coffre boîte 10 % (cible 15-20 k€) · Part Maxence · Fond de roulement |
-| **② Wio Perso** | Ta part → ta vie (2 500 €/mois) | Extraction 15-30 % (transit coffre) · budget DCA BTC |
+| **② Wio Perso** | Ta part → ta vie (2 500 €/mois) | Extraction 20-30 % (transit coffre) |
 | **③ FAB — coffre intouchable** | Le « Vault » Profit First, sans carte | iSave (~3,25 %, liquide) + **échelle de DAT AED** (bloqué) |
-| **④ Coffre crypto** | Spéculation bornée décorrélée | **BTC ≤ 5 %**, cold storage (Ledger/Trezor) |
-| **⑤ IBKR** | Au-delà du coffre plein | Monétaire USD (~3,6 %) → ETF monde UCITS |
+| **④ IBKR** | Le moteur de patrimoine | Coussin monétaire USD (~3,6 %) → ETF monde UCITS |
 
 ## La cascade mensuelle
 
@@ -39,8 +40,8 @@ Commissions facturées (€ sur Wio Business)      ← le CA de TA société (~1
                    Tes allocations Profit First, sur TA part :
                      · Réserve CT (ta CT — ~0 % en 2026 via SBR, provision 2027)
                      · Coffre boîte (TA réserve opérationnelle, cible 15-20 k€)
-                     · Extraction 15-20 % (→30 %) → Wio Perso → coffre FAB (AVANT de vivre)
-                     · reste = ta vie 2 500 € + DCA BTC
+                     · Extraction 20 % (→30 %) → Wio Perso → coffre FAB / IBKR (AVANT de vivre)
+                     · reste = ta vie 2 500 €
 ```
 > **Pourquoi les réserves sont APRÈS le 50/50** : Maxence n'est pas actionnaire de LTP, c'est un prestataire payé 50 % du profit (sa société facture, charge déductible → il paie sa propre CT). Donc sa part sort comme un **coût**, et ce qui reste est **ta société = à toi**. Mettre la réserve CT ou le coffre boîte *avant* le partage reviendrait à faire co-financer par Maxence des réserves qu'il ne possède pas. ⚠️ Contrepartie à assumer : c'est donc **toi seul** qui finances le coffre boîte (le filet qui protège l'opération commune) — si un jour vous voulez en faire un fonds vraiment commun, ça se formalise au pacte.
 
@@ -76,7 +77,7 @@ Commissions facturées (€ sur Wio Business)      ← le CA de TA société (~1
 
 **Tracking Google Sheet** : **export CSV mensuel gratuit** calé sur ta clôture → import dans le Sheet (le meilleur rapport friction/valeur ; intégrations Wafeq/Fiskl si tu veux du temps réel, mais + une brique).
 
-**Wio Invest (ETF)** : depuis le **10/06/2026**, Wio propose des **ETF UCITS irlandais iShares** (dès 10 $, USD, capitalisants) = fiscalement propre (15 % dividendes, **pas d'estate tax US**). ⚠️ **MAIS l'app vend AUSSI des actions US / ETF US-situs** (piège estate tax 40 % > 60 k$, jusqu'à ~176 k$ sur 500 k$) → **ne clique QUE l'UCITS** (domicile IE, tickers CSPX/VUAA/SWDA). Pour le patrimoine long terme, **IBKR reste meilleur** (FX ~0,002 % vs spread caché Wio, univers complet, titres ségrégués, **décorrélé**). Wio Invest = **rampe de démarrage UCITS acceptable** pendant le KYC IBKR (2-3 sem.), UCITS-only. **Jamais ton BTC sur Wio Invest** (cold storage).
+**Wio Invest (ETF)** : depuis le **10/06/2026**, Wio propose des **ETF UCITS irlandais iShares** (dès 10 $, USD, capitalisants) = fiscalement propre (15 % dividendes, **pas d'estate tax US**). ⚠️ **MAIS l'app vend AUSSI des actions US / ETF US-situs** (piège estate tax 40 % > 60 k$, jusqu'à ~176 k$ sur 500 k$) → **ne clique QUE l'UCITS** (domicile IE, tickers CSPX/VUAA/SWDA). Pour le patrimoine long terme, **IBKR reste meilleur** (FX ~0,002 % vs spread caché Wio, univers complet, titres ségrégués, **décorrélé**). Wio Invest = **rampe de démarrage UCITS acceptable** pendant le KYC IBKR (2-3 sem.), UCITS-only.
 
 **La carte finale (où va chaque box)** :
 
@@ -85,8 +86,7 @@ Commissions facturées (€ sur Wio Business)      ← le CA de TA société (~1
 | Fond de roulement (frais, Maxence transit) | Wio Business Essential | 0 % | non (opérationnel) |
 | **Coffre boîte** (10 % de ta moitié, cible 15-20 k€) | Wio Business, Space Flexible | 0 % (Essential) | non |
 | Paie chatteurs (provision) | Wio Business, Space Flexible | — | non |
-| **Ta vie** (~75 %) | Wio Perso | 3 % courant | non (2 500 € charges) |
-| **BTC** (5 %) | → Binance corp → cold storage | — | cold |
+| **Ta vie** (~70 %) | Wio Perso | 3 % courant | non (2 500 € charges) |
 | **Coussin survie 6-12 mois** | **FAB, échelle DAT** | ~3 % | ✅ vrai verrou |
 | **Extraction → patrimoine** (10 %→25 %) | **IBKR, ETF UCITS** | ~7 % LT | politique signée |
 
@@ -101,11 +101,17 @@ L'extraction remplit d'abord le **coussin FAB** (jusqu'à 15-30 k€), puis basc
 2. **Paie en Binance Pay P2P — gratuit** (0 € vs 64-190 $/mois pour les alternatives) ; fallback USDC sur L2 (~0,50 $) pour qui veut son propre wallet.
 3. **Achète l'USDT dans la devise que tu tiens déjà** (tes € de commission → USDT, spread ~0,1 %) — **pas de détour par l'AED**.
 4. **Un contrat de sous-traitance + relevé de payout par chatteur** → charge déductible substantiable (et couvre l'art. 238A côté FR).
-5. Garde-fous : ne laisse sur Binance que le **fond de roulement de paie** (le coffre crypto est ailleurs, en cold storage) ; un **2ᵉ on-ramp licencié VARA en secours** (BitOasis ou Rain).
+5. Garde-fous : ne laisse sur Binance que le **fond de roulement de paie**, rien qui dorme dessus ; un **2ᵉ on-ramp licencié VARA en secours** (BitOasis ou Rain).
 
-## Le coffre crypto — BTC borné, cold storage
+## Le crypto — décision : 0 % (tranché le 20/07)
 
-**BTC uniquement, ≤ 5 % de l'investissable, DCA automatique** (jamais en manuel — tes 6 058 € de rafales impulsives sont documentés). Tu achètes sur un exchange **VARA licencié** (Binance FZE, BitOasis, Rain) puis tu **retires sur un Ledger/Trezor** — « not your keys, not your coins » (leçon FTX). **Un coffre crypto n'est PAS un tas de stablecoins** (UST → 0,04 $, USDC dépeg à 0,87 $ chez SVB, Celsius/BlockFi en faillite) : ta réserve stable, c'est le monétaire USD (IBKR) ou le DAT AED, jamais un « USDT à 8 % ». Dimensionne pour qu'un **−80 %** (drawdowns BTC historiques : −77 à −86 %) soit tenable par écrit avant d'entrer ; à 5 % d'alloc, −80 % = −4 % du total, encaissable.
+**Décision de Gaëtan (20/07) : aucune détention crypto dans le patrimoine — 0 %, pas « 5 % borné ».** Le raisonnement, gardé ici pour ne pas le reperdre dans 6 mois :
+- **Le BTC n'est pas un diversifieur.** Il s'effondre **AVEC** les actions dans les paniques (mars 2020 : −50 % en même temps que le S&P ; 2022 : −65 %). Le vrai décorrélateur du portefeuille, c'est le **monétaire USD**, pas le BTC — c'est un pari asymétrique, pas une assurance.
+- **C'est la ligne la plus dangereuse pour CE profil.** Rafales Binance à **6 058 €** documentées ([[Analyse finances perso (13 juillet 2026)|ta pire fuite]]) : le crypto est exactement le terrain où l'impulsivité se rallume. Mettre 0 % **supprime la tentation à la source**, au lieu de la « borner » et de miser sur la volonté les mois durs.
+- **Les 5 % qui y allaient financent l'ETF.** Le total mis de côté ne bouge pas (~30 %) : le pari devient du moteur, et **100 % du patrimoine est décorrélé et propre** ([[Setup argent (le plan riche en 10 actions)|le plan à jour]]).
+- **Ce qui resterait vrai si tu y revenais un jour** (à froid, jamais dans l'élan, et par défaut : **non**) : BTC seul, ≤ 5 %, **DCA 100 % automatique**, **cold storage** (Ledger/Trezor — « not your keys, not your coins », leçon FTX), et **jamais de stablecoins comme réserve** (UST → 0,04 $, USDC dépeg SVB) — la réserve stable reste le monétaire USD / DAT AED. Mais le défaut, désormais, c'est **0**.
+
+⚠️ **À ne pas confondre avec le rail de paie** : le compte **Binance corporate** (section précédente) sert à **payer les chatteurs** en Binance Pay P2P — c'est un rail de règlement, pas une détention patrimoniale. Il reste, indépendamment de la décision 0 % crypto-patrimoine.
 
 ## La conversion de devises
 

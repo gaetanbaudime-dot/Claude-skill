@@ -110,7 +110,7 @@ liens_forts: ["[[Plan Maître 500K]]", "[[Pacte d'association LTP (partenariat 5
 67. **Coussin en monétaire rémunéré** (~3,6 % T-bills) : +1 400-1 800 €/an sans risque — jamais en « stablecoin à 8 % » (UST → 0,044 $, USDC → 0,86 $).
 68. **ETF monde UCITS irlandais CAPITALISANT** (pas US : retenue dividendes 15 % vs 30 %, et surtout estate tax US 40 % au-delà de 60 k$ évitée — jusqu'à ~176 k$ économisés sur 500 k$ à exposition identique). DCA fixe mensuel, jamais interrompu.
 69. **Politique d'investissement écrite et signée à froid** : conditions de vente = besoin planifié/rééquilibrage, jamais « ça baisse » ; regarder ≤ 1×/mois ; accepter −40/−55 % de krach par écrit AVANT d'entrer.
-70. **BTC en DCA borné ≤ 5 % de l'investissable** — plafond dur, automatique, jamais manuel (tes 6 058 € de rafales Binance = ta pire fuite documentée).
+70. **Crypto = 0 % (décidé le 20/07)** — pas de détention BTC dans le patrimoine : ce n'est pas un diversifieur (il chute *avec* les actions) et c'est le terrain de tes rafales Binance (6 058 € = ta pire fuite documentée) ; les 5 % basculent vers l'ETF (action 68). Le rail Binance *corporate* reste uniquement pour **payer les chatteurs**, pas pour détenir. → [[Setup argent (le plan riche en 10 actions)|le plan à jour]].
 71. **Radiation SAS ≤ 31/12** (attestation fiscale avant 30/09, IS ~1 386 € à payer) — une SAS vivante = un point de rattachement FR actif.
 72. **TRC treaty déposé ~25/11** (183 j atteints ~22/11) — une pièce, pas un bouclier : le dossier foyer/intérêts vitaux prime.
 73. **Préparer la falaise CT 2027** : le SBR meurt fin 2026 ; à 500 k€/mois, le 9 % = 6 chiffres/an — la question QFZP/restructuration se prépare 12-18 mois avant.
