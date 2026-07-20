@@ -11,44 +11,56 @@ liens_forts: ["[[Profit First (Mike Michalowicz)]]", "[[SOP clôture mensuelle a
 # Architecture bancaire Profit First — comptes, coffres, crypto, compta (synthèse 3 agents, 20/07)
 
 > [!tip] Verdict
-> **Trois comptes, chacun un rôle étanche ; le business ne touche JAMAIS le perso, le coffre ne touche JAMAIS un flux plateforme.** ① **Wio Business** encaisse les commissions (€, facturées aux créatrices) et porte tout le business (paie chatteurs en crypto depuis un compte Binance **corporate**, réserves, part Maxence). ② **Wio Perso** reçoit ta part et sert à vivre (2 500 €/mois) — l'extraction en part d'abord. ③ **FAB (First Abu Dhabi Bank)** = le coffre intouchable, sans carte, en AED. **La vérité brutale des agents** : ce coffre externe rend **moins** que Wio (2-3,25 % vs 4,4-6 %) — tu ne le prends pas pour le rendement mais pour la **friction** (Profit First) et la **résilience compliance** (si Wio gèle un jour ta catégorie, le coffre ailleurs survit). Côté fiscal, **pas de montage malin à faire : le Small Business Relief te met à 0 % en 2026** (CA ~720 k AED ≪ 3 M) — il suffit de l'élire. Et le hop `Wio Business → Wio Perso → Binance` pour payer les chatteurs est le **seul vrai trou** du montage actuel : il casse la déductibilité CT, mélange les patrimoines et fragilise ta résidence 0 %.
+> **Trois comptes, chacun un rôle étanche (restructuré le 20/07).** ① **Wio Business** encaisse les commissions (€, facturées aux créatrices) et porte tout le business (paie chatteurs depuis un compte Binance **corporate**, réserves, coffre boîte, part Maxence) — **c'est le FIREWALL : le business ne sort vers ton perso que par un salaire/drawing propre.** ② **FAB perso** (remplace Wio Perso) = ton **hub personnel** : ton salaire documenté y atterrit (via Wio Business Payroll), ta vie et ta carte AECB y tournent, une **échelle DAT AED sans carte** y fait le coffre local. ③ **IBKR** = ton **patrimoine ségrégué et décorrélé** (coussin monétaire + ETF UCITS) — l'argent « je reste en jeu quoi qu'il arrive ». **Les 3 garde-fous gravés** : FAB ne voit **JAMAIS** un flux business/adulte (une banque traditionnelle ferme vite → ça tuerait ta bankabilité), le coffre reste **sans carte** (friction Profit First), et le patrimoine n'est **JAMAIS** dans la même banque que ton income (sinon income + épargne gelés ensemble). Côté fiscal, **pas de montage malin : le Small Business Relief te met à 0 % en 2026** (CA ~720 k AED ≪ 3 M) — il suffit de l'élire. Le hop `Wio Business → Wio Perso → Binance` pour payer les chatteurs, c'était le **trou** du montage : coupé (Binance corporate direct).
 
 ## Le flux d'argent (corrigé le 20/07)
 
 Les créatrices encaissent OF ($) et MYM (€) sur **leurs propres comptes en France** ; **tu leur factures la commission d'agence** (Chloé 40 %, Sarah/Maddy/Sophie 50 %, le reste 50 %). **Le revenu de LTP = la somme des commissions facturées**, qui arrivent en **€** sur Wio Business. Pas de pass-through créatrice chez toi. → La conversion de devises se joue donc à l'**entrée** (€ → AED/USDT), pas sur les payouts plateforme.
 
-## Les 4 poches et leurs rôles
+## Les 3 comptes et leurs rôles (restructuré le 20/07 — Wio Perso retiré)
 
-*(Le « coffre crypto » a été **retiré le 20/07** — décision 0 % crypto, raisonnement dans la section dédiée plus bas. Il ne reste de crypto que le **rail Binance corporate pour PAYER les chatteurs**, pas pour détenir.)*
+*(Le « coffre crypto » a été **retiré le 20/07** — décision 0 % crypto, section dédiée plus bas ; il ne reste de crypto que le **rail Binance corporate pour PAYER les chatteurs**. Et **Wio Perso est retiré** : FAB devient le hub personnel, pour ne pas avoir income + savings éclatés sur deux banques.)*
 
-| Compte | Rôle | Spaces / sous-comptes |
+| Compte | Rôle | Sous-comptes / usage |
 |---|---|---|
-| **① Wio Business** (banque, pas EMI¹) | Encaisse les commissions €, porte le business | Paie chatteurs · Réserve CT 5 % · Coffre boîte 10 % (cible 15-20 k€) · Part Maxence · Fond de roulement |
-| **② Wio Perso** | Ta part → ta vie (2 500 €/mois) | Extraction 20-30 % (transit coffre) |
-| **③ FAB — coffre intouchable** | Le « Vault » Profit First, sans carte | iSave (~3,25 %, liquide) + **échelle de DAT AED** (bloqué) |
-| **④ IBKR** | Le moteur de patrimoine | Coussin monétaire USD (~3,6 %) → ETF monde UCITS |
+| **① Wio Business** (banque, pas EMI¹) — *le firewall* | Encaisse les commissions €, porte tout le business | Paie chatteurs (Binance corp) · Réserve CT · Coffre boîte 10 % (cible 15-20 k€) · Part Maxence · Fond de roulement · **Payroll (SIF/WPS) → verse ton salaire** |
+| **② FAB perso** — *le hub personnel* | Ton salaire y atterrit, ta vie y tourne | **Compte courant** (dépenses) + **carte de crédit payée à 100 %** (bâtit l'AECB) + **échelle DAT AED sans carte** (coffre local visible) |
+| **③ IBKR** — *le patrimoine* | Le moteur, ségrégué et décorrélé | Coussin monétaire USD (~3,6 %) → **ETF monde UCITS** |
 
-## La cascade mensuelle
+## La cascade mensuelle — le waterfall parfait (3 comptes)
 
 ```
-Commissions facturées (€ sur Wio Business)      ← le CA de TA société (~15 k€/mois)
-  − Frais communs : chatteurs (Binance corp.), VA, ads, outils   ← coûts d'exploitation, avant partage
-  = Profit mensuel
-      → 50 % Maxence : sa société te FACTURE ses services (charge déductible arm's length ;
-                       il paie SA propre CT dessus) → virement interne Wio → son Wio (zéro FX)
-      → 50 % TOI = ton dû. Ça reste dans TA société (à toi à 100 %).
-                   Tes allocations Profit First, sur TA part :
-                     · Réserve CT (ta CT — ~0 % en 2026 via SBR, provision 2027)
-                     · Coffre boîte (TA réserve opérationnelle, cible 15-20 k€)
-                     · Extraction 20 % (→30 %) → Wio Perso → coffre FAB / IBKR (AVANT de vivre)
-                     · reste = ta vie 2 500 €
+COMMISSIONS facturées (€ → Wio Business)            le CA de TA société (~15 k€/mois)
+  − Frais communs : chatteurs (Binance corp), VA, ads, outils   coûts d'exploitation, avant partage
+  = PROFIT (~9,4 k€)
+     │
+     ├─► 50 % MAXENCE : sa société te FACTURE (charge déductible arm's length ; il paie SA CT)
+     │                  → virement interne Wio → son Wio (zéro FX)
+     │
+     └─► 50 % TOI (~4 k€) — reste dans TA société (Wio Business), à toi à 100 %.
+            Sur TA part, dans l'ordre :
+              ① Réserve CT        → Space Wio Business    (~0 % en 2026 via SBR ; provision selon l'échelle)
+              ② Coffre boîte 10 % → Space Wio Business    (cible 15-20 k€ PUIS stop → bascule en extraction)
+              ③ SALAIRE documenté → Wio Business Payroll (fichier SIF) → FAB perso
+              │        └─ ta VIE : dépenses + carte AECB + échelle DAT AED visible (savings locale)
+              └─ ④ EXTRACTION 20 %→30 % (drawing) → FAB perso (ton nom) → sweep IBKR
+                       └─ Phase 1 : coussin monétaire USD (15-30 k€)
+                       └─ Phase 2 : ETF monde UCITS (le moteur)
+
+  ═══ Les 3 garde-fous ═══
+  • Wio Business = FIREWALL : le business ne sort vers FAB QUE par ③ salaire / ④ drawing propres.
+    JAMAIS une commission ou une paie chatteur ne touche FAB (fermeture assurée sinon).
+  • FAB ne voit qu'un SALARIÉ QUI ÉPARGNE (income + savings visibles = bankabilité), rien du business.
+  • IBKR ≠ FAB : le patrimoine n'est jamais dans la banque qui tient ton income (anti-gel simultané).
 ```
+> **Pourquoi l'extraction transite par FAB avant IBKR** : IBKR se finance depuis un compte **à ton nom** (règle anti-tiers). Wio Business est au nom de la société → l'extraction sort d'abord en drawing sur **FAB perso (ton nom)**, puis tu la **sweep vers IBKR**. Bonus : ce flux visible d'épargne renforce ton dossier bankabilité.
 > **Pourquoi les réserves sont APRÈS le 50/50** : Maxence n'est pas actionnaire de LTP, c'est un prestataire payé 50 % du profit (sa société facture, charge déductible → il paie sa propre CT). Donc sa part sort comme un **coût**, et ce qui reste est **ta société = à toi**. Mettre la réserve CT ou le coffre boîte *avant* le partage reviendrait à faire co-financer par Maxence des réserves qu'il ne possède pas. ⚠️ Contrepartie à assumer : c'est donc **toi seul** qui finances le coffre boîte (le filet qui protège l'opération commune) — si un jour vous voulez en faire un fonds vraiment commun, ça se formalise au pacte.
 
-## Le coffre perso — FAB, en AED, sans carte
+## Le hub perso — FAB (compte courant + carte AECB + coffre sans carte)
 
-**Banque : First Abu Dhabi Bank** (la plus systémique des EAU, ~Aa3/AA-, souverain Abou Dhabi). Emirates NBD = équivalent si tu veux des agences dans ta ville.
-- **Poche liquide = FAB iSave** (~3,25 %, 0 AED de minimum, **sans carte par défaut**, 100 % dans l'app) — reçoit ton virement mensuel d'extraction.
+**Banque : First Abu Dhabi Bank** (la plus systémique des EAU, ~Aa3/AA-, souverain Abou Dhabi). Emirates NBD = équivalent si tu veux des agences dans ta ville. **FAB remplace Wio Perso** et porte 3 usages distincts (même banque, comptes séparés) :
+- **Compte courant + carte** = ta vie quotidienne : **ton salaire documenté y atterrit**, tes dépenses en sortent. Une **carte de crédit payée à 100 % chaque mois** bâtit ton **AECB** (le score crédit = le nerf de la bankabilité).
+- **Poche liquide = FAB iSave** (~3,25 %, 0 AED de minimum, **sans carte par défaut**, 100 % dans l'app) — tampon + savings locale visible (la banque aime voir que tu épargnes).
 - **Poche verrouillée = échelle de dépôts à terme AED** : dès que iSave dépasse ~5 000 AED, découpe en **4 tranches à 3/6/9/12 mois**, renouvellement auto à 12 mois. Friction maximale + une échéance tous les 3 mois pour une liquidité *planifiée* (rééquilibrage vers IBKR) + lissage du taux.
 - **Devise = AED** (pegué à l'USD, et les DAT AED ~2-2,85 % rendent plus que les DAT USD de la même banque ; ta base de coûts est en AED). L'EUR ne sert à rien ici.
 - **Plafond ≤ AED 100 000/banque** (voir garantie ci-dessous) ; au-delà de ~50 k€ → IBKR.
@@ -66,9 +78,9 @@ Commissions facturées (€ sur Wio Business)      ← le CA de TA société (~1
 > [!tip] Verdict Wio
 > **Wio = ton orchestrateur Profit First quotidien (comptes, Spaces, Autopilot, export Sheet), PAS ton coffre-fort ultime.** Trois vérités qui cassent le fantasme « tout dans Wio, bloqué » : ① le **« 6 % » est un taux promo 1 mois conditionnel** (salaire + dépense) ; ② **« bloqué » est un mythe** — un Fixed Space se casse à tout moment (pénalité = intérêt réduit, pas un mur) ; ③ tout consolider dans Wio recrée le **point de défaillance unique** (un gel emporte flux + épargne + patrimoine ensemble). Donc : **Wio pour l'opérationnel, FAB pour le vrai coussin verrouillé, IBKR pour l'ETF.**
 
-**Les plans** : **Wio Business Essential (99 AED/mois)**, pas Grow — Grow (249) ne débloque les Fixed Spaces + 1 % que si tu épargnes > ~90 k AED dans la boîte (pas ton cas). Sur Essential, l'épargne business = **0 %** → le coffre boîte y dort sans rendement (accepté : c'est du cash de sécurité, ~450-600 €/an de manque, pas un placement). **Wio Perso : Salary Plan (gratuit)**.
+**Les plans** : **Wio Business Essential (99 AED/mois)**, pas Grow — Grow (249) ne débloque les Fixed Spaces + 1 % que si tu épargnes > ~90 k AED dans la boîte (pas ton cas). Sur Essential, l'épargne business = **0 %** → le coffre boîte y dort sans rendement (accepté : c'est du cash de sécurité, ~450-600 €/an de manque, pas un placement). **Plus de Wio Perso** : ta vie perso est passée sur **FAB** (hub perso, restructuration 20/07) ; Wio ne sert plus qu'au **business**.
 
-**Le 6 %** : salaire ≥ **15 000 AED/mois** (ta part ~16 000, OK) + dépense ≥ 5 000 AED/mois, **uniquement sur le Fixed Space 1 mois** (les termes longs rendent 4,4-4,5 %). ⚠️ **MAIS** un salaire auto-versé Wio Business → Wio Perso est un virement **interne** — il ne passe ni par le WPS ni par le FTS, donc **rien ne garantit qu'il déclenche le plan Salary**. **À demander à Wio Care (care@wio.io) avant de compter dessus.**
+**Le 6 % Wio Salary Plan : abandonné** — il dépendait de Wio Perso, désormais retiré. C'était de toute façon un **taux promo 1 mois conditionnel** (salaire ≥ 15 k AED + dépense ≥ 5 k AED, uniquement sur le Fixed Space 1 mois ; les termes longs rendent 4,4-4,5 %). Rien à regretter : ton patrimoine est chez **IBKR** (décorrélé, mieux sur la durée), pas dans un coffre Wio à taux d'appel. Ton salaire part maintenant en **WPS/SIF vers FAB**, pas en virement interne Wio.
 
 **Les Spaces** : max **10 par compte**. Flexible (pas de blocage, ~3 %) vs Fixed (1/3/6/12 mois). ⚠️ **Un Fixed Space se casse à tout moment** (pénalité douce) — friction, pas verrou. Le vrai « intouchable » = **DAT FAB**.
 
@@ -87,11 +99,12 @@ Commissions facturées (€ sur Wio Business)      ← le CA de TA société (~1
 | Fond de roulement (frais, Maxence transit) | Wio Business Essential | 0 % | non (opérationnel) |
 | **Coffre boîte** (10 % de ta moitié, cible 15-20 k€) | Wio Business, Space Flexible | 0 % (Essential) | non |
 | Paie chatteurs (provision) | Wio Business, Space Flexible | — | non |
-| **Ta vie** (~70 %) | Wio Perso | 3 % courant | non (2 500 € charges) |
-| **Coussin survie 6-12 mois** | **FAB, échelle DAT** | ~3 % | ✅ vrai verrou |
-| **Extraction → patrimoine** (10 %→25 %) | **IBKR, ETF UCITS** | ~7 % LT | politique signée |
+| **Ta vie** (salaire documenté, ~70 %) | **FAB perso** (courant + carte AECB) | 3 % courant | non (2 500 € charges) |
+| **Savings locale visible** | **FAB, échelle DAT AED sans carte** | ~3 % | ✅ vrai verrou local |
+| **Coussin survie 6-12 mois** | **IBKR, monétaire USD** | ~3,6-4 % | décorrélé (anti-gel) |
+| **Extraction → patrimoine** (20 %→30 %) | **IBKR, ETF UCITS** | ~7 % LT | politique signée |
 
-L'extraction remplit d'abord le **coussin FAB** (jusqu'à 15-30 k€), puis bascule sur l'**ETF IBKR**. Le 6 % Wio n'a de place que sur une **poche liquide accessoire** que tu acceptes de garder dans Wio — jamais le coussin de survie ni le patrimoine.
+L'extraction transite par **FAB perso (ton nom)** puis sweep vers **IBKR** : d'abord le **coussin monétaire** (jusqu'à 15-30 k€), puis l'**ETF**. Le coussin de survie vit chez **IBKR** (décorrélé de FAB qui tient ton income) ; FAB ne garde qu'une **savings locale visible** (DAT AED) utile au dossier bankabilité.
 
 ## Le rail crypto — payer les chatteurs proprement
 
@@ -130,12 +143,24 @@ Tes commissions arrivent en **€**. Tu **gagnes** en € — donc tu convertis 
 - **L'inconnue n°1 à lever** : la **date de clôture d'exercice dans ton acte (MoA/AoA)** — elle fixe ta période fiscale et l'échéance. Lis cette ligne.
 - **0 % en 2026 via le Small Business Relief** (CA ≤ 3 M AED ; tu es à ~720 k). **À élire dans la déclaration** (pas automatique). Le QFZP est écarté (audit annuel + incompatible avec le SBR). Rappel : **les dividendes ne réduisent PAS la CT** (payés après impôt) — le 0 % vient du SBR, pas d'un montage.
 - **Comptable : oui** (bookkeeper + déclaration CT ~5-10 k AED/an). **Auditeur : non** sous SBR (audit imposé seulement si QFZP ou CA > 50 M AED — `to-verify` que RAKEZ n'en demande pas au renouvellement). Registres conservés **7 ans**, compta de caisse autorisée sous 3 M.
-- **Salaire** : pas obligatoire pour l'obligation WPS (RAKEZ hors WPS). Mais **verse-toi un salaire mensuel modeste, documenté** (contrat de travail + virement fixe libellé « Salary » + bulletin PDF) : zéro coût fiscal en 2026, mais **preuve de revenu** pour ton visa et un futur crédit immo, + base déductible prête pour 2027. Le surplus se sort en tirage (0 % perso). ⚠️ Ce salaire pourrait aussi débloquer le **6 % du Wio Salary Plan** — mais un virement **interne** Business→Perso ne qualifie peut-être pas (le plan reconnaît un crédit WPS/FTS) : à confirmer avec Wio Care avant de compter dessus.
+- **Salaire** : verse-toi un **salaire mensuel documenté** via **Wio Business Payroll** (fichier SIF) → atterrit sur FAB perso ; zéro coût fiscal en 2026 (0 % perso), preuve de revenu (visa, immo), charge déductible prête pour 2027. Conditions WPS, nuance owner et impact crédit immo : **section dédiée ci-dessous**.
 - **Maxence** : sa société **te facture** ses services chaque mois (charge déductible arm's length, traitez-vous comme related parties par prudence) — jamais un « dividende ». Les créatrices co-signées qui paient déjà 50/50 les deux entités ne nécessitent pas de facture inter-sociétés.
+
+## Le salaire depuis Wio Business — fiche de paie, WPS, conditions (recherche 20/07)
+
+> [!tip] Verdict salaire
+> **Oui, Wio Business fait la paie WPS.** Tu te verses un salaire documenté depuis **Wio Business Payroll** (fichier **SIF**), qui atterrit sur **FAB perso** avec une vraie trace de bulletin. **MAIS** — le point qui compte pour ton immo — **te payer un salaire ne fait PAS de toi un « salarié » aux yeux d'une banque : pour un crédit, tu restes un self-employed**, underwrité sur ton trade license (2 ans) + états financiers audités + un haircut de 20-40 % sur tes revenus. Le salaire sert la **preuve de revenu / le visa / la déductibilité**, pas le tapis roulant « salarié ».
+
+- **La mécanique** : Wio Business a un **produit Payroll intégré** (banque CBUAE) — paiements **WPS-compliant**, salaires programmés, **jusqu'à 3 fichiers SIF gratuits/mois**. Le **SIF (Salary Information File)** est le format standard CBUAE/MoHRE : une ligne **SCR** (qui paie + total + mois) puis une ligne **EDR** par employé (toi). Résultat : `Wio Business (employeur) → SIF/WPS → FAB perso (employé)`, avec bulletin.
+- **⚠️ Correction au vault** : l'ancienne note « RAKEZ hors WPS » était **fausse**. RAKEZ émet des permis routés **MoHRE** → il est **dans le périmètre WPS fédéral**. Depuis le **01/06/2026** (Résolution 340/2026), échéance unifiée = **le 1er du mois** (fini les 15 j de grâce) ; cash/chèque/virement non-WPS ne comptent pas comme paie conforme pour un titulaire de permis MoHRE.
+- **La nuance owner** (`to-verify` avec l'agent RAKEZ) : selon ton **visa** — *employé* (permis MoHRE sous ta boîte → WPS s'applique à ton salaire) vs *investisseur/partner* (tu n'es pas « employé » → **owner's salary/drawing documenté** + salary certificate émis par ta société, hors WPS). Les deux marchent pour la preuve de revenu ; le WPS est du droit du travail, pas une condition d'octroi de crédit.
+- **Le levier 0 %** : comme le revenu perso est à **0 %**, tu peux te verser un salaire **solide et rond** (défendable vs ton profit ~460 k AED), pas « modeste » — plus d'income sur le papier renforce le dossier, sans coût fiscal. Garde-le **« raisonnable » et adossé au profit** (risque de requalification, `to-verify` fiscaliste).
+- **La réalité crédit immo (self-employed)** : 2+ ans de **trade license** (ta boîte : incorp. **09/10/2025** → oct 2027) + **états financiers audités** (même si le SBR ne t'impose pas d'audit CT, **la banque peut l'exiger** → prévoir de commander un audit pour le dossier) · **LTV 75 %** (vs 80 % salarié) · prime ~10-25 bps · délai 10-21 j · **haircut 20-40 %** sur le revenu · revenu min ~**AED 25 000/mois**. → La convergence **« bankable ≈ fin 2027 »** est confirmée **et durcie** (il faut aussi l'audit). Chiffrage réel via un courtier gratuit (Mortgage Finder / Holo / Huspy).
 
 ## La checklist AVANT le départ (~26/07)
 
-- [ ] **Ouvrir le compte FAB** (impossible à distance depuis la France — présence physique quasi exigée) ; iSave sans carte + prévoir l'échelle DAT.
+- [ ] **Ouvrir le compte FAB perso** (impossible à distance — présence physique quasi exigée) : **compte courant + carte de crédit** (pour l'AECB) + iSave + échelle DAT sans carte. → c'est ton hub perso (Wio Perso retiré).
+- [ ] **Activer Wio Business Payroll** (SIF/WPS) et poser ton **salaire mensuel documenté** vers FAB perso.
 - [ ] **Ouvrir le compte Binance corporate** (LTP FZ-LLC) et couper le hop par le perso.
 - [ ] **Garder la SIM UAE active + tester les apps bancaires depuis l'étranger** (OTP/géofencing = piège d'accès à distance).
 - [ ] **Lire le MoA** pour la date de clôture d'exercice + **confirmer le TRN CT** dans EmaraTax.
@@ -150,7 +175,7 @@ Tes commissions arrivent en **€**. Tu **gagnes** en € — donc tu convertis 
 
 ## Prédiction falsifiable ([[Journal de coaching|journal]])
 
-Si l'architecture est câblée avant le départ (FAB ouvert, Binance corporate, hop perso coupé, salaire documenté) : au prochain closing, **0 flux business sur un compte perso**, la paie chatteurs sort du business, et l'extraction perso démarre (≥ 600 €/mois vers le coffre FAB). Si le hop perso persiste, c'est le compte Binance corporate qui a bloqué (KYC adulte) — le point à débloquer en priorité.
+Si l'architecture est câblée avant le départ (FAB perso ouvert, Wio Business Payroll actif, Binance corporate, hop perso coupé) : au prochain closing, **0 flux business sur un compte perso** (hors salaire/drawing propres), la paie chatteurs sort du business, le salaire documenté atterrit sur FAB, et l'extraction perso démarre (≥ 800 €/mois transitant FAB → IBKR). Si le hop perso persiste, c'est le compte Binance corporate qui a bloqué (KYC adulte) — le point à débloquer en priorité.
 
 ## Sources & épistémique
 
