@@ -1023,24 +1023,36 @@ async def boucle_pipeline():
                 membre = membre_par_id(uid)
                 canal = await canal_admin()
                 if tous_signes:
+                    # ⚠️ Membre introuvable (cache Discord froid au démarrage, ou parti/revenu) :
+                    # NE JAMAIS marquer « complet » en silence — c'est exactement le bug Hugo
+                    # (signé, mais rien ne se passe et personne n'est prévenu). On laisse le contrat
+                    # en l'état pour réessayer l'onboarding au tour suivant, et on alerte l'admin UNE fois.
+                    if membre is None:
+                        if canal and not info.get("signe_sans_membre_alerte"):
+                            info["signe_sans_membre_alerte"] = True
+                            modifie = True
+                            await canal.send(
+                                f"⚠️ **Contrat signé mais membre introuvable** (id `{uid}` — parti ou hors "
+                                f"cache). Soumission `{contrat.get('submission_id')}`. Dès qu'il réapparaît : "
+                                f"`!equipe <@{uid}> fr`. Je réessaie l'auto-onboarding tout seul à chaque tour.")
+                        continue
                     contrat["statut"] = "complet"
                     modifie = True
                     onboarde, erreur_role = False, ""
-                    if DOCUSEAL_ONBOARDING_AUTO and membre is not None:
+                    if DOCUSEAL_ONBOARDING_AUTO:
                         nom_role, erreur_role = await attribuer_equipe(membre.guild, membre, "fr", client.user.id)
                         onboarde = nom_role is not None
-                    if membre:
-                        await envoyer_mp(membre,
-                            "✅ **Contrat signé — bienvenue officiellement dans l'équipe France ! 🔥**\n\n"
-                            + ("Ton rôle **Team France** vient de s'ouvrir. Tu as maintenant accès à :\n"
-                               "1. **Ton espace privé** (salon + Drive : rushs et modèles de ta créatrice).\n"
-                               "2. **Ton lien de tracking** (pour compter tes revenus).\n"
-                               "3. La **Fiche 1** pour créer tes comptes — c'est le jour 0.\n\n"
-                               "Lis la Fiche 1 en entier avant de commencer (règles anti-ban). À toi de jouer 🚀"
-                               if onboarde else
-                               "On t'ouvre tes accès dans quelques minutes — tu vas recevoir ton rôle "
-                               "Team France, ton espace et ton lien de tracking. Reste connecté 🚀"))
-                    if canal and membre:
+                    await envoyer_mp(membre,
+                        "✅ **Contrat signé — bienvenue officiellement dans l'équipe France ! 🔥**\n\n"
+                        + ("Ton rôle **Team France** vient de s'ouvrir. Tu as maintenant accès à :\n"
+                           "1. **Ton espace privé** (salon + Drive : rushs et modèles de ta créatrice).\n"
+                           "2. **Ton lien de tracking** (pour compter tes revenus).\n"
+                           "3. La **Fiche 1** pour créer tes comptes — c'est le jour 0.\n\n"
+                           "Lis la Fiche 1 en entier avant de commencer (règles anti-ban). À toi de jouer 🚀"
+                           if onboarde else
+                           "On t'ouvre tes accès dans quelques minutes — tu vas recevoir ton rôle "
+                           "Team France, ton espace et ton lien de tracking. Reste connecté 🚀"))
+                    if canal:
                         await canal.send(
                             (f"✅ **{membre.mention} — contrat signé, auto-onboardé Team France.** "
                              f"⚠️ 18+ : à garantir par le contrat (champ date de naissance / attestation "
