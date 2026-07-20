@@ -2025,18 +2025,31 @@ async def commande_admin(message, texte: str) -> bool:
                                 if refus else ""))[:1990])
         return True
 
-    # ---- v2 : !paiement @membre MONTANT [raison] ----
+    # ---- v2 : !paiement @membre MONTANT [raison] — le nom en toutes lettres marche aussi ----
     if texte.startswith("!paiement"):
-        if not message.mentions:
-            await message.reply("Format : !paiement @clippeur 50 [raison courte]")
+        corps = texte[len("!paiement"):].strip()
+        beneficiaire = message.mentions[0] if message.mentions else None
+        if beneficiaire is not None:
+            corps = corps.replace(f"<@{beneficiaire.id}>", "").replace(f"<@!{beneficiaire.id}>", "").strip()
+        else:
+            # Pas de vraie mention (un « @eddy » tapé en texte n'en est pas une) : on résout par
+            # le nom, comme !test-ok / !equipe. Nom = tout ce qui précède le premier nombre.
+            decoupe = re.match(r"@?(.+?)\s+(\d+(?:[.,]\d+)?)(.*)$", corps, re.S)
+            if decoupe:
+                beneficiaire = chercher_membre(decoupe.group(1).strip())
+                corps = (decoupe.group(2) + decoupe.group(3)).strip()
+        if beneficiaire is None:
+            await message.reply("Format : `!paiement @clippeur 50 [raison]` — le nom en toutes lettres "
+                                "marche aussi : `!paiement Eddy 50 semaine 1`. Si je ne trouve pas le "
+                                "membre : vérifie l'orthographe de son surnom serveur, ou utilise la "
+                                "vraie mention (tape @ puis CLIQUE sur la suggestion).")
             return True
-        beneficiaire = message.mentions[0]
-        nombres = re.findall(r"\d+(?:[.,]\d+)?", texte.replace(f"<@{beneficiaire.id}>", "").replace(f"<@!{beneficiaire.id}>", ""))
+        nombres = re.findall(r"\d+(?:[.,]\d+)?", corps)
         if not nombres:
             await message.reply("Il me faut un montant. Format : !paiement @clippeur 50 [raison]")
             return True
         montant = float(nombres[0].replace(",", "."))
-        raison = texte.split(nombres[0], 1)[-1].strip(" €").strip()
+        raison = corps.split(nombres[0], 1)[-1].strip(" €").strip()
         await annoncer_paiement(message, montant, beneficiaire, raison)
         await message.add_reaction("✅")
         journal.info("Paiement annoncé : %.2f € -> %s", montant, beneficiaire.id)
