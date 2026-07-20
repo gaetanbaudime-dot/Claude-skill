@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-20 — SOP paie chatteurs (Binance corporate) — guide pas-à-pas + recherche
+- **Fait** : [[SOP paie chatteurs (Binance corporate)]] créée (96-Opérations) — le pas-à-pas complet (KYB en 4 étapes, financement depuis Wio Business, Convert/P2P → USDT, Binance Pay gratuit, relevés par chatteur, garde-fous). Recherche web : Binance FZE = entité **VARA** ; KYB = basic info / related parties / documents / source declaration ; Binance Pay entre comptes = **0 frais** ; P2P 0 % taker / 0,15-0,35 % maker ; payout stablecoin ~0,1-0,5 % vs 2-7 % classique.
+- **Le risque n°1 identifié = le KYB adulte** : la due diligence peut refuser/geler une agence à nexus adulte. Reco tranchée : **déclarer honnêtement + fallback** (Rain/BitOasis VARA, ou prestataire payout) — **jamais maquiller l'activité** (gel post-onboarding = pire moment). C'est le maillon incertain → à lancer en premier.
+- **Prédiction (20/07)** : si le KYB passe, le rail est quasi gratuit et instantané. S'il bloque, c'est LE point à débloquer avant le départ (fallback VARA). Revue à l'ouverture effective.
+
 ### 2026-07-20 — Restructuration à 3 comptes (Wio Perso retiré) + waterfall + salaire Wio Business Payroll
 - **Décision de Gaëtan** : centraliser la vie perso chez **FAB** (« si FAB me permet d'emprunter, pourquoi ne pas y mettre salaire + dépenses + savings ? »). Retenu après avoir tranché les garde-fous : **oui centraliser l'income perso chez FAB, non y mettre le business ou tout le patrimoine.** → Architecture passée de 4 poches à **3 comptes** : **① Wio Business** (firewall + orchestrateur € + Payroll) · **② FAB perso** (hub : salaire, vie, carte AECB, coffre DAT sans carte) · **③ IBKR** (patrimoine ségrégué). **Wio Perso retiré** (le 6 % Wio Salary Plan tombe avec — c'était un taux promo conditionnel).
 - **Les 3 garde-fous gravés** : FAB ne voit **jamais** un flux business/adulte (une banque traditionnelle ferme vite → ça tuerait la bankabilité) · le coffre reste **sans carte** (friction) · le patrimoine **jamais** dans la banque qui tient l'income (anti-gel simultané). L'extraction transite FAB (ton nom) → sweep IBKR (règle anti-tiers du financement courtier + flux d'épargne visible = bonus dossier).

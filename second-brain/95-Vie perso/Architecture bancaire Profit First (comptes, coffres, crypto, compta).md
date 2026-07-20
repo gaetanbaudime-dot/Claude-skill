@@ -108,6 +108,8 @@ L'extraction transite par **FAB perso (ton nom)** puis sweep vers **IBKR** : d'a
 
 ## Le rail crypto — payer les chatteurs proprement
 
+> **Le pas-à-pas opérationnel (ouvrir le compte, KYB, financer, payer, garde-fous)** est dans la [[SOP paie chatteurs (Binance corporate)]]. Ci-dessous, le « pourquoi » stratégique.
+
 **Le trou actuel à boucher** : `Wio Business → Wio Perso → Binance` fait transiter une charge business par ton compte perso. Ça casse trois choses qui valent des 5-6 chiffres : la **déductibilité CT** du coût chatteurs (~6,5-13 k$/an d'enjeu à 9 % dès 2027), l'**absence de commingling**, ta **story résidence 0 %** — et c'est une **violation des CGU Binance** (compte perso pour de la paie = motif de gel).
 
 **La cible** :
