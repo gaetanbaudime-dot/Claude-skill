@@ -251,7 +251,16 @@ La règle de l'équipe : un retour par Reel, tous les jours. Exemples de retours
 
 **« Vous devez avoir 18 ans pour voir ce profil » sur une créatrice ?** C'est un réglage du compte de LA créatrice, pas du tien. Cherche le bouton de confirmation d'âge sur son profil ; sinon continue ton warm-up avec les autres créatrices de la liste et signale-le à Gaëtan.
 
-**Comment je facture l'agence ?** Chaque paiement se fait sur facture (tu es prestataire indépendant). Utilise le template : https://canva.link/39iwk70lz5nbrhe — duplique-le, mets tes informations (nom, adresse, SIRET), la période et les montants validés du décompte. Envoie la facture avant le paiement.
+**Comment je facture l'agence ? (guide complet)** Chaque paiement se fait sur facture — tu es prestataire indépendant, c'est obligatoire pour être payé. Pas à pas :
+1. **Le template** : https://canva.link/39iwk70lz5nbrhe — duplique-le dans Canva et modifie uniquement les informations.
+2. **Tes informations** (en haut) : ton nom, ton adresse, ton n° SIRET. *(Pas encore de SIRET ? Crée ta micro-entreprise en ligne — gratuit, ~10 minutes sur le guichet unique, le SIRET arrive sous 1-2 semaines. Sans SIRET, pas de paiement possible.)*
+3. **Le client** (la personne que tu factures) : l'agence, avec le nom et l'adresse **exactement comme sur ton contrat** (Article 1 — l'agence LTP, adresse aux Émirats arabes unis).
+4. **La ligne de prestation** : libellé « **Social media marketing** » · quantité « **1** » · prix = **le montant validé de ta période** (ton décompte du lundi : fixe + commissions). Une seule ligne suffit.
+5. **La période** : indique la semaine concernée (1er mois = 1 facture par semaine, avant le paiement du lundi) ou le mois (à partir du 2ᵉ mois = 1 facture mensuelle).
+6. **Numérote et date** ta facture (ex. FA-2026-001, puis 002…) — obligatoire légalement, et garde une copie.
+7. **La TVA** : si tu es micro-entrepreneur en franchise, ajoute la mention « **TVA non applicable, art. 293 B du CGI** » et ne factures aucune TVA. Les montants du contrat sont en HT.
+8. **Envoie la facture** (PDF) avant le paiement, avec ton RIB dessus.
+Combien mettre ? Le montant exact validé dans ton décompte — jamais un montant inventé. En cas de doute sur le montant de ta période, demande à Gaëtan AVANT d'envoyer la facture.
 
 **Le bot fournit-il des comptes ?** Jamais. Tu crées TES comptes (Fiche 1), avec tes propres identifiants — c'est ce qui les rend sûrs.
 
