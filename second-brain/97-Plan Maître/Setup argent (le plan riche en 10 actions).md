@@ -18,7 +18,7 @@ liens_forts: ["[[Plan richesse (100 actions triées par levier)]]", "[[Architect
 
 ## Les 10 actions
 
-**1 — La répartition (Profit First, sur TA moitié).** Après les frais communs (chatteurs, VA, ads) et la **facture de Maxence** (sa moitié = charge déductible), il reste **ta moitié (~4 k€)**. Tu la découpes en montants FIXES posés à la clôture : **10 % coffre boîte · 15 % extraction · 0-5 % BTC (optionnel) · 70 % vie**. Ratchet l'extraction vers **25-30 %** quand ta part grandit.
+**1 — La répartition (Profit First, sur TA moitié).** Après les frais communs (chatteurs, VA, ads) et la **facture de Maxence** (sa moitié = charge déductible), il reste **ta moitié (~4 k€)**. Tu la découpes en montants FIXES posés à la clôture : **10 % coffre boîte · 20 % extraction · 70 % vie** (le crypto est sorti du plan — ses 5 % financent désormais l'extraction). Ratchet l'extraction vers **25-30 %** quand ta part grandit.
 
 **2 — Le rail bancaire propre (simplifié 20/07).** **Wio** (Business Essential + Perso : orchestration + ta vie + **1 mois de tampon instantané**) + **IBKR** (coussin ET patrimoine, un seul nouveau compte, **en ligne**). **Un seul compte à ouvrir : IBKR** ; **FAB (banque physique) devient OPTIONNEL** — seulement si tu veux un accès AED instantané en local. Wio = quotidien (Spaces, Autopilot, export CSV → Google Sheet) ; IBKR tu le regardes 1×/mois. Détail : [[Architecture bancaire Profit First (comptes, coffres, crypto, compta)]].
 
@@ -28,9 +28,9 @@ liens_forts: ["[[Plan richesse (100 actions triées par levier)]]", "[[Architect
 
 **5 — Le 0 % protégé (le plus gros levier de tous).** Ta résidence UAE = **×1,4 sur ton capital composé** vs la France. La protéger (ne pas piloter LTP depuis la France, retour ≤ 1/11, dossier « intérêts vitaux = Dubaï ») vaut plus que n'importe quel placement. + **compta propre** : **SBR = 0 % de Corporate Tax en 2026** (à élire, tu es à ~720 k AED ≪ 3 M), salaire documenté (visa/immo), bookkeeper (~5-10 k AED/an). Les **dividendes ne réduisent PAS la CT** — le 0 % vient du SBR, pas d'un montage.
 
-**6 — Le crypto borné (OPTIONNEL, et surtout PAS un diversifieur).** Soyons honnête, parce que tu m'as posé la question directement : le BTC **ne décorrèle rien**. Il s'effondre **AVEC** les actions dans les paniques (mars 2020 : −50 % en même temps que le S&P ; 2022 : −65 % pendant que les actions baissaient). C'est un **pari asymétrique** (peut faire ×5 ou −80 %), **pas une assurance**. Le diversifieur, c'est le monétaire USD, pas le BTC. Et pour TON profil précis (rafales Binance à 6 058 € documentées), c'est **la ligne la plus dangereuse du plan** — celle qui rappelle ton impulsivité. Donc : **optionnel, ≤ 5 % de l'investissable, BTC seul, DCA 100 % automatique** (jamais en manuel — c'est le manuel qui te ruine), **cold storage** (Ledger). **Si tu doutes de ta discipline dessus : mets 0 % et n'y reviens pas.** L'ETF fait le travail sans te tenter. ⚠️ Un coffre crypto n'est **jamais** un tas de stablecoins (UST → 0,04 $, USDC dépeg SVB) : ta réserve stable = monétaire USD IBKR.
+**6 — Le pilote automatique (ce qui bat ton impulsivité, à la place du pari crypto).** Le crypto est **sorti du plan** — bonne décision : c'était le pari, jamais le moteur, et pour ton profil (rafales Binance à 6 058 € documentées) c'était la ligne la plus dangereuse. Ce qui prend sa place, c'est le **vrai** déterminant de ta réussite : **l'automatisation de bout en bout**. À la clôture, des **virements automatiques en montants fixes** (Autopilot Wio) remplissent le coffre boîte et l'extraction **avant que tu n'aies décidé quoi que ce soit** ; le DCA vers l'ETF est un **ordre permanent**, pas un clic mensuel. C'est structurel : la seule chose qui bat une impulsivité documentée, ce n'est pas la volonté — c'est de **retirer la décision**. Règle : *si tu dois cliquer pour épargner, tu ne le feras pas les mois durs.* La prédiction du 31/12 (plus bas) repose **entièrement** là-dessus : KPI encore à ~0 = automatisation non posée, rien d'autre.
 
-**7 — Binance corporate pour la paie (pas ton perso).** Compte **Binance au nom de LTP FZ-LLC**, financé **depuis Wio Business**, paie les chatteurs en **Binance Pay P2P (gratuit)**. **Jamais Wio Business → Wio Perso → Binance** : le hop perso casse la déductibilité CT (~6,5-13 k$/an), mélange les patrimoines, fragilise la résidence 0 %, et viole les CGU Binance. Sur Binance : seulement le **fond de roulement de paie** (le coffre BTC est en cold, ailleurs).
+**7 — Binance corporate pour la paie (pas ton perso).** Compte **Binance au nom de LTP FZ-LLC**, financé **depuis Wio Business**, paie les chatteurs en **Binance Pay P2P (gratuit)**. **Jamais Wio Business → Wio Perso → Binance** : le hop perso casse la déductibilité CT (~6,5-13 k$/an), mélange les patrimoines, fragilise la résidence 0 %, et viole les CGU Binance. Sur Binance : seulement le **fond de roulement de paie**, rien qui dorme dessus.
 
 **8 — La conversion optimisée.** Tes commissions arrivent en **€** : garde-les en €, convertis via **Wise (~0,4 %)** pas la banque (1,5-3 %), **batch 1×/mois** à la clôture. Maxence = **virement interne Wio → Wio, zéro FX**. Binance = € → USDT direct (pas de détour par l'AED). Conversion Wio Perso = 1,5 % (cher) → évite-la. Gain : **~1 500-2 300 $/an**.
 
@@ -43,15 +43,14 @@ liens_forts: ["[[Plan richesse (100 actions triées par levier)]]", "[[Architect
 | Box | % | € | Compte | Rôle |
 |---|---:|---:|---|---|
 | **Coffre boîte** | 10 % | ~400 | Wio Business (Space) | réserve société, **stop à 15-20 k€** puis redirige vers l'extraction |
-| **Extraction** | 15 % → 25 % | ~600 | **IBKR** (coussin monétaire → ETF) | remplit d'abord le coussin 15-30 k€, ensuite l'ETF — **un seul compte, en ligne** |
-| **BTC** *(optionnel)* | 0-5 % | 0-200 | Binance corp → **cold storage** | pari asymétrique, **PAS un diversifieur** — 0 % si tu doutes de ta discipline |
+| **Extraction** | 20 % → 30 % | ~800 | **IBKR** (coussin monétaire → ETF) | remplit d'abord le coussin 15-30 k€, ensuite l'ETF — **un seul compte, en ligne** ; absorbe les 5 % ex-crypto |
 | **Ta vie** | 70 % | ~2 800 | Wio Perso | 2 500 charges + ~300 marge |
 
-**→ ~30 % mis de côté = ~1 200 €/mois = ~14 k€/an capitalisés, sans un euro de CA en plus.** (Automatisé via Autopilot Wio en montants fixes — Wio n'a pas de split en %, tu réajustes à chaque clôture.)
+**→ ~30 % mis de côté = ~1 200 €/mois = ~14 k€/an capitalisés, sans un euro de CA en plus.** Le total ne bouge pas d'un euro en sortant le crypto : les 5 % qui allaient au BTC financent maintenant l'ETF — **le pari devient du moteur**, et 100 % du mis-de-côté est décorrélé et propre. (Automatisé via Autopilot Wio en montants fixes — Wio n'a pas de split en %, tu réajustes à chaque clôture.)
 
 ## L'ordre d'exécution (ce qui débloque le reste)
 
-1. **Cette semaine, TOUT en ligne (aucune course contre ton départ)** : lancer le **KYC IBKR** (2-3 sem., 100 % en ligne) · ouvrir **Binance corporate** (docs LTP uploadés en ligne) · couper le hop chatteurs perso · poser les Spaces Wio + Autopilot · confirmer l'élection **SBR** · salaire documenté + bookkeeper · commander un **Ledger** (si tu gardes la ligne crypto).
+1. **Cette semaine, TOUT en ligne (aucune course contre ton départ)** : lancer le **KYC IBKR** (2-3 sem., 100 % en ligne) · ouvrir **Binance corporate** (docs LTP uploadés en ligne) · couper le hop chatteurs perso · poser les Spaces Wio + Autopilot · confirmer l'élection **SBR** · salaire documenté + bookkeeper.
 2. **Le SEUL point qui dépend de Dubaï** : **FAB** (guichet physique) — et il est **optionnel**. Si tu le veux, c'est le seul truc à caler avant le 26/07. Sinon, **rien** dans ce plan n'exige ta présence physique : Wio existe déjà, IBKR et Binance sont en ligne.
 3. **Chaque 1er** : clôture → cascade → montants fixes vers les box → export CSV dans le Sheet.
 
