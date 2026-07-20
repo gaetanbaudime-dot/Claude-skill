@@ -52,7 +52,7 @@ liens_forts: ["[[Plan richesse (100 actions triées par levier)]]", "[[Architect
 
 ## L'ordre d'exécution (ce qui débloque le reste)
 
-1. **Avant le départ (les guichets physiques à Dubaï)** : ouvrir **FAB perso** (courant + **carte de crédit** pour l'AECB + iSave/DAT) et **Binance corporate** · activer **Wio Business Payroll** + poser le 1er **salaire** vers FAB · couper le hop chatteurs perso. *(FAB n'est plus « optionnel » : tu en as fait ton hub perso — choix bankabilité assumé. Ça reste un compte, pas une entité : réversible.)*
+1. **Avant le départ (surtout EN LIGNE, à faire depuis Dubaï)** : **ouvrir FAB en ligne** (app FAB Mobile, Emirates ID + liveness → carte débit physique livrée ~2 j : fais-le maintenant pour l'avoir avant de partir) · **Binance corporate** (KYB, le maillon incertain) · activer **Wio Business Payroll** + 1er **salaire** test vers FAB · couper le hop chatteurs perso. *(FAB = un compte, réversible, pas une entité.)*
 2. **En ligne, en parallèle (aucune course)** : **KYC IBKR** (2-3 sem.) · Spaces Wio + Autopilot · élection **SBR** · bookkeeper (+ prévoir un **audit** pour le futur dossier immo).
 3. **Chaque 1er** : clôture → cascade → montants fixes vers les box → export CSV dans le Sheet.
 

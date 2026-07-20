@@ -23,7 +23,7 @@ liens_forts: ["[[Sprint été - croissance sans moi]]", "[[Architecture bancaire
   - [ ] **Sortir 100 % des flux business des comptes perso FR** (re-router les commissions, observer un cycle avant de fermer).
   - [ ] Vérifier/rectifier la **déclaration de départ 2025** (2042-NR). → [[Protocole séjour France (résidence fiscale sous surveillance)]]
 - [ ] **LLC US** : rassembler les infos (juridiction, années de flux, Revolut gelé, Cosmo) pour le [[Brief fiscaliste unique (LLC US en tête)|fiscaliste]] — exposition potentielle 50-75 k$.
-- [ ] **Ouvrir le compte FAB** (coffre : iSave sans carte + échelle DAT) — **impossible à distance depuis la France**.
+- [ ] **Ouvrir le compte FAB** (hub perso : courant + carte débit + iSave + DAT) — **en ligne via l'app FAB Mobile** (Emirates ID + liveness). Techniquement faisable de partout, mais **à faire depuis Dubaï** pour recevoir la **carte physique** (~2 j) avant de partir.
 - [ ] **Ouvrir le compte Binance corporate** (LTP FZ-LLC) et **couper le hop `Wio Business → Wio Perso → Binance`**. → [[Architecture bancaire Profit First (comptes, coffres, crypto, compta)]]
 - [ ] **Filmer les 5 Loom** (warmup · journée type · reporting · SFS · compte banni) + transcription + bot FAQ. → [[Les 5 Loom de passation]]
 - [ ] **Emma** : brief + **semaine test** (lui montrer comment déléguer) + son **contrat** (confidentialité + non-sollicitation) + **documenter chaque créatrice dans le CRM** (pas seulement dans sa tête).
