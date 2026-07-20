@@ -61,6 +61,18 @@ La LTV est réparée → la contrainte est repassée **côté trafic** ([[Théor
 2. **Les prédictions s'écrivent avant** ([[Journal de coaching]]) — chaque test a son chiffre attendu daté (Chloé gratuit, clonage top 5, vagues FR : déjà journalisés).
 3. **Le lundi matin, le tableau est rempli ou le sprint est en danger** — une semaine sans mesure est une semaine aveugle ([[Rituels de management]]).
 
+## Mise à jour (20/07 — ce que le sprint doit intégrer en plus)
+
+> [!warning] Le sprint n'est plus qu'un test de vendabilité — c'est une clause de protection
+> Depuis la relecture du [[Pacte d'association LTP (partenariat 50-50 avec Maxence)|pacte signé]] (26/03), le sprint « croissance sans moi » a un **enjeu contractuel** : l'**Art 10.2** permet à Maxence de demander une renégociation du 50/50 si l'un « assure seul » la gestion >60 j. Tant que ton pôle tourne via tes délégués, il n'assure jamais seul → la condition ne se réunit pas. **Mais l'ordre compte** : verrouille la propriété ([[Avenant au pacte (apport, buy-sell, prime d'apport)|avenant : buy-sell + annexe]]) AVANT de prouver la dispensabilité — sinon ta réussite devient l'argument contre ta moitié. Départ recalé à **~26/07** (la semaine de passation glisse d'autant).
+
+**Les 5 ajouts au plan d'exécution :**
+1. **Volet fiscal du départ** (nouveau, critique) : délégations directives ÉCRITES avant de partir + **zéro pilotage de LTP depuis le sol français** (le critère « activité pro en France » requalifie sans compteur de jours), retour ≤ 1er/11, dossier « intérêts vitaux = Dubaï » → [[Protocole séjour France (résidence fiscale sous surveillance)]]. Et élucider la **LLC US** (5472, 50-75 k$) au [[Brief fiscaliste unique (LLC US en tête)|brief fiscaliste]].
+2. **Continuité du bot = risque de ruine n°1 de l'absence** : les 6 verrous (moniteur externe, restauration testée, Maxence payeur de secours, gel des déploiements) → [[Continuité du bot et paie sacrée (plan anti-panne)]]. Le pôle « paie » doit tomber même si le bot meurt.
+3. **Sarah recalibrée** : ne PAS l'arroser de clippers (débordement de trafic interne MYM à ~3 €, pas un goulot de conversion) — le chantier est de **répliquer** le débordement ([[Supervision chatting (top 5) et le cas Sarah]]). Contenu frais donc prioritairement **Maddy et Chloé** (LTV 12,5 €).
+4. **Emma = point de défaillance unique à gérer** : elle porte la relation créatrice au quotidien → la doc de chaque créatrice (CRM), ton propre lien fondateur mensuel avec les 3 top, et son contrat (confidentialité + non-sollicitation) → [[Se licencier de son propre poste|casquette 8]].
+5. **Sommeil France réaliste** : 21h30 intenable 2 mois en famille → **fenêtre 23h ± 1h régulière** (la science mesure la régularité, pas l'heure), consistance Whoop ≥ 70 % → [[Sommeil pendant le séjour France (protocole réaliste)]].
+
 ## Le test de réussite
 
 **Au 21 juillet (dans l'avion), 7 vrais** : 1. Emma sait ce qu'elle possède et comment escalader. 2. Les SFS de l'été sont programmés. 3. La grille est annoncée et la paie hebdo a tourné une fois. 4. Le Google Form a produit son premier tableau complet. 5. La SOP chatting est lue avec Maxence, baselines posées. 6. Les 5 Loom existent. 7. Prise de sang faite + TRC déposé + micro radiée.

@@ -82,3 +82,12 @@ Lecture : les casquettes 3-4-5 sont les plus proches d'être rendues (SOP exista
 | 11 | **Ton moteur** (santé, énergie, deep work) | Non délégable par définition — [[Protocole santé entrepreneur (Dubaï)]] + [[Pôle Deep Work & The One Thing]] |
 
 **Le total : 11 casquettes, 6 à rendre, 5 à garder.** Le test du 21 septembre mesure exactement ça : combien des casquettes 1-6 ont tourné 8 semaines sans toi. Revue journalisée dans [[Journal de coaching]].
+
+## Mise à jour (20/07 — le paradoxe de la casquette 8 et le risque Emma)
+
+> [!warning] Bien se licencier peut se retourner contre toi — deux nuances nouvelles
+> **① La relation créatrice (casquette 8) est en train d'être déléguée à Emma** (CSM qui parle aux créatrices toute la journée). C'est un gain — Emma est de TON côté, donc la relation créatrice n'est PAS chez Maxence (dont le pôle chatting parle aux *fans*, pas aux modèles). **Mais tu déplaces le point de défaillance de « Maxence » vers « une seule personne, Emma »**, et les créatrices partent au feeling. La parade n'est pas de moins compter sur elle, c'est de **ne pas être aveugle si elle part** : chaque créatrice documentée dans le CRM (pas seulement dans sa tête), TON propre lien fondateur mensuel avec les 3 top (redondance de relation), et son contrat (confidentialité + non-sollicitation). Détail : [[Avenant au pacte (apport, buy-sell, prime d'apport)|volet 4, le lien fondateur]].
+>
+> **② L'ordre avec le pacte** : réussir « la machine tourne sans moi » (tout l'objet de cette page) **protège** ta moitié via l'Art 10.2 du [[Pacte d'association LTP (partenariat 50-50 avec Maxence)|pacte]] SEULEMENT si la propriété est verrouillée d'abord ([[Avenant au pacte (apport, buy-sell, prime d'apport)|avenant]]). Prouver ta dispensabilité avant d'avoir signé = donner à Maxence l'argument « pourquoi 50 % ? ». **Se licencier oui — mais après l'avenant, pas avant.**
+
+La casquette 6 (paiements) gagne un verrou de plus : la [[Continuité du bot et paie sacrée (plan anti-panne)|continuité du bot]] pendant l'absence (Maxence payeur de secours si le bot meurt). Et la casquette 2 se documente via les [[Les 5 Loom de passation|5 Loom]].
