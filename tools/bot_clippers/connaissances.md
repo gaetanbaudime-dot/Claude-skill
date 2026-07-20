@@ -229,6 +229,34 @@ Quand un Reel pète, on poste un carrousel dans la foulée : c'est là qu'ils ex
 
 La règle de l'équipe : un retour par Reel, tous les jours. Exemples de retours : « ton hook pouvait démarrer une seconde plus tôt », « la trend d'origine dure 8 secondes, la tienne 13 », « prends plutôt cette partie du rush ». C'est en publiant beaucoup ET en recevant des retours tous les jours qu'on devient très bon. D'où l'importance du canal Discord et du formulaire du dimanche : pas de retours = pas de progrès = pas de revenus.
 
+## FAQ TERRAIN (réponses officielles de Gaëtan — 20/07)
+
+**GetAllMyLinks vs MyPulse ?** GetAllMyLinks (GAML) = ta page de liens en bio. Le lien GAML va UNIQUEMENT sur le compte Instagram privé à J+7, et sur tes pages Facebook dès le premier jour. MyPulse = l'outil de suivi des stats et revenus. Les deux sont configurés par Gaëtan : après ton onboarding, envoie-lui ton e-mail sur le serveur — il t'ajoute à MyPulse + GAML et te donne ton lien de tracking personnel.
+
+**Critères des créatrices à suivre pendant le warm-up ?** Des créatrices françaises actives, idéalement qui ont un OnlyFans, avec des comptes vivants. La liste du Discord peut contenir des comptes fermés : dans ce cas, avance de recommandation en recommandation depuis les comptes vivants, et signale les comptes morts à Gaëtan pour qu'il mette la liste à jour.
+
+**La bio à la création d'un compte ?** Un texte hyper soft en rapport avec les informations de ta créatrice. JAMAIS de localisation — ni ville, ni région, ni indice géographique (pas de « sudiste », etc.).
+
+**Le nom d'une page Facebook ?** Le prénom de scène de la créatrice suffit — pas besoin d'un nom complet.
+
+**Créer les pages FB depuis mon Business Manager perso ?** Oui, c'est prévu pour ça. Au moment des autorisations : active le MOINS de choses possible.
+
+**Les pseudos Facebook ?** Identités uniques PARTOUT — c'est la réponse définitive. Ne reprends JAMAIS le même pseudo qu'un compte Instagram : même pseudo = signal d'association = risque de ban en cascade. Chaque page a son pseudo, sa photo et sa bio propres.
+
+**La cadence de création Facebook ?** Même cadence qu'Instagram : 1 page par jour, pas tout d'un coup (précision de Gaëtan qui remplace l'ancienne consigne « tout dans la journée »). La différence avec Instagram : le warm-up FB est léger et rapide (pas 48 h) — tu peux publier ton premier Reel le jour même, et le lien GAML va en bio de la page dès le premier jour.
+
+**Faire valider mes Reels avant de publier ?** Non — tu publies directement. Les retours arrivent après, via les stats et ton canal Discord. La seule validation du parcours, c'est le test de montage d'entrée.
+
+**Des MP arrivent pendant le warm-up Instagram ?** Ignore-les pendant les 48 h. Après le warm-up, tu peux répondre normalement.
+
+**« Vous devez avoir 18 ans pour voir ce profil » sur une créatrice ?** C'est un réglage du compte de LA créatrice, pas du tien. Cherche le bouton de confirmation d'âge sur son profil ; sinon continue ton warm-up avec les autres créatrices de la liste et signale-le à Gaëtan.
+
+**Comment je facture l'agence ?** Chaque paiement se fait sur facture (tu es prestataire indépendant). Utilise le template : https://canva.link/39iwk70lz5nbrhe — duplique-le, mets tes informations (nom, adresse, SIRET), la période et les montants validés du décompte. Envoie la facture avant le paiement.
+
+**Le bot fournit-il des comptes ?** Jamais. Tu crées TES comptes (Fiche 1), avec tes propres identifiants — c'est ce qui les rend sûrs.
+
+**Les relances automatiques** : si tu n'avances pas dans le parcours (numéro pas envoyé, quiz pas fait, e-mail manquant, contrat pas signé), je te relance en MP après 24 h puis 48 h — c'est normal, c'est pour ne perdre personne en route. Après deux relances, je te laisse tranquille.
+
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
-(vide pour l'instant — Gaëtan y ajoute les questions récurrentes et leurs réponses, directement depuis Telegram avec la commande /apprendre)
+(Le bot capture tout seul les questions auxquelles il n'a pas su répondre — `!lacunes` pour les voir, `!apprendre La question ? | La réponse.` pour les combler. Digest automatique chaque dimanche en admin.)

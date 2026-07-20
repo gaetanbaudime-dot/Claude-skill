@@ -112,6 +112,7 @@ FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, 
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
 FICHIER_RAPPELS = DONNEES / "rappels.json"                   # anti-doublon des rappels quotidiens/hebdo
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
+FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors kit : [{"q", "qui", "date"}] — la matière de !apprendre
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
 CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
@@ -1005,6 +1006,99 @@ async def boucle_pipeline():
                     if membre:
                         await envoyer_mp(membre, "⏰ Rappel : il te reste **moins de 24 h** pour rendre ton test "
                                                  "(2 clips). Dépose-les et préviens dans #candidature. Tu tiens le bon bout 💪")
+            # ---- Relances 24/48 h à CHAQUE étape du tunnel (20/07) : personne ne reste bloqué ----
+            # Doctrine : 2 relances max par étape (24 h puis 48 h), en MP, puis silence — on pousse,
+            # on ne harcèle pas. Étapes couvertes : arrivée sans liaison · formation/quiz · e-mail
+            # manquant · contrat non signé · retest disponible. (Le test 48 h a déjà ses relances.)
+            def _age_h(iso):
+                try:
+                    return (maintenant - datetime.fromisoformat(iso)).total_seconds() / 3600.0
+                except (TypeError, ValueError):
+                    return -1.0
+
+            async def _relancer(cible_dict, cle24, cle48, iso, uid_r, txt24, txt48):
+                nonlocal modifie
+                age = _age_h(iso)
+                if age < 24:
+                    return
+                membre_r = membre_par_id(uid_r)
+                if membre_r is None:
+                    return
+                if age >= 48 and not cible_dict.get(cle48):
+                    cible_dict[cle48] = True
+                    modifie = True
+                    await envoyer_mp(membre_r, txt48)
+                elif age < 48 and not cible_dict.get(cle24):
+                    cible_dict[cle24] = True
+                    modifie = True
+                    await envoyer_mp(membre_r, txt24)
+
+            liaisons_d = donnees.get("liaisons", {})
+            # ① Arrivé sur le serveur mais jamais lié (pas de numéro envoyé).
+            for uid, arr in list(donnees.get("arrivees", {}).items()):
+                if uid in liaisons_d:
+                    continue
+                await _relancer(arr, "r24", "r48", arr.get("date"), uid,
+                    "👋 Toujours partant ? Pour démarrer ton parcours, envoie-moi simplement **ton numéro "
+                    "de téléphone** (celui du formulaire) ici en MP — je te débloque la formation dans la "
+                    "foulée. 2 minutes chrono.",
+                    "⏳ Dernier rappel : ton parcours n'a pas encore commencé. Envoie **ton numéro du "
+                    "formulaire** ici en MP et c'est parti — formation, quiz, test, contrat, paie. "
+                    "Après, je te laisse tranquille 😉")
+            # ② Lié mais quiz jamais réussi (aucun état : le test n'a pas été déclenché).
+            for uid, li in list(liaisons_d.items()):
+                if uid in donnees.get("etats", {}):
+                    continue
+                lien_quiz = (f"\n→ Ton lien de quiz personnel : {LIEN_QUIZ}{uid}" if LIEN_QUIZ else "")
+                await _relancer(li, "r24", "r48", li.get("date"), uid,
+                    "🎓 Ta **formation** et ton **quiz** t'attendent ! Regarde la vidéo (54 min) en entier "
+                    "— les 4 mots-clés cachés te seront demandés." + lien_quiz +
+                    "\nSeuil : 27/34, deux essais. Quiz réussi → ton test arrive automatiquement.",
+                    "⏳ Il ne te manque que le **quiz** pour passer au test (puis contrat + paie)." +
+                    lien_quiz + "\nSi tu bloques quelque part, réponds-moi ici — je t'aide.")
+            # ③④⑤ Étapes portées par l'état du pipeline.
+            for uid, info in list(donnees.get("etats", {}).items()):
+                etat_c = info.get("etat")
+                rel = info.setdefault("relances", {})
+                # ③ Validé mais e-mail jamais envoyé → le contrat ne peut pas partir.
+                if etat_c == "valide" and not liaisons_d.get(uid, {}).get("email"):
+                    await _relancer(rel, "mail24", "mail48", info.get("validation"), uid,
+                        "🏆 Ton test est validé — il ne manque **QUE ton adresse e-mail** pour recevoir "
+                        "ton contrat (signature électronique, 2 min). Envoie-la ici et tes accès "
+                        "s'ouvrent dans la foulée. 🔥",
+                        "⏳ Dernier rappel : ton contrat est prêt, il n'attend que **ton e-mail**. "
+                        "Envoie-le ici en MP — signature en 2 minutes, accès immédiats, paie chaque lundi.")
+                # ④ Contrat envoyé mais pas signé.
+                contrat_c = info.get("contrat") or {}
+                if contrat_c.get("statut") == "envoye":
+                    age_c = _age_h(contrat_c.get("date"))
+                    await _relancer(rel, "sign24", "sign48", contrat_c.get("date"), uid,
+                        "🖋️ Ton **contrat** t'attend (le lien est dans un message plus haut ↑) — "
+                        "2 minutes à remplir et signer, et tes accès s'ouvrent automatiquement. "
+                        "Lien perdu ? Dis-le-moi ici, on te le renvoie.",
+                        "⏳ Ton contrat n'est toujours pas signé — c'est la SEULE chose entre toi et "
+                        "ton rôle Team France (espace privé, tracking, paie du lundi). Lien perdu ? "
+                        "Réponds ici.")
+                    if age_c >= 48 and rel.get("sign48") and not rel.get("sign48_admin"):
+                        rel["sign48_admin"] = True
+                        modifie = True
+                        canal_r = await canal_admin()
+                        membre_r = membre_par_id(uid)
+                        if canal_r and membre_r:
+                            await canal_r.send(f"⏳ **Contrat non signé depuis 48 h** : {membre_r.mention}. "
+                                               f"Relance-le, ou `!contrat {membre_r.display_name}` pour un "
+                                               "nouveau lien.")
+                # ⑤ Test expiré : prévenir le jour où le retest s'ouvre (une fois).
+                if etat_c == "test_expire" and info.get("retest") and not rel.get("retest_ok") \
+                        and maintenant >= datetime.fromisoformat(info["retest"]):
+                    rel["retest_ok"] = True
+                    modifie = True
+                    membre_r = membre_par_id(uid)
+                    if membre_r:
+                        await envoyer_mp(membre_r,
+                            "🔓 **Tu peux retenter ton test dès maintenant !** Revois les fiches, "
+                            "puis écris **VALIDÉ** dans #candidature — ton test (2 clips, 48 h) "
+                            "repartira ici en MP. On t'attend 💪")
             # Suivi des contrats DocuSeal par sondage (pas de webhook entrant nécessaire).
             # Parcours parfait (20/07) : contrat mono-signataire → dès que le clipper signe, le
             # rôle Team France + l'onboarding s'attribuent AUTOMATIQUEMENT (fini la contre-
@@ -1119,6 +1213,26 @@ async def boucle_rappels():
                         ecrire_json(FICHIER_RAPPELS, etat)
                     except (discord.Forbidden, discord.HTTPException):
                         pass
+            # Auto-amélioration : le dimanche à partir de 18:00, digest des questions hors kit.
+            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.weekday() == 6 and maintenant.hour >= 18 \
+                    and etat.get("lacunes") != aujourdhui:
+                lacunes = lire_json(FICHIER_LACUNES, [])
+                canal = await canal_admin()
+                if canal is not None and lacunes:
+                    lignes = [f"· {l['q'][:110]}" for l in lacunes[-10:]]
+                    try:
+                        await canal.send((f"🧠 **Le bot veut apprendre — {len(lacunes)} question(s) sans "
+                                          "réponse cette semaine :**\n" + "\n".join(lignes)
+                                          + "\n\n→ `!apprendre La question ? | La réponse.` pour chacune "
+                                            "(2 min) — je les utiliserai dès la prochaine question. "
+                                            "`!lacunes` pour tout voir.")[:1990])
+                        etat["lacunes"] = aujourdhui
+                        ecrire_json(FICHIER_RAPPELS, etat)
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                elif not lacunes:
+                    etat["lacunes"] = aujourdhui
+                    ecrire_json(FICHIER_RAPPELS, etat)
             # Sauvegarde automatique des JSON : le dimanche à partir de 20:00, une fois.
             if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.weekday() == 6 and maintenant.hour >= 20 \
                     and etat.get("sauvegarde") != aujourdhui:
@@ -2020,6 +2134,29 @@ async def commande_admin(message, texte: str) -> bool:
             flux.write(f"\n**Q : {question.strip()}**\nR : {reponse.strip()}\n")
         await message.reply("✅ Appris ! C'est ajouté à la FAQ vivante, je l'utilise dès maintenant.")
         journal.info("FAQ enrichie via !apprendre : %s", question.strip()[:80])
+        # La question apprise sort de la liste des lacunes (matching souple sur les premiers mots).
+        debut = normaliser(question.strip())[:40]
+        lacunes = [l for l in lire_json(FICHIER_LACUNES, [])
+                   if debut and debut not in normaliser(l.get("q", ""))]
+        ecrire_json(FICHIER_LACUNES, lacunes)
+        return True
+
+    # ---- !lacunes : les questions auxquelles le kit n'a pas su répondre (à combler par !apprendre) ----
+    if texte.startswith("!lacunes"):
+        if "vider" in texte:
+            ecrire_json(FICHIER_LACUNES, [])
+            await message.reply("🧹 Lacunes vidées.")
+            return True
+        lacunes = lire_json(FICHIER_LACUNES, [])
+        if not lacunes:
+            await message.reply("✅ Aucune lacune ouverte — le kit répond à tout en ce moment.")
+            return True
+        lignes = [f"· {l['q'][:120]}  *(le {l.get('date', '')[:10]})*" for l in lacunes[-15:]]
+        await message.reply((f"🧠 **{len(lacunes)} question(s) hors kit** (15 dernières) :\n"
+                             + "\n".join(lignes)
+                             + "\n\n→ Comble avec `!apprendre La question ? | La réponse.` "
+                               "(ou `!lacunes vider`). Chaque réponse rend le bot plus intelligent "
+                               "pour TOUS les suivants.")[:1990])
         return True
 
     return False
@@ -2073,6 +2210,11 @@ async def on_invite_delete(invite):
 @client.event
 async def on_member_join(member):
     if ACTIVER_V2 and not member.bot:
+        # Horodatage d'arrivée : la base des relances 24/48 h « arrivé mais jamais lié ».
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        donnees.setdefault("arrivees", {}).setdefault(
+            str(member.id), {"date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+        ecrire_json(FICHIER_PIPELINE, donnees)
         await accueillir(member)
 
 
@@ -2267,6 +2409,18 @@ async def on_message(message):
         reponse = await asyncio.to_thread(repondre_sync, contenu)
 
     journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
+    # Boucle d'auto-amélioration (20/07) : chaque question à laquelle le kit ne sait pas répondre
+    # est capturée dans lacunes.json → digest du dimanche en admin → `!apprendre` la comble, et la
+    # FAQ vivante (faq_apprise.md, volume persistant) est utilisée dès la question suivante.
+    marqueurs = ("pas dans ma base", "pas la réponse dans le kit", "je n'ai pas la réponse",
+                 "demande à gaëtan", "pose ta question à gaëtan", "note-la pour le formulaire",
+                 "demander à gaëtan")
+    if texte and any(m in reponse.lower() for m in marqueurs):
+        lacunes = lire_json(FICHIER_LACUNES, [])
+        if not any(l.get("q", "").lower() == texte.lower() for l in lacunes):
+            lacunes.append({"q": texte[:300], "qui": str(utilisateur),
+                            "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            ecrire_json(FICHIER_LACUNES, lacunes[-200:])
     await message.reply(reponse[:1990])  # limite Discord = 2000 caractères
     await etiqueter_forum(message, reponse)  # range le post par sujet (si c'est un forum)
 
