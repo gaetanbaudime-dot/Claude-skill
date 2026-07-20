@@ -255,6 +255,8 @@ La règle de l'équipe : un retour par Reel, tous les jours. Exemples de retours
 
 **Le bot fournit-il des comptes ?** Jamais. Tu crées TES comptes (Fiche 1), avec tes propres identifiants — c'est ce qui les rend sûrs.
 
+**Un inconnu m'envoie un MP avec une « offre » (lives TikTok rémunérés, job d'affiliation, autre agence…) ?** C'est une **arnaque ou une tentative de débauchage** — des spammeurs rejoignent les serveurs pour DM les membres un par un. Règle simple : l'agence ne te contactera JAMAIS en MP pour te proposer un autre job, et ne recrute/paie QUE via ce serveur et le bot. Ne réponds pas, **bloque le compte** (clic droit → Bloquer), et **signale-le à Gaëtan** avec un screenshot (pseudo + message) pour qu'il le bannisse. Ne clique sur aucun lien de ce genre de message.
+
 **Les relances automatiques** : si tu n'avances pas dans le parcours (numéro pas envoyé, quiz pas fait, e-mail manquant, contrat pas signé), je te relance en MP après 24 h puis 48 h — c'est normal, c'est pour ne perdre personne en route. Après deux relances, je te laisse tranquille.
 
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)

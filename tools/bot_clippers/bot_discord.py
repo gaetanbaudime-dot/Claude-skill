@@ -1367,7 +1367,10 @@ async def accueillir(member):
                  "**Étape 1 — relie ton compte 🔗**\n"
                  "Réponds-moi simplement avec **ton numéro de téléphone** (le MÊME que dans le "
                  "formulaire), par exemple : `06 12 34 56 78`.\n"
-                 f"Je m'occupe de tout le reste, étape par étape.{aide}")
+                 f"Je m'occupe de tout le reste, étape par étape.{aide}\n"
+                 "-# 🛡️ Sécurité : l'agence ne te contactera JAMAIS en MP pour te proposer un autre "
+                 "job (lives TikTok, affiliation…). Un inconnu qui te DM une « offre » = arnaque : "
+                 "ne réponds pas, bloque-le et signale-le à Gaëtan.")
     else:
         # Porte Disboard/découverte : il n'a probablement pas encore candidaté — le formulaire d'abord.
         guide = (f"🎬 **Bienvenue {member.display_name} sur le serveur des clippers !**\n"
@@ -1375,7 +1378,9 @@ async def accueillir(member):
                      f"{LIEN_FORMULAIRE} — à la fin il te ramène ici, et je te guide.\n") if LIEN_FORMULAIRE else "")
                  + "✅ **Déjà candidaté ?** Réponds-moi simplement avec **ton numéro de téléphone** ici "
                    "(celui du formulaire) — je te guide ensuite étape par étape.\n"
-                 f"Pas d'entretien : formation → quiz → test de montage 48 h. Ceux qui livrent sont pris 🚀{aide}")
+                 f"Pas d'entretien : formation → quiz → test de montage 48 h. Ceux qui livrent sont pris 🚀{aide}\n"
+                 "-# 🛡️ Sécurité : l'agence ne recrute et ne paie QUE via ce serveur et moi. Un inconnu "
+                 "qui te DM une « offre » (lives TikTok, job…) = arnaque : bloque + signale à Gaëtan.")
     mp_ok = await envoyer_mp(member, guide)
 
     canal = await canal_par_id(CANAL_CANDIDATURE_ID)
