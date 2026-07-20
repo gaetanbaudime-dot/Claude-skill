@@ -7,6 +7,7 @@ Vault orienté action : d'abord le plan et le sprint, puis ton contexte, puis le
 - **[[Sprint été - croissance sans moi]]** 🔥 : LE plan d'exécution — la semaine de passation (14-20/07) jour par jour, puis les 2 mois sans toi (6 pôles, reporting du dimanche, LTV en garde-fou), les 3 règles du sprint et le test de réussite du 20/09.
 - **[[Plan Maître 500K]]** : LA stratégie, organisée **par étapes de scaling avec gates chiffrés** (tu es en étape 5, Productize) — pas par mois, parce que les contraintes bougent mais les gates restent vérifiables. Inclut les maths des paliers, la lecture par levier et le pré-mortem.
 - **[[Plan 200 clippers en 6 mois (autofinancé)]]** 🔥 : la trajectoire par cohortes vers ~200 clippers actifs, pilotée par UN ratio (`R = marge nette clippers ÷ fixes versés`, gel automatique si R < 1 deux mois) — les paliers 30/60/100/200 avec ce que chacun casse et sa parade.
+- **[[Plan richesse (100 actions triées par levier)]]** 💰 : la synthèse de 10 agents (19/07) — la mécanique réelle (extraire × composer à 0 % × décorréler, KPI unique = « cash transféré hors du business »), les 10 fondamentaux qui font 80 %, et 90 actions de soutien en 5 vagues séquencées. À lire avec sa mise en garde : 100 actions en parallèle = la dispersion qui ruine.
 - **[[Se licencier de son propre poste]]** : le fil rouge organisationnel — rendre les casquettes une par une jusqu'à ce que l'agence grandisse sans toi.
 - **[[Journal de coaching]]** : les décisions et les prédictions datées, la calibration.
 
