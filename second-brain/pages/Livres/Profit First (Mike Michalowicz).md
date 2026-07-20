@@ -26,6 +26,25 @@ liens_forts: ["[[SOP clôture mensuelle avec Maxence]]", "[[Plan richesse (100 a
 
 La [[SOP clôture mensuelle avec Maxence|SOP de clôture]] EST déjà ton Profit First business : **5 % réserve impôts + 10 % coffre boîte avant distribution, puis 30 % de ta part → coffre perso le jour même**. Juin rejoué avec cette mécanique : **~2 613 € capitalisés au lieu de 0 — ~15 k€/an sans un euro de CA en plus**. Cette page ajoute la couche que la SOP n'avait pas : **l'architecture bancaire physique**.
 
+> [!info] Le 0 % Dubaï change deux choses (correction du 20/07)
+> **① Réserve d'impôt PERSO = 0.** Tu n'as pas d'impôt sur le revenu aux EAU → **tu gardes 100 % de chaque euro que tu extrais**, et ses gains composent sans taxe (c'est l'avantage « ×1,4 sur 15-20 ans » — [[Plan richesse (100 actions triées par levier)]]). Là où un Français réserverait ~30 % avant même d'épargner, toi tu épargnes le brut. **Ton extraction est structurellement plus puissante que dans le livre (US).** **② Les « 5 % réserve impôts » sont CORPORATE, pas perso** : ils couvrent la falaise Corporate Tax 2027 (9 % au-delà de 375 k AED) — pure discipline tant que le Small Business Relief tient (0 % en 2026, [[SOP clôture mensuelle avec Maxence|encadré CT]]). Ne les confonds pas avec un impôt perso qui, lui, n'existe pas.
+
+## Tes charges perso et le dimensionnement réel (chiffres du 20/07)
+
+**Charges fixes : ~2 500 €/mois** — loyer 2 000 · nourriture 300 · sorties 200. Deux conséquences directes :
+
+| Élément | Calcul | Cible |
+|---|---|---|
+| **Coussin perso** (6-12 mois de charges) | 2 500 × 6 à 12 | **15 000 à 30 000 €** intouchables — c'est l'essentiel de ton « objectif 50 k€ » |
+| **Extraction mensuelle** (le « pay yourself first ») | ta part ~4 000 € (variable) − 2 500 de charges = ~1 500 de marge | Commence à **15-20 % (600-800 €)**, ratchet vers 30 % à mesure que ta part grandit |
+
+> [!warning] Honnêteté sur le 30 %
+> À ta part actuelle (~4 000 €), 30 % (1 200 €) ne laisse que ~300 € après les 2 500 € de charges — c'est le **plafond**, tenable mais sans marge. Le livre est clair : **prends un % que tu ne casseras pas, monte-le graduellement** (TAPs). Démarre à ~15-20 %, et comme ta part grandit avec le CA (plan 500 K), le **même %** te sort **plus en absolu** sans serrer. Un % baissé un mois « parce que c'est tendu » tue le système — mieux vaut 15 % tenus que 30 % abandonnés.
+
+## « Sortir du cash tue-t-il la croissance ? » — la réponse de Profit First
+
+Non — et c'est la thèse même du livre, à retenir : **la croissance est limitée par le goulot, pas par le cash total versé** ([[Théorie des contraintes]]). Au-delà de ce que la contrainte absorbe, l'euro réinvesti ne produit rien ; il est mieux extrait. Profit First force à ne réinvestir que ce qui **rapporte** (la contrainte de cash rend l'allocation intelligente ; le cash illimité finance le gaspillage). Et le vrai argument pour toi : ton business rend ~30 % mais c'est **un seul actif fragile** (Georgina = −80 % en un jour) — extraire une tranche fixe vers un patrimoine décorrélé n'est pas « moins de croissance », c'est **l'assurance que la mort du business ne te ramène pas à zéro** ([[Plan richesse (100 actions triées par levier)|extraire × composer × décorréler]]). Tu n'extrais pas tout : une **minorité fixe d'abord** (réserves + coffre), la majorité nourrit encore le goulot.
+
 ## L'architecture bancaire Dubaï (réponse à ta question du 19/07)
 
 | Poche | Où | Pourquoi |
