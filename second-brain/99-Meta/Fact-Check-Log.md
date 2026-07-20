@@ -119,3 +119,9 @@ Les pages suivantes citent des faits classiques non re-vérifiés en ligne penda
 - **Correction (Gaëtan, 19/07)** : ces stats couvrent la période de **bascule payant → gratuit du compte de Jade** — un changement de régime qui rend les comparaisons invalides (une page gratuite convertit mécaniquement différemment).
 - **Conséquences** : le « ×3-4 » est **rétracté** ; le fondamental n°6 devient « baseline propre d'abord » ([[Atterrissage du funnel (mesure propre avant optimisation)]]) — règle gravée : toute stat de conversion s'accompagne de son régime, sa source et sa fenêtre.
 - **Statut** : corrigé — artefact de mesure, pas un levier.
+
+### Poids de l'annexe d'apport dans l'avenant (19/07/2026)
+- **Affirmation initiale** : l'annexe listant les 8 créatrices comme apport Gaëtan serait « la ligne la plus chère du dossier », protégeant ~45 k€/mois vs ~22 k€/mois « négociés » à la dissolution.
+- **Correction (Gaëtan, 19/07)** : **tous les contrats créatrices sont déjà titrés sur LTP International FZ-LLC** (pas de boîte commune). La propriété légale est donc déjà acquise (Art 5.4 + 16.2 + le contrat) — l'annexe devient du belt-and-suspenders (préempter un argument « IP commune » Art 8.2), pas le levier. Le « 45 vs 22 k€ » supposait une ambiguïté de titularité inexistante.
+- **Ce qui reste** : le buy-sell (volet 2) est la vraie raison de l'avenant. Et le risque réel = **relationnel** (les créatrices partent au feeling, Maxence possède le contact quotidien via le chatting ; préavis 1 mois + non-sollicitation Art 12.3 faibles) → parade ajoutée = le check-in fondateur mensuel avec les 3 top (volet 4 de la page [[Avenant au pacte (apport, buy-sell, prime d'apport)]]).
+- **Statut** : corrigé — j'avais surpondéré l'annexe.
