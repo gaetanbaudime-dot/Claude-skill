@@ -1666,12 +1666,19 @@ async def commande_admin(message, texte: str) -> bool:
                                    "— ⚠️ rôle non attribué (introuvable ou permission) : fais `!equipe "
                                    f"{membre.display_name} int`. MP d'onboarding envoyé."))
         else:
-            await envoyer_mp(membre, "🏆 **Test validé — bravo, tu rejoins l'équipe !** On te contacte très "
-                                     "vite pour la dernière étape. 🔥")
-            await message.reply(f"🏆 {membre.mention} validé — grille indéterminée "
-                                + ("(pays déclaré ≠ indicatif, tranche à la main)" if incoherent
-                                   else "(candidature non liée)")
-                                + f" : vérifie puis `!equipe {membre.display_name} fr` ou `int`.")
+            # Grille indéterminée (pays ≠ indicatif, ou candidature non liée) : on NE laisse plus le
+            # candidat sur un « on te contacte » sans suite (le bug du 20/07). La Team France (contrat)
+            # est le défaut du programme clipper → on lui demande son e-mail comme un FR ; l'admin
+            # corrige en `int` AVANT signature si la personne est en réalité internationale.
+            await envoyer_mp(membre, "🏆 **Test validé — bravo, tu rejoins l'équipe !**\n\n"
+                                     "Dernière étape : le **contrat**. Envoie-moi ici ton **adresse e-mail** — "
+                                     "ton contrat à signer arrivera dessus (signature électronique, 2 minutes). "
+                                     "Dès signature : ton rôle, ton espace et ton lien de tracking. 🔥")
+            await message.reply(f"🏆 {membre.mention} validé — **grille indéterminée** "
+                                + ("(pays déclaré ≠ indicatif)" if incoherent else "(candidature non liée)")
+                                + f" → défaut **FR** : je lui demande son e-mail (contrat auto). "
+                                f"Si international : `!equipe {membre.display_name} int` **maintenant** "
+                                f"(avant qu'il signe).")
         return True
 
     if texte.startswith("!test-non"):
