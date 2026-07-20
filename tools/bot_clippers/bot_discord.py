@@ -1966,9 +1966,43 @@ async def commande_admin(message, texte: str) -> bool:
                       ("✅" if DOCUSEAL_EMAIL_AGENCE else "⚠️")
                       + f" DOCUSEAL_EMAIL_AGENCE = {DOCUSEAL_EMAIL_AGENCE or 'vide (contresignature manuelle)'}",
                       f"🌐 DOCUSEAL_URL = {DOCUSEAL_URL}"]
+            lignes.append(("✅" if not DOCUSEAL_CONTRESIGNATURE else "⚠️")
+                          + f" DOCUSEAL_CONTRESIGNATURE = {'1 (contre-signature manuelle réactivée)' if DOCUSEAL_CONTRESIGNATURE else '0 (mono-signataire — recommandé)'}")
+            lignes.append(("✅" if DOCUSEAL_ONBOARDING_AUTO else "⚠️")
+                          + f" DOCUSEAL_ONBOARDING_AUTO = {'1 (rôle auto à la signature)' if DOCUSEAL_ONBOARDING_AUTO else '0 (notification admin seulement)'}")
             if DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID.isdigit():
-                _, err = await docuseal_requete("GET", f"/templates/{DOCUSEAL_TEMPLATE_ID}")
-                lignes.append("✅ Modèle joignable via l'API" if err is None else f"❌ Test API : {err}")
+                modele, err = await docuseal_requete("GET", f"/templates/{DOCUSEAL_TEMPLATE_ID}")
+                if err is not None or not isinstance(modele, dict):
+                    lignes.append(f"❌ Test API : {err or 'réponse illisible'}")
+                else:
+                    lignes.append("✅ Modèle joignable via l'API — inspection :")
+                    roles = [s.get("name", "?") for s in modele.get("submitters", []) or []]
+                    if roles == ["Clipper"]:
+                        lignes.append("  ✅ Une seule partie signataire : « Clipper » (mono-signataire OK)")
+                    elif "Clipper" not in roles:
+                        lignes.append(f"  ❌ Aucune partie « Clipper » (trouvé : {', '.join(roles) or 'aucune'}) "
+                                      "— le bot ne détectera JAMAIS la signature")
+                    else:
+                        lignes.append(f"  ⚠️ Parties : {', '.join(roles)} — avec CONTRESIGNATURE=0, une 2ᵉ "
+                                      "partie empêche le doc de passer « complété » (supprime-la du modèle)")
+                    champs = modele.get("fields", []) or []
+                    noms = {(c.get("name") or "").strip() for c in champs}
+                    for attendu in ("Email", "Telephone"):
+                        lignes.append((f"  ✅ Champ « {attendu} » présent (pré-rempli par le bot)"
+                                       if attendu in noms else
+                                       f"  ⚠️ Champ « {attendu} » absent — le pré-remplissage ne marchera pas "
+                                       "(nom EXACT requis)"))
+                    naissance = next((c for c in champs if "naissance" in (c.get("name") or "").lower()), None)
+                    majeur = next((c for c in champs if c.get("type") == "checkbox"
+                                   and "majeur" in (c.get("name") or "").lower()), None)
+                    for etiquette, champ in (("Date de naissance", naissance), ("Case « majeur » (18+)", majeur)):
+                        if champ is None:
+                            lignes.append(f"  ❌ {etiquette} : champ introuvable — garde-fou 18+ absent")
+                        elif champ.get("required"):
+                            lignes.append(f"  ✅ {etiquette} : présent et OBLIGATOIRE")
+                        else:
+                            lignes.append(f"  ⚠️ {etiquette} : présent mais PAS obligatoire — active "
+                                          "« Required » dans l'éditeur (garde-fou 18+)")
             lignes.append("\nUsage : `!contrat Hugo` pour (re)créer et envoyer son contrat.")
             await message.reply("\n".join(lignes)[:1990])
             return True
