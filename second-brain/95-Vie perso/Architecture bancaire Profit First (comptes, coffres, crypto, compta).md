@@ -59,6 +59,39 @@ Commissions facturées (€ sur Wio Business)      ← le CA de TA société (~1
 > [!info] Deux corrections factuelles au vault (agents du 20/07 → [[Fact-Check-Log]])
 > **¹ Wio n'est PAS un EMI** : c'est une **banque à part entière licenciée CBUAE** (capital 2,3 Md AED, 65 % ADQ + Alpha Dhabi = souverain Abou Dhabi, 10 % FAB). Le vrai EMI de ton montage, c'est **Yoursafe** côté flux FR. Donc le coffre externe n'est pas un « upgrade de sûreté d'établissement » — Wio est déjà solide ; le gain est la **friction + la séparation compliance**. **² La garantie des dépôts EAU existe désormais** : **AED 100 000 / déposant / banque** (~23-24 k€), Federal Decree-Law 6/2025 en vigueur le 16/09/2025 (Art. 122 CBUAE Rulebook). → Le haut de ta cible coffre (30 k€) **dépasse** le plafond garanti : plafonne à ~AED 100k/banque, ou bascule l'excédent en IBKR (titres ségrégués).
 
+## Le setup Wio concret + Wio Invest (2 agents du 20/07)
+
+> [!tip] Verdict Wio
+> **Wio = ton orchestrateur Profit First quotidien (comptes, Spaces, Autopilot, export Sheet), PAS ton coffre-fort ultime.** Trois vérités qui cassent le fantasme « tout dans Wio, bloqué » : ① le **« 6 % » est un taux promo 1 mois conditionnel** (salaire + dépense) ; ② **« bloqué » est un mythe** — un Fixed Space se casse à tout moment (pénalité = intérêt réduit, pas un mur) ; ③ tout consolider dans Wio recrée le **point de défaillance unique** (un gel emporte flux + épargne + patrimoine ensemble). Donc : **Wio pour l'opérationnel, FAB pour le vrai coussin verrouillé, IBKR pour l'ETF.**
+
+**Les plans** : **Wio Business Essential (99 AED/mois)**, pas Grow — Grow (249) ne débloque les Fixed Spaces + 1 % que si tu épargnes > ~90 k AED dans la boîte (pas ton cas). Sur Essential, l'épargne business = **0 %** → le coffre boîte y dort sans rendement (accepté : c'est du cash de sécurité, ~450-600 €/an de manque, pas un placement). **Wio Perso : Salary Plan (gratuit)**.
+
+**Le 6 %** : salaire ≥ **15 000 AED/mois** (ta part ~16 000, OK) + dépense ≥ 5 000 AED/mois, **uniquement sur le Fixed Space 1 mois** (les termes longs rendent 4,4-4,5 %). ⚠️ **MAIS** un salaire auto-versé Wio Business → Wio Perso est un virement **interne** — il ne passe ni par le WPS ni par le FTS, donc **rien ne garantit qu'il déclenche le plan Salary**. **À demander à Wio Care (care@wio.io) avant de compter dessus.**
+
+**Les Spaces** : max **10 par compte**. Flexible (pas de blocage, ~3 %) vs Fixed (1/3/6/12 mois). ⚠️ **Un Fixed Space se casse à tout moment** (pénalité douce) — friction, pas verrou. Le vrai « intouchable » = **DAT FAB**.
+
+**Automatisation** : **Autopilot** (montant FIXE programmé, journalier/hebdo/mensuel) + Scheduled Transfers vers tout IBAN. ⚠️ **Pas de split en % du flux entrant** → tu poses des **montants fixes en AED** à chaque clôture, réajustés quand le CA bouge. C'est ça, ton Profit First automatisé chez Wio.
+
+**Multi-devise** : Business tient AED/USD/EUR/GBP (IBAN par devise). Conversion Perso = **markup 1,5 % (cher)** → convertis tes € via **Wise (~0,4 %)**.
+
+**Tracking Google Sheet** : **export CSV mensuel gratuit** calé sur ta clôture → import dans le Sheet (le meilleur rapport friction/valeur ; intégrations Wafeq/Fiskl si tu veux du temps réel, mais + une brique).
+
+**Wio Invest (ETF)** : depuis le **10/06/2026**, Wio propose des **ETF UCITS irlandais iShares** (dès 10 $, USD, capitalisants) = fiscalement propre (15 % dividendes, **pas d'estate tax US**). ⚠️ **MAIS l'app vend AUSSI des actions US / ETF US-situs** (piège estate tax 40 % > 60 k$, jusqu'à ~176 k$ sur 500 k$) → **ne clique QUE l'UCITS** (domicile IE, tickers CSPX/VUAA/SWDA). Pour le patrimoine long terme, **IBKR reste meilleur** (FX ~0,002 % vs spread caché Wio, univers complet, titres ségrégués, **décorrélé**). Wio Invest = **rampe de démarrage UCITS acceptable** pendant le KYC IBKR (2-3 sem.), UCITS-only. **Jamais ton BTC sur Wio Invest** (cold storage).
+
+**La carte finale (où va chaque box)** :
+
+| Poche | Compte | Rendement | Vrai verrou ? |
+|---|---|---|---|
+| Fond de roulement (frais, Maxence transit) | Wio Business Essential | 0 % | non (opérationnel) |
+| **Coffre boîte** (10 % de ta moitié, cible 15-20 k€) | Wio Business, Space Flexible | 0 % (Essential) | non |
+| Paie chatteurs (provision) | Wio Business, Space Flexible | — | non |
+| **Ta vie** (~75 %) | Wio Perso | 3 % courant | non (2 500 € charges) |
+| **BTC** (5 %) | → Binance corp → cold storage | — | cold |
+| **Coussin survie 6-12 mois** | **FAB, échelle DAT** | ~3 % | ✅ vrai verrou |
+| **Extraction → patrimoine** (10 %→25 %) | **IBKR, ETF UCITS** | ~7 % LT | politique signée |
+
+L'extraction remplit d'abord le **coussin FAB** (jusqu'à 15-30 k€), puis bascule sur l'**ETF IBKR**. Le 6 % Wio n'a de place que sur une **poche liquide accessoire** que tu acceptes de garder dans Wio — jamais le coussin de survie ni le patrimoine.
+
 ## Le rail crypto — payer les chatteurs proprement
 
 **Le trou actuel à boucher** : `Wio Business → Wio Perso → Binance` fait transiter une charge business par ton compte perso. Ça casse trois choses qui valent des 5-6 chiffres : la **déductibilité CT** du coût chatteurs (~6,5-13 k$/an d'enjeu à 9 % dès 2027), l'**absence de commingling**, ta **story résidence 0 %** — et c'est une **violation des CGU Binance** (compte perso pour de la paie = motif de gel).
@@ -90,7 +123,7 @@ Tes commissions arrivent en **€**. Tu **gagnes** en € — donc tu convertis 
 - **L'inconnue n°1 à lever** : la **date de clôture d'exercice dans ton acte (MoA/AoA)** — elle fixe ta période fiscale et l'échéance. Lis cette ligne.
 - **0 % en 2026 via le Small Business Relief** (CA ≤ 3 M AED ; tu es à ~720 k). **À élire dans la déclaration** (pas automatique). Le QFZP est écarté (audit annuel + incompatible avec le SBR). Rappel : **les dividendes ne réduisent PAS la CT** (payés après impôt) — le 0 % vient du SBR, pas d'un montage.
 - **Comptable : oui** (bookkeeper + déclaration CT ~5-10 k AED/an). **Auditeur : non** sous SBR (audit imposé seulement si QFZP ou CA > 50 M AED — `to-verify` que RAKEZ n'en demande pas au renouvellement). Registres conservés **7 ans**, compta de caisse autorisée sous 3 M.
-- **Salaire** : pas obligatoire, RAKEZ hors WPS → **le plan « salary » Wio est inutile**. Mais **verse-toi un salaire mensuel modeste, documenté** (contrat de travail + virement fixe libellé « Salary » + bulletin PDF) : zéro coût fiscal en 2026, mais **preuve de revenu** pour ton visa et un futur crédit immo, + base déductible prête pour 2027. Le surplus se sort en tirage (0 % perso).
+- **Salaire** : pas obligatoire pour l'obligation WPS (RAKEZ hors WPS). Mais **verse-toi un salaire mensuel modeste, documenté** (contrat de travail + virement fixe libellé « Salary » + bulletin PDF) : zéro coût fiscal en 2026, mais **preuve de revenu** pour ton visa et un futur crédit immo, + base déductible prête pour 2027. Le surplus se sort en tirage (0 % perso). ⚠️ Ce salaire pourrait aussi débloquer le **6 % du Wio Salary Plan** — mais un virement **interne** Business→Perso ne qualifie peut-être pas (le plan reconnaît un crédit WPS/FTS) : à confirmer avec Wio Care avant de compter dessus.
 - **Maxence** : sa société **te facture** ses services chaque mois (charge déductible arm's length, traitez-vous comme related parties par prudence) — jamais un « dividende ». Les créatrices co-signées qui paient déjà 50/50 les deux entités ne nécessitent pas de facture inter-sociétés.
 
 ## La checklist AVANT le départ (~26/07)
