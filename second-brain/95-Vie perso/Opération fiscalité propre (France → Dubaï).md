@@ -16,6 +16,8 @@ liens_forts: ["[[Analyse finances perso (13 juillet 2026)]]", "[[SOP clôture me
 > [!warning] Ce chantier a un jumeau côté créatrices (2026-07-16)
 > Les créatrices FR en micro qui reversent 50 % à l'agence Dubaï ont le **même problème en miroir** : déduire ces 50 % suppose que ta structure soit propre, sinon un contrôle sur elles **remonte jusqu'à toi**. Les deux dossiers se traitent avec le **même fiscaliste**, dans le bon ordre (ta structure d'abord). Détail : [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]].
 
+> **Cette opération est le chantier STRUCTUREL** (fermer la France proprement) d'un dispositif à 3 fronts pour protéger la résidence UAE. La vue d'ensemble — compteur physique (183 j TRC / 180 j visa), non-résidence FR, liens affirmatifs UAE + siège de direction — est dans **[[Bouclier résidence UAE (les 3 fronts)]]**.
+
 ## Pourquoi c'est prioritaire (le trou dans le dossier)
 
 Aujourd'hui : la **filiation MYM** (parrainage) et le **MYM de Jade** arrivent sur ton **Revolut perso français**. C'est le pire pattern possible : du revenu business, sur un compte personnel, en France, alors que tu te déclares résident émirien. Le TRC seul ne te protège pas — côté France, la résidence s'apprécie **aux faits** (foyer, séjour principal, centre des intérêts économiques), et des flux business récurrents sur un compte FR sont exactement le genre de fait qui fait douter ([[Analyse finances perso (13 juillet 2026)|le flag fiscal]]). La règle cible, simple : **aucun revenu business ne touche un compte perso, aucun revenu ne touche la France.**

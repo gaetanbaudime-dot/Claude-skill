@@ -22,6 +22,14 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-20 — Bouclier résidence UAE : hub à 3 fronts + 2 seuils physiques clarifiés (recherche)
+- **Fait** : [[Bouclier résidence UAE (les 3 fronts)]] créée — synthèse qui manquait (la défense FR était bien couverte, l'affirmatif UAE éparpillé). Les 3 fronts : ① compteur physique · ② non-résidence FR (art. 4 B) · ③ liens affirmatifs UAE + siège de direction.
+- **Sharpening clé (recherche web)** : deux seuils à NE PAS confondre. **(a)** Le **TRC treaty** (le seul papier qui bat la France) exige **183 j de présence UAE/année civile** — la résidence *domestique* tombe à 90 j + permis, mais la FTA n'émet le treaty qu'à 183 j (Cabinet Decision 85/2022). **(b)** Le **visa + Emirates ID** s'annulent si **> 180 j CONSÉCUTIFS hors UAE** (compteur remis à zéro à chaque entrée, Emirates ID désactivé casse banque/services). Départ 26/07 → retour 26/09 = OK sur les deux ; règle permanente : jamais > 6 mois d'affilée dehors.
+- **Angle mort nommé** : le **siège de direction effective** — piloter LTP depuis la France crée un établissement stable français (impôt FR sur une part) ET attaque la résidence perso. Les délégations écrites du pacte (Art 10.2) servent double.
+- **Maillon faible assumé** : centre d'intérêts économiques ambigu (équipe/créatrices FR) → le contre-argument ne tient que si zéro acte de direction depuis la France.
+- **Wiring** : liens bidirectionnels posés (Protocole séjour = front défensif, Opération fiscalité = chantier structurel) + entrée hub dans [[_MOC Vie perso]] + checklist permanente (annuelle, pas que 2026).
+- **Prédiction (20/07)** : 3 fronts tenus en 2026 → non-résidence non attaquable ; point de contrôle = 2042-NR au printemps 2027.
+
 ### 2026-07-20 — SOP paie chatteurs (Binance corporate) — guide pas-à-pas + recherche
 - **Fait** : [[SOP paie chatteurs (Binance corporate)]] créée (96-Opérations) — le pas-à-pas complet (KYB en 4 étapes, financement depuis Wio Business, Convert/P2P → USDT, Binance Pay gratuit, relevés par chatteur, garde-fous). Recherche web : Binance FZE = entité **VARA** ; KYB = basic info / related parties / documents / source declaration ; Binance Pay entre comptes = **0 frais** ; P2P 0 % taker / 0,15-0,35 % maker ; payout stablecoin ~0,1-0,5 % vs 2-7 % classique.
 - **Le risque n°1 identifié = le KYB adulte** : la due diligence peut refuser/geler une agence à nexus adulte. Reco tranchée : **déclarer honnêtement + fallback** (Rain/BitOasis VARA, ou prestataire payout) — **jamais maquiller l'activité** (gel post-onboarding = pire moment). C'est le maillon incertain → à lancer en premier.

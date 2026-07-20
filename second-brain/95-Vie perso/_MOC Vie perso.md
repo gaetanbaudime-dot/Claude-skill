@@ -26,6 +26,7 @@ Le côté personnel de ton second cerveau, en miroir du business (`00-Contexte/`
 ## 💶 Argent perso
 
 - [[Suivi trésorerie quotidien]] : le rituel Hormozi — 3 soldes chaque matin, runway, feu vert/rouge recrutement.
+- [[Bouclier résidence UAE (les 3 fronts)]] 🛡️ : le **hub** de protection de la résidence — les 3 fronts (compteur physique 183 j TRC / 180 j visa, non-résidence FR, liens affirmatifs UAE + siège de direction), la checklist permanente. À lire en premier ; les deux pages ci-dessous en sont les moitiés défensive et structurelle.
 - [[Opération fiscalité propre (France → Dubaï)]] : TRC, liquidation SAS, radiation micro, fermeture des comptes FR — tout à Dubaï au 31/12.
 - [[Protocole séjour France (résidence fiscale sous surveillance)]] : le fondamental n°3 du plan richesse — les 4 critères alternatifs de l'art. 4 B (aucun compteur de jours), zéro pilotage depuis le sol FR, aucun foyer disponible, retour ≤ 1er/11, le dossier de preuve « intérêts vitaux = Dubaï ».
 - [[Brief fiscaliste unique (LLC US en tête)]] : le fondamental n°4 — les 6 questions priorisées du rendez-vous (LLC US/5472 en n°1 : exposition potentielle 50-75 k$), les 5 réponses à rassembler avant, le profil du pro (franco-émirati + CPA US).
