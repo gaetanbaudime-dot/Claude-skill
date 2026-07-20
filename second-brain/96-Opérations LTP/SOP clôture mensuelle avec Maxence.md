@@ -33,11 +33,11 @@ liens_forts: ["[[Analyse finances perso (13 juillet 2026)]]", "[[Suivi trésorer
 ### Couche 1 — Le P&L agence (ce que vous faites déjà, en propre)
 Commissions par créatrice (mêmes colonnes chaque mois) − **dépenses business ligne à ligne** (fini le bloc opaque : chaque ligne a un nom et une catégorie — outils / paies / ads / DMCA / frais bancaires) = **profit agence**.
 
-### Couche 2 — Les allocations AVANT distribution (le Profit First restauré)
+### Couche 2 — Le partage PUIS tes allocations (ordre corrigé le 20/07)
 Dans cet ordre, le jour même :
-1. **Réserve impôts : 5 % du profit** → sous-compte dédié Wio. Voir l'encadré CT ci-dessous — même si l'impôt dû est probablement 0 % jusqu'à fin 2026, **la réserve se constitue quand même** (la discipline vaut plus que le taux, et 2027 arrive vite).
-2. **Coffre boîte : 10 % du profit** → réserve opérationnelle, cible **3 mois de charges fixes (~15-20 k€)**. C'est elle qui finance les vagues de clippers sans stress et encaisse un ban plateforme ([[Analyse dashboard OFM (13 juillet 2026)|le risque n°1]]).
-3. **Le reste = distribuable**, split 50/50, ajustements tracés dans le Sheet (Amanda → Maxence, etc.). ⚠️ **Rappel structurel** : Maxence a **sa propre société** — son versement est un **règlement inter-sociétés**, pas une distribution interne. Il doit s'appuyer sur un contrat + une facture mensuelle (point [[Opération fiscalité propre (France → Dubaï)|fiscaliste]]) ; la clôture fournit justement le montant à facturer.
+1. **Le profit se partage 50/50 D'ABORD.** Maxence n'est pas actionnaire de LTP : sa société **facture** sa part (règlement inter-sociétés, charge déductible arm's length — il paie sa propre CT dessus). Sa moitié sort donc comme un **coût**, AVANT tes réserves. La clôture fournit le montant à facturer.
+2. **Sur TA moitié — Réserve impôts (ta CT)** → sous-compte dédié Wio. ~0 % en 2026 via le SBR, mais **la réserve se constitue quand même** (discipline > taux, 2027 arrive vite).
+3. **Sur TA moitié — Coffre boîte** → ta réserve opérationnelle, cible **3 mois de charges fixes (~15-20 k€)**, qui encaisse un ban ([[Analyse dashboard OFM (13 juillet 2026)|le risque n°1]]). ⚠️ Comme c'est ta société, c'est **toi seul** qui la finances (à formaliser au pacte si vous voulez en faire un fonds commun). Cascade complète : [[Architecture bancaire Profit First (comptes, coffres, crypto, compta)]].
 
 ### Couche 3 — Le perso (chacun chez soi, plus jamais dans le calcul)
 Le jour où ta part arrive : **30 % → coffre intouchable AVANT toute dépense** ([[Analyse finances perso (13 juillet 2026)|le système anti-plafond]]), le reste = ta vie et tes investissements (filtrés par la règle anti-impulsion : quelle contrainte ça lève + payback écrit). Les dépenses perso **ne remontent jamais** dans la clôture business.
@@ -52,6 +52,8 @@ Le jour où ta part arrive : **30 % → coffre intouchable AVANT toute dépense*
 | Part de chacun | 3 533 € (après perso partagé) | 4 001 € (brut, vie non déduite) |
 | Ton coffre perso (30 % de ta part) | 0 € | 1 200 € |
 | **Capitalisé ce mois** | **0 €** | **~2 613 €** |
+
+*(⚠️ Ordre corrigé le 20/07 : les réserves se prélèvent sur TA moitié, pas avant le partage — les chiffres ci-dessus illustrent le gain de capitalisation, pas l'ordre exact. Le principe « ~2 600 € capitalisés au lieu de 0 » tient.)*
 
 ## ⚠️ Encadré Corporate Tax UAE (to-verify — à trancher cette semaine)
 
