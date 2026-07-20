@@ -124,6 +124,14 @@ DOCUSEAL_API_KEY = os.environ.get("DOCUSEAL_API_KEY", "").strip()
 DOCUSEAL_TEMPLATE_ID = os.environ.get("DOCUSEAL_TEMPLATE_ID", "").strip()
 DOCUSEAL_URL = os.environ.get("DOCUSEAL_URL", "https://api.docuseal.com").strip()
 DOCUSEAL_EMAIL_AGENCE = os.environ.get("DOCUSEAL_EMAIL_AGENCE", "").strip()   # contresignataire (rôle Agence)
+# Parcours parfait (20/07) : par défaut le contrat est MONO-signataire (l'agence est déjà
+# signée DANS le modèle = image de signature figée) → zéro contre-signature à faire. Et à la
+# signature, le rôle Team France + l'onboarding s'attribuent AUTOMATIQUEMENT (plus de !equipe).
+# ⚠️ 18+ : le garde-fou passe alors DANS le contrat (champ « date de naissance » + case « je
+# suis majeur·e » obligatoires dans le modèle DocuSeal) ; chaque auto-onboarding est notifié en
+# admin avec le rappel et la commande d'annulation. Mettre à "1" pour revenir à l'ancien flux.
+DOCUSEAL_CONTRESIGNATURE = os.environ.get("DOCUSEAL_CONTRESIGNATURE", "0").strip() in ("1", "true", "oui")
+DOCUSEAL_ONBOARDING_AUTO = os.environ.get("DOCUSEAL_ONBOARDING_AUTO", "1").strip() in ("1", "true", "oui")
 
 # ---- Rappels récurrents (18/07 soir) : trésorerie chaque matin (MP admin), reporting le dimanche ----
 LIEN_TRESORERIE = os.environ.get("LIEN_TRESORERIE", "").strip()        # sheet de suivi trésorerie quotidien
@@ -804,7 +812,9 @@ async def creer_contrat_docuseal(email, tel=""):
                             "— c'est le NOMBRE dans l'URL du modèle : docuseal.com/templates/XXXX")
     submitters = [{"role": "Clipper", "email": email,
                    "values": {c: v for c, v in (("Email", email), ("Telephone", tel)) if v}}]
-    if DOCUSEAL_EMAIL_AGENCE:
+    # Par défaut : mono-signataire, aucune contre-signature (l'agence est pré-signée dans le
+    # modèle). On n'ajoute le rôle « Agence » que si la contre-signature est explicitement voulue.
+    if DOCUSEAL_CONTRESIGNATURE and DOCUSEAL_EMAIL_AGENCE:
         submitters.append({"role": "Agence", "email": DOCUSEAL_EMAIL_AGENCE})
     reponse, erreur = await docuseal_requete("POST", "/submissions", {
         "template_id": int(DOCUSEAL_TEMPLATE_ID), "send_email": False,
@@ -940,6 +950,29 @@ async def traiter_candidature_webhook(message, silencieux=False):
                      len(enregistrees), len(rapprochees), rejets)
 
 
+async def attribuer_equipe(guild, membre, equipe, par_id):
+    """Attribue le rôle Team (fr|mg) + écrit le registre des signatures.
+    Retourne (nom_role, None) si OK, (None, message) sinon. Utilisé par l'auto-onboarding à la
+    signature du contrat (parcours parfait du 20/07) ; la commande `!equipe` garde sa logique."""
+    role_fr = discord.utils.find(lambda r: normaliser(ROLE_TEAM_FR_NOM) in normaliser(r.name), guild.roles)
+    role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name), guild.roles)
+    if role_fr is None or role_mg is None:
+        return None, "rôle d'équipe introuvable (ROLE_TEAM_FR_NOM / ROLE_TEAM_MG_NOM)"
+    cible, autre = (role_fr, role_mg) if equipe == "fr" else (role_mg, role_fr)
+    try:
+        await membre.remove_roles(autre, reason=f"Équipe {equipe}")
+        await membre.add_roles(cible, reason=f"Signature contrat — équipe {equipe}")
+    except discord.Forbidden:
+        return None, "permission manquante (monte mon rôle AU-DESSUS des rôles d'équipe)"
+    except discord.HTTPException as erreur:
+        return None, f"Discord: {erreur}"
+    registre = lire_json(FICHIER_EQUIPES, {})
+    registre[str(membre.id)] = {"equipe": equipe, "par": str(par_id),
+                                "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    ecrire_json(FICHIER_EQUIPES, registre)
+    return cible.name, None
+
+
 async def boucle_pipeline():
     """Relance à mi-parcours et clôt les tests expirés (candidats en état test_envoye)."""
     while True:
@@ -972,8 +1005,10 @@ async def boucle_pipeline():
                     if membre:
                         await envoyer_mp(membre, "⏰ Rappel : il te reste **moins de 24 h** pour rendre ton test "
                                                  "(2 clips). Dépose-les et préviens dans #candidature. Tu tiens le bon bout 💪")
-            # Suivi des contrats DocuSeal par sondage (pas de webhook entrant nécessaire) :
-            # clipper signé → « vérifie + contresigne » ; les deux signés → « !equipe » prêt.
+            # Suivi des contrats DocuSeal par sondage (pas de webhook entrant nécessaire).
+            # Parcours parfait (20/07) : contrat mono-signataire → dès que le clipper signe, le
+            # rôle Team France + l'onboarding s'attribuent AUTOMATIQUEMENT (fini la contre-
+            # signature ET le !equipe). 18+ garanti par le contrat ; audit + annulation en admin.
             for uid, info in list(donnees.get("etats", {}).items()):
                 contrat = info.get("contrat")
                 if not contrat or contrat.get("statut") == "complet" or not contrat.get("submission_id"):
@@ -983,20 +1018,39 @@ async def boucle_pipeline():
                     continue
                 signataires = reponse.get("submitters", [])
                 clipper_signe = any(s.get("role") == "Clipper" and s.get("completed_at") for s in signataires)
+                # « complet » = tout le monde a signé. En mono-signataire, c'est le clipper seul.
                 tous_signes = bool(signataires) and all(s.get("completed_at") for s in signataires)
                 membre = membre_par_id(uid)
                 canal = await canal_admin()
                 if tous_signes:
                     contrat["statut"] = "complet"
                     modifie = True
+                    onboarde, erreur_role = False, ""
+                    if DOCUSEAL_ONBOARDING_AUTO and membre is not None:
+                        nom_role, erreur_role = await attribuer_equipe(membre.guild, membre, "fr", client.user.id)
+                        onboarde = nom_role is not None
                     if membre:
-                        await envoyer_mp(membre, "✅ **Contrat signé des deux côtés — bienvenue "
-                                                 "officiellement dans l'équipe France !** Tes accès "
-                                                 "s'ouvrent tout de suite. 🔥")
+                        await envoyer_mp(membre,
+                            "✅ **Contrat signé — bienvenue officiellement dans l'équipe France ! 🔥**\n\n"
+                            + ("Ton rôle **Team France** vient de s'ouvrir. Tu as maintenant accès à :\n"
+                               "1. **Ton espace privé** (salon + Drive : rushs et modèles de ta créatrice).\n"
+                               "2. **Ton lien de tracking** (pour compter tes revenus).\n"
+                               "3. La **Fiche 1** pour créer tes comptes — c'est le jour 0.\n\n"
+                               "Lis la Fiche 1 en entier avant de commencer (règles anti-ban). À toi de jouer 🚀"
+                               if onboarde else
+                               "On t'ouvre tes accès dans quelques minutes — tu vas recevoir ton rôle "
+                               "Team France, ton espace et ton lien de tracking. Reste connecté 🚀"))
                     if canal and membre:
-                        await canal.send(f"🖋️ **Contrat complet** pour {membre.mention} → "
-                                         f"`!equipe {membre.display_name} fr` pour ouvrir ses accès.")
-                elif clipper_signe and contrat.get("statut") == "envoye":
+                        await canal.send(
+                            (f"✅ **{membre.mention} — contrat signé, auto-onboardé Team France.** "
+                             f"⚠️ 18+ : à garantir par le contrat (champ date de naissance / attestation "
+                             f"majeur). Annuler : `!equipe {membre.display_name} retirer`."
+                             if onboarde else
+                             f"🖋️ **Contrat complet** pour {membre.mention} — "
+                             + (f"⚠️ auto-onboarding raté ({erreur_role}) : `!equipe {membre.display_name} fr`."
+                                if DOCUSEAL_ONBOARDING_AUTO else
+                                f"`!equipe {membre.display_name} fr` pour ouvrir ses accès.")))
+                elif clipper_signe and contrat.get("statut") == "envoye" and DOCUSEAL_CONTRESIGNATURE:
                     contrat["statut"] = "signe_clipper"
                     modifie = True
                     if canal and membre:
@@ -1007,7 +1061,7 @@ async def boucle_pipeline():
                 ecrire_json(FICHIER_PIPELINE, donnees)
         except Exception as erreur:                                     # la boucle ne doit jamais mourir
             journal.warning("Boucle pipeline : %s", erreur)
-        await asyncio.sleep(1800)
+        await asyncio.sleep(300)   # 5 min : l'auto-onboarding post-signature doit être quasi immédiat
 
 
 def heure_paris():
@@ -1698,8 +1752,8 @@ async def commande_admin(message, texte: str) -> bool:
                   + f"🧪 {etat.get('etat', 'aucun test')}"
                   + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else ""),
                   f"✍️ Équipe signée (!equipe) : {signee}"
-                  + {"envoye": " · 🖋️ contrat envoyé (en attente)", "signe_clipper": " · 🖋️ signé par le "
-                     "clipper (à contresigner)", "complet": " · 🖋️ contrat ✅ complet"}.get(
+                  + {"envoye": " · 🖋️ contrat envoyé (en attente de signature)", "signe_clipper": " · 🖋️ signé "
+                     "par le clipper (contre-signature en attente)", "complet": " · 🖋️ contrat ✅ complet (auto-onboardé)"}.get(
                         etat.get("contrat", {}).get("statut"), "")]
         await message.reply("\n".join(lignes)[:1990])
         return True
@@ -1807,7 +1861,8 @@ async def commande_admin(message, texte: str) -> bool:
         ecrire_json(FICHIER_PIPELINE, donnees)
         envoye = await envoyer_mp(membre,
             "📧 **Ton contrat est prêt — signe-le ici (2 minutes)** :\n" + lien + "\n"
-            "Remplis tes infos dans le document, signe en bas. L'Agence contresigne ensuite et tes accès s'ouvrent. 🔥")
+            "Remplis tes infos (dont ta date de naissance) et signe en bas. **Dès la signature, "
+            "tes accès s'ouvrent automatiquement** : rôle Team France, espace privé, lien de tracking. 🔥")
         await message.reply(f"✅ Contrat créé pour {membre.mention} → lien de signature "
                             + ("**envoyé en MP**." if envoye else f"**MP fermés**, envoie-lui : {lien}")
                             + " Je préviens ici dès qu'il signe.")
@@ -2112,15 +2167,16 @@ async def on_message(message):
                                     "1️⃣ Remplis tes informations directement dans le document (nom complet, "
                                     "date de naissance, adresse…).\n"
                                     "2️⃣ Signe en bas.\n"
-                                    "3️⃣ Après vérification, l'Agence contresigne et **tes accès s'ouvrent** "
-                                    "(rôle, espace, lien de tracking). Ta copie PDF arrivera sur ton e-mail. 🔥")
+                                    "3️⃣ **Dès la signature, tes accès s'ouvrent automatiquement** "
+                                    "(rôle Team France, espace privé, lien de tracking) — rien d'autre à "
+                                    "attendre. Ta copie PDF arrivera sur ton e-mail. 🔥")
                 if canal:
                     await canal.send(f"📨 Contrat DocuSeal **envoyé automatiquement** en MP à "
                                      f"{message.author.mention} — je te préviens ici dès qu'il aura signé.")
                 journal.info("Contrat DocuSeal créé pour %s (soumission %s)", utilisateur, submission_id)
                 return
             await message.reply("📧 Bien reçu ! Ton **contrat** arrive sur cette adresse — signe-le dès "
-                                "réception, tes accès s'ouvrent à la contresignature. 🔥")
+                                "réception, tes accès s'ouvrent automatiquement juste après. 🔥")
             if canal:
                 await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — "
                                  f"**validé FR** mais ⚠️ DocuSeal a échoué : **{err_contrat}**.\n"
