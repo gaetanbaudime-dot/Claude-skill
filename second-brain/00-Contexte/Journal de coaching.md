@@ -22,6 +22,14 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-20 — Banque perso ARRÊTÉE : FAB (structure verrouillée)
+- **Décision** : après challenge de Gaëtan (« es-tu absolument certain que c'est la meilleure banque pour 500k + immo + villa Côme ? »), structure confirmée : **Wio Business (firewall + €) · FAB perso (salaire + AECB) · IBKR (patrimoine) · zéro nouvelle entité.** Banque perso = **FAB**.
+- **Honnêteté posée** : FAB **n'est pas uniquement « le meilleur »** — Emirates NBD est son égal ; le choix se départage sur la **commodité** (agence proche, appli, carte de crédit obtenue le plus vite), et il est **réversible + non-verrouillant**. Reco : comparer FAB + ENBD dans la même tournée, ouvrir chez la plus rapide sur la carte de crédit.
+- **2 raffinements gravés** : ① **le crédit immo ne dépend PAS de la banque perso** — un courtier shoppe le taux sur toutes les banques → pas de pression à « bancariser » chez son futur prêteur. ② **garder une poche EUR** (Wio Business / IBKR multi-devises) pour le futur achat européen (**villa Côme**) — ne pas tout convertir en AED (l'Italie se paie en €, racheter de l'€ plus tard = spread payé 2×).
+- **Flag Côme (2028+)** : villa italienne = ligne d'arrivée financée par le patrimoine bâti, en EUR via une banque **européenne** — et **l'Italie rouvre le risque de résidence fiscale** (183 j + IMU + mondial), à traiter comme le dossier France le moment venu. Aucune banque UAE ne sert pour ça.
+- **Firewall re-rappelé** : FAB ne voit que **TON** salaire ; l'équipe (Emma, clippers = contractors → facture, pas fiche de paye) se paie depuis **Wio Business** ; les chatteurs depuis **Binance corporate**. Jamais l'équipe depuis FAB.
+- **Prochaine action physique (avant le 26/07)** : tournée Dubaï — FAB (+ comparer ENBD) + Binance corporate + activer Wio Business Payroll. Prédiction : si la tournée est faite avant le départ, le 1er salaire documenté tombe sur FAB au closing d'août ; sinon, la fenêtre physique est ratée et tout glisse.
+
 ### 2026-07-20 — Bouclier résidence UAE : hub à 3 fronts + 2 seuils physiques clarifiés (recherche)
 - **Fait** : [[Bouclier résidence UAE (les 3 fronts)]] créée — synthèse qui manquait (la défense FR était bien couverte, l'affirmatif UAE éparpillé). Les 3 fronts : ① compteur physique · ② non-résidence FR (art. 4 B) · ③ liens affirmatifs UAE + siège de direction.
 - **Sharpening clé (recherche web)** : deux seuils à NE PAS confondre. **(a)** Le **TRC treaty** (le seul papier qui bat la France) exige **183 j de présence UAE/année civile** — la résidence *domestique* tombe à 90 j + permis, mais la FTA n'émet le treaty qu'à 183 j (Cabinet Decision 85/2022). **(b)** Le **visa + Emirates ID** s'annulent si **> 180 j CONSÉCUTIFS hors UAE** (compteur remis à zéro à chaque entrée, Emirates ID désactivé casse banque/services). Départ 26/07 → retour 26/09 = OK sur les deux ; règle permanente : jamais > 6 mois d'affilée dehors.

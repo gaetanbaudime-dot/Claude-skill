@@ -58,7 +58,7 @@ COMMISSIONS facturées (€ → Wio Business)            le CA de TA société (
 
 ## Le hub perso — FAB (compte courant + carte AECB + coffre sans carte)
 
-**Banque : First Abu Dhabi Bank** (la plus systémique des EAU, ~Aa3/AA-, souverain Abou Dhabi). Emirates NBD = équivalent si tu veux des agences dans ta ville. **FAB remplace Wio Perso** et porte 3 usages distincts (même banque, comptes séparés) :
+**Banque : First Abu Dhabi Bank** (la plus systémique des EAU, ~Aa3/AA-, souverain Abou Dhabi). **Choix arrêté le 20/07 : FAB** — Emirates NBD était son **égal** ; le départage se fait sur la **commodité** (agence proche, appli, carte de crédit obtenue le plus vite), pas sur une supériorité de fond. Choix **réversible et non-verrouillant** (un compte, pas une entité ; et ton crédit ne dépend pas d'elle, cf. section salaire). **FAB remplace Wio Perso** et porte 3 usages distincts (même banque, comptes séparés) :
 - **Compte courant + carte** = ta vie quotidienne : **ton salaire documenté y atterrit**, tes dépenses en sortent. Une **carte de crédit payée à 100 % chaque mois** bâtit ton **AECB** (le score crédit = le nerf de la bankabilité).
 - **Poche liquide = FAB iSave** (~3,25 %, 0 AED de minimum, **sans carte par défaut**, 100 % dans l'app) — tampon + savings locale visible (la banque aime voir que tu épargnes).
 - **Poche verrouillée = échelle de dépôts à terme AED** : dès que iSave dépasse ~5 000 AED, découpe en **4 tranches à 3/6/9/12 mois**, renouvellement auto à 12 mois. Friction maximale + une échéance tous les 3 mois pour une liquidité *planifiée* (rééquilibrage vers IBKR) + lissage du taux.
@@ -136,6 +136,7 @@ Tes commissions arrivent en **€**. Tu **gagnes** en € — donc tu convertis 
 - **Maxence** : virement **interne Wio Business → Wio Business, même devise = zéro FX**.
 - **Binance** : € → USDT directement, pas de round-trip par l'AED.
 - **Batch : 1 conversion/mois**, calée sur la clôture ; pré-achète l'USDT du mois en une fois (pas 2 petits achats). Gain estimé : **~1 500-2 300 $/an** de frais évités.
+- **Garde une poche EUR** (Wio Business / IBKR multi-devises) pour le **futur achat européen (villa Côme)** : ne convertis pas tout en AED, l'Italie se paiera en € et racheter de l'€ plus tard = spread payé **deux fois**. FAB ne reçoit que ton **salaire AED** de vie courante ; l'EUR patrimonial reste hors FAB.
 
 ## La compta et la Corporate Tax (RAKEZ, incorp. 09/10/2025)
 
@@ -157,13 +158,15 @@ Tes commissions arrivent en **€**. Tu **gagnes** en € — donc tu convertis 
 - **⚠️ Correction au vault** : l'ancienne note « RAKEZ hors WPS » était **fausse**. RAKEZ émet des permis routés **MoHRE** → il est **dans le périmètre WPS fédéral**. Depuis le **01/06/2026** (Résolution 340/2026), échéance unifiée = **le 1er du mois** (fini les 15 j de grâce) ; cash/chèque/virement non-WPS ne comptent pas comme paie conforme pour un titulaire de permis MoHRE.
 - **La nuance owner** (`to-verify` avec l'agent RAKEZ) : selon ton **visa** — *employé* (permis MoHRE sous ta boîte → WPS s'applique à ton salaire) vs *investisseur/partner* (tu n'es pas « employé » → **owner's salary/drawing documenté** + salary certificate émis par ta société, hors WPS). Les deux marchent pour la preuve de revenu ; le WPS est du droit du travail, pas une condition d'octroi de crédit.
 - **Le levier 0 %** : comme le revenu perso est à **0 %**, tu peux te verser un salaire **solide et rond** (défendable vs ton profit ~460 k AED), pas « modeste » — plus d'income sur le papier renforce le dossier, sans coût fiscal. Garde-le **« raisonnable » et adossé au profit** (risque de requalification, `to-verify` fiscaliste).
-- **La réalité crédit immo (self-employed)** : 2+ ans de **trade license** (ta boîte : incorp. **09/10/2025** → oct 2027) + **états financiers audités** (même si le SBR ne t'impose pas d'audit CT, **la banque peut l'exiger** → prévoir de commander un audit pour le dossier) · **LTV 75 %** (vs 80 % salarié) · prime ~10-25 bps · délai 10-21 j · **haircut 20-40 %** sur le revenu · revenu min ~**AED 25 000/mois**. → La convergence **« bankable ≈ fin 2027 »** est confirmée **et durcie** (il faut aussi l'audit). Chiffrage réel via un courtier gratuit (Mortgage Finder / Holo / Huspy).
+- **La réalité crédit immo (self-employed)** : 2+ ans de **trade license** (ta boîte : incorp. **09/10/2025** → oct 2027) + **états financiers audités** (même si le SBR ne t'impose pas d'audit CT, **la banque peut l'exiger** → prévoir de commander un audit pour le dossier) · **LTV 75 %** (vs 80 % salarié) · prime ~10-25 bps · délai 10-21 j · **haircut 20-40 %** sur le revenu · revenu min ~**AED 25 000/mois**. → La convergence **« bankable ≈ fin 2027 »** est confirmée **et durcie** (il faut aussi l'audit). Chiffrage réel via un courtier gratuit (Mortgage Finder / Holo / Huspy). **Ton crédit ne dépend PAS de ta banque perso** : le courtier shoppe le meilleur taux sur **toutes** les banques → aucune pression à emprunter chez FAB parce que ton salaire y est ; la banque perso se choisit sur la commodité, pas sur le mortgage.
 
-## La checklist AVANT le départ (~26/07)
+## La tournée physique Dubaï — AVANT le départ (~26/07)
 
-- [ ] **Ouvrir le compte FAB perso** (impossible à distance — présence physique quasi exigée) : **compte courant + carte de crédit** (pour l'AECB) + iSave + échelle DAT sans carte. → c'est ton hub perso (Wio Perso retiré).
-- [ ] **Activer Wio Business Payroll** (SIF/WPS) et poser ton **salaire mensuel documenté** vers FAB perso.
-- [ ] **Ouvrir le compte Binance corporate** (LTP FZ-LLC) et couper le hop par le perso.
+*Les guichets qui exigent ta présence, à faire en une tournée. Le reste (KYC IBKR, Spaces Wio, SBR) est en ligne, sans urgence.*
+
+- [ ] **Ouvrir le compte perso — FAB** (impossible à distance) : **compte courant + carte de crédit** (pour l'AECB) + iSave + échelle DAT sans carte. Passe **aussi voir Emirates NBD** dans la même sortie et **ouvre chez celle qui te donne la carte de crédit le plus vite** (elles sont à égalité ; c'est le seul critère qui départage). → ton hub perso (Wio Perso retiré).
+- [ ] **Ouvrir le compte Binance corporate** (LTP FZ-LLC, KYB) — l'autre maillon incertain (nexus adulte), à lancer en priorité ([[SOP paie chatteurs (Binance corporate)|la SOP]]).
+- [ ] **Activer Wio Business Payroll** (SIF/WPS) et poser ton **salaire mensuel documenté** vers l'IBAN FAB (1er virement test avant de partir).
 - [ ] **Garder la SIM UAE active + tester les apps bancaires depuis l'étranger** (OTP/géofencing = piège d'accès à distance).
 - [ ] **Lire le MoA** pour la date de clôture d'exercice + **confirmer le TRN CT** dans EmaraTax.
 - [ ] **Formaliser** : contrat de salaire + 1er virement « Salary », et la facture inter-sociétés mensuelle de Maxence.
