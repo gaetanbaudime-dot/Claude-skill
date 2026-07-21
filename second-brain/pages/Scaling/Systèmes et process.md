@@ -32,6 +32,14 @@ Pourquoi les systèmes battent les talents à l'échelle. **La constance** : un 
 
 La méthode de systématisation, dans l'ordre : faire soi-même en notant (le premier passage est de la recherche), documenter en checklist exécutable, faire exécuter par un autre et corriger la doc à chaque question ([[Onboarding et intégration|l'onboarding comme test]]), mesurer la sortie, puis seulement automatiser, automatiser un chaos ne produisant que du chaos plus rapide.
 
+## Additivité : ne jamais casser ce qui marche, ajouter à côté
+
+Le corollaire de résilience du principe systémique : **un système qui marche est du capital qu'on ne détruit pas pour un gain marginal.** Le bon mouvement est additif — garder le rail qui fonctionne, construire le nouveau à côté, et ne migrer qu'une fois le nouveau prouvé. C'est l'antifragilité appliquée aux opérations : on n'optimise pas une pièce qui marche jusqu'à la rendre fragile, on ajoute de la redondance pour que l'ensemble survive à la perte de n'importe laquelle ([[Espérance mathématique et asymétries|survivre à la perte de n'importe quelle pièce]]). Le même schéma structure déjà [[Bouclier résidence UAE (les 3 fronts)|la défense de la résidence]] (plusieurs fronts indépendants) et [[Continuité du bot et paie sacrée (plan anti-panne)|la continuité de la paie]] (jamais un cycle raté).
+
+**Application LTP (principe de Gaëtan, 21/07)** : au moment d'ouvrir le rail [[SOP paie chatteurs (Binance corporate)|Binance corporate]], la tentation était de remplacer d'un coup la méthode existante. Décision inverse : la méthode actuelle reste comme **pont** (on ne coupe jamais un rail qui paie les chatteurs), le corporate se construit à côté, et un **2ᵉ exchange VARA** s'ouvre en parallèle plutôt qu'en remplacement — on ne migre qu'après un vrai paiement test.
+
+**Le contrepoids (sinon le principe devient une pathologie)** : « faire + » n'est PAS « ne jamais rien enlever ». Ajouter ce qui rend robuste, oui ; mais élaguer ce qui NE marche pas reste obligatoire ([[Kill-list (NON, pas maintenant)|la kill-list]]), sinon l'additivité dégénère en accumulation de complexité — exactement la bureaucratie que la section suivante dénonce. La règle exacte : **on ne détruit pas un système qui marche pour le remplacer ; on ne préserve pas un système qui ne marche pas par inertie.**
+
 ## Nuances, critiques, limites
 
 Le process a ses pathologies. La bureaucratie : des процессus qui survivent à leur raison d'être et taxent tout le monde ; l'audit périodique "que supprime-t-on ?" fait partie du système. La rigidité : sur-standardiser le non-standardisable (créativité, relations, exceptions) produit des scripts robotiques ; la règle de partage, standardiser le répétable pour libérer du temps sur l'exceptionnel. Le théâtre : des SOP jamais lus qui rassurent la direction ([[Biais de confirmation]] documentaire) ; un process non exécuté tel qu'écrit est un mensonge organisationnel à corriger dans un sens ou l'autre.

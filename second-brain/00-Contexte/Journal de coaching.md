@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-21 — Binance corporate lancé + principe d'additivité gravé + 2ᵉ rail VARA
+- **Décision** : ouvrir le [[SOP paie chatteurs (Binance corporate)|Binance corporate]] (KYB, société **100 % au nom de Gaëtan = UBO unique**, Maxence non déclaré) malgré la peur, en gardant la méthode actuelle comme **pont** (jamais couper un rail qui paie les chatteurs) et en ouvrant un **2ᵉ rail VARA en parallèle**. Description KYB = activité réelle « social media marketing / clients EU », **cohérente avec les factures** (document-consistent = survit à l'audit) ; jamais fabriquer un faux métier ni nier si question directe (la fausse déclaration = le seul ban vraiment inappelable).
+- **Contre le réflexe « garder le hop perso à vie »** : `Wio Business → Wio Perso → Binance perso` est le chemin à **PLUS** de risque de ban (CGU perso violées = gel), pas le moins ; + casse la déductibilité CT (~6,5-13 k$/an dès 2027) + commingling qui fragilise la résidence. Donc pont temporaire, pas structure permanente.
+- **Principe gravé (mots de Gaëtan)** : « ne jamais casser ce qui marche, faire **+** ». Ajouté à [[Systèmes et process]] (additivité/antifragilité : garder le rail qui marche, construire le nouveau à côté, migrer après preuve). Contrepoids honnête : ça ne dispense pas d'élaguer ce qui NE marche pas ([[Kill-list (NON, pas maintenant)|kill-list]]), sinon « faire + » devient du bloat.
+- **Prédiction (21/07)** : 2 rails VARA allumés + ≤ 1 cycle de fonds sur chacun → un refus/gel de l'un devient un non-événement (bascule 10 min). Si un seul rail reste allumé « parce que ça marche », le 1er gel casse la paie. Revue au 1er incident.
+
 ### 2026-07-21 — IBKR ouvert : le 3ᵉ pilier patrimonial câblé (W-8BEN UAE, funding depuis FAB)
 - **Fait** : compte **IBKR individuel** ouvert, **identité + adresse vérifiées** (Emirates ID + liveness), application soumise → approbation attendue ~24 h. Le 3ᵉ pilier de [[Architecture bancaire Profit First (comptes, coffres, crypto, compta)]] passe de « KYC en cours » à **ouvert**.
 - **Config gravée (tout cohérent patrimoine long terme)** : compte **Cash** (zéro levier), **Stocks uniquement** (Options + Prediction Markets coupés → pas de questionnaire dérivés inutile), **SYEP refusé** (prêt de titres : perte de protection investisseur + revenu quasi nul sur ETF larges + risque de contrepartie = l'inverse d'un coffre ségrégué), base **EUR**.
