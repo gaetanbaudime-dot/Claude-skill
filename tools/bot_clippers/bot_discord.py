@@ -835,29 +835,33 @@ async def creer_contrat_docuseal(email, tel=""):
 
 async def attribuer_grille(membre, pays, tel=""):
     """Attribue le rôle de grille (Grille France / International) → ce rôle DOIT ouvrir les salons
-    rémunération + bonus de la grille (permissions Discord du salon, à configurer côté serveur).
-    Grille = indicatif d'abord, pays en repli, RIEN si les deux se contredisent. Idempotent.
-    Retourne le libellé visible ('🇫🇷 France' / '🌍 International') ou '' si rien attribué."""
+    rémunération + bonus (permissions Discord du salon, côté serveur). Grille = INDICATIF d'abord
+    (suffit seul, même sans candidature retrouvée), pays en repli, RIEN si les deux se contredisent.
+    Idempotent. Retourne (libellé, erreur) : ('', None) = rien à faire (pas une erreur) ;
+    ('', message) = rôle introuvable/non attribuable → à remonter en admin (plus d'échec silencieux)."""
     if membre is None:
-        return ""
+        return "", None
     grille_tel = equipe_de_l_indicatif(tel) if tel else ""
     if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
-        return ""                                   # pays ≠ indicatif : on ne devine pas
+        return "", None                             # pays ≠ indicatif : on ne devine pas
     code = grille_tel or (equipe_du_pays(pays) if pays else "")
-    nom_role = {"fr": ROLE_GRILLE_FR_NOM, "mg": ROLE_GRILLE_INT_NOM}.get(code, "")
-    if not nom_role:
-        return ""
+    if code not in ("fr", "mg"):
+        return "", None                             # aucun signal FR/INT exploitable
+    nom_role = ROLE_GRILLE_FR_NOM if code == "fr" else ROLE_GRILLE_INT_NOM
     role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name), membre.guild.roles)
     if role is None:
-        return ""
+        return "", (f"rôle de grille « {nom_role} » introuvable — vérifie que "
+                    f"ROLE_GRILLE_{'FR' if code == 'fr' else 'INT'}_NOM = le nom EXACT du rôle serveur.")
     libelle = "🇫🇷 France" if code == "fr" else "🌍 International"
     if role in membre.roles:
-        return libelle                              # déjà attribué (ex. arrivée puis liaison)
+        return libelle, None                        # déjà posé (ex. arrivée puis liaison)
     try:
-        await membre.add_roles(role, reason="Grille (rémunération/bonus) visible dès l'arrivée")
-        return libelle
-    except (discord.Forbidden, discord.HTTPException):
-        return ""
+        await membre.add_roles(role, reason="Grille (rémunération/bonus) — arrivée/liaison")
+        return libelle, None
+    except discord.Forbidden:
+        return "", f"permission manquante — monte mon rôle AU-DESSUS de « {role.name} »."
+    except discord.HTTPException as erreur:
+        return "", f"Discord: {erreur}"
 
 
 async def traiter_liaison(auteur, brut):
@@ -884,9 +888,14 @@ async def traiter_liaison(auteur, brut):
             await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée")
         except (discord.Forbidden, discord.HTTPException):
             pass
-    # Rôle de GRILLE (rémunération/bonus visibles avant le quiz) — idempotent : déjà posé à
-    # l'arrivée si la candidature était reconnue, re-tenté ici au cas où (numéro = source sûre).
-    grille_vue = await attribuer_grille(membre_serveur, cand.get("pays", ""), tel) if cand else ""
+    # Rôle de GRILLE (rémunération/bonus) : l'INDICATIF du numéro suffit — on n'exige plus une
+    # candidature retrouvée. Idempotent avec l'arrivée. Tout échec (rôle mal nommé, permission)
+    # est remonté en admin au lieu d'être silencieux (c'était le bug Jonas).
+    grille_vue, err_grille = await attribuer_grille(membre_serveur, cand.get("pays", ""), tel)
+    if err_grille:
+        canal_adm = await canal_admin()
+        if canal_adm and membre_serveur:
+            await canal_adm.send(f"⚠️ **Grille non attribuée** à {membre_serveur.mention} : {err_grille}")
     etape1 = (f"✅ **Étape 1 réussie — candidature retrouvée : {cand.get('prenom') or 'toi'} "
               f"({cand.get('pays') or 'pays ?'})**. Ton compte est relié au numéro **…{tel[-4:]}**."
               if cand else
@@ -973,11 +982,17 @@ async def attribuer_equipe(guild, membre, equipe, par_id):
     if role_fr is None or role_mg is None:
         return None, "rôle d'équipe introuvable (ROLE_TEAM_FR_NOM / ROLE_TEAM_MG_NOM)"
     cible, autre = (role_fr, role_mg) if equipe == "fr" else (role_mg, role_fr)
+    # À la signature, on passe de « Grille » (candidat) à « Team » (membre) : on RETIRE les rôles
+    # de grille pour ne pas empiler (demande du 21/07). La grille n'était qu'un aperçu paie.
+    grilles = [r for r in (
+        discord.utils.find(lambda x: normaliser(ROLE_GRILLE_FR_NOM) in normaliser(x.name), guild.roles),
+        discord.utils.find(lambda x: normaliser(ROLE_GRILLE_INT_NOM) in normaliser(x.name), guild.roles),
+    ) if r is not None and r in membre.roles]
     try:
-        await membre.remove_roles(autre, reason=f"Équipe {equipe}")
+        await membre.remove_roles(autre, *grilles, reason=f"Signature contrat — passage grille → équipe {equipe}")
         await membre.add_roles(cible, reason=f"Signature contrat — équipe {equipe}")
     except discord.Forbidden:
-        return None, "permission manquante (monte mon rôle AU-DESSUS des rôles d'équipe)"
+        return None, "permission manquante (monte mon rôle AU-DESSUS des rôles d'équipe ET de grille)"
     except discord.HTTPException as erreur:
         return None, f"Discord: {erreur}"
     registre = lire_json(FICHIER_EQUIPES, {})
@@ -1376,7 +1391,9 @@ async def accueillir(member):
                      f"({cand.get('pays') or 'pays ?'}).\n" if cand else "")
         # Grille (rémunération + bonus) ouverte DÈS L'ARRIVÉE si la candidature est reconnue —
         # plus besoin d'attendre le numéro pour voir combien on gagne. (Idempotent avec la liaison.)
-        grille_vue = await attribuer_grille(member, (cand or {}).get("pays", ""), (cand or {}).get("tel", ""))
+        grille_vue, err_grille = await attribuer_grille(member, (cand or {}).get("pays", ""), (cand or {}).get("tel", ""))
+        if err_grille:
+            journal.warning("Grille non attribuée à l'arrivée de %s : %s", member.id, err_grille)
         motiv = (f"💰 Tes salons **rémunération {grille_vue} et bonus** viennent de s'ouvrir sur le "
                  "serveur (catégorie de ton équipe) — va voir exactement combien tu peux gagner.\n"
                  if grille_vue else "")
@@ -1579,6 +1596,20 @@ async def commande_admin(message, texte: str) -> bool:
                       + " Permission « Gérer le serveur » (lecture des invitations)")
         lignes.append(("✅" if moi.guild_permissions.manage_roles else "❌")
                       + " Permission « Gérer les rôles » (!rang)")
+        # Rôles du tunnel : grille (rémunération/bonus à l'arrivée) + team (accès à la signature).
+        # Un nom mal orthographié ici = attribution silencieusement ratée (le bug Jonas).
+        roles_tunnel = [(ROLE_GRILLE_FR_NOM, "Grille FR → salons rémunération/bonus FR"),
+                        (ROLE_GRILLE_INT_NOM, "Grille INT → salons rémunération/bonus INT"),
+                        (ROLE_TEAM_FR_NOM, "Team France → accès à la signature"),
+                        (ROLE_TEAM_MG_NOM, "Team International → accès à la signature")]
+        for nom_role, role_label in roles_tunnel:
+            role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name), g.roles)
+            if role is None:
+                lignes.append(f"❌ Rôle « {nom_role} » introuvable ({role_label}) — crée-le OU corrige la variable Railway au nom EXACT.")
+            elif moi.top_role <= role:
+                lignes.append(f"⚠️ Rôle « {role.name} » AU-DESSUS du mien — monte mon rôle, sinon je ne peux pas l'attribuer.")
+            else:
+                lignes.append(f"✅ « {role.name} » ({role_label}) — {len(role.members)} membre(s)")
         for nom_rang in NOMS_RANGS:
             role = discord.utils.find(lambda r: normaliser(nom_rang) in normaliser(r.name), g.roles)
             if role is None:
