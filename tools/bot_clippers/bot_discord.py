@@ -833,6 +833,33 @@ async def creer_contrat_docuseal(email, tel=""):
     return submission_id, lien, None
 
 
+async def attribuer_grille(membre, pays, tel=""):
+    """Attribue le rôle de grille (Grille France / International) → ce rôle DOIT ouvrir les salons
+    rémunération + bonus de la grille (permissions Discord du salon, à configurer côté serveur).
+    Grille = indicatif d'abord, pays en repli, RIEN si les deux se contredisent. Idempotent.
+    Retourne le libellé visible ('🇫🇷 France' / '🌍 International') ou '' si rien attribué."""
+    if membre is None:
+        return ""
+    grille_tel = equipe_de_l_indicatif(tel) if tel else ""
+    if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
+        return ""                                   # pays ≠ indicatif : on ne devine pas
+    code = grille_tel or (equipe_du_pays(pays) if pays else "")
+    nom_role = {"fr": ROLE_GRILLE_FR_NOM, "mg": ROLE_GRILLE_INT_NOM}.get(code, "")
+    if not nom_role:
+        return ""
+    role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name), membre.guild.roles)
+    if role is None:
+        return ""
+    libelle = "🇫🇷 France" if code == "fr" else "🌍 International"
+    if role in membre.roles:
+        return libelle                              # déjà attribué (ex. arrivée puis liaison)
+    try:
+        await membre.add_roles(role, reason="Grille (rémunération/bonus) visible dès l'arrivée")
+        return libelle
+    except (discord.Forbidden, discord.HTTPException):
+        return ""
+
+
 async def traiter_liaison(auteur, brut):
     """Cœur de la liaison (via `!lier` ou un numéro envoyé BRUT en MP, sans commande) :
     retrouve la candidature, renomme le membre, puis envoie l'étape suivante — une seule
@@ -857,23 +884,9 @@ async def traiter_liaison(auteur, brut):
             await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée")
         except (discord.Forbidden, discord.HTTPException):
             pass
-    # Rôle de GRILLE automatique (19/07) : rémunération/bonus visibles avant le quiz — grille
-    # déduite de l'indicatif (dur à falsifier), pays en repli, RIEN si les deux se contredisent.
-    grille_vue = ""
-    if cand and membre_serveur:
-        pays_cand = cand.get("pays", "")
-        grille_tel = equipe_de_l_indicatif(tel)
-        if not (pays_cand and grille_tel and equipe_du_pays(pays_cand) != grille_tel):
-            code = grille_tel or (equipe_du_pays(pays_cand) if pays_cand else "")
-            nom_role = {"fr": ROLE_GRILLE_FR_NOM, "mg": ROLE_GRILLE_INT_NOM}.get(code, "")
-            role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name),
-                                      membre_serveur.guild.roles) if nom_role else None
-            if role is not None:
-                try:
-                    await membre_serveur.add_roles(role, reason="Grille visible à la liaison (indicatif)")
-                    grille_vue = ("🇫🇷 France" if code == "fr" else "🌍 International")
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+    # Rôle de GRILLE (rémunération/bonus visibles avant le quiz) — idempotent : déjà posé à
+    # l'arrivée si la candidature était reconnue, re-tenté ici au cas où (numéro = source sûre).
+    grille_vue = await attribuer_grille(membre_serveur, cand.get("pays", ""), tel) if cand else ""
     etape1 = (f"✅ **Étape 1 réussie — candidature retrouvée : {cand.get('prenom') or 'toi'} "
               f"({cand.get('pays') or 'pays ?'})**. Ton compte est relié au numéro **…{tel[-4:]}**."
               if cand else
@@ -1361,9 +1374,15 @@ async def accueillir(member):
         cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
         retrouvee = (f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
                      f"({cand.get('pays') or 'pays ?'}).\n" if cand else "")
+        # Grille (rémunération + bonus) ouverte DÈS L'ARRIVÉE si la candidature est reconnue —
+        # plus besoin d'attendre le numéro pour voir combien on gagne. (Idempotent avec la liaison.)
+        grille_vue = await attribuer_grille(member, (cand or {}).get("pays", ""), (cand or {}).get("tel", ""))
+        motiv = (f"💰 Tes salons **rémunération {grille_vue} et bonus** viennent de s'ouvrir sur le "
+                 "serveur (catégorie de ton équipe) — va voir exactement combien tu peux gagner.\n"
+                 if grille_vue else "")
         # Une seule étape à la fois : d'abord le numéro, le reste arrive au fil de l'eau.
         guide = (f"🎬 **Bienvenue {member.display_name} — ta candidature est bien arrivée !**\n"
-                 + retrouvee +
+                 + retrouvee + motiv +
                  "**Étape 1 — relie ton compte 🔗**\n"
                  "Réponds-moi simplement avec **ton numéro de téléphone** (le MÊME que dans le "
                  "formulaire), par exemple : `06 12 34 56 78`.\n"

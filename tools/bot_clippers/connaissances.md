@@ -264,6 +264,8 @@ Combien mettre ? Le montant exact validé dans ton décompte — jamais un monta
 
 **Le bot fournit-il des comptes ?** Jamais. Tu crées TES comptes (Fiche 1), avec tes propres identifiants — c'est ce qui les rend sûrs.
 
+**Où je vois ma rémunération / mes bonus ?** Dès que ta candidature est reconnue (à ton arrivée, ou dès que tu envoies ton numéro), le bot t'ouvre automatiquement tes salons **#rémunération** et **#bonus** de ta grille (France ou International), dans la catégorie de ton équipe sur le serveur. Tu y vois **le fixe, les commissions et les bonus** — AVANT même le quiz (le quiz pose des questions dessus). Tu ne les vois pas ? Renvoie ton **numéro du formulaire** en MP au bot, ça réactive ta grille. (À ne pas confondre avec #dopamine, qui est le fil public des paiements de toute l'équipe — pas ta rémunération à toi.)
+
 **Un inconnu m'envoie un MP avec une « offre » (lives TikTok rémunérés, job d'affiliation, autre agence…) ?** C'est une **arnaque ou une tentative de débauchage** — des spammeurs rejoignent les serveurs pour DM les membres un par un. Règle simple : l'agence ne te contactera JAMAIS en MP pour te proposer un autre job, et ne recrute/paie QUE via ce serveur et le bot. Ne réponds pas, **bloque le compte** (clic droit → Bloquer), et **signale-le à Gaëtan** avec un screenshot (pseudo + message) pour qu'il le bannisse. Ne clique sur aucun lien de ce genre de message.
 
 **Les relances automatiques** : si tu n'avances pas dans le parcours (numéro pas envoyé, quiz pas fait, e-mail manquant, contrat pas signé), je te relance en MP après 24 h puis 48 h — c'est normal, c'est pour ne perdre personne en route. Après deux relances, je te laisse tranquille.
