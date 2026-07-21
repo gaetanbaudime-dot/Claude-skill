@@ -79,7 +79,8 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
 `!compteur` · `!rang @x Rookie|Confirmé|Élite` · `!invites` · `!bumps` (public, classement du mois) ·
-`!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R`
+`!verifier` (audit config) · `!audit` (carte du serveur) · `!heartbeat` (moniteur de vie) ·
+`!stats` · `!apprendre Q | R`
 
 ## v2 — le bot du programme clippers (compteur, paiements, invitations, rangs)
 
@@ -140,6 +141,24 @@ depuis son message épinglé dans #dopamine** (Discord sert de sauvegarde durabl
 public survit donc à toute perte du volume. `!verifier` contrôle désormais la persistance (variable,
 écriture, historique). En dernier recours : `!ajuster 608,55 rattrapage` avec le montant du message
 épinglé. Les compteurs de bumps, eux, ne sont pas restaurables — ils repartent du bump suivant.
+
+## Moniteur de vie — savoir que le bot est mort en 10 min, pas en 3 jours (verrou 1)
+
+Le bot est un **worker Discord sans serveur HTTP** : un moniteur classique ne peut pas le
+« pinger » (il n'y a pas d'URL). On inverse donc — **le bot appelle une URL externe** toutes les
+60 s ; le service alerte ton téléphone dès que les appels s'arrêtent (crash, blocage, ou perte
+durable de Discord/réseau). Il ne ping **que** quand il est réellement connecté à Discord : un
+signal vert veut dire « le bot sert », pas juste « le process respire ».
+
+**Allumage (une seule action, ~30 s, sans carte bancaire) :**
+1. **healthchecks.io** → crée un check gratuit → **Period** 1 min, **Grace** 10 min → copie l'**URL de ping**.
+2. Railway → **Variables** → `HEARTBEAT_URL` = cette URL (option : `HEARTBEAT_PERIODE=60`).
+3. Vérifie depuis Discord avec **`!heartbeat`** (cible, nombre de pings, dernière erreur).
+4. **Test réel** (le seul qui compte) : Railway → **Stop** le service → l'alerte doit arriver sur
+   ton téléphone en ~10 min → **Start**. Un moniteur jamais déclenché n'est pas un moniteur.
+
+Tant que `HEARTBEAT_URL` est vide, le moniteur est **désactivé** : le bot démarre exactement comme
+avant, aucun ping, aucun risque. (UptimeRobot marche aussi, en type **Heartbeat** — même principe.)
 
 ## L'améliorer avec le temps (sans toucher au code)
 

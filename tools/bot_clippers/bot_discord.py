@@ -143,6 +143,19 @@ CANAL_REPORTING_ID = os.environ.get("CANAL_REPORTING_ID", "").strip()  # salon #
 SUR_RAILWAY = bool(os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_PROJECT_ID"))
 DONNEES_PERSISTANTES = bool(os.environ.get("DONNEES_DIR", "").strip())
 
+# ---- Moniteur de vie / interrupteur d'homme mort (verrou 1 du plan anti-panne) ----
+# Le bot est un worker Discord SANS serveur HTTP : impossible de le « pinger » de l'extérieur.
+# On inverse donc : c'est LUI qui frappe une URL externe (Healthchecks.io / UptimeRobot type
+# Heartbeat) à intervalle régulier ; le service alerte le téléphone quand les appels s'arrêtent
+# (process mort, event loop bloquée, ou Discord/réseau perdu durablement). Vide = désactivé :
+# aucun ping, aucun bruit, aucun risque — le bot démarre exactement comme avant.
+HEARTBEAT_URL = os.environ.get("HEARTBEAT_URL", "").strip()
+try:
+    HEARTBEAT_PERIODE = max(20, int(os.environ.get("HEARTBEAT_PERIODE", "60")))  # secondes, plancher 20s
+except ValueError:
+    HEARTBEAT_PERIODE = 60
+_heartbeat = {"dernier_ok": None, "derniere_erreur": None, "pings": 0}   # état lu par !heartbeat
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 journal = logging.getLogger("bot_clippers")
 
@@ -1281,6 +1294,38 @@ async def boucle_rappels():
         await asyncio.sleep(600)
 
 
+async def boucle_heartbeat():
+    """Moniteur de vie (verrou 1 du plan anti-panne). Frappe HEARTBEAT_URL tant que le bot est
+    RÉELLEMENT connecté à Discord. On ne ping JAMAIS pendant une déconnexion (is_ready() faux) :
+    un heartbeat vert doit vouloir dire « le bot sert », pas « le process respire ». Si les pings
+    cessent (crash, blocage, perte durable de Discord/réseau), le service externe alerte le
+    téléphone. La période est réglée bien en dessous du délai de grâce configuré côté service
+    (voir README, verrou 1), pour qu'un micro-reconnect Discord ne déclenche pas de fausse alerte.
+    La boucle ne meurt jamais : toute erreur réseau est avalée et réessayée au cycle suivant."""
+    from urllib.parse import urlparse
+    hote = urlparse(HEARTBEAT_URL).netloc or "service externe"    # on ne logue jamais l'URL (secret)
+    await client.wait_until_ready()
+    journal.info("Moniteur de vie actif : ping toutes les %ss vers %s", HEARTBEAT_PERIODE, hote)
+    while not client.is_closed():
+        if client.is_ready():
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(HEARTBEAT_URL,
+                                           timeout=aiohttp.ClientTimeout(total=10)) as reponse:
+                        if reponse.status < 400:
+                            _heartbeat["dernier_ok"] = heure_paris().isoformat(timespec="seconds")
+                            _heartbeat["derniere_erreur"] = None
+                            _heartbeat["pings"] += 1
+                        else:
+                            _heartbeat["derniere_erreur"] = f"HTTP {reponse.status}"
+                            journal.warning("Heartbeat : réponse HTTP %s de %s", reponse.status, hote)
+            except Exception as erreur:                   # DNS, timeout, réseau coupé : réessai au cycle suivant
+                _heartbeat["derniere_erreur"] = f"{type(erreur).__name__}: {str(erreur)[:100]}"
+                journal.warning("Heartbeat : échec du ping (%s) — nouvel essai dans %ss",
+                                type(erreur).__name__, HEARTBEAT_PERIODE)
+        await asyncio.sleep(HEARTBEAT_PERIODE)
+
+
 async def boucle_bump():
     """Poste un rappel dans CANAL_BUMP_ID dès que le cooldown Disboard (2 h) est terminé."""
     await client.wait_until_ready()
@@ -1577,6 +1622,28 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     # ---- !verifier : audit complet de la configuration ----
+    if texte.startswith("!heartbeat"):
+        if not HEARTBEAT_URL:
+            await message.reply(
+                "🩺 **Moniteur de vie : désactivé.** Une seule action pour l'allumer (~30 s, sans carte) :\n"
+                "1. Va sur **healthchecks.io** → crée un check gratuit → copie son **URL de ping**.\n"
+                "2. Railway → Variables → `HEARTBEAT_URL` = cette URL (option : `HEARTBEAT_PERIODE=60`).\n"
+                "Ensuite tu n'as plus rien à faire : le service t'alerte dès que le bot cesse de pinger.")
+            return True
+        from urllib.parse import urlparse
+        hote = urlparse(HEARTBEAT_URL).netloc or "?"
+        lignes = [
+            "🩺 **Moniteur de vie — actif**",
+            f"· Cible : `{hote}` · période : {HEARTBEAT_PERIODE}s",
+            f"· Pings réussis depuis le démarrage : **{_heartbeat['pings']}**",
+            f"· Dernier ping OK : {_heartbeat['dernier_ok'] or '— (pas encore, patiente un cycle)'}",
+            ("· ⚠️ Dernière erreur : " + _heartbeat["derniere_erreur"]) if _heartbeat["derniere_erreur"]
+            else "· ✅ Aucune erreur récente",
+            "-# Test réel : coupe le service depuis Railway (Stop) → l'alerte doit arriver sur ton téléphone.",
+        ]
+        await message.reply("\n".join(lignes))
+        return True
+
     if texte.startswith("!verifier"):
         g = message.guild
         if g is None:
@@ -1590,6 +1657,8 @@ async def commande_admin(message, texte: str) -> bool:
         lignes += await verifier_salon(CANAL_STAT_CLIPPERS_ID, "Stat « Clippers »", besoin_renommage=True)
         lignes.append("✅ Lien du formulaire défini" if LIEN_FORMULAIRE
                       else "⚠️ LIEN_FORMULAIRE vide — l'accueil n'aura pas de lien de candidature.")
+        lignes.append(f"✅ Moniteur de vie actif ({_heartbeat['pings']} pings)" if HEARTBEAT_URL
+                      else "⚠️ HEARTBEAT_URL vide — aucun moniteur de vie (verrou 1). `!heartbeat` pour l'activer.")
         lignes.append("✅ v2 active (accueil numéroté + invitations)" if ACTIVER_V2
                       else "⚠️ v2 éteinte — pose ACTIVER_V2=1 dans Railway (APRÈS le Server Members Intent).")
         lignes.append(("✅" if moi.guild_permissions.manage_guild else "❌")
@@ -2295,6 +2364,11 @@ async def on_ready():
         if LIEN_TRESORERIE or CANAL_REPORTING_ID:
             client.loop.create_task(boucle_rappels())  # trésorerie du matin + reporting du dimanche
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
+        if HEARTBEAT_URL:
+            client.loop.create_task(boucle_heartbeat())   # moniteur de vie externe (verrou 1)
+        else:
+            journal.info("HEARTBEAT_URL non défini : moniteur de vie désactivé — pose l'URL d'un "
+                         "check Healthchecks.io/UptimeRobot dans Railway pour l'activer (`!heartbeat`).")
 
 
 @client.event

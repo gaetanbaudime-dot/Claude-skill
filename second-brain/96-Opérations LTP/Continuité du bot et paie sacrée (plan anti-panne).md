@@ -22,12 +22,16 @@ liens_forts: ["[[Bot FAQ clippers (Discord)]]", "[[Machine de recrutement clippe
 > [!warning] Correction technique (vérifiée dans le code, 21/07)
 > Le bot est un **`worker` Discord** (`Procfile` : `worker: python3 bot_discord.py`) — il **n'ouvre aucun serveur HTTP**, donc **aucune URL à pinger**. Un moniteur type UptimeRobot en mode « ping HTTP » n'a rien à interroger : il rapportera « en ligne » même bot mort, ou « hors ligne » en permanence. La formule « ping HTTP toutes les 5 min » de la checklist est **inopérante telle quelle.**
 
-**Ce qui marche à la place : un interrupteur d'homme mort (dead-man's switch).** On inverse la logique — c'est le bot qui appelle un service externe à intervalle régulier, et le service **hurle quand les appels s'arrêtent**. C'est exactement ce qu'on veut surveiller : « la boucle du bot tourne ET il a du réseau ».
-- Créer un check gratuit sur **Healthchecks.io** (ou UptimeRobot type **Heartbeat**) → tu obtiens une URL de ping + une alerte push/SMS si silence > X min.
-- Ajouter au bot une tâche de fond de ~8 lignes qui frappe cette URL toutes les 2-3 min (`requests` est déjà dans `requirements.txt`). Claude peut la coder en une passe — **à faire avant le gel des déploiements du verrou 6.**
-- Réglage : période 5 min, grâce 5 min → alerte à ~10 min de silence. Bénéfice secondaire : un redémarrage Railway silencieux se voit aussi.
+**Ce qui marche à la place : un interrupteur d'homme mort (dead-man's switch).** On inverse la logique — c'est le bot qui appelle un service externe à intervalle régulier, et le service **hurle quand les appels s'arrêtent**. Il ne ping **que** quand il est réellement connecté à Discord : un signal vert veut dire « le bot sert », pas seulement « le process respire ».
 
-**Le test de validation.** Une fois posé, tue le bot depuis Railway (Stop) et **vérifie que l'alerte tombe bien sur ton téléphone** avant de le rallumer. Un moniteur jamais déclenché n'est pas un moniteur.
+> [!success] Codé le 21/07 (`boucle_heartbeat` dans `bot_discord.py`)
+> La tâche de fond est **déjà en place et testée** (ping aiohttp non bloquant, période réglable, la boucle ne meurt jamais sur une erreur réseau). Variable `HEARTBEAT_URL` : vide = désactivé (le bot démarre comme avant) ; renseignée = actif. Commande **`!heartbeat`** pour l'état depuis Discord ; le moniteur apparaît aussi dans `!verifier`. **Il ne te reste qu'UNE action, ~30 s, sans carte** ⤵️
+
+- **Créer le check** (une fois) : [Healthchecks.io](https://healthchecks.io) → nouveau check gratuit → **Period 1 min, Grace 10 min** → copier l'**URL de ping** (UptimeRobot type **Heartbeat** marche aussi).
+- **Coller l'URL** dans Railway → Variables → `HEARTBEAT_URL` (option `HEARTBEAT_PERIODE=60`). C'est tout.
+- Réglage grâce 10 min → alerte à ~10 min de silence, sans fausse alarme sur un micro-reconnect Discord. Bénéfice secondaire : un redémarrage Railway silencieux se voit aussi.
+
+**Le test de validation.** `!heartbeat` doit afficher des pings qui montent, puis **Stop du service depuis Railway** → l'alerte doit tomber sur ton téléphone en ~10 min avant de rallumer. Un moniteur jamais déclenché n'est pas un moniteur.
 
 ## Verrou 2 — Une sauvegarde restaurée, pas seulement écrite
 
@@ -103,7 +107,7 @@ Toute métrique payée sera attaquée. La règle annoncée **avant** le premier 
 
 ## Checklist départ (à cocher, [[Journal de coaching|journalisée]])
 
-- [ ] **Verrou 1** — Heartbeat codé dans le bot + check Healthchecks.io/UptimeRobot actif + **alerte reçue sur le téléphone lors d'un Stop test** *(⚠️ pas un simple ping HTTP — le bot n'a pas d'URL)*
+- [ ] **Verrou 1** — Heartbeat ✅ **codé (21/07)** ; reste : check Healthchecks.io créé + `HEARTBEAT_URL` posée dans Railway + **alerte reçue sur le téléphone lors d'un Stop test** *(⚠️ pas un simple ping HTTP — le bot n'a pas d'URL)*
 - [ ] **Verrou 2** — Cycle `!sauvegarde` → **JSON téléchargés hors Discord (Drive)** → une restauration réelle vérifiée sur `/data`
 - [ ] **Verrou 3** — Page « si le bot est mort » remise à Emma + Maxence, **Restart Railway fait une fois par Emma** devant toi
 - [ ] **Verrou 4** — Maxence a l'**accès en lecture au Sheet de consolidation** + a fait **UN virement de test** sur le rail le plus fragile
