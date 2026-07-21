@@ -4,6 +4,12 @@ Trace des vérifications WebSearch effectuées pendant le run. Format : page con
 
 ## Vérifications
 
+### Rail de paie chatteurs — Binance Pay & alternatives VASP VARA (21/07)
+- **Question** : Binance Pay est-il gratuit ? L'adulte est-il interdit ? BitOasis/Rain sont-ils de bons 2ᵉ rails ?
+- **Sources** : CGU Binance FZE (sections 8/23/27/28, texte intégral), Binance Pay Merchant B2C Restrictions, Binance Pay Fees, CGU BitOasis (Appendix 1 Prohibited Businesses) + grille de frais live, VARA public register, OKX Middle East — 2 agents de recherche du 21/07.
+- **Résultat** : corrections de [[SOP paie chatteurs (Binance corporate)]]. ① Binance Pay **pas gratuit** (Send 0,5-1 $, Payout 0,8 % plafond 5 $) — l'ancienne note « transfert gratuit » était fausse. ② **Binance Pay Merchant interdit l'adulte** (verbatim) ; le compte d'échange non (mais EDD). ③ Clause « on behalf of third party » (27d) → payer ses propres contractants seulement. ④ **BitOasis interdit « adult live chat »** + bloque les « unknown third-party beneficiaries » → mauvais 2ᵉ rail ; **Rain = IPA (inutilisable à Dubaï)** ; **OKX UAE = meilleur 2ᵉ rail**. ⑤ Fausse déclaration = seul ban inappelable. ⑥ Licence VARA « Transfer & Settlement » de l'agence → avocat UAE.
+- **Statut** : confirmé (sources officielles). « Non trouvé » assumé : stats de réversibilité des gels, checklist KYB corporate publique, témoignages OFM vérifiables.
+
 ### Daniel Kahneman
 - **Question** : dates biographiques exactes (naissance, décès, Nobel).
 - **Sources** : Wikipedia (en), Encyclopédie Universalis, CASBS Stanford, Times of Israël.
