@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-21 — IBKR ouvert : le 3ᵉ pilier patrimonial câblé (W-8BEN UAE, funding depuis FAB)
+- **Fait** : compte **IBKR individuel** ouvert, **identité + adresse vérifiées** (Emirates ID + liveness), application soumise → approbation attendue ~24 h. Le 3ᵉ pilier de [[Architecture bancaire Profit First (comptes, coffres, crypto, compta)]] passe de « KYC en cours » à **ouvert**.
+- **Config gravée (tout cohérent patrimoine long terme)** : compte **Cash** (zéro levier), **Stocks uniquement** (Options + Prediction Markets coupés → pas de questionnaire dérivés inutile), **SYEP refusé** (prêt de titres : perte de protection investisseur + revenu quasi nul sur ETF larges + risque de contrepartie = l'inverse d'un coffre ségrégué), base **EUR**.
+- **Fiscal (W-8BEN)** : résidence **UAE**, **pas de traité** USA-UAE → treaty benefits **No**. Ça ne coûte rien : les **ETF UCITS irlandais** captent le 15 % au niveau du fonds (traité Irlande-USA), indépendamment de mon W-8BEN — validation en direct du choix « irlandais, pas US-situs » ([[Setup argent (le plan riche en 10 actions)|le plan]]). Citoyenneté **France** corrigée (une pré-saisie disait UAE) — citoyenneté ≠ résidence fiscale, aucune conséquence FR, et ça reste cohérent avec le [[Bouclier résidence UAE (les 3 fronts)|bouclier résidence]].
+- **Garde-fou confirmé par IBKR lui-même** : la **règle anti-tiers** (déjà gravée dans l'archi) est validée en pratique — 1er dépôt depuis un compte **à mon nom (FAB)**, jamais le compte société Wio/LTP. Funding donc **en attente de FAB opérationnel** : IBKR ne débloque rien de plus tant que je ne finance pas, mais l'approbation avance en parallèle.
+- **Prédiction (21/07)** : compte approuvé sous 48 h (identité déjà vérifiée = pas de friction). Premier flux patrimonial réel = **FAB → IBKR** dès que FAB tourne ; si un jour je tente de financer depuis Wio « par facilité », ce sera rejeté/gelé (virement tiers). Revue au 1er sweep effectif.
+
 ### 2026-07-20 — Bot : relances tunnel 24/48 h + FAQ terrain + boucle d'auto-amélioration
 - **Demande de Gaëtan** (après une journée de questions Hugo en #assistant-ia + DM) : ① process à jour, ② relances 24/48 h à chaque étape « pour tout le monde, en MP », ③ « que ce robot s'améliore tout seul ».
 - **Relances codées** (boucle_pipeline, 2 max par étape puis silence) : arrivé sans liaison · lié sans quiz · validé sans e-mail · contrat non signé (+ alerte admin à 48 h) · retest disponible (jour J). Le test 48 h gardait déjà les siennes. Horodatage d'arrivée ajouté à on_member_join.
