@@ -46,6 +46,10 @@ Le bot opère désormais la boucle de la [[Machine de recrutement clippers (100 
 
 `donnees/journal_questions.jsonl` enregistre chaque question + un marqueur `escalade` (= réponse hors kit). Bilan rentrée (via `!stats` ou le journal) : beaucoup d'escalades → enrichir `connaissances.md` (et le kit) ; peu de questions → le kit v2 suffisait, le bot aura servi de preuve.
 
+## Continuité (le bot est un point de défaillance unique)
+
+Ce bot fait tomber la paie : s'il meurt pendant l'absence, c'est le risque de ruine n°1. Les 6 verrous opérationnels (moniteur de vie par heartbeat — le bot est un `worker` sans URL, donc pas de ping HTTP —, sauvegarde restaurée en réel, page « si le bot est mort » pour Emma/Maxence, Maxence payeur de secours via le Sheet de consolidation, rythme sacré, gel des déploiements via Watch Paths) sont détaillés dans [[Continuité du bot et paie sacrée (plan anti-panne)]].
+
 ## Sécurité
 
 Secrets (`.env`) et données locales (`donnees/`) exclus du repo par le `.gitignore`. Le prompt refuse : hors-kit, injections (« ignore tes règles »), tactiques dangereuses pour les comptes. Le bot ne répond que dans le canal dédié ou quand on le mentionne — il ne spamme pas le serveur.
