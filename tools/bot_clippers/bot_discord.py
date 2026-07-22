@@ -1814,19 +1814,11 @@ async def commande_admin(message, texte: str) -> bool:
                                 f"dès qu'il tombe ici, envoie le contrat depuis le modèle, puis "
                                 f"`!equipe {membre.display_name} fr` à la signature.")
         elif grille == "mg" and message.guild is not None:
-            role_mg = discord.utils.find(lambda r: normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name),
-                                         message.guild.roles)
-            attribue = False
-            if role_mg is not None:
-                try:
-                    await membre.add_roles(role_mg, reason=f"Test validé — !test-ok par {message.author}")
-                    registre = lire_json(FICHIER_EQUIPES, {})
-                    registre[str(membre.id)] = {"equipe": "mg", "par": str(message.author.id),
-                                                "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-                    ecrire_json(FICHIER_EQUIPES, registre)
-                    attribue = True
-                except discord.Forbidden:
-                    pass
+            # Team International attribuée ET Grille INT retirée (via attribuer_equipe : add Team +
+            # remove grilles + écrit le registre) — même passage grille→team que le FR à la signature
+            # (demande du 21/07 : ne pas laisser Grille INT + Team INT empilés).
+            _, err_equipe = await attribuer_equipe(message.guild, membre, "mg", message.author.id)
+            attribue = err_equipe is None
             await envoyer_mp(membre, "🏆 **Test validé — bienvenue dans la Team International !**\n\n"
                                      "Avant d'ouvrir ton accès, confirme les règles de l'équipe :\n"
                                      "1. Les comptes créés pour la mission **appartiennent à l'agence** — tu "
@@ -1839,9 +1831,9 @@ async def commande_admin(message, texte: str) -> bool:
                                      "du dimanche). Toute fraude au suivi = exclusion immédiate.\n\n"
                                      "Réponds **J'ACCEPTE** ici pour recevoir la suite (Drive, comptes, warm-up).")
             await message.reply(f"🏆 {membre.mention} validé → **Team International attribuée** "
-                                + ("(+ registre) · MP d'onboarding envoyé." if attribue else
-                                   "— ⚠️ rôle non attribué (introuvable ou permission) : fais `!equipe "
-                                   f"{membre.display_name} int`. MP d'onboarding envoyé."))
+                                + ("(grille retirée + registre) · MP d'onboarding envoyé." if attribue else
+                                   f"— ⚠️ {err_equipe} : fais `!equipe {membre.display_name} int`. "
+                                   "MP d'onboarding envoyé."))
         else:
             # Grille indéterminée (pays ≠ indicatif, ou candidature non liée) : on NE laisse plus le
             # candidat sur un « on te contacte » sans suite (le bug du 20/07). La Team France (contrat)
