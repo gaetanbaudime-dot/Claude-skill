@@ -185,7 +185,13 @@ contourner un ban…) : réponds que ce n'est pas la méthode de l'équipe et re
 fiche 6.
 9. Si on t'envoie une capture d'écran : décris en une phrase ce que tu vois d'important, \
 puis réponds selon la base de connaissances (même règle d'escalade si tu ne sais pas).
-10. Si la question est floue, pose UNE question de clarification au lieu de deviner."""
+10. Tu reçois l'HISTORIQUE récent de la conversation — sers-t'en pour comprendre les messages \
+courts ou de suivi (ex. « et le son ? » ou « je peux ajouter des effets ? » juste après une \
+question sur le test de montage = c'est du MONTAGE, pas la création de comptes ni autre chose), \
+et ne redemande JAMAIS une info déjà donnée plus haut. Par défaut tu RÉPONDS directement avec \
+l'interprétation la plus probable (en ajoutant au besoin « dis-moi si tu voulais dire autre \
+chose ») ; ne pose une vraie question de clarification que si deviner est vraiment impossible, \
+et jamais deux fois de suite."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
@@ -227,14 +233,16 @@ def bloc_systeme():
     }]
 
 
-def repondre_sync(contenu) -> str:
-    """Appel Claude (bloquant) — lancé dans un thread depuis l'event loop Discord."""
+def repondre_sync(messages) -> str:
+    """Appel Claude (bloquant) — lancé dans un thread depuis l'event loop Discord.
+    `messages` = la conversation complète (historique récent + question courante) au format API,
+    pour que l'assistant garde le fil (fini les « c'est la première fois qu'on se parle »)."""
     try:
         reponse = claude.messages.create(
             model=MODELE,
             max_tokens=500,
             system=bloc_systeme(),
-            messages=[{"role": "user", "content": contenu}],
+            messages=messages,
         )
     except anthropic.RateLimitError:
         return "Trop de questions en même temps, réessaie dans une minute."
@@ -2507,8 +2515,36 @@ async def on_message(message):
                             "source": {"type": "base64", "media_type": media, "data": image}})
     contenu.append({"type": "text", "text": texte or "Voici une capture d'écran, aide-moi."})
 
+    # Historique récent de CE candidat (+ mes réponses) → le modèle garde le contexte : fini les
+    # « c'est la première fois qu'on se parle » et les questions de suivi mal comprises (18/07).
+    historique = []
+    try:
+        async for ancien in message.channel.history(limit=12, before=message):
+            if not ancien.content or ancien.content.startswith("!"):
+                continue
+            if ancien.author.id == client.user.id:
+                historique.append(("assistant", ancien.content))
+            elif ancien.author.id == message.author.id:
+                historique.append(("user", ancien.content))
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    historique.reverse()
+    messages = []
+    for role, txt in historique[-6:]:
+        bloc = [{"type": "text", "text": txt[:1500]}]
+        if messages and messages[-1]["role"] == role:
+            messages[-1]["content"] += bloc                      # fusionne deux tours du même rôle
+        else:
+            messages.append({"role": role, "content": bloc})
+    while messages and messages[0]["role"] != "user":            # l'API doit commencer par « user »
+        messages.pop(0)
+    if messages and messages[-1]["role"] == "user":
+        messages[-1]["content"] += contenu
+    else:
+        messages.append({"role": "user", "content": contenu})
+
     async with message.channel.typing():
-        reponse = await asyncio.to_thread(repondre_sync, contenu)
+        reponse = await asyncio.to_thread(repondre_sync, messages)
 
     journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
     # Boucle d'auto-amélioration (20/07) : chaque question à laquelle le kit ne sait pas répondre
