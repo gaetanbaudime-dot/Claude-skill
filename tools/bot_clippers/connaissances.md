@@ -247,7 +247,9 @@ La règle de l'équipe : un retour par Reel, tous les jours. Exemples de retours
 
 **Faire valider mes Reels avant de publier ?** Non — tu publies directement. Les retours arrivent après, via les stats et ton canal Discord. La seule validation du parcours, c'est le test de montage d'entrée.
 
-**Des MP arrivent pendant le warm-up Instagram ?** Ignore-les pendant les 48 h. Après le warm-up, tu peux répondre normalement.
+**Des MP arrivent pendant le warm-up Instagram ?** Ignore-les pendant les 48 h. Après le warm-up, gère-les selon la règle des DM ci-dessous — jamais directement dans les DM.
+
+**Répondre aux messages privés (DM) sur mes comptes ?** Quasiment jamais — ça n'a aucun intérêt, surtout au début. Envoyer des DM en masse est même interdit (c'est la cause n°1 des bans). À la place : réponds **en story** (fais une capture d'écran du DM, poste-la en story et réponds dessus) ou réponds **en commentaire**. Jamais directement dans les DM.
 
 **« Vous devez avoir 18 ans pour voir ce profil » sur une créatrice ?** C'est un réglage du compte de LA créatrice, pas du tien. Cherche le bouton de confirmation d'âge sur son profil ; sinon continue ton warm-up avec les autres créatrices de la liste et signale-le à Gaëtan.
 
