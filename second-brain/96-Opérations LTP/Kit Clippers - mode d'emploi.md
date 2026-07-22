@@ -31,6 +31,8 @@ Régénération : `python3 tools/kit_clippers/generer_fiches.py` (générateur v
 
 **Deux formats produits** (15/07) : le **PDF complet** `Kit Clipper LTP (v2).pdf` (les 7 pages à la suite, pour tout donner d'un coup) ET **chaque fiche en fichier séparé** dans `Kit Clippers/Fiches séparées/` (une fiche = un PDF d'une page, remise étape par étape au fil de l'onboarding : Bienvenue, puis Fiche 1 le jour 0, Fiche 2 avec, etc.). Les deux sont toujours identiques puisqu'ils sortent du même générateur.
 
+**Version vidéo par étape** (22/07) : chaque fiche a son **Loom granulaire ≤ 4 min** à épingler dans son post — scripts prêts à tourner dans [[Scripts des 6 Loom de formation (fiches Discord)]] (le Loom maître de 54 min reste la bibliothèque ; les 6 granulaires donnent l'étape au moment de l'étape).
+
 ## Le quiz d'onboarding (à coller dans un Google Form, mode « quiz auto-corrigé »)
 
 **Réglage** : Google Forms → Paramètres → « Convertir en quiz » → note auto. **Seuil : 8/10** pour recevoir la fiche 1 et créer le premier compte. En dessous : on re-regarde les chapitres ratés, on repasse le quiz. ✅ = bonne réponse.
