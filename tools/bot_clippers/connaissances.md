@@ -62,10 +62,13 @@ Le lien (celui qui fait gagner de l'argent) :
 - Le lien GetAllMyLinks va UNIQUEMENT sur le compte Instagram privé, et seulement à J+7 (le lien se demande à Gaëtan).
 - Les 2 comptes de croissance n'ont JAMAIS de lien : seulement l'arobase @ du compte privé dans la bio.
 
-Facebook, les pages :
-- Le compte Facebook personnel du clipper = le compte « mère ». Il sert uniquement à créer et gérer les pages. Les amis et la famille ne voient PAS les pages gérées.
-- 1 compte mère peut gérer jusqu'à 10 pages. Un clipper en gère 3 par créatrice.
-- Sur Facebook c'est plus simple : le lien dès le premier jour (bio + profil) et on peut publier dès le premier jour.
+Facebook, créer tes pages (le setup complet, étape par étape) :
+1. **Le compte mère** = ton compte Facebook perso. Il sert UNIQUEMENT à créer et gérer les pages ; tes amis et ta famille ne voient JAMAIS les pages gérées. 1 compte mère peut gérer jusqu'à 10 pages ; un clipper gère 3 pages par créatrice.
+2. **Créer une page** depuis ton compte mère : nouvelle Page Facebook, catégorie « Créateur numérique » ou « Personnalité publique ». **Nom de la page = le prénom de scène de la créatrice** (rien de plus long, pas de nom complet).
+3. **Le pseudo/@ de la page** : unique PARTOUT. Ne reprends JAMAIS le même pseudo qu'un compte Instagram — même pseudo = signal d'association = risque de ban en chaîne. Chaque page a son pseudo, sa photo et sa bio à elle.
+4. **La bio de la page** : UNE seule ligne, soft et neutre — « Lifestyle », « Voyage & lifestyle », « Créatrice de contenu ». Jamais de bio perso, jamais d'énumération d'intérêts (« fan de voyage, fan de jeux vidéo… » = ça fait profil perso, pas créatrice), jamais de signal racoleur.
+5. **Le lien GetAllMyLinks** va en bio / section « À propos » de la page **dès le premier jour** (contrairement à Instagram où le lien attend J+7 et seulement sur le compte privé).
+6. **Pas de warm-up sur Facebook** : tu peux **publier dès le premier jour**. Cadence de création : **1 page par jour**, jamais les 3 d'un coup. Les pages republient les mêmes Reels que l'Instagram (des vues gratuites en plus) et **ne sautent presque jamais**.
 
 Rappel : contenu 100 % propre, toujours. Un compte qui saute n'est pas un drame : on le note, on recrée (1 par jour) et on continue (voir fiche 6).
 
