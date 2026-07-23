@@ -22,6 +22,10 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-23 — Boussole de scale figée : l'équation du goulot
+- **Fait** : page [[Goulot de l'agence - l'équation du scale]] — `CA = clippers productifs × subs/clipper × €/sub`, les 3 goulots = les 3 facteurs, ton temps = méta-facteur. Pour ×8 (→500k), ~×2 sur chacun (pas ×N sur un seul). Séquence fixe : libérer le temps → boucher la rétention → scaler le trafic monétisé → PUIS recruter.
+- **Prédiction (23/07)** : **activer le clonage top 5 chatteurs (+3-5 k€/mois, coût ~0) AVANT de recruter le clipper N+13** (700-1 200 € de CPA, discounté par le churn). Pari : +3-5 k€/mois sous 4-6 semaines sans un clipper de plus. Contre-scénario : recruter d'abord = CA ~plat. Revue en septembre (delta chatting vs coût recrues N+13→N+18).
+
 ### 2026-07-23 — Personal brand / produit digital : bonne idée, mauvais timing → séquencement acté
 - **Question de Gaëtan** : l'agence lui rapporte ~15 % de la LTV créatrice (50 % part agence − ~20 % coûts = ~30 % ÷ 2 avec Maxence) → ~15k€/mois à 100k de CA. Ne vaut-il pas mieux monter un coaching + personal brand YouTube/IG pour vendre un produit digital à forte marge ?
 - **Verdict** : instinct juste (marge produit 80-95 % vs 15 %, c'est le play patrimonial d'Hormozi), **mais pas maintenant et pas comme ça**. (1) L'agence n'est PAS plafonnée à 100k — à 500k, 15 % = 75k/mois ; le problème est l'échelle pas atteinte, pas la marge. (2) Contrainte = trafic/clippers + continuité, pas marge → un 2ᵉ business ne touche pas le goulot, il vole le focus (le busy-work que la vidéo Renato a pointé). (3) ⚠️ Vendre « comment faire de l'OFM » entraîne les concurrents ET casse la compartimentation qui protège la [[Bouclier résidence UAE (les 3 fronts)|résidence]] et le nom.
