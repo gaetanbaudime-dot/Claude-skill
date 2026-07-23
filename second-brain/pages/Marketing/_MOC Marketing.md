@@ -11,6 +11,7 @@ Cluster couvrant la chaîne complète : construire une offre forte, l'amener au 
 - [[Tunnel de conversion]] : mesurer, trouver le goulot, réduire la friction.
 - [[Rétention et LTV]] : la variable composée qui décide qui peut scaler.
 - [[Positionnement et marque]] : la case mentale et la mémoire qui abaissent le CAC.
+- [[Russell Brunson - funnels, expert et Dream 100]] : la trilogie Secrets distillée — Value Ladder, Hook-Story-Offer, Attractive Character + Epiphany Bridge + New Opportunity (le playbook personal brand), et le **Dream 100** (l'attaque formalisée du goulot recrutement/créatrices). Avec l'opposition doctrinale « pression Brunson vs give-until-they-ask Hormozi ».
 
 ## Ordre de lecture recommandé
 
