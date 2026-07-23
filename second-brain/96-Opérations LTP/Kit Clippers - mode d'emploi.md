@@ -22,7 +22,7 @@ liens_forts: ["[[Checklist formation clipping]]", "[[Machine Instagram-Facebook 
 | **2 — Warm-up** | Avec la fiche 1 | 48 h sans publier, consommation niche FR, notifications, **LE test de l'Explorer**, les erreurs qui cassent un warm-up |
 | **3 — Monter et poster un Reel** | Quand l'Explorer est bon | Boucle Edits **sans renommage** (les clippers sont en lecteur sur le Drive), la question unique avant de publier (≠ rush brut), hook + partage, tableau autorisé/interdit |
 | **4 — Routine et semaine** | Avec la fiche 3 | Routine du jour, montée S1=1 → S2=2 → S3=3 Reels/jour/compte, ~500 abonnés visés vers J+30, **reporting hebdomadaire : LE formulaire chaque dimanche, lié à la rémunération** + retours libres dans le canal Discord privé, la traversée du désert |
-| **5 — Reels d'essai & évolutions** | À 200 abonnés | Variantes non-abonnés, paliers (compte pro, republication auto, Metricool, 2e téléphone, Clipper Manager) |
+| **5 — Reels d'essai & évolutions** | À **1 000 abonnés** ⚠️ (corrigé 23/07 : le seuil Trial Reels 2026 est 1 000, plus 200 — [[État de l'art clipping Instagram (juillet 2026)]]) | Variantes non-abonnés, paliers (compte pro, republication auto, Metricool, 2e téléphone, Clipper Manager) |
 | **6 — Quand ça coince** | Toujours (avec la 1) | Ban → noter dans le canal Discord + mentionner Gaëtan (créneau) ; bans en chaîne → recréer + **diagnostic Gaëtan** (comptes connectés par mail, numéro ou appareil) ; circuit question (Loom → #faq → formulaire du dimanche), la règle du renvoi |
 
 La théorie derrière la fiche 3 (pourquoi hook + partage sont LES deux critères) : [[Mécanique de contenu (hook, retain, reward)]] — à injecter dans la prochaine version des fiches si les clips plafonnent.

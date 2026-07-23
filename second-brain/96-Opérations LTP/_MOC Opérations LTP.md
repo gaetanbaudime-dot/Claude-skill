@@ -67,6 +67,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## Pôle clipping
 
+- [[État de l'art clipping Instagram (juillet 2026)]] : la veille sourcée du 23/07 — le tournant **répressif** (crackdown contenu non-original 07/2025 → 11/2025 → 30/04/2026), les 3 signaux maîtres (watch time / sends/reach / likes/reach), Trial Reels à **1 000** (plus 200), Content Protection + collab posts comme parade propre, et **7 points de notre doctrine à corriger**. À lire avant toute optimisation IG.
 - **[[Kit Clippers - mode d'emploi]]** 🖨️ : la refonte de la formation — 6 fiches A4 (une par étape, PDF dans `Kit Clippers/`), le quiz d'onboarding 10 questions (seuil 8/10 avant le 1er compte), la règle du renvoi et la FAQ vivante.
 - [[Reporting clippers]] : le tableau individuel (BAN / IG actifs / FB actifs / cadence) pour piloter à distance.
 - [[Checklist formation clipping]] : l'onboarding d'un clippeur (anti-ban, cadence, reporting).

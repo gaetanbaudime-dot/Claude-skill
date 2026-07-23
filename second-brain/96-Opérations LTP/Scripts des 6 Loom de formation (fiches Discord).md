@@ -63,7 +63,7 @@ liens_forts: ["[[Kit Clippers - mode d'emploi]]", "[[Checklist formation clippin
 
 - **Objectif** : débloquer les variantes non-abonnés et connaître les paliers d'outillage.
 - **À l'écran** : une variante « reel d'essai », les paliers (compte pro, Metricool, 2e téléphone).
-- **Beats** : (1) à **200 abonnés**, on teste des **variantes montrées aux non-abonnés** (élargir la portée) ; (2) les paliers d'évolution dans l'ordre : passage compte pro → republication auto → **Metricool** (programmation) → 2e téléphone → rôle **Clipper Manager** ; (3) ce que chaque palier débloque (plus de comptes gérés sans plus de temps) ; (4) le lien avec la progression de rang (`!rang` : Rookie → Confirmé → Elite) et les jalons (premier 10k, iPhone à 1 000 abonnés).
+- **Beats** : (1) à **1 000 abonnés** ⚠️ (seuil Trial Reels 2026 corrigé le 23/07, plus 200 — [[État de l'art clipping Instagram (juillet 2026)]]), on teste des **variantes montrées aux non-abonnés** (élargir la portée) ; (2) les paliers d'évolution dans l'ordre : passage compte pro → republication auto → **Metricool** (programmation) → 2e téléphone → rôle **Clipper Manager** ; (3) ce que chaque palier débloque (plus de comptes gérés sans plus de temps) ; (4) le lien avec la progression de rang (`!rang` : Rookie → Confirmé → Elite) et les jalons (premier 10k, iPhone à 1 000 abonnés).
 - **Clôture** : « 200 abonnés = tu passes en mode évolution. Chaque palier, c'est plus de comptes sans plus d'heures. »
 
 ## Loom Fiche 6 — « Quand ça coince (bans, blocages, questions) »
