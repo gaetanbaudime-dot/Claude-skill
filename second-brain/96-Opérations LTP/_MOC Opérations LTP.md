@@ -1,5 +1,7 @@
 # Opérations LTP : Map of Content
 
+> 👉 **Pour AGIR, ouvre [[Cockpit opérationnel LTP (actions)]]** — la seule page à jour de tes actions (avant départ / pendant l'absence / au retour), cochable. Ce MOC ci-dessous est l'**index de la doc de référence** : on l'ouvre pour creuser, pas pour agir.
+
 Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, checklists, plans de formation. Couche d'exécution entre le [[Plan Maître 500K|plan]] (la stratégie) et les [[_MOC Scaling|clusters théoriques]] (le pourquoi).
 
 ## Délégation Emma (contenu créatrices)
