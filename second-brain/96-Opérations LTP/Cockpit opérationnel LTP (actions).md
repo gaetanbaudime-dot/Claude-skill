@@ -11,7 +11,7 @@ liens_forts: ["[[_MOC Opérations LTP]]", "[[Journal de coaching]]", "[[Les 6 Lo
 # Cockpit opérationnel LTP — la seule page à ouvrir pour AGIR
 
 > [!tip] Verdict
-> **Cette page = tes actions. Le reste du dossier 96 = la doc de référence** (tu l'ouvres seulement quand tu creuses un point). Ici : ce que tu fais, dans l'ordre, coché ou pas. Mis à jour le **2026-07-23**. Tu pars **dimanche 26/07 pour ~2 mois** → tout est rangé par urgence : rouge = avant l'avion, jaune = tourne sans toi, vert = au retour.
+> **Cette page = tes actions. Le reste du dossier 96 = la doc de référence** (tu l'ouvres seulement quand tu creuses un point). Ici : ce que tu fais, dans l'ordre, coché ou pas. Mis à jour le **2026-07-23**. Tu pars **dimanche 26/07 pour ~2 mois** (**mode owner ~4h/jour**, objectif : scaler) → rangé par urgence : rouge = avant l'avion, jaune = tes 4h/jour + ce qui est délégué, vert = au retour.
 
 ## 🔴 AVANT DIMANCHE 26/07 — non négociables (dans l'ordre)
 
@@ -27,15 +27,30 @@ liens_forts: ["[[_MOC Opérations LTP]]", "[[Journal de coaching]]", "[[Les 6 Lo
 
 **Peut se finir à distance (pas un point dur du départ)** : OKX (test 500 AED **dès approbation**, under review), reste du funding IBKR, versement Profit First automatique.
 
-## 🟡 PENDANT L'ABSENCE — qui tient quoi (rien ne remonte à toi hors conflit de règle)
+## 🟡 MODE OWNER 4H/JOUR (2 mois France) — tes 4h ne touchent QUE ce qui scale
 
-| Machine | Qui | L'action qui tourne | Garde-fou |
-|---|---|---|---|
-| **Tunnel clippers** | Manager clippers | recrute → valide tests → contrat → paie (les 6 Loom) | Zéro exception remonte à Paris sauf règle qui manque |
-| **Paie** | Toi le mois 1, puis Manager | `!paiement`, **J+7 vérif → J+8 virement**, jamais un retard | Maxence = payeur de secours ([[Continuité du bot et paie sacrée (plan anti-panne)]]) |
-| **Quiz → test** | Automatique (Apps Script réparé) | quiz réussi → test envoyé tout seul | `!pipeline` pour vérifier le flux |
-| **Chatting + créatrices** | Maxence / Emma | séquences anti-churn + machine à contenu | [[SOP chatting anti-churn]] · [[SOP - Machine à contenu hebdomadaire]] |
-| **Loyer** | Toi, à distance | prochain **15 000 AED ~22/09** viré depuis Wio | rappel calé au 10/08 |
+**Objectif unique : scaler.** `CA = (clippers productifs) × (subs/clipper) × (€/sub)`. Tes 4h vont aux 3 facteurs ; l'opérationnel est délégué pour ne pas les bouffer. Le KPI roi : **subs générés / heure de TON temps** — s'il monte, tu scales.
+
+**DANS tes 4h/jour (le levier — non délégable) :**
+
+| Bloc | L'action | Le facteur qu'il élargit |
+|---|---|---|
+| ~1h · **Exceptions + règles** | lire l'issue log, décider promotions, trancher les conflits de règles | ton temps (#3) — tu restes joignable, pas opérateur |
+| ~2h · **Ton moat** | monter en compétence trafic + acquisition créatrices, imposer le standard anti-crackdown | subs/clipper (#2a) |
+| reste · **Owner-level** | décider le **clonage top 5 chatteurs** (+3-5k€/mois), **signer 1-2 créatrices haute LTV**, allocation | €/sub (#2b) + talent |
+
+**DÉLÉGUÉ (sinon ça mange tes 4h) :**
+
+| Machine | Qui | Ce qui tourne |
+|---|---|---|
+| **Tunnel clippers** | Manager (les 6 Loom) | recrute → valide → contrat → paie ; il te remonte SEULEMENT les conflits de règle |
+| **Paie** | Toi mois 1, puis Manager | `!paiement`, **J+7 vérif → J+8 virement**, jamais un retard ([[Continuité du bot et paie sacrée (plan anti-panne)|Maxence = secours]]) |
+| **Rétention J0-J30** | Manager + bot | 1ʳᵉ victoire < 7 j, buddy, feedback J+3/7/14 — **le seau qui fuit, priorité #1** |
+| **Quiz → test** | Automatique (Apps Script) | quiz réussi → test envoyé tout seul (`!pipeline` pour vérifier) |
+| **Chatting + créatrices** | Maxence / Emma | séquences anti-churn + machine à contenu ([[SOP chatting anti-churn]] · [[SOP - Machine à contenu hebdomadaire]]) |
+| **Loyer** | Toi, à distance | prochain **15 000 AED ~22/09** viré depuis Wio (rappel au 10/08) |
+
+> **La séquence de scale** : libère ton temps (#3, délègue) → bouche la fuite rétention (#1) → scale le trafic monétisé (#2 : reach crackdown-proof × hautes LTV × chatting cloné) → **PUIS** recrute plus. Recruter dans un seau percé = financer du churn.
 
 ## 🟢 AU RETOUR (septembre) — les priorités stratégiques, dans l'ordre
 
