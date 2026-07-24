@@ -74,6 +74,32 @@ Aucun de ces ×1,26 n'est héroïque. **C'est ça, la découverte** : « recrute
 - **Contre-scénario** : si Gaëtan recrute d'abord (facteur qui fuit) au lieu d'exploiter le chatting, le CA reste ~plat (le volume ajouté ne monétise pas mieux, et une partie churne).
 - **Revue** : à la reprise (septembre), comparer le delta CA du clonage chatting vs le coût des recrues N+13→N+18.
 
+## Mise à jour 24/07 — la règle d'allocation affinée (vrais %, et organique ≠ interne)
+
+Analyse Goldratt de Gaëtan (marge de contribution) + stats 30 j du 24/07. Deux corrections sur la version initiale :
+
+**① Les vrais deals par créatrice** (la marge après 15 % chatting n'est PAS uniforme) : Chloé **40 %** d'agence → marge **25 %** · Sarah/Sophie/Maddy/Amanda 50 % → **35 %** · Jade **60 %** → **45 %**. Marge agence 30 j ≈ **15,5 k€** (Chloé 3 850 · Sarah 3 500 · Sophie 3 220 · Maddy 2 520 · Jade 1 845 · Amanda 630).
+
+**② Le rev/fan blended est un piège** : il mélange **trafic interne MYM (~3 €/fan de LTV)** et **trafic organique réseaux (~10-15 €/fan)**. Le €2,78/fan de Sarah = pollution par une vague de trafic interne basse qualité, PAS une preuve que ses fans organiques monétisent mal. Or **un pod n'amène QUE de l'organique** → la métrique d'allocation est la **marge € par sub ORGANIQUE marginal** = (LTV organique de la créatrice) × (% de marge).
+
+**La table marginale (hypothèse organique 10-15 €/fan, à confirmer par mesure)** :
+
+| Créatrice | % marge | Marge €/sub organique | Ta poche/sub (÷2) | Point mort pod |
+|---|---|---|---|---|
+| 💎 **Jade (60 %)** | 45 % | **4,50-6,75 €** | 2,25-3,38 € | **~30-45 subs** |
+| 💎 **Maddy** | 35 % | 3,50-5,25 € (haut de fourchette : son blended 16,7 € prouve un organique ≥ 15) | 1,75-2,63 € | ~38-57 subs |
+| **Sophie · Sarah\* · Amanda\*** | 35 % | 3,50-5,25 € | 1,75-2,63 € | ~38-57 subs |
+| 🏆 **Chloé (40 % agence)** | **25 %** | **2,50-3,75 €** | 1,25-1,88 € | **~53-80 subs** |
+
+*\*Sarah/Amanda : sous réserve que leur organique monétise dans la fourchette — à prouver par lien dédié avant tout pod.*
+
+**Les 3 conclusions qui pilotent le budget** :
+1. **Quand l'organique vaut ~10-15 € partout, le % de marge devient le facteur dominant du sub marginal** → une Jade à 60 % rapporte ~**1,8× Chloé** par sub. Le % se négocie À LA SIGNATURE (le deal Jade prouve que 60 % passe avec l'offre done-for-you) → **signer les prochaines à 55-60 %** est un levier aussi puissant que trouver de meilleures LTV.
+2. **Chloé = premier cash absolu (3 850 €/mois), dernier rendement marginal** (25 %). On ne l'affame pas (vaisseau amiral, SFS, matière YouTube) — on arrête de lui donner le pod suivant par défaut. Ne PAS renégocier son 40 % (elle a le levier) ; le 55-60 % se gagne sur les nouvelles.
+3. **Le blended condamnait Sarah à tort** — mais sa réhabilitation n'est pas acquise : elle exige la **mesure par source** ([[Atterrissage du funnel (mesure propre avant optimisation)|le protocole existe]] : 1 lien organique dédié par créatrice, LTV 30 j par source). Règle : **aucun pod sur une créatrice dont l'organique n'est pas mesuré ≥ ~10 €/fan.**
+
+> **Règle d'allocation finale (v2, 24/07)** : *le budget suit la **marge € par sub organique marginal** (LTV organique mesurée par source × % de marge), par incréments testés (1 pod, 30 j, puis le suivant) — jamais le CA, jamais le % seul, jamais le rev/fan blended.*
+
 ## Le pont vers l'action
 
 Cette page = le **pourquoi**. Le **quoi-faire-quand** vit dans [[Cockpit opérationnel LTP (actions)]] (mode owner 4h/jour, mêmes 3 facteurs). On ne relit cette page que pour re-trancher une priorité de scale — jamais pour agir au quotidien.

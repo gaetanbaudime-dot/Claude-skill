@@ -55,7 +55,7 @@ liens_forts: ["[[_MOC Opérations LTP]]", "[[Journal de coaching]]", "[[Les 6 Lo
 ## 🟢 AU RETOUR (septembre) — les priorités stratégiques, dans l'ordre
 
 1. **Standard anti-crackdown clippers** : imposer le [[Brief montage clipper (standard anti-crackdown 2026)|brief montage]] (transformation matérielle) + faire activer **Content Protection par Chloé et Sophie** sur leurs fan pages. ([[État de l'art clipping Instagram (juillet 2026)|le pourquoi]])
-2. **Concentration des ressources** : pods sur les top LTV **Chloé → Sophie → Maddie → Sarah** ; trancher Amanda (cut-ou-garde). ([[Équipe marketing - structure et rémunération (FR × MG)|règle d'allocation]])
+2. **Concentration des ressources (corrigée 24/07)** : le pod marginal suit la **marge €/sub organique** → **Jade (60 % !) et Maddy d'abord**, puis Sophie ≈ Chloé ; **poser 1 lien organique dédié par créatrice** avant tout pod sur Sarah/Amanda (blended pollué par le trafic interne MYM ~3 €) ; trancher les 4 zéros (Alice, Capucine, Lily, Lila Doré : lancer ou couper). ([[Goulot de l'agence - l'équation du scale|la règle v2]])
 3. **International** : reprise sur **Geelark + proxy FR** (pas de test « téléphone brut »). ([[Machine Instagram-Facebook en masse]])
 4. **Crypto** : 2 rails allumés (OKX + Binance), **≤ 1 cycle de paie** sur chacun. ([[SOP paie chatteurs (Binance corporate)]])
 5. **Fiches Emma** + **SFS août** (déléguer, pas exécuter).
