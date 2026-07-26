@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-24 — Acheter à Dubaï ? Non : le plan bankabilité fin 2027 confirmé par la recherche
+- **Question de Gaëtan** : bail Peninsula One finit le 22/11 — acheter un studio plutôt que relouer ? Apport ? Mensualités ? ROI max ?
+- **Recherche (agent, sourcée)** : [[Achat immobilier Dubaï (prêt, apport, bankabilité)]]. Trois murs simultanés : cash réel **~28 % du prix** (~361k AED pour 1,3 M — frais non finançables depuis fév. 2025) ; **profil self-employed inéligible** (licence ≥ 2 ans + 2 ans d'audits + haircut -20/-40 % ; ≥ 25 % de parts = indépendant même salarié de sa boîte) ; **break-even louer vs acheter ~7-8 ans** à prix constant, avec Fitch qui anticipe -10/-15 % sur le mid-market apartments (son segment exact).
+- **Décision** : location en novembre (la négo bail / studio moins cher reste le move) ; **le plan du 20/07 (« FAB = rail de bankabilité → immo fin 2027 ») est confirmé et se muscle** : salaire formalisé dès août-sept devient un prérequis CRÉDIT (pas juste un confort), auditeur à mandater au 1er exercice, arbitrage fiscal « ne pas optimiser le profit à zéro » à voir avec le comptable, zéro incident AECB, cash cible 360-420k AED. Golden Visa 2M AED (hypothéqué accepté, ~560k cash) = option 2027-2028.
+- **Prédiction (24/07)** : si la feuille de route est tenue (salaire formalisé + audit + AECB propre), Gaëtan est **finançable aux conditions standards fin 2027** — potentiellement dans un marché corrigé de -10 % qui rendrait l'attente payante. Contre-scénario : achat forcé avant (courtier « cas par cas ») = LTV réduit + taux majoré + fonds de roulement de l'agence siphonné au pire moment du scale. Revue : fin 2027, ou si le cash disponible dépasse 500k AED avant.
+
 ### 2026-07-24 — Photo roster 30 j + règle d'allocation v2 (Goldratt par Gaëtan : marge €/sub organique)
 - **Photo 30 j (CA brut)** : Chloé ≈ 15,4 k€ · Sarah ≈ 9,9 k€ · Sophie ≈ 9,3 k€ · Maddy ≈ 7,3 k€ · Jade ≈ 4,1 k€ · Amanda ≈ 1,8 k€ · Alice/Capucine/Lily/Lila Doré = 0. Total ≈ **47,8 k€** ; marge agence ≈ **15,5 k€** ; poche Gaëtan ≈ **7,8 k€** (avant coût clippers). Concentration : top 4 = 88 % du CA.
 - **L'apport de Gaëtan (lecture de Goldratt)** : les deals ne sont pas uniformes — Chloé **40 %** d'agence (marge 25 %), Jade **60 %** (45 %), le reste 50 % (35 %). La marge de contribution par créatrice change tout le classement marginal.
