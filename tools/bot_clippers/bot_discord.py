@@ -577,10 +577,16 @@ def interpretations_tel(brut):
     if t.startswith("+"):
         return [t] if len(re.sub(r"\D", "", t)) >= 8 else []
     if t.startswith("0") and len(t) == 10:
-        return ["+33" + t[1:],       # France
-                "+261" + t[1:],      # Madagascar (03x…)
-                "+229" + t,          # Bénin (le 01 fait partie du numéro depuis 2021)
-                "+237" + t[1:]]      # Cameroun
+        lectures = ["+33" + t[1:],       # France
+                    "+261" + t[1:],      # Madagascar (03x…)
+                    "+229" + t,          # Bénin (le 01 fait partie du numéro depuis 2021)
+                    "+237" + t[1:]]      # Cameroun
+        if t.startswith(("032", "033", "034", "037", "038")):
+            # 032/033/034/037/038 = mobiles malgaches (Orange, Airtel, Telma) : infiniment plus
+            # probable qu'un fixe FR du Nord-Est dans ce funnel → la lecture +261 passe en tête
+            # (bug Onja du 27/07 : « 034… » sans candidature lue « +33 » → contrat + Team France).
+            lectures.insert(0, lectures.pop(1))
+        return lectures
     canonique = normaliser_tel(t)
     return [canonique] if canonique else []
 
@@ -591,7 +597,8 @@ def tel_selon_pays(brut, pays=""):
     if not lectures:
         return ""
     p = normaliser(pays)
-    for nom, prefixe in (("madagascar", "+261"), ("benin", "+229"), ("cameroun", "+237")):
+    for nom, prefixe in (("madagascar", "+261"), ("benin", "+229"), ("cameroun", "+237"),
+                         ("france", "+33"), ("belg", "+32"), ("suisse", "+41")):
         if nom in p:
             for lecture in lectures:
                 if lecture.startswith(prefixe):
@@ -957,8 +964,15 @@ async def traiter_candidature_webhook(message, silencieux=False):
                             + ("FR" if grille_tel == "fr" else "International")
                             + (" ⚠️ **pays déclaré ≠ indicatif**"
                                if pays and equipe_du_pays(pays) != grille_tel else ""))
+        lectures_cand = set(interpretations_tel(tel_brut))
         for uid, liaison in donnees.get("liaisons", {}).items():   # le Discord est peut-être déjà lié
-            if liaison.get("tel") == tel:
+            if liaison.get("tel") == tel or liaison.get("tel") in lectures_cand:
+                mauvaise_lecture = liaison.get("tel") != tel
+                if mauvaise_lecture:
+                    # La liaison avait canonisé le même numéro sous un autre indicatif (ex. « 034… »
+                    # lu +33 avant l'arrivée de la candidature Madagascar — cas Onja du 27/07) :
+                    # on la re-canonise, et l'admin doit revérifier grille/équipe déjà posées.
+                    liaison["tel"] = tel
                 liaison["prenom"], liaison["pays"] = prenom, pays
                 membre = membre_par_id(uid)
                 if membre and prenom:
@@ -966,7 +980,8 @@ async def traiter_candidature_webhook(message, silencieux=False):
                         await membre.edit(nick=prenom, reason="Candidature reliée (webhook)")
                     except (discord.Forbidden, discord.HTTPException):
                         pass
-                rapprochees.append(f"<@{uid}>")
+                rapprochees.append(f"<@{uid}>" + (" ⚠️ **numéro relu sous un autre indicatif — "
+                                                  "grille/équipe à revérifier**" if mauvaise_lecture else ""))
     if enregistrees or rejets:
         ecrire_json(FICHIER_PIPELINE, donnees)
         if silencieux:
@@ -1812,7 +1827,11 @@ async def commande_admin(message, texte: str) -> bool:
                                      "et la paie chaque lundi. 🔥")
             await message.reply(f"🏆 {membre.mention} validé (grille FR) → je lui demande son e-mail en MP ; "
                                 f"dès qu'il tombe ici, envoie le contrat depuis le modèle, puis "
-                                f"`!equipe {membre.display_name} fr` à la signature.")
+                                f"`!equipe {membre.display_name} fr` à la signature."
+                                + ("" if pays else
+                                   f"\n⚠️ Grille déduite du **seul indicatif** (candidature non retrouvée) — "
+                                   f"vérifie son **pays dans la feuille** AVANT d'envoyer le contrat ; "
+                                   f"si international : `!equipe {membre.display_name} int` maintenant."))
         elif grille == "mg" and message.guild is not None:
             # Team International attribuée ET Grille INT retirée (via attribuer_equipe : add Team +
             # remove grilles + écrit le registre) — même passage grille→team que le FR à la signature
