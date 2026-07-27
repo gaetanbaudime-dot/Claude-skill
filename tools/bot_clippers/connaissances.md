@@ -260,7 +260,7 @@ La règle de l'équipe : un retour par Reel, tous les jours. Exemples de retours
 
 **Comment je facture l'agence ? (guide complet)** Chaque paiement se fait sur facture — tu es prestataire indépendant, c'est obligatoire pour être payé. Pas à pas :
 1. **Le template** : https://canva.link/39iwk70lz5nbrhe — ⚠️ **DUPLIQUE-LE D'ABORD, ne modifie JAMAIS l'original.** Le lien ouvre le template source en mode éditeur, partagé par toute l'équipe : si tu écris dedans directement, tu écrases le modèle de tout le monde avec tes infos perso. Le bon geste, dans Canva : **Fichier → Créer une copie** (la copie s'ouvre dans un nouvel onglet, elle est à toi) — et c'est UNIQUEMENT dans ta copie que tu travailles, maintenant et pour toutes tes prochaines factures.
-2. **Tes informations** (en haut) : ton nom, ton adresse, ton n° SIRET. *(Pas encore de SIRET ? Crée ta micro-entreprise en ligne — gratuit, ~10 minutes sur le guichet unique, le SIRET arrive sous 1-2 semaines. Sans SIRET, pas de paiement possible.)*
+2. **Tes informations** (en haut) : ton nom, ton adresse, ton n° SIRET. *(Pas encore de SIRET ? Crée ta micro-entreprise — gratuit, ~10 minutes, le SIRET arrive sous 1-2 semaines. ⚠️ LE SEUL site officiel est **https://procedures.inpi.fr** (le guichet unique de l'État, géré par l'INPI). C'est 100 % GRATUIT. Tout site qui demande de l'argent (50-100 €) pour « créer ta micro-entreprise » est un intermédiaire privé à éviter — y compris des sites au nom trompeur comme « guichet-unique.fr », qui N'EST PAS le site de l'État. Ne paie JAMAIS pour cette démarche. Sans SIRET, pas de paiement possible.)*
 3. **Le client** (la personne que tu factures) : l'agence, avec le nom et l'adresse **exactement comme sur ton contrat** (Article 1 — l'agence LTP, adresse aux Émirats arabes unis).
 4. **La ligne de prestation** : libellé « **Social media marketing** » · quantité « **1** » · prix = **le montant validé de ta période** (ton décompte du lundi : fixe + commissions). Une seule ligne suffit.
 5. **La période** : indique la semaine concernée (1er mois = 1 facture par semaine, avant le paiement du lundi) ou le mois (à partir du 2ᵉ mois = 1 facture mensuelle).
@@ -268,6 +268,14 @@ La règle de l'équipe : un retour par Reel, tous les jours. Exemples de retours
 7. **La TVA** : si tu es micro-entrepreneur en franchise, ajoute la mention « **TVA non applicable, art. 293 B du CGI** » et ne factures aucune TVA. Les montants du contrat sont en HT.
 8. **Envoie la facture** (PDF) avant le paiement, avec ton RIB dessus.
 Combien mettre ? Le montant exact validé dans ton décompte — jamais un montant inventé. En cas de doute sur le montant de ta période, demande à Gaëtan AVANT d'envoyer la facture.
+
+**À quel mail j'envoie ma facture ?** L'adresse d'envoi t'est communiquée par Gaëtan avec ton **décompte du lundi** (le message qui te donne le montant exact à facturer). Si tu ne l'as pas encore reçue, demande-la à Gaëtan sur le serveur — elle n'est pas dans le kit.
+
+**Comment marche la rémunération (le fixe et la commission) ?** Deux blocs. ① Le **fixe** : il est **conditionnel** — versé si le travail de la semaine est fait (cadence de publication tenue, comptes sains, reporting du dimanche envoyé). Le premier mois il est payé **chaque semaine, le lundi**, ensuite au mois. ② La **commission** : par **abonné vérifié venu de TON lien de tracking** — elle n'est jamais gelée : ce que tu as généré t'est toujours dû. Les **montants exacts** dépendent de ta grille (France ou International) : ils sont affichés dans TES salons **#rémunération** et **#bonus** (ouverts dès que ta candidature est reliée). Toute fraude au suivi = exclusion.
+
+**Comment trouver des campagnes à clipper ?** Ici il n'y a **pas de « campagnes » à chercher** (ce n'est pas une marketplace type Whop) : ta « campagne », c'est **ta créatrice attribuée**. Sa matière première (rushs, modèles) est dans le dossier Drive de son salon Discord, accessible avec ton rôle. Tu ne cherches rien — on te fournit tout, tu montes et tu publies.
+
+**Où est le formulaire du dimanche ?** Le lien est **épinglé dans #reporting** (et rappelé dans ton canal privé). Il n'y a **pas de commande** pour le recevoir — c'est le salon qui fait foi. Si tu ne vois pas #reporting, c'est que ton rôle d'équipe n'est pas encore actif.
 
 **Le bot fournit-il des comptes ?** Jamais. Tu crées TES comptes (Fiche 1), avec tes propres identifiants — c'est ce qui les rend sûrs.
 
