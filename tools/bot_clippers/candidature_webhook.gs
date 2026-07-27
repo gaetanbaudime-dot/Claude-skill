@@ -22,8 +22,9 @@
  *     (Le collage du 21/07 a pu vider cette propriété — vérifie-la.)
  *  3. NE TOUCHE PAS aux déclencheurs : celui qui existe (formSubmit →
  *     surCandidature) redevient fonctionnel dès que ce code est enregistré.
- *  4. Lance `rejouerCandidatures()` UNE fois depuis l'éditeur pour rattraper les
- *     soumissions perdues (le bot déduplique par numéro : rejouer est sans risque).
+ *  4. Lance `rejouerCandidatures()` UNE fois depuis l'éditeur : rejoue TOUTE la
+ *     feuille par paquets de 10 (le bot déduplique par numéro : sans risque) —
+ *     c'est ce qui donne au bot le PAYS de chaque candidat pour croiser la grille.
  *  5. Vérifie dans « Exécutions » : surCandidature doit passer « Terminée ».
  *
  * ROBUSTESSE COLONNES : on lit e.namedValues (titre de question → réponse) et on
@@ -31,7 +32,9 @@
  * discord-pseudo) — l'ordre des colonnes de la feuille n'a aucune importance.
  */
 
-const NB_REJOUER = 25;   // rejouerCandidatures : nombre de dernières lignes rejouées
+const NB_REJOUER = 400;  // rejouerCandidatures : nombre de dernières lignes rejouées (400 = toute la
+                         // feuille actuelle — le bot déduplique par numéro, rejouer est sans risque)
+const PAR_MESSAGE = 10;  // lignes CANDIDATURE groupées par message Discord (le bot sait les lire en lot)
 
 function surCandidature(e) {
   const url = PropertiesService.getScriptProperties().getProperty('DISCORD_WEBHOOK_URL');
@@ -93,23 +96,27 @@ function rejouerCandidatures() {
   const nettoyer = function (ligne, i) {
     return (i >= 0 && ligne[i]) ? String(ligne[i]).trim().replace(/\|/g, '/') : '';
   };
-  let envoyees = 0;
+  const lignes = [];
   const debut = Math.max(1, donnees.length - NB_REJOUER);
   for (let l = debut; l < donnees.length; l++) {
     const tel = nettoyer(donnees[l], iTel);
     if (!tel) continue;
+    lignes.push('CANDIDATURE|' + nettoyer(donnees[l], iPrenom) + '|' + tel + '|'
+                + nettoyer(donnees[l], iPays) + '|' + nettoyer(donnees[l], iPseudo));
+  }
+  let envoyees = 0;
+  for (let d = 0; d < lignes.length; d += PAR_MESSAGE) {
+    const paquet = lignes.slice(d, d + PAR_MESSAGE).join('\n');   // ≤ ~800 caractères, loin des 2000 max
     UrlFetchApp.fetch(url, {
       method: 'post', contentType: 'application/json',
-      payload: JSON.stringify({
-        content: 'CANDIDATURE|' + nettoyer(donnees[l], iPrenom) + '|' + tel + '|'
-                 + nettoyer(donnees[l], iPays) + '|' + nettoyer(donnees[l], iPseudo)
-      }),
+      payload: JSON.stringify({ content: paquet }),
       muteHttpExceptions: true
     });
-    envoyees++;
-    Utilities.sleep(400);                       // ménage le rate-limit Discord
+    envoyees += Math.min(PAR_MESSAGE, lignes.length - d);
+    Utilities.sleep(700);                       // ménage le rate-limit Discord
   }
-  console.log('Rattrapage terminé : ' + envoyees + ' candidature(s) rejouée(s). Vérifie !pipeline.');
+  console.log('Rattrapage terminé : ' + envoyees + ' candidature(s) rejouée(s) en '
+              + Math.ceil(lignes.length / PAR_MESSAGE) + ' message(s). Vérifie !pipeline.');
 }
 
 /** Diagnostic : confirme sur quelle feuille ce script tourne. */
