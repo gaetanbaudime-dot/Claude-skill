@@ -554,10 +554,13 @@ async def detecter_bump(message):
 
 
 def normaliser_tel(brut):
-    """Numéro canonique : +33612345678. Gère 0033, 06…, +261 (MG), +229 (Bénin)."""
+    """Numéro canonique : +33612345678. Gère 0033, 06…, +33 06… (0 national qui traîne),
+    +261 (MG), +229 (Bénin)."""
     t = re.sub(r"[^\d+]", "", brut)
     if t.startswith("00"):
         t = "+" + t[2:]
+    if t[:3] in ("+33", "+32", "+41") and t[3:4] == "0" and len(t[3:]) == 10:
+        t = t[:3] + t[4:]                       # « +33 06 12… » → +336 12… (forme fréquente)
     if t.startswith("0") and len(t) == 10:      # numéro FR national
         t = "+33" + t[1:]
     if t and not t.startswith("+"):
@@ -572,6 +575,8 @@ def interpretations_tel(brut):
     t = re.sub(r"[^\d+]", "", brut or "")
     if t.startswith("00"):
         t = "+" + t[2:]
+    if t[:3] in ("+33", "+32", "+41") and t[3:4] == "0" and len(t[3:]) == 10:
+        t = t[:3] + t[4:]                       # « +33 06 12… » → +336 12…
     if not t:
         return []
     if t.startswith("+"):
@@ -665,6 +670,21 @@ def equipe_de_l_indicatif(tel: str) -> str:
     if not tel:
         return ""
     return "fr" if tel.startswith(("+33", "+32", "+41")) else "mg"
+
+
+def indicatif_certain(tel: str) -> bool:
+    """L'indicatif ne tranche la grille TOUT SEUL que s'il est non ambigu (règle du 27/07) :
+    mobile FR réel (+336/+337 — un candidat français ne donne quasiment jamais autre chose),
+    +32/+41 (forcément tapés en international par le candidat : un numéro local belge/suisse
+    ne se canonise jamais en +32/+41), ou tout indicatif hors zone FR (+261, +229… : explicite
+    ou choisi via le pays du formulaire). Un +33 NON mobile (01-05/08/09) est suspect — c'est
+    souvent un numéro local étranger mal canonisé (bug Onja : « 034… » malgache lu +33) →
+    le pays déclaré au formulaire doit confirmer, sinon grille indéterminée."""
+    if not tel:
+        return False
+    if tel.startswith(("+336", "+337", "+32", "+41")):
+        return True
+    return not tel.startswith("+33")
 
 
 async def envoyer_test_candidat(membre, score=""):
@@ -774,9 +794,10 @@ async def enregistrer_candidatures(quadruplets):
             "prenom": prenom, "pays": pays, "pseudo": pseudo,
             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         nb += 1
-        grille = equipe_de_l_indicatif(tel)
+        grille_tel = equipe_de_l_indicatif(tel) if indicatif_certain(tel) else ""
+        grille = grille_tel or (equipe_du_pays(pays) if pays else equipe_de_l_indicatif(tel))
         grilles[grille] = grilles.get(grille, 0) + 1
-        if pays and equipe_du_pays(pays) != grille:
+        if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
             incoherences.append(f"{prenom or '?'} ({pays}, {tel[:4]}…)")
         for uid, liaison in donnees.get("liaisons", {}).items():   # Discord déjà lié à ce numéro ?
             if liaison.get("tel") == tel:
@@ -856,7 +877,7 @@ async def attribuer_grille(membre, pays, tel=""):
     ('', message) = rôle introuvable/non attribuable → à remonter en admin (plus d'échec silencieux)."""
     if membre is None:
         return "", None
-    grille_tel = equipe_de_l_indicatif(tel) if tel else ""
+    grille_tel = equipe_de_l_indicatif(tel) if indicatif_certain(tel) else ""
     if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
         return "", None                             # pays ≠ indicatif : on ne devine pas
     code = grille_tel or (equipe_du_pays(pays) if pays else "")
@@ -959,11 +980,12 @@ async def traiter_candidature_webhook(message, silencieux=False):
         donnees.setdefault("candidatures", {})[tel] = {
             "prenom": prenom, "pays": pays, "pseudo": pseudo,
             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-        grille_tel = equipe_de_l_indicatif(tel)
+        grille_tel = equipe_de_l_indicatif(tel) if indicatif_certain(tel) else ""
+        grille_aff = grille_tel or (equipe_du_pays(pays) if pays else "")
         enregistrees.append(f"{prenom or '?'} ({pays or 'pays ?'}, …{tel[-4:]}) → grille "
-                            + ("FR" if grille_tel == "fr" else "International")
+                            + (("FR" if grille_aff == "fr" else "International") if grille_aff else "?")
                             + (" ⚠️ **pays déclaré ≠ indicatif**"
-                               if pays and equipe_du_pays(pays) != grille_tel else ""))
+                               if pays and grille_tel and equipe_du_pays(pays) != grille_tel else ""))
         lectures_cand = set(interpretations_tel(tel_brut))
         for uid, liaison in donnees.get("liaisons", {}).items():   # le Discord est peut-être déjà lié
             if liaison.get("tel") == tel or liaison.get("tel") in lectures_cand:
@@ -1731,11 +1753,12 @@ async def commande_admin(message, texte: str) -> bool:
             # pays déclaré en repli — et JAMAIS d'auto quand les deux signaux se contredisent.
             liaison = lire_json(FICHIER_PIPELINE, {"liaisons": {}}).get("liaisons", {}).get(str(membre.id), {})
             pays, tel_liaison = liaison.get("pays", ""), liaison.get("tel", "")
-            grille_tel = equipe_de_l_indicatif(tel_liaison)
+            grille_tel = equipe_de_l_indicatif(tel_liaison) if indicatif_certain(tel_liaison) else ""
             if not grille_tel and not pays:
                 await message.reply("Termine la commande par l'équipe : `!equipe Raphaël fr` — ou `int`, ou `retirer`. "
-                                    "(Sans mot d'équipe je choisis d'après sa candidature, mais elle n'est pas "
-                                    "liée : fais-lui faire `!lier`.)")
+                                    "(Sans mot d'équipe je choisis d'après sa candidature : ici je n'ai ni "
+                                    "indicatif mobile sûr ni pays déclaré — fais-lui faire `!lier`, ou tranche "
+                                    "toi-même avec `fr`/`int`.)")
                 return True
             if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
                 await message.reply(f"⚠️ Incohérence pour **{membre.display_name}** : pays déclaré « {pays} » mais "
@@ -1816,7 +1839,7 @@ async def commande_admin(message, texte: str) -> bool:
         # toujours par un humain — la doctrine « jamais d'auto-attribution » reste vraie).
         liaison = donnees.get("liaisons", {}).get(str(membre.id), {})
         pays, tel_liaison = liaison.get("pays", ""), liaison.get("tel", "")
-        grille_tel = equipe_de_l_indicatif(tel_liaison)
+        grille_tel = equipe_de_l_indicatif(tel_liaison) if indicatif_certain(tel_liaison) else ""
         incoherent = bool(pays and grille_tel and equipe_du_pays(pays) != grille_tel)
         grille = "" if incoherent else (grille_tel or (equipe_du_pays(pays) if pays else ""))
         if grille == "fr":
@@ -1829,9 +1852,9 @@ async def commande_admin(message, texte: str) -> bool:
                                 f"dès qu'il tombe ici, envoie le contrat depuis le modèle, puis "
                                 f"`!equipe {membre.display_name} fr` à la signature."
                                 + ("" if pays else
-                                   f"\n⚠️ Grille déduite du **seul indicatif** (candidature non retrouvée) — "
-                                   f"vérifie son **pays dans la feuille** AVANT d'envoyer le contrat ; "
-                                   f"si international : `!equipe {membre.display_name} int` maintenant."))
+                                   "\nℹ️ Candidature non retrouvée dans la feuille — grille déduite de son "
+                                   "**indicatif mobile sûr** (06/07 ou +32/+41), fiable. Pose le webhook "
+                                   "candidatures pour croiser le pays automatiquement."))
         elif grille == "mg" and message.guild is not None:
             # Team International attribuée ET Grille INT retirée (via attribuer_equipe : add Team +
             # remove grilles + écrit le registre) — même passage grille→team que le FR à la signature
@@ -1863,7 +1886,8 @@ async def commande_admin(message, texte: str) -> bool:
                                      "ton contrat à signer arrivera dessus (signature électronique, 2 minutes). "
                                      "Dès signature : ton rôle, ton espace et ton lien de tracking. 🔥")
             await message.reply(f"🏆 {membre.mention} validé — **grille indéterminée** "
-                                + ("(pays déclaré ≠ indicatif)" if incoherent else "(candidature non liée)")
+                                + ("(pays déclaré ≠ indicatif)" if incoherent
+                                   else "(candidature non liée ou numéro ambigu — pas un mobile 06/07)")
                                 + f" → défaut **FR** : je lui demande son e-mail (contrat auto). "
                                 f"Si international : `!equipe {membre.display_name} int` **maintenant** "
                                 f"(avant qu'il signe).")
@@ -1936,7 +1960,7 @@ async def commande_admin(message, texte: str) -> bool:
         tel_masque = (tel[:4] + "•" * max(0, len(tel) - 7) + tel[-3:]) if tel else "non lié (!lier)"
         prenom = liaison.get("prenom") or cand.get("prenom") or ""
         pays = liaison.get("pays") or cand.get("pays") or ""
-        grille_tel = equipe_de_l_indicatif(tel)
+        grille_tel = equipe_de_l_indicatif(tel) if indicatif_certain(tel) else ""
         reco_code = grille_tel or (equipe_du_pays(pays) if pays else "")
         reco = ("🇫🇷 Team France" if reco_code == "fr" else "🌍 Team International") if reco_code else "—"
         incoherent = bool(pays and grille_tel and equipe_du_pays(pays) != grille_tel)
