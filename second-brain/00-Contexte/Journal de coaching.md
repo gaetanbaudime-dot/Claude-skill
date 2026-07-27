@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-27 — Bug Onja : une malgache auto-onboardée Team France (diagnostic + fix poussé)
+- **Symptôme** : Onja (candidature Madagascar, mobile Telma « 034… »), quiz réussi, `!test-ok` → « validé (grille FR) » → contrat DocuSeal FR signé → **auto-onboardée Team France** au lieu de Team International.
+- **Cause racine (2 maillons)** : (1) le webhook candidatures n'est toujours pas installé sur la feuille (~326 lignes au sheet vs ~141 connues du bot) → sa fiche « Madagascar » n'a jamais atteint le bot ; (2) sans candidature pour trancher, un numéro local ambigu à 10 chiffres (« 0… ») était canonisé sur sa **première lecture = française** (+33) dès la liaison en MP → grille FR partout en aval, en toute confiance (ce n'était même pas la branche « grille indéterminée », qui aurait alerté). Même famille que le cas Bénin du 18/07 — le correctif d'alors ne couvrait que le webhook, pas la liaison sans candidature.
+- **Fix poussé sur `main` (Railway)** : préfixes mobiles malgaches 032/033/034/037/038 → lecture +261 prioritaire ; repli par pays étendu à France/Belgique/Suisse ; au rejeu du webhook, une liaison canonisée sous le mauvais indicatif est re-canonisée avec alerte admin ; `!test-ok` branche FR affiche un ⚠️ quand la grille repose sur le seul indicatif sans candidature. Testé sur 9 cas (Onja, Bénin 18/07, mobiles FR, internationaux explicites) : tous routent juste.
+- **Remède manuel (à faire par Gaëtan)** : `!equipe Onja int` (bascule Team + registre) ; la payer en grille INT ; lui faire accepter les conditions INT (« J'ACCEPTE » en MP) ; ignorer le contrat FR signé. Et **installer `candidature_webhook.gs` + `rejouerCandidatures()`** — c'est le maillon racine, le fix code n'est que le filet.
+- **Prédiction (27/07)** : une fois le webhook installé, plus aucun international routé FR par erreur ; tant qu'il ne l'est pas, le ⚠️ du `!test-ok` attrapera les cas restants avant l'envoi du contrat. Revue : au prochain onboarding international.
+
 ### 2026-07-24 — Acheter à Dubaï ? Non : le plan bankabilité fin 2027 confirmé par la recherche
 - **Question de Gaëtan** : bail Peninsula One finit le 22/11 — acheter un studio plutôt que relouer ? Apport ? Mensualités ? ROI max ?
 - **Recherche (agent, sourcée)** : [[Achat immobilier Dubaï (prêt, apport, bankabilité)]]. Trois murs simultanés : cash réel **~28 % du prix** (~361k AED pour 1,3 M — frais non finançables depuis fév. 2025) ; **profil self-employed inéligible** (licence ≥ 2 ans + 2 ans d'audits + haircut -20/-40 % ; ≥ 25 % de parts = indépendant même salarié de sa boîte) ; **break-even louer vs acheter ~7-8 ans** à prix constant, avec Fitch qui anticipe -10/-15 % sur le mid-market apartments (son segment exact).
