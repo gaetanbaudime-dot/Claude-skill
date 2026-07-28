@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-28 — ONE THING : clonage du chatting top 5 sur la base Sophie (le goulot s'est déplacé)
+- **État des lieux** : paie du lundi faite à la main (4 clippers), Stéphane et Yacine onboardés, Yanil à 1,3M de vues — l'amont (clippers productifs × subs/clipper) tourne. Le maillon mou de l'équation devient **€/sub** : Sophie ≈ 6,3 $/fan quand Chloé sort ≈ 9,2 $/fan.
+- **ONE THING** : call Maxence → extraire les scripts du top 5 de Chloé → déployer les séquences ([[SOP chatting anti-churn]]) sur la base Sophie, là où atterrissent les vues. C'est la décision du 24/07, toujours pas exécutée — elle multiplie la valeur de toutes les vues de tous les clippers.
+- **Hygiène du jour (hors ONE THING)** : `!equipe Onja int` + vérif Mistellà ; réaffecter Jonas (223k vues sur Lily à 0 €) vers Jade/Maddy ; assigner Stéphane et Yacine sur Maddy/Jade (règle d'allocation v2).
+- **Prédiction (28/07, écrite avant l'issue)** : si les séquences tournent sur la base Sophie d'ici le 04/08, rev/fan de Sophie +15-25 % sur les 30 jours suivants (probable, pas garanti — part de trafic tiède dans la base). Revue : ~1er septembre.
+
 ### 2026-07-27 — Bug Onja : une malgache auto-onboardée Team France (diagnostic + fix poussé)
 - **Symptôme** : Onja (candidature Madagascar, mobile Telma « 034… »), quiz réussi, `!test-ok` → « validé (grille FR) » → contrat DocuSeal FR signé → **auto-onboardée Team France** au lieu de Team International.
 - **Cause racine (2 maillons)** : (1) le webhook candidatures n'est toujours pas installé sur la feuille (~326 lignes au sheet vs ~141 connues du bot) → sa fiche « Madagascar » n'a jamais atteint le bot ; (2) sans candidature pour trancher, un numéro local ambigu à 10 chiffres (« 0… ») était canonisé sur sa **première lecture = française** (+33) dès la liaison en MP → grille FR partout en aval, en toute confiance (ce n'était même pas la branche « grille indéterminée », qui aurait alerté). Même famille que le cas Bénin du 18/07 — le correctif d'alors ne couvrait que le webhook, pas la liaison sans candidature.
