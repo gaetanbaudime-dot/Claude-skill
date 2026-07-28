@@ -38,6 +38,24 @@ Les données chatting du 13/07 restent valides : **top 5 chatteurs = 60 % des ve
 
 **L'exécution est un créneau, pas un document** : 1 h avec Maxence avant le 26/07 pour acter (a) qui extrait les scripts (un manager dédié, pas lui), (b) le calendrier de formation des médians, (c) les 2 KPI de suivi (unlock médian, golden ratio). C'est SON pôle (Art 4 du [[Pacte d'association LTP (partenariat 50-50 avec Maxence)|pacte]]) — ton rôle est de mettre le sujet à la table avec les chiffres, pas d'exécuter.
 
+## Photo juillet 2026 (export MYM du 28/07 — le top 5 actuel, données au 01-28/07)
+
+**24 002 € net de chat** (17 385 € médias privés + 6 618 € pourboires), 803 ventes, panier moyen ~30 €. **34 chatteurs uniques** derrière 39 comptes affichés — 8 comptes e-mail doublonnent des prénoms (même personne sous deux identités : classements et ratios faussés, **hygiène CRM à corriger avant toute paie au ratio**). Périmètre : MYM seulement — le chat OF (Sophie) n'est pas dans cet export.
+
+| Rang | Chatteur | CA net | Ventes | Panier | €/jour actif |
+|---|---|---|---|---|---|
+| 1 | Lafy | 3 611 € | 88 | 41,0 € | **241 €** |
+| 2 | Kaleb | 3 402 € | 102 | 33,4 € | 170 € |
+| 3 | Saad | 2 373 € | 68 | 34,9 € | 125 € |
+| 4 | Ludovish (TL) | 1 786 € | 50 | 35,7 € | 128 € |
+| 5 | Riantsoa | 1 721 € | 72 | 23,9 € | 115 € |
+
+**Top 5 = 53,7 % du CA** (structure inchangée depuis le 13/07 : 60 % sur 29 actifs). Le 6ᵉ, **Orphée (TL) : panier 66,6 € et 208 €/jour actif en 8 jours seulement** — le closer whales/pourboires de l'équipe, ses scripts sont la priorité n°1 de l'extraction. Les tops sont **spécialisés par créatrice** (Kaleb et Saka → Chloé ; Lafy et Saad → Maddy ; Riantsoa et Faniry → Sarah) : la bibliothèque doit être par situation ET par créatrice.
+
+Par créatrice (chat MYM, rapproché des volumes du 24/07) : Chloé 8 056 € (panier 38,4 €) · Sarah 7 819 € (343 ventes à 22,8 € — la base débordement, terrain naturel du welcome-PPV) · Maddy 5 793 € (43,6 €) · Jade 1 564 € · Amanda 771 €. **Alerte concentration : un seul fan de Chloé = 2 596 € soit 10,8 % du CA chat du mois** (traitement VIP à formaliser, dépendance à surveiller). Creux inexpliqué semaine du 08-14/07 (3 849 € vs 6-7,7 k€ les autres semaines) — cause à demander à Maxence.
+
+**Limites de l'export** : ventes uniquement — ni unlock rate ni golden ratio (demander l'export messages envoyés/achetés), ni le côté OF (demander l'équivalent pour Sophie).
+
 ## Prédictions falsifiables ([[Journal de coaching|journal]])
 
 - **Réplication** : si les variables Sarah sont identifiées et répliquées sur Maddy, ses nouveaux subs MYM/mois font ×2 minimum (640 → 1 300+) sous 6 semaines ; si rien ne bouge, le débordement n'est pas pilotable de notre côté (c'est l'algo/le push MYM) et le chantier se ferme proprement.
