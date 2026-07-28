@@ -16,7 +16,7 @@ liens_forts:
 > [!tip] Verdict (mis à jour le 28/07 — passage à 400 Go)
 > **173,82 Go, 2 669 fichiers, 17 dossiers.** Avec 400 Go de quota, tout rentre : **346,56 Go libres**, il en faut 173,82, il restera 172,74 Go de marge. La question n'est donc plus « quoi copier » mais « comment, sans rien perdre ».
 > **La réponse : deux phases, et surtout pas 2 669 copies individuelles.** Phase A — copie brute intégrale des 17 dossiers vers une zone de réception, adressés par ID Drive, **côté serveur Google** : aucun octet ne transite par ta connexion, la durée dépend du nombre de fichiers et pas du volume, et rien ne peut être perdu puisqu'on ne renomme rien. Phase B — rangement et renommage **à l'intérieur de ton propre Drive**, où un déplacement est une écriture de métadonnées : instantané, gratuit en stockage, et entièrement réversible si le classement ne te plaît pas.
-> **Compte 30 à 60 minutes en tout, dont 10 de configuration.** Les deux scripts sont écrits et testés syntaxiquement. Seule chose qui manque encore : **l'accord d'Alice**, que tu ne m'as toujours pas donné.
+> **Compte 30 à 60 minutes en tout, dont 10 de configuration.** Accord d'Alice **acté le 28/07** — la procédure est déblocable.
 
 ## 1. Ce qui a été mesuré, et ce qui ne l'a pas été
 
@@ -133,7 +133,7 @@ Un troisième point mérite ton arbitrage : le gabarit prévoit `Semaine 1-4 / T
 
 Le premier est juridique. Les archives 2023 contiennent des tournages réalisés avec des partenaires tiers et au moins deux scènes produites pour des studios. Une scène tournée pour un studio appartient très probablement au studio, pas à Alice — la copier dans le Drive de l'agence, c'est héberger du contenu sous licence tierce sans en avoir vérifié les droits. **Statut : spéculatif, je n'ai vu aucun contrat.** À vérifier avant, pas après, dans la logique des [[Risques légaux et éthiques de l'OFM|garde-fous OFM]].
 
-Le second est humain, et il n'a toujours pas de réponse. Ce contenu est celui d'Alice. Une copie en crée une seconde instance hors de son contrôle, chez toi, définitivement. **Rien ne part tant que tu ne m'as pas dit que c'est acté avec elle** — c'est la question que j'ai posée et à laquelle tu n'as pas répondu, et je ne la traite pas comme un détail administratif.
+Le second était humain : ce contenu est celui d'Alice, et une copie en crée une seconde instance hors de son contrôle. **Acté le 28/07** — Gaëtan confirme qu'Alice est au courant et d'accord. Le flag est levé ; il reste consigné ici parce que la même question se reposera à l'identique pour les huit autres créatrices, et qu'elle se pose **avant** la copie, jamais après.
 
 ## 7. Le plan d'exécution : deux phases, 30 à 60 minutes
 
@@ -156,6 +156,14 @@ Un seul remote suffit, et tu n'as **pas besoin des identifiants d'Alice** : chaq
 Lance chaque phase d'abord en simulation (`--dry-run`), qui n'écrit rien et te montre ce qui se passerait. Puis en réel. Entre les deux phases, vérifie le compteur : `rclone size` doit afficher **2 669 fichiers et environ 173,8 Go** dans la zone de réception. Si le compte y est, la phase A a fait son travail et plus rien ne peut être perdu ensuite.
 
 Les deux scripts gèrent les échecs : `rclone` reprend là où il s'est arrêté sans recopier l'existant, il suffit de relancer. Un journal est écrit à côté (`phase_A.log`), consultable en direct avec `tail -f`.
+
+### Le piège qui aurait fait écrire chez Alice
+
+Première version du script, corrigée avant livraison, et la leçon vaut d'être gardée. Pour désigner un dossier source par son identifiant, le réflexe est le drapeau `--drive-root-folder-id`. Sauf que **ce drapeau s'applique à tous les dossiers de la commande, source et destination confondues** : la destination aurait elle aussi été résolue à partir de l'identifiant du dossier d'Alice, et la copie serait allée s'écrire **chez elle**, dans le dossier qu'on prétendait seulement lire.
+
+La forme correcte passe l'identifiant dans l'adresse de la source elle-même (`drive,root_folder_id=…:`), ce qui ne vise qu'un seul côté. Vérifié en conditions réelles avant livraison, pas seulement lu dans la documentation.
+
+La leçon générale : **un paramètre qui ressemble à « d'où je lis » peut en réalité vouloir dire « où je travaille »**. Sur une opération qui touche le contenu de quelqu'un d'autre, l'écart entre les deux lectures est la différence entre une copie et une intrusion. Le script affiche désormais l'espace du compte de destination avant de commencer, précisément pour rendre cette confusion visible à l'œil.
 
 ### Ce qui peut coincer, dit d'avance
 
