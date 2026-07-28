@@ -54,7 +54,25 @@ Les données chatting du 13/07 restent valides : **top 5 chatteurs = 60 % des ve
 
 Par créatrice (chat MYM, rapproché des volumes du 24/07) : Chloé 8 056 € (panier 38,4 €) · Sarah 7 819 € (343 ventes à 22,8 € — la base débordement, terrain naturel du welcome-PPV) · Maddy 5 793 € (43,6 €) · Jade 1 564 € · Amanda 771 €. **Alerte concentration : un seul fan de Chloé = 2 596 € soit 10,8 % du CA chat du mois** (traitement VIP à formaliser, dépendance à surveiller). Creux inexpliqué semaine du 08-14/07 (3 849 € vs 6-7,7 k€ les autres semaines) — cause à demander à Maxence.
 
-**Limites de l'export** : ventes uniquement — ni unlock rate ni golden ratio (demander l'export messages envoyés/achetés), ni le côté OF (demander l'équivalent pour Sophie).
+**Limites de l'export MyPulse** : ventes uniquement — ni unlock rate ni golden ratio côté MYM.
+
+### Le côté OF (export Infloww du 28/07, 01-28/07) — les KPI manquants sont là
+
+**17 933 $ de chat OF** · 50 chatteurs listés, **27 avec ventes** · les équipes OF et MYM sont **largement distinctes** (~8 personnes seulement chattent les deux plateformes : Ludovish, Riantsoa, Orphée, Faniry, Christ, Anjara, Raoul, Lionel). Chatting agence total juillet ≈ **40 k€** (24 002 € MYM + ~16 k€ OF à ~0,90 €/$, approximation) pour ~53 chatteurs uniques.
+
+| Rang OF | Chatteur | Ventes | Golden | Unlock | CVR fan | $/fan payant |
+|---|---|---|---|---|---|---|
+| 1 | Hardy | 2 965 $ | 3,84 % | 35,1 % | 6,5 % | 66 $ |
+| 2 | Donaldo | 2 708 $ | 3,25 % | **40,7 %** | 8,9 % | **80 $** |
+| 3 | Eli | 2 170 $ | 3,37 % | 30,9 % | 8,9 % | 57 $ |
+| 4 | Tefyh | 1 974 $ | **5,32 %** | 33,6 % | **10,8 %** | 52 $ |
+| 5 | Lionel | 1 564 $ | 1,91 % | 34,8 % | 5,8 % | 50 $ |
+
+Top 5 OF = **63,5 % du CA** (plus concentré que MYM). **Médianes hors top 5 (actifs)** : golden 2,12 % · unlock 25,6 % · CVR 4,5 % — l'écart de +8-15 points visé par la SOP est réel et mesuré. Deux profils opposés à documenter : **Tefyh = l'efficience** (meilleur golden et CVR, 2× moins de messages que Lionel pour un CA supérieur par message) vs **Lionel = le volume qui compense** (8 136 messages, golden 1,91 % — l'anti-modèle à ne PAS cloner). Petits volumes à fort signal : Orphée 46,7 % d'unlock et Ludovish 45,5 % sur OF aussi — leurs skills MYM se transfèrent.
+
+Par créatrice OF : Sophie 8 765 $ (Hardy/Eli/Tefyh) · Chloé 7 211 $ (Donaldo/Lionel/Donassole) · Jade 1 256 $ · Amanda 577 $ · Lila Doré 123 $. **Lily n'a aucune ligne OF** (compte non lancé — feed en setup le 28/07, trafic Jonas en attente).
+
+**Top 5 global fusionné (≈ 0,90 €/$)** : Lafy ~3,6 k€ (MYM) · Kaleb ~3,4 k€ (MYM) · Hardy ~2,7 k€ (OF) · Donaldo ~2,4 k€ (OF) · Saad ~2,4 k€ (MYM). **Les scripts à extraire en priorité : Orphée (whales/pourboires), Tefyh (efficience/CVR), Donaldo (unlock/panier), Lafy et Kaleb (volume rentable médias privés).**
 
 ## Prédictions falsifiables ([[Journal de coaching|journal]])
 
