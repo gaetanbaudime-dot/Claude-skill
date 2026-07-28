@@ -13,8 +13,10 @@ liens_forts:
   - "[[LTP Models]]"
 ---
 
-> [!tip] Verdict
-> **173,82 Go, 2 669 fichiers, 17 dossiers.** Ça ne rentre pas : ton Drive a **46,56 Go libres** sur 100, il manque **127 Go**. Mais le vrai chiffre est ailleurs — **90 fichiers pèsent 89 % du total** (154,66 Go de rushes bruts 2022-2023, jusqu'à 8,7 Go pièce). Sors ces 90-là et il reste **19,16 Go**, qui tiennent sans rien payer, avec 27 Go de marge. Et le contenu réellement exploitable pour faire tourner Alice aujourd'hui — 2024 à 2026 — pèse **3,68 Go**. Tu allais donc déplacer 174 Go pour en utiliser 3,7. **Copie le vivant maintenant (3,68 Go), arbitre les 90 gros un par un, ne touche pas au reste.** Et ne me fais pas exécuter la copie via le connecteur : 2 669 appels d'API un par un, là où `rclone` le fait en une commande, côté serveur, sans repasser par ton réseau. Le script est écrit, il attend l'accord d'Alice.
+> [!tip] Verdict (mis à jour le 28/07 — passage à 400 Go)
+> **173,82 Go, 2 669 fichiers, 17 dossiers.** Avec 400 Go de quota, tout rentre : **346,56 Go libres**, il en faut 173,82, il restera 172,74 Go de marge. La question n'est donc plus « quoi copier » mais « comment, sans rien perdre ».
+> **La réponse : deux phases, et surtout pas 2 669 copies individuelles.** Phase A — copie brute intégrale des 17 dossiers vers une zone de réception, adressés par ID Drive, **côté serveur Google** : aucun octet ne transite par ta connexion, la durée dépend du nombre de fichiers et pas du volume, et rien ne peut être perdu puisqu'on ne renomme rien. Phase B — rangement et renommage **à l'intérieur de ton propre Drive**, où un déplacement est une écriture de métadonnées : instantané, gratuit en stockage, et entièrement réversible si le classement ne te plaît pas.
+> **Compte 30 à 60 minutes en tout, dont 10 de configuration.** Les deux scripts sont écrits et testés syntaxiquement. Seule chose qui manque encore : **l'accord d'Alice**, que tu ne m'as toujours pas donné.
 
 ## 1. Ce qui a été mesuré, et ce qui ne l'a pas été
 
@@ -53,7 +55,7 @@ En unités Google (Gio) : **161,88 Gio**. C'est ce chiffre-là que ton compteur 
 
 ## 3. Les trois chiffres qui décident
 
-**Le stockage.** Tu utilises 53,44 Go sur 100. Il reste **46,56 Go**. Copier les 173,82 Go demande **127,26 Go de plus que ce que tu as**. Et le transfert de propriété ne sauve pas : dès que tu deviens propriétaire, le volume est décompté chez toi. Payer ou élaguer, il n'y a pas de troisième porte.
+**Le stockage. Résolu le 28/07** : quota passé de 100 à 400 Go, soit **346,56 Go libres** pour 173,82 Go à copier — il restera 172,74 Go. Le calcul qui suit garde sa valeur pour les huit autres créatrices, et pour le jour où le quota se remplira à nouveau : c'est le même arbitrage qui se reposera.
 
 **La concentration.** 90 fichiers font 154,66 Go, soit **89,0 % du volume pour 3,4 % des fichiers**. Ce sont des masters de tournage bruts de 2022-2023 : le plus lourd fait 8,7 Go à lui seul, et 12 fichiers d'un seul mois d'avril 2023 pèsent 42,18 Go. Le seuil est net :
 
@@ -61,12 +63,14 @@ En unités Google (Gio) : **161,88 Gio**. C'est ce chiffre-là que ton compteur 
 |---|---|
 | 1 Go | 2 613 fichiers, 36,71 Go |
 | 500 Mo | 2 595 fichiers, 23,96 Go |
-| **200 Mo** | **2 579 fichiers, 19,16 Go** ✅ tient dans tes 46,56 Go |
+| **200 Mo** | **2 579 fichiers, 19,16 Go** |
 | 100 Mo | 2 554 fichiers, 15,91 Go |
 
-**L'utilité.** Le contenu de 2024-2026 — celui qu'Emma et les clippers peuvent réellement exploiter — représente **1 116 fichiers pour 3,68 Go**. Les archives 2022-2023 pèsent 166,25 Go, dont **23,85 Go déjà publiés** (929 fichiers rangés dans des sous-dossiers `USED`, `Posted`, `Uploaded on OF & MYM`). Rapporté au but poursuivi, c'est un rapport de **1 à 47** entre ce que tu déplaces et ce qui te sert.
+Ce tableau ne sert plus à décider quoi copier, mais à comprendre où va l'espace : **90 fichiers occuperont 89 % du nouveau quota**. Le jour où les 400 Go seront pleins, c'est là qu'il faudra couper, et nulle part ailleurs.
 
-C'est le raisonnement de la [[Théorie des contraintes|théorie des contraintes]] appliqué au stockage : le goulot de la machine à contenu n'a jamais été « les fichiers d'Alice sont mal rangés », c'est « personne ne pioche dedans ». Ranger 174 Go d'archives ne débloque rien ; ranger 3,68 Go de contenu vivant et le rendre lisible pour Emma, oui. Le reste est du [[Coût d'opportunité|coût d'opportunité]] déguisé en travail.
+**L'utilité.** Le contenu de 2024-2026 — celui qu'Emma et les clippers peuvent réellement exploiter — représente **1 116 fichiers pour 3,68 Go**. Les archives 2022-2023 pèsent 166,25 Go, dont **23,85 Go déjà publiés** (929 fichiers rangés dans des sous-dossiers `USED`, `Posted`, `Uploaded on OF & MYM`).
+
+C'est ce déséquilibre qui dicte le traitement, et c'est la [[Théorie des contraintes|théorie des contraintes]] qui tranche : on copie tout puisque la place existe, mais **on ne dépense de l'effort de rangement que sur les 3,68 Go qui servent**. Les 166 Go d'archives gardent leur arborescence d'origine — leurs dossiers de sessions, de lieux et de mois portent déjà de l'information qu'un renommage automatique détruirait. Renommer 1 551 fichiers d'archives serait exactement le [[Coût d'opportunité|coût d'opportunité]] déguisé en travail : beaucoup d'activité sur un non-goulot.
 
 ## 4. La matrice de tri
 
@@ -131,25 +135,52 @@ Le premier est juridique. Les archives 2023 contiennent des tournages réalisés
 
 Le second est humain, et il n'a toujours pas de réponse. Ce contenu est celui d'Alice. Une copie en crée une seconde instance hors de son contrôle, chez toi, définitivement. **Rien ne part tant que tu ne m'as pas dit que c'est acté avec elle** — c'est la question que j'ai posée et à laquelle tu n'as pas répondu, et je ne la traite pas comme un détail administratif.
 
-## 7. Pourquoi la copie ne doit pas passer par moi
+## 7. Le plan d'exécution : deux phases, 30 à 60 minutes
 
-Le connecteur Drive copie **un fichier par appel**. Les 2 669 fichiers demandent 2 669 allers-retours, soit plusieurs heures de run, un coût en jetons hors de proportion, et une reprise manuelle à chaque échec. Un signal de fiabilité s'est d'ailleurs déjà manifesté pendant l'inventaire : le connecteur refuse de lister les dossiers les plus chargés — le dossier de Chloé, celui de Sarah, les branches Instagram de deux autres créatrices ont tous renvoyé une erreur backend. Les branches les plus utiles sont précisément celles qu'il ne sait pas lire.
+### Pourquoi deux phases et pas une
 
-`rclone` fait le même travail en une commande, **côté serveur Google** (les octets ne transitent jamais par ton réseau), avec reprise automatique et journal. Le script est écrit à partir du plan de rangement : il crée les 30 dossiers cibles et exécute les 1 116 copies renommées du contenu vivant, avec un mode simulation à lancer en premier. Mon apport utile n'était pas de copier des fichiers, c'était de produire la matrice et le plan que la machine exécute.
+L'erreur naturelle serait de lancer 2 669 opérations « copie et renomme en même temps ». C'est fragile : une opération qui échoue au milieu laisse un état illisible, et la moindre erreur de destination dans la matrice est déjà écrite dans le nom du fichier. En séparant, chaque phase a une seule responsabilité et une propriété utile.
 
-## 8. La séquence recommandée
+La **phase A** ne fait que copier, à l'identique, sans rien renommer. C'est l'assurance « aucun fichier perdu » : la vérification se réduit à comparer deux compteurs. Elle s'exécute **côté serveur Google** — les octets ne descendent jamais sur ta machine et ne remontent jamais, donc les 174 Go n'ont aucun impact sur ta connexion. La durée dépend du **nombre de fichiers**, pas du volume : copier un fichier de 8,7 Go coûte le même temps qu'un de 300 Ko.
 
-1. **Obtenir l'accord d'Alice**, explicitement, sur la copie et sur la reprise de propriété. Bloquant.
-2. **Lancer la copie du vivant** : 1 116 fichiers, 3,68 Go, mode simulation d'abord. Ton stockage encaisse sans broncher.
-3. **Vérifier le résultat sur une branche** — Story, la plus fournie — avant de valider le reste.
-4. **Arbitrer les 90 gros fichiers** un par un sur la liste fournie : garder / archiver hors Drive / supprimer. C'est une décision de valeur d'archive, pas une décision technique, et elle t'appartient. Un disque externe de 2 To coûte moins qu'un mois d'abonnement à l'année et sort ces 154 Go de l'équation pour de bon.
-5. **Ouvrir les deux ZIP** pour savoir si ces 3,89 Go sont un doublon (probable) ou du contenu unique.
-6. **Câbler le rangement dans la [[SOP - Machine à contenu hebdomadaire|SOP hebdomadaire]]** et le confier nommément à Emma dans son [[Kit Emma - mode d'emploi|kit]] — sinon la nouvelle arborescence rejoindra les dossiers `USED` vides d'ici la rentrée.
+La **phase B** ne fait que ranger, à l'intérieur de ton propre Drive, où tu es désormais propriétaire. Un déplacement Google n'est pas une copie : c'est une écriture de métadonnées, instantanée, qui ne consomme pas un octet de stockage supplémentaire. Et c'est **réversible** : si le classement ne te convient pas, les fichiers sont déjà chez toi, on retrie sans rien re-télécharger.
+
+### La préparation (10 minutes, une seule fois)
+
+Installe `rclone` — un binaire unique, pas d'installation lourde : `brew install rclone` sur Mac, ou le téléchargement direct depuis `rclone.org/downloads`. Puis lance `rclone config` et crée **un seul** remote nommé `drive` sur ton compte Google : choisis le type `drive`, laisse `client_id` et `client_secret` vides, prends le scope `1` (accès complet), refuse la configuration avancée, accepte la configuration automatique — ton navigateur s'ouvre pour l'autorisation Google, et c'est fini.
+
+Un seul remote suffit, et tu n'as **pas besoin des identifiants d'Alice** : chaque dossier est adressé par son identifiant Drive, ce qui fonctionne qu'il soit dans ton espace ou partagé avec toi. C'est aussi ce qui immunise le script contre les pièges de noms — quatre des dossiers d'Alice ont un espace en fin de nom, invisible à l'œil et fatal en ligne de commande.
+
+### L'exécution
+
+Lance chaque phase d'abord en simulation (`--dry-run`), qui n'écrit rien et te montre ce qui se passerait. Puis en réel. Entre les deux phases, vérifie le compteur : `rclone size` doit afficher **2 669 fichiers et environ 173,8 Go** dans la zone de réception. Si le compte y est, la phase A a fait son travail et plus rien ne peut être perdu ensuite.
+
+Les deux scripts gèrent les échecs : `rclone` reprend là où il s'est arrêté sans recopier l'existant, il suffit de relancer. Un journal est écrit à côté (`phase_A.log`), consultable en direct avec `tail -f`.
+
+### Ce qui peut coincer, dit d'avance
+
+Google plafonne les écritures à **750 Go par jour** et par compte. Tes 174 Go passent largement dessous, mais si tu enchaînais plusieurs créatrices dans la même journée, la limite se manifesterait par des erreurs de quota — la parade est d'attendre le lendemain et de relancer, le script reprendra tout seul.
+
+Le client d'API par défaut de `rclone` est partagé entre tous ses utilisateurs dans le monde, ce qui peut provoquer des ralentissements aux heures chargées. Si le transfert traîne, créer ton propre identifiant client dans Google Cloud règle le problème — c'est dix minutes de configuration, à ne faire que si le besoin s'en fait sentir.
+
+Enfin, `rclone` refuse par défaut les fichiers que Google a signalés. Le drapeau `--drive-acknowledge-abuse` est déjà dans les scripts pour cette raison ; si un fichier bloque malgré tout, il apparaîtra nommément dans le journal et se traitera à la main.
+
+### Après la copie
+
+Trois choses restent à faire, et aucune n'est technique.
+
+**Vérifier une branche à l'œil** avant de considérer le rangement comme acquis — `📁 Story` est la plus fournie, c'est le bon échantillon. Le point à contrôler en priorité est le classement publiable / non publiable : il est déduit du dossier d'origine, jamais du contenu, et une erreur dans ce sens-là coûte un compte Instagram.
+
+**Ouvrir les deux archives compressées** (3,89 Go) pour savoir si elles doublonnent ce que tu possèdes déjà — c'est probable, leur nom indique un export Drive.
+
+**Câbler le rangement dans la [[SOP - Machine à contenu hebdomadaire|SOP hebdomadaire]]** et le confier nommément à Emma via son [[Kit Emma - mode d'emploi|kit]]. C'est la seule étape qui décide si tout ce travail sert à quelque chose dans six mois. Les dossiers `USED` créés en août 2025 et toujours vides onze mois plus tard sont la démonstration que la structure ne suffit pas : sans responsable nommé, elle meurt.
+
+Et la question qui reste ouverte : Alice continuera d'uploader dans son vrac à elle. Soit on prévoit une passe de rattrapage hebdomadaire, soit on lui demande de déposer directement dans la nouvelle arborescence. La seconde est la seule qui tienne dans la durée, et elle suppose que quelqu'un le lui demande et le vérifie — exactement le rôle décrit dans la [[Scorecard - Creator Success Manager (Emma)|scorecard d'Emma]], et ce que la [[Méthode de délégation - Emma (kit de passation)|méthode de délégation]] appelle rendre une casquette plutôt que la déposer.
 
 Le point de bascule est à l'étape 6, pas à l'étape 2. Alice continuera d'uploader dans son vrac à elle : soit on prévoit une passe de rattrapage hebdomadaire, soit on lui demande de déposer directement dans la nouvelle arborescence. La seconde est la seule qui tienne dans la durée, et elle suppose que quelqu'un le lui demande et le vérifie — ce qui est exactement le rôle décrit dans la [[Scorecard - Creator Success Manager (Emma)|scorecard d'Emma]], et ce que la [[Méthode de délégation - Emma (kit de passation)|méthode de délégation]] appelle rendre une casquette plutôt que la déposer.
 
 ## Livrables hors vault
 
-Trois fichiers de travail t'ont été remis directement (ils contiennent des noms de fichiers et de dossiers bruts, ils n'ont donc pas leur place dans le repo) : le plan de rangement complet des 2 669 fichiers avec source, destination et nouveau nom ; la liste des 90 fichiers à arbitrer avec une colonne de décision à remplir ; et le script `rclone` prêt à tourner en simulation.
+Les fichiers de travail sont remis directement (ils contiennent des noms de fichiers et de dossiers bruts, ils n'ont donc pas leur place dans le repo) : **`phase_A_copie.sh`** (copie brute des 17 dossiers par identifiant Drive), **`phase_B_rangement.sh`** (30 dossiers créés, 1 116 fichiers rangés et renommés, archives déplacées en bloc), le plan de rangement complet des 2 669 fichiers avec source, destination et nouveau nom, et la liste des 90 gros fichiers avec une colonne de décision — celle-ci ne bloque plus la copie, mais elle dira où couper le jour où les 400 Go se rempliront.
 
 Rattachement : cette page prolonge la [[SOP - Machine à contenu hebdomadaire|machine à contenu]] côté matière première, s'appuie sur la [[Checklist créatrice - Tournage batch|checklist de tournage]] pour la partie amont, et relève du chantier de fond décrit dans [[Se licencier de son propre poste]] — un rangement qui dépend de toi n'est pas un système. Contexte roster : [[LTP Models]] (Alice fait partie des lancements à zéro, en attente de main-d'œuvre clipping).
