@@ -68,11 +68,23 @@ Par créatrice (chat MYM, rapproché des volumes du 24/07) : Chloé 8 056 € (p
 | 4 | Tefyh | 1 974 $ | **5,32 %** | 33,6 % | **10,8 %** | 52 $ |
 | 5 | Lionel | 1 564 $ | 1,91 % | 34,8 % | 5,8 % | 50 $ |
 
-Top 5 OF = **63,5 % du CA** (plus concentré que MYM). **Médianes hors top 5 (actifs)** : golden 2,12 % · unlock 25,6 % · CVR 4,5 % — l'écart de +8-15 points visé par la SOP est réel et mesuré. Deux profils opposés à documenter : **Tefyh = l'efficience** (meilleur golden et CVR, 2× moins de messages que Lionel pour un CA supérieur par message) vs **Lionel = le volume qui compense** (8 136 messages, golden 1,91 % — l'anti-modèle à ne PAS cloner). Petits volumes à fort signal : Orphée 46,7 % d'unlock et Ludovish 45,5 % sur OF aussi — leurs skills MYM se transfèrent.
+Top 5 OF = **63,5 % du CA** (plus concentré que MYM). **Médianes hors top 5 (actifs)** : golden 2,12 % · unlock 25,6 % · CVR 4,5 %.
+
+**Doctrine de lecture (posée par Gaëtan le 28/07, définitions Infloww vérifiées au tooltip)** : golden ratio = **% des messages envoyés qui sont des PPV** (pression commerciale) ; unlock rate = % des PPV envoyés qui sont achetés. **L'idéal = golden BAS + unlock HAUT** : beaucoup de conversation, peu de PPV, mais placés au bon moment et achetés. Relecture des profils sous cette grille :
+- **Donaldo = le profil de référence à cloner** : golden 3,25 %, unlock 40,7 %, 80 $/fan payant — il ne pousse pas, il construit, et ça s'achète.
+- **Orphée = le maître du timing** : golden 1,41 %, unlock 46,7 % sur OF + roi des pourboires MYM — le modèle « whale » exact de la doctrine.
+- **Tefyh = à étudier, pas à cloner tel quel** : golden 5,32 % = le plus pushy du top ; son CVR 10,8 % le sauve, mais son unlock 33,6 % dit que ses PPV sont moyennement ciblés.
+- **Azra = l'anti-modèle réel** : golden 5,0 % + unlock 25 % — pousse beaucoup, convertit peu.
+- **Lionel, rediagnostiqué** : discipline correcte (golden 1,91 %) mais closing faible (CVR 5,75 %, 50 $/fan payant pour 8 136 messages — le plus gros volume de l'équipe). Son gap = transformer la conversation en vente, pas le spam.
+- **Ckycia = chasseur de whales** : golden 1,17 %, 99 $/fan payant, mais CVR 2,58 % — ultra-sélectif.
+
+**Conséquence pour la formation des médians** : leur golden est déjà discipliné (2,12 %) — leur gap est l'**unlock (25,6 % → cible 35 %+)** : le tease et la construction AVANT l'envoi du PPV, pas « envoyer moins ». C'est précisément ce que les scripts de Donaldo et Orphée enseignent. Ludovish confirme le transfert de skill entre plateformes (45,5 % d'unlock OF, top 4 MYM).
 
 Par créatrice OF : Sophie 8 765 $ (Hardy/Eli/Tefyh) · Chloé 7 211 $ (Donaldo/Lionel/Donassole) · Jade 1 256 $ · Amanda 577 $ · Lila Doré 123 $. **Lily n'a aucune ligne OF** (compte non lancé — feed en setup le 28/07, trafic Jonas en attente).
 
-**Top 5 global fusionné (≈ 0,90 €/$)** : Lafy ~3,6 k€ (MYM) · Kaleb ~3,4 k€ (MYM) · Hardy ~2,7 k€ (OF) · Donaldo ~2,4 k€ (OF) · Saad ~2,4 k€ (MYM). **Les scripts à extraire en priorité : Orphée (whales/pourboires), Tefyh (efficience/CVR), Donaldo (unlock/panier), Lafy et Kaleb (volume rentable médias privés).**
+**Top 5 global fusionné (≈ 0,90 €/$)** : Lafy ~3,6 k€ (MYM) · Kaleb ~3,4 k€ (MYM) · Hardy ~2,7 k€ (OF) · Donaldo ~2,4 k€ (OF) · Saad ~2,4 k€ (MYM). **Les scripts à extraire en priorité (grille golden bas / unlock haut) : Donaldo (la référence), Orphée (whales/timing), Lafy et Kaleb (volume rentable médias privés MYM) ; Tefyh en étude complémentaire pour son CVR.**
+
+⚠️ Le benchmark du 13/07 (« top 5 = golden 7,15 % vs 2-4 % ») lisait un golden ÉLEVÉ comme un marqueur de top — sous la définition Infloww et la doctrine du 28/07 c'est l'inverse : la corrélation venait du volume de tentatives, pas de la qualité. Consigné au [[Fact-Check-Log]] ; l'objectif de formation reste l'unlock, le golden se surveille comme garde-fou anti-spam (viser ~2-4 %, pas plus).
 
 ## Prédictions falsifiables ([[Journal de coaching|journal]])
 
