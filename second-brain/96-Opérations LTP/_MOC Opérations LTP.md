@@ -11,6 +11,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Scorecard - Creator Success Manager (Emma)]] : la fiche de poste (mission, outcomes, compétences, frontières).
 - [[Méthode de délégation - Emma (kit de passation)]] : la mécanique de passation (contrat, Loom, échelle d'autonomie, script).
 - [[SOP - Machine à contenu hebdomadaire]] : le rythme lundi → week-end + reporting + profils de tournage + x2/x3.
+- [[Rangement du Drive Alice (inventaire et matrice de tri)]] 📦 : l'inventaire chiffré du Drive d'une créatrice (**173,82 Go, 2 669 fichiers — dont 89 % du volume dans 90 fichiers**), la matrice de tri à 5 axes (destination / nature / explicite / date / statut de publication), l'arborescence cible calquée sur le gabarit `gdrive_v2`, la convention de nommage, et le verdict : copier les 3,68 Go vivants, pas les 174. Le modèle réutilisable pour toute créatrice dont le contenu est en vrac.
 - [[Checklist créatrice - Tournage batch]] : l'artefact remis aux créatrices (50 clips/session).
 - [[Plan de formation Emma]] : onboarding 3 semaines par niveaux d'autonomie.
 
@@ -81,4 +82,4 @@ Cadres appliqués : [[Délégation]], [[Effet de levier]], [[Théorie des contra
 
 ## À densifier lors des prochains runs
 
-SOP onboarding créatrice, SOP recrutement clippeurs, profils de tournage par créatrice, playbook trends US par niche. (SOP chatting : ✅ faite le 13/07.)
+SOP onboarding créatrice, SOP recrutement clippeurs, profils de tournage par créatrice, playbook trends US par niche. (SOP chatting : ✅ faite le 13/07.) **Chantier ouvert le 28/07** : généraliser la matrice de tri Drive ([[Rangement du Drive Alice (inventaire et matrice de tri)]]) aux 8 autres créatrices — le gabarit `gdrive_v2` existe mais les instances réelles divergent déjà (branches renommées, `📋 Documents Créatrice` vide partout), et personne ne tient la convention.

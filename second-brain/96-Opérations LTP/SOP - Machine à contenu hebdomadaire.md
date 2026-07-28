@@ -48,6 +48,7 @@ Cible chiffrée du [[Sprint été - croissance sans moi]] : batch complet ≥ 90
 
 - Créatrices en retard : relance douce + proposer une **aide concrète** (refaire le point sur une trend, réexpliquer un réglage, décaler le créneau).
 - Objectif : zéro créatrice prioritaire qui finit la semaine à vide.
+- **Ranger ce qui a été livré** (10 min, non négociable) : chaque fichier déposé va dans le dossier du mois de sa branche, renommé selon la convention, et ce qui est publié bascule dans `✅ Déjà publié`. Le statut vit dans le **dossier**, jamais dans le nom du fichier — la double convention est ce qui a produit treize fichiers tous nommés `Posted.mp4` chez une créatrice, indiscernables sans les ouvrir. Le détail de l'arborescence et de la matrice de tri est dans [[Rangement du Drive Alice (inventaire et matrice de tri)]], qui sert de modèle pour toutes. Sans responsable nommé sur cette ligne, l'arborescence meurt en trois semaines : c'est déjà arrivé, dossiers `USED` créés puis jamais remplis.
 
 ## Fin de semaine — Reporting (15 min)
 
