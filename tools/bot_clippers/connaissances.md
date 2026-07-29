@@ -75,6 +75,8 @@ Facebook, créer tes pages (le setup complet, étape par étape) :
 6. **Warm-up FB ultra-léger** : pas de 48 h comme Instagram — tu peux **publier dès le premier jour**. Juste un réflexe à la création : **suis une petite dizaine de créatrices** avec la page — ça fait un vrai profil d'utilisateur, pas une coquille vide. Cadence de création : **1 page par jour**, jamais les 3 d'un coup. Les pages republient les mêmes Reels que l'Instagram (des vues gratuites en plus) et **ne sautent presque jamais**.
 7. **Habiller la page** : une **bannière = photo de la créatrice en format horizontal**, une belle photo de profil, une catégorie, une description propre (relis-la : un emoji cassé fait négligé). Et **alimente la page en PHOTOS** : les photos marchent très fort dans les fils Facebook — **reposte tes carrousels Instagram en publications photos**, en plus des Reels. Une page vivante = Reels + photos/carrousels + le lien partout où il peut être.
 
+🎬 **Le Loom de démonstration du setup Facebook** (bannière, les 4 emplacements du lien, bouton d'action pas à pas, à l'écran) est dans le **post Fiche 1 — Création des comptes** du forum formation, avec le reste de la fiche.
+
 Rappel : contenu 100 % propre, toujours. Un compte qui saute n'est pas un drame : on le note, on recrée (1 par jour) et on continue (voir fiche 6).
 
 ## FICHE 2 — Le warm-up (48 heures)
