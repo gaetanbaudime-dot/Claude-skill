@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-07-29 — SFS : autopsie des liens trackés — le canal marche, le tri des partenaires non
+- **Données** (export Infloww tracking links, toutes créatrices OF) : 12 500 subs et ~97 k$ trackés au total, dont SFS = **~2 100 subs et ~10,9 k$ (11 % du CA tracké)** en 38 liens. CVR SFS = 60-85 % (vs 7 % organique) : un clic SFS vaut 10 clics froids.
+- **Constat juin-juillet** : ~926 subs et ~3,3 k$ en 24 deals, mais **6 no-shows sur le batch du 12/07** (jamais livrés) et une moitié de deals sous 2 $/sub. Les meilleurs $/sub sont les paires **internes dans le sens Chloé→ (11,2 $/sub)** et les re-runs historiques (Roxane 1 738 $, Mélina 11,4 $/sub, Georgina 1 163 $). Anomalie : Sophie→Jade = 68 subs, **0 $** à J+26 (chatting Jade sur cette cohorte à auditer).
+- **Verdict** : le problème n'est pas le canal (il est excellent), c'est **l'absence de tri des partenaires et de suivi de livraison** — exactement la peur « arnaque + chronophage ». Réponse : SFS internes programmés (0 risque, sens riche→pauvre), re-runs des tops prouvés, SOP de livraison (lien tracké obligatoire, relance J+2, blacklist des no-shows), externe délégué à terme.
+- **Prédiction (29/07)** : 3 re-runs (Roxane, Mélina + 1 interne Chloé→Sophie/Lily) lancés d'ici mi-août rapportent **≥ 800 $ cumulés à 30 j** ; les partenaires du batch no-show du 12/07 ne livrent jamais sans relance écrite. Revue : fin août.
+
 ### 2026-07-28 — ONE THING : clonage du chatting top 5 sur la base Sophie (le goulot s'est déplacé)
 - **État des lieux** : paie du lundi faite à la main (4 clippers), Stéphane et Yacine onboardés, Yanil à 1,3M de vues — l'amont (clippers productifs × subs/clipper) tourne. Le maillon mou de l'équation devient **€/sub** : Sophie ≈ 6,3 $/fan quand Chloé sort ≈ 9,2 $/fan.
 - **ONE THING** : call Maxence → extraire les scripts du top 5 de Chloé → déployer les séquences ([[SOP chatting anti-churn]]) sur la base Sophie, là où atterrissent les vues. C'est la décision du 24/07, toujours pas exécutée — elle multiplie la valeur de toutes les vues de tous les clippers.
