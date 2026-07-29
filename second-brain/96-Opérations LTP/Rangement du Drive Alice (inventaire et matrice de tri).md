@@ -16,7 +16,7 @@ liens_forts:
 > [!tip] Verdict (mis à jour le 28/07 — passage à 400 Go)
 > **173,82 Go, 2 669 fichiers, 17 dossiers.** Avec 400 Go de quota, tout rentre : **346,56 Go libres**, il en faut 173,82, il restera 172,74 Go de marge. La question n'est donc plus « quoi copier » mais « comment, sans rien perdre ».
 > **La réponse : deux phases, et surtout pas 2 669 copies individuelles.** Phase A — copie brute intégrale des 17 dossiers vers une zone de réception, adressés par ID Drive, **côté serveur Google** : aucun octet ne transite par ta connexion, la durée dépend du nombre de fichiers et pas du volume, et rien ne peut être perdu puisqu'on ne renomme rien. Phase B — rangement et renommage **à l'intérieur de ton propre Drive**, où un déplacement est une écriture de métadonnées : instantané, gratuit en stockage, et entièrement réversible si le classement ne te plaît pas.
-> **Compte 30 à 60 minutes en tout, dont 10 de configuration.** Accord d'Alice **acté le 28/07** — la procédure est déblocable.
+> **Exécuté et vérifié le 29/07 : 2 775 fichiers chez Gaëtan, 173,86 Go, zéro manquant.** La vérification finale ne repose sur aucun compteur intermédiaire : elle compare taille par taille le Drive d'Alice (2 772 fichiers) et le sien, et conclut à **0 fichier absent**. L'excédent de 3 s'explique entièrement (doublons créés volontairement). **2 761 contenus uniques.** Le détail des cinq phases et des trois erreurs de parcours est en §8.
 
 ## 1. Ce qui a été mesuré, et ce qui ne l'a pas été
 
@@ -186,6 +186,26 @@ Trois choses restent à faire, et aucune n'est technique.
 Et la question qui reste ouverte : Alice continuera d'uploader dans son vrac à elle. Soit on prévoit une passe de rattrapage hebdomadaire, soit on lui demande de déposer directement dans la nouvelle arborescence. La seconde est la seule qui tienne dans la durée, et elle suppose que quelqu'un le lui demande et le vérifie — exactement le rôle décrit dans la [[Scorecard - Creator Success Manager (Emma)|scorecard d'Emma]], et ce que la [[Méthode de délégation - Emma (kit de passation)|méthode de délégation]] appelle rendre une casquette plutôt que la déposer.
 
 Le point de bascule est à l'étape 6, pas à l'étape 2. Alice continuera d'uploader dans son vrac à elle : soit on prévoit une passe de rattrapage hebdomadaire, soit on lui demande de déposer directement dans la nouvelle arborescence. La seconde est la seule qui tienne dans la durée, et elle suppose que quelqu'un le lui demande et le vérifie — ce qui est exactement le rôle décrit dans la [[Scorecard - Creator Success Manager (Emma)|scorecard d'Emma]], et ce que la [[Méthode de délégation - Emma (kit de passation)|méthode de délégation]] appelle rendre une casquette plutôt que la déposer.
+
+## 8. Ce que l'exécution a réellement coûté (29/07)
+
+Le plan annonçait deux phases et une heure. Il en a fallu **cinq et deux jours**. L'écart n'est pas une malchance : il vient de trois défauts que le plan ne pouvait pas anticiper, et qui se reposeront à l'identique pour les huit autres créatrices. C'est la vraie valeur de cette page.
+
+| Phase | Objet | Résultat |
+|---|---|---:|
+| A | copie brute des 17 dossiers | 2 534 fichiers |
+| B | rangement + renommage du vivant | 1 093 rangés |
+| C | récupération des noms dupliqués (archives) | +212 |
+| D | reliquat non inventorié | 103 rangés |
+| E | vérification exhaustive + réparation | +50 |
+
+**Défaut n°1 — un drapeau qui vise les deux côtés.** Pour désigner les dossiers source par leur identifiant, le réflexe `--drive-root-folder-id` s'applique à la source **et** à la destination : la copie serait allée s'écrire chez Alice. Corrigé avant livraison en passant l'identifiant dans l'adresse de la source. Leçon : *un paramètre qui a l'air de dire « d'où je lis » peut vouloir dire « où je travaille »*.
+
+**Défaut n°2 — la copie serveur refusée en silence.** Sans `--server-side-across-configs`, rclone considère une adresse paramétrée comme une configuration distincte et bascule en téléchargement puis réenvoi. Mesuré sur le terrain : 0,63 Go en dix minutes, soit **46 heures** projetées, contre quelques minutes une fois le drapeau posé. Rien dans les messages n'indiquait la bascule — seul le débit trahissait le problème.
+
+**Défaut n°3 — une numérotation qui repart de zéro.** Le script de reliquat renumérotait ses fichiers à chaque exécution. Interrompu puis relancé, il a réattribué les mêmes noms et **écrasé 39 fichiers** déjà rangés. Ils ont été récupérés depuis la source, intacte. Leçon générale : **tout script relançable doit numéroter à partir de ce qui existe déjà, jamais à partir de zéro** — et le seul contrôle qui vaille est celui qui compare la source à la destination sans faire confiance aux compteurs de l'outil.
+
+**Ce qui a fonctionné du premier coup :** l'inventaire (volumes justes à 0,01 %), les prévisions de collisions (11, 4, 5, 3, 212 — toutes exactes au fichier près), et le principe des deux temps « copier d'abord, ranger ensuite », qui a permis à chaque interruption — deux coupures réseau, deux arrêts au clavier — de ne rien détruire.
 
 ## Livrables hors vault
 
