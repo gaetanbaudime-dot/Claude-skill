@@ -17,6 +17,14 @@ liens_forts: ["[[Recrutement clippers - annonces et formulaire]]", "[[Équipe ma
 
 Funnel réel : 257 brutes → **121 avec un vrai prénom** → **65 FR/BE** → **55 majeurs OK-modèle**. Rendement brut→qualifié ≈ 21 %, mais les canaux étaient mélangés (40 % hors France). Sources mesurées parmi les FR : **Discord 11 · Telegram 5 · Instagram 4 · parrainage 2** (43 non renseignés → rendre la Q17 obligatoire). Un canal ciblé FR devrait rendre ~40 %.
 
+### Mise à jour 29/07 — la quinzaine 14-28/07 change la carte des canaux
+
+Nouvelle mesure sur le sheet (351 réponses cumulées) : la quinzaine 14-28/07 fait **107 candidatures dont 39 FR** — ×3,7 en volume et ×3,25 en FR vs la quinzaine précédente (29 brutes, 12 FR). Trois enseignements qui corrigent la pile :
+
+1. **Indeed est devenu LA source FR : 30 des 39 leads FR (77 %)**, avec un pic de 11 candidatures Indeed le seul soir du 27/07. L'annonce repostée après le signalement du 19/07 a repris le flux — la leçon stratégique du callout ci-dessous tient (canal fragile, coupable du jour au lendemain, à traiter en opportuniste), mais tant qu'elle est en ligne, c'est elle qui remplit l'entonnoir FR.
+2. **Telegram est officiellement un canal 100 % International** : 51 candidatures sur la quinzaine, **zéro FR**. Ne plus compter ce canal dans un objectif FR (il reste utile côté Team International).
+3. **Le tri redevient le goulot, pas les leads** : sur les 39 FR, ~11 sérieux dont 5 excellents — et les meilleurs dossiers ont attendu 11 jours sans contact. Vague de 11 DM envoyée le 29/07, prédiction et revue au [[Journal de coaching]] (échéance 15/08) ; le ratio DM → liaison → test rendu à mesurer dans [[Reporting clippers]].
+
 ## La pile de canaux (ordre d'exécution)
 
 | # | Canal | Leads quali attendus | Effort | Délai |
