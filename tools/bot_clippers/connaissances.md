@@ -141,6 +141,7 @@ Autour des Reels : 2-3 carrousels par semaine (dès qu'un Reel pète → poster 
 
 Le reporting du dimanche (NON NÉGOCIABLE) :
 - 1 fois par semaine, chaque dimanche : remplir LE formulaire (le lien est dans le Discord).
+- **Mets-y les LIENS de tes Reels qui ont le mieux marché** : c'est LE canal par lequel un concept gagnant part en re-tournage — la créatrice **reproduit le rush en boucle** (autres tenues, autres décors) et tu reçois de la nouvelle matière d'un concept qui a déjà prouvé. Pas de lien dans le reporting = pas de re-tournage = la machine ne tourne pas.
 - En semaine : possibilité de poster un petit retour dans son canal Discord privé → on regarde les Reels et on fait des retours → plus de vues → plus de revenus.
 - Sans le formulaire du dimanche : pas de suivi, pas d'évolution, pas de revenus → PAS DE RÉMUNÉRATION.
 
@@ -151,8 +152,8 @@ La traversée du désert : les 2-3 premières semaines, les vues sont basses. C'
 Débloqués vers 200 abonnés (environ J+10 / J+15 si la cadence est bonne).
 
 Les Reels d'essai (Instagram uniquement) :
-- Des variantes d'un Reel existant, montrées uniquement à des gens qui ne suivent pas le compte → zéro risque pour l'audience.
-- On varie : le hook, la description, les sous-titres (couleurs), le filtre, le son, la caption.
+- Des variantes d'un Reel existant, montrées uniquement à des gens qui ne suivent pas le compte → zéro risque pour l'audience, **et un bonus de reach** : Instagram les pousse vers une audience fraîche de non-abonnés — de la portée gratuite en plus pour le clipper.
+- **Dès qu'un Reel marche, duplique-le TOI-MÊME en Reels d'essai : change surtout le MONTAGE et le HOOK** (puis la description, les sous-titres/couleurs, le filtre, le son, la caption). Même rush, plusieurs angles d'attaque.
 - Un même contenu = plusieurs variantes = beaucoup plus de chances d'en avoir une qui pète.
 - Monter en volume : +1 Reel d'essai par jour, chaque semaine.
 - Le Loom « Comment dupliquer un Reel viral en Reels d'essai » est dans le Discord.
@@ -212,7 +213,7 @@ Le kit (fiches 1 à 6) dit QUOI faire. Cette partie explique POURQUOI ça marche
 ### Pilier 3 — Reproduire ce qui marche (le plus important)
 
 - Si un Reel plafonne à 200 vues, ce n'est pas un « shadowban » : c'est que le contenu ne plaît pas. On change le contenu, pas d'excuse.
-- Chaque semaine, on regarde les Reels qui ont le mieux marché. Les meilleurs repartent en tournage chez la créatrice : on refait LE MÊME Reel en changeant seulement la tenue et le décor. Jamais le concept — il a déjà prouvé qu'il marche.
+- Chaque semaine, on regarde les Reels qui ont le mieux marché. **La duplication se fait DES DEUX CÔTÉS** : ① **côté créatrice** — le lien du Reel gagnant va dans ton **reporting du dimanche**, le concept repart en tournage et elle reproduit le rush en boucle (on refait LE MÊME Reel en changeant seulement la tenue et le décor — jamais le concept, il a déjà prouvé) ; ② **côté clipper** — tu dupliques le montage en **Reels d'essai** en changeant le hook et le montage (fiche 5), avec le bonus de reach vers les non-abonnés en prime. Un seul concept gagnant = des semaines de contenu des deux côtés.
 - Environ 10 trends gagnantes suffisent : on les repasse en boucle pendant des mois. Un compte est monté de 0 à 200 000 abonnés en 6 mois comme ça.
 - Pourquoi répéter ne lasse personne : plus de 90 % des gens qui voient un Reel ne suivent pas encore le compte. Pour eux, c'est la première fois. Les abonnés existants, eux, sont nourris par les carrousels et les stories.
 
