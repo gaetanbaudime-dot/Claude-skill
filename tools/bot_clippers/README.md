@@ -98,10 +98,13 @@ clipper + un récap sur Telegram.
 ⚠️ **Ne publie JAMAIS l'onglet qui contient les mots de passe.** On publie un onglet dédié qui n'a
 que des colonnes non sensibles, alimenté automatiquement par formule.
 
-1. Dans le classeur, crée un onglet **`Tracking`**. En **A1**, colle :
-   `={Instagram!A:A, Instagram!B:B, Instagram!G:G}`
-   (soit `ETAT`, `@ IG`, `Gérant` — adapte les lettres si tes colonnes bougent). Ajoute en **D1**
-   l'entête `Page FB` et remplis-la à la main quand tu veux suivre Facebook.
+1. Dans le classeur, crée un onglet **`Tracking`** à **3 colonnes** : `ETAT` · `Compte` · `Gérant`.
+   Remplis-le par formules, en deux blocs empilés (locale FR : `=Instagram!A2:A` etc.) — un bloc
+   Instagram, puis un bloc Facebook plus bas qui pointe la colonne des **URL de page**.
+   **Une seule colonne « Compte » suffit pour les deux plateformes** : le bot reconnaît une page
+   Facebook à son écriture (`facebook.com/…` ou `fb:nom`) et tout le reste comme un compte
+   Instagram. Ainsi **un seul onglet est publié**, et les onglets Instagram et FaceBook — qui
+   contiennent les mots de passe — ne quittent jamais le classeur.
 2. **Fichier → Partager → Publier sur le web** → sélectionne **l'onglet `Tracking`** (jamais
    « Document entier ») → format **CSV** → **Publier** → copie l'URL.
 3. Railway → Variables → `SHEET_CSV_URL=<l'URL copiée>`. Terminé.

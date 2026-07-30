@@ -73,6 +73,30 @@ def _normaliser(texte: str) -> str:
     return "".join(c for c in t if unicodedata.category(c) != "Mn").strip()
 
 
+def _identifier_compte(valeur: str):
+    """Devine la plateforme d'après l'écriture : une URL facebook.com ou un préfixe « fb: » désigne
+    une page Facebook, tout le reste un compte Instagram. Retourne ("comptes"|"pages_fb", nom) ou
+    ("comptes", "") si la valeur n'est pas exploitable. C'est ce qui permet de n'avoir QU'UNE
+    colonne « Compte » dans le Sheet, donc un seul onglet à publier."""
+    v = (valeur or "").strip()
+    if not v:
+        return "comptes", ""
+    if re.search(r"facebook\.com|^fb:", v, re.I):
+        page = re.sub(r"^(?:fb:|https?://)?(?:www\.|m\.|web\.)?(?:facebook\.com/)?", "", v,
+                      flags=re.I).lstrip("@").lower()
+        # « profile.php?id=… » : l'identifiant numérique EST le nom de la page, on le conserve.
+        # Pour toute autre URL, on coupe le query string (paramètres de suivi, ?ref=…) AVANT le
+        # slash final, sinon il reste collé au nom.
+        if not page.startswith("profile.php"):
+            page = page.split("?")[0]
+        page = page.rstrip("/")
+        return "pages_fb", (page if page and len(page) <= 60 else "")
+    handle = v.lstrip("@").strip().lower()
+    if not handle or " " in handle or len(handle) > 30 or "/" in handle:
+        return "comptes", ""
+    return "comptes", handle
+
+
 def _etat_mort(etat: str) -> bool:
     """Un compte à exclure du scraping : banni, supprimé, ou pas encore créé. Comparaison souple
     (accents et ponctuation retirés) pour attraper « à créer », « A CRÉER », « a-creer »…"""
@@ -180,27 +204,25 @@ async def cartographier_depuis_sheet(guild) -> dict:
     for ligne in lignes[1:]:
         def champ(i):
             return ligne[i].strip() if 0 <= i < len(ligne) else ""
-        handle = champ(i_compte).lstrip("@").strip().lower()
-        gerant = champ(i_gerant)
-        if not handle or not gerant or " " in handle or len(handle) > 30:
+        brut_compte, gerant = champ(i_compte), champ(i_gerant)
+        if not brut_compte or not gerant:
             continue
         if _etat_mort(champ(i_etat)):
             ignores += 1
             continue
-        clipper = gerant.strip().title()
         cle = re.sub(r"[^a-z0-9]", "", _normaliser(gerant))
         if cle in SALONS_IGNORES:
             continue
-        fiche = carte.setdefault(clipper, {"creatrice": creatrices.get(cle, "—"),
-                                           "canal_id": salons.get(cle), "comptes": [], "pages_fb": []})
-        if handle not in fiche["comptes"]:
-            fiche["comptes"].append(handle)
-        # La page FB peut être écrite en URL complète, en « fb:nom » ou en nom nu.
-        page = re.sub(r"^(?:fb:|https?://)?(?:www\.|m\.)?(?:facebook\.com/)?", "",
-                      champ(i_fb).strip(), flags=re.I).rstrip("/").split("?")[0].lstrip("@").lower() \
-            if i_fb >= 0 else ""
-        if page and page not in fiche["pages_fb"] and len(page) <= 60:
-            fiche["pages_fb"].append(page)
+        fiche = carte.setdefault(gerant.strip().title(),
+                                 {"creatrice": creatrices.get(cle, "—"), "canal_id": salons.get(cle),
+                                  "comptes": [], "pages_fb": []})
+        # Une seule colonne « Compte » suffit : le bot reconnaît une page Facebook à son écriture
+        # (URL facebook.com ou préfixe « fb: ») et tout le reste comme un identifiant Instagram.
+        # Ainsi un unique onglet Tracking couvre les deux plateformes, sans donnée sensible.
+        for valeur in (brut_compte, champ(i_fb) if i_fb >= 0 else ""):
+            cible, nom = _identifier_compte(valeur)
+            if nom and nom not in fiche[cible]:
+                fiche[cible].append(nom)
     journal.info("Sheet CSV : %d clipper(s), %d compte(s) · %d ignoré(s) (banni ou à créer)",
                  len(carte), sum(len(f["comptes"]) for f in carte.values()), ignores)
     await enrichir_pages_fb(carte, salons, creatrices)
