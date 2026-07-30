@@ -53,6 +53,10 @@ FICHIER_INPUTS = None          # injecté par bot_discord.py (chemin sur le volu
 # Discord en repli. ⚠️ Ne JAMAIS publier l'onglet qui contient les mots de passe — voir README :
 # on publie un onglet « Tracking » dédié, alimenté par formule, sans aucune colonne sensible.
 SHEET_CSV_URL = os.environ.get("SHEET_CSV_URL", "").strip()
+# Archivage de l'historique dans le Sheet (Apps Script « historique_inputs.gs » déployé en Web App).
+# Le JSON local reste la mémoire de travail ; le Sheet est l'archive consultable qui survit à tout.
+SHEET_HISTORIQUE_URL = os.environ.get("SHEET_HISTORIQUE_URL", "").strip()
+SHEET_HISTORIQUE_SECRET = os.environ.get("SHEET_HISTORIQUE_SECRET", "").strip()
 # États du sheet qui excluent un compte du scraping (économie de crédits + moins de bruit).
 ETATS_MORTS = {e.strip().lower() for e in
                os.environ.get("SHEET_ETATS_MORTS", "ban,banni,mort,supprime,ferme").split(",") if e.strip()}
@@ -433,6 +437,41 @@ def message_recap(bilan: dict, date_jour: str) -> str:
     return "\n".join(lignes)
 
 
+async def archiver_dans_sheet(bilan: dict, brut: dict, date_jour: str):
+    """Envoie une ligne par compte et par jour dans l'onglet « Historique » du Sheet. Silencieux si
+    non configuré. Le détail par COMPTE (pas seulement par clipper) est volontaire : c'est ce qui
+    permet de voir quel compte porte réellement un clipper, et de dater un ban au jour près."""
+    if not (SHEET_HISTORIQUE_URL and SHEET_HISTORIQUE_SECRET):
+        return
+    lignes = []
+    for clipper, b in bilan.items():
+        for d in b["detail"]:
+            lignes.append([date_jour, clipper, b["creatrice"], d["compte"], "Instagram",
+                           d["posts_24h"], d["vues_24h"], d["followers"], "", "ok"])
+        for compte, etat in ([(c, "restreint 18+") for c in b["restreints"]]
+                             + [(c, "privé (compte à lien)") for c in b["prives"]]
+                             + [(c, "injoignable") for c in b["injoignables"]]):
+            lignes.append([date_jour, clipper, b["creatrice"], compte, "Instagram", 0, 0, 0, "", etat])
+        if b.get("pages_fb"):
+            lignes.append([date_jour, clipper, b["creatrice"], f"{b['pages_fb']} page(s)", "Facebook",
+                           b["posts_fb"], b["vues_fb"], "", "", "ok"])
+        if lignes and b.get("delta_followers") is not None:
+            lignes[-1][8] = b["delta_followers"]
+    if not lignes:
+        return
+    charge = {"secret": SHEET_HISTORIQUE_SECRET, "lignes": lignes}
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
+            async with session.post(SHEET_HISTORIQUE_URL, json=charge) as reponse:
+                corps = await reponse.text()
+                if reponse.status >= 400 or '"ok":false' in corps.replace(" ", ""):
+                    journal.warning("Archivage Sheet refusé (HTTP %s) : %s", reponse.status, corps[:150])
+                else:
+                    journal.info("Archivage Sheet : %d ligne(s) pour le %s", len(lignes), date_jour)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+        journal.warning("Archivage Sheet injoignable : %s", erreur)
+
+
 async def envoyer_telegram(texte: str):
     """Pousse le récap dans le rapport quotidien Telegram. Silencieux si non configuré."""
     if not (TELEGRAM_TOKEN and TELEGRAM_CHAT_ID):
@@ -496,6 +535,7 @@ async def executer(client, guild, canal_admin=None, silencieux=False) -> dict:
             journal.warning("Bilan non envoyé à %s : %s", prenom, erreur)
         await asyncio.sleep(1)
 
+    await archiver_dans_sheet(bilan, brut, aujourdhui)
     recap = message_recap(bilan, datetime.now(timezone.utc).strftime("%d/%m"))
     await envoyer_telegram(recap)
     if canal_admin is not None:

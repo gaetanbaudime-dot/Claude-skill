@@ -132,6 +132,7 @@ Instagram à un actor Apify** — c'est la seule chose qui créerait un risque r
 | `APIFY_TOKEN` | **Obligatoire.** Sans elle, tout le module reste inerte. Apify → Settings → API & Integrations |
 | `SHEET_CSV_URL` | URL CSV de l'onglet `Tracking` publié (source de vérité des comptes) |
 | `SHEET_ETATS_MORTS` | États du Sheet exclus du scraping (défaut `ban,banni,mort,supprime,ferme`) |
+| `SHEET_HISTORIQUE_URL` / `SHEET_HISTORIQUE_SECRET` | Archivage quotidien dans l'onglet `Historique` (voir `historique_inputs.gs`) |
 | `APIFY_ACTOR_IG` | Actor Instagram (défaut `apify~instagram-profile-scraper`) |
 | `APIFY_ACTOR_FB` | Actor Facebook (défaut `apify~facebook-posts-scraper`) |
 | `FB_POSTS_MAX` | Publications lues par page Facebook (défaut `6` — ~2 $/1 000) |
@@ -145,6 +146,19 @@ scrape sans rien envoyer aux clippers · `!inputs` lance le cycle complet.
 
 **Coût** : ~1,60 $/1 000 profils. À 6 clippers (18 comptes), ≈ **4 $/mois** — le plan gratuit
 (5 $ de crédits) suffit ; le plan Starter à 29 $ couvre jusqu'à ~20 clippers.
+
+### 📈 Archiver l'historique dans le Sheet (`historique_inputs.gs`)
+
+Le bot garde 90 jours sur son volume Railway — utile mais technique et volatil. Pour conserver la
+courbe complète de chaque clipper : colle **`historique_inputs.gs`** dans l'Apps Script du classeur,
+change `SECRET`, déploie en **Application Web** (« exécuter en tant que MOI », « accès TOUT LE
+MONDE » — c'est le secret qui protège, pas l'URL), puis pose `SHEET_HISTORIQUE_URL` (l'URL `/exec`)
+et `SHEET_HISTORIQUE_SECRET` sur Railway.
+
+Chaque jour, une ligne **par compte** est ajoutée à l'onglet `Historique` : date, clipper, créatrice,
+compte, plateforme, posts 24 h, vues, abonnés, delta, état. Le détail par compte (et non par clipper)
+permet de voir quel compte porte réellement un clipper et de dater un ban au jour près. Rejouer une
+journée écrase proprement les lignes de cette date — pas de doublon.
 
 **Alerte 🔞** : un compte marqué « 18+ » par Instagram est **invisible aux visiteurs non connectés**
 et sa portée organique est détruite — publier plus n'y change rien. Le module le détecte et le
