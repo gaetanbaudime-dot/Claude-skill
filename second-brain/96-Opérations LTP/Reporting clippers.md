@@ -41,6 +41,18 @@ Le reporting passe en **Google Forms, chaque dimanche soir, 2 minutes par person
 
 Règles de fiabilité : le formulaire se remplit **même si la semaine est mauvaise** (un zéro déclaré vaut mieux qu'un silence — le silence est le seul échec) ; reporting manquant 2 dimanches de suite = fixe suspendu ([[Équipe marketing - structure et rémunération (FR × MG)|SLA]]) ; les subs attribués ne sont PAS déclarés par le marketeur, ils viennent du tracking (GetAllMyLinks/Infloww) — on ne demande jamais à quelqu'un de déclarer le chiffre qui détermine sa paie.
 
+## Le quotidien automatique (mise à jour 2026-07-30)
+
+Ce formulaire hebdomadaire ne mesure plus seul : depuis le 30/07, un [[Rapport quotidien 13h (Reels vers clics vers subs)|rapport Telegram automatique arrive chaque jour à 13h]] avec les Reels réellement publiés (scrapés, pas déclarés), les clics et les subs de la veille. Les deux ne se remplacent pas et c'est voulu :
+
+| | Quotidien 13h (auto) | Dimanche soir (déclaratif) |
+|---|---|---|
+| **Mesure** | Ce qui s'est passé — Reels, vues, clics, subs, par compte | Ce que les chiffres ne disent pas — bans, blocages, moral, SFS |
+| **Source** | Scraping + API, aucune déclaration | Le clippeur lui-même |
+| **Sert à** | Relancer un muet le jour même, arbitrer la paie | Piloter la stratégie et les 1:1 |
+
+Le quotidien rend caduques les colonnes « Vues 7j » et « Cadence » du formulaire (mesurées automatiquement, et sans le biais d'auto-déclaration). Les colonnes qui restent irremplaçables au déclaratif : **bans**, **SFS**, **blocages**.
+
 ## Les règles de lecture (à distance, 5 min/semaine)
 
 - **Bans en hausse** → le clippeur poste trop limite ou trop vite : rappeler la [[Checklist formation clipping|hygiène anti-ban]], ralentir la rampe.
