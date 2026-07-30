@@ -2,7 +2,7 @@
 titre: "Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)"
 type: rapport
 cluster: "98-Rapports"
-statut: to-verify
+statut: verified
 créé: 2026-07-30
 tags: [rapport/analyse, ofm/roster, méthode/ltv, ofm/trafic]
 liens_forts: ["[[LTP Models]]", "[[Goulot de l'agence - l'équation du scale]]", "[[Supervision chatting (top 5) et le cas Sarah]]", "[[Équipe marketing - structure et rémunération (FR × MG)]]", "[[Analyse créatrices 30-60 jours (13 juillet 2026)]]", "[[Journal de coaching]]"]
@@ -11,144 +11,137 @@ liens_forts: ["[[LTP Models]]", "[[Goulot de l'agence - l'équation du scale]]",
 # Analyse LTV 30 jours — OnlyFans vs MYM, toutes créatrices
 
 > [!tip] Verdict
-> **OnlyFans ne monétise pas mieux que MYM. C'est l'inverse, et l'écart apparent est un artefact.** Le blended brut dit OF **6,33 €/sub** contre MYM **5,34 €/sub** (+19 % pour OF) — mais retire la vague de trafic interne de Sarah (3 000 subs à 2,83 €, coût d'acquisition zéro) et MYM remonte à **7,53-9,67 €/sub**, au-dessus de l'OF hors SFS mesuré à **7,45 €/sub**. Sur les 3 créatrices présentes sur les deux plateformes, **2 monétisent mieux sur MYM** (Chloé +71 %, Jade +16 %) et une seule mieux sur OF (Amanda +48 %, cas déjà documenté). **La plateforme n'est pas le facteur de LTV — la source du trafic et le % du deal le sont.**
+> **OF et MYM monétisent pareil. La question « quelle plateforme ? » n'a pas de réponse — parce que ce n'est pas la bonne question.** Sur le seul test propre (les 3 créatrices présentes sur les deux plateformes, même fenêtre) : **OF 7,28 €/fan contre MYM 6,77 €/fan — 7,7 % d'écart, dans le bruit.** Toutes les autres lectures sont fabriquées par le choix des créatrices qu'on inclut : ajoute Sarah (3 900 fans de trafic interne à 3,03 €) et OF gagne de 29 % ; ajoute Maddy (15,10 €/fan) et MYM gagne de 27 %. Trois réponses opposées, un seul dataset.
 >
-> **La conséquence la plus chère, et elle est structurelle : ta grille clippers ne paie que les subs OF.** Tu rémunères tes clippers pour alimenter la plateforme qui monétise le moins bien, et tu paies **0 €** pour un sub envoyé sur Maddy — qui est MYM-only, pèse 14 % du CA et est **priorité 1** de ta propre matrice d'allocation. C'est l'incohérence n°1 à corriger avant de recruter le clipper suivant.
+> **Ce qui décide vraiment, dans l'ordre : ① le % de ton deal · ② la source du trafic · ③ la plateforme, en dernier et à écart nul.** Jade à 60 % rapporte **4,24 € de marge par fan** contre 1,86 € pour Chloé à 40 % — **2,3×**, à LTV quasi identique. Le levier n'est pas la plateforme, c'est le contrat que tu signes.
 >
-> **Et l'honnêteté d'abord : ce rapport n'est pas la mesure que tu as demandée, parce qu'elle n'existe pas.** Il n'y a aucun compte de nouveaux subs sur la fenêtre 30/06-30/07, et les deux sources de subs existantes se contredisent **d'un facteur 2 à 5** sur la même période. Ce qui suit est le maximum défendable avec les données du vault, avec chaque incertitude étiquetée. Les 4 exports qui rendraient ça exact sont listés en fin de page — c'est 20 minutes de ton temps.
+> **Le piège à désamorcer tout de suite : les 15,10 €/fan de Maddy sont le meilleur chiffre du roster et c'est un symptôme, pas une performance.** Ses fans/mois sont passés de 1 329 → 640 → **490** pendant que son CA ne bougeait quasi pas : sa « LTV » monte parce que son acquisition meurt. **N'alloue jamais sur ce chiffre.** Chloé est la preuve expérimentale en sens inverse : passage en gratuit → volume **×2,6**, LTV/fan **−41 %**, et **CA +53 %**.
+>
+> ⚠️ **Correction de ma propre analyse de ce matin** : j'avais conclu « MYM monétise mieux qu'OF » sur les données estimées. **C'est faux — c'est une égalité.** Le mécanisme que j'avais identifié (source × deal ≫ plateforme) est en revanche confirmé et renforcé. Détail de ce que l'estimation avait juste et faux au §8.
 
-## 1. D'abord le trou : pourquoi la LTV 30 j exacte n'existe pas aujourd'hui
+## 1. Les chiffres (30 jours réels, fournis par Gaëtan le 30/07)
 
-Trois problèmes, dont deux sont **structurels** et ne se règlent pas par un export de plus.
+Conversion à **0,92 €/$** (taux canonique du hub) ; à 0,90 les écarts bougent de 2 points et aucune conclusion ne change.
 
-**① Aucun compte de subs sur la fenêtre demandée.** Les exports les plus frais (MyPulse + Infloww du **28/07**, période 01-28/07) sont des exports **chatteurs** : ils donnent le CA par créatrice et par plateforme, jamais les nouveaux abonnés. Le dernier compte de subs par plateforme date du **19/07** (dicté, 30 j glissants) et du **13/07** (dashboard MYM). Ta fenêtre réelle 30/06-30/07 n'est couverte par aucun comptage.
+| Créatrice | MYM € | fans MYM | **LTV MYM** | OF $ | fans OF | **LTV OF** | CA total € | Qui gagne |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| **Chloé** | 10 400 | 1 400 | **7,43 €** | 8 400 | 1 000 | 8,40 $ = **7,73 €** | **18 128** | *égalité* (OF +4 %) |
+| **Sarah** | 11 800 | 3 900 | **3,03 €** | 0 | 0 | — | **11 800** | MYM only |
+| **Sophie** | — | — | — | 9 700 | 1 500 | 6,47 $ = **5,95 €** | **8 924** | OF only |
+| **Maddy** | 7 400 | 490 | **15,10 €** ⚠️ | 0 | 0 | — | **7 400** | MYM only |
+| **Jade** | 1 920 | 204 | **9,41 €** | 1 400 | 200 | 7,00 $ = **6,44 €** | **3 208** | **MYM +46 %** |
+| **Amanda** | 1 170 | 390 | **3,00 €** | 1 600 | 240 | 6,67 $ = **6,13 €** | **2 642** | **OF +51 %** |
+| Lily · Capucine · Alice · Lila Doré | 0 | 0 | — | 0 | 0 | — | **0** | — |
+| **TOTAL** | **32 690** | **6 384** | **5,12 €** | **21 100** | **2 940** | 7,18 $ = **6,60 €** | **52 102** | — |
 
-**② Les deux sources de subs se contredisent d'un facteur 2 à 5**, sur des fenêtres décalées de 6 jours seulement :
+**CA agence 30 j = 52 100 € · MYM 63 % / OF 37 % · marge agence ≈ 16 700 € (32 %) · ta poche ≈ 8 400 €** avant coût clippers.
 
-| Créatrice | Nouveaux subs MYM — dashboard 13/07 | Nouveaux subs MYM — dicté 19/07 | Écart | LTV qui en découle |
-|---|---:|---:|---:|---|
-| **Chloé** | 129 | 540 | **×4,2** | 48,84 € **ou** 12,59 € |
-| **Maddy** | 1 329 | 640 | ×2,1 | 6,09 € **ou** 12,50 € |
-| **Sarah** | 883 | 3 000 | **×3,4** | 5,58 € **ou** 2,83 € |
-| **Jade** | 358 | 121 | ×3,0 | 5,33 € **ou** 9,92 € |
-| **Amanda** | 443 | 440 | ×1,0 | 1,60 € **ou** 1,89 € |
+## 2. Pourquoi « quelle plateforme monétise le mieux ? » n'a pas de réponse
 
-Tant que ce n'est pas tranché, **toute LTV MYM par créatrice est fausse d'un facteur 2 à 5** et ne peut pas porter une décision d'allocation. Ce n'est pas une nuance de méthode : c'est la différence entre « Chloé vaut 4× Maddy » et « Maddy vaut 2× Chloé ». Les deux lectures existent aujourd'hui dans le vault. Hypothèses de cause (aucune confirmée) : définitions différentes de « nouveau sub » (payant vs gratuit vs unique), inclusion ou non du trafic interne MYM, ou chiffres du 19/07 arrondis de mémoire. **Fait remarquable et rassurant** : les **blended** convergent (5,34 € vs 6,98 €), donc c'est un problème de **répartition entre créatrices**, pas un dataset cassé. Les conclusions agrégées de ce rapport tiennent ; les conclusions par créatrice sont `to-verify`.
+Le même dataset donne trois verdicts opposés selon les créatrices retenues :
 
-**③ La formule utilisée dans le vault n'est pas une LTV.** « CA 30 j ÷ nouveaux subs 30 j » divise le revenu de **toute la base** par le **flux entrant du mois**. Ce ratio bouge mécaniquement à l'**inverse de la croissance** : une créatrice dont l'acquisition s'arrête voit sa « LTV » exploser sans qu'un fan ne dépense un euro de plus. C'est exactement ce qui a produit le **48,84 € de Chloé** en juin-juillet (129 nouveaux subs seulement, page payante) — un chiffre qui a servi de référence « haute LTV » dans plusieurs décisions alors qu'il ne mesurait que la sécheresse de son acquisition. Une vraie LTV se mesure **par cohorte** : les subs entrés en semaine N, suivis sur 30/60/90 jours. Le protocole existe déjà dans [[Atterrissage du funnel (mesure propre avant optimisation)|le protocole d'atterrissage]] — il n'a jamais été exécuté.
+| Périmètre | MYM | OF | Verdict apparent |
+|---|---:|---:|---|
+| **Tout le roster** (blended) | 5,12 €/fan | 6,60 €/fan | **OF +29 %** |
+| Hors Sarah (trafic interne retiré) | 8,41 €/fan | 6,60 €/fan | **MYM +27 %** |
+| **Les 3 créatrices sur LES DEUX plateformes** | **6,77 €/fan** | **7,28 €/fan** | **égalité (OF +7,7 %)** |
 
-## 2. Ce qui est solide : le CA par créatrice ET par plateforme (01-28/07)
+**Seule la troisième ligne est un test.** Les deux autres comparent des créatrices différentes et mesurent le **mix**, pas les plateformes : le blended fait porter à MYM les 3 900 fans de découverte interne de Sarah à 3,03 €, et la ligne du milieu fait porter à MYM les 15,10 € artificiels de Maddy. Mêmes créatrices, même fenêtre, même équipe de chat → **l'écart tombe à 7,7 %, soit le bruit.**
 
-Source : exports MyPulse et Infloww du 28/07, **93 % de la fenêtre demandée**. Périmètre : **CA de chat uniquement** (MYM : médias privés + pourboires ; OF : messages/PPV) — soit 66 à 94 % du CA réel selon la créatrice. Conversion à **0,90 €/$**.
+**Conséquence de méthode, à graver** : arrête de raisonner « OF vs MYM ». La bonne unité d'analyse est **créatrice × source × deal**. Deux fans de la même créatrice sur la même plateforme peuvent valoir 3 € ou 9 € selon d'où ils viennent — un écart plus grand que tout ce que les plateformes se disputent entre elles.
 
-| Créatrice | MYM (€) | OF (€) | Total | Part OF | Part du CA agence |
-|---|---:|---:|---:|---:|---:|
-| **Chloé** | 8 056 | 6 490 | **14 546** | 45 % | **36 %** |
-| **Sarah** | 7 819 | 111 *(Lila Doré)* | **7 930** | 1 % | 20 % |
-| **Sophie** | 0 | 7 888 | **7 888** | 100 % | 20 % |
-| **Maddy** | 5 793 | 0 | **5 793** | 0 % | 14 % |
-| **Jade** | 1 564 | 1 130 | **2 694** | 42 % | 7 % |
-| **Amanda** | 771 | 519 | **1 290** | 40 % | 3 % |
-| Alice · Capucine · Lily | 0 | 0 | **0** | — | 0 % |
-| **TOTAL** | **24 003** | **16 139** | **40 142** | **40 %** | 100 % |
+## 3. Le piège Maddy : quand une bonne LTV est un symptôme de mort
 
-**Trois lectures immédiates.** ① **MYM porte 60 % du CA de chat, OF 40 %** — l'agence est plus MYM qu'OF, ce que le discours interne (« subs OF », grille de paie OF) ne reflète pas. ② Les trois créatrices bi-plateformes répartissent leur CA de façon quasi identique (**55-60 % MYM**), ce qui suggère un effet de plateforme, pas de créatrice. ③ **Lily : 223 000 vues amenées par Jonas → 0 €.** Sur 9 noms au roster, 3 sont à zéro absolu et un quatrième (Lila Doré) à 111 € — le CAC y est infini, pas élevé.
+C'est le résultat le plus important du rapport, parce qu'il invalide une lecture qui circule dans le vault depuis trois semaines.
 
-## 3. La réponse à ta question : OF vs MYM, LTV par plateforme
+| Créatrice | fans/mois 13/07 → 19/07 → **30/07** | CA sur la même trajectoire | « LTV » qui en résulte |
+|---|---|---|---|
+| **Maddy** | 1 329 → 640 → **490** *(−63 %)* | 8 098 → 8 000 → **7 400** *(−9 %)* | 6,09 → 12,50 → **15,10 €** *(+148 %)* |
+| **Chloé** | 129 → 540 → **1 400** *(×10,9)* | 6 301 → 6 800 → **10 400** *(+65 %)* | 48,84 → 12,59 → **7,43 €** *(−85 %)* |
 
-Seule la fenêtre dictée du 19/07 (~19/06-19/07) sépare les plateformes **avec** des comptes de subs. Elle porte la réserve du §1-②.
+**Deux créatrices, deux mouvements opposés, un seul mécanisme.** La « LTV » du vault (`CA 30 j ÷ nouveaux fans 30 j`) divise le revenu de **toute la base** par le **flux du mois** : elle monte quand l'acquisition s'effondre et s'écrase quand le volume arrive. **Elle mesure le régime de croissance, pas la qualité de monétisation.**
 
-| Créatrice | MYM €/sub | OF $/sub | OF €/sub | Qui gagne |
-|---|---:|---:|---:|---|
-| **Chloé** | **12,59** | 8,17 | 7,35 | **MYM +71 %** |
-| **Jade** | **9,92** | 9,50 | 8,55 | **MYM +16 %** |
-| **Amanda** | 1,89 | 3,11 | **2,80** | **OF +48 %** |
-| Maddy | 12,50 | — | — | MYM only |
-| Sophie | — | 6,77 | 6,10 | OF only |
-| Sarah | 2,83 | *(lancement)* | — | MYM only |
-| **BLENDED** | **5,34** | 7,04 | **6,33** | *OF +19 % — et c'est faux, voir ci-dessous* |
+- **Maddy à 15,10 €** est en tête du roster **parce que son acquisition a perdu 63 % en six semaines**. Envoyer des clippers dessus fera *baisser* ce chiffre — ce sera une bonne nouvelle, pas une régression.
+- **Chloé est l'expérience naturelle qui le prouve** : même créatrice, même équipe de chat, seule variable changée = le passage en gratuit du 14-15/07. Volume **×2,6**, LTV/fan **−41 %**, **CA +53 %**. Le pari du gratuit est gagné, et il démontre au passage que la LTV/fan chute mécaniquement quand le volume monte.
+- **Jade est le contre-exemple qui valide la méthode** : ses fans MYM sont montés de +69 % (121 → 204) et sa LTV n'a bougé que de **−5 %** (9,92 → 9,41 €). **Sa LTV a résisté à une hausse de volume — c'est la seule du roster dont on peut dire que le chiffre est une vraie valeur marginale**, pas un artefact de fenêtre.
 
-**Le +19 % d'OF est entièrement fabriqué par une seule ligne.** Sarah encaisse ~3 000 subs/mois de **trafic interne MYM gratuit** à 2,83 € — un canal que l'OF n'a tout simplement pas. Ces subs écrasent le blended MYM sans rien dire de la qualité de la plateforme. En les retirant :
+**Règle d'allocation qui en sort** : ne jamais allouer sur une LTV obtenue à bas volume. La valeur marginale d'un fan supplémentaire sur une page MYM poussée au volume converge vers **~7-9 €** (le niveau où Chloé s'est stabilisée). Pour Maddy, compte **~8 €**, pas 15,10 €.
 
-| Mesure | Périmètre | LTV | Source |
-|---|---|---:|---|
-| **MYM hors trafic interne** | fenêtre dictée 19/07 | **9,67 €/sub** | dicté, `to-verify` |
-| **MYM hors trafic interne** | dashboard 14/06-13/07 | **7,53 €/sub** | dashboard MyPulse, dur |
-| **OF hors SFS** | 10 400 subs, liens trackés | **7,45 €/sub** (8,28 $) | Infloww 29/07, dur |
-| OF tous liens confondus | 12 500 subs | 6,98 €/sub (7,76 $) | Infloww 29/07, dur |
-| OF — SFS seul | 2 100 subs | 4,67 €/sub (5,19 $) | Infloww 29/07, dur |
-| MYM — trafic interne seul | ~3 000 subs/mois | **2,83 €/sub** | dicté + confirmé Maxime |
+## 4. Le classement qui décide vraiment : marge agence par fan
 
-> **Verdict : à source comparable, MYM (7,5-9,7 €) est au-dessus d'OF (7,5 €), et l'écart entre les deux plateformes est plus petit que l'écart entre deux sources de trafic sur la même plateforme.** Le facteur de LTV n'est pas la plateforme. C'est la **source** (interne 2,83 € · SFS 4,67 € · organique 7,5-9,7 €) et le **% du deal**.
+`marge €/fan = LTV × % de marge` (Chloé 25 %, Jade 45 %, les autres 35 %), et le point mort d'un clipper FR à 200 € de fixe + 0,50 €/sub :
 
-**Nuance qui contredit l'enthousiasme du 29/07** : le SFS convertit magnifiquement (CVR 60-85 % contre 7 % en organique) mais ses subs valent **5,19 $ contre 7,76 $ en moyenne** et 8,28 $ hors SFS. Le SFS gagne sur le **coût** (≈ 0 €) et sur le rendement par clic, **pas sur la valeur du sub** — un fan qui butine déjà chez une autre créatrice dépense moins. Ça ne retire rien à la décision de rotation interne : à coût zéro, 5,19 $/sub reste imbattable. Ça interdit juste d'écrire « le SFS amène les meilleurs subs ».
+| Rang | Cible | LTV | × marge | **Marge €/fan** | Point mort clipper |
+|---:|---|---:|---:|---:|---:|
+| — | *Maddy MYM (chiffre brut)* | *15,10 €* | *35 %* | *5,29 €* | *42 subs* ⚠️ artefact |
+| **1** | 💎 **Jade — MYM** | 9,41 € | **45 %** | **4,24 €** | **54 subs/mois** |
+| **2** | 💎 **Jade — OF** | 6,44 € | **45 %** | **2,90 €** | **83 subs/mois** |
+| **3** | **Maddy — MYM (valeur marginale ~8 €)** | ~8 € | 35 % | **~2,80 €** | **~87 subs/mois** |
+| 4 | Amanda — OF | 6,13 € | 35 % | 2,15 € | 121 subs/mois |
+| 5 | Sophie — OF | 5,95 € | 35 % | 2,08 € | 126 subs/mois |
+| 6 | Chloé — OF | 7,73 € | 25 % | 1,93 € | 140 subs/mois |
+| 7 | Chloé — MYM | 7,43 € | 25 % | 1,86 € | 147 subs/mois |
+| 8 | Sarah — MYM | 3,03 € | 35 % | 1,06 € | 358 subs/mois |
+| 9 | Amanda — MYM | 3,00 € | 35 % | 1,05 € | 364 subs/mois |
 
-## 4. Le classement qui devrait piloter le budget : marge € par sub marginal
+**Jade occupe les deux premières places, sur les deux plateformes.** Sa LTV n'a rien d'exceptionnel (9,41 € / 6,44 €) — c'est son **deal à 60 %** qui fait tout : son fan marginal rapporte **2,3× celui de Chloé** à LTV comparable. **Le % se négocie une fois, à la signature, et il vaut plus que n'importe quelle optimisation de chatting.** Signer les prochaines à 55-60 % reste le levier n°1, maintenant chiffré sur des données réelles.
 
-La LTV seule ne décide rien — le % agence varie de 40 % (Chloé) à 60 % (Jade), et c'est lui qui transforme un sub en marge. `marge €/sub = LTV × % de marge` (Chloé 25 %, Jade 45 %, les autres 35 %) :
+**Et le verdict brutal sur le clipper médian (80-100 subs/mois)** : il est rentable sur **Jade MYM** (54) et **Maddy MYM** (87), à l'équilibre sur **Jade OF** (83), et **déficitaire partout ailleurs** — y compris sur Chloé (140-147), la destination par défaut du flux. Sur Sarah et Amanda MYM (358-364 subs), c'est hors d'atteinte : **aucun clipper ne sera jamais rentable là-bas.**
 
-| Rang | Cible | LTV | × marge | **Marge €/sub** |
-|---:|---|---:|---:|---:|
-| 1 | 💎 **Jade — MYM** | 9,92 € | 45 % | **4,46 €** |
-| 2 | 💎 **Maddy — MYM** | 12,50 € | 35 % | **4,38 €** |
-| 3 | **Jade — OF** | 8,55 € | 45 % | **3,85 €** |
-| 4 | Chloé — MYM | 12,59 € | 25 % | 3,15 € |
-| 5 | Sophie — OF | 6,10 € | 35 % | 2,13 € |
-| 6 | Chloé — OF | 7,35 € | 25 % | 1,84 € |
-| 7 | Sarah — MYM | 2,83 € | 35 % | 0,99 € |
-| 8 | Amanda — OF | 2,80 € | 35 % | 0,98 € |
-| 9 | Amanda — MYM | 1,89 € | 35 % | 0,66 € |
+## 5. La grille clippers : l'incohérence tient, mais ma correction d'hier était trop simple
 
-**Les deux meilleures cibles sont sur MYM — et la pire aussi.** C'est la démonstration la plus propre que la plateforme n'est pas la variable : elle apparaît en tête et en queue de classement. Ce qui trie, c'est source × deal. Direction confirmée de [[Goulot de l'agence - l'équation du scale|la règle d'allocation v2]] (Jade et Maddy d'abord), mais avec une précision qu'elle n'avait pas : **c'est le MYM de Jade et de Maddy qu'il faut viser, pas leur OF.**
+**Le constat tient et s'aggrave** : MYM fait **63 % du CA** et porte les **deux meilleures cibles marginales** (Jade MYM, Maddy MYM), alors que [[Équipe marketing - structure et rémunération (FR × MG)|la commission ne paie que les « subs OF vérifiés »]]. Un clipper envoyé sur Maddy — MYM-only, 490 fans/mois, 3ᵉ meilleure marge/fan — touche **0 €**.
 
-## 5. L'incohérence à 0,50 € qui casse tout le reste
+**Mais l'objection que je n'avais pas soulevée ce matin, et elle est sérieuse** : une grande partie du volume MYM n'est **pas** amenée par des clippers. Les 3 900 fans de Sarah sont de la **découverte interne MYM**, gratuite, et les 1 400 fans de Chloé post-passage en gratuit en contiennent probablement une part importante (une page gratuite est mécaniquement plus poussée par la plateforme). **Payer 0,50 € sur le compteur de nouveaux abonnés MYM reviendrait à subventionner l'algorithme de MYM** — plusieurs milliers d'euros par mois versés pour du trafic que personne n'a amené.
 
-La grille clipper FR est **200 € de fixe conditionnel + 0,50 €/sub**, et [[Équipe marketing - structure et rémunération (FR × MG)|la commission porte explicitement sur les « subs OF gratuits vérifiés par le tracking »]]. Confronté au classement du §4 :
+**Recommandation corrigée** : étendre la commission aux subs MYM **exclusivement via un lien tracké dédié par clipper et par créatrice** (GetAllMyLinks le permet déjà), **jamais** sur le compteur de la plateforme. Sans ce garde-fou, l'extension coûte plus qu'elle ne rapporte. Avec, elle aligne enfin la paie sur la marge réelle. Si le lien tracké par clipper n'est pas déployable avant ton retour, **l'alternative propre est l'inverse** : assumer par écrit qu'on ne paie que l'OF, et **cesser d'envoyer des clippers sur les créatrices MYM-only** — ce qui contredirait la consigne du 28/07 (« réaffecter Jonas vers Jade/Maddy »). Les deux options se tiennent ; le statu quo, non.
 
-- Un clipper qui envoie 200 subs sur **Maddy** — priorité 1 de la matrice, 14 % du CA, la meilleure marge/sub de l'agence après Jade — **touche 0 €**. Maddy est MYM-only.
-- Un clipper qui envoie 200 subs sur **Chloé OF** — dernier rendement marginal du roster hors Amanda — touche **100 €**.
-- La consigne opérationnelle du 28/07 (« réaffecter Jonas vers Jade/Maddy ») demande donc à un clipper de travailler **pour moitié gratuitement**, sans que la grille ait été modifiée. C'est le genre de contradiction qui ne se voit pas en réunion et qui se paie en churn de clippers — or la rétention est ton goulot n°1 déclaré.
+## 6. Les cinq faits qui changent une décision cette semaine
 
-**Correction recommandée** : étendre la commission aux **subs MYM vérifiés**, au même tarif. Le tracking existe déjà — le [[Rapport quotidien 13h (Reels vers clics vers subs)|rapport quotidien de 13h]] fait saisir à Rianah `Date | Créatrice | Plateforme | Subs | Clipper`, la colonne Plateforme est déjà là. Coût : à volume égal, la masse de commission monte d'environ **+40 %** (la part MYM des subs), sur des subs qui rapportent **plus** de marge par tête. Le vrai risque n'est pas le coût, c'est la **vérifiabilité** : un sub MYM se vérifie moins proprement qu'un sub OF tracké par Infloww. À trancher avant d'ouvrir le robinet — sinon la fraude remplace l'incohérence.
+**① Toute la croissance vient de MYM.** Sur ~11 jours de décalage de fenêtre : **MYM +29 %** (25 330 → 32 690 €), **OF −2,4 %** (21 620 → 21 100 $). Le CA agence passe de ~45 k€ à **52,1 k€**. Trois moteurs MYM : Chloé +53 % (gratuit), Sarah +39 % (débordement interne qui s'amplifie), Jade +60 %.
 
-## 6. Ce que ça change sur le point mort d'un clipper (la correction qui fait mal)
+**② Amanda est ressuscitée, sur OF uniquement.** CA OF **+65 %** (970 → 1 600 $) et LTV **×2,1** (3,11 → 6,67 $) — avec **moins** de fans (312 → 240) : c'est de la monétisation pure, pas du volume. Son MYM reste à 3,00 €. **Le dossier est clos : Amanda = OF, point.** Son MYM ne mérite ni clipper ni Emma, et la question « cut-ou-garde » ouverte depuis le 12/07 est tranchée par les chiffres.
 
-La règle v2 du 24/07 pose une **LTV organique de 10-15 €/fan**, explicitement `à confirmer par mesure`. La mesure est arrivée : **7,45 € sur OF** (10 400 subs trackés) et **7,53-9,67 € sur MYM** hors trafic interne. **L'hypothèse était optimiste de 40 à 70 %.** Point mort recalculé (`200 ÷ (LTV × marge − 0,50)`) :
+**③ Sophie décroche, et le ONE THING du 28/07 est chiffré.** CA **−7,6 %**, et son écart à Chloé sur OF est de **1,93 $/fan (30 %)**. Sur ses 1 500 fans/mois : **~2 900 $/mois laissés sur la table** (~2 670 €), soit ~930 € de marge agence, ~465 € pour toi — **chaque mois de retard sur le clonage des scripts de Chloé.** C'est la décision du 24/07, toujours pas exécutée le 30/07.
 
-| Cible du clipper | Point mort — hypothèse 12,5 € (règle v2) | Point mort — **LTV mesurée** | Écart |
-|---|---:|---:|---:|
-| **Jade** (45 %) | 39 subs/mois | **59-70 subs/mois** | ×1,7 |
-| **Maddy · Sophie · Sarah · Amanda** (35 %) | 52 subs/mois | **80-95 subs/mois** | ×1,7 |
-| **Chloé** (25 %) | 76 subs/mois | **121-147 subs/mois** | ×1,8 |
+**④ Lila Doré est morte, et les zéros coûtent.** L'OF de Sarah : 1 412 $ (annuel) → 123 $ (juillet) → **0 $**. Le « à scaler en priorité » du 13/07 n'a jamais été exécuté. **Quatre noms du roster sur dix produisent zéro** (Lily, Capucine, Alice, Lila Doré) — et Lily a reçu **223 000 vues de Jonas pour 0 €**. Ce n'est pas un CAC élevé, c'est une ressource jetée. Trancher : lancer ou couper, avec une date.
 
-**Le clipper médian fait 80-100 subs/mois.** Il est donc, à la mesure : rentable sur Jade, **à l'équilibre** sur les créatrices à 35 %, et **structurellement déficitaire sur Chloé** — celle vers qui le flux part par défaut. Ce n'est pas un argument pour arrêter de recruter, c'est un argument pour **arrêter d'allouer par défaut** et pour tenir le seuil : un clipper sous 80 subs/mois sur une créatrice à 35 % coûte de l'argent, et le fixe de 200 € est ce qui décide, pas la commission.
+**⑤ Sarah confirme la thèse du débordement.** 3 900 fans en 30 jours à **coût d'acquisition zéro**, LTV stable à 3,03 € (vs 2,83 € il y a 11 jours). C'est **11 800 €/mois, 4 130 € de marge**, sans un euro de clipper — la 2ᵉ créatrice de l'agence en CA. Un fan interne rapporte **1,06 € de marge à coût nul** ; un clipper médian sur Chloé en rapporte **moins que zéro**. [[Supervision chatting (top 5) et le cas Sarah|Comprendre et répliquer ce mécanisme]] reste le meilleur rendement disponible de l'agence — c'est la troisième fois que trois analyses indépendantes y aboutissent.
 
-**Le corollaire qui range le débat du 23/07** : un sub de **trafic interne MYM** rapporte 2,83 € × 35 % = **0,99 € de marge à coût zéro**. Un sub de clipper sur OF à 80 subs/mois rapporte 7,45 € × 35 % − 0,50 € − 2,50 € de fixe amorti = **−0,39 €**. Il faut ~**100 subs/mois** pour que le clipper repasse au-dessus de zéro, et ~**150** pour qu'il batte franchement le sub interne gratuit. **Comprendre le débordement de Sarah reste, chiffres en main, le meilleur rendement disponible de l'agence** — la prédiction du 23/07 (« exploiter avant d'élargir ») se vérifie par un second chemin.
+## 7. Les deux prédictions échues
 
-## 7. Deux prédictions arrivées à échéance
+**① Chloé MYM gratuit (pari du 13/07) — GAGNÉ, sans ambiguïté.** Critère écrit : « succès si le CA 30 j monte malgré la LTV/fan en chute ». Résultat : **CA +53 %, fans ×2,6, LTV/fan −41 %.** Exactement la forme prédite. Réserve pour la généralisation : ça a marché sur une créatrice à forte demande latente et à petite base payante (417 abonnés) — **ne pas transposer mécaniquement** à Jade ou Amanda sans le même diagnostic.
 
-**① Chloé MYM en gratuit (14-15/07) — pari GAGNÉ.** La prédiction du 13/07 disait : succès si le CA 30 j monte malgré la LTV/fan en chute. Son CA MYM passe de **210 €/jour** (dashboard 14/06-13/07) à **288 €/jour** (chat seul, 01-28/07) = **+37 % minimum**, et c'est un plancher puisque la mesure d'après exclut abonnements et renouvellements. Le volume a plus que compensé. À graver : le gratuit a marché sur une créatrice à forte demande latente — ça ne dit rien de sa transposabilité à Jade ou Amanda.
+**② Allocation clippers (prédiction du 19/07) — partiellement vérifiable, direction bonne.** La prédiction disait : concentrer sur Maddy/Chloé fait progresser leur CA MYM. Chloé **+53 %** ✅ ; Maddy **−7,5 %** ❌. Mais le mécanisme diffère de celui prévu — la hausse de Chloé vient du passage en gratuit, pas des clippers. **Verdict honnête : non concluante**, la variable testée a été polluée par un changement de régime simultané. Leçon déjà connue et re-confirmée : ne jamais lancer deux expériences sur la même créatrice en même temps.
 
-**② Les autres trajectoires, honnêtement illisibles.** Maddy affiche −23 % et Jade −12 %, mais on compare un CA **total** (avant) à un CA **de chat** (après) : à composition constante, les deux sont probablement stables à légèrement positifs. **Je ne conclus rien** sur ces deux-là avant un export à périmètre identique. Sarah, elle, monte de **+70 % en chat seul** — celle-là est réelle.
+## 8. Calibration : ce que mon estimation de ce matin avait juste et faux
 
-## 8. Ce qu'il faut exporter pour que ce rapport devienne exact (20 minutes)
+Le vault ne progresse que si les erreurs sont comptées. Estimation du matin (reconstruite depuis les exports de chat) contre données réelles :
 
-1. **MyPulse — nouveaux abonnés par créatrice, 30/06 au 30/07**, avec la définition retenue écrite noir sur blanc (payant / gratuit / unique) — c'est ce qui lève la contradiction ×2-5 du §1.
-2. **MyPulse — CA total par créatrice** sur la même fenêtre (pas seulement le chat) : abonnements + renouvellements + MOD + push inclus.
-3. **Infloww — nouveaux subs par créatrice** sur la même fenêtre (le CA OF, lui, est déjà propre).
-4. **Infloww — tracking links filtrés sur la fenêtre** plutôt qu'en cumul : ça donne la LTV **par source** et par créatrice, seule façon de valider ou casser le 7,45 €.
+| Ce que j'affirmais | Réel | Verdict |
+|---|---|---|
+| « **MYM monétise mieux qu'OF** » | égalité (**+7,7 %** pour OF sur le test propre) | ❌ **faux** |
+| « 2 des 3 créatrices bi-plateformes favorisent MYM » | 1 MYM (Jade +46 %), 1 égalité (Chloé), 1 OF (Amanda +51 %) | ❌ **faux** |
+| « Les comptes de subs se contredisent d'un facteur 2 à 5 » | **trajectoires réelles**, pas contradiction : Chloé 129→540→1 400 suit son passage en gratuit ; Sarah 883→3 000→3 900 est une rampe ; Maddy 1 329→640→490 un déclin | ❌ **sur-diagnostic** (j'ai lu un défaut de données là où il y avait du mouvement) |
+| « La formule CA÷fans n'est pas une LTV » | **prouvé** par Maddy (+148 % de LTV pendant que le CA baisse) et Chloé (−85 %) | ✅ **confirmé et renforcé** |
+| « Le facteur est la source × le deal, pas la plateforme » | confirmé trois fois (§2) | ✅ **confirmé** |
+| « La grille OF-only est incohérente » | tient (MYM = 63 % du CA) mais **objection manquée** : une part du volume MYM est de la découverte interne | ⚠️ **juste mais incomplet** |
+| CA 30 j ≈ 43 k€ *(annoncé comme plancher)* | **52,1 k€** | ✅ plancher correct |
+| Split plateforme 60/40 | **63/37** | ✅ |
+| LTV organique 7,45 € (OF) / 7,5-9,7 € (MYM) | **6,60 €** (OF) / **8,41 €** (MYM hors interne) | ✅ bonne fourchette |
+| Points morts clippers 59-147 subs/mois | **54-147** (hors Sarah/Amanda MYM à 358-364) | ✅ |
 
-Avec ces 4 exports, le tableau `créatrice × plateforme × source` existe et la règle d'allocation devient mesurée au lieu d'estimée. **Sans eux, le §3 et le §4 restent `to-verify` — et je préfère te le dire que te vendre une précision que les données n'ont pas.**
+**Ce que j'en retiens, et qui vaut au-delà de ce rapport** : reconstruire du CA depuis des exports partiels marche bien (±20 %, avec le bon sens d'erreur). **Inférer des LTV sans compter les fans ne marche pas** — c'est le dénominateur qui portait toute l'information, et c'est exactement celui que je n'avais pas. La leçon opérationnelle : **le compteur de fans par créatrice × plateforme × source est la donnée la plus précieuse du business, et elle n'est saisie nulle part automatiquement.**
 
-## 9. Les trois actions qui sortent de ce rapport
+## 9. Les trois actions
 
-1. **Trancher la grille clipper** (§5) : étendre la commission aux subs MYM ou assumer par écrit qu'on ne paie que l'OF — mais alors arrêter d'envoyer les clippers sur Maddy. L'état actuel est le pire des deux.
-2. **Corriger la règle d'allocation v2** avec la LTV mesurée (§6) : les points morts montent de ~70 %, et le défaut « Chloé » est déficitaire pour un clipper médian.
-3. **Lancer les 4 exports** (§8) avant la clôture du 1er août avec Maxence, pour que la [[SOP clôture mensuelle avec Maxence|clôture mensuelle]] intègre enfin une colonne LTV par source et pas seulement une commission.
+1. **Exécuter le clonage chatting Chloé → Sophie** (décision du 24/07, ONE THING du 28/07, toujours pas faite) : **~2 900 $/mois** de manque à gagner chiffré, coût marginal zéro. C'est l'action au meilleur rendement du rapport.
+2. **Trancher la grille clippers** avec le garde-fou du §5 : commission MYM **via lien tracké dédié uniquement**, ou assumer l'OF-only et cesser d'allouer sur les créatrices MYM-only. Pas de troisième option.
+3. **Réallouer sur la marge marginale, pas sur la LTV brute** : le flux va sur **Jade** (les deux plateformes, 54 et 83 subs de point mort) puis **Maddy MYM** (~87) — et **jamais** sur Sarah/Amanda MYM (358-364, hors d'atteinte). Et **poser une date de décision sur les 4 zéros** (Lily, Capucine, Alice, Lila Doré) : lancer ou couper.
 
 ## Sources
 
-[^1]: Exports MyPulse (chat MYM, 01-28/07) et Infloww (chat OF, 01-28/07) distillés dans [[Supervision chatting (top 5) et le cas Sarah]] — CA par créatrice et par plateforme. Données brutes hors repo (PII fans/chatteurs).
-[^2]: Export Infloww tracking links du 29/07 (12 500 subs, ~97 k$ cumulés, dont SFS ~2 100 subs / ~10,9 k$) — [[Journal de coaching|entrée du 29/07]]. Mesure cumulée, pas 30 j : sur un OF en croissance elle sous-estime probablement la LTV réelle.
-[^3]: Comptes de subs par plateforme : chiffres dictés par Gaëtan ~19/07 et dashboard MyPulse 14/06-13/07, tous deux repris dans [[LTP Models]]. Contradiction ×2-5 non résolue, consignée au [[Fact-Check-Log]].
-[^4]: Structure de commission par créatrice (Chloé 40 %, Jade 60 %, autres 50 % ; −15 % chatting) et grille clipper FR (200 € + 0,50 €/sub OF) : [[Équipe marketing - structure et rémunération (FR × MG)]] et [[Goulot de l'agence - l'équation du scale]].
+[^1]: Statistiques 30 jours par créatrice et par plateforme (CA + nouveaux fans), fournies par Gaëtan le 30/07/2026 — MYM en €, OnlyFans en $, conversion 0,92 €/$. C'est la première fois que le vault dispose du **dénominateur** (fans) et du **numérateur** (CA) sur la même fenêtre et par plateforme.
+[^2]: Fenêtres antérieures pour les trajectoires : dashboard MyPulse 14/06-13/07 et chiffres dictés ~19/07, tous deux dans [[LTP Models]] ; exports chat MyPulse et Infloww du 28/07 distillés dans [[Supervision chatting (top 5) et le cas Sarah]].
+[^3]: Structure de commission par créatrice (Chloé 40 %, Jade 60 %, autres 50 % ; −15 % de charges chatting) et grille clipper FR (200 € + 0,50 €/sub OF) : [[Équipe marketing - structure et rémunération (FR × MG)]] et [[Goulot de l'agence - l'équation du scale]].
+[^4]: Corrections de mes propres conclusions du matin (§8) consignées au [[Fact-Check-Log]].

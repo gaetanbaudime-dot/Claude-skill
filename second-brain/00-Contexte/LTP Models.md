@@ -41,24 +41,25 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 >
 > **La faute à ne pas commettre** : envoyer des clippers sur Sarah/Amanda parce qu'« elles sont grosses ». Plus de subs à 2 €/2,8 € de LTV ne fait quasi pas d'argent — c'est gâcher la ressource rare. **Amanda reste un chantier chat ; Sarah, corrigé le 19/07, n'est même pas un chantier : c'est une démonstration** — ~3 000 subs/mois GRATUITS via le débordement de trafic interne MYM (LTV structurelle ~3 €, confirmé Maxime). [[Supervision chatting (top 5) et le cas Sarah|Le vrai chantier est de la répliquer]] sur les créatrices qui monétisent. Cette matrice **complète** (ne remplace pas) l'ordre de montée créatrices du roster ci-dessous : le roster dit *dans quelles créatrices investir*, cette matrice dit *où va la main-d'œuvre clipping*. Les 4 créatrices à zéro rappellent le vrai plafond : **le trafic (clippers) est le goulot n°1 de l'agence** ([[Théorie des contraintes]]).
 
-> [!warning] Mise à jour 2026-07-30 — la LTV par plateforme, mesurée ([[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)|rapport dédié]])
-> **OnlyFans ne monétise PAS mieux que MYM — l'écart apparent est un artefact du trafic interne de Sarah.** Blended brut : OF 6,33 €/sub vs MYM 5,34 €/sub (+19 % OF). Hors trafic interne MYM (3 000 subs à 2,83 €) : **MYM 7,53-9,67 €/sub vs OF hors SFS 7,45 €/sub** — MYM repasse devant. Sur les 3 créatrices bi-plateformes, **2 monétisent mieux sur MYM** (Chloé +71 %, Jade +16 %), une seule sur OF (Amanda +48 %). **Le facteur de LTV n'est pas la plateforme, c'est la source** (interne 2,83 € · SFS 4,67 € · organique 7,5-9,7 €) **et le % du deal**.
+> [!tip] LA PHOTO DE RÉFÉRENCE — 30 jours réels au 2026-07-30 (CA **et** fans, par plateforme) — remplace le snapshot du 19/07 ci-dessus
+> Chiffres fournis par Gaëtan le 30/07 ; conversion **0,92 €/$**. Analyse complète : [[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)]].
 >
-> **CA de chat par créatrice × plateforme (01-28/07, exports MyPulse + Infloww, 0,90 €/$)** — le seul découpage par plateforme récent et fiable :
+> | Créatrice | MYM € / fans / **LTV** | OF $ / fans / **LTV** | CA total € | Marge agence |
+> |---|---|---|---:|---:|
+> | **Chloé** (25 %) | 10 400 / 1 400 / **7,43 €** | 8 400 / 1 000 / **8,40 $** | **18 128** | 4 532 € |
+> | **Sarah** (35 %) | 11 800 / 3 900 / **3,03 €** | — | **11 800** | 4 130 € |
+> | **Sophie** (35 %) | — | 9 700 / 1 500 / **6,47 $** | **8 924** | 3 123 € |
+> | **Maddy** (35 %) | 7 400 / 490 / **15,10 €** ⚠️ | — | **7 400** | 2 590 € |
+> | **Jade** (45 %) | 1 920 / 204 / **9,41 €** | 1 400 / 200 / **7,00 $** | **3 208** | 1 444 € |
+> | **Amanda** (35 %) | 1 170 / 390 / **3,00 €** | 1 600 / 240 / **6,67 $** | **2 642** | 925 € |
+> | Lily · Capucine · Alice · Lila Doré | 0 / 0 | 0 / 0 | **0** | 0 € |
+> | **TOTAL** | **32 690 / 6 384 / 5,12 €** | **21 100 / 2 940 / 7,18 $** | **52 102** | **≈ 16 700 € (32 %)** |
 >
-> | Créatrice | MYM € | OF € | Total | Part OF |
-> |---|---:|---:|---:|---:|
-> | **Chloé** | 8 056 | 6 490 | **14 546** | 45 % |
-> | **Sarah** | 7 819 | 111 | **7 930** | 1 % |
-> | **Sophie** | 0 | 7 888 | **7 888** | 100 % |
-> | **Maddy** | 5 793 | 0 | **5 793** | 0 % |
-> | **Jade** | 1 564 | 1 130 | **2 694** | 42 % |
-> | **Amanda** | 771 | 519 | **1 290** | 40 % |
-> | **Total** | **24 003 (60 %)** | **16 139 (40 %)** | **40 142** | — |
+> **Les trois verdicts qui comptent.** ① **OF et MYM monétisent PAREIL** : sur les 3 créatrices présentes sur les deux plateformes (seul test propre), **OF 7,28 €/fan vs MYM 6,77 €/fan — 7,7 % d'écart**. Toute autre lecture (OF +29 % en blended, MYM +27 % hors Sarah) mesure le **mix de créatrices**, pas les plateformes. **La bonne unité d'analyse est créatrice × source × deal, jamais la plateforme.** ② **Le % du deal domine tout** : Jade à 60 % rapporte **4,24 € de marge/fan** contre 1,86 € pour Chloé à 40 % — **2,3×** à LTV comparable. Signer les prochaines à 55-60 % reste le levier n°1. ③ ⚠️ **Les 15,10 €/fan de Maddy sont un artefact** : ses fans/mois sont passés de 1 329 → 640 → **490** (−63 %) pendant que son CA tenait — sa « LTV » monte parce que son acquisition meurt. **Sa valeur marginale réelle est ~8 €.** Ne jamais allouer sur une LTV obtenue à bas volume ; la formule `CA ÷ fans` mesure le régime de croissance, pas la monétisation.
 >
-> **L'agence est plus MYM qu'OF** (60/40) — ce que ni le discours interne ni la grille de paie clippers (0,50 €/**sub OF** uniquement) ne reflètent : un sub envoyé sur Maddy, MYM-only et priorité 1 de la matrice d'allocation, rapporte **0 €** au clipper. Incohérence à trancher.
+> **Croissance : tout vient de MYM.** MYM **+29 %** (25 330 → 32 690 €) · OF **−2,4 %** (21 620 → 21 100 $) · CA agence ~45 k€ → **52,1 k€**. MYM = **63 % du CA**, alors que la grille clippers ne paie que les **subs OF** ([[Équipe marketing - structure et rémunération (FR × MG)|incohérence à trancher, avec garde-fou]] : une part du volume MYM est de la découverte interne, donc commission MYM **via lien tracké seulement**).
 >
-> ⚠️ **Deux réserves dures.** ① Aucun compte de subs n'existe sur la fenêtre 30/06-30/07, et les deux sources existantes se contredisent **d'un facteur 2 à 5** (Chloé 129 vs 540 subs, Maddy 1 329 vs 640, Sarah 883 vs 3 000) → toute LTV **par créatrice** est `to-verify` ; seuls les blended convergent. ② La formule « CA 30 j ÷ nouveaux subs 30 j » **n'est pas une LTV** : elle bouge à l'inverse de la croissance (le fameux 48,84 € de Chloé mesurait la sécheresse de son acquisition, pas sa monétisation). Une vraie LTV se mesure par cohorte.
+> **Trois dossiers tranchés par ces chiffres** : **Amanda = OF uniquement** (OF +65 %, LTV ×2,1 à 6,67 $ avec *moins* de fans ; MYM à 3,00 € → ni clipper ni Emma) · **Sophie décroche** (−7,6 %, écart de 1,93 $/fan à Chloé = **~2 900 $/mois** laissés sur la table → le clonage chatting du 24/07 est chiffré) · **Lila Doré est morte** (1 412 $ → 123 $ → **0**) et **4 noms sur 10 produisent zéro**.
 
 **MYM/MyPuls (€) :** juillet partiel **12 292 € (945/j)** · 30 j **21 943 € (731/j)** · année 2026 **140 314 € (723/j)**. Composition annuelle : **médias privés 67 947 € (48 %)**, pourboires 19 430 € (14 %), renouvellements 17 427 €, abonnements 12 987 €, MOD 12 044 €, push 10 401 €. → **Le modèle vit des médias privés + tips, PAS des abonnements** (l'abo est une porte d'entrée, le chat fait l'argent).
 

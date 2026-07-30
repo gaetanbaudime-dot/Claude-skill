@@ -56,8 +56,10 @@ Par créatrice (chat MYM, rapproché des volumes du 24/07) : Chloé 8 056 € (p
 
 **Limites de l'export MyPulse** : ventes uniquement — ni unlock rate ni golden ratio côté MYM.
 
-> [!note] Ce que ces deux exports ont permis de mesurer le 30/07
-> Croisés avec les tracking links Infloww, ils donnent la première comparaison chiffrée **OF vs MYM** ([[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)|rapport dédié]]) : **MYM porte 60 % du CA de chat**, et à source comparable **MYM (7,5-9,7 €/sub) monétise autant ou mieux qu'OF (7,45 €/sub hors SFS)**. Ça consolide la thèse de cette page : le 2,83 €/sub de Sarah **mesure sa source, pas son chat** — et le sub interne gratuit rapporte **0,99 € de marge à coût zéro**, quand un sub de clipper OF à 80 subs/mois en rapporte **−0,39 €**. **L'étage 1 (répliquer le débordement) est donc, chiffres en main, le meilleur rendement disponible de l'agence** — devant le recrutement du clipper suivant.
+> [!note] Confirmé par les stats 30 j réelles du 30/07 — la thèse de cette page tient
+> Les vraies données ([[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)|rapport dédié]]) confirment le diagnostic : **Sarah fait 11 800 € sur 3 900 fans = 3,03 €/fan** (vs 2,83 € onze jours plus tôt — LTV **stable**, volume **+30 %**). Le débordement s'amplifie et sa LTV ne bouge pas : c'est bien la **source** qui fixe la valeur, pas le chat. Elle est devenue la **2ᵉ créatrice de l'agence en CA** avec un coût d'acquisition **nul**.
+> **L'arbitrage chiffré** : un fan interne rapporte **1,06 € de marge à coût zéro** ; un clipper médian (80-100 subs/mois) sur Chloé rapporte **moins que zéro** (point mort 140-147 subs). **L'étage 1 — comprendre et répliquer le débordement — reste le meilleur rendement disponible de l'agence**, et c'est la troisième analyse indépendante à y aboutir. ⚠️ Corollaire pour la paie : ces 3 900 fans n'ont été amenés par **aucun clipper** — toute extension de commission aux subs MYM doit passer par un **lien tracké dédié**, jamais par le compteur de la plateforme ([[Équipe marketing - structure et rémunération (FR × MG)|détail]]).
+> Sur l'étage 2 : **Sophie décroche** (−7,6 %, 6,47 $/fan contre 8,40 $ pour Chloé) — l'écart vaut **~2 900 $/mois** sur ses 1 500 fans. Le clonage des scripts est passé de « bonne idée » à **manque à gagner chiffré et daté**.
 
 ### Le côté OF (export Infloww du 28/07, 01-28/07) — les KPI manquants sont là
 

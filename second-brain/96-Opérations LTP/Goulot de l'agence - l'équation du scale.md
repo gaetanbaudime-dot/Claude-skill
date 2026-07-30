@@ -102,19 +102,22 @@ Analyse Goldratt de Gaëtan (marge de contribution) + stats 30 j du 24/07. Deux 
 
 ## Mise à jour 30/07 — l'hypothèse organique était optimiste de 40-70 % (la mesure est arrivée)
 
-La table marginale ci-dessus repose sur une **LTV organique de 10-15 €/fan**, marquée `à confirmer par mesure`. Elle est confirmée — par le bas. L'export Infloww des tracking links (29/07, **10 400 subs hors SFS**) donne **8,28 $/sub = 7,45 €** sur OF, et le MYM hors trafic interne donne **7,53-9,67 €**. Détail et méthode : [[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)]].
+La table marginale ci-dessus repose sur une **LTV organique de 10-15 €/fan**, marquée `à confirmer par mesure`. Les stats 30 j réelles (CA **et** fans par créatrice × plateforme, fournies le 30/07) la confirment — **par le bas**. Détail : [[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)]].
 
-**Points morts recalculés** (`200 ÷ (LTV × marge − 0,50)`, clipper FR à 200 € de fixe) :
+**Le classement marginal réel** (`LTV × % de marge` ; point mort = `200 ÷ (marge/fan − 0,50)`, clipper FR à 200 € de fixe) :
 
-| Cible | Point mort — hypothèse 12,5 € | Point mort — **LTV mesurée** |
-|---|---:|---:|
-| **Jade** (45 %) | 39 subs/mois | **59-70 subs/mois** |
-| **Maddy · Sophie · Sarah · Amanda** (35 %) | 52 subs/mois | **80-95 subs/mois** |
-| **Chloé** (25 %) | 76 subs/mois | **121-147 subs/mois** |
+| Cible | LTV réelle | × marge | **Marge €/fan** | **Point mort** |
+|---|---:|---:|---:|---:|
+| 💎 **Jade — MYM** | 9,41 € | 45 % | **4,24 €** | **54 subs/mois** |
+| 💎 **Jade — OF** | 6,44 € | 45 % | **2,90 €** | **83 subs/mois** |
+| **Maddy — MYM** *(valeur marginale ~8 €, pas ses 15,10 € affichés)* | ~8 € | 35 % | ~2,80 € | ~87 subs/mois |
+| Amanda — OF · Sophie — OF | 6,13 / 5,95 € | 35 % | 2,15 / 2,08 € | 121-126 subs/mois |
+| Chloé — OF · Chloé — MYM | 7,73 / 7,43 € | 25 % | 1,93 / 1,86 € | 140-147 subs/mois |
+| ⛔ Sarah — MYM · Amanda — MYM | 3,03 / 3,00 € | 35 % | 1,06 / 1,05 € | **358-364 subs/mois** |
 
-**Ce que ça change concrètement** : le clipper médian (80-100 subs/mois) est rentable sur Jade, **à l'équilibre** sur les 35 %, et **déficitaire sur Chloé** — la créatrice vers qui le flux part par défaut. La direction de la règle v2 (Jade et Maddy d'abord) est confirmée ; sa **marge de sécurité disparaît**. Précision nouvelle : ce sont les **MYM** de Jade et de Maddy qu'il faut viser (4,46 € et 4,38 € de marge/sub) — leurs deux meilleures cibles ne sont pas sur OF, alors que **la grille clipper ne paie que les subs OF** ([[Équipe marketing - structure et rémunération (FR × MG)|incohérence à trancher]]).
+**Trois conséquences dures.** ① **Le clipper médian (80-100 subs/mois) n'est rentable que sur Jade et Maddy** — il est **déficitaire sur Chloé** (140-147), la destination par défaut du flux, et **hors d'atteinte** sur Sarah/Amanda MYM. La direction de la règle v2 est confirmée ; sa **marge de sécurité disparaît**. ② **Le % du deal domine la LTV** : Jade rapporte **2,3× Chloé** par fan marginal à LTV comparable — le levier n'est pas le chatting, c'est **le contrat signé** (d'où « les prochaines à 55-60 % »). ③ ⚠️ **Ne jamais allouer sur une LTV obtenue à bas volume** : les 15,10 €/fan de Maddy viennent de son acquisition qui s'effondre (1 329 → 490 fans/mois), pas de sa monétisation. Chloé le prouve en sens inverse (volume ×2,6 → LTV/fan −41 % → **CA +53 %**), et seule **Jade** a une LTV qui a *résisté* à une hausse de volume (+69 % de fans, −5 % de LTV) — la seule valeur marginale fiable du roster.
 
-**Le corollaire qui range le débat du 23/07** : un sub de trafic interne MYM rapporte **0,99 € de marge à coût zéro** ; un sub de clipper OF à 80 subs/mois rapporte **−0,39 €** (fixe amorti compris), et il faut ~150 subs/mois pour battre franchement le sub interne gratuit. **Exploiter le débordement de Sarah bat encore l'élargissement par le recrutement** — la prédiction du 23/07 se vérifie par un second chemin.
+**Le corollaire qui range le débat du 23/07** : un fan de trafic interne MYM rapporte **1,06 € de marge à coût zéro** ; un clipper médian sur Chloé rapporte **moins que zéro**. **Exploiter le débordement de Sarah (3 900 fans/mois, 11 800 €, 0 € d'acquisition) bat encore l'élargissement par le recrutement** — troisième analyse indépendante à y aboutir. ⚠️ Les deux meilleures cibles étant sur **MYM**, l'incohérence de la grille (0,50 €/**sub OF** seulement) devient coûteuse — mais son extension exige un garde-fou : [[Équipe marketing - structure et rémunération (FR × MG)|commission MYM via lien tracké uniquement]], jamais sur le compteur de la plateforme (une part du volume MYM est de la découverte interne que personne n'a amenée).
 
 ## Le pont vers l'action
 
