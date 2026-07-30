@@ -22,6 +22,8 @@ import aiohttp
 import discord
 import anthropic
 
+import inputs_clippers                    # suivi quotidien des Reels publiés (Apify) — voir le module
+
 DOSSIER = Path(__file__).parent
 
 # ------------------------------------------------------------------ config .env
@@ -111,6 +113,8 @@ JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !
 FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
 FICHIER_RAPPELS = DONNEES / "rappels.json"                   # anti-doublon des rappels quotidiens/hebdo
+FICHIER_INPUTS = DONNEES / "inputs_clippers.json"            # historique 90 j des Reels publiés par clipper
+inputs_clippers.FICHIER_INPUTS = FICHIER_INPUTS              # le module écrit sur le volume persistant
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors kit : [{"q", "qui", "date"}] — la matière de !apprendre
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
@@ -1911,6 +1915,46 @@ async def commande_admin(message, texte: str) -> bool:
         await message.reply(f"📋 {membre.mention} → refusé, re-test possible le {retest[:10]}.")
         return True
 
+    # ---- Inputs clippers : !comptes (cartographie) et !inputs (scrape à la demande) ----
+    if texte.startswith("!comptes"):
+        if message.guild is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        carte = inputs_clippers.cartographier_comptes(message.guild)
+        if not carte:
+            await message.reply("Aucun compte détecté. Le bot lit les **descriptions (topics) des salons** "
+                                "rangés sous une catégorie : il faut au moins un `@pseudo` dedans. "
+                                "Vérifie qu'il a la permission de voir ces salons.")
+            return True
+        lignes = [f"🗺️ **Cartographie des comptes** — {len(carte)} clipper(s), "
+                  f"{sum(len(f['comptes']) for f in carte.values())} compte(s) suivi(s)"]
+        for prenom, fiche in sorted(carte.items()):
+            lignes.append(f"· **{prenom}** ({fiche['creatrice']}) : "
+                          + ", ".join("@" + c for c in fiche["comptes"]))
+        lignes.append("-# Un compte manquant ? Ajoute son `@pseudo` dans la description du salon du clipper.")
+        await message.reply("\n".join(lignes)[:1990])
+        return True
+
+    if texte.startswith("!inputs"):
+        if message.guild is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        if not inputs_clippers.APIFY_TOKEN:
+            await message.reply("⚠️ `APIFY_TOKEN` absent des variables d'environnement — le suivi des "
+                                "inputs est éteint. Ajoute-le sur Railway et redéploie.")
+            return True
+        test = "test" in texte
+        await message.reply("⏳ Scraping en cours (~1 min)…"
+                            + (" *mode test : rien ne sera envoyé aux clippers.*" if test else ""))
+        bilan = await inputs_clippers.executer(client, message.guild,
+                                              await canal_admin(), silencieux=test)
+        if not bilan:
+            await message.reply("Rien récupéré — vérifie `!comptes`, le token Apify et tes crédits.")
+        elif test:
+            await message.reply(inputs_clippers.message_recap(
+                bilan, datetime.now(timezone.utc).strftime("%d/%m")).replace("*", "**")[:1990])
+        return True
+
     if texte.startswith("!pipeline"):
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         etats = donnees.get("etats", {})
@@ -2338,6 +2382,8 @@ async def on_ready():
         if LIEN_TRESORERIE or CANAL_REPORTING_ID:
             client.loop.create_task(boucle_rappels())  # trésorerie du matin + reporting du dimanche
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
+        client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
+            client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json))
 
 
 @client.event

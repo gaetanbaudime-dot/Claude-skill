@@ -1,0 +1,430 @@
+"""Suivi quotidien des INPUTS clippers (Reels publiés, vues, followers) via Apify.
+
+POURQUOI CE MODULE (décidé le 30/07/2026) : les rapports GAML mesurent l'OUTPUT (clics).
+Résultat : un clipper qui publie 12 Reels qui flopent et un clipper qui ne publie rien sont
+identiques dans les données (0 clic) — impossible de piloter la discipline. Ce module mesure
+ce que le clipper CONTRÔLE : le nombre de Reels publiés par jour. C'est la métrique qui
+conditionne le fixe, et c'est celle qui sépare Yanil (205 visites/jour) de la médiane (12) —
+il ne monte pas mieux, il publie plus.
+
+SÉCURITÉ PLATEFORME — la règle absolue : le scraping passe par Apify, qui interroge des
+profils PUBLICS depuis SA propre infrastructure et ses proxies résidentiels, **sans aucune
+authentification**. Meta voit un visiteur anonyme, non attribuable à un compte de l'agence :
+aucun risque de ban sur les comptes clippers. NE JAMAIS fournir de cookie de session, de
+`sessionid` ni d'identifiants Instagram à un actor Apify — c'est la seule chose qui créerait
+un vrai risque. Les actors utilisés ici n'en demandent pas.
+
+SÉCURITÉ DONNÉES : la cartographie des comptes se lit dans les **descriptions (topics) des
+salons Discord**, qui contiennent aussi des mots de passe. Ce module n'extrait QUE les
+identifiants `@` et ne journalise jamais un topic brut.
+"""
+
+import asyncio
+import json
+import os
+import re
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import aiohttp
+import discord
+
+journal = __import__("logging").getLogger("bot_clippers")
+
+# ------------------------------------------------------------------ configuration
+APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "").strip()
+ACTOR_IG = os.environ.get("APIFY_ACTOR_IG", "apify~instagram-profile-scraper").strip()
+ACTOR_FB = os.environ.get("APIFY_ACTOR_FB", "apify~facebook-posts-scraper").strip()
+FB_POSTS_MAX = int(os.environ.get("FB_POSTS_MAX", "6"))   # posts lus par page (coût ~2 $/1 000)
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+# Cadence exigée par compte de croissance (règle annoncée à l'équipe le 30/07).
+CADENCE_MIN = int(os.environ.get("CADENCE_REELS_MIN", "3"))
+# Heure UTC d'envoi du rapport quotidien (9 = 11h à Paris l'été, 13h à Dubaï).
+HEURE_RAPPORT = int(os.environ.get("HEURE_RAPPORT_INPUTS", "9"))
+# Salons à ignorer dans la cartographie : réserves de comptes non attribués.
+SALONS_IGNORES = {s.strip().lower() for s in
+                  os.environ.get("SALONS_RESERVE", "xxx,yyy,zzz,reserve,reserves,stock,libre").split(",")
+                  if s.strip()}
+
+FICHIER_INPUTS = None          # injecté par bot_discord.py (chemin sur le volume persistant)
+
+
+def _normaliser(texte: str) -> str:
+    import unicodedata
+    t = unicodedata.normalize("NFD", (texte or "").lower())
+    return "".join(c for c in t if unicodedata.category(c) != "Mn").strip()
+
+
+def _lire(defaut):
+    if FICHIER_INPUTS and FICHIER_INPUTS.exists():
+        try:
+            return json.loads(FICHIER_INPUTS.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            journal.warning("inputs_clippers.json illisible, réinitialisé")
+    return defaut
+
+
+def _ecrire(donnees):
+    if FICHIER_INPUTS:
+        FICHIER_INPUTS.write_text(json.dumps(donnees, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# ------------------------------------------------------------------ 1. cartographie
+# Un @ Instagram : 1-30 caractères, lettres/chiffres/points/underscores. On exclut les e-mails
+# (un @ suivi d'un domaine) et les mots de passe (majuscules + caractères spéciaux).
+MOTIF_HANDLE = re.compile(r"(?<![\w.])@([A-Za-z0-9._]{2,30})(?![\w.]*\.(?:com|fr|net|org|io|es))")
+# Une page Facebook se déclare par son URL complète, ou par « fb:nom-de-la-page ».
+MOTIF_FB = re.compile(r"(?:facebook\.com/|(?<![\w])fb:)([A-Za-z0-9._-]{2,60})", re.I)
+MOTS_INTERDITS = {"gmail", "icloud", "hotmail", "outlook", "yahoo", "everyone", "here",
+                  "profile.php", "pages", "groups", "share", "reel", "watch"}
+
+
+def extraire_handles(topic: str) -> dict:
+    """Les comptes d'une description de salon : `@pseudo` → Instagram, `facebook.com/x` ou `fb:x`
+    → Facebook. N'extrait QUE des identifiants : jamais de mot de passe, jamais d'e-mail.
+    Retourne {"ig": [...], "fb": [...]}, dédoublonné, ordre conservé."""
+    resultat = {"ig": [], "fb": []}
+    for cle, motif in (("ig", MOTIF_HANDLE), ("fb", MOTIF_FB)):
+        vus = set()
+        for brut in motif.findall(topic or ""):
+            h = brut.strip(".-").lower()
+            if not h or h in vus or h in MOTS_INTERDITS or h.isdigit():
+                continue
+            vus.add(h)
+            resultat[cle].append(h)
+    return resultat
+
+
+def cartographier_comptes(guild) -> dict:
+    """Parcourt le serveur : catégorie = créatrice, salon = clipper, topic = ses comptes.
+    Retourne {clipper: {"creatrice", "canal_id", "comptes": [...]}}.
+    Les salons de réserve (xxx, yyy…) et les salons sans @ sont ignorés."""
+    carte = {}
+    for categorie in getattr(guild, "categories", []):
+        creatrice = categorie.name.strip()
+        for salon in categorie.text_channels:
+            nom = salon.name.strip()
+            nom_n = _normaliser(nom).replace("-", " ").replace("_", " ").strip()
+            if nom_n in SALONS_IGNORES or re.fullmatch(r"(.)\1{1,}", nom_n or "-"):
+                continue
+            comptes = extraire_handles(salon.topic)
+            if not comptes["ig"] and not comptes["fb"]:
+                continue
+            clipper = nom.replace("-", " ").replace("_", " ").strip().title()
+            fiche = carte.setdefault(clipper, {"creatrice": creatrice, "canal_id": salon.id,
+                                               "comptes": [], "pages_fb": []})
+            for c in comptes["ig"]:
+                if c not in fiche["comptes"]:
+                    fiche["comptes"].append(c)
+            for p in comptes["fb"]:
+                if p not in fiche["pages_fb"]:
+                    fiche["pages_fb"].append(p)
+    return carte
+
+
+# ------------------------------------------------------------------ 2. scraping Apify
+async def scraper_apify(handles: list) -> dict:
+    """Un seul appel Apify pour tous les comptes. Retourne {handle: {followers, posts_24h,
+    vues_24h, total_posts}}. Un handle absent du résultat = compte injoignable (privé, banni
+    ou renommé) — l'appelant le signale, c'est un signal de ban utile."""
+    if not APIFY_TOKEN or not handles:
+        return {}
+    url = f"https://api.apify.com/v2/acts/{ACTOR_IG}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+    limite = datetime.now(timezone.utc) - timedelta(hours=24)
+    resultats = {}
+    try:
+        delai = aiohttp.ClientTimeout(total=280)
+        async with aiohttp.ClientSession(timeout=delai) as session:
+            async with session.post(url, json={"usernames": handles}) as reponse:
+                if reponse.status >= 400:
+                    journal.error("Apify HTTP %s (vérifie APIFY_TOKEN / crédits)", reponse.status)
+                    return {}
+                items = await reponse.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+        journal.error("Apify injoignable : %s", erreur)
+        return {}
+
+    for item in items if isinstance(items, list) else []:
+        handle = (item.get("username") or "").lower()
+        if not handle:
+            continue
+        # Profil marqué 18+ par Instagram : invisible aux visiteurs non connectés, donc illisible
+        # ici — mais surtout catastrophique en portée organique. Découvert le 30/07 sur un compte
+        # réel de l'agence : c'est un signal BUSINESS prioritaire, pas une erreur de scraping.
+        if item.get("isRestrictedProfile") or "restricted" in str(item.get("error") or "").lower():
+            resultats[handle] = {"restreint": True, "raison": str(item.get("restrictionReason") or "")[:120],
+                                 "followers": 0, "posts_24h": 0, "vues_24h": 0, "total_posts": 0}
+            continue
+        if item.get("private"):
+            resultats[handle] = {"prive": True, "followers": 0, "posts_24h": 0,
+                                 "vues_24h": 0, "total_posts": 0}
+            continue
+        posts_24h, vues_24h = 0, 0
+        # latestPosts plafonne à ~12 publications : au-delà de 12 Reels/jour sur un même compte,
+        # le comptage sature (sans effet à la cadence cible de 6/jour/compte).
+        for post in item.get("latestPosts") or []:
+            horodatage = post.get("timestamp") or ""
+            try:
+                quand = datetime.fromisoformat(horodatage.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if quand >= limite:
+                posts_24h += 1
+                vues_24h += int(post.get("videoViewCount") or post.get("videoPlayCount") or 0)
+        resultats[handle] = {
+            "followers": int(item.get("followersCount") or 0),
+            "posts_24h": posts_24h,
+            "vues_24h": vues_24h,
+            "total_posts": int(item.get("postsCount") or 0),
+        }
+    return resultats
+
+
+async def scraper_facebook(pages: list) -> dict:
+    """Pages Facebook publiques → {page: {posts_24h, vues_24h}}. Facultatif : ne tourne que si des
+    pages sont déclarées dans les topics (`facebook.com/x` ou `fb:x`). Facebook n'est PAS la
+    métrique de discipline (les Reels y sont republiés depuis Instagram) — c'est un second regard.
+    resultsLimit reste bas : au-delà, la facture grimpe pour une information qu'on a déjà."""
+    if not APIFY_TOKEN or not pages:
+        return {}
+    url = f"https://api.apify.com/v2/acts/{ACTOR_FB}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+    limite = datetime.now(timezone.utc) - timedelta(hours=24)
+    charge = {"startUrls": [{"url": f"https://www.facebook.com/{p}"} for p in pages],
+              "resultsLimit": FB_POSTS_MAX}
+    resultats = {p: {"posts_24h": 0, "vues_24h": 0} for p in pages}
+    try:
+        delai = aiohttp.ClientTimeout(total=280)
+        async with aiohttp.ClientSession(timeout=delai) as session:
+            async with session.post(url, json=charge) as reponse:
+                if reponse.status >= 400:
+                    journal.warning("Apify Facebook HTTP %s", reponse.status)
+                    return resultats
+                items = await reponse.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+        journal.warning("Apify Facebook injoignable : %s", erreur)
+        return resultats
+
+    for post in items if isinstance(items, list) else []:
+        source = (post.get("inputUrl") or "").rstrip("/").rsplit("/", 1)[-1].lower()
+        if source not in resultats:
+            continue
+        try:
+            quand = datetime.fromisoformat((post.get("time") or "").replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if quand >= limite:
+            resultats[source]["posts_24h"] += 1
+            resultats[source]["vues_24h"] += int(post.get("viewsCount") or 0)
+    return resultats
+
+
+# ------------------------------------------------------------------ 3. calcul par clipper
+def agreger(carte: dict, brut: dict, veille: dict, brut_fb: dict = None) -> dict:
+    """Agrège par clipper et calcule les deltas de followers vs la veille."""
+    brut_fb = brut_fb or {}
+    bilan = {}
+    for clipper, fiche in carte.items():
+        posts = vues = followers = 0
+        injoignables, restreints, prives, detail = [], [], [], []
+        for handle in fiche["comptes"]:
+            mesure = brut.get(handle)
+            if mesure is None:
+                injoignables.append(handle)
+                continue
+            if mesure.get("restreint"):
+                restreints.append(handle)
+                continue
+            if mesure.get("prive"):
+                prives.append(handle)
+                continue
+            posts += mesure["posts_24h"]
+            vues += mesure["vues_24h"]
+            followers += mesure["followers"]
+            detail.append({"compte": handle, **mesure})
+        posts_fb = sum(brut_fb.get(p, {}).get("posts_24h", 0) for p in fiche.get("pages_fb", []))
+        vues_fb = sum(brut_fb.get(p, {}).get("vues_24h", 0) for p in fiche.get("pages_fb", []))
+        avant = (veille.get(clipper) or {}).get("followers")
+        hors_service = len(injoignables) + len(restreints) + len(prives)
+        bilan[clipper] = {
+            "creatrice": fiche["creatrice"],
+            "canal_id": fiche["canal_id"],
+            "comptes_suivis": len(fiche["comptes"]),
+            "posts_24h": posts,
+            "vues_24h": vues,
+            "followers": followers,
+            "delta_followers": (followers - avant) if isinstance(avant, int) else None,
+            "pages_fb": len(fiche.get("pages_fb", [])),
+            "posts_fb": posts_fb,
+            "vues_fb": vues_fb,
+            "injoignables": injoignables,
+            "restreints": restreints,
+            "prives": prives,
+            "detail": detail,
+            # Cadence attendue : CADENCE_MIN par compte réellement mesurable — on n'exige pas
+            # une cadence sur un compte banni, restreint ou passé en privé.
+            "cadence_attendue": CADENCE_MIN * max(1, len(fiche["comptes"]) - hors_service),
+        }
+    return bilan
+
+
+# ------------------------------------------------------------------ 4. messages
+def message_clipper(prenom: str, b: dict) -> str:
+    """Le bilan personnel envoyé dans le salon privé du clipper — factuel, jamais moralisateur."""
+    posts, cible = b["posts_24h"], b["cadence_attendue"]
+    if posts >= cible:
+        entete = f"✅ **{posts} Reels hier** — cadence tenue (objectif {cible}). Continue exactement comme ça."
+    elif posts > 0:
+        entete = (f"⚠️ **{posts} Reels hier** — objectif {cible}. Il t'en manque **{cible - posts}** "
+                  f"pour valider ta journée.")
+    else:
+        entete = (f"🔴 **0 Reel publié hier** (objectif {cible}). Si tu es bloqué sur quelque chose, "
+                  f"dis-le ici maintenant — on débloque en 5 minutes.")
+    lignes = [f"📊 **Ton bilan d'hier — {prenom}**", "", entete, ""]
+    if b["vues_24h"]:
+        lignes.append(f"👁️ **{b['vues_24h']:,}** vues sur tes Reels d'hier".replace(",", " "))
+    lignes.append(f"👥 **{b['followers']:,}** abonnés cumulés".replace(",", " ")
+                  + (f" ({b['delta_followers']:+d} depuis hier)" if b["delta_followers"] is not None else ""))
+    if b["restreints"]:
+        lignes.append(f"\n🔞 **URGENT — compte(s) marqué(s) 18+ par Instagram** : "
+                      f"{', '.join('@' + c for c in b['restreints'])}.\n"
+                      "Ton compte est **invisible pour toute personne non connectée** et sa portée est "
+                      "massacrée : tu peux publier 20 Reels par jour, ils ne sortiront quasiment pas.\n"
+                      "→ Instagram : Paramètres → **Confidentialité du compte / Public visé** et demande "
+                      "la levée de la restriction. Envoie-moi une capture ici, on le règle aujourd'hui.")
+    if b["prives"]:
+        lignes.append(f"\n🔒 **Compte(s) en privé** : {', '.join('@' + c for c in b['prives'])} — "
+                      "un compte de croissance doit être **public**, sinon personne ne te découvre. "
+                      "Repasse-le en public.")
+    if b["injoignables"]:
+        lignes.append(f"\n🚫 **Compte(s) injoignable(s)** : {', '.join('@' + c for c in b['injoignables'])} — "
+                      "compte banni ou renommé ? Préviens-moi, on recrée (Fiche 1).")
+    if b.get("pages_fb"):
+        lignes.append(f"📘 Facebook : **{b['posts_fb']}** publication(s) hier"
+                      + (f" · {b['vues_fb']:,} vues".replace(",", " ") if b["vues_fb"] else ""))
+    lignes.append("\n-# Rappel : ta commission de 0,50 €/abonné n'a aucun plafond. "
+                  "Plus tu publies, plus elle monte. "
+                  + ("" if b.get("pages_fb") else
+                     "Et Facebook reste obligatoire même s'il n'est pas compté ici."))
+    return "\n".join(lignes)
+
+
+def message_recap(bilan: dict, date_jour: str) -> str:
+    """Le récapitulatif admin (Telegram + salon admin), trié par cadence tenue."""
+    if not bilan:
+        return f"📊 *Inputs clippers — {date_jour}*\n\nAucun compte cartographié (vérifie les topics des salons)."
+    tries = sorted(bilan.items(), key=lambda x: -x[1]["posts_24h"])
+    total_posts = sum(b["posts_24h"] for _, b in tries)
+    total_vues = sum(b["vues_24h"] for _, b in tries)
+    sous_cadence = [n for n, b in tries if b["posts_24h"] < b["cadence_attendue"]]
+    lignes = [f"📊 *INPUTS CLIPPERS — {date_jour}*", "",
+              f"*{total_posts} Reels* publiés · {total_vues:,} vues".replace(",", " "), ""]
+    for nom, b in tries:
+        etat = "✅" if b["posts_24h"] >= b["cadence_attendue"] else ("⚠️" if b["posts_24h"] else "🔴")
+        delta = f" · {b['delta_followers']:+d} abo" if b["delta_followers"] is not None else ""
+        lignes.append(f"{etat} *{nom}* ({b['creatrice']}) — {b['posts_24h']}/{b['cadence_attendue']} Reels · "
+                      f"{b['vues_24h']:,} vues{delta}".replace(",", " "))
+        if b["restreints"]:
+            lignes.append(f"   🔞 RESTREINT 18+ (portée massacrée) : {', '.join(b['restreints'])}")
+        if b["prives"]:
+            lignes.append(f"   🔒 en privé : {', '.join(b['prives'])}")
+        if b["injoignables"]:
+            lignes.append(f"   🚫 injoignable : {', '.join(b['injoignables'])}")
+    if sous_cadence:
+        lignes += ["", f"⚠️ *Sous la cadence* : {', '.join(sous_cadence)}"]
+    tous_restreints = [c for _, b in tries for c in b["restreints"]]
+    if tous_restreints:
+        lignes += ["", f"🔞 *{len(tous_restreints)} compte(s) marqué(s) 18+ par Instagram* — "
+                       "invisibles hors connexion, portée organique détruite. À traiter en priorité "
+                       "absolue : c'est du trafic perdu à 100 %, quelle que soit la cadence."]
+    return "\n".join(lignes)
+
+
+async def envoyer_telegram(texte: str):
+    """Pousse le récap dans le rapport quotidien Telegram. Silencieux si non configuré."""
+    if not (TELEGRAM_TOKEN and TELEGRAM_CHAT_ID):
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    charge = {"chat_id": TELEGRAM_CHAT_ID, "text": texte[:4000], "parse_mode": "Markdown"}
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            async with session.post(url, json=charge) as reponse:
+                if reponse.status >= 400:
+                    journal.warning("Telegram HTTP %s", reponse.status)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+        journal.warning("Telegram injoignable : %s", erreur)
+
+
+# ------------------------------------------------------------------ 5. exécution
+async def executer(client, guild, canal_admin=None, silencieux=False) -> dict:
+    """Un cycle complet : cartographie → Apify → agrégation → salons privés + Telegram.
+    Retourne le bilan (vide si rien à faire). silencieux=True : ne poste rien, sert à `!inputs test`."""
+    carte = cartographier_comptes(guild)
+    if not carte:
+        return {}
+    handles = sorted({h for f in carte.values() for h in f["comptes"]})
+    pages_fb = sorted({p for f in carte.values() for p in f.get("pages_fb", [])})
+    brut = await scraper_apify(handles)
+    brut_fb = await scraper_facebook(pages_fb)
+    if not brut:
+        if canal_admin is not None and not silencieux:
+            await canal_admin.send("⚠️ **Inputs clippers** : Apify n'a rien renvoyé "
+                                   "(token absent, crédits épuisés ou actor en panne).")
+        return {}
+
+    donnees = _lire({"historique": {}})
+    hier = sorted(donnees.get("historique", {}))
+    veille = donnees["historique"][hier[-1]] if hier else {}
+    bilan = agreger(carte, brut, veille, brut_fb)
+    if silencieux:
+        return bilan
+
+    aujourdhui = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    donnees.setdefault("historique", {})[aujourdhui] = {
+        n: {k: b[k] for k in ("posts_24h", "vues_24h", "followers", "creatrice")} for n, b in bilan.items()}
+    # On ne garde que 90 jours : le volume Railway n'est pas une base de données.
+    for vieux in sorted(donnees["historique"])[:-90]:
+        donnees["historique"].pop(vieux, None)
+    _ecrire(donnees)
+
+    for prenom, b in bilan.items():
+        salon = client.get_channel(b["canal_id"])
+        if salon is None:
+            continue
+        try:
+            await salon.send(message_clipper(prenom, b))
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Bilan non envoyé à %s : %s", prenom, erreur)
+        await asyncio.sleep(1)
+
+    recap = message_recap(bilan, datetime.now(timezone.utc).strftime("%d/%m"))
+    await envoyer_telegram(recap)
+    if canal_admin is not None:
+        try:
+            await canal_admin.send(recap.replace("*", "**")[:1990])
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    journal.info("Inputs clippers : %d clippers, %d comptes scrapés", len(bilan), len(brut))
+    return bilan
+
+
+async def boucle_inputs(client, canal_admin_async, fichier_etat, lire_json, ecrire_json):
+    """Boucle quotidienne : une exécution par jour à HEURE_RAPPORT (UTC). Ne démarre que si
+    APIFY_TOKEN est configuré — sans lui, le module reste totalement inerte."""
+    if not APIFY_TOKEN:
+        journal.info("Inputs clippers désactivés (APIFY_TOKEN absent)")
+        return
+    await client.wait_until_ready()
+    while not client.is_closed():
+        try:
+            maintenant = datetime.now(timezone.utc)
+            aujourdhui = maintenant.strftime("%Y-%m-%d")
+            etat = lire_json(fichier_etat, {})
+            if maintenant.hour >= HEURE_RAPPORT and etat.get("inputs") != aujourdhui:
+                for guild in client.guilds:
+                    await executer(client, guild, await canal_admin_async())
+                etat["inputs"] = aujourdhui
+                ecrire_json(fichier_etat, etat)
+        except Exception as erreur:                     # une panne ici ne doit jamais tuer le bot
+            journal.exception("Boucle inputs clippers : %s", erreur)
+        await asyncio.sleep(900)

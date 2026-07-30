@@ -79,7 +79,52 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
 `!compteur` · `!rang @x Rookie|Confirmé|Élite` · `!invites` · `!bumps` (public, classement du mois) ·
-`!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R`
+`!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R` ·
+`!comptes` · `!inputs [test]` (suivi des Reels publiés)
+
+## Suivi des inputs clippers (Reels publiés par jour) — `inputs_clippers.py`
+
+**Pourquoi** : les rapports GAML mesurent les clics (l'output). Un clipper qui publie 12 Reels qui
+flopent et un clipper qui ne publie rien y sont identiques (0 clic) — impossible de piloter la
+discipline. Ce module mesure ce que le clipper contrôle : **le nombre de Reels publiés**.
+
+**Comment ça marche** : le bot lit les **descriptions (topics) des salons Discord** — catégorie =
+créatrice, salon = clipper, topic = ses comptes — puis interroge Apify une fois par jour et poste
+le bilan dans le salon privé de chaque clipper + un récap sur Telegram.
+
+Dans un topic : `@pseudo` déclare un **compte Instagram**, `facebook.com/nom` ou `fb:nom` déclare
+une **page Facebook** (facultatif — sans page déclarée, aucun appel Facebook n'est fait, donc
+aucun coût). Instagram porte la cadence exigée ; Facebook n'est qu'un second regard, puisque les
+Reels y sont republiés depuis Instagram.
+
+**Sécurité plateforme** : Apify interroge des profils **publics** depuis sa propre infrastructure,
+**sans aucune authentification**. Meta voit un visiteur anonyme non attribuable à un compte de
+l'agence : aucun risque de ban. ⚠️ **Ne jamais fournir de `sessionid`, de cookie ou d'identifiants
+Instagram à un actor Apify** — c'est la seule chose qui créerait un risque réel.
+
+**Sécurité données** : les topics contiennent aussi des mots de passe. Le module n'extrait que les
+`@` et ne journalise jamais un topic brut.
+
+| Variable | Rôle |
+|---|---|
+| `APIFY_TOKEN` | **Obligatoire.** Sans elle, tout le module reste inerte. Apify → Settings → API & Integrations |
+| `APIFY_ACTOR_IG` | Actor Instagram (défaut `apify~instagram-profile-scraper`) |
+| `APIFY_ACTOR_FB` | Actor Facebook (défaut `apify~facebook-posts-scraper`) |
+| `FB_POSTS_MAX` | Publications lues par page Facebook (défaut `6` — ~2 $/1 000) |
+| `TELEGRAM_TOKEN` / `TELEGRAM_CHAT_ID` | Récap quotidien poussé dans le rapport Telegram (optionnel) |
+| `CADENCE_REELS_MIN` | Reels/jour exigés par compte (défaut `3`) |
+| `HEURE_RAPPORT_INPUTS` | Heure UTC d'envoi (défaut `9` — 11 h à Paris, 13 h à Dubaï) |
+| `SALONS_RESERVE` | Salons ignorés, séparés par des virgules (défaut `xxx,yyy,zzz,reserve,…`) |
+
+**Mise en route** : `!comptes` vérifie la cartographie lue sur le serveur · `!inputs test` lance un
+scrape sans rien envoyer aux clippers · `!inputs` lance le cycle complet.
+
+**Coût** : ~1,60 $/1 000 profils. À 6 clippers (18 comptes), ≈ **4 $/mois** — le plan gratuit
+(5 $ de crédits) suffit ; le plan Starter à 29 $ couvre jusqu'à ~20 clippers.
+
+**Alerte 🔞** : un compte marqué « 18+ » par Instagram est **invisible aux visiteurs non connectés**
+et sa portée organique est détruite — publier plus n'y change rien. Le module le détecte et le
+remonte en priorité absolue, au clipper comme en admin.
 
 ## v2 — le bot du programme clippers (compteur, paiements, invitations, rangs)
 
