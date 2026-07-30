@@ -20,6 +20,7 @@ identifiants `@` et ne journalise jamais un topic brut.
 """
 
 import asyncio
+import io
 import json
 import os
 import re
@@ -48,6 +49,13 @@ SALONS_IGNORES = {s.strip().lower() for s in
                   if s.strip()}
 
 FICHIER_INPUTS = None          # injecté par bot_discord.py (chemin sur le volume persistant)
+# Source de vérité des comptes : le Google Sheet publié en CSV (prioritaire), sinon les topics
+# Discord en repli. ⚠️ Ne JAMAIS publier l'onglet qui contient les mots de passe — voir README :
+# on publie un onglet « Tracking » dédié, alimenté par formule, sans aucune colonne sensible.
+SHEET_CSV_URL = os.environ.get("SHEET_CSV_URL", "").strip()
+# États du sheet qui excluent un compte du scraping (économie de crédits + moins de bruit).
+ETATS_MORTS = {e.strip().lower() for e in
+               os.environ.get("SHEET_ETATS_MORTS", "ban,banni,mort,supprime,ferme").split(",") if e.strip()}
 
 
 def _normaliser(texte: str) -> str:
@@ -94,6 +102,85 @@ def extraire_handles(topic: str) -> dict:
             vus.add(h)
             resultat[cle].append(h)
     return resultat
+
+
+async def cartographier_depuis_sheet(guild) -> dict:
+    """Source de vérité n°1 : le Google Sheet publié en CSV. Colonnes reconnues par mot-clé dans
+    l'entête (ordre libre) : « @ » ou « compte » → identifiant Instagram · « gérant »/« clipper » →
+    à qui il appartient · « état » → BAN et assimilés sont ignorés · « facebook »/« fb » → page FB.
+    Le salon privé du clipper est retrouvé par son prénom sur le serveur. Retourne {} si le sheet
+    n'est pas configuré ou illisible : l'appelant retombe alors sur les topics Discord."""
+    if not SHEET_CSV_URL:
+        return {}
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=45)) as session:
+            async with session.get(SHEET_CSV_URL) as reponse:
+                if reponse.status >= 400:
+                    journal.warning("Sheet CSV HTTP %s — repli sur les topics Discord", reponse.status)
+                    return {}
+                texte = await reponse.text()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+        journal.warning("Sheet CSV injoignable (%s) — repli sur les topics Discord", erreur)
+        return {}
+
+    import csv as _csv
+    lignes = list(_csv.reader(io.StringIO(texte)))
+    if len(lignes) < 2:
+        return {}
+    entetes = [_normaliser(c) for c in lignes[0]]
+
+    def colonne(*mots):
+        for i, e in enumerate(entetes):
+            if any(m in e for m in mots):
+                return i
+        return -1
+
+    i_compte = colonne("@", "compte", "pseudo", "instagram")
+    i_gerant = colonne("gerant", "clipper", "responsable")
+    i_etat = colonne("etat", "statut")
+    i_fb = colonne("facebook", "fb", "page")
+    if i_compte < 0 or i_gerant < 0:
+        journal.warning("Sheet CSV : colonnes « compte » et/ou « gérant » introuvables — entêtes : %s",
+                        ", ".join(entetes[:10]))
+        return {}
+
+    # Index des salons du serveur par prénom normalisé, pour retrouver le salon privé de chacun.
+    salons, creatrices = {}, {}
+    for categorie in getattr(guild, "categories", []):
+        for salon in categorie.text_channels:
+            cle = re.sub(r"[^a-z0-9]", "", _normaliser(salon.name))
+            if cle and cle not in SALONS_IGNORES:
+                salons[cle] = salon.id
+                creatrices[cle] = categorie.name.strip()
+
+    carte, ignores = {}, 0
+    for ligne in lignes[1:]:
+        def champ(i):
+            return ligne[i].strip() if 0 <= i < len(ligne) else ""
+        handle = champ(i_compte).lstrip("@").strip().lower()
+        gerant = champ(i_gerant)
+        if not handle or not gerant or " " in handle or len(handle) > 30:
+            continue
+        if _normaliser(champ(i_etat)) in ETATS_MORTS:
+            ignores += 1
+            continue
+        clipper = gerant.strip().title()
+        cle = re.sub(r"[^a-z0-9]", "", _normaliser(gerant))
+        if cle in SALONS_IGNORES:
+            continue
+        fiche = carte.setdefault(clipper, {"creatrice": creatrices.get(cle, "—"),
+                                           "canal_id": salons.get(cle), "comptes": [], "pages_fb": []})
+        if handle not in fiche["comptes"]:
+            fiche["comptes"].append(handle)
+        # La page FB peut être écrite en URL complète, en « fb:nom » ou en nom nu.
+        page = re.sub(r"^(?:fb:|https?://)?(?:www\.|m\.)?(?:facebook\.com/)?", "",
+                      champ(i_fb).strip(), flags=re.I).rstrip("/").split("?")[0].lstrip("@").lower() \
+            if i_fb >= 0 else ""
+        if page and page not in fiche["pages_fb"] and len(page) <= 60:
+            fiche["pages_fb"].append(page)
+    journal.info("Sheet CSV : %d clipper(s), %d compte(s) · %d ignoré(s) (état mort)",
+                 len(carte), sum(len(f["comptes"]) for f in carte.values()), ignores)
+    return carte
 
 
 def cartographier_comptes(guild) -> dict:
@@ -365,9 +452,15 @@ async def envoyer_telegram(texte: str):
 async def executer(client, guild, canal_admin=None, silencieux=False) -> dict:
     """Un cycle complet : cartographie → Apify → agrégation → salons privés + Telegram.
     Retourne le bilan (vide si rien à faire). silencieux=True : ne poste rien, sert à `!inputs test`."""
-    carte = cartographier_comptes(guild)
+    # Le Google Sheet fait foi ; les topics Discord ne servent que s'il n'est pas configuré
+    # (ou illisible) — ainsi une panne du sheet n'arrête jamais le suivi.
+    carte = await cartographier_depuis_sheet(guild)
+    source = "Google Sheet"
+    if not carte:
+        carte, source = cartographier_comptes(guild), "topics Discord"
     if not carte:
         return {}
+    journal.info("Cartographie : %d clipper(s) depuis %s", len(carte), source)
     handles = sorted({h for f in carte.values() for h in f["comptes"]})
     pages_fb = sorted({p for f in carte.values() for p in f.get("pages_fb", [])})
     brut = await scraper_apify(handles)
@@ -394,7 +487,7 @@ async def executer(client, guild, canal_admin=None, silencieux=False) -> dict:
     _ecrire(donnees)
 
     for prenom, b in bilan.items():
-        salon = client.get_channel(b["canal_id"])
+        salon = client.get_channel(b["canal_id"]) if b.get("canal_id") else None
         if salon is None:
             continue
         try:

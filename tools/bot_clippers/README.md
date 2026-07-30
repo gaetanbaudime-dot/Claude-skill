@@ -88,14 +88,36 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 flopent et un clipper qui ne publie rien y sont identiques (0 clic) — impossible de piloter la
 discipline. Ce module mesure ce que le clipper contrôle : **le nombre de Reels publiés**.
 
-**Comment ça marche** : le bot lit les **descriptions (topics) des salons Discord** — catégorie =
-créatrice, salon = clipper, topic = ses comptes — puis interroge Apify une fois par jour et poste
-le bilan dans le salon privé de chaque clipper + un récap sur Telegram.
+**La source de vérité : le Google Sheet** (`SHEET_CSV_URL`). À défaut, le bot retombe sur les
+**descriptions (topics) des salons Discord** — ainsi une panne du Sheet n'arrête jamais le suivi.
+Il interroge ensuite Apify une fois par jour et poste le bilan dans le salon privé de chaque
+clipper + un récap sur Telegram.
 
-Dans un topic : `@pseudo` déclare un **compte Instagram**, `facebook.com/nom` ou `fb:nom` déclare
-une **page Facebook** (facultatif — sans page déclarée, aucun appel Facebook n'est fait, donc
-aucun coût). Instagram porte la cadence exigée ; Facebook n'est qu'un second regard, puisque les
-Reels y sont republiés depuis Instagram.
+### 🔐 Brancher le Sheet en 3 minutes (à faire une seule fois)
+
+⚠️ **Ne publie JAMAIS l'onglet qui contient les mots de passe.** On publie un onglet dédié qui n'a
+que des colonnes non sensibles, alimenté automatiquement par formule.
+
+1. Dans le classeur, crée un onglet **`Tracking`**. En **A1**, colle :
+   `={Instagram!A:A, Instagram!B:B, Instagram!G:G}`
+   (soit `ETAT`, `@ IG`, `Gérant` — adapte les lettres si tes colonnes bougent). Ajoute en **D1**
+   l'entête `Page FB` et remplis-la à la main quand tu veux suivre Facebook.
+2. **Fichier → Partager → Publier sur le web** → sélectionne **l'onglet `Tracking`** (jamais
+   « Document entier ») → format **CSV** → **Publier** → copie l'URL.
+3. Railway → Variables → `SHEET_CSV_URL=<l'URL copiée>`. Terminé.
+
+Le bot lit les colonnes par mot-clé dans l'entête (ordre libre) : `@`/`compte`/`pseudo` →
+identifiant Instagram · `gérant`/`clipper` → à qui il appartient · `état`/`statut` → les comptes
+marqués **BAN** (et assimilés) sont ignorés, ce qui économise les crédits · `facebook`/`fb`/`page`
+→ page Facebook (URL complète, `fb:nom` ou nom nu, au choix).
+
+Le **salon privé** de chaque clipper est retrouvé par son prénom : le salon doit s'appeler comme
+le gérant écrit dans le Sheet (les emojis en préfixe sont ignorés). `!comptes` signale ceux dont
+le salon n'a pas été trouvé. Les gérants nommés `xxx`, `yyy`, `zzz`, `reserve`… sont ignorés
+(réserves de comptes non attribués).
+
+Instagram porte la cadence exigée ; Facebook n'est qu'un second regard, puisque les Reels y sont
+republiés depuis Instagram — sans page déclarée, aucun appel Facebook, donc aucun coût.
 
 **Sécurité plateforme** : Apify interroge des profils **publics** depuis sa propre infrastructure,
 **sans aucune authentification**. Meta voit un visiteur anonyme non attribuable à un compte de
@@ -108,6 +130,8 @@ Instagram à un actor Apify** — c'est la seule chose qui créerait un risque r
 | Variable | Rôle |
 |---|---|
 | `APIFY_TOKEN` | **Obligatoire.** Sans elle, tout le module reste inerte. Apify → Settings → API & Integrations |
+| `SHEET_CSV_URL` | URL CSV de l'onglet `Tracking` publié (source de vérité des comptes) |
+| `SHEET_ETATS_MORTS` | États du Sheet exclus du scraping (défaut `ban,banni,mort,supprime,ferme`) |
 | `APIFY_ACTOR_IG` | Actor Instagram (défaut `apify~instagram-profile-scraper`) |
 | `APIFY_ACTOR_FB` | Actor Facebook (défaut `apify~facebook-posts-scraper`) |
 | `FB_POSTS_MAX` | Publications lues par page Facebook (défaut `6` — ~2 $/1 000) |

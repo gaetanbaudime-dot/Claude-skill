@@ -1920,18 +1920,26 @@ async def commande_admin(message, texte: str) -> bool:
         if message.guild is None:
             await message.reply("À lancer depuis un salon du serveur.")
             return True
-        carte = inputs_clippers.cartographier_comptes(message.guild)
+        carte = await inputs_clippers.cartographier_depuis_sheet(message.guild)
+        source = "📗 Google Sheet"
         if not carte:
-            await message.reply("Aucun compte détecté. Le bot lit les **descriptions (topics) des salons** "
-                                "rangés sous une catégorie : il faut au moins un `@pseudo` dedans. "
-                                "Vérifie qu'il a la permission de voir ces salons.")
+            carte, source = inputs_clippers.cartographier_comptes(message.guild), "💬 topics Discord"
+        if not carte:
+            await message.reply("Aucun compte détecté. Soit tu configures `SHEET_CSV_URL` (onglet "
+                                "« Tracking » publié en CSV — voir README), soit le bot lit les "
+                                "**descriptions des salons** : il faut au moins un `@pseudo` dedans.")
             return True
-        lignes = [f"🗺️ **Cartographie des comptes** — {len(carte)} clipper(s), "
+        sans_salon = [n for n, f in carte.items() if not f.get("canal_id")]
+        lignes = [f"🗺️ **Cartographie des comptes** ({source}) — {len(carte)} clipper(s), "
                   f"{sum(len(f['comptes']) for f in carte.values())} compte(s) suivi(s)"]
         for prenom, fiche in sorted(carte.items()):
             lignes.append(f"· **{prenom}** ({fiche['creatrice']}) : "
                           + ", ".join("@" + c for c in fiche["comptes"]))
-        lignes.append("-# Un compte manquant ? Ajoute son `@pseudo` dans la description du salon du clipper.")
+        if sans_salon:
+            lignes.append(f"⚠️ **Sans salon privé trouvé** (pas de bilan quotidien envoyé) : "
+                          f"{', '.join(sans_salon[:8])} — le salon doit porter le prénom exact du gérant.")
+        lignes.append("-# Source Sheet : colonnes `@`, `Gérant`, `État` (BAN ignoré). "
+                      "Sinon : `@pseudo` dans la description du salon.")
         await message.reply("\n".join(lignes)[:1990])
         return True
 
