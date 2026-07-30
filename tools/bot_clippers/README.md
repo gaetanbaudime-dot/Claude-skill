@@ -107,9 +107,17 @@ que des colonnes non sensibles, alimenté automatiquement par formule.
 3. Railway → Variables → `SHEET_CSV_URL=<l'URL copiée>`. Terminé.
 
 Le bot lit les colonnes par mot-clé dans l'entête (ordre libre) : `@`/`compte`/`pseudo` →
-identifiant Instagram · `gérant`/`clipper` → à qui il appartient · `état`/`statut` → les comptes
-marqués **BAN** (et assimilés) sont ignorés, ce qui économise les crédits · `facebook`/`fb`/`page`
-→ page Facebook (URL complète, `fb:nom` ou nom nu, au choix).
+identifiant Instagram · `gérant`/`clipper` → à qui il appartient · `état`/`statut` → filtre ·
+`facebook`/`fb`/`page` → page Facebook (URL complète, `fb:nom` ou nom nu, au choix).
+
+**États ignorés** (jamais scrapés, donc zéro crédit gaspillé et zéro faux « injoignable ») :
+`ban`, `banni`, `mort`, `supprimé`, `fermé`, **`à créer`**, `à faire`, `attente`, `réserve` —
+comparaison insensible aux accents et à la ponctuation. Personnalisable via `SHEET_ETATS_MORTS`.
+
+**Pages Facebook depuis leur propre onglet** : si tes pages vivent dans un onglet `FaceBook` séparé
+(colonnes `URL Page` et `Gérant`), publie-le aussi en CSV et pose `SHEET_CSV_FB_URL` — rien à
+recopier. Un gérant qui n'a que des pages FB (opérateur Metricool sans compte Instagram) est ajouté
+automatiquement à la cartographie.
 
 Le **salon privé** de chaque clipper est retrouvé par son prénom : le salon doit s'appeler comme
 le gérant écrit dans le Sheet (les emojis en préfixe sont ignorés). `!comptes` signale ceux dont
@@ -130,7 +138,8 @@ Instagram à un actor Apify** — c'est la seule chose qui créerait un risque r
 | Variable | Rôle |
 |---|---|
 | `APIFY_TOKEN` | **Obligatoire.** Sans elle, tout le module reste inerte. Apify → Settings → API & Integrations |
-| `SHEET_CSV_URL` | URL CSV de l'onglet `Tracking` publié (source de vérité des comptes) |
+| `SHEET_CSV_URL` | URL CSV de l'onglet `Tracking` publié (source de vérité des comptes Instagram) |
+| `SHEET_CSV_FB_URL` | URL CSV de l'onglet `FaceBook` publié (colonnes `URL Page` + `Gérant`) — facultatif |
 | `SHEET_ETATS_MORTS` | États du Sheet exclus du scraping (défaut `ban,banni,mort,supprime,ferme`) |
 | `SHEET_HISTORIQUE_URL` / `SHEET_HISTORIQUE_SECRET` | Archivage quotidien dans l'onglet `Historique` (voir `historique_inputs.gs`) |
 | `APIFY_ACTOR_IG` | Actor Instagram (défaut `apify~instagram-profile-scraper`) |

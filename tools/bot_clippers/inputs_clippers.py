@@ -58,14 +58,52 @@ SHEET_CSV_URL = os.environ.get("SHEET_CSV_URL", "").strip()
 SHEET_HISTORIQUE_URL = os.environ.get("SHEET_HISTORIQUE_URL", "").strip()
 SHEET_HISTORIQUE_SECRET = os.environ.get("SHEET_HISTORIQUE_SECRET", "").strip()
 # États du sheet qui excluent un compte du scraping (économie de crédits + moins de bruit).
-ETATS_MORTS = {e.strip().lower() for e in
-               os.environ.get("SHEET_ETATS_MORTS", "ban,banni,mort,supprime,ferme").split(",") if e.strip()}
+# « à créer » compte AUTANT que « ban » : scraper un compte qui n'existe pas encore brûle des
+# crédits et pollue les rapports avec de faux « injoignables ».
+ETATS_MORTS = {_e.strip().lower() for _e in os.environ.get(
+    "SHEET_ETATS_MORTS",
+    "ban,banni,mort,supprime,ferme,a creer,acreer,a faire,attente,reserve").split(",") if _e.strip()}
+# Onglet Facebook publié séparément (structure différente : « URL Page » + « Gérant »).
+SHEET_CSV_FB_URL = os.environ.get("SHEET_CSV_FB_URL", "").strip()
 
 
 def _normaliser(texte: str) -> str:
     import unicodedata
     t = unicodedata.normalize("NFD", (texte or "").lower())
     return "".join(c for c in t if unicodedata.category(c) != "Mn").strip()
+
+
+def _etat_mort(etat: str) -> bool:
+    """Un compte à exclure du scraping : banni, supprimé, ou pas encore créé. Comparaison souple
+    (accents et ponctuation retirés) pour attraper « à créer », « A CRÉER », « a-creer »…"""
+    e = re.sub(r"[^a-z0-9 ]", "", _normaliser(etat)).strip()
+    return bool(e) and any(e == m or e.startswith(m) for m in ETATS_MORTS)
+
+
+async def _telecharger_csv(url: str):
+    """Télécharge un CSV publié et le renvoie en liste de lignes. [] si indisponible."""
+    import csv as _csv
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=45)) as session:
+            async with session.get(url) as reponse:
+                if reponse.status >= 400:
+                    journal.warning("Sheet CSV HTTP %s", reponse.status)
+                    return []
+                return list(_csv.reader(io.StringIO(await reponse.text())))
+    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+        journal.warning("Sheet CSV injoignable : %s", erreur)
+        return []
+
+
+def _index_colonnes(entetes):
+    """Retourne une fonction qui trouve l'index d'une colonne par mots-clés (premier trouvé)."""
+    normalises = [_normaliser(c) for c in entetes]
+    def colonne(*mots):
+        for i, e in enumerate(normalises):
+            if any(m in e for m in mots):
+                return i
+        return -1
+    return colonne, normalises
 
 
 def _lire(defaut):
@@ -116,29 +154,10 @@ async def cartographier_depuis_sheet(guild) -> dict:
     n'est pas configuré ou illisible : l'appelant retombe alors sur les topics Discord."""
     if not SHEET_CSV_URL:
         return {}
-    try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=45)) as session:
-            async with session.get(SHEET_CSV_URL) as reponse:
-                if reponse.status >= 400:
-                    journal.warning("Sheet CSV HTTP %s — repli sur les topics Discord", reponse.status)
-                    return {}
-                texte = await reponse.text()
-    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
-        journal.warning("Sheet CSV injoignable (%s) — repli sur les topics Discord", erreur)
-        return {}
-
-    import csv as _csv
-    lignes = list(_csv.reader(io.StringIO(texte)))
+    lignes = await _telecharger_csv(SHEET_CSV_URL)
     if len(lignes) < 2:
         return {}
-    entetes = [_normaliser(c) for c in lignes[0]]
-
-    def colonne(*mots):
-        for i, e in enumerate(entetes):
-            if any(m in e for m in mots):
-                return i
-        return -1
-
+    colonne, entetes = _index_colonnes(lignes[0])
     i_compte = colonne("@", "compte", "pseudo", "instagram")
     i_gerant = colonne("gerant", "clipper", "responsable")
     i_etat = colonne("etat", "statut")
@@ -165,7 +184,7 @@ async def cartographier_depuis_sheet(guild) -> dict:
         gerant = champ(i_gerant)
         if not handle or not gerant or " " in handle or len(handle) > 30:
             continue
-        if _normaliser(champ(i_etat)) in ETATS_MORTS:
+        if _etat_mort(champ(i_etat)):
             ignores += 1
             continue
         clipper = gerant.strip().title()
@@ -182,9 +201,49 @@ async def cartographier_depuis_sheet(guild) -> dict:
             if i_fb >= 0 else ""
         if page and page not in fiche["pages_fb"] and len(page) <= 60:
             fiche["pages_fb"].append(page)
-    journal.info("Sheet CSV : %d clipper(s), %d compte(s) · %d ignoré(s) (état mort)",
+    journal.info("Sheet CSV : %d clipper(s), %d compte(s) · %d ignoré(s) (banni ou à créer)",
                  len(carte), sum(len(f["comptes"]) for f in carte.values()), ignores)
+    await enrichir_pages_fb(carte, salons, creatrices)
     return carte
+
+
+async def enrichir_pages_fb(carte: dict, salons: dict, creatrices: dict):
+    """Ajoute les pages Facebook depuis l'onglet « FaceBook » publié séparément (colonnes « URL Page »
+    et « Gérant »). Un gérant absent de la carte Instagram est ajouté : certaines pages sont tenues
+    par des opérateurs internes qui n'ont pas de compte Instagram (Metricool)."""
+    if not SHEET_CSV_FB_URL:
+        return
+    lignes = await _telecharger_csv(SHEET_CSV_FB_URL)
+    if len(lignes) < 2:
+        return
+    colonne, _ = _index_colonnes(lignes[0])
+    i_url = colonne("url")                       # « URL Page » avant « Nom Page »
+    i_gerant = colonne("gerant", "clipper", "responsable")
+    i_etat = colonne("etat", "statut")
+    if i_url < 0 or i_gerant < 0:
+        journal.warning("Onglet Facebook : colonnes « URL » et/ou « Gérant » introuvables")
+        return
+    ajoutees = 0
+    for ligne in lignes[1:]:
+        def champ(i):
+            return ligne[i].strip() if 0 <= i < len(ligne) else ""
+        url, gerant = champ(i_url), champ(i_gerant)
+        if not url or not gerant or _etat_mort(champ(i_etat)):
+            continue
+        page = re.sub(r"^(?:fb:|https?://)?(?:www\.|m\.)?(?:facebook\.com/)?", "", url,
+                      flags=re.I).rstrip("/").split("?")[0].lstrip("@").lower()
+        if not page or len(page) > 60:
+            continue
+        clipper = gerant.strip().title()
+        cle = re.sub(r"[^a-z0-9]", "", _normaliser(gerant))
+        if cle in SALONS_IGNORES:
+            continue
+        fiche = carte.setdefault(clipper, {"creatrice": creatrices.get(cle, "—"),
+                                           "canal_id": salons.get(cle), "comptes": [], "pages_fb": []})
+        if page not in fiche["pages_fb"]:
+            fiche["pages_fb"].append(page)
+            ajoutees += 1
+    journal.info("Onglet Facebook : %d page(s) rattachée(s)", ajoutees)
 
 
 def cartographier_comptes(guild) -> dict:
