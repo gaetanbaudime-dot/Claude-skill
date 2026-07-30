@@ -100,6 +100,22 @@ Analyse Goldratt de Gaëtan (marge de contribution) + stats 30 j du 24/07. Deux 
 
 > **Règle d'allocation finale (v2, 24/07)** : *le budget suit la **marge € par sub organique marginal** (LTV organique mesurée par source × % de marge), par incréments testés (1 pod, 30 j, puis le suivant) — jamais le CA, jamais le % seul, jamais le rev/fan blended.*
 
+## Mise à jour 30/07 — l'hypothèse organique était optimiste de 40-70 % (la mesure est arrivée)
+
+La table marginale ci-dessus repose sur une **LTV organique de 10-15 €/fan**, marquée `à confirmer par mesure`. Elle est confirmée — par le bas. L'export Infloww des tracking links (29/07, **10 400 subs hors SFS**) donne **8,28 $/sub = 7,45 €** sur OF, et le MYM hors trafic interne donne **7,53-9,67 €**. Détail et méthode : [[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)]].
+
+**Points morts recalculés** (`200 ÷ (LTV × marge − 0,50)`, clipper FR à 200 € de fixe) :
+
+| Cible | Point mort — hypothèse 12,5 € | Point mort — **LTV mesurée** |
+|---|---:|---:|
+| **Jade** (45 %) | 39 subs/mois | **59-70 subs/mois** |
+| **Maddy · Sophie · Sarah · Amanda** (35 %) | 52 subs/mois | **80-95 subs/mois** |
+| **Chloé** (25 %) | 76 subs/mois | **121-147 subs/mois** |
+
+**Ce que ça change concrètement** : le clipper médian (80-100 subs/mois) est rentable sur Jade, **à l'équilibre** sur les 35 %, et **déficitaire sur Chloé** — la créatrice vers qui le flux part par défaut. La direction de la règle v2 (Jade et Maddy d'abord) est confirmée ; sa **marge de sécurité disparaît**. Précision nouvelle : ce sont les **MYM** de Jade et de Maddy qu'il faut viser (4,46 € et 4,38 € de marge/sub) — leurs deux meilleures cibles ne sont pas sur OF, alors que **la grille clipper ne paie que les subs OF** ([[Équipe marketing - structure et rémunération (FR × MG)|incohérence à trancher]]).
+
+**Le corollaire qui range le débat du 23/07** : un sub de trafic interne MYM rapporte **0,99 € de marge à coût zéro** ; un sub de clipper OF à 80 subs/mois rapporte **−0,39 €** (fixe amorti compris), et il faut ~150 subs/mois pour battre franchement le sub interne gratuit. **Exploiter le débordement de Sarah bat encore l'élargissement par le recrutement** — la prédiction du 23/07 se vérifie par un second chemin.
+
 ## Le pont vers l'action
 
 Cette page = le **pourquoi**. Le **quoi-faire-quand** vit dans [[Cockpit opérationnel LTP (actions)]] (mode owner 4h/jour, mêmes 3 facteurs). On ne relit cette page que pour re-trancher une priorité de scale — jamais pour agir au quotidien.

@@ -56,6 +56,9 @@ Par créatrice (chat MYM, rapproché des volumes du 24/07) : Chloé 8 056 € (p
 
 **Limites de l'export MyPulse** : ventes uniquement — ni unlock rate ni golden ratio côté MYM.
 
+> [!note] Ce que ces deux exports ont permis de mesurer le 30/07
+> Croisés avec les tracking links Infloww, ils donnent la première comparaison chiffrée **OF vs MYM** ([[Analyse LTV 30 jours - OF vs MYM (30 juillet 2026)|rapport dédié]]) : **MYM porte 60 % du CA de chat**, et à source comparable **MYM (7,5-9,7 €/sub) monétise autant ou mieux qu'OF (7,45 €/sub hors SFS)**. Ça consolide la thèse de cette page : le 2,83 €/sub de Sarah **mesure sa source, pas son chat** — et le sub interne gratuit rapporte **0,99 € de marge à coût zéro**, quand un sub de clipper OF à 80 subs/mois en rapporte **−0,39 €**. **L'étage 1 (répliquer le débordement) est donc, chiffres en main, le meilleur rendement disponible de l'agence** — devant le recrutement du clipper suivant.
+
 ### Le côté OF (export Infloww du 28/07, 01-28/07) — les KPI manquants sont là
 
 **17 933 $ de chat OF** · 50 chatteurs listés, **27 avec ventes** · les équipes OF et MYM sont **largement distinctes** (~8 personnes seulement chattent les deux plateformes : Ludovish, Riantsoa, Orphée, Faniry, Christ, Anjara, Raoul, Lionel). Chatting agence total juillet ≈ **40 k€** (24 002 € MYM + ~16 k€ OF à ~0,90 €/$, approximation) pour ~53 chatteurs uniques.
