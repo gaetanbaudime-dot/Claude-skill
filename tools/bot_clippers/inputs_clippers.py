@@ -487,34 +487,83 @@ def message_clipper(prenom: str, b: dict) -> str:
     return "\n".join(lignes)
 
 
-def message_recap(bilan: dict, date_jour: str) -> str:
-    """Le récapitulatif admin (Telegram + salon admin), trié par cadence tenue."""
-    if not bilan:
-        return f"📊 *Inputs clippers — {date_jour}*\n\nAucun compte cartographié (vérifie les topics des salons)."
-    tries = sorted(bilan.items(), key=lambda x: -x[1]["posts_24h"])
-    total_posts = sum(b["posts_24h"] for _, b in tries)
-    total_vues = sum(b["vues_24h"] for _, b in tries)
-    sous_cadence = [n for n, b in tries if b["posts_24h"] < b["cadence_attendue"]]
-    lignes = [f"📊 *INPUTS CLIPPERS — {date_jour}*", "",
-              f"*{total_posts} Reels* publiés · {total_vues:,} vues".replace(",", " "), ""]
-    for nom, b in tries:
+def _bloc_equipe(titre: str, membres: list) -> list:
+    """Une section du récap : une ligne par personne, triée par production décroissante."""
+    if not membres:
+        return []
+    total = sum(b["posts_24h"] for _, b in membres)
+    lignes = [f"*{titre}* — {total} Reels", ""]
+    for nom, b in sorted(membres, key=lambda x: -x[1]["posts_24h"]):
         etat = "✅" if b["posts_24h"] >= b["cadence_attendue"] else ("⚠️" if b["posts_24h"] else "🔴")
         delta = f" · {b['delta_followers']:+d} abo" if b["delta_followers"] is not None else ""
-        lignes.append(f"{etat} *{nom}* ({b['creatrice']}) — {b['posts_24h']}/{b['cadence_attendue']} Reels · "
-                      f"{b['vues_24h']:,} vues{delta}".replace(",", " "))
-        if b["restreints"]:
-            lignes.append(f"   🔞 RESTREINT 18+ (portée massacrée) : {', '.join(b['restreints'])}")
-        if b["prives"]:
-            lignes.append(f"   🔒 compte à lien (privé, normal — non mesurable) : {', '.join(b['prives'])}")
-        if b["injoignables"]:
-            lignes.append(f"   🚫 injoignable : {', '.join(b['injoignables'])}")
-    if sous_cadence:
-        lignes += ["", f"⚠️ *Sous la cadence* : {', '.join(sous_cadence)}"]
-    tous_restreints = [c for _, b in tries for c in b["restreints"]]
-    if tous_restreints:
-        lignes += ["", f"🔞 *{len(tous_restreints)} compte(s) marqué(s) 18+ par Instagram* — "
-                       "invisibles hors connexion, portée organique détruite. À traiter en priorité "
-                       "absolue : c'est du trafic perdu à 100 %, quelle que soit la cadence."]
+        fb = f" · FB {b['posts_fb']}" if b.get("pages_fb") else ""
+        lignes.append(f"{etat} {nom} — {b['posts_24h']}/{b['cadence_attendue']} · "
+                      f"{b['vues_24h']:,} vues{fb}{delta}".replace(",", " "))
+        for etiquette, comptes in (("🔞 18+", b["restreints"]), ("🚫 mort", b["injoignables"])):
+            if comptes:
+                lignes.append(f"    {etiquette} : {', '.join(comptes)}")
+    return lignes + [""]
+
+
+def _analyse_et_actions(bilan: dict, veille: dict) -> list:
+    """Analyse automatique + actionnables. Règles volontairement simples et vérifiables : on ne
+    commente que ce que la donnée dit, jamais d'interprétation inventée."""
+    total = sum(b["posts_24h"] for b in bilan.values())
+    total_hier = sum(v.get("posts_24h", 0) for v in veille.values()) if veille else None
+    actifs = [n for n, b in bilan.items() if b["posts_24h"] > 0]
+    zeros = [n for n, b in bilan.items() if b["posts_24h"] == 0 and b["comptes_suivis"]
+             and not b["restreints"] and not b["injoignables"]]
+    restreints = {n: b["restreints"] for n, b in bilan.items() if b["restreints"]}
+    morts = {n: b["injoignables"] for n, b in bilan.items() if b["injoignables"]}
+    top = max(bilan.items(), key=lambda x: x[1]["posts_24h"], default=(None, None))
+
+    analyse = ["🎯 *ANALYSE*", ""]
+    if total_hier is not None:
+        ecart = total - total_hier
+        fleche = "🟢" if ecart > 0 else ("🔴" if ecart < 0 else "⚪")
+        analyse.append(f"{fleche} {total} Reels aujourd'hui vs {total_hier} hier ({ecart:+d})")
+    analyse.append(f"👥 {len(actifs)}/{len(bilan)} personnes ont publié")
+    if top[0] and top[1]["posts_24h"]:
+        part = top[1]["posts_24h"] / total * 100 if total else 0
+        analyse.append(f"🥇 {top[0]} porte {part:.0f} % de la production du jour")
+        if part >= 60:
+            analyse.append("⚠️ Dépendance à une seule personne : si elle s'arrête, tout s'arrête.")
+
+    actions = ["✅ *ACTIONNABLE*", ""]
+    if restreints:
+        actions.append(f"1. 🔞 Lever la restriction 18+ : "
+                       + " · ".join(f"{n} ({', '.join(c)})" for n, c in list(restreints.items())[:3])
+                       + " — trafic perdu à 100 %, gain immédiat sans publier un Reel de plus.")
+    if morts:
+        actions.append(f"{len(actions)-1}. 🚫 Recréer les comptes tombés : "
+                       + " · ".join(f"{n} ({len(c)})" for n, c in list(morts.items())[:4]))
+    if zeros:
+        actions.append(f"{len(actions)-1}. 🔴 Relancer (0 Reel, comptes sains) : {', '.join(zeros[:8])}")
+    if top[0] and top[1]["posts_24h"] >= top[1]["cadence_attendue"]:
+        actions.append(f"{len(actions)-1}. 🙌 Féliciter {top[0]} publiquement dans #dopamine "
+                       "— la reconnaissance publique est le seul levier gratuit.")
+    if len(actions) == 2:
+        actions.append("Rien d'urgent : tout le monde est à la cadence. Passe au chatting.")
+    return analyse + [""] + actions
+
+
+def message_recap(bilan: dict, date_jour: str, veille: dict = None) -> str:
+    """Le récapitulatif quotidien (Telegram + salon admin) : clippers, opérateurs Metricool,
+    analyse et actionnables. Les opérateurs internes sont séparés des clippers : ils n'ont ni la
+    même mission ni la même cadence, les mélanger fausserait la lecture."""
+    if not bilan:
+        return (f"📊 *INPUTS — {date_jour}*\n\nAucun compte cartographié "
+                "(vérifie `SHEET_CSV_URL` ou les topics des salons).")
+    metricool = [(n, b) for n, b in bilan.items() if _normaliser(b["creatrice"]).startswith("metricool")]
+    clippers = [(n, b) for n, b in bilan.items() if (n, b) not in metricool]
+    total = sum(b["posts_24h"] for b in bilan.values())
+    total_vues = sum(b["vues_24h"] for b in bilan.values())
+
+    lignes = [f"📊 *INPUTS — {date_jour}*",
+              f"_{total} Reels · {total_vues:,} vues_".replace(",", " "), ""]
+    lignes += _bloc_equipe("📱 CLIPPERS", clippers)
+    lignes += _bloc_equipe("🎛️ METRICOOL (interne)", metricool)
+    lignes += _analyse_et_actions(bilan, veille or {})
     return "\n".join(lignes)
 
 
@@ -617,7 +666,7 @@ async def executer(client, guild, canal_admin=None, silencieux=False) -> dict:
         await asyncio.sleep(1)
 
     await archiver_dans_sheet(bilan, brut, aujourdhui)
-    recap = message_recap(bilan, datetime.now(timezone.utc).strftime("%d/%m"))
+    recap = message_recap(bilan, datetime.now(timezone.utc).strftime("%d/%m"), veille)
     await envoyer_telegram(recap)
     if canal_admin is not None:
         try:

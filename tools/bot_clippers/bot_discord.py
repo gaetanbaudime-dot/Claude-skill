@@ -1961,6 +1961,7 @@ async def commande_admin(message, texte: str) -> bool:
         elif test:
             await message.reply(inputs_clippers.message_recap(
                 bilan, datetime.now(timezone.utc).strftime("%d/%m")).replace("*", "**")[:1990])
+            # (mode test : pas de comparaison à la veille, l'historique n'est pas écrit)
         return True
 
     if texte.startswith("!pipeline"):
