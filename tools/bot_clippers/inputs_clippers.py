@@ -105,13 +105,15 @@ def cartographier_comptes(guild) -> dict:
         creatrice = categorie.name.strip()
         for salon in categorie.text_channels:
             nom = salon.name.strip()
-            nom_n = _normaliser(nom).replace("-", " ").replace("_", " ").strip()
-            if nom_n in SALONS_IGNORES or re.fullmatch(r"(.)\1{1,}", nom_n or "-"):
+            # Les salons Discord portent souvent un emoji en préfixe (« 💬Xxx ») : on ne garde que
+            # les lettres et chiffres avant de comparer, sinon les salons de réserve passent au travers.
+            nom_n = re.sub(r"[^a-z0-9]", "", _normaliser(nom))
+            if not nom_n or nom_n in SALONS_IGNORES or re.fullmatch(r"(.)\1{1,}", nom_n):
                 continue
             comptes = extraire_handles(salon.topic)
             if not comptes["ig"] and not comptes["fb"]:
                 continue
-            clipper = nom.replace("-", " ").replace("_", " ").strip().title()
+            clipper = re.sub(r"[^\w\s'-]", "", nom).replace("-", " ").replace("_", " ").strip().title()
             fiche = carte.setdefault(clipper, {"creatrice": creatrice, "canal_id": salon.id,
                                                "comptes": [], "pages_fb": []})
             for c in comptes["ig"]:
@@ -156,9 +158,12 @@ async def scraper_apify(handles: list) -> dict:
             resultats[handle] = {"restreint": True, "raison": str(item.get("restrictionReason") or "")[:120],
                                  "followers": 0, "posts_24h": 0, "vues_24h": 0, "total_posts": 0}
             continue
+        # Compte en mode privé = le « compte à lien » du kit : sa bio et son lien restent visibles
+        # de tous, seules les publications sont masquées. C'est VOULU (ça crée la curiosité) — donc
+        # jamais une alerte : simplement un compte dont on ne peut pas compter les Reels.
         if item.get("private"):
-            resultats[handle] = {"prive": True, "followers": 0, "posts_24h": 0,
-                                 "vues_24h": 0, "total_posts": 0}
+            resultats[handle] = {"prive": True, "followers": int(item.get("followersCount") or 0),
+                                 "posts_24h": 0, "vues_24h": 0, "total_posts": 0}
             continue
         posts_24h, vues_24h = 0, 0
         # latestPosts plafonne à ~12 publications : au-delà de 12 Reels/jour sur un même compte,
@@ -293,9 +298,10 @@ def message_clipper(prenom: str, b: dict) -> str:
                       "→ Instagram : Paramètres → **Confidentialité du compte / Public visé** et demande "
                       "la levée de la restriction. Envoie-moi une capture ici, on le règle aujourd'hui.")
     if b["prives"]:
-        lignes.append(f"\n🔒 **Compte(s) en privé** : {', '.join('@' + c for c in b['prives'])} — "
-                      "un compte de croissance doit être **public**, sinon personne ne te découvre. "
-                      "Repasse-le en public.")
+        lignes.append(f"\n🔒 **Compte(s) à lien en privé** : {', '.join('@' + c for c in b['prives'])} — "
+                      "c'est **normal et voulu** (le lien reste visible de tous, seules les publications "
+                      "sont masquées). Je ne peux simplement pas compter leurs Reels : ta cadence n'est "
+                      "calculée que sur tes comptes de croissance.")
     if b["injoignables"]:
         lignes.append(f"\n🚫 **Compte(s) injoignable(s)** : {', '.join('@' + c for c in b['injoignables'])} — "
                       "compte banni ou renommé ? Préviens-moi, on recrée (Fiche 1).")
@@ -327,7 +333,7 @@ def message_recap(bilan: dict, date_jour: str) -> str:
         if b["restreints"]:
             lignes.append(f"   🔞 RESTREINT 18+ (portée massacrée) : {', '.join(b['restreints'])}")
         if b["prives"]:
-            lignes.append(f"   🔒 en privé : {', '.join(b['prives'])}")
+            lignes.append(f"   🔒 compte à lien (privé, normal — non mesurable) : {', '.join(b['prives'])}")
         if b["injoignables"]:
             lignes.append(f"   🚫 injoignable : {', '.join(b['injoignables'])}")
     if sous_cadence:
