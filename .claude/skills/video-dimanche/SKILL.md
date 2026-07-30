@@ -41,9 +41,47 @@ Gaëtan tourne un épisode par dimanche (une prise, 90 min max) : il documente e
 
 Structure verrouillée pour toute la série — la reconnaissance visuelle vaut plus que la nouveauté : **son visage à droite**, **texte énorme à gauche** (2-5 mots ou deux nombres), **« FAILED IN PUBLIC — S1E{n} » discret en bas**. Seuls le texte et le fond changent d'un épisode à l'autre. Test de validation : lisible à la taille d'un timbre-poste, en niveaux de gris.
 
-Le visage vient toujours d'une capture de la vidéo — jamais généré. Ce qu'un générateur d'images peut produire : le fond, l'ambiance, les éléments graphiques. Modèle de prompt à lui donner, variables entre accolades :
+Le visage vient toujours d'une capture de la vidéo — jamais généré. La miniature se fabrique donc par **édition d'image** : Gaëtan dépose sa capture dans ChatGPT avec le prompt ci-dessous.
 
-> Fond de miniature YouTube 16:9, style photo cinématographique, {scène : bureau vide au lever du soleil / rue de ville au petit matin / bureau avec écrans de statistiques}. Éclairage {chaud rasant / bleu froid}, forte profondeur de champ, contraste élevé. **Composition impérative : toute la moitié droite est un espace vide et sombre** (une personne y sera incrustée), et le tiers gauche reste dégagé pour un texte très grand. Aucun texte, aucun logo, aucun visage dans l'image. Couleurs dominantes : {2 couleurs}.
+**Tu livres ce prompt avec les variables DÉJÀ REMPLIES**, en un seul bloc copiable — c'est le cœur du gain de temps, il ne doit rien avoir à éditer. Les valeurs viennent du brief et des chiffres réels de l'épisode.
+
+```
+Voici une capture d'écran de ma vidéo. Transforme-la en miniature YouTube 16:9 (1280x720),
+sans modifier mon visage ni mes vêtements.
+
+STYLE : photo lumineuse et nette, légèrement désaturée, contraste élevé, rendu premium type
+chaîne business. Garde l'arrière-plan de ma capture, éclaircis-le et floute-le très légèrement.
+
+COMPOSITION EN 3 ZONES
+
+1. GAUCHE (40 % de la largeur) — bloc de texte géant aligné à gauche, police sans-serif
+   ultra-grasse et condensée (type Anton), toutes majuscules, ombre portée douce :
+   - Ligne 1, la plus grande possible, blanche : "{LIGNE1}"
+   - Ligne 2, blanche, environ 45 % de la taille de la ligne 1 : "{LIGNE2}"
+   - Ligne 3, BLEU VIF (#1D8FFF), même taille que la ligne 2 : "{LIGNE3}"
+   - En dessous : un fin trait horizontal blanc, puis en petites majuscules blanches
+     espacées : "FAILED IN PUBLIC - {EPISODE}"
+
+2. CENTRE — moi, tel quel, net, occupant toute la hauteur de l'image.
+
+3. DROITE (30 %) — trois cartes flottantes blanches à coins très arrondis, ombre douce,
+   empilées verticalement avec un espacement régulier. Chaque carte contient, de gauche à
+   droite : une pastille ronde pastel avec une icône simple, puis le libellé en petites
+   majuscules grises, et dessous un très grand nombre en noir suivi d'un pourcentage vert
+   avec une flèche montante.
+   - Carte 1, pastille bleue, icône personnes : "{LABEL1}" · "{VALEUR1}" · "{DELTA1}"
+   - Carte 2, pastille rose, icône cœur : "{LABEL2}" · "{VALEUR2}" · "{DELTA2}"
+   - Carte 3, pastille violette, icône bulle de message : "{LABEL3}" · "{VALEUR3}" · "{DELTA3}"
+   En bas à droite, par-dessus la photo : une grande flèche blanche en ligne brisée montante
+   (courbe de croissance), épaisse, avec un léger dégradé translucide sous la courbe.
+
+CONTRAINTES : tous les textes parfaitement lisibles et orthographiés EXACTEMENT comme indiqué.
+Aucun autre texte, aucun logo, aucun filigrane. Ne recadre pas mon visage.
+```
+
+Règles de remplissage : **LIGNE1** = le chiffre ou le mot-choc (2-4 caractères idéalement) · **LIGNE2 et LIGNE3** = deux mots courts, la ligne 3 étant l'accent bleu — **jamais « ONLYFANS » ni une plateforme adulte** (repositionnement du 29/07) · les trois cartes affichent de vrais chiffres de l'épisode. Si l'épisode n'a pas de statistiques de croissance à montrer, remplacer les cartes par une seule carte centrale, et le dire.
+
+Prévenir Gaëtan que les petits textes (la ligne de série, les nombres à virgule) sortent parfois déformés : c'est une limite des générateurs, pas du prompt. Deux essais suffisent en général ; si la petite ligne reste illisible, elle s'ajoute en 10 secondes dans Canva par-dessus.
 
 ## Le brief attendu de Gaëtan
 
