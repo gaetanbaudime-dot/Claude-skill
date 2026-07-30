@@ -43,43 +43,55 @@ Structure verrouillée pour toute la série — la reconnaissance visuelle vaut 
 
 Le visage vient toujours d'une capture de la vidéo — jamais généré. La miniature se fabrique donc par **édition d'image** : Gaëtan dépose sa capture dans ChatGPT avec le prompt ci-dessous.
 
+**La capture source décide de 80 % du résultat** (leçon du 29/07 : S1E2 raté non pas à cause du prompt mais du plan choisi). Les 4 critères à lui rappeler avant qu'il exporte sa capture :
+1. **Regard vers l'objectif, expression engagée** — sourcils qui bougent, bouche en train de parler, ou air décidé. Jamais un visage neutre ou un demi-clignement : c'est ce qui rend une miniature « morte ».
+2. **Plan poitrine, pas gros plan visage** — épaules visibles, de l'air au-dessus de la tête. Un générateur ne peut pas dézoomer ce qui n'est pas dans l'image.
+3. **Un côté sombre dans le décor** — idéalement à sa droite à l'écran (côté texte). Un fond entièrement clair + t-shirt blanc + cartes blanches = zéro point d'ancrage, tout se noie.
+4. **Nette, pas floue de mouvement.**
+
 **Tu livres ce prompt avec les variables DÉJÀ REMPLIES**, en un seul bloc copiable — c'est le cœur du gain de temps, il ne doit rien avoir à éditer. Les valeurs viennent du brief et des chiffres réels de l'épisode.
 
 ```
 Voici une capture d'écran de ma vidéo. Transforme-la en miniature YouTube 16:9 (1280x720),
 sans modifier mon visage ni mes vêtements.
 
-STYLE : photo lumineuse et nette, légèrement désaturée, contraste élevé, rendu premium type
-chaîne business. Garde l'arrière-plan de ma capture, éclaircis-le et floute-le très légèrement.
+STYLE : photo nette, contraste élevé, rendu premium type chaîne business. Garde mon
+arrière-plan mais ASSOMBRIS-LE nettement (environ -35 % de luminosité) et floute-le
+légèrement. Applique un dégradé sombre sur tout le tiers gauche de l'image, du noir à 70 %
+d'opacité vers transparent : le texte blanc doit y ressortir violemment. L'image ne doit
+jamais paraître délavée ; je porte souvent du blanc, donc le fond doit être plus foncé que moi.
 
-COMPOSITION EN 3 ZONES
+COMPOSITION
 
-1. GAUCHE (40 % de la largeur) — bloc de texte géant aligné à gauche, police sans-serif
-   ultra-grasse et condensée (type Anton), toutes majuscules, ombre portée douce :
-   - Ligne 1, la plus grande possible, blanche : "{LIGNE1}"
-   - Ligne 2, blanche, environ 45 % de la taille de la ligne 1 : "{LIGNE2}"
+1. MOI — repositionné dans la moitié droite du cadre, entre 40 % et 80 % de la largeur.
+   Plan poitrine : épaules visibles, sommet du crâne à environ 12 % du haut. Ne me
+   recadre PAS en gros plan sur le visage, ne modifie ni mes traits ni mes vêtements.
+
+2. TIERS GAUCHE — bloc de texte géant aligné à gauche, calé verticalement au centre,
+   police sans-serif ultra-grasse et condensée (type Anton), toutes majuscules, ombre
+   portée douce. La ligne 1 doit occuper à elle seule environ 30 % de la hauteur totale :
+   - Ligne 1, énorme, blanche : "{LIGNE1}"
+   - Ligne 2, blanche, environ 40 % de la taille de la ligne 1 : "{LIGNE2}"
    - Ligne 3, BLEU VIF (#1D8FFF), même taille que la ligne 2 : "{LIGNE3}"
    - En dessous : un fin trait horizontal blanc, puis en petites majuscules blanches
      espacées : "FAILED IN PUBLIC - {EPISODE}"
 
-2. CENTRE — moi, tel quel, net, occupant toute la hauteur de l'image.
-
-3. DROITE (30 %) — trois cartes flottantes blanches à coins très arrondis, ombre douce,
-   empilées verticalement avec un espacement régulier. Chaque carte contient, de gauche à
-   droite : une pastille ronde pastel avec une icône simple, puis le libellé en petites
-   majuscules grises, et dessous un très grand nombre en noir suivi d'un pourcentage vert
-   avec une flèche montante.
+3. DROITE — trois cartes flottantes blanches à coins très arrondis, ombre portée marquée,
+   empilées verticalement avec un espacement régulier, occupant environ 25 % de la largeur.
+   Sur chaque carte : à gauche une pastille ronde pastel avec une icône simple ; à droite
+   le libellé en petites majuscules grises, et dessous, SUR UNE SEULE LIGNE, le très grand
+   nombre en noir puis immédiatement à sa droite le complément en vert.
    - Carte 1, pastille bleue, icône personnes : "{LABEL1}" · "{VALEUR1}" · "{DELTA1}"
    - Carte 2, pastille rose, icône cœur : "{LABEL2}" · "{VALEUR2}" · "{DELTA2}"
-   - Carte 3, pastille violette, icône bulle de message : "{LABEL3}" · "{VALEUR3}" · "{DELTA3}"
+   - Carte 3, pastille violette, icône éclair : "{LABEL3}" · "{VALEUR3}" · "{DELTA3}"
    En bas à droite, par-dessus la photo : une grande flèche blanche en ligne brisée montante
    (courbe de croissance), épaisse, avec un léger dégradé translucide sous la courbe.
 
 CONTRAINTES : tous les textes parfaitement lisibles et orthographiés EXACTEMENT comme indiqué.
-Aucun autre texte, aucun logo, aucun filigrane. Ne recadre pas mon visage.
+Aucun autre texte, aucun logo, aucun filigrane.
 ```
 
-Règles de remplissage : **LIGNE1** = le chiffre ou le mot-choc (2-4 caractères idéalement) · **LIGNE2 et LIGNE3** = deux mots courts, la ligne 3 étant l'accent bleu — **jamais « ONLYFANS » ni une plateforme adulte** (repositionnement du 29/07) · les trois cartes affichent de vrais chiffres de l'épisode. Si l'épisode n'a pas de statistiques de croissance à montrer, remplacer les cartes par une seule carte centrale, et le dire.
+Règles de remplissage : **LIGNE1** = le chiffre ou le mot-choc (2-4 caractères idéalement) · **LIGNE2 et LIGNE3** = deux mots courts, la ligne 3 étant l'accent bleu — **jamais « ONLYFANS » ni une plateforme adulte** (repositionnement du 29/07) · les trois cartes affichent de vrais chiffres de l'épisode, **jamais un « 0 » comme valeur principale** (visuellement ça se lit « rien à montrer », même quand c'est le meilleur argument — un zéro contrarian vit dans le titre, pas dans une carte). Si l'épisode n'a pas trois chiffres solides, en mettre deux et le dire.
 
 Prévenir Gaëtan que les petits textes (la ligne de série, les nombres à virgule) sortent parfois déformés : c'est une limite des générateurs, pas du prompt. Deux essais suffisent en général ; si la petite ligne reste illisible, elle s'ajoute en 10 secondes dans Canva par-dessus.
 
