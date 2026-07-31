@@ -5,7 +5,8 @@
   question de session, toute situation limite, toute validation.
 - Réunions d'équipe hebdomadaires avec les team leaders.
 - **Paie** : deux périodes par mois, du 1 au 15 et du 16 à la fin du mois. Versement
-  1 à 3 jours après la fin de période (donc autour du 16-18 et du 1-3 du mois suivant).
+  le **17-18** (pour la période du 1 au 15) et le **3-4 du mois suivant** (pour la
+  période du 16 à la fin du mois).
 - Évolution : un chatteur régulier et performant peut devenir team leader à partir de
   3 à 5 mois d'ancienneté. Montée en compétence : shadowing des seniors, analyse des
   best-of hebdomadaires, rétrospectives mensuelles.
