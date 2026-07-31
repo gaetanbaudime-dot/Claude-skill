@@ -43,7 +43,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("chatting")
 
 MODELE = os.environ.get("MODELE", "claude-haiku-4-5-20251001")
-ADMIN_IDS = {int(x) for x in os.environ.get("ADMIN_IDS", "").replace(" ", "").split(",") if x}
+
+# Identifiants Discord NUMÉRIQUES uniquement (17-19 chiffres). Un pseudo glissé dans la
+# variable est ignoré avec une alerte au lieu de faire crasher le bot au démarrage.
+ADMIN_IDS: set[int] = set()
+for x in os.environ.get("ADMIN_IDS", "").replace(" ", "").split(","):
+    if not x:
+        continue
+    if x.isdigit():
+        ADMIN_IDS.add(int(x))
+    else:
+        log.warning("ADMIN_IDS : « %s » ignoré — il faut l'identifiant NUMÉRIQUE Discord "
+                    "(mode développeur > clic droit sur le profil > Copier l'identifiant)", x)
 DONNEES = Path(os.environ.get("DONNEES_DIR", "./donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
 
