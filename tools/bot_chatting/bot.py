@@ -71,21 +71,27 @@ claude = anthropic.Anthropic()  # lit ANTHROPIC_API_KEY dans l'environnement
 MARQUEUR_LACUNE = "[LACUNE]"
 
 SYSTEME = """Tu es l'assistant du pôle chatting de l'agence. Tu réponds aux chatteurs en
-français, tutoiement, direct et concret. Trois règles absolues :
+français, avec tutoiement. Trois règles absolues :
 
-1. Ta SEULE source de vérité est la base de connaissances ci-dessous. Tu ne complètes
-   jamais avec des généralités inventées : si la base ne couvre pas la question, tu le dis
-   en une phrase et tu termines ta réponse par le marqueur {m} sur une ligne seule.
-2. Doctrine maison, à rappeler chaque fois que c'est pertinent : le golden ratio (part des
-   messages qui sont des PPV) doit rester BAS — la conversation d'abord ; l'unlock rate
-   (part des PPV achetés) doit être HAUT — des PPV rares et bien placés. Un chatteur qui
-   spamme des PPV dégrade la LTV même quand son chiffre du jour a l'air bon.
-3. Tu expliques les méthodes, les règles et les prix ; tu ne rédiges JAMAIS le texte des
-   messages à envoyer aux fans. Le verbatim des scripts vit dans le CRM — tu renvoies
-   vers le CRM et le team leader, tu ne le récites pas et tu ne l'improvises pas.
+1. Ta SEULE source de vérité est la base de connaissances ci-dessous. Tu n'inventes
+   jamais rien : si la base ne couvre pas la question, tu le dis en une phrase simple
+   et tu termines ta réponse par le marqueur {m} sur une ligne seule.
+2. Doctrine maison, à rappeler quand c'est utile : on envoie PEU de PPV (golden ratio
+   bas) et on les place bien pour qu'ils soient achetés (unlock rate haut). Envoyer
+   plus de PPV n'est jamais la solution à une mauvaise journée.
+3. Tu expliques les méthodes, les règles et les prix ; tu n'écris JAMAIS le texte des
+   messages à envoyer aux fans. Les scripts mot à mot sont dans le CRM — tu renvoies
+   vers le CRM et le team leader, tu ne les récites pas et tu ne les improvises pas.
 
-Réponses courtes (moins de 250 mots), structurées, actionnables. Jamais de données
-personnelles de clients, jamais de vrais noms de créatrices — noms de scène uniquement.
+TA FAÇON DE PARLER (très important) : beaucoup de chatteurs ont le français comme
+deuxième langue. Écris comme pour un élève de collège. Phrases courtes (15 mots max).
+Mots simples de tous les jours. Une idée par phrase. Utilise des listes à puces et
+des exemples chiffrés. Si tu emploies un mot technique (PPV, KYC, upsell…), explique-le
+entre parenthèses avec des mots simples la première fois. Maximum 150 mots par réponse,
+sauf si on te demande une procédure complète.
+
+Jamais de données personnelles de clients, jamais de vrais noms de créatrices — noms
+de scène uniquement.
 """.format(m=MARQUEUR_LACUNE)
 
 
@@ -193,7 +199,8 @@ async def gerer_commande(m: discord.Message) -> bool:
         await envoyer(m.channel,
             "**Assistant chatting** — je réponds en MP, sur mention, ou dans les salons activés.\n"
             "Admin : `!apprendre <texte>` (ou fichier .md/.txt joint) · `!oublier <n°>` · "
-            "`!connaissances` · `!lacunes` (+ `vider`) · `!ici` (active/désactive ce salon)")
+            "`!connaissances` · `!lacunes` (+ `vider`) · `!ici` (active/désactive ce salon) · "
+            "`!graine remplace` (recharge la base de départ du dépôt)")
         return True
 
     if not est_admin(m):
@@ -261,6 +268,29 @@ async def gerer_commande(m: discord.Message) -> bool:
             salons.append(m.channel.id)
             await envoyer(m.channel, "Je réponds désormais à tous les messages de ce salon.")
         _ecrire(F_SALONS, salons)
+        return True
+
+    if commande == "graine":
+        # Recharge connaissances_depart.md du dépôt en REMPLAÇANT toute la base vivante.
+        # Sert quand la graine du repo a été réécrite après le premier démarrage (elle
+        # n'est lue automatiquement qu'une seule fois). Destructif → confirmation exigée.
+        if reste.lower() != "remplace":
+            await envoyer(m.channel,
+                "⚠️ `!graine remplace` recharge la base de départ du dépôt et EFFACE tout "
+                "ce qui a été ajouté avec `!apprendre` depuis. Tape exactement "
+                "`!graine remplace` pour confirmer.")
+            return True
+        if not GRAINE.exists():
+            await envoyer(m.channel, "Fichier de graine introuvable dans le déploiement — préviens Gaëtan.")
+            return True
+        blocs = []
+        for section in GRAINE.read_text(encoding="utf-8").split("\n## "):
+            section = section.strip()
+            if section:
+                blocs.append({"date": _aujourd_hui(),
+                              "texte": "## " + section if not section.startswith("#") else section})
+        _ecrire(F_CONNAISSANCES, blocs)
+        await envoyer(m.channel, f"Base rechargée depuis la graine ✅ — {len(blocs)} bloc(s).")
         return True
 
     return False

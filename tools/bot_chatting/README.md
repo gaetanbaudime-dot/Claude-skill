@@ -5,14 +5,18 @@ autre volume, aucune donnée partagée avec le marketing. Il répond aux questio
 chatteurs à partir de SA base de connaissances, et loggue en « lacunes » tout ce qu'il ne
 sait pas — c'est comme ça qu'on sait quoi lui apprendre ensuite.
 
-La base de départ (`connaissances_depart.md`, chargée au premier démarrage) contient déjà
-toute la formation interne distillée en 25 blocs : KPI (golden 1-3 %, unlock cible
-40-50 %), tunnel de prix minimum 7→112 €, règles cams (paiement d'avance, validation
-TL + Maxence), qualification des fans, profils TW→Whale, roue des émotions, objections,
-back-office (Fan Note, titrage, passation), organisation (team leaders, paie), sécurité.
-Les scripts verbatim restent dans le CRM : le bot dit quand les utiliser, jamais leur
-texte. Le dossier `pack-apprendre/` contient les mêmes 25 blocs en fichiers séparés,
-comme modèle de format `!apprendre` et pour restaurer un bloc retiré.
+La base de départ (`connaissances_depart.md`, chargée au premier démarrage) contient
+toute la doctrine de l'agence distillée en 40 blocs, **écrite en français simple
+(niveau collège)** pour les chatteurs dont le français est la deuxième langue : KPI,
+tunnel de prix (avec la règle du cumul), cams/customs/packs, interdictions, KYC,
+Fan Note/Nickname/titre/listes, relances (cadence 30-60 min / 2-3 h / lendemain, max 3),
+prix (jamais à froid, jamais demander le budget, négociation en escalier), passation et
+flambeau, priorités en rush, paie, pénalités, sécurité. Les scripts verbatim restent
+dans le CRM : le bot dit quand les utiliser, jamais leur texte. Le dossier
+`pack-apprendre/` contient les mêmes blocs en fichiers séparés (modèle de format
+`!apprendre`, restauration à la carte). Si la graine du dépôt est réécrite APRÈS le
+premier démarrage : `!graine remplace` recharge toute la base (attention : efface les
+ajouts `!apprendre` faits entre-temps).
 
 ## Installation (~30 min, une seule fois)
 
