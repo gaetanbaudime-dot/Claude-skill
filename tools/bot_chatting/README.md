@@ -5,6 +5,15 @@ autre volume, aucune donnée partagée avec le marketing. Il répond aux questio
 chatteurs à partir de SA base de connaissances, et loggue en « lacunes » tout ce qu'il ne
 sait pas — c'est comme ça qu'on sait quoi lui apprendre ensuite.
 
+La base de départ (`connaissances_depart.md`, chargée au premier démarrage) contient déjà
+toute la formation interne distillée en 25 blocs : KPI (golden 1-3 %, unlock cible
+40-50 %), tunnel de prix minimum 7→112 €, règles cams (paiement d'avance, validation
+TL + Maxence), qualification des fans, profils TW→Whale, roue des émotions, objections,
+back-office (Fan Note, titrage, passation), organisation (team leaders, paie), sécurité.
+Les scripts verbatim restent dans le CRM : le bot dit quand les utiliser, jamais leur
+texte. Le dossier `pack-apprendre/` contient les mêmes 25 blocs en fichiers séparés,
+comme modèle de format `!apprendre` et pour restaurer un bloc retiré.
+
 ## Installation (~30 min, une seule fois)
 
 1. **Application Discord** — discord.com/developers/applications > New Application
