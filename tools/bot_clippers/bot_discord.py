@@ -1276,6 +1276,70 @@ async def boucle_rappels():
                         "-# La ligne du jour remplie = l'esprit libre pour exécuter."):
                     etat["treso"] = aujourdhui
                     ecrire_json(FICHIER_RAPPELS, etat)
+            # Pipeline candidats : chaque matin dès 09:00 (Paris), le digest des actions qui
+            # n'attendent que l'admin — tests à reviewer, contrats qui traînent, nouveaux
+            # signés dont les comptes ne sont pas encore créés. Envoyé UNIQUEMENT s'il y a
+            # de l'actionnable : un digest vide tous les jours finirait ignoré.
+            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.hour >= 9 and etat.get("pipeline_digest") != aujourdhui:
+                pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+                etats_p = pipe.get("etats", {})
+                equipes_r = lire_json(FICHIER_EQUIPES, {})
+                ref = datetime.now(timezone.utc)
+
+                def _jours(iso):
+                    try:
+                        return max(0, (ref - datetime.fromisoformat(iso)).days)
+                    except (TypeError, ValueError):
+                        return 0
+
+                rendus = sorted(((uid, _jours(i.get("rendu"))) for uid, i in etats_p.items()
+                                 if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
+                contrats_attente = sorted(((uid, _jours((i.get("contrat") or {}).get("date")))
+                                           for uid, i in etats_p.items()
+                                           if (i.get("contrat") or {}).get("submission_id")
+                                           and (i.get("contrat") or {}).get("statut") != "complet"),
+                                          key=lambda x: -x[1])
+                signes_recents = sorted(((uid, _jours(e.get("date"))) for uid, e in equipes_r.items()
+                                         if _jours(e.get("date")) <= 7), key=lambda x: x[1])
+                attente_mail = sum(1 for i in etats_p.values()
+                                   if i.get("etat") == "valide" and not (i.get("contrat") or {}).get("submission_id"))
+                expires = sum(1 for i in etats_p.values() if i.get("etat") == "test_expire")
+                tels_lies = {l.get("tel") for l in pipe.get("liaisons", {}).values()}
+                orphelines = sum(1 for t in pipe.get("candidatures", {}) if t not in tels_lies)
+
+                lignes_d = []
+                if rendus:
+                    lignes_d.append("📥 **Tests à reviewer — ton action** : "
+                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus[:8])
+                                    + "\n→ `!test-ok @membre` ou `!test-non @membre`")
+                if contrats_attente:
+                    lignes_d.append("🖋️ **Contrats envoyés, pas encore signés** : "
+                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in contrats_attente[:8])
+                                    + " — au-delà de J+2, un message WhatsApp débloque.")
+                if signes_recents:
+                    lignes_d.append("🎉 **Signés cette semaine — leurs comptes sont créés ?** : "
+                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in signes_recents[:8])
+                                    + "\n-# Un signé sans comptes à J+3 est un motivé qu'on refroidit.")
+                if attente_mail:
+                    lignes_d.append(f"✅ Validés en attente d'e-mail (je relance tout seul) : {attente_mail}")
+                if expires:
+                    lignes_d.append(f"⌛ Tests expirés sans suite : {expires}")
+                if orphelines:
+                    lignes_d.append(f"📋 Candidatures sans Discord lié : {orphelines} — détail avec `!pipeline`")
+
+                if rendus or contrats_attente or signes_recents:
+                    canal = await canal_admin()
+                    if canal is not None:
+                        try:
+                            await canal.send(("☕ **Pipeline candidats — à faire aujourd'hui**\n"
+                                              + "\n".join(lignes_d))[:1990])
+                            etat["pipeline_digest"] = aujourdhui
+                            ecrire_json(FICHIER_RAPPELS, etat)
+                        except (discord.Forbidden, discord.HTTPException):
+                            pass
+                else:
+                    etat["pipeline_digest"] = aujourdhui   # rien qui n'attende l'admin → silence
+                    ecrire_json(FICHIER_RAPPELS, etat)
             # Reporting clippers : le dimanche à partir de 17:00, une fois.
             if CANAL_REPORTING_ID and maintenant.weekday() == 6 and maintenant.hour >= 17 \
                     and etat.get("reporting") != aujourdhui:
