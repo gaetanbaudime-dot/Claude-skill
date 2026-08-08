@@ -2059,6 +2059,36 @@ async def commande_admin(message, texte: str) -> bool:
             lignes.append("⏳ Bientôt à échéance : " + ", ".join(f"<@{u}>" for u in en_retard[:10]))
         signes = lire_json(FICHIER_EQUIPES, {})
         lignes.append(f"✍️ Sous contrat (!equipe) : {len(signes)}")
+        # Détail actionnable : QUI attend, depuis combien de jours — pour dérouler la
+        # pipeline sans ouvrir les fiches une par une.
+        ref = datetime.now(timezone.utc)
+
+        def _anciennete(iso):
+            try:
+                return max(0, (ref - datetime.fromisoformat(iso)).days)
+            except (TypeError, ValueError):
+                return 0
+
+        rendus_n = sorted(((u, _anciennete(i.get("rendu"))) for u, i in etats.items()
+                           if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
+        valides_n = sorted(((u, _anciennete(i.get("validation"))) for u, i in etats.items()
+                            if i.get("etat") == "valide"
+                            and not (i.get("contrat") or {}).get("submission_id")),
+                           key=lambda x: -x[1])
+        contrats_n = sorted(((u, _anciennete((i.get("contrat") or {}).get("date")))
+                             for u, i in etats.items()
+                             if (i.get("contrat") or {}).get("submission_id")
+                             and (i.get("contrat") or {}).get("statut") != "complet"),
+                            key=lambda x: -x[1])
+        if rendus_n:
+            lignes.append("→ 📥 À reviewer (`!test-ok` / `!test-non`) : "
+                          + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus_n[:8]))
+        if valides_n:
+            lignes.append("→ ✅ Validés SANS contrat (e-mail manquant) : "
+                          + " · ".join(f"<@{u}> (J+{j})" for u, j in valides_n[:8]))
+        if contrats_n:
+            lignes.append("→ 🖋️ Contrat envoyé, pas signé : "
+                          + " · ".join(f"<@{u}> (J+{j})" for u, j in contrats_n[:8]))
         await message.reply("\n".join(lignes)[:1990])
         return True
 
