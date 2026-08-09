@@ -23,6 +23,16 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Se licencier de so
 6. **SFS : 90 k$/mois avec UNE personne dédiée, 1 SFS/jour/chatteur.** Notre pôle en fait ~0 en août. C'est la fonction à déléguer la plus rentable au $/heure.
 7. **Les paliers de deal se négocient à l'avantage de l'agence quand c'est elle qui crée la croissance** : lui signe « 50 % puis 70 % agence au-dessus de 15 k » et vise la prise de gestion des autres actifs (l'OF entier) au palier. Corollaire : notre palier « 60 % au-dessus de 10 k » sur la nouvelle créatrice est défendable — à condition que le contrat rende le palier explicite et qu'un avantage tangible existe pour elle aussi au franchissement (révision du flag posé le 09/08 au [[Journal de coaching]]).
 
+## Le call de janvier 2026 (époque Georgina) — le conseil qui n'a pas bougé
+
+Retranscription fournie par Gaëtan le 09/08. Sept mois avant, Maxime disait déjà LA même chose :
+
+- **« Ta LTV doit être à 15 minimum. Tu doubles la LTV, tu doubles le profit — c'est comme si tu avais deux fois plus de trafic. »** Georgina était à 7 €/sub ; son propre dashboard : 110 k$/30 j pour 4 700 subs = 26 €/sub avec 6 scripts. La méthode : matraquage de chatteurs (coaching quotidien, Loom de relecture par shift, partages d'écran), **prime d'équipe collective au palier de LTV** (« si on atteint 15, vous prenez 100 balles chacun »), réponse < 2-3 minutes sinon churn.
+- **Structure d'agence cible** : chefs de pôle intéressés au **bénéfice net** (10-15 %) qui opèrent en mini-CEO (« les modèles ne me connaissent même pas ») ; manager chatteurs à 1 200 € + 1,5-2 % du net pour ~50 chatteurs ; un coach dédié. Benchmark direct pour la grille de Jonas et pour les TL de Maxence.
+- **Recrutement créatrices par affiliation** : proposer à une créatrice en place **5 % lifetime** sur les modèles qu'elle ramène (plus rentable pour elle qu'un fixe de 1 000 €). Sept mois plus tard, la nouvelle créatrice arrive précisément par recommandation de Chloé — le canal marche à l'état sauvage, il n'a jamais été formalisé.
+- Divers confirmés : premier média payant direct à 25 $ (« 9 $ c'est cheap, ça ancre bas ») ; mass DM à chaque début de shift ET à chaque trou de trafic, en supprimant l'ancien ; SFS rentable dès 3 000 fans, 2/semaine ; TikTok Live = canal d'appoint réel.
+- **La leçon méta (à ne pas s'épargner)** : entre janvier et août, l'agence a construit une machine de TRAFIC remarquable (clippers, bots, rapports) pendant que le conseil n°1 — la valeur par sub — restait à ~6 €/sub. On a élevé des non-goulots parce qu'ils étaient dans le périmètre de Gaëtan, et laissé le goulot dans le périmètre de Maxence. Voir [[Excès de confiance]] : optimiser ce qu'on contrôle plutôt que ce qui compte.
+
 ## Application LTP immédiate
 
 - La contrainte de Gaëtan n'est pas contredite : la concentration EST une forme de délégation (moins d'objets à gérer). Les deux ONE THING fusionnent : **déléguer l'opérationnel clippers (Jonas) ET concentrer les ressources libérées sur Chloé + Sophie**.
