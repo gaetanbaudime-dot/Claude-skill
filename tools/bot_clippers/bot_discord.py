@@ -2092,6 +2092,31 @@ async def commande_admin(message, texte: str) -> bool:
         await message.reply("\n".join(lignes)[:1990])
         return True
 
+    if texte.startswith("!tests"):
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        ref = datetime.now(timezone.utc)
+
+        def _anc(iso):
+            try:
+                return max(0, (ref - datetime.fromisoformat(iso)).days)
+            except (TypeError, ValueError):
+                return 0
+
+        rendus = sorted(((u, i) for u, i in donnees.get("etats", {}).items()
+                         if i.get("etat") == "test_rendu"), key=lambda x: x[1].get("rendu") or "")
+        if not rendus:
+            await message.reply("Aucun test en attente de review 🎉 (`!pipeline` pour la vue d'ensemble).")
+            return True
+        lignes = [f"📥 **{len(rendus)} test(s) à reviewer** — du plus ancien au plus récent :"]
+        for u, i in rendus:
+            liens = i.get("liens_admin") or []
+            lignes.append(f"· <@{u}> — quiz {i.get('score_quiz') or '?'} · rendu J+{_anc(i.get('rendu'))} "
+                          + (f"→ {liens[-1]}" if liens
+                             else "→ pas de lien enregistré (rendu avant la v2) : cherche « Test rendu » 🔎 dans ce salon"))
+        lignes.append("Après visionnage : `!test-ok @membre` ou `!test-non @membre [raison]`.")
+        await message.reply("\n".join(lignes)[:1990])
+        return True
+
     if texte.startswith("!fiche"):
         corps = texte[len("!fiche"):].strip()
         membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
@@ -2658,11 +2683,15 @@ async def on_message(message):
             canal = await canal_admin()
             if canal:
                 liens = "\n".join(p.url for p in message.attachments)
-                await canal.send(((f"📥 **Complément de test** de {message.author.mention} :\n" if complement else
+                msg_admin = await canal.send(((f"📥 **Complément de test** de {message.author.mention} :\n" if complement else
                                    f"📥 **Test rendu** par {message.author.mention} "
                                    f"(quiz {info.get('score_quiz') or '?'}) :\n")
                                   + (liens + "\n" if liens else "") + (texte + "\n" if texte else "")
                                   + "→ `!test-ok` ou `!test-non` (mention ou nom).")[:1990])
+                # Lien permanent vers le message admin (les URL de pièces jointes Discord
+                # expirent ; le lien de saut, jamais) — c'est ce que !tests ressort.
+                info.setdefault("liens_admin", []).append(msg_admin.jump_url)
+                ecrire_json(FICHIER_PIPELINE, donnees_pipe)
             await message.reply("📥 Bien reçu ! " + ("Fichier ajouté à ton rendu." if complement else
                                 "Ton test part en review — réponse sous 72 h maximum. 🤞"))
             journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
