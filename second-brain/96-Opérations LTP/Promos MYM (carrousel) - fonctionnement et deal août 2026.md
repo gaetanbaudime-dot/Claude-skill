@@ -28,16 +28,17 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Call Maxime (août
 | Target CA MYM agence août | **43 000 €** (juillet : 35,5 k€ → **+21 %**) |
 | Récompense | 2 slots carrousel en septembre |
 | Condition | Chloé, Maddy et Sarah (leurs comptes MYM) **ne baissent pas** vs juillet |
-| État au 07/08 | Rythme tracké ~1 050 €/j → **~32,5 k€ projetés : sous juillet, loin de la target** |
-| Alerte | **Maddy à -25 % de rythme vs juillet** → la CONDITION est en danger, pas seulement la target |
+| Contexte 1-9/08 | **Semaine de promo carrousel Sarah + Maddy** (fin le 09/08) — les chiffres ci-dessous sont donc des rythmes SOUS promo |
+| État au 07/08 | ~1 220 €/j pendant la promo · target = 1 387 €/j · projection à rythme constant ≈ **37,8 k€** — et le rythme va retomber post-promo |
+| Alerte | **Sarah : -3 % de rythme PENDANT sa propre promo** (400 €/j vs 412 en juillet) ; il lui faut 415 €/j sans promo sur les 24 jours restants → c'est ELLE qui casse la condition au rythme actuel. Maddy +30 % et Chloé +12 % pendant la semaine : tenables mais pas acquis post-promo |
 
 Ce que vaut un slot : les pics de mi-juillet (carrousel) ont fait passer Maddy de ~12 à 84-149 subs MYM/jour — c'est le moteur des vagues internes qui font ~60 % du CA. Perdre les slots de septembre = perdre le carburant du canal principal.
 
-## Le plan pour tenir 43 k (déficit à combler : ~10,5 k€ sur le rythme actuel)
+## Le plan pour tenir 43 k (déficit ≈ 5-10 k€ selon la retombée post-promo)
 
-1. **Calendrier de vagues formalisé** (au lieu de promos au feeling) : 2 vagues planifiées/créatrice sur le reste d'août, chaque vague = promo + welcome + tunnel derrière (sinon la vague dilue, cf. Maddy 14,71 → 2,86 €/sub).
-2. **Maddy en priorité absolue** : c'est elle qui casse la condition (-25 %). Une vague dédiée + le flux TikTok de Rianah converti à l'arrivée.
-3. **Laetitia (et Alice) comptent dans la target** — « onboarding de nouveaux créateurs » est un levier officiel : leurs MYM lancés en août contribuent.
+1. **Calendrier de vagues formalisé** (au lieu de promos au feeling) : une 2ᵉ vague vers le 18-20/08 et LA grosse vague sur la fenêtre paie des fans du 25-31/08 (le « Black Friday » mensuel du chatting), chaque vague = promo + welcome + tunnel derrière (sinon la vague dilue, cf. Maddy 14,71 → 2,86 €/sub).
+2. **Sarah en priorité absolue** : sa promo n'a pas soulevé son rythme (-3 % pendant la semaine de mise en avant) — audit rapide avec Maxence : promo mal relayée, base saturée, ou chatting qui n'absorbe pas ? Maddy : convertir le flux TikTok de Rianah à l'arrivée pour tenir ses 238 €/j post-promo.
+3. **Laetitia (et Alice) comptent dans la target** — « onboarding de nouveaux créateurs » est un levier officiel : leurs MYM lancés en août contribuent. Le SFS aussi (« trafic externe » listé par Judith).
 4. **Choix des 2 slots de septembre** : privilégier la meilleure machine à vagues (Sarah, rodée) + la meilleure valeur par vague (Chloé) — décision à valider avec Maxence selon la capacité chatting.
 
 ## Règles apprises pour les prochains mois
