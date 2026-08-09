@@ -178,7 +178,7 @@ Rappels : pas de Reels d'essai sur Facebook (là-bas on publie tout, directement
 Compte restreint ou banni :
 1. Pas de panique : ça fait partie du métier, ce n'est pas une faute. Les pages Facebook, elles, ne sautent presque jamais.
 2. Le noter dans son canal Discord et mentionner Gaëtan (quel compte, depuis quand, ce qu'on faisait) → prévoir un créneau ensemble.
-3. Si les bans s'enchaînent : recréer un compte propre (fiche 1) ET demander un diagnostic à Gaëtan. La cause presque à chaque fois : des comptes connectés entre eux — même adresse mail, même numéro de téléphone, ou même appareil.
+3. Si les bans s'enchaînent : recréer un compte propre (fiche 1) ET demander un diagnostic à Gaëtan. La cause presque à chaque fois : des comptes connectés entre eux — même adresse mail, même numéro de téléphone, ou même appareil. Deuxième cause depuis 2026 : Instagram a une IA qui devine l'âge réel d'un compte à partir de son comportement (voir la FAQ « faux âge ») — un compte qui « fait ado » peut être restreint même avec une date de naissance adulte.
 
 Une question ? Le circuit, dans CET ordre :
 1. Le chapitre du Loom (la formation est découpée : Mindset, Stratégie, Création des comptes, Warm-up, Publication, Cadence, Essais, Évolutions). 90 % des réponses y sont.
@@ -312,6 +312,10 @@ Si tu mets 30 minutes sur un Reel, ce n'est pas normal : tu repars de zéro à c
 **Un inconnu m'envoie un MP avec une « offre » (lives TikTok rémunérés, job d'affiliation, autre agence…) ?** C'est une **arnaque ou une tentative de débauchage** — des spammeurs rejoignent les serveurs pour DM les membres un par un. Règle simple : l'agence ne te contactera JAMAIS en MP pour te proposer un autre job, et ne recrute/paie QUE via ce serveur et le bot. Ne réponds pas, **bloque le compte** (clic droit → Bloquer), et **signale-le à Gaëtan** avec un screenshot (pseudo + message) pour qu'il le bannisse. Ne clique sur aucun lien de ce genre de message.
 
 **Les relances automatiques** : si tu n'avances pas dans le parcours (numéro pas envoyé, quiz pas fait, e-mail manquant, contrat pas signé), je te relance en MP après 24 h puis 48 h — c'est normal, c'est pour ne perdre personne en route. Après deux relances, je te laisse tranquille.
+
+**Instagram peut-il repérer un faux âge sur un compte ? (nouveau 2026)** Oui, et c'est important à savoir. Depuis 2026, Instagram et Facebook utilisent une IA qui devine l'âge réel d'un compte à partir de son comportement (façon de poster, réglages, réseau d'amis) — **même si la date de naissance déclarée est adulte**. Un compte qui « fait ado » peut être basculé en compte protégé ou restreint (moins de vues, options bloquées). Pour toi, trois réflexes : **mets toujours une date de naissance clairement adulte** à la création, garde une **identité cohérente** sur chaque compte, et ne copie pas les codes d'un compte d'ado. C'est une cause de restriction qui s'ajoute à la règle n°1 (jamais de comptes reliés entre eux : même mail/numéro/appareil).
+
+**J'utilise de l'IA pour faire un clip, je dois le signaler ?** Oui, si le clip est **vraiment fabriqué par IA** (visage, voix ou vidéo générés par une IA). Depuis le 2 août 2026, une loi européenne oblige à signaler ces contenus : au moment de publier, **coche l'étiquette « IA » qu'Instagram propose**, et ne fais jamais passer une créatrice IA pour une vraie personne. ⚠️ Un **montage normal n'est PAS concerné** : couper, sous-titrer, recadrer, accélérer un VRAI rush de la créatrice, ça reste du montage classique, tu ne coches rien. La règle ne vise que le contenu réellement généré par une IA. En cas de doute sur un clip, demande à Gaëtan avant de publier.
 
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
