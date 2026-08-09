@@ -1962,11 +1962,28 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     if texte.startswith("!test-non"):
-        if not message.mentions:
-            await message.reply("Format : `!test-non @membre [raison courte]`")
+        # Comme !test-ok : on accepte la mention OU le prénom (le bot annonce « mention ou nom »,
+        # et dans un salon privé l'autocomplétion des @ ne propose pas tout le monde — sans ce
+        # fallback, `!test-non zeky raison` ou un `@pseudo` tapé à la main échouaient « Format »).
+        corps = texte[len("!test-non"):].strip()
+        if message.mentions:
+            membre = message.mentions[0]
+            raison = corps.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", "").strip()
+        else:
+            # Le nom peut contenir des espaces (« ben 10 ») : on prend le PLUS LONG préfixe qui
+            # résout un membre, le reste = la raison (les mots de la raison ne forment pas un nom).
+            membre, raison = None, ""
+            tokens = corps.split()
+            for n in range(min(4, len(tokens)), 0, -1):
+                cand = chercher_membre(" ".join(tokens[:n]))
+                if cand is not None:
+                    membre, raison = cand, " ".join(tokens[n:]).strip()
+                    break
+        if membre is None:
+            await message.reply("Format : `!test-non @membre raison` — ou `!test-non Prénom raison` "
+                                "(le prénom suffit, l'@ n'est pas obligatoire).")
             return True
-        membre = message.mentions[0]
-        raison = texte.replace("!test-non", "").replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", "").strip()
+        raison = raison.strip(" []").strip()  # tolère les crochets tapés d'après le libellé d'aide
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         retest = (datetime.now(timezone.utc) + timedelta(days=15)).isoformat(timespec="seconds")
         donnees.setdefault("etats", {})[str(membre.id)] = {"etat": "refuse", "retest": retest, "note": raison}
