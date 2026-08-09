@@ -970,7 +970,7 @@ async def traiter_candidature_webhook(message, silencieux=False):
     fait !lier avec ce numéro, sa liaison est complétée (prénom, pays) et il est renommé.
     silencieux=True (rattrapage au démarrage) : réécriture des fiches sans récapitulatif."""
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-    enregistrees, rapprochees, rejets = [], [], 0
+    enregistrees, rapprochees, rejets = [], [], []
     for ligne in message.content.split("\n"):
         if not ligne.startswith("CANDIDATURE|"):
             continue
@@ -979,7 +979,10 @@ async def traiter_candidature_webhook(message, silencieux=False):
         prenom = prenom.title()
         tel = tel_selon_pays(tel_brut, pays)
         if not tel:
-            rejets += 1
+            # On nomme le candidat perdu : « 1 ligne sans numéro » anonyme obligeait à ouvrir la
+            # feuille pour savoir QUI relancer (cas des 07-09/08 : la réponse « Combien de
+            # téléphones ? » arrivait à la place du numéro WhatsApp — voir candidature_webhook.gs).
+            rejets.append(f"{prenom or '?'} ({pays or 'pays ?'})")
             continue
         donnees.setdefault("candidatures", {})[tel] = {
             "prenom": prenom, "pays": pays, "pseudo": pseudo,
@@ -1017,9 +1020,11 @@ async def traiter_candidature_webhook(message, silencieux=False):
             + "\n".join("· " + l for l in enregistrees[:20])
             + (f"\n… et {len(enregistrees) - 20} de plus." if len(enregistrees) > 20 else "")
             + (f"\n🔗 Déjà liées à un Discord : {', '.join(rapprochees[:15])}" if rapprochees else "")
-            + (f"\n⚠️ {rejets} ligne(s) sans numéro exploitable — à corriger dans la feuille." if rejets else ""))[:1990])
+            + (f"\n⚠️ {len(rejets)} ligne(s) sans numéro exploitable : {', '.join(rejets[:8])}"
+               f" — à corriger dans la feuille (ou installe candidature_webhook.gs, qui lit par"
+               f" titre de question)." if rejets else ""))[:1990])
         journal.info("Candidatures webhook : %d enregistrées, %d rapprochées, %d rejets",
-                     len(enregistrees), len(rapprochees), rejets)
+                     len(enregistrees), len(rapprochees), len(rejets))
 
 
 async def attribuer_equipe(guild, membre, equipe, par_id):

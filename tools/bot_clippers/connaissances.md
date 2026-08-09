@@ -317,6 +317,12 @@ Si tu mets 30 minutes sur un Reel, ce n'est pas normal : tu repars de zéro à c
 
 **J'utilise de l'IA pour faire un clip, je dois le signaler ?** Oui, si le clip est **vraiment fabriqué par IA** (visage, voix ou vidéo générés par une IA). Depuis le 2 août 2026, une loi européenne oblige à signaler ces contenus : au moment de publier, **coche l'étiquette « IA » qu'Instagram propose**, et ne fais jamais passer une créatrice IA pour une vraie personne. ⚠️ Un **montage normal n'est PAS concerné** : couper, sous-titrer, recadrer, accélérer un VRAI rush de la créatrice, ça reste du montage classique, tu ne coches rien. La règle ne vise que le contenu réellement généré par une IA. En cas de doute sur un clip, demande à Gaëtan avant de publier.
 
+**Je republie le même Reel sur mes 2 comptes Instagram de croissance ?** Le même RUSH oui, le même MONTAGE non. Depuis 2026, Instagram repère les copies PARTOUT (pas seulement sur ton propre compte) : deux comptes qui postent exactement la même vidéo = vues coupées ET signal que les comptes sont liés (risque de ban en chaîne). Le bon geste : une **variante par compte** — hook différent, caption différente, sous-titres ou cadrage changés (~3 minutes avec ton template, c'est le principe des Reels d'essai de la Fiche 5). En revanche, **republier ton Reel Instagram sur tes pages Facebook, c'est OK et c'est le circuit officiel** : Instagram et Facebook sont deux terrains différents.
+
+**Que gagne-t-on avec les bumps ?** `/bump` fait remonter le serveur sur Disboard → plus de candidats → une équipe plus forte. Le classement `!bumps` repart de zéro automatiquement chaque début de mois. S'il y a une récompense pour le haut du classement, c'est Gaëtan qui l'annonce dans #annonces — tant que rien n'est annoncé, c'est un jeu d'équipe, pas une prime garantie.
+
+**Où trouver des captions pendant le test de montage ?** Les 100 idées de captions sont dans le Discord (#tips et #ressources), mais ces salons ne s'ouvrent qu'une fois dans l'équipe. Pendant le test : tu écris ta propre caption, simple et en rapport avec le clip. Ce qui compte pour le test, c'est le **hook visuel de la première seconde** et la propreté du montage — pas la caption.
+
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
 (Le bot capture tout seul les questions auxquelles il n'a pas su répondre — `!lacunes` pour les voir, `!apprendre La question ? | La réponse.` pour les combler. Digest automatique chaque dimanche en admin.)
