@@ -16,7 +16,7 @@ liens_opposition: []
 # Loi de l'attraction — le faux, le vrai, et le vrai goulot
 
 > [!tip] Verdict
-> La loi de l'attraction au sens littéral (« l'univers te renvoie ce que tu vibres ») est une **pseudoscience** — Hormozi a raison de la rejeter. Mais elle a récupéré 3-4 mécanismes **réels** (clarté d'objectif, attention sélective, auto-efficacité, planification) et les a emballés dans du mystique qui, pour l'un d'eux, **inverse l'effet** : le fantasme positif pur *réduit* l'effort. Pour Gaëtan précisément, ni la croyance ni le travail ne sont le goulot (100k€/mois, automatisation en cours, effort déjà maximal). Le vrai goulot est ailleurs : **« combien est assez » jamais chiffré + un système d'argent déjà écrit mais pas exécuté.** Déclencheur : le PDF *Secret Protocol of Riches* (A. Drevon, 2024) partagé le 10/08.
+> La loi de l'attraction au sens littéral (« l'univers te renvoie ce que tu vibres ») est une **pseudoscience** — Hormozi a raison de la rejeter. Mais elle a récupéré 3-4 mécanismes **réels** (clarté d'objectif, attention sélective, auto-efficacité, planification) et les a emballés dans du mystique qui, pour l'un d'eux, **inverse l'effet** : le fantasme positif pur *réduit* l'effort. Pour Gaëtan précisément, ni la croyance ni le travail ne sont le goulot (60 k€/mois de CA agence, ~7 k€ de profit perso, automatisation en cours, effort déjà maximal). Le vrai goulot est ailleurs : **« combien est assez » jamais chiffré + un système d'argent déjà écrit mais pas exécuté.** Déclencheur : le PDF *Secret Protocol of Riches* (A. Drevon, 2024) partagé le 10/08.
 
 ## Ce qui est faux (et nuisible)
 
@@ -38,7 +38,7 @@ liens_opposition: []
 
 ## Application LTP (le vrai goulot de Gaëtan, [[Théorie des contraintes]])
 
-L'effort n'est pas la contrainte : 0 → 100k€/mois en ~6 mois, automatisation, délégation en cours. « Travaille plus dur » répond à une question déjà résolue et mène à 200k€/mois avec toujours zéro épargne. Les vraies contraintes :
+L'effort n'est pas la contrainte : 0 → 60 k€/mois de CA en ~6 mois (~7 k€ de profit perso/mois), automatisation, délégation en cours. « Travaille plus dur » répond à une question déjà résolue et mènerait à 120 k€/mois avec toujours zéro épargne. Les vraies contraintes :
 
 1. **« Assez » n'est pas chiffré.** « Sécuriser ma famille + assurer mon avenir » sans **nombre** de patrimoine net cible = tapis roulant hédonique garanti. La maison à 10 M€ du lac de Côme est un **symbole**, pas un objectif — courir après un symbole sans chiffre empêche mécaniquement d'épargner.
 2. **L'argent fuit — mécaniquement, pas mystiquement** : pot commun (cf. le mystère tréso du [[Journal de coaching]]), pas de « paie-toi d'abord », train de vie indexé sur le revenu (loi de Parkinson de l'argent). La solution est **déjà écrite** : [[Setup argent (le plan riche en 10 actions)]] (Profit First 10/20/70, virement automatique) et le KPI de [[Plan richesse (100 actions triées par levier)|Plan richesse]] (« cash transféré hors du business »). Un virement auto le 5 du mois enrichit ; aucune visualisation ne le fera.

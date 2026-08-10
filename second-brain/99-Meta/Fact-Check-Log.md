@@ -4,6 +4,12 @@ Trace des vérifications WebSearch effectuées pendant le run. Format : page con
 
 ## Vérifications
 
+### Deux corrections chiffrées sur le patrimoine et le CA (10/08)
+- **Question** : (1) le CA de l'agence est-il de 100 k€/mois ? (2) « 500 000 € placés sur le S&P 500 à 10 %/an = 50 k€/an pour vivre, avenir sécurisé » est-il exact ?
+- **Sources** : correction directe de Gaëtan le 10/08 (« là on est à 60 000 € par mois », 7 k€ de profit par associé en juillet) ; NYU Stern / officialdata.org (S&P 500 : ~10 % nominal, **~6,9-7 % réel** après inflation depuis 1928) ; étude Trinity et sa mise à jour (4 % sur 30 ans ; **3,25-3,5 % sur 40-50 ans**, horizon d'un investisseur de 24 ans).
+- **Résultat** : ① **erreur corrigée** — « 100 k€/mois » (mauvaise transcription vocale) écrit dans [[Loi de l'attraction — le faux, le vrai, et le vrai goulot]] et le [[Journal de coaching]] du 10/08 → **60 k€/mois de CA, ~7 k€ de profit perso**. Les deux pages sont rectifiées. ② **le chiffre « 500 k€ = sécurisé » est faux d'un facteur ~3** : 10 % est le rendement *nominal*, le réel est ~7 % ; et on ne retire jamais le rendement moyen (risque de séquence) → taux de retrait sûr **3,5 %** sur un horizon de 50 ans, soit **17 500 €/an** pour 500 k€, pas 50 000 €. Financer 45 k€/an de train de vie exige **~1,3 M€**. 500 k€ reste un jalon réel (« plancher, je ne peux plus tomber à zéro »), pas l'indépendance.
+- **Statut** : confirmé. Leçon méta : ne jamais fixer un objectif patrimonial sur un rendement **nominal** ni sur le rendement moyen — toujours réel + taux de retrait sûr.
+
 ### Rail de paie chatteurs — Binance Pay & alternatives VASP VARA (21/07)
 - **Question** : Binance Pay est-il gratuit ? L'adulte est-il interdit ? BitOasis/Rain sont-ils de bons 2ᵉ rails ?
 - **Sources** : CGU Binance FZE (sections 8/23/27/28, texte intégral), Binance Pay Merchant B2C Restrictions, Binance Pay Fees, CGU BitOasis (Appendix 1 Prohibited Businesses) + grille de frais live, VARA public register, OKX Middle East — 2 agents de recherche du 21/07.
