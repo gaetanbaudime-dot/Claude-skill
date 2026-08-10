@@ -53,8 +53,33 @@ function surCandidature(e) {
     }
     return '';
   };
+  // ⚠️ CORRECTIF DU 10/08 — le numéro ne se prend PAS avec `prendre`.
+  // Pourquoi : `for (const cle in nv)` parcourt un OBJET, dont l'ordre des clés
+  // n'est pas celui des colonnes de la feuille. Avec une liste large
+  // (whatsapp OU téléphone OU numéro…), la question parasite « Combien tu as
+  // de Téléphones ? Quel est le modèle ? » pouvait sortir en premier : le bot
+  // recevait « iPhone 15 pro » à la place du numéro, et la candidature était
+  // perdue alors que le formulaire contenait un numéro valide (Yannik, Josué,
+  // Matea, Kloriane, Safia, Bastien, Marwane, Lou, Charlotte, Quentin —
+  // 10 candidats en 3 jours). Deux garde-fous : priorité absolue au mot-clé
+  // « whatsapp » (seul discriminant), et la valeur doit contenir ≥ 8 chiffres.
+  const estUnNumero = function (v) { return String(v).replace(/\D/g, '').length >= 8; };
+  const prendreTel = function () {
+    const essai = function (mots) {
+      for (const cle in nv) {
+        const c = cle.toLowerCase();
+        if (!mots.some(function (m) { return c.indexOf(m) !== -1; })) continue;
+        const v = (nv[cle] && nv[cle][0]) ? String(nv[cle][0]).trim() : '';
+        if (v && estUnNumero(v)) return v.replace(/\|/g, '/');
+      }
+      return '';
+    };
+    return essai(['whatsapp'])                                            // 1) le bon champ
+        || essai(['téléphone', 'telephone', 'numéro', 'numero', 'tel']);  // 2) repli si le form change
+  };
+
   const prenom = prendre(['prénom', 'prenom']);
-  const tel    = prendre(['whatsapp', 'téléphone', 'telephone', 'numéro', 'numero', 'tel']);
+  const tel    = prendreTel();
   const pays   = prendre(['pays', 'résides', 'resides']);
   const pseudo = prendre(['discord', 'pseudo']);
   if (!tel) { console.warn('Candidature sans numéro exploitable — rien envoyé.'); return; }
@@ -88,7 +113,11 @@ function rejouerCandidatures() {
     return -1;
   };
   const iPrenom = idx(['prénom', 'prenom']);
-  const iTel    = idx(['whatsapp', 'téléphone', 'telephone', 'numéro', 'numero', 'tel']);
+  // Même priorité qu'en temps réel : « whatsapp » d'abord, sinon repli — sinon
+  // la colonne « Combien tu as de Téléphones ? » peut gagner et rejouer 400
+  // lignes de modèles de téléphones à la place des numéros.
+  const iTel    = idx(['whatsapp']) >= 0 ? idx(['whatsapp'])
+                                         : idx(['téléphone', 'telephone', 'numéro', 'numero', 'tel']);
   const iPays   = idx(['pays', 'résides', 'resides']);
   const iPseudo = idx(['discord', 'pseudo']);
   if (iTel < 0) { console.error('Colonne du numéro introuvable — entêtes : ' + donnees[0].join(' · ')); return; }
