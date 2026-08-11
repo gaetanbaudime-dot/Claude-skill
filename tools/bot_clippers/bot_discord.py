@@ -1479,8 +1479,34 @@ async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renom
 
 # Doctrine des 3 étages : ce qui doit être public (vitrine/lead magnet) vs réservé.
 NOMS_PUBLICS = ("candidature", "annonce", "dopamine", "formation", "checklist", "tips",
-                "ressource", "assistant", "arrivee", "bienvenue", "deja paye", "clippers")
-NOMS_RESERVES = ("reporting", "remuneration", "bonus", "discussion", "disccusion", "rush")
+                "assistant", "arrivee", "bienvenue", "deja paye", "clippers", "bump")
+# « ressource » a basculé en RÉSERVÉ le 10/08 (doctrine ci-dessous) : la liste des créatrices
+# et les fiches ne s'ouvrent qu'au contrat signé, plus à tout le monde.
+NOMS_RESERVES = ("reporting", "ressource", "remuneration", "bonus", "discussion", "disccusion", "rush")
+
+# ---- Doctrine d'accès (10/08) : qui VOIT quoi. Appliquée automatiquement par `!acces`. -------------
+# Chaque étage = (mots-clés du nom de salon, public ?, rôles autorisés, étiquette). Un salon est
+# rangé dans le PREMIER étage dont un mot-clé apparaît dans son nom ; le reste (créatrices, admin,
+# vocaux) n'est jamais touché. Les rôles sont résolus au moment de l'exécution (noms Railway).
+def _doctrine_acces():
+    return [
+        (("candidature", "annonce", "formation", "dopamine", "assistant", "bump", "tips",
+          "checklist", "bienvenue", "deja paye", "clippers"),
+         True, [], "Vitrine + arrivée — tout le monde"),
+        (("remuneration-fr", "remunerationfr", "bonus-fr", "bonusfr"),
+         False, [ROLE_GRILLE_FR_NOM, ROLE_TEAM_FR_NOM], "Paie FR — aperçu dès l'arrivée (grille) puis signé"),
+        (("remuneration-int", "remunerationint", "bonus-int", "bonusint"),
+         False, [ROLE_GRILLE_INT_NOM, ROLE_TEAM_MG_NOM], "Paie INT — aperçu dès l'arrivée (grille) puis signé"),
+        (("ressource", "reporting"),
+         False, [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM], "Réservé aux SIGNÉS (Team France + Team International)"),
+        (("discussion-fr", "discussionfr", "disccusion-fr"),
+         False, [ROLE_TEAM_FR_NOM], "Discussion Team France"),
+        (("discussion-int", "discussionint", "disccusion-int"),
+         False, [ROLE_TEAM_MG_NOM], "Discussion Team International"),
+    ]
+
+# Rôles qu'on ne modifie JAMAIS dans les overwrites (sécurité anti-verrouillage).
+ROLES_PROTEGES = ("admin", "mod", "manager", "gaetan", "maxence", "owner", "staff", "bot")
 
 
 async def envoyer_long(message, lignes: list):
@@ -1582,6 +1608,87 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, carte)
         await envoyer_long(message, ["🩺 **Écarts à la doctrine**"] +
                            (problemes if problemes else ["✅ Aucune incohérence détectée — la structure est propre."]))
+        return True
+
+    # ---- !acces : applique la doctrine d'accès aux salons (rôles → « Voir le salon ») ----
+    # `!acces` = simulation (montre ce qui changerait, ne touche à rien).
+    # `!acces appliquer` = exécute. Idempotent : à relancer dès qu'un accès dérive.
+    if texte.startswith("!acces") or texte.startswith("!accès"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        if not g.me.guild_permissions.manage_roles:
+            await message.reply("❌ Il me manque la permission « Gérer les rôles » — je ne peux pas éditer les accès.")
+            return True
+        appliquer = "appliqu" in normaliser(texte) or "fix" in normaliser(texte)
+        doctrine = _doctrine_acces()
+
+        def role_par_nom(nom):
+            return discord.utils.find(lambda r: normaliser(nom) in normaliser(r.name), g.roles)
+
+        def protege(role):
+            return (role.managed or role == g.me.top_role or g.me.top_role <= role
+                    or any(m in normaliser(role.name) for m in ROLES_PROTEGES))
+
+        actions, manquants = [], set()
+        for canal in g.channels:
+            if not isinstance(canal, (discord.TextChannel, discord.ForumChannel)):
+                continue
+            n = normaliser(canal.name)
+            etage = next((e for e in doctrine if any(m in n for m in e[0])), None)
+            if etage is None:            # créatrices, admin, vocaux, non concernés → jamais touchés
+                continue
+            _, public, noms_roles, _label = etage
+            autorises = []
+            for nom in noms_roles:
+                r = role_par_nom(nom)
+                (autorises.append(r) if r else manquants.add(nom))
+            # @everyone : visible (vitrine) ou masqué (réservé)
+            ev = canal.overwrites_for(g.default_role).view_channel
+            if public and ev is not True:
+                actions.append((canal, g.default_role, True, f"#{canal.name} → visible par tout le monde"))
+            if not public and ev is not False:
+                actions.append((canal, g.default_role, False, f"#{canal.name} → masqué au public"))
+            # rôles autorisés : doivent voir
+            for r in autorises:
+                if canal.overwrites_for(r).view_channel is not True:
+                    actions.append((canal, r, True, f"#{canal.name} → **{r.name}** peut voir"))
+            # réservés : on retire les accès des rôles NON autorisés (les Confirmé/Élite/Rookie sur reporting)
+            if not public:
+                for cible, ow in list(canal.overwrites.items()):
+                    if not isinstance(cible, discord.Role) or cible == g.default_role:
+                        continue                        # jamais les accès directs par personne
+                    if cible in autorises or protege(cible):
+                        continue
+                    if ow.view_channel:                 # allow d'un rôle mort/hérité → à enlever
+                        actions.append((canal, cible, None, f"#{canal.name} → retire l'accès hérité de « {cible.name} »"))
+
+        entete = ("🔧 **Accès salons — " + ("APPLICATION" if appliquer else "SIMULATION")
+                  + f"** ({len(actions)} changement(s))")
+        if not actions:
+            await message.reply("✅ Les accès sont déjà conformes à la doctrine — rien à changer.")
+            return True
+        if appliquer:
+            faits, echecs = 0, []
+            for canal, cible, valeur, _desc in actions:
+                try:
+                    if valeur is None:
+                        await canal.set_permissions(cible, overwrite=None, reason="Doctrine accès (!acces)")
+                    else:
+                        await canal.set_permissions(cible, view_channel=valeur, reason="Doctrine accès (!acces)")
+                    faits += 1
+                except discord.Forbidden:
+                    echecs.append(f"#{canal.name} / {getattr(cible, 'name', cible)} — permission refusée (monte mon rôle)")
+                except discord.HTTPException as err:
+                    echecs.append(f"#{canal.name} — {err}")
+            lignes = [entete, f"✅ {faits} appliqué(s)."] + [f"❌ {e}" for e in echecs]
+        else:
+            lignes = [entete] + [f"· {d}" for _c, _t, _v, d in actions] + \
+                     ["", "▶️ Pour exécuter : `!acces appliquer`"]
+        if manquants:
+            lignes.append("⚠️ Rôles introuvables (vérifie les variables Railway) : " + ", ".join(sorted(manquants)))
+        await envoyer_long(message, lignes)
         return True
 
     # ---- !verifier : audit complet de la configuration ----
