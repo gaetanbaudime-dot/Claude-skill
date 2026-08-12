@@ -1720,6 +1720,105 @@ async def commande_admin(message, texte: str) -> bool:
                            (problemes if problemes else ["✅ Aucune incohérence détectée — la structure est propre."]))
         return True
 
+    # ---- !purge-int : sortir du serveur les candidats internationaux NON signés ----
+    # Décision du 12/08 : l'agence se concentre sur la grille FR. Le flux international
+    # venait à 96 % de Telegram ; couper Telegram tarit la source, cette commande vide
+    # le stock déjà présent.
+    # `!purge-int` = simulation (n'exclut personne, montre la liste).
+    # `!purge-int appliquer` = exécute.
+    # Les SIGNÉS (Team International) sont protégés par défaut : ce sont des clippers
+    # sous contrat qui produisent et sont payés — les éjecter romprait des contrats en
+    # cours. Il faut le mot-clé explicite `tout` pour les inclure.
+    if texte.startswith("!purge-int"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        if not g.me.guild_permissions.kick_members:
+            await message.reply("❌ Il me manque la permission « Expulser des membres ».")
+            return True
+        norm = normaliser(texte)
+        appliquer = "appliqu" in norm
+        inclure_signes = " tout" in norm
+
+        def role_par_nom(nom):
+            return discord.utils.find(lambda r: normaliser(nom) in normaliser(r.name), g.roles)
+
+        grille_int = role_par_nom(ROLE_GRILLE_INT_NOM)
+        team_int = role_par_nom(ROLE_TEAM_MG_NOM)
+        team_fr = role_par_nom(ROLE_TEAM_FR_NOM)
+        grille_fr = role_par_nom(ROLE_GRILLE_FR_NOM)
+        if grille_int is None:
+            await message.reply(f"❌ Rôle « {ROLE_GRILLE_INT_NOM} » introuvable "
+                                f"(variable ROLE_GRILLE_INT_NOM). Je ne sais pas qui viser.")
+            return True
+
+        cibles, gardes = [], []
+        for m in grille_int.members:
+            if m.bot:
+                continue
+            noms_roles = [normaliser(r.name) for r in m.roles]
+            if any(any(p in n for p in ROLES_PROTEGES) for n in noms_roles):
+                gardes.append((m, "rôle protégé (admin/mod/manager)"))
+                continue
+            if (team_fr and team_fr in m.roles) or (grille_fr and grille_fr in m.roles):
+                gardes.append((m, "aussi sur la grille FR — statut ambigu, à trancher à la main"))
+                continue
+            if team_int and team_int in m.roles and not inclure_signes:
+                gardes.append((m, "SIGNÉ (Team International) — contrat en cours"))
+                continue
+            cibles.append(m)
+
+        entete = [f"🌍 **Purge internationale** — {'EXÉCUTION' if appliquer else 'SIMULATION'}",
+                  f"Cible : membres « {grille_int.name} »"
+                  + ("" if inclure_signes else f", hors signés « {team_int.name if team_int else ROLE_TEAM_MG_NOM} »"),
+                  f"**{len(cibles)} à exclure · {len(gardes)} protégés**", ""]
+        if gardes:
+            entete.append("🛡️ **Protégés (non touchés)**")
+            entete += [f"· {m.display_name} — {motif}" for m, motif in gardes[:25]]
+            entete.append("")
+        entete.append("👋 **À exclure**" if cibles else "_Personne à exclure._")
+        entete += [f"· {m.display_name}" for m in cibles[:60]]
+        if len(cibles) > 60:
+            entete.append(f"… et {len(cibles) - 60} autres.")
+        if not appliquer:
+            entete += ["", "Rien n'a été fait. Pour exécuter : `!purge-int appliquer`"]
+            if not inclure_signes and team_int and any(team_int in m.roles for m, _ in gardes):
+                entete.append("Pour inclure aussi les signés : `!purge-int appliquer tout` "
+                              "(rompt des contrats en cours — à faire en connaissance de cause).")
+        await envoyer_long(message, entete)
+        if not appliquer:
+            return True
+
+        # Un message privé avant l'exclusion : la personne a candidaté de bonne foi et a
+        # le droit de savoir pourquoi elle part. Un départ expliqué ne revient pas sur
+        # Disboard raconter que l'agence exclut sans motif.
+        adieu = ("Bonjour, l'agence recentre son recrutement sur la grille France pour ce "
+                 "trimestre et ne peut plus suivre les candidatures internationales. Ta "
+                 "candidature est donc clôturée et tu quittes le serveur. Ce n'est pas un "
+                 "jugement sur ton profil. Si nous rouvrons la grille internationale, tu "
+                 "pourras re-candidater. Merci pour le temps que tu nous as accordé.")
+        sortis, echecs, sans_mp = 0, [], 0
+        for m in cibles:
+            try:
+                await m.send(adieu)
+            except Exception:                                  # noqa: BLE001
+                sans_mp += 1
+            try:
+                await m.kick(reason="Recentrage grille FR — candidature internationale non signée")
+                sortis += 1
+            except Exception as e:                             # noqa: BLE001
+                echecs.append(f"{m.display_name} ({type(e).__name__})")
+            await asyncio.sleep(1.2)                           # respire : évite la limite de débit
+        bilan = [f"✅ **{sortis} membre(s) exclu(s)**",
+                 f"· {sans_mp} n'ont pas pu recevoir le message privé (MP fermés) — exclus quand même."]
+        if echecs:
+            bilan.append(f"❌ **{len(echecs)} échec(s)** : {', '.join(echecs[:15])}")
+            bilan.append("Cause la plus fréquente : mon rôle est SOUS le leur. "
+                         "Remonte le rôle du bot au-dessus dans Paramètres → Rôles.")
+        await envoyer_long(message, bilan)
+        return True
+
     # ---- !acces : applique la doctrine d'accès aux salons (rôles → « Voir le salon ») ----
     # `!acces` = simulation (montre ce qui changerait, ne touche à rien).
     # `!acces appliquer` = exécute. Idempotent : à relancer dès qu'un accès dérive.
