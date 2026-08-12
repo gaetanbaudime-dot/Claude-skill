@@ -690,7 +690,12 @@ def equipe_deduite(uid) -> tuple:
     liaison = donnees.get("liaisons", {}).get(str(uid), {})
     tel = liaison.get("tel", "")
     cand = donnees.get("candidatures", {}).get(tel, {})
-    pays = liaison.get("pays") or cand.get("pays") or ""
+    return equipe_deduite_tel(tel, liaison.get("pays") or cand.get("pays") or "")
+
+
+def equipe_deduite_tel(tel: str, pays: str) -> tuple:
+    """Même règle, appliquée à un couple (numéro, pays) brut — utile pour les candidatures
+    qui n'ont encore aucun compte Discord rattaché."""
     grille_tel = equipe_de_l_indicatif(tel) if tel else ""
     if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
         return "", f"pays déclaré « {pays} » ≠ indicatif {tel[:4]}…"
@@ -2305,6 +2310,84 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply(inputs_clippers.message_recap(
                 bilan, datetime.now(timezone.utc).strftime("%d/%m")).replace("*", "**")[:1990])
             # (mode test : pas de comparaison à la veille, l'historique n'est pas écrit)
+        return True
+
+    # ---- !relancer-lien : rattraper les candidatures qui n'ont jamais fait !lier ----
+    # `!pipeline` annonce « N sans Discord lié » sans permettre d'agir. Ces gens se
+    # répartissent en DEUX populations qu'on ne relance pas du tout de la même façon :
+    #   A. présents sur le serveur mais jamais liés → joignables en MP par le bot ;
+    #   B. formulaire rempli, jamais venus sur Discord → joignables SEULEMENT par WhatsApp.
+    # Les confondre, c'est croire qu'on a relancé 184 personnes alors qu'on en a touché
+    # une fraction. D'où deux sorties distinctes : un envoi de MP, et un export à appeler.
+    if texte.startswith("!relancer-lien"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        norm = normaliser(texte)
+        appliquer, export = "appliqu" in norm, "export" in norm
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        liaisons = donnees.get("liaisons", {})
+        cands = donnees.get("candidatures", {})
+        tels_lies = {l.get("tel") for l in liaisons.values()}
+        signes = lire_json(FICHIER_EQUIPES, {})
+
+        # A — sur le serveur, sans liaison, et pas déjà dans l'équipe ni membre du staff
+        sur_serveur = []
+        for m in g.members:
+            if m.bot or str(m.id) in liaisons or str(m.id) in signes:
+                continue
+            if any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in m.roles):
+                continue
+            sur_serveur.append(m)
+        # B — candidature reçue, aucun numéro lié : hors de portée du bot
+        hors_discord = [(t, c) for t, c in cands.items() if t not in tels_lies]
+
+        lignes = ["🔗 **Rattrapage des liaisons**", "",
+                  f"👥 **{len(sur_serveur)} sur le serveur sans `!lier`** — joignables en MP par le bot",
+                  f"📵 **{len(hors_discord)} candidatures jamais arrivées sur Discord** — "
+                  f"joignables uniquement par WhatsApp", ""]
+        if not appliquer and not export:
+            lignes += ["`!relancer-lien appliquer` → MP aux " + str(len(sur_serveur)) + " du serveur",
+                       "`!relancer-lien export` → fichier des " + str(len(hors_discord))
+                       + " numéros à relancer sur WhatsApp"]
+            await envoyer_long(message, lignes)
+            return True
+
+        if export:
+            tampon = io.StringIO()
+            plume = csv.writer(tampon)
+            plume.writerow(["prenom", "telephone", "pays", "grille_probable", "recue_le"])
+            for t, c in sorted(hors_discord, key=lambda x: x[1].get("date", ""), reverse=True):
+                code, _motif = equipe_deduite_tel(t, c.get("pays", ""))
+                plume.writerow([c.get("prenom", ""), t, c.get("pays", ""),
+                                {"fr": "France", "mg": "International"}.get(code, "indéterminée"),
+                                str(c.get("date", ""))[:10]])
+            fichier = discord.File(io.BytesIO(tampon.getvalue().encode("utf-8")),
+                                   filename="candidatures_sans_discord.csv")
+            await message.reply(f"📵 **{len(hors_discord)} candidatures à relancer sur WhatsApp** — "
+                                f"les plus récentes d'abord (une candidature de plus de 3 semaines "
+                                f"ne répond quasiment jamais).", file=fichier)
+            if not appliquer:
+                return True
+
+        envoyes, fermes = 0, 0
+        for m in sur_serveur:
+            ok = await envoyer_mp(m, "👋 **Ta candidature est bien arrivée, mais elle n'est pas encore "
+                                     "reliée à ton compte Discord** — donc tu n'avances pas dans le "
+                                     "parcours et tu ne reçois ni formation, ni test.\n\n"
+                                     "**C'est 10 secondes** : réponds à ce message avec **ton numéro "
+                                     "WhatsApp**, celui que tu as mis dans le formulaire (avec l'indicatif, "
+                                     "ex. +33 6 12 34 56 78). Je fais le reste automatiquement.\n\n"
+                                     "Si tu n'es plus intéressé, dis-le-moi aussi — ça nous évite de te relancer.")
+            envoyes += 1 if ok else 0
+            fermes += 0 if ok else 1
+            await asyncio.sleep(1.2)
+        bilan = [f"✅ **{envoyes} MP envoyé(s)**"]
+        if fermes:
+            bilan.append(f"🔕 {fermes} ont les MP fermés — inatteignables par le bot, "
+                         f"à traiter sur WhatsApp comme les autres.")
+        await envoyer_long(message, bilan)
         return True
 
     if texte.startswith("!pipeline"):
