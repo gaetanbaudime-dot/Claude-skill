@@ -483,13 +483,30 @@ async def _selftest(complet: bool = False) -> int:
     return 0
 
 
+def _dire(message: str) -> None:
+    """Trace de démarrage forcée sur stderr, non tamponnée.
+
+    Sur un hébergeur, la sortie standard de Python est tamponnée par blocs quand elle
+    n'est pas un terminal : un service qui démarre puis se tait est alors indiscernable
+    d'un service mort. On écrit donc sur stderr avec flush explicite, pour que les
+    Deploy Logs disent toujours QUEL mode a été pris et sur quel port on écoute.
+    """
+    print(message, file=sys.stderr, flush=True)
+
+
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
         raise SystemExit(asyncio.run(_selftest("--complet" in sys.argv)))
     if mcp is None:
         raise SystemExit("Le SDK MCP manque : pip install -r requirements.txt")
+    _dire(f"[metricool_mcp] démarrage · SDK MCP {_SDK}.x · python {sys.version.split()[0]}")
     _enregistrer_outils()
-    if os.environ.get("MCP_TRANSPORT", "stdio").lower() not in ("http", "streamable_http"):
+    _transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
+    _dire(f"[metricool_mcp] MCP_TRANSPORT={_transport!r} · jeton "
+          f"{'présent' if os.environ.get('METRICOOL_TOKEN') else 'ABSENT'}")
+    if _transport not in ("http", "streamable_http"):
+        _dire("[metricool_mcp] mode stdio — si c'est un déploiement distant, "
+              "MCP_TRANSPORT doit valoir 'http'.")
         mcp.run()                                           # stdio (Claude Code en local)
         raise SystemExit(0)
 
@@ -502,6 +519,7 @@ if __name__ == "__main__":
     chemin = f"/{secret}/mcp" if secret else "/mcp"
     port = int(os.environ.get("PORT", "8000"))
     _token()                                                # échoue tout de suite si la clé manque
+    _dire(f"[metricool_mcp] écoute sur 0.0.0.0:{port}{chemin}")
     if _SDK == 2:
         mcp.run(transport="streamable-http", host="0.0.0.0", port=port,
                 streamable_http_path=chemin, stateless_http=True, json_response=True)
