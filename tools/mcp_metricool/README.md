@@ -39,7 +39,7 @@ Les trois sont en lecture seule : le serveur ne publie rien et ne modifie rien d
 |---|---|---|
 | `METRICOOL_TOKEN` | **oui** | Jeton d'API (Metricool → paramètres → API). **Jamais dans le code, jamais commité.** |
 | `MCP_TRANSPORT` | non | `http` pour le mode distant. Vide/absent = `stdio` (local). |
-| `MCP_PATH` | en HTTP, **oui** | Segment secret de l'URL — voir sécurité ci-dessous. Défaut `mcp`. |
+| `MCP_PATH` | en HTTP, **oui** | Segment secret de l'URL — voir sécurité ci-dessous. L'endpoint devient `/<MCP_PATH>/mcp`. Vide → `/mcp` nu. |
 | `PORT` | non | Posé automatiquement par Railway. |
 | `METRICOOL_USER_ID` | non | Porte de sortie si l'API se met à exiger le `userId` (valeur connue : `2302746`). |
 
@@ -94,6 +94,18 @@ python metricool_mcp.py            # stdio, à déclarer dans .mcp.json
 python metricool_mcp.py --selftest            # jeton + un appel réel + contrôle de dédoublonnage
 python metricool_mcp.py --selftest --complet  # + le résumé 7 jours de tous les comptes
 ```
+
+Et pour contrôler le service déployé sans passer par claude.ai (remplacer domaine et secret) :
+
+```bash
+curl -X POST "https://<domaine>/<MCP_PATH>/mcp" \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+Les trois outils doivent apparaître. Un **404** signifie que le chemin est faux (c'est bien
+`/<MCP_PATH>/mcp`, pas `/<MCP_PATH>`) ; un **502** que le conteneur ne répond pas — regarder
+alors les Deploy Logs Railway, pas le code.
 
 `--selftest` fonctionne **sans le SDK MCP installé** : il appelle les implémentations
 directement. C'est le premier réflexe quand le connecteur répond mal — il sépare

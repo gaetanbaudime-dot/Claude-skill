@@ -496,7 +496,10 @@ if __name__ == "__main__":
     # HTTP distant. MCP_PATH sert de mot de passe : claude.ai ne propose pas de champ
     # « en-tête personnalisé » pour un connecteur, donc c'est l'URL elle-même qui protège
     # l'accès. La mettre longue et aléatoire (voir README), et ne jamais la publier.
-    chemin = "/" + os.environ.get("MCP_PATH", "mcp").strip().strip("/")
+    # L'URL finale est /<secret>/mcp : le segment secret protège l'accès, le suffixe /mcp
+    # reste la convention attendue par les clients. Sans MCP_PATH, on retombe sur /mcp nu.
+    secret = os.environ.get("MCP_PATH", "").strip().strip("/")
+    chemin = f"/{secret}/mcp" if secret else "/mcp"
     port = int(os.environ.get("PORT", "8000"))
     _token()                                                # échoue tout de suite si la clé manque
     if _SDK == 2:
