@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-08-11 — Prod repartie (Yanil +60 abos) mais toujours 1/15 : « comment faire de bons managers ? »
+- **Signal positif** : après le message groupé, Yanil poste 2 Reels le 11/08 → **40 452 vues, +60 abos OF**. Le moteur n'est pas mort, il était juste à l'arrêt (confirme le diagnostic « humain, pas ban »). Mais **1/15 qui publie** : la dépendance à une personne reste le problème n°1, et c'est exactement ce que les pods Julien/Jonas doivent résoudre.
+- **Question de Gaëtan** : « comment faire en sorte que Julien et Jonas deviennent de bons managers ? » → SOP dédiée : [[Développer un manager clipper (Julien et Jonas)]]. Thèse : on ne forme pas un manager avec un cours, on le fabrique avec un chiffre qu'il possède + des reps + un 1-on-1 hebdo (règle d'or : « tu ferais quoi ? » jamais « voilà quoi faire ») + le fondateur qui se retire. Premier geste : leur donner **le feu actuel** (pod à zéro → « qu'il poste d'ici vendredi ») comme premier test, pas un cours.
+- 🚩 **Garde-fou Julien maintenu** : meilleur producteur (Chloé), surveiller sa prod hebdo — ne pas troquer le meilleur clipper contre un manager moyen.
+- **Prédiction (11/08, échéance 18/08)** : si Gaëtan tient un 1-on-1 de 30 min avec chacun cette semaine ET leur confie le pod comme problème à eux (pas un cours), alors au 18/08 leurs pods passent de ~1/15 à ≥ 60 % des jours postés — sans que Gaëtan relance lui-même les clippers. Sinon, la promotion restera un titre sans fonction. Revue : 18 août (croisée avec la revue Julien du 06/09).
+
 ### 2026-08-10 — Production clippers à ZÉRO pendant 2 jours : la prédiction du 09/08 se réalise en direct
 - **Le fait** : 0 Reel publié sur 15 clippers les 09 et 10/08 (digest `!inputs`), confirmé **à la main** sur deux comptes (Eddy, Yanil) — aucun Reel depuis 2 jours. Corroboré par GAML, système indépendant (Yanil 38→13 clics/j, Jonas 28→8 depuis le 07-08/08).
 - **Le diagnostic qui change tout** : les comptes **existent toujours** (ouverts et consultés) → **ce n'est PAS une vague de bans**, c'est un arrêt humain. Cause la plus probable, par ordre : ① plus personne ne relance depuis que Gaëtan est absorbé ailleurs ; ② plus de rushs frais (la fonction « machine à contenu » est orpheline depuis le départ d'Emma le 03/08, aucun brief trends parti depuis) ; ③ paie du lundi non confirmée.
