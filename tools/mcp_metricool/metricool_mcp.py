@@ -505,8 +505,20 @@ if __name__ == "__main__":
     _dire(f"[metricool_mcp] MCP_TRANSPORT={_transport!r} · jeton "
           f"{'présent' if os.environ.get('METRICOOL_TOKEN') else 'ABSENT'}")
     if _transport not in ("http", "streamable_http"):
-        _dire("[metricool_mcp] mode stdio — si c'est un déploiement distant, "
-              "MCP_TRANSPORT doit valoir 'http'.")
+        # Garde-fou : sur un hébergeur, stdio lit une entrée standard fermée, rend la main
+        # aussitôt et sort en code 0 — le service se déclare « réussi » tout en ne répondant
+        # jamais. Symptôme vécu le 12/08 : « Starting Container » puis silence, et 502 côté
+        # réseau pendant qu'aucune erreur n'apparaît nulle part. On refuse bruyamment.
+        if os.environ.get("PORT") or os.environ.get("RAILWAY_ENVIRONMENT") \
+                or os.environ.get("RAILWAY_PROJECT_ID"):
+            raise SystemExit(
+                f"[metricool_mcp] ERREUR : hébergeur détecté (PORT défini) mais "
+                f"MCP_TRANSPORT vaut {_transport!r}. En stdio le serveur s'arrêterait "
+                f"en silence sans jamais répondre. Pose MCP_TRANSPORT=http dans les "
+                f"variables du service, et vérifie que la valeur est bien enregistrée "
+                f"(une variable présente mais VIDE produit exactement cette erreur)."
+            )
+        _dire("[metricool_mcp] mode stdio (local).")
         mcp.run()                                           # stdio (Claude Code en local)
         raise SystemExit(0)
 
