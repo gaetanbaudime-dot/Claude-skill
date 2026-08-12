@@ -660,6 +660,30 @@ def equipe_de_l_indicatif(tel: str) -> str:
     return "fr" if tel.startswith(("+33", "+32", "+41")) else "mg"
 
 
+def equipe_deduite(uid) -> tuple:
+    """Grille d'un membre d'après sa candidature — la MÊME règle partout : indicatif d'abord
+    (dur à falsifier), pays déclaré en repli, et RIEN quand les deux se contredisent.
+
+    Retourne (code, motif) avec code ∈ {'fr', 'mg', ''}. Un code vide veut dire « je ne
+    tranche pas » : c'est un appel à décision humaine, jamais une valeur par défaut. Cette
+    fonction existe parce que l'auto-onboarding post-signature écrivait « fr » en dur et
+    plaçait donc TOUT signataire sur la grille France, y compris un candidat béninois
+    recommandé International — soit 200 € au lieu de 100 €, sans que rien ne le signale.
+    """
+    donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    liaison = donnees.get("liaisons", {}).get(str(uid), {})
+    tel = liaison.get("tel", "")
+    cand = donnees.get("candidatures", {}).get(tel, {})
+    pays = liaison.get("pays") or cand.get("pays") or ""
+    grille_tel = equipe_de_l_indicatif(tel) if tel else ""
+    if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
+        return "", f"pays déclaré « {pays} » ≠ indicatif {tel[:4]}…"
+    code = grille_tel or (equipe_du_pays(pays) if pays else "")
+    if code not in ("fr", "mg"):
+        return "", "ni indicatif ni pays exploitables (candidature liée ?)"
+    return code, (f"indicatif {tel[:4]}…" if grille_tel else f"pays déclaré : {pays}")
+
+
 async def envoyer_test_candidat(membre, score=""):
     """Enregistre l'état test_envoye et envoie le test 48 h en MP. Retourne True si le MP est parti."""
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -1169,29 +1193,40 @@ async def boucle_pipeline():
                     contrat["statut"] = "complet"
                     modifie = True
                     onboarde, erreur_role = False, ""
-                    if DOCUSEAL_ONBOARDING_AUTO:
-                        nom_role, erreur_role = await attribuer_equipe(membre.guild, membre, "fr", client.user.id)
+                    # La grille se DÉDUIT de la candidature (indicatif puis pays). Elle n'est
+                    # plus « fr » par défaut : une grille par défaut sur une décision de paie,
+                    # c'est un salaire décidé au hasard.
+                    code_equipe, motif_equipe = equipe_deduite(uid)
+                    nom_equipe = "Team France" if code_equipe == "fr" else "Team International"
+                    if DOCUSEAL_ONBOARDING_AUTO and code_equipe:
+                        nom_role, erreur_role = await attribuer_equipe(membre.guild, membre,
+                                                                       code_equipe, client.user.id)
                         onboarde = nom_role is not None
+                    elif DOCUSEAL_ONBOARDING_AUTO:
+                        erreur_role = f"grille indéterminée — {motif_equipe}"
                     await envoyer_mp(membre,
-                        "✅ **Contrat signé — bienvenue officiellement dans l'équipe France ! 🔥**\n\n"
-                        + ("Ton rôle **Team France** vient de s'ouvrir. Tu as maintenant accès à :\n"
+                        "✅ **Contrat signé — bienvenue officiellement dans l'équipe ! 🔥**\n\n"
+                        + (f"Ton rôle **{nom_equipe}** vient de s'ouvrir. Tu as maintenant accès à :\n"
                            "1. **Ton espace privé** (salon + Drive : rushs et modèles de ta créatrice).\n"
                            "2. **Ton lien de tracking** (pour compter tes revenus).\n"
                            "3. La **Fiche 1** pour créer tes comptes — c'est le jour 0.\n\n"
                            "Lis la Fiche 1 en entier avant de commencer (règles anti-ban). À toi de jouer 🚀"
                            if onboarde else
                            "On t'ouvre tes accès dans quelques minutes — tu vas recevoir ton rôle "
-                           "Team France, ton espace et ton lien de tracking. Reste connecté 🚀"))
+                           "d'équipe, ton espace et ton lien de tracking. Reste connecté 🚀"))
                     if canal:
                         await canal.send(
-                            (f"✅ **{membre.mention} — contrat signé, auto-onboardé Team France.** "
-                             f"⚠️ 18+ : à garantir par le contrat (champ date de naissance / attestation "
-                             f"majeur). Annuler : `!equipe {membre.display_name} retirer`."
+                            (f"✅ **{membre.mention} — contrat signé, auto-onboardé {nom_equipe}** "
+                             f"({motif_equipe}). ⚠️ 18+ : à garantir par le contrat (champ date de "
+                             f"naissance / attestation majeur). Corriger : "
+                             f"`!equipe {membre.display_name} fr` ou `int` · annuler : `retirer`."
                              if onboarde else
                              f"🖋️ **Contrat complet** pour {membre.mention} — "
-                             + (f"⚠️ auto-onboarding raté ({erreur_role}) : `!equipe {membre.display_name} fr`."
+                             + (f"⚠️ **pas d'auto-onboarding** : {erreur_role}. "
+                                f"Tranche à la main : `!equipe {membre.display_name} fr` ou "
+                                f"`!equipe {membre.display_name} int`."
                                 if DOCUSEAL_ONBOARDING_AUTO else
-                                f"`!equipe {membre.display_name} fr` pour ouvrir ses accès.")))
+                                f"`!equipe {membre.display_name} fr` ou `int` pour ouvrir ses accès.")))
                 elif clipper_signe and contrat.get("statut") == "envoye" and DOCUSEAL_CONTRESIGNATURE:
                     contrat["statut"] = "signe_clipper"
                     modifie = True
