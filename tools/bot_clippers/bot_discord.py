@@ -2345,19 +2345,89 @@ async def commande_admin(message, texte: str) -> bool:
             except (TypeError, ValueError):
                 return 0
 
-        rendus = sorted(((u, i) for u, i in donnees.get("etats", {}).items()
-                         if i.get("etat") == "test_rendu"), key=lambda x: x[1].get("rendu") or "")
-        if not rendus:
-            await message.reply("Aucun test en attente de review 🎉 (`!pipeline` pour la vue d'ensemble).")
+        etats = donnees.get("etats", {})
+        relancer = "relanc" in normaliser(texte)
+
+        def _membre(uid):
+            for g in client.guilds:
+                m = g.get_member(int(uid))
+                if m:
+                    return m
+            return None
+
+        rendus = sorted(((u, i) for u, i in etats.items() if i.get("etat") == "test_rendu"),
+                        key=lambda x: x[1].get("rendu") or "")
+        en_cours = sorted(((u, i) for u, i in etats.items() if i.get("etat") == "test_envoye"),
+                          key=lambda x: x[1].get("echeance") or "")
+        expires = sorted(((u, i) for u, i in etats.items() if i.get("etat") == "test_expire"),
+                         key=lambda x: x[1].get("echeance") or "")
+
+        lignes = []
+        if rendus:
+            lignes.append(f"📥 **{len(rendus)} test(s) à reviewer** — du plus ancien au plus récent :")
+            for u, i in rendus:
+                liens = i.get("liens_admin") or []
+                lignes.append(f"· <@{u}> — quiz {i.get('score_quiz') or '?'} · rendu J+{_anc(i.get('rendu'))} "
+                              + (f"→ {liens[-1]}" if liens
+                                 else "→ pas de lien enregistré (rendu avant la v2) : cherche « Test rendu » 🔎 dans ce salon"))
+            lignes.append("Après visionnage : `!test-ok @membre` ou `!test-non @membre [raison]`.")
+        else:
+            lignes.append("📥 Aucun test en attente de review 🎉")
+
+        # En cours : le temps restant dit s'il faut relancer aujourd'hui ou laisser courir.
+        lignes.append("")
+        if en_cours:
+            lignes.append(f"🧪 **{len(en_cours)} test(s) en cours**")
+            for u, i in en_cours:
+                try:
+                    h = int((datetime.fromisoformat(i["echeance"]) - ref).total_seconds() // 3600)
+                    reste = f"{h} h restantes" if h > 0 else "échéance dépassée, clôture imminente"
+                except (KeyError, TypeError, ValueError):
+                    reste = "échéance inconnue"
+                lignes.append(f"· <@{u}> — quiz {i.get('score_quiz') or '?'} · {reste}")
+        else:
+            lignes.append("🧪 Aucun test en cours.")
+
+        # Expirés : un compteur sans nom ne se traite pas, d'où la liste et la relance.
+        lignes.append("")
+        if expires:
+            lignes.append(f"⌛ **{len(expires)} test(s) expiré(s)**")
+            partis = 0
+            for u, i in expires:
+                m = _membre(u)
+                if m is None:
+                    partis += 1
+                nom = m.display_name if m else "**parti du serveur**"
+                lignes.append(f"· <@{u}> {nom} — expiré le {str(i.get('echeance', ''))[:10]}"
+                              + (f", re-test ouvert le {str(i['retest'])[:10]}" if i.get("retest") else ""))
+            if not relancer:
+                lignes.append("→ Pour leur rouvrir un créneau de 48 h : `!tests relancer`")
+                if partis:
+                    lignes.append(f"⚠️ {partis} ne sont plus sur le serveur (purge ou départ) — ils seront ignorés.")
+        else:
+            lignes.append("⌛ Aucun test expiré.")
+
+        await envoyer_long(message, lignes)
+        if not relancer or not expires:
             return True
-        lignes = [f"📥 **{len(rendus)} test(s) à reviewer** — du plus ancien au plus récent :"]
-        for u, i in rendus:
-            liens = i.get("liens_admin") or []
-            lignes.append(f"· <@{u}> — quiz {i.get('score_quiz') or '?'} · rendu J+{_anc(i.get('rendu'))} "
-                          + (f"→ {liens[-1]}" if liens
-                             else "→ pas de lien enregistré (rendu avant la v2) : cherche « Test rendu » 🔎 dans ce salon"))
-        lignes.append("Après visionnage : `!test-ok @membre` ou `!test-non @membre [raison]`.")
-        await message.reply("\n".join(lignes)[:1990])
+
+        relances, ignores = [], []
+        for u, i in expires:
+            m = _membre(u)
+            if m is None:
+                ignores.append(f"<@{u}>")
+                continue
+            await envoyer_mp(m, "🔄 **On te redonne une chance.** Ton test avait expiré — on rouvre "
+                                "un créneau de 48 h à partir de maintenant. Si le timing ne va pas, "
+                                "dis-le-nous plutôt que de laisser filer : on peut décaler.")
+            ok = await envoyer_test_candidat(m, i.get("score_quiz", ""))
+            relances.append(f"{m.display_name}{'' if ok else ' (MP fermés — à relancer à la main)'}")
+            await asyncio.sleep(1.2)
+        bilan = [f"🔄 **{len(relances)} test(s) relancé(s)** — nouvelle échéance dans 48 h",
+                 *[f"· {r}" for r in relances]]
+        if ignores:
+            bilan += ["", f"⏭️ **{len(ignores)} ignoré(s)** (plus sur le serveur) : {', '.join(ignores)}"]
+        await envoyer_long(message, bilan)
         return True
 
     if texte.startswith("!fiche"):
