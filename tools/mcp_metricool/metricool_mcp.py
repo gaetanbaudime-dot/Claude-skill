@@ -14,9 +14,11 @@ LANCEMENT
   Distant (Railway, pour claude.ai) : MCP_TRANSPORT=http python metricool_mcp.py
   Vérification rapide sans MCP      : python metricool_mcp.py --selftest
 
-RÉSEAUX : instagram · facebook · tiktok · youtube. ⚠️ Constat du 12/08/2026 : sur les
-18 marques, une seule a Instagram connecté — les autres n'ont que Facebook/TikTok/
-YouTube. `metricool_brands` le montre : c'est un diagnostic, pas un bug du serveur.
+PÉRIMÈTRE (précisé par Gaëtan le 12/08/2026) : l'agence a DEUX machines de distribution.
+Les clippers travaillent Facebook + Instagram, suivis par GAML, Infloww et le bot.
+Metricool couvre **l'autre machine** — Facebook/TikTok/YouTube, comptes tenus par Rianah
+(suffixe « - R ») et Julien (« - J »). Qu'Instagram soit quasi absent d'ici est donc
+NORMAL : ce n'est pas un défaut de configuration, c'est la frontière entre les deux outils.
 """
 
 from __future__ import annotations
@@ -230,8 +232,10 @@ async def _impl_marques(params: EntreeMarques) -> str:
             lignes.append(f"| {m['id']} | {m['nom']} | {res} |")
         sans_ig = [m["nom"] for m in marques if "instagram" not in m["reseaux_connectes"]]
         if sans_ig:
-            lignes += ["", f"⚠️ **{len(sans_ig)} compte(s) sans Instagram connecté** — "
-                           "les stats Instagram y seront vides : " + ", ".join(sans_ig[:12])]
+            lignes += ["", f"ℹ️ {len(sans_ig)} compte(s) sans Instagram : **c'est attendu**. "
+                           "Instagram et Facebook côté clippers se suivent dans GAML / Infloww / "
+                           "le bot. Metricool couvre l'autre machine (Facebook, TikTok, YouTube). "
+                           "Ne pas conclure à un problème de configuration."]
         return "\n".join(lignes)
     except Exception as e:                                      # noqa: BLE001
         return _erreur(e)

@@ -26,10 +26,12 @@ Les trois sont en lecture seule : le serveur ne publie rien et ne modifie rien d
    `metricool_summary` dédoublonne par `(réseau, identifiant du compte)` et liste les
    comptes partagés en bas de son rapport. Le détail par marque, lui, affiche la valeur
    sur chaque ligne concernée — d'où des lignes qui se ressemblent, ce n'est pas un bug.
-2. **1 marque sur 18 seulement a Instagram connecté** (`Maddie 2 - R`, constat du 12/08/2026).
-   Les autres n'ont que Facebook/TikTok/YouTube. Les stats Instagram y seront donc vides :
-   c'est un diagnostic de configuration Metricool, pas une panne du connecteur.
-   `metricool_brands` le signale explicitement.
+2. **Instagram est quasi absent d'ici, et c'est normal.** L'agence a **deux machines de
+   distribution** : les **clippers** travaillent **Facebook + Instagram** (suivis par GAML,
+   Infloww et le bot Discord), et Metricool couvre **l'autre** — **Facebook, TikTok, YouTube**,
+   comptes tenus par Rianah (`- R`) et Julien (`- J`). Une seule marque sur 18 a Instagram
+   branché (`Maddie 2 - R`). Ne jamais lire ça comme une erreur de configuration, ni conclure
+   que « Metricool ne voit pas le canal qui rapporte » : ce n'est pas son périmètre.
 
 ## Variables d'environnement
 
