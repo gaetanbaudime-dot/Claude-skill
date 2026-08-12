@@ -501,22 +501,29 @@ if __name__ == "__main__":
         raise SystemExit("Le SDK MCP manque : pip install -r requirements.txt")
     _dire(f"[metricool_mcp] démarrage · SDK MCP {_SDK}.x · python {sys.version.split()[0]}")
     _enregistrer_outils()
-    _transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
-    _dire(f"[metricool_mcp] MCP_TRANSPORT={_transport!r} · jeton "
+
+    # Sur un hébergeur, le bon transport est HTTP — inutile de le faire dire par une
+    # variable. Railway a livré MCP_TRANSPORT vide le 12/08 alors que l'interface
+    # affichait « http » : le service tombait alors en stdio, lisait une entrée standard
+    # fermée et s'arrêtait. On déduit donc le mode de l'environnement, et MCP_TRANSPORT
+    # ne sert plus qu'à forcer la main (utile pour tester le mode stdio en local).
+    _hebergeur = bool(os.environ.get("RAILWAY_ENVIRONMENT")
+                      or os.environ.get("RAILWAY_PROJECT_ID")
+                      or os.environ.get("PORT"))
+    _transport = (os.environ.get("MCP_TRANSPORT") or "").strip().lower()
+    _impose = bool(_transport)
+    if not _transport:
+        _transport = "http" if _hebergeur else "stdio"
+    _dire(f"[metricool_mcp] transport={_transport}"
+          f"{' (imposé)' if _impose else ' (déduit)'} · hébergeur={_hebergeur} · jeton "
           f"{'présent' if os.environ.get('METRICOOL_TOKEN') else 'ABSENT'}")
+
     if _transport not in ("http", "streamable_http"):
-        # Garde-fou : sur un hébergeur, stdio lit une entrée standard fermée, rend la main
-        # aussitôt et sort en code 0 — le service se déclare « réussi » tout en ne répondant
-        # jamais. Symptôme vécu le 12/08 : « Starting Container » puis silence, et 502 côté
-        # réseau pendant qu'aucune erreur n'apparaît nulle part. On refuse bruyamment.
-        if os.environ.get("PORT") or os.environ.get("RAILWAY_ENVIRONMENT") \
-                or os.environ.get("RAILWAY_PROJECT_ID"):
+        if _hebergeur:
             raise SystemExit(
-                f"[metricool_mcp] ERREUR : hébergeur détecté (PORT défini) mais "
-                f"MCP_TRANSPORT vaut {_transport!r}. En stdio le serveur s'arrêterait "
-                f"en silence sans jamais répondre. Pose MCP_TRANSPORT=http dans les "
-                f"variables du service, et vérifie que la valeur est bien enregistrée "
-                f"(une variable présente mais VIDE produit exactement cette erreur)."
+                "[metricool_mcp] ERREUR : mode stdio demandé explicitement sur un "
+                "hébergeur. Le serveur ne répondrait jamais. Retire MCP_TRANSPORT "
+                "(le mode HTTP est déduit tout seul) ou mets-y 'http'."
             )
         _dire("[metricool_mcp] mode stdio (local).")
         mcp.run()                                           # stdio (Claude Code en local)
@@ -527,10 +534,18 @@ if __name__ == "__main__":
     # l'accès. La mettre longue et aléatoire (voir README), et ne jamais la publier.
     # L'URL finale est /<secret>/mcp : le segment secret protège l'accès, le suffixe /mcp
     # reste la convention attendue par les clients. Sans MCP_PATH, on retombe sur /mcp nu.
-    secret = os.environ.get("MCP_PATH", "").strip().strip("/")
+    secret = (os.environ.get("MCP_PATH") or "").strip().strip("/")
     chemin = f"/{secret}/mcp" if secret else "/mcp"
-    port = int(os.environ.get("PORT", "8000"))
-    _token()                                                # échoue tout de suite si la clé manque
+    port = int((os.environ.get("PORT") or "8000").strip())
+    if not secret:
+        _dire("[metricool_mcp] ⚠️ MCP_PATH absent : l'endpoint est /mcp, SANS segment "
+              "secret — l'URL devient devinable. Pose MCP_PATH pour la protéger.")
+    if not os.environ.get("METRICOOL_TOKEN"):
+        # On démarre quand même : un serveur qui répond « jeton absent » à chaque outil
+        # est diagnosticable depuis claude.ai, là où un conteneur en boucle de crash ne
+        # dit rien au client. L'erreur actionnable est déjà produite par _erreur().
+        _dire("[metricool_mcp] ⚠️ METRICOOL_TOKEN absent ou vide : le serveur démarre "
+              "mais chaque outil répondra une erreur de jeton.")
     _dire(f"[metricool_mcp] écoute sur 0.0.0.0:{port}{chemin}")
     if _SDK == 2:
         mcp.run(transport="streamable-http", host="0.0.0.0", port=port,
