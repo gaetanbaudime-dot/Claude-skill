@@ -40,6 +40,8 @@ Ce terrain évolue plus vite que n'importe quelle page : algorithmes, CGU et out
 
 Le trafic applique le cluster [[_MOC Marketing|Marketing]] sous contraintes maximales, ce qui en fait paradoxalement une excellente école d'acquisition. Tableau de bord par source et règles de diversification dans `98-Rapports/Rapport OFM`. Cas particulier : le trafic *interne* MYM, un canal gratuit fourni par la plateforme elle-même (recommandation aux non-abonnés) qui se cumule à l'acquisition externe — modèle et playbook dans [[Stratégie trafic interne MYM]].
 
+L'invariant « marque personnelle contre spam » a son cas d'école daté côté OnlyFans : [[Trafic par commentaires OnlyFans (bots, SFS et le vrai canal)]] applique la grille à la tactique du commentaire sous les posts d'autres créatrices, distingue les bots d'engagement (fermes de faux comptes, violation des CGU) des réseaux SFS (comptes réels, consentement réel), et montre que la valeur du geste n'est pas le trafic capté mais la liste de partenaires qu'il révèle.
+
 ## Sources
 
 [^1]: Règles de contenu et de promotion publiques des principales plateformes (TikTok, Instagram/Meta, X, Reddit), telles qu'évolutives.

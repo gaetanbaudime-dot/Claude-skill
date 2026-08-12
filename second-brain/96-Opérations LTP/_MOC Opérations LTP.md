@@ -38,9 +38,10 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Entretien clipper - questions et grille de notation]] : les 10 questions de l'entretien FR (mêmes questions pour tous, notation immédiate 1-4, double évaluation toi + Claude), seuils de décision, et le circuit MG sans entretien (formulaire + vocal de formation).
 - [[Recrutement clippers - annonces et formulaire]] : les annonces prêtes à coller (FR avec/sans lien, Telegram international MG+Bénin), la réponse type DM, et le formulaire Google restructuré aligné sur la rému fixe + commission.
 
-## Pôle trafic MYM
+## Pôle trafic MYM et SFS
 
 - [[Playbook trafic interne MYM (5 créatrices)]] : la SOP quotidienne (5 publics/jour, stories, règle publique/privé), le test A/B sur 5 créatrices, le tableau de bord (KPI roi = CA net/post public), et le diagnostic du rapport Judith (deal juillet 20k, goulots part du trafic externe + attractivité du profil). Le pourquoi : [[Stratégie trafic interne MYM]].
+- [[Trafic par commentaires OnlyFans (bots, SFS et le vrai canal)]] 🚫 : la question du 12/08 (« y a-t-il un bot derrière les créatrices qui commentent chez leurs collègues ? ») tranchée — non, c'est de la main-d'œuvre ; les deux familles d'outils et leur statut CGU ; le chiffrage à fourchette 170× qui ne conclut pas ; et le retournement utile : les sections de commentaires sont **la Dream 100 SFS gratuite**, pas un canal. Rangée en kill-list ligne 16 jusqu'au 30/09.
 
 ## Pôle gouvernance & association
 

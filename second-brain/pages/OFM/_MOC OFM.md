@@ -8,7 +8,7 @@ Cluster du modèle OnlyFans Management, traité pour ce qu'il est : un business 
 - [[Modèle d'agence OFM]] : l'économie du modèle, revenue share, unit economics, ce qui sépare les agences durables des éphémères.
 - [[Acquisition de créatrices]] : le pipeline, transposition du cluster Recrutement, vendre la réalité et documenter les limites.
 - [[Opérations de chatting]] : le moteur du revenu et son problème éthique central, gestion d'équipe et garde-fous.
-- [[Trafic et réseaux sociaux pour l'OFM]] : l'acquisition sous contraintes maximales, marque personnelle contre spam.
+- [[Trafic et réseaux sociaux pour l'OFM]] : l'acquisition sous contraintes maximales, marque personnelle contre spam. Cas d'application chiffré et daté : [[Trafic par commentaires OnlyFans (bots, SFS et le vrai canal)]] (12/08) — la cartographie des bots d'engagement vs réseaux SFS, leur statut CGU, et pourquoi le commentaire est la version au détail du SFS.
 - [[Stratégie trafic interne MYM]] : le canal gratuit propre à MYM — modèle d'attractivité (Judith + doc officielle), boucle public→intéressé→abo→CA, garde-fou CGU. Son exécution : [[Playbook trafic interne MYM (5 créatrices)]].
 
 ## Ordre de lecture
