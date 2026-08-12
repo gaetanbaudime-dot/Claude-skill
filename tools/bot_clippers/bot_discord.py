@@ -1753,9 +1753,24 @@ async def commande_admin(message, texte: str) -> bool:
                                 f"(variable ROLE_GRILLE_INT_NOM). Je ne sais pas qui viser.")
             return True
 
+        # Exemptions nominatives. Rianah n'est pas une candidate : elle tient 11 des 18
+        # marques Metricool (Mandise, Maddie, Sophie 1/3, Jade, Lila Doree). Une purge
+        # par rôle l'emporterait avec le reste et ferait tomber cette production le jour
+        # même. PURGE_INT_EXEMPTS permet d'en ajouter d'autres (pseudos ou identifiants,
+        # séparés par des virgules) sans toucher au code.
+        exempts = [normaliser(x.strip()) for x in
+                   os.environ.get("PURGE_INT_EXEMPTS", "rianah").split(",") if x.strip()]
+
+        def est_exempt(m):
+            cles = [normaliser(m.display_name), normaliser(m.name), str(m.id)]
+            return any(e and any(e in c or c == e for c in cles) for e in exempts)
+
         cibles, gardes = [], []
         for m in grille_int.members:
             if m.bot:
+                continue
+            if est_exempt(m):
+                gardes.append((m, "exempté nommément (PURGE_INT_EXEMPTS)"))
                 continue
             noms_roles = [normaliser(r.name) for r in m.roles]
             if any(any(p in n for p in ROLES_PROTEGES) for n in noms_roles):
