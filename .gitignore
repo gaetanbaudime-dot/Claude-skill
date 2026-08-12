@@ -8,6 +8,9 @@ second-brain/.obsidian/plugins/obsidian-git/data.json
 tools/bot_clippers/.env
 tools/bot_clippers/donnees/
 
+# Connecteur Metricool — le jeton d'API ne vit que dans l'environnement
+tools/mcp_metricool/.env
+
 # macOS
 .DS_Store
 
