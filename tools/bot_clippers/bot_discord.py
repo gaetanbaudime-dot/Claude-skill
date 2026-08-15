@@ -79,6 +79,10 @@ ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
 # candidat doit pouvoir la lire. Les discussions restent derrière les rôles Team (signés/actifs).
 ROLE_GRILLE_FR_NOM = os.environ.get("ROLE_GRILLE_FR_NOM", "Grille France").strip()
 ROLE_GRILLE_INT_NOM = os.environ.get("ROLE_GRILLE_INT_NOM", "Grille International").strip()
+# Recrutement international en PAUSE (décision de Gaëtan du 15/08/2026, après 0 conversion
+# sur ~130 candidatures internationales) : le quiz d'un candidat International n'envoie plus
+# le test 48 h. Actif par défaut ; poser PAUSE_INT=0 dans Railway pour rouvrir.
+INT_EN_PAUSE = os.environ.get("PAUSE_INT", "1").strip() != "0"
 
 # Portes d'entrée : une invitation Discord DÉDIÉE par canal permet de savoir d'où arrive chaque
 # membre (fin du formulaire, Disboard, Indeed…) et d'adapter l'accueil.
@@ -782,6 +786,23 @@ async def traiter_quiz_webhook(message, silencieux=False):
         if not silencieux:
             await message.channel.send(f"ℹ️ {membre_trouve.mention} a déjà reçu le test (état : {etat_actuel}) — rien renvoyé.")
         return
+    # Recrutement international en pause (décision du 15/08) : le quiz d'un candidat
+    # International ne déclenche plus le test. On lui dit honnêtement où il en est —
+    # un candidat informé attend ou part, un candidat sans réponse pose des questions
+    # dans tous les salons. L'admin peut toujours forcer au cas par cas via !quiz-ok.
+    if INT_EN_PAUSE:
+        code_g, _ = equipe_deduite(membre_trouve.id)
+        if code_g == "mg":
+            await envoyer_mp(membre_trouve,
+                "🎉 Bien joué pour le quiz ! Par contre, une info transparente : **le recrutement "
+                "international est en pause** pour le moment — l'agence se concentre sur la "
+                "grille France ce trimestre. Ton score est enregistré : si on rouvre, tu seras "
+                "recontacté en priorité, sans repasser le quiz. Merci pour ta motivation 🙏")
+            if not silencieux:
+                await message.channel.send(f"⏸️ {membre_trouve.mention} a validé le quiz ({score}) mais le "
+                                           f"recrutement **International est en pause** — test non envoyé, "
+                                           f"candidat prévenu en MP. Forcer : `!quiz-ok {membre_trouve.display_name}`.")
+            return
     envoye = await envoyer_test_candidat(membre_trouve, score)
     await message.channel.send(
         (f"🧪 Test envoyé automatiquement en MP à {membre_trouve.mention} (quiz {score}). Relance auto à 24 h.")
@@ -1709,6 +1730,75 @@ async def executer_rafale(message, lignes_cmd: list):
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
     # ---- !audit : carte complète du serveur + écarts à la doctrine des 3 étages ----
+    # ---- !pourquoi : pourquoi CE membre ne voit pas CE salon ----
+    # Né du cas Quentin (11→15/08) : quatre jours perdus à se renvoyer des captures
+    # d'écran pendant qu'un clipper sous contrat ne pouvait pas démarrer. L'audit disait
+    # « #ressources public », Discord disait non. Cette commande calcule la permission
+    # effective ET nomme la ligne qui bloque, au lieu de laisser deviner.
+    if texte.startswith("!pourquoi"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        corps = texte[len("!pourquoi"):].strip()
+        canal = message.channel_mentions[0] if message.channel_mentions else None
+        if canal is None:                      # repli : nom de salon en toutes lettres
+            mots = corps.replace("#", " ").split()
+            for mot in mots:
+                trouve = discord.utils.find(lambda c: normaliser(mot) and normaliser(mot) in normaliser(c.name),
+                                            [c for c in g.channels if isinstance(c, (discord.TextChannel,
+                                                                                     discord.ForumChannel))])
+                if trouve:
+                    canal = trouve
+                    corps = corps.replace(mot, "").replace("#", "").strip()
+                    break
+        membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
+        if membre is None or canal is None:
+            await message.reply("Format : `!pourquoi @membre #salon` — ou `!pourquoi Quentin ressources`.")
+            return True
+
+        perms = canal.permissions_for(membre)
+        voit = perms.view_channel
+        lignes = [f"🔎 **{membre.display_name}** face à **#{canal.name}**", "",
+                  ("✅ **Discord lui accorde l'accès.**" if voit
+                   else "❌ **Discord lui refuse l'accès.**"), ""]
+
+        # Chaîne des overwrites, dans l'ordre où Discord les applique.
+        chaine = [("@everyone", canal.overwrites_for(g.default_role).view_channel)]
+        for r in membre.roles:
+            if r == g.default_role:
+                continue
+            chaine.append((f"rôle « {r.name} »", canal.overwrites_for(r).view_channel))
+        chaine.append((f"réglage direct sur {membre.display_name}", canal.overwrites_for(membre).view_channel))
+        lignes.append("**Ce que dit chaque ligne de permission :**")
+        for etiquette, valeur in chaine:
+            symbole = {True: "✅ autorise", False: "⛔ REFUSE", None: "· ne dit rien"}[valeur]
+            lignes.append(f"· {etiquette} → {symbole}")
+
+        refus = [e for e, v in chaine if v is False]
+        autorise = [e for e, v in chaine if v is True]
+        lignes.append("")
+        if not voit and refus:
+            lignes += [f"🎯 **Le blocage vient de : {', '.join(refus)}.**",
+                       "Retire « Voir le salon » de cette ligne dans les permissions du salon, "
+                       "ou donne un ✅ explicite au rôle qui doit voir (au niveau des rôles, "
+                       "une autorisation l'emporte sur un refus)."]
+        elif not voit:
+            lignes += ["🎯 **Aucune ligne ne refuse explicitement, et pourtant il ne voit pas.** "
+                       "C'est donc que personne ne l'autorise : @everyone ne dit rien et aucun de ses "
+                       "rôles n'a « Voir le salon ». Ajoute le rôle voulu aux permissions du salon."]
+        else:
+            lignes += ["🎯 **Discord lui accorde l'accès.** S'il ne voit toujours rien à l'écran, "
+                       "ce n'est PAS une histoire de permissions :",
+                       "· **Onboarding / « Personnaliser la communauté »** : si ce salon est un salon "
+                       "**opt-in**, il reste masqué pour qui ne l'a pas coché en arrivant. "
+                       "Serveur → Onboarding → sors le salon des questions, ou passe-le en salon par défaut.",
+                       "· Ou le salon est **replié** dans une catégorie masquée côté client : "
+                       "fais-lui faire un clic droit sur la catégorie → « Afficher les salons masqués ».",
+                       "· Un redémarrage complet de son client Discord règle le cache."]
+        await envoyer_long(message, lignes)
+        return True
+
     if texte.startswith("!audit"):
         g = message.guild
         if g is None:
