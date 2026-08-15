@@ -161,7 +161,16 @@ MESSAGE_ESCALADE = (
     "ou note-la pour le formulaire du dimanche."
 )
 
-INSTRUCTIONS = f"""Tu es « LTP Assistant », le bot d'aide aux clippers de l'équipe.
+# Le nom sous lequel le bot se présente DOIT être son vrai nom Discord : un candidat à qui
+# on dit « envoie ton numéro à LTP Assistant » cherche ce pseudo dans la liste des membres,
+# ne le trouve pas, et se perd (cas Paul-Adrien, 12/08 — 3 messages pour rien).
+NOM_BOT = os.environ.get("NOM_BOT", "G&M Assistant Marketing").strip()
+
+INSTRUCTIONS = f"""Tu es « {NOM_BOT} », le bot d'aide aux clippers de l'équipe.
+Fait capital : tu es AUSSI le bot du tunnel candidat — le numéro en MP, !lier, le quiz, le
+test, le contrat, c'est TOI, le même compte Discord, le même nom. Quand quelqu'un demande
+« quel bot ? » ou « tu as reçu mon MP ? », la réponse est : c'est moi, envoie ton numéro ici
+même en message privé. Tu ne renvoies JAMAIS vers un « autre bot ».
 Ton unique rôle : répondre aux questions des clippers à partir de la BASE DE CONNAISSANCES \
 ci-dessous (le kit clipper officiel + la stratégie marketing de l'équipe), et rien d'autre.
 
@@ -199,7 +208,13 @@ question sur le test de montage = c'est du MONTAGE, pas la création de comptes 
 et ne redemande JAMAIS une info déjà donnée plus haut. Par défaut tu RÉPONDS directement avec \
 l'interprétation la plus probable (en ajoutant au besoin « dis-moi si tu voulais dire autre \
 chose ») ; ne pose une vraie question de clarification que si deviner est vraiment impossible, \
-et jamais deux fois de suite."""
+et jamais deux fois de suite.
+10bis. Dans les salons d'équipe et de pods (quand on te mentionne hors du salon assistant), \
+tu es un COACH, pas un standard : un clipper partage un palier de vues → félicite en UNE \
+phrase avec son chiffre, puis UN conseil actionnable du kit (liens posés partout ? page FB \
+optimisée ? → Fiche 1 et Fiche 5). Un screenshot d'avertissement Meta/Instagram → réponds \
+selon la base, dis clairement si c'est grave ou pas, et ce qu'il faut changer (ou rien). \
+Même registre que l'équipe : direct, chaleureux, zéro blabla."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
@@ -794,10 +809,11 @@ async def traiter_quiz_webhook(message, silencieux=False):
         code_g, _ = equipe_deduite(membre_trouve.id)
         if code_g == "mg":
             await envoyer_mp(membre_trouve,
-                "🎉 Bien joué pour le quiz ! Par contre, une info transparente : **le recrutement "
-                "international est en pause** pour le moment — l'agence se concentre sur la "
-                "grille France ce trimestre. Ton score est enregistré : si on rouvre, tu seras "
-                "recontacté en priorité, sans repasser le quiz. Merci pour ta motivation 🙏")
+                "🎉 Bien joué pour le quiz — ton score est enregistré, tu n'auras pas à le "
+                "repasser.\n\n📅 Info transparente : **la grille internationale ouvre le "
+                "1er octobre 2026**. D'ici là, pas de test ni de contrat — tu seras recontacté "
+                "en priorité au lancement. En attendant : reste sur le serveur et fais des "
+                "bumps dans #bump, ça aide l'équipe et ça se voit. 💪")
             if not silencieux:
                 await message.channel.send(f"⏸️ {membre_trouve.mention} a validé le quiz ({score}) mais le "
                                            f"recrutement **International est en pause** — test non envoyé, "
@@ -1167,6 +1183,7 @@ async def boucle_pipeline():
                     await envoyer_mp(membre_r, txt24)
 
             liaisons_d = donnees.get("liaisons", {})
+            equipes_r = lire_json(FICHIER_EQUIPES, {})     # signés/onboardés = tunnel terminé
             # ① Arrivé sur le serveur mais jamais lié (pas de numéro envoyé).
             for uid, arr in list(donnees.get("arrivees", {}).items()):
                 if uid in liaisons_d:
@@ -1193,6 +1210,28 @@ async def boucle_pipeline():
             for uid, info in list(donnees.get("etats", {}).items()):
                 etat_c = info.get("etat")
                 rel = info.setdefault("relances", {})
+                # Déjà signé/onboardé via !equipe (ex. signature faite en direct avec Gaëtan,
+                # cas Hugo) : le tunnel est terminé, plus aucune relance ni compteur.
+                if uid in equipes_r:
+                    continue
+                # Internationaux : les relances e-mail/contrat sont des relances vers un
+                # CONTRAT FRANCE — elles ne les concernent pas (Imelda a reçu « signe ton
+                # contrat » en boucle après avoir accepté ses conditions). Pendant la pause,
+                # un message unique donne la date de lancement au lieu du harcèlement.
+                code_rel, _ = equipe_deduite(uid)
+                if code_rel == "mg":
+                    if INT_EN_PAUSE and not rel.get("pause_int_ok"):
+                        rel["pause_int_ok"] = True
+                        modifie = True
+                        membre_int = membre_par_id(uid)
+                        if membre_int:
+                            await envoyer_mp(membre_int,
+                                "📅 **Info de l'équipe** : la grille internationale ouvre le "
+                                "**1er octobre 2026**. Ton dossier est conservé (quiz compris) et tu "
+                                "seras recontacté en priorité au lancement. D'ici là : reste sur le "
+                                "serveur et fais des bumps dans #bump — ça aide l'équipe et ça se "
+                                "voit. 💪")
+                    continue
                 # ③ Validé mais e-mail jamais envoyé → le contrat ne peut pas partir.
                 if etat_c == "valide" and not liaisons_d.get(uid, {}).get("email"):
                     await _relancer(rel, "mail24", "mail48", info.get("validation"), uid,
@@ -1221,6 +1260,36 @@ async def boucle_pipeline():
                             await canal_r.send(f"⏳ **Contrat non signé depuis 48 h** : {membre_r.mention}. "
                                                f"Relance-le, ou `!contrat {membre_r.display_name}` pour un "
                                                "nouveau lien.")
+                    # J+7 : dernier appel. J+14 : expiration automatique. Constat du 15/08 :
+                    # 4 contrats zombies à J+14 ou plus traînaient dans !pipeline — un contrat
+                    # non signé à deux semaines ne se signe plus, et le laisser « envoye »
+                    # pollue compteurs et relances pour toujours. L'expiration est réversible
+                    # en un !contrat si le candidat se réveille.
+                    if age_c >= 7 * 24 and not rel.get("sign7j"):
+                        rel["sign7j"] = True
+                        modifie = True
+                        membre_c = membre_par_id(uid)
+                        if membre_c:
+                            await envoyer_mp(membre_c,
+                                "⏳ **Dernier appel** : ton contrat t'attend depuis une semaine. "
+                                "Sans signature d'ici **7 jours**, il expire et ta place repart "
+                                "dans le circuit. 2 minutes pour signer (lien plus haut ↑), ou "
+                                "dis-moi ici si tu as un blocage ou si tu préfères arrêter — "
+                                "les deux réponses se respectent.")
+                    if age_c >= 14 * 24:
+                        contrat_c["statut"] = "expire"
+                        modifie = True
+                        membre_c = membre_par_id(uid)
+                        if membre_c:
+                            await envoyer_mp(membre_c,
+                                "🗓️ Ton contrat a **expiré** (14 jours sans signature) et ta place "
+                                "est repartie dans le circuit. Si tu veux toujours nous rejoindre, "
+                                "réponds simplement ici — on peut le réactiver.")
+                        canal_r = await canal_admin()
+                        if canal_r:
+                            await canal_r.send(f"🗑️ Contrat de <@{uid}> **expiré automatiquement** "
+                                               f"(14 j sans signature) — sorti des compteurs. "
+                                               f"Le réactiver : `!contrat` avec son nom.")
                 # ⑤ Test expiré : prévenir le jour où le retest s'ouvre (une fois).
                 if etat_c == "test_expire" and info.get("retest") and not rel.get("retest_ok") \
                         and maintenant >= datetime.fromisoformat(info["retest"]):
@@ -1965,6 +2034,53 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, bilan)
         return True
 
+    # ---- !annonce-int : prévenir tous les internationaux restants du lancement au 1er octobre ----
+    # Après la purge et la pause, il reste des internationaux légitimes sur le serveur
+    # (tunnel en cours, exemptés, ambigus). Un message clair et daté vaut mieux que le
+    # silence : un candidat informé attend, un candidat sans nouvelle pose des questions
+    # partout. `!annonce-int` = liste sans envoyer · `!annonce-int envoyer` = exécute.
+    if texte.startswith("!annonce-int"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        envoyer_vraiment = "envoy" in normaliser(texte)
+        deja = lire_json(FICHIER_PIPELINE, {}).get("annonce_int", [])
+        cibles = []
+        for m in g.members:
+            if m.bot or any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in m.roles):
+                continue
+            code_a, _ = equipe_deduite(m.id)
+            a_role_int = any(normaliser(ROLE_GRILLE_INT_NOM) in normaliser(r.name)
+                             or normaliser(ROLE_TEAM_MG_NOM) in normaliser(r.name) for r in m.roles)
+            if (code_a == "mg" or a_role_int) and str(m.id) not in deja:
+                cibles.append(m)
+        if not envoyer_vraiment:
+            await envoyer_long(message, [f"📅 **Annonce internationale (1er octobre)** — SIMULATION",
+                                         f"{len(cibles)} membre(s) recevraient le message :"]
+                               + [f"· {m.display_name}" for m in cibles[:40]]
+                               + ([f"… et {len(cibles) - 40} autres."] if len(cibles) > 40 else [])
+                               + ["", "Pour envoyer : `!annonce-int envoyer`"])
+            return True
+        ok, fermes = 0, 0
+        for m in cibles:
+            reussi = await envoyer_mp(m,
+                "📅 **Info officielle de l'équipe** : la grille internationale ouvre le "
+                "**1er octobre 2026**. Ton dossier est conservé (candidature et quiz compris) "
+                "et tu seras recontacté en priorité au lancement — rien à refaire.\n\n"
+                "D'ici là : reste sur le serveur et fais des **bumps** dans #bump (`/bump` "
+                "puis `!bumps` pour le classement) — ça aide l'équipe et on le voit. 💪")
+            ok += 1 if reussi else 0
+            fermes += 0 if reussi else 1
+            deja.append(str(m.id))
+            await asyncio.sleep(1.2)
+        donnees_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        donnees_a["annonce_int"] = deja
+        ecrire_json(FICHIER_PIPELINE, donnees_a)
+        await message.reply(f"📅 Annonce envoyée à **{ok}** membre(s)"
+                            + (f" · {fermes} MP fermés (pas reçus)." if fermes else "."))
+        return True
+
     # ---- !acces : applique la doctrine d'accès aux salons (rôles → « Voir le salon ») ----
     # `!acces` = simulation (montre ce qui changerait, ne touche à rien).
     # `!acces appliquer` = exécute. Idempotent : à relancer dès qu'un accès dérive.
@@ -2523,14 +2639,19 @@ async def commande_admin(message, texte: str) -> bool:
 
         rendus_n = sorted(((u, _anciennete(i.get("rendu"))) for u, i in etats.items()
                            if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
+        # Les signés via !equipe (ex. signature en direct avec Gaëtan) et les contrats
+        # expirés (14 j sans signature) sortent des listes d'attente : ce sont des cas
+        # réglés, pas des relances à faire.
+        deja_signes = set(lire_json(FICHIER_EQUIPES, {}))
         valides_n = sorted(((u, _anciennete(i.get("validation"))) for u, i in etats.items()
-                            if i.get("etat") == "valide"
+                            if i.get("etat") == "valide" and u not in deja_signes
                             and not (i.get("contrat") or {}).get("submission_id")),
                            key=lambda x: -x[1])
         contrats_n = sorted(((u, _anciennete((i.get("contrat") or {}).get("date")))
                              for u, i in etats.items()
                              if (i.get("contrat") or {}).get("submission_id")
-                             and (i.get("contrat") or {}).get("statut") != "complet"),
+                             and u not in deja_signes
+                             and (i.get("contrat") or {}).get("statut") not in ("complet", "expire")),
                             key=lambda x: -x[1])
         if rendus_n:
             lignes.append("→ 📥 À reviewer (`!test-ok` / `!test-non`) : "
@@ -3155,6 +3276,23 @@ async def on_message(message):
         ecrire_json(FICHIER_PIPELINE, donnees_pipe)
         etat_cand = donnees_pipe.get("etats", {}).get(str(utilisateur), {}).get("etat", "")
         canal = await canal_admin()
+        # Le contrat DocuSeal est un document FRANCE. Un validé International qui envoie son
+        # e-mail ne doit PAS le recevoir (vécu par Imelda et Alex, 10-12/08 : contrat France
+        # + relances J+24/J+48 alors qu'ils avaient accepté leurs conditions International).
+        code_grille, _motif_grille = equipe_deduite(utilisateur)
+        if etat_cand == "valide" and code_grille == "mg":
+            await message.reply("📧 Bien reçu, ton e-mail est enregistré (il servira pour le Drive)."
+                                + ("\n\n📅 Info importante : **la grille internationale ouvre le "
+                                   "1er octobre 2026**. D'ici là pas de contrat ni d'attribution — "
+                                   "ton dossier est prêt et tu seras recontacté en priorité au "
+                                   "lancement. En attendant : reste sur le serveur et fais des "
+                                   "bumps dans #bump, ça compte. 💪" if INT_EN_PAUSE else
+                                   "\nTes conditions International arrivent séparément — pas de "
+                                   "contrat France à signer pour toi."))
+            if canal:
+                await canal.send(f"📧 E-mail reçu de <@{utilisateur}> (International) — contrat France "
+                                 f"**non envoyé**" + (" (pause jusqu'au 01/10)." if INT_EN_PAUSE else "."))
+            return
         if etat_cand == "valide":
             # v2 : le contrat part tout seul — création DocuSeal + lien de signature EN MP.
             tel_liaison = donnees_pipe.get("liaisons", {}).get(str(utilisateur), {}).get("tel", "")
