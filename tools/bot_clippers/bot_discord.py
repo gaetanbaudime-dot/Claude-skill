@@ -1920,6 +1920,39 @@ async def commande_admin(message, texte: str) -> bool:
                            (problemes if problemes else ["✅ Aucune incohérence détectée — la structure est propre."]))
         return True
 
+    # ---- !ban-spam : bannir un démarcheur signalé par le filet anti-spam ----
+    # Le filet supprime et alerte ; le ban du démarchage « soft » reste une décision
+    # humaine. Cette commande la rend instantanée : ban + purge de ses messages 7 jours.
+    if texte.startswith("!ban-spam"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        if not g.me.guild_permissions.ban_members:
+            await message.reply("❌ Il me manque la permission « Bannir des membres ».")
+            return True
+        corps = texte[len("!ban-spam"):].strip()
+        membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
+        if membre is None:
+            await message.reply("Format : `!ban-spam @membre` — ou `!ban-spam Pseudo`.")
+            return True
+        if str(membre.id) in lire_json(FICHIER_EQUIPES, {}) \
+                or any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in membre.roles):
+            await message.reply(f"🛑 **{membre.display_name}** est signé ou protégé — pas de ban-spam "
+                                "sur un membre d'équipe. Si c'est vraiment voulu, fais-le à la main "
+                                "dans Discord.")
+            return True
+        try:
+            await g.ban(membre, reason=f"Spam/démarchage — !ban-spam par {message.author.display_name}",
+                        delete_message_seconds=7 * 86400)
+        except (discord.Forbidden, discord.HTTPException) as e:    # noqa: BLE001
+            await message.reply(f"❌ Ban impossible ({type(e).__name__}) — mon rôle est sans doute "
+                                "sous le sien.")
+            return True
+        await message.reply(f"🔨 **{membre.display_name} banni** — ses messages des 7 derniers jours "
+                            "sont supprimés.")
+        return True
+
     # ---- !purge-int : sortir du serveur les candidats internationaux NON signés ----
     # Décision du 12/08 : l'agence se concentre sur la grille FR. Le flux international
     # venait à 96 % de Telegram ; couper Telegram tarit la source, cette commande vide
@@ -3180,6 +3213,65 @@ async def on_member_join(member):
         await accueillir(member)
 
 
+# ------------------------------------------------------------------ filet anti-spam
+# Deux niveaux, parce qu'un ban ne se rattrape pas :
+#   BAN direct  : invitation vers un AUTRE serveur Discord — c'est le raid classique,
+#                 aucun candidat légitime n'a de raison de poster ça.
+#   Signalement : démarchage (« DM me », « nische », telegram/whatsapp + promesse d'argent)
+#                 → message supprimé + alerte admin avec le texte, le ban reste humain.
+# Ne s'applique QU'AUX membres sans aucun rôle et hors équipe signée : un clipper ou un
+# candidat avancé ne déclenche jamais le filet.
+MOTIFS_SPAM_BAN = re.compile(r"discord\.gg/|discord\.com/invite/", re.IGNORECASE)
+# « invest\b » et non « invest » : « j'ai investi du temps dans mon montage » est une
+# phrase de candidat sincère, pas du démarchage — le mot français continue après le t.
+MOTIFS_SPAM_ALERTE = re.compile(
+    r"(nische|evergreen|passive income|revenu passif|dm me|write me|schreib mir"
+    r"|profit garanti|invest\b|investment|crypto|forex|trading|telegram\s*[:@]|wa\.me/)",
+    re.IGNORECASE)
+
+
+async def filtrer_spam(message) -> bool:
+    """Supprime/bannit le spam évident des membres sans rôle. Renvoie True si le message a été traité."""
+    auteur = message.author
+    if getattr(auteur, "roles", None) is None or len(auteur.roles) > 1:   # un rôle au-delà de @everyone = pas touché
+        return False
+    if str(auteur.id) in lire_json(FICHIER_EQUIPES, {}):
+        return False
+    contenu = message.content or ""
+    invitation = MOTIFS_SPAM_BAN.search(contenu)
+    if invitation and message.guild.vanity_url_code and message.guild.vanity_url_code in contenu:
+        invitation = None                                     # notre propre lien d'invitation
+    demarchage = MOTIFS_SPAM_ALERTE.search(contenu)
+    if not invitation and not demarchage:
+        return False
+    try:
+        await message.delete()
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    canal = await canal_admin()
+    extrait = contenu[:300].replace("http", "hxxp")           # lien désamorcé dans l'alerte
+    if invitation and message.guild.me.guild_permissions.ban_members:
+        try:
+            await message.guild.ban(auteur, reason="Spam : invitation vers un autre serveur",
+                                    delete_message_seconds=7 * 86400)
+            if canal:
+                await canal.send(f"🔨 **{auteur} banni automatiquement** — invitation vers un autre "
+                                 f"serveur postée dans #{message.channel.name} :\n> {extrait}")
+            journal.info("Anti-spam : %s banni (invitation)", auteur.id)
+            return True
+        except (discord.Forbidden, discord.HTTPException) as e:   # noqa: BLE001
+            if canal:
+                await canal.send(f"⚠️ Spam d'invitation détecté de {auteur.mention} mais ban impossible "
+                                 f"({type(e).__name__}) — message supprimé, bannis-le à la main.")
+            return True
+    if canal:
+        await canal.send(f"🚨 **Démarchage suspect** de {auteur.mention} dans #{message.channel.name} "
+                         f"(message supprimé) :\n> {extrait}\n"
+                         f"→ Pour bannir : `!ban-spam {auteur.display_name}`")
+    journal.info("Anti-spam : message de %s supprimé (démarchage)", auteur.id)
+    return True
+
+
 @client.event
 async def on_message(message):
     if message.author.id == DISBOARD_ID:      # les messages de DISBOARD servent à détecter les bumps
@@ -3196,6 +3288,15 @@ async def on_message(message):
         return
     if message.author.bot:
         return
+
+    # ---- Filet anti-spam (salons du serveur uniquement, jamais les MP) ----
+    # Décision du 15/08 après le démarchage « Evergreen-Nische » dans #assistant-ia : les
+    # spammeurs sont des arrivants SANS rôle qui postent invitations ou démarchage. Un
+    # membre d'équipe, du staff ou un candidat lié n'est JAMAIS banni par ce filet.
+    if message.guild is not None and not message.author.bot:
+        banni = await filtrer_spam(message)
+        if banni:
+            return
 
     texte = nettoyer(message)
     utilisateur = message.author.id

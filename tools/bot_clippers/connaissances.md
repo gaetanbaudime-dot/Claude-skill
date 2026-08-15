@@ -295,7 +295,7 @@ Combien mettre ? Le montant exact validé dans ton décompte — jamais un monta
 
 **Où est la liste des créatrices à suivre pour le warm-up ?** Dans le salon **#ressources**. Si tu ne vois pas ce salon : redémarre complètement Discord (le salon vient d'être ouvert à tous) ; toujours rien → dis-le dans #assistant-ia.
 
-**Je crée mon compte Gmail moi-même ?** **Oui.** Chaque compte Instagram a besoin de sa propre adresse — tu les crées toi-même, c'est la première étape de la Fiche 1. Personne ne te fournit d'adresses toutes faites.
+**Je crée mon compte Gmail moi-même ?** **Non — c'est Gaëtan qui te fournit les identifiants** : l'adresse mail, le mot de passe et le nom d'utilisateur de chaque compte. Toi, tu utilises ces identifiants pour **créer les comptes Instagram** (Fiche 1). Tu n'inventes ni adresse ni pseudo : tout t'est donné dans ton salon privé. Tu n'as pas encore reçu tes identifiants → demande dans ton salon en mentionnant Gaëtan.
 
 **J'édite ma facture à quel nom ?** Le nom exact de l'agence figure **sur ton contrat** (la partie qui signe en face de toi). Recopie-le tel quel sur ta facture. Un doute → demande dans #reporting.
 
