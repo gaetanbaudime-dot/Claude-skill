@@ -3214,20 +3214,30 @@ async def on_member_join(member):
 
 
 # ------------------------------------------------------------------ filet anti-spam
-# Deux niveaux, parce qu'un ban ne se rattrape pas :
-#   BAN direct  : invitation vers un AUTRE serveur Discord — c'est le raid classique,
-#                 aucun candidat légitime n'a de raison de poster ça.
-#   Signalement : démarchage (« DM me », « nische », telegram/whatsapp + promesse d'argent)
+# Trois niveaux, parce qu'un ban ne se rattrape pas :
+#   BAN direct  : lien d'invitation vers un AUTRE serveur/canal — Discord, Telegram,
+#                 WhatsApp. Aucun candidat légitime n'a de raison d'en poster. Leçon du
+#                 19/08 : le spam « SafeBet Syndicates » est passé avec un lien t.me
+#                 pendant que le filet ne surveillait que discord.gg.
+#   Signalement : démarchage (« DM me », « nische », paris sportifs, promesse d'argent)
 #                 → message supprimé + alerte admin avec le texte, le ban reste humain.
+#   Lien inconnu: N'IMPORTE QUELLE URL postée en salon par un membre sans rôle → message
+#                 supprimé + alerte. Un candidat n'a rien à poster comme lien en public
+#                 (le test se rend en MP) ; un spammeur, si. Réversible, jamais de ban.
 # Ne s'applique QU'AUX membres sans aucun rôle et hors équipe signée : un clipper ou un
 # candidat avancé ne déclenche jamais le filet.
-MOTIFS_SPAM_BAN = re.compile(r"discord\.gg/|discord\.com/invite/", re.IGNORECASE)
+MOTIFS_SPAM_BAN = re.compile(
+    r"discord\.gg/|discord\.com/invite/|t\.me/|telegram\.me/|wa\.me/|chat\.whatsapp\.com/",
+    re.IGNORECASE)
 # « invest\b » et non « invest » : « j'ai investi du temps dans mon montage » est une
 # phrase de candidat sincère, pas du démarchage — le mot français continue après le t.
 MOTIFS_SPAM_ALERTE = re.compile(
     r"(nische|evergreen|passive income|revenu passif|dm me|write me|schreib mir"
-    r"|profit garanti|invest\b|investment|crypto|forex|trading|telegram\s*[:@]|wa\.me/)",
+    r"|profit garanti|invest\b|investment|crypto|forex|trading|telegram\s*[:@]"
+    r"|betting|match selection|syndicate|vip signal|pronostic|paris sportifs"
+    r"|1xbet|melbet|bet365)",
     re.IGNORECASE)
+MOTIF_URL = re.compile(r"https?://\S+", re.IGNORECASE)
 
 
 async def filtrer_spam(message) -> bool:
@@ -3242,6 +3252,8 @@ async def filtrer_spam(message) -> bool:
     if invitation and message.guild.vanity_url_code and message.guild.vanity_url_code in contenu:
         invitation = None                                     # notre propre lien d'invitation
     demarchage = MOTIFS_SPAM_ALERTE.search(contenu)
+    if not demarchage and not invitation and MOTIF_URL.search(contenu):
+        demarchage = True                                     # URL quelconque d'un sans-rôle → niveau 2
     if not invitation and not demarchage:
         return False
     try:

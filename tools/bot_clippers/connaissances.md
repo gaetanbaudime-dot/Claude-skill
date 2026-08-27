@@ -293,6 +293,8 @@ Combien mettre ? Le montant exact validé dans ton décompte — jamais un monta
 
 **J'ai signé / accepté mais pas de salon privé ni de créatrice ?** Deux régimes différents. **Team France** : tout est automatique — rôle + espace + lien de tracking quelques minutes après la signature ; si rien, redémarre Discord complètement, puis renvoie ton numéro en MP. **Team International** : les attributions (créatrice, salon, lien de tracking) démarrent **au lancement de la grille internationale, le 1er octobre 2026** — pas avant, pour personne. Ton « J'ACCEPTE » est bien enregistré, tu n'as rien d'autre à faire.
 
+**Je peux contacter quelqu'un qui n'est pas un robot ?** **Oui, bien sûr.** Le circuit humain : écris dans **#assistant-ia** en **mentionnant @Gaëtan** avec ta question et un screenshot si utile — il lit ce salon et répond en personne. Si tu es déjà sous contrat, tu as aussi ton salon privé et le WhatsApp de l'équipe. Le bot est là pour les réponses immédiates 24h/24, pas pour te remplacer un humain quand il en faut un.
+
 **Où est la liste des créatrices à suivre pour le warm-up ?** Dans le salon **#ressources**. Si tu ne vois pas ce salon : redémarre complètement Discord (le salon vient d'être ouvert à tous) ; toujours rien → dis-le dans #assistant-ia.
 
 **Je crée mon compte Gmail moi-même ?** **Non — c'est Gaëtan qui te fournit les identifiants** : l'adresse mail, le mot de passe et le nom d'utilisateur de chaque compte. Toi, tu utilises ces identifiants pour **créer les comptes Instagram** (Fiche 1). Tu n'inventes ni adresse ni pseudo : tout t'est donné dans ton salon privé. Tu n'as pas encore reçu tes identifiants → demande dans ton salon en mentionnant Gaëtan.
