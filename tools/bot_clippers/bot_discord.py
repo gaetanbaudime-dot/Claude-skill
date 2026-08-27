@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import time
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -270,6 +271,17 @@ def repondre_sync(messages) -> str:
     except anthropic.RateLimitError:
         return "Trop de questions en même temps, réessaie dans une minute."
     except anthropic.APIStatusError as erreur:
+        # Un candidat a reçu « petit souci technique » 3 fois sur 2 jours (Narovana,
+        # 21-22/08) sans qu'aucun admin ne le sache : on réessaie UNE fois avant
+        # d'abandonner — la moitié des erreurs 5xx/surcharge passent au 2e coup.
+        if erreur.status_code >= 500 or erreur.status_code == 529:
+            time.sleep(2)
+            try:
+                reponse = claude.messages.create(model=MODELE, max_tokens=500,
+                                                 system=bloc_systeme(), messages=messages)
+                return "".join(b.text for b in reponse.content if b.type == "text")
+            except Exception:                                   # noqa: BLE001
+                pass
         journal.error("Erreur API Claude %s : %s", erreur.status_code, erreur.message)
         return "Petit souci technique de mon côté. Réessaie dans quelques minutes."
     except anthropic.APIConnectionError:
@@ -1167,6 +1179,26 @@ async def boucle_pipeline():
 
             async def _relancer(cible_dict, cle24, cle48, iso, uid_r, txt24, txt48):
                 nonlocal modifie
+                # STOP universel (demandé en MP) : plus aucune relance pour cette personne.
+                if cible_dict.get("stop"):
+                    return
+                # Internationaux pendant la pause : les relances « lie-toi / passe le quiz »
+                # deviennent du harcèlement sans issue (constat Mandresy/Narovana, 22/08 :
+                # « ce message arrive tous les jours et ça trouble »). Un message unique
+                # donne la date du 1er octobre, puis silence.
+                code_rel, _ = equipe_deduite(uid_r)
+                if code_rel == "mg" and INT_EN_PAUSE:
+                    if not cible_dict.get("pause_int_ok"):
+                        cible_dict["pause_int_ok"] = True
+                        modifie = True
+                        membre_p = membre_par_id(uid_r)
+                        if membre_p:
+                            await envoyer_mp(membre_p,
+                                "📅 **Plus de rappels pour toi d'ici le lancement** : la grille "
+                                "internationale ouvre le **1er octobre 2026**. Ton dossier est "
+                                "conservé, tu seras recontacté en priorité. D'ici là : reste sur "
+                                "le serveur et fais des bumps dans #bump. 💪")
+                    return
                 age = _age_h(iso)
                 if age < 24:
                     return
@@ -1918,6 +1950,74 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, carte)
         await envoyer_long(message, ["🩺 **Écarts à la doctrine**"] +
                            (problemes if problemes else ["✅ Aucune incohérence détectée — la structure est propre."]))
+        return True
+
+    # ---- !secu : appliquer les réglages anti-raid du serveur en une commande ----
+    # Décision du 26/08 (vague de bots SafeBet) : deux protections NATIVES Discord en
+    # plus du filet du bot — elles tiennent même quand le bot est éteint.
+    #   · Niveau de vérification ÉLEVÉ : 10 min de présence avant de pouvoir écrire,
+    #     ça tue les bots qui postent à la seconde où ils arrivent.
+    #   · AutoMod : blocage des mentions en masse (>5) et des liens d'invitation
+    #     Discord/Telegram/WhatsApp, côté serveur.
+    # `!secu` = état actuel · `!secu appliquer` = exécute.
+    if texte.startswith("!secu"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        appliquer = "appliqu" in normaliser(texte)
+        lignes = ["🛡️ **Sécurité du serveur**", "",
+                  f"· Niveau de vérification actuel : **{g.verification_level.name}**"
+                  + ("" if g.verification_level >= discord.VerificationLevel.high
+                     else " → sera passé à **high** (10 min de présence avant d'écrire)")]
+        regles_existantes = []
+        try:
+            regles_existantes = [r.name for r in await g.fetch_automod_rules()]
+            lignes.append(f"· Règles AutoMod en place : {', '.join(regles_existantes) or 'aucune'}")
+        except (discord.Forbidden, discord.HTTPException):
+            lignes.append("· AutoMod : lecture impossible (permission « Gérer le serveur » requise).")
+        if not appliquer:
+            lignes += ["", "Pour appliquer : `!secu appliquer`"]
+            await envoyer_long(message, lignes)
+            return True
+
+        bilan = []
+        try:
+            if g.verification_level < discord.VerificationLevel.high:
+                await g.edit(verification_level=discord.VerificationLevel.high,
+                             reason="!secu — anti-raid")
+                bilan.append("✅ Niveau de vérification passé à **high**.")
+            else:
+                bilan.append("· Niveau de vérification déjà suffisant.")
+        except (discord.Forbidden, discord.HTTPException) as e:     # noqa: BLE001
+            bilan.append(f"❌ Vérification : {type(e).__name__} — il me faut « Gérer le serveur ».")
+        try:
+            if "Anti mention en masse" not in regles_existantes:
+                await g.create_automod_rule(
+                    name="Anti mention en masse",
+                    event_type=discord.AutoModRuleEventType.message_send,
+                    trigger=discord.AutoModTrigger(mention_limit=5),
+                    actions=[discord.AutoModRuleAction()],          # bloque le message
+                    enabled=True, reason="!secu — anti-raid")
+                bilan.append("✅ AutoMod : mentions en masse (>5) bloquées.")
+            else:
+                bilan.append("· AutoMod mentions : déjà en place.")
+            if "Anti liens d'invitation" not in regles_existantes:
+                await g.create_automod_rule(
+                    name="Anti liens d'invitation",
+                    event_type=discord.AutoModRuleEventType.message_send,
+                    trigger=discord.AutoModTrigger(
+                        keyword_filter=["*discord.gg/*", "*t.me/*", "*wa.me/*",
+                                        "*chat.whatsapp.com/*", "*telegram.me/*"]),
+                    actions=[discord.AutoModRuleAction()],
+                    enabled=True, reason="!secu — anti-raid")
+                bilan.append("✅ AutoMod : liens d'invitation Discord/Telegram/WhatsApp bloqués "
+                             "côté serveur (tient même bot éteint).")
+            else:
+                bilan.append("· AutoMod invitations : déjà en place.")
+        except (discord.Forbidden, discord.HTTPException) as e:     # noqa: BLE001
+            bilan.append(f"❌ AutoMod : {type(e).__name__} — il me faut « Gérer le serveur ».")
+        await envoyer_long(message, bilan)
         return True
 
     # ---- !ban-spam : bannir un démarcheur signalé par le filet anti-spam ----
@@ -3238,6 +3338,7 @@ MOTIFS_SPAM_ALERTE = re.compile(
     r"|1xbet|melbet|bet365)",
     re.IGNORECASE)
 MOTIF_URL = re.compile(r"https?://\S+", re.IGNORECASE)
+_PANNES_IA = {"echecs": [], "alerte": None}      # suivi des erreurs API pour alerter l'admin
 
 
 async def filtrer_spam(message) -> bool:
@@ -3312,6 +3413,27 @@ async def on_message(message):
 
     texte = nettoyer(message)
     utilisateur = message.author.id
+
+    # MP « STOP » : coupe toutes les relances automatiques pour cette personne. Une relance
+    # sans porte de sortie ne récolte que du ressentiment — et un candidat qui dit stop
+    # aujourd'hui peut revenir en septembre ; un candidat harcelé, jamais.
+    if message.guild is None and normaliser(texte) in ("stop", "stop.", "stop !", "stop!"):
+        donnees_s = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        uid_s = str(utilisateur)
+        touche = False
+        for section in ("arrivees", "liaisons"):
+            if uid_s in donnees_s.get(section, {}):
+                donnees_s[section][uid_s]["stop"] = True
+                touche = True
+        if uid_s in donnees_s.get("etats", {}):
+            donnees_s["etats"][uid_s].setdefault("relances", {})["stop"] = True
+            touche = True
+        if touche:
+            ecrire_json(FICHIER_PIPELINE, donnees_s)
+        await message.reply("✅ C'est noté — **plus aucune relance automatique**. Ton dossier reste "
+                            "ouvert : si tu veux reprendre un jour, renvoie simplement ton numéro ici. "
+                            "Bonne continuation 🙏")
+        return
 
     # Commande PUBLIQUE : classement des bumps du mois (transparence du concours)
     if texte.startswith("!bumps"):
@@ -3531,6 +3653,27 @@ async def on_message(message):
 
     async with message.channel.typing():
         reponse = await asyncio.to_thread(repondre_sync, messages)
+
+    # Panne d'assistant VISIBLE : 3 « petit souci technique » en une heure = les candidats
+    # tournent en rond sans qu'aucun humain ne le sache (vécu les 21-22/08). On alerte le
+    # salon admin, une fois par heure maximum.
+    if reponse.startswith(("Petit souci technique", "Trop de questions")):
+        maintenant_p = datetime.now(timezone.utc)
+        _PANNES_IA["echecs"] = [h for h in _PANNES_IA["echecs"]
+                                if (maintenant_p - h).total_seconds() < 3600] + [maintenant_p]
+        derniere = _PANNES_IA.get("alerte")
+        if len(_PANNES_IA["echecs"]) >= 3 and (derniere is None or
+                                               (maintenant_p - derniere).total_seconds() > 3600):
+            _PANNES_IA["alerte"] = maintenant_p
+            canal_p = await canal_admin()
+            if canal_p:
+                await canal_p.send(f"🔥 **L'assistant IA échoue en boucle** : "
+                                   f"{len(_PANNES_IA['echecs'])} réponses en erreur sur la dernière "
+                                   f"heure. Les candidats reçoivent « petit souci technique ». "
+                                   f"Vérifie la clé API / le statut Anthropic. (Dernier demandeur : "
+                                   f"<@{utilisateur}>.)")
+    else:
+        _PANNES_IA["echecs"] = []
 
     journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
     # Boucle d'auto-amélioration (20/07) : chaque question à laquelle le kit ne sait pas répondre
