@@ -1,0 +1,454 @@
+<title>Atmosphère des Dunes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;700;800&display=swap">
+<style>
+  :root {
+    --lagune: #0e7a8a;
+    --lagune-prof: #0a555f;
+    --encre: #10262b;
+    --texte: #22363b;
+    --sable: #f6efe3;
+    --sable-fonce: #e9dcc4;
+    --coquille: #fffdf8;
+    --blanc: #ffffff;
+    --gris: #5d6f73;
+    --rouge: #b3372e;
+    --vert: #2c7a4b;
+    --rayon: 12px;
+    --ombre: 0 3px 18px rgba(16, 38, 43, 0.09);
+    --display: "Fraunces", Georgia, serif;
+    --corps: "Karla", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--corps); color: var(--texte); background: var(--coquille); line-height: 1.65; }
+  a { color: var(--lagune); }
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; }
+  small { color: var(--gris); }
+
+  .ruban-demo {
+    position: fixed; bottom: 14px; left: 14px; z-index: 50;
+    background: var(--encre); color: #ffe9a8; font-weight: 700; font-size: 0.78rem;
+    letter-spacing: 0.6px; padding: 0.35rem 0.8rem; border-radius: 999px; opacity: 0.92;
+  }
+
+  .entete { position: sticky; top: 0; z-index: 40; background: rgba(255,253,248,0.94); backdrop-filter: blur(6px); border-bottom: 1px solid var(--sable-fonce); }
+  .nav { max-width: 1080px; margin: 0 auto; padding: 0.65rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+  .logo { font-family: var(--display); font-weight: 700; font-size: 1.22rem; color: var(--encre); text-decoration: none; }
+  .logo em { font-style: normal; color: var(--lagune); }
+  .liens { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .liens a { text-decoration: none; color: var(--texte); font-weight: 700; font-size: 0.95rem; }
+
+  .btn { display: inline-block; border: none; cursor: pointer; text-decoration: none; font-family: var(--corps); font-weight: 800; font-size: 1rem; padding: 0.65rem 1.35rem; border-radius: 999px; transition: transform .06s ease, background .15s ease, color .15s ease; }
+  .btn:active { transform: scale(0.98); }
+  .btn:focus-visible { outline: 3px solid #7fd6e2; outline-offset: 2px; }
+  .btn-cta { background: var(--lagune); color: var(--blanc); }
+  .btn-cta:hover { background: var(--lagune-prof); }
+  .btn-ligne { background: transparent; color: var(--lagune); border: 2px solid var(--lagune); }
+  .btn-grand { padding: 0.95rem 2rem; font-size: 1.08rem; }
+  .btn[disabled] { background: #9fb0b3; cursor: not-allowed; }
+
+  .hero { position: relative; background: linear-gradient(165deg, #10899b 0%, var(--lagune-prof) 52%, #093a43 100%); color: var(--blanc); overflow: hidden; }
+  .hero-int { max-width: 1080px; margin: 0 auto; padding: 5rem 1rem 6.5rem; position: relative; }
+  .sur-titre { font-weight: 800; text-transform: uppercase; letter-spacing: 3px; font-size: 0.8rem; color: #ffe9a8; margin-bottom: 1rem; }
+  .hero h1 { font-size: clamp(2.1rem, 5.5vw, 3.6rem); font-weight: 600; line-height: 1.08; max-width: 640px; }
+  .hero-texte { margin: 1.2rem 0 1.8rem; max-width: 560px; font-size: 1.08rem; opacity: 0.94; }
+  .hero-actions { display: flex; gap: 0.9rem; flex-wrap: wrap; }
+  .hero .btn-ligne { color: var(--blanc); border-color: rgba(255,255,255,0.85); }
+  .hero-note { margin-top: 1.1rem; font-size: 0.88rem; opacity: 0.78; }
+  .vague { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: 70px; display: block; }
+
+  .section { max-width: 1080px; margin: 0 auto; padding: 3.4rem 1rem; }
+  .pleine { max-width: none; background: var(--sable); }
+  .pleine > .int { max-width: 1080px; margin: 0 auto; padding: 3.4rem 1rem; }
+  .titre-sec { font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 600; margin-bottom: 0.4rem; }
+  .sous-sec { color: var(--gris); margin-bottom: 1.8rem; max-width: 60ch; }
+  .centre { text-align: center; }
+  .centre .sous-sec { margin-left: auto; margin-right: auto; }
+
+  .atouts { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .atout { background: var(--blanc); border: 1px solid var(--sable-fonce); border-radius: var(--rayon); padding: 1.5rem; box-shadow: var(--ombre); }
+  .atout h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.45rem; color: var(--lagune-prof); }
+
+  .carte-grille { display: grid; gap: 1.4rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .menu-bloc { background: var(--blanc); border-radius: var(--rayon); padding: 1.4rem 1.5rem; box-shadow: var(--ombre); break-inside: avoid; }
+  .menu-bloc h3 { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.5px; color: var(--lagune-prof); margin-bottom: 0.8rem; text-transform: uppercase; font-family: var(--corps); }
+  .menu-bloc ul { list-style: none; }
+  .menu-bloc li { display: flex; align-items: baseline; gap: 0.45rem; padding: 0.34rem 0; }
+  .m-nom { font-weight: 700; }
+  .m-nom small { display: block; font-weight: 400; font-size: 0.85rem; }
+  .m-pts { flex: 1; border-bottom: 2px dotted var(--sable-fonce); min-width: 18px; transform: translateY(-4px); }
+  .m-prix { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .resa-carte { max-width: 660px; margin: 0 auto; background: var(--blanc); border-radius: 16px; box-shadow: var(--ombre); padding: 1.8rem; }
+  .resa-carte h2 { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.3rem; }
+  .champ { display: flex; flex-direction: column; gap: 0.3rem; font-weight: 700; font-size: 0.95rem; margin-top: 1rem; }
+  .champ input, .champ select, .champ textarea { font: inherit; font-weight: 500; padding: 0.65rem 0.75rem; border: 1.5px solid var(--sable-fonce); border-radius: 9px; background: var(--blanc); color: var(--texte); }
+  .champ input:focus, .champ select:focus, .champ textarea:focus { outline: 2px solid var(--lagune); border-color: var(--lagune); }
+  .deux { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+  @media (min-width: 560px) { .deux { grid-template-columns: 1fr 1fr; } }
+  .svc-titre { font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; font-size: 0.82rem; color: var(--lagune-prof); margin: 1.1rem 0 0.5rem; }
+  .creneaux { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .creneau { font: inherit; font-weight: 800; font-variant-numeric: tabular-nums; padding: 0.5rem 0.9rem; border-radius: 9px; border: 1.5px solid var(--lagune); background: var(--blanc); color: var(--lagune); cursor: pointer; }
+  .creneau:focus-visible { outline: 3px solid #7fd6e2; }
+  .creneau[disabled] { border-color: var(--sable-fonce); color: #b6c2c4; cursor: not-allowed; text-decoration: line-through; }
+  .creneau.choisi { background: var(--lagune); color: var(--blanc); }
+  .legende { display: flex; gap: 1.2rem; margin-top: 0.7rem; font-size: 0.82rem; color: var(--gris); }
+  .pref { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem; font-weight: 500; }
+  .pref label { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .note-rgpd { font-size: 0.78rem; color: var(--gris); margin-top: 1rem; }
+  .alerte { background: #fdecea; border: 1.5px solid var(--rouge); color: var(--rouge); border-radius: 10px; padding: 0.7rem 1rem; margin-top: 1rem; font-weight: 700; display: none; }
+
+  .confirm { display: none; text-align: left; }
+  .confirm .coche { width: 58px; height: 58px; border-radius: 50%; background: var(--vert); color: var(--blanc); font-size: 1.9rem; display: grid; place-items: center; margin: 0 auto 1rem; }
+  .confirm h2 { text-align: center; }
+  .recap { background: var(--sable); border-radius: 12px; padding: 1.2rem 1.4rem; margin: 1.2rem 0; }
+  .recap div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.28rem 0; }
+  .recap dt { color: var(--gris); font-weight: 700; }
+  .recap dd { font-weight: 800; text-align: right; }
+  .note-demo { background: #fff7dd; border: 1.5px solid #d8b944; color: #7a621a; border-radius: 10px; padding: 0.7rem 1rem; font-size: 0.88rem; font-weight: 700; }
+
+  .infos { display: grid; gap: 2rem; grid-template-columns: 1fr; }
+  @media (min-width: 820px) { .infos { grid-template-columns: 3fr 2fr; } }
+  .encart { background: var(--blanc); border-radius: var(--rayon); box-shadow: var(--ombre); padding: 1.6rem; align-self: start; }
+
+  .pied { background: var(--encre); color: #dfe9ea; margin-top: 3.5rem; }
+  .pied a { color: #8fd8e3; text-decoration: none; }
+  .pied-int { max-width: 1080px; margin: 0 auto; padding: 2.4rem 1rem; display: grid; gap: 1.6rem; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .pied .fin { grid-column: 1 / -1; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 1rem; font-size: 0.8rem; color: #9fb3b6; }
+
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn { transition: none; } }
+</style>
+
+<div class="ruban-demo">DÉMO · proposition de nouveau site</div>
+
+<header class="entete">
+  <nav class="nav" aria-label="Navigation principale">
+    <a class="logo" href="#haut">Atmosphère <em>des Dunes</em></a>
+    <div class="liens">
+      <a href="#carte">La carte</a>
+      <a href="#contact">Accès &amp; contact</a>
+      <a href="#reserver" class="btn btn-cta">Réserver une table</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero" id="haut">
+  <div class="hero-int">
+    <p class="sur-titre">Brasserie · Pizzeria · Glacier — Bretignolles-sur-Mer</p>
+    <h1>La terrasse plein sud du quartier des Dunes</h1>
+    <p class="hero-texte">Cuisine locale et gourmande à 200 m de la plage, face au Camping des Dunes :
+    moules-frites, pizzas à pâte fine, burgers maison, préfou vendéen et glaces artisanales,
+    dans un jardin ombragé à l'abri du vent.</p>
+    <div class="hero-actions">
+      <a class="btn btn-cta btn-grand" href="#reserver">Réserver une table</a>
+      <a class="btn btn-ligne" href="#carte">Voir la carte</a>
+    </div>
+    <p class="hero-note">Confirmation immédiate · préférence terrasse ou salle · annulation en un appel</p>
+  </div>
+  <svg class="vague" viewBox="0 0 1440 70" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0,40 C240,75 480,5 720,35 C960,65 1200,15 1440,45 L1440,70 L0,70 Z" fill="#fffdf8"></path>
+  </svg>
+</section>
+
+<section class="section">
+  <div class="atouts">
+    <article class="atout">
+      <h3>Tout fait maison</h3>
+      <p>Pizzas à pâte fine, burgers, moules de pays (~800 g) et le fameux préfou —
+      la spécialité vendéenne que nous avons été les premiers à servir en restaurant.</p>
+    </article>
+    <article class="atout">
+      <h3>Terrasse plein sud</h3>
+      <p>Un jardin ombragé naturellement, abrité des vents dominants. Dites-nous en réservant
+      si vous préférez la terrasse ou la salle : on vous garde la place.</p>
+    </article>
+    <article class="atout">
+      <h3>Glaces artisanales</h3>
+      <p>Dix-sept parfums, crèmes et sorbets plein fruit, coupes glacées et cocktails —
+      l'escale sucrée du retour de plage.</p>
+    </article>
+  </div>
+</section>
+
+<div class="pleine" id="carte">
+  <div class="int">
+    <div class="centre">
+      <h2 class="titre-sec">La carte</h2>
+      <p class="sous-sec">Prix nets en euros, service compris. Pizzas, burgers, moules et glaces également à emporter.</p>
+    </div>
+    <div class="carte-grille" id="carte-grille"></div>
+  </div>
+</div>
+
+<section class="section" id="reserver">
+  <div class="resa-carte">
+    <div id="vue-form">
+      <h2>Réserver une table</h2>
+      <p><small>Confirmation immédiate. Plus de 12 personnes : appelez-nous au <a href="tel:0973208493">09 73 20 84 93</a>.</small></p>
+      <div class="deux">
+        <label class="champ">Date
+          <input type="date" id="f-date">
+        </label>
+        <label class="champ">Couverts
+          <select id="f-couverts"></select>
+        </label>
+      </div>
+      <p class="svc-titre">Midi</p>
+      <div class="creneaux" id="cr-midi"></div>
+      <p class="svc-titre">Soir</p>
+      <div class="creneaux" id="cr-soir"></div>
+      <div class="legende"><span>▢ disponible</span><span>▢̶ complet ou passé</span></div>
+      <div class="champ" style="margin-top:1.2rem;">
+        <span>Préférence de placement</span>
+        <div class="pref">
+          <label><input type="radio" name="pref" value="terrasse"> Terrasse</label>
+          <label><input type="radio" name="pref" value="interieur"> En salle</label>
+          <label><input type="radio" name="pref" value="indifferent" checked> Indifférent</label>
+        </div>
+      </div>
+      <div class="deux">
+        <label class="champ">Votre nom
+          <input type="text" id="f-nom" maxlength="80" autocomplete="name">
+        </label>
+        <label class="champ">Téléphone
+          <input type="tel" id="f-tel" maxlength="20" autocomplete="tel" placeholder="06 12 34 56 78">
+        </label>
+      </div>
+      <label class="champ">Allergies ou demande particulière <small>(facultatif)</small>
+        <textarea id="f-note" rows="2" maxlength="300" placeholder="Ex. : allergie arachide, chaise bébé, anniversaire…"></textarea>
+      </label>
+      <p class="note-rgpd">Ces informations servent uniquement à gérer votre réservation. Aucun cookie,
+      aucune publicité ; les notes de service sont effacées 2 jours après votre venue.</p>
+      <div class="alerte" id="f-erreur" role="alert"></div>
+      <p style="margin-top:1.2rem;"><button class="btn btn-cta btn-grand" id="f-valider" disabled>Choisissez un créneau</button></p>
+    </div>
+
+    <div id="vue-confirm" class="confirm">
+      <div class="coche" aria-hidden="true">✓</div>
+      <h2 id="c-titre">C'est noté !</h2>
+      <dl class="recap" id="c-recap"></dl>
+      <p class="note-demo">Ceci est une démonstration du futur site : aucune réservation réelle n'a été transmise au restaurant.</p>
+      <p style="margin-top:1rem;" class="centre"><button class="btn btn-ligne" id="c-retour">Faire une autre réservation</button></p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="contact">
+  <div class="infos">
+    <div>
+      <h2 class="titre-sec">Accès &amp; contact</h2>
+      <p><strong>Atmosphère des Dunes</strong><br>57 avenue des Dunes, 85470 Bretignolles-sur-Mer<br>
+      Face au Camping des Dunes, à 200 m de la plage.</p>
+      <p style="margin-top:0.8rem;">Téléphone : <a href="tel:0973208493"><strong>09 73 20 84 93</strong></a></p>
+      <p style="margin-top:0.8rem;"><a class="btn btn-ligne" href="https://www.google.com/maps/search/?api=1&amp;query=Atmosph%C3%A8re%20des%20Dunes%2057%20avenue%20des%20Dunes%20Bretignolles-sur-Mer" target="_blank" rel="noopener">Itinéraire Google Maps</a></p>
+    </div>
+    <div class="encart">
+      <h3 style="font-weight:600; font-size:1.2rem;">Grandes tablées &amp; événements</h3>
+      <p style="margin-top:0.5rem;">Plus de 12 personnes, anniversaire, repas de groupe, privatisation
+      hors saison : appelez-nous, on organise.</p>
+      <p style="margin-top:1rem;"><a class="btn btn-cta" href="tel:0973208493">Appeler le restaurant</a></p>
+    </div>
+  </div>
+</section>
+
+<footer class="pied">
+  <div class="pied-int">
+    <div><strong style="font-family:var(--display); font-size:1.1rem;">Atmosphère des Dunes</strong><br>
+      57 avenue des Dunes<br>85470 Bretignolles-sur-Mer<br><a href="tel:0973208493">09 73 20 84 93</a></div>
+    <div><a href="#reserver">Réserver une table</a><br><a href="#carte">La carte</a><br><a href="#contact">Accès &amp; contact</a></div>
+    <div>Site sans cookies ni traceurs.<br>Réservation en ligne 24h/24.</div>
+    <div class="fin">Page de démonstration — proposition de refonte du site, réalisée le 28/08/2026.
+    Carte et prix relevés sur le site actuel, à valider par le restaurant.</div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var CARTE = [
+    { titre: "Formules", items: [
+      ["Formule Midi (jusqu'à 13h15)", "Pizza Régina, tenders ou moules + dessert (2 boules)", "18,00 €"],
+      ["Menu Enfant (jusqu'à 10 ans)", "Plat + dessert", "10,90 €"]]},
+    { titre: "Pour l'apéro", items: [
+      ["Planche croquante", "15 bouchées à partager", "14,90 €"],
+      ["Notre Préfou maison", "La spécialité vendéenne — demi 7,00 €", "11,50 €"],
+      ["Saucisson au choix", "", "7,90 €"]]},
+    { titre: "À la carte", items: [
+      ["Salade César", "Petite 11,90 €", "18,90 €"],
+      ["Pièce du boucher", "VBF 180 g", "22,00 €"],
+      ["Andouillette artisanale", "", "18,90 €"],
+      ["Fish and chips", "", "14,90 €"],
+      ["Tenders de poulet", "", "14,90 €"]]},
+    { titre: "Burgers maison", items: [
+      ["Classico", "Bœuf ou poulet", "18,90 €"],
+      ["Végétarien", "", "16,90 €"]]},
+    { titre: "Moules-frites (~800 g)", items: [
+      ["Marinière", "", "14,90 €"],
+      ["À la crème", "", "16,00 €"],
+      ["Curry-piment", "La signature de la maison", "16,90 €"],
+      ["Au bleu AOP", "", "17,50 €"]]},
+    { titre: "Pizzas (pâte fine)", items: [
+      ["Régina · Napolitaine · Végé · Flammekueche", "", "13,80 €"],
+      ["Espagnole", "", "15,90 €"],
+      ["Poulet", "", "15,50 €"],
+      ["4 Fromages · Nordique", "", "16,00 €"],
+      ["Burrata", "", "18,50 €"]]},
+    { titre: "Glaces &amp; coupes", items: [
+      ["Boules au choix", "17 parfums — 1 boule 3,00 € / 2 boules 5,50 €", "3 boules 8,00 €"],
+      ["Coupes glacées", "Dame Blanche, Liégeois, Banana Split…", "9,90 – 10,90 €"],
+      ["Coupes alcoolisées", "After Eight, Colonel, L'Antillaise", "10,90 €"]]},
+    { titre: "Cocktails (~25 cl)", items: [
+      ["Sans alcool", "Virgin Mojito, Paradise Dream, Coconut King…", "6,50 €"],
+      ["Avec alcool", "Mojito, Spritz, Pina Colada…", "8,90 €"]]}
+  ];
+
+  var CRENEAUX = {
+    midi: ["12:00", "12:15", "12:30", "12:45", "13:00", "13:15"],
+    soir: ["19:00", "19:15", "19:30", "19:45", "20:00", "20:15", "20:30", "20:45", "21:00"]
+  };
+  var DELAI_MIN = 45; // minutes avant le créneau
+
+  // ---- Rendu de la carte ----
+  var grille = document.getElementById("carte-grille");
+  CARTE.forEach(function (sec) {
+    var bloc = document.createElement("div");
+    bloc.className = "menu-bloc";
+    var h = document.createElement("h3");
+    h.innerHTML = sec.titre;
+    bloc.appendChild(h);
+    var ul = document.createElement("ul");
+    sec.items.forEach(function (it) {
+      var li = document.createElement("li");
+      var nom = document.createElement("span");
+      nom.className = "m-nom";
+      nom.textContent = it[0];
+      if (it[1]) { var s = document.createElement("small"); s.textContent = it[1]; nom.appendChild(s); }
+      var pts = document.createElement("span"); pts.className = "m-pts";
+      var px = document.createElement("span"); px.className = "m-prix"; px.textContent = it[2];
+      li.appendChild(nom); li.appendChild(pts); li.appendChild(px);
+      ul.appendChild(li);
+    });
+    bloc.appendChild(ul);
+    grille.appendChild(bloc);
+  });
+
+  // ---- Réservation ----
+  var fDate = document.getElementById("f-date");
+  var fCouverts = document.getElementById("f-couverts");
+  var fNom = document.getElementById("f-nom");
+  var fTel = document.getElementById("f-tel");
+  var fNote = document.getElementById("f-note");
+  var fErreur = document.getElementById("f-erreur");
+  var fValider = document.getElementById("f-valider");
+  var choix = { service: null, heure: null };
+
+  for (var i = 1; i <= 12; i++) {
+    var opt = document.createElement("option");
+    opt.value = i; opt.textContent = i + (i > 1 ? " personnes" : " personne");
+    if (i === 2) opt.selected = true;
+    fCouverts.appendChild(opt);
+  }
+
+  function isoLocal(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  var aujourdhui = isoLocal(new Date());
+  fDate.min = aujourdhui;
+  fDate.value = aujourdhui;
+
+  // Simulation d'affluence déterministe : certains créneaux sont « complets »,
+  // pour montrer la gestion de capacité (démo).
+  function slotComplet(dateStr, heure) {
+    var s = dateStr + heure, h = 0;
+    for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; }
+    return h % 7 === 0;
+  }
+  function slotPasse(dateStr, heure) {
+    var limite = new Date(Date.now() + DELAI_MIN * 60000);
+    var c = new Date(dateStr + "T" + heure + ":00");
+    return c < limite;
+  }
+
+  function rendCreneaux() {
+    ["midi", "soir"].forEach(function (svc) {
+      var zone = document.getElementById("cr-" + svc);
+      zone.textContent = "";
+      CRENEAUX[svc].forEach(function (h) {
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "creneau"; b.textContent = h;
+        var indispo = slotPasse(fDate.value, h) || slotComplet(fDate.value, h);
+        if (indispo) { b.disabled = true; }
+        if (choix.service === svc && choix.heure === h && !indispo) b.classList.add("choisi");
+        b.addEventListener("click", function () {
+          choix.service = svc; choix.heure = h;
+          document.querySelectorAll(".creneau").forEach(function (x) { x.classList.remove("choisi"); });
+          b.classList.add("choisi");
+          majBouton();
+        });
+        zone.appendChild(b);
+      });
+    });
+  }
+  function majBouton() {
+    var ok = !!(choix.service && choix.heure);
+    fValider.disabled = !ok;
+    fValider.textContent = ok
+      ? "Confirmer — " + (choix.service === "midi" ? "midi " : "soir ") + choix.heure
+      : "Choisissez un créneau";
+  }
+  fDate.addEventListener("change", function () { choix.service = null; choix.heure = null; rendCreneaux(); majBouton(); });
+  rendCreneaux();
+
+  fValider.addEventListener("click", function () {
+    var erreurs = [];
+    if (fNom.value.trim().length < 2) erreurs.push("Votre nom est requis.");
+    if (fTel.value.replace(/\D/g, "").length < 9) erreurs.push("Un numéro de téléphone valide est requis.");
+    if (!choix.service || !choix.heure) erreurs.push("Choisissez un créneau.");
+    if (erreurs.length) {
+      fErreur.style.display = "block";
+      fErreur.textContent = erreurs.join(" ");
+      return;
+    }
+    fErreur.style.display = "none";
+    var pref = (document.querySelector('input[name="pref"]:checked') || {}).value || "indifferent";
+    var resa = {
+      nom: fNom.value.trim(), tel: fTel.value.trim(), date: fDate.value,
+      service: choix.service, heure: choix.heure,
+      couverts: fCouverts.value, pref: pref, note: fNote.value.trim()
+    };
+    try {
+      var hist = JSON.parse(localStorage.getItem("demo_resas") || "[]");
+      hist.push(resa);
+      localStorage.setItem("demo_resas", JSON.stringify(hist));
+    } catch (e) { /* stockage indisponible : la démo continue */ }
+
+    document.getElementById("c-titre").textContent = "C'est noté " + resa.nom + " !";
+    var labels = {
+      "Date": resa.date.split("-").reverse().join("/"),
+      "Service": (resa.service === "midi" ? "Midi" : "Soir") + " à " + resa.heure,
+      "Couverts": resa.couverts,
+      "Placement": resa.pref === "terrasse" ? "Terrasse (selon dispo)" : resa.pref === "interieur" ? "En salle" : "Indifférent"
+    };
+    if (resa.note) labels["Note"] = resa.note;
+    var recap = document.getElementById("c-recap");
+    recap.textContent = "";
+    Object.keys(labels).forEach(function (k) {
+      var row = document.createElement("div");
+      var dt = document.createElement("dt"); dt.textContent = k;
+      var dd = document.createElement("dd"); dd.textContent = labels[k];
+      row.appendChild(dt); row.appendChild(dd); recap.appendChild(row);
+    });
+    document.getElementById("vue-form").style.display = "none";
+    document.getElementById("vue-confirm").style.display = "block";
+    document.getElementById("reserver").scrollIntoView();
+  });
+
+  document.getElementById("c-retour").addEventListener("click", function () {
+    document.getElementById("vue-confirm").style.display = "none";
+    document.getElementById("vue-form").style.display = "block";
+    choix.service = null; choix.heure = null;
+    rendCreneaux(); majBouton();
+  });
+})();
+</script>

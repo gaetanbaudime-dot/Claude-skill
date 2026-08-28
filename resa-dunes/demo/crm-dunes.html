@@ -1,0 +1,566 @@
+<title>CRM Résa Dunes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;700;800&display=swap">
+<style>
+  :root {
+    --fond: #eef3f3;
+    --surface: #ffffff;
+    --encre: #16262b;
+    --texte: #22363b;
+    --gris: #5d6f73;
+    --lagune: #0e7a8a;
+    --lagune-prof: #0a555f;
+    --sable: #f6efe3;
+    --bord: #dde6e6;
+    --vert: #2c7a4b;
+    --vert-fond: #e8f4ed;
+    --rouge: #b3372e;
+    --rouge-fond: #fbeae8;
+    --bleu-fond: #e4f1f4;
+    --or: #a3720a;
+    --or-fond: #fdf3d7;
+    --rayon: 10px;
+    --ombre: 0 2px 10px rgba(22, 38, 43, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Karla", system-ui, sans-serif; background: var(--fond); color: var(--texte); line-height: 1.55; }
+  a { color: var(--lagune); }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #7fd6e2; outline-offset: 1px; }
+
+  /* --- Porte --- */
+  .porte { position: fixed; inset: 0; background: linear-gradient(160deg, #10899b, #093a43); display: grid; place-items: center; z-index: 100; padding: 1rem; }
+  .porte-carte { background: var(--surface); border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); padding: 2rem; width: min(380px, 94vw); }
+  .porte-carte h1 { font-size: 1.3rem; margin-bottom: 0.2rem; }
+  .porte-carte p { color: var(--gris); font-size: 0.92rem; margin-bottom: 1.2rem; }
+  .porte-carte input { width: 100%; font: inherit; font-size: 1.15rem; letter-spacing: 3px; text-align: center; padding: 0.7rem; border: 1.5px solid var(--bord); border-radius: 9px; }
+  .porte-carte button { width: 100%; margin-top: 0.9rem; background: var(--lagune); color: #fff; font-weight: 800; border: none; padding: 0.8rem; border-radius: 999px; }
+  .porte-err { color: var(--rouge); font-weight: 700; font-size: 0.88rem; margin-top: 0.6rem; display: none; }
+
+  /* --- Barre --- */
+  .barre { position: sticky; top: 0; z-index: 20; background: var(--encre); color: #fff; }
+  .barre-int { max-width: 1140px; margin: 0 auto; padding: 0.6rem 1rem; display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+  .marque { font-weight: 800; font-size: 1.05rem; }
+  .marque em { font-style: normal; color: #7fd6e2; }
+  .badge-demo { background: #ffe9a8; color: #6b5410; font-weight: 800; font-size: 0.7rem; letter-spacing: 0.8px; padding: 0.15rem 0.6rem; border-radius: 999px; }
+  .onglets { display: flex; gap: 0.2rem; margin-left: auto; flex-wrap: wrap; }
+  .onglet { background: transparent; border: none; color: #c9d6d8; font-weight: 700; padding: 0.45rem 0.85rem; border-radius: 8px; }
+  .onglet.actif { background: rgba(255,255,255,0.14); color: #fff; }
+  .btn-reset { background: transparent; border: 1.5px solid rgba(255,255,255,0.4); color: #c9d6d8; border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.8rem; font-weight: 700; }
+
+  .corps { max-width: 1140px; margin: 0 auto; padding: 1.3rem 1rem 3rem; }
+  h2.titre { font-size: 1.35rem; margin: 0.4rem 0 1rem; }
+  .discret { color: var(--gris); font-size: 0.88rem; }
+
+  .barre-jour { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
+  .barre-jour .nav-j { background: var(--surface); border: 1.5px solid var(--bord); border-radius: 8px; padding: 0.4rem 0.8rem; font-weight: 800; }
+  .jour-libelle { font-weight: 800; font-size: 1.05rem; }
+
+  .panneau { background: var(--surface); border-radius: var(--rayon); box-shadow: var(--ombre); padding: 1rem 1.1rem; margin-bottom: 1.2rem; overflow-x: auto; }
+  .panneau-tete { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+  .panneau-tete h3 { font-size: 1.05rem; }
+  .jauge { display: flex; align-items: center; gap: 0.55rem; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+  .jauge-barre { width: 150px; height: 9px; background: var(--bord); border-radius: 999px; overflow: hidden; }
+  .jauge-rempli { height: 100%; background: var(--lagune); border-radius: 999px; }
+  .jauge-rempli.pleine { background: var(--rouge); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 640px; }
+  th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--gris); padding: 0.45rem 0.6rem; border-bottom: 2px solid var(--bord); }
+  td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #eef2f2; vertical-align: middle; font-variant-numeric: tabular-nums; }
+  tr.estompe td { opacity: 0.5; }
+  .lien-client { background: none; border: none; color: var(--lagune); font-weight: 700; padding: 0; text-decoration: underline; }
+
+  .pill { display: inline-block; padding: 0.08rem 0.6rem; border-radius: 999px; font-size: 0.74rem; font-weight: 800; white-space: nowrap; }
+  .p-confirmee { background: var(--bleu-fond); color: var(--lagune-prof); }
+  .p-arrivee { background: var(--vert-fond); color: var(--vert); }
+  .p-no_show { background: var(--rouge-fond); color: var(--rouge); }
+  .p-annulee { background: #ececec; color: var(--gris); }
+  .p-or { background: var(--or-fond); color: var(--or); }
+  .p-ns { background: var(--rouge); color: #fff; }
+
+  .actions { white-space: nowrap; display: flex; gap: 0.3rem; }
+  .b { border: none; border-radius: 7px; font-weight: 800; font-size: 0.8rem; padding: 0.3rem 0.6rem; background: #e8eeee; color: var(--texte); }
+  .b-vert { background: var(--vert); color: #fff; }
+  .b-rouge { background: var(--rouge); color: #fff; }
+
+  .tuiles { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 1.2rem; }
+  .tuile { background: var(--surface); border-radius: var(--rayon); box-shadow: var(--ombre); padding: 1rem; text-align: center; }
+  .tuile b { display: block; font-size: 1.9rem; color: var(--lagune-prof); font-variant-numeric: tabular-nums; }
+  .tuile span { color: var(--gris); font-size: 0.85rem; }
+
+  .recherche { display: flex; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .recherche input { font: inherit; padding: 0.5rem 0.7rem; border: 1.5px solid var(--bord); border-radius: 8px; min-width: 220px; background: var(--surface); }
+
+  .fiche { background: var(--sable); border-radius: var(--rayon); padding: 1.1rem 1.2rem; margin-bottom: 1.2rem; display: none; }
+  .fiche h3 { margin-bottom: 0.2rem; }
+  .fiche textarea { width: 100%; font: inherit; padding: 0.55rem; border: 1.5px solid #d9cba9; border-radius: 8px; margin-top: 0.5rem; background: #fffdf6; }
+  .fiche .b { margin-top: 0.5rem; }
+
+  .note-pied { color: var(--gris); font-size: 0.8rem; margin-top: 1.6rem; }
+  .vue { display: none; }
+  .vue.actif { display: block; }
+
+  .btn-plus { background: var(--lagune); color: #fff; border: none; border-radius: 8px; padding: 0.45rem 0.9rem; font-weight: 800; margin-left: auto; }
+  .form-grille { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .form-grille label, .form-pleine { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 700; font-size: 0.85rem; }
+  .form-grille input, .form-grille select, .form-pleine input { font: inherit; font-weight: 500; padding: 0.5rem 0.6rem; border: 1.5px solid var(--bord); border-radius: 8px; background: var(--surface); }
+  .form-pleine { margin-top: 0.7rem; }
+  .form-actions { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
+</style>
+
+<div class="porte" id="porte">
+  <form class="porte-carte" id="porte-form">
+    <h1>📒 CRM Réservations</h1>
+    <p>Atmosphère des Dunes — espace restaurateur (démonstration)</p>
+    <input type="password" id="porte-mdp" inputmode="numeric" autocomplete="off" placeholder="Mot de passe" aria-label="Mot de passe">
+    <div class="porte-err" id="porte-err">Mot de passe incorrect.</div>
+    <button type="submit">Entrer</button>
+  </form>
+</div>
+
+<header class="barre">
+  <div class="barre-int">
+    <span class="marque">CRM <em>Atmosphère des Dunes</em></span>
+    <span class="badge-demo">DÉMO</span>
+    <nav class="onglets" aria-label="Sections">
+      <button class="onglet actif" data-vue="service">Service du jour</button>
+      <button class="onglet" data-vue="clients">Clients</button>
+      <button class="onglet" data-vue="stats">Stats</button>
+    </nav>
+    <button class="btn-reset" id="exp-resas" style="display:none;" title="Télécharger toutes les réservations">Exporter (Excel/CSV)</button>
+    <button class="btn-reset" id="btn-reset" title="Revenir aux données de démonstration">Réinitialiser la démo</button>
+  </div>
+</header>
+
+<main class="corps">
+  <section class="vue actif" id="vue-service">
+    <div class="barre-jour">
+      <button class="nav-j" id="j-prec" aria-label="Jour précédent">◀</button>
+      <span class="jour-libelle" id="j-libelle"></span>
+      <button class="nav-j" id="j-suiv" aria-label="Jour suivant">▶</button>
+      <button class="nav-j" id="j-auj">Aujourd'hui</button>
+      <button class="btn-plus" id="btn-nouvelle">+ Réservation</button>
+    </div>
+    <div class="panneau" id="form-nouvelle" style="display:none;">
+      <h3 style="margin-bottom:0.7rem;">Nouvelle réservation (téléphone / comptoir)</h3>
+      <div class="form-grille">
+        <label>Nom<input type="text" id="n-nom" maxlength="80"></label>
+        <label>Téléphone<input type="tel" id="n-tel" maxlength="20" placeholder="facultatif au comptoir"></label>
+        <label>Date<input type="date" id="n-date"></label>
+        <label>Heure<input type="time" id="n-heure" step="900"></label>
+        <label>Service<select id="n-svc"><option value="midi">Midi</option><option value="soir" selected>Soir</option></select></label>
+        <label>Couverts<input type="number" id="n-couverts" min="1" max="60" value="2"></label>
+        <label>Placement<select id="n-pref"><option value="indifferent">Indifférent</option><option value="terrasse">Terrasse</option><option value="interieur">En salle</option></select></label>
+        <label>Source<select id="n-source"><option value="telephone">Téléphone</option><option value="comptoir">Comptoir</option></select></label>
+      </div>
+      <label class="form-pleine">Note de service<input type="text" id="n-note" maxlength="300" placeholder="allergie, chaise bébé, anniversaire…"></label>
+      <div class="form-actions">
+        <button class="b b-vert" id="n-ok">Enregistrer</button>
+        <button class="b" id="n-fermer">Fermer</button>
+        <span class="discret" id="n-err" style="color:var(--rouge); font-weight:700;"></span>
+      </div>
+    </div>
+    <div id="zone-services"></div>
+    <p class="discret">Astuce : ✓ = arrivé · ✗ = no-show · les changements restent enregistrés sur cet appareil (démo).</p>
+  </section>
+
+  <section class="vue" id="vue-clients">
+    <h2 class="titre">Fichier clients</h2>
+    <div class="recherche">
+      <input type="search" id="cl-q" placeholder="Nom ou téléphone…" aria-label="Rechercher un client">
+      <button class="b" id="exp-clients" style="display:none;">Exporter clients (Excel/CSV)</button>
+    </div>
+    <div class="fiche" id="cl-fiche"></div>
+    <div class="panneau"><table id="cl-table"></table></div>
+    <p class="discret">C'est VOTRE fichier : habitués ★, compteur no-show, notes maison — exportable, hébergé chez vous, jamais chez une plateforme.</p>
+  </section>
+
+  <section class="vue" id="vue-stats">
+    <h2 class="titre">Statistiques</h2>
+    <div class="tuiles" id="st-tuiles"></div>
+    <div class="panneau"><table id="st-table"></table></div>
+  </section>
+
+  <p class="note-pied">Démonstration du CRM « Résa Dunes » — données fictives générées automatiquement.
+  Le produit réel enregistre les réservations du site en direct, avec exports CSV et purge RGPD automatique.</p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var MDP = "0123456789";
+  var CAP = { midi: 45, soir: 70 };
+  var CLE = "crm_demo_v1";
+
+  // ---- Porte ----
+  var porte = document.getElementById("porte");
+  var ok = false;
+  try { ok = sessionStorage.getItem("crm_demo_ok") === "1"; } catch (e) {}
+  if (ok) porte.style.display = "none";
+  document.getElementById("porte-form").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    if (document.getElementById("porte-mdp").value === MDP) {
+      try { sessionStorage.setItem("crm_demo_ok", "1"); } catch (e) {}
+      porte.style.display = "none";
+    } else {
+      document.getElementById("porte-err").style.display = "block";
+    }
+  });
+
+  // ---- Données ----
+  function iso(delta) {
+    var d = new Date(Date.now() + delta * 86400000);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function graine() {
+    var clients = [
+      { id: 1, nom: "Martin Prevost", tel: "06 12 00 00 01", notes: "Table 12 préférée, vin blanc." },
+      { id: 2, nom: "Sophie Ligner", tel: "06 12 00 00 02", notes: "" },
+      { id: 3, nom: "Famille Roussel", tel: "06 12 00 00 03", notes: "Chaise bébé." },
+      { id: 4, nom: "Paul Angevin", tel: "06 12 00 00 04", notes: "" },
+      { id: 5, nom: "Claire Dumas", tel: "06 12 00 00 05", notes: "Allergie fruits à coque." },
+      { id: 6, nom: "Hugo Betton", tel: "06 12 00 00 06", notes: "" },
+      { id: 7, nom: "Les Vacanciers du 12", tel: "06 12 00 00 07", notes: "Camping Les Dunes, empl. 12." },
+      { id: 8, nom: "Anne Kerloch", tel: "06 12 00 00 08", notes: "" },
+      { id: 9, nom: "Julien Fabre", tel: "06 12 00 00 09", notes: "" },
+      { id: 10, nom: "Mme Garnier", tel: "06 12 00 00 10", notes: "Habituée du dimanche midi." }
+    ];
+    var r = [], id = 0;
+    function add(c, d, svc, h, cv, pref, note, st, src) {
+      r.push({ id: ++id, clientId: c, date: d, service: svc, heure: h, couverts: cv, pref: pref, note: note, statut: st, source: src });
+    }
+    // Historique (4 semaines) — nourrit stats + habitués.
+    add(1, iso(-24), "soir", "20:00", 2, "terrasse", "", "arrivee", "web");
+    add(10, iso(-21), "midi", "12:30", 3, "interieur", "", "arrivee", "telephone");
+    add(6, iso(-19), "soir", "20:30", 4, "indifferent", "", "arrivee", "web");
+    add(2, iso(-17), "midi", "12:15", 2, "terrasse", "", "arrivee", "web");
+    add(4, iso(-16), "soir", "19:30", 2, "indifferent", "", "no_show", "web");
+    add(8, iso(-14), "soir", "20:00", 6, "terrasse", "", "arrivee", "web");
+    add(10, iso(-14), "midi", "12:30", 3, "interieur", "", "arrivee", "telephone");
+    add(3, iso(-12), "midi", "12:45", 5, "interieur", "", "arrivee", "web");
+    add(1, iso(-10), "soir", "20:15", 4, "terrasse", "", "arrivee", "web");
+    add(9, iso(-9), "soir", "21:00", 2, "indifferent", "", "annulee", "web");
+    add(5, iso(-7), "soir", "19:45", 2, "terrasse", "", "arrivee", "web");
+    add(10, iso(-7), "midi", "12:30", 3, "interieur", "", "arrivee", "telephone");
+    add(7, iso(-5), "soir", "20:00", 10, "terrasse", "", "arrivee", "web");
+    add(4, iso(-4), "midi", "13:00", 2, "indifferent", "", "no_show", "web");
+    add(6, iso(-3), "soir", "21:00", 5, "terrasse", "", "arrivee", "web");
+    add(8, iso(-2), "midi", "12:00", 2, "terrasse", "", "arrivee", "web");
+    add(2, iso(-1), "soir", "19:30", 2, "indifferent", "", "arrivee", "comptoir");
+    // Aujourd'hui.
+    add(2, iso(0), "midi", "12:15", 2, "terrasse", "", "confirmee", "web");
+    add(3, iso(0), "midi", "12:30", 5, "interieur", "Chaise bébé", "confirmee", "telephone");
+    add(5, iso(0), "soir", "19:30", 2, "terrasse", "Allergie fruits à coque", "confirmee", "web");
+    add(7, iso(0), "soir", "20:00", 8, "terrasse", "Anniversaire — dessert bougie", "confirmee", "web");
+    add(9, iso(0), "soir", "20:30", 2, "indifferent", "", "confirmee", "comptoir");
+    // À venir.
+    add(1, iso(1), "soir", "20:00", 2, "terrasse", "", "confirmee", "web");
+    add(4, iso(1), "midi", "13:00", 4, "indifferent", "", "confirmee", "web");
+    add(10, iso(3), "midi", "12:30", 3, "interieur", "", "confirmee", "telephone");
+    return { clients: clients, resas: r };
+  }
+
+  var etat;
+  function charge() {
+    try {
+      var brut = localStorage.getItem(CLE);
+      if (brut) { etat = JSON.parse(brut); return; }
+    } catch (e) {}
+    etat = graine();
+    sauve();
+  }
+  function sauve() {
+    try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) {}
+  }
+  charge();
+
+  document.getElementById("btn-reset").addEventListener("click", function () {
+    etat = graine(); sauve(); rendTout();
+  });
+
+  // ---- Navigation d'onglets ----
+  document.querySelectorAll(".onglet").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".onglet").forEach(function (x) { x.classList.remove("actif"); });
+      document.querySelectorAll(".vue").forEach(function (x) { x.classList.remove("actif"); });
+      b.classList.add("actif");
+      document.getElementById("vue-" + b.dataset.vue).classList.add("actif");
+    });
+  });
+
+  // ---- Utilitaires ----
+  function clientDe(id) { return etat.clients.find(function (c) { return c.id === id; }); }
+  function noShowsDe(id) { return etat.resas.filter(function (r) { return r.clientId === id && r.statut === "no_show"; }).length; }
+  var LIB = { confirmee: "Confirmée", arrivee: "Arrivée", no_show: "No-show", annulee: "Annulée" };
+  function frDate(s) { return s.split("-").reverse().join("/"); }
+
+  // ---- Service du jour ----
+  var jourCourant = iso(0);
+  function decale(n) {
+    var d = new Date(jourCourant + "T12:00:00");
+    d.setDate(d.getDate() + n);
+    jourCourant = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    rendService();
+  }
+  document.getElementById("j-prec").addEventListener("click", function () { decale(-1); });
+  document.getElementById("j-suiv").addEventListener("click", function () { decale(1); });
+  document.getElementById("j-auj").addEventListener("click", function () { jourCourant = iso(0); rendService(); });
+
+  function rendService() {
+    var lib = document.getElementById("j-libelle");
+    lib.textContent = (jourCourant === iso(0) ? "Aujourd'hui — " : "") + frDate(jourCourant);
+    var zone = document.getElementById("zone-services");
+    zone.textContent = "";
+    ["midi", "soir"].forEach(function (svc) {
+      var resas = etat.resas.filter(function (r) { return r.date === jourCourant && r.service === svc; })
+        .sort(function (a, b) { return a.heure < b.heure ? -1 : 1; });
+      var couverts = resas.filter(function (r) { return r.statut === "confirmee" || r.statut === "arrivee"; })
+        .reduce(function (s, r) { return s + r.couverts; }, 0);
+      var pan = document.createElement("div");
+      pan.className = "panneau";
+      var tete = document.createElement("div");
+      tete.className = "panneau-tete";
+      var pct = Math.min(100, Math.round(100 * couverts / CAP[svc]));
+      tete.innerHTML = "<h3>" + (svc === "midi" ? "☀️ Midi" : "🌙 Soir") + "</h3>" +
+        '<div class="jauge"><div class="jauge-barre"><div class="jauge-rempli' + (pct > 85 ? " pleine" : "") + '" style="width:' + pct + '%"></div></div>' +
+        "<span><b>" + couverts + "</b> / " + CAP[svc] + " couverts</span></div>";
+      pan.appendChild(tete);
+      if (!resas.length) {
+        var p = document.createElement("p"); p.className = "discret"; p.textContent = "Aucune réservation pour ce service.";
+        pan.appendChild(p);
+      } else {
+        var t = document.createElement("table");
+        t.innerHTML = "<thead><tr><th>Heure</th><th>Nom</th><th>Couv.</th><th>Placement</th><th>Note</th><th>Statut</th><th>Actions</th></tr></thead>";
+        var tb = document.createElement("tbody");
+        resas.forEach(function (r) {
+          var c = clientDe(r.clientId);
+          var ns = noShowsDe(r.clientId);
+          var tr = document.createElement("tr");
+          if (r.statut === "annulee" || r.statut === "no_show") tr.className = "estompe";
+          var tdH = document.createElement("td"); tdH.innerHTML = "<b>" + r.heure + "</b>";
+          var tdN = document.createElement("td");
+          var lienC = document.createElement("button"); lienC.className = "lien-client"; lienC.textContent = c.nom;
+          lienC.addEventListener("click", function () { ouvreClient(c.id); });
+          tdN.appendChild(lienC);
+          if (ns > 0) { var pns = document.createElement("span"); pns.className = "pill p-ns"; pns.style.marginLeft = "0.4rem"; pns.textContent = ns + " NS"; tdN.appendChild(pns); }
+          var tdC = document.createElement("td"); tdC.textContent = r.couverts;
+          var tdP = document.createElement("td"); tdP.textContent = r.pref === "terrasse" ? "🌞 Terrasse" : r.pref === "interieur" ? "🏠 Salle" : "—";
+          var tdNo = document.createElement("td"); tdNo.textContent = r.note || ""; tdNo.style.color = "var(--gris)"; tdNo.style.fontSize = "0.85rem";
+          var tdS = document.createElement("td"); tdS.innerHTML = '<span class="pill p-' + r.statut + '">' + LIB[r.statut] + "</span>";
+          var tdA = document.createElement("td");
+          var act = document.createElement("div"); act.className = "actions";
+          function bAct(txt, cls, statut, titre) {
+            var b = document.createElement("button"); b.className = "b " + cls; b.textContent = txt; b.title = titre;
+            b.addEventListener("click", function () { r.statut = statut; sauve(); rendTout(); });
+            return b;
+          }
+          if (r.statut === "confirmee") {
+            act.appendChild(bAct("✓", "b-vert", "arrivee", "Client arrivé"));
+            act.appendChild(bAct("✗", "b-rouge", "no_show", "No-show"));
+            act.appendChild(bAct("Annul.", "", "annulee", "Annuler la réservation"));
+          } else {
+            act.appendChild(bAct("↩", "", "confirmee", "Rétablir"));
+          }
+          tdA.appendChild(act);
+          [tdH, tdN, tdC, tdP, tdNo, tdS, tdA].forEach(function (x) { tr.appendChild(x); });
+          tb.appendChild(tr);
+        });
+        t.appendChild(tb);
+        pan.appendChild(t);
+      }
+      zone.appendChild(pan);
+    });
+  }
+
+  // ---- Clients ----
+  var ficheOuverte = null;
+  function ouvreClient(id) {
+    ficheOuverte = id;
+    document.querySelectorAll(".onglet").forEach(function (x) { x.classList.toggle("actif", x.dataset.vue === "clients"); });
+    document.querySelectorAll(".vue").forEach(function (x) { x.classList.remove("actif"); });
+    document.getElementById("vue-clients").classList.add("actif");
+    rendClients();
+    document.getElementById("cl-fiche").scrollIntoView({ block: "start" });
+  }
+  document.getElementById("cl-q").addEventListener("input", rendClients);
+
+  function rendClients() {
+    var q = document.getElementById("cl-q").value.trim().toLowerCase();
+    var fiche = document.getElementById("cl-fiche");
+    fiche.style.display = "none";
+    fiche.textContent = "";
+    if (ficheOuverte) {
+      var c = clientDe(ficheOuverte);
+      if (c) {
+        fiche.style.display = "block";
+        var h = document.createElement("h3"); h.textContent = c.nom;
+        var p = document.createElement("p"); p.className = "discret"; p.textContent = c.tel;
+        var lab = document.createElement("label"); lab.style.fontWeight = "700"; lab.style.fontSize = "0.88rem"; lab.textContent = "Notes maison";
+        var ta = document.createElement("textarea"); ta.rows = 2; ta.value = c.notes || "";
+        var bs = document.createElement("button"); bs.className = "b b-vert"; bs.textContent = "Enregistrer la note";
+        bs.addEventListener("click", function () { c.notes = ta.value.slice(0, 500); sauve(); rendTout(); });
+        var bf = document.createElement("button"); bf.className = "b"; bf.style.marginLeft = "0.4rem"; bf.textContent = "Fermer";
+        bf.addEventListener("click", function () { ficheOuverte = null; rendClients(); });
+        var hist = document.createElement("p"); hist.className = "discret"; hist.style.marginTop = "0.6rem";
+        var venues = etat.resas.filter(function (r) { return r.clientId === c.id; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+        hist.textContent = "Historique : " + venues.slice(0, 6).map(function (r) { return frDate(r.date) + " " + r.service + " (" + LIB[r.statut] + ")"; }).join(" · ");
+        fiche.appendChild(h); fiche.appendChild(p); fiche.appendChild(lab); fiche.appendChild(ta);
+        fiche.appendChild(bs); fiche.appendChild(bf); fiche.appendChild(hist);
+      }
+    }
+    var lignes = etat.clients.map(function (c) {
+      var rs = etat.resas.filter(function (r) { return r.clientId === c.id; });
+      var venues = rs.filter(function (r) { return r.statut === "arrivee" || r.statut === "confirmee"; });
+      return {
+        c: c, nb: rs.length,
+        couverts: venues.reduce(function (s, r) { return s + r.couverts; }, 0),
+        ns: rs.filter(function (r) { return r.statut === "no_show"; }).length,
+        derniere: rs.length ? rs.map(function (r) { return r.date; }).sort().pop() : null
+      };
+    }).filter(function (l) {
+      return !q || l.c.nom.toLowerCase().indexOf(q) >= 0 || l.c.tel.replace(/\s/g, "").indexOf(q.replace(/\s/g, "")) >= 0;
+    }).sort(function (a, b) { return b.nb - a.nb; });
+
+    var t = document.getElementById("cl-table");
+    t.innerHTML = "<thead><tr><th>Nom</th><th>Téléphone</th><th>Résas</th><th>Couverts</th><th>No-shows</th><th>Dernière visite</th><th>Notes</th></tr></thead>";
+    var tb = document.createElement("tbody");
+    lignes.forEach(function (l) {
+      var tr = document.createElement("tr");
+      var tdN = document.createElement("td");
+      var lien = document.createElement("button"); lien.className = "lien-client"; lien.textContent = l.c.nom;
+      lien.addEventListener("click", function () { ouvreClient(l.c.id); });
+      tdN.appendChild(lien);
+      if (l.nb >= 3) { var star = document.createElement("span"); star.className = "pill p-or"; star.style.marginLeft = "0.4rem"; star.textContent = "★ habitué"; tdN.appendChild(star); }
+      tr.appendChild(tdN);
+      [l.c.tel, l.nb, l.couverts, l.ns || "—", l.derniere ? frDate(l.derniere) : "—", l.c.notes || ""].forEach(function (v, i) {
+        var td = document.createElement("td");
+        td.textContent = v;
+        if (i === 5) { td.style.color = "var(--gris)"; td.style.fontSize = "0.85rem"; }
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+  }
+
+  // ---- Stats ----
+  function rendStats() {
+    var rs = etat.resas;
+    var total = rs.length;
+    var couverts = rs.filter(function (r) { return r.statut === "arrivee" || r.statut === "confirmee"; })
+      .reduce(function (s, r) { return s + r.couverts; }, 0);
+    var ns = rs.filter(function (r) { return r.statut === "no_show"; }).length;
+    var web = rs.filter(function (r) { return r.source === "web"; }).length;
+    var tuiles = document.getElementById("st-tuiles");
+    tuiles.innerHTML = "";
+    [[total, "réservations"], [couverts, "couverts servis ou à venir"],
+     [(total ? Math.round(100 * ns / total) : 0) + " %", "taux de no-show (" + ns + ")"],
+     [(total ? Math.round(100 * web / total) : 0) + " %", "prises via le site"]].forEach(function (t) {
+      var d = document.createElement("div"); d.className = "tuile";
+      var b = document.createElement("b"); b.textContent = t[0];
+      var s = document.createElement("span"); s.textContent = t[1];
+      d.appendChild(b); d.appendChild(s); tuiles.appendChild(d);
+    });
+    // Regroupement par semaine glissante (S-3 → S0).
+    var t = document.getElementById("st-table");
+    t.innerHTML = "<thead><tr><th>Semaine</th><th>Résas</th><th>Couverts</th><th>No-shows</th><th>Via le site</th></tr></thead>";
+    var tb = document.createElement("tbody");
+    for (var s = 3; s >= 0; s--) {
+      var du = iso(-(s * 7 + 6)), au = iso(-s * 7);
+      var sem = rs.filter(function (r) { return r.date >= du && r.date <= au; });
+      var cv = sem.filter(function (r) { return r.statut === "arrivee" || r.statut === "confirmee"; })
+        .reduce(function (a, r) { return a + r.couverts; }, 0);
+      var nsS = sem.filter(function (r) { return r.statut === "no_show"; }).length;
+      var webS = sem.filter(function (r) { return r.source === "web"; }).length;
+      var tr = document.createElement("tr");
+      [frDate(du) + " → " + frDate(au), sem.length, cv, nsS || "—",
+       webS + (sem.length ? " (" + Math.round(100 * webS / sem.length) + " %)" : "")].forEach(function (v) {
+        var td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    }
+    t.appendChild(tb);
+  }
+
+  // ---- Nouvelle réservation (saisie directe — remplace le cahier papier) ----
+  var formN = document.getElementById("form-nouvelle");
+  document.getElementById("btn-nouvelle").addEventListener("click", function () {
+    formN.style.display = formN.style.display === "none" ? "block" : "none";
+    document.getElementById("n-date").value = jourCourant;
+  });
+  document.getElementById("n-fermer").addEventListener("click", function () { formN.style.display = "none"; });
+  document.getElementById("n-ok").addEventListener("click", function () {
+    var nom = document.getElementById("n-nom").value.trim();
+    var tel = document.getElementById("n-tel").value.trim();
+    var date = document.getElementById("n-date").value;
+    var heure = document.getElementById("n-heure").value;
+    var err = document.getElementById("n-err");
+    if (nom.length < 2) { err.textContent = "Nom requis."; return; }
+    if (!date || !heure) { err.textContent = "Date et heure requises."; return; }
+    err.textContent = "";
+    var telNorm = tel.replace(/\D/g, "");
+    var client = etat.clients.find(function (c) { return telNorm && c.tel.replace(/\D/g, "") === telNorm; });
+    if (!client) {
+      var idC = etat.clients.reduce(function (m, c) { return Math.max(m, c.id); }, 0) + 1;
+      client = { id: idC, nom: nom, tel: tel || "—", notes: "" };
+      etat.clients.push(client);
+    }
+    var idR = etat.resas.reduce(function (m, r) { return Math.max(m, r.id); }, 0) + 1;
+    etat.resas.push({
+      id: idR, clientId: client.id, date: date,
+      service: document.getElementById("n-svc").value, heure: heure,
+      couverts: Math.max(1, parseInt(document.getElementById("n-couverts").value, 10) || 2),
+      pref: document.getElementById("n-pref").value,
+      note: document.getElementById("n-note").value.trim(),
+      statut: "confirmee", source: document.getElementById("n-source").value
+    });
+    sauve();
+    formN.style.display = "none";
+    document.getElementById("n-nom").value = ""; document.getElementById("n-tel").value = "";
+    document.getElementById("n-heure").value = ""; document.getElementById("n-note").value = "";
+    jourCourant = date;
+    rendTout();
+  });
+
+  // ---- Exports Excel/CSV (capacité « downloads » de la page publiée) ----
+  function csv(lignes) {
+    return "﻿" + lignes.map(function (l) {
+      return l.map(function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }).join(";");
+    }).join("\r\n");
+  }
+  function csvResas() {
+    var l = [["date", "service", "heure", "nom", "telephone", "couverts", "placement", "note", "statut", "source"]];
+    etat.resas.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (r) {
+      var c = clientDe(r.clientId) || { nom: "?", tel: "" };
+      l.push([r.date, r.service, r.heure, c.nom, c.tel, r.couverts, r.pref, r.note, LIB[r.statut] || r.statut, r.source]);
+    });
+    return csv(l);
+  }
+  function csvClients() {
+    var l = [["nom", "telephone", "notes", "reservations", "no_shows", "derniere_visite"]];
+    etat.clients.forEach(function (c) {
+      var rs = etat.resas.filter(function (r) { return r.clientId === c.id; });
+      l.push([c.nom, c.tel, c.notes || "", rs.length, rs.filter(function (r) { return r.statut === "no_show"; }).length,
+        rs.length ? rs.map(function (r) { return r.date; }).sort().pop() : ""]);
+    });
+    return csv(l);
+  }
+  (function brancheExports() {
+    if (typeof claude === "undefined" || !claude || typeof claude.use !== "function") return;
+    claude.use("downloads").then(function (dl) {
+      if (!dl) return;
+      function branche(idBtn, fabrique, nomFichier) {
+        var b = document.getElementById(idBtn);
+        b.style.display = "inline-block";
+        b.addEventListener("click", function () {
+          dl.save({ filename: nomFichier, data: fabrique() }).catch(function () { /* refus visiteur : rien à faire */ });
+        });
+      }
+      branche("exp-resas", csvResas, "reservations.csv");
+      branche("exp-clients", csvClients, "clients.csv");
+    }).catch(function () { /* capacité absente : boutons masqués */ });
+  })();
+
+  function rendTout() { rendService(); rendClients(); rendStats(); }
+  rendTout();
+})();
+</script>

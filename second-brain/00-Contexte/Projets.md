@@ -46,6 +46,7 @@ tags: [contexte/projets]
 - **Statut** : produit **codé et testé** le 28/08 (`resa-dunes/` dans le repo — site public, résa en ligne anti-surbooking, CRM fichier clients, Node/SQLite, README Railway) ; exception Kill-list ligne 16 assumée le 28/08 au soir après la panne de leur borne Overfull constatée sur place.
 - **Offre** : Grand Slam « Plus jamais une résa sur papier » — 1 490 € + 79 €/mois (plancher 990 € + 49 €), garantie « en ligne sous 7 jours ou gratuit », détail dans [[Étude - Atmosphère des Dunes, site de réservation (août 2026)]] §8.
 - **Cible** : Olivier Migne, gérant SARL L.L.O.M. — pitch = panne du midi + démo noindex + produit qui tourne. **Gelé jusqu'au 30/09 : l'industrialisation multi-restos** ([[Kill-list (NON, pas maintenant)]]).
+- **Démos publiques prêtes à partager (28/08 soir)** : site → `https://claude.ai/code/artifact/aefed625-bd98-46cf-bb11-d93bc2e4daf5` · CRM (mdp 0123456789) → `https://claude.ai/code/artifact/f4c3c868-468b-4aaf-956a-e97e3b55c11a` — à rendre partageables via le menu Partager de chaque page avant envoi ; sources versionnées dans `resa-dunes/demo/`.
 - **Prochaines actions** : pitch avant le 04/09 (momentum de la panne) → si oui : domaine, contenu réel, photos, déploiement Railway.
 
 ## Secondaires / en veille
