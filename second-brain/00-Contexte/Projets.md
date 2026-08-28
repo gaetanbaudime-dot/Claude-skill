@@ -44,6 +44,11 @@ tags: [contexte/projets]
 
 ## Secondaires / en veille
 
+### Site restaurant Atmosphère des Dunes (Bretignolles-sur-Mer)
+- **Statut** : étude complète livrée le 28/08 ([[Étude - Atmosphère des Dunes, site de réservation (août 2026)]]) ; exécution non lancée — ligne 16 de la [[Kill-list (NON, pas maintenant)]], à trancher au 30/09 ou par un « oui » écrit avec son coût d'opportunité.
+- **Objet** : refonte offerte du site du resto (Wix actuel invisible : `noindex` total, meta d'un autre restaurant) avec la résa Overfull conservée (contrainte Google Reserve) ; le modèle du « gratuit » reste à définir (service rendu / produit d'appel vers les ~150 restaurateurs du Pays de Saint-Gilles / maintenance récurrente).
+- **Cible** : Olivier Migne, gérant de la SARL L.L.O.M. depuis 2016 — pitch = démo du noindex en 10 secondes sur son téléphone.
+
 ### Agencity (SEO freelance)
 - **Statut** : actif en tâche de fond (agences immobilières + un architecte parisien)
 - **Rôle** : revenu complémentaire, hors cœur stratégique

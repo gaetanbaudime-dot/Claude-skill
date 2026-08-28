@@ -22,7 +22,7 @@ liens_forts: ["[[Checklist formation clipping]]", "[[Machine Instagram-Facebook 
 | **2 — Warm-up** | Avec la fiche 1 | 48 h sans publier, consommation niche FR, notifications, **LE test de l'Explorer**, les erreurs qui cassent un warm-up |
 | **3 — Monter et poster un Reel** | Quand l'Explorer est bon | Boucle Edits **sans renommage** (les clippers sont en lecteur sur le Drive), la question unique avant de publier (≠ rush brut), hook + partage, tableau autorisé/interdit |
 | **4 — Routine et semaine** | Avec la fiche 3 | Routine du jour, montée S1=1 → S2=2 → S3=3 Reels/jour/compte, ~500 abonnés visés vers J+30, **reporting hebdomadaire : LE formulaire chaque dimanche, lié à la rémunération** + retours libres dans le canal Discord privé, la traversée du désert |
-| **5 — Reels d'essai & évolutions** | À 200 abonnés | Variantes non-abonnés, paliers (compte pro, republication auto, Metricool, 2e téléphone, Clipper Manager) |
+| **5 — Reels d'essai & évolutions** | À **1 000 abonnés** ⚠️ (corrigé 23/07 : le seuil Trial Reels 2026 est 1 000, plus 200 — [[État de l'art clipping Instagram (juillet 2026)]]) | Variantes non-abonnés, paliers (compte pro, republication auto, Metricool, 2e téléphone, Clipper Manager) |
 | **6 — Quand ça coince** | Toujours (avec la 1) | Ban → noter dans le canal Discord + mentionner Gaëtan (créneau) ; bans en chaîne → recréer + **diagnostic Gaëtan** (comptes connectés par mail, numéro ou appareil) ; circuit question (Loom → #faq → formulaire du dimanche), la règle du renvoi |
 
 La théorie derrière la fiche 3 (pourquoi hook + partage sont LES deux critères) : [[Mécanique de contenu (hook, retain, reward)]] — à injecter dans la prochaine version des fiches si les clips plafonnent.
@@ -30,6 +30,8 @@ La théorie derrière la fiche 3 (pourquoi hook + partage sont LES deux critère
 Régénération : `python3 tools/kit_clippers/generer_fiches.py` (générateur versionné, même outil que le [[Kit Emma - mode d'emploi|Kit Emma]]).
 
 **Deux formats produits** (15/07) : le **PDF complet** `Kit Clipper LTP (v2).pdf` (les 7 pages à la suite, pour tout donner d'un coup) ET **chaque fiche en fichier séparé** dans `Kit Clippers/Fiches séparées/` (une fiche = un PDF d'une page, remise étape par étape au fil de l'onboarding : Bienvenue, puis Fiche 1 le jour 0, Fiche 2 avec, etc.). Les deux sont toujours identiques puisqu'ils sortent du même générateur.
+
+**Version vidéo par étape** (22/07) : chaque fiche a son **Loom granulaire ≤ 4 min** à épingler dans son post — scripts prêts à tourner dans [[Scripts des 6 Loom de formation (fiches Discord)]] (le Loom maître de 54 min reste la bibliothèque ; les 6 granulaires donnent l'étape au moment de l'étape).
 
 ## Le quiz d'onboarding (à coller dans un Google Form, mode « quiz auto-corrigé »)
 

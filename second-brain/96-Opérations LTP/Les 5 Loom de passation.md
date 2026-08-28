@@ -13,6 +13,11 @@ liens_forts: ["[[Buy Back Your Time (Dan Martell)]]", "[[Kit Clippers - mode d'e
 > [!tip] Verdict
 > **Le seul multiplicateur à temps marginal nul de tout le plan : ~2 h de tournage qui onboardent 50 recrues sans plus jamais te reprendre une heure.** C'est la Camcorder Method de [[Buy Back Your Time (Dan Martell)|Martell]] : tu fais la tâche UNE fois en te filmant, la vidéo devient le formateur. Distinction importante : la **formation clipping de 54 min existe déjà** (elle vend la méthode et filtre par le quiz) — ces 5 Loom sont autre chose : **l'onboarding OPÉRATIONNEL du quotidien**, ce qu'un clipper validé fait concrètement à J+1. Et un Loom non transcrit est un savoir enfoui : chaque vidéo se double d'une **checklist écrite + les captures des étapes risquées**, indexées dans le bot FAQ — sinon tu délègues la tâche mais pas les interruptions, et tu restes le SAV.
 
+> [!note] Les 3 familles de Loom (ne pas les confondre)
+> 1. **[[Scripts des 6 Loom de formation (fiches Discord)|Formation]]** (Loom maître 54 min + 6 granulaires par fiche) : apprendre au clipper à *faire* le travail — vend la méthode, filtre par le quiz.
+> 2. **Ces 5 Loom de passation** : l'onboarding *opérationnel* du clipper validé (warmup, journée type, reporting, SFS, ban).
+> 3. **[[Les 6 Loom de délégation manager (passation été)|Délégation manager]]** (Opus Clip + 5) : apprendre au **Manager clippers** à *faire tourner la machine* (piloter le funnel, valider, contractualiser, payer, arbitrer) — la casquette que tu rends avant de partir dimanche.
+
 ## Les 5 Loom (format : 1 vidéo ≤ 10 min + 1 checklist + captures)
 
 | # | Loom | Ce qu'il couvre | Ce qu'il élimine |

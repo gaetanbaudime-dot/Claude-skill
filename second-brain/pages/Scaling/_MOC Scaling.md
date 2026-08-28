@@ -10,6 +10,7 @@ Cluster du passage à l'échelle : remplacer les héros par des systèmes, focal
 - [[Documentation et SOP]] : la mémoire externe, transférable aux humains et aux agents IA.
 - [[Organisation par équipes (spans et topologies)]] : les spans de contrôle (1:15-20 pour le travail tracké, ~5-8 exceptions pour un fondateur absent), les 3 couches, le principe de Peter, les seuils d'ajout de couche.
 - [[Automatisation et agents IA (SOP par des agents)]] : la frontière automatiser/déléguer/garder, la SOP comme substrat lisible par un humain ET un agent, le bot comme couche 0, et l'avocat du diable (« l'IA remplace les équipes » = marketing ; le bot est un point de défaillance unique à durcir).
+- [[Grant Cardone - 10X, Stay Broke et la pression productive]] : la doctrine réelle sourcée (10X les actions, « Stay Broke » = verrouiller le surplus, luxe après le cash-flow — l'INVERSE du mème « appart au-dessus de tes moyens ») + la science de la pression (bandwidth tax −9-13 pts, Yerkes-Dodson, commitment devices qui marchent) + l'encadré chèques Dubaï ⚠️ et les controverses (Pino v. Cardone Capital). Opposition assumée avec la [[Théorie des contraintes]].
 
 ## Ordre de lecture
 

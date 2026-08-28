@@ -1,5 +1,7 @@
 # Opérations LTP : Map of Content
 
+> 👉 **Pour AGIR, ouvre [[Cockpit opérationnel LTP (actions)]]** — la seule page à jour de tes actions (avant départ / pendant l'absence / au retour), cochable. Ce MOC ci-dessous est l'**index de la doc de référence** : on l'ouvre pour creuser, pas pour agir.
+
 Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, checklists, plans de formation. Couche d'exécution entre le [[Plan Maître 500K|plan]] (la stratégie) et les [[_MOC Scaling|clusters théoriques]] (le pourquoi).
 
 ## Délégation Emma (contenu créatrices)
@@ -14,6 +16,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## 🎯 Pôle prioritaire : recrutement, management & délégation
 
+- [[Goulot de l'agence - l'équation du scale]] : **la boussole de scale** — `CA = clippers productifs × subs/clipper × €/sub`, les 3 goulots comme facteurs, la séquence fixe (temps → rétention → trafic monétisé → recruter) et la prédiction datée (clonage chatting avant le clipper N+13). À relire pour re-trancher une priorité, jamais pour agir (ça, c'est le cockpit).
 - [[Pôle recrutement, management & délégation]] : **le hub** — objectif « 50 FR qui restent et se donnent », de l'annonce à ta sortie de l'opérationnel, avec le pré-mortem.
 - [[Allocation budget recrutement et IA]] : le CPA que tu peux te permettre (700-1200 €/hire), le classement des canaux (Indeed d'abord), le verdict IA (Team > Max individuel).
 - [[Conformité recrutement (droit FR, RGPD, CGU)]] ⚠️ : les 4 risques (salariat déguisé, anti-discrimination, RGPD, mass-DM) — à lire avant de scaler à 50.
@@ -28,6 +31,8 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 - [[Machine de recrutement clippers (100 leads par mois)]] : l'étude des 3 géants mondiaux (Whop, Vyro, Reach.cat — 3 agents de recherche) distillée en machine à 7 composants opérée par le bot + le manager + les clippers (zéro cold DM) : méta-campagne, preuves systématiques, funnel à ticket, validation humaine 48 h, premier cash < 7 jours, drop mensuel, visibilité permanente.
 - [[Continuité du bot et paie sacrée (plan anti-panne)]] : le fondamental n°7 — les 6 verrous avant le départ (moniteur externe, restauration testée, page « si le bot est mort », Maxence payeur de secours, rythme J+7/J+8 sans exception, gel des déploiements) + le plan anti-Goodhart écrit avant le premier fraudeur.
 - [[Les 5 Loom de passation]] : le fondamental n°8 (Camcorder Method) — warmup, journée type, reporting, SFS, compte banni ; 1 Loom + 1 checklist + captures, transcrits en SOP et câblés au bot FAQ. ~2 h de tournage qui onboardent 50 recrues.
+- [[Les 6 Loom de délégation manager (passation été)]] : la casquette « manager d'opérations » que tu rends avant le départ (26/07) — Opus Clip + pilotage `!pipeline` + validation `!test-ok`/`!test-non` + contrat/onboarding (FR DocuSeal / INT direct) + paie sacrée `!paiement` + qualité/blocages `!lacunes`/`!apprendre`. 6 scripts prêts à tourner + les 3 décisions à trancher avant (droits bot du manager, qui vérifie les subs, plafond de décision).
+- [[Scripts des 6 Loom de formation (fiches Discord)]] : les 6 Loom granulaires (≤ 4 min) mappés sur les fiches du forum — Bienvenue + Créer les comptes + Warm-up + Monter/poster + Cadence & reporting + Reels d'essai + Quand ça coince. Le Loom maître de 54 min reste la bibliothèque ; ceux-là donnent l'étape au moment de l'étape.
 - [[Atterrissage du funnel (mesure propre avant optimisation)]] : le fondamental n°6 rétracté puis reconstruit (19/07) — les stats fondatrices étaient des artefacts (bascule payant→gratuit de Jade) ; le protocole de baseline propre (1 lien par canal par créatrice, 14 j à régime constant, LTV 30 j par source) avant toute optimisation.
 
 ## Pôle marketing de masse (Instagram + Facebook)
@@ -65,8 +70,10 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## Pôle clipping
 
+- [[État de l'art clipping Instagram (juillet 2026)]] : la veille sourcée du 23/07 — le tournant **répressif** (crackdown contenu non-original 07/2025 → 11/2025 → 30/04/2026), les 3 signaux maîtres (watch time / sends/reach / likes/reach), Trial Reels à **1 000** (plus 200), Content Protection + collab posts comme parade propre, et **7 points de notre doctrine à corriger**. À lire avant toute optimisation IG.
 - **[[Kit Clippers - mode d'emploi]]** 🖨️ : la refonte de la formation — 6 fiches A4 (une par étape, PDF dans `Kit Clippers/`), le quiz d'onboarding 10 questions (seuil 8/10 avant le 1er compte), la règle du renvoi et la FAQ vivante.
-- [[Reporting clippers]] : le tableau individuel (BAN / IG actifs / FB actifs / cadence) pour piloter à distance.
+- **[[Rapport quotidien 13h (Reels vers clics vers subs)]]** 🤖 : le tableau de bord automatique — chaque jour à 13h sur Telegram, la chaîne complète Reels publiés (scrapés) → clics → subs OF/MYM, avec le verdict « quel maillon casse ». Remplace la mesure déclarative des vues et de la cadence.
+- [[Reporting clippers]] : le tableau individuel (BAN / IG actifs / FB actifs / cadence) pour piloter à distance — le déclaratif hebdo qui complète le quotidien automatique.
 - [[Checklist formation clipping]] : l'onboarding d'un clippeur (anti-ban, cadence, reporting).
 
 ## Ancrage vault

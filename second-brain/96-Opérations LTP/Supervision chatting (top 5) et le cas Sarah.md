@@ -38,6 +38,54 @@ Les données chatting du 13/07 restent valides : **top 5 chatteurs = 60 % des ve
 
 **L'exécution est un créneau, pas un document** : 1 h avec Maxence avant le 26/07 pour acter (a) qui extrait les scripts (un manager dédié, pas lui), (b) le calendrier de formation des médians, (c) les 2 KPI de suivi (unlock médian, golden ratio). C'est SON pôle (Art 4 du [[Pacte d'association LTP (partenariat 50-50 avec Maxence)|pacte]]) — ton rôle est de mettre le sujet à la table avec les chiffres, pas d'exécuter.
 
+## Photo juillet 2026 (export MYM du 28/07 — le top 5 actuel, données au 01-28/07)
+
+**24 002 € net de chat** (17 385 € médias privés + 6 618 € pourboires), 803 ventes, panier moyen ~30 €. **34 chatteurs uniques** derrière 39 comptes affichés — 8 comptes e-mail doublonnent des prénoms (même personne sous deux identités : classements et ratios faussés, **hygiène CRM à corriger avant toute paie au ratio**). Périmètre : MYM seulement — le chat OF (Sophie) n'est pas dans cet export.
+
+| Rang | Chatteur | CA net | Ventes | Panier | €/jour actif |
+|---|---|---|---|---|---|
+| 1 | Lafy | 3 611 € | 88 | 41,0 € | **241 €** |
+| 2 | Kaleb | 3 402 € | 102 | 33,4 € | 170 € |
+| 3 | Saad | 2 373 € | 68 | 34,9 € | 125 € |
+| 4 | Ludovish (TL) | 1 786 € | 50 | 35,7 € | 128 € |
+| 5 | Riantsoa | 1 721 € | 72 | 23,9 € | 115 € |
+
+**Top 5 = 53,7 % du CA** (structure inchangée depuis le 13/07 : 60 % sur 29 actifs). Le 6ᵉ, **Orphée (TL) : panier 66,6 € et 208 €/jour actif en 8 jours seulement** — le closer whales/pourboires de l'équipe, ses scripts sont la priorité n°1 de l'extraction. Les tops sont **spécialisés par créatrice** (Kaleb et Saka → Chloé ; Lafy et Saad → Maddy ; Riantsoa et Faniry → Sarah) : la bibliothèque doit être par situation ET par créatrice.
+
+Par créatrice (chat MYM, rapproché des volumes du 24/07) : Chloé 8 056 € (panier 38,4 €) · Sarah 7 819 € (343 ventes à 22,8 € — la base débordement, terrain naturel du welcome-PPV) · Maddy 5 793 € (43,6 €) · Jade 1 564 € · Amanda 771 €. **Alerte concentration : un seul fan de Chloé = 2 596 € soit 10,8 % du CA chat du mois** (traitement VIP à formaliser, dépendance à surveiller). Creux inexpliqué semaine du 08-14/07 (3 849 € vs 6-7,7 k€ les autres semaines) — cause à demander à Maxence.
+
+**Limites de l'export MyPulse** : ventes uniquement — ni unlock rate ni golden ratio côté MYM.
+
+### Le côté OF (export Infloww du 28/07, 01-28/07) — les KPI manquants sont là
+
+**17 933 $ de chat OF** · 50 chatteurs listés, **27 avec ventes** · les équipes OF et MYM sont **largement distinctes** (~8 personnes seulement chattent les deux plateformes : Ludovish, Riantsoa, Orphée, Faniry, Christ, Anjara, Raoul, Lionel). Chatting agence total juillet ≈ **40 k€** (24 002 € MYM + ~16 k€ OF à ~0,90 €/$, approximation) pour ~53 chatteurs uniques.
+
+| Rang OF | Chatteur | Ventes | Golden | Unlock | CVR fan | $/fan payant |
+|---|---|---|---|---|---|---|
+| 1 | Hardy | 2 965 $ | 3,84 % | 35,1 % | 6,5 % | 66 $ |
+| 2 | Donaldo | 2 708 $ | 3,25 % | **40,7 %** | 8,9 % | **80 $** |
+| 3 | Eli | 2 170 $ | 3,37 % | 30,9 % | 8,9 % | 57 $ |
+| 4 | Tefyh | 1 974 $ | **5,32 %** | 33,6 % | **10,8 %** | 52 $ |
+| 5 | Lionel | 1 564 $ | 1,91 % | 34,8 % | 5,8 % | 50 $ |
+
+Top 5 OF = **63,5 % du CA** (plus concentré que MYM). **Médianes hors top 5 (actifs)** : golden 2,12 % · unlock 25,6 % · CVR 4,5 %.
+
+**Doctrine de lecture (posée par Gaëtan le 28/07, définitions Infloww vérifiées au tooltip)** : golden ratio = **% des messages envoyés qui sont des PPV** (pression commerciale) ; unlock rate = % des PPV envoyés qui sont achetés. **L'idéal = golden BAS + unlock HAUT** : beaucoup de conversation, peu de PPV, mais placés au bon moment et achetés. Relecture des profils sous cette grille :
+- **Donaldo = le profil de référence à cloner** : golden 3,25 %, unlock 40,7 %, 80 $/fan payant — il ne pousse pas, il construit, et ça s'achète.
+- **Orphée = le maître du timing** : golden 1,41 %, unlock 46,7 % sur OF + roi des pourboires MYM — le modèle « whale » exact de la doctrine.
+- **Tefyh = à étudier, pas à cloner tel quel** : golden 5,32 % = le plus pushy du top ; son CVR 10,8 % le sauve, mais son unlock 33,6 % dit que ses PPV sont moyennement ciblés.
+- **Azra = l'anti-modèle réel** : golden 5,0 % + unlock 25 % — pousse beaucoup, convertit peu.
+- **Lionel, rediagnostiqué** : discipline correcte (golden 1,91 %) mais closing faible (CVR 5,75 %, 50 $/fan payant pour 8 136 messages — le plus gros volume de l'équipe). Son gap = transformer la conversation en vente, pas le spam.
+- **Ckycia = chasseur de whales** : golden 1,17 %, 99 $/fan payant, mais CVR 2,58 % — ultra-sélectif.
+
+**Conséquence pour la formation des médians** : leur golden est déjà discipliné (2,12 %) — leur gap est l'**unlock (25,6 % → cible 35 %+)** : le tease et la construction AVANT l'envoi du PPV, pas « envoyer moins ». C'est précisément ce que les scripts de Donaldo et Orphée enseignent. Ludovish confirme le transfert de skill entre plateformes (45,5 % d'unlock OF, top 4 MYM).
+
+Par créatrice OF : Sophie 8 765 $ (Hardy/Eli/Tefyh) · Chloé 7 211 $ (Donaldo/Lionel/Donassole) · Jade 1 256 $ · Amanda 577 $ · Lila Doré 123 $. **Lily n'a aucune ligne OF** (compte non lancé — feed en setup le 28/07, trafic Jonas en attente).
+
+**Top 5 global fusionné (≈ 0,90 €/$)** : Lafy ~3,6 k€ (MYM) · Kaleb ~3,4 k€ (MYM) · Hardy ~2,7 k€ (OF) · Donaldo ~2,4 k€ (OF) · Saad ~2,4 k€ (MYM). **Les scripts à extraire en priorité (grille golden bas / unlock haut) : Donaldo (la référence), Orphée (whales/timing), Lafy et Kaleb (volume rentable médias privés MYM) ; Tefyh en étude complémentaire pour son CVR.**
+
+⚠️ Le benchmark du 13/07 (« top 5 = golden 7,15 % vs 2-4 % ») lisait un golden ÉLEVÉ comme un marqueur de top — sous la définition Infloww et la doctrine du 28/07 c'est l'inverse : la corrélation venait du volume de tentatives, pas de la qualité. Consigné au [[Fact-Check-Log]] ; l'objectif de formation reste l'unlock, le golden se surveille comme garde-fou anti-spam (viser ~2-4 %, pas plus).
+
 ## Prédictions falsifiables ([[Journal de coaching|journal]])
 
 - **Réplication** : si les variables Sarah sont identifiées et répliquées sur Maddy, ses nouveaux subs MYM/mois font ×2 minimum (640 → 1 300+) sous 6 semaines ; si rien ne bouge, le débordement n'est pas pilotable de notre côté (c'est l'algo/le push MYM) et le chantier se ferme proprement.

@@ -97,6 +97,20 @@ Recherche approfondie H2 2026 → **stratégie à deux voies, pas un pari unique
 
 Bon pré-deal = tenancy **datée** au ~1er nov. (pas de mois morts). Mauvais pré-deal = "cash up front" informel pour "réserver" sans contrat signé ni permis DLD/Madmoun vérifiable → exige de la structure, pas de la confiance.
 
+## Scan marché hors Peninsula (agent du 23/07/2026 — asks live Bayut, recoupés Property Finder/dubizzle)
+
+Le rayon utile n'est pas « Business Bay » mais « **20-25 min de trottinette du WeWork One Central** » — et ce rayon contient beaucoup moins cher que Peninsula, à trajet souvent MEILLEUR :
+
+| Palier | Zone / exemple | Prix studio | Trajet WeWork | Ce qu'on garde / sacrifie |
+|---|---|---|---|---|
+| **52-55k** | **Jumeirah Garden City (Al Satwa)** — Solaire 16 à 52k, Durrah Garden 54k, gros stock à 55k | non meublé, neuf | **8-10 min** (2× mieux qu'aujourd'hui) | Garde piscine/gym/parking/central AC, 4 chèques, dépôt 5 % ; sacrifie padel/standing, quartier en chantier 2-3 ans (⚠️ bruit → visiter le matin, le sommeil pèse 30/100 dans la matrice) |
+| **45k** | Business Bay hors Peninsula — Safeer Tower 2 (484 sqft non meublé), cluster Bayz/Capital Bay | 45k | 20-25 min (inchangé) | Même quartier pour la moitié du loyer actuel ; finitions moindres + **chiller locataire à vérifier (4-6k/an réels)** qui rapproche du JGC |
+| **35-40k** | Al Karama — Sheikh Hamdan Colony 35k (300 sqft non meublé vérifié), Sajaya 10/Alqaz 3 à 38-40k | 35-40k | 12-16 min + métro ADCB→WTC direct | Le plancher crédible ; immeuble ancien, window AC, zéro amenity, ⚠️ beaucoup de « family buildings » qui refusent les célibataires |
+
+Écartés : Za'abeel (aucune offre < 120k) · DWTC même (1 annonce 95k) · le Bayz à 36k = appât probable (cluster réel 44,8-45k). Frais partout : dépôt 5 % + agence 5 % + Ejari ~220. Données volatiles (à jour 2026-07-23) : ces annonces auront tourné en novembre, ce sont les **fourchettes** qui font foi.
+
+**Ce que le scan change à la négo** : ton point de rupture descend. Avec un JGC neuf à 52-55k qui **améliore** le trajet et garde piscine/gym, payer 78-80k pour rester n'est plus défendable — même 72k = ~+18k/an de premium pour padel + standing + zéro carton. **Nouvelle grille : ancre 65k (déjà actée H2) · deal 68-70k · plafond dur 72k · au-delà → JGC.** Et le gain de trajet est du [[Coût d'opportunité]] pur : ~20 min/jour rendues au deep work.
+
 ## Les 4 (5) options à comparer en septembre
 
 1. **Renégo réussie du bail actuel** (≤ 78k) → rester, zéro coût de changement. *Idéal.*

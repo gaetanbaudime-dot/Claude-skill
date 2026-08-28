@@ -10,6 +10,9 @@ liens_forts: ["[[Trafic et réseaux sociaux pour l'OFM]]", "[[Reporting clippers
 
 # Machine Instagram-Facebook en masse (le modèle Geelark)
 
+> [!warning] Mise à jour doctrine (23/07/2026)
+> Plusieurs consignes de cette page ont été **actualisées par la veille** [[État de l'art clipping Instagram (juillet 2026)]] : le warmup « 48 h pour éduquer l'Explorer » est partiellement périmé (Mosseri a démonté le lien consommation→reach ; consensus 7-14 j) ; l'**uniquisation cosmétique** (varier chaque exécution) ne suffit plus depuis le crackdown du 30/04/2026 et vaut évasion de détection ⚠️ → la parade propre est **transformation matérielle + collab posts + Content Protection activé par la créatrice**. Les 3 pages FB de reposts sont en 1re ligne de la répression. Lire l'état de l'art avant d'appliquer les cadences ci-dessous.
+
 > [!tip] Verdict
 > L'unité de base de la machine n'est pas « le compte », c'est **le pod : 1 VA × 1 créatrice × 3 comptes Instagram + 3 pages Facebook**, chacun dans son environnement Geelark isolé avec son proxy français dédié. La règle d'or : **1 compte = 1 profil cloud = 1 IP = 1 identité comportementale, pour toujours**. 80 % des bans viennent de la violation de cette règle (logins croisés, IP partagées, cadence de robot). Tu scales en ajoutant des pods, jamais en surchargeant un pod. Et tu pilotes au [[Reporting clippers|reporting individuel]] : BAN / actifs / cadence / clics — pas aux vues.
 
