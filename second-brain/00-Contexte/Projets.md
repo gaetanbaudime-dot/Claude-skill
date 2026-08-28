@@ -42,12 +42,13 @@ tags: [contexte/projets]
 - **Prochaine action** : densifier le cluster prioritaire, produire les rapports croisés personnalisés
 - **Origine** : conversation du 2026-06-27 "Obsidian pour scaler une agence à 500k" → exécuté
 
-## Secondaires / en veille
+### Résa Dunes : site + CRM à vendre au resto Atmosphère des Dunes
+- **Statut** : produit **codé et testé** le 28/08 (`resa-dunes/` dans le repo — site public, résa en ligne anti-surbooking, CRM fichier clients, Node/SQLite, README Railway) ; exception Kill-list ligne 16 assumée le 28/08 au soir après la panne de leur borne Overfull constatée sur place.
+- **Offre** : Grand Slam « Plus jamais une résa sur papier » — 1 490 € + 79 €/mois (plancher 990 € + 49 €), garantie « en ligne sous 7 jours ou gratuit », détail dans [[Étude - Atmosphère des Dunes, site de réservation (août 2026)]] §8.
+- **Cible** : Olivier Migne, gérant SARL L.L.O.M. — pitch = panne du midi + démo noindex + produit qui tourne. **Gelé jusqu'au 30/09 : l'industrialisation multi-restos** ([[Kill-list (NON, pas maintenant)]]).
+- **Prochaines actions** : pitch avant le 04/09 (momentum de la panne) → si oui : domaine, contenu réel, photos, déploiement Railway.
 
-### Site restaurant Atmosphère des Dunes (Bretignolles-sur-Mer)
-- **Statut** : étude complète livrée le 28/08 ([[Étude - Atmosphère des Dunes, site de réservation (août 2026)]]) ; exécution non lancée — ligne 16 de la [[Kill-list (NON, pas maintenant)]], à trancher au 30/09 ou par un « oui » écrit avec son coût d'opportunité.
-- **Objet** : refonte offerte du site du resto (Wix actuel invisible : `noindex` total, meta d'un autre restaurant) avec la résa Overfull conservée (contrainte Google Reserve) ; le modèle du « gratuit » reste à définir (service rendu / produit d'appel vers les ~150 restaurateurs du Pays de Saint-Gilles / maintenance récurrente).
-- **Cible** : Olivier Migne, gérant de la SARL L.L.O.M. depuis 2016 — pitch = démo du noindex en 10 secondes sur son téléphone.
+## Secondaires / en veille
 
 ### Agencity (SEO freelance)
 - **Statut** : actif en tâche de fond (agences immobilières + un architecte parisien)
