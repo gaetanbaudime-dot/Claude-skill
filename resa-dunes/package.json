@@ -1,0 +1,21 @@
+{
+  "name": "resa-dunes",
+  "version": "1.0.0",
+  "description": "Site de réservation + CRM pour restaurant — produit white-label, première instance : Atmosphère des Dunes (Bretignolles-sur-Mer)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed-demo.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

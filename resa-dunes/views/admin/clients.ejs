@@ -1,0 +1,31 @@
+<%- include('tete') %>
+
+<h1>Fichier clients <span class="discret">(<%= clients.length %>)</span></h1>
+
+<form method="get" action="/admin/clients" class="barre-filtres">
+  <input type="text" name="q" value="<%= q %>" placeholder="nom ou téléphone">
+  <button class="btn btn-petit">Chercher</button>
+  <a class="btn btn-ligne btn-petit" href="/admin/export/clients.csv">Export CSV</a>
+</form>
+
+<table class="tableau">
+  <thead><tr><th>Nom</th><th>Téléphone</th><th>Résas</th><th>Couverts</th><th>No-shows</th><th>Dernière visite</th><th>Notes</th></tr></thead>
+  <tbody>
+  <% for (const c of clients) { %>
+    <tr>
+      <td><a href="/admin/clients/<%= c.id %>"><strong><%= c.nom %></strong></a> <% if (c.nb_resas >= 3) { %><span class="pastille pastille-or" title="Habitué">★</span><% } %></td>
+      <td><%= c.telephone %></td>
+      <td><%= c.nb_resas %></td>
+      <td><%= c.couverts_cumules %></td>
+      <td><%= c.no_shows > 0 ? c.no_shows : '—' %></td>
+      <td><%= c.derniere_visite || '—' %></td>
+      <td class="note-cellule"><%= c.notes %></td>
+    </tr>
+  <% } %>
+  <% if (clients.length === 0) { %><tr><td colspan="7" class="discret">Aucun client.</td></tr><% } %>
+  </tbody>
+</table>
+
+<p class="discret">C'est VOTRE fichier : exportable en un clic, hébergé chez vous — pas chez une plateforme.</p>
+
+<%- include('pied') %>

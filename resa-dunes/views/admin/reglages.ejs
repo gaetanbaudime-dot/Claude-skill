@@ -1,0 +1,52 @@
+<%- include('tete') %>
+
+<h1>Réglages</h1>
+<% if (message) { %><div class="succes"><%= message %></div><% } %>
+<% if (erreur) { %><div class="alerte"><%= erreur %></div><% } %>
+
+<form method="post" action="/admin/reglages" class="form-resa">
+  <h2>Restaurant</h2>
+  <div class="grille-2">
+    <label>Nom<input type="text" name="nom_resto" value="<%= reglages.nom_resto %>"></label>
+    <label>Téléphone<input type="text" name="telephone" value="<%= reglages.telephone %>"></label>
+  </div>
+  <label>Adresse<input type="text" name="adresse" value="<%= reglages.adresse %>"></label>
+  <label>Email (affiché sur le site si renseigné)<input type="email" name="email_resto" value="<%= reglages.email_resto %>"></label>
+
+  <h2>Capacités &amp; créneaux</h2>
+  <div class="grille-2">
+    <label>Capacité midi (couverts)<input type="number" name="capacite_midi" min="1" value="<%= reglages.capacite_midi %>"></label>
+    <label>Capacité soir (couverts)<input type="number" name="capacite_soir" min="1" value="<%= reglages.capacite_soir %>"></label>
+  </div>
+  <label>Créneaux midi <span class="discret">(séparés par des virgules)</span><input type="text" name="creneaux_midi" value="<%= reglages.creneaux_midi %>"></label>
+  <label>Créneaux soir<input type="text" name="creneaux_soir" value="<%= reglages.creneaux_soir %>"></label>
+  <div class="grille-2">
+    <label>Maximum de couverts en ligne<input type="number" name="resa_max_couverts" min="1" value="<%= reglages.resa_max_couverts %>"></label>
+    <label>Délai minimum avant résa (minutes)<input type="number" name="delai_min_minutes" min="0" value="<%= reglages.delai_min_minutes %>"></label>
+  </div>
+
+  <h2>Fermetures</h2>
+  <label>Jours de fermeture hebdomadaires <span class="discret">(ex. : lundi,mardi)</span><input type="text" name="jours_fermes" value="<%= reglages.jours_fermes %>"></label>
+  <label>Fermetures exceptionnelles <span class="discret">(dates AAAA-MM-JJ séparées par des virgules)</span><input type="text" name="fermetures" value="<%= reglages.fermetures %>"></label>
+
+  <h2>RGPD</h2>
+  <label>Rétention de l'historique (mois)<input type="number" name="retention_mois" min="1" max="36" value="<%= reglages.retention_mois %>"></label>
+
+  <button class="btn btn-cta">Enregistrer les réglages</button>
+</form>
+
+<div class="grille-2 marge-haut">
+  <form method="post" action="/admin/motdepasse" class="panneau form-resa">
+    <h2>Mot de passe</h2>
+    <label>Nouveau mot de passe (8 caractères min.)<input type="password" name="nouveau" minlength="8" required></label>
+    <button class="btn btn-petit">Changer</button>
+  </form>
+  <form method="post" action="/admin/purge" class="panneau form-resa">
+    <h2>Purge RGPD manuelle</h2>
+    <p class="discret">Efface les notes de service passées et l'historique au-delà de la rétention.
+    S'exécute aussi automatiquement à chaque démarrage.</p>
+    <button class="btn btn-petit">Lancer la purge</button>
+  </form>
+</div>
+
+<%- include('pied') %>

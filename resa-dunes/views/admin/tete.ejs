@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= titre %> — CRM</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>">
+</head>
+<body class="admin">
+<header class="admin-entete">
+  <nav class="nav">
+    <a class="logo" href="/admin">CRM <span><%= reglages.nom_resto %></span></a>
+    <div class="liens">
+      <a href="/admin" class="<%= chemin === '/admin' || chemin === '/admin/' ? 'actif' : '' %>">Service du jour</a>
+      <a href="/admin/reservations" class="<%= chemin.startsWith('/admin/reservations') ? 'actif' : '' %>">Réservations</a>
+      <a href="/admin/clients" class="<%= chemin.startsWith('/admin/clients') ? 'actif' : '' %>">Clients</a>
+      <a href="/admin/stats" class="<%= chemin.startsWith('/admin/stats') ? 'actif' : '' %>">Stats</a>
+      <a href="/admin/reglages" class="<%= chemin.startsWith('/admin/reglages') ? 'actif' : '' %>">Réglages</a>
+      <form method="post" action="/admin/logout" class="inline"><button class="btn btn-ligne btn-petit">Quitter</button></form>
+    </div>
+  </nav>
+</header>
+<main class="admin-corps">

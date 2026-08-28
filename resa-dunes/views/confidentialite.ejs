@@ -1,0 +1,37 @@
+<%- include('partials/tete') %>
+
+<section class="bandeau-page"><h1>Données personnelles</h1>
+<p>La version courte : on collecte le strict minimum pour tenir votre réservation, rien d'autre.</p></section>
+
+<section class="section texte-long">
+  <h2>Ce que nous collectons, et pourquoi</h2>
+  <p>Lorsque vous réservez : <strong>nom, téléphone, email (facultatif), date, heure, nombre de couverts,
+  préférence de placement</strong> et, si vous le précisez, une note libre (allergie, occasion).
+  Base légale : l'exécution de mesures précontractuelles (article 6.1.b du RGPD) — sans ces informations,
+  nous ne pouvons pas tenir votre table.</p>
+
+  <h2>Ce que nous n'en faisons PAS</h2>
+  <p>Pas de revente, pas de publicité, pas de profilage. Ce site n'utilise
+  <strong>aucun cookie ni traceur</strong> sur ses pages publiques — c'est pour cela qu'aucun bandeau
+  ne vous a été imposé.</p>
+
+  <h2>Durées de conservation</h2>
+  <ul>
+    <li>Notes de service (allergies, demandes particulières) : effacées <strong>2 jours</strong> après la date du repas.</li>
+    <li>Historique de réservation : conservé au maximum <strong><%= reglages.retention_mois %> mois</strong> (gestion des habitués), puis supprimé automatiquement.</li>
+  </ul>
+
+  <h2>Destinataires et sous-traitance</h2>
+  <p>Vos données sont accessibles à l'équipe du restaurant et à son hébergeur informatique,
+  dans l'Union européenne, en qualité de sous-traitant au sens de l'article 28 du RGPD.</p>
+
+  <h2>Vos droits</h2>
+  <p>Vous pouvez demander l'accès, la rectification ou la suppression de vos données, ou vous opposer
+  à leur traitement : contactez le restaurant au <a href="tel:0973208493">09 73 20 84 93</a> ou en salle.
+  Vous pouvez également saisir la CNIL (<a href="https://www.cnil.fr" rel="noopener" target="_blank">cnil.fr</a>).</p>
+
+  <h2>Responsable de traitement</h2>
+  <p>L.L.O.M. (enseigne « Atmosphère des Dunes »), 57 avenue des Dunes, 85470 Bretignolles-sur-Mer.</p>
+</section>
+
+<%- include('partials/pied') %>

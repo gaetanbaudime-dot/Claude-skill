@@ -1,0 +1,28 @@
+<%- include('partials/tete') %>
+
+<section class="bandeau-page">
+  <h1>Accès &amp; contact</h1>
+  <p>Face au Camping des Dunes, à 200 m de la plage.</p>
+</section>
+
+<section class="section">
+  <div class="infos-grille">
+    <div>
+      <h2 class="titre-section gauche">Nous trouver</h2>
+      <p><strong><%= reglages.nom_resto %></strong><br><%= reglages.adresse %></p>
+      <p><a class="btn btn-ligne" href="https://www.google.com/maps/search/?api=1&query=<%= encodeURIComponent(reglages.nom_resto + ' ' + reglages.adresse) %>" rel="noopener" target="_blank">Itinéraire Google Maps</a></p>
+      <h2 class="titre-section gauche">Nous joindre</h2>
+      <p>Téléphone : <a href="tel:<%= reglages.telephone.replace(/\s/g,'') %>"><%= reglages.telephone %></a></p>
+      <% if (reglages.email_resto) { %><p>Email : <a href="mailto:<%= reglages.email_resto %>"><%= reglages.email_resto %></a></p><% } %>
+      <p class="discret">Pour réserver, le plus simple reste la <a href="/reserver">réservation en ligne</a> — confirmation immédiate, même quand la ligne est occupée en plein service.</p>
+    </div>
+    <div class="encart-resa">
+      <h3>Grandes tablées &amp; événements</h3>
+      <p>Plus de <%= reglages.resa_max_couverts %> personnes, anniversaire, repas de groupe, privatisation
+      hors saison : appelez-nous, on organise.</p>
+      <a class="btn btn-cta" href="tel:<%= reglages.telephone.replace(/\s/g,'') %>">Appeler le restaurant</a>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pied') %>

@@ -1,0 +1,59 @@
+<%- include('tete') %>
+
+<div class="barre-outils">
+  <form method="get" action="/admin" class="inline">
+    <input type="date" name="date" value="<%= date %>" onchange="this.form.submit()">
+  </form>
+  <a class="btn btn-cta" href="/admin/nouvelle?date=<%= date %>">+ Réservation (tél / comptoir)</a>
+</div>
+
+<% if (fermeture) { %><div class="alerte"><%= fermeture %> Les réservations web sont bloquées ce jour-là.</div><% } %>
+
+<% for (const service of ['midi','soir']) { const s = services[service]; %>
+  <section class="panneau">
+    <div class="panneau-tete">
+      <h2><%= service === 'midi' ? '☀️ Midi' : '🌙 Soir' %></h2>
+      <div class="jauge" title="Couverts réservés / capacité">
+        <div class="jauge-barre"><div class="jauge-remplie <%= s.couverts / (s.capacite || 1) > 0.85 ? 'pleine' : '' %>" style="width: <%= Math.min(100, Math.round(100 * s.couverts / (s.capacite || 1))) %>%"></div></div>
+        <span><strong><%= s.couverts %></strong> / <%= s.capacite %> couverts</span>
+      </div>
+    </div>
+    <% if (s.resas.length === 0) { %>
+      <p class="discret">Aucune réservation pour ce service.</p>
+    <% } else { %>
+      <table class="tableau">
+        <thead><tr><th>Heure</th><th>Nom</th><th>Tél.</th><th>Couv.</th><th>Placement</th><th>Note</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody>
+        <% for (const r of s.resas) { %>
+          <tr class="ligne-<%= r.statut %>">
+            <td><strong><%= r.heure %></strong></td>
+            <td>
+              <a href="/admin/clients/<%= r.client_id %>"><%= r.client_nom %></a>
+              <% if (r.no_shows_client > 0) { %><span class="pastille pastille-rouge" title="No-shows passés"><%= r.no_shows_client %> NS</span><% } %>
+              <% if (r.client_notes) { %><span title="<%= r.client_notes %>">📝</span><% } %>
+            </td>
+            <td><a href="tel:<%= r.client_tel %>"><%= r.client_tel %></a></td>
+            <td><%= r.couverts %></td>
+            <td><%= r.preference === 'terrasse' ? '🌞 Terrasse' : r.preference === 'interieur' ? '🏠 Salle' : '—' %></td>
+            <td class="note-cellule"><%= r.note_service || '' %></td>
+            <td><span class="pastille pastille-<%= r.statut %>"><%= { confirmee: 'Confirmée', arrivee: 'Arrivée', no_show: 'No-show', annulee: 'Annulée' }[r.statut] %></span></td>
+            <td class="actions">
+              <% if (r.statut === 'confirmee') { %>
+                <form method="post" action="/admin/reservations/<%= r.id %>/statut" class="inline"><input type="hidden" name="statut" value="arrivee"><button class="btn btn-petit btn-vert" title="Client arrivé">✓</button></form>
+                <form method="post" action="/admin/reservations/<%= r.id %>/statut" class="inline"><input type="hidden" name="statut" value="no_show"><button class="btn btn-petit btn-rouge" title="No-show">✗</button></form>
+                <form method="post" action="/admin/reservations/<%= r.id %>/statut" class="inline"><input type="hidden" name="statut" value="annulee"><button class="btn btn-petit" title="Annuler">Annul.</button></form>
+              <% } else { %>
+                <form method="post" action="/admin/reservations/<%= r.id %>/statut" class="inline"><input type="hidden" name="statut" value="confirmee"><button class="btn btn-petit" title="Rétablir">↩</button></form>
+              <% } %>
+            </td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    <% } %>
+  </section>
+<% } %>
+
+<p class="discret">Astuce service : cette page s'imprime proprement (Ctrl+P) — c'est la feuille de service papier, en secours.</p>
+
+<%- include('pied') %>

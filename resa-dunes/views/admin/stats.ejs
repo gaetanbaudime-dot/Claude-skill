@@ -1,0 +1,33 @@
+<%- include('tete') %>
+
+<h1>Statistiques</h1>
+
+<div class="cartes-3 stats-tuiles">
+  <div class="tuile"><div class="tuile-chiffre"><%= totaux.resas || 0 %></div><div class="tuile-libelle">réservations au total</div></div>
+  <div class="tuile"><div class="tuile-chiffre"><%= totaux.couverts || 0 %></div><div class="tuile-libelle">couverts servis ou à venir</div></div>
+  <div class="tuile"><div class="tuile-chiffre"><%= totaux.resas ? Math.round(100 * (totaux.no_shows || 0) / totaux.resas) : 0 %> %</div><div class="tuile-libelle">taux de no-show (<%= totaux.no_shows || 0 %>)</div></div>
+</div>
+
+<h2>Par semaine (8 dernières + 2 à venir)</h2>
+<table class="tableau">
+  <thead><tr><th>Semaine du</th><th>Résas</th><th>Couverts</th><th>No-shows</th><th>Via le site</th></tr></thead>
+  <tbody>
+  <% for (const s of semaines) { %>
+    <tr><td><%= s.debut %></td><td><%= s.resas %></td><td><%= s.couverts %></td><td><%= s.no_shows || '—' %></td><td><%= s.via_web %> (<%= s.resas ? Math.round(100 * s.via_web / s.resas) : 0 %> %)</td></tr>
+  <% } %>
+  <% if (semaines.length === 0) { %><tr><td colspan="5" class="discret">Pas encore de données.</td></tr><% } %>
+  </tbody>
+</table>
+
+<h2>Habitués (2 venues et plus)</h2>
+<table class="tableau">
+  <thead><tr><th>Client</th><th>Téléphone</th><th>Venues</th><th>Dernière</th></tr></thead>
+  <tbody>
+  <% for (const h of habitues) { %>
+    <tr><td><a href="/admin/clients/<%= h.id %>"><%= h.nom %></a></td><td><%= h.telephone %></td><td><%= h.nb %></td><td><%= h.derniere %></td></tr>
+  <% } %>
+  <% if (habitues.length === 0) { %><tr><td colspan="4" class="discret">Pas encore d'habitués enregistrés.</td></tr><% } %>
+  </tbody>
+</table>
+
+<%- include('pied') %>

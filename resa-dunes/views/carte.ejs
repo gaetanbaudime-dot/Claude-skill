@@ -1,0 +1,30 @@
+<%- include('partials/tete') %>
+
+<section class="bandeau-page">
+  <h1>La carte</h1>
+  <p>Prix nets en euros, service compris. Carte également disponible à emporter (pizzas, burgers, moules, glaces).</p>
+</section>
+
+<section class="section">
+  <div class="menu-pleine">
+    <% for (const section of carte) { %>
+      <div class="menu-bloc">
+        <h2 id="<%= section.id %>"><%= section.titre %></h2>
+        <ul>
+          <% for (const item of section.items) { %>
+            <li>
+              <span class="menu-nom"><%= item.nom %><% if (item.detail) { %><small><%= item.detail %></small><% } %></span>
+              <span class="menu-points"></span>
+              <span class="menu-prix"><%= item.prix %></span>
+            </li>
+          <% } %>
+        </ul>
+      </div>
+    <% } %>
+  </div>
+  <p class="discret centre">Origine des viandes et liste des allergènes : affichées en salle et sur demande —
+  signalez toute allergie dans le champ prévu lors de votre réservation.</p>
+  <p class="centre"><a class="btn btn-cta btn-grand" href="/reserver">Réserver une table</a></p>
+</section>
+
+<%- include('partials/pied') %>

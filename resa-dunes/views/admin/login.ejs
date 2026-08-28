@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion — CRM</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="admin admin-login">
+  <form method="post" action="/admin/login" class="boite-login">
+    <h1>📒 CRM Réservations</h1>
+    <p class="discret"><%= reglages.nom_resto %></p>
+    <% if (erreur) { %><div class="alerte"><%= erreur %></div><% } %>
+    <label>Identifiant<input type="text" name="login" required autocomplete="username" autofocus></label>
+    <label>Mot de passe<input type="password" name="motdepasse" required autocomplete="current-password"></label>
+    <button class="btn btn-cta btn-grand">Se connecter</button>
+  </form>
+</body>
+</html>

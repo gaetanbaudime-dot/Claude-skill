@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= titre %></title>
+  <meta name="description" content="<%= typeof description !== 'undefined' ? description : '' %>">
+  <meta property="og:title" content="<%= titre %>">
+  <meta property="og:description" content="<%= typeof description !== 'undefined' ? description : '' %>">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_FR">
+  <% if (siteUrl) { %><link rel="canonical" href="<%= siteUrl %><%= chemin %>"><% } %>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌊</text></svg>">
+  <% if (chemin === '/') { %>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    "name": "<%= reglages.nom_resto %>",
+    "servesCuisine": ["Brasserie", "Pizza", "Fruits de mer", "Glaces artisanales"],
+    "priceRange": "€€",
+    "telephone": "<%= reglages.telephone %>",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "57 avenue des Dunes",
+      "postalCode": "85470",
+      "addressLocality": "Bretignolles-sur-Mer",
+      "addressCountry": "FR"
+    },
+    "acceptsReservations": "<%= siteUrl %>/reserver",
+    "menu": "<%= siteUrl %>/carte"
+  }
+  </script>
+  <% } %>
+</head>
+<body>
+<header class="entete">
+  <nav class="nav">
+    <a class="logo" href="/">Atmosphère <span>des Dunes</span></a>
+    <div class="liens">
+      <a href="/carte" class="<%= chemin === '/carte' ? 'actif' : '' %>">La carte</a>
+      <a href="/contact" class="<%= chemin === '/contact' ? 'actif' : '' %>">Accès &amp; contact</a>
+      <a href="/reserver" class="btn btn-cta">Réserver une table</a>
+    </div>
+  </nav>
+</header>

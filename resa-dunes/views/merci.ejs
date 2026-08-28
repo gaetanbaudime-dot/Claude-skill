@@ -1,0 +1,25 @@
+<%- include('partials/tete', { description: 'Votre réservation est confirmée.' }) %>
+
+<section class="bandeau-page">
+  <h1>C'est noté <%= resa.nom %> !</h1>
+  <p>Votre table est réservée — on vous attend.</p>
+</section>
+
+<section class="section">
+  <div class="recap">
+    <h2>Récapitulatif</h2>
+    <ul>
+      <li><strong>Date :</strong> <%= resa.date %></li>
+      <li><strong>Service :</strong> <%= resa.service === 'midi' ? 'Midi' : 'Soir' %> à <%= resa.heure %></li>
+      <li><strong>Couverts :</strong> <%= resa.couverts %></li>
+      <li><strong>Placement :</strong> <%= resa.preference === 'terrasse' ? 'Terrasse (selon disponibilité)' : resa.preference === 'interieur' ? 'En salle' : 'Indifférent' %></li>
+      <% if (resa.note_service) { %><li><strong>Note :</strong> <%= resa.note_service %></li><% } %>
+    </ul>
+    <p>Un imprévu ? Un simple appel au
+    <a href="tel:<%= reglages.telephone.replace(/\s/g,'') %>"><%= reglages.telephone %></a>
+    et on libère la table — merci pour l'équipe.</p>
+    <p><a class="btn btn-ligne" href="/">Retour à l'accueil</a></p>
+  </div>
+</section>
+
+<%- include('partials/pied') %>

@@ -1,0 +1,91 @@
+<%- include('partials/tete') %>
+
+<section class="bandeau-page">
+  <h1>Réserver une table</h1>
+  <p>Confirmation immédiate. Groupes de plus de <%= reglages.resa_max_couverts %> personnes :
+  appelez-nous au <a href="tel:<%= reglages.telephone.replace(/\s/g,'') %>"><%= reglages.telephone %></a>.</p>
+</section>
+
+<section class="section">
+  <% if (erreurs.length) { %>
+    <div class="alerte">
+      <ul><% for (const e of erreurs) { %><li><%= e %></li><% } %></ul>
+    </div>
+  <% } %>
+
+  <form method="post" action="/reserver" class="form-resa" id="form-resa">
+    <div class="grille-2">
+      <label>Date
+        <input type="date" name="date" id="champ-date" required value="<%= valeurs.date || '' %>">
+      </label>
+      <label>Couverts
+        <select name="couverts" id="champ-couverts">
+          <% const maxC = parseInt(reglages.resa_max_couverts, 10) || 12; %>
+          <% for (let i = 1; i <= maxC; i++) { %>
+            <option value="<%= i %>" <%= String(valeurs.couverts) === String(i) ? 'selected' : (!valeurs.couverts && i === 2 ? 'selected' : '') %>><%= i %> <%= i > 1 ? 'personnes' : 'personne' %></option>
+          <% } %>
+        </select>
+      </label>
+    </div>
+
+    <div id="zone-creneaux" class="zone-creneaux">
+      <div class="service-bloc">
+        <h3>Midi</h3>
+        <div class="creneaux" data-service="midi">
+          <% for (const h of reglages.creneaux_midi.split(',')) { %>
+            <button type="button" class="creneau" data-service="midi" data-heure="<%= h.trim() %>"><%= h.trim() %></button>
+          <% } %>
+        </div>
+      </div>
+      <div class="service-bloc">
+        <h3>Soir</h3>
+        <div class="creneaux" data-service="soir">
+          <% for (const h of reglages.creneaux_soir.split(',')) { %>
+            <button type="button" class="creneau" data-service="soir" data-heure="<%= h.trim() %>"><%= h.trim() %></button>
+          <% } %>
+        </div>
+      </div>
+      <p class="discret" id="note-creneaux">Choisissez une date pour voir les disponibilités en direct.</p>
+    </div>
+
+    <input type="hidden" name="service" id="champ-service" value="<%= valeurs.service || '' %>">
+    <input type="hidden" name="heure" id="champ-heure" value="<%= valeurs.heure || '' %>">
+
+    <fieldset class="pref">
+      <legend>Préférence de placement</legend>
+      <label><input type="radio" name="preference" value="terrasse" <%= valeurs.preference === 'terrasse' ? 'checked' : '' %>> Terrasse</label>
+      <label><input type="radio" name="preference" value="interieur" <%= valeurs.preference === 'interieur' ? 'checked' : '' %>> En salle</label>
+      <label><input type="radio" name="preference" value="indifferent" <%= !valeurs.preference || valeurs.preference === 'indifferent' ? 'checked' : '' %>> Indifférent</label>
+      <small class="discret">Selon disponibilité — on fait au mieux, promis.</small>
+    </fieldset>
+
+    <div class="grille-2">
+      <label>Votre nom
+        <input type="text" name="nom" required maxlength="80" value="<%= valeurs.nom || '' %>" autocomplete="name">
+      </label>
+      <label>Téléphone
+        <input type="tel" name="telephone" required maxlength="20" value="<%= valeurs.telephone || '' %>" autocomplete="tel" placeholder="06 12 34 56 78">
+      </label>
+    </div>
+    <label>Email <span class="discret">(facultatif — pour le récapitulatif)</span>
+      <input type="email" name="email" maxlength="120" value="<%= valeurs.email || '' %>" autocomplete="email">
+    </label>
+    <label>Allergies ou demande particulière <span class="discret">(facultatif)</span>
+      <textarea name="note_service" maxlength="300" rows="2" placeholder="Ex. : allergie arachide, chaise bébé, anniversaire…"><%= valeurs.note_service || '' %></textarea>
+    </label>
+
+    <p class="text-legal">Les informations saisies servent uniquement à gérer votre réservation
+    (base légale : mesures précontractuelles). Elles ne sont ni cédées ni utilisées à des fins publicitaires ;
+    les notes de service (allergies…) sont effacées 2 jours après votre venue.
+    Détails et droits : <a href="/confidentialite">données personnelles</a>.</p>
+
+    <div class="pot-de-miel" aria-hidden="true">
+      <label>Votre site web<input type="text" name="site_web" tabindex="-1" autocomplete="off"></label>
+    </div>
+
+    <button type="submit" class="btn btn-cta btn-grand" id="btn-valider" disabled>Choisissez un créneau</button>
+  </form>
+</section>
+
+<script src="/resa.js"></script>
+<%- include('partials/pied') %>

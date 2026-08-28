@@ -1,0 +1,74 @@
+<%- include('partials/tete') %>
+
+<section class="hero">
+  <div class="hero-int">
+    <p class="sur-titre">Brasserie · Pizzeria · Glacier — Bretignolles-sur-Mer</p>
+    <h1>La terrasse plein sud du quartier des Dunes</h1>
+    <p class="hero-texte">Cuisine locale et gourmande à 200 m de la plage, face au Camping des Dunes :
+    moules-frites, pizzas à pâte fine, burgers maison, préfou vendéen et glaces artisanales,
+    dans un jardin ombragé à l'abri du vent.</p>
+    <div class="hero-actions">
+      <a class="btn btn-cta btn-grand" href="/reserver">Réserver une table</a>
+      <a class="btn btn-ligne" href="/carte">Voir la carte</a>
+    </div>
+    <p class="hero-note">Confirmation immédiate · préférence terrasse ou salle · annulation en un appel</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="cartes-3">
+    <article class="carte-atout">
+      <h2>🍕 Tout fait maison</h2>
+      <p>Pizzas à pâte fine, burgers, moules de pays (~800 g) et le fameux préfou —
+      la spécialité vendéenne que nous avons été les premiers à servir en restaurant.</p>
+    </article>
+    <article class="carte-atout">
+      <h2>🌞 Terrasse plein sud</h2>
+      <p>Un jardin ombragé naturellement, abrité des vents dominants. Dites-nous en réservant
+      si vous préférez la terrasse ou la salle : on vous garde la place.</p>
+    </article>
+    <article class="carte-atout">
+      <h2>🍨 Glaces artisanales</h2>
+      <p>Dix-sept parfums, crèmes et sorbets plein fruit, coupes glacées et cocktails —
+      l'escale sucrée du retour de plage, sur place ou à emporter.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section section-fond">
+  <h2 class="titre-section">Un aperçu de la carte</h2>
+  <div class="menu-extraits">
+    <% for (const section of carte.filter(s => ['formules','moules','pizzas'].includes(s.id))) { %>
+      <div class="menu-bloc">
+        <h3><%= section.titre %></h3>
+        <ul>
+          <% for (const item of section.items) { %>
+            <li><span class="menu-nom"><%= item.nom %></span><span class="menu-points"></span><span class="menu-prix"><%= item.prix %></span></li>
+          <% } %>
+        </ul>
+      </div>
+    <% } %>
+  </div>
+  <p class="centre"><a class="btn btn-ligne" href="/carte">La carte complète, avec les prix</a></p>
+</section>
+
+<section class="section">
+  <div class="infos-grille">
+    <div>
+      <h2 class="titre-section gauche">Infos pratiques</h2>
+      <p><strong>Adresse.</strong> <%= reglages.adresse %> — face au Camping des Dunes, à 200 m de la plage.</p>
+      <p><strong>Réservation.</strong> En ligne ci-dessous (confirmation immédiate) ou au
+      <a href="tel:<%= reglages.telephone.replace(/\s/g,'') %>"><%= reglages.telephone %></a>.
+      Groupes de plus de <%= reglages.resa_max_couverts %> : appelez-nous.</p>
+      <p><strong>Services.</strong> Midi (créneaux dès <%= reglages.creneaux_midi.split(',')[0] %>) et soir
+      (dès <%= reglages.creneaux_soir.split(',')[0] %>). Vente à emporter sur toute la carte pizzas, burgers et moules.</p>
+    </div>
+    <div class="encart-resa">
+      <h3>Votre table en 30 secondes</h3>
+      <p>Choisissez la date, l'heure et votre préférence de placement — c'est confirmé tout de suite, sans création de compte.</p>
+      <a class="btn btn-cta btn-grand" href="/reserver">Réserver maintenant</a>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/pied') %>

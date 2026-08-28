@@ -1,0 +1,30 @@
+<%- include('tete') %>
+
+<h1><%= client.nom %></h1>
+<p><a href="tel:<%= client.telephone %>"><%= client.telephone %></a>
+<% if (client.email) { %> · <a href="mailto:<%= client.email %>"><%= client.email %></a><% } %>
+· client depuis le <%= (client.cree_le || '').slice(0, 10) %></p>
+
+<form method="post" action="/admin/clients/<%= client.id %>/notes" class="form-notes">
+  <label>Notes maison <span class="discret">(préférences, table favorite, à savoir)</span>
+    <textarea name="notes" rows="2" maxlength="1000"><%= client.notes %></textarea>
+  </label>
+  <button class="btn btn-petit">Enregistrer</button>
+</form>
+
+<h2>Historique (<%= resas.length %>)</h2>
+<table class="tableau">
+  <thead><tr><th>Date</th><th>Service</th><th>Heure</th><th>Couverts</th><th>Placement</th><th>Statut</th><th>Source</th></tr></thead>
+  <tbody>
+  <% for (const r of resas) { %>
+    <tr class="ligne-<%= r.statut %>">
+      <td><%= r.date %></td><td><%= r.service %></td><td><%= r.heure %></td><td><%= r.couverts %></td>
+      <td><%= r.preference %></td>
+      <td><span class="pastille pastille-<%= r.statut %>"><%= r.statut %></span></td>
+      <td><%= r.source %></td>
+    </tr>
+  <% } %>
+  </tbody>
+</table>
+
+<%- include('pied') %>

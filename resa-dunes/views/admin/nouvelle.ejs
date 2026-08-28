@@ -1,0 +1,45 @@
+<%- include('tete') %>
+
+<h1>Nouvelle réservation (téléphone / comptoir)</h1>
+
+<% if (erreurs.length) { %><div class="alerte"><ul><% for (const e of erreurs) { %><li><%= e %></li><% } %></ul></div><% } %>
+
+<form method="post" action="/admin/nouvelle" class="form-resa">
+  <div class="grille-2">
+    <label>Nom<input type="text" name="nom" required value="<%= valeurs.nom || '' %>" autofocus></label>
+    <label>Téléphone<input type="tel" name="telephone" value="<%= valeurs.telephone || '' %>" placeholder="facultatif au comptoir"></label>
+  </div>
+  <div class="grille-2">
+    <label>Date<input type="date" name="date" required value="<%= valeurs.date || '' %>"></label>
+    <label>Heure<input type="time" name="heure" required value="<%= valeurs.heure || '' %>" step="900"></label>
+  </div>
+  <div class="grille-2">
+    <label>Service
+      <select name="service">
+        <option value="midi" <%= valeurs.service === 'midi' ? 'selected' : '' %>>Midi</option>
+        <option value="soir" <%= valeurs.service !== 'midi' ? 'selected' : '' %>>Soir</option>
+      </select>
+    </label>
+    <label>Couverts<input type="number" name="couverts" min="1" max="60" required value="<%= valeurs.couverts || 2 %>"></label>
+  </div>
+  <div class="grille-2">
+    <label>Placement
+      <select name="preference">
+        <option value="indifferent">Indifférent</option>
+        <option value="terrasse" <%= valeurs.preference === 'terrasse' ? 'selected' : '' %>>Terrasse</option>
+        <option value="interieur" <%= valeurs.preference === 'interieur' ? 'selected' : '' %>>En salle</option>
+      </select>
+    </label>
+    <label>Source
+      <select name="source">
+        <option value="telephone" <%= valeurs.source === 'telephone' ? 'selected' : '' %>>Téléphone</option>
+        <option value="comptoir" <%= valeurs.source === 'comptoir' ? 'selected' : '' %>>Comptoir</option>
+      </select>
+    </label>
+  </div>
+  <label>Note de service<input type="text" name="note_service" maxlength="300" value="<%= valeurs.note_service || '' %>" placeholder="allergie, chaise bébé…"></label>
+  <label class="case"><input type="checkbox" name="forcer" value="1"> Forcer même si la capacité est dépassée</label>
+  <button class="btn btn-cta btn-grand">Enregistrer la réservation</button>
+</form>
+
+<%- include('pied') %>

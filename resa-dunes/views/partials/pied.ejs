@@ -1,0 +1,21 @@
+<footer class="pied">
+  <div class="pied-grille">
+    <div>
+      <strong><%= reglages.nom_resto %></strong><br>
+      <%= reglages.adresse %><br>
+      <a href="tel:<%= reglages.telephone.replace(/\s/g,'') %>"><%= reglages.telephone %></a>
+    </div>
+    <div>
+      <a href="/reserver">Réserver une table</a><br>
+      <a href="/carte">La carte</a><br>
+      <a href="/contact">Accès &amp; contact</a>
+    </div>
+    <div>
+      <a href="/mentions-legales">Mentions légales</a><br>
+      <a href="/confidentialite">Données personnelles</a><br>
+      <span class="discret">Site sans cookies ni traceurs.</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
