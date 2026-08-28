@@ -1,3 +1,10 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Démonstration du CRM de réservation Résa Dunes.">
+<meta name="robots" content="noindex">
 <title>CRM Résa Dunes</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;700;800&display=swap">
 <style>
@@ -106,6 +113,8 @@
   .form-pleine { margin-top: 0.7rem; }
   .form-actions { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
 </style>
+</head>
+<body>
 
 <div class="porte" id="porte">
   <form class="porte-carte" id="porte-form">
@@ -523,7 +532,7 @@
 
   // ---- Exports Excel/CSV (capacité « downloads » de la page publiée) ----
   function csv(lignes) {
-    return "﻿" + lignes.map(function (l) {
+    return "\uFEFF" + lignes.map(function (l) {
       return l.map(function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }).join(";");
     }).join("\r\n");
   }
@@ -544,23 +553,40 @@
     });
     return csv(l);
   }
+  function telechargeClassique(nomFichier, texte) {
+    var blob = new Blob([texte], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nomFichier;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }
   (function brancheExports() {
-    if (typeof claude === "undefined" || !claude || typeof claude.use !== "function") return;
-    claude.use("downloads").then(function (dl) {
-      if (!dl) return;
-      function branche(idBtn, fabrique, nomFichier) {
-        var b = document.getElementById(idBtn);
-        b.style.display = "inline-block";
-        b.addEventListener("click", function () {
-          dl.save({ filename: nomFichier, data: fabrique() }).catch(function () { /* refus visiteur : rien à faire */ });
-        });
-      }
-      branche("exp-resas", csvResas, "reservations.csv");
-      branche("exp-clients", csvClients, "clients.csv");
-    }).catch(function () { /* capacité absente : boutons masqués */ });
+    function branche(idBtn, fabrique, nomFichier, dl) {
+      var b = document.getElementById(idBtn);
+      b.style.display = "inline-block";
+      b.addEventListener("click", function () {
+        if (dl) dl.save({ filename: nomFichier, data: fabrique() }).catch(function () { /* refus visiteur */ });
+        else telechargeClassique(nomFichier, fabrique());
+      });
+    }
+    function tout(dl) {
+      branche("exp-resas", csvResas, "reservations.csv", dl);
+      branche("exp-clients", csvClients, "clients.csv", dl);
+    }
+    // Page publiée sur claude.ai : capacité « downloads » ; navigateur classique : téléchargement standard.
+    if (typeof claude !== "undefined" && claude && typeof claude.use === "function") {
+      claude.use("downloads").then(function (dl) { tout(dl || null); }).catch(function () { tout(null); });
+    } else {
+      tout(null);
+    }
   })();
 
   function rendTout() { rendService(); rendClients(); rendStats(); }
   rendTout();
 })();
 </script>
+
+</body>
+</html>
