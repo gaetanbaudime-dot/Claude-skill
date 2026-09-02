@@ -41,6 +41,11 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 # Cadence exigée par compte de croissance (règle annoncée à l'équipe le 30/07).
 CADENCE_MIN = int(os.environ.get("CADENCE_REELS_MIN", "3"))
+# Objectif de comptes Instagram VIVANTS par créatrice prioritaire (décision du 02/09 : la machine
+# à surfaces neuves — en créer plus qu'il n'en meurt). Le rapport quotidien affiche l'écart.
+OBJECTIF_COMPTES_IG = int(os.environ.get("OBJECTIF_COMPTES_IG", "20"))
+TOP_CREATRICES = [c.strip() for c in
+                  os.environ.get("TOP_CREATRICES", "Chloé,Sarah,Sophie,Maddie").split(",") if c.strip()]
 # Heure UTC d'envoi du rapport quotidien (9 = 11h à Paris l'été, 13h à Dubaï).
 HEURE_RAPPORT = int(os.environ.get("HEURE_RAPPORT_INPUTS", "9"))
 # Salons à ignorer dans la cartographie : réserves de comptes non attribués.
@@ -266,6 +271,64 @@ async def enrichir_pages_fb(carte: dict, salons: dict, creatrices: dict):
             fiche["pages_fb"].append(page)
             ajoutees += 1
     journal.info("Onglet Facebook : %d page(s) rattachée(s)", ajoutees)
+
+
+async def compter_comptes_creatrices() -> dict:
+    """L'inventaire de surfaces par créatrice, depuis l'onglet Tracking publié : combien de comptes
+    Instagram VIVANTS chaque créatrice possède, face à l'objectif OBJECTIF_COMPTES_IG. C'est le
+    tableau de bord de la décision du 02/09 (créer plus de comptes qu'il n'en meurt). Retourne
+    {créatrice: {"vivants": n, "en_attente": n}} ; {} si le sheet n'a pas de colonne créatrice."""
+    if not SHEET_CSV_URL:
+        return {}
+    lignes = await _telecharger_csv(SHEET_CSV_URL)
+    if len(lignes) < 2:
+        return {}
+    colonne, _ = _index_colonnes(lignes[0])
+    i_compte = colonne("@", "compte", "pseudo", "instagram")
+    i_etat = colonne("etat", "statut")
+    i_crea = colonne("creatrice", "createur", "modele", "crea")
+    if i_compte < 0 or i_crea < 0:
+        return {}
+    inventaire = {}
+    for ligne in lignes[1:]:
+        def champ(i):
+            return ligne[i].strip() if 0 <= i < len(ligne) else ""
+        crea = champ(i_crea)
+        if not crea:
+            continue
+        cible, nom = _identifier_compte(champ(i_compte))
+        if cible != "comptes" or not nom:
+            continue                                   # pages FB : hors objectif « 20 IG »
+        etat = champ(i_etat)
+        fiche = inventaire.setdefault(crea.title(), {"vivants": 0, "en_attente": 0})
+        if _etat_mort(etat):
+            # « à créer » n'est pas un mort comme un ban : c'est la file d'attente de création.
+            e = re.sub(r"[^a-z0-9 ]", "", _normaliser(etat)).strip()
+            if e.startswith("a creer") or e.startswith("acreer") or e.startswith("a faire"):
+                fiche["en_attente"] += 1
+        else:
+            fiche["vivants"] += 1
+    return inventaire
+
+
+def bloc_comptes(inventaire: dict) -> str:
+    """La ligne « surfaces » du rapport : vivants/objectif par créatrice prioritaire, file d'attente
+    incluse. Vide si l'inventaire n'est pas disponible (colonne créatrice absente du sheet)."""
+    if not inventaire:
+        return ""
+    morceaux = []
+    for crea in TOP_CREATRICES:
+        fiche = next((f for n, f in inventaire.items() if _normaliser(n) == _normaliser(crea)), None)
+        if fiche is None:
+            morceaux.append(f"{crea} ?")
+            continue
+        manque = max(0, OBJECTIF_COMPTES_IG - fiche["vivants"])
+        attente = fiche["en_attente"]
+        morceaux.append(f"{crea} {fiche['vivants']}"
+                        + (f" (manque {manque}"
+                           + (f", {attente} préparé{'s' if attente > 1 else ''}" if attente else "")
+                           + ")" if manque else " ✅"))
+    return f"🏗️ IG vivants /{OBJECTIF_COMPTES_IG} : " + " · ".join(morceaux)
 
 
 def cartographier_comptes(guild) -> dict:
@@ -547,10 +610,10 @@ def _analyse_et_actions(bilan: dict, veille: dict) -> list:
     return analyse + [""] + actions
 
 
-def message_recap(bilan: dict, date_jour: str, veille: dict = None) -> str:
-    """Le récapitulatif quotidien (Telegram + salon admin) : clippers, opérateurs Metricool,
-    analyse et actionnables. Les opérateurs internes sont séparés des clippers : ils n'ont ni la
-    même mission ni la même cadence, les mélanger fausserait la lecture."""
+def message_recap_detail(bilan: dict, date_jour: str, veille: dict = None) -> str:
+    """La version LONGUE du récapitulatif (une ligne par personne, analyse, actionnables) —
+    disponible à la demande via `!inputs detail`. Le rapport quotidien, lui, utilise
+    message_recap : la version courte (demande du 02/09 : « illisible »)."""
     if not bilan:
         return (f"📊 *INPUTS — {date_jour}*\n\nAucun compte cartographié "
                 "(vérifie `SHEET_CSV_URL` ou les topics des salons).")
@@ -564,6 +627,58 @@ def message_recap(bilan: dict, date_jour: str, veille: dict = None) -> str:
     lignes += _bloc_equipe("📱 CLIPPERS", clippers)
     lignes += _bloc_equipe("🎛️ METRICOOL (interne)", metricool)
     lignes += _analyse_et_actions(bilan, veille or {})
+    return "\n".join(lignes)
+
+
+def message_recap(bilan: dict, date_jour: str, veille: dict = None, comptes: dict = None) -> str:
+    """Le rapport quotidien COURT (≤ 8 lignes) : le total et sa tendance, qui publie et qui est à
+    zéro, l'inventaire de surfaces face à l'objectif, les incidents, et UNE priorité. Tout le
+    reste vit derrière `!inputs detail` — un rapport qu'on ne lit plus ne pilote rien."""
+    if not bilan:
+        return (f"📊 *MARKETING — {date_jour}*\n\nAucun compte cartographié "
+                "(vérifie `SHEET_CSV_URL` ou les topics des salons).")
+    total = sum(b["posts_24h"] for b in bilan.values())
+    total_vues = sum(b["vues_24h"] for b in bilan.values())
+    total_hier = sum(v.get("posts_24h", 0) for v in veille.values()) if veille else None
+    actifs = [n for n, b in bilan.items() if b["posts_24h"] > 0]
+    zeros = [n for n, b in bilan.items() if b["posts_24h"] == 0 and b["comptes_suivis"]
+             and not b["restreints"] and not b["injoignables"]]
+    restreints = sum(len(b["restreints"]) for b in bilan.values())
+    morts = sum(len(b["injoignables"]) for b in bilan.values())
+    top = max(bilan.items(), key=lambda x: x[1]["posts_24h"], default=(None, None))
+
+    tendance = f" ({total - total_hier:+d} vs hier)" if total_hier is not None else ""
+    feu = "🟢" if total_hier is None or total >= total_hier else "🔴"
+    lignes = [f"📊 *MARKETING — {date_jour}*",
+              f"{feu} *{total} Reels*{tendance} · {total_vues:,} vues · "
+              f"{len(actifs)}/{len(bilan)} ont publié".replace(",", " ")]
+    if top[0] and top[1]["posts_24h"]:
+        ligne_top = f"🥇 {top[0]} ({top[1]['posts_24h']})"
+        if zeros:
+            ligne_top += f" — 🔴 zéro : {', '.join(zeros[:5])}" + (f" +{len(zeros)-5}" if len(zeros) > 5 else "")
+        lignes.append(ligne_top)
+    surfaces = bloc_comptes(comptes or {})
+    if surfaces:
+        lignes.append(surfaces)
+    if restreints or morts:
+        lignes.append("❗ " + " · ".join(filter(None, [
+            f"{restreints} compte(s) 18+" if restreints else "",
+            f"{morts} mort(s)/renommé(s)" if morts else ""])))
+    # UNE priorité, la première qui s'applique — le reste attend le détail.
+    if restreints:
+        priorite = "lever les restrictions 18+ (trafic perdu à 100 %, gain sans publier plus)"
+    elif comptes and any(max(0, OBJECTIF_COMPTES_IG - f["vivants"]) > 0
+                         for n, f in comptes.items()
+                         if any(_normaliser(n) == _normaliser(c) for c in TOP_CREATRICES)):
+        priorite = "créer des comptes — la file « à créer » du sheet attend les pods"
+    elif zeros:
+        priorite = f"relancer les {len(zeros)} à zéro (comptes sains, aucune excuse technique)"
+    elif morts:
+        priorite = "recréer les comptes tombés (Fiche 1)"
+    else:
+        priorite = f"rien d'urgent — féliciter {top[0]} dans #dopamine" if top[0] else "rien d'urgent"
+    lignes.append(f"👉 *LA priorité : {priorite}*")
+    lignes.append("_Détail par clipper : !inputs detail_")
     return "\n".join(lignes)
 
 
@@ -666,7 +781,8 @@ async def executer(client, guild, canal_admin=None, silencieux=False) -> dict:
         await asyncio.sleep(1)
 
     await archiver_dans_sheet(bilan, brut, aujourdhui)
-    recap = message_recap(bilan, datetime.now(timezone.utc).strftime("%d/%m"), veille)
+    comptes = await compter_comptes_creatrices()
+    recap = message_recap(bilan, datetime.now(timezone.utc).strftime("%d/%m"), veille, comptes)
     await envoyer_telegram(recap)
     if canal_admin is not None:
         try:

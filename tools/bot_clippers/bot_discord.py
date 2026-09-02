@@ -1388,6 +1388,14 @@ async def boucle_pipeline():
                            if onboarde else
                            "On t'ouvre tes accès dans quelques minutes — tu vas recevoir ton rôle "
                            "d'équipe, ton espace et ton lien de tracking. Reste connecté 🚀"))
+                    # Le numéro WhatsApp du signé FR part avec l'alerte (02/09) : l'onboarding à
+                    # chaud se joue dans les heures qui suivent la signature, pas au digest du matin.
+                    tel_signe = (donnees.get("liaisons", {}).get(uid) or {}).get("tel", "")
+                    ligne_tel = (f"\n📞 **Appelle-le maintenant : {tel_signe}** — onboarding à chaud "
+                                 "(objectif : comptes créés sous 24 h)."
+                                 if code_equipe == "fr" and tel_signe else
+                                 ("\n📞 Pas de numéro en liaison — retrouve-le avec `!fiche`."
+                                  if code_equipe == "fr" else ""))
                     if canal:
                         await canal.send(
                             (f"✅ **{membre.mention} — contrat signé, auto-onboardé {nom_equipe}** "
@@ -1400,7 +1408,14 @@ async def boucle_pipeline():
                                 f"Tranche à la main : `!equipe {membre.display_name} fr` ou "
                                 f"`!equipe {membre.display_name} int`."
                                 if DOCUSEAL_ONBOARDING_AUTO else
-                                f"`!equipe {membre.display_name} fr` ou `int` pour ouvrir ses accès.")))
+                                f"`!equipe {membre.display_name} fr` ou `int` pour ouvrir ses accès."))
+                            + ligne_tel)
+                    if code_equipe == "fr":
+                        # Et la même alerte sur Telegram : elle doit sonner dans la poche, pas
+                        # attendre l'ouverture de Discord.
+                        await inputs_clippers.envoyer_telegram(
+                            f"✍️ *Contrat signé : {membre.display_name} (Team France)*"
+                            + (f"\n📞 Appelle-le maintenant : {tel_signe}" if tel_signe else ""))
                 elif clipper_signe and contrat.get("statut") == "envoye" and DOCUSEAL_CONTRESIGNATURE:
                     contrat["statut"] = "signe_clipper"
                     modifie = True
@@ -1475,9 +1490,14 @@ async def boucle_rappels():
                 tels_lies = {l.get("tel") for l in pipe.get("liaisons", {}).values()}
                 orphelines = sum(1 for t in pipe.get("candidatures", {}) if t not in tels_lies)
 
+                liaisons_p = pipe.get("liaisons", {})
+
+                def _tel_de(uid):
+                    return (liaisons_p.get(uid) or {}).get("tel", "")
+
                 lignes_d = []
                 if rendus:
-                    lignes_d.append("📥 **Tests à reviewer — ton action** : "
+                    lignes_d.append("📥 **Tests à reviewer — ton OUI/NON** : "
                                     + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus[:8])
                                     + "\n→ `!test-ok @membre` ou `!test-non @membre`")
                 if contrats_attente:
@@ -1485,8 +1505,15 @@ async def boucle_rappels():
                                     + " · ".join(f"<@{u}> (J+{j})" for u, j in contrats_attente[:8])
                                     + " — au-delà de J+2, un message WhatsApp débloque.")
                 if signes_recents:
-                    lignes_d.append("🎉 **Signés cette semaine — leurs comptes sont créés ?** : "
-                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in signes_recents[:8])
+                    # Le téléphone est là POUR APPELER (02/09) : un signé FR s'onboarde à chaud,
+                    # pas à J+3. Le numéro vient de la liaison candidature (WhatsApp).
+                    morceaux = []
+                    for u, j in signes_recents[:8]:
+                        est_fr = (equipes_r.get(u) or {}).get("equipe") == "fr"
+                        tel = _tel_de(u)
+                        morceaux.append(f"<@{u}> (J+{j}" + (f" · ☎️ {tel}" if est_fr and tel else "") + ")")
+                    lignes_d.append("🎉 **Signés cette semaine — appelle les FR, comptes créés ?** : "
+                                    + " · ".join(morceaux)
                                     + "\n-# Un signé sans comptes à J+3 est un motivé qu'on refroidit.")
                 if attente_mail:
                     lignes_d.append(f"✅ Validés en attente d'e-mail (je relance tout seul) : {attente_mail}")
@@ -1495,18 +1522,60 @@ async def boucle_rappels():
                 if orphelines:
                     lignes_d.append(f"📋 Candidatures sans Discord lié : {orphelines} — détail avec `!pipeline`")
 
-                if rendus or contrats_attente or signes_recents:
+                # Le digest part TOUS les jours (demande du 02/09) : un jour sans action est une
+                # information — « la machine tourne » se constate, elle ne se devine pas.
+                if not (rendus or contrats_attente or signes_recents):
+                    en_test = sum(1 for i in etats_p.values() if i.get("etat") == "test_envoye")
+                    lignes_d.insert(0, "✅ Rien qui n'attende TON action aujourd'hui"
+                                    + (f" · {en_test} test(s) en cours" if en_test else "")
+                                    + " — je relance les candidats tout seul.")
+                canal = await canal_admin()
+                if canal is not None:
+                    try:
+                        texte_digest = ("☕ **Pipeline candidats — " + maintenant.strftime("%d/%m") + "**\n"
+                                        + "\n".join(lignes_d))[:1990]
+                        await canal.send(texte_digest)
+                        etat["pipeline_digest"] = aujourdhui
+                        ecrire_json(FICHIER_RAPPELS, etat)
+                        # Copie sur le canal Telegram des rapports quotidiens (« comme le reste ») :
+                        # les mentions Discord y deviennent des prénoms lisibles.
+                        def _prenom(m):
+                            membre_n = membre_par_id(m.group(1))
+                            return membre_n.display_name if membre_n else "membre parti"
+                        await inputs_clippers.envoyer_telegram(
+                            re.sub(r"<@!?(\d+)>", _prenom, texte_digest).replace("**", "*"))
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+            # Relance du soir (18 h Paris) : les tests qui attendent encore le OUI/NON de l'admin.
+            # Le digest du matin informe, la relance du soir empêche la nuit de passer dessus —
+            # un candidat qui attend 48 h son verdict est un candidat qui signe ailleurs (02/09).
+            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.hour >= 18 and etat.get("tests_soir") != aujourdhui:
+                pipe_s = lire_json(FICHIER_PIPELINE, {"etats": {}})
+                ref_s = datetime.now(timezone.utc)
+
+                def _jours_s(iso):
+                    try:
+                        return max(0, (ref_s - datetime.fromisoformat(iso)).days)
+                    except (TypeError, ValueError):
+                        return 0
+
+                rendus_s = sorted(((uid, _jours_s(i.get("rendu"))) for uid, i in pipe_s.get("etats", {}).items()
+                                   if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
+                if rendus_s:
                     canal = await canal_admin()
                     if canal is not None:
                         try:
-                            await canal.send(("☕ **Pipeline candidats — à faire aujourd'hui**\n"
-                                              + "\n".join(lignes_d))[:1990])
-                            etat["pipeline_digest"] = aujourdhui
+                            await canal.send(
+                                f"⚖️ **{len(rendus_s)} test(s) attendent ton OUI ou ton NON** : "
+                                + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus_s[:8])
+                                + "\n→ `!test-ok @membre` ou `!test-non @membre` — 2 minutes, "
+                                  "et le candidat dort motivé au lieu de dormir déçu.")
+                            etat["tests_soir"] = aujourdhui
                             ecrire_json(FICHIER_RAPPELS, etat)
                         except (discord.Forbidden, discord.HTTPException):
                             pass
                 else:
-                    etat["pipeline_digest"] = aujourdhui   # rien qui n'attende l'admin → silence
+                    etat["tests_soir"] = aujourdhui        # rien en attente → pas de bruit le soir
                     ecrire_json(FICHIER_RAPPELS, etat)
             # Reporting clippers : le dimanche à partir de 17:00, une fois.
             if CANAL_REPORTING_ID and maintenant.weekday() == 6 and maintenant.hour >= 17 \
@@ -2639,15 +2708,22 @@ async def commande_admin(message, texte: str) -> bool:
                                 "inputs est éteint. Ajoute-le sur Railway et redéploie.")
             return True
         test = "test" in texte
+        detail = "detail" in texte or "détail" in texte
         await message.reply("⏳ Scraping en cours (~1 min)…"
                             + (" *mode test : rien ne sera envoyé aux clippers.*" if test else ""))
         bilan = await inputs_clippers.executer(client, message.guild,
-                                              await canal_admin(), silencieux=test)
+                                              await canal_admin(), silencieux=test or detail)
         if not bilan:
             await message.reply("Rien récupéré — vérifie `!comptes`, le token Apify et tes crédits.")
-        elif test:
-            await message.reply(inputs_clippers.message_recap(
+        elif detail:
+            # La version longue à la demande — le rapport quotidien reste court (02/09).
+            await message.reply(inputs_clippers.message_recap_detail(
                 bilan, datetime.now(timezone.utc).strftime("%d/%m")).replace("*", "**")[:1990])
+        elif test:
+            comptes_t = await inputs_clippers.compter_comptes_creatrices()
+            await message.reply(inputs_clippers.message_recap(
+                bilan, datetime.now(timezone.utc).strftime("%d/%m"),
+                comptes=comptes_t).replace("*", "**")[:1990])
             # (mode test : pas de comparaison à la veille, l'historique n'est pas écrit)
         return True
 

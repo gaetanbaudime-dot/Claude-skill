@@ -152,9 +152,17 @@ Instagram à un actor Apify** — c'est la seule chose qui créerait un risque r
 | `CADENCE_REELS_MIN` | Reels/jour exigés par compte (défaut `3`) |
 | `HEURE_RAPPORT_INPUTS` | Heure UTC d'envoi (défaut `9` — 11 h à Paris, 13 h à Dubaï) |
 | `SALONS_RESERVE` | Salons ignorés, séparés par des virgules (défaut `xxx,yyy,zzz,reserve,…`) |
+| `OBJECTIF_COMPTES_IG` | Objectif de comptes Instagram **vivants** par créatrice prioritaire (défaut `20`) |
+| `TOP_CREATRICES` | Créatrices suivies dans la ligne « surfaces » du rapport (défaut `Chloé,Sarah,Sophie,Maddie`) |
 
 **Mise en route** : `!comptes` vérifie la cartographie lue sur le serveur · `!inputs test` lance un
-scrape sans rien envoyer aux clippers · `!inputs` lance le cycle complet.
+scrape sans rien envoyer aux clippers · `!inputs` lance le cycle complet · `!inputs detail` affiche
+la version longue (ligne par clipper) — le rapport quotidien, lui, est court : total et tendance,
+qui est à zéro, l'inventaire de surfaces face à l'objectif, et UNE priorité.
+
+**La ligne « surfaces »** (`🏗️ IG vivants /20`) exige une colonne `Créatrice` dans l'onglet
+`Tracking` publié : le bot compte les comptes non morts par créatrice et affiche le manque face à
+`OBJECTIF_COMPTES_IG`, plus la file « à créer » déjà préparée dans le sheet.
 
 **Coût** : ~1,60 $/1 000 profils. À 6 clippers (18 comptes), ≈ **4 $/mois** — le plan gratuit
 (5 $ de crédits) suffit ; le plan Starter à 29 $ couvre jusqu'à ~20 clippers.
