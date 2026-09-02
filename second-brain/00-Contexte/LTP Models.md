@@ -119,6 +119,9 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 
 ## Les priorités actives (issues du dernier appel Maxime + analyses)
 
+> [!tip] Recadrage du 02/09 (diagnostic 90 jours — détail et prédiction au [[Journal de coaching]])
+> Goulot actuel = **renouvellement des surfaces** (les comptes meurent en 1-3 semaines et personne n'en crée) + SFS coupés à tort fin juillet (canal à 69 % de conversion). Allocation actée : **5 clippers Chloé / 4 Sarah / 3 Sophie**, Maddie en machine passive (organique MYM en croissance), Jade en SFS-only, Amanda/Lila gelées. **Objectif janvier : 100-130 k€/mois** — le 500 k reste un gate (fin 2027), pas une date. Les priorités numérotées ci-dessous datent de juillet : lire l'entrée du 02/09 avant de s'y fier.
+
 1. **Refonte chatting via Maxence** : la contrainte n'est pas la qualité des chatteurs mais l'ABSENCE de couche de supervision (coaching quotidien, Discord par créatrice, volume de scripts) ; c'est le levier qui a doublé la LTV chez Maxime en ~6 semaines. Embauche d'un chatter manager = recrutement le plus important.
 2. **Réparation LTV Sophie** + capture de ses plateformes par avenant à palier.
 3. **Scaling SFS** : 6-15x plus de revenu par clic qu'Instagram (conversion 47-68%), volume quasi nul → 1-2 SFS/semaine/créatrice, Rianah en prospection.
