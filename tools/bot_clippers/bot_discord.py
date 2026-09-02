@@ -2981,7 +2981,6 @@ async def commande_admin(message, texte: str) -> bool:
         equipe = lire_json(FICHIER_EQUIPES, {}).get(str(membre.id), {})
         tel = liaison.get("tel", "")
         cand = donnees.get("candidatures", {}).get(tel, {})
-        tel_masque = (tel[:4] + "•" * max(0, len(tel) - 7) + tel[-3:]) if tel else "non lié (!lier)"
         prenom = liaison.get("prenom") or cand.get("prenom") or ""
         pays = liaison.get("pays") or cand.get("pays") or ""
         grille_tel = equipe_de_l_indicatif(tel) if indicatif_certain(tel) else ""
@@ -2991,9 +2990,13 @@ async def commande_admin(message, texte: str) -> bool:
         signee = ("FR" if equipe.get("equipe") == "fr" else "INTERNATIONAL") if equipe else "—"
         src = lire_json(FICHIER_INVITES, {}).get("sources", {}).get(str(membre.id), {})
         porte = src.get("source", "") or "inconnue (arrivé avant le tracker)"
-        lignes = [f"🗂️ **{membre.display_name}**" + (f" — {prenom}" if prenom
-                      and normaliser(prenom) not in normaliser(membre.display_name) else ""),
-                  f"📞 Téléphone (clé formulaire) : {tel_masque}",
+        # !fiche est réservée aux ADMIN_IDS (dispatch) : le numéro s'affiche EN CLAIR — c'est
+        # l'outil d'appel de l'admin (02/09), pas une fiche publique. Prénom du formulaire et
+        # pseudo Discord réel (@username, différent du nom d'affichage) toujours visibles.
+        lignes = [f"🗂️ **{membre.display_name}**"
+                  + (f" — {prenom}" if prenom else "")
+                  + f" · pseudo Discord : `@{membre.name}`",
+                  f"📞 Téléphone (WhatsApp) : **{tel or 'non lié (!lier)'}**",
                   f"📧 E-mail (contrat/Drive) : "
                   + ((liaison.get("email", "")[0] + "•••" + liaison["email"][liaison["email"].index("@"):])
                      if "@" in liaison.get("email", "") else "—"),
