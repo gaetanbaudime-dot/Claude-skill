@@ -40,8 +40,7 @@ liens_forts: ["[[Développer un manager clipper (Julien et Jonas)]]", "[[Équipe
 | **Fixe par clipper actif** | **100 €/mois** par clipper | Actif = ≥ 80 % de journées validées dans le mois. **Premier mois de chaque équipe : 500 € garantis** (lancement + warmup). |
 | **Variable** | **0,30 € par sub OF vérifié** de chaque clipper de tes équipes | Sans plafond. Comptés sur les créatrices à ≥ 5 €/sub. |
 | **Bonus cadence** | **+150 €/mois par équipe** | Toute l'équipe a sa prime discipline le même mois. |
-| **Primes de franchissement** (par équipe, une fois chacune) | **+300 €** à 1 000 subs · **+800 €** à 2 500 · **+1 500 €** à 5 000 | La première fois que l'équipe atteint le palier dans un mois. |
-| **Prime de constance** | **+500 € par trimestre** et par équipe | 3 mois d'affilée à ≥ 2 000 subs. |
+| **Bonus paliers** (chaque mois où l'équipe les atteint) | **+300 €** à 1 000 subs · **+800 €** à 2 500 · **+1 600 €** à 5 000 | Récurrents et cumulables — choix de Gaëtan du 07/09 (« 1 000 sera atteint souvent, 5 000 jamais »). |
 | Tes propres comptes | Grille clipper (0,50 €/sub) | Sur les 2 iPhone 8 — pour montrer, pas pour remplacer ton équipe. |
 
 **Ce que ça donne concrètement :**
@@ -49,10 +48,11 @@ liens_forts: ["[[Développer un manager clipper (Julien et Jonas)]]", "[[Équipe
 | Situation | Ton mois |
 |---|---|
 | Mois 1, équipe en lancement | 500 € garantis |
-| Mois 3, 1 équipe à 1 500 subs | 500 + 150 + 450 = **1 100 €** (+ 300 € de franchissement) |
-| Mois 4, 1 équipe à 2 000 subs | **1 250 €** |
-| 2 équipes à 2 000 subs | **2 500 €** (+ primes de franchissement de la 2ᵉ) |
-| 3 équipes à 2 000 subs | **3 750 €/mois** (+ 500 €/trimestre par équipe constante) |
+| 1 équipe à 1 000 subs | 500 + 150 + 300 + 300 = **1 250 €** |
+| 1 équipe à 1 500 subs | **1 400 €** |
+| 1 équipe à 2 500 subs | 500 + 150 + 750 + 300 + 800 = **2 500 €** |
+| 2 équipes à 1 500 subs | **2 800 €** |
+| 3 équipes à 2 000 subs | **4 650 €/mois** |
 
 **La suite** : 3 équipes tenues seul = ton plafond (36 h/semaine). Au-delà, tu nommes un **chef d'équipe** (le meilleur clipper de chaque équipe, +50 €/mois + 0,10 €/sub d'équipe) et tu passes **chef de pods**, intéressé au résultat net du pôle marketing.
 
