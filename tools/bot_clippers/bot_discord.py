@@ -24,6 +24,7 @@ import discord
 import anthropic
 
 import inputs_clippers                    # suivi quotidien des Reels publiés (Apify) — voir le module
+import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -120,6 +121,7 @@ FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des sign
 FICHIER_RAPPELS = DONNEES / "rappels.json"                   # anti-doublon des rappels quotidiens/hebdo
 FICHIER_INPUTS = DONNEES / "inputs_clippers.json"            # historique 90 j des Reels publiés par clipper
 inputs_clippers.FICHIER_INPUTS = FICHIER_INPUTS              # le module écrit sur le volume persistant
+codes_2fa.FICHIER_ALIAS = DONNEES / "alias_codes.json"       # registre alias e-mail → salon du manager
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors kit : [{"q", "qui", "date"}] — la matière de !apprendre
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
@@ -3365,6 +3367,7 @@ async def on_ready():
         if LIEN_TRESORERIE or CANAL_REPORTING_ID:
             client.loop.create_task(boucle_rappels())  # trésorerie du matin + reporting du dimanche
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
+        client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
         client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
             client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json))
 
@@ -3513,6 +3516,11 @@ async def on_message(message):
                             "ouvert : si tu veux reprendre un jour, renvoie simplement ton numéro ici. "
                             "Bonne continuation 🙏")
         return
+
+    # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin
+    if texte.startswith(("!alias", "!code")):
+        if await codes_2fa.commande(message, ADMIN_IDS):
+            return
 
     # Commande PUBLIQUE : classement des bumps du mois (transparence du concours)
     if texte.startswith("!bumps"):

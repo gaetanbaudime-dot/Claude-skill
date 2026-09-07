@@ -80,7 +80,32 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
 `!compteur` · `!rang @x Rookie|Confirmé|Élite` · `!invites` · `!bumps` (public, classement du mois) ·
 `!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R` ·
-`!comptes` · `!inputs [test]` (suivi des Reels publiés)
+`!comptes` · `!inputs [test|detail]` (suivi des Reels publiés) · `!alias` / `!code` (relais 2FA, managers)
+
+## 🔐 Relais des codes 2FA vers les managers — `codes_2fa.py`
+
+**Pourquoi** : les comptes Instagram sont créés avec des alias « Masquer mon adresse » iCloud qui
+renvoient tous vers une seule boîte mail — chaque création de compte et chaque 2FA passait donc
+par Gaëtan. Le relais lit une boîte mail **dédiée** et pousse le code dans le salon du manager qui
+possède l'alias : un manager crée ses comptes sans l'admin.
+
+**Mise en place (10 min, une seule fois)** :
+1. Crée une **adresse Gmail dédiée** aux codes (jamais ta boîte personnelle). Active la validation en
+   deux étapes dessus, puis génère un **mot de passe d'application** (Compte Google → Sécurité →
+   Mots de passe des applications) et active IMAP (Gmail → Paramètres → Transfert et POP/IMAP).
+2. Dans iCloud → **Masquer mon adresse → Transférer vers** : choisis cette nouvelle adresse (tous les
+   alias y arrivent désormais).
+3. Railway → Variables : `CODES_IMAP_USER=<adresse dédiée>` · `CODES_IMAP_PASSWORD=<mot de passe
+   d'application>` · facultatif `ROLE_MANAGER_NOM=Manager` (rôle Discord qui donne accès aux commandes).
+4. Le manager, **dans son salon privé** : `!alias ajouter prenom.xxx@icloud.com` (un ou plusieurs).
+
+**Au quotidien** : dès qu'un code Instagram/Facebook arrive sur un alias rattaché, le bot le poste
+dans le salon du manager sous 45 s (`🔐 Instagram — code pour alias : 482913`). À la demande :
+`!code alias@icloud.com` (30 dernières minutes). Alias inconnu → le code remonte au salon admin,
+rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le registre.
+
+**Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
+du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
 ## Suivi des inputs clippers (Reels publiés par jour) — `inputs_clippers.py`
 
