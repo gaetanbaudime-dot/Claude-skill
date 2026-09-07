@@ -40,7 +40,7 @@ liens_forts: ["[[Développer un manager clipper (Julien et Jonas)]]", "[[Équipe
 | **Fixe par clipper actif** | **100 €/mois** par clipper | Actif = ≥ 80 % de journées validées dans le mois. **Premier mois de chaque équipe : 500 € garantis** (lancement + warmup). |
 | **Variable** | **0,30 € par sub OF vérifié** de chaque clipper de tes équipes | Sans plafond. Comptés sur les créatrices à ≥ 5 €/sub. |
 | **Bonus cadence** | **+150 €/mois par équipe** | Toute l'équipe a sa prime discipline le même mois. |
-| **Bonus paliers** (chaque mois où l'équipe les atteint) | **+300 €** à 1 000 subs · **+800 €** à 2 500 · **+1 600 €** à 5 000 | Chaque mois où l'équipe l'atteint ; le palier atteint donne le bonus du mois (non cumulés) — choix de Gaëtan du 07/09 (« 1 000 sera atteint souvent, 5 000 jamais »). |
+| **Bonus paliers** (chaque mois où l'équipe les atteint) | **+300 €** au-dessus de 1 000 subs · **+800 €** au-dessus de 2 500 | Chaque mois où l'équipe l'atteint ; le palier atteint donne le bonus du mois (non cumulés) — choix de Gaëtan du 07/09 (« 1 000 sera atteint souvent, 5 000 jamais »). |
 | Tes propres comptes | Grille clipper (0,50 €/sub) | Sur les 2 iPhone 8 — pour montrer, pas pour remplacer ton équipe. |
 
 **Ce que ça donne concrètement :**
