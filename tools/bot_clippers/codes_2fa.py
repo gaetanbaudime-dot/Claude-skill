@@ -32,6 +32,9 @@ journal = __import__("logging").getLogger("bot_clippers")
 IMAP_HOST = os.environ.get("CODES_IMAP_HOST", "imap.gmail.com").strip()
 IMAP_USER = os.environ.get("CODES_IMAP_USER", "").strip()
 IMAP_PASSWORD = os.environ.get("CODES_IMAP_PASSWORD", "").strip()
+# Dossier/libellé lu (Gmail : un libellé = un dossier IMAP). Avec un filtre Gmail « expéditeurs Meta →
+# libellé Codes », le bot ne parcourt JAMAIS le reste de la boîte, même sur une adresse personnelle.
+IMAP_DOSSIER = os.environ.get("CODES_IMAP_DOSSIER", "INBOX").strip() or "INBOX"
 ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "manager").strip().lower()
 INTERVALLE = int(os.environ.get("CODES_INTERVALLE_SEC", "45"))
 EXPEDITEURS = tuple(e.strip().lower() for e in os.environ.get(
@@ -106,7 +109,7 @@ def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
     resultats = []
     with imaplib.IMAP4_SSL(IMAP_HOST) as boite:
         boite.login(IMAP_USER, IMAP_PASSWORD)
-        boite.select("INBOX")
+        boite.select(IMAP_DOSSIER)
         depuis = datetime.now(timezone.utc).strftime("%d-%b-%Y")
         critere = f'(UNSEEN SINCE {depuis})' if uniquement_non_lus else f'(SINCE {depuis})'
         ok, ids = boite.search(None, critere)

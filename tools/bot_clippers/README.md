@@ -89,15 +89,18 @@ renvoient tous vers une seule boîte mail — chaque création de compte et chaq
 par Gaëtan. Le relais lit une boîte mail **dédiée** et pousse le code dans le salon du manager qui
 possède l'alias : un manager crée ses comptes sans l'admin.
 
-**Mise en place (10 min, une seule fois)** :
-1. Crée une **adresse Gmail dédiée** aux codes (jamais ta boîte personnelle). Active la validation en
-   deux étapes dessus, puis génère un **mot de passe d'application** (Compte Google → Sécurité →
-   Mots de passe des applications) et active IMAP (Gmail → Paramètres → Transfert et POP/IMAP).
-2. Dans iCloud → **Masquer mon adresse → Transférer vers** : choisis cette nouvelle adresse (tous les
-   alias y arrivent désormais).
-3. Railway → Variables : `CODES_IMAP_USER=<adresse dédiée>` · `CODES_IMAP_PASSWORD=<mot de passe
-   d'application>` · facultatif `ROLE_MANAGER_NOM=Manager` (rôle Discord qui donne accès aux commandes).
+**Mise en place (10 min, une seule fois) — sur ta boîte Gmail habituelle, sans en créer une autre** :
+1. Gmail → crée un **filtre** : `De : instagram.com OU facebookmail.com` → *Appliquer le libellé* **Codes**
+   (+ *Ignorer la boîte de réception* si tu veux ne plus les voir). Le bot ne lira QUE ce libellé.
+2. Compte Google → Sécurité → validation en deux étapes activée → **Mots de passe des applications** →
+   génère-en un pour « Bot codes ». Gmail → Paramètres → Transfert et POP/IMAP → **IMAP activé**.
+3. Railway → Variables : `CODES_IMAP_USER=<ton adresse Gmail>` · `CODES_IMAP_PASSWORD=<mot de passe
+   d'application>` · `CODES_IMAP_DOSSIER=Codes` · facultatif `ROLE_MANAGER_NOM=Manager`.
 4. Le manager, **dans son salon privé** : `!alias ajouter prenom.xxx@icloud.com` (un ou plusieurs).
+
+⚠️ Un mot de passe d'application donne un accès IMAP complet à la boîte : il ne vit que dans Railway,
+et se révoque en un clic depuis le compte Google si l'hébergeur fuit. Le code, lui, ne lit que le
+libellé `Codes` et n'en extrait que les codes d'expéditeurs Meta.
 
 **Au quotidien** : dès qu'un code Instagram/Facebook arrive sur un alias rattaché, le bot le poste
 dans le salon du manager sous 45 s (`🔐 Instagram — code pour alias : 482913`). À la demande :
