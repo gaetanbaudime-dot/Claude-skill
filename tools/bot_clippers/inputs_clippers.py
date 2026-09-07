@@ -46,6 +46,16 @@ CADENCE_MIN = int(os.environ.get("CADENCE_REELS_MIN", "3"))
 OBJECTIF_COMPTES_IG = int(os.environ.get("OBJECTIF_COMPTES_IG", "20"))
 TOP_CREATRICES = [c.strip() for c in
                   os.environ.get("TOP_CREATRICES", "Chloé,Sarah,Sophie,Maddie").split(",") if c.strip()]
+# Prime discipline (grille du 07/09) : tout-ou-rien sur TOUTES les surfaces du clipper — chaque compte
+# IG de croissance ET chaque page FB à CADENCE_MIN par jour, PRIME_JOURS_MIN jours dans le mois.
+# La structure minimale (2 IG de croissance + 3 pages FB) conditionne aussi le fixe.
+STRUCTURE_IG_MIN = int(os.environ.get("STRUCTURE_IG_MIN", "2"))
+STRUCTURE_FB_MIN = int(os.environ.get("STRUCTURE_FB_MIN", "3"))
+PRIME_JOURS_MIN = int(os.environ.get("PRIME_JOURS_MIN", "26"))
+PRIME_CLIPPER_EUR = int(os.environ.get("PRIME_CLIPPER_EUR", "50"))
+MANAGER_PAR_CLIPPER_EUR = int(os.environ.get("MANAGER_PAR_CLIPPER_EUR", "100"))
+MANAGER_BONUS_EQUIPE_EUR = int(os.environ.get("MANAGER_BONUS_EQUIPE_EUR", "150"))
+ACTIF_TAUX_MIN = float(os.environ.get("ACTIF_TAUX_MIN", "0.8"))   # clipper « actif » = ≥ 80 % de jours validés
 # Heure UTC d'envoi du rapport quotidien (9 = 11h à Paris l'été, 13h à Dubaï).
 HEURE_RAPPORT = int(os.environ.get("HEURE_RAPPORT_INPUTS", "9"))
 # Salons à ignorer dans la cartographie : réserves de comptes non attribués.
@@ -505,7 +515,63 @@ def agreger(carte: dict, brut: dict, veille: dict, brut_fb: dict = None) -> dict
             # une cadence sur un compte banni, restreint ou passé en privé.
             "cadence_attendue": CADENCE_MIN * max(1, len(fiche["comptes"]) - hors_service),
         }
+        b = bilan[clipper]
+        b["cadence_attendue_fb"] = CADENCE_MIN * b["pages_fb"]
+        b["structure_ok"] = (len(fiche["comptes"]) - hors_service) >= STRUCTURE_IG_MIN \
+            and b["pages_fb"] >= STRUCTURE_FB_MIN
+        # Journée validée pour la prime : IG tenu ET FB tenu ET structure complète. Tout-ou-rien.
+        b["journee_ok"] = bool(b["structure_ok"] and posts >= b["cadence_attendue"]
+                               and posts_fb >= b["cadence_attendue_fb"])
     return bilan
+
+
+def jours_valides_mois(historique: dict, mois: str) -> dict:
+    """{clipper: {"mesures": n, "valides": n, "creatrice": …}} pour un mois AAAA-MM. Seuls les jours
+    où la journée a été évaluée (clé journee_ok présente) comptent comme mesurés."""
+    compte = {}
+    for jour, par_clipper in historique.items():
+        if not jour.startswith(mois):
+            continue
+        for clipper, v in par_clipper.items():
+            if "journee_ok" not in v:
+                continue
+            c = compte.setdefault(clipper, {"mesures": 0, "valides": 0, "creatrice": v.get("creatrice", "—")})
+            c["mesures"] += 1
+            c["valides"] += 1 if v["journee_ok"] else 0
+    return compte
+
+
+def message_primes(historique: dict, mois: str) -> str:
+    """La paie variable du mois, prête à virer : prime discipline par clipper, clippers actifs par
+    équipe (→ fixe du manager), bonus équipe complète. Les opérateurs Metricool sont exclus."""
+    compte = {n: c for n, c in jours_valides_mois(historique, mois).items()
+              if not _normaliser(c["creatrice"]).startswith("metricool")}
+    if not compte:
+        return f"🏅 *PRIMES — {mois}* : aucune journée évaluée ce mois-ci (le suivi des inputs doit tourner)."
+    equipes = {}
+    for n, c in compte.items():
+        equipes.setdefault(c["creatrice"], []).append((n, c))
+    lignes = [f"🏅 *PRIMES — {mois}* (prime = {PRIME_JOURS_MIN} jours validés · actif = ≥ {ACTIF_TAUX_MIN:.0%} des jours)"]
+    total_primes = total_manager = 0
+    for crea, membres in sorted(equipes.items()):
+        actifs = 0; toutes_primes = True
+        lignes.append(f"\n*Équipe {crea}*")
+        for n, c in sorted(membres, key=lambda x: -x[1]["valides"]):
+            prime = c["valides"] >= PRIME_JOURS_MIN
+            actif = c["mesures"] > 0 and c["valides"] / c["mesures"] >= ACTIF_TAUX_MIN
+            actifs += 1 if actif else 0
+            toutes_primes = toutes_primes and prime
+            total_primes += PRIME_CLIPPER_EUR if prime else 0
+            lignes.append(f"  {'🏅' if prime else ('✅' if actif else '🔴')} {n} — {c['valides']}/{c['mesures']} j validés"
+                          + (f" → prime {PRIME_CLIPPER_EUR} €" if prime else "") + ("" if actif else " · non actif"))
+        bonus = MANAGER_BONUS_EQUIPE_EUR if (toutes_primes and membres) else 0
+        fixe = MANAGER_PAR_CLIPPER_EUR * actifs
+        total_manager += fixe + bonus
+        lignes.append(f"  → manager : {actifs} actif(s) × {MANAGER_PAR_CLIPPER_EUR} € = {fixe} €"
+                      + (f" + bonus équipe {bonus} €" if bonus else " · bonus équipe non atteint"))
+    lignes.append(f"\n*Total primes clippers : {total_primes} € · fixe + bonus managers : {total_manager} €*"
+                  "\n_Variable (0,50 €/sub clipper · 0,30 €/sub manager) : via les liens de tracking, hors de ce calcul._")
+    return "\n".join(lignes)
 
 
 # ------------------------------------------------------------------ 4. messages
@@ -541,8 +607,20 @@ def message_clipper(prenom: str, b: dict) -> str:
         lignes.append(f"\n🚫 **Compte(s) injoignable(s)** : {', '.join('@' + c for c in b['injoignables'])} — "
                       "compte banni ou renommé ? Préviens-moi, on recrée (Fiche 1).")
     if b.get("pages_fb"):
-        lignes.append(f"📘 Facebook : **{b['posts_fb']}** publication(s) hier"
+        lignes.append(f"📘 Facebook : **{b['posts_fb']}/{b['cadence_attendue_fb']}** publication(s) hier"
                       + (f" · {b['vues_fb']:,} vues".replace(",", " ") if b["vues_fb"] else ""))
+    else:
+        lignes.append(f"📘 Facebook : **aucune page suivie** — il en faut {STRUCTURE_FB_MIN} pour la prime.")
+    if b.get("journee_ok"):
+        lignes.append(f"🏅 **Journée validée pour la prime discipline** ({b.get('jours_ok_mois', '?')}/{PRIME_JOURS_MIN} ce mois-ci).")
+    else:
+        manque = [] if b.get("structure_ok") else [f"structure incomplète ({STRUCTURE_IG_MIN} IG + {STRUCTURE_FB_MIN} FB)"]
+        if posts < cible:
+            manque.append(f"IG {posts}/{cible}")
+        if b.get("pages_fb") and b["posts_fb"] < b["cadence_attendue_fb"]:
+            manque.append(f"FB {b['posts_fb']}/{b['cadence_attendue_fb']}")
+        lignes.append(f"❌ Journée non validée pour la prime : {' · '.join(manque) or 'cadence'} "
+                      f"({b.get('jours_ok_mois', 0)}/{PRIME_JOURS_MIN} ce mois-ci).")
     lignes.append("\n-# Rappel : ta commission de 0,50 €/abonné n'a aucun plafond. "
                   "Plus tu publies, plus elle monte. "
                   + ("" if b.get("pages_fb") else
@@ -764,7 +842,12 @@ async def executer(client, guild, canal_admin=None, silencieux=False) -> dict:
 
     aujourdhui = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     donnees.setdefault("historique", {})[aujourdhui] = {
-        n: {k: b[k] for k in ("posts_24h", "vues_24h", "followers", "creatrice")} for n, b in bilan.items()}
+        n: {k: b[k] for k in ("posts_24h", "vues_24h", "followers", "creatrice", "posts_fb",
+                              "journee_ok", "structure_ok")} for n, b in bilan.items()}
+    # Compteur de jours validés du mois (pour le message du clipper : il voit sa prime se construire).
+    compteur = jours_valides_mois(donnees["historique"], aujourdhui[:7])
+    for n, b in bilan.items():
+        b["jours_ok_mois"] = compteur.get(n, {}).get("valides", 0)
     # On ne garde que 90 jours : le volume Railway n'est pas une base de données.
     for vieux in sorted(donnees["historique"])[:-90]:
         donnees["historique"].pop(vieux, None)

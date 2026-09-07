@@ -2729,6 +2729,13 @@ async def commande_admin(message, texte: str) -> bool:
             # (mode test : pas de comparaison à la veille, l'historique n'est pas écrit)
         return True
 
+    # ---- !primes [AAAA-MM] : la paie variable du mois (prime discipline, actifs, bonus équipe) ----
+    if texte.startswith("!primes"):
+        mois = (texte[len("!primes"):].strip() or datetime.now(timezone.utc).strftime("%Y-%m"))[:7]
+        historique = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
+        await message.reply(inputs_clippers.message_primes(historique, mois).replace("*", "**")[:1990])
+        return True
+
     # ---- !relancer-lien : rattraper les candidatures qui n'ont jamais fait !lier ----
     # `!pipeline` annonce « N sans Discord lié » sans permettre d'agir. Ces gens se
     # répartissent en DEUX populations qu'on ne relance pas du tout de la même façon :

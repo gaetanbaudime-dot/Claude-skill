@@ -80,7 +80,26 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
 `!compteur` · `!rang @x Rookie|Confirmé|Élite` · `!invites` · `!bumps` (public, classement du mois) ·
 `!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R` ·
-`!comptes` · `!inputs [test|detail]` (suivi des Reels publiés) · `!alias` / `!code` (relais 2FA, managers)
+`!comptes` · `!inputs [test|detail]` (suivi des Reels publiés) · `!alias` / `!code` (relais 2FA, managers) · `!primes [AAAA-MM]` (paie variable du mois)
+
+## 🏅 Prime discipline et paie variable — `!primes`
+
+**La grille du 07/09** : un clipper = 2 comptes IG de croissance + 1 compte privé (porte le lien) +
+3 pages Facebook, **2 Reels/jour sur chaque compte de croissance ET chaque page FB**. La prime
+discipline (50 €) est **tout-ou-rien** : la journée est validée seulement si la structure est
+complète ET la cadence IG tenue ET la cadence FB tenue ; la prime tombe à **26 journées validées**
+dans le mois. Le manager touche 100 € par clipper **actif** (≥ 80 % des journées validées) et 150 €
+de bonus quand toute son équipe a sa prime.
+
+Le bot évalue chaque journée dans le rapport quotidien (le clipper voit `🏅 Journée validée (12/26 ce
+mois-ci)` ou `❌ Journée non validée : IG 3/4 · FB 4/6`) et **`!primes [AAAA-MM]`** sort la paie du
+mois par équipe : primes clippers, actifs × 100 € et bonus équipe pour le manager. Le variable
+(0,50 €/sub clipper, 0,30 €/sub manager) se lit sur les liens de tracking, pas ici.
+
+Réglages Railway : `CADENCE_REELS_MIN=2` · `STRUCTURE_IG_MIN=2` · `STRUCTURE_FB_MIN=3` ·
+`PRIME_JOURS_MIN=26` · `PRIME_CLIPPER_EUR=50` · `MANAGER_PAR_CLIPPER_EUR=100` ·
+`MANAGER_BONUS_EQUIPE_EUR=150` · `ACTIF_TAUX_MIN=0.8`. Les pages FB doivent être dans l'onglet
+`FaceBook` publié (`SHEET_CSV_FB_URL`), sinon la structure est jugée incomplète.
 
 ## 🔐 Relais des codes 2FA vers les managers — `codes_2fa.py`
 
