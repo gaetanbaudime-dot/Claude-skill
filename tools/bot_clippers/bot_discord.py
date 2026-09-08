@@ -81,10 +81,11 @@ ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
 # candidat doit pouvoir la lire. Les discussions restent derrière les rôles Team (signés/actifs).
 ROLE_GRILLE_FR_NOM = os.environ.get("ROLE_GRILLE_FR_NOM", "Grille France").strip()
 ROLE_GRILLE_INT_NOM = os.environ.get("ROLE_GRILLE_INT_NOM", "Grille International").strip()
-# Recrutement international en PAUSE (décision de Gaëtan du 15/08/2026, après 0 conversion
-# sur ~130 candidatures internationales) : le quiz d'un candidat International n'envoie plus
-# le test 48 h. Actif par défaut ; poser PAUSE_INT=0 dans Railway pour rouvrir.
-INT_EN_PAUSE = os.environ.get("PAUSE_INT", "1").strip() != "0"
+# Recrutement international : mis en PAUSE le 15/08/2026 (0 conversion sur ~130 candidatures
+# internationales), ROUVERT le 08/09/2026 (pôle malgache lancé, Indeed banni côté FR).
+# Pause levée par défaut ; poser PAUSE_INT=1 dans Railway pour re-suspendre (le quiz d'un
+# candidat International n'enverrait plus le test 48 h, message daté à la place).
+INT_EN_PAUSE = os.environ.get("PAUSE_INT", "0").strip() == "1"
 
 # Portes d'entrée : une invitation Discord DÉDIÉE par canal permet de savoir d'où arrive chaque
 # membre (fin du formulaire, Disboard, Indeed…) et d'adapter l'accueil.
@@ -824,9 +825,9 @@ async def traiter_quiz_webhook(message, silencieux=False):
         if code_g == "mg":
             await envoyer_mp(membre_trouve,
                 "🎉 Bien joué pour le quiz — ton score est enregistré, tu n'auras pas à le "
-                "repasser.\n\n📅 Info transparente : **la grille internationale ouvre le "
-                "1er octobre 2026**. D'ici là, pas de test ni de contrat — tu seras recontacté "
-                "en priorité au lancement. En attendant : reste sur le serveur et fais des "
+                "repasser.\n\n📅 Info transparente : **le recrutement international est en pause "
+                "pour le moment**. Pas de test ni de contrat tant qu'elle dure — tu seras recontacté "
+                "en priorité à la réouverture. En attendant : reste sur le serveur et fais des "
                 "bumps dans #bump, ça aide l'équipe et ça se voit. 💪")
             if not silencieux:
                 await message.channel.send(f"⏸️ {membre_trouve.mention} a validé le quiz ({score}) mais le "
@@ -1187,7 +1188,7 @@ async def boucle_pipeline():
                 # Internationaux pendant la pause : les relances « lie-toi / passe le quiz »
                 # deviennent du harcèlement sans issue (constat Mandresy/Narovana, 22/08 :
                 # « ce message arrive tous les jours et ça trouble »). Un message unique
-                # donne la date du 1er octobre, puis silence.
+                # annonce la pause, puis silence.
                 code_rel, _ = equipe_deduite(uid_r)
                 if code_rel == "mg" and INT_EN_PAUSE:
                     if not cible_dict.get("pause_int_ok"):
@@ -1196,8 +1197,8 @@ async def boucle_pipeline():
                         membre_p = membre_par_id(uid_r)
                         if membre_p:
                             await envoyer_mp(membre_p,
-                                "📅 **Plus de rappels pour toi d'ici le lancement** : la grille "
-                                "internationale ouvre le **1er octobre 2026**. Ton dossier est "
+                                "📅 **Plus de rappels pour toi d'ici la réouverture** : le recrutement "
+                                "international est **en pause pour le moment**. Ton dossier est "
                                 "conservé, tu seras recontacté en priorité. D'ici là : reste sur "
                                 "le serveur et fais des bumps dans #bump. 💪")
                     return
@@ -1260,9 +1261,9 @@ async def boucle_pipeline():
                         membre_int = membre_par_id(uid)
                         if membre_int:
                             await envoyer_mp(membre_int,
-                                "📅 **Info de l'équipe** : la grille internationale ouvre le "
-                                "**1er octobre 2026**. Ton dossier est conservé (quiz compris) et tu "
-                                "seras recontacté en priorité au lancement. D'ici là : reste sur le "
+                                "📅 **Info de l'équipe** : le recrutement international est "
+                                "**en pause pour le moment**. Ton dossier est conservé (quiz compris) et tu "
+                                "seras recontacté en priorité à la réouverture. D'ici là : reste sur le "
                                 "serveur et fais des bumps dans #bump — ça aide l'équipe et ça se "
                                 "voit. 💪")
                     continue
@@ -2238,18 +2239,20 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, bilan)
         return True
 
-    # ---- !annonce-int : prévenir tous les internationaux restants du lancement au 1er octobre ----
-    # Après la purge et la pause, il reste des internationaux légitimes sur le serveur
-    # (tunnel en cours, exemptés, ambigus). Un message clair et daté vaut mieux que le
-    # silence : un candidat informé attend, un candidat sans nouvelle pose des questions
-    # partout. `!annonce-int` = liste sans envoyer · `!annonce-int envoyer` = exécute.
+    # ---- !annonce-int : prévenir tous les internationaux du LANCEMENT (08/09) ----
+    # Pendant la pause (15/08 → 08/09) cette commande donnait la date du 1er octobre. Depuis la
+    # réouverture, elle annonce le lancement : quiz validé → test en MP, sinon passe ton quiz.
+    # Les réussites de quiz survenues pendant la pause n'ont PAS d'état dans le pipeline (le bot
+    # répondait « pause » sans enregistrer le score) : pour leur envoyer le test, relancer
+    # rejouerReussites() dans l'Apps Script du quiz (voir README) — idempotent.
+    # `!annonce-int` = liste sans envoyer · `!annonce-int envoyer` = exécute (une fois par membre).
     if texte.startswith("!annonce-int"):
         g = message.guild
         if g is None:
             await message.reply("À lancer depuis un salon du serveur.")
             return True
         envoyer_vraiment = "envoy" in normaliser(texte)
-        deja = lire_json(FICHIER_PIPELINE, {}).get("annonce_int", [])
+        deja = lire_json(FICHIER_PIPELINE, {}).get("annonce_lancement", [])
         cibles = []
         for m in g.members:
             if m.bot or any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in m.roles):
@@ -2260,7 +2263,7 @@ async def commande_admin(message, texte: str) -> bool:
             if (code_a == "mg" or a_role_int) and str(m.id) not in deja:
                 cibles.append(m)
         if not envoyer_vraiment:
-            await envoyer_long(message, [f"📅 **Annonce internationale (1er octobre)** — SIMULATION",
+            await envoyer_long(message, [f"🚀 **Annonce internationale (lancement)** — SIMULATION",
                                          f"{len(cibles)} membre(s) recevraient le message :"]
                                + [f"· {m.display_name}" for m in cibles[:40]]
                                + ([f"… et {len(cibles) - 40} autres."] if len(cibles) > 40 else [])
@@ -2269,19 +2272,23 @@ async def commande_admin(message, texte: str) -> bool:
         ok, fermes = 0, 0
         for m in cibles:
             reussi = await envoyer_mp(m,
-                "📅 **Info officielle de l'équipe** : la grille internationale ouvre le "
-                "**1er octobre 2026**. Ton dossier est conservé (candidature et quiz compris) "
-                "et tu seras recontacté en priorité au lancement — rien à refaire.\n\n"
-                "D'ici là : reste sur le serveur et fais des **bumps** dans #bump (`/bump` "
-                "puis `!bumps` pour le classement) — ça aide l'équipe et on le voit. 💪")
+                "🚀 **C'est parti : la grille internationale est OUVERTE.**\n\n"
+                "· Tu as déjà **validé le quiz** → ton **test de montage** arrive ici en MP "
+                "(48 h pour rendre 2 clips). Si tu ne l'as pas reçu d'ici demain, écris-moi ici.\n"
+                "· Tu n'as **pas encore fait le quiz** → tape `!quiz` sur le serveur, je t'envoie "
+                "ton lien personnel. Seuil 27/34, deux essais.\n"
+                "· Test validé → tu acceptes les conditions en MP, puis ton manager t'accueille : "
+                "créatrice, téléphone cloud fourni, comptes, cadence.\n\n"
+                "Pas d'entretien : ceux qui livrent sont pris. Les places partent dans l'ordre des "
+                "tests rendus 💪")
             ok += 1 if reussi else 0
             fermes += 0 if reussi else 1
             deja.append(str(m.id))
             await asyncio.sleep(1.2)
         donnees_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        donnees_a["annonce_int"] = deja
+        donnees_a["annonce_lancement"] = deja
         ecrire_json(FICHIER_PIPELINE, donnees_a)
-        await message.reply(f"📅 Annonce envoyée à **{ok}** membre(s)"
+        await message.reply(f"🚀 Annonce de lancement envoyée à **{ok}** membre(s)"
                             + (f" · {fermes} MP fermés (pas reçus)." if fermes else "."))
         return True
 
@@ -3611,16 +3618,16 @@ async def on_message(message):
         code_grille, _motif_grille = equipe_deduite(utilisateur)
         if etat_cand == "valide" and code_grille == "mg":
             await message.reply("📧 Bien reçu, ton e-mail est enregistré (il servira pour le Drive)."
-                                + ("\n\n📅 Info importante : **la grille internationale ouvre le "
-                                   "1er octobre 2026**. D'ici là pas de contrat ni d'attribution — "
-                                   "ton dossier est prêt et tu seras recontacté en priorité au "
-                                   "lancement. En attendant : reste sur le serveur et fais des "
+                                + ("\n\n📅 Info importante : **le recrutement international est en "
+                                   "pause pour le moment**. Pas de contrat ni d'attribution tant qu'elle dure — "
+                                   "ton dossier est prêt et tu seras recontacté en priorité à la "
+                                   "réouverture. En attendant : reste sur le serveur et fais des "
                                    "bumps dans #bump, ça compte. 💪" if INT_EN_PAUSE else
                                    "\nTes conditions International arrivent séparément — pas de "
                                    "contrat France à signer pour toi."))
             if canal:
                 await canal.send(f"📧 E-mail reçu de <@{utilisateur}> (International) — contrat France "
-                                 f"**non envoyé**" + (" (pause jusqu'au 01/10)." if INT_EN_PAUSE else "."))
+                                 f"**non envoyé**" + (" (recrutement international en pause)." if INT_EN_PAUSE else "."))
             return
         if etat_cand == "valide":
             # v2 : le contrat part tout seul — création DocuSeal + lien de signature EN MP.

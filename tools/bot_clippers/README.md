@@ -271,6 +271,23 @@ Bonus : laisse « Ajouter des réactions » à ✅ pour `@everyone` (les 🔥 sa
 n'est pas posé, tout le reste (paiements, compteur, rangs, FAQ) marche normalement —
 le déploiement est sans risque.
 
+## Recrutement international : pause et réouverture (`PAUSE_INT`)
+
+Le tunnel international (quiz → test → conditions « J'ACCEPTE » → `!equipe @x mg`) a été mis en pause le
+15/08 et **rouvert le 08/09/2026** (pôle malgache). Il est **ouvert par défaut** : ne pose `PAUSE_INT=1`
+dans Railway que pour re-suspendre (le quiz d'un International n'envoie alors plus le test, il reçoit un
+message « en pause » unique, et les relances se taisent).
+
+**Relancer le stock après une pause (dans l'ordre)** :
+1. Vérifie que `PAUSE_INT` est absent ou à `0` dans Railway (redéploiement automatique).
+2. Feuille Google du quiz → Extensions → Apps Script → exécute **`rejouerReussites()`** une fois : elle
+   re-poste un `QUIZ_OK` pour toutes les réussites (≥ 27/34) — le bot envoie le test à ceux qui ne l'ont
+   jamais reçu et ignore les autres (idempotent). Les réussites survenues PENDANT la pause n'ont pas
+   d'état dans le pipeline : c'est la seule façon de leur envoyer le test.
+3. `!annonce-int` (simulation) puis `!annonce-int envoyer` : message de lancement en MP à tous les
+   internationaux du serveur, une seule fois par membre.
+4. Mets à jour le salon **Grille International** (rémunération/bonus) : le bot n'y écrit pas.
+
 ## ⚠️ Compteurs remis à zéro ? (persistance des données)
 
 Vécu le 17/07 : « Déjà payés : 0 € » et classement des bumps reparti de zéro. Cause : les données
