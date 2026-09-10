@@ -271,6 +271,27 @@ Bonus : laisse « Ajouter des réactions » à ✅ pour `@everyone` (les 🔥 sa
 n'est pas posé, tout le reste (paiements, compteur, rangs, FAQ) marche normalement —
 le déploiement est sans risque.
 
+## Le manager sur Discord : `!creatrice`, contexte, liens des fiches (10/09)
+
+- **`!creatrice @clipper Chloé`** (admin ou rôle `Manager`) : ouvre au clipper tous les salons dont le nom
+  contient le prénom de la créatrice (permissions voir/écrire), note l'attribution au registre, et le
+  prévient en MP avec le lien du salon et le prochain créneau de création. `!creatrice @clipper` seul :
+  voir l'attribution. Après une signature, le salon admin rappelle cette commande. Le salon d'une créatrice
+  doit donc **contenir son prénom** (ex. `#chloé-rushs`), sinon le bot dit qu'il n'a rien trouvé.
+- **Le bot sait où et à qui il parle** : chaque question lui arrive précédée de `[Contexte : salon #x ·
+  rôles : …]`. Un `Manager` reçoit la section MANAGER de la base (missions, créneaux, commandes) ; un
+  candidat reçoit le parcours. Fini le « tu es dans le mauvais salon » et le parcours candidat servi à Jonas.
+- **Liens des fiches résolus tout seuls** : au démarrage puis toutes les 6 h, le bot lit le forum
+  formation (`CANAL_FORMATION_ID`, sinon le premier forum dont le nom contient « formation ») et retrouve
+  les posts par leur titre (« Bienvenue », « Fiche 1 » … « Fiche 6 », « Kit »). `POSTS_FORMATION` devient
+  un simple secours, et un identifiant mort est purgé : plus de `#inconnu`. Un `<#id>` qui ne résout pas
+  dans une réponse est remplacé par le libellé du post.
+- **Réponses jamais coupées** : 420 tokens max, consigne « 900 caractères », et une réponse plus longue est
+  découpée sur des sauts de ligne en plusieurs messages au lieu d'être tronquée au milieu d'une phrase.
+- **`EMAIL_FACTURATION`** (Railway, facultatif) : l'adresse où les clippers France envoient facture + RIB.
+  Si elle est posée, le bot la donne quand on la lui demande ; sinon il renvoie vers le décompte du lundi.
+- Les questions « hors kit » ne capturent plus les URL seules ni les messages de un ou deux mots.
+
 ## Recrutement international : pause et réouverture (`PAUSE_INT`)
 
 Le tunnel international (quiz → test → conditions « J'ACCEPTE » → `!equipe @x mg`) a été mis en pause le

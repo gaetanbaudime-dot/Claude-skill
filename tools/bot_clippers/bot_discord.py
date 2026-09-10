@@ -108,6 +108,10 @@ for _paire in os.environ.get("POSTS_FORMATION", "").split(","):
         if _cle.strip() and _pid.strip().isdigit():
             POSTS_FORMATION[_cle.strip().lower()] = _pid.strip()
 
+# Adresse où les clippers France envoient facture + RIB — donnée par le bot quand on la lui
+# demande (question posée 4 fois en septembre sans réponse). Vide = « demande à Gaëtan ».
+EMAIL_FACTURATION = os.environ.get("EMAIL_FACTURATION", "").strip()
+
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
@@ -218,7 +222,17 @@ tu es un COACH, pas un standard : un clipper partage un palier de vues → féli
 phrase avec son chiffre, puis UN conseil actionnable du kit (liens posés partout ? page FB \
 optimisée ? → Fiche 1 et Fiche 5). Un screenshot d'avertissement Meta/Instagram → réponds \
 selon la base, dis clairement si c'est grave ou pas, et ce qu'il faut changer (ou rien). \
-Même registre que l'équipe : direct, chaleureux, zéro blabla."""
+Même registre que l'équipe : direct, chaleureux, zéro blabla.
+15. Chaque message que tu reçois commence par une ligne [Contexte : …] qui dit OÙ on te parle \
+(message privé, ou le nom du salon) et les RÔLES de la personne. Sers-t'en : tu ne dis jamais à \
+quelqu'un qu'il est « dans le mauvais salon » s'il est déjà dans le salon de l'assistant ; un rôle \
+« Team France » ou « Team International » = clipper sous contrat ; un rôle « Manager » = il gère \
+des clippers : réponds-lui avec la section MANAGER de la base (ses missions, ses créneaux, ses \
+commandes), jamais avec le parcours candidat.
+16. Longueur : JAMAIS plus de 900 caractères (environ 8 lignes courtes). Si la question demande \
+plus, donne les 3 points essentiels puis le lien de la fiche — la fiche fait le reste.
+17. Image hors sujet (arnaque, publicité, mème, capture sans rapport avec le kit) : UNE phrase \
+pour dire que ce n'est pas le sujet, sans décrire l'image, et tu proposes ton aide sur le kit."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
@@ -227,11 +241,24 @@ if CANAL_FORMATION_ID:
                      f"<#{CANAL_FORMATION_ID}> (jamais le nom seul).")
 if CANAL_ASSISTANT_ID:
     INSTRUCTIONS += f"\n12. Le salon de l'assistant se donne aussi en lien cliquable : <#{CANAL_ASSISTANT_ID}>."
-if POSTS_FORMATION:
-    _libelles = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
-    _liens = " · ".join(f"{_libelles.get(c, 'Fiche ' + c)} = <#{p}>" for c, p in sorted(POSTS_FORMATION.items()))
-    INSTRUCTIONS += ("\n13. Chaque post du forum formation a son lien cliquable — quand ta réponse "
-                     "renvoie à une fiche, TERMINE par le lien du bon post : " + _liens + ".")
+_LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
+
+
+def regle_liens_formation() -> str:
+    """Règle 13, construite à CHAQUE appel : les identifiants des posts sont résolus au démarrage
+    par leur TITRE (resoudre_posts_formation) — un post recréé ne donne plus « #inconnu »
+    (Jonas, 09/09 : six liens de fiches morts dans une seule réponse)."""
+    if not POSTS_FORMATION:
+        return ""
+    liens = " · ".join(f"{_LIBELLES_POSTS.get(c, 'Fiche ' + c)} = <#{p}>" for c, p in sorted(POSTS_FORMATION.items()))
+    return ("\n13. Chaque post du forum formation a son lien cliquable — quand ta réponse "
+            "renvoie à une fiche, TERMINE par le lien du bon post : " + liens + ".")
+
+
+def ligne_facturation() -> str:
+    return ((f"\n14. Adresse d'envoi des factures et du RIB (équipe France) : {EMAIL_FACTURATION} — "
+             "donne-la telle quelle quand on te demande où envoyer sa facture.")
+            if EMAIL_FACTURATION else "")
 
 # ------------------------------------------------------------------ connaissances (rechargées automatiquement)
 _connaissances = {"texte": "", "signature": None}
@@ -255,7 +282,8 @@ def connaissances() -> str:
 def bloc_systeme():
     return [{
         "type": "text",
-        "text": INSTRUCTIONS + "\n\n# BASE DE CONNAISSANCES\n\n" + connaissances(),
+        "text": INSTRUCTIONS + regle_liens_formation() + ligne_facturation()
+                + "\n\n# BASE DE CONNAISSANCES\n\n" + connaissances(),
         "cache_control": {"type": "ephemeral", "ttl": "1h"},
     }]
 
@@ -267,7 +295,7 @@ def repondre_sync(messages) -> str:
     try:
         reponse = claude.messages.create(
             model=MODELE,
-            max_tokens=500,
+            max_tokens=420,
             system=bloc_systeme(),
             messages=messages,
         )
@@ -280,7 +308,7 @@ def repondre_sync(messages) -> str:
         if erreur.status_code >= 500 or erreur.status_code == 529:
             time.sleep(2)
             try:
-                reponse = claude.messages.create(model=MODELE, max_tokens=500,
+                reponse = claude.messages.create(model=MODELE, max_tokens=420,
                                                  system=bloc_systeme(), messages=messages)
                 return "".join(b.text for b in reponse.content if b.type == "text")
             except Exception:                                   # noqa: BLE001
@@ -355,6 +383,66 @@ def doit_repondre(message) -> bool:
     if FORUM_BOT_ID and parent and str(parent) == FORUM_BOT_ID:
         return True
     return client.user in message.mentions
+
+
+def contexte_auteur(message) -> str:
+    """Ligne [Contexte : …] en tête de chaque question : où (MP ou salon) et quels rôles — le
+    modèle ne peut pas le deviner (Narovana, 05/09 : « tu es dans le mauvais salon » alors qu'elle
+    était dans le salon assistant ; Jonas, 09/09 : le parcours candidat servi au manager)."""
+    if message.guild is None:
+        lieu = "message privé avec le bot"
+        membre = membre_par_id(message.author.id)
+    else:
+        nom = getattr(message.channel, "name", "") or ""
+        parent = getattr(message.channel, "parent", None)
+        lieu = f"salon #{nom}" + (f" (post du forum {parent.name})" if parent is not None else "")
+        membre = message.author
+    roles = [r.name for r in getattr(membre, "roles", []) if r.name != "@everyone"]
+    return f"[Contexte : {lieu} · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]"
+
+
+def assainir_mentions(reponse: str) -> str:
+    """Un <#id> qui ne résout pas (post recréé, salon supprimé) s'affiche « #inconnu » côté
+    Discord. On le remplace par le libellé du post si on le connaît, sinon par le forum."""
+    inverse = {v: k for k, v in POSTS_FORMATION.items()}
+
+    def _rempl(m):
+        cid = m.group(1)
+        if client.get_channel(int(cid)) is not None:
+            return m.group(0)
+        cle = inverse.get(cid)
+        if cle:
+            return _LIBELLES_POSTS.get(cle, "Fiche " + cle) + " (forum formation)"
+        return "le forum formation"
+    return re.sub(r"<#(\d{15,25})>", _rempl, reponse)
+
+
+async def repondre_long(message, reponse: str):
+    """Réponse > 2 000 caractères : coupée proprement sur des sauts de ligne au lieu d'être
+    tronquée au milieu d'une phrase (Laure, 10/09 : réponse Facebook coupée à « **Carr »)."""
+    if len(reponse) <= 1990:
+        await message.reply(reponse)
+        return
+    blocs, courant = [], ""
+    for ligne in reponse.split("\n"):
+        if len(courant) + len(ligne) + 1 > 1900:
+            blocs.append(courant)
+            courant = ligne
+        else:
+            courant = (courant + "\n" + ligne) if courant else ligne
+    if courant:
+        blocs.append(courant)
+    await message.reply(blocs[0][:1990])
+    for bloc in blocs[1:]:
+        await message.channel.send(bloc[:1990])
+
+
+def lacune_pertinente(texte: str) -> bool:
+    """Ne capture pas les non-questions dans les lacunes : URL seule, 1-2 mots, spam."""
+    brut = texte.strip()
+    if re.fullmatch(r"https?://\S+", brut):
+        return False
+    return len(brut.split()) >= 3
 
 
 def nettoyer(message) -> str:
@@ -840,6 +928,57 @@ async def traiter_quiz_webhook(message, silencieux=False):
         if envoye else
         (f"⚠️ {membre_trouve.mention} a validé le quiz ({score}) mais ses MP sont fermés — envoie-lui le lien à la main."))
     journal.info("Quiz webhook : test %s -> membre %s", "envoyé" if envoye else "MP fermés", membre_trouve.id)
+
+
+async def resoudre_posts_formation():
+    """Retrouve les posts du forum formation par leur TITRE (Bienvenue, Fiche 1 à 6, Kit) et remplit
+    POSTS_FORMATION avec de vrais identifiants — la variable Railway devient un simple secours.
+    Un post recréé (nouvel identifiant) est repris au prochain passage ; le plus récent gagne."""
+    forum = None
+    for g in client.guilds:
+        if CANAL_FORMATION_ID and CANAL_FORMATION_ID.isdigit():
+            c = g.get_channel(int(CANAL_FORMATION_ID))
+            if isinstance(c, discord.ForumChannel):
+                forum = c
+        if forum is None:
+            forum = discord.utils.find(lambda c: isinstance(c, discord.ForumChannel)
+                                       and "formation" in normaliser(c.name), g.channels)
+        if forum is not None:
+            break
+    if forum is None:
+        journal.warning("Forum formation introuvable : liens des fiches non résolus")
+        return
+    threads = list(forum.threads)
+    try:
+        async for ancien in forum.archived_threads(limit=100):
+            threads.append(ancien)
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Threads archivés du forum formation illisibles : %s", erreur)
+    trouves = {}
+    plancher = datetime.min.replace(tzinfo=timezone.utc)
+    for fil in sorted(threads, key=lambda x: x.created_at or plancher, reverse=True):
+        nom = normaliser(fil.name)
+        num = re.search(r"fiche\s*(\d)", nom)
+        if num:
+            trouves.setdefault(num.group(1), str(fil.id))
+        elif "bienvenue" in nom:
+            trouves.setdefault("bienvenue", str(fil.id))
+        elif "kit" in nom or "imprimer" in nom or "resume" in nom:
+            trouves.setdefault("kit", str(fil.id))
+    for cle, pid in list(POSTS_FORMATION.items()):        # purge des identifiants morts
+        if client.get_channel(int(pid)) is None:
+            POSTS_FORMATION.pop(cle, None)
+    POSTS_FORMATION.update(trouves)
+    journal.info("Posts du forum formation résolus : %s", sorted(POSTS_FORMATION.items()))
+
+
+async def boucle_posts_formation():
+    while True:
+        try:
+            await resoudre_posts_formation()
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Résolution des posts formation : %s", erreur)
+        await asyncio.sleep(6 * 3600)
 
 
 async def rattraper_webhooks():
@@ -1383,11 +1522,13 @@ async def boucle_pipeline():
                         erreur_role = f"grille indéterminée — {motif_equipe}"
                     await envoyer_mp(membre,
                         "✅ **Contrat signé — bienvenue officiellement dans l'équipe ! 🔥**\n\n"
-                        + (f"Ton rôle **{nom_equipe}** vient de s'ouvrir. Tu as maintenant accès à :\n"
-                           "1. **Ton espace privé** (salon + Drive : rushs et modèles de ta créatrice).\n"
-                           "2. **Ton lien de tracking** (pour compter tes revenus).\n"
-                           "3. La **Fiche 1** pour créer tes comptes — c'est le jour 0.\n\n"
-                           "Lis la Fiche 1 en entier avant de commencer (règles anti-ban). À toi de jouer 🚀"
+                        + (f"Ton rôle **{nom_equipe}** vient de s'ouvrir. La suite, dans l'ordre :\n"
+                           "1. **Ton manager t'attribue ta créatrice** et ouvre son salon (rushs et modèles) — sous 48 h.\n"
+                           "2. **Tes comptes se créent AVEC lui** au prochain créneau : lundi, mercredi ou vendredi "
+                           "à 17 h (heure de Paris). C'est là que ton **lien de tracking** est posé. Tu ne crées "
+                           "jamais tes comptes seul.\n"
+                           "3. D'ici là : lis la **Fiche 1** en entier (règles anti-ban).\n\n"
+                           "Une question ? Le salon de l'assistant répond 24h/24. À toi de jouer 🚀"
                            if onboarde else
                            "On t'ouvre tes accès dans quelques minutes — tu vas recevoir ton rôle "
                            "d'équipe, ton espace et ton lien de tracking. Reste connecté 🚀"))
@@ -1403,8 +1544,9 @@ async def boucle_pipeline():
                         await canal.send(
                             (f"✅ **{membre.mention} — contrat signé, auto-onboardé {nom_equipe}** "
                              f"({motif_equipe}). ⚠️ 18+ : à garantir par le contrat (champ date de "
-                             f"naissance / attestation majeur). Corriger : "
-                             f"`!equipe {membre.display_name} fr` ou `int` · annuler : `retirer`."
+                             f"naissance / attestation majeur). **Prochain geste : `!creatrice "
+                             f"{membre.display_name} <prénom>`** (ouvre son salon, le prévient en MP). "
+                             f"Corriger : `!equipe {membre.display_name} fr` ou `int` · annuler : `retirer`."
                              if onboarde else
                              f"🖋️ **Contrat complet** pour {membre.mention} — "
                              + (f"⚠️ **pas d'auto-onboarding** : {erreur_role}. "
@@ -1898,6 +2040,67 @@ async def executer_rafale(message, lignes_cmd: list):
             continue
         rapport.extend(enveloppe.reponses if traitee else [f"❓ `{ligne}` : commande inconnue."])
     await envoyer_long(message, [f"📦 **Rafale — {len(lignes_cmd)} commande(s)**"] + rapport)
+
+
+def est_manager(membre) -> bool:
+    return codes_2fa._est_manager(membre, ADMIN_IDS)
+
+
+async def commande_creatrice(message, texte: str) -> bool:
+    """`!creatrice @membre Chloé` (admin ou rôle Manager) : ouvre au clipper les salons dont le nom
+    contient le prénom de la créatrice, note l'attribution au registre, prévient le clipper en MP.
+    Né du 30/08-02/09 : trois signés (Lilian, Laure, Lucas) sans salon ni créatrice pendant des
+    jours, pendant que le bot leur promettait un « espace privé automatique » que rien ne créait."""
+    if message.guild is None:
+        await message.reply("À lancer depuis un salon du serveur.")
+        return True
+    if not est_manager(message.author):
+        await message.reply("Commande réservée aux managers et aux admins.")
+        return True
+    morceaux = texte.split()[1:]
+    if not morceaux:
+        await message.reply("Format : `!creatrice @membre Chloé` — ouvre le salon de la créatrice au clipper "
+                            "et le prévient en MP. `!creatrice @membre` : voir l'attribution actuelle.")
+        return True
+    membre = chercher_membre(morceaux[0])
+    if membre is None:
+        await message.reply(f"Membre « {morceaux[0]} » introuvable.")
+        return True
+    registre = lire_json(FICHIER_EQUIPES, {})
+    fiche = registre.setdefault(str(membre.id), {})
+    if len(morceaux) == 1:
+        await message.reply(f"{membre.display_name} → créatrice : **{fiche.get('creatrice') or 'aucune'}**.")
+        return True
+    prenom = " ".join(morceaux[1:]).strip()
+    cible = normaliser(prenom)
+    salons = [c for c in message.guild.channels
+              if isinstance(c, (discord.TextChannel, discord.ForumChannel)) and cible in normaliser(c.name)]
+    ouverts, refus = [], []
+    for salon in salons:
+        try:
+            await salon.set_permissions(membre, view_channel=True, send_messages=True,
+                                        read_message_history=True,
+                                        reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
+            ouverts.append(salon)
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus.append(f"{salon.name} ({type(erreur).__name__})")
+    fiche["creatrice"] = prenom
+    fiche["creatrice_par"] = str(message.author.id)
+    fiche["creatrice_date"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ecrire_json(FICHIER_EQUIPES, registre)
+    if ouverts:
+        await envoyer_mp(membre,
+            f"🎬 **Ta créatrice : {prenom}.** Son salon est ouvert pour toi : "
+            + " ".join(f"<#{c.id}>" for c in ouverts)
+            + "\nDedans : ses rushs et ses modèles (Drive en lecture). Tes comptes se créent AVEC ton "
+              "manager au prochain créneau (lundi, mercredi ou vendredi à 17 h, heure de Paris) — c'est là "
+              "que ton lien de tracking est posé. D'ici là : lis la Fiche 1. 🚀")
+    await message.reply(
+        f"✅ {membre.mention} → **{prenom}**"
+        + ((" · salons ouverts : " + ", ".join(c.name for c in ouverts)) if ouverts else
+           f" · ⚠️ aucun salon dont le nom contient « {prenom} » — crée-le (ou renomme-le) puis relance")
+        + (f" · refus : {', '.join(refus)}" if refus else "") + ".")
+    return True
 
 
 async def commande_admin(message, texte: str) -> bool:
@@ -3169,8 +3372,9 @@ async def commande_admin(message, texte: str) -> bool:
         ecrire_json(FICHIER_PIPELINE, donnees)
         envoye = await envoyer_mp(membre,
             "📧 **Ton contrat est prêt — signe-le ici (2 minutes)** :\n" + lien + "\n"
-            "Remplis tes infos (dont ta date de naissance) et signe en bas. **Dès la signature, "
-            "tes accès s'ouvrent automatiquement** : rôle Team France, espace privé, lien de tracking. 🔥")
+            "Remplis tes infos (dont ta date de naissance) et signe en bas. **Dès la signature, ton rôle "
+            "Team France s'ouvre automatiquement** ; ton manager t'attribue ensuite ta créatrice et tu crées "
+            "tes comptes avec lui au prochain créneau (lundi, mercredi, vendredi 17 h). 🔥")
         await message.reply(f"✅ Contrat créé pour {membre.mention} → lien de signature "
                             + ("**envoyé en MP**." if envoye else f"**MP fermés**, envoie-lui : {lien}")
                             + " Je préviens ici dès qu'il signe.")
@@ -3381,6 +3585,7 @@ async def on_ready():
         if LIEN_TRESORERIE or CANAL_REPORTING_ID:
             client.loop.create_task(boucle_rappels())  # trésorerie du matin + reporting du dimanche
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
+        client.loop.create_task(boucle_posts_formation())  # liens des fiches résolus par leur titre (fini « #inconnu »)
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
         client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
             client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json))
@@ -3535,6 +3740,9 @@ async def on_message(message):
     if texte.startswith(("!alias", "!code")):
         if await codes_2fa.commande(message, ADMIN_IDS):
             return
+    if texte.startswith(("!creatrice", "!créatrice")):
+        if await commande_creatrice(message, texte):
+            return
 
     # Commande PUBLIQUE : classement des bumps du mois (transparence du concours)
     if texte.startswith("!bumps"):
@@ -3643,9 +3851,10 @@ async def on_message(message):
                                     "1️⃣ Remplis tes informations directement dans le document (nom complet, "
                                     "date de naissance, adresse…).\n"
                                     "2️⃣ Signe en bas.\n"
-                                    "3️⃣ **Dès la signature, tes accès s'ouvrent automatiquement** "
-                                    "(rôle Team France, espace privé, lien de tracking) — rien d'autre à "
-                                    "attendre. Ta copie PDF arrivera sur ton e-mail. 🔥")
+                                    "3️⃣ **Dès la signature, ton rôle Team France s'ouvre automatiquement.** "
+                                    "Ton manager t'attribue ensuite ta créatrice, et tes comptes se créent avec "
+                                    "lui au prochain créneau (lundi, mercredi, vendredi 17 h). Ta copie PDF "
+                                    "arrivera sur ton e-mail. 🔥")
                 if canal:
                     await canal.send(f"📨 Contrat DocuSeal **envoyé automatiquement** en MP à "
                                      f"{message.author.mention} — je te préviens ici dès qu'il aura signé.")
@@ -3722,6 +3931,7 @@ async def on_message(message):
         if image:
             contenu.append({"type": "image",
                             "source": {"type": "base64", "media_type": media, "data": image}})
+    contenu.append({"type": "text", "text": contexte_auteur(message)})
     contenu.append({"type": "text", "text": texte or "Voici une capture d'écran, aide-moi."})
 
     # Historique récent de CE candidat (+ mes réponses) → le modèle garde le contexte : fini les
@@ -3783,13 +3993,14 @@ async def on_message(message):
     marqueurs = ("pas dans ma base", "pas la réponse dans le kit", "je n'ai pas la réponse",
                  "demande à gaëtan", "pose ta question à gaëtan", "note-la pour le formulaire",
                  "demander à gaëtan")
-    if texte and any(m in reponse.lower() for m in marqueurs):
+    if texte and lacune_pertinente(texte) and any(m in reponse.lower() for m in marqueurs):
         lacunes = lire_json(FICHIER_LACUNES, [])
         if not any(l.get("q", "").lower() == texte.lower() for l in lacunes):
             lacunes.append({"q": texte[:300], "qui": str(utilisateur),
                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             ecrire_json(FICHIER_LACUNES, lacunes[-200:])
-    await message.reply(reponse[:1990])  # limite Discord = 2000 caractères
+    reponse = assainir_mentions(reponse)
+    await repondre_long(message, reponse)      # limite Discord = 2000 caractères, coupe propre
     await etiqueter_forum(message, reponse)  # range le post par sujet (si c'est un forum)
 
 

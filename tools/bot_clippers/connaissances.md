@@ -18,8 +18,8 @@
 2. **Relier ton compte** : à ton arrivée, le bot t'écrit en message privé et te demande UNE chose — ton numéro de téléphone. **Envoie-lui juste le numéro, sans commande** (par exemple : `06 12 34 56 78`), le MÊME que dans le formulaire. Il retrouve ta candidature et le serveur affiche ton prénom. (La commande `!lier 06XXXXXXXX` marche aussi.)
 3. **La formation** : juste après ton numéro, le bot t'envoie en message privé le lien du forum « formation » ET **ton lien de quiz personnel**. Regarde la vidéo (54 minutes) **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne — ni le bot, ni un autre clipper. Les demander = disqualifié.
 4. **Le quiz** : ton lien personnel (ne modifie pas la case déjà remplie). Seuil : **27/34**. Deux essais maximum. Lien perdu → tape `!quiz`, le bot te le renvoie en message privé.
-5. **Le test de montage** : si tu passes le quiz, le test arrive **automatiquement en message privé** — le dossier contient **plusieurs rushs (souvent 6) : tu en CHOISIS 2 et tu rends 2 Reels montés** en **48 h**. Tu rends tes 2 clips **en message privé au bot** (jamais dans un salon public). Réponse sous 72 h maximum.
-6. **Après le test validé** : équipe **France** (France/Belgique/Suisse) → tu envoies ton e-mail en message privé, le bot t'envoie ton contrat (signature électronique, 2 min, date de naissance + attestation majeur dans le document car 18 ans minimum obligatoire). **Dès que tu signes, tes accès s'ouvrent tout seuls (quelques minutes) : rôle Team France, ton espace privé et ton lien de tracking — tu n'attends personne, il n'y a pas de contre-signature à attendre.** Équipe **internationale** (autres pays) → **PAS de contrat à signer, pas de SIRET, pas de TVA** : tu reçois tes **conditions en message privé**, tu réponds « J'ACCEPTE », et ton **manager** t'accueille (créatrice attribuée, **téléphone cloud fourni par l'agence**, création des comptes à un créneau fixe avec lui, lien de tracking). La grille internationale est **ouverte depuis le 8 septembre 2026**. Dans les deux cas ensuite : le dossier de ta créatrice (rushs et modèles) est en lecture directe dans son salon grâce à ton rôle, puis Fiche 1 (comptes), warm-up, reporting du dimanche. Si après ~15 min (France) tu n'as rien reçu, vérifie que tes MP serveur sont ouverts, sinon renvoie ton numéro de téléphone en MP au bot.
+5. **Le test de montage** : si tu passes le quiz, le test arrive **automatiquement en message privé** — le dossier contient **plusieurs rushs (souvent 6) : tu en CHOISIS 2 et tu rends 2 Reels montés** en **48 h**. Tu rends tes 2 clips **en message privé au bot** (jamais dans un salon public). Réponse en général sous 48 h.
+6. **Après le test validé** : équipe **France** (France/Belgique/Suisse) → tu envoies ton e-mail en message privé, le bot t'envoie ton contrat (signature électronique, 2 min, date de naissance + attestation majeur dans le document car 18 ans minimum obligatoire). **Dès que tu signes, ton rôle Team France s'ouvre tout seul (quelques minutes, pas de contre-signature). Ensuite c'est ton manager qui prend le relais, sous 48 h : il t'attribue ta créatrice et ouvre son salon (rushs et modèles), puis tu crées tes comptes AVEC lui au prochain créneau de création (lundi, mercredi ou vendredi à 17 h, heure de Paris) — c'est là que ton lien de tracking est posé dans la bio de ton compte privé. Tu ne crées jamais tes comptes seul, et tu ne demandes rien à Gaëtan : ton manager a tout.** Équipe **internationale** (autres pays) → **PAS de contrat à signer, pas de SIRET, pas de TVA** : tu reçois tes **conditions en message privé**, tu réponds « J'ACCEPTE », et ton **manager** t'accueille (créatrice attribuée, **téléphone cloud fourni par l'agence**, création des comptes à un créneau fixe avec lui, lien de tracking). La grille internationale est **ouverte depuis le 8 septembre 2026**. Dans les deux cas ensuite : le dossier de ta créatrice (rushs et modèles) est en lecture directe dans son salon grâce à ton rôle, puis Fiche 1 (comptes), warm-up, reporting du dimanche. Si après ~15 min (France) tu n'as rien reçu, vérifie que tes MP serveur sont ouverts, sinon renvoie ton numéro de téléphone en MP au bot.
 
 Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis envoie-lui ton numéro en MP ; lien du quiz perdu → tape `!quiz` ; quiz raté → revois la vidéo, il te reste un essai ; test non rendu à temps → repassage possible 15 jours plus tard, reste sur le serveur ; le bot ne retrouve pas ta candidature → renvoie le numéro **EXACT** du formulaire (même écriture) — s'il ne la retrouve toujours pas, continue normalement, on vérifie ensemble à la fin. ⚠️ **Ton numéro de téléphone s'envoie UNIQUEMENT en message privé au bot — jamais dans un salon public** (c'est une donnée personnelle, tout le serveur la verrait).
 
@@ -27,7 +27,8 @@ Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés 
 
 - **#candidature** : l'accueil. Le lien du formulaire, et c'est là que tu écris si tu es bloqué au début.
 - **Forum formation** : post « Bienvenue » (vidéo + quiz) puis Fiche 1 à 6 et le Kit Clipper à imprimer. Tout le parcours d'apprentissage est là.
-- **#assistant-ia** : ici, pose-moi tes questions 24h/24 (kit, méthode, parcours). Si je ne sais pas : demande à Gaëtan.
+- **#assistant-ia** : ici, pose-moi tes questions 24h/24 (kit, méthode, parcours). Si je ne sais pas : demande à ton manager, ou mentionne @Gaëtan.
+- **Ton manager** (rôle « Manager ») : la personne qui te suit tous les jours une fois que tu es dans l'équipe — attribution de ta créatrice, création de tes comptes aux créneaux, relecture de tes Reels, relance si tu es à zéro, call d'équipe chaque semaine. Pour tout ce qui touche à TES comptes et TA créatrice, c'est lui, pas Gaëtan.
 - **#tips et #ressources** : astuces et modèles (captions, tutos) à consulter avant de demander.
 - **#reporting** (réservé à l'équipe) : ton compte-rendu chaque dimanche — obligatoire pour le fixe.
 - **#dopamine** : les paiements et les victoires de l'équipe, en public.
@@ -41,6 +42,15 @@ Commandes utiles pour tous : ton numéro envoyé en MP au bot = candidature reli
 - 2 comptes Instagram de croissance : ils font des vues. Leur bio contient UNIQUEMENT l'arobase @ du compte privé (jamais de lien).
 - 1 compte Instagram privé : c'est LUI qui a le lien. Il reçoit les curieux envoyés par les comptes de croissance.
 - 3 pages Facebook par créatrice : elles republient les Reels et font des vues en plus. Facebook marche très fort en ce moment et les pages ne sautent presque jamais.
+
+## LES CRÉNEAUX DE CRÉATION DE COMPTES (avec ton manager)
+
+- Les comptes Instagram et les pages Facebook se créent **en direct avec ton manager**, à des créneaux fixes : **lundi, mercredi et vendredi à 17 h (heure de Paris)**. Tu viens avec ton téléphone chargé et ta connexion, c'est tout.
+- **Les adresses mail des comptes sont fournies par l'agence.** Tu ne crées pas de Gmail, tu n'inventes pas d'adresse. Les **codes de vérification** (Instagram, Facebook) arrivent sur la boîte de l'agence et te sont **donnés en direct pendant le créneau** par ton manager. Tu n'as rien à récupérer par mail toi-même.
+- **Jamais ton numéro de téléphone**, et jamais un numéro « jetable » non plus : si Instagram réclame un numéro, tu le dis à ton manager pendant le créneau, il gère. Sur un compte déjà créé, tu le préviens AVANT de faire quoi que ce soit.
+- Un compte banni se **recrée au créneau suivant**, avec lui. Un compte, ça se remplace, ça ne se répare pas.
+- Équipe internationale : le téléphone est un **téléphone cloud fourni par l'agence** ; ton manager te donne l'accès au créneau et le retire si tu quittes l'équipe.
+- Ton **lien de tracking** (OnlyFans + GetAllMyLinks) est posé par ton manager dans la bio de ton compte privé, au créneau. Tu ne le demandes à personne.
 
 ## La règle la plus importante de toutes
 
@@ -59,7 +69,7 @@ Instagram, les règles d'or :
 - ⚠️ Le piège de l'association : si Instagram crée le nouveau compte SANS demander une adresse mail et un mot de passe, c'est qu'il est associé à l'ancien. Aller dans les paramètres et le dissocier. Sinon, un seul ban peut emporter tous les comptes d'un coup.
 
 Le lien (celui qui fait gagner de l'argent) :
-- Le lien GetAllMyLinks va UNIQUEMENT sur le compte Instagram privé, et seulement à J+7 (le lien se demande à Gaëtan).
+- Le lien GetAllMyLinks va UNIQUEMENT sur le compte Instagram privé, et seulement à J+7 (c'est ton manager qui le pose, tu ne le demandes à personne).
 - Les 2 comptes de croissance n'ont JAMAIS de lien : seulement l'arobase @ du compte privé dans la bio.
 
 Facebook, créer tes pages (le setup complet, étape par étape) :
@@ -196,6 +206,20 @@ Les 3 chiffres à ne jamais oublier :
 
 Le mindset : à la fin du Loom, à écouter les jours difficiles. En une phrase : tu ne peux pas échouer si tu n'abandonnes jamais — et le meilleur clipper devient manager.
 
+## LE MANAGER (rôle « Manager ») — ses missions et ses commandes
+
+Quand la personne qui te parle a le rôle **Manager** (par exemple Jonas), elle ne cherche pas le parcours candidat : elle gère des clippers. Ses étapes, dans l'ordre, chaque jour et chaque semaine :
+
+1. **Faire publier tous les jours** : chaque matin, le rapport dans le salon admin dit qui a publié et qui est à zéro. Un clipper à zéro est relancé sous 24 h, en message privé, par le manager.
+2. **Créer les comptes** aux trois créneaux fixes (lundi, mercredi, vendredi à 17 h, heure de Paris) avec Gaëtan et le clipper : comptes Instagram, pages Facebook, lancement du warm-up. Un compte banni est recréé au créneau suivant.
+3. **Gérer les téléphones et les accès** (téléphones cloud pour l'équipe internationale) : attribution, comptes installés, accès donnés au clipper, retirés le jour où il sort.
+4. **Poser les liens de tracking** de chaque nouveau clipper (OnlyFans + GetAllMyLinks) dans la bio de son compte privé, avant sa première publication.
+5. **Former et corriger** : au moins 2 relectures de Reels par clipper et par semaine (hook, durée, choix du rush), un conseil simple à chaque fois. Les nouveaux, c'est lui qui les accueille et les lance (Fiche 1).
+6. **Manager, motiver, trier** : un call d'équipe par semaine. Chaque lundi, tri : cadence non tenue 2 jours de suite = sortie le lundi suivant ; moins de 50 abonnés sur le premier mois de publication = sortie.
+7. **Rendre compte** : cinq lignes par jour dans le salon admin (publiés / à zéro / comptes créés / bans / blocage) et un call de 30 minutes par semaine avec Gaëtan.
+
+Ses commandes sur le serveur : `!creatrice @clipper Prénom` (attribue la créatrice, ouvre son salon au clipper, le prévient en MP) · `!fiche @clipper` (téléphone, prénom, état du parcours) · `!inputs` (bilan de publication du jour, `!inputs detail` pour le détail) · `!primes` (journées validées et primes du mois) · `!code <alias>` et `!alias` (codes de vérification des comptes, relayés dans son salon) · `!quiz-ok`, `!test-ok`, `!test-non` (faire avancer un candidat). Sa fiche de poste complète est un document à part, donné par Gaëtan — le bot n'en connaît que les missions ci-dessus.
+
 ## LA STRATÉGIE MARKETING (comprendre pourquoi on fait tout ça)
 
 Le kit (fiches 1 à 6) dit QUOI faire. Cette partie explique POURQUOI ça marche. Source : la stratégie officielle de Gaëtan (à jour juillet 2026). On travaille UNIQUEMENT sur Instagram et les pages Facebook.
@@ -291,7 +315,7 @@ Combien mettre ? Le montant exact validé dans ton décompte — jamais un monta
 
 **Quiz réussi mais toujours pas de test de montage ?** Le test part **automatiquement en MP** quelques minutes après la validation du quiz. Si tu n'as rien : cause n°1 = **tes MP serveur sont fermés** (Paramètres de confidentialité du serveur → autoriser). Ouvre-les puis renvoie ton numéro en MP au bot. Toujours rien après quelques heures → écris dans #assistant-ia avec un screenshot de ton score.
 
-**J'ai signé / accepté mais pas de salon privé ni de créatrice ?** Deux régimes différents. **Team France** : tout est automatique — rôle + espace + lien de tracking quelques minutes après la signature ; si rien, redémarre Discord complètement, puis renvoie ton numéro en MP. **Team International** : après ton « J'ACCEPTE », c'est **ton manager** qui t'attribue ta créatrice, ton salon, ton téléphone cloud et ton lien de tracking, en général sous 48 h et au plus tard au prochain créneau de création de comptes (lundi, mercredi ou vendredi à 17 h, heure de Paris). Rien reçu après 3 jours ? Écris dans #assistant-ia.
+**J'ai signé / accepté mais pas de salon privé ni de créatrice ?** C'est normal pendant 48 h : la signature ouvre ton **rôle** (Team France ou Team International), et c'est **ton manager** qui t'attribue ensuite ta créatrice et ouvre son salon — tu reçois un message privé du bot à ce moment-là, avec le lien du salon. Rien après 48 h ? Écris dans #assistant-ia en mentionnant ton manager (ou @Gaëtan) avec ton prénom et la date de signature. Ton lien de tracking, lui, est posé au créneau de création de comptes (lundi, mercredi, vendredi 17 h), pas avant : il va dans la bio d'un compte qui n'existe pas encore.
 
 **Où je vois mon score du quiz ?** **À l'écran, juste après l'envoi du formulaire** — aucun e-mail n'est envoyé, inutile de chercher dans ta boîte. Si tu as fermé la page sans noter le score : demande dans #assistant-ia en mentionnant Gaëtan, il voit ton score dans le système.
 
@@ -301,7 +325,7 @@ Combien mettre ? Le montant exact validé dans ton décompte — jamais un monta
 
 **Où est la liste des créatrices à suivre pour le warm-up ?** Dans le salon **#ressources**. Si tu ne vois pas ce salon : redémarre complètement Discord (le salon vient d'être ouvert à tous) ; toujours rien → dis-le dans #assistant-ia.
 
-**Je crée mon compte Gmail moi-même ?** **Non — c'est Gaëtan qui te fournit les identifiants** : l'adresse mail, le mot de passe et le nom d'utilisateur de chaque compte. Toi, tu utilises ces identifiants pour **créer les comptes Instagram** (Fiche 1). Tu n'inventes ni adresse ni pseudo : tout t'est donné dans ton salon privé. Tu n'as pas encore reçu tes identifiants → demande dans ton salon en mentionnant Gaëtan.
+**Je crée mon compte Gmail moi-même ?** **Non.** Les adresses mail des comptes sont fournies par l'agence, et les comptes se créent **avec ton manager au créneau** (lundi, mercredi, vendredi 17 h) : les codes de vérification arrivent sur la boîte de l'agence et te sont donnés en direct. Tu n'inventes ni adresse, ni pseudo, ni mot de passe, et tu ne crées rien seul.
 
 **J'édite ma facture à quel nom ?** Le nom exact de l'agence figure **sur ton contrat** (la partie qui signe en face de toi). Recopie-le tel quel sur ta facture. Un doute → demande dans #reporting.
 
@@ -313,7 +337,7 @@ Si tu mets 30 minutes sur un Reel, ce n'est pas normal : tu repars de zéro à c
 
 **Parrainer un clipper, comment ça marche ?** Il n'y a **pas de programme de parrainage automatique** pour l'instant. Si tu veux recommander quelqu'un : **préviens Gaëtan AVANT que la personne postule** (ton prénom + le sien), pour que la recommandation te soit créditée. Les conditions (prime éventuelle) se voient directement avec Gaëtan.
 
-**À quel mail j'envoie ma facture ?** L'adresse d'envoi t'est communiquée par Gaëtan avec ton **décompte du lundi** (le message qui te donne le montant exact à facturer). Si tu ne l'as pas encore reçue, demande-la à Gaëtan sur le serveur — elle n'est pas dans le kit.
+**À quel mail j'envoie ma facture ?** Demande-moi « à quelle adresse j'envoie ma facture ? » : si l'adresse est configurée, je te la donne directement. Sinon, Gaëtan te la communique avec ton **décompte du lundi** (le message qui te donne le montant exact à facturer).
 
 **Comment marche la rémunération (le fixe et la commission) ?** Deux blocs. ① Le **fixe** : il est **conditionnel** — versé si le travail de la semaine est fait (cadence de publication tenue, comptes sains, reporting du dimanche envoyé). Le premier mois il est payé **chaque semaine, le lundi**, ensuite au mois. ② La **commission** : par **abonné vérifié venu de TON lien de tracking** — elle n'est jamais gelée : ce que tu as généré t'est toujours dû. Les **montants exacts** dépendent de ta grille (France ou International) : ils sont affichés dans TES salons **#rémunération** et **#bonus** (ouverts dès que ta candidature est reliée). Toute fraude au suivi = exclusion.
 
@@ -340,6 +364,18 @@ Si tu mets 30 minutes sur un Reel, ce n'est pas normal : tu repars de zéro à c
 **Que gagne-t-on avec les bumps ?** `/bump` fait remonter le serveur sur Disboard → plus de candidats → une équipe plus forte. Le classement `!bumps` repart de zéro automatiquement chaque début de mois. S'il y a une récompense pour le haut du classement, c'est Gaëtan qui l'annonce dans #annonces — tant que rien n'est annoncé, c'est un jeu d'équipe, pas une prime garantie.
 
 **Où trouver des captions pendant le test de montage ?** Les 100 idées de captions sont dans le Discord (#tips et #ressources), mais ces salons ne s'ouvrent qu'une fois dans l'équipe. Pendant le test : tu écris ta propre caption, simple et en rapport avec le clip. Ce qui compte pour le test, c'est le **hook visuel de la première seconde** et la propreté du montage — pas la caption.
+
+**Le salaire, c'est 200 € par mois ? Et le premier mois ?** Équipe France : un **fixe mensuel conditionnel** (le montant exact est affiché dans ton salon #rémunération-fr) **+ 0,50 € par abonné vérifié** venu de ton lien. Conditionnel = versé si la cadence, les comptes sains et le reporting du dimanche sont tenus. **Le premier mois, il est payé chaque semaine, le lundi** (un quart du fixe par semaine), ensuite au mois. Rien de « sauf le premier mois » : le premier mois est payé, juste en quatre fois. Équipe internationale : grille dans #rémunération-int (fixe + 0,50 € par abonné + prime de discipline).
+
+**Les sous-titres automatiques de CapCut sont payants, je fais comment ?** Tu utilises **Edits** (l'appli de montage d'Instagram, gratuite) : les sous-titres automatiques y sont inclus, et c'est l'outil de la méthode. Sur CapCut gratuit, tu peux encore écrire tes sous-titres à la main (2 minutes sur un Reel de 8 secondes). Ne paie aucun abonnement pour ça.
+
+**Avec mon contrat, je peux travailler pour d'autres agences ?** **Oui, il n'y a pas d'exclusivité** : tu restes libre. Deux limites, écrites dans le contrat : les **rushs, les comptes et les identifiants de l'agence lui appartiennent** (tu ne les réutilises pas ailleurs), et ta **cadence ici doit être tenue** (sinon le fixe saute, comme pour tout le monde).
+
+**Comment je récupère les codes envoyés par mail pour créer les comptes Instagram ?** Tu ne les récupères pas toi-même : les codes arrivent sur la boîte de l'agence et **ton manager te les donne en direct pendant le créneau de création** (lundi, mercredi, vendredi 17 h). Si tu es en train de créer un compte hors créneau : arrête, et attends le créneau — c'est la règle.
+
+**Instagram me demande un numéro de téléphone pour envoyer un code ?** **Jamais ton numéro, et jamais un numéro « jetable » non plus.** Si ça arrive pendant le créneau, ton manager gère la vérification avec l'adresse mail de l'agence. Si ça arrive sur un compte déjà créé, préviens ton manager AVANT de faire quoi que ce soit : un numéro posé au mauvais endroit relie tes comptes entre eux.
+
+**Le mercredi c'est le créneau, mais je ne suis pas dispo ?** Dis-le à ton manager avant, il te met sur le créneau suivant (il y en a trois par semaine). Ne crée pas tes comptes seul pour « rattraper » : un compte créé hors créneau, sans les adresses de l'agence, se fait bannir et ne compte pas.
 
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
