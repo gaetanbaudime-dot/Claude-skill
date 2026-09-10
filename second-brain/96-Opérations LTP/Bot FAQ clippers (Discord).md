@@ -13,6 +13,9 @@ liens_forts: ["[[Kit Clippers - mode d'emploi]]", "[[Journal de coaching]]", "[[
 > [!tip] Verdict
 > Un bot **Discord** (**code : `tools/bot_clippers/bot_discord.py`**) qui répond aux questions des clippers **uniquement à partir du Kit Clipper v2 + la stratégie marketing** — s'il ne sait pas, il renvoie vers Gaëtan, il n'invente jamais. Choisi Discord plutôt que Telegram le 15/07 (décision UX/ROI) : les clippers y travaillent déjà, donc **zéro nouvelle appli, zéro code d'accès** (être dans le serveur = accès). Le vrai coût n'était jamais le développement : c'est la **curation** (réglée : la base = ce que les clippers ont déjà) et la **mesure** (réglée : chaque question journalisée avec un marqueur « escalade »).
 
+> [!info] État au 10/09/2026 — réparation complète après audit
+> Quatre audits (tunnel, automatisations, commandes, base) puis un correctif d'un bloc : mémoire atomique et fusionnée (plus d'écrasement des MP), quiz idempotent + `QUIZ_KO` (le raté est prévenu), MP fermés retentés, VALIDÉ en MP, STOP respecté partout, contrats honnêtes, International propre (rôle au J'ACCEPTE), **liste blanche du rôle Manager** (`!aide`, `!creatrice` avec salon perso, `!sortie`, `!relance`, `!subs`, `!inputs`, `!primes`, `!tests`, `!fiche` en privé), salon manager `CANAL_MANAGER_ID`, message de démarrage, digest enrichi. Inputs : journée calendaire Paris, cadence 2 **par surface** + compte privé, panne Facebook = journée non évaluée, commissions et paliers de la grille du 07/09, alerte « 2 jours ratés ». Détail, leçons et prédiction au 24/09 : [[Journal de coaching]] (entrées du 10/09). Seule action hors bot : recoller `quiz_webhook.gs` v3 dans l'Apps Script du quiz.
+
 ## Ce que c'est (et ce que ce n'est pas)
 
 - **C'est** : un répondeur sur le périmètre du kit + la stratégie marketing officielle (3 piliers cadence/qualité/A-B testing, circuit des 50 rushs, carrousels au pic, feedback quotidien — distillés des 2 vidéos YouTube, recentrés **Instagram + Facebook uniquement**). Réponses courtes forcées (2-4 phrases, niveau collège), 30 questions/jour/personne, journal des questions.
@@ -41,6 +44,10 @@ Base curée (`connaissances.md`) versionnée dans le repo (mise à jour par Clau
 ## v2 (17/07) — le bot du programme clippers
 
 Le bot opère désormais la boucle de la [[Machine de recrutement clippers (100 leads par mois)|machine de recrutement]] : **`!paiement @x 50 [raison]`** (annonce dopamine + **compteur épinglé « X € déjà versés »** + trace `paiements.jsonl`), **`!compteur`**, **`!rang @x Rookie/Confirmé/Elite`** (rôles à créer sur le serveur), **`!invites`** (classement). Avec `ACTIVER_V2=1` (exige l'intent privilégié Server Members + permission « Gérer le serveur ») : **tracking d'invitations** (attribution du parrain à chaque join — on tracke au join, on ne paie jamais au join) + **accueil numéroté** (« tu es le Nᵉ futur clipper ») dans `#candidature` avec le lien du formulaire. Les commandes admin marchent depuis n'importe quel canal. Déploiement sans risque : v2 éteinte par défaut. Mise en service : `tools/bot_clippers/README.md`, section v2.
+
+## Le manager aux commandes (10/09)
+
+Le rôle `Manager` (nom exact sur le serveur) dispose de sa liste : `!creatrice @clipper Prénom` (ouvre les salons de la créatrice, crée le salon perso du clipper, prévient en MP — refusé sur un non-signé), `!fiche`, `!tests`, `!test-ok`, `!test-non`, `!quiz-ok`, `!pipeline`, `!relance @x` (la prochaine étape réelle du candidat), `!inputs` (dernier bilan) / `!inputs maintenant`, `!subs Prénom n` (abonnés OF du mois), `!primes` (grille du 07/09 : primes, commissions 0,50/0,30 €, paliers, 150 € une fois, règle des 50 subs), `!sortie @x raison` (rôles, accès, relances, registre, MP, alerte). Les tests rendus, les J'ACCEPTE, les alertes « 2 jours ratés » et les sorties arrivent dans son salon (`CANAL_MANAGER_ID`). Ce que ça change pour Gaëtan : il ne reste dans la boucle que pour le contrat FR (automatique), la paie et les décisions de sortie — cohérent avec [[Fiche de poste - Manager marketing (Jonas)]].
 
 ## La mesure (ce qui remplace le débat)
 
