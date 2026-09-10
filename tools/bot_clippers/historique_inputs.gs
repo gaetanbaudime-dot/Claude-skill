@@ -11,7 +11,8 @@
  * INSTALLATION (3 min, une seule fois) :
  *  1. Sur le classeur : Extensions > Apps Script > colle ce fichier (nouveau fichier si le projet
  *     contient déjà autre chose) > Enregistrer.
- *  2. Change SECRET ci-dessous pour une phrase à toi (n'importe quoi de long et unique).
+ *  2. Change SECRET ci-dessous pour une phrase à toi (12 caractères minimum) — le script REFUSE
+ *     d'écrire tant que la valeur par défaut est en place.
  *  3. Déployer > Nouveau déploiement > type « Application Web » :
  *     - Exécuter en tant que : MOI
  *     - Qui a accès : TOUT LE MONDE   (obligatoire pour que le bot puisse écrire ; c'est le
@@ -30,6 +31,9 @@ const ENTETES = ['Date', 'Clipper', 'Créatrice', 'Compte', 'Plateforme',
 function doPost(e) {
   try {
     const charge = JSON.parse(e.postData.contents);
+    if (SECRET === 'change-moi-par-une-phrase-a-toi' || SECRET.length < 12) {
+      return reponse({ ok: false, erreur: 'SECRET non personnalisé dans le script — change-le avant tout usage' });
+    }
     if (charge.secret !== SECRET) {
       return reponse({ ok: false, erreur: 'secret invalide' });
     }
@@ -51,7 +55,10 @@ function doPost(e) {
       const existantes = feuille.getDataRange().getValues();
       for (let i = existantes.length - 1; i >= 1; i--) {
         const d = existantes[i][0];
-        const texte = (d instanceof Date) ? Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd') : String(d);
+        // Fuseau du CLASSEUR (pas UTC) : une date lue en UTC glissait au jour précédent et l'anti-doublon
+        // laissait passer une deuxième série de lignes pour la même journée (audit 10/09).
+        const fuseau = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+        const texte = (d instanceof Date) ? Utilities.formatDate(d, fuseau, 'yyyy-MM-dd') : String(d);
         if (texte === dateDuLot) feuille.deleteRow(i + 1);
       }
     }

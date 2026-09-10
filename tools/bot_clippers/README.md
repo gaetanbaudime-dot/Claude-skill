@@ -77,29 +77,42 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 
 ## Commandes v2 en un coup d'œil
 
+`!aide` (liste adaptée au rôle : admin, manager, clipper, candidat) ·
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
 `!compteur` · `!rang @x Rookie|Confirmé|Élite` · `!invites` · `!bumps` (public, classement du mois) ·
 `!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R` ·
-`!comptes` · `!inputs [test|detail]` (suivi des Reels publiés) · `!alias` / `!code` (relais 2FA, managers) · `!primes [AAAA-MM]` (paie variable du mois)
+`!comptes` · `!inputs [maintenant|test|detail]` (Reels publiés : nu = dernier bilan) · `!subs Prénom n` (abonnés OF du mois) ·
+`!primes [AAAA-MM]` (paie variable) · `!creatrice @x Prénom` · `!sortie @x raison` · `!relance @x` ·
+`!alias` / `!code` (relais 2FA, managers). Une commande inconnue est signalée (plus de silence).
 
 ## 🏅 Prime discipline et paie variable — `!primes`
 
 **La grille du 07/09** : un clipper = 2 comptes IG de croissance + 1 compte privé (porte le lien) +
-3 pages Facebook, **2 Reels/jour sur chaque compte de croissance ET chaque page FB**. La prime
-discipline (50 €) est **tout-ou-rien** : la journée est validée seulement si la structure est
-complète ET la cadence IG tenue ET la cadence FB tenue ; la prime tombe à **26 journées validées**
-dans le mois. Le manager touche 100 € par clipper **actif** (≥ 80 % des journées validées) et 150 €
-de bonus quand toute son équipe a sa prime.
+3 pages Facebook, **2 Reels/jour sur CHAQUE compte de croissance ET CHAQUE page FB** (par surface,
+pas en somme : 4 Reels sur un compte et 0 sur l'autre = journée ratée). La prime discipline (50 €)
+est **tout-ou-rien** : structure complète (IG, compte privé, pages FB) ET chaque surface à la cadence ;
+la prime tombe à **26 journées validées** dans le mois. La **journée** est la journée calendaire de
+la veille, minuit à minuit heure de Paris — plus une fenêtre glissante de 24 h.
 
-Le bot évalue chaque journée dans le rapport quotidien (le clipper voit `🏅 Journée validée (12/26 ce
-mois-ci)` ou `❌ Journée non validée : IG 3/4 · FB 4/6`) et **`!primes [AAAA-MM]`** sort la paie du
-mois par équipe : primes clippers, actifs × 100 € et bonus équipe pour le manager. Le variable
-(0,50 €/sub clipper, 0,30 €/sub manager) se lit sur les liens de tracking, pas ici.
+**Ce qui ne pénalise pas** (depuis le 10/09) : une panne Apify Facebook → journée *non évaluée*
+(⏸️), jamais invalidée ; un nouveau clipper (date de `!creatrice`) est en warm-up la semaine 1
+(0 publication exigée) puis à 1 Reel/jour/surface la semaine 2 (`NOUVEAU_JOURS=14`).
 
-Réglages Railway : `CADENCE_REELS_MIN=2` · `STRUCTURE_IG_MIN=2` · `STRUCTURE_FB_MIN=3` ·
-`PRIME_JOURS_MIN=26` · `PRIME_CLIPPER_EUR=50` · `MANAGER_PAR_CLIPPER_EUR=100` ·
-`MANAGER_BONUS_EQUIPE_EUR=150` · `ACTIF_TAUX_MIN=0.8`. Les pages FB doivent être dans l'onglet
-`FaceBook` publié (`SHEET_CSV_FB_URL`), sinon la structure est jugée incomplète.
+**Le variable se saisit** : `!subs Prénom 37` (abonnés OF du mois, depuis les stats des liens de
+tracking) → `!primes` calcule 0,50 €/abonné pour le clipper, et pour le manager : 100 € par clipper
+**actif** (≥ 80 % des journées évaluées) + 0,30 €/abonné de l'équipe + palier sur le total
+d'abonnés (>1 000 → 300 €, >2 500 → 800 €, >5 000 → 1 600 €, non cumulés) + 150 € **une fois** si
+tous ses clippers ont leur prime. La règle des 50 abonnés du premier mois est signalée.
+
+**Règle de sortie automatique** : deux journées ratées de suite → alerte immédiate au manager
+(`CANAL_MANAGER_ID`) avec la commande `!sortie` prête ; la ligne apparaît aussi dans le récap.
+
+Réglages Railway : `CADENCE_REELS_MIN=2` (défaut) · `STRUCTURE_IG_MIN=2` · `STRUCTURE_PRIVE_MIN=1` ·
+`STRUCTURE_FB_MIN=3` · `PRIME_JOURS_MIN=26` · `PRIME_CLIPPER_EUR=50` · `MANAGER_PAR_CLIPPER_EUR=100` ·
+`MANAGER_BONUS_EQUIPE_EUR=150` · `ACTIF_TAUX_MIN=0.8` · `MANAGER_PRENOM=Jonas` · `NOUVEAU_JOURS=14`.
+Les pages FB doivent être dans l'onglet `FaceBook` publié (`SHEET_CSV_FB_URL`), sinon la structure
+est jugée incomplète. Le cycle quotidien est retenté 3 fois ; un jour d'échec n'est jamais marqué
+fait. `!inputs` seul lit le dernier bilan ; `!inputs maintenant` relance le cycle.
 
 ## 🔐 Relais des codes 2FA vers les managers — `codes_2fa.py`
 
@@ -227,6 +240,9 @@ compte, plateforme, posts 24 h, vues, abonnés, delta, état. Le détail par com
 permet de voir quel compte porte réellement un clipper et de dater un ban au jour près. Rejouer une
 journée écrase proprement les lignes de cette date — pas de doublon.
 
+**Fuseau et secret** : l'anti-doublon compare les dates dans le fuseau du classeur (plus en UTC), et le
+script refuse d'écrire tant que `SECRET` est resté à sa valeur par défaut (12 caractères minimum).
+
 **Alerte 🔞** : un compte marqué « 18+ » par Instagram est **invisible aux visiteurs non connectés**
 et sa portée organique est détruite — publier plus n'y change rien. Le module le détecte et le
 remonte en priorité absolue, au clipper comme en admin.
@@ -271,13 +287,25 @@ Bonus : laisse « Ajouter des réactions » à ✅ pour `@everyone` (les 🔥 sa
 n'est pas posé, tout le reste (paiements, compteur, rangs, FAQ) marche normalement —
 le déploiement est sans risque.
 
-## Le manager sur Discord : `!creatrice`, contexte, liens des fiches (10/09)
+## Le manager sur Discord : commandes, salon, contexte, liens des fiches (10/09)
 
-- **`!creatrice @clipper Chloé`** (admin ou rôle `Manager`) : ouvre au clipper tous les salons dont le nom
-  contient le prénom de la créatrice (permissions voir/écrire), note l'attribution au registre, et le
-  prévient en MP avec le lien du salon et le prochain créneau de création. `!creatrice @clipper` seul :
-  voir l'attribution. Après une signature, le salon admin rappelle cette commande. Le salon d'une créatrice
-  doit donc **contenir son prénom** (ex. `#chloé-rushs`), sinon le bot dit qu'il n'a rien trouvé.
+- **Le rôle `Manager` (nom exact, `ROLE_MANAGER_NOM`) a sa liste blanche** : `!creatrice`, `!fiche`,
+  `!tests`, `!test-ok`, `!test-non`, `!quiz-ok`, `!pipeline`, `!relance`, `!inputs`, `!subs`, `!primes`,
+  `!sortie`, `!comptes`, `!alias`, `!code`. `!aide` lui donne sa liste. Avant le 10/09, tout était réservé
+  aux `ADMIN_IDS` alors que la base de connaissances promettait ces commandes au manager.
+- **`CANAL_MANAGER_ID`** (Railway) : le salon privé du manager. Il y reçoit les tests rendus, les
+  J'ACCEPTE, les alertes « 2 jours ratés », les sorties. Vide = tout reste dans le salon admin.
+- **`!creatrice @clipper Chloé`** : ouvre au clipper les salons dont le nom contient le prénom de la
+  créatrice **en mot entier** (les salons admin/bot/manager sont exclus — « gaetan » n'ouvre plus
+  `#bot-gaetan`), **crée son salon perso** dans la catégorie de la créatrice (privé : lui, le manager,
+  le bot — c'est là qu'arrive son bilan quotidien), note l'attribution au registre et le prévient en MP.
+  Refusée sur un membre non signé (`… forcer` pour passer outre). `!creatrice @clipper` seul : l'attribution.
+- **`!sortie @clipper raison`** : rôles Team/Grille/rangs retirés, accès nominatifs fermés, relances coupées,
+  fiche déplacée dans `sortis.json`, MP au membre, alerte manager + admin + Telegram avec la liste des
+  gestes manuels (Sheet, téléphone cloud, lien GAML, dernier décompte).
+- **`!relance @x`** : envoie en MP la prochaine étape de SON parcours (numéro, quiz, test, e-mail,
+  contrat, J'ACCEPTE), sans rien réinitialiser ; respecte son STOP (`… forcer` sinon).
+- **`!fiche`** n'est acceptée qu'en salon privé ou en MP (elle affiche un numéro de téléphone).
 - **Le bot sait où et à qui il parle** : chaque question lui arrive précédée de `[Contexte : salon #x ·
   rôles : …]`. Un `Manager` reçoit la section MANAGER de la base (missions, créneaux, commandes) ; un
   candidat reçoit le parcours. Fini le « tu es dans le mauvais salon » et le parcours candidat servi à Jonas.
@@ -294,10 +322,12 @@ le déploiement est sans risque.
 
 ## Recrutement international : pause et réouverture (`PAUSE_INT`)
 
-Le tunnel international (quiz → test → conditions « J'ACCEPTE » → `!equipe @x mg`) a été mis en pause le
-15/08 et **rouvert le 08/09/2026** (pôle malgache). Il est **ouvert par défaut** : ne pose `PAUSE_INT=1`
-dans Railway que pour re-suspendre (le quiz d'un International n'envoie alors plus le test, il reçoit un
-message « en pause » unique, et les relances se taisent).
+Le tunnel international (quiz → test → conditions en MP → **J'ACCEPTE ouvre le rôle Team International
+tout seul** → le manager attribue la créatrice) a été mis en pause le 15/08 et **rouvert le 08/09/2026**
+(pôle malgache). Il est **ouvert par défaut** : ne pose `PAUSE_INT=1` dans Railway que pour re-suspendre
+(le quiz d'un International n'envoie alors plus le test, il reçoit un message « en pause » unique, et les
+relances se taisent). Depuis le 10/09 : le rôle n'est plus donné AVANT l'acceptation, le J'ACCEPTE manquant
+est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recrutement est ouvert.
 
 **Relancer le stock après une pause (dans l'ordre)** :
 1. Vérifie que `PAUSE_INT` est absent ou à `0` dans Railway (redéploiement automatique).
@@ -308,6 +338,33 @@ message « en pause » unique, et les relances se taisent).
 3. `!annonce-int` (simulation) puis `!annonce-int envoyer` : message de lancement en MP à tous les
    internationaux du serveur, une seule fois par membre.
 4. Mets à jour le salon **Grille International** (rémunération/bonus) : le bot n'y écrit pas.
+
+## Ce que le bot fait tout seul depuis le 10/09 (audit complet)
+
+- **Mémoire fiable** : chaque JSON s'écrit de façon atomique avec une copie `.bak` ; la boucle pipeline
+  n'écrit plus que ce qu'elle a changé (fusion), elle n'écrase plus un numéro, un e-mail, un STOP ou un
+  rendu de test arrivé pendant qu'elle tournait. Écriture garantie même si un tour plante.
+- **Quiz** : idempotent par identifiant de message (un redéploiement ne renvoie plus le test aux refusés
+  et aux expirés) ; un **quiz raté est prévenu** en MP (score, lien, essai 2/2) grâce au `QUIZ_KO` du
+  nouveau `quiz_webhook.gs` (v3 — à recoller) ; un ID Discord vide part avec l'e-mail du quiz pour que
+  l'admin retrouve le candidat.
+- **MP fermés** : le test est retenté toutes les 5 min et l'horloge des 48 h ne démarre qu'à la réception.
+- **En MP, le bot répond toujours** (l'assistant, avec le contexte du parcours). `VALIDÉ` en MP ou dans
+  `#candidature` redemande le test après une expiration ou un refus (à la date du retest) ; un numéro
+  écrit dans une phrase est reconnu ; renvoyer son numéro ne détruit plus la fiche ; un numéro déjà relié
+  à un autre compte est bloqué et remonté.
+- **Contrats** : un 2ᵉ e-mail renvoie le lien existant au lieu de créer un 2ᵉ contrat ; un échec DocuSeal
+  est dit honnêtement au candidat, retenté 3 fois, puis remonté ; les contrats expirés ne sont plus sondés
+  ni comptés ; une signature sur un modèle à deux parties est détectée et expliquée.
+- **STOP** est respecté partout (relances de test, J+7/J+14, `!relancer-lien`, `!annonce-int`).
+- **Digest du matin** (toujours actif, plus conditionné à la trésorerie) : signés sans créatrice depuis
+  48 h (manager mentionné), validés International sans J'ACCEPTE, contrats en erreur, avertissements
+  techniques des 24 h. Message de démarrage dans le salon admin : automatisations actives, éteintes,
+  variables manquantes.
+- **Codes 2FA** : délai IMAP borné, mail marqué lu seulement après relais réussi, rôle Manager par égalité
+  exacte, mails Meta sans mot « code/confirmation » ignorés, panne signalée une fois puis « revenu ».
+- **Assistant** : escalade vers le manager pour l'opérationnel, jamais de délai ou de montant inventé,
+  jamais de contournement, étiquette de source unique en fin de réponse.
 
 ## ⚠️ Compteurs remis à zéro ? (persistance des données)
 

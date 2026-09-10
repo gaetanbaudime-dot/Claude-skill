@@ -32,6 +32,21 @@
  * discord-pseudo) — l'ordre des colonnes de la feuille n'a aucune importance.
  */
 
+/** Envoi Discord avec 3 tentatives (rate-limit 429 ou erreur passagère) — 10/09. */
+function posterDiscord(url, contenu) {
+  for (let essai = 1; essai <= 3; essai++) {
+    const reponse = UrlFetchApp.fetch(url, {
+      method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ content: contenu }), muteHttpExceptions: true
+    });
+    const code = reponse.getResponseCode();
+    if (code < 300) return code;
+    console.warn('Discord HTTP ' + code + ' (essai ' + essai + '/3)');
+    Utilities.sleep(1500 * essai);
+  }
+  return -1;
+}
+
 const NB_REJOUER = 400;  // rejouerCandidatures : nombre de dernières lignes rejouées (400 = toute la
                          // feuille actuelle — le bot déduplique par numéro, rejouer est sans risque)
 const PAR_MESSAGE = 10;  // lignes CANDIDATURE groupées par message Discord (le bot sait les lire en lot)
@@ -84,13 +99,8 @@ function surCandidature(e) {
   const pseudo = prendre(['discord', 'pseudo']);
   if (!tel) { console.warn('Candidature sans numéro exploitable — rien envoyé.'); return; }
 
-  const reponse = UrlFetchApp.fetch(url, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify({ content: 'CANDIDATURE|' + prenom + '|' + tel + '|' + pays + '|' + pseudo }),
-    muteHttpExceptions: true
-  });
-  console.log('CANDIDATURE postée (' + (prenom || '?') + ') — HTTP ' + reponse.getResponseCode());
+  const code = posterDiscord(url, 'CANDIDATURE|' + prenom + '|' + tel + '|' + pays + '|' + pseudo);
+  console.log('CANDIDATURE postée (' + (prenom || '?') + ') — HTTP ' + code);
 }
 
 /**
@@ -136,11 +146,7 @@ function rejouerCandidatures() {
   let envoyees = 0;
   for (let d = 0; d < lignes.length; d += PAR_MESSAGE) {
     const paquet = lignes.slice(d, d + PAR_MESSAGE).join('\n');   // ≤ ~800 caractères, loin des 2000 max
-    UrlFetchApp.fetch(url, {
-      method: 'post', contentType: 'application/json',
-      payload: JSON.stringify({ content: paquet }),
-      muteHttpExceptions: true
-    });
+    posterDiscord(url, paquet);
     envoyees += Math.min(PAR_MESSAGE, lignes.length - d);
     Utilities.sleep(700);                       // ménage le rate-limit Discord
   }

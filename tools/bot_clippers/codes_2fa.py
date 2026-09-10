@@ -21,7 +21,8 @@ import imaplib
 import json
 import os
 import re
-from datetime import datetime, timezone
+import unicodedata
+from datetime import datetime, timedelta, timezone
 from email.header import decode_header, make_header
 from pathlib import Path
 
@@ -35,8 +36,13 @@ IMAP_PASSWORD = os.environ.get("CODES_IMAP_PASSWORD", "").strip()
 # Dossier/libellé lu (Gmail : un libellé = un dossier IMAP). Avec un filtre Gmail « expéditeurs Meta →
 # libellé Codes », le bot ne parcourt JAMAIS le reste de la boîte, même sur une adresse personnelle.
 IMAP_DOSSIER = os.environ.get("CODES_IMAP_DOSSIER", "INBOX").strip() or "INBOX"
-ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "manager").strip().lower()
+ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 INTERVALLE = int(os.environ.get("CODES_INTERVALLE_SEC", "45"))
+IMAP_TIMEOUT = int(os.environ.get("CODES_IMAP_TIMEOUT_SEC", "30"))
+# Mots attendus dans le SUJET d'un mail de code (Meta en envoie aussi sur les connexions, les
+# nouveautés, la sécurité…) : un mail sans l'un d'eux ne relaie jamais un nombre pris au hasard.
+MOTS_SUJET = tuple(m.strip().lower() for m in os.environ.get(
+    "CODES_MOTS_SUJET", "code,confirm,vérif,verif,connexion,login,sécurité,security,verify").split(",") if m.strip())
 EXPEDITEURS = tuple(e.strip().lower() for e in os.environ.get(
     "CODES_EXPEDITEURS", "instagram.com,facebookmail.com,facebook.com,meta.com").split(",") if e.strip())
 
@@ -48,6 +54,12 @@ MOTIF_ALIAS = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 
 def actif() -> bool:
     return bool(IMAP_USER and IMAP_PASSWORD)
+
+
+def _cle(texte: str) -> str:
+    """Minuscules, sans accents ni ponctuation — pour comparer un nom de rôle à l'exact près."""
+    t = unicodedata.normalize("NFD", (texte or "").lower())
+    return re.sub(r"[^a-z0-9]", "", "".join(c for c in t if unicodedata.category(c) != "Mn"))
 
 
 def _lire():
@@ -94,23 +106,28 @@ def extraire(msg) -> dict:
     destinataires = " ".join(_texte(msg.get(h)) for h in ("To", "Delivered-To", "X-Original-To") if msg.get(h))
     alias = next((a.lower() for a in MOTIF_ALIAS.findall(destinataires)), "")
     sujet = _texte(msg.get("Subject"))
+    plateforme = "Facebook" if "facebook" in expediteur else "Instagram"
+    if MOTS_SUJET and not any(m in sujet.lower() for m in MOTS_SUJET):
+        return {"expediteur": expediteur, "alias": alias, "code": None, "sujet": sujet, "plateforme": plateforme}
     code = None
     for source in (sujet, _corps(msg)[:3000]):
         m = MOTIF_CODE.search(source)
         if m:
             code = m.group(0) if m.group(0).upper().startswith("FB") else m.group(1)
             break
-    plateforme = "Facebook" if "facebook" in expediteur else "Instagram"
     return {"expediteur": expediteur, "alias": alias, "code": code, "sujet": sujet, "plateforme": plateforme}
 
 
 def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
-    """Bloquant (à appeler via to_thread) : les codes des mails Meta récents."""
+    """Bloquant (à appeler via to_thread) : les codes des mails Meta récents. Un mail n'est PLUS
+    marqué lu ici : c'est le relais réussi qui le marque (_marquer_lus), sinon un code lu puis
+    jamais posté (Discord en panne) était perdu — audit 10/09."""
     resultats = []
-    with imaplib.IMAP4_SSL(IMAP_HOST) as boite:
+    with imaplib.IMAP4_SSL(IMAP_HOST, timeout=IMAP_TIMEOUT) as boite:
         boite.login(IMAP_USER, IMAP_PASSWORD)
         boite.select(IMAP_DOSSIER)
-        depuis = datetime.now(timezone.utc).strftime("%d-%b-%Y")
+        # SINCE = la veille : à 00 h 05 UTC, « aujourd'hui » excluait un code reçu deux minutes avant.
+        depuis = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%d-%b-%Y")
         critere = f'(UNSEEN SINCE {depuis})' if uniquement_non_lus else f'(SINCE {depuis})'
         ok, ids = boite.search(None, critere)
         if ok != "OK" or not ids or not ids[0]:
@@ -134,15 +151,27 @@ def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
                 continue
             info["num"] = num
             resultats.append(info)
-            if uniquement_non_lus and info["code"]:
-                boite.store(num, "+FLAGS", "\\Seen")        # traité : ne sera pas reposté
     return resultats
 
 
+def _marquer_lus(nums: list):
+    """Bloquant : marque lus les mails dont le code a été relayé avec succès."""
+    if not nums:
+        return
+    with imaplib.IMAP4_SSL(IMAP_HOST, timeout=IMAP_TIMEOUT) as boite:
+        boite.login(IMAP_USER, IMAP_PASSWORD)
+        boite.select(IMAP_DOSSIER)
+        for num in nums:
+            boite.store(num, "+FLAGS", "\\Seen")
+
+
 def _est_manager(membre, admin_ids) -> bool:
+    """Admin, ou porteur du rôle Manager au nom EXACT (accents/casse/emoji ignorés). La sous-chaîne
+    d'avant faisait d'un rôle « Community manager » ou « bot-manager » un manager."""
     if str(membre.id) in admin_ids:
         return True
-    return any(ROLE_MANAGER_NOM in r.name.lower() for r in getattr(membre, "roles", []))
+    cible = _cle(ROLE_MANAGER_NOM)
+    return bool(cible) and any(_cle(r.name) == cible for r in getattr(membre, "roles", []))
 
 
 async def commande(message, admin_ids) -> bool:
@@ -192,10 +221,10 @@ async def commande(message, admin_ids) -> bool:
         await message.reply("Cet alias n'est pas rattaché à ce salon — `!alias ajouter` d'abord.")
         return True
     try:
-        trouves = await asyncio.to_thread(_lire_boite, False, alias, 30)
+        trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, alias, 30), timeout=IMAP_TIMEOUT * 3)
     except Exception as erreur:
         journal.warning("IMAP : %s", erreur)
-        await message.reply("⚠️ Boîte mail injoignable (identifiants ou IMAP désactivé).")
+        await message.reply("⚠️ Boîte mail injoignable (identifiants, IMAP désactivé ou délai dépassé).")
         return True
     codes = [t for t in trouves if t["code"]]
     if not codes:
@@ -214,10 +243,21 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
         journal.info("Relais codes 2FA désactivé (CODES_IMAP_USER absent)")
         return
     await client.wait_until_ready()
+    pannes, alerte_faite = 0, False
     while not client.is_closed():
         try:
-            trouves = await asyncio.to_thread(_lire_boite, True, None, 30)
+            trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, True, None, 30), timeout=IMAP_TIMEOUT * 3)
+            pannes = 0
+            if alerte_faite:
+                alerte_faite = False
+                salon_a = await canal_admin_async()
+                if salon_a is not None:
+                    try:
+                        await salon_a.send("✅ Relais des codes 2FA : boîte mail de nouveau joignable.")
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
             registre = _lire()
+            relayes = []
             for t in trouves:
                 if not t["code"]:
                     continue
@@ -230,8 +270,24 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                     texte += "\n-# Alias non rattaché — un manager peut se l'attribuer : `!alias ajouter <alias>`."
                 try:
                     await salon.send(texte)
+                    relayes.append(t["num"])
                 except (discord.Forbidden, discord.HTTPException):
                     pass
+            if relayes:
+                await asyncio.wait_for(asyncio.to_thread(_marquer_lus, relayes), timeout=IMAP_TIMEOUT * 2)
         except Exception as erreur:                     # jamais tuer le bot pour un mail
-            journal.warning("Boucle codes 2FA : %s", erreur)
+            pannes += 1
+            journal.warning("Boucle codes 2FA (%d de suite) : %s", pannes, erreur)
+            if pannes >= 5 and not alerte_faite:
+                # 5 échecs de suite (~4 min) : les managers attendent des codes qui n'arrivent pas
+                # sans que personne ne le sache — on le dit UNE fois, et on dit quand ça revient.
+                alerte_faite = True
+                salon_a = await canal_admin_async()
+                if salon_a is not None:
+                    try:
+                        await salon_a.send(f"⚠️ **Relais des codes 2FA en panne** ({pannes} lectures échouées de suite) : "
+                                           f"{type(erreur).__name__} — vérifie CODES_IMAP_USER / mot de passe d'application / "
+                                           "IMAP activé. Les managers ne reçoivent plus les codes.")
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
         await asyncio.sleep(INTERVALLE)
