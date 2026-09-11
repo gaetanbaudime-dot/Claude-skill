@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v5, 10 septembre 2026)
+# Base de connaissances — Kit Clipper G&M (v6, 11 septembre 2026)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1 + 3, cadence 2 par jour, créneaux de création avec le manager).
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -10,6 +10,7 @@
 - **Le bot (moi), dans #assistant-ia, 24 h/24** : la méthode, le kit, le parcours candidat, la facture.
 - **Gaëtan** (mentionne @Gaëtan dans #assistant-ia) uniquement pour : contrat, paiement, facture bloquée, parrainage, arnaque à signaler.
 - Une question sur tes comptes envoyée à Gaëtan revient au manager : gagne du temps, écris-lui directement.
+- **Pas encore de manager** (candidat, quiz ou test en cours) : le bot, en message privé ou dans #assistant-ia. Bloqué depuis plus de 24 h ? Mentionne @Gaëtan dans #assistant-ia.
 
 ## L'objectif du clipper (dans l'ordre)
 
@@ -23,10 +24,10 @@
 
 1. **Formulaire de candidature** (lien dans #candidature) : prénom, pays, numéro de téléphone. À la fin, le formulaire donne le lien du Discord.
 2. **Relier ton compte** : à ton arrivée, le bot t'écrit en message privé et te demande UNE chose, ton numéro de téléphone. **Envoie-lui juste le numéro, sans commande** (par exemple `06 12 34 56 78`), le MÊME que dans le formulaire. Il retrouve ta candidature et le serveur affiche ton prénom. (`!lier 06XXXXXXXX` marche aussi.)
-3. **La formation** : juste après ton numéro, le bot t'envoie le lien du forum « formation » ET **ton lien de quiz personnel**. Regarde la vidéo (54 minutes) **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne, ni le bot, ni un autre clipper. Les demander = disqualifié.
+3. **La formation** : juste après ton numéro, le bot t'envoie le lien du forum « formation » ET **ton lien de quiz personnel**. Regarde la vidéo (54 minutes, c'est « le Loom ») **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne, ni le bot, ni un autre clipper. Les demander = disqualifié.
 4. **Le quiz** : ton lien personnel (ne modifie pas la case déjà remplie). Seuil : **27/34**. Deux essais maximum. Lien perdu → tape `!quiz`. Quiz raté → le bot te le dit en message privé avec ton score et ton lien pour le deuxième essai.
 5. **Le test de montage** : quiz réussi → le test arrive **automatiquement en message privé** : un dossier de rushs (souvent 6), **tu en choisis 2 et tu rends 2 Reels montés en 48 h**, en message privé au bot (jamais dans un salon). La réponse arrive en général sous 48 h : c'est une personne qui regarde ton test, ce n'est pas une promesse de délai.
-6. **Test validé, équipe France** (France, Belgique, Suisse) : tu envoies ton e-mail en message privé → contrat à signer en ligne (2 minutes, 18 ans minimum, date de naissance dans le document). **Dès la signature, ton rôle Team France s'ouvre tout seul.** Ensuite, sous 48 h, **ton manager t'attribue ta créatrice et ouvre son salon** (rushs et modèles) : tu reçois un message privé avec le lien du salon. Tes comptes se créent **AVEC lui** au prochain créneau (lundi, mercredi ou vendredi à 17 h, heure de Paris). Rien reçu 15 minutes après la signature ? Ouvre tes messages privés serveur et renvoie ton numéro au bot.
+6. **Test validé, équipe France** (France, Belgique, Suisse) : tu envoies ton e-mail en message privé → contrat à signer en ligne (2 minutes, 18 ans minimum, date de naissance dans le document). **Dès la signature, ton rôle Team France s'ouvre tout seul.** Ensuite, sous 48 h, **ton manager t'attribue ta créatrice et ouvre son salon** (rushs et modèles) : tu reçois un message privé avec le lien du salon. Tes comptes se créent **AVEC lui** au prochain créneau (lundi, mercredi ou vendredi à 17 h, heure de Paris). Pas de rôle Team France 15 minutes après la signature ? Ouvre tes messages privés serveur et renvoie ton numéro au bot. Le salon et la créatrice, eux, arrivent sous 48 h.
 7. **Test validé, équipe internationale** (autres pays) : pas de contrat, pas de SIRET, pas de TVA. Tu reçois tes conditions en message privé, tu réponds **J'ACCEPTE**, ton rôle Team International s'ouvre, et ton manager t'accueille : créatrice, téléphone cloud, comptes au créneau. Ouvert depuis le 8 septembre 2026.
 
 Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis envoie-lui ton numéro en MP · lien du quiz perdu → `!quiz` · quiz raté → revois la vidéo, il te reste un essai · test non rendu à temps → repassage possible 15 jours plus tard, écris VALIDÉ en message privé au bot quand tu es prêt · le bot ne retrouve pas ta candidature → renvoie le numéro **EXACT** du formulaire (même écriture). ⚠️ **Ton numéro s'envoie UNIQUEMENT en message privé au bot, jamais dans un salon** (tout le serveur le verrait).
@@ -37,9 +38,9 @@ Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés 
 - **Forum formation** : le post « Bienvenue » (vidéo + quiz), puis Fiche 1 à 6 et le Kit Clipper à imprimer.
 - **#assistant-ia** : mes réponses 24 h/24. Si je ne sais pas, je te dis vers qui aller.
 - **Le salon de ta créatrice** : ouvert par ton manager une fois dans l'équipe. Ses rushs et modèles (Drive en lecture), tes retours, tes captures, tes questions sur tes comptes. C'est ton salon de travail, il n'y en a pas d'autre.
-- **#tips et #ressources** : captions, tutos, la liste des créatrices à suivre pour le warm-up.
+- **#tips et #ressources** : captions, tutos, la liste des créatrices à suivre pour le warm-up. Ils s'ouvrent une fois dans l'équipe (rôle Team France ou Team International), pas avant. Candidat ou test en cours ? Le forum formation suffit.
 - **#reporting** (équipe) : ton compte-rendu chaque dimanche, obligatoire pour le fixe. Le formulaire est épinglé dedans.
-- **#rémunération et #bonus** (de ta grille, France ou International) : les montants exacts de ton fixe, ta commission, tes bonus. Ouverts dès que ta candidature est reliée.
+- **#rémunération-fr ou #rémunération-int, et #bonus** (de ta grille, France ou International) : les montants exacts de ton fixe, ta commission, tes bonus. Ouverts dès que ta candidature est reliée.
 - **#dopamine** : les paiements et les victoires de l'équipe, en public.
 - **#bump** : tape `/bump` quand le bot le rappelle. Classement `!bumps`.
 - **#annonces** : les annonces officielles. On lit, on ne répond pas.
@@ -62,11 +63,22 @@ Une **journée validée** = tes 6 comptes sont vivants ET tu as publié 2 Reels 
 
 - Les comptes Instagram et les pages Facebook se créent **en direct avec ton manager**, à des créneaux fixes : **lundi, mercredi et vendredi à 17 h (heure de Paris)**. Tu viens avec ton téléphone chargé et une bonne connexion.
 - **Les adresses mail des comptes sont fournies par l'agence.** Tu ne crées pas de Gmail, tu n'inventes rien. Les **codes de vérification** arrivent sur la boîte de l'agence et te sont **donnés en direct pendant le créneau**. Tu n'as rien à récupérer par mail toi-même.
-- **Jamais ton numéro de téléphone**, et jamais un numéro « jetable » non plus. Si Instagram réclame un numéro, tu le dis à ton manager pendant le créneau, il gère. Sur un compte déjà créé : préviens-le AVANT de faire quoi que ce soit.
+- **Jamais ton numéro de téléphone**, et jamais un numéro « jetable » ou une appli de numéro temporaire non plus. Si Instagram réclame un numéro, tu le dis à ton manager pendant le créneau, il gère. Sur un compte déjà créé : préviens-le AVANT de faire quoi que ce soit.
 - Un compte, ça se remplace, ça ne se répare pas : **un compte banni se recrée au créneau suivant, avec lui.**
 - Équipe internationale : le téléphone est un **téléphone cloud prêté par l'agence** ; ton manager te donne l'accès au créneau et le retire si tu quittes l'équipe.
 - Ton **lien de tracking** (OnlyFans + GetAllMyLinks) est posé par ton manager, jamais par toi : sur tes pages Facebook dès la création, sur ton compte Instagram privé à J+7. Avant, aucun lien nulle part.
 - Pas dispo à un créneau ? Préviens ton manager avant, il te met sur le suivant. Ne crée jamais un compte seul pour « rattraper » : il sera banni et ne comptera pas.
+
+## CE QU'ON NE DIT PLUS (ancien kit, avant le 7 septembre 2026)
+
+Si tu as lu une vieille version du kit, voilà ce qui a changé :
+- Tu ne crées plus tes comptes seul : c'est au créneau, avec ton manager. Gaëtan n'envoie pas d'identifiants.
+- Pas de numéro « jetable » ou temporaire, jamais.
+- Warm-up Instagram = toute la semaine 1, pas 48 h. Facebook aussi : rien avant la semaine 2.
+- Le lien a 3 emplacements sur une page Facebook (Liens, bio, bouton d'action), pas 4. Jamais dans la description d'un Reel, même « 1 sur 10 ».
+- Le lien est posé par ton manager : tu ne l'as pas, tu ne le colles nulle part.
+- L'équipe internationale n'est plus en pause : ouverte depuis le 8 septembre 2026.
+- Les évolutions (Metricool, 2ᵉ téléphone) n'ont pas de date (« J+30 », « J+60 ») : ton manager décide.
 
 ## LA RÈGLE LA PLUS IMPORTANTE DE TOUTES
 
@@ -86,7 +98,7 @@ Instagram, les règles d'or :
 
 Le lien : UNIQUEMENT sur le compte privé, à J+7, posé par ton manager. Les 2 comptes de croissance n'ont JAMAIS de lien, seulement l'@ du privé.
 
-Facebook, tes 3 pages (1 par jour, au créneau) :
+Facebook, tes 3 pages (1 par jour, au créneau, avec ton manager) :
 - Depuis ton compte Facebook perso (la « page mère »). Tes amis et ta famille ne voient jamais les pages gérées.
 - Nom de la page = le prénom de scène de la créatrice, rien de plus. Catégorie « Créateur numérique » ou « Personnalité publique ».
 - Pseudo, photo et bio uniques, **jamais le pseudo d'un compte Instagram** (même pseudo = comptes reliés = ban en chaîne). Bio : une ligne neutre (« Lifestyle »).
@@ -104,7 +116,7 @@ Chaque jour, un peu, comme une vraie utilisatrice :
 - Liker, regarder en entier, commenter un peu (un commentaire bien écrit sous un Reel tout frais d'une grosse créatrice = vu par des milliers de gens).
 - Enregistrer les meilleurs Reels, pour les reproduire plus tard.
 
-Le test de fin (à partir du 2ᵉ jour) : ouvre l'onglet Explorer. Il montre des créatrices françaises → le compte est chaud. Il montre autre chose → continue les interactions naturelles. Si ça ne vient pas après plusieurs jours : trop d'actions trop vite, dis-le à ton manager.
+Le test de fin (à partir du 2ᵉ jour) : ouvre l'onglet Explorer. Il montre des créatrices françaises → le compte est chaud (mais on attend quand même la semaine 2 pour publier). Il montre autre chose → continue les interactions naturelles. Si ça ne vient pas après plusieurs jours : trop d'actions trop vite, dis-le à ton manager.
 
 Ce qui casse un warm-up : publier en semaine 1 · regarder du contenu hors sujet · les rafales (50 likes en 5 minutes = robot) · un lien posé trop tôt · se connecter au même compte depuis plusieurs appareils.
 
@@ -127,6 +139,8 @@ Avant de publier, UNE question : est-ce que ma vidéo ressemble encore au rush d
 
 Ce qui fait performer un Reel : le hook (la première seconde donne envie de rester) et le partage (une vidéo qu'on a envie d'envoyer à un ami). Si la créatrice parle, on garde SA voix, pas de musique par-dessus. La miniature est obligatoire : claire, contrastée, le visage ou l'action principale. Hashtags : 3 à 5 simples, en rapport ; ils comptent peu.
 
+Un bon Reel, en 5 points : 1. Un hook dès la première seconde (le début du rush est coupé, on entre direct dans l'action). 2. Un montage propre : coupes nettes, zoom, sous-titres lisibles, sa voix gardée. 3. Une durée proche de la trend d'origine (la trend dure 8 secondes ? la tienne aussi, pas 13). 4. Une miniature claire et contrastée. 5. Chaque dimanche, regarde tes Reels qui ont le mieux marché et refais-les en variantes (Fiche 5). La qualité vient en publiant beaucoup et en corrigeant un détail à chaque fois.
+
 Contenu AUTORISÉ : tenues couvertes, street, décontracté, sport, tenue de soirée habillée ; hooks sur la personnalité, l'humour, une histoire, une situation où on se reconnaît ; des vidéos qui donnent envie de commenter.
 Contenu INTERDIT : bikinis, sous-vêtements, poses provocantes ; les textes « écris-moi en privé », « lien en bio », « contenu exclusif » ; toute mention d'argent, de drogue ou d'OnlyFans ; les sous-entendus sexuels et les émojis trop chauds. Objectif : des comptes propres qui durent.
 
@@ -136,7 +150,7 @@ Le même rush sur tes 2 comptes de croissance : oui, mais **jamais le même mont
 
 La routine du jour : un rush → Edits → 2 Reels par compte de croissance → republication sur les pages → quelques commentaires naturels → un œil sur les stats pour REFAIRE ce qui marche.
 
-Autour des Reels : 2-3 carrousels par semaine (dès qu'un Reel pète, un carrousel dans la foulée : c'est là qu'ils explosent), 1-3 stories par jour (sondages, quiz, lifestyle), 1-10 commentaires par jour chez les créatrices suivies. Les stories du Drive se postent sans souci de date, mais jamais brutes (un sticker, un texte, un filtre).
+Autour des Reels : 2-3 carrousels par semaine (dès qu'un Reel pète, un carrousel dans la foulée : c'est là qu'ils explosent), 1-3 stories par jour (sondages, quiz, lifestyle), 1-10 commentaires par jour chez les créatrices suivies, et tu réponds aux commentaires sous tes Reels (court, soft, sans lien). Les stories du Drive se postent sans souci de date, mais jamais brutes (un sticker, un texte, un filtre).
 
 Le reporting du dimanche (NON NÉGOCIABLE) : chaque dimanche, le formulaire épinglé dans #reporting, avec **les liens de tes Reels qui ont le mieux marché** : c'est comme ça qu'un concept gagnant repart en tournage chez la créatrice. Pas de formulaire = pas de suivi = pas de fixe.
 
@@ -152,7 +166,7 @@ Les Reels d'essai (Instagram uniquement) : des variantes d'un Reel existant, mon
 
 Les évolutions (décidées par ton manager, selon tes résultats) :
 - 500-1 000 abonnés, compte stable : passage en compte professionnel et association à UNE page Facebook (republication automatique depuis Edits). Tu ne le fais jamais seul : jusqu'à sa décision, la règle reste « jamais de comptes reliés ».
-- L'installation tourne bien : migration des comptes sur Metricool (sur ordinateur), et on recrée des comptes neufs sur le téléphone.
+- L'installation tourne bien : migration des comptes sur Metricool (sur ordinateur), quand ton manager le décide, sans date fixe ; on recrée alors des comptes neufs sur le téléphone.
 - Un 2ᵉ téléphone = un 2ᵉ setup de 6 comptes = deux fois plus de revenus.
 - Meilleur clipper de la promo : clipper manager, tu accompagnes les autres.
 
@@ -166,7 +180,7 @@ Les évolutions (décidées par ton manager, selon tes résultats) :
 
 **Des MP arrivent sur mes comptes** : on ne répond quasiment jamais en MP, et on n'en envoie jamais en masse (cause n°1 des bans). Réponds en story (capture du MP, postée en story) ou en commentaire. Jamais de lien vers OnlyFans en MP : les clics passent uniquement par le lien en bio.
 
-**Une question ? Dans cet ordre** : 1. Le chapitre du Loom (forum formation) : 90 % des réponses y sont. 2. Le bot dans #assistant-ia, 24 h/24. 3. Ton manager, pour tes comptes, ta créatrice, tes Reels, tes créneaux. 4. Le formulaire du dimanche pour les retours de fond. Si la réponse est dans la formation, on te renvoie au chapitre : c'est normal.
+**Une question ? Dans cet ordre** : 1. Le chapitre du Loom (la vidéo de formation, dans le forum formation) : 90 % des réponses y sont. 2. Le bot dans #assistant-ia, 24 h/24. 3. Ton manager, pour tes comptes, ta créatrice, tes Reels, tes créneaux. 4. Le formulaire du dimanche pour les retours de fond. Si la réponse est dans la formation, on te renvoie au chapitre : c'est normal.
 
 Les 3 chiffres à ne jamais oublier : 1 compte créé par jour, maximum · semaine 1 sans publier, et le test de l'Explorer avant de poster · 2 Reels par jour sur chaque surface, la régularité bat l'intensité.
 
@@ -184,7 +198,7 @@ Quand la personne qui te parle a le rôle **Manager** (par exemple Jonas), elle 
 6. **Manager, motiver, trier** : un call d'équipe par semaine. Chaque lundi, le tri : 2 jours de suite sans cadence = sortie ; moins de 50 abonnés OnlyFans sur le premier mois de publication = sortie. Le bot le prévient dès le 2ᵉ jour raté.
 7. **Rendre compte** : cinq lignes par jour dans le salon admin (publiés / à zéro / comptes créés / bans / blocage) et un call de 30 minutes par semaine avec Gaëtan.
 
-Ses commandes (tape `!aide` pour la liste) : `!creatrice @clipper Prénom` (attribue la créatrice, ouvre son salon, prévient le clipper) · `!fiche @clipper` (téléphone, prénom, état du parcours) · `!pipeline` (où en est chaque candidat) · `!tests` (tests à regarder) · `!quiz-ok`, `!test-ok`, `!test-non @candidat` (faire avancer ou refuser un candidat) · `!relance @candidat` (lui renvoyer sa prochaine étape) · `!inputs` (bilan de publication du jour, sans rien renvoyer aux clippers) · `!primes [AAAA-MM]` (journées validées, primes, commissions du mois) · `!subs @clipper 123` (saisir les abonnés OnlyFans du mois d'un clipper, pour les commissions) · `!sortie @clipper [raison]` (sortir un clipper : rôles et salons retirés, rappels coupés) · `!code <alias>` et `!alias` (codes de vérification des comptes). Sa fiche de poste complète est un document à part, donné par Gaëtan.
+Ses commandes (tape `!aide` pour la liste) : `!creatrice @clipper Prénom` (attribue la créatrice, ouvre son salon, prévient le clipper) · `!fiche @clipper` (téléphone, prénom, état du parcours) · `!pipeline` (où en est chaque candidat) · `!tests` (tests à regarder) · `!quiz-ok`, `!test-ok`, `!test-non @candidat` (faire avancer ou refuser un candidat) · `!relance @candidat` (lui renvoyer sa prochaine étape) · `!inputs` (bilan de publication du jour, sans rien renvoyer aux clippers) · `!primes [AAAA-MM]` (journées validées, primes, commissions du mois) · `!subs @clipper 123` (saisir les abonnés OnlyFans du mois d'un clipper, pour les commissions) · `!sortie @clipper [raison]` (sortir un clipper : rôles et salons retirés, rappels coupés) · `!code <alias>` et `!alias` (codes de vérification des comptes). Sa fiche de poste complète est un document à part, envoyé par Gaëtan. Un manager qui demande « où sont mes étapes / ma fiche ? » : la réponse est cette section (ses missions et ses commandes) plus sa fiche de poste, jamais le parcours candidat ni la liste des 6 fiches.
 
 ## LA STRATÉGIE MARKETING (comprendre pourquoi on fait tout ça)
 
@@ -223,9 +237,9 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Sur mes 3 pages Facebook je peux poster la même chose ?** Non : une variante par page (hook, caption, sous-titres ou cadrage changés). Facebook repère les copies comme Instagram. Republier ton Reel Instagram sur UNE page, c'est OK.
 
-**Qui je suis sur Facebook ?** Une petite dizaine de créatrices avec la page, à la création. C'est tout : pas de warm-up de 48 h façon Instagram, mais pas de publication avant la semaine 2.
+**Qui je suis sur Facebook ?** Une petite dizaine de créatrices avec la page, à la création. Pas de semaine de warm-up comme Instagram, mais pas de publication avant la semaine 2, comme Instagram.
 
-**GetAllMyLinks, MyPulse, c'est quoi ?** GetAllMyLinks = ta page de liens en bio. MyPulse = l'outil de suivi des clics et des abonnés. Les deux sont configurés par l'agence, tu n'as rien à demander : ton manager pose ton lien au bon moment (Facebook à la création, Instagram privé à J+7). Tes chiffres (abonnés, commission) te sont donnés chaque lundi avec ton décompte.
+**GetAllMyLinks, MyPulse, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice). MyPulse = l'outil qui compte les clics et les abonnés venus de TON lien ; ses compteurs repartent à zéro chaque mois. Les deux sont configurés par l'agence : tu n'as rien à demander, rien à recevoir. Ton manager pose ton lien lui-même : sur tes pages Facebook au créneau de création, sur ton compte Instagram privé à J+7. Tu ne le colles jamais toi-même, nulle part, et personne ne te l'envoie en MP. Tes chiffres (abonnés, commission) arrivent avec ton décompte : chaque lundi le premier mois (équipe France), puis chaque mois.
 
 **C'est quoi un abonné « vérifié » ?** Un abonné OnlyFans arrivé par TON lien de tracking et compté dans les statistiques du lien (même s'il est venu par la page gratuite). Les compteurs repartent à zéro chaque mois. Le montant par abonné est dans #rémunération.
 
@@ -233,13 +247,17 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Faire valider mes Reels avant de publier ?** Non, tu publies directement. Les retours arrivent après, dans le salon de ta créatrice. La seule validation, c'est le test de montage d'entrée.
 
+**Je peux répondre aux commentaires sous mes Reels ?** Oui, c'est même bon pour le Reel. Réponds court, gentil, soft : pas de lien, pas de « écris-moi en privé », pas de sous-entendu. Quelques réponses dans la journée, jamais en rafale. Les MP, c'est autre chose : on n'y répond quasiment jamais (voir « Des MP arrivent sur mes comptes »).
+
 **Une caption un peu osée, un sous-entendu ?** Non. Les captions restent soft et neutres : si elle fait penser à du contenu adulte, on la change. Les vues viennent du hook et de la personnalité.
 
 **Je peux renommer les fichiers du Drive ?** Jamais : il est partagé avec toute l'équipe. Tu télécharges, tu montes, le Drive reste intact.
 
 **Une miniature, c'est utile ?** Obligatoire : c'est l'image qu'on voit avant de cliquer. Claire, contrastée, le visage ou l'action principale. Elle se choisit dans Edits avant de publier.
 
-**Le téléphone cloud, comment ça marche ?** Équipe internationale : l'agence te prête un téléphone à distance. Ton manager te donne l'accès et les identifiants au créneau de création ; tous tes comptes vivent dedans, tu ne les connectes jamais sur un autre appareil. Il te faut une connexion stable. Il ne répond plus ? Écris tout de suite à ton manager, avec une capture. Si tu quittes l'équipe, l'accès est retiré.
+**Le téléphone cloud, comment ça marche ?** Équipe internationale : l'agence te prête un téléphone cloud, que tu pilotes depuis ton ordinateur. Ton manager te donne l'accès et les identifiants au créneau de création ; tous tes comptes vivent dedans, tu ne les connectes jamais sur un autre appareil. Il te faut une connexion stable. Il ne répond plus ? Écris tout de suite à ton manager, avec une capture. Si tu quittes l'équipe, l'accès est retiré.
+
+**Je n'ai pas de smartphone : je peux travailler depuis un ordinateur ?** Équipe internationale : oui. Ton téléphone de travail est un téléphone cloud prêté par l'agence, et tu le pilotes depuis ton ordinateur, avec une connexion stable. Tu n'as rien à acheter. Ton manager te donne l'accès au créneau de création. Équipe France : la méthode tourne sur ton smartphone ; si tu n'en as pas, dis-le à ton manager avant ton premier créneau.
 
 **Une journée validée, c'est de quelle heure à quelle heure ?** De minuit à minuit, heure de Paris. Le bot compte tes publications de la veille et te dit chaque matin si la journée est validée. Tu penses qu'il s'est trompé ? Envoie une capture de tes publications à ton manager le jour même, il vérifie.
 
@@ -251,11 +269,13 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Le salaire, c'est 200 € par mois ? Et le premier mois ?** Équipe France : un fixe mensuel conditionnel (montant exact dans #rémunération-fr) + 0,50 € par abonné vérifié. Le premier mois est payé, en quatre fois, chaque lundi. Équipe internationale : fixe (montant dans #rémunération-int) + 0,50 € par abonné + prime de discipline de 50 €.
 
-**Je suis payé quand, exactement ?** Premier mois (équipe France) : chaque lundi, après ton décompte et ta facture de la semaine. Ensuite : une fois par mois, au début du mois suivant, après ta facture. Pas de facture + RIB = pas de virement.
+**Je suis payé quand, exactement ?** Équipe France, premier mois : chaque lundi, après ton décompte de la semaine et ta facture. Ensuite : une fois par mois, au début du mois suivant, après ton décompte du mois et ta facture. Équipe internationale : une fois par mois, au début du mois suivant, d'après ton décompte, sans facture. Pas de facture + RIB (équipe France) = pas de virement.
 
-**Comment je facture ?** 1) Ouvre le template Canva (https://canva.link/39iwk70lz5nbrhe) et fais Fichier → Créer une copie : jamais dans l'original, il est partagé avec toute l'équipe. 2) En haut : ton nom, ton adresse, ton SIRET. 3) Client : l'agence, nom et adresse exactement comme sur ton contrat (Article 1). 4) Une ligne « Social media marketing », quantité 1, prix = le montant de ton décompte du lundi, jamais un chiffre inventé. 5) Période, numéro (FA-2026-001…), date, mention « TVA non applicable, art. 293 B du CGI ». 6) Envoie le PDF + ton RIB en pièce jointe séparée. Ni mail ni téléphone de Gaëtan sur la facture.
+**Quand et où j'envoie mon RIB et ma facture ?** Quand : à chaque décompte, avant le virement (premier mois France : chaque lundi ; ensuite : au début de chaque mois). Le RIB : avec ta première facture, en pièce jointe séparée, puis seulement s'il change. Où : à l'adresse de facturation, demande-la moi (« à quelle adresse j'envoie ma facture ? ») ; elle est aussi rappelée avec ton décompte.
 
-**À quelle adresse j'envoie ma facture ?** Demande-moi « à quelle adresse j'envoie ma facture ? » : si l'adresse est configurée, je te la donne. Sinon, Gaëtan te la communique avec ton décompte du lundi.
+**Comment je facture ?** 1) Ouvre le template Canva (https://canva.link/39iwk70lz5nbrhe) et fais Fichier → Créer une copie : jamais dans l'original, il est partagé avec toute l'équipe. 2) En haut : ton nom, ton adresse, ton SIRET. 3) Client : l'agence, nom et adresse exactement comme sur ton contrat (Article 1). 4) Une ligne « Social media marketing », quantité 1, prix = le montant de ton décompte (semaine ou mois), jamais un chiffre inventé. 5) Période, numéro (FA-2026-001…), date, mention « TVA non applicable, art. 293 B du CGI ». 6) Envoie le PDF + ton RIB en pièce jointe séparée. Ni mail ni téléphone personnel de quelqu'un de l'agence sur la facture.
+
+**À quelle adresse j'envoie ma facture ?** Demande-moi « à quelle adresse j'envoie ma facture ? » : si l'adresse est configurée, je te la donne. Sinon, elle est rappelée avec ton décompte.
 
 **J'édite ma facture à quel nom ?** Le nom exact de l'agence figure sur ton contrat (la partie qui signe en face de toi). Recopie-le tel quel.
 
@@ -289,9 +309,11 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Je crée mon compte Gmail moi-même ?** Non. Les adresses sont fournies par l'agence et les comptes se créent avec ton manager au créneau ; les codes arrivent sur la boîte de l'agence et te sont donnés en direct. Tu n'inventes ni adresse, ni pseudo, ni mot de passe.
 
+**Qui me donne mes identifiants (mail, mot de passe, pseudo) ?** Personne ne te les envoie en message : ton manager les pose avec toi, sur ton téléphone, pendant le créneau. Gaëtan n'envoie pas d'identifiants, et tu ne crées aucun compte seul. Après le créneau, les identifiants restent à l'agence : tu utilises les comptes, tu ne les possèdes pas.
+
 **Comment je récupère les codes envoyés par mail ?** Tu ne les récupères pas toi-même : ton manager te les donne pendant le créneau. En train de créer un compte hors créneau ? Arrête, et attends le créneau.
 
-**Instagram me demande un numéro de téléphone ?** Jamais ton numéro, jamais un numéro « jetable ». Pendant le créneau, ton manager gère la vérification avec l'adresse de l'agence. Sur un compte déjà créé : préviens-le avant de faire quoi que ce soit, un numéro posé au mauvais endroit relie tes comptes.
+**Instagram me demande un numéro de téléphone ?** Jamais ton numéro. Jamais un numéro « temporaire » ou « jetable » (Temp Number, Receive SMS et compagnie) : ces numéros ont déjà servi à des milliers de comptes, Instagram les connaît, c'est un ban. Pendant le créneau : dis-le à ton manager, il gère la vérification avec l'adresse de l'agence. Hors créneau, sur un compte déjà créé : ne tape rien, ferme l'appli, envoie une capture à ton manager. Un numéro posé au mauvais endroit relie tes comptes.
 
 **On peut utiliser un VPN pour créer des comptes ?** Non. Un VPN sur Instagram = signal de fraude, compte restreint ou banni. Les comptes se créent au créneau, sans VPN.
 

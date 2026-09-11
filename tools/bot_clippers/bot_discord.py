@@ -231,8 +231,9 @@ tutoiement, pas de mots anglais sauf ceux du métier déjà dans le kit (Reel, r
 warm-up, caption, template, story, ban). Pas de jargon marketing.
 1bis. Si la base ne répond qu'en PARTIE, donne la partie connue et dis clairement ce que tu \
 ne sais pas — jamais de délai, de montant, de date ou de règle qui ne soit pas écrit dans la \
-base. Si deux passages semblent se contredire, les sections « Ton matériel », « Créneaux de \
-création » et « Prime discipline » font foi.
+base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LES \
+CRÉNEAUX DE CRÉATION DE COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; la base \
+curée prime toujours sur la « FAQ apprise » qui la suit.
 4. Termine chaque réponse par l'étiquette de la source entre parenthèses, UNE seule parmi : \
 (Fiche 1) à (Fiche 6) avec son titre, ex. (Fiche 2 — le warm-up) ; (Stratégie marketing) ; \
 (Parcours candidat) pour l'entrée dans l'équipe (candidature, numéro, quiz, test, contrat, \
@@ -333,8 +334,8 @@ def connaissances() -> str:
     if signature != _connaissances["signature"]:
         texte = FICHIER_CONNAISSANCES.read_text(encoding="utf-8")
         if FICHIER_FAQ_APPRISE.exists():
-            texte += "\n\n## FAQ apprise (ajouts au fil de l'eau via !apprendre)\n" + \
-                     FICHIER_FAQ_APPRISE.read_text(encoding="utf-8")
+            texte += ("\n\n## FAQ apprise (ajouts au fil de l'eau via !apprendre — SECONDAIRE : en cas de "
+                      "désaccord, la base ci-dessus fait foi)\n" + FICHIER_FAQ_APPRISE.read_text(encoding="utf-8"))
         _connaissances["texte"] = texte
         _connaissances["signature"] = signature
         journal.info("Connaissances rechargées (%d caractères)", len(texte))
@@ -2547,7 +2548,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement)\n"
                 "**Paie/compteur** : `!paiement @x 50 raison` · `!ajuster` · `!compteur` · `!rang` · `!invites` · `!bumps`\n"
-                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!sauvegarde`\n"
+                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!sauvegarde`\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
         return ("🧰 **Commandes manager**\n"
@@ -2703,6 +2704,14 @@ async def commande_creatrice(message, texte: str) -> bool:
         + ("\n-# Prochain geste : créneau de création lun/mer/ven 17 h, téléphone cloud, lien de tracking, ligne Sheet." )
         + ".")
     return True
+
+
+def _entrees_faq_apprise() -> list:
+    """[(question, réponse)] du fichier faq_apprise.md (format écrit par !apprendre)."""
+    if not FICHIER_FAQ_APPRISE.exists():
+        return []
+    brut = FICHIER_FAQ_APPRISE.read_text(encoding="utf-8")
+    return [(q.strip(), r.strip()) for q, r in re.findall(r"\*\*Q : (.+?)\*\*\s*\nR : (.+?)(?=\n\*\*Q : |\Z)", brut, re.S)]
 
 
 async def commande_admin(message, texte: str) -> bool:
@@ -4343,6 +4352,36 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     # ---- !lacunes : les questions auxquelles le kit n'a pas su répondre (à combler par !apprendre) ----
+    # ---- !faq : la FAQ apprise (volume Railway) — ce que !apprendre a ajouté, à relire et à purger ----
+    # L'audit du 11/09 l'a rappelé : tout ce qui a été appris AVANT la base v5 peut porter l'ancienne
+    # doctrine (identifiants par Gaëtan, Facebook dès le jour 1, pause International) et contredire la base.
+    if texte.startswith("!faq"):
+        entrees = _entrees_faq_apprise()
+        corps = texte[len("!faq"):].strip().lower()
+        if corps == "vider":
+            if FICHIER_FAQ_APPRISE.exists():
+                FICHIER_FAQ_APPRISE.rename(FICHIER_FAQ_APPRISE.with_suffix(".md.bak"))
+            await message.reply(f"🧹 FAQ apprise vidée ({len(entrees)} entrée(s), copie .bak conservée). La base curée "
+                                "répond seule.")
+            return True
+        if corps.startswith("retirer"):
+            nums = {int(n) for n in re.findall(r"\d+", corps)}
+            restantes = [e for i, e in enumerate(entrees, 1) if i not in nums]
+            if len(restantes) == len(entrees):
+                await message.reply("Format : `!faq retirer 3` (numéro donné par `!faq`), ou `!faq vider`.")
+                return True
+            FICHIER_FAQ_APPRISE.write_text("".join(f"\n**Q : {q}**\nR : {r}\n" for q, r in restantes), encoding="utf-8")
+            await message.reply(f"🗑️ {len(entrees) - len(restantes)} entrée(s) retirée(s), {len(restantes)} restante(s).")
+            return True
+        if not entrees:
+            await message.reply("📚 FAQ apprise vide — le bot ne répond qu'avec la base curée (connaissances.md).")
+            return True
+        lignes = [f"📚 **FAQ apprise — {len(entrees)} entrée(s)** (secondaire : la base curée prime)"]
+        lignes += [f"{i}. **{q[:90]}** → {r[:140]}" for i, (q, r) in enumerate(entrees, 1)]
+        lignes.append("→ `!faq retirer N` pour une entrée périmée · `!faq vider` pour tout retirer.")
+        await envoyer_long(message, lignes)
+        return True
+
     if texte.startswith("!lacunes"):
         if "vider" in texte:
             ecrire_json(FICHIER_LACUNES, [])
@@ -4437,6 +4476,8 @@ async def annoncer_demarrage():
              + "\n✅ Actif : " + " · ".join(actives)
              + (("\n⛔ Éteint : " + " · ".join(eteintes)) if eteintes else "")
              + (("\n⚠️ À poser dans Railway : " + " · ".join(manquantes)) if manquantes else "")
+             + ((f"\n📚 FAQ apprise : {len(_entrees_faq_apprise())} entrée(s) — `!faq` pour relire, une entrée qui contredit "
+                 "la base v6 se retire avec `!faq retirer N`.") if _entrees_faq_apprise() else "")
              + "\n-# `!verifier` pour l'audit complet · `!aide` pour les commandes.")
     try:
         await canal.send(texte[:1990])
