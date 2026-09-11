@@ -2701,7 +2701,7 @@ async def commande_creatrice(message, texte: str) -> bool:
         + ((f" · salon perso {'créé' if cree else 'ouvert'} : #{salon_perso.name}") if salon_perso is not None else
            (" · ⚠️ pas de catégorie au nom de la créatrice : salon perso non créé" if categorie is None else ""))
         + (f" · refus : {', '.join(refus)}" if refus else "")
-        + ("\n-# Prochain geste : créneau de création lun/mer/ven 17 h, téléphone cloud, lien de tracking, ligne Sheet." )
+        + ("\n-# Prochain geste : créneau de création lun/mer/ven 17 h, règles de l'appareil, lien de tracking, ligne Sheet.")
         + ".")
     return True
 
@@ -3099,7 +3099,7 @@ async def commande_admin(message, texte: str) -> bool:
                 "· Tu n'as **pas encore fait le quiz** → tape `!quiz` sur le serveur, je t'envoie "
                 "ton lien personnel. Seuil 27/34, deux essais.\n"
                 "· Test validé → tu acceptes les conditions en MP, puis ton manager t'accueille : "
-                "créatrice, téléphone cloud fourni, comptes, cadence.\n\n"
+                "créatrice, comptes créés avec lui au créneau, cadence.\n\n"
                 "Pas d'entretien : ceux qui livrent sont pris. Les places partent dans l'ordre des "
                 "tests rendus 💪")
             ok += 1 if reussi else 0
@@ -3466,8 +3466,8 @@ async def commande_admin(message, texte: str) -> bool:
             ecrire_json(FICHIER_PIPELINE, donnees)
             await envoyer_mp(membre, "🏆 **Test validé — bienvenue dans la sélection Team International !**\n\n"
                                      "Avant d'ouvrir ton accès, confirme les règles de l'équipe :\n"
-                                     "1. Les comptes et le téléphone fournis pour la mission **appartiennent à "
-                                     "l'agence** — tu remets les accès à la demande.\n"
+                                     "1. Les comptes créés pour la mission (et le téléphone, s'il est fourni) **appartiennent "
+                                     "à l'agence** — tu remets les accès à la demande.\n"
                                      "2. Formation, méthodes et contenus : **confidentiels**, rien ne se "
                                      "partage, rien ne se copie.\n"
                                      "3. Tu as **18 ans ou plus**.\n"
@@ -3749,7 +3749,7 @@ async def commande_admin(message, texte: str) -> bool:
             f"🚪 **{membre.display_name} sorti de l'équipe** (par {message.author.display_name}) — {raison}\n"
             f"Rôles retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · accès fermés : {len(fermes)} salon(s)"
             + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
-            f"→ À faire à la main : Sheet (ses comptes en « à réattribuer »), téléphone cloud à récupérer, "
+            f"→ À faire à la main : Sheet (ses comptes en « à réattribuer »), mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
             f"lien GAML à désactiver, dernier décompte.", g)
         await inputs_clippers.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
         await message.reply(f"✅ {membre.mention} sorti : {len(a_retirer)} rôle(s) retiré(s), {len(fermes)} accès fermé(s), "
@@ -4733,7 +4733,7 @@ async def on_message(message):
                  "La suite, dans l'ordre :\n"
                  "1️⃣ **Ton manager t'attribue ta créatrice** et ouvre son salon (rushs, modèles) — sous 48 h.\n"
                  "2️⃣ **Tes comptes se créent AVEC lui** au prochain créneau : lundi, mercredi ou vendredi "
-                 "17 h (heure de Paris). Téléphone cloud fourni, lien de tracking posé par lui. Tu ne crées "
+                 "17 h (heure de Paris), sur ton téléphone. Lien de tracking posé par lui. Tu ne crées "
                  "jamais tes comptes seul.\n"
                  "3️⃣ D'ici là : lis la **Fiche 1** (règles anti-ban) et la **Fiche 2** (warm-up, toute la semaine 1).\n"
                  "Une question ? Le salon de l'assistant répond 24h/24. Au travail 💪")
@@ -4763,7 +4763,7 @@ async def on_message(message):
                 f"✍️ **{message.author.mention} a accepté les conditions International** → "
                 + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} int`.")
                 + f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`** "
-                  "puis créneau de création (lun/mer/ven 17 h Paris), téléphone cloud, lien de tracking."
+                  "puis créneau de création (lun/mer/ven 17 h Paris) sur son téléphone, lien de tracking."
                 + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
             await inputs_clippers.envoyer_telegram(f"✍️ J'ACCEPTE : {membre_a.display_name} (Team International)"
                                                   + (f" — WhatsApp {tel_a}" if tel_a else ""))

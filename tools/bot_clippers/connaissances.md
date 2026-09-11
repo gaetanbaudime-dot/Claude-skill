@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v6, 11 septembre 2026)
+# Base de connaissances — Kit Clipper G&M (v6.1, 11 septembre 2026)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1 + 3, cadence 2 par jour, créneaux de création avec le manager).
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -28,7 +28,7 @@
 4. **Le quiz** : ton lien personnel (ne modifie pas la case déjà remplie). Seuil : **27/34**. Deux essais maximum. Lien perdu → tape `!quiz`. Quiz raté → le bot te le dit en message privé avec ton score et ton lien pour le deuxième essai.
 5. **Le test de montage** : quiz réussi → le test arrive **automatiquement en message privé** : un dossier de rushs (souvent 6), **tu en choisis 2 et tu rends 2 Reels montés en 48 h**, en message privé au bot (jamais dans un salon). La réponse arrive en général sous 48 h : c'est une personne qui regarde ton test, ce n'est pas une promesse de délai.
 6. **Test validé, équipe France** (France, Belgique, Suisse) : tu envoies ton e-mail en message privé → contrat à signer en ligne (2 minutes, 18 ans minimum, date de naissance dans le document). **Dès la signature, ton rôle Team France s'ouvre tout seul.** Ensuite, sous 48 h, **ton manager t'attribue ta créatrice et ouvre son salon** (rushs et modèles) : tu reçois un message privé avec le lien du salon. Tes comptes se créent **AVEC lui** au prochain créneau (lundi, mercredi ou vendredi à 17 h, heure de Paris). Pas de rôle Team France 15 minutes après la signature ? Ouvre tes messages privés serveur et renvoie ton numéro au bot. Le salon et la créatrice, eux, arrivent sous 48 h.
-7. **Test validé, équipe internationale** (autres pays) : pas de contrat, pas de SIRET, pas de TVA. Tu reçois tes conditions en message privé, tu réponds **J'ACCEPTE**, ton rôle Team International s'ouvre, et ton manager t'accueille : créatrice, téléphone cloud, comptes au créneau. Ouvert depuis le 8 septembre 2026.
+7. **Test validé, équipe internationale** (autres pays) : pas de contrat, pas de SIRET, pas de TVA. Tu reçois tes conditions en message privé, tu réponds **J'ACCEPTE**, ton rôle Team International s'ouvre, et ton manager t'accueille : créatrice, comptes au créneau, sur ton propre téléphone. Ouvert depuis le 8 septembre 2026.
 
 Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis envoie-lui ton numéro en MP · lien du quiz perdu → `!quiz` · quiz raté → revois la vidéo, il te reste un essai · test non rendu à temps → repassage possible 15 jours plus tard, écris VALIDÉ en message privé au bot quand tu es prêt · le bot ne retrouve pas ta candidature → renvoie le numéro **EXACT** du formulaire (même écriture). ⚠️ **Ton numéro s'envoie UNIQUEMENT en message privé au bot, jamais dans un salon** (tout le serveur le verrait).
 
@@ -65,9 +65,16 @@ Une **journée validée** = tes 6 comptes sont vivants ET tu as publié 2 Reels 
 - **Les adresses mail des comptes sont fournies par l'agence.** Tu ne crées pas de Gmail, tu n'inventes rien. Les **codes de vérification** arrivent sur la boîte de l'agence et te sont **donnés en direct pendant le créneau**. Tu n'as rien à récupérer par mail toi-même.
 - **Jamais ton numéro de téléphone**, et jamais un numéro « jetable » ou une appli de numéro temporaire non plus. Si Instagram réclame un numéro, tu le dis à ton manager pendant le créneau, il gère. Sur un compte déjà créé : préviens-le AVANT de faire quoi que ce soit.
 - Un compte, ça se remplace, ça ne se répare pas : **un compte banni se recrée au créneau suivant, avec lui.**
-- Équipe internationale : le téléphone est un **téléphone cloud prêté par l'agence** ; ton manager te donne l'accès au créneau et le retire si tu quittes l'équipe.
+- Équipe internationale : tu démarres sur **ton propre téléphone** (voir « Ton téléphone, les règles » juste en dessous). Un téléphone cloud prêté par l'agence peut être décidé au cas par cas, plus tard : ce n'est pas automatique, personne ne te le promet.
 - Ton **lien de tracking** (OnlyFans + GetAllMyLinks) est posé par ton manager, jamais par toi : sur tes pages Facebook dès la création, sur ton compte Instagram privé à J+7. Avant, aucun lien nulle part.
 - Pas dispo à un créneau ? Préviens ton manager avant, il te met sur le suivant. Ne crée jamais un compte seul pour « rattraper » : il sera banni et ne comptera pas.
+
+Ton téléphone, les règles (équipe internationale, sur ton propre appareil) :
+- **Un seul appareil** pour tes 6 comptes de mission, toujours le même. Jamais tes comptes de mission sur un autre téléphone ou un ordinateur.
+- **Tes comptes perso Instagram et Facebook sont déconnectés** de ce téléphone (si tu as deux téléphones, garde-en un pour la mission). Un compte perso sur le même appareil relie tout : un ban en entraîne un autre.
+- **Jamais de liaison dans le Centre de comptes Meta**, jamais de VPN, jamais ton numéro. Langue du téléphone et d'Instagram en français.
+- Tout le warm-up et toutes les interactions se font en français, avec des créatrices françaises : c'est ce qui apprend à Instagram à qui montrer tes Reels.
+- Les comptes restent à l'agence : les adresses mail sont les siennes. Si tu quittes l'équipe, les mots de passe sont changés et tu supprimes les comptes de ton téléphone.
 
 ## CE QU'ON NE DIT PLUS (ancien kit, avant le 7 septembre 2026)
 
@@ -192,7 +199,7 @@ Quand la personne qui te parle a le rôle **Manager** (par exemple Jonas), elle 
 
 1. **Faire publier tous les jours** : chaque matin, le bot lui envoie le bilan de ses clippers (qui a publié, qui est à zéro, quelle journée n'est pas validée et pourquoi). Un clipper à zéro est relancé sous 24 h, en message privé, par lui.
 2. **Créer les comptes** aux trois créneaux fixes (lundi, mercredi, vendredi 17 h, heure de Paris) avec le clipper : comptes Instagram, pages Facebook, lancement du warm-up. Un compte banni est recréé au créneau suivant.
-3. **Gérer les téléphones et les accès** (téléphones cloud pour l'équipe internationale) : attribution, comptes installés, accès donnés au clipper, retirés le jour où il sort.
+3. **Gérer les téléphones et les accès** : règles de l'appareil vérifiées au premier créneau (comptes perso déconnectés, pas de VPN, français), téléphones cloud quand il y en a (attribution, comptes installés, accès donnés au clipper, retirés le jour où il sort).
 4. **Poser les liens de tracking** (OnlyFans + GetAllMyLinks) de chaque nouveau clipper : pages Facebook à la création, compte Instagram privé à J+7.
 5. **Former et corriger** : au moins 2 relectures de Reels par clipper et par semaine (hook, durée, choix du rush), un conseil simple à chaque fois. Les nouveaux, c'est lui qui les accueille.
 6. **Manager, motiver, trier** : un call d'équipe par semaine. Chaque lundi, le tri : 2 jours de suite sans cadence = sortie ; moins de 50 abonnés OnlyFans sur le premier mois de publication = sortie. Le bot le prévient dès le 2ᵉ jour raté.
@@ -255,9 +262,9 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Une miniature, c'est utile ?** Obligatoire : c'est l'image qu'on voit avant de cliquer. Claire, contrastée, le visage ou l'action principale. Elle se choisit dans Edits avant de publier.
 
-**Le téléphone cloud, comment ça marche ?** Équipe internationale : l'agence te prête un téléphone cloud, que tu pilotes depuis ton ordinateur. Ton manager te donne l'accès et les identifiants au créneau de création ; tous tes comptes vivent dedans, tu ne les connectes jamais sur un autre appareil. Il te faut une connexion stable. Il ne répond plus ? Écris tout de suite à ton manager, avec une capture. Si tu quittes l'équipe, l'accès est retiré.
+**Le téléphone cloud, comment ça marche ?** Au démarrage, l'équipe internationale travaille sur son propre téléphone (règles dans « Ton téléphone, les règles »). Un téléphone cloud (prêté par l'agence, piloté depuis ton ordinateur) est décidé au cas par cas par l'agence, pas automatique. Si tu en as un : ton manager te donne l'accès au créneau, tous tes comptes vivent dedans, tu ne les connectes jamais ailleurs, il te faut une connexion stable ; il ne répond plus → ton manager, avec une capture ; tu quittes l'équipe → l'accès est retiré.
 
-**Je n'ai pas de smartphone : je peux travailler depuis un ordinateur ?** Équipe internationale : oui. Ton téléphone de travail est un téléphone cloud prêté par l'agence, et tu le pilotes depuis ton ordinateur, avec une connexion stable. Tu n'as rien à acheter. Ton manager te donne l'accès au créneau de création. Équipe France : la méthode tourne sur ton smartphone ; si tu n'en as pas, dis-le à ton manager avant ton premier créneau.
+**Je n'ai pas de smartphone : je peux travailler depuis un ordinateur ?** Pas au démarrage : la méthode tourne sur un smartphone (création des comptes, Edits, publication). Dis-le à ton manager avant ton premier créneau : un téléphone cloud peut être prêté au cas par cas, mais ce n'est pas automatique et personne ne peut te le promettre.
 
 **Une journée validée, c'est de quelle heure à quelle heure ?** De minuit à minuit, heure de Paris. Le bot compte tes publications de la veille et te dit chaque matin si la journée est validée. Tu penses qu'il s'est trompé ? Envoie une capture de tes publications à ton manager le jour même, il vérifie.
 
@@ -287,7 +294,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Je suis Team International : contrat ? SIRET ? TVA ?** Non aux trois. L'équipe internationale ne signe pas de contrat français. Si tu as reçu un contrat à signer alors que tu es International : ne le signe pas, c'était une erreur, elle est corrigée.
 
-**Je suis International, c'est quand le lancement ?** C'est lancé, depuis le 8 septembre 2026. Quiz → test → validation → « J'ACCEPTE » en MP → ton manager t'accueille (créatrice, téléphone cloud, comptes au créneau). Tu avais validé le quiz pendant la pause d'août ? Ton score est conservé, le test arrive en MP ; rien sous 24 h → écris dans #assistant-ia.
+**Je suis International, c'est quand le lancement ?** C'est lancé, depuis le 8 septembre 2026. Quiz → test → validation → « J'ACCEPTE » en MP → ton manager t'accueille (créatrice, comptes au créneau, sur ton téléphone). Tu avais validé le quiz pendant la pause d'août ? Ton score est conservé, le test arrive en MP ; rien sous 24 h → écris dans #assistant-ia.
 
 **On m'a basculé de Team France vers Team International (ou l'inverse) ?** Une correction d'aiguillage, pas une sanction : ton équipe suit ton pays de résidence. Ta grille est celle de ta vraie équipe. Rien à refaire : si tu es International, réponds « J'ACCEPTE » en MP ; un contrat France reçu par erreur est annulé.
 
