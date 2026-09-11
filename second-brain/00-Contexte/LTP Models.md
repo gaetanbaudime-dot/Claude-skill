@@ -41,27 +41,31 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 >
 > **La faute à ne pas commettre** : envoyer des clippers sur Sarah/Amanda parce qu'« elles sont grosses ». Plus de subs à 2 €/2,8 € de LTV ne fait quasi pas d'argent — c'est gâcher la ressource rare. **Amanda reste un chantier chat ; Sarah, corrigé le 19/07, n'est même pas un chantier : c'est une démonstration** — ~3 000 subs/mois GRATUITS via le débordement de trafic interne MYM (LTV structurelle ~3 €, confirmé Maxime). [[Supervision chatting (top 5) et le cas Sarah|Le vrai chantier est de la répliquer]] sur les créatrices qui monétisent. Cette matrice **complète** (ne remplace pas) l'ordre de montée créatrices du roster ci-dessous : le roster dit *dans quelles créatrices investir*, cette matrice dit *où va la main-d'œuvre clipping*. Les 4 créatrices à zéro rappellent le vrai plafond : **le trafic (clippers) est le goulot n°1 de l'agence** ([[Théorie des contraintes]]).
 
-**MYM/MyPuls (€) :** juillet partiel **12 292 € (945/j)** · 30 j **21 943 € (731/j)** · année 2026 **140 314 € (723/j)**. Composition annuelle : **médias privés 67 947 € (48 %)**, pourboires 19 430 € (14 %), renouvellements 17 427 €, abonnements 12 987 €, MOD 12 044 €, push 10 401 €. → **Le modèle vit des médias privés + tips, PAS des abonnements** (l'abo est une porte d'entrée, le chat fait l'argent).
+**MYM/MyPuls (€ NET, export du 11/09/2026) :** 30 j (13/08-11/09) **26 631 € (888/j)** · septembre 1-11 **12 395 € (1 127/j, rythme 33,8 k€)** · année 2026 **206 394 € (813/j)**. Mois : jan 28,3 k · fév 21,8 · mars 22,8 · avr 20,4 · mai 18,6 · juin 17,2 · **juil 35,5 k (record, vague Sarah + bascule gratuite Chloé)** · août 29,5 k. Composition 30 j : **PPV/push/MOD 54 %, pourboires 42 %, abonnements 4 %** → le modèle vit du chat (médias privés + tips), pas des abonnements. Snapshot précédent (14/06-13/07) : 30 j 21 943 €, année 140 314 €.
 
-### MYM par créatrice — 30 j glissants (14/06-13/07)
+### MYM par créatrice — 30 j glissants (13/08-11/09)
 
-| Rang | Créatrice (handle) | CA 30 j | Part | Nouveaux subs | LTV/new | Abonnés actifs (12/07) |
-|---:|---|---:|---:|---:|---:|---:|
-| 1 | Maddy (Maaaaad) | 8 098 € | 37 % | 1 329 | 6,09 € | 2 037 |
-| 2 | Chloé (Chloe_callista) | 6 301 € | 29 % | 129 | **48,84 €** | 417 |
-| 3 | Sarah (Sxgame) | 4 926 € | 22 % | 883 | 5,58 € | 1 599 |
-| 4 | Jade (Jadetora_) | 1 909 € | 9 % | 358 | 5,33 € | 4 949 |
-| 5 | Amandine (La_mandiise) | 710 € | 3 % | 443 | **1,60 €** | 2 681 |
+| Rang | Créatrice (handle) | CA 30 j | Part | vs 30 j précédents | Nouveaux subs | €/new | Abonnés (10/09) | Jours à 0 € |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | Chloé (Chloe_callista) | 11 681 € | 44 % | −15 % | 1 410 | 8,28 € | 4 468 | 0 |
+| 2 | Maddy (Maaaaad) | 7 963 € | 30 % | −5 % | 499 | **15,96 €** | 3 457 | 1 |
+| 3 | Sarah (Sxgame) | 4 129 € | 16 % | **−68 %** | 1 572 | 2,63 € | 7 223 | 0 |
+| 4 | Clara (Clara_x) | 1 314 € | 5 % | +633 % (lancée le 15/08) | 501 | 2,62 € | 446 | 13 |
+| 5 | Jade (Jadetora_) | 1 035 € | 4 % | −42 % | 159 | 6,51 € | 5 129 | 7 |
+| 6 | Amandine (La_mandiise) | 509 € | 2 % | −51 % | 178 | 2,86 € | 3 036 | 15 |
 
-### MYM par créatrice — année 2026 (01/01-13/07)
+Chloé et Maddy = **74 % du MYM**. La chute agence des 30 j (−30 %, 37 988 → 26 631 €) est **entièrement Sarah** (−9 400 €/mois : la vague de trafic interne de juillet s'est tarie, 4 118 → 438 nouveaux subs/mois, €/new de 3,1 à 2,8). Chloé après passage gratuit (15/07) : 30,1 €/new → 8,3 €/new mais CA 30 j 6 539 → 11 403 € (+74 %), tips 56 % de son CA.
 
-| Rang | Créatrice | CA année | Part | LTV/new an |
-|---:|---|---:|---:|---:|
-| 1 | Chloé | 60 411 € | 43 % | 32,19 € |
-| 2 | Sarah (Sxgame) | 31 406 € | 22 % | 20,09 € |
-| 3 | Jade | 21 003 € | 15 % | 4,38 € |
-| 4 | Maddy | 19 253 € | 14 % | 7,97 € |
-| 5 | Amandine | 8 242 € | 6 % | 3,07 € |
+### MYM par créatrice — année 2026 (01/01-11/09)
+
+| Rang | Créatrice | CA année | Part | Nouveaux subs | €/new an |
+|---:|---|---:|---:|---:|---:|
+| 1 | Chloé | 86 121 € | 42 % | 5 446 | 15,81 € |
+| 2 | Sarah (Sxgame) | 48 519 € | 24 % | 8 456 | 5,74 € |
+| 3 | Maddy | 35 582 € | 17 % | 4 741 | 7,51 € |
+| 4 | Jade | 23 862 € | 12 % | 5 223 | 4,57 € |
+| 5 | Amandine | 9 800 € | 5 % | 3 217 | 3,05 € |
+| 6 | Clara | 2 510 € | 1 % | 542 | 4,63 € |
 
 ### OnlyFans par créatrice — année glissante (13/07/25-12/07/26, net $)
 
