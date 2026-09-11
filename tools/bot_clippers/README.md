@@ -314,8 +314,15 @@ le déploiement est sans risque.
   les posts par leur titre (« Bienvenue », « Fiche 1 » … « Fiche 6 », « Kit »). `POSTS_FORMATION` devient
   un simple secours, et un identifiant mort est purgé : plus de `#inconnu`. Un `<#id>` qui ne résout pas
   dans une réponse est remplacé par le libellé du post.
-- **Réponses jamais coupées** : 420 tokens max, consigne « 900 caractères », et une réponse plus longue est
-  découpée sur des sauts de ligne en plusieurs messages au lieu d'être tronquée au milieu d'une phrase.
+- **Réponses jamais coupées** : consigne « 900 caractères, 5 puces, jamais de tutoriel complet »,
+  `MAX_TOKENS_REPONSE=700` (la limite de 420 du 10/09 coupait les réponses longues au milieu d'un mot), et si
+  le modèle atteint quand même la limite, le texte est ramené à la dernière phrase complète avec la mention
+  « réponse raccourcie ». Au-delà de 2 000 caractères, découpe sur des sauts de ligne.
+- **Liens cliquables garantis (11/09)** : le bot pose les liens en post-traitement, sans dépendre du modèle —
+  « Fiche 3 » devient le lien du post, « forum formation » le lien du forum, `#assistant-ia`, `#candidature`,
+  `#bump`, `#dopamine`… les liens des salons (index des salons résolu au démarrage puis toutes les 6 h).
+  L'étiquette finale « (Fiche 3 — …) » devient « (#Fiche 3 - Monter et Poster…) ». Le prompt porte une carte
+  sujet → fiche (montage = Fiche 3, jamais la Fiche 2).
 - **`EMAIL_FACTURATION`** (Railway, facultatif) : l'adresse où les clippers France envoient facture + RIB.
   Si elle est posée, le bot la donne quand on la lui demande ; sinon il renvoie vers le décompte du lundi.
 - Les questions « hors kit » ne capturent plus les URL seules ni les messages de un ou deux mots.

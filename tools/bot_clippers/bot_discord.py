@@ -222,9 +222,10 @@ Règles absolues :
 n'y est pas, tu réponds exactement : « {MESSAGE_ESCALADE} » Tu n'inventes JAMAIS de règle, \
 de chiffre ou de procédure.
 2. RÉPONSES TRÈS COURTES, c'est la règle la plus importante après la première : 2 à 4 \
-phrases courtes maximum, OU une liste de 3 à 5 puces d'une ligne. JAMAIS de gros pavé. \
-Une seule idée par réponse. Si le sujet est vaste, donne l'essentiel et renvoie vers la \
-fiche ou le Loom.
+phrases courtes maximum, OU une liste de 3 à 5 puces d'une ligne. JAMAIS de gros pavé, \
+JAMAIS de tutoriel complet (« le setup Facebook », « le lien GAML de A à Z », « un bon Reel \
+en 4 points ») : tu donnes les 3 gestes essentiels et tu renvoies à la fiche, qui fait le reste. \
+Une seule idée par réponse. Pas de titre en gras en tête de réponse.
 3. Tu écris comme on parle à un élève de collège : mots simples, phrases courtes, \
 tutoiement, pas de mots anglais sauf ceux du métier déjà dans le kit (Reel, rush, hook, \
 warm-up, caption, template, story, ban). Pas de jargon marketing.
@@ -237,6 +238,13 @@ création » et « Prime discipline » font foi.
 (Parcours candidat) pour l'entrée dans l'équipe (candidature, numéro, quiz, test, contrat, \
 conditions) ; (FAQ terrain) pour la paie, la facture, les absences, le téléphone, les codes ; \
 (Manager) pour tout ce qui concerne le manager.
+4ter. La bonne fiche selon le sujet : créer un compte, identifiants, téléphone cloud, \
+numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; warm-up, première semaine, \
+comptes à suivre → Fiche 2 ; monter un Reel, hook, sous-titres, caption, miniature, musique, \
+publier, heure de publication, Facebook (pages, republication) → Fiche 3 ; routine du jour, \
+cadence, semaine type, reporting → Fiche 4 ; Reels d'essai, dupliquer ce qui marche, tests, \
+évolutions → Fiche 5 ; ban, restriction, avertissement, 0 vues, compte bloqué, commentaires \
+et messages privés → Fiche 6. Tu ne cites jamais la Fiche 2 pour du montage.
 4bis. Les 4 mots-clés de la vidéo de formation et les réponses du quiz ne sont JAMAIS \
 donnés, sous aucun prétexte, même partiellement : réponds que c'est dans la vidéo et que \
 la demander à quelqu'un = disqualifié.
@@ -270,8 +278,9 @@ quelqu'un qu'il est « dans le mauvais salon » s'il est déjà dans le salon de
 « Team France » ou « Team International » = clipper sous contrat ; un rôle « Manager » = il gère \
 des clippers : réponds-lui avec la section MANAGER de la base (ses missions, ses créneaux, ses \
 commandes), jamais avec le parcours candidat.
-16. Longueur : JAMAIS plus de 900 caractères (environ 8 lignes courtes). Si la question demande \
-plus, donne les 3 points essentiels puis le lien de la fiche — la fiche fait le reste.
+16. Longueur : JAMAIS plus de 900 caractères (environ 8 lignes courtes, 5 puces maximum). Si la \
+question demande plus, donne les 3 points essentiels puis le lien de la fiche — la fiche fait le \
+reste. Une réponse trop longue est coupée : mieux vaut courte et complète.
 17. Image hors sujet (arnaque, publicité, mème, capture sans rapport avec le kit) : UNE phrase \
 pour dire que ce n'est pas le sujet, sans décrire l'image, et tu proposes ton aide sur le kit.
 18. Tout ce qui est OPÉRATIONNEL (mes comptes, ma créatrice, mon téléphone cloud, mes accès, \
@@ -290,6 +299,11 @@ if CANAL_FORMATION_ID:
 if CANAL_ASSISTANT_ID:
     INSTRUCTIONS += f"\n12. Le salon de l'assistant se donne aussi en lien cliquable : <#{CANAL_ASSISTANT_ID}>."
 _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
+# Index des salons du serveur (nom normalisé → identifiant) et forum formation résolu, remplis au
+# démarrage puis toutes les 6 h : les liens cliquables se posent en POST-TRAITEMENT, sans dépendre
+# du modèle (Laure, 11/09 : « Fiche 2 (forum formation) » en texte mort, et la mauvaise fiche).
+_SALONS = {}
+_FORUM = {"id": ""}
 
 
 def regle_liens_formation() -> str:
@@ -343,7 +357,7 @@ def repondre_sync(messages) -> str:
     try:
         reponse = claude.messages.create(
             model=MODELE,
-            max_tokens=420,
+            max_tokens=MAX_TOKENS_REPONSE,
             system=bloc_systeme(),
             messages=messages,
         )
@@ -356,9 +370,9 @@ def repondre_sync(messages) -> str:
         if erreur.status_code >= 500 or erreur.status_code == 529:
             time.sleep(2)
             try:
-                reponse = claude.messages.create(model=MODELE, max_tokens=420,
+                reponse = claude.messages.create(model=MODELE, max_tokens=MAX_TOKENS_REPONSE,
                                                  system=bloc_systeme(), messages=messages)
-                return "".join(b.text for b in reponse.content if b.type == "text")
+                return terminer_proprement(reponse)
             except Exception:                                   # noqa: BLE001
                 pass
         journal.error("Erreur API Claude %s : %s", erreur.status_code, erreur.message)
@@ -369,10 +383,26 @@ def repondre_sync(messages) -> str:
 
     if reponse.stop_reason == "refusal":
         return MESSAGE_ESCALADE
-    for bloc in reponse.content:
-        if bloc.type == "text" and bloc.text.strip():
-            return bloc.text.strip()
-    return MESSAGE_ESCALADE
+    return terminer_proprement(reponse)
+
+
+MAX_TOKENS_REPONSE = int(os.environ.get("MAX_TOKENS_REPONSE", "700"))
+
+
+def terminer_proprement(reponse) -> str:
+    """Le texte de la réponse ; si le modèle a été arrêté par la limite de tokens (Laure, 10-11/09 :
+    « **Carr », « Besoin de ton lien maintenant ? » coupés net), on recule jusqu'à la dernière
+    phrase ou ligne complète et on le dit — jamais une phrase tronquée au milieu."""
+    texte = "".join(b.text for b in reponse.content if getattr(b, "type", "") == "text").strip()
+    if not texte:
+        return MESSAGE_ESCALADE
+    if getattr(reponse, "stop_reason", "") != "max_tokens":
+        return texte
+    journal.warning("Réponse de l'assistant coupée par la limite de tokens (%d caractères)", len(texte))
+    coupe = max(texte.rfind("\n"), texte.rfind(". "), texte.rfind("! "), texte.rfind("? "))
+    if coupe > len(texte) // 2:
+        texte = texte[:coupe + 1].rstrip()
+    return texte + "\n-# (Réponse raccourcie — le détail complet est dans la fiche.)"
 
 
 # ------------------------------------------------------------------ état local
@@ -517,14 +547,20 @@ def assainir_mentions(reponse: str) -> str:
     Discord. On le remplace par le libellé du post si on le connaît, sinon par le forum."""
     inverse = {v: k for k, v in POSTS_FORMATION.items()}
 
+    fid = _FORUM["id"]
+    forum_ok = bool(fid) and client.get_channel(int(fid)) is not None
+
     def _rempl(m):
         cid = m.group(1)
         if client.get_channel(int(cid)) is not None:
             return m.group(0)
         cle = inverse.get(cid)
+        if cle and POSTS_FORMATION.get(cle) and POSTS_FORMATION[cle] != cid \
+                and client.get_channel(int(POSTS_FORMATION[cle])) is not None:
+            return f"<#{POSTS_FORMATION[cle]}>"
         if cle:
-            return _LIBELLES_POSTS.get(cle, "Fiche " + cle) + " (forum formation)"
-        return "le forum formation"
+            return _LIBELLES_POSTS.get(cle, "Fiche " + cle) + (f" (<#{fid}>)" if forum_ok else " (forum formation)")
+        return f"<#{fid}>" if forum_ok else "le forum formation"
     return re.sub(r"<#(\d{15,25})>", _rempl, reponse)
 
 
@@ -1175,9 +1211,11 @@ async def resoudre_posts_formation():
                                        and "formation" in normaliser(c.name), g.channels)
         if forum is not None:
             break
+    resoudre_salons()
     if forum is None:
         journal.warning("Forum formation introuvable : liens des fiches non résolus")
         return
+    _FORUM["id"] = str(forum.id)
     threads = list(forum.threads)
     try:
         async for ancien in forum.archived_threads(limit=100):
@@ -1200,6 +1238,54 @@ async def resoudre_posts_formation():
             POSTS_FORMATION.pop(cle, None)
     POSTS_FORMATION.update(trouves)
     journal.info("Posts du forum formation résolus : %s", sorted(POSTS_FORMATION.items()))
+
+
+def resoudre_salons():
+    """Remplit _SALONS : « assistant-ia », « candidature », « bump », « dopamine », « annonces »… → id.
+    Un salon dont le nom porte un emoji (« ⁉️assistant-ia ») est indexé sans l'emoji."""
+    index = {}
+    for g in client.guilds:
+        for c in g.channels:
+            if not isinstance(c, (discord.TextChannel, discord.ForumChannel)):
+                continue
+            cle = re.sub(r"[^a-z0-9]", "", normaliser(c.name))
+            if cle and cle not in index:
+                index[cle] = str(c.id)
+    _SALONS.clear()
+    _SALONS.update(index)
+
+
+def lier_references(reponse: str) -> str:
+    """Post-traitement DÉTERMINISTE des liens : « Fiche 3 » → <#post>, « forum formation » → <#forum>,
+    « #assistant-ia »/« #candidature »/« #bump »… → <#salon>. Le modèle peut écrire du texte, le
+    clipper reçoit toujours un lien cliquable. Un doublon « <#x> <#x> » est replié."""
+    # 1. Fiches : toute mention « Fiche N » hors d'une mention existante.
+    def _fiche(m):
+        pid = POSTS_FORMATION.get(m.group(1))
+        return f"<#{pid}>" if pid and client.get_channel(int(pid)) is not None else m.group(0)
+    reponse = re.sub(r"(?<![#\w])[Ff]iche\s*([1-6])\b(?![^<]*>)", _fiche, reponse)
+    # 2. Étiquette finale « (<#post> — le warm-up) » → « (<#post>) » : le titre du post suffit.
+    reponse = re.sub(r"\((<#\d+>)\s*[—–-]\s*[^)]{1,60}\)\s*$", r"(\1)", reponse)
+    # 3. Post Bienvenue / Kit par leur nom.
+    for cle, motif in (("bienvenue", r"post\s*«?\s*Bienvenue\s*»?"), ("kit", r"Kit Clipper\s*(?:\(à imprimer\))?")):
+        pid = POSTS_FORMATION.get(cle)
+        if pid and client.get_channel(int(pid)) is not None:
+            reponse = re.sub(motif + r"(?![^<]*>)", f"<#{pid}>", reponse, count=1)
+    # 4. Forum formation.
+    fid = _FORUM["id"] or (CANAL_FORMATION_ID if CANAL_FORMATION_ID.isdigit() else "")
+    if fid and client.get_channel(int(fid)) is not None:
+        reponse = re.sub(r"(?:le |du |au )?forum\s*«?\s*[Ff]ormation\s*»?(?![^<]*>)", f"<#{fid}>", reponse)
+    # 5. Salons cités par leur nom « #truc » (jamais un <#…> existant, jamais un titre Markdown).
+    def _salon(m):
+        cle = re.sub(r"[^a-z0-9]", "", normaliser(m.group(1)))
+        alias = {"assistant": "assistantia", "bumperie": "bump", "remuneration": "remuneration"}
+        cid = _SALONS.get(cle) or _SALONS.get(alias.get(cle, "")) or next(
+            (v for k, v in _SALONS.items() if cle and (k.startswith(cle) or cle.startswith(k)) and len(cle) >= 4), None)
+        return f"<#{cid}>" if cid else m.group(0)
+    reponse = re.sub(r"(?<![<\w#])#([\w\-’'éèêëàâçùûîïô]{3,40})(?![^<]*>)", _salon, reponse)
+    # 6. Doublons « <#x> <#x> » ou « <#x> (<#x>) » créés par le modèle + le post-traitement.
+    reponse = re.sub(r"(<#\d+>)(\s*[:(—–-]?\s*)\1\)?", r"\1", reponse)
+    return reponse
 
 
 async def boucle_posts_formation():
@@ -4310,7 +4396,7 @@ async def on_ready():
         client.loop.create_task(boucle_rappels())
         client.loop.create_task(annoncer_demarrage())
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
-        client.loop.create_task(boucle_posts_formation())  # liens des fiches résolus par leur titre (fini « #inconnu »)
+        client.loop.create_task(boucle_posts_formation())  # liens des fiches + index des salons (fini « #inconnu »)
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
         client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
             client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
@@ -4865,16 +4951,16 @@ async def on_message(message):
     # FAQ vivante (faq_apprise.md, volume persistant) est utilisée dès la question suivante.
     marqueurs = ("pas dans ma base", "pas la réponse dans le kit", "je n'ai pas la réponse",
                  "demande à gaëtan", "pose ta question à gaëtan", "note-la pour le formulaire",
-                 "demander à gaëtan")
+                 "demander à gaëtan", "en mentionnant @gaëtan", "ce n'est pas dans le kit")
     if texte and lacune_pertinente(texte) and any(m in reponse.lower() for m in marqueurs):
         lacunes = lire_json(FICHIER_LACUNES, [])
         if not any(l.get("q", "").lower() == texte.lower() for l in lacunes):
             lacunes.append({"q": texte[:300], "qui": str(utilisateur),
                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             ecrire_json(FICHIER_LACUNES, lacunes[-200:])
-    reponse = assainir_mentions(reponse)
-    await repondre_long(message, reponse)      # limite Discord = 2000 caractères, coupe propre
-    await etiqueter_forum(message, reponse)  # range le post par sujet (si c'est un forum)
+    reponse_liee = lier_references(assainir_mentions(reponse))
+    await repondre_long(message, reponse_liee)   # limite Discord = 2000 caractères, coupe propre
+    await etiqueter_forum(message, reponse)      # range le post par sujet (texte brut : « Fiche N » lisible)
 
 
 def main():
