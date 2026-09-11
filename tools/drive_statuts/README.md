@@ -1,29 +1,17 @@
-# Statuts automatiques des dossiers Drive (✅ ⏳ ❌)
+# Auto-Status Drive v5 (✅ ⏳ ❌ sur tout le Marketing des créatrices)
 
-Un script Apps Script (`drive_statuts.gs`) qui parcourt tout le Drive des créatrices chaque matin et
-tient à jour le nom de chaque dossier mensuel :
+`drive_statuts.gs` est la v5 du script « MAJ Drive » (Apps Script, compte LTP) qui tourne chaque matin
+avec le déclencheur `_lancerAuto`. Mêmes conventions que la v4 (emoji en fin de nom, années → mois →
+semaines → tenues, verrou, reprise par créatrice, dry-run, scan complet), et en plus :
 
-- `⏳ 9. Septembre` : le mois en cours, en train d'être rempli ;
-- `✅ 8. Aout` : un mois qui contient des fichiers ;
-- `❌ 10. Octobre` : un dossier vide (hors mois en cours).
+- **tout le dossier Marketing** de chaque créatrice est parcouru (Instagram, Facebook, TikTok, Stories…
+  et tous les dossiers de contenu, quel que soit leur nom) ;
+- **mois sans année** (ex. Instagram/Carrousel/1. Janvier) traités comme l'année en cours — la v4 les
+  ignorait, d'où les Carrousels jamais marqués ;
+- **mois manquants créés** dans l'année en cours (jamais dans les archives) ;
+- **fichiers en vrac rangés** dans le mois de leur date de création, si l'année correspond ;
+- **bilan Discord** facultatif (propriété `DISCORD_WEBHOOK_URL`).
 
-Il crée les mois manquants là où il trouve déjà des dossiers de mois (Reels, Carrousel, Stories, quelle
-que soit la créatrice ou la plateforme), range les fichiers laissés en vrac à la racine dans le mois de
-leur date de création, et ne supprime jamais rien. Un bilan part chaque matin dans le salon admin
-Discord si `DISCORD_WEBHOOK_URL` est renseigné.
-
-## Installation (5 min, une seule fois, depuis le compte Google LTP)
-
-1. script.google.com → Nouveau projet → coller `drive_statuts.gs` → Enregistrer.
-2. Paramètres du projet → Propriétés du script → `DOSSIERS_RACINE` = l'identifiant du dossier « Instagram »
-   (fin de l'URL du dossier ; plusieurs identifiants séparés par des virgules pour couvrir Facebook ou
-   d'autres créatrices) ; `DISCORD_WEBHOOK_URL` facultatif.
-3. Exécuter `lancerMaintenant` une fois (autoriser Drive), lire le bilan dans « Journal d'exécution ».
-4. Exécuter `installerDeclencheur` une fois : tous les jours à 6 h ensuite.
-
-## Limites
-
-- Un dossier partagé en lecture seule par une créatrice ne peut pas être renommé : il apparaît dans le
-  bilan sous « lecture seule ». Demander à la créatrice le droit « Éditeur » sur son dossier.
-- Les dossiers de mois ne portent pas d'année : le mois en cours est celui de la date du jour (Paris).
-- Le script s'exécute avec le compte qui l'installe : il doit voir les dossiers partagés.
+Mise à jour : dans le projet Apps Script existant, remplacer tout le code par ce fichier et renseigner
+les identifiants des dossiers Marketing dans `CREATRICES` (ils ne sont pas versionnés ici), Enregistrer.
+Le déclencheur déjà installé continue de fonctionner. `lancerEnDryRun` simule sans rien modifier.
