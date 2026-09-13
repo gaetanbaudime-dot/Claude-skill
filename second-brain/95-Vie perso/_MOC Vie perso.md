@@ -36,7 +36,7 @@ Le côté personnel de ton second cerveau, en miroir du business (`00-Contexte/`
 ## 🧭 Décisions & cap
 
 - [[Roadmap perso]] : l'ombrelle — les 5 domaines à optimiser, la timeline 2026 perso × business.
-- [[Décision logement Dubaï]] : vivre seul au marché à Peninsula, matrice, playbook de négo (novembre 2026).
+- [[Décision logement Dubaï]] : vivre seul au marché à Peninsula, matrice, playbook de négo ; **non-renouvellement notifié le 13/09/2026, sortie le 21/11/2026**, logement suivant à signer (Peninsula Three ou JGC).
 
 ## Ponts vers le vault
 

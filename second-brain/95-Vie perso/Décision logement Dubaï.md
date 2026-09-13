@@ -11,6 +11,7 @@ liens_forts: ["[[Cadres de décision]]", "[[Coût d'opportunité]]", "[[Roadmap 
 # Décision logement Dubaï (renouvellement nov. 2026)
 
 > [!tip] Verdict
+> **Issue (13/09/2026) : le bail Peninsula One n'est pas renouvelé, sortie le 21/11/2026** — la propriétaire a répondu 90k à l'ancre 70k, au-dessus du plafond dur ; notice écrite envoyée dans le délai des 60 jours, voir la section « Issue » en bas. Le verdict initial tient pour le logement suivant :
 > **Vivre seul, au prix du marché, dans le quartier Peninsula.** Négocier durement le bail actuel d'abord ; sinon studio solo Peninsula 2/3 (moins chers) ou building voisin à amenities. La coloc avec Maxence est écartée (la moins chère en apparence, la plus coûteuse en sommeil, charge mentale, vie privée et risque associé-cofondateur). Zac = plan B temporaire (pont), pas défaut annuel.
 
 ## La situation
@@ -122,3 +123,10 @@ Le rayon utile n'est pas « Business Bay » mais « **20-25 min de trottinette d
 ## Prochaine action (cette semaine)
 
 Envoyer le message de renégo à Najwa **avant le 20 juillet**, et pré-visiter 1-2 studios solo de repli avant de partir (ton levier n'est réel que si tu es prêt à bouger, [[Espérance mathématique et asymétries|le levier vient de pouvoir partir]]). Journalisé dans [[Journal de coaching]].
+
+## Issue : non-renouvellement notifié (13/09/2026)
+
+- **Négo** : l'ancre 70k envoyée le 23/08 sur WhatsApp (avec notice de non-renouvellement et demande du process de sortie) a reçu le 24/08 un **avis de renouvellement formel à 90 000 AED** (22/11/2026 → 21/11/2027, 4 paiements), assorti de la clause RERA de renouvellement tacite faute d'avis écrit ≥ 60 jours avant l'expiration. Aucune contre-proposition du propriétaire : 90k est au-dessus du point de rupture (72k), la grille dit « bouger ».
+- **Notice** : e-mail formel de non-renouvellement préparé le 13/09 en réponse à l'avis (refus des termes, libération au plus tard le 21/11/2026, confirmation écrite, inspection, clés, DEWA/Empower, Ejari, dépôt 4 500 AED, rien dû après le 21/11). **Borne : 22/09/2026.** Le mail ne rouvre pas la négo, volontairement : une notice ambiguë est ce que la clause tacite punit.
+- **Ce qui reste à faire (dans l'ordre)** : ① envoyer le mail et archiver la preuve d'envoi ; ② obtenir la confirmation écrite (relance J+7) ; ③ retour ~21/09 : visiter Peninsula Three (60-65k) et Jumeirah Garden City (52-55k), contrat **daté** ~15-21/11, pas de loyer mort ; ④ preuve d'adresse : Ejari actuel valable jusqu'au 21/11 → Payoneer KYB avant, ou adresse RAKEZ ([[Payoneer - rail de paie des contractors (Madagascar, France)]]) ; ⑤ remise : photos datées, DEWA soldée, reçu de clés, RIB pour le dépôt.
+- **Prédictions** (13/09, dans [[Journal de coaching]]) : contre-offre 75-80k sous 7 jours (50 %) ; dépôt remboursé intégralement sous 30 jours (60 %) ; studio ≤ 65k signé avec début ≤ 01/12 (60 %).
