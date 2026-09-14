@@ -43,7 +43,7 @@
 
 const SEUIL       = 27;   // note minimale (sur 34) pour valider le quiz
 const COL_SCORE   = 3;    // repli : colonne C = "Score"           (1-indexé)
-const COL_DISCORD = 4;    // repli : colonne D = "Identifiant Discord" (1-indexé)
+const COL_DISCORD = 4;    // (v4 : plus utilisé en temps réel — l'identifiant se lit par titre de question)
 const COL_EMAIL   = 2;    // repli : colonne B = "Adresse e-mail"
 
 /** Envoi Discord avec 3 tentatives (rate-limit 429 ou erreur passagère). */
@@ -82,7 +82,10 @@ function onQuizSubmit(e) {
     return;
   }
   const scoreRaw  = valeurQuestion(e, ['score', 'note', 'points'], COL_SCORE);      // ex "32 / 34"
-  const idDiscord = valeurQuestion(e, ['discord', 'identifiant'], COL_DISCORD).replace(/\D/g, '');
+  // v4 : l'identifiant Discord se lit par TITRE uniquement (plus de repli sur la colonne D : quand la
+  // question est renommée « numéro WhatsApp », la colonne D contient le numéro, pas un identifiant).
+  let idDiscord   = valeurQuestion(e, ['discord', 'identifiant'], 0).replace(/\D/g, '');
+  if (idDiscord.length < 15) idDiscord = '';          // un identifiant Discord fait 17 à 20 chiffres
   const email     = valeurQuestion(e, ['e-mail', 'email', 'mail'], COL_EMAIL).replace(/\|/g, '/');
   // v4 : le numéro WhatsApp est la clé du candidat hors Discord (le bot le croise avec la candidature).
   const tel       = valeurQuestion(e, ['whatsapp', 'téléphone', 'telephone', 'numéro', 'numero'], 0).replace(/\|/g, '/');

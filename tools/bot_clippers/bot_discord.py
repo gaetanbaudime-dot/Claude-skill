@@ -1135,6 +1135,10 @@ async def traiter_quiz_webhook(message, silencieux=False):
     reussite = message.content.startswith("QUIZ_OK|")
     morceaux = (message.content.split("|", 4) + ["", "", "", ""])[:5]
     pseudo, score, email_q, tel_q = (m.strip() for m in morceaux[1:5])
+    # Garde-fou (14/09) : un identifiant Discord fait 17 à 20 chiffres ; un « pseudo » de 8 à 14 chiffres est
+    # un numéro WhatsApp arrivé dans la mauvaise case (quiz renommé, ancien script) → on le traite comme tel.
+    if pseudo.isdigit() and 8 <= len(pseudo) <= 14:
+        tel_q, pseudo = (tel_q or pseudo), ""
     pseudo_n = normaliser(pseudo)
     membre_trouve = None
     # Cas infaillible : le lien de quiz pré-rempli (!quiz) envoie l'ID Discord numérique
