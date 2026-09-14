@@ -11,6 +11,8 @@ Ce repo contient le second cerveau de Gaëtan (`second-brain/`, vault Obsidian s
 5. **Sécurité avant commit** : créatrices par nom de scène/prénom d'usage uniquement, jamais de handles réels, de noms légaux, téléphones, emails, IDs ; jamais de raw exports commités ; scan PII sur les fichiers modifiés.
 6. **Théorie des contraintes comme grille** : avant toute reco business, « où est le goulot actuel ? ».
 7. **Journaliser** toute décision importante dans `second-brain/00-Contexte/Journal de coaching.md` avec prédiction datée écrite avant l'issue.
+8. **Outils en locale FRANÇAISE** — Gaëtan travaille sur Google Sheets/Docs en français. Toute formule livrée utilise **`;`** comme séparateur d'arguments (jamais `,`), **`\`** comme séparateur de colonnes dans un tableau `{}` (jamais `,`), **`;`** comme séparateur de lignes, et les **noms de fonctions français** (`SOMME`, `SI`, `FILTRE`, `RECHERCHEV`, `NB.SI`). Une formule en locale US renvoie `#ERROR!` chez lui : privilégier les **références directes sans fonction** (`=Instagram!A2:A`) qui marchent partout. Vaut aussi pour Excel FR et les formats de date/nombre.
+9. **Mise en forme pour les humains** — tout texte destiné à une personne (e-mail, WhatsApp, Discord, doc) : paragraphes courts, **une ligne vide entre chaque paragraphe, avant et après chaque titre et chaque liste**. Brouillons Gmail en HTML : **jamais de `<p>`** (Gmail écrase les marges et colle les paragraphes), des `<div>` séparés par `<div><br></div>`, et la version texte avec ses lignes vides. Gaëtan lit tout sur téléphone.
 
 ## Le process minimal
 

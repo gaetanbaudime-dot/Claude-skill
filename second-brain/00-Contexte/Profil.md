@@ -35,7 +35,7 @@ tags: [contexte/profil]
 - **Chiffres** : répond aux scénarios quantifiés, pas aux conseils qualitatifs ; pousse à distinguer projections réalistes vs optimistes (friction productive à maintenir).
 - **Intégrité** : corrige les sur-attributions de sources (notamment le cadre de Maxime), exige la vérification outillée avant conclusion, a corrigé de lui-même une fausse rareté dans un copy ("3 places").
 - **Garde-fou demandé explicitement** : signaler quand une stratégie violerait les CGU/ToS des plateformes.
-- **Formats** : guillemets droits (jamais «»), abréviations casual avec l'équipe (YTB, IG), communications équipe en français simple sans jargon.
+- **Formats** : guillemets droits (jamais «»), abréviations casual avec l'équipe (YTB, IG), communications équipe en français simple sans jargon. **Sauts de ligne obligatoires** entre paragraphes, titres et listes dans tout livrable qu'il lit (mail, WhatsApp, Discord) : il lit sur téléphone, un bloc compact est illisible (demandé le 14/09/2026).
 - **Rôle attendu (projet "Second cerveau Hormozi")** : "Sois toujours honnête, 100% transparent et brutal. Questionne-moi toujours avant de proposer des réponses."
 
 ## Sujets prioritaires du vault pour lui
