@@ -51,22 +51,21 @@ function construireRapport() {
   const hier = new Date(); hier.setHours(0, 0, 0, 0); hier.setDate(hier.getDate() - 1);
   const avantHier = new Date(hier); avantHier.setDate(avantHier.getDate() - 1);
   const debut30 = new Date(hier); debut30.setDate(debut30.getDate() - 30);
-  const blocs = [], totalHier = { tot: 0 }, total30 = { ofS: 0, ofE: 0, myS: 0, myE: 0 };
+  const blocs = [], totalHier = { tot: 0 };
   CREATRICES.forEach(nom => {
     const L = _lire(ss, nom);
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
-    totalHier.tot += h.tot; total30.ofS += m.ofS; total30.ofE += m.ofE; total30.myS += m.myS; total30.myE += m.myE;
+    totalHier.tot += h.tot;
     const lignes = [];
     if (m.ofS || m.ofE) lignes.push(`OF   30 j : ${String(m.ofS).padStart(5)} subs · ${_eur(m.ofE).padStart(9)} · ${_parSub(m.ofE, m.ofS)}/sub`);
     if (m.myS || m.myE) lignes.push(`MYM  30 j : ${String(m.myS).padStart(5)} subs · ${_eur(m.myE).padStart(9)} · ${_parSub(m.myE, m.myS)}/sub`);
     lignes.push(`Hier      : ${String(h.subs).padStart(5)} subs · ${_eur(h.tot).padStart(9)}`);
-    const ecart = (m.ofS && m.myS) ? ` · écart MYM − OF ${(m.myE / m.myS - m.ofE / m.ofS >= 0 ? "+" : "")}${(m.myE / m.myS - m.ofE / m.ofS).toFixed(2).replace(".", ",")} €` : "";
-    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b> — ${_parSub(m.tot, m.subs)}/sub${ecart}\n<pre>${lignes.join("\n")}</pre>` });
+    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b>\n<pre>${lignes.join("\n")}</pre>` });
   });
   blocs.sort((a, b) => b.tot - a.tot);
   const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours glissants ➡️ € par abonné, OF et MYM séparés\n————————————\n\n`;
   const corps = blocs.map((b, i) => `${i + 1}. ${b.texte}`).join("\n\n");
-  const pied = `\n\n————————————\n💶 <b>OF</b> : ${_parSub(total30.ofE, total30.ofS)}/sub (${total30.ofS} subs) · <b>MYM</b> : ${_parSub(total30.myE, total30.myS)}/sub (${total30.myS} subs)\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🏦 <b>PROFIT HIER : ${_eur(totalHier.tot * MARGE)}</b> (marge ${Math.round(MARGE * 100)} %)`;
+  const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🏦 <b>PROFIT HIER : ${_eur(totalHier.tot * MARGE)}</b>`;
   return entete + corps + pied;
 }
 
