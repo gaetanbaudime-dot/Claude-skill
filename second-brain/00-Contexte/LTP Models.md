@@ -123,6 +123,9 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 
 ## Les priorités actives (issues du dernier appel Maxime + analyses)
 
+> [!tip] Recadrage du 14/09 — le trafic est revenu sans les clippers, le goulot est passé en aval
+> ×2,5 de clics agence (1 542/j), Chloé ×5,5 sur son propre Instagram, Sarah 168 abonnés OF/jour : **les clippers font 13 % du pic** et Chloé convertit ×5 de trafic en +10 % de CA. Goulot actuel = **conversion de la vague (pôle Maxence)** + **source non possédée** (comptes propres des créatrices). Carte des propriétaires (Jonas / Rianah / Maxence), gel jusqu'au 30/09 et semaine du 14-20/09 : [[Analyse complète de l'agence et plan de simplification (14 septembre 2026)]]. L'allocation du 02/09 ci-dessous reste valable, avec les équipes malgaches réservées aux créatrices ≥ 9 €/sub (Chloé, Sophie).
+
 > [!tip] Recadrage du 02/09 (diagnostic 90 jours — détail et prédiction au [[Journal de coaching]])
 > Goulot actuel = **renouvellement des surfaces** (les comptes meurent en 1-3 semaines et personne n'en crée) + SFS coupés à tort fin juillet (canal à 69 % de conversion). Allocation actée : **5 clippers Chloé / 4 Sarah / 3 Sophie**, Maddie en machine passive (organique MYM en croissance), Jade en SFS-only, Amanda/Lila gelées. **Objectif janvier : 100-130 k€/mois** — le 500 k reste un gate (fin 2027), pas une date. Les priorités numérotées ci-dessous datent de juillet : lire l'entrée du 02/09 avant de s'y fier.
 

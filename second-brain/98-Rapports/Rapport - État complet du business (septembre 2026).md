@@ -10,6 +10,9 @@ liens_forts: ["[[LTP Models]]", "[[Plan Maître 500K]]", "[[Journal de coaching]
 
 # Rapport — état complet du business (au 6 septembre 2026)
 
+> [!info] Suite du 14/09
+> Ce rapport a une suite qui change le diagnostic : [[Analyse complète de l'agence et plan de simplification (14 septembre 2026)]] (le trafic revenu sans les clippers, le goulot passé en aval).
+
 > [!tip] Verdict
 > **Le business est une machine à 4 étages dont un seul tourne bien.** Le chatting monétise (Chloé encaisse −24 % de subs sans perdre son CA), mais l'acquisition vit sur des surfaces mortes, le lien sous-performe faute de surfaces fraîches, et le management vient seulement de naître (Julien/Jonas). CA géré 30 j : **41,4 k€** (encore −8 % vs la fenêtre du 02/09 — l'inertie de la chute d'août). La relance du 02/09 est **à moitié exécutée** : publication ×2,5 ✅ et vues qui repartent (36 654 le 04/09) 🟡, mais **42 comptes vivants constants** ❌, **3 clippers actifs sur 12** ❌ et **aucun signal SFS dans les subs** ❓. À ce rythme, le gate du 2/10 (clics > 1 200/j) sera raté : **les 15 jours avant le retour à Dubaï décident du trimestre.**
 
