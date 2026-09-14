@@ -18,7 +18,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## 🎯 Pôle prioritaire : recrutement, management & délégation
 
-- **[[Architecture Discord - simple au quotidien (14 septembre 2026)]]** 🧭 : la carte cible du serveur (5 catégories, 12 salons, 3 endroits par personne et par jour), ce qui s'archive, et la mise en place en une demi-heure avec les commandes du bot.
+- **[[Architecture Discord - simple au quotidien (14 septembre 2026)]]** 🧭 : analyse en profondeur du serveur (deux populations, 3 étages d'accès, 51 commandes, 7 boucles), la décision qui simplifie tout (serveur fermé aux candidats, tunnel hors Discord), la carte cible (4 catégories, 11 salons, 3 endroits par personne et par jour), la mise en place en 45 minutes et ce qui casse.
 
 - [[Goulot de l'agence - l'équation du scale]] : **la boussole de scale** — `CA = clippers productifs × subs/clipper × €/sub`, les 3 goulots comme facteurs, la séquence fixe (temps → rétention → trafic monétisé → recruter) et la prédiction datée (clonage chatting avant le clipper N+13). À relire pour re-trancher une priorité, jamais pour agir (ça, c'est le cockpit).
 - [[Pôle recrutement, management & délégation]] : **le hub** — objectif « 50 FR qui restent et se donnent », de l'annonce à ta sortie de l'opérationnel, avec le pré-mortem.
