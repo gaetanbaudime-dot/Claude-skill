@@ -4113,9 +4113,9 @@ async def commande_admin(message, texte: str) -> bool:
 
     # ---- !ltv : valeur d'un abonné OF contre MYM, par créatrice, 30 jours (classeur créatrices) ----
     if texte.startswith("!ltv"):
-        if not creatrices.SHEET_CREATRICES_XLSX_URL:
-            await message.reply("`SHEET_CREATRICES_XLSX_URL` absent : publie le classeur créatrices sur le web "
-                                "(Document entier, format Microsoft Excel) et pose le lien dans Railway.")
+        if not creatrices.SHEET_CREATRICES_XLSX_URL and not creatrices.bloc_depuis_fichier(30):
+            await message.reply("Aucune synthèse disponible : ni lien `SHEET_CREATRICES_XLSX_URL`, ni fichier "
+                                "`ltv_synthese.json` dans le dépôt.")
             return True
         arg_l = texte[len("!ltv"):].strip()
         jours_l = int(arg_l) if arg_l.isdigit() and 1 <= int(arg_l) <= 365 else 30

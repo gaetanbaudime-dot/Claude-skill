@@ -15,6 +15,7 @@ entier au format XLSX (Fichier → Partager → Publier sur le web → Document 
 Excel). Sans lui, le module est inerte. Aucune donnée n'est écrite nulle part."""
 import asyncio
 import io
+import json
 import logging
 import os
 import re
@@ -179,10 +180,35 @@ async def telecharger_classeur(url: str = None) -> bytes:
         return b""
 
 
-async def bloc_ltv(jours: int = 30) -> str:
-    """Le bloc prêt à coller dans un rapport ; chaîne vide si le module n'est pas configuré."""
-    if not SHEET_CREATRICES_XLSX_URL:
+FICHIER_SYNTHESE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ltv_synthese.json")
+
+
+def bloc_depuis_fichier(jours: int = 30) -> str:
+    """Repli sans aucun réglage (demande du 14/09 : « je ne veux rien faire ») : la synthèse calculée
+    par Claude depuis le classeur et déposée dans le dépôt (`ltv_synthese.json`, agrégats seulement),
+    rafraîchie chaque lundi par une routine. Dès qu'un lien XLSX est posé, le direct prend le relais."""
+    try:
+        with open(FICHIER_SYNTHESE, encoding="utf-8") as f:
+            synthese = json.load(f)
+    except (OSError, ValueError):
         return ""
+    fenetre = synthese.get("fenetres", {}).get(str(jours)) or synthese.get("fenetres", {}).get("30") or {}
+    if not fenetre:
+        return ""
+    quand = synthese.get("date", "")
+    try:
+        quand_d = datetime.strptime(quand, "%Y-%m-%d").date()
+    except ValueError:
+        quand_d = date.today()
+    return message_ltv(fenetre, jours if str(jours) in synthese.get("fenetres", {}) else 30, quand_d) + \
+        f"\n_Source : classeur lu le {quand_d.strftime('%d/%m')} (mise à jour chaque lundi)._"
+
+
+async def bloc_ltv(jours: int = 30) -> str:
+    """Le bloc prêt à coller dans un rapport : le classeur en direct s'il est publié, sinon la
+    synthèse déposée dans le dépôt ; chaîne vide si rien n'est disponible."""
+    if not SHEET_CREATRICES_XLSX_URL:
+        return bloc_depuis_fichier(jours)
     contenu = await telecharger_classeur()
     if not contenu:
         return "💶 Valeur d'un abonné : classeur créatrices injoignable aujourd'hui."
