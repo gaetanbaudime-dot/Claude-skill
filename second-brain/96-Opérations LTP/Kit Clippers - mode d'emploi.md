@@ -10,6 +10,9 @@ liens_forts: ["[[Checklist formation clipping]]", "[[Machine Instagram-Facebook 
 
 # Kit Clippers : la refonte de la formation (mode d'emploi)
 
+> [!warning] Kit v3 (14/09/2026) — Instagram seul
+> Le kit a été régénéré en v3 le 14/09 à partir de la base du bot v6.2 : 2 comptes Instagram de croissance + 1 privé (plus de pages Facebook), warm-up = toute la semaine 1, comptes créés au créneau avec le manager, lien posé par le manager sur le privé à J+7, seuil du quiz 27/34, règles de sortie (2 jours / 50 abonnés). Les paragraphes ci-dessous qui décrivent la v2 (3 pages FB, warm-up 48 h, quiz 8/10) sont périmés. Fichiers : `Kit Clippers/Fiches JPEG (Discord)/` (à poster dans le forum), `Kit Clipper LTP (v3).pdf`, `Fiches séparées/`. Point non tranché : le seuil des Reels d'essai (la base dit ~200 abonnés, cette page disait 1 000 depuis le 23/07), à confirmer par Gaëtan.
+
 > [!tip] Verdict
 > La formation Loom de 36 min était bonne mais mal packagée : linéaire, sans point de contrôle, donc « ils posent les mêmes questions et ne regardent pas ». La refonte : **le Loom reste la bibliothèque** (chapitré, on n'y touche pas), l'exécution passe sur **UN SEUL PDF de 7 pages** (`Kit Clippers/Kit Clipper LTP (v2).pdf` : page de bienvenue + 6 fiches, une page = une étape, langage collégien) + **un quiz de 10 questions obligatoire avant le premier compte** + **la règle du renvoi** (question déjà couverte → lien du chapitre, jamais de re-réponse). Diagnostic et décision [[Journal de coaching|journalisés]].
 
