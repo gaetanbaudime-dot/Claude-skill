@@ -67,6 +67,19 @@ Chloé et Maddy = **74 % du MYM**. La chute agence des 30 j (−30 %, 37 988 →
 | 5 | Amandine | 9 800 € | 5 % | 3 217 | 3,05 € |
 | 6 | Clara | 2 510 € | 1 % | 542 | 4,63 € |
 
+### OnlyFans — valeur d'un abonné par source (tracking Infloww du 14/09/2026, cumul par lien, $ nets)
+
+| Créatrice | Abonnés tracés | Gains | $/abonné | Meilleure source | Clippers | SFS |
+|---|---:|---:|---:|---|---|---|
+| Chloé | 2 791 | 21 908 $ | **7,85** | compte propre 8,26 $ | 93 ab., 5,76 $ | 684 ab., 7,04 $, CVR 68 % |
+| Sophie | 4 293 | 26 308 $ | **6,13** | page FB 8,60 $ · compte Julien 1 037 ab. | Yanil 297 ab., 6,36 $ | 439 ab., 4,72 $ |
+| Sarah | 540 | 714 $ | **1,32** | compte propre 1,55 $ | 186 ab., 0,89 $ | (SFS Tina 13/09, 0 clic) |
+| Jade | 2 295 | 24 015 $ | 10,46 | landing 9,33 $ | — | **938 ab.** (41 %), 5,99 $ |
+| Amanda | 4 313 | 44 285 $ | 10,27 | Twitter 2025 | — | 174 ab. |
+| Clara, Alice, Capucine, Lila | 0-45 | ~0 | — | **Clara sans aucun lien** | — | — |
+
+**SFS toutes créatrices : 35 actifs, CVR 69 %, 2 235 abonnés, 13 304 $ (~64 abonnés et ~380 $ par SFS), 16 planifiés au 14/09.** Les 10 clippers FR : ~250 abonnés/mois à eux dix. Rapport : [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]].
+
 ### OnlyFans par créatrice — année glissante (13/07/25-12/07/26, net $)
 
 | Créatrice (handle OF) | CA an | dont messages/PPV | Lecture |
@@ -118,6 +131,9 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 - **Risque SPOF Rianah : fortement réduit** par la nouvelle chaîne (les pods clippent eux-mêmes) — mais elle reste seule sur les SFS et le support MG → les 5 Loom de la [[Sprint été - croissance sans moi|semaine de passation]] documentent aussi son périmètre. Prochaine contrainte probable : la **matière première** (rushs des créatrices — surveiller le stock/créatrice au reporting) ou le **chatting** si le volume monte ([[Théorie des contraintes]] étape 5 : la contrainte bouge).
 
 ## L'équipe
+
+> [!warning] Mouvements (14/09/2026)
+> **Emma a quitté l'agence** : la casquette Creator Success Manager (tendances, rushs, cadence, SFS, listes d'amis) est reprise par Gaëtan pour 30 jours avec playbook écrit, CSM à recruter le 15/10. **Jonas** manage les clippers (10 FR + cohorte malgache), **Julien** redevient clipper seul, **Hugo** n'est pas nommé 2ᵉ manager (règle : au-delà de 20 actifs, avec preuve de production). Détail : [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]].
 
 **Maxence** (associé, chatting) · **Maxime** (mentor externe, agence ~600K/mois, appels rares et décisifs : son cadre = [[Théorie des contraintes]] + LTV avant trafic) · **Rianah** (VA Madagascar : publication Metricool/Geelark, prospection SFS) · Clippers : Julien (candidat manager), Karel, Ahmed, Judicaël, et recrutements en cours (Nausica, Gordon, Adam...) · Managers à la commission : LudoVish, Kaleb · Top chatteurs : Tefyh, Anjara.
 
