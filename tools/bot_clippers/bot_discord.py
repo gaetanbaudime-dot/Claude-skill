@@ -2475,6 +2475,8 @@ def _doctrine_acces():
          False, [ROLE_TEAM_FR_NOM], "Discussion Team France"),
         (("discussion-int", "discussionint", "disccusion-int"),
          False, [ROLE_TEAM_MG_NOM], "Discussion Team International"),
+        (("discussion", "disccusion", "equipe", "équipe"),
+         False, [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM], "Discussion commune des signés (architecture simple du 14/09)"),
     ]
 
 # Rôles qu'on ne modifie JAMAIS dans les overwrites (sécurité anti-verrouillage).
