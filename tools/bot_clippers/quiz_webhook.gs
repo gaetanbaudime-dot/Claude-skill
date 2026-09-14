@@ -1,5 +1,17 @@
 /**
- * Quiz Clipper G&M — notificateur QUIZ_OK / QUIZ_KO vers Discord (v3, 10/09/2026).
+ * Quiz Clipper G&M — notificateur QUIZ_OK / QUIZ_KO vers Discord (v4, 14/09/2026 — serveur fermé).
+ *
+ * v4 — SERVEUR FERMÉ : le candidat n'est plus sur Discord quand il passe le quiz. La ligne
+ * postée devient "QUIZ_OK|<idDiscord ou vide>|<score>|<email>|<numéro WhatsApp>" et, quand
+ * l'identifiant Discord est vide, CE SCRIPT envoie les e-mails à la place du bot :
+ *   - réussite → e-mail « test de montage 48 h » (LIEN_TEST + formulaire de rendu LIEN_RENDU) ;
+ *   - échec    → e-mail « score, seuil, deuxième essai » (ou « parcours terminé » au 2ᵉ échec).
+ * À faire une fois : dans le quiz, remplacer la question « Identifiant Discord » par
+ * « Ton numéro WhatsApp (le même que dans ta candidature) » (ou l'ajouter et rendre l'autre
+ * facultative pendant la transition) ; propriétés du script : ENVOYER_MAILS = 1 ·
+ * LIEN_TEST = <dossier de rushs> · LIEN_RENDU = <formulaire « Rendu du test »> ·
+ * LIEN_VIDEO = <vidéo de formation> · LIEN_QUIZ = <ce quiz, lien générique>.
+ * Un candidat qui a encore un identifiant Discord (ancien tunnel) reste géré par le bot en MP.
  *
  * RÔLE : à chaque soumission du formulaire de quiz, poste sur le webhook Discord du salon admin :
  *   - "QUIZ_OK|<idDiscord>|<score>|<email>"  si le score >= SEUIL  → le bot envoie le test 48 h ;
@@ -72,15 +84,103 @@ function onQuizSubmit(e) {
   const scoreRaw  = valeurQuestion(e, ['score', 'note', 'points'], COL_SCORE);      // ex "32 / 34"
   const idDiscord = valeurQuestion(e, ['discord', 'identifiant'], COL_DISCORD).replace(/\D/g, '');
   const email     = valeurQuestion(e, ['e-mail', 'email', 'mail'], COL_EMAIL).replace(/\|/g, '/');
+  // v4 : le numéro WhatsApp est la clé du candidat hors Discord (le bot le croise avec la candidature).
+  const tel       = valeurQuestion(e, ['whatsapp', 'téléphone', 'telephone', 'numéro', 'numero'], 0).replace(/\|/g, '/');
 
   const m = scoreRaw.match(/(\d+)\s*\/\s*(\d+)/);
   const note = m ? parseInt(m[1], 10) : parseInt(scoreRaw, 10);
   if (isNaN(note)) { console.warn('Score illisible : "' + scoreRaw + '" — rien envoyé.'); return; }
 
   const prefixe = (note >= SEUIL) ? 'QUIZ_OK' : 'QUIZ_KO';
-  if (!idDiscord) console.warn(prefixe + ' (' + scoreRaw + ') mais ID Discord vide — envoyé avec l\'e-mail pour que l\'admin retrouve le candidat.');
-  const code = posterDiscord(url, prefixe + '|' + idDiscord + '|' + scoreRaw + '|' + email);
-  console.log(prefixe + ' posté pour ' + (idDiscord || email || '?') + ' (' + scoreRaw + ') — HTTP ' + code);
+  if (!idDiscord && !tel && !email) console.warn(prefixe + ' (' + scoreRaw + ') sans identifiant, numéro ni e-mail — le bot ne pourra rattacher personne.');
+  const code = posterDiscord(url, prefixe + '|' + idDiscord + '|' + scoreRaw + '|' + email + '|' + tel);
+  console.log(prefixe + ' posté pour ' + (idDiscord || tel || email || '?') + ' (' + scoreRaw + ') — HTTP ' + code);
+
+  // Serveur fermé : sans identifiant Discord, la suite part par e-mail depuis ici.
+  if (!idDiscord) envoyerMailQuiz(note >= SEUIL, scoreRaw, email, compterEssais(email));
+}
+
+/** Nombre de quiz déjà passés avec cet e-mail (la ligne courante comprise) — deux essais maximum. */
+function compterEssais(email) {
+  if (!email) return 1;
+  try {
+    const feuille = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    const donnees = feuille.getDataRange().getValues();
+    const entetes = donnees[0].map(function (x) { return String(x).toLowerCase(); });
+    let iMail = -1;
+    for (let i = 0; i < entetes.length; i++) {
+      if (['e-mail', 'email', 'mail'].some(function (m) { return entetes[i].indexOf(m) !== -1; })) { iMail = i; break; }
+    }
+    if (iMail < 0) iMail = COL_EMAIL - 1;
+    let n = 0;
+    for (let l = 1; l < donnees.length; l++) {
+      if (String(donnees[l][iMail] || '').trim().toLowerCase() === email.toLowerCase()) n++;
+    }
+    return Math.max(1, n);
+  } catch (err) { return 1; }
+}
+
+/** Mise en forme e-mail pour les humains (règle du 14/09) : des <div> séparés par une ligne vide, jamais de <p>. */
+function enHtml(lignes) {
+  return lignes.map(function (l) {
+    if (!l) return '<div><br></div>';
+    const sain = l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return '<div>' + sain.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1">$1</a>') + '</div>';
+  }).join('');
+}
+
+/** E-mail après le quiz : le test 48 h (réussite) ou le score + deuxième essai (échec). */
+function envoyerMailQuiz(reussite, scoreRaw, email, essais) {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('ENVOYER_MAILS') !== '1') return;
+  if (!email || email.indexOf('@') === -1) { console.warn('Quiz sans e-mail : pas de mail.'); return; }
+  let sujet, lignes;
+  if (reussite) {
+    const lienTest = props.getProperty('LIEN_TEST') || '', lienRendu = props.getProperty('LIEN_RENDU') || '';
+    if (!lienTest || !lienRendu) { console.warn('LIEN_TEST / LIEN_RENDU manquants — mail de test non envoyé.'); return; }
+    const echeance = Utilities.formatDate(new Date(Date.now() + 48 * 3600 * 1000), 'Europe/Paris', "dd/MM/yyyy 'à' HH'h'mm");
+    sujet = 'Quiz réussi (' + scoreRaw + ') : ton test de montage, 48 h';
+    lignes = [
+      'Bravo, quiz réussi : ' + scoreRaw + '.',
+      '',
+      'Dernière étape avant l\'équipe : le test de montage.',
+      '',
+      '1. Le dossier de rushs : ' + lienTest,
+      '2. Tu choisis 2 rushs et tu montes 2 Reels (format vertical, méthode de la formation).',
+      '3. Tu les rends ici, avant le ' + echeance + ' (heure de Paris) : ' + lienRendu,
+      '(un lien Drive, WeTransfer ou Swisstransfer vers tes 2 vidéos suffit)',
+      '',
+      'Une personne regarde ton test. Réponse en général sous 72 h, sur WhatsApp. Test validé : tu reçois ton invitation personnelle au Discord de l\'équipe.',
+      '',
+      'La régularité et le respect du brief comptent autant que le style. Bonne chance !',
+      'L\'équipe G&M'
+    ];
+  } else if (essais < 2) {
+    sujet = 'Quiz : ' + scoreRaw + ', il te reste un essai';
+    lignes = [
+      'Ton score : ' + scoreRaw + '. Il faut 27/34 pour passer au test.',
+      '',
+      'Pas grave : tu as un deuxième essai.',
+      '',
+      '1. Revois la vidéo de formation (les 4 mots-clés) : ' + (props.getProperty('LIEN_VIDEO') || ''),
+      '2. Repasse le quiz : ' + (props.getProperty('LIEN_QUIZ') || ''),
+      '',
+      'Courage,',
+      'L\'équipe G&M'
+    ];
+  } else {
+    sujet = 'Quiz : ' + scoreRaw + ', le parcours s\'arrête là pour cette fois';
+    lignes = [
+      'Ton score : ' + scoreRaw + '. C\'était ton deuxième essai : le parcours s\'arrête là pour cette fois.',
+      '',
+      'Merci d\'avoir joué le jeu. Si tu veux retenter dans quelques semaines, refais simplement une candidature.',
+      '',
+      'L\'équipe G&M'
+    ];
+  }
+  MailApp.sendEmail({ to: email, subject: sujet, name: 'Programme Clippers G&M',
+                      body: lignes.join('\n'), htmlBody: enHtml(lignes) });
+  console.log('Mail quiz envoyé (' + (reussite ? 'test' : 'échec ' + essais + '/2') + ') à ' + email);
 }
 
 /**

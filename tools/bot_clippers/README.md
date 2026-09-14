@@ -348,6 +348,53 @@ est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recru
    internationaux du serveur, une seule fois par membre.
 4. Mets à jour le salon **Grille International** (rémunération/bonus) : le bot n'y écrit pas.
 
+## 🔒 Serveur fermé : le tunnel candidat hors Discord (14/09, soir)
+
+Décision du 14/09 : **plus personne n'arrive sur Discord avant validation** — le serveur est réservé aux
+clippers validés. Le tunnel (formation → quiz → test 48 h → rendu) se déroule par e-mail et formulaires ;
+Discord ne commence qu'au contrat (France) ou au J'ACCEPTE (International).
+
+**Le tunnel, dans l'ordre**
+1. **Formulaire de candidature** → `candidature_webhook.gs` (v2) poste `CANDIDATURE|…` comme avant **et
+   envoie l'e-mail « formation + quiz »**. Le message de fin du formulaire ne donne plus le lien Discord.
+2. **Quiz** (question « ton numéro WhatsApp » à la place de l'identifiant Discord) → `quiz_webhook.gs` (v4)
+   poste `QUIZ_OK|<vide>|score|email|tel` et, **≥ 27/34, envoie le test par e-mail** (dossier de rushs +
+   formulaire de rendu, 48 h) ; sinon score + deuxième essai (parcours terminé au 2ᵉ échec). Le bot tient le
+   registre `hors_discord` (clé = numéro canonique) et prévient le manager.
+3. **Formulaire « Rendu du test »** → `rendu_webhook.gs` (nouveau) poste `TEST_RENDU|prénom|tel|email|lien|remarque`
+   → fiche dans le salon manager (prénom, pays, score du quiz, lien des Reels).
+4. **Le manager juge** : `!inviter Prénom [fr|int]` crée une **invitation personnelle** (7 jours, une seule
+   personne, détruite à l'arrivée) et rend le **message WhatsApp prêt à coller** ; `!refuser Prénom motif` idem
+   pour un refus ; `!candidats` liste tout le monde par étape (tests à juger, invités pas arrivés, quiz en cours…).
+5. **Arrivée par cette invitation** : liaison automatique (numéro, prénom, pays), état validé, grille, puis la
+   suite habituelle — e-mail → contrat DocuSeal (FR) ou conditions → J'ACCEPTE (International). Plus de numéro
+   à envoyer, plus de quiz, plus de test en MP. Le manager est prévenu.
+6. **Tout autre arrivant, serveur fermé** : MP d'explication (le formulaire, la suite par e-mail) + expulsion.
+   Deux exceptions : invité par un admin ou par un rôle protégé (manager, staff) → gardé, accueil léger ; porte
+   d'entrée indécidable (invitations illisibles, lien de vanité) → gardé + alerte, jamais d'expulsion à l'aveugle.
+
+**Mise en place (25 min, une fois)**
+1. Formulaire de candidature : Paramètres → « Collecter les adresses e-mail » ; message de confirmation
+   « Regarde tes e-mails (et tes spams) : la formation et le quiz t'attendent » — **sans lien Discord**.
+2. Quiz : ajoute la question « Ton numéro WhatsApp (le même que dans ta candidature) » ; l'identifiant Discord
+   devient facultatif (transition) puis disparaît.
+3. Crée le formulaire « Rendu du test » (5 questions, voir l'en-tête de `rendu_webhook.gs`), associe une feuille,
+   colle le script, propriété `DISCORD_WEBHOOK_URL` (le même webhook), déclencheur `surRendu`.
+4. Propriétés des scripts : quiz → `ENVOYER_MAILS=1`, `LIEN_TEST`, `LIEN_RENDU`, `LIEN_VIDEO`, `LIEN_QUIZ` ;
+   rendu → `ENVOYER_MAILS=1` ; candidature → `LIEN_VIDEO`, `LIEN_QUIZ` et **`ENVOYER_MAILS=0` si la porte est
+   manuelle** (Jonas envoie vidéo + quiz sur WhatsApp aux candidatures retenues, lundi et jeudi), `1` pour
+   l'e-mail automatique à tous. Recolle les trois fichiers `.gs` (v2 / v4 / v1).
+5. Sur Discord : `!fermer invitations` (drapeau + révocation de toutes les invitations sauf celles du bot) →
+   `!purge-candidats` (aperçu) → `!purge-candidats appliquer` → `!archiver #candidature` → `!acces appliquer`.
+
+**Commandes** : `!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` (protège
+rôles d'équipe et rôles particuliers, signés au registre, exemptés `PURGE_INT_EXEMPTS`, parcours en cours sauf
+`tout`) · `!inviter` · `!refuser` · `!candidats` (les trois derniers : manager aussi).
+**Variables** : `DISCORD_FERME=1` (facultatif, l'emporte sur `!ouvrir`) · `INVITATION_JOURS` (7).
+**Transition** : les candidats déjà sur le serveur en cours de test restent gérés en MP par le bot ; les nouveaux
+passent par l'e-mail. Publier l'annonce Telegram **après** la bascule des formulaires, sinon les candidats de
+l'annonce arrivent sur un serveur qui les raccompagne.
+
 ## Ce que le bot fait tout seul depuis le 10/09 (audit complet)
 
 - **Mémoire fiable** : chaque JSON s'écrit de façon atomique avec une copie `.bak` ; la boucle pipeline

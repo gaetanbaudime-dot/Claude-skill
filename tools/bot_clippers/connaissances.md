@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v6.2, 14 septembre 2026 — Instagram seul)
+# Base de connaissances — Kit Clipper G&M (v6.3, 14 septembre 2026 — Instagram seul, serveur réservé aux clippers validés)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour, créneaux de création avec le manager). **Depuis le 14 septembre 2026, la mission est 100 % Instagram : plus de pages Facebook.**
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -20,21 +20,21 @@
 4. Refaire ce qui marche.
 5. Ramener des abonnés OnlyFans avec son lien : c'est ça qui paie.
 
-## LE PARCOURS CANDIDAT (tout se passe en MESSAGE PRIVÉ avec le bot, étape par étape)
+## LE PARCOURS CANDIDAT (hors Discord jusqu'au test validé — depuis le 14 septembre 2026, le serveur est réservé aux clippers validés)
 
-1. **Formulaire de candidature** (lien dans #candidature) : prénom, pays, numéro de téléphone. À la fin, le formulaire donne le lien du Discord.
-2. **Relier ton compte** : à ton arrivée, le bot t'écrit en message privé et te demande UNE chose, ton numéro de téléphone. **Envoie-lui juste le numéro, sans commande** (par exemple `06 12 34 56 78`), le MÊME que dans le formulaire. Il retrouve ta candidature et le serveur affiche ton prénom. (`!lier 06XXXXXXXX` marche aussi.)
-3. **La formation** : juste après ton numéro, le bot t'envoie le lien du forum « formation » ET **ton lien de quiz personnel**. Regarde la vidéo (54 minutes, c'est « le Loom ») **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne, ni le bot, ni un autre clipper. Les demander = disqualifié.
-4. **Le quiz** : ton lien personnel (ne modifie pas la case déjà remplie). Seuil : **27/34**. Deux essais maximum. Lien perdu → tape `!quiz`. Quiz raté → le bot te le dit en message privé avec ton score et ton lien pour le deuxième essai.
-5. **Le test de montage** : quiz réussi → le test arrive **automatiquement en message privé** : un dossier de rushs (souvent 6), **tu en choisis 2 et tu rends 2 Reels montés en 48 h**, en message privé au bot (jamais dans un salon). La réponse arrive en général sous 48 h : c'est une personne qui regarde ton test, ce n'est pas une promesse de délai.
-6. **Test validé, équipe France** (France, Belgique, Suisse) : tu envoies ton e-mail en message privé → contrat à signer en ligne (2 minutes, 18 ans minimum, date de naissance dans le document). **Dès la signature, ton rôle Team France s'ouvre tout seul.** Ensuite, sous 48 h, **ton manager t'attribue ta créatrice et ouvre son salon** (rushs et modèles) : tu reçois un message privé avec le lien du salon. Tes comptes se créent **AVEC lui** au prochain créneau (lundi, mercredi ou vendredi à 17 h, heure de Paris). Pas de rôle Team France 15 minutes après la signature ? Ouvre tes messages privés serveur et renvoie ton numéro au bot. Le salon et la créatrice, eux, arrivent sous 48 h.
-7. **Test validé, équipe internationale** (autres pays) : pas de contrat, pas de SIRET, pas de TVA. Tu reçois tes conditions en message privé, tu réponds **J'ACCEPTE**, ton rôle Team International s'ouvre, et ton manager t'accueille : créatrice, comptes au créneau, sur ton propre téléphone. Ouvert depuis le 8 septembre 2026.
+1. **Formulaire de candidature** : prénom, pays, numéro WhatsApp, adresse e-mail. Ensuite tu reçois la vidéo de formation et le lien du quiz : sur WhatsApp par le manager (sous 72 h) ou par e-mail (regarde aussi tes spams). Le formulaire ne donne plus de lien Discord : on n'arrive sur le serveur qu'une fois validé.
+2. **La formation** : la vidéo (54 minutes, « le Loom »), **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne, ni le bot, ni un autre clipper. Les demander = disqualifié.
+3. **Le quiz** : seuil **27/34**, deux essais maximum. Tu indiques le **MÊME numéro WhatsApp** que dans ta candidature (c'est lui qui relie tes réponses). Quiz raté → un e-mail te donne ton score et le lien du deuxième essai.
+4. **Le test de montage** : quiz réussi → un e-mail t'envoie le dossier de rushs (souvent 6) : **tu en choisis 2 et tu rends 2 Reels montés en 48 h** via le formulaire « Rendu du test » (un lien Drive, WeTransfer ou Swisstransfer vers tes 2 vidéos). La réponse arrive en général sous 72 h, sur WhatsApp : c'est une personne qui regarde ton test, ce n'est pas une promesse de délai.
+5. **Test validé** → tu reçois sur WhatsApp ton **invitation personnelle** au Discord de l'équipe (valable 7 jours, pour toi seul, ne la transmets pas). À ton arrivée le bot te reconnaît (prénom, numéro) et t'écrit en message privé : rien d'autre à faire que d'avoir tes messages privés serveur ouverts.
+6. **Équipe France** (France, Belgique, Suisse) : tu envoies ton e-mail en message privé → contrat à signer en ligne (2 minutes, 18 ans minimum, date de naissance dans le document). **Dès la signature, ton rôle Team France s'ouvre tout seul.** Ensuite, sous 48 h, **ton manager t'attribue ta créatrice et ouvre son salon** (rushs et modèles) : tu reçois un message privé avec le lien du salon. Tes comptes se créent **AVEC lui** au prochain créneau (lundi, mercredi ou vendredi à 17 h, heure de Paris). Pas de rôle Team France 15 minutes après la signature ? Ouvre tes messages privés serveur et écris « bonjour » au bot.
+7. **Équipe internationale** (autres pays) : pas de contrat, pas de SIRET, pas de TVA. Tu reçois tes conditions en message privé, tu réponds **J'ACCEPTE**, ton rôle Team International s'ouvre, et ton manager t'accueille : créatrice, comptes au créneau, sur ton propre téléphone.
 
-Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés (Paramètres de confidentialité du serveur) puis envoie-lui ton numéro en MP · lien du quiz perdu → `!quiz` · quiz raté → revois la vidéo, il te reste un essai · test non rendu à temps → repassage possible 15 jours plus tard, écris VALIDÉ en message privé au bot quand tu es prêt · le bot ne retrouve pas ta candidature → renvoie le numéro **EXACT** du formulaire (même écriture). ⚠️ **Ton numéro s'envoie UNIQUEMENT en message privé au bot, jamais dans un salon** (tout le serveur le verrait).
+Problèmes fréquents : pas d'e-mail après le formulaire → regarde tes spams, puis réponds là où tu as vu l'annonce · le bot ne t'a pas écrit à ton arrivée → ouvre tes messages privés serveur (Paramètres de confidentialité du serveur) et écris-lui « bonjour » · tu es arrivé sur le serveur sans invitation personnelle → le bot te raccompagne, c'est normal : la candidature passe par le formulaire · test non rendu à temps → recandidate dans 15 jours. ⚠️ **Ton numéro et ton e-mail ne se postent JAMAIS dans un salon** (tout le serveur le verrait).
 
 ## LES SALONS DU SERVEUR (qui va où)
 
-- **#candidature** : l'accueil, le lien du formulaire, et là où tu écris si tu es bloqué au tout début.
+- **#bienvenue** (ex-#candidature) : la carte du serveur épinglée (qui va où), et là où tu écris si tu es bloqué au tout début.
 - **Forum formation** : le post « Bienvenue » (vidéo + quiz), puis Fiche 1 à 6 et le Kit Clipper à imprimer.
 - **#assistant-ia** : mes réponses 24 h/24. Si je ne sais pas, je te dis vers qui aller.
 - **Le salon de ta créatrice** : ouvert par ton manager une fois dans l'équipe. Ses rushs et modèles (Drive en lecture), tes retours, tes captures, tes questions sur tes comptes. C'est ton salon de travail, il n'y en a pas d'autre.
@@ -291,7 +291,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Quiz raté ?** Le bot te l'écrit en MP avec ton score. Revois la vidéo, note les 4 mots-clés, il te reste un essai. Deux échecs = candidature close.
 
-**Où je vois mon score du quiz ?** À l'écran, juste après l'envoi du formulaire. Fermé sans le noter ? Le bot te l'a envoyé en MP ; sinon demande dans #assistant-ia.
+**Où je vois mon score du quiz ?** À l'écran, juste après l'envoi du formulaire, et dans l'e-mail que tu reçois ensuite (test ou deuxième essai). Fermé sans le noter ? Regarde tes e-mails.
 
 **J'ai signé / accepté mais pas de salon ni de créatrice ?** C'est normal pendant 48 h : la signature ouvre ton rôle, et c'est ton manager qui t'attribue ta créatrice et ouvre son salon (tu reçois un MP avec le lien). Rien après 48 h ? Écris dans #assistant-ia en mentionnant ton manager, avec ton prénom et la date de signature. Ton lien de tracking, lui, est posé au créneau, pas avant.
 

@@ -30,6 +30,18 @@
  * ROBUSTESSE COLONNES : on lit e.namedValues (titre de question → réponse) et on
  * matche par mots-clés (prénom / whatsapp-téléphone-numéro / pays-résides /
  * discord-pseudo) — l'ordre des colonnes de la feuille n'a aucune importance.
+ *
+ * v2 — SERVEUR FERMÉ (14/09/2026) : plus personne n'arrive sur Discord avant validation.
+ * Le tunnel continue par E-MAIL : ce script envoie au candidat, dès sa candidature, la
+ * vidéo de formation + le lien du quiz (le formulaire ne donne plus le lien Discord).
+ * Pour l'activer (3 réglages, une fois) :
+ *  a. Dans le formulaire de candidature : Paramètres → Réponses → « Collecter les adresses
+ *     e-mail » (Vérifié) — sans e-mail, pas de mail (la ligne CANDIDATURE part quand même).
+ *  b. Message de confirmation du formulaire (Paramètres → Présentation) : « Merci ! Regarde
+ *     tes e-mails : la formation et le quiz t'attendent » — et on RETIRE le lien Discord.
+ *  c. Propriétés du script : ENVOYER_MAILS = 1 · LIEN_VIDEO = <vidéo de formation> ·
+ *     LIEN_QUIZ = <formulaire du quiz, version générique sans identifiant Discord>.
+ * Quota Gmail : 100 mails/jour (compte perso) ou 1 500 (Workspace) — largement assez.
  */
 
 /** Envoi Discord avec 3 tentatives (rate-limit 429 ou erreur passagère) — 10/09. */
@@ -101,6 +113,50 @@ function surCandidature(e) {
 
   const code = posterDiscord(url, 'CANDIDATURE|' + prenom + '|' + tel + '|' + pays + '|' + pseudo);
   console.log('CANDIDATURE postée (' + (prenom || '?') + ') — HTTP ' + code);
+  // Serveur fermé (14/09) : la suite arrive par e-mail — vidéo + quiz.
+  envoyerMailBienvenue(prenom, prendre(['e-mail', 'email', 'adresse mail']));
+}
+
+/** Mise en forme e-mail pour les humains (règle du 14/09) : Gmail écrase les marges des <p>,
+ *  donc des <div> séparés par une ligne vide, et la version texte garde ses lignes vides. */
+function enHtml(lignes) {
+  return lignes.map(function (l) {
+    if (!l) return '<div><br></div>';
+    const sain = l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return '<div>' + sain.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1">$1</a>') + '</div>';
+  }).join('');
+}
+
+/** E-mail « bienvenue : formation + quiz » — le premier pas du tunnel hors Discord. */
+function envoyerMailBienvenue(prenom, email) {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('ENVOYER_MAILS') !== '1') return;
+  if (!email || email.indexOf('@') === -1) {
+    console.warn('Candidature sans e-mail : pas de mail de bienvenue — active « Collecter les adresses e-mail » dans le formulaire.');
+    return;
+  }
+  const video = props.getProperty('LIEN_VIDEO') || '';
+  const quiz  = props.getProperty('LIEN_QUIZ') || '';
+  if (!video || !quiz) { console.warn('LIEN_VIDEO / LIEN_QUIZ manquants dans les propriétés — pas de mail.'); return; }
+  const lignes = [
+    'Bonjour ' + (prenom || '') + ',',
+    '',
+    'Ta candidature au programme Clippers G&M est bien reçue. Deux étapes, dans l\'ordre :',
+    '',
+    '1. La formation (vidéo, 54 minutes) : ' + video,
+    'Regarde-la en entier : 4 mots-clés y sont cachés, ils sont demandés au quiz.',
+    '',
+    '2. Le quiz : ' + quiz,
+    'Seuil : 27/34, deux essais maximum. Indique le même numéro WhatsApp que dans ta candidature.',
+    '',
+    'Quiz réussi : tu reçois le test de montage (48 h) par e-mail. Test validé : tu reçois ton invitation personnelle au Discord de l\'équipe.',
+    '',
+    'À très vite,',
+    'L\'équipe G&M'
+  ];
+  MailApp.sendEmail({ to: email, subject: 'Ta candidature Clipper G&M : formation + quiz',
+                      name: 'Programme Clippers G&M', body: lignes.join('\n'), htmlBody: enHtml(lignes) });
+  console.log('Mail de bienvenue envoyé (' + (prenom || '?') + ').');
 }
 
 /**
