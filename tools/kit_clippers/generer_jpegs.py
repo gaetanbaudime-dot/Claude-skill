@@ -1,4 +1,4 @@
-# Génère les fiches du Kit Clipper v2 en JPEG haute résolution pour Discord :
+# Génère les fiches du Kit Clipper v3 (septembre 2026, Instagram seul) en JPEG haute résolution pour Discord :
 #   second-brain/96-Opérations LTP/Kit Clippers/Fiches JPEG (Discord)/*.jpg
 # Le contenu vient de generer_fiches.py (source de vérité unique) — ici on ne fait
 # que le rendu écran : largeur 1200 px, device scale ×2 (= 2400 px de large), JPEG q92.
@@ -78,7 +78,7 @@ svg { transform: scale(1.6); transform-origin: center; margin: 0 6px; }
   font-size: 15px; color: #8a8a8a; text-align: center; }
 """
 
-PIED = '<div class="pied">Kit Clipper · LTP · juillet 2026 · v2 — document interne, ne pas diffuser</div>'
+PIED = '<div class="pied">Kit Clipper · LTP · septembre 2026 · v3 — document interne, ne pas diffuser</div>'
 
 
 def enrober(corps: str) -> str:
