@@ -35,7 +35,7 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Analyse complète 
 
 ## 2. Sarah, 168 abonnés le 13/09 : d'où ça vient
 
-Ce ne sont pas tes clippers : leurs quatre liens font **6 à 7 abonnés par jour à eux quatre** (Josué +18 en 5 jours). Le pic vient soit de son compte propre (son lien affiche 12,7 % de conversion, il faudrait ~1 300 clics dans la journée, ce qu'un Reel viral fait : Chloé a fait 1 324 visites le 08/09), soit d'OnlyFans lui-même (listes d'amis, SFS Tina créé le 13/09, non tracés). **À trancher en 30 secondes dans GAML** : les clics de son lien les 12 et 13/09. Ce qui ne change pas, quelle que soit la source : **un abonné Sarah vaut 1,3-1,5 $ à 30 jours.** 168 abonnés, c'est ~250 $. Sa vague MYM de juillet a duré six semaines à 2,6 €/abonné ; c'est le même phénomène, sur OF.
+Ce ne sont pas tes clippers : leurs quatre liens font **6 à 7 abonnés par jour à eux quatre** (Josué +18 en 5 jours). **Confirmé par Gaëtan (14/09) : un carrousel sur son propre compte.** Son lien affiche 12,7 % de conversion, donc ~1 300 clics dans la journée, ce qu'un post viral fait (Chloé a fait 1 324 visites le 08/09). Ce qui ne change pas, quelle que soit la source : **un abonné Sarah vaut 1,3-1,5 $ à 30 jours.** 168 abonnés, c'est ~250 $. Sa vague MYM de juillet a duré six semaines à 2,6 €/abonné ; c'est le même phénomène, sur OF.
 
 **Conséquence, et elle est dure** : un clipper FR sur Sarah touche 0,50 € par abonné vérifié, l'agence en garde ~0,45 € (1,4 $ × 0,92 × 35 %). **Chaque abonné amené par un clipper sur Sarah fait perdre de l'argent, avant même le fixe de 200 €.** Le pod « 5 FR sur Sarah » est le pire placement de l'agence. Il ne se renforce pas, il ne se remplace pas ; les deux qui produisent (Josué, Tara) basculent sur Chloé au prochain créneau. Sarah reste la machine à volume gratuite (compte propre, listes d'amis, SFS), rien d'autre.
 
@@ -65,7 +65,7 @@ Tu as raison sur le « ×2-3 facile » : Chloé fait 13,6 abonnés par jour en r
 
 **Le même tableau à 12 $ par abonné** (la règle n°5 de Maxime, [[Call Maxime (août 2026) - doctrine de concentration]]) : contribution 3,05 €, point mort **87 abonnés par clipper**, et à 180 l'équipe rapporte **+2 900 €/mois**. Chaque euro de LTV vaut ~340 € par mois et par millier d'abonnés ([[Rétention et LTV]]). **Ce n'est pas la grille qui est chère, c'est la valeur de l'abonné.** Le pôle malgache est un pari sur deux choses : des clippers à 180+ (le niveau des meilleurs FR, pas de la moyenne) et un chat qui monte la LTV. Sans le second, il est un plancher qui coûte ~1 000 €/mois.
 
-**Trésorerie** : mois 1 ≈ −2 150 € (warm-up, zéro abonné, 500 € garantis à Jonas), mois 2 ≈ −1 900 €, mois 3 ≈ −1 450 € → **~5 500 € de cash avant l'équilibre**, au mois 4-5 si les 180 sont atteints. Avec 2-4 k€ de trésorerie agence (`to-verify`, le suivi quotidien est mort depuis le 18/08), **10 est le maximum, et seulement si septembre clôture ≥ 48 k€**.
+**Trésorerie** : mois 1 ≈ −2 150 € (warm-up, zéro abonné, 500 € garantis à Jonas), mois 2 ≈ −1 900 €, mois 3 ≈ −1 450 € → **~5 500 € de cash avant l'équilibre**, au mois 4-5 si les 180 sont atteints. Trésorerie agence : **non relue par moi aujourd'hui** (le connecteur Drive est en panne dans cette session) ; Gaëtan indique que le suivi quotidien est tenu, contrairement à ce que disaient le rapport du 06/09 et le journal du 09/09 — correction actée le 14/09. Règle inchangée : **10 est le maximum tant que le cash agence n'est pas ≥ 8 000 €**, et seulement si septembre clôture ≥ 48 k€.
 
 **Réponse** : **10 Malgaches maintenant, 5 sur Chloé, 5 sur Sophie, zéro sur Sarah.** Cohorte 2 de 10 en octobre à deux conditions : cohorte 1 ≥ 100 abonnés par clipper au mois 2, et ≥ 8 000 € de cash. Les 17 contactés suffisent (8-10 retenus réalistes). Coût sur 3 mois : ~5 500 € nets. Rentable : à l'équilibre au mois 4-5 à la LTV d'aujourd'hui, franchement rentable seulement si la LTV passe 10 $.
 
@@ -87,7 +87,7 @@ Le chiffre est atteignable sur Chloé et Sophie d'ici novembre, pas par les clip
 
 ## 7. 70 k€ net en septembre : non, et voici le chemin vers 70
 
-**Où tu en es** (estimation, `to-verify` sur l'export MYM du 30/09) : MYM 1-11/09 = 12 395 € (1 127 €/j) ; OF ≈ 500 €/j (14,8 k€ sur 30 j au 06/09). **1-14/09 ≈ 22-23 k€.** Au rythme actuel, les 16 jours restants ajoutent ~26 k€ : **septembre ≈ 48-52 k€.** Pour 70, il faudrait 3 000 €/j sur 16 jours, ×1,85 : personne ne double un mois en deux semaines.
+**Où tu en es** (sheet « Data G&M Créatrices », Synthèse du 14/09, OF + MYM en €) : **1-14/09 = 21 878 €** (1 563 €/j) ; 30 j glissants **42 819 €** pour 6 662 abonnés (6,43 €/abonné) ; juillet 54 616 €, août 45 324 €. Par créatrice sur 30 j : Chloé 19 017 € (2 161 ab., 8,80 €), Maddy 7 707 € (411 ab., **18,75 €**), Sarah 5 109 € (2 247 ab., **2,27 €**), Sophie 4 942 € (506 ab., 9,77 €), Clara 3 259 € (772 ab., 4,22 €), Jade 1 590 €, Amanda 1 196 €. Au rythme actuel, les 16 jours restants ajoutent ~26 k€ : **septembre ≈ 48-52 k€.** Pour 70, il faudrait 3 000 €/j sur 16 jours, ×1,85 : personne ne double un mois en deux semaines.
 
 **Ce qui peut s'ajouter d'ici le 30/09** : les 16 SFS planifiés (~6 000 $, dont ~3 k€ encaissés en septembre si Rianah les enchaîne), la vague Sarah si elle tient (~250 $/j), la conversion de la vague Chloé (+300-400 abonnés × 8 $ étalés), le SFS MYM Chloé×Sarah répété. Total optimiste : +10-12 k€ → **58-62 k€**. C'est le plafond honnête.
 
@@ -99,6 +99,7 @@ Le chiffre est atteignable sur Chloé et Sophie d'ici novembre, pas par les clip
 - **Le chat n'est pas ton pôle.** Toute la rentabilité de l'horizontal dépend de la LTV, donc de Maxence. Sans clôture de septembre où ce sujet est tranché, tu construis un pôle à −1 000 €/mois.
 - **Toi, redevenu Emma.** 30 jours de pôle Influ sans playbook écrit = un fondateur de plus dans l'opérationnel. Le test : le 15/10, une CSM peut-elle reprendre avec le doc seul ?
 - **Sarah** : 5 clippers payés pour des abonnés à 1,4 $ pendant que Sophie manque de bras. Le [[Sophisme des coûts irrécupérables]] dit de ne pas garder un pod parce qu'il existe.
+- **Facebook vient de mourir d'un bloc** (14/09, après-midi) : toutes les pages que Gaëtan possédait ont été bannies en même temps, dont celles qui portaient le pic de septembre de Sophie et Maddy (510 et 269 clics/j). Le chemin vers 70 k€ perd ~800 clics/j tant que des pages ne sont pas recréées sous des profils séparés (Rianah), et l'argument « Facebook, surface résiliente » tombe : des pages sous un même profil sont une seule surface.
 - **Les comptes qui meurent** : la méta reste « créer plus vite que ça meurt ». 10 Malgaches à 3 comptes, c'est 30 comptes qui vivent 1-3 semaines : sans le créneau de création du mercredi tenu par Jonas seul, l'horizontal n'existe pas.
 
 ## 9. La direction, en une page
@@ -110,3 +111,17 @@ Le chiffre est atteignable sur Chloé et Sophie d'ici novembre, pas par les clip
 5. **KPI unique du vendredi** : $ ajoutés par créatrice (abonnés × $/abonné), plus le nombre de SFS faits.
 
 Prédictions datées au [[Journal de coaching]] ; analyse de fond du même jour : [[Analyse complète de l'agence et plan de simplification (14 septembre 2026)]].
+
+## 10. Instagram contre Facebook, ce que dit le tracking OF (ajout de l'après-midi)
+
+| Source | Liens | Clics | Abonnés | Gains | CVR | $/abonné |
+|---|---:|---:|---:|---:|---:|---:|
+| **Instagram** (comptes propres, clippers, landing) | 48 | 102 441 | **6 886** | **52 280 $** | 6,7 % | 7,59 |
+| **Pages Facebook** (hors SFS) | 5 | 21 251 | 970 | 6 378 $ | 4,6 % | 6,58 |
+| SFS | 49 | 2 968 | 2 062 | 11 654 $ | **69,5 %** | 5,65 |
+| YouTube | 3 | 4 969 | 228 | 2 242 $ | 4,6 % | 9,84 |
+| TikTok | 2 | 759 | 51 | 20 $ | 6,7 % | 0,39 |
+
+Facebook fait **7 fois moins d'abonnés et 8 fois moins de dollars** qu'Instagram, et **97 % de ses dollars viennent d'une seule page**, celle de Sophie (15 714 clics, 720 abonnés, 6 191 $, 8,60 $/abonné : le niche de Sophie parle à l'audience Facebook). Les pages de Chloé (1,24 $/abonné), Amanda (0,60 $) et Lila (0,75 $) n'ont rien produit. Et le 14/09, toutes les pages sous le profil de Gaëtan sont tombées d'un bloc.
+
+**Réponse à « un clipper malgache peut-il tenir 2 IG + 3 pages FB ? »** : techniquement oui, économiquement non. Les 3 pages vivent sous un seul profil Facebook (la « page mère » du kit) : un ban en emporte trois, ce qui vient d'arriver. 5 surfaces × 2 Reels = 10 publications par jour sur un téléphone perso, pour une plateforme qui rapporte 8 fois moins. Maxime fait 100 % Instagram avec 30-40 comptes par modèle. **Verdict : Instagram seul pour les clippers (2 IG de croissance + 1 privé), Facebook uniquement en pages automatisées par Rianah, recréées sous des profils séparés, réservées à Sophie.** Ce n'est pas « changer », c'est **retirer** : une plateforme, un scraping Apify, une section de formation et 60 % de la charge quotidienne du clipper disparaissent, et le pilote malgache n'a encore créé aucune page. Côté machine : `STRUCTURE_FB_MIN=0` dans Railway, base de connaissances v6.2, et les fiches Discord « Créer les comptes » et « Cadence » amputées de leurs paragraphes Facebook. Metricool : pas d'accès depuis cette session ; l'historique `!inputs` du bot (vues Instagram et Facebook par clipper et par jour) est la donnée à sortir par Jonas.
