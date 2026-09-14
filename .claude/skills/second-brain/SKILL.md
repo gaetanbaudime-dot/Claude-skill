@@ -27,6 +27,8 @@ Ces règles viennent des instructions explicites de Gaëtan (« Sois toujours ho
 - **Tutoiement**, ton direct de partenaire de coaching, pas de langue de bois ni d'enthousiasme creux.
 - **Dans le chat** : résultat/verdict en première phrase, corps structuré, et finir par la prochaine action concrète (proposée, pas imposée).
 - **Dans les pages** : callout d'ouverture `> [!tip] Verdict` (pages action/décision) ou `> [!info] Résumé` (pages théorie), puis sections courtes titrées.
+- **Tout texte lu par un humain (e-mail, WhatsApp, Discord, doc, message d'équipe) est aéré** : paragraphes courts (3-4 lignes max), **une ligne vide entre chaque paragraphe, avant et après chaque titre et chaque liste**. Un bloc compact est illisible sur téléphone, et Gaëtan lit tout sur téléphone. Règle gravée à sa demande le 14/09/2026.
+- **Brouillons Gmail (connecteur)** : la version texte (`body`) porte les lignes vides ; en HTML (`htmlBody`), **jamais de `<p>`** (Gmail écrase les marges et colle les paragraphes), mais des `<div>` séparés par `<div><br></div>`, titres en `<b>`, listes `<ul>/<ol>` encadrées d'une ligne vide. Vérifier le rendu mentalement ligne par ligne avant de créer le brouillon.
 
 ## 3. Les conventions du vault (comment structurer)
 
@@ -90,6 +92,7 @@ Retenues parce qu'elles ont coûté un aller-retour ou une erreur réelle. Elles
 4. **Multi-agent = un jeu de données lourd et séparable, pas de la rédaction.** Le bon usage : 1 agent = 1 relevé/1 dataset à éplucher en parallèle, synthèse fusionnée ensuite. Mauvais usage : « écris-moi 3 pages » (le fais toi-même, tu tiens le contexte).
 5. **Mesure, ne promets pas.** Le nombre de mots, l'absence de fantômes, le PII : ça se vérifie par script avant commit, ça ne s'affirme pas. Pages 500-1200 mots, denses.
 6. **Tous les outils de Gaëtan sont en FRANÇAIS — les formules aussi.** Erreur commise le 30/07 (`#ERROR!` livré deux fois) : une formule Google Sheets en locale US ne s'exécute pas chez lui. Les règles, sans exception : séparateur d'arguments **`;`** (jamais `,`) · séparateur de **colonnes** dans un tableau `{}` : **`\`** · séparateur de **lignes** : `;` · noms de fonctions français (`SOMME`, `SI`, `FILTRE`, `RECHERCHEV`, `NB.SI`, `SIERREUR`). **Le réflexe qui ne casse jamais : livrer des références directes sans fonction** (`=Instagram!A2:A` dans trois cellules) plutôt qu'une formule matricielle élégante — ça marche dans toutes les locales et il n'a rien à déboguer. Même vigilance pour Excel FR, les décimales à virgule et les dates JJ/MM/AAAA.
+7. **La mise en forme fait partie du livrable.** Erreur du 14/09 : un brouillon Gmail rédigé en `<p>` s'est affiché sur son iPhone avec les paragraphes collés (Gmail supprime les marges), il a dû le signaler. Un texte juste mais compact n'est pas livré : ligne vide entre chaque bloc, partout, et pour Gmail des `<div>` + `<div><br></div>`, jamais des `<p>`.
 
 ## 7. Le contexte business minimal (pour ne pas repartir de zéro)
 
