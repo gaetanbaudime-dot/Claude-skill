@@ -26,6 +26,7 @@ import anthropic
 
 import inputs_clippers                    # suivi quotidien des Reels publiés (Apify) — voir le module
 import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
+import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -719,7 +720,7 @@ def role_team(guild, code: str):
 def texte_compteur(total: float) -> str:
     montant = f"{total:,.2f}".replace(",", " ")   # 1,234.50 -> 1 234.50 (sans toucher au texte)
     return (f"💰 **{montant} € déjà versés aux clippers de l'équipe** 💰\n"
-            f"Paiements chaque lundi / reporting le dimanche. Rejoins-nous, performe, encaisse. 🚀\n"
+            f"Paie le 16 et le 1er / reporting le dimanche. Rejoins-nous, performe, encaisse. 🚀\n"
             f"-# Mis à jour le {datetime.now(timezone.utc).strftime('%d/%m/%Y')}")
 
 
@@ -1830,7 +1831,7 @@ async def boucle_pipeline():
                         "ton contrat (signature électronique, 2 min). Envoie-la ici et tes accès "
                         "s'ouvrent dans la foulée. 🔥",
                         "⏳ Dernier rappel : ton contrat est prêt, il n'attend que **ton e-mail**. "
-                        "Envoie-le ici en MP — signature en 2 minutes, accès immédiats, paie chaque lundi.")
+                        "Envoie-le ici en MP — signature en 2 minutes, accès immédiats, paie le 16 et le 1er.")
                 # ④ Contrat envoyé mais pas signé.
                 contrat_c = info.get("contrat") or {}
                 if contrat_c.get("statut") == "envoye":
@@ -2546,7 +2547,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
-                "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM]` · `!alias` · `!code`\n"
+                "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement) · `!archiver #salon…`\n"
                 "**Paie/compteur** : `!paiement @x 50 raison` · `!ajuster` · `!compteur` · `!rang` · `!invites` · `!bumps`\n"
@@ -3453,7 +3454,7 @@ async def commande_admin(message, texte: str) -> bool:
                                      "Dernière étape : le **contrat**. Envoie-moi ici ton **adresse e-mail** — "
                                      "ton contrat à signer arrivera dessus (signature électronique, 2 minutes). "
                                      "Dès signature : ton rôle Team France, ton espace, ton lien de tracking, "
-                                     "et la paie chaque lundi. 🔥")
+                                     "et la paie le 16 et le 1er. 🔥")
             await message.reply(f"🏆 {membre.mention} validé (grille FR) → je lui demande son e-mail en MP ; "
                                 f"dès qu'il l'envoie, le contrat DocuSeal part tout seul et son rôle Team France "
                                 f"s'ouvre à la signature (je préviens ici). Rien à faire d'ici là."
@@ -3611,6 +3612,13 @@ async def commande_admin(message, texte: str) -> bool:
     # ---- !primes [AAAA-MM] : la paie variable du mois (prime discipline, actifs, bonus équipe) ----
     if texte.startswith("!primes"):
         arg_p = texte[len("!primes"):].strip()
+        if arg_p.lower().startswith("acompte"):                  # la paie du 16 (décision du 14/09)
+            reste = arg_p[len("acompte"):].strip()
+            mois_a = reste[:7] if re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", reste[:7] or "") else heure_paris().strftime("%Y-%m")
+            historique_a = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
+            await envoyer_long(message, inputs_clippers.message_acompte(historique_a, mois_a, debuts_clippers())
+                               .replace("*", "**").split("\n"))
+            return True
         mois = arg_p[:7] if arg_p else heure_paris().strftime("%Y-%m")
         if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", mois):
             await message.reply("Format : `!primes` (mois en cours) ou `!primes 2026-08` (AAAA-MM).")
@@ -4103,13 +4111,27 @@ async def commande_admin(message, texte: str) -> bool:
         journal.info("Import CSV : %d candidatures, %d rejets", nb, len(rejets))
         return True
 
+    # ---- !ltv : valeur d'un abonné OF contre MYM, par créatrice, 30 jours (classeur créatrices) ----
+    if texte.startswith("!ltv"):
+        if not creatrices.SHEET_CREATRICES_XLSX_URL:
+            await message.reply("`SHEET_CREATRICES_XLSX_URL` absent : publie le classeur créatrices sur le web "
+                                "(Document entier, format Microsoft Excel) et pose le lien dans Railway.")
+            return True
+        arg_l = texte[len("!ltv"):].strip()
+        jours_l = int(arg_l) if arg_l.isdigit() and 1 <= int(arg_l) <= 365 else 30
+        await envoyer_long(message, (await creatrices.bloc_ltv(jours_l)).replace("*", "**").split("\n"))
+        return True
+
     # ---- !hebdo : le rapport de la semaine (celui du lundi), à la demande ----
     if texte.startswith("!hebdo"):
         historique_h = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
         subs_h = lire_json(FICHIER_SUBS, {}).get(heure_paris().strftime("%Y-%m"), {})
         comptes_h = await inputs_clippers.compter_comptes_creatrices()
-        await envoyer_long(message, inputs_clippers.message_hebdo(historique_h, subs_h, comptes_h)
-                           .replace("*", "**").split("\n"))
+        hebdo_txt = inputs_clippers.message_hebdo(historique_h, subs_h, comptes_h)
+        bloc_l = await creatrices.bloc_ltv(30)
+        if bloc_l:
+            hebdo_txt += "\n\n" + bloc_l
+        await envoyer_long(message, hebdo_txt.replace("*", "**").split("\n"))
         return True
 
     # ---- !archiver #salon… : range des salons dans la catégorie « Archives » (masquée), réversible ----

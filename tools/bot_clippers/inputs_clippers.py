@@ -999,6 +999,37 @@ def message_hebdo(historique: dict, subs: dict = None, comptes: dict = None, jou
     return "\n".join(lignes)
 
 
+def message_acompte(historique: dict, mois: str, debuts: dict = None, jour: str = None) -> str:
+    """La paie en deux fois (décision du 14/09, comme les chatteurs) : le 16, un acompte = la moitié
+    du fixe pour tout clipper dont ≥ ACTIF_TAUX_MIN des journées évaluées du 1er au 15 sont
+    validées ; le 1er, le solde du fixe + commissions + prime. Cette vue liste qui a droit à
+    l'acompte ; les montants du fixe sont dans #rémunération (le bot ne les connaît pas)."""
+    debut, fin = f"{mois}-01", f"{mois}-15"
+    jours = sorted(j for j in historique if debut <= j <= fin and (not jour or j <= jour))
+    if not jours:
+        return f"💶 *ACOMPTE DU 16 — {mois}* : aucune journée évaluée du 1er au 15."
+    compte = {}
+    for j in jours:
+        for n, v in historique[j].items():
+            if _normaliser(v.get("creatrice", "")).startswith("metricool") or "journee_ok" not in v:
+                continue
+            c = compte.setdefault(n, {"evalues": 0, "valides": 0})
+            c["evalues"] += 1
+            c["valides"] += 1 if v["journee_ok"] else 0
+    lignes = [f"💶 *ACOMPTE DU 16 — {mois}* (journées validées du 1er au 15, seuil {int(ACTIF_TAUX_MIN * 100)} %)", ""]
+    oui = non = 0
+    for n, c in sorted(compte.items(), key=lambda x: -(x[1]["valides"] / max(1, x[1]["evalues"]))):
+        taux = c["valides"] / c["evalues"] if c["evalues"] else 0
+        if taux >= ACTIF_TAUX_MIN:
+            oui += 1
+            lignes.append(f"✅ {n} — {c['valides']}/{c['evalues']} ({int(taux * 100)} %) → acompte : la moitié du fixe")
+        else:
+            non += 1
+            lignes.append(f"❌ {n} — {c['valides']}/{c['evalues']} ({int(taux * 100)} %) → pas d'acompte, tout au 1er selon le mois")
+    lignes += ["", f"_{oui} acompte(s) à verser, {non} sans. Le 1er : solde du fixe + `!primes {mois}` (commissions, prime)._"]
+    return "\n".join(lignes)
+
+
 def message_lecture(historique: dict) -> str:
     """`!inputs` sans argument : le DERNIER bilan enregistré, sans relancer un cycle (qui re-postait
     les bilans aux clippers et réécrivait l'historique)."""
@@ -1202,6 +1233,13 @@ async def boucle_inputs(client, canal_admin_async, fichier_etat, lire_json, ecri
                                 hist = _lire({"historique": {}}).get("historique", {})
                                 hebdo = message_hebdo(hist, subs_fn() if subs_fn else None,
                                                       await compter_comptes_creatrices())
+                                try:
+                                    import creatrices as _cr            # valeur d'un abonné OF / MYM (14/09)
+                                    bloc = await _cr.bloc_ltv(30)
+                                    if bloc:
+                                        hebdo += "\n\n" + bloc
+                                except Exception as erreur_c:          # noqa: BLE001
+                                    journal.warning("Bloc LTV créatrices : %s", erreur_c)
                                 canal_h = await canal_admin_async()
                                 if canal_h is not None:
                                     await canal_h.send(hebdo.replace("*", "**")[:1990])

@@ -375,6 +375,20 @@ est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recru
 - **Assistant** : escalade vers le manager pour l'opérationnel, jamais de délai ou de montant inventé,
   jamais de contournement, étiquette de source unique en fin de réponse.
 
+## 💶 Paie en deux fois et valeur d'un abonné (14/09)
+
+**La paie tombe le 16 et le 1er**, comme pour les chatteurs (fini le lundi hebdo du premier mois) :
+`!primes acompte [AAAA-MM]` liste qui a droit à l'acompte du 16 (la moitié du fixe si ≥ `ACTIF_TAUX_MIN`
+des journées évaluées du 1er au 15 sont validées) ; `!primes [AAAA-MM]` reste le décompte du 1er
+(solde, commissions, prime). Les montants du fixe restent dans #rémunération : le bot ne les connaît pas.
+
+**`!ltv [jours]`** et le rapport du lundi lisent le classeur « Data G&M Créatrices » (module `creatrices.py`)
+et sortent, par créatrice, la valeur d'un abonné OF contre MYM sur 30 jours (OF converti en € au taux
+`TAUX_USD_EUR`, défaut 0,92). Réglage, une fois : Fichier → Partager → **Publier sur le web** →
+*Document entier* → format **Microsoft Excel (.xlsx)** → Publier → coller le lien dans Railway :
+`SHEET_CREATRICES_XLSX_URL`. Les onglets « Synthèse » et « Notice » sont ignorés ; les onglets créatrices
+doivent garder leur structure (ligne « Date », colonnes B/C = OF, E/F = MYM).
+
 ## 🧭 Trois rapports, pas douze (simplification du 14/09)
 
 « Même moi je comprends rien » : le bot produisait un bilan long par clipper, un récap Telegram, une copie
