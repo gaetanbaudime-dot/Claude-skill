@@ -141,6 +141,9 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 
 ## Les priorités actives (issues du dernier appel Maxime + analyses)
 
+> [!tip] Décision du 14/09 (soir) — all-in Instagram, deux pôles, 20 comptes par créatrice
+> Clippers = **Instagram seul** (2 comptes de croissance + 1 privé, 4 publications/jour ; base du bot v6.2, `STRUCTURE_FB_MIN=0`). Facebook = pages automatisées par Rianah pour Sophie, sous profils séparés, rien d'autre. Deux pôles : **usine à clipping** (matin, Jonas, cohortes malgaches de 10, cible 20 comptes par créatrice) et **pôle créatrices** (après-midi, Gaëtan 30 jours puis CSM, comptes propres + SFS + listes d'amis). Détail et prédictions : [[Journal de coaching]] (14/09, entrée 4), [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]].
+
 > [!tip] Recadrage du 14/09 — le trafic est revenu sans les clippers, le goulot est passé en aval
 > ×2,5 de clics agence (1 542/j), Chloé ×5,5 sur son propre Instagram, Sarah 168 abonnés OF/jour : **les clippers font 13 % du pic** et Chloé convertit ×5 de trafic en +10 % de CA. Goulot actuel = **conversion de la vague (pôle Maxence)** + **source non possédée** (comptes propres des créatrices). Carte des propriétaires (Jonas / Rianah / Maxence), gel jusqu'au 30/09 et semaine du 14-20/09 : [[Analyse complète de l'agence et plan de simplification (14 septembre 2026)]]. L'allocation du 02/09 ci-dessous reste valable, avec les équipes malgaches réservées aux créatrices ≥ 9 €/sub (Chloé, Sophie).
 

@@ -10,6 +10,9 @@ liens_forts: ["[[Trafic et réseaux sociaux pour l'OFM]]", "[[Reporting clippers
 
 # Machine Instagram-Facebook en masse (le modèle Geelark)
 
+> [!warning] Décision du 14/09/2026 : les pods clippers sont 100 % Instagram
+> Le modèle « 3 IG + 3 pages FB » de cette page ne s'applique plus aux clippers (structure 2 IG + 1 privé). Facebook ne subsiste qu'en pages automatisées par Rianah (Metricool) pour Sophie, sous profils séparés. Voir [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]].
+
 > [!warning] Mise à jour doctrine (23/07/2026)
 > Plusieurs consignes de cette page ont été **actualisées par la veille** [[État de l'art clipping Instagram (juillet 2026)]] : le warmup « 48 h pour éduquer l'Explorer » est partiellement périmé (Mosseri a démonté le lien consommation→reach ; consensus 7-14 j) ; l'**uniquisation cosmétique** (varier chaque exécution) ne suffit plus depuis le crackdown du 30/04/2026 et vaut évasion de détection ⚠️ → la parade propre est **transformation matérielle + collab posts + Content Protection activé par la créatrice**. Les 3 pages FB de reposts sont en 1re ligne de la répression. Lire l'état de l'art avant d'appliquer les cadences ci-dessous.
 
