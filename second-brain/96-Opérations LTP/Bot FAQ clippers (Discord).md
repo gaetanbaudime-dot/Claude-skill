@@ -48,6 +48,10 @@ Base curée (`connaissances.md`) versionnée dans le repo (mise à jour par Clau
 
 Le bot opère désormais la boucle de la [[Machine de recrutement clippers (100 leads par mois)|machine de recrutement]] : **`!paiement @x 50 [raison]`** (annonce dopamine + **compteur épinglé « X € déjà versés »** + trace `paiements.jsonl`), **`!compteur`**, **`!rang @x Rookie/Confirmé/Elite`** (rôles à créer sur le serveur), **`!invites`** (classement). Avec `ACTIVER_V2=1` (exige l'intent privilégié Server Members + permission « Gérer le serveur ») : **tracking d'invitations** (attribution du parrain à chaque join — on tracke au join, on ne paie jamais au join) + **accueil numéroté** (« tu es le Nᵉ futur clipper ») dans `#candidature` avec le lien du formulaire. Les commandes admin marchent depuis n'importe quel canal. Déploiement sans risque : v2 éteinte par défaut. Mise en service : `tools/bot_clippers/README.md`, section v2.
 
+## Trois rapports, pas douze (14/09)
+
+Le clipper reçoit 4 lignes chaque matin dans son salon ; le manager reçoit **un seul** rapport du matin (marketing court + candidats) dans son salon ; Gaëtan reçoit **le rapport de la semaine le lundi** (salon admin + Telegram, `!hebdo` à la demande). Telegram quotidien coupé par défaut (`TELEGRAM_QUOTIDIEN=1` pour le rétablir), bilan clipper long sur `RAPPORT_CLIPPER=long`. `!archiver #salon…` range les salons inutiles dans une catégorie masquée, sans rien supprimer. Décision et prédiction : [[Journal de coaching]] (14/09, entrée 5).
+
 ## Instagram seul (14/09)
 
 Base de connaissances **v6.2** : plus de pages Facebook dans la mission (structure 2 comptes de croissance + 1 privé, 4 publications par jour, journée validée sur 3 comptes, FAQ « et les pages Facebook ? », passages Facebook de la vidéo de formation à ignorer). Le bot ne réclame plus de page (`STRUCTURE_FB_MIN=0` par défaut ; les pages encore déclarées sont mesurées mais plus exigées). Aucune action Railway. Reste côté humain : les fiches JPEG du forum (kit v3 en cours) et les paragraphes Facebook des posts « Créer les comptes » et « Cadence ». Décision : [[Journal de coaching]] (14/09, entrée 4).
