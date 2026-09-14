@@ -18,6 +18,8 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## 🎯 Pôle prioritaire : recrutement, management & délégation
 
+- **[[Architecture Discord - simple au quotidien (14 septembre 2026)]]** 🧭 : la carte cible du serveur (5 catégories, 12 salons, 3 endroits par personne et par jour), ce qui s'archive, et la mise en place en une demi-heure avec les commandes du bot.
+
 - [[Goulot de l'agence - l'équation du scale]] : **la boussole de scale** — `CA = clippers productifs × subs/clipper × €/sub`, les 3 goulots comme facteurs, la séquence fixe (temps → rétention → trafic monétisé → recruter) et la prédiction datée (clonage chatting avant le clipper N+13). À relire pour re-trancher une priorité, jamais pour agir (ça, c'est le cockpit).
 - [[Pôle recrutement, management & délégation]] : **le hub** — objectif « 50 FR qui restent et se donnent », de l'annonce à ta sortie de l'opérationnel, avec le pré-mortem.
 - [[Allocation budget recrutement et IA]] : le CPA que tu peux te permettre (700-1200 €/hire), le classement des canaux (Indeed d'abord), le verdict IA (Team > Max individuel).
