@@ -48,6 +48,10 @@ Base curée (`connaissances.md`) versionnée dans le repo (mise à jour par Clau
 
 Le bot opère désormais la boucle de la [[Machine de recrutement clippers (100 leads par mois)|machine de recrutement]] : **`!paiement @x 50 [raison]`** (annonce dopamine + **compteur épinglé « X € déjà versés »** + trace `paiements.jsonl`), **`!compteur`**, **`!rang @x Rookie/Confirmé/Elite`** (rôles à créer sur le serveur), **`!invites`** (classement). Avec `ACTIVER_V2=1` (exige l'intent privilégié Server Members + permission « Gérer le serveur ») : **tracking d'invitations** (attribution du parrain à chaque join — on tracke au join, on ne paie jamais au join) + **accueil numéroté** (« tu es le Nᵉ futur clipper ») dans `#candidature` avec le lien du formulaire. Les commandes admin marchent depuis n'importe quel canal. Déploiement sans risque : v2 éteinte par défaut. Mise en service : `tools/bot_clippers/README.md`, section v2.
 
+## Valeur d'un abonné et paie en deux fois (14/09, soir)
+
+`!ltv [jours]` et le rapport du lundi lisent le classeur « Data G&M Créatrices » publié en XLSX (`SHEET_CREATRICES_XLSX_URL`) : par créatrice, abonnés et €/abonné OnlyFans contre MYM sur 30 jours, écart, total. `!primes acompte` liste les clippers qui ont droit à l'acompte du 16. Voir [[Journal de coaching]] (14/09, entrée 6).
+
 ## Trois rapports, pas douze (14/09)
 
 Le clipper reçoit 4 lignes chaque matin dans son salon ; le manager reçoit **un seul** rapport du matin (marketing court + candidats) dans son salon ; Gaëtan reçoit **le rapport de la semaine le lundi** (salon admin + Telegram, `!hebdo` à la demande). Telegram quotidien coupé par défaut (`TELEGRAM_QUOTIDIEN=1` pour le rétablir), bilan clipper long sur `RAPPORT_CLIPPER=long`. `!archiver #salon…` range les salons inutiles dans une catégorie masquée, sans rien supprimer. Décision et prédiction : [[Journal de coaching]] (14/09, entrée 5).

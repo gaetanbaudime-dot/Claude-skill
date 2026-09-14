@@ -21,6 +21,9 @@ La contrainte actuelle de l'agence n'est plus la LTV (réparée), c'est le **nom
 - **Le point mort psychologique est trop loin** : à 0,35 €/sub, il faut ~570 subs/mois pour toucher 200 € — un pod neuf en fait 0-100 le premier mois. Les gens abandonnent avant la rampe, rationnellement.
 - Résultat : tu ne recrutes que des joueurs (rares) ou des désespérés (mauvais), et ton pipeline de 122 candidats produit des fantômes. **Une offre de poste est une offre commerciale** ([[Grand Slam Offer]] appliqué au recrutement) : dérisquer le démarrage EST la garantie qui fait signer.
 
+> [!warning] Mise à jour du 14/09/2026 (soir) — paie le 16 et le 1er
+> Pour tous les clippers, FR comme MG, la paie tombe **deux fois par mois comme les chatteurs** : le 16, un acompte (la moitié du fixe si ≥ 80 % des journées évaluées du 1er au 15 sont validées, `!primes acompte`) ; le 1er, le solde du fixe, les commissions (0,50 €/abonné) et la prime de discipline. La paie hebdomadaire du premier mois (50 €/semaine) est abandonnée. Décision : [[Journal de coaching]] (14/09, entrée 6).
+
 > [!warning] Mise à jour du 14/09/2026 — Instagram seul
 > La structure passe de « 2 IG + 1 privé + 3 pages FB » à **2 comptes Instagram de croissance + 1 privé, 2 Reels/jour par compte de croissance (4 publications/jour)**. Les pages Facebook sortent de la grille (ban corrélé de toutes les pages le 14/09, 8× moins de dollars qu'Instagram dans le tracking OF). Montants inchangés. Base du bot v6.2, `STRUCTURE_FB_MIN=0`. Justification : [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]].
 
