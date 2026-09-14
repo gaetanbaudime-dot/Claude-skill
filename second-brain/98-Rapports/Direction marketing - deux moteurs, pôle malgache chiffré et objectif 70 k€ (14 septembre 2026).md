@@ -125,3 +125,16 @@ Prédictions datées au [[Journal de coaching]] ; analyse de fond du même jour 
 Facebook fait **7 fois moins d'abonnés et 8 fois moins de dollars** qu'Instagram, et **97 % de ses dollars viennent d'une seule page**, celle de Sophie (15 714 clics, 720 abonnés, 6 191 $, 8,60 $/abonné : le niche de Sophie parle à l'audience Facebook). Les pages de Chloé (1,24 $/abonné), Amanda (0,60 $) et Lila (0,75 $) n'ont rien produit. Et le 14/09, toutes les pages sous le profil de Gaëtan sont tombées d'un bloc.
 
 **Réponse à « un clipper malgache peut-il tenir 2 IG + 3 pages FB ? »** : techniquement oui, économiquement non. Les 3 pages vivent sous un seul profil Facebook (la « page mère » du kit) : un ban en emporte trois, ce qui vient d'arriver. 5 surfaces × 2 Reels = 10 publications par jour sur un téléphone perso, pour une plateforme qui rapporte 8 fois moins. Maxime fait 100 % Instagram avec 30-40 comptes par modèle. **Verdict : Instagram seul pour les clippers (2 IG de croissance + 1 privé), Facebook uniquement en pages automatisées par Rianah, recréées sous des profils séparés, réservées à Sophie.** Ce n'est pas « changer », c'est **retirer** : une plateforme, un scraping Apify, une section de formation et 60 % de la charge quotidienne du clipper disparaissent, et le pilote malgache n'a encore créé aucune page. Côté machine : `STRUCTURE_FB_MIN=0` dans Railway, base de connaissances v6.2, et les fiches Discord « Créer les comptes » et « Cadence » amputées de leurs paragraphes Facebook. Metricool : pas d'accès depuis cette session ; l'historique `!inputs` du bot (vues Instagram et Facebook par clipper et par jour) est la donnée à sortir par Jonas.
+
+### Et côté visiteurs : GAML, 30 derniers jours (34 liens actifs, referers, bots exclus)
+
+| Source | Visiteurs | Part (tout) | Part IG + FB seulement |
+|---|---:|---:|---:|
+| **Instagram** | ~19 480 | **59 %** | **72 %** |
+| **Facebook** | ~7 710 | **23 %** | **28 %** |
+| YouTube | ~4 385 | 13 % | |
+| Interne / inconnu (domaine de la landing) | ~1 570 | 5 % | |
+| TikTok, Google, autres | ~70 | < 1 % | |
+
+Par créatrice : **Chloé** IG 76 % · FB 12 % · YouTube 10 % (13 664 visiteurs) — **Sophie** FB 36 % · IG 33 % · YouTube 28 % (8 545) — **Maddy** IG 63 % · FB 21 % (6 672) — **Sarah** IG 49 % · FB 41 % (3 756 ; son propre lien reçoit 24 % de Facebook, et un lien clipper de son pod est à 94 % Facebook). **86 % des visiteurs Facebook venaient de quatre liens de pages** (Sophie, Maddy, un lien clipper Chloé, un lien clipper Sarah) : ce sont les pages tombées le 14/09. Lecture croisée avec le tracking OF : Facebook pèse 23 % des visiteurs, ~12 % des abonnés et ~11 % des dollars. Instagram est la plateforme pour les clippers ; Facebook ne vaut que sur Sophie, en pages automatisées.
+
