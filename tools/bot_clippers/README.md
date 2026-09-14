@@ -1,7 +1,7 @@
 # Bot FAQ Clippers (Discord + Claude)
 
 Un bot **Discord** qui répond aux questions des clippers **uniquement à partir de `connaissances.md`**
-(Kit Clipper v2 + stratégie marketing officielle, Instagram + Facebook uniquement). S'il ne sait
+(Kit Clipper + stratégie marketing officielle, **Instagram uniquement depuis le 14/09/2026**). S'il ne sait
 pas → il renvoie vers Gaëtan. Il n'invente jamais. Réponses courtes, niveau collège.
 
 **Pourquoi Discord et pas Telegram :** tes clippers vivent déjà dans Discord (le #faq, le reporting).
@@ -87,10 +87,11 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 
 ## 🏅 Prime discipline et paie variable — `!primes`
 
-**La grille du 07/09** : un clipper = 2 comptes IG de croissance + 1 compte privé (porte le lien) +
-3 pages Facebook, **2 Reels/jour sur CHAQUE compte de croissance ET CHAQUE page FB** (par surface,
-pas en somme : 4 Reels sur un compte et 0 sur l'autre = journée ratée). La prime discipline (50 €)
-est **tout-ou-rien** : structure complète (IG, compte privé, pages FB) ET chaque surface à la cadence ;
+**La grille du 07/09, passée en Instagram seul le 14/09** : un clipper = 2 comptes IG de croissance + 1 compte
+privé (porte le lien), **2 Reels/jour sur CHAQUE compte de croissance** (par surface, pas en somme : 4 Reels
+sur un compte et 0 sur l'autre = journée ratée). Les pages Facebook ne font plus partie de la structure
+(`STRUCTURE_FB_MIN=0` par défaut ; remettre `3` pour les réactiver). La prime discipline (50 €)
+est **tout-ou-rien** : structure complète (IG, compte privé) ET chaque surface à la cadence ;
 la prime tombe à **26 journées validées** dans le mois. La **journée** est la journée calendaire de
 la veille, minuit à minuit heure de Paris — plus une fenêtre glissante de 24 h.
 
@@ -108,10 +109,10 @@ tous ses clippers ont leur prime. La règle des 50 abonnés du premier mois est 
 (`CANAL_MANAGER_ID`) avec la commande `!sortie` prête ; la ligne apparaît aussi dans le récap.
 
 Réglages Railway : `CADENCE_REELS_MIN=2` (défaut) · `STRUCTURE_IG_MIN=2` · `STRUCTURE_PRIVE_MIN=1` ·
-`STRUCTURE_FB_MIN=3` · `PRIME_JOURS_MIN=26` · `PRIME_CLIPPER_EUR=50` · `MANAGER_PAR_CLIPPER_EUR=100` ·
+`STRUCTURE_FB_MIN=0` (Instagram seul) · `PRIME_JOURS_MIN=26` · `PRIME_CLIPPER_EUR=50` · `MANAGER_PAR_CLIPPER_EUR=100` ·
 `MANAGER_BONUS_EQUIPE_EUR=150` · `ACTIF_TAUX_MIN=0.8` · `MANAGER_PRENOM=Jonas` · `NOUVEAU_JOURS=14`.
-Les pages FB doivent être dans l'onglet `FaceBook` publié (`SHEET_CSV_FB_URL`), sinon la structure
-est jugée incomplète. Le cycle quotidien est retenté 3 fois ; un jour d'échec n'est jamais marqué
+Si des pages Facebook sont encore déclarées (onglet `FaceBook`, `SHEET_CSV_FB_URL`), elles sont mesurées
+mais n'entrent plus dans la structure exigée. Le cycle quotidien est retenté 3 fois ; un jour d'échec n'est jamais marqué
 fait. `!inputs` seul lit le dernier bilan ; `!inputs maintenant` relance le cycle.
 
 ## 🔐 Relais des codes 2FA vers les managers — `codes_2fa.py`

@@ -54,7 +54,7 @@ TOP_CREATRICES = [c.strip() for c in
 # IG de croissance ET chaque page FB à CADENCE_MIN par jour, PRIME_JOURS_MIN jours dans le mois.
 # La structure minimale (2 IG de croissance + 3 pages FB) conditionne aussi le fixe.
 STRUCTURE_IG_MIN = int(os.environ.get("STRUCTURE_IG_MIN", "2"))
-STRUCTURE_FB_MIN = int(os.environ.get("STRUCTURE_FB_MIN", "3"))
+STRUCTURE_FB_MIN = int(os.environ.get("STRUCTURE_FB_MIN", "0"))   # 0 depuis le 14/09/2026 : Instagram seul (remettre 3 pour réactiver Facebook)
 # Compte privé (« compte à lien ») exigé par la grille : 1. Mettre 0 pour ne pas l'exiger.
 STRUCTURE_PRIVE_MIN = int(os.environ.get("STRUCTURE_PRIVE_MIN", "1"))
 PRIME_JOURS_MIN = int(os.environ.get("PRIME_JOURS_MIN", "26"))
@@ -729,7 +729,7 @@ def message_clipper(prenom: str, b: dict) -> str:
                           + (f" · {b['vues_fb']:,} vues".replace(",", " ") if b["vues_fb"] else ""))
         else:
             lignes.append("📘 Facebook : non mesuré hier (souci technique de notre côté) — ta journée n'est pas pénalisée.")
-    else:
+    elif STRUCTURE_FB_MIN > 0:
         lignes.append(f"📘 Facebook : **aucune page suivie** — il en faut {STRUCTURE_FB_MIN} pour la prime.")
     if b.get("journee_ok") is None:
         lignes.append(f"⏸️ Journée non évaluée pour la prime (mesure incomplète) — {b.get('jours_ok_mois', 0)}/{PRIME_JOURS_MIN} ce mois-ci.")

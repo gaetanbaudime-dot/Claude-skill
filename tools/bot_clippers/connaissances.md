@@ -1,6 +1,6 @@
-# Base de connaissances — Kit Clipper G&M (v6.1, 11 septembre 2026)
+# Base de connaissances — Kit Clipper G&M (v6.2, 14 septembre 2026 — Instagram seul)
 
-> Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1 + 3, cadence 2 par jour, créneaux de création avec le manager).
+> Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour, créneaux de création avec le manager). **Depuis le 14 septembre 2026, la mission est 100 % Instagram : plus de pages Facebook.**
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
 > ⚠️ Ne JAMAIS ajouter ici : identités de créatrices, chiffres de l'agence, méthodes hors kit, montants de paie du manager.
 
@@ -47,30 +47,30 @@ Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés 
 
 Commandes utiles pour tous : ton numéro en MP au bot = candidature reliée · `!quiz` (ton lien de quiz) · `!bumps` (classement du mois) · `!aide` (la liste des commandes selon ton rôle) · STOP en MP (plus de rappels).
 
-## LE MATÉRIEL DE TRAVAIL : 6 comptes par téléphone
+## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram par téléphone
 
 - **2 comptes Instagram de croissance** : ils publient et font des vues. Leur bio contient UNIQUEMENT l'arobase @ du compte privé, jamais de lien.
 - **1 compte Instagram privé** : il ne publie pas, il n'accepte personne, il **porte le lien** (GetAllMyLinks). Les curieux cliquent sur l'@ dans la bio des comptes de croissance, arrivent sur le privé, voient le lien.
-- **3 pages Facebook** : elles republient tes Reels et font des vues en plus. Le lien va en bio de la page dès sa création.
+- **Pas de page Facebook** : depuis le 14 septembre 2026, on ne travaille plus que sur Instagram. Si la vidéo de formation parle de pages Facebook, saute ces passages.
 
-La cadence de croisière : **2 Reels par jour sur chaque compte de croissance et sur chaque page Facebook = 10 publications par jour.** On la tient, on ne monte pas plus haut sans l'accord du manager.
+La cadence de croisière : **2 Reels par jour sur chaque compte de croissance = 4 publications par jour.** On la tient, on ne monte pas plus haut sans l'accord du manager.
 
-La montée, sur chaque surface : **semaine 1** = création des comptes aux créneaux + warm-up, **zéro publication** (Instagram et Facebook) · **semaine 2** = 1 Reel par jour par compte de croissance et par page · **semaine 3 et après** = 2 Reels par jour, la croisière.
+La montée, sur chaque surface : **semaine 1** = création des comptes aux créneaux + warm-up, **zéro publication** · **semaine 2** = 1 Reel par jour par compte de croissance · **semaine 3 et après** = 2 Reels par jour, la croisière.
 
-Une **journée validée** = tes 6 comptes sont vivants ET tu as publié 2 Reels sur chaque compte de croissance et chaque page ce jour-là (de minuit à minuit, heure de Paris). C'est le bot qui compte, ton rapport du matin te dit si la veille est validée et pourquoi. La semaine 1 (warm-up) et la semaine 2 (montée) ne comptent pas contre toi.
+Une **journée validée** = tes 3 comptes sont vivants ET tu as publié 2 Reels sur chaque compte de croissance ce jour-là (de minuit à minuit, heure de Paris). C'est le bot qui compte, ton rapport du matin te dit si la veille est validée et pourquoi. La semaine 1 (warm-up) et la semaine 2 (montée) ne comptent pas contre toi.
 
 ## LES CRÉNEAUX DE CRÉATION DE COMPTES (avec ton manager)
 
-- Les comptes Instagram et les pages Facebook se créent **en direct avec ton manager**, à des créneaux fixes : **lundi, mercredi et vendredi à 17 h (heure de Paris)**. Tu viens avec ton téléphone chargé et une bonne connexion.
+- Les comptes Instagram se créent **en direct avec ton manager**, à des créneaux fixes : **lundi, mercredi et vendredi à 17 h (heure de Paris)**. Tu viens avec ton téléphone chargé et une bonne connexion.
 - **Les adresses mail des comptes sont fournies par l'agence.** Tu ne crées pas de Gmail, tu n'inventes rien. Les **codes de vérification** arrivent sur la boîte de l'agence et te sont **donnés en direct pendant le créneau**. Tu n'as rien à récupérer par mail toi-même.
 - **Jamais ton numéro de téléphone**, et jamais un numéro « jetable » ou une appli de numéro temporaire non plus. Si Instagram réclame un numéro, tu le dis à ton manager pendant le créneau, il gère. Sur un compte déjà créé : préviens-le AVANT de faire quoi que ce soit.
 - Un compte, ça se remplace, ça ne se répare pas : **un compte banni se recrée au créneau suivant, avec lui.**
 - Équipe internationale : tu démarres sur **ton propre téléphone** (voir « Ton téléphone, les règles » juste en dessous). Un téléphone cloud prêté par l'agence peut être décidé au cas par cas, plus tard : ce n'est pas automatique, personne ne te le promet.
-- Ton **lien de tracking** (OnlyFans + GetAllMyLinks) est posé par ton manager, jamais par toi : sur tes pages Facebook dès la création, sur ton compte Instagram privé à J+7. Avant, aucun lien nulle part.
+- Ton **lien de tracking** (OnlyFans + GetAllMyLinks) est posé par ton manager, jamais par toi : sur ton compte Instagram privé à J+7. Avant, aucun lien nulle part.
 - Pas dispo à un créneau ? Préviens ton manager avant, il te met sur le suivant. Ne crée jamais un compte seul pour « rattraper » : il sera banni et ne comptera pas.
 
 Ton téléphone, les règles (équipe internationale, sur ton propre appareil) :
-- **Un seul appareil** pour tes 6 comptes de mission, toujours le même. Jamais tes comptes de mission sur un autre téléphone ou un ordinateur.
+- **Un seul appareil** pour tes 3 comptes de mission, toujours le même. Jamais tes comptes de mission sur un autre téléphone ou un ordinateur.
 - **Tes comptes perso Instagram et Facebook sont déconnectés** de ce téléphone (si tu as deux téléphones, garde-en un pour la mission). Un compte perso sur le même appareil relie tout : un ban en entraîne un autre.
 - **Jamais de liaison dans le Centre de comptes Meta**, jamais de VPN, jamais ton numéro. Langue du téléphone et d'Instagram en français.
 - Tout le warm-up et toutes les interactions se font en français, avec des créatrices françaises : c'est ce qui apprend à Instagram à qui montrer tes Reels.
@@ -81,8 +81,9 @@ Ton téléphone, les règles (équipe internationale, sur ton propre appareil) :
 Si tu as lu une vieille version du kit, voilà ce qui a changé :
 - Tu ne crées plus tes comptes seul : c'est au créneau, avec ton manager. Gaëtan n'envoie pas d'identifiants.
 - Pas de numéro « jetable » ou temporaire, jamais.
-- Warm-up Instagram = toute la semaine 1, pas 48 h. Facebook aussi : rien avant la semaine 2.
-- Le lien a 3 emplacements sur une page Facebook (Liens, bio, bouton d'action), pas 4. Jamais dans la description d'un Reel, même « 1 sur 10 ».
+- Warm-up Instagram = toute la semaine 1, pas 48 h.
+- **Plus de pages Facebook depuis le 14 septembre 2026** : la mission est 100 % Instagram (2 comptes de croissance + 1 privé). Tu en avais créé avant ? N'y publie plus, ton manager te dit quoi en faire. Aucune page ne compte pour ta journée validée.
+- Le lien n'a qu'un seul emplacement : la bio du compte privé. Jamais dans la description d'un Reel, même « 1 sur 10 ».
 - Le lien est posé par ton manager : tu ne l'as pas, tu ne le colles nulle part.
 - L'équipe internationale n'est plus en pause : ouverte depuis le 8 septembre 2026.
 - Les évolutions (Metricool, 2ᵉ téléphone) n'ont pas de date (« J+30 », « J+60 ») : ton manager décide.
@@ -105,13 +106,7 @@ Instagram, les règles d'or :
 
 Le lien : UNIQUEMENT sur le compte privé, à J+7, posé par ton manager. Les 2 comptes de croissance n'ont JAMAIS de lien, seulement l'@ du privé.
 
-Facebook, tes 3 pages (1 par jour, au créneau, avec ton manager) :
-- Depuis ton compte Facebook perso (la « page mère »). Tes amis et ta famille ne voient jamais les pages gérées.
-- Nom de la page = le prénom de scène de la créatrice, rien de plus. Catégorie « Créateur numérique » ou « Personnalité publique ».
-- Pseudo, photo et bio uniques, **jamais le pseudo d'un compte Instagram** (même pseudo = comptes reliés = ban en chaîne). Bio : une ligne neutre (« Lifestyle »).
-- Le lien GetAllMyLinks dès la création : section « Liens », bio, et bouton d'action (trois points → Modifier le bouton d'action → « En savoir plus » → colle le lien). Jamais de lien dans la description d'un Reel.
-- Suis une petite dizaine de créatrices avec la page, mets une bannière (photo horizontale de la créatrice) et une belle photo de profil. Alimente la page en photos : reposte tes carrousels Instagram en publications photos.
-- Le pas-à-pas en vidéo est dans le post Fiche 1 du forum formation.
+Le pas-à-pas en vidéo est dans le post Fiche 1 du forum formation. Les passages sur les pages Facebook ne s'appliquent plus (arrêt le 14 septembre 2026).
 
 ## FICHE 2 — Le warm-up (toute la semaine 1)
 
@@ -127,8 +122,6 @@ Le test de fin (à partir du 2ᵉ jour) : ouvre l'onglet Explorer. Il montre des
 
 Ce qui casse un warm-up : publier en semaine 1 · regarder du contenu hors sujet · les rafales (50 likes en 5 minutes = robot) · un lien posé trop tôt · se connecter au même compte depuis plusieurs appareils.
 
-Facebook : le lien va sur la page dès la création, mais la première publication attend la semaine 2, comme Instagram.
-
 ## FICHE 3 — Monter et poster un Reel
 
 L'application : Edits (le monteur vidéo d'Instagram, gratuit, sous-titres automatiques inclus). La routine : les brouillons le matin, la publication étalée dans la journée.
@@ -140,7 +133,7 @@ La boucle par Reel (10-15 minutes au début, 5 avec l'habitude) :
 2. Dans Edits : « Remplacer le rush » du template.
 3. Modifier : filtre, début et fin coupés, zoom ou cadrage, son (celui de la base ou un son populaire), caption (celle de la base ou une variante, 100 idées dans #tips), sous-titres si elle parle, miniature.
 4. Brouillon le matin → publication étalée dans la journée (pas de programmation automatique).
-5. Publier sur Instagram, republier sur une page Facebook.
+5. Publier sur Instagram.
 
 Avant de publier, UNE question : est-ce que ma vidéo ressemble encore au rush du Drive ? Si oui, on ne poste pas, on modifie encore.
 
@@ -151,11 +144,11 @@ Un bon Reel, en 5 points : 1. Un hook dès la première seconde (le début du ru
 Contenu AUTORISÉ : tenues couvertes, street, décontracté, sport, tenue de soirée habillée ; hooks sur la personnalité, l'humour, une histoire, une situation où on se reconnaît ; des vidéos qui donnent envie de commenter.
 Contenu INTERDIT : bikinis, sous-vêtements, poses provocantes ; les textes « écris-moi en privé », « lien en bio », « contenu exclusif » ; toute mention d'argent, de drogue ou d'OnlyFans ; les sous-entendus sexuels et les émojis trop chauds. Objectif : des comptes propres qui durent.
 
-Le même rush sur tes 2 comptes de croissance : oui, mais **jamais le même montage** (hook, caption, sous-titres différents, 3 minutes avec ton template). Deux comptes qui postent la même vidéo = vues coupées + comptes reliés. Republier ton Reel Instagram sur ta page Facebook, c'est OK : deux terrains différents.
+Le même rush sur tes 2 comptes de croissance : oui, mais **jamais le même montage** (hook, caption, sous-titres différents, 3 minutes avec ton template). Deux comptes qui postent la même vidéo = vues coupées + comptes reliés.
 
 ## FICHE 4 — La routine et la semaine
 
-La routine du jour : un rush → Edits → 2 Reels par compte de croissance → republication sur les pages → quelques commentaires naturels → un œil sur les stats pour REFAIRE ce qui marche.
+La routine du jour : un rush → Edits → 2 Reels par compte de croissance → quelques commentaires naturels → un œil sur les stats pour REFAIRE ce qui marche.
 
 Autour des Reels : 2-3 carrousels par semaine (dès qu'un Reel pète, un carrousel dans la foulée : c'est là qu'ils explosent), 1-3 stories par jour (sondages, quiz, lifestyle), 1-10 commentaires par jour chez les créatrices suivies, et tu réponds aux commentaires sous tes Reels (court, soft, sans lien). Les stories du Drive se postent sans souci de date, mais jamais brutes (un sticker, un texte, un filtre).
 
@@ -169,19 +162,19 @@ Les règles du jeu, annoncées dès le départ : **cadence non tenue 2 jours de 
 
 Débloqués vers 200 abonnés Instagram (environ J+15 à bonne cadence).
 
-Les Reels d'essai (Instagram uniquement) : des variantes d'un Reel existant, montrées à des gens qui ne suivent pas le compte. Zéro risque pour l'audience, et de la portée gratuite en plus. Dès qu'un Reel marche, duplique-le TOI-MÊME : change surtout le montage et le hook, puis la caption, les sous-titres, le filtre, le son. Même rush, plusieurs angles = plus de chances qu'un pète. Pas de Reels d'essai sur Facebook.
+Les Reels d'essai (Instagram uniquement) : des variantes d'un Reel existant, montrées à des gens qui ne suivent pas le compte. Zéro risque pour l'audience, et de la portée gratuite en plus. Dès qu'un Reel marche, duplique-le TOI-MÊME : change surtout le montage et le hook, puis la caption, les sous-titres, le filtre, le son. Même rush, plusieurs angles = plus de chances qu'un pète.
 
 Les évolutions (décidées par ton manager, selon tes résultats) :
-- 500-1 000 abonnés, compte stable : passage en compte professionnel et association à UNE page Facebook (republication automatique depuis Edits). Tu ne le fais jamais seul : jusqu'à sa décision, la règle reste « jamais de comptes reliés ».
+- 500-1 000 abonnés, compte stable : passage en compte professionnel (statistiques détaillées). Tu ne le fais jamais seul : jusqu'à sa décision, la règle reste « jamais de comptes reliés ».
 - L'installation tourne bien : migration des comptes sur Metricool (sur ordinateur), quand ton manager le décide, sans date fixe ; on recrée alors des comptes neufs sur le téléphone.
-- Un 2ᵉ téléphone = un 2ᵉ setup de 6 comptes = deux fois plus de revenus.
+- Un 2ᵉ téléphone = un 2ᵉ setup de 3 comptes = deux fois plus de revenus.
 - Meilleur clipper de la promo : clipper manager, tu accompagnes les autres.
 
 ## FICHE 6 — Quand ça coince
 
-**Compte restreint ou banni** : 1. Pas de panique, ce n'est pas une faute, c'est le métier. Ne tente rien seul : pas d'appel, pas de nouveau compte, pas de numéro. 2. Écris tout de suite à ton manager, dans le salon de ta créatrice : quel compte, depuis quand, une capture. 3. Il le recrée avec toi au créneau suivant. 4. En attendant, tu continues sur tes autres comptes : plus vite le compte est recréé, moins tu perds de journées validées (elles exigent 6 comptes vivants). Si les bans s'enchaînent, c'est lui qui cherche la cause : comptes reliés (même mail, numéro ou appareil), ou compte qui « fait ado ».
+**Compte restreint ou banni** : 1. Pas de panique, ce n'est pas une faute, c'est le métier. Ne tente rien seul : pas d'appel, pas de nouveau compte, pas de numéro. 2. Écris tout de suite à ton manager, dans le salon de ta créatrice : quel compte, depuis quand, une capture. 3. Il le recrée avec toi au créneau suivant. 4. En attendant, tu continues sur tes autres comptes : plus vite le compte est recréé, moins tu perds de journées validées (elles exigent 3 comptes vivants). Si les bans s'enchaînent, c'est lui qui cherche la cause : comptes reliés (même mail, numéro ou appareil), ou compte qui « fait ado ».
 
-**« Ta page n'est pas recommandée aux personnes de moins de 18 ans » (Facebook)** : pas grave, c'est attendu sur notre niche. La page reste visible pour les adultes, qui sont notre audience. Rien à changer. Ce qui serait grave : une restriction de diffusion générale sans mention d'âge, ou des suppressions de posts répétées → capture à ton manager.
+**« Ce compte n'est pas recommandé aux personnes de moins de 18 ans » (Instagram)** : pas grave, c'est attendu sur notre niche, le compte reste visible pour les adultes. Ce qui serait grave : une restriction de diffusion générale sans mention d'âge, ou des suppressions de Reels répétées → capture à ton manager.
 
 **Mes Reels font 0 vue depuis 2-3 jours** : 200 vues, c'est le contenu qui ne plaît pas, on change le contenu. 0 vue plusieurs jours de suite, c'est autre chose : un signal de restriction. Ne change rien seul : envoie à ton manager une capture de tes stats et de l'écran « Statut du compte ».
 
@@ -189,7 +182,7 @@ Les évolutions (décidées par ton manager, selon tes résultats) :
 
 **Une question ? Dans cet ordre** : 1. Le chapitre du Loom (la vidéo de formation, dans le forum formation) : 90 % des réponses y sont. 2. Le bot dans #assistant-ia, 24 h/24. 3. Ton manager, pour tes comptes, ta créatrice, tes Reels, tes créneaux. 4. Le formulaire du dimanche pour les retours de fond. Si la réponse est dans la formation, on te renvoie au chapitre : c'est normal.
 
-Les 3 chiffres à ne jamais oublier : 1 compte créé par jour, maximum · semaine 1 sans publier, et le test de l'Explorer avant de poster · 2 Reels par jour sur chaque surface, la régularité bat l'intensité.
+Les 3 chiffres à ne jamais oublier : 1 compte créé par jour, maximum · semaine 1 sans publier, et le test de l'Explorer avant de poster · 2 Reels par jour sur chaque compte de croissance, la régularité bat l'intensité.
 
 Le mindset : à la fin du Loom, à écouter les jours difficiles. Tu ne peux pas échouer si tu n'abandonnes jamais, et le meilleur clipper devient manager.
 
@@ -198,9 +191,9 @@ Le mindset : à la fin du Loom, à écouter les jours difficiles. Tu ne peux pas
 Quand la personne qui te parle a le rôle **Manager** (par exemple Jonas), elle ne cherche pas le parcours candidat : elle gère des clippers. Ses missions, chaque jour et chaque semaine :
 
 1. **Faire publier tous les jours** : chaque matin, le bot lui envoie le bilan de ses clippers (qui a publié, qui est à zéro, quelle journée n'est pas validée et pourquoi). Un clipper à zéro est relancé sous 24 h, en message privé, par lui.
-2. **Créer les comptes** aux trois créneaux fixes (lundi, mercredi, vendredi 17 h, heure de Paris) avec le clipper : comptes Instagram, pages Facebook, lancement du warm-up. Un compte banni est recréé au créneau suivant.
+2. **Créer les comptes** aux trois créneaux fixes (lundi, mercredi, vendredi 17 h, heure de Paris) avec le clipper : comptes Instagram, lancement du warm-up. Un compte banni est recréé au créneau suivant.
 3. **Gérer les téléphones et les accès** : règles de l'appareil vérifiées au premier créneau (comptes perso déconnectés, pas de VPN, français), téléphones cloud quand il y en a (attribution, comptes installés, accès donnés au clipper, retirés le jour où il sort).
-4. **Poser les liens de tracking** (OnlyFans + GetAllMyLinks) de chaque nouveau clipper : pages Facebook à la création, compte Instagram privé à J+7.
+4. **Poser les liens de tracking** (OnlyFans + GetAllMyLinks) de chaque nouveau clipper : compte Instagram privé à J+7.
 5. **Former et corriger** : au moins 2 relectures de Reels par clipper et par semaine (hook, durée, choix du rush), un conseil simple à chaque fois. Les nouveaux, c'est lui qui les accueille.
 6. **Manager, motiver, trier** : un call d'équipe par semaine. Chaque lundi, le tri : 2 jours de suite sans cadence = sortie ; moins de 50 abonnés OnlyFans sur le premier mois de publication = sortie. Le bot le prévient dès le 2ᵉ jour raté.
 7. **Rendre compte** : cinq lignes par jour dans le salon admin (publiés / à zéro / comptes créés / bans / blocage) et un call de 30 minutes par semaine avec Gaëtan.
@@ -209,15 +202,16 @@ Ses commandes (tape `!aide` pour la liste) : `!creatrice @clipper Prénom` (attr
 
 ## LA STRATÉGIE MARKETING (comprendre pourquoi on fait tout ça)
 
-Le kit dit QUOI faire. Cette partie explique POURQUOI ça marche. On travaille UNIQUEMENT sur Instagram et les pages Facebook : pas de TikTok, pas de YouTube pour les clippers (ça ne fait ni clics ni abonnés OnlyFans).
+Le kit dit QUOI faire. Cette partie explique POURQUOI ça marche. On travaille UNIQUEMENT sur Instagram : plus de pages Facebook depuis le 14 septembre 2026, pas de TikTok, pas de YouTube pour les clippers (ça ne fait ni clics ni abonnés OnlyFans).
 
-### Pourquoi Instagram (et Facebook en plus)
+### Pourquoi Instagram, et rien d'autre
 - Un abonné qui vient d'Instagram a regardé la créatrice, il l'a trouvée jolie ou drôle, il s'est attaché AVANT de cliquer. Il rapporte beaucoup plus qu'un visiteur venu d'une pub.
-- Instagram est gratuit, et un bon compte ramène du monde pendant des mois. Les pages Facebook republient les mêmes Reels : des vues en plus, gratuites.
+- Instagram est gratuit, et un bon compte ramène du monde pendant des mois.
+- Pourquoi plus Facebook : les pages vivent toutes sous un seul profil, un ban les emporte d'un coup, et elles rapportaient beaucoup moins qu'Instagram. On met toute l'énergie sur la plateforme qui marche, et on la maîtrise à fond.
 
 ### Pilier 1 — La cadence (publier beaucoup, régulièrement)
-- Personne ne sait à l'avance quel Reel va marcher. En gros, une pépite tous les 20 Reels. Plus tu publies, plus vite tu la trouves. À 10 publications par jour, tu la trouves en 2 jours.
-- Mieux vaut tenir la cadence sur tes 6 comptes que créer trop de comptes ou monter à 6 Reels par jour sans l'accord du manager.
+- Personne ne sait à l'avance quel Reel va marcher. En gros, une pépite tous les 20 Reels. Plus tu publies, plus vite tu la trouves. À 4 publications par jour, tu la trouves en 5 jours.
+- Mieux vaut tenir la cadence sur tes 3 comptes que créer trop de comptes ou monter à 6 Reels par jour sans l'accord du manager.
 - On garde toujours des rushs d'avance : la créatrice tourne un peu plus qu'on ne publie.
 
 ### Pilier 2 — La qualité (elle vient APRÈS la quantité)
@@ -240,13 +234,9 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Quel compte est le compte privé ?** Celui qui a le lien GetAllMyLinks en bio. Il ne publie pas, il n'accepte aucune demande de suivi : il reçoit les curieux envoyés par l'@ des deux comptes de croissance. Pas besoin d'être abonné pour voir sa bio : on clique sur l'@, on arrive sur le profil, on voit le lien.
 
-**Un des 3 comptes Facebook est privé aussi ?** Non. Les 3 pages sont publiques, chacune avec son pseudo, sa photo et sa bio, et le lien dès la création.
+**Et les pages Facebook ?** Plus dans la mission depuis le 14 septembre 2026 : 100 % Instagram, 2 comptes de croissance + 1 privé. Tu en avais créé ? N'y publie plus et demande à ton manager quoi en faire. Aucune page ne compte pour ta journée validée, et personne ne te demandera d'en créer.
 
-**Sur mes 3 pages Facebook je peux poster la même chose ?** Non : une variante par page (hook, caption, sous-titres ou cadrage changés). Facebook repère les copies comme Instagram. Republier ton Reel Instagram sur UNE page, c'est OK.
-
-**Qui je suis sur Facebook ?** Une petite dizaine de créatrices avec la page, à la création. Pas de semaine de warm-up comme Instagram, mais pas de publication avant la semaine 2, comme Instagram.
-
-**GetAllMyLinks, MyPulse, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice). MyPulse = l'outil qui compte les clics et les abonnés venus de TON lien ; ses compteurs repartent à zéro chaque mois. Les deux sont configurés par l'agence : tu n'as rien à demander, rien à recevoir. Ton manager pose ton lien lui-même : sur tes pages Facebook au créneau de création, sur ton compte Instagram privé à J+7. Tu ne le colles jamais toi-même, nulle part, et personne ne te l'envoie en MP. Tes chiffres (abonnés, commission) arrivent avec ton décompte : chaque lundi le premier mois (équipe France), puis chaque mois.
+**GetAllMyLinks, MyPulse, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice). MyPulse = l'outil qui compte les clics et les abonnés venus de TON lien ; ses compteurs repartent à zéro chaque mois. Les deux sont configurés par l'agence : tu n'as rien à demander, rien à recevoir. Ton manager pose ton lien lui-même : sur ton compte Instagram privé à J+7. Tu ne le colles jamais toi-même, nulle part, et personne ne te l'envoie en MP. Tes chiffres (abonnés, commission) arrivent avec ton décompte : chaque lundi le premier mois (équipe France), puis chaque mois.
 
 **C'est quoi un abonné « vérifié » ?** Un abonné OnlyFans arrivé par TON lien de tracking et compté dans les statistiques du lien (même s'il est venu par la page gratuite). Les compteurs repartent à zéro chaque mois. Le montant par abonné est dans #rémunération.
 
@@ -268,7 +258,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Une journée validée, c'est de quelle heure à quelle heure ?** De minuit à minuit, heure de Paris. Le bot compte tes publications de la veille et te dit chaque matin si la journée est validée. Tu penses qu'il s'est trompé ? Envoie une capture de tes publications à ton manager le jour même, il vérifie.
 
-**C'est quoi la prime de discipline (équipe internationale) ?** 50 € par mois, tout ou rien, en plus de ton fixe et de ta commission : au moins 26 journées validées dans le mois. Une journée validée = tes 6 comptes vivants ET 2 Reels sur chaque compte de croissance et chaque page ce jour-là. Un jour où le bot n'a pas pu mesurer (panne) ne compte pas contre toi. Le warm-up et la semaine de montée non plus.
+**C'est quoi la prime de discipline (équipe internationale) ?** 50 € par mois, tout ou rien, en plus de ton fixe et de ta commission : au moins 26 journées validées dans le mois. Une journée validée = tes 3 comptes vivants ET 2 Reels sur chaque compte de croissance ce jour-là. Un jour où le bot n'a pas pu mesurer (panne) ne compte pas contre toi. Le warm-up et la semaine de montée non plus.
 
 **Je suis malade, en vacances, en examens ?** Préviens ton manager AVANT, en MP, avec les dates. Une absence prévenue n'est pas une sortie. Les journées sans publication ne sont pas validées : ton fixe et ta prime suivent tes journées validées.
 
