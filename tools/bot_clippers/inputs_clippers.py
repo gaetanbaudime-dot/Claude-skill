@@ -72,6 +72,10 @@ SUBS_MIN_PREMIER_MOIS = int(os.environ.get("SUBS_MIN_PREMIER_MOIS", "50"))
 ACTIF_TAUX_MIN = float(os.environ.get("ACTIF_TAUX_MIN", "0.8"))   # clipper « actif » = ≥ 80 % de jours validés
 # Heure UTC d'envoi du rapport quotidien (9 = 11h à Paris l'été, 13h à Dubaï).
 HEURE_RAPPORT = int(os.environ.get("HEURE_RAPPORT_INPUTS", "9"))
+# Simplification du 14/09 : bilan clipper COURT (4 lignes) par défaut, Telegram seulement le lundi
+# (rapport hebdo) sauf TELEGRAM_QUOTIDIEN=1, rapport du matin au MANAGER (Gaëtan lit l'hebdo).
+RAPPORT_CLIPPER_COURT = os.environ.get("RAPPORT_CLIPPER", "court").strip().lower() != "long"
+TELEGRAM_QUOTIDIEN = os.environ.get("TELEGRAM_QUOTIDIEN", "0").strip() == "1"
 # Salons à ignorer dans la cartographie : réserves de comptes non attribués.
 SALONS_IGNORES = {s.strip().lower() for s in
                   os.environ.get("SALONS_RESERVE", "xxx,yyy,zzz,reserve,reserves,stock,libre").split(",")
@@ -691,8 +695,48 @@ def message_primes(historique: dict, mois: str, subs: dict = None, debuts: dict 
 
 
 # ------------------------------------------------------------------ 4. messages
+def message_clipper_court(prenom: str, b: dict) -> str:
+    """Le bilan du matin en 4 lignes (simplification du 14/09 : « même moi je comprends rien ») :
+    ce qui s'est passé hier, deux chiffres, la journée pour la prime, et une alerte seulement si
+    elle existe. Tout le reste est du bruit pour un clipper."""
+    posts, cadence = b["posts_24h"], b.get("cadence", CADENCE_MIN)
+    if b.get("phase", "").startswith("warm-up"):
+        entete = "🌱 Warm-up : rien à publier, la routine de la Fiche 2 suffit."
+    elif not b.get("ig_en_retard") and b["detail"]:
+        entete = f"✅ **{posts} Reels hier**, cadence tenue ({cadence} par compte)."
+    elif posts > 0:
+        entete = (f"⚠️ **{posts} Reels hier**, en retard sur " + ", ".join("@" + c for c in b["ig_en_retard"])
+                  + f" (objectif {cadence} par compte).")
+    else:
+        entete = f"🔴 **0 Reel hier** (objectif {cadence} par compte). Bloqué ? Dis-le ici à ton manager."
+    delta = f" ({b['delta_followers']:+d})" if b.get("delta_followers") is not None else ""
+    stats = f"👁️ {b['vues_24h']:,} vues · 👥 {b['followers']:,} abonnés{delta}".replace(",", " ")
+    n_ok, cible = b.get("jours_ok_mois", 0), PRIME_JOURS_MIN
+    if b.get("journee_ok") is None:
+        prime = f"⏸️ Journée non évaluée (mesure incomplète) — {n_ok}/{cible} ce mois-ci."
+    elif b.get("journee_ok"):
+        prime = f"🏅 Journée validée — {n_ok}/{cible} ce mois-ci."
+    else:
+        manque = list(b.get("manques_structure") or [])
+        if b.get("ig_en_retard"):
+            manque.append("cadence : " + ", ".join("@" + c for c in b["ig_en_retard"]))
+        prime = f"❌ Journée non validée ({' · '.join(manque) or 'cadence'}) — {n_ok}/{cible} ce mois-ci."
+    alertes = []
+    if b["restreints"]:
+        alertes.append("🔞 Compte marqué 18+ : " + ", ".join("@" + c for c in b["restreints"])
+                       + " → capture à ton manager aujourd'hui.")
+    if b["injoignables"]:
+        alertes.append("🚫 Compte injoignable : " + ", ".join("@" + c for c in b["injoignables"])
+                       + " → ton manager le recrée au créneau.")
+    if b.get("deux_jours_rates"):
+        alertes.append("🚨 Deux journées ratées de suite : parle à ton manager aujourd'hui.")
+    return "\n".join([f"📊 **{prenom} — hier**", entete, stats, prime] + alertes)
+
+
 def message_clipper(prenom: str, b: dict) -> str:
     """Le bilan personnel envoyé dans le salon privé du clipper — factuel, jamais moralisateur."""
+    if RAPPORT_CLIPPER_COURT:
+        return message_clipper_court(prenom, b)
     posts, cible, cadence = b["posts_24h"], b["cadence_attendue"], b.get("cadence", CADENCE_MIN)
     if b.get("phase", "").startswith("warm-up"):
         entete = "🌱 **Semaine de warm-up** — aucune publication attendue, seulement la routine de la Fiche 2."
@@ -891,9 +935,67 @@ def message_recap(bilan: dict, date_jour: str, veille: dict = None, comptes: dic
                          if any(_normaliser(n) == _normaliser(c) for c in TOP_CREATRICES)):
         priorite = "créer des comptes — la file « à créer » du sheet attend les pods"
     else:
-        priorite = f"rien d'urgent — féliciter {top[0]} dans #dopamine" if top[0] else "rien d'urgent"
+        priorite = f"rien d'urgent — féliciter {top[0]} dans le salon de sa créatrice" if top[0] else "rien d'urgent"
     lignes.append(f"👉 *LA priorité : {priorite}*")
     lignes.append("_Détail par clipper : !inputs detail_")
+    return "\n".join(lignes)
+
+
+def message_hebdo(historique: dict, subs: dict = None, comptes: dict = None, jour: str = None) -> str:
+    """Le rapport du LUNDI pour Gaëtan (simplification du 14/09) : sept jours en cinq lignes —
+    Reels et tendance, clippers actifs, journées validées, surfaces face à l'objectif, abonnés OF
+    saisis, le podium et les zéros, UNE priorité. Le quotidien va au manager ; lui lit ceci."""
+    jours = sorted(j for j in (historique or {}) if not jour or j <= jour)
+    if not jours:
+        return "📅 *SEMAINE MARKETING* — aucun historique d'inputs encore."
+    sem, prec = jours[-7:], jours[-14:-7]
+    def _clippers(j):
+        return {n: v for n, v in historique[j].items()
+                if not _normaliser(v.get("creatrice", "")).startswith("metricool")}
+    def _reels(js):
+        return sum(v.get("posts_24h", 0) for j in js for v in _clippers(j).values())
+    reels_s, reels_p = _reels(sem), (_reels(prec) if prec else None)
+    par_clipper, jours_actifs, valides, evalues = {}, {}, 0, 0
+    for j in sem:
+        for n, v in _clippers(j).items():
+            par_clipper[n] = par_clipper.get(n, 0) + v.get("posts_24h", 0)
+            if v.get("posts_24h", 0) > 0:
+                jours_actifs[n] = jours_actifs.get(n, 0) + 1
+            if "journee_ok" in v:
+                evalues += 1
+                valides += 1 if v["journee_ok"] else 0
+    actifs = [n for n, k in jours_actifs.items() if k >= min(4, len(sem))]
+    zeros = [n for n, t in par_clipper.items() if t == 0]
+    podium = sorted(par_clipper.items(), key=lambda x: -x[1])[:3]
+    d1 = datetime.strptime(sem[0], "%Y-%m-%d").strftime("%d/%m")
+    d2 = datetime.strptime(sem[-1], "%Y-%m-%d").strftime("%d/%m")
+    tendance = f" ({reels_s - reels_p:+d} vs semaine précédente)" if reels_p is not None else ""
+    pct = f" ({valides * 100 // evalues} %)" if evalues else ""
+    lignes = [f"📅 *SEMAINE MARKETING — du {d1} au {d2}*",
+              f"🎬 *{reels_s} Reels*{tendance} · {len(actifs)}/{len(par_clipper)} clippers actifs (≥ 4 jours sur 7) · "
+              f"{valides}/{evalues} journées validées{pct}"]
+    surfaces = bloc_comptes(comptes or {})
+    if surfaces:
+        lignes.append(surfaces)
+    if podium and podium[0][1]:
+        lignes.append("🥇 " + " · ".join(f"{n} {t}" for n, t in podium if t))
+    if zeros:
+        lignes.append(f"🔴 Zéro Reel sur la semaine : {', '.join(zeros[:8])}" + (f" +{len(zeros) - 8}" if len(zeros) > 8 else ""))
+    if subs:
+        tri = sorted(((n, int(v)) for n, v in subs.items()), key=lambda x: -x[1])
+        lignes.append(f"🎯 Abonnés OF saisis ce mois : *{sum(v for _, v in tri)}* — "
+                      + " · ".join(f"{n} {v}" for n, v in tri[:3]))
+    manque = [n for n, f in (comptes or {}).items()
+              if any(_normaliser(n) == _normaliser(c) for c in TOP_CREATRICES) and f["vivants"] < OBJECTIF_COMPTES_IG]
+    if zeros:
+        priorite = f"trancher pour les {len(zeros)} à zéro toute la semaine (règle : sortie)"
+    elif manque:
+        priorite = "créer des comptes : " + ", ".join(manque[:3]) + f" sous l'objectif de {OBJECTIF_COMPTES_IG}"
+    elif reels_p is not None and reels_s < reels_p:
+        priorite = "la production baisse : demander au manager pourquoi, clipper par clipper"
+    else:
+        priorite = "tenir — rien d'urgent cette semaine"
+    lignes.append(f"👉 *LA priorité : {priorite}*")
     return "\n".join(lignes)
 
 
@@ -1036,7 +1138,8 @@ async def executer(client, guild, canal_admin=None, silencieux=False, debuts=Non
     comptes = await compter_comptes_creatrices()
     date_aff = datetime.strptime(jour, "%Y-%m-%d").strftime("%d/%m")
     recap = message_recap(bilan, date_aff, veille, comptes)
-    await envoyer_telegram(recap)
+    if TELEGRAM_QUOTIDIEN:
+        await envoyer_telegram(recap)
     if canal_admin is not None:
         try:
             await canal_admin.send(recap.replace("*", "**")[:1990])
@@ -1065,7 +1168,7 @@ async def executer(client, guild, canal_admin=None, silencieux=False, debuts=Non
 
 
 async def boucle_inputs(client, canal_admin_async, fichier_etat, lire_json, ecrire_json,
-                        debuts_fn=None, notifier=None):
+                        debuts_fn=None, notifier=None, canal_rapport_async=None, subs_fn=None):
     """Boucle quotidienne : une exécution par jour à HEURE_RAPPORT (UTC), 3 tentatives espacées de
     15 min, et la journée n'est marquée faite QUE si le cycle a abouti (un jour d'échec était marqué
     fait → trou d'un jour dans les primes, audit 10/09). Inerte sans APIFY_TOKEN."""
@@ -1084,7 +1187,8 @@ async def boucle_inputs(client, canal_admin_async, fichier_etat, lire_json, ecri
                 if nb < 3:
                     erreurs = []
                     for guild in client.guilds:
-                        _, erreur = await executer(client, guild, await canal_admin_async(),
+                        canal_rapport = await (canal_rapport_async or canal_admin_async)()
+                        _, erreur = await executer(client, guild, canal_rapport,
                                                    debuts=(debuts_fn() if debuts_fn else None), notifier=notifier)
                         if erreur:
                             erreurs.append(erreur)
@@ -1092,6 +1196,19 @@ async def boucle_inputs(client, canal_admin_async, fichier_etat, lire_json, ecri
                     if not erreurs:
                         etat["inputs"] = aujourdhui
                         etat.pop("inputs_tentatives", None)
+                        # Le lundi : le rapport de la semaine à Gaëtan (salon admin + Telegram).
+                        if maintenant.weekday() == 0 and etat.get("hebdo") != aujourdhui:
+                            try:
+                                hist = _lire({"historique": {}}).get("historique", {})
+                                hebdo = message_hebdo(hist, subs_fn() if subs_fn else None,
+                                                      await compter_comptes_creatrices())
+                                canal_h = await canal_admin_async()
+                                if canal_h is not None:
+                                    await canal_h.send(hebdo.replace("*", "**")[:1990])
+                                await envoyer_telegram(hebdo)
+                                etat["hebdo"] = aujourdhui
+                            except Exception as erreur_h:                    # noqa: BLE001
+                                journal.warning("Rapport hebdo : %s", erreur_h)
                     else:
                         etat.setdefault("inputs_tentatives", {})[aujourdhui] = nb + 1
                         journal.warning("Inputs clippers : tentative %d/3 échouée — %s", nb + 1, " ; ".join(erreurs))

@@ -2156,7 +2156,7 @@ async def boucle_rappels():
                     lignes_d.insert(0, "✅ Rien qui n'attende TON action aujourd'hui"
                                     + (f" · {en_test} test(s) en cours" if en_test else "")
                                     + " — je relance les candidats tout seul.")
-                canal = await canal_admin()
+                canal = await canal_manager()                    # le manager agit, Gaëtan lit l'hebdo (14/09)
                 if canal is not None:
                     try:
                         texte_digest = ("☕ **Pipeline candidats — " + maintenant.strftime("%d/%m") + "**\n"
@@ -2169,8 +2169,9 @@ async def boucle_rappels():
                         def _prenom(m):
                             membre_n = membre_par_id(m.group(1))
                             return membre_n.display_name if membre_n else "membre parti"
-                        await inputs_clippers.envoyer_telegram(
-                            re.sub(r"<@!?(\d+)>", _prenom, texte_digest).replace("**", "*"))
+                        if inputs_clippers.TELEGRAM_QUOTIDIEN:
+                            await inputs_clippers.envoyer_telegram(
+                                re.sub(r"<@!?(\d+)>", _prenom, texte_digest).replace("**", "*"))
                     except (discord.Forbidden, discord.HTTPException):
                         pass
             # Relance du soir (18 h Paris) : les tests qui attendent encore le OUI/NON de l'admin.
@@ -2544,10 +2545,10 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "**Tunnel** : `!pipeline` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!comptes` · `!inputs [maintenant|test|detail]` · "
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
                 "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM]` · `!alias` · `!code`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
-                "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement)\n"
+                "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement) · `!archiver #salon…`\n"
                 "**Paie/compteur** : `!paiement @x 50 raison` · `!ajuster` · `!compteur` · `!rang` · `!invites` · `!bumps`\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!sauvegarde`\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
@@ -4102,6 +4103,49 @@ async def commande_admin(message, texte: str) -> bool:
         journal.info("Import CSV : %d candidatures, %d rejets", nb, len(rejets))
         return True
 
+    # ---- !hebdo : le rapport de la semaine (celui du lundi), à la demande ----
+    if texte.startswith("!hebdo"):
+        historique_h = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
+        subs_h = lire_json(FICHIER_SUBS, {}).get(heure_paris().strftime("%Y-%m"), {})
+        comptes_h = await inputs_clippers.compter_comptes_creatrices()
+        await envoyer_long(message, inputs_clippers.message_hebdo(historique_h, subs_h, comptes_h)
+                           .replace("*", "**").split("\n"))
+        return True
+
+    # ---- !archiver #salon… : range des salons dans la catégorie « Archives » (masquée), réversible ----
+    # Simplification du 14/09 (« même moi je comprends rien ») : on ne supprime rien, on range.
+    if texte.startswith("!archiver"):
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        cat = discord.utils.find(lambda c: "archives" in normaliser(c.name), g.categories)
+        salons = [c for c in message.channel_mentions if isinstance(c, (discord.TextChannel, discord.ForumChannel))]
+        if not salons:
+            ranges = [c.name for c in (cat.channels if cat else [])]
+            await message.reply("Format : `!archiver #salon #salon…` — les salons partent dans la catégorie "
+                                "« 🗄️ Archives » (masquée à tous, rien n'est supprimé ; pour revenir, glisse le salon "
+                                "hors de la catégorie).\n"
+                                + (f"Déjà rangés : {', '.join(ranges)}" if ranges else "Rien de rangé pour l'instant."))
+            return True
+        proteges = {str(x) for x in (CANAL_ADMIN_ID, CANAL_MANAGER_ID, CANAL_ASSISTANT_ID, CANAL_BOT_ID) if x}
+        if cat is None:
+            cat = await g.create_category("🗄️ Archives", overwrites={
+                g.default_role: discord.PermissionOverwrite(view_channel=False)}, reason="!archiver")
+        faits, refus = [], []
+        for c in salons:
+            if str(c.id) in proteges:
+                refus.append(f"{c.name} (salon vital du bot)")
+                continue
+            try:
+                await c.edit(category=cat, sync_permissions=True, reason=f"!archiver par {message.author}")
+                faits.append(c.name)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                refus.append(f"{c.name} ({erreur})")
+        await message.reply(("🗄️ Rangés dans Archives : " + ", ".join(faits) if faits else "Rien de rangé.")
+                            + (f"\n⚠️ Refusés : {' · '.join(refus)}" if refus else ""))
+        return True
+
     # ---- !sauvegarde : les JSON du volume postés en pièces jointes (mémoire de la machine) ----
     if texte.startswith("!sauvegarde"):
         fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
@@ -4440,7 +4484,9 @@ async def on_ready():
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
         client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
             client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
-            debuts_fn=debuts_clippers, notifier=notifier_manager))
+            debuts_fn=debuts_clippers, notifier=notifier_manager,
+            canal_rapport_async=canal_manager,                   # le quotidien va au manager (14/09)
+            subs_fn=lambda: lire_json(FICHIER_SUBS, {}).get(heure_paris().strftime("%Y-%m"), {})))
 
 
 async def annoncer_demarrage():

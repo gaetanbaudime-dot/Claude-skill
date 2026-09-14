@@ -151,8 +151,8 @@ discipline. Ce module mesure ce que le clipper contrôle : **le nombre de Reels 
 
 **La source de vérité : le Google Sheet** (`SHEET_CSV_URL`). À défaut, le bot retombe sur les
 **descriptions (topics) des salons Discord** — ainsi une panne du Sheet n'arrête jamais le suivi.
-Il interroge ensuite Apify une fois par jour et poste le bilan dans le salon privé de chaque
-clipper + un récap sur Telegram.
+Il interroge ensuite Apify une fois par jour et poste le bilan (4 lignes) dans le salon privé de chaque
+clipper + le rapport du matin dans le salon du manager (Telegram : le lundi seulement, voir ci-dessous).
 
 ### 🔐 Brancher le Sheet en 3 minutes (à faire une seule fois)
 
@@ -209,7 +209,8 @@ Instagram à un actor Apify** — c'est la seule chose qui créerait un risque r
 | `APIFY_ACTOR_IG` | Actor Instagram (défaut `apify~instagram-profile-scraper`) |
 | `APIFY_ACTOR_FB` | Actor Facebook (défaut `apify~facebook-posts-scraper`) |
 | `FB_POSTS_MAX` | Publications lues par page Facebook (défaut `6` — ~2 $/1 000) |
-| `TELEGRAM_TOKEN` / `TELEGRAM_CHAT_ID` | Récap quotidien poussé dans le rapport Telegram (optionnel) |
+| `TELEGRAM_TOKEN` / `TELEGRAM_CHAT_ID` | Rapport hebdo du lundi sur Telegram (quotidien seulement si `TELEGRAM_QUOTIDIEN=1`) |
+| `RAPPORT_CLIPPER` | `court` (défaut, 4 lignes) ou `long` |
 | `CADENCE_REELS_MIN` | Reels/jour exigés par compte (défaut `3`) |
 | `HEURE_RAPPORT_INPUTS` | Heure UTC d'envoi (défaut `9` — 11 h à Paris, 13 h à Dubaï) |
 | `SALONS_RESERVE` | Salons ignorés, séparés par des virgules (défaut `xxx,yyy,zzz,reserve,…`) |
@@ -373,6 +374,27 @@ est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recru
   exacte, mails Meta sans mot « code/confirmation » ignorés, panne signalée une fois puis « revenu ».
 - **Assistant** : escalade vers le manager pour l'opérationnel, jamais de délai ou de montant inventé,
   jamais de contournement, étiquette de source unique en fin de réponse.
+
+## 🧭 Trois rapports, pas douze (simplification du 14/09)
+
+« Même moi je comprends rien » : le bot produisait un bilan long par clipper, un récap Telegram, une copie
+admin, un digest candidats en admin ET sur Telegram, des salons-compteurs… Depuis le 14/09 :
+
+| Qui | Quand | Où | Quoi |
+|---|---|---|---|
+| **Le clipper** | chaque matin | son salon privé | **4 lignes** : hier (✅/⚠️/🔴), vues + abonnés, journée validée ou non pour la prime, une alerte seulement si elle existe |
+| **Le manager** | chaque matin | son salon (`CANAL_MANAGER_ID`, repli admin) | le rapport MARKETING court (≤ 9 lignes, une priorité) + le point candidats (« Pipeline ») |
+| **Gaëtan** | le lundi | salon admin + Telegram | le rapport de la **semaine** en 5 lignes (`!hebdo` à la demande) : Reels et tendance, clippers actifs, journées validées, surfaces face à l'objectif, abonnés OF saisis, podium et zéros, une priorité |
+
+Réglages : `RAPPORT_CLIPPER=long` pour revenir au bilan détaillé · `TELEGRAM_QUOTIDIEN=1` pour recevoir aussi
+le quotidien sur Telegram (défaut : hebdo seulement). Le salon admin ne reçoit plus que l'hebdo, les pannes
+(3 échecs du cycle) et le message de démarrage. Les salons-compteurs (`CANAL_STAT_*`) : supprimer les salons
+et leurs variables, rien d'autre à faire.
+
+**`!archiver #salon #salon…`** (admin) range des salons dans une catégorie « 🗄️ Archives » masquée à tous —
+rien n'est supprimé, un glisser-déposer hors de la catégorie les fait revenir. Les salons vitaux du bot
+(admin, manager, assistant) sont refusés. Cible du 14/09 : `#tips` (captions épinglées dans `#ressources`),
+`#dopamine` (victoires dans `#annonces`) ; `#bump` et les deux compteurs se suppriment.
 
 ## ⚠️ Compteurs remis à zéro ? (persistance des données)
 

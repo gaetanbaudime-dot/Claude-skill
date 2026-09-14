@@ -38,14 +38,13 @@ Problèmes fréquents : le bot ne t'a pas écrit → ouvre tes messages privés 
 - **Forum formation** : le post « Bienvenue » (vidéo + quiz), puis Fiche 1 à 6 et le Kit Clipper à imprimer.
 - **#assistant-ia** : mes réponses 24 h/24. Si je ne sais pas, je te dis vers qui aller.
 - **Le salon de ta créatrice** : ouvert par ton manager une fois dans l'équipe. Ses rushs et modèles (Drive en lecture), tes retours, tes captures, tes questions sur tes comptes. C'est ton salon de travail, il n'y en a pas d'autre.
-- **#tips et #ressources** : captions, tutos, la liste des créatrices à suivre pour le warm-up. Ils s'ouvrent une fois dans l'équipe (rôle Team France ou Team International), pas avant. Candidat ou test en cours ? Le forum formation suffit.
+- **#ressources** : les captions, les tutos, la liste des créatrices à suivre pour le warm-up. Il s'ouvre une fois dans l'équipe (rôle Team France ou Team International), pas avant. Candidat ou test en cours ? Le forum formation suffit.
 - **#reporting** (équipe) : ton compte-rendu chaque dimanche, obligatoire pour le fixe. Le formulaire est épinglé dedans.
 - **#rémunération-fr ou #rémunération-int, et #bonus** (de ta grille, France ou International) : les montants exacts de ton fixe, ta commission, tes bonus. Ouverts dès que ta candidature est reliée.
-- **#dopamine** : les paiements et les victoires de l'équipe, en public.
-- **#bump** : tape `/bump` quand le bot le rappelle. Classement `!bumps`.
-- **#annonces** : les annonces officielles. On lit, on ne répond pas.
+- **#annonces** : les annonces officielles, les paiements et les victoires de l'équipe. On lit, on ne répond pas.
+- Un autre salon que tu verrais passer (tips, dopamine, bump…) est archivé : il ne sert plus, tout est dans les salons ci-dessus.
 
-Commandes utiles pour tous : ton numéro en MP au bot = candidature reliée · `!quiz` (ton lien de quiz) · `!bumps` (classement du mois) · `!aide` (la liste des commandes selon ton rôle) · STOP en MP (plus de rappels).
+Commandes utiles pour tous : ton numéro en MP au bot = candidature reliée · `!quiz` (ton lien de quiz) · `!aide` (la liste des commandes selon ton rôle) · STOP en MP (plus de rappels).
 
 ## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram par téléphone
 
@@ -131,7 +130,7 @@ La préparation (une seule fois) : télécharger les « bases » (le top 10 des 
 La boucle par Reel (10-15 minutes au début, 5 avec l'habitude) :
 1. Télécharger un rush depuis le Drive de la créatrice.
 2. Dans Edits : « Remplacer le rush » du template.
-3. Modifier : filtre, début et fin coupés, zoom ou cadrage, son (celui de la base ou un son populaire), caption (celle de la base ou une variante, 100 idées dans #tips), sous-titres si elle parle, miniature.
+3. Modifier : filtre, début et fin coupés, zoom ou cadrage, son (celui de la base ou un son populaire), caption (celle de la base ou une variante, 100 idées dans #ressources), sous-titres si elle parle, miniature.
 4. Brouillon le matin → publication étalée dans la journée (pas de programmation automatique).
 5. Publier sur Instagram.
 
@@ -196,7 +195,7 @@ Quand la personne qui te parle a le rôle **Manager** (par exemple Jonas), elle 
 4. **Poser les liens de tracking** (OnlyFans + GetAllMyLinks) de chaque nouveau clipper : compte Instagram privé à J+7.
 5. **Former et corriger** : au moins 2 relectures de Reels par clipper et par semaine (hook, durée, choix du rush), un conseil simple à chaque fois. Les nouveaux, c'est lui qui les accueille.
 6. **Manager, motiver, trier** : un call d'équipe par semaine. Chaque lundi, le tri : 2 jours de suite sans cadence = sortie ; moins de 50 abonnés OnlyFans sur le premier mois de publication = sortie. Le bot le prévient dès le 2ᵉ jour raté.
-7. **Rendre compte** : cinq lignes par jour dans le salon admin (publiés / à zéro / comptes créés / bans / blocage) et un call de 30 minutes par semaine avec Gaëtan.
+7. **Rendre compte** : le bot poste chaque matin dans son salon le rapport de ses clippers et le point candidats (c'est le seul rapport quotidien) ; lui n'écrit à Gaëtan que ce qui bloque, et fait un call de 30 minutes par semaine avec lui. Gaëtan reçoit le rapport de la semaine chaque lundi.
 
 Ses commandes (tape `!aide` pour la liste) : `!creatrice @clipper Prénom` (attribue la créatrice, ouvre son salon, prévient le clipper) · `!fiche @clipper` (téléphone, prénom, état du parcours) · `!pipeline` (où en est chaque candidat) · `!tests` (tests à regarder) · `!quiz-ok`, `!test-ok`, `!test-non @candidat` (faire avancer ou refuser un candidat) · `!relance @candidat` (lui renvoyer sa prochaine étape) · `!inputs` (bilan de publication du jour, sans rien renvoyer aux clippers) · `!primes [AAAA-MM]` (journées validées, primes, commissions du mois) · `!subs @clipper 123` (saisir les abonnés OnlyFans du mois d'un clipper, pour les commissions) · `!sortie @clipper [raison]` (sortir un clipper : rôles et salons retirés, rappels coupés) · `!code <alias>` et `!alias` (codes de vérification des comptes). Sa fiche de poste complète est un document à part, envoyé par Gaëtan. Un manager qui demande « où sont mes étapes / ma fiche ? » : la réponse est cette section (ses missions et ses commandes) plus sa fiche de poste, jamais le parcours candidat ni la liste des 6 fiches.
 
@@ -318,7 +317,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Les sous-titres automatiques de CapCut sont payants ?** Utilise Edits (gratuit, sous-titres automatiques inclus, l'outil de la méthode). Sur CapCut gratuit, tu écris tes sous-titres à la main. Ne paie aucun abonnement pour ça.
 
-**Où trouver des captions pendant le test de montage ?** Les 100 idées sont dans #tips, ouvert une fois dans l'équipe. Pendant le test : ta propre caption, simple et en rapport. Ce qui compte, c'est le hook de la première seconde et la propreté du montage.
+**Où trouver des captions pendant le test de montage ?** Les 100 idées sont dans #ressources, ouvert une fois dans l'équipe. Pendant le test : ta propre caption, simple et en rapport. Ce qui compte, c'est le hook de la première seconde et la propreté du montage.
 
 **Le bot fournit-il des comptes ?** Non, le bot ne crée rien. Tes comptes se créent avec ton manager, au créneau, avec les adresses de l'agence. Tu les utilises, les identifiants restent à l'agence. Jamais de compte créé seul.
 
@@ -327,8 +326,6 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 **Où est le formulaire du dimanche ?** Épinglé dans #reporting. Tu ne vois pas #reporting ? Ton rôle d'équipe n'est pas encore actif.
 
 **Parrainer un clipper ?** Pas de programme automatique. Préviens Gaëtan AVANT que la personne postule (ton prénom + le sien). Les conditions se voient avec lui.
-
-**Que gagne-t-on avec les bumps ?** `/bump` fait remonter le serveur sur Disboard → plus de candidats. Classement `!bumps`, remis à zéro chaque mois. S'il y a une récompense, elle est annoncée dans #annonces.
 
 **Un inconnu m'envoie un MP avec une « offre » (lives TikTok, affiliation, autre agence) ?** Arnaque ou débauchage. L'agence ne te contacte jamais en MP pour un autre job et ne paie que via ce serveur. Ne réponds pas, bloque, et signale à Gaëtan avec une capture. Ne clique sur aucun lien.
 
