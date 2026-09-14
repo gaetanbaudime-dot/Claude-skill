@@ -94,3 +94,6 @@ Le découpage est juste sur le fond : l'agence a maintenant **deux moteurs** et 
 Ce qui est faux, c'est de faire de ce découpage **ton emploi du temps**. Une matinée et une après-midi de toi sur les deux pôles, c'est le fondateur redevenu opérateur des deux moteurs. Le cadre tient si les propriétaires sont **Jonas le matin et Rianah l'après-midi**, et si toi tu n'y passes que trois points de contact par semaine (section 4). Exception assumée : **jusqu'au 25/09**, tu es en mode manager-formateur du pôle Mada (tu montres, filmé, puis tu observes en comptant tes interventions). Le 28/09, à Dubaï, le matin est à Jonas seul.
 
 Le volume, chiffré : 17 contactés → 8 à 10 retenus réalistes → 3 comptes Instagram chacun = **24 à 30 comptes sur Chloé et Sophie**, 2 Reels par jour par compte de croissance = **32 à 40 Reels par jour**, environ 1 000 par mois. C'est l'ordre de grandeur de la méta de Maxime (30-40 comptes par modèle) pour la première fois depuis janvier.
+
+> [!info] Suite le même jour
+> Le tracking OF reçu l'après-midi chiffre le mix vertical/horizontal, le pôle malgache et le 70 k€, et révise deux points (Emma partie : Gaëtan tient le pôle Influ 30 jours ; le pod Sarah bascule sur Chloé) : [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]].
