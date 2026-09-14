@@ -41,6 +41,21 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 >
 > **La faute à ne pas commettre** : envoyer des clippers sur Sarah/Amanda parce qu'« elles sont grosses ». Plus de subs à 2 €/2,8 € de LTV ne fait quasi pas d'argent — c'est gâcher la ressource rare. **Amanda reste un chantier chat ; Sarah, corrigé le 19/07, n'est même pas un chantier : c'est une démonstration** — ~3 000 subs/mois GRATUITS via le débordement de trafic interne MYM (LTV structurelle ~3 €, confirmé Maxime). [[Supervision chatting (top 5) et le cas Sarah|Le vrai chantier est de la répliquer]] sur les créatrices qui monétisent. Cette matrice **complète** (ne remplace pas) l'ordre de montée créatrices du roster ci-dessous : le roster dit *dans quelles créatrices investir*, cette matrice dit *où va la main-d'œuvre clipping*. Les 4 créatrices à zéro rappellent le vrai plafond : **le trafic (clippers) est le goulot n°1 de l'agence** ([[Théorie des contraintes]]).
 
+### Valeur d'un abonné OF contre MYM — 30 jours au 14/09/2026 (classeur Data G&M, OF converti en € au taux du jour)
+
+| Créatrice | OF : abonnés · € · €/ab. | MYM : abonnés · € · €/ab. | Écart MYM − OF | Total 30 j |
+|---|---|---|---:|---:|
+| Chloé | 599 · 6 939 € · **11,6 €** | 1 562 · 12 076 € · 7,7 € | −3,8 € | 19 015 € |
+| Maddy | — | 411 · 7 707 € · **18,8 €** | — | 7 707 € |
+| Sarah | 582 · 826 € · **1,4 €** | 1 665 · 4 283 € · 2,6 € | +1,1 € | 5 109 € |
+| Sophie | 506 · 4 940 € · **9,8 €** | — | — | 4 940 € |
+| Clara | 233 · 1 844 € · 7,9 € | 539 · 1 414 € · 2,6 € | −5,3 € | 3 258 € |
+| Jade | 124 · 695 € · 5,6 € | 159 · 895 € · 5,6 € | 0 | 1 590 € |
+| Amanda | 109 · 750 € · 6,9 € | 173 · 445 € · 2,6 € | −4,3 € | 1 195 € |
+| **Total** | **2 153 · 15 993 € · 7,4 €** | **4 509 · 26 820 € · 5,9 €** | | **42 813 €** |
+
+Lecture : un abonné OF de Chloé vaut **11,6 €** contre 7,7 € sur MYM (sa page MYM gratuite fait le volume, l'OF fait la valeur) ; Clara et Amanda valent 3× plus sur OF que sur MYM ; Sarah vaut peu partout (1,4 / 2,6 €). Sur 7 jours (08-14/09) : Chloé OF 8,3 € · MYM 6,4 € ; Maddy MYM 24,4 € ; Sarah OF 1,1 € · MYM 3,3 € ; Sophie OF 5,5 €. Cette synthèse est recalculée chaque lundi par une routine et lue par le bot (`!ltv`, rapport du lundi).
+
 **Sheet « Data G&M Créatrices » (OF + MYM, €, Synthèse du 14/09/2026) :** 30 j glissants **42 819 €** pour 6 662 abonnés (6,43 €/ab.) — Chloé 19 017 € (2 161 ab., 8,80 €/ab.) · Maddy 7 707 € (411 ab., **18,75 €**) · Sarah 5 109 € (2 247 ab., **2,27 €**) · Sophie 4 942 € (506 ab., 9,77 €) · Clara 3 259 € (772 ab., 4,22 €) · Jade 1 590 € (283 ab.) · Amanda 1 196 € (282 ab.). Par mois : **juillet 54 616 € · août 45 324 € · septembre 1-14 : 21 878 €** (1 563 €/j). Vue OF/MYM séparée pour Chloé et Sarah demandée le 14/09 (reporting Telegram de la différence de LTV) : en cours.
 
 **MYM/MyPuls (€ NET, export du 11/09/2026) :** 30 j (13/08-11/09) **26 631 € (888/j)** · septembre 1-11 **12 395 € (1 127/j, rythme 33,8 k€)** · année 2026 **206 394 € (813/j)**. Mois : jan 28,3 k · fév 21,8 · mars 22,8 · avr 20,4 · mai 18,6 · juin 17,2 · **juil 35,5 k (record, vague Sarah + bascule gratuite Chloé)** · août 29,5 k. Composition 30 j : **PPV/push/MOD 54 %, pourboires 42 %, abonnements 4 %** → le modèle vit du chat (médias privés + tips), pas des abonnements. Snapshot précédent (14/06-13/07) : 30 j 21 943 €, année 140 314 €.
