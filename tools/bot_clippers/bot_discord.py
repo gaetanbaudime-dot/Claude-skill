@@ -2663,6 +2663,11 @@ NOMS_RESERVES = ("reporting", "ressource", "remuneration", "bonus", "discussion"
 # rangé dans le PREMIER étage dont un mot-clé apparaît dans son nom ; le reste (créatrices, admin,
 # vocaux) n'est jamais touché. Les rôles sont résolus au moment de l'exécution (noms Railway).
 def _doctrine_acces():
+    # Serveur FERMÉ (15/09) : tout le monde sur le serveur est signé ou staff, donc l'étage « réservé aux
+    # signés » n'a plus de raison d'exister — ressources, reporting et discussion deviennent visibles par
+    # @everyone. Ça supprime la classe de panne du 15/09 (Clarisse, Team International, ne voyait pas
+    # #ressources parce que l'overwrite de son rôle n'avait jamais pu être posé). La paie reste par équipe.
+    ferme = serveur_ferme()
     return [
         (("candidature", "annonce", "formation", "dopamine", "assistant", "bump", "tips",
           "checklist", "bienvenue", "deja paye", "clippers"),
@@ -2672,7 +2677,8 @@ def _doctrine_acces():
         (("remuneration-int", "remunerationint", "bonus-int", "bonusint"),
          False, [ROLE_GRILLE_INT_NOM, ROLE_TEAM_MG_NOM], "Paie INT — aperçu dès l'arrivée (grille) puis signé"),
         (("ressource", "reporting"),
-         False, [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM], "Réservé aux SIGNÉS (Team France + Team International)"),
+         ferme, [] if ferme else [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM],
+         "Serveur fermé : visible par tous (tous signés)" if ferme else "Réservé aux SIGNÉS (Team France + Team International)"),
         (("discussion-fr", "discussionfr", "disccusion-fr"),
          False, [ROLE_TEAM_FR_NOM], "Discussion Team France"),
         (("discussion-int", "discussionint", "disccusion-int"),
@@ -2680,7 +2686,8 @@ def _doctrine_acces():
         # « équipe » retiré le 15/09 : il attrapait #équipe-sarah / #équipe-chloé (salons de créatrices) et les
         # aurait ouverts à tous les signés. Seul un salon nommé discussion est commun.
         (("discussion", "disccusion"),
-         False, [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM], "Discussion commune des signés (architecture simple du 14/09)"),
+         ferme, [] if ferme else [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM],
+         "Serveur fermé : discussion visible par tous" if ferme else "Discussion commune des signés (architecture simple du 14/09)"),
     ]
 
 # Rôles qu'on ne modifie JAMAIS dans les overwrites (sécurité anti-verrouillage).
