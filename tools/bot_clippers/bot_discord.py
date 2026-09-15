@@ -1670,8 +1670,9 @@ async def enregistrer_quiz_hors_discord(reussite, score, email, tel, silencieux=
            + (f", …{cle[-4:]}" if cle.startswith("+") else f", {email}") + ")")
     await notifier_manager(
         f"📝 Quiz {'réussi' if reussite else 'raté'} **hors Discord** : {qui} — {score or '?'}. "
-        + ("Le test 48 h lui part par e-mail (Apps Script du quiz) ; je te préviens à son rendu."
-           if reussite else f"Prévenu par e-mail (essai {fiche.get('essais_quiz', 1)}/2)."))
+        + ("**Envoie-lui le test sur WhatsApp** (dossier de rushs, 2 Reels, 48 h) — ou il l'a déjà reçu par "
+           "e-mail si l'Apps Script v4 du quiz est posé. Test reçu → `!inviter Prénom`."
+           if reussite else f"Essai {fiche.get('essais_quiz', 1)}/2 — préviens-le sur WhatsApp s'il n'a pas d'e-mail."))
 
 
 async def traiter_rendu_webhook(message, silencieux=False):
