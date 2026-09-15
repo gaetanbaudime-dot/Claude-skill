@@ -154,6 +154,9 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 
 **Maxence** (associé, chatting) · **Maxime** (mentor externe, agence ~600K/mois, appels rares et décisifs : son cadre = [[Théorie des contraintes]] + LTV avant trafic) · **Rianah** (VA Madagascar : publication Metricool/Geelark, prospection SFS) · Clippers : Julien (candidat manager), Karel, Ahmed, Judicaël, et recrutements en cours (Nausica, Gordon, Adam...) · Managers à la commission : LudoVish, Kaleb · Top chatteurs : Tefyh, Anjara.
 
+> [!warning] Concentration et vertical (15/09/2026)
+> Chloé, Sarah, Clara et Maddie font environ 84 % du CA des 30 derniers jours, et ce réseau passe par Chloé (elle a amené Sarah et Clara, connaît Maddie), sans exclusivité ni préavis écrits. Chloé travaille depuis août avec **Loris**, stratège de contenu extérieur (scripts, retours quotidiens, YouTube) qu'elle a décidé de garder « dans tous les cas » ; l'agence le prend sous contrat, payé au variable sur les clics de son lien, périmètre limité à son compte et YouTube. Son trafic sur 30 jours : son compte 69 %, SFS 17 %, YouTube 9 %, clippers < 5 %. Ligne rouge : part agence jamais sous 35 %. Analyse, deal et prédictions : [[Chloé et Loris - dépendance, marge et contrat (15 septembre 2026)]].
+
 ## Les priorités actives (issues du dernier appel Maxime + analyses)
 
 > [!tip] Décision du 14/09 (soir) — all-in Instagram, deux pôles, 20 comptes par créatrice
