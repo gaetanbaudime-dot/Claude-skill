@@ -985,9 +985,11 @@ async def envoyer_mp(membre, texte):
         return False
 
 
-def chercher_membre(reference):
+def chercher_membre(reference, exact=False):
     """Résout un membre par mention brute, ID ou nom (pseudo/surnom, partiel accepté) —
-    indispensable dans les salons privés où l'autocomplétion des @ ne propose pas tout le monde."""
+    indispensable dans les salons privés où l'autocomplétion des @ ne propose pas tout le monde.
+    exact=True : jamais de correspondance partielle — obligatoire pour les commandes destructrices
+    (le 15/09, `!sortie Roman Filipciuc` a résolu « Roman » sur « Romane - Sophie », clippeuse active)."""
     ref = reference.strip().strip("<@!>")
     if ref.isdigit():
         for g in client.guilds:
@@ -1004,6 +1006,8 @@ def chercher_membre(reference):
             if ref_n in {normaliser(m.name), normaliser(m.display_name),
                          normaliser(getattr(m, "global_name", "") or "")}:
                 return m
+    if exact:
+        return None
     for g in client.guilds:              # dernier recours : correspondance partielle sur le surnom
         for m in g.members:
             if not m.bot and ref_n in normaliser(m.display_name):
@@ -3962,7 +3966,7 @@ async def commande_admin(message, texte: str) -> bool:
             membre, raison = None, ""
             tokens = corps.split()
             for n in range(min(4, len(tokens)), 0, -1):
-                cand = chercher_membre(" ".join(tokens[:n]))
+                cand = chercher_membre(" ".join(tokens[:n]), exact=True)   # jamais de nom partiel ici
                 if cand is not None:
                     membre, raison = cand, " ".join(tokens[n:]).strip()
                     break
@@ -4143,7 +4147,7 @@ async def commande_admin(message, texte: str) -> bool:
             membre, raison = None, ""
             tokens = corps.split()
             for n in range(min(4, len(tokens)), 0, -1):
-                cand = chercher_membre(" ".join(tokens[:n]))
+                cand = chercher_membre(" ".join(tokens[:n]), exact=True)   # jamais de nom partiel ici
                 if cand is not None:
                     membre, raison = cand, " ".join(tokens[n:]).strip()
                     break
