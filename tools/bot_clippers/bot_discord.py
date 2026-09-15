@@ -2677,7 +2677,9 @@ def _doctrine_acces():
          False, [ROLE_TEAM_FR_NOM], "Discussion Team France"),
         (("discussion-int", "discussionint", "disccusion-int"),
          False, [ROLE_TEAM_MG_NOM], "Discussion Team International"),
-        (("discussion", "disccusion", "equipe", "équipe"),
+        # « équipe » retiré le 15/09 : il attrapait #équipe-sarah / #équipe-chloé (salons de créatrices) et les
+        # aurait ouverts à tous les signés. Seul un salon nommé discussion est commun.
+        (("discussion", "disccusion"),
          False, [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM], "Discussion commune des signés (architecture simple du 14/09)"),
     ]
 
