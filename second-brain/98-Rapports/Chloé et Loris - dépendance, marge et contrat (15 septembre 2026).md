@@ -18,14 +18,14 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Direction marketin
 | Lien | Visiteurs 30 j | Part | Lecture |
 |---|---|---|---|
 | Bio Instagram (lien principal) | 11 512 | 69 % | Son compte, son travail |
-| /1 | 2 827 | 17 % | Pics isolés les 18-19/08 et 13/09 : SFS et pods, pas du quotidien (à confirmer) |
+| /1 | 2 827 | 17 % | Clipper Julien (note GAML lue le 16/09) : Reels viraux les 18-19/08 et 13/09, en chute de 65 % en septembre |
 | /ytb | 1 508 | 9 % | YouTube, en baisse : 67 visites/jour en août, 34 en septembre |
-| /3 · /4 | 760 | 4,5 % | Pics par à-coups : un compte de clipper qui perce de temps en temps |
-| /fb · /5 à /8 | 16 | 0,1 % | Facebook mort ; comptes de la cohorte du 14/09 pas encore vivants |
+| /3 · /4 · /5 · /6 | 768 | 4,6 % | Clippers Caroline (504), Lilian (258), Lucas (6) |
+| /fb · /7 · /8 | 8 | 0 % | Facebook mort ; deux liens sans clipper attribué (Ckycia, Romaric, Hasina n'ont pas de lien) |
 
 Le lien principal par jour : **536 en juin** (juste après les consignes de mai : parler français, Reels, plus de carrousels), 339 en juillet, **218 en août**, 216 du 1er au 5 septembre, **755 du 6 au 15 septembre**. Pays sur 30 jours : France 83 %, Belgique 4 %, Suisse 3 %, Canada 2 %. Les 11 512 visites font à peu près ses 2 161 abonnés du mois, soit 19 012 € de CA ([[LTP Models]], classeur du 14/09).
 
-Ce que ça dit : le conseil de mai a marché (juin), personne ne l'a entretenu (été), et le compte est reparti le jour où quelqu'un s'est assis à côté d'elle. L'horizontal de l'agence sur Chloé n'est pas mort, il n'est pas né : les liens de ses six clippers sont à zéro parce que les comptes sont en warm-up. À la cible de la [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)|direction marketing]], 6 clippers × 3 comptes × 2 Reels font 36 Reels par jour et environ 1 000 abonnés par mois, la moitié de ce qu'elle fait seule. Jugement le 15 octobre, pas avant.
+Ce que ça dit : le conseil de mai a marché (juin), personne ne l'a entretenu (été), et le compte est reparti le jour où quelqu'un s'est assis à côté d'elle. **Correction du 16/09** : l'horizontal de Chloé fait 22 %, pas 5 %, et il tient à un seul clipper, Julien (17 %), qui décroche depuis le 1er septembre ; les six clippers de la liste du 15/09 font 768 visites à eux six, trois n'ont pas de lien ([[Rapport GAML - d'où vient le trafic, créatrice par créatrice (16 septembre 2026)]]). À la cible de la [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)|direction marketing]], 6 clippers × 3 comptes × 2 Reels font 36 Reels par jour et environ 1 000 abonnés par mois, la moitié de ce qu'elle fait seule. Jugement le 15 octobre, pas avant.
 
 ## 2. Loris, d'après le call du 15/09
 
