@@ -20,7 +20,7 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Chloé et Loris - 
 
 | Source | Visiteurs 30 j | Part | Qui |
 |---|---|---|---|
-| Comptes des créatrices | 14 451 | 34 % | Chloé 11 512 · Sophie (unvanetsophie) 1 334 · Maddie 1 134 · Jade et Amandine (bios désactivées) 471 |
+| Comptes des créatrices | 14 451 | 34 % | Chloé 11 512 · Sophie (son Instagram) 1 334 · Maddie 1 134 · Jade et Amandine (bios désactivées) 471 |
 | Rianah (comptes Metricool) | 10 667 | 25 % | Sophie 6 717 (deux liens) · Maddie 3 707 · Jade 243 |
 | Clippers nommés (13 liens) | 10 271 | 24 % | voir le classement |
 | Pages Facebook | 5 470 | 13 % | Sophie 3 177 · Maddie 2 198 · Amandine 87 · Chloé 8 (mortes en août) |
