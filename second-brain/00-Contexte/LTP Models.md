@@ -37,7 +37,7 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 > | **Sophie** | (bascule MYM dure) | **10 500 / 1 550 / 6,8** | Mixte — OF solide, à investiguer (LTV correcte, volume OK) | ⚠️ à diagnostiquer avant d'arroser |
 > | **Sarah** | **8 500 / 3 000 / 2,8** | (Lila Doré vient de lancer) | **Aucun — débordée de trafic interne MYM, LTV structurelle ~3 € (confirmé Maxime, 19/07)** | ⛔ **non** → le chantier = comprendre et RÉPLIQUER le débordement ([[Supervision chatting (top 5) et le cas Sarah|détail]]) |
 > | **Amanda** | 830 / 440 / **2,0** | 970 / 312 / 3,1 | **Conversion** (canaux OF historiques éteints) | ⛔ **non** → chat + relance Twitter |
-> | Alice · Capucine · Lily | 0 | 0 | **Trafic** (zéro sans main-d'œuvre) | ✅ à séquencer quand les clippers existent |
+> | Alice · Capucine · Lily | 0 | 0 | **Trafic** (zéro sans main-d'œuvre) | ⛔ Alice et Capucine : contrats terminés le 18/09/2026 ([[Journal de coaching]]) ; Lily seule reste à séquencer |
 >
 > **La faute à ne pas commettre** : envoyer des clippers sur Sarah/Amanda parce qu'« elles sont grosses ». Plus de subs à 2 €/2,8 € de LTV ne fait quasi pas d'argent — c'est gâcher la ressource rare. **Amanda reste un chantier chat ; Sarah, corrigé le 19/07, n'est même pas un chantier : c'est une démonstration** — ~3 000 subs/mois GRATUITS via le débordement de trafic interne MYM (LTV structurelle ~3 €, confirmé Maxime). [[Supervision chatting (top 5) et le cas Sarah|Le vrai chantier est de la répliquer]] sur les créatrices qui monétisent. Cette matrice **complète** (ne remplace pas) l'ordre de montée créatrices du roster ci-dessous : le roster dit *dans quelles créatrices investir*, cette matrice dit *où va la main-d'œuvre clipping*. Les 4 créatrices à zéro rappellent le vrai plafond : **le trafic (clippers) est le goulot n°1 de l'agence** ([[Théorie des contraintes]]).
 
@@ -106,7 +106,7 @@ Chloé et Maddy = **74 % du MYM**. La chute agence des 30 j (−30 %, 37 988 →
 | Sophie | 23 011 $ | 18 218 $ | Solide, abo payant réel (2 352 $) |
 | Chloé | 18 370 $ | 15 618 $ | Page **gratuite** (abo 0 $), tout au PPV/tips ; = le fichier « Top fans » de 261 fans |
 | Lila Doré (= Sarah OF) | 1 412 $ | 818 $ | Vient de lancer |
-| Alice · Capucine · Lily | 0 $ | — | Non lancées |
+| Alice · Capucine · Lily | 0 $ | — | Non lancées ; Alice et Capucine sorties le 18/09/2026 |
 
 **Total OF glissant ≈ 111 580 $ (~103 k€).** Blended récent : ~21,9 k€ MYM (30 j) + ~8,6 k€ OF/mois ≈ **~30 k€/mois brut** (cohérent avec le ralentissement vs le pic ~50 k€ de janvier).
 
@@ -131,7 +131,7 @@ Chloé et Maddy = **74 % du MYM**. La chute agence des 30 j (−30 %, 37 988 →
 | **Amanda** (= Amandine / La_mandiise) | OF + MYM | **#1 OF (38 k$)** via chatting ; MYM faible (1,6 €). Concentrer l'OF, réévaluer le MYM. **Plus une candidate à couper** |
 | **Jade** (Jadetora_) | OF + MYM | Plus grosse base (4 949 abonnés MYM) mais LTV MYM faible (4,38 €) = **enjeu de monétisation, pas d'acquisition** ; OF solide (30 k$). Refus de TikTok = frein à lever |
 | **Sophie** | OF (+ MYM difficile à négocier) | OF solide (23 k$, abo payant réel) ; bascule MYM dure à négocier avec elle |
-| Alice · Capucine · Lily | Lancements à zéro | Capucine/Lila = piste faceless. En attente de main-d'œuvre clipping |
+| Alice · Capucine · Lily | Lancements à zéro | Alice, Capucine et Lila sorties le 18/09/2026 (fin de contrat) ; Lily seule en attente |
 | **Georgina** | Ex-créatrice majeure | 0→35 k€/mois par le passé ; indispo juil.-août, reprise de contact possible en septembre |
 
 ## La chaîne d'approvisionnement en contenu
