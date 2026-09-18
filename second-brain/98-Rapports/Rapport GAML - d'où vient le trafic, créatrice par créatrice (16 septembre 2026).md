@@ -4,7 +4,7 @@ type: rapport
 cluster: "98-Rapports"
 statut: verified
 créé: 2026-09-16
-màj: 2026-09-16
+màj: 2026-09-18
 tags: [rapport/analyse, ops/clippers, ops/sfs, contexte/créatrices, marketing/acquisition]
 liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Chloé et Loris - dépendance, marge et contrat (15 septembre 2026)]]", "[[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]]", "[[Analyse complète de l'agence et plan de simplification (14 septembre 2026)]]", "[[Équipe marketing - structure et rémunération (FR × MG)]]", "[[Fiche de poste - Manager marketing (Jonas)]]", "[[Théorie des contraintes]]"]
 ---
@@ -107,3 +107,29 @@ La vraie histoire des trois mois : **mai-juillet étaient portés par les compte
 - Au moins 5 des 9 clippers à zéro ont un lien vivant avec plus de 100 visiteurs sur les 30 jours au 15/10 (45 %).
 - Facebook reste au-dessus de 10 % du trafic malgré « Instagram seul » (75 %).
 - Rianah reste la première source agence au 15/10 (70 %).
+
+## 9. Suivi hebdo : semaine du 11 au 17 septembre contre la précédente (ajouté le 18/09)
+
+> [!tip] Verdict
+> **Le marketing ne s'écroule pas : 14 673 visiteurs contre 15 109 la semaine d'avant (−3 %), et 6 465 deux semaines plus tôt. Ce qui s'écroule, c'est Sophie (−59 %, toutes sources en même temps) et les trois derniers jours de la semaine, sur tout le monde.** Chloé +24 %, Maddie +21 %, Sarah +174 %, les clippers font leur meilleure semaine du mois (+94 %). Le « bond puis redescente » de chaque clipper est réel et structurel : un compte par clipper vit de Reels viraux, pas d'une cadence. On ne le corrige pas en pressant les gens, on le corrige en comptant les Reels postés par jour et en multipliant les comptes réguliers.
+
+| Source | 28/08-03/09 | 04-10/09 | 11-17/09 | Variation |
+|---|---|---|---|---|
+| Comptes des créatrices | 2 211 | 5 861 | 6 412 | +9 % (Chloé 5 886, dont 2 013 le 17/09, jour de la vidéo) |
+| Rianah | 1 628 | 3 899 | 2 997 | −23 % (Sophie /3 −60 %, Sophie bio −20 %, Maddie +38 %, Jade démarre à 257) |
+| Clippers | 1 788 | 1 804 | 3 503 | **+94 %** (Josué 1 189, Tara 730, Hugo 475, Julien 521, Lilian 270, Caroline 146) |
+| Facebook | 235 | 3 165 | 1 437 | −55 % (Sophie 2 035 → 439, Maddie 1 124 → 998) |
+| YouTube | 602 | 379 | 323 | −15 % |
+| **Total** | **6 465** | **15 109** | **14 673** | **−3 %** |
+
+Par créatrice : Chloé 5 603 → 6 964 (+24 %), Maddie 2 379 → 2 883 (+21 %), Sarah 745 → 2 038 (+174 %), **Sophie 6 173 → 2 528 (−59 %)**. Sur Sophie, tout tombe ensemble : son propre compte (326 → 157, 3 à 6 visites par jour depuis le 16/09), les deux comptes Rianah (3 247 → 1 842), Julien (563 → 83), la page Facebook (2 035 → 439). Quatre opérateurs différents qui chutent le même jour, c'est un problème de marque ou de comptes, pas de personnes : restriction sur son compte, comptes Rianah sanctionnés après le pic du 07-08/09, ou page Facebook limitée après le pic du 08/09.
+
+**Le rythme de la semaine est le même deux semaines de suite** : pic dimanche-lundi (2 060 et 1 860 les 07-08/09 ; 1 847 et 1 776 les 13-14/09), creux mercredi-jeudi. Comparer un jeudi à un dimanche rend fou pour rien. Comparé au même jour, le jeudi 17/09 fait 574 contre 1 071 le jeudi 10/09 : **−46 %**, c'est la vraie baisse, et elle touche toutes les sources agence en même temps (Rianah Sophie 43-44 par jour contre 200-400, Facebook Sophie 23-31 contre 100-600, Josué 50 contre 644 le 14/09, Tara 2 contre 334 le 13/09).
+
+**Un seul clipper est régulier** : Josué dépasse 50 visiteurs 6 jours sur 7. Tara 4 sur 7, Hugo 2 sur 7, Julien 2 sur 7. Les autres vivent d'un pic (Lilian 228 le 14/09 puis 5, Caroline 57 puis 13). Le KPI qui remplace « les clics » : **nombre de clippers au-dessus de 50 visiteurs par jour au moins 5 jours sur 7**. Aujourd'hui : un.
+
+**Facebook, « le bordel »** : cinq pages, une seule vivante et régulière (Maddie, 100 à 220 par jour depuis quatorze jours, 998 sur la semaine), une qui a fait un coup puis est retombée (Sophie, 669 le 08/09, 23 le 16/09), trois mortes (Chloé, Amandine, Lila). Ce n'est pas du bordel, c'est deux pages qui comptent et trois à ignorer. La page Maddie est le modèle à copier sur Sophie et Chloé.
+
+Actions : (1) Sophie aujourd'hui, trois vérifications par Rianah : statut du compte de Sophie, statut de ses deux comptes Metricool, restriction de la page Facebook après le pic du 08/09 ; (2) le rapport du matin du bot compte les Reels postés par clipper, pas les clics ; (3) comparer les jours au même jour de la semaine précédente ; (4) la page Facebook Maddie documentée en SOP (qui poste, quoi, combien) et répliquée sur Sophie.
+
+Prédictions (18/09, revues le 25/09) : la chute de Sophie vient d'une restriction de compte ou de page (65 %) plutôt que d'un arrêt de publication (25 %) ; la semaine 18-24/09 finit entre 12 000 et 16 000 visiteurs (60 %) ; au moins deux clippers au-dessus de 50 visiteurs 5 jours sur 7 (45 %).
