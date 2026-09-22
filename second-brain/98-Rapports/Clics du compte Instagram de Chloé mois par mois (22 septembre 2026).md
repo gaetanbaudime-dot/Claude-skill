@@ -42,6 +42,24 @@ Depuis le 6 septembre, jour du bond : 845 visiteurs par jour, jamais sous 500 de
 3. **Les conditions de qualité** restent : France à 80 % ou plus (83 % aujourd'hui), aucun trafic acheté ni échangé, rien d'expérimental sur le compte principal.
 4. **Le plafond à 1 200 €** par mois pour octobre, révisable au bilan du 31/10 avec les chiffres de cette page mis à jour.
 
+## 3 bis. Ce que Chloé faisait seule, avant l'agence (mai-juin, ajouté le 22/09 au soir)
+
+Question de Gaëtan : « estimer les visiteurs et les clics de Chloé quand elle gérait son marketing seule, OF gratuit et MYM payant ». Deux ancrages et une triangulation.
+
+- **Juin est mesuré et c'est elle seule sur son Instagram** : le lien existe depuis fin mai, les clippers n'arrivent qu'en juillet, les SFS passent en direct, Facebook et YouTube ont leurs propres liens. Juin : **16 091 visiteurs (536 par jour), 6 003 clics OnlyFans, 7 094 clics MYM**. Le MYM était payant : il prend 54 % des clics mais presque aucun abonné, d'où le « 80 % des fans vont sur l'OF gratuit » de Gaëtan (cohérent : ≈ 1 190 abonnés OF contre ≈ 200-250 MYM payants).
+- **Mai, reconstitué depuis les statistiques OnlyFans** : 1 188 abonnements (« Tout », renouvellements compris ; les nouveaux seuls sont probablement 800 à 1 190). Avec la conversion clic → abonné gratuit de son propre trafic (21 % en juillet, le mois le plus proche de son trafic naturel), il faut 4 000 à 6 600 clics OnlyFans ; avec la répartition des clics de juin (OF 46 %, MYM 54 %) et un taux de clic de 81 %, **mai ≈ 11 000 à 14 000 visiteurs (350 à 460 par jour), ≈ 4 500 à 6 000 clics OnlyFans, ≈ 5 500 à 7 000 clics MYM**. Le CA OnlyFans a fait +44 % entre mai et juin (5 286 → 7 588 $), ce qui place mai plutôt dans le bas de la fourchette, autour de 11 500 visiteurs (370 par jour).
+
+**Conversion clic → abonné, toutes créatrices (mois complets, Data G&M × GetAllMyLinks)** :
+
+| Créatrice · plateforme | Juillet | Août | Septembre (1-19) | Lecture |
+|---|---|---|---|---|
+| Chloé · OF gratuit | 21 % | 13 % | 11 % | Son trafic naturel convertit deux fois mieux que la vague de septembre et le trafic clippers |
+| Chloé · MYM gratuit | 27 % | 24 % | 19 % | Idem, en baisse à mesure que le volume monte |
+| Sophie · OF | 7,1 % | 6,5 % | 7,3 % | Stable, trafic Rianah et Facebook |
+| Maddy · MYM | 9 % | 23 % | 10 % | Le pic d'août est le lien Rianah |
+
+**Conclusion pour la négociation** : seule, Chloé faisait **370 à 540 visiteurs par jour** (mai-juin) et convertissait un clic sur cinq en abonné gratuit. Septembre (679 par jour, 845 depuis le 6) est 25 à 60 % au-dessus de son meilleur mois solo et trois fois au-dessus du creux d'août : **deux tiers du « bond » sont un retour à son propre niveau, un tiers au plus est nouveau**, et ce tiers convertit deux fois moins bien. La base de 450 par jour du variable, c'est exactement « ce que Chloé fait seule », et personne ne peut la contester avec ces chiffres.
+
 ## 4. Ce qui casse ce rapport
 
 - Juin est reconstitué à partir des commissions, pas du classeur : ± 10 %.
