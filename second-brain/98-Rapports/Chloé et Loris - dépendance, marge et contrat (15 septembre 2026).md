@@ -5,7 +5,7 @@ cluster: "98-Rapports"
 statut: verified
 créé: 2026-09-15
 tags: [rapport/analyse, contexte/créatrices, ops/délégation, finance/marge, risque/concentration]
-liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]]", "[[Analyse complète de l'agence et plan de simplification (14 septembre 2026)]]", "[[Étude - Économie des agences au pourcentage et voies de sortie (août 2026)]]", "[[Kill-list (NON, pas maintenant)]]", "[[Théorie des contraintes]]"]
+liens_forts: ["[[Clics du compte Instagram de Chloé mois par mois (22 septembre 2026)]]", "[[LTP Models]]", "[[Journal de coaching]]", "[[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]]", "[[Analyse complète de l'agence et plan de simplification (14 septembre 2026)]]", "[[Étude - Économie des agences au pourcentage et voies de sortie (août 2026)]]", "[[Kill-list (NON, pas maintenant)]]", "[[Théorie des contraintes]]"]
 ---
 
 # Chloé et Loris : dépendance, marge et contrat (15 septembre 2026)
@@ -65,6 +65,8 @@ Le vocal le plus important est « le chatting est très bon » : c'est ce qui la
 4. **Si la demande arrive quand même** : la réponse n'est pas un compromis à 30 %, c'est la liste de ce que couvrent les 40 % et le rappel que les agences qui feraient contenu + chatting prennent 40 à 50 %. Un 60 % créatrice est déjà généreux dans ce marché.
 
 ## 5. Le deal Loris
+
+> Mise à jour du 22/09 : l'historique mois par mois du lien de Chloé est dans [[Clics du compte Instagram de Chloé mois par mois (22 septembre 2026)]]. Il déplace la base du variable (450 par jour, moyenne mesurée depuis mai, plutôt que « base de septembre ») et ajoute un plancher d'abonnés (au moins le niveau d'août) pour ne pas payer du volume qui ne convertit pas.
 
 | Élément | Décision |
 |---|---|

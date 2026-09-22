@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-22 — Clics du compte de Chloé mois par mois : septembre égale juin, et la valeur d'un visiteur varie du simple au triple
+- **Page** : [[Clics du compte Instagram de Chloé mois par mois (22 septembre 2026)]]. Lien bio, robots exclus : juin 16 091 (536/j), juillet 10 492 (338/j), août 6 759 (218/j), septembre 14 938 en 22 jours (679/j, 845/j depuis le 6). CA Chloé : ≈ 14 150 € (juin), 19 532 € (juillet), 19 034 € (août), ≈ 22 000 € en rythme (septembre). € par visiteur : 0,9 · 1,9 · 2,8 · 1,1. France 83 %.
+- **Lecture** : le compte oscille seul (÷2,5 de juin à août, ×3 en septembre) et le CA ne suit pas les clics (août = juillet avec 36 % de visiteurs en moins) ; le bond de septembre ramène au niveau de juin. Attribution à une personne impossible avec ces données.
+- **Décision pour le deal Loris (à travailler ce soir)** : base du variable à 450 visiteurs par jour (moyenne mesurée depuis mai) au lieu de « base de septembre » ; plancher d'abonnés OF + MYM du mois ≥ août (1 964) pour que le variable soit dû ; plafond 1 200 € ; conditions France ≥ 80 %, pas de trafic acheté. Réponse à sa demande de CA : refus au titre de la confidentialité des contrats, mesure partagée = visiteurs du lien.
+- **Prédictions (22/09, revues le 01/11)** : septembre entre 19 000 et 21 000 visiteurs (60 %) ; octobre > 15 000 avec ou sans Loris (55 %) ; € par visiteur d'octobre < 1,5 € (65 %).
+
 ### 2026-09-18 (3) — Fin des contrats de Lila Dorée, Capucine et Alice : trois lettres prêtes, effet au 18/09
 - **Décision (Gaëtan)** : mettre fin aux trois contrats de management à effet d'aujourd'hui, restituer réseaux, contenus et accès OF/MYM, se déconnecter de partout. Cohérent avec la concentration décidée le 14/09 (84 % du CA sur quatre créatrices) et la [[Kill-list (NON, pas maintenant)|kill-list]] ; ça annule le « lancement d'Alice » prévu en octobre dans [[Rapport - État complet du business (septembre 2026)]].
 - **Ce que disent les contrats** : Lila (signé le 26/05, effet le 01/06, préavis d'un mois par courriel avec accusé de réception, art. 8.4 ; non-dénigrement 5 ans, confidentialité 2 ans) ; Capucine (signé le 28/05, effet le 01/06) et Alice (signé le 30/06, effet le 01/06) : préavis d'un mois (8.4), restitution des accès sous 24 h (6.2) et 48 h (8.6), suppression des contenus sous 30 jours (6.1), non-dénigrement réciproque 1 an, confidentialité 2 ans.
