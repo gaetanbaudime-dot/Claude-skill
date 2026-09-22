@@ -18,13 +18,15 @@ liens_forts: ["[[Chloé et Loris - dépendance, marge et contrat (15 septembre 2
 
 Mesure GetAllMyLinks depuis la création du lien (dernière semaine de mai 2026). Avant, rien n'était mesuré. Les clics sortants sont les clics sur les boutons OnlyFans et MYM de la page de lien. Abonnés et CA viennent du classeur Data G&M (qui commence au 1er juillet) ; juin est reconstitué à partir des commissions d'agence de juin (5 661 € à 40 %).
 
-| Mois | Visiteurs | Par jour | Clics sortants OF + MYM | Nouveaux abonnés |
+| Mois | Visiteurs | Par jour | Clics sortants OF | Clics sortants MYM |
 |---|---|---|---|---|
-| Mai (Chloé seule, estimé) | ≈ 15 000 à 17 500 | ≈ 490 à 560 | ≈ 12 400 à 14 300 (OF 5 700 à 6 600 · MYM 6 700 à 7 700) | 1 188 OF gratuit (vérifié) + MYM payant non mesuré (≈ 200 à 250) |
-| Juin (Chloé seule, mesuré) | 16 091 | 536 | 13 097 (OF 6 003 · MYM 7 094) | non mesuré (≈ 1 200 à 1 300 OF au taux de mai) |
-| Juillet | 10 492 | 338 | 8 740 (OF 3 382 · MYM 5 358) | 2 491 (993 OF · 1 498 MYM) |
-| Août | 6 759 | 218 | 5 728 (OF 2 007 · MYM 3 721) | 1 964 (489 OF · 1 475 MYM) |
-| Septembre (1-22) | 14 941 | 679 | 12 568 (OF 5 493 · MYM 7 075) | 1 954 au 19/09 (629 OF · 1 325 MYM) |
+| Mai (Chloé seule, estimé) | ≈ 15 000 à 17 500 | ≈ 490 à 560 | ≈ 5 700 à 6 600 | ≈ 6 700 à 7 700 |
+| Juin (Chloé seule, mesuré) | 16 091 | 536 | 6 003 | 7 094 |
+| Juillet | 10 492 | 338 | 3 382 | 5 358 |
+| Août | 6 759 | 218 | 2 007 | 3 721 |
+| Septembre (1-22) | 14 941 | 679 | 5 493 | 7 075 |
+
+Mai est une estimation à partir des 1 188 nouveaux abonnés OF gratuits du mois (le lien n'a mesuré que 1 304 visiteurs sur ses derniers jours de mai). Nouveaux abonnés toutes sources : juillet 2 491 (993 OF · 1 498 MYM), août 1 964 (489 · 1 475), septembre 1 954 au 19/09 (629 · 1 325).
 
 Mai est une estimation à partir des 1 188 nouveaux abonnés OF (le lien n'a mesuré que 1 304 visiteurs sur ses derniers jours de mai). Les nouveaux abonnés de juillet à septembre viennent de toutes les sources (lien bio, clippers, SFS, trafic interne MYM), ceux de mai du seul Instagram de Chloé.
 

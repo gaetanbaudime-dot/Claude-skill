@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-22 (2) — Call Loris du soir : l'offre finale et le coût réel pour l'agence
+- **Le coût, chiffré par Gaëtan** : Chloé ≈ 20 k€ de CA par mois, marge nette agence ≈ 25 % du CA ≈ 5 000 €. Un variable plafonné à 1 000 € = 20 % de la marge nette sur Chloé ; à 1 200 €, 24 %. Un visiteur de vague vaut ≈ 1,1 € pour Chloé, ≈ 0,28 € nets pour l'agence : payer 0,10 € = 36 % du net marginal, 0,15 € = 54 %. D'où **0,10 €, pas 0,15 €**.
+- **Offre portée au call** : octobre, Chloé seule ; 0,10 € par visiteur (robots exclus) au-dessus de 450 par jour sur le lien bio ; plafond 1 000 € ; variable dû seulement si les nouveaux abonnés OF + MYM du mois ≥ août (1 964) ; France ≥ 80 % ; aucun trafic acheté ni échangé ; rien d'expérimental sur le compte principal ; aucun accès (capture du lien le 1er) ; paiement le 5 novembre ; contrat agence (NDA, cession des scripts, non-sollicitation 12 mois) signé avant le 1er octobre. Repli unique s'il exige un fixe : 300 € contre base à 500 et plafond variable 900 €. Bilan le 31/10 avec le tableau mois par mois.
+- **Lignes rouges** : pas de pourcentage du CA, pas de chiffre de CA partagé (confidentialité des contrats), pas d'autre créatrice avant le 31/10, pas d'accès, pas de fixe au-dessus de 300 €. Rôles : Gaëtan mène, Maxence appuie et ne rouvre rien.
+- **Prédictions (22/09, revues le 23/09)** : Loris redemande le CA ou un pourcentage au moins une fois (75 %) ; il évoque Sarah ou « d'autres créatrices » (60 %) ; issue : accepte le variable seul (45 %), demande un fixe (40 %), refuse (15 %).
+
 ### 2026-09-22 — Clics du compte de Chloé mois par mois : septembre égale juin, et la valeur d'un visiteur varie du simple au triple
 - **Page** : [[Clics du compte Instagram de Chloé mois par mois (22 septembre 2026)]]. Lien bio, robots exclus : juin 16 091 (536/j), juillet 10 492 (338/j), août 6 759 (218/j), septembre 14 938 en 22 jours (679/j, 845/j depuis le 6). CA Chloé : ≈ 14 150 € (juin), 19 532 € (juillet), 19 034 € (août), ≈ 22 000 € en rythme (septembre). € par visiteur : 0,9 · 1,9 · 2,8 · 1,1. France 83 %.
 - **Lecture** : le compte oscille seul (÷2,5 de juin à août, ×3 en septembre) et le CA ne suit pas les clics (août = juillet avec 36 % de visiteurs en moins) ; le bond de septembre ramène au niveau de juin. Attribution à une personne impossible avec ces données.
