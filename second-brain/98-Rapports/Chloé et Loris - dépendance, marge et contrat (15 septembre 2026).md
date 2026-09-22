@@ -84,6 +84,20 @@ Pourquoi le variable seul : un clic en plus rapporte environ 0,70 € à l'agenc
 
 Le test de caractère : s'il négocie le périmètre, refuse la non-sollicitation ou réclame Sarah avant un chiffre, la réponse est non, expliquée à Chloé avec les faits.
 
+### 5 bis. Les missions du test d'octobre (ajouté le 22/09)
+
+| Mission | Livrable | Cadence | Mesure |
+|---|---|---|---|
+| Ligne éditoriale et calendrier du compte principal | Plan du mois puis calendrier hebdo (Reels, stories, carrousels) dans le Drive de l'agence | Le plan avant le 1er, le calendrier chaque vendredi | Reels publiés par Chloé ≥ 20 dans le mois |
+| Scripts et hooks | 7 scripts de Reel par semaine (hook, structure, CTA vers le lien), avec 3 variantes de hook chacun pour la méthode « versions » de Chloé ; séquences de stories avec CTA | Livrés le vendredi pour la semaine suivante | Visiteurs du lien (base 450/j) |
+| Retours à Chloé | Relecture des brouillons avant publication, dans le groupe Telegram à trois | Chaque jour ouvré, une fenêtre | Cadence tenue, zéro publication hors ligne éditoriale |
+| YouTube | Un concept de vidéo par semaine, brief titre + miniature + chapitres ; montage par un monteur à la pièce payé par l'agence | Hebdo | Visiteurs du lien YouTube |
+| Analyse hebdo | Dix lignes le lundi : Reels postés, vues, partages, visiteurs du lien (capture fournie par Gaëtan), ce qu'on répète, ce qu'on arrête | Lundi | Le point à trois s'appuie dessus |
+| SOP | La méthode écrite (formules de hook, formats qui marchent, horaires) dans un document propriété de l'agence | Première version en semaine 2, finale au 31/10 | Réutilisable par les clippers |
+| Point à trois | Gaëtan, Chloé, Loris, 30 minutes, Gaëtan mène avec les chiffres | Hebdo | Tenu quatre fois en octobre |
+
+Hors périmètre en octobre : clippers et pages de croissance, autres créatrices, comptes jetables, plateformes hors Instagram et YouTube, DM et chatting, réglages du compte, publicité payante, négociation de SFS ou de collaborations. Règles : tout échange de contenu passe par le groupe à trois (pas de canal privé Chloé-Loris pour le travail), aucun accès aux comptes ni aux outils, scripts et documents cédés à l'agence, aucun contact avec les autres créatrices ni les clippers.
+
 ## 6. Ce que ça dit du marketing de Gaëtan
 
 Pas « une merde », absent du vertical. Les SFS (17 %) et YouTube (9 %) sont des actions de l'agence ; le conseil de mai a produit juin ; le bot, quatorze clippers, le tunnel, la paie et les SFS ont pris l'été. Le choix explicite (« je mets mon temps sur ce qui dépend de l'agence, pas des créatrices ») était rationnel et il a eu un coût : le vertical a perdu la moitié de son trafic entre juin et août. Le rôle de présence quotidienne auprès des créatrices existait, il s'appelait Emma, il est vide depuis le 14/09, et Chloé vient de le pourvoir elle-même. Voir la [[Théorie des contraintes]] : le goulot est passé en aval (conversion, présence), et c'est là que l'heure de Gaëtan vaut le plus.
