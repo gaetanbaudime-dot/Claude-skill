@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-23 (3) — Machine horizontale v2 : chantier lancé, plan en quatre phases
+- **Décision (Gaëtan)** : « on lance le chantier ». Paie 0,05 $ par visiteur GAML francophone hors robots, 100 liens Infloww par créatrice créés d'avance pour mesurer la rentabilité par clipper, Instagram seul, virement USDC manuel sur Binance à partir de la liste du bot. Page : [[Machine horizontale v2 - plan de chantier (23 septembre 2026)]].
+- **Croisement avec le Deep Research ChatGPT** : accord sur le registre de clics acceptés, la liste de paie, Drive et Gmail par API, la table créatrices, l'IA comme filtre du test, l'interdiction de bâtir un anti-ban. Désaccord sur l'échelle (plateforme neuve, deux ingénieurs, 12-18 semaines) : on garde le bot existant et on ajoute des briques. Deux bloquants levés : « Ghetto Minings » = GetAllMyLinks avec API ; Infloww a une API en lecture seule.
+- **Vérifications** : pas de tableau de bord GAML par clipper en lecture seule via l'API ; remplacé par la ligne du matin et `!mesclics` dans le salon privé. Le bot n'a pas encore la clé GAML : à poser dans Railway.
+- **Prérequis demandés** : clé API GAML et clé API Infloww dans Railway, 100 liens Infloww par créatrice, compte de service Google (Drive + Sheets), mot de passe d'application Gmail, ordre des créatrices et tailles de file, grille du test, code de l'ancien TikFusion.
+- **Prédictions (23/09)** : phase 1 livrée et première paie au clic le 20/10 (70 %) ; survie des comptes à 30 jours ≥ 50 % sur la première cohorte (pari de Gaëtan « 20 à 30 % de bans en moins »), revue le 30/11 ; un lien suspendu pour clics suspects avant le 30/11 (55 %).
+
 ### 2026-09-23 (2) — Machine horizontale v2 : paie au clic, volume, automatisation de A à Z
 - **Demande (Gaëtan)** : refaire le recrutement et la paie sur le modèle d'un pote (0,05 $ le clic GAML, hors robots et mauvaise audience, 1 500 comptes, 60 à 70 % perdus par mois, téléphones virtuels), tout automatiser du formulaire au paiement (Discord, quiz, test jugé par l'IA, créatrice attribuée, logins depuis le Sheet, codes 2FA, Drive par clipper, lien GAML cloné, liste de paie USDC le 5 et le 20), 100 à 300 clippers, jusqu'à 50 comptes par créatrice. Rien exécuté : cadrage seulement.
 - **Page** : [[Machine horizontale v2 - paie au clic, ce que les clippers rapportent (23 septembre 2026)]]. Tracking OnlyFans : les liens clippers ont fait 14 912 clics, 754 abonnés (5,1 %), 4 449 $ ; un clic de clipper vaut 0,30 $ contre 0,94 $ sur le lien de Chloé et 4,04 $ en SFS ; sur Sarah un clic ne vaut rien sur OnlyFans. Au clic, les 14 clippers actuels coûteraient ≈ 505 $ par mois (10 110 visiteurs) contre ≈ 3 050 € aujourd'hui.
