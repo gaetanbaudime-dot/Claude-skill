@@ -29,6 +29,7 @@ import inputs_clippers                    # suivi quotidien des Reels publiés (
 import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
+import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -151,6 +152,7 @@ codes_2fa.FICHIER_ALIAS = DONNEES / "alias_codes.json"       # registre alias e-
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors kit : [{"q", "qui", "date"}] — la matière de !apprendre
 FICHIER_SUBS = DONNEES / "subs.json"                         # abonnés OF par clipper et par mois : {"AAAA-MM": {prénom: n}} (!subs)
+FICHIER_CLICS = DONNEES / "clics.json"                       # paie au clic : liens GAML attribués, relevés par jour, adresses de paiement
 FICHIER_SORTIS = DONNEES / "sortis.json"                     # trace des sorties d'équipe (!sortie) : [{uid, nom, equipe, creatrice, date, par, raison}]
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
@@ -172,6 +174,10 @@ DOCUSEAL_EMAIL_AGENCE = os.environ.get("DOCUSEAL_EMAIL_AGENCE", "").strip()   # 
 # admin avec le rappel et la commande d'annulation. Mettre à "1" pour revenir à l'ancien flux.
 DOCUSEAL_CONTRESIGNATURE = os.environ.get("DOCUSEAL_CONTRESIGNATURE", "0").strip() in ("1", "true", "oui")
 DOCUSEAL_ONBOARDING_AUTO = os.environ.get("DOCUSEAL_ONBOARDING_AUTO", "1").strip() in ("1", "true", "oui")
+# 23/09 (Gaëtan) : plus d'étape contrat dans le tunnel — tout validé reçoit les CONDITIONS en MP et répond
+# J'ACCEPTE (France comme International) ; le rôle Team de sa grille s'ouvre à l'acceptation. CONTRAT_ACTIVER=1 rétablit
+# le contrat DocuSeal pour la grille France.
+CONTRAT_ACTIVER = os.environ.get("CONTRAT_ACTIVER", "0").strip() in ("1", "true", "oui")
 
 # ---- Rappels récurrents (18/07 soir) : trésorerie chaque matin (MP admin), reporting le dimanche ----
 LIEN_TRESORERIE = os.environ.get("LIEN_TRESORERIE", "").strip()        # sheet de suivi trésorerie quotidien
@@ -1032,6 +1038,24 @@ def chercher_membre(reference, exact=False):
     return None
 
 
+def salon_perso_de(uid):
+    """Le salon nominatif du clipper (créé par !creatrice : nom = son pseudo, dans la catégorie de sa créatrice),
+    ou None. C'est là qu'arrivent son bilan des Reels et sa ligne de clics du matin."""
+    membre = membre_par_id(uid)
+    if membre is None:
+        return None
+    cle = re.sub(r"[^a-z0-9]", "", normaliser(membre.display_name))
+    if not cle:
+        return None
+    exclus = {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID}
+    for salon in membre.guild.text_channels:
+        if str(salon.id) in exclus or re.sub(r"[^a-z0-9]", "", normaliser(salon.name)) != cle:
+            continue
+        if salon.permissions_for(membre).view_channel and salon.category is not None:
+            return salon
+    return None
+
+
 def membre_par_id(uid):
     """Membre par identifiant Discord, tous serveurs confondus (None si introuvable)."""
     for g in client.guilds:
@@ -1780,7 +1804,8 @@ async def suite_validation(membre, guild):
     grille_tel = equipe_de_l_indicatif(tel_liaison) if indicatif_certain(tel_liaison) else ""
     incoherent = bool(pays and grille_tel and equipe_du_pays(pays) != grille_tel)
     grille = "" if incoherent else (grille_tel or (equipe_du_pays(pays) if pays else ""))
-    if grille == "fr":
+    sans_contrat = not CONTRAT_ACTIVER and guild is not None
+    if grille == "fr" and not sans_contrat:
         await envoyer_mp(membre, "🏆 **Test validé — bravo, tu rejoins l'équipe France !**\n\n"
                                  "Dernière étape : le **contrat**. Envoie-moi ici ton **adresse e-mail** — "
                                  "ton contrat à signer arrivera dessus (signature électronique, 2 minutes). "
@@ -1793,13 +1818,17 @@ async def suite_validation(membre, guild):
                    "\nℹ️ Candidature non retrouvée dans la feuille — grille déduite de son "
                    "**indicatif mobile sûr** (06/07 ou +32/+41), fiable. Pose le webhook "
                    "candidatures pour croiser le pays automatiquement."))
-    if grille == "mg" and guild is not None:
-        # International : les CONDITIONS partent, le rôle Team International ne s'ouvre qu'à son
-        # J'ACCEPTE (handler MP) — plus jamais avant l'acceptation (audit 10/09). Relance auto 24/48 h.
-        donnees.setdefault("etats", {}).setdefault(str(membre.id), {})["conditions_envoyees"] = (
-            datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    if grille == "mg" or sans_contrat:
+        # International (et tout le monde sans contrat, 23/09) : les CONDITIONS partent, le rôle Team ne
+        # s'ouvre qu'à son J'ACCEPTE (handler MP) — plus jamais avant l'acceptation (audit 10/09). Relance auto 24/48 h.
+        grille_cond = "mg" if grille == "mg" else "fr"
+        etat_c = donnees.setdefault("etats", {}).setdefault(str(membre.id), {})
+        etat_c["conditions_envoyees"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        etat_c["conditions_grille"] = grille_cond
         ecrire_json(FICHIER_PIPELINE, donnees)
-        await envoyer_mp(membre, "🏆 **Test validé — bienvenue dans la sélection Team International !**\n\n"
+        titre_cond = ("🏆 **Test validé — bienvenue dans la sélection Team International !**\n\n" if grille_cond == "mg"
+                      else "🏆 **Test validé — bienvenue dans l'équipe !**\n\n")
+        await envoyer_mp(membre, titre_cond +
                                  "Avant d'ouvrir ton accès, confirme les règles de l'équipe :\n"
                                  "1. Les comptes créés pour la mission (et le téléphone, s'il est fourni) **appartiennent "
                                  "à l'agence** — tu remets les accès à la demande.\n"
@@ -1807,14 +1836,15 @@ async def suite_validation(membre, guild):
                                  "partage, rien ne se copie.\n"
                                  "3. Tu as **18 ans ou plus**.\n"
                                  "4. Paie : **0,05 $ par visite réelle sur ton lien en bio Instagram** (visiteurs "
-                                 "depuis la France, hors robots), payée le 5 et le 20 (virement ou USDC). Pas de "
+                                 "francophones : France, Belgique, Suisse, Canada… hors robots), payée le 5 et le 20 (virement ou USDC). Pas de "
                                  "fixe : 1 000 visites = 50 $, 5 000 visites = 250 $. Robots, trafic acheté ou "
                                  "clics forcés = exclusion.\n"
                                  "5. Cadence ratée 2 jours de suite (2 Reels par jour sur chaque compte), ou moins "
                                  "de 1 000 visites le premier mois de publication : sortie de l'équipe.\n\n"
                                  "Réponds **J'ACCEPTE** ici : ton rôle s'ouvre aussitôt et ton manager t'écrit.")
-        return (f"🏆 {membre.mention} validé (International) → **conditions envoyées en MP** ; son rôle "
-                "Team International s'ouvre à son J'ACCEPTE (relance auto 24/48 h, je préviens "
+        return (f"🏆 {membre.mention} validé ({'International' if grille_cond == 'mg' else 'France, sans contrat'}"
+                f"{'' if grille else ', grille indéterminée → France par défaut'}) → **conditions envoyées en MP** ; son rôle "
+                f"Team {'International' if grille_cond == 'mg' else 'France'} s'ouvre à son J'ACCEPTE (relance auto 24/48 h, je préviens "
                 f"{mention_manager(guild)} ici).")
     # Grille indéterminée (pays ≠ indicatif, ou candidature non liée) : on NE laisse plus le
     # candidat sur un « on te contacte » sans suite (le bug du 20/07). La Team France (contrat)
@@ -2057,7 +2087,8 @@ async def boucle_pipeline():
                 if code_rel == "mg" or info.get("conditions_envoyees"):
                     # Validé International : la seule chose qui manque est son J'ACCEPTE — relancé
                     # à 24 h et 48 h comme les autres étapes (audit du 10/09 : aucune relance).
-                    if etat_c == "valide" and info.get("conditions_envoyees") and not INT_EN_PAUSE:
+                    if etat_c == "valide" and info.get("conditions_envoyees") \
+                            and not (INT_EN_PAUSE and info.get("conditions_grille", "mg") == "mg"):
                         await _relancer(rel, "acc24", "acc48", info.get("conditions_envoyees"), uid,
                             "✍️ Ton test est validé — il ne manque que ton **J'ACCEPTE** (réponds exactement "
                             "ça, ici) pour ouvrir ton rôle Team International et rencontrer ton manager. 💪",
@@ -2833,7 +2864,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats")
+                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -2864,6 +2895,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!subs Prénom 37` — ses abonnés OF du mois · `!primes` — la paie variable du mois\n"
                 "· `!sortie @clipper raison` — sortie de l'équipe (rôles + salons retirés, tout le monde prévenu)\n"
                 "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon\n"
+                "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
+                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` — liens GAML et adresses\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
     if any("team" in r for r in roles_n):
@@ -2871,6 +2904,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· Une question sur la méthode (comptes, warm-up, Reels, Facebook, paie, facture) : écris-la dans le "
                 "salon de l'assistant ou ici en MP — je réponds avec le kit.\n"
                 "· Tes comptes, ta créatrice, ton téléphone, tes accès : **ton manager**.\n"
+                "· `!mesclics` — tes visites payées d'hier, des 7 jours et de la quinzaine, avec le montant en cours.\n"
+                "· `!wallet 0x…` ou `!wallet FR76…` — ton adresse de paiement (USDC ERC20 ou IBAN).\n"
                 "· `!bumps` — le classement des bumps du mois.\n"
                 "· `STOP` en MP — plus aucun rappel automatique.")
     if serveur_ferme():
@@ -5062,6 +5097,11 @@ async def on_ready():
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
             "essais_quiz": essais_quiz, "traiter_quiz_web": traiter_quiz_web,
             "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD}))
+        client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
+            "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
+            "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
+            "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
+            "salon_perso": salon_perso_de}))
         client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
             client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
             debuts_fn=debuts_clippers, notifier=notifier_manager,
@@ -5097,6 +5137,7 @@ async def annoncer_demarrage():
                                   ("CANAL_ADMIN_ID", CANAL_ADMIN_ID), ("CANAL_MANAGER_ID", CANAL_MANAGER_ID),
                                   ("EMAIL_FACTURATION", EMAIL_FACTURATION),
                                   ("WEB_URL_PUBLIQUE", web_candidature.WEB_URL_PUBLIQUE if web_candidature.actif() else "x"),
+                                  ("GAML_API_KEY", paie_clics.GAML_API_KEY),
                                   ("SHEET_CSV_URL", inputs_clippers.SHEET_CSV_URL)) if not v]
     guild0 = client.guilds[0] if client.guilds else None
     if guild0 is not None and role_manager(guild0) is None:
@@ -5474,7 +5515,9 @@ async def on_message(message):
         pipe_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         info_a = pipe_a.get("etats", {}).get(str(utilisateur), {})
         code_a, _ = equipe_deduite(utilisateur)
-        suite = ("✅ **Conditions acceptées et enregistrées — bienvenue dans la Team International ! 🔥**\n\n"
+        grille_acc = info_a.get("conditions_grille") or "mg"          # sans contrat (23/09) : la grille France passe aussi par ici
+        suite = ("✅ **Conditions acceptées et enregistrées — bienvenue dans la Team "
+                 f"{'International' if grille_acc == 'mg' else 'France'} ! 🔥**\n\n"
                  "La suite, dans l'ordre :\n"
                  "1️⃣ **Ton manager t'attribue ta créatrice** et ouvre son salon (rushs, modèles) — sous 48 h.\n"
                  "2️⃣ **Tes comptes se créent AVEC lui** au prochain créneau : lundi, mercredi ou vendredi "
@@ -5482,21 +5525,22 @@ async def on_message(message):
                  "jamais tes comptes seul.\n"
                  "3️⃣ D'ici là : lis la **Fiche 1** (règles anti-ban) et la **Fiche 2** (warm-up, toute la semaine 1).\n"
                  "Une question ? Le salon de l'assistant répond 24h/24. Au travail 💪")
-        if fiche_eq and fiche_eq.get("equipe") == "mg":
+        if fiche_eq and (fiche_eq.get("equipe") == "mg" or fiche_eq.get("conditions")):
             if not fiche_eq.get("conditions"):
                 fiche_eq["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
                 ecrire_json(FICHIER_EQUIPES, registre)
             await message.reply(suite if not fiche_eq.get("creatrice") else "✅ Déjà noté ! " + ou_en_es_tu(str(utilisateur)))
             return
-        if info_a.get("etat") == "valide" and (info_a.get("conditions_envoyees") or code_a == "mg") and not INT_EN_PAUSE:
+        if info_a.get("etat") == "valide" and (info_a.get("conditions_envoyees") or code_a == "mg") \
+                and not (INT_EN_PAUSE and grille_acc == "mg"):
             # Le rôle Team International s'ouvre ICI, à l'acceptation — plus jamais avant (audit 10/09).
             membre_a = membre_par_id(utilisateur)
             if membre_a is None:
                 await message.reply("Je ne te trouve pas sur le serveur — reviens dessus puis renvoie J'ACCEPTE.")
                 return
-            nom_role_a, err_a = await attribuer_equipe(membre_a.guild, membre_a, "mg", client.user.id)
+            nom_role_a, err_a = await attribuer_equipe(membre_a.guild, membre_a, grille_acc, client.user.id)
             registre = lire_json(FICHIER_EQUIPES, {})
-            registre.setdefault(str(utilisateur), {"equipe": "mg", "par": str(client.user.id),
+            registre.setdefault(str(utilisateur), {"equipe": grille_acc, "par": str(client.user.id),
                                                    "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             registre[str(utilisateur)]["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
             ecrire_json(FICHIER_EQUIPES, registre)
@@ -5505,12 +5549,12 @@ async def on_message(message):
                                 "(petit souci technique de mon côté, déjà signalé) — ton manager t'écrit ensuite.")
             tel_a = pipe_a.get("liaisons", {}).get(str(utilisateur), {}).get("tel", "")
             await notifier_manager(
-                f"✍️ **{message.author.mention} a accepté les conditions International** → "
-                + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} int`.")
+                f"✍️ **{message.author.mention} a accepté les conditions {'International' if grille_acc == 'mg' else 'France (sans contrat)'}** → "
+                + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`.")
                 + f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`** "
                   "puis créneau de création (lun/mer/ven 17 h Paris) sur son téléphone, lien de tracking."
                 + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
-            await inputs_clippers.envoyer_telegram(f"✍️ J'ACCEPTE : {membre_a.display_name} (Team International)"
+            await inputs_clippers.envoyer_telegram(f"✍️ J'ACCEPTE : {membre_a.display_name} (Team {'International' if grille_acc == 'mg' else 'France'})"
                                                   + (f" — WhatsApp {tel_a}" if tel_a else ""))
             return
         await message.reply("Je n'ai pas de conditions en attente pour toi. " + ou_en_es_tu(str(utilisateur)))
@@ -5528,18 +5572,18 @@ async def on_message(message):
         # e-mail ne doit PAS le recevoir (vécu par Imelda et Alex, 10-12/08 : contrat France
         # + relances J+24/J+48 alors qu'ils avaient accepté leurs conditions International).
         code_grille, _motif_grille = equipe_deduite(utilisateur)
-        if etat_cand == "valide" and code_grille == "mg":
+        if etat_cand == "valide" and (code_grille == "mg" or not CONTRAT_ACTIVER):
             await message.reply("📧 Bien reçu, ton e-mail est enregistré (il servira pour le Drive)."
                                 + ("\n\n📅 Info importante : **le recrutement international est en "
                                    "pause pour le moment**. Pas de contrat ni d'attribution tant qu'elle dure — "
                                    "ton dossier est prêt et tu seras recontacté en priorité à la "
                                    "réouverture. En attendant : reste sur le serveur et fais des "
                                    "bumps dans #bump, ça compte. 💪" if INT_EN_PAUSE else
-                                   "\nTes conditions International arrivent séparément — pas de "
-                                   "contrat France à signer pour toi."))
+                                   "\nTes conditions arrivent séparément en MP (réponds J'ACCEPTE) — pas de "
+                                   "contrat à signer pour toi."))
             if canal:
-                await canal.send(f"📧 E-mail reçu de <@{utilisateur}> (International) — contrat France "
-                                 f"**non envoyé**" + (" (recrutement international en pause)." if INT_EN_PAUSE else "."))
+                await canal.send(f"📧 E-mail reçu de <@{utilisateur}> ({'International' if code_grille == 'mg' else 'sans contrat'}) — contrat "
+                                 f"**non envoyé**" + (" (recrutement international en pause)." if INT_EN_PAUSE and code_grille == "mg" else "."))
             return
         if etat_cand == "valide":
             # Un 2ᵉ e-mail ne recrée pas un 2ᵉ contrat (audit 10/09) : on renvoie le lien existant.
@@ -5630,6 +5674,11 @@ async def on_message(message):
             journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
             return
 
+    # Paie au clic (23/09) : le clipper voit ses propres clics et pose son adresse — en MP ou dans son salon.
+    if texte.split()[:1] in (["!mesclics"], ["!wallet"]) and not (message.mentions and est_manager(message.author)):
+        if await paie_clics.commande_clipper(message, texte):
+            return
+
     # !aide : pour tout le monde, adaptée au rôle de celui qui demande.
     if texte.split()[:1] in (["!aide"], ["!help"], ["!commandes"]):
         await message.reply(texte_aide(message.author, str(utilisateur) in ADMIN_IDS)[:1990])
@@ -5644,6 +5693,8 @@ async def on_message(message):
         lignes_cmd = [l.strip() for l in texte.split("\n") if l.strip().startswith("!")]
         if len(lignes_cmd) > 1 and est_admin:           # rafale : plusieurs commandes dans un seul message
             await executer_rafale(message, lignes_cmd)
+            return
+        if await paie_clics.commande_staff(message, texte):
             return
         if await commande_admin(message, texte):
             return

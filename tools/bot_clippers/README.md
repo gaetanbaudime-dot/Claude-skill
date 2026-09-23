@@ -457,6 +457,24 @@ rien n'est supprimé, un glisser-déposer hors de la catégorie les fait revenir
 (admin, manager, assistant) sont refusés. Cible du 14/09 : `#tips` (captions épinglées dans `#ressources`),
 `#dopamine` (victoires dans `#annonces`) ; `#bump` et les deux compteurs se suppriment.
 
+## 💸 Paie au clic GAML (23/09, `paie_clics.py`)
+
+**Le modèle** : 0,05 $ (`TAUX_CLIC`) par visite réelle sur le lien GetAllMyLinks du clipper, visiteurs **francophones** (`PAYS_PAYES`, par défaut France, Belgique, Suisse, Canada, Luxembourg, Monaco et les DOM-TOM, noms tels que GAML les renvoie ; le Maghreb et l'Afrique francophone, pays des clippers eux-mêmes, restent exclus par défaut), robots exclus par GAML. Payé le **5** (période du 16 à la fin du mois précédent) et le **20** (du 1 au 15).
+
+**Ce que fait le bot** (actif dès que `GAML_API_KEY` est posée dans Railway) :
+
+- **Attribution des liens** : au démarrage puis toutes les heures, chaque lien GAML dont la note est « Clipping Prénom » est rattaché au membre signé du même prénom (et de la même créatrice si possible) ; ambiguïté → ligne dans le salon admin, à trancher avec `!lien`. `CLICS_EXCLURE` (défaut : rianah, gaetan, jonas, x, y) écarte les liens du staff et les liens en attente.
+- **Relevés** : deux appels par lien et par jour (pays hors robots, total avec robots), rangés dans `clics.json` sur le volume, rétroactivement depuis `CLICS_DEPUIS` (défaut 2026-09-16), 110 appels au plus par passage pour rester sous la limite GAML (60 par minute), un passage tous les quarts d'heure.
+- **Ligne du matin** (`CLICS_HEURE`, défaut 7 h Paris) dans le salon perso de chaque clipper : visiteurs et visites payées de la veille, quinzaine en cours avec le montant, 7 jours. Une fois par jour, seulement quand la veille est relevée pour tous les liens.
+- **Commandes clipper** (MP ou salon) : `!mesclics` (hier, 7 jours, quinzaine, montant en cours, part payable, robots exclus, son lien) · `!wallet 0x…` (USDC ERC20) ou `!wallet FR76…` (IBAN) pour son adresse de paiement.
+- **Commandes manager** : `!clics` (tableau par clipper) · `!liens` (tous les liens « Clipping », attribués ou libres) · `!lien @clipper <url|slug>` (attribuer) · `!lien @clipper nouveau [Créatrice]` (cloner un lien de sa créatrice via l'API, le renommer « Clipping Prénom », l'activer) · `!lien @clipper retirer` · `!wallet @clipper <adresse>` · **`!paie-clics 5|20 [AAAA-MM]`** : la liste prénom, visites payées, montant, adresse, avec le CSV joint (`;` comme séparateur, décimales à virgule). Le virement reste humain.
+
+**Ce qui manque encore** : le bouton OnlyFans d'un lien cloné pointe sur la destination du modèle ; il passera au lien de tracking Infloww du clipper quand l'export Infloww sera lu par le bot (API Infloww en bêta : Gaëtan exporte les liens de tracking tous les quinze jours, rappel agenda le 5 et le 20).
+
+## ✍️ Plus d'étape contrat dans le tunnel (23/09)
+
+Décision de Gaëtan : « on ne va pas embêter les Malgaches avec ça ». `CONTRAT_ACTIVER` vaut `0` par défaut : tout test validé, grille France comme International (et grille indéterminée, France par défaut), reçoit les **conditions en MP** et répond **J'ACCEPTE** ; le rôle Team de sa grille s'ouvre à l'acceptation (`conditions_grille` dans le pipeline), les relances 24/48 h s'appliquent à tous. Un e-mail envoyé en MP est simplement enregistré (Drive), plus aucun contrat DocuSeal ne part. `CONTRAT_ACTIVER=1` rétablit le contrat pour la grille France.
+
 ## 🌐 Le site du tunnel candidat (23/09)
 
 **Présentation et rémunération (23/09, après-midi)** : le formulaire reprend l'annonce de Gaëtan (« Recherche Clippeur Reels 🎥 Instagram »), 100 % Instagram (création de comptes puis publication de Reels), et annonce noir sur blanc le nouveau modèle : **0,05 $ par visite réelle sur le lien en bio Instagram** (visiteurs depuis la France, hors robots), payé le 5 et le 20, avec les repères 1 000 visites = 50 $ et 5 000 visites = 250 $. La présentation est une liste de paragraphes dans `questions_candidature.json` (`intro`), `**gras**` et `---` acceptés. La question « Es-tu OK avec ce modèle ? » décrit le même modèle, et les conditions Team International envoyées après le test disent la même chose (plus de fixe ni de 0,50 € par abonné pour les nouveaux). `!primes` reste pour les clippers déjà signés à l'ancien modèle. : formulaire, connexion Discord, quiz

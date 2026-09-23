@@ -3,7 +3,7 @@
   "intro": [
     "**Tu crées des comptes Instagram, puis tu publies des Reels** depuis ton téléphone, à côté de ton travail ou de tes études.",
     "Nous fournissons le contenu, la formation et toute la stratégie (+11M vues générées).",
-    "💰 **Rémunération : 0,05 $ par visite sur ton lien en bio Instagram** (visiteurs réels depuis la France, hors robots).",
+    "💰 **Rémunération : 0,05 $ par visite sur ton lien en bio Instagram** (visiteurs francophones réels : France, Belgique, Suisse, Canada… hors robots).",
     "**1 000 visites = 50 $ · 5 000 visites = 250 $ · 20 000 visites = 1 000 $.**",
     "Payé deux fois par mois, le 5 et le 20 (virement ou USDC).",
     "Aucune expérience n'est nécessaire. On te forme de A à Z 🎓",
@@ -29,7 +29,7 @@
     {"id": "heures_jour", "label": "Combien d'heures par jour peux-tu consacrer à ce projet ?", "type": "text", "requis": true},
     {"id": "bans", "label": "Tu connais quoi sur les shadowbans et bans Instagram / TikTok ? Explique avec tes mots.", "type": "textarea", "requis": true},
     {"id": "pourquoi", "label": "Pourquoi es-tu intéressé par rejoindre notre agence ? (honnêtement)", "type": "textarea", "requis": true},
-    {"id": "modele", "label": "Rémunération : 0,05 $ par visite réelle sur ton lien en bio Instagram (visiteurs depuis la France, hors robots), payé le 5 et le 20 de chaque mois. 1 000 visites = 50 $, 5 000 visites = 250 $. Es-tu OK avec ce modèle ?", "type": "select", "requis": true, "options": ["Oui", "Non"], "aide": "Pas de fixe : tu es payé sur les visites que tes Reels envoient réellement vers le lien en bio."},
+    {"id": "modele", "label": "Rémunération : 0,05 $ par visite réelle sur ton lien en bio Instagram (visiteurs francophones, hors robots), payé le 5 et le 20 de chaque mois. 1 000 visites = 50 $, 5 000 visites = 250 $. Es-tu OK avec ce modèle ?", "type": "select", "requis": true, "options": ["Oui", "Non"], "aide": "Pas de fixe : tu es payé sur les visites que tes Reels envoient réellement vers le lien en bio."},
     {"id": "majeur", "label": "Es-tu majeur ?", "type": "select", "requis": true, "options": ["Oui", "Non"]},
     {"id": "lu_annonce", "label": "Est-ce que tu as bien lu la description de l'annonce ?", "type": "select", "requis": true, "options": ["Oui", "Non"]},
     {"id": "age", "label": "Tu as quel âge ?", "type": "number", "requis": true, "min": 14, "max": 80},
