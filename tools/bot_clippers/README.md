@@ -457,7 +457,9 @@ rien n'est supprimé, un glisser-déposer hors de la catégorie les fait revenir
 (admin, manager, assistant) sont refusés. Cible du 14/09 : `#tips` (captions épinglées dans `#ressources`),
 `#dopamine` (victoires dans `#annonces`) ; `#bump` et les deux compteurs se suppriment.
 
-## 🌐 Le site du tunnel candidat (23/09) : formulaire, connexion Discord, quiz
+## 🌐 Le site du tunnel candidat (23/09)
+
+**Présentation et rémunération (23/09, après-midi)** : le formulaire reprend l'annonce de Gaëtan (« Recherche Clippeur Reels 🎥 Instagram »), 100 % Instagram (création de comptes puis publication de Reels), et annonce noir sur blanc le nouveau modèle : **0,05 $ par visite réelle sur le lien en bio Instagram** (visiteurs depuis la France, hors robots), payé le 5 et le 20, avec les repères 1 000 visites = 50 $ et 5 000 visites = 250 $. La présentation est une liste de paragraphes dans `questions_candidature.json` (`intro`), `**gras**` et `---` acceptés. La question « Es-tu OK avec ce modèle ? » décrit le même modèle, et les conditions Team International envoyées après le test disent la même chose (plus de fixe ni de 0,50 € par abonné pour les nouveaux). `!primes` reste pour les clippers déjà signés à l'ancien modèle. : formulaire, connexion Discord, quiz
 
 Le bot sert lui-même quatre pages sur Railway (`web_candidature.py`) et remplace Google Forms, les deux
 Apps Script et la liaison par téléphone :

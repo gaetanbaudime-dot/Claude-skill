@@ -91,7 +91,7 @@ STYLE = """
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--g);color:var(--t)}
 .w{max-width:640px;margin:0 auto;padding:16px}
 .c{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-h1{font-size:22px;margin:0 0 6px;color:var(--n)}p{line-height:1.45}
+h1{font-size:22px;margin:0 0 10px;color:var(--n)}p{line-height:1.45;margin:10px 0}hr{border:0;border-top:1px solid #e3e6eb;margin:16px 0}
 label{display:block;font-weight:600;margin:18px 0 6px;font-size:15px}
 input,select,textarea{width:100%;font:inherit;padding:12px;border:1px solid #cfd4dc;border-radius:10px;background:#fff}
 textarea{min-height:96px}small{color:#555;display:block;margin-top:4px}
@@ -139,11 +139,28 @@ def _champ(q: dict, valeur: str = "") -> str:
     return f"<label>{html.escape(q['label'])}{' *' if q.get('requis') else ''}</label>{h}{aide}"
 
 
+def _intro_html(intro) -> str:
+    """La présentation de l'annonce : une chaîne ou une liste de paragraphes (questions_candidature.json).
+    `**gras**` devient du gras, une ligne `---` devient un séparateur. Tout le reste est échappé."""
+    paragraphes = intro if isinstance(intro, list) else [intro]
+    out = []
+    for p in paragraphes:
+        p = str(p or "").strip()
+        if not p:
+            continue
+        if p == "---":
+            out.append("<hr>")
+            continue
+        t = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", html.escape(p))
+        out.append(f"<p>{t}</p>")
+    return "".join(out)
+
+
 def _formulaire(valeurs=None, erreur: str = "") -> web.Response:
     cfg = _questions(); valeurs = valeurs or {}
     champs = "".join(_champ(q, valeurs.get(q["id"], "")) for q in cfg["questions"])
     err = f"<div class='e'>{html.escape(erreur)}</div>" if erreur else ""
-    corps = (f"<h1>{html.escape(cfg.get('titre', 'Candidature'))}</h1><p>{html.escape(cfg.get('intro', ''))}</p>{err}"
+    corps = (f"<h1>{html.escape(cfg.get('titre', 'Candidature'))}</h1>{_intro_html(cfg.get('intro', ''))}{err}"
              f"<form method='post' action='/candidature' autocomplete='on'>"
              f"<input class='hp' type='text' name='site_web' tabindex='-1' autocomplete='off'>{champs}"
              f"<button class='b' type='submit'>Envoyer ma candidature</button></form>")
