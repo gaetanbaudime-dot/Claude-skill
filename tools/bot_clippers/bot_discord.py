@@ -30,6 +30,7 @@ import codes_2fa                          # relais des codes Instagram/Facebook 
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
+import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -152,6 +153,7 @@ codes_2fa.FICHIER_ALIAS = DONNEES / "alias_codes.json"       # registre alias e-
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors kit : [{"q", "qui", "date"}] — la matière de !apprendre
 FICHIER_SUBS = DONNEES / "subs.json"                         # abonnés OF par clipper et par mois : {"AAAA-MM": {prénom: n}} (!subs)
+FICHIER_ONBOARDING = DONNEES / "onboarding.json"             # onboarding : comptes livrés (handle → clipper), lien, Drive par clipper
 FICHIER_CLICS = DONNEES / "clics.json"                       # paie au clic : liens GAML attribués, relevés par jour, adresses de paiement
 FICHIER_SORTIS = DONNEES / "sortis.json"                     # trace des sorties d'équipe (!sortie) : [{uid, nom, equipe, creatrice, date, par, raison}]
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
@@ -1036,6 +1038,23 @@ def chercher_membre(reference, exact=False):
             if not m.bot and ref_n in normaliser(m.display_name):
                 return m
     return None
+
+
+def membre_par_prenom(prenom_n: str):
+    """Le membre SIGNÉ (registre équipes) dont le premier mot du pseudo normalisé vaut `prenom_n` ; None si
+    aucun ou plusieurs (la colonne Gérant du classeur ne peut pas trancher entre deux Julien)."""
+    if not prenom_n:
+        return None
+    registre = lire_json(FICHIER_EQUIPES, {})
+    trouves = []
+    for uid in registre:
+        m = membre_par_id(uid)
+        if m is None:
+            continue
+        premier = normaliser(m.display_name.split()[0] if m.display_name.split() else m.display_name)
+        if premier == prenom_n or normaliser(m.display_name) == prenom_n:
+            trouves.append(m)
+    return trouves[0] if len(trouves) == 1 else None
 
 
 def salon_perso_de(uid):
@@ -2865,7 +2884,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie")
+                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -2898,6 +2917,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon\n"
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
+                "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
     if any("team" in r for r in roles_n):
@@ -3031,6 +3051,11 @@ async def commande_creatrice(message, texte: str) -> bool:
     fiche["creatrice_par"] = str(message.author.id)
     fiche["creatrice_date"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     ecrire_json(FICHIER_EQUIPES, registre)
+    # 23/09 : comptes du classeur, lien GAML et Drive partent dans son salon perso (ou en MP), sans manager.
+    try:
+        bilan_onb = await onboarding.livrer(membre, prenom, salon_perso)
+    except Exception as erreur:                                        # jamais bloquer l'attribution pour ça
+        bilan_onb = f"onboarding : {type(erreur).__name__} {str(erreur)[:120]}"
     if ouverts or salon_perso is not None:
         await envoyer_mp(membre,
             f"🎬 **Ta créatrice : {prenom}.**\n"
@@ -3038,8 +3063,9 @@ async def commande_creatrice(message, texte: str) -> bool:
                 + " — dedans : ses rushs et ses modèles.\n") if ouverts else "")
             + ((f"Ton salon perso : <#{salon_perso.id}> — c'est là que ton bilan quotidien arrive et que tu parles à "
                 "ton manager.\n") if salon_perso is not None else "")
-            + "Tes comptes se créent AVEC ton manager au prochain créneau (lundi, mercredi ou vendredi à 17 h, "
-              "heure de Paris) — c'est là que ton lien de tracking est posé. D'ici là : Fiche 1 et Fiche 2. 🚀")
+            + ("Tes comptes, ton lien en bio et ton Drive sont dans ton salon perso. " if salon_perso is not None else
+               "Tes comptes, ton lien en bio et ton Drive arrivent ici. ")
+            + "Crée tes comptes depuis ton téléphone en suivant la Fiche 1 et la Fiche 2 ; le bot te relaie les codes. 🚀")
     await message.reply(
         f"✅ {membre.mention} → **{prenom}**"
         + ((" · salons ouverts : " + ", ".join(c.name for c in ouverts)) if ouverts else
@@ -3047,7 +3073,7 @@ async def commande_creatrice(message, texte: str) -> bool:
         + ((f" · salon perso {'créé' if cree else 'ouvert'} : #{salon_perso.name}") if salon_perso is not None else
            (" · ⚠️ pas de catégorie au nom de la créatrice : salon perso non créé" if categorie is None else ""))
         + (f" · refus : {', '.join(refus)}" if refus else "")
-        + ("\n-# Prochain geste : créneau de création lun/mer/ven 17 h, règles de l'appareil, lien de tracking, ligne Sheet.")
+        + f"\n{bilan_onb}"
         + ".")
     return True
 
@@ -5098,6 +5124,13 @@ async def on_ready():
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
             "essais_quiz": essais_quiz, "traiter_quiz_web": traiter_quiz_web,
             "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD}))
+        deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
+                    "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
+                    "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
+                    "salon_perso": salon_perso_de, "membre_par_prenom": membre_par_prenom, "membre_par_id": membre_par_id,
+                    "envoyer_long": envoyer_long}
+        onboarding.configurer(deps_onb)
+        client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
@@ -5697,6 +5730,8 @@ async def on_message(message):
             await executer_rafale(message, lignes_cmd)
             return
         if await paie_clics.commande_staff(message, texte):
+            return
+        if await onboarding.commande_staff(message, texte):
             return
         if await commande_admin(message, texte):
             return
