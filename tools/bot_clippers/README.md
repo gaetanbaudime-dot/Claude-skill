@@ -457,6 +457,25 @@ rien n'est supprimé, un glisser-déposer hors de la catégorie les fait revenir
 (admin, manager, assistant) sont refusés. Cible du 14/09 : `#tips` (captions épinglées dans `#ressources`),
 `#dopamine` (victoires dans `#annonces`) ; `#bump` et les deux compteurs se suppriment.
 
+## 🌐 Le site du tunnel candidat (23/09) : formulaire, connexion Discord, quiz
+
+Le bot sert lui-même quatre pages sur Railway (`web_candidature.py`) et remplace Google Forms, les deux
+Apps Script et la liaison par téléphone :
+
+| Page | Rôle |
+|---|---|
+| `/candidature` | Le formulaire, questions dans `questions_candidature.json` (texte, options, obligatoire : éditable sans code). Mineurs refusés, pot de miel anti-robot, 6 envois par heure et par adresse |
+| `/discord/connexion` | Le bouton « Rejoindre le Discord » : autorisation Discord officielle (OAuth2, `identify` + `guilds.join`) qui porte l'identifiant de candidature signé. Le bot ajoute lui-même le candidat au serveur, déjà relié à ses réponses, surnom = prénom |
+| `/quiz` | Le quiz servi ici (`quiz.json` : `{"titre", "questions": [{"q", "choix": [...], "bonne": index}]}`), lien personnel signé, score envoyé au même traitement que l'Apps Script (test 48 h automatique, essais comptés). Tant que `quiz.json` n'existe pas, le Google Form (`LIEN_QUIZ`) reste utilisé |
+| `/health` | État du service |
+
+Variables Railway : `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` (portail développeur Discord → OAuth2, redirection
+`https://<domaine>/discord/callback`), `WEB_URL_PUBLIQUE` (le domaine public généré par Railway), `WEB_SECRET`
+(facultatif, signe les liens), `QUIZ_SEUIL` (27), `QUIZ_ESSAIS_MAX` (2), `GUILD_ID` (facultatif). `WEB_ACTIVER=0`
+coupe tout. Sans ces variables, le bot est inchangé. Un candidat arrivé par le site est reconnu dans
+`on_member_join` (`web_attendus`) et reçoit l'étape 2 immédiatement ; s'il était déjà sur le serveur, la liaison
+se fait dans la foulée. Le bot doit avoir « Créer une invitation » sur le serveur pour `guilds.join`.
+
 ## 🧹 Salon admin épuré (23/09)
 
 Soixante-dix messages en trois jours, dont la moitié ne demandait rien : « c'est le bordel ». Depuis le 23/09, le

@@ -28,6 +28,7 @@ import anthropic
 import inputs_clippers                    # suivi quotidien des Reels publiés (Apify) — voir le module
 import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
+import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -66,6 +67,7 @@ ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.
 CANAL_DOPAMINE_ID = os.environ.get("CANAL_DOPAMINE_ID", "").strip()       # canal des paiements/wins
 CANAL_CANDIDATURE_ID = os.environ.get("CANAL_CANDIDATURE_ID", "").strip() # canal d'accueil des candidats
 LIEN_FORMULAIRE = os.environ.get("LIEN_FORMULAIRE", "").strip()           # formulaire de candidature
+LIEN_DISCORD = os.environ.get("LIEN_DISCORD", "").strip()                 # lien d'invitation de secours (site sans OAuth)
 # ACTIVER_V2=1 exige l'intent privilégié « Server Members » dans le Developer Portal.
 # Sans lui, le tracking d'invitations et l'accueil numéroté restent éteints (déploiement sans risque).
 ACTIVER_V2 = os.environ.get("ACTIVER_V2", "").strip() == "1"
@@ -1135,6 +1137,28 @@ async def envoyer_test_candidat(membre, score=""):
     return envoye
 
 
+def essais_quiz(uid: str) -> int:
+    """Essais de quiz consommés par un membre (échecs comptés), ou « tous » si son parcours a déjà
+    dépassé le quiz — sert au quiz servi par le site (web_candidature)."""
+    info = lire_json(FICHIER_PIPELINE, {"etats": {}}).get("etats", {}).get(str(uid), {})
+    if info.get("etat") in ("test_envoye", "test_rendu", "valide", "refuse", "test_expire", "sorti"):
+        return 99
+    return int(info.get("essais_quiz", 0))
+
+
+class _MessageQuizWeb:
+    """Le quiz du site produit le même événement que l'Apps Script : on le rejoue dans
+    traiter_quiz_webhook, sans webhook ni salon (le canal reçoit les seules anomalies)."""
+    def __init__(self, contenu, canal):
+        self.content, self.id, self.channel, self.webhook_id = contenu, f"web-{int(time.time() * 1000)}", canal, None
+
+
+async def traiter_quiz_web(uid: str, score: str, reussite: bool):
+    canal = await canal_admin()
+    contenu = f"{'QUIZ_OK' if reussite else 'QUIZ_KO'}|{uid}|{score}"
+    await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal))
+
+
 async def traiter_quiz_webhook(message, silencieux=False):
     """Message « QUIZ_OK|pseudo|score[|email] » (réussite) ou « QUIZ_KO|pseudo|score[|email] »
     (échec) posté par l'Apps Script de la feuille du quiz (webhook Discord, salon admin).
@@ -1602,13 +1626,19 @@ async def traiter_liaison(auteur, brut):
         + " : regarde la vidéo (54 min) **en entier** — "
         "4 mots-clés y sont cachés, note-les dans l'ordre, ils te seront demandés.\n"
         + ((f"→ Puis passe ton quiz avec **TON lien personnel** (ne modifie pas la case déjà remplie) :\n"
-            f"{LIEN_QUIZ}{auteur.id}\n"
-            f"Seuil : **27/34** · deux essais maximum.\n\n") if LIEN_QUIZ else "\n")
+            f"{lien_quiz_pour(auteur.id)}\n"
+            f"Seuil : **27/34** · deux essais maximum.\n\n") if lien_quiz_pour(auteur.id) else "\n")
         + "**Étape 3 — le test 🎬**\n"
           "Quiz réussi → ton test de montage (48 h) arrive **ici automatiquement**. Rien d'autre à faire "
           "d'ici là. Bonne formation 🚀")
     journal.info("Liaison téléphone : membre %s -> …%s (%s)", auteur.id, tel[-4:],
                  "candidature retrouvée" if cand else "sans candidature")
+
+
+def lien_quiz_pour(uid) -> str:
+    """Le lien de quiz personnel : celui du site s'il est prêt (quiz.json + URL publique), sinon le
+    Google Form pré-rempli (LIEN_QUIZ), sinon rien."""
+    return web_candidature.lien_quiz(uid) or (f"{LIEN_QUIZ}{uid}" if LIEN_QUIZ else "")
 
 
 def ou_en_es_tu(uid: str) -> str:
@@ -5026,6 +5056,11 @@ async def on_ready():
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
         client.loop.create_task(boucle_posts_formation())  # liens des fiches + index des salons (fini « #inconnu »)
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
+        client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
+            "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,
+            "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
+            "essais_quiz": essais_quiz, "traiter_quiz_web": traiter_quiz_web,
+            "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD}))
         client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
             client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
             debuts_fn=debuts_clippers, notifier=notifier_manager,
@@ -5056,9 +5091,11 @@ async def annoncer_demarrage():
     (actives if CANAL_BUMP_ID else eteintes).append("rappel bump")
     (actives if (CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID) else eteintes).append("salons-compteurs")
     (actives if (DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID) else eteintes).append("contrats DocuSeal")
+    (actives if web_candidature.actif() else eteintes).append("site candidature + connexion Discord")
     manquantes = [n for n, v in (("LIEN_TEST", LIEN_TEST), ("LIEN_QUIZ", LIEN_QUIZ),
                                   ("CANAL_ADMIN_ID", CANAL_ADMIN_ID), ("CANAL_MANAGER_ID", CANAL_MANAGER_ID),
                                   ("EMAIL_FACTURATION", EMAIL_FACTURATION),
+                                  ("WEB_URL_PUBLIQUE", web_candidature.WEB_URL_PUBLIQUE if web_candidature.actif() else "x"),
                                   ("SHEET_CSV_URL", inputs_clippers.SHEET_CSV_URL)) if not v]
     guild0 = client.guilds[0] if client.guilds else None
     if guild0 is not None and role_manager(guild0) is None:
@@ -5096,7 +5133,13 @@ async def on_member_join(member):
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     donnees.setdefault("arrivees", {}).setdefault(
         str(member.id), {"date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    # Arrivant ajouté par le site (connexion Discord après le formulaire) : déjà relié à sa
+    # candidature, on lance directement l'étape 2 — pas de porte, pas de numéro à envoyer.
+    attendu = donnees.get("web_attendus", {}).pop(str(member.id), None)
     ecrire_json(FICHIER_PIPELINE, donnees)
+    if attendu:
+        await traiter_liaison(member, attendu.get("tel", ""))
+        return
     # Porte d'entrée : l'invitation dont le compteur a bougé (cache avant/après). Le cache n'est
     # PAS mis à jour ici : accueillir() refait sa propre lecture pour le parrainage.
     invitation = None
@@ -5183,7 +5226,8 @@ async def raccompagner(member, invitation, code):
         return
     texte = (f"👋 Bonjour {member.display_name} ! Ce serveur est réservé aux clippers **déjà validés** de "
              "l'agence. La candidature se passe en dehors de Discord : "
-             + (f"formulaire (3 min) : {LIEN_FORMULAIRE} — " if LIEN_FORMULAIRE else "")
+             + (f"formulaire (3 min) : {web_candidature.lien_candidature() or LIEN_FORMULAIRE} — "
+                if (web_candidature.lien_candidature() or LIEN_FORMULAIRE) else "")
              + "tu reçois ensuite la formation, le quiz et le test par e-mail. Test validé → tu reçois ton "
                "invitation personnelle. À bientôt !")
     await envoyer_mp(member, texte)
@@ -5409,12 +5453,12 @@ async def on_message(message):
     # Commande PUBLIQUE : !quiz — le bot envoie en MP le lien de quiz PERSONNEL (ID Discord pré-rempli,
     # jointure infaillible avec la feuille). « !quiz-ok » reste la commande admin, exclue ici.
     if texte.startswith("!quiz") and not texte.startswith("!quiz-ok"):
-        if not LIEN_QUIZ:
+        if not lien_quiz_pour(utilisateur):
             await message.reply("Le lien du quiz n'est pas encore configuré — demande à Gaëtan.")
             return
         ok = await envoyer_mp(message.author,
             "📝 Voici **ton lien de quiz personnel** — il contient ton identifiant Discord, "
-            f"ne modifie pas le champ pré-rempli :\n{LIEN_QUIZ}{utilisateur}\n\n"
+            f"ne modifie pas le champ pré-rempli :\n{lien_quiz_pour(utilisateur)}\n\n"
             "Seuil : **27/34**. Si tu le passes, le test de montage arrive ici automatiquement. Bonne chance 🍀")
         if message.guild is not None:
             await message.reply("📬 Lien de quiz personnel envoyé en message privé !" if ok else
