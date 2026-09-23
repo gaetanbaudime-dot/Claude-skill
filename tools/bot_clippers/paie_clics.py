@@ -293,11 +293,13 @@ async def associer_auto(d: dict, liens: list) -> list:
         surs = [c for c in candidats if c[1]] or (candidats if len(candidats) == 1 else [])
         if len(surs) != 1:
             lignes.append(f"⚠️ {l.get('note')} ({creatrice}) : {len(candidats)} membres possibles, à trancher avec `!lien`.")
+            journal.info("Lien GAML %s (%s) : %s candidats, non attribué", l.get("note"), creatrice, len(candidats))
             continue
         uid = surs[0][0]
         d["liens"][lid] = {"uid": uid, "note": l.get("note"), "url": l.get("url"), "creatrice": creatrice,
                            "depuis": max(CLICS_DEPUIS, str(l.get("createdAt", ""))[:10] or CLICS_DEPUIS), "par": "auto"}
         lignes.append(f"🔗 {l.get('note')} ({creatrice}) → <@{uid}>")
+        journal.info("Lien GAML %s (%s) → membre %s", l.get("note"), creatrice, uid)
     return lignes
 
 
@@ -338,6 +340,7 @@ async def envoyer_lignes_matin(d: dict) -> int:
         texte = ligne_matin(d, uid)
         salon = salon_de(uid) if texte else None
         if salon is None:
+            journal.info("Ligne du matin %s : %s", uid, "pas de relevé d'hier" if not texte else "salon perso introuvable ou fermé au bot")
             continue
         try:
             await salon.send(texte)

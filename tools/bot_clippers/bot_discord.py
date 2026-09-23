@@ -1051,7 +1051,8 @@ def salon_perso_de(uid):
     for salon in membre.guild.text_channels:
         if str(salon.id) in exclus or re.sub(r"[^a-z0-9]", "", normaliser(salon.name)) != cle:
             continue
-        if salon.permissions_for(membre).view_channel and salon.category is not None:
+        if (salon.permissions_for(membre).view_channel and salon.category is not None
+                and salon.permissions_for(membre.guild.me).send_messages):        # 23/09 : un salon où je ne peux pas écrire = 403
             return salon
     return None
 
