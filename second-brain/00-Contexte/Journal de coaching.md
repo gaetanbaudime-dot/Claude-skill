@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-23 (4) — Tunnel candidat v2 : le formulaire vit dans le bot, « rejoindre le Discord » devient une connexion Discord
+- **Décision (Gaëtan, « GO »)** : remplacer Google Forms, les Apps Script et la liaison par téléphone par un site servi par le bot sur Railway. Le candidat remplit les mêmes 20 questions, clique « Rejoindre le Discord », autorise l'application (OAuth2 `identify` + `guilds.join`), et le bot l'ajoute au serveur déjà relié à sa candidature : liaison à 100 %, aucun code, aucun numéro à envoyer. Le quiz est servi par le même site, score renvoyé au traitement existant. Gaëtan fournira les accès dans la conversation et veut un guide pas à pas.
+- **Livré (code sur `main`, inactif sans variables)** : `web_candidature.py` (formulaire depuis `questions_candidature.json`, mineurs refusés, pot de miel, limite par adresse, OAuth, quiz depuis `quiz.json`, `/health`), branchement dans `on_member_join` (`web_attendus`), lien de quiz du site en priorité, message de démarrage. Tests hors ligne passés (formulaire, mineur, pot de miel, champs requis, redirection OAuth, quiz, santé). README à jour.
+- **Reste** : les variables Railway (application Discord, domaine public), `quiz.json` quand Gaëtan aura refait le quiz, la question 14 du formulaire qui décrit encore l'ancien modèle de rémunération (à reformuler pour 0,05 $ le visiteur).
+- **Prédiction (23/09, revue le 07/10)** : taux de liaison candidature → Discord ≥ 90 % sur les candidats passés par le site (contre ≈ 50 % de « candidatures sans Discord lié » aujourd'hui) (70 %).
+
 ### 2026-09-23 (3) — Machine horizontale v2 : chantier lancé, plan en quatre phases
 - **Décision (Gaëtan)** : « on lance le chantier ». Paie 0,05 $ par visiteur GAML francophone hors robots, 100 liens Infloww par créatrice créés d'avance pour mesurer la rentabilité par clipper, Instagram seul, virement USDC manuel sur Binance à partir de la liste du bot. Page : [[Machine horizontale v2 - plan de chantier (23 septembre 2026)]].
 - **Croisement avec le Deep Research ChatGPT** : accord sur le registre de clics acceptés, la liste de paie, Drive et Gmail par API, la table créatrices, l'IA comme filtre du test, l'interdiction de bâtir un anti-ban. Désaccord sur l'échelle (plateforme neuve, deux ingénieurs, 12-18 semaines) : on garde le bot existant et on ajoute des briques. Deux bloquants levés : « Ghetto Minings » = GetAllMyLinks avec API ; Infloww a une API en lecture seule.
