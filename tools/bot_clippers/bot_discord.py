@@ -17,6 +17,7 @@ import os
 import re
 import time
 import unicodedata
+import zipfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -53,6 +54,9 @@ CANAL_ADMIN_ID = os.environ.get("CANAL_ADMIN_ID", "").strip()
 # Salon du MANAGER (privé) : tests rendus, signatures, J'ACCEPTE, alertes cadence — ce que le
 # manager doit voir sans passer par Gaëtan (10/09). Vide = tout reste dans le salon admin.
 CANAL_MANAGER_ID = os.environ.get("CANAL_MANAGER_ID", "").strip()
+# Épuration du salon admin (23/09) : la ligne brute d'un webhook (QUIZ_OK|…, CANDIDATURE|…) est
+# effacée une fois traitée — elle porte un numéro de téléphone et n'apporte rien de plus que la fiche.
+WEBHOOK_EFFACER = os.environ.get("WEBHOOK_EFFACER", "1").strip() == "1"
 FORUM_BOT_ID = os.environ.get("FORUM_BOT_ID", "").strip()   # id du forum : le bot répond dans chaque post
 MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
@@ -723,6 +727,17 @@ async def canal_manager():
     return (await canal_par_id(CANAL_MANAGER_ID)) or await canal_admin()
 
 
+async def effacer_webhook(message):
+    """Efface la ligne brute d'un webhook une fois traitée (WEBHOOK_EFFACER=0 pour la garder).
+    Silencieux si le bot n'a pas « Gérer les messages » dans le salon."""
+    if not WEBHOOK_EFFACER:
+        return
+    try:
+        await message.delete()
+    except (discord.Forbidden, discord.HTTPException, discord.NotFound):
+        pass
+
+
 def role_manager(guild):
     """Le rôle Manager du serveur (nom EXACT, accents/casse ignorés), None s'il n'existe pas."""
     if guild is None:
@@ -1220,8 +1235,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
     if silencieux and etat_actuel:
         return                                       # rattrapage : tout état existant = déjà traité
     if etat_actuel in ("test_envoye", "test_rendu", "valide"):
-        if not silencieux:
-            await message.channel.send(f"ℹ️ {membre_trouve.mention} a déjà reçu le test (état : {etat_actuel}) — rien renvoyé.")
+        journal.info("Quiz webhook rejoué : membre %s déjà en état %s", membre_trouve.id, etat_actuel)
         return
     if etat_actuel in ("test_expire", "refuse", "sorti"):
         if not silencieux:
@@ -1249,11 +1263,11 @@ async def traiter_quiz_webhook(message, silencieux=False):
                                            f"candidat prévenu en MP. Forcer : `!quiz-ok {membre_trouve.display_name}`.")
             return
     envoye = await envoyer_test_candidat(membre_trouve, score)
-    await message.channel.send(
-        (f"🧪 Test envoyé automatiquement en MP à {membre_trouve.mention} (quiz {score}). Relance auto à 24 h.")
-        if envoye else
-        (f"⚠️ {membre_trouve.mention} a validé le quiz ({score}) mais ses MP sont fermés — je retente toutes "
-         "les 5 min, l'horloge des 48 h ne démarre qu'à la réception. Dis-lui d'ouvrir ses MP."))
+    # Le succès ne s'annonce plus (il est compté dans le digest du matin) ; seul l'échec appelle un geste.
+    if not envoye:
+        await message.channel.send(
+            f"⚠️ {membre_trouve.mention} a validé le quiz ({score}) mais ses MP sont fermés — je retente toutes "
+            "les 5 min, l'horloge des 48 h ne démarre qu'à la réception. Dis-lui d'ouvrir ses MP.")
     journal.info("Quiz webhook : test %s -> membre %s", "envoyé" if envoye else "MP fermés", membre_trouve.id)
 
 
@@ -1377,6 +1391,9 @@ async def rattraper_webhooks():
                 await traiter_candidature_webhook(ancien, silencieux=True)
             elif ancien.content.startswith("TEST_RENDU|"):
                 await traiter_rendu_webhook(ancien, silencieux=True)
+            else:
+                continue
+            await effacer_webhook(ancien)
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Rattrapage des webhooks impossible : %s", erreur)
 
@@ -1836,14 +1853,15 @@ async def traiter_candidature_webhook(message, silencieux=False):
         ecrire_json(FICHIER_PIPELINE, donnees)
         if silencieux:
             return
-        await message.channel.send((
-            f"📋 **{len(enregistrees)} candidature(s) enregistrée(s)** :\n"
-            + "\n".join("· " + l for l in enregistrees[:20])
-            + (f"\n… et {len(enregistrees) - 20} de plus." if len(enregistrees) > 20 else "")
-            + (f"\n🔗 Déjà liées à un Discord : {', '.join(rapprochees[:15])}" if rapprochees else "")
-            + (f"\n⚠️ {len(rejets)} ligne(s) sans numéro exploitable : {', '.join(rejets[:8])}"
-               f" — à corriger dans la feuille (ou installe candidature_webhook.gs, qui lit par"
-               f" titre de question)." if rejets else ""))[:1990])
+        # Plus d'écho « N candidature(s) enregistrée(s) » (épuration du 23/09) : le digest du matin
+        # compte les candidatures de la veille. Seules les anomalies méritent une ligne.
+        incoherences = [l for l in enregistrees if "pays déclaré" in l]
+        if rapprochees or rejets or incoherences:
+            await message.channel.send((
+                (f"🔗 Candidature(s) déjà liée(s) à un Discord : {', '.join(rapprochees[:15])}\n" if rapprochees else "")
+                + (f"⚠️ Pays déclaré ≠ indicatif : {' · '.join(incoherences[:5])}\n" if incoherences else "")
+                + (f"⚠️ {len(rejets)} ligne(s) sans numéro exploitable : {', '.join(rejets[:8])}"
+                   f" — à corriger dans la feuille." if rejets else "")).strip()[:1990])
         journal.info("Candidatures webhook : %d enregistrées, %d rapprochées, %d rejets",
                      len(enregistrees), len(rapprochees), len(rejets))
 
@@ -2295,9 +2313,21 @@ async def boucle_rappels():
                 sans_acceptation = [uid for uid, i in etats_p.items()
                                     if i.get("etat") == "valide" and i.get("conditions_envoyees")
                                     and uid not in equipes_r and not (i.get("relances") or {}).get("stop")]
-                sans_creatrice = sorted(((uid, _jours(e.get("date"))) for uid, e in equipes_r.items()
-                                         if not e.get("creatrice") and _jours(e.get("date")) >= 2
-                                         and membre_par_id(uid) is not None), key=lambda x: -x[1])
+                guild_d = client.guilds[0] if client.guilds else None
+                role_mgr = role_manager(guild_d)
+                lundi = maintenant.weekday() == 0
+
+                def _staff(uid):
+                    m_ = membre_par_id(uid)
+                    return m_ is None or uid in ADMIN_IDS or (role_mgr is not None and role_mgr in m_.roles)
+
+                sans_creatrice_tous = sorted(((uid, _jours(e.get("date"))) for uid, e in equipes_r.items()
+                                              if not e.get("creatrice") and _jours(e.get("date")) >= 2
+                                              and not _staff(uid)), key=lambda x: -x[1])
+                # En semaine, seuls les signés récents (≤ 14 j) : eux peuvent encore démarrer à chaud.
+                # Les anciens ressortent le lundi — soixante matins de « J+66 », c'est du bruit (23/09).
+                sans_creatrice = [x for x in sans_creatrice_tous if lundi or x[1] <= 14]
+                anciens_sans = len(sans_creatrice_tous) - len(sans_creatrice)
                 signes_recents = sorted(((uid, _jours(e.get("date"))) for uid, e in equipes_r.items()
                                          if _jours(e.get("date")) <= 7), key=lambda x: x[1])
                 attente_mail = sum(1 for i in etats_p.values()
@@ -2314,17 +2344,18 @@ async def boucle_rappels():
                 lignes_d = []
                 if rendus:
                     lignes_d.append("📥 **Tests à reviewer — ton OUI/NON** : "
-                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus[:8])
+                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus[:6])
                                     + "\n→ `!test-ok @membre` ou `!test-non @membre`")
-                if contrats_attente:
+                contrats_visibles = [x for x in contrats_attente if lundi or x[1] <= 14]
+                if contrats_visibles:
                     lignes_d.append("🖋️ **Contrats envoyés, pas encore signés** : "
-                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in contrats_attente[:8])
+                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in contrats_visibles[:5])
                                     + " — au-delà de J+2, un message WhatsApp débloque.")
                 if signes_recents:
                     # Le téléphone est là POUR APPELER (02/09) : un signé FR s'onboarde à chaud,
                     # pas à J+3. Le numéro vient de la liaison candidature (WhatsApp).
                     morceaux = []
-                    for u, j in signes_recents[:8]:
+                    for u, j in signes_recents[:6]:
                         est_fr = (equipes_r.get(u) or {}).get("equipe") == "fr"
                         tel = _tel_de(u)
                         morceaux.append(f"<@{u}> (J+{j}" + (f" · ☎️ {tel}" if est_fr and tel else "") + ")")
@@ -2332,9 +2363,9 @@ async def boucle_rappels():
                                     + " · ".join(morceaux)
                                     + "\n-# Un signé sans comptes à J+3 est un motivé qu'on refroidit.")
                 if sans_creatrice:
-                    guild_d = client.guilds[0] if client.guilds else None
                     lignes_d.append(f"🎬 **Signés SANS créatrice depuis ≥ 48 h** ({mention_manager(guild_d)}) : "
-                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:8])
+                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:6])
+                                    + (f" · {anciens_sans} plus ancien(s), listés le lundi" if anciens_sans and not lundi else "")
                                     + "\n→ `!creatrice @membre Prénom` — un signé sans créatrice ne produit rien.")
                 if sans_acceptation:
                     lignes_d.append("✍️ Validés International sans J'ACCEPTE (je relance tout seul) : "
@@ -2342,15 +2373,29 @@ async def boucle_rappels():
                 if contrats_erreur:
                     lignes_d.append("❌ Contrats DocuSeal en ERREUR (à envoyer à la main) : "
                                     + " · ".join(f"<@{u}>" for u in contrats_erreur[:8]) + " — `!contrat`")
-                if attente_mail:
-                    lignes_d.append(f"✅ Validés en attente d'e-mail (je relance tout seul) : {attente_mail}")
-                if expires:
-                    lignes_d.append(f"⌛ Tests expirés sans suite : {expires}")
-                if orphelines:
-                    lignes_d.append(f"📋 Candidatures sans Discord lié : {orphelines} — détail avec `!pipeline`")
+                # Le comptage des flux d'hier remplace les échos immédiats (« 1 candidature enregistrée »,
+                # « test envoyé en MP ») qui noyaient le salon (épuration du 23/09).
+                depuis_24h = (ref - timedelta(hours=24)).isoformat(timespec="seconds")
+                cand_24h = [c for c in pipe.get("candidatures", {}).values() if (c.get("date") or "") >= depuis_24h]
+                cand_fr = sum(1 for c in cand_24h if equipe_du_pays(c.get("pays") or "") == "fr")
+                tests_24h = sum(1 for i in etats_p.values() if (i.get("envoi") or "") >= depuis_24h)
+                en_test = sum(1 for i in etats_p.values() if i.get("etat") == "test_envoye")
+                if cand_24h or tests_24h or en_test:
+                    lignes_d.append(f"📋 Hier : {len(cand_24h)} candidature(s)"
+                                    + (f" (FR {cand_fr} · International {len(cand_24h) - cand_fr})" if cand_24h else "")
+                                    + f" · {tests_24h} test(s) envoyé(s) · {en_test} en cours")
+                if lundi:                                   # les compteurs de fond, une fois par semaine
+                    fond = [f"validés en attente d'e-mail {attente_mail}" if attente_mail else "",
+                            f"tests expirés sans suite {expires}" if expires else "",
+                            f"candidatures sans Discord lié {orphelines} (`!pipeline`)" if orphelines else ""]
+                    if any(fond):
+                        lignes_d.append("🗂️ Fond de pipeline : " + " · ".join(f for f in fond if f))
                 avert = avertissements_recents(24)
-                if avert:
-                    lignes_d.append(f"🛠️ Avertissements techniques (24 h) : " + " · ".join(a[:90] for a in avert[:5]))
+                vus = etat.get("avert_vus", [])
+                nouveaux_avert = [a for a in avert if a[:90] not in vus]
+                if nouveaux_avert:                          # un avertissement ne se répète pas chaque matin
+                    lignes_d.append("🛠️ Avertissement technique : " + " · ".join(a[:90] for a in nouveaux_avert[:3]))
+                    etat["avert_vus"] = (vus + [a[:90] for a in nouveaux_avert])[-20:]
 
                 # Le digest part TOUS les jours (demande du 02/09) : un jour sans action est une
                 # information — « la machine tourne » se constate, elle ne se devine pas.
@@ -2392,6 +2437,9 @@ async def boucle_rappels():
 
                 rendus_s = sorted(((uid, _jours_s(i.get("rendu"))) for uid, i in pipe_s.get("etats", {}).items()
                                    if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
+                # Un test rendu aujourd'hui a été annoncé à sa réception : la relance du soir ne vise
+                # que ceux qui attendent depuis au moins 24 h (épuration du 23/09).
+                rendus_s = [x for x in rendus_s if x[1] >= 1]
                 if rendus_s:
                     canal = await canal_admin()
                     if canal is not None:
@@ -2451,9 +2499,13 @@ async def boucle_rappels():
                                         FICHIER_LACUNES, FICHIER_SUBS, DONNEES / "alias_codes.json") if p.exists()]
                 if canal is not None and fichiers:
                     try:
-                        await canal.send("💾 **Sauvegarde hebdomadaire automatique** (la mémoire de la machine "
-                                         "— fiches, registre, compteurs) :",
-                                         files=[discord.File(str(p)) for p in fichiers[:10]])
+                        tampon = io.BytesIO()          # une archive : Discord n'affiche pas dix aperçus JSON
+                        with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as archive:
+                            for p in fichiers[:12]:
+                                archive.write(str(p), arcname=p.name)
+                        tampon.seek(0)
+                        await canal.send("💾 Sauvegarde hebdomadaire (fiches, registre, compteurs) — archive jointe.",
+                                         files=[discord.File(tampon, filename=f"sauvegarde_{aujourdhui}.zip")])
                         etat["sauvegarde"] = aujourdhui
                         ecrire_json(FICHIER_RAPPELS, etat)
                     except (discord.Forbidden, discord.HTTPException):
@@ -5230,14 +5282,17 @@ async def on_message(message):
     # via un webhook Discord (salon admin verrouillé) — le bot envoie alors le test tout seul.
     if message.webhook_id and message.content.startswith(("QUIZ_OK|", "QUIZ_KO|")):
         await traiter_quiz_webhook(message)
+        await effacer_webhook(message)
         return
     # Même mécanique pour le formulaire de candidature : « CANDIDATURE|prénom|tel|pays|pseudo »
     if message.webhook_id and message.content.startswith("CANDIDATURE|"):
         await traiter_candidature_webhook(message)
+        await effacer_webhook(message)
         return
     # Serveur fermé (14/09) : « TEST_RENDU|prénom|tel|email|lien|remarque » (formulaire « Rendu du test »)
     if message.webhook_id and message.content.startswith("TEST_RENDU|"):
         await traiter_rendu_webhook(message)
+        await effacer_webhook(message)
         return
     if message.author.bot:
         return
@@ -5491,8 +5546,6 @@ async def on_message(message):
                                  f"`!equipe {message.author.display_name} fr`. (Diagnostic : `!contrat`.)")
         else:
             await message.reply("📧 Adresse enregistrée sur ta fiche !")
-            if canal:
-                await canal.send(f"📧 {message.author.mention} a donné son e-mail (`{email_brut}`) — fiche mise à jour.")
         journal.info("E-mail enregistré : membre %s", utilisateur)
         return
 

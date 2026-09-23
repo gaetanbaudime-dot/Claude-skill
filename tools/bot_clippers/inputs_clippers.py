@@ -106,6 +106,18 @@ def _normaliser(texte: str) -> str:
     return "".join(c for c in t if unicodedata.category(c) != "Mn").strip()
 
 
+# Lignes de la cartographie qui ne sont pas des clippers à suivre : l'équipe (INPUTS_EXCLURE, par
+# défaut Gaëtan, Rianah, Jonas) et les entrées de test ou vides (« Aaa », « Y », « Z »). Elles
+# polluaient « zéro » et « cadence ratée » chaque matin (épuration du 23/09).
+EXCLURE_INPUTS = {_normaliser(n) for n in os.environ.get("INPUTS_EXCLURE", "gaetan,gaëtan,rianah,jonas").split(",")
+                  if n.strip()}
+
+
+def _hors_suivi(nom: str) -> bool:
+    n = _normaliser(nom).replace(" ", "")
+    return len(n) < 3 or len(set(n)) == 1 or n in EXCLURE_INPUTS      # « Y », « Aaa », l'équipe
+
+
 def _identifier_compte(valeur: str):
     """Devine la plateforme d'après l'écriture : une URL facebook.com ou un préfixe « fb: » désigne
     une page Facebook, tout le reste un compte Instagram. Retourne ("comptes"|"pages_fb", nom) ou
@@ -881,8 +893,9 @@ def message_recap(bilan: dict, date_jour: str, veille: dict = None, comptes: dic
     if not bilan:
         return (f"📊 *MARKETING — {date_jour}*\n\nAucun compte cartographié "
                 "(vérifie `SHEET_CSV_URL` ou les topics des salons).")
-    clippers = {n: b for n, b in bilan.items() if not _normaliser(b["creatrice"]).startswith("metricool")}
-    metricool = {n: b for n, b in bilan.items() if n not in clippers}
+    clippers = {n: b for n, b in bilan.items()
+                if not _normaliser(b["creatrice"]).startswith("metricool") and not _hors_suivi(n)}
+    metricool = {n: b for n, b in bilan.items() if _normaliser(b["creatrice"]).startswith("metricool")}
     veille = veille or {}
     total = sum(b["posts_24h"] for b in clippers.values())
     total_vues = sum(b["vues_24h"] for b in clippers.values())
@@ -951,7 +964,7 @@ def message_hebdo(historique: dict, subs: dict = None, comptes: dict = None, jou
     sem, prec = jours[-7:], jours[-14:-7]
     def _clippers(j):
         return {n: v for n, v in historique[j].items()
-                if not _normaliser(v.get("creatrice", "")).startswith("metricool")}
+                if not _normaliser(v.get("creatrice", "")).startswith("metricool") and not _hors_suivi(n)}
     def _reels(js):
         return sum(v.get("posts_24h", 0) for j in js for v in _clippers(j).values())
     reels_s, reels_p = _reels(sem), (_reels(prec) if prec else None)
@@ -1037,7 +1050,8 @@ def message_lecture(historique: dict) -> str:
         return "📊 Aucun bilan enregistré pour l'instant — `!inputs maintenant` lance le premier cycle."
     jour = sorted(historique)[-1]
     par_clipper = historique[jour]
-    clippers = {n: v for n, v in par_clipper.items() if not _normaliser(v.get("creatrice", "")).startswith("metricool")}
+    clippers = {n: v for n, v in par_clipper.items()
+                if not _normaliser(v.get("creatrice", "")).startswith("metricool") and not _hors_suivi(n)}
     lignes = [f"📊 *Dernier bilan — journée du {jour}* ({len(clippers)} clipper(s))"]
     for n, v in sorted(clippers.items(), key=lambda x: -x[1].get("posts_24h", 0)):
         ok = v.get("journee_ok")
@@ -1179,14 +1193,24 @@ async def executer(client, guild, canal_admin=None, silencieux=False, debuts=Non
     # Règle de sortie (grille 07/09) : cadence ratée deux jours de suite → le manager tranche
     # et prévient Gaëtan. L'alerte part au manager le jour même, pas au digest.
     rates2 = [n for n, b in bilan.items() if b.get("deux_jours_rates")
-              and not _normaliser(b["creatrice"]).startswith("metricool")]
-    sans_salon = [n for n, b in bilan.items() if not b.get("canal_id")]
-    if notifier is not None and (rates2 or sans_salon):
+              and not _normaliser(b["creatrice"]).startswith("metricool") and not _hors_suivi(n)]
+    # Une alerte par clipper et par semaine : la même liste de dix-neuf noms tous les matins n'était
+    # plus lue (épuration du 23/09). Le rapport MARKETING garde sa ligne courte.
+    memo = donnees.setdefault("alertes_cadence", {})
+    limite = (datetime.strptime(jour, "%Y-%m-%d") - timedelta(days=7)).strftime("%Y-%m-%d")
+    nouveaux_rates = [n for n in rates2 if (memo.get(n) or "") < limite]
+    for n in nouveaux_rates:
+        memo[n] = jour
+    if nouveaux_rates:
+        _ecrire(donnees)
+    lundi = datetime.now(timezone.utc).weekday() == 0
+    sans_salon = [n for n, b in bilan.items() if not b.get("canal_id") and not _hors_suivi(n)] if lundi else []
+    if notifier is not None and (nouveaux_rates or sans_salon):
         texte_m = ""
-        if rates2:
-            texte_m += (f"🚨 **Cadence ratée 2 jours de suite** ({date_aff}) : {', '.join(rates2)}\n"
-                        "Règle de l'équipe : sortie le lundi suivant, Gaëtan prévenu. Décision : "
-                        "`!sortie Prénom cadence ratée 2 jours de suite` — ou une raison valable, notée ici.\n")
+        if nouveaux_rates:
+            texte_m += (f"🚨 **Cadence ratée 2 jours de suite** ({date_aff}) : {', '.join(nouveaux_rates)}\n"
+                        "Règle : sortie le lundi suivant, Gaëtan prévenu — `!sortie Prénom cadence ratée 2 jours "
+                        "de suite`, ou une raison valable notée ici. (Chacun n'est signalé qu'une fois par semaine.)\n")
         if sans_salon:
             texte_m += (f"ℹ️ Sans salon perso (bilan quotidien non envoyé) : {', '.join(sans_salon[:8])} — "
                         "`!creatrice @clipper Prénom` le crée.")

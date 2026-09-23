@@ -457,6 +457,25 @@ rien n'est supprimé, un glisser-déposer hors de la catégorie les fait revenir
 (admin, manager, assistant) sont refusés. Cible du 14/09 : `#tips` (captions épinglées dans `#ressources`),
 `#dopamine` (victoires dans `#annonces`) ; `#bump` et les deux compteurs se suppriment.
 
+## 🧹 Salon admin épuré (23/09)
+
+Soixante-dix messages en trois jours, dont la moitié ne demandait rien : « c'est le bordel ». Depuis le 23/09, le
+salon admin ne reçoit plus que ce qui appelle un geste ou une lecture.
+
+| Avant | Maintenant |
+|---|---|
+| Ligne brute du webhook (`CANDIDATURE\|…`, `QUIZ_OK\|…`) qui reste dans le salon avec le numéro de téléphone | **Effacée** une fois traitée (`WEBHOOK_EFFACER=0` pour la garder ; il faut « Gérer les messages » au bot) |
+| « 1 candidature(s) enregistrée(s) » et « Test envoyé automatiquement en MP » à chaque événement | Comptés dans le digest du matin : « Hier : 4 candidatures (FR 0 · International 4) · 2 tests envoyés · 6 en cours ». Seules les anomalies restent immédiates (pays ≠ indicatif, numéro illisible, MP fermés) |
+| « a déjà reçu le test », « a donné son e-mail — fiche mise à jour » | Journal du bot seulement |
+| « Cadence ratée 2 jours de suite » : la même liste de 19 noms chaque matin, avec l'équipe et des entrées de test dedans | Chaque clipper n'est signalé **qu'une fois par semaine** ; l'équipe (`INPUTS_EXCLURE`, défaut Gaëtan, Rianah, Jonas) et les noms de moins de 3 lettres ou faits d'une lettre répétée (« Aaa ») sont exclus des listes « zéro » et « cadence » (rapport quotidien et hebdo aussi). « Sans salon perso » : le lundi |
+| Digest : « Signés sans créatrice » à J+66, « tests expirés », « candidatures sans Discord », « avertissement technique » répétés tous les jours | En semaine : les signés récents (≤ 14 j) hors équipe ; le lundi : les anciens et les compteurs de fond. Un avertissement technique n'apparaît qu'une fois |
+| Relance du soir « N tests attendent ton OUI/NON » le jour même du rendu | Seulement pour les tests qui attendent depuis 24 h ou plus |
+| Sauvegarde hebdo : dix fichiers JSON avec aperçu | Une archive zip, une ligne |
+
+Ce qui reste immédiat : un test rendu (avec ses fichiers), un contrat signé, un candidat qui accepte les conditions,
+une panne. Pour vider le salon admin du quotidien (rapport MARKETING, digest, alertes cadence), pose
+`CANAL_MANAGER_ID` : ils partent chez le manager et l'admin ne garde que l'hebdo du lundi.
+
 ## ⚠️ Compteurs remis à zéro ? (persistance des données)
 
 Vécu le 17/07 : « Déjà payés : 0 € » et classement des bumps reparti de zéro. Cause : les données
