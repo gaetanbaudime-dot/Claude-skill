@@ -2864,7 +2864,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet")
+                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -2896,7 +2896,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!sortie @clipper raison` — sortie de l'équipe (rôles + salons retirés, tout le monde prévenu)\n"
                 "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon\n"
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
-                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` — liens GAML et adresses\n"
+                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
     if any("team" in r for r in roles_n):
@@ -5543,6 +5543,7 @@ async def on_message(message):
             registre.setdefault(str(utilisateur), {"equipe": grille_acc, "par": str(client.user.id),
                                                    "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             registre[str(utilisateur)]["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            registre[str(utilisateur)].setdefault("paie", "clic")      # 23/09 : tout nouveau signé est payé au clic
             ecrire_json(FICHIER_EQUIPES, registre)
             await message.reply(suite if err_a is None else
                                 "✅ **Conditions acceptées et enregistrées !** L'équipe ouvre ton rôle à la main "

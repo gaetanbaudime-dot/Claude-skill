@@ -164,6 +164,13 @@ def periode_en_cours() -> tuple:
     return date(ref.year, ref.month, 16), fin
 
 
+def regime(uid: str) -> str:
+    """« clic » ou « fixe ». Décision du 23/09 : les clippers déjà signés gardent leur fixe, tout nouveau signé
+    passe au clic (le handler J'ACCEPTE pose `paie: clic`). `!paie @clipper clic|fixe` pour changer à la main."""
+    fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(uid), {})
+    return fiche.get("paie") or ("clic" if str(fiche.get("date", ""))[:10] >= "2026-09-24" else "fixe")
+
+
 def liens_de(d: dict, uid: str) -> list:
     return [lid for lid, info in d["liens"].items() if str(info.get("uid")) == str(uid)]
 
@@ -223,9 +230,12 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple
         uid = str(info.get("uid") or "")
         if uid:
             par_uid.setdefault(uid, []).append(lid)
-    lignes, rangs, total, sans = [], [], 0.0, 0
+    lignes, rangs, total, sans, fixes = [], [], 0.0, 0, []
     for uid, lids in par_uid.items():
         s = somme(d, lids, debut, fin)
+        if regime(uid) != "clic":
+            fixes.append((nom_de(uid), s["payes"]))
+            continue
         if s["payes"] == 0:
             continue
         montant = round(s["payes"] * TAUX_CLIC, 2); total += montant
@@ -243,8 +253,12 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple
         ecrivain.writerow([nom, uid, payes, hors, f"{montant:.2f}".replace(".", ","), w])
     entete = (f"💸 **Paie au clic du {jour_paie}** — période {debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}, "
               f"{_usd(TAUX_CLIC)} la visite payée ({PAYS_LIBELLE}, hors robots)")
-    pied = (f"**Total : {_usd(total)}** · {len(rangs)} clipper(s)" + (f" · ⚠️ {sans} sans adresse" if sans else "")
+    pied = (f"**Total : {_usd(total)}** · {len(rangs)} clipper(s) au clic" + (f" · ⚠️ {sans} sans adresse" if sans else "")
             + "\n-# Le virement reste à faire à la main (Binance / banque). Le CSV est joint.")
+    if fixes:
+        fixes.sort(key=lambda f: -f[1])
+        pied += ("\n\n🧾 **Au fixe, hors liste** (ce qu'ils auraient touché au clic) : "
+                 + " · ".join(f"{n} {_fmt(v)} = {_usd(v * TAUX_CLIC)}" for n, v in fixes))
     return [entete] + (lignes or ["· (aucune visite payée sur la période)"]) + [pied], tampon.getvalue()
 
 
@@ -416,8 +430,18 @@ async def commande_staff(message, texte: str) -> bool:
     if not mots:
         return False
     cmd = mots[0].lower()
-    if cmd not in ("!clics", "!liens", "!lien", "!paie-clics", "!wallet"):
+    if cmd not in ("!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie"):
         return False
+    if cmd == "!paie":
+        if not message.mentions or not mots[-1].lower() in ("clic", "fixe"):
+            await message.reply("Format : `!paie @clipper clic` (payé sur la liste du 5 et du 20) ou `!paie @clipper fixe` (ancien modèle).")
+            return True
+        registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+        fiche = registre.setdefault(str(message.mentions[0].id), {})
+        fiche["paie"] = mots[-1].lower(); fiche["paie_par"] = str(message.author.id)
+        _deps["ecrire_json"](_deps["FICHIER_EQUIPES"], registre)
+        await message.reply(f"✅ {message.mentions[0].display_name} → paie **{fiche['paie']}**.")
+        return True
     if cmd == "!wallet" and not message.mentions:
         return False                                              # `!wallet 0x…` sans mention = la sienne
     if not actif():
@@ -477,9 +501,13 @@ async def commande_staff(message, texte: str) -> bool:
         rangs.sort(key=lambda r: -r[2]["payes"])
         for nom, h, s7, q, uid in rangs:
             part = f"{s7['payes'] * 100 // s7['hors_robots']} %" if s7["hors_robots"] else "–"
-            lignes.append(f"· {nom} — hier {_fmt(h['payes'])} · 7 j {_fmt(s7['payes'])} ({part} payables) · "
-                          f"quinzaine {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
-                          + ("" if uid in d["wallets"] else " · ⚠️ sans adresse"))
+            reg = regime(uid)
+            lignes.append(f"· {nom} [{reg}] — hier {_fmt(h['payes'])} · 7 j {_fmt(s7['payes'])} ({part} payables, "
+                          f"{_fmt(s7['payes'] / 7)}/j) · quinzaine {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
+                          + ("" if reg != "clic" or uid in d["wallets"] else " · ⚠️ sans adresse"))
+        lignes.append("-# [fixe] = ancien modèle (grille + 0,50 €/abonné), [clic] = payé sur la liste du 5 et du 20. "
+                      "`!paie @clipper clic|fixe` pour changer. Repère de rentabilité d'un fixe : ≈ 65 visites payables/jour "
+                      "pour 200 €, ≈ 32/jour pour 100 € (0,30 $ de CA par visite, 35 % de marge).")
         if not rangs:
             lignes.append("· aucun lien attribué — `!liens` puis `!lien @clipper …`.")
         await _deps["envoyer_long"](message, lignes)
