@@ -197,13 +197,14 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
     q = somme(d, lids, debut, min(fin, hier))
     part = f" ({h['payes'] * 100 // h['hors_robots']} % de tes visiteurs)" if h["hors_robots"] else ""
     robots = h["brut"] - h["hors_robots"]
-    return (f"📊 **Tes clics, {nom}**\n\n"
-            f"Hier ({hier.strftime('%d/%m')}) : **{_fmt(h['payes'])} visites payées**{part}"
+    au_clic = regime(uid) == "clic"
+    return (f"📊 **Tes clics, {nom}**" + ("" if au_clic else " (tu es au fixe : les montants sont indicatifs)") + "\n\n"
+            f"Hier ({hier.strftime('%d/%m')}) : **{_fmt(h['payes'])} visites {PAYS_LIBELLE}**{part}"
             + (f", {robots} robots exclus" if robots > 0 else "") + ".\n\n"
             f"7 derniers jours : **{_fmt(s7['payes'])}** payées sur {_fmt(s7['hors_robots'])} visiteurs.\n\n"
             f"Quinzaine en cours ({debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : **{_fmt(q['payes'])} payées = "
             f"{_usd(q['payes'] * TAUX_CLIC)}** (à {_usd(TAUX_CLIC)} la visite depuis {PAYS_LIBELLE}, hors robots).\n\n"
-            + ("" if str(uid) in d["wallets"] else "⚠️ Pas d'adresse de paiement enregistrée : `!wallet 0x…` (USDC ERC20) ou `!wallet FR76…` (IBAN).\n\n")
+            + ("" if not au_clic or str(uid) in d["wallets"] else "⚠️ Pas d'adresse de paiement enregistrée : `!wallet 0x…` (USDC ERC20) ou `!wallet FR76…` (IBAN).\n\n")
             + "-# Lien : " + " · ".join(d["liens"][l].get("url", "") for l in lids))
 
 
@@ -216,11 +217,13 @@ def ligne_matin(d: dict, uid: str) -> str:
     debut, fin = periode_en_cours()
     q = somme(d, lids, debut, min(fin, hier))
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
-    return (f"☀️ **Hier ({hier.strftime('%d/%m')})** : {_fmt(h['hors_robots'])} visiteurs, **{_fmt(h['payes'])} payés** "
-            f"({PAYS_LIBELLE}, hors robots).\n\n"
-            f"📆 Quinzaine ({debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : **{_fmt(q['payes'])} payés = "
-            f"{_usd(q['payes'] * TAUX_CLIC)}** · 7 jours : {_fmt(s7['payes'])}.\n\n"
-            f"-# `!mesclics` à tout moment" + ("" if str(uid) in d["wallets"] else " · `!wallet` pour ton adresse de paiement"))
+    au_clic = regime(uid) == "clic"
+    montant = (f"= {_usd(q['payes'] * TAUX_CLIC)}" if au_clic else f"(à titre indicatif, {_usd(q['payes'] * TAUX_CLIC)} au clic)")
+    return (f"☀️ **Hier ({hier.strftime('%d/%m')})** : {_fmt(h['hors_robots'])} visiteurs, **{_fmt(h['payes'])} {PAYS_LIBELLE}** "
+            f"(hors robots).\n\n"
+            f"📆 Quinzaine ({debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : **{_fmt(q['payes'])} {montant}** · "
+            f"7 jours : {_fmt(s7['payes'])}, soit {_fmt(s7['payes'] / 7)} par jour.\n\n"
+            f"-# `!mesclics` à tout moment" + ("" if not au_clic or str(uid) in d["wallets"] else " · `!wallet` pour ton adresse de paiement"))
 
 
 def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple:
