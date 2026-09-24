@@ -731,6 +731,22 @@ async def canal_par_id(canal_id: str):
         return None
 
 
+async def verifier_canaux_configures():
+    """Au démarrage : chaque variable CANAL_*_ID qui pointe sur un salon introuvable est nommée dans le journal
+    (24/09 : « Canal 1527… inaccessible » toutes les 5 minutes sans dire quelle variable corriger)."""
+    for nom in ("CANAL_ADMIN_ID", "CANAL_BOT_ID", "CANAL_MANAGER_ID", "CANAL_DOPAMINE_ID", "CANAL_REPORTING_ID",
+                "CANAL_BUMP_ID", "CANAL_CANDIDATURE_ID", "CANAL_FORMATION_ID", "CANAL_ASSISTANT_ID",
+                "CANAL_STAT_PAYES_ID", "CANAL_STAT_CLIPPERS_ID"):
+        val = str(globals().get(nom, "") or "")
+        if not val.isdigit():
+            continue
+        if client.get_channel(int(val)) is None:
+            try:
+                await client.fetch_channel(int(val))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("%s = %s : salon introuvable (%s) — variable Railway à corriger", nom, val, erreur)
+
+
 async def canal_admin():
     """Le salon admin privé (CANAL_ADMIN_ID, repli CANAL_BOT_ID) — toutes les notifications
     sensibles passent par ici, jamais par le salon public de l'assistant."""
@@ -1390,6 +1406,11 @@ async def traiter_quiz_webhook(message, silencieux=False):
         return                                       # rattrapage : tout état existant = déjà traité
     if etat_actuel in ("test_envoye", "test_rendu", "valide"):
         journal.info("Quiz webhook rejoué : membre %s déjà en état %s", membre_trouve.id, etat_actuel)
+        if not silencieux:                                   # 24/09 : Gaëtan a testé le tunnel sur lui-même, déjà « valide » → silence total
+            await message.channel.send(
+                f"ℹ️ {membre_trouve.mention} a repassé le quiz ({score}) mais son parcours est déjà en état **{etat_actuel}** — "
+                f"rien renvoyé. Pour rejouer le parcours depuis le quiz : `!reset @membre` puis repasser le quiz ; "
+                f"pour renvoyer seulement le test : `!quiz-ok @membre {score}`.")
         return
     if etat_actuel in ("test_expire", "refuse", "sorti"):
         if not silencieux:
@@ -2970,7 +2991,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding",
+                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer",
                      "!stats-jonas", "!stats-manager")
 
 
@@ -3005,6 +3026,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
+                "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
@@ -4159,6 +4181,24 @@ async def commande_admin(message, texte: str) -> bool:
                             f"⚠️ {membre.mention} a ses MP fermés — état enregistré, mais envoie-lui le lien à la main.")
         return True
 
+    if texte.startswith("!reset"):
+        # 24/09 : pour tester le tunnel entier sur un compte déjà passé (quiz → test → validation), il faut
+        # pouvoir remettre son parcours à zéro sans toucher à sa liaison, ses rôles ni son équipe (`!sortie` pour ça).
+        corps = texte[len("!reset"):].strip()
+        nom = re.sub(r"<@!?\d+>", "", corps).strip()
+        membre = message.mentions[0] if message.mentions else (chercher_membre(nom, exact=True) if nom else None)
+        if membre is None:
+            await message.reply("Format : `!reset @membre` — remet son parcours candidat à zéro (quiz, test, validation) pour "
+                                "le rejouer ; liaison téléphone, rôles et équipe conservés (`!sortie` pour une vraie sortie).")
+            return True
+        pipe_r = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        ancien_r = pipe_r.get("etats", {}).pop(str(membre.id), None)
+        ecrire_json(FICHIER_PIPELINE, pipe_r)
+        journal.info("Reset du parcours de %s par %s (état avant : %s)", membre.id, message.author.id, (ancien_r or {}).get("etat"))
+        await message.reply(f"🔄 Parcours de {membre.mention} remis à zéro (état avant : **{(ancien_r or {}).get('etat') or 'aucun'}**, "
+                            f"essais de quiz : {(ancien_r or {}).get('essais_quiz', 0)}). Il peut repasser le quiz : "
+                            "QUIZ_OK → test 48 h en MP, comme un nouveau candidat. Liaison, rôles et équipe intacts.")
+        return True
     if texte.startswith("!test-ok"):
         corps = texte[len("!test-ok"):].strip()
         membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
@@ -4414,6 +4454,19 @@ async def commande_admin(message, texte: str) -> bool:
             if uid_s in pipe_s.get(sec, {}):
                 pipe_s[sec][uid_s]["stop"] = True
         ecrire_json(FICHIER_PIPELINE, pipe_s)
+        # 3b. Classeur des logins : ses comptes rendus (Gérant vidé, créés → « à mettre Metricool »). 24/09 : sans
+        #     cette étape, le prochain clipper du même prénom hérite de ses comptes (Eddy). Avant le retrait du
+        #     registre, pour vérifier que le prénom ne désigne que lui.
+        libere_s = []
+        if onboarding.actif():
+            prenom_s = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
+            if membre_par_prenom(normaliser(prenom_s)) == membre:
+                try:
+                    libere_s = [b for b in await onboarding.liberer(prenom_s) if b.startswith("·")]
+                except Exception as erreur:
+                    refus_s.append(f"classeur ({type(erreur).__name__})")
+            else:
+                refus_s.append(f"classeur non touché (prénom {prenom_s} partagé : `!liberer {prenom_s} <handles>`)")
         # 4. Registre : la fiche part dans sortis.json (trace), plus dans equipes.json (digest, primes).
         registre_s = lire_json(FICHIER_EQUIPES, {})
         fiche_s = registre_s.pop(uid_s, None) or {}
@@ -4432,12 +4485,15 @@ async def commande_admin(message, texte: str) -> bool:
         await notifier_manager(
             f"🚪 **{membre.display_name} sorti de l'équipe** (par {message.author.display_name}) — {raison}\n"
             f"Rôles retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · accès fermés : {len(fermes)} salon(s)"
+            f" · comptes du classeur rendus : {len(libere_s)}"
             + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
-            f"→ À faire à la main : Sheet (ses comptes en « à réattribuer »), mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
-            f"lien GAML à désactiver, dernier décompte.", g)
+            + ("\n".join(libere_s) + "\n" if libere_s else "")
+            + "→ À faire à la main : " + ("" if libere_s or not onboarding.actif() else "Sheet (ses comptes en « à réattribuer »), ")
+            + "mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
+            "lien GAML à désactiver, dernier décompte.", g)
         await inputs_clippers.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
         await message.reply(f"✅ {membre.mention} sorti : {len(a_retirer)} rôle(s) retiré(s), {len(fermes)} accès fermé(s), "
-                            "relances coupées, registre tracé, MP envoyé, manager prévenu.")
+                            f"{len(libere_s)} compte(s) du classeur rendu(s), relances coupées, registre tracé, MP envoyé, manager prévenu.")
         journal.info("Sortie d'équipe : %s par %s (%s)", membre.id, message.author.id, raison)
         return True
 
@@ -5161,6 +5217,10 @@ async def on_ready():
     journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s, v2 %s)",
                  client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
                  "ON" if ACTIVER_V2 else "off")
+    try:
+        await verifier_canaux_configures()                     # 24/09 : nomme la variable CANAL_* qui pointe dans le vide
+    except Exception as erreur:                                # jamais bloquer le démarrage pour un contrôle
+        journal.warning("Contrôle des salons configurés : %s", erreur)
     fichiers = sorted(p.name for p in DONNEES.glob("*") if p.is_file())
     journal.info("Données : %s (%s) — fichiers : %s", DONNEES,
                  "persistant via DONNEES_DIR" if DONNEES_PERSISTANTES else "ÉPHÉMÈRE (dossier local)",

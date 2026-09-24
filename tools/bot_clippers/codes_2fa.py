@@ -180,6 +180,19 @@ def rattacher(aliases, canal_id: str, par: str) -> int:
     return n
 
 
+def detacher(aliases) -> int:
+    """Retire des adresses du registre (les codes de ces boîtes ne sont plus routés nulle part). Utilisé par
+    `!liberer` quand un clipper part. Renvoie le nombre d'alias retirés."""
+    registre = _lire()
+    n = 0
+    for alias in [str(a).strip().lower() for a in aliases if a and "@" in str(a)]:
+        if registre.pop(alias, None) is not None:
+            n += 1
+    if n:
+        _ecrire(registre)
+    return n
+
+
 def _est_manager(membre, admin_ids) -> bool:
     """Admin, ou porteur du rôle Manager au nom EXACT (accents/casse/emoji ignorés). La sous-chaîne
     d'avant faisait d'un rôle « Community manager » ou « bot-manager » un manager."""

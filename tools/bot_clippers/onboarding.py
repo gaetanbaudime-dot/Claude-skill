@@ -39,6 +39,10 @@ COMPTES_PAR_CLIPPER = int(os.environ.get("COMPTES_PAR_CLIPPER", "3") or 3)
 GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
 ETATS_DISPONIBLES = {"a creer", "à créer", "good", "warmup", "warm-up", "prive", "privé", "actif", "ok"}
 COL = {"etat": 0, "handle": 1, "mdp": 2, "followers": 3, "mail": 4, "phone": 5, "gerant": 6, "utilisation": 7, "numero": 8, "creatrice": 9}
+RE_PRIVE = re.compile(r"priv|secret|onlyme|perso")                 # handle d'un compte privé (le 3e du trio)
+JOURS_NOUVEAU = int(os.environ.get("ONBOARDING_JOURS_NOUVEAU", "45") or 45)   # un membre arrivé depuis moins longtemps est « nouveau »
+A_CREER = ("a creer", "à créer")
+MENTION_LIBERE = "à mettre Metricool"                              # Utilisation d'un compte créé rendu par un clipper parti
 
 _deps = {}
 
@@ -93,13 +97,60 @@ def _pour_creatrice(c: dict, creatrice: str) -> bool:
     return bool(cible) and _norm(c["creatrice"]).startswith(cible)
 
 
+def _est_prive(c: dict) -> bool:
+    return _norm(c["etat"]) in ("prive", "privé") or RE_PRIVE.search(_norm(c["handle"] or "")) is not None
+
+
+def _crees(lignes: list) -> list:
+    return [c for c in lignes if _norm(c["etat"]) not in A_CREER]
+
+
 def disponibles(comptes: list, creatrice: str, n: int) -> list:
     """Lignes libres pour cette créatrice : Utilisation = Clipper, Gérant libre, état utilisable, handle présent.
-    Les comptes déjà créés (GOOD, WARMUP, PRIVÉ, ACTIF) passent avant ceux « à créer »."""
+    Les comptes déjà créés (GOOD, WARMUP, PRIVÉ, ACTIF) passent avant ceux « à créer ». Le trio livré fait
+    n-1 comptes de croissance + 1 compte privé quand le classeur en a un (24/09 : avant, le « privé » annoncé
+    était juste le dernier de la liste)."""
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
               and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)]
-    libres.sort(key=lambda c: (_norm(c["etat"]) in ("a creer", "à créer"), c["ligne"]))
-    return libres[:n]
+    libres.sort(key=lambda c: (_norm(c["etat"]) in A_CREER, c["ligne"]))
+    if n < 3:
+        return libres[:n]
+    choix = [c for c in libres if not _est_prive(c)][:n - 1] + [c for c in libres if _est_prive(c)][:1]
+    if len(choix) < n:                                              # pas assez d'un côté : on complète avec le reste
+        choix += [c for c in libres if c not in choix][:n - len(choix)]
+    return choix
+
+
+def _nouveau(membre, etat: dict) -> bool:
+    """Un clipper que le bot n'a jamais onboardé (aucune créatrice dans sa fiche) et arrivé sur le serveur depuis
+    moins de JOURS_NOUVEAU jours. Un tel membre ne peut pas légitimement posséder des comptes déjà créés :
+    si le classeur en porte à son prénom, c'est l'homonyme d'un ancien clipper (Eddy, 24/09)."""
+    uid = str(membre.id)
+    if etat["clippers"].get(uid, {}).get("creatrice"):
+        return False
+    if _deps.get("lire_json") and _deps.get("FICHIER_EQUIPES") and \
+            _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(uid, {}).get("creatrice"):
+        return False                                                # `!creatrice` déjà passé : clipper établi
+    arrive = getattr(membre, "joined_at", None)
+    if arrive is None:
+        return True
+    if arrive.tzinfo is None:
+        arrive = arrive.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - arrive).days < JOURS_NOUVEAU
+
+
+def _ecarter(etat: dict, membre, lignes: list) -> list:
+    """Les comptes déjà créés qu'on ne livre pas à un nouveau venu, mémorisés dans etat["ecartes"] pour que la
+    boucle ne les représente pas toutes les 15 minutes. Levés par `!onboarding` (forçage) ou `!liberer`."""
+    douteux = _crees(lignes)
+    ecartes = etat.setdefault("ecartes", {})
+    for c in douteux:
+        ecartes[c["handle"].lower()] = {"uid": str(membre.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    return douteux
+
+
+def _ecarte_pour(etat: dict, c: dict, uid: str) -> bool:
+    return etat.get("ecartes", {}).get(c["handle"].lower(), {}).get("uid") == str(uid)
 
 
 async def reserver(comptes: list, prenom_clipper: str) -> int:
@@ -115,9 +166,12 @@ def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
         return (f"⚠️ Aucun compte libre pour {creatrice} dans le classeur : ton manager en prépare et le bot te les "
                 "enverra ici automatiquement.")
     blocs = []
-    for i, c in enumerate(comptes, start=1):
-        role = "privé (ton compte perso de la mission)" if i == len(comptes) and len(comptes) >= 3 else "croissance"
-        etat = "à créer sur ton téléphone" if _norm(c["etat"]) in ("a creer", "à créer") else f"déjà créé ({c['etat']})"
+    ordonnes = sorted(comptes, key=_est_prive)                      # le privé en dernier
+    a_un_prive = any(_est_prive(c) for c in comptes)
+    for i, c in enumerate(ordonnes, start=1):
+        prive = _est_prive(c) if a_un_prive else (i == len(ordonnes) and len(ordonnes) >= 3)
+        role = "privé (ton compte perso de la mission)" if prive else "croissance"
+        etat = "à créer sur ton téléphone" if _norm(c["etat"]) in A_CREER else f"déjà créé ({c['etat']})"
         blocs.append(f"**Compte {i} · {role}** — {etat}\n"
                      f"Identifiant : `{c['handle']}`\n"
                      f"Mot de passe : `{c['mdp'] or '— (demande à ton manager)'}`\n"
@@ -198,6 +252,16 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             tous = await lire_comptes()
             deja = [c for c in tous if _norm(c["gerant"]) == _norm(prenom) and _norm(c["utilisation"]) == "clipper"
                     and _pour_creatrice(c, creatrice)]
+            if declencheur.startswith("!onboarding"):                # forçage explicite : on lève les écartés
+                for c in deja:
+                    etat.get("ecartes", {}).pop(c["handle"].lower(), None)
+            elif _nouveau(membre, etat):                             # 24/09 : nouvel Eddy ≠ ancien Eddy viré
+                douteux = _ecarter(etat, membre, deja)
+                if douteux:
+                    deja = [c for c in deja if c not in douteux]
+                    resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
+                                    f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
+                                    f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
             comptes = deja[:COMPTES_PAR_CLIPPER]
             if len(comptes) < COMPTES_PAR_CLIPPER:
                 nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes))
@@ -295,15 +359,32 @@ async def boucle(client, deps: dict):
                 membre = deps["membre_par_prenom"](g)
                 if membre is None:
                     continue
-                nouveaux = [c for c in lignes if etat["livres"].get(c["handle"].lower(), {}).get("uid") != str(membre.id)]
+                nouveaux = [c for c in lignes if etat["livres"].get(c["handle"].lower(), {}).get("uid") != str(membre.id)
+                            and not _ecarte_pour(etat, c, membre.id)]
                 if not nouveaux:
                     continue
+                prenom = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
+                creatrice = nouveaux[0]["creatrice"] or etat["clippers"].get(str(membre.id), {}).get("creatrice", "")
+                if _nouveau(membre, etat):                          # 24/09 : un nouveau venu n'a pas de comptes déjà créés
+                    douteux = _ecarter(etat, membre, nouveaux)
+                    if douteux:
+                        nouveaux = [c for c in nouveaux if c not in douteux]
+                        _ecrire_etat(etat)
+                        canal = await deps["canal_admin"]()
+                        if canal:
+                            handles = " ".join(c["handle"] for c in douteux)
+                            await canal.send(
+                                f"⚠️ **Homonyme possible** : le classeur porte « {prenom} » sur {len(douteux)} compte(s) déjà créé(s) "
+                                f"({handles}) alors que {membre.mention} vient d'arriver et n'a encore reçu aucune créatrice. "
+                                f"Ancien clipper du même prénom ? Rien livré. Si ce sont bien les siens : `!onboarding @{prenom} {creatrice}`. "
+                                f"Sinon : `!liberer {prenom} {handles}` puis `!creatrice @{prenom} {creatrice}`."[:1990])
+                    if not nouveaux:
+                        continue
                 salon = deps["salon_perso"](str(membre.id))
                 cible = salon if salon is not None else membre
-                creatrice = nouveaux[0]["creatrice"] or etat["clippers"].get(str(membre.id), {}).get("creatrice", "")
                 try:
                     await cible.send(("🔐 **Compte(s) attribué(s) depuis le classeur**\n\n" +
-                                      message_comptes(nouveaux, membre.display_name.split()[0], creatrice or "?"))[:1990])
+                                      message_comptes(nouveaux, prenom, creatrice or "?"))[:1990])
                 except (discord.Forbidden, discord.HTTPException) as erreur:
                     journal.warning("Livraison classeur %s : %s", membre.display_name, erreur)
                     continue
@@ -321,10 +402,44 @@ async def boucle(client, deps: dict):
 
 
 # ------------------------------------------------------------------ commande
+async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
+    """Rend les comptes d'un clipper parti : colonne Gérant vidée sur ses lignes (toutes, ou seulement `handles`) ;
+    les comptes déjà créés passent en Utilisation « à mettre Metricool » (ils sortent du pool des clippers), sauf
+    `pool=True` ; ceux « à créer » restent au pool. Nettoie l'état du bot (livrés, écartés, fiches) et détache les
+    alias 2FA. Renvoie une ligne de bilan par compte (sans mot de passe). C'est l'étape qui manquait quand un
+    clipper est viré : sans elle, le prochain homonyme hérite de ses comptes (Eddy, 24/09)."""
+    cibles = {_norm(h).lstrip("@") for h in handles if _norm(h)}
+    comptes = await lire_comptes()
+    lignes = [c for c in comptes if _norm(c["gerant"]) == _norm(prenom) and (not cibles or _norm(c["handle"]) in cibles)]
+    if not lignes:
+        return []
+    etat = _lire_etat()
+    bilan = []
+    for c in lignes:
+        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!G{c['ligne']}", [[""]])
+        metricool = _norm(c["etat"]) not in A_CREER and not pool
+        if metricool:
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!H{c['ligne']}", [[MENTION_LIBERE]])
+        h = c["handle"].lower()
+        etat["livres"].pop(h, None)
+        etat.get("ecartes", {}).pop(h, None)
+        for fiche in etat["clippers"].values():
+            if c["handle"] in fiche.get("comptes", []):
+                fiche["comptes"] = [x for x in fiche["comptes"] if x != c["handle"]]
+        bilan.append(f"· `{c['handle']}` ({c['etat'] or 'état ?'}) → " + (MENTION_LIBERE if metricool else "retour au pool des clippers"))
+    _ecrire_etat(etat)
+    if codes_2fa.actif():
+        n_alias = codes_2fa.detacher([c["mail"] for c in lignes if c.get("mail")])
+        if n_alias:
+            bilan.append(f"-# {n_alias} alias 2FA détaché(s).")
+    return bilan
+
+
 async def commande_staff(message, texte: str) -> bool:
-    """`!comptes-libres [Créatrice]` : ce que le classeur a de disponible ; `!onboarding @clipper` : rejouer la livraison."""
+    """`!comptes-libres [Créatrice]` : ce que le classeur a de disponible ; `!onboarding @clipper` : rejouer la livraison ;
+    `!liberer Prénom [handle …] [pool]` : rendre les comptes d'un clipper parti."""
     mots = texte.split()
-    if not mots or mots[0].lower() not in ("!comptes-libres", "!onboarding"):
+    if not mots or mots[0].lower() not in ("!comptes-libres", "!onboarding", "!liberer", "!libérer"):
         return False
     if not actif():
         await message.reply("Onboarding par classeur inactif : `CLASSEUR_LOGINS_ID` et le compte de service dans Railway.")
@@ -347,6 +462,26 @@ async def commande_staff(message, texte: str) -> bool:
             lignes.append(f"· {cr} — {len(lst)} libre(s) : {crees} créé(s), {len(lst) - crees} à créer")
         lignes.append("-# Un compte est « libre » quand Utilisation = Clipper, Gérant vide ou x/y/z, état à créer / GOOD / WARMUP / PRIVÉ / ACTIF.")
         await message.reply("\n".join(lignes)[:1990])
+        return True
+    if mots[0].lower() in ("!liberer", "!libérer"):
+        args = [m for m in mots[1:] if m.lower() != "pool"]
+        if not args:
+            await message.reply("Format : `!liberer Prénom [handle …] [pool]` — vide la colonne Gérant des comptes de ce clipper "
+                                "(tous, ou seulement les handles cités). Les comptes déjà créés passent en « à mettre Metricool » ; "
+                                "avec `pool`, ils restent disponibles pour le prochain clipper.")
+            return True
+        prenom = args[0].lstrip("@")
+        try:
+            bilan = await liberer(prenom, args[1:], pool=any(m.lower() == "pool" for m in mots[1:]))
+        except RuntimeError as erreur:
+            await message.reply(f"❌ {erreur}")
+            return True
+        if not bilan:
+            await message.reply(f"Aucune ligne du classeur avec Gérant « {prenom} »" + (" pour ces handles." if args[1:] else "."))
+            return True
+        n = sum(1 for b in bilan if b.startswith("·"))
+        await message.reply((f"🔓 **{n} compte(s) libéré(s)** — Gérant « {prenom} » effacé dans le classeur\n" + "\n".join(bilan)
+                             + "\n-# Lien GAML, salon perso et rôles non touchés (`!sortie` pour ça).")[:1990])
         return True
     if not message.mentions:
         await message.reply("Format : `!onboarding @clipper` — renvoie ses comptes, son lien et son Drive dans son salon perso.")
