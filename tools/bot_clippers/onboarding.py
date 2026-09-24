@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 
 import discord
 
+import codes_2fa
 import drive_agence
 import google_api
 import paie_clics
@@ -245,6 +246,14 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         texte += f"\n\n🔗 **Ton lien en bio** (le même sur tous tes comptes) : {lien}\nC'est lui qui compte tes visites : `!mesclics`."
     if drive:
         texte += f"\n\n📁 **Ton Drive** (photos et Reels de {creatrice.split()[0]}, lecture seule) : {drive}"
+    if salon is not None and codes_2fa.actif():
+        try:
+            n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")
+            if n_alias:
+                texte += f"\n\n📨 Les codes de vérification de {'ces adresses' if n_alias > 1 else 'cette adresse'} arriveront ici tout seuls."
+                resultat.append(f"{n_alias} alias 2FA rattaché(s)")
+        except Exception as erreur:                                     # jamais bloquer la livraison
+            journal.warning("Alias 2FA %s : %s", prenom, erreur)
     cible = salon if salon is not None else membre
     try:
         await cible.send(texte[:1990])

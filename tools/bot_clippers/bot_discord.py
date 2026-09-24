@@ -1058,6 +1058,64 @@ def membre_par_prenom(prenom_n: str):
     return trouves[0] if len(trouves) == 1 else None
 
 
+CATEGORIE_CLIPPERS_NOM = os.environ.get("CATEGORIE_CLIPPERS_NOM", "🎬 Clippers").strip() or "🎬 Clippers"
+
+
+def categorie_de_creatrice(guild, prenom: str):
+    """La catégorie dont le nom contient le prénom de la créatrice en mot entier, ou None."""
+    cible = normaliser(prenom or "")
+    if not cible:
+        return None
+    return discord.utils.find(lambda c: re.search(rf"(?<![a-z0-9]){re.escape(cible)}(?![a-z0-9])", normaliser(c.name)) is not None,
+                              guild.categories)
+
+
+async def categorie_clippers(guild):
+    """La catégorie d'accueil des salons perso sans créatrice encore attribuée (créée au besoin)."""
+    cible = normaliser(CATEGORIE_CLIPPERS_NOM)
+    cat = discord.utils.find(lambda c: normaliser(c.name) == cible, guild.categories)
+    if cat is None:
+        try:
+            cat = await guild.create_category(CATEGORIE_CLIPPERS_NOM, reason="Salons perso des clippers validés (24/09)")
+        except (discord.Forbidden, discord.HTTPException):
+            return None
+    return cat
+
+
+async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, raison: str):
+    """Le salon nominatif du clipper : trouvé n'importe où sur le serveur (nom = pseudo normalisé), déplacé dans
+    `categorie` si elle est donnée, sinon créé (dans `categorie`, ou dans la catégorie Clippers). Privé : lui, le
+    rôle Manager, le bot ; les admins voient tout. Renvoie (salon, créé, erreur). Décision du 24/09 : ce salon est
+    l'endroit où tout ce qui concerne le clipper arrive (comptes, codes, lien, clics, paies) pour que Gaëtan le voie."""
+    cle = re.sub(r"[^a-z0-9]", "", normaliser(membre.display_name))
+    salon = discord.utils.find(lambda c: cle and re.sub(r"[^a-z0-9]", "", normaliser(c.name)) == cle and c.category is not None
+                               and str(c.id) not in {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID},
+                               guild.text_channels)
+    if categorie is None:
+        categorie = (salon.category if salon is not None else None) or await categorie_clippers(guild)
+    sujet = f"Salon de {membre.display_name}" + (f" — créatrice {prenom_creatrice}" if prenom_creatrice else "") + \
+            ". Comptes, codes, lien, clics du matin, paies : tout arrive ici."
+    try:
+        if salon is None:
+            nom_salon = re.sub(r"[^\w\s-]", "", membre.display_name).strip().lower().replace(" ", "-") or f"clipper-{membre.id}"
+            overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                          membre: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+                          guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)}
+            rm = role_manager(guild)
+            if rm is not None:
+                overwrites[rm] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+            salon = await guild.create_text_channel(nom_salon, category=categorie, overwrites=overwrites, topic=sujet, reason=raison)
+            return salon, True, ""
+        await salon.set_permissions(membre, view_channel=True, send_messages=True, read_message_history=True, reason=raison)
+        if categorie is not None and salon.category != categorie:
+            await salon.edit(category=categorie, topic=sujet, reason=raison)
+        elif prenom_creatrice and (salon.topic or "") != sujet:
+            await salon.edit(topic=sujet, reason=raison)
+        return salon, False, ""
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        return salon, False, f"salon perso ({type(erreur).__name__})"
+
+
 def salon_perso_de(uid):
     """Le salon nominatif du clipper (créé par !creatrice : nom = son pseudo, dans la catégorie de sa créatrice),
     ou None. C'est là qu'arrivent son bilan des Reels et sa ligne de clics du matin."""
@@ -3021,31 +3079,11 @@ async def commande_creatrice(message, texte: str) -> bool:
             ouverts.append(salon)
         except (discord.Forbidden, discord.HTTPException) as erreur:
             refus.append(f"{salon.name} ({type(erreur).__name__})")
-    # Salon nominatif du clipper dans la catégorie de la créatrice : privé (lui, le manager, le bot).
-    salon_perso, cree = None, False
-    if categorie is not None:
-        cle_c = re.sub(r"[^a-z0-9]", "", normaliser(membre.display_name))
-        salon_perso = discord.utils.find(
-            lambda c: re.sub(r"[^a-z0-9]", "", normaliser(c.name)) == cle_c, categorie.text_channels) if cle_c else None
-        try:
-            if salon_perso is None:
-                nom_salon = re.sub(r"[^\w\s-]", "", membre.display_name).strip().lower().replace(" ", "-") or f"clipper-{membre.id}"
-                overwrites = {message.guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                              membre: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-                              message.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)}
-                rm = role_manager(message.guild)
-                if rm is not None:
-                    overwrites[rm] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
-                salon_perso = await message.guild.create_text_channel(
-                    nom_salon, category=categorie, overwrites=overwrites,
-                    topic=f"Salon de {membre.display_name} — créatrice {prenom}. Bilan quotidien des Reels ici.",
-                    reason=f"Salon perso créé par !creatrice ({message.author.display_name})")
-                cree = True
-            else:
-                await salon_perso.set_permissions(membre, view_channel=True, send_messages=True, read_message_history=True,
-                                                  reason=f"Créatrice {prenom} attribuée")
-        except (discord.Forbidden, discord.HTTPException) as erreur:
-            refus.append(f"salon perso ({type(erreur).__name__})")
+    # Salon nominatif du clipper : créé au J'ACCEPTE (catégorie Clippers) ou ici, et rangé dans la catégorie de la créatrice.
+    salon_perso, cree, err_sp = await assurer_salon_perso(message.guild, membre, categorie, prenom,
+                                                          f"Créatrice {prenom} attribuée par {message.author.display_name}")
+    if err_sp:
+        refus.append(err_sp)
     registre = lire_json(FICHIER_EQUIPES, {})
     fiche = registre.setdefault(str(membre.id), {"equipe": "", "par": str(message.author.id),
                                                  "date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -5586,6 +5624,21 @@ async def on_message(message):
             registre[str(utilisateur)]["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
             registre[str(utilisateur)].setdefault("paie", "clic")      # 23/09 : tout nouveau signé est payé au clic
             ecrire_json(FICHIER_EQUIPES, registre)
+            # 24/09 : son salon perso s'ouvre tout de suite (catégorie Clippers, ou celle de sa créatrice si déjà connue) —
+            # c'est là que tout arrivera, sous les yeux de Gaëtan et du manager.
+            creatrice_a = registre[str(utilisateur)].get("creatrice", "")
+            salon_a, cree_a, err_sa = await assurer_salon_perso(
+                membre_a.guild, membre_a, categorie_de_creatrice(membre_a.guild, creatrice_a) if creatrice_a else None,
+                creatrice_a, "Salon perso ouvert au J'ACCEPTE")
+            if salon_a is not None and cree_a:
+                try:
+                    await salon_a.send(f"🏠 {membre_a.mention}, voici ton salon perso. Tout arrive ici : tes comptes et leurs codes "
+                                       "de vérification, ton lien en bio, tes visites chaque matin, tes paies le 5 et le 20. "
+                                       "Ton manager y répond aussi. Prochaine étape : ta créatrice et tes comptes.")
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+            if salon_a is not None:
+                suite = suite.replace("La suite, dans l'ordre :", f"Ton salon perso : <#{salon_a.id}>.\n\nLa suite, dans l'ordre :")
             await message.reply(suite if err_a is None else
                                 "✅ **Conditions acceptées et enregistrées !** L'équipe ouvre ton rôle à la main "
                                 "(petit souci technique de mon côté, déjà signalé) — ton manager t'écrit ensuite.")

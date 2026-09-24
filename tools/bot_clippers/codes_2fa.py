@@ -165,6 +165,21 @@ def _marquer_lus(nums: list):
             boite.store(num, "+FLAGS", "\\Seen")
 
 
+def rattacher(aliases, canal_id: str, par: str) -> int:
+    """Rattache des adresses (alias) au salon qui recevra leurs codes — ce que fait `!alias ajouter`, sans commande.
+    Utilisé par l'onboarding : les e-mails des comptes du clipper → son salon perso. Renvoie le nombre d'alias posés."""
+    registre = _lire()
+    n = 0
+    for alias in [str(a).strip().lower() for a in aliases if a and "@" in str(a)]:
+        if registre.get(alias, {}).get("canal_id") == str(canal_id):
+            continue
+        registre[alias] = {"canal_id": str(canal_id), "par": str(par), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        n += 1
+    if n:
+        _ecrire(registre)
+    return n
+
+
 def _est_manager(membre, admin_ids) -> bool:
     """Admin, ou porteur du rôle Manager au nom EXACT (accents/casse/emoji ignorés). La sous-chaîne
     d'avant faisait d'un rôle « Community manager » ou « bot-manager » un manager."""

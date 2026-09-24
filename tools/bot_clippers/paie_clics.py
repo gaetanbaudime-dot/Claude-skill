@@ -353,6 +353,41 @@ async def envoyer_lignes_matin(d: dict) -> int:
     return envoyes
 
 
+async def annoncer_paie(client, d: dict, maintenant) -> None:
+    """Jour de paie (5 : période 16 → fin du mois précédent ; 20 : 1 → 15) : la liste et le CSV au salon admin,
+    et dans le salon perso de chaque clipper au clic sa ligne (visites payées, montant, adresse)."""
+    cle = "5" if maintenant.day == 5 else "20"
+    debut, fin = periode(cle, maintenant.strftime("%Y-%m"))
+    nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None) or f"id {uid}")
+    lignes, csv_texte = liste_paie(d, nom_de, debut, fin, maintenant.strftime("%d/%m"))
+    canal = await _deps["canal_admin"]()
+    if canal is not None:
+        try:
+            await canal.send("\n".join(lignes)[:1990], file=discord.File(io.BytesIO(csv_texte.encode("utf-8-sig")),
+                                                                        filename=f"paie_clics_{debut.isoformat()}_{fin.isoformat()}.csv"))
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Annonce de paie (admin) : %s", erreur)
+    envoyes = 0
+    for uid in {str(i.get("uid")) for i in d["liens"].values() if i.get("uid")}:
+        if regime(uid) != "clic":
+            continue
+        s = somme(d, liens_de(d, uid), debut, fin)
+        salon = _deps["salon_perso"](uid)
+        if salon is None:
+            continue
+        w = d["wallets"].get(uid, {}).get("adresse", "")
+        adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else w
+        texte = (f"💸 **Ta paie du {maintenant.strftime('%d/%m')}** (période {debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : "
+                 f"**{_fmt(s['payes'])} visites payées = {_usd(s['payes'] * TAUX_CLIC)}**"
+                 + (f" → virement vers {adr} dans la journée." if w else " → ⚠️ pas d'adresse enregistrée : `!wallet 0x…` ou `!wallet FR76…` maintenant, sinon la paie attend la prochaine."))
+        try:
+            await salon.send(texte)
+            envoyes += 1
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Ligne de paie %s : %s", uid, erreur)
+    journal.info("Paie du %s annoncée : liste au salon admin, %s ligne(s) en salon perso", maintenant.strftime("%d/%m"), envoyes)
+
+
 async def boucle(client, deps: dict):
     global _client, _deps
     _client, _deps = client, deps
@@ -388,6 +423,10 @@ async def boucle(client, deps: dict):
                 d["matin"] = aujourdhui
                 _ecrire(d)
                 journal.info("Lignes du matin envoyées : %s", n)
+            if maintenant.day in (5, 20) and maintenant.hour >= CLICS_HEURE and d.get("paie_annoncee") != aujourdhui and complets:
+                await annoncer_paie(client, d, maintenant)
+                d["paie_annoncee"] = aujourdhui
+                _ecrire(d)
             if _deps.get("apres_releves"):
                 await _deps["apres_releves"](client, d)
             journal.info("État clics : %s liens attribués, %s suivis, relevés d'hier %s, matin %s, rapport %s",
