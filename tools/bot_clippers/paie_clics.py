@@ -313,7 +313,7 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
     hier = _aujourdhui() - timedelta(days=1)
     appels = 0
     for lid, info in list(d["liens"].items()):
-        if not info.get("uid"):
+        if not (info.get("uid") or info.get("suivi")):
             continue
         debut = max(_jour(info.get("depuis") or CLICS_DEPUIS), hier - timedelta(days=45))
         jours = d["jours"].setdefault(lid, {})
@@ -366,7 +366,10 @@ async def boucle(client, deps: dict):
         try:
             d = _lire()
             if time.time() - derniere_assoc > 3600:
-                lignes = await associer_auto(d, await liens_gaml())
+                liens_tous = await liens_gaml()
+                lignes = await associer_auto(d, liens_tous)
+                if _deps.get("associer_suivi") and _deps["associer_suivi"](d, liens_tous):
+                    _ecrire(d)
                 derniere_assoc = time.time()
                 if lignes:
                     _ecrire(d)
@@ -383,6 +386,8 @@ async def boucle(client, deps: dict):
                 d["matin"] = aujourdhui
                 _ecrire(d)
                 journal.info("Lignes du matin envoyées : %s", n)
+            if _deps.get("apres_releves"):
+                await _deps["apres_releves"](client, d)
         except Exception as erreur:                                  # la boucle ne meurt jamais
             journal.warning("Boucle clics : %s", erreur)
         await asyncio.sleep(900)

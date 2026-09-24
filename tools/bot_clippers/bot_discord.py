@@ -31,6 +31,7 @@ import creatrices                         # valeur d'un abonné OF / MYM depuis 
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
+import rapport_stats                      # rapport GAML quotidien du manager, #jonas-stats (24/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -2884,7 +2885,8 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding")
+                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding",
+                     "!stats-jonas", "!stats-manager")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -2918,6 +2920,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
+                "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
     if any("team" in r for r in roles_n):
@@ -5131,11 +5134,14 @@ async def on_ready():
                     "envoyer_long": envoyer_long}
         onboarding.configurer(deps_onb)
         client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
+        rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
+                                  "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client})
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
-            "salon_perso": salon_perso_de}))
+            "salon_perso": salon_perso_de,
+            "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves}))
         client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
             client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
             debuts_fn=debuts_clippers, notifier=notifier_manager,
@@ -5732,6 +5738,8 @@ async def on_message(message):
         if await paie_clics.commande_staff(message, texte):
             return
         if await onboarding.commande_staff(message, texte):
+            return
+        if await rapport_stats.commande_staff(message, texte):
             return
         if await commande_admin(message, texte):
             return

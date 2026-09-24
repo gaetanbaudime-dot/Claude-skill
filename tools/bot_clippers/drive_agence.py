@@ -11,6 +11,7 @@ Variables : DRIVE_AGENCE_URL (l'URL /exec du script), DRIVE_AGENCE_SECRET (la m�
 
 import asyncio
 import base64
+import json
 import logging
 import os
 
@@ -38,15 +39,21 @@ async def appeler(action: str, **champs) -> dict:
     corps = {"secret": SECRET, "action": action, **champs}
     for essai in range(2):
         try:
-            async with _session.post(URL, json=corps, allow_redirects=True) as r:
+            # Apps Script répond 302 vers script.googleusercontent.com : on suit À LA MAIN, en GET nu (sans
+            # Content-Type ni corps), sinon Google renvoie une page HTML au lieu du JSON (vérifié le 24/09).
+            async with _session.post(URL, json=corps, allow_redirects=False) as r:
                 texte = await r.text()
-                if r.status >= 400:
-                    raise RuntimeError(f"script Drive {r.status} : {texte[:160]}")
-                try:
-                    import json
-                    rep = json.loads(texte)
-                except ValueError:
-                    raise RuntimeError("script Drive : réponse illisible (déploiement « Tout le monde » ?) : " + texte[:120])
+                statut, suite = r.status, r.headers.get("Location", "")
+            if statut in (301, 302, 303, 307, 308) and suite:
+                async with _session.get(suite, allow_redirects=True) as r2:
+                    texte, statut = await r2.text(), r2.status
+            if statut >= 400:
+                raise RuntimeError(f"script Drive {statut} : {texte[:160]}")
+            try:
+                rep = json.loads(texte)
+            except ValueError:
+                raise RuntimeError("script Drive : réponse illisible (déploiement « Tout le monde » ?) : " + texte[:120])
+            if True:
                 if not rep.get("ok"):
                     raise RuntimeError("script Drive : " + str(rep.get("erreur", "erreur inconnue"))[:200])
                 return rep

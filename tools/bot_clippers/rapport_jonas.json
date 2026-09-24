@@ -1,0 +1,8 @@
+{
+  "salon": "jonas-stats",
+  "groupes": {
+    "Sophie": ["Thia", "Rianah"],
+    "Chloé": ["Lilian", "Caroline", "Hasina", "Ckycia", "Romaric", "Lucas"],
+    "Sarah": ["Tara", "Clarisse", "Yves", "Laure", "Josué"]
+  }
+}
