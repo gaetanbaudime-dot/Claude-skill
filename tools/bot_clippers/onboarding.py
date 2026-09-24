@@ -130,28 +130,57 @@ def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
 
 
 # ------------------------------------------------------------------ Drive
+async def _partager(fichier_id: str, email: str) -> bool:
+    """Partage en lecture : par le compte de service d'abord, par le script de l'agence sinon."""
+    try:
+        await google_api.drive_partager(fichier_id, email, "reader")
+        return True
+    except RuntimeError as erreur:
+        journal.info("Partage par le compte de service refusé (%s), essai par le script", str(erreur)[:80])
+    if drive_agence.actif():
+        try:
+            await drive_agence.partager(fichier_id, email, "reader")
+            return True
+        except RuntimeError as erreur:
+            journal.warning("Partage Drive %s : %s", fichier_id[:8], erreur)
+    return False
+
+
 async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
-    """Dossier personnel du clipper (copie des sources de la créatrice), partagé en lecture. '' si impossible."""
-    if not drive_agence.actif():
+    """Dossier personnel du clipper dans « 🎬 Clippers » de sa créatrice : un raccourci vers CHAQUE source (Reels,
+    photos : tout le contenu, rien de copié, aucun espace consommé), les sources partagées en lecture à son e-mail,
+    et un sous-dossier « Reels spoofés » que le spoofer remplira. Décision du 24/09 : plus de copies limitées.
+    '' si le Drive n'est pas configuré."""
+    if not google_api.actif():
         return ""
     cfg = _sources().get(creatrice) or _sources().get(creatrice.split()[0]) or {}
     parent, sources = cfg.get("parent", ""), cfg.get("sources", [])
     if not parent or not sources:
         journal.info("DRIVE_SOURCES sans entrée pour %s", creatrice)
         return ""
-    dossier_id, url = "", ""
+    dossier = await google_api.drive_trouver_dossier(prenom, parent) or await google_api.drive_creer_dossier(prenom, parent)
+    vus = {}
     for src in sources:
         if not isinstance(src, dict):
             src = {"id": src}
-        bilan = await drive_agence.copier_dossier(src["id"], parent, prenom, types=src.get("types") or ("image", "video"),
-                                                  max_fichiers=int(src.get("max", 0)), sous=src.get("sous", ""))
-        dossier_id, url = bilan.get("id") or dossier_id, bilan.get("url") or url
-    if dossier_id and email:
+        libelle = src.get("sous") or "Contenu"
+        vus[libelle] = vus.get(libelle, 0) + 1
+        nom = f"{libelle} {vus[libelle]} — {creatrice.split()[0]}" if vus[libelle] > 1 else f"{libelle} — {creatrice.split()[0]}"
+        if email:
+            await _partager(src["id"], email)
         try:
-            await drive_agence.partager(dossier_id, email, "reader")
+            await google_api.drive_raccourci(nom, src["id"], dossier)
         except RuntimeError as erreur:
-            journal.warning("Partage Drive %s : %s", prenom, erreur)
-    return url or (google_api.drive_lien(dossier_id) if dossier_id else "")
+            journal.warning("Raccourci %s pour %s : %s", nom, prenom, erreur)
+    try:
+        if not await google_api.drive_trouver_dossier("Reels spoofés", dossier):
+            await google_api.drive_creer_dossier("Reels spoofés", dossier)
+    except RuntimeError as erreur:
+        journal.warning("Sous-dossier Reels spoofés %s : %s", prenom, erreur)
+    if email:
+        await _partager(dossier, email)
+    journal.info("Drive de %s (%s) prêt : %s sources, e-mail %s", prenom, creatrice, len(sources), "oui" if email else "non")
+    return google_api.drive_lien(dossier)
 
 
 # ------------------------------------------------------------------ livraison
@@ -206,7 +235,8 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         email = (_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}).get("liaisons", {}).get(str(membre.id), {}).get("email", "")
                  or fiche.get("email", ""))
         drive = await dossier_drive(prenom, creatrice, email)
-        resultat.append("Drive " + ("✅" if drive else ("sans e-mail du clipper" if drive_agence.actif() and not email else "non branché")))
+        resultat.append("Drive " + ("✅" + ("" if email else " (sans e-mail : rien partagé, `!onboarding` après son e-mail)") if drive
+                                    else "non configuré"))
     except RuntimeError as erreur:
         resultat.append(f"Drive : {erreur}")
     # 4. message

@@ -5134,6 +5134,7 @@ async def on_ready():
                     "envoyer_long": envoyer_long}
         onboarding.configurer(deps_onb)
         client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
+        client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
         rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
                                   "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client})
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY

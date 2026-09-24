@@ -147,6 +147,22 @@ async def envoyer(client, d: dict, jour) -> bool:
         return False
 
 
+async def demarrer(client):
+    """Au démarrage : le salon existe (créé sinon), avec un mot d'accueil s'il vient d'être créé."""
+    await client.wait_until_ready()
+    if not config()["groupes"]:
+        return
+    existait = await salon(client, creer=False)
+    s = await salon(client)
+    journal.info("Salon du rapport : %s", "créé" if (s is not None and existait is None) else ("présent" if s else "impossible"))
+    if s is not None and existait is None:
+        try:
+            await s.send("📊 Salon créé par le bot. Chaque matin après 7 h : les stats GAML de la veille des clippers suivis, "
+                         "par créatrice. `!stats-jonas` pour un rapport tout de suite, `!stats-jonas 2026-09-22` pour un autre jour.")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
 async def apres_releves(client, d: dict):
     """Appelé par la boucle des clics après chaque passage : poste le rapport de la veille une fois par jour,
     dès que tous les liens suivis ont leur relevé d'hier. La liste des liens suivis est rafraîchie par
@@ -158,11 +174,13 @@ async def apres_releves(client, d: dict):
     if maintenant.hour < paie_clics.CLICS_HEURE or d.get("rapport_jonas") == maintenant.date().isoformat():
         return
     suivis = [lid for lid, i in d["liens"].items() if i.get("suivi")]
-    if suivis and not all(hier.isoformat() in d["jours"].get(lid, {}) for lid in suivis):
-        return
+    complets = all(hier.isoformat() in d["jours"].get(lid, {}) for lid in suivis)
+    if suivis and not complets and maintenant.hour < paie_clics.CLICS_HEURE + 3:
+        return                                     # on attend les relevés, mais jamais au-delà de 3 h
     if await envoyer(client, d, hier):
         d["rapport_jonas"] = maintenant.date().isoformat()
         paie_clics._ecrire(d)
+        journal.info("Rapport manager du %s posté (%s liens suivis, relevés %s)", hier, len(suivis), "complets" if complets else "partiels")
 
 
 async def commande_staff(message, texte: str) -> bool:

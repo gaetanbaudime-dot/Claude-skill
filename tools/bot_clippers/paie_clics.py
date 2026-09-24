@@ -376,7 +376,9 @@ async def boucle(client, deps: dict):
                     canal = await _deps["canal_admin"]()
                     if canal:
                         await canal.send("🔗 **Liens GAML attribués automatiquement**\n" + "\n".join(lignes)[:1800])
-            await rattraper(d)
+            appels = await rattraper(d)
+            if appels:
+                journal.info("Relevés GAML : %s appels ce passage", appels)
             maintenant = _deps["heure_paris"]()
             aujourdhui = maintenant.date().isoformat()
             hier_iso = (maintenant.date() - timedelta(days=1)).isoformat()
@@ -388,6 +390,9 @@ async def boucle(client, deps: dict):
                 journal.info("Lignes du matin envoyées : %s", n)
             if _deps.get("apres_releves"):
                 await _deps["apres_releves"](client, d)
+            journal.info("État clics : %s liens attribués, %s suivis, relevés d'hier %s, matin %s, rapport %s",
+                         sum(1 for i in d["liens"].values() if i.get("uid")), sum(1 for i in d["liens"].values() if i.get("suivi")),
+                         "complets" if complets else "en cours", d.get("matin", "-"), d.get("rapport_jonas", "-"))
         except Exception as erreur:                                  # la boucle ne meurt jamais
             journal.warning("Boucle clics : %s", erreur)
         await asyncio.sleep(900)

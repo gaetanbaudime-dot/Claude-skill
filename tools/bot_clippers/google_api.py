@@ -174,6 +174,18 @@ async def drive_copier_arborescence(source_id: str, parent_id: str, nom: str, fi
     return bilan
 
 
+async def drive_raccourci(nom: str, cible_id: str, parent_id: str) -> str:
+    """Raccourci vers un fichier ou dossier (aucun espace consommé : c'est ce que le compte de service peut créer).
+    Réutilise un raccourci homonyme déjà présent."""
+    for f in await drive_lister(parent_id):
+        if f.get("name") == nom and f.get("shortcutDetails", {}).get("targetId") == cible_id:
+            return f["id"]
+    r = await _appel("POST", f"{DRIVE}/files", params={**_PARAMS_DRIVES, "fields": "id"},
+                     corps={"name": nom, "mimeType": "application/vnd.google-apps.shortcut", "parents": [parent_id],
+                            "shortcutDetails": {"targetId": cible_id}})
+    return r["id"]
+
+
 async def drive_partager(fichier_id: str, email: str, role: str = "reader", prevenir: bool = False) -> str:
     """Partage à une adresse (reader / writer). Renvoie l'identifiant de permission."""
     r = await _appel("POST", f"{DRIVE}/files/{fichier_id}/permissions",
