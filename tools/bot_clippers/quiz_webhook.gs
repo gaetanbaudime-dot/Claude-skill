@@ -41,7 +41,7 @@
  * en colonne D (A Horodateur · B Email · C Score · D Identifiant Discord). Ajuste COL_* au besoin.
  */
 
-const SEUIL       = 27;   // note minimale (sur 34) pour valider le quiz
+const SEUIL       = 30;   // note minimale (sur 34) pour valider le quiz (24/09 : 27 → 30)
 const COL_SCORE   = 3;    // repli : colonne C = "Score"           (1-indexé)
 const COL_DISCORD = 4;    // (v4 : plus utilisé en temps réel — l'identifiant se lit par titre de question)
 const COL_EMAIL   = 2;    // repli : colonne B = "Adresse e-mail"
@@ -161,7 +161,7 @@ function envoyerMailQuiz(reussite, scoreRaw, email, essais) {
   } else if (essais < 2) {
     sujet = 'Quiz : ' + scoreRaw + ', il te reste un essai';
     lignes = [
-      'Ton score : ' + scoreRaw + '. Il faut 27/34 pour passer au test.',
+      'Ton score : ' + scoreRaw + '. Il faut 30/34 pour passer au test.',
       '',
       'Pas grave : tu as un deuxième essai.',
       '',

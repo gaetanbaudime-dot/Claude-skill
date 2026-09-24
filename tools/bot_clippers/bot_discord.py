@@ -163,6 +163,7 @@ FICHIER_CLICS = DONNEES / "clics.json"                       # paie au clic : li
 FICHIER_SORTIS = DONNEES / "sortis.json"                     # trace des sorties d'équipe (!sortie) : [{uid, nom, equipe, creatrice, date, par, raison}]
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
+SEUIL_QUIZ = int(os.environ.get("QUIZ_SEUIL", "30") or 30)  # note minimale sur 34 (24/09 : 27 → 30) ; même variable que le site du quiz
 CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
 CANAL_FORMATION_ID = os.environ.get("CANAL_FORMATION_ID", "").strip()   # forum formation, lié dans le parcours MP étape 2
 
@@ -1256,8 +1257,9 @@ def texte_test(score="") -> str:
         f"Voici ton test : {LIEN_TEST}\n"
         "· Monte **2 clips verticaux** à partir des rushs du dossier (hook dès la 1re seconde, sous-titres, rythme).\n"
         "· **Deadline : 48 h** à partir de maintenant.\n"
-        "· Dépose tes 2 clips **en réponse ici, en message privé** (fichiers ou lien Drive/WeTransfer) — "
-        "je les transmets directement pour la review, personne d'autre ne les voit.\n"
+        "· Dépose tes 2 clips **en réponse ici, en message privé** : clique sur le **+** à gauche de la zone de message, "
+        "puis **Uploader un fichier** (10 Mo maximum par vidéo sur Discord : exporte en 1080p à débit modéré, ou en 720p). "
+        "Je les transmets directement pour la review, personne d'autre ne les voit.\n"
         + ((f"· Une question pour bien réussir ton test (réglages, format, méthode) ? Demande à "
             f"**l'assistant IA** dans <#{CANAL_ASSISTANT_ID}> — il répond 24h/24.\n") if CANAL_ASSISTANT_ID else "")
         + "\nLa régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
@@ -1324,6 +1326,10 @@ async def traiter_quiz_webhook(message, silencieux=False):
     reussite = message.content.startswith("QUIZ_OK|")
     morceaux = (message.content.split("|", 4) + ["", "", "", ""])[:5]
     pseudo, score, email_q, tel_q = (m.strip() for m in morceaux[1:5])
+    note_m = re.search(r"(\d+)\s*/\s*(\d+)", score)
+    if reussite and note_m and int(note_m.group(1)) < SEUIL_QUIZ:       # 24/09 : seuil 30/34 tenu ici, quoi que dise le script
+        journal.info("Quiz %s sous le seuil %s : traité comme un échec (script Google pas à jour ?)", score, SEUIL_QUIZ)
+        reussite = False
     # Garde-fou (14/09) : un identifiant Discord fait 17 à 20 chiffres ; un « pseudo » de 8 à 14 chiffres est
     # un numéro WhatsApp arrivé dans la mauvaise case (quiz renommé, ancien script) → on le traite comme tel.
     if pseudo.isdigit() and 8 <= len(pseudo) <= 14:
@@ -1378,7 +1384,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
             return
         if essais < 2:
             await envoyer_mp(membre_trouve,
-                f"📝 **Quiz : {score or 'sous le seuil'}** — il faut **27/34** pour passer au test.\n"
+                f"📝 **Quiz : {score or 'sous le seuil'}** — il faut **{SEUIL_QUIZ}/34** pour passer au test.\n"
                 "Pas grave : **tu as un deuxième essai**. Revois la vidéo de formation (les 4 mots-clés) "
                 "et les fiches, puis repasse-le avec ton lien personnel :\n"
                 + (f"{LIEN_QUIZ}{membre_trouve.id}" if LIEN_QUIZ else "`!quiz` sur le serveur")
@@ -1778,7 +1784,7 @@ async def traiter_liaison(auteur, brut):
         "4 mots-clés y sont cachés, note-les dans l'ordre, ils te seront demandés.\n"
         + ((f"→ Puis passe ton quiz avec **TON lien personnel** (ne modifie pas la case déjà remplie) :\n"
             f"{lien_quiz_pour(auteur.id)}\n"
-            f"Seuil : **27/34** · deux essais maximum.\n\n") if lien_quiz_pour(auteur.id) else "\n")
+            f"Seuil : **{SEUIL_QUIZ}/34** · deux essais maximum.\n\n") if lien_quiz_pour(auteur.id) else "\n")
         + "**Étape 3 — le test 🎬**\n"
           "Quiz réussi → ton test de montage (48 h) arrive **ici automatiquement**. Rien d'autre à faire "
           "d'ici là. Bonne formation 🚀")
@@ -1811,7 +1817,7 @@ def ou_en_es_tu(uid: str) -> str:
     if not liaison.get("tel"):
         return "**Prochaine étape : envoie-moi ton numéro de téléphone** (celui du formulaire), ici en MP."
     if not etat or etat == "quiz_rate":
-        return (f"**Prochaine étape : la formation puis le quiz** (seuil 27/34, deux essais). Ton lien personnel : "
+        return (f"**Prochaine étape : la formation puis le quiz** (seuil {SEUIL_QUIZ}/34, deux essais). Ton lien personnel : "
                 f"{lien_quiz}")
     if etat == "test_envoye":
         return ("**Ton test est en cours** : dépose tes 2 clips ici en MP (fichiers ou lien Drive) avant "
@@ -2195,7 +2201,7 @@ async def boucle_pipeline():
                 await _relancer(li, "r24", "r48", li.get("date"), uid,
                     "🎓 Ta **formation** et ton **quiz** t'attendent ! Regarde la vidéo (54 min) en entier "
                     "— les 4 mots-clés cachés te seront demandés." + lien_quiz +
-                    "\nSeuil : 27/34, deux essais. Quiz réussi → ton test arrive automatiquement.",
+                    f"\nSeuil : {SEUIL_QUIZ}/34, deux essais. Quiz réussi → ton test arrive automatiquement.",
                     "⏳ Il ne te manque que le **quiz** pour passer au test (puis contrat + paie)." +
                     lien_quiz + "\nSi tu bloques quelque part, réponds-moi ici — je t'aide.")
             # ③④⑤ Étapes portées par l'état du pipeline.
@@ -3047,7 +3053,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "Ensuite ton manager t'attribue ta créatrice (sous 48 h). Une question ? Pose-la ici.")
     return ("🧰 **Ton parcours, dans l'ordre**\n"
             "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
-            "2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil 27/34, 2 essais).\n"
+            f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {SEUIL_QUIZ}/34, 2 essais).\n"
             "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici.\n"
             "4. Test validé → contrat (France) ou conditions à accepter (International).\n"
             "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
@@ -3847,7 +3853,7 @@ async def commande_admin(message, texte: str) -> bool:
                 "· Tu as déjà **validé le quiz** → ton **test de montage** arrive ici en MP "
                 "(48 h pour rendre 2 clips). Si tu ne l'as pas reçu d'ici demain, écris-moi ici.\n"
                 "· Tu n'as **pas encore fait le quiz** → tape `!quiz` sur le serveur, je t'envoie "
-                "ton lien personnel. Seuil 27/34, deux essais.\n"
+                f"ton lien personnel. Seuil {SEUIL_QUIZ}/34, deux essais.\n"
                 "· Test validé → tu acceptes les conditions en MP, puis ton manager t'accueille : "
                 "créatrice, comptes créés avec lui au créneau, cadence.\n\n"
                 "Pas d'entretien : ceux qui livrent sont pris. Les places partent dans l'ordre des "
@@ -5668,7 +5674,7 @@ async def on_message(message):
         ok = await envoyer_mp(message.author,
             "📝 Voici **ton lien de quiz personnel** — il contient ton identifiant Discord, "
             f"ne modifie pas le champ pré-rempli :\n{lien_quiz_pour(utilisateur)}\n\n"
-            "Seuil : **27/34**. Si tu le passes, le test de montage arrive ici automatiquement. Bonne chance 🍀")
+            f"Seuil : **{SEUIL_QUIZ}/34**. Si tu le passes, le test de montage arrive ici automatiquement. Bonne chance 🍀")
         if message.guild is not None:
             await message.reply("📬 Lien de quiz personnel envoyé en message privé !" if ok else
                                 "⚠️ Tes MP sont fermés — active-les (Paramètres de confidentialité du serveur) puis retape `!quiz`.")

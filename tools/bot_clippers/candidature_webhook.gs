@@ -147,7 +147,7 @@ function envoyerMailBienvenue(prenom, email) {
     'Regarde-la en entier : 4 mots-clés y sont cachés, ils sont demandés au quiz.',
     '',
     '2. Le quiz : ' + quiz,
-    'Seuil : 27/34, deux essais maximum. Indique le même numéro WhatsApp que dans ta candidature.',
+    'Seuil : 30/34, deux essais maximum. Indique le même numéro WhatsApp que dans ta candidature.',
     '',
     'Quiz réussi : tu reçois le test de montage (48 h) par e-mail. Test validé : tu reçois ton invitation personnelle au Discord de l\'équipe.',
     '',

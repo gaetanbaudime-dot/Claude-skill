@@ -341,7 +341,7 @@ est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recru
 **Relancer le stock après une pause (dans l'ordre)** :
 1. Vérifie que `PAUSE_INT` est absent ou à `0` dans Railway (redéploiement automatique).
 2. Feuille Google du quiz → Extensions → Apps Script → exécute **`rejouerReussites()`** une fois : elle
-   re-poste un `QUIZ_OK` pour toutes les réussites (≥ 27/34) — le bot envoie le test à ceux qui ne l'ont
+   re-poste un `QUIZ_OK` pour toutes les réussites (≥ 30/34, `QUIZ_SEUIL`, tenu aussi par le bot qui rétrograde en échec un QUIZ_OK sous le seuil) — le bot envoie le test à ceux qui ne l'ont
    jamais reçu et ignore les autres (idempotent). Les réussites survenues PENDANT la pause n'ont pas
    d'état dans le pipeline : c'est la seule façon de leur envoyer le test.
 3. `!annonce-int` (simulation) puis `!annonce-int envoyer` : message de lancement en MP à tous les
@@ -358,7 +358,7 @@ Discord ne commence qu'au contrat (France) ou au J'ACCEPTE (International).
 1. **Formulaire de candidature** → `candidature_webhook.gs` (v2) poste `CANDIDATURE|…` comme avant **et
    envoie l'e-mail « formation + quiz »**. Le message de fin du formulaire ne donne plus le lien Discord.
 2. **Quiz** (question « ton numéro WhatsApp » à la place de l'identifiant Discord) → `quiz_webhook.gs` (v4)
-   poste `QUIZ_OK|<vide>|score|email|tel` et, **≥ 27/34, envoie le test par e-mail** (dossier de rushs +
+   poste `QUIZ_OK|<vide>|score|email|tel` et, **≥ 30/34, envoie le test par e-mail** (dossier de rushs +
    formulaire de rendu, 48 h) ; sinon score + deuxième essai (parcours terminé au 2ᵉ échec). Le bot tient le
    registre `hors_discord` (clé = numéro canonique) et prévient le manager.
 3. **Formulaire « Rendu du test »** → `rendu_webhook.gs` (nouveau) poste `TEST_RENDU|prénom|tel|email|lien|remarque`
