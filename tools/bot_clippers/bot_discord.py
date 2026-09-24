@@ -32,6 +32,7 @@ import web_candidature                    # site du tunnel candidat : formulaire
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
 import rapport_stats                      # rapport GAML quotidien du manager, #jonas-stats (24/09)
+import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -69,6 +70,9 @@ ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.
 # ---- v2 (programme clippers) ----
 CANAL_DOPAMINE_ID = os.environ.get("CANAL_DOPAMINE_ID", "").strip()       # canal des paiements/wins
 CANAL_CANDIDATURE_ID = os.environ.get("CANAL_CANDIDATURE_ID", "").strip() # canal d'accueil des candidats
+SHEET_CANDIDATURES_ID = os.environ.get("SHEET_CANDIDATURES_ID", "").strip()   # classeur de sauvegarde des candidatures (24/09)
+SHEET_CANDIDATURES_ONGLET = os.environ.get("SHEET_CANDIDATURES_ONGLET", "Candidatures bot").strip() or "Candidatures bot"
+_entete_candidatures_faite = False
 LIEN_FORMULAIRE = os.environ.get("LIEN_FORMULAIRE", "").strip()           # formulaire de candidature
 LIEN_DISCORD = os.environ.get("LIEN_DISCORD", "").strip()                 # lien d'invitation de secours (site sans OAuth)
 # ACTIVER_V2=1 exige l'intent privilégié « Server Members » dans le Developer Portal.
@@ -1039,6 +1043,29 @@ def chercher_membre(reference, exact=False):
             if not m.bot and ref_n in normaliser(m.display_name):
                 return m
     return None
+
+
+async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
+    """Ajoute la candidature dans le classeur de sauvegarde (onglet dédié, jamais celui du Google Form).
+    Silencieux si SHEET_CANDIDATURES_ID n'est pas posé ; ne bloque jamais une candidature en cas d'erreur."""
+    global _entete_candidatures_faite
+    if not (SHEET_CANDIDATURES_ID and google_api.actif()):
+        return
+    try:
+        questions = web_candidature._questions().get("questions", [])
+        onglet = SHEET_CANDIDATURES_ONGLET
+        if not _entete_candidatures_faite:
+            await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet)
+            premiere = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:A1")
+            if not premiere or not (premiere and premiere[0] and premiere[0][0].strip()):
+                entete = ["Horodatage", "Source"] + [q.get("label", q.get("id", "")) for q in questions]
+                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A1", [entete])
+            _entete_candidatures_faite = True
+        ligne = [heure_paris().strftime("%d/%m/%Y %H:%M"), source] + [reponses.get(q.get("id", ""), "") for q in questions]
+        await google_api.sheets_ajouter(SHEET_CANDIDATURES_ID, f"{onglet}!A1", [ligne])
+        journal.info("Candidature sauvegardée dans le classeur (%s)", source)
+    except Exception as erreur:                                       # jamais bloquer une candidature pour la sauvegarde
+        journal.warning("Sauvegarde candidature Sheet : %s", erreur)
 
 
 def membre_par_prenom(prenom_n: str):
@@ -5164,7 +5191,8 @@ async def on_ready():
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
             "essais_quiz": essais_quiz, "traiter_quiz_web": traiter_quiz_web,
-            "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD}))
+            "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD,
+            "journaliser_candidature": journaliser_candidature_sheet}))
         deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
                     "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,

@@ -227,6 +227,11 @@ async def post_candidature(request):
     pipe.setdefault("candidatures_web", {})[cand_id] = {"tel": tel, "date": maintenant}
     ecrire(fichier, pipe)
     journal.info("Candidature web %s (%s, …%s)", cand_id, reponses.get("pays", "?"), tel[-4:])
+    if _deps.get("journaliser_candidature"):                        # sauvegarde dans le classeur (au cas où), sans bloquer
+        try:
+            await _deps["journaliser_candidature"](reponses, "web")
+        except Exception as erreur:                                 # noqa: BLE001
+            journal.warning("Sauvegarde candidature : %s", erreur)
     if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET and WEB_URL_PUBLIQUE):
         # Connexion Discord pas encore configurée : on garde le lien d'invitation classique.
         lien = _deps.get("LIEN_DISCORD", "")

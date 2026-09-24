@@ -250,6 +250,20 @@ async def sheets_onglets(classeur_id: str) -> list:
     return [s["properties"]["title"] for s in r.get("sheets", [])]
 
 
+async def sheets_creer_onglet(classeur_id: str, titre: str) -> bool:
+    """Crée un onglet s'il n'existe pas. Renvoie True s'il a été créé, False s'il existait déjà."""
+    if titre in await sheets_onglets(classeur_id):
+        return False
+    try:
+        await _appel("POST", f"{SHEETS}/{classeur_id}:batchUpdate",
+                     corps={"requests": [{"addSheet": {"properties": {"title": titre}}}]})
+        return True
+    except RuntimeError as erreur:
+        if "already exists" in str(erreur).lower():
+            return False
+        raise
+
+
 def colonne(index: int) -> str:
     """0 → A, 25 → Z, 26 → AA."""
     lettres = ""
