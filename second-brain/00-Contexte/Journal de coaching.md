@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-24 — Script Drive de l'agence déployé, rapport quotidien du manager
+- **Fait** : Gaëtan a déployé le script Apps Script sous le compte de l'agence (vérifié : il répond, la redirection Apps Script se suit en GET nu) ; l'URL et la phrase sont dans Railway. Je n'ai pas le droit d'écrire dans son Drive depuis ma session : la première copie réelle se fera au premier onboarding lancé sur Discord. Les clippers actuels restent au fixe, les nouveaux au clic (décision de la veille).
+- **Demande de Gaëtan** : un salon #jonas-stats avec, chaque matin, les statistiques GAML de la veille des clippers que Jonas manage, groupés par créatrice (Sophie : Thia, Rianah ; Chloé : Lilian, Caroline, Hasina, Ckycia, Romaric, Lucas ; Sarah : Tara, Clarisse, Yves, Laure, Josué).
+- **Livré** : le salon est créé par le bot (privé, rôle Manager et admins), le rapport part après les relevés du matin (visiteurs hors robots, francophones, 7 jours, robots, liens manquants signalés : Hasina et Romaric n'ont pas encore de lien « Clipping »), `!stats-jonas` le relance ; les liens de Rianah sous Sophie sont comptés. Tests hors ligne passés sur les vrais noms de liens.
+- **Prédiction (24/09, revue le 01/10)** : Jonas fait créer les deux liens manquants dans la semaine et le rapport tourne sept jours sans intervention (70 %).
+
 ### 2026-09-23 (8) — Onboarding sans manager : comptes du classeur, lien GAML, Drive ; le compte de service ne stocke rien
 - **Fait vérifié** : le compte de service lit et écrit le classeur des logins (partagé en éditeur par le compte de l'agence) et lit le dossier G&M Management (créatrices, marketing, contenu) ; Google lui refuse toute création de fichier (« Service Accounts do not have storage quota »), il ne crée que des dossiers et des raccourcis. Un raccourci ne sert à rien à un clipper qui n'a pas accès à la source, donc les copies doivent être faites par un vrai compte.
 - **Décision (Claude, autonomie demandée)** : un script Apps Script déployé sous le compte de l'agence fait les copies, les partages et les dépôts de Reels ; le bot l'appelle par une URL et un secret. Le dossier d'un clipper reçoit un extrait (15 Reels, 30 photos par source), pas la bibliothèque : 100 clippers à la bibliothèque complète de Chloé (1,7 Go) dépasseraient l'espace de l'agence. Les dossiers « 🎬 Clippers » existent déjà dans le dossier Instagram de Chloé, Sarah, Maddie, Sophie et Jade.
