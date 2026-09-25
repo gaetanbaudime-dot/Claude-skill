@@ -111,7 +111,8 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     n-1 comptes de croissance + 1 compte privé quand le classeur en a un (24/09 : avant, le « privé » annoncé
     était juste le dernier de la liste)."""
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
-              and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)]
+              and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)
+              and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
     libres.sort(key=lambda c: (_norm(c["etat"]) in A_CREER, c["ligne"]))
     if n < 3:
         return libres[:n]
@@ -119,6 +120,36 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     if len(choix) < n:                                              # pas assez d'un côté : on complète avec le reste
         choix += [c for c in libres if c not in choix][:n - len(choix)]
     return choix
+
+
+def pool(comptes: list, creatrice: str) -> dict:
+    """État du vivier d'une créatrice : lignes « à créer » libres, dont celles avec e-mail (les seules livrables),
+    et comptes déjà créés libres. 25/09 : Chloé avait 18 lignes à créer, zéro avec e-mail."""
+    libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
+              and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)]
+    a_creer = [c for c in libres if _norm(c["etat"]) in A_CREER]
+    return {"a_creer": len(a_creer), "avec_mail": sum(1 for c in a_creer if c.get("mail")),
+            "crees": len(libres) - len(a_creer), "livrables": len(disponibles(comptes, creatrice, 999))}
+
+
+async def marquer_etat(handle: str, etat: str) -> bool:
+    """Colonne ETAT du classeur pour un compte (25/09 : le parcours passe une ligne à WARMUP quand le clipper valide
+    la création, puis à GOOD après le warm-up). Une seule cellule, jamais la structure."""
+    if not actif() or not handle:
+        return False
+    cible = _norm(handle).lstrip("@")
+    for c in await lire_comptes():
+        if _norm(c["handle"]).lstrip("@") == cible:
+            if _norm(c["etat"]) == _norm(etat):
+                return True
+            try:
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!A{c['ligne']}", [[etat]])
+                journal.info("Classeur : %s → %s (ligne %s)", c["handle"], etat, c["ligne"])
+                return True
+            except Exception as erreur:
+                journal.warning("Classeur : état de %s non écrit : %s", c["handle"], erreur)
+                return False
+    return False
 
 
 def _nouveau(membre, etat: dict) -> bool:
@@ -495,9 +526,15 @@ async def commande_staff(message, texte: str) -> bool:
             par_c.setdefault(c["creatrice"] or "?", []).append(c)
         lignes = [f"🗂️ **Comptes libres dans le classeur** ({len(libres)})"]
         for cr, lst in sorted(par_c.items()):
-            crees = sum(1 for c in lst if _norm(c["etat"]) not in ("a creer", "à créer"))
-            lignes.append(f"· {cr} — {len(lst)} libre(s) : {crees} créé(s), {len(lst) - crees} à créer")
-        lignes.append("-# Un compte est « libre » quand Utilisation = Clipper, Gérant vide ou x/y/z, état à créer / GOOD / WARMUP / PRIVÉ / ACTIF.")
+            crees = sum(1 for c in lst if _norm(c["etat"]) not in A_CREER)
+            a_creer = [c for c in lst if _norm(c["etat"]) in A_CREER]
+            avec_mail = sum(1 for c in a_creer if c.get("mail"))
+            livrables = crees + avec_mail
+            lignes.append(f"· {cr} — {len(lst)} libre(s) : {crees} créé(s), {len(a_creer)} à créer dont **{avec_mail} avec e-mail** "
+                          f"→ {livrables} livrable(s) = {livrables // 3} clipper(s)"
+                          + (" ⚠️ ajoute des e-mails (iCloud « Masquer mon adresse ») avant le prochain clipper" if livrables < 3 else ""))
+        lignes.append("-# Un compte est « libre » quand Utilisation = Clipper, Gérant vide ou x/y/z, état à créer / GOOD / WARMUP / PRIVÉ / ACTIF. "
+                      "Un compte à créer sans e-mail n'est pas livré (25/09) : impossible à créer sur Instagram ni à relayer en 2FA.")
         await message.reply("\n".join(lignes)[:1990])
         return True
     if mots[0].lower() in ("!liberer", "!libérer"):

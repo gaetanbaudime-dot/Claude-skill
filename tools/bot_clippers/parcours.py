@@ -291,12 +291,28 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
             await ancien.edit(view=None)
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             pass
+    await _classeur_etat(uid, n)
     membre = _deps["membre_par_id"](uid)
     if membre is None:
         return True
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)
     return True
+
+
+async def _classeur_etat(uid: str, n: int) -> None:
+    """25/09 : le classeur des logins suit le parcours — compte 1/2/3 validé → sa ligne passe à WARMUP, warm-up
+    fini (étape 4) → les trois lignes passent à GOOD. Sans le classeur (ou sans la dépendance), rien."""
+    marquer = _deps.get("marquer_etat")
+    if marquer is None or n not in (1, 2, 3, 4):
+        return
+    comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(str(uid), {}) or {}).get("comptes") or []
+    cibles = comptes[n - 1:n] if n <= 3 else comptes[:3]
+    for h in cibles:
+        try:
+            await marquer(h, "WARMUP" if n <= 3 else "GOOD")
+        except Exception as erreur:
+            journal.warning("Classeur étape %s de %s : %s", n, uid, erreur)
 
 
 async def boucle(client) -> None:

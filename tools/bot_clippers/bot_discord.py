@@ -5677,7 +5677,8 @@ async def on_ready():
         parcours.configurer({**deps_onb, "FICHIER_PARCOURS": FICHIER_PARCOURS, "POSTS_FORMATION": POSTS_FORMATION,
                              "categorie_de_creatrice": categorie_de_creatrice,
                              "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m), "client": client,
-                             "chercher_membre": lambda nom: chercher_membre(nom)})
+                             "chercher_membre": lambda nom: chercher_membre(nom),
+                             "marquer_etat": onboarding.marquer_etat})                # 25/09 : ETAT du classeur suit le parcours
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
