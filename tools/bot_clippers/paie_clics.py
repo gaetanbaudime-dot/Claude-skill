@@ -40,6 +40,11 @@ PAYS_PAYES = [p.strip() for p in os.environ.get("PAYS_PAYES", PAYS_PAYES_DEFAUT)
 PAYS_LIBELLE = os.environ.get("PAYS_LIBELLE", "francophones").strip() or "francophones"
 CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-09-16").strip()          # début du relevé rétroactif
 CLICS_HEURE = int(os.environ.get("CLICS_HEURE", "7") or 7)                    # ligne du matin (heure de Paris)
+# 25/09 : les anciens clippers gardent leur fixe deux semaines, puis clic ou sortie. Le bilan part tout seul ce jour-là.
+BILAN_FIXE_DATE = os.environ.get("BILAN_FIXE_DATE", "2026-10-09").strip()
+BILAN_FIXE_JOURS = int(os.environ.get("BILAN_FIXE_JOURS", "14") or 14)
+SEUIL_FIXE_100 = int(os.environ.get("SEUIL_FIXE_100", "32") or 32)            # visites payables/jour qui rentabilisent 100 €
+SEUIL_FIXE_200 = int(os.environ.get("SEUIL_FIXE_200", "65") or 65)            # … et 200 € (0,30 $ de CA par visite, 35 % de marge)
 CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "rianah,gaetan,gaëtan,jonas,x,y").split(",") if p.strip()}
 API = "https://getallmylinks.com/api/v1"
 FUSEAU = "Europe/Paris"
@@ -183,6 +188,55 @@ def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
                 tot["brut"] += v.get("brut", 0); tot["hors_robots"] += v.get("hors_robots", 0)
                 tot["payes"] += v.get("payes", 0); tot["jours"] += 1
     return tot
+
+
+def texte_bilan_fixe(d: dict, jours: int = BILAN_FIXE_JOURS) -> list:
+    """Le verdict des clippers encore au fixe : visites payables sur `jours` jours, équivalent au clic, et ce que ça
+    dit face au point mort. Décision du 25/09 : deux semaines à l'arrache, puis clic ou sortie, sans distinction
+    France / Madagascar / Bénin."""
+    hier = _aujourdhui() - timedelta(days=1)
+    debut = hier - timedelta(days=jours - 1)
+    par_uid = {}
+    for lid, info in d["liens"].items():
+        if info.get("uid"):
+            par_uid.setdefault(str(info["uid"]), []).append(lid)
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+    nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None) or f"id {uid}")
+    rangs = []
+    for uid in registre:
+        if regime(uid) != "fixe":
+            continue
+        s = somme(d, par_uid.get(uid, []), debut, hier)
+        rangs.append((nom_de(uid), s, s["payes"] / jours, uid, bool(par_uid.get(uid))))
+    rangs.sort(key=lambda r: -r[2])
+    lignes = [f"⚖️ **Bilan des fixes** — {jours} jours ({debut.strftime('%d/%m')} → {hier.strftime('%d/%m')}), "
+              f"équivalent au clic à {_usd(TAUX_CLIC)} la visite"]
+    for nom, s, pj, uid, a_lien in rangs:
+        if not a_lien:
+            verdict = "⚠️ aucun lien GAML : rien à mesurer, `!lien @clipper nouveau`"
+        elif pj >= SEUIL_FIXE_200:
+            verdict = "✅ rentable, même à 200 €"
+        elif pj >= SEUIL_FIXE_100:
+            verdict = "🟡 rentable à 100 € seulement"
+        else:
+            verdict = "❌ sous le point mort : clic ou sortie"
+        lignes.append(f"· {nom} — {_fmt(s['payes'])} visites payables ({_fmt(pj)}/j) = {_usd(s['payes'] * TAUX_CLIC)} au clic · {verdict}")
+    if not rangs:
+        lignes.append("· plus personne au fixe.")
+    lignes.append(f"-# Point mort : ≈ {SEUIL_FIXE_100} visites payables/jour pour 100 €, ≈ {SEUIL_FIXE_200}/jour pour 200 €. "
+                  "`!paie @clipper clic` pour basculer · `!sortie @clipper raison` pour sortir · `!bilan-fixe 30` pour un autre horizon.")
+    return lignes
+
+
+async def _envoyer_canal(canal, lignes: list) -> None:
+    bloc = ""
+    for l in lignes:
+        if len(bloc) + len(l) + 1 > 1900:
+            await canal.send(bloc)
+            bloc = ""
+        bloc += l + "\n"
+    if bloc.strip():
+        await canal.send(bloc)
 
 
 def texte_mesclics(d: dict, uid: str, nom: str) -> str:
@@ -427,6 +481,14 @@ async def boucle(client, deps: dict):
                 await annoncer_paie(client, d, maintenant)
                 d["paie_annoncee"] = aujourdhui
                 _ecrire(d)
+            if (BILAN_FIXE_DATE and aujourdhui >= BILAN_FIXE_DATE and d.get("bilan_fixe") != BILAN_FIXE_DATE
+                    and maintenant.hour >= CLICS_HEURE and complets):        # 25/09 : le verdict des deux semaines, une fois
+                canal = await _deps["canal_admin"]()
+                if canal:
+                    await _envoyer_canal(canal, ["📅 **Les deux semaines sont passées** (décision du 25/09) : le verdict des "
+                                                 "fixes, à trancher aujourd'hui."] + texte_bilan_fixe(d))
+                d["bilan_fixe"] = BILAN_FIXE_DATE
+                _ecrire(d)
             if _deps.get("apres_releves"):
                 await _deps["apres_releves"](client, d)
             journal.info("État clics : %s liens attribués, %s suivis, relevés d'hier %s, matin %s, rapport %s",
@@ -485,7 +547,7 @@ async def commande_staff(message, texte: str) -> bool:
     if not mots:
         return False
     cmd = mots[0].lower()
-    if cmd not in ("!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie"):
+    if cmd not in ("!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!bilan-fixe"):
         return False
     if cmd == "!paie":
         if not message.mentions or not mots[-1].lower() in ("clic", "fixe"):
@@ -537,6 +599,11 @@ async def commande_staff(message, texte: str) -> bool:
             lignes.append(f"⚠️ {len(manquants)} lien(s) avec des jours non relevés sur la période (relevé en cours, relance dans 15 min).")
         fichier = discord.File(io.BytesIO(csv_texte.encode("utf-8-sig")), filename=f"paie_clics_{debut.isoformat()}_{fin.isoformat()}.csv")
         await message.reply("\n".join(lignes)[:1990], file=fichier)
+        return True
+
+    if cmd == "!bilan-fixe":
+        jours = next((int(m) for m in mots[1:] if m.isdigit() and 1 <= int(m) <= 90), BILAN_FIXE_JOURS)
+        await _deps["envoyer_long"](message, texte_bilan_fixe(d, jours))
         return True
 
     if cmd == "!clics":

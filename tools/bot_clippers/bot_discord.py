@@ -93,6 +93,9 @@ ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # 
 # !equipe après signature du contrat — jamais par l'onboarding Discord (incident du 18/07).
 ROLE_TEAM_FR_NOM = os.environ.get("ROLE_TEAM_FR_NOM", "Team France").strip()
 ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
+# 25/09 : plus de distinction France / Madagascar / Bénin. Si ce rôle existe, il remplace les deux rôles Team pour
+# tout le monde (J'ACCEPTE, !sortie, !creatrice) ; les catégories et rôles Team France / International peuvent partir.
+ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "").strip()
 # Rôles de GRILLE (décision du 19/07) : attribués AUTOMATIQUEMENT à la liaison du numéro
 # (grille déduite de l'indicatif, jamais si pays/indicatif se contredisent). Ils n'ouvrent QUE
 # les salons rémunération/bonus de la grille — le quiz pose des questions sur la paie, le
@@ -818,6 +821,10 @@ def role_team(guild, code: str):
     nom « Team Madagascar » : les deux sont acceptés, la variable Railway reste prioritaire."""
     if guild is None:
         return None
+    if ROLE_CLIPPER_NOM:                                            # 25/09 : un seul rôle pour tous, quel que soit le pays
+        unique = discord.utils.find(lambda r: normaliser(r.name).strip() == normaliser(ROLE_CLIPPER_NOM).strip(), guild.roles)
+        if unique is not None:
+            return unique
     noms = [ROLE_TEAM_FR_NOM] if code == "fr" else [ROLE_TEAM_MG_NOM, "Team International", "Team Madagascar"]
     for nom in noms:
         role = discord.utils.find(lambda r: normaliser(nom) in normaliser(r.name), guild.roles)
@@ -1120,6 +1127,58 @@ def membre_par_prenom(prenom_n: str):
 
 
 CATEGORIE_CLIPPERS_NOM = os.environ.get("CATEGORIE_CLIPPERS_NOM", "🎬 Clippers").strip() or "🎬 Clippers"
+
+
+async def completer_creatrices() -> int:
+    """Remplit la créatrice des signés qui n'en ont pas au registre (les anciens, d'avant `!creatrice`) : d'après le
+    suffixe « Prénom - Créatrice » de leur pseudo, sinon d'après le classeur des logins (Gérant → Créatrice). Sans ça,
+    le digest réclamait « Signés SANS créatrice » pour Caroline - Chloé ou Thia - Sophie (25/09)."""
+    registre = lire_json(FICHIER_EQUIPES, {})
+    guild = client.guilds[0] if client.guilds else None
+    if guild is None:
+        return 0
+    noms_cats = {normaliser(c.name).strip(): c.name.strip() for c in guild.categories}
+
+    def _cat(prenom):
+        p_ = normaliser(prenom or "").strip()
+        if not p_:
+            return ""
+        if p_ in noms_cats:
+            return noms_cats[p_]
+        cands = [v for k, v in noms_cats.items() if len(p_) >= 4 and k[:4] == p_[:4]]
+        return cands[0] if len(cands) == 1 else ""
+
+    comptes = []
+    try:
+        if onboarding.actif():
+            comptes = await onboarding.lire_comptes()
+    except Exception as erreur:
+        journal.warning("Classeur pour completer_creatrices : %s", erreur)
+    n = 0
+    for uid, fiche in registre.items():
+        if fiche.get("creatrice") or uid in ADMIN_IDS:
+            continue
+        m = guild.get_member(int(uid))
+        if m is None:
+            continue
+        trouve = ""
+        mm = re.search(r"[-–—|·]\s*([A-Za-zÀ-ÿ]+)\s*$", m.display_name)
+        if mm:
+            trouve = _cat(mm.group(1))
+        if not trouve and comptes:
+            prenom = normaliser(m.display_name.split()[0]) if m.display_name.split() else ""
+            crs = {c["creatrice"].split()[0] for c in comptes if c["creatrice"] and normaliser(c["gerant"]) == prenom}
+            if len(crs) == 1:
+                seule = next(iter(crs))
+                trouve = _cat(seule) or seule
+        if trouve:
+            fiche.update({"creatrice": trouve, "creatrice_par": "auto",
+                          "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            n += 1
+    if n:
+        ecrire_json(FICHIER_EQUIPES, registre)
+        journal.info("Créatrices complétées automatiquement au registre : %d", n)
+    return n
 
 
 def roles_creatrices(guild) -> list:
@@ -2114,7 +2173,9 @@ async def attribuer_equipe(guild, membre, equipe, par_id):
         discord.utils.find(lambda x: normaliser(ROLE_GRILLE_INT_NOM) in normaliser(x.name), guild.roles),
     ) if r is not None and r in membre.roles]
     try:
-        await membre.remove_roles(autre, *grilles, reason=f"Signature contrat — passage grille → équipe {equipe}")
+        a_retirer_r = ([] if autre == cible else [autre]) + grilles     # rôle unique : rien à retirer côté équipe
+        if a_retirer_r:
+            await membre.remove_roles(*a_retirer_r, reason=f"Signature contrat — passage grille → équipe {equipe}")
         await membre.add_roles(cible, reason=f"Signature contrat — équipe {equipe}")
     except discord.Forbidden:
         return None, "permission manquante (monte mon rôle AU-DESSUS des rôles d'équipe ET de grille)"
@@ -2525,6 +2586,10 @@ async def boucle_rappels():
             if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.hour >= 9 and etat.get("pipeline_digest") != aujourdhui:
                 pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
                 etats_p = pipe.get("etats", {})
+                try:
+                    await completer_creatrices()                       # 25/09 : les anciens ont une créatrice, pas au registre
+                except Exception as erreur:
+                    journal.warning("completer_creatrices : %s", erreur)
                 equipes_r = lire_json(FICHIER_EQUIPES, {})
                 ref = datetime.now(timezone.utc)
 
@@ -2550,6 +2615,20 @@ async def boucle_rappels():
                 guild_d = client.guilds[0] if client.guilds else None
                 role_mgr = role_manager(guild_d)
                 lundi = maintenant.weekday() == 0
+                if not CONTRAT_ACTIVER and contrats_attente:
+                    # 25/09 : plus de contrat. Un « contrat envoyé, pas signé » d'avant la bascule reçoit les conditions
+                    # en MP (une fois) et rejoint la relance J'ACCEPTE, au lieu d'être réclamé chaque matin.
+                    for uid_c, _ in contrats_attente:
+                        m_c = membre_par_id(uid_c)
+                        if m_c is not None and not etats_p.get(uid_c, {}).get("conditions_envoyees"):
+                            try:
+                                await suite_validation(m_c, guild_d)
+                            except Exception as erreur:
+                                journal.warning("Conditions à %s (ex-contrat) : %s", uid_c, erreur)
+                    etats_p = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats", {})
+                    sans_acceptation += [uid_c for uid_c, _ in contrats_attente
+                                         if uid_c not in sans_acceptation and etats_p.get(uid_c, {}).get("conditions_envoyees")]
+                    contrats_attente = []
 
                 def _staff(uid):
                     m_ = membre_par_id(uid)
@@ -2590,10 +2669,9 @@ async def boucle_rappels():
                     # pas à J+3. Le numéro vient de la liaison candidature (WhatsApp).
                     morceaux = []
                     for u, j in signes_recents[:6]:
-                        est_fr = (equipes_r.get(u) or {}).get("equipe") == "fr"
-                        tel = _tel_de(u)
-                        morceaux.append(f"<@{u}> (J+{j}" + (f" · ☎️ {tel}" if est_fr and tel else "") + ")")
-                    lignes_d.append("🎉 **Signés cette semaine — appelle les FR, comptes créés ?** : "
+                        tel = _tel_de(u)                                    # 25/09 : plus de distinction FR / MG / Bénin
+                        morceaux.append(f"<@{u}> (J+{j}" + (f" · ☎️ {tel}" if tel else "") + ")")
+                    lignes_d.append("🎉 **Signés cette semaine — appelle-les, comptes créés ?** : "
                                     + " · ".join(morceaux)
                                     + "\n-# Un signé sans comptes à J+3 est un motivé qu'on refroidit.")
                 if sans_creatrice:
@@ -2602,7 +2680,7 @@ async def boucle_rappels():
                                     + (f" · {anciens_sans} plus ancien(s), listés le lundi" if anciens_sans and not lundi else "")
                                     + "\n→ `!creatrice @membre Prénom` — un signé sans créatrice ne produit rien.")
                 if sans_acceptation:
-                    lignes_d.append("✍️ Validés International sans J'ACCEPTE (je relance tout seul) : "
+                    lignes_d.append("✍️ Validés sans J'ACCEPTE (je relance tout seul) : "
                                     + " · ".join(f"<@{u}>" for u in sans_acceptation[:8]))
                 if contrats_erreur:
                     lignes_d.append("❌ Contrats DocuSeal en ERREUR (à envoyer à la main) : "
@@ -4660,7 +4738,7 @@ async def commande_admin(message, texte: str) -> bool:
         for info in etats.values():
             compte[info.get("etat", "?")] = compte.get(info.get("etat", "?"), 0) + 1
         libelles = {"test_envoye": "🧪 Test en cours", "test_rendu": "📥 Tests rendus (à reviewer)",
-                    "valide": "✅ Validés (→ contrat)",
+                    "valide": "✅ Validés (→ conditions J'ACCEPTE)",
                     "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés",
                     "quiz_rate": "📝 Quiz raté (2 essais max)", "sorti": "🚪 Sortis de l'équipe"}
         cands = donnees.get("candidatures", {})
@@ -4684,7 +4762,7 @@ async def commande_admin(message, texte: str) -> bool:
         if en_retard:
             lignes.append("⏳ Bientôt à échéance : " + ", ".join(f"<@{u}>" for u in en_retard[:10]))
         signes = lire_json(FICHIER_EQUIPES, {})
-        lignes.append(f"✍️ Sous contrat (!equipe) : {len(signes)}")
+        lignes.append(f"✍️ Signés (J'ACCEPTE) : {len(signes)}")
         hd = donnees.get("hors_discord", {})
         if hd or serveur_ferme():
             n_hd = {}
@@ -4788,20 +4866,18 @@ async def commande_admin(message, texte: str) -> bool:
         # Expirés : un compteur sans nom ne se traite pas, d'où la liste et la relance.
         lignes.append("")
         if expires:
-            lignes.append(f"⌛ **{len(expires)} test(s) expiré(s) ou refusé(s)**")
-            partis = 0
-            for u, i in expires:
-                m = _membre(u)
-                if m is None:
-                    partis += 1
-                nom = m.display_name if m else "**parti du serveur**"
-                lignes.append(f"· <@{u}> {nom} — " + (f"refusé le {str(i.get('refus', ''))[:10]}" if i.get("etat") == "refuse"
-                                                    else f"expiré le {str(i.get('echeance', ''))[:10]}")
+            presents = [(u, i, _membre(u)) for u, i in expires]
+            partis = sum(1 for _, _, m in presents if m is None)
+            encore = [(u, i, m) for u, i, m in presents if m is not None]
+            lignes.append(f"⌛ **{len(encore)} test(s) expiré(s) ou refusé(s)**" + (f" ({partis} parti(s) du serveur, non listés)" if partis else ""))
+            for u, i, m in encore:                                   # 25/09 : dix-huit « parti du serveur » noyaient le seul cas utile
+                lignes.append(f"· <@{u}> {m.display_name} — " + (f"refusé le {str(i.get('refus', ''))[:10]}" if i.get("etat") == "refuse"
+                                                                else f"expiré le {str(i.get('echeance', ''))[:10]}")
                               + (f", re-test ouvert le {str(i['retest'])[:10]}" if i.get("retest") else ""))
-            if not relancer:
+            if not encore:
+                lignes.append("· personne d'encore présent sur le serveur.")
+            elif not relancer:
                 lignes.append("→ Pour leur rouvrir un créneau de 48 h : `!tests relancer`")
-                if partis:
-                    lignes.append(f"⚠️ {partis} ne sont plus sur le serveur (purge ou départ) — ils seront ignorés.")
         else:
             lignes.append("⌛ Aucun test expiré.")
 
@@ -5298,6 +5374,10 @@ async def on_ready():
         await verifier_canaux_configures()                     # 24/09 : nomme la variable CANAL_* qui pointe dans le vide
     except Exception as erreur:                                # jamais bloquer le démarrage pour un contrôle
         journal.warning("Contrôle des salons configurés : %s", erreur)
+    try:
+        await completer_creatrices()                           # 25/09 : créatrice des anciens déduite du pseudo / du classeur
+    except Exception as erreur:
+        journal.warning("completer_creatrices au démarrage : %s", erreur)
     fichiers = sorted(p.name for p in DONNEES.glob("*") if p.is_file())
     journal.info("Données : %s (%s) — fichiers : %s", DONNEES,
                  "persistant via DONNEES_DIR" if DONNEES_PERSISTANTES else "ÉPHÉMÈRE (dossier local)",
@@ -5373,20 +5453,20 @@ async def annoncer_demarrage():
     eteintes = []
     (actives if inputs_clippers.APIFY_TOKEN else eteintes).append("suivi des inputs (APIFY_TOKEN)")
     (actives if codes_2fa.actif() else eteintes).append("relais des codes 2FA (CODES_IMAP_*)")
-    (actives if CANAL_BUMP_ID else eteintes).append("rappel bump")
+    (actives if (CANAL_BUMP_ID and CANAL_BUMP_ID.isdigit() and client.get_channel(int(CANAL_BUMP_ID)) is not None) else eteintes).append("rappel bump")
     (actives if (CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID) else eteintes).append("salons-compteurs")
-    (actives if (DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID) else eteintes).append("contrats DocuSeal")
+    (actives if (CONTRAT_ACTIVER and DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID) else eteintes).append(
+        "contrats DocuSeal" if CONTRAT_ACTIVER else "contrats DocuSeal (conditions J'ACCEPTE à la place)")
     (actives if web_candidature.actif() else eteintes).append("site candidature + connexion Discord")
     manquantes = [n for n, v in (("LIEN_TEST", LIEN_TEST), ("LIEN_QUIZ", LIEN_QUIZ),
                                   ("CANAL_ADMIN_ID", CANAL_ADMIN_ID), ("CANAL_MANAGER_ID", CANAL_MANAGER_ID),
-                                  ("EMAIL_FACTURATION", EMAIL_FACTURATION),
                                   ("WEB_URL_PUBLIQUE", web_candidature.WEB_URL_PUBLIQUE if web_candidature.actif() else "x"),
                                   ("GAML_API_KEY", paie_clics.GAML_API_KEY),
                                   ("SHEET_CSV_URL", inputs_clippers.SHEET_CSV_URL)) if not v]
     guild0 = client.guilds[0] if client.guilds else None
     if guild0 is not None and role_manager(guild0) is None:
         manquantes.append(f"rôle « {codes_2fa.ROLE_MANAGER_NOM} » introuvable sur le serveur")
-    texte = ("🟢 **Bot redémarré** — " + ("International ouvert" if not INT_EN_PAUSE else "International EN PAUSE")
+    texte = ("🟢 **Bot redémarré**" + ("" if not INT_EN_PAUSE else " — International EN PAUSE")
              + "\n✅ Actif : " + " · ".join(actives)
              + (("\n⛔ Éteint : " + " · ".join(eteintes)) if eteintes else "")
              + (("\n⚠️ À poser dans Railway : " + " · ".join(manquantes)) if manquantes else "")
