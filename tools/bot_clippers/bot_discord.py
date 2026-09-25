@@ -792,9 +792,9 @@ async def verifier_canaux_configures():
             remplacant = next((c for g in client.guilds for c in g.text_channels
                                if "bienvenue" in normaliser(c.name) or "candidature" in normaliser(c.name)), None)
         if remplacant is None:
-            if nom == "CANAL_BUMP_ID":                                # 25/09 : plus de salon bump → fonction éteinte, sans bruit
+            if nom in ("CANAL_BUMP_ID", "CANAL_CANDIDATURE_ID"):      # 25/09 : salon supprimé → fonction éteinte, sans bruit
                 globals()[nom] = ""
-                journal.info("CANAL_BUMP_ID = %s : salon supprimé, bumps désactivés (variable Railway à vider à l'occasion)", val)
+                journal.info("%s = %s : salon supprimé, fonction désactivée (variable Railway à vider à l'occasion)", nom, val)
                 continue
             journal.warning("%s = %s : salon introuvable (%s) — variable Railway à corriger", nom, val, probleme)
             continue
