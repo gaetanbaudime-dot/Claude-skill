@@ -311,10 +311,18 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                         pass
             registre = _lire()
             relayes = []
+            deja = registre.setdefault("_relayes", {})           # 25/09 : un code posté deux fois (redéploiement, deux instances)
+            limite = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(timespec="seconds")
+            for k in [k for k, v in deja.items() if str(v) < limite]:
+                deja.pop(k, None)
             if trouves:
                 journal.info("Relais 2FA : %d mail(s) Meta non lus, %d avec code", len(trouves), sum(1 for t in trouves if t["code"]))
             for t in trouves:
                 if not t["code"]:
+                    continue
+                cle_r = f"{t['alias']}|{t['code']}"
+                if cle_r in deja:                                    # déjà posté : on le marque lu sans le reposter
+                    relayes.append(t["num"])
                     continue
                 cible = registre.get(t["alias"], {}).get("canal_id")
                 salon = client.get_channel(int(cible)) if cible else await canal_admin_async()
@@ -326,6 +334,8 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                 try:
                     await salon.send(texte)
                     relayes.append(t["num"])
+                    deja[cle_r] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                    _ecrire(registre)
                     journal.info("Code 2FA relayé pour %s → salon %s", t["alias"] or "alias inconnu", getattr(salon, "name", salon.id))
                 except (discord.Forbidden, discord.HTTPException):
                     pass

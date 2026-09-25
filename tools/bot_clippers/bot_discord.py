@@ -32,6 +32,7 @@ import web_candidature                    # site du tunnel candidat : formulaire
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
 import rapport_stats                      # rapport GAML quotidien du manager, #jonas-stats (24/09)
+import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
 DOSSIER = Path(__file__).parent
@@ -162,6 +163,7 @@ FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat :
 FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors kit : [{"q", "qui", "date"}] — la matière de !apprendre
 FICHIER_SUBS = DONNEES / "subs.json"                         # abonnés OF par clipper et par mois : {"AAAA-MM": {prénom: n}} (!subs)
 FICHIER_ONBOARDING = DONNEES / "onboarding.json"             # onboarding : comptes livrés (handle → clipper), lien, Drive par clipper
+FICHIER_PARCOURS = DONNEES / "parcours.json"                 # parcours guidé + mémoire par clipper (25/09)
 FICHIER_CLICS = DONNEES / "clics.json"                       # paie au clic : liens GAML attribués, relevés par jour, adresses de paiement
 FICHIER_SORTIS = DONNEES / "sortis.json"                     # trace des sorties d'équipe (!sortie) : [{uid, nom, equipe, creatrice, date, par, raison}]
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
@@ -559,6 +561,9 @@ def doit_repondre(message) -> bool:
     parent = getattr(canal, "parent_id", None)  # dans un forum, chaque post est un thread
     if FORUM_BOT_ID and parent and str(parent) == FORUM_BOT_ID:
         return True
+    sp = salon_perso_de(message.author.id)                     # 25/09 : dans son salon perso, le bot est le manager du clipper
+    if sp is not None and sp.id == canal.id and not (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
+        return True
     return client.user in message.mentions
 
 
@@ -575,7 +580,14 @@ def contexte_auteur(message) -> str:
         lieu = f"salon #{nom}" + (f" (post du forum {parent.name})" if parent is not None else "")
         membre = message.author
     roles = [r.name for r in getattr(membre, "roles", []) if r.name != "@everyone"]
-    return f"[Contexte : {lieu} · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]"
+    base = f"[Contexte : {lieu} · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]"
+    sp = salon_perso_de(message.author.id) if message.guild is not None else None
+    if sp is not None and sp.id == message.channel.id:
+        try:
+            return base + "\n" + parcours.contexte_llm(str(message.author.id))
+        except Exception as erreur:
+            journal.warning("Mémoire du clipper %s : %s", message.author.id, erreur)
+    return base
 
 
 def assainir_mentions(reponse: str) -> str:
@@ -3114,7 +3126,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer",
+                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe",
                      "!stats-jonas", "!stats-manager")
 
 
@@ -3150,6 +3162,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
+                "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
+                "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
                 "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
@@ -3294,6 +3308,11 @@ async def commande_creatrice(message, texte: str) -> bool:
         bilan_onb = await onboarding.livrer(membre, prenom, salon_perso)
     except Exception as erreur:                                        # jamais bloquer l'attribution pour ça
         bilan_onb = f"onboarding : {type(erreur).__name__} {str(erreur)[:120]}"
+    if salon_perso is not None:
+        try:
+            await parcours.demarrer_parcours(salon_perso, membre, prenom)   # 25/09 : étape 1 du parcours guidé, avec boutons
+        except Exception as erreur:
+            journal.warning("Parcours guidé de %s : %s", membre.id, erreur)
     if ouverts or salon_perso is not None:
         await envoyer_mp(membre,
             f"🎬 **Ta créatrice : {prenom}.**\n"
@@ -5417,6 +5436,11 @@ async def on_ready():
                     "envoyer_long": envoyer_long}
         onboarding.configurer(deps_onb)
         client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
+        parcours.configurer({**deps_onb, "FICHIER_PARCOURS": FICHIER_PARCOURS, "POSTS_FORMATION": POSTS_FORMATION,
+                             "categorie_de_creatrice": categorie_de_creatrice,
+                             "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m), "client": client})
+        client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
+        client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
         rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
                                   "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client})
@@ -6041,6 +6065,8 @@ async def on_message(message):
         if await paie_clics.commande_staff(message, texte):
             return
         if await onboarding.commande_staff(message, texte):
+            return
+        if await parcours.commande_staff(message, texte):
             return
         if await rapport_stats.commande_staff(message, texte):
             return
