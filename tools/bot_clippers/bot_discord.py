@@ -734,18 +734,35 @@ async def canal_par_id(canal_id: str):
 
 async def verifier_canaux_configures():
     """Au démarrage : chaque variable CANAL_*_ID qui pointe sur un salon introuvable est nommée dans le journal
-    (24/09 : « Canal 1527… inaccessible » toutes les 5 minutes sans dire quelle variable corriger)."""
+    (24/09 : « Canal 1527… inaccessible » toutes les 5 minutes sans dire quelle variable corriger). Pour #bump et
+    le forum formation, le bot se répare seul : il prend le salon qui porte ce nom (25/09), la variable Railway
+    n'a plus qu'à être mise à jour quand Gaëtan passe par là."""
+    global INSTRUCTIONS
     for nom in ("CANAL_ADMIN_ID", "CANAL_BOT_ID", "CANAL_MANAGER_ID", "CANAL_DOPAMINE_ID", "CANAL_REPORTING_ID",
                 "CANAL_BUMP_ID", "CANAL_CANDIDATURE_ID", "CANAL_FORMATION_ID", "CANAL_ASSISTANT_ID",
                 "CANAL_STAT_PAYES_ID", "CANAL_STAT_CLIPPERS_ID"):
         val = str(globals().get(nom, "") or "")
-        if not val.isdigit():
+        if not val.isdigit() or client.get_channel(int(val)) is not None:
             continue
-        if client.get_channel(int(val)) is None:
-            try:
-                await client.fetch_channel(int(val))
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException) as erreur:
-                journal.warning("%s = %s : salon introuvable (%s) — variable Railway à corriger", nom, val, erreur)
+        try:
+            await client.fetch_channel(int(val))
+            continue
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as erreur:
+            probleme = erreur
+        remplacant = None
+        if nom == "CANAL_BUMP_ID":
+            remplacant = next((c for g in client.guilds for c in g.text_channels if "bump" in normaliser(c.name)), None)
+        elif nom == "CANAL_FORMATION_ID":
+            remplacant = next((c for g in client.guilds for c in g.channels
+                               if isinstance(c, discord.ForumChannel) and "formation" in normaliser(c.name)), None)
+        if remplacant is None:
+            journal.warning("%s = %s : salon introuvable (%s) — variable Railway à corriger", nom, val, probleme)
+            continue
+        globals()[nom] = str(remplacant.id)
+        if nom == "CANAL_FORMATION_ID":
+            INSTRUCTIONS = INSTRUCTIONS.replace(f"<#{val}>", f"<#{remplacant.id}>")
+        journal.warning("%s = %s : salon introuvable, remplacé par #%s (%s) trouvé par son nom — mets la variable Railway à jour "
+                        "à l'occasion", nom, val, remplacant.name, remplacant.id)
 
 
 async def canal_admin():
