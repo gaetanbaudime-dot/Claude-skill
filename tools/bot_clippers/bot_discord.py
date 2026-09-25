@@ -1122,6 +1122,28 @@ def membre_par_prenom(prenom_n: str):
 CATEGORIE_CLIPPERS_NOM = os.environ.get("CATEGORIE_CLIPPERS_NOM", "🎬 Clippers").strip() or "🎬 Clippers"
 
 
+def roles_creatrices(guild) -> list:
+    """Les rôles qui portent le nom d'une catégorie de créatrice (Chloé, Sophie, Sarah, Maddie, Jade…) : un rôle par
+    créatrice, c'est lui qui ouvre sa catégorie (25/09)."""
+    cats = {normaliser(c.name).strip() for c in guild.categories}
+    return [r for r in guild.roles if not r.managed and r != guild.default_role
+            and (normaliser(r.name).strip() in cats or any(normaliser(r.name).strip()[:4] == c[:4] and len(c) >= 4 for c in cats))]
+
+
+def role_creatrice(guild, prenom: str):
+    """Le rôle de cette créatrice : nom identique (accents/casse ignorés), sinon mêmes 4 premières lettres
+    (Maddy ↔ Maddie) s'il n'y a qu'un candidat."""
+    cible = normaliser(prenom or "").strip()
+    if not cible:
+        return None
+    exact = discord.utils.find(lambda r: normaliser(r.name).strip() == cible and not r.managed, guild.roles)
+    if exact is not None:
+        return exact
+    proches = [r for r in guild.roles if not r.managed and r != guild.default_role and len(cible) >= 4
+               and normaliser(r.name).strip()[:4] == cible[:4]]
+    return proches[0] if len(proches) == 1 else None
+
+
 def categorie_de_creatrice(guild, prenom: str):
     """La catégorie dont le nom contient le prénom de la créatrice en mot entier, ou None."""
     cible = normaliser(prenom or "")
@@ -3142,26 +3164,32 @@ async def commande_creatrice(message, texte: str) -> bool:
     salons = [c for c in message.guild.channels
               if isinstance(c, (discord.TextChannel, discord.ForumChannel)) and _mot_entier(c.name) and not _exclu(c)]
     categorie = discord.utils.find(lambda c: _mot_entier(c.name), message.guild.categories)
-    ouverts, refus = [], []
-    for salon in salons:
+    ouverts, refus, roles_poses = [], [], []
+    # Rôles (25/09, demande de Gaëtan) : chaque créatrice a son rôle (Chloé, Sophie, Sarah, Maddie, Jade…), c'est lui
+    # qui ouvre sa catégorie. On le pose, on retire celui d'une autre créatrice, et les permissions salon par salon
+    # ne servent plus que s'il n'existe pas de rôle.
+    role_c = role_creatrice(message.guild, prenom)
+    role_ok = False
+    if role_c is not None:
+        anciens = [r for r in membre.roles if r != role_c and r in roles_creatrices(message.guild)]
         try:
-            await salon.set_permissions(membre, view_channel=True, send_messages=True,
-                                        read_message_history=True,
-                                        reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
-            ouverts.append(salon)
-        except (discord.Forbidden, discord.HTTPException) as erreur:
-            refus.append(f"{salon.name} ({type(erreur).__name__})")
-    # Rôles (25/09, demande de Gaëtan) : le rôle de la créatrice s'il existe (c'est lui qui ouvre sa catégorie d'un
-    # coup, sans permission salon par salon), et le rôle Team en filet de sécurité s'il manque.
-    roles_poses = []
-    role_c = discord.utils.find(lambda r: _mot_entier(r.name) and not r.managed and r != message.guild.default_role,
-                                message.guild.roles)
-    if role_c is not None and role_c not in membre.roles:
-        try:
-            await membre.add_roles(role_c, reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
+            if anciens:
+                await membre.remove_roles(*anciens, reason=f"Changement de créatrice → {prenom}")
+            if role_c not in membre.roles:
+                await membre.add_roles(role_c, reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
             roles_poses.append(role_c.name)
+            role_ok = True
         except (discord.Forbidden, discord.HTTPException) as erreur:
-            refus.append(f"rôle {role_c.name} ({type(erreur).__name__} : monte mon rôle au-dessus du sien)")
+            refus.append(f"rôle {role_c.name} ({type(erreur).__name__} : donne-moi « Gérer les rôles » et garde mon rôle au-dessus du sien)")
+    if not role_ok:
+        for salon in salons:
+            try:
+                await salon.set_permissions(membre, view_channel=True, send_messages=True,
+                                            read_message_history=True,
+                                            reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
+                ouverts.append(salon)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                refus.append(f"{salon.name} ({type(erreur).__name__})")
     code_eq = (fiche or {}).get("equipe") or equipe_deduite(membre.id)[0]
     role_eq = role_team(message.guild, code_eq) if code_eq else None
     if role_eq is not None and role_eq not in membre.roles:
@@ -3200,11 +3228,12 @@ async def commande_creatrice(message, texte: str) -> bool:
             + "Crée tes comptes depuis ton téléphone en suivant la Fiche 1 et la Fiche 2 ; le bot te relaie les codes. 🚀")
     await message.reply(
         f"✅ {membre.mention} → **{prenom}**"
+        + ((" · rôle posé : " + ", ".join(roles_poses) + " (ouvre sa catégorie)") if roles_poses else "")
         + ((" · salons ouverts : " + ", ".join(c.name for c in ouverts)) if ouverts else
-           (f" · ⚠️ salons de {prenom} trouvés mais permission refusée — donne à mon rôle « Gérer les rôles » et "
-            f"« Gérer les permissions » sur la catégorie {prenom}, ou crée un rôle « {prenom} » que je poserai" if salons else
-            f" · ⚠️ aucun salon dont le nom contient le mot « {prenom} » (hors admin/bot)"))
-        + ((" · rôles posés : " + ", ".join(roles_poses)) if roles_poses else "")
+           ("" if roles_poses else
+            (f" · ⚠️ salons de {prenom} trouvés mais permission refusée — donne à mon rôle « Gérer les rôles » et "
+             f"« Gérer les permissions » sur la catégorie {prenom}, ou crée un rôle « {prenom} » que je poserai" if salons else
+             f" · ⚠️ aucun rôle ni salon au nom de « {prenom} » (hors admin/bot)")))
         + ((f" · salon perso {'créé' if cree else 'ouvert'} : #{salon_perso.name}") if salon_perso is not None else
            (" · ⚠️ pas de catégorie au nom de la créatrice : salon perso non créé" if categorie is None else ""))
         + (f" · refus : {', '.join(refus)}" if refus else "")
@@ -4471,6 +4500,9 @@ async def commande_admin(message, texte: str) -> bool:
         for nom_r in (ROLE_GRILLE_FR_NOM, ROLE_GRILLE_INT_NOM, *NOMS_RANGS):
             r_ = discord.utils.find(lambda x: normaliser(nom_r) in normaliser(x.name), g.roles)
             if r_ is not None and r_ in membre.roles and r_ not in a_retirer:
+                a_retirer.append(r_)
+        for r_ in roles_creatrices(g):                                  # 25/09 : le rôle de sa créatrice aussi
+            if r_ in membre.roles and r_ not in a_retirer:
                 a_retirer.append(r_)
         refus_s = []
         if a_retirer:

@@ -48,6 +48,9 @@ EXPEDITEURS = tuple(e.strip().lower() for e in os.environ.get(
 
 FICHIER_ALIAS = None            # injecté par bot_discord.py (volume persistant)
 
+# Sous-chaînes cherchées côté serveur dans l'en-tête From (IMAP FROM) : courtes pour attraper les expéditeurs
+# réécrits par iCloud, sans « meta » seul qui ramènerait Metricool.
+MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com")
 MOTIF_CODE = re.compile(r"(?<!\d)(?:FB-?)?(\d{5,8})(?!\d)")
 MOTIF_ALIAS = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 
@@ -101,7 +104,9 @@ def _corps(msg) -> str:
 def extraire(msg) -> dict:
     """{expediteur, alias, code, sujet} depuis un message ; code=None si rien d'exploitable."""
     expediteur = _texte(msg.get("From")).lower()
-    if not any(d in expediteur for d in EXPEDITEURS):
+    # 25/09 : iCloud « Masquer mon adresse » réécrit l'expéditeur en no-reply_at_mail_instagram_com_xxx@icloud.com
+    # (points → tirets bas) : « instagram.com » n'y était plus, chaque code passait à la trappe.
+    if not any(d in expediteur or d in expediteur.replace("_", ".") for d in EXPEDITEURS):
         return {}
     destinataires = " ".join(_texte(msg.get(h)) for h in ("To", "Delivered-To", "X-Original-To") if msg.get(h))
     alias = next((a.lower() for a in MOTIF_ALIAS.findall(destinataires)), "")
@@ -128,12 +133,20 @@ def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
         boite.select(IMAP_DOSSIER)
         # SINCE = la veille : à 00 h 05 UTC, « aujourd'hui » excluait un code reçu deux minutes avant.
         depuis = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%d-%b-%Y")
-        critere = f'(UNSEEN SINCE {depuis})' if uniquement_non_lus else f'(SINCE {depuis})'
-        ok, ids = boite.search(None, critere)
-        if ok != "OK" or not ids or not ids[0]:
+        base = f'UNSEEN SINCE {depuis}' if uniquement_non_lus else f'SINCE {depuis}'
+        # 25/09 : recherche PAR EXPÉDITEUR. Sur une boîte perso à 12 000 non-lus, « UNSEEN SINCE hier » renvoyait
+        # des centaines d'ids et le bot téléchargeait 40 newsletters entières par passage : délai dépassé à chaque
+        # tour (TimeoutError sans message dans le journal), zéro code relayé. FROM est une sous-chaîne : elle
+        # attrape aussi l'expéditeur réécrit par iCloud (no-reply_at_mail_instagram_com_…@icloud.com).
+        nums = set()
+        for mot in MOTS_EXPEDITEUR:
+            ok, ids = boite.search(None, f'({base} FROM "{mot}")')
+            if ok == "OK" and ids and ids[0]:
+                nums.update(ids[0].split())
+        if not nums:
             return []
-        for num in ids[0].split()[-40:]:
-            ok, brut = boite.fetch(num, "(BODY.PEEK[])")
+        for num in sorted(nums, key=int)[-15:]:
+            ok, brut = boite.fetch(num, "(BODY.PEEK[]<0.40000>)")      # en-têtes + 40 Ko : le code est dans le sujet
             if ok != "OK" or not brut or not brut[0]:
                 continue
             msg = email.message_from_bytes(brut[0][1])
@@ -209,15 +222,20 @@ async def commande(message, admin_ids) -> bool:
     texte = message.content.strip()
     if not texte.lower().startswith(("!alias", "!code")):
         return False
-    if message.guild is None or not _est_manager(message.author, admin_ids):
-        await message.reply("Réservé aux managers (rôle « Manager ») et aux admins.")
+    registre = _lire()
+    mots = texte.split()
+    canal_id = str(message.channel.id) if message.guild is not None else ""
+    miens = [a for a, v in registre.items() if canal_id and v.get("canal_id") == canal_id]
+    manager = message.guild is not None and _est_manager(message.author, admin_ids)
+    # 25/09 : dans son salon perso, le clipper tape `!code` tout court et reçoit le dernier code de SES adresses
+    # (le message de livraison le lui promettait, la commande était réservée aux managers).
+    if not manager and not (mots[0].lower() == "!code" and miens):
+        await message.reply("Réservé aux managers (rôle « Manager ») et aux admins." if message.guild is not None else
+                            "`!code` se tape dans ton salon perso sur le serveur, pas en message privé.")
         return True
     if not actif():
         await message.reply("Relais des codes éteint : `CODES_IMAP_USER` / `CODES_IMAP_PASSWORD` absents.")
         return True
-    registre = _lire()
-    mots = texte.split()
-    canal_id = str(message.channel.id)
 
     if mots[0].lower() == "!alias":
         action = mots[1].lower() if len(mots) > 1 else "liste"
@@ -239,28 +257,35 @@ async def commande(message, admin_ids) -> bool:
                                 "Aucun alias ici. `!alias ajouter prenom.xxx@icloud.com` pour en rattacher un.")
         return True
 
-    # !code <alias>
-    if len(mots) < 2 or "@" not in mots[1]:
-        await message.reply("Format : `!code alias@icloud.com` — je cherche le dernier code reçu (30 min).")
-        return True
-    alias = mots[1].lower()
-    proprietaire = registre.get(alias, {}).get("canal_id")
-    if proprietaire != canal_id and str(message.author.id) not in admin_ids:
-        await message.reply("Cet alias n'est pas rattaché à ce salon — `!alias ajouter` d'abord.")
+    # !code [alias] : sans alias, toutes les adresses rattachées à ce salon
+    if len(mots) >= 2 and "@" in mots[1]:
+        alias = mots[1].lower()
+        proprietaire = registre.get(alias, {}).get("canal_id")
+        if proprietaire != canal_id and str(message.author.id) not in admin_ids:
+            await message.reply("Cet alias n'est pas rattaché à ce salon — `!alias ajouter` d'abord.")
+            return True
+        cibles = [alias]
+    elif miens:
+        cibles = miens
+    else:
+        await message.reply("Format : `!code alias@icloud.com` — je cherche le dernier code reçu (2 h). "
+                            "Dans un salon perso avec des adresses rattachées, `!code` tout court suffit.")
         return True
     try:
-        trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, alias, 30), timeout=IMAP_TIMEOUT * 3)
+        trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, 120), timeout=IMAP_TIMEOUT * 3)
     except Exception as erreur:
         journal.warning("IMAP : %s", erreur)
         await message.reply("⚠️ Boîte mail injoignable (identifiants, IMAP désactivé ou délai dépassé).")
         return True
-    codes = [t for t in trouves if t["code"]]
+    codes = [t for t in trouves if t["code"] and t["alias"] in cibles]
     if not codes:
-        await message.reply(f"Aucun code reçu pour `{alias}` dans les 30 dernières minutes. "
+        await message.reply(f"Aucun code reçu dans les 2 dernières heures pour {', '.join(f'`{a}`' for a in cibles)}. "
                             "Redemande le code sur Instagram, il arrive ici en moins d'une minute.")
     else:
-        dernier = codes[-1]
-        await message.reply(f"🔐 **{dernier['plateforme']} — code pour `{alias}` : `{dernier['code']}`**")
+        derniers = {}
+        for t in codes:                                        # le plus récent par adresse
+            derniers[t["alias"]] = t
+        await message.reply("\n".join(f"🔐 **{t['plateforme']} — code pour `{a}` : `{t['code']}`**" for a, t in derniers.items()))
     return True
 
 
@@ -286,6 +311,8 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                         pass
             registre = _lire()
             relayes = []
+            if trouves:
+                journal.info("Relais 2FA : %d mail(s) Meta non lus, %d avec code", len(trouves), sum(1 for t in trouves if t["code"]))
             for t in trouves:
                 if not t["code"]:
                     continue
@@ -299,6 +326,7 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                 try:
                     await salon.send(texte)
                     relayes.append(t["num"])
+                    journal.info("Code 2FA relayé pour %s → salon %s", t["alias"] or "alias inconnu", getattr(salon, "name", salon.id))
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             if relayes:
