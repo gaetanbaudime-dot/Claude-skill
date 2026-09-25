@@ -94,9 +94,10 @@ ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # 
 # !equipe après signature du contrat — jamais par l'onboarding Discord (incident du 18/07).
 ROLE_TEAM_FR_NOM = os.environ.get("ROLE_TEAM_FR_NOM", "Team France").strip()
 ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
-# 25/09 : plus de distinction France / Madagascar / Bénin. Si ce rôle existe, il remplace les deux rôles Team pour
-# tout le monde (J'ACCEPTE, !sortie, !creatrice) ; les catégories et rôles Team France / International peuvent partir.
-ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "").strip()
+# 25/09 : plus de distinction France / Madagascar / Bénin. Le rôle d'équipe unique est le premier rang (« Rookie 🔰 »,
+# décision de Gaëtan) : posé au J'ACCEPTE à la place de Team France / Team International, retiré à !sortie. Nom
+# tolérant (le rôle du serveur porte un emoji). Vide = ancien fonctionnement à deux rôles Team.
+ROLE_EQUIPE_UNIQUE = os.environ.get("ROLE_EQUIPE_UNIQUE", "Rookie").strip()
 # Rôles de GRILLE (décision du 19/07) : attribués AUTOMATIQUEMENT à la liaison du numéro
 # (grille déduite de l'indicatif, jamais si pays/indicatif se contredisent). Ils n'ouvrent QUE
 # les salons rémunération/bonus de la grille — le quiz pose des questions sur la paie, le
@@ -833,8 +834,9 @@ def role_team(guild, code: str):
     nom « Team Madagascar » : les deux sont acceptés, la variable Railway reste prioritaire."""
     if guild is None:
         return None
-    if ROLE_CLIPPER_NOM:                                            # 25/09 : un seul rôle pour tous, quel que soit le pays
-        unique = discord.utils.find(lambda r: normaliser(r.name).strip() == normaliser(ROLE_CLIPPER_NOM).strip(), guild.roles)
+    if ROLE_EQUIPE_UNIQUE:                                          # 25/09 : un seul rôle pour tous (Rookie), quel que soit le pays
+        cible_u = normaliser(ROLE_EQUIPE_UNIQUE).strip()
+        unique = discord.utils.find(lambda r: cible_u in normaliser(r.name) and not r.managed, guild.roles)
         if unique is not None:
             return unique
     noms = [ROLE_TEAM_FR_NOM] if code == "fr" else [ROLE_TEAM_MG_NOM, "Team International", "Team Madagascar"]
@@ -3284,7 +3286,8 @@ async def commande_creatrice(message, texte: str) -> bool:
                 refus.append(f"{salon.name} ({type(erreur).__name__})")
     code_eq = (fiche or {}).get("equipe") or equipe_deduite(membre.id)[0]
     role_eq = role_team(message.guild, code_eq) if code_eq else None
-    if role_eq is not None and role_eq not in membre.roles:
+    a_un_rang = any(normaliser(n) in normaliser(r.name) for r in membre.roles for n in NOMS_RANGS)   # Confirmé/Élite = déjà dans l'équipe
+    if role_eq is not None and role_eq not in membre.roles and not a_un_rang:
         nom_r, err_r = await attribuer_equipe(message.guild, membre, code_eq, str(message.author.id))
         if nom_r:
             roles_poses.append(nom_r)
