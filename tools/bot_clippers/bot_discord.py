@@ -3151,6 +3151,25 @@ async def commande_creatrice(message, texte: str) -> bool:
             ouverts.append(salon)
         except (discord.Forbidden, discord.HTTPException) as erreur:
             refus.append(f"{salon.name} ({type(erreur).__name__})")
+    # Rôles (25/09, demande de Gaëtan) : le rôle de la créatrice s'il existe (c'est lui qui ouvre sa catégorie d'un
+    # coup, sans permission salon par salon), et le rôle Team en filet de sécurité s'il manque.
+    roles_poses = []
+    role_c = discord.utils.find(lambda r: _mot_entier(r.name) and not r.managed and r != message.guild.default_role,
+                                message.guild.roles)
+    if role_c is not None and role_c not in membre.roles:
+        try:
+            await membre.add_roles(role_c, reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
+            roles_poses.append(role_c.name)
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus.append(f"rôle {role_c.name} ({type(erreur).__name__} : monte mon rôle au-dessus du sien)")
+    code_eq = (fiche or {}).get("equipe") or equipe_deduite(membre.id)[0]
+    role_eq = role_team(message.guild, code_eq) if code_eq else None
+    if role_eq is not None and role_eq not in membre.roles:
+        nom_r, err_r = await attribuer_equipe(message.guild, membre, code_eq, str(message.author.id))
+        if nom_r:
+            roles_poses.append(nom_r)
+        else:
+            refus.append(f"rôle Team ({err_r})")
     # Salon nominatif du clipper : créé au J'ACCEPTE (catégorie Clippers) ou ici, et rangé dans la catégorie de la créatrice.
     salon_perso, cree, err_sp = await assurer_salon_perso(message.guild, membre, categorie, prenom,
                                                           f"Créatrice {prenom} attribuée par {message.author.display_name}")
@@ -3182,7 +3201,10 @@ async def commande_creatrice(message, texte: str) -> bool:
     await message.reply(
         f"✅ {membre.mention} → **{prenom}**"
         + ((" · salons ouverts : " + ", ".join(c.name for c in ouverts)) if ouverts else
-           f" · ⚠️ aucun salon dont le nom contient le mot « {prenom} » (hors admin/bot)")
+           (f" · ⚠️ salons de {prenom} trouvés mais permission refusée — donne à mon rôle « Gérer les rôles » et "
+            f"« Gérer les permissions » sur la catégorie {prenom}, ou crée un rôle « {prenom} » que je poserai" if salons else
+            f" · ⚠️ aucun salon dont le nom contient le mot « {prenom} » (hors admin/bot)"))
+        + ((" · rôles posés : " + ", ".join(roles_poses)) if roles_poses else "")
         + ((f" · salon perso {'créé' if cree else 'ouvert'} : #{salon_perso.name}") if salon_perso is not None else
            (" · ⚠️ pas de catégorie au nom de la créatrice : salon perso non créé" if categorie is None else ""))
         + (f" · refus : {', '.join(refus)}" if refus else "")
@@ -5879,6 +5901,10 @@ async def on_message(message):
                                 "Ton test part en review — réponse sous 72 h maximum. 🤞"))
             journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
             return
+
+    # Drive (25/09) : le clipper poste son adresse Gmail dans son salon perso ou en MP → partage immédiat.
+    if "@" in texte and not texte.startswith("!") and await onboarding.message_clipper(message):
+        return
 
     # Paie au clic (23/09) : le clipper voit ses propres clics et pose son adresse — en MP ou dans son salon.
     if texte.split()[:1] in (["!mesclics"], ["!wallet"]) and not (message.mentions and est_manager(message.author)):

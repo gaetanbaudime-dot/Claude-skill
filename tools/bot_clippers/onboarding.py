@@ -203,8 +203,8 @@ async def _partager(fichier_id: str, email: str) -> bool:
 
 async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
     """Dossier personnel du clipper dans « 🎬 Clippers » de sa créatrice : un raccourci vers CHAQUE source (Reels,
-    photos : tout le contenu, rien de copié, aucun espace consommé), les sources partagées en lecture à son e-mail,
-    et un sous-dossier « Reels spoofés » que le spoofer remplira. Décision du 24/09 : plus de copies limitées.
+    photos : tout le contenu, rien de copié, aucun espace consommé), les sources partagées en lecture à son e-mail.
+    Décision du 24/09 : plus de copies limitées ; 25/09 : plus de sous-dossier « Reels spoofés » (spoofer abandonné).
     '' si le Drive n'est pas configuré."""
     if not google_api.actif():
         return ""
@@ -227,11 +227,6 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
             await google_api.drive_raccourci(nom, src["id"], dossier)
         except RuntimeError as erreur:
             journal.warning("Raccourci %s pour %s : %s", nom, prenom, erreur)
-    try:
-        if not await google_api.drive_trouver_dossier("Reels spoofés", dossier):
-            await google_api.drive_creer_dossier("Reels spoofés", dossier)
-    except RuntimeError as erreur:
-        journal.warning("Sous-dossier Reels spoofés %s : %s", prenom, erreur)
     if email:
         await _partager(dossier, email)
     journal.info("Drive de %s (%s) prêt : %s sources, e-mail %s", prenom, creatrice, len(sources), "oui" if email else "non")
@@ -295,7 +290,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     except RuntimeError as erreur:
         resultat.append(f"GAML : {erreur}")
     # 3. Drive
-    drive = ""
+    drive, email = "", ""
     try:
         email = (_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}).get("liaisons", {}).get(str(membre.id), {}).get("email", "")
                  or fiche.get("email", ""))
@@ -309,7 +304,8 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     if lien:
         texte += f"\n\n🔗 **Ton lien en bio** (le même sur tous tes comptes) : {lien}\nC'est lui qui compte tes visites : `!mesclics`."
     if drive:
-        texte += f"\n\n📁 **Ton Drive** (photos et Reels de {creatrice.split()[0]}, lecture seule) : {drive}"
+        texte += (f"\n\n📁 **Ton Drive** (photos et Reels de {creatrice.split()[0]}, lecture seule) : {drive}"
+                  + ("" if email else "\nPour l'ouvrir, envoie-moi ici **ton adresse Gmail** (celle de ton téléphone) : je te le partage aussitôt."))
     if salon is not None and codes_2fa.actif():
         try:
             n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")
@@ -327,10 +323,51 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         resultat.append(f"envoi impossible ({type(erreur).__name__})")
     for c in comptes:
         etat["livres"][c["handle"].lower()] = {"uid": str(membre.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    fiche.update({"creatrice": creatrice, "comptes": [c["handle"] for c in comptes], "lien": lien, "drive": drive,
+    fiche.update({"creatrice": creatrice, "comptes": [c["handle"] for c in comptes], "lien": lien, "drive": drive, "email": email,
                   "date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": declencheur})
     _ecrire_etat(etat)
     return f"📦 Onboarding de {membre.display_name} ({creatrice}) : " + " · ".join(resultat)
+
+
+RE_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
+async def message_clipper(message) -> bool:
+    """Un clipper qui poste son adresse e-mail dans son salon perso (ou en MP) alors que son Drive n'a pas encore
+    été partagé : l'adresse va dans sa fiche et le partage part tout de suite (25/09 : Daniella, « sans e-mail :
+    rien partagé », un bilan que seul l'admin voyait)."""
+    if not actif() or getattr(message.author, "bot", False):
+        return False
+    m = RE_EMAIL.search(message.content or "")
+    if not m:
+        return False
+    uid = str(message.author.id)
+    etat = _lire_etat()
+    fiche = etat["clippers"].get(uid)
+    if not fiche or not fiche.get("creatrice"):
+        return False
+    if message.guild is not None:
+        salon = _deps["salon_perso"](uid)
+        if salon is None or salon.id != message.channel.id:
+            return False
+    email = m.group(0).strip().lower()
+    if fiche.get("email") == email and fiche.get("drive"):
+        return False
+    fiche["email"] = email
+    _ecrire_etat(etat)
+    prenom = message.author.display_name.split()[0] if message.author.display_name.split() else message.author.display_name
+    try:
+        drive = await dossier_drive(prenom, fiche["creatrice"], email)
+    except RuntimeError as erreur:
+        await message.reply(f"Adresse notée ({email}), mais le partage Drive a échoué : {erreur}. Ton manager relance avec `!onboarding`.")
+        return True
+    if drive:
+        fiche["drive"] = drive
+        _ecrire_etat(etat)
+        await message.reply(f"📁 C'est partagé avec {email} : {drive}\nOuvre-le connecté à ce compte Google (tu reçois aussi l'invitation par e-mail).")
+    else:
+        await message.reply(f"Adresse notée ({email}). Le Drive de {fiche['creatrice']} n'est pas configuré : ton manager s'en occupe.")
+    return True
 
 
 # ------------------------------------------------------------------ le classeur comme télécommande
