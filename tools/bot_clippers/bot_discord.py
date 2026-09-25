@@ -1246,6 +1246,22 @@ async def categorie_clippers(guild):
     return cat
 
 
+def managers_humains(guild) -> list:
+    """Les managers à qui ouvrir chaque salon perso : porteurs du rôle Manager, plus les membres dont le pseudo dit
+    « manageur » / « manager » (Jonas - Manageur, 25/09 : le rôle n'existe pas encore sur le serveur)."""
+    if guild is None:
+        return []
+    rm = role_manager(guild)
+    trouves = []
+    for m in guild.members:
+        if m.bot or str(m.id) in ADMIN_IDS:
+            continue
+        n = normaliser(m.display_name)
+        if (rm is not None and rm in m.roles) or "manageur" in n or "manager" in n:
+            trouves.append(m)
+    return trouves
+
+
 async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, raison: str):
     """Le salon nominatif du clipper : trouvé n'importe où sur le serveur (nom = pseudo normalisé), déplacé dans
     `categorie` si elle est donnée, sinon créé (dans `categorie`, ou dans la catégorie Clippers). Privé : lui, le
@@ -1268,9 +1284,14 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
             rm = role_manager(guild)
             if rm is not None:
                 overwrites[rm] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+            for mgr in managers_humains(guild):                          # 25/09 : Jonas voit et répond dans chaque salon
+                overwrites[mgr] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
             salon = await guild.create_text_channel(nom_salon, category=categorie, overwrites=overwrites, topic=sujet, reason=raison)
             return salon, True, ""
         await salon.set_permissions(membre, view_channel=True, send_messages=True, read_message_history=True, reason=raison)
+        for mgr in managers_humains(guild):
+            if mgr not in salon.overwrites:
+                await salon.set_permissions(mgr, view_channel=True, send_messages=True, read_message_history=True, reason=raison)
         if categorie is not None and salon.category != categorie:
             await salon.edit(category=categorie, topic=sujet, reason=raison)
         elif prenom_creatrice and (salon.topic or "") != sujet:
@@ -4363,6 +4384,73 @@ async def commande_admin(message, texte: str) -> bool:
                             f"⚠️ {membre.mention} a ses MP fermés — état enregistré, mais envoie-lui le lien à la main.")
         return True
 
+    if texte.startswith("!salons-equipe"):
+        # 25/09 : « fais un salon pour tous mes clippers actuels et ajoute Jonas ». Format :
+        # !salons-equipe Sophie: Thia ; Chloé: Romaric, Hasina ; Sarah: Yves, Tara  — ou sans liste : tous les signés
+        # avec une créatrice au registre. Chaque salon reçoit ses comptes du classeur, son lien, son Drive, ses alias 2FA,
+        # et le parcours démarre directement à la routine (ils ont déjà leurs comptes).
+        g = message.guild
+        if g is None:
+            await message.reply("À lancer depuis un salon du serveur.")
+            return True
+        corps = texte[len("!salons-equipe"):].strip()
+        registre_se = lire_json(FICHIER_EQUIPES, {})
+        cibles = []                                                      # [(membre, creatrice)]
+        if corps:
+            for groupe in [x for x in corps.split(";") if x.strip()]:
+                if ":" not in groupe:
+                    continue
+                creatrice_g, noms = groupe.split(":", 1)
+                for nom in [n.strip() for n in noms.split(",") if n.strip()]:
+                    m_ = chercher_membre(nom)
+                    if m_ is None:
+                        await message.reply(f"⚠️ « {nom} » introuvable sur le serveur, ignoré.")
+                        continue
+                    cibles.append((m_, creatrice_g.strip()))
+        else:
+            for uid_se, fiche_se in registre_se.items():
+                m_ = g.get_member(int(uid_se))
+                if m_ is not None and fiche_se.get("creatrice") and str(m_.id) not in ADMIN_IDS and not est_manager(m_):
+                    cibles.append((m_, fiche_se["creatrice"]))
+        if not cibles:
+            await message.reply("Format : `!salons-equipe Sophie: Thia ; Chloé: Romaric, Hasina ; Sarah: Yves` — ou sans liste "
+                                "pour tous les signés avec une créatrice au registre.")
+            return True
+        mgrs = managers_humains(g)
+        await message.reply(f"⏳ {len(cibles)} salon(s) à ouvrir, managers : {', '.join(m.display_name for m in mgrs) or 'aucun (rôle Manager absent, pseudo sans « manageur »)'}…")
+        bilan_se = []
+        for m_, creatrice_c in cibles:
+            cat = categorie_de_creatrice(g, creatrice_c)
+            salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"!salons-equipe par {message.author.display_name}")
+            if salon_c is None:
+                bilan_se.append(f"❌ {m_.display_name} : {err_c or 'salon impossible'}")
+                continue
+            fiche_c = registre_se.setdefault(str(m_.id), {"equipe": "", "par": str(message.author.id),
+                                                         "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            if not fiche_c.get("creatrice"):
+                fiche_c.update({"creatrice": creatrice_c, "creatrice_par": str(message.author.id),
+                                "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            ecrire_json(FICHIER_EQUIPES, registre_se)
+            if cree_c:
+                try:
+                    await salon_c.send(f"🏠 {m_.mention}, voici ton salon perso. Tout arrive ici : tes comptes et leurs codes (`!code`), "
+                                       f"ton lien en bio, tes visites chaque matin (`!mesclics`), tes paies le 5 et le 20. "
+                                       + (f"{', '.join(x.mention for x in mgrs)} te suit ici. " if mgrs else "")
+                                       + "Une question, un compte qui coince : écris-la ici.")
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+            try:
+                bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=f"!salons-equipe par {message.author.id}")
+            except Exception as erreur:
+                bilan_onb_c = f"onboarding : {type(erreur).__name__}"
+            try:
+                await parcours.demarrer_routine(salon_c, m_, creatrice_c)
+            except Exception as erreur:
+                journal.warning("Routine %s : %s", m_.id, erreur)
+            bilan_se.append(f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
+                            + (f" · ⚠️ {err_c}" if err_c else "") + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+        await envoyer_long(message, [f"🏠 **Salons d'équipe** ({len(cibles)})"] + bilan_se)
+        return True
     if texte.startswith("!reset"):
         # 24/09 : pour tester le tunnel entier sur un compte déjà passé (quiz → test → validation), il faut
         # pouvoir remettre son parcours à zéro sans toucher à sa liaison, ses rôles ni son équipe (`!sortie` pour ça).

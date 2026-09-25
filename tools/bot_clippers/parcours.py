@@ -254,6 +254,27 @@ async def demarrer_parcours(salon, membre, creatrice: str) -> None:
     await envoyer_etape(salon, membre, 1)
 
 
+async def demarrer_routine(salon, membre, creatrice: str) -> None:
+    """Clipper déjà en place (comptes créés avant le bot) : le parcours démarre directement à la routine (étape 7),
+    sans repasser par la création des comptes. Rejoué : rien."""
+    d = _lire()
+    uid = str(membre.id)
+    fiche_p = d.get(uid)
+    if fiche_p and fiche_p.get("etape", 0) >= 7:
+        return
+    d[uid] = {"prenom": membre.display_name.split()[0] if membre.display_name.split() else membre.display_name,
+              "creatrice": creatrice, "salon_id": str(salon.id), "etape": 7, "dates": {"7": _maintenant()},
+              "notes": (fiche_p or {}).get("notes", [])}
+    _ecrire(d)
+    ctx = await _contexte(getattr(salon, "guild", None), uid, d[uid])
+    e = ETAPES[7]
+    try:
+        await salon.send((f"{membre.mention} **{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}")[:1990],
+                         view=_vue(getattr(salon, "guild", None), uid, 7, ctx))
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Routine pour %s : %s", uid, erreur)
+
+
 async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
     """Le bouton (ou le manager) ferme l'étape n et ouvre la suivante. Idempotent : un double clic ne saute rien."""
     d = _lire()
