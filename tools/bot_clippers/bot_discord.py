@@ -79,7 +79,7 @@ LIEN_DISCORD = os.environ.get("LIEN_DISCORD", "").strip()                 # lien
 # ACTIVER_V2=1 exige l'intent privilégié « Server Members » dans le Developer Portal.
 # Sans lui, le tracking d'invitations et l'accueil numéroté restent éteints (déploiement sans risque).
 ACTIVER_V2 = os.environ.get("ACTIVER_V2", "").strip() == "1"
-NOMS_RANGS = ("Rookie", "Confirmé", "Elite")                              # rôles à créer sur le serveur
+NOMS_RANGS = ("Clippeur", "Rookie", "Confirmé", "Elite")                              # rôles à créer sur le serveur
 
 # Salons-compteurs (verrouillés) dont le bot met à jour le TITRE automatiquement (comme HoA, mais vrais chiffres).
 CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # « 💸 Déjà payés : X € »
@@ -97,7 +97,8 @@ ROLE_TEAM_MG_NOM = os.environ.get("ROLE_TEAM_MG_NOM", "Team Madagascar").strip()
 # 25/09 : plus de distinction France / Madagascar / Bénin. Le rôle d'équipe unique est le premier rang (« Rookie 🔰 »,
 # décision de Gaëtan) : posé au J'ACCEPTE à la place de Team France / Team International, retiré à !sortie. Nom
 # tolérant (le rôle du serveur porte un emoji). Vide = ancien fonctionnement à deux rôles Team.
-ROLE_EQUIPE_UNIQUE = os.environ.get("ROLE_EQUIPE_UNIQUE", "Rookie").strip()
+ROLE_EQUIPE_UNIQUE = os.environ.get("ROLE_EQUIPE_UNIQUE", "Clippeur").strip()   # 25/09 : Gaëtan a renommé Rookie en Clippeur
+ROLES_EQUIPE_ACCEPTES = (ROLE_EQUIPE_UNIQUE, "Clippeur", "Rookie")
 # Rôles de GRILLE (décision du 19/07) : attribués AUTOMATIQUEMENT à la liaison du numéro
 # (grille déduite de l'indicatif, jamais si pays/indicatif se contredisent). Ils n'ouvrent QUE
 # les salons rémunération/bonus de la grille — le quiz pose des questions sur la paie, le
@@ -581,7 +582,12 @@ def contexte_auteur(message) -> str:
         lieu = f"salon #{nom}" + (f" (post du forum {parent.name})" if parent is not None else "")
         membre = message.author
     roles = [r.name for r in getattr(membre, "roles", []) if r.name != "@everyone"]
-    base = f"[Contexte : {lieu} · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]"
+    qui = membre or message.author
+    pseudo = getattr(qui, "display_name", "") or ""
+    base = (f"[Contexte : {lieu} · auteur : {prenom_de(qui)}"
+            + (f" (pseudo « {pseudo} » = prénom - créatrice : appelle-le par son prénom, jamais par celui de la créatrice)"
+               if any(sep in pseudo for sep in SEPARATEURS_PSEUDO) else "")
+            + f" · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]")
     sp = salon_perso_de(message.author.id) if message.guild is not None else None
     if sp is not None and sp.id == message.channel.id:
         try:
@@ -815,8 +821,8 @@ def role_manager(guild):
     """Le rôle Manager du serveur (nom EXACT, accents/casse ignorés), None s'il n'existe pas."""
     if guild is None:
         return None
-    cible = re.sub(r"[^a-z0-9]", "", normaliser(codes_2fa.ROLE_MANAGER_NOM))
-    return discord.utils.find(lambda r: re.sub(r"[^a-z0-9]", "", normaliser(r.name)) == cible, guild.roles)
+    cibles = {re.sub(r"[^a-z0-9]", "", normaliser(n)) for n in (codes_2fa.ROLE_MANAGER_NOM, "Manager", "Manageur")}
+    return discord.utils.find(lambda r: re.sub(r"[^a-z0-9]", "", normaliser(r.name)) in cibles, guild.roles)   # 25/09 : « Manageur » accepté
 
 
 def mention_manager(guild) -> str:
@@ -1009,6 +1015,20 @@ async def detecter_bump(message):
             pass
     ecrire_json(FICHIER_BUMP, etat)
     journal.info("Bump Disboard détecté (%s)", getattr(bumpeur, "id", "inconnu"))
+
+
+SEPARATEURS_PSEUDO = (" - ", " – ", " — ", " | ", " · ")
+
+
+def prenom_de(membre) -> str:
+    """Le prénom d'un membre. Depuis le 25/09 les pseudos sont « Prénom - Créatrice » (Thia - Sophie) ou
+    « Prénom - Rôle » (Jonas - Manageur) : on garde ce qui précède le séparateur, puis le premier mot."""
+    nom = (getattr(membre, "display_name", "") or "").strip()
+    for sep in SEPARATEURS_PSEUDO:
+        if sep in nom:
+            nom = nom.split(sep, 1)[0].strip()
+            break
+    return nom.split()[0] if nom.split() else nom
 
 
 def normaliser_tel(brut):
@@ -1278,15 +1298,89 @@ def managers_humains(guild) -> list:
     return trouves
 
 
+def nom_salon_cible(guild, membre) -> str:
+    """Nom du salon perso (25/09) : le prénom seul (« thia »), ou « prenom-creatrice » si un autre signé porte le
+    même prénom (deux Julien)."""
+    p = prenom_de(membre)
+    homonyme = False
+    for uid in lire_json(FICHIER_EQUIPES, {}):
+        m = membre_par_id(uid)
+        if m is not None and m.id != membre.id and normaliser(prenom_de(m)) == normaliser(p):
+            homonyme = True
+            break
+    base = membre.display_name if homonyme else p
+    return re.sub(r"-{2,}", "-", re.sub(r"[^\w\s-]", "", base).strip().lower().replace(" ", "-")) or f"clipper-{membre.id}"
+
+
+def trouver_salon_perso(guild, membre):
+    """Le salon perso d'un membre : l'identifiant mémorisé au registre, sinon le salon dont le nom est son prénom
+    ou son pseudo complet (les salons d'avant le 25/09 s'appelaient « thia-sophie »)."""
+    if guild is None or membre is None:
+        return None
+    exclus = {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID}
+    sid = (lire_json(FICHIER_EQUIPES, {}).get(str(membre.id)) or {}).get("salon_id")
+    if sid and str(sid).isdigit():
+        s = guild.get_channel(int(sid))
+        if isinstance(s, discord.TextChannel):
+            return s
+    cles = {re.sub(r"[^a-z0-9]", "", normaliser(x)) for x in (membre.display_name, prenom_de(membre), nom_salon_cible(guild, membre))} - {""}
+    cands = [c for c in guild.text_channels if c.category is not None and str(c.id) not in exclus
+             and re.sub(r"[^a-z0-9]", "", normaliser(c.name)) in cles]
+    if len(cands) > 1:                                                  # deux salons plausibles : celui qu'il voit
+        cands = [c for c in cands if c.permissions_for(membre).view_channel] or cands
+    return cands[0] if cands else None
+
+
+async def ranger_salon_perso(guild, membre, salon, raison: str) -> str:
+    """Mémorise le salon au registre et le renomme par le prénom (25/09, pseudos « Prénom - Créatrice »).
+    Renvoie un avertissement, ou ''."""
+    registre = lire_json(FICHIER_EQUIPES, {})
+    fiche = registre.get(str(membre.id))
+    if fiche is not None and fiche.get("salon_id") != str(salon.id):
+        fiche["salon_id"] = str(salon.id)
+        ecrire_json(FICHIER_EQUIPES, registre)
+    cible = nom_salon_cible(guild, membre)
+    if salon.name == cible:
+        return ""
+    if any(c.name == cible and c.id != salon.id for c in guild.text_channels):
+        return f"salon gardé en #{salon.name} (#{cible} existe déjà)"
+    try:
+        await salon.edit(name=cible, reason=raison)
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        return f"renommage en #{cible} refusé ({type(erreur).__name__})"
+    return ""
+
+
+async def renommer_salons_perso() -> int:
+    """Au démarrage (25/09) : chaque salon perso prend le prénom seul (thia, pas thia-sophie) et son identifiant
+    est mémorisé au registre. Renvoie le nombre de salons renommés."""
+    guild = client.guilds[0] if client.guilds else None
+    if guild is None:
+        return 0
+    n = 0
+    for uid in list(lire_json(FICHIER_EQUIPES, {})):
+        m = guild.get_member(int(uid)) if str(uid).isdigit() else None
+        if m is None or str(m.id) in ADMIN_IDS:
+            continue
+        salon = trouver_salon_perso(guild, m)
+        if salon is None:
+            continue
+        avant = salon.name
+        avert = await ranger_salon_perso(guild, m, salon, "Salon perso = prénom (pseudos « Prénom - Créatrice », 25/09)")
+        if avert:
+            journal.info("Salon perso de %s : %s", m.display_name, avert)
+        elif avant != nom_salon_cible(guild, m):
+            n += 1
+            journal.info("Salon perso #%s → #%s", avant, nom_salon_cible(guild, m))
+    return n
+
+
 async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, raison: str):
     """Le salon nominatif du clipper : trouvé n'importe où sur le serveur (nom = pseudo normalisé), déplacé dans
     `categorie` si elle est donnée, sinon créé (dans `categorie`, ou dans la catégorie Clippers). Privé : lui, le
     rôle Manager, le bot ; les admins voient tout. Renvoie (salon, créé, erreur). Décision du 24/09 : ce salon est
     l'endroit où tout ce qui concerne le clipper arrive (comptes, codes, lien, clics, paies) pour que Gaëtan le voie."""
-    cle = re.sub(r"[^a-z0-9]", "", normaliser(membre.display_name))
-    salon = discord.utils.find(lambda c: cle and re.sub(r"[^a-z0-9]", "", normaliser(c.name)) == cle and c.category is not None
-                               and str(c.id) not in {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID},
-                               guild.text_channels)
+    salon = trouver_salon_perso(guild, membre)
     avert = ""
     manque = acces_categorie(guild, categorie)
     if manque:                                                           # 25/09 : catégorie privée où le bot n'est pas
@@ -1303,8 +1397,7 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
                                            read_message_history=True if perms_bot.read_message_history else None)
     try:
         if salon is None:
-            nom_salon = re.sub(r"-{2,}", "-", re.sub(r"[^\w\s-]", "", membre.display_name).strip().lower().replace(" ", "-")) \
-                or f"clipper-{membre.id}"
+            nom_salon = nom_salon_cible(guild, membre)
             overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False), membre: _ouvert(),
                           guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)}
             rm = role_manager(guild)
@@ -1321,6 +1414,7 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
                     raise
                 avert = f"catégorie « {categorie.name} » refusée par Discord ({erreur.text[:60]}) → salon dans « {repli.name} »"
                 salon = await guild.create_text_channel(nom_salon, category=repli, overwrites=overwrites, topic=sujet, reason=raison)
+            await ranger_salon_perso(guild, membre, salon, raison)
             return salon, True, avert
         if not salon.permissions_for(guild.me).manage_roles:
             return salon, False, f"je ne peux pas modifier les permissions de #{salon.name} (Gérer les permissions manquant)"
@@ -1332,7 +1426,8 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
             await salon.edit(category=categorie, topic=sujet, reason=raison)
         elif prenom_creatrice and (salon.topic or "") != sujet:
             await salon.edit(topic=sujet, reason=raison)
-        return salon, False, avert
+        avert_r = await ranger_salon_perso(guild, membre, salon, raison)
+        return salon, False, " · ".join(x for x in (avert, avert_r) if x)
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Salon perso de %s : %s", membre.display_name, erreur)
         return salon, False, f"salon perso ({type(erreur).__name__} : {getattr(erreur, 'text', '')[:60] or 'refus Discord'})"
@@ -1344,16 +1439,10 @@ def salon_perso_de(uid):
     membre = membre_par_id(uid)
     if membre is None:
         return None
-    cle = re.sub(r"[^a-z0-9]", "", normaliser(membre.display_name))
-    if not cle:
-        return None
-    exclus = {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID}
-    for salon in membre.guild.text_channels:
-        if str(salon.id) in exclus or re.sub(r"[^a-z0-9]", "", normaliser(salon.name)) != cle:
-            continue
-        if (salon.permissions_for(membre).view_channel and salon.category is not None
-                and salon.permissions_for(membre.guild.me).send_messages):        # 23/09 : un salon où je ne peux pas écrire = 403
-            return salon
+    salon = trouver_salon_perso(membre.guild, membre)
+    if (salon is not None and salon.permissions_for(membre).view_channel
+            and salon.permissions_for(membre.guild.me).send_messages):            # 23/09 : un salon où je ne peux pas écrire = 403
+        return salon
     return None
 
 
@@ -4471,6 +4560,7 @@ async def commande_admin(message, texte: str) -> bool:
             if not fiche_c.get("creatrice"):
                 fiche_c.update({"creatrice": creatrice_c, "creatrice_par": str(message.author.id),
                                 "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            fiche_c["salon_id"] = str(salon_c.id)
             ecrire_json(FICHIER_EQUIPES, registre_se)
             if cree_c:
                 try:
@@ -5537,6 +5627,12 @@ async def on_ready():
         journal.warning("Contrôle des salons configurés : %s", erreur)
     try:
         await completer_creatrices()                           # 25/09 : créatrice des anciens déduite du pseudo / du classeur
+        try:
+            n_ren = await renommer_salons_perso()                  # 25/09 : salons perso au prénom seul
+            if n_ren:
+                journal.info("Salons perso renommés par le prénom : %d", n_ren)
+        except Exception as erreur:
+            journal.warning("Renommage des salons perso : %s", erreur)
     except Exception as erreur:
         journal.warning("completer_creatrices au démarrage : %s", erreur)
     fichiers = sorted(p.name for p in DONNEES.glob("*") if p.is_file())

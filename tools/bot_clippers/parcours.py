@@ -225,7 +225,7 @@ def _vue(guild, uid: str, n: int, ctx: dict):
 async def envoyer_etape(salon, membre, n: int) -> None:
     d = _lire()
     uid = str(membre.id)
-    fiche_p = d.setdefault(uid, {"prenom": membre.display_name.split()[0] if membre.display_name.split() else membre.display_name,
+    fiche_p = d.setdefault(uid, {"prenom": _prenom(membre),
                                  "creatrice": "", "salon_id": str(salon.id), "etape": n, "dates": {}, "notes": []})
     fiche_p["etape"] = n
     fiche_p["salon_id"] = str(salon.id)
@@ -248,7 +248,7 @@ async def demarrer_parcours(salon, membre, creatrice: str) -> None:
     fiche_p = d.get(uid)
     if fiche_p and fiche_p.get("etape", 0) >= 1 and fiche_p.get("creatrice") == creatrice:
         return
-    d[uid] = {"prenom": membre.display_name.split()[0] if membre.display_name.split() else membre.display_name,
+    d[uid] = {"prenom": _prenom(membre),
               "creatrice": creatrice, "salon_id": str(salon.id), "etape": 0, "dates": {}, "notes": (fiche_p or {}).get("notes", [])}
     _ecrire(d)
     await envoyer_etape(salon, membre, 1)
@@ -262,7 +262,7 @@ async def demarrer_routine(salon, membre, creatrice: str) -> None:
     fiche_p = d.get(uid)
     if fiche_p and fiche_p.get("etape", 0) >= 7:
         return
-    d[uid] = {"prenom": membre.display_name.split()[0] if membre.display_name.split() else membre.display_name,
+    d[uid] = {"prenom": _prenom(membre),
               "creatrice": creatrice, "salon_id": str(salon.id), "etape": 7, "dates": {"7": _maintenant()},
               "notes": (fiche_p or {}).get("notes", [])}
     _ecrire(d)
@@ -338,7 +338,7 @@ def memoire(uid: str) -> str:
     equipes = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(uid, {})
     onb = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(uid, {})
     membre = _deps["membre_par_id"](uid)
-    nom = membre.display_name if membre else fiche_p.get("prenom", f"id {uid}")
+    nom = _prenom(membre) if membre else fiche_p.get("prenom", f"id {uid}")
     creatrice = fiche_p.get("creatrice") or equipes.get("creatrice") or onb.get("creatrice") or "aucune"
     n = int(fiche_p.get("etape", 0))
     titre = ETAPES[n]["titre"].format(jours=WARMUP_JOURS) if n in ETAPES else ("parcours non commencé" if n == 0 else "parcours terminé")
@@ -371,13 +371,28 @@ def memoire(uid: str) -> str:
     return "\n".join(lignes)
 
 
+def _prenom(membre) -> str:
+    """Prénom d'un membre au pseudo « Prénom - Créatrice » (25/09) : avant le séparateur, puis premier mot."""
+    nom = (getattr(membre, "display_name", "") or "").strip()
+    for sep in (" - ", " – ", " — ", " | ", " · "):
+        if sep in nom:
+            nom = nom.split(sep, 1)[0].strip()
+            break
+    return nom.split()[0] if nom.split() else nom
+
+
 def contexte_llm(uid: str) -> str:
     """Le bloc de contexte ajouté à chaque question posée dans le salon perso : le bot y est le manager."""
     return ("[Salon perso : ici tu es le MANAGER du clipper au quotidien. Réponds court, une action à la fois, tutoie, "
             "guide-le selon son étape en cours, renvoie aux fiches du forum et aux commandes `!code` (son code de "
             "vérification), `!mesclics` (ses visites). Les comptes se créent ici, guidés par le parcours : plus de créneau "
             "lundi/mercredi/vendredi, plus de contrat, plus de distinction France/International. Ne redonne jamais un mot "
-            "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, le 5 et le 20, USDC ou virement.]\n"
+            "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, le 5 et le 20, USDC ou virement. "
+            "Règle des 24 h : compte 1 aujourd'hui, compte 2 demain, compte privé après-demain, jamais deux comptes le "
+            "même jour ; le warm-up de chaque compte commence dès sa création (interactions, zéro publication) et le "
+            f"premier Reel attend les {WARMUP_JOURS} jours de l'étape 4 — ne dis jamais « dans 7 jours on crée le compte 2 ». "
+            "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
+            "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice.]\n"
             "[Mémoire du clipper]\n" + memoire(uid))
 
 
@@ -386,6 +401,18 @@ async def commande_staff(message, texte: str) -> bool:
     mots = texte.split()
     if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire"):
         return False
+    est_staff = _deps.get("est_staff")
+    if len(mots) == 1 and mots[0].lower() == "!etape" and est_staff is not None and not est_staff(message.author):
+        # 25/09 (Daniella) : le clipper tape `!etape` seul dans son salon → je lui renvoie son étape en cours
+        uid = str(message.author.id)
+        fiche_p = _lire().get(uid, {})
+        n = int(fiche_p.get("etape", 0))
+        if n not in ETAPES:
+            await message.reply("Ton parcours n'a pas encore démarré ici : ton manager le lance avec `!creatrice`." if n == 0
+                                else "Ton parcours est terminé : tu es en routine, `!mesclics` pour tes visites.")
+            return True
+        await envoyer_etape(message.channel, message.author, n)
+        return True
     membre = message.mentions[0] if message.mentions else None
     reste = [m for m in mots[1:] if not m.startswith("<@")]
     if membre is None and reste and _deps.get("chercher_membre"):    # « !etape Gaëtan 1 » sans vraie mention Discord
@@ -406,7 +433,7 @@ async def commande_staff(message, texte: str) -> bool:
             await message.reply("Format : `!note @clipper texte` — ex. `!note @Eddy préfère Edits, a un iPhone 11, absent le 3/10`.")
             return True
         d = _lire()
-        fiche_p = d.setdefault(uid, {"prenom": membre.display_name.split()[0], "creatrice": "", "salon_id": "", "etape": 0, "dates": {}, "notes": []})
+        fiche_p = d.setdefault(uid, {"prenom": _prenom(membre), "creatrice": "", "salon_id": "", "etape": 0, "dates": {}, "notes": []})
         fiche_p.setdefault("notes", []).append({"date": _maintenant(), "par": str(message.author.id), "texte": " ".join(reste)[:400]})
         fiche_p["notes"] = fiche_p["notes"][-30:]
         _ecrire(d)
@@ -422,7 +449,7 @@ async def commande_staff(message, texte: str) -> bool:
     n = next((int(m) for m in reste if m.isdigit() and int(m) in ETAPES), int(fiche_p.get("etape", 0)) or 1)
     if not fiche_p:
         equipes = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(uid, {})
-        d[uid] = {"prenom": membre.display_name.split()[0], "creatrice": equipes.get("creatrice", ""), "salon_id": str(salon.id),
+        d[uid] = {"prenom": _prenom(membre), "creatrice": equipes.get("creatrice", ""), "salon_id": str(salon.id),
                   "etape": 0, "dates": {}, "notes": []}
         _ecrire(d)
     await envoyer_etape(salon, membre, n)

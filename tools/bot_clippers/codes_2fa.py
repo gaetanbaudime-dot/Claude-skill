@@ -211,8 +211,8 @@ def _est_manager(membre, admin_ids) -> bool:
     d'avant faisait d'un rôle « Community manager » ou « bot-manager » un manager."""
     if str(membre.id) in admin_ids:
         return True
-    cible = _cle(ROLE_MANAGER_NOM)
-    return bool(cible) and any(_cle(r.name) == cible for r in getattr(membre, "roles", []))
+    cibles = {_cle(ROLE_MANAGER_NOM), _cle("Manager"), _cle("Manageur")} - {""}   # 25/09 : le serveur dit « Manageur »
+    return any(_cle(r.name) in cibles for r in getattr(membre, "roles", []))
 
 
 async def commande(message, admin_ids) -> bool:
