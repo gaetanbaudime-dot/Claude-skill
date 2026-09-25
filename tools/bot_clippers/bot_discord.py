@@ -1246,6 +1246,22 @@ async def categorie_clippers(guild):
     return cat
 
 
+def acces_categorie(guild, categorie) -> str:
+    """Ce qui manque au bot pour ouvrir un salon dans `categorie` ('' si tout va bien). 25/09 : les catégories des
+    créatrices sont privées et le bot n'y est pas — Discord répond Forbidden à la création, sans plus de détail."""
+    if categorie is None or guild is None:
+        return ""
+    p = categorie.permissions_for(guild.me)
+    return ", ".join(nom for ok, nom in ((p.view_channel, "Voir le salon"), (p.manage_channels, "Gérer les salons"),
+                                         (p.manage_roles, "Gérer les permissions")) if not ok)
+
+
+CONSEIL_CATEGORIE = ("Pour ranger les salons sous la créatrice : clic droit sur sa catégorie → Modifier la catégorie → "
+                     "Permissions → ajoute mon rôle avec Voir le salon, Gérer les salons, Gérer les permissions "
+                     "(ou coche Administrateur sur mon rôle, une fois pour toutes), puis relance la commande : "
+                     "je déplace les salons déjà ouverts.")
+
+
 def managers_humains(guild) -> list:
     """Les managers à qui ouvrir chaque salon perso : porteurs du rôle Manager, plus les membres dont le pseudo dit
     « manageur » / « manager » (Jonas - Manageur, 25/09 : le rôle n'existe pas encore sur le serveur)."""
@@ -1271,23 +1287,43 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
     salon = discord.utils.find(lambda c: cle and re.sub(r"[^a-z0-9]", "", normaliser(c.name)) == cle and c.category is not None
                                and str(c.id) not in {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID},
                                guild.text_channels)
+    avert = ""
+    manque = acces_categorie(guild, categorie)
+    if manque:                                                           # 25/09 : catégorie privée où le bot n'est pas
+        avert = f"catégorie « {categorie.name} » fermée au bot (manque : {manque}) → salon dans « {CATEGORIE_CLIPPERS_NOM} »"
+        categorie = None
     if categorie is None:
         categorie = (salon.category if salon is not None else None) or await categorie_clippers(guild)
     sujet = f"Salon de {membre.display_name}" + (f" — créatrice {prenom_creatrice}" if prenom_creatrice else "") + \
             ". Comptes, codes, lien, clics du matin, paies : tout arrive ici."
+    perms_bot = categorie.permissions_for(guild.me) if categorie is not None else guild.me.guild_permissions
+
+    def _ouvert():                                                       # Discord refuse d'accorder ce que le bot n'a pas
+        return discord.PermissionOverwrite(view_channel=True, send_messages=True if perms_bot.send_messages else None,
+                                           read_message_history=True if perms_bot.read_message_history else None)
     try:
         if salon is None:
-            nom_salon = re.sub(r"[^\w\s-]", "", membre.display_name).strip().lower().replace(" ", "-") or f"clipper-{membre.id}"
-            overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                          membre: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+            nom_salon = re.sub(r"-{2,}", "-", re.sub(r"[^\w\s-]", "", membre.display_name).strip().lower().replace(" ", "-")) \
+                or f"clipper-{membre.id}"
+            overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False), membre: _ouvert(),
                           guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)}
             rm = role_manager(guild)
             if rm is not None:
-                overwrites[rm] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+                overwrites[rm] = _ouvert()
             for mgr in managers_humains(guild):                          # 25/09 : Jonas voit et répond dans chaque salon
-                overwrites[mgr] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
-            salon = await guild.create_text_channel(nom_salon, category=categorie, overwrites=overwrites, topic=sujet, reason=raison)
-            return salon, True, ""
+                overwrites[mgr] = _ouvert()
+            try:
+                salon = await guild.create_text_channel(nom_salon, category=categorie, overwrites=overwrites, topic=sujet, reason=raison)
+            except discord.Forbidden as erreur:
+                journal.warning("Salon perso %s dans %s refusé : %s", nom_salon, getattr(categorie, "name", "?"), erreur)
+                repli = await categorie_clippers(guild)
+                if repli is None or repli == categorie:
+                    raise
+                avert = f"catégorie « {categorie.name} » refusée par Discord ({erreur.text[:60]}) → salon dans « {repli.name} »"
+                salon = await guild.create_text_channel(nom_salon, category=repli, overwrites=overwrites, topic=sujet, reason=raison)
+            return salon, True, avert
+        if not salon.permissions_for(guild.me).manage_roles:
+            return salon, False, f"je ne peux pas modifier les permissions de #{salon.name} (Gérer les permissions manquant)"
         await salon.set_permissions(membre, view_channel=True, send_messages=True, read_message_history=True, reason=raison)
         for mgr in managers_humains(guild):
             if mgr not in salon.overwrites:
@@ -1296,9 +1332,10 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
             await salon.edit(category=categorie, topic=sujet, reason=raison)
         elif prenom_creatrice and (salon.topic or "") != sujet:
             await salon.edit(topic=sujet, reason=raison)
-        return salon, False, ""
+        return salon, False, avert
     except (discord.Forbidden, discord.HTTPException) as erreur:
-        return salon, False, f"salon perso ({type(erreur).__name__})"
+        journal.warning("Salon perso de %s : %s", membre.display_name, erreur)
+        return salon, False, f"salon perso ({type(erreur).__name__} : {getattr(erreur, 'text', '')[:60] or 'refus Discord'})"
 
 
 def salon_perso_de(uid):
@@ -4169,6 +4206,10 @@ async def commande_admin(message, texte: str) -> bool:
                       + " Permission « Gérer les rôles » (!rang)")
         lignes.append(("✅" if moi.guild_permissions.manage_channels else "❌")
                       + " Permission « Gérer les salons » (!creatrice crée le salon perso)")
+        fermees = [c.name for c in g.categories if acces_categorie(g, c)]
+        lignes.append("✅ Toutes les catégories sont ouvertes au bot (salons perso rangés sous chaque créatrice)" if not fermees
+                      else f"⚠️ Catégories fermées au bot : {', '.join(fermees)} — les salons perso de leurs clippers "
+                           f"tombent dans « {CATEGORIE_CLIPPERS_NOM} ». {CONSEIL_CATEGORIE}")
         # Salons sensibles : tests rendus, numéros, contrats — ils ne doivent JAMAIS être publics.
         for cid, etiquette in ((CANAL_ADMIN_ID, "admin (CANAL_ADMIN_ID)"), (CANAL_MANAGER_ID, "manager (CANAL_MANAGER_ID)")):
             if not cid:
@@ -4449,6 +4490,8 @@ async def commande_admin(message, texte: str) -> bool:
                 journal.warning("Routine %s : %s", m_.id, erreur)
             bilan_se.append(f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
                             + (f" · ⚠️ {err_c}" if err_c else "") + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+        if any("fermée au bot" in b or "refusée par Discord" in b for b in bilan_se):
+            bilan_se.append(f"ℹ️ {CONSEIL_CATEGORIE}")
         await envoyer_long(message, [f"🏠 **Salons d'équipe** ({len(cibles)})"] + bilan_se)
         return True
     if texte.startswith("!reset"):

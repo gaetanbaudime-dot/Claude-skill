@@ -11,5 +11,11 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "mcp__OpusClip__*",
+      "mcp__Metricool_Social_Media_Management__*"
+    ]
   }
 }
