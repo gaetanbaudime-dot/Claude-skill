@@ -264,9 +264,12 @@ phrases courtes maximum, OU une liste de 3 à 5 puces d'une ligne. JAMAIS de gro
 JAMAIS de tutoriel complet (« le setup du compte privé », « le lien GAML de A à Z », « un bon Reel \
 en 4 points ») : tu donnes les 3 gestes essentiels et tu renvoies à la fiche, qui fait le reste. \
 Une seule idée par réponse. Pas de titre en gras en tête de réponse.
-3. Tu écris comme on parle à un élève de collège : mots simples, phrases courtes, \
-tutoiement, pas de mots anglais sauf ceux du métier déjà dans le kit (Reel, rush, hook, \
-warm-up, caption, template, story, ban). Pas de jargon marketing.
+3. Tu écris comme à un élève de collège de Madagascar qui découvre tout : phrases de 10 mots \
+maximum, mots simples, une seule idée par phrase, une action par ligne et numérotée quand il y a \
+plusieurs actions. Jamais de parenthèses, jamais de tiret long, jamais de mot compliqué sans \
+l'expliquer en 3 mots la première fois. Tutoiement. Pas de mots anglais sauf ceux du métier déjà \
+dans le kit (Reel, story, bio, warm-up, hook, rush, ban). Pas de jargon marketing. Exemple : \
+« Ouvre Instagram. Appuie sur Créer un compte. Choisis avec un e-mail. »
 1bis. Si la base ne répond qu'en PARTIE, donne la partie connue et dis clairement ce que tu \
 ne sais pas — jamais de délai, de montant, de date ou de règle qui ne soit pas écrit dans la \
 base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LES \
@@ -785,7 +788,14 @@ async def verifier_canaux_configures():
         elif nom == "CANAL_FORMATION_ID":
             remplacant = next((c for g in client.guilds for c in g.channels
                                if isinstance(c, discord.ForumChannel) and "formation" in normaliser(c.name)), None)
+        elif nom == "CANAL_CANDIDATURE_ID":                          # 25/09 : #candidature est devenu #bienvenue
+            remplacant = next((c for g in client.guilds for c in g.text_channels
+                               if "bienvenue" in normaliser(c.name) or "candidature" in normaliser(c.name)), None)
         if remplacant is None:
+            if nom == "CANAL_BUMP_ID":                                # 25/09 : plus de salon bump → fonction éteinte, sans bruit
+                globals()[nom] = ""
+                journal.info("CANAL_BUMP_ID = %s : salon supprimé, bumps désactivés (variable Railway à vider à l'occasion)", val)
+                continue
             journal.warning("%s = %s : salon introuvable (%s) — variable Railway à corriger", nom, val, probleme)
             continue
         globals()[nom] = str(remplacant.id)
@@ -1520,16 +1530,16 @@ def indicatif_certain(tel: str) -> bool:
 
 def texte_test(score="") -> str:
     return (
-        "🎉 **Quiz validé — bienvenue dans la sélection !**\n\n"
-        f"Voici ton test : {LIEN_TEST}\n"
-        "· Monte **2 clips verticaux** à partir des rushs du dossier (hook dès la 1re seconde, sous-titres, rythme).\n"
-        "· **Deadline : 48 h** à partir de maintenant.\n"
-        "· Dépose tes 2 clips **en réponse ici, en message privé** : clique sur le **+** à gauche de la zone de message, "
-        "puis **Uploader un fichier** (10 Mo maximum par vidéo sur Discord : exporte en 1080p à débit modéré, ou en 720p). "
-        "Je les transmets directement pour la review, personne d'autre ne les voit.\n"
-        + ((f"· Une question pour bien réussir ton test (réglages, format, méthode) ? Demande à "
-            f"**l'assistant IA** dans <#{CANAL_ASSISTANT_ID}> — il répond 24h/24.\n") if CANAL_ASSISTANT_ID else "")
-        + "\nLa régularité et le respect du brief comptent autant que le style. Bonne chance 🚀")
+        "🎉 **Quiz réussi, bravo !**\n\n"
+        f"Voici ton test : {LIEN_TEST}\n\n"
+        "1. Télécharge les vidéos du dossier.\n"
+        "2. Monte **2 vidéos verticales**. La première seconde doit donner envie de rester. Mets des sous-titres.\n"
+        "3. Tu as **48 heures**.\n"
+        "4. Envoie tes 2 vidéos **ici, en message privé** : appuie sur le **+** à gauche, puis **Uploader un fichier**. "
+        "Maximum 10 Mo par vidéo. Si c'est trop lourd, exporte en 720p.\n\n"
+        "Personne d'autre ne voit tes vidéos.\n"
+        + ((f"Une question ? Demande à **l'assistant** dans <#{CANAL_ASSISTANT_ID}>. Il répond jour et nuit.\n") if CANAL_ASSISTANT_ID else "")
+        + "\nBonne chance 🚀")
 
 
 async def envoyer_test_candidat(membre, score=""):
@@ -2229,19 +2239,18 @@ async def suite_validation(membre, guild):
         titre_cond = ("🏆 **Test validé — bienvenue dans la sélection Team International !**\n\n" if grille_cond == "mg"
                       else "🏆 **Test validé — bienvenue dans l'équipe !**\n\n")
         await envoyer_mp(membre, titre_cond +
-                                 "Avant d'ouvrir ton accès, confirme les règles de l'équipe :\n"
-                                 "1. Les comptes créés pour la mission (et le téléphone, s'il est fourni) **appartiennent "
-                                 "à l'agence** — tu remets les accès à la demande.\n"
-                                 "2. Formation, méthodes et contenus : **confidentiels**, rien ne se "
-                                 "partage, rien ne se copie.\n"
+                                 "Avant d'ouvrir ton accès, lis les 5 règles :\n"
+                                 "1. Les comptes de la mission sont **à l'agence**. Le téléphone aussi, si on te le prête. "
+                                 "Tu rends les accès quand on te le demande.\n"
+                                 "2. La formation, la méthode et les vidéos sont **secrètes**. Tu ne partages rien. Tu ne copies rien.\n"
                                  "3. Tu as **18 ans ou plus**.\n"
-                                 "4. Paie : **0,05 $ par visite réelle sur ton lien en bio Instagram** (visiteurs "
-                                 "francophones : France, Belgique, Suisse, Canada… hors robots), payée le 5 et le 20 (virement ou USDC). Pas de "
-                                 "fixe : 1 000 visites = 50 $, 5 000 visites = 250 $. Robots, trafic acheté ou "
-                                 "clics forcés = exclusion.\n"
-                                 "5. Cadence ratée 2 jours de suite (2 Reels par jour sur chaque compte), ou moins "
-                                 "de 1 000 visites le premier mois de publication : sortie de l'équipe.\n\n"
-                                 "Réponds **J'ACCEPTE** ici : ton rôle s'ouvre aussitôt et ton manager t'écrit.")
+                                 "4. Ta paie : **0,05 $ par visite qui compte sur ton lien**. Une visite qui compte vient de France "
+                                 "ou d'un pays francophone. Pas un robot. Payé le 5 et le 20, en USDC ou par virement. "
+                                 "Pas de fixe. 1 000 visites = 50 $. 5 000 visites = 250 $. "
+                                 "Robots, clics achetés ou clics forcés = tu sors de l'équipe.\n"
+                                 "5. 2 Reels par jour sur chaque compte. Deux jours ratés de suite = tu sors. "
+                                 "Moins de 1 000 visites le premier mois = tu sors.\n\n"
+                                 "Tu es d'accord ? Réponds **J'ACCEPTE** ici. Ton accès s'ouvre tout de suite et ton manager t'écrit.")
         return (f"🏆 {membre.mention} validé ({'International' if grille_cond == 'mg' else 'France, sans contrat'}"
                 f"{'' if grille else ', grille indéterminée → France par défaut'}) → **conditions envoyées en MP** ; son rôle "
                 f"Team {'International' if grille_cond == 'mg' else 'France'} s'ouvre à son J'ACCEPTE (relance auto 24/48 h, je préviens "
@@ -2468,11 +2477,11 @@ async def boucle_pipeline():
                     continue
                 lien_quiz = (f"\n→ Ton lien de quiz personnel : {LIEN_QUIZ}{uid}" if LIEN_QUIZ else "")
                 await _relancer(li, "r24", "r48", li.get("date"), uid,
-                    "🎓 Ta **formation** et ton **quiz** t'attendent ! Regarde la vidéo (54 min) en entier "
-                    "— les 4 mots-clés cachés te seront demandés." + lien_quiz +
-                    f"\nSeuil : {SEUIL_QUIZ}/34, deux essais. Quiz réussi → ton test arrive automatiquement.",
-                    "⏳ Il ne te manque que le **quiz** pour passer au test (puis contrat + paie)." +
-                    lien_quiz + "\nSi tu bloques quelque part, réponds-moi ici — je t'aide.")
+                    "🎓 Ta **formation** et ton **quiz** t'attendent. Regarde la vidéo en entier, elle dure 54 minutes. "
+                    "4 mots-clés sont cachés dedans. Note-les." + lien_quiz +
+                    f"\nIl faut {SEUIL_QUIZ} bonnes réponses sur 34. Tu as deux essais. Quiz réussi = ton test arrive tout seul.",
+                    "⏳ Il ne te manque que le **quiz**. Après, c'est le test, puis l'équipe." +
+                    lien_quiz + "\nTu bloques ? Réponds-moi ici, je t'aide.")
             # ③④⑤ Étapes portées par l'état du pipeline.
             for uid, info in list(donnees.get("etats", {}).items()):
                 etat_c = info.get("etat")
@@ -2492,10 +2501,10 @@ async def boucle_pipeline():
                     if etat_c == "valide" and info.get("conditions_envoyees") \
                             and not (INT_EN_PAUSE and info.get("conditions_grille", "mg") == "mg"):
                         await _relancer(rel, "acc24", "acc48", info.get("conditions_envoyees"), uid,
-                            "✍️ Ton test est validé — il ne manque que ton **J'ACCEPTE** (réponds exactement "
-                            "ça, ici) pour ouvrir ton rôle Team International et rencontrer ton manager. 💪",
-                            "⏳ Dernier rappel : réponds **J'ACCEPTE** ici pour rejoindre l'équipe — "
-                            "ta place part sinon au prochain validé.")
+                            "✍️ Ton test est validé. Il manque juste ton **J'ACCEPTE**. Réponds exactement ce mot ici. "
+                            "Ton accès s'ouvre et ton manager t'écrit. 💪",
+                            "⏳ Dernier rappel : réponds **J'ACCEPTE** ici pour entrer dans l'équipe. "
+                            "Sinon, ta place va à quelqu'un d'autre.")
                     if INT_EN_PAUSE and not rel.get("pause_int_ok"):
                         rel["pause_int_ok"] = True
                         modifie = True
@@ -3326,13 +3335,13 @@ def texte_aide(membre, est_admin: bool) -> str:
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
     if any("team" in r for r in roles_n):
         return ("🧰 **Ce que tu peux me demander**\n"
-                "· Une question sur la méthode (comptes, warm-up, Reels, Facebook, paie, facture) : écris-la dans le "
-                "salon de l'assistant ou ici en MP — je réponds avec le kit.\n"
-                "· Tes comptes, ta créatrice, ton téléphone, tes accès : **ton manager**.\n"
-                "· `!mesclics` — tes visites payées d'hier, des 7 jours et de la quinzaine, avec le montant en cours.\n"
-                "· `!wallet 0x…` ou `!wallet FR76…` — ton adresse de paiement (USDC ERC20 ou IBAN).\n"
-                "· `!bumps` — le classement des bumps du mois.\n"
-                "· `STOP` en MP — plus aucun rappel automatique.")
+                "· Une question sur la méthode : écris-la dans ton salon perso. Je réponds.\n"
+                "· `!etape` — je te renvoie ton étape en cours.\n"
+                "· `!code` — le code qu'Instagram te demande.\n"
+                "· `!mesclics` — tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours.\n"
+                "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement — ton adresse de paiement.\n"
+                "· Un compte bloqué, un problème de téléphone : **ton manager**, dans ton salon perso.\n"
+                "· `STOP` en message privé — plus aucun rappel automatique.")
     if serveur_ferme():
         return ("🧰 **Tu es validé — il reste une étape**\n"
                 "· Équipe France : envoie-moi ton **adresse e-mail** ici en MP → contrat à signer (2 min) → ton rôle "
@@ -4564,10 +4573,10 @@ async def commande_admin(message, texte: str) -> bool:
             ecrire_json(FICHIER_EQUIPES, registre_se)
             if cree_c:
                 try:
-                    await salon_c.send(f"🏠 {m_.mention}, voici ton salon perso. Tout arrive ici : tes comptes et leurs codes (`!code`), "
-                                       f"ton lien en bio, tes visites chaque matin (`!mesclics`), tes paies le 5 et le 20. "
-                                       + (f"{', '.join(x.mention for x in mgrs)} te suit ici. " if mgrs else "")
-                                       + "Une question, un compte qui coince : écris-la ici.")
+                    await salon_c.send(f"🏠 {m_.mention}, voici ton salon perso. Ici tu reçois tout : tes comptes, tes codes, "
+                                       f"ton lien, tes visites chaque matin, ta paie le 5 et le 20. "
+                                       + (f"{', '.join(x.mention for x in mgrs)} lit ce salon. " if mgrs else "")
+                                       + "Une question ? Un compte qui bloque ? Écris ici.")
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             try:
@@ -6141,9 +6150,9 @@ async def on_message(message):
                 creatrice_a, "Salon perso ouvert au J'ACCEPTE")
             if salon_a is not None and cree_a:
                 try:
-                    await salon_a.send(f"🏠 {membre_a.mention}, voici ton salon perso. Tout arrive ici : tes comptes et leurs codes "
-                                       "de vérification, ton lien en bio, tes visites chaque matin, tes paies le 5 et le 20. "
-                                       "Ton manager y répond aussi. Prochaine étape : ta créatrice et tes comptes.")
+                    await salon_a.send(f"🏠 {membre_a.mention}, voici ton salon perso. Ici tu reçois tout : tes comptes, tes codes, "
+                                       "ton lien, tes visites chaque matin, ta paie le 5 et le 20. "
+                                       "Ton manager lit ce salon. Prochaine étape : ta créatrice et tes comptes.")
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             if salon_a is not None:

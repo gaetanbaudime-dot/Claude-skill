@@ -1,8 +1,12 @@
-# Base de connaissances — Kit Clipper G&M (v7, 25 septembre 2026 — paie au clic, salon perso guidé par le bot, plus de contrat ni de distinction de pays)
+# Base de connaissances — Kit Clipper G&M (v8, 25 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, plus de contrat ni de distinction de pays)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
 > ⚠️ Ne JAMAIS ajouter ici : identités de créatrices, chiffres de l'agence, méthodes hors kit, montants de paie du manager.
+
+## COMMENT JE PARLE (règle pour toutes mes réponses)
+
+Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots maximum, mots simples, une idée par phrase, une action par ligne. Jamais de parenthèses, jamais de tiret long. Un mot difficile est expliqué en 3 mots la première fois. Les mots du métier gardés : Reel, story, bio, lien, warm-up, hook, rush, ban. Warm-up = chauffer un compte. Hook = la première seconde qui accroche. Rush = une vidéo brute. Compte privé = le compte secret qui garde le lien. Compte de croissance = un compte qui publie.
 
 ## QUI CONTACTER (à lire avant tout)
 
@@ -14,11 +18,11 @@
 
 ## L'objectif du clipper (dans l'ordre)
 
-1. Avoir des comptes propres qui durent.
-2. Publier tous les jours, à la cadence.
-3. Tester beaucoup de formats.
+1. Avoir des comptes propres, qui durent.
+2. Publier tous les jours. 2 Reels par jour sur chaque compte qui publie.
+3. Tester beaucoup de vidéos différentes.
 4. Refaire ce qui marche.
-5. Ramener des abonnés OnlyFans avec son lien : c'est ça qui paie.
+5. Faire venir des gens sur ton lien. C'est ça qui te paie.
 
 ## LE PARCOURS CANDIDAT (hors Discord jusqu'au test validé — depuis le 14 septembre 2026, le serveur est réservé aux clippers validés)
 
@@ -46,34 +50,37 @@ Problèmes fréquents : pas d'e-mail après le formulaire → regarde tes spams,
 
 Commandes utiles pour tous : ton numéro en MP au bot = candidature reliée · `!quiz` (ton lien de quiz) · `!aide` (la liste des commandes selon ton rôle) · STOP en MP (plus de rappels).
 
-## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram par téléphone
+## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram sur ton téléphone
 
-- **2 comptes Instagram de croissance** : ils publient et font des vues. Leur bio contient UNIQUEMENT l'arobase @ du compte privé, jamais de lien.
-- **1 compte Instagram privé** : il ne publie pas, il n'accepte personne, il **porte le lien** (GetAllMyLinks). Les curieux cliquent sur l'@ dans la bio des comptes de croissance, arrivent sur le privé, voient le lien.
-- **Pas de page Facebook** : depuis le 14 septembre 2026, on ne travaille plus que sur Instagram. Si la vidéo de formation parle de pages Facebook, saute ces passages.
+- **2 comptes qui publient**. On les appelle les comptes de croissance. Ils font des vues. Dans leur bio, il y a seulement l'@ du compte privé. Jamais de lien.
+- **1 compte privé**. C'est le compte secret. Il ne publie rien. Il n'accepte personne. Il garde ton lien. Les gens cliquent sur l'@ dans la bio des comptes qui publient. Ils arrivent sur le privé. Ils voient le lien.
+- **Pas de page Facebook.** Depuis le 14 septembre 2026, on travaille seulement sur Instagram. Si la vidéo de formation parle de Facebook, saute ce passage.
 
-La cadence de croisière : **2 Reels par jour sur chaque compte de croissance = 4 publications par jour.** On la tient, on ne monte pas plus haut sans l'accord du manager.
+La cadence : **2 Reels par jour sur chaque compte qui publie. Ça fait 4 Reels par jour.** Pas plus, sauf si ton manager le dit.
 
-La montée, sur chaque surface : **semaine 1** = création des comptes (un par jour, guidée dans ton salon perso) + warm-up, **zéro publication** · **semaine 2** = 1 Reel par jour par compte de croissance · **semaine 3 et après** = 2 Reels par jour, la croisière.
+Comment ça monte :
+- **Semaine 1** : tu crées tes comptes, un par jour. Tu chauffes les comptes. Tu ne publies rien.
+- **Semaine 2** : 1 Reel par jour sur chaque compte qui publie.
+- **Semaine 3 et après** : 2 Reels par jour sur chaque compte qui publie.
 
-Une **journée validée** = tes 3 comptes sont vivants ET tu as publié 2 Reels sur chaque compte de croissance ce jour-là (de minuit à minuit, heure de Paris). C'est le bot qui compte, ton rapport du matin te dit si la veille est validée et pourquoi. La semaine 1 (warm-up) et la semaine 2 (montée) ne comptent pas contre toi.
+Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur chaque compte qui publie. On compte de minuit à minuit, heure de Paris. C'est le bot qui compte. Chaque matin, il te dit si hier est réussi. La semaine 1 et la semaine 2 ne comptent pas contre toi.
 
-## LA CRÉATION DES COMPTES (dans ton salon perso, guidée par le bot)
+## LA CRÉATION DES COMPTES (dans ton salon perso, avec le bot)
 
-- Tes 3 comptes Instagram se créent **sur ton téléphone, toi-même, en suivant les étapes du bot dans ton salon perso** : compte 1 le premier jour, compte 2 le lendemain, le compte privé le jour d'après. Un seul compte par jour.
-- **Les adresses e-mail et les mots de passe sont fournis par l'agence**, dans ton message de comptes. Tu ne crées pas de Gmail, tu n'inventes rien. Le **code de vérification** d'Instagram arrive sur la boîte de l'agence : tape `!code` dans ton salon, le bot te le donne en quelques secondes (il arrive souvent tout seul).
-- **Jamais ton numéro de téléphone**, jamais un numéro jetable, jamais de VPN. Si Instagram réclame un numéro : arrête, écris-le dans ton salon, ton manager gère.
-- Un compte, ça se remplace, ça ne se répare pas : **un compte banni se recrée** avec un nouvel identifiant fourni par ton manager, jamais avec le même e-mail.
-- Tu démarres sur **ton propre téléphone**, de préférence un iPhone dédié à la mission (voir « Ton téléphone, les règles »). Un téléphone cloud peut être décidé au cas par cas, ce n'est pas automatique.
-- Ton **lien en bio** (GetAllMyLinks) t'est donné par le bot dans ton salon perso. Tu le poses **toi-même**, uniquement sur le compte privé, **à l'étape 6, après les 7 jours de warm-up** : le bot te dit quand. Avant, aucun lien nulle part.
-- Bloqué à une étape ? Écris-le dans ton salon perso : le bot t'aide, et ton manager voit tout.
+- Tu crées tes 3 comptes **toi-même, sur ton téléphone**. Le bot te guide étape par étape dans ton salon perso. Compte 1 le premier jour. Compte 2 le lendemain. Compte privé le jour d'après. **Un seul compte par jour.**
+- **L'agence te donne les e-mails et les mots de passe.** Ils sont dans ton message de comptes. Tu ne crées pas de Gmail. Tu n'inventes rien. Instagram envoie un code. Écris `!code` dans ton salon. Le bot te donne le code. Souvent, il arrive tout seul.
+- **Jamais ton numéro de téléphone.** Jamais un numéro jetable. Jamais de VPN. Instagram demande un numéro ? Arrête. Écris-le dans ton salon. Ton manager gère.
+- Un compte banni ne se répare pas. Il se remplace. Ton manager te donne un nouvel identifiant. Jamais le même e-mail.
+- Tu travailles sur **ton propre téléphone**. Un iPhone rien que pour ce travail, c'est mieux. Un téléphone cloud, c'est possible, mais seulement si l'agence le décide.
+- Ton **lien** : le bot te le donne dans ton salon perso. Tu le mets **toi-même** sur le compte privé, à l'étape 6, après les 7 jours de warm-up. Le bot te dit quand. Avant, aucun lien nulle part.
+- Tu bloques à une étape ? Écris-le dans ton salon perso. Le bot t'aide. Ton manager voit tout.
 
-Ton téléphone, les règles (tout le monde, sur son propre appareil) :
-- **Un seul appareil** pour tes 3 comptes de mission, toujours le même. Jamais tes comptes de mission sur un autre téléphone ou un ordinateur.
-- **Tes comptes perso Instagram et Facebook sont déconnectés** de ce téléphone (si tu as deux téléphones, garde-en un pour la mission). Un compte perso sur le même appareil relie tout : un ban en entraîne un autre.
-- **Jamais de liaison dans le Centre de comptes Meta**, jamais de VPN, jamais ton numéro. Langue du téléphone et d'Instagram en français.
-- Tout le warm-up et toutes les interactions se font en français, avec des créatrices françaises : c'est ce qui apprend à Instagram à qui montrer tes Reels.
-- Les comptes restent à l'agence : les adresses mail sont les siennes. Si tu quittes l'équipe, les mots de passe sont changés et tu supprimes les comptes de ton téléphone.
+Ton téléphone, les règles :
+- **Un seul téléphone** pour tes 3 comptes. Toujours le même. Jamais sur un autre téléphone. Jamais sur un ordinateur.
+- **Tes comptes perso Instagram et Facebook sont déconnectés** de ce téléphone. Sinon, tout est relié. Un ban en amène un autre.
+- Jamais de liaison dans le Centre de comptes Meta. Jamais de VPN. Jamais ton numéro. Le téléphone et Instagram sont en français.
+- Tout le warm-up se fait en français, avec des créatrices françaises. C'est ça qui apprend à Instagram à qui montrer tes Reels.
+- Les comptes restent à l'agence. Les e-mails sont à l'agence. Si tu quittes l'équipe, les mots de passe changent et tu supprimes les comptes de ton téléphone.
 
 ## CE QU'ON NE DIT PLUS (ancien kit, avant le 7 septembre 2026)
 
@@ -83,107 +90,115 @@ Si tu as lu une vieille version du kit, voilà ce qui a changé :
 - Warm-up Instagram = toute la semaine 1, pas 48 h.
 - **Plus de pages Facebook depuis le 14 septembre 2026** : la mission est 100 % Instagram (2 comptes de croissance + 1 privé). Tu en avais créé avant ? N'y publie plus, ton manager te dit quoi en faire. Aucune page ne compte pour ta journée validée.
 - Le lien n'a qu'un seul emplacement : la bio du compte privé. Jamais dans la description d'un Reel, même « 1 sur 10 ».
-- Le lien est posé par ton manager : tu ne l'as pas, tu ne le colles nulle part.
+- Le lien, c'est toi qui le mets, à l'étape 6, sur le compte privé seulement. Le bot te le donne et te dit quand.
 - L'équipe internationale n'est plus en pause : ouverte depuis le 8 septembre 2026.
 - Les évolutions (Metricool, 2ᵉ téléphone) n'ont pas de date (« J+30 », « J+60 ») : ton manager décide.
 
 ## LA RÈGLE LA PLUS IMPORTANTE DE TOUTES
 
-On ne poste JAMAIS une vidéo brute du Google Drive. Chaque vidéo est modifiée avant publication : début changé, coupes, zoom, texte, sous-titres, musique, miniature. Pourquoi : Instagram repère les copies (le « contenu dupliqué ») et coupe les vues.
+On ne poste JAMAIS une vidéo brute du Drive. Tu changes toujours la vidéo avant de publier : un autre début, des coupes, un zoom, un texte, des sous-titres, une musique, une image de couverture. Pourquoi : Instagram repère les copies et coupe les vues.
 
-## FICHE 1 — Créer tes comptes (dans ton salon perso, étapes 1 à 3 du parcours)
+## FICHE 1 — Créer tes comptes (étapes 1 à 3 du parcours, dans ton salon perso)
 
-Avant : quiz validé + test validé + J'ACCEPTE + créatrice attribuée (`!creatrice` par ton manager). Tes rushs sont dans ton Drive, tes comptes et tes e-mails dans ton salon perso.
+Avant : quiz réussi, test réussi, J'ACCEPTE, et ta créatrice donnée par ton manager. Tes vidéos sont dans ton Drive. Tes comptes et tes e-mails sont dans ton salon perso.
 
-Instagram, les règles d'or :
-- 1 SEUL compte Instagram créé par jour. Jamais 2 ou 3 le même jour.
-- Pour chaque compte : 1 adresse mail + 1 mot de passe rien qu'à lui, fournis par l'agence dans ton salon perso. Les identifiants restent à l'agence.
-- Photo, bio et arobase @ uniques pour chaque compte. Bio hyper soft, en rapport avec ta créatrice, jamais de localisation (ni ville, ni région, ni « sudiste »).
-- JAMAIS ton numéro de téléphone. Si tu en vois un dans Profil → Paramètres → Informations personnelles : ne touche à rien, préviens ton manager.
-- Jamais associer les comptes entre eux (ni dans le Meta Center). Le piège : si Instagram crée le nouveau compte SANS demander de mail et de mot de passe, il est associé à l'ancien. Arrête et écris-le dans ton salon perso.
-- Date de naissance clairement adulte, identité cohérente : depuis 2026, Instagram devine l'âge réel d'un compte à son comportement, et un compte qui « fait ado » est restreint.
+Les règles d'or :
+- **1 seul compte par jour.** Jamais 2 ou 3 le même jour.
+- Chaque compte a son e-mail et son mot de passe. L'agence te les donne. Ils restent à l'agence.
+- Chaque compte a sa photo, sa bio et son @. Bio très sage, en rapport avec ta créatrice. Jamais de ville, jamais de région.
+- **Jamais ton numéro de téléphone.** Tu vois un numéro dans Profil, Paramètres, Informations personnelles ? Ne touche à rien. Préviens ton manager.
+- Jamais relier les comptes entre eux. Le piège : Instagram crée le nouveau compte sans demander d'e-mail ni de mot de passe. Ça veut dire qu'il l'a relié à l'ancien. Arrête. Écris-le dans ton salon perso.
+- Date de naissance d'adulte, 25 ans ou plus. Instagram devine l'âge d'un compte à sa façon de faire. Un compte qui fait ado est bloqué.
 
-Le lien : UNIQUEMENT sur le compte privé, posé par toi à l'étape 6 (après le warm-up, le bot te le dit). Les 2 comptes de croissance n'ont JAMAIS de lien, seulement l'@ du privé.
+Le lien : seulement sur le compte privé. C'est toi qui le mets, à l'étape 6, après le warm-up. Le bot te dit quand. Les 2 comptes qui publient n'ont jamais de lien. Seulement l'@ du privé.
 
-Le pas-à-pas en vidéo est dans le post Fiche 1 du forum formation. Les passages sur les pages Facebook ne s'appliquent plus (arrêt le 14 septembre 2026).
+La vidéo pas à pas est dans le post Fiche 1 du forum formation. Les passages sur Facebook ne comptent plus.
 
-## FICHE 2 — Le warm-up (toute la semaine 1)
+## FICHE 2 — Le warm-up : chauffer tes comptes (toute la semaine 1)
 
-Le but : montrer à Instagram que le compte est celui d'une vraie personne. De la création au premier Reel de la semaine 2, tu ne publies rien.
+Le but : montrer à Instagram que ton compte est celui d'une vraie personne. De la création au premier Reel, tu ne publies rien.
 
 Chaque jour, un peu, comme une vraie utilisatrice :
-- Regarder uniquement des Reels de créatrices françaises (la liste est dans #ressources).
-- T'abonner aux créatrices de la liste, activer les notifications Reels.
-- Liker, regarder en entier, commenter un peu (un commentaire bien écrit sous un Reel tout frais d'une grosse créatrice = vu par des milliers de gens).
-- Enregistrer les meilleurs Reels, pour les reproduire plus tard.
+- Regarde seulement des Reels de créatrices françaises. La liste est dans #ressources.
+- Abonne-toi aux créatrices de la liste. Active la cloche pour leurs Reels.
+- Mets des likes. Regarde les vidéos en entier. Écris un petit commentaire de temps en temps.
+- Enregistre les meilleurs Reels. Tu les referas plus tard.
 
-Le test de fin (à partir du 2ᵉ jour) : ouvre l'onglet Explorer. Il montre des créatrices françaises → le compte est chaud (mais on attend quand même la semaine 2 pour publier). Il montre autre chose → continue les interactions naturelles. Si ça ne vient pas après plusieurs jours : trop d'actions trop vite, dis-le à ton manager.
+Le test, à partir du 2e jour : ouvre l'onglet Explorer. Il montre des créatrices françaises ? Ton compte est chaud. On attend quand même la semaine 2 pour publier. Il montre autre chose ? Continue tranquillement. Rien après plusieurs jours ? Tu vas trop vite. Dis-le à ton manager.
 
-Ce qui casse un warm-up : publier en semaine 1 · regarder du contenu hors sujet · les rafales (50 likes en 5 minutes = robot) · un lien posé trop tôt · se connecter au même compte depuis plusieurs appareils.
+Ce qui casse un warm-up : publier en semaine 1. Regarder des vidéos hors sujet. Les rafales, par exemple 50 likes en 5 minutes. Un lien mis trop tôt. Le même compte sur plusieurs appareils.
 
 ## FICHE 3 — Monter et poster un Reel
 
-L'application : Edits (le monteur vidéo d'Instagram, gratuit, sous-titres automatiques inclus). La routine : les brouillons le matin, la publication étalée dans la journée.
+L'appli : Edits. C'est le monteur vidéo d'Instagram. Gratuit. Les sous-titres se font tout seuls. Le matin tu prépares tes brouillons. Tu publies dans la journée, un par un.
 
-La préparation (une seule fois) : télécharger les « bases » (le top 10 des Reels de TA créatrice, dans son salon) et les importer en template dans Edits : son extrait, caption dupliquée.
+À faire une seule fois : télécharge les « bases ». Ce sont les 10 meilleurs Reels de ta créatrice, dans son salon. Mets-les dans Edits comme modèles.
 
-La boucle par Reel (10-15 minutes au début, 5 avec l'habitude) :
-1. Télécharger un rush depuis le Drive de la créatrice.
-2. Dans Edits : « Remplacer le rush » du template.
-3. Modifier : filtre, début et fin coupés, zoom ou cadrage, son (celui de la base ou un son populaire), caption (celle de la base ou une variante, 100 idées dans #ressources), sous-titres si elle parle, miniature.
-4. Brouillon le matin → publication étalée dans la journée (pas de programmation automatique).
-5. Publier sur Instagram.
+Pour chaque Reel, 10 minutes au début, 5 minutes après :
+1. Télécharge une vidéo brute depuis le Drive de la créatrice.
+2. Dans Edits, remplace la vidéo du modèle par la tienne.
+3. Change des choses : un filtre, le début et la fin coupés, un zoom, le son, le texte sous la vidéo, les sous-titres si elle parle, l'image de couverture. 100 idées de textes sont dans #ressources.
+4. Garde le brouillon le matin. Publie dans la journée. Pas de publication automatique.
+5. Publie sur Instagram.
 
-Avant de publier, UNE question : est-ce que ma vidéo ressemble encore au rush du Drive ? Si oui, on ne poste pas, on modifie encore.
+Avant de publier, une seule question : ma vidéo ressemble encore à celle du Drive ? Si oui, je ne publie pas. Je change encore.
 
-Ce qui fait performer un Reel : le hook (la première seconde donne envie de rester) et le partage (une vidéo qu'on a envie d'envoyer à un ami). Si la créatrice parle, on garde SA voix, pas de musique par-dessus. La miniature est obligatoire : claire, contrastée, le visage ou l'action principale. Hashtags : 3 à 5 simples, en rapport ; ils comptent peu.
+Ce qui fait marcher un Reel : le hook et le partage. Le hook, c'est la première seconde. Elle donne envie de rester. Le partage, c'est une vidéo qu'on a envie d'envoyer à un ami. Si la créatrice parle, on garde sa voix. Pas de musique par-dessus. L'image de couverture est obligatoire : claire, avec le visage ou l'action. Hashtags : 3 à 5, simples.
 
-Un bon Reel, en 5 points : 1. Un hook dès la première seconde (le début du rush est coupé, on entre direct dans l'action). 2. Un montage propre : coupes nettes, zoom, sous-titres lisibles, sa voix gardée. 3. Une durée proche de la trend d'origine (la trend dure 8 secondes ? la tienne aussi, pas 13). 4. Une miniature claire et contrastée. 5. Chaque dimanche, regarde tes Reels qui ont le mieux marché et refais-les en variantes (Fiche 5). La qualité vient en publiant beaucoup et en corrigeant un détail à chaque fois.
+Un bon Reel, en 5 points :
+1. Un hook dès la première seconde. Le début de la vidéo est coupé. On entre direct dans l'action.
+2. Un montage propre : coupes nettes, zoom, sous-titres lisibles, sa voix gardée.
+3. Une durée proche de la trend d'origine. La trend dure 8 secondes ? La tienne aussi. Pas 13.
+4. Une image de couverture claire.
+5. Un texte simple et sage.
 
-Contenu AUTORISÉ : tenues couvertes, street, décontracté, sport, tenue de soirée habillée ; hooks sur la personnalité, l'humour, une histoire, une situation où on se reconnaît ; des vidéos qui donnent envie de commenter.
-Contenu INTERDIT : bikinis, sous-vêtements, poses provocantes ; les textes « écris-moi en privé », « lien en bio », « contenu exclusif » ; toute mention d'argent, de drogue ou d'OnlyFans ; les sous-entendus sexuels et les émojis trop chauds. Objectif : des comptes propres qui durent.
+Contenu AUTORISÉ : tenues couvertes, tenue de ville, tenue de sport, tenue de soirée. Des vidéos sur sa personnalité, de l'humour, une histoire, une situation qui fait rire. Des vidéos qui donnent envie de commenter.
+Contenu INTERDIT : bikinis, sous-vêtements, poses provocantes. Les textes « écris-moi en privé », « lien en bio », « contenu exclusif ». Toute mention d'argent, de drogue ou d'OnlyFans. Les sous-entendus sexuels et les emojis trop chauds. Le but : des comptes propres qui durent.
 
-Le même rush sur tes 2 comptes de croissance : oui, mais **jamais le même montage** (hook, caption, sous-titres différents, 3 minutes avec ton template). Deux comptes qui postent la même vidéo = vues coupées + comptes reliés.
+La même vidéo sur tes 2 comptes qui publient ? Oui. Mais **jamais le même montage**. Change le hook, le texte, les sous-titres. Deux comptes qui postent la même vidéo = vues coupées et comptes reliés.
 
 ## FICHE 4 — La routine et la semaine
 
-La routine du jour : un rush → Edits → 2 Reels par compte de croissance → quelques commentaires naturels → un œil sur les stats pour REFAIRE ce qui marche.
+Chaque jour : une vidéo brute, Edits, 2 Reels par compte qui publie, quelques commentaires, un œil sur les stats pour refaire ce qui marche.
 
-Autour des Reels : 2-3 carrousels par semaine (dès qu'un Reel pète, un carrousel dans la foulée : c'est là qu'ils explosent), 1-3 stories par jour (sondages, quiz, lifestyle), 1-10 commentaires par jour chez les créatrices suivies, et tu réponds aux commentaires sous tes Reels (court, soft, sans lien). Les stories du Drive se postent sans souci de date, mais jamais brutes (un sticker, un texte, un filtre).
+Autour des Reels : 2 ou 3 carrousels par semaine. Un Reel marche fort ? Fais un carrousel juste après. 1 à 3 stories par jour : sondage, quiz, vie de tous les jours. 1 à 10 commentaires par jour chez les créatrices que tu suis. Réponds aux commentaires sous tes Reels : court, gentil, sans lien. Les stories du Drive : toujours avec un sticker, un texte ou un filtre. Jamais brutes.
 
-Le reporting du dimanche (NON NÉGOCIABLE) : chaque dimanche, le formulaire https://forms.gle/uhPewryox7R4jifv5 (épinglé dans #reporting), avec **les liens de tes Reels qui ont le mieux marché** : c'est comme ça qu'un concept gagnant repart en tournage chez la créatrice. Pas de formulaire = pas de suivi.
+Le reporting du dimanche, obligatoire : chaque dimanche, tu remplis le formulaire https://forms.gle/uhPewryox7R4jifv5. Il est épinglé dans #reporting. Tu mets les liens de tes Reels qui ont le mieux marché. Comme ça, la créatrice refait ce qui marche. Pas de formulaire = pas de suivi.
 
-La traversée du désert : les 2-3 premières semaines, les vues sont basses. C'est normal, c'est prévu, et c'est là que tout le monde abandonne. Puis un Reel pète et fait boule de neige. On ne peut pas échouer si on publie tous les jours et qu'on s'améliore chaque semaine.
+Les 2 ou 3 premières semaines, les vues sont basses. C'est normal. C'est là que tout le monde abandonne. Puis un Reel marche et tout monte. Tu ne peux pas rater si tu publies tous les jours et si tu t'améliores chaque semaine.
 
-Les règles du jeu, annoncées dès le départ : **cadence non tenue 2 jours de suite = sortie le lundi suivant** (ton manager te prévient dès le 2ᵉ jour) · un lien qui ne ramène presque aucune visite après un mois de publication est revu avec ton manager : autre créatrice, ou sortie. On garde les meilleurs, on en ajoute chaque semaine. Absent (maladie, examens, vacances) ? Préviens ton manager AVANT, dans ton salon perso, avec les dates : une absence prévenue n'est pas une sortie.
+Les règles du jeu : **2 jours de suite sans tes Reels = sortie le lundi suivant.** Ton manager te prévient dès le 2e jour. Un lien qui ne ramène presque personne après un mois : on en parle avec ton manager. Une autre créatrice, ou la sortie. On garde les meilleurs.
 
-## FICHE 5 — Reels d'essai et évolutions
+## FICHE 5 — Les Reels d'essai et la suite
 
-Débloqués vers 200 abonnés Instagram (environ J+15 à bonne cadence).
+Ça s'ouvre vers 200 abonnés Instagram. Environ 15 jours si tu publies bien.
 
-Les Reels d'essai (Instagram uniquement) : des variantes d'un Reel existant, montrées à des gens qui ne suivent pas le compte. Zéro risque pour l'audience, et de la portée gratuite en plus. Dès qu'un Reel marche, duplique-le TOI-MÊME : change surtout le montage et le hook, puis la caption, les sous-titres, le filtre, le son. Même rush, plusieurs angles = plus de chances qu'un pète.
+Les Reels d'essai : une autre version d'un Reel qui existe déjà. Instagram la montre à des gens qui ne suivent pas le compte. Zéro risque pour tes abonnés. Des vues en plus, gratuites. Un Reel marche ? Refais-le toi-même. Change surtout le montage et le hook. Puis le texte, les sous-titres, le filtre, le son.
 
-Les évolutions (décidées par ton manager, selon tes résultats) :
-- 500-1 000 abonnés, compte stable : passage en compte professionnel (statistiques détaillées). Tu ne le fais jamais seul : jusqu'à sa décision, la règle reste « jamais de comptes reliés ».
-- L'installation tourne bien : migration des comptes sur Metricool (sur ordinateur), quand ton manager le décide, sans date fixe ; on recrée alors des comptes neufs sur le téléphone.
-- Un 2ᵉ téléphone = un 2ᵉ setup de 3 comptes = deux fois plus de revenus.
-- Meilleur clipper de la promo : clipper manager, tu accompagnes les autres.
+La suite, c'est ton manager qui décide, selon tes résultats :
+- 500 à 1 000 abonnés et un compte stable : passage en compte professionnel, pour voir les stats en détail. Tu ne le fais jamais seul.
+- L'installation tourne bien : les comptes passent sur Metricool, sur ordinateur. Pas de date fixe. On recrée alors des comptes neufs sur le téléphone.
+- Un 2e téléphone = 3 comptes de plus = deux fois plus de paie.
+- Le meilleur clipper devient Team Leader. Il aide les autres.
 
 ## FICHE 6 — Quand ça coince
 
-**Compte restreint ou banni** : 1. Pas de panique, ce n'est pas une faute, c'est le métier. Ne tente rien seul : pas d'appel, pas de nouveau compte avec le même e-mail. 2. Capture de l'écran « Statut du compte » dans ton salon perso. 3. Ton manager libère l'identifiant et t'en donne un neuf dans le classeur : tu le crées comme les autres, avec `!code`. 4. En attendant, tu continues sur tes deux autres comptes.
+**Compte bloqué ou banni** :
+1. Pas de panique. Ce n'est pas ta faute. Ça arrive dans ce métier. Ne tente rien seul. Pas d'appel. Pas de nouveau compte avec le même e-mail.
+2. Fais une capture de l'écran « Statut du compte ». Poste-la dans ton salon perso.
+3. Ton manager libère l'identifiant et t'en donne un neuf. Tu le crées le lendemain, comme à l'étape 1.
 
-**« Ce compte n'est pas recommandé aux personnes de moins de 18 ans » (Instagram)** : pas grave, c'est attendu sur notre niche, le compte reste visible pour les adultes. Ce qui serait grave : une restriction de diffusion générale sans mention d'âge, ou des suppressions de Reels répétées → capture à ton manager.
+**« Ce compte n'est pas recommandé aux moins de 18 ans »** : pas grave. C'est normal chez nous. Les adultes voient le compte. Grave, c'est autre chose : Instagram cache tes Reels à tout le monde, ou supprime tes Reels plusieurs fois. Là, capture à ton manager.
 
-**Mes Reels font 0 vue depuis 2-3 jours** : 200 vues, c'est le contenu qui ne plaît pas, on change le contenu. 0 vue plusieurs jours de suite, c'est autre chose : un signal de restriction. Ne change rien seul : envoie à ton manager une capture de tes stats et de l'écran « Statut du compte ».
+**Mes Reels font 0 vue depuis 2 ou 3 jours** : 200 vues, c'est la vidéo qui ne plaît pas. On change la vidéo. 0 vue plusieurs jours de suite, c'est un blocage. Ne change rien seul. Envoie à ton manager une capture de tes stats et de l'écran « Statut du compte ».
 
-**Des MP arrivent sur mes comptes** : on ne répond quasiment jamais en MP, et on n'en envoie jamais en masse (cause n°1 des bans). Réponds en story (capture du MP, postée en story) ou en commentaire. Jamais de lien vers OnlyFans en MP : les clics passent uniquement par le lien en bio.
+**Des messages privés arrivent sur mes comptes** : on ne répond presque jamais en privé. On n'envoie jamais de messages en masse. C'est la cause numéro 1 des bans. Réponds en story, avec une capture du message, ou en commentaire. Jamais de lien en privé.
 
-**Une question ? Dans cet ordre** : 1. Le chapitre du Loom (la vidéo de formation, dans le forum formation) : 90 % des réponses y sont. 2. Le bot, dans ton salon perso (il connaît ton étape, tes comptes, ton lien) ou dans #assistant-ia. 3. Ton manager, dans ton salon perso. 4. Gaëtan, seulement pour la paie.
+**Une question ? Dans cet ordre** : 1. La vidéo de formation, dans le forum formation. 2. Le bot, dans ton salon perso. Il connaît ton étape, tes comptes, ton lien. 3. Ton manager, dans ton salon perso. 4. Gaëtan, seulement pour la paie.
 
-Les 3 chiffres à ne jamais oublier : 1 compte créé par jour, maximum · semaine 1 sans publier, et le test de l'Explorer avant de poster · 2 Reels par jour sur chaque compte de croissance, la régularité bat l'intensité.
+Les 3 chiffres à ne jamais oublier : 1 compte créé par jour, maximum. Semaine 1 sans publier. 2 Reels par jour sur chaque compte qui publie. Être régulier, c'est mieux que faire beaucoup d'un coup.
 
-Le mindset : à la fin du Loom, à écouter les jours difficiles. Tu ne peux pas échouer si tu n'abandonnes jamais, et le meilleur clipper devient manager.
+Le mental : la fin de la vidéo de formation, à écouter les jours difficiles. Tu ne peux pas rater si tu n'abandonnes jamais. Le meilleur clipper devient Team Leader.
 
 ## LE MANAGER (rôle « Manager ») — ses missions et ses commandes
 

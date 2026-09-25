@@ -713,36 +713,36 @@ def message_clipper_court(prenom: str, b: dict) -> str:
     elle existe. Tout le reste est du bruit pour un clipper."""
     posts, cadence = b["posts_24h"], b.get("cadence", CADENCE_MIN)
     if b.get("phase", "").startswith("warm-up"):
-        entete = "🌱 Warm-up : rien à publier, la routine de la Fiche 2 suffit."
+        entete = "🌱 Tu chauffes tes comptes : rien à publier. Fais la routine de la Fiche 2."
     elif not b.get("ig_en_retard") and b["detail"]:
-        entete = f"✅ **{posts} Reels hier**, cadence tenue ({cadence} par compte)."
+        entete = f"✅ **{posts} Reels hier.** Objectif atteint : {cadence} par compte."
     elif posts > 0:
-        entete = (f"⚠️ **{posts} Reels hier**, en retard sur " + ", ".join("@" + c for c in b["ig_en_retard"])
-                  + f" (objectif {cadence} par compte).")
+        entete = (f"⚠️ **{posts} Reels hier.** Il en manque sur " + ", ".join("@" + c for c in b["ig_en_retard"])
+                  + f". Objectif : {cadence} par compte.")
     else:
-        entete = f"🔴 **0 Reel hier** (objectif {cadence} par compte). Bloqué ? Dis-le ici à ton manager."
+        entete = f"🔴 **0 Reel hier.** Objectif : {cadence} par compte. Un problème ? Écris-le ici."
     delta = f" ({b['delta_followers']:+d})" if b.get("delta_followers") is not None else ""
     stats = f"👁️ {b['vues_24h']:,} vues · 👥 {b['followers']:,} abonnés{delta}".replace(",", " ")
     n_ok, cible = b.get("jours_ok_mois", 0), PRIME_JOURS_MIN
     if b.get("journee_ok") is None:
-        prime = f"⏸️ Journée non évaluée (mesure incomplète) — {n_ok}/{cible} ce mois-ci."
+        prime = f"⏸️ Je n'ai pas pu tout mesurer hier. {n_ok}/{cible} journées réussies ce mois-ci."
     elif b.get("journee_ok"):
-        prime = f"🏅 Journée validée — {n_ok}/{cible} ce mois-ci."
+        prime = f"🏅 Journée réussie. {n_ok}/{cible} ce mois-ci."
     else:
         manque = list(b.get("manques_structure") or [])
         if b.get("ig_en_retard"):
             manque.append("cadence : " + ", ".join("@" + c for c in b["ig_en_retard"]))
-        prime = f"❌ Journée non validée ({' · '.join(manque) or 'cadence'}) — {n_ok}/{cible} ce mois-ci."
+        prime = f"❌ Journée ratée : {' · '.join(manque) or 'pas assez de Reels'}. {n_ok}/{cible} ce mois-ci."
     alertes = []
     if b["restreints"]:
-        alertes.append("🔞 Compte marqué 18+ : " + ", ".join("@" + c for c in b["restreints"])
-                       + " → capture à ton manager aujourd'hui.")
+        alertes.append("🔞 Instagram a marqué « 18 ans et plus » : " + ", ".join("@" + c for c in b["restreints"])
+                       + ". Envoie une capture d'écran à ton manager aujourd'hui.")
     if b["injoignables"]:
-        alertes.append("🚫 Compte injoignable : " + ", ".join("@" + c for c in b["injoignables"])
-                       + " → ton manager le recrée au créneau.")
+        alertes.append("🚫 Je ne trouve plus : " + ", ".join("@" + c for c in b["injoignables"])
+                       + ". Dis-le à ton manager, il te donne un nouveau compte.")
     if b.get("deux_jours_rates"):
-        alertes.append("🚨 Deux journées ratées de suite : parle à ton manager aujourd'hui.")
-    return "\n".join([f"📊 **{prenom} — hier**", entete, stats, prime] + alertes)
+        alertes.append("🚨 Deux journées ratées de suite. Parle à ton manager aujourd'hui.")
+    return "\n".join([f"📊 **{prenom}, ton bilan d'hier**", entete, stats, prime] + alertes)
 
 
 def message_clipper(prenom: str, b: dict) -> str:

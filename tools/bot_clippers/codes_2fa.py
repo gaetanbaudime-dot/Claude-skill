@@ -275,17 +275,17 @@ async def commande(message, admin_ids) -> bool:
         trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, 120), timeout=IMAP_TIMEOUT * 3)
     except Exception as erreur:
         journal.warning("IMAP : %s", erreur)
-        await message.reply("⚠️ Boîte mail injoignable (identifiants, IMAP désactivé ou délai dépassé).")
+        await message.reply("⚠️ Je n'arrive pas à lire la boîte mail. Réessaie dans 2 minutes. Si ça continue, dis-le à ton manager.")
         return True
     codes = [t for t in trouves if t["code"] and t["alias"] in cibles]
     if not codes:
-        await message.reply(f"Aucun code reçu dans les 2 dernières heures pour {', '.join(f'`{a}`' for a in cibles)}. "
-                            "Redemande le code sur Instagram, il arrive ici en moins d'une minute.")
+        await message.reply(f"Je n'ai pas de code depuis 2 heures pour {', '.join(f'`{a}`' for a in cibles)}. "
+                            "Sur Instagram, appuie sur « Renvoyer le code ». Il arrive ici en moins d'une minute.")
     else:
         derniers = {}
         for t in codes:                                        # le plus récent par adresse
             derniers[t["alias"]] = t
-        await message.reply("\n".join(f"🔐 **{t['plateforme']} — code pour `{a}` : `{t['code']}`**" for a, t in derniers.items()))
+        await message.reply("\n".join(f"🔐 **Code {t['plateforme']} : `{t['code']}`** pour `{a}`. Écris-le dans l'appli." for a, t in derniers.items()))
     return True
 
 
@@ -328,7 +328,7 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                 salon = client.get_channel(int(cible)) if cible else await canal_admin_async()
                 if salon is None:
                     continue
-                texte = f"🔐 **{t['plateforme']} — code pour `{t['alias'] or 'alias inconnu'}` : `{t['code']}`**"
+                texte = f"🔐 **Code {t['plateforme']} : `{t['code']}`** pour `{t['alias'] or 'adresse inconnue'}`. Écris-le dans l'appli."
                 if not cible:
                     texte += "\n-# Alias non rattaché — un manager peut se l'attribuer : `!alias ajouter <alias>`."
                 try:

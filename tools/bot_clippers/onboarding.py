@@ -194,25 +194,27 @@ async def reserver(comptes: list, prenom_clipper: str) -> int:
 
 def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
     if not comptes:
-        return (f"⚠️ Aucun compte libre pour {creatrice} dans le classeur : ton manager en prépare et le bot te les "
-                "enverra ici automatiquement.")
+        return (f"⚠️ Il n'y a pas encore de compte prêt pour {creatrice}. Ton manager en prépare. "
+                "Je te les envoie ici dès qu'ils sont prêts.")
     blocs = []
     ordonnes = sorted(comptes, key=_est_prive)                      # le privé en dernier
     a_un_prive = any(_est_prive(c) for c in comptes)
     for i, c in enumerate(ordonnes, start=1):
         prive = _est_prive(c) if a_un_prive else (i == len(ordonnes) and len(ordonnes) >= 3)
-        role = "privé (ton compte perso de la mission)" if prive else "croissance"
-        etat = "à créer sur ton téléphone" if _norm(c["etat"]) in A_CREER else f"déjà créé ({c['etat']})"
+        role = "privé, ton compte secret" if prive else "il publie"
+        etat = "à créer, sur ton téléphone" if _norm(c["etat"]) in A_CREER else "déjà créé"
         blocs.append(f"**Compte {i} · {role}** — {etat}\n"
                      f"Identifiant : `{c['handle']}`\n"
-                     f"Mot de passe : `{c['mdp'] or '— (demande à ton manager)'}`\n"
+                     f"Mot de passe : `{c['mdp'] or 'demande-le à ton manager'}`\n"
                      + (f"E-mail : `{c['mail']}`\n" if c["mail"] else "")
                      + (f"Téléphone : `{c['phone']}`\n" if c["phone"] else ""))
-    return (f"🔐 **Tes comptes Instagram, {prenom}** (créatrice : {creatrice})\n\n" + "\n".join(blocs) + "\n"
-            "Règles : création et connexion **uniquement depuis ton téléphone**, jamais depuis un navigateur ; "
-            "un compte à la fois ; le code de vérification arrive ici via le bot (`!code`) ; "
-            "warm-up de la Fiche 2 toute la première semaine, puis 2 Reels par jour sur chaque compte de croissance. "
-            "Ne partage jamais ces accès : ils appartiennent à l'agence.")
+    return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice}\n\n" + "\n".join(blocs) + "\n"
+            "Les règles :\n"
+            "• Tu crées et tu te connectes **seulement sur ton téléphone**. Jamais sur un ordinateur.\n"
+            "• Un compte par jour.\n"
+            "• Le code d'Instagram arrive ici. Écris `!code`.\n"
+            "• La première semaine, tu chauffes les comptes. Tu ne publies rien. Après, 2 Reels par jour sur chaque compte qui publie.\n"
+            "• Ne donne jamais ces accès à quelqu'un. Ils sont à l'agence.")
 
 
 # ------------------------------------------------------------------ Drive
@@ -333,15 +335,15 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     # 4. message
     texte = message_comptes(comptes, prenom, creatrice)
     if lien:
-        texte += f"\n\n🔗 **Ton lien en bio** (le même sur tous tes comptes) : {lien}\nC'est lui qui compte tes visites : `!mesclics`."
+        texte += f"\n\n🔗 **Ton lien** : {lien}\nCe lien compte tes visites. Écris `!mesclics` pour les voir."
     if drive:
-        texte += (f"\n\n📁 **Ton Drive** (photos et Reels de {creatrice.split()[0]}, lecture seule) : {drive}"
-                  + ("" if email else "\nPour l'ouvrir, envoie-moi ici **ton adresse Gmail** (celle de ton téléphone) : je te le partage aussitôt."))
+        texte += (f"\n\n📁 **Ton Drive**, avec les photos et les vidéos de {creatrice.split()[0]} : {drive}\nTu regardes et tu télécharges. Tu ne modifies rien."
+                  + ("" if email else "\nPour l'ouvrir, envoie-moi ici **ton adresse Gmail**, celle de ton téléphone. Je te le partage tout de suite."))
     if salon is not None and codes_2fa.actif():
         try:
             n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")
             if n_alias:
-                texte += f"\n\n📨 Les codes de vérification de {'ces adresses' if n_alias > 1 else 'cette adresse'} arriveront ici tout seuls."
+                texte += f"\n\n📨 Les codes Instagram de {'ces adresses' if n_alias > 1 else 'cette adresse'} arrivent ici tout seuls."
                 resultat.append(f"{n_alias} alias 2FA rattaché(s)")
         except Exception as erreur:                                     # jamais bloquer la livraison
             journal.warning("Alias 2FA %s : %s", prenom, erreur)
@@ -390,14 +392,14 @@ async def message_clipper(message) -> bool:
     try:
         drive = await dossier_drive(prenom, fiche["creatrice"], email)
     except RuntimeError as erreur:
-        await message.reply(f"Adresse notée ({email}), mais le partage Drive a échoué : {erreur}. Ton manager relance avec `!onboarding`.")
+        await message.reply(f"J'ai noté ton adresse : {email}. Mais le partage du Drive n'a pas marché. Ton manager va le refaire.")
         return True
     if drive:
         fiche["drive"] = drive
         _ecrire_etat(etat)
-        await message.reply(f"📁 C'est partagé avec {email} : {drive}\nOuvre-le connecté à ce compte Google (tu reçois aussi l'invitation par e-mail).")
+        await message.reply(f"📁 C'est fait, le Drive est partagé avec {email} : {drive}\nOuvre-le avec ce compte Google. Tu reçois aussi un e-mail.")
     else:
-        await message.reply(f"Adresse notée ({email}). Le Drive de {fiche['creatrice']} n'est pas configuré : ton manager s'en occupe.")
+        await message.reply(f"J'ai noté ton adresse : {email}. Le Drive de {fiche['creatrice']} n'est pas encore prêt. Ton manager s'en occupe.")
     return True
 
 
