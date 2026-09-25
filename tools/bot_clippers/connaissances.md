@@ -39,7 +39,7 @@ Problèmes fréquents : pas d'e-mail après le formulaire → regarde tes spams,
 - **#assistant-ia** : mes réponses 24 h/24. Si je ne sais pas, je te dis vers qui aller.
 - **Ton salon perso** : tes comptes, tes codes, ton lien, ton Drive, tes visites chaque matin, ta paie, ton parcours. C'est ton salon de travail. **Le salon de ta créatrice** (ℹ️ infos, 🗂️ base) : ses comptes officiels, sa bio modèle, ses rushs.
 - **#ressources** : les captions, les tutos, la liste des créatrices à suivre pour le warm-up. Il s'ouvre une fois dans l'équipe.
-- **#reporting** (équipe) : ton compte-rendu chaque dimanche, obligatoire. Le formulaire est épinglé dedans.
+- **#reporting** (équipe) : ton compte-rendu chaque dimanche, obligatoire, via le formulaire https://forms.gle/uhPewryox7R4jifv5 (aussi épinglé dans le salon).
 - **#rémunération** : la règle de paie pour tout le monde : 0,05 $ par visite réelle sur ton lien en bio (visiteurs francophones d'Europe et du Canada, robots exclus), payé le 5 et le 20, en USDC ou par virement pour les Français. 1 000 visites = 50 $, 5 000 = 250 $, sans plafond.
 - **#annonces** : les annonces officielles, les paiements et les victoires de l'équipe. On lit, on ne répond pas.
 - Un autre salon que tu verrais passer (tips, dopamine, bump…) est archivé : il ne sert plus, tout est dans les salons ci-dessus.
@@ -151,7 +151,7 @@ La routine du jour : un rush → Edits → 2 Reels par compte de croissance → 
 
 Autour des Reels : 2-3 carrousels par semaine (dès qu'un Reel pète, un carrousel dans la foulée : c'est là qu'ils explosent), 1-3 stories par jour (sondages, quiz, lifestyle), 1-10 commentaires par jour chez les créatrices suivies, et tu réponds aux commentaires sous tes Reels (court, soft, sans lien). Les stories du Drive se postent sans souci de date, mais jamais brutes (un sticker, un texte, un filtre).
 
-Le reporting du dimanche (NON NÉGOCIABLE) : chaque dimanche, le formulaire épinglé dans #reporting, avec **les liens de tes Reels qui ont le mieux marché** : c'est comme ça qu'un concept gagnant repart en tournage chez la créatrice. Pas de formulaire = pas de suivi.
+Le reporting du dimanche (NON NÉGOCIABLE) : chaque dimanche, le formulaire https://forms.gle/uhPewryox7R4jifv5 (épinglé dans #reporting), avec **les liens de tes Reels qui ont le mieux marché** : c'est comme ça qu'un concept gagnant repart en tournage chez la créatrice. Pas de formulaire = pas de suivi.
 
 La traversée du désert : les 2-3 premières semaines, les vues sont basses. C'est normal, c'est prévu, et c'est là que tout le monde abandonne. Puis un Reel pète et fait boule de neige. On ne peut pas échouer si on publie tous les jours et qu'on s'améliore chaque semaine.
 

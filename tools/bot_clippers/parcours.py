@@ -26,6 +26,7 @@ import paie_clics
 journal = logging.getLogger("parcours")
 _deps = {}
 WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "7") or 7)
+LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 ETAPES = {
     1: {"titre": "Étape 1 · Crée ton compte 1 (croissance)", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": ["info"],
@@ -74,7 +75,8 @@ ETAPES = {
                   "Quand c'est fait, clique sur le bouton.")},
     7: {"titre": "🎉 Parcours terminé · Ta routine", "fiche": "4", "bouton": "", "salons": ["reporting"],
         "texte": ("Chaque jour : **2 Reels sur `{compte1}`, 2 Reels sur `{compte2}`**, 1 story, quelques commentaires. "
-                  "Chaque matin je t'écris tes visites de la veille ici. Chaque dimanche, ton reporting dans {reporting}.\n\n"
+                  "Chaque matin je t'écris tes visites de la veille ici. Chaque dimanche, ton reporting : le formulaire {lien_reporting}, "
+                  "et les consignes dans {reporting}.\n\n"
                   "Je reste ici tous les jours : une question sur un compte, un code, un Reel, ta paie, écris-la ici. "
                   "Ton manager lit ce salon aussi.")},
 }
@@ -164,6 +166,7 @@ async def _contexte(guild, uid: str, fiche_p: dict) -> dict:
     ctx["ressources"] = f"<#{res.id}>" if res is not None else "#ressources"
     rep = _salon_nom(guild, "reporting") if guild is not None else None
     ctx["reporting"] = f"<#{rep.id}>" if rep is not None else "#reporting"
+    ctx["lien_reporting"] = LIEN_REPORTING
     ctx["_info_id"] = info.id if info is not None else None
     ctx["_res_id"] = res.id if res is not None else None
     ctx["_rep_id"] = rep.id if rep is not None else None
@@ -362,13 +365,18 @@ async def commande_staff(message, texte: str) -> bool:
     mots = texte.split()
     if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire"):
         return False
-    if not message.mentions:
-        await message.reply("Format : `!etape @clipper [n]` (renvoyer ou forcer une étape) · `!note @clipper texte` "
-                            "(mémoire du bot sur lui) · `!memoire @clipper` (ce que le bot sait).")
-        return True
-    membre = message.mentions[0]
-    uid = str(membre.id)
+    membre = message.mentions[0] if message.mentions else None
     reste = [m for m in mots[1:] if not m.startswith("<@")]
+    if membre is None and reste and _deps.get("chercher_membre"):    # « !etape Gaëtan 1 » sans vraie mention Discord
+        membre = _deps["chercher_membre"](reste[0].lstrip("@"))
+        if membre is not None:
+            reste = reste[1:]
+    if membre is None:
+        await message.reply("Format : `!etape @clipper [n]` (renvoyer ou forcer une étape) · `!note @clipper texte` "
+                            "(mémoire du bot sur lui) · `!memoire @clipper` (ce que le bot sait). Le @ doit être une vraie "
+                            "mention, ou tape le prénom tel quel.")
+        return True
+    uid = str(membre.id)
     if mots[0].lower() in ("!memoire", "!mémoire"):
         await _deps["envoyer_long"](message, [f"🧠 **Mémoire de {membre.display_name}**"] + memoire(uid).split("\n"))
         return True

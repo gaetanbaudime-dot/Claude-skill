@@ -758,6 +758,12 @@ async def verifier_canaux_configures():
                 "CANAL_BUMP_ID", "CANAL_CANDIDATURE_ID", "CANAL_FORMATION_ID", "CANAL_ASSISTANT_ID",
                 "CANAL_STAT_PAYES_ID", "CANAL_STAT_CLIPPERS_ID"):
         val = str(globals().get(nom, "") or "")
+        if nom == "CANAL_REPORTING_ID" and not val:                 # 25/09 : variable jamais posée → #reporting par son nom
+            trouve = next((c for g in client.guilds for c in g.text_channels if "reporting" in normaliser(c.name)), None)
+            if trouve is not None:
+                globals()[nom] = str(trouve.id)
+                journal.info("CANAL_REPORTING_ID vide : #%s (%s) pris par son nom", trouve.name, trouve.id)
+            continue
         if not val.isdigit() or client.get_channel(int(val)) is not None:
             continue
         try:
@@ -768,6 +774,8 @@ async def verifier_canaux_configures():
         remplacant = None
         if nom == "CANAL_BUMP_ID":
             remplacant = next((c for g in client.guilds for c in g.text_channels if "bump" in normaliser(c.name)), None)
+        elif nom == "CANAL_REPORTING_ID":
+            remplacant = next((c for g in client.guilds for c in g.text_channels if "reporting" in normaliser(c.name)), None)
         elif nom == "CANAL_FORMATION_ID":
             remplacant = next((c for g in client.guilds for c in g.channels
                                if isinstance(c, discord.ForumChannel) and "formation" in normaliser(c.name)), None)
@@ -5441,7 +5449,8 @@ async def on_ready():
         client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
         parcours.configurer({**deps_onb, "FICHIER_PARCOURS": FICHIER_PARCOURS, "POSTS_FORMATION": POSTS_FORMATION,
                              "categorie_de_creatrice": categorie_de_creatrice,
-                             "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m), "client": client})
+                             "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m), "client": client,
+                             "chercher_membre": lambda nom: chercher_membre(nom)})
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
