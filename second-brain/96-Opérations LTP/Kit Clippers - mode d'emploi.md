@@ -10,6 +10,10 @@ liens_forts: ["[[Checklist formation clipping]]", "[[Machine Instagram-Facebook 
 
 # Kit Clippers : la refonte de la formation (mode d'emploi)
 
+> [!warning] Version du 26/09/2026
+> Le process a changé le 26/09 (formulaire du site, test jugé par le bot, un compte par jour avec 24 h de warm-up, numéro personnel autorisé, lien posé par le clipper) : la référence est désormais [[Formation clippers en une page et 10 simplifications (26 septembre 2026)]]. Cette page garde la mémoire des kits v2 et v3.
+
+
 > [!warning] Kit v3 (14/09/2026) — Instagram seul
 > Le kit a été régénéré en v3 le 14/09 à partir de la base du bot v6.2 : 2 comptes Instagram de croissance + 1 privé (plus de pages Facebook), warm-up = toute la semaine 1, comptes créés au créneau avec le manager, lien posé par le manager sur le privé à J+7, seuil du quiz 27/34, règles de sortie (2 jours / 50 abonnés). Les paragraphes ci-dessous qui décrivent la v2 (3 pages FB, warm-up 48 h, quiz 8/10) sont périmés. Fichiers : `Kit Clippers/Fiches JPEG (Discord)/` (à poster dans le forum), `Kit Clipper LTP (v3).pdf`, `Fiches séparées/`. Point non tranché : le seuil des Reels d'essai (la base dit ~200 abonnés, cette page disait 1 000 depuis le 23/07), à confirmer par Gaëtan.
 

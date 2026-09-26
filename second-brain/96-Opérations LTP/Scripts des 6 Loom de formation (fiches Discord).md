@@ -10,6 +10,10 @@ liens_forts: ["[[Kit Clippers - mode d'emploi]]", "[[Checklist formation clippin
 
 # Scripts des 6 Loom de formation (un par fiche du forum Discord)
 
+> [!warning] Version du 26/09/2026
+> Les 6 Loom décrivent le process du 22/07 (warm-up 48 h puis une semaine, créneau avec le manager). La vidéo condensée à tourner suit les 8 étapes de [[Formation clippers en une page et 10 simplifications (26 septembre 2026)]] ; les scripts ci-dessous restent utiles pour le ton et les captures.
+
+
 > [!tip] Verdict
 > **Le Loom maître de 54 min existe déjà et reste la bibliothèque — on n'y touche pas.** Ces 6 scripts sont sa version éclatée : **un Loom granulaire ≤ 4 min épinglé dans chaque post-fiche** du forum « formation », pour qu'un clipper au moment où il fait l'étape ait la vidéo de CETTE étape sous les yeux (pas à scruber 54 min). Tu en as déjà tourné plusieurs dans le Discord — ces scripts servent à **compléter les manquants et re-tourner d'une voix homogène**. Ils suivent au mot près le **PDF v2** ([[Kit Clippers - mode d'emploi|les 6 fiches]]) : le Loom montre à l'écran, la fiche PDF récapitule, le quiz vérifie. Interdit absolu, comme partout : **aucun mot-clé ni réponse du quiz** (les 4 mots — Régularité · Soft · Émotion · Conversion — restent cachés dans le Loom maître seul). Chaque Loom finit par la même phrase : « une question ? → l'assistant dans #assistant, jamais deux fois la même » ([[Bot FAQ clippers (Discord)|la règle du renvoi]]).
 
