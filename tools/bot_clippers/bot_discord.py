@@ -5873,7 +5873,7 @@ async def on_ready():
         rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
                                   "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client,
                                   "lire_json": lire_json, "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS,
-                                  "nom_par_uid": lambda uid: getattr(membre_par_id(uid), "display_name", None,
+                                  "nom_par_uid": lambda uid: getattr(membre_par_id(uid), "display_name", None),
                                   "roster": roster.groupes})                                          # 26/09 : groupes = roster
         roster.configurer({"DONNEES": DONNEES, "normaliser": normaliser, "lire_json": lire_json, "ecrire_json": ecrire_json,
                            "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS, "FICHIER_PIPELINE": FICHIER_PIPELINE,
