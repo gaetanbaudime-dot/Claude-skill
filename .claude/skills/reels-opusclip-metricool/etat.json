@@ -1,5 +1,5 @@
 {
- "mis_a_jour": "2026-09-26 (passation depuis la session « Second brain execution »)",
+ "mis_a_jour": "2026-09-26 15:50 Paris (session d'exécution : brouillons publiés, contrôle qualité fait, production A/B/C en cours)",
  "credits_opusclip": {
   "utilises_au_26_09": 102,
   "limite_mensuelle": 900,
@@ -38,12 +38,12 @@
   "sophie_pilote": {
    "project_id": "P3092508dSRu",
    "clip": "3puUPX9sDM",
-   "note": "pauses ≥ 0,7 s retirées le 26/09 (24,7 s → 18,3 s), rendu à vérifier ; brouillon Metricool 381827052"
+   "note": "pauses ≥ 0,7 s retirées le 26/09 (24,7 s → 18,3 s), rendu à vérifier ; brouillon Metricool 381827052 ; 26/09 : bip (rien trouvé), export HD frais, brouillon publié en Reel 4 réseaux le 28/09 09:00"
   },
   "sophie_pilote_clipanything": {
    "project_id": "P3092508hN7M",
    "clip": "mlwPHhR1S7",
-   "note": "aucune pause ni tic trouvés, inchangé ; brouillon Metricool 381829293"
+   "note": "aucune pause ni tic trouvés, inchangé ; brouillon Metricool 381829293 ; 26/09 : bip (rien trouvé), export, brouillon publié en Reel 4 réseaux le 29/09 09:00"
   }
  },
  "marques_metricool": {
@@ -138,63 +138,133 @@
    "blogId": 6192908,
    "id": 381827052,
    "uuid": "-1177364353923462523",
-   "date": "2026-09-28T10:00:00",
+   "date": "2026-09-28T09:00:00",
    "clip": "P3092508dSRu/3puUPX9sDM",
-   "sujet": "berger, abonné, serveur"
+   "sujet": "berger, abonné, serveur",
+   "publie_le": "2026-09-26",
+   "nouvel_id": 382500296,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "instagram": "REEL",
+   "media": "export A retravaillé + bip, recopié par Metricool"
   },
   {
    "marque": "Sophie 1 - R",
    "blogId": 6192908,
    "id": 381829293,
    "uuid": "-3454201064687188796",
-   "date": "2026-09-29T10:00:00",
+   "date": "2026-09-29T09:00:00",
    "clip": "P3092508hN7M/mlwPHhR1S7",
-   "sujet": "rencontres, serveur, rires"
+   "sujet": "rencontres, serveur, rires",
+   "publie_le": "2026-09-26",
+   "nouvel_id": 382500317,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "instagram": "REEL",
+   "media": "export A retravaillé + bip, recopié par Metricool"
   },
   {
    "marque": "Sophie 1 - R",
    "blogId": 6192908,
    "id": 381915008,
    "uuid": "1983499631569225601",
-   "date": "2026-09-30T10:00:00",
+   "date": "2026-09-30T09:00:00",
    "clip": "P3092508s5an/qJks1tUHbo",
-   "sujet": "deuxième porte latérale"
+   "sujet": "deuxième porte latérale",
+   "publie_le": "2026-09-26",
+   "nouvel_id": 382500353,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "instagram": "REEL",
+   "media": "export A retravaillé + bip, recopié par Metricool"
   },
   {
    "marque": "Sophie 1 - R",
    "blogId": 6192908,
    "id": 381916354,
    "uuid": "5207352529508583509",
-   "date": "2026-10-01T10:00:00",
+   "date": "2026-10-01T09:00:00",
    "clip": "P3092508s5an/268NPexdFY",
-   "sujet": "Maxxfan"
+   "sujet": "Maxxfan",
+   "publie_le": "2026-09-26",
+   "nouvel_id": 382500383,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "instagram": "REEL",
+   "media": "export A retravaillé + bip, recopié par Metricool"
   },
   {
    "marque": "Sophie 1 - R",
    "blogId": 6192908,
    "id": 381916483,
    "uuid": "1813330949928600975",
-   "date": "2026-10-02T10:00:00",
+   "date": "2026-10-02T09:00:00",
    "clip": "P3092508s5an/vzodFeGK8L",
-   "sujet": "van reprogrammé"
+   "sujet": "van reprogrammé",
+   "publie_le": "2026-09-26",
+   "nouvel_id": 382500397,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "instagram": "REEL",
+   "media": "export A retravaillé + bip, recopié par Metricool"
   },
   {
    "marque": "Chloé 1 - J",
    "blogId": 6314104,
    "id": 381916570,
    "uuid": "9144663515557285864",
-   "date": "2026-09-28T10:00:00",
+   "date": "2026-09-28T09:00:00",
    "clip": "P3092508sf8K/pRksRsaMDM",
-   "sujet": "humeur qui dépend des vues"
+   "sujet": "humeur qui dépend des vues",
+   "publie_le": "2026-09-26",
+   "nouvel_id": 382500421,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "instagram": "REEL",
+   "media": "export A retravaillé + bip, recopié par Metricool"
   },
   {
    "marque": "Chloé 1 - J",
    "blogId": 6314104,
    "id": 381918725,
    "uuid": "-6677686290157056388",
-   "date": "2026-09-29T10:00:00",
+   "date": "2026-09-29T09:00:00",
    "clip": "P3092508sf8K/OMz2mZ8Sfg",
-   "sujet": "le gros down"
+   "sujet": "le gros down",
+   "publie_le": "2026-09-26",
+   "nouvel_id": 382500475,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "instagram": "REEL",
+   "media": "export A retravaillé + bip, recopié par Metricool"
   },
   {
    "marque": "Chloé 1 - J",
@@ -203,7 +273,8 @@
    "uuid": "5488329282040647129",
    "date": "2026-09-30T10:00:00",
    "clip": "P3092508sf8K/kL7ieQplhG",
-   "sujet": "30 photos pour une bonne"
+   "sujet": "30 photos pour une bonne",
+   "note": "kL7ieQplhG : mise à jour envoyée le 26/09 (voir journal de session)"
   }
  ],
  "clips": {
@@ -235,9 +306,11 @@
      "B": "FCeJu86rrXFV",
      "C": "zCnI16NxHCao"
     },
-    "retravail_fait": false,
-    "censure_faite": false,
-    "exports": {},
+    "retravail_fait": true,
+    "censure_faite": true,
+    "exports": {
+     "A": "v=1790326865635504 (inchangé, rien à retravailler)"
+    },
     "programme": {}
    },
    {
@@ -267,9 +340,11 @@
      "B": "7qpxoOmJadUB",
      "C": "4Ud6o4LMiSvE"
     },
-    "retravail_fait": false,
-    "censure_faite": false,
-    "exports": {},
+    "retravail_fait": true,
+    "censure_faite": true,
+    "exports": {
+     "A": "v=1790326865560322 (inchangé)"
+    },
     "programme": {}
    },
    {
@@ -299,9 +374,11 @@
      "B": "W4YYxRtP0gL8",
      "C": "aJK9SZh883Df"
     },
-    "retravail_fait": false,
-    "censure_faite": false,
-    "exports": {},
+    "retravail_fait": true,
+    "censure_faite": true,
+    "exports": {
+     "A": "v=1790326865559635 (inchangé)"
+    },
     "programme": {}
    },
    {
@@ -334,7 +411,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-09-28T20:00:00",
+      "id": 382504531,
+      "uuid": "1209316433178673848"
+     }
+    }
    },
    {
     "clip_id": "tpp7CVNH5v",
@@ -366,7 +449,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-09-29T20:00:00",
+      "id": 382504566,
+      "uuid": "-9166183576595970155"
+     }
+    }
    },
    {
     "clip_id": "swdQA3Y9Tf",
@@ -398,7 +487,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-09-30T20:00:00",
+      "id": 382504605,
+      "uuid": "7319043254610379336"
+     }
+    }
    },
    {
     "clip_id": "2Pd77cXxxU",
@@ -430,7 +525,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-01T20:00:00",
+      "id": 382504663,
+      "uuid": "-1440651174973979240"
+     }
+    }
    },
    {
     "clip_id": "UYuwyVyZs2",
@@ -462,7 +563,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-02T20:00:00",
+      "id": 382504746,
+      "uuid": "-2592230923311496986"
+     }
+    }
    },
    {
     "clip_id": "0hbNaFDeRI",
@@ -494,7 +601,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-03T09:00:00",
+      "id": 382508528,
+      "uuid": "8970104314242354015"
+     }
+    }
    },
    {
     "clip_id": "IDjzp94CF4",
@@ -526,7 +639,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-03T20:00:00",
+      "id": 382508562,
+      "uuid": "1971464430438665383"
+     }
+    }
    },
    {
     "clip_id": "fpysdvNSur",
@@ -558,7 +677,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-04T09:00:00",
+      "id": 382508589,
+      "uuid": "8698001403935277149"
+     }
+    }
    },
    {
     "clip_id": "XCXzmDTIKC",
@@ -590,7 +715,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-04T20:00:00",
+      "id": 382509150,
+      "uuid": "6181522464079038159"
+     }
+    }
    },
    {
     "clip_id": "jrtywa2oER",
@@ -622,7 +753,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-05T09:00:00",
+      "id": 382509180,
+      "uuid": "-8877521485185004635"
+     }
+    }
    },
    {
     "clip_id": "bAmmRKGKR5",
@@ -651,10 +788,16 @@
      "B": null,
      "C": null
     },
-    "retravail_fait": false,
-    "censure_faite": false,
+    "retravail_fait": true,
+    "censure_faite": true,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-05T20:00:00",
+      "id": 382509204,
+      "uuid": "5655838467678880324"
+     }
+    }
    },
    {
     "clip_id": "Y2elcbAEZB",
@@ -686,7 +829,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-06T09:00:00",
+      "id": 382509227,
+      "uuid": "5406813120221891352"
+     }
+    }
    },
    {
     "clip_id": "6P6Rs7LgKs",
@@ -715,10 +864,16 @@
      "B": null,
      "C": null
     },
-    "retravail_fait": false,
-    "censure_faite": false,
+    "retravail_fait": true,
+    "censure_faite": true,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-06T20:00:00",
+      "id": 382509320,
+      "uuid": "5655652695168733100"
+     }
+    }
    },
    {
     "clip_id": "8D07k770ap",
@@ -750,7 +905,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-07T09:00:00",
+      "id": 382509334,
+      "uuid": "8054232440075928213"
+     }
+    }
    },
    {
     "clip_id": "ZwSf6wkpn4",
@@ -782,7 +943,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-07T20:00:00",
+      "id": 382510294,
+      "uuid": "-4987328846840575506"
+     }
+    }
    },
    {
     "clip_id": "GE31JDJyIR",
@@ -814,7 +981,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-08T09:00:00",
+      "id": 382508612,
+      "uuid": "5684736827793952616"
+     }
+    }
    },
    {
     "clip_id": "juCZ9OcOXb",
@@ -846,7 +1019,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-08T20:00:00",
+      "id": 382508643,
+      "uuid": "827131864468245514"
+     }
+    }
    },
    {
     "clip_id": "65y50KlaWz",
@@ -878,7 +1057,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-09T09:00:00",
+      "id": 382510328,
+      "uuid": "-367466170021033883"
+     }
+    }
    },
    {
     "clip_id": "Vg4CWc1R3T",
@@ -910,7 +1095,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-09T20:00:00",
+      "id": 382510357,
+      "uuid": "6759022132977356649"
+     }
+    }
    },
    {
     "clip_id": "V9IDamZjPs",
@@ -942,7 +1133,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-10T09:00:00",
+      "id": 382510420,
+      "uuid": "4614210788216161167"
+     }
+    }
    },
    {
     "clip_id": "B1A6d3y4Ke",
@@ -974,7 +1171,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-10T20:00:00",
+      "id": 382510567,
+      "uuid": "8709722950670237929"
+     }
+    }
    },
    {
     "clip_id": "J697mWSO1W",
@@ -1006,7 +1209,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-11T09:00:00",
+      "id": 382510610,
+      "uuid": "1788567199210554688"
+     }
+    }
    },
    {
     "clip_id": "LEn39oh4zI",
@@ -1038,7 +1247,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-11T20:00:00",
+      "id": 382511315,
+      "uuid": "8416851705996986453"
+     }
+    }
    },
    {
     "clip_id": "6huWEv3dlD",
@@ -1070,7 +1285,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-12T09:00:00",
+      "id": 382511358,
+      "uuid": "-6454077691434153222"
+     }
+    }
    },
    {
     "clip_id": "sgGqEfNv8P",
@@ -1102,7 +1323,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-12T20:00:00",
+      "id": 382511415,
+      "uuid": "8101657687663855641"
+     }
+    }
    },
    {
     "clip_id": "LlHDqvuGik",
@@ -1134,7 +1361,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-13T09:00:00",
+      "id": 382511439,
+      "uuid": "2073589425838377971"
+     }
+    }
    },
    {
     "clip_id": "BOkl3ZI2Ky",
@@ -1198,7 +1431,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Sophie 1 - R": {
+      "date": "2026-10-13T20:00:00",
+      "id": 382511495,
+      "uuid": "-3924403028893086158"
+     }
+    }
    },
    {
     "clip_id": "s86Ad2GhIi",
@@ -1244,9 +1483,11 @@
      "B": null,
      "C": null
     },
-    "retravail_fait": false,
-    "censure_faite": false,
-    "exports": {},
+    "retravail_fait": true,
+    "censure_faite": true,
+    "exports": {
+     "A": "v=1790430158304967 (1 pause retirée, 35,5 s)"
+    },
     "programme": {}
    },
    {
@@ -1262,7 +1503,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-09-28T19:30:00",
+      "id": 382507388,
+      "uuid": "-7714506234229863432"
+     }
+    }
    },
    {
     "clip_id": "uheGIG7QyP",
@@ -1277,7 +1524,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-09-29T19:30:00",
+      "id": 382507459,
+      "uuid": "-1123157198262022275"
+     }
+    }
    },
    {
     "clip_id": "OMz2mZ8Sfg",
@@ -1289,9 +1542,11 @@
      "B": null,
      "C": null
     },
-    "retravail_fait": false,
-    "censure_faite": false,
-    "exports": {},
+    "retravail_fait": true,
+    "censure_faite": true,
+    "exports": {
+     "A": "v=1790430154460011 (1 pause retirée, 41,8 s)"
+    },
     "programme": {}
    },
    {
@@ -1304,9 +1559,11 @@
      "B": null,
      "C": null
     },
-    "retravail_fait": false,
-    "censure_faite": false,
-    "exports": {},
+    "retravail_fait": true,
+    "censure_faite": true,
+    "exports": {
+     "A": "v=1790430215913207 (« Oh putain » coupé, 20,1 s)"
+    },
     "programme": {}
    },
    {
@@ -1322,7 +1579,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-09-30T19:30:00",
+      "id": 382507493,
+      "uuid": "-286532867493969176"
+     }
+    }
    },
    {
     "clip_id": "nyvbjX9JZ9",
@@ -1337,7 +1600,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-01T09:00:00",
+      "id": 382507539,
+      "uuid": "-4930392122571599977"
+     }
+    }
    },
    {
     "clip_id": "FAhRivP5wb",
@@ -1352,7 +1621,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-01T19:30:00",
+      "id": 382507684,
+      "uuid": "5255754245204036618"
+     }
+    }
    },
    {
     "clip_id": "1OPxe3Zlmt",
@@ -1367,7 +1642,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-02T09:00:00",
+      "id": 382507712,
+      "uuid": "-8364426366134498166"
+     }
+    }
    },
    {
     "clip_id": "659Tjy3cEM",
@@ -1382,7 +1663,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-02T19:30:00",
+      "id": 382507750,
+      "uuid": "4239583732081247766"
+     }
+    }
    },
    {
     "clip_id": "yqwBkL6YQl",
@@ -1397,7 +1684,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-03T09:00:00",
+      "id": 382507780,
+      "uuid": "-6774409034069032510"
+     }
+    }
    },
    {
     "clip_id": "DXakJvFxcf",
@@ -1427,7 +1720,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-03T19:30:00",
+      "id": 382504810,
+      "uuid": "-308553451543705408"
+     }
+    }
    },
    {
     "clip_id": "3lNP58VWVB",
@@ -1442,7 +1741,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-04T09:00:00",
+      "id": 382504833,
+      "uuid": "5258650115339142601"
+     }
+    }
    },
    {
     "clip_id": "qFfJQXoJRh",
@@ -1457,7 +1762,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-04T19:30:00",
+      "id": 382504887,
+      "uuid": "5910090966698574709"
+     }
+    }
    },
    {
     "clip_id": "7EQ4jPKqe2",
@@ -1472,7 +1783,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-05T09:00:00",
+      "id": 382504918,
+      "uuid": "-4994869488964972677"
+     }
+    }
    },
    {
     "clip_id": "8kVivFEib6",
@@ -1502,7 +1819,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-05T19:30:00",
+      "id": 382504989,
+      "uuid": "-4479180543398622093"
+     }
+    }
    },
    {
     "clip_id": "5OU4nX8wsH",
@@ -1517,7 +1840,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-06T09:00:00",
+      "id": 382505068,
+      "uuid": "3843762559547098282"
+     }
+    }
    },
    {
     "clip_id": "S5zAXj358Y",
@@ -1532,7 +1861,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-06T19:30:00",
+      "id": 382505136,
+      "uuid": "-455751589594446398"
+     }
+    }
    },
    {
     "clip_id": "s5glGzlW5G",
@@ -1547,7 +1882,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-07T09:00:00",
+      "id": 382505409,
+      "uuid": "-6057810084638601520"
+     }
+    }
    },
    {
     "clip_id": "XmldQKX1p0",
@@ -1592,7 +1933,13 @@
     "retravail_fait": false,
     "censure_faite": false,
     "exports": {},
-    "programme": {}
+    "programme": {
+     "Chloé 1 - J": {
+      "date": "2026-10-07T19:30:00",
+      "id": 382505562,
+      "uuid": "-2973279610012545710"
+     }
+    }
    },
    {
     "clip_id": "ie32cfjjfB",
@@ -1610,5 +1957,66 @@
     "programme": {}
    }
   ]
+ },
+ "controle_qualite_26_09": {
+  "regle_censure": "Le censeur OpusClip ne connaît pas le français : « Oh putain » (kL7ieQplhG) n'a pas été détecté. Les grossièretés sont coupées à la main avec delete_phrase après lecture de chaque transcript ; le censor job (bip) est quand même lancé sur chaque original.",
+  "coupes": {
+   "kL7ieQplhG": "delete_phrase « Oh putain » (21 → 20 s)",
+   "6P6Rs7LgKs": "delete_phrase « De charme » après « vente de photos et de vidéos » + 2 pauses (43 → 37 s)",
+   "bAmmRKGKR5": "replace_phrase « V 690 chevaux » → « V6 190 chevaux » + 1 pause (28 → 20 s)"
+  },
+  "ecartes": {
+   "sophie_van": {
+    "s86Ad2GhIi": "doublon : reprend la phrase centrale de UYuwyVyZs2 (panneaux orientables), score 77",
+    "BOkl3ZI2Ky": "sous-ensemble strict de 65y50KlaWz (Aircam), score 79"
+   },
+   "chloe_cliches": {
+    "8kVivFEib6": "parle explicitement de sexe (« ne pas aimer le sexe… surtout celui-là ») : risque de ban",
+    "DXakJvFxcf": "pont sans sens propre : fin de 659Tjy3cEM + début de kL7ieQplhG",
+    "ohFg2fky5x": "pont : fin de S5zAXj358Y + question de nyvbjX9JZ9 sans réponse",
+    "ie32cfjjfB": "pont incohérent (« on nous a dit que t'arrêtais ») + question de 7EQ4jPKqe2 sans réponse",
+    "XmldQKX1p0": "démarre en pleine phrase et recouvre la fin de yqwBkL6YQl"
+   }
+  },
+  "gardes": {
+   "sophie_van": 30,
+   "chloe_cliches": 20
+  },
+  "fichier_verifie": "qJks1tUHbo et 3puUPX9sDM téléchargés : 1080×1920, 1 piste audio, durées 42,7 s et 18,3 s, sous-titres style A lisibles dans le bas du cadre (3 images extraites)."
+ },
+ "styles_sous_titres_reels": {
+  "constat_26_09": "Sur le modèle « Créatrices OFM », set_style ne change ni la couleur du surlignage (highlightColor ignoré, le soulignement rose reste) ni rien de visible en majuscules/blanc (déjà par défaut) : les premiers exports B et C étaient identiques à A image par image (PSNR infini). Ce qui fonctionne : captionPosition (haut), captionColor (texte jaune), set_keyword_highlight false, set_emoji false.",
+  "A": "modèle tel quel : bas, blanc, mots-clés soulignés rose, emojis (marques 1)",
+  "B": "sous-titres en HAUT, blanc, mots-clés soulignés rose, emojis (marques 2)",
+  "C": "sous-titres en bas, texte JAUNE #FFE600, sans surlignage, sans emoji (marques 3)"
+ },
+ "programmation_26_09": {
+  "marques": {
+   "Sophie 1 - R": {
+    "faits": 27,
+    "restants": 0
+   },
+   "Sophie 2 - J": {
+    "faits": 0,
+    "restants": 30
+   },
+   "Sophie 3 - R": {
+    "faits": 0,
+    "restants": 30
+   },
+   "Chloé 1 - J": {
+    "faits": 17,
+    "restants": 0
+   },
+   "Chloé 2 - J": {
+    "faits": 0,
+    "restants": 20
+   },
+   "Chloé 3 - J": {
+    "faits": 0,
+    "restants": 20
+   }
+  },
+  "note": "Sophie 1 : 5 brouillons publiés (09:00, 28/09→02/10) + 27 posts A (20:00 dès le 28/09, puis 09:00/20:00 du 03/10 au 13/10). Chloé 1 : 3 brouillons (09:00, 28→30/09) + 17 posts A (19:30 dès le 28/09, puis 09:00/19:30 du 01/10 au 07/10). Tous en REEL, 4 réseaux, autoPublish. Détail des identifiants dans plan.json (scratchpad) et reporté ci-dessous par clip."
  }
 }
