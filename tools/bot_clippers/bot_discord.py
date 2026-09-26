@@ -39,6 +39,7 @@ import parcours                           # parcours guidé du clipper dans son 
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import matin                              # un seul message du matin par clipper (26/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
+import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
 DOSSIER = Path(__file__).parent
@@ -3573,7 +3574,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -3584,7 +3585,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!pipeline` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
                 "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
@@ -3701,6 +3702,8 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=f"!salons-equipe par {par_id}")
     except Exception as erreur:                                             # noqa: BLE001
         bilan_onb_c = f"onboarding : {type(erreur).__name__} {str(erreur)[:80]}"
+    if reels_uniques.actif():
+        client.loop.create_task(reels_uniques.pour_nouveau(prenom_de(m_), creatrice_c))   # 26/09 : ses Reels uniques, en tâche de fond
     try:
         await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
     except Exception as erreur:                                             # noqa: BLE001
@@ -3877,6 +3880,8 @@ async def commande_creatrice(message, texte: str) -> bool:
         bilan_onb = await onboarding.livrer(membre, prenom, salon_perso)
     except Exception as erreur:                                        # jamais bloquer l'attribution pour ça
         bilan_onb = f"onboarding : {type(erreur).__name__} {str(erreur)[:120]}"
+    if reels_uniques.actif() and not roster.sans_salon(prenom_clipper):
+        client.loop.create_task(reels_uniques.pour_nouveau(prenom_clipper, prenom))       # 26/09 : ses Reels uniques, en tâche de fond
     if salon_perso is not None:
         try:
             await parcours.demarrer_parcours(salon_perso, membre, prenom)   # 25/09 : étape 1 du parcours guidé, avec boutons
@@ -4925,6 +4930,8 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     if await roster.commande(message, texte):                            # !roster (26/09) : afficher, remplacer, sortie, nouveau
+        return True
+    if await reels_uniques.commande_staff(message, texte):               # !reels-uniques Créatrice [Prénom …] (26/09)
         return True
     if texte.startswith("!salons-equipe"):
         # 25/09 : « fais un salon pour tous mes clippers actuels et ajoute Jonas ». Format :
@@ -6237,6 +6244,14 @@ async def on_ready():
                            "mettre_a_jour_stats": mettre_a_jour_stats, "prenom_de": prenom_de, "NOMS_RANGS": NOMS_RANGS,
                            "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
+
+        async def _dossier_clipper(prenom, creatrice):
+            cfg = onboarding._sources().get(creatrice) or onboarding._sources().get(creatrice.split()[0]) or {}
+            return await google_api.drive_trouver_dossier(prenom, cfg["parent"]) if cfg.get("parent") else ""
+        reels_uniques.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "reels_uniques.json",
+                                  "google_api": google_api, "drive_agence": drive_agence, "sources": onboarding._sources, "roster": roster,
+                                  "normaliser": normaliser, "canal_admin": canal_admin, "dossier_clipper": _dossier_clipper,
+                                  "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,

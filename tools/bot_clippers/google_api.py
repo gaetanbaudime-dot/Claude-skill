@@ -216,6 +216,30 @@ async def drive_televerser_texte(nom: str, parent_id: str, contenu: str, mime: s
     return r["id"]
 
 
+async def drive_partager_public(fichier_id: str) -> bool:
+    """Lecture « toute personne ayant le lien » (26/09 : OpusClip lit la vidéo par son lien Drive). False si refusé."""
+    try:
+        await _appel("POST", f"{DRIVE}/files/{fichier_id}/permissions", params=_PARAMS_DRIVES,
+                     corps={"type": "anyone", "role": "reader"})
+        return True
+    except RuntimeError as erreur:
+        journal.info("Partage public de %s refusé : %s", fichier_id[:8], erreur)
+        return False
+
+
+async def drive_telecharger(fichier_id: str, max_octets: int = 120_000_000) -> bytes:
+    """Contenu binaire d'un fichier Drive (26/09 : les TOP 20 Reels pour les variantes par clipper)."""
+    s_ = await _session_http()
+    entetes = {"Authorization": f"Bearer {await jeton()}"}
+    async with s_.get(f"{DRIVE}/files/{fichier_id}", params={"alt": "media", **_PARAMS_DRIVES}, headers=entetes) as r:
+        if r.status >= 400:
+            raise RuntimeError(f"Google {r.status} : téléchargement de {fichier_id[:8]} refusé")
+        donnees = await r.read()
+    if len(donnees) > max_octets:
+        raise RuntimeError(f"fichier trop lourd ({len(donnees) // 1_000_000} Mo)")
+    return donnees
+
+
 def drive_lien(fichier_id: str) -> str:
     return f"https://drive.google.com/drive/folders/{fichier_id}"
 
