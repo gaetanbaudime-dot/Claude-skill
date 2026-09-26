@@ -1,8 +1,9 @@
 {
   "salon": "jonas-stats",
+  "mis_a_jour": "2026-09-26T13:31:00+00:00",
   "groupes": {
-    "Sophie": ["Thia", "Rianah"],
-    "Chloé": ["Lilian", "Caroline", "Hasina", "Ckycia", "Romaric", "Lucas"],
-    "Sarah": ["Tara", "Clarisse", "Yves", "Laure", "Josué"]
+    "Sophie": ["Daniella", "Thia", "Rianah", "Antoine", "Marias"],
+    "Chloé": ["Hasina", "Lilian", "Romaric", "Caroline", "Lucas", "Ckycia"],
+    "Sarah": ["Tara", "Clarisse", "Yves", "Josué"]
   }
 }

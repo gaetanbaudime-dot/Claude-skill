@@ -5,7 +5,11 @@ les visiteurs GAML de la veille des clippers qu'il suit, groupés par créatrice
 dont francophones payables, cumul 7 jours. Les clippers sans lien GAML sont signalés.
 
 Configuration : `rapport_jonas.json` à côté du bot :
-  {"salon": "jonas-stats", "groupes": {"Sophie": ["Thia", "Rianah"], "Chloé": [...], "Sarah": [...]}}
+  {"salon": "jonas-stats", "mis_a_jour": "<ISO UTC>", "groupes": {"Sophie": ["Thia", "Rianah"], "Chloé": [...], "Sarah": [...]}}
+26/09 (liste de Gaëtan) : `groupes` est LE roster actif par créatrice, daté par `mis_a_jour`. Le roster vivant
+(`groupes_actifs`) y ajoute les fiches du registre qui ont reçu une créatrice après cette date et en retire les
+`!sortie` faites après cette date ; il sert au rapport ET au salon-compteur « 🎬 Clippers : N » (plus de comptage
+par rôle Discord, cassé à chaque renommage de rôle).
 Un lien GAML est rattaché à un clipper du rapport quand sa note contient le prénom et que son nom commence
 par la créatrice (ex. note « Clipping Thia », nom « Sophie 🌸 » ; « Rianah Metricool » compte pour Rianah
 sous Sophie). Ces liens sont relevés même sans membre Discord attribué (`suivi` dans clics.json).
@@ -36,7 +40,7 @@ def config() -> dict:
         c = json.loads(FICHIER_CONFIG.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {"salon": "", "groupes": {}}
-    c.setdefault("salon", "jonas-stats"); c.setdefault("groupes", {})
+    c.setdefault("salon", "jonas-stats"); c.setdefault("groupes", {}); c.setdefault("mis_a_jour", "")
     return c
 
 
@@ -44,12 +48,70 @@ def _n(t: str) -> str:
     return _deps["normaliser"](t or "") if _deps.get("normaliser") else (t or "").lower().strip()
 
 
+# ------------------------------------------------------------------ roster actif (26/09)
+def _prenom(nom: str) -> str:
+    """« Meiji - Chloé » → « Meiji » (convention des pseudos et des fiches de sortie)."""
+    mots = str(nom or "").split()
+    return mots[0] if mots else ""
+
+
+def fusionner_actifs(groupes: dict, mis_a_jour: str, registre: dict, sortis: list, nom_par_uid, exclus=()) -> dict:
+    """Le roster vivant, fonction pure (testée hors ligne) : la liste datée de Gaëtan + les fiches du registre
+    qui ont reçu une créatrice APRÈS cette date − les sorties (!sortie) faites APRÈS cette date. Les dates sont
+    des ISO UTC comparables comme des chaînes. `nom_par_uid(uid)` renvoie le prénom d'un membre ou None."""
+    ref = str(mis_a_jour or "")
+    exclus = {str(x) for x in (exclus or ())}
+    actifs = {c: list(noms) for c, noms in (groupes or {}).items()}
+    for uid, fiche in (registre or {}).items():
+        cr = str(fiche.get("creatrice") or "").strip()
+        if not cr or str(uid) in exclus or str(fiche.get("creatrice_date") or "") <= ref:
+            continue
+        nom = _prenom(nom_par_uid(uid) or "")
+        if not nom:
+            continue
+        cle = next((c for c in actifs if _n(c) == _n(cr)), cr)
+        liste = actifs.setdefault(cle, [])
+        if _n(nom) not in {_n(x) for x in liste}:
+            liste.append(nom)
+    partis = {_n(_prenom(s.get("nom"))) for s in (sortis or [])
+              if s.get("nom") and str(s.get("date") or "") > ref}
+    if partis:
+        actifs = {c: [n for n in noms if _n(n) not in partis] for c, noms in actifs.items()}
+    return actifs
+
+
+def groupes_actifs() -> dict:
+    """Le roster vivant quand le bot est branché (registre + sorties), sinon la liste du fichier telle quelle."""
+    c = config()
+    if not (_deps.get("lire_json") and _deps.get("nom_par_uid")):
+        return c["groupes"]
+    return fusionner_actifs(c["groupes"], c.get("mis_a_jour", ""),
+                            _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}),
+                            _deps["lire_json"](_deps["FICHIER_SORTIS"], []),
+                            _deps["nom_par_uid"], _deps.get("ADMIN_IDS", ()))
+
+
+def total_actifs(groupes: dict = None) -> int:
+    """Le chiffre du salon-compteur : prénoms distincts, toutes créatrices confondues."""
+    g = groupes if groupes is not None else groupes_actifs()
+    return len({_n(n) for noms in g.values() for n in noms})
+
+
+def texte_actifs() -> str:
+    g = groupes_actifs()
+    date = str(config().get("mis_a_jour") or "")[:10] or "?"
+    lignes = [f"👥 **Clippers actifs : {total_actifs(g)}** (liste du {date} + arrivées `!creatrice` − sorties `!sortie`)"]
+    for cr, noms in g.items():
+        lignes.append(f"**{cr}** ({len(noms)}) : {', '.join(noms) if noms else '—'}")
+    return "\n".join(lignes)
+
+
 # ------------------------------------------------------------------ liens suivis
 def associer_suivi(d: dict, liens: list) -> int:
     """Marque dans clics.json les liens GAML des clippers du rapport (relevés même sans membre Discord).
     Renvoie le nombre de liens nouvellement suivis."""
     nouveaux = 0
-    for creatrice, noms in config()["groupes"].items():
+    for creatrice, noms in groupes_actifs().items():
         for nom in noms:
             for l in liens:
                 lid, note = l.get("id"), _n(l.get("note"))
@@ -72,10 +134,9 @@ def _liens_de(d: dict, creatrice: str, nom: str) -> list:
 
 # ------------------------------------------------------------------ texte
 def texte_rapport(d: dict, jour) -> str:
-    c = config()
     lignes = [f"📊 **Visiteurs du {jour.strftime('%d/%m')}**, par clipper"]
     tot = {"hors_robots": 0, "payes": 0, "s7": 0}
-    for creatrice, noms in c["groupes"].items():
+    for creatrice, noms in groupes_actifs().items():
         lignes.append(f"\n**{creatrice}**")
         for nom in noms:
             lids = _liens_de(d, creatrice, nom)
@@ -181,8 +242,11 @@ async def apres_releves(client, d: dict):
 
 
 async def commande_staff(message, texte: str) -> bool:
-    """`!stats-jonas [AAAA-MM-JJ]` : poster le rapport (hier par défaut) dans le salon."""
+    """`!stats-jonas [AAAA-MM-JJ]` : poster le rapport (hier par défaut) dans le salon. `!actifs` : le roster compté."""
     mots = texte.split()
+    if mots and mots[0].lower() in ("!actifs", "!equipe-active"):      # 26/09 : le roster que compte le salon « Clippers »
+        await message.reply(texte_actifs()[:1990])
+        return True
     if not mots or mots[0].lower() not in ("!stats-jonas", "!stats-manager"):
         return False
     if not paie_clics.actif():

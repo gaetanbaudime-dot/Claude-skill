@@ -91,7 +91,7 @@ CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # 
 # Jamais d'auto-bump (interdit par Discord et Disboard) — le bot rappelle, un humain tape /bump.
 CANAL_BUMP_ID = os.environ.get("CANAL_BUMP_ID", "").strip()                   # canal du rappel (vide = désactivé)
 DISBOARD_ID = 302050872383242240                                              # id officiel du bot DISBOARD
-ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) comptés pour « Clippers », séparés par des virgules (ex. Rookie,Confirmé,Élite)
+ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) d'équipe (ex. Rookie,Confirmé,Élite) ; depuis le 26/09 le salon « Clippers : N » compte le roster de rapport_jonas.json, plus ces rôles
 # Rôles d'ÉQUIPE (accès aux salons rémunération/discussion par pays) : attribution UNIQUEMENT via
 # !equipe après signature du contrat — jamais par l'onboarding Discord (incident du 18/07).
 ROLE_TEAM_FR_NOM = os.environ.get("ROLE_TEAM_FR_NOM", "Team France").strip()
@@ -982,14 +982,10 @@ async def mettre_a_jour_stats():
     if CANAL_STAT_PAYES_ID:
         total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
         await _renommer_salon(CANAL_STAT_PAYES_ID, f"💸 Déjà payés : {total:,.0f} €".replace(",", " "))
-    if CANAL_STAT_CLIPPERS_ID and ACTIVER_V2:      # le comptage par rôle exige l'intent Members
-        noms = [normaliser(n.strip()) for n in ROLE_CLIPPER_NOM.split(",") if n.strip()]
-        membres = set()                             # union des rôles, sans doublons
-        for guild in client.guilds:
-            for role in guild.roles:
-                if any(nom in normaliser(role.name) for nom in noms):
-                    membres.update(m.id for m in role.members if not m.bot)
-        await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {len(membres)}")
+    if CANAL_STAT_CLIPPERS_ID:
+        # 26/09 : le chiffre vient du roster actif (liste de Gaëtan dans rapport_jonas.json + arrivées !creatrice
+        # − sorties !sortie), plus du comptage par rôle : le renommage Rookie → Clippeur l'avait remis à zéro.
+        await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {rapport_stats.total_actifs()}")
 
 
 async def boucle_stats():
@@ -4365,11 +4361,10 @@ async def commande_admin(message, texte: str) -> bool:
                 lignes.append(f"⚠️ Rôle « {role.name} » au-dessus du mien — monte mon rôle pour que !rang marche.")
             else:
                 lignes.append(f"✅ Rôle « {role.name} » ({len(role.members)} membre(s))")
-        noms = [normaliser(n.strip()) for n in ROLE_CLIPPER_NOM.split(",") if n.strip()]
-        comptes = {m.id for role in g.roles if any(nm in normaliser(role.name) for nm in noms)
-                   for m in role.members if not m.bot}
-        lignes.append(f"ℹ️ Compteur « Clippers » ({ROLE_CLIPPER_NOM}) : {len(comptes)} compté(s)"
-                      + ("" if ACTIVER_V2 else " — v2 éteinte, liste possiblement incomplète"))
+        actifs_v = rapport_stats.groupes_actifs()
+        lignes.append(f"ℹ️ Compteur « Clippers » : {rapport_stats.total_actifs(actifs_v)} compté(s) — "
+                      + " · ".join(f"{cr} {len(noms)}" for cr, noms in actifs_v.items())
+                      + " (roster de rapport_jonas.json + arrivées − sorties ; `!actifs` pour les prénoms)")
         # Persistance des données (le piège du compteur remis à zéro, vécu le 17/07)
         if DONNEES_PERSISTANTES:
             lignes.append(f"✅ Données persistantes : `{DONNEES}`")
@@ -5740,7 +5735,9 @@ async def on_ready():
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
         rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
-                                  "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client})
+                                  "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client,
+                                  "lire_json": lire_json, "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS,
+                                  "nom_par_uid": lambda uid: getattr(membre_par_id(uid), "display_name", None)})
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
