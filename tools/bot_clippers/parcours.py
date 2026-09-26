@@ -352,7 +352,9 @@ async def boucle(client) -> None:
                         await salon.send(f"🎉 <@{uid}> tes {WARMUP_JOURS} jours de warm-up sont finis. Tu peux publier tes Reels !")
                         await valider_etape(salon, uid, 4, par="bot")
                     else:
-                        await salon.send(f"<@{uid}> " + WARMUP_JOUR_TEXTE.format(j=j, jours=WARMUP_JOURS))
+                        texte_w = WARMUP_JOUR_TEXTE.format(j=j, jours=WARMUP_JOURS)
+                        if not (_deps.get("deposer") and _deps["deposer"](salon.id, "warmup", texte_w)):
+                            await salon.send(f"<@{uid}> " + texte_w)
         except Exception as erreur:                                 # la boucle ne meurt jamais
             journal.warning("Boucle parcours : %s", erreur)
         await asyncio.sleep(3600)
@@ -409,6 +411,106 @@ def _prenom(membre) -> str:
     return nom.split()[0] if nom.split() else nom
 
 
+PROCHAINES = {1: "crée ton compte 1, `{compte1}`. Clique ✅ dans le message d'étape quand c'est fait.",
+              2: "crée ton compte 2, `{compte2}`. Clique ✅ quand c'est fait.",
+              3: "crée ton compte privé, `{compte3}`. Clique ✅ quand c'est fait.",
+              4: "warm-up : 10 minutes de Reels, 5 likes, 2 abonnements, 1 story sur chaque compte. Pas de Reel.",
+              5: "monte et publie ton premier Reel sur `{compte1}` puis `{compte2}`. Clique ✅ quand c'est fait.",
+              6: "mets ton lien dans la bio de `{compte3}`, et @{compte3} dans la bio des deux autres. Clique ✅ quand c'est fait.",
+              7: "2 Reels sur `{compte1}`, 2 Reels sur `{compte2}`, 1 story."}
+
+
+def prochaine_etape(salon_id) -> str:
+    """La ligne « 👉 Aujourd'hui » du message du matin, d'après l'étape du clipper dont c'est le salon."""
+    for uid, fiche_p in _lire().items():
+        if str(fiche_p.get("salon_id")) != str(salon_id):
+            continue
+        n = int(fiche_p.get("etape", 0))
+        if n not in PROCHAINES:
+            return "" if n else "attends ta créatrice, ton manager te l'attribue."
+        comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(uid, {}) or {}).get("comptes") or []
+        c = {f"compte{i + 1}": (comptes[i] if i < len(comptes) else "…") for i in range(3)}
+        return PROCHAINES[n].format(**c)
+    return ""
+
+
+def _etats_comptes(uid, etats_par_handle: dict) -> list:
+    """[(handle, état normalisé du classeur)] des comptes livrés au clipper, dans l'ordre compte 1, 2, privé."""
+    comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(str(uid), {}) or {}).get("comptes") or []
+    return [(h, _norm(etats_par_handle.get(h.lower(), "") or "")) for h in comptes]
+
+
+def etape_selon_classeur(etats: list) -> int:
+    """26/09 (Thia lancée en routine avec des comptes « à créer ») : 1 si tout est à créer, 4 si des comptes existent
+    mais qu'aucun compte qui publie n'est GOOD, 7 sinon."""
+    if not etats:
+        return 7
+    e = [x for _, x in etats]
+    if all(x in ("a creer", "à créer", "") for x in e):
+        return 1
+    if not any(x == "good" for x in e[:2]):
+        return 4
+    return 7
+
+
+async def forcer_etape(salon, membre, creatrice: str, n: int) -> None:
+    """Pose l'étape n (date du jour, utile au compte des jours de warm-up) et l'envoie dans le salon."""
+    d = _lire()
+    uid = str(membre.id)
+    fiche_p = d.setdefault(uid, {"prenom": _prenom(membre), "creatrice": creatrice, "salon_id": str(salon.id), "etape": 0,
+                                 "dates": {}, "notes": []})
+    fiche_p.update({"etape": n, "salon_id": str(salon.id), "creatrice": creatrice or fiche_p.get("creatrice", "")})
+    fiche_p.setdefault("dates", {})[str(n)] = _maintenant()
+    fiche_p.pop("warmup_jour", None)
+    _ecrire(d)
+    await envoyer_etape(salon, membre, n)
+
+
+async def demarrer_selon_classeur(salon, membre, creatrice: str, etats_par_handle: dict) -> int:
+    """Pour un clipper déjà en place : l'étape de départ dépend de l'état réel de ses comptes dans le classeur."""
+    n = etape_selon_classeur(_etats_comptes(membre.id, etats_par_handle))
+    if n == 1:
+        await demarrer_parcours(salon, membre, creatrice)
+    elif n == 7:
+        await demarrer_routine(salon, membre, creatrice)
+    else:
+        await forcer_etape(salon, membre, creatrice, n)
+    return n
+
+
+async def reconcilier(client, etats_par_handle: dict) -> list:
+    """Après chaque scan du classeur : un compte créé sur Instagram valide tout seul l'étape 1, 2 ou 3 ; un clipper mis
+    en routine par erreur alors que ses comptes sont à créer ou en warm-up est remis à la bonne étape (une seule fois)."""
+    faits = []
+    for uid, fiche_p in list(_lire().items()):
+        n = int(fiche_p.get("etape", 0))
+        salon = client.get_channel(int(fiche_p.get("salon_id") or 0)) if fiche_p.get("salon_id") else None
+        membre = _deps["membre_par_id"](uid)
+        if salon is None or membre is None:
+            continue
+        etats = _etats_comptes(uid, etats_par_handle)
+        if not etats:
+            continue
+        try:
+            if n == 7 and not fiche_p.get("dates", {}).get("1_fait") and not fiche_p.get("reconcilie"):
+                cible = etape_selon_classeur(etats)
+                d = _lire()
+                d[uid]["reconcilie"] = _maintenant()
+                _ecrire(d)
+                if cible != 7:
+                    await forcer_etape(salon, membre, fiche_p.get("creatrice", ""), cible)
+                    faits.append((_prenom(membre), 7, cible))
+            elif n in (1, 2, 3) and n - 1 < len(etats):
+                h, e = etats[n - 1]
+                if e and e not in ("a creer", "à créer") and await valider_etape(salon, uid, n, par="classeur"):
+                    faits.append((_prenom(membre), n, n + 1))
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Réconciliation du parcours de %s : %s", uid, erreur)
+    if faits:
+        journal.info("Parcours réconciliés avec le classeur : %s", faits)
+    return faits
+
+
 def contexte_llm(uid: str) -> str:
     """Le bloc de contexte ajouté à chaque question posée dans le salon perso : le bot y est le manager."""
     return ("[Salon perso : ici tu es le MANAGER du clipper au quotidien. Tu parles comme à un élève de collège : phrases de "
@@ -421,7 +523,10 @@ def contexte_llm(uid: str) -> str:
             "même jour ; le warm-up de chaque compte commence dès sa création (interactions, zéro publication) et le "
             f"premier Reel attend les {WARMUP_JOURS} jours de l'étape 4 — ne dis jamais « dans 7 jours on crée le compte 2 ». "
             "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
-            "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice.]\n"
+            "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
+            "Trois lignes maximum, et finis toujours par « 👉 Prochaine étape : … ». `!code` ne donne QUE les codes reçus par "
+            "e-mail : si Instagram demande un NUMÉRO de téléphone ou propose « Envoyer un code » à un numéro, la réponse est STOP, "
+            "ne rien cliquer, une capture ici, le manager gère. Ne recopie jamais la ligne [Contexte : …].]\n"
             "[Mémoire du clipper]\n" + memoire(uid))
 
 

@@ -235,6 +235,14 @@ async def executer(ecrire: bool = True) -> dict:
                     liens_maj += 1
             except Exception as erreur:                                  # noqa: BLE001
                 journal.warning("Classeur : clics/lien de %s non écrits : %s", c["handle"], erreur)
+    if ecrire and _deps.get("reconcilier"):
+        try:
+            etats_h = {c["handle"].lower(): c["etat"] for c in comptes if c["handle"]}
+            for handle, _, _, apres, _ in changements:
+                etats_h[handle.lower()] = apres
+            await _deps["reconcilier"](etats_h)
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Réconciliation des parcours : %s", erreur)
     if ecrire:
         d["dernier"] = jour
         d["version"] = VERSION

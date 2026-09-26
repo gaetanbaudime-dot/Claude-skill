@@ -255,6 +255,7 @@ async def cartographier_depuis_sheet(guild) -> dict:
     i_gerant = colonne("gerant", "clipper", "responsable")
     i_etat = colonne("etat", "statut")
     i_fb = colonne("facebook", "fb", "page")
+    i_util = colonne("utilisation", "usage")                          # 26/09 : seules les lignes « Clipper » sont des clippers
     if i_compte < 0 or i_gerant < 0:
         journal.warning("Sheet CSV : colonnes « compte » et/ou « gérant » introuvables — entêtes : %s",
                         ", ".join(entetes[:10]))
@@ -262,12 +263,17 @@ async def cartographier_depuis_sheet(guild) -> dict:
 
     # Index des salons du serveur par prénom normalisé, pour retrouver le salon privé de chacun.
     salons, creatrices = {}, {}
+    noms_cats = {re.sub(r"[^a-z0-9]", "", _normaliser(c.name)) for c in getattr(guild, "categories", [])}
     for categorie in getattr(guild, "categories", []):
+        cle_cat = re.sub(r"[^a-z0-9]", "", _normaliser(categorie.name))
         for salon in categorie.text_channels:
             cle = re.sub(r"[^a-z0-9]", "", _normaliser(salon.name))
-            if cle and cle not in SALONS_IGNORES:
-                salons[cle] = salon.id
-                creatrices[cle] = categorie.name.strip()
+            # 26/09 : #ℹ️-jade (infos de la créatrice) donnait « jade » → le bilan d'un faux clipper « Jade » y tombait.
+            # Un salon perso porte un prénom nu ; un salon de créatrice commence par un emoji ou porte le nom de sa catégorie.
+            if not cle or cle in SALONS_IGNORES or cle == cle_cat or not salon.name[:1].isalnum():
+                continue
+            salons[cle] = salon.id
+            creatrices[cle] = categorie.name.strip()
 
     carte, ignores = {}, 0
     for ligne in lignes[1:]:
@@ -279,8 +285,10 @@ async def cartographier_depuis_sheet(guild) -> dict:
         if _etat_mort(champ(i_etat)):
             ignores += 1
             continue
+        if i_util >= 0 and champ(i_util) and _normaliser(champ(i_util)) not in ("clipper", "metricool"):
+            continue                                                    # Geelark, perso, prospection… : pas un clipper
         cle = re.sub(r"[^a-z0-9]", "", _normaliser(gerant))
-        if cle in SALONS_IGNORES:
+        if cle in SALONS_IGNORES or cle in noms_cats:                   # 26/09 : « Jade » gérante de ses propres comptes n'est pas un clipper
             continue
         fiche = carte.setdefault(gerant.strip().title(),
                                  {"creatrice": creatrices.get(cle, "—"), "canal_id": salons.get(cle),
@@ -745,6 +753,32 @@ def message_clipper_court(prenom: str, b: dict) -> str:
     return "\n".join([f"📊 **{prenom}, ton bilan d'hier**", entete, stats, prime] + alertes)
 
 
+DEPOSER = None                                                  # injecté par bot_discord : matin.deposer (26/09)
+
+
+def message_clipper_ligne(b: dict) -> str:
+    """26/09 : le bilan des Reels en une ligne, pour le message du matin unique. Une alerte seulement si elle existe."""
+    posts, cadence = b["posts_24h"], b.get("cadence", CADENCE_MIN)
+    if b.get("phase", "").startswith("warm-up"):
+        base = "🌱 Warm-up : rien à publier hier, c'est normal"
+    elif not b.get("ig_en_retard") and b["detail"]:
+        base = f"🎬 Hier : **{posts} Reels** ✅"
+    elif posts > 0:
+        base = f"🎬 Hier : **{posts} Reels** ⚠️ il en manque sur " + ", ".join("@" + c for c in b["ig_en_retard"]) + f" (objectif {cadence} par compte)"
+    else:
+        base = f"🎬 Hier : **0 Reel** 🔴 objectif {cadence} par compte"
+    delta = f" ({b['delta_followers']:+d})" if b.get("delta_followers") is not None else ""
+    base += f" · 👁️ {b['vues_24h']:,} vues · 👥 {b['followers']:,} abonnés{delta}".replace(",", " ")
+    alertes = []
+    if b["restreints"]:
+        alertes.append("🔞 Instagram a marqué « 18 ans et plus » : " + ", ".join("@" + c for c in b["restreints"]) + ". Capture à ton manager aujourd'hui.")
+    if b["injoignables"]:
+        alertes.append("🚫 Je ne trouve plus : " + ", ".join("@" + c for c in b["injoignables"]) + ". Dis-le à ton manager.")
+    if b.get("deux_jours_rates"):
+        alertes.append("🚨 Deux journées ratées de suite. Parle à ton manager aujourd'hui.")
+    return "\n".join([base] + alertes)
+
+
 def message_clipper(prenom: str, b: dict) -> str:
     """Le bilan personnel envoyé dans le salon privé du clipper — factuel, jamais moralisateur."""
     if RAPPORT_CLIPPER_COURT:
@@ -1173,8 +1207,11 @@ async def executer(client, guild, canal_admin=None, silencieux=False, debuts=Non
         salon = client.get_channel(b["canal_id"]) if b.get("canal_id") else None
         if salon is None:
             continue
+        ligne_m = message_clipper_ligne(b)
+        if DEPOSER and DEPOSER(salon.id, "inputs", ligne_m):            # 26/09 : dans le message du matin unique
+            continue
         try:
-            await salon.send(message_clipper(prenom, b))
+            await salon.send(ligne_m)
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Bilan non envoyé à %s : %s", prenom, erreur)
         await asyncio.sleep(1)

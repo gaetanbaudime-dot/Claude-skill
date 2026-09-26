@@ -34,6 +34,7 @@ import onboarding                         # comptes depuis le classeur des login
 import rapport_stats                      # rapport GAML quotidien du manager, #jonas-stats (24/09)
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
+import matin                              # un seul message du matin par clipper (26/09)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
 DOSSIER = Path(__file__).parent
@@ -168,6 +169,7 @@ FICHIER_SUBS = DONNEES / "subs.json"                         # abonnés OF par c
 FICHIER_ONBOARDING = DONNEES / "onboarding.json"             # onboarding : comptes livrés (handle → clipper), lien, Drive par clipper
 FICHIER_PARCOURS = DONNEES / "parcours.json"                 # parcours guidé + mémoire par clipper (25/09)
 FICHIER_ETATS = DONNEES / "etats_comptes.json"               # historique Instagram des comptes du classeur (26/09)
+FICHIER_MATIN = DONNEES / "matin.json"                       # morceaux du message du matin par salon (26/09)
 FICHIER_CLICS = DONNEES / "clics.json"                       # paie au clic : liens GAML attribués, relevés par jour, adresses de paiement
 FICHIER_SORTIS = DONNEES / "sortis.json"                     # trace des sorties d'équipe (!sortie) : [{uid, nom, equipe, creatrice, date, par, raison}]
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
@@ -261,8 +263,8 @@ Règles absolues :
 1. Tu réponds UNIQUEMENT avec les informations de la base de connaissances. Si la réponse \
 n'y est pas, tu réponds exactement : « {MESSAGE_ESCALADE} » Tu n'inventes JAMAIS de règle, \
 de chiffre ou de procédure.
-2. RÉPONSES TRÈS COURTES, c'est la règle la plus importante après la première : 2 à 4 \
-phrases courtes maximum, OU une liste de 3 à 5 puces d'une ligne. JAMAIS de gros pavé, \
+2. RÉPONSES TRÈS COURTES, c'est la règle la plus importante après la première : 1 à 3 \
+phrases courtes maximum, OU une liste de 3 puces d'une ligne. JAMAIS de gros pavé, \
 JAMAIS de tutoriel complet (« le setup du compte privé », « le lien GAML de A à Z », « un bon Reel \
 en 4 points ») : tu donnes les 3 gestes essentiels et tu renvoies à la fiche, qui fait le reste. \
 Une seule idée par réponse. Pas de titre en gras en tête de réponse.
@@ -277,11 +279,9 @@ ne sais pas — jamais de délai, de montant, de date ou de règle qui ne soit p
 base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LES \
 CRÉNEAUX DE CRÉATION DE COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; la base \
 curée prime toujours sur la « FAQ apprise » qui la suit.
-4. Termine chaque réponse par l'étiquette de la source entre parenthèses, UNE seule parmi : \
-(Fiche 1) à (Fiche 6) avec son titre, ex. (Fiche 2 — le warm-up) ; (Stratégie marketing) ; \
-(Parcours candidat) pour l'entrée dans l'équipe (candidature, numéro, quiz, test, contrat, \
-conditions) ; (FAQ terrain) pour la paie, la facture, les absences, le téléphone, les codes ; \
-(Manager) pour tout ce qui concerne le manager.
+4. Termine chaque réponse par UNE ligne « 👉 Prochaine étape : … » : le geste précis à faire \
+maintenant, et la fiche à ouvrir si elle aide (ex. « 👉 Prochaine étape : ouvre la Fiche 2 et fais \
+tes 10 minutes de Reels »). Rien d'autre après cette ligne, pas d'étiquette de source.
 4ter. La bonne fiche selon le sujet : créer un compte, identifiants, téléphone cloud, \
 numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; warm-up, première semaine, \
 comptes à suivre → Fiche 2 ; monter un Reel, hook, sous-titres, caption, miniature, musique, \
@@ -323,7 +323,7 @@ quelqu'un qu'il est « dans le mauvais salon » s'il est déjà dans le salon de
 « Team France » ou « Team International » = clipper sous contrat ; un rôle « Manager » = il gère \
 des clippers : réponds-lui avec la section MANAGER de la base (ses missions, ses créneaux, ses \
 commandes), jamais avec le parcours candidat.
-16. Longueur : JAMAIS plus de 900 caractères (environ 8 lignes courtes, 5 puces maximum). Si la \
+16. Longueur : JAMAIS plus de 450 caractères (4 lignes courtes, 3 puces maximum). Si la \
 question demande plus, donne les 3 points essentiels puis le lien de la fiche — la fiche fait le \
 reste. Une réponse trop longue est coupée : mieux vaut courte et complète.
 17. Image hors sujet (arnaque, publicité, mème, capture sans rapport avec le kit) : UNE phrase \
@@ -333,6 +333,11 @@ mes rushs, un ban, un compte bloqué) se règle avec le MANAGER : dis-le et renv
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
+20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence. Aucun code SMS \
+ou WhatsApp n'existe chez nous. Si Instagram demande un NUMÉRO DE TÉLÉPHONE, ou propose « Envoyer \
+un code » vers un numéro : la seule réponse est STOP, ne rien cliquer, ne rien saisir, une capture \
+dans le salon perso, le manager a une autre solution. Tu ne dis JAMAIS d'appuyer sur « Envoyer un \
+code ». Tu ne recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
 20. Tu n'inventes jamais un salon, une commande ou une personne : seuls ceux de la base \
 existent."""
 
@@ -4559,6 +4564,12 @@ async def commande_admin(message, texte: str) -> bool:
                                 "pour tous les signés avec une créatrice au registre.")
             return True
         mgrs = managers_humains(g)
+        etats_cl = {}
+        if onboarding.actif():
+            try:
+                etats_cl = {c["handle"].lower(): c["etat"] for c in await onboarding.lire_comptes()}
+            except Exception as erreur:                                  # noqa: BLE001
+                journal.warning("États du classeur pour !salons-equipe : %s", erreur)
         await message.reply(f"⏳ {len(cibles)} salon(s) à ouvrir, managers : {', '.join(m.display_name for m in mgrs) or 'aucun (rôle Manager absent, pseudo sans « manageur »)'}…")
         bilan_se = []
         for m_, creatrice_c in cibles:
@@ -4587,7 +4598,7 @@ async def commande_admin(message, texte: str) -> bool:
             except Exception as erreur:
                 bilan_onb_c = f"onboarding : {type(erreur).__name__}"
             try:
-                await parcours.demarrer_routine(salon_c, m_, creatrice_c)
+                await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
             except Exception as erreur:
                 journal.warning("Routine %s : %s", m_.id, erreur)
             bilan_se.append(f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
@@ -5714,8 +5725,18 @@ async def on_ready():
         etats_comptes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ETATS": FICHIER_ETATS,
                                   "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
-                                  "clics_7j": _clics_7j, "lien_gaml": _lien_gaml})                 # 26/09 : tableau de bord
+                                  "clics_7j": _clics_7j, "lien_gaml": _lien_gaml,                  # 26/09 : tableau de bord
+                                  "reconcilier": lambda e: parcours.reconcilier(client, e)})
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
+        matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
+                          "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
+                          "prenom_salon": lambda sid: next((prenom_de(m) for m in (client.get_channel(int(sid)).members
+                                                                                  if client.get_channel(int(sid)) else [])
+                                                            if not m.bot and str(m.id) not in ADMIN_IDS and not est_manager(m)), ""),
+                          "inputs_actifs": lambda: bool(inputs_clippers.APIFY_TOKEN)})
+        inputs_clippers.DEPOSER = matin.deposer
+        parcours._deps["deposer"] = matin.deposer
+        client.loop.create_task(matin.boucle(client))                           # un seul message du matin par clipper (26/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
         rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
@@ -6072,6 +6093,12 @@ async def on_message(message):
             await envoyer_mp(message.author, "👋 " + ou_en_es_tu(str(utilisateur)))
         return
 
+    # 26/09 (Thia « ! code », Daniella « Code ») : dans son salon perso, le mot seul vaut la commande
+    if message.guild is not None and re.fullmatch(r"!?\s*codes?\s*[!?.]*", texte.strip(), re.I):
+        sp_code = salon_perso_de(message.author.id)
+        if sp_code is not None and sp_code.id == message.channel.id:
+            texte = "!code"
+            message.content = "!code"
     # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin
     if texte.startswith(("!alias", "!code")):
         if await codes_2fa.commande(message, ADMIN_IDS):
@@ -6365,10 +6392,25 @@ async def on_message(message):
         await message.reply("Je ne sais pas encore écouter les vocaux 🙂 Écris-moi ta question en une phrase.")
         return
 
-    if quota_atteint(utilisateur):
+    sp_q = salon_perso_de(utilisateur) if message.guild is not None else None
+    en_salon_perso = sp_q is not None and sp_q.id == message.channel.id
+    if not en_salon_perso and quota_atteint(utilisateur):               # 26/09 : jamais de quota dans son salon perso (Daniella coupée à 30)
         await message.reply(f"Tu as posé beaucoup de questions aujourd'hui ({QUESTIONS_MAX_PAR_JOUR} max). "
                             "Regarde le Loom ou le canal #faq, et reviens demain !")
         return
+    if en_salon_perso and re.search(r"num[ée]ro de t[ée]l|demande un num[ée]ro|numero de tel", texte, re.I):
+        # 26/09 (Daniella) : le mur du numéro de téléphone bloque un clipper toute une nuit → le manager est prévenu, une fois par jour
+        compteurs_t = lire_json(FICHIER_COMPTEURS, {})
+        jour_t = heure_paris().date().isoformat()
+        if compteurs_t.setdefault("alertes_tel", {}).get(str(utilisateur)) != jour_t:
+            compteurs_t["alertes_tel"][str(utilisateur)] = jour_t
+            ecrire_json(FICHIER_COMPTEURS, compteurs_t)
+            try:
+                await notifier_manager(f"📱 **{prenom_de(message.author)} est bloqué : Instagram demande un numéro de téléphone** "
+                                       f"({message.channel.mention}). Le bot ne peut pas fournir de code SMS. 👉 À toi : "
+                                       f"un autre identifiant du classeur, ou ta méthode pour passer ce mur.")
+            except Exception as erreur:                                  # noqa: BLE001
+                journal.warning("Alerte numéro de téléphone : %s", erreur)
 
     # Construction du contenu : texte + éventuelle capture d'écran
     contenu = []
@@ -6445,6 +6487,8 @@ async def on_message(message):
             lacunes.append({"q": texte[:300], "qui": str(utilisateur),
                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             ecrire_json(FICHIER_LACUNES, lacunes[-200:])
+    reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
+    reponse = re.sub(r"\n\s*\(?(Fiche \d[^\n]*|Manager\)?(\s*[—-]\s*Salon perso)?|FAQ terrain\)?|Parcours candidat\)?|Stratégie marketing\)?)\s*$", "", reponse).rstrip()
     reponse_liee = lier_references(assainir_mentions(reponse))
     await repondre_long(message, reponse_liee)   # limite Discord = 2000 caractères, coupe propre
     await etiqueter_forum(message, reponse)      # range le post par sujet (texte brut : « Fiche N » lisible)

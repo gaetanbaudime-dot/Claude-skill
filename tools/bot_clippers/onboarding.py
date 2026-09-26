@@ -315,6 +315,15 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     etat = _lire_etat()
     fiche = etat["clippers"].setdefault(str(membre.id), {})
     resultat = []
+    # 26/09 : `!salons-equipe` relancé = le même message de comptes deux fois dans chaque salon. Une livraison déjà faite
+    # dans les 24 h n'est pas rejouée, sauf forçage explicite (`!onboarding @clipper`).
+    if not declencheur.startswith("!onboarding") and fiche.get("comptes") and fiche.get("date"):
+        try:
+            depuis = datetime.now(timezone.utc) - datetime.fromisoformat(fiche["date"])
+        except ValueError:
+            depuis = timedelta(days=9)
+        if depuis < timedelta(hours=24):
+            return f"📦 Onboarding de {membre.display_name} ({fiche.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
     # 1. comptes depuis le classeur
     comptes = []
     if actif():

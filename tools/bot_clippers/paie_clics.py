@@ -272,11 +272,10 @@ def ligne_matin(d: dict, uid: str) -> str:
     q = somme(d, lids, debut, min(fin, hier))
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
     au_clic = regime(uid) == "clic"
-    montant = (f"= {_usd(q['payes'] * TAUX_CLIC)}" if au_clic else f", soit {_usd(q['payes'] * TAUX_CLIC)} au clic, juste pour info")
-    return (f"☀️ **Hier, le {hier.strftime('%d/%m')}** : {_fmt(h['hors_robots'])} visiteurs, dont **{_fmt(h['payes'])} qui comptent**.\n\n"
-            f"📆 Quinzaine du {debut.strftime('%d/%m')} au {fin.strftime('%d/%m')} : **{_fmt(q['payes'])} visites {montant}**. "
-            f"Sur 7 jours : {_fmt(s7['payes'])}, soit {_fmt(s7['payes'] / 7)} par jour.\n\n"
-            f"-# Écris `!mesclics` pour le détail" + ("" if not au_clic or str(uid) in d["wallets"] else " · `!wallet` pour ton adresse de paiement"))
+    montant = f" = {_usd(q['payes'] * TAUX_CLIC)}" if au_clic else ""
+    # 26/09 : une ligne, dans le message du matin (les détails restent dans `!mesclics`)
+    return (f"👀 Visites hier : **{_fmt(h['payes'])}** · quinzaine : **{_fmt(q['payes'])}{montant}**"
+            + ("" if not au_clic or str(uid) in d["wallets"] else "\n⚠️ Adresse de paiement manquante : `!wallet 0x…` ou `!wallet FR76…`"))
 
 
 def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple:
@@ -397,6 +396,10 @@ async def envoyer_lignes_matin(d: dict) -> int:
         salon = salon_de(uid) if texte else None
         if salon is None:
             journal.info("Ligne du matin %s : %s", uid, "pas de relevé d'hier" if not texte else "salon perso introuvable ou fermé au bot")
+            continue
+        deposer = _deps.get("deposer")
+        if deposer and deposer(salon.id, "clics", texte):              # 26/09 : dans le message du matin unique
+            envoyes += 1
             continue
         try:
             await salon.send(texte)
