@@ -245,6 +245,7 @@ async def reserver(comptes: list, prenom_clipper: str) -> int:
 
 
 def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
+    """26/09 (Gaëtan : « hyper long, trop d'informations ») : les 3 comptes et une ligne de règle, rien d'autre."""
     if not comptes:
         return (f"⚠️ Il n'y a pas encore de compte prêt pour {creatrice}. Ton manager en prépare. "
                 "Je te les envoie ici dès qu'ils sont prêts.")
@@ -254,19 +255,13 @@ def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
     for i, c in enumerate(ordonnes, start=1):
         prive = _est_prive(c) if a_un_prive else (i == len(ordonnes) and len(ordonnes) >= 3)
         role = "privé, ton compte secret" if prive else "il publie"
-        etat = "à créer, sur ton téléphone" if _norm(c["etat"]) in A_CREER else "déjà créé"
-        blocs.append(f"**Compte {i} · {role}** — {etat}\n"
-                     f"Identifiant : `{c['handle']}`\n"
-                     f"Mot de passe : `{c['mdp'] or 'demande-le à ton manager'}`\n"
-                     + (f"E-mail : `{c['mail']}`\n" if c["mail"] else "")
-                     + (f"Téléphone : `{c['phone']}`\n" if c["phone"] else ""))
-    return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice}\n\n" + "\n".join(blocs) + "\n"
-            "Les règles :\n"
-            "• Tu crées et tu te connectes **seulement sur ton téléphone**. Jamais sur un ordinateur.\n"
-            "• Un compte par jour.\n"
-            "• Le code d'Instagram arrive ici. Écris `!code`.\n"
-            "• La première semaine, tu chauffes les comptes. Tu ne publies rien. Après, 2 Reels par jour sur chaque compte qui publie.\n"
-            "• Ne donne jamais ces accès à quelqu'un. Ils sont à l'agence.")
+        deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé"
+        blocs.append(f"**Compte {i} · `{c['handle']}`** · {role}{deja}\n"
+                     f"Mot de passe `{c['mdp'] or 'demande-le à ton manager'}`"
+                     + (f" · e-mail `{c['mail']}`" if c["mail"] else "")
+                     + (f" · tél `{c['phone']}`" if c["phone"] else ""))
+    return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice}\n\n" + "\n\n".join(blocs) + "\n\n"
+            "Un compte par jour, sur ton téléphone seulement. Ces accès sont à l'agence : tu ne les donnes à personne.")
 
 
 # ------------------------------------------------------------------ Drive
@@ -396,16 +391,15 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     # 4. message
     texte = message_comptes(comptes, prenom, creatrice)
     if lien:
-        texte += f"\n\n🔗 **Ton lien** : {lien}\nCe lien compte tes visites. Écris `!mesclics` pour les voir."
+        texte += f"\n\n🔗 **Ton lien** : {lien} · tes visites : `!mesclics`"
     if drive:
-        texte += (f"\n\n📁 **Ton Drive**, avec les photos et les vidéos de {creatrice.split()[0]} : {drive}\nTu regardes et tu télécharges. Tu ne modifies rien."
-                  + ("" if email else "\nPour l'ouvrir, envoie-moi ici **ton adresse Gmail**, celle de ton téléphone. Je te le partage tout de suite."))
+        texte += (f"\n📁 **Ton Drive** (photos et vidéos de {creatrice.split()[0]}) : <{drive}>"
+                  + ("" if email else " · envoie-moi ici **ton adresse Gmail** pour l'ouvrir"))
     if salon is not None and codes_2fa.actif():
         try:
             n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")
             if n_alias:
-                texte += f"\n\n📨 Les codes Instagram de {'ces adresses' if n_alias > 1 else 'cette adresse'} arrivent ici tout seuls."
-                resultat.append(f"{n_alias} alias 2FA rattaché(s)")
+                resultat.append(f"{n_alias} alias 2FA rattaché(s)")                # 26/09 : plus de ligne dans le message, l'étape 1 dit `!code`
         except Exception as erreur:                                     # jamais bloquer la livraison
             journal.warning("Alias 2FA %s : %s", prenom, erreur)
     cible = salon if salon is not None else membre

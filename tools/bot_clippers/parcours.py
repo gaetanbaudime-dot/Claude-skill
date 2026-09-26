@@ -29,68 +29,48 @@ WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "7") or 7)
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 ETAPES = {
+    # 26/09 (Gaëtan : « hyper long, trop d'informations pour les clippeurs ») : 5 lignes par étape, une action par ligne.
     1: {"titre": "Étape 1 · Crée ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": ["info"],
-        "texte": ("Tu as accès à **{creatrice}**. Ses infos et ses comptes sont dans {info}.\n\n"
-                  "Si tu peux, prends un iPhone rien que pour ce travail. Pas ton compte Instagram perso dessus.\n\n"
-                  "**Compte 1 : `{compte1}`**\n"
-                  "1. Ouvre Instagram. Appuie sur **Créer un compte**. Choisis **avec un e-mail**.\n"
-                  "2. Colle cet e-mail : `{mail1}`\n"
-                  "3. Instagram demande un code. Écris `!code` ici. Je te donne le code.\n"
-                  "4. Écris le code dans Instagram. Puis le mot de passe donné plus haut. Pas un autre.\n"
-                  "5. Mets un prénom. Mets ta vraie date de naissance : tu dois être majeur. Instagram demande un numéro de téléphone ? Mets **le tien**. Ce numéro ne sert que pour tes 3 comptes, jamais pour d'autres.\n"
-                  "6. Mets une photo et une petite bio. Copie le style des comptes de {creatrice} dans {info}. Pas de lien. Pas de ville.\n\n"
-                  "Un seul compte aujourd'hui. Quand c'est fait, appuie sur le bouton. Le compte 2, c'est demain.")},
+        "texte": ("**Compte 1 : `{compte1}`**\n"
+                  "1. Instagram → Créer un compte → avec un e-mail : `{mail1}`\n"
+                  "2. Code demandé ? Écris `!code` ici.\n"
+                  "3. Mot de passe : celui du message des comptes.\n"
+                  "4. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
+                  "5. Photo + bio sage, comme les comptes dans {info}. Pas de lien.\n\n"
+                  "Fini ? Appuie sur le bouton. Compte 2 demain.")},
     2: {"titre": "Étape 2 · Crée ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": ["info"],
-        "texte": ("Même chose que le compte 1. Sur le **même téléphone**. Tu ajoutes un compte, tu ne te déconnectes pas.\n\n"
-                  "**Compte 2 : `{compte2}`**\nE-mail : `{mail2}`\n"
-                  "1. Créer un compte, avec un e-mail.\n"
-                  "2. Écris `!code` ici pour le code.\n"
-                  "3. Le mot de passe donné plus haut.\n"
-                  "4. Une photo et une bio différentes du compte 1.\n\n"
-                  "⚠️ Si Instagram crée le compte **sans** demander d'e-mail : arrête tout. Écris-le ici.")},
+        "texte": ("**Compte 2 : `{compte2}`** · e-mail `{mail2}`\n"
+                  "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
+                  "Photo et bio différentes du compte 1.\n\n"
+                  "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.")},
     3: {"titre": "Étape 3 · Crée ton compte privé", "fiche": "1", "bouton": "✅ Compte privé créé", "salons": ["info"],
-        "texte": ("Le compte privé, c'est ton compte secret. Il ne publie rien. Plus tard, il gardera ton lien.\n\n"
-                  "**Compte 3 : `{compte3}`**\nE-mail : `{mail3}`\n"
-                  "1. Créer un compte, avec un e-mail.\n"
-                  "2. Écris `!code` ici pour le code.\n"
-                  "3. Le mot de passe donné plus haut.\n"
-                  "4. Dans les réglages, passe le compte en **privé**. C'est le cadenas.\n"
-                  "5. Bio : le prénom de {creatrice} et une phrase gentille. **Pas de lien pour l'instant.** Je te dirai quand.\n\n"
-                  "Quand c'est fait, appuie sur le bouton. Ensuite, on chauffe les comptes.")},
-    4: {"titre": "Étape 4 · Le warm-up : chauffe tes comptes {jours} jours (Fiche 2)", "fiche": "2", "bouton": "✅ Mes {jours} jours sont finis", "salons": ["ressources"],
-        "texte": ("Pendant {jours} jours, tes comptes doivent chauffer. Instagram apprend qui tu es. **Pas de Reel avant le jour {jour_suivant}.**\n\n"
-                  "Chaque jour, sur chaque compte :\n"
-                  "• Regarde des Reels de créatrices françaises pendant 10 minutes. La liste est dans {ressources}.\n"
-                  "• Mets 5 likes.\n"
-                  "• Abonne-toi à 2 comptes de la liste.\n"
-                  "• Écris 1 ou 2 petits commentaires.\n"
-                  "• Poste 1 story sans lien. Par exemple un sondage.\n\n"
-                  "Chaque matin, je te dis à quel jour tu es. Au jour {jour_suivant}, je t'ouvre les Reels.")},
+        "texte": ("**Compte 3 : `{compte3}`** · e-mail `{mail3}` · ton compte secret, il ne publie pas.\n"
+                  "1. Crée-le comme les autres.\n"
+                  "2. Réglages → compte **privé** (le cadenas).\n"
+                  "3. Bio : le prénom de {creatrice} + une phrase gentille. Pas de lien, je te dirai quand.\n\n"
+                  "Fini ? Appuie sur le bouton. Ensuite, on chauffe les comptes.")},
+    4: {"titre": "Étape 4 · Le warm-up : {jours} jours (Fiche 2)", "fiche": "2", "bouton": "✅ Mes {jours} jours sont finis", "salons": ["ressources"],
+        "texte": ("{jours} jours sans publier : Instagram apprend qui tu es.\n"
+                  "Chaque jour, sur chaque compte : 10 min de Reels de créatrices françaises ({ressources}), 5 likes, "
+                  "2 abonnements, 1 ou 2 commentaires, 1 story sans lien.\n\n"
+                  "Chaque matin, je te dis à quel jour tu es. Au jour {jour_suivant}, on publie.")},
     5: {"titre": "Étape 5 · Ton premier Reel (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
-        "texte": ("Tes vidéos brutes sont dans ton Drive : {drive}\n\n"
-                  "1. Télécharge une vidéo. Ouvre **Edits**, l'appli gratuite d'Instagram.\n"
-                  "2. Coupe le début. La première seconde doit donner envie de rester.\n"
-                  "3. Ajoute des sous-titres faciles à lire. Choisis une image de couverture claire.\n"
-                  "4. Écris un petit texte simple sous la vidéo. Des exemples sont dans {ressources}.\n"
-                  "5. Publie sur `{compte1}`. Puis pareil sur `{compte2}`.\n\n"
-                  "Quand ton premier Reel est en ligne, appuie sur le bouton.")},
+        "texte": ("Tes vidéos : {drive}\n"
+                  "1. Télécharge une vidéo, ouvre **Edits** (l'appli gratuite d'Instagram).\n"
+                  "2. Coupe le début : la première seconde doit accrocher.\n"
+                  "3. Sous-titres lisibles, couverture claire, petit texte (exemples dans {ressources}).\n"
+                  "4. Publie sur `{compte1}`, puis sur `{compte2}`.\n\n"
+                  "Premier Reel en ligne ? Appuie sur le bouton.")},
     6: {"titre": "Étape 6 · Mets ton lien (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
-        "texte": ("**Ton lien** : {lien}\n\n"
-                  "1. Va sur `{compte3}`, le compte privé. Colle ce lien dans la bio.\n"
-                  "2. Va sur `{compte1}` et sur `{compte2}`. Dans la bio, écris seulement **@{compte3}**. Rien d'autre. "
-                  "Jamais le lien sur un compte qui publie.\n"
-                  "3. Écris `!mesclics` ici. Ce lien compte tes visites. Tes visites, c'est ta paie, le 5 et le 20.\n\n"
-                  "Quand c'est fait, appuie sur le bouton.")},
+        "texte": ("**Ton lien** : {lien}\n"
+                  "1. Sur `{compte3}`, le privé : le lien dans la bio.\n"
+                  "2. Sur `{compte1}` et `{compte2}` : seulement **@{compte3}** dans la bio. Jamais le lien.\n"
+                  "3. `!mesclics` ici : ce lien compte tes visites, donc ta paie, le 5 et le 20.\n\n"
+                  "Fini ? Appuie sur le bouton.")},
     7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": ["reporting"],
-        "texte": ("Chaque jour :\n"
-                  "• 2 Reels sur `{compte1}`.\n"
-                  "• 2 Reels sur `{compte2}`.\n"
-                  "• 1 story.\n"
-                  "• Quelques commentaires.\n\n"
-                  "Chaque matin, je t'écris ici tes visites d'hier.\n"
-                  "Chaque dimanche, tu remplis le formulaire : {lien_reporting}. Les consignes sont dans {reporting}.\n\n"
-                  "Je suis là tous les jours. Une question sur un compte, un code, un Reel, ta paie ? Écris ici. "
-                  "Ton manager lit aussi ce salon.")},
+        "texte": ("Chaque jour : 2 Reels sur `{compte1}`, 2 sur `{compte2}`, 1 story, quelques commentaires.\n"
+                  "Chaque matin, tes visites d'hier ici. Chaque dimanche, le formulaire : {lien_reporting} ({reporting}).\n\n"
+                  "Une question ? Écris ici.")},
 }
 WARMUP_JOUR_TEXTE = ("🔥 **Warm-up : jour {j} sur {jours}.** Aujourd'hui, sur chaque compte : 10 minutes de Reels, "
                      "5 likes, 2 abonnements, 1 story sans lien. Pas de Reel.")

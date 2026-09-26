@@ -3583,10 +3583,8 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     roster.ajouter(creatrice_c, prenom_de(m_))
     if cree_c:
         try:
-            await salon_c.send(f"🏠 {m_.mention}, voici ton salon perso. Ici tu reçois tout : tes comptes, tes codes, "
-                               f"ton lien, tes visites chaque matin, ta paie le 5 et le 20. "
-                               + (f"{', '.join(x.mention for x in mgrs)} lit ce salon. " if mgrs else "")
-                               + "Une question ? Un compte qui bloque ? Écris ici.")
+            await salon_c.send(f"🏠 {m_.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. Une question ? Écris ici."
+                               + (f" {', '.join(x.mention for x in mgrs)} lit ce salon." if mgrs else ""))
         except (discord.Forbidden, discord.HTTPException):
             pass
     try:
@@ -6586,9 +6584,8 @@ async def on_message(message):
                 creatrice_a, "Salon perso ouvert au J'ACCEPTE")
             if salon_a is not None and cree_a:
                 try:
-                    await salon_a.send(f"🏠 {membre_a.mention}, voici ton salon perso. Ici tu reçois tout : tes comptes, tes codes, "
-                                       "ton lien, tes visites chaque matin, ta paie le 5 et le 20. "
-                                       "Ton manager lit ce salon. Prochaine étape : ta créatrice et tes comptes.")
+                    await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. "
+                                       "Prochaine étape : ta créatrice et tes comptes.")
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             if salon_a is not None:
