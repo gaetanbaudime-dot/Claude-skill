@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v9, 25 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, plus de contrat ni de distinction de pays)
+# Base de connaissances — Kit Clipper G&M (v10, 25 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, plus de contrat ni de distinction de pays)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -12,9 +12,9 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 
 - **Ton salon perso** (#ton-prénom, dans la catégorie de ta créatrice) : c'est là que je suis ton manager au quotidien. Tes comptes et leurs codes (`!code`), ton lien, tes visites (`!mesclics`), tes paies, ton parcours étape par étape avec des boutons. Ton manager humain (rôle « Manager ») y lit tout et y répond aussi : un ban, un compte à zéro, un rush manquant, c'est lui.
 - **Le bot (moi), dans #assistant-ia, 24 h/24** : la méthode, le kit, le parcours candidat, la facture.
-- **Gaëtan** (mentionne @Gaëtan dans #assistant-ia ou dans ton salon perso) uniquement pour : paiement, wallet ou virement bloqué, parrainage, arnaque à signaler.
+- **Gaëtan**, en dernier recours, sur WhatsApp : le bouton « 💬 Écrire à Gaëtan » dans ton salon perso, ou demande-moi le lien. Tu te présentes (prénom, créatrice), tu dis le problème en une phrase, tu mets une capture. Pour : paiement bloqué, compte bloqué que le bot ne sait pas débloquer, parrainage, arnaque.
 - Une question sur tes comptes envoyée à Gaëtan revient au manager : gagne du temps, écris-lui directement.
-- **Pas encore de manager** (candidat, quiz ou test en cours) : le bot, en message privé ou dans #assistant-ia. Bloqué depuis plus de 24 h ? Mentionne @Gaëtan dans #assistant-ia.
+- **Candidat** (quiz ou test en cours) : le bot, en message privé ou dans #assistant-ia. Bloqué depuis plus de 24 h ? Demande-moi le lien WhatsApp de Gaëtan.
 
 ## L'objectif du clipper (dans l'ordre)
 
@@ -24,17 +24,20 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 4. Refaire ce qui marche.
 5. Faire venir des gens sur ton lien. C'est ça qui te paie.
 
-## LE PARCOURS CANDIDAT (hors Discord jusqu'au test validé — depuis le 14 septembre 2026, le serveur est réservé aux clippers validés)
+## LE PARCOURS (du formulaire au premier Reel) — version du 26 septembre 2026
 
-1. **Formulaire de candidature** : prénom, pays, numéro WhatsApp, adresse e-mail. Ensuite tu reçois la vidéo de formation et le lien du quiz : sur WhatsApp par le manager (sous 72 h) ou par e-mail (regarde aussi tes spams). Le formulaire ne donne plus de lien Discord : on n'arrive sur le serveur qu'une fois validé.
-2. **La formation** : la vidéo (54 minutes, « le Loom »), **en entier** : **4 mots-clés y sont cachés**, note-les dans l'ordre, ils sont demandés au quiz. Personne ne les donne, ni le bot, ni un autre clipper. Les demander = disqualifié.
-3. **Le quiz** : seuil **30/34**, deux essais maximum. Tu indiques le **MÊME numéro WhatsApp** que dans ta candidature (c'est lui qui relie tes réponses). Quiz raté → un e-mail te donne ton score et le lien du deuxième essai.
-4. **Le test de montage** : quiz réussi → un e-mail t'envoie le dossier de rushs (souvent 6) : **tu en choisis 2 et tu rends 2 Reels montés en 48 h** en message privé au bot : clique sur le **+** à gauche de la zone de message, puis **Uploader un fichier** (10 Mo maximum par vidéo : exporte en 1080p à débit modéré ou en 720p). Sans Discord, le formulaire « Rendu du test » avec un lien vers tes 2 vidéos. La réponse arrive en général sous 72 h, sur WhatsApp : c'est une personne qui regarde ton test, ce n'est pas une promesse de délai.
-5. **Test validé** → tu reçois sur WhatsApp ton **invitation personnelle** au Discord de l'équipe (valable 7 jours, pour toi seul, ne la transmets pas). À ton arrivée le bot te reconnaît (prénom, numéro) et t'écrit en message privé : rien d'autre à faire que d'avoir tes messages privés serveur ouverts.
-6. **Test validé** → tu reçois tes conditions en message privé, tu réponds **J'ACCEPTE** : ton rôle s'ouvre et **ton salon perso est créé**. Même règle pour tout le monde, France, Madagascar, Bénin : plus de contrat, plus de SIRET, plus de distinction de pays.
-7. **Ta créatrice** : sous 48 h, ton manager tape `!creatrice` et tu reçois dans ton salon perso tes **3 comptes Instagram** (identifiants, mots de passe, e-mails), ton **lien en bio**, ton **Drive** (envoie ton adresse Gmail dans le salon pour qu'il s'ouvre) et le **parcours guidé** : une étape à la fois, un bouton « ✅ C'est fait » pour passer à la suivante.
+1. **Le formulaire du site** (3 minutes) : prénom, pays, WhatsApp, téléphone, expérience. À la fin, tu connectes ton Discord et tu arrives directement sur le serveur.
+2. **La vidéo de formation** : tu la regardes en entier. Elle explique tout ce qui suit.
+3. **Le quiz** : `!quiz` te donne ton lien. Il faut **30 bonnes réponses sur 34**. Deux essais.
+4. **Le test de montage** : quiz réussi → le bot t'envoie en message privé une vidéo brute. Tu fais un Reel simple et accrocheur : tu changes le texte, la musique, le format, tu coupes, tu modifies le plus possible la vidéo de base, comme dans la formation. Tu envoies ta vidéo **directement dans la conversation privée avec le bot** (le **+** à gauche de la zone de message, 48 h maximum).
+5. **L'avis du bot** : le bot regarde ton montage et te répond tout de suite, avec une note sur 10. Bon montage → validé. Un manager peut confirmer ou corriger.
+6. **J'ACCEPTE** : tu reçois tes conditions en message privé, tu réponds J'ACCEPTE. Ton rôle s'ouvre, ton salon perso est créé.
+7. **Tes 3 comptes Instagram** arrivent dans ton salon perso (identifiants, mots de passe, e-mails) avec ton lien et ton Drive. Instagram demande un code ? Écris `!code` : le bot te donne le code reçu sur l'e-mail de l'agence.
+8. **Un compte par jour** : compte 1 le jour 1, puis 24 h de warm-up. Compte 2 le jour 2, 24 h de warm-up. Compte 3 le jour 3, 24 h de warm-up. Ensuite, les Reels. Le bot te guide étape par étape, avec un bouton « ✅ C'est fait ».
 
-Problèmes fréquents : pas d'e-mail après le formulaire → regarde tes spams, puis réponds là où tu as vu l'annonce · le bot ne t'a pas écrit à ton arrivée → ouvre tes messages privés serveur (Paramètres de confidentialité du serveur) et écris-lui « bonjour » · tu es arrivé sur le serveur sans invitation personnelle → le bot te raccompagne, c'est normal : la candidature passe par le formulaire · test non rendu à temps → recandidate dans 15 jours. ⚠️ **Ton numéro et ton e-mail ne se postent JAMAIS dans un salon** (tout le serveur le verrait).
+Une question ? D'abord le bot dans #assistant-ia, puis ton salon perso. En dernier, Gaëtan sur WhatsApp : le bouton « Écrire à Gaëtan » dans ton salon perso, ou demande-moi le lien. Présente-toi, une phrase, une capture.
+
+Problèmes fréquents : le bot ne t'a pas écrit à ton arrivée → ouvre tes messages privés serveur (Paramètres de confidentialité du serveur) et écris-lui « bonjour » · tu es arrivé sans passer par le formulaire → refais le formulaire du site · test non rendu à temps → recandidate dans 15 jours. ⚠️ **Ton numéro et ton e-mail ne se postent JAMAIS dans un salon** (tout le serveur le verrait).
 
 ## LES SALONS DU SERVEUR (qui va où)
 
@@ -52,18 +55,19 @@ Commandes utiles pour tous : ton numéro en MP au bot = candidature reliée · `
 
 ## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram sur ton téléphone
 
-- **2 comptes qui publient**. On les appelle les comptes de croissance. Ils font des vues. Dans leur bio, il y a seulement l'@ du compte privé. Jamais de lien.
-- **1 compte privé**. C'est le compte secret. Il ne publie rien. Il n'accepte personne. Il garde ton lien. Les gens cliquent sur l'@ dans la bio des comptes qui publient. Ils arrivent sur le privé. Ils voient le lien.
-- **Pas de page Facebook.** Depuis le 14 septembre 2026, on travaille seulement sur Instagram. Si la vidéo de formation parle de Facebook, saute ce passage.
+Chaque clipper a **3 comptes Instagram**. Deux façons de les organiser :
+- **Option 1, celle par défaut** : 2 comptes qui publient (les comptes de croissance, ils font des vues) + 1 compte privé, le compte secret. Le privé ne publie rien, n'accepte personne, et garde ton lien dans sa bio et dans une story à la une. Dans la bio des comptes qui publient, il y a seulement l'@ du compte privé. Les gens cliquent sur l'@, arrivent sur le privé, voient le lien.
+- **Option 2** : 3 comptes qui publient. Le lien va seulement dans une story à la une. Jamais dans la bio d'un compte qui publie.
+- **Pas de page Facebook.** On travaille seulement sur Instagram.
 
-La cadence : **2 Reels par jour sur chaque compte qui publie. Ça fait 4 Reels par jour.** Pas plus, sauf si ton manager le dit.
+Tu es payé au clic sur ton lien : 0,05 $ par visite réelle, francophone. Le but : le plus de vues possible, et le plus de clics français vers ton lien. **Le lien ne se spamme pas** : pas dans la légende d'un Reel, pas en rafale dans les stories. Sinon le compte est banni et tout est perdu.
 
 Comment ça monte :
-- **Semaine 1** : tu crées tes comptes, un par jour. Tu chauffes les comptes. Tu ne publies rien.
-- **Semaine 2** : 1 Reel par jour sur chaque compte qui publie.
-- **Semaine 3 et après** : 2 Reels par jour sur chaque compte qui publie.
+- **Jour 1** : compte 1, puis 24 h de warm-up. **Jour 2** : compte 2, puis 24 h de warm-up. **Jour 3** : compte 3, puis 24 h de warm-up.
+- **Jour 4** : 1 Reel par jour sur chaque compte qui publie.
+- **À partir du jour 8** : 2 Reels par jour sur chaque compte qui publie. C'est la cadence normale, pas plus sauf si ton manager le dit.
 
-Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur chaque compte qui publie. On compte de minuit à minuit, heure de Paris. C'est le bot qui compte. Chaque matin, il te dit si hier est réussi. La semaine 1 et la semaine 2 ne comptent pas contre toi.
+Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur chaque compte qui publie. On compte de minuit à minuit, heure de Paris. C'est le bot qui compte. Chaque matin, il te dit si hier est réussi. Les 7 premiers jours ne comptent pas contre toi.
 
 ## LA CRÉATION DES COMPTES (dans ton salon perso, avec le bot)
 
@@ -84,6 +88,8 @@ Ton téléphone, les règles :
 - Les comptes restent à l'agence. Les e-mails sont à l'agence. Si tu quittes l'équipe, les mots de passe changent et tu supprimes les comptes de ton téléphone.
 
 ## CE QU'ON NE DIT PLUS (ancien kit, avant le 7 septembre 2026)
+
+- **Depuis le 26 septembre 2026** : plus de « semaine 1 de warm-up » (c'est 24 h par compte), plus de créneau lundi/mercredi/vendredi avec le manager (le clipper crée ses comptes seul, guidé par le bot), plus de « review sous 72 h » (le bot donne son avis sur le test tout de suite), plus de « jamais ton numéro » (il met le sien si Instagram le demande).
 
 Si tu as lu une vieille version du kit, voilà ce qui a changé :
 - Plus de créneau lundi/mercredi/vendredi : tes comptes se créent dans ton salon perso, étape par étape avec le bot, un par jour. Gaëtan n'envoie pas d'identifiants, ils sont dans ton salon.
@@ -115,19 +121,19 @@ Le lien : seulement sur le compte privé. C'est toi qui le mets, à l'étape 6, 
 
 La vidéo pas à pas est dans le post Fiche 1 du forum formation. Les passages sur Facebook ne comptent plus.
 
-## FICHE 2 — Le warm-up : chauffer tes comptes (toute la semaine 1)
+## FICHE 2 — Le warm-up : 24 h après chaque compte
 
-Le but : montrer à Instagram que ton compte est celui d'une vraie personne. De la création au premier Reel, tu ne publies rien.
+Le but : montrer à Instagram que ton compte est celui d'une vraie personne. Après chaque compte créé, 24 h sans publier.
 
-Chaque jour, un peu, comme une vraie utilisatrice :
-- Regarde seulement des Reels de créatrices françaises. La liste est dans #ressources.
-- Abonne-toi aux créatrices de la liste. Active la cloche pour leurs Reels.
-- Mets des likes. Regarde les vidéos en entier. Écris un petit commentaire de temps en temps.
-- Enregistre les meilleurs Reels. Tu les referas plus tard.
+Pendant ces 24 h, un peu, comme une vraie utilisatrice :
+- Regarde seulement des Reels de créatrices françaises, 10 minutes. La liste est dans #ressources.
+- Abonne-toi à 2 créatrices de la liste. Active la cloche pour leurs Reels.
+- Mets 5 likes. Regarde les vidéos en entier. Écris 1 ou 2 petits commentaires.
+- Poste 1 story sans lien, par exemple un sondage. Enregistre les meilleurs Reels, tu les referas.
 
-Le test, à partir du 2e jour : ouvre l'onglet Explorer. Il montre des créatrices françaises ? Ton compte est chaud. On attend quand même la semaine 2 pour publier. Il montre autre chose ? Continue tranquillement. Rien après plusieurs jours ? Tu vas trop vite. Dis-le à ton manager.
+Le test : ouvre l'onglet Explorer. Il montre des créatrices françaises ? Ton compte est chaud. Il montre autre chose ? Continue tranquillement.
 
-Ce qui casse un warm-up : publier en semaine 1. Regarder des vidéos hors sujet. Les rafales, par exemple 50 likes en 5 minutes. Un lien mis trop tôt. Le même compte sur plusieurs appareils.
+Ce qui casse un warm-up : publier un Reel avant la fin des 24 h. Regarder des vidéos hors sujet. Les rafales, par exemple 50 likes en 5 minutes. Un lien mis trop tôt. Le même compte sur plusieurs appareils.
 
 ## FICHE 3 — Monter et poster un Reel
 

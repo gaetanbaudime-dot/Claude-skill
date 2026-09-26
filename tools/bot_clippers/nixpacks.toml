@@ -1,0 +1,3 @@
+# ffmpeg pour l'avis automatique du bot sur les tests de montage (26/09) — "..." garde les paquets Python par défaut
+[phases.setup]
+nixPkgs = ["...", "ffmpeg"]

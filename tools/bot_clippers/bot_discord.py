@@ -16,6 +16,9 @@ import logging
 import os
 import re
 import time
+import subprocess
+import tempfile
+import shutil
 import unicodedata
 import zipfile
 from datetime import date, datetime, timedelta, timezone
@@ -287,7 +290,7 @@ curée prime toujours sur la « FAQ apprise » qui la suit.
 maintenant, et la fiche à ouvrir si elle aide (ex. « 👉 Prochaine étape : ouvre la Fiche 2 et fais \
 tes 10 minutes de Reels »). Rien d'autre après cette ligne, pas d'étiquette de source.
 4ter. La bonne fiche selon le sujet : créer un compte, identifiants, téléphone cloud, \
-numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; warm-up, première semaine, \
+numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; warm-up, 24 h par compte, \
 comptes à suivre → Fiche 2 ; monter un Reel, hook, sous-titres, caption, miniature, musique, \
 publier, heure de publication → Fiche 3 ; routine du jour, \
 cadence, semaine type, reporting → Fiche 4 ; Reels d'essai, dupliquer ce qui marche, tests, \
@@ -985,6 +988,15 @@ async def _renommer_salon(canal_id: str, nouveau_nom: str):
         await canal.edit(name=nouveau_nom)  # Discord limite à ~2 renommages / 10 min / salon
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Renommage du salon-compteur impossible (%s) : %s", nouveau_nom, erreur)
+
+
+def vue_whatsapp():
+    """Le bouton « Écrire à Gaëtan (WhatsApp) » (26/09), posé sous l'accueil du salon perso et sous chaque étape."""
+    if not WHATSAPP_GAETAN_URL:
+        return None
+    vue = discord.ui.View(timeout=None)
+    vue.add_item(discord.ui.Button(label="💬 Écrire à Gaëtan (WhatsApp)", style=discord.ButtonStyle.link, url=WHATSAPP_GAETAN_URL))
+    return vue
 
 
 def prenom_du_salon(sid) -> str:
@@ -2273,7 +2285,7 @@ def ou_en_es_tu(uid: str) -> str:
         return ("**Ton test est en cours** : dépose tes 2 clips ici en MP (fichiers ou lien Drive) avant "
                 f"l'échéance du {str(info.get('echeance', ''))[:10]}.")
     if etat == "test_rendu":
-        return "**Ton test est en review** — tu auras la réponse ici sous 72 h maximum."
+        return "**Ton test est reçu.** Je te donne mon avis ici dans les minutes qui suivent, un manager confirme."
     if etat in ("test_expire", "refuse"):
         retest = str(info.get("retest", ""))[:10]
         return (f"**Retest possible à partir du {retest}** : ce jour-là, écris **VALIDÉ** ici et ton test "
@@ -2374,6 +2386,101 @@ async def traiter_rendu_webhook(message, silencieux=False):
         f"🔗 {lien or 'lien manquant'}" + (f"\n💬 « {remarque[:300]} »" if remarque else "")
         + f"\n→ Validé : `!inviter {ref}` (crée son invitation personnelle) · Non : `!refuser {ref} motif`",
         message.guild)
+
+
+
+# ------------------------------------------------------------------ avis automatique sur le test de montage (26/09)
+# Gaëtan : « le bot va dire si le montage est bon ou pas ; si c'est bon, un salon lui est attribué ». Le bot lit la vidéo
+# (ffprobe : format, durée), en tire 4 images, les fait juger par le modèle sur une grille simple et note sur 10. Au-dessus
+# de TEST_AUTO_SEUIL, le test est validé tout seul (même chemin que `!test-ok`) ; en dessous, l'avis part au manager.
+TEST_AUTO = os.environ.get("TEST_AUTO", "1").strip() == "1"
+TEST_AUTO_SEUIL = int(os.environ.get("TEST_AUTO_SEUIL", "7") or 7)
+GRILLE_AVIS_TEST = (
+    "Tu juges le test de montage d'un candidat clipper pour une agence : un Reel Instagram vertical fait à partir d'une vidéo "
+    "brute d'une créatrice. Tu vois {n} images prises à des moments différents du Reel, et ses caractéristiques : {largeur}×{hauteur}, "
+    "{duree:.0f} secondes. Grille (10 points) : format vertical 9:16 (2), durée entre 7 et 60 s (1), accroche visible dans la "
+    "première image, texte ou cadrage qui donne envie (3), sous-titres lisibles et bien placés (2), travail visible sur la vidéo "
+    "brute : recadrage, texte, rythme, effets (2). Réponds UNIQUEMENT en JSON : {{\"note\": entier 0-10, \"bien\": [2 points forts "
+    "courts], \"a_corriger\": [2 points à corriger courts], \"verdict\": \"bon\" | \"moyen\" | \"insuffisant\"}}. Phrases de 10 mots, tutoiement, français."
+)
+
+
+def _ffprobe(chemin: str) -> dict:
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
+                        "-of", "json", chemin], capture_output=True, text=True, timeout=60)
+    d = json.loads(r.stdout or "{}")
+    flux = (d.get("streams") or [{}])[0]
+    return {"largeur": int(flux.get("width") or 0), "hauteur": int(flux.get("height") or 0),
+            "duree": float((d.get("format") or {}).get("duration") or 0)}
+
+
+def _images_video(chemin: str, dossier: str, duree: float) -> list:
+    images = []
+    for i, t in enumerate(sorted({0.5, max(0.5, duree * 0.25), max(0.5, duree * 0.5), max(0.5, duree * 0.85)})):
+        sortie = os.path.join(dossier, f"img{i}.jpg")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", chemin, "-frames:v", "1", "-vf", "scale=540:-2",
+                        "-q:v", "5", sortie], capture_output=True, timeout=60)
+        if os.path.exists(sortie):
+            with open(sortie, "rb") as f:
+                images.append(base64.standard_b64encode(f.read()).decode("utf-8"))
+    return images
+
+
+def _avis_sync(contenu: list) -> str:
+    try:
+        r = claude.messages.create(model=MODELE, max_tokens=400, system="Tu es un monteur vidéo exigeant mais bienveillant. Tu réponds en JSON strict.",
+                                   messages=[{"role": "user", "content": contenu}])
+        return terminer_proprement(r)
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Avis test : %s", erreur)
+        return ""
+
+
+async def avis_test_montage(message) -> dict:
+    """{note, bien, a_corriger, verdict, meta} ou {"erreur": …}. Ne lève jamais."""
+    videos = [p for p in message.attachments if (p.content_type or "").startswith("video/")
+              or p.filename.lower().endswith((".mp4", ".mov", ".m4v", ".webm"))]
+    if not videos:
+        return {"erreur": "pas de vidéo jointe (lien ou fichier non vidéo)"}
+    if not (shutil.which("ffmpeg") and shutil.which("ffprobe")):
+        return {"erreur": "ffmpeg absent de l'image Railway"}
+    p = videos[0]
+    if p.size and p.size > 80_000_000:
+        return {"erreur": "vidéo de plus de 80 Mo"}
+    try:
+        donnees = await p.read()
+        with tempfile.TemporaryDirectory() as tmp:
+            chemin = os.path.join(tmp, "test" + os.path.splitext(p.filename or "v.mp4")[1].lower())
+            with open(chemin, "wb") as f:
+                f.write(donnees)
+            meta = await asyncio.to_thread(_ffprobe, chemin)
+            images = await asyncio.to_thread(_images_video, chemin, tmp, meta["duree"] or 10)
+        if not images:
+            return {"erreur": "images non extraites", "meta": meta}
+        contenu = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b}} for b in images]
+        contenu.append({"type": "text", "text": GRILLE_AVIS_TEST.format(n=len(images), **meta)})
+        brut = await asyncio.to_thread(_avis_sync, contenu)
+        m = re.search(r"\{.*\}", brut, re.S)
+        avis = json.loads(m.group(0)) if m else {}
+        note = int(avis.get("note", -1))
+        if not 0 <= note <= 10:
+            return {"erreur": "réponse du modèle illisible", "meta": meta}
+        return {"note": note, "bien": [str(x)[:120] for x in (avis.get("bien") or [])][:3],
+                "a_corriger": [str(x)[:120] for x in (avis.get("a_corriger") or [])][:3],
+                "verdict": str(avis.get("verdict") or ("bon" if note >= TEST_AUTO_SEUIL else "moyen")), "meta": meta}
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Avis test montage : %s", erreur)
+        return {"erreur": f"{type(erreur).__name__}"}
+
+
+def texte_avis_test(avis: dict) -> str:
+    if avis.get("erreur"):
+        return f"🎬 Je n'ai pas pu regarder ta vidéo moi-même ({avis['erreur']}). Un manager la regarde."
+    meta = avis.get("meta") or {}
+    fmt = f"{meta.get('largeur')}×{meta.get('hauteur')} · {meta.get('duree', 0):.0f} s" if meta.get("largeur") else ""
+    return (f"🎬 **Mon avis sur ton montage : {avis['note']}/10** ({avis['verdict']}" + (f", {fmt}" if fmt else "") + ")\n"
+            + ("✅ " + " · ".join(avis["bien"]) + "\n" if avis.get("bien") else "")
+            + ("✏️ " + " · ".join(avis["a_corriger"]) if avis.get("a_corriger") else ""))
 
 
 async def suite_validation(membre, guild):
@@ -3525,8 +3632,8 @@ def texte_aide(membre, est_admin: bool) -> str:
     return ("🧰 **Ton parcours, dans l'ordre**\n"
             "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
             f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {SEUIL_QUIZ}/34, 2 essais).\n"
-            "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici.\n"
-            "4. Test validé → contrat (France) ou conditions à accepter (International).\n"
+            "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
+            "4. Test validé → **J'ACCEPTE** → ton salon perso et tes 3 comptes, un par jour avec 24 h de warm-up.\n"
             "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
             "Une question ? Pose-la ici, je réponds avec le kit.")
 
@@ -3546,12 +3653,15 @@ def debuts_clippers() -> dict:
     return sortie
 
 
-async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list) -> str:
+async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list, forcer_salon: bool = False) -> str:
     """Un clipper prêt à travailler (corps de `!salons-equipe`, réutilisé au démarrage pour le roster) : salon perso dans la
     catégorie de sa créatrice, registre, pseudo « Prénom - Créatrice », rôle Clippeur et rôle de la créatrice, roster, comptes du
     classeur (3 comptes neufs du même POD), lien, Drive, alias 2FA, parcours à l'étape que le classeur implique. Renvoie une ligne de bilan."""
     par_nom = par.display_name if par is not None else "roster"
     par_id = str(par.id) if par is not None else "roster"
+    if roster.sans_salon(prenom_de(m_)) and not forcer_salon:             # 26/09 : les anciens de Jonas n'ont plus de salon perso
+        roster.ajouter(creatrice_c, prenom_de(m_))
+        return f"⏭️ {m_.display_name} : pas de salon perso (ancien système, liste `sans_salon` du roster)"
     cat = categorie_de_creatrice(g, creatrice_c)
     salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
     if salon_c is None:
@@ -3584,7 +3694,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     if cree_c:
         try:
             await salon_c.send(f"🏠 {m_.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. Une question ? Écris ici."
-                               + (f" {', '.join(x.mention for x in mgrs)} lit ce salon." if mgrs else ""))
+                               + (f" {', '.join(x.mention for x in mgrs)} lit ce salon." if mgrs else ""), view=vue_whatsapp())
         except (discord.Forbidden, discord.HTTPException):
             pass
     try:
@@ -3747,8 +3857,11 @@ async def commande_creatrice(message, texte: str) -> bool:
             refus.append(f"pseudo ({type(erreur).__name__} : donne-moi « Gérer les pseudos » et garde mon rôle au-dessus du sien)")
     roster.ajouter(prenom, prenom_clipper)
     # Salon nominatif du clipper : créé au J'ACCEPTE (catégorie Clippers) ou ici, et rangé dans la catégorie de la créatrice.
-    salon_perso, cree, err_sp = await assurer_salon_perso(message.guild, membre, categorie, prenom,
-                                                          f"Créatrice {prenom} attribuée par {message.author.display_name}")
+    if roster.sans_salon(prenom_clipper):                                   # 26/09 : anciens de Jonas sans salon perso
+        salon_perso, cree, err_sp = None, False, ""
+    else:
+        salon_perso, cree, err_sp = await assurer_salon_perso(message.guild, membre, categorie, prenom,
+                                                              f"Créatrice {prenom} attribuée par {message.author.display_name}")
     if err_sp:
         refus.append(err_sp)
     registre = lire_json(FICHIER_EQUIPES, {})
@@ -4839,6 +4952,8 @@ async def commande_admin(message, texte: str) -> bool:
         elif roster.actif():                                             # 26/09 : sans liste, le roster de Gaëtan fait foi
             for creatrice_r, noms_r in roster.groupes().items():
                 for nom in noms_r:
+                    if roster.sans_salon(nom):
+                        continue
                     m_ = chercher_membre(nom, exact=True)
                     if m_ is None:
                         bilan_intro = f"⚠️ « {nom} » ({creatrice_r}) du roster introuvable sur le serveur, ignoré."
@@ -4864,7 +4979,7 @@ async def commande_admin(message, texte: str) -> bool:
         await message.reply(f"⏳ {len(cibles)} salon(s) à ouvrir, managers : {', '.join(m.display_name for m in mgrs) or 'aucun (rôle Manager absent, pseudo sans « manageur »)'}…")
         bilan_se = []
         for m_, creatrice_c in cibles:
-            bilan_se.append(await onboarder_membre(g, m_, creatrice_c, message.author, etats_cl, mgrs))
+            bilan_se.append(await onboarder_membre(g, m_, creatrice_c, message.author, etats_cl, mgrs, forcer_salon=bool(corps)))
         if any("fermée au bot" in b or "refusée par Discord" in b for b in bilan_se):
             bilan_se.append(f"ℹ️ {CONSEIL_CATEGORIE}")
         await envoyer_long(message, [f"🏠 **Salons d'équipe** ({len(cibles)})"] + bilan_se)
@@ -6074,7 +6189,8 @@ async def on_ready():
                              "categorie_de_creatrice": categorie_de_creatrice,
                              "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m), "client": client,
                              "chercher_membre": lambda nom: chercher_membre(nom),
-                             "marquer_etat": onboarding.marquer_etat})                # 25/09 : ETAT du classeur suit le parcours
+                             "marquer_etat": onboarding.marquer_etat,                 # 25/09 : ETAT du classeur suit le parcours
+                             "whatsapp": WHATSAPP_GAETAN_URL})                       # 26/09 : bouton « Écrire à Gaëtan » sous chaque étape
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
         def _clics_7j(prenom):                                               # visites payables des 7 derniers jours du clipper
             m = membre_par_prenom(normaliser(prenom))
@@ -6119,7 +6235,7 @@ async def on_ready():
                            "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS, "FICHIER_PIPELINE": FICHIER_PIPELINE,
                            "onboarding": onboarding, "est_manager": est_manager, "ADMIN_IDS": ADMIN_IDS, "notifier": notifier_manager,
                            "mettre_a_jour_stats": mettre_a_jour_stats, "prenom_de": prenom_de, "NOMS_RANGS": NOMS_RANGS,
-                           "onboarder_manquants": onboarder_roster_manquants})
+                           "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
@@ -6550,11 +6666,10 @@ async def on_message(message):
         suite = ("✅ **Conditions acceptées et enregistrées — bienvenue dans la Team "
                  f"{'International' if grille_acc == 'mg' else 'France'} ! 🔥**\n\n"
                  "La suite, dans l'ordre :\n"
-                 "1️⃣ **Ton manager t'attribue ta créatrice** et ouvre son salon (rushs, modèles) — sous 48 h.\n"
-                 "2️⃣ **Tes comptes se créent AVEC lui** au prochain créneau : lundi, mercredi ou vendredi "
-                 "17 h (heure de Paris), sur ton téléphone. Lien de tracking posé par lui. Tu ne crées "
-                 "jamais tes comptes seul.\n"
-                 "3️⃣ D'ici là : lis la **Fiche 1** (règles anti-ban) et la **Fiche 2** (warm-up, toute la semaine 1).\n"
+                 "1️⃣ **Ta créatrice t'est attribuée** (sous 48 h) : ton salon perso reçoit tes 3 comptes Instagram.\n"
+                 "2️⃣ **Un compte par jour, sur ton téléphone**, 24 h de warm-up sur chacun. Le code arrive avec `!code`. "
+                 "Le bot te guide étape par étape, avec des boutons.\n"
+                 "3️⃣ D'ici là : lis la **Fiche 1** (créer tes comptes) et la **Fiche 2** (le warm-up).\n"
                  "Une question ? Le salon de l'assistant répond 24h/24. Au travail 💪")
         if fiche_eq and (fiche_eq.get("equipe") == "mg" or fiche_eq.get("conditions")):
             if not fiche_eq.get("conditions"):
@@ -6585,7 +6700,7 @@ async def on_message(message):
             if salon_a is not None and cree_a:
                 try:
                     await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. "
-                                       "Prochaine étape : ta créatrice et tes comptes.")
+                                       "Prochaine étape : ta créatrice et tes comptes.", view=vue_whatsapp())
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             if salon_a is not None:
@@ -6711,6 +6826,34 @@ async def on_message(message):
                         await salon_m.send(texte_rendu)
                     except (discord.Forbidden, discord.HTTPException):
                         pass
+            # 26/09 : le bot regarde la vidéo et donne son avis ; bon montage = validé tout seul (Gaëtan : « le bot va dire si le montage est bon »)
+            if message.attachments and not hors_delai:
+                avis_t = await avis_test_montage(message)
+                try:
+                    await message.reply(texte_avis_test(avis_t))
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+                membre_t = membre_par_id(utilisateur)
+                if canal:
+                    try:
+                        await canal.send(f"🤖 Avis du bot sur le test de {message.author.mention} : " + texte_avis_test(avis_t).replace("ton montage", "le montage")[:1500]
+                                         + ("" if avis_t.get("erreur") else (" → **validé automatiquement**" if TEST_AUTO and avis_t["note"] >= TEST_AUTO_SEUIL
+                                                                              else f" → sous {TEST_AUTO_SEUIL}/10 : `!test-ok` ou `!test-non`")))
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                if TEST_AUTO and not avis_t.get("erreur") and avis_t["note"] >= TEST_AUTO_SEUIL and membre_t is not None:
+                    donnees_v = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+                    if donnees_v.get("etats", {}).get(str(utilisateur), {}).get("etat") == "test_rendu":
+                        donnees_v["etats"][str(utilisateur)]["etat"] = "valide"
+                        donnees_v["etats"][str(utilisateur)]["validation"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                        donnees_v["etats"][str(utilisateur)]["valide_par"] = "bot"
+                        ecrire_json(FICHIER_PIPELINE, donnees_v)
+                        try:
+                            ligne_v = await suite_validation(membre_t, membre_t.guild)
+                            if canal:
+                                await canal.send(f"✅ Test de {message.author.mention} validé par le bot ({avis_t['note']}/10). {ligne_v}"[:1900])
+                        except Exception as erreur:                         # noqa: BLE001
+                            journal.warning("Validation automatique %s : %s", utilisateur, erreur)
                 # Lien permanent vers le message admin (les URL de pièces jointes Discord
                 # expirent ; le lien de saut, jamais) — c'est ce que !tests ressort.
                 info.setdefault("liens_admin", []).append(msg_admin.jump_url)

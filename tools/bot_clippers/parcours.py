@@ -25,35 +25,35 @@ import paie_clics
 
 journal = logging.getLogger("parcours")
 _deps = {}
-WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "7") or 7)
+WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)   # 26/09 (Gaëtan) : 24 h de warm-up par compte, plus une semaine
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 ETAPES = {
-    # 26/09 (Gaëtan : « hyper long, trop d'informations pour les clippeurs ») : 5 lignes par étape, une action par ligne.
+    # 26/09 (Gaëtan) : textes courts, un compte par jour avec 24 h de warm-up sur chaque compte, puis les Reels.
     1: {"titre": "Étape 1 · Crée ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": ["info"],
         "texte": ("**Compte 1 : `{compte1}`**\n"
                   "1. Instagram → Créer un compte → avec un e-mail : `{mail1}`\n"
                   "2. Code demandé ? Écris `!code` ici.\n"
-                  "3. Mot de passe : celui du message des comptes.\n"
-                  "4. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
-                  "5. Photo + bio sage, comme les comptes dans {info}. Pas de lien.\n\n"
+                  "3. Mot de passe : celui du message des comptes. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
+                  "4. Photo + bio sage, comme les comptes dans {info}. Pas de lien.\n"
+                  "5. Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 2 demain.")},
     2: {"titre": "Étape 2 · Crée ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": ["info"],
         "texte": ("**Compte 2 : `{compte2}`** · e-mail `{mail2}`\n"
                   "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
-                  "Photo et bio différentes du compte 1.\n\n"
+                  "Photo et bio différentes du compte 1. Puis 24 h de warm-up dessus.\n\n"
                   "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.")},
     3: {"titre": "Étape 3 · Crée ton compte privé", "fiche": "1", "bouton": "✅ Compte privé créé", "salons": ["info"],
         "texte": ("**Compte 3 : `{compte3}`** · e-mail `{mail3}` · ton compte secret, il ne publie pas.\n"
                   "1. Crée-le comme les autres.\n"
                   "2. Réglages → compte **privé** (le cadenas).\n"
-                  "3. Bio : le prénom de {creatrice} + une phrase gentille. Pas de lien, je te dirai quand.\n\n"
-                  "Fini ? Appuie sur le bouton. Ensuite, on chauffe les comptes.")},
-    4: {"titre": "Étape 4 · Le warm-up : {jours} jours (Fiche 2)", "fiche": "2", "bouton": "✅ Mes {jours} jours sont finis", "salons": ["ressources"],
-        "texte": ("{jours} jours sans publier : Instagram apprend qui tu es.\n"
-                  "Chaque jour, sur chaque compte : 10 min de Reels de créatrices françaises ({ressources}), 5 likes, "
-                  "2 abonnements, 1 ou 2 commentaires, 1 story sans lien.\n\n"
-                  "Chaque matin, je te dis à quel jour tu es. Au jour {jour_suivant}, on publie.")},
+                  "3. Bio : le prénom de {creatrice} + une phrase gentille. Pas de lien, je te dirai quand.\n"
+                  "4. Puis 24 h de warm-up dessus.\n\n"
+                  "Fini ? Appuie sur le bouton.")},
+    4: {"titre": "Étape 4 · Dernier warm-up : {jours} jour(s) (Fiche 2)", "fiche": "2", "bouton": "✅ Warm-up fini", "salons": ["ressources"],
+        "texte": ("Encore {jours} jour(s) sans publier, sur tes 3 comptes : 10 min de Reels de créatrices françaises ({ressources}), "
+                  "5 likes, 2 abonnements, 1 ou 2 commentaires, 1 story sans lien.\n\n"
+                  "Au jour {jour_suivant}, je t'ouvre les Reels.")},
     5: {"titre": "Étape 5 · Ton premier Reel (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
         "texte": ("Tes vidéos : {drive}\n"
                   "1. Télécharge une vidéo, ouvre **Edits** (l'appli gratuite d'Instagram).\n"
@@ -63,8 +63,8 @@ ETAPES = {
                   "Premier Reel en ligne ? Appuie sur le bouton.")},
     6: {"titre": "Étape 6 · Mets ton lien (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
         "texte": ("**Ton lien** : {lien}\n"
-                  "1. Sur `{compte3}`, le privé : le lien dans la bio.\n"
-                  "2. Sur `{compte1}` et `{compte2}` : seulement **@{compte3}** dans la bio. Jamais le lien.\n"
+                  "1. Sur `{compte3}`, le privé : le lien dans la bio, et dans une story à la une.\n"
+                  "2. Sur `{compte1}` et `{compte2}` : seulement **@{compte3}** dans la bio. Jamais le lien, jamais en rafale dans les stories.\n"
                   "3. `!mesclics` ici : ce lien compte tes visites, donc ta paie, le 5 et le 20.\n\n"
                   "Fini ? Appuie sur le bouton.")},
     7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": ["reporting"],
@@ -210,6 +210,8 @@ def _vue(guild, uid: str, n: int, ctx: dict):
             vue.add_item(discord.ui.Button(label=libelle[:80], style=discord.ButtonStyle.link, url=_url(guild, cid)))
     if e.get("bouton"):
         vue.add_item(BoutonEtape(uid, n, _rendre(e["bouton"], ctx)))
+    if _deps.get("whatsapp"):                                            # 26/09 (Gaëtan) : « un bouton, envoyer un message à Gaëtan »
+        vue.add_item(discord.ui.Button(label="💬 Écrire à Gaëtan (WhatsApp)", style=discord.ButtonStyle.link, url=_deps["whatsapp"]))
     return vue
 
 
@@ -434,6 +436,16 @@ def etape_selon_classeur(etats: list) -> int:
     return 4
 
 
+def oublier(uid: str) -> bool:
+    """Retire la fiche de parcours d'un clipper (salon perso supprimé le 26/09) : plus de warm-up ni d'étape postés nulle part."""
+    d = _lire()
+    if str(uid) not in d:
+        return False
+    d.pop(str(uid), None)
+    _ecrire(d)
+    return True
+
+
 async def forcer_etape(salon, membre, creatrice: str, n: int) -> None:
     """Pose l'étape n (date du jour, utile au compte des jours de warm-up) et l'envoie dans le salon."""
     d = _lire()
@@ -509,9 +521,10 @@ def contexte_llm(uid: str) -> str:
             "vérification), `!mesclics` (ses visites). Les comptes se créent ici, guidés par le parcours : plus de créneau "
             "lundi/mercredi/vendredi, plus de contrat, plus de distinction France/International. Ne redonne jamais un mot "
             "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, le 5 et le 20, USDC ou virement. "
-            "Règle des 24 h : compte 1 aujourd'hui, compte 2 demain, compte privé après-demain, jamais deux comptes le "
-            "même jour ; le warm-up de chaque compte commence dès sa création (interactions, zéro publication) et le "
-            f"premier Reel attend les {WARMUP_JOURS} jours de l'étape 4 — ne dis jamais « dans 7 jours on crée le compte 2 ». "
+            "Règle des 24 h (26/09) : un compte par jour (compte 1, puis 2, puis le privé), 24 h de warm-up sur chaque compte "
+            "après sa création (Reels, likes, abonnements, zéro publication) ; le premier Reel arrive après le warm-up du "
+            f"compte 3 (étape 4, {WARMUP_JOURS} jour(s)) — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». "
+            "Le lien : bio du compte privé et story à la une seulement, jamais dans un Reel ni en rafale dans les stories. "
             "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
             "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
             "Trois lignes maximum, et finis toujours par « 👉 Prochaine étape : … ». `!code` ne donne QUE les codes reçus par "

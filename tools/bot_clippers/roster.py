@@ -7,6 +7,7 @@ Deux fichiers, le plus récent (`maj`) gagne : `roster.json` à côté du bot (d
 `DONNEES/roster.json` (écrit par `!roster`). Format :
   {"maj": "…", "equipes": {"Sophie": ["Thia", …], …}, "nouveaux": ["Pepita"], "sortis": ["Laure", …]}
 `nouveaux` : signés dont la créatrice n'est pas encore attribuée (comptés dans l'effectif) ; `!creatrice` les range.
+`sans_salon` : les anciens (équipe Jonas) qui n'ont plus de salon perso (supprimé une fois au démarrage, jamais recréé).
 """
 import json
 import logging
@@ -39,7 +40,7 @@ def _charger(p) -> dict:
     except (OSError, ValueError, TypeError):
         return {}
     d.setdefault("maj", ""); d.setdefault("equipes", {}); d.setdefault("nouveaux", []); d.setdefault("sortis", [])
-    d.setdefault("alias", {}); d.setdefault("a_verifier", [])
+    d.setdefault("alias", {}); d.setdefault("a_verifier", []); d.setdefault("sans_salon", [])
     return d
 
 
@@ -49,7 +50,7 @@ def lire() -> dict:
     repo, donnees = _charger(FICHIER_REPO), _charger(_fichier_donnees()) if _fichier_donnees() else {}
     if donnees and donnees.get("maj", "") >= repo.get("maj", ""):
         return donnees
-    return repo or {"maj": "", "equipes": {}, "nouveaux": [], "sortis": [], "alias": {}, "a_verifier": []}
+    return repo or {"maj": "", "equipes": {}, "nouveaux": [], "sortis": [], "alias": {}, "a_verifier": [], "sans_salon": []}
 
 
 def ecrire(d: dict):
@@ -57,6 +58,12 @@ def ecrire(d: dict):
     p = _fichier_donnees()
     if p is not None and _deps.get("ecrire_json"):
         _deps["ecrire_json"](p, d)
+
+
+def sans_salon(prenom: str) -> bool:
+    """26/09 (Gaëtan) : les clippers historiques de Jonas n'ont plus de salon perso (« ils comprennent rien, ça se mélange avec
+    l'ancien système ») ; le salon perso reste réservé aux nouveaux. Ces prénoms ne reçoivent jamais de salon."""
+    return _n(prenom) in {_n(x) for x in lire()["sans_salon"]}
 
 
 def resoudre_alias(nom: str) -> str:
@@ -342,10 +349,72 @@ def _creatrice_du_pseudo(pseudo: str) -> str:
     return ""
 
 
+def _fichier_salons_supprimes():
+    return (_deps["DONNEES"] / "roster_salons_supprimes.json") if _deps.get("DONNEES") else None
+
+
+async def supprimer_salons(client) -> list:
+    """Une seule fois par prénom de `sans_salon` : son salon perso est supprimé (liste explicite de Gaëtan du 26/09), son
+    `salon_id` retiré du registre, son parcours oublié. Ne touche qu'à un salon texte dont le nom est le prénom (ou
+    « prenom-creatrice »), jamais à autre chose."""
+    if client is None or not _deps.get("lire_json") or _fichier_salons_supprimes() is None:
+        return []
+    faits = _deps["lire_json"](_fichier_salons_supprimes(), [])
+    bilan = []
+    for prenom in lire()["sans_salon"]:
+        if _n(prenom) in {_n(x) for x in faits}:
+            continue
+        registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else {}
+        cibles, uids = [], []
+        for g in client.guilds:
+            for c in g.text_channels:
+                if _n(c.name) == _n(prenom) or _n(c.name).startswith(_n(prenom) + "-"):
+                    cibles.append(c)
+        for uid, fiche in registre.items():
+            m = next((g.get_member(int(uid)) for g in client.guilds if uid.isdigit() and g.get_member(int(uid))), None)
+            nom_m = _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
+            if _n(nom_m) == _n(prenom) or any(str(fiche.get("salon_id") or "") == str(c.id) for c in cibles):
+                uids.append(uid)
+                sid = str(fiche.get("salon_id") or "")
+                if sid.isdigit():
+                    ch = client.get_channel(int(sid))
+                    if ch is not None and ch not in cibles:
+                        cibles.append(ch)
+        detail = []
+        for c in cibles:
+            nom_c = c.name
+            try:
+                await c.delete(reason=f"Roster : plus de salon perso pour {prenom} (liste de Gaëtan du 26/09)")
+                detail.append(f"#{nom_c} supprimé")
+            except Exception as erreur:                                     # noqa: BLE001
+                detail.append(f"#{nom_c} non supprimé ({type(erreur).__name__})")
+        if uids:
+            for uid in uids:
+                registre.get(uid, {}).pop("salon_id", None)
+                if _deps.get("oublier_parcours"):
+                    try:
+                        _deps["oublier_parcours"](uid)
+                    except Exception:                                       # noqa: BLE001
+                        pass
+            _deps["ecrire_json"](_deps["FICHIER_EQUIPES"], registre)
+        faits.append(prenom)
+        _deps["ecrire_json"](_fichier_salons_supprimes(), faits[-300:])
+        ligne = f"🗑️ {prenom} : " + (", ".join(detail) if detail else "aucun salon trouvé")
+        bilan.append(ligne)
+        journal.info("Roster, salon perso retiré : %s", ligne)
+    if bilan and _deps.get("notifier"):
+        try:
+            await _deps["notifier"]("**Roster : salons persos des anciens supprimés**\n" + "\n".join(bilan), client.guilds[0] if client.guilds else None)
+        except Exception:                                                   # noqa: BLE001
+            pass
+    return bilan
+
+
 async def demarrage(client):
     """Au démarrage : sorties appliquées, roster complété depuis les pseudos, compteur rafraîchi."""
     try:
         await appliquer_sortis(client)
+        await supprimer_salons(client)
         await completer_depuis_pseudos(client)
         if _deps.get("onboarder_manquants"):
             await _deps["onboarder_manquants"]()
