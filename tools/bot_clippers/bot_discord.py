@@ -76,6 +76,7 @@ CANAL_DOPAMINE_ID = os.environ.get("CANAL_DOPAMINE_ID", "").strip()       # cana
 CANAL_CANDIDATURE_ID = os.environ.get("CANAL_CANDIDATURE_ID", "").strip() # canal d'accueil des candidats
 SHEET_CANDIDATURES_ID = os.environ.get("SHEET_CANDIDATURES_ID", "").strip()   # classeur de sauvegarde des candidatures (24/09)
 SHEET_CANDIDATURES_ONGLET = os.environ.get("SHEET_CANDIDATURES_ONGLET", "Candidatures bot").strip() or "Candidatures bot"
+SHEET_CANDIDATURES_FORM_ONGLET = os.environ.get("SHEET_CANDIDATURES_FORM_ONGLET", "Réponses au formulaire 1").strip()  # onglet du Google Form (26/09)
 _entete_candidatures_faite = False
 LIEN_FORMULAIRE = os.environ.get("LIEN_FORMULAIRE", "").strip()           # formulaire de candidature
 LIEN_DISCORD = os.environ.get("LIEN_DISCORD", "").strip()                 # lien d'invitation de secours (site sans OAuth)
@@ -1176,6 +1177,138 @@ def chercher_membre(reference, exact=False):
             if not m.bot and ref_n in normaliser(m.display_name):
                 return m
     return None
+
+
+
+# ------------------------------------------------------------------ candidatures : les deux onglets du classeur (26/09)
+# Gaëtan : « 100 % va venir du formulaire ». Le Google Form (onglet « Réponses au formulaire 1 ») et le site du tunnel
+# (onglet « Candidatures bot ») sont lus par en-tête, mis en cache 10 minutes, et servent à `!pipeline` (volumes) et à
+# `!fiche` (qualité des réponses : téléphones, expérience, montage, cadence, connaissance des bans…).
+_cache_candidatures = {"quand": 0.0, "lignes": []}
+MOTS_CANDIDATURE = (("date", ("horodat",)), ("prenom", ("prenom",)), ("tel", ("whatsapp", "numero")), ("telegram", ("telegram",)),
+                    ("pays", ("pays",)), ("job", ("dans la vie",)), ("telephones", ("telephones", "modele")),
+                    ("experience", ("experience sur instagram", "experience")), ("montage", ("montes avec",)),
+                    ("video", ("video qui a bien",)), ("reels_jour", ("reels tu peux",)), ("heures_jour", ("heures par jour",)),
+                    ("shadowban", ("shadowban",)), ("motivation", ("pourquoi es-tu", "pourquoi es tu")), ("age", ("quel age",)),
+                    ("majeur", ("majeur",)), ("niche", ("niche",)), ("annonce", ("annonce de recrutement", "reseau social as-tu vu")))
+
+
+def _colonnes_candidature(en_tete: list) -> dict:
+    trouve, pris = {}, set()
+    for champ, mots in MOTS_CANDIDATURE:
+        for i, h in enumerate(en_tete):
+            hn = normaliser(h)
+            if i in pris or not hn:
+                continue
+            if any(m in hn for m in mots):
+                trouve[champ] = i
+                pris.add(i)
+                break
+    return trouve
+
+
+def _date_candidature(brut: str):
+    for fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(str(brut).strip()[:19], fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _chiffres_tel(t: str) -> str:
+    return re.sub(r"\D", "", str(t or ""))
+
+
+async def lire_candidatures_sheets(forcer: bool = False) -> list:
+    """Toutes les candidatures des deux onglets : [{source, date, prenom, tel, pays, telephones, experience, …}]."""
+    if not (SHEET_CANDIDATURES_ID and google_api.actif()):
+        return []
+    if not forcer and time.time() - _cache_candidatures["quand"] < 600:
+        return _cache_candidatures["lignes"]
+    lignes = []
+    for onglet, source in ((SHEET_CANDIDATURES_FORM_ONGLET, "formulaire"), (SHEET_CANDIDATURES_ONGLET, "site")):
+        if not onglet:
+            continue
+        try:
+            brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:AB")
+        except Exception as erreur:                                        # noqa: BLE001
+            journal.warning("Candidatures %s : %s", onglet, erreur)
+            continue
+        if not brut:
+            continue
+        cols = _colonnes_candidature([str(x) for x in brut[0]])
+        for r in brut[1:]:
+            r = [str(x) for x in r] + [""] * 30
+            if not any(x.strip() for x in r[:6]):
+                continue
+            c = {champ: r[i].strip() for champ, i in cols.items()}
+            c["source"] = source
+            c["date"] = _date_candidature(c.get("date", ""))
+            c["tel_chiffres"] = _chiffres_tel(c.get("tel", ""))
+            lignes.append(c)
+    _cache_candidatures.update({"quand": time.time(), "lignes": lignes})
+    return lignes
+
+
+def candidature_de(lignes: list, tel: str = "", prenom: str = "") -> dict:
+    """La candidature d'une personne : par les 8 derniers chiffres du numéro, sinon par prénom (si unique). La plus récente gagne."""
+    chiffres = _chiffres_tel(tel)
+    if len(chiffres) >= 8:
+        trouve = [c for c in lignes if c["tel_chiffres"] and c["tel_chiffres"][-8:] == chiffres[-8:]]
+        if trouve:
+            return max(trouve, key=lambda c: c["date"] or datetime.min)
+    p = normaliser(prenom).split()[0] if normaliser(prenom) else ""
+    if p:
+        trouve = [c for c in lignes if normaliser(c.get("prenom", "")).split()[:1] == [p]]
+        if len(trouve) >= 1:
+            return max(trouve, key=lambda c: c["date"] or datetime.min)
+    return {}
+
+
+def score_candidature(c: dict) -> tuple:
+    """Une note indicative sur 8 et ses raisons, pour juger avant d'attribuer : iPhone, ≥ 2 téléphones, expérience, CapCut/Edits,
+    ≥ 2 Reels par jour, ≥ 3 h par jour, sait ce qu'est un shadowban, majeur."""
+    n = lambda k: normaliser(c.get(k, ""))
+    points, raisons = 0, []
+    tels = n("telephones")
+    if "iphone" in tels:
+        points += 1; raisons.append("iPhone")
+    if re.search(r"\b([2-9]|deux|trois|quatre)\b", tels):
+        points += 1; raisons.append("≥ 2 téléphones")
+    if n("experience") and not n("experience").startswith(("non", "pas ", "aucun", "rien")):
+        points += 1; raisons.append("expérience IG/TikTok")
+    if any(m in n("montage") for m in ("capcut", "edits", "premiere", "davinci", "vn")):
+        points += 1; raisons.append("monte déjà")
+    nb = re.search(r"\d+", n("reels_jour"))
+    if nb and int(nb.group(0)) >= 2:
+        points += 1; raisons.append(f"{nb.group(0)} Reels/j")
+    h = re.search(r"\d+", n("heures_jour"))
+    if h and int(h.group(0)) >= 3:
+        points += 1; raisons.append(f"{h.group(0)} h/j")
+    if len(n("shadowban")) >= 40 and not n("shadowban").startswith(("rien", "non", "pas ")):
+        points += 1; raisons.append("connaît les bans")
+    if n("majeur").startswith("oui") or (re.search(r"\d+", n("age")) and int(re.search(r"\d+", n("age")).group(0)) >= 18):
+        points += 1; raisons.append("majeur")
+    return points, raisons
+
+
+def texte_candidature(c: dict) -> list:
+    """Le bloc « Candidature » de `!fiche` : les réponses qui comptent, tronquées."""
+    if not c:
+        return ["📋 Candidature : aucune ligne trouvée dans le classeur (numéro ou prénom inconnu)."]
+    t = lambda k, l=110: (c.get(k) or "—").replace("\n", " ")[:l]
+    points, raisons = score_candidature(c)
+    quand = c["date"].strftime("%d/%m/%Y") if c.get("date") else "date ?"
+    return [f"📋 **Candidature** ({c.get('source', '?')}, {quand}) · qualité **{points}/8** : {', '.join(raisons) or 'rien de probant'}",
+            f"· Pays : {t('pays', 30)} · âge : {t('age', 8)} · majeur : {t('majeur', 5)} · dans la vie : {t('job', 60)}",
+            f"· Téléphones : {t('telephones', 80)}",
+            f"· Expérience : {t('experience')}",
+            f"· Montage : {t('montage', 40)} · Reels/jour : {t('reels_jour', 40)} · heures/jour : {t('heures_jour', 30)}",
+            f"· Vidéo qui a marché : {t('video')}",
+            f"· Bans/shadowban : {t('shadowban')}",
+            f"· Motivation : {t('motivation')}",
+            f"· Niche OK : {t('niche', 40)} · a vu l'annonce sur : {t('annonce', 40)}"]
 
 
 async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
@@ -5139,49 +5272,15 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     if texte.startswith("!pipeline"):
+        # 26/09 (Gaëtan) : « 100 % va venir du formulaire » — plus de webhooks, de numéros liés ni de portes d'entrée.
+        # Volumes du classeur des candidatures, parcours des gens encore sur le serveur, roster actif, et les actions.
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         etats = donnees.get("etats", {})
-        compte = {}
-        for info in etats.values():
-            compte[info.get("etat", "?")] = compte.get(info.get("etat", "?"), 0) + 1
-        libelles = {"test_envoye": "🧪 Test en cours", "test_rendu": "📥 Tests rendus (à reviewer)",
-                    "valide": "✅ Validés (→ conditions J'ACCEPTE)",
-                    "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés",
-                    "quiz_rate": "📝 Quiz raté (2 essais max)", "sorti": "🚪 Sortis de l'équipe"}
-        cands = donnees.get("candidatures", {})
-        tels_lies = {l.get("tel") for l in donnees.get("liaisons", {}).values()}
-        orphelines = sum(1 for t in cands if t not in tels_lies)
-        lignes = ["📈 **Pipeline candidats**",
-                  f"📋 Candidatures reçues (webhook formulaire) : {len(cands)}"
-                  + (f" · **{orphelines} sans Discord lié** (à relancer)" if orphelines else ""),
-                  f"🔗 Numéros liés (!lier) : {len(donnees.get('liaisons', {}))}"]
-        srcs = lire_json(FICHIER_INVITES, {}).get("sources", {})
-        if srcs:
-            compte_src = {}
-            for s in srcs.values():
-                etiquette = s.get("source", "autre")
-                compte_src[etiquette] = compte_src.get(etiquette, 0) + 1
-            lignes.append("🚪 Portes d'entrée Discord : "
-                          + " · ".join(f"{k} {v}" for k, v in sorted(compte_src.items(), key=lambda kv: -kv[1])))
-        lignes += [f"{libelles.get(e, e)} : {n}" for e, n in sorted(compte.items())]
-        en_retard = [uid for uid, i in etats.items() if i.get("etat") == "test_envoye"
-                     and datetime.now(timezone.utc) > datetime.fromisoformat(i["echeance"]) - timedelta(hours=12)]
-        if en_retard:
-            lignes.append("⏳ Bientôt à échéance : " + ", ".join(f"<@{u}>" for u in en_retard[:10]))
-        signes = lire_json(FICHIER_EQUIPES, {})
-        lignes.append(f"✍️ Signés (J'ACCEPTE) : {len(signes)}")
-        hd = donnees.get("hors_discord", {})
-        if hd or serveur_ferme():
-            n_hd = {}
-            for f in hd.values():
-                n_hd[f.get("etat", "?")] = n_hd.get(f.get("etat", "?"), 0) + 1
-            lignes.append(("🔒" if serveur_ferme() else "🌐") + " Hors Discord : "
-                          + " · ".join(f"{k} {v}" for k, v in sorted(n_hd.items())) if n_hd else
-                          "🔒 Hors Discord : aucune fiche pour l'instant")
-            lignes[-1] += " — `!candidats`"
-        # Détail actionnable : QUI attend, depuis combien de jours — pour dérouler la
-        # pipeline sans ouvrir les fiches une par une.
         ref = datetime.now(timezone.utc)
+        aujourdhui = heure_paris().date()
+
+        def _present(uid):
+            return any(g.get_member(int(uid)) is not None for g in client.guilds) if str(uid).isdigit() else False
 
         def _anciennete(iso):
             try:
@@ -5189,32 +5288,69 @@ async def commande_admin(message, texte: str) -> bool:
             except (TypeError, ValueError):
                 return 0
 
-        rendus_n = sorted(((u, _anciennete(i.get("rendu"))) for u, i in etats.items()
-                           if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
-        # Les signés via !equipe (ex. signature en direct avec Gaëtan) et les contrats
-        # expirés (14 j sans signature) sortent des listes d'attente : ce sont des cas
-        # réglés, pas des relances à faire.
-        deja_signes = set(lire_json(FICHIER_EQUIPES, {}))
-        valides_n = sorted(((u, _anciennete(i.get("validation"))) for u, i in etats.items()
-                            if i.get("etat") == "valide" and u not in deja_signes
-                            and not (i.get("contrat") or {}).get("submission_id")),
-                           key=lambda x: -x[1])
-        contrats_n = sorted(((u, _anciennete((i.get("contrat") or {}).get("date")))
-                             for u, i in etats.items()
-                             if (i.get("contrat") or {}).get("submission_id")
-                             and u not in deja_signes
-                             and (i.get("contrat") or {}).get("statut") not in ("complet", "expire")),
-                            key=lambda x: -x[1])
+        lignes = [f"📈 **Pipeline candidats — {aujourdhui.strftime('%d/%m')}**"]
+        try:
+            cands_p = await lire_candidatures_sheets()
+        except Exception as erreur:                                       # noqa: BLE001
+            cands_p = []
+            lignes.append(f"⚠️ Classeur des candidatures illisible ({type(erreur).__name__})")
+        if cands_p:
+            def _n_jours(j):
+                return sum(1 for c in cands_p if c.get("date") and (aujourdhui - c["date"].date()).days < j)
+            hier = sum(1 for c in cands_p if c.get("date") and (aujourdhui - c["date"].date()).days == 1)
+            par_source = {}
+            for c in cands_p:
+                par_source[c["source"]] = par_source.get(c["source"], 0) + 1
+            lignes.append(f"📋 Candidatures (formulaire) : **{len(cands_p)}** au total · {_n_jours(7)} sur 7 jours · {hier} hier · "
+                          + " · ".join(f"{k} {v}" for k, v in sorted(par_source.items())))
+        presents = {u: i for u, i in etats.items() if _present(u)}
+        partis = len(etats) - len(presents)
+        compte = {}
+        for i in presents.values():
+            compte[i.get("etat", "?")] = compte.get(i.get("etat", "?"), 0) + 1
+        libelles = {"test_envoye": "🧪 Test en cours", "test_rendu": "📥 Tests rendus (à reviewer)",
+                    "valide": "✅ Validés (→ J'ACCEPTE)", "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés",
+                    "quiz_rate": "📝 Quiz raté", "sorti": "🚪 Sortis"}
+        lignes.append("🧭 Sur le serveur : " + (" · ".join(f"{libelles.get(e, e)} {n}" for e, n in sorted(compte.items())) or "personne en parcours")
+                      + (f" · {partis} parti(s) du serveur retirés du compte" if partis else ""))
+        signes = lire_json(FICHIER_EQUIPES, {})
+        signes_presents = [u for u in signes if _present(u)]
+        groupes_p = roster.groupes()
+        lignes.append(f"✍️ Signés au registre : {len(signes_presents)} sur le serveur"
+                      + (f" ({len(signes) - len(signes_presents)} partis)" if len(signes) > len(signes_presents) else "")
+                      + (f" · 👥 **Roster actif : {roster.effectif()}** (" + " · ".join(f"{c} {len(n)}" for c, n in groupes_p.items()) + ")"
+                         if roster.actif() else ""))
+        en_retard = [uid for uid, i in presents.items() if i.get("etat") == "test_envoye"
+                     and datetime.now(timezone.utc) > datetime.fromisoformat(i["echeance"]) - timedelta(hours=12)]
+        if en_retard:
+            lignes.append("⏳ Bientôt à échéance : " + ", ".join(f"<@{u}>" for u in en_retard[:10]))
+        rendus_n = sorted(((u, _anciennete(i.get("rendu"))) for u, i in presents.items() if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
+        deja_signes = set(signes)
+        valides_n = sorted(((u, _anciennete(i.get("validation"))) for u, i in presents.items()
+                            if i.get("etat") == "valide" and u not in deja_signes), key=lambda x: -x[1])
+        sans_creatrice = []
+        for u in signes_presents:
+            m_p = membre_par_id(u)
+            if m_p is None or str(u) in ADMIN_IDS or est_manager(m_p):
+                continue
+            if not signes[u].get("creatrice") and not roster.creatrice_de(prenom_de(m_p)):
+                sans_creatrice.append((u, _anciennete(signes[u].get("conditions") or signes[u].get("date"))))
         if rendus_n:
-            lignes.append("→ 📥 À reviewer (`!test-ok` / `!test-non`) : "
-                          + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus_n[:8]))
+            lignes.append("→ 📥 À reviewer (`!test-ok` / `!test-non`) : " + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus_n[:8]))
         if valides_n:
-            lignes.append("→ ✅ Validés SANS contrat (e-mail manquant) : "
-                          + " · ".join(f"<@{u}> (J+{j})" for u, j in valides_n[:8]))
-        if contrats_n:
-            lignes.append("→ 🖋️ Contrat envoyé, pas signé : "
-                          + " · ".join(f"<@{u}> (J+{j})" for u, j in contrats_n[:8]))
-        await message.reply("\n".join(lignes)[:1990])
+            lignes.append("→ ✅ Validés sans J'ACCEPTE (je relance) : " + " · ".join(f"<@{u}> (J+{j})" for u, j in valides_n[:8]))
+        if sans_creatrice:
+            lignes.append("→ 🎬 Signés sans créatrice (`!creatrice @x Prénom`) : "
+                          + " · ".join(f"<@{u}> (J+{j})" for u, j in sorted(sans_creatrice, key=lambda x: -x[1])[:8]))
+        if CONTRAT_ACTIVER:
+            contrats_n = sorted(((u, _anciennete((i.get("contrat") or {}).get("date"))) for u, i in presents.items()
+                                 if (i.get("contrat") or {}).get("submission_id") and u not in deja_signes
+                                 and (i.get("contrat") or {}).get("statut") not in ("complet", "expire")), key=lambda x: -x[1])
+            if contrats_n:
+                lignes.append("→ 🖋️ Contrat envoyé, pas signé : " + " · ".join(f"<@{u}> (J+{j})" for u, j in contrats_n[:8]))
+        if not (rendus_n or valides_n or sans_creatrice):
+            lignes.append("→ Rien à faire côté candidats. `!roster` pour l'équipe, `!fiche @x` pour juger quelqu'un.")
+        await envoyer_long(message, lignes)
         return True
 
     if texte.startswith("!tests"):
@@ -5359,7 +5495,15 @@ async def commande_admin(message, texte: str) -> bool:
                   + {"envoye": " · 🖋️ contrat envoyé (en attente de signature)", "signe_clipper": " · 🖋️ signé "
                      "par le clipper (contre-signature en attente)", "complet": " · 🖋️ contrat ✅ complet (auto-onboardé)"}.get(
                         etat.get("contrat", {}).get("statut"), "")]
-        await message.reply("\n".join(lignes)[:1990])
+        if equipe.get("creatrice") or roster.creatrice_de(prenom_de(membre)):
+            lignes.append(f"🎬 Créatrice : {equipe.get('creatrice') or roster.creatrice_de(prenom_de(membre))}"
+                          + (" · au roster actif" if roster.est_actif(prenom_de(membre)) else " · ⚠️ pas au roster"))
+        try:                                                              # 26/09 : la qualité des réponses du classeur, avant d'attribuer
+            cands_f = await lire_candidatures_sheets()
+            lignes += texte_candidature(candidature_de(cands_f, tel, prenom or prenom_de(membre)))
+        except Exception as erreur:                                       # noqa: BLE001
+            lignes.append(f"📋 Candidature : classeur illisible ({type(erreur).__name__})")
+        await envoyer_long(message, lignes)
         return True
 
     # ---- !importer : import direct du CSV de la feuille (aucun webhook, aucune limite Discord) ----
