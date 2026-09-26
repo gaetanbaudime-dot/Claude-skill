@@ -483,7 +483,7 @@ Dès `!creatrice @clipper Prénom`, le bot livre dans le salon perso du clipper 
 
 ## 📊 Rapport GAML du manager : #jonas-stats (24/09, `rapport_stats.py`)
 
-Chaque matin, une fois les relevés de la veille faits, le bot poste dans le salon du manager (nom et groupes dans `rapport_jonas.json`, salon créé par le bot s'il manque : privé, rôle Manager et admins) les visiteurs GAML de la veille des clippers suivis, par créatrice : visiteurs hors robots, dont francophones payables, cumul 7 jours, robots exclus, clippers sans lien signalés. Un lien est rattaché à un clipper quand sa note contient le prénom et que son nom commence par la créatrice (« Rianah Metricool » et « Rianah Metricool 2 » comptent pour Rianah sous Sophie) ; ces liens sont relevés même sans membre Discord. `!stats-jonas [AAAA-MM-JJ]` relance le rapport.
+Chaque matin, une fois les relevés de la veille faits, le bot poste dans le salon du manager (nom et groupes dans `rapport_jonas.json`, salon créé par le bot s'il manque : privé, rôle Manager et admins) les visiteurs GAML de la veille des clippers suivis, par créatrice : visiteurs hors robots, dont francophones payables, cumul 7 jours, robots exclus, clippers sans lien signalés. Un lien est rattaché à un clipper quand sa note contient le prénom et que son nom commence par la créatrice (« Rianah Metricool » et « Rianah Metricool 2 » comptent pour Rianah sous Sophie) ; ces liens sont relevés même sans membre Discord. `!stats-jonas [AAAA-MM-JJ]` (26/09 : rapport réduit à un chiffre par clipper, rangé par créatrice, et deux totaux : hier et 7 jours) relance le rapport.
 
 ## ✍️ Plus d'étape contrat dans le tunnel (23/09)
 

@@ -73,28 +73,25 @@ def _liens_de(d: dict, creatrice: str, nom: str) -> list:
 # ------------------------------------------------------------------ texte
 def texte_rapport(d: dict, jour) -> str:
     c = config()
-    lignes = [f"📊 **Stats GAML du {jour.strftime('%d/%m')}** — visiteurs hors robots · dont francophones · cumul 7 jours"]
+    lignes = [f"📊 **Visiteurs du {jour.strftime('%d/%m')}**, par clipper"]
     tot = {"hors_robots": 0, "payes": 0, "s7": 0}
     for creatrice, noms in c["groupes"].items():
         lignes.append(f"\n**{creatrice}**")
         for nom in noms:
             lids = _liens_de(d, creatrice, nom)
             if not lids:
-                lignes.append(f"· {nom} — pas de lien GAML « Clipping {nom} » pour {creatrice}")
+                lignes.append(f"· {nom} : pas de lien")
                 continue
             h = paie_clics.somme(d, lids, jour, jour)
             s7 = paie_clics.somme(d, lids, jour - timedelta(days=6), jour)
             if h["jours"] == 0:
-                lignes.append(f"· {nom} — relevé de la veille pas encore fait")
+                lignes.append(f"· {nom} : pas encore compté")
                 continue
-            tot["hors_robots"] += h["hors_robots"]; tot["payes"] += h["payes"]; tot["s7"] += s7["payes"]
-            robots = h["brut"] - h["hors_robots"]
-            lignes.append(f"· {nom} — **{paie_clics._fmt(h['hors_robots'])}** visiteurs · {paie_clics._fmt(h['payes'])} fr. · "
-                          f"7 j : {paie_clics._fmt(s7['payes'])}" + (f" · {robots} robots" if robots > 0 else "")
-                          + (f" · {len(lids)} liens" if len(lids) > 1 else ""))
-    lignes.append(f"\n**Total** : {paie_clics._fmt(tot['hors_robots'])} visiteurs · {paie_clics._fmt(tot['payes'])} francophones · "
-                  f"7 jours : {paie_clics._fmt(tot['s7'])}")
-    lignes.append("-# fr. = visiteurs francophones payables (hors robots). `!stats-jonas` pour relancer, `!lien @clipper …` pour un lien manquant.")
+            tot["hors_robots"] += h["hors_robots"]; tot["payes"] += h["payes"]; tot["s7"] += s7["hors_robots"]
+            lignes.append(f"· {nom} : **{paie_clics._fmt(h['hors_robots'])}**")
+    # 26/09, demande de Gaëtan : un chiffre par clipper, deux totaux en conclusion, rien d'autre (Jonas s'y perdait)
+    lignes.append(f"\nHier, tous les clippeurs réunis : **{paie_clics._fmt(tot['hors_robots'])} visiteurs**")
+    lignes.append(f"Les 7 derniers jours, tous les clippeurs réunis : **{paie_clics._fmt(tot['s7'])} visiteurs**")
     return "\n".join(lignes)
 
 
