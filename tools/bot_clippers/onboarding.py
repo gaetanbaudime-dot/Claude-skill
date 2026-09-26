@@ -87,8 +87,8 @@ async def lire_comptes() -> list:
     for i, l in enumerate(lignes[1:], start=2):
         l = (l + [""] * 10)[:10]
         out.append({"ligne": i, "etat": l[0].strip(), "handle": l[1].strip().lstrip("@"), "mdp": l[2].strip(),
-                    "mail": l[4].strip(), "phone": l[5].strip(), "gerant": l[6].strip(), "utilisation": l[7].strip(),
-                    "numero": l[8].strip(), "creatrice": l[9].strip()})
+                    "followers": l[3].strip(), "mail": l[4].strip(), "phone": l[5].strip(), "gerant": l[6].strip(),
+                    "utilisation": l[7].strip(), "numero": l[8].strip(), "creatrice": l[9].strip()})
     return out
 
 

@@ -8,7 +8,8 @@ ETAT de l'onglet Instagram, une cellule à la fois, jamais la structure :
   WARMUP / GOOD / PRIVE → BAN   quand Instagram ne le trouve plus BAN_JOURS jours de suite (posé par le bot, annulé s'il revient)
   BAN posé par le bot → WARMUP  si le compte réapparaît
 Les états posés à la main (PERDU LOGS, à vérifier, BIZARRE, ACTIF…) et les lignes sans Gérant ne sont jamais touchés :
-un compte du vivier libre ne peut pas se créer tout seul. La colonne Followers est remplie au passage.
+un compte du vivier libre ne peut pas se créer tout seul. La colonne Followers est remplie pour TOUS les comptes créés du
+classeur (26/09, « légendaire ») : clippers, créatrices sous Metricool, comptes libérés — pas les lignes « à créer » sans gérant.
 Le module ne connaît pas bot_discord : dépendances dans `configurer(deps)` (lire_json, ecrire_json, FICHIER_ETATS,
 normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les tests)."""
 import asyncio
@@ -31,6 +32,8 @@ BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "2") or 2)           # jours d
 HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après le rapport inputs du matin
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
+VERSION = 2                                                            # changer = un passage de plus le jour du déploiement
+LOT = 50                                                               # comptes par appel Apify
 
 _deps = {}
 
@@ -68,19 +71,22 @@ async def scanner(handles: list) -> dict:
     if not APIFY_TOKEN or not handles:
         return None
     url = f"https://api.apify.com/v2/acts/{ACTOR_IG}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
-    try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=280)) as session:
-            async with session.post(url, json={"usernames": handles}) as reponse:
-                if reponse.status >= 400:
-                    journal.error("Apify HTTP %s (états du classeur)", reponse.status)
-                    return None
-                items = await reponse.json()
-    except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
-        journal.error("Apify injoignable (états du classeur) : %s", erreur)
-        return None
+    items = []
+    for i in range(0, len(handles), LOT):                              # par lots : 130 comptes tiennent en deux ou trois appels
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=280)) as session:
+                async with session.post(url, json={"usernames": handles[i:i + LOT]}) as reponse:
+                    if reponse.status >= 400:
+                        journal.error("Apify HTTP %s (états du classeur)", reponse.status)
+                        return None
+                    lot = await reponse.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+            journal.error("Apify injoignable (états du classeur) : %s", erreur)
+            return None
+        items += lot if isinstance(lot, list) else []
     limite = datetime.now(timezone.utc) - timedelta(hours=24)
     out = {h.lower(): {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0} for h in handles}
-    for item in items if isinstance(items, list) else []:
+    for item in items:
         handle = (item.get("username") or item.get("inputUrl") or "").lower().rstrip("/").split("/")[-1].lstrip("@")
         if handle not in out:
             continue
@@ -139,9 +145,23 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool) -> str:
 
 
 def candidats(comptes: list) -> list:
-    """Les lignes suivies : Utilisation = Clipper, un Gérant, un identifiant, un état que le bot sait faire évoluer."""
+    """Les lignes dont l'ETAT peut bouger : Utilisation = Clipper, un Gérant, un identifiant, un état que le bot sait faire évoluer."""
     return [c for c in comptes if _norm(c["utilisation"]) == "clipper" and c["handle"]
             and _norm(c["gerant"]) not in ("", "x", "y", "z") and _norm(c["etat"]) in SUIVIS]
+
+
+def a_scanner(comptes: list) -> list:
+    """Les lignes regardées sur Instagram : tout compte créé (état autre que « à créer »), plus les « à créer » qui ont
+    un Gérant. Le vivier « à créer » sans gérant n'existe pas encore sur Instagram, inutile de payer pour lui."""
+    vus, out = set(), []
+    for c in comptes:
+        h = c["handle"].lower()
+        if not h or h in vus:
+            continue
+        if _norm(c["etat"]) not in ("a creer", "à créer") or _norm(c["gerant"]) not in ("", "x", "y", "z"):
+            vus.add(h)
+            out.append(c)
+    return out
 
 
 # ------------------------------------------------------------------ cycle
@@ -152,17 +172,27 @@ async def executer(ecrire: bool = True) -> dict:
         return {"changements": [], "scannes": 0, "erreur": "classeur non configuré"}
     comptes = await onboarding.lire_comptes()
     suivis = candidats(comptes)
-    if not suivis:
+    lignes = a_scanner(comptes)
+    if not lignes:
         return {"changements": [], "scannes": 0, "erreur": ""}
-    mesures = await scanner([c["handle"].lower() for c in suivis])
+    mesures = await scanner([c["handle"].lower() for c in lignes])
     if mesures is None:
         return {"changements": [], "scannes": 0, "erreur": "Instagram illisible aujourd'hui (Apify), rien changé"}
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     changements, followers_maj = [], 0
-    for c in suivis:
+    ids_suivis = {id(c) for c in suivis}
+    for c in lignes:
         h = c["handle"].lower()
         m = mesures.get(h) or {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0}
+        if ecrire and m["existe"] and not m["restreint"] and str(m["followers"]) != str(c.get("followers", "")).replace(" ", ""):
+            try:
+                await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, f"{onboarding.ONGLET_LOGINS}!D{c['ligne']}", [[m["followers"]]])
+                followers_maj += 1
+            except Exception as erreur:                                  # noqa: BLE001
+                journal.warning("Classeur : followers de %s non écrits : %s", c["handle"], erreur)
+        if id(c) not in ids_suivis:
+            continue
         hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
         hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"]})
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
@@ -179,26 +209,22 @@ async def executer(ecrire: bool = True) -> dict:
                     d["bans_auto"][h] = jour
                 elif h in d["bans_auto"]:
                     d["bans_auto"].pop(h, None)
-        if ecrire and m["existe"] and m["followers"] > 0:
-            try:
-                await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, f"{onboarding.ONGLET_LOGINS}!D{c['ligne']}", [[m["followers"]]])
-                followers_maj += 1
-            except Exception as erreur:                                  # noqa: BLE001
-                journal.warning("Classeur : followers de %s non écrits : %s", c["handle"], erreur)
     if ecrire:
         d["dernier"] = jour
+        d["version"] = VERSION
         _ecrire(d)
-    journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers", len(suivis), len(changements), followers_maj)
-    return {"changements": changements, "scannes": len(suivis), "erreur": "", "followers": followers_maj}
+    journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers mis à jour", len(lignes), len(changements), followers_maj)
+    return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj}
 
 
 def texte_bilan(bilan: dict, test: bool = False) -> str:
     if bilan.get("erreur"):
         return f"⚠️ États du classeur : {bilan['erreur']}."
     ch = bilan["changements"]
-    entete = f"🗂️ **États du classeur** · {bilan['scannes']} compte(s) regardés sur Instagram"
+    entete = (f"🗂️ **États du classeur** · {bilan['scannes']} compte(s) regardés sur Instagram · "
+              f"{bilan.get('followers', 0)} compteur(s) de followers mis à jour")
     if not ch:
-        return entete + " · rien à changer."
+        return entete + " · aucun état à changer."
     par_etat = {}
     for handle, gerant, avant, apres, ligne in ch:
         par_etat.setdefault(apres, []).append(f"`{handle}` ({gerant}, était {avant})")
@@ -222,13 +248,14 @@ async def boucle(client) -> None:
             maintenant = datetime.now(timezone.utc)
             jour = maintenant.strftime("%Y-%m-%d")
             d = _lire()
-            if maintenant.hour >= HEURE_UTC and d.get("dernier") != jour and int(d.get("essais", {}).get(jour, 0)) < 3:
+            if maintenant.hour >= HEURE_UTC and (d.get("dernier") != jour or d.get("version") != VERSION) \
+                    and int(d.get("essais", {}).get(jour, 0)) < 3:
                 bilan = await executer(ecrire=True)
                 if bilan.get("erreur"):
                     d = _lire(); d.setdefault("essais", {})[jour] = int(d.get("essais", {}).get(jour, 0)) + 1; _ecrire(d)
                     journal.warning("États du classeur : %s", bilan["erreur"])
                 else:
-                    if bilan["changements"] and _deps.get("canal_admin"):
+                    if (bilan["changements"] or bilan.get("followers")) and _deps.get("canal_admin"):
                         canal = await _deps["canal_admin"]()
                         if canal is not None:
                             await canal.send(texte_bilan(bilan)[:1990])
