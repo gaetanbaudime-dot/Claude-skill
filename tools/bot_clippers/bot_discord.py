@@ -5692,9 +5692,29 @@ async def on_ready():
                              "chercher_membre": lambda nom: chercher_membre(nom),
                              "marquer_etat": onboarding.marquer_etat})                # 25/09 : ETAT du classeur suit le parcours
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
+        def _clics_7j(prenom):                                               # visites payables des 7 derniers jours du clipper
+            m = membre_par_prenom(normaliser(prenom))
+            if m is None:
+                return None
+            d_c = paie_clics._lire()
+            lids = paie_clics.liens_de(d_c, str(m.id))
+            if not lids:
+                return None
+            hier = paie_clics._aujourdhui() - timedelta(days=1)
+            return int(paie_clics.somme(d_c, lids, hier - timedelta(days=6), hier)["payes"])
+
+        def _lien_gaml(prenom):
+            m = membre_par_prenom(normaliser(prenom))
+            if m is None:
+                return None
+            d_c = paie_clics._lire()
+            urls = [d_c["liens"][l].get("url", "") for l in paie_clics.liens_de(d_c, str(m.id)) if d_c["liens"].get(l, {}).get("url")]
+            return " · ".join(urls) if urls else None
+
         etats_comptes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ETATS": FICHIER_ETATS,
                                   "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager,
-                                  "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+                                  "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
+                                  "clics_7j": _clics_7j, "lien_gaml": _lien_gaml})                 # 26/09 : tableau de bord
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)

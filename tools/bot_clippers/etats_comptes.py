@@ -32,7 +32,7 @@ BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "2") or 2)           # jours d
 HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après le rapport inputs du matin
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
-VERSION = 2                                                            # changer = un passage de plus le jour du déploiement
+VERSION = 3                                                            # changer = un passage de plus le jour du déploiement
 LOT = 50                                                               # comptes par appel Apify
 
 _deps = {}
@@ -180,14 +180,16 @@ async def executer(ecrire: bool = True) -> dict:
         return {"changements": [], "scannes": 0, "erreur": "Instagram illisible aujourd'hui (Apify), rien changé"}
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    changements, followers_maj = [], 0
+    changements, followers_maj, clics_maj, liens_maj = [], 0, 0, 0
     ids_suivis = {id(c) for c in suivis}
+    async def _cellule(champ, ligne, valeur):
+        await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, f"{onboarding.ONGLET_LOGINS}!{onboarding.lettre(champ)}{ligne}", [[valeur]])
     for c in lignes:
         h = c["handle"].lower()
         m = mesures.get(h) or {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0}
         if ecrire and m["existe"] and not m["restreint"] and str(m["followers"]) != str(c.get("followers", "")).replace(" ", ""):
             try:
-                await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, f"{onboarding.ONGLET_LOGINS}!D{c['ligne']}", [[m["followers"]]])
+                await _cellule("followers", c["ligne"], m["followers"])
                 followers_maj += 1
             except Exception as erreur:                                  # noqa: BLE001
                 journal.warning("Classeur : followers de %s non écrits : %s", c["handle"], erreur)
@@ -209,12 +211,37 @@ async def executer(ecrire: bool = True) -> dict:
                     d["bans_auto"][h] = jour
                 elif h in d["bans_auto"]:
                     d["bans_auto"].pop(h, None)
+    # 26/09 : tableau de bord — pour chaque ligne qui a un Gérant, ses visites payables des 7 derniers jours et son lien GAML
+    if ecrire and (_deps.get("clics_7j") or _deps.get("lien_gaml")):
+        cache = {}
+        for c in comptes:
+            g = _norm(c["gerant"])
+            if not c["handle"] or g in ("", "x", "y", "z"):
+                continue
+            if g not in cache:
+                try:
+                    cache[g] = (_deps["clics_7j"](c["gerant"]) if _deps.get("clics_7j") else None,
+                                _deps["lien_gaml"](c["gerant"]) if _deps.get("lien_gaml") else None)
+                except Exception as erreur:                              # noqa: BLE001
+                    journal.warning("Clics/lien de %s : %s", c["gerant"], erreur)
+                    cache[g] = (None, None)
+            clics, lien = cache[g]
+            try:
+                if clics is not None and "clics" in onboarding._colonnes and str(clics) != str(c.get("clics", "")).replace(" ", ""):
+                    await _cellule("clics", c["ligne"], clics)
+                    clics_maj += 1
+                if lien and "lien_gaml" in onboarding._colonnes and lien != c.get("lien_gaml", ""):
+                    await _cellule("lien_gaml", c["ligne"], lien)
+                    liens_maj += 1
+            except Exception as erreur:                                  # noqa: BLE001
+                journal.warning("Classeur : clics/lien de %s non écrits : %s", c["handle"], erreur)
     if ecrire:
         d["dernier"] = jour
         d["version"] = VERSION
         _ecrire(d)
-    journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers mis à jour", len(lignes), len(changements), followers_maj)
-    return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj}
+    journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers, %d clics, %d liens mis à jour",
+                 len(lignes), len(changements), followers_maj, clics_maj, liens_maj)
+    return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj}
 
 
 def texte_bilan(bilan: dict, test: bool = False) -> str:
@@ -222,7 +249,7 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
         return f"⚠️ États du classeur : {bilan['erreur']}."
     ch = bilan["changements"]
     entete = (f"🗂️ **États du classeur** · {bilan['scannes']} compte(s) regardés sur Instagram · "
-              f"{bilan.get('followers', 0)} compteur(s) de followers mis à jour")
+              f"{bilan.get('followers', 0)} followers, {bilan.get('clics', 0)} clics 7 j, {bilan.get('liens', 0)} liens GAML mis à jour")
     if not ch:
         return entete + " · aucun état à changer."
     par_etat = {}
@@ -255,7 +282,7 @@ async def boucle(client) -> None:
                     d = _lire(); d.setdefault("essais", {})[jour] = int(d.get("essais", {}).get(jour, 0)) + 1; _ecrire(d)
                     journal.warning("États du classeur : %s", bilan["erreur"])
                 else:
-                    if (bilan["changements"] or bilan.get("followers")) and _deps.get("canal_admin"):
+                    if (bilan["changements"] or bilan.get("followers") or bilan.get("clics")) and _deps.get("canal_admin"):
                         canal = await _deps["canal_admin"]()
                         if canal is not None:
                             await canal.send(texte_bilan(bilan)[:1990])

@@ -38,7 +38,41 @@ ONGLET_LOGINS = os.environ.get("ONGLET_LOGINS", "Instagram").strip() or "Instagr
 COMPTES_PAR_CLIPPER = int(os.environ.get("COMPTES_PAR_CLIPPER", "3") or 3)
 GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
 ETATS_DISPONIBLES = {"a creer", "à créer", "good", "warmup", "warm-up", "prive", "privé", "actif", "ok"}
-COL = {"etat": 0, "handle": 1, "mdp": 2, "followers": 3, "mail": 4, "phone": 5, "gerant": 6, "utilisation": 7, "numero": 8, "creatrice": 9}
+COL_DEFAUT = {"etat": 0, "handle": 1, "mdp": 2, "followers": 3, "mail": 4, "phone": 5, "gerant": 6, "utilisation": 7, "numero": 8, "creatrice": 9}
+# 26/09 : Gaëtan insère des colonnes (Clics GAML, Lien GAML associé) → les colonnes se trouvent par leur en-tête, jamais par position
+MOTS_COLONNES = (("etat", ("etat", "statut")), ("handle", ("@", "ig", "compte", "pseudo")), ("mdp", ("mdp", "mot de passe", "password")),
+                 ("followers", ("followers", "abonnes")), ("clics", ("clics", "gaml last", "visites")), ("numero", ("numero",)),
+                 ("mail", ("mail", "email")), ("phone", ("phone", "tel")), ("gerant", ("gerant", "clipper")),
+                 ("utilisation", ("utilisation", "usage")), ("creatrice", ("creatrice",)), ("pod", ("pod",)),
+                 ("lien_gaml", ("lien gaml", "gaml associe")), ("lien_infloww", ("infloww",)))
+_colonnes = dict(COL_DEFAUT)
+
+
+def colonnes(en_tete: list) -> dict:
+    """{champ: index de colonne} d'après la ligne d'en-tête (accents/casse ignorés, premier mot-clé gagnant, une colonne
+    ne sert qu'une fois). Sans en-tête reconnu, l'ordre historique."""
+    trouve = {}
+    pris = set()
+    for champ, mots in MOTS_COLONNES:
+        for i, h in enumerate(en_tete):
+            hn = _norm(h)
+            if i in pris or not hn:
+                continue
+            if champ == "mail" and "numero" in hn:
+                continue                                                # « Numéro Mail » n'est pas la colonne Mail
+            if any(m in hn for m in mots):
+                trouve[champ] = i
+                pris.add(i)
+                break
+    if not all(k in trouve for k in ("etat", "handle", "gerant")):
+        return dict(COL_DEFAUT)
+    return {**COL_DEFAUT, **trouve}
+
+
+def lettre(champ: str) -> str:
+    """La lettre de colonne d'un champ (A, B, …, AA) d'après le dernier en-tête lu."""
+    i = _colonnes.get(champ, COL_DEFAUT.get(champ, 0))
+    return (chr(64 + i // 26) if i >= 26 else "") + chr(65 + i % 26)
 RE_PRIVE = re.compile(r"priv|secret|onlyme|perso")                 # handle d'un compte privé (le 3e du trio)
 JOURS_NOUVEAU = int(os.environ.get("ONBOARDING_JOURS_NOUVEAU", "45") or 45)   # un membre arrivé depuis moins longtemps est « nouveau »
 A_CREER = ("a creer", "à créer")
@@ -81,14 +115,22 @@ def _ecrire_etat(d: dict):
 
 # ------------------------------------------------------------------ classeur
 async def lire_comptes() -> list:
-    """Toutes les lignes de l'onglet (index de ligne 1-based inclus), cellules manquantes complétées."""
-    lignes = await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!A1:J")
+    """Toutes les lignes de l'onglet (index de ligne 1-based inclus), colonnes reconnues par leur en-tête, cellules
+    manquantes complétées."""
+    global _colonnes
+    lignes = await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!A1:Z")
+    if not lignes:
+        return []
+    _colonnes = colonnes(lignes[0])
     out = []
     for i, l in enumerate(lignes[1:], start=2):
-        l = (l + [""] * 10)[:10]
-        out.append({"ligne": i, "etat": l[0].strip(), "handle": l[1].strip().lstrip("@"), "mdp": l[2].strip(),
-                    "followers": l[3].strip(), "mail": l[4].strip(), "phone": l[5].strip(), "gerant": l[6].strip(),
-                    "utilisation": l[7].strip(), "numero": l[8].strip(), "creatrice": l[9].strip()})
+        l = (l + [""] * 26)[:26]
+        def champ(nom):
+            return l[_colonnes[nom]].strip() if nom in _colonnes else ""
+        out.append({"ligne": i, "etat": champ("etat"), "handle": champ("handle").lstrip("@"), "mdp": champ("mdp"),
+                    "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
+                    "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
+                    "creatrice": champ("creatrice"), "lien_gaml": champ("lien_gaml")})
     return out
 
 
@@ -143,7 +185,7 @@ async def marquer_etat(handle: str, etat: str) -> bool:
             if _norm(c["etat"]) == _norm(etat):
                 return True
             try:
-                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!A{c['ligne']}", [[etat]])
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('etat')}{c['ligne']}", [[etat]])
                 journal.info("Classeur : %s → %s (ligne %s)", c["handle"], etat, c["ligne"])
                 return True
             except Exception as erreur:
@@ -188,7 +230,7 @@ async def reserver(comptes: list, prenom_clipper: str) -> int:
     """Écrit le prénom du clipper dans la colonne Gérant de chaque ligne. Renvoie le nombre de cellules écrites."""
     n = 0
     for c in comptes:
-        n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!G{c['ligne']}", [[prenom_clipper]])
+        n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('gerant')}{c['ligne']}", [[prenom_clipper]])
     return n
 
 
@@ -486,10 +528,10 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     etat = _lire_etat()
     bilan = []
     for c in lignes:
-        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!G{c['ligne']}", [[""]])
+        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('gerant')}{c['ligne']}", [[""]])
         metricool = _norm(c["etat"]) not in A_CREER and not pool
         if metricool:
-            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!H{c['ligne']}", [[MENTION_LIBERE]])
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('utilisation')}{c['ligne']}", [[MENTION_LIBERE]])
         h = c["handle"].lower()
         etat["livres"].pop(h, None)
         etat.get("ecartes", {}).pop(h, None)
