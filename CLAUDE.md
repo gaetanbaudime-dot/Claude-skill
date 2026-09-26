@@ -18,6 +18,9 @@ Ce repo contient le second cerveau de Gaëtan (`second-brain/`, vault Obsidian s
 
 Lire `second-brain/_MOC.md` + les MOC concernés avant d'écrire → fusionner plutôt que dupliquer → cross-linker dans les deux sens et mettre à jour les MOC → audit wikilinks (zéro fantôme) → scan sécurité → commit français descriptif → push avec retry. Le hub business à lire en premier : `second-brain/00-Contexte/LTP Models.md`.
 
+
+**Reels des créatrices (OpusClip → Metricool)** : toute session qui touche à OpusClip, à Metricool ou aux Reels des créatrices charge la skill `reels-opusclip-metricool` (`.claude/skills/reels-opusclip-metricool/SKILL.md`, état dans `etat.json` à côté) : consignes de Gaëtan, identifiants, pièges et avancement y sont, la session n'a rien à redemander.
+
 ## graphify
 
 This project has a graphify knowledge graph at graphify-out/.

@@ -1,0 +1,1614 @@
+{
+ "mis_a_jour": "2026-09-26 (passation depuis la session « Second brain execution »)",
+ "credits_opusclip": {
+  "utilises_au_26_09": 102,
+  "limite_mensuelle": 900,
+  "remise_a_zero": "2026-10-01",
+  "regle": "≈ 1 crédit par minute de vidéo source soumise ; dupliquer, éditer, censurer, exporter ne coûtent rien"
+ },
+ "template_opusclip": {
+  "id": "cmcaokhia041t7ypf070b4wmu",
+  "nom": "Créatrices OFM",
+  "animation": "karaoké mot à mot, surlignage de fond"
+ },
+ "chaines_youtube_creatrices": {
+  "Chloé": "https://www.youtube.com/@chloecallista",
+  "Sarah": "https://www.youtube.com/@Sarah_Ivnv",
+  "Sophie": "https://youtube.com/@sophiechoeur_2.0"
+ },
+ "projets_opusclip": {
+  "sophie_van": {
+   "project_id": "P3092508s5an",
+   "source": "YouTube u0OeqOM1Lw0",
+   "titre": "Sophie — Construction du van (35 min)",
+   "clips": 32
+  },
+  "chloe_cliches": {
+   "project_id": "P3092508sf8K",
+   "source": "YouTube EhzzE1LpnTo",
+   "titre": "Chloé — Clichés sur le métier (19 min)",
+   "clips": 25
+  },
+  "sarah_qr": {
+   "project_id": "P3092508sokv",
+   "source": "YouTube 4RSd8P5WfCw",
+   "titre": "Sarah — Questions réponses (28 min)",
+   "clips": "non comptés, aucune marque Metricool Sarah"
+  },
+  "sophie_pilote": {
+   "project_id": "P3092508dSRu",
+   "clip": "3puUPX9sDM",
+   "note": "pauses ≥ 0,7 s retirées le 26/09 (24,7 s → 18,3 s), rendu à vérifier ; brouillon Metricool 381827052"
+  },
+  "sophie_pilote_clipanything": {
+   "project_id": "P3092508hN7M",
+   "clip": "mlwPHhR1S7",
+   "note": "aucune pause ni tic trouvés, inchangé ; brouillon Metricool 381829293"
+  }
+ },
+ "marques_metricool": {
+  "fuseau": "Europe/Paris",
+  "Sophie 1 - R": {
+   "blogId": 6192908,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "style_sous_titres": "A",
+   "creneaux": [
+    "09:00",
+    "20:00"
+   ],
+   "note": "5 posts par jour déjà programmés par Rianah (07:30, 10:00, 12:30, 15:30, 18:00) : ne jamais les toucher"
+  },
+  "Sophie 2 - J": {
+   "blogId": 6384618,
+   "reseaux": [
+    "facebook",
+    "youtube"
+   ],
+   "style_sous_titres": "B",
+   "creneaux": [
+    "09:00",
+    "20:00"
+   ],
+   "note": "chaîne YouTube propre à cette marque, différente de Sophie 1/3"
+  },
+  "Sophie 3 - R": {
+   "blogId": 6433218,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok"
+   ],
+   "style_sous_titres": "C",
+   "creneaux": [
+    "09:00",
+    "20:00"
+   ],
+   "note": "sa chaîne YouTube est celle de Sophie 1 : pas de YouTube ici (doublon)"
+  },
+  "Chloé 1 - J": {
+   "blogId": 6314104,
+   "reseaux": [
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube"
+   ],
+   "style_sous_titres": "A",
+   "creneaux": [
+    "09:00",
+    "19:30"
+   ],
+   "note": "6 posts par jour déjà programmés par Julien (10:00 → 17:30, IG à 12:00) : ne jamais les toucher"
+  },
+  "Chloé 2 - J": {
+   "blogId": 6314125,
+   "reseaux": [
+    "facebook",
+    "tiktok"
+   ],
+   "style_sous_titres": "B",
+   "creneaux": [
+    "09:00",
+    "19:30"
+   ],
+   "note": "chaîne YouTube partagée avec Chloé 1 : pas de YouTube ici"
+  },
+  "Chloé 3 - J": {
+   "blogId": 6313438,
+   "reseaux": [
+    "facebook",
+    "tiktok"
+   ],
+   "style_sous_titres": "C",
+   "creneaux": [
+    "09:00",
+    "19:30"
+   ],
+   "note": "chaîne YouTube partagée avec Chloé 1 : pas de YouTube ici"
+  }
+ },
+ "brouillons_metricool_a_publier": [
+  {
+   "marque": "Sophie 1 - R",
+   "blogId": 6192908,
+   "id": 381827052,
+   "uuid": "-1177364353923462523",
+   "date": "2026-09-28T10:00:00",
+   "clip": "P3092508dSRu/3puUPX9sDM",
+   "sujet": "berger, abonné, serveur"
+  },
+  {
+   "marque": "Sophie 1 - R",
+   "blogId": 6192908,
+   "id": 381829293,
+   "uuid": "-3454201064687188796",
+   "date": "2026-09-29T10:00:00",
+   "clip": "P3092508hN7M/mlwPHhR1S7",
+   "sujet": "rencontres, serveur, rires"
+  },
+  {
+   "marque": "Sophie 1 - R",
+   "blogId": 6192908,
+   "id": 381915008,
+   "uuid": "1983499631569225601",
+   "date": "2026-09-30T10:00:00",
+   "clip": "P3092508s5an/qJks1tUHbo",
+   "sujet": "deuxième porte latérale"
+  },
+  {
+   "marque": "Sophie 1 - R",
+   "blogId": 6192908,
+   "id": 381916354,
+   "uuid": "5207352529508583509",
+   "date": "2026-10-01T10:00:00",
+   "clip": "P3092508s5an/268NPexdFY",
+   "sujet": "Maxxfan"
+  },
+  {
+   "marque": "Sophie 1 - R",
+   "blogId": 6192908,
+   "id": 381916483,
+   "uuid": "1813330949928600975",
+   "date": "2026-10-02T10:00:00",
+   "clip": "P3092508s5an/vzodFeGK8L",
+   "sujet": "van reprogrammé"
+  },
+  {
+   "marque": "Chloé 1 - J",
+   "blogId": 6314104,
+   "id": 381916570,
+   "uuid": "9144663515557285864",
+   "date": "2026-09-28T10:00:00",
+   "clip": "P3092508sf8K/pRksRsaMDM",
+   "sujet": "humeur qui dépend des vues"
+  },
+  {
+   "marque": "Chloé 1 - J",
+   "blogId": 6314104,
+   "id": 381918725,
+   "uuid": "-6677686290157056388",
+   "date": "2026-09-29T10:00:00",
+   "clip": "P3092508sf8K/OMz2mZ8Sfg",
+   "sujet": "le gros down"
+  },
+  {
+   "marque": "Chloé 1 - J",
+   "blogId": 6314104,
+   "id": 381918894,
+   "uuid": "5488329282040647129",
+   "date": "2026-09-30T10:00:00",
+   "clip": "P3092508sf8K/kL7ieQplhG",
+   "sujet": "30 photos pour une bonne"
+  }
+ ],
+ "clips": {
+  "sophie_van": [
+   {
+    "clip_id": "qJks1tUHbo",
+    "rank": 1,
+    "score": 99,
+    "title": "Van Aménagé: L'Option Secrète Qui Change Tout!",
+    "description": "Découvrez l'option la plus sous-estimée pour votre van aménagé. On vous révèle pourquoi une deuxième porte latérale est un game changer, offrant liberté et confort, sans le coût d'une cuisine ou salle de bain complète.",
+    "hashtags": [
+     "#VanAménagé",
+     "#VoyageEnVan",
+     "#AménageageVan",
+     "#OptionSecrète",
+     "#CampingCar",
+     "#VieEnVan",
+     "#ConseilsVoyage",
+     "#DeuxiemePorteLatérale",
+     "#Indépendance",
+     "#Aventure"
+    ],
+    "duration_sec": 43,
+    "hook_score": 10,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 10,
+    "copies": {
+     "B": "FCeJu86rrXFV",
+     "C": "zCnI16NxHCao"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "268NPexdFY",
+    "rank": 2,
+    "score": 98,
+    "title": "Maxxfan : L'indispensable pour des nuits fraîches en van",
+    "description": "Découvrez le Maxxfan, l'accessoire ultime pour un confort optimal dans votre van, même par forte chaleur. Profitez d'une brise légère et silencieuse toute la nuit, avec une consommation d'énergie minimale. C'est notre secret pour des nuits parfaites.",
+    "hashtags": [
+     "#Maxxfan",
+     "#VentilateurVan",
+     "#AménagementCampingCar",
+     "#VoyageEnVan",
+     "#AccessoireIndispensable",
+     "#ConfortÉté",
+     "#NuitsFraîches",
+     "#VanLifeFrance",
+     "#AstuceVan",
+     "#SommeilRéparateur"
+    ],
+    "duration_sec": 31,
+    "hook_score": 10,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": "7qpxoOmJadUB",
+     "C": "4Ud6o4LMiSvE"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "vzodFeGK8L",
+    "rank": 3,
+    "score": 97,
+    "title": "Van reprogrammé : Huile de friture, alcool, 4000m d'altitude !",
+    "description": "Notre van reprogrammé pour affronter toutes les situations ! FAP, AdBlue, EGR désactivés pour rouler à l'huile de friture, à l'alcool, et même à 4000m d'altitude. Découvrez notre studio mobile tout-terrain.",
+    "hashtags": [
+     "#VanLife",
+     "#ReprogrammationMoteur",
+     "#HuileDeFriture",
+     "#Euro6",
+     "#Sprinter",
+     "#VehiculeExpedition",
+     "#VanAménagé",
+     "#VoyageAventure",
+     "#ConsommationRéduite",
+     "#GrandAtlas"
+    ],
+    "duration_sec": 34,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": "W4YYxRtP0gL8",
+     "C": "aJK9SZh883Df"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "mgV7qbAKJT",
+    "rank": 4,
+    "score": 96,
+    "title": "Van Life : Électricité et Autonomie sur la Route!",
+    "description": "Découvrez notre van aménagé sans cuisine ni salle de bain, idéal pour le stationnement et le bivouac. Plongez dans notre système électrique puissant : 400 Ah lithium Mastervolt, 3 chargeurs 50A pour une recharge optimale.",
+    "hashtags": [
+     "#VanLife",
+     "#AménagementVan",
+     "#ÉlectricitéCampingCar",
+     "#Autonomie",
+     "#Voyage",
+     "#CampingCar",
+     "#Bivouac",
+     "#FourgonAménagé",
+     "#Mastervolt",
+     "#TechniqueVan"
+    ],
+    "duration_sec": 26,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": "ipiCKasvKTZk",
+     "C": "CtzLkJfzVsKX"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "tpp7CVNH5v",
+    "rank": 5,
+    "score": 95,
+    "title": "Menuiserie Numérique: Le Faux Plancher Révolutionnaire !",
+    "description": "Découvrez comment le numérique et le savoir-faire artisanal transforment la menuiserie. Notre faux plancher innovant offre rangements et surfaces modulables, maximisant votre espace. L'alliance parfaite de la fonctionnalité et du design.",
+    "hashtags": [
+     "#Menuiserie",
+     "#Ebénisterie",
+     "#Sellerie",
+     "#DesignIntérieur",
+     "#AménagementEspace",
+     "#Technologie",
+     "#Artisanat",
+     "#RangementsSurMesure",
+     "#Innovation",
+     "#InspirationDéco"
+    ],
+    "duration_sec": 32,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": "EshqKIPtt1KY",
+     "C": "qC9kcTzsSIRy"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "swdQA3Y9Tf",
+    "rank": 6,
+    "score": 94,
+    "title": "Le Grand Atlas: L'Expédition Parfaite sur Mesure",
+    "description": "Découvrez le Grand Atlas, notre véhicule d'expédition conçu pour l'aventure. Efficace, sobre et adapté à notre voyage, il est parfait pour l'exploration. Nous ne changerions rien à sa conception.",
+    "hashtags": [
+     "#GrandAtlas",
+     "#Expédition",
+     "#VoyageAventure",
+     "#4x4",
+     "#VéhiculeSurMesure",
+     "#Outdoor",
+     "#Exploration",
+     "#CamionAménagé",
+     "#VoyageLoin",
+     "#AventureHorsPiste"
+    ],
+    "duration_sec": 17,
+    "hook_score": 10,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 8,
+    "copies": {
+     "B": "vBpqGpJ6bs1g",
+     "C": "ABL6qHcXOB75"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "2Pd77cXxxU",
+    "rank": 7,
+    "score": 94,
+    "title": "Notre Banc Custom: Design, Fabrication et Astuces",
+    "description": "Découvrez la création de notre banquette de van unique ! Nous avons repoussé les limites du design et de la fabrication grâce à la technologie CNC et à un savoir-faire artisanal exceptionnel. Obtenez des idées pour votre propre projet.",
+    "hashtags": [
+     "#BanquetteVan",
+     "#AménagementCampingCar",
+     "#MobilierSurMesure",
+     "#DIYVanLife",
+     "#DesignIntérieur",
+     "#Menuiserie",
+     "#Ébénisterie",
+     "#Sellerie",
+     "#CNCWoodworking",
+     "#VanLifeCustom"
+    ],
+    "duration_sec": 35,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 8,
+    "copies": {
+     "B": "Ao2zn6IwZ1uw",
+     "C": "Vm4NwLQrqQA4"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "UYuwyVyZs2",
+    "rank": 8,
+    "score": 93,
+    "title": "Panneaux Solaires Portables: Puissance et Flexibilité Exceptionnelles!",
+    "description": "Découvrez notre solution solaire portable, 400W, pour charger jusqu'à 25 ampères. Idéale pour suivre le soleil et optimiser le rendement, même en hiver. Facile à installer et à déplacer pour une énergie solaire pratique et performante.",
+    "hashtags": [
+     "#PanneauxSolaires",
+     "#EnergieSolaire",
+     "#SolairePortable",
+     "#Autoconsommation",
+     "#RenewableEnergy",
+     "#OffGrid",
+     "#EfficaciteEnergetique",
+     "#Innovation",
+     "#Technologie",
+     "#BatterieSolaire"
+    ],
+    "duration_sec": 29,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 8,
+    "copies": {
+     "B": "2JjdQzMAznN7",
+     "C": "gPZCOVy74rO4"
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "0hbNaFDeRI",
+    "rank": 9,
+    "score": 92,
+    "title": "Siège Électrique Van: Confort & Mémoires Indispensables!",
+    "description": "Découvrez pourquoi le siège électrique est un ajout indispensable pour votre van. Profitez d'un confort ultime, de positions mémorisées et de sièges chauffants personnalisés pour chaque conducteur. Optimisez votre espace et votre voyage.",
+    "hashtags": [
+     "#VanLife",
+     "#SiègeÉlectrique",
+     "#CampingCar",
+     "#AménagementVan",
+     "#ConfortVoyage",
+     "#MémoireSiège",
+     "#OptionVan",
+     "#VoyageConfortable",
+     "#VanAccessoires",
+     "#VieEnVan"
+    ],
+    "duration_sec": 28,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 9,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "IDjzp94CF4",
+    "rank": 10,
+    "score": 91,
+    "title": "Atlas : 6 mètres, le choix parfait pour le franchissement",
+    "description": "Découvrez pourquoi le choix de 6 mètres pour l'Atlas est idéal, même en ville. Un compromis parfait entre maniabilité, franchissement et praticité au quotidien.",
+    "hashtags": [
+     "#Atlas6m",
+     "#CampingCar",
+     "#VehiculeAventure",
+     "#OffRoad",
+     "#4x4",
+     "#Voyage",
+     "#Preparation4x4",
+     "#CampingCarLife",
+     "#VanLife",
+     "#Exploration"
+    ],
+    "duration_sec": 22,
+    "hook_score": 8,
+    "coherence_score": 9,
+    "connection_score": 9,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "fpysdvNSur",
+    "rank": 11,
+    "score": 90,
+    "title": "Notre Van : Un Studio Luxueux et Cosy sur Roues !",
+    "description": "Découvrez comment notre van a été transformé en studio mobile luxueux et résistant, idéal pour le tout-terrain. Nous adorons son look unique et sa durabilité face aux aventures. Le vécu rend chaque van plus beau !",
+    "hashtags": [
+     "#VanLife",
+     "#Aventure",
+     "#StudioMobile",
+     "#CoveringVan",
+     "#Voyage",
+     "#ToutTerrain",
+     "#InspirationVan",
+     "#VanAménagé",
+     "#DesignVan",
+     "#ExploreMore"
+    ],
+    "duration_sec": 30,
+    "hook_score": 8,
+    "coherence_score": 9,
+    "connection_score": 9,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "XCXzmDTIKC",
+    "rank": 12,
+    "score": 90,
+    "title": "Meubles arrondis Carriage : Design, Ergonomie et Feng Shui",
+    "description": "Découvrez les meubles arrondis de Carriage pour ranger vêtements et vaisselle. Appréciez leur design unique, ergonomique et sécurisant, parfait pour un aménagement Feng Shui. Une prouesse technique pour un intérieur impeccable.",
+    "hashtags": [
+     "#MeublesArrondis",
+     "#CarriageDesign",
+     "#FengShui",
+     "#DecorationInterieur",
+     "#DesignErgonomique",
+     "#RangementMaison",
+     "#MobilierFonctionnel",
+     "#DesignFrance",
+     "#InterieurModerne",
+     "#AstuceRangement"
+    ],
+    "duration_sec": 39,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "jrtywa2oER",
+    "rank": 13,
+    "score": 89,
+    "title": "Treuil vs Pneus Dégonflés: L'astuce tout-terrain",
+    "description": "Découvrez comment les pneus dégonflés peuvent remplacer un treuil dans le sable mou, avec une pression incroyable. Notre astuce pour ne jamais rester coincé, même sans équipement.",
+    "hashtags": [
+     "#ToutTerrain",
+     "#4x4",
+     "#Trekking",
+     "#PneusDégonflés",
+     "#Astuce4x4",
+     "#OffRoad",
+     "#Aventure",
+     "#Equipement4x4",
+     "#Traction",
+     "#Conseil4x4"
+    ],
+    "duration_sec": 41,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "bAmmRKGKR5",
+    "rank": 14,
+    "score": 88,
+    "title": "Mercedes Sprinter 2021: Le V6 3L qui propulse !",
+    "description": "Découvrez notre Mercedes Sprinter 2021 W907, équipé d'un moteur V6 3L de 190 chevaux. Nous l'avons reçu vierge de chez Mercedes, nous permettant de choisir toutes les options sans compromis. Préparez-vous à une expérience de conduite unique !",
+    "hashtags": [
+     "#MercedesSprinter",
+     "#VanLife",
+     "#CamionAménagé",
+     "#V63L",
+     "#Sprinter2021",
+     "#CampingCar",
+     "#MercedesW907",
+     "#VanConversion",
+     "#VoyageEnCampingCar",
+     "#AménageTonVan"
+    ],
+    "duration_sec": 28,
+    "hook_score": 10,
+    "coherence_score": 10,
+    "connection_score": 9,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "Y2elcbAEZB",
+    "rank": 15,
+    "score": 87,
+    "title": "Van d'expédition : la vie simple et belle !",
+    "description": "Découvrez notre incroyable expérience de vie en van ! Nous avons appris que l'authenticité réside dans la simplicité. Venez partager notre quotidien et notre amour pour la beauté partout autour de nous.",
+    "hashtags": [
+     "#VanLife",
+     "#Voyage",
+     "#Aventure",
+     "#Minimalisme",
+     "#Expédition",
+     "#ModeDeVie",
+     "#Liberté",
+     "#InspirationVoyage",
+     "#Van",
+     "#RoadTrip"
+    ],
+    "duration_sec": 18,
+    "hook_score": 8,
+    "coherence_score": 9,
+    "connection_score": 9,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "6P6Rs7LgKs",
+    "rank": 16,
+    "score": 86,
+    "title": "Van Life Studio : Notre Espace de Vie & Travail",
+    "description": "Découvrez l'aménagement de notre van, conçu pour le voyage et notre studio photo/vidéo mobile. Un espace ergonomique avec une soute immense, une installation électrique puissante et un système son haut de gamme pour nos créations.",
+    "hashtags": [
+     "#VanLife",
+     "#AménagementVan",
+     "#StudioMobile",
+     "#Voyage",
+     "#Photographie",
+     "#Vidéographie",
+     "#InspirationVan",
+     "#VieNomade",
+     "#CréationDeContenu",
+     "#VanLifeStudio"
+    ],
+    "duration_sec": 43,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "8D07k770ap",
+    "rank": 17,
+    "score": 85,
+    "title": "Van Life : Aménagement Capucine & Rangement Astucieux",
+    "description": "Découvrez notre immense capucine aménagée pour le voyage en van, avec des solutions de rangement ingénieuses et sécurisées. Nos astuces pour optimiser l'espace et protéger vos biens précieux.",
+    "hashtags": [
+     "#VanLife",
+     "#AménagementCampingCar",
+     "#RangementMalin",
+     "#VoyageEnVan",
+     "#CapucineAménagée",
+     "#AstuceRangement",
+     "#VieEnVan",
+     "#ConseilVoyage",
+     "#DIYVan",
+     "#SécuritéVoyage"
+    ],
+    "duration_sec": 20,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "ZwSf6wkpn4",
+    "rank": 18,
+    "score": 85,
+    "title": "Autonomie Eau: Notre Système Simple et Ingénieux",
+    "description": "Découvrez notre solution d'autonomie en eau pour votre camping-car. Avec des jerricans Lifesaver et une cuve inox, profitez d'eau potable partout sans raccordement. Facile, fiable et parfait pour 2 personnes.",
+    "hashtags": [
+     "#AutonomieEau",
+     "#CampingCar",
+     "#VieEnVan",
+     "#JerricanLifesaver",
+     "#EauPotable",
+     "#SystèmeEau",
+     "#VanlifeFrance",
+     "#VoyageAutonome",
+     "#AstuceCampingCar",
+     "#Bivouac"
+    ],
+    "duration_sec": 39,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "GE31JDJyIR",
+    "rank": 19,
+    "score": 84,
+    "title": "Protection Ultime pour votre Van : Rock Sliders Essentiels!",
+    "description": "Découvrez l'importance des rock sliders pour protéger votre van et assurer une glisse sécurisée en situation délicate. Nous explorons leurs fonctions et leurs emplacements stratégiques pour une sécurité maximale.",
+    "hashtags": [
+     "#VanLife",
+     "#Protection4x4",
+     "#RockSlider",
+     "#AccessoiresVan",
+     "#SécuritéVéhicule",
+     "#OffRoadFrance",
+     "#AménagementVan",
+     "#Aventure4x4",
+     "#VanProtection",
+     "#EquipementCamper"
+    ],
+    "duration_sec": 20,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 9,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "juCZ9OcOXb",
+    "rank": 20,
+    "score": 83,
+    "title": "Optimisation Kangoo Van : Astuces Rangement & Masse",
+    "description": "Découvrez comment optimiser l'espace et la répartition des masses dans votre Kangoo Van grâce à des astuces intelligentes pour la batterie, la transformation et la cuve d'eau. Un aménagement pratique pour un voyage serein.",
+    "hashtags": [
+     "#KangooVan",
+     "#AménagementUtilitaire",
+     "#OptimisationEspace",
+     "#AstuceRangement",
+     "#VanLife",
+     "#RépartitionMasse",
+     "#VieEnVan",
+     "#CampingCar",
+     "#DIYVan",
+     "#VoyageEnKangoo"
+    ],
+    "duration_sec": 18,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 9,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "65y50KlaWz",
+    "rank": 21,
+    "score": 83,
+    "title": "Van Aménagement : Cauchemar et Solution RV",
+    "description": "Notre expérience cauchemardesque avec Aircam pour l'aménagement de notre van, et comment Carriages RV a finalement sauvé le projet. Découvrez comment nous avons obtenu des finitions incroyables à moindre coût malgré les retards.",
+    "hashtags": [
+     "#VanLife",
+     "#AménagementVan",
+     "#Aircam",
+     "#CarriagesRV",
+     "#BricolageVan",
+     "#RestaurationVan",
+     "#DIYVan",
+     "#VanTour",
+     "#Voyage",
+     "#ConseilsVan"
+    ],
+    "duration_sec": 43,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 9,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "Vg4CWc1R3T",
+    "rank": 22,
+    "score": 83,
+    "title": "Van Aménagé Parfait : Modifications, Améliorations et Reprogrammation",
+    "description": "Découvrez comment notre van aménagé est devenu parfait après un an sur les routes. Nous avons affiné les panneaux solaires, les meubles et autres détails pour une expérience de voyage idéale. Une reprogrammation est envisagée pour optimiser ses performances.",
+    "hashtags": [
+     "#VanAménagé",
+     "#VoyageEnCampingCar",
+     "#VieNomade",
+     "#AménagementCampingCar",
+     "#VanLifeFrance",
+     "#RoadTrip",
+     "#CampingCarModifié",
+     "#ConseilsVoyage",
+     "#PerformanceCampingCar",
+     "#InspirationVoyage"
+    ],
+    "duration_sec": 29,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 9,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "V9IDamZjPs",
+    "rank": 23,
+    "score": 82,
+    "title": "Galerie Alu sur Mesure : L'Équipement Off-Road Parfait",
+    "description": "Découvrez notre galerie alu sur mesure par Iron Van Design près de Lyon. Échelle, porte-roue, porte-tout : c'est beau, costaud et léger. Accès facile à la roue de secours et plaques de désensablage.",
+    "hashtags": [
+     "#GalerieAlu",
+     "#IronVanDesign",
+     "#Equipement4x4",
+     "#AccessoiresCampingCar",
+     "#OffRoad",
+     "#PreparationVehicule",
+     "#SurMesure",
+     "#Voyage4x4",
+     "#AmenagementUtilitaire",
+     "#AccessoiresExterieurs"
+    ],
+    "duration_sec": 19,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "B1A6d3y4Ke",
+    "rank": 24,
+    "score": 82,
+    "title": "Camping Car: L'ouverture Totale Révolutionne Votre Confort!",
+    "description": "Découvrez comment nos portes latérales et l'ouverture totale transforment votre camping-car en un espace aéré et confortable, bien mieux qu'une tente. Idéal pour le ménage et les journées chaudes. L'essayer, c'est l'adopter!",
+    "hashtags": [
+     "#CampingCar",
+     "#AménagementCampingCar",
+     "#VoyageEnCampingCar",
+     "#Autonome",
+     "#VieEnCampingCar",
+     "#ConfortEnVoyage",
+     "#AstuceCampingCar",
+     "#VanLife",
+     "#OutdoorLife",
+     "#Voyage"
+    ],
+    "duration_sec": 40,
+    "hook_score": 7,
+    "coherence_score": 8,
+    "connection_score": 8,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "J697mWSO1W",
+    "rank": 25,
+    "score": 81,
+    "title": "Van Rénové : Finitions Haut de Gamme et Sellerie Incroyable",
+    "description": "Découvrez les détails incroyables de notre van rénové : travail de carrossage, sellerie avec coutures apparentes, et fenêtres intégrées pour un look sobre et esthétique. Une transformation qui parle de qualité.",
+    "hashtags": [
+     "#VanLife",
+     "#RénovationVan",
+     "#AménagementCampingCar",
+     "#SellerieAuto",
+     "#Carrosserie",
+     "#VanCustom",
+     "#DIYVan",
+     "#Voyage",
+     "#InspirationVan",
+     "#VanTour"
+    ],
+    "duration_sec": 26,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "LEn39oh4zI",
+    "rank": 26,
+    "score": 81,
+    "title": "Aménagement Van : Commandes Électriques et Lumières LED",
+    "description": "Découvrez l'installation ingénieuse des panneaux de commande pour l'électricité, le chauffage et la lumière dans notre van aménagé. Parfait pour le confort et vos besoins de studio photo/vidéo.",
+    "hashtags": [
+     "#AménagementVan",
+     "#VanLife",
+     "#CampingCar",
+     "#LED",
+     "#Électricité",
+     "#Confort",
+     "#StudioPhoto",
+     "#IdéeAménagement",
+     "#Voyage",
+     "#DIYVan"
+    ],
+    "duration_sec": 21,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 9,
+    "trend_score": 7,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "6huWEv3dlD",
+    "rank": 27,
+    "score": 81,
+    "title": "Van Aménagé : Le Train Avant Renforcé et l'Alternateur 280A",
+    "description": "Découvrez les améliorations cachées pour votre van : train avant renforcé, alternateur 280A, grand écran MBUX et caméra 360. Optimisez votre installation électrique et votre conduite pour plus de sécurité et de précision.",
+    "hashtags": [
+     "#VanAménagé",
+     "#VansLife",
+     "#CampingCar",
+     "#4x4",
+     "#ToutTerrain",
+     "#Voyage",
+     "#InstallationElectrique",
+     "#MBUX",
+     "#Caméra360",
+     "#DIYVan"
+    ],
+    "duration_sec": 30,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 6,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "sgGqEfNv8P",
+    "rank": 28,
+    "score": 80,
+    "title": "Circuits LED : Diffusés et Graphiques pour Ambiance Sur Mesure",
+    "description": "Découvrez deux circuits LED innovants : l'un indirect, l'autre graphique, sublimé par du Corian pour une diffusion parfaite. Créez des ambiances lumineuses infinies et personnalisées selon vos envies.",
+    "hashtags": [
+     "#LED",
+     "#Eclairage",
+     "#DesignLumineux",
+     "#Corian",
+     "#AmbianceLumineuse",
+     "#InnovationLED",
+     "#LumierePersonnalisee",
+     "#DecorationLumineuse",
+     "#TechnologieLED",
+     "#IdeeDeco"
+    ],
+    "duration_sec": 24,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 9,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "LlHDqvuGik",
+    "rank": 29,
+    "score": 80,
+    "title": "Notre van aménagé : Soute, rangement et four",
+    "description": "Découvrez l'optimisation de l'espace dans notre van aménagé, de l'énorme soute sous le lit au coffre à jouets rempli de matériel musical, sans oublier les meubles latéraux pratiques et le four intégré. Une astuce pour chaque besoin !",
+    "hashtags": [
+     "#VanLife",
+     "#AménagementCampingCar",
+     "#SouteAménagée",
+     "#RangementAstucieux",
+     "#FourIntégré",
+     "#VieEnVan",
+     "#IdéeAménagement",
+     "#CampingCarDIY",
+     "#OptimisationEspace",
+     "#VanTour"
+    ],
+    "duration_sec": 41,
+    "hook_score": 9,
+    "coherence_score": 10,
+    "connection_score": 10,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "BOkl3ZI2Ky",
+    "rank": 30,
+    "score": 79,
+    "title": "Van aménagé : Le cauchemar Aircam et la solution Carriages RV",
+    "description": "Notre expérience désastreuse avec Aircam pour l'aménagement de notre van. On a vécu un enfer, mais Carriages RV a sauvé notre projet. Découvrez notre histoire et nos conseils.",
+    "hashtags": [
+     "#VanLife",
+     "#AménagementVan",
+     "#Aircam",
+     "#CarriagesRV",
+     "#VoyageEnVan",
+     "#VanTour",
+     "#InspirationVan",
+     "#DIYVan",
+     "#RécitDeVoyage",
+     "#ConseilsAménagement"
+    ],
+    "duration_sec": 32,
+    "hook_score": 7,
+    "coherence_score": 8,
+    "connection_score": 7,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "W6tdUvFIdd",
+    "rank": 31,
+    "score": 78,
+    "title": "Caméra Aimantée & Panneaux Solaires pour Vanlife",
+    "description": "Découvrez notre astuce pour fixer une caméra avec une plaque métallique aimantée et nos panneaux solaires Cascadia 4x4 de 90W. Optimisez votre installation pour la vanlife et alimentez votre batterie moteur facilement.",
+    "hashtags": [
+     "#Vanlife",
+     "#Campervan",
+     "#InstallationPanneauxSolaires",
+     "#VieEnMobile",
+     "#BricolageVan",
+     "#Voyage",
+     "#Outdoor",
+     "#AccessoiresVan",
+     "#TechnologieNomade",
+     "#Cascadia4x4"
+    ],
+    "duration_sec": 31,
+    "hook_score": 7,
+    "coherence_score": 9,
+    "connection_score": 8,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "s86Ad2GhIi",
+    "rank": 32,
+    "score": 77,
+    "title": "Panneaux Solaires Mobiles : Notre Installation Van Life",
+    "description": "Découvrez notre solution astucieuse pour l'énergie en van life ! Des panneaux solaires mobiles, orientables et un transformateur puissant pour une autonomie totale. Simplifiez votre vie nomade.",
+    "hashtags": [
+     "#VanLife",
+     "#PanneauxSolaires",
+     "#AutonomieÉnergétique",
+     "#InstallationSolaire",
+     "#VieNomade",
+     "#ÉnergieSolaire",
+     "#Transformateur220V",
+     "#AstuceVanLife",
+     "#VoyageEnCampingCar",
+     "#SolutionsÉnergétiques"
+    ],
+    "duration_sec": 19,
+    "hook_score": 6,
+    "coherence_score": 8,
+    "connection_score": 7,
+    "trend_score": 8,
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   }
+  ],
+  "chloe_cliches": [
+   {
+    "clip_id": "pRksRsaMDM",
+    "rank": 1,
+    "score": 99,
+    "duration_sec": 36,
+    "title": "Performance du contenu : Impact sur votre humeur expliquée",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "68PlJoXzqg",
+    "rank": 2,
+    "score": 98,
+    "duration_sec": 26,
+    "title": "Gagner de l'argent sur Marmelade : la vérité choquante",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "uheGIG7QyP",
+    "rank": 3,
+    "score": 97,
+    "duration_sec": 37,
+    "title": "Créatrices : L'Hypocrisie vs. Réalité du Soutien Mutuel",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "OMz2mZ8Sfg",
+    "rank": 4,
+    "score": 96,
+    "duration_sec": 43,
+    "title": "Gérer le Gros Down : L'Astuce Ultime pour Créateurs",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "kL7ieQplhG",
+    "rank": 5,
+    "score": 95,
+    "duration_sec": 21,
+    "title": "Photographie : Ce Que Personne Ne Vous Dit Vraiment",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "8CRzXyK2GZ",
+    "rank": 6,
+    "score": 94,
+    "duration_sec": 24,
+    "title": "Réseaux Sociaux : La Vie Partagée est-elle Vraie ?",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "nyvbjX9JZ9",
+    "rank": 7,
+    "score": 93,
+    "duration_sec": 18,
+    "title": "Filles : Gagner de l'Argent, La Vérité Choc!",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "FAhRivP5wb",
+    "rank": 8,
+    "score": 92,
+    "duration_sec": 28,
+    "title": "Votre téléphone: votre vie, votre travail, vos liens",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "1OPxe3Zlmt",
+    "rank": 9,
+    "score": 91,
+    "duration_sec": 27,
+    "title": "Télétravail : Le Téléphone, Notre Outil de Travail Quotidien",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "659Tjy3cEM",
+    "rank": 10,
+    "score": 90,
+    "duration_sec": 36,
+    "title": "Voyager et Travailler: La Liberté Créative Révélée",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "yqwBkL6YQl",
+    "rank": 11,
+    "score": 89,
+    "duration_sec": 42,
+    "title": "Créatrices en couple : Mythe ou réalité ?",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "DXakJvFxcf",
+    "rank": 12,
+    "score": 88,
+    "duration_sec": 19,
+    "title": "Liberté de travailler partout : Le pour et le contre",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "uJK9ynrCAg",
+    "rank": 13,
+    "score": 87,
+    "duration_sec": 33,
+    "title": "Stories Instagram: La Vérité sur le Partage Différé",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "3lNP58VWVB",
+    "rank": 14,
+    "score": 86,
+    "duration_sec": 20,
+    "title": "Trouver du Plaisir au Travail: Mes Secrets Révélés",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "qFfJQXoJRh",
+    "rank": 15,
+    "score": 85,
+    "duration_sec": 29,
+    "title": "Inaccessibles? Notre Vrai Contact Avec Vous Révélé",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "7EQ4jPKqe2",
+    "rank": 16,
+    "score": 84,
+    "duration_sec": 14,
+    "title": "Vacances de Travail : Le Nouveau Cliché Français",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "8kVivFEib6",
+    "rank": 17,
+    "score": 83,
+    "duration_sec": 37,
+    "title": "Plaisir ou Argent : Le Vrai du Métier de Créateur",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "jdmL12vdhs",
+    "rank": 18,
+    "score": 82,
+    "duration_sec": 18,
+    "title": "Clichés Créatrices de Contenu : Notre Série Sans Filtre !",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "5OU4nX8wsH",
+    "rank": 19,
+    "score": 82,
+    "duration_sec": 26,
+    "title": "Hypocrisie et Concurrence: La Vérité Explosive!",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "S5zAXj358Y",
+    "rank": 20,
+    "score": 81,
+    "duration_sec": 14,
+    "title": "7 Ans sur la Plateforme: Ma Fête Inoubliable!",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "s5glGzlW5G",
+    "rank": 21,
+    "score": 80,
+    "duration_sec": 23,
+    "title": "Ce métier passion redonne confiance et bonheur",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "XmldQKX1p0",
+    "rank": 22,
+    "score": 80,
+    "duration_sec": 23,
+    "title": "Accepter le partage : Ouvrir son esprit en couple",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "ohFg2fky5x",
+    "rank": 23,
+    "score": 79,
+    "duration_sec": 16,
+    "title": "Clichés sur le succès : Gagnez-vous bien votre vie ?",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "ZMeRPXUmgx",
+    "rank": 24,
+    "score": 78,
+    "duration_sec": 16,
+    "title": "Le pouvoir des conversations authentiques : un bienfait partagé",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   },
+   {
+    "clip_id": "ie32cfjjfB",
+    "rank": 25,
+    "score": 77,
+    "duration_sec": 16,
+    "title": "Vacances & Travail : Le Combo Gagnant des Vacanciers",
+    "copies": {
+     "B": null,
+     "C": null
+    },
+    "retravail_fait": false,
+    "censure_faite": false,
+    "exports": {},
+    "programme": {}
+   }
+  ]
+ }
+}
