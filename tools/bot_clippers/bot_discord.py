@@ -33,6 +33,7 @@ import paie_clics                         # paie au clic GAML : relevés, ligne 
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
 import rapport_stats                      # rapport GAML quotidien du manager, #jonas-stats (24/09)
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
+import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
 DOSSIER = Path(__file__).parent
@@ -166,6 +167,7 @@ FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors ki
 FICHIER_SUBS = DONNEES / "subs.json"                         # abonnés OF par clipper et par mois : {"AAAA-MM": {prénom: n}} (!subs)
 FICHIER_ONBOARDING = DONNEES / "onboarding.json"             # onboarding : comptes livrés (handle → clipper), lien, Drive par clipper
 FICHIER_PARCOURS = DONNEES / "parcours.json"                 # parcours guidé + mémoire par clipper (25/09)
+FICHIER_ETATS = DONNEES / "etats_comptes.json"               # historique Instagram des comptes du classeur (26/09)
 FICHIER_CLICS = DONNEES / "clics.json"                       # paie au clic : liens GAML attribués, relevés par jour, adresses de paiement
 FICHIER_SORTIS = DONNEES / "sortis.json"                     # trace des sorties d'équipe (!sortie) : [{uid, nom, equipe, creatrice, date, par, raison}]
 LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
@@ -3292,7 +3294,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe",
+                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
                      "!stats-jonas", "!stats-manager")
 
 
@@ -3330,6 +3332,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
                 "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
+                "· `!etats-comptes [test]` — passe le classeur au crible d'Instagram maintenant (à créer → WARMUP → GOOD, BAN, PRIVE) ; `test` = sans rien écrire\n"
                 "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
@@ -5689,6 +5692,10 @@ async def on_ready():
                              "chercher_membre": lambda nom: chercher_membre(nom),
                              "marquer_etat": onboarding.marquer_etat})                # 25/09 : ETAT du classeur suit le parcours
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
+        etats_comptes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ETATS": FICHIER_ETATS,
+                                  "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager,
+                                  "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+        client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
         rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
@@ -6314,6 +6321,8 @@ async def on_message(message):
         if await paie_clics.commande_staff(message, texte):
             return
         if await onboarding.commande_staff(message, texte):
+            return
+        if await etats_comptes.commande_staff(message, texte):
             return
         if await parcours.commande_staff(message, texte):
             return
