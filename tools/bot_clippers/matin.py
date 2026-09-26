@@ -78,6 +78,8 @@ async def envoyer_prets(client, force: bool = False) -> int:
     d = _lire()
     jour = _jour()
     heure = datetime.now(timezone.utc).hour
+    if not force and not (MATIN_HEURE_MIN <= heure <= MATIN_HEURE_MAX + 1):
+        return 0                                                        # 26/09 : jamais de message du matin l'après-midi (Daniella, 17 h)
     attendre_inputs = _deps.get("inputs_actifs", lambda: False)() and heure < MATIN_HEURE_MAX and not force
     envoyes = 0
     for sid, m in list(d["morceaux"].items()):
@@ -107,7 +109,7 @@ async def boucle(client) -> None:
     await client.wait_until_ready()
     while not client.is_closed():
         try:
-            if datetime.now(timezone.utc).hour >= MATIN_HEURE_MIN:
+            if MATIN_HEURE_MIN <= datetime.now(timezone.utc).hour <= MATIN_HEURE_MAX + 1:
                 await envoyer_prets(client)
         except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le bot
             journal.exception("Boucle du matin : %s", erreur)

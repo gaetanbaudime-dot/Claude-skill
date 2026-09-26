@@ -41,6 +41,13 @@ def config() -> dict:
     except (OSError, ValueError):
         return {"salon": "", "groupes": {}}
     c.setdefault("salon", "jonas-stats"); c.setdefault("groupes", {}); c.setdefault("mis_a_jour", "")
+    if _deps.get("roster"):                                             # 26/09 : le roster de Gaëtan remplace les groupes du fichier
+        try:
+            g = _deps["roster"]()
+            if g:
+                c["groupes"] = g
+        except Exception:                                               # noqa: BLE001
+            pass
     return c
 
 
@@ -83,6 +90,8 @@ def fusionner_actifs(groupes: dict, mis_a_jour: str, registre: dict, sortis: lis
 def groupes_actifs() -> dict:
     """Le roster vivant quand le bot est branché (registre + sorties), sinon la liste du fichier telle quelle."""
     c = config()
+    if _deps.get("roster"):                                             # 26/09 : roster.py (roster.json + !roster) est la source unique
+        return c["groupes"]
     if not (_deps.get("lire_json") and _deps.get("nom_par_uid")):
         return c["groupes"]
     return fusionner_actifs(c["groupes"], c.get("mis_a_jour", ""),

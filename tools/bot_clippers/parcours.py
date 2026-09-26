@@ -37,7 +37,7 @@ ETAPES = {
                   "2. Colle cet e-mail : `{mail1}`\n"
                   "3. Instagram demande un code. Écris `!code` ici. Je te donne le code.\n"
                   "4. Écris le code dans Instagram. Puis le mot de passe donné plus haut. Pas un autre.\n"
-                  "5. Mets un nom. Mets une date de naissance d'adulte, 25 ans ou plus. **Jamais ton numéro de téléphone.**\n"
+                  "5. Mets un prénom. Mets ta vraie date de naissance : tu dois être majeur. Instagram demande un numéro de téléphone ? Mets **le tien**. Ce numéro ne sert que pour tes 3 comptes, jamais pour d'autres.\n"
                   "6. Mets une photo et une petite bio. Copie le style des comptes de {creatrice} dans {info}. Pas de lien. Pas de ville.\n\n"
                   "Un seul compte aujourd'hui. Quand c'est fait, appuie sur le bouton. Le compte 2, c'est demain.")},
     2: {"titre": "Étape 2 · Crée ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": ["info"],
@@ -441,16 +441,17 @@ def _etats_comptes(uid, etats_par_handle: dict) -> list:
 
 
 def etape_selon_classeur(etats: list) -> int:
-    """26/09 (Thia lancée en routine avec des comptes « à créer ») : 1 si tout est à créer, 4 si des comptes existent
-    mais qu'aucun compte qui publie n'est GOOD, 7 sinon."""
+    """26/09 : l'étape est celle du prochain compte à créer. 0 compte créé → 1, 1 → 2, 2 → 3 ; les trois créés → 4 (warm-up) ;
+    les deux comptes de croissance GOOD → 7 (routine). Daniella (26/09, soir) : un seul compte créé la mettait au warm-up."""
     if not etats:
         return 7
     e = [x for _, x in etats]
-    if all(x in ("a creer", "à créer", "") for x in e):
-        return 1
-    if not any(x == "good" for x in e[:2]):
-        return 4
-    return 7
+    crees = [x for x in e if x not in ("a creer", "à créer", "")]
+    if len(crees) < min(3, len(e)):
+        return 1 + len(crees)
+    if len(e) >= 2 and all(x == "good" for x in e[:2]):
+        return 7
+    return 4
 
 
 async def forcer_etape(salon, membre, creatrice: str, n: int) -> None:
@@ -504,6 +505,15 @@ async def reconcilier(client, etats_par_handle: dict) -> list:
                 h, e = etats[n - 1]
                 if e and e not in ("a creer", "à créer") and await valider_etape(salon, uid, n, par="classeur"):
                     faits.append((_prenom(membre), n, n + 1))
+            elif n == 4 and not fiche_p.get("corrige_4"):
+                # 26/09 (Daniella) : mise au warm-up avec un seul compte créé → retour à l'étape du prochain compte, une seule fois
+                cible = etape_selon_classeur(etats)
+                if cible < 4:
+                    d = _lire()
+                    d[uid]["corrige_4"] = _maintenant()
+                    _ecrire(d)
+                    await forcer_etape(salon, membre, fiche_p.get("creatrice", ""), cible)
+                    faits.append((_prenom(membre), 4, cible))
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation du parcours de %s : %s", uid, erreur)
     if faits:
@@ -525,8 +535,10 @@ def contexte_llm(uid: str) -> str:
             "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
             "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
             "Trois lignes maximum, et finis toujours par « 👉 Prochaine étape : … ». `!code` ne donne QUE les codes reçus par "
-            "e-mail : si Instagram demande un NUMÉRO de téléphone ou propose « Envoyer un code » à un numéro, la réponse est STOP, "
-            "ne rien cliquer, une capture ici, le manager gère. Ne recopie jamais la ligne [Contexte : …].]\n"
+            "e-mail. Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
+            "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
+            "Jamais de « compte prêt à l'emploi », jamais « ton manager a une autre solution » : si tu ne sais pas, renvoie vers "
+            "Gaëtan sur WhatsApp (le lien est dans tes règles). Ne recopie jamais la ligne [Contexte : …].]\n"
             "[Mémoire du clipper]\n" + memoire(uid))
 
 

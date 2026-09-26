@@ -22,7 +22,7 @@ import logging
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import discord
 
@@ -130,7 +130,7 @@ async def lire_comptes() -> list:
         out.append({"ligne": i, "etat": champ("etat"), "handle": champ("handle").lstrip("@"), "mdp": champ("mdp"),
                     "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
                     "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
-                    "creatrice": champ("creatrice"), "lien_gaml": champ("lien_gaml")})
+                    "creatrice": champ("creatrice"), "lien_gaml": champ("lien_gaml"), "pod": champ("pod")})
     return out
 
 
@@ -155,7 +155,17 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
               and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)
               and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
-    libres.sort(key=lambda c: (_norm(c["etat"]) in A_CREER, c["ligne"]))
+    # 26/09 (Gaëtan) : « un nouveau = 3 nouveaux comptes et mails, dans les nouveaux PODs ». Le POD le plus bas où la
+    # créatrice a n lignes « à créer » libres avec e-mail gagne ; les comptes déjà créés (rendus par un ancien) passent en dernier.
+    neufs = [c for c in libres if _norm(c["etat"]) in A_CREER and c.get("mail")]
+    pods = {}
+    for c in neufs:
+        if str(c.get("pod") or "").strip():
+            pods.setdefault(str(c["pod"]).strip(), []).append(c)
+    for pod in sorted(pods, key=lambda p: (not p.isdigit(), int(p) if p.isdigit() else p)):
+        if len(pods[pod]) >= n:
+            return sorted(pods[pod], key=lambda c: c["ligne"])[:n]
+    libres.sort(key=lambda c: (_norm(c["etat"]) not in A_CREER, not c.get("mail"), c["ligne"]))
     if n < 3:
         return libres[:n]
     choix = [c for c in libres if not _est_prive(c)][:n - 1] + [c for c in libres if _est_prive(c)][:1]

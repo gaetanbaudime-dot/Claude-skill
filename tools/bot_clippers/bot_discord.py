@@ -35,6 +35,7 @@ import rapport_stats                      # rapport GAML quotidien du manager, #
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import matin                              # un seul message du matin par clipper (26/09)
+import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
 DOSSIER = Path(__file__).parent
@@ -86,6 +87,8 @@ NOMS_RANGS = ("Clippeur", "Rookie", "Confirmé", "Elite")                       
 # Salons-compteurs (verrouillés) dont le bot met à jour le TITRE automatiquement (comme HoA, mais vrais chiffres).
 CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # « 💸 Déjà payés : X € »
 CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # « 🎬 Clippers : N »
+WHATSAPP_GAETAN_URL = os.environ.get("WHATSAPP_GAETAN_URL", "").strip()        # 26/09 : escalade des blocages vers Gaëtan (lien wa.me)
+SALON_PERSO_MANAGERS = os.environ.get("SALON_PERSO_MANAGERS", "0").strip() == "1"  # 26/09 : « n'ajoute pas Jonas dans les nouveaux salons »
 
 # Rappel de /bump Disboard : le bot détecte les bumps réussis et rappelle quand le cooldown (2 h) est fini.
 # Jamais d'auto-bump (interdit par Discord et Disboard) — le bot rappelle, un humain tape /bump.
@@ -333,13 +336,19 @@ mes rushs, un ban, un compte bloqué) se règle avec le MANAGER : dis-le et renv
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
-20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence. Aucun code SMS \
-ou WhatsApp n'existe chez nous. Si Instagram demande un NUMÉRO DE TÉLÉPHONE, ou propose « Envoyer \
-un code » vers un numéro : la seule réponse est STOP, ne rien cliquer, ne rien saisir, une capture \
-dans le salon perso, le manager a une autre solution. Tu ne dis JAMAIS d'appuyer sur « Envoyer un \
-code ». Tu ne recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
-20. Tu n'inventes jamais un salon, une commande ou une personne : seuls ceux de la base \
-existent."""
+20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence. Si Instagram demande \
+un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
+de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
+3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais \
+un numéro jetable. Date de naissance : la sienne, il doit être majeur. Instagram demande un SELFIE VIDÉO \
+(« confirmez que vous êtes une personne réelle ») : le clipper le fait lui-même, avec son visage, c'est normal \
+et sans danger. Tu ne dis JAMAIS que le manager ou \
+l'agence va lui donner un compte déjà créé, ni qu'un code SMS arrive chez le bot : c'est faux. Tu ne \
+recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
+21. Tu n'inventes jamais une solution, un salon, une commande ou une personne : seuls ceux de la base \
+existent. Si le problème dépasse la base (compte bloqué, numéro refusé, appli qui plante, rien ne marche \
+après deux essais), tu dis d'écrire à Gaëtan sur WhatsApp : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"} \
+— en se présentant (prénom, créatrice), avec le problème en une phrase et une capture d'écran. Rien d'autre."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
@@ -977,15 +986,42 @@ async def _renommer_salon(canal_id: str, nouveau_nom: str):
         journal.warning("Renommage du salon-compteur impossible (%s) : %s", nouveau_nom, erreur)
 
 
+def prenom_du_salon(sid) -> str:
+    """Le prénom du clipper d'un salon perso : d'abord le registre (salon_id), puis un membre du salon qui n'est ni bot, ni admin,
+    ni manager, ni administrateur du serveur (26/09 : Maxence, administrateur, était pris pour Daniella), sinon le nom du salon."""
+    salon = client.get_channel(int(sid)) if str(sid).isdigit() else None
+    if salon is None:
+        return ""
+    for uid, fiche in lire_json(FICHIER_EQUIPES, {}).items():
+        if str(fiche.get("salon_id") or "") == str(sid):
+            m = salon.guild.get_member(int(uid)) if uid.isdigit() else None
+            if m is not None:
+                return prenom_de(m)
+    for m in salon.members:
+        if m.bot or str(m.id) in ADMIN_IDS or est_manager(m) or m.guild_permissions.administrator or m.guild_permissions.manage_guild:
+            continue
+        if m in salon.overwrites:
+            return prenom_de(m)
+    return salon.name.split("-")[0].capitalize()
+
+
 async def mettre_a_jour_stats():
     """Met à jour les titres des salons-compteurs à partir des vrais chiffres."""
     if CANAL_STAT_PAYES_ID:
         total = lire_json(FICHIER_COMPTEUR_VERSE, {"total": 0.0}).get("total", 0.0)
         await _renommer_salon(CANAL_STAT_PAYES_ID, f"💸 Déjà payés : {total:,.0f} €".replace(",", " "))
-    if CANAL_STAT_CLIPPERS_ID:
-        # 26/09 : le chiffre vient du roster actif (liste de Gaëtan dans rapport_jonas.json + arrivées !creatrice
-        # − sorties !sortie), plus du comptage par rôle : le renommage Rookie → Clippeur l'avait remis à zéro.
-        await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {rapport_stats.total_actifs()}")
+    if CANAL_STAT_CLIPPERS_ID and ACTIVER_V2:      # le comptage par rôle exige l'intent Members
+        n_roster = roster.effectif()                # 26/09 : le roster de Gaëtan (roster.json, !roster) est la source de vérité
+        if n_roster is not None:
+            await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {n_roster}")
+            return
+        noms = [normaliser(n.strip()) for n in ROLE_CLIPPER_NOM.split(",") if n.strip()]
+        membres = set()                             # union des rôles, sans doublons
+        for guild in client.guilds:
+            for role in guild.roles:
+                if any(nom in normaliser(role.name) for nom in noms):
+                    membres.update(m.id for m in role.members if not m.bot)
+        await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {len(membres)}")
 
 
 async def boucle_stats():
@@ -1125,6 +1161,7 @@ def chercher_membre(reference, exact=False):
     ref_n = normaliser(ref)
     if not ref_n:
         return None
+    ref_n = normaliser(roster.resoudre_alias(ref_n)) or ref_n                      # 26/09 : « pepita » = Ricado (roster.json, alias)
     for g in client.guilds:
         for m in g.members:
             if m.bot:
@@ -1414,9 +1451,9 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
             overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False), membre: _ouvert(),
                           guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)}
             rm = role_manager(guild)
-            if rm is not None:
+            if rm is not None and SALON_PERSO_MANAGERS:                  # 26/09 : « n'ajoute pas Jonas dans les nouveaux salons » (SALON_PERSO_MANAGERS=1 pour revenir)
                 overwrites[rm] = _ouvert()
-            for mgr in managers_humains(guild):                          # 25/09 : Jonas voit et répond dans chaque salon
+            for mgr in (managers_humains(guild) if SALON_PERSO_MANAGERS else []):
                 overwrites[mgr] = _ouvert()
             try:
                 salon = await guild.create_text_channel(nom_salon, category=categorie, overwrites=overwrites, topic=sujet, reason=raison)
@@ -1432,7 +1469,7 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
         if not salon.permissions_for(guild.me).manage_roles:
             return salon, False, f"je ne peux pas modifier les permissions de #{salon.name} (Gérer les permissions manquant)"
         await salon.set_permissions(membre, view_channel=True, send_messages=True, read_message_history=True, reason=raison)
-        for mgr in managers_humains(guild):
+        for mgr in (managers_humains(guild) if SALON_PERSO_MANAGERS else []):
             if mgr not in salon.overwrites:
                 await salon.set_permissions(mgr, view_channel=True, send_messages=True, read_message_history=True, reason=raison)
         if categorie is not None and salon.category != categorie:
@@ -3296,7 +3333,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
-                     "!stats-jonas", "!stats-manager")
+                     "!stats-jonas", "!stats-manager", "!roster")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -3307,7 +3344,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!pipeline` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
                 "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
@@ -3376,6 +3413,104 @@ def debuts_clippers() -> dict:
     return sortie
 
 
+async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list) -> str:
+    """Un clipper prêt à travailler (corps de `!salons-equipe`, réutilisé au démarrage pour le roster) : salon perso dans la
+    catégorie de sa créatrice, registre, pseudo « Prénom - Créatrice », rôle Clippeur et rôle de la créatrice, roster, comptes du
+    classeur (3 comptes neufs du même POD), lien, Drive, alias 2FA, parcours à l'étape que le classeur implique. Renvoie une ligne de bilan."""
+    par_nom = par.display_name if par is not None else "roster"
+    par_id = str(par.id) if par is not None else "roster"
+    cat = categorie_de_creatrice(g, creatrice_c)
+    salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
+    if salon_c is None:
+        return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
+    registre_se = lire_json(FICHIER_EQUIPES, {})
+    fiche_c = registre_se.setdefault(str(m_.id), {"equipe": "", "par": par_id,
+                                                 "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    if not fiche_c.get("creatrice"):
+        fiche_c.update({"creatrice": creatrice_c, "creatrice_par": par_id,
+                        "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    fiche_c["salon_id"] = str(salon_c.id)
+    ecrire_json(FICHIER_EQUIPES, registre_se)
+    extras = []
+    pseudo_cible = f"{prenom_de(m_)} - {creatrice_c}"[:32]                   # 26/09 (Gaëtan) : « PRENOM - CREATRICE »
+    if m_.display_name != pseudo_cible:
+        try:
+            await m_.edit(nick=pseudo_cible, reason=f"Clipper de {creatrice_c} ({par_nom})")
+        except (discord.Forbidden, discord.HTTPException):
+            extras.append("pseudo refusé (« Gérer les pseudos », rôle du bot au-dessus)")
+    if not any(normaliser(n) in normaliser(r.name) for r in m_.roles for n in NOMS_RANGS):
+        nom_r, err_r = await attribuer_equipe(g, m_, fiche_c.get("equipe") or "mg", par_id)
+        extras.append(f"rôle {nom_r}" if nom_r else f"rôle refusé ({err_r})")
+    role_c = role_creatrice(g, creatrice_c)
+    if role_c is not None and role_c not in m_.roles:
+        try:
+            await m_.add_roles(role_c, reason=f"Clipper de {creatrice_c} ({par_nom})")
+        except (discord.Forbidden, discord.HTTPException):
+            extras.append(f"rôle {role_c.name} refusé")
+    roster.ajouter(creatrice_c, prenom_de(m_))
+    if cree_c:
+        try:
+            await salon_c.send(f"🏠 {m_.mention}, voici ton salon perso. Ici tu reçois tout : tes comptes, tes codes, "
+                               f"ton lien, tes visites chaque matin, ta paie le 5 et le 20. "
+                               + (f"{', '.join(x.mention for x in mgrs)} lit ce salon. " if mgrs else "")
+                               + "Une question ? Un compte qui bloque ? Écris ici.")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    try:
+        bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=f"!salons-equipe par {par_id}")
+    except Exception as erreur:                                             # noqa: BLE001
+        bilan_onb_c = f"onboarding : {type(erreur).__name__} {str(erreur)[:80]}"
+    try:
+        await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Routine %s : %s", m_.id, erreur)
+    return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
+            + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
+            + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+
+
+async def onboarder_roster_manquants() -> list:
+    """Au démarrage (26/09, Pepita/Ricado) : un prénom du roster présent sur le serveur mais SANS créatrice au registre est onboardé
+    comme par `!salons-equipe` ; une créatrice du registre différente du roster est corrigée (Lucas → « pepita » le 26/09). Les
+    clippers déjà attribués ne sont jamais retouchés (pas de deuxième livraison de comptes)."""
+    if not roster.actif() or not client.guilds:
+        return []
+    g = client.guilds[0]
+    etats_cl = {}
+    if onboarding.actif():
+        try:
+            etats_cl = {c["handle"].lower(): c["etat"] for c in await onboarding.lire_comptes()}
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("États du classeur pour le roster : %s", erreur)
+    bilan = []
+    for creatrice_r, noms_r in roster.groupes().items():
+        for nom in noms_r:
+            m_ = chercher_membre(nom, exact=True)
+            if m_ is None or m_.bot or str(m_.id) in ADMIN_IDS or est_manager(m_):
+                continue
+            registre_r = lire_json(FICHIER_EQUIPES, {})
+            fiche = registre_r.get(str(m_.id)) or {}
+            if fiche.get("creatrice"):
+                if normaliser(fiche["creatrice"]) != normaliser(creatrice_r):
+                    registre_r[str(m_.id)]["creatrice"] = creatrice_r
+                    ecrire_json(FICHIER_EQUIPES, registre_r)
+                    bilan.append(f"✏️ {m_.display_name} : créatrice « {fiche['creatrice']} » → {creatrice_r} (roster)")
+                continue
+            try:
+                bilan.append(await onboarder_membre(g, m_, creatrice_r, None, etats_cl, []))
+            except Exception as erreur:                                     # noqa: BLE001
+                bilan.append(f"❌ {m_.display_name} : {type(erreur).__name__} {str(erreur)[:80]}")
+    if bilan:
+        journal.info("Roster, onboardings au démarrage : %s", bilan)
+        canal = await canal_admin()
+        if canal is not None:
+            try:
+                await canal.send(("🏠 **Roster : clippers mis en place au démarrage**\n" + "\n".join(bilan))[:1990])
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+    return bilan
+
+
 async def commande_creatrice(message, texte: str) -> bool:
     """`!creatrice @membre Chloé` (admin ou rôle Manager) : ouvre au clipper les salons de la créatrice
     (prénom en MOT ENTIER dans le nom du salon, salons admin/bot/manager exclus), crée ou ouvre son
@@ -3398,7 +3533,16 @@ async def commande_creatrice(message, texte: str) -> bool:
                             "salon perso et le prévient en MP. `!creatrice @membre` : voir l'attribution actuelle. "
                             "Sur un non-signé : ajoute `forcer`.")
         return True
-    membre = chercher_membre(morceaux[0])
+    # 26/09 : « !creatrice chloé pepita » (créatrice d'abord) prenait « Lucas - Chloé » pour le membre et « pepita » pour la
+    # créatrice. Si le premier mot est une créatrice connue (catégorie, rôle, roster) et le dernier un membre, on inverse.
+    def _est_creatrice(mot: str) -> bool:
+        n_ = normaliser(mot)
+        return bool(n_) and (categorie_de_creatrice(message.guild, mot) is not None or role_creatrice(message.guild, mot) is not None
+                             or n_ in {normaliser(c) for c in roster.groupes()})
+    if len(morceaux) >= 2 and _est_creatrice(morceaux[0]) and not _est_creatrice(morceaux[-1]) \
+            and chercher_membre(morceaux[0], exact=True) is None and chercher_membre(morceaux[-1]) is not None:
+        morceaux = [morceaux[-1]] + morceaux[:-1]
+    membre = chercher_membre(morceaux[0], exact=True) or chercher_membre(morceaux[0])
     if membre is None:
         await message.reply(f"Membre « {morceaux[0]} » introuvable.")
         return True
@@ -3452,8 +3596,8 @@ async def commande_creatrice(message, texte: str) -> bool:
                 ouverts.append(salon)
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 refus.append(f"{salon.name} ({type(erreur).__name__})")
-    code_eq = (fiche or {}).get("equipe") or equipe_deduite(membre.id)[0]
-    role_eq = role_team(message.guild, code_eq) if code_eq else None
+    code_eq = (fiche or {}).get("equipe") or equipe_deduite(membre.id)[0] or "mg"   # 26/09 : fiche sans grille (Daniella) → rôle Clippeur quand même
+    role_eq = role_team(message.guild, code_eq)
     a_un_rang = any(normaliser(n) in normaliser(r.name) for r in membre.roles for n in NOMS_RANGS)   # Confirmé/Élite = déjà dans l'équipe
     if role_eq is not None and role_eq not in membre.roles and not a_un_rang:
         nom_r, err_r = await attribuer_equipe(message.guild, membre, code_eq, str(message.author.id))
@@ -3461,6 +3605,16 @@ async def commande_creatrice(message, texte: str) -> bool:
             roles_poses.append(nom_r)
         else:
             refus.append(f"rôle Team ({err_r})")
+    # 26/09 (Gaëtan) : pseudo « Prénom - Créatrice » posé par le bot, et le roster (compteur, rapport Jonas) mis à jour.
+    prenom_clipper = prenom_de(membre)
+    pseudo_cible = f"{prenom_clipper} - {prenom}"[:32]
+    if membre.display_name != pseudo_cible:
+        try:
+            await membre.edit(nick=pseudo_cible, reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
+            roles_poses.append(f"pseudo « {pseudo_cible} »")
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus.append(f"pseudo ({type(erreur).__name__} : donne-moi « Gérer les pseudos » et garde mon rôle au-dessus du sien)")
+    roster.ajouter(prenom, prenom_clipper)
     # Salon nominatif du clipper : créé au J'ACCEPTE (catégorie Clippers) ou ici, et rangé dans la catégorie de la créatrice.
     salon_perso, cree, err_sp = await assurer_salon_perso(message.guild, membre, categorie, prenom,
                                                           f"Créatrice {prenom} attribuée par {message.author.display_name}")
@@ -4526,6 +4680,8 @@ async def commande_admin(message, texte: str) -> bool:
                             f"⚠️ {membre.mention} a ses MP fermés — état enregistré, mais envoie-lui le lien à la main.")
         return True
 
+    if await roster.commande(message, texte):                            # !roster (26/09) : afficher, remplacer, sortie, nouveau
+        return True
     if texte.startswith("!salons-equipe"):
         # 25/09 : « fais un salon pour tous mes clippers actuels et ajoute Jonas ». Format :
         # !salons-equipe Sophie: Thia ; Chloé: Romaric, Hasina ; Sarah: Yves, Tara  — ou sans liste : tous les signés
@@ -4549,6 +4705,15 @@ async def commande_admin(message, texte: str) -> bool:
                         await message.reply(f"⚠️ « {nom} » introuvable sur le serveur, ignoré.")
                         continue
                     cibles.append((m_, creatrice_g.strip()))
+        elif roster.actif():                                             # 26/09 : sans liste, le roster de Gaëtan fait foi
+            for creatrice_r, noms_r in roster.groupes().items():
+                for nom in noms_r:
+                    m_ = chercher_membre(nom, exact=True)
+                    if m_ is None:
+                        bilan_intro = f"⚠️ « {nom} » ({creatrice_r}) du roster introuvable sur le serveur, ignoré."
+                        await message.reply(bilan_intro)
+                        continue
+                    cibles.append((m_, creatrice_r))
         else:
             for uid_se, fiche_se in registre_se.items():
                 m_ = g.get_member(int(uid_se))
@@ -4558,7 +4723,7 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("Format : `!salons-equipe Sophie: Thia ; Chloé: Romaric, Hasina ; Sarah: Yves` — ou sans liste "
                                 "pour tous les signés avec une créatrice au registre.")
             return True
-        mgrs = managers_humains(g)
+        mgrs = managers_humains(g) if SALON_PERSO_MANAGERS else []       # 26/09 : plus de manager ajouté aux salons persos
         etats_cl = {}
         if onboarding.actif():
             try:
@@ -4568,36 +4733,7 @@ async def commande_admin(message, texte: str) -> bool:
         await message.reply(f"⏳ {len(cibles)} salon(s) à ouvrir, managers : {', '.join(m.display_name for m in mgrs) or 'aucun (rôle Manager absent, pseudo sans « manageur »)'}…")
         bilan_se = []
         for m_, creatrice_c in cibles:
-            cat = categorie_de_creatrice(g, creatrice_c)
-            salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"!salons-equipe par {message.author.display_name}")
-            if salon_c is None:
-                bilan_se.append(f"❌ {m_.display_name} : {err_c or 'salon impossible'}")
-                continue
-            fiche_c = registre_se.setdefault(str(m_.id), {"equipe": "", "par": str(message.author.id),
-                                                         "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-            if not fiche_c.get("creatrice"):
-                fiche_c.update({"creatrice": creatrice_c, "creatrice_par": str(message.author.id),
-                                "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-            fiche_c["salon_id"] = str(salon_c.id)
-            ecrire_json(FICHIER_EQUIPES, registre_se)
-            if cree_c:
-                try:
-                    await salon_c.send(f"🏠 {m_.mention}, voici ton salon perso. Ici tu reçois tout : tes comptes, tes codes, "
-                                       f"ton lien, tes visites chaque matin, ta paie le 5 et le 20. "
-                                       + (f"{', '.join(x.mention for x in mgrs)} lit ce salon. " if mgrs else "")
-                                       + "Une question ? Un compte qui bloque ? Écris ici.")
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
-            try:
-                bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=f"!salons-equipe par {message.author.id}")
-            except Exception as erreur:
-                bilan_onb_c = f"onboarding : {type(erreur).__name__}"
-            try:
-                await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
-            except Exception as erreur:
-                journal.warning("Routine %s : %s", m_.id, erreur)
-            bilan_se.append(f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
-                            + (f" · ⚠️ {err_c}" if err_c else "") + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+            bilan_se.append(await onboarder_membre(g, m_, creatrice_c, message.author, etats_cl, mgrs))
         if any("fermée au bot" in b or "refusée par Discord" in b for b in bilan_se):
             bilan_se.append(f"ℹ️ {CONSEIL_CATEGORIE}")
         await envoyer_long(message, [f"🏠 **Salons d'équipe** ({len(cibles)})"] + bilan_se)
@@ -4836,7 +4972,8 @@ async def commande_admin(message, texte: str) -> bool:
                     break
         if membre is None:
             await message.reply("Format : `!sortie @membre raison` (ex. `!sortie Zeky cadence ratée 2 jours de suite`). "
-                                "Retire rôles et accès, coupe les relances, prévient le membre, le manager et Telegram.")
+                                "Retire rôles et accès, coupe les relances, prévient le membre, le manager et Telegram. "
+                                "Il a déjà quitté le serveur ? `!roster sortie Prénom` nettoie le registre, le classeur et son salon.")
             return True
         if str(membre.id) in ADMIN_IDS or any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in membre.roles):
             await message.reply("⛔ Membre protégé (admin/manager/staff) — pas de sortie par commande.")
@@ -4900,6 +5037,7 @@ async def commande_admin(message, texte: str) -> bool:
                        "creatrice": fiche_s.get("creatrice", ""), "date": info_s["sortie"]["date"],
                        "par": str(message.author.id), "raison": raison})
         ecrire_json(FICHIER_SORTIS, sortis[-500:])
+        roster.retirer(prenom_de(membre))                                   # 26/09 : le roster (compteur, rapport Jonas) suit
         # 5. Le membre, le manager, l'admin, Telegram.
         await envoyer_mp(membre,
             "🚪 **Ta collaboration avec l'équipe s'arrête ici.** Raison : " + raison + ".\n"
@@ -5725,9 +5863,7 @@ async def on_ready():
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
-                          "prenom_salon": lambda sid: next((prenom_de(m) for m in (client.get_channel(int(sid)).members
-                                                                                  if client.get_channel(int(sid)) else [])
-                                                            if not m.bot and str(m.id) not in ADMIN_IDS and not est_manager(m)), ""),
+                          "prenom_salon": prenom_du_salon,                          # 26/09 : « Bonjour Maxence » chez Daniella
                           "inputs_actifs": lambda: bool(inputs_clippers.APIFY_TOKEN)})
         inputs_clippers.DEPOSER = matin.deposer
         parcours._deps["deposer"] = matin.deposer
@@ -5737,7 +5873,14 @@ async def on_ready():
         rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
                                   "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client,
                                   "lire_json": lire_json, "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS,
-                                  "nom_par_uid": lambda uid: getattr(membre_par_id(uid), "display_name", None)})
+                                  "nom_par_uid": lambda uid: getattr(membre_par_id(uid), "display_name", None,
+                                  "roster": roster.groupes})                                          # 26/09 : groupes = roster
+        roster.configurer({"DONNEES": DONNEES, "normaliser": normaliser, "lire_json": lire_json, "ecrire_json": ecrire_json,
+                           "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS, "FICHIER_PIPELINE": FICHIER_PIPELINE,
+                           "onboarding": onboarding, "est_manager": est_manager, "ADMIN_IDS": ADMIN_IDS, "notifier": notifier_manager,
+                           "mettre_a_jour_stats": mettre_a_jour_stats, "prenom_de": prenom_de, "NOMS_RANGS": NOMS_RANGS,
+                           "onboarder_manquants": onboarder_roster_manquants})
+        client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
@@ -6402,10 +6545,10 @@ async def on_message(message):
         if compteurs_t.setdefault("alertes_tel", {}).get(str(utilisateur)) != jour_t:
             compteurs_t["alertes_tel"][str(utilisateur)] = jour_t
             ecrire_json(FICHIER_COMPTEURS, compteurs_t)
-            try:
-                await notifier_manager(f"📱 **{prenom_de(message.author)} est bloqué : Instagram demande un numéro de téléphone** "
-                                       f"({message.channel.mention}). Le bot ne peut pas fournir de code SMS. 👉 À toi : "
-                                       f"un autre identifiant du classeur, ou ta méthode pour passer ce mur.")
+            try:                                                       # 26/09 (Gaëtan) : il met SON numéro ; le manager vérifie qu'il ne porte pas d'autres comptes
+                await notifier_manager(f"📱 **{prenom_de(message.author)} : Instagram lui demande un numéro de téléphone** "
+                                       f"({message.channel.mention}). Règle du 26/09 : il met le sien et reçoit le SMS. 👉 À vérifier "
+                                       f"avec lui : ce numéro ne sert à aucun autre compte Instagram (un numéro = ses 3 comptes, sinon ban en chaîne).")
             except Exception as erreur:                                  # noqa: BLE001
                 journal.warning("Alerte numéro de téléphone : %s", erreur)
 

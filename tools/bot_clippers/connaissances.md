@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v8, 25 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, plus de contrat ni de distinction de pays)
+# Base de connaissances — Kit Clipper G&M (v9, 25 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, plus de contrat ni de distinction de pays)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -69,7 +69,8 @@ Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur 
 
 - Tu crées tes 3 comptes **toi-même, sur ton téléphone**. Le bot te guide étape par étape dans ton salon perso. Compte 1 le premier jour. Compte 2 le lendemain. Compte privé le jour d'après. **Un seul compte par jour.**
 - **L'agence te donne les e-mails et les mots de passe.** Ils sont dans ton message de comptes. Tu ne crées pas de Gmail. Tu n'inventes rien. Instagram envoie un code. Écris `!code` dans ton salon. Le bot te donne le code. Souvent, il arrive tout seul.
-- **Jamais ton numéro de téléphone.** Jamais un numéro jetable. Jamais de VPN. Instagram demande un numéro ? Arrête. Écris-le dans ton salon. Ton manager gère.
+- Instagram demande un **numéro de téléphone** ? Mets **le tien**, celui de ton téléphone. Tu reçois le SMS toi-même. Ce numéro ne sert que pour tes 3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais un numéro jetable. Jamais de VPN.
+- Instagram demande un **selfie vidéo** (« confirmez que vous êtes une personne réelle ») ? Fais-le toi-même, avec ton visage, en bonne lumière. C'est normal et sans danger. Personne d'autre ne le fait à ta place.
 - Un compte banni ne se répare pas. Il se remplace. Ton manager te donne un nouvel identifiant. Jamais le même e-mail.
 - Tu travailles sur **ton propre téléphone**. Un iPhone rien que pour ce travail, c'est mieux. Un téléphone cloud, c'est possible, mais seulement si l'agence le décide.
 - Ton **lien** : le bot te le donne dans ton salon perso. Tu le mets **toi-même** sur le compte privé, à l'étape 6, après les 7 jours de warm-up. Le bot te dit quand. Avant, aucun lien nulle part.
@@ -78,7 +79,7 @@ Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur 
 Ton téléphone, les règles :
 - **Un seul téléphone** pour tes 3 comptes. Toujours le même. Jamais sur un autre téléphone. Jamais sur un ordinateur.
 - **Tes comptes perso Instagram et Facebook sont déconnectés** de ce téléphone. Sinon, tout est relié. Un ban en amène un autre.
-- Jamais de liaison dans le Centre de comptes Meta. Jamais de VPN. Jamais ton numéro. Le téléphone et Instagram sont en français.
+- Jamais de liaison dans le Centre de comptes Meta. Jamais de VPN. Ton numéro seulement si Instagram le demande, et seulement pour tes 3 comptes. Le téléphone et Instagram sont en français.
 - Tout le warm-up se fait en français, avec des créatrices françaises. C'est ça qui apprend à Instagram à qui montrer tes Reels.
 - Les comptes restent à l'agence. Les e-mails sont à l'agence. Si tu quittes l'équipe, les mots de passe changent et tu supprimes les comptes de ton téléphone.
 
@@ -106,9 +107,9 @@ Les règles d'or :
 - **1 seul compte par jour.** Jamais 2 ou 3 le même jour.
 - Chaque compte a son e-mail et son mot de passe. L'agence te les donne. Ils restent à l'agence.
 - Chaque compte a sa photo, sa bio et son @. Bio très sage, en rapport avec ta créatrice. Jamais de ville, jamais de région.
-- **Jamais ton numéro de téléphone.** Tu vois un numéro dans Profil, Paramètres, Informations personnelles ? Ne touche à rien. Préviens ton manager.
+- Un numéro de téléphone demandé ? Mets le tien. Un numéro = tes 3 comptes, pas un de plus. Un numéro déjà lié à d'autres comptes Instagram = ban en chaîne.
 - Jamais relier les comptes entre eux. Le piège : Instagram crée le nouveau compte sans demander d'e-mail ni de mot de passe. Ça veut dire qu'il l'a relié à l'ancien. Arrête. Écris-le dans ton salon perso.
-- Date de naissance d'adulte, 25 ans ou plus. Instagram devine l'âge d'un compte à sa façon de faire. Un compte qui fait ado est bloqué.
+- Ta vraie date de naissance : tu dois être majeur. Si Instagram demande un jour une vérification, c'est ta date et ton numéro qui servent.
 
 Le lien : seulement sur le compte privé. C'est toi qui le mets, à l'étape 6, après le warm-up. Le bot te dit quand. Les 2 comptes qui publient n'ont jamais de lien. Seulement l'@ du privé.
 
@@ -312,7 +313,11 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Comment je récupère les codes envoyés par mail ?** Tu tapes `!code` dans ton salon perso : le bot lit la boîte de l'agence et te donne le dernier code reçu pour tes adresses. Souvent il le poste tout seul, en moins d'une minute. Rien après deux minutes ? Redemande le code sur Instagram, puis `!code`.
 
-**Instagram me demande un numéro de téléphone ?** Jamais ton numéro. Jamais un numéro « temporaire » ou « jetable » (Temp Number, Receive SMS et compagnie) : c'est le meilleur moyen d'être banni. Arrête, et écris-le dans ton salon perso avec une capture : ton manager gère.
+**Instagram me demande un numéro de téléphone ?** Mets le tien et reçois le SMS. Un numéro ne sert que pour tes 3 comptes. Jamais un numéro « temporaire » ou « jetable » (Temp Number, Receive SMS et compagnie) : c'est le meilleur moyen d'être banni. Le numéro est refusé ou tout bloque ? Écris à Gaëtan sur WhatsApp, le bot te donne le lien : ton prénom, ta créatrice, le problème en une phrase, une capture.
+
+**Instagram me demande un selfie vidéo ?** Fais-le toi-même, tout de suite, avec ton visage bien visible. C'est une vérification normale. Elle passe en quelques minutes.
+
+**Le bot ne sait pas résoudre mon problème ?** Écris à Gaëtan sur WhatsApp, le bot te donne le lien. Présente-toi (prénom, créatrice), dis le problème en une phrase, mets une capture d'écran. Sans capture, personne ne peut t'aider.
 
 **On peut utiliser un VPN pour créer des comptes ?** Non. Un VPN sur Instagram = signal de fraude, compte restreint ou banni. Les comptes se créent sur ton téléphone, avec ta connexion normale, en suivant les étapes de ton salon perso.
 
