@@ -3466,7 +3466,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
-                     "!stats-jonas", "!stats-manager", "!roster")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -3477,7 +3477,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!pipeline` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
                 "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
@@ -5199,6 +5199,104 @@ async def commande_admin(message, texte: str) -> bool:
     #   B. formulaire rempli, jamais venus sur Discord → joignables SEULEMENT par WhatsApp.
     # Les confondre, c'est croire qu'on a relancé 184 personnes alors qu'on en a touché
     # une fraction. D'où deux sorties distinctes : un envoi de MP, et un export à appeler.
+    if texte.startswith("!relance-telegram"):
+        # 26/09 (Gaëtan) : « envoie un message Telegram à ceux des 20 derniers jours du classeur : bug, refaites le formulaire du
+        # site ». Un bot Telegram ne peut écrire qu'à qui lui a déjà parlé : le bot prépare donc la liste (les meilleurs, pas déjà
+        # sur Discord ni dans l'équipe), les liens t.me et wa.me et le message à coller, dans un onglet du classeur + ici.
+        mots_rt = texte.split()
+        jours_rt = next((int(m) for m in mots_rt[1:] if m.isdigit()), 20)
+        mini_rt = next((int(m.split("=")[1]) for m in mots_rt[1:] if m.startswith("min=") and m.split("=")[1].isdigit()), 4)
+        try:
+            cands_rt = await lire_candidatures_sheets(forcer=True)
+        except Exception as erreur:                                       # noqa: BLE001
+            await message.reply(f"Classeur des candidatures illisible ({type(erreur).__name__}).")
+            return True
+        donnees_rt = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        tels_discord = {_chiffres_tel(l.get("tel", ""))[-8:] for l in donnees_rt.get("liaisons", {}).values() if len(_chiffres_tel(l.get("tel", ""))) >= 8}
+        tels_site = {c["tel_chiffres"][-8:] for c in cands_rt if c["source"] == "site" and len(c["tel_chiffres"]) >= 8}
+        prenoms_equipe = {normaliser(n) for n in roster.noms_actifs()} | {normaliser(n) for n in roster.lire()["sortis"]}
+        for uid_rt in lire_json(FICHIER_EQUIPES, {}):
+            m_rt = membre_par_id(uid_rt)
+            if m_rt is not None:
+                prenoms_equipe.add(normaliser(prenom_de(m_rt)))
+        depuis_rt = datetime.now() - timedelta(days=jours_rt)
+        lien_rt = (web_candidature.WEB_URL_PUBLIQUE or "").rstrip("/") + "/candidature" if web_candidature.WEB_URL_PUBLIQUE else LIEN_FORMULAIRE
+
+        def _tel_intl(tel, pays):
+            d = _chiffres_tel(tel)
+            if d.startswith("00"):
+                d = d[2:]
+            p = normaliser(pays)
+            if d.startswith("0") and len(d) == 10 and "madagascar" in p:
+                d = "261" + d[1:]
+            elif d.startswith("0") and len(d) == 10 and ("france" in p or "belgique" in p):
+                d = ("33" if "france" in p else "32") + d[1:]
+            elif len(d) == 9 and "madagascar" in p and not d.startswith("261"):
+                d = "261" + d
+            elif len(d) == 8 and "benin" in p:
+                d = "229" + d
+            return d
+
+        def _handle(t):
+            t = t.strip().lstrip("@").strip()
+            return t if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{4,31}", t) else ""
+
+        def _message(prenom):
+            p = prenom.strip().split()[0].capitalize() if prenom.strip() else ""
+            return (f"Salut {p}, c'est Gaëtan de G&M 👋\n\nOn a eu un bug avec le formulaire de candidature : ta réponse ne nous est pas "
+                    f"arrivée correctement.\n\nRefais ta candidature ici, ça prend 3 minutes et tu arrives directement sur notre Discord :\n{lien_rt}"
+                    f"\n\nSi tu es toujours partant, c'est le moment 🚀")
+
+        vus_rt, retenus_rt, ecartes_rt = set(), [], {"déjà sur Discord": 0, "déjà par le site": 0, "déjà dans l'équipe": 0, "mineur": 0, "score faible": 0, "doublon": 0}
+        for c in sorted([c for c in cands_rt if c["source"] == "formulaire" and c.get("date") and c["date"] >= depuis_rt], key=lambda c: c["date"], reverse=True):
+            cle = c["tel_chiffres"][-8:] if len(c["tel_chiffres"]) >= 8 else normaliser(c.get("prenom", ""))
+            if cle in vus_rt:
+                ecartes_rt["doublon"] += 1; continue
+            vus_rt.add(cle)
+            if cle in tels_discord:
+                ecartes_rt["déjà sur Discord"] += 1; continue
+            if cle in tels_site:
+                ecartes_rt["déjà par le site"] += 1; continue
+            pr = normaliser(c.get("prenom", "")).split()
+            if pr and pr[0] in prenoms_equipe:
+                ecartes_rt["déjà dans l'équipe"] += 1; continue
+            age = re.search(r"\d+", c.get("age", "") or "")
+            if (age and int(age.group(0)) < 18) or normaliser(c.get("majeur", "")).startswith("non"):
+                ecartes_rt["mineur"] += 1; continue
+            pts, raisons = score_candidature(c)
+            if pts < mini_rt:
+                ecartes_rt["score faible"] += 1; continue
+            c["score"], c["raisons"] = pts, raisons
+            retenus_rt.append(c)
+        retenus_rt.sort(key=lambda c: (-c["score"], -c["date"].timestamp()))
+        onglet_rt = f"Relance Telegram {heure_paris().strftime('%d-%m')}"
+        lignes_rt = [["Prénom", "Score /8", "Pourquoi", "Telegram (lien)", "WhatsApp (lien)", "Pays", "Téléphones", "Candidature du", "Envoyé ?", "Message à coller"]]
+        for c in retenus_rt:
+            h, tel = _handle(c.get("telegram", "")), _tel_intl(c.get("tel", ""), c.get("pays", ""))
+            lignes_rt.append([c.get("prenom", "").strip(), c["score"], ", ".join(c["raisons"]),
+                              f"https://t.me/{h}" if h else f"(pas de @ valide : « {c.get('telegram', '')[:30]} »)", f"https://wa.me/{tel}" if tel else "",
+                              c.get("pays", ""), c.get("telephones", "")[:60], c["date"].strftime("%d/%m/%Y"), "", _message(c.get("prenom", ""))])
+        ecrit_rt = ""
+        if SHEET_CANDIDATURES_ID and google_api.actif():
+            try:
+                await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet_rt)
+                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet_rt}!A1", [[""] * 10 for _ in range(400)])   # l'onglet du jour repart à blanc
+                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet_rt}!A1", lignes_rt)
+                ecrit_rt = f"onglet **{onglet_rt}** du classeur des candidatures"
+            except Exception as erreur:                                   # noqa: BLE001
+                ecrit_rt = f"classeur non écrit ({type(erreur).__name__})"
+        sortie_rt = [f"📨 **Relance Telegram : {len(retenus_rt)} candidat(s)** des {jours_rt} derniers jours, score ≥ {mini_rt}/8, "
+                     f"pas sur Discord ni dans l'équipe ({', '.join(f'{k} {v}' for k, v in ecartes_rt.items() if v)})",
+                     (f"📋 Liste complète, liens et message à coller : {ecrit_rt}." if ecrit_rt else "") + " Un bot Telegram ne peut écrire "
+                     "qu'à qui lui a déjà parlé : l'envoi se fait à la main, un clic sur le lien, coller le message.", ""]
+        for l in lignes_rt[1:25]:
+            sortie_rt.append(f"· **{l[0]}** {l[1]}/8 · {l[5][:12]} · " + (f"<{l[3]}>" if l[3].startswith("https") else "pas de @") + (f" · <{l[4]}>" if l[4] else ""))
+        if len(lignes_rt) > 25:
+            sortie_rt.append(f"… et {len(lignes_rt) - 25} autres dans le classeur.")
+        sortie_rt += ["", "**Message :**", _message("Prénom")]
+        await envoyer_long(message, sortie_rt)
+        return True
+
     if texte.startswith("!relancer-lien"):
         g = message.guild
         if g is None:
