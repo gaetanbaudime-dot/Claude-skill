@@ -32,7 +32,7 @@ BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "2") or 2)           # jours d
 HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après le rapport inputs du matin
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
-VERSION = 3                                                            # changer = un passage de plus le jour du déploiement
+VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
 LOT = 50                                                               # comptes par appel Apify
 
 _deps = {}
