@@ -130,8 +130,21 @@ async def lire_comptes() -> list:
         out.append({"ligne": i, "etat": champ("etat"), "handle": champ("handle").lstrip("@"), "mdp": champ("mdp"),
                     "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
                     "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
-                    "creatrice": champ("creatrice"), "lien_gaml": champ("lien_gaml"), "pod": champ("pod")})
+                    "creatrice": champ("creatrice"), "lien_gaml": champ("lien_gaml"), "pod": champ("pod"),
+                    "lien_infloww": champ("lien_infloww")})
     return out
+
+
+def tracking_du_pod(tous: list, comptes: list) -> tuple:
+    """(lien de tracking OnlyFans, POD) des comptes d'un clipper : Gaëtan pose le lien sur la première ligne du POD dans la
+    colonne « Lien Infloww Tracking » (27/09). Sans POD : la première ligne du clipper qui en porte un."""
+    pod = next((str(c.get("pod") or "").strip() for c in comptes if str(c.get("pod") or "").strip()), "")
+    candidats = [c for c in tous if pod and str(c.get("pod") or "").strip() == pod] or list(comptes)
+    for c in candidats:
+        url = str(c.get("lien_infloww") or "").strip()
+        if url.startswith("http"):
+            return url, pod
+    return "", pod
 
 
 def _pour_creatrice(c: dict, creatrice: str) -> bool:
@@ -398,7 +411,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         if depuis < timedelta(hours=24):
             return f"📦 Onboarding de {membre.display_name} ({fiche.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
     # 1. comptes depuis le classeur
-    comptes = []
+    comptes, tous = [], []
     if actif():
         try:
             tous = await lire_comptes()
@@ -425,25 +438,39 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             resultat.append(f"classeur : {erreur}")
     else:
         resultat.append("classeur non branché")
-    # 2. lien GAML
-    lien = ""
+    # 2. lien GAML — cloné depuis le DERNIER lien de clipper de la créatrice (27/09 : « tu dupliques celui d'avant »), puis la carte
+    # « Plateforme privée » reçoit le lien de tracking OnlyFans du POD du clipper (colonne « Lien Infloww Tracking » du classeur).
+    lien, lid = "", ""
     try:
         d = paie_clics._lire() if paie_clics.actif() else {"liens": {}}
         lids = paie_clics.liens_de(d, str(membre.id))
         if lids:
-            lien = d["liens"][lids[0]].get("url", "")
+            lid = lids[0]
+            lien = d["liens"][lid].get("url", "")
         elif paie_clics.actif():
             liens = await paie_clics.liens_gaml()
             modeles = [l for l in liens if _norm(str(l.get("name", "")).split()[0] if l.get("name") else "") == _norm(creatrice.split()[0])
                        and paie_clics._prenom_note(l.get("note"))]
+            modeles.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)        # le plus récent d'abord
             if modeles:
                 nouveau = await paie_clics.cloner_lien(modeles[0]["id"], modeles[0].get("name", creatrice), f"Clipping {prenom}")
                 d["liens"][nouveau["id"]] = {"uid": str(membre.id), "note": f"Clipping {prenom}", "url": nouveau["url"],
                                              "creatrice": creatrice.split()[0], "depuis": _deps["heure_paris"]().date().isoformat(),
                                              "par": "onboarding"}
                 paie_clics._ecrire(d)
-                lien = nouveau["url"]
+                lien, lid = nouveau["url"], nouveau["id"]
         resultat.append("lien GAML " + ("✅" if lien else "absent"))
+        if lid and comptes:
+            tracking, pod = tracking_du_pod(tous, comptes)
+            if tracking:
+                etat_tr = await paie_clics.poser_tracking(lid, tracking)
+                d = paie_clics._lire()
+                if lid in d.get("liens", {}):
+                    d["liens"][lid]["tracking"] = tracking
+                    paie_clics._ecrire(d)
+                resultat.append("tracking OF " + ("✅" if etat_tr in ("ok", "déjà") else f"⚠️ {etat_tr}") + f" ({tracking.rsplit('/', 1)[-1]})")
+            else:
+                resultat.append(f"⚠️ pas de lien de tracking OnlyFans dans le classeur pour {'le POD ' + pod if pod else 'ses comptes'}")
     except RuntimeError as erreur:
         resultat.append(f"GAML : {erreur}")
     # 3. Drive
@@ -529,6 +556,56 @@ async def message_clipper(message) -> bool:
 
 
 # ------------------------------------------------------------------ le classeur comme télécommande
+async def verifier_trackings() -> list:
+    """27/09 : chaque clipper qui a un lien GAML et dont le POD porte un lien de tracking OnlyFans doit avoir CE lien dans la carte
+    « Plateforme privée » de son lien. Corrige les écarts, signale les POD sans tracking et les liens sans carte. Renvoie les
+    lignes du bilan (vide si tout est juste)."""
+    if not (actif() and paie_clics.actif()):
+        return []
+    tous = await lire_comptes()
+    d = paie_clics._lire()
+    par_gerant = {}
+    for c in tous:
+        g = _norm(c.get("gerant") or "")
+        if g and _norm(c.get("utilisation") or "").startswith("clipper"):
+            par_gerant.setdefault(g, []).append(c)
+    prenom_de_uid = {}
+    for lid, info in d.get("liens", {}).items():
+        uid = str(info.get("uid") or "")
+        if not uid:
+            continue
+        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        nom = (m.display_name.split()[0] if m is not None and m.display_name.split() else "") or paie_clics._prenom_note(info.get("note"))
+        if nom:
+            prenom_de_uid.setdefault(_norm(nom), []).append(lid)
+    bilan, corriges = [], 0
+    for prenom_n, comptes in par_gerant.items():
+        lids = prenom_de_uid.get(prenom_n) or []
+        tracking, pod = tracking_du_pod(tous, comptes)
+        nom = comptes[0].get("gerant") or prenom_n
+        if not lids:
+            continue                                                    # pas de lien GAML connu : l'onboarding s'en charge
+        if not tracking:
+            bilan.append(f"⚠️ {nom} : pas de lien de tracking OnlyFans dans le classeur ({'POD ' + pod if pod else 'ses lignes'})")
+            continue
+        for lid in lids[:1]:
+            try:
+                etat_tr = await paie_clics.poser_tracking(lid, tracking)
+            except RuntimeError as erreur:
+                bilan.append(f"❌ {nom} : {erreur}")
+                continue
+            if etat_tr == "ok":
+                corriges += 1
+                bilan.append(f"🔧 {nom} : carte du lien → {tracking.rsplit('/', 1)[-1]}" + (f" (POD {pod})" if pod else ""))
+            elif etat_tr != "déjà":
+                bilan.append(f"⚠️ {nom} : {etat_tr}")
+            if d.get("liens", {}).get(lid, {}).get("tracking") != tracking:
+                d["liens"][lid]["tracking"] = tracking
+                paie_clics._ecrire(d)
+    journal.info("Trackings OnlyFans vérifiés : %d clipper(s), %d corrigé(s)", len(par_gerant), corriges)
+    return bilan
+
+
 async def boucle(client, deps: dict):
     """Toutes les 15 minutes : un compte dont la colonne Gérant porte le prénom d'un membre, et qui ne lui a
     pas encore été livré, part dans son salon perso. Attribuer ou changer un compte se fait donc dans le

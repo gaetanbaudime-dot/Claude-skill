@@ -3985,7 +3985,7 @@ def est_manager(membre) -> bool:
 
 
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
-COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!tests", "!inputs",
+COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
                      "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
@@ -4021,7 +4021,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon · `!recup [alias]` — le code de "
                 "récupération (mot de passe oublié, appel après un ban), 6 h en arrière\n"
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
-                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
+                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` (carte de chaque lien = tracking OF de son POD) · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
@@ -6652,6 +6652,23 @@ async def on_ready():
         client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
         client.loop.create_task(salons_candidats_recents())                     # salon perso dès l'arrivée : rattrapage (27/09)
         client.loop.create_task(entretien_candidatures_sheet())                 # lignes à la suite + note /8 (27/09)
+
+        async def _trackings_demarrage():
+            await client.wait_until_ready()
+            await asyncio.sleep(180)                                            # après le roster et les attributions
+            try:
+                bilan_tr = await onboarding.verifier_trackings()
+            except Exception as erreur:                                         # noqa: BLE001
+                journal.warning("Vérification des trackings : %s", erreur)
+                return
+            if bilan_tr:
+                canal_tr = await canal_admin()
+                if canal_tr is not None:
+                    try:
+                        await canal_tr.send(("🔗 **Liens de tracking OnlyFans**\n" + "\n".join(bilan_tr))[:1990])
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+        client.loop.create_task(_trackings_demarrage())                          # carte de chaque lien = tracking de son POD (27/09)
         retro.configurer({"client": client, "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "retro.json",
                           "FICHIER_FAQ_APPRISE": FICHIER_FAQ_APPRISE, "FICHIER_CONSIGNES": DONNEES / "consignes_apprises.json",
                           "salons_persos": salons_persos_actifs, "canal_admin": canal_admin, "heure_paris": heure_paris,
@@ -7086,6 +7103,15 @@ async def on_message(message):
     if texte.startswith(("!retro", "!rétro")):                               # 27/09 : la rétrospective, à la main
         if await retro.commande(message, texte):
             return
+    if texte.startswith("!trackings") and (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
+        await message.reply("🔗 Je vérifie la carte de chaque lien GAML contre le tracking de son POD…")
+        try:
+            bilan_tr = await onboarding.verifier_trackings()
+        except Exception as erreur:                                             # noqa: BLE001
+            bilan_tr = [f"❌ {type(erreur).__name__} {str(erreur)[:120]}"]
+        await message.channel.send(("🔗 **Liens de tracking OnlyFans**\n" + "\n".join(bilan_tr))[:1990] if bilan_tr
+                                   else "✅ Tous les liens de clippers pointent vers le tracking de leur POD.")
+        return
     if texte.startswith(("!creatrice", "!créatrice")):
         if await commande_creatrice(message, texte):
             return

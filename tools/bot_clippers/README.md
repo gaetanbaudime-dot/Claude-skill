@@ -143,6 +143,14 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Lien GAML = tracking OnlyFans du POD (27/09 soir)** : Gaëtan pose le lien de tracking OnlyFans de chaque POD dans la colonne
+« Lien Infloww Tracking » du classeur (première ligne du POD). À l'onboarding, le lien du clipper est cloné depuis le DERNIER lien
+de clipper de la créatrice (« tu dupliques celui d'avant ») et sa carte « Plateforme privée » reçoit le tracking de son POD
+(`paie_clics.poser_tracking`, PATCH de la carte) ; le bilan le dit (`tracking OF ✅ (c9)`) ou signale un POD sans tracking.
+`onboarding.verifier_trackings` (au démarrage, 3 min après, et `!trackings`) compare la carte de chaque lien de clipper au tracking
+de son POD, corrige les écarts, et liste les POD sans tracking. Clara est dans `DRIVE_SOURCES` (dossier « 🎬 Clippers » créé
+dans son Instagram Drive).
+
 **Un accès par jour, anciens sans salon, classeur des candidatures (27/09, fin de journée)** : la livraison ne poste plus les trois
 comptes d'un coup — une ligne (`message_comptes_court`), puis chaque étape 1, 2, 3 du parcours donne l'identifiant, l'e-mail et le
 mot de passe du compte du jour (`acces` mémorisés à la livraison, `COMPTES_UN_PAR_JOUR=0` pour revenir) ; les prénoms « sans

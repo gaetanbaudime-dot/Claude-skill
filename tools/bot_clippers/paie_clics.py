@@ -147,6 +147,32 @@ async def cloner_lien(base_id: str, nom: str, note: str) -> dict:
     return {"id": nouveau_id, "url": maj.get("url") or clone.get("url") or ""}
 
 
+async def lien_detail(link_id: str) -> dict:
+    return await _requete("GET", f"/links/{link_id}")
+
+
+def _carte_privee(detail: dict):
+    """La carte « Plateforme privée » d'un lien (celle qui porte le lien de tracking), sinon la première carte."""
+    cartes = detail.get("contents") or []
+    if not cartes:
+        return None
+    return next((c for c in cartes if any(m in str(c.get("name", "")).lower() for m in ("priv", "platform", "plateforme"))), cartes[0])
+
+
+async def poser_tracking(link_id: str, url: str) -> str:
+    """27/09 (Gaëtan) : « quand tu crées un lien de clipper, tu dupliques celui d'avant et tu modifies le lien dans Cards ».
+    Met `url` (le lien de tracking OnlyFans du POD) dans la carte « Plateforme privée ». Renvoie 'ok', 'déjà' ou la raison."""
+    if not url:
+        return "sans tracking"
+    carte = _carte_privee(await lien_detail(link_id))
+    if carte is None:
+        return "lien sans carte"
+    if (carte.get("value") or "").strip() == url.strip():
+        return "déjà"
+    await _requete("PATCH", f"/contents/{carte['id']}", corps={"value": url.strip()})
+    return "ok"
+
+
 # ------------------------------------------------------------------ calculs
 def periode(cle: str, mois: str = "") -> tuple:
     """`5` : 16 → fin du mois précédent (paie du 5 de `mois`) ; `20` : 1 → 15 de `mois`."""
