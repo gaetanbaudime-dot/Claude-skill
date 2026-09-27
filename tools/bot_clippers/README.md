@@ -143,6 +143,19 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Salon perso dès l'arrivée, plus d'assistant global, rétrospective nocturne (27/09)** : chaque arrivant reçoit son salon
+perso dans « 🎬 Clippers » à la seconde où il arrive (`assurer_salon_arrivee`, aussi à la liaison par numéro et au démarrage
+pour les candidats en cours depuis moins de 14 jours) ; tout ce que le tunnel envoyait en MP y va (`envoyer_mp` route vers
+le salon perso pour un non-staff), et les réponses du candidat y sont lues comme en MP (`en_prive` : numéro, STOP, e-mail,
+J'ACCEPTE, test rendu). Gaëtan voit donc formation, quiz, test et règles se dérouler ; à l'attribution, le salon part sous la
+créatrice. `ASSISTANT_GLOBAL=1` rétablit l'ancien salon assistant et le forum ; par défaut le bot n'y répond plus et ne
+répond aux mentions hors salon perso qu'au staff (`SALON_ARRIVEE=0` pour revenir aux MP). **Rétrospective (`retro.py`)** :
+chaque soir entre 20 h et 22 h (Paris), le bot relit les salons persos actifs des 24 h, se note, et apprend : les leçons
+(question ou confusion + bonne réponse) vont dans la FAQ apprise (`!faq`, `!faq retirer N`), les consignes de style (2 par
+jour au plus, 12 gardées, `consignes_apprises.json`) sont injectées dans son prompt après les règles, et un digest part au
+salon admin. Garde-fous : jamais de nom, numéro, e-mail, mot de passe ou identifiant ; la doctrine est rappelée dans le
+prompt d'analyse et la base curée prime ; 3 leçons par salon, 20 par jour, doublons écartés. `!retro` lance la même chose.
+
 **Reels uniques v2 et dossier du clipper (27/09, « fais gaffe au mirroring »)** : la recette ne fait plus jamais de miroir (les
 TOP 20 ont des sous-titres incrustés, un miroir les écrit à l'envers), le zoom est limité à 4 % et le décalage à ± 30 % pour ne
 pas rogner un sous-titre ; chaque variante passe un **contrôle qualité** ffprobe (1080×1920, durée cohérente avec la coupe et la

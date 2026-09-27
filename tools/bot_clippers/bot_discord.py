@@ -44,6 +44,7 @@ import messages_deposes                   # messages écrits dans le dépôt, po
 import acceptation                        # J'ACCEPTE = case cochée sur le site, ou bouton ✅ en MP (27/09)
 import attribution                        # créatrice attribuée automatiquement, rotation Sophie > Sarah > Chloé > Clara > Jade (27/09)
 import tableau_bord                       # le tableau de bord d'une ligne, chaque lundi (27/09)
+import retro                              # rétrospective nocturne : le bot apprend de ses salons persos (27/09)
 import drive_agence                       # script Apps Script de l'agence : dépôts de fichiers dans le Drive (26/09, reels_uniques)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
@@ -189,6 +190,10 @@ LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du 
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
 SEUIL_QUIZ = int(os.environ.get("QUIZ_SEUIL", "30") or 30)  # note minimale sur 34 (24/09 : 27 → 30) ; même variable que le site du quiz
 CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
+# 27/09 (Gaëtan) : plus d'assistant global — un assistant dans chaque salon perso, ouvert dès l'arrivée du candidat (quiz et
+# test se passent dedans, sous les yeux de Gaëtan) et déplacé sous sa créatrice à l'attribution.
+ASSISTANT_GLOBAL = os.environ.get("ASSISTANT_GLOBAL", "0").strip() == "1"
+SALON_ARRIVEE = os.environ.get("SALON_ARRIVEE", "1").strip() != "0"
 CANAL_FORMATION_ID = os.environ.get("CANAL_FORMATION_ID", "").strip()   # forum formation, lié dans le parcours MP étape 2
 
 # ---- Contrat DocuSeal (v2 du 18/07) : le bot crée le contrat depuis le modèle et envoie le
@@ -387,8 +392,10 @@ Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autr
 if CANAL_FORMATION_ID:
     INSTRUCTIONS += (f"\n11. Dès que tu diriges vers le forum « formation », écris le lien cliquable "
                      f"<#{CANAL_FORMATION_ID}> (jamais le nom seul).")
-if CANAL_ASSISTANT_ID:
+if CANAL_ASSISTANT_ID and ASSISTANT_GLOBAL:
     INSTRUCTIONS += f"\n12. Le salon de l'assistant se donne aussi en lien cliquable : <#{CANAL_ASSISTANT_ID}>."
+else:
+    INSTRUCTIONS += "\n12. Il n'y a plus de salon assistant : les questions se posent dans le salon perso du clipper (ou en MP avant qu'il existe)."
 _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
 # Index des salons du serveur (nom normalisé → identifiant) et forum formation résolu, remplis au
 # démarrage puis toutes les 6 h : les liens cliquables se posent en POST-TRAITEMENT, sans dépendre
@@ -435,7 +442,7 @@ def connaissances() -> str:
 def bloc_systeme():
     return [{
         "type": "text",
-        "text": INSTRUCTIONS + regle_liens_formation() + ligne_facturation()
+        "text": INSTRUCTIONS + regle_liens_formation() + ligne_facturation() + retro.consignes_texte()
                 + "\n\n# BASE DE CONNAISSANCES\n\n" + connaissances(),
         "cache_control": {"type": "ephemeral", "ttl": "1h"},
     }]
@@ -602,6 +609,76 @@ if ACTIVER_V2:
 client = discord.Client(intents=intents)
 
 
+def en_prive(message) -> bool:
+    """Message privé, OU message dans le salon perso de son auteur (27/09 : le tunnel candidat se passe dans le salon)."""
+    if message.guild is None:
+        return True
+    sp = salon_perso_de(message.author.id)
+    return sp is not None and sp.id == message.channel.id
+
+
+async def assurer_salon_arrivee(membre):
+    """Le salon perso d'un arrivant, dans « 🎬 Clippers », dès son arrivée (27/09) : formation, quiz, test, règles, puis comptes,
+    tout s'y passe sous les yeux de Gaëtan ; à l'attribution, le salon part sous la créatrice. Renvoie le salon ou None."""
+    if not SALON_ARRIVEE or membre is None or getattr(membre, "bot", False) or getattr(membre, "guild", None) is None:
+        return None
+    if str(membre.id) in ADMIN_IDS or est_manager(membre):
+        return None
+    try:
+        salon, cree, err = await assurer_salon_perso(membre.guild, membre, None, "", "salon dès l'arrivée (27/09)")
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Salon d'arrivée de %s : %s", membre.id, erreur)
+        return None
+    if salon is None:
+        journal.warning("Salon d'arrivée de %s impossible : %s", membre.id, err)
+        return None
+    if cree:
+        try:
+            await salon.send(f"🏠 {membre.mention}, ton salon. Tout se passe ici : la formation, le quiz, le test, puis tes comptes. "
+                             "Une question ? Écris-la ici, je réponds.", view=vue_whatsapp())
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    return salon
+
+
+async def salons_candidats_recents(jours: int = 14, maximum: int = 30) -> int:
+    """Au démarrage (27/09) : les candidats en cours (quiz, test, validés) présents sur le serveur et actifs depuis moins de
+    `jours` reçoivent leur salon perso s'ils n'en ont pas. Renvoie le nombre créé."""
+    if not SALON_ARRIVEE or not client.guilds:
+        return 0
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    limite = (datetime.now(timezone.utc) - timedelta(days=jours)).isoformat(timespec="seconds")
+    n = 0
+    for uid, info in pipe.get("etats", {}).items():
+        if n >= maximum or info.get("etat") not in ("test_envoye", "test_rendu", "valide", "refuse"):
+            continue
+        date = max(str(info.get(k) or "") for k in ("envoi", "rendu", "validation", "echeance"))
+        if not date or date < limite:
+            continue
+        m = membre_par_id(uid)
+        if m is None or salon_perso_de(m.id) is not None:
+            continue
+        if await assurer_salon_arrivee(m) is not None:
+            n += 1
+            await asyncio.sleep(2)
+    if n:
+        journal.info("Salons persos créés au démarrage pour %d candidat(s) en cours", n)
+    return n
+
+
+async def salons_persos_actifs() -> list:
+    """[(salon, membre)] de tous les membres non staff qui ont un salon perso — pour la rétrospective."""
+    resultat = []
+    for g in client.guilds:
+        for m in g.members:
+            if m.bot or str(m.id) in ADMIN_IDS or est_manager(m):
+                continue
+            sp = salon_perso_de(m.id)
+            if sp is not None:
+                resultat.append((sp, m))
+    return resultat
+
+
 def doit_repondre(message) -> bool:
     """On répond si : message privé, OU canal dédié, OU post d'un forum dédié, OU mention.
     En MP le bot dit « réponds-moi ici » à chaque étape : un texte libre y tombait dans le
@@ -609,15 +686,16 @@ def doit_repondre(message) -> bool:
     if message.guild is None:
         return True
     canal = message.channel
-    if CANAL_BOT_ID and str(canal.id) == CANAL_BOT_ID:
+    if ASSISTANT_GLOBAL and CANAL_BOT_ID and str(canal.id) == CANAL_BOT_ID:
         return True
     parent = getattr(canal, "parent_id", None)  # dans un forum, chaque post est un thread
-    if FORUM_BOT_ID and parent and str(parent) == FORUM_BOT_ID:
+    if ASSISTANT_GLOBAL and FORUM_BOT_ID and parent and str(parent) == FORUM_BOT_ID:
         return True
     sp = salon_perso_de(message.author.id)                     # 25/09 : dans son salon perso, le bot est le manager du clipper
     if sp is not None and sp.id == canal.id and not (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
         return True
-    return client.user in message.mentions
+    # 27/09 : plus d'assistant global — une mention hors salon perso n'est servie qu'au staff
+    return client.user in message.mentions and (ASSISTANT_GLOBAL or str(message.author.id) in ADMIN_IDS or est_manager(message.author))
 
 
 ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccord", "dac", "dacc", "dak", "ca", "marche",
@@ -683,7 +761,7 @@ def contexte_auteur(message) -> str:
             + (f" (pseudo « {pseudo} » = prénom - créatrice : appelle-le par son prénom, jamais par celui de la créatrice)"
                if any(sep in pseudo for sep in SEPARATEURS_PSEUDO) else "")
             + f" · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]")
-    if message.guild is None:
+    if en_prive(message):
         # 27/09 (Gaëtan) : « quand le clipper arrive avant la fin du test, il a besoin d'aide » — l'assistant reçoit
         # où en est le candidat (numéro, quiz, test envoyé/rendu, échéance) pour répondre juste, sans inventer.
         try:
@@ -1247,7 +1325,17 @@ def tel_selon_pays(brut, pays=""):
 
 
 async def envoyer_mp(membre, texte, view=None):
-    """MP avec vraie réponse : False si les MP du membre sont fermés."""
+    """MP avec vraie réponse : False si les MP du membre sont fermés.
+    27/09 : si le membre a un salon perso (ouvert dès son arrivée), tout ce qui partait en MP y va — Gaëtan voit le parcours."""
+    if SALON_ARRIVEE and getattr(membre, "guild", None) is not None and not getattr(membre, "bot", False) \
+            and str(membre.id) not in ADMIN_IDS and not est_manager(membre):
+        try:
+            salon = salon_perso_de(membre.id)
+            if salon is not None:
+                await salon.send(f"{membre.mention} {texte}"[:2000], view=view)
+                return True
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.info("Salon perso de %s injoignable (%s) : repli MP", membre.id, erreur)
     try:
         await membre.send(texte, view=view)
         return True
@@ -1852,10 +1940,11 @@ def texte_test(score="") -> str:
         "1. Télécharge les vidéos du dossier.\n"
         "2. Monte **2 vidéos verticales**. La première seconde doit donner envie de rester. Mets des sous-titres.\n"
         "3. Tu as **48 heures**.\n"
-        "4. Envoie tes 2 vidéos **ici, en message privé** : appuie sur le **+** à gauche, puis **Uploader un fichier**. "
+        "4. Envoie tes 2 vidéos **ici** : appuie sur le **+** à gauche, puis **Uploader un fichier**. "
         "Maximum 10 Mo par vidéo. Si c'est trop lourd, exporte en 720p.\n\n"
         "Personne d'autre ne voit tes vidéos.\n"
-        + ((f"Une question ? Demande à **l'assistant** dans <#{CANAL_ASSISTANT_ID}>. Il répond jour et nuit.\n") if CANAL_ASSISTANT_ID else "")
+        + ((f"Une question ? Demande à **l'assistant** dans <#{CANAL_ASSISTANT_ID}>. Il répond jour et nuit.\n") if (CANAL_ASSISTANT_ID and ASSISTANT_GLOBAL)
+           else "Une question ? Écris-la ici, je réponds jour et nuit.\n")
         + "\nBonne chance 🚀")
 
 
@@ -2353,6 +2442,8 @@ async def traiter_liaison(auteur, brut):
             await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée")
         except (discord.Forbidden, discord.HTTPException):
             pass
+    if membre_serveur is not None:
+        await assurer_salon_arrivee(membre_serveur)                    # 27/09 : le reste du parcours se passe dans son salon
     # Rôle de GRILLE (rémunération/bonus) : l'INDICATIF du numéro suffit — on n'exige plus une
     # candidature retrouvée. Idempotent avec l'arrivée. Tout échec (rôle mal nommé, permission)
     # est remonté en admin au lieu d'être silencieux (c'était le bug Jonas).
@@ -3149,7 +3240,7 @@ async def boucle_pipeline():
                            "à 17 h (heure de Paris). C'est là que ton **lien de tracking** est posé. Tu ne crées "
                            "jamais tes comptes seul.\n"
                            "3. D'ici là : lis la **Fiche 1** en entier (règles anti-ban).\n\n"
-                           "Une question ? Le salon de l'assistant répond 24h/24. À toi de jouer 🚀"
+                           "Une question ? Écris-la dans ton salon perso. À toi de jouer 🚀"
                            if onboarde else
                            "L'équipe vérifie ton dossier avant d'ouvrir tes accès (une vérification "
                            "humaine, pas un problème de ton côté) : tu reçois ton rôle ici dès que c'est "
@@ -3586,7 +3677,8 @@ async def accueillir(member):
 
     # Le guide COMPLET part en message privé — #candidature reste propre (demande du 18/07) :
     # le salon ne garde qu'une ligne de preuve sociale (compteur + parrainage).
-    aide = f" Une question ? <#{CANAL_ASSISTANT_ID}> répond 24h/24." if CANAL_ASSISTANT_ID else ""
+    aide = (f" Une question ? <#{CANAL_ASSISTANT_ID}> répond 24h/24." if (CANAL_ASSISTANT_ID and ASSISTANT_GLOBAL)
+            else " Une question ? Écris-la ici, je réponds 24h/24.")
     if source.startswith("formulaire"):
         cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
         retrouvee = (f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
@@ -3624,8 +3716,9 @@ async def accueillir(member):
     canal = await canal_par_id(CANAL_CANDIDATURE_ID)
     if canal is not None:
         if mp_ok:
+            sp_b = salon_perso_de(member.id)
             lignes = [f"🎬 Bienvenue {member.mention} — tu es le **{guild.member_count}ᵉ** futur clipper "
-                      f"de l'équipe ! 📬 Ton guide d'arrivée est en message privé."]
+                      f"de l'équipe ! 📬 Ton guide d'arrivée est dans " + (f"ton salon <#{sp_b.id}>." if sp_b is not None else "tes messages privés.")]
         else:
             # MP fermés : mieux vaut un guide public qu'un candidat perdu — version condensée.
             lignes = [f"🎬 Bienvenue {member.mention} — **{guild.member_count}ᵉ** futur clipper ! "
@@ -3768,7 +3861,7 @@ def est_manager(membre) -> bool:
 
 
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
-COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!tests", "!inputs",
+COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
                      "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
@@ -3788,7 +3881,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement) · `!archiver #salon…`\n"
                 "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang` · `!invites` · `!bumps`\n"
-                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!sauvegarde`\n"
+                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!retro` (il relit ses salons et apprend) · `!sauvegarde`\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
         return ("🧰 **Commandes manager**\n"
@@ -6433,6 +6526,12 @@ async def on_ready():
                                  "canal_admin": canal_admin, "est_staff": _staff})
         client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
         client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
+        client.loop.create_task(salons_candidats_recents())                     # salon perso dès l'arrivée : rattrapage (27/09)
+        retro.configurer({"client": client, "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "retro.json",
+                          "FICHIER_FAQ_APPRISE": FICHIER_FAQ_APPRISE, "FICHIER_CONSIGNES": DONNEES / "consignes_apprises.json",
+                          "salons_persos": salons_persos_actifs, "canal_admin": canal_admin, "heure_paris": heure_paris,
+                          "claude": claude, "MODELE": MODELE, "est_staff": _staff, "normaliser": normaliser})
+        client.loop.create_task(retro.boucle(client))                            # le bot apprend de ses salons, chaque soir (27/09)
 
         def _email_de_prenom(prenom_e: str) -> str:
             """L'adresse Gmail connue d'un clipper (liaison du pipeline), pour partager ses sources Drive."""
@@ -6574,6 +6673,7 @@ async def on_member_join(member):
     attendu = donnees.get("web_attendus", {}).pop(str(member.id), None)
     ecrire_json(FICHIER_PIPELINE, donnees)
     if attendu:
+        await assurer_salon_arrivee(member)                            # 27/09 : son salon avant tout, le parcours s'y déroule
         await traiter_liaison(member, attendu.get("tel", ""))
         return
     # Porte d'entrée : l'invitation dont le compteur a bougé (cache avant/après). Le cache n'est
@@ -6591,6 +6691,7 @@ async def on_member_join(member):
     if serveur_ferme():
         await raccompagner(member, invitation, code)
         return
+    await assurer_salon_arrivee(member)                                # 27/09 : son salon avant tout
     await accueillir(member)
 
 
@@ -6792,7 +6893,7 @@ async def on_message(message):
     # MP « STOP » : coupe toutes les relances automatiques pour cette personne. Une relance
     # sans porte de sortie ne récolte que du ressentiment — et un candidat qui dit stop
     # aujourd'hui peut revenir en septembre ; un candidat harcelé, jamais.
-    if message.guild is None and normaliser(texte) in ("stop", "stop.", "stop !", "stop!"):
+    if en_prive(message) and normaliser(texte) in ("stop", "stop.", "stop !", "stop!"):
         donnees_s = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         uid_s = str(utilisateur)
         touche = False
@@ -6814,7 +6915,7 @@ async def on_message(message):
     # jamais implémenté avant le 10/09. Dans #candidature, on efface et on traite en privé.
     mot_valide = normaliser(texte).strip(" !.✅")
     en_candidature = message.guild is not None and CANAL_CANDIDATURE_ID and str(message.channel.id) == CANAL_CANDIDATURE_ID
-    if (message.guild is None or en_candidature) and mot_valide in ("valide", "retest", "re-test", "pret", "je suis pret"):
+    if (en_prive(message) or en_candidature) and mot_valide in ("valide", "retest", "re-test", "pret", "je suis pret"):
         if en_candidature:
             try:
                 await message.delete()
@@ -6857,6 +6958,9 @@ async def on_message(message):
     if texte.startswith("!tableau"):                                        # 27/09 : le tableau de bord d'une ligne
         if await tableau_bord.commande(message, texte):
             return
+    if texte.startswith(("!retro", "!rétro")):                               # 27/09 : la rétrospective, à la main
+        if await retro.commande(message, texte):
+            return
     if texte.startswith(("!creatrice", "!créatrice")):
         if await commande_creatrice(message, texte):
             return
@@ -6877,7 +6981,7 @@ async def on_message(message):
     # `!lier <numéro>` (historique) OU le numéro envoyé BRUT, sans commande (parcours sans
     # friction du 18/07 : en MP c'est la voie normale ; dans #candidature on efface et on
     # bascule en privé, un numéro ne doit jamais rester visible).
-    numero_brut = (message.guild is None or (CANAL_CANDIDATURE_ID and str(message.channel.id) == CANAL_CANDIDATURE_ID)) \
+    numero_brut = (en_prive(message) or (CANAL_CANDIDATURE_ID and str(message.channel.id) == CANAL_CANDIDATURE_ID)) \
         and re.fullmatch(r"[\d\s+().\-]{8,}", texte or "") and len(re.sub(r"\D", "", texte)) >= 8
     numero_phrase = ""
     if not numero_brut and message.guild is None and not texte.startswith("!"):
@@ -6914,13 +7018,13 @@ async def on_message(message):
 
     # MP : « J'ACCEPTE » — acceptation horodatée des conditions Team International (remplace le
     # contrat côté International, décision du 18/07). Enregistrée au registre, puis onboarding.
-    if message.guild is None and normaliser(texte).replace("'", "").replace("’", "").replace(" ", "").strip("!.") == "jaccepte":
+    if en_prive(message) and normaliser(texte).replace("'", "").replace("’", "").replace(" ", "").strip("!.") == "jaccepte":
         await message.reply(await accepter_conditions(str(utilisateur), "mp"))       # 27/09 : factorisé (bouton ✅, case du site)
         return
 
     # MP : une adresse e-mail envoyée brute — la clé du contrat (FR) et du Drive (International).
     email_brut = texte.strip().strip("<>")
-    if message.guild is None and re.fullmatch(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", email_brut):
+    if en_prive(message) and re.fullmatch(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", email_brut):
         donnees_pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         donnees_pipe.setdefault("liaisons", {}).setdefault(str(utilisateur), {})["email"] = email_brut
         ecrire_json(FICHIER_PIPELINE, donnees_pipe)
@@ -6996,9 +7100,9 @@ async def on_message(message):
         journal.info("E-mail enregistré : membre %s", utilisateur)
         return
 
-    # Rendu de test en MP : un candidat en état test_envoye envoie ses fichiers/lien au bot,
-    # qui les transmet au salon admin (personne d'autre ne voit les tests → zéro copie).
-    if message.guild is None:
+    # Rendu de test en MP ou dans son salon perso (27/09) : un candidat en état test_envoye envoie ses fichiers/lien,
+    # le bot les transmet au salon admin (personne d'autre ne voit les tests → zéro copie).
+    if en_prive(message):
         donnees_pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         info = donnees_pipe.get("etats", {}).get(str(utilisateur))
         if info and info.get("etat") in ("test_envoye", "test_rendu", "test_expire", "refuse") \
