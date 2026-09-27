@@ -13,6 +13,11 @@ SÉCURITÉ :
   extrait QUE le code ; jamais le corps du mail n'est relayé.
 - Un code n'est posté que dans le salon auquel l'alias est rattaché (registre !alias) ; un alias
   inconnu remonte au salon admin pour que rien ne se perde.
+
+27/09 — CODES DE RÉCUPÉRATION : Instagram envoie « 956472 is your Instagram recovery code » quand on
+fait « mot de passe oublié » ou quand on fait appel pour un compte banni. Même boîte, même alias,
+même salon : le mail est reconnu comme code de RÉCUPÉRATION (sujet), posté avec ce libellé et le
+pseudo du compte concerné, et `!recup` (alias `!appel`, `!unban`) le redonne à la demande (6 h).
 """
 
 import asyncio
@@ -53,6 +58,16 @@ FICHIER_ALIAS = None            # injecté par bot_discord.py (volume persistant
 MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com")
 MOTIF_CODE = re.compile(r"(?<!\d)(?:FB-?)?(\d{5,8})(?!\d)")
 MOTIF_ALIAS = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
+# 27/09 : les codes de RÉCUPÉRATION (« 956472 is your Instagram recovery code » : mot de passe oublié, appel après
+# un ban) arrivent par le même chemin que les codes 2FA — même alias, même boîte, même salon. On les distingue pour
+# que le clipper, ou le manager qui fait appel, sache quel code Instagram attend, et pour que `!recup` ne renvoie
+# jamais un code de connexion à la place. Le sujet décide ; le corps ne compte que pour quelques tournures sûres.
+MOTS_RECUP_SUJET = ("recovery", "récupér", "recuper", "reset", "réinitialis", "reinitialis", "retrouver", "get back")
+MOTS_RECUP_CORPS = ("recovery code", "code de récupération", "code de recuperation", "get back into", "without password",
+                    "sans mot de passe", "retrouver l'accès", "retrouver votre compte")
+MOTIF_COMPTE = re.compile(r"\b(?:Hi|Hello|Bonjour|Salut)\s+([A-Za-z0-9][A-Za-z0-9._]{1,40}?)\s*[,!]")
+TYPE_RECUP, TYPE_CONNEXION = "récupération", "connexion"
+COMMANDES_RECUP = ("!recup", "!récup", "!recuperation", "!récupération", "!appel", "!unban", "!deban")
 
 
 def actif() -> bool:
@@ -115,12 +130,18 @@ def extraire(msg) -> dict:
     if MOTS_SUJET and not any(m in sujet.lower() for m in MOTS_SUJET):
         return {"expediteur": expediteur, "alias": alias, "code": None, "sujet": sujet, "plateforme": plateforme}
     code = None
-    for source in (sujet, _corps(msg)[:3000]):
+    corps = _corps(msg)[:3000]
+    for source in (sujet, corps):
         m = MOTIF_CODE.search(source)
         if m:
             code = m.group(0) if m.group(0).upper().startswith("FB") else m.group(1)
             break
-    return {"expediteur": expediteur, "alias": alias, "code": code, "sujet": sujet, "plateforme": plateforme}
+    genre = TYPE_RECUP if (any(m in sujet.lower() for m in MOTS_RECUP_SUJET)
+                           or any(m in corps[:1500].lower() for m in MOTS_RECUP_CORPS)) else TYPE_CONNEXION
+    m_compte = MOTIF_COMPTE.search(corps[:400])                # « Hi chloe.xxx, » : le pseudo du compte concerné
+    compte = m_compte.group(1).rstrip(".") if m_compte else ""
+    return {"expediteur": expediteur, "alias": alias, "code": code, "sujet": sujet, "plateforme": plateforme,
+            "type": genre, "compte": compte}
 
 
 def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
@@ -163,6 +184,7 @@ def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
             if alias and info["alias"] != alias.lower():
                 continue
             info["num"] = num
+            info["age_min"] = max(0, int(age))
             resultats.append(info)
     return resultats
 
@@ -206,6 +228,20 @@ def detacher(aliases) -> int:
     return n
 
 
+def ligne_code(t: dict) -> str:
+    """La ligne postée dans Discord pour un code trouvé : jamais le corps du mail, seulement le code, l'adresse,
+    le pseudo du compte si le mail le donne, l'âge du mail. Un code de récupération est nommé comme tel : c'est
+    celui qu'Instagram attend pour « mot de passe oublié » ou pour faire appel après un ban (27/09)."""
+    alias = t.get("alias") or "adresse inconnue"
+    compte = f" · compte `@{t['compte']}`" if t.get("compte") else ""
+    age = t.get("age_min")
+    quand = "" if age is None else (" (à l'instant)" if age < 1 else f" (reçu il y a {age} min)")
+    if t.get("type") == TYPE_RECUP:
+        return (f"🛟 **Code de récupération {t.get('plateforme', 'Instagram')} : `{t['code']}`** pour `{alias}`{compte}{quand}. "
+                "C'est le code pour retrouver le compte ou faire appel. Écris-le dans l'appli.")
+    return f"🔐 **Code {t.get('plateforme', 'Instagram')} : `{t['code']}`** pour `{alias}`{compte}{quand}. Écris-le dans l'appli."
+
+
 def _est_manager(membre, admin_ids) -> bool:
     """Admin, ou porteur du rôle Manager au nom EXACT (accents/casse/emoji ignorés). La sous-chaîne
     d'avant faisait d'un rôle « Community manager » ou « bot-manager » un manager."""
@@ -220,10 +256,13 @@ async def commande(message, admin_ids) -> bool:
     `!alias liste` · `!code <alias>` (recherche à la demande, 30 dernières minutes).
     Réservé aux admins et aux membres portant le rôle manager. Renvoie True si traité."""
     texte = message.content.strip()
-    if not texte.lower().startswith(("!alias", "!code")):
+    if not texte.lower().startswith(("!alias", "!code") + COMMANDES_RECUP):
         return False
     registre = _lire()
     mots = texte.split()
+    recup = mots[0].lower() in COMMANDES_RECUP                    # 27/09 : `!recup` = les codes de récupération seulement
+    if recup:
+        mots[0] = "!code"
     canal_id = str(message.channel.id) if message.guild is not None else ""
     miens = [a for a, v in registre.items() if canal_id and v.get("canal_id") == canal_id]
     manager = message.guild is not None and _est_manager(message.author, admin_ids)
@@ -231,7 +270,7 @@ async def commande(message, admin_ids) -> bool:
     # (le message de livraison le lui promettait, la commande était réservée aux managers).
     if not manager and not (mots[0].lower() == "!code" and miens):
         await message.reply("Réservé aux managers (rôle « Manager ») et aux admins." if message.guild is not None else
-                            "`!code` se tape dans ton salon perso sur le serveur, pas en message privé.")
+                            f"`{'!recup' if recup else '!code'}` se tape dans ton salon perso sur le serveur, pas en message privé.")
         return True
     if not actif():
         await message.reply("Relais des codes éteint : `CODES_IMAP_USER` / `CODES_IMAP_PASSWORD` absents.")
@@ -268,24 +307,34 @@ async def commande(message, admin_ids) -> bool:
     elif miens:
         cibles = miens
     else:
-        await message.reply("Format : `!code alias@icloud.com` — je cherche le dernier code reçu (2 h). "
-                            "Dans un salon perso avec des adresses rattachées, `!code` tout court suffit.")
+        nom = "!recup" if recup else "!code"
+        await message.reply(f"Format : `{nom} alias@icloud.com` — je cherche le dernier code reçu "
+                            f"({'6 h' if recup else '2 h'}). Dans un salon perso avec des adresses rattachées, `{nom}` tout court suffit.")
         return True
+    # Un code de récupération sert à un appel ou à « mot de passe oublié » : on remonte plus loin (6 h) qu'un 2FA (2 h).
+    fenetre = 360 if recup else 120
     try:
-        trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, 120), timeout=IMAP_TIMEOUT * 3)
+        trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, fenetre), timeout=IMAP_TIMEOUT * 3)
     except Exception as erreur:
         journal.warning("IMAP : %s", erreur)
         await message.reply("⚠️ Je n'arrive pas à lire la boîte mail. Réessaie dans 2 minutes. Si ça continue, dis-le à ton manager.")
         return True
-    codes = [t for t in trouves if t["code"] and t["alias"] in cibles]
+    codes = [t for t in trouves if t["code"] and t["alias"] in cibles
+             and (not recup or t.get("type") == TYPE_RECUP)]
     if not codes:
-        await message.reply(f"Je n'ai pas de code depuis 2 heures pour {', '.join(f'`{a}`' for a in cibles)}. "
-                            "Sur Instagram, appuie sur « Renvoyer le code ». Il arrive ici en moins d'une minute.")
+        adresses = ', '.join(f'`{a}`' for a in cibles)
+        if recup:
+            await message.reply(f"Je n'ai pas de code de récupération depuis 6 heures pour {adresses}. "
+                                "Sur Instagram : « Mot de passe oublié » ou « Faire appel », choisis l'e-mail, "
+                                "puis `!recup`. Le code arrive ici en moins d'une minute.")
+        else:
+            await message.reply(f"Je n'ai pas de code depuis 2 heures pour {adresses}. "
+                                "Sur Instagram, appuie sur « Renvoyer le code ». Il arrive ici en moins d'une minute.")
     else:
         derniers = {}
-        for t in codes:                                        # le plus récent par adresse
-            derniers[t["alias"]] = t
-        await message.reply("\n".join(f"🔐 **Code {t['plateforme']} : `{t['code']}`** pour `{a}`. Écris-le dans l'appli." for a, t in derniers.items()))
+        for t in codes:                                        # le plus récent par adresse ET par type (connexion / récupération)
+            derniers[(t["alias"], t.get("type", TYPE_CONNEXION))] = t
+        await message.reply("\n".join(ligne_code(t) for t in derniers.values()))
     return True
 
 
@@ -328,7 +377,7 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                 salon = client.get_channel(int(cible)) if cible else await canal_admin_async()
                 if salon is None:
                     continue
-                texte = f"🔐 **Code {t['plateforme']} : `{t['code']}`** pour `{t['alias'] or 'adresse inconnue'}`. Écris-le dans l'appli."
+                texte = ligne_code(t)
                 if not cible:
                     texte += "\n-# Alias non rattaché — un manager peut se l'attribuer : `!alias ajouter <alias>`."
                 try:
@@ -336,7 +385,7 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                     relayes.append(t["num"])
                     deja[cle_r] = datetime.now(timezone.utc).isoformat(timespec="seconds")
                     _ecrire(registre)
-                    journal.info("Code 2FA relayé pour %s → salon %s", t["alias"] or "alias inconnu", getattr(salon, "name", salon.id))
+                    journal.info("Code %s relayé pour %s → salon %s", t.get("type", TYPE_CONNEXION), t["alias"] or "alias inconnu", getattr(salon, "name", salon.id))
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             if relayes:

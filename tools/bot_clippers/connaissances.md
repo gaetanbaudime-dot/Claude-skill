@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v10, 25 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, plus de contrat ni de distinction de pays)
+# Base de connaissances — Kit Clipper G&M (v11, 27 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, codes de récupération pour faire appel)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -191,9 +191,11 @@ La suite, c'est ton manager qui décide, selon tes résultats :
 ## FICHE 6 — Quand ça coince
 
 **Compte bloqué ou banni** :
-1. Pas de panique. Ce n'est pas ta faute. Ça arrive dans ce métier. Ne tente rien seul. Pas d'appel. Pas de nouveau compte avec le même e-mail.
+1. Pas de panique. Ce n'est pas ta faute. Ça arrive dans ce métier. Ne tente rien seul. Pas d'appel tout seul. Pas de nouveau compte avec le même e-mail.
 2. Fais une capture de l'écran « Statut du compte ». Poste-la dans ton salon perso.
-3. Ton manager libère l'identifiant et t'en donne un neuf. Tu le crées le lendemain, comme à l'étape 1.
+3. Ton manager décide : faire appel, ou remplacer le compte.
+4. S'il fait appel, Instagram envoie un **code de récupération** sur l'e-mail du compte. Le code arrive dans ton salon tout seul. Sinon, écris `!recup`. Tu donnes le code à ton manager.
+5. Si le compte est remplacé, ton manager libère l'identifiant et t'en donne un neuf. Tu le crées le lendemain, comme à l'étape 1.
 
 **« Ce compte n'est pas recommandé aux moins de 18 ans »** : pas grave. C'est normal chez nous. Les adultes voient le compte. Grave, c'est autre chose : Instagram cache tes Reels à tout le monde, ou supprime tes Reels plusieurs fois. Là, capture à ton manager.
 
@@ -318,6 +320,10 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 **Qui me donne mes identifiants (mail, mot de passe, pseudo) ?** Le bot, dans ton salon perso, dès que ton manager t'a attribué ta créatrice : 3 comptes, avec pour chacun l'identifiant, le mot de passe et l'e-mail. Ils restent à l'agence : jamais partagés, jamais changés sans prévenir.
 
 **Comment je récupère les codes envoyés par mail ?** Tu tapes `!code` dans ton salon perso : le bot lit la boîte de l'agence et te donne le dernier code reçu pour tes adresses. Souvent il le poste tout seul, en moins d'une minute. Rien après deux minutes ? Redemande le code sur Instagram, puis `!code`.
+
+**C'est quoi un code de récupération, et `!recup` ?** Instagram envoie un code de récupération quand on fait « mot de passe oublié » ou quand on fait appel pour un compte bloqué. Il arrive sur l'e-mail du compte, donc dans ton salon perso, comme les autres codes. Le bot l'appelle « code de récupération ». Tu peux le redemander avec `!recup`. Il ne remplace pas le code de connexion : pour te connecter, c'est `!code`.
+
+**Mon compte est banni, on peut faire appel ?** Oui, mais jamais seul. Ton manager décide et fait l'appel avec toi, depuis l'appli : « Contester la décision ». Instagram demande un code : il arrive dans ton salon, ou avec `!recup`. Pas de ruse, pas de faux papiers, pas de compte neuf avec le même e-mail : c'est ce qui fait bannir les autres comptes.
 
 **Instagram me demande un numéro de téléphone ?** Mets le tien et reçois le SMS. Un numéro ne sert que pour tes 3 comptes. Jamais un numéro « temporaire » ou « jetable » (Temp Number, Receive SMS et compagnie) : c'est le meilleur moyen d'être banni. Le numéro est refusé ou tout bloque ? Écris à Gaëtan sur WhatsApp, le bot te donne le lien : ton prénom, ta créatrice, le problème en une phrase, une capture.
 

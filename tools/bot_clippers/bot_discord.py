@@ -342,7 +342,9 @@ mes rushs, un ban, un compte bloqué) se règle avec le MANAGER : dis-le et renv
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
-20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence. Si Instagram demande \
+20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence ; `!recup` donne le code de \
+RÉCUPÉRATION reçu sur la même adresse (mot de passe oublié, appel après un ban — l'appel se fait avec le manager, \
+jamais seul). Si Instagram demande \
 un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
 de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
 3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais \
@@ -3587,7 +3589,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
-                "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code`\n"
+                "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code` · `!recup`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement) · `!archiver #salon…`\n"
@@ -3605,7 +3607,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!inputs` — le dernier bilan des Reels · `!inputs maintenant` — relancer le comptage\n"
                 "· `!subs Prénom 37` — ses abonnés OF du mois · `!primes` — la paie variable du mois\n"
                 "· `!sortie @clipper raison` — sortie de l'équipe (rôles + salons retirés, tout le monde prévenu)\n"
-                "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon\n"
+                "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon · `!recup [alias]` — le code de "
+                "récupération (mot de passe oublié, appel après un ban), 6 h en arrière\n"
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
@@ -3621,6 +3624,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· Une question sur la méthode : écris-la dans ton salon perso. Je réponds.\n"
                 "· `!etape` — je te renvoie ton étape en cours.\n"
                 "· `!code` — le code qu'Instagram te demande.\n"
+                "· `!recup` — le code de récupération, quand ton manager fait appel pour un compte bloqué.\n"
                 "· `!mesclics` — tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement — ton adresse de paiement.\n"
                 "· Un compte bloqué, un problème de téléphone : **ton manager**, dans ton salon perso.\n"
@@ -6605,14 +6609,16 @@ async def on_message(message):
             await envoyer_mp(message.author, "👋 " + ou_en_es_tu(str(utilisateur)))
         return
 
-    # 26/09 (Thia « ! code », Daniella « Code ») : dans son salon perso, le mot seul vaut la commande
-    if message.guild is not None and re.fullmatch(r"!?\s*codes?\s*[!?.]*", texte.strip(), re.I):
+    # 26/09 (Thia « ! code », Daniella « Code ») : dans son salon perso, le mot seul vaut la commande.
+    # 27/09 : « recup » / « récup » seul = `!recup`, le code de récupération (mot de passe oublié, appel après un ban).
+    if message.guild is not None and re.fullmatch(r"!?\s*(codes?|r[ée]cup(?:[ée]ration)?)\s*[!?.]*", texte.strip(), re.I):
         sp_code = salon_perso_de(message.author.id)
         if sp_code is not None and sp_code.id == message.channel.id:
-            texte = "!code"
-            message.content = "!code"
-    # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin
-    if texte.startswith(("!alias", "!code")):
+            texte = "!code" if re.match(r"!?\s*code", texte.strip(), re.I) else "!recup"
+            message.content = texte
+    # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin,
+    # et des codes de récupération (`!recup`) pour retrouver un compte ou faire appel (27/09)
+    if texte.startswith(("!alias", "!code") + codes_2fa.COMMANDES_RECUP):
         if await codes_2fa.commande(message, ADMIN_IDS):
             return
     if texte.startswith(("!creatrice", "!créatrice")):

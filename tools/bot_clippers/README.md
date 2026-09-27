@@ -143,6 +143,17 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Codes de récupération (27/09)** : Instagram envoie « 956472 is your Instagram recovery code » quand on
+fait « mot de passe oublié » ou quand on **fait appel** pour un compte banni. Le mail suit le même chemin
+que le 2FA (même alias, même boîte, même salon) mais le bot le reconnaît au sujet (`recovery`, `récupér`,
+`reset`, `réinitialis`, `get back`) et le poste avec son libellé (`🛟 Code de récupération Instagram : 956472
+pour alias · compte @pseudo (reçu il y a 2 min)`) : le clipper ou le manager sait quel code Instagram attend.
+`!recup [alias]` (alias `!appel`, `!unban`, `!deban` ; « recup » seul dans le salon perso) redonne le dernier
+code de récupération de chaque adresse rattachée au salon, 6 h en arrière (un 2FA n'en remonte que 2), et
+`!code` montre le dernier code de chaque type. Mêmes droits que `!code` : le clipper dans son salon perso,
+le manager sur ses alias, l'admin partout. Le pseudo du compte (`Hi chloe.xxx,`) n'est lu que pour
+l'afficher à côté du code, le corps du mail n'est jamais relayé.
+
 ## Suivi des inputs clippers (Reels publiés par jour) — `inputs_clippers.py`
 
 **Pourquoi** : les rapports GAML mesurent les clics (l'output). Un clipper qui publie 12 Reels qui

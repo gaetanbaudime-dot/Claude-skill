@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-27 — Les codes de récupération suivent le chemin du 2FA : on peut faire appel pour un compte banni
+- **Décision de Gaëtan** : « Code exactement la même chose que le 2FA » pour le code de récupération qu'Instagram envoie par e-mail (« 956472 is your Instagram recovery code ») quand on fait « mot de passe oublié » ou quand on fait appel après un ban. Objectif : débloquer des comptes bannis au lieu de les remplacer.
+- **Livré** : le relais reconnaît le mail au sujet, le poste dans le salon de l'alias avec son libellé (« Code de récupération Instagram … · compte @pseudo · reçu il y a N min ») ; `!recup` (aussi `!appel`, `!unban`, « recup » seul dans le salon perso) redonne le dernier code de récupération de chaque adresse, 6 h en arrière ; `!code` montre le dernier code de chaque type. Fiche 6 et FAQ de l'assistant : l'appel se fait avec le manager, jamais seul, jamais par ruse. Le corps du mail n'est jamais relayé.
+- **Avocat du diable** : un compte banni pour un motif réel (spam de lien, chaîne de bans sur un même numéro) revient rarement par appel, et un compte rétabli reste surveillé. Le vrai rendement de la fonction se mesure au nombre de comptes rétablis qui repartent en GOOD ; si c'est inférieur à un sur trois, remplacer reste moins cher que faire appel. La règle 19 de l'assistant reste : pas de récupération par ruse.
+- **Prédiction (27/09, revue le 11/10)** : sur les appels lancés d'ici deux semaines, moins d'un compte sur trois est rétabli et reste GOOD sept jours plus tard (60 %).
+
 ### 2026-09-26 — Trois sorties, roster actif par créatrice, et le compteur Discord qui compte enfin
 - **Décision de Gaëtan** : Laure, Quentin et Meiji sont sortis. La liste active devient la référence : **Sophie 5** (Daniella, Thia, Rianah, Antoine, Marias), **Chloé 6** (Hasina, Lilian, Romaric, Caroline, Lucas, Ckycia), **Sarah 4** (Tara, Clarisse, Yves, Josué), soit **15 clippers** (Daniella écrite deux fois dans son message, comptée une fois ; « Antoinr » lu comme Antoine, à confirmer).
 - **Livré** : la liste vit dans `rapport_jonas.json` (datée), et le salon « 🎬 Clippers : N » la compte au lieu des membres d'un rôle Discord — le renommage Rookie → Clippeur du 25/09 avait remis le compteur à zéro, et les anciens n'ont jamais porté le nouveau rôle. Le roster vivant ajoute les `!creatrice` et retire les `!sortie` postérieurs à la date de la liste ; le rapport du matin de Jonas lit le même roster (Antoine et Marias y entrent, Laure en sort). `!actifs` affiche les prénoms comptés.
