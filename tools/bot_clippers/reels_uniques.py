@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -212,14 +213,15 @@ async def _sous_dossier(g, dossier: str) -> str:
     return await g.drive_creer_dossier(NOM_SOUS_DOSSIER, dossier)
 
 
-async def _effacer_anciennes(g, sous: str, creatrice: str, prenom: str) -> int:
-    """Supprime les variantes déjà déposées d'un clipper (recette périmée ou `refaire`). Les fichiers déposés par le script de
+async def _effacer_anciennes(g, sous: str, creatrice: str, prenom: str, garder=()) -> int:
+    """Supprime les variantes déjà déposées d'un clipper (recette périmée ou `refaire`), sauf celles de `garder` (déjà refaites
+    avec la recette courante : un redéploiement au milieu ne repart pas de zéro). Les fichiers déposés par le script de
     l'agence lui appartiennent : suppression par le script, sinon par le compte de service. Renvoie le nombre supprimé."""
     prefixe, suffixe = f"{creatrice.split()[0]} · Reel ", f" · {prenom}.mp4"
     n = 0
     for f in await g.drive_lister(sous):
         nom = f.get("name") or ""
-        if not (nom.startswith(prefixe) and nom.endswith(suffixe)):
+        if not (nom.startswith(prefixe) and nom.endswith(suffixe)) or nom in set(garder):
             continue
         try:
             await _deps["drive_agence"].supprimer(f["id"])
@@ -274,10 +276,22 @@ async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool
                 continue
             g = _deps["google_api"]
             sous = await _sous_dossier(g, dossier)
+            # Version de recette par fichier déposé (27/09) : ce qui a déjà été refait en v2 survit à un redémarrage
+            fichiers_v = d.setdefault("fichiers", {}).setdefault(creatrice, {}).setdefault(_n(prenom), {})
             effacees = 0
             if refaire or perimee:
-                effacees = await _effacer_anciennes(g, sous, creatrice, prenom)
-                faits.clear()
+                garder = {nom for nom, ver in fichiers_v.items() if ver == VERSION_RECETTE and not refaire}
+                effacees = await _effacer_anciennes(g, sous, creatrice, prenom, garder)
+                for nom in list(fichiers_v):
+                    if nom not in garder:
+                        fichiers_v.pop(nom, None)
+                ids_gardes = set()
+                for nom in garder:
+                    m_num = re.search(r"Reel (\d+)", nom)
+                    if m_num and 0 < int(m_num.group(1)) <= len(vids):
+                        ids_gardes.add(vids[int(m_num.group(1)) - 1]["id"])
+                faits[:] = [i for i in faits if i in ids_gardes] + [i for i in ids_gardes if i not in faits]
+                _deps["ecrire_json"](_deps["FICHIER"], d)
             a_faire = [v for v in vids if v["id"] not in faits]
             if not a_faire:
                 versions[_n(prenom)] = VERSION_RECETTE
@@ -305,7 +319,7 @@ async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool
                 numero = vids.index(v) + 1
                 nom_fichier = f"{creatrice.split()[0]} · Reel {numero:02d} · {prenom}.mp4"
                 try:
-                    if nom_fichier in deja_la:                              # idempotent par nom (déclinaison faite ailleurs, ex. hors ligne)
+                    if nom_fichier in deja_la and fichiers_v.get(nom_fichier) == VERSION_RECETTE:   # déjà refait en v2
                         faits.append(v["id"]); ok += 1
                         _deps["ecrire_json"](_deps["FICHIER"], d)
                         continue
@@ -315,6 +329,7 @@ async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool
                         raise RuntimeError("variante de plus de 45 Mo")
                     await _deps["drive_agence"].televerser(sous, nom_fichier, contenu, "video/mp4")
                     faits.append(v["id"]); ok += 1
+                    fichiers_v[nom_fichier] = VERSION_RECETTE
                     _deps["ecrire_json"](_deps["FICHIER"], d)
                 except Exception as erreur:                                 # noqa: BLE001
                     journal.warning("Dépôt %s pour %s : %s", nom_fichier, prenom, erreur)
