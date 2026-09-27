@@ -143,6 +143,16 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Un accès par jour, anciens sans salon, classeur des candidatures (27/09, fin de journée)** : la livraison ne poste plus les trois
+comptes d'un coup — une ligne (`message_comptes_court`), puis chaque étape 1, 2, 3 du parcours donne l'identifiant, l'e-mail et le
+mot de passe du compte du jour (`acces` mémorisés à la livraison, `COMPTES_UN_PAR_JOUR=0` pour revenir) ; les prénoms « sans
+salon » du roster (anciens gérés par Jonas sur WhatsApp) ne reçoivent jamais de salon d'arrivée et un salon recréé par erreur est
+supprimé à chaque démarrage. Classeur des candidatures : la colonne Source prend la réponse « sur quel réseau as-tu vu l'annonce »
+(les « web » sont corrigés), une nouvelle ligne s'écrit à la suite du bloc (`_premiere_ligne_vide`, plus après les 1 000 lignes
+vides de la Table, et `compacter_candidatures_sheet` remonte celles qui y étaient), et deux colonnes « Note /8 » et « Points » au
+bout des deux onglets sont remplies d'après `score_candidature` au démarrage (`entretien_candidatures_sheet`) et à chaque
+candidature (`noter_candidatures_sheet`). `!paiement` d'un parti : le même message dans #dopamine.
+
 **Salon perso dès l'arrivée, plus d'assistant global, rétrospective nocturne (27/09)** : chaque arrivant reçoit son salon
 perso dans « 🎬 Clippers » à la seconde où il arrive (`assurer_salon_arrivee`, aussi à la liaison par numéro et au démarrage
 pour les candidats en cours depuis moins de 14 jours) ; tout ce que le tunnel envoyait en MP y va (`envoyer_mp` route vers
