@@ -139,7 +139,10 @@ def tracking_du_pod(tous: list, comptes: list) -> tuple:
     """(lien de tracking OnlyFans, POD) des comptes d'un clipper : Gaëtan pose le lien sur la première ligne du POD dans la
     colonne « Lien Infloww Tracking » (27/09). Sans POD : la première ligne du clipper qui en porte un."""
     pod = next((str(c.get("pod") or "").strip() for c in comptes if str(c.get("pod") or "").strip()), "")
-    candidats = [c for c in tous if pod and str(c.get("pod") or "").strip() == pod] or list(comptes)
+    # Les numéros de POD se répètent d'une créatrice à l'autre (Sarah POD 2, Jade POD 2…) : on reste dans la créatrice des comptes.
+    creatrice = next((_norm(c.get("creatrice") or "").split()[0] for c in comptes if _norm(c.get("creatrice") or "").split()), "")
+    candidats = [c for c in tous if pod and str(c.get("pod") or "").strip() == pod
+                 and (not creatrice or (_norm(c.get("creatrice") or "").split() or [""])[0] == creatrice)] or list(comptes)
     for c in candidats:
         url = str(c.get("lien_infloww") or "").strip()
         if url.startswith("http"):
