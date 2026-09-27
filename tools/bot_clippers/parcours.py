@@ -31,20 +31,20 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 ETAPES = {
     # 26/09 (Gaëtan) : textes courts, un compte par jour avec 24 h de warm-up sur chaque compte, puis les Reels.
     1: {"titre": "Étape 1 · Crée ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": ["info"],
-        "texte": ("**Compte 1 : `{compte1}`**\n"
-                  "1. Instagram → Créer un compte → avec un e-mail : `{mail1}`\n"
+        "texte": ("**Compte 1 : `{compte1}`** · e-mail `{mail1}` · mot de passe `{mdp1}`\n"
+                  "1. Instagram → Créer un compte → avec cet e-mail.\n"
                   "2. Code demandé ? Écris `!code` ici.\n"
-                  "3. Mot de passe : celui du message des comptes. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
+                  "3. Mets ce mot de passe. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
                   "4. Photo + bio sage, comme les comptes dans {info}. Pas de lien.\n"
                   "5. Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 2 demain.")},
     2: {"titre": "Étape 2 · Crée ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": ["info"],
-        "texte": ("**Compte 2 : `{compte2}`** · e-mail `{mail2}`\n"
+        "texte": ("**Compte 2 : `{compte2}`** · e-mail `{mail2}` · mot de passe `{mdp2}`\n"
                   "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
                   "Photo et bio différentes du compte 1. Puis 24 h de warm-up dessus.\n\n"
                   "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.")},
     3: {"titre": "Étape 3 · Crée ton compte privé", "fiche": "1", "bouton": "✅ Compte privé créé", "salons": ["info"],
-        "texte": ("**Compte 3 : `{compte3}`** · e-mail `{mail3}` · ton compte secret, il ne publie pas.\n"
+        "texte": ("**Compte 3 : `{compte3}`** · e-mail `{mail3}` · mot de passe `{mdp3}` · ton compte secret, il ne publie pas.\n"
                   "1. Crée-le comme les autres.\n"
                   "2. Réglages → compte **privé** (le cadenas).\n"
                   "3. Bio : le prénom de {creatrice} + une phrase gentille. Pas de lien, je te dirai quand.\n"
@@ -145,10 +145,12 @@ async def _contexte(guild, uid: str, fiche_p: dict) -> dict:
     ordonnes = croissance[:2] + prives[:1]
     if len(ordonnes) < 3:
         ordonnes += [h for h in handles if h not in ordonnes][:3 - len(ordonnes)]
+    acces = {a.get("handle"): a for a in (onb.get("acces") or []) if isinstance(a, dict)}   # 27/09 : mot de passe et e-mail par compte
     for i in range(3):
         h = ordonnes[i] if i < len(ordonnes) else "?"
         ctx[f"compte{i + 1}"] = h
-        ctx[f"mail{i + 1}"] = mails.get(h, "(dans ton message de comptes plus haut)")
+        ctx[f"mail{i + 1}"] = acces.get(h, {}).get("mail") or mails.get(h, "(dans ton message de comptes plus haut)")
+        ctx[f"mdp{i + 1}"] = acces.get(h, {}).get("mdp") or "(celui de ton message de comptes)"
     ctx["lien"] = onb.get("lien") or "(ton manager te le donne avec `!lien`)"
     ctx["drive"] = onb.get("drive") or "(pas encore partagé : envoie-moi ton adresse Gmail ici)"
     creatrice = ctx["creatrice"]

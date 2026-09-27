@@ -361,9 +361,9 @@ async def supprimer_salons(client) -> list:
         return []
     faits = _deps["lire_json"](_fichier_salons_supprimes(), [])
     bilan = []
+    # 27/09 : plus de « une seule fois » — un salon recréé par erreur pour un ancien (Yves, Hasina, Clarisse, Thia, Romaric
+    # le 27/09) est supprimé à chaque démarrage tant que le prénom est dans `sans_salon`.
     for prenom in lire()["sans_salon"]:
-        if _n(prenom) in {_n(x) for x in faits}:
-            continue
         registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else {}
         cibles, uids = [], []
         for g in client.guilds:
@@ -380,6 +380,8 @@ async def supprimer_salons(client) -> list:
                     ch = client.get_channel(int(sid))
                     if ch is not None and ch not in cibles:
                         cibles.append(ch)
+        if not cibles and not uids:
+            continue
         detail = []
         for c in cibles:
             nom_c = c.name

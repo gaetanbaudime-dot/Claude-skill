@@ -622,8 +622,8 @@ async def assurer_salon_arrivee(membre):
     tout s'y passe sous les yeux de Gaëtan ; à l'attribution, le salon part sous la créatrice. Renvoie le salon ou None."""
     if not SALON_ARRIVEE or membre is None or getattr(membre, "bot", False) or getattr(membre, "guild", None) is None:
         return None
-    if str(membre.id) in ADMIN_IDS or est_manager(membre):
-        return None
+    if str(membre.id) in ADMIN_IDS or est_manager(membre) or roster.sans_salon(prenom_de(membre)):
+        return None                                                     # les anciens gérés par Jonas sur WhatsApp : pas de salon
     try:
         salon, cree, err = await assurer_salon_perso(membre.guild, membre, None, "", "salon dès l'arrivée (27/09)")
     except Exception as erreur:                                             # noqa: BLE001
@@ -647,10 +647,13 @@ async def salons_candidats_recents(jours: int = 14, maximum: int = 30) -> int:
     if not SALON_ARRIVEE or not client.guilds:
         return 0
     pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    signes = lire_json(FICHIER_EQUIPES, {})
     limite = (datetime.now(timezone.utc) - timedelta(days=jours)).isoformat(timespec="seconds")
     n = 0
     for uid, info in pipe.get("etats", {}).items():
         if n >= maximum or info.get("etat") not in ("test_envoye", "test_rendu", "valide", "refuse"):
+            continue
+        if uid in signes:                                                  # déjà signé : son salon vient de l'onboarding, pas d'ici
             continue
         date = max(str(info.get(k) or "") for k in ("envoi", "rendu", "validation", "echeance"))
         if not date or date < limite:

@@ -244,8 +244,23 @@ async def reserver(comptes: list, prenom_clipper: str) -> int:
     return n
 
 
+def acces_ordonnes(comptes: list) -> list:
+    """[{handle, mdp, mail}] dans l'ordre du parcours : les comptes de croissance d'abord, le privé en dernier."""
+    ordonnes = sorted(comptes, key=_est_prive)
+    return [{"handle": c.get("handle", ""), "mdp": c.get("mdp", ""), "mail": c.get("mail", ""), "prive": bool(_est_prive(c))}
+            for c in ordonnes]
+
+
+def message_comptes_court(prenom: str) -> str:
+    """27/09 (Gaëtan : « donne les comptes 24 h par 24 h, pas un message énorme dès le début ») : une ligne. Chaque accès
+    (identifiant, mot de passe, e-mail) arrive dans l'étape du jour du parcours, un par jour."""
+    return (f"🔐 {prenom}, tes accès arrivent **un par jour**, dans l'étape du jour. "
+            "Ils sont à l'agence : tu ne les donnes à personne.")
+
+
 def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
-    """26/09 (Gaëtan : « hyper long, trop d'informations ») : les 3 comptes et une ligne de règle, rien d'autre."""
+    """26/09 (Gaëtan : « hyper long, trop d'informations ») : les 3 comptes et une ligne de règle, rien d'autre.
+    Depuis le 27/09, ne sert plus qu'à `!onboarding` forcé (COMPTES_UN_PAR_JOUR=0 pour le rétablir partout)."""
     if not comptes:
         return (f"⚠️ Il n'y a pas encore de compte prêt pour {creatrice}. Ton manager en prépare. "
                 "Je te les envoie ici dès qu'ils sont prêts.")
@@ -281,6 +296,7 @@ async def _partager(fichier_id: str, email: str) -> bool:
     return False
 
 
+UN_PAR_JOUR = os.environ.get("COMPTES_UN_PAR_JOUR", "1").strip() != "0"   # 27/09 : un accès par jour, dans l'étape du jour
 NOM_TOP20 = "TOP 20 Reels"                     # le sous-dossier des Reels uniques du clipper (27/09, avant : « Reels uniques »)
 
 
@@ -431,7 +447,8 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     except RuntimeError as erreur:
         resultat.append(f"Drive : {erreur}")
     # 4. message
-    texte = message_comptes(comptes, prenom, creatrice)
+    texte = (message_comptes_court(prenom) if (UN_PAR_JOUR and comptes and not declencheur.startswith("!onboarding"))
+             else message_comptes(comptes, prenom, creatrice))
     if lien:
         texte += f"\n\n🔗 **Ton lien** : {lien} · tes visites : `!mesclics`"
     if drive:
@@ -453,6 +470,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         resultat.append(f"envoi impossible ({type(erreur).__name__})")
     for c in comptes:
         etat["livres"][c["handle"].lower()] = {"uid": str(membre.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    fiche["acces"] = acces_ordonnes(comptes)                              # 27/09 : chaque étape du parcours donne l'accès du jour
     fiche.update({"creatrice": creatrice, "comptes": [c["handle"] for c in comptes], "lien": lien, "drive": drive, "email": email,
                   "date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": declencheur})
     _ecrire_etat(etat)
