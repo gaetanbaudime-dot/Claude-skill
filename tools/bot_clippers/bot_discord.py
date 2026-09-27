@@ -1067,13 +1067,9 @@ async def annoncer_paiement(message, montant: float, beneficiaire, raison: str):
     ecrire_json(FICHIER_COMPTEUR_VERSE, etat)
 
     suffixe = f" — {raison}" if raison else ""
-    if getattr(beneficiaire, "parti", False):
-        # 27/09 : un clipper parti du serveur (paiement rattrapé) n'a rien à faire dans le salon dopamine des actifs
-        await message.channel.send(f"💸 **{beneficiaire.display_name}** (parti du serveur) : **{montant:.2f} €** enregistrés{suffixe}. "
-                                   f"Compteur : {etat['total']:.2f} €.")
-    else:
-        canal = await canal_par_id(CANAL_DOPAMINE_ID) or message.channel
-        await canal.send(f"💸 **{beneficiaire.display_name}** vient de recevoir **{montant:.2f} €** !{suffixe} 🔥")
+    # 27/09 (Gaëtan) : le même message dans #dopamine pour tout le monde, parti du serveur ou non — il y poste la preuve juste après
+    canal = await canal_par_id(CANAL_DOPAMINE_ID) or message.channel
+    await canal.send(f"💸 **{beneficiaire.display_name}** vient de recevoir **{montant:.2f} €** !{suffixe} 🔥")
     await actualiser_compteur()
     client.loop.create_task(mettre_a_jour_stats())  # rafraîchit le salon-compteur « Déjà payés »
 
@@ -6191,9 +6187,6 @@ async def commande_admin(message, texte: str) -> bool:
         raison = corps.split(nombres[0], 1)[-1].strip(" €").strip()
         await annoncer_paiement(message, montant, beneficiaire, raison)
         await message.add_reaction("✅")
-        if getattr(beneficiaire, "parti", False) and str(beneficiaire.id).startswith("nom:"):
-            await message.reply(f"ℹ️ {beneficiaire.display_name} est inconnu de mes registres : paiement enregistré sous son "
-                                "prénom. Si c'est une faute de frappe, `!ajuster -montant` puis refais-le.")
         journal.info("Paiement annoncé : %.2f € -> %s", montant, beneficiaire.id)
         return True
 
