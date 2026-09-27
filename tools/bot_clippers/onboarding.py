@@ -452,9 +452,11 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             lien = d["liens"][lid].get("url", "")
         elif paie_clics.actif():
             liens = await paie_clics.liens_gaml()
-            modeles = [l for l in liens if _norm(str(l.get("name", "")).split()[0] if l.get("name") else "") == _norm(creatrice.split()[0])
-                       and paie_clics._prenom_note(l.get("note"))]
+            de_la_creatrice = [l for l in liens if _norm(str(l.get("name", "")).split()[0] if l.get("name") else "") == _norm(creatrice.split()[0])]
+            modeles = [l for l in de_la_creatrice if paie_clics._prenom_note(l.get("note"))]
             modeles.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)        # le plus récent d'abord
+            if not modeles:                                              # 27/09 : première créatrice sans lien de clipper (Jade, Clara, Maddie) →
+                modeles = [l for l in de_la_creatrice if "/fb" not in str(l.get("url", "")) and "/ytb" not in str(l.get("url", ""))]   # on part de son lien principal
             if modeles:
                 nouveau = await paie_clics.cloner_lien(modeles[0]["id"], modeles[0].get("name", creatrice), f"Clipping {prenom}")
                 d["liens"][nouveau["id"]] = {"uid": str(membre.id), "note": f"Clipping {prenom}", "url": nouveau["url"],
@@ -635,6 +637,24 @@ async def boucle(client, deps: dict):
         try:
             etat = _lire_etat()
             comptes = await lire_comptes()
+            # 27/09 : un clipper livré sans lien GAML (créatrice sans lien à cloner à ce moment-là, GAML injoignable) le reçoit
+            # au tour suivant, sans `!onboarding` — trois par passage au plus.
+            if paie_clics.actif():
+                relances = 0
+                for uid_r, fiche_r in list(etat.get("clippers", {}).items()):
+                    if relances >= 3 or fiche_r.get("lien") or not fiche_r.get("creatrice") or not fiche_r.get("comptes"):
+                        continue
+                    m_r = _deps["membre_par_id"](uid_r) if _deps.get("membre_par_id") else None
+                    if m_r is None:
+                        continue
+                    try:
+                        bilan_l = await livrer(m_r, fiche_r["creatrice"], _deps["salon_perso"](uid_r) if _deps.get("salon_perso") else None,
+                                               declencheur="!onboarding lien manquant")
+                        relances += 1
+                        journal.info("Lien GAML retenté pour %s : %s", uid_r, bilan_l[-160:])
+                    except Exception as erreur:                             # noqa: BLE001
+                        journal.warning("Lien GAML retenté pour %s : %s", uid_r, erreur)
+                etat = _lire_etat()
             par_prenom = {}
             for c in comptes:
                 g = _norm(c["gerant"])
