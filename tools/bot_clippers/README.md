@@ -143,6 +143,17 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Messages déposés (27/09, `messages_deposes.py`)** : un message écrit dans `messages_a_envoyer.json` (dans le dépôt, à côté
+du bot) est posté UNE fois au démarrage suivant — dans le salon perso d'un clipper (`"pour": "Daniella"`), dans un salon
+nommé (`"salon": "#annonces"`) ou dans le salon admin, avec le bouton WhatsApp si `"bouton_whatsapp": true`. Trace dans
+`messages_envoyes.json` (jamais deux fois) ; un salon introuvable est signalé dans le salon admin et retenté au démarrage
+suivant. C'est le canal pour « envoie ça à X dans son salon » depuis une session sans accès à Discord. **`!paiement` pour
+un clipper parti (27/09)** : `!paiement Quentin 50 fixe` sans mention marche même si Quentin n'est plus sur le serveur —
+son identifiant vient de `sortis.json` (les `!sortie` et le roster), sinon du registre des signés, sinon un identifiant
+Discord en chiffres ; un prénom inconnu de tout registre est quand même enregistré (sous `nom:prenom`, le bot le dit) pour
+que le compteur « Déjà payés » soit juste. Un paiement à un parti ne passe pas dans le salon dopamine : il est confirmé
+dans le salon de la commande avec le nouveau total. Plusieurs lignes `!paiement` dans un message = rafale.
+
 **Moins de bruit dans le salon perso (27/09, relecture du salon de Daniella)** : un « ok », « merci », « d'accord »
 ou un emoji seul reçoit un 👍 et rien d'autre (`est_acquiescement`) ; un message qui mentionne un humain (« @Gaëtan et je
 fais quoi ? ») n'est pas pour le bot (`mentionne_humain`) ; quand un admin ou un manager a parlé dans le salon il y a moins

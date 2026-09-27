@@ -40,6 +40,7 @@ import etats_comptes                      # colonne ETAT du classeur mise à jou
 import matin                              # un seul message du matin par clipper (26/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
+import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
 import drive_agence                       # script Apps Script de l'agence : dépôts de fichiers dans le Drive (26/09, reels_uniques)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
@@ -1038,9 +1039,14 @@ async def annoncer_paiement(message, montant: float, beneficiaire, raison: str):
     etat["total"] = round(etat.get("total", 0.0) + montant, 2)
     ecrire_json(FICHIER_COMPTEUR_VERSE, etat)
 
-    canal = await canal_par_id(CANAL_DOPAMINE_ID) or message.channel
     suffixe = f" — {raison}" if raison else ""
-    await canal.send(f"💸 **{beneficiaire.display_name}** vient de recevoir **{montant:.2f} €** !{suffixe} 🔥")
+    if getattr(beneficiaire, "parti", False):
+        # 27/09 : un clipper parti du serveur (paiement rattrapé) n'a rien à faire dans le salon dopamine des actifs
+        await message.channel.send(f"💸 **{beneficiaire.display_name}** (parti du serveur) : **{montant:.2f} €** enregistrés{suffixe}. "
+                                   f"Compteur : {etat['total']:.2f} €.")
+    else:
+        canal = await canal_par_id(CANAL_DOPAMINE_ID) or message.channel
+        await canal.send(f"💸 **{beneficiaire.display_name}** vient de recevoir **{montant:.2f} €** !{suffixe} 🔥")
     await actualiser_compteur()
     client.loop.create_task(mettre_a_jour_stats())  # rafraîchit le salon-compteur « Déjà payés »
 
@@ -1256,6 +1262,43 @@ def chercher_membre(reference, exact=False):
                 return m
     return None
 
+
+
+class Fantome:
+    """Un clipper parti du serveur (27/09) : juste ce qu'il faut pour `!paiement` — identifiant, nom, pas de mention."""
+    def __init__(self, uid, nom: str):
+        self.id, self.display_name, self.name, self.mention = uid, nom, nom, f"**{nom}**"
+        self.roles, self.bot, self.parti = [], False, True
+
+
+def beneficiaire_parti(reference: str):
+    """`!paiement Quentin 50` quand Quentin n'est plus sur le serveur (27/09 : un mois de paiements à rattraper).
+    On cherche son identifiant dans sortis.json (les `!sortie` et le roster), puis dans le registre des signés ;
+    un identifiant Discord tapé en chiffres marche aussi. Prénom inconnu de tout registre : le paiement est quand
+    même enregistré, sous « nom:prenom », pour que le compteur « Déjà payés » soit juste."""
+    ref = reference.strip().strip("<@!>")
+    if ref.isdigit():
+        return Fantome(int(ref), f"id {ref}")
+    ref_n = normaliser(roster.resoudre_alias(normaliser(ref)) or ref)
+    if not ref_n:
+        return None
+
+    def _prenom_n(nom: str) -> str:
+        n = normaliser(str(nom or ""))
+        for sep in SEPARATEURS_PSEUDO:
+            if sep in n:
+                n = n.split(sep, 1)[0].strip()
+        return n.split()[0] if n.split() else n
+
+    for s_ in reversed(lire_json(FICHIER_SORTIS, [])):
+        nom = str(s_.get("nom") or "")
+        if ref_n in (normaliser(nom), _prenom_n(nom)) and s_.get("uid"):
+            uid = str(s_["uid"])
+            return Fantome(int(uid) if uid.isdigit() else uid, nom.split(" - ")[0].strip() or reference)
+    for uid, fiche in lire_json(FICHIER_EQUIPES, {}).items():
+        if normaliser(str(fiche.get("prenom") or "")) == ref_n:
+            return Fantome(int(uid) if str(uid).isdigit() else uid, str(fiche["prenom"]))
+    return Fantome(f"nom:{ref_n}", ref.strip().split()[0].capitalize())
 
 
 # ------------------------------------------------------------------ candidatures : les deux onglets du classeur (26/09)
@@ -3655,7 +3698,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement) · `!archiver #salon…`\n"
-                "**Paie/compteur** : `!paiement @x 50 raison` · `!ajuster` · `!compteur` · `!rang` · `!invites` · `!bumps`\n"
+                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang` · `!invites` · `!bumps`\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!sauvegarde`\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
@@ -6029,12 +6072,13 @@ async def commande_admin(message, texte: str) -> bool:
             decoupe = re.match(r"@?(.+?)\s+(\d+(?:[.,]\d+)?)(.*)$", corps, re.S)
             if decoupe:
                 beneficiaire = chercher_membre(decoupe.group(1).strip())
+                if beneficiaire is None:                       # 27/09 : parti du serveur → sortis.json, registre, ou son prénom
+                    beneficiaire = beneficiaire_parti(decoupe.group(1))
                 corps = (decoupe.group(2) + decoupe.group(3)).strip()
         if beneficiaire is None:
-            await message.reply("Format : `!paiement @clippeur 50 [raison]` — le nom en toutes lettres "
-                                "marche aussi : `!paiement Eddy 50 semaine 1`. Si je ne trouve pas le "
-                                "membre : vérifie l'orthographe de son surnom serveur, ou utilise la "
-                                "vraie mention (tape @ puis CLIQUE sur la suggestion).")
+            await message.reply("Format : `!paiement @clippeur 50 [raison]` — le prénom en toutes lettres "
+                                "marche aussi, même pour un clipper parti du serveur : `!paiement Quentin 50 fixe`. "
+                                "Plusieurs lignes `!paiement …` dans un seul message = tout passe d'un coup.")
             return True
         nombres = re.findall(r"\d+(?:[.,]\d+)?", corps)
         if not nombres:
@@ -6044,6 +6088,9 @@ async def commande_admin(message, texte: str) -> bool:
         raison = corps.split(nombres[0], 1)[-1].strip(" €").strip()
         await annoncer_paiement(message, montant, beneficiaire, raison)
         await message.add_reaction("✅")
+        if getattr(beneficiaire, "parti", False) and str(beneficiaire.id).startswith("nom:"):
+            await message.reply(f"ℹ️ {beneficiaire.display_name} est inconnu de mes registres : paiement enregistré sous son "
+                                "prénom. Si c'est une faute de frappe, `!ajuster -montant` puis refais-le.")
         journal.info("Paiement annoncé : %.2f € -> %s", montant, beneficiaire.id)
         return True
 
@@ -6311,6 +6358,10 @@ async def on_ready():
                            "mettre_a_jour_stats": mettre_a_jour_stats, "prenom_de": prenom_de, "NOMS_RANGS": NOMS_RANGS,
                            "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
+        messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
+                                     "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
+                                     "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de})
+        client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
 
         async def _dossier_clipper(prenom, creatrice):
             cfg = onboarding._sources().get(creatrice) or onboarding._sources().get(creatrice.split()[0]) or {}
