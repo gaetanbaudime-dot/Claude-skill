@@ -567,23 +567,34 @@ async def verifier_trackings() -> list:
         return []
     tous = await lire_comptes()
     d = paie_clics._lire()
+    # Groupes (gérant, créatrice) : un clipper passé d'une créatrice à l'autre (Julien : lignes Chloé anciennes, lignes Sophie
+    # neuves) a un lien par créatrice, chacun avec le tracking de SA créatrice.
     par_gerant = {}
     for c in tous:
         g = _norm(c.get("gerant") or "")
+        cr = (_norm(c.get("creatrice") or "").split() or [""])[0]
         if g and _norm(c.get("utilisation") or "").startswith("clipper"):
-            par_gerant.setdefault(g, []).append(c)
-    prenom_de_uid = {}
+            par_gerant.setdefault((g, cr), []).append(c)
+    try:
+        noms_liens = {l["id"]: (_norm(str(l.get("name") or "")).split() or [""])[0] for l in await paie_clics.liens_gaml() if l.get("id")}
+    except RuntimeError as erreur:
+        journal.warning("Liens GAML illisibles pour la vérification : %s", erreur)
+        noms_liens = {}
+    liens_de_prenom = {}
     for lid, info in d.get("liens", {}).items():
         uid = str(info.get("uid") or "")
-        if not uid:
-            continue
-        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        m = _deps["membre_par_id"](uid) if (uid and _deps.get("membre_par_id")) else None
         nom = (m.display_name.split()[0] if m is not None and m.display_name.split() else "") or paie_clics._prenom_note(info.get("note"))
-        if nom:
-            prenom_de_uid.setdefault(_norm(nom), []).append(lid)
+        if not nom:
+            continue
+        cr = noms_liens.get(lid) or (_norm(info.get("creatrice") or "").split() or [""])[0]
+        liens_de_prenom.setdefault(_norm(nom), []).append((lid, cr))
     bilan, corriges = [], 0
-    for prenom_n, comptes in par_gerant.items():
-        lids = prenom_de_uid.get(prenom_n) or []
+    for (prenom_n, cr), comptes in par_gerant.items():
+        candidats = liens_de_prenom.get(prenom_n) or []
+        lids = [lid for lid, c_ in candidats if not cr or not c_ or c_ == cr] or []
+        if candidats and not lids:
+            continue                                                    # ses liens sont ceux d'une autre créatrice : rien à toucher ici
         tracking, pod = tracking_du_pod(tous, comptes)
         nom = comptes[0].get("gerant") or prenom_n
         if not lids:
