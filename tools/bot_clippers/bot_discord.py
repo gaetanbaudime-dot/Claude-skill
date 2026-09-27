@@ -41,6 +41,9 @@ import matin                              # un seul message du matin par clipper
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
 import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
+import acceptation                        # J'ACCEPTE = case cochée sur le site, ou bouton ✅ en MP (27/09)
+import attribution                        # créatrice attribuée automatiquement, rotation Sophie > Sarah > Chloé > Clara > Jade (27/09)
+import tableau_bord                       # le tableau de bord d'une ligne, chaque lundi (27/09)
 import drive_agence                       # script Apps Script de l'agence : dépôts de fichiers dans le Drive (26/09, reels_uniques)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 
@@ -356,10 +359,12 @@ un numéro jetable. Date de naissance : la sienne, il doit être majeur. Instagr
 et sans danger. Tu ne dis JAMAIS que le manager ou \
 l'agence va lui donner un compte déjà créé, ni qu'un code SMS arrive chez le bot : c'est faux. Tu ne \
 recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
-21. Tu n'inventes jamais une solution, un salon, une commande ou une personne : seuls ceux de la base \
-existent. Si le problème dépasse la base (compte bloqué, numéro refusé, appli qui plante, rien ne marche \
-après deux essais), tu dis d'écrire à Gaëtan sur WhatsApp : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"} \
-— en se présentant (prénom, créatrice), avec le problème en une phrase et une capture d'écran. Rien d'autre.
+21. TROIS cas, et trois seulement, vont à un humain : un BAN (compte suspendu, désactivé, « nous examinons », \
+restriction qui dure), un NUMÉRO de téléphone refusé par Instagram, une question de PAIEMENT (montant, date, adresse, \
+retard). Pour ces trois cas : écrire à Gaëtan sur WhatsApp : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"} \
+— en se présentant (prénom, créatrice), le problème en une phrase, une capture d'écran. Tout le reste, c'est toi : \
+la base, la fiche, ou « je ne sais pas » en une phrase avec la fiche la plus proche. Tu n'inventes jamais une solution, \
+un salon, une commande ou une personne. Tu ne renvoies jamais vers WhatsApp pour autre chose que les trois cas.
 22. Tu ne poses AUCUNE question dont la réponse ne change rien pour toi : jamais « iPhone ou Android ? », \
 jamais « dis-moi quand c'est fait » (le bouton ✅ C'est fait existe), jamais « reviens me dire ». Une seule \
 question à la fois, seulement si tu en as besoin pour répondre. Quand le clipper dit juste « ok », « merci », \
@@ -678,6 +683,16 @@ def contexte_auteur(message) -> str:
             + (f" (pseudo « {pseudo} » = prénom - créatrice : appelle-le par son prénom, jamais par celui de la créatrice)"
                if any(sep in pseudo for sep in SEPARATEURS_PSEUDO) else "")
             + f" · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]")
+    if message.guild is None:
+        # 27/09 (Gaëtan) : « quand le clipper arrive avant la fin du test, il a besoin d'aide » — l'assistant reçoit
+        # où en est le candidat (numéro, quiz, test envoyé/rendu, échéance) pour répondre juste, sans inventer.
+        try:
+            if not lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)):
+                return (base + "\n[Candidat en MP — où il en est d'après le pipeline : " + ou_en_es_tu(str(message.author.id))
+                        + "\nTu l'aides sur CETTE étape (quiz, test de montage, MP fermés) avec la base ; pour le test : un Reel "
+                          "vertical avec sous-titres, à rendre ici en MP avant l'échéance, jugé par le bot. Tu ne promets rien d'autre.]")
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Contexte candidat %s : %s", message.author.id, erreur)
     sp = salon_perso_de(message.author.id) if message.guild is not None else None
     if sp is not None and sp.id == message.channel.id:
         try:
@@ -1223,10 +1238,10 @@ def tel_selon_pays(brut, pays=""):
     return lectures[0]
 
 
-async def envoyer_mp(membre, texte):
+async def envoyer_mp(membre, texte, view=None):
     """MP avec vraie réponse : False si les MP du membre sont fermés."""
     try:
-        await membre.send(texte)
+        await membre.send(texte, view=view)
         return True
     except (discord.Forbidden, discord.HTTPException):
         return False
@@ -2311,6 +2326,8 @@ async def traiter_liaison(auteur, brut):
     liaison.setdefault("date", datetime.now(timezone.utc).isoformat(timespec="seconds"))
     if cand:
         liaison["prenom"], liaison["pays"] = cand.get("prenom", ""), cand.get("pays", "")
+        if (cand.get("reponses") or {}).get("conditions"):            # 27/09 : les 5 règles cochées sur le site
+            liaison["conditions_site"] = cand.get("date") or datetime.now(timezone.utc).isoformat(timespec="seconds")
     donnees["liaisons"][str(auteur.id)] = liaison
     ecrire_json(FICHIER_PIPELINE, donnees)
     etat_l = donnees.get("etats", {}).get(str(auteur.id), {})
@@ -2592,6 +2609,80 @@ def texte_avis_test(avis: dict) -> str:
             + ("✏️ " + " · ".join(avis["a_corriger"]) if avis.get("a_corriger") else ""))
 
 
+async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") -> str:
+    """Acceptation des 5 règles — mot J'ACCEPTE en MP, bouton ✅, ou case cochée sur le site (27/09) : registre horodaté, rôle,
+    salon perso, puis créatrice attribuée automatiquement. Renvoie le texte à dire à la personne."""
+    utilisateur = str(utilisateur)
+    registre = lire_json(FICHIER_EQUIPES, {})
+    fiche_eq = registre.get(utilisateur)
+    pipe_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    info_a = pipe_a.get("etats", {}).get(utilisateur, {})
+    code_a, _ = equipe_deduite(utilisateur)
+    grille_acc = grille or info_a.get("conditions_grille") or "mg"          # sans contrat (23/09) : la grille France passe aussi par ici
+    auto = attribution.actif()
+    suite = ("✅ **Conditions acceptées et enregistrées — bienvenue dans la Team "
+             f"{'International' if grille_acc == 'mg' else 'France'} ! 🔥**\n\n"
+             "La suite, dans l'ordre :\n"
+             + ("1️⃣ **Ta créatrice t'est attribuée tout de suite** : ton salon perso reçoit tes comptes Instagram.\n" if auto else
+                "1️⃣ **Ta créatrice t'est attribuée** (sous 48 h) : ton salon perso reçoit tes 3 comptes Instagram.\n")
+             + "2️⃣ **Un compte par jour, sur ton téléphone**, 24 h de warm-up sur chacun. Le code arrive avec `!code`. "
+             "Le bot te guide étape par étape, avec des boutons.\n"
+             "3️⃣ D'ici là : lis la **Fiche 1** (créer tes comptes) et la **Fiche 2** (le warm-up).\n"
+             "Une question ? Écris dans ton salon perso. Au travail 💪")
+    if fiche_eq and (fiche_eq.get("equipe") == "mg" or fiche_eq.get("conditions")):
+        if not fiche_eq.get("conditions"):
+            fiche_eq["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            ecrire_json(FICHIER_EQUIPES, registre)
+        membre_d = membre_par_id(utilisateur)
+        if auto and membre_d is not None and not fiche_eq.get("creatrice"):
+            client.loop.create_task(attribution.attribuer(membre_d, f"acceptation ({via})"))
+        return suite if not fiche_eq.get("creatrice") else "✅ Déjà noté ! " + ou_en_es_tu(utilisateur)
+    if info_a.get("etat") == "valide" and (info_a.get("conditions_envoyees") or code_a == "mg" or via == "site") \
+            and not (INT_EN_PAUSE and grille_acc == "mg"):
+        # Le rôle s'ouvre ICI, à l'acceptation — plus jamais avant (audit 10/09).
+        membre_a = membre_par_id(utilisateur)
+        if membre_a is None:
+            return "Je ne te trouve pas sur le serveur — reviens dessus puis renvoie J'ACCEPTE."
+        nom_role_a, err_a = await attribuer_equipe(membre_a.guild, membre_a, grille_acc, client.user.id)
+        registre = lire_json(FICHIER_EQUIPES, {})
+        registre.setdefault(utilisateur, {"equipe": grille_acc, "par": str(client.user.id),
+                                          "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+        registre[utilisateur]["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        registre[utilisateur]["conditions_via"] = via
+        registre[utilisateur].setdefault("paie", "clic")                  # 23/09 : tout nouveau signé est payé au clic
+        ecrire_json(FICHIER_EQUIPES, registre)
+        # 24/09 : son salon perso s'ouvre tout de suite (catégorie Clippers, ou celle de sa créatrice si déjà connue)
+        creatrice_a = registre[utilisateur].get("creatrice", "")
+        salon_a, cree_a, err_sa = await assurer_salon_perso(
+            membre_a.guild, membre_a, categorie_de_creatrice(membre_a.guild, creatrice_a) if creatrice_a else None,
+            creatrice_a, f"Salon perso ouvert à l'acceptation ({via})")
+        if salon_a is not None and cree_a:
+            try:
+                await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. "
+                                   "Prochaine étape : ta créatrice et tes comptes.", view=vue_whatsapp())
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        if salon_a is not None:
+            suite = suite.replace("La suite, dans l'ordre :", f"Ton salon perso : <#{salon_a.id}>.\n\nLa suite, dans l'ordre :")
+        texte_retour = (suite if err_a is None else
+                        "✅ **Conditions acceptées et enregistrées !** L'équipe ouvre ton rôle à la main "
+                        "(petit souci technique de mon côté, déjà signalé) — ton manager t'écrit ensuite.")
+        tel_a = pipe_a.get("liaisons", {}).get(utilisateur, {}).get("tel", "")
+        origine = {"mp": "J'ACCEPTE en MP", "bouton": "bouton ✅", "site": "case cochée sur le site"}.get(via, via)
+        await notifier_manager(
+            f"✍️ **{membre_a.mention} a accepté les conditions {'International' if grille_acc == 'mg' else 'France (sans contrat)'}** ({origine}) → "
+            + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`.")
+            + ("\n🎬 Créatrice : **attribution automatique en cours** (ordre " + " > ".join(attribution.ORDRE) + ")." if auto else
+               f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`**.")
+            + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
+        await inputs_clippers.envoyer_telegram(f"✍️ Conditions acceptées ({origine}) : {membre_a.display_name} (Team {'International' if grille_acc == 'mg' else 'France'})"
+                                              + (f" — WhatsApp {tel_a}" if tel_a else ""))
+        if auto:
+            client.loop.create_task(attribution.attribuer(membre_a, f"acceptation ({via})"))
+        return texte_retour
+    return "Je n'ai pas de conditions en attente pour toi. " + ou_en_es_tu(utilisateur)
+
+
 async def suite_validation(membre, guild):
     """Ce qui suit un test validé, selon la grille : FR → e-mail puis contrat DocuSeal ; International →
     conditions en MP, rôle Team à son J'ACCEPTE ; grille indéterminée → défaut FR, l'admin corrige avant
@@ -2627,23 +2718,18 @@ async def suite_validation(membre, guild):
         ecrire_json(FICHIER_PIPELINE, donnees)
         titre_cond = ("🏆 **Test validé — bienvenue dans la sélection Team International !**\n\n" if grille_cond == "mg"
                       else "🏆 **Test validé — bienvenue dans l'équipe !**\n\n")
-        await envoyer_mp(membre, titre_cond +
-                                 "Avant d'ouvrir ton accès, lis les 5 règles :\n"
-                                 "1. Les comptes de la mission sont **à l'agence**. Le téléphone aussi, si on te le prête. "
-                                 "Tu rends les accès quand on te le demande.\n"
-                                 "2. La formation, la méthode et les vidéos sont **secrètes**. Tu ne partages rien. Tu ne copies rien.\n"
-                                 "3. Tu as **18 ans ou plus**.\n"
-                                 "4. Ta paie : **0,05 $ par visite qui compte sur ton lien**. Une visite qui compte vient de France "
-                                 "ou d'un pays francophone. Pas un robot. Payé le 5 et le 20, en USDC ou par virement. "
-                                 "Pas de fixe. 1 000 visites = 50 $. 5 000 visites = 250 $. "
-                                 "Robots, clics achetés ou clics forcés = tu sors de l'équipe.\n"
-                                 "5. 2 Reels par jour sur chaque compte. Deux jours ratés de suite = tu sors. "
-                                 "Moins de 1 000 visites le premier mois = tu sors.\n\n"
-                                 "Tu es d'accord ? Réponds **J'ACCEPTE** ici. Ton accès s'ouvre tout de suite et ton manager t'écrit.")
-        return (f"🏆 {membre.mention} validé ({'International' if grille_cond == 'mg' else 'France, sans contrat'}"
-                f"{'' if grille else ', grille indéterminée → France par défaut'}) → **conditions envoyées en MP** ; son rôle "
-                f"Team {'International' if grille_cond == 'mg' else 'France'} s'ouvre à son J'ACCEPTE (relance auto 24/48 h, je préviens "
-                f"{mention_manager(guild)} ici).")
+        quelle = f"{'International' if grille_cond == 'mg' else 'France, sans contrat'}{'' if grille else ', grille indéterminée → France par défaut'}"
+        if liaison.get("conditions_site"):
+            # 27/09 (Gaëtan) : « J'ACCEPTE devient une case cochée » — cochée sur le site, l'accès s'ouvre à la validation
+            retour_acc = await accepter_conditions(str(membre.id), "site", grille_cond)
+            await envoyer_mp(membre, titre_cond + "Tu as accepté les 5 règles sur le site : ton accès est ouvert.\n\n" + retour_acc)
+            return (f"🏆 {membre.mention} validé ({quelle}) → **accès ouvert** (règles acceptées sur le site, case cochée) ; "
+                    + ("créatrice : attribution automatique." if attribution.actif() else f"`!creatrice {membre.display_name} <prénom>`."))
+        await envoyer_mp(membre, titre_cond + "Avant d'ouvrir ton accès, lis les 5 règles :\n" + acceptation.REGLES
+                                 + "\n\nTu es d'accord ? Appuie sur le bouton. Ton accès s'ouvre tout de suite.",
+                         view=acceptation.vue(membre.id))
+        return (f"🏆 {membre.mention} validé ({quelle}) → **règles envoyées en MP avec le bouton ✅** ; son accès s'ouvre au clic "
+                f"(ou à J'ACCEPTE), relance auto 24/48 h, je préviens {mention_manager(guild)} ici.")
     # Grille indéterminée (pays ≠ indicatif, ou candidature non liée) : on NE laisse plus le
     # candidat sur un « on te contacte » sans suite (le bug du 20/07). La Team France (contrat)
     # est le défaut du programme clipper → on lui demande son e-mail comme un FR ; l'admin
@@ -2890,9 +2976,9 @@ async def boucle_pipeline():
                     if etat_c == "valide" and info.get("conditions_envoyees") \
                             and not (INT_EN_PAUSE and info.get("conditions_grille", "mg") == "mg"):
                         await _relancer(rel, "acc24", "acc48", info.get("conditions_envoyees"), uid,
-                            "✍️ Ton test est validé. Il manque juste ton **J'ACCEPTE**. Réponds exactement ce mot ici. "
-                            "Ton accès s'ouvre et ton manager t'écrit. 💪",
-                            "⏳ Dernier rappel : réponds **J'ACCEPTE** ici pour entrer dans l'équipe. "
+                            "✍️ Ton test est validé. Il manque juste ton accord : appuie sur le bouton ✅ du message des règles, "
+                            "ou réponds **J'ACCEPTE** ici. Ton accès s'ouvre tout de suite. 💪",
+                            "⏳ Dernier rappel : appuie sur le bouton ✅ (ou réponds **J'ACCEPTE** ici) pour entrer dans l'équipe. "
                             "Sinon, ta place va à quelqu'un d'autre.")
                     if INT_EN_PAUSE and not rel.get("pause_int_ok"):
                         rel["pause_int_ok"] = True
@@ -3679,7 +3765,7 @@ def est_manager(membre) -> bool:
 
 
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
-COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tests", "!inputs",
+COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
                      "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
@@ -3690,7 +3776,7 @@ def texte_aide(membre, est_admin: bool) -> str:
     if est_admin:
         return ("🧰 **Commandes admin**\n"
                 "**Tunnel** : `!candidats` · `!inviter Prénom [fr|int]` · `!refuser Prénom motif` (hors Discord) · "
-                "`!pipeline` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
+                "`!pipeline` · `!tableau` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
@@ -5637,7 +5723,7 @@ async def commande_admin(message, texte: str) -> bool:
         for i in presents.values():
             compte[i.get("etat", "?")] = compte.get(i.get("etat", "?"), 0) + 1
         libelles = {"test_envoye": "🧪 Test en cours", "test_rendu": "📥 Tests rendus (à reviewer)",
-                    "valide": "✅ Validés (→ J'ACCEPTE)", "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés",
+                    "valide": "✅ Validés (bouton ✅ / case du site)", "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés",
                     "quiz_rate": "📝 Quiz raté", "sorti": "🚪 Sortis"}
         lignes.append("🧭 Sur le serveur : " + (" · ".join(f"{libelles.get(e, e)} {n}" for e, n in sorted(compte.items())) or "personne en parcours")
                       + (f" · {partis} parti(s) du serveur retirés du compte" if partis else ""))
@@ -5666,9 +5752,10 @@ async def commande_admin(message, texte: str) -> bool:
         if rendus_n:
             lignes.append("→ 📥 À reviewer (`!test-ok` / `!test-non`) : " + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus_n[:8]))
         if valides_n:
-            lignes.append("→ ✅ Validés sans J'ACCEPTE (je relance) : " + " · ".join(f"<@{u}> (J+{j})" for u, j in valides_n[:8]))
+            lignes.append("→ ✅ Validés sans accord (bouton ✅ envoyé, je relance) : " + " · ".join(f"<@{u}> (J+{j})" for u, j in valides_n[:8]))
         if sans_creatrice:
-            lignes.append("→ 🎬 Signés sans créatrice (`!creatrice @x Prénom`) : "
+            lignes.append(("→ 🎬 Signés sans créatrice (attribution automatique au prochain démarrage) : " if attribution.actif()
+                           else "→ 🎬 Signés sans créatrice (`!creatrice @x Prénom`) : ")
                           + " · ".join(f"<@{u}> (J+{j})" for u, j in sorted(sans_creatrice, key=lambda x: -x[1])[:8]))
         if CONTRAT_ACTIVER:
             contrats_n = sorted(((u, _anciennete((i.get("contrat") or {}).get("date"))) for u, i in presents.items()
@@ -6313,6 +6400,29 @@ async def on_ready():
                              "marquer_etat": onboarding.marquer_etat,                 # 25/09 : ETAT du classeur suit le parcours
                              "whatsapp": WHATSAPP_GAETAN_URL})                       # 26/09 : bouton « Écrire à Gaëtan » sous chaque étape
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
+        client.add_dynamic_items(acceptation.BoutonAccepte)                     # bouton « ✅ J'accepte » persistant (27/09)
+        _staff = lambda m: str(m.id) in ADMIN_IDS or est_manager(m)             # noqa: E731
+        acceptation.configurer({"accepter": accepter_conditions, "lire_json": lire_json, "ecrire_json": ecrire_json,
+                                "FICHIER_PIPELINE": FICHIER_PIPELINE, "membre_par_id": membre_par_id,
+                                "est_signe": lambda uid: bool(lire_json(FICHIER_EQUIPES, {}).get(str(uid)))})
+        client.loop.create_task(acceptation.envoyer_boutons_en_attente(client))   # les validés en attente reçoivent le bouton
+
+        async def _etats_classeur():
+            if not onboarding.actif():
+                return {}
+            return {c["handle"].lower(): c["etat"] for c in await onboarding.lire_comptes()}
+        attribution.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "attribution.json",
+                                "FICHIER_EQUIPES": FICHIER_EQUIPES, "categorie_de_creatrice": categorie_de_creatrice,
+                                "role_creatrice": role_creatrice, "onboarder_membre": onboarder_membre, "canal_admin": canal_admin,
+                                "membre_par_id": membre_par_id, "est_staff": _staff, "prenom_de": prenom_de, "roster": roster,
+                                "etats_classeur": _etats_classeur, "normaliser": normaliser})
+        client.loop.create_task(attribution.rattraper(client))                  # signés sans créatrice : un par un (27/09)
+        tableau_bord.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "tableau_bord.json",
+                                 "FICHIER_PIPELINE": FICHIER_PIPELINE, "inputs_lire": lambda: inputs_clippers._lire({"historique": {}}),
+                                 "JOURNAL_PAIEMENTS": JOURNAL_PAIEMENTS, "paie_lire": paie_clics._lire,
+                                 "lire_candidatures": lire_candidatures_sheets, "heure_paris": heure_paris,
+                                 "canal_admin": canal_admin, "est_staff": _staff})
+        client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
         def _clics_7j(prenom):                                               # visites payables des 7 derniers jours du clipper
             m = membre_par_prenom(normaliser(prenom))
             if m is None:
@@ -6734,6 +6844,9 @@ async def on_message(message):
     if texte.startswith(("!alias", "!code") + codes_2fa.COMMANDES_RECUP):
         if await codes_2fa.commande(message, ADMIN_IDS):
             return
+    if texte.startswith("!tableau"):                                        # 27/09 : le tableau de bord d'une ligne
+        if await tableau_bord.commande(message, texte):
+            return
     if texte.startswith(("!creatrice", "!créatrice")):
         if await commande_creatrice(message, texte):
             return
@@ -6792,68 +6905,7 @@ async def on_message(message):
     # MP : « J'ACCEPTE » — acceptation horodatée des conditions Team International (remplace le
     # contrat côté International, décision du 18/07). Enregistrée au registre, puis onboarding.
     if message.guild is None and normaliser(texte).replace("'", "").replace("’", "").replace(" ", "").strip("!.") == "jaccepte":
-        registre = lire_json(FICHIER_EQUIPES, {})
-        fiche_eq = registre.get(str(utilisateur))
-        pipe_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        info_a = pipe_a.get("etats", {}).get(str(utilisateur), {})
-        code_a, _ = equipe_deduite(utilisateur)
-        grille_acc = info_a.get("conditions_grille") or "mg"          # sans contrat (23/09) : la grille France passe aussi par ici
-        suite = ("✅ **Conditions acceptées et enregistrées — bienvenue dans la Team "
-                 f"{'International' if grille_acc == 'mg' else 'France'} ! 🔥**\n\n"
-                 "La suite, dans l'ordre :\n"
-                 "1️⃣ **Ta créatrice t'est attribuée** (sous 48 h) : ton salon perso reçoit tes 3 comptes Instagram.\n"
-                 "2️⃣ **Un compte par jour, sur ton téléphone**, 24 h de warm-up sur chacun. Le code arrive avec `!code`. "
-                 "Le bot te guide étape par étape, avec des boutons.\n"
-                 "3️⃣ D'ici là : lis la **Fiche 1** (créer tes comptes) et la **Fiche 2** (le warm-up).\n"
-                 "Une question ? Le salon de l'assistant répond 24h/24. Au travail 💪")
-        if fiche_eq and (fiche_eq.get("equipe") == "mg" or fiche_eq.get("conditions")):
-            if not fiche_eq.get("conditions"):
-                fiche_eq["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                ecrire_json(FICHIER_EQUIPES, registre)
-            await message.reply(suite if not fiche_eq.get("creatrice") else "✅ Déjà noté ! " + ou_en_es_tu(str(utilisateur)))
-            return
-        if info_a.get("etat") == "valide" and (info_a.get("conditions_envoyees") or code_a == "mg") \
-                and not (INT_EN_PAUSE and grille_acc == "mg"):
-            # Le rôle Team International s'ouvre ICI, à l'acceptation — plus jamais avant (audit 10/09).
-            membre_a = membre_par_id(utilisateur)
-            if membre_a is None:
-                await message.reply("Je ne te trouve pas sur le serveur — reviens dessus puis renvoie J'ACCEPTE.")
-                return
-            nom_role_a, err_a = await attribuer_equipe(membre_a.guild, membre_a, grille_acc, client.user.id)
-            registre = lire_json(FICHIER_EQUIPES, {})
-            registre.setdefault(str(utilisateur), {"equipe": grille_acc, "par": str(client.user.id),
-                                                   "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-            registre[str(utilisateur)]["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-            registre[str(utilisateur)].setdefault("paie", "clic")      # 23/09 : tout nouveau signé est payé au clic
-            ecrire_json(FICHIER_EQUIPES, registre)
-            # 24/09 : son salon perso s'ouvre tout de suite (catégorie Clippers, ou celle de sa créatrice si déjà connue) —
-            # c'est là que tout arrivera, sous les yeux de Gaëtan et du manager.
-            creatrice_a = registre[str(utilisateur)].get("creatrice", "")
-            salon_a, cree_a, err_sa = await assurer_salon_perso(
-                membre_a.guild, membre_a, categorie_de_creatrice(membre_a.guild, creatrice_a) if creatrice_a else None,
-                creatrice_a, "Salon perso ouvert au J'ACCEPTE")
-            if salon_a is not None and cree_a:
-                try:
-                    await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. "
-                                       "Prochaine étape : ta créatrice et tes comptes.", view=vue_whatsapp())
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
-            if salon_a is not None:
-                suite = suite.replace("La suite, dans l'ordre :", f"Ton salon perso : <#{salon_a.id}>.\n\nLa suite, dans l'ordre :")
-            await message.reply(suite if err_a is None else
-                                "✅ **Conditions acceptées et enregistrées !** L'équipe ouvre ton rôle à la main "
-                                "(petit souci technique de mon côté, déjà signalé) — ton manager t'écrit ensuite.")
-            tel_a = pipe_a.get("liaisons", {}).get(str(utilisateur), {}).get("tel", "")
-            await notifier_manager(
-                f"✍️ **{message.author.mention} a accepté les conditions {'International' if grille_acc == 'mg' else 'France (sans contrat)'}** → "
-                + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`.")
-                + f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`** "
-                  "puis créneau de création (lun/mer/ven 17 h Paris) sur son téléphone, lien de tracking."
-                + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
-            await inputs_clippers.envoyer_telegram(f"✍️ J'ACCEPTE : {membre_a.display_name} (Team {'International' if grille_acc == 'mg' else 'France'})"
-                                                  + (f" — WhatsApp {tel_a}" if tel_a else ""))
-            return
-        await message.reply("Je n'ai pas de conditions en attente pour toi. " + ou_en_es_tu(str(utilisateur)))
+        await message.reply(await accepter_conditions(str(utilisateur), "mp"))       # 27/09 : factorisé (bouton ✅, case du site)
         return
 
     # MP : une adresse e-mail envoyée brute — la clé du contrat (FR) et du Drive (International).

@@ -303,6 +303,11 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple
             sans += 1
         rangs.append((nom_de(uid), uid, s["payes"], s["hors_robots"], montant, w))
     rangs.sort(key=lambda r: -r[4])
+    # 27/09 : la liste est mémorisée (jour de paie → uid → montant) pour le tableau de bord du lundi (« premier paiement »)
+    if rangs and _deps.get("ecrire_json"):
+        d.setdefault("paies", {})[jour_paie if "-" in jour_paie else f"{fin.year}-{jour_paie[3:5]}-{jour_paie[:2]}"] = \
+            {uid: montant for _, uid, _, _, montant, _ in rangs}
+        _ecrire(d)
     for nom, uid, payes, hors, montant, w in rangs:
         adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else (w or "⚠️ adresse manquante")
         lignes.append(f"· {nom} — {_fmt(payes)} payées ({_fmt(hors)} visiteurs) → **{_usd(montant)}** → {adr}")

@@ -128,6 +128,10 @@ def _champ(q: dict, valeur: str = "") -> str:
         opts = "".join(f"<option value='{html.escape(o)}'{' selected' if o == valeur else ''}>{html.escape(o)}</option>"
                        for o in q.get("options", []))
         h = f"<select name='{i}'{req}><option value=''>— choisis —</option>{opts}</select>"
+    elif t == "checkbox":
+        # 27/09 : « J'ACCEPTE devient une case cochée » — les 5 règles se lisent ici, la case est obligatoire
+        h = (f"<label class='ck'><input type='checkbox' name='{i}' value='oui'{' checked' if valeur else ''}{req}> "
+             f"{html.escape(q.get('case', 'Oui'))}</label>")
     elif t == "number":
         h = (f"<input type='number' name='{i}' value='{v}' min='{q.get('min', 0)}' max='{q.get('max', 120)}'"
              f" inputmode='numeric'{req}>")

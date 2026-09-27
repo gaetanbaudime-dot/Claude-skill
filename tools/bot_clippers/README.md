@@ -143,6 +143,25 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**J'ACCEPTE devient une case cochée (27/09, `acceptation.py`)** : les 5 règles sont une case obligatoire du formulaire du
+site (question `conditions`, type `checkbox`) ; la liaison porte `conditions_site`, et à la validation du test l'accès
+s'ouvre tout de suite (`accepter_conditions(uid, "site")` : rôle, registre, salon perso, créatrice automatique) sans rien
+écrire. Un validé passé avant la case reçoit les règles en MP avec le bouton persistant « ✅ J'accepte, on y va »
+(`BoutonAccepte`, custom_id `accepte:<uid>`) ; le mot J'ACCEPTE tapé marche toujours. Au démarrage, une fois par personne,
+les validés encore en attente reçoivent le bouton (`bouton_accepte` dans le pipeline). **Attribution automatique des
+créatrices (27/09, `attribution.py`)** : dès l'acceptation, le clipper reçoit la créatrice suivante de la rotation
+`ATTRIBUTION_ORDRE` (défaut « Sophie,Sarah,Chloé,Clara,Jade ») avec tout ce que `!creatrice` faisait ; une créatrice sans
+catégorie ni rôle sur le serveur est sautée et signalée ; au démarrage (après `ATTRIBUTION_DELAI_DEMARRAGE_SEC`, 120 s),
+les signés présents sans créatrice sont rattrapés un par un, `ATTRIBUTION_PAUSE_SEC` (90 s) entre deux ; `ATTRIBUTION_AUTO=0`
+éteint ; état et historique dans `attribution.json`. **Tableau de bord du lundi (27/09, `tableau_bord.py`)** : le lundi
+entre 8 h et 10 h (Paris), une ligne dans le salon admin — candidats → validés → premier Reel → jour 7 tenu → premier
+paiement, sur les 7 derniers jours, la semaine d'avant entre parenthèses, et le ratio validés → premier Reel, la seule
+décision de recrutement ; `!tableau` à la demande. Sources : classeur des candidatures, `validation` du pipeline, premier
+jour avec un Reel dans `inputs_clippers.json` puis 7 jours dont 5 à 2 Reels ou plus, `paiements.jsonl` et les listes
+`!paie-clics` mémorisées dans `clics.json` (`paies`). **Candidat en MP (27/09)** : l'assistant reçoit où en est le candidat
+(numéro, quiz, test, échéance) pour l'aider pendant le test sans inventer. **Règle 21 (27/09)** : trois cas seulement vont
+à un humain — ban, numéro refusé, paiement — via WhatsApp ; tout le reste, c'est la base, la fiche ou « je ne sais pas ».
+
 **Messages déposés (27/09, `messages_deposes.py`)** : un message écrit dans `messages_a_envoyer.json` (dans le dépôt, à côté
 du bot) est posté UNE fois au démarrage suivant — dans le salon perso d'un clipper (`"pour": "Daniella"`), dans un salon
 nommé (`"salon": "#annonces"`) ou dans le salon admin, avec le bouton WhatsApp si `"bouton_whatsapp": true`. Trace dans
