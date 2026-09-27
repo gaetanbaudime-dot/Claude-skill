@@ -281,6 +281,31 @@ async def _partager(fichier_id: str, email: str) -> bool:
     return False
 
 
+NOM_TOP20 = "TOP 20 Reels"                     # le sous-dossier des Reels uniques du clipper (27/09, avant : « Reels uniques »)
+
+
+async def restructurer_drives(client, prenoms_par_creatrice: dict, email_de) -> list:
+    """Au démarrage, une fois (marqueur dans l'état) : chaque clipper du roster retrouve la structure Photos / Reels / Stories /
+    TOP 20 Reels dans son dossier Drive. `email_de(prenom)` renvoie l'adresse connue ou ''. Renvoie les prénoms traités."""
+    if not google_api.actif():
+        return []
+    etat = _lire_etat()
+    if etat.get("drive_structure") == 2:
+        return []
+    faits = []
+    for creatrice, prenoms in (prenoms_par_creatrice or {}).items():
+        for prenom in prenoms:
+            try:
+                if await dossier_drive(prenom, creatrice, email_de(prenom) or ""):
+                    faits.append(prenom)
+            except Exception as erreur:                                     # noqa: BLE001
+                journal.warning("Structure Drive de %s (%s) : %s", prenom, creatrice, erreur)
+    etat["drive_structure"] = 2
+    _ecrire_etat(etat)
+    journal.info("Structure Drive v2 posée pour %d clipper(s)", len(faits))
+    return faits
+
+
 async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
     """Dossier personnel du clipper dans « 🎬 Clippers » de sa créatrice : un raccourci vers CHAQUE source (Reels,
     photos : tout le contenu, rien de copié, aucun espace consommé), les sources partagées en lecture à son e-mail.
@@ -294,19 +319,36 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
         journal.info("DRIVE_SOURCES sans entrée pour %s", creatrice)
         return ""
     dossier = await google_api.drive_trouver_dossier(prenom, parent) or await google_api.drive_creer_dossier(prenom, parent)
+    # 27/09 (Gaëtan) : « pour chaque clipper, un dossier avec dedans : Photos, Reels, TOP 20 Reels ». Les raccourcis portent
+    # le nom de la source tel quel (« Photos », « Reels », « Stories »), les anciens « Photos — Chloé » sont renommés, et le
+    # sous-dossier « TOP 20 Reels » (ses Reels uniques) existe dès le départ, même vide.
+    existants = await google_api.drive_lister(dossier)
     vus = {}
     for src in sources:
         if not isinstance(src, dict):
             src = {"id": src}
         libelle = src.get("sous") or "Contenu"
         vus[libelle] = vus.get(libelle, 0) + 1
-        nom = f"{libelle} {vus[libelle]} — {creatrice.split()[0]}" if vus[libelle] > 1 else f"{libelle} — {creatrice.split()[0]}"
+        nom = f"{libelle} {vus[libelle]}" if vus[libelle] > 1 else libelle
         if email:
             await _partager(src["id"], email)
         try:
-            await google_api.drive_raccourci(nom, src["id"], dossier)
+            ancien = next((f for f in existants if f.get("shortcutDetails", {}).get("targetId") == src["id"]), None)
+            if ancien is not None and ancien.get("name") != nom:
+                await google_api.drive_renommer(ancien["id"], nom)
+            elif ancien is None:
+                await google_api.drive_raccourci(nom, src["id"], dossier)
         except RuntimeError as erreur:
             journal.warning("Raccourci %s pour %s : %s", nom, prenom, erreur)
+    try:
+        ancien_top = next((f for f in existants if f.get("mimeType") == google_api.DOSSIER_MIME
+                           and f.get("name", "").strip().lower() == "reels uniques"), None)
+        if ancien_top is not None:
+            await google_api.drive_renommer(ancien_top["id"], NOM_TOP20)
+        elif not await google_api.drive_trouver_dossier(NOM_TOP20, dossier):
+            await google_api.drive_creer_dossier(NOM_TOP20, dossier)
+    except RuntimeError as erreur:
+        journal.warning("Dossier « %s » pour %s : %s", NOM_TOP20, prenom, erreur)
     if email:
         await _partager(dossier, email)
     journal.info("Drive de %s (%s) prêt : %s sources, e-mail %s", prenom, creatrice, len(sources), "oui" if email else "non")

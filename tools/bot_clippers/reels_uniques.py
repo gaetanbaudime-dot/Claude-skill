@@ -26,7 +26,11 @@ import aiohttp
 journal = logging.getLogger("bot.reels_uniques")
 _deps: dict = {}
 MAX_VIDEOS = int(os.environ.get("REELS_UNIQUES_MAX", "20") or 20)
-NOM_SOUS_DOSSIER = "Reels uniques"
+NOM_SOUS_DOSSIER = "TOP 20 Reels"                                              # 27/09 : le dossier du clipper (avant « Reels uniques »)
+ANCIEN_SOUS_DOSSIER = "Reels uniques"
+VERSION_RECETTE = 2                                                            # 27/09 : plus de miroir (sous-titres inversés), zoom doux
+OPUSCLIP_ACTIF = os.environ.get("REELS_UNIQUES_OPUSCLIP", "0").strip() == "1"  # 27/09 : le template ajoute des sous-titres → doublons sur un
+                                                                               # Reel déjà sous-titré ; opt-in seulement
 OPUSCLIP_API_KEY = os.environ.get("OPUSCLIP_API_KEY", "").strip()            # clé API du tableau de bord OpusClip (Pro/Max)
 OPUSCLIP_TEMPLATE = os.environ.get("OPUSCLIP_TEMPLATE_ID", "cmcaokhia041t7ypf070b4wmu").strip()   # « Créatrices OFM »
 OPUSCLIP_ATTENTE_MAX = int(os.environ.get("OPUSCLIP_ATTENTE_MAX", "900") or 900)
@@ -83,10 +87,12 @@ async def videos_top20(top_id: str) -> list:
 def recette(prenom: str, video_id: str) -> dict:
     h = hashlib.sha256(f"{_n(prenom)}|{video_id}".encode()).digest()
     u = lambda i, a, b: a + (h[i] / 255) * (b - a)                     # nombre entre a et b, stable
-    return {"miroir": h[0] % 2 == 0, "zoom": round(u(1, 1.02, 1.07), 3), "vitesse": round(u(2, 0.97, 1.04), 3),
+    # v2 (27/09, Gaëtan : « fais gaffe au mirroring ») : JAMAIS de miroir — les TOP 20 ont des sous-titres incrustés, un miroir
+    # les écrit à l'envers. Zoom limité à 4 % et décalage réduit pour ne pas rogner un sous-titre en haut ou en bas.
+    return {"miroir": False, "zoom": round(u(1, 1.015, 1.04), 3), "vitesse": round(u(2, 0.97, 1.04), 3),
             "saturation": round(u(3, 0.92, 1.10), 3), "contraste": round(u(4, 0.97, 1.05), 3),
             "luminosite": round(u(5, -0.03, 0.03), 3), "teinte": round(u(6, -4, 4), 1), "coupe": round(u(7, 0.0, 0.5), 2),
-            "dx": round(u(8, -0.5, 0.5), 2), "dy": round(u(9, -0.5, 0.5), 2)}
+            "dx": round(u(8, -0.3, 0.3), 2), "dy": round(u(9, -0.3, 0.3), 2), "v": VERSION_RECETTE}
 
 
 def commande_ffmpeg(src: str, dst: str, r: dict, prenom: str) -> list:
@@ -102,10 +108,48 @@ def commande_ffmpeg(src: str, dst: str, r: dict, prenom: str) -> list:
             "-movflags", "+faststart", "-metadata", f"comment=variante {prenom}", dst]
 
 
+def sonde(chemin: str) -> dict:
+    """{largeur, hauteur, duree, audio} par ffprobe, ou {} si illisible."""
+    try:
+        p = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height:format=duration", "-of", "json", chemin],
+                           capture_output=True, text=True, timeout=60)
+        j = json.loads(p.stdout or "{}")
+    except (subprocess.SubprocessError, json.JSONDecodeError, OSError):
+        return {}
+    video = next((s for s in j.get("streams", []) if s.get("codec_type") == "video"), {})
+    return {"largeur": int(video.get("width") or 0), "hauteur": int(video.get("height") or 0),
+            "duree": float((j.get("format") or {}).get("duration") or 0),
+            "audio": any(s.get("codec_type") == "audio" for s in j.get("streams", []))}
+
+
+def controle_qualite(src: str, dst: str, r: dict) -> list:
+    """Le contrôle qualité d'une variante (27/09) : format 1080×1920, durée cohérente (source moins la coupe, à la vitesse
+    près, ± 1 s), piste audio conservée, recette sans miroir. Renvoie la liste des défauts (vide = bon)."""
+    defauts = []
+    if r.get("miroir"):
+        defauts.append("miroir (sous-titres inversés)")
+    s, d = sonde(src), sonde(dst)
+    if not d:
+        return defauts + ["fichier illisible"]
+    if (d["largeur"], d["hauteur"]) != (1080, 1920):
+        defauts.append(f"format {d['largeur']}×{d['hauteur']}")
+    if s.get("duree"):
+        attendue = max(0.0, s["duree"] - r.get("coupe", 0)) / r.get("vitesse", 1)
+        if abs(d["duree"] - attendue) > 1.0:
+            defauts.append(f"durée {d['duree']:.1f} s au lieu de {attendue:.1f} s")
+    if s.get("audio") and not d["audio"]:
+        defauts.append("audio perdu")
+    return defauts
+
+
 def _variante_sync(src: str, dst: str, r: dict, prenom: str) -> bool:
     p = subprocess.run(commande_ffmpeg(src, dst, r, prenom), capture_output=True, text=True, timeout=600)
     if p.returncode != 0 or not os.path.exists(dst):
         journal.warning("ffmpeg variante %s : %s", prenom, (p.stderr or "")[-300:])
+        return False
+    defauts = controle_qualite(src, dst, r)
+    if defauts:
+        journal.warning("Contrôle qualité %s : %s", prenom, ", ".join(defauts))
         return False
     return True
 
@@ -152,9 +196,59 @@ async def passage_opusclip(video: dict):
 
 
 # ------------------------------------------------------------------ exécution
-async def executer(creatrice: str, prenoms=None, progression=None) -> list:
+async def _sous_dossier(g, dossier: str) -> str:
+    """Le sous-dossier « TOP 20 Reels » du clipper ; un ancien « Reels uniques » est renommé (27/09)."""
+    sous = await g.drive_trouver_dossier(NOM_SOUS_DOSSIER, dossier)
+    if sous:
+        return sous
+    ancien = await g.drive_trouver_dossier(ANCIEN_SOUS_DOSSIER, dossier)
+    if ancien:
+        try:
+            await g.drive_renommer(ancien, NOM_SOUS_DOSSIER)
+            return ancien
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Renommage « %s » : %s", ANCIEN_SOUS_DOSSIER, erreur)
+            return ancien
+    return await g.drive_creer_dossier(NOM_SOUS_DOSSIER, dossier)
+
+
+async def _effacer_anciennes(g, sous: str, creatrice: str, prenom: str) -> int:
+    """Supprime les variantes déjà déposées d'un clipper (recette périmée ou `refaire`). Les fichiers déposés par le script de
+    l'agence lui appartiennent : suppression par le script, sinon par le compte de service. Renvoie le nombre supprimé."""
+    prefixe, suffixe = f"{creatrice.split()[0]} · Reel ", f" · {prenom}.mp4"
+    n = 0
+    for f in await g.drive_lister(sous):
+        nom = f.get("name") or ""
+        if not (nom.startswith(prefixe) and nom.endswith(suffixe)):
+            continue
+        try:
+            await _deps["drive_agence"].supprimer(f["id"])
+        except Exception:                                                   # noqa: BLE001
+            try:
+                await g.drive_supprimer(f["id"])
+            except Exception as erreur:                                     # noqa: BLE001
+                journal.warning("Suppression de %s : %s", nom, erreur)
+                continue
+        n += 1
+    return n
+
+
+def a_refaire() -> dict:
+    """{créatrice: [prénoms]} dont les variantes datent d'une recette périmée (miroir…) — à refaire au démarrage."""
+    d = _etat()
+    versions = d.get("versions") or {}
+    resultat = {}
+    for creatrice, par_prenom in (d.get("faits") or {}).items():
+        for prenom_n, faits in par_prenom.items():
+            if faits and versions.get(creatrice, {}).get(prenom_n) != VERSION_RECETTE:
+                resultat.setdefault(creatrice, []).append(prenom_n)
+    return resultat
+
+
+async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool = False) -> list:
     """Décline les TOP 20 de `creatrice` pour `prenoms` (défaut : tout le roster de la créatrice). Renvoie une ligne de bilan par
-    clipper. `progression(texte)` (coroutine) reçoit les étapes pour le salon admin."""
+    clipper. `progression(texte)` (coroutine) reçoit les étapes pour le salon admin. `refaire` (ou une recette périmée) efface
+    les variantes déjà déposées et les refait toutes."""
     if not actif():
         return ["Reels uniques inactifs : ffmpeg ou Google manquant."]
     top_id, nom_top = await dossier_top20(creatrice)
@@ -172,23 +266,31 @@ async def executer(creatrice: str, prenoms=None, progression=None) -> list:
         originaux = {}
         for prenom in noms:
             faits = d["faits"].setdefault(creatrice, {}).setdefault(_n(prenom), [])
-            a_faire = [v for v in vids if v["id"] not in faits]
-            if not a_faire:
-                bilan.append(f"✅ {prenom} : déjà à jour ({len(faits)} Reels)")
-                continue
+            versions = d.setdefault("versions", {}).setdefault(creatrice, {})
+            perimee = bool(faits) and versions.get(_n(prenom)) != VERSION_RECETTE
             dossier = await _deps["dossier_clipper"](prenom, creatrice)
             if not dossier:
                 bilan.append(f"⏭️ {prenom} : pas de dossier Drive (onboarding d'abord)")
                 continue
             g = _deps["google_api"]
-            sous = await g.drive_trouver_dossier(NOM_SOUS_DOSSIER, dossier) or await g.drive_creer_dossier(NOM_SOUS_DOSSIER, dossier)
+            sous = await _sous_dossier(g, dossier)
+            effacees = 0
+            if refaire or perimee:
+                effacees = await _effacer_anciennes(g, sous, creatrice, prenom)
+                faits.clear()
+            a_faire = [v for v in vids if v["id"] not in faits]
+            if not a_faire:
+                versions[_n(prenom)] = VERSION_RECETTE
+                _deps["ecrire_json"](_deps["FICHIER"], d)
+                bilan.append(f"✅ {prenom} : déjà à jour ({len(faits)} Reels)")
+                continue
             deja_la = {f.get("name") for f in await g.drive_lister(sous)}
             ok, rates = 0, 0
             for i, v in enumerate(a_faire, start=1):
                 if v["id"] not in originaux:
                     try:
                         chemin = os.path.join(tmp, v["id"] + ".mp4")
-                        contenu_src = await passage_opusclip(v) if OPUSCLIP_API_KEY else None
+                        contenu_src = await passage_opusclip(v) if (OPUSCLIP_API_KEY and OPUSCLIP_ACTIF) else None
                         with open(chemin, "wb") as f:
                             f.write(contenu_src or await g.drive_telecharger(v["id"]))
                         originaux[v["id"]] = chemin
@@ -225,8 +327,11 @@ async def executer(creatrice: str, prenoms=None, progression=None) -> list:
                         await progression(f"⏳ {creatrice} · {prenom} : {ok} Reel(s) déposé(s) sur {len(a_faire)}…")
                     except Exception:                                       # noqa: BLE001
                         pass
+            if not rates:
+                versions[_n(prenom)] = VERSION_RECETTE
+                _deps["ecrire_json"](_deps["FICHIER"], d)
             bilan.append(f"{'✅' if not rates else '⚠️'} {prenom} : {ok} Reel(s) unique(s) déposé(s)" + (f", {rates} raté(s)" if rates else "")
-                         + f" → « {NOM_SOUS_DOSSIER} » de son Drive")
+                         + (f", {effacees} ancien(s) effacé(s)" if effacees else "") + f" → « {NOM_SOUS_DOSSIER} » de son Drive")
     journal.info("Reels uniques %s : %s", creatrice, bilan)
     return bilan
 
@@ -246,22 +351,52 @@ async def commande_staff(message, texte: str) -> bool:
     if not actif():
         await message.reply("Reels uniques inactifs : ffmpeg ou Google manquant sur le serveur.")
         return True
-    creatrice, prenoms = mots[1].strip().capitalize(), [m for m in mots[2:] if not m.isdigit()]
-    await message.reply(f"⏳ Déclinaison des TOP 20 de {creatrice} pour {', '.join(prenoms) if prenoms else 'tout son roster'}… "
-                        "Je poste le bilan ici quand c'est fini (quelques minutes par clipper).")
+    refaire = any(m.lower() in ("refaire", "refais", "redo") for m in mots[2:])
+    creatrice, prenoms = mots[1].strip().capitalize(), [m for m in mots[2:] if not m.isdigit() and m.lower() not in ("refaire", "refais", "redo")]
+    await message.reply(f"⏳ Déclinaison des TOP 20 de {creatrice} pour {', '.join(prenoms) if prenoms else 'tout son roster'}"
+                        + (" (les anciennes variantes sont effacées et refaites)" if refaire else "")
+                        + "… Je poste le bilan ici quand c'est fini (quelques minutes par clipper).")
 
     async def _progression(t):
         await message.channel.send(t)
 
     async def _tache():
         try:
-            bilan = await executer(creatrice, prenoms or None, _progression)
+            bilan = await executer(creatrice, prenoms or None, _progression, refaire=refaire)
         except Exception as erreur:                                         # noqa: BLE001
             journal.exception("Reels uniques : %s", erreur)
             bilan = [f"❌ erreur : {type(erreur).__name__} {str(erreur)[:120]}"]
         await message.channel.send(("🎬 **Reels uniques · " + creatrice + "**\n" + "\n".join(bilan))[:1990])
     asyncio.create_task(_tache())
     return True
+
+
+async def demarrage(client) -> list:
+    """Au démarrage : les variantes faites avec une recette périmée (v1, miroir possible) sont effacées et refaites, créatrice par
+    créatrice, en tâche de fond ; une ligne au salon admin au début et à la fin."""
+    await client.wait_until_ready()
+    if not actif():
+        return []
+    cibles = a_refaire()
+    if not cibles:
+        return []
+    canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+    if canal is not None:
+        try:
+            await canal.send("♻️ Reels uniques : recette v2 (plus de miroir, zoom doux). Je refais les variantes de "
+                             + ", ".join(f"{c} ({len(p)})" for c, p in cibles.items()) + " en tâche de fond.")
+        except Exception:                                                   # noqa: BLE001
+            pass
+    faits = []
+    for creatrice in cibles:
+        try:
+            bilan = await executer(creatrice, None)
+            faits.append((creatrice, bilan))
+            if canal is not None:
+                await canal.send(("♻️ **Reels uniques refaits · " + creatrice + "**\n" + "\n".join(bilan))[:1990])
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Reels uniques à refaire (%s) : %s", creatrice, erreur)
+    return faits
 
 
 async def pour_nouveau(prenom: str, creatrice: str) -> None:

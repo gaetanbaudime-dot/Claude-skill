@@ -143,6 +143,20 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Reels uniques v2 et dossier du clipper (27/09, « fais gaffe au mirroring »)** : la recette ne fait plus jamais de miroir (les
+TOP 20 ont des sous-titres incrustés, un miroir les écrit à l'envers), le zoom est limité à 4 % et le décalage à ± 30 % pour ne
+pas rogner un sous-titre ; chaque variante passe un **contrôle qualité** ffprobe (1080×1920, durée cohérente avec la coupe et la
+vitesse, piste audio conservée, recette sans miroir) et une variante défaillante n'est pas déposée. Les variantes faites avec
+l'ancienne recette (`versions` dans `reels_uniques.json`) sont **effacées et refaites au démarrage** (`demarrage`, suppression
+par le script de l'agence, sinon par le compte de service), et `!reels-uniques Créatrice refaire` force la même chose. Le
+sous-dossier du clipper s'appelle **« TOP 20 Reels »** (un ancien « Reels uniques » est renommé). **Structure du dossier de
+chaque clipper** (`onboarding.dossier_drive`, posée pour tout le roster au démarrage une fois, `restructurer_drives`) : des
+raccourcis « Photos », « Reels », « Stories » vers les sources de la créatrice (rien de copié, partagés à son Gmail dès qu'il
+le donne ; les anciens « Photos — Chloé » sont renommés), et le sous-dossier « TOP 20 Reels » avec ses variantes. OpusClip :
+le passage par l'API est **désactivé par défaut** (`REELS_UNIQUES_OPUSCLIP=1` pour l'activer) — le template « Créatrices OFM »
+ajoute ses propres sous-titres karaoké, ce qui double ceux des TOP 20, et l'API n'accepte pas un lien Drive (422 « Unsupported
+video link », il faudrait téléverser le fichier).
+
 **Salon admin plus court (27/09, « supprime, ça sert à rien, simplifie tout ça »)** : « Bot redémarré » tient en une ligne et ne
 liste que ce qui devrait tourner et ne tourne pas (plus de « éteint : bump, DocuSeal », plus de « à poser dans Railway ») ; un test
 rendu = un seul message avec la note du bot, ses deux points à corriger et la commande prête (`!test-ok Prénom`), au lieu de

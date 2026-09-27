@@ -186,6 +186,11 @@ async def drive_raccourci(nom: str, cible_id: str, parent_id: str) -> str:
     return r["id"]
 
 
+async def drive_renommer(fichier_id: str, nom: str) -> None:
+    """Renomme un fichier, un dossier ou un raccourci (27/09 : « Reels uniques » → « TOP 20 Reels », « Photos — Chloé » → « Photos »)."""
+    await _appel("PATCH", f"{DRIVE}/files/{fichier_id}", params={**_PARAMS_DRIVES, "fields": "id"}, corps={"name": nom})
+
+
 async def drive_partager(fichier_id: str, email: str, role: str = "reader", prevenir: bool = False) -> str:
     """Partage à une adresse (reader / writer). Renvoie l'identifiant de permission."""
     r = await _appel("POST", f"{DRIVE}/files/{fichier_id}/permissions",

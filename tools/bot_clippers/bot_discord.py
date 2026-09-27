@@ -3786,7 +3786,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!pipeline` · `!tableau` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
                 "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code` · `!recup`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
@@ -6439,6 +6439,17 @@ async def on_ready():
                                  "lire_candidatures": lire_candidatures_sheets, "heure_paris": heure_paris,
                                  "canal_admin": canal_admin, "est_staff": _staff})
         client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
+        client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
+
+        def _email_de_prenom(prenom_e: str) -> str:
+            """L'adresse Gmail connue d'un clipper (liaison du pipeline), pour partager ses sources Drive."""
+            liaisons_e = lire_json(FICHIER_PIPELINE, {"liaisons": {}}).get("liaisons", {})
+            for uid_e, fiche_e in lire_json(FICHIER_EQUIPES, {}).items():
+                m_e = membre_par_id(uid_e)
+                if m_e is not None and normaliser(prenom_de(m_e)) == normaliser(prenom_e):
+                    return liaisons_e.get(uid_e, {}).get("email", "") or fiche_e.get("email", "")
+            return ""
+        client.loop.create_task(onboarding.restructurer_drives(client, roster.groupes(), _email_de_prenom))   # Photos / Reels / TOP 20 (27/09)
         def _clics_7j(prenom):                                               # visites payables des 7 derniers jours du clipper
             m = membre_par_prenom(normaliser(prenom))
             if m is None:
