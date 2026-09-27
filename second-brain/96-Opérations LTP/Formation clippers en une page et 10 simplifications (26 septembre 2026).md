@@ -75,6 +75,9 @@ Les pages [[Kit Clippers - mode d'emploi]] et [[Scripts des 6 Loom de formation 
 
 Ces cibles sont des hypothèses : la seule mesure qui compte est le taux de clippers qui publient à J+7, lu chaque matin dans le rapport `MARKETING` du bot. Le cadre reste celui de la [[Machine horizontale v2 - paie au clic, ce que les clippers rapportent (23 septembre 2026)|paie au clic]] et du [[Machine horizontale v2 - plan de chantier (23 septembre 2026)|plan de chantier du 23/09]] ; le flux d'entrée est celui de la [[Machine de recrutement clippers (100 leads par mois)|machine de recrutement]].
 
+> [!note] Suite
+> Le 27/09, la même méthode a été appliquée au process complet, du recrutement à la sortie : [[Process clippers de bout en bout - 10 simplifications (27 septembre 2026)]].
+
 ## 6. Prochaine action
 
 Tourner la vidéo de 15 minutes sur les 8 blocs de la section 1, avec ton téléphone et le salon perso d'un nouveau à l'écran (Ricado ou Marias), puis remplacer le lien de formation dans le bot. Le reste est déjà en place. Décision journalisée dans le [[Journal de coaching]] avec une prédiction au 10/10.
