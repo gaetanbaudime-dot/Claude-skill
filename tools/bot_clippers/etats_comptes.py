@@ -211,8 +211,9 @@ async def executer(ecrire: bool = True) -> dict:
                     d["bans_auto"][h] = jour
                 elif h in d["bans_auto"]:
                     d["bans_auto"].pop(h, None)
-    # 26/09 : tableau de bord — pour chaque ligne qui a un Gérant, ses visites payables des 7 derniers jours et son lien GAML
-    if ecrire and (_deps.get("clics_7j") or _deps.get("lien_gaml")):
+    # 26/09 : tableau de bord — pour chaque ligne qui a un Gérant, ses visites payables des 7 derniers jours
+    # (le lien GAML de la ligne est tenu par onboarding.liens_classeur depuis le 27/09 : un lien par créatrice)
+    if ecrire and _deps.get("clics_7j"):
         cache = {}
         for c in comptes:
             g = _norm(c["gerant"])
@@ -220,21 +221,22 @@ async def executer(ecrire: bool = True) -> dict:
                 continue
             if g not in cache:
                 try:
-                    cache[g] = (_deps["clics_7j"](c["gerant"]) if _deps.get("clics_7j") else None,
-                                _deps["lien_gaml"](c["gerant"]) if _deps.get("lien_gaml") else None)
+                    cache[g] = _deps["clics_7j"](c["gerant"])
                 except Exception as erreur:                              # noqa: BLE001
-                    journal.warning("Clics/lien de %s : %s", c["gerant"], erreur)
-                    cache[g] = (None, None)
-            clics, lien = cache[g]
+                    journal.warning("Clics de %s : %s", c["gerant"], erreur)
+                    cache[g] = None
+            clics = cache[g]
             try:
                 if clics is not None and onboarding.a_colonne("clics", c.get("onglet", "")) and str(clics) != str(c.get("clics", "")).replace(" ", ""):
                     await _cellule(c, "clics", clics)
                     clics_maj += 1
-                if lien and onboarding.a_colonne("lien_gaml", c.get("onglet", "")) and lien != c.get("lien_gaml", ""):
-                    await _cellule(c, "lien_gaml", lien)
-                    liens_maj += 1
             except Exception as erreur:                                  # noqa: BLE001
-                journal.warning("Classeur : clics/lien de %s non écrits : %s", c["handle"], erreur)
+                journal.warning("Classeur : clics de %s non écrits : %s", c["handle"], erreur)
+    if ecrire:
+        try:
+            liens_maj = (await onboarding.liens_classeur(comptes)).get("ecrits", 0)
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Colonne Lien GAML (états) : %s", erreur)
     if ecrire and _deps.get("reconcilier"):
         try:
             etats_h = {c["handle"].lower(): c["etat"] for c in comptes if c["handle"]}

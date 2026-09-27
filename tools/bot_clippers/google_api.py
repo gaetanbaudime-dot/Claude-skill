@@ -301,12 +301,18 @@ def colonne_lettre(index: int) -> str:
 
 
 async def sheets_proprietes(classeur_id: str) -> dict:
-    """{titre: {"id", "lignes", "colonnes"}} de chaque onglet."""
-    r = await _appel("GET", f"{SHEETS}/{classeur_id}", params={"fields": "sheets(properties(title,sheetId,gridProperties))"})
+    """{titre: {"id", "lignes", "colonnes", "masque"}} de chaque onglet (masque = onglet caché dans Google Sheets)."""
+    r = await _appel("GET", f"{SHEETS}/{classeur_id}", params={"fields": "sheets(properties(title,sheetId,hidden,gridProperties))"})
     return {s["properties"]["title"]: {"id": s["properties"]["sheetId"],
                                        "lignes": int((s["properties"].get("gridProperties") or {}).get("rowCount", 0)),
-                                       "colonnes": int((s["properties"].get("gridProperties") or {}).get("columnCount", 0))}
+                                       "colonnes": int((s["properties"].get("gridProperties") or {}).get("columnCount", 0)),
+                                       "masque": bool(s["properties"].get("hidden"))}
             for s in r.get("sheets", [])}
+
+
+async def sheets_onglets_visibles(classeur_id: str) -> list:
+    """Les titres des onglets non masqués, dans l'ordre du classeur (27/09 : Gaëtan masque Instagram et Backup, le bot les oublie)."""
+    return [t for t, p in (await sheets_proprietes(classeur_id)).items() if not p["masque"]]
 
 
 async def sheets_assurer_colonnes(classeur_id: str, titre: str, minimum: int) -> int:

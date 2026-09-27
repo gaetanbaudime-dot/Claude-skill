@@ -6658,14 +6658,16 @@ async def on_ready():
             await asyncio.sleep(180)                                            # après le roster et les attributions
             try:
                 bilan_tr = await onboarding.verifier_trackings()
+                ligne_li = onboarding.texte_liens(await onboarding.liens_classeur())   # 27/09 : colonne « Lien GAML associé »
             except Exception as erreur:                                         # noqa: BLE001
                 journal.warning("Vérification des trackings : %s", erreur)
                 return
-            if bilan_tr:
+            lignes_tr = list(bilan_tr) + ([ligne_li] if ligne_li else [])
+            if onboarding.bilan_a_poster(lignes_tr, "trackings"):               # 27/09 : posté seulement si ça bouge
                 canal_tr = await canal_admin()
                 if canal_tr is not None:
                     try:
-                        await canal_tr.send(("🔗 **Liens de tracking OnlyFans**\n" + "\n".join(bilan_tr))[:1990])
+                        await canal_tr.send(("🔗 **Liens GAML et trackings OnlyFans**\n" + "\n".join(lignes_tr))[:1990])
                     except (discord.Forbidden, discord.HTTPException):
                         pass
         client.loop.create_task(_trackings_demarrage())                          # carte de chaque lien = tracking de son POD (27/09)
@@ -6695,18 +6697,10 @@ async def on_ready():
             hier = paie_clics._aujourdhui() - timedelta(days=1)
             return int(paie_clics.somme(d_c, lids, hier - timedelta(days=6), hier)["payes"])
 
-        def _lien_gaml(prenom):
-            m = membre_par_prenom(normaliser(prenom))
-            if m is None:
-                return None
-            d_c = paie_clics._lire()
-            urls = [d_c["liens"][l].get("url", "") for l in paie_clics.liens_de(d_c, str(m.id)) if d_c["liens"].get(l, {}).get("url")]
-            return " · ".join(urls) if urls else None
-
         etats_comptes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ETATS": FICHIER_ETATS,
                                   "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager_seul,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
-                                  "clics_7j": _clics_7j, "lien_gaml": _lien_gaml,                  # 26/09 : tableau de bord
+                                  "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e: parcours.reconcilier(client, e)})
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
@@ -7104,13 +7098,16 @@ async def on_message(message):
         if await retro.commande(message, texte):
             return
     if texte.startswith("!trackings") and (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
-        await message.reply("🔗 Je vérifie la carte de chaque lien GAML contre le tracking de son POD…")
+        await message.reply("🔗 Je vérifie la carte de chaque lien GAML contre le tracking de son POD, et la colonne « Lien GAML associé »…")
         try:
             bilan_tr = await onboarding.verifier_trackings()
+            ligne_li = onboarding.texte_liens(await onboarding.liens_classeur())
         except Exception as erreur:                                             # noqa: BLE001
-            bilan_tr = [f"❌ {type(erreur).__name__} {str(erreur)[:120]}"]
-        await message.channel.send(("🔗 **Liens de tracking OnlyFans**\n" + "\n".join(bilan_tr))[:1990] if bilan_tr
-                                   else "✅ Tous les liens de clippers pointent vers le tracking de leur POD.")
+            bilan_tr, ligne_li = [f"❌ {type(erreur).__name__} {str(erreur)[:120]}"], ""
+        lignes_tr = list(bilan_tr) + ([ligne_li] if ligne_li else [])
+        onboarding.bilan_a_poster(lignes_tr, "trackings")
+        await message.channel.send(("🔗 **Liens GAML et trackings OnlyFans**\n" + "\n".join(lignes_tr))[:1990] if lignes_tr
+                                   else "✅ Tous les liens des clippers actifs pointent vers le tracking de leur POD, et la colonne du classeur est juste.")
         return
     if texte.startswith(("!creatrice", "!créatrice")):
         if await commande_creatrice(message, texte):

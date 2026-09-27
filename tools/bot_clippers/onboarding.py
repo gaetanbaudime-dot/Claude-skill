@@ -35,6 +35,7 @@ import codes_2fa
 import drive_agence
 import google_api
 import paie_clics
+import roster
 
 journal = logging.getLogger("onboarding")
 
@@ -172,15 +173,15 @@ def _ecrire_etat(d: dict):
 # ------------------------------------------------------------------ classeur
 async def onglets_logins(forcer: bool = False) -> list:
     """Les onglets du classeur à lire, dans l'ordre du classeur (27/09 : Gaëtan a fait une feuille par créatrice).
-    ONGLET_LOGINS explicite (« Sarah, Sophie ») gagne. Sinon : tous les onglets dont l'en-tête est celui des logins,
-    sauf ONGLETS_EXCLUS (Gaetan, Tracking, Backup…) ; l'ancien onglet global « Instagram » n'est lu que s'il n'y a
-    aucun onglet créatrice. Liste gardée CACHE_ONGLETS_SEC secondes."""
+    ONGLET_LOGINS explicite (« Sarah, Sophie ») gagne. Sinon : tous les onglets visibles dont l'en-tête est celui des
+    logins, sauf ONGLETS_EXCLUS (Gaetan, Tracking, Backup…) et les onglets masqués ; l'ancien onglet global « Instagram »
+    n'est lu que s'il n'y a aucun onglet créatrice. Liste gardée CACHE_ONGLETS_SEC secondes."""
     global _onglets_cache
     if ONGLET_LOGINS and _norm(ONGLET_LOGINS) not in ("auto", "*", "tous", "toutes"):
         return [t.strip() for t in ONGLET_LOGINS.split(",") if t.strip()]
     if not forcer and _onglets_cache["titres"] and time.time() - _onglets_cache["quand"] < CACHE_ONGLETS_SEC:
         return list(_onglets_cache["titres"])
-    titres = [t for t in await google_api.sheets_onglets(CLASSEUR_LOGINS_ID) if _norm(t).strip() not in _exclus()]
+    titres = [t for t in await google_api.sheets_onglets_visibles(CLASSEUR_LOGINS_ID) if _norm(t).strip() not in _exclus()]
     if not titres:
         return []
     en_tetes = await google_api.sheets_lire_plusieurs(CLASSEUR_LOGINS_ID, [f"{onglet_a1(t)}!A1:Z1" for t in titres])
@@ -630,6 +631,10 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     fiche.update({"creatrice": creatrice, "comptes": [c["handle"] for c in comptes], "lien": lien, "drive": drive, "email": email,
                   "date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": declencheur})
     _ecrire_etat(etat)
+    try:
+        await liens_classeur()                                          # 27/09 : la colonne « Lien GAML associé » suit tout de suite
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Colonne Lien GAML après livraison : %s", erreur)
     return f"📦 Onboarding de {membre.display_name} ({creatrice}) : " + " · ".join(resultat)
 
 
@@ -674,6 +679,115 @@ async def message_clipper(message) -> bool:
     return True
 
 
+# ------------------------------------------------------------------ liens GAML dans le classeur
+def _creatrice_du_lien(nom_lien: str, info: dict, url: str, creatrices) -> str:
+    """La créatrice d'un lien GAML, en prénom normalisé : le premier mot de son nom GAML (« Chloé - Clipping Julien »), sinon
+    celle mémorisée à l'attribution, sinon celle dont le prénom est dans le domaine (chloe-callista.fr, sophievan.fr, jadetora.fr)."""
+    cands = {(_norm(x).split() or [""])[0] for x in creatrices if x} - {""}
+    premier = (_norm(nom_lien or "").split() or [""])[0]
+    if premier in cands:
+        return premier
+    memo = (_norm(str((info or {}).get("creatrice") or "")).split() or [""])[0]
+    if memo in cands:
+        return memo
+    domaine = re.sub(r"[^a-z0-9]", "", _norm(re.sub(r"^https?://", "", url or "").split("/")[0]))
+    for cr in sorted(cands, key=len, reverse=True):
+        if cr in domaine:
+            return cr
+    return "" if cands else (premier or memo)
+
+
+def _prenom_du_lien(info: dict) -> str:
+    uid = str((info or {}).get("uid") or "")
+    m = _deps["membre_par_id"](uid) if (uid and _deps.get("membre_par_id")) else None
+    if m is not None and m.display_name.split():
+        return m.display_name.split()[0]
+    return paie_clics._prenom_note((info or {}).get("note"))
+
+
+def _clipper_compte(prenom: str) -> bool:
+    """27/09 (« on s'en fout de ceux qui sont virés ») : les vérifications ne parlent que des clippers du roster actif."""
+    try:
+        return (not roster.actif()) or roster.est_actif(prenom)
+    except Exception:                                                   # noqa: BLE001
+        return True
+
+
+async def liens_classeur(comptes: list = None) -> dict:
+    """27/09 (« c'est le bazar ») : la colonne « Lien GAML associé » de chaque ligne = LE lien du gérant pour la créatrice de la
+    ligne (Julien : son lien Sophie sur ses lignes Sophie, son lien Chloé sur ses lignes Chloé, rien sur ses lignes Maddie) ;
+    deux liens pour la même créatrice → le plus récent ; une cellule vidée quand aucun lien ne correspond. Écrit seulement ce
+    qui change. Renvoie {"ecrits": n, "groupes": {(gérant, créatrice, lien): n}}."""
+    vide = {"ecrits": 0, "groupes": {}}
+    if not (actif() and paie_clics.actif()):
+        return vide
+    if comptes is None:
+        comptes = await lire_comptes()
+    d = paie_clics._lire()
+    try:
+        noms = {l["id"]: str(l.get("name") or "") for l in await paie_clics.liens_gaml() if l.get("id")}
+    except RuntimeError as erreur:
+        journal.warning("Liens GAML illisibles pour le classeur : %s", erreur)
+        noms = {}
+    creatrices = {c["creatrice"] for c in comptes if c.get("creatrice")}
+    par_prenom = {}
+    for lid, info in d.get("liens", {}).items():
+        url = str(info.get("url") or "").strip()
+        prenom = _prenom_du_lien(info)
+        if not url or not prenom:
+            continue
+        cr = _creatrice_du_lien(noms.get(lid, ""), info, url, creatrices)
+        par_prenom.setdefault(_norm(prenom), []).append((cr, url, str(info.get("depuis") or ""), str(lid)))
+    ecrits, groupes = 0, {}
+    for c in comptes:
+        g = _norm(c["gerant"])
+        if not c["handle"] or g in GERANTS_LIBRES or not a_colonne("lien_gaml", c.get("onglet", "")):
+            continue
+        cr = (_norm(c["creatrice"]).split() or [""])[0]
+        liens = par_prenom.get(g, [])
+        cands = [x for x in liens if x[0] == cr] or ([x for x in liens] if len(liens) == 1 and not liens[0][0] else [])
+        voulu = max(cands, key=lambda x: (x[2], x[3]))[1] if cands else ""
+        if voulu == str(c.get("lien_gaml") or "").strip():
+            continue
+        try:
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "lien_gaml"), [[voulu]])
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Classeur : lien GAML de %s non écrit : %s", c["handle"], erreur)
+            continue
+        ecrits += 1
+        cle = (c["gerant"], (c["creatrice"] or c.get("onglet") or "").split()[0] if (c["creatrice"] or c.get("onglet")) else "?", voulu)
+        groupes[cle] = groupes.get(cle, 0) + 1
+    if ecrits:
+        journal.info("Classeur, colonne Lien GAML associé : %d cellule(s) corrigée(s)", ecrits)
+    return {"ecrits": ecrits, "groupes": groupes}
+
+
+def texte_liens(bilan: dict) -> str:
+    """Une ligne pour le salon admin : « 🔗 Lien GAML associé : 12 cellules · Julien / Maddie vidé ×1 · Mie02 / Chloé → chloe-callista.fr/15 ×3 »."""
+    if not bilan.get("ecrits"):
+        return ""
+    morceaux = []
+    for (gerant, cr, lien), n in sorted(bilan["groupes"].items(), key=lambda kv: (-kv[1], kv[0])):
+        cible = lien.split("//")[-1].rstrip("/") if lien else "vidé"
+        morceaux.append(f"{gerant} / {cr} → {cible} ×{n}")
+    return f"🔗 Lien GAML associé : {bilan['ecrits']} cellule(s) · " + " · ".join(morceaux[:8]) + (" · …" if len(morceaux) > 8 else "")
+
+
+def bilan_a_poster(lignes: list, cle: str) -> bool:
+    """Vrai s'il faut poster ce bilan au salon admin : il contient une action (🔧 ❌ 🔗) ou ses avertissements ont changé depuis
+    le dernier bilan posté (27/09 : cinq bilans identiques dans l'après-midi, à chaque redémarrage)."""
+    if not lignes:
+        return False
+    signature = "|".join(sorted(l for l in lignes if l.startswith("⚠️")))
+    etat = _lire_etat()
+    avant = etat.setdefault("bilans", {}).get(cle)
+    action = any(l.startswith(("🔧", "❌", "🔗")) for l in lignes)
+    if signature != avant:
+        etat["bilans"][cle] = signature
+        _ecrire_etat(etat)
+    return action or signature != avant
+
+
 # ------------------------------------------------------------------ le classeur comme télécommande
 async def verifier_trackings() -> list:
     """27/09 : chaque clipper qui a un lien GAML et dont le POD porte un lien de tracking OnlyFans doit avoir CE lien dans la carte
@@ -692,21 +806,22 @@ async def verifier_trackings() -> list:
         if g and _norm(c.get("utilisation") or "").startswith("clipper"):
             par_gerant.setdefault((g, cr), []).append(c)
     try:
-        noms_liens = {l["id"]: (_norm(str(l.get("name") or "")).split() or [""])[0] for l in await paie_clics.liens_gaml() if l.get("id")}
+        noms_liens = {l["id"]: str(l.get("name") or "") for l in await paie_clics.liens_gaml() if l.get("id")}
     except RuntimeError as erreur:
         journal.warning("Liens GAML illisibles pour la vérification : %s", erreur)
         noms_liens = {}
+    creatrices = {c["creatrice"] for c in tous if c.get("creatrice")}
     liens_de_prenom = {}
     for lid, info in d.get("liens", {}).items():
-        uid = str(info.get("uid") or "")
-        m = _deps["membre_par_id"](uid) if (uid and _deps.get("membre_par_id")) else None
-        nom = (m.display_name.split()[0] if m is not None and m.display_name.split() else "") or paie_clics._prenom_note(info.get("note"))
+        nom = _prenom_du_lien(info)
         if not nom:
             continue
-        cr = noms_liens.get(lid) or (_norm(info.get("creatrice") or "").split() or [""])[0]
+        cr = _creatrice_du_lien(noms_liens.get(lid, ""), info, str(info.get("url") or ""), creatrices)
         liens_de_prenom.setdefault(_norm(nom), []).append((lid, cr))
     bilan, corriges = [], 0
     for (prenom_n, cr), comptes in par_gerant.items():
+        if not _clipper_compte(comptes[0].get("gerant") or prenom_n):
+            continue                                                    # parti ou staff : on n'en parle plus (27/09)
         candidats = liens_de_prenom.get(prenom_n) or []
         lids = [lid for lid, c_ in candidats if not cr or not c_ or c_ == cr] or []
         if candidats and not lids:
@@ -817,11 +932,20 @@ async def boucle(client, deps: dict):
                 fiche = etat["clippers"].setdefault(str(membre.id), {})
                 fiche["comptes"] = sorted(set(fiche.get("comptes", [])) | {c["handle"] for c in nouveaux})
                 _ecrire_etat(etat)
+                if creatrice and roster.actif() and not roster.est_actif(prenom):   # 27/09 : Georgial servi par le classeur, absent du roster
+                    try:
+                        roster.ajouter(creatrice.split()[0], prenom)
+                    except Exception as erreur:                         # noqa: BLE001
+                        journal.warning("Roster (télécommande) : %s", erreur)
                 canal = await deps["canal_admin"]()
                 if canal:
                     await canal.send(f"🔐 {len(nouveaux)} compte(s) du classeur livré(s) à {membre.mention} (colonne Gérant).")
         except Exception as erreur:                                 # la boucle ne meurt jamais
             journal.warning("Boucle onboarding : %s", erreur)
+        try:
+            await liens_classeur()                                      # 27/09 : Gérant changé à la main → lien GAML de la ligne à jour
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Colonne Lien GAML (boucle) : %s", erreur)
         await asyncio.sleep(900)
 
 

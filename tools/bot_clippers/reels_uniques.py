@@ -388,7 +388,8 @@ async def commande_staff(message, texte: str) -> bool:
 
 async def demarrage(client) -> list:
     """Au démarrage : les variantes faites avec une recette périmée (v1, miroir possible) sont effacées et refaites, créatrice par
-    créatrice, en tâche de fond ; une ligne au salon admin au début et à la fin."""
+    créatrice, en tâche de fond. Rien au salon admin tant que rien n'est déposé (27/09 : sept lignes « je refais » dans la
+    journée) ; à la fin, seulement les clippers qui ont reçu quelque chose ou une erreur."""
     await client.wait_until_ready()
     if not actif():
         return []
@@ -396,19 +397,14 @@ async def demarrage(client) -> list:
     if not cibles:
         return []
     canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
-    if canal is not None:
-        try:
-            await canal.send("♻️ Reels uniques : recette v2 (plus de miroir, zoom doux). Je refais les variantes de "
-                             + ", ".join(f"{c} ({len(p)})" for c, p in cibles.items()) + " en tâche de fond.")
-        except Exception:                                                   # noqa: BLE001
-            pass
     faits = []
     for creatrice in cibles:
         try:
             bilan = await executer(creatrice, None)
             faits.append((creatrice, bilan))
-            if canal is not None:
-                await canal.send(("♻️ **Reels uniques refaits · " + creatrice + "**\n" + "\n".join(bilan))[:1990])
+            utiles = [l for l in bilan if "déposé" in l or l.startswith("❌")]
+            if canal is not None and utiles:
+                await canal.send(("♻️ **TOP 20 Reels refaits · " + creatrice + "**\n" + "\n".join(utiles))[:1990])
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Reels uniques à refaire (%s) : %s", creatrice, erreur)
     return faits
