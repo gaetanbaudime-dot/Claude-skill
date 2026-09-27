@@ -3,16 +3,20 @@
 Quand un manager attribue une créatrice (`!creatrice @clipper Prénom`), ou quand un nom de clipper
 apparaît dans la colonne Gérant du classeur des logins, le bot livre dans le salon perso du clipper :
 
-  1. ses identités de comptes Instagram (COMPTES_PAR_CLIPPER, 3 par défaut) prises dans l'onglet
-     Instagram du classeur (Utilisation = Clipper, Gérant libre, Créatrice = la sienne), et il écrit son
-     prénom dans la colonne Gérant : le classeur reste la source de vérité, modifiable à la main ;
+  1. ses identités de comptes Instagram (COMPTES_PAR_CLIPPER, 3 par défaut) prises dans le classeur des
+     logins (Utilisation = Clipper, Gérant libre, Créatrice = la sienne), et il écrit son prénom dans la
+     colonne Gérant : le classeur reste la source de vérité, modifiable à la main ;
   2. son lien GAML (cloné depuis un lien « Clipping » de la créatrice si aucun ne lui est attribué) ;
   3. son dossier Drive personnel (photos et Reels de la créatrice), copié et partagé par le script de
      l'agence quand il est déployé (drive_agence.py), sinon rien.
 
-Colonnes de l'onglet Instagram : A ETAT · B @ IG · C MDP · D Followers · E Mail · F Phone · G Gérant ·
-H Utilisation · I Numéro · J Créatrice. Variables : CLASSEUR_LOGINS_ID (obligatoire), ONGLET_LOGINS
-(Instagram), COMPTES_PAR_CLIPPER (3), DRIVE_SOURCES (JSON : {"Chloé": {"parent": id, "sources": [id, …]}}).
+Le classeur (27/09) : **un onglet par créatrice** (Chloé, Sarah, Sophie, Jade, Maddie, Clara…), découverts tout seuls ;
+les onglets Gaetan, Tracking, Backup sont ignorés (ONGLETS_EXCLUS) et l'ancien onglet global « Instagram » n'est lu que
+s'il n'y a aucun onglet créatrice. Colonnes reconnues par leur en-tête : ETAT · @ IG · MDP · Followers · Clics · Mail ·
+Phone · Gérant · Utilisation · Numéro Mail · Créatrice · POD · Lien Infloww Tracking · Lien GAML associé. Une ligne
+sans Créatrice prend le nom de son onglet ; chaque ligne garde son onglet, les écritures y retournent (`cellule`).
+Variables : CLASSEUR_LOGINS_ID (obligatoire), ONGLET_LOGINS (vide = automatique, ou « Sarah, Sophie » pour forcer),
+ONGLETS_EXCLUS, COMPTES_PAR_CLIPPER (3), DRIVE_SOURCES (JSON : {"Chloé": {"parent": id, "sources": [id, …]}}).
 Le module ne connaît pas bot_discord : dépendances dans `demarrer(deps)`.
 """
 
@@ -22,6 +26,7 @@ import logging
 import os
 import re
 import time
+import unicodedata
 from datetime import datetime, timedelta, timezone
 
 import discord
@@ -34,7 +39,13 @@ import paie_clics
 journal = logging.getLogger("onboarding")
 
 CLASSEUR_LOGINS_ID = os.environ.get("CLASSEUR_LOGINS_ID", "").strip()
-ONGLET_LOGINS = os.environ.get("ONGLET_LOGINS", "Instagram").strip() or "Instagram"
+ONGLET_LOGINS = os.environ.get("ONGLET_LOGINS", "").strip()             # 27/09 : vide ou « auto » = un onglet par créatrice, découverts
+ONGLETS_EXCLUS = os.environ.get("ONGLETS_EXCLUS", "Gaetan, Gaëtan, Tracking, Backup, Candidatures, Modèle, Template, Archive")
+ONGLETS_HERITES = ("instagram", "logins", "comptes")                     # l'ancien onglet global : lu seulement sans onglet créatrice
+CACHE_ONGLETS_SEC = 600                                                  # la liste des onglets est relue toutes les 10 minutes
+_onglets_cache = {"quand": 0.0, "titres": []}
+_colonnes_par_onglet = {}
+_doublons_vus = set()
 COMPTES_PAR_CLIPPER = int(os.environ.get("COMPTES_PAR_CLIPPER", "3") or 3)
 GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
 ETATS_DISPONIBLES = {"a creer", "à créer", "good", "warmup", "warm-up", "prive", "privé", "actif", "ok"}
@@ -48,9 +59,7 @@ MOTS_COLONNES = (("etat", ("etat", "statut")), ("handle", ("@", "ig", "compte", 
 _colonnes = dict(COL_DEFAUT)
 
 
-def colonnes(en_tete: list) -> dict:
-    """{champ: index de colonne} d'après la ligne d'en-tête (accents/casse ignorés, premier mot-clé gagnant, une colonne
-    ne sert qu'une fois). Sans en-tête reconnu, l'ordre historique."""
+def _colonnes_trouvees(en_tete: list) -> dict:
     trouve = {}
     pris = set()
     for champ, mots in MOTS_COLONNES:
@@ -64,15 +73,55 @@ def colonnes(en_tete: list) -> dict:
                 trouve[champ] = i
                 pris.add(i)
                 break
+    return trouve
+
+
+def en_tete_reconnu(en_tete: list) -> bool:
+    """Vrai si la ligne d'en-tête est celle d'un onglet de logins (ETAT, @ IG et Gérant repérés)."""
+    return all(k in _colonnes_trouvees(en_tete) for k in ("etat", "handle", "gerant"))
+
+
+def colonnes(en_tete: list) -> dict:
+    """{champ: index de colonne} d'après la ligne d'en-tête (accents/casse ignorés, premier mot-clé gagnant, une colonne
+    ne sert qu'une fois). Sans en-tête reconnu, l'ordre historique."""
+    trouve = _colonnes_trouvees(en_tete)
     if not all(k in trouve for k in ("etat", "handle", "gerant")):
         return dict(COL_DEFAUT)
     return {**COL_DEFAUT, **trouve}
 
 
-def lettre(champ: str) -> str:
-    """La lettre de colonne d'un champ (A, B, …, AA) d'après le dernier en-tête lu."""
-    i = _colonnes.get(champ, COL_DEFAUT.get(champ, 0))
+def lettre(champ: str, onglet: str = "") -> str:
+    """La lettre de colonne d'un champ (A, B, …, AA) d'après l'en-tête de cet onglet (27/09 : Gaëtan peut insérer une
+    colonne dans un onglet et pas dans l'autre), sinon le dernier en-tête lu."""
+    cols = _colonnes_par_onglet.get(onglet) or _colonnes
+    i = cols.get(champ, COL_DEFAUT.get(champ, 0))
     return (chr(64 + i // 26) if i >= 26 else "") + chr(65 + i % 26)
+
+
+def a_colonne(champ: str, onglet: str = "") -> bool:
+    """L'onglet a-t-il cette colonne (clics, lien_gaml… ne sont écrits que si l'en-tête les porte) ?"""
+    return champ in (_colonnes_par_onglet.get(onglet) or _colonnes)
+
+
+def onglet_a1(titre: str) -> str:
+    """Le nom d'onglet tel qu'il s'écrit dans une plage A1 : Instagram tel quel, « 'Chloé' » entre apostrophes dès
+    qu'il y a un accent, un espace ou un signe (apostrophes internes doublées)."""
+    if re.fullmatch(r"[A-Za-z0-9_]+", titre or ""):
+        return titre
+    return "'" + (titre or "").replace("'", "''") + "'"
+
+
+def cellule(c: dict, champ: str) -> str:
+    """La plage A1 d'une cellule d'une ligne lue par lire_comptes : « 'Sarah'!G12 ». L'écriture retourne toujours dans
+    l'onglet d'où vient la ligne."""
+    onglet = c.get("onglet") or _onglet_par_defaut()
+    return f"{onglet_a1(onglet)}!{lettre(champ, onglet)}{c['ligne']}"
+
+
+def _onglet_par_defaut() -> str:
+    if ONGLET_LOGINS and _norm(ONGLET_LOGINS) not in ("auto", "*", "tous", "toutes"):
+        return ONGLET_LOGINS.split(",")[0].strip()
+    return (_onglets_cache["titres"] or ["Instagram"])[0]
 RE_PRIVE = re.compile(r"priv|secret|onlyme|perso")                 # handle d'un compte privé (le 3e du trio)
 JOURS_NOUVEAU = int(os.environ.get("ONBOARDING_JOURS_NOUVEAU", "45") or 45)   # un membre arrivé depuis moins longtemps est « nouveau »
 A_CREER = ("a creer", "à créer")
@@ -92,7 +141,14 @@ def actif() -> bool:
 
 
 def _norm(t: str) -> str:
-    return _deps["normaliser"](t or "") if _deps.get("normaliser") else (t or "").strip().lower()
+    if _deps.get("normaliser"):
+        return _deps["normaliser"](t or "")
+    t = unicodedata.normalize("NFD", (t or "").strip().lower())            # même règle que bot_discord : sans accents, minuscules
+    return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+
+def _exclus() -> set:
+    return {_norm(t).strip() for t in ONGLETS_EXCLUS.split(",") if t.strip()}
 
 
 def _sources() -> dict:
@@ -114,25 +170,83 @@ def _ecrire_etat(d: dict):
 
 
 # ------------------------------------------------------------------ classeur
-async def lire_comptes() -> list:
-    """Toutes les lignes de l'onglet (index de ligne 1-based inclus), colonnes reconnues par leur en-tête, cellules
-    manquantes complétées."""
-    global _colonnes
-    lignes = await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!A1:Z")
-    if not lignes:
+async def onglets_logins(forcer: bool = False) -> list:
+    """Les onglets du classeur à lire, dans l'ordre du classeur (27/09 : Gaëtan a fait une feuille par créatrice).
+    ONGLET_LOGINS explicite (« Sarah, Sophie ») gagne. Sinon : tous les onglets dont l'en-tête est celui des logins,
+    sauf ONGLETS_EXCLUS (Gaetan, Tracking, Backup…) ; l'ancien onglet global « Instagram » n'est lu que s'il n'y a
+    aucun onglet créatrice. Liste gardée CACHE_ONGLETS_SEC secondes."""
+    global _onglets_cache
+    if ONGLET_LOGINS and _norm(ONGLET_LOGINS) not in ("auto", "*", "tous", "toutes"):
+        return [t.strip() for t in ONGLET_LOGINS.split(",") if t.strip()]
+    if not forcer and _onglets_cache["titres"] and time.time() - _onglets_cache["quand"] < CACHE_ONGLETS_SEC:
+        return list(_onglets_cache["titres"])
+    titres = [t for t in await google_api.sheets_onglets(CLASSEUR_LOGINS_ID) if _norm(t).strip() not in _exclus()]
+    if not titres:
         return []
-    _colonnes = colonnes(lignes[0])
+    en_tetes = await google_api.sheets_lire_plusieurs(CLASSEUR_LOGINS_ID, [f"{onglet_a1(t)}!A1:Z1" for t in titres])
+    reconnus = [t for t, bloc in zip(titres, en_tetes) if bloc and en_tete_reconnu(bloc[0])]
+    creatrices = [t for t in reconnus if _norm(t).strip() not in ONGLETS_HERITES]
+    retenus = creatrices or [t for t in reconnus if _norm(t).strip() in ONGLETS_HERITES]
+    if retenus != _onglets_cache["titres"]:
+        journal.info("Classeur des logins : onglets lus → %s", ", ".join(retenus) or "aucun")
+    _onglets_cache = {"quand": time.time(), "titres": list(retenus)}
+    return list(retenus)
+
+
+async def lire_comptes() -> list:
+    """Toutes les lignes de tous les onglets créatrices (index de ligne 1-based et nom d'onglet inclus), colonnes reconnues
+    par leur en-tête onglet par onglet, cellules manquantes complétées. Une ligne sans Créatrice prend le nom de son onglet."""
+    global _colonnes
+    titres = await onglets_logins()
+    if not titres:
+        return []
+    if len(titres) == 1:
+        blocs = [await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titres[0])}!A1:Z")]
+    else:
+        blocs = await google_api.sheets_lire_plusieurs(CLASSEUR_LOGINS_ID, [f"{onglet_a1(t)}!A1:Z" for t in titres])
     out = []
-    for i, l in enumerate(lignes[1:], start=2):
-        l = (l + [""] * 26)[:26]
-        def champ(nom):
-            return l[_colonnes[nom]].strip() if nom in _colonnes else ""
-        out.append({"ligne": i, "etat": champ("etat"), "handle": champ("handle").lstrip("@"), "mdp": champ("mdp"),
-                    "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
-                    "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
-                    "creatrice": champ("creatrice"), "lien_gaml": champ("lien_gaml"), "pod": champ("pod"),
-                    "lien_infloww": champ("lien_infloww")})
-    return out
+    for titre, lignes in zip(titres, blocs):
+        if not lignes:
+            continue
+        cols = colonnes(lignes[0])
+        _colonnes_par_onglet[titre] = cols
+        if titre == titres[0]:
+            _colonnes = cols
+        herite = _norm(titre).strip() in ONGLETS_HERITES
+        for i, l in enumerate(lignes[1:], start=2):
+            l = (l + [""] * 26)[:26]
+            def champ(nom):
+                return l[cols[nom]].strip() if nom in cols else ""
+            out.append({"onglet": titre, "ligne": i, "etat": champ("etat"), "handle": champ("handle").lstrip("@"), "mdp": champ("mdp"),
+                        "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
+                        "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
+                        "creatrice": champ("creatrice") or ("" if herite else titre), "lien_gaml": champ("lien_gaml"),
+                        "pod": champ("pod"), "lien_infloww": champ("lien_infloww")})
+    return _sans_doublons(out)
+
+
+def _sans_doublons(lignes: list) -> list:
+    """Un même handle présent sur deux onglets (copier-coller entre feuilles) : on garde les lignes de l'onglet de SA
+    créatrice, sinon celles du premier onglet ; avertissement une fois. Les doublons à l'intérieur d'un onglet restent."""
+    global _doublons_vus
+    par_handle = {}
+    for c in lignes:
+        if c["handle"]:
+            par_handle.setdefault(c["handle"].lower(), []).append(c)
+    ecartes, doublons = set(), set()
+    for h, cs in par_handle.items():
+        onglets = {c["onglet"] for c in cs}
+        if len(onglets) < 2:
+            continue
+        doublons.add(h)
+        chez_elle = [c for c in cs if _norm(c["creatrice"]).split() and _norm(c["onglet"]).startswith(_norm(c["creatrice"]).split()[0])]
+        garde = (chez_elle or cs)[0]["onglet"]
+        ecartes.update(id(c) for c in cs if c["onglet"] != garde)
+    if doublons and doublons != _doublons_vus:
+        journal.warning("Classeur : %d compte(s) présent(s) sur plusieurs onglets, seule la ligne de l'onglet de la créatrice compte : %s",
+                        len(doublons), ", ".join(sorted(doublons)[:10]))
+    _doublons_vus = doublons
+    return [c for c in lignes if id(c) not in ecartes]
 
 
 def tracking_du_pod(tous: list, comptes: list) -> tuple:
@@ -211,8 +325,8 @@ async def marquer_etat(handle: str, etat: str) -> bool:
             if _norm(c["etat"]) == _norm(etat):
                 return True
             try:
-                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('etat')}{c['ligne']}", [[etat]])
-                journal.info("Classeur : %s → %s (ligne %s)", c["handle"], etat, c["ligne"])
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "etat"), [[etat]])
+                journal.info("Classeur : %s → %s (%s, ligne %s)", c["handle"], etat, c.get("onglet") or "?", c["ligne"])
                 return True
             except Exception as erreur:
                 journal.warning("Classeur : état de %s non écrit : %s", c["handle"], erreur)
@@ -256,7 +370,7 @@ async def reserver(comptes: list, prenom_clipper: str) -> int:
     """Écrit le prénom du clipper dans la colonne Gérant de chaque ligne. Renvoie le nombre de cellules écrites."""
     n = 0
     for c in comptes:
-        n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('gerant')}{c['ligne']}", [[prenom_clipper]])
+        n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[prenom_clipper]])
     return n
 
 
@@ -632,7 +746,11 @@ async def boucle(client, deps: dict):
     if not actif():
         journal.info("Onboarding par classeur inactif (CLASSEUR_LOGINS_ID / compte de service absents)")
         return
-    journal.info("Onboarding par classeur actif (%s, %s comptes par clipper)", ONGLET_LOGINS, COMPTES_PAR_CLIPPER)
+    try:
+        onglets = ", ".join(await onglets_logins()) or "aucun onglet reconnu"
+    except Exception as erreur:                                     # noqa: BLE001
+        onglets = f"onglets illisibles : {erreur}"
+    journal.info("Onboarding par classeur actif (%s ; %s comptes par clipper)", onglets, COMPTES_PAR_CLIPPER)
     while not client.is_closed():
         try:
             etat = _lire_etat()
@@ -722,10 +840,10 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     etat = _lire_etat()
     bilan = []
     for c in lignes:
-        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('gerant')}{c['ligne']}", [[""]])
+        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])
         metricool = _norm(c["etat"]) not in A_CREER and not pool
         if metricool:
-            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{ONGLET_LOGINS}!{lettre('utilisation')}{c['ligne']}", [[MENTION_LIBERE]])
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "utilisation"), [[MENTION_LIBERE]])
         h = c["handle"].lower()
         etat["livres"].pop(h, None)
         etat.get("ecartes", {}).pop(h, None)
@@ -773,6 +891,7 @@ async def commande_staff(message, texte: str) -> bool:
                           + (" ⚠️ ajoute des e-mails (iCloud « Masquer mon adresse ») avant le prochain clipper" if livrables < 3 else ""))
         lignes.append("-# Un compte est « libre » quand Utilisation = Clipper, Gérant vide ou x/y/z, état à créer / GOOD / WARMUP / PRIVÉ / ACTIF. "
                       "Un compte à créer sans e-mail n'est pas livré (25/09) : impossible à créer sur Instagram ni à relayer en 2FA.")
+        lignes.append(f"-# Onglets lus : {', '.join(await onglets_logins()) or 'aucun'}.")
         await message.reply("\n".join(lignes)[:1990])
         return True
     if mots[0].lower() in ("!liberer", "!libérer"):

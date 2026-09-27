@@ -261,6 +261,17 @@ async def sheets_lire(classeur_id: str, plage: str) -> list:
     return [[("" if c is None else str(c)) for c in ligne] for ligne in r.get("values", [])]
 
 
+async def sheets_lire_plusieurs(classeur_id: str, plages: list) -> list:
+    """Plusieurs plages en un seul appel (values:batchGet) : une liste de lignes par plage, dans l'ordre demandé
+    (27/09 : un onglet par créatrice dans le classeur des logins, six lectures en une)."""
+    if not plages:
+        return []
+    params = [("ranges", p) for p in plages] + [("valueRenderOption", "UNFORMATTED_VALUE"), ("dateTimeRenderOption", "FORMATTED_STRING")]
+    r = await _appel("GET", f"{SHEETS}/{classeur_id}/values:batchGet", params=params)
+    blocs = r.get("valueRanges", [])
+    return [[[("" if c is None else str(c)) for c in ligne] for ligne in b.get("values", [])] for b in blocs]
+
+
 async def sheets_ecrire(classeur_id: str, plage: str, valeurs: list) -> int:
     r = await _appel("PUT", f"{SHEETS}/{classeur_id}/values/{_plage(plage)}",
                      params={"valueInputOption": "USER_ENTERED"}, corps={"values": valeurs})

@@ -182,14 +182,14 @@ async def executer(ecrire: bool = True) -> dict:
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     changements, followers_maj, clics_maj, liens_maj = [], 0, 0, 0
     ids_suivis = {id(c) for c in suivis}
-    async def _cellule(champ, ligne, valeur):
-        await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, f"{onboarding.ONGLET_LOGINS}!{onboarding.lettre(champ)}{ligne}", [[valeur]])
+    async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
+        await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
     for c in lignes:
         h = c["handle"].lower()
         m = mesures.get(h) or {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0}
         if ecrire and m["existe"] and not m["restreint"] and str(m["followers"]) != str(c.get("followers", "")).replace(" ", ""):
             try:
-                await _cellule("followers", c["ligne"], m["followers"])
+                await _cellule(c, "followers", m["followers"])
                 followers_maj += 1
             except Exception as erreur:                                  # noqa: BLE001
                 journal.warning("Classeur : followers de %s non écrits : %s", c["handle"], erreur)
@@ -203,7 +203,7 @@ async def executer(ecrire: bool = True) -> dict:
             changements.append((c["handle"], c["gerant"], c["etat"], apres, c["ligne"]))
             if ecrire:
                 try:
-                    await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, f"{onboarding.ONGLET_LOGINS}!A{c['ligne']}", [[apres]])
+                    await _cellule(c, "etat", apres)
                 except Exception as erreur:                              # noqa: BLE001
                     journal.warning("Classeur : état de %s non écrit : %s", c["handle"], erreur)
                     continue
@@ -227,11 +227,11 @@ async def executer(ecrire: bool = True) -> dict:
                     cache[g] = (None, None)
             clics, lien = cache[g]
             try:
-                if clics is not None and "clics" in onboarding._colonnes and str(clics) != str(c.get("clics", "")).replace(" ", ""):
-                    await _cellule("clics", c["ligne"], clics)
+                if clics is not None and onboarding.a_colonne("clics", c.get("onglet", "")) and str(clics) != str(c.get("clics", "")).replace(" ", ""):
+                    await _cellule(c, "clics", clics)
                     clics_maj += 1
-                if lien and "lien_gaml" in onboarding._colonnes and lien != c.get("lien_gaml", ""):
-                    await _cellule("lien_gaml", c["ligne"], lien)
+                if lien and onboarding.a_colonne("lien_gaml", c.get("onglet", "")) and lien != c.get("lien_gaml", ""):
+                    await _cellule(c, "lien_gaml", lien)
                     liens_maj += 1
             except Exception as erreur:                                  # noqa: BLE001
                 journal.warning("Classeur : clics/lien de %s non écrits : %s", c["handle"], erreur)
