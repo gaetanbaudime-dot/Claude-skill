@@ -197,8 +197,8 @@ s'ouvre tout de suite (`accepter_conditions(uid, "site")` : rôle, registre, sal
 écrire. Un validé passé avant la case reçoit les règles en MP avec le bouton persistant « ✅ J'accepte, on y va »
 (`BoutonAccepte`, custom_id `accepte:<uid>`) ; le mot J'ACCEPTE tapé marche toujours. Au démarrage, une fois par personne,
 les validés encore en attente reçoivent le bouton (`bouton_accepte` dans le pipeline). **Attribution automatique des
-créatrices (27/09, `attribution.py`)** : dès l'acceptation, le clipper reçoit la créatrice suivante de la rotation
-`ATTRIBUTION_ORDRE` (défaut « Sophie,Sarah,Chloé,Clara,Jade ») avec tout ce que `!creatrice` faisait ; une créatrice sans
+créatrices (27/09, `attribution.py`)** : dès l'acceptation, le clipper reçoit la créatrice suivante de la séquence pondérée
+`ATTRIBUTION_ORDRE` (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:2,Clara:1,Maddie:1 » : trois d'affilée chez Chloé, trois chez Sarah, trois chez Sophie, deux chez Jade, un chez Clara, un chez Maddie, puis on recommence ; un ordre changé remet le compteur au début) avec tout ce que `!creatrice` faisait ; une créatrice sans
 catégorie ni rôle sur le serveur est sautée et signalée ; au démarrage (après `ATTRIBUTION_DELAI_DEMARRAGE_SEC`, 120 s),
 les signés présents sans créatrice sont rattrapés un par un, `ATTRIBUTION_PAUSE_SEC` (90 s) entre deux ; `ATTRIBUTION_AUTO=0`
 éteint ; état et historique dans `attribution.json`. **Tableau de bord du lundi (27/09, `tableau_bord.py`)** : le lundi

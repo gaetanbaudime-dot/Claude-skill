@@ -2895,7 +2895,7 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
         await notifier_manager(
             f"✍️ **{membre_a.mention} a accepté les conditions {'International' if grille_acc == 'mg' else 'France (sans contrat)'}** ({origine}) → "
             + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`.")
-            + ("\n🎬 Créatrice : **attribution automatique en cours** (ordre " + " > ".join(attribution.ORDRE) + ")." if auto else
+            + ("\n🎬 Créatrice : **attribution automatique en cours** (" + attribution.ordre_texte() + ")." if auto else
                f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`**.")
             + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
         await inputs_clippers.envoyer_telegram(f"✍️ Conditions acceptées ({origine}) : {membre_a.display_name} (Team {'International' if grille_acc == 'mg' else 'France'})"

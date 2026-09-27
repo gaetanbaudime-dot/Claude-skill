@@ -1,10 +1,13 @@
-"""Attribution automatique des créatrices (27/09, décision de Gaëtan) : « dans l'ordre Sophie > Sarah > Chloé > Clara >
-Jade, une par une ». Dès qu'un clipper accepte les règles, il reçoit la créatrice suivante de la rotation et tout ce que
-`!creatrice` faisait (salon perso, pseudo, rôles, comptes du classeur, lien, Drive, alias 2FA, parcours). Au démarrage,
-les signés présents sur le serveur sans créatrice sont rattrapés un par un, avec une pause entre deux.
+"""Attribution automatique des créatrices (27/09, décision de Gaëtan). Ordre final du 27/09 au soir, PONDÉRÉ :
+« Chloé (3) > Sarah (3) > Sophie (3) > Jade (2) > Clara (1) > Maddie (1) » — trois nouveaux d'affilée chez Chloé, puis trois
+chez Sarah, trois chez Sophie, deux chez Jade, un chez Clara, un chez Maddie, et on recommence. Dès qu'un clipper accepte
+les règles, il reçoit la créatrice suivante de la séquence et tout ce que `!creatrice` faisait (salon perso, pseudo, rôles,
+comptes du classeur, lien, Drive, alias 2FA, parcours). Au démarrage, les signés présents sans créatrice sont rattrapés un
+par un, avec une pause entre deux.
 
-Ordre : ATTRIBUTION_ORDRE (défaut « Sophie,Sarah,Chloé,Clara,Jade »). Une créatrice sans catégorie ni rôle sur le
-serveur est sautée (et dite au salon admin). ATTRIBUTION_AUTO=0 éteint tout. État dans DONNEES/attribution.json."""
+Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:2,Clara:1,
+Maddie:1 » ; sans poids = 1). Une créatrice sans catégorie ni rôle sur le serveur est sautée (et dite au salon admin). Un
+changement d'ordre remet le compteur au début. ATTRIBUTION_AUTO=0 éteint tout. État dans DONNEES/attribution.json."""
 
 import asyncio
 import os
@@ -14,7 +17,37 @@ import discord
 
 journal = __import__("logging").getLogger("bot_clippers")
 
-ORDRE = [c.strip() for c in os.environ.get("ATTRIBUTION_ORDRE", "Sophie,Sarah,Chloé,Clara,Jade").split(",") if c.strip()]
+ORDRE_TEXTE = os.environ.get("ATTRIBUTION_ORDRE", "Chloé:3,Sarah:3,Sophie:3,Jade:2,Clara:1,Maddie:1")
+ORDRE, POIDS, SEQUENCE = [], {}, []
+
+
+def definir_ordre(texte: str) -> list:
+    """« Chloé:3,Sarah:3,Sophie:3,Jade:2,Clara:1,Maddie:1 » → ORDRE (noms uniques), POIDS, SEQUENCE (13 positions)."""
+    global ORDRE_TEXTE
+    ORDRE_TEXTE = texte
+    ORDRE.clear(); POIDS.clear(); SEQUENCE.clear()
+    for morceau in texte.split(","):
+        nom, _, poids = morceau.strip().partition(":")
+        nom = nom.strip()
+        if not nom:
+            continue
+        try:
+            n = max(1, int(poids.strip() or 1))
+        except ValueError:
+            n = 1
+        if nom not in ORDRE:
+            ORDRE.append(nom)
+        POIDS[nom] = POIDS.get(nom, 0) + n
+    for nom in ORDRE:
+        SEQUENCE.extend([nom] * POIDS[nom])
+    return SEQUENCE
+
+
+definir_ordre(ORDRE_TEXTE)
+
+
+def ordre_texte() -> str:
+    return " > ".join(f"{c} ×{POIDS[c]}" if POIDS[c] > 1 else c for c in ORDRE)
 ACTIF = os.environ.get("ATTRIBUTION_AUTO", "1").strip() != "0"
 PAUSE_SEC = int(os.environ.get("ATTRIBUTION_PAUSE_SEC", "90"))
 _deps = {}
@@ -65,21 +98,25 @@ def _existe(guild, creatrice: str) -> bool:
 
 
 def prochaine(guild) -> tuple:
-    """La créatrice suivante de la rotation (et une note si des créatrices ont été sautées). Avance l'index."""
+    """La créatrice suivante de la séquence pondérée (et une note si des créatrices ont été sautées). Avance l'index ;
+    un ordre changé (ATTRIBUTION_ORDRE) remet l'index au début."""
     e = _etat()
-    n = len(ORDRE)
+    if e.get("ordre") != ORDRE_TEXTE:
+        e["ordre"], e["index"] = ORDRE_TEXTE, 0
+    n = len(SEQUENCE)
     sautees = []
     for k in range(n):
         i = (int(e.get("index", 0)) + k) % n
-        if _existe(guild, ORDRE[i]):
+        if _existe(guild, SEQUENCE[i]):
             e["index"] = (i + 1) % n
             _ecrire(e)
-            return ORDRE[i], (" · sautée(s), sans catégorie ni rôle sur le serveur : " + ", ".join(sautees)) if sautees else ""
-        sautees.append(ORDRE[i])
+            uniques = list(dict.fromkeys(sautees))
+            return SEQUENCE[i], (" · sautée(s), sans catégorie ni rôle sur le serveur : " + ", ".join(uniques)) if uniques else ""
+        sautees.append(SEQUENCE[i])
     i = int(e.get("index", 0)) % n
     e["index"] = (i + 1) % n
     _ecrire(e)
-    return ORDRE[i], " · ⚠️ aucune créatrice de l'ordre n'a de catégorie ni de rôle sur le serveur"
+    return SEQUENCE[i], " · ⚠️ aucune créatrice de l'ordre n'a de catégorie ni de rôle sur le serveur"
 
 
 def sans_creatrice(membre) -> bool:
@@ -114,7 +151,7 @@ async def attribuer(membre, via: str) -> str:
     admin = await _deps["canal_admin"]()
     if admin is not None:
         try:
-            await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto) · {bilan_court(bilan)}{note}")[:1990])
+            await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
         except (discord.Forbidden, discord.HTTPException):
             pass
     return creatrice
