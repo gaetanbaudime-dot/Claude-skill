@@ -6656,6 +6656,7 @@ async def on_ready():
                                  "canal_admin": canal_admin, "est_staff": _staff})
         client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
         client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
+        client.loop.create_task(reels_uniques.boucle(client))                   # TOP 20 de chaque créatrice décliné pour tout son roster (27/09)
         client.loop.create_task(salons_candidats_recents())                     # salon perso dès l'arrivée : rattrapage (27/09)
         client.loop.create_task(entretien_candidatures_sheet())                 # lignes à la suite + note /8 (27/09)
 

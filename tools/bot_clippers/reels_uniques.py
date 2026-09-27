@@ -386,6 +386,49 @@ async def commande_staff(message, texte: str) -> bool:
     return True
 
 
+_verrou = None                                                                  # une seule déclinaison à la fois (boucle, démarrage, nouveau)
+BOUCLE_SEC = int(os.environ.get("REELS_UNIQUES_BOUCLE_SEC", str(6 * 3600)) or 6 * 3600)
+
+
+def _lock():
+    global _verrou
+    if _verrou is None:
+        _verrou = asyncio.Lock()
+    return _verrou
+
+
+def creatrices_a_decliner() -> list:
+    """Les créatrices du roster (celles qui ont des clippers), dans l'ordre du roster."""
+    try:
+        return [c for c, noms in _deps["roster"].groupes().items() if noms]
+    except Exception:                                                       # noqa: BLE001
+        return []
+
+
+async def boucle(client):
+    """27/09 (Gaëtan a déposé les TOP 20 des six créatrices) : 4 minutes après le démarrage puis toutes les BOUCLE_SEC secondes,
+    chaque clipper actif reçoit dans son dossier « TOP 20 Reels » les variantes des vidéos qu'il n'a pas encore ; un TOP 20
+    complété ou remplacé est donc décliné sans commande. Au salon admin : seulement ce qui a été déposé."""
+    await client.wait_until_ready()
+    if not actif():
+        return
+    await asyncio.sleep(240)
+    while not client.is_closed():
+        for creatrice in creatrices_a_decliner():
+            try:
+                async with _lock():
+                    bilan = await executer(creatrice, None)
+                utiles = [l for l in bilan if "déposé" in l or l.lstrip().startswith("❌")]
+                if utiles:
+                    journal.info("TOP 20 Reels · %s : %s", creatrice, " | ".join(utiles)[:400])
+                    canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                    if canal is not None:
+                        await canal.send(("🎬 **TOP 20 Reels déclinés · " + creatrice + "**\n" + "\n".join(utiles))[:1990])
+            except Exception as erreur:                                     # noqa: BLE001
+                journal.warning("Boucle TOP 20 Reels (%s) : %s", creatrice, erreur)
+        await asyncio.sleep(BOUCLE_SEC)
+
+
 async def demarrage(client) -> list:
     """Au démarrage : les variantes faites avec une recette périmée (v1, miroir possible) sont effacées et refaites, créatrice par
     créatrice, en tâche de fond. Rien au salon admin tant que rien n'est déposé (27/09 : sept lignes « je refais » dans la
@@ -400,7 +443,8 @@ async def demarrage(client) -> list:
     faits = []
     for creatrice in cibles:
         try:
-            bilan = await executer(creatrice, None)
+            async with _lock():
+                bilan = await executer(creatrice, None)
             faits.append((creatrice, bilan))
             utiles = [l for l in bilan if "déposé" in l or l.startswith("❌")]
             if canal is not None and utiles:
@@ -415,7 +459,8 @@ async def pour_nouveau(prenom: str, creatrice: str) -> None:
     if not actif():
         return
     try:
-        bilan = await executer(creatrice, [prenom])
+        async with _lock():
+            bilan = await executer(creatrice, [prenom])
         canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
         # 27/09 : un dossier TOP 20 absent ou une source non configurée ne fait plus un message par clipper (Gaëtan le sait) —
         # journal seulement ; le salon admin ne voit que ce qui a été produit.

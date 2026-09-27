@@ -179,7 +179,7 @@ TOP 20 ont des sous-titres incrustés, un miroir les écrit à l'envers), le zoo
 pas rogner un sous-titre ; chaque variante passe un **contrôle qualité** ffprobe (1080×1920, durée cohérente avec la coupe et la
 vitesse, piste audio conservée, recette sans miroir) et une variante défaillante n'est pas déposée. Les variantes faites avec
 l'ancienne recette (`versions` dans `reels_uniques.json`) sont **effacées et refaites au démarrage** (`demarrage`, suppression
-par le script de l'agence, sinon par le compte de service), et `!reels-uniques Créatrice refaire` force la même chose. Le
+par le script de l'agence, sinon par le compte de service), et `!reels-uniques Créatrice refaire` force la même chose. Le **Boucle automatique (27/09 soir)** : 4 minutes après le démarrage puis toutes les 6 heures (`REELS_UNIQUES_BOUCLE_SEC`), le bot décline le TOP 20 de chaque créatrice du roster pour tous ses clippers qui ont un dossier Drive, seulement les vidéos qui manquent encore ; un TOP 20 complété est donc repris sans commande, et le salon admin ne voit que les dépôts. Une seule déclinaison tourne à la fois (verrou partagé avec le démarrage et l'onboarding d'un nouveau).
 sous-dossier du clipper s'appelle **« TOP 20 Reels »** (un ancien « Reels uniques » est renommé). **Structure du dossier de
 chaque clipper** (`onboarding.dossier_drive`, posée pour tout le roster au démarrage une fois, `restructurer_drives`) : des
 raccourcis « Photos », « Reels », « Stories » vers les sources de la créatrice (rien de copié, partagés à son Gmail dès qu'il
