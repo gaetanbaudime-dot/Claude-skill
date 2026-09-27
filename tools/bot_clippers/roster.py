@@ -380,7 +380,7 @@ async def supprimer_salons(client) -> list:
                     ch = client.get_channel(int(sid))
                     if ch is not None and ch not in cibles:
                         cibles.append(ch)
-        if not cibles and not uids:
+        if not cibles:                                                  # aucun salon : rien à faire, rien à dire
             continue
         detail = []
         for c in cibles:

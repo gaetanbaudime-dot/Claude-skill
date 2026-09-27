@@ -274,6 +274,21 @@ async def sheets_ajouter(classeur_id: str, plage: str, lignes: list) -> int:
     return int(r.get("updates", {}).get("updatedRows", 0))
 
 
+async def sheets_effacer(classeur_id: str, plage: str) -> None:
+    """Vide les valeurs d'une plage (27/09 : compactage de l'onglet des candidatures)."""
+    await _appel("POST", f"{SHEETS}/{classeur_id}/values/{_plage(plage)}:clear", corps={})
+
+
+def colonne_lettre(index: int) -> str:
+    """0 → A, 25 → Z, 26 → AA."""
+    lettres = ""
+    n = index + 1
+    while n:
+        n, r = divmod(n - 1, 26)
+        lettres = chr(65 + r) + lettres
+    return lettres
+
+
 async def sheets_onglets(classeur_id: str) -> list:
     r = await _appel("GET", f"{SHEETS}/{classeur_id}", params={"fields": "sheets(properties(title,sheetId,gridProperties))"})
     return [s["properties"]["title"] for s in r.get("sheets", [])]

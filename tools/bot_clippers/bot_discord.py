@@ -1562,11 +1562,131 @@ async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
                 entete = ["Horodatage", "Source"] + [q.get("label", q.get("id", "")) for q in questions]
                 await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A1", [entete])
             _entete_candidatures_faite = True
-        ligne = [heure_paris().strftime("%d/%m/%Y %H:%M"), source] + [reponses.get(q.get("id", ""), "") for q in questions]
-        await google_api.sheets_ajouter(SHEET_CANDIDATURES_ID, f"{onglet}!A1", [ligne])
-        journal.info("Candidature sauvegardée dans le classeur (%s)", source)
+        # 27/09 (Gaëtan) : la colonne Source dit d'où vient le candidat (sa réponse « sur quel réseau as-tu vu l'annonce »),
+        # pas le canal technique ; la ligne va À LA SUITE des autres (l'ajout Google tombait après les 1 000 lignes vides
+        # de la Table) ; et chaque candidature reçoit sa note sur 8 et ses points.
+        origine = (str(reponses.get("source", "")).strip() + (" · " + str(reponses.get("source_detail", "")).strip()
+                                                            if str(reponses.get("source_detail", "")).strip() else "")).strip(" ·")
+        ligne = [heure_paris().strftime("%d/%m/%Y %H:%M"), origine or source] + [reponses.get(q.get("id", ""), "") for q in questions]
+        rang = await _premiere_ligne_vide(onglet)
+        await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A{rang}", [ligne])
+        journal.info("Candidature sauvegardée dans le classeur (ligne %d, %s)", rang, origine or source)
+        try:
+            await noter_candidatures_sheet([onglet])
+        except Exception as erreur:                                   # noqa: BLE001
+            journal.warning("Notation de la candidature : %s", erreur)
     except Exception as erreur:                                       # jamais bloquer une candidature pour la sauvegarde
         journal.warning("Sauvegarde candidature Sheet : %s", erreur)
+
+
+async def _premiere_ligne_vide(onglet: str) -> int:
+    """La première ligne vide APRÈS le bloc de données sous l'en-tête (colonne A) — jamais après les lignes vides d'une Table."""
+    colonne = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A2:A")
+    for i, r in enumerate(colonne):
+        if not (r and str(r[0]).strip()):
+            return i + 2
+    return len(colonne) + 2
+
+
+async def noter_candidatures_sheet(onglets=None, tout: bool = False) -> dict:
+    """27/09 (Gaëtan : « attribue une notation à chaque réponse de candidature ») : deux colonnes « Note /8 » et « Points » au bout
+    de chaque onglet, remplies d'après `score_candidature` (iPhone, ≥ 2 téléphones, expérience, monte déjà, ≥ 2 Reels/j, ≥ 3 h/j,
+    connaît les bans, majeur). Sur l'onglet du site, la colonne Source prend la réponse « sur quel réseau as-tu vu l'annonce »
+    quand elle vaut encore « web ». Écrit seulement ce qui manque ou change. Renvoie {onglet: nombre de lignes notées}."""
+    if not (SHEET_CANDIDATURES_ID and google_api.actif()):
+        return {}
+    bilan = {}
+    for onglet in (onglets or [o for o in (SHEET_CANDIDATURES_FORM_ONGLET, SHEET_CANDIDATURES_ONGLET) if o]):
+        try:
+            brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:AD")
+        except Exception as erreur:                                        # noqa: BLE001
+            journal.warning("Notation %s : %s", onglet, erreur)
+            continue
+        if not brut:
+            continue
+        en_tete = [str(x) for x in brut[0]]
+        cols = _colonnes_candidature(en_tete)
+        i_note = next((i for i, h in enumerate(en_tete) if normaliser(h).startswith("note")), None)
+        i_pts = next((i for i, h in enumerate(en_tete) if normaliser(h).startswith("points")), None)
+        if i_note is None or i_pts is None:
+            i_note, i_pts = len(en_tete), len(en_tete) + 1
+            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!{google_api.colonne_lettre(i_note)}1", [["Note /8", "Points"]])
+        i_source = next((i for i, h in enumerate(en_tete) if normaliser(h).strip() == "source"), None)
+        i_annonce = cols.get("annonce")
+        notes, sources, n = [], [], 0
+        for r in brut[1:]:
+            r = [str(x) for x in r] + [""] * 40
+            if not any(x.strip() for x in r[:6]):
+                notes.append(["", ""]); sources.append([r[i_source] if i_source is not None else ""])
+                continue
+            c = {champ: r[i].strip() for champ, i in cols.items()}
+            points, raisons = score_candidature(c)
+            actuelle = (r[i_note].strip(), r[i_pts].strip())
+            nouvelle = (str(points), ", ".join(raisons))
+            if tout or actuelle != nouvelle:
+                n += 1
+            notes.append([nouvelle[0], nouvelle[1]])
+            src = r[i_source].strip() if i_source is not None else ""
+            annonce = r[i_annonce].strip() if i_annonce is not None else ""
+            sources.append([annonce if (src.lower() in ("", "web") and annonce) else src])
+        if not notes:
+            continue
+        if n:
+            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID,
+                                           f"{onglet}!{google_api.colonne_lettre(i_note)}2:{google_api.colonne_lettre(i_pts)}{len(notes) + 1}", notes)
+        if i_source is not None and onglet == SHEET_CANDIDATURES_ONGLET and any(s_[0] != (str(r[i_source]) if len(r) > i_source else "")
+                                                                             for s_, r in zip(sources, brut[1:])):
+            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID,
+                                           f"{onglet}!{google_api.colonne_lettre(i_source)}2:{google_api.colonne_lettre(i_source)}{len(sources) + 1}", sources)
+        bilan[onglet] = n
+    return bilan
+
+
+async def compacter_candidatures_sheet() -> int:
+    """27/09 : les lignes de l'onglet du site tombées après les 1 000 lignes vides de la Table remontent à la suite des autres.
+    Renvoie le nombre de lignes déplacées."""
+    if not (SHEET_CANDIDATURES_ID and google_api.actif() and SHEET_CANDIDATURES_ONGLET):
+        return 0
+    onglet = SHEET_CANDIDATURES_ONGLET
+    brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:AD")
+    if len(brut) < 2:
+        return 0
+    largeur = max(len(r) for r in brut)
+    donnees = [i for i, r in enumerate(brut[1:], start=2) if any(str(x).strip() for x in r[:6])]
+    if not donnees:
+        return 0
+    compact = list(range(2, 2 + len(donnees)))
+    if donnees == compact:
+        return 0
+    lignes = [[str(x) for x in brut[i - 1]] + [""] * (largeur - len(brut[i - 1])) for i in donnees]
+    await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A2", lignes)
+    fin = max(donnees)
+    if fin > len(lignes) + 1:
+        await google_api.sheets_effacer(SHEET_CANDIDATURES_ID, f"{onglet}!A{len(lignes) + 2}:{google_api.colonne_lettre(largeur - 1)}{fin}")
+    deplacees = sum(1 for i in donnees if i not in compact)
+    journal.info("Onglet %s compacté : %d ligne(s) remontée(s)", onglet, deplacees)
+    return deplacees
+
+
+async def entretien_candidatures_sheet():
+    """Au démarrage (27/09) : compactage de l'onglet du site, puis notation des deux onglets. Une ligne au salon admin si quelque
+    chose a bougé."""
+    await client.wait_until_ready()
+    try:
+        deplacees = await compacter_candidatures_sheet()
+        bilan = await noter_candidatures_sheet()
+    except Exception as erreur:                                            # noqa: BLE001
+        journal.warning("Entretien du classeur des candidatures : %s", erreur)
+        return
+    total = sum(bilan.values())
+    if deplacees or total:
+        canal = await canal_admin()
+        if canal is not None:
+            try:
+                await canal.send(f"📋 Classeur des candidatures : {deplacees} ligne(s) remontée(s) à la suite · {total} note(s) écrite(s) "
+                                 f"({' · '.join(f'{o} {n}' for o, n in bilan.items())}).")
+            except (discord.Forbidden, discord.HTTPException):
+                pass
 
 
 def membre_par_prenom(prenom_n: str):
@@ -6530,6 +6650,7 @@ async def on_ready():
         client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
         client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
         client.loop.create_task(salons_candidats_recents())                     # salon perso dès l'arrivée : rattrapage (27/09)
+        client.loop.create_task(entretien_candidatures_sheet())                 # lignes à la suite + note /8 (27/09)
         retro.configurer({"client": client, "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "retro.json",
                           "FICHIER_FAQ_APPRISE": FICHIER_FAQ_APPRISE, "FICHIER_CONSIGNES": DONNEES / "consignes_apprises.json",
                           "salons_persos": salons_persos_actifs, "canal_admin": canal_admin, "heure_paris": heure_paris,
