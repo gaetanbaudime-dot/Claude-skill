@@ -359,10 +359,14 @@ def memoire(uid: str) -> str:
         regime = paie_clics.regime(uid)
     except Exception:
         regime = "?"
+    # 27/09 : le nombre de comptes CRÉÉS se déduit de l'étape (étape 1 = aucun, 2 = un, 3 = deux, 4 et plus = trois) —
+    # l'assistant disait « continue sur tes deux autres comptes » à Daniella qui n'en avait qu'un.
+    crees = 3 if n >= 4 else max(0, n - 1)
     lignes = [f"Clipper : {nom} (Discord {uid}) · créatrice : {creatrice} · signé le {str(equipes.get('date', ''))[:10] or '?'} "
               f"· paie : {regime}",
               f"Étape en cours : {titre}" + (f" (depuis le {date_etape})" if date_etape else "")
-              + (f" · warm-up jour {fiche_p['warmup_jour']}/{WARMUP_JOURS}" if fiche_p.get("warmup_jour") else "")]
+              + (f" · warm-up jour {fiche_p['warmup_jour']}/{WARMUP_JOURS}" if fiche_p.get("warmup_jour") else ""),
+              f"Comptes créés : {crees} sur 3" + (" — les autres n'existent pas encore, n'en parle pas" if crees < 3 else "")]
     if onb.get("comptes"):
         lignes.append("Comptes Instagram : " + ", ".join(onb["comptes"]) + " (mots de passe déjà dans le salon, ne jamais les redonner)")
     if onb.get("lien"):
@@ -527,7 +531,11 @@ def contexte_llm(uid: str) -> str:
             "Le lien : bio du compte privé et story à la une seulement, jamais dans un Reel ni en rafale dans les stories. "
             "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
             "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
-            "Trois lignes maximum, et finis toujours par « 👉 Prochaine étape : … ». `!code` ne donne QUE les codes reçus par "
+            "Trois lignes maximum. La ligne « 👉 Prochaine étape : … » seulement si elle dit autre chose que l'étape déjà "
+            "affichée dans le salon avec son bouton. Aucune question inutile (modèle de téléphone, « dis-moi quand c'est "
+            "fait »). Tu ne parles que des comptes CRÉÉS d'après la mémoire : jamais « tes deux autres comptes » s'ils "
+            "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
+            "mot de passe modifié » = « Mot de passe oublié » puis `!recup` ici. `!code` ne donne QUE les codes reçus par "
             "e-mail. Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
             "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
             "Jamais de « compte prêt à l'emploi », jamais « ton manager a une autre solution » : si tu ne sais pas, renvoie vers "

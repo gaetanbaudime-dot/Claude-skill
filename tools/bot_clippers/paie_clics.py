@@ -270,6 +270,10 @@ def ligne_matin(d: dict, uid: str) -> str:
         return ""
     debut, fin = periode_en_cours()
     q = somme(d, lids, debut, min(fin, hier))
+    if not h["payes"] and not q["payes"]:
+        # 27/09 : « Visites hier : 0 · quinzaine : 0 = 0,00 $ » chez un clipper qui crée encore ses comptes, c'est du
+        # bruit (Daniella). Rien à dire tant qu'il n'y a rien ; `!mesclics` reste là, et le bilan manager voit les zéros.
+        return ""
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
     au_clic = regime(uid) == "clic"
     montant = f" = {_usd(q['payes'] * TAUX_CLIC)}" if au_clic else ""

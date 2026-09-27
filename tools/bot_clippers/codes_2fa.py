@@ -26,6 +26,7 @@ import imaplib
 import json
 import os
 import re
+import time
 import unicodedata
 from datetime import datetime, timedelta, timezone
 from email.header import decode_header, make_header
@@ -43,6 +44,10 @@ IMAP_PASSWORD = os.environ.get("CODES_IMAP_PASSWORD", "").strip()
 IMAP_DOSSIER = os.environ.get("CODES_IMAP_DOSSIER", "INBOX").strip() or "INBOX"
 ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 INTERVALLE = int(os.environ.get("CODES_INTERVALLE_SEC", "45"))
+# 27/09 (Daniella, 22:13) : « Code » tapé juste après « Envoyer le code » → « pas de code depuis 2 heures », puis le code
+# posté une seconde plus tard par la boucle. `!code` attend maintenant jusqu'à ATTENTE_SEC que le mail arrive.
+ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "60"))
+ATTENTE_PAS = int(os.environ.get("CODES_ATTENTE_PAS_SEC", "15"))
 IMAP_TIMEOUT = int(os.environ.get("CODES_IMAP_TIMEOUT_SEC", "30"))
 # Mots attendus dans le SUJET d'un mail de code (Meta en envoie aussi sur les connexions, les
 # nouveautés, la sécurité…) : un mail sans l'un d'eux ne relaie jamais un nombre pris au hasard.
@@ -313,28 +318,72 @@ async def commande(message, admin_ids) -> bool:
         return True
     # Un code de récupération sert à un appel ou à « mot de passe oublié » : on remonte plus loin (6 h) qu'un 2FA (2 h).
     fenetre = 360 if recup else 120
+
+    def _filtrer(trouves):
+        return [t for t in trouves if t["code"] and t["alias"] in cibles and (not recup or t.get("type") == TYPE_RECUP)]
+
     try:
-        trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, fenetre), timeout=IMAP_TIMEOUT * 3)
+        codes = _filtrer(await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, fenetre), timeout=IMAP_TIMEOUT * 3))
     except Exception as erreur:
         journal.warning("IMAP : %s", erreur)
         await message.reply("⚠️ Je n'arrive pas à lire la boîte mail. Réessaie dans 2 minutes. Si ça continue, dis-le à ton manager.")
         return True
-    codes = [t for t in trouves if t["code"] and t["alias"] in cibles
-             and (not recup or t.get("type") == TYPE_RECUP)]
+    attente = None
+    if not codes and ATTENTE_SEC > 0:                          # le mail met 10 à 40 s : on attend avant de dire non
+        attente = await message.reply("⏳ Pas encore reçu. J'attends une minute…")
+        debut = time.monotonic()
+        while time.monotonic() - debut < ATTENTE_SEC:
+            await asyncio.sleep(ATTENTE_PAS)
+            try:
+                codes = _filtrer(await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, fenetre), timeout=IMAP_TIMEOUT * 3))
+            except Exception as erreur:
+                journal.warning("IMAP (attente) : %s", erreur)
+                codes = []
+            if codes:
+                break
+
+    async def _dire(texte):
+        if attente is not None and hasattr(attente, "edit"):
+            try:
+                await attente.edit(content=texte)
+                return
+            except Exception:                                  # noqa: BLE001 — message supprimé, on renvoie
+                pass
+        await message.reply(texte)
+
     if not codes:
-        adresses = ', '.join(f'`{a}`' for a in cibles)
+        pour = f" pour `{cibles[0]}`" if len(cibles) == 1 and len(mots) >= 2 else " pour tes adresses"
         if recup:
-            await message.reply(f"Je n'ai pas de code de récupération depuis 6 heures pour {adresses}. "
-                                "Sur Instagram : « Mot de passe oublié » ou « Faire appel », choisis l'e-mail, "
-                                "puis `!recup`. Le code arrive ici en moins d'une minute.")
+            await _dire(f"Pas de code de récupération depuis 6 h{pour}. Sur Instagram : « Mot de passe oublié » "
+                        "ou « Faire appel », choisis l'e-mail, puis retape `!recup`.")
         else:
-            await message.reply(f"Je n'ai pas de code depuis 2 heures pour {adresses}. "
-                                "Sur Instagram, appuie sur « Renvoyer le code ». Il arrive ici en moins d'une minute.")
-    else:
-        derniers = {}
-        for t in codes:                                        # le plus récent par adresse ET par type (connexion / récupération)
-            derniers[(t["alias"], t.get("type", TYPE_CONNEXION))] = t
-        await message.reply("\n".join(ligne_code(t) for t in derniers.values()))
+            await _dire(f"Pas de code reçu depuis 2 h{pour}. Sur Instagram, appuie sur « Renvoyer le code », "
+                        "puis retape `!code`.")
+        return True
+    derniers = {}
+    for t in codes:                                            # le plus récent par adresse ET par type (connexion / récupération)
+        derniers[(t["alias"], t.get("type", TYPE_CONNEXION))] = t
+    # La boucle poste aussi les codes non lus : un code donné ici est noté comme relayé et marqué lu, sinon il
+    # arrivait deux fois (la commande, puis la boucle 45 s plus tard). Posté par la boucle pendant l'attente → on le dit.
+    registre = _lire()
+    deja = registre.setdefault("_relayes", {})
+    lignes, nouveaux = [], []
+    for t in derniers.values():
+        cle_r = f"{t['alias']}|{t['code']}"
+        if attente is not None and cle_r in deja:
+            lignes.append("✅ Le code est posté juste au-dessus.")
+            continue
+        lignes.append(ligne_code(t))
+        if t.get("num") and cle_r not in deja:
+            nouveaux.append(t["num"])
+            deja[cle_r] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    await _dire("\n".join(lignes))
+    if nouveaux:
+        _ecrire(registre)
+        try:
+            await asyncio.wait_for(asyncio.to_thread(_marquer_lus, nouveaux), timeout=IMAP_TIMEOUT * 2)
+        except Exception as erreur:                             # noqa: BLE001
+            journal.warning("Marquage lu après !code : %s", erreur)
     return True
 
 

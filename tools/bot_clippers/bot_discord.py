@@ -288,9 +288,11 @@ ne sais pas — jamais de délai, de montant, de date ou de règle qui ne soit p
 base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LES \
 CRÉNEAUX DE CRÉATION DE COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; la base \
 curée prime toujours sur la « FAQ apprise » qui la suit.
-4. Termine chaque réponse par UNE ligne « 👉 Prochaine étape : … » : le geste précis à faire \
-maintenant, et la fiche à ouvrir si elle aide (ex. « 👉 Prochaine étape : ouvre la Fiche 2 et fais \
-tes 10 minutes de Reels »). Rien d'autre après cette ligne, pas d'étiquette de source.
+4. Une ligne « 👉 Prochaine étape : … » ferme ta réponse SEULEMENT si elle dit autre chose que le message \
+d'étape déjà posté dans le salon : le geste précis à faire maintenant, et la fiche à ouvrir si elle aide \
+(ex. « 👉 Prochaine étape : ouvre la Fiche 2 et fais tes 10 minutes de Reels »). Si la prochaine étape \
+est déjà affichée avec son bouton ✅, tu t'arrêtes après la réponse. Rien d'autre après cette ligne, pas \
+d'étiquette de source.
 4ter. La bonne fiche selon le sujet : créer un compte, identifiants, téléphone cloud, \
 numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; warm-up, 24 h par compte, \
 comptes à suivre → Fiche 2 ; monter un Reel, hook, sous-titres, caption, miniature, musique, \
@@ -356,7 +358,23 @@ recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
 21. Tu n'inventes jamais une solution, un salon, une commande ou une personne : seuls ceux de la base \
 existent. Si le problème dépasse la base (compte bloqué, numéro refusé, appli qui plante, rien ne marche \
 après deux essais), tu dis d'écrire à Gaëtan sur WhatsApp : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"} \
-— en se présentant (prénom, créatrice), avec le problème en une phrase et une capture d'écran. Rien d'autre."""
+— en se présentant (prénom, créatrice), avec le problème en une phrase et une capture d'écran. Rien d'autre.
+22. Tu ne poses AUCUNE question dont la réponse ne change rien pour toi : jamais « iPhone ou Android ? », \
+jamais « dis-moi quand c'est fait » (le bouton ✅ C'est fait existe), jamais « reviens me dire ». Une seule \
+question à la fois, seulement si tu en as besoin pour répondre. Quand le clipper dit juste « ok », « merci », \
+« d'accord », tu ne réponds pas.
+23. Tu ne donnes JAMAIS la cause d'un blocage : tu ne la connais pas. Tu donnes la marche à suivre. \
+« Déconnecté, le propriétaire a modifié son mot de passe » : appuie sur « Mot de passe oublié », choisis \
+l'e-mail du compte, écris `!recup` ici pour le code, remets le mot de passe du message de comptes ; si \
+Instagram le refuse, un nouveau, écrit ici pour le manager. « Compte en révision », « suspendu », \
+« nous examinons » : ne clique sur rien, capture, WhatsApp Gaëtan. Jamais « c'est normal », jamais \
+« sécurisé par l'agence », jamais « ton manager te donne une solution demain ».
+24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
+message de comptes (le compte existe peut-être déjà). Si ça échoue, créer avec un point ou un chiffre en \
+plus à la fin, et écrire ici le pseudo exact créé pour que le manager mette le classeur à jour. Tu n'inventes \
+jamais de pseudo.
+25. Tu ne parles que des comptes CRÉÉS d'après la mémoire du clipper (« Comptes créés : N sur 3 »). \
+Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
@@ -594,6 +612,50 @@ def doit_repondre(message) -> bool:
     if sp is not None and sp.id == canal.id and not (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
         return True
     return client.user in message.mentions
+
+
+ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccord", "dac", "dacc", "dak", "ca", "marche",
+                  "merci", "bcp", "beaucoup", "mrc", "parfait", "super", "top", "bien", "recu", "compris", "note", "c'est",
+                  "cest", "vu", "yes", "oui", "entendu", "genial", "nickel", "cool", "thanks", "thx", "je", "vais", "faire",
+                  "le", "la", "les", "ca", "tout", "de", "suite", "maintenant", "tres", "et", "a", "plus", "tard", "bonne",
+                  "journee", "nuit", "soiree", "bonjour", "bonsoir", "salut", "coucou", "hello"}
+
+
+def est_acquiescement(texte: str) -> bool:
+    """« Okey d'accord », « Okey merci », « 👍 » : un accusé de réception, pas une question (27/09, salon de Daniella :
+    chaque « ok » déclenchait trois lignes qui redisaient l'étape). Cinq mots au plus, tous dans la liste ; un message
+    fait d'emojis seuls compte aussi."""
+    t = (texte or "").strip()
+    if not t or t.startswith("!"):
+        return False
+    mots = re.findall(r"[a-z0-9']+", normaliser(t))
+    if not mots:
+        return True                                           # emojis ou ponctuation seuls
+    return len(mots) <= 5 and all(m in ACQUIESCEMENTS for m in mots) and ("?" not in t)
+
+
+def mentionne_humain(message) -> bool:
+    """Le message mentionne un membre humain (« @Gaëtan et je fais quoi ? ») sans mentionner le bot : ce n'est pas
+    au bot de répondre (27/09 : il répondait à la place de Gaëtan, et le contraire)."""
+    mentions = list(getattr(message, "mentions", []) or [])
+    bot_id = getattr(getattr(client, "user", None), "id", None)
+    if any(getattr(m, "id", None) == bot_id for m in mentions):
+        return False
+    return any(not getattr(m, "bot", False) for m in mentions)
+
+
+async def staff_a_parle(message, minutes: int = 30) -> bool:
+    """Le dernier message humain du salon avant celui-ci vient d'un admin ou d'un manager, il y a moins de
+    `minutes` : le bot se tait (27/09 : Gaëtan dit « mets ton numéro », le bot redit « jamais ton numéro »)."""
+    try:
+        async for ancien in message.channel.history(limit=8, before=message):
+            if ancien.author.id == message.author.id or getattr(ancien.author, "bot", False):
+                continue
+            age = (datetime.now(timezone.utc) - ancien.created_at).total_seconds() / 60
+            return age <= minutes and (str(ancien.author.id) in ADMIN_IDS or est_manager(ancien.author))
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    return False
 
 
 def contexte_auteur(message) -> str:
@@ -6938,6 +7000,20 @@ async def on_message(message):
 
     sp_q = salon_perso_de(utilisateur) if message.guild is not None else None
     en_salon_perso = sp_q is not None and sp_q.id == message.channel.id
+    if en_salon_perso:
+        # 27/09 (relecture du salon de Daniella) : moins de bruit. Un « ok », « merci », « d'accord » reçoit un 👍,
+        # pas trois lignes qui redisent l'étape ; un message adressé à un humain (@Gaëtan) n'est pas pour le bot ;
+        # et quand le manager vient de parler, le bot se tait sauf question.
+        if est_acquiescement(texte) and not message.attachments:
+            try:
+                await message.add_reaction("👍")
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+            return
+        if mentionne_humain(message):
+            return
+        if "?" not in texte and await staff_a_parle(message):
+            return
     if not en_salon_perso and quota_atteint(utilisateur):               # 26/09 : jamais de quota dans son salon perso (Daniella coupée à 30)
         await message.reply(f"Tu as posé beaucoup de questions aujourd'hui ({QUESTIONS_MAX_PAR_JOUR} max). "
                             "Regarde le Loom ou le canal #faq, et reviens demain !")

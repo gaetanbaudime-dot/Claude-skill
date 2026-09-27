@@ -143,6 +143,20 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Moins de bruit dans le salon perso (27/09, relecture du salon de Daniella)** : un « ok », « merci », « d'accord »
+ou un emoji seul reçoit un 👍 et rien d'autre (`est_acquiescement`) ; un message qui mentionne un humain (« @Gaëtan et je
+fais quoi ? ») n'est pas pour le bot (`mentionne_humain`) ; quand un admin ou un manager a parlé dans le salon il y a moins
+de 30 minutes, le bot se tait sauf question (`staff_a_parle`). L'assistant ne pose plus de question inutile (« iPhone ou
+Android ? », « dis-moi quand c'est fait »), ne ferme sa réponse par « 👉 Prochaine étape » que si elle diffère de l'étape
+déjà affichée, ne donne jamais la cause d'un blocage (règle 23 : « déconnecté, mot de passe modifié » = « Mot de passe
+oublié » puis `!recup` ; « en révision » = capture + WhatsApp), n'invente pas de pseudo quand celui du classeur est pris
+(règle 24 : se connecter d'abord, sinon un point ou un chiffre en plus et le pseudo exact écrit dans le salon), et ne
+parle que des comptes créés (règle 25, la mémoire porte « Comptes créés : N sur 3 »). `!code` / `!recup` attendent le
+mail jusqu'à `CODES_ATTENTE_SEC` (60 s, pas de `CODES_ATTENTE_PAS_SEC` 15 s) avant de dire non, en éditant leur message
+« ⏳ Pas encore reçu » ; un code donné par la commande est noté relayé et marqué lu, la boucle ne le reposte plus ; le
+message « pas de code » ne liste plus les adresses. La ligne du matin « Visites hier : 0 · quinzaine : 0 » n'est plus
+envoyée tant que tout est à zéro.
+
 **Codes de récupération (27/09)** : Instagram envoie « 956472 is your Instagram recovery code » quand on
 fait « mot de passe oublié » ou quand on **fait appel** pour un compte banni. Le mail suit le même chemin
 que le 2FA (même alias, même boîte, même salon) mais le bot le reconnaît au sujet (`recovery`, `récupér`,

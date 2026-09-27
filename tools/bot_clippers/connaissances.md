@@ -323,6 +323,12 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **C'est quoi un code de récupération, et `!recup` ?** Instagram envoie un code de récupération quand on fait « mot de passe oublié » ou quand on fait appel pour un compte bloqué. Il arrive sur l'e-mail du compte, donc dans ton salon perso, comme les autres codes. Le bot l'appelle « code de récupération ». Tu peux le redemander avec `!recup`. Il ne remplace pas le code de connexion : pour te connecter, c'est `!code`.
 
+**Instagram m'a déconnecté : « le propriétaire du compte a modifié son mot de passe » ?** Personne ne sait pourquoi, et ce n'est pas grave. Appuie sur « Mot de passe oublié ». Choisis l'e-mail du compte. Écris `!recup` dans ton salon : je te donne le code. Remets le mot de passe de ton message de comptes. Instagram le refuse ? Choisis-en un nouveau et écris-le dans ton salon pour ton manager.
+
+**Le pseudo du classeur est « déjà utilisé » ?** D'abord, essaie de te connecter avec cet identifiant et le mot de passe de ton message de comptes : le compte existe peut-être déjà. Ça ne marche pas ? Crée le compte avec le pseudo plus un point ou un chiffre à la fin. Puis écris dans ton salon le pseudo exact que tu as créé. Ton manager met le classeur à jour.
+
+**Instagram dit « compte en révision », « nous examinons », « suspendu » ?** Ne clique sur rien. Ne crée rien. Capture l'écran. Écris à Gaëtan sur WhatsApp avec ton prénom, ta créatrice et la capture. Le bot ne connaît pas la cause, il ne l'invente pas.
+
 **Mon compte est banni, on peut faire appel ?** Oui, mais jamais seul. Ton manager décide et fait l'appel avec toi, depuis l'appli : « Contester la décision ». Instagram demande un code : il arrive dans ton salon, ou avec `!recup`. Pas de ruse, pas de faux papiers, pas de compte neuf avec le même e-mail : c'est ce qui fait bannir les autres comptes.
 
 **Instagram me demande un numéro de téléphone ?** Mets le tien et reçois le SMS. Un numéro ne sert que pour tes 3 comptes. Jamais un numéro « temporaire » ou « jetable » (Temp Number, Receive SMS et compagnie) : c'est le meilleur moyen d'être banni. Le numéro est refusé ou tout bloque ? Écris à Gaëtan sur WhatsApp, le bot te donne le lien : ton prénom, ta créatrice, le problème en une phrase, une capture.
