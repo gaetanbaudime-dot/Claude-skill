@@ -245,6 +245,14 @@ async def executer(ecrire: bool = True) -> dict:
             await _deps["reconcilier"](etats_h)
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation des parcours : %s", erreur)
+    if ecrire and _deps.get("deposer") and _deps.get("salon_de_prenom"):        # 27/09 : « Reels d'hier » du message du matin
+        for prenom, texte_r in lignes_reels(comptes, d["historique"], jour).items():
+            try:
+                sid = _deps["salon_de_prenom"](prenom)
+                if sid:
+                    _deps["deposer"](sid, "reels", texte_r)
+            except Exception as erreur:                                      # noqa: BLE001
+                journal.warning("Reels du matin pour %s : %s", prenom, erreur)
     if ecrire:
         d["dernier"] = jour
         d["version"] = VERSION
@@ -252,6 +260,28 @@ async def executer(ecrire: bool = True) -> dict:
     journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers, %d clics, %d liens mis à jour",
                  len(lignes), len(changements), followers_maj, clics_maj, liens_maj)
     return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj}
+
+
+def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
+    """{prénom du gérant: ligne du matin} — les publications apparues sur ses comptes (Utilisation = Clipper) entre le scan
+    précédent et celui de `jour` (27/09 : les Inputs clippers sont éteints, la ligne « Reels d'hier » vient d'ici)."""
+    par = {}
+    for c in comptes:
+        g = str(c.get("gerant") or "").strip()
+        h = str(c.get("handle") or "").lower()
+        if not h or not g or _norm(g) in ("", "x", "y", "z") or _norm(c.get("utilisation") or "") != "clipper":
+            continue
+        entrees = [e for e in historique.get(h, []) if e.get("existe")]
+        auj = next((e for e in entrees if e.get("jour") == jour), None)
+        if auj is None:
+            continue
+        avant = [e for e in entrees if str(e.get("jour") or "") < jour]
+        prev = int((avant[-1].get("posts") if avant else 0) or 0)
+        delta = max(0, int(auj.get("posts") or 0) - prev)
+        p = par.setdefault(g.split()[0], {"n": 0, "comptes": 0})
+        p["n"] += delta
+        p["comptes"] += 1
+    return {prenom: f"🎬 Hier : {p['n']} publication(s) sur tes comptes." + (" ✅" if p["n"] >= 2 else "") for prenom, p in par.items()}
 
 
 def texte_bilan(bilan: dict, test: bool = False) -> str:

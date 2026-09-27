@@ -5486,6 +5486,11 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     # ---- Inputs clippers : !comptes (cartographie) et !inputs (scrape à la demande) ----
+    if texte.split()[0].lower() in ("!comptes", "!inputs", "!primes") and not inputs_clippers.ACTIF:
+        await message.reply("⏹️ Inputs clippers éteints depuis le 27/09 (ancien système : cadence, primes, acomptes). "
+                            "Les états et followers viennent du classeur (`!etats-comptes`), la paie du clic (`!paie-clics`). "
+                            "`INPUTS_CLIPPERS=1` dans Railway pour rallumer.")
+        return True
     if texte.startswith("!comptes"):
         if message.guild is None:
             await message.reply("À lancer depuis un salon du serveur.")
@@ -6645,6 +6650,7 @@ async def on_ready():
         client.loop.create_task(attribution.rattraper(client))                  # signés sans créatrice : un par un (27/09)
         tableau_bord.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "tableau_bord.json",
                                  "FICHIER_PIPELINE": FICHIER_PIPELINE, "inputs_lire": lambda: inputs_clippers._lire({"historique": {}}),
+                                 "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,   # 27/09 : premier Reel depuis Apify du classeur
                                  "JOURNAL_PAIEMENTS": JOURNAL_PAIEMENTS, "paie_lire": paie_clics._lire,
                                  "lire_candidatures": lire_candidatures_sheets, "heure_paris": heure_paris,
                                  "canal_admin": canal_admin, "est_staff": _staff})
@@ -6697,7 +6703,13 @@ async def on_ready():
             hier = paie_clics._aujourdhui() - timedelta(days=1)
             return int(paie_clics.somme(d_c, lids, hier - timedelta(days=6), hier)["payes"])
 
+        def _salon_de_prenom(prenom):                                        # 27/09 : le salon perso d'un prénom, pour « Reels d'hier »
+            m = membre_par_prenom(normaliser(prenom))
+            s = salon_perso_de(str(m.id)) if m is not None else None
+            return getattr(s, "id", s)
+
         etats_comptes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ETATS": FICHIER_ETATS,
+                                  "deposer": matin.deposer, "salon_de_prenom": _salon_de_prenom,
                                   "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager_seul,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
@@ -6706,7 +6718,7 @@ async def on_ready():
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
                           "prenom_salon": prenom_du_salon,                          # 26/09 : « Bonjour Maxence » chez Daniella
-                          "inputs_actifs": lambda: bool(inputs_clippers.APIFY_TOKEN)})
+                          "inputs_actifs": lambda: inputs_clippers.ACTIF and bool(inputs_clippers.APIFY_TOKEN)})
         inputs_clippers.DEPOSER = matin.deposer
         parcours._deps["deposer"] = matin.deposer
         client.loop.create_task(matin.boucle(client))                           # un seul message du matin par clipper (26/09)
@@ -6741,11 +6753,14 @@ async def on_ready():
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
             "salon_perso": salon_perso_de,
             "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves}))
-        client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
-            client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
-            debuts_fn=debuts_clippers, notifier=notifier_manager,
-            canal_rapport_async=canal_manager,                   # le quotidien va au manager (14/09)
-            subs_fn=lambda: lire_json(FICHIER_SUBS, {}).get(heure_paris().strftime("%Y-%m"), {})))
+        if inputs_clippers.ACTIF:
+            client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
+                client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
+                debuts_fn=debuts_clippers, notifier=notifier_manager,
+                canal_rapport_async=canal_manager,                   # le quotidien va au manager (14/09)
+                subs_fn=lambda: lire_json(FICHIER_SUBS, {}).get(heure_paris().strftime("%Y-%m"), {})))
+        else:
+            journal.info("Inputs clippers éteints (ancien système, décision du 27/09) — INPUTS_CLIPPERS=1 pour rallumer")
 
 
 async def annoncer_demarrage():
@@ -6767,7 +6782,7 @@ async def annoncer_demarrage():
     # 27/09 (Gaëtan : « supprime, ça sert à rien ») : une ligne. Seul ce qui DEVRAIT tourner et ne tourne pas est dit ;
     # les modules éteints par décision (bump, DocuSeal) et les variables optionnelles ne sont plus listés.
     eteintes = []
-    if not inputs_clippers.APIFY_TOKEN:
+    if inputs_clippers.ACTIF and not inputs_clippers.APIFY_TOKEN:
         eteintes.append("suivi des inputs (APIFY_TOKEN)")
     if not codes_2fa.actif():
         eteintes.append("relais des codes (CODES_IMAP_*)")

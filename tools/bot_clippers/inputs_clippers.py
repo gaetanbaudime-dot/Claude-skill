@@ -34,6 +34,7 @@ journal = __import__("logging").getLogger("bot_clippers")
 
 # ------------------------------------------------------------------ configuration
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "").strip()
+ACTIF = os.environ.get("INPUTS_CLIPPERS", "0").strip() == "1"        # 27/09 (Gaëtan) : ancien système, éteint ; INPUTS_CLIPPERS=1 pour rallumer
 ACTOR_IG = os.environ.get("APIFY_ACTOR_IG", "apify~instagram-profile-scraper").strip()
 ACTOR_FB = os.environ.get("APIFY_ACTOR_FB", "apify~facebook-posts-scraper").strip()
 FB_POSTS_MAX = int(os.environ.get("FB_POSTS_MAX", "6"))   # posts lus par page (coût ~2 $/1 000)

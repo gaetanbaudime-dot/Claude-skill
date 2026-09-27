@@ -156,7 +156,10 @@ def _carte_privee(detail: dict):
     cartes = detail.get("contents") or []
     if not cartes:
         return None
-    return next((c for c in cartes if any(m in str(c.get("name", "")).lower() for m in ("priv", "platform", "plateforme"))), cartes[0])
+    def _nom(c):
+        return str(c.get("name", "")).lower().strip()
+    return next((c for c in cartes if any(m in _nom(c) for m in ("priv", "platform", "plateforme", "onlyfans", "only fans"))
+                 or _nom(c) in ("of", "0f")), cartes[0])                   # 27/09 : la carte de Clara s'appelle « 0F »
 
 
 async def poser_tracking(link_id: str, url: str) -> str:

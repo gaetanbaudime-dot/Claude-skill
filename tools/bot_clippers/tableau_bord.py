@@ -3,9 +3,10 @@ candidats → validés → premier Reel → jour 7 tenu → premier paiement, su
 entre parenthèses. Posté dans le salon admin le lundi entre 8 h et 10 h (Paris), une fois par semaine ; `!tableau` à la
 demande. La seule décision de recrutement se lit sur « validés → premier Reel », jamais sur le volume de candidatures.
 
-Sources : classeur des candidatures (candidats), pipeline.json (validation), inputs_clippers.json (premier jour avec au
-moins un Reel, puis 7 jours dont 5 à 2 Reels ou plus), paiements.jsonl (`!paiement`) et clics.json « paies » (listes
-`!paie-clics`) pour le premier paiement."""
+Sources : classeur des candidatures (candidats), pipeline.json (validation), etats_comptes.json (27/09 : le premier jour où les
+comptes d'un clipper portent au moins une publication, puis 7 jours dont 5 à 2 publications ou plus, comptées par le scan Apify
+quotidien du classeur ; l'ancien inputs_clippers.json est encore lu s'il existe), paiements.jsonl (`!paiement`) et clics.json
+« paies » (listes `!paie-clics`) pour le premier paiement."""
 
 import asyncio
 import json
@@ -74,6 +75,45 @@ def premiers_reels(historique: dict) -> dict:
     return resultat
 
 
+def premiers_reels_etats(historique: dict, comptes: list) -> dict:
+    """{clipper: (jour du premier Reel, jour 7 tenu ou None)} depuis l'historique d'etats_comptes ({handle: [{jour, existe, posts}]})
+    et le classeur (handle → Gérant). Publications d'un jour = somme des posts de ses comptes ; nouveau Reel = hausse d'un jour
+    à l'autre (le premier jour compte pour ce qu'il porte)."""
+    norm = _deps.get("normaliser") or (lambda t: (t or "").strip().lower())
+    gerant = {}
+    for c in comptes or []:
+        g = str(c.get("gerant") or "").strip()
+        if c.get("handle") and g and norm(g) not in ("x", "y", "z", "aaa", "?", "-", "libre", "dispo"):
+            gerant[str(c["handle"]).lower()] = g.split()[0]
+    totaux = {}
+    for handle, entrees in (historique or {}).items():
+        g = gerant.get(str(handle).lower())
+        if not g:
+            continue
+        for e in entrees or []:
+            if not e.get("existe") or not e.get("jour"):
+                continue
+            totaux.setdefault(g, {}).setdefault(e["jour"], 0)
+            totaux[g][e["jour"]] += int(e.get("posts") or 0)
+    resultat = {}
+    for g, par_jour in totaux.items():
+        j0 = next((j for j in sorted(par_jour) if par_jour[j] >= 1), None)
+        d0 = _jour(j0)
+        if d0 is None:
+            continue
+        bons, precedent = 0, None
+        for k in range(7):
+            j = (d0 + timedelta(days=k)).isoformat()
+            if j not in par_jour:
+                continue
+            delta = par_jour[j] - (precedent if precedent is not None else 0)
+            precedent = par_jour[j]
+            if delta >= 2:
+                bons += 1
+        resultat[g] = (d0, d0 + timedelta(days=6) if bons >= 5 else None)
+    return resultat
+
+
 def premiers_paiements() -> dict:
     """{uid: premier jour payé} depuis paiements.jsonl et les listes `!paie-clics` mémorisées dans clics.json."""
     premiers = {}
@@ -112,8 +152,16 @@ async def calculer(ref: date = None) -> dict:
     dates_c = [_jour(c.get("date")) for c in cands]
     pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {"liaisons": {}, "etats": {}})
     dates_v = [_jour(i.get("validation")) for i in pipe.get("etats", {}).values() if i.get("validation")]
-    hist = (_deps["inputs_lire"]() or {}).get("historique", {})
+    hist = (_deps["inputs_lire"]() or {}).get("historique", {}) if _deps.get("inputs_lire") else {}
     pr = premiers_reels(hist)
+    try:                                                                    # 27/09 : le scan Apify du classeur remplace les inputs
+        etats = (_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}
+        comptes = await _deps["comptes_lire"]() if _deps.get("comptes_lire") else []
+        for clipper, val in premiers_reels_etats(etats.get("historique", {}), comptes).items():
+            if clipper not in pr or val[0] < pr[clipper][0]:
+                pr[clipper] = val
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Tableau de bord, premiers Reels depuis le classeur : %s", erreur)
     dates_r = [d0 for d0, _ in pr.values()]
     dates_7 = [j7 for _, j7 in pr.values() if j7]
     dates_p = list(premiers_paiements().values())
