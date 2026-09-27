@@ -10,6 +10,9 @@ liens_forts: ["[[Développer un manager clipper (Julien et Jonas)]]", "[[Équipe
 
 # Fiche de poste — Manager marketing (Jonas)
 
+> [!note] 27/09/2026 — PDF « Fiche de poste Manager Clippers v2 » reçu (daté du 07/09, période d'essai 90 jours, points à J+30, J+60, J+90)
+> Le PDF reprend cette page : 5 Français puis 2 à 3 Malgaches par semaine, 2 comptes de croissance + 1 privé + 3 pages Facebook, 10 publications par jour, créneaux lundi-mercredi-vendredi 17 h, 100 € par clipper actif et par mois (500 € garantis le premier mois), 0,30 € par abonné, +150 € cadence, paliers 300 / 800 / 1 600 €, deux règles de sortie (2 jours ratés de suite ; moins de 50 abonnés le premier mois). Ce qui a changé depuis : plus de Facebook, plus de créneaux (les comptes se créent avec le bot, un par jour), paie des clippers au clic. **Décision du 27/09** : revue du pôle à 10 jours ; s'il n'est pas rentable, 80 % des clippers sortent, les meilleurs restent, et la rémunération de Jonas est revue (voir [[Journal de coaching]], 27/09 soir).
+
 > [!tip] Verdict
 > **Ta mission : faire publier tes clippers tous les jours, sur des comptes qu'on renouvelle plus vite qu'ils ne meurent — sans que Gaëtan ait à relancer qui que ce soit.** Tu commences avec **5 Français**, et Gaëtan t'ajoute **2 à 3 Malgaches par semaine** ; chaque lundi, tu tries. Tu es payé sur trois choses : le nombre de clippers réellement actifs, les subs que ton équipe génère, et la discipline tenue. Le poste grandit avec toi : vers 15 clippers, tu nommes des chefs d'équipe et tu passes chef de pods. *Cette page est le miroir du PDF signé le 07/09 (version v2 aérée, 2 pages) : toute modification se fait ici ET dans le PDF.*
 

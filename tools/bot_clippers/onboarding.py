@@ -306,7 +306,7 @@ async def restructurer_drives(client, prenoms_par_creatrice: dict, email_de) -> 
     if not google_api.actif():
         return []
     etat = _lire_etat()
-    if etat.get("drive_structure") == 2:
+    if etat.get("drive_structure") == 3:
         return []
     faits = []
     for creatrice, prenoms in (prenoms_par_creatrice or {}).items():
@@ -316,7 +316,7 @@ async def restructurer_drives(client, prenoms_par_creatrice: dict, email_de) -> 
                     faits.append(prenom)
             except Exception as erreur:                                     # noqa: BLE001
                 journal.warning("Structure Drive de %s (%s) : %s", prenom, creatrice, erreur)
-    etat["drive_structure"] = 2
+    etat["drive_structure"] = 3
     _ecrire_etat(etat)
     journal.info("Structure Drive v2 posée pour %d clipper(s)", len(faits))
     return faits
@@ -356,6 +356,16 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
                 await google_api.drive_raccourci(nom, src["id"], dossier)
         except RuntimeError as erreur:
             journal.warning("Raccourci %s pour %s : %s", nom, prenom, erreur)
+    # 27/09 : un ancien raccourci « Photos — Chloé » qui pointe vers un dossier qui n'est plus dans les sources (ids refaits le
+    # 26/09) reste à côté du nouveau « Photos » : on le retire (le compte de service l'avait créé).
+    cibles = {(src["id"] if isinstance(src, dict) else src) for src in sources}
+    for f in existants:
+        t = (f.get("shortcutDetails") or {}).get("targetId")
+        if t and t not in cibles and " — " in (f.get("name") or ""):
+            try:
+                await google_api.drive_supprimer(f["id"])
+            except RuntimeError as erreur:
+                journal.warning("Ancien raccourci %s de %s : %s", f.get("name"), prenom, erreur)
     try:
         ancien_top = next((f for f in existants if f.get("mimeType") == google_api.DOSSIER_MIME
                            and f.get("name", "").strip().lower() == "reels uniques"), None)
