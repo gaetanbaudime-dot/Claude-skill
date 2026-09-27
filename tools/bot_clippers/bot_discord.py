@@ -1610,6 +1610,7 @@ async def noter_candidatures_sheet(onglets=None, tout: bool = False) -> dict:
         i_pts = next((i for i, h in enumerate(en_tete) if normaliser(h).startswith("points")), None)
         if i_note is None or i_pts is None:
             i_note, i_pts = len(en_tete), len(en_tete) + 1
+            await google_api.sheets_assurer_colonnes(SHEET_CANDIDATURES_ID, onglet, i_pts + 1)     # la Table s'arrête à Z (27/09)
             await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!{google_api.colonne_lettre(i_note)}1", [["Note /8", "Points"]])
         i_source = next((i for i, h in enumerate(en_tete) if normaliser(h).strip() == "source"), None)
         i_annonce = cols.get("annonce")

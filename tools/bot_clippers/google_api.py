@@ -289,6 +289,27 @@ def colonne_lettre(index: int) -> str:
     return lettres
 
 
+async def sheets_proprietes(classeur_id: str) -> dict:
+    """{titre: {"id", "lignes", "colonnes"}} de chaque onglet."""
+    r = await _appel("GET", f"{SHEETS}/{classeur_id}", params={"fields": "sheets(properties(title,sheetId,gridProperties))"})
+    return {s["properties"]["title"]: {"id": s["properties"]["sheetId"],
+                                       "lignes": int((s["properties"].get("gridProperties") or {}).get("rowCount", 0)),
+                                       "colonnes": int((s["properties"].get("gridProperties") or {}).get("columnCount", 0))}
+            for s in r.get("sheets", [])}
+
+
+async def sheets_assurer_colonnes(classeur_id: str, titre: str, minimum: int) -> int:
+    """Ajoute des colonnes à un onglet jusqu'à en avoir `minimum` (27/09 : « Note /8 » au-delà de la colonne Z d'une Table à 26
+    colonnes → Google 400 « exceeds grid limits »). Renvoie le nombre ajouté."""
+    props = (await sheets_proprietes(classeur_id)).get(titre)
+    if not props or props["colonnes"] >= minimum:
+        return 0
+    manque = minimum - props["colonnes"]
+    await _appel("POST", f"{SHEETS}/{classeur_id}:batchUpdate",
+                 corps={"requests": [{"appendDimension": {"sheetId": props["id"], "dimension": "COLUMNS", "length": manque}}]})
+    return manque
+
+
 async def sheets_onglets(classeur_id: str) -> list:
     r = await _appel("GET", f"{SHEETS}/{classeur_id}", params={"fields": "sheets(properties(title,sheetId,gridProperties))"})
     return [s["properties"]["title"] for s in r.get("sheets", [])]
