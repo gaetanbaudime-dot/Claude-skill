@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-27 (nuit, 5) — Ascartel perdu dans #général : personne n'arrive plus sans salon
+- **Constat de Gaëtan (20:39)** : un arrivant écrit « comment je fais pour bosser ? » dans #général à 18:58, personne ne répond, aucun salon perso dans « 🎬 Clippers », plus d'assistant collectif. « Je compte sur toi pour rectifier ça maintenant. »
+- **Cause** : le salon d'arrivée se crée sur l'événement d'entrée Discord ; six redéploiements dans la journée, chacun avec une ou deux minutes hors ligne, et un événement d'entrée n'est jamais rejoué. Le rattrapage au démarrage ne regardait que les candidats passés par le site. Aucune trace d'Ascartel dans les journaux du bot : il est entré pendant un trou.
+- **Livré** : au démarrage, tout membre arrivé depuis moins de 14 jours sans salon perso reçoit le sien ; un arrivant sans salon qui écrit dans un salon public reçoit son salon sur-le-champ, un mot qui l'y envoie et son message recopié dedans ; le message d'accueil du salon dit où il en est (formulaire, quiz, test, règles, comptes), pour lui et pour Gaëtan.
+- **Avocat du diable** : le vrai trou reste le redéploiement ; tant que je pousse six fois par jour, chaque poussée est une fenêtre. Le rattrapage la referme au démarrage suivant, pas pendant. Et « écrit dans un salon public » suppose qu'il écrive : un arrivant muet attend le prochain démarrage, au plus quelques heures ce soir, au pire une journée un jour calme.
+- **Prédiction (27/09, revue le 04/10)** : zéro arrivant sans salon perso au-delà de 10 minutes après son premier message sur la semaine, et Ascartel a son salon avant 21 h 30 (85 %).
+
 ### 2026-09-27 (nuit, 4) — Les six TOP 20 sont déposés : chaque clipper reçoit ses variantes sans commande, OpusClip écarté
 - **Fait par Gaëtan** : les dossiers « TOP 20 Reels » de Chloé (16), Sarah (20), Sophie (20), Jade (18), Clara (17) et Maddie (6) sont dans leurs Drive. Demandes : rappeler comment le Drive d'un clipper se crée à l'arrivée, un dossier TOP 20 Reels pour chaque clipper, « des modifications minimes avec OpusClip si tu peux ».
 - **Livré** : une boucle qui, 4 minutes après le démarrage puis toutes les 6 heures, décline le TOP 20 de chaque créatrice du roster pour tous ses clippers ayant un Drive, seulement les vidéos qui manquent (un TOP 20 complété est repris sans commande), avec un verrou pour qu'une seule déclinaison tourne à la fois ; le salon admin ne voit que les dépôts. Les 24 clippers actifs reçoivent donc leurs variantes ce soir (Chloé était déjà faite).

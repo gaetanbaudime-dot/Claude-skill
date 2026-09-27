@@ -617,6 +617,104 @@ def en_prive(message) -> bool:
     return sp is not None and sp.id == message.channel.id
 
 
+def etape_recrutement(uid) -> str:
+    """Où en est un arrivant, en une ligne : dans son salon pour lui, sous les yeux de Gaëtan (27/09 : « que je puisse voir
+    où en est le process de recrutement »)."""
+    uid = str(uid)
+    if (lire_json(FICHIER_EQUIPES, {}).get(uid) or {}):
+        return "📍 Étape 5 : règles acceptées, tes comptes et ton parcours arrivent ici."
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    etat = (pipe.get("etats", {}).get(uid) or {}).get("etat", "")
+    lie = uid in pipe.get("liaisons", {})
+    bienvenue = POSTS_FORMATION.get("bienvenue") if isinstance(POSTS_FORMATION, dict) else None
+    formation = f"<#{bienvenue}>" if bienvenue else "le salon formation"
+    site = web_candidature.WEB_URL_PUBLIQUE
+    if etat == "valide":
+        return "📍 Étape 4 : test validé. Accepte les 5 règles (case sur le site ou bouton ici), puis tes comptes arrivent."
+    if etat == "test_rendu":
+        return "📍 Étape 3 : test rendu, avis en cours. Ma réponse arrive ici."
+    if etat == "test_envoye":
+        return "📍 Étape 3 : test de montage. Envoie ta vidéo ici, en fichier Discord."
+    if etat == "test_expire":
+        return "📍 Étape 3 : test à refaire. Demande-le ici."
+    if etat == "quiz_ok":
+        return "📍 Étape 3 : quiz réussi. Le test de montage arrive ici."
+    if etat == "quiz_rate":
+        return f"📍 Étape 2 : quiz à repasser. Regarde la formation dans {formation}, puis refais le quiz."
+    if etat in ("refuse", "sorti"):
+        return "📍 Candidature close."
+    if lie:
+        return f"📍 Étape 2 : la formation puis le quiz (30 sur 34). Tout est dans {formation}."
+    return f"📍 Étape 1 : remplis le formulaire du site{' : ' + site if site else ''}. Ensuite la formation et le quiz dans {formation}."
+
+
+def arrivant_a_servir(membre, signes: dict, limite) -> bool:
+    """Un membre humain arrivé après `limite`, ni staff, ni ancien de Jonas, ni signé avec une créatrice : il lui faut un salon."""
+    if membre is None or getattr(membre, "bot", False) or str(membre.id) in ADMIN_IDS or est_manager(membre):
+        return False
+    if (signes.get(str(membre.id)) or {}).get("creatrice") or roster.sans_salon(prenom_de(membre)):
+        return False
+    j = getattr(membre, "joined_at", None)
+    if j is None:
+        return False
+    if j.tzinfo is None:
+        j = j.replace(tzinfo=timezone.utc)
+    return j >= limite
+
+
+async def salons_arrivants_recents(jours: int = 14, maximum: int = 30) -> int:
+    """Au démarrage (27/09, Ascartel perdu dans #général) : tout membre arrivé depuis moins de `jours` sans salon perso reçoit le
+    sien. Rattrape les arrivées manquées pendant un redéploiement (l'événement d'arrivée n'est pas rejoué). Renvoie le nombre créé."""
+    if not SALON_ARRIVEE or not client.guilds:
+        return 0
+    signes = lire_json(FICHIER_EQUIPES, {})
+    limite = datetime.now(timezone.utc) - timedelta(days=jours)
+    n = 0
+    for g in client.guilds:
+        for m in list(g.members):
+            if n >= maximum:
+                break
+            if not arrivant_a_servir(m, signes, limite) or salon_perso_de(m.id) is not None:
+                continue
+            if await assurer_salon_arrivee(m) is not None:
+                n += 1
+    if n:
+        journal.info("Salons d'arrivée rattrapés au démarrage : %d", n)
+    return n
+
+
+async def orienter_arrivant(message) -> bool:
+    """27/09 (Ascartel : « comment je fais pour bosser ? » dans #général, personne ne répond) : un arrivant sans salon perso qui
+    écrit dans un salon public reçoit son salon sur-le-champ, un mot qui l'y envoie, et son message y est recopié. Une fois par
+    jour au plus par membre. Vrai si le message a été traité."""
+    m = message.author
+    if getattr(m, "bot", False) or str(m.id) in ADMIN_IDS or est_manager(m) or roster.sans_salon(prenom_de(m)):
+        return False
+    if (lire_json(FICHIER_EQUIPES, {}).get(str(m.id)) or {}).get("creatrice"):
+        return False
+    if salon_perso_de(m.id) is not None:
+        return False                                                    # il a un salon : s'il écrit ailleurs, c'est son choix
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if pipe.setdefault("orientes", {}).get(str(m.id)) == jour:
+        return False
+    pipe["orientes"][str(m.id)] = jour
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    salon = await assurer_salon_arrivee(m)
+    if salon is None:
+        return False
+    try:
+        await message.reply(f"👋 {m.mention}, ton salon perso est là : {salon.mention}. Je t'y attends, on continue là-bas.")
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    try:
+        await salon.send(f"Tu as écrit dans {message.channel.mention} : « {(message.content or '')[:200]} »\nRéponds-moi ici, je t'aide.")
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    journal.info("Arrivant orienté vers son salon : %s → #%s", m.id, salon.name)
+    return True
+
+
 async def assurer_salon_arrivee(membre):
     """Le salon perso d'un arrivant, dans « 🎬 Clippers », dès son arrivée (27/09) : formation, quiz, test, règles, puis comptes,
     tout s'y passe sous les yeux de Gaëtan ; à l'attribution, le salon part sous la créatrice. Renvoie le salon ou None."""
@@ -634,7 +732,8 @@ async def assurer_salon_arrivee(membre):
         return None
     if cree:
         try:
-            await salon.send(f"🏠 {membre.mention}, ton salon. Tout se passe ici : la formation, le quiz, le test, puis tes comptes. "
+            await salon.send(f"🏠 {membre.mention}, ton salon. Tout se passe ici : la formation, le quiz, le test, puis tes comptes.\n"
+                             f"{etape_recrutement(membre.id)}\n"
                              "Une question ? Écris-la ici, je réponds.", view=vue_whatsapp())
         except (discord.Forbidden, discord.HTTPException):
             pass
@@ -6657,7 +6756,10 @@ async def on_ready():
         client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
         client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
         client.loop.create_task(reels_uniques.boucle(client))                   # TOP 20 de chaque créatrice décliné pour tout son roster (27/09)
-        client.loop.create_task(salons_candidats_recents())                     # salon perso dès l'arrivée : rattrapage (27/09)
+        async def _rattrapage_salons():
+            await salons_candidats_recents()                                    # candidats du site en cours
+            await salons_arrivants_recents()                                    # 27/09 : tout arrivant récent sans salon (Ascartel)
+        client.loop.create_task(_rattrapage_salons())
         client.loop.create_task(entretien_candidatures_sheet())                 # lignes à la suite + note /8 (27/09)
 
         async def _trackings_demarrage():
@@ -7372,6 +7474,10 @@ async def on_message(message):
     elif texte.startswith("!") and est_manager(message.author) and premier_mot not in ("!quiz", "!bumps", "!lier"):
         await message.reply(f"❓ `{premier_mot}` n'est pas une commande manager — `!aide` pour ta liste.")
         return
+
+    if message.guild is not None and isinstance(message.channel, discord.TextChannel) and not texte.startswith("!") \
+            and SALON_ARRIVEE and await orienter_arrivant(message):
+        return                                                           # 27/09 : arrivant sans salon → son salon, tout de suite
 
     if not doit_repondre(message):
         return
