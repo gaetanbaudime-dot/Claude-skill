@@ -34,6 +34,19 @@ def actif() -> bool:
     return ACTIF and bool(ORDRE)
 
 
+def bilan_court(bilan: str) -> str:
+    """Le bilan d'onboarding en une ligne lisible sur téléphone (27/09) : sans les évidences (rôle posé, alias rattachés),
+    sans le préfixe « Prénom → Créatrice », et le Drive sans e-mail dit juste qu'il attend l'e-mail."""
+    import re
+    t = bilan.split(" · ", 1)[-1] if " → " in bilan.split(" · ", 1)[0] else bilan
+    t = re.sub(r"\s*·\s*rôle Clippeur", "", t)
+    t = re.sub(r"\s*·\s*\d+ alias 2FA rattaché\(s\)", "", t)
+    t = t.replace("Drive ✅ (sans e-mail : rien partagé, `!onboarding` après son e-mail)", "Drive (attend son e-mail)")
+    t = t.replace("lien GAML ✅", "lien ✅").replace("lien GAML absent", "lien ✗").replace("Drive non configuré", "Drive ✗")
+    t = re.sub(r"(\d+) compte\(s\)", r"\1 comptes", t)
+    return t.strip(" ·")
+
+
 def _etat() -> dict:
     return _deps["lire_json"](_deps["FICHIER"], {"index": 0, "historique": []})
 
@@ -101,8 +114,7 @@ async def attribuer(membre, via: str) -> str:
     admin = await _deps["canal_admin"]()
     if admin is not None:
         try:
-            await admin.send((f"🎬 **Attribution automatique** : {membre.mention} → **{creatrice}** "
-                              f"(ordre {' > '.join(ORDRE)}, {via}){note}\n{bilan}")[:1990])
+            await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto) · {bilan_court(bilan)}{note}")[:1990])
         except (discord.Forbidden, discord.HTTPException):
             pass
     return creatrice

@@ -271,7 +271,12 @@ async def pour_nouveau(prenom: str, creatrice: str) -> None:
     try:
         bilan = await executer(creatrice, [prenom])
         canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
-        if canal is not None and bilan:
-            await canal.send(("🎬 **Reels uniques de " + prenom + "** (" + creatrice + ")\n" + "\n".join(bilan))[:1990])
+        # 27/09 : un dossier TOP 20 absent ou une source non configurée ne fait plus un message par clipper (Gaëtan le sait) —
+        # journal seulement ; le salon admin ne voit que ce qui a été produit.
+        utiles = [l for l in bilan if not l.lstrip().startswith(("❌", "⏭️"))]
+        if canal is not None and utiles:
+            await canal.send(("🎬 **Reels uniques de " + prenom + "** (" + creatrice + ")\n" + "\n".join(utiles))[:1990])
+        elif bilan:
+            journal.info("Reels uniques de %s (%s) : %s", prenom, creatrice, " | ".join(bilan))
     except Exception as erreur:                                             # noqa: BLE001
         journal.warning("Reels uniques pour %s : %s", prenom, erreur)

@@ -143,6 +143,17 @@ rien ne se perd. `!alias liste` / `!alias retirer <alias>` pour gérer le regist
 **Sécurité** : seuls les mails des expéditeurs Meta sont lus, seul le code est relayé (jamais le corps
 du mail), et un manager ne peut demander que les alias rattachés à son propre salon.
 
+**Salon admin plus court (27/09, « supprime, ça sert à rien, simplifie tout ça »)** : « Bot redémarré » tient en une ligne et ne
+liste que ce qui devrait tourner et ne tourne pas (plus de « éteint : bump, DocuSeal », plus de « à poser dans Railway ») ; un test
+rendu = un seul message avec la note du bot, ses deux points à corriger et la commande prête (`!test-ok Prénom`), au lieu de
+« test rendu » puis « avis du bot » ; `!fiche` tient en quatre lignes (numéro, pays, parcours, créatrice), sans porte d'entrée
+ni grille, les réponses du formulaire seulement avec `!fiche Prénom detail`, et marche pour quelqu'un parti du serveur ;
+le digest du matin liste les signés sans « appelle-les » ni numéros ; l'alerte BAN ne part plus en double quand le salon
+manager est le salon admin (`notifier_manager_seul`) ; les Reels uniques ne postent rien quand le dossier TOP 20 manque
+(journal seulement) ; l'attribution automatique et `!creatrice` répondent en une ligne (`attribution.bilan_court`), le nom
+de la créatrice est canonisé (« sarah » → Sarah, d'après le roster ou l'ordre d'attribution), et un changement de créatrice
+avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onboarding`).
+
 **J'ACCEPTE devient une case cochée (27/09, `acceptation.py`)** : les 5 règles sont une case obligatoire du formulaire du
 site (question `conditions`, type `checkbox`) ; la liaison porte `conditions_site`, et à la validation du test l'accès
 s'ouvre tout de suite (`accepter_conditions(uid, "site")` : rôle, registre, salon perso, créatrice automatique) sans rien

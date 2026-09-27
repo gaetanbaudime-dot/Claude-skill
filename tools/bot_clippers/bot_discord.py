@@ -955,6 +955,18 @@ async def notifier_manager(texte: str, guild=None):
             pass
 
 
+async def notifier_manager_seul(texte: str, guild=None):
+    """Poste dans le salon du manager SEULEMENT s'il existe et diffère du salon admin (27/09 : le bilan des états du classeur
+    partait deux fois dans #bot-gaetan, une fois comme bilan, une fois comme alerte)."""
+    salon_m, salon_a = await canal_manager(), await canal_admin()
+    if salon_m is None or (salon_a is not None and salon_m.id == salon_a.id):
+        return
+    try:
+        await salon_m.send(texte[:1990])
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+
+
 def role_team(guild, code: str):
     """Le rôle Team d'une grille. Pour l'International, le serveur peut encore porter l'ancien
     nom « Team Madagascar » : les deux sont acceptés, la variable Railway reste prioritaire."""
@@ -2723,13 +2735,13 @@ async def suite_validation(membre, guild):
             # 27/09 (Gaëtan) : « J'ACCEPTE devient une case cochée » — cochée sur le site, l'accès s'ouvre à la validation
             retour_acc = await accepter_conditions(str(membre.id), "site", grille_cond)
             await envoyer_mp(membre, titre_cond + "Tu as accepté les 5 règles sur le site : ton accès est ouvert.\n\n" + retour_acc)
-            return (f"🏆 {membre.mention} validé ({quelle}) → **accès ouvert** (règles acceptées sur le site, case cochée) ; "
-                    + ("créatrice : attribution automatique." if attribution.actif() else f"`!creatrice {membre.display_name} <prénom>`."))
+            return (f"✅ {membre.mention} validé → accès ouvert (règles cochées sur le site)"
+                    + (", créatrice automatique." if attribution.actif() else f" · `!creatrice {membre.display_name} <prénom>`."))
         await envoyer_mp(membre, titre_cond + "Avant d'ouvrir ton accès, lis les 5 règles :\n" + acceptation.REGLES
                                  + "\n\nTu es d'accord ? Appuie sur le bouton. Ton accès s'ouvre tout de suite.",
                          view=acceptation.vue(membre.id))
-        return (f"🏆 {membre.mention} validé ({quelle}) → **règles envoyées en MP avec le bouton ✅** ; son accès s'ouvre au clic "
-                f"(ou à J'ACCEPTE), relance auto 24/48 h, je préviens {mention_manager(guild)} ici.")
+        return (f"✅ {membre.mention} validé → règles + bouton ✅ en MP. Dès son clic : rôle, salon perso"
+                + (", créatrice automatique." if attribution.actif() else f", puis `!creatrice {membre.display_name} <prénom>`."))
     # Grille indéterminée (pays ≠ indicatif, ou candidature non liée) : on NE laisse plus le
     # candidat sur un « on te contacte » sans suite (le bug du 20/07). La Team France (contrat)
     # est le défaut du programme clipper → on lui demande son e-mail comme un FR ; l'admin
@@ -3320,13 +3332,8 @@ async def boucle_rappels():
                 if signes_recents:
                     # Le téléphone est là POUR APPELER (02/09) : un signé FR s'onboarde à chaud,
                     # pas à J+3. Le numéro vient de la liaison candidature (WhatsApp).
-                    morceaux = []
-                    for u, j in signes_recents[:6]:
-                        tel = _tel_de(u)                                    # 25/09 : plus de distinction FR / MG / Bénin
-                        morceaux.append(f"<@{u}> (J+{j}" + (f" · ☎️ {tel}" if tel else "") + ")")
-                    lignes_d.append("🎉 **Signés cette semaine — appelle-les, comptes créés ?** : "
-                                    + " · ".join(morceaux)
-                                    + "\n-# Un signé sans comptes à J+3 est un motivé qu'on refroidit.")
+                    # 27/09 : les comptes se créent avec le bot et la créatrice s'attribue toute seule — plus d'appel, plus de numéro
+                    lignes_d.append("🎉 Signés cette semaine : " + " · ".join(f"<@{u}> (J+{j})" for u, j in signes_recents[:6]))
                 if sans_creatrice:
                     lignes_d.append(f"🎬 **Signés SANS créatrice depuis ≥ 48 h** ({mention_manager(guild_d)}) : "
                                     + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:6])
@@ -3993,11 +4000,15 @@ async def commande_creatrice(message, texte: str) -> bool:
                             + ("" if fiche else " · ⚠️ pas au registre (non signé)") + ".")
         return True
     if fiche is None and not forcer:
-        await message.reply(f"⛔ {membre.display_name} n'est **pas signé** (absent du registre) : contrat ou J'ACCEPTE "
+        await message.reply(f"⛔ {membre.display_name} n'a pas encore accepté les règles (bouton ✅ en MP). "
                             f"d'abord. `!fiche {membre.display_name}` pour voir où il en est, ou "
                             f"`!creatrice {membre.display_name} {' '.join(morceaux[1:])} forcer` en connaissance de cause.")
         return True
     prenom = " ".join(morceaux[1:]).strip()
+    # 27/09 : « !creatrice marias sarah » écrivait « sarah » partout (pseudo, registre, roster) ; le nom canonique vient du
+    # roster, de l'ordre d'attribution, ou de la casse « Prénom ».
+    connues = list((roster.groupes() or {}).keys()) + list(attribution.ORDRE)
+    prenom = next((c for c in connues if normaliser(c) == normaliser(prenom)), None) or prenom.split()[0].capitalize() if prenom else prenom
     cible = normaliser(prenom)
     exclus_ids = {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID}
 
@@ -4093,19 +4104,22 @@ async def commande_creatrice(message, texte: str) -> bool:
             + ("Tes comptes, ton lien en bio et ton Drive sont dans ton salon perso. " if salon_perso is not None else
                "Tes comptes, ton lien en bio et ton Drive arrivent ici. ")
             + "Crée tes comptes depuis ton téléphone en suivant la Fiche 1 et la Fiche 2 ; le bot te relaie les codes. 🚀")
-    await message.reply(
-        f"✅ {membre.mention} → **{prenom}**"
-        + ((" · rôle posé : " + ", ".join(roles_poses) + " (ouvre sa catégorie)") if roles_poses else "")
-        + ((" · salons ouverts : " + ", ".join(c.name for c in ouverts)) if ouverts else
-           ("" if roles_poses else
-            (f" · ⚠️ salons de {prenom} trouvés mais permission refusée — donne à mon rôle « Gérer les rôles » et "
-             f"« Gérer les permissions » sur la catégorie {prenom}, ou crée un rôle « {prenom} » que je poserai" if salons else
-             f" · ⚠️ aucun rôle ni salon au nom de « {prenom} » (hors admin/bot)")))
-        + ((f" · salon perso {'créé' if cree else 'ouvert'} : #{salon_perso.name}") if salon_perso is not None else
-           (" · ⚠️ pas de catégorie au nom de la créatrice : salon perso non créé" if categorie is None else ""))
-        + (f" · refus : {', '.join(refus)}" if refus else "")
-        + f"\n{bilan_onb}"
-        + ".")
+    # 27/09 (Gaëtan : « simplifie tout ça ») : une ligne — les rôles posés et les salons ouverts sont l'évidence, seuls les
+    # refus et les manques sont dits. Un changement de créatrice avec des comptes déjà livrés d'une autre est signalé.
+    avert = []
+    if not roles_poses and not ouverts:
+        avert.append(f"aucun rôle ni salon au nom de « {prenom} »" if not salons else f"permission refusée sur les salons de {prenom}")
+    if salon_perso is None and categorie is None and not roster.sans_salon(prenom_clipper):
+        avert.append("pas de catégorie au nom de la créatrice, salon perso non créé")
+    avert += refus
+    onb_c = lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(str(membre.id), {})
+    if onb_c.get("comptes") and onb_c.get("creatrice") and normaliser(onb_c["creatrice"]) != normaliser(prenom):
+        avert.append(f"ses comptes livrés sont ceux de {onb_c['creatrice']} : `!liberer {prenom_clipper}` puis "
+                     f"`!onboarding @{prenom_clipper}` pour des comptes {prenom}")
+    await message.reply((f"✅ {membre.mention} → **{prenom}**"
+                         + (f" · <#{salon_perso.id}>" if salon_perso is not None else "")
+                         + " · " + attribution.bilan_court(bilan_onb)
+                         + (("\n⚠️ " + " · ".join(avert)) if avert else ""))[:1990])
     return True
 
 
@@ -5868,9 +5882,17 @@ async def commande_admin(message, texte: str) -> bool:
                                 "(admin, manager) ou en MP avec moi.")
             return True
         corps = texte[len("!fiche"):].strip()
+        detail = bool(re.search(r"\b(detail|détail|tout)\b", corps, re.I))        # 27/09 : les réponses du formulaire seulement sur demande
+        corps = re.sub(r"\b(detail|détail|tout)\b", "", corps, flags=re.I).strip()
         membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
+        parti = False
+        if membre is None and corps:                                       # 27/09 (Michaëlah) : plus sur le serveur → fiche par les registres
+            f_ = beneficiaire_parti(corps)
+            if f_ is not None and not str(f_.id).startswith("nom:"):
+                membre, parti = f_, True
         if membre is None:
-            await message.reply("Format : `!fiche @membre` — ou `!fiche Raphaël` (nom en toutes lettres).")
+            await message.reply("Format : `!fiche @membre` ou `!fiche Prénom` (+ `detail` pour les réponses du formulaire). "
+                                "Je ne trouve personne à ce nom, ni sur le serveur ni dans mes registres.")
             return True
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         liaison = donnees.get("liaisons", {}).get(str(membre.id), {})
@@ -5890,32 +5912,26 @@ async def commande_admin(message, texte: str) -> bool:
         # !fiche est réservée aux ADMIN_IDS (dispatch) : le numéro s'affiche EN CLAIR — c'est
         # l'outil d'appel de l'admin (02/09), pas une fiche publique. Prénom du formulaire et
         # pseudo Discord réel (@username, différent du nom d'affichage) toujours visibles.
-        lignes = [f"🗂️ **{membre.display_name}**"
-                  + (f" — {prenom}" if prenom else "")
-                  + f" · pseudo Discord : `@{membre.name}`",
-                  f"📞 Téléphone (WhatsApp) : **{tel or 'non lié (!lier)'}**",
-                  f"📧 E-mail (contrat/Drive) : "
-                  + ((liaison.get("email", "")[0] + "•••" + liaison["email"][liaison["email"].index("@"):])
-                     if "@" in liaison.get("email", "") else "—"),
-                  f"🌍 Pays : {pays or 'inconnu'} · grille recommandée : {reco}"
-                  + (" · ⚠️ **pays déclaré ≠ indicatif téléphonique**" if incoherent else ""),
-                  f"🚪 Porte d'entrée : {porte}",
-                  "🧾 Parcours : "
-                  + ("📋 candidature ✓ → " if cand else "📋 candidature ? → ")
-                  + ("🔗 lié ✓ → " if tel else "🔗 lié ✗ → ")
-                  + (f"📝 quiz {etat['score_quiz']} → " if etat.get("score_quiz") else "📝 quiz — → ")
-                  + f"🧪 {etat.get('etat', 'aucun test')}"
-                  + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else ""),
-                  f"✍️ Équipe signée (!equipe) : {signee}"
-                  + {"envoye": " · 🖋️ contrat envoyé (en attente de signature)", "signe_clipper": " · 🖋️ signé "
-                     "par le clipper (contre-signature en attente)", "complet": " · 🖋️ contrat ✅ complet (auto-onboardé)"}.get(
-                        etat.get("contrat", {}).get("statut"), "")]
+        # 27/09 (Gaëtan : « simplifie tout ça ») : plus de porte d'entrée, plus de grille (plus de distinction de pays depuis le
+        # 25/09), l'e-mail seulement s'il existe, les réponses du formulaire seulement avec `detail`.
+        lignes = [f"🗂️ **{membre.display_name}**" + (f" — {prenom}" if prenom and normaliser(prenom) != normaliser(membre.display_name) else "")
+                  + f" · `@{membre.name}`" + (" · ⚠️ **plus sur le serveur**" if parti else ""),
+                  f"📞 **{tel or 'numéro non lié'}**" + (f" · {pays}" if pays else "")
+                  + (" · ⚠️ pays déclaré ≠ indicatif" if incoherent else ""),
+                  "🧾 " + ("candidature ✓ → " if cand else "candidature ? → ")
+                  + (f"quiz {etat['score_quiz']} → " if etat.get("score_quiz") else "quiz — → ")
+                  + f"{etat.get('etat', 'aucun test')}"
+                  + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else "")
+                  + (f" · signé le {str(equipe.get('conditions') or equipe.get('date'))[:10]}" if equipe else " · pas signé")]
+        if "@" in liaison.get("email", ""):
+            lignes.append("📧 " + liaison["email"][0] + "•••" + liaison["email"][liaison["email"].index("@"):])
         if equipe.get("creatrice") or roster.creatrice_de(prenom_de(membre)):
-            lignes.append(f"🎬 Créatrice : {equipe.get('creatrice') or roster.creatrice_de(prenom_de(membre))}"
-                          + (" · au roster actif" if roster.est_actif(prenom_de(membre)) else " · ⚠️ pas au roster"))
+            lignes.append(f"🎬 {equipe.get('creatrice') or roster.creatrice_de(prenom_de(membre))}"
+                          + ("" if roster.est_actif(prenom_de(membre)) else " · ⚠️ pas au roster"))
         try:                                                              # 26/09 : la qualité des réponses du classeur, avant d'attribuer
             cands_f = await lire_candidatures_sheets()
-            lignes += texte_candidature(candidature_de(cands_f, tel, prenom or prenom_de(membre)))
+            lignes_c = texte_candidature(candidature_de(cands_f, tel, prenom or prenom_de(membre)))
+            lignes += lignes_c if detail else lignes_c[:1] + (["-# `!fiche " + (prenom or prenom_de(membre)) + " detail` pour ses réponses"] if len(lignes_c) > 1 else [])
         except Exception as erreur:                                       # noqa: BLE001
             lignes.append(f"📋 Candidature : classeur illisible ({type(erreur).__name__})")
         await envoyer_long(message, lignes)
@@ -6443,7 +6459,7 @@ async def on_ready():
             return " · ".join(urls) if urls else None
 
         etats_comptes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ETATS": FICHIER_ETATS,
-                                  "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager,
+                                  "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager_seul,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                   "clics_7j": _clics_7j, "lien_gaml": _lien_gaml,                  # 26/09 : tableau de bord
                                   "reconcilier": lambda e: parcours.reconcilier(client, e)})
@@ -6509,30 +6525,20 @@ async def annoncer_demarrage():
     canal = await canal_admin()
     if canal is None:
         return
-    actives = ["tunnel candidat + relances", "digest 9 h / relance tests 18 h", "liens des fiches (6 h)"]
+    # 27/09 (Gaëtan : « supprime, ça sert à rien ») : une ligne. Seul ce qui DEVRAIT tourner et ne tourne pas est dit ;
+    # les modules éteints par décision (bump, DocuSeal) et les variables optionnelles ne sont plus listés.
     eteintes = []
-    (actives if inputs_clippers.APIFY_TOKEN else eteintes).append("suivi des inputs (APIFY_TOKEN)")
-    (actives if codes_2fa.actif() else eteintes).append("relais des codes 2FA (CODES_IMAP_*)")
-    (actives if (CANAL_BUMP_ID and CANAL_BUMP_ID.isdigit() and client.get_channel(int(CANAL_BUMP_ID)) is not None) else eteintes).append("rappel bump")
-    (actives if (CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID) else eteintes).append("salons-compteurs")
-    (actives if (CONTRAT_ACTIVER and DOCUSEAL_API_KEY and DOCUSEAL_TEMPLATE_ID) else eteintes).append(
-        "contrats DocuSeal" if CONTRAT_ACTIVER else "contrats DocuSeal (conditions J'ACCEPTE à la place)")
-    (actives if web_candidature.actif() else eteintes).append("site candidature + connexion Discord")
-    manquantes = [n for n, v in (("LIEN_TEST", LIEN_TEST), ("LIEN_QUIZ", LIEN_QUIZ),
-                                  ("CANAL_ADMIN_ID", CANAL_ADMIN_ID), ("CANAL_MANAGER_ID", CANAL_MANAGER_ID),
-                                  ("WEB_URL_PUBLIQUE", web_candidature.WEB_URL_PUBLIQUE if web_candidature.actif() else "x"),
-                                  ("GAML_API_KEY", paie_clics.GAML_API_KEY),
-                                  ("SHEET_CSV_URL", inputs_clippers.SHEET_CSV_URL)) if not v]
-    guild0 = client.guilds[0] if client.guilds else None
-    if guild0 is not None and role_manager(guild0) is None:
-        manquantes.append(f"rôle « {codes_2fa.ROLE_MANAGER_NOM} » introuvable sur le serveur")
+    if not inputs_clippers.APIFY_TOKEN:
+        eteintes.append("suivi des inputs (APIFY_TOKEN)")
+    if not codes_2fa.actif():
+        eteintes.append("relais des codes (CODES_IMAP_*)")
+    if not web_candidature.actif():
+        eteintes.append("site candidature")
+    if not paie_clics.GAML_API_KEY:
+        eteintes.append("paie au clic (GAML_API_KEY)")
     texte = ("🟢 **Bot redémarré**" + ("" if not INT_EN_PAUSE else " — International EN PAUSE")
-             + "\n✅ Actif : " + " · ".join(actives)
              + (("\n⛔ Éteint : " + " · ".join(eteintes)) if eteintes else "")
-             + (("\n⚠️ À poser dans Railway : " + " · ".join(manquantes)) if manquantes else "")
-             + ((f"\n📚 FAQ apprise : {len(_entrees_faq_apprise())} entrée(s) — `!faq` pour relire, une entrée qui contredit "
-                 "la base v6 se retire avec `!faq retirer N`.") if _entrees_faq_apprise() else "")
-             + "\n-# `!verifier` pour l'audit complet · `!aide` pour les commandes.")
+             + "\n-# `!verifier` · `!aide`")
     try:
         await canal.send(texte[:1990])
     except (discord.Forbidden, discord.HTTPException):
@@ -6999,13 +7005,28 @@ async def on_message(message):
             info["rendu"] = info.get("rendu") or datetime.now(timezone.utc).isoformat(timespec="seconds")
             ecrire_json(FICHIER_PIPELINE, donnees_pipe)
             canal = await canal_admin()
+            # 26/09 : le bot regarde la vidéo et donne son avis ; bon montage = validé tout seul (Gaëtan : « le bot va dire si le montage est bon »)
+            # 27/09 : UN seul message admin, l'avis compris (avant : « test rendu » puis « avis du bot », deux fois par vidéo).
+            avis_t = None
+            if message.attachments and not hors_delai:
+                avis_t = await avis_test_montage(message)
+                try:
+                    await message.reply(texte_avis_test(avis_t))
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
             if canal:
-                liens = "\n".join(p.url for p in message.attachments)
-                texte_rendu = ((f"📥 **Complément de test** de {message.author.mention} :\n" if complement else
-                                f"📥 **Test rendu{' (HORS DÉLAI — test expiré/refusé, à toi de voir)' if hors_delai else ''}** "
-                                f"par {message.author.mention} (quiz {info.get('score_quiz') or '?'}) :\n")
-                               + (liens + "\n" if liens else "") + (texte + "\n" if texte else "")
-                               + "→ `!test-ok` ou `!test-non` (mention ou nom).")[:1990]
+                prenom_t = prenom_de(message.author) or message.author.display_name
+                liens = " ".join(f"[vidéo]({p.url})" if i else f"[vidéo]({p.url})" for i, p in enumerate(message.attachments))
+                if avis_t is None or avis_t.get("erreur"):
+                    verdict_t = "avis impossible" if avis_t else "sans vidéo"
+                else:
+                    verdict_t = (f"**{avis_t['note']}/10**"
+                                 + (" — " + " · ".join(avis_t["a_corriger"][:2]) if avis_t.get("a_corriger") else "")
+                                 + (" → ✅ validé automatiquement" if TEST_AUTO and avis_t["note"] >= TEST_AUTO_SEUIL
+                                    else f" → `!test-ok {prenom_t}` / `!test-non {prenom_t} raison`"))
+                texte_rendu = ((f"🧪 **{'Complément' if complement else 'Test'}{' HORS DÉLAI' if hors_delai else ''}** de "
+                                f"{message.author.mention} (quiz {info.get('score_quiz') or '?'}) : {verdict_t}")
+                               + (" · " + liens if liens else "") + (f"\n-# {texte[:300]}" if texte else ""))[:1990]
                 msg_admin = await canal.send(texte_rendu)
                 salon_m = await canal_manager()
                 if salon_m is not None and salon_m.id != canal.id:
@@ -7013,21 +7034,8 @@ async def on_message(message):
                         await salon_m.send(texte_rendu)
                     except (discord.Forbidden, discord.HTTPException):
                         pass
-            # 26/09 : le bot regarde la vidéo et donne son avis ; bon montage = validé tout seul (Gaëtan : « le bot va dire si le montage est bon »)
-            if message.attachments and not hors_delai:
-                avis_t = await avis_test_montage(message)
-                try:
-                    await message.reply(texte_avis_test(avis_t))
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
+            if avis_t is not None:
                 membre_t = membre_par_id(utilisateur)
-                if canal:
-                    try:
-                        await canal.send(f"🤖 Avis du bot sur le test de {message.author.mention} : " + texte_avis_test(avis_t).replace("ton montage", "le montage")[:1500]
-                                         + ("" if avis_t.get("erreur") else (" → **validé automatiquement**" if TEST_AUTO and avis_t["note"] >= TEST_AUTO_SEUIL
-                                                                              else f" → sous {TEST_AUTO_SEUIL}/10 : `!test-ok` ou `!test-non`")))
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
                 if TEST_AUTO and not avis_t.get("erreur") and avis_t["note"] >= TEST_AUTO_SEUIL and membre_t is not None:
                     donnees_v = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
                     if donnees_v.get("etats", {}).get(str(utilisateur), {}).get("etat") == "test_rendu":
