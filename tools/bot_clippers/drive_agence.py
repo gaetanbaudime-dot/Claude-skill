@@ -12,6 +12,7 @@ Variables : DRIVE_AGENCE_URL (l'URL /exec du script), DRIVE_AGENCE_SECRET (la m�
 import asyncio
 import base64
 import json
+import re
 import logging
 import os
 
@@ -57,10 +58,18 @@ async def appeler(action: str, **champs) -> dict:
                 if not rep.get("ok"):
                     raise RuntimeError("script Drive : " + str(rep.get("erreur", "erreur inconnue"))[:200])
                 return rep
-        except aiohttp.ClientError as erreur:
+        except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
             if essai == 1:
-                raise RuntimeError(f"script Drive injoignable ({type(erreur).__name__})") from erreur
+                raise RuntimeError("script Drive injoignable (" + ("délai dépassé" if isinstance(erreur, asyncio.TimeoutError)
+                                                                   else type(erreur).__name__) + ")") from erreur
             await asyncio.sleep(3)
+        except RuntimeError as erreur:
+            # 28/09 (Reel 20 de Clarisse) : sur un gros dépôt, la redirection d'Apps Script renvoie parfois une page HTML 404
+            # alors que le même fichier passe la fois suivante — une seconde tentative avant d'abandonner.
+            if essai == 0 and re.search(r"script Drive (404|5\d\d) ", str(erreur)):
+                await asyncio.sleep(5)
+                continue
+            raise
     raise RuntimeError("script Drive : trop de tentatives")
 
 

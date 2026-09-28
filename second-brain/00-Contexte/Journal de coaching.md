@@ -26,6 +26,7 @@ tags: [contexte/coaching]
 - **Demande de Gaëtan** : « fais taire la répétition et regarde la vidéo de Clarisse ».
 - **Cause trouvée** : le Reel 20 de Sarah dure 105 s ; ré-encodé en 1080×1920 sans plafond de débit, la variante pesait 39 Mo, envoyée en base64 au script Drive qui n'a pas répondu dans les 340 s. L'exception n'avait pas de texte, d'où le message vide dans le journal. Tara et Yves étaient passés de justesse avec le même poids. La répétition venait de mes sept déploiements du jour : à chaque redémarrage, le bot refaisait Clarisse et le redisait.
 - **Livré** : débit plafonné à 2 Mbit/s (28 Mo pour ce Reel, la source elle-même fait 1,3 Mbit/s), second passage plus léger au-dessus de 30 Mo, et un compteur d'échecs par vidéo : signalé une fois, silencieux au deuxième essai, abandonné et signalé une dernière fois au troisième, avec la commande pour réessayer.
+- **Suite** : au redémarrage, la variante allégée a encore raté depuis Railway, avec cette fois un vrai motif (page 404 renvoyée par la redirection du script Drive) ; le même fichier est passé en 60 s depuis ma machine, le Reel 20 est dans le Drive de Clarisse, et l'appel au script refait une tentative sur ce cas.
 - **Prédiction (28/09, revue le 30/09)** : le Reel 20 de Clarisse est déposé au redémarrage qui suit, et plus aucun message « raté » répété dans bot-gaetan d'ici le 30/09 (85 %).
 
 ### 2026-09-28 (soir, 14) — Le Dashboard devient lisible : une card par créatrice
