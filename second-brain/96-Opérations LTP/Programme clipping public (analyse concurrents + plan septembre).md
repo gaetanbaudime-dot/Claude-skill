@@ -13,6 +13,9 @@ liens_forts: ["[[Sourcing 100 leads clippers FR (plan juillet 2026)]]", "[[Équi
 > [!tip] Verdict
 > Ambition validée, timing séquencé. Les « gros » programmes FR (Notify, Money By Clipping, Cliply) sont des **fermes à membres** : CPM ~0,20-1 €/1000 vues, cagnotte plafonnée ~1 000 €/mois pour tout le serveur, top clippeur réel ~187 €/mois, médiane en centimes, croissance par primes de joins Discord (0,30 €) et multi-compte encouragé. **Notre modèle per-sub adossé à la LTV OFM paie déjà 3-5x plus par personne sérieuse** — et il scale AVEC le CA quand le leur scale CONTRE leur cagnotte. On ne copie que leur funnel (Discord public, formation gratuite, leaderboard, preuves) ; on n'ouvre les vannes qu'en **septembre**, une fois la machine construite et le goulot réel (chatting + rushs) traité. Ouvrir en juillet à 5 jours du départ = crash assuré.
 
+> [!info] Prolongement (2026-09-28)
+> Un studio SaaS français fait tourner clippers et créateurs sur comptes dédiés, payés au RPM avec un plafond au tiers du revenu jour 1 : [[Podcast Open Source - le clipping vu par un studio SaaS, ce qu'on en tire (28 septembre 2026)]]. Sa règle, posée sur nos chiffres, dit que 0,05 $ la visite est au-dessus de la ligne rouge sur OnlyFans seul.
+
 ## L'autopsie du concurrent principal (data réelle du 16/07, serveur ~800 membres)
 
 - **Économie** : cagnotte affichée 1 000 €/mois ; **total payé lifetime 5 897 €** en ~7 mois (~850 €/mois pour tout le serveur). Mars : ~3,6 M de vues pour ~700-900 € de gains → **ils achètent la vue à ~0,20-0,25 €/1000**.

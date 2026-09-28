@@ -482,3 +482,6 @@ test de montage 48 h. 👉 [LIEN FORMULAIRE]
 ```
 
 Règle transverse : les messages neufs (D, E) donnent **toujours le formulaire**, jamais un lien Discord direct — c'est le formulaire qui crée la fiche d'identité ([[Machine de recrutement clippers (100 leads par mois)|tunnel v5]]) et qui choisit la bonne porte. Les relances (A, B, C) donnent le lien Discord direct **uniquement parce que la candidature existe déjà** dans la base.
+
+> [!info] Mise à jour (2026-09-28)
+> Le formulaire du site ne pose plus que sept champs plus la case des cinq règles (prénom, âge, WhatsApp, Telegram, pays, téléphones dédiés avec leur modèle, expérience « détaille le plus possible ») ; la note sur 8 du classeur se lit dans la réponse « expérience ». Le Google Form n'est plus la porte. Le parcours complet et ce qui reste manuel : [[Process clippers - audit complet et 10 automatisations (28 septembre 2026)]].

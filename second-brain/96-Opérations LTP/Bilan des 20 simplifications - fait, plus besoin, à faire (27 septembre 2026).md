@@ -11,7 +11,7 @@ liens_forts: ["[[Process clippers de bout en bout - 10 simplifications (27 septe
 # Bilan des 20 simplifications - fait, plus besoin, à faire (27 septembre 2026)
 
 > [!tip] Verdict
-> Mise à jour du 28/09 après les réponses de Gaëtan : **11 en place**, **1 à moitié** (n° 2, le quiz), **4 sans objet** (dont la prime, refusée), **4 en attente** (test = jour 1, formulaire à 5 champs, carte de campagne, mercredi : les deux derniers restent à lui expliquer). Le soir du 27/09 c'était : **7 en place**, **2 à moitié**, **4 sans objet**, **7 en attente** : quatre oui/non de Gaëtan et cinq chantiers bot d'une heure à une demi-journée. Ce qui compte aujourd'hui tient en une ligne : **répondre oui ou non à quatre questions** (test = jour 1, prime de 10 $ au jour 7, formulaire à 5 champs, sortie automatique à 14 jours), **déposer les TOP 20 de Sophie, Sarah, Jade, Clara et Maddie**, et **créer des alias iCloud** : le vivier livrable est de 11 clippers, la rotation cale au douzième, et aucun chantier bot n'y change rien. Le goulot du jour n'est ni le recrutement ni le bot, c'est la matière (Reels fournis) et les e-mails.
+> Mise à jour du 28/09 après les réponses de Gaëtan : **12 en place**, **1 à moitié** (n° 2, le quiz), **4 sans objet** (dont la prime, refusée), **3 en attente** (test = jour 1, carte de campagne, mercredi : les deux derniers restent à lui expliquer ; le formulaire est passé à sept champs plus la case le 28/09). Le soir du 27/09 c'était : **7 en place**, **2 à moitié**, **4 sans objet**, **7 en attente** : quatre oui/non de Gaëtan et cinq chantiers bot d'une heure à une demi-journée. Ce qui compte aujourd'hui tient en une ligne : **répondre oui ou non à quatre questions** (test = jour 1, prime de 10 $ au jour 7, formulaire à 5 champs, sortie automatique à 14 jours), **déposer les TOP 20 de Sophie, Sarah, Jade, Clara et Maddie**, et **créer des alias iCloud** : le vivier livrable est de 11 clippers, la rotation cale au douzième, et aucun chantier bot n'y change rien. Le goulot du jour n'est ni le recrutement ni le bot, c'est la matière (Reels fournis) et les e-mails.
 
 ## 1. Les 20 simplifications, une ligne chacune
 
@@ -38,7 +38,7 @@ Légende : ✅ en place · 🟡 à moitié · ➖ plus besoin · 🔁 tranché a
 |---|---|---|---|
 | 11 | Le test, c'est le jour 1 | 🔜 | Décision de Gaëtan. Cohérent avec « je simplifie toute la partie clipping ». Si oui : une heure de bot, le test sort du tunnel, comptes et parcours partent à l'acceptation. |
 | 12 | La première paie à J+7 (prime fixe de 10 $) | ➖ | Non, pour le moment (28/09). |
-| 13 | Le formulaire à 5 champs | 🔜 | Décision de Gaëtan. Une heure de bot (`questions_candidature.json`). La note sur 8 devient un tri simple : c'est le jour 1 qui juge. |
+| 13 | Le formulaire à 5 champs | ✅ | Sept champs plus la case le 28/09 (prénom, âge, WhatsApp, Telegram, pays, téléphones, expérience) ; la note sur 8 se lit dans l'expérience. |
 | 14 | Une fiche créatrice = une carte de campagne | 🔜 | Demi-journée de bot, épinglée en haut de chaque salon perso. Il faut de Gaëtan, par créatrice : le taux, 5 hashtags, une légende type. |
 | 15 | Le calendrier est un dossier (14 Reels le lundi) | ✅ | Les six TOP 20 sont déposés (27/09 soir) et déclinés pour chaque clipper toutes les 6 h sans commande ; OpusClip écarté (rien de visible, sept fois plus lourd). |
 | 16 | Le clipper ne rédige jamais | 🔜 | Avec le n° 14 : légende et hashtags fixes déposés dans le dossier TOP 20 et dans la carte. |
@@ -103,3 +103,5 @@ Une porte d'entrée ✅ (le site) · un Reel de test en 24 h jugé par le bot �
 **Prédiction (27/09, revue le 06/10)** : si le formulaire à 5 champs et la sortie automatique sont en ligne avant le 30/09, le tableau du lundi 06/10 affiche « validés → premier Reel » à 50 % ou plus, contre 31 % le 25/09 (55 %).
 
 Les pages d'origine : [[Process clippers de bout en bout - 10 simplifications (27 septembre 2026)]], [[Process clippers - 10 simplifications de plus, avec recherche (27 septembre 2026)]], [[Formation clippers en une page et 10 simplifications (26 septembre 2026)]]. Le protocole des exceptions : [[Trois exceptions humaines - ban, numéro, paiement (27 septembre 2026)]]. Décisions et prédictions dans le [[Journal de coaching]].
+
+**Suite (28/09 soir)** : l'inventaire complet de ce qui reste manuel et dix automatisations de plus dans [[Process clippers - audit complet et 10 automatisations (28 septembre 2026)]] ; le regard extérieur d'un studio SaaS qui fait tourner la même machine, et sa règle du tiers posée sur nos 0,05 $, dans [[Podcast Open Source - le clipping vu par un studio SaaS, ce qu'on en tire (28 septembre 2026)]].
