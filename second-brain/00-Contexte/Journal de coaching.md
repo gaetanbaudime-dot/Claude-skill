@@ -22,10 +22,10 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
-### 2026-09-28 (soir, 16) — Followers cumulés : tous les comptes du clipper, sauf les BAN
-- **Demande de Gaëtan** : « mets les followers des 3 comptes Instagram cumulés du clipper ». La colonne additionnait déjà, mais seulement GOOD, WARMUP, PRIVE et ACTIF : Stéphane affichait 0 avec deux comptes BIZARRE à 17 et 42 followers.
-- **Livré** : la colonne « Followers cumulés » additionne tous les comptes du clipper sauf les BAN (un compte banni n'a plus d'audience), quel que soit l'état.
-- **Avocat du diable** : un compte « à vérifier » ou « BIZARRE » compte dans le cumul alors qu'il est peut-être déjà mort ; le scan du lendemain le passe BAN s'il est illisible, et le cumul se corrige seul.
+### 2026-09-28 (soir, 16) — Dashboard : followers des comptes en gestion, visites et Reels d'hier, la date qui s'affichait 46 293
+- **Demandes de Gaëtan** : « la somme des followers des 3 comptes Instagram que le clipper a en gestion » ; « pourquoi y a 46 293 partout ? » ; « Visites 7 j / Visites hier / Reels postés 7 j / Reels postés hier ».
+- **Livré** : la colonne « Followers cumulés » additionne les comptes dont l'Utilisation est Clipper (BAN exclus, tous les autres états comptent) : un compte passé sous Metricool reste dans le détail mais ne compte plus (Rianah sous Sophie passe de 2 528 à 0, ce compte est géré par l'agence). Le 46 293 était la date du dernier Reel écrite en ISO, convertie en date par Google Sheets et affichée en série par mon format nombre : la colonne est en format date. Quatre colonnes de rythme : visites 7 jours, visites hier, Reels 7 jours (fenêtre de 7 jours datée, plus les 7 derniers scans), Reels hier.
+- **Avocat du diable** : « Visites hier » vient des relevés GAML du bot, que je n'ai pas hors ligne : la colonne reste vide tant que le bot n'a pas réécrit l'onglet (`!dashboard` ou le scan de demain). Et la colonne « Clics last 7d. » du classeur est le total du clipper, toutes créatrices confondues : Julien apparaît avec 132 visites sous Chloé, Sophie et Maddie, comptées trois fois dans les bandeaux.
 
 ### 2026-09-28 (soir, 15) — Clarisse : la vidéo qui ratait, et le bot qui le répétait
 - **Demande de Gaëtan** : « fais taire la répétition et regarde la vidéo de Clarisse ».

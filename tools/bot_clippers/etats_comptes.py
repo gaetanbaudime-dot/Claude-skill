@@ -16,7 +16,7 @@ import asyncio
 import logging
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import aiohttp
 
@@ -34,6 +34,7 @@ HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après 
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
 VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
+DASHBOARD_VERSION = 3             # 28/09 : structure de l'onglet Dashboard (12 colonnes) ; changée → l'onglet est réécrit au démarrage, sans scan
 LOT = 50                                                               # comptes par appel Apify
 
 _deps = {}
@@ -276,6 +277,7 @@ async def executer(ecrire: bool = True) -> dict:
     if ecrire:
         try:                                                                        # 28/09 : l'onglet Dashboard, une ligne par clipper
             await ecrire_dashboard(comptes, d["historique"], _deps.get("clics_7j"), jour)
+            d["dashboard_version"] = DASHBOARD_VERSION
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Dashboard : %s", erreur)
     if ecrire:
@@ -288,7 +290,17 @@ async def executer(ecrire: bool = True) -> dict:
 
 
 ONGLET_DASHBOARD = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
-ENTETE_DASHBOARD = ["Clipper", "Comptes", "Créés", "À créer", "BAN", "Followers cumulés", "Visites 7 j", "Reels 7 j", "Dernier Reel", "Détail des comptes"]
+ENTETE_DASHBOARD = ["Clipper", "Comptes", "Créés", "À créer", "BAN", "Followers cumulés", "Visites 7 j", "Visites hier", "Reels 7 j", "Reels hier",
+                    "Dernier Reel", "Détail des comptes"]
+NB_COLONNES = len(ENTETE_DASHBOARD)
+
+
+def _fenetre(jour: str, jours: int) -> str:
+    """Le premier jour (ISO) d'une fenêtre de `jours` jours qui finit à `jour` ; '' si la date est illisible."""
+    try:
+        return (date.fromisoformat(str(jour)[:10]) - timedelta(days=jours - 1)).isoformat()
+    except ValueError:
+        return ""
 
 
 def _entier(v) -> int:
@@ -309,8 +321,8 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> li
             continue
         crea = ((c.get("creatrice") or c.get("onglet") or "?").split() or ["?"])[0]
         par.setdefault(crea, {}).setdefault(g.split()[0], []).append(c)
-    lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables sur 7 jours (GAML), followers et Reels vus par le scan"], []]
-    tot_f = tot_v = tot_r = tot_c = 0
+    lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables (GAML) sur 7 jours et hier, followers des comptes en gestion, Reels vus par le scan"], []]
+    tot_f = tot_v = tot_vh = tot_r = tot_rh = tot_c = 0
     for crea, clippers in par.items():
         rows = []
         for g, cs in clippers.items():
@@ -318,10 +330,11 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> li
             ban = sum(1 for e in etats if e == "ban")
             a_creer = sum(1 for e in etats if e in ("a creer", "à créer", ""))
             crees = len(cs) - ban - a_creer
-            # 28/09 (Gaëtan : « les followers des 3 comptes cumulés ») : tous les comptes du clipper sauf les BAN (morts),
-            # quel que soit l'état (GOOD, WARMUP, PRIVE, ACTIF, BIZARRE, à vérifier…).
-            vivants = [c for c, e in zip(cs, etats) if e != "ban"]
-            followers = sum(_entier(c.get("followers")) for c in vivants)
+            # 28/09 (Gaëtan : « la somme des followers des 3 comptes que le clipper a en gestion ») : les comptes dont
+            # l'Utilisation est Clipper (ou vide), sauf les BAN (morts), quel que soit l'état ; un compte passé Metricool
+            # ou « à mettre Metricool » n'est plus en gestion, il reste dans le détail.
+            en_gestion = [c for c, e in zip(cs, etats) if e != "ban" and _norm(c.get("utilisation") or "clipper") in ("clipper", "")]
+            followers = sum(_entier(c.get("followers")) for c in en_gestion)
             # Visites : d'abord la colonne « Clics last 7d. » du classeur (écrite par le scan, propre à la créatrice de la
             # ligne : Lilian sous Chloé et Lilian sous Sophie sont deux liens), sinon le total du clipper via clics_de.
             en_colonne = [_entier(c.get("clics")) for c in cs if str(c.get("clics") or "").strip() != ""]
@@ -332,26 +345,38 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> li
                     visites = clics_de(g) if clics_de else None
                 except Exception:                                       # noqa: BLE001
                     visites = None
-            reels7, dernier = 0, ""
+            try:                                                        # visites d'hier (dépendance à deux arguments, 28/09)
+                visites_hier = clics_de(g, 1) if clics_de else None
+            except Exception:                                           # noqa: BLE001
+                visites_hier = None
+            depuis = _fenetre(jour, 7)
+            reels7, reels_hier, dernier = 0, 0, ""
             for c in cs:
-                for e in (historique.get(c["handle"].lower()) or [])[-7:]:
-                    if e.get("existe"):
-                        reels7 += int(e.get("posts") or 0)
-                for e in historique.get(c["handle"].lower()) or []:
+                hist = historique.get(c["handle"].lower()) or []
+                for e in (hist if depuis else hist[-7:]):
+                    j_e = str(e.get("jour", ""))[:10]
+                    if not e.get("existe") or (depuis and not (depuis <= j_e <= str(jour)[:10])):
+                        continue
+                    reels7 += int(e.get("posts") or 0)
+                    if j_e == str(jour)[:10]:                             # le scan de `jour` compte ce qui est sorti depuis la veille
+                        reels_hier += int(e.get("posts") or 0)
+                for e in hist:
                     if e.get("existe") and int(e.get("posts") or 0) > 0 and str(e.get("jour", "")) > dernier:
                         dernier = str(e.get("jour", ""))
             detail = " · ".join(f"{c['handle']} ({(c.get('etat') or '?').strip()}, {_entier(c.get('followers'))}"
                                 + ("" if _norm(c.get("utilisation") or "clipper") == "clipper" else f", {str(c.get('utilisation')).strip()}") + ")"
                                 for c in cs)
-            rows.append([g, len(cs), crees, a_creer, ban, followers, visites if visites is not None else "", reels7, dernier, detail])
+            rows.append([g, len(cs), crees, a_creer, ban, followers, visites if visites is not None else "",
+                         visites_hier if visites_hier is not None else "", reels7, reels_hier, dernier, detail])
         rows.sort(key=lambda r: (-(r[6] if isinstance(r[6], int) else -1), -r[5]))
-        f_c = sum(r[5] for r in rows); v_c = sum(r[6] for r in rows if isinstance(r[6], int)); r_c = sum(r[7] for r in rows)
-        tot_f += f_c; tot_v += v_c; tot_r += r_c; tot_c += len(rows)
-        lignes.append([crea.upper(), f"{len(rows)} clipper(s)", "", "", "", f_c, v_c, r_c, "", ""])
+        somme = lambda i: sum(r[i] for r in rows if isinstance(r[i], int))  # noqa: E731
+        f_c, v_c, vh_c, r_c, rh_c = somme(5), somme(6), somme(7), somme(8), somme(9)
+        tot_f += f_c; tot_v += v_c; tot_vh += vh_c; tot_r += r_c; tot_rh += rh_c; tot_c += len(rows)
+        lignes.append([crea.upper(), f"{len(rows)} clipper(s)", "", "", "", f_c, v_c, vh_c, r_c, rh_c, "", ""])
         lignes.append(list(ENTETE_DASHBOARD))
         lignes.extend(rows)
         lignes.append([])
-    lignes.append(["TOTAL", f"{tot_c} clipper(s)", "", "", "", tot_f, tot_v, tot_r, "", ""])
+    lignes.append(["TOTAL", f"{tot_c} clipper(s)", "", "", "", tot_f, tot_v, tot_vh, tot_r, tot_rh, "", ""])
     return lignes
 
 
@@ -363,7 +388,7 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str)
         await google_api.sheets_creer_onglet(cid, ONGLET_DASHBOARD)
     except Exception as erreur:                                         # noqa: BLE001
         journal.info("Onglet %s : %s", ONGLET_DASHBOARD, erreur)
-    await google_api.sheets_effacer(cid, f"'{ONGLET_DASHBOARD}'!A1:L500")
+    await google_api.sheets_effacer(cid, f"'{ONGLET_DASHBOARD}'!A1:N500")
     await google_api.sheets_ecrire(cid, f"'{ONGLET_DASHBOARD}'!A1", lignes)
     try:                                                                # 28/09 (Gaëtan : « des couleurs, des groupes, des cards »)
         props = await google_api.sheets_proprietes(cid)
@@ -380,7 +405,7 @@ PALETTE_DASHBOARD = {"chloe": ("#C2185B", "#FCE4EC"), "sarah": ("#1565C0", "#E3F
                      "jade": ("#2E7D32", "#E8F5E9"), "maddie": ("#EF6C00", "#FFF3E0"), "clara": ("#00838F", "#E0F7FA")}
 PALETTE_DEFAUT = ("#455A64", "#ECEFF1")
 SOMBRE, BLANC, GRIS_CLAIR, GRIS_TEXTE = "#263238", "#FFFFFF", "#ECEFF1", "#546E7A"
-LARGEURS_DASHBOARD = (120, 78, 64, 70, 58, 118, 96, 80, 104, 560)
+LARGEURS_DASHBOARD = (120, 78, 64, 70, 58, 118, 96, 96, 80, 80, 96, 560)
 
 
 def _rgb(hexa: str) -> dict:
@@ -394,11 +419,12 @@ def _melange(hexa: str, t: float) -> str:
     return "#" + "".join(f"{int(round(255 + (int(h[i:i + 2], 16) - 255) * t)):02X}" for i in (0, 2, 4))
 
 
-def _plage(sid: int, r0: int, r1: int, c0: int = 0, c1: int = 10) -> dict:
+def _plage(sid: int, r0: int, r1: int, c0: int = 0, c1: int = NB_COLONNES) -> dict:
     return {"sheetId": sid, "startRowIndex": r0, "endRowIndex": r1, "startColumnIndex": c0, "endColumnIndex": c1}
 
 
-def _cellules(sid, r0, r1, c0, c1, fond=None, texte=None, gras=None, taille=None, aligne=None, format_nombre=None, coupe=None) -> dict:
+def _cellules(sid, r0, r1, c0, c1, fond=None, texte=None, gras=None, taille=None, aligne=None, format_nombre=None, coupe=None,
+              format_date=None) -> dict:
     fmt, champs = {}, []
     if fond:
         fmt["backgroundColor"] = _rgb(fond); champs.append("backgroundColor")
@@ -412,6 +438,8 @@ def _cellules(sid, r0, r1, c0, c1, fond=None, texte=None, gras=None, taille=None
         fmt["horizontalAlignment"] = aligne; champs.append("horizontalAlignment")
     if format_nombre:
         fmt["numberFormat"] = {"type": "NUMBER", "pattern": format_nombre}; champs.append("numberFormat")
+    if format_date:                                                         # 28/09 : « Dernier Reel » affichait 46 293 (série)
+        fmt["numberFormat"] = {"type": "DATE", "pattern": format_date}; champs.append("numberFormat")
     if coupe:
         fmt["wrapStrategy"] = coupe; champs.append("wrapStrategy")
     fmt["verticalAlignment"] = "MIDDLE"; champs.append("verticalAlignment")
@@ -424,9 +452,9 @@ def requetes_mise_en_forme(lignes: list, sid: int) -> list:
     (« card ») par créatrice avec son bandeau de couleur, en-têtes gris, lignes en zébrure, BAN en rouge, à créer en orange,
     visites en dégradé vert, cadre autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés."""
     n = len(lignes)
-    req = [{"unmergeCells": {"range": _plage(sid, 0, max(n, 1) + 100, 0, 12)}},
-           _cellules(sid, 0, max(n, 1) + 100, 0, 12, fond=BLANC, texte="#212121", gras=False, taille=10, aligne="LEFT", coupe="CLIP"),
-           {"updateBorders": {"range": _plage(sid, 0, max(n, 1) + 100, 0, 12), "top": {"style": "NONE"}, "bottom": {"style": "NONE"},
+    req = [{"unmergeCells": {"range": _plage(sid, 0, max(n, 1) + 100, 0, NB_COLONNES + 2)}},
+           _cellules(sid, 0, max(n, 1) + 100, 0, NB_COLONNES + 2, fond=BLANC, texte="#212121", gras=False, taille=10, aligne="LEFT", coupe="CLIP"),
+           {"updateBorders": {"range": _plage(sid, 0, max(n, 1) + 100, 0, NB_COLONNES + 2), "top": {"style": "NONE"}, "bottom": {"style": "NONE"},
                               "left": {"style": "NONE"}, "right": {"style": "NONE"}, "innerHorizontal": {"style": "NONE"}, "innerVertical": {"style": "NONE"}}},
            {"updateSheetProperties": {"properties": {"sheetId": sid, "gridProperties": {"hideGridlines": True, "frozenRowCount": 1, "frozenColumnCount": 1}},
                                       "fields": "gridProperties.hideGridlines,gridProperties.frozenRowCount,gridProperties.frozenColumnCount"}}]
@@ -438,7 +466,7 @@ def requetes_mise_en_forme(lignes: list, sid: int) -> list:
     if not lignes:
         return req
     # Titre
-    req += [_cellules(sid, 0, 1, 0, 10, fond=SOMBRE, texte=BLANC, gras=True, taille=12, aligne="LEFT", coupe="OVERFLOW_CELL"),   # pas de fusion : la colonne A est figée
+    req += [_cellules(sid, 0, 1, 0, NB_COLONNES, fond=SOMBRE, texte=BLANC, gras=True, taille=12, aligne="LEFT", coupe="OVERFLOW_CELL"),   # pas de fusion : la colonne A est figée
             {"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": 0, "endIndex": 1}, "properties": {"pixelSize": 38}, "fields": "pixelSize"}}]
     max_v = max((r[6] for r in lignes if len(r) >= 7 and isinstance(r[6], int) and r[0] not in ("TOTAL",) and r != ENTETE_DASHBOARD
                  and not (len(r) >= 2 and str(r[1]).endswith("clipper(s)"))), default=0)
@@ -446,8 +474,8 @@ def requetes_mise_en_forme(lignes: list, sid: int) -> list:
     while i < n:
         r = lignes[i]
         if len(r) >= 2 and r[0] == "TOTAL":
-            req += [_cellules(sid, i, i + 1, 0, 10, fond=SOMBRE, texte=BLANC, gras=True, taille=11),
-                    _cellules(sid, i, i + 1, 5, 8, fond=SOMBRE, texte=BLANC, gras=True, taille=11, aligne="CENTER", format_nombre="#,##0"),
+            req += [_cellules(sid, i, i + 1, 0, NB_COLONNES, fond=SOMBRE, texte=BLANC, gras=True, taille=11),
+                    _cellules(sid, i, i + 1, 5, 10, fond=SOMBRE, texte=BLANC, gras=True, taille=11, aligne="CENTER", format_nombre="#,##0"),
                     {"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": i, "endIndex": i + 1}, "properties": {"pixelSize": 30}, "fields": "pixelSize"}}]
             i += 1
             continue
@@ -458,18 +486,19 @@ def requetes_mise_en_forme(lignes: list, sid: int) -> list:
             while fin < n and lignes[fin] and lignes[fin] != ENTETE_DASHBOARD and lignes[fin][0] != "TOTAL":
                 fin += 1
             # bandeau créatrice + en-têtes
-            req += [_cellules(sid, i, i + 1, 0, 10, fond=bande, texte=BLANC, gras=True, taille=12, coupe="OVERFLOW_CELL"),
-                    _cellules(sid, i, i + 1, 5, 8, fond=bande, texte=BLANC, gras=True, taille=12, aligne="CENTER", format_nombre="#,##0"),
+            req += [_cellules(sid, i, i + 1, 0, NB_COLONNES, fond=bande, texte=BLANC, gras=True, taille=12, coupe="OVERFLOW_CELL"),
+                    _cellules(sid, i, i + 1, 5, 10, fond=bande, texte=BLANC, gras=True, taille=12, aligne="CENTER", format_nombre="#,##0"),
                     {"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": i, "endIndex": i + 1}, "properties": {"pixelSize": 32}, "fields": "pixelSize"}},
-                    _cellules(sid, i + 1, i + 2, 0, 10, fond=GRIS_CLAIR, texte="#37474F", gras=True, taille=9),
-                    _cellules(sid, i + 1, i + 2, 1, 9, fond=GRIS_CLAIR, texte="#37474F", gras=True, taille=9, aligne="CENTER")]
+                    _cellules(sid, i + 1, i + 2, 0, NB_COLONNES, fond=GRIS_CLAIR, texte="#37474F", gras=True, taille=9),
+                    _cellules(sid, i + 1, i + 2, 1, NB_COLONNES - 1, fond=GRIS_CLAIR, texte="#37474F", gras=True, taille=9, aligne="CENTER")]
             for k, ligne in enumerate(lignes[i + 2:fin]):
                 j = i + 2 + k
                 fond = teinte if k % 2 == 0 else BLANC
-                req += [_cellules(sid, j, j + 1, 0, 10, fond=fond, texte="#212121", gras=False, taille=10),
+                req += [_cellules(sid, j, j + 1, 0, NB_COLONNES, fond=fond, texte="#212121", gras=False, taille=10),
                         _cellules(sid, j, j + 1, 0, 1, fond=fond, texte="#212121", gras=True, taille=10),
-                        _cellules(sid, j, j + 1, 1, 9, fond=fond, texte="#37474F", gras=False, taille=10, aligne="CENTER", format_nombre="#,##0"),
-                        _cellules(sid, j, j + 1, 9, 10, fond=fond, texte=GRIS_TEXTE, gras=False, taille=9, coupe="CLIP")]
+                        _cellules(sid, j, j + 1, 1, 10, fond=fond, texte="#37474F", gras=False, taille=10, aligne="CENTER", format_nombre="#,##0"),
+                        _cellules(sid, j, j + 1, 10, 11, fond=fond, texte="#37474F", gras=False, taille=10, aligne="CENTER", format_date="dd/MM"),
+                        _cellules(sid, j, j + 1, 11, 12, fond=fond, texte=GRIS_TEXTE, gras=False, taille=9, coupe="CLIP")]
                 comptes, crees, a_creer, ban = (_entier(ligne[1]), _entier(ligne[2]), _entier(ligne[3]), _entier(ligne[4])) if len(ligne) >= 5 else (0, 0, 0, 0)
                 if crees and crees == comptes:
                     req.append(_cellules(sid, j, j + 1, 2, 3, fond=fond, texte="#2E7D32", gras=True, taille=10, aligne="CENTER"))
@@ -480,8 +509,12 @@ def requetes_mise_en_forme(lignes: list, sid: int) -> list:
                 v = ligne[6] if len(ligne) >= 7 and isinstance(ligne[6], int) else None
                 if v is not None and v > 0 and max_v:
                     req.append(_cellules(sid, j, j + 1, 6, 7, fond=_melange("#43A047", 0.15 + 0.85 * (v / max_v) ** 0.5), texte="#1B5E20", gras=True, taille=10, aligne="CENTER", format_nombre="#,##0"))
+                for col in (7, 9):                                          # visites d'hier, Reels d'hier : en vert quand il y en a
+                    x = ligne[col] if len(ligne) > col and isinstance(ligne[col], int) else 0
+                    if x > 0:
+                        req.append(_cellules(sid, j, j + 1, col, col + 1, fond=fond, texte="#1B5E20", gras=True, taille=10, aligne="CENTER", format_nombre="#,##0"))
             # cadre du bloc
-            req.append({"updateBorders": {"range": _plage(sid, debut, fin, 0, 10),
+            req.append({"updateBorders": {"range": _plage(sid, debut, fin, 0, NB_COLONNES),
                                           "top": {"style": "SOLID_MEDIUM", "color": _rgb(bande)}, "bottom": {"style": "SOLID_MEDIUM", "color": _rgb(bande)},
                                           "left": {"style": "SOLID_MEDIUM", "color": _rgb(bande)}, "right": {"style": "SOLID_MEDIUM", "color": _rgb(bande)}}})
             i = fin
@@ -552,6 +585,10 @@ async def boucle(client) -> None:
             maintenant = datetime.now(timezone.utc)
             jour = maintenant.strftime("%Y-%m-%d")
             d = _lire()
+            if d.get("historique") and d.get("dashboard_version") != DASHBOARD_VERSION:     # 28/09 : nouvelle structure → réécrit
+                await ecrire_dashboard(await onboarding.lire_comptes(), d.get("historique", {}), _deps.get("clics_7j"), jour)
+                d = _lire(); d["dashboard_version"] = DASHBOARD_VERSION; _ecrire(d)
+                journal.info("Dashboard réécrit (structure v%s)", DASHBOARD_VERSION)
             if maintenant.hour >= HEURE_UTC and (d.get("dernier") != jour or d.get("version") != VERSION) \
                     and int(d.get("essais", {}).get(jour, 0)) < 3:
                 bilan = await executer(ecrire=True)
@@ -565,7 +602,7 @@ async def boucle(client) -> None:
                             await canal.send(texte_bilan(bilan)[:1990])
                     bans = [f"`{h}` ({g})" for h, g, _, a, _ in bilan["changements"] if a == "BAN"]
                     if bans and _deps.get("notifier"):
-                        await _deps["notifier"]("🚫 **Comptes introuvables sur Instagram 2 jours de suite, passés en BAN** : "
+                        await _deps["notifier"]("🚫 **Comptes introuvables ou illisibles sur Instagram, passés en BAN** : "
                                                 + ", ".join(bans) + ". À remplacer : `!liberer Prénom handle`, puis un nouvel identifiant.")
         except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le bot
             journal.exception("Boucle états du classeur : %s", erreur)

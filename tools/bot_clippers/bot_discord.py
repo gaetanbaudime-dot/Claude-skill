@@ -6156,8 +6156,8 @@ async def on_ready():
                     return liaisons_e.get(uid_e, {}).get("email", "") or fiche_e.get("email", "")
             return ""
         client.loop.create_task(onboarding.restructurer_drives(client, roster.groupes(), _email_de_prenom))   # Photos / Reels / TOP 20 (27/09)
-        def _clics_7j(prenom):                                               # visites payables des 7 derniers jours du clipper
-            m = membre_par_prenom(normaliser(prenom))
+        def _clics_7j(prenom, jours=7):                                      # visites payables des `jours` derniers jours du clipper
+            m = membre_par_prenom(normaliser(prenom))                        # (28/09 : jours=1 → « Visites hier » du Dashboard)
             if m is None:
                 return None
             d_c = paie_clics._lire()
@@ -6165,7 +6165,7 @@ async def on_ready():
             if not lids:
                 return None
             hier = paie_clics._aujourdhui() - timedelta(days=1)
-            return int(paie_clics.somme(d_c, lids, hier - timedelta(days=6), hier)["payes"])
+            return int(paie_clics.somme(d_c, lids, hier - timedelta(days=max(1, int(jours)) - 1), hier)["payes"])
 
         def _salon_de_prenom(prenom):                                        # 27/09 : le salon perso d'un prénom, pour « Reels d'hier »
             m = membre_par_prenom(normaliser(prenom))
