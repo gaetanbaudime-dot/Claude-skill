@@ -454,6 +454,67 @@ async def restructurer_drives(client, prenoms_par_creatrice: dict, email_de) -> 
     return faits
 
 
+def _source_de(creatrice: str) -> dict:
+    """L'entrée DRIVE_SOURCES d'une créatrice, sans casse ni accent (28/09 : « sarah » dans la fiche de Simon ne trouvait pas « Sarah »)."""
+    cible = _norm((creatrice or "").split()[0] if (creatrice or "").split() else "")
+    if not cible:
+        return {}
+    for nom, cfg in _sources().items():
+        if _norm(str(nom).split()[0] if str(nom).split() else "") == cible:
+            return cfg or {}
+    return {}
+
+
+def texte_drive(prenom: str, creatrice: str, drive: str) -> str:
+    """Le message du Drive, seul (rattrapage) : 28/09 (Gaëtan, Simon) « envoie-lui le lien de son Drive »."""
+    return (f"📁 **Ton Drive, {prenom}** (photos, Reels et TOP 20 de {creatrice.split()[0] if creatrice.split() else creatrice}) : <{drive}>\n\n"
+            "Il s'ouvre depuis ton téléphone, en lecture, sans compte Google.\n\n"
+            "Tes Reels à publier sont dans « TOP 20 Reels ».")
+
+
+async def drives_manquants(client=None, maxi: int = 3) -> list:
+    """28/09 (Gaëtan, Simon : « veille à ce que les clippeurs l'aient avec leur premier compte ») : un clipper livré sans Drive
+    (créatrice écrite en minuscules, source absente ou Drive en panne à ce moment-là) le reçoit au passage suivant de la boucle,
+    dans son salon perso, et ses TOP 20 se déclinent dans la foulée. Renvoie les prénoms servis (au plus `maxi` par passage)."""
+    if not google_api.actif():
+        return []
+    etat = _lire_etat()
+    faits = []
+    for uid, fiche in list(etat.get("clippers", {}).items()):
+        if len(faits) >= maxi or fiche.get("drive") or not fiche.get("creatrice") or not fiche.get("comptes"):
+            continue
+        if not _source_de(fiche["creatrice"]):
+            continue                                                    # rien à créer tant que la créatrice n'a pas de source
+        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        if m is None:
+            continue
+        prenom = m.display_name.split()[0] if m.display_name.split() else m.display_name
+        try:
+            drive = await dossier_drive(prenom, fiche["creatrice"], fiche.get("email", ""))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Drive rattrapé pour %s : %s", prenom, erreur)
+            continue
+        if not drive:
+            continue
+        etat = _lire_etat()
+        etat.setdefault("clippers", {}).setdefault(uid, {})["drive"] = drive
+        _ecrire_etat(etat)
+        salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+        cible = salon if salon is not None else m
+        try:
+            await cible.send(texte_drive(prenom, fiche["creatrice"], drive))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Drive de %s : envoi impossible (%s)", prenom, erreur)
+        if _deps.get("reels_pour_nouveau") and client is not None:
+            try:
+                client.loop.create_task(_deps["reels_pour_nouveau"](prenom, fiche["creatrice"]))
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("TOP 20 après le Drive de %s : %s", prenom, erreur)
+        faits.append(prenom)
+        journal.info("Drive rattrapé pour %s (%s)", prenom, fiche["creatrice"])
+    return faits
+
+
 async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
     """Dossier personnel du clipper dans « 🎬 Clippers » de sa créatrice : un raccourci vers CHAQUE source (Reels,
     photos : tout le contenu, rien de copié, aucun espace consommé), les sources partagées en lecture à son e-mail.
@@ -461,7 +522,7 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
     '' si le Drive n'est pas configuré."""
     if not google_api.actif():
         return ""
-    cfg = _sources().get(creatrice) or _sources().get(creatrice.split()[0]) or {}
+    cfg = _source_de(creatrice)
     parent, sources = cfg.get("parent", ""), cfg.get("sources", [])
     if not parent or not sources:
         journal.info("DRIVE_SOURCES sans entrée pour %s", creatrice)
@@ -902,6 +963,11 @@ async def boucle(client, deps: dict):
                     except Exception as erreur:                             # noqa: BLE001
                         journal.warning("Lien GAML retenté pour %s : %s", uid_r, erreur)
                 etat = _lire_etat()
+            try:
+                if await drives_manquants(client):                      # 28/09 : le Drive manquant arrive au passage suivant
+                    etat = _lire_etat()
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Drives manquants : %s", erreur)
             par_prenom = {}
             for c in comptes:
                 g = _norm(c["gerant"])

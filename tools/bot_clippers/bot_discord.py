@@ -6825,7 +6825,7 @@ async def on_ready():
                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
                     "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
                     "salon_perso": salon_perso_de, "membre_par_prenom": membre_par_prenom, "membre_par_id": membre_par_id,
-                    "envoyer_long": envoyer_long}
+                    "envoyer_long": envoyer_long, "reels_pour_nouveau": reels_uniques.pour_nouveau}
         onboarding.configurer(deps_onb)
         client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
         parcours.configurer({**deps_onb, "FICHIER_PARCOURS": FICHIER_PARCOURS, "POSTS_FORMATION": POSTS_FORMATION,

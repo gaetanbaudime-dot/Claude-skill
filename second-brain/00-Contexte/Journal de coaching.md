@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 5) — Le Drive arrive avec le premier compte ; Simon reçoit le sien
+- **Demande de Gaëtan** : « envoie le lien de son Drive à Simon et veille à ce que les clippeurs l'aient avec leur premier compte » (Simon : « j'ai pas eu accès au Drive »).
+- **Cause trouvée** : la fiche de Simon porte sa créatrice en minuscules (« sarah », livrée le 26/09 avant la canonisation du 27/09) et la recherche du dossier source était sensible à la casse : le Drive n'a jamais été créé, sans erreur visible.
+- **Livré** : recherche du dossier source sans casse ni accent ; rattrapage à chaque passage de la boucle du classeur (un clipper livré sans Drive le reçoit dans son salon, TOP 20 décliné derrière) ; l'étape 1 du parcours porte le lien du Drive sous les accès. Simon est servi au premier passage après le déploiement.
+- **Avocat du diable** : le rattrapage ne sait rien d'un clipper dont la créatrice n'a pas de source Drive configurée (rien à créer, rien dit) ; et un lien Drive à l'étape 1, c'est une information de plus le jour où il crée son compte — Gaëtan l'a demandé, on mesure si « je trouve pas le dossier » revient.
+- **Prédiction (28/09, revue le 05/10)** : zéro clipper signé sans lien Drive dans sa fiche le 05/10, et aucune demande « accès au Drive » dans les salons persos d'ici là (75 %).
+
 ### 2026-09-28 (soir, 4) — Dix automatisations de plus : la réservation qui expire et le compte banni remplacé tout seul valent 60 comptes
 - **Demande de Gaëtan** : « trouve encore 10 idées de façon de simplifier, automatiser ou supprimer des choses dans mon process de pôle clipping ».
 - **Livré** : [[Process clippers - 10 automatisations de plus (28 septembre 2026, soir)]] — dix idées qui ne recoupent pas les trente précédentes, chacune avec ce qu'elle enlève, le chiffre du jour, le coût, le risque et le statut. Les deux premières sortent du classeur lu ce soir : 36 lignes « à créer » réservées par des clippers qui ne les ont jamais créées, 24 lignes BAN qui gardent un nom. Puis le Reel du jour posté dans le salon (plus de Drive sur téléphone), le warm-up avancé par le scan, le profil prêt à coller, le quiz posé dans le salon, le silence quand il n'y a rien avec un classement hebdo, la paie qui s'affiche, le bot élagué d'une vingtaine de commandes mortes, les colonnes OnlyFans de Data G&M remplies par Infloww. Une onzième, la publication automatique, est écartée sauf test sur trois comptes.

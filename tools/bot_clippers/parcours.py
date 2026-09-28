@@ -33,6 +33,7 @@ ETAPES = {
     1: {"titre": "Étape 1 · Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 prêt", "salons": ["info"],
         "texte": ("**Compte 1** · chaque bloc se copie d'un geste (bouton du bloc).\n"
                   "Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
+                  "📁 Ton Drive (photos, Reels, TOP 20) : {drive}\n\n"
                   "{creation1}\n\n"
                   "Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 2 demain.")},
