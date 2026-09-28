@@ -17,6 +17,7 @@ import hashlib
 import hmac
 import html
 import json
+import unicodedata
 import logging
 import os
 import re
@@ -333,6 +334,37 @@ def _quiz() -> dict:
         return {}
 
 
+def quiz_seuil_total() -> tuple:
+    """(seuil, total) du quiz du site s'il est prêt, sinon ceux du Google Form (30 sur 34)."""
+    quiz = _quiz()
+    if quiz.get("questions"):
+        return int(quiz.get("seuil") or QUIZ_SEUIL), len(quiz["questions"])
+    return QUIZ_SEUIL, 34
+
+
+def _norm_reponse(t: str) -> str:
+    """Réponse libre comparable : sans accents, minuscules, lettres seulement, sans « s » final (« Régularité. » = « regularite »)."""
+    t = unicodedata.normalize("NFD", str(t or "").lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn" and (c.isalnum() or c == " ")).strip()
+    t = re.sub(r"^(la |le |les |l )", "", t).strip()
+    return t[:-1] if t.endswith("s") and len(t) > 3 else t
+
+
+def noter(quiz: dict, data) -> tuple:
+    """(score, total, détails) d'un formulaire rempli : question à choix → l'index coché est le bon ; question libre
+    (« reponses ») → la réponse normalisée est dans la liste. Détails : réponses libres données, pour le classeur."""
+    score, details = 0, []
+    for n, q in enumerate(quiz.get("questions", []), 1):
+        brut = str(data.get(f"q{n}", "") or "")
+        if q.get("reponses"):
+            ok = _norm_reponse(brut) in {_norm_reponse(r) for r in q["reponses"]}
+            details.append(brut.strip()[:40])
+        else:
+            ok = brut == str(q.get("bonne", -1))
+        score += 1 if ok else 0
+    return score, len(quiz.get("questions", [])), details
+
+
 async def get_quiz(request):
     uid = verifier_jeton(request.query.get("t", ""))
     if not uid:
@@ -347,11 +379,15 @@ async def get_quiz(request):
                              "dans quelques semaines.</p>")
     qs = ""
     for n, q in enumerate(quiz["questions"], 1):
-        opts = "".join(f"<label class='o'><input type='radio' name='q{n}' value='{i}' required>{html.escape(c)}</label>"
-                       for i, c in enumerate(q["choix"]))
+        if q.get("reponses"):                                           # 28/09 : les mots-clés se tapent, ils ne se cochent pas
+            opts = f"<input type='text' name='q{n}' required autocomplete='off' maxlength='40' placeholder='Un mot'>"
+        else:
+            opts = "".join(f"<label class='o'><input type='radio' name='q{n}' value='{i}' required>{html.escape(c)}</label>"
+                           for i, c in enumerate(q["choix"]))
         qs += f"<div class='q'><b>{n}. {html.escape(q['q'])}</b>{opts}</div>"
-    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{len(quiz['questions'])} questions · seuil "
-             f"{QUIZ_SEUIL}/{len(quiz['questions'])} · essai {essais + 1}/{QUIZ_ESSAIS_MAX}</p>"
+    seuil, total = quiz_seuil_total()
+    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{total} questions · il faut {seuil} bonnes réponses · "
+             f"essai {essais + 1}/{QUIZ_ESSAIS_MAX}</p>"
              f"<form method='post' action='/quiz'><input type='hidden' name='t' value='{html.escape(jeton(uid))}'>"
              f"{qs}<button class='b' type='submit'>Valider mes réponses</button></form>")
     return _page("Quiz", corps)
@@ -365,16 +401,15 @@ async def post_quiz(request):
         return _page("Lien invalide", "<h1>Lien invalide</h1>")
     if _deps["essais_quiz"](uid) >= QUIZ_ESSAIS_MAX:
         return _page("Quiz", "<h1>Quiz</h1><p>Tu as utilisé tes essais.</p>")
-    score = sum(1 for n, q in enumerate(quiz["questions"], 1)
-                if str(data.get(f"q{n}", "")) == str(q.get("bonne", -1)))
-    total = len(quiz["questions"])
-    reussite = score >= QUIZ_SEUIL
-    await _deps["traiter_quiz_web"](uid, f"{score} / {total}", reussite)
+    score, total, details = noter(quiz, data)
+    seuil, _ = quiz_seuil_total()
+    reussite = score >= seuil
+    await _deps["traiter_quiz_web"](uid, f"{score} / {total}", reussite, details)
     if reussite:
         return _page("Quiz validé", f"<h1>Bravo, {score}/{total} ✅</h1><p>Le bot t'envoie ton test de montage "
-                                    "en message privé sur Discord, tout de suite.</p>")
-    return _page("Quiz", f"<h1>{score}/{total}</h1><p>Il faut {QUIZ_SEUIL}. Revois la formation ; "
-                         "le bot t'a écrit pour la suite.</p>")
+                                    "dans ton salon Discord, tout de suite.</p>")
+    return _page("Quiz", f"<h1>{score}/{total}</h1><p>Il faut {seuil}. Revois la formation ; "
+                         "le bot t'a écrit dans ton salon pour la suite.</p>")
 
 
 # ------------------------------------------------------------------ santé

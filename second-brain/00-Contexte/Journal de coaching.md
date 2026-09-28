@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (matin, 3) — Le quiz passe sur le site : 10 questions, 8 sur 10, résultat dans le salon à la seconde
+- **Décision de Gaëtan** : internaliser le quiz comme le formulaire (« tant que j'ai un backup dans mon Google Sheets »), 5 questions mots-clés et 5 questions d'information rédigées depuis la vidéo, seuil 8 sur 10, résultat annoncé tout de suite dans le salon perso.
+- **Livré** : `quiz.json` (les 5 mots-clés à écrire, notés sans accents ni majuscules ni pluriel ; 5 questions à choix : warm-up, emplacement du lien, règles des 3 comptes, montée en cadence, Reels d'essai à 200 abonnés, bonnes réponses réparties) ; la page `/quiz` du site accepte les champs libres et affiche « il faut 8 bonnes réponses » ; le score repasse par le circuit existant : réussite → le test de montage arrive dans le salon avec le score, échec → score, seuil et second essai dans le salon ; une ligne par essai dans l'onglet « Quiz bot » du classeur des candidatures ; le Google Form reste accepté pour ceux qui ont l'ancien lien, avec son seuil à 30 sur 34.
+- **Avocat du diable** : les réponses vivent dans le code du bot, dépôt privé ; un manager avec accès au dépôt aurait le corrigé. Un mot-clé mal orthographié (« régularitée ») compte faux : à surveiller sur les dix premiers essais via l'onglet « Quiz bot », et à élargir si ça bloque des bons candidats. Le post « Bienvenue » de Discord pointe encore, dans son texte, vers l'ancien lien Google : à retirer.
+- **Prédiction (28/09, revue le 05/10)** : sur les dix premiers essais du quiz du site, au moins six réussites au premier essai et zéro résultat perdu (chaque essai a sa ligne dans « Quiz bot ») (70 %).
+
 ### 2026-09-28 (matin, 2) — La formation de 15 minutes est tournée : cinq mots-clés, la base du bot suit
 - **Fait par Gaëtan** : la vidéo condensée (15 min, Loom) avec les cinq mots-clés du quiz. Détail dans [[Formation clippers en une page et 10 simplifications (26 septembre 2026)]].
 - **Livré** : base de connaissances v13 alignée sur la vidéo (objectifs dans l'ordre des cinq parties sans jamais citer les mots-clés, parcours du 28/09, création des comptes selon les règles de la vidéo, cloche sur les créatrices, TOP 20 comme modèles Edits, cadence qui monte d'un Reel par jour par compte chaque semaine jusqu'à 10, plus de formulaire du dimanche, sortie automatique à 14 jours, Clipper Manager) ; relances et textes du bot passent de « 54 minutes, 4 mots-clés » à « 15 minutes, 5 mots-clés » ; routine de l'étape 7 avec la montée en cadence.

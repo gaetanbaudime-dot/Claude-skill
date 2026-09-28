@@ -2172,8 +2172,8 @@ def indicatif_certain(tel: str) -> bool:
 
 def texte_test(score="") -> str:
     return (
-        "🎉 **Quiz réussi, bravo !**\n\n"
-        f"Voici ton test : {LIEN_TEST}\n\n"
+        (f"🎉 **Quiz réussi : {score}**, bravo !\n\n" if score else "🎉 **Quiz réussi, bravo !**\n\n")   # 28/09 : le score, tout de suite
+        + f"Voici ton test : {LIEN_TEST}\n\n"
         "1. Télécharge les vidéos du dossier.\n"
         "2. Monte **2 vidéos verticales**. La première seconde doit donner envie de rester. Mets des sous-titres.\n"
         "3. Tu as **48 heures**.\n"
@@ -2221,10 +2221,31 @@ class _MessageQuizWeb:
         self.content, self.id, self.channel, self.webhook_id = contenu, f"web-{int(time.time() * 1000)}", canal, None
 
 
-async def traiter_quiz_web(uid: str, score: str, reussite: bool):
+def seuil_quiz_texte(sep: str = "/") -> str:
+    """« 8/10 » (quiz du site) ou « 30/34 » (Google Form) — 28/09."""
+    seuil, total = web_candidature.quiz_seuil_total()
+    return f"{seuil}{sep}{total}"
+
+
+async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
     canal = await canal_admin()
+    essai = essais_quiz(uid) + 1
     contenu = f"{'QUIZ_OK' if reussite else 'QUIZ_KO'}|{uid}|{score}"
     await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal))
+    # 28/09 (Gaëtan : « tant que j'ai un backup dans mon Google Sheets ») : une ligne par essai dans l'onglet « Quiz bot »
+    if SHEET_CANDIDATURES_ID and google_api.actif():
+        try:
+            m = membre_par_id(uid)
+            prenom = prenom_de(m) if m is not None else ""
+            onglet = "Quiz bot"
+            if await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet):
+                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"'{onglet}'!A1",
+                                               [["Date", "Prénom", "Discord", "Score", "Essai", "Réussite", "Mots-clés donnés"]])
+            await google_api.sheets_ajouter(SHEET_CANDIDATURES_ID, f"'{onglet}'!A1",
+                                            [[datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"), prenom, str(uid), score, essai,
+                                              "oui" if reussite else "non", " · ".join(details or [])]])
+        except Exception as erreur:                                        # noqa: BLE001
+            journal.warning("Quiz bot : ligne non écrite dans le classeur pour %s : %s", uid, erreur)
 
 
 async def traiter_quiz_webhook(message, silencieux=False):
@@ -2247,7 +2268,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
     morceaux = (message.content.split("|", 4) + ["", "", "", ""])[:5]
     pseudo, score, email_q, tel_q = (m.strip() for m in morceaux[1:5])
     note_m = re.search(r"(\d+)\s*/\s*(\d+)", score)
-    if reussite and note_m and int(note_m.group(1)) < SEUIL_QUIZ:       # 24/09 : seuil 30/34 tenu ici, quoi que dise le script
+    if reussite and note_m and int(note_m.group(2)) == 34 and int(note_m.group(1)) < SEUIL_QUIZ:   # Google Form : seuil 30/34 tenu ici
         journal.info("Quiz %s sous le seuil %s : traité comme un échec (script Google pas à jour ?)", score, SEUIL_QUIZ)
         reussite = False
     # Garde-fou (14/09) : un identifiant Discord fait 17 à 20 chiffres ; un « pseudo » de 8 à 14 chiffres est
@@ -2304,7 +2325,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
             return
         if essais < 2:
             await envoyer_mp(membre_trouve,
-                f"📝 **Quiz : {score or 'sous le seuil'}** — il faut **{SEUIL_QUIZ}/34** pour passer au test.\n"
+                f"📝 **Quiz : {score or 'sous le seuil'}** — il faut **{seuil_quiz_texte()}** pour passer au test.\n"
                 "Pas grave : **tu as un deuxième essai**. Revois la vidéo de formation (les 5 mots-clés) "
                 "et les fiches, puis repasse-le avec ton lien personnel :\n"
                 + (f"{LIEN_QUIZ}{membre_trouve.id}" if LIEN_QUIZ else "`!quiz` sur le serveur")
@@ -2713,7 +2734,7 @@ def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
             "Note les mots-clés cachés, dans l'ordre.\n\n"
             + ((f"📝 **Le quiz**\n"
                 f"Ton lien personnel : <{lien_q}>\n"
-                f"Il faut {SEUIL_QUIZ} sur 34. Deux essais.\n\n") if lien_q else "")
+                f"Il faut {seuil_quiz_texte(' sur ')}. Deux essais.\n\n") if lien_q else "")
             + "Le test de montage arrive ici tout seul après le quiz.")
 
 
@@ -2742,7 +2763,7 @@ def ou_en_es_tu(uid: str) -> str:
     if not liaison.get("tel"):
         return "**Prochaine étape : envoie-moi ton numéro de téléphone** (celui du formulaire), ici en MP."
     if not etat or etat == "quiz_rate":
-        return (f"**Prochaine étape : la formation puis le quiz** (seuil {SEUIL_QUIZ}/34, deux essais). Ton lien personnel : "
+        return (f"**Prochaine étape : la formation puis le quiz** (seuil {seuil_quiz_texte()}, deux essais). Ton lien personnel : "
                 f"{lien_quiz}")
     if etat == "test_envoye":
         return ("**Ton test est en cours** : dépose tes 2 clips ici en MP (fichiers ou lien Drive) avant "
@@ -3291,7 +3312,7 @@ async def boucle_pipeline():
                 await _relancer(li, "r24", "r48", li.get("date"), uid,
                     "🎓 Ta **formation** et ton **quiz** t'attendent. Regarde la vidéo en entier, elle dure 15 minutes. "
                     "5 mots-clés sont cachés dedans. Note-les dans l'ordre." + lien_quiz +
-                    f"\nIl faut {SEUIL_QUIZ} bonnes réponses sur 34. Tu as deux essais. Quiz réussi = ton test arrive tout seul.",
+                    f"\nIl faut {seuil_quiz_texte(' bonnes réponses sur ')}. Tu as deux essais. Quiz réussi = ton test arrive tout seul.",
                     "⏳ Il ne te manque que le **quiz**. Après, c'est le test, puis l'équipe." +
                     lien_quiz + "\nTu bloques ? Réponds-moi ici, je t'aide.")
             # ③④⑤ Étapes portées par l'état du pipeline.
@@ -4162,7 +4183,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "Ensuite ton manager t'attribue ta créatrice (sous 48 h). Une question ? Pose-la ici.")
     return ("🧰 **Ton parcours, dans l'ordre**\n"
             "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
-            f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {SEUIL_QUIZ}/34, 2 essais).\n"
+            f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {seuil_quiz_texte()}, 2 essais).\n"
             "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
             "4. Test validé → **J'ACCEPTE** → ton salon perso et tes 3 comptes, un par jour avec 24 h de warm-up.\n"
             "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
@@ -5227,7 +5248,7 @@ async def commande_admin(message, texte: str) -> bool:
                 "· Tu as déjà **validé le quiz** → ton **test de montage** arrive ici en MP "
                 "(48 h pour rendre 2 clips). Si tu ne l'as pas reçu d'ici demain, écris-moi ici.\n"
                 "· Tu n'as **pas encore fait le quiz** → tape `!quiz` sur le serveur, je t'envoie "
-                f"ton lien personnel. Seuil {SEUIL_QUIZ}/34, deux essais.\n"
+                f"ton lien personnel. Seuil {seuil_quiz_texte()}, deux essais.\n"
                 "· Test validé → tu acceptes les conditions en MP, puis ton manager t'accueille : "
                 "créatrice, comptes créés avec lui au créneau, cadence.\n\n"
                 "Pas d'entretien : ceux qui livrent sont pris. Les places partent dans l'ordre des "
@@ -7331,7 +7352,7 @@ async def on_message(message):
         ok = await envoyer_mp(message.author,
             "📝 Voici **ton lien de quiz personnel** — il contient ton identifiant Discord, "
             f"ne modifie pas le champ pré-rempli :\n{lien_quiz_pour(utilisateur)}\n\n"
-            f"Seuil : **{SEUIL_QUIZ}/34**. Si tu le passes, le test de montage arrive ici automatiquement. Bonne chance 🍀")
+            f"Seuil : **{seuil_quiz_texte()}**. Si tu le passes, le test de montage arrive ici automatiquement. Bonne chance 🍀")
         if message.guild is not None:
             await message.reply("📬 Lien de quiz personnel envoyé en message privé !" if ok else
                                 "⚠️ Tes MP sont fermés — active-les (Paramètres de confidentialité du serveur) puis retape `!quiz`.")
