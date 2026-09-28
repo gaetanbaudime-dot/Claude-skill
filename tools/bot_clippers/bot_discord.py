@@ -39,6 +39,7 @@ import parcours                           # parcours guidé du clipper dans son 
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import matin                              # un seul message du matin par clipper (26/09)
 import sortie_auto                        # sortie automatique à 14 jours sans Reel (28/09)
+import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
 import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
@@ -4198,6 +4199,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!code` — le code qu'Instagram te demande.\n"
                 "· `!recup` — le code de récupération, quand ton manager fait appel pour un compte bloqué.\n"
                 "· `!mesclics` — tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours.\n"
+                "· `!parrain @lui` — tu parraines un nouveau : 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement — ton adresse de paiement.\n"
                 "· Un compte bloqué, un problème de téléphone : **ton manager**, dans ton salon perso.\n"
                 "· `STOP` en message privé — plus aucun rappel automatique.")
@@ -6971,8 +6973,10 @@ async def on_ready():
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
-            "salon_perso": salon_perso_de,
+            "salon_perso": salon_perso_de, "primes_parrainage": parrainage.primes_dues,
             "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves}))
+        parrainage.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "parrainage.json",
+                               "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
         if inputs_clippers.ACTIF:
             client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
                 client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
@@ -7625,6 +7629,10 @@ async def on_message(message):
 
     # Drive (25/09) : le clipper poste son adresse Gmail dans son salon perso ou en MP → partage immédiat.
     if "@" in texte and not texte.startswith("!") and await onboarding.message_clipper(message):
+        return
+
+    # Parrainage (28/09) : `!parrain @lui`, par l'un ou l'autre, dans son salon perso ou en MP.
+    if texte.split()[:1] == ["!parrain"] and await parrainage.commande(message, texte):
         return
 
     # Paie au clic (23/09) : le clipper voit ses propres clics et pose son adresse — en MP ou dans son salon.

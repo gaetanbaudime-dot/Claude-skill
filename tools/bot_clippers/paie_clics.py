@@ -384,14 +384,32 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple
             sans += 1
         rangs.append((nom_de(uid), uid, s["payes"], s["hors_robots"], montant, w))
     rangs.sort(key=lambda r: -r[4])
+    cle_periode = jour_paie if "-" in jour_paie else f"{fin.year}-{jour_paie[3:5]}-{jour_paie[:2]}"
     # 27/09 : la liste est mémorisée (jour de paie → uid → montant) pour le tableau de bord du lundi (« premier paiement »)
     if rangs and _deps.get("ecrire_json"):
-        d.setdefault("paies", {})[jour_paie if "-" in jour_paie else f"{fin.year}-{jour_paie[3:5]}-{jour_paie[:2]}"] = \
-            {uid: montant for _, uid, _, _, montant, _ in rangs}
+        d.setdefault("paies", {})[cle_periode] = {uid: montant for _, uid, _, _, montant, _ in rangs}
         _ecrire(d)
+    # 28/09 : la prime de parrainage (5 $) s'ajoute à la ligne du parrain le jour de la première paie du filleul
+    primes = {}
+    if _deps.get("primes_parrainage"):
+        try:
+            for uid_p, uid_f, prime in _deps["primes_parrainage"]({uid: montant for _, uid, _, _, montant, _ in rangs}, cle_periode):
+                primes.setdefault(uid_p, []).append((nom_de(uid_f), prime))
+        except Exception as erreur:                                     # noqa: BLE001
+            lignes.append(f"⚠️ primes de parrainage non calculées ({type(erreur).__name__})")
+    if primes:
+        presents = {uid for _, uid, _, _, _, _ in rangs}
+        rangs = [(nom, uid, payes, hors, montant + sum(pr for _, pr in primes.get(uid, [])), w) for nom, uid, payes, hors, montant, w in rangs]
+        for uid_p, lst in primes.items():
+            if uid_p not in presents:
+                rangs.append((nom_de(uid_p), uid_p, 0, 0, sum(pr for _, pr in lst), d["wallets"].get(uid_p, {}).get("adresse", "")))
+        rangs.sort(key=lambda r: -r[4])
+        total = sum(r[4] for r in rangs)
+        sans = sum(1 for r in rangs if not r[5])
     for nom, uid, payes, hors, montant, w in rangs:
         adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else (w or "⚠️ adresse manquante")
-        lignes.append(f"· {nom} — {_fmt(payes)} payées ({_fmt(hors)} visiteurs) → **{_usd(montant)}** → {adr}")
+        bonus = "".join(f" · 🎁 +{_usd(pr)} parrainage de {f}" for f, pr in primes.get(uid, []))
+        lignes.append(f"· {nom} — {_fmt(payes)} payées ({_fmt(hors)} visiteurs) → **{_usd(montant)}** → {adr}{bonus}")
     tampon = io.StringIO(); ecrivain = csv.writer(tampon, delimiter=";")
     ecrivain.writerow(["prenom", "discord_id", "visites_payees", "visiteurs_hors_robots", "montant_usd", "adresse"])
     for nom, uid, payes, hors, montant, w in rangs:

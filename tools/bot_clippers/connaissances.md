@@ -264,6 +264,8 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 ## FAQ TERRAIN (réponses officielles)
 
+**Je peux parrainer quelqu'un ?** Oui. L'un de vous deux tape `!parrain @l'autre` dans son salon perso. Le plus ancien des deux est le parrain : il touche 5 $ une fois, le jour où le nouveau apparaît sur une liste de paie. Rien avant, rien d'autre.
+
 **Où va le lien ?** Dans une story à la une, une seule fois, sur chaque compte. Jamais en bio, jamais d'@ en bio, jamais dans un Reel. Tu l'as mis ? Tu n'y touches plus. Chaque jour, une story avec le widget de ton profil renvoie les gens vers la story à la une.
 
 **Et le compte privé ?** Il n'existe plus depuis le 28 septembre 2026. Tes 3 comptes publient, chacun avec ta story à la une.

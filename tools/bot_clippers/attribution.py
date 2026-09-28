@@ -5,8 +5,8 @@ les règles, il reçoit la créatrice suivante de la séquence et tout ce que `!
 comptes du classeur, lien, Drive, alias 2FA, parcours). Au démarrage, les signés présents sans créatrice sont rattrapés un
 par un, avec une pause entre deux.
 
-Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:2,Clara:1,
-Maddie:1 » ; sans poids = 1). Une créatrice sans catégorie ni rôle sur le serveur est sautée (et dite au salon admin). Un
+Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:1 » depuis le 28/09 : Clara et
+Maddie à 0 tant qu'aucun e-mail de compte n'arrive ; sans poids = 1). Une créatrice sans catégorie ni rôle sur le serveur est sautée (et dite au salon admin). Un
 changement d'ordre remet le compteur au début. ATTRIBUTION_AUTO=0 éteint tout. État dans DONNEES/attribution.json."""
 
 import asyncio
@@ -17,7 +17,7 @@ import discord
 
 journal = __import__("logging").getLogger("bot_clippers")
 
-ORDRE_TEXTE = os.environ.get("ATTRIBUTION_ORDRE", "Chloé:3,Sarah:3,Sophie:3,Jade:2,Clara:1,Maddie:1")
+ORDRE_TEXTE = os.environ.get("ATTRIBUTION_ORDRE", "Chloé:3,Sarah:3,Sophie:3,Jade:1")   # 28/09 (Gaëtan) : Jade 1, Clara 0, Maddie 0 tant qu'aucun e-mail n'arrive
 ORDRE, POIDS, SEQUENCE = [], {}, []
 
 

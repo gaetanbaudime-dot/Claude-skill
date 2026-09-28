@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 7) — Deux oui : Jade 1, Clara 0, Maddie 0 dans l'attribution ; le parrainage à 5 $ à la première paie du filleul
+- **Décisions de Gaëtan** : « oui sur ces deux points, mais n'embrouille pas les clippers ».
+- **Livré** : l'ordre d'attribution par défaut devient Chloé 3, Sarah 3, Sophie 3, Jade 1 (Clara et Maddie à zéro tant qu'aucun e-mail de compte n'existe : 4 et 2 comptes livrables, ça ne fait pas un clipper chacune) ; le parrainage en une commande, `!parrain @lui`, tapée par l'un ou l'autre, le plus ancien parraine, 5 $ portés sur sa ligne de paie le jour où le filleul touche sa première paie, une fois, rien de dit au filleul, une seule phrase dans la routine et l'aide.
+- **Avocat du diable** : un parrainage sans annonce ne démarre pas tout seul ; la phrase est à l'étape 7, donc seuls les clippers arrivés au bout du parcours la voient, c'est voulu, ce sont ceux qui peuvent juger un ami sérieux. Le risque de faux filleuls (deux comptes Discord d'une même personne) est borné par la prime unique et le fait qu'elle n'existe qu'avec une paie réelle.
+- **Prédiction (28/09, revue le 20/10)** : au moins deux parrainages déclarés avant le 20/10 et une prime versée sur la liste du 20/10 (45 %) ; aucun clipper attribué à Clara ou Maddie d'ici là, zéro attente de comptes chez Jade (80 %).
+
 ### 2026-09-28 (soir, 6) — Trois réponses : pas de légende ni de hashtags, pas de domaine ni d'alias, le parrainage à expliquer
 - **Décisions de Gaëtan** : « non » aux 5 hashtags et à la légende type par créatrice (l'automatisation n° 6 se fait sans, la simplification n° 16 du 27/09 est abandonnée) ; « non » au test du domaine et aux alias iCloud pour Jade, Maddie et Clara (l'automatisation n° 1 est écartée) ; sur le parrainage payé à la première liste du filleul : « qu'entends-tu par là ? » — à expliquer, décision en attente.
 - **Conséquence chiffrée** : les 110 lignes « à créer » sans e-mail restent ; Jade, Maddie et Clara gardent 3, 2 et 4 comptes livrables, soit trois clippers en tout pour ces trois créatrices, alors que l'ordre d'attribution leur envoie 4 clippers sur 13 (Jade 2, Clara 1, Maddie 1). Recommandation : ramener ces trois à 1, 0 et 0 dans `ATTRIBUTION_ORDRE` tant qu'aucun e-mail n'arrive, sinon un clipper sur quatre reçoit « pas encore de compte prêt » et attend.

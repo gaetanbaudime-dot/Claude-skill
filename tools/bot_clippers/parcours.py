@@ -74,6 +74,7 @@ ETAPES = {
         "texte": ("Chaque jour : 2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une, quelques commentaires.\n\n"
                   "Chaque semaine, ajoute 1 Reel par jour sur chaque compte, jusqu'à 10. Le matin tu montes, tu mets en brouillon, tu publies dans la journée.\n\n"
                   "Chaque matin, tes visites d'hier ici.\n\n"
+                  "Tu connais quelqu'un de sérieux ? Tape `!parrain @lui` ici : 5 $ pour toi le jour de sa première paie.\n\n"
                   "Une question ? Écris ici.")},
 }
 # 28/09 : un compte rendu par un sortant existe déjà → on s'y connecte (le code de CONNEXION arrive dans le salon), pas d'inscription
