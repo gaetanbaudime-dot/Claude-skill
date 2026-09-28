@@ -622,7 +622,14 @@ def en_prive(message) -> bool:
 PARCOURS_ARRIVANT = ("Formation", "Quiz", "Test de montage", "Création du compte Instagram", "Publication")
 
 
+LIEN_VIDEO_FORMATION = os.environ.get("LIEN_VIDEO_FORMATION", "https://www.loom.com/share/e7ffb70f9bd44d99b437ed8844e0e409").strip()
+
+
 def lien_formation() -> str:
+    """28/09 (deux clippers sur WhatsApp : « je ne trouve pas la vidéo, c'est dans quel salon ? ») : le lien direct de la vidéo,
+    pas une mention de salon à aller chercher ; le post « Bienvenue » du forum en repli."""
+    if LIEN_VIDEO_FORMATION:
+        return f"<{LIEN_VIDEO_FORMATION}>"
     post = POSTS_FORMATION.get("bienvenue") if isinstance(POSTS_FORMATION, dict) else None
     return f"<#{post}>" if post else (f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le salon formation")
 
