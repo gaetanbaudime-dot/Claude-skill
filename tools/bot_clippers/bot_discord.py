@@ -40,6 +40,7 @@ import etats_comptes                      # colonne ETAT du classeur mise à jou
 import matin                              # un seul message du matin par clipper (26/09)
 import sortie_auto                        # sortie automatique à 14 jours sans Reel (28/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
+import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
 import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
@@ -4514,6 +4515,65 @@ def _entrees_faq_apprise() -> list:
     return [(q.strip(), r.strip()) for q, r in re.findall(r"\*\*Q : (.+?)\*\*\s*\nR : (.+?)(?=\n\*\*Q : |\Z)", brut, re.S)]
 
 
+class BoutonReprise(discord.ui.DynamicItem[discord.ui.Button], template=r"reprise:(?P<uid>[0-9]+)"):
+    """« 🔄 Je reprends » (28/09, réservation qui expire) : persistant ; le clipper reçoit trois lignes fraîches et repart à l'étape 1."""
+
+    def __init__(self, uid: str):
+        super().__init__(discord.ui.Button(label="🔄 Je reprends", style=discord.ButtonStyle.primary, custom_id=f"reprise:{uid}"))
+        self.uid = str(uid)
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["uid"])
+
+    async def callback(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.uid and not (str(interaction.user.id) in ADMIN_IDS or est_manager(interaction.user)):
+            await interaction.response.send_message("Ce bouton est pour le clipper de ce salon 🙂", ephemeral=True)
+            return
+        await interaction.response.defer()
+        membre = membre_par_id(self.uid)
+        creatrice = (lire_json(FICHIER_EQUIPES, {}).get(self.uid) or {}).get("creatrice", "")
+        if membre is None or not creatrice:
+            await interaction.followup.send("Je ne retrouve pas ta créatrice. Écris à ton manager.", ephemeral=True)
+            return
+        try:
+            await interaction.message.edit(view=None)
+        except (discord.Forbidden, discord.HTTPException, discord.NotFound):
+            pass
+        bilan = await onboarding.livrer(membre, creatrice, interaction.channel, declencheur="reprise")
+        await parcours.demarrer_parcours(interaction.channel, membre, creatrice)
+        canal = await canal_admin()
+        if canal is not None:
+            try:
+                await canal.send(f"🔄 {prenom_de(membre)} reprend après expiration : {bilan[-300:]}")
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
+
+async def expirer_reservations(historique: dict) -> list:
+    """28/09 (GO n° 1) : après le scan, les réservations expirées (5 jours, aucun compte créé) : parcours remis à zéro, message
+    court avec le bouton « Je reprends », une ligne à l'admin."""
+    faits = await onboarding.reservations_expirees(historique)
+    for uid, prenom, creatrice, n in faits:
+        parcours.oublier(uid)
+        salon = salon_perso_de(uid)
+        if salon is not None:
+            vue = discord.ui.View(timeout=None)
+            vue.add_item(BoutonReprise(uid))
+            try:
+                await salon.send(f"⏳ **{onboarding.RESERVATION_JOURS} jours sans compte créé.** J'ai rendu tes accès au vivier, quelqu'un d'autre les prend.\n\n"
+                                 "Tu veux t'y mettre ? Appuie sur le bouton, je t'en redonne trois.", view=vue)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Expiration de %s : %s", uid, erreur)
+        canal = await canal_admin()
+        if canal is not None:
+            try:
+                await canal.send(f"⏳ Réservation expirée : {prenom} ({creatrice}), {n} ligne(s) rendue(s) au vivier.")
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+    return faits
+
+
 def liberer_liens_de(uids, prenom: str, uids_connus=None) -> int:
     """28/09 : les liens GAML d'un sortant (par uid, ou notés « Clipping Prénom » sans clipper connu) restent à sa créatrice,
     libres pour le suivant. Renvoie le nombre de liens libérés."""
@@ -6842,9 +6902,14 @@ async def on_ready():
                              "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m), "client": client,
                              "chercher_membre": lambda nom: chercher_membre(nom),
                              "marquer_etat": onboarding.marquer_etat,                 # 25/09 : ETAT du classeur suit le parcours
+                             "profil_envoyer": profil.envoyer,                        # 28/09 : photo et bio avec chaque compte
                              "whatsapp": WHATSAPP_GAETAN_URL})                       # 26/09 : bouton « Écrire à Gaëtan » sous chaque étape
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
         client.add_dynamic_items(acceptation.BoutonAccepte)                     # bouton « ✅ J'accepte » persistant (27/09)
+        client.add_dynamic_items(BoutonReprise)                                 # bouton « 🔄 Je reprends » persistant (28/09)
+        profil.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "profil.json",
+                           "source_de": onboarding._source_de, "drive_lister": google_api.drive_lister,
+                           "drive_telecharger": google_api.drive_telecharger})
         _staff = lambda m: str(m.id) in ADMIN_IDS or est_manager(m)             # noqa: E731
         acceptation.configurer({"accepter": accepter_conditions, "lire_json": lire_json, "ecrire_json": ecrire_json,
                                 "FICHIER_PIPELINE": FICHIER_PIPELINE, "membre_par_id": membre_par_id,
@@ -6930,7 +6995,8 @@ async def on_ready():
                                   "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager_seul,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
-                                  "reconcilier": lambda e: parcours.reconcilier(client, e)})
+                                  "reconcilier": lambda e, p=None: parcours.reconcilier(client, e, p),
+                                  "reservations_expirees": expirer_reservations})              # 28/09 : réservation qui expire
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         sortie_auto.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "sortie_auto.json",
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
@@ -6981,6 +7047,7 @@ async def on_ready():
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
             "salon_perso": salon_perso_de, "primes_parrainage": parrainage.primes_dues,
+            "canal_dopamine": lambda: canal_par_id(CANAL_DOPAMINE_ID),   # 28/09 : classement du lundi
             "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves}))
         parrainage.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "parrainage.json",
                                "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})

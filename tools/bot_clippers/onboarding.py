@@ -578,6 +578,56 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
     return google_api.drive_lien(dossier)
 
 
+RESERVATION_JOURS = int(os.environ.get("RESERVATION_JOURS", "5") or 5)   # 28/09 (Gaëtan : GO) : la réservation qui expire
+
+
+async def reservations_expirees(historique: dict, maintenant=None) -> list:
+    """Un clipper livré depuis RESERVATION_JOURS jours ou plus dont AUCUN compte n'existe (toutes ses lignes encore « à créer »,
+    au moins trois scans sans le voir) : ses lignes retournent au vivier (Gérant vidé), ses alias 2FA sont détachés, sa fiche est
+    vidée ; l'appelant remet son parcours à zéro et lui propose de reprendre. Renvoie [(uid, prénom, créatrice, nb de lignes)]."""
+    if not actif():
+        return []
+    maintenant = maintenant or datetime.now(timezone.utc)
+    etat = _lire_etat()
+    comptes = await lire_comptes()
+    par_handle = {c["handle"].lower(): c for c in comptes if c.get("handle")}
+    faits = []
+    for uid, fiche in list(etat.get("clippers", {}).items()):
+        handles = [str(h).lower() for h in (fiche.get("comptes") or [])]
+        if not handles or not fiche.get("date"):
+            continue
+        try:
+            livre = datetime.fromisoformat(str(fiche["date"])[:19])
+        except ValueError:
+            continue
+        if livre.tzinfo is None:
+            livre = livre.replace(tzinfo=timezone.utc)
+        if maintenant - livre < timedelta(days=RESERVATION_JOURS):
+            continue
+        lignes = [par_handle[h] for h in handles if h in par_handle]
+        if not lignes or any(_norm(c["etat"]) not in A_CREER for c in lignes):
+            continue                                                    # un compte créé au moins : la sortie à 14 jours jugera
+        scans = [e for h in handles for e in (historique.get(h) or [])]
+        if len(scans) < 3 or any(e.get("existe") for e in scans):
+            continue
+        for c in lignes:
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])
+            etat["livres"].pop(c["handle"].lower(), None)
+        if codes_2fa.actif():
+            try:
+                codes_2fa.detacher([c["mail"] for c in lignes if c.get("mail")])
+            except Exception:                                           # noqa: BLE001
+                pass
+        prenom = str(lignes[0].get("gerant") or "").split()[0] if str(lignes[0].get("gerant") or "").split() else "?"
+        fiche["comptes"], fiche["acces"] = [], []
+        fiche["expire"] = maintenant.isoformat(timespec="seconds")
+        faits.append((uid, prenom, fiche.get("creatrice", ""), len(lignes)))
+        journal.info("Réservation expirée : %s (%s), %d ligne(s) rendue(s) au vivier", prenom, fiche.get("creatrice", ""), len(lignes))
+    if faits:
+        _ecrire_etat(etat)
+    return faits
+
+
 # ------------------------------------------------------------------ livraison
 async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice") -> str:
     """Tout l'onboarding d'un clipper. Renvoie la ligne à poster à l'admin / au manager."""

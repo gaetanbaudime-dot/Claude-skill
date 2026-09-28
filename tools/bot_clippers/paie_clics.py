@@ -191,6 +191,14 @@ def periode(cle: str, mois: str = "") -> tuple:
     return date(fin.year, fin.month, 16), fin
 
 
+def prochaine_paie(ref: date) -> date:
+    """Le prochain jour de paie : le 20 pour la quinzaine du 1 au 15, le 5 du mois suivant pour celle du 16 à la fin."""
+    if ref.day <= 15:
+        return date(ref.year, ref.month, 20)
+    premier = (date(ref.year, ref.month, 1) + timedelta(days=32)).replace(day=1)
+    return date(premier.year, premier.month, 5)
+
+
 def periode_en_cours() -> tuple:
     ref = _aujourdhui()
     if ref.day <= 15:
@@ -336,8 +344,11 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
             f"Hier, le {hier.strftime('%d/%m')} : **{_fmt(h['payes'])} visites qui comptent**{part}"
             + (f". {robots} robots enlevés" if robots > 0 else "") + ".\n\n"
             f"Sur 7 jours : **{_fmt(s7['payes'])}** visites qui comptent, sur {_fmt(s7['hors_robots'])} visiteurs.\n\n"
-            f"Quinzaine du {debut.strftime('%d/%m')} au {fin.strftime('%d/%m')} : **{_fmt(q['payes'])} visites = "
-            f"{_usd(q['payes'] * TAUX_CLIC)}**.\n"
+            + ((f"💸 **Ta paie en cours : {_usd(q['payes'] * TAUX_CLIC)}** ({_fmt(q['payes'])} visites du {debut.strftime('%d/%m')} au "
+                f"{fin.strftime('%d/%m')}), virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
+               (f"Quinzaine du {debut.strftime('%d/%m')} au {fin.strftime('%d/%m')} : **{_fmt(q['payes'])} visites = "
+                f"{_usd(q['payes'] * TAUX_CLIC)}**.\n"))
+            +
             f"Une visite qui compte = {_usd(TAUX_CLIC)}. Elle vient de France ou d'un pays francophone. Ce n'est pas un robot.\n\n"
             + ("" if not au_clic or str(uid) in d["wallets"] else "⚠️ Je n'ai pas ton adresse de paiement. Écris `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement.\n\n")
             + "-# Ton lien : " + " · ".join(d["liens"][l].get("url", "") for l in lids))
@@ -357,7 +368,7 @@ def ligne_matin(d: dict, uid: str) -> str:
         return ""
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
     au_clic = regime(uid) == "clic"
-    montant = f" = {_usd(q['payes'] * TAUX_CLIC)}" if au_clic else ""
+    montant = f" = {_usd(q['payes'] * TAUX_CLIC)} · virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}" if au_clic else ""   # 28/09 (GO n° 8)
     # 26/09 : une ligne, dans le message du matin (les détails restent dans `!mesclics`)
     return (f"👀 Visites hier : **{_fmt(h['payes'])}** · quinzaine : **{_fmt(q['payes'])}{montant}**"
             + ("" if not au_clic or str(uid) in d["wallets"] else "\n⚠️ Adresse de paiement manquante : `!wallet 0x…` ou `!wallet FR76…`"))
@@ -496,6 +507,26 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
     return appels
 
 
+def texte_classement(d: dict, nom_de, hier: date, n: int = 5) -> str:
+    """28/09 (GO n° 7) : le lundi, dans #dopamine, les cinq premiers en visites payées sur les sept derniers jours. '' si personne."""
+    debut = hier - timedelta(days=6)
+    par_uid = {}
+    for lid, info in d["liens"].items():
+        if info.get("uid"):
+            par_uid.setdefault(str(info["uid"]), []).append(lid)
+    rangs = []
+    for uid, lids in par_uid.items():
+        s = somme(d, lids, debut, hier)
+        if s["payes"] > 0:
+            rangs.append((nom_de(uid), s["payes"]))
+    if not rangs:
+        return ""
+    rangs.sort(key=lambda r: -r[1])
+    lignes = [f"{i}. **{nom}** · {_fmt(v)} visites = {_usd(v * TAUX_CLIC)}" for i, (nom, v) in enumerate(rangs[:n], 1)]
+    return (f"🏆 **Top {min(n, len(rangs))} de la semaine** ({debut.strftime('%d/%m')} → {hier.strftime('%d/%m')})\n" + "\n".join(lignes)
+            + f"\n-# {len(rangs)} clipper(s) ont fait des visites cette semaine. Une visite = {_usd(TAUX_CLIC)}.")
+
+
 async def envoyer_lignes_matin(d: dict) -> int:
     envoyes = 0
     salon_de = _deps["salon_perso"]
@@ -587,6 +618,18 @@ async def boucle(client, deps: dict):
                 d["matin"] = aujourdhui
                 _ecrire(d)
                 journal.info("Lignes du matin envoyées : %s", n)
+            if (maintenant.weekday() == 0 and maintenant.hour >= CLICS_HEURE and d.get("classement") != aujourdhui and complets
+                    and _deps.get("canal_dopamine")):                   # 28/09 (GO n° 7) : le classement du lundi dans #dopamine
+                try:
+                    canal_c = await _deps["canal_dopamine"]()
+                    prenom_c = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None) or f"id {uid}").split(" - ")[0]   # noqa: E731
+                    texte_c = texte_classement(d, prenom_c, maintenant.date() - timedelta(days=1))
+                    if canal_c is not None and texte_c:
+                        await canal_c.send(texte_c[:1990])
+                except Exception as erreur:                             # noqa: BLE001
+                    journal.warning("Classement du lundi : %s", erreur)
+                d["classement"] = aujourdhui
+                _ecrire(d)
             if maintenant.day in (5, 20) and maintenant.hour >= CLICS_HEURE and d.get("paie_annoncee") != aujourdhui and complets:
                 await annoncer_paie(client, d, maintenant)
                 d["paie_annoncee"] = aujourdhui

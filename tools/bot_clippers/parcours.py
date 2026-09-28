@@ -81,7 +81,7 @@ ETAPES = {
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. Code demandé ? Écris `!code` ici.\n"
             "3. Mets ce mot de passe. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
-            "4. Photo + bio sage, comme les comptes dans {info}. Pas de lien, pas d'@.",
+            "4. Mets la photo et la bio que je t'envoie juste en dessous. Pas de lien, pas d'@.",
             "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
             "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.",
             "Crée-le comme les autres, sur le même téléphone.")
@@ -258,6 +258,11 @@ async def envoyer_etape(salon, membre, n: int) -> None:
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Étape %s pour %s : %s", n, uid, erreur)
     _ecrire(d)
+    if n in (1, 2, 3) and _deps.get("profil_envoyer"):                  # 28/09 (GO n° 5) : photo et bio prêtes à coller
+        try:
+            await _deps["profil_envoyer"](salon, uid, n, fiche_p.get("creatrice", ""))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Profil du compte %s pour %s : %s", n, uid, erreur)
 
 
 async def demarrer_parcours(salon, membre, creatrice: str) -> None:
@@ -522,7 +527,7 @@ async def demarrer_selon_classeur(salon, membre, creatrice: str, etats_par_handl
     return n
 
 
-async def reconcilier(client, etats_par_handle: dict) -> list:
+async def reconcilier(client, etats_par_handle: dict, publies=None) -> list:
     """Après chaque scan du classeur : un compte créé sur Instagram valide tout seul l'étape 1, 2 ou 3 ; un clipper mis
     en routine par erreur alors que ses comptes sont à créer ou en warm-up est remis à la bonne étape (une seule fois)."""
     faits = []
@@ -548,6 +553,10 @@ async def reconcilier(client, etats_par_handle: dict) -> list:
                 h, e = etats[n - 1]
                 if e and e not in ("a creer", "à créer") and await valider_etape(salon, uid, n, par="classeur"):
                     faits.append((_prenom(membre), n, n + 1))
+            elif n == 5 and publies and any(str(h).lower() in publies for h, _ in etats):
+                # 28/09 (GO n° 4) : le premier Reel vu par le scan ferme l'étape 5 tout seul
+                if await valider_etape(salon, uid, 5, par="scan"):
+                    faits.append((_prenom(membre), 5, 6))
             elif n == 4 and not fiche_p.get("corrige_4"):
                 # 26/09 (Daniella) : mise au warm-up avec un seul compte créé → retour à l'étape du prochain compte, une seule fois
                 cible = etape_selon_classeur(etats)

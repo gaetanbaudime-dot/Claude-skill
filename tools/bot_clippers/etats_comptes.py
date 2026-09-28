@@ -245,9 +245,16 @@ async def executer(ecrire: bool = True) -> dict:
             etats_h = {c["handle"].lower(): c["etat"] for c in comptes if c["handle"]}
             for handle, _, _, apres, _ in changements:
                 etats_h[handle.lower()] = apres
-            await _deps["reconcilier"](etats_h)
+            # 28/09 : les comptes qui ont publié au moins une fois (le premier Reel valide l'étape 5 tout seul)
+            publies = {h for h, hist in d["historique"].items() if any(e.get("existe") and int(e.get("posts") or 0) > 0 for e in hist)}
+            await _deps["reconcilier"](etats_h, publies)
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation des parcours : %s", erreur)
+    if ecrire and _deps.get("reservations_expirees"):                             # 28/09 : la réservation qui expire
+        try:
+            await _deps["reservations_expirees"](d["historique"])
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Réservations expirées : %s", erreur)
     fautifs = sorted({f"{c['gerant'].split()[0]} (@{c['handle']})" for c in lignes
                       if c.get("gerant") and (mesures.get(c["handle"].lower()) or {}).get("fautes")})
     if ecrire and fautifs and _deps.get("canal_admin"):                           # 28/09 : contrôle par Reel, une ligne à l'admin
