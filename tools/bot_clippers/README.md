@@ -79,7 +79,7 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 
 `!aide` (liste adaptée au rôle : admin, manager, clipper, candidat) ·
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
-`!compteur` · `!rang @x Rookie|Confirmé|Élite` · `!invites` ·
+`!compteur` · `!rang @x Rookie|Confirmé|Élite` ·
 `!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R` ·
 `!creatrice @x Prénom` · `!sortie @x raison` · `!relance @x` ·
 `!alias` / `!code` (relais 2FA, managers). Une commande inconnue est signalée (plus de silence).
@@ -249,7 +249,6 @@ Le bot fait maintenant tourner la boucle « paiement → preuve → contenu → 
 - **`!compteur`** → (re)crée/met à jour le message épinglé « X € déjà versés aux clippers ».
 - **`!rang @clippeur Rookie|Confirmé|Elite`** → assigne le rôle (crée d'abord les 3 rôles
   dans les réglages du serveur ; le rôle du bot doit être AU-DESSUS d'eux dans la liste).
-- **`!invites`** → classement des invitations trackées (preuve d'attribution du parrainage).
 - `!stats` et `!apprendre` inchangés.
 
 ### Tracking d'invitations + accueil numéroté (ACTIVER_V2=1)
@@ -585,3 +584,4 @@ Décision de Gaëtan du 28/09 : élaguer le bot des fonctionnalités mortes. Cha
 - **DocuSeal — contrats signés** (`docuseal_requete`, `creer_contrat_docuseal`, `!contrat`, sondage des signatures et auto-onboarding à la signature dans `boucle_pipeline`, relances « signe ton contrat » 24 h / 48 h / J+7 / expiration J+14, retentatives après échec, lignes « contrats » du digest et de `!pipeline`, envoi du contrat à la réception de l'e-mail) : sans contrat depuis le 23/09 (`CONTRAT_ACTIVER=0`, « on ne va pas embêter les Malgaches avec ça »), retirés. Remplacés par les conditions en MP et le J'ACCEPTE (case cochée sur le site, bouton ✅ ou mot en MP, `acceptation.py`, 27/09). Variables Railway devenues inutiles : `DOCUSEAL_API_KEY`, `DOCUSEAL_TEMPLATE_ID`, `DOCUSEAL_URL`, `DOCUSEAL_EMAIL_AGENCE`, `DOCUSEAL_CONTRESIGNATURE`, `DOCUSEAL_ONBOARDING_AUTO`, `CONTRAT_ACTIVER`.
 - **Rappel de /bump Disboard** (`detecter_bump`, `boucle_bump`, `!bumps`, classement mensuel, fichier `bump.json`, `CANAL_BUMP_ID`, `DISBOARD_ID`) : le salon #bump se supprime depuis le 14/09 et le module était « éteint par décision » (variable vide), retiré. Pas de remplacement : le serveur est fermé, il ne se promeut plus sur Disboard. Variable Railway devenue inutile : `CANAL_BUMP_ID`.
 - **Annonce et purge internationales** (`!annonce-int [envoyer]`, `!purge-int [appliquer] [tout]`, clé `annonce_lancement` du pipeline) : `!purge-int` était neutralisée tant que `PAUSE_INT` vaut 0 (défaut, recrutement ouvert depuis le 08/09) et `!annonce-int` était l'annonce unique du lancement du 08/09, sans objet depuis que le serveur est fermé (14/09) et que tout arrive par le formulaire du site. Retirées. `PAUSE_INT` et `PURGE_INT_EXEMPTS` restent : la pause du quiz international et `!purge-candidats` s'en servent.
+- **`!invites`** (classement des invitations trackées) : derrière `ACTIVER_V2` (vide par défaut) et sans usage depuis que le parrainage passe par `!parrain @lui` (`parrainage.py`, 28/09). Retirée. Le tracking des invitations à l'arrivée (`cacher_invites`, `trouver_invitation`, `invites.json`) reste : il sert à l'accueil, aux portes d'entrée (`SOURCES_INVITES`) et aux invitations personnelles `!inviter`.

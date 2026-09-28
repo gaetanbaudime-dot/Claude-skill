@@ -3791,7 +3791,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!archiver #salon…`\n"
-                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang` · `!invites`\n"
+                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang`\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!retro` (il relit ses salons et apprend) · `!sauvegarde`\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
@@ -5906,21 +5906,6 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply(f"⚠️ Compteur NON affiché : {probleme}")
         else:
             await message.reply(f"✅ Compteur épinglé dans <#{CANAL_DOPAMINE_ID}> : {total:.2f} € versés.")
-        return True
-
-    if texte.startswith("!invites"):
-        donnees = lire_json(FICHIER_INVITES, {"par_parrain": {}})
-        # Les crédits historiques attribués à des bots (liens Disboard) sont filtrés du classement.
-        humains = {uid: n for uid, n in donnees["par_parrain"].items()
-                   if not getattr(membre_par_id(uid), "bot", False)}
-        classement = sorted(humains.items(), key=lambda kv: -kv[1])[:10]
-        if not classement:
-            await message.reply("Aucune invitation trackée pour l'instant" +
-                                ("" if ACTIVER_V2 else " (ACTIVER_V2 est éteint)") + ".")
-            return True
-        lignes = [f"{i+1}. <@{uid}> — {n} invitations" for i, (uid, n) in enumerate(classement)]
-        await message.reply("🎟️ **Classement des invitations**\n" + "\n".join(lignes) +
-                            "\n-# On tracke au join, on paie à l'activation (grille de parrainage).")
         return True
 
     # ---- v2 : !rang @membre Rookie|Confirmé|Elite ----
