@@ -9,6 +9,7 @@ Cluster de la santé comme infrastructure de performance : sommeil, nutrition, e
 - [[Entraînement physique]] : force + cardio, la constance bat la perfection, le muscle comme organe de longévité.
 - [[Stress et récupération]] : les cycles stress-récupération, le détachement psychologique, le burnout comme surentraînement.
 - [[Énergie et productivité]] : gérer l'énergie plutôt que le temps, protéger le pic, la jonction santé-business.
+- [[Fatigue du soir - glutamate et décisions faciles]] : ce qu'une journée de décisions fait au cortex préfrontal (glutamate, Current Biology 2022), pourquoi le soir choisit l'option facile, ce qui est prouvé et ce qui ne l'est pas, et la règle pour le pôle clipping : une décision demandée à 21 h, c'est un Reel de moins.
 
 ## Ordre de lecture
 

@@ -3845,10 +3845,11 @@ async def boucle_rappels():
                 canal = await canal_par_id(CANAL_REPORTING_ID)
                 if canal is not None:
                     try:
-                        await canal.send("⏰ **Rappel reporting !** Avant **minuit ce soir** : ton récap de la "
+                        await canal.send("@everyone ⏰ **Rappel reporting !** Avant **minuit ce soir** : ton récap de la "
                                          "semaine par compte (captures des tableaux de bord, vues, abonnés "
                                          "gagnés, incidents éventuels). Le reporting du dimanche conditionne "
-                                         "le fixe de la semaine — 5 minutes et tu es tranquille 💪")
+                                         "le fixe de la semaine — 5 minutes et tu es tranquille 💪",
+                                         allowed_mentions=discord.AllowedMentions(everyone=True))   # 28/09 (Gaëtan) : tout le monde est mentionné
                         etat["reporting"] = aujourdhui
                         ecrire_json(FICHIER_RAPPELS, etat)
                     except (discord.Forbidden, discord.HTTPException):
@@ -4187,7 +4188,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
+                     "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard",
                      "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
 
 

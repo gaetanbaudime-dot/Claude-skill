@@ -15,6 +15,9 @@ liens_opposition: []
 
 # Sommeil
 
+> [!info] Prolongement (2026-09-28)
+> Le mécanisme de la fatigue de décision en fin de journée (glutamate dans le cortex préfrontal, choix faciles le soir) et ce qu'il change pour ta soirée et pour tes clippers : [[Fatigue du soir - glutamate et décisions faciles]].
+
 > [!info] Résumé
 > Le sommeil est la variable de santé au meilleur rapport preuve/effort : il conditionne la cognition, la régulation émotionnelle, le métabolisme et l'immunité, et sa dette dégrade précisément les capacités qui font la qualité des décisions d'un dirigeant. Les fondamentaux comportementaux sont simples, robustes et gratuits.
 

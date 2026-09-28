@@ -29,7 +29,7 @@ APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "").strip()
 ACTOR_IG = os.environ.get("APIFY_ACTOR_IG", "apify~instagram-profile-scraper").strip()
 ACTIF = (os.environ.get("ETATS_CLASSEUR", "1").strip() or "1") != "0"
 GOOD_JOURS = int(os.environ.get("ETATS_GOOD_JOURS", "3") or 3)         # jours de publication de suite pour GOOD
-BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "2") or 2)           # jours d'absence de suite pour BAN
+BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "1") or 1)           # 28/09 (Gaëtan) : plus lisible = BAN par défaut, dès le premier scan
 HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après le rapport inputs du matin
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
@@ -116,7 +116,7 @@ def _series(historique: list) -> tuple:
     """(jours d'absence de suite, jours de publication de suite) en partant du dernier jour."""
     absents = publie = 0
     for j in reversed(historique):
-        if j.get("existe"):
+        if j.get("existe") and not j.get("restreint"):                  # 28/09 : un compte restreint (followers illisibles) compte absent
             break
         absents += 1
     for j in reversed(historique):
@@ -199,7 +199,8 @@ async def executer(ecrire: bool = True) -> dict:
         if id(c) not in ids_suivis:
             continue
         hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
-        hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0)})
+        hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
+                     "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0)})
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
         apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"])
         if apres:
@@ -273,12 +274,88 @@ async def executer(ecrire: bool = True) -> dict:
             except Exception as erreur:                                      # noqa: BLE001
                 journal.warning("Reels du matin pour %s : %s", prenom, erreur)
     if ecrire:
+        try:                                                                        # 28/09 : l'onglet Dashboard, une ligne par clipper
+            await ecrire_dashboard(comptes, d["historique"], _deps.get("clics_7j"), jour)
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Dashboard : %s", erreur)
+    if ecrire:
         d["dernier"] = jour
         d["version"] = VERSION
         _ecrire(d)
     journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers, %d clics, %d liens mis à jour",
                  len(lignes), len(changements), followers_maj, clics_maj, liens_maj)
     return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj}
+
+
+ONGLET_DASHBOARD = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
+ENTETE_DASHBOARD = ["Clipper", "Comptes", "Créés", "À créer", "BAN", "Followers", "Visites 7 j", "Reels 7 j", "Dernier Reel", "Détail des comptes"]
+
+
+def _entier(v) -> int:
+    try:
+        return int(re.sub(r"[^\d-]", "", str(v or "")) or 0)
+    except ValueError:
+        return 0
+
+
+def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> list:
+    """28/09 (Gaëtan : « un dashboard par clipper, au même endroit ») : par créatrice, une ligne par clipper — comptes, créés,
+    à créer, BAN, followers cumulés des comptes vivants, visites payables des 7 derniers jours (le chiffre de la colonne Clics,
+    une seule fois), Reels vus par le scan sur 7 jours, dernier Reel, et le détail compte par compte. Triée par visites."""
+    par = {}
+    for c in comptes:
+        g = (c.get("gerant") or "").strip()
+        if not g or _norm(g) in ("x", "y", "z", "aaa", "?", "-", "libre", "dispo") or not c.get("handle"):
+            continue
+        crea = ((c.get("creatrice") or c.get("onglet") or "?").split() or ["?"])[0]
+        par.setdefault(crea, {}).setdefault(g.split()[0], []).append(c)
+    lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables sur 7 jours (GAML), followers et Reels vus par le scan"], []]
+    tot_f = tot_v = tot_r = tot_c = 0
+    for crea, clippers in par.items():
+        rows = []
+        for g, cs in clippers.items():
+            etats = [_norm(c.get("etat") or "") for c in cs]
+            ban = sum(1 for e in etats if e == "ban")
+            a_creer = sum(1 for e in etats if e in ("a creer", "à créer", ""))
+            crees = len(cs) - ban - a_creer
+            vivants = [c for c, e in zip(cs, etats) if e in ("good", "warmup", "prive", "privé", "actif")]
+            followers = sum(_entier(c.get("followers")) for c in vivants)
+            try:
+                visites = clics_de(g) if clics_de else None
+            except Exception:                                           # noqa: BLE001
+                visites = None
+            reels7, dernier = 0, ""
+            for c in cs:
+                for e in (historique.get(c["handle"].lower()) or [])[-7:]:
+                    if e.get("existe"):
+                        reels7 += int(e.get("posts") or 0)
+                for e in historique.get(c["handle"].lower()) or []:
+                    if e.get("existe") and int(e.get("posts") or 0) > 0 and str(e.get("jour", "")) > dernier:
+                        dernier = str(e.get("jour", ""))
+            detail = " · ".join(f"{c['handle']} ({(c.get('etat') or '?').strip()}, {_entier(c.get('followers'))})" for c in cs)
+            rows.append([g, len(cs), crees, a_creer, ban, followers, visites if visites is not None else "", reels7, dernier, detail])
+        rows.sort(key=lambda r: (-(r[6] if isinstance(r[6], int) else -1), -r[5]))
+        f_c = sum(r[5] for r in rows); v_c = sum(r[6] for r in rows if isinstance(r[6], int)); r_c = sum(r[7] for r in rows)
+        tot_f += f_c; tot_v += v_c; tot_r += r_c; tot_c += len(rows)
+        lignes.append([crea.upper(), f"{len(rows)} clipper(s)", "", "", "", f_c, v_c, r_c, "", ""])
+        lignes.append(list(ENTETE_DASHBOARD))
+        lignes.extend(rows)
+        lignes.append([])
+    lignes.append(["TOTAL", f"{tot_c} clipper(s)", "", "", "", tot_f, tot_v, tot_r, "", ""])
+    return lignes
+
+
+async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> int:
+    """Écrit l'onglet Dashboard du classeur des logins (créé s'il manque, vidé puis réécrit). Renvoie le nombre de lignes."""
+    lignes = lignes_dashboard(comptes, historique, clics_de, jour)
+    cid = onboarding.CLASSEUR_LOGINS_ID
+    try:
+        await google_api.sheets_creer_onglet(cid, ONGLET_DASHBOARD)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Onglet %s : %s", ONGLET_DASHBOARD, erreur)
+    await google_api.sheets_effacer(cid, f"'{ONGLET_DASHBOARD}'!A1:L500")
+    await google_api.sheets_ecrire(cid, f"'{ONGLET_DASHBOARD}'!A1", lignes)
+    return len(lignes)
 
 
 RE_FAUTE = re.compile(r"https?://|www\.|getallmylinks|gaml\.|\.fr/|\.app/|(?<![\w.])@[A-Za-z0-9_.]{3,}")
@@ -364,10 +441,21 @@ async def boucle(client) -> None:
 async def commande_staff(message, texte: str) -> bool:
     """`!etats-comptes` : passage immédiat · `!etats-comptes test` : ce qui changerait, sans rien écrire."""
     mots = texte.split()
-    if not mots or mots[0].lower() not in ("!etats-comptes", "!états-comptes"):
+    if not mots or mots[0].lower() not in ("!etats-comptes", "!états-comptes", "!dashboard"):
         return False
     if _deps.get("est_staff") and not _deps["est_staff"](message.author):
         await message.reply("Réservé aux managers et aux admins.")
+        return True
+    if mots[0].lower() == "!dashboard":                                # 28/09 : l'onglet Dashboard réécrit tout de suite, sans scan
+        if not onboarding.actif():
+            await message.reply("Classeur inactif : `CLASSEUR_LOGINS_ID` et le compte de service dans Railway.")
+            return True
+        try:
+            n = await ecrire_dashboard(await onboarding.lire_comptes(), _lire().get("historique", {}), _deps.get("clics_7j"),
+                                       datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+            await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par clipper, par créatrice.")
+        except Exception as erreur:                                     # noqa: BLE001
+            await message.reply(f"❌ Dashboard : {type(erreur).__name__} {str(erreur)[:150]}")
         return True
     if not actif():
         await message.reply("États du classeur inactifs : il faut `APIFY_TOKEN`, `CLASSEUR_LOGINS_ID` et le compte de service dans Railway.")

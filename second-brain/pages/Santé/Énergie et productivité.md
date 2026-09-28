@@ -15,6 +15,9 @@ liens_opposition: []
 
 # Énergie et productivité
 
+> [!info] Prolongement (2026-09-28)
+> Le mécanisme de la fatigue de décision en fin de journée (glutamate dans le cortex préfrontal, choix faciles le soir) et ce qu'il change pour ta soirée et pour tes clippers : [[Fatigue du soir - glutamate et décisions faciles]].
+
 > [!info] Résumé
 > La productivité d'un travailleur du savoir ne se mesure pas en heures mais en heures de qualité, et la qualité est une fonction physiologique : sommeil, rythmes circadiens, glycémie, mouvement. Gérer son énergie plutôt que son temps est le cadre le plus rentable de la performance individuelle, et le pont entre ce cluster et tout le reste du vault.
 
