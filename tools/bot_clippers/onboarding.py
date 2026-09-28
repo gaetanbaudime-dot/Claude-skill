@@ -402,11 +402,12 @@ def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
     blocs = []
     for i, c in enumerate(comptes, start=1):                        # 28/09 : trois comptes qui publient, plus de compte privé
         deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé, connecte-toi"
-        blocs.append(f"**Compte {i} · `{c['handle']}`** · il publie{deja}\n"
-                     f"Mot de passe `{c['mdp'] or 'demande-le à ton manager'}`"
-                     + (f" · e-mail `{c['mail']}`" if c["mail"] else "")
-                     + (f" · tél `{c['phone']}`" if c["phone"] else ""))
-    return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice}\n\n" + "\n\n".join(blocs) + "\n\n"
+        # 28/09 (Gaëtan, Simon perdu) : identifiant, mot de passe, e-mail chacun dans son bloc, copiable d'un geste sur le téléphone
+        blocs.append(f"**Compte {i}** · il publie{deja}\nIdentifiant :\n```\n{c['handle']}\n```\n"
+                     f"Mot de passe :\n```\n{c['mdp'] or 'demande-le à ton manager'}\n```"
+                     + (f"\nE-mail :\n```\n{c['mail']}\n```" if c["mail"] else "")
+                     + (f"\nTéléphone : `{c['phone']}`" if c["phone"] else ""))
+    return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice} · chaque bloc se copie d'un geste.\n\n" + "\n\n".join(blocs) + "\n\n"
             "Un compte par jour, sur ton téléphone seulement. Ces accès sont à l'agence : tu ne les donnes à personne.")
 
 

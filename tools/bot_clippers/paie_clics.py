@@ -23,6 +23,7 @@ import logging
 import os
 import re
 import time
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 
 import aiohttp
@@ -209,12 +210,26 @@ def liens_de(d: dict, uid: str) -> list:
     return [lid for lid, info in d["liens"].items() if str(info.get("uid")) == str(uid)]
 
 
-def liberer_liens(d: dict, uid: str, prenom: str = "") -> list:
+def _n_note(t) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", str(t or "").lower()) if unicodedata.category(c) != "Mn").strip()
+
+
+def liberer_liens(d: dict, uid: str, prenom: str = "", uids_connus=None) -> list:
     """28/09 (sortie automatique) : les liens d'un sortant restent à sa créatrice, sans clipper (uid vide), prêts pour le suivant.
+    Par uid, ou (28/09 soir, Marias parti du serveur) par la note « Clipping Prénom » quand le lien n'a pas de clipper connu :
+    uid vide, ou uid absent de `uids_connus` (les fiches encore au registre). Un lien déjà libre n'est pas retouché.
     Renvoie les identifiants libérés. L'appelant écrit `d`."""
     libres = []
+    cible = _n_note(f"clipping {prenom}") if prenom else ""
+    connus = {str(u) for u in uids_connus} if uids_connus is not None else None
     for lid, info in d.get("liens", {}).items():
-        if str(info.get("uid") or "") == str(uid) and str(uid):
+        uid_l = str(info.get("uid") or "")
+        if not uid_l and info.get("libere"):
+            continue
+        par_uid = bool(str(uid)) and uid_l == str(uid)
+        inconnu = not uid_l or (connus is not None and uid_l not in connus)
+        par_note = bool(cible) and inconnu and _n_note(info.get("note")) == cible
+        if par_uid or par_note:
             info.update({"uid": "", "libere": _aujourdhui().isoformat(), "ancien": prenom or info.get("note", "")})
             libres.append(lid)
     return libres

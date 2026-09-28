@@ -229,10 +229,13 @@ def _fichier_traites():
     return (_deps["DONNEES"] / "roster_sortis_traites.json") if _deps.get("DONNEES") else None
 
 
-async def appliquer_sortis(client, seulement: str = "") -> list:
-    """Pour chaque prénom de `sortis` pas encore traité : fiche du registre → sortis.json, parcours candidat « sorti »,
-    comptes du classeur rendus (`onboarding.liberer`), salon perso renommé « sorti-prenom ». Idempotent (trace dans
-    DONNEES/roster_sortis_traites.json). Renvoie une ligne de bilan par prénom traité."""
+async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: str = "roster (viré)") -> list:
+    """Pour chaque prénom de `sortis` pas encore traité (ou `seulement` ce prénom, `uid` connu ou non) : fiche du registre →
+    sortis.json, parcours candidat « sorti », comptes du classeur rendus AU VIVIER (`onboarding.liberer(pool=True)` : le
+    suivant de la même créatrice les reçoit en premier), lien GAML libéré pour le suivant (`liberer_liens`), salon perso
+    SUPPRIMÉ. 28/09 (Gaëtan, Marias parti du serveur) : « delete son salon et attribue ses comptes / liens au prochain » ;
+    avant, le salon était renommé « sorti-prenom » et les comptes créés partaient en « à mettre Metricool ».
+    Idempotent (trace dans DONNEES/roster_sortis_traites.json). Renvoie une ligne de bilan par prénom traité."""
     d = lire()
     lire_json, ecrire_json = _deps.get("lire_json"), _deps.get("ecrire_json")
     if lire_json is None or _fichier_traites() is None:
@@ -245,56 +248,87 @@ async def appliquer_sortis(client, seulement: str = "") -> list:
         if not seulement and _n(prenom) in {_n(x) for x in traites}:
             continue
         detail = []
-        # 1. Registre des signés → sortis.json (prénom en mot entier dans le nom enregistré ou le pseudo Discord).
+        # 1. Registre des signés → sortis.json : l'uid donné, le prénom en mot entier dans le nom enregistré ou le pseudo Discord,
+        #    ou le salon perso enregistré qui porte son prénom (un parti n'a plus de pseudo à comparer).
         registre = lire_json(_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else {}
-        uids = []
-        for uid, fiche in list(registre.items()):
+        salons = []
+        if client is not None:
+            for g in client.guilds:
+                for c in g.text_channels:
+                    if _n(c.name) == _n(prenom) or _n(c.name).startswith(_n(prenom) + "-"):
+                        salons.append(c)
+        uids = [str(uid)] if str(uid) and str(uid) in registre else []
+        for uid_f, fiche in list(registre.items()):
+            if uid_f in uids:
+                continue
             nom_f = fiche.get("nom") or fiche.get("pseudo") or ""
             m = None
             if client is not None:
                 for g in client.guilds:
-                    m = g.get_member(int(uid)) if uid.isdigit() else None
+                    m = g.get_member(int(uid_f)) if uid_f.isdigit() else None
                     if m is not None:
                         break
             candidats = [nom_f] + ([m.display_name] if m is not None else [])
-            if any(_n(x).split(" - ")[0].split()[0] == _n(prenom) for x in candidats if _n(x)):
-                uids.append(uid)
+            if any(_n(x).split(" - ")[0].split()[0] == _n(prenom) for x in candidats if _n(x)) \
+                    or any(str(fiche.get("salon_id") or "") == str(c.id) for c in salons):
+                uids.append(uid_f)
+        # Un homonyme encore sur le serveur (Julien ×2) : ni le classeur, ni les liens, ni un salon reconnu par son seul nom.
+        homonyme = bool(client is not None and _deps.get("prenom_de") and any(
+            _n(_deps["prenom_de"](m)) == _n(prenom) and str(m.id) not in uids for g in client.guilds for m in getattr(g, "members", [])))
+        salons_fiche = []
         if uids:
             sortis = lire_json(_deps["FICHIER_SORTIS"], []) if _deps.get("FICHIER_SORTIS") else []
-            for uid in uids:
-                fiche = registre.pop(uid, {}) or {}
-                sortis.append({"uid": uid, "nom": prenom, "equipe": fiche.get("equipe", ""), "creatrice": fiche.get("creatrice", ""),
-                               "date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": "roster", "raison": "roster (viré)"})
+            for uid_f in uids:
+                fiche = registre.pop(uid_f, {}) or {}
+                sid = str(fiche.get("salon_id") or "")
+                if sid.isdigit() and client is not None:
+                    ch = client.get_channel(int(sid))
+                    if ch is not None and ch not in salons_fiche:
+                        salons_fiche.append(ch)
+                sortis.append({"uid": uid_f, "nom": prenom, "equipe": fiche.get("equipe", ""), "creatrice": fiche.get("creatrice", ""),
+                               "date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": "roster", "raison": raison})
+                if _deps.get("oublier_parcours"):
+                    try:
+                        _deps["oublier_parcours"](uid_f)
+                    except Exception:                                       # noqa: BLE001
+                        pass
             ecrire_json(_deps["FICHIER_EQUIPES"], registre)
             if _deps.get("FICHIER_SORTIS"):
                 ecrire_json(_deps["FICHIER_SORTIS"], sortis[-500:])
             pipe = lire_json(_deps["FICHIER_PIPELINE"], {"liaisons": {}, "etats": {}}) if _deps.get("FICHIER_PIPELINE") else None
             if pipe is not None:
-                for uid in uids:
-                    info = pipe.setdefault("etats", {}).setdefault(uid, {})
+                for uid_f in uids:
+                    info = pipe.setdefault("etats", {}).setdefault(uid_f, {})
                     info["etat"] = "sorti"; info.setdefault("relances", {})["stop"] = True
                 ecrire_json(_deps["FICHIER_PIPELINE"], pipe)
             detail.append(f"{len(uids)} fiche(s) au registre des sortis")
-        # 2. Classeur des logins : ses comptes rendus.
+        # 2. Classeur des logins : ses comptes rendus au vivier — sauf si un homonyme est encore sur le serveur (Julien ×2).
         onb = _deps.get("onboarding")
-        if onb is not None and onb.actif():
+        if onb is not None and onb.actif() and homonyme:
+            detail.append(f"classeur non touché (un autre {prenom} est sur le serveur : `!liberer {prenom} <handles> pool`)")
+        elif onb is not None and onb.actif():
             try:
-                libere = [b for b in await onb.liberer(prenom) if b.startswith("·")]
+                libere = [b for b in await onb.liberer(prenom, pool=True) if b.startswith("·")]
                 if libere:
-                    detail.append(f"{len(libere)} compte(s) du classeur rendu(s)")
+                    detail.append(f"{len(libere)} compte(s) rendu(s) au vivier")
             except Exception as erreur:                                     # noqa: BLE001
                 detail.append(f"classeur : {type(erreur).__name__}")
-        # 3. Salon perso archivé (renommé, jamais supprimé).
-        if client is not None:
-            for g in client.guilds:
-                for c in g.text_channels:
-                    if _n(c.name) == _n(prenom) or _n(c.name).startswith(_n(prenom) + "-"):
-                        ancien = c.name
-                        try:
-                            await c.edit(name=f"sorti-{_n(prenom)}", reason="Roster : clipper sorti")
-                            detail.append(f"salon #{ancien} → #sorti-{_n(prenom)}")
-                        except Exception as erreur:                         # noqa: BLE001
-                            detail.append(f"salon #{c.name} non renommé ({type(erreur).__name__})")
+        # 2b. Lien GAML : libéré pour le suivant de la même créatrice.
+        if _deps.get("liberer_liens") and not homonyme:
+            try:
+                n_liens = _deps["liberer_liens"](uids, prenom, set(registre.keys()))
+                if n_liens:
+                    detail.append(f"{n_liens} lien(s) GAML libéré(s) pour le suivant")
+            except Exception as erreur:                                     # noqa: BLE001
+                detail.append(f"liens : {type(erreur).__name__}")
+        # 3. Salon perso supprimé (28/09 ; avant : renommé « sorti-prenom ») : celui des fiches, et ceux qui portent son prénom sans homonyme.
+        for c in salons_fiche + ([c for c in salons if c not in salons_fiche] if not homonyme else []):
+            nom_c = c.name
+            try:
+                await c.delete(reason=f"Roster : {prenom} sorti ({raison})")
+                detail.append(f"salon #{nom_c} supprimé")
+            except Exception as erreur:                                     # noqa: BLE001
+                detail.append(f"salon #{nom_c} non supprimé ({type(erreur).__name__})")
         traites.append(prenom)
         ecrire_json(_fichier_traites(), traites[-300:])
         ligne = f"🚪 {prenom} : " + (", ".join(detail) if detail else "rien à nettoyer")
@@ -303,6 +337,43 @@ async def appliquer_sortis(client, seulement: str = "") -> list:
     if bilan and _deps.get("notifier") and not seulement:
         try:
             await _deps["notifier"]("**Roster : sorties appliquées**\n" + "\n".join(bilan), client.guilds[0] if client and client.guilds else None)
+        except Exception:                                                   # noqa: BLE001
+            pass
+    return bilan
+
+
+FICHIER_SORTIES_DEPOSEES = Path(__file__).parent / "sorties_a_appliquer.json"
+
+
+def _fichier_deposees_faites():
+    return (_deps["DONNEES"] / "roster_sorties_deposees.json") if _deps.get("DONNEES") else None
+
+
+async def sorties_deposees(client) -> list:
+    """28/09 : `sorties_a_appliquer.json` (un dépôt, comme les messages) — [{"id", "prenom", "raison"}]. Chaque entrée est
+    appliquée une fois au démarrage (retirée du roster, puis `appliquer_sortis`), trace par id. Pour sortir quelqu'un qui a
+    déjà quitté le serveur sans taper de commande (Marias, 28/09)."""
+    if client is None or not FICHIER_SORTIES_DEPOSEES.exists() or _fichier_deposees_faites() is None or not _deps.get("lire_json"):
+        return []
+    try:
+        entrees = json.loads(FICHIER_SORTIES_DEPOSEES.read_text(encoding="utf-8"))
+    except ValueError as erreur:
+        journal.warning("sorties_a_appliquer.json illisible : %s", erreur)
+        return []
+    faits = _deps["lire_json"](_fichier_deposees_faites(), {})
+    bilan = []
+    for e in entrees if isinstance(entrees, list) else []:
+        ident, prenom = str(e.get("id") or ""), str(e.get("prenom") or "").strip()
+        if not ident or not prenom or ident in faits:
+            continue
+        retirer(prenom)
+        lignes = await appliquer_sortis(client, seulement=prenom, raison=str(e.get("raison") or "sortie déposée"))
+        faits[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": lignes}
+        _deps["ecrire_json"](_fichier_deposees_faites(), faits)
+        bilan.extend(lignes or [f"🚪 {prenom} : rien à nettoyer"])
+    if bilan and _deps.get("notifier"):
+        try:
+            await _deps["notifier"]("**Sorties déposées appliquées**\n" + "\n".join(bilan), client.guilds[0] if client.guilds else None)
         except Exception:                                                   # noqa: BLE001
             pass
     return bilan
@@ -416,6 +487,7 @@ async def demarrage(client):
     """Au démarrage : sorties appliquées, roster complété depuis les pseudos, compteur rafraîchi."""
     try:
         await appliquer_sortis(client)
+        await sorties_deposees(client)                                     # 28/09 : sorties écrites dans le dépôt
         await supprimer_salons(client)
         await completer_depuis_pseudos(client)
         if _deps.get("onboarder_manquants"):

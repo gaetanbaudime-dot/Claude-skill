@@ -4505,6 +4505,20 @@ def _entrees_faq_apprise() -> list:
     return [(q.strip(), r.strip()) for q, r in re.findall(r"\*\*Q : (.+?)\*\*\s*\nR : (.+?)(?=\n\*\*Q : |\Z)", brut, re.S)]
 
 
+def liberer_liens_de(uids, prenom: str, uids_connus=None) -> int:
+    """28/09 : les liens GAML d'un sortant (par uid, ou notés « Clipping Prénom » sans clipper connu) restent à sa créatrice,
+    libres pour le suivant. Renvoie le nombre de liens libérés."""
+    if not paie_clics.actif():
+        return 0
+    d = paie_clics._lire()
+    n = 0
+    for u in (list(uids) or [""]):
+        n += len(paie_clics.liberer_liens(d, str(u), prenom, uids_connus))
+    if n:
+        paie_clics._ecrire(d)
+    return n
+
+
 async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> dict:
     """La sortie d'équipe (corps de `!sortie`, factorisé le 28/09 pour la sortie automatique) : rôles et accès retirés, pipeline
     en « sorti », classeur rendu (pool=True : les comptes créés restent dans le vivier et le lien GAML est libéré pour le suivant),
@@ -5919,7 +5933,7 @@ async def commande_admin(message, texte: str) -> bool:
         if membre is None:
             await message.reply("Format : `!sortie @membre raison` (ex. `!sortie Zeky cadence ratée 2 jours de suite`). "
                                 "Retire rôles et accès, coupe les relances, prévient le membre, le manager et Telegram. "
-                                "Il a déjà quitté le serveur ? `!roster sortie Prénom` nettoie le registre, le classeur et son salon.")
+                                "Il a déjà quitté le serveur ? C'est fait tout seul à son départ (comptes au vivier, lien libéré, salon supprimé) ; sinon `!roster sortie Prénom`.")
             return True
         if str(membre.id) in ADMIN_IDS or any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in membre.roles):
             await message.reply("⛔ Membre protégé (admin/manager/staff) — pas de sortie par commande.")
@@ -6935,7 +6949,8 @@ async def on_ready():
                            "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS, "FICHIER_PIPELINE": FICHIER_PIPELINE,
                            "onboarding": onboarding, "est_manager": est_manager, "ADMIN_IDS": ADMIN_IDS, "notifier": notifier_manager,
                            "mettre_a_jour_stats": mettre_a_jour_stats, "prenom_de": prenom_de, "NOMS_RANGS": NOMS_RANGS,
-                           "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier})
+                           "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier,
+                           "liberer_liens": liberer_liens_de})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
                                      "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
@@ -7002,6 +7017,80 @@ async def annoncer_demarrage():
         await canal.send(texte[:1990])
     except (discord.Forbidden, discord.HTTPException):
         pass
+
+
+async def traiter_depart(membre) -> str:
+    """28/09 (Gaëtan, Marias) : un membre qui quitte le serveur est sorti tout seul. Signé (registre ou roster) : comme
+    `!roster sortie` — fiche → sortis.json, comptes rendus au vivier, lien GAML libéré pour le suivant, salon perso supprimé,
+    roster à jour. Candidat : salon perso supprimé, fiche retirée, relances coupées. Staff et anciens de Jonas : rien.
+    Renvoie la ligne postée au salon admin ('' si rien)."""
+    if getattr(membre, "bot", False) or str(membre.id) in ADMIN_IDS or est_manager(membre):
+        return ""
+    prenom = prenom_de(membre)
+    if roster.sans_salon(prenom):
+        return ""
+    uid = str(membre.id)
+    registre = lire_json(FICHIER_EQUIPES, {})
+    fiche = registre.get(uid) or {}
+    if fiche.get("creatrice") or fiche.get("equipe") or roster.est_actif(prenom):
+        roster.retirer(prenom)
+        bilan = await roster.appliquer_sortis(client, seulement=prenom, uid=uid, raison="a quitté le serveur")
+        ligne = f"🚪 **{prenom} a quitté le serveur** — " + ("; ".join(b.split(" : ", 1)[-1] for b in bilan) if bilan else "rien à nettoyer")
+    else:
+        detail, salons = [], []
+        sid = str(fiche.get("salon_id") or "")
+        if sid.isdigit() and client.get_channel(int(sid)) is not None:
+            salons.append(client.get_channel(int(sid)))
+        g = getattr(membre, "guild", None)
+        for c in (g.text_channels if g is not None else []):
+            nom_c = normaliser(c.name)
+            if c not in salons and (nom_c == normaliser(prenom) or nom_c.startswith(normaliser(prenom) + "-")) \
+                    and c.category is not None and "clippers" in normaliser(c.category.name):
+                salons.append(c)
+        for c in salons:
+            nom_c = c.name
+            try:
+                await c.delete(reason=f"{prenom} a quitté le serveur")
+                detail.append(f"salon #{nom_c} supprimé")
+            except Exception as erreur:                                     # noqa: BLE001
+                detail.append(f"salon #{nom_c} non supprimé ({type(erreur).__name__})")
+        if uid in registre:
+            registre.pop(uid, None)
+            ecrire_json(FICHIER_EQUIPES, registre)
+            detail.append("fiche retirée")
+        pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        info = pipe.setdefault("etats", {}).setdefault(uid, {})
+        info["etat"] = "sorti"
+        info["sortie"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": "auto", "raison": "a quitté le serveur"}
+        info.setdefault("relances", {})["stop"] = True
+        for sec in ("arrivees", "liaisons"):
+            if uid in pipe.get(sec, {}):
+                pipe[sec][uid]["stop"] = True
+        ecrire_json(FICHIER_PIPELINE, pipe)
+        try:
+            parcours.oublier(uid)
+        except Exception:                                                   # noqa: BLE001
+            pass
+        ligne = f"🚪 {prenom} (candidat) a quitté le serveur — " + (", ".join(detail) if detail else "rien à nettoyer")
+    canal = await canal_admin()
+    if canal is not None:
+        try:
+            await canal.send(ligne[:1990])
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    journal.info("Départ traité : %s", ligne)
+    return ligne
+
+
+@client.event
+async def on_member_remove(member):
+    """28/09 : qui quitte le serveur est sorti tout seul (comptes au vivier, lien libéré, salon supprimé, roster)."""
+    if not ACTIVER_V2 or getattr(member, "bot", False):
+        return
+    try:
+        await traiter_depart(member)
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Départ de %s : %s", getattr(member, "id", "?"), erreur)
 
 
 @client.event

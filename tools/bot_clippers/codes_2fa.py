@@ -242,9 +242,10 @@ def ligne_code(t: dict) -> str:
     age = t.get("age_min")
     quand = "" if age is None else (" (à l'instant)" if age < 1 else f" (reçu il y a {age} min)")
     if t.get("type") == TYPE_RECUP:
-        return (f"🛟 **Code de récupération {t.get('plateforme', 'Instagram')} : `{t['code']}`** pour `{alias}`{compte}{quand}. "
-                "C'est le code pour retrouver le compte ou faire appel. Écris-le dans l'appli.")
-    return f"🔐 **Code {t.get('plateforme', 'Instagram')} : `{t['code']}`** pour `{alias}`{compte}{quand}. Écris-le dans l'appli."
+        return (f"🛟 **Code de récupération {t.get('plateforme', 'Instagram')}** pour `{alias}`{compte}{quand}. "
+                "C'est le code pour retrouver le compte ou faire appel. Copie-le d'un geste :\n```\n" + str(t['code']) + "\n```")
+    # 28/09 (Gaëtan, Simon) : le code seul dans un bloc, il se copie d'un geste sur le téléphone
+    return f"🔐 **Code {t.get('plateforme', 'Instagram')}** pour `{alias}`{compte}{quand}. Copie-le d'un geste :\n```\n{t['code']}\n```"
 
 
 def _est_manager(membre, admin_ids) -> bool:

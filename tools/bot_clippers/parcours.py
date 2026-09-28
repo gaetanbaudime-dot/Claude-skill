@@ -31,18 +31,21 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 ETAPES = {
     # 26/09 (Gaëtan) : textes courts, un compte par jour avec 24 h de warm-up sur chaque compte, puis les Reels.
     1: {"titre": "Étape 1 · Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 prêt", "salons": ["info"],
-        "texte": ("**Compte 1 : `{compte1}`** · e-mail `{mail1}` · mot de passe `{mdp1}`\n\n"
+        "texte": ("**Compte 1** · chaque bloc se copie d'un geste (bouton du bloc).\n"
+                  "Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
                   "{creation1}\n\n"
                   "Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 2 demain.")},
     2: {"titre": "Étape 2 · Ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 prêt", "salons": ["info"],
-        "texte": ("**Compte 2 : `{compte2}`** · e-mail `{mail2}` · mot de passe `{mdp2}`\n\n"
+        "texte": ("**Compte 2** · chaque bloc se copie d'un geste (bouton du bloc).\n"
+                  "Identifiant :\n```\n{compte2}\n```\nE-mail :\n```\n{mail2}\n```\nMot de passe :\n```\n{mdp2}\n```\n"
                   "{creation2}\n\n"
                   "Photo et bio différentes du compte 1. Puis 24 h de warm-up dessus.\n\n"
                   "Le compte 1 a fini ses 24 h ? Tu peux déjà y publier 2 Reels par jour, pris dans ton Drive.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 3 demain.")},
     3: {"titre": "Étape 3 · Ton compte 3", "fiche": "1", "bouton": "✅ Compte 3 prêt", "salons": ["info"],
-        "texte": ("**Compte 3 : `{compte3}`** · e-mail `{mail3}` · mot de passe `{mdp3}`\n\n"
+        "texte": ("**Compte 3** · chaque bloc se copie d'un geste (bouton du bloc).\n"
+                  "Identifiant :\n```\n{compte3}\n```\nE-mail :\n```\n{mail3}\n```\nMot de passe :\n```\n{mdp3}\n```\n"
                   "{creation3}\n\n"
                   "Comme les deux autres : bio sage, sans lien et sans @. Puis 24 h de warm-up dessus.\n\n"
                   "Les comptes 1 et 2 publient déjà : 2 Reels par jour chacun.\n\n"
