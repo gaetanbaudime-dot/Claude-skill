@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 17) — Julien et Rianah hors du Dashboard ; les liens MYM regardés, tracking en attente
+- **Décisions de Gaëtan** : Julien et Rianah sortent totalement du clipping (Rianah reviendra tester sur Sophie avec trois comptes) ; le lien de Sarah est terminé sur son domaine ; les MYM entrent dans les liens en bio, le tracking attend ses instructions, il a ajouté les liens MYM pour Chloé, Sarah et Jade.
+- **Livré** : liste « hors clipping » du Dashboard, Julien et Rianah par défaut, tenue par `!dashboard exclure` / `!dashboard inclure` ; le roster reste tel quel (Julien y compte encore pour 23, à trancher avec `!sortie` si c'est voulu).
+- **Vu sur GAML** : le lien de Sarah sur son domaine porte deux boutons, « 0F » avec un code de tracking OnlyFans et « Miam » avec un lien de tracking MYM ; le lien principal de Chloé aussi. Les deux liens actifs de Jade n'ont qu'un bouton OnlyFans, pas de MYM. Aucun lien de clipper (Chloé 14, Sarah 8) n'a de bouton MYM : les pages que voient les visiteurs des clippers n'ont que OnlyFans. Le lien MYM de Sarah et celui de Chloé sont un seul code par créatrice : sans un lien de tracking MYM par clipper, l'attribution MYM ne descendra pas au clipper.
+- **Prédiction (28/09, revue le 05/10)** : Gaëtan demande un bouton MYM sur les liens des clippers avant le 05/10 (75 %) ; le tracking MYM par clipper n'existera pas avant la mi-octobre (70 %).
+
 ### 2026-09-28 (soir, 16) — Dashboard : followers des comptes en gestion, visites et Reels d'hier, la date qui s'affichait 46 293
 - **Demandes de Gaëtan** : « la somme des followers des 3 comptes Instagram que le clipper a en gestion » ; « pourquoi y a 46 293 partout ? » ; « Visites 7 j / Visites hier / Reels postés 7 j / Reels postés hier ».
 - **Livré** : la colonne « Followers cumulés » additionne les comptes dont l'Utilisation est Clipper (BAN exclus, tous les autres états comptent) : un compte passé sous Metricool reste dans le détail mais ne compte plus (Rianah sous Sophie passe de 2 528 à 0, ce compte est géré par l'agence). Le 46 293 était la date du dernier Reel écrite en ISO, convertie en date par Google Sheets et affichée en série par mon format nombre : la colonne est en format date. Quatre colonnes de rythme : visites 7 jours, visites hier, Reels 7 jours (fenêtre de 7 jours datée, plus les 7 derniers scans), Reels hier.

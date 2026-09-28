@@ -34,7 +34,15 @@ HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après 
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
 VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
-DASHBOARD_VERSION = 3             # 28/09 : structure de l'onglet Dashboard (12 colonnes) ; changée → l'onglet est réécrit au démarrage, sans scan
+DASHBOARD_VERSION = 4             # 28/09 : structure de l'onglet Dashboard (12 colonnes, exclusions) ; changée → réécrit au démarrage, sans scan
+EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
+
+
+def dashboard_exclus(d=None) -> list:
+    """Les prénoms tenus hors du Dashboard (28/09, Gaëtan : « Julien et Rianah, on va les exclure totalement du clipping ») :
+    la liste de l'état, tenue par `!dashboard exclure Prénom` / `!dashboard inclure Prénom`, sinon DASHBOARD_EXCLUS."""
+    d = d if d is not None else _lire()
+    return list(d["dashboard_exclus"]) if isinstance(d.get("dashboard_exclus"), list) else list(EXCLUS_DEFAUT)
 LOT = 50                                                               # comptes par appel Apify
 
 _deps = {}
@@ -310,18 +318,22 @@ def _entier(v) -> int:
         return 0
 
 
-def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> list:
+def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclus=None) -> list:
     """28/09 (Gaëtan : « un dashboard par clipper, au même endroit ») : par créatrice, une ligne par clipper — comptes, créés,
     à créer, BAN, followers cumulés des comptes vivants, visites payables des 7 derniers jours (le chiffre de la colonne Clics,
     une seule fois), Reels vus par le scan sur 7 jours, dernier Reel, et le détail compte par compte. Triée par visites."""
+    exclus_n = {_norm(str(x).split()[0]) for x in (exclus or []) if str(x).strip()}
     par = {}
     for c in comptes:
         g = (c.get("gerant") or "").strip()
         if not g or _norm(g) in ("x", "y", "z", "aaa", "?", "-", "libre", "dispo") or not c.get("handle"):
             continue
+        if _norm(g.split()[0]) in exclus_n:                                 # hors clipping (Julien, Rianah…)
+            continue
         crea = ((c.get("creatrice") or c.get("onglet") or "?").split() or ["?"])[0]
         par.setdefault(crea, {}).setdefault(g.split()[0], []).append(c)
-    lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables (GAML) sur 7 jours et hier, followers des comptes en gestion, Reels vus par le scan"], []]
+    lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables (GAML) sur 7 jours et hier, followers des comptes en gestion, Reels vus par le scan"
+               + (f" · hors clipping : {', '.join(str(x) for x in exclus)}" if exclus else "")], []]
     tot_f = tot_v = tot_vh = tot_r = tot_rh = tot_c = 0
     for crea, clippers in par.items():
         rows = []
@@ -380,9 +392,14 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> li
     return lignes
 
 
-async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> int:
+async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclus=None) -> int:
     """Écrit l'onglet Dashboard du classeur des logins (créé s'il manque, vidé puis réécrit). Renvoie le nombre de lignes."""
-    lignes = lignes_dashboard(comptes, historique, clics_de, jour)
+    if exclus is None:
+        try:
+            exclus = dashboard_exclus()
+        except Exception:                                                   # noqa: BLE001 — sans état (tests), la liste par défaut
+            exclus = list(EXCLUS_DEFAUT)
+    lignes = lignes_dashboard(comptes, historique, clics_de, jour, exclus)
     cid = onboarding.CLASSEUR_LOGINS_ID
     try:
         await google_api.sheets_creer_onglet(cid, ONGLET_DASHBOARD)
@@ -621,10 +638,23 @@ async def commande_staff(message, texte: str) -> bool:
         if not onboarding.actif():
             await message.reply("Classeur inactif : `CLASSEUR_LOGINS_ID` et le compte de service dans Railway.")
             return True
+        d = _lire()
+        exclus = dashboard_exclus(d)
+        if len(mots) >= 3 and mots[1].lower() in ("exclure", "inclure"):     # `!dashboard exclure Julien` · `!dashboard inclure Rianah`
+            prenom = " ".join(mots[2:]).strip()
+            deja = [x for x in exclus if _norm(x) == _norm(prenom)]
+            if mots[1].lower() == "exclure" and not deja:
+                exclus.append(prenom)
+            elif mots[1].lower() == "inclure":
+                exclus = [x for x in exclus if _norm(x) != _norm(prenom)]
+            d["dashboard_exclus"] = exclus
+            _ecrire(d)
         try:
-            n = await ecrire_dashboard(await onboarding.lire_comptes(), _lire().get("historique", {}), _deps.get("clics_7j"),
-                                       datetime.now(timezone.utc).strftime("%Y-%m-%d"))
-            await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par clipper, par créatrice.")
+            n = await ecrire_dashboard(await onboarding.lire_comptes(), d.get("historique", {}), _deps.get("clics_7j"),
+                                       datetime.now(timezone.utc).strftime("%Y-%m-%d"), exclus)
+            await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par clipper, par créatrice."
+                                + (f"\nHors clipping : {', '.join(exclus)} (`!dashboard inclure Prénom` pour remettre quelqu'un)." if exclus
+                                   else "\nPersonne n'est exclu (`!dashboard exclure Prénom`)."))
         except Exception as erreur:                                     # noqa: BLE001
             await message.reply(f"❌ Dashboard : {type(erreur).__name__} {str(erreur)[:150]}")
         return True
