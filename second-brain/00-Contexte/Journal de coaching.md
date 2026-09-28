@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 16) — Followers cumulés : tous les comptes du clipper, sauf les BAN
+- **Demande de Gaëtan** : « mets les followers des 3 comptes Instagram cumulés du clipper ». La colonne additionnait déjà, mais seulement GOOD, WARMUP, PRIVE et ACTIF : Stéphane affichait 0 avec deux comptes BIZARRE à 17 et 42 followers.
+- **Livré** : la colonne « Followers cumulés » additionne tous les comptes du clipper sauf les BAN (un compte banni n'a plus d'audience), quel que soit l'état.
+- **Avocat du diable** : un compte « à vérifier » ou « BIZARRE » compte dans le cumul alors qu'il est peut-être déjà mort ; le scan du lendemain le passe BAN s'il est illisible, et le cumul se corrige seul.
+
 ### 2026-09-28 (soir, 15) — Clarisse : la vidéo qui ratait, et le bot qui le répétait
 - **Demande de Gaëtan** : « fais taire la répétition et regarde la vidéo de Clarisse ».
 - **Cause trouvée** : le Reel 20 de Sarah dure 105 s ; ré-encodé en 1080×1920 sans plafond de débit, la variante pesait 39 Mo, envoyée en base64 au script Drive qui n'a pas répondu dans les 340 s. L'exception n'avait pas de texte, d'où le message vide dans le journal. Tara et Yves étaient passés de justesse avec le même poids. La répétition venait de mes sept déploiements du jour : à chaque redémarrage, le bot refaisait Clarisse et le redisait.

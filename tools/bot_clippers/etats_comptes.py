@@ -288,7 +288,7 @@ async def executer(ecrire: bool = True) -> dict:
 
 
 ONGLET_DASHBOARD = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
-ENTETE_DASHBOARD = ["Clipper", "Comptes", "Créés", "À créer", "BAN", "Followers", "Visites 7 j", "Reels 7 j", "Dernier Reel", "Détail des comptes"]
+ENTETE_DASHBOARD = ["Clipper", "Comptes", "Créés", "À créer", "BAN", "Followers cumulés", "Visites 7 j", "Reels 7 j", "Dernier Reel", "Détail des comptes"]
 
 
 def _entier(v) -> int:
@@ -318,7 +318,9 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> li
             ban = sum(1 for e in etats if e == "ban")
             a_creer = sum(1 for e in etats if e in ("a creer", "à créer", ""))
             crees = len(cs) - ban - a_creer
-            vivants = [c for c, e in zip(cs, etats) if e in ("good", "warmup", "prive", "privé", "actif")]
+            # 28/09 (Gaëtan : « les followers des 3 comptes cumulés ») : tous les comptes du clipper sauf les BAN (morts),
+            # quel que soit l'état (GOOD, WARMUP, PRIVE, ACTIF, BIZARRE, à vérifier…).
+            vivants = [c for c, e in zip(cs, etats) if e != "ban"]
             followers = sum(_entier(c.get("followers")) for c in vivants)
             # Visites : d'abord la colonne « Clics last 7d. » du classeur (écrite par le scan, propre à la créatrice de la
             # ligne : Lilian sous Chloé et Lilian sous Sophie sont deux liens), sinon le total du clipper via clics_de.
@@ -378,7 +380,7 @@ PALETTE_DASHBOARD = {"chloe": ("#C2185B", "#FCE4EC"), "sarah": ("#1565C0", "#E3F
                      "jade": ("#2E7D32", "#E8F5E9"), "maddie": ("#EF6C00", "#FFF3E0"), "clara": ("#00838F", "#E0F7FA")}
 PALETTE_DEFAUT = ("#455A64", "#ECEFF1")
 SOMBRE, BLANC, GRIS_CLAIR, GRIS_TEXTE = "#263238", "#FFFFFF", "#ECEFF1", "#546E7A"
-LARGEURS_DASHBOARD = (120, 78, 64, 70, 58, 92, 96, 80, 104, 560)
+LARGEURS_DASHBOARD = (120, 78, 64, 70, 58, 118, 96, 80, 104, 560)
 
 
 def _rgb(hexa: str) -> dict:
