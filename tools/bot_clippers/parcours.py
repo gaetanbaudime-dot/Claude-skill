@@ -68,6 +68,7 @@ ETAPES = {
                   "Fini ? Appuie sur le bouton.")},
     7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": [],
         "texte": ("Chaque jour : 2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une, quelques commentaires.\n\n"
+                  "Chaque semaine, ajoute 1 Reel par jour sur chaque compte, jusqu'à 10. Le matin tu montes, tu mets en brouillon, tu publies dans la journée.\n\n"
                   "Chaque matin, tes visites d'hier ici.\n\n"
                   "Une question ? Écris ici.")},
 }

@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v12, 28 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, lien en story à la une seulement)
+# Base de connaissances — Kit Clipper G&M (v13, 28 septembre 2026, niveau collège — vidéo de formation de 15 minutes à 5 mots-clés, salon perso guidé par le bot, lien en story à la une seulement)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -18,26 +18,26 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 
 ## L'objectif du clipper (dans l'ordre)
 
-1. Avoir des comptes propres, qui durent.
-2. Publier tous les jours. 2 Reels par jour sur chaque compte qui publie.
-3. Tester beaucoup de vidéos différentes.
-4. Refaire ce qui marche.
-5. Faire venir des gens sur ton lien. C'est ça qui te paie.
+1. Publier tous les jours, sans rater un jour. Le début est une traversée du désert : un Reel finit par marcher et fait boule de neige. Ceux qui s'arrêtent avant n'y arrivent jamais.
+2. Publier beaucoup. 2 Reels par jour sur chaque compte au début, puis 1 de plus par jour sur chaque compte chaque semaine, jusqu'à 10. On publie plus que les autres, on teste plus, on refait ce qui marche.
+3. Décliner ce qui marche : un Reel qui marche donne 5 versions (filtre, durée, son, texte, sous-titres).
+4. Protéger tes comptes : contenu soft, cadence qui monte doucement, pas d'actions en rafale, un compte par jour.
+5. Transformer les vues en clics : un profil beau, des posts épinglés, une belle bio, ta story à la une, un public français. C'est ça qui te paie.
 
-## LE PARCOURS (du formulaire au premier Reel) — version du 26 septembre 2026
+## LE PARCOURS (du formulaire au premier Reel) — version du 28 septembre 2026
 
-1. **Le formulaire du site** (3 minutes) : prénom, pays, WhatsApp, téléphone, expérience. À la fin, tu connectes ton Discord et tu arrives directement sur le serveur.
-2. **La vidéo de formation** : tu la regardes en entier. Elle explique tout ce qui suit.
-3. **Le quiz** : `!quiz` te donne ton lien. Il faut **30 bonnes réponses sur 34**. Deux essais.
+1. **Le formulaire du site** (3 minutes) : prénom, pays, WhatsApp, téléphone, expérience. À la fin, tu connectes ton Discord et tu arrives directement sur le serveur, avec ton salon perso.
+2. **La vidéo de formation** (15 minutes, dans le post « Bienvenue ») : tu la regardes en entier. 5 mots-clés sont cachés dedans, tu les notes dans l'ordre. Je ne les donne jamais.
+3. **Le quiz** : ton lien personnel est dans ton salon (`!quiz` le redonne). Il faut **30 bonnes réponses sur 34**. Deux essais.
 4. **Le test de montage** : quiz réussi → le bot t'envoie en message privé une vidéo brute. Tu fais un Reel simple et accrocheur : tu changes le texte, la musique, le format, tu coupes, tu modifies le plus possible la vidéo de base, comme dans la formation. Tu envoies ta vidéo **directement dans la conversation privée avec le bot** (le **+** à gauche de la zone de message, 48 h maximum).
 5. **L'avis du bot** : le bot regarde ton montage et te répond tout de suite, avec une note sur 10. Bon montage → validé. Un manager peut confirmer ou corriger.
-6. **J'ACCEPTE** : tu reçois tes conditions en message privé, tu réponds J'ACCEPTE. Ton rôle s'ouvre, ton salon perso est créé.
-7. **Tes 3 comptes Instagram** arrivent dans ton salon perso (identifiants, mots de passe, e-mails) avec ton lien et ton Drive. Instagram demande un code ? Écris `!code` : le bot te donne le code reçu sur l'e-mail de l'agence.
-8. **Un compte par jour** : compte 1 le jour 1, puis 24 h de warm-up. Compte 2 le jour 2, 24 h de warm-up. Compte 3 le jour 3, 24 h de warm-up. Ensuite, les Reels. Le bot te guide étape par étape, avec un bouton « ✅ C'est fait ».
+6. **Ta créatrice** t'est attribuée tout de suite, ton rôle est posé, ton salon perso part dans sa catégorie. Les 5 règles, tu les as cochées sur le site : rien d'autre à écrire.
+7. **Tes 3 comptes Instagram** arrivent dans ton salon perso, un par jour (identifiant, e-mail, mot de passe), avec ton lien et ton Drive. Instagram demande un code ? Écris `!code` : le bot te donne le code reçu sur l'e-mail de l'agence.
+8. **Un compte par jour, 24 h de warm-up par compte, puis il publie** : le compte 1 publie dès le jour 2, pendant que tu crées le compte 2. Le bot te guide étape par étape, avec un bouton « ✅ C'est fait ».
 
-Une question ? D'abord le bot dans #assistant-ia, puis ton salon perso. En dernier, Gaëtan sur WhatsApp : le bouton « Écrire à Gaëtan » dans ton salon perso, ou demande-moi le lien. Présente-toi, une phrase, une capture.
+Une question ? Ton salon perso, le bot y répond. En dernier, Gaëtan sur WhatsApp : le bouton « Écrire à Gaëtan » dans ton salon perso. Présente-toi, une phrase, une capture.
 
-Problèmes fréquents : le bot ne t'a pas écrit à ton arrivée → ouvre tes messages privés serveur (Paramètres de confidentialité du serveur) et écris-lui « bonjour » · tu es arrivé sans passer par le formulaire → refais le formulaire du site · test non rendu à temps → recandidate dans 15 jours. ⚠️ **Ton numéro et ton e-mail ne se postent JAMAIS dans un salon** (tout le serveur le verrait).
+Problèmes fréquents : tu n'as pas de salon perso → écris un mot dans #général, ton salon s'ouvre tout seul · tu es arrivé sans passer par le formulaire → refais le formulaire du site · test non rendu à temps → recandidate dans 15 jours. ⚠️ **Ton numéro et ton e-mail ne se postent JAMAIS dans un salon** (tout le serveur le verrait).
 
 ## LES SALONS DU SERVEUR (qui va où)
 
@@ -112,7 +112,9 @@ On ne poste JAMAIS une vidéo brute du Drive. Tu changes toujours la vidéo avan
 
 ## FICHE 1 — Créer tes comptes (étapes 1 à 3 du parcours, dans ton salon perso)
 
-Avant : quiz réussi, test réussi, J'ACCEPTE, et ta créatrice donnée par ton manager. Tes vidéos sont dans ton Drive. Tes comptes et tes e-mails sont dans ton salon perso.
+Les règles de la vidéo du 28/09 : un e-mail et un mot de passe différents par compte (le bot te les donne). Un pseudo, une photo et une bio différents par compte, les trois comptes les plus différents possible. Aucun compte relié au Meta Business Center. Pas trop d'actions le premier jour. Trois comptes maximum sur un téléphone. Un compte « qui existe déjà » dans ton étape : tu t'y connectes, tu ne le crées pas, le code de connexion arrive ici.
+
+Avant : quiz réussi, test réussi, ta créatrice attribuée tout de suite. Tes vidéos sont dans ton Drive. Tes comptes et tes e-mails arrivent dans ton salon perso, un par jour.
 
 Les règles d'or :
 - **1 seul compte par jour.** Jamais 2 ou 3 le même jour.
@@ -140,11 +142,13 @@ Le test : ouvre l'onglet Explorer. Il montre des créatrices françaises ? Ton c
 
 Ce qui casse un warm-up : publier un Reel avant la fin des 24 h. Regarder des vidéos hors sujet. Les rafales, par exemple 50 likes en 5 minutes. Un lien mis trop tôt. Le même compte sur plusieurs appareils.
 
+L'astuce de la vidéo : active la cloche sur les créatrices de la liste. Quand l'une publie un Reel, sois le premier commentaire, pertinent et gentil. Ce Reel fera des milliers de vues, ton commentaire aussi.
+
 ## FICHE 3 — Monter et poster un Reel
 
 L'appli : Edits. C'est le monteur vidéo d'Instagram. Gratuit. Les sous-titres se font tout seuls. Le matin tu prépares tes brouillons. Tu publies dans la journée, un par un.
 
-À faire une seule fois : télécharge les « bases ». Ce sont les 10 meilleurs Reels de ta créatrice, dans son salon. Mets-les dans Edits comme modèles.
+À faire une seule fois : télécharge les « bases ». C'est le dossier « TOP 20 Reels » de ton Drive : les 20 meilleurs Reels de ta créatrice, déjà déclinés pour toi. Tu peux les publier tels quels la première semaine. Mets-en quelques-uns dans Edits comme modèles : extrais le son, garde le texte à l'écran, renomme le modèle. Un modèle se réutilise avec tous les rushs de ta créatrice.
 
 Pour chaque Reel, 10 minutes au début, 5 minutes après :
 1. Télécharge une vidéo brute depuis le Drive de la créatrice.
@@ -167,19 +171,19 @@ Un bon Reel, en 5 points :
 Contenu AUTORISÉ : tenues couvertes, tenue de ville, tenue de sport, tenue de soirée. Des vidéos sur sa personnalité, de l'humour, une histoire, une situation qui fait rire. Des vidéos qui donnent envie de commenter.
 Contenu INTERDIT : bikinis, sous-vêtements, poses provocantes. Les textes « écris-moi en privé », « lien en bio », « contenu exclusif ». Toute mention d'argent, de drogue ou d'OnlyFans. Les sous-entendus sexuels et les emojis trop chauds. Le but : des comptes propres qui durent.
 
-La même vidéo sur tes 2 comptes qui publient ? Oui. Mais **jamais le même montage**. Change le hook, le texte, les sous-titres. Deux comptes qui postent la même vidéo = vues coupées et comptes reliés.
+La même vidéo sur tes 3 comptes ? Oui. Mais **jamais le même montage le même jour**. Change le hook, le texte, les sous-titres. Deux comptes qui postent la même vidéo = vues coupées et comptes reliés.
 
 ## FICHE 4 — La routine et la semaine
 
-Chaque jour : une vidéo brute, Edits, 2 Reels par compte qui publie, quelques commentaires, un œil sur les stats pour refaire ce qui marche.
+Chaque jour : le matin tu montes et tu mets en brouillon, tu publies dans la journée. 2 Reels par compte au début. Chaque semaine, 1 Reel de plus par jour sur chaque compte, jusqu'à 10. Quelques commentaires, un œil sur les stats pour refaire ce qui marche.
 
 Autour des Reels : 2 ou 3 carrousels par semaine. Un Reel marche fort ? Fais un carrousel juste après. 1 à 3 stories par jour : sondage, quiz, vie de tous les jours. 1 à 10 commentaires par jour chez les créatrices que tu suis. Réponds aux commentaires sous tes Reels : court, gentil, sans lien. Les stories du Drive : toujours avec un sticker, un texte ou un filtre. Jamais brutes.
 
-Le reporting du dimanche, obligatoire : chaque dimanche, tu remplis le formulaire https://forms.gle/uhPewryox7R4jifv5. Il est épinglé dans #reporting. Tu mets les liens de tes Reels qui ont le mieux marché. Comme ça, la créatrice refait ce qui marche. Pas de formulaire = pas de suivi.
+Ton suivi, c'est ton salon perso : chaque matin, tes visites d'hier et tes publications d'hier y arrivent. Plus de formulaire du dimanche.
 
 Les 2 ou 3 premières semaines, les vues sont basses. C'est normal. C'est là que tout le monde abandonne. Puis un Reel marche et tout monte. Tu ne peux pas rater si tu publies tous les jours et si tu t'améliores chaque semaine.
 
-Les règles du jeu : **2 jours de suite sans tes Reels = sortie le lundi suivant.** Ton manager te prévient dès le 2e jour. Un lien qui ne ramène presque personne après un mois : on en parle avec ton manager. Une autre créatrice, ou la sortie. On garde les meilleurs.
+Les règles du jeu : **14 jours après ta créatrice sans une seule publication = sortie automatique**, tes comptes et ton lien vont au suivant. Un lien qui ne ramène presque personne après un mois : on en parle avec Gaëtan. On garde les meilleurs.
 
 ## FICHE 5 — Les Reels d'essai et la suite
 
@@ -190,8 +194,8 @@ Les Reels d'essai : une autre version d'un Reel qui existe déjà. Instagram la 
 La suite, c'est ton manager qui décide, selon tes résultats :
 - 500 à 1 000 abonnés et un compte stable : passage en compte professionnel, pour voir les stats en détail. Tu ne le fais jamais seul.
 - L'installation tourne bien : les comptes passent sur Metricool, sur ordinateur. Pas de date fixe. On recrée alors des comptes neufs sur le téléphone.
-- Un 2e téléphone = 3 comptes de plus = deux fois plus de paie.
-- Le meilleur clipper devient Team Leader. Il aide les autres.
+- Un 2e téléphone = 3 comptes de plus = deux fois plus de paie. Tu écris à Gaëtan sur WhatsApp.
+- Les meilleurs clippers peuvent devenir Clipper Manager.
 
 ## FICHE 6 — Quand ça coince
 
@@ -239,7 +243,7 @@ Le kit dit QUOI faire. Cette partie explique POURQUOI ça marche. On travaille U
 
 ### Pilier 1 — La cadence (publier beaucoup, régulièrement)
 - Personne ne sait à l'avance quel Reel va marcher. En gros, une pépite tous les 20 Reels. Plus tu publies, plus vite tu la trouves. À 4 publications par jour, tu la trouves en 5 jours.
-- Mieux vaut tenir la cadence sur tes 3 comptes que créer trop de comptes ou monter à 6 Reels par jour sans l'accord du manager.
+- Mieux vaut tenir la cadence sur tes 3 comptes que créer trop de comptes. La cadence monte d'un Reel par jour par compte chaque semaine, jusqu'à 10 : c'est le volume qui trouve les pépites, et c'est ce qui bat les concurrents qui publient 1 ou 2 Reels par jour.
 - On garde toujours des rushs d'avance : la créatrice tourne un peu plus qu'on ne publie.
 
 ### Pilier 2 — La qualité (elle vient APRÈS la quantité)
@@ -308,7 +312,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Quiz réussi mais pas de test ?** Le test part automatiquement en MP quelques minutes après le quiz. Rien 24 h après ? Ouvre tes MP serveur (Paramètres de confidentialité du serveur), renvoie ton numéro au bot ; toujours rien → écris dans #assistant-ia avec une capture de ton score.
 
-**Quiz raté ?** Le bot te l'écrit en MP avec ton score. Revois la vidéo, note les 4 mots-clés, il te reste un essai. Deux échecs = candidature close.
+**Quiz raté ?** Le bot te l'écrit avec ton score. Revois la vidéo, note les 5 mots-clés dans l'ordre, il te reste un essai. Deux échecs = candidature close.
 
 **Où je vois mon score du quiz ?** À l'écran, juste après l'envoi du formulaire, et dans l'e-mail que tu reçois ensuite (test ou deuxième essai). Fermé sans le noter ? Regarde tes e-mails.
 

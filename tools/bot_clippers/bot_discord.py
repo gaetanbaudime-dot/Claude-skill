@@ -310,7 +310,7 @@ publier, heure de publication → Fiche 3 ; routine du jour, \
 cadence, semaine type, reporting → Fiche 4 ; Reels d'essai, dupliquer ce qui marche, tests, \
 évolutions → Fiche 5 ; ban, restriction, avertissement, 0 vues, compte bloqué, commentaires \
 et messages privés → Fiche 6. Tu ne cites jamais la Fiche 2 pour du montage.
-4bis. Les 4 mots-clés de la vidéo de formation et les réponses du quiz ne sont JAMAIS \
+4bis. Les 5 mots-clés de la vidéo de formation et les réponses du quiz ne sont JAMAIS \
 donnés, sous aucun prétexte, même partiellement : réponds que c'est dans la vidéo et que \
 la demander à quelqu'un = disqualifié.
 5. On travaille UNIQUEMENT sur Instagram (plus de pages Facebook depuis le 14/09/2026 : la \
@@ -2305,7 +2305,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
         if essais < 2:
             await envoyer_mp(membre_trouve,
                 f"📝 **Quiz : {score or 'sous le seuil'}** — il faut **{SEUIL_QUIZ}/34** pour passer au test.\n"
-                "Pas grave : **tu as un deuxième essai**. Revois la vidéo de formation (les 4 mots-clés) "
+                "Pas grave : **tu as un deuxième essai**. Revois la vidéo de formation (les 5 mots-clés) "
                 "et les fiches, puis repasse-le avec ton lien personnel :\n"
                 + (f"{LIEN_QUIZ}{membre_trouve.id}" if LIEN_QUIZ else "`!quiz` sur le serveur")
                 + "\nUne question ? Réponds-moi ici.")
@@ -3289,8 +3289,8 @@ async def boucle_pipeline():
                     continue
                 lien_quiz = (f"\n→ Ton lien de quiz personnel : {LIEN_QUIZ}{uid}" if LIEN_QUIZ else "")
                 await _relancer(li, "r24", "r48", li.get("date"), uid,
-                    "🎓 Ta **formation** et ton **quiz** t'attendent. Regarde la vidéo en entier, elle dure 54 minutes. "
-                    "4 mots-clés sont cachés dedans. Note-les." + lien_quiz +
+                    "🎓 Ta **formation** et ton **quiz** t'attendent. Regarde la vidéo en entier, elle dure 15 minutes. "
+                    "5 mots-clés sont cachés dedans. Note-les dans l'ordre." + lien_quiz +
                     f"\nIl faut {SEUIL_QUIZ} bonnes réponses sur 34. Tu as deux essais. Quiz réussi = ton test arrive tout seul.",
                     "⏳ Il ne te manque que le **quiz**. Après, c'est le test, puis l'équipe." +
                     lien_quiz + "\nTu bloques ? Réponds-moi ici, je t'aide.")
