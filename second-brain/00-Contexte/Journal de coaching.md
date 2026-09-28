@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 6) — Trois réponses : pas de légende ni de hashtags, pas de domaine ni d'alias, le parrainage à expliquer
+- **Décisions de Gaëtan** : « non » aux 5 hashtags et à la légende type par créatrice (l'automatisation n° 6 se fait sans, la simplification n° 16 du 27/09 est abandonnée) ; « non » au test du domaine et aux alias iCloud pour Jade, Maddie et Clara (l'automatisation n° 1 est écartée) ; sur le parrainage payé à la première liste du filleul : « qu'entends-tu par là ? » — à expliquer, décision en attente.
+- **Conséquence chiffrée** : les 110 lignes « à créer » sans e-mail restent ; Jade, Maddie et Clara gardent 3, 2 et 4 comptes livrables, soit trois clippers en tout pour ces trois créatrices, alors que l'ordre d'attribution leur envoie 4 clippers sur 13 (Jade 2, Clara 1, Maddie 1). Recommandation : ramener ces trois à 1, 0 et 0 dans `ATTRIBUTION_ORDRE` tant qu'aucun e-mail n'arrive, sinon un clipper sur quatre reçoit « pas encore de compte prêt » et attend.
+- **Avocat du diable** : sans légende fixe, le contrôle du matin (ni lien ni @) reste le seul garde-fou sur ce que le clipper écrit ; c'est suffisant tant qu'il colle le Reel tel quel. Le refus des e-mails ferme le vivier de trois créatrices : c'est un choix de concentration (Chloé, Sarah, Sophie), il faut le dire dans l'ordre d'attribution, pas le subir.
+- **Prédiction (28/09, revue le 12/10)** : si l'ordre d'attribution n'est pas changé, au moins deux clippers attribués à Jade, Maddie ou Clara d'ici le 12/10 attendent des comptes plus de 48 h (70 %).
+
 ### 2026-09-28 (soir, 5) — Le Drive arrive avec le premier compte ; Simon reçoit le sien
 - **Demande de Gaëtan** : « envoie le lien de son Drive à Simon et veille à ce que les clippeurs l'aient avec leur premier compte » (Simon : « j'ai pas eu accès au Drive »).
 - **Cause trouvée** : la fiche de Simon porte sa créatrice en minuscules (« sarah », livrée le 26/09 avant la canonisation du 27/09) et la recherche du dossier source était sensible à la casse : le Drive n'a jamais été créé, sans erreur visible.

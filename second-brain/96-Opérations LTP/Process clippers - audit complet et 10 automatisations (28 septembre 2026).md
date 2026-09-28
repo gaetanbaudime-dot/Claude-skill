@@ -91,7 +91,9 @@ Chacune dit ce qu'elle enlève, ce qu'elle coûte, ce qui peut casser, et si c'e
 9. **Un seul système.** Le 07/10, les douze anciens de Jonas entrent dans le bot (salon perso, paie au clic) ou sortent ; disparaissent alors `sans_salon`, `!stats-jonas`, les exclusions de la sortie automatique et le rapport scindé. Enlève : une classe d'exceptions dans le code, deux systèmes de paie, le temps de Jonas. Coût : zéro ligne, une décision. Décision de Gaëtan.
 10. **Le TOP 20 assisté.** Le 1er et le 15, le bot classe les Reels de chaque créatrice par vues (Apify) et poste la liste des vingt meilleurs avec leurs liens ; Gaëtan glisse les fichiers depuis le Drive source en dix minutes au lieu de les chercher. Ne remplace pas le choix, et ne télécharge rien depuis Instagram (CGU). Coût : deux heures. Probable.
 
-Ordre recommandé : 2, 4, 8 cette semaine ; 3 et 6 dès les hashtags reçus ; 1 sur cinq comptes ; 5 et 10 ensuite ; 7 après la mesure ; 9 le 07/10. Le chantier de fond reste celui du 23/09 ([[Machine horizontale v2 - plan de chantier (23 septembre 2026)]]) ; la valeur d'un clic, dans [[Machine horizontale v2 - paie au clic, ce que les clippers rapportent (23 septembre 2026)]].
+Ordre recommandé : 2, 4, 8 cette semaine ; 3 et 6 dès les hashtags reçus ; 1 sur cinq comptes ; 5 et 10 ensuite ; 7 après la mesure ; 9 le 07/10.
+
+**Réponses de Gaëtan (28/09 soir)** : n° 1, **non** (ni alias iCloud maintenant, ni test du domaine : les 110 lignes sans e-mail restent, Jade, Maddie et Clara gardent 3, 2 et 4 comptes livrables) ; n° 6, **non** à la légende type et aux hashtags, la carte se fait sans eux ; le parrainage (podcast) est à lui expliquer avant décision. L'ordre devient : 2, 4, 8, puis 3, puis 5, 6 (sans légende) et 10, puis 7, puis 9 le 07/10. Le chantier de fond reste celui du 23/09 ([[Machine horizontale v2 - plan de chantier (23 septembre 2026)]]) ; la valeur d'un clic, dans [[Machine horizontale v2 - paie au clic, ce que les clippers rapportent (23 septembre 2026)]].
 
 ## 4. Ce qui ferait échouer ça
 
