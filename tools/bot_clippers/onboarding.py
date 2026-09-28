@@ -578,6 +578,12 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             liens = await paie_clics.liens_gaml()
             de_la_creatrice = [l for l in liens if _norm(str(l.get("name", "")).split()[0] if l.get("name") else "") == _norm(creatrice.split()[0])]
             modeles = [l for l in de_la_creatrice if paie_clics._prenom_note(l.get("note"))]
+            # 28/09 (Gaëtan, Clara) : le lien posé dans la colonne « Lien GAML associé » d'une ligne libre de la créatrice est LE modèle à dupliquer
+            urls_modele = {str(c.get("lien_gaml") or "").strip().rstrip("/") for c in tous
+                           if _pour_creatrice(c, creatrice) and _norm(c.get("gerant") or "") in GERANTS_LIBRES and str(c.get("lien_gaml") or "").startswith("http")}
+            poses = [l for l in de_la_creatrice if str(l.get("url") or "").rstrip("/") in urls_modele]
+            if poses:
+                modeles = poses
             modeles.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)        # le plus récent d'abord
             if not modeles:                                              # 27/09 : première créatrice sans lien de clipper (Jade, Clara, Maddie) →
                 modeles = [l for l in de_la_creatrice if "/fb" not in str(l.get("url", "")) and "/ytb" not in str(l.get("url", ""))]   # on part de son lien principal
