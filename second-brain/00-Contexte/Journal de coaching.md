@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 14) — Le Dashboard devient lisible : une card par créatrice
+- **Demande de Gaëtan** : « Travaille la mise en forme, des couleurs, des groupes, des cards, je te fais confiance, tant que la data est lisible ».
+- **Livré** : la mise en forme est posée par le bot à chaque réécriture de l'onglet (elle ne peut pas être faite à la main, les blocs bougent quand un clipper arrive ou part) : bandeau de couleur par créatrice, zébrure, BAN en rouge, à créer en orange, tout créé en vert, visites en dégradé vert, cadre par bloc, quadrillage masqué, prénoms figés. Vérifié sur un export PDF de l'onglet.
+- **Avocat du diable** : la colonne « Détail des comptes » reste une longue ligne grise, coupée à droite ; c'est voulu, elle sert à cliquer, pas à lire. Si Gaëtan veut la lire sur téléphone, un onglet « Comptes » à part serait plus juste qu'un retour à la ligne qui triplerait la hauteur du tableau.
+
 ### 2026-09-28 (soir, 13) — Le quiz du site partout, l'ancien Google Form ne sort plus
 - **Constat de Gaëtan** (salon de David) : le message d'arrivée de 8 h 22 donnait le lien du quiz du site, mais la réponse de l'assistant de 12 h 44 redonnait l'ancien Google Form pré-rempli, avec son aperçu « 27/34 » qui contredit le « 8 sur 10 » du parcours.
 - **Cause** : trois endroits fabriquaient encore le lien du formulaire à partir de la variable `LIEN_QUIZ` au lieu de passer par le site : le message de deuxième essai après un quiz raté, la phrase « où en es-tu » qui nourrit le contexte de l'assistant, et la relance « formation + quiz ». L'assistant a recopié le lien qu'on lui donnait.

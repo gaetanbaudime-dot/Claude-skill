@@ -346,6 +346,12 @@ async def sheets_creer_onglet(classeur_id: str, titre: str) -> bool:
         raise
 
 
+async def sheets_batch_update(classeur_id: str, requetes: list) -> None:
+    """Envoie une liste de requêtes batchUpdate (mise en forme, fusion, largeurs…) par paquets de 400."""
+    for i in range(0, len(requetes), 400):
+        await _appel("POST", f"{SHEETS}/{classeur_id}:batchUpdate", corps={"requests": requetes[i:i + 400]})
+
+
 def colonne(index: int) -> str:
     """0 → A, 25 → Z, 26 → AA."""
     lettres = ""

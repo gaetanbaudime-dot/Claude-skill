@@ -363,7 +363,131 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str)
         journal.info("Onglet %s : %s", ONGLET_DASHBOARD, erreur)
     await google_api.sheets_effacer(cid, f"'{ONGLET_DASHBOARD}'!A1:L500")
     await google_api.sheets_ecrire(cid, f"'{ONGLET_DASHBOARD}'!A1", lignes)
+    try:                                                                # 28/09 (Gaëtan : « des couleurs, des groupes, des cards »)
+        props = await google_api.sheets_proprietes(cid)
+        sid = props.get(ONGLET_DASHBOARD, {}).get("id")
+        if sid is not None:
+            await google_api.sheets_batch_update(cid, requetes_mise_en_forme(lignes, sid))
+    except Exception as erreur:                                         # noqa: BLE001 — la mise en forme ne bloque jamais le scan
+        journal.warning("Dashboard : mise en forme impossible (%s)", erreur)
     return len(lignes)
+
+
+# Palette par créatrice : (bandeau, teinte des lignes). Lisible sur téléphone, une couleur par bloc.
+PALETTE_DASHBOARD = {"chloe": ("#C2185B", "#FCE4EC"), "sarah": ("#1565C0", "#E3F2FD"), "sophie": ("#6A1B9A", "#F3E5F5"),
+                     "jade": ("#2E7D32", "#E8F5E9"), "maddie": ("#EF6C00", "#FFF3E0"), "clara": ("#00838F", "#E0F7FA")}
+PALETTE_DEFAUT = ("#455A64", "#ECEFF1")
+SOMBRE, BLANC, GRIS_CLAIR, GRIS_TEXTE = "#263238", "#FFFFFF", "#ECEFF1", "#546E7A"
+LARGEURS_DASHBOARD = (120, 78, 64, 70, 58, 92, 96, 80, 104, 560)
+
+
+def _rgb(hexa: str) -> dict:
+    h = hexa.lstrip("#")
+    return {"red": int(h[0:2], 16) / 255, "green": int(h[2:4], 16) / 255, "blue": int(h[4:6], 16) / 255}
+
+
+def _melange(hexa: str, t: float) -> str:
+    """Blanc → couleur, t entre 0 et 1 (dégradé des visites)."""
+    h = hexa.lstrip("#"); t = max(0.0, min(1.0, t))
+    return "#" + "".join(f"{int(round(255 + (int(h[i:i + 2], 16) - 255) * t)):02X}" for i in (0, 2, 4))
+
+
+def _plage(sid: int, r0: int, r1: int, c0: int = 0, c1: int = 10) -> dict:
+    return {"sheetId": sid, "startRowIndex": r0, "endRowIndex": r1, "startColumnIndex": c0, "endColumnIndex": c1}
+
+
+def _cellules(sid, r0, r1, c0, c1, fond=None, texte=None, gras=None, taille=None, aligne=None, format_nombre=None, coupe=None) -> dict:
+    fmt, champs = {}, []
+    if fond:
+        fmt["backgroundColor"] = _rgb(fond); champs.append("backgroundColor")
+    tf = {}
+    if texte: tf["foregroundColor"] = _rgb(texte)
+    if gras is not None: tf["bold"] = gras
+    if taille: tf["fontSize"] = taille
+    if tf:
+        fmt["textFormat"] = tf; champs.append("textFormat")
+    if aligne:
+        fmt["horizontalAlignment"] = aligne; champs.append("horizontalAlignment")
+    if format_nombre:
+        fmt["numberFormat"] = {"type": "NUMBER", "pattern": format_nombre}; champs.append("numberFormat")
+    if coupe:
+        fmt["wrapStrategy"] = coupe; champs.append("wrapStrategy")
+    fmt["verticalAlignment"] = "MIDDLE"; champs.append("verticalAlignment")
+    return {"repeatCell": {"range": _plage(sid, r0, r1, c0, c1), "cell": {"userEnteredFormat": fmt},
+                           "fields": "userEnteredFormat(" + ",".join(champs) + ")"}}
+
+
+def requetes_mise_en_forme(lignes: list, sid: int) -> list:
+    """La mise en forme de l'onglet Dashboard, recalculée sur les lignes réellement écrites : titre en bandeau sombre, un bloc
+    (« card ») par créatrice avec son bandeau de couleur, en-têtes gris, lignes en zébrure, BAN en rouge, à créer en orange,
+    visites en dégradé vert, cadre autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés."""
+    n = len(lignes)
+    req = [{"unmergeCells": {"range": _plage(sid, 0, max(n, 1) + 100, 0, 12)}},
+           _cellules(sid, 0, max(n, 1) + 100, 0, 12, fond=BLANC, texte="#212121", gras=False, taille=10, aligne="LEFT", coupe="CLIP"),
+           {"updateBorders": {"range": _plage(sid, 0, max(n, 1) + 100, 0, 12), "top": {"style": "NONE"}, "bottom": {"style": "NONE"},
+                              "left": {"style": "NONE"}, "right": {"style": "NONE"}, "innerHorizontal": {"style": "NONE"}, "innerVertical": {"style": "NONE"}}},
+           {"updateSheetProperties": {"properties": {"sheetId": sid, "gridProperties": {"hideGridlines": True, "frozenRowCount": 1, "frozenColumnCount": 1}},
+                                      "fields": "gridProperties.hideGridlines,gridProperties.frozenRowCount,gridProperties.frozenColumnCount"}}]
+    for i, largeur in enumerate(LARGEURS_DASHBOARD):
+        req.append({"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "COLUMNS", "startIndex": i, "endIndex": i + 1},
+                                                  "properties": {"pixelSize": largeur}, "fields": "pixelSize"}})
+    req.append({"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": 0, "endIndex": max(n, 1) + 100},
+                                              "properties": {"pixelSize": 24}, "fields": "pixelSize"}})
+    if not lignes:
+        return req
+    # Titre
+    req += [_cellules(sid, 0, 1, 0, 10, fond=SOMBRE, texte=BLANC, gras=True, taille=12, aligne="LEFT", coupe="OVERFLOW_CELL"),   # pas de fusion : la colonne A est figée
+            {"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": 0, "endIndex": 1}, "properties": {"pixelSize": 38}, "fields": "pixelSize"}}]
+    max_v = max((r[6] for r in lignes if len(r) >= 7 and isinstance(r[6], int) and r[0] not in ("TOTAL",) and r != ENTETE_DASHBOARD
+                 and not (len(r) >= 2 and str(r[1]).endswith("clipper(s)"))), default=0)
+    i = 1
+    while i < n:
+        r = lignes[i]
+        if len(r) >= 2 and r[0] == "TOTAL":
+            req += [_cellules(sid, i, i + 1, 0, 10, fond=SOMBRE, texte=BLANC, gras=True, taille=11),
+                    _cellules(sid, i, i + 1, 5, 8, fond=SOMBRE, texte=BLANC, gras=True, taille=11, aligne="CENTER", format_nombre="#,##0"),
+                    {"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": i, "endIndex": i + 1}, "properties": {"pixelSize": 30}, "fields": "pixelSize"}}]
+            i += 1
+            continue
+        if len(r) >= 2 and str(r[1]).endswith("clipper(s)") and i + 1 < n and lignes[i + 1] == ENTETE_DASHBOARD:
+            bande, teinte = PALETTE_DASHBOARD.get(_norm(str(r[0])).split()[0] if str(r[0]).strip() else "", PALETTE_DEFAUT)
+            debut = i
+            fin = i + 2
+            while fin < n and lignes[fin] and lignes[fin] != ENTETE_DASHBOARD and lignes[fin][0] != "TOTAL":
+                fin += 1
+            # bandeau créatrice + en-têtes
+            req += [_cellules(sid, i, i + 1, 0, 10, fond=bande, texte=BLANC, gras=True, taille=12, coupe="OVERFLOW_CELL"),
+                    _cellules(sid, i, i + 1, 5, 8, fond=bande, texte=BLANC, gras=True, taille=12, aligne="CENTER", format_nombre="#,##0"),
+                    {"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": i, "endIndex": i + 1}, "properties": {"pixelSize": 32}, "fields": "pixelSize"}},
+                    _cellules(sid, i + 1, i + 2, 0, 10, fond=GRIS_CLAIR, texte="#37474F", gras=True, taille=9),
+                    _cellules(sid, i + 1, i + 2, 1, 9, fond=GRIS_CLAIR, texte="#37474F", gras=True, taille=9, aligne="CENTER")]
+            for k, ligne in enumerate(lignes[i + 2:fin]):
+                j = i + 2 + k
+                fond = teinte if k % 2 == 0 else BLANC
+                req += [_cellules(sid, j, j + 1, 0, 10, fond=fond, texte="#212121", gras=False, taille=10),
+                        _cellules(sid, j, j + 1, 0, 1, fond=fond, texte="#212121", gras=True, taille=10),
+                        _cellules(sid, j, j + 1, 1, 9, fond=fond, texte="#37474F", gras=False, taille=10, aligne="CENTER", format_nombre="#,##0"),
+                        _cellules(sid, j, j + 1, 9, 10, fond=fond, texte=GRIS_TEXTE, gras=False, taille=9, coupe="CLIP")]
+                comptes, crees, a_creer, ban = (_entier(ligne[1]), _entier(ligne[2]), _entier(ligne[3]), _entier(ligne[4])) if len(ligne) >= 5 else (0, 0, 0, 0)
+                if crees and crees == comptes:
+                    req.append(_cellules(sid, j, j + 1, 2, 3, fond=fond, texte="#2E7D32", gras=True, taille=10, aligne="CENTER"))
+                if a_creer > 0:
+                    req.append(_cellules(sid, j, j + 1, 3, 4, fond="#FFE0B2", texte="#E65100", gras=True, taille=10, aligne="CENTER"))
+                if ban > 0:
+                    req.append(_cellules(sid, j, j + 1, 4, 5, fond="#FFCDD2", texte="#B71C1C", gras=True, taille=10, aligne="CENTER"))
+                v = ligne[6] if len(ligne) >= 7 and isinstance(ligne[6], int) else None
+                if v is not None and v > 0 and max_v:
+                    req.append(_cellules(sid, j, j + 1, 6, 7, fond=_melange("#43A047", 0.15 + 0.85 * (v / max_v) ** 0.5), texte="#1B5E20", gras=True, taille=10, aligne="CENTER", format_nombre="#,##0"))
+            # cadre du bloc
+            req.append({"updateBorders": {"range": _plage(sid, debut, fin, 0, 10),
+                                          "top": {"style": "SOLID_MEDIUM", "color": _rgb(bande)}, "bottom": {"style": "SOLID_MEDIUM", "color": _rgb(bande)},
+                                          "left": {"style": "SOLID_MEDIUM", "color": _rgb(bande)}, "right": {"style": "SOLID_MEDIUM", "color": _rgb(bande)}}})
+            i = fin
+            continue
+        if not r:
+            req.append({"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": i, "endIndex": i + 1}, "properties": {"pixelSize": 14}, "fields": "pixelSize"}})
+        i += 1
+    return req
 
 
 RE_FAUTE = re.compile(r"https?://|www\.|getallmylinks|gaml\.|\.fr/|\.app/|(?<![\w.])@[A-Za-z0-9_.]{3,}")
