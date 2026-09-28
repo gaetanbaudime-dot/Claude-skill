@@ -16,6 +16,7 @@ sous Sophie). Ces liens sont relevés même sans membre Discord attribué (`suiv
 """
 
 import json
+import os
 import logging
 from datetime import timedelta
 from pathlib import Path
@@ -207,14 +208,14 @@ async def salon(client, creer: bool = True):
         return None
 
 
+CLIPPERS_JONAS = [n.strip() for n in os.environ.get(
+    "CLIPPERS_JONAS", "Thia, Rianah, Lilian, Romaric, Lucas, Caroline, Ckycia, Hasina, Josué, Tara, Clarisse, Yves").split(",") if n.strip()]
+
+
 def clippers_de_jonas() -> list:
-    """28/09 (Gaëtan) : dans #jonas-stats, seulement ses anciens — la liste `sans_salon` du roster (Thia, Rianah, Lilian, Romaric,
-    Lucas, Caroline, Ckycia, Hasina, Josué, Tara, Clarisse, Yves)."""
-    r = _deps.get("roster")
-    try:
-        return list(r.lire().get("sans_salon", [])) if r is not None else []
-    except Exception:                                                   # noqa: BLE001
-        return []
+    """28/09 (Gaëtan : « garde ceux que je t'ai dits, pas plus ») : la liste est en dur (CLIPPERS_JONAS), jamais lue dans le roster —
+    la liste `sans_salon` du roster vivant était vide et le rapport retombait sur tout le monde."""
+    return list(CLIPPERS_JONAS)
 
 
 async def envoyer(client, d: dict, jour) -> bool:
@@ -224,7 +225,7 @@ async def envoyer(client, d: dict, jour) -> bool:
     s = await salon(client)
     if s is not None:
         try:
-            await s.send(texte_rapport(d, jour, seulement=anciens if anciens else None, titre="tes clippers")[:1990])
+            await s.send(texte_rapport(d, jour, seulement=anciens, titre="tes clippers")[:1990])
             ok = True
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Envoi rapport Jonas : %s", erreur)
@@ -302,7 +303,7 @@ async def commande_staff(message, texte: str) -> bool:
         return True
     s = await salon(message.client if hasattr(message, "client") else _deps["client"])
     anciens = clippers_de_jonas()                                       # 28/09 : Jonas ne voit que ses anciens, l'admin voit tout
-    texte_j = texte_rapport(d, jour, seulement=anciens if anciens else None, titre="tes clippers")
+    texte_j = texte_rapport(d, jour, seulement=anciens, titre="tes clippers")
     texte_a = texte_rapport(d, jour, titre="tous les clippers de l'agence")
     if s is not None and s.id == message.channel.id:                   # tapé dans #jonas-stats : sa version, rien d'autre
         await message.channel.send(texte_j[:1990])
