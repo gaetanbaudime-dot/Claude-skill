@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 — Vital : un seul message d'arrivée, le parcours en une ligne, jamais le formulaire
+- **Retour de Gaëtan (03 h)** sur le salon de Vital : le bot lui a rappelé de remplir le formulaire du site alors qu'il vient du site, puis a posté un mur (numéro relié, formation 54 min, lien du quiz, seuil, test). Règles posées : « s'ils sont là, ils ont rempli le formulaire » ; sauter des lignes ; « ne jamais donner une information au mauvais moment » ; à l'arrivée, annoncer les étapes et rien d'autre : Formation > Quiz > Test de montage > Création du compte Instagram > Publication.
+- **Livré** : l'arrivée par le site envoie un seul message (bienvenue, le parcours en une ligne avec l'étape en gras, la formation, le lien personnel du quiz sans aperçu, « le test arrive ici tout seul ») ; l'accueil des autres salons dit le parcours et la seule prochaine action ; plus de numéro, plus de grille, plus de formulaire, plus de seuil ni de « 48 h » ; des lignes vides entre les blocs. Vital reçoit le message propre au redémarrage, les deux anciens effacés.
+- **Avocat du diable** : l'aperçu Google du quiz affichait encore « 27/34 » alors que le seuil est 30 : c'est le texte du formulaire Google lui-même, à corriger par Gaëtan (ou il disparaît avec le quiz simplifié). Et « jamais d'information au mauvais moment » vaut pour les sept étapes du parcours aussi : à relire une par une avec le même œil, ce n'est pas fait ce soir.
+- **Prédiction (28/09, revue le 04/10)** : les cinq prochains arrivants reçoivent un seul message d'accueil de moins de 12 lignes, et aucun ne demande « je fais quoi ? » dans #général (80 %).
+
 ### 2026-09-27 (nuit, 5) — Ascartel perdu dans #général : personne n'arrive plus sans salon
 - **Constat de Gaëtan (20:39)** : un arrivant écrit « comment je fais pour bosser ? » dans #général à 18:58, personne ne répond, aucun salon perso dans « 🎬 Clippers », plus d'assistant collectif. « Je compte sur toi pour rectifier ça maintenant. »
 - **Cause** : le salon d'arrivée se crée sur l'événement d'entrée Discord ; six redéploiements dans la journée, chacun avec une ou deux minutes hors ligne, et un événement d'entrée n'est jamais rejoué. Le rattrapage au démarrage ne regardait que les candidats passés par le site. Aucune trace d'Ascartel dans les journaux du bot : il est entré pendant un trou.

@@ -617,35 +617,49 @@ def en_prive(message) -> bool:
     return sp is not None and sp.id == message.channel.id
 
 
-def etape_recrutement(uid) -> str:
-    """Où en est un arrivant, en une ligne : dans son salon pour lui, sous les yeux de Gaëtan (27/09 : « que je puisse voir
-    où en est le process de recrutement »)."""
+PARCOURS_ARRIVANT = ("Formation", "Quiz", "Test de montage", "Création du compte Instagram", "Publication")
+
+
+def lien_formation() -> str:
+    post = POSTS_FORMATION.get("bienvenue") if isinstance(POSTS_FORMATION, dict) else None
+    return f"<#{post}>" if post else (f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le salon formation")
+
+
+def etape_recrutement(uid) -> tuple:
+    """(rang de l'étape en cours dans PARCOURS_ARRIVANT, ligne « 👉 » de la prochaine action). 28/09 (Gaëtan) : s'il est sur
+    Discord, il a rempli le formulaire ; on ne le lui rappelle jamais, et on ne dit que la prochaine chose à faire."""
     uid = str(uid)
     if (lire_json(FICHIER_EQUIPES, {}).get(uid) or {}):
-        return "📍 Étape 5 : règles acceptées, tes comptes et ton parcours arrivent ici."
-    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-    etat = (pipe.get("etats", {}).get(uid) or {}).get("etat", "")
-    lie = uid in pipe.get("liaisons", {})
-    bienvenue = POSTS_FORMATION.get("bienvenue") if isinstance(POSTS_FORMATION, dict) else None
-    formation = f"<#{bienvenue}>" if bienvenue else "le salon formation"
-    site = web_candidature.WEB_URL_PUBLIQUE
+        return 3, "👉 Tes comptes et ton parcours arrivent ici."
+    etat = (lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats", {}).get(uid) or {}).get("etat", "")
     if etat == "valide":
-        return "📍 Étape 4 : test validé. Accepte les 5 règles (case sur le site ou bouton ici), puis tes comptes arrivent."
+        return 3, "👉 Test validé. Accepte les 5 règles avec le bouton, tes comptes arrivent."
     if etat == "test_rendu":
-        return "📍 Étape 3 : test rendu, avis en cours. Ma réponse arrive ici."
+        return 2, "👉 Test rendu. Mon avis arrive ici."
     if etat == "test_envoye":
-        return "📍 Étape 3 : test de montage. Envoie ta vidéo ici, en fichier Discord."
+        return 2, "👉 Ton test de montage : envoie ta vidéo ici, en fichier."
     if etat == "test_expire":
-        return "📍 Étape 3 : test à refaire. Demande-le ici."
+        return 2, "👉 Test à refaire : demande-le ici."
     if etat == "quiz_ok":
-        return "📍 Étape 3 : quiz réussi. Le test de montage arrive ici."
+        return 2, "👉 Quiz réussi. Ton test de montage arrive ici."
     if etat == "quiz_rate":
-        return f"📍 Étape 2 : quiz à repasser. Regarde la formation dans {formation}, puis refais le quiz."
+        return 1, f"👉 Quiz à repasser. Revois la formation dans {lien_formation()}, puis refais le quiz."
     if etat in ("refuse", "sorti"):
-        return "📍 Candidature close."
-    if lie:
-        return f"📍 Étape 2 : la formation puis le quiz (30 sur 34). Tout est dans {formation}."
-    return f"📍 Étape 1 : remplis le formulaire du site{' : ' + site if site else ''}. Ensuite la formation et le quiz dans {formation}."
+        return 0, "Candidature close."
+    return 0, f"👉 On commence par la formation : {lien_formation()}."
+
+
+def ligne_parcours(rang: int) -> str:
+    """« **Formation** → Quiz → Test de montage → Création du compte Instagram → Publication », l'étape en cours en gras."""
+    return " → ".join(f"**{e}**" if i == rang else e for i, e in enumerate(PARCOURS_ARRIVANT))
+
+
+def message_accueil(membre) -> str:
+    rang, suite = etape_recrutement(membre.id)
+    return (f"🏠 {membre.mention}, ton salon. Tout se passe ici.\n\n"
+            f"Ton parcours : {ligne_parcours(rang)}\n\n"
+            f"{suite}\n\n"
+            "Une question ? Écris-la ici.")
 
 
 def arrivant_a_servir(membre, signes: dict, limite) -> bool:
@@ -708,16 +722,17 @@ async def orienter_arrivant(message) -> bool:
     except (discord.Forbidden, discord.HTTPException):
         pass
     try:
-        await salon.send(f"Tu as écrit dans {message.channel.mention} : « {(message.content or '')[:200]} »\nRéponds-moi ici, je t'aide.")
+        await salon.send(f"Tu as écrit dans {message.channel.mention} : « {(message.content or '')[:200]} »\n\nRéponds-moi ici, je t'aide.")
     except (discord.Forbidden, discord.HTTPException):
         pass
     journal.info("Arrivant orienté vers son salon : %s → #%s", m.id, salon.name)
     return True
 
 
-async def assurer_salon_arrivee(membre):
+async def assurer_salon_arrivee(membre, accueil: bool = True):
     """Le salon perso d'un arrivant, dans « 🎬 Clippers », dès son arrivée (27/09) : formation, quiz, test, règles, puis comptes,
-    tout s'y passe sous les yeux de Gaëtan ; à l'attribution, le salon part sous la créatrice. Renvoie le salon ou None."""
+    tout s'y passe sous les yeux de Gaëtan ; à l'attribution, le salon part sous la créatrice. Renvoie le salon ou None.
+    `accueil=False` : le salon est créé sans message (l'arrivée par le site envoie le sien, un seul)."""
     if not SALON_ARRIVEE or membre is None or getattr(membre, "bot", False) or getattr(membre, "guild", None) is None:
         return None
     if str(membre.id) in ADMIN_IDS or est_manager(membre) or roster.sans_salon(prenom_de(membre)):
@@ -730,11 +745,9 @@ async def assurer_salon_arrivee(membre):
     if salon is None:
         journal.warning("Salon d'arrivée de %s impossible : %s", membre.id, err)
         return None
-    if cree:
+    if cree and accueil:
         try:
-            await salon.send(f"🏠 {membre.mention}, ton salon. Tout se passe ici : la formation, le quiz, le test, puis tes comptes.\n"
-                             f"{etape_recrutement(membre.id)}\n"
-                             "Une question ? Écris-la ici, je réponds.", view=vue_whatsapp())
+            await salon.send(message_accueil(membre), view=vue_whatsapp())
         except (discord.Forbidden, discord.HTTPException):
             pass
     return salon
@@ -2675,31 +2688,29 @@ async def traiter_liaison(auteur, brut):
         canal_adm = await canal_admin()
         if canal_adm and membre_serveur:
             await canal_adm.send(f"⚠️ **Grille non attribuée** à {membre_serveur.mention} : {err_grille}")
-    etape1 = (f"✅ **Étape 1 réussie — candidature retrouvée : {cand.get('prenom') or 'toi'} "
-              f"({cand.get('pays') or 'pays ?'})**. Ton compte est relié au numéro **…{tel[-4:]}**."
-              if cand else
-              f"🔗 Numéro **…{tel[-4:]}** enregistré. ⚠️ Je ne retrouve pas (encore) de candidature avec ce "
-              "numéro — vérifie que c'est EXACTEMENT celui du formulaire (renvoie-le si besoin), "
-              "sinon continue normalement : on vérifiera ensemble à la fin.")
-    post_bienvenue = POSTS_FORMATION.get("bienvenue", "")
-    formation = (f"<#{post_bienvenue}>" if post_bienvenue
-                 else (f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le forum **formation**"))
-    await envoyer_mp(auteur, etape1 + "\n\n"
-        + ((f"💰 Les salons **rémunération et bonus de ta grille {grille_vue}** viennent de s'ouvrir "
-            "pour toi sur le serveur — va voir exactement comment tu seras payé, le quiz pose des "
-            "questions dessus.\n\n") if grille_vue else "")
-        + "**Étape 2 — la formation 🎓**\n"
-        f"→ Va dans {formation}" + ("" if post_bienvenue else ", post « Bienvenue »")
-        + " : regarde la vidéo (54 min) **en entier** — "
-        "4 mots-clés y sont cachés, note-les dans l'ordre, ils te seront demandés.\n"
-        + ((f"→ Puis passe ton quiz avec **TON lien personnel** (ne modifie pas la case déjà remplie) :\n"
-            f"{lien_quiz_pour(auteur.id)}\n"
-            f"Seuil : **{SEUIL_QUIZ}/34** · deux essais maximum.\n\n") if lien_quiz_pour(auteur.id) else "\n")
-        + "**Étape 3 — le test 🎬**\n"
-          "Quiz réussi → ton test de montage (48 h) arrive **ici automatiquement**. Rien d'autre à faire "
-          "d'ici là. Bonne formation 🚀")
+    # 28/09 (Gaëtan) : s'il est là, il a rempli le formulaire — pas de rappel, pas de numéro, pas de grille ; les étapes en une
+    # ligne, la formation, le lien du quiz, et rien d'autre. Des lignes vides entre les blocs, il lit sur téléphone.
+    await envoyer_mp(auteur, texte_accueil_liaison(auteur, bool(cand)), view=vue_whatsapp())
     journal.info("Liaison téléphone : membre %s -> …%s (%s)", auteur.id, tel[-4:],
                  "candidature retrouvée" if cand else "sans candidature")
+
+
+def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
+    """Le message d'arrivée d'un candidat venu du site (28/09, Gaëtan) : bienvenue, le parcours en une ligne, la formation, le
+    lien du quiz, et rien d'autre ; des lignes vides entre les blocs, il lit sur téléphone."""
+    lien_q = lien_quiz_pour(membre.id)
+    alerte = ("" if candidature_trouvee else
+              "⚠️ Je ne retrouve pas ta candidature avec ce numéro. Vérifie que c'est celui du formulaire, sinon on continue.\n\n")
+    return (f"🏠 {membre.mention}, bienvenue. Tout se passe ici.\n\n"
+            f"Ton parcours : {ligne_parcours(0)}\n\n"
+            + alerte
+            + "🎓 **La formation**\n"
+            f"Regarde la vidéo dans {lien_formation()}, en entier.\n"
+            "Note les 4 mots-clés cachés, dans l'ordre.\n\n"
+            + ((f"📝 **Le quiz**\n"
+                f"Ton lien personnel : <{lien_q}>\n"
+                f"Il faut {SEUIL_QUIZ} sur 34. Deux essais.\n\n") if lien_q else "")
+            + "Le test de montage arrive ici tout seul après le quiz.")
 
 
 def lien_quiz_pour(uid) -> str:
@@ -6840,7 +6851,7 @@ async def on_ready():
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
                                      "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
-                                     "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de})
+                                     "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id})
         client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
 
         async def _dossier_clipper(prenom, creatrice):
@@ -6927,7 +6938,7 @@ async def on_member_join(member):
     attendu = donnees.get("web_attendus", {}).pop(str(member.id), None)
     ecrire_json(FICHIER_PIPELINE, donnees)
     if attendu:
-        await assurer_salon_arrivee(member)                            # 27/09 : son salon avant tout, le parcours s'y déroule
+        await assurer_salon_arrivee(member, accueil=False)             # 27/09 : son salon avant tout ; 28/09 : un seul message, celui de la liaison
         await traiter_liaison(member, attendu.get("tel", ""))
         return
     # Porte d'entrée : l'invitation dont le compteur a bougé (cache avant/après). Le cache n'est

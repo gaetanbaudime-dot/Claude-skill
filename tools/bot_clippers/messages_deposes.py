@@ -9,6 +9,8 @@ Un salon introuvable est signalé dans le salon admin et le message est retenté
 
 Format d'une entrée : {"id": "daniella-recup-2709", "pour": "Daniella", "texte": "…", "bouton_whatsapp": true}
                    ou {"id": "…", "salon": "#annonces", "texte": "…"}.
+Options (28/09) : "effacer_bot": true efface d'abord les messages du bot dans ce salon (jusqu'à 20) ; "accueil_liaison": true
+remplace le texte par le message d'arrivée du membre (parcours, formation, lien du quiz), calculé au moment de l'envoi.
 """
 
 import json
@@ -35,7 +37,7 @@ def lire_deposes() -> list:
             return []
         contenu = json.loads(FICHIER_REPO.read_text(encoding="utf-8"))
         return [m for m in (contenu if isinstance(contenu, list) else contenu.get("messages", []))
-                if isinstance(m, dict) and m.get("id") and m.get("texte")]
+                if isinstance(m, dict) and m.get("id") and (m.get("texte") or m.get("accueil_liaison"))]
     except (json.JSONDecodeError, OSError) as erreur:
         journal.warning("messages_a_envoyer.json illisible : %s", erreur)
         return []
@@ -91,8 +93,21 @@ async def envoyer_au_demarrage(client) -> list:
                     pass
             continue
         vue = _deps["vue_whatsapp"]() if entree.get("bouton_whatsapp") and _deps.get("vue_whatsapp") else None
+        texte = str(entree.get("texte") or "")
+        if entree.get("accueil_liaison") and entree.get("pour") and _deps.get("accueil_liaison"):
+            membre = _deps["chercher_membre"](str(entree["pour"]), exact=True)
+            texte = _deps["accueil_liaison"](membre) if membre is not None else texte
+        if entree.get("effacer_bot"):                                        # 28/09 : on remplace les messages du bot dans ce salon
+            try:
+                async for ancien in salon.history(limit=20):
+                    if ancien.author == client.user:
+                        await ancien.delete()
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Message déposé « %s » : effacement impossible (%s)", ident, erreur)
+        if not texte:
+            continue
         try:
-            await salon.send(str(entree["texte"])[:1900], view=vue)
+            await salon.send(texte[:1900], view=vue)
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Message déposé « %s » refusé par Discord : %s", ident, erreur)
             continue
