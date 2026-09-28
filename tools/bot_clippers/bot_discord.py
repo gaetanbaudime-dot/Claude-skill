@@ -79,7 +79,6 @@ CANAL_MANAGER_ID = os.environ.get("CANAL_MANAGER_ID", "").strip()
 # Épuration du salon admin (23/09) : la ligne brute d'un webhook (QUIZ_OK|…, CANDIDATURE|…) est
 # effacée une fois traitée — elle porte un numéro de téléphone et n'apporte rien de plus que la fiche.
 WEBHOOK_EFFACER = os.environ.get("WEBHOOK_EFFACER", "1").strip() == "1"
-FORUM_BOT_ID = os.environ.get("FORUM_BOT_ID", "").strip()   # id du forum : le bot répond dans chaque post
 MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
 ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.strip()}
@@ -185,8 +184,7 @@ LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli 
 SEUIL_QUIZ = int(os.environ.get("QUIZ_SEUIL", "30") or 30)  # note minimale sur 34 (24/09 : 27 → 30) ; même variable que le site du quiz
 CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
 # 27/09 (Gaëtan) : plus d'assistant global — un assistant dans chaque salon perso, ouvert dès l'arrivée du candidat (quiz et
-# test se passent dedans, sous les yeux de Gaëtan) et déplacé sous sa créatrice à l'attribution.
-ASSISTANT_GLOBAL = os.environ.get("ASSISTANT_GLOBAL", "0").strip() == "1"
+# test se passent dedans, sous les yeux de Gaëtan) et déplacé sous sa créatrice à l'attribution. ASSISTANT_GLOBAL retiré le 29/09.
 SALON_ARRIVEE = os.environ.get("SALON_ARRIVEE", "1").strip() != "0"
 CANAL_FORMATION_ID = os.environ.get("CANAL_FORMATION_ID", "").strip()   # forum formation, lié dans le parcours MP étape 2
 
@@ -368,10 +366,7 @@ Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autr
 if CANAL_FORMATION_ID:
     INSTRUCTIONS += (f"\n11. Dès que tu diriges vers le forum « formation », écris le lien cliquable "
                      f"<#{CANAL_FORMATION_ID}> (jamais le nom seul).")
-if CANAL_ASSISTANT_ID and ASSISTANT_GLOBAL:
-    INSTRUCTIONS += f"\n12. Le salon de l'assistant se donne aussi en lien cliquable : <#{CANAL_ASSISTANT_ID}>."
-else:
-    INSTRUCTIONS += "\n12. Il n'y a plus de salon assistant : les questions se posent dans le salon perso du clipper (ou en MP avant qu'il existe)."
+INSTRUCTIONS += "\n12. Il n'y a plus de salon assistant : les questions se posent dans le salon perso du clipper (ou en MP avant qu'il existe)."
 _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
 # Index des salons du serveur (nom normalisé → identifiant) et forum formation résolu, remplis au
 # démarrage puis toutes les 6 h : les liens cliquables se posent en POST-TRAITEMENT, sans dépendre
@@ -778,22 +773,17 @@ async def salons_persos_actifs() -> list:
 
 
 def doit_repondre(message) -> bool:
-    """On répond si : message privé, OU canal dédié, OU post d'un forum dédié, OU mention.
-    En MP le bot dit « réponds-moi ici » à chaque étape : un texte libre y tombait dans le
-    silence total (audit du 10/09) — désormais l'assistant répond, avec le contexte du parcours."""
+    """On répond si : message privé, OU son salon perso, OU mention par le staff (29/09 : plus de canal ni de forum
+    dédiés, ASSISTANT_GLOBAL retiré). En MP le bot dit « réponds-moi ici » à chaque étape : un texte libre y tombait
+    dans le silence total (audit du 10/09) — désormais l'assistant répond, avec le contexte du parcours."""
     if message.guild is None:
         return True
     canal = message.channel
-    if ASSISTANT_GLOBAL and CANAL_BOT_ID and str(canal.id) == CANAL_BOT_ID:
-        return True
-    parent = getattr(canal, "parent_id", None)  # dans un forum, chaque post est un thread
-    if ASSISTANT_GLOBAL and FORUM_BOT_ID and parent and str(parent) == FORUM_BOT_ID:
-        return True
     sp = salon_perso_de(message.author.id)                     # 25/09 : dans son salon perso, le bot est le manager du clipper
     if sp is not None and sp.id == canal.id and not (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
         return True
     # 27/09 : plus d'assistant global — une mention hors salon perso n'est servie qu'au staff
-    return client.user in message.mentions and (ASSISTANT_GLOBAL or str(message.author.id) in ADMIN_IDS or est_manager(message.author))
+    return client.user in message.mentions and (str(message.author.id) in ADMIN_IDS or est_manager(message.author))
 
 
 ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccord", "dac", "dacc", "dak", "ca", "marche",
@@ -2183,8 +2173,7 @@ def texte_test(score="") -> str:
         "4. Envoie tes 2 vidéos **ici** : appuie sur le **+** à gauche, puis **Uploader un fichier**. "
         "Maximum 10 Mo par vidéo. Si c'est trop lourd, exporte en 720p.\n\n"
         "Personne d'autre ne voit tes vidéos.\n"
-        + ((f"Une question ? Demande à **l'assistant** dans <#{CANAL_ASSISTANT_ID}>. Il répond jour et nuit.\n") if (CANAL_ASSISTANT_ID and ASSISTANT_GLOBAL)
-           else "Une question ? Écris-la ici, je réponds jour et nuit.\n")
+        + "Une question ? Écris-la ici, je réponds jour et nuit.\n"
         + "\nBonne chance 🚀")
 
 
@@ -3588,8 +3577,7 @@ async def accueillir(member):
 
     # Le guide COMPLET part en message privé — #candidature reste propre (demande du 18/07) :
     # le salon ne garde qu'une ligne de preuve sociale (compteur + parrainage).
-    aide = (f" Une question ? <#{CANAL_ASSISTANT_ID}> répond 24h/24." if (CANAL_ASSISTANT_ID and ASSISTANT_GLOBAL)
-            else " Une question ? Écris-la ici, je réponds 24h/24.")
+    aide = " Une question ? Écris-la ici, je réponds 24h/24."
     if source.startswith("formulaire"):
         cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
         retrouvee = (f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "

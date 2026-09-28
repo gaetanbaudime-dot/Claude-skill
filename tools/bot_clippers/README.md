@@ -47,26 +47,9 @@ Le bot doit rester allumé quand ton Mac est éteint.
 **Pour tester d'abord sur ton Mac** (facultatif) : remplis `.env`, `pip install -r requirements.txt`,
 `python3 bot_discord.py`. Ça tourne tant que le terminal est ouvert.
 
-## Canal propre + tri automatique par sujet (salon Forum, recommandé)
-
-Pour que chaque question soit **son propre post rangé** (au lieu d'un mur qui défile) et que le tout
-soit **trié par sujet**, utilise un **salon Forum** au lieu d'un canal texte :
-
-1. Crée un **salon → Forum** (ex. `#assistant-ia`).
-2. Dans ses réglages, crée ces **tags** (étiquettes de post), noms exacts :
-   `Comptes`, `Warm-up`, `Reels`, `Routine`, `Blocages`, `Stratégie`, `Hors kit`.
-3. Clic droit sur le forum → **Copier l'identifiant** → mets-le dans `FORUM_BOT_ID` (Railway).
-4. **Auto-tri** : donne au bot la permission **Gérer les publications** sur ce forum (réglages du
-   forum → Permissions → rôle du bot). Le bot pose alors tout seul le bon tag (il sait de quelle fiche
-   il parle). Sans cette permission, il répond quand même — il ne pose juste pas le tag.
-
-Le tag **`Hors kit`** est précieux : il marque les questions auxquelles le bot n'a pas su répondre →
-tu filtres dessus pour voir exactement quoi ajouter au kit. `CANAL_BOT_ID` (canal texte) et
-`FORUM_BOT_ID` peuvent coexister ; tu peux retirer le canal texte une fois le forum en place.
-
 ## Distribution aux clippers
 
-Rien à distribuer ! Ils sont déjà dans le serveur. Dis-leur juste : « pose tes questions dans #assistant ».
+Rien à distribuer ! Ils sont déjà dans le serveur. Dis-leur juste : « pose tes questions dans ton salon perso » (27/09).
 Pour retirer quelqu'un : retire-le du serveur Discord (ou du canal). Aucun code à gérer.
 
 ## Coût
@@ -135,7 +118,7 @@ perso dans « 🎬 Clippers » à la seconde où il arrive (`assurer_salon_arriv
 pour les candidats en cours depuis moins de 14 jours) ; tout ce que le tunnel envoyait en MP y va (`envoyer_mp` route vers
 le salon perso pour un non-staff), et les réponses du candidat y sont lues comme en MP (`en_prive` : numéro, STOP, e-mail,
 J'ACCEPTE, test rendu). Gaëtan voit donc formation, quiz, test et règles se dérouler ; à l'attribution, le salon part sous la
-créatrice. `ASSISTANT_GLOBAL=1` rétablit l'ancien salon assistant et le forum ; par défaut le bot n'y répond plus et ne
+créatrice. Le bot ne répond plus dans l'ancien salon assistant ni dans le forum (`ASSISTANT_GLOBAL` retiré le 29/09) et ne
 répond aux mentions hors salon perso qu'au staff (`SALON_ARRIVEE=0` pour revenir aux MP). **Rétrospective (`retro.py`)** :
 chaque soir entre 20 h et 22 h (Paris), le bot relit les salons persos actifs des 24 h, se note, et apprend : les leçons
 (question ou confusion + bonne réponse) vont dans la FAQ apprise (`!faq`, `!faq retirer N`), les consignes de style (2 par
@@ -580,8 +563,10 @@ Beaucoup d'escalades = enrichir `connaissances.md`. Peu de questions = le kit v2
 ## Retiré le 29/09/2026 (élagage)
 
 Décision de Gaëtan du 28/09 : élaguer le bot des fonctionnalités mortes. Chaque ligne dit ce qui a disparu et par quoi c'est remplacé.
+
 - **Inputs clippers** (`inputs_clippers.py`, `historique_inputs.gs`, `!inputs`, `!comptes`, `!primes`, `!subs`, `!hebdo`, boucle Apify quotidienne, bilans aux clippers, rapport MARKETING du manager, hebdo du lundi, fichiers `inputs_clippers.json` et `subs.json`) : éteints le 27/09 (« c'est l'ancien système »), retirés. Remplacés par le scan quotidien du classeur (`etats_comptes.py` : états, followers, Reels d'hier dans le message du matin), la paie au clic (`paie_clics.py`), le rapport GAML du manager (`rapport_stats.py`) et le tableau de bord du lundi (`tableau_bord.py`). L'alerte Telegram (acceptation, sortie d'équipe, copie du digest) vit dans `telegram.py`. Variables Railway devenues inutiles : `INPUTS_CLIPPERS`, `SHEET_CSV_URL`, `SHEET_CSV_FB_URL`, `SHEET_ETATS_MORTS`, `SHEET_HISTORIQUE_URL`, `SHEET_HISTORIQUE_SECRET`, `APIFY_ACTOR_FB`, `FB_POSTS_MAX`, `CADENCE_REELS_MIN`, `NOUVEAU_JOURS`, `OBJECTIF_COMPTES_IG`, `TOP_CREATRICES`, `STRUCTURE_IG_MIN`, `STRUCTURE_FB_MIN`, `STRUCTURE_PRIVE_MIN`, `PRIME_JOURS_MIN`, `PRIME_CLIPPER_EUR`, `MANAGER_PAR_CLIPPER_EUR`, `MANAGER_BONUS_EQUIPE_EUR`, `COMMISSION_CLIPPER_EUR`, `COMMISSION_MANAGER_EUR`, `MANAGER_PRENOM`, `SUBS_MIN_PREMIER_MOIS`, `ACTIF_TAUX_MIN`, `HEURE_RAPPORT_INPUTS`, `RAPPORT_CLIPPER`, `SALONS_RESERVE`, `INPUTS_EXCLURE` (`APIFY_TOKEN` et `APIFY_ACTOR_IG` restent : `etats_comptes.py` s'en sert ; `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_QUOTIDIEN` restent : `telegram.py`).
 - **DocuSeal — contrats signés** (`docuseal_requete`, `creer_contrat_docuseal`, `!contrat`, sondage des signatures et auto-onboarding à la signature dans `boucle_pipeline`, relances « signe ton contrat » 24 h / 48 h / J+7 / expiration J+14, retentatives après échec, lignes « contrats » du digest et de `!pipeline`, envoi du contrat à la réception de l'e-mail) : sans contrat depuis le 23/09 (`CONTRAT_ACTIVER=0`, « on ne va pas embêter les Malgaches avec ça »), retirés. Remplacés par les conditions en MP et le J'ACCEPTE (case cochée sur le site, bouton ✅ ou mot en MP, `acceptation.py`, 27/09). Variables Railway devenues inutiles : `DOCUSEAL_API_KEY`, `DOCUSEAL_TEMPLATE_ID`, `DOCUSEAL_URL`, `DOCUSEAL_EMAIL_AGENCE`, `DOCUSEAL_CONTRESIGNATURE`, `DOCUSEAL_ONBOARDING_AUTO`, `CONTRAT_ACTIVER`.
 - **Rappel de /bump Disboard** (`detecter_bump`, `boucle_bump`, `!bumps`, classement mensuel, fichier `bump.json`, `CANAL_BUMP_ID`, `DISBOARD_ID`) : le salon #bump se supprime depuis le 14/09 et le module était « éteint par décision » (variable vide), retiré. Pas de remplacement : le serveur est fermé, il ne se promeut plus sur Disboard. Variable Railway devenue inutile : `CANAL_BUMP_ID`.
 - **Annonce et purge internationales** (`!annonce-int [envoyer]`, `!purge-int [appliquer] [tout]`, clé `annonce_lancement` du pipeline) : `!purge-int` était neutralisée tant que `PAUSE_INT` vaut 0 (défaut, recrutement ouvert depuis le 08/09) et `!annonce-int` était l'annonce unique du lancement du 08/09, sans objet depuis que le serveur est fermé (14/09) et que tout arrive par le formulaire du site. Retirées. `PAUSE_INT` et `PURGE_INT_EXEMPTS` restent : la pause du quiz international et `!purge-candidats` s'en servent.
 - **`!invites`** (classement des invitations trackées) : derrière `ACTIVER_V2` (vide par défaut) et sans usage depuis que le parrainage passe par `!parrain @lui` (`parrainage.py`, 28/09). Retirée. Le tracking des invitations à l'arrivée (`cacher_invites`, `trouver_invitation`, `invites.json`) reste : il sert à l'accueil, aux portes d'entrée (`SOURCES_INVITES`) et aux invitations personnelles `!inviter`.
+- **`ASSISTANT_GLOBAL`** (l'ancien salon assistant `CANAL_BOT_ID` et le forum `FORUM_BOT_ID` comme lieux de réponse, mention servie à tout le monde) : à 0 par défaut depuis le 27/09 (« plus d'assistant global »), retiré. L'assistant vit dans le salon perso de chaque clipper et en MP ; une mention hors salon perso n'est servie qu'au staff. `CANAL_BOT_ID` reste le repli du salon admin, `CANAL_ASSISTANT_ID` reste protégé par `!archiver` ; la section « Canal propre + tri automatique par sujet (salon Forum) » du README est partie avec. Variables Railway devenues inutiles : `ASSISTANT_GLOBAL`, `FORUM_BOT_ID`.
