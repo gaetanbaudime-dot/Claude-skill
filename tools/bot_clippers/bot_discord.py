@@ -103,11 +103,6 @@ CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # 
 CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # « 🎬 Clippers : N »
 WHATSAPP_GAETAN_URL = os.environ.get("WHATSAPP_GAETAN_URL", "").strip()        # 26/09 : escalade des blocages vers Gaëtan (lien wa.me)
 SALON_PERSO_MANAGERS = os.environ.get("SALON_PERSO_MANAGERS", "0").strip() == "1"  # 26/09 : « n'ajoute pas Jonas dans les nouveaux salons »
-
-# Rappel de /bump Disboard : le bot détecte les bumps réussis et rappelle quand le cooldown (2 h) est fini.
-# Jamais d'auto-bump (interdit par Discord et Disboard) — le bot rappelle, un humain tape /bump.
-CANAL_BUMP_ID = os.environ.get("CANAL_BUMP_ID", "").strip()                   # canal du rappel (vide = désactivé)
-DISBOARD_ID = 302050872383242240                                              # id officiel du bot DISBOARD
 ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) d'équipe (ex. Rookie,Confirmé,Élite) ; depuis le 26/09 le salon « Clippers : N » compte le roster de rapport_jonas.json, plus ces rôles
 # Rôles d'ÉQUIPE (accès aux salons rémunération/discussion par pays) : attribution UNIQUEMENT via
 # !equipe après signature du contrat — jamais par l'onboarding Discord (incident du 18/07).
@@ -174,7 +169,6 @@ FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via !appre
 FICHIER_COMPTEUR_VERSE = DONNEES / "compteur_verse.json"     # {"total": float, "message_id": int}
 FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des joins par invitation
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
-FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
 FICHIER_RAPPELS = DONNEES / "rappels.json"                   # anti-doublon des rappels quotidiens/hebdo
 codes_2fa.FICHIER_ALIAS = DONNEES / "alias_codes.json"       # registre alias e-mail → salon du manager
@@ -1044,12 +1038,12 @@ async def canal_par_id(canal_id: str):
 
 async def verifier_canaux_configures():
     """Au démarrage : chaque variable CANAL_*_ID qui pointe sur un salon introuvable est nommée dans le journal
-    (24/09 : « Canal 1527… inaccessible » toutes les 5 minutes sans dire quelle variable corriger). Pour #bump et
-    le forum formation, le bot se répare seul : il prend le salon qui porte ce nom (25/09), la variable Railway
+    (24/09 : « Canal 1527… inaccessible » toutes les 5 minutes sans dire quelle variable corriger). Pour le forum
+    formation, le bot se répare seul : il prend le salon qui porte ce nom (25/09), la variable Railway
     n'a plus qu'à être mise à jour quand Gaëtan passe par là."""
     global INSTRUCTIONS
     for nom in ("CANAL_ADMIN_ID", "CANAL_BOT_ID", "CANAL_MANAGER_ID", "CANAL_DOPAMINE_ID", "CANAL_REPORTING_ID",
-                "CANAL_BUMP_ID", "CANAL_CANDIDATURE_ID", "CANAL_FORMATION_ID", "CANAL_ASSISTANT_ID",
+                "CANAL_CANDIDATURE_ID", "CANAL_FORMATION_ID", "CANAL_ASSISTANT_ID",
                 "CANAL_STAT_PAYES_ID", "CANAL_STAT_CLIPPERS_ID"):
         val = str(globals().get(nom, "") or "")
         if nom == "CANAL_REPORTING_ID" and not val:                 # 25/09 : variable jamais posée → #reporting par son nom
@@ -1066,9 +1060,7 @@ async def verifier_canaux_configures():
         except (discord.NotFound, discord.Forbidden, discord.HTTPException) as erreur:
             probleme = erreur
         remplacant = None
-        if nom == "CANAL_BUMP_ID":
-            remplacant = next((c for g in client.guilds for c in g.text_channels if "bump" in normaliser(c.name)), None)
-        elif nom == "CANAL_REPORTING_ID":
+        if nom == "CANAL_REPORTING_ID":
             remplacant = next((c for g in client.guilds for c in g.text_channels if "reporting" in normaliser(c.name)), None)
         elif nom == "CANAL_FORMATION_ID":
             remplacant = next((c for g in client.guilds for c in g.channels
@@ -1077,7 +1069,7 @@ async def verifier_canaux_configures():
             remplacant = next((c for g in client.guilds for c in g.text_channels
                                if "bienvenue" in normaliser(c.name) or "candidature" in normaliser(c.name)), None)
         if remplacant is None:
-            if nom in ("CANAL_BUMP_ID", "CANAL_CANDIDATURE_ID"):      # 25/09 : salon supprimé → fonction éteinte, sans bruit
+            if nom == "CANAL_CANDIDATURE_ID":      # 25/09 : salon supprimé → fonction éteinte, sans bruit
                 globals()[nom] = ""
                 journal.info("%s = %s : salon supprimé, fonction désactivée (variable Railway à vider à l'occasion)", nom, val)
                 continue
@@ -1324,37 +1316,6 @@ async def boucle_stats():
         except Exception as erreur:                # jamais laisser la boucle mourir
             journal.warning("Boucle stats : %s", erreur)
         await asyncio.sleep(600)
-
-
-# ------------------------------------------------------------------ v2 : rappel de /bump Disboard
-async def detecter_bump(message):
-    """Détecte le message de succès de DISBOARD, remercie le bumpeur, arme le prochain rappel."""
-    if not message.embeds:
-        return
-    desc = (message.embeds[0].description or "").lower()
-    if "bump" not in desc or not ("effectué" in desc or "done" in desc):
-        return
-    etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}, "par_mois": {}})
-    etat["dernier"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    etat["rappele"] = False
-    meta = getattr(message, "interaction_metadata", None) or getattr(message, "interaction", None)
-    bumpeur = getattr(meta, "user", None)
-    if bumpeur:
-        cle = str(bumpeur.id)
-        mois = heure_paris().strftime("%Y-%m")           # concours mensuel : remise à zéro naturelle
-        etat.setdefault("par_membre", {})[cle] = etat["par_membre"].get(cle, 0) + 1
-        mois_donnees = etat.setdefault("par_mois", {}).setdefault(mois, {})
-        mois_donnees[cle] = mois_donnees.get(cle, 0) + 1
-        try:
-            # Mention (et non display_name) : garantit le MÊME nom que dans le classement `!bumps`
-            # (un membre avec un surnom serveur différent de son pseudo créait deux noms pour une personne).
-            await message.channel.send(f"🙏 Merci {bumpeur.mention} pour le bump "
-                                       f"({mois_donnees[cle]} ce mois-ci) ! Prochain dans 2 h — je préviens ici. "
-                                       f"Classement : `!bumps`")
-        except (discord.Forbidden, discord.HTTPException):
-            pass
-    ecrire_json(FICHIER_BUMP, etat)
-    journal.info("Bump Disboard détecté (%s)", getattr(bumpeur, "id", "inconnu"))
 
 
 SEPARATEURS_PSEUDO = (" - ", " – ", " — ", " | ", " · ")
@@ -2418,9 +2379,8 @@ async def traiter_quiz_webhook(message, silencieux=False):
             await envoyer_mp(membre_trouve,
                 "🎉 Bien joué pour le quiz — ton score est enregistré, tu n'auras pas à le "
                 "repasser.\n\n📅 Info transparente : **le recrutement international est en pause "
-                "pour le moment**. Pas de test ni de contrat tant qu'elle dure — tu seras recontacté "
-                "en priorité à la réouverture. En attendant : reste sur le serveur et fais des "
-                "bumps dans #bump, ça aide l'équipe et ça se voit. 💪")
+                "pour le moment**. Pas de test ni d'attribution tant qu'elle dure — tu seras recontacté "
+                "en priorité à la réouverture. 💪")
             if not silencieux:
                 await message.channel.send(f"⏸️ {membre_trouve.mention} a validé le quiz ({score}) mais le "
                                            f"recrutement **International est en pause** — test non envoyé, "
@@ -2517,7 +2477,7 @@ def lier_references(reponse: str) -> str:
     # 5. Salons cités par leur nom « #truc » (jamais un <#…> existant, jamais un titre Markdown).
     def _salon(m):
         cle = re.sub(r"[^a-z0-9]", "", normaliser(m.group(1)))
-        alias = {"assistant": "assistantia", "bumperie": "bump", "remuneration": "remuneration"}
+        alias = {"assistant": "assistantia", "remuneration": "remuneration"}
         cid = _SALONS.get(cle) or _SALONS.get(alias.get(cle, "")) or next(
             (v for k, v in _SALONS.items() if cle and (k.startswith(cle) or cle.startswith(k)) and len(cle) >= 4), None)
         return f"<#{cid}>" if cid else m.group(0)
@@ -3220,8 +3180,7 @@ async def boucle_pipeline():
                             await envoyer_mp(membre_p,
                                 "📅 **Plus de rappels pour toi d'ici la réouverture** : le recrutement "
                                 "international est **en pause pour le moment**. Ton dossier est "
-                                "conservé, tu seras recontacté en priorité. D'ici là : reste sur "
-                                "le serveur et fais des bumps dans #bump. 💪")
+                                "conservé, tu seras recontacté en priorité. 💪")
                     return
                 age = _age_h(iso)
                 if age < 24:
@@ -3293,9 +3252,7 @@ async def boucle_pipeline():
                             await envoyer_mp(membre_int,
                                 "📅 **Info de l'équipe** : le recrutement international est "
                                 "**en pause pour le moment**. Ton dossier est conservé (quiz compris) et tu "
-                                "seras recontacté en priorité à la réouverture. D'ici là : reste sur le "
-                                "serveur et fais des bumps dans #bump — ça aide l'équipe et ça se "
-                                "voit. 💪")
+                                "seras recontacté en priorité à la réouverture. 💪")
                     continue
                 # ⑤ Test expiré ou refusé : prévenir le jour où le retest s'ouvre (une fois).
                 if etat_c in ("test_expire", "refuse") and info.get("retest") and not rel.get("retest_ok") \
@@ -3539,7 +3496,7 @@ async def boucle_rappels():
                     and etat.get("sauvegarde") != aujourdhui:
                 canal = await canal_admin()
                 fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
-                                        FICHIER_INVITES, FICHIER_BUMP, FICHIER_COMPTEURS,
+                                        FICHIER_INVITES, FICHIER_COMPTEURS,
                                         FICHIER_LACUNES, DONNEES / "alias_codes.json") if p.exists()]
                 if canal is not None and fichiers:
                     try:
@@ -3557,37 +3514,6 @@ async def boucle_rappels():
         except Exception as erreur:                       # la boucle ne doit jamais mourir
             journal.warning("Boucle rappels : %s", erreur)
         await asyncio.sleep(600)
-
-
-async def boucle_bump():
-    """Poste un rappel dans CANAL_BUMP_ID dès que le cooldown Disboard (2 h) est terminé."""
-    await client.wait_until_ready()
-    # Au démarrage sans historique (premier lancement ou redéploiement pile pendant un bump),
-    # on considère le cooldown comme relancé MAINTENANT : jamais de rappel à froid.
-    etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}})
-    if not etat.get("dernier"):
-        etat["dernier"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        ecrire_json(FICHIER_BUMP, etat)
-    while not client.is_closed():
-        try:
-            etat = lire_json(FICHIER_BUMP, {"dernier": None, "rappele": False, "par_membre": {}})
-            pret = True
-            if etat.get("dernier"):
-                ecoule = datetime.now(timezone.utc) - datetime.fromisoformat(etat["dernier"])
-                pret = ecoule.total_seconds() >= 2 * 3600
-            if pret and not etat.get("rappele"):
-                canal = await canal_par_id(CANAL_BUMP_ID)
-                if canal is not None:
-                    try:
-                        await canal.send("⏰ Le `/bump` est disponible ! Le premier qui le tape fait grimper "
-                                         "le serveur dans les recherches Disboard 🚀")
-                        etat["rappele"] = True
-                        ecrire_json(FICHIER_BUMP, etat)
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
-        except Exception as erreur:                # jamais laisser la boucle mourir
-            journal.warning("Boucle bump : %s", erreur)
-        await asyncio.sleep(300)
 
 
 # ------------------------------------------------------------------ v2 : invitations (tracker, JAMAIS payer au join)
@@ -3751,7 +3677,7 @@ async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renom
 
 # Doctrine des 3 étages : ce qui doit être public (vitrine/lead magnet) vs réservé.
 NOMS_PUBLICS = ("candidature", "annonce", "dopamine", "formation", "checklist", "tips",
-                "assistant", "arrivee", "bienvenue", "deja paye", "clippers", "bump")
+                "assistant", "arrivee", "bienvenue", "deja paye", "clippers")
 # « ressource » a basculé en RÉSERVÉ le 10/08 (doctrine ci-dessous) : la liste des créatrices
 # et les fiches ne s'ouvrent qu'au contrat signé, plus à tout le monde.
 NOMS_RESERVES = ("reporting", "ressource", "remuneration", "bonus", "discussion", "disccusion", "rush")
@@ -3767,7 +3693,7 @@ def _doctrine_acces():
     # #ressources parce que l'overwrite de son rôle n'avait jamais pu être posé). La paie reste par équipe.
     ferme = serveur_ferme()
     return [
-        (("candidature", "annonce", "formation", "dopamine", "assistant", "bump", "tips",
+        (("candidature", "annonce", "formation", "dopamine", "assistant", "tips",
           "checklist", "bienvenue", "deja paye", "clippers"),
          True, [], "Vitrine + arrivée — tout le monde"),
         (("remuneration-fr", "remunerationfr", "bonus-fr", "bonusfr"),
@@ -3865,7 +3791,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement) · `!archiver #salon…`\n"
-                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang` · `!invites` · `!bumps`\n"
+                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang` · `!invites`\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!retro` (il relit ses salons et apprend) · `!sauvegarde`\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
@@ -6062,7 +5988,7 @@ async def commande_admin(message, texte: str) -> bool:
     # ---- !sauvegarde : les JSON du volume postés en pièces jointes (mémoire de la machine) ----
     if texte.startswith("!sauvegarde"):
         fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
-                                FICHIER_INVITES, FICHIER_BUMP, FICHIER_COMPTEURS) if p.exists()]
+                                FICHIER_INVITES, FICHIER_COMPTEURS) if p.exists()]
         if not fichiers:
             await message.reply("Aucune donnée à sauvegarder (volume vide ?).")
             return True
@@ -6316,8 +6242,6 @@ async def on_ready():
         _taches_demarrees = True          # on_ready peut refire à la reconnexion : une seule boucle
         if CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID:
             client.loop.create_task(boucle_stats())
-        if CANAL_BUMP_ID:
-            client.loop.create_task(boucle_bump())
         client.loop.create_task(boucle_pipeline())    # relances de test : toujours actif
         # Digest du matin, relance des tests du soir, lacunes et sauvegarde du dimanche : la boucle
         # ne dépendait que de LIEN_TRESORERIE/CANAL_REPORTING_ID — sans eux, aucun digest (audit 10/09).
@@ -6510,7 +6434,7 @@ async def annoncer_demarrage():
     if canal is None:
         return
     # 27/09 (Gaëtan : « supprime, ça sert à rien ») : une ligne. Seul ce qui DEVRAIT tourner et ne tourne pas est dit ;
-    # les modules éteints par décision (bump, DocuSeal) et les variables optionnelles ne sont plus listés.
+    # les modules éteints par décision et les variables optionnelles ne sont plus listés.
     eteintes = []
     if not codes_2fa.actif():
         eteintes.append("relais des codes (CODES_IMAP_*)")
@@ -6809,9 +6733,6 @@ async def filtrer_spam(message) -> bool:
 
 @client.event
 async def on_message(message):
-    if message.author.id == DISBOARD_ID:      # les messages de DISBOARD servent à détecter les bumps
-        await detecter_bump(message)
-        return
     # Automatisation quiz → test : l'Apps Script de la feuille du quiz poste « QUIZ_OK|pseudo|score »
     # via un webhook Discord (salon admin verrouillé) — le bot envoie alors le test tout seul.
     if message.webhook_id and message.content.startswith(("QUIZ_OK|", "QUIZ_KO|")):
@@ -6929,18 +6850,6 @@ async def on_message(message):
     if texte.startswith(("!creatrice", "!créatrice")):
         if await commande_creatrice(message, texte):
             return
-
-    # Commande PUBLIQUE : classement des bumps du mois (transparence du concours)
-    if texte.startswith("!bumps"):
-        mois = heure_paris().strftime("%Y-%m")
-        donnees = lire_json(FICHIER_BUMP, {}).get("par_mois", {}).get(mois, {})
-        classement = sorted(donnees.items(), key=lambda kv: -kv[1])[:10]
-        if not classement:
-            await message.reply("Aucun bump ce mois-ci pour l'instant — tape `/bump` dans le salon bumperie ! 🚀")
-        else:
-            lignes = [f"{i + 1}. <@{uid}> — {n} bump(s)" for i, (uid, n) in enumerate(classement)]
-            await message.reply(f"🏆 **Classement des bumps — {mois}**\n" + "\n".join(lignes))
-        return
 
     # Liaison téléphone — la clé de jointure exacte avec le formulaire. Deux chemins :
     # `!lier <numéro>` (historique) OU le numéro envoyé BRUT, sans commande (parcours sans
@@ -7117,7 +7026,7 @@ async def on_message(message):
         if est_admin:
             await message.reply(f"❓ Commande `{premier_mot}` inconnue — `!aide` pour la liste.")
             return
-    elif texte.startswith("!") and est_manager(message.author) and premier_mot not in ("!quiz", "!bumps", "!lier"):
+    elif texte.startswith("!") and est_manager(message.author) and premier_mot not in ("!quiz", "!lier"):
         await message.reply(f"❓ `{premier_mot}` n'est pas une commande manager — `!aide` pour ta liste.")
         return
 
