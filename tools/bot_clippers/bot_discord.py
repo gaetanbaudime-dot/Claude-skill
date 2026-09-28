@@ -2699,11 +2699,14 @@ def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
     """Le message d'arrivée d'un candidat venu du site (28/09, Gaëtan) : bienvenue, le parcours en une ligne, la formation, le
     lien du quiz, et rien d'autre ; des lignes vides entre les blocs, il lit sur téléphone."""
     lien_q = lien_quiz_pour(membre.id)
+    rang, suite = etape_recrutement(membre.id)
     alerte = ("" if candidature_trouvee else
               "⚠️ Je ne retrouve pas ta candidature avec ce numéro. Vérifie que c'est celui du formulaire, sinon on continue.\n\n")
-    return (f"🏠 {membre.mention}, bienvenue. Tout se passe ici.\n\n"
-            f"Ton parcours : {ligne_parcours(0)}\n\n"
-            + alerte
+    entete = (f"🏠 {membre.mention}, bienvenue. Tout se passe ici.\n\n"
+              f"Ton parcours : {ligne_parcours(rang)}\n\n" + alerte)
+    if rang >= 2:                                                       # quiz déjà réussi : la formation et le quiz ne servent plus
+        return entete + suite
+    return (entete
             + "🎓 **La formation**\n"
             f"Regarde la vidéo dans {lien_formation()}, en entier.\n"
             "Note les 4 mots-clés cachés, dans l'ordre.\n\n"
@@ -6851,7 +6854,10 @@ async def on_ready():
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
                                      "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
-                                     "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id})
+                                     "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id,
+                                     "categorie_nom": CATEGORIE_CLIPPERS_NOM, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
+                                     "signe_creatrice": lambda uid: bool((lire_json(FICHIER_EQUIPES, {}).get(str(uid)) or {}).get("creatrice")),
+                                     "assurer_salon_arrivee": assurer_salon_arrivee})
         client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
 
         async def _dossier_clipper(prenom, creatrice):
