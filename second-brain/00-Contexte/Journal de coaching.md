@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 8) — Deux clippers cherchent la vidéo sur WhatsApp : le lien direct partout, et le Drive vérifié
+- **Constat (captures WhatsApp)** : une clippeuse de Chloé et Georgial (Sophie) demandent à Gaëtan où est la vidéo de formation et s'ils peuvent créer le compte 1 ; Gaëtan retape à la main les étapes de création. Le bot leur donnait une mention de salon (« dans #bienvenue »), pas un lien.
+- **Livré** : le lien direct de la vidéo (Loom, 15 min) dans le message d'arrivée, les relances et la base de connaissances (« où est la vidéo ? » → le lien, rien d'autre). Vérifié dans le Drive : Georgial, Simon, Antoinr, LATE2, Michel et Mathieu ont chacun leur dossier avec 16 à 20 Reels dans « TOP 20 Reels » ; « je n'ai pas reçu les vidéos » n'était pas un manque, c'était un clipper qui ne regarde pas son salon.
+- **Avocat du diable** : tant que les clippers écrivent à Gaëtan sur WhatsApp avant de lire leur salon, aucun message du bot ne suffit ; la réponse de Gaëtan devrait être « regarde ton salon Discord » et rien d'autre, sinon le salon ne sert à rien.
+- **Prédiction (28/09, revue le 12/10)** : plus aucune question « où est la vidéo ? » sur WhatsApp d'un clipper arrivé après le 28/09 (65 %).
+
 ### 2026-09-28 (soir, 7) — Deux oui : Jade 1, Clara 0, Maddie 0 dans l'attribution ; le parrainage à 5 $ à la première paie du filleul
 - **Décisions de Gaëtan** : « oui sur ces deux points, mais n'embrouille pas les clippers ».
 - **Livré** : l'ordre d'attribution par défaut devient Chloé 3, Sarah 3, Sophie 3, Jade 1 (Clara et Maddie à zéro tant qu'aucun e-mail de compte n'existe : 4 et 2 comptes livrables, ça ne fait pas un clipper chacune) ; le parrainage en une commande, `!parrain @lui`, tapée par l'un ou l'autre, le plus ancien parraine, 5 $ portés sur sa ligne de paie le jour où le filleul touche sa première paie, une fois, rien de dit au filleul, une seule phrase dans la routine et l'aide.
