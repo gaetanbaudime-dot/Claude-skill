@@ -286,8 +286,16 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
               and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)
               and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
+    # 28/09 (Gaëtan, sortie automatique) : « réattribue comptes et liens au suivant » — les comptes déjà créés et rendus
+    # (chauffés, Gérant vidé) partent en premier ; le clipper s'y CONNECTE, le code de connexion arrive dans son salon.
+    rendus = sorted([c for c in libres if _norm(c["etat"]) not in A_CREER], key=lambda c: c["ligne"])
+    if rendus:
+        choix = rendus[:n]
+        if len(choix) < n:
+            choix += disponibles([c for c in comptes if c not in rendus], creatrice, n - len(choix))
+        return choix
     # 26/09 (Gaëtan) : « un nouveau = 3 nouveaux comptes et mails, dans les nouveaux PODs ». Le POD le plus bas où la
-    # créatrice a n lignes « à créer » libres avec e-mail gagne ; les comptes déjà créés (rendus par un ancien) passent en dernier.
+    # créatrice a n lignes « à créer » libres avec e-mail gagne.
     neufs = [c for c in libres if _norm(c["etat"]) in A_CREER and c.get("mail")]
     pods = {}
     for c in neufs:
@@ -297,12 +305,7 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
         if len(pods[pod]) >= n:
             return sorted(pods[pod], key=lambda c: c["ligne"])[:n]
     libres.sort(key=lambda c: (_norm(c["etat"]) not in A_CREER, not c.get("mail"), c["ligne"]))
-    if n < 3:
-        return libres[:n]
-    choix = [c for c in libres if not _est_prive(c)][:n - 1] + [c for c in libres if _est_prive(c)][:1]
-    if len(choix) < n:                                              # pas assez d'un côté : on complète avec le reste
-        choix += [c for c in libres if c not in choix][:n - len(choix)]
-    return choix
+    return libres[:n]                                               # 28/09 (Gaëtan) : 3 comptes de croissance, plus de compte privé
 
 
 def pool(comptes: list, creatrice: str) -> dict:
@@ -378,7 +381,8 @@ async def reserver(comptes: list, prenom_clipper: str) -> int:
 def acces_ordonnes(comptes: list) -> list:
     """[{handle, mdp, mail}] dans l'ordre du parcours : les comptes de croissance d'abord, le privé en dernier."""
     ordonnes = sorted(comptes, key=_est_prive)
-    return [{"handle": c.get("handle", ""), "mdp": c.get("mdp", ""), "mail": c.get("mail", ""), "prive": bool(_est_prive(c))}
+    return [{"handle": c.get("handle", ""), "mdp": c.get("mdp", ""), "mail": c.get("mail", ""), "prive": bool(_est_prive(c)),
+             "cree": _norm(c.get("etat", "")) not in A_CREER}                # 28/09 : compte rendu par un sortant → connexion, pas inscription
             for c in ordonnes]
 
 
@@ -396,13 +400,9 @@ def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
         return (f"⚠️ Il n'y a pas encore de compte prêt pour {creatrice}. Ton manager en prépare. "
                 "Je te les envoie ici dès qu'ils sont prêts.")
     blocs = []
-    ordonnes = sorted(comptes, key=_est_prive)                      # le privé en dernier
-    a_un_prive = any(_est_prive(c) for c in comptes)
-    for i, c in enumerate(ordonnes, start=1):
-        prive = _est_prive(c) if a_un_prive else (i == len(ordonnes) and len(ordonnes) >= 3)
-        role = "privé, ton compte secret" if prive else "il publie"
-        deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé"
-        blocs.append(f"**Compte {i} · `{c['handle']}`** · {role}{deja}\n"
+    for i, c in enumerate(comptes, start=1):                        # 28/09 : trois comptes qui publient, plus de compte privé
+        deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé, connecte-toi"
+        blocs.append(f"**Compte {i} · `{c['handle']}`** · il publie{deja}\n"
                      f"Mot de passe `{c['mdp'] or 'demande-le à ton manager'}`"
                      + (f" · e-mail `{c['mail']}`" if c["mail"] else "")
                      + (f" · tél `{c['phone']}`" if c["phone"] else ""))
@@ -508,7 +508,11 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
         journal.warning("Dossier « %s » pour %s : %s", NOM_TOP20, prenom, erreur)
     if email:
         await _partager(dossier, email)
-    journal.info("Drive de %s (%s) prêt : %s sources, e-mail %s", prenom, creatrice, len(sources), "oui" if email else "non")
+    try:
+        await google_api.drive_partager_public(dossier)                 # 28/09 (Gaëtan) : lecture par le lien, plus besoin d'e-mail
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Partage par lien du Drive de %s : %s", prenom, erreur)
+    journal.info("Drive de %s (%s) prêt : %s sources, lecture par le lien", prenom, creatrice, len(sources))
     return google_api.drive_lien(dossier)
 
 
@@ -565,6 +569,11 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         if lids:
             lid = lids[0]
             lien = d["liens"][lid].get("url", "")
+        elif paie_clics.actif() and paie_clics.lien_libre(d, creatrice):        # 28/09 : le lien d'un sortant va au suivant
+            lid, info_l = paie_clics.lien_libre(d, creatrice)
+            await paie_clics.reprendre_lien(d, lid, str(membre.id), prenom, creatrice)
+            paie_clics._ecrire(d)
+            lien = info_l.get("url", "")
         elif paie_clics.actif():
             liens = await paie_clics.liens_gaml()
             de_la_creatrice = [l for l in liens if _norm(str(l.get("name", "")).split()[0] if l.get("name") else "") == _norm(creatrice.split()[0])]
@@ -599,8 +608,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         email = (_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}).get("liaisons", {}).get(str(membre.id), {}).get("email", "")
                  or fiche.get("email", ""))
         drive = await dossier_drive(prenom, creatrice, email)
-        resultat.append("Drive " + ("✅" + ("" if email else " (sans e-mail : rien partagé, `!onboarding` après son e-mail)") if drive
-                                    else "non configuré"))
+        resultat.append("Drive " + ("✅" if drive else "non configuré"))
     except RuntimeError as erreur:
         resultat.append(f"Drive : {erreur}")
     # 4. message
@@ -609,8 +617,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     if lien:
         texte += f"\n\n🔗 **Ton lien** : {lien} · tes visites : `!mesclics`"
     if drive:
-        texte += (f"\n📁 **Ton Drive** (photos et vidéos de {creatrice.split()[0]}) : <{drive}>"
-                  + ("" if email else " · envoie-moi ici **ton adresse Gmail** pour l'ouvrir"))
+        texte += f"\n📁 **Ton Drive** (photos et vidéos de {creatrice.split()[0]}) : <{drive}>"
     if salon is not None and codes_2fa.actif():
         try:
             n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")

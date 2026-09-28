@@ -15,6 +15,7 @@ normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les test
 import asyncio
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import aiohttp
@@ -85,7 +86,7 @@ async def scanner(handles: list) -> dict:
             return None
         items += lot if isinstance(lot, list) else []
     limite = datetime.now(timezone.utc) - timedelta(hours=24)
-    out = {h.lower(): {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0} for h in handles}
+    out = {h.lower(): {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0, "fautes": 0} for h in handles}
     for item in items:
         handle = (item.get("username") or item.get("inputUrl") or "").lower().rstrip("/").split("/")[-1].lstrip("@")
         if handle not in out:
@@ -105,6 +106,8 @@ async def scanner(handles: list) -> dict:
                 continue
             if quand >= limite:
                 fiche["posts"] += 1
+                if RE_FAUTE.search(str(post.get("caption") or "")):    # 28/09 : lien ou @ dans la légende → ❌
+                    fiche["fautes"] += 1
     return out
 
 
@@ -196,7 +199,7 @@ async def executer(ecrire: bool = True) -> dict:
         if id(c) not in ids_suivis:
             continue
         hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
-        hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"]})
+        hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0)})
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
         apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"])
         if apres:
@@ -245,6 +248,15 @@ async def executer(ecrire: bool = True) -> dict:
             await _deps["reconcilier"](etats_h)
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation des parcours : %s", erreur)
+    fautifs = sorted({f"{c['gerant'].split()[0]} (@{c['handle']})" for c in lignes
+                      if c.get("gerant") and (mesures.get(c["handle"].lower()) or {}).get("fautes")})
+    if ecrire and fautifs and _deps.get("canal_admin"):                           # 28/09 : contrôle par Reel, une ligne à l'admin
+        try:
+            canal_f = await _deps["canal_admin"]()
+            if canal_f is not None:
+                await canal_f.send("⚠️ Lien ou @ dans une légende de Reel hier : " + ", ".join(fautifs)[:1800])
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Alerte légendes : %s", erreur)
     if ecrire and _deps.get("deposer") and _deps.get("salon_de_prenom"):        # 27/09 : « Reels d'hier » du message du matin
         for prenom, texte_r in lignes_reels(comptes, d["historique"], jour).items():
             try:
@@ -260,6 +272,9 @@ async def executer(ecrire: bool = True) -> dict:
     journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers, %d clics, %d liens mis à jour",
                  len(lignes), len(changements), followers_maj, clics_maj, liens_maj)
     return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj}
+
+
+RE_FAUTE = re.compile(r"https?://|www\.|getallmylinks|gaml\.|\.fr/|\.app/|(?<![\w.])@[A-Za-z0-9_.]{3,}")
 
 
 def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
@@ -278,10 +293,14 @@ def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
         avant = [e for e in entrees if str(e.get("jour") or "") < jour]
         prev = int((avant[-1].get("posts") if avant else 0) or 0)
         delta = max(0, int(auj.get("posts") or 0) - prev)
-        p = par.setdefault(g.split()[0], {"n": 0, "comptes": 0})
+        p = par.setdefault(g.split()[0], {"n": 0, "comptes": 0, "fautes": 0})
         p["n"] += delta
         p["comptes"] += 1
-    return {prenom: f"🎬 Hier : {p['n']} publication(s) sur tes comptes." + (" ✅" if p["n"] >= 2 else "") for prenom, p in par.items()}
+        p["fautes"] += int(auj.get("fautes") or 0)
+    return {prenom: f"🎬 Hier : {p['n']} publication(s) sur tes comptes." + (" ✅" if p["n"] >= 2 and not p["fautes"] else "")
+            + ("\n❌ Un lien ou un @ dans la légende d'un Reel d'hier : enlève-le. Le lien va seulement en story à la une."
+               if p["fautes"] else "")
+            for prenom, p in par.items()}
 
 
 def texte_bilan(bilan: dict, test: bool = False) -> str:

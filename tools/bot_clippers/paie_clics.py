@@ -41,7 +41,7 @@ PAYS_LIBELLE = os.environ.get("PAYS_LIBELLE", "francophones").strip() or "franco
 CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-09-16").strip()          # début du relevé rétroactif
 CLICS_HEURE = int(os.environ.get("CLICS_HEURE", "7") or 7)                    # ligne du matin (heure de Paris)
 # 25/09 : les anciens clippers gardent leur fixe deux semaines, puis clic ou sortie. Le bilan part tout seul ce jour-là.
-BILAN_FIXE_DATE = os.environ.get("BILAN_FIXE_DATE", "2026-10-09").strip()
+BILAN_FIXE_DATE = os.environ.get("BILAN_FIXE_DATE", "2026-10-05").strip()      # 28/09 (Gaëtan) : bascule le 05/10, plus le 09/10
 BILAN_FIXE_JOURS = int(os.environ.get("BILAN_FIXE_JOURS", "14") or 14)
 SEUIL_FIXE_100 = int(os.environ.get("SEUIL_FIXE_100", "32") or 32)            # visites payables/jour qui rentabilisent 100 €
 SEUIL_FIXE_200 = int(os.environ.get("SEUIL_FIXE_200", "65") or 65)            # … et 200 € (0,30 $ de CA par visite, 35 % de marge)
@@ -209,11 +209,48 @@ def liens_de(d: dict, uid: str) -> list:
     return [lid for lid, info in d["liens"].items() if str(info.get("uid")) == str(uid)]
 
 
+def liberer_liens(d: dict, uid: str, prenom: str = "") -> list:
+    """28/09 (sortie automatique) : les liens d'un sortant restent à sa créatrice, sans clipper (uid vide), prêts pour le suivant.
+    Renvoie les identifiants libérés. L'appelant écrit `d`."""
+    libres = []
+    for lid, info in d.get("liens", {}).items():
+        if str(info.get("uid") or "") == str(uid) and str(uid):
+            info.update({"uid": "", "libere": _aujourdhui().isoformat(), "ancien": prenom or info.get("note", "")})
+            libres.append(lid)
+    return libres
+
+
+def lien_libre(d: dict, creatrice: str):
+    """(id, fiche) du premier lien libéré de cette créatrice, ou None."""
+    cible = (creatrice or "").split()[0].lower() if creatrice else ""
+    for lid, info in d.get("liens", {}).items():
+        if not str(info.get("uid") or "") and info.get("libere") and str(info.get("creatrice") or "").split()[:1] == [cible] if cible else False:
+            return lid, info
+        if not str(info.get("uid") or "") and info.get("libere") and cible and str(info.get("creatrice") or "").lower().startswith(cible):
+            return lid, info
+    return None
+
+
+async def reprendre_lien(d: dict, lid: str, uid: str, prenom: str, creatrice: str) -> None:
+    """Le lien d'un sortant passe au suivant : uid, `depuis` = aujourd'hui (ses visites commencent là), note « Clipping Prénom »
+    (aussi côté GAML, sans bloquer si l'API refuse). L'appelant écrit `d`."""
+    info = d["liens"][lid]
+    info.update({"uid": str(uid), "depuis": _aujourdhui().isoformat(), "note": f"Clipping {prenom}", "creatrice": creatrice.split()[0],
+                 "par": "reprise", "repris_de": info.pop("ancien", ""), "libere": ""})
+    try:
+        await _requete("PATCH", f"/links/{lid}", corps={"note": f"Clipping {prenom}"})
+    except RuntimeError as erreur:
+        journal.warning("Lien %s repris pour %s : note GAML non mise à jour (%s)", lid, prenom, erreur)
+
+
 def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
+    """Visites des liens sur la période. 28/09 : un lien repris d'un sortant ne compte pour son nouveau clipper qu'à partir de
+    `depuis` (les visites d'avant sont celles de l'ancien)."""
     tot = {"brut": 0, "hors_robots": 0, "payes": 0, "jours": 0}
     for lid in link_ids:
+        dep = str((d.get("liens", {}).get(lid) or {}).get("depuis") or "")
         for j, v in d["jours"].get(lid, {}).items():
-            if debut.isoformat() <= j <= fin.isoformat():
+            if debut.isoformat() <= j <= fin.isoformat() and j >= dep:
                 tot["brut"] += v.get("brut", 0); tot["hors_robots"] += v.get("hors_robots", 0)
                 tot["payes"] += v.get("payes", 0); tot["jours"] += 1
     return tot

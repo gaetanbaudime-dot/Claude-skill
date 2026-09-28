@@ -11,7 +11,7 @@ liens_forts: ["[[Process clippers de bout en bout - 10 simplifications (27 septe
 # Bilan des 20 simplifications - fait, plus besoin, à faire (27 septembre 2026)
 
 > [!tip] Verdict
-> Sur les 20 simplifications du 27/09, **7 sont en place**, **2 à moitié**, **4 n'ont plus lieu d'être** (le bot ou une décision de Gaëtan les a rendues inutiles), et **7 attendent** : quatre oui/non de Gaëtan et cinq chantiers bot d'une heure à une demi-journée. Ce qui compte aujourd'hui tient en une ligne : **répondre oui ou non à quatre questions** (test = jour 1, prime de 10 $ au jour 7, formulaire à 5 champs, sortie automatique à 14 jours), **déposer les TOP 20 de Sophie, Sarah, Jade, Clara et Maddie**, et **créer des alias iCloud** : le vivier livrable est de 11 clippers, la rotation cale au douzième, et aucun chantier bot n'y change rien. Le goulot du jour n'est ni le recrutement ni le bot, c'est la matière (Reels fournis) et les e-mails.
+> Mise à jour du 28/09 après les réponses de Gaëtan : **11 en place**, **1 à moitié** (n° 2, le quiz), **4 sans objet** (dont la prime, refusée), **4 en attente** (test = jour 1, formulaire à 5 champs, carte de campagne, mercredi : les deux derniers restent à lui expliquer). Le soir du 27/09 c'était : **7 en place**, **2 à moitié**, **4 sans objet**, **7 en attente** : quatre oui/non de Gaëtan et cinq chantiers bot d'une heure à une demi-journée. Ce qui compte aujourd'hui tient en une ligne : **répondre oui ou non à quatre questions** (test = jour 1, prime de 10 $ au jour 7, formulaire à 5 champs, sortie automatique à 14 jours), **déposer les TOP 20 de Sophie, Sarah, Jade, Clara et Maddie**, et **créer des alias iCloud** : le vivier livrable est de 11 clippers, la rotation cale au douzième, et aucun chantier bot n'y change rien. Le goulot du jour n'est ni le recrutement ni le bot, c'est la matière (Reels fournis) et les e-mails.
 
 ## 1. Les 20 simplifications, une ligne chacune
 
@@ -28,8 +28,8 @@ Légende : ✅ en place · 🟡 à moitié · ➖ plus besoin · 🔁 tranché a
 | 5 | Semaine 1 : poster, pas monter | 🟡 | Côté bot ✅ : le dossier « TOP 20 Reels » de chaque clipper (recette v2, sans miroir, contrôle qualité), Chloé faite. Côté Gaëtan 🔜 : les dossiers TOP 20 de Sophie, Sarah, Jade, Clara et Maddie ; le bot décline tout seul. |
 | 6 | Un seul endroit : le salon perso | ✅ | Salon dès l'arrivée, assistant IA dans chaque salon, plus d'assistant global, rétrospective qui apprend chaque soir. |
 | 7 | Trois exceptions humaines | ✅ | Ban, numéro refusé, paiement → WhatsApp ; règles 21 à 25 de l'assistant ; page dédiée. |
-| 8 | Un seul régime de paie, généré par le bot | ✅ | Décidé le 25/09, bascule le 09/10 (`!bilan-fixe`), un mois de retard rattrapé le 27/09. Rien aujourd'hui. |
-| 9 | Sortie automatique à 14 jours | 🔜 | Chantier bot d'une demi-journée, pas encore de feu vert. C'est le garde-fou du n° 11. |
+| 8 | Un seul régime de paie, généré par le bot | ✅ | Bascule le **05/10** (décision du 28/09) : Gaëtan garde les meilleurs, passe ou sort les autres au variable. |
+| 9 | Sortie automatique à 14 jours | ✅ | Feu vert du 28/09, codé le jour même : première passe en liste seulement, puis sortie tous les jours à 8 h UTC ; comptes et lien réattribués au suivant, avec connexion (pas inscription). |
 | 10 | Un tableau de bord d'une ligne | ✅ | `!tableau`, premier envoi automatique lundi 29/09 ; depuis ce soir « premier Reel » et « jour 7 » viennent du scan quotidien du classeur. |
 
 ### Les dix de l'après-midi (avec recherche)
@@ -37,13 +37,13 @@ Légende : ✅ en place · 🟡 à moitié · ➖ plus besoin · 🔁 tranché a
 | N° | Simplification | État | Où on en est le 27/09 au soir |
 |---|---|---|---|
 | 11 | Le test, c'est le jour 1 | 🔜 | Décision de Gaëtan. Cohérent avec « je simplifie toute la partie clipping ». Si oui : une heure de bot, le test sort du tunnel, comptes et parcours partent à l'acceptation. |
-| 12 | La première paie à J+7 (prime fixe de 10 $) | 🔜 | Décision de Gaëtan. Le tableau mesure déjà « jour 7 tenu » ; une heure de bot pour la prime et sa ligne dopamine. |
+| 12 | La première paie à J+7 (prime fixe de 10 $) | ➖ | Non, pour le moment (28/09). |
 | 13 | Le formulaire à 5 champs | 🔜 | Décision de Gaëtan. Une heure de bot (`questions_candidature.json`). La note sur 8 devient un tri simple : c'est le jour 1 qui juge. |
 | 14 | Une fiche créatrice = une carte de campagne | 🔜 | Demi-journée de bot, épinglée en haut de chaque salon perso. Il faut de Gaëtan, par créatrice : le taux, 5 hashtags, une légende type. |
-| 15 | Le calendrier est un dossier (14 Reels le lundi) | ➖ | Le dossier TOP 20 par clipper donne déjà dix jours de matière ; OpusClip testé, résultat identique, éteint. Reste à vérifier que le dossier se renouvelle quand le TOP 20 change. |
+| 15 | Le calendrier est un dossier (14 Reels le lundi) | ✅ | Les six TOP 20 sont déposés (27/09 soir) et déclinés pour chaque clipper toutes les 6 h sans commande ; OpusClip écarté (rien de visible, sept fois plus lourd). |
 | 16 | Le clipper ne rédige jamais | 🔜 | Avec le n° 14 : légende et hashtags fixes déposés dans le dossier TOP 20 et dans la carte. |
-| 17 | Le lien arrive avec le premier compte | 🔁 | Règle de Gaëtan du 26/09 : lien en bio du compte privé et en story à la une, jamais ailleurs. Rien à faire. |
-| 18 | Chaque Reel a un ✅ ou un ❌ | 🟡 | Scan quotidien du classeur ✅ (compte existant, publications, privé, BAN) ; « 🎬 Hier : N publication(s) » dans le message du matin ✅ depuis ce soir. Reste le contrôle par Reel (lien dans la légende, hashtag) : demi-journée, après le n° 16. |
+| 17 | Le lien arrive avec le premier compte | ✅ | Tranché autrement le 28/09 : plus de compte privé, plus rien en bio ; le lien va une seule fois en story à la une sur chacun des 3 comptes, dès le compte 1. |
+| 18 | Chaque Reel a un ✅ ou un ❌ | ✅ | Scan quotidien + « 🎬 Hier : N publication(s) » le matin, et depuis le 28/09 le contrôle des légendes (lien, domaine, @) : ❌ au clipper, une ligne à l'admin. Reste le hashtag, quand les légendes fixes existeront (n° 16). |
 | 19 | Un seul rendez-vous vivant, 20 min le mercredi | 🔜 | Décision d'agenda de Gaëtan. Si oui, le bot poste le rappel et le lien vocal chaque mercredi. |
 | 20 | Une seule source de candidats | ✅ | De fait : relances Telegram terminées, Google Form fermé, tout passe par le site. Le tableau par source viendra avec une deuxième source. |
 

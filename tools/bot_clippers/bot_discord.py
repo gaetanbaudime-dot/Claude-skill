@@ -38,6 +38,7 @@ import rapport_stats                      # rapport GAML quotidien du manager, #
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import matin                              # un seul message du matin par clipper (26/09)
+import sortie_auto                        # sortie automatique à 14 jours sans Reel (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
 import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
@@ -2709,7 +2710,7 @@ def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
     return (entete
             + "🎓 **La formation**\n"
             f"Regarde la vidéo dans {lien_formation()}, en entier.\n"
-            "Note les 4 mots-clés cachés, dans l'ordre.\n\n"
+            "Note les mots-clés cachés, dans l'ordre.\n\n"
             + ((f"📝 **Le quiz**\n"
                 f"Ton lien personnel : <{lien_q}>\n"
                 f"Il faut {SEUIL_QUIZ} sur 34. Deux essais.\n\n") if lien_q else "")
@@ -4100,7 +4101,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests", "!inputs",
                      "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
+                     "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes",
                      "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
 
 
@@ -4455,6 +4456,104 @@ def _entrees_faq_apprise() -> list:
         return []
     brut = FICHIER_FAQ_APPRISE.read_text(encoding="utf-8")
     return [(q.strip(), r.strip()) for q, r in re.findall(r"\*\*Q : (.+?)\*\*\s*\nR : (.+?)(?=\n\*\*Q : |\Z)", brut, re.S)]
+
+
+async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> dict:
+    """La sortie d'équipe (corps de `!sortie`, factorisé le 28/09 pour la sortie automatique) : rôles et accès retirés, pipeline
+    en « sorti », classeur rendu (pool=True : les comptes créés restent dans le vivier et le lien GAML est libéré pour le suivant),
+    registre → sortis.json, roster, messages au membre, au manager et à Telegram. `par` = le membre qui commande, None = automatique.
+    Renvoie {"roles", "acces", "comptes", "liens", "refus"}."""
+    g = membre.guild
+    nom_par = getattr(par, "display_name", "le bot (automatique)")
+    par_id = str(getattr(par, "id", "auto"))
+    raison = raison.strip(" []").strip() or "non précisée"
+    # 1. Rôles : Team, Grille, rangs.
+    a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
+    for nom_r in (ROLE_GRILLE_FR_NOM, ROLE_GRILLE_INT_NOM, *NOMS_RANGS):
+        r_ = discord.utils.find(lambda x: normaliser(nom_r) in normaliser(x.name), g.roles)
+        if r_ is not None and r_ in membre.roles and r_ not in a_retirer:
+            a_retirer.append(r_)
+    for r_ in roles_creatrices(g):                                  # 25/09 : le rôle de sa créatrice aussi
+        if r_ in membre.roles and r_ not in a_retirer:
+            a_retirer.append(r_)
+    refus_s = []
+    if a_retirer:
+        try:
+            await membre.remove_roles(*a_retirer, reason=f"!sortie par {nom_par} — {raison}")
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus_s.append(f"rôles ({type(erreur).__name__})")
+    # 2. Accès nominatifs (salon perso, salons de créatrice ouverts par !creatrice).
+    fermes = []
+    for c in g.channels:
+        if membre in c.overwrites:
+            try:
+                await c.set_permissions(membre, overwrite=None, reason=f"!sortie — {raison}")
+                fermes.append(c.name)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                refus_s.append(f"#{c.name} ({type(erreur).__name__})")
+    # 3. Pipeline : état « sorti » + STOP partout (plus aucune relance).
+    pipe_s = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    uid_s = str(membre.id)
+    info_s = pipe_s.setdefault("etats", {}).setdefault(uid_s, {})
+    info_s["etat"] = "sorti"
+    info_s["sortie"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                        "par": par_id, "raison": raison}
+    info_s.setdefault("relances", {})["stop"] = True
+    for sec in ("arrivees", "liaisons"):
+        if uid_s in pipe_s.get(sec, {}):
+            pipe_s[sec][uid_s]["stop"] = True
+    ecrire_json(FICHIER_PIPELINE, pipe_s)
+    # 3b. Classeur des logins : ses comptes rendus (Gérant vidé, créés → « à mettre Metricool »). 24/09 : sans
+    #     cette étape, le prochain clipper du même prénom hérite de ses comptes (Eddy). Avant le retrait du
+    #     registre, pour vérifier que le prénom ne désigne que lui.
+    libere_s = []
+    if onboarding.actif():
+        prenom_s = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
+        if membre_par_prenom(normaliser(prenom_s)) == membre:
+            try:
+                libere_s = [b for b in await onboarding.liberer(prenom_s, pool=pool) if b.startswith("·")]
+            except Exception as erreur:
+                refus_s.append(f"classeur ({type(erreur).__name__})")
+        else:
+            refus_s.append(f"classeur non touché (prénom {prenom_s} partagé : `!liberer {prenom_s} <handles>`)")
+    n_liens = 0
+    if pool and paie_clics.actif():                                     # 28/09 : son lien GAML reste à la créatrice, pour le suivant
+        d_l = paie_clics._lire()
+        n_liens = len(paie_clics.liberer_liens(d_l, uid_s, prenom_de(membre)))
+        if n_liens:
+            paie_clics._ecrire(d_l)
+    # 4. Registre : la fiche part dans sortis.json (trace), plus dans equipes.json (digest, primes).
+    registre_s = lire_json(FICHIER_EQUIPES, {})
+    fiche_s = registre_s.pop(uid_s, None) or {}
+    ecrire_json(FICHIER_EQUIPES, registre_s)
+    sortis = lire_json(FICHIER_SORTIS, [])
+    sortis.append({"uid": uid_s, "nom": membre.display_name, "equipe": fiche_s.get("equipe", ""),
+                   "creatrice": fiche_s.get("creatrice", ""), "date": info_s["sortie"]["date"],
+                   "par": par_id, "raison": raison})
+    ecrire_json(FICHIER_SORTIS, sortis[-500:])
+    roster.retirer(prenom_de(membre))                                   # 26/09 : le roster (compteur, rapport Jonas) suit
+    # 5. Le membre, le manager, l'admin, Telegram.
+    if pool:
+        await envoyer_mp(membre, "🚪 " + raison[0].upper() + raison[1:] + ". Je libère ta place : tes comptes et ton lien vont au suivant.\n\n"
+                                 "Tu veux revenir ? Écris à Gaëtan.", view=vue_whatsapp())
+    else:
+        await envoyer_mp(membre,
+            "🚪 **Ta collaboration avec l'équipe s'arrête ici.** Raison : " + raison + ".\n"
+            "Tes accès aux salons de l'équipe sont retirés. Si tu as un téléphone ou des comptes fournis par "
+            "l'agence, ton manager te contacte pour la restitution ; ce qui t'est dû est réglé au prochain "
+            "décompte. Merci pour le temps donné, et bonne route.")
+    await notifier_manager(
+        f"🚪 **{membre.display_name} sorti de l'équipe** (par {nom_par}) — {raison}\n"
+        f"Rôles retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · accès fermés : {len(fermes)} salon(s)"
+        f" · comptes du classeur rendus : {len(libere_s)}"
+        + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
+        + ("\n".join(libere_s) + "\n" if libere_s else "")
+        + "→ À faire à la main : " + ("" if libere_s or not onboarding.actif() else "Sheet (ses comptes en « à réattribuer »), ")
+        + "mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
+        "lien GAML à désactiver, dernier décompte.", g)
+    await inputs_clippers.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
+    journal.info("Sortie d'équipe : %s par %s (%s)", membre.id, par_id, raison)
+    return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s}
 
 
 async def commande_admin(message, texte: str) -> bool:
@@ -5747,6 +5846,12 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     # ---- !sortie @x [raison] : sortie d'équipe propre et tracée ----
+    if texte.lower().startswith("!sortie-auto"):                          # 28/09 : qui partirait aujourd'hui / go
+        if str(message.author.id) not in ADMIN_IDS:
+            await message.reply("Commande admin.")
+            return True
+        await sortie_auto.commande(message, texte)
+        return True
     if texte.startswith("!sortie"):
         g = message.guild
         if g is None:
@@ -5772,85 +5877,10 @@ async def commande_admin(message, texte: str) -> bool:
         if str(membre.id) in ADMIN_IDS or any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in membre.roles):
             await message.reply("⛔ Membre protégé (admin/manager/staff) — pas de sortie par commande.")
             return True
-        raison = raison.strip(" []").strip() or "non précisée"
-        # 1. Rôles : Team, Grille, rangs.
-        a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
-        for nom_r in (ROLE_GRILLE_FR_NOM, ROLE_GRILLE_INT_NOM, *NOMS_RANGS):
-            r_ = discord.utils.find(lambda x: normaliser(nom_r) in normaliser(x.name), g.roles)
-            if r_ is not None and r_ in membre.roles and r_ not in a_retirer:
-                a_retirer.append(r_)
-        for r_ in roles_creatrices(g):                                  # 25/09 : le rôle de sa créatrice aussi
-            if r_ in membre.roles and r_ not in a_retirer:
-                a_retirer.append(r_)
-        refus_s = []
-        if a_retirer:
-            try:
-                await membre.remove_roles(*a_retirer, reason=f"!sortie par {message.author.display_name} — {raison}")
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                refus_s.append(f"rôles ({type(erreur).__name__})")
-        # 2. Accès nominatifs (salon perso, salons de créatrice ouverts par !creatrice).
-        fermes = []
-        for c in g.channels:
-            if membre in c.overwrites:
-                try:
-                    await c.set_permissions(membre, overwrite=None, reason=f"!sortie — {raison}")
-                    fermes.append(c.name)
-                except (discord.Forbidden, discord.HTTPException) as erreur:
-                    refus_s.append(f"#{c.name} ({type(erreur).__name__})")
-        # 3. Pipeline : état « sorti » + STOP partout (plus aucune relance).
-        pipe_s = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        uid_s = str(membre.id)
-        info_s = pipe_s.setdefault("etats", {}).setdefault(uid_s, {})
-        info_s["etat"] = "sorti"
-        info_s["sortie"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                            "par": str(message.author.id), "raison": raison}
-        info_s.setdefault("relances", {})["stop"] = True
-        for sec in ("arrivees", "liaisons"):
-            if uid_s in pipe_s.get(sec, {}):
-                pipe_s[sec][uid_s]["stop"] = True
-        ecrire_json(FICHIER_PIPELINE, pipe_s)
-        # 3b. Classeur des logins : ses comptes rendus (Gérant vidé, créés → « à mettre Metricool »). 24/09 : sans
-        #     cette étape, le prochain clipper du même prénom hérite de ses comptes (Eddy). Avant le retrait du
-        #     registre, pour vérifier que le prénom ne désigne que lui.
-        libere_s = []
-        if onboarding.actif():
-            prenom_s = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
-            if membre_par_prenom(normaliser(prenom_s)) == membre:
-                try:
-                    libere_s = [b for b in await onboarding.liberer(prenom_s) if b.startswith("·")]
-                except Exception as erreur:
-                    refus_s.append(f"classeur ({type(erreur).__name__})")
-            else:
-                refus_s.append(f"classeur non touché (prénom {prenom_s} partagé : `!liberer {prenom_s} <handles>`)")
-        # 4. Registre : la fiche part dans sortis.json (trace), plus dans equipes.json (digest, primes).
-        registre_s = lire_json(FICHIER_EQUIPES, {})
-        fiche_s = registre_s.pop(uid_s, None) or {}
-        ecrire_json(FICHIER_EQUIPES, registre_s)
-        sortis = lire_json(FICHIER_SORTIS, [])
-        sortis.append({"uid": uid_s, "nom": membre.display_name, "equipe": fiche_s.get("equipe", ""),
-                       "creatrice": fiche_s.get("creatrice", ""), "date": info_s["sortie"]["date"],
-                       "par": str(message.author.id), "raison": raison})
-        ecrire_json(FICHIER_SORTIS, sortis[-500:])
-        roster.retirer(prenom_de(membre))                                   # 26/09 : le roster (compteur, rapport Jonas) suit
-        # 5. Le membre, le manager, l'admin, Telegram.
-        await envoyer_mp(membre,
-            "🚪 **Ta collaboration avec l'équipe s'arrête ici.** Raison : " + raison + ".\n"
-            "Tes accès aux salons de l'équipe sont retirés. Si tu as un téléphone ou des comptes fournis par "
-            "l'agence, ton manager te contacte pour la restitution ; ce qui t'est dû est réglé au prochain "
-            "décompte. Merci pour le temps donné, et bonne route.")
-        await notifier_manager(
-            f"🚪 **{membre.display_name} sorti de l'équipe** (par {message.author.display_name}) — {raison}\n"
-            f"Rôles retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · accès fermés : {len(fermes)} salon(s)"
-            f" · comptes du classeur rendus : {len(libere_s)}"
-            + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
-            + ("\n".join(libere_s) + "\n" if libere_s else "")
-            + "→ À faire à la main : " + ("" if libere_s or not onboarding.actif() else "Sheet (ses comptes en « à réattribuer »), ")
-            + "mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
-            "lien GAML à désactiver, dernier décompte.", g)
-        await inputs_clippers.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
-        await message.reply(f"✅ {membre.mention} sorti : {len(a_retirer)} rôle(s) retiré(s), {len(fermes)} accès fermé(s), "
-                            f"{len(libere_s)} compte(s) du classeur rendu(s), relances coupées, registre tracé, MP envoyé, manager prévenu.")
-        journal.info("Sortie d'équipe : %s par %s (%s)", membre.id, message.author.id, raison)
+        res = await sortir_membre(membre, raison, message.author)
+        await message.reply(f"✅ {membre.mention} sorti : {res['roles']} rôle(s) retiré(s), {res['acces']} accès fermé(s), "
+                            f"{res['comptes']} compte(s) du classeur rendu(s)" + (f", {res['liens']} lien(s) libéré(s)" if res.get("liens") else "")
+                            + ", relances coupées, registre tracé, MP envoyé, manager prévenu.")
         return True
 
     # ---- !relancer-lien : rattraper les candidatures qui n'ont jamais fait !lier ----
@@ -6832,6 +6862,14 @@ async def on_ready():
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e: parcours.reconcilier(client, e)})
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
+        sortie_auto.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "sortie_auto.json",
+                                "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
+                                "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,
+                                "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
+                                "sortir": lambda m, raison, pool=False: sortir_membre(m, raison, None, pool=pool),
+                                "membre_par_id": membre_par_id, "prenom_de": prenom_de, "roster": roster, "canal_admin": canal_admin,
+                                "normaliser": normaliser, "heure_paris": heure_paris})
+        client.loop.create_task(sortie_auto.boucle(client))                     # 14 jours sans Reel → sorti, comptes et lien au suivant (28/09)
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
                           "prenom_salon": prenom_du_salon,                          # 26/09 : « Bonjour Maxence » chez Daniella

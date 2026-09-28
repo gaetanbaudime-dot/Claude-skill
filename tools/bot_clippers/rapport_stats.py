@@ -142,10 +142,15 @@ def _liens_de(d: dict, creatrice: str, nom: str) -> list:
 
 
 # ------------------------------------------------------------------ texte
-def texte_rapport(d: dict, jour) -> str:
-    lignes = [f"📊 **Visiteurs du {jour.strftime('%d/%m')}**, par clipper"]
+def texte_rapport(d: dict, jour, seulement=None, titre: str = "par clipper") -> str:
+    """Le rapport d'un jour. `seulement` : prénoms à garder (28/09 : Jonas ne voit que ses anciens, l'admin voit tout)."""
+    garder = {_n(x) for x in seulement} if seulement is not None else None
+    lignes = [f"📊 **Visiteurs du {jour.strftime('%d/%m')}**, {titre}"]
     tot = {"hors_robots": 0, "payes": 0, "s7": 0}
     for creatrice, noms in groupes_actifs().items():
+        noms = [n for n in noms if garder is None or _n(n) in garder]
+        if not noms:
+            continue
         lignes.append(f"\n**{creatrice}**")
         for nom in noms:
             lids = _liens_de(d, creatrice, nom)
@@ -202,16 +207,35 @@ async def salon(client, creer: bool = True):
         return None
 
 
-async def envoyer(client, d: dict, jour) -> bool:
-    s = await salon(client)
-    if s is None:
-        return False
+def clippers_de_jonas() -> list:
+    """28/09 (Gaëtan) : dans #jonas-stats, seulement ses anciens — la liste `sans_salon` du roster (Thia, Rianah, Lilian, Romaric,
+    Lucas, Caroline, Ckycia, Hasina, Josué, Tara, Clarisse, Yves)."""
+    r = _deps.get("roster")
     try:
-        await s.send(texte_rapport(d, jour)[:1990])
-        return True
-    except (discord.Forbidden, discord.HTTPException) as erreur:
-        journal.warning("Envoi rapport : %s", erreur)
-        return False
+        return list(r.lire().get("sans_salon", [])) if r is not None else []
+    except Exception:                                                   # noqa: BLE001
+        return []
+
+
+async def envoyer(client, d: dict, jour) -> bool:
+    """Le rapport du jour : tous les clippers dans le salon admin, seulement ceux de Jonas dans son salon (28/09)."""
+    ok = False
+    anciens = clippers_de_jonas()
+    s = await salon(client)
+    if s is not None:
+        try:
+            await s.send(texte_rapport(d, jour, seulement=anciens if anciens else None, titre="tes clippers")[:1990])
+            ok = True
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Envoi rapport Jonas : %s", erreur)
+    admin = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+    if admin is not None and admin is not s:
+        try:
+            await admin.send(texte_rapport(d, jour, titre="tous les clippers de l'agence")[:1990])
+            ok = True
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Envoi rapport admin : %s", erreur)
+    return ok
 
 
 async def demarrer(client):

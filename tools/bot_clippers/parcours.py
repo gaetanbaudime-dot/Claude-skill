@@ -30,48 +30,62 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 
 ETAPES = {
     # 26/09 (Gaëtan) : textes courts, un compte par jour avec 24 h de warm-up sur chaque compte, puis les Reels.
-    1: {"titre": "Étape 1 · Crée ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": ["info"],
-        "texte": ("**Compte 1 : `{compte1}`** · e-mail `{mail1}` · mot de passe `{mdp1}`\n"
-                  "1. Instagram → Créer un compte → avec cet e-mail.\n"
-                  "2. Code demandé ? Écris `!code` ici.\n"
-                  "3. Mets ce mot de passe. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
-                  "4. Photo + bio sage, comme les comptes dans {info}. Pas de lien.\n"
-                  "5. Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
+    1: {"titre": "Étape 1 · Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 prêt", "salons": ["info"],
+        "texte": ("**Compte 1 : `{compte1}`** · e-mail `{mail1}` · mot de passe `{mdp1}`\n\n"
+                  "{creation1}\n\n"
+                  "Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 2 demain.")},
-    2: {"titre": "Étape 2 · Crée ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": ["info"],
-        "texte": ("**Compte 2 : `{compte2}`** · e-mail `{mail2}` · mot de passe `{mdp2}`\n"
-                  "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
+    2: {"titre": "Étape 2 · Ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 prêt", "salons": ["info"],
+        "texte": ("**Compte 2 : `{compte2}`** · e-mail `{mail2}` · mot de passe `{mdp2}`\n\n"
+                  "{creation2}\n\n"
                   "Photo et bio différentes du compte 1. Puis 24 h de warm-up dessus.\n\n"
-                  "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.")},
-    3: {"titre": "Étape 3 · Crée ton compte privé", "fiche": "1", "bouton": "✅ Compte privé créé", "salons": ["info"],
-        "texte": ("**Compte 3 : `{compte3}`** · e-mail `{mail3}` · mot de passe `{mdp3}` · ton compte secret, il ne publie pas.\n"
-                  "1. Crée-le comme les autres.\n"
-                  "2. Réglages → compte **privé** (le cadenas).\n"
-                  "3. Bio : le prénom de {creatrice} + une phrase gentille. Pas de lien, je te dirai quand.\n"
-                  "4. Puis 24 h de warm-up dessus.\n\n"
+                  "Le compte 1 a fini ses 24 h ? Tu peux déjà y publier 2 Reels par jour, pris dans ton Drive.\n\n"
+                  "Fini ? Appuie sur le bouton. Compte 3 demain.")},
+    3: {"titre": "Étape 3 · Ton compte 3", "fiche": "1", "bouton": "✅ Compte 3 prêt", "salons": ["info"],
+        "texte": ("**Compte 3 : `{compte3}`** · e-mail `{mail3}` · mot de passe `{mdp3}`\n\n"
+                  "{creation3}\n\n"
+                  "Comme les deux autres : bio sage, sans lien et sans @. Puis 24 h de warm-up dessus.\n\n"
+                  "Les comptes 1 et 2 publient déjà : 2 Reels par jour chacun.\n\n"
                   "Fini ? Appuie sur le bouton.")},
-    4: {"titre": "Étape 4 · Dernier warm-up : {jours} jour(s) (Fiche 2)", "fiche": "2", "bouton": "✅ Warm-up fini", "salons": ["ressources"],
-        "texte": ("Encore {jours} jour(s) sans publier, sur tes 3 comptes : 10 min de Reels de créatrices françaises ({ressources}), "
-                  "5 likes, 2 abonnements, 1 ou 2 commentaires, 1 story sans lien.\n\n"
-                  "Au jour {jour_suivant}, je t'ouvre les Reels.")},
-    5: {"titre": "Étape 5 · Ton premier Reel (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
-        "texte": ("Tes vidéos : {drive}\n"
-                  "1. Télécharge une vidéo, ouvre **Edits** (l'appli gratuite d'Instagram).\n"
-                  "2. Coupe le début : la première seconde doit accrocher.\n"
-                  "3. Sous-titres lisibles, couverture claire, petit texte (exemples dans {ressources}).\n"
-                  "4. Publie sur `{compte1}`, puis sur `{compte2}`.\n\n"
+    4: {"titre": "Étape 4 · 24 h de warm-up sur le compte 3 (Fiche 2)", "fiche": "2", "bouton": "✅ Warm-up fini", "salons": ["ressources"],
+        "texte": ("Encore {jours} jour(s) sans publier sur le compte 3 : 10 min de Reels de créatrices françaises ({ressources}), "
+                  "5 likes, 2 abonnements, 1 story sans lien.\n\n"
+                  "Les comptes 1 et 2 ont fini leur warm-up : 2 Reels par jour dessus, pris dans ton Drive.\n\n"
+                  "Au jour {jour_suivant}, tes 3 comptes publient.")},
+    5: {"titre": "Étape 5 · Tes Reels sur les 3 comptes (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
+        "texte": ("Tes vidéos : {drive}\n\n"
+                  "1. Prends un Reel du dossier « TOP 20 Reels ». Il est prêt, rien à monter.\n"
+                  "2. Publie-le sur `{compte1}`, `{compte2}` et `{compte3}`. Jamais le même Reel sur deux comptes le même jour.\n"
+                  "3. Tu veux monter toi-même ? Edits, une première seconde qui accroche, des sous-titres lisibles ({ressources}).\n\n"
                   "Premier Reel en ligne ? Appuie sur le bouton.")},
-    6: {"titre": "Étape 6 · Mets ton lien (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
-        "texte": ("**Ton lien** : {lien}\n"
-                  "1. Sur `{compte3}`, le privé : le lien dans la bio, et dans une story à la une.\n"
-                  "2. Sur `{compte1}` et `{compte2}` : seulement **@{compte3}** dans la bio. Jamais le lien, jamais en rafale dans les stories.\n"
-                  "3. `!mesclics` ici : ce lien compte tes visites, donc ta paie, le 5 et le 20.\n\n"
+    6: {"titre": "Étape 6 · Mets ton lien, une seule fois (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
+        "texte": ("**Ton lien** : {lien}\n\n"
+                  "1. Sur chaque compte : le lien dans une story, puis cette story **à la une** (épinglée sur ton profil).\n"
+                  "2. Une seule fois. Ensuite tu n'y touches plus.\n"
+                  "3. Jamais de lien ni d'@ dans la bio, jamais dans un Reel. Les @ en bio font des bans.\n"
+                  "4. Chaque jour, une story avec le widget Instagram de ton profil et une capture : elle envoie les gens vers ta story à la une.\n"
+                  "5. `!mesclics` ici : ce lien compte tes visites, donc ta paie, le 5 et le 20.\n\n"
                   "Fini ? Appuie sur le bouton.")},
-    7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": ["reporting"],
-        "texte": ("Chaque jour : 2 Reels sur `{compte1}`, 2 sur `{compte2}`, 1 story, quelques commentaires.\n"
-                  "Chaque matin, tes visites d'hier ici. Chaque dimanche, le formulaire : {lien_reporting} ({reporting}).\n\n"
+    7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": [],
+        "texte": ("Chaque jour : 2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une, quelques commentaires.\n\n"
+                  "Chaque matin, tes visites d'hier ici.\n\n"
                   "Une question ? Écris ici.")},
 }
+# 28/09 : un compte rendu par un sortant existe déjà → on s'y connecte (le code de CONNEXION arrive dans le salon), pas d'inscription
+CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
+            "2. Code demandé ? Écris `!code` ici.\n"
+            "3. Mets ce mot de passe. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
+            "4. Photo + bio sage, comme les comptes dans {info}. Pas de lien, pas d'@.",
+            "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
+            "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.",
+            "Crée-le comme les autres, sur le même téléphone.")
+CONNEXION = ("Ce compte existe déjà, il a déjà chauffé.\n"
+             "1. Instagram → Se connecter → cet identifiant et ce mot de passe.\n"
+             "2. Code demandé ? Il arrive ici tout seul. Sinon écris `!code`.\n"
+             "3. Numéro demandé ? Mets le tien. Ne change ni la photo ni la bio pour l'instant.",
+             "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter, sans te déconnecter du compte 1. Code demandé ? Il arrive ici.",
+             "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter. Code demandé ? Il arrive ici.")
+RELANCE_JOURS = int(os.environ.get("PARCOURS_RELANCE_JOURS", "2") or 2)   # 28/09 (Gaëtan) : « des relances simples, courtes »
 WARMUP_JOUR_TEXTE = ("🔥 **Warm-up : jour {j} sur {jours}.** Aujourd'hui, sur chaque compte : 10 minutes de Reels, "
                      "5 likes, 2 abonnements, 1 story sans lien. Pas de Reel.")
 
@@ -152,12 +166,15 @@ async def _contexte(guild, uid: str, fiche_p: dict) -> dict:
         ctx[f"mail{i + 1}"] = acces.get(h, {}).get("mail") or mails.get(h, "(dans ton message de comptes plus haut)")
         ctx[f"mdp{i + 1}"] = acces.get(h, {}).get("mdp") or "(celui de ton message de comptes)"
     ctx["lien"] = onb.get("lien") or "(ton manager te le donne avec `!lien`)"
-    ctx["drive"] = onb.get("drive") or "(pas encore partagé : envoie-moi ton adresse Gmail ici)"
+    ctx["drive"] = onb.get("drive") or "(pas encore prêt, je te le donne ici dès qu'il l'est)"
     creatrice = ctx["creatrice"]
     info = _salon_info(guild, creatrice) if guild is not None else None
     ctx["info"] = f"<#{info.id}>" if info is not None else f"le salon d'infos de {creatrice}"
     res = _salon_nom(guild, "ressources") if guild is not None else None
     ctx["ressources"] = f"<#{res.id}>" if res is not None else "#ressources"
+    for i in range(3):                                                  # 28/09 : création, ou connexion à un compte rendu par un sortant
+        a = acces.get(ctx[f"compte{i + 1}"], {})
+        ctx[f"creation{i + 1}"] = (CONNEXION[i] if a.get("cree") else CREATION[i]).format(info=ctx["info"])
     rep = _salon_nom(guild, "reporting") if guild is not None else None
     ctx["reporting"] = f"<#{rep.id}>" if rep is not None else "#reporting"
     ctx["lien_reporting"] = LIEN_REPORTING
@@ -339,6 +356,28 @@ async def boucle(client) -> None:
                         texte_w = WARMUP_JOUR_TEXTE.format(j=j, jours=WARMUP_JOURS)
                         if not (_deps.get("deposer") and _deps["deposer"](salon.id, "warmup", texte_w)):
                             await salon.send(f"<@{uid}> " + texte_w)
+                # 28/09 : relance courte — une étape (1 à 3, 5, 6) qui traîne depuis RELANCE_JOURS jours → une ligne, tous les RELANCE_JOURS jours
+                for uid, fiche_p in list(d.items()):
+                    n = int(fiche_p.get("etape", 0))
+                    if n not in (1, 2, 3, 5, 6) or not fiche_p.get("dates", {}).get(str(n)):
+                        continue
+                    try:
+                        depuis = (maintenant.date() - datetime.fromisoformat(fiche_p["dates"][str(n)]).date()).days
+                    except ValueError:
+                        continue
+                    jour_s = maintenant.date().isoformat()
+                    derniere = fiche_p.get("relance", "")
+                    if depuis < RELANCE_JOURS or derniere == jour_s or (derniere and (maintenant.date() - datetime.fromisoformat(derniere).date()).days < RELANCE_JOURS):
+                        continue
+                    salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
+                    if salon is None:
+                        continue
+                    fiche_p["relance"] = jour_s
+                    _ecrire(d)
+                    suite = prochaine_etape(salon.id)
+                    texte_r = f"👉 <@{uid}> {suite}\n\nBloqué ? Écris ici." if suite else f"👉 <@{uid}> Étape {n} toujours en cours : `!etape` pour la revoir.\n\nBloqué ? Écris ici."
+                    if not (_deps.get("deposer") and _deps["deposer"](salon.id, "relance", texte_r)):
+                        await salon.send(texte_r)
         except Exception as erreur:                                 # la boucle ne meurt jamais
             journal.warning("Boucle parcours : %s", erreur)
         await asyncio.sleep(3600)
@@ -372,8 +411,8 @@ def memoire(uid: str) -> str:
     if onb.get("comptes"):
         lignes.append("Comptes Instagram : " + ", ".join(onb["comptes"]) + " (mots de passe déjà dans le salon, ne jamais les redonner)")
     if onb.get("lien"):
-        lignes.append(f"Lien en bio : {onb['lien']}")
-    lignes.append("Drive : " + (onb["drive"] if onb.get("drive") else "pas encore partagé (il faut son adresse Gmail)"))
+        lignes.append(f"Lien (en story à la une sur chaque compte) : {onb['lien']}")
+    lignes.append("Drive : " + (onb["drive"] if onb.get("drive") else "pas encore prêt"))
     try:
         if paie_clics.actif():
             d = paie_clics._lire()
@@ -399,13 +438,13 @@ def _prenom(membre) -> str:
     return nom.split()[0] if nom.split() else nom
 
 
-PROCHAINES = {1: "crée ton compte 1, `{compte1}`. Clique ✅ dans le message d'étape quand c'est fait.",
+PROCHAINES = {1: "ouvre ton compte 1, `{compte1}` (création ou connexion, c'est dans l'étape). Clique ✅ quand c'est fait.",
               2: "crée ton compte 2, `{compte2}`. Clique ✅ quand c'est fait.",
               3: "crée ton compte privé, `{compte3}`. Clique ✅ quand c'est fait.",
               4: "warm-up : 10 minutes de Reels, 5 likes, 2 abonnements, 1 story sur chaque compte. Pas de Reel.",
-              5: "monte et publie ton premier Reel sur `{compte1}` puis `{compte2}`. Clique ✅ quand c'est fait.",
-              6: "mets ton lien dans la bio de `{compte3}`, et @{compte3} dans la bio des deux autres. Clique ✅ quand c'est fait.",
-              7: "2 Reels sur `{compte1}`, 2 Reels sur `{compte2}`, 1 story."}
+              5: "publie un Reel de ton Drive sur `{compte1}`, `{compte2}` et `{compte3}`. Clique ✅ quand c'est fait.",
+              6: "mets ton lien une seule fois, en story à la une, sur chaque compte. Jamais en bio. Clique ✅ quand c'est fait.",
+              7: "2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une."}
 
 
 def prochaine_etape(salon_id) -> str:
@@ -530,7 +569,11 @@ def contexte_llm(uid: str) -> str:
             "Règle des 24 h (26/09) : un compte par jour (compte 1, puis 2, puis le privé), 24 h de warm-up sur chaque compte "
             "après sa création (Reels, likes, abonnements, zéro publication) ; le premier Reel arrive après le warm-up du "
             f"compte 3 (étape 4, {WARMUP_JOURS} jour(s)) — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». "
-            "Le lien : bio du compte privé et story à la une seulement, jamais dans un Reel ni en rafale dans les stories. "
+            "Le lien (28/09) : une seule fois, dans une story à la une sur chaque compte, et on n'y touche plus ; jamais en bio, "
+            "jamais d'@ en bio (ça fait des bans), jamais dans un Reel ; chaque jour une story avec le widget du profil vers la story "
+            "à la une. Trois comptes de croissance, plus de compte privé (28/09) : chaque compte fait ses 24 h de warm-up après sa "
+            "création puis publie, sans attendre les autres. Un compte « qui existe déjà » (rendu par un ancien) : on s'y "
+            "connecte, le code de connexion arrive dans le salon. Le Drive s'ouvre par son lien, jamais besoin d'une adresse e-mail. "
             "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
             "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
             "Trois lignes maximum. La ligne « 👉 Prochaine étape : … » seulement si elle dit autre chose que l'étape déjà "

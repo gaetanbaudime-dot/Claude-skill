@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v11, 27 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, codes de récupération pour faire appel)
+# Base de connaissances — Kit Clipper G&M (v12, 28 septembre 2026, niveau collège — paie au clic, salon perso guidé par le bot, lien en story à la une seulement)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -47,7 +47,7 @@ Problèmes fréquents : le bot ne t'a pas écrit à ton arrivée → ouvre tes m
 - **Ton salon perso** : tes comptes, tes codes, ton lien, ton Drive, tes visites chaque matin, ta paie, ton parcours. C'est ton salon de travail. **Le salon de ta créatrice** (ℹ️ infos, 🗂️ base) : ses comptes officiels, sa bio modèle, ses rushs.
 - **#ressources** : les captions, les tutos, la liste des créatrices à suivre pour le warm-up. Il s'ouvre une fois dans l'équipe.
 - **#reporting** (équipe) : ton compte-rendu chaque dimanche, obligatoire, via le formulaire https://forms.gle/uhPewryox7R4jifv5 (aussi épinglé dans le salon).
-- **#rémunération** : la règle de paie pour tout le monde : 0,05 $ par visite réelle sur ton lien en bio (visiteurs francophones d'Europe et du Canada, robots exclus), payé le 5 et le 20, en USDC ou par virement pour les Français. 1 000 visites = 50 $, 5 000 = 250 $, sans plafond.
+- **#rémunération** : la règle de paie pour tout le monde : 0,05 $ par visite réelle sur ton lien (visiteurs francophones d'Europe et du Canada, robots exclus), payé le 5 et le 20, en USDC ou par virement pour les Français. 1 000 visites = 50 $, 5 000 = 250 $, sans plafond.
 - **#annonces** : les annonces officielles, les paiements et les victoires de l'équipe. On lit, on ne répond pas.
 - Un autre salon que tu verrais passer (tips, dopamine, bump…) est archivé : il ne sert plus, tout est dans les salons ci-dessus.
 
@@ -55,9 +55,13 @@ Commandes utiles pour tous : ton numéro en MP au bot = candidature reliée · `
 
 ## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram sur ton téléphone
 
-Chaque clipper a **3 comptes Instagram**. Deux façons de les organiser :
-- **Option 1, celle par défaut** : 2 comptes qui publient (les comptes de croissance, ils font des vues) + 1 compte privé, le compte secret. Le privé ne publie rien, n'accepte personne, et garde ton lien dans sa bio et dans une story à la une. Dans la bio des comptes qui publient, il y a seulement l'@ du compte privé. Les gens cliquent sur l'@, arrivent sur le privé, voient le lien.
-- **Option 2** : 3 comptes qui publient. Le lien va seulement dans une story à la une. Jamais dans la bio d'un compte qui publie.
+Chaque clipper a **3 comptes Instagram**. Depuis le 28 septembre 2026, une seule règle pour le lien :
+- **Le lien va une seule fois dans une story, et cette story est mise à la une** (épinglée sur le profil), sur chaque compte. Ensuite on n'y touche plus.
+- **Jamais de lien ni d'@ dans la bio.** Les @ en bio font des bans en ce moment. Jamais de lien dans un Reel.
+- **Chaque jour, une story avec le widget Instagram de ton profil et une capture** : elle envoie les gens vers ta story à la une.
+- **Tes 3 comptes publient tous.** Plus de compte privé depuis le 28 septembre 2026 : 3 comptes de croissance, 2 Reels par jour sur chacun.
+- **Le warm-up, c'est 24 h par compte, après sa création.** Le compte 1 publie dès le lendemain, pendant que tu crées le compte 2. Pas de semaine d'attente.
+- **Ton Drive s'ouvre avec son lien**, en lecture. Tu n'as pas d'adresse e-mail à donner.
 - **Pas de page Facebook.** On travaille seulement sur Instagram.
 
 Tu es payé au clic sur ton lien : 0,05 $ par visite réelle, francophone. Le but : le plus de vues possible, et le plus de clics français vers ton lien. **Le lien ne se spamme pas** : pas dans la légende d'un Reel, pas en rafale dans les stories. Sinon le compte est banni et tout est perdu.
@@ -95,9 +99,10 @@ Si tu as lu une vieille version du kit, voilà ce qui a changé :
 - Plus de créneau lundi/mercredi/vendredi : tes comptes se créent dans ton salon perso, étape par étape avec le bot, un par jour. Gaëtan n'envoie pas d'identifiants, ils sont dans ton salon.
 - Pas de numéro « jetable » ou temporaire, jamais.
 - Warm-up Instagram = toute la semaine 1, pas 48 h.
-- **Plus de pages Facebook depuis le 14 septembre 2026** : la mission est 100 % Instagram (2 comptes de croissance + 1 privé). Tu en avais créé avant ? N'y publie plus, ton manager te dit quoi en faire. Aucune page ne compte pour ta journée validée.
-- Le lien n'a qu'un seul emplacement : la bio du compte privé. Jamais dans la description d'un Reel, même « 1 sur 10 ».
-- Le lien, c'est toi qui le mets, à l'étape 6, sur le compte privé seulement. Le bot te le donne et te dit quand.
+- **Plus de pages Facebook depuis le 14 septembre 2026** : la mission est 100 % Instagram (3 comptes de croissance). Tu en avais créé avant ? N'y publie plus, ton manager te dit quoi en faire. Aucune page ne compte pour ta journée validée.
+- **Depuis le 28 septembre 2026** : plus de lien ni d'@ dans les bios (ça fait des bans). Le lien va une seule fois dans une story à la une, sur chaque compte, et on n'y touche plus. Chaque jour, une story avec le widget du profil pour envoyer les gens vers la story à la une. Jamais de lien dans la description d'un Reel, même « 1 sur 10 ».
+- Le lien, c'est toi qui le mets, à l'étape 6. Le bot te le donne et te dit quand.
+- Un compte « qui existe déjà » dans ton étape (rendu par un ancien clipper) : tu t'y connectes avec l'identifiant et le mot de passe, tu ne le crées pas. Le code de connexion arrive dans ton salon.
 - L'équipe internationale n'est plus en pause : ouverte depuis le 8 septembre 2026.
 - Les évolutions (Metricool, 2ᵉ téléphone) n'ont pas de date (« J+30 », « J+60 ») : ton manager décide.
 
@@ -255,9 +260,11 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 ## FAQ TERRAIN (réponses officielles)
 
-**Quel compte est le compte privé ?** Celui qui a le lien GetAllMyLinks en bio. Il ne publie pas, il n'accepte aucune demande de suivi : il reçoit les curieux envoyés par l'@ des deux comptes de croissance. Pas besoin d'être abonné pour voir sa bio : on clique sur l'@, on arrive sur le profil, on voit le lien.
+**Où va le lien ?** Dans une story à la une, une seule fois, sur chaque compte. Jamais en bio, jamais d'@ en bio, jamais dans un Reel. Tu l'as mis ? Tu n'y touches plus. Chaque jour, une story avec le widget de ton profil renvoie les gens vers la story à la une.
 
-**Et les pages Facebook ?** Plus dans la mission depuis le 14 septembre 2026 : 100 % Instagram, 2 comptes de croissance + 1 privé. Tu en avais créé ? N'y publie plus et demande à ton manager quoi en faire. Aucune page ne compte pour ta journée validée, et personne ne te demandera d'en créer.
+**Et le compte privé ?** Il n'existe plus depuis le 28 septembre 2026. Tes 3 comptes publient, chacun avec ta story à la une.
+
+**Et les pages Facebook ?** Plus dans la mission depuis le 14 septembre 2026 : 100 % Instagram, 3 comptes de croissance. Tu en avais créé ? N'y publie plus et demande à ton manager quoi en faire. Aucune page ne compte pour ta journée validée, et personne ne te demandera d'en créer.
 
 **GetAllMyLinks, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice) et c'est elle qui compte tes visites. Ton lien est dans ton salon perso, donné par le bot avec tes comptes. Tu le poses toi-même sur ton compte privé à l'étape 6 du parcours, après le warm-up. `!mesclics` pour voir tes visites.
 
@@ -285,7 +292,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Je suis malade, en vacances, en examens ?** Préviens ton manager AVANT, dans ton salon perso, avec les dates. Une absence prévenue n'est pas une sortie. Ton lien continue à compter les visites pendant ce temps.
 
-**Comment marche la rémunération ?** Tu es payé **0,05 $ par visite payable sur ton lien en bio**. 1 000 visites = 50 $, 5 000 = 250 $, 20 000 = 1 000 $, sans plafond. Le compte de l'influenceuse elle-même fait 20 000 à 30 000 visiteurs par mois : c'est le plafond visible. Les clippers arrivés avant le 24 septembre 2026 gardent leur ancien fixe jusqu'à ce que leur manager les passe au clic.
+**Comment marche la rémunération ?** Tu es payé **0,05 $ par visite payable sur ton lien**. 1 000 visites = 50 $, 5 000 = 250 $, 20 000 = 1 000 $, sans plafond. Le compte de l'influenceuse elle-même fait 20 000 à 30 000 visiteurs par mois : c'est le plafond visible. Les clippers arrivés avant le 24 septembre 2026 gardent leur ancien fixe jusqu'à ce que leur manager les passe au clic.
 
 **Le salaire, c'est combien par mois ?** Il n'y a plus de salaire fixe : tu gagnes ce que ton lien ramène. Nos meilleurs clippeurs font aujourd'hui environ 3 000 visites par mois, soit 150 $. Les deux premières semaines rapportent peu, les comptes doivent d'abord grandir.
 
