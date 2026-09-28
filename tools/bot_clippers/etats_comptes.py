@@ -320,10 +320,16 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> li
             crees = len(cs) - ban - a_creer
             vivants = [c for c, e in zip(cs, etats) if e in ("good", "warmup", "prive", "privé", "actif")]
             followers = sum(_entier(c.get("followers")) for c in vivants)
-            try:
-                visites = clics_de(g) if clics_de else None
-            except Exception:                                           # noqa: BLE001
-                visites = None
+            # Visites : d'abord la colonne « Clics last 7d. » du classeur (écrite par le scan, propre à la créatrice de la
+            # ligne : Lilian sous Chloé et Lilian sous Sophie sont deux liens), sinon le total du clipper via clics_de.
+            en_colonne = [_entier(c.get("clics")) for c in cs if str(c.get("clics") or "").strip() != ""]
+            if en_colonne:
+                visites = max(en_colonne)
+            else:
+                try:
+                    visites = clics_de(g) if clics_de else None
+                except Exception:                                       # noqa: BLE001
+                    visites = None
             reels7, dernier = 0, ""
             for c in cs:
                 for e in (historique.get(c["handle"].lower()) or [])[-7:]:
@@ -332,7 +338,9 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str) -> li
                 for e in historique.get(c["handle"].lower()) or []:
                     if e.get("existe") and int(e.get("posts") or 0) > 0 and str(e.get("jour", "")) > dernier:
                         dernier = str(e.get("jour", ""))
-            detail = " · ".join(f"{c['handle']} ({(c.get('etat') or '?').strip()}, {_entier(c.get('followers'))})" for c in cs)
+            detail = " · ".join(f"{c['handle']} ({(c.get('etat') or '?').strip()}, {_entier(c.get('followers'))}"
+                                + ("" if _norm(c.get("utilisation") or "clipper") == "clipper" else f", {str(c.get('utilisation')).strip()}") + ")"
+                                for c in cs)
             rows.append([g, len(cs), crees, a_creer, ban, followers, visites if visites is not None else "", reels7, dernier, detail])
         rows.sort(key=lambda r: (-(r[6] if isinstance(r[6], int) else -1), -r[5]))
         f_c = sum(r[5] for r in rows); v_c = sum(r[6] for r in rows if isinstance(r[6], int)); r_c = sum(r[7] for r in rows)
