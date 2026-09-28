@@ -894,6 +894,7 @@ async def repondre_long(message, reponse: str):
     """Réponse > 2 000 caractères : coupée proprement sur des sauts de ligne au lieu d'être
     tronquée au milieu d'une phrase (Laure, 10/09 : réponse Facebook coupée à « **Carr »)."""
     reponse = corriger_prenom(reponse, message.author)                   # 28/09 : jamais le prénom de la créatrice pour le clipper
+    reponse = corriger_lien_quiz(reponse, message.author)                # 28/09 : jamais l'ancien Google Form, le quiz du site
     if len(reponse) <= 1990:
         await message.reply(reponse)
         return
@@ -1322,6 +1323,19 @@ def creatrice_du_pseudo(membre) -> str:
                 return premier[:1].upper() + premier[1:]
             return ""
     return ""
+
+
+RE_FORM_QUIZ = re.compile(r"https?://docs\.google\.com/forms/[^\s)>\]]*entry\.[^\s)>\]]*")
+
+
+def corriger_lien_quiz(texte: str, membre) -> str:
+    """28/09 (Gaëtan : « pourquoi on leur envoie encore le Google Forms ? ») : si une réponse de l'assistant glisse l'ancien
+    formulaire pré-rempli, il est remplacé par le lien de quiz du site propre au membre. Le formulaire du dimanche
+    (#reporting, forms.gle) n'est pas concerné."""
+    if "docs.google.com/forms" not in (texte or ""):
+        return texte
+    site = web_candidature.lien_quiz(getattr(membre, "id", "") or "")
+    return RE_FORM_QUIZ.sub(site, texte) if site else texte
 
 
 def corriger_prenom(texte: str, membre) -> str:
@@ -2320,7 +2334,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
                 f"📝 **Quiz : {score or 'sous le seuil'}** — il faut **{seuil_quiz_texte()}** pour passer au test.\n"
                 "Pas grave : **tu as un deuxième essai**. Revois la vidéo de formation (les 5 mots-clés) "
                 "et les fiches, puis repasse-le avec ton lien personnel :\n"
-                + (f"{LIEN_QUIZ}{membre_trouve.id}" if LIEN_QUIZ else "`!quiz` sur le serveur")
+                + (lien_quiz_pour(membre_trouve.id) or "`!quiz` sur le serveur")
                 + "\nUne question ? Réponds-moi ici.")
             await message.channel.send(f"📝 {membre_trouve.mention} a **raté le quiz** ({score}) — essai 1/2, "
                                        "prévenu en MP avec son lien.")
@@ -2687,7 +2701,7 @@ def ou_en_es_tu(uid: str) -> str:
     liaison = donnees.get("liaisons", {}).get(uid, {})
     info = donnees.get("etats", {}).get(uid, {})
     etat = info.get("etat", "")
-    lien_quiz = f"{LIEN_QUIZ}{uid}" if LIEN_QUIZ else "`!quiz` sur le serveur"
+    lien_quiz = lien_quiz_pour(uid) or "`!quiz` sur le serveur"          # 28/09 : le site d'abord, plus jamais le Google Form
     if uid in registre:
         fiche = registre[uid]
         if fiche.get("creatrice"):
@@ -3203,7 +3217,7 @@ async def boucle_pipeline():
             for uid, li in list(liaisons_d.items()):
                 if uid in donnees.get("etats", {}):
                     continue
-                lien_quiz = (f"\n→ Ton lien de quiz personnel : {LIEN_QUIZ}{uid}" if LIEN_QUIZ else "")
+                lien_quiz = (f"\n→ Ton lien de quiz personnel : {lien_quiz_pour(uid)}" if lien_quiz_pour(uid) else "")
                 await _relancer(li, "r24", "r48", li.get("date"), uid,
                     "🎓 Ta **formation** et ton **quiz** t'attendent. Regarde la vidéo en entier, elle dure 15 minutes. "
                     "5 mots-clés sont cachés dedans. Note-les dans l'ordre." + lien_quiz +

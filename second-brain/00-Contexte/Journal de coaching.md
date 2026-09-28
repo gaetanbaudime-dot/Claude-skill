@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 13) — Le quiz du site partout, l'ancien Google Form ne sort plus
+- **Constat de Gaëtan** (salon de David) : le message d'arrivée de 8 h 22 donnait le lien du quiz du site, mais la réponse de l'assistant de 12 h 44 redonnait l'ancien Google Form pré-rempli, avec son aperçu « 27/34 » qui contredit le « 8 sur 10 » du parcours.
+- **Cause** : trois endroits fabriquaient encore le lien du formulaire à partir de la variable `LIEN_QUIZ` au lieu de passer par le site : le message de deuxième essai après un quiz raté, la phrase « où en es-tu » qui nourrit le contexte de l'assistant, et la relance « formation + quiz ». L'assistant a recopié le lien qu'on lui donnait.
+- **Livré** : les trois passent par le lien du site ; un filet remplace dans chaque réponse de l'assistant tout lien Google Forms pré-rempli par le lien du site du membre ; le formulaire du dimanche n'est pas concerné. `!quiz` donne à Gaëtan comme à un candidat son lien personnel du site.
+- **Prédiction (28/09, revue le 05/10)** : plus aucun lien Google Forms de quiz dans un salon perso ou en MP d'ici le 05/10 (85 %).
+
 ### 2026-09-28 (soir, 12) — #ressources et #rémunération restent visibles par tout le monde
 - **Décision de Gaëtan** : « On laisse Ressources et Rémunération visibles par tout le monde désormais » ; `!audit` les signalait comme écarts à la doctrine du 10/08 (réservés aux signés). Le serveur est fermé depuis le 15/09, tout le monde dessus est signé ou staff : la réserve n'avait plus d'objet.
 - **Livré** : les deux salons passent dans la liste des salons publics du bot (`!audit` ne les signale plus) et en premier étage public de `!acces` (qui ne les masquera plus) ; `#reporting` reste réservé.
