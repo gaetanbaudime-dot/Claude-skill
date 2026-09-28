@@ -18,13 +18,5 @@
     "effacer_bot": true,
     "accueil_liaison": true,
     "bouton_whatsapp": true
-  },
-  {
-    "id": "ascartel-salon-2809",
-    "pour": "Ascartel",
-    "creer_salon": true,
-    "effacer_bot": true,
-    "accueil_liaison": true,
-    "bouton_whatsapp": true
   }
 ]
