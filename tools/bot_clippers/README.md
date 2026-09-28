@@ -293,8 +293,8 @@ le déploiement est sans risque.
 - **`!sortie @clipper raison`** : rôles Team/Grille/rangs retirés, accès nominatifs fermés, relances coupées,
   fiche déplacée dans `sortis.json`, MP au membre, alerte manager + admin + Telegram avec la liste des
   gestes manuels (Sheet, téléphone cloud, lien GAML, dernier décompte).
-- **`!relance @x`** : envoie en MP la prochaine étape de SON parcours (numéro, quiz, test, e-mail,
-  contrat, J'ACCEPTE), sans rien réinitialiser ; respecte son STOP (`… forcer` sinon).
+- **`!relance @x`** : envoie en MP la prochaine étape de SON parcours (numéro, quiz, test,
+  J'ACCEPTE), sans rien réinitialiser ; respecte son STOP (`… forcer` sinon).
 - **`!fiche`** n'est acceptée qu'en salon privé ou en MP (elle affiche un numéro de téléphone).
 - **Le bot sait où et à qui il parle** : chaque question lui arrive précédée de `[Contexte : salon #x ·
   rôles : …]`. Un `Manager` reçoit la section MANAGER de la base (missions, créneaux, commandes) ; un
@@ -340,7 +340,7 @@ est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recru
 
 Décision du 14/09 : **plus personne n'arrive sur Discord avant validation** — le serveur est réservé aux
 clippers validés. Le tunnel (formation → quiz → test 48 h → rendu) se déroule par e-mail et formulaires ;
-Discord ne commence qu'au contrat (France) ou au J'ACCEPTE (International).
+Discord ne commence qu'au J'ACCEPTE (le contrat DocuSeal a été retiré le 29/09).
 
 **Le tunnel, dans l'ordre**
 1. **Formulaire de candidature** → `candidature_webhook.gs` (v2) poste `CANDIDATURE|…` comme avant **et
@@ -355,7 +355,7 @@ Discord ne commence qu'au contrat (France) ou au J'ACCEPTE (International).
    personne, détruite à l'arrivée) et rend le **message WhatsApp prêt à coller** ; `!refuser Prénom motif` idem
    pour un refus ; `!candidats` liste tout le monde par étape (tests à juger, invités pas arrivés, quiz en cours…).
 5. **Arrivée par cette invitation** : liaison automatique (numéro, prénom, pays), état validé, grille, puis la
-   suite habituelle — e-mail → contrat DocuSeal (FR) ou conditions → J'ACCEPTE (International). Plus de numéro
+   suite habituelle — conditions → J'ACCEPTE (France comme International depuis le 23/09). Plus de numéro
    à envoyer, plus de quiz, plus de test en MP. Le manager est prévenu.
 6. **Tout autre arrivant, serveur fermé** : MP d'explication (le formulaire, la suite par e-mail) + expulsion.
    Deux exceptions : invité par un admin ou par un rôle protégé (manager, staff) → gardé, accueil léger ; porte
@@ -397,12 +397,10 @@ l'annonce arrivent sur un serveur qui les raccompagne.
   `#candidature` redemande le test après une expiration ou un refus (à la date du retest) ; un numéro
   écrit dans une phrase est reconnu ; renvoyer son numéro ne détruit plus la fiche ; un numéro déjà relié
   à un autre compte est bloqué et remonté.
-- **Contrats** : un 2ᵉ e-mail renvoie le lien existant au lieu de créer un 2ᵉ contrat ; un échec DocuSeal
-  est dit honnêtement au candidat, retenté 3 fois, puis remonté ; les contrats expirés ne sont plus sondés
-  ni comptés ; une signature sur un modèle à deux parties est détectée et expliquée.
+- **Contrats** : retirés le 29/09 avec DocuSeal (voir « Retiré ») — un e-mail envoyé en MP est simplement enregistré.
 - **STOP** est respecté partout (relances de test, J+7/J+14, `!relancer-lien`, `!annonce-int`).
 - **Digest du matin** (toujours actif, plus conditionné à la trésorerie) : signés sans créatrice depuis
-  48 h (manager mentionné), validés International sans J'ACCEPTE, contrats en erreur, avertissements
+  48 h (manager mentionné), validés sans J'ACCEPTE, avertissements
   techniques des 24 h. Message de démarrage dans le salon admin : automatisations actives, éteintes,
   variables manquantes.
 - **Codes 2FA** : délai IMAP borné, mail marqué lu seulement après relais réussi, rôle Manager par égalité
@@ -492,7 +490,7 @@ Chaque matin, une fois les relevés de la veille faits, le bot poste dans le sal
 
 ## ✍️ Plus d'étape contrat dans le tunnel (23/09)
 
-Décision de Gaëtan : « on ne va pas embêter les Malgaches avec ça ». `CONTRAT_ACTIVER` vaut `0` par défaut : tout test validé, grille France comme International (et grille indéterminée, France par défaut), reçoit les **conditions en MP** et répond **J'ACCEPTE** ; le rôle Team de sa grille s'ouvre à l'acceptation (`conditions_grille` dans le pipeline), les relances 24/48 h s'appliquent à tous. Un e-mail envoyé en MP est simplement enregistré (Drive), plus aucun contrat DocuSeal ne part. `CONTRAT_ACTIVER=1` rétablit le contrat pour la grille France.
+Décision de Gaëtan : « on ne va pas embêter les Malgaches avec ça ». Tout test validé, grille France comme International (et grille indéterminée, France par défaut), reçoit les **conditions en MP** et répond **J'ACCEPTE** ; le rôle Team de sa grille s'ouvre à l'acceptation (`conditions_grille` dans le pipeline), les relances 24/48 h s'appliquent à tous. Un e-mail envoyé en MP est simplement enregistré. **29/09** : le code DocuSeal (`!contrat`, création et sondage des contrats, relances de signature, retentatives) et `CONTRAT_ACTIVER` sont retirés, voir « Retiré ».
 
 ## 🌐 Le site du tunnel candidat (23/09)
 
@@ -529,7 +527,7 @@ salon admin ne reçoit plus que ce qui appelle un geste ou une lecture.
 | Relance du soir « N tests attendent ton OUI/NON » le jour même du rendu | Seulement pour les tests qui attendent depuis 24 h ou plus |
 | Sauvegarde hebdo : dix fichiers JSON avec aperçu | Une archive zip, une ligne |
 
-Ce qui reste immédiat : un test rendu (avec ses fichiers), un contrat signé, un candidat qui accepte les conditions,
+Ce qui reste immédiat : un test rendu (avec ses fichiers), un candidat qui accepte les conditions,
 une panne. Pour vider le salon admin du quotidien (rapport MARKETING, digest, alertes cadence), pose
 `CANAL_MANAGER_ID` : ils partent chez le manager et l'admin ne garde que l'hebdo du lundi.
 
@@ -586,3 +584,4 @@ Beaucoup d'escalades = enrichir `connaissances.md`. Peu de questions = le kit v2
 
 Décision de Gaëtan du 28/09 : élaguer le bot des fonctionnalités mortes. Chaque ligne dit ce qui a disparu et par quoi c'est remplacé.
 - **Inputs clippers** (`inputs_clippers.py`, `historique_inputs.gs`, `!inputs`, `!comptes`, `!primes`, `!subs`, `!hebdo`, boucle Apify quotidienne, bilans aux clippers, rapport MARKETING du manager, hebdo du lundi, fichiers `inputs_clippers.json` et `subs.json`) : éteints le 27/09 (« c'est l'ancien système »), retirés. Remplacés par le scan quotidien du classeur (`etats_comptes.py` : états, followers, Reels d'hier dans le message du matin), la paie au clic (`paie_clics.py`), le rapport GAML du manager (`rapport_stats.py`) et le tableau de bord du lundi (`tableau_bord.py`). L'alerte Telegram (acceptation, sortie d'équipe, copie du digest) vit dans `telegram.py`. Variables Railway devenues inutiles : `INPUTS_CLIPPERS`, `SHEET_CSV_URL`, `SHEET_CSV_FB_URL`, `SHEET_ETATS_MORTS`, `SHEET_HISTORIQUE_URL`, `SHEET_HISTORIQUE_SECRET`, `APIFY_ACTOR_FB`, `FB_POSTS_MAX`, `CADENCE_REELS_MIN`, `NOUVEAU_JOURS`, `OBJECTIF_COMPTES_IG`, `TOP_CREATRICES`, `STRUCTURE_IG_MIN`, `STRUCTURE_FB_MIN`, `STRUCTURE_PRIVE_MIN`, `PRIME_JOURS_MIN`, `PRIME_CLIPPER_EUR`, `MANAGER_PAR_CLIPPER_EUR`, `MANAGER_BONUS_EQUIPE_EUR`, `COMMISSION_CLIPPER_EUR`, `COMMISSION_MANAGER_EUR`, `MANAGER_PRENOM`, `SUBS_MIN_PREMIER_MOIS`, `ACTIF_TAUX_MIN`, `HEURE_RAPPORT_INPUTS`, `RAPPORT_CLIPPER`, `SALONS_RESERVE`, `INPUTS_EXCLURE` (`APIFY_TOKEN` et `APIFY_ACTOR_IG` restent : `etats_comptes.py` s'en sert ; `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_QUOTIDIEN` restent : `telegram.py`).
+- **DocuSeal — contrats signés** (`docuseal_requete`, `creer_contrat_docuseal`, `!contrat`, sondage des signatures et auto-onboarding à la signature dans `boucle_pipeline`, relances « signe ton contrat » 24 h / 48 h / J+7 / expiration J+14, retentatives après échec, lignes « contrats » du digest et de `!pipeline`, envoi du contrat à la réception de l'e-mail) : sans contrat depuis le 23/09 (`CONTRAT_ACTIVER=0`, « on ne va pas embêter les Malgaches avec ça »), retirés. Remplacés par les conditions en MP et le J'ACCEPTE (case cochée sur le site, bouton ✅ ou mot en MP, `acceptation.py`, 27/09). Variables Railway devenues inutiles : `DOCUSEAL_API_KEY`, `DOCUSEAL_TEMPLATE_ID`, `DOCUSEAL_URL`, `DOCUSEAL_EMAIL_AGENCE`, `DOCUSEAL_CONTRESIGNATURE`, `DOCUSEAL_ONBOARDING_AUTO`, `CONTRAT_ACTIVER`.
