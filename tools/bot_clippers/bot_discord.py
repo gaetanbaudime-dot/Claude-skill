@@ -50,6 +50,7 @@ import tableau_bord                       # le tableau de bord d'une ligne, chaq
 import retro                              # rétrospective nocturne : le bot apprend de ses salons persos (27/09)
 import drive_agence                       # script Apps Script de l'agence : dépôts de fichiers dans le Drive (26/09, reels_uniques)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
+import telegram                           # alerte Telegram de l'agence : acceptation, sortie, copie du digest (29/09, ex-inputs_clippers)
 
 DOSSIER = Path(__file__).parent
 
@@ -3098,7 +3099,7 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
             + ("\n🎬 Créatrice : **attribution automatique en cours** (" + attribution.ordre_texte() + ")." if auto else
                f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`**.")
             + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
-        await inputs_clippers.envoyer_telegram(f"✍️ Conditions acceptées ({origine}) : {membre_a.display_name} (Team {'International' if grille_acc == 'mg' else 'France'})"
+        await telegram.envoyer_telegram(f"✍️ Conditions acceptées ({origine}) : {membre_a.display_name} (Team {'International' if grille_acc == 'mg' else 'France'})"
                                               + (f" — WhatsApp {tel_a}" if tel_a else ""))
         if auto:
             client.loop.create_task(attribution.attribuer(membre_a, f"acceptation ({via})"))
@@ -3595,7 +3596,7 @@ async def boucle_pipeline():
                     if code_equipe == "fr":
                         # Et la même alerte sur Telegram : elle doit sonner dans la poche, pas
                         # attendre l'ouverture de Discord.
-                        await inputs_clippers.envoyer_telegram(
+                        await telegram.envoyer_telegram(
                             f"✍️ *Contrat signé : {membre.display_name} (Team France)*"
                             + (f"\n📞 Appelle-le maintenant : {tel_signe}" if tel_signe else ""))
                 elif clipper_signe and contrat.get("statut") == "envoye":
@@ -3800,8 +3801,8 @@ async def boucle_rappels():
                         def _prenom(m):
                             membre_n = membre_par_id(m.group(1))
                             return membre_n.display_name if membre_n else "membre parti"
-                        if inputs_clippers.TELEGRAM_QUOTIDIEN:
-                            await inputs_clippers.envoyer_telegram(
+                        if telegram.TELEGRAM_QUOTIDIEN:
+                            await telegram.envoyer_telegram(
                                 re.sub(r"<@!?(\d+)>", _prenom, texte_digest).replace("**", "*"))
                     except (discord.Forbidden, discord.HTTPException):
                         pass
@@ -4712,7 +4713,7 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> di
         + "→ À faire à la main : " + ("" if libere_s or not onboarding.actif() else "Sheet (ses comptes en « à réattribuer »), ")
         + "mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
         "lien GAML à désactiver, dernier décompte.", g)
-    await inputs_clippers.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
+    await telegram.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
     journal.info("Sortie d'équipe : %s par %s (%s)", membre.id, par_id, raison)
     return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s}
 
