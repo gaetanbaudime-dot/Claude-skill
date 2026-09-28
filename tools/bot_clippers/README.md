@@ -324,7 +324,7 @@ tout seul** → le manager attribue la créatrice) a été mis en pause le 15/08
 (pôle malgache). Il est **ouvert par défaut** : ne pose `PAUSE_INT=1` dans Railway que pour re-suspendre
 (le quiz d'un International n'envoie alors plus le test, il reçoit un message « en pause » unique, et les
 relances se taisent). Depuis le 10/09 : le rôle n'est plus donné AVANT l'acceptation, le J'ACCEPTE manquant
-est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recrutement est ouvert.
+est relancé à 24 h et 48 h. `!purge-int` et `!annonce-int` ont été retirées le 29/09 (voir « Retiré »).
 
 **Relancer le stock après une pause (dans l'ordre)** :
 1. Vérifie que `PAUSE_INT` est absent ou à `0` dans Railway (redéploiement automatique).
@@ -332,9 +332,7 @@ est relancé à 24 h et 48 h, et `!purge-int` est neutralisée tant que le recru
    re-poste un `QUIZ_OK` pour toutes les réussites (≥ 30/34, `QUIZ_SEUIL`, tenu aussi par le bot qui rétrograde en échec un QUIZ_OK sous le seuil) — le bot envoie le test à ceux qui ne l'ont
    jamais reçu et ignore les autres (idempotent). Les réussites survenues PENDANT la pause n'ont pas
    d'état dans le pipeline : c'est la seule façon de leur envoyer le test.
-3. `!annonce-int` (simulation) puis `!annonce-int envoyer` : message de lancement en MP à tous les
-   internationaux du serveur, une seule fois par membre.
-4. Mets à jour le salon **Grille International** (rémunération/bonus) : le bot n'y écrit pas.
+3. Mets à jour le salon **Grille International** (rémunération/bonus) : le bot n'y écrit pas.
 
 ## 🔒 Serveur fermé : le tunnel candidat hors Discord (14/09, soir)
 
@@ -398,7 +396,7 @@ l'annonce arrivent sur un serveur qui les raccompagne.
   écrit dans une phrase est reconnu ; renvoyer son numéro ne détruit plus la fiche ; un numéro déjà relié
   à un autre compte est bloqué et remonté.
 - **Contrats** : retirés le 29/09 avec DocuSeal (voir « Retiré ») — un e-mail envoyé en MP est simplement enregistré.
-- **STOP** est respecté partout (relances de test, J+7/J+14, `!relancer-lien`, `!annonce-int`).
+- **STOP** est respecté partout (relances de test, J+7/J+14, `!relancer-lien`).
 - **Digest du matin** (toujours actif, plus conditionné à la trésorerie) : signés sans créatrice depuis
   48 h (manager mentionné), validés sans J'ACCEPTE, avertissements
   techniques des 24 h. Message de démarrage dans le salon admin : automatisations actives, éteintes,
@@ -586,3 +584,4 @@ Décision de Gaëtan du 28/09 : élaguer le bot des fonctionnalités mortes. Cha
 - **Inputs clippers** (`inputs_clippers.py`, `historique_inputs.gs`, `!inputs`, `!comptes`, `!primes`, `!subs`, `!hebdo`, boucle Apify quotidienne, bilans aux clippers, rapport MARKETING du manager, hebdo du lundi, fichiers `inputs_clippers.json` et `subs.json`) : éteints le 27/09 (« c'est l'ancien système »), retirés. Remplacés par le scan quotidien du classeur (`etats_comptes.py` : états, followers, Reels d'hier dans le message du matin), la paie au clic (`paie_clics.py`), le rapport GAML du manager (`rapport_stats.py`) et le tableau de bord du lundi (`tableau_bord.py`). L'alerte Telegram (acceptation, sortie d'équipe, copie du digest) vit dans `telegram.py`. Variables Railway devenues inutiles : `INPUTS_CLIPPERS`, `SHEET_CSV_URL`, `SHEET_CSV_FB_URL`, `SHEET_ETATS_MORTS`, `SHEET_HISTORIQUE_URL`, `SHEET_HISTORIQUE_SECRET`, `APIFY_ACTOR_FB`, `FB_POSTS_MAX`, `CADENCE_REELS_MIN`, `NOUVEAU_JOURS`, `OBJECTIF_COMPTES_IG`, `TOP_CREATRICES`, `STRUCTURE_IG_MIN`, `STRUCTURE_FB_MIN`, `STRUCTURE_PRIVE_MIN`, `PRIME_JOURS_MIN`, `PRIME_CLIPPER_EUR`, `MANAGER_PAR_CLIPPER_EUR`, `MANAGER_BONUS_EQUIPE_EUR`, `COMMISSION_CLIPPER_EUR`, `COMMISSION_MANAGER_EUR`, `MANAGER_PRENOM`, `SUBS_MIN_PREMIER_MOIS`, `ACTIF_TAUX_MIN`, `HEURE_RAPPORT_INPUTS`, `RAPPORT_CLIPPER`, `SALONS_RESERVE`, `INPUTS_EXCLURE` (`APIFY_TOKEN` et `APIFY_ACTOR_IG` restent : `etats_comptes.py` s'en sert ; `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_QUOTIDIEN` restent : `telegram.py`).
 - **DocuSeal — contrats signés** (`docuseal_requete`, `creer_contrat_docuseal`, `!contrat`, sondage des signatures et auto-onboarding à la signature dans `boucle_pipeline`, relances « signe ton contrat » 24 h / 48 h / J+7 / expiration J+14, retentatives après échec, lignes « contrats » du digest et de `!pipeline`, envoi du contrat à la réception de l'e-mail) : sans contrat depuis le 23/09 (`CONTRAT_ACTIVER=0`, « on ne va pas embêter les Malgaches avec ça »), retirés. Remplacés par les conditions en MP et le J'ACCEPTE (case cochée sur le site, bouton ✅ ou mot en MP, `acceptation.py`, 27/09). Variables Railway devenues inutiles : `DOCUSEAL_API_KEY`, `DOCUSEAL_TEMPLATE_ID`, `DOCUSEAL_URL`, `DOCUSEAL_EMAIL_AGENCE`, `DOCUSEAL_CONTRESIGNATURE`, `DOCUSEAL_ONBOARDING_AUTO`, `CONTRAT_ACTIVER`.
 - **Rappel de /bump Disboard** (`detecter_bump`, `boucle_bump`, `!bumps`, classement mensuel, fichier `bump.json`, `CANAL_BUMP_ID`, `DISBOARD_ID`) : le salon #bump se supprime depuis le 14/09 et le module était « éteint par décision » (variable vide), retiré. Pas de remplacement : le serveur est fermé, il ne se promeut plus sur Disboard. Variable Railway devenue inutile : `CANAL_BUMP_ID`.
+- **Annonce et purge internationales** (`!annonce-int [envoyer]`, `!purge-int [appliquer] [tout]`, clé `annonce_lancement` du pipeline) : `!purge-int` était neutralisée tant que `PAUSE_INT` vaut 0 (défaut, recrutement ouvert depuis le 08/09) et `!annonce-int` était l'annonce unique du lancement du 08/09, sans objet depuis que le serveur est fermé (14/09) et que tout arrive par le formulaire du site. Retirées. `PAUSE_INT` et `PURGE_INT_EXEMPTS` restent : la pause du quiz international et `!purge-candidats` s'en servent.
