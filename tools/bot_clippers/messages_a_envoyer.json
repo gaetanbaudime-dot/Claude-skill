@@ -18,5 +18,12 @@
     "effacer_bot": true,
     "accueil_liaison": true,
     "bouton_whatsapp": true
+  },
+  {
+    "id": "accueil-quiz-site-2809",
+    "tous_arrivants": true,
+    "effacer_bot": true,
+    "accueil_liaison": true,
+    "bouton_whatsapp": true
   }
 ]
