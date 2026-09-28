@@ -3665,10 +3665,10 @@ async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renom
 
 # Doctrine des 3 étages : ce qui doit être public (vitrine/lead magnet) vs réservé.
 NOMS_PUBLICS = ("candidature", "annonce", "dopamine", "formation", "checklist", "tips",
-                "assistant", "arrivee", "bienvenue", "deja paye", "clippers")
-# « ressource » a basculé en RÉSERVÉ le 10/08 (doctrine ci-dessous) : la liste des créatrices
-# et les fiches ne s'ouvrent qu'au contrat signé, plus à tout le monde.
-NOMS_RESERVES = ("reporting", "ressource", "remuneration", "bonus", "discussion", "disccusion", "rush")
+                "assistant", "arrivee", "bienvenue", "deja paye", "clippers", "ressource", "remuneration")
+# « ressource » avait basculé en RÉSERVÉ le 10/08 ; décision de Gaëtan du 28/09 : #ressources et #rémunération
+# restent visibles par tout le monde (le serveur est fermé, tout le monde est signé). Plus d'écart signalé.
+NOMS_RESERVES = ("reporting", "bonus", "discussion", "disccusion", "rush")
 
 # ---- Doctrine d'accès (10/08) : qui VOIT quoi. Appliquée automatiquement par `!acces`. -------------
 # Chaque étage = (mots-clés du nom de salon, public ?, rôles autorisés, étiquette). Un salon est
@@ -3681,14 +3681,17 @@ def _doctrine_acces():
     # #ressources parce que l'overwrite de son rôle n'avait jamais pu être posé). La paie reste par équipe.
     ferme = serveur_ferme()
     return [
+        # 28/09 (Gaëtan) : #ressources et #rémunération visibles par tout le monde, quoi qu'il arrive.
+        (("ressource", "remuneration"),
+         True, [], "Ressources + rémunération — tout le monde (décision du 28/09)"),
         (("candidature", "annonce", "formation", "dopamine", "assistant", "tips",
           "checklist", "bienvenue", "deja paye", "clippers"),
          True, [], "Vitrine + arrivée — tout le monde"),
-        (("remuneration-fr", "remunerationfr", "bonus-fr", "bonusfr"),
-         False, [ROLE_GRILLE_FR_NOM, ROLE_TEAM_FR_NOM], "Paie FR — aperçu dès l'arrivée (grille) puis signé"),
-        (("remuneration-int", "remunerationint", "bonus-int", "bonusint"),
-         False, [ROLE_GRILLE_INT_NOM, ROLE_TEAM_MG_NOM], "Paie INT — aperçu dès l'arrivée (grille) puis signé"),
-        (("ressource", "reporting"),
+        (("bonus-fr", "bonusfr"),
+         False, [ROLE_GRILLE_FR_NOM, ROLE_TEAM_FR_NOM], "Bonus FR — aperçu dès l'arrivée (grille) puis signé"),
+        (("bonus-int", "bonusint"),
+         False, [ROLE_GRILLE_INT_NOM, ROLE_TEAM_MG_NOM], "Bonus INT — aperçu dès l'arrivée (grille) puis signé"),
+        (("reporting",),
          ferme, [] if ferme else [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM],
          "Serveur fermé : visible par tous (tous signés)" if ferme else "Réservé aux SIGNÉS (Team France + Team International)"),
         (("discussion-fr", "discussionfr", "disccusion-fr"),

@@ -63,7 +63,7 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 `!aide` (liste adaptée au rôle : admin, manager, clipper, candidat) ·
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
 `!compteur` · `!rang @x Rookie|Confirmé|Élite` ·
-`!verifier` (audit config) · `!audit` (carte du serveur) · `!stats` · `!apprendre Q | R` ·
+`!verifier` (audit config) · `!audit` (carte du serveur) · (depuis le 28/09, `#ressources` et `#rémunération` sont **publics** dans la doctrine — `NOMS_PUBLICS` et premier étage de `_doctrine_acces` — plus d'écart signalé, `!acces appliquer` les ouvre ; `#reporting` reste réservé) · `!stats` · `!apprendre Q | R` ·
 `!creatrice @x Prénom` · `!sortie @x raison` · `!relance @x` ·
 `!alias` / `!code` (relais 2FA, managers). Une commande inconnue est signalée (plus de silence).
 

@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 12) — #ressources et #rémunération restent visibles par tout le monde
+- **Décision de Gaëtan** : « On laisse Ressources et Rémunération visibles par tout le monde désormais » ; `!audit` les signalait comme écarts à la doctrine du 10/08 (réservés aux signés). Le serveur est fermé depuis le 15/09, tout le monde dessus est signé ou staff : la réserve n'avait plus d'objet.
+- **Livré** : les deux salons passent dans la liste des salons publics du bot (`!audit` ne les signale plus) et en premier étage public de `!acces` (qui ne les masquera plus) ; `#reporting` reste réservé.
+- **Avocat du diable** : rien à redire tant que le serveur reste fermé ; s'il rouvre aux candidats, la grille de rémunération devient un argument de vente visible avant signature, ce que la doctrine du 10/08 voulait justement (aperçu dès l'arrivée).
+
 ### 2026-09-28 (soir, 11) — L'élagage du bot est fusionné et en ligne : 2 680 lignes en moins
 - **Demande de Gaëtan** : « Fusionne l'élagage dès qu'il est prêt et déploie » (le n° 9 des [[Process clippers - 10 automatisations de plus (28 septembre 2026, soir)|dix automatisations de plus]], GO du 28/09).
 - **Livré** : sept commits fusionnés sur le bot, 2 680 lignes retirées (le fichier principal passe de 7 819 à 6 869 lignes) : les inputs clippers (module, boucle Apify, `!inputs`, `!comptes`, `!primes`, `!subs`, `!hebdo`), DocuSeal et l'étape contrat, le rappel /bump Disboard, l'annonce et la purge internationales, le classement `!invites` (le parrainage `!parrain` le remplace), l'assistant global et le forum. L'alerte Telegram survit dans un module à part. Chaque retrait a une preuve dans le code (réglage éteint par défaut ou « ancien système ») et la section « Retiré » du README dit ce qui remplace quoi. Suite de tests au même niveau (36 OK, l'échec connu de la clé factice). 38 variables Railway ne servent plus, à supprimer à la main.
