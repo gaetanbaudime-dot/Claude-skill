@@ -17,3 +17,6 @@ tools/mcp_metricool/.env
 # Python
 __pycache__/
 *.pyc
+
+# Espaces de travail temporaires des agents Claude Code (jamais commités)
+.claude/worktrees/

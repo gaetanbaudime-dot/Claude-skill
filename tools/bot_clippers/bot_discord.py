@@ -273,6 +273,8 @@ MESSAGE_ESCALADE = (
 NOM_BOT = os.environ.get("NOM_BOT", "G&M Assistant Marketing").strip()
 
 INSTRUCTIONS = f"""Tu es « {NOM_BOT} », le bot d'aide aux clippers de l'équipe.
+RÈGLE DES PRÉNOMS : les pseudos des clippers sont « Prénom - Créatrice » (Georgial - Sophie). La personne s'appelle Georgial ; \
+Sophie est SA CRÉATRICE, pas lui. Tu appelles toujours le clipper par le prénom AVANT le tiret, jamais par celui d'après.
 Fait capital : tu es AUSSI le bot du tunnel candidat — le numéro en MP, !lier, le quiz, le
 test, le contrat, c'est TOI, le même compte Discord, le même nom. Quand quelqu'un demande
 « quel bot ? » ou « tu as reçu mon MP ? », la réponse est : c'est moi, envoie ton numéro ici
@@ -881,10 +883,10 @@ def contexte_auteur(message) -> str:
         membre = message.author
     roles = [r.name for r in getattr(membre, "roles", []) if r.name != "@everyone"]
     qui = membre or message.author
-    pseudo = getattr(qui, "display_name", "") or ""
+    creatrice_p = creatrice_du_pseudo(qui)
     base = (f"[Contexte : {lieu} · auteur : {prenom_de(qui)}"
-            + (f" (pseudo « {pseudo} » = prénom - créatrice : appelle-le par son prénom, jamais par celui de la créatrice)"
-               if any(sep in pseudo for sep in SEPARATEURS_PSEUDO) else "")
+            + (f" (clipper de {creatrice_p}). Il s'appelle {prenom_de(qui)} : tu l'appelles {prenom_de(qui)}, JAMAIS {creatrice_p}, "
+               f"{creatrice_p} est sa créatrice, pas lui" if creatrice_p else "")
             + f" · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]")
     if en_prive(message):
         # 27/09 (Gaëtan) : « quand le clipper arrive avant la fin du test, il a besoin d'aide » — l'assistant reçoit
@@ -930,6 +932,7 @@ def assainir_mentions(reponse: str) -> str:
 async def repondre_long(message, reponse: str):
     """Réponse > 2 000 caractères : coupée proprement sur des sauts de ligne au lieu d'être
     tronquée au milieu d'une phrase (Laure, 10/09 : réponse Facebook coupée à « **Carr »)."""
+    reponse = corriger_prenom(reponse, message.author)                   # 28/09 : jamais le prénom de la créatrice pour le clipper
     if len(reponse) <= 1990:
         await message.reply(reponse)
         return
@@ -1378,6 +1381,33 @@ async def detecter_bump(message):
 
 
 SEPARATEURS_PSEUDO = (" - ", " – ", " — ", " | ", " · ")
+
+
+def creatrice_du_pseudo(membre) -> str:
+    """Le prénom de la créatrice dans un pseudo « Prénom - Créatrice » ('' sinon : « Jonas - Manageur » donne '')."""
+    nom = (getattr(membre, "display_name", "") or "").strip()
+    for sep in SEPARATEURS_PSEUDO:
+        if sep in nom:
+            suite = nom.split(sep, 1)[1].strip()
+            premier = suite.split()[0] if suite.split() else ""
+            if premier and normaliser(premier) not in ("manageur", "manager", "clipper", "clippeur", "staff", "admin", "modele", "modèle"):
+                return premier[:1].upper() + premier[1:]
+            return ""
+    return ""
+
+
+def corriger_prenom(texte: str, membre) -> str:
+    """28/09 (Gaëtan, « il s'appelle Georgial ! ») : si le modèle salue le clipper par le prénom de sa créatrice, on remet le sien.
+    Filet de sécurité en plus de la consigne : « Salut Sophie ! » → « Salut Georgial ! » pour Georgial - Sophie."""
+    prenom, creatrice = prenom_de(membre), creatrice_du_pseudo(membre)
+    if not texte or not prenom or not creatrice or normaliser(prenom) == normaliser(creatrice):
+        return texte
+    motif = re.compile(r"(?i)\b(salut|hello|bonjour|bonsoir|coucou|hey|merci|bravo|ok|super|top|allez|courage|vas-y|bien joué)([ ,!]+)"
+                       + re.escape(creatrice) + r"\b")
+    texte = motif.sub(lambda m: f"{m.group(1)}{m.group(2)}{prenom}", texte)
+    if re.match(r"(?i)^" + re.escape(creatrice) + r"\b[ ,!:]", texte):
+        texte = prenom + texte[len(creatrice):]
+    return texte
 
 
 def prenom_de(membre) -> str:
