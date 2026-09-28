@@ -35,6 +35,17 @@ OPUSCLIP_ACTIF = os.environ.get("REELS_UNIQUES_OPUSCLIP", "0").strip() == "1"  #
 OPUSCLIP_API_KEY = os.environ.get("OPUSCLIP_API_KEY", "").strip()            # clé API du tableau de bord OpusClip (Pro/Max)
 OPUSCLIP_TEMPLATE = os.environ.get("OPUSCLIP_TEMPLATE_ID", "cmcaokhia041t7ypf070b4wmu").strip()   # « Créatrices OFM »
 OPUSCLIP_ATTENTE_MAX = int(os.environ.get("OPUSCLIP_ATTENTE_MAX", "900") or 900)
+MAX_ECHECS = int(os.environ.get("REELS_UNIQUES_MAX_ECHECS", "3") or 3)         # 28/09 : après 3 essais ratés, la vidéo est abandonnée
+                                                                               # (plus de message à chaque passage) ; `refaire` la relance
+
+
+def _motif(erreur) -> str:
+    """Le motif d'un échec en français, même quand l'exception n'a pas de texte (asyncio.TimeoutError)."""
+    texte = str(erreur).strip()
+    if texte:
+        return texte[:160]
+    return {"TimeoutError": "délai dépassé (téléversement trop long pour le script Drive)",
+            "CancelledError": "annulé"}.get(type(erreur).__name__, type(erreur).__name__)
 
 
 def configurer(deps: dict):
@@ -96,8 +107,15 @@ def recette(prenom: str, video_id: str) -> dict:
             "dx": round(u(8, -0.3, 0.3), 2), "dy": round(u(9, -0.3, 0.3), 2), "v": VERSION_RECETTE}
 
 
-def commande_ffmpeg(src: str, dst: str, r: dict, prenom: str) -> list:
+VARIANTE_MAX_MO = float(os.environ.get("REELS_UNIQUES_MAX_MO", "30") or 30)  # 28/09 : au-dessus, ré-encodage plus léger (le script
+                                                                               # Drive reçoit le fichier en base64, 39 Mo = délai dépassé)
+
+
+def commande_ffmpeg(src: str, dst: str, r: dict, prenom: str, leger: bool = False) -> list:
+    """28/09 : débit plafonné (2 Mbit/s, Instagram ré-encode de toute façon ; la source du Reel 20 de Sarah fait 1,3 Mbit/s) —
+    la variante d'un Reel de 105 s passe de 39 Mo (crf 22 sans plafond) à 28 Mo. `leger` = second passage à 1,4 Mbit/s."""
     z = r["zoom"]
+    debit = ("-crf", "27", "-maxrate", "1400k", "-bufsize", "2800k") if leger else ("-crf", "24", "-maxrate", "2000k", "-bufsize", "4000k")
     vf = (("hflip," if r["miroir"] else "")
           + f"scale=trunc(iw*{z}/2)*2:trunc(ih*{z}/2)*2,"
           + f"crop=trunc(iw/{z}/2)*2:trunc(ih/{z}/2)*2:(iw-iw/{z})/2*{1 + r['dx']}:(ih-ih/{z})/2*{1 + r['dy']},"
@@ -105,7 +123,7 @@ def commande_ffmpeg(src: str, dst: str, r: dict, prenom: str) -> list:
           + f"eq=saturation={r['saturation']}:contrast={r['contraste']}:brightness={r['luminosite']},"
           + f"hue=h={r['teinte']},setpts=PTS/{r['vitesse']},format=yuv420p")
     return ["ffmpeg", "-v", "error", "-y", "-ss", f"{r['coupe']:.2f}", "-i", src, "-vf", vf, "-af", f"atempo={r['vitesse']}",
-            "-r", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-c:a", "aac", "-b:a", "128k",
+            "-r", "30", "-c:v", "libx264", "-preset", "veryfast", *debit, "-c:a", "aac", "-b:a", "128k",
             "-movflags", "+faststart", "-metadata", f"comment=variante {prenom}", dst]
 
 
@@ -148,6 +166,12 @@ def _variante_sync(src: str, dst: str, r: dict, prenom: str) -> bool:
     if p.returncode != 0 or not os.path.exists(dst):
         journal.warning("ffmpeg variante %s : %s", prenom, (p.stderr or "")[-300:])
         return False
+    if os.path.getsize(dst) > VARIANTE_MAX_MO * 1_000_000:                  # 28/09 : trop lourd pour le script Drive → plus léger
+        journal.info("Variante %s : %.0f Mo, ré-encodage léger", prenom, os.path.getsize(dst) / 1e6)
+        p = subprocess.run(commande_ffmpeg(src, dst, r, prenom, leger=True), capture_output=True, text=True, timeout=600)
+        if p.returncode != 0 or not os.path.exists(dst):
+            journal.warning("ffmpeg variante légère %s : %s", prenom, (p.stderr or "")[-300:])
+            return False
     defauts = controle_qualite(src, dst, r)
     if defauts:
         journal.warning("Contrôle qualité %s : %s", prenom, ", ".join(defauts))
@@ -292,14 +316,34 @@ async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool
                         ids_gardes.add(vids[int(m_num.group(1)) - 1]["id"])
                 faits[:] = [i for i in faits if i in ids_gardes] + [i for i in ids_gardes if i not in faits]
                 _deps["ecrire_json"](_deps["FICHIER"], d)
-            a_faire = [v for v in vids if v["id"] not in faits]
+            echecs = d.setdefault("echecs", {}).setdefault(creatrice, {}).setdefault(_n(prenom), {})
+            if refaire:
+                echecs.clear()
+            abandonnes = {vid for vid, e in echecs.items() if int(e.get("n") or 0) >= MAX_ECHECS}
+            a_faire = [v for v in vids if v["id"] not in faits and v["id"] not in abandonnes]
             if not a_faire:
                 versions[_n(prenom)] = VERSION_RECETTE
                 _deps["ecrire_json"](_deps["FICHIER"], d)
-                bilan.append(f"✅ {prenom} : déjà à jour ({len(faits)} Reels)")
+                bilan.append(f"✅ {prenom} : déjà à jour ({len(faits)} Reels)"
+                             + (f", {len(abandonnes)} abandonné(s)" if abandonnes else ""))
                 continue
             deja_la = {f.get("name") for f in await g.drive_lister(sous)}
             ok, rates = 0, 0
+            nouveaux_echecs, abandons = [], []                                  # (numéro, motif) signalés une seule fois
+
+            def _echec(v, erreur):
+                nonlocal rates
+                rates += 1
+                e = echecs.setdefault(v["id"], {"n": 0})
+                e["n"] = int(e.get("n") or 0) + 1
+                e["motif"] = _motif(erreur)
+                e["date"] = time.strftime("%Y-%m-%d %H:%M")
+                numero = vids.index(v) + 1
+                if e["n"] >= MAX_ECHECS:
+                    abandons.append((numero, e["motif"]))
+                elif e["n"] == 1:
+                    nouveaux_echecs.append((numero, e["motif"]))
+                _deps["ecrire_json"](_deps["FICHIER"], d)
             for i, v in enumerate(a_faire, start=1):
                 if v["id"] not in originaux:
                     try:
@@ -309,12 +353,12 @@ async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool
                             f.write(contenu_src or await g.drive_telecharger(v["id"]))
                         originaux[v["id"]] = chemin
                     except Exception as erreur:                             # noqa: BLE001
-                        journal.warning("Téléchargement %s : %s", v.get("name"), erreur)
-                        rates += 1
+                        journal.warning("Téléchargement %s : %s", v.get("name"), _motif(erreur))
+                        _echec(v, erreur)
                         continue
                 dst = os.path.join(tmp, f"{_n(prenom)}_{v['id']}.mp4")
                 if not await asyncio.to_thread(_variante_sync, originaux[v["id"]], dst, recette(prenom, v["id"]), prenom):
-                    rates += 1
+                    _echec(v, RuntimeError("variante ffmpeg ratée (voir le journal)"))
                     continue
                 numero = vids.index(v) + 1
                 nom_fichier = f"{creatrice.split()[0]} · Reel {numero:02d} · {prenom}.mp4"
@@ -332,8 +376,8 @@ async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool
                     fichiers_v[nom_fichier] = VERSION_RECETTE
                     _deps["ecrire_json"](_deps["FICHIER"], d)
                 except Exception as erreur:                                 # noqa: BLE001
-                    journal.warning("Dépôt %s pour %s : %s", nom_fichier, prenom, erreur)
-                    rates += 1
+                    journal.warning("Dépôt %s pour %s : %s", nom_fichier, prenom, _motif(erreur))
+                    _echec(v, erreur)
                 finally:
                     if os.path.exists(dst):
                         os.remove(dst)
@@ -342,11 +386,20 @@ async def executer(creatrice: str, prenoms=None, progression=None, refaire: bool
                         await progression(f"⏳ {creatrice} · {prenom} : {ok} Reel(s) déposé(s) sur {len(a_faire)}…")
                     except Exception:                                       # noqa: BLE001
                         pass
-            if not rates:
+            restants = [v for v in a_faire if v["id"] not in faits and int(echecs.get(v["id"], {}).get("n") or 0) < MAX_ECHECS]
+            if not restants:                                                # tout déposé, ou le reste abandonné : plus « à refaire »
                 versions[_n(prenom)] = VERSION_RECETTE
                 _deps["ecrire_json"](_deps["FICHIER"], d)
-            bilan.append(f"{'✅' if not rates else '⚠️'} {prenom} : {ok} Reel(s) unique(s) déposé(s)" + (f", {rates} raté(s)" if rates else "")
-                         + (f", {effacees} ancien(s) effacé(s)" if effacees else "") + f" → « {NOM_SOUS_DOSSIER} » de son Drive")
+            # Au salon admin, une seule fois : ce qui a été déposé, un échec la première fois, un abandon au 3e essai.
+            # Un échec déjà signalé (essai 2) donne une ligne « ⏸️ » que la boucle ne poste pas.
+            details = [f"Reel {n:02d} : {m}" for n, m in nouveaux_echecs]
+            details += [f"Reel {n:02d} abandonné après {MAX_ECHECS} essais ({m}) — `!reels-uniques {creatrice} {prenom} refaire` pour réessayer" for n, m in abandons]
+            if ok or details:
+                bilan.append(f"{'✅' if not rates else '⚠️'} {prenom} : {ok} Reel(s) unique(s) déposé(s)" + (f", {rates} raté(s)" if rates else "")
+                             + (f", {effacees} ancien(s) effacé(s)" if effacees else "") + f" → « {NOM_SOUS_DOSSIER} » de son Drive"
+                             + ("".join("\n   · " + x for x in details) if details else ""))
+            else:
+                bilan.append(f"⏸️ {prenom} : {rates} Reel(s) encore en échec (essai {max(int(echecs[v['id']].get('n') or 0) for v in a_faire if v['id'] in echecs)}/{MAX_ECHECS}), rien de nouveau")
     journal.info("Reels uniques %s : %s", creatrice, bilan)
     return bilan
 

@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-28 (soir, 15) — Clarisse : la vidéo qui ratait, et le bot qui le répétait
+- **Demande de Gaëtan** : « fais taire la répétition et regarde la vidéo de Clarisse ».
+- **Cause trouvée** : le Reel 20 de Sarah dure 105 s ; ré-encodé en 1080×1920 sans plafond de débit, la variante pesait 39 Mo, envoyée en base64 au script Drive qui n'a pas répondu dans les 340 s. L'exception n'avait pas de texte, d'où le message vide dans le journal. Tara et Yves étaient passés de justesse avec le même poids. La répétition venait de mes sept déploiements du jour : à chaque redémarrage, le bot refaisait Clarisse et le redisait.
+- **Livré** : débit plafonné à 2 Mbit/s (28 Mo pour ce Reel, la source elle-même fait 1,3 Mbit/s), second passage plus léger au-dessus de 30 Mo, et un compteur d'échecs par vidéo : signalé une fois, silencieux au deuxième essai, abandonné et signalé une dernière fois au troisième, avec la commande pour réessayer.
+- **Prédiction (28/09, revue le 30/09)** : le Reel 20 de Clarisse est déposé au redémarrage qui suit, et plus aucun message « raté » répété dans bot-gaetan d'ici le 30/09 (85 %).
+
 ### 2026-09-28 (soir, 14) — Le Dashboard devient lisible : une card par créatrice
 - **Demande de Gaëtan** : « Travaille la mise en forme, des couleurs, des groupes, des cards, je te fais confiance, tant que la data est lisible ».
 - **Livré** : la mise en forme est posée par le bot à chaque réécriture de l'onglet (elle ne peut pas être faite à la main, les blocs bougent quand un clipper arrive ou part) : bandeau de couleur par créatrice, zébrure, BAN en rouge, à créer en orange, tout créé en vert, visites en dégradé vert, cadre par bloc, quadrillage masqué, prénoms figés. Vérifié sur un export PDF de l'onglet.
