@@ -103,3 +103,5 @@ Ordre recommandé : 2, 4, 8 cette semaine ; 3 et 6 dès les hashtags reçus ; 1 
 **Prédiction (28/09, revue le 12/10)** : si les n° 2, 4 et 8 sont en ligne avant le 05/10, la liste du 20/10 se clôture en une commande, aucun test ne reste à juger plus de 24 h, et chaque actif a sa ligne « visites pour 1 000 vues » (65 %) ; le compteur de lignes sans e-mail passe de 110 à moins de 60, par le domaine ou par Gaëtan (50 %).
 
 Décisions et prédictions dans le [[Journal de coaching]] ; l'architecture Discord dans [[Architecture Discord - simple au quotidien (14 septembre 2026)]] ; le formulaire et les annonces dans [[Recrutement clippers - annonces et formulaire]] ; le hub business : [[LTP Models]].
+
+**Suite (28/09 soir)** : dix idées de plus, lues dans le classeur du soir (36 lignes « à créer » jamais créées, 24 lignes BAN avec un Gérant), dans [[Process clippers - 10 automatisations de plus (28 septembre 2026, soir)]].
