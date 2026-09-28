@@ -1537,8 +1537,10 @@ MOTS_CANDIDATURE = (("date", ("horodat",)), ("prenom", ("prenom",)), ("tel", ("w
                     ("pays", ("pays",)), ("job", ("dans la vie",)), ("telephones", ("telephones", "modele")),
                     ("experience", ("experience sur instagram", "experience")), ("montage", ("montes avec",)),
                     ("video", ("video qui a bien",)), ("reels_jour", ("reels tu peux",)), ("heures_jour", ("heures par jour",)),
-                    ("shadowban", ("shadowban",)), ("motivation", ("pourquoi es-tu", "pourquoi es tu")), ("age", ("quel age",)),
-                    ("majeur", ("majeur",)), ("niche", ("niche",)), ("annonce", ("annonce de recrutement", "reseau social as-tu vu")))
+                    ("shadowban", ("shadowban",)), ("motivation", ("pourquoi es-tu", "pourquoi es tu")), ("age", ("quel age", "ton age")),
+                    ("majeur", ("majeur",)), ("niche", ("niche",)), ("annonce", ("annonce de recrutement", "reseau social as-tu vu")),
+                    ("conditions", ("5 regles", "regles de l'equipe")))
+CHAMP_PAR_QUESTION = {"whatsapp": "tel"}                                # id de question → champ du classeur quand ils diffèrent
 
 
 def _colonnes_candidature(en_tete: list) -> dict:
@@ -1614,30 +1616,40 @@ def candidature_de(lignes: list, tel: str = "", prenom: str = "") -> dict:
     return {}
 
 
+OUTILS_MONTAGE = ("capcut", "edits", "premiere", "davinci", "vn", "inshot", "after effect", "final cut", "kinemaster")
+
+
 def score_candidature(c: dict) -> tuple:
-    """Une note indicative sur 8 et ses raisons, pour juger avant d'attribuer : iPhone, ≥ 2 téléphones, expérience, CapCut/Edits,
-    ≥ 2 Reels par jour, ≥ 3 h par jour, sait ce qu'est un shadowban, majeur."""
-    n = lambda k: normaliser(c.get(k, ""))
+    """Une note indicative sur 8 et ses raisons : majeur · iPhone · ≥ 2 téléphones dédiés · expérience IG/TikTok · monte déjà ·
+    des chiffres (vues, abonnés, ou ≥ 2 Reels/j) · ≥ 3 h par jour ou temps plein · réponse détaillée (≥ 250 caractères) ou connaît
+    les bans. 28/09 (formulaire à 7 champs) : la note se lit surtout dans la réponse « expérience » ; les anciennes colonnes du
+    Google Form (montage, Reels/j, heures/j, shadowban) comptent encore pour les anciennes lignes."""
+    n = lambda k: normaliser(c.get(k, "") or "")
+    exp, tels = n("experience"), n("telephones")
     points, raisons = 0, []
-    tels = n("telephones")
+    age = re.search(r"\d+", n("age"))
+    if n("majeur").startswith("oui") or (age and int(age.group(0)) >= 18):
+        points += 1; raisons.append("majeur")
     if "iphone" in tels:
         points += 1; raisons.append("iPhone")
     if re.search(r"\b([2-9]|deux|trois|quatre)\b", tels):
         points += 1; raisons.append("≥ 2 téléphones")
-    if n("experience") and not n("experience").startswith(("non", "pas ", "aucun", "rien")):
+    if exp and not exp.startswith(("non", "pas ", "aucun", "rien", "0", "je n ai", "j ai pas", "jamais")):
         points += 1; raisons.append("expérience IG/TikTok")
-    if any(m in n("montage") for m in ("capcut", "edits", "premiere", "davinci", "vn")):
+    if any(m in n("montage") for m in OUTILS_MONTAGE) or any(m in exp for m in OUTILS_MONTAGE):
         points += 1; raisons.append("monte déjà")
     nb = re.search(r"\d+", n("reels_jour"))
     if nb and int(nb.group(0)) >= 2:
         points += 1; raisons.append(f"{nb.group(0)} Reels/j")
-    h = re.search(r"\d+", n("heures_jour"))
-    if h and int(h.group(0)) >= 3:
-        points += 1; raisons.append(f"{h.group(0)} h/j")
+    elif re.search(r"\d[\d\s.,]*\s*(k\b|vues|views|abonnes|followers|000\b|millions?|m\b)", exp):
+        points += 1; raisons.append("des chiffres")
+    h = re.search(r"\d+", n("heures_jour")); h2 = re.search(r"(\d+)\s*(?:h\b|heures?)", exp)
+    if (h and int(h.group(0)) >= 3) or (h2 and int(h2.group(1)) >= 3) or "temps plein" in exp:
+        points += 1; raisons.append("≥ 3 h/j")
     if len(n("shadowban")) >= 40 and not n("shadowban").startswith(("rien", "non", "pas ")):
         points += 1; raisons.append("connaît les bans")
-    if n("majeur").startswith("oui") or (re.search(r"\d+", n("age")) and int(re.search(r"\d+", n("age")).group(0)) >= 18):
-        points += 1; raisons.append("majeur")
+    elif len(exp) >= 250:
+        points += 1; raisons.append("réponse détaillée")
     return points, raisons
 
 
@@ -1648,15 +1660,16 @@ def texte_candidature(c: dict) -> list:
     t = lambda k, l=110: (c.get(k) or "—").replace("\n", " ")[:l]
     points, raisons = score_candidature(c)
     quand = c["date"].strftime("%d/%m/%Y") if c.get("date") else "date ?"
-    return [f"📋 **Candidature** ({c.get('source', '?')}, {quand}) · qualité **{points}/8** : {', '.join(raisons) or 'rien de probant'}",
-            f"· Pays : {t('pays', 30)} · âge : {t('age', 8)} · majeur : {t('majeur', 5)} · dans la vie : {t('job', 60)}",
-            f"· Téléphones : {t('telephones', 80)}",
-            f"· Expérience : {t('experience')}",
-            f"· Montage : {t('montage', 40)} · Reels/jour : {t('reels_jour', 40)} · heures/jour : {t('heures_jour', 30)}",
-            f"· Vidéo qui a marché : {t('video')}",
-            f"· Bans/shadowban : {t('shadowban')}",
-            f"· Motivation : {t('motivation')}",
-            f"· Niche OK : {t('niche', 40)} · a vu l'annonce sur : {t('annonce', 40)}"]
+    lignes = [f"📋 **Candidature** ({c.get('source', '?')}, {quand}) · qualité **{points}/8** : {', '.join(raisons) or 'rien de probant'}",
+              f"· Pays : {t('pays', 30)} · âge : {t('age', 8)} · Telegram : {t('telegram', 30)}"
+              + (f" · dans la vie : {t('job', 60)}" if c.get("job") else ""),
+              f"· Téléphones : {t('telephones', 90)}",
+              f"· Expérience : {t('experience', 320)}"]
+    for cle, libelle in (("montage", "Montage"), ("reels_jour", "Reels/jour"), ("heures_jour", "Heures/jour"), ("video", "Vidéo qui a marché"),
+                         ("shadowban", "Bans"), ("motivation", "Motivation"), ("niche", "Niche OK"), ("annonce", "A vu l'annonce sur")):
+        if c.get(cle):                                                   # 28/09 : les anciennes questions ne s'affichent que si remplies
+            lignes.append(f"· {libelle} : {t(cle, 100)}")
+    return lignes
 
 
 async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
@@ -1668,19 +1681,32 @@ async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
     try:
         questions = web_candidature._questions().get("questions", [])
         onglet = SHEET_CANDIDATURES_ONGLET
-        if not _entete_candidatures_faite:
-            await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet)
-            premiere = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:A1")
-            if not premiere or not (premiere and premiere[0] and premiere[0][0].strip()):
-                entete = ["Horodatage", "Source"] + [q.get("label", q.get("id", "")) for q in questions]
-                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A1", [entete])
-            _entete_candidatures_faite = True
-        # 27/09 (Gaëtan) : la colonne Source dit d'où vient le candidat (sa réponse « sur quel réseau as-tu vu l'annonce »),
-        # pas le canal technique ; la ligne va À LA SUITE des autres (l'ajout Google tombait après les 1 000 lignes vides
-        # de la Table) ; et chaque candidature reçoit sa note sur 8 et ses points.
+        await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet)
+        brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!1:1")
+        en_tete = [str(x) for x in (brut[0] if brut else [])]
+        if not any(h.strip() for h in en_tete):
+            en_tete = ["Horodatage", "Source"] + [q.get("label", q.get("id", "")) for q in questions]
+            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A1", [en_tete])
+        _entete_candidatures_faite = True
+        # 28/09 (formulaire à 7 champs) : chaque réponse va dans la colonne dont l'en-tête correspond (même libellé, sinon mot-clé du
+        # champ, sinon une colonne ajoutée au bout) — l'onglet garde ses anciennes colonnes du formulaire à 22 questions.
+        cols = _colonnes_candidature(en_tete)
+        ligne = [""] * len(en_tete)
+        ligne[0] = heure_paris().strftime("%d/%m/%Y %H:%M")
         origine = (str(reponses.get("source", "")).strip() + (" · " + str(reponses.get("source_detail", "")).strip()
                                                             if str(reponses.get("source_detail", "")).strip() else "")).strip(" ·")
-        ligne = [heure_paris().strftime("%d/%m/%Y %H:%M"), origine or source] + [reponses.get(q.get("id", ""), "") for q in questions]
+        if len(ligne) > 1:
+            ligne[1] = origine or source
+        for q in questions:
+            ident = q.get("id", ""); libelle = q.get("label", ident)
+            col = next((i for i, h in enumerate(en_tete) if normaliser(h).strip() == normaliser(libelle).strip()), None)
+            if col is None:
+                col = cols.get(CHAMP_PAR_QUESTION.get(ident, ident))
+            if col is None:
+                en_tete.append(libelle); ligne.append(""); col = len(en_tete) - 1
+                await google_api.sheets_assurer_colonnes(SHEET_CANDIDATURES_ID, onglet, len(en_tete))
+                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!{google_api.colonne_lettre(col)}1", [[libelle]])
+            ligne[col] = reponses.get(ident, "")
         rang = await _premiere_ligne_vide(onglet)
         await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A{rang}", [ligne])
         journal.info("Candidature sauvegardée dans le classeur (ligne %d, %s)", rang, origine or source)
