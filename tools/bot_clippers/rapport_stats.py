@@ -301,10 +301,16 @@ async def commande_staff(message, texte: str) -> bool:
         await message.reply(f"❌ GAML : {erreur}")
         return True
     s = await salon(message.client if hasattr(message, "client") else _deps["client"])
-    texte_r = texte_rapport(d, jour)
-    if s is not None and s.id != message.channel.id:
-        await s.send(texte_r[:1990])
-        await message.reply(f"✅ Rapport du {jour.strftime('%d/%m')} posté dans <#{s.id}>.")
-    else:
-        await message.reply(texte_r[:1990])
+    anciens = clippers_de_jonas()                                       # 28/09 : Jonas ne voit que ses anciens, l'admin voit tout
+    texte_j = texte_rapport(d, jour, seulement=anciens if anciens else None, titre="tes clippers")
+    texte_a = texte_rapport(d, jour, titre="tous les clippers de l'agence")
+    if s is not None and s.id == message.channel.id:                   # tapé dans #jonas-stats : sa version, rien d'autre
+        await message.channel.send(texte_j[:1990])
+        return True
+    if s is not None:
+        try:
+            await s.send(texte_j[:1990])
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Rapport Jonas : %s", erreur)
+    await message.channel.send(texte_a[:1990])                          # ici (salon admin) : tout le monde
     return True
