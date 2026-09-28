@@ -28,7 +28,6 @@ import aiohttp
 import discord
 import anthropic
 
-import inputs_clippers                    # suivi quotidien des Reels publiés (Apify) — voir le module
 import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
@@ -178,12 +177,9 @@ JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !
 FICHIER_BUMP = DONNEES / "bump.json"                         # {"dernier": iso, "rappele": bool, "par_membre": {}}
 FICHIER_EQUIPES = DONNEES / "equipes.json"                   # registre des signatures : {membre_id: {"equipe", "par", "date"}}
 FICHIER_RAPPELS = DONNEES / "rappels.json"                   # anti-doublon des rappels quotidiens/hebdo
-FICHIER_INPUTS = DONNEES / "inputs_clippers.json"            # historique 90 j des Reels publiés par clipper
-inputs_clippers.FICHIER_INPUTS = FICHIER_INPUTS              # le module écrit sur le volume persistant
 codes_2fa.FICHIER_ALIAS = DONNEES / "alias_codes.json"       # registre alias e-mail → salon du manager
 FICHIER_PIPELINE = DONNEES / "pipeline.json"                 # tunnel candidat : {"liaisons": {id: {tel}}, "etats": {id: {...}}}
 FICHIER_LACUNES = DONNEES / "lacunes.json"                   # questions hors kit : [{"q", "qui", "date"}] — la matière de !apprendre
-FICHIER_SUBS = DONNEES / "subs.json"                         # abonnés OF par clipper et par mois : {"AAAA-MM": {prénom: n}} (!subs)
 FICHIER_ONBOARDING = DONNEES / "onboarding.json"             # onboarding : comptes livrés (handle → clipper), lien, Drive par clipper
 FICHIER_PARCOURS = DONNEES / "parcours.json"                 # parcours guidé + mémoire par clipper (25/09)
 FICHIER_ETATS = DONNEES / "etats_comptes.json"               # historique Instagram des comptes du classeur (26/09)
@@ -3880,8 +3876,8 @@ async def boucle_rappels():
                     and etat.get("sauvegarde") != aujourdhui:
                 canal = await canal_admin()
                 fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
-                                        FICHIER_INVITES, FICHIER_BUMP, FICHIER_COMPTEURS, FICHIER_INPUTS,
-                                        FICHIER_LACUNES, FICHIER_SUBS, DONNEES / "alias_codes.json") if p.exists()]
+                                        FICHIER_INVITES, FICHIER_BUMP, FICHIER_COMPTEURS,
+                                        FICHIER_LACUNES, DONNEES / "alias_codes.json") if p.exists()]
                 if canal is not None and fichiers:
                     try:
                         tampon = io.BytesIO()          # une archive : Discord n'affiche pas dix aperçus JSON
@@ -4187,8 +4183,8 @@ def est_manager(membre) -> bool:
 
 
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
-COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests", "!inputs",
-                     "!primes", "!subs", "!sortie", "!relance", "!comptes", "!creatrice", "!créatrice",
+COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
+                     "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard",
                      "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
 
@@ -4201,8 +4197,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!pipeline` · `!tableau` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · `!contrat [@x]` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · `!comptes` · `!inputs [maintenant|test|detail]` · `!hebdo` · "
-                "`!subs [Prénom n] [AAAA-MM]` · `!primes [AAAA-MM|acompte]` · `!ltv [jours]` · `!alias` · `!code` · `!recup`\n"
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · "
+                "`!ltv [jours]` · `!alias` · `!code` · `!recup`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!annonce-int [envoyer]` · `!purge-int` (pause seulement) · `!archiver #salon…`\n"
@@ -4217,8 +4213,6 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "son invitation personnelle + le message WhatsApp · `!refuser Prénom motif`\n"
                 "· `!tests` · `!test-ok @x` · `!test-non @x raison` · `!quiz-ok @x` — l'ancien tunnel en MP\n"
                 "· `!pipeline` — où en est chaque candidat · `!relance @x` — le pousser d'un cran\n"
-                "· `!inputs` — le dernier bilan des Reels · `!inputs maintenant` — relancer le comptage\n"
-                "· `!subs Prénom 37` — ses abonnés OF du mois · `!primes` — la paie variable du mois\n"
                 "· `!sortie @clipper raison` — sortie de l'équipe (rôles + salons retirés, tout le monde prévenu)\n"
                 "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon · `!recup [alias]` — le code de "
                 "récupération (mot de passe oublié, appel après un ban), 6 h en arrière\n"
@@ -4256,21 +4250,6 @@ def texte_aide(membre, est_admin: bool) -> str:
             "4. Test validé → **J'ACCEPTE** → ton salon perso et tes 3 comptes, un par jour avec 24 h de warm-up.\n"
             "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
             "Une question ? Pose-la ici, je réponds avec le kit.")
-
-
-def debuts_clippers() -> dict:
-    """{prénom normalisé: AAAA-MM-JJ} — date d'attribution de la créatrice (sinon date du registre) :
-    la semaine 1 est un warm-up sans publication, la semaine 2 tourne à 1 Reel/jour/surface."""
-    sortie = {}
-    for uid, fiche in lire_json(FICHIER_EQUIPES, {}).items():
-        m = membre_par_id(uid)
-        if m is None:
-            continue
-        d = fiche.get("creatrice_date") or fiche.get("date")
-        cle = re.sub(r"[^a-z0-9]", "", normaliser(m.display_name))
-        if cle and d:
-            sortie[cle] = str(d)[:10]
-    return sortie
 
 
 async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list, forcer_salon: bool = False) -> str:
@@ -5531,8 +5510,6 @@ async def commande_admin(message, texte: str) -> bool:
                       else f"❌ Rôle « {codes_2fa.ROLE_MANAGER_NOM} » introuvable (nom EXACT, ROLE_MANAGER_NOM) — aucune commande manager ne marche")
         lignes.append("✅ EMAIL_FACTURATION définie" if EMAIL_FACTURATION
                       else "⚠️ EMAIL_FACTURATION vide — le bot ne sait pas où les clippers FR envoient leur facture")
-        lignes.append(f"{'✅' if inputs_clippers.CADENCE_MIN == 2 else '⚠️'} Cadence exigée : {inputs_clippers.CADENCE_MIN} Reel(s)/jour/surface"
-                      + ("" if inputs_clippers.CADENCE_MIN == 2 else " — la grille du 07/09 dit 2 (CADENCE_REELS_MIN)"))
         lignes.append("ℹ️ Recrutement international : " + ("EN PAUSE (PAUSE_INT=1)" if INT_EN_PAUSE else "ouvert"))
         lignes.append("🔒 Serveur FERMÉ aux candidats — arrivée uniquement par `!inviter`"
                       + (" (DISCORD_FERME=1)" if DISCORD_FERME_ENV else " (`!fermer`)")
@@ -5857,130 +5834,6 @@ async def commande_admin(message, texte: str) -> bool:
                                    "revois les fiches de formation, entraîne-toi — beaucoup de nos validés ont réussi "
                                    "au 2e essai 💪")
         await message.reply(f"📋 {membre.mention} → refusé, re-test possible le {retest[:10]}.")
-        return True
-
-    # ---- Inputs clippers : !comptes (cartographie) et !inputs (scrape à la demande) ----
-    if texte.split()[0].lower() in ("!comptes", "!inputs", "!primes") and not inputs_clippers.ACTIF:
-        await message.reply("⏹️ Inputs clippers éteints depuis le 27/09 (ancien système : cadence, primes, acomptes). "
-                            "Les états et followers viennent du classeur (`!etats-comptes`), la paie du clic (`!paie-clics`). "
-                            "`INPUTS_CLIPPERS=1` dans Railway pour rallumer.")
-        return True
-    if texte.startswith("!comptes"):
-        if message.guild is None:
-            await message.reply("À lancer depuis un salon du serveur.")
-            return True
-        carte = await inputs_clippers.cartographier_depuis_sheet(message.guild)
-        source = "📗 Google Sheet"
-        if not carte:
-            carte, source = inputs_clippers.cartographier_comptes(message.guild), "💬 topics Discord"
-        if not carte:
-            await message.reply("Aucun compte détecté. Soit tu configures `SHEET_CSV_URL` (onglet "
-                                "« Tracking » publié en CSV — voir README), soit le bot lit les "
-                                "**descriptions des salons** : il faut au moins un `@pseudo` dedans.")
-            return True
-        sans_salon = [n for n, f in carte.items() if not f.get("canal_id")]
-        lignes = [f"🗺️ **Cartographie des comptes** ({source}) — {len(carte)} clipper(s), "
-                  f"{sum(len(f['comptes']) for f in carte.values())} compte(s) suivi(s)"]
-        for prenom, fiche in sorted(carte.items()):
-            lignes.append(f"· **{prenom}** ({fiche['creatrice']}) : "
-                          + ", ".join("@" + c for c in fiche["comptes"]))
-        if sans_salon:
-            lignes.append(f"⚠️ **Sans salon privé trouvé** (pas de bilan quotidien envoyé) : "
-                          f"{', '.join(sans_salon[:8])} — le salon doit porter le prénom exact du gérant.")
-        lignes.append("-# Source Sheet : colonnes `@`, `Gérant`, `État` (BAN ignoré). "
-                      "Sinon : `@pseudo` dans la description du salon.")
-        await message.reply("\n".join(lignes)[:1990])
-        return True
-
-    if texte.startswith("!inputs"):
-        if message.guild is None:
-            await message.reply("À lancer depuis un salon du serveur.")
-            return True
-        mode = normaliser(texte[len("!inputs"):].strip())
-        if not mode:
-            # `!inputs` nu = LECTURE du dernier bilan (le cycle complet re-postait les bilans aux
-            # clippers et réécrivait l'historique — audit 10/09). Relancer : `!inputs maintenant`.
-            historique_i = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
-            await envoyer_long(message, inputs_clippers.message_lecture(historique_i).replace("*", "**").split("\n"))
-            return True
-        if not inputs_clippers.APIFY_TOKEN:
-            await message.reply("⚠️ `APIFY_TOKEN` absent des variables d'environnement — le suivi des "
-                                "inputs est éteint. Ajoute-le sur Railway et redéploie.")
-            return True
-        test = "test" in mode
-        detail = "detail" in mode
-        lancer = any(m in mode for m in ("maintenant", "lancer", "relancer", "go"))
-        if not (test or detail or lancer):
-            await message.reply("Format : `!inputs` (dernier bilan) · `!inputs maintenant` (cycle complet : bilans aux "
-                                "clippers + rapport) · `!inputs test` (sans rien envoyer) · `!inputs detail`.")
-            return True
-        await message.reply("⏳ Scraping en cours (~1 min)…"
-                            + (" *mode test : rien ne sera envoyé aux clippers.*" if test else ""))
-        bilan, erreur_i = await inputs_clippers.executer(client, message.guild, await canal_admin(),
-                                                        silencieux=test or detail, debuts=debuts_clippers(),
-                                                        notifier=notifier_manager)
-        if erreur_i:
-            await message.reply(f"❌ Cycle non abouti : {erreur_i}")
-        elif lancer:
-            await message.reply(f"✅ Cycle terminé : {len(bilan)} clipper(s) évalué(s), bilans envoyés, rapport posté.")
-        elif detail:
-            # La version longue à la demande — le rapport quotidien reste court (02/09).
-            await message.reply(inputs_clippers.message_recap_detail(
-                bilan, datetime.now(timezone.utc).strftime("%d/%m")).replace("*", "**")[:1990])
-        elif test:
-            comptes_t = await inputs_clippers.compter_comptes_creatrices()
-            await message.reply(inputs_clippers.message_recap(
-                bilan, datetime.now(timezone.utc).strftime("%d/%m"),
-                comptes=comptes_t).replace("*", "**")[:1990])
-            # (mode test : pas de comparaison à la veille, l'historique n'est pas écrit)
-        return True
-
-    # ---- !primes [AAAA-MM] : la paie variable du mois (prime discipline, actifs, bonus équipe) ----
-    if texte.startswith("!primes"):
-        arg_p = texte[len("!primes"):].strip()
-        if arg_p.lower().startswith("acompte"):                  # la paie du 16 (décision du 14/09)
-            reste = arg_p[len("acompte"):].strip()
-            mois_a = reste[:7] if re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", reste[:7] or "") else heure_paris().strftime("%Y-%m")
-            historique_a = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
-            await envoyer_long(message, inputs_clippers.message_acompte(historique_a, mois_a, debuts_clippers())
-                               .replace("*", "**").split("\n"))
-            return True
-        mois = arg_p[:7] if arg_p else heure_paris().strftime("%Y-%m")
-        if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", mois):
-            await message.reply("Format : `!primes` (mois en cours) ou `!primes 2026-08` (AAAA-MM).")
-            return True
-        historique = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
-        subs_p = lire_json(FICHIER_SUBS, {}).get(mois, {})
-        await envoyer_long(message, inputs_clippers.message_primes(
-            historique, mois, subs=subs_p, debuts=debuts_clippers()).replace("*", "**").split("\n"))
-        return True
-
-    # ---- !subs : abonnés OF du mois par clipper (saisie manuelle depuis les stats OF) ----
-    if texte.startswith("!subs"):
-        mots_s = texte[len("!subs"):].split()
-        mois_s = next((m for m in mots_s if re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", m)), heure_paris().strftime("%Y-%m"))
-        reste = [m for m in mots_s if m != mois_s]
-        registre_s = lire_json(FICHIER_SUBS, {})
-        if len(reste) >= 2 and re.fullmatch(r"-?\d+", reste[-1]):
-            # `!subs @clipper 37` (mention) ou `!subs Prénom 37` : on stocke sous le prénom du salon/Sheet.
-            nom_s = (message.mentions[0].display_name if message.mentions else " ".join(reste[:-1])).strip().title()
-            registre_s.setdefault(mois_s, {})[nom_s] = max(0, int(reste[-1]))
-            ecrire_json(FICHIER_SUBS, registre_s)
-            await message.reply(f"✅ {nom_s} — **{registre_s[mois_s][nom_s]} abonné(s)** enregistré(s) pour {mois_s}. "
-                                f"`!primes {mois_s}` pour la paie.")
-            return True
-        if reste:
-            await message.reply("Format : `!subs Prénom 37` (mois en cours) · `!subs Prénom 37 2026-08` · `!subs` ou "
-                                "`!subs 2026-08` pour le tableau. Le prénom = celui du salon/Sheet.")
-            return True
-        tableau = registre_s.get(mois_s, {})
-        if not tableau:
-            await message.reply(f"Aucun abonné saisi pour {mois_s}. `!subs Prénom 37` pour enregistrer (depuis les stats OF "
-                                "des liens de tracking).")
-            return True
-        lignes_s = [f"📈 **Abonnés OF — {mois_s}** (total {sum(tableau.values())})"]
-        lignes_s += [f"· {n} — {v}" for n, v in sorted(tableau.items(), key=lambda kv: -kv[1])]
-        await envoyer_long(message, lignes_s)
         return True
 
     # ---- !relance @x : pousser un candidat d'un cran, d'après son état réel ----
@@ -6519,18 +6372,6 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, (await creatrices.bloc_ltv(jours_l)).replace("*", "**").split("\n"))
         return True
 
-    # ---- !hebdo : le rapport de la semaine (celui du lundi), à la demande ----
-    if texte.startswith("!hebdo"):
-        historique_h = lire_json(FICHIER_INPUTS, {"historique": {}}).get("historique", {})
-        subs_h = lire_json(FICHIER_SUBS, {}).get(heure_paris().strftime("%Y-%m"), {})
-        comptes_h = await inputs_clippers.compter_comptes_creatrices()
-        hebdo_txt = inputs_clippers.message_hebdo(historique_h, subs_h, comptes_h)
-        bloc_l = await creatrices.bloc_ltv(30)
-        if bloc_l:
-            hebdo_txt += "\n\n" + bloc_l
-        await envoyer_long(message, hebdo_txt.replace("*", "**").split("\n"))
-        return True
-
     # ---- !archiver #salon… : range des salons dans la catégorie « Archives » (masquée), réversible ----
     # Simplification du 14/09 (« même moi je comprends rien ») : on ne supprime rien, on range.
     if texte.startswith("!archiver"):
@@ -6959,7 +6800,7 @@ async def on_ready():
                                 "etats_classeur": _etats_classeur, "normaliser": normaliser})
         client.loop.create_task(attribution.rattraper(client))                  # signés sans créatrice : un par un (27/09)
         tableau_bord.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "tableau_bord.json",
-                                 "FICHIER_PIPELINE": FICHIER_PIPELINE, "inputs_lire": lambda: inputs_clippers._lire({"historique": {}}),
+                                 "FICHIER_PIPELINE": FICHIER_PIPELINE,
                                  "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,   # 27/09 : premier Reel depuis Apify du classeur
                                  "JOURNAL_PAIEMENTS": JOURNAL_PAIEMENTS, "paie_lire": paie_clics._lire,
                                  "lire_candidatures": lire_candidatures_sheets, "heure_paris": heure_paris,
@@ -7040,9 +6881,7 @@ async def on_ready():
         client.loop.create_task(sortie_auto.boucle(client))                     # 14 jours sans Reel → sorti, comptes et lien au suivant (28/09)
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
-                          "prenom_salon": prenom_du_salon,                          # 26/09 : « Bonjour Maxence » chez Daniella
-                          "inputs_actifs": lambda: inputs_clippers.ACTIF and bool(inputs_clippers.APIFY_TOKEN)})
-        inputs_clippers.DEPOSER = matin.deposer
+                          "prenom_salon": prenom_du_salon})                         # 26/09 : « Bonjour Maxence » chez Daniella
         parcours._deps["deposer"] = matin.deposer
         client.loop.create_task(matin.boucle(client))                           # un seul message du matin par clipper (26/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
@@ -7083,14 +6922,6 @@ async def on_ready():
             "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves}))
         parrainage.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "parrainage.json",
                                "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
-        if inputs_clippers.ACTIF:
-            client.loop.create_task(inputs_clippers.boucle_inputs(   # inerte tant qu'APIFY_TOKEN est absent
-                client, canal_admin, FICHIER_RAPPELS, lire_json, ecrire_json,
-                debuts_fn=debuts_clippers, notifier=notifier_manager,
-                canal_rapport_async=canal_manager,                   # le quotidien va au manager (14/09)
-                subs_fn=lambda: lire_json(FICHIER_SUBS, {}).get(heure_paris().strftime("%Y-%m"), {})))
-        else:
-            journal.info("Inputs clippers éteints (ancien système, décision du 27/09) — INPUTS_CLIPPERS=1 pour rallumer")
 
 
 async def annoncer_demarrage():
@@ -7112,8 +6943,6 @@ async def annoncer_demarrage():
     # 27/09 (Gaëtan : « supprime, ça sert à rien ») : une ligne. Seul ce qui DEVRAIT tourner et ne tourne pas est dit ;
     # les modules éteints par décision (bump, DocuSeal) et les variables optionnelles ne sont plus listés.
     eteintes = []
-    if inputs_clippers.ACTIF and not inputs_clippers.APIFY_TOKEN:
-        eteintes.append("suivi des inputs (APIFY_TOKEN)")
     if not codes_2fa.actif():
         eteintes.append("relais des codes (CODES_IMAP_*)")
     if not web_candidature.actif():

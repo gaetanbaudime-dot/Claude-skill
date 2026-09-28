@@ -5,7 +5,7 @@ demande. La seule décision de recrutement se lit sur « validés → premier Re
 
 Sources : classeur des candidatures (candidats), pipeline.json (validation), etats_comptes.json (27/09 : le premier jour où les
 comptes d'un clipper portent au moins une publication, puis 7 jours dont 5 à 2 publications ou plus, comptées par le scan Apify
-quotidien du classeur ; l'ancien inputs_clippers.json est encore lu s'il existe), paiements.jsonl (`!paiement`) et clics.json
+quotidien du classeur ; le module inputs_clippers a été retiré le 29/09), paiements.jsonl (`!paiement`) et clics.json
 « paies » (listes `!paie-clics`) pour le premier paiement."""
 
 import asyncio
