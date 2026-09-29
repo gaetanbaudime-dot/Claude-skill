@@ -174,9 +174,8 @@ def _champ(q: dict, valeur: str = "") -> str:
     aide = f"<div class='aide'>{html.escape(q['aide'])}</div>" if q.get("aide") else ""
     if t == "checkbox":
         # 29/09 : une règle par ligne, puis la case
-        # 30/09 (Gaëtan : « des points et saute des lignes ») : une phrase par ligne dans chaque règle
-        regles = ("<ol class='regles'>" + "".join(f"<li>{re.sub(r'[.] (?=[A-ZÀ-ÝÉ0-9])', '.<br>', html.escape(r))}</li>"
-                                                  for r in _regles(q["aide"])) + "</ol>") if q.get("aide") else ""
+        # 30/09 (Gaëtan) : une règle par ligne, ses phrases à la suite (pas de retour à la ligne dans une règle)
+        regles = ("<ol class='regles'>" + "".join(f"<li>{html.escape(r)}</li>" for r in _regles(q["aide"])) + "</ol>") if q.get("aide") else ""
         return regles + h
     return f"<label>{html.escape(q['label'])}</label>{aide}{h}"
 
