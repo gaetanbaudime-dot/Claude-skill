@@ -556,9 +556,9 @@ async def get_formation(request):
              + (f"<a class='b' href='{html.escape(_deps.get('LIEN_VIDEO_FORMATION', ''))}' target='_blank' rel='noopener'>"
                 "▶️ Voir la formation</a>" if _deps.get("LIEN_VIDEO_FORMATION") else "")
              + f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>📝 Passer le quiz</a>"
-             "<p class='aide2'>Pas le temps maintenant ? Garde cette page : le lien reste valable. Tu peux aussi "
-             f"<a href='{html.escape(_url_discord(cand_id))}'>rejoindre le Discord tout de suite</a> : ton salon garde la "
-             "formation et le quiz.</p>" + _secours())
+             # 30/09 (Gaëtan : « mets juste : pas le temps maintenant ? rejoins le Discord et passe le quiz plus tard »)
+             f"<p class='aide2'>Pas le temps maintenant ? <a href='{html.escape(_url_discord(cand_id))}'>Rejoins le Discord</a> "
+             "et passe le quiz plus tard.</p>")
     return _page("La formation", corps)
 
 
