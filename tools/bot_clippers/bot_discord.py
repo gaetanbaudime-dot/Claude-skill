@@ -6106,6 +6106,7 @@ async def on_ready():
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
         client.loop.create_task(boucle_posts_formation())  # liens des fiches + index des salons (fini « #inconnu »)
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
+        client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # 29/09 : le salon commun « code Instagram », pour tout le monde
         client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
@@ -6893,8 +6894,8 @@ async def on_message(message):
     # 27/09 : « recup » / « récup » seul = `!recup`, le code de récupération (mot de passe oublié, appel après un ban).
     if message.guild is not None and re.fullmatch(r"!?\s*(codes?|r[ée]cup(?:[ée]ration)?)\s*[!?.]*", texte.strip(), re.I):
         sp_code = salon_perso_de(message.author.id)
-        if sp_code is not None and sp_code.id == message.channel.id:
-            texte = "!code" if re.match(r"!?\s*code", texte.strip(), re.I) else "!recup"
+        if (sp_code is not None and sp_code.id == message.channel.id) or str(message.channel.id) == codes_2fa.salon_codes_id():
+            texte = "!code" if re.match(r"!?\s*code", texte.strip(), re.I) else "!recup"       # 29/09 : aussi dans le salon commun
             message.content = texte
     # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin,
     # et des codes de récupération (`!recup`) pour retrouver un compte ou faire appel (27/09)

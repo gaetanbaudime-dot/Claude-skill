@@ -57,6 +57,20 @@ EXPEDITEURS = tuple(e.strip().lower() for e in os.environ.get(
     "CODES_EXPEDITEURS", "instagram.com,facebookmail.com,facebook.com,meta.com").split(",") if e.strip())
 
 FICHIER_ALIAS = None            # injecté par bot_discord.py (volume persistant)
+# 29/09 (Gaëtan) : « un salon "code Instagram" pour tout le monde, les anciens de Jonas aussi : le clipper tape !code et ça sort
+# le code 2FA des dernières minutes, sans e-mail ni mot de passe ». Un salon commun, ouvert à tous, `!code` y répond à tout le
+# monde avec les codes des CODES_SALON_MINUTES dernières minutes, adresse masquée (3 premières lettres, 2 dernières).
+SALON_CODES_NOM = os.environ.get("CANAL_CODES_NOM", "🔐-code-instagram").strip() or "🔐-code-instagram"
+SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)
+SALON_RECUP_MINUTES = int(os.environ.get("CODES_SALON_RECUP_MINUTES", "30") or 30)
+DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()
+EXPLICATION_SALON = ("🔐 **Codes Instagram et Facebook, pour tout le monde.**\n\n"
+                     "Tu crées un compte, tu te connectes, tu fais appel ? Instagram envoie un code sur l'e-mail du compte. "
+                     "Écris `!code` ici : je te donne les codes reçus dans les {minutes} dernières minutes, avec l'adresse masquée "
+                     "(jamais l'e-mail complet, jamais le mot de passe).\n\n"
+                     "Plusieurs codes en même temps ? Repère le tien à l'adresse masquée : les 3 premières lettres et les 2 dernières "
+                     "de ton e-mail. Rien ? Appuie sur « Renvoyer le code » dans Instagram, puis retape `!code`.\n\n"
+                     "`!recup` : le code de récupération (mot de passe oublié, appel après un ban), {recup} dernières minutes.")
 
 # Sous-chaînes cherchées côté serveur dans l'en-tête From (IMAP FROM) : courtes pour attraper les expéditeurs
 # réécrits par iCloud, sans « meta » seul qui ramènerait Metricool.
@@ -77,6 +91,71 @@ COMMANDES_RECUP = ("!recup", "!récup", "!recuperation", "!récupération", "!ap
 
 def actif() -> bool:
     return bool(IMAP_USER and IMAP_PASSWORD)
+
+
+def _masquer(alias: str) -> str:
+    """« orbite_machin.8i@icloud.com » → « orb…8i@icloud.com » : reconnaissable par son propriétaire, illisible pour les autres."""
+    if not alias or "@" not in alias:
+        return "adresse inconnue"
+    local, domaine = alias.split("@", 1)
+    return f"{local[:3]}…{local[-2:]}@{domaine}" if len(local) > 5 else f"{local[:1]}…@{domaine}"
+
+
+def salon_codes_id() -> str:
+    """L'id du salon commun des codes, retenu dans le registre des alias (clé `_salon_codes`)."""
+    try:
+        return str((_lire().get("_salon_codes") or {}).get("id") or "")
+    except Exception:                                                   # noqa: BLE001
+        return ""
+
+
+def ligne_code_masquee(t: dict) -> str:
+    """La ligne du salon commun : le code, l'adresse masquée, le pseudo si le mail le donne, l'âge — jamais l'e-mail entier."""
+    compte = f" · compte `@{t['compte']}`" if t.get("compte") else ""
+    age = t.get("age_min")
+    quand = "" if age is None else (" · à l'instant" if age < 1 else f" · reçu il y a {age} min")
+    genre = "Code de récupération" if t.get("type") == TYPE_RECUP else "Code"
+    return (f"🔐 **{genre} {t.get('plateforme', 'Instagram')}** · adresse `{_masquer(t.get('alias', ''))}`{compte}{quand} :"
+            f"\n```\n{t['code']}\n```")
+
+
+async def assurer_salon_codes(client):
+    """Au démarrage : le salon commun existe (créé sinon, ouvert à tout le monde), son id est retenu, son mode d'emploi épinglé."""
+    await client.wait_until_ready()
+    if not actif():
+        return
+    registre = _lire()
+    info = registre.get("_salon_codes") or {}
+    for guild in client.guilds:
+        salon = client.get_channel(int(info["id"])) if info.get("id") else None
+        if salon is None:
+            cible = _cle(SALON_CODES_NOM)
+            salon = next((c for c in guild.text_channels if _cle(c.name) == cible), None)
+        if salon is None:
+            try:
+                overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+                              guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_messages=True)}
+                salon = await guild.create_text_channel(SALON_CODES_NOM, overwrites=overwrites,
+                                                        topic="Écris !code : le bot te donne ton code Instagram/Facebook (10 dernières minutes, adresse masquée).",
+                                                        reason="Salon commun des codes 2FA (29/09)")
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Salon des codes : création refusée (%s)", erreur)
+                return
+        if not info.get("explique") or str(info.get("id")) != str(salon.id):
+            try:
+                m = await salon.send(EXPLICATION_SALON.format(minutes=SALON_CODES_MINUTES, recup=SALON_RECUP_MINUTES))
+                try:
+                    await m.pin()
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        registre = _lire()
+        registre["_salon_codes"] = {"id": str(salon.id), "guild": str(guild.id), "explique": True,
+                                    "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        _ecrire(registre)
+        journal.info("Salon des codes : #%s prêt", salon.name)
+        return
 
 
 def _cle(texte: str) -> str:
@@ -149,14 +228,30 @@ def extraire(msg) -> dict:
             "type": genre, "compte": compte}
 
 
-def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
+def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30, dossiers=None) -> list:
     """Bloquant (à appeler via to_thread) : les codes des mails Meta récents. Un mail n'est PLUS
     marqué lu ici : c'est le relais réussi qui le marque (_marquer_lus), sinon un code lu puis
-    jamais posté (Discord en panne) était perdu — audit 10/09."""
+    jamais posté (Discord en panne) était perdu — audit 10/09. `dossiers` (29/09) : le salon commun lit aussi le
+    Spam ; hors du dossier principal, `num` vaut None (jamais marqué lu là-bas)."""
     resultats = []
     with imaplib.IMAP4_SSL(IMAP_HOST, timeout=IMAP_TIMEOUT) as boite:
         boite.login(IMAP_USER, IMAP_PASSWORD)
-        boite.select(IMAP_DOSSIER)
+        for dossier in (dossiers or [IMAP_DOSSIER]):
+            resultats += _lire_dossier(boite, dossier, uniquement_non_lus, alias, minutes)
+    return resultats
+
+
+def _lire_dossier(boite, dossier, uniquement_non_lus, alias, minutes) -> list:
+    resultats = []
+    principal = dossier == IMAP_DOSSIER
+    try:
+        ok, _ = boite.select(dossier, readonly=not principal)
+    except imaplib.IMAP4.error:
+        ok = "NO"
+    if ok != "OK":
+        journal.warning("Relais 2FA : dossier %s illisible", dossier)
+        return []
+    if True:
         # SINCE = la veille : à 00 h 05 UTC, « aujourd'hui » excluait un code reçu deux minutes avant.
         depuis = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%d-%b-%Y")
         base = f'UNSEEN SINCE {depuis}' if uniquement_non_lus else f'SINCE {depuis}'
@@ -188,7 +283,7 @@ def _lire_boite(uniquement_non_lus=True, alias=None, minutes=30) -> list:
                 continue
             if alias and info["alias"] != alias.lower():
                 continue
-            info["num"] = num
+            info["num"] = num if principal else None
             info["age_min"] = max(0, int(age))
             resultats.append(info)
     return resultats
@@ -202,7 +297,8 @@ def _marquer_lus(nums: list):
         boite.login(IMAP_USER, IMAP_PASSWORD)
         boite.select(IMAP_DOSSIER)
         for num in nums:
-            boite.store(num, "+FLAGS", "\\Seen")
+            if num:                                                     # 29/09 : un mail lu dans le Spam (salon commun) n'a pas de num ici
+                boite.store(num, "+FLAGS", "\\Seen")
 
 
 def rattacher(aliases, canal_id: str, par: str) -> int:
@@ -270,6 +366,8 @@ async def commande(message, admin_ids) -> bool:
     if recup:
         mots[0] = "!code"
     canal_id = str(message.channel.id) if message.guild is not None else ""
+    if canal_id and canal_id == salon_codes_id() and mots[0].lower() == "!code" and not (len(mots) >= 2 and "@" in mots[1]):
+        return await _commande_salon_commun(message, recup)              # 29/09 : le salon commun, ouvert à tout le monde
     miens = [a for a, v in registre.items() if canal_id and v.get("canal_id") == canal_id]
     manager = message.guild is not None and _est_manager(message.author, admin_ids)
     # 25/09 : dans son salon perso, le clipper tape `!code` tout court et reçoit le dernier code de SES adresses
@@ -388,6 +486,65 @@ async def commande(message, admin_ids) -> bool:
     return True
 
 
+async def _commande_salon_commun(message, recup: bool) -> bool:
+    """`!code` / `!recup` dans le salon commun : les codes de tout le monde reçus dans les dernières minutes (boîte de
+    réception et Spam), adresse masquée, le plus récent par adresse. Rien n'est marqué lu : le relais des salons persos
+    continue de faire son travail."""
+    if not actif():
+        await message.reply("Relais des codes éteint : `CODES_IMAP_USER` / `CODES_IMAP_PASSWORD` absents.")
+        return True
+    fenetre = SALON_RECUP_MINUTES if recup else SALON_CODES_MINUTES
+    dossiers = [IMAP_DOSSIER] + ([DOSSIER_SPAM] if DOSSIER_SPAM and DOSSIER_SPAM != IMAP_DOSSIER else [])
+
+    def _filtrer(trouves):
+        return [t for t in trouves if t["code"] and (not recup or t.get("type") == TYPE_RECUP)]
+
+    async def _lire():
+        return _filtrer(await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, fenetre, dossiers), timeout=IMAP_TIMEOUT * 3))
+
+    try:
+        codes = await _lire()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("IMAP (salon commun) : %s", erreur)
+        await message.reply("⚠️ Je n'arrive pas à lire la boîte mail. Réessaie dans 2 minutes.")
+        return True
+    attente = None
+    if not codes and ATTENTE_SEC > 0:
+        attente = await message.reply("⏳ Pas encore reçu. J'attends une minute…")
+        debut = time.monotonic()
+        while time.monotonic() - debut < ATTENTE_SEC:
+            await asyncio.sleep(ATTENTE_PAS)
+            try:
+                codes = await _lire()
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("IMAP (salon commun, attente) : %s", erreur)
+                codes = []
+            if codes:
+                break
+
+    async def _dire(texte):
+        if attente is not None:
+            try:
+                await attente.edit(content=texte)
+                return
+            except Exception:                                           # noqa: BLE001
+                pass
+        await message.reply(texte)
+
+    if not codes:
+        await _dire(f"Pas de code reçu depuis {fenetre} min. Sur Instagram, appuie sur « Renvoyer le code », puis retape "
+                    f"`{'!recup' if recup else '!code'}`.")
+        return True
+    derniers = {}
+    for t in sorted(codes, key=lambda x: x.get("age_min", 0), reverse=True):
+        derniers[(t["alias"], t.get("type", TYPE_CONNEXION))] = t          # le plus récent par adresse et par type
+    lignes = [ligne_code_masquee(t) for t in sorted(derniers.values(), key=lambda x: x.get("age_min", 0))[:5]]
+    if len(lignes) > 1:
+        lignes.insert(0, f"{len(lignes)} codes sont tombés en même temps : repère le tien à l'adresse masquée.")
+    await _dire(f"{message.author.mention}\n" + "\n".join(lignes))
+    return True
+
+
 async def boucle_codes(client, canal_admin_async, admin_ids):
     """Toutes les INTERVALLE secondes : les codes non lus partent dans le salon du manager
     propriétaire de l'alias ; alias inconnu → salon admin (rien ne se perd)."""
@@ -424,11 +581,16 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                     relayes.append(t["num"])
                     continue
                 cible = registre.get(t["alias"], {}).get("canal_id")
-                salon = client.get_channel(int(cible)) if cible else await canal_admin_async()
+                commun = (registre.get("_salon_codes") or {}).get("id")
+                salon = client.get_channel(int(cible)) if cible else (client.get_channel(int(commun)) if commun else None)
+                if salon is None and not cible:
+                    salon = await canal_admin_async()
                 if salon is None:
                     continue
                 texte = ligne_code(t)
-                if not cible:
+                if not cible and commun and str(getattr(salon, "id", "")) == str(commun):
+                    texte = ligne_code_masquee(t)                       # 29/09 : alias inconnu → le salon commun, adresse masquée
+                elif not cible:
                     texte += "\n-# Alias non rattaché — un manager peut se l'attribuer : `!alias ajouter <alias>`."
                 try:
                     await salon.send(texte)
