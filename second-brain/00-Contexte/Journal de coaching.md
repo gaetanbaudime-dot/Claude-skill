@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-29 (matin, 2) — Le bot apprenait des contresens ; les rôles Grille fantômes ; les lacunes de l'ancien parcours
+- **Ce que Gaëtan a collé** : la conversation de bot-gaetan du 28 au 29. Trois choses à corriger sans qu'il le demande.
+- **La rétrospective du soir** avait appris huit consignes, dont « attendre la réponse du humain avant de continuer le parcours » et « jamais vidéo + quiz dans le même message », injectées dans le prompt de l'assistant : le contraire de ce qu'on a décidé le 28/09. Un bot qui s'améliore tout seul s'abîme aussi tout seul. Décision : les consignes apprises ne s'appliquent plus, elles sont proposées dans le digest et le staff garde celles qu'il veut à la main ; les leçons de FAQ restent automatiques. L'ancien fichier de consignes est ignoré dès ce déploiement.
+- **« Grille non attribuée »** à chaque arrivée : des rôles imaginés le 10/08, jamais créés, sans objet depuis que la rémunération est publique. Retirés partout.
+- **Les 27 lacunes** viennent de l'ancien parcours (score du quiz par e-mail, contrat, rush, manager humain). Trois réponses ajoutées à la base pour ce qui reste vrai ; le reste est à vider (`!lacunes vider`).
+- **Prédiction (29/09, revue le 06/10)** : plus aucun message « Grille » dans bot-gaetan (100 %) ; la rétrospective propose au moins une consigne par semaine que Gaëtan ne garde pas (80 %), preuve que le filtre humain était nécessaire.
+
 ### 2026-09-29 (matin) — Le formulaire respire, et le passage vers Discord perd du monde
 - **Demande de Gaëtan** : les 5 règles du formulaire avec des retours à la ligne et de l'espace ; vérifier que la transition vers Discord marche, deux personnes n'ont pas réussi à rejoindre.
 - **Constat dans les journaux** : sur les 10 derniers candidats arrivés sur la page « Rejoindre le Discord » (17 h), 2 seulement sont revenus par l'autorisation Discord ; un lien est arrivé avec sa signature abîmée (navigateur Samsung) et a fini sur « Lien invalide ». Le reste s'est perdu entre notre bouton et l'écran d'autorisation de Discord : connexion, création de compte, appli qui s'ouvre. Aucune erreur côté serveur.

@@ -316,6 +316,12 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Quiz raté ?** Le bot te l'écrit avec ton score. Revois la vidéo, note les 5 mots-clés dans l'ordre, il te reste un essai. Deux échecs = candidature close.
 
+**On est payé chaque semaine ou chaque mois ?** Deux fois par mois, le 5 et le 20. 0,05 $ par visite réelle et francophone sur ton lien, en USDC ou par virement, pas de fixe. Ta paie en cours s'affiche chaque matin dans ton salon perso, et `!mesclics` la redonne.
+
+**Qui est mon manager ?** Dans ton salon perso, c'est moi, le bot : tes comptes, ton lien, tes vidéos, tes étapes, tes questions. Un humain, Gaëtan, intervient seulement quand ça bloque vraiment : compte banni, numéro, paiement. Le bouton WhatsApp de ton salon est là pour ça.
+
+**Pourquoi je n'ai pas été retenu ?** Après ton test de montage, le bot t'a répondu dans ton salon avec une note sur 10 et ce qui manquait. C'est cette réponse qui explique la décision. Tu ne la retrouves pas ? Dis-le ici, je te la redonne.
+
 **Où je vois mon score du quiz ?** À l'écran, juste après l'envoi du formulaire, et dans l'e-mail que tu reçois ensuite (test ou deuxième essai). Fermé sans le noter ? Regarde tes e-mails.
 
 **J'ai accepté mais pas de créatrice ?** Ton salon perso s'ouvre dès ton J'ACCEPTE. Ta créatrice, tes comptes, ton lien et ton Drive arrivent dedans quand ton manager tape `!creatrice`, sous 48 h. Rien après 48 h ? Écris dans ton salon perso en mentionnant ton manager.

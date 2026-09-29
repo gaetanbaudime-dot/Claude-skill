@@ -116,8 +116,6 @@ ROLES_EQUIPE_ACCEPTES = (ROLE_EQUIPE_UNIQUE, "Clippeur", "Rookie")
 # (grille déduite de l'indicatif, jamais si pays/indicatif se contredisent). Ils n'ouvrent QUE
 # les salons rémunération/bonus de la grille — le quiz pose des questions sur la paie, le
 # candidat doit pouvoir la lire. Les discussions restent derrière les rôles Team (signés/actifs).
-ROLE_GRILLE_FR_NOM = os.environ.get("ROLE_GRILLE_FR_NOM", "Grille France").strip()
-ROLE_GRILLE_INT_NOM = os.environ.get("ROLE_GRILLE_INT_NOM", "Grille International").strip()
 # Recrutement international : mis en PAUSE le 15/08/2026 (0 conversion sur ~130 candidatures
 # internationales), ROUVERT le 08/09/2026 (pôle malgache lancé, Indeed banni côté FR).
 # Pause levée par défaut ; poser PAUSE_INT=1 dans Railway pour re-suspendre (le quiz d'un
@@ -2561,37 +2559,6 @@ async def enregistrer_candidatures(quadruplets):
     return nb, grilles, incoherences, rejets, rapproches
 
 
-async def attribuer_grille(membre, pays, tel=""):
-    """Attribue le rôle de grille (Grille France / International) → ce rôle DOIT ouvrir les salons
-    rémunération + bonus (permissions Discord du salon, côté serveur). Grille = INDICATIF d'abord
-    (suffit seul, même sans candidature retrouvée), pays en repli, RIEN si les deux se contredisent.
-    Idempotent. Retourne (libellé, erreur) : ('', None) = rien à faire (pas une erreur) ;
-    ('', message) = rôle introuvable/non attribuable → à remonter en admin (plus d'échec silencieux)."""
-    if membre is None:
-        return "", None
-    grille_tel = equipe_de_l_indicatif(tel) if indicatif_certain(tel) else ""
-    if pays and grille_tel and equipe_du_pays(pays) != grille_tel:
-        return "", None                             # pays ≠ indicatif : on ne devine pas
-    code = grille_tel or (equipe_du_pays(pays) if pays else "")
-    if code not in ("fr", "mg"):
-        return "", None                             # aucun signal FR/INT exploitable
-    nom_role = ROLE_GRILLE_FR_NOM if code == "fr" else ROLE_GRILLE_INT_NOM
-    role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name), membre.guild.roles)
-    if role is None:
-        return "", (f"rôle de grille « {nom_role} » introuvable — vérifie que "
-                    f"ROLE_GRILLE_{'FR' if code == 'fr' else 'INT'}_NOM = le nom EXACT du rôle serveur.")
-    libelle = "🇫🇷 France" if code == "fr" else "🌍 International"
-    if role in membre.roles:
-        return libelle, None                        # déjà posé (ex. arrivée puis liaison)
-    try:
-        await membre.add_roles(role, reason="Grille (rémunération/bonus) — arrivée/liaison")
-        return libelle, None
-    except discord.Forbidden:
-        return "", f"permission manquante — monte mon rôle AU-DESSUS de « {role.name} »."
-    except discord.HTTPException as erreur:
-        return "", f"Discord: {erreur}"
-
-
 async def traiter_liaison(auteur, brut):
     """Cœur de la liaison (via `!lier` ou un numéro envoyé BRUT en MP, sans commande) :
     retrouve la candidature, renomme le membre, puis envoie l'étape suivante — une seule
@@ -2651,14 +2618,6 @@ async def traiter_liaison(auteur, brut):
             pass
     if membre_serveur is not None:
         await assurer_salon_arrivee(membre_serveur)                    # 27/09 : le reste du parcours se passe dans son salon
-    # Rôle de GRILLE (rémunération/bonus) : l'INDICATIF du numéro suffit — on n'exige plus une
-    # candidature retrouvée. Idempotent avec l'arrivée. Tout échec (rôle mal nommé, permission)
-    # est remonté en admin au lieu d'être silencieux (c'était le bug Jonas).
-    grille_vue, err_grille = await attribuer_grille(membre_serveur, cand.get("pays", ""), tel)
-    if err_grille:
-        canal_adm = await canal_admin()
-        if canal_adm and membre_serveur:
-            await canal_adm.send(f"⚠️ **Grille non attribuée** à {membre_serveur.mention} : {err_grille}")
     # 28/09 (Gaëtan) : s'il est là, il a rempli le formulaire — pas de rappel, pas de numéro, pas de grille ; les étapes en une
     # ligne, la formation, le lien du quiz, et rien d'autre. Des lignes vides entre les blocs, il lit sur téléphone.
     await envoyer_mp(auteur, texte_accueil_liaison(auteur, bool(cand)), view=vue_whatsapp())
@@ -3087,19 +3046,13 @@ async def attribuer_equipe(guild, membre, equipe, par_id):
     if role_fr is None or role_mg is None:
         return None, "rôle d'équipe introuvable (ROLE_TEAM_FR_NOM / ROLE_TEAM_MG_NOM)"
     cible, autre = (role_fr, role_mg) if equipe == "fr" else (role_mg, role_fr)
-    # À la signature, on passe de « Grille » (candidat) à « Team » (membre) : on RETIRE les rôles
-    # de grille pour ne pas empiler (demande du 21/07). La grille n'était qu'un aperçu paie.
-    grilles = [r for r in (
-        discord.utils.find(lambda x: normaliser(ROLE_GRILLE_FR_NOM) in normaliser(x.name), guild.roles),
-        discord.utils.find(lambda x: normaliser(ROLE_GRILLE_INT_NOM) in normaliser(x.name), guild.roles),
-    ) if r is not None and r in membre.roles]
     try:
-        a_retirer_r = ([] if autre == cible else [autre]) + grilles     # rôle unique : rien à retirer côté équipe
+        a_retirer_r = [] if autre == cible else [autre]                  # rôle unique : rien à retirer côté équipe
         if a_retirer_r:
             await membre.remove_roles(*a_retirer_r, reason=f"Signature contrat — passage grille → équipe {equipe}")
         await membre.add_roles(cible, reason=f"Signature contrat — équipe {equipe}")
     except discord.Forbidden:
-        return None, "permission manquante (monte mon rôle AU-DESSUS des rôles d'équipe ET de grille)"
+        return None, "permission manquante (monte mon rôle AU-DESSUS des rôles d'équipe)"
     except discord.HTTPException as erreur:
         return None, f"Discord: {erreur}"
     registre = lire_json(FICHIER_EQUIPES, {})
@@ -3596,14 +3549,7 @@ async def accueillir(member):
         cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
         retrouvee = (f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
                      f"({cand.get('pays') or 'pays ?'}).\n" if cand else "")
-        # Grille (rémunération + bonus) ouverte DÈS L'ARRIVÉE si la candidature est reconnue —
-        # plus besoin d'attendre le numéro pour voir combien on gagne. (Idempotent avec la liaison.)
-        grille_vue, err_grille = await attribuer_grille(member, (cand or {}).get("pays", ""), (cand or {}).get("tel", ""))
-        if err_grille:
-            journal.warning("Grille non attribuée à l'arrivée de %s : %s", member.id, err_grille)
-        motiv = (f"💰 Tes salons **rémunération {grille_vue} et bonus** viennent de s'ouvrir sur le "
-                 "serveur (catégorie de ton équipe) — va voir exactement combien tu peux gagner.\n"
-                 if grille_vue else "")
+        motiv = ""                                                     # 29/09 : plus de rôles de grille, #rémunération est public
         # Une seule étape à la fois : d'abord le numéro, le reste arrive au fil de l'eau.
         guide = (f"🎬 **Bienvenue {member.display_name} — ta candidature est bien arrivée !**\n"
                  + retrouvee + motiv +
@@ -3702,9 +3648,9 @@ def _doctrine_acces():
           "checklist", "bienvenue", "deja paye", "clippers"),
          True, [], "Vitrine + arrivée — tout le monde"),
         (("bonus-fr", "bonusfr"),
-         False, [ROLE_GRILLE_FR_NOM, ROLE_TEAM_FR_NOM], "Bonus FR — aperçu dès l'arrivée (grille) puis signé"),
+         False, [ROLE_TEAM_FR_NOM], "Bonus FR — signés"),
         (("bonus-int", "bonusint"),
-         False, [ROLE_GRILLE_INT_NOM, ROLE_TEAM_MG_NOM], "Bonus INT — aperçu dès l'arrivée (grille) puis signé"),
+         False, [ROLE_TEAM_MG_NOM], "Bonus INT — signés"),
         (("reporting",),
          ferme, [] if ferme else [ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM],
          "Serveur fermé : visible par tous (tous signés)" if ferme else "Réservé aux SIGNÉS (Team France + Team International)"),
@@ -4200,9 +4146,9 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> di
     nom_par = getattr(par, "display_name", "le bot (automatique)")
     par_id = str(getattr(par, "id", "auto"))
     raison = raison.strip(" []").strip() or "non précisée"
-    # 1. Rôles : Team, Grille, rangs.
+    # 1. Rôles : Team, rangs.
     a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
-    for nom_r in (ROLE_GRILLE_FR_NOM, ROLE_GRILLE_INT_NOM, *NOMS_RANGS):
+    for nom_r in NOMS_RANGS:
         r_ = discord.utils.find(lambda x: normaliser(nom_r) in normaliser(x.name), g.roles)
         if r_ is not None and r_ in membre.roles and r_ not in a_retirer:
             a_retirer.append(r_)
@@ -4718,8 +4664,7 @@ async def commande_admin(message, texte: str) -> bool:
         signes = lire_json(FICHIER_EQUIPES, {})
         exempts = [normaliser(x.strip()) for x in
                    os.environ.get("PURGE_INT_EXEMPTS", "rianah").split(",") if x.strip()]
-        noms_sans_poids = ({normaliser(ROLE_GRILLE_FR_NOM), normaliser(ROLE_GRILLE_INT_NOM)}
-                           | {normaliser(x.strip()) for x in ROLE_CLIPPER_NOM.split(",") if x.strip()}
+        noms_sans_poids = ({normaliser(x.strip()) for x in ROLE_CLIPPER_NOM.split(",") if x.strip()}
                            | {normaliser(x) for x in NOMS_RANGS})
         ref = datetime.now(timezone.utc)
         cibles, gardes = [], {}
@@ -4932,9 +4877,7 @@ async def commande_admin(message, texte: str) -> bool:
                       if serveur_ferme() else "🔓 Serveur ouvert aux candidats (`!fermer` pour verrouiller)")
         # Rôles du tunnel : grille (rémunération/bonus à l'arrivée) + team (accès à la signature).
         # Un nom mal orthographié ici = attribution silencieusement ratée (le bug Jonas).
-        roles_tunnel = [(ROLE_GRILLE_FR_NOM, "Grille FR → salons rémunération/bonus FR"),
-                        (ROLE_GRILLE_INT_NOM, "Grille INT → salons rémunération/bonus INT"),
-                        (ROLE_TEAM_FR_NOM, "Team France → accès à la signature"),
+        roles_tunnel = [(ROLE_TEAM_FR_NOM, "Team France → accès à la signature"),
                         (ROLE_TEAM_MG_NOM, "Team International → accès à la signature")]
         for nom_role, role_label in roles_tunnel:
             role = (role_team(g, "fr") if nom_role == ROLE_TEAM_FR_NOM else
@@ -5066,23 +5009,11 @@ async def commande_admin(message, texte: str) -> bool:
         try:
             if equipe is None:
                 await membre.remove_roles(role_fr, role_mg, reason=f"!equipe retirer par {message.author}")
-                # Les rôles de grille (rémunération/bonus) sautent aussi au retrait.
-                for nom_grille in (ROLE_GRILLE_FR_NOM, ROLE_GRILLE_INT_NOM):
-                    role_grille = discord.utils.find(lambda r: normaliser(nom_grille) in normaliser(r.name), g.roles)
-                    if role_grille is not None and role_grille in membre.roles:
-                        try:
-                            await membre.remove_roles(role_grille, reason=f"!equipe retirer par {message.author}")
-                        except (discord.Forbidden, discord.HTTPException):
-                            pass
                 registre.pop(str(membre.id), None)
                 retour = f"🚪 {membre.mention} retiré des deux équipes (et du registre)."
             else:
                 cible, autre = (role_fr, role_mg) if equipe == "fr" else (role_mg, role_fr)
-                grilles_e = [r for r in (
-                    discord.utils.find(lambda x: normaliser(ROLE_GRILLE_FR_NOM) in normaliser(x.name), g.roles),
-                    discord.utils.find(lambda x: normaliser(ROLE_GRILLE_INT_NOM) in normaliser(x.name), g.roles))
-                    if r is not None and r in membre.roles]
-                await membre.remove_roles(autre, *grilles_e, reason=f"!equipe {equipe} par {message.author}")
+                await membre.remove_roles(autre, reason=f"!equipe {equipe} par {message.author}")
                 await membre.add_roles(cible, reason=f"Signature contrat — !equipe {equipe} par {message.author}")
                 fiche_e = registre.get(str(membre.id)) or {}
                 fiche_e.update({"equipe": equipe, "par": str(message.author.id),
@@ -6422,12 +6353,10 @@ async def accueillir_valide(member, code, fiche, invitation):
             await member.edit(nick=fiche["prenom"], reason="Arrivée par invitation validée")
         except (discord.Forbidden, discord.HTTPException):
             pass
-    _grille_vue, err_grille = await attribuer_grille(member, fiche.get("pays", ""), fiche.get("tel", ""))
     retour = await suite_validation(member, member.guild)
     await notifier_manager(
         f"🚪 **{member.mention} est arrivé par son invitation** ({fiche.get('prenom') or '?'}, "
-        f"{fiche.get('pays') or 'pays ?'}, quiz {fiche.get('score') or '?'}).\n" + retour
-        + (f"\n⚠️ Grille non attribuée : {err_grille}" if err_grille else ""), member.guild)
+        f"{fiche.get('pays') or 'pays ?'}, quiz {fiche.get('score') or '?'}).\n" + retour, member.guild)
 
 
 async def raccompagner(member, invitation, code):
@@ -6446,7 +6375,7 @@ async def raccompagner(member, invitation, code):
         await envoyer_mp(member, f"👋 Bienvenue {member.display_name} ! Tu as été invité par l'équipe : "
                                  "ton manager t'écrit pour la suite. Une question ? Réponds-moi ici.")
         await notifier_manager(f"👋 {member.mention} est arrivé via une invitation de <@{inviteur.id}> (staff) — "
-                               "serveur fermé, gardé. S'il doit signer : `!equipe @x fr|int` après contrat.",
+                               "serveur fermé, gardé. S'il doit signer : `!equipe @x fr|int` après son J'ACCEPTE.",
                                member.guild)
         return
     if invitation is None:

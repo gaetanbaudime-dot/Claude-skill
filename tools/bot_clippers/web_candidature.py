@@ -329,6 +329,13 @@ async def get_callback(request):
                                 f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours()) if cand_id
                                else "<h1>Lien invalide</h1><p>Recommence depuis le formulaire.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
     journal.info("OAuth : retour Discord pour la candidature %s", cand_id)
+    # 29/09 : le 27/09, quatre retours en double (même code, à 400 ms d'écart : l'appli Discord et le navigateur ouvrent tous
+    # les deux le lien) ont donné « Invalid code » et une page d'erreur à un candidat pourtant ajouté. Le premier retour gagne,
+    # les suivants revoient sa page pendant 10 minutes.
+    deja = _retours.get(cand_id)
+    if deja and time.time() - deja[0] < 600:
+        return _page_bravo(deja[1])
+    _retours[cand_id] = (time.time(), "")
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
     fiche_web = pipe.get("candidatures_web", {}).get(cand_id)
@@ -373,11 +380,18 @@ async def get_callback(request):
                                "au serveur automatiquement. Réessaie une fois ; si ça bloque encore, on te fait entrer à la main.</p>"
                                f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours())
     journal.info("OAuth : candidature %s reliée au Discord %s (join %s)", cand_id, uid, statut)
+    _retours[cand_id] = (time.time(), guild_id)
+    return _page_bravo(guild_id)
+
+
+_retours: dict = {}                                                         # cand_id → (instant, guild_id) des retours réussis
+
+
+def _page_bravo(guild_id: str):
     lien_app = f"https://discord.com/channels/{guild_id}" if guild_id else "https://discord.com/app"
     return _page("C'est bon", "<h1>C'est bon 🎉</h1><div class='ok'>Tu es sur le serveur et ta candidature est reliée "
-                             "à ton compte Discord.</div><p><b>Ouvre Discord</b> : le bot t'a envoyé un message privé "
-                             "avec la formation et ton lien de quiz. Si tu ne vois rien, active les messages privés "
-                             "dans les paramètres de confidentialité du serveur.</p>"
+                             "à ton compte Discord.</div><p><b>Ouvre Discord</b> : ton salon perso t'attend, avec la "
+                             "formation et ton lien de quiz. Le bot t'y parle.</p>"
                              f"<a class='b' href='{lien_app}'>Ouvrir Discord</a>")
 
 

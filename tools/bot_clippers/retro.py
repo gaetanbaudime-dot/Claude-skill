@@ -50,13 +50,39 @@ def consignes() -> list:
         return []
 
 
+def consignes_actives() -> list:
+    """29/09 : seules les consignes posées par le staff (`!retro consigne …`) entrent dans le prompt. Celles que la rétrospective
+    a apprises toute seule (chaînes ou dicts sans `source`) sont ignorées : le 28/09 elle avait appris « attendre la réponse du
+    humain avant de continuer le parcours » et « jamais vidéo + quiz dans le même message », deux contresens du process."""
+    return [x for x in consignes() if isinstance(x, dict) and x.get("source") == "staff" and x.get("texte")]
+
+
 def consignes_texte() -> str:
     """Le bloc injecté dans le prompt de l'assistant (vide s'il n'y a rien)."""
-    c = consignes()
+    c = consignes_actives()
     if not c:
         return ""
-    return ("\n\n## Leçons apprises des salons persos (rétrospective automatique — secondaires : la doctrine et la base curée "
-            "priment)\n" + "\n".join(f"- {x.get('texte', x) if isinstance(x, dict) else x}" for x in c[-MAX_CONSIGNES:]))
+    return ("\n\n## Consignes du staff (posées à la main — secondaires : la doctrine et la base curée priment)\n"
+            + "\n".join(f"- {x['texte']}" for x in c[-MAX_CONSIGNES:]))
+
+
+def ajouter_consigne(texte: str, par: str = "") -> list:
+    """`!retro consigne …` : une consigne du staff, datée, la seule sorte que l'assistant lit."""
+    actuelles = consignes()
+    actuelles.append({"texte": texte.strip()[:200], "date": datetime.now(timezone.utc).strftime("%d/%m"), "source": "staff", "par": par})
+    _deps["ecrire_json"](_deps["FICHIER_CONSIGNES"], actuelles[-MAX_CONSIGNES * 2:])
+    return consignes_actives()
+
+
+def oublier_consigne(numero: int) -> list:
+    """`!retro oublier n` : retire la n-ième consigne active (1 = la première de la liste)."""
+    actives = consignes_actives()
+    if not 1 <= numero <= len(actives):
+        return actives
+    cible = actives[numero - 1]
+    reste = [x for x in consignes() if x is not cible and x != cible]
+    _deps["ecrire_json"](_deps["FICHIER_CONSIGNES"], reste)
+    return consignes_actives()
 
 
 # ------------------------------------------------------------------ transcription d'un salon
@@ -165,13 +191,8 @@ def appliquer(resultats: list) -> dict:
             c = str(c).strip()
             if c and _propre(c) and len(c) <= 200:
                 nouvelles_consignes.append(c)
-    if nouvelles_consignes:
-        actuelles = consignes()
-        textes = {x.get("texte") if isinstance(x, dict) else x for x in actuelles}
-        for c in nouvelles_consignes:
-            if c not in textes:
-                actuelles.append({"texte": c, "date": jour})
-        _deps["ecrire_json"](_deps["FICHIER_CONSIGNES"], actuelles[-MAX_CONSIGNES:])
+    # 29/09 : les consignes proposées ne sont plus écrites nulle part — elles apparaissent dans le digest, le staff garde
+    # celles qu'il veut avec `!retro consigne …`. Les leçons (questions/réponses) restent apprises toutes seules.
     return {"lecons": ajoutees, "refusees": refusees, "consignes": nouvelles_consignes}
 
 
@@ -208,7 +229,8 @@ async def executer(client) -> str:
     if bilan["lecons"]:
         digest += "\n" + "\n".join(f"· **{q[:90]}** → {r[:160]}" for q, r in bilan["lecons"][:8])
     if bilan["consignes"]:
-        digest += "\n✏️ " + " · ".join(c[:120] for c in bilan["consignes"][:4])
+        digest += ("\n✏️ Propositions de consignes (NON appliquées — `!retro consigne …` pour en garder une) : "
+                   + " · ".join(c[:120] for c in bilan["consignes"][:4]))
     if defauts:
         digest += "\n⚠️ Vu : " + " · ".join(dict.fromkeys(defauts))[:600]
     digest += "\n-# `!faq` pour relire, `!faq retirer N` pour annuler une leçon, `!retro` pour relancer."
@@ -222,6 +244,18 @@ async def commande(message, texte: str) -> bool:
     if not _deps["est_staff"](message.author):
         await message.reply("Réservé aux admins et aux managers.")
         return True
+    mots = texte.split(maxsplit=2)
+    sous = mots[1].lower() if len(mots) > 1 else ""
+    if sous in ("consigne", "consignes", "oublier"):                      # 29/09 : les consignes de l'assistant, à la main
+        if sous == "consigne" and len(mots) > 2 and mots[2].strip():
+            actives = ajouter_consigne(mots[2], getattr(message.author, "display_name", ""))
+            await message.reply("✅ Consigne posée. " + _liste_consignes(actives))
+        elif sous == "oublier" and len(mots) > 2 and mots[2].strip().isdigit():
+            actives = oublier_consigne(int(mots[2].strip()))
+            await message.reply("🗑️ " + _liste_consignes(actives))
+        else:
+            await message.reply(_liste_consignes(consignes_actives()) + "\n`!retro consigne Le texte.` pour en poser une, `!retro oublier n` pour en retirer une.")
+        return True
     await message.reply("🧠 Je relis les salons persos des dernières 24 h… (une à deux minutes)")
     try:
         await message.channel.send((await executer(_deps.get("client")))[:1990])
@@ -229,6 +263,12 @@ async def commande(message, texte: str) -> bool:
         journal.exception("Rétro : %s", erreur)
         await message.channel.send(f"❌ Rétrospective impossible : {type(erreur).__name__}")
     return True
+
+
+def _liste_consignes(actives: list) -> str:
+    if not actives:
+        return "Aucune consigne du staff : l'assistant suit la doctrine et la base seules."
+    return "Consignes du staff lues par l'assistant :\n" + "\n".join(f"{i}. {x['texte']} ({x.get('date', '')})" for i, x in enumerate(actives, 1))
 
 
 async def boucle(client):
