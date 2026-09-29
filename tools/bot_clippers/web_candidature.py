@@ -245,6 +245,19 @@ async def post_candidature(request):
     pipe.setdefault("candidatures_web", {})[cand_id] = {"tel": tel, "date": maintenant}
     ecrire(fichier, pipe)
     journal.info("Candidature web %s (%s, …%s)", cand_id, reponses.get("pays", "?"), tel[-4:])
+    # 29/09 : une invitation personnelle plutôt que l'autorisation Discord (4 candidats sur 5 s'y perdaient).
+    invitation = ""
+    if _deps.get("invitation_site"):
+        try:
+            invitation = await _deps["invitation_site"](cand_id, {"tel": tel, "prenom": pipe["candidatures"][tel]["prenom"],
+                                                                  "pays": reponses.get("pays", "")})
+        except Exception as erreur:                                 # noqa: BLE001 — l'OAuth reste en secours
+            journal.warning("Invitation du site : %s", erreur)
+    if invitation:
+        pipe = lire(fichier, {"liaisons": {}, "etats": {}})
+        pipe.setdefault("candidatures_web", {}).setdefault(cand_id, {"tel": tel, "date": maintenant})["invitation"] = invitation
+        ecrire(fichier, pipe)
+        raise web.HTTPSeeOther(location=f"/discord/invitation?t={jeton(cand_id)}")
     if _deps.get("journaliser_candidature"):                        # sauvegarde dans le classeur (au cas où), sans bloquer
         try:
             await _deps["journaliser_candidature"](reponses, "web")
@@ -294,6 +307,28 @@ def _secours() -> str:
     lien = _deps.get("WHATSAPP", "")
     return (f"<p class='aide2'>Ça bloque ? <a href='{html.escape(lien)}'>Écris à Gaëtan sur WhatsApp</a>, "
             "il te fait entrer à la main.</p>") if lien else ""
+
+
+async def get_invitation(request):
+    """29/09 : la page après le formulaire — un bouton vers l'invitation personnelle (l'appli Discord s'ouvre, « Accepter »)."""
+    cand_id = _cand_depuis(request.query.get("t", ""))
+    if not cand_id:
+        return _page("Lien invalide", "<h1>Lien invalide</h1><p>Ce lien est abîmé. Recommence depuis le formulaire, ça prend "
+                                      "deux minutes.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
+    pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    url = (pipe.get("candidatures_web", {}).get(cand_id) or {}).get("invitation", "")
+    if not url:
+        raise web.HTTPSeeOther(location=f"/discord/connexion?t={jeton(cand_id)}")
+    journal.info("Site : page « Rejoindre le Discord » (invitation) pour la candidature %s", cand_id)
+    corps = ("<h1>Candidature reçue ✅</h1>"
+             "<p><b>Dernière étape : rejoins le Discord.</b> Appuie sur le bouton, l'appli Discord s'ouvre, tu appuies sur "
+             "<b>Accepter l'invitation</b>, et ton salon perso t'attend avec la formation et ton quiz.</p>"
+             "<ol class='regles'><li>Pas encore de compte Discord ? Crée-le quand Discord te le demande (e-mail + mot de passe), "
+             "l'invitation s'ouvre juste après.</li>"
+             "<li>Cette invitation est pour toi seul, valable 7 jours.</li>"
+             "<li>Une fois sur le serveur, ouvre le salon à ton prénom : tout se passe là.</li></ol>"
+             f"<a class='b' href='{html.escape(url)}'>Rejoindre le Discord</a>" + _secours())
+    return _page("Rejoindre le Discord", corps)
 
 
 async def get_connexion(request):
@@ -444,8 +479,7 @@ async def get_quiz(request):
         return _page("Quiz", "<h1>Le quiz arrive</h1><p>Il est en préparation, le bot te préviendra.</p>")
     essais = _deps["essais_quiz"](uid)
     if essais >= QUIZ_ESSAIS_MAX:
-        return _page("Quiz", "<h1>Quiz</h1><p>Tu as utilisé tes essais. Écris au bot si tu veux retenter "
-                             "dans quelques semaines.</p>")
+        return _page("Quiz", "<h1>Quiz</h1>" + _texte_attente(uid))
     qs = ""
     for n, q in enumerate(quiz["questions"], 1):
         if q.get("reponses"):                                           # 28/09 : les mots-clés se tapent, ils ne se cochent pas
@@ -462,6 +496,20 @@ async def get_quiz(request):
     return _page("Quiz", corps)
 
 
+def _texte_attente(uid) -> str:
+    """29/09 : deux essais ratés → deux nouveaux essais plus tard (le bot dit combien d'heures), même lien."""
+    heures = 0
+    try:
+        heures = int(_deps["prochain_essai_quiz"](uid)) if _deps.get("prochain_essai_quiz") else 0
+    except Exception:                                                   # noqa: BLE001
+        heures = 0
+    if heures > 0:
+        return (f"<p>Tu as utilisé tes {QUIZ_ESSAIS_MAX} essais. <b>Tu peux recommencer dans {heures} h</b>, avec "
+                f"{QUIZ_ESSAIS_MAX} nouveaux essais et ce même lien. D'ici là, revois la vidéo en entier et note les 5 mots-clés "
+                "dans l'ordre.</p>")
+    return "<p>Tu as utilisé tes essais pour l'instant. Écris au bot dans ton salon : il te dit quand tu peux recommencer.</p>"
+
+
 async def post_quiz(request):
     data = await request.post()
     uid = verifier_jeton(data.get("t", ""))
@@ -469,7 +517,7 @@ async def post_quiz(request):
     if not uid or not quiz.get("questions"):
         return _page("Lien invalide", "<h1>Lien invalide</h1>")
     if _deps["essais_quiz"](uid) >= QUIZ_ESSAIS_MAX:
-        return _page("Quiz", "<h1>Quiz</h1><p>Tu as utilisé tes essais.</p>")
+        return _page("Quiz", "<h1>Quiz</h1>" + _texte_attente(uid))
     score, total, details = noter(quiz, data)
     seuil, _ = quiz_seuil_total()
     reussite = score >= seuil
@@ -498,6 +546,7 @@ def creer_app() -> web.Application:
     app.add_routes([web.get("/", get_racine), web.get("/health", get_health),
                     web.get("/candidature", get_candidature), web.post("/candidature", post_candidature),
                     web.get("/discord/connexion", get_connexion), web.get("/discord/callback", get_callback),
+                    web.get("/discord/invitation", get_invitation),
                     web.get("/quiz", get_quiz), web.post("/quiz", post_quiz)])
     return app
 

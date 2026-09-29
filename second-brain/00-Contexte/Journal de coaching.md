@@ -22,6 +22,14 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-29 (matin, 3) — Le tunnel mesuré, et deux GO : l'invitation personnelle, l'échéance du quiz
+- **Les chiffres (journaux du site, 27 et 28/09)** : 68 ouvertures du formulaire, 27 envois, 25 arrivés sur la page « Rejoindre le Discord », 5 entrés sur Discord. Quatre sur cinq perdus à l'écran d'autorisation de Discord. Ensuite, 2 des 11 candidats avec un salon ont tenté le quiz en 24 h : normal pour des candidats gratuits sans échéance.
+- **Question de Gaëtan** : « beaucoup ne passent même pas la formation + quiz, normal ou s'inquiéter ? ça bloque ? » — réponse : ça bloque à un endroit précis, l'autorisation Discord ; le reste est le comportement attendu, à traiter par l'urgence.
+- **GO 1, livré** : l'invitation personnelle remplace l'OAuth. Formulaire envoyé → le bot crée l'invitation → la page l'affiche → l'appli s'ouvre → « Accepter » → salon perso et liaison par le numéro. L'OAuth reste en secours si le bot ne peut pas créer d'invitation.
+- **GO 2, livré** : « tu as 72 h pour le quiz » dans le message d'arrivée, relances qui comptent à rebours, sortie au bout de 7 jours sans quiz réussi, salon fermé. Et le droit de recommencer : refaire le formulaire redonne une invitation et deux essais ; deux quiz ratés rouvrent deux essais 24 h plus tard, même lien. Personne ne sort pour un retard antérieur au 29/09.
+- **Avocat du diable** : une invitation peut être transmise à quelqu'un d'autre (usage unique, 7 jours, liaison par le numéro du formulaire : le risque est petit). Deux candidats qui arrivent dans la même minute peuvent se faire confondre par le compteur d'invitations : dans ce cas le bot accueille sans relier et demande le numéro, il ne raccompagne plus. La sortie à 7 jours coupe aussi des gens sérieux mais lents : ils reviennent en deux minutes par le formulaire.
+- **Prédiction (29/09, revue le 06/10)** : sur les 20 prochains formulaires envoyés, au moins 10 arrivent sur Discord (60 %) ; au moins 40 % des arrivés tentent le quiz sous 72 h (55 %) ; aucune sortie à tort signalée par un manager (80 %).
+
 ### 2026-09-29 (matin, 2) — Le bot apprenait des contresens ; les rôles Grille fantômes ; les lacunes de l'ancien parcours
 - **Ce que Gaëtan a collé** : la conversation de bot-gaetan du 28 au 29. Trois choses à corriger sans qu'il le demande.
 - **La rétrospective du soir** avait appris huit consignes, dont « attendre la réponse du humain avant de continuer le parcours » et « jamais vidéo + quiz dans le même message », injectées dans le prompt de l'assistant : le contraire de ce qu'on a décidé le 28/09. Un bot qui s'améliore tout seul s'abîme aussi tout seul. Décision : les consignes apprises ne s'appliquent plus, elles sont proposées dans le digest et le staff garde celles qu'il veut à la main ; les leçons de FAQ restent automatiques. L'ancien fichier de consignes est ignoré dès ce déploiement.

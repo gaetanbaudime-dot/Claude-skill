@@ -2209,13 +2209,76 @@ async def envoyer_test_candidat(membre, score=""):
     return envoye
 
 
+QUIZ_CYCLE_H = int(os.environ.get("QUIZ_CYCLE_H", "24") or 24)          # 29/09 (Gaëtan : « il a le droit de recommencer ») :
+                                                                          # deux essais ratés → deux nouveaux essais 24 h plus tard
+QUIZ_DELAI_H = int(os.environ.get("QUIZ_DELAI_H", "72") or 72)           # l'échéance annoncée pour faire le quiz
+CANDIDAT_SORTIE_JOURS = int(os.environ.get("CANDIDAT_SORTIE_JOURS", "7") or 7)   # sans quiz réussi au bout de 7 j : sortie (0 = jamais)
+SORTIE_QUIZ_DEPUIS = "2026-09-29"                                        # personne ne sort pour un retard antérieur à cette règle
+
+
+def _age_heures(iso, maintenant=None) -> float:
+    try:
+        d = datetime.fromisoformat(str(iso))
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return ((maintenant or datetime.now(timezone.utc)) - d).total_seconds() / 3600.0
+    except (TypeError, ValueError):
+        return -1.0
+
+
+def essais_quiz_cycle(info: dict, maintenant=None) -> int:
+    """Les essais consommés dans le cycle EN COURS : après deux échecs, un nouveau cycle (deux essais) s'ouvre QUIZ_CYCLE_H
+    heures après le dernier échec."""
+    essais = int(info.get("essais_quiz", 0) or 0)
+    if essais >= 2 and _age_heures(info.get("date_quiz"), maintenant) >= QUIZ_CYCLE_H:
+        return 0
+    return essais
+
+
+def prochain_essai_quiz(uid: str, maintenant=None) -> int:
+    """Heures à attendre avant le prochain cycle de quiz (0 = il peut jouer maintenant) — sert au site."""
+    info = lire_json(FICHIER_PIPELINE, {"etats": {}}).get("etats", {}).get(str(uid), {})
+    if int(info.get("essais_quiz", 0) or 0) < 2:
+        return 0
+    age = _age_heures(info.get("date_quiz"), maintenant)
+    return 0 if age < 0 or age >= QUIZ_CYCLE_H else int(QUIZ_CYCLE_H - age) + 1
+
+
 def essais_quiz(uid: str) -> int:
-    """Essais de quiz consommés par un membre (échecs comptés), ou « tous » si son parcours a déjà
+    """Essais de quiz consommés par un membre dans le cycle en cours (échecs comptés), ou « tous » si son parcours a déjà
     dépassé le quiz — sert au quiz servi par le site (web_candidature)."""
     info = lire_json(FICHIER_PIPELINE, {"etats": {}}).get("etats", {}).get(str(uid), {})
     if info.get("etat") in ("test_envoye", "test_rendu", "valide", "refuse", "test_expire", "sorti"):
         return 99
-    return int(info.get("essais_quiz", 0))
+    return essais_quiz_cycle(info)
+
+
+def candidats_a_sortir(donnees: dict, equipes: dict, maintenant, jours: int = None) -> list:
+    """29/09 (Gaëtan : « GO sur l'échéance du quiz ») : les candidats arrivés ou reliés depuis `jours` jours sans quiz réussi,
+    [(uid, motif)]. Protégés : signés (registre), parcours au-delà du quiz, déjà sortis. Le compteur ne remonte jamais avant
+    SORTIE_QUIZ_DEPUIS : ceux qui étaient là avant la règle ont leurs 7 jours à partir d'elle."""
+    jours = CANDIDAT_SORTIE_JOURS if jours is None else jours
+    if not jours:
+        return []
+    out = []
+    uids = set(donnees.get("arrivees", {})) | set(donnees.get("liaisons", {}))
+    for uid in uids:
+        if uid in equipes:
+            continue
+        arr, li, info = donnees.get("arrivees", {}).get(uid, {}), donnees.get("liaisons", {}).get(uid, {}), donnees.get("etats", {}).get(uid, {})
+        if info.get("etat") in ("test_envoye", "test_rendu", "valide", "refuse", "test_expire"):
+            continue
+        if arr.get("sortie_quiz") or arr.get("purge") or li.get("sortie_quiz"):
+            continue
+        dates = [d for d in (arr.get("date"), li.get("date"), info.get("date_quiz")) if d]
+        if not dates:
+            continue
+        ref = str(max(dates))
+        if ref[:10] < SORTIE_QUIZ_DEPUIS:                                   # avant la règle : le compteur part du 29/09
+            ref = SORTIE_QUIZ_DEPUIS + "T00:00:00+00:00"
+        if _age_heures(ref, maintenant) >= jours * 24:
+            out.append((uid, "quiz raté, jamais repassé" if info.get("etat") == "quiz_rate" else ("quiz jamais fait" if li else "jamais relié")))
+    return out
 
 
 class _MessageQuizWeb:
@@ -2320,7 +2383,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
         info_q = donnees_q.setdefault("etats", {}).get(str(membre_trouve.id), {})
         if info_q.get("etat") in ("test_envoye", "test_rendu", "valide"):
             return                                   # déjà passé au test : un vieux KO rejoué
-        essais = int(info_q.get("essais_quiz", 0)) + 1
+        essais = essais_quiz_cycle(info_q) + 1                          # 29/09 : nouveau cycle de deux essais 24 h après
         donnees_q["etats"][str(membre_trouve.id)] = {**info_q, "etat": "quiz_rate", "essais_quiz": essais,
                                                      "score_quiz": score,
                                                      "date_quiz": datetime.now(timezone.utc).isoformat(timespec="seconds")}
@@ -2338,11 +2401,12 @@ async def traiter_quiz_webhook(message, silencieux=False):
                                        "prévenu en MP avec son lien.")
         else:
             await envoyer_mp(membre_trouve,
-                f"📝 **Quiz : {score or 'sous le seuil'}** — c'était ton deuxième essai, le parcours "
-                "s'arrête là pour cette fois. Merci d'avoir joué le jeu : tu peux rester sur le serveur, "
-                "et si tu veux retenter dans quelques semaines, écris-moi ici.")
-            await message.channel.send(f"⛔ {membre_trouve.mention} a **raté le quiz deux fois** ({score}). "
-                                       f"Forcer quand même : `!quiz-ok {membre_trouve.display_name}`.")
+                f"📝 **Quiz : {score or 'sous le seuil'}** — c'était ton deuxième essai.\n\n"
+                f"Tu peux recommencer dans {QUIZ_CYCLE_H} h, avec deux nouveaux essais et le même lien. "
+                "D'ici là, revois la vidéo en entier et note les 5 mots-clés dans l'ordre.\n"
+                f"{lien_quiz_pour(membre_trouve.id) or '`!quiz` sur le serveur'}")
+            await message.channel.send(f"⛔ {membre_trouve.mention} a **raté le quiz deux fois** ({score}) — nouveau cycle dans "
+                                       f"{QUIZ_CYCLE_H} h. Forcer quand même : `!quiz-ok {membre_trouve.display_name}`.")
         return
     if not LIEN_TEST:
         if str(message.id) in traites:                   # sera rejoué au prochain démarrage, LIEN_TEST posé
@@ -2642,7 +2706,8 @@ def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
             "Note les mots-clés cachés, dans l'ordre.\n\n"
             + ((f"📝 **Le quiz**\n"
                 f"Ton lien personnel : <{lien_q}>\n"
-                f"Il faut {seuil_quiz_texte(' sur ')}. Deux essais.\n\n") if lien_q else "")
+                f"Il faut {seuil_quiz_texte(' sur ')}. Deux essais.\n"
+                f"⏳ Tu as {QUIZ_DELAI_H} h pour le faire.\n\n") if lien_q else "")
             + "Le test de montage arrive ici tout seul après le quiz.")
 
 
@@ -3174,9 +3239,34 @@ async def boucle_pipeline():
                 await _relancer(li, "r24", "r48", li.get("date"), uid,
                     "🎓 Ta **formation** et ton **quiz** t'attendent. Regarde la vidéo en entier, elle dure 15 minutes. "
                     "5 mots-clés sont cachés dedans. Note-les dans l'ordre." + lien_quiz +
-                    f"\nIl faut {seuil_quiz_texte(' bonnes réponses sur ')}. Tu as deux essais. Quiz réussi = ton test arrive tout seul.",
+                    f"\nIl faut {seuil_quiz_texte(' bonnes réponses sur ')}. Tu as deux essais. Quiz réussi = ton test arrive tout seul."
+                    f"\n⏳ Il te reste {max(QUIZ_DELAI_H - 24, 24)} h.",
                     "⏳ Il ne te manque que le **quiz**. Après, c'est le test, puis l'équipe." +
-                    lien_quiz + "\nTu bloques ? Réponds-moi ici, je t'aide.")
+                    lien_quiz + f"\nIl te reste {max(QUIZ_DELAI_H - 48, 12)} h. Après, ta place part. Tu bloques ? Réponds-moi ici, je t'aide.")
+            # ⑥ 29/09 : sans quiz réussi au bout de CANDIDAT_SORTIE_JOURS jours, la place part — sortie, salon fermé, et il peut
+            # recommencer quand il veut en refaisant le formulaire (nouvelle invitation, nouveaux essais).
+            sans_poids = ({normaliser(x.strip()) for x in ROLE_CLIPPER_NOM.split(",") if x.strip()} | {normaliser(x) for x in NOMS_RANGS})
+            for uid, motif in candidats_a_sortir(donnees, equipes_r, maintenant):
+                membre_s = membre_par_id(uid)
+                cible_s = donnees.setdefault("arrivees", {}).setdefault(uid, {})
+                if membre_s is None:
+                    cible_s["sortie_quiz"] = maintenant.isoformat(timespec="seconds"); modifie = True
+                    continue
+                if any(r.name != "@everyone" and normaliser(r.name) not in sans_poids for r in getattr(membre_s, "roles", [])):
+                    continue                                                # staff, créatrice, équipe : jamais
+                lien_site = web_candidature.lien_candidature() or LIEN_FORMULAIRE
+                await envoyer_mp(membre_s, f"⌛ {CANDIDAT_SORTIE_JOURS} jours sans quiz réussi : ta place est partie et ton salon est fermé.\n\n"
+                                           "Tu peux recommencer quand tu veux : refais le formulaire, tu reçois une nouvelle invitation "
+                                           "et deux nouveaux essais." + (f"\n{lien_site}" if lien_site else ""))
+                try:
+                    await membre_s.kick(reason=f"{CANDIDAT_SORTIE_JOURS} j sans quiz réussi ({motif})")
+                    cible_s["sortie_quiz"] = maintenant.isoformat(timespec="seconds"); cible_s["stop"] = True; modifie = True
+                    await notifier_manager(f"🚪 {membre_s.display_name} sorti : {CANDIDAT_SORTIE_JOURS} j sans quiz réussi ({motif}). "
+                                           "Il peut refaire le formulaire.")
+                except (discord.Forbidden, discord.HTTPException) as erreur:
+                    journal.warning("Sortie quiz de %s impossible : %s", uid, erreur)
+                    cible_s["sortie_quiz"] = "echec"; modifie = True
+                await asyncio.sleep(1.2)
             # ③④⑤ Étapes portées par l'état du pipeline.
             for uid, info in list(donnees.get("etats", {}).items()):
                 etat_c = info.get("etat")
@@ -6002,6 +6092,7 @@ async def on_ready():
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
             "essais_quiz": essais_quiz, "traiter_quiz_web": traiter_quiz_web,
             "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD, "WHATSAPP": WHATSAPP_GAETAN_URL,
+            "invitation_site": invitation_site, "prochain_essai_quiz": prochain_essai_quiz,         # 29/09
             "journaliser_candidature": journaliser_candidature_sheet}))
         deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
@@ -6309,10 +6400,20 @@ async def on_member_join(member):
         pass
     code = invitation.code if invitation is not None else ""
     fiche_inv = donnees.get("invitations", {}).get(code) if code else None
+    if fiche_inv and not fiche_inv.get("utilisee") and fiche_inv.get("source") == "site":
+        await accueillir_site(member, code, fiche_inv, invitation)     # 29/09 : le formulaire a créé son invitation
+        return
     if fiche_inv and not fiche_inv.get("utilisee"):
         await accueillir_valide(member, code, fiche_inv, invitation)
         return
     if serveur_ferme():
+        if invitation_site_recente(donnees):
+            # Une invitation du site vient d'être créée et je n'ai pas su laquelle a servi (deux arrivées en même temps,
+            # cache en retard) : on ne raccompagne pas, on accueille et la liaison se fait par le numéro.
+            journal.info("Arrivée de %s : invitation du site en attente, accueil sans raccompagnement", member.id)
+            await assurer_salon_arrivee(member)
+            await accueillir(member)
+            return
         await raccompagner(member, invitation, code)
         return
     await assurer_salon_arrivee(member)                                # 27/09 : son salon avant tout
@@ -6357,6 +6458,71 @@ async def accueillir_valide(member, code, fiche, invitation):
     await notifier_manager(
         f"🚪 **{member.mention} est arrivé par son invitation** ({fiche.get('prenom') or '?'}, "
         f"{fiche.get('pays') or 'pays ?'}, quiz {fiche.get('score') or '?'}).\n" + retour, member.guild)
+
+
+async def invitation_site(cand_id: str, fiche: dict) -> str:
+    """29/09 (Gaëtan, GO) : à l'envoi du formulaire, le site demande une invitation personnelle (7 jours, pour lui seul) — plus
+    d'écran d'autorisation Discord, qui perdait quatre candidats sur cinq. Même mécanique que `!inviter`. Renvoie l'URL ou ''."""
+    g = client.guilds[0] if client.guilds else None
+    if g is None:
+        return ""
+    salon_inv = await canal_par_id(CANAL_CANDIDATURE_ID) or g.system_channel or next(
+        (c for c in g.text_channels if c.permissions_for(g.me).create_instant_invite), None)
+    if salon_inv is None:
+        journal.warning("Invitation du site : aucun salon où créer une invitation")
+        return ""
+    try:
+        inv = await salon_inv.create_invite(max_age=INVITATION_JOURS * 86400, max_uses=2, unique=True,
+                                            reason=f"Site : candidature de {fiche.get('prenom') or cand_id}")
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Invitation du site impossible : %s", erreur)
+        return ""
+    maintenant = datetime.now(timezone.utc)
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    pipe.setdefault("invitations", {})[inv.code] = {
+        "source": "site", "cand": cand_id, "tel": fiche.get("tel", ""), "prenom": fiche.get("prenom", ""),
+        "pays": fiche.get("pays", ""), "date": maintenant.isoformat(timespec="seconds"),
+        "expire": (maintenant + timedelta(days=INVITATION_JOURS)).isoformat(timespec="seconds")}
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    await cacher_invites(g)
+    journal.info("Site : invitation créée pour la candidature %s", cand_id)
+    return inv.url
+
+
+def invitation_site_recente(donnees: dict, maintenant=None, minutes: int = 20) -> bool:
+    """Une invitation du site non consommée, créée il y a moins de `minutes` : un arrivant non identifié est probablement elle."""
+    for fiche in (donnees.get("invitations") or {}).values():
+        if fiche.get("source") == "site" and not fiche.get("utilisee") and 0 <= _age_heures(fiche.get("date"), maintenant) * 60 < minutes:
+            return True
+    return False
+
+
+async def accueillir_site(member, code, fiche, invitation):
+    """Arrivée par l'invitation personnelle créée par le site (29/09) : invitation consommée, prénom posé, salon perso, liaison
+    par le numéro du formulaire. Un ancien passage (quiz raté, sorti) est remis à zéro : il recommence avec deux essais."""
+    maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    uid = str(member.id)
+    fiche["utilisee"], fiche["membre"] = maintenant, uid
+    donnees.setdefault("invitations", {})[code] = fiche
+    if donnees.get("etats", {}).get(uid, {}).get("etat") in ("quiz_rate", "sorti", "test_expire"):
+        donnees["etats"].pop(uid, None)
+    donnees.get("liaisons", {}).pop(uid, None)
+    donnees.setdefault("arrivees", {})[uid] = {"date": maintenant, "via": "site"}
+    ecrire_json(FICHIER_PIPELINE, donnees)
+    if invitation is not None:
+        try:
+            await invitation.delete(reason="Invitation du site consommée")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    if fiche.get("prenom"):
+        try:
+            await member.edit(nick=str(fiche["prenom"])[:32], reason="Arrivée par le site")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    journal.info("Site : %s arrivé par son invitation (candidature %s)", uid, fiche.get("cand"))
+    await assurer_salon_arrivee(member, accueil=False)
+    await traiter_liaison(member, fiche.get("tel", ""))
 
 
 async def raccompagner(member, invitation, code):
