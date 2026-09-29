@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-29 (matin, 4) — Le classeur des logins se lit par clipper
+- **Demande de Gaëtan** : regrouper les POD et les liens OnlyFans / MYM / GAML par clipper dans chaque onglet créatrice, fusionner avec de la couleur comme le Dashboard, sans effacer aucune donnée ; et supprimer la candidature de test du pipeline.
+- **Livré** : un bloc par clipper sur les colonnes Gérant, POD et les trois liens, teinte de la créatrice, cadre, valeurs répétées invisibles (écrites dans la couleur du fond) plutôt que fusionnées, parce qu'une fusion efface les cellules du dessous et que le bot lit chaque ligne. Les liens manquants des lignes 2 et 3 sont recopiés depuis la première : 47 cellules complétées sur 40 blocs et 6 onglets. Rejoué chaque jour. La candidature de test se nettoie au démarrage du bot.
+- **Faux pas corrigé dans la foulée** : ma détection de la colonne « Lien MYM » avait pris « Clics vers MYM », le tableau du mois, sur trois onglets ; il était vide, rien d'écrit à tort, la mise en forme retirée et la détection resserrée. Leçon : un mot-clé de colonne doit contenir « lien », pas seulement la plateforme.
+- **Prédiction (29/09, revue le 06/10)** : Gaëtan ne demande plus « quel lien va sur quel compte » d'ici le 06/10 (75 %).
+
 ### 2026-09-29 (matin, 3) — Le tunnel mesuré, et deux GO : l'invitation personnelle, l'échéance du quiz
 - **Les chiffres (journaux du site, 27 et 28/09)** : 68 ouvertures du formulaire, 27 envois, 25 arrivés sur la page « Rejoindre le Discord », 5 entrés sur Discord. Quatre sur cinq perdus à l'écran d'autorisation de Discord. Ensuite, 2 des 11 candidats avec un salon ont tenté le quiz en 24 h : normal pour des candidats gratuits sans échéance.
 - **Question de Gaëtan** : « beaucoup ne passent même pas la formation + quiz, normal ou s'inquiéter ? ça bloque ? » — réponse : ça bloque à un endroit précis, l'autorisation Discord ; le reste est le comportement attendu, à traiter par l'urgence.

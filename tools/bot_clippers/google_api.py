@@ -346,6 +346,15 @@ async def sheets_creer_onglet(classeur_id: str, titre: str) -> bool:
         raise
 
 
+async def sheets_ecrire_plusieurs(classeur_id: str, ecritures: list) -> int:
+    """[(plage, valeurs)] écrits en un appel (values:batchUpdate), USER_ENTERED. Renvoie le nombre de cellules."""
+    if not ecritures:
+        return 0
+    r = await _appel("POST", f"{SHEETS}/{classeur_id}/values:batchUpdate",
+                     corps={"valueInputOption": "USER_ENTERED", "data": [{"range": p, "values": v} for p, v in ecritures]})
+    return int(r.get("totalUpdatedCells", 0))
+
+
 async def sheets_batch_update(classeur_id: str, requetes: list) -> None:
     """Envoie une liste de requêtes batchUpdate (mise en forme, fusion, largeurs…) par paquets de 400."""
     for i in range(0, len(requetes), 400):

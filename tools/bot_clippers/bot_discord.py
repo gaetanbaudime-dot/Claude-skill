@@ -1685,7 +1685,10 @@ async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
                 en_tete.append(libelle); ligne.append(""); col = len(en_tete) - 1
                 await google_api.sheets_assurer_colonnes(SHEET_CANDIDATURES_ID, onglet, len(en_tete))
                 await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!{google_api.colonne_lettre(col)}1", [[libelle]])
-            ligne[col] = reponses.get(ident, "")
+            valeur = str(reponses.get(ident, "") or "")
+            if valeur[:1] in ("+", "=", "-", "@"):                      # 29/09 : « +261… » devenait #ERROR! (formule) — texte forcé
+                valeur = "'" + valeur
+            ligne[col] = valeur
         rang = await _premiere_ligne_vide(onglet)
         await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A{rang}", [ligne])
         journal.info("Candidature sauvegardée dans le classeur (ligne %d, %s)", rang, origine or source)
@@ -6236,6 +6239,7 @@ async def on_ready():
                                      "signe_creatrice": lambda uid: bool((lire_json(FICHIER_EQUIPES, {}).get(str(uid)) or {}).get("creatrice")),
                                      "assurer_salon_arrivee": assurer_salon_arrivee})
         client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
+        client.loop.create_task(nettoyer_candidatures_test())                    # 29/09 : les candidatures de test s'effacent
 
         async def _dossier_clipper(prenom, creatrice):
             cfg = onboarding._sources().get(creatrice) or onboarding._sources().get(creatrice.split()[0]) or {}
@@ -6458,6 +6462,53 @@ async def accueillir_valide(member, code, fiche, invitation):
     await notifier_manager(
         f"🚪 **{member.mention} est arrivé par son invitation** ({fiche.get('prenom') or '?'}, "
         f"{fiche.get('pays') or 'pays ?'}, quiz {fiche.get('score') or '?'}).\n" + retour, member.guild)
+
+
+async def nettoyer_candidatures_test():
+    """29/09 (Gaëtan : « supprime la candidature Test Claude du pipeline ») : toute candidature marquée « test technique du site »
+    (ou dont le prénom commence par « Test ») disparaît du pipeline, de la liste web, avec son invitation Discord et sa ligne du
+    classeur des candidatures. Rejoué à chaque démarrage : un test futur se nettoie tout seul."""
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    tests = [tel for tel, c in (pipe.get("candidatures") or {}).items()
+             if "test technique du site" in normaliser(json.dumps(c.get("reponses") or {}, ensure_ascii=False))
+             or normaliser(c.get("prenom") or "").startswith("test ")]
+    if not tests:
+        return
+    codes, noms = [], []
+    for tel in tests:
+        c = pipe["candidatures"].pop(tel)
+        noms.append(c.get("prenom") or tel[-4:])
+        pipe.get("candidatures_web", {}).pop(c.get("id"), None)
+        for code, f in list((pipe.get("invitations") or {}).items()):
+            if f.get("cand") == c.get("id") and not f.get("utilisee"):
+                pipe["invitations"].pop(code); codes.append(code)
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    g = client.guilds[0] if client.guilds else None
+    if g is not None and codes:
+        try:
+            for inv in await g.invites():
+                if inv.code in codes:
+                    await inv.delete(reason="Candidature de test nettoyée")
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Invitation de test : %s", erreur)
+    lignes_sup = 0
+    if SHEET_CANDIDATURES_ID and google_api.actif():
+        try:
+            onglet = SHEET_CANDIDATURES_ONGLET
+            brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:Z")
+            a_sup = [i for i, l in enumerate(brut) if i > 0 and any(
+                "test technique du site" in normaliser(str(x)) or normaliser(str(x)).startswith("test ") for x in l)]
+            sid = (await google_api.sheets_proprietes(SHEET_CANDIDATURES_ID)).get(onglet, {}).get("id")
+            if a_sup and sid is not None:
+                await google_api.sheets_batch_update(SHEET_CANDIDATURES_ID, [
+                    {"deleteDimension": {"range": {"sheetId": sid, "dimension": "ROWS", "startIndex": i, "endIndex": i + 1}}}
+                    for i in sorted(a_sup, reverse=True)])
+                lignes_sup = len(a_sup)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Ligne de test du classeur : %s", erreur)
+    journal.info("Candidature(s) de test nettoyée(s) : %s (%d invitation(s), %d ligne(s) du classeur)", noms, len(codes), lignes_sup)
+    await notifier_manager(f"🧹 Candidature(s) de test supprimée(s) : {', '.join(noms)} — pipeline, {len(codes)} invitation(s), "
+                           f"{lignes_sup} ligne(s) du classeur des candidatures.")
 
 
 async def invitation_site(cand_id: str, fiche: dict) -> str:

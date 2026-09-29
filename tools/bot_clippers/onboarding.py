@@ -56,7 +56,8 @@ MOTS_COLONNES = (("etat", ("etat", "statut")), ("handle", ("@", "ig", "compte", 
                  ("followers", ("followers", "abonnes")), ("clics", ("clics", "gaml last", "visites")), ("numero", ("numero",)),
                  ("mail", ("mail", "email")), ("phone", ("phone", "tel")), ("gerant", ("gerant", "clipper")),
                  ("utilisation", ("utilisation", "usage")), ("creatrice", ("creatrice",)), ("pod", ("pod",)),
-                 ("lien_gaml", ("lien gaml", "gaml associe")), ("lien_infloww", ("infloww",)))
+                 ("lien_gaml", ("lien gaml", "gaml associe")), ("lien_infloww", ("infloww", "lien onlyfans", "onlyfans track")),
+                 ("lien_mym", ("lien mym", "mym track")))                       # 29/09 : jamais « Clics vers MYM » (tableau du mois)
 _colonnes = dict(COL_DEFAUT)
 
 
@@ -222,7 +223,7 @@ async def lire_comptes() -> list:
                         "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
                         "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
                         "creatrice": champ("creatrice") or ("" if herite else titre), "lien_gaml": champ("lien_gaml"),
-                        "pod": champ("pod"), "lien_infloww": champ("lien_infloww")})
+                        "pod": champ("pod"), "lien_infloww": champ("lien_infloww"), "lien_mym": champ("lien_mym")})
     return _sans_doublons(out)
 
 

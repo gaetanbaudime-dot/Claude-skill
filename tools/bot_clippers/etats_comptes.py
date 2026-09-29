@@ -34,7 +34,7 @@ HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après 
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
 VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
-DASHBOARD_VERSION = 4             # 28/09 : structure de l'onglet Dashboard (12 colonnes, exclusions) ; changée → réécrit au démarrage, sans scan
+DASHBOARD_VERSION = 5             # 29/09 : + mise en forme des onglets créatrices (blocs par clipper) ; changée → réécrit au démarrage, sans scan
 EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
 
 
@@ -414,6 +414,14 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str,
             await google_api.sheets_batch_update(cid, requetes_mise_en_forme(lignes, sid))
     except Exception as erreur:                                         # noqa: BLE001 — la mise en forme ne bloque jamais le scan
         journal.warning("Dashboard : mise en forme impossible (%s)", erreur)
+    try:                                                                # 29/09 : les onglets créatrices, un bloc par clipper
+        import classeur_forme
+        classeur_forme.configurer({"google_api": google_api, "classeur_id": cid, "colonnes_par_onglet": onboarding._colonnes_par_onglet,
+                                   "palette": PALETTE_DASHBOARD, "palette_defaut": PALETTE_DEFAUT, "melange": _melange, "rgb": _rgb,
+                                   "normaliser": _norm, "onglet_a1": onboarding.onglet_a1, "colonne_lettre": google_api.colonne_lettre})
+        await classeur_forme.formater(comptes)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Classeur : mise en forme des onglets impossible (%s)", erreur)
     return len(lignes)
 
 
