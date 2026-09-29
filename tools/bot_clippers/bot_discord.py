@@ -125,7 +125,8 @@ ROLES_EQUIPE_ACCEPTES = (ROLE_EQUIPE_UNIQUE, "Clippeur", "Rookie")
 # internationales), ROUVERT le 08/09/2026 (pôle malgache lancé, Indeed banni côté FR).
 # Pause levée par défaut ; poser PAUSE_INT=1 dans Railway pour re-suspendre (le quiz d'un
 # candidat International n'enverrait plus le test 48 h, message daté à la place).
-INT_EN_PAUSE = os.environ.get("PAUSE_INT", "0").strip() == "1"
+# 30/09 (Gaëtan : « on associe le recrutement FR et INT maintenant ») : un seul recrutement, plus de pause possible.
+INT_EN_PAUSE = False
 
 # ---- Serveur FERMÉ (décision du 14/09) : plus personne n'arrive sur Discord avant validation ----
 # Le tunnel candidat (formation → quiz → test 48 h → rendu) vit HORS Discord : les Apps Script des
@@ -2861,6 +2862,17 @@ async def traiter_rendu_webhook(message, silencieux=False):
 # de TEST_AUTO_SEUIL, le test est validé tout seul (même chemin que `!test-ok`) ; en dessous, l'avis part au manager.
 TEST_AUTO = os.environ.get("TEST_AUTO", "1").strip() == "1"
 TEST_AUTO_SEUIL = int(os.environ.get("TEST_AUTO_SEUIL", "7") or 7)
+# 30/09 (Gaëtan : « fais en sorte d'accepter toi-même le test de montage ») : toute vidéo rendue dans les temps est validée
+# par le bot, quelle que soit la note ; l'avis reste, en conseils. TEST_TOUT_ACCEPTER=0 rend le seuil.
+TEST_TOUT_ACCEPTER = os.environ.get("TEST_TOUT_ACCEPTER", "1").strip() != "0"
+
+
+def test_accepte(avis: dict) -> bool:
+    if not TEST_AUTO or avis is None:
+        return False
+    if TEST_TOUT_ACCEPTER:
+        return True
+    return not avis.get("erreur") and avis.get("note", 0) >= TEST_AUTO_SEUIL
 GRILLE_AVIS_TEST = (
     "Tu juges le test de montage d'un candidat clipper pour une agence : un Reel Instagram vertical fait à partir d'une vidéo "
     "brute d'une créatrice. Tu vois {n} images prises à des moments différents du Reel, et ses caractéristiques : {largeur}×{hauteur}, "
@@ -2960,15 +2972,12 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
     code_a, _ = equipe_deduite(utilisateur)
     grille_acc = grille or info_a.get("conditions_grille") or "mg"          # sans contrat (23/09) : la grille France passe aussi par ici
     auto = attribution.actif()
-    suite = ("✅ **Conditions acceptées et enregistrées — bienvenue dans la Team "
-             f"{'International' if grille_acc == 'mg' else 'France'} ! 🔥**\n\n"
-             "La suite, dans l'ordre :\n"
-             + ("1️⃣ **Ta créatrice t'est attribuée tout de suite** : ton salon perso reçoit tes comptes Instagram.\n" if auto else
-                "1️⃣ **Ta créatrice t'est attribuée** (sous 48 h) : ton salon perso reçoit tes 3 comptes Instagram.\n")
-             + "2️⃣ **Un compte tous les 48 h, sur ton téléphone**, 24 h de warm-up sur chacun. Le code arrive avec `!code`. "
-             "Le bot te guide étape par étape, avec des boutons.\n"
-             "3️⃣ D'ici là : lis la **Fiche 1** (créer tes comptes) et la **Fiche 2** (le warm-up).\n"
-             "Une question ? Écris dans ton salon perso. Au travail 💪")
+    suite = ("Tes prochaines étapes :\n\n"
+             + ("1️⃣ Ta créatrice t'est attribuée tout de suite. Ton premier compte arrive dans ton salon perso.\n"
+                if auto else "1️⃣ Ta créatrice t'est attribuée sous 48 h. Ton premier compte arrive dans ton salon perso.\n")
+             + "2️⃣ Un compte tous les 48 h, sur ton téléphone, avec 24 h de warm-up. Le code : `!code`.\n"
+             "3️⃣ Warm-up fini : 2 Reels par jour sur chaque compte, pris dans ton TOP 20.\n\n"
+             "Le bot te guide étape par étape, avec des boutons. Une question ? Écris dans ton salon perso. 💪")
     if fiche_eq and (fiche_eq.get("equipe") == "mg" or fiche_eq.get("conditions")):
         if not fiche_eq.get("conditions"):
             fiche_eq["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -3003,19 +3012,19 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
             except (discord.Forbidden, discord.HTTPException):
                 pass
         if salon_a is not None:
-            suite = suite.replace("La suite, dans l'ordre :", f"Ton salon perso : <#{salon_a.id}>.\n\nLa suite, dans l'ordre :")
+            suite = suite.replace("Tes prochaines étapes :", f"Ton salon perso : <#{salon_a.id}>\n\nTes prochaines étapes :")
         texte_retour = (suite if err_a is None else
-                        "✅ **Conditions acceptées et enregistrées !** L'équipe ouvre ton rôle à la main "
+                        "✅ **C'est noté !** L'équipe ouvre ton accès à la main "
                         "(petit souci technique de mon côté, déjà signalé) — ton manager t'écrit ensuite.")
         tel_a = pipe_a.get("liaisons", {}).get(utilisateur, {}).get("tel", "")
         origine = {"mp": "J'ACCEPTE en MP", "bouton": "bouton ✅", "site": "case cochée sur le site"}.get(via, via)
         await notifier_manager(
-            f"✍️ **{membre_a.mention} a accepté les conditions {'International' if grille_acc == 'mg' else 'France (sans contrat)'}** ({origine}) → "
+            f"✍️ **{membre_a.mention} a rejoint l'agence** ({origine}) → "
             + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`.")
             + ("\n🎬 Créatrice : **attribution automatique en cours** (" + attribution.ordre_texte() + ")." if auto else
                f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`**.")
             + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
-        await telegram.envoyer_telegram(f"✍️ Conditions acceptées ({origine}) : {membre_a.display_name} (Team {'International' if grille_acc == 'mg' else 'France'})"
+        await telegram.envoyer_telegram(f"✍️ A rejoint l'agence ({origine}) : {membre_a.display_name}"
                                               + (f" — WhatsApp {tel_a}" if tel_a else ""))
         if auto:
             client.loop.create_task(attribution.attribuer(membre_a, f"acceptation ({via})"))
@@ -3041,8 +3050,9 @@ async def suite_validation(membre, guild):
     etat_c["conditions_envoyees"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     etat_c["conditions_grille"] = grille_cond
     ecrire_json(FICHIER_PIPELINE, donnees)
-    titre_cond = ("🏆 **Test validé — bienvenue dans la sélection Team International !**\n\n" if grille_cond == "mg"
-                  else "🏆 **Test validé — bienvenue dans l'équipe !**\n\n")
+    # 30/09 (Gaëtan : « on associe le recrutement FR et INT, on les félicite d'avoir rejoint l'agence et on donne les
+    # prochaines étapes ») : un seul message pour tout le monde.
+    titre_cond = f"🎉 **Félicitations {prenom_de(membre)}, tu as rejoint l'agence !**\n\n"
     # 27/09 : « J'ACCEPTE devient une case cochée » ; 30/09 (Gaëtan : « supprime cette étape, on l'a déjà faite dans le
     # formulaire ») : plus de règles ni de bouton après le test — test validé = accès ouvert, créatrice et comptes derrière.
     retour_acc = await accepter_conditions(str(membre.id), "site", grille_cond)
@@ -7130,7 +7140,7 @@ async def on_message(message):
             canal = await canal_admin()
             # 26/09 : le bot regarde la vidéo et donne son avis ; bon montage = validé tout seul (Gaëtan : « le bot va dire si le montage est bon »)
             # 27/09 : UN seul message admin, l'avis compris (avant : « test rendu » puis « avis du bot », deux fois par vidéo).
-            avis_t = None
+            avis_t, valide_auto = None, False
             if message.attachments and not hors_delai:
                 avis_t = await avis_test_montage(message)
                 try:
@@ -7145,7 +7155,7 @@ async def on_message(message):
                 else:
                     verdict_t = (f"**{avis_t['note']}/10**"
                                  + (" — " + " · ".join(avis_t["a_corriger"][:2]) if avis_t.get("a_corriger") else "")
-                                 + (" → ✅ validé automatiquement" if TEST_AUTO and avis_t["note"] >= TEST_AUTO_SEUIL
+                                 + (" → ✅ validé automatiquement" if test_accepte(avis_t)
                                     else f" → `!test-ok {prenom_t}` / `!test-non {prenom_t} raison`"))
                 texte_rendu = ((f"🧪 **{'Complément' if complement else 'Test'}{' HORS DÉLAI' if hors_delai else ''}** de "
                                 f"{message.author.mention} (quiz {info.get('score_quiz') or '?'}) : {verdict_t}")
@@ -7159,7 +7169,7 @@ async def on_message(message):
                         pass
             if avis_t is not None:
                 membre_t = membre_par_id(utilisateur)
-                if TEST_AUTO and not avis_t.get("erreur") and avis_t["note"] >= TEST_AUTO_SEUIL and membre_t is not None:
+                if test_accepte(avis_t) and membre_t is not None:
                     donnees_v = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
                     if donnees_v.get("etats", {}).get(str(utilisateur), {}).get("etat") == "test_rendu":
                         donnees_v["etats"][str(utilisateur)]["etat"] = "valide"
@@ -7168,8 +7178,9 @@ async def on_message(message):
                         ecrire_json(FICHIER_PIPELINE, donnees_v)
                         try:
                             ligne_v = await suite_validation(membre_t, membre_t.guild)
+                            valide_auto = True
                             if canal:
-                                await canal.send(f"✅ Test de {message.author.mention} validé par le bot ({avis_t['note']}/10). {ligne_v}"[:1900])
+                                await canal.send(f"✅ Test de {message.author.mention} validé par le bot ({avis_t.get('note', '?')}/10). {ligne_v}"[:1900])
                         except Exception as erreur:                         # noqa: BLE001
                             journal.warning("Validation automatique %s : %s", utilisateur, erreur)
                 # Lien permanent vers le message admin (les URL de pièces jointes Discord
@@ -7177,7 +7188,7 @@ async def on_message(message):
                 info.setdefault("liens_admin", []).append(msg_admin.jump_url)
                 ecrire_json(FICHIER_PIPELINE, donnees_pipe)
             await message.reply("📥 Bien reçu ! " + ("Fichier ajouté à ton rendu." if complement else
-                                "Ton test part en review — réponse sous 72 h maximum. 🤞"))
+                                ("Test validé ✅" if valide_auto else "Ton test part en review — réponse sous 72 h maximum. 🤞")))
             journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
             return
 

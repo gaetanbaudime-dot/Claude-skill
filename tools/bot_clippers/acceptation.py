@@ -97,7 +97,8 @@ async def envoyer_boutons_en_attente(client) -> list:
         ecrire(fichier, pipe)
         membre = _deps["membre_par_id"](uid)
         try:
-            await membre.send("🏆 **Ton accès est ouvert.** Les 5 règles, tu les as acceptées dans le formulaire.\n\n" + texte[:1800])
+            prenom = (getattr(membre, "display_name", "") or "").split(" - ")[0].split()[0] if getattr(membre, "display_name", "") else ""
+            await membre.send(f"🎉 **Félicitations{' ' + prenom if prenom else ''}, tu as rejoint l'agence !**\n\n" + texte[:1800])
         except (discord.Forbidden, discord.HTTPException):
             pass
         faits.append(uid)

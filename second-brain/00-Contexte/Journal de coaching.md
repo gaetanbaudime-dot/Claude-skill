@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 (nuit, 2) — Un seul recrutement France + International ; le test de montage accepté par le bot
+- **Décisions de Gaëtan** : « on associe le recrutement FR et INT, on les félicite d'avoir rejoint l'agence et on leur donne les prochaines étapes » ; « fais en sorte d'accepter toi-même le test de montage vidéo » ; plus d'étape « 5 règles + bouton » après le test (déjà acceptées au formulaire).
+- **Livré** : toute vidéo de test rendue dans les temps est validée par le bot, la note devient un conseil ; plus de pause possible du recrutement international ; un seul message d'arrivée « Félicitations, tu as rejoint l'agence » avec trois prochaines étapes. C'est, de fait, l'axe 2 du 29/09 à moitié : le test reste une étape, mais il ne bloque plus personne.
+- **Avocat du diable** : un test qui ne filtre plus coûte encore 24 à 72 h au candidat (recevoir la vidéo brute, rendre la sienne) pour rien ; la suite logique est de le supprimer. Et sans filtre, la sortie à 7 jours sans Reel devient le seul tri : plus d'entrées, plus de sorties.
+- **Relevé au passage** : le code du bot note « Indeed banni côté FR » (08/09). La relance d'Indeed recommandée le 29/09 est donc peut-être impossible avec le compte actuel : à vérifier avant d'y mettre du temps.
+- **Prédiction (30/09, revue le 14/10)** : le délai médian formulaire → premier Reel des arrivés de la semaine du 06/10 baisse d'au moins un jour par rapport à celle du 29/09 (55 %) ; les sorties à 7 jours doublent sur la même période (50 %).
+
 ### 2026-09-30 (nuit) — Un seul !code, jamais les codes sensibles ; premier Reel fêté avec son image ; Telegram sans connecteur
 - **Demandes de Gaëtan** : une seule commande pour créer, se connecter et faire appel, « attention, jamais renvoyer le code pour modifier les informations sensibles », mode d'emploi du salon réécrit sans la ligne de l'adresse masquée ; « Bravo @clippeur pour ton premier Reel » avec la capture du Reel dans #dopamine (idée n° 8 du 30/09) ; les relances WhatsApp à la main par peur du ban ; « Telegram, on peut y aller fort ? ».
 - **Livré** : `!code` pour tout (`!recup` fait pareil), filtre sur le sujet et la phrase qui porte le code, testé sur 17 mails types sans erreur, code sensible jamais relayé et signalé à l'admin ; « déconnecté » ne passe plus par « Mot de passe oublié ». Premier Reel fêté dans #dopamine avec l'image de couverture lue par le scan et le lien, une fois par clipper.
