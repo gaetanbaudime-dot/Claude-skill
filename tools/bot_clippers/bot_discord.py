@@ -279,7 +279,7 @@ d'étape déjà posté dans le salon : le geste précis à faire maintenant, et 
 est déjà affichée avec son bouton ✅, tu t'arrêtes après la réponse. Rien d'autre après cette ligne, pas \
 d'étiquette de source.
 4ter. La bonne fiche selon le sujet : créer un compte, identifiants, téléphone cloud, \
-numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; warm-up, 24 h par compte, \
+numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; un compte tous les 48 h, warm-up 24 h par compte, \
 comptes à suivre → Fiche 2 ; monter un Reel, hook, sous-titres, caption, miniature, musique, \
 publier, heure de publication → Fiche 3 ; routine du jour, \
 cadence, semaine type, reporting → Fiche 4 ; Reels d'essai, dupliquer ce qui marche, tests, \
@@ -2965,7 +2965,7 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
              "La suite, dans l'ordre :\n"
              + ("1️⃣ **Ta créatrice t'est attribuée tout de suite** : ton salon perso reçoit tes comptes Instagram.\n" if auto else
                 "1️⃣ **Ta créatrice t'est attribuée** (sous 48 h) : ton salon perso reçoit tes 3 comptes Instagram.\n")
-             + "2️⃣ **Un compte par jour, sur ton téléphone**, 24 h de warm-up sur chacun. Le code arrive avec `!code`. "
+             + "2️⃣ **Un compte tous les 48 h, sur ton téléphone**, 24 h de warm-up sur chacun. Le code arrive avec `!code`. "
              "Le bot te guide étape par étape, avec des boutons.\n"
              "3️⃣ D'ici là : lis la **Fiche 1** (créer tes comptes) et la **Fiche 2** (le warm-up).\n"
              "Une question ? Écris dans ton salon perso. Au travail 💪")
@@ -6102,6 +6102,7 @@ async def on_ready():
         # ne dépendait que de LIEN_TRESORERIE/CANAL_REPORTING_ID — sans eux, aucun digest (audit 10/09).
         client.loop.create_task(boucle_rappels())
         client.loop.create_task(annoncer_demarrage())
+        client.loop.create_task(annoncer_regle_48h())         # 29/09 : la règle des 48 h, une fois, dans chaque salon perso
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
         client.loop.create_task(boucle_posts_formation())  # liens des fiches + index des salons (fini « #inconnu »)
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
@@ -6305,6 +6306,32 @@ async def parrainage_top_maintenant() -> tuple:
     uids = paie_clics.top_uids(d, heure_paris().date() - timedelta(days=1))
     n = await parrainage.inviter_top(uids, web_candidature.lien_parrainage, salon_perso_de)
     return n, len(uids)
+
+
+async def annoncer_regle_48h():
+    """29/09 (Gaëtan : « go leur dire de créer un compte tous les 48 h, afin de limiter les bans ») : une fois, dans chaque salon
+    perso, la nouvelle règle. Retenu dans annonces.json pour ne jamais repartir à un redéploiement."""
+    await client.wait_until_ready()
+    fichier = DONNEES / "annonces.json"
+    faites = lire_json(fichier, {})
+    if faites.get("regle_48h"):
+        return
+    texte = ("📣 **Nouvelle règle depuis le 29/09 : un compte tous les 48 h, jamais plus vite.**\n\n"
+             "Compte 1, puis 48 h. Compte 2, puis 48 h. Compte 3. Le warm-up reste 24 h par compte avant le premier Reel.\n\n"
+             "C'est ce qui limite les bans : 7 comptes perdus hier. Un compte banni ne revient jamais, le bot t'en donne un neuf.")
+    n = 0
+    try:
+        for salon, membre in await salons_persos_actifs():
+            try:
+                await salon.send(f"{membre.mention} {texte}")
+                n += 1
+                await asyncio.sleep(0.6)
+            except discord.HTTPException as erreur:
+                journal.warning("Annonce 48 h dans %s : %s", getattr(salon, "name", "?"), erreur)
+    finally:
+        faites["regle_48h"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "salons": n}
+        ecrire_json(fichier, faites)
+        journal.info("Annonce de la règle des 48 h postée dans %d salon(s) perso", n)
 
 
 async def annoncer_demarrage():

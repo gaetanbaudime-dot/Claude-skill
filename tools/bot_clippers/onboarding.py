@@ -579,7 +579,7 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
     return google_api.drive_lien(dossier)
 
 
-RESERVATION_JOURS = int(os.environ.get("RESERVATION_JOURS", "5") or 5)   # 28/09 (Gaëtan : GO) : la réservation qui expire
+RESERVATION_JOURS = int(os.environ.get("RESERVATION_JOURS", "2") or 2)   # 28/09 (Gaëtan : GO) : la réservation qui expire ; 29/09 : 48 h au lieu de 5 jours
 
 
 async def reservations_expirees(historique: dict, maintenant=None) -> list:
@@ -609,7 +609,7 @@ async def reservations_expirees(historique: dict, maintenant=None) -> list:
         if not lignes or any(_norm(c["etat"]) not in A_CREER for c in lignes):
             continue                                                    # un compte créé au moins : la sortie à 14 jours jugera
         scans = [e for h in handles for e in (historique.get(h) or [])]
-        if len(scans) < 3 or any(e.get("existe") for e in scans):
+        if len(scans) < min(3, RESERVATION_JOURS) or any(e.get("existe") for e in scans):   # 29/09 : 2 scans suffisent à 48 h
             continue
         for c in lignes:
             await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])

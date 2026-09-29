@@ -70,7 +70,8 @@ def anomalies(comptes: list, historique: dict | None = None, exclus=None) -> lis
         if len(cs) > 1:
             num = next((c["numero"] for c in cs if c.get("numero")), "")
             ref = f"{cs[0].get('onglet') or '?'} n° {num}" if num else f"{cs[0].get('onglet') or '?'} {m[:6]}…"
-            doublons.append(f"{ref} → " + " + ".join(_etiquette(c) for c in cs))
+            brule = " ⚠️ mail brûlé (ligne BAN) réutilisé" if any(_n(c.get("etat")) == "ban" for c in cs) else ""
+            doublons.append(f"{ref} → " + " + ".join(_etiquette(c) for c in cs) + brule)
     if doublons:
         out.append("• Mail en double : " + " · ".join(sorted(doublons)))
     # 2. un même pseudo sur plusieurs lignes

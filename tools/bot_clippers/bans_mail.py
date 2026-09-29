@@ -27,9 +27,22 @@ import telegram
 
 journal = logging.getLogger("bot.bans_mail")
 INTERVALLE = int(os.environ.get("BANS_INTERVALLE_SEC", "180") or 180)
-# 29/09 (Gaëtan : « fais le filtre Gmail pour moi ») : les mails Meta trouvés dans le Spam sont remis dans la boîte de réception
-# (UID MOVE), ce que ferait un filtre « ne jamais envoyer dans le spam » — et le relais des codes les voit alors.
+# 29/09 (Gaëtan : « fais le filtre Gmail pour moi… uniquement les mails FB et IG importants : sign in, sign up, ban, appel,
+# informations importantes, demande de vérification. Je veux pas la pub ») : les mails Meta IMPORTANTS trouvés dans le Spam
+# sont remis dans la boîte de réception (UID MOVE), et la pub Meta trouvée dans la boîte de réception repart dans le Spam.
 DEPLACER_SPAM = os.environ.get("BANS_DEPLACER_SPAM", "1").strip() != "0"
+PUB_VERS_SPAM = os.environ.get("BANS_PUB_VERS_SPAM", "1").strip() != "0"
+DOSSIER_SPAM = os.environ.get("BANS_DOSSIER_SPAM", "[Gmail]/Spam").strip() or "[Gmail]/Spam"
+MOTS_IMPORTANT = ("code", "confirm", "verif", "verify", "login", "log in", "connexion", "connecter", "sign in", "sign up",
+                  "inscription", "bienvenue", "welcome", "suspend", "desactiv", "disabled", "restre", "restrict", "action requise",
+                  "action required", "appel", "appeal", "important", "securit", "security", "mot de passe", "password", "recover",
+                  "recup", "reset", "reinitialis", "identit", "de retour", "back on", "demande", "request", "parametre", "settings",
+                  "compte", "account", "profil")
+MOTS_PUB = ("decouvrez", "ont partage", "a partage", "commence a vous suivre", "started following", "veut vous suivre",
+            "wants to follow", "ajoute du contenu", "rattrapez", "regardez les reels", "suggestion", "shared", "you may know",
+            "manque", "nouveaute", "tendance", "trending", "recap", "highlights", "en direct", "is live")
+PREFIXES_PUB = ("posts-recap", "follow-sugg", "stories-rec", "digest", "news", "marketing", "promo", "reels-recap", "live-")
+MOTS_RETOUR = ("de retour sur instagram", "back on instagram", "de nouveau utiliser", "can use", "again")
 JOURS = int(os.environ.get("BANS_JOURS", "3") or 3)
 DOSSIERS = tuple(d.strip() for d in os.environ.get("BANS_IMAP_DOSSIERS", "INBOX,[Gmail]/Spam").split(",") if d.strip())
 MOTS_EXPEDITEUR = ("instagram", "facebookmail")
@@ -42,6 +55,29 @@ MOTIF_SUJET_COMPTE = re.compile(r",\s*@?([A-Za-z0-9][A-Za-z0-9._]{0,40})\s*$")
 MOTIF_CORPS_COMPTE = re.compile(r"(?:Bonjour|Hi|Hello|accès à|access to)\s+@?([A-Za-z0-9][A-Za-z0-9._]{0,40})\s*[,.!\s|]")
 MOTIF_ADRESSE = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 _deps: dict = {}
+
+
+def _plat(t: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", (t or "").lower()) if unicodedata.category(c) != "Mn")
+
+
+def categorie(sujet: str, expediteur: str = "") -> str:
+    """« important » (codes, connexion, inscription, ban, appel, sécurité, paramètres…), « pub » (récaps, suggestions, qui
+    vous suit…) ou « autre ». La pub se reconnaît d'abord à l'expéditeur (posts-recap, follow-suggestions, stories-recap),
+    puis au sujet ; un mot important dans le sujet l'emporte toujours (« Découvrez … » n'est jamais un code)."""
+    s, e = _plat(sujet), _plat(expediteur)
+    local = e.split("@")[0]
+    pub_exp = any(local.startswith(p) for p in PREFIXES_PUB)
+    pub_sujet = any(m in s for m in MOTS_PUB)
+    fort = any(m in s for m in MOTS_IMPORTANT if m not in ("compte", "account", "profil"))
+    if fort:
+        return "important"
+    if pub_exp or pub_sujet:
+        return "pub"
+    if any(m in s for m in ("compte", "account", "profil")):
+        return "important"
+    return "autre"
 
 
 def configurer(deps: dict):
@@ -87,13 +123,17 @@ def extraire(msg) -> dict | None:
     code, paramètres, nouveautés…)."""
     sujet = str(make_header(decode_header(msg.get("Subject") or ""))).strip()
     s = sujet.lower()
-    if not any(m in s for m in SUJETS_BAN):
+    genre = "ban"
+    if any(m in s for m in ("de retour sur instagram", "back on instagram")):
+        genre = "retour"                                                 # appel accepté : « Vous pouvez de nouveau utiliser … »
+    elif not any(m in s for m in SUJETS_BAN):
         return None
     corps = _texte(msg)
     c = corps.lower()
-    fort = any(m in s for m in ("suspendu", "suspended", "désactivé", "desactive", "disabled", "restreint", "restricted"))
-    if not fort and not any(m in c for m in MOTS_CORPS):
-        return None
+    if genre == "ban":
+        fort = any(m in s for m in ("suspendu", "suspended", "désactivé", "desactive", "disabled", "restreint", "restricted"))
+        if not fort and not any(m in c for m in MOTS_CORPS):
+            return None
     m = MOTIF_SUJET_COMPTE.search(sujet)
     pseudo = m.group(1) if m else ""
     if not pseudo:
@@ -107,7 +147,7 @@ def extraire(msg) -> dict | None:
     except Exception:                                                   # noqa: BLE001
         date = datetime.now(timezone.utc)
     ident = (msg.get("Message-ID") or "").strip() or f"{date.isoformat(timespec='minutes')}|{sujet}"
-    return {"pseudo": pseudo, "alias": alias, "sujet": sujet[:120], "date": date.isoformat(timespec="minutes"), "id": ident}
+    return {"pseudo": pseudo, "alias": alias, "sujet": sujet[:120], "date": date.isoformat(timespec="minutes"), "id": ident, "type": genre}
 
 
 def _lire_boite(jours: int = JOURS) -> list:
@@ -119,9 +159,10 @@ def _lire_boite(jours: int = JOURS) -> list:
     with imaplib.IMAP4_SSL(codes_2fa.IMAP_HOST, timeout=codes_2fa.IMAP_TIMEOUT) as boite:
         boite.login(codes_2fa.IMAP_USER, codes_2fa.IMAP_PASSWORD)
         for dossier in DOSSIERS:
-            spam = dossier.upper() != "INBOX" and DEPLACER_SPAM
+            spam = dossier.upper() != "INBOX"
+            bouge = (spam and DEPLACER_SPAM) or (not spam and PUB_VERS_SPAM)
             try:
-                ok, _ = boite.select(dossier, readonly=not spam)
+                ok, _ = boite.select(dossier, readonly=not bouge)
             except imaplib.IMAP4.error:
                 ok = "NO"
             if ok != "OK":
@@ -132,27 +173,35 @@ def _lire_boite(jours: int = JOURS) -> list:
                 ok, ids = boite.uid("SEARCH", None, f'(SINCE {depuis} FROM "{mot}")')
                 if ok == "OK" and ids and ids[0]:
                     uids.update(ids[0].split())
-            uids = sorted(uids, key=int)[-80:]
-            for uid in uids:
+            a_remonter, a_descendre = [], []
+            for uid in sorted(uids, key=int)[-120:]:
                 ok, brut = boite.uid("FETCH", uid, "(BODY.PEEK[]<0.30000>)")
                 if ok != "OK" or not brut or not brut[0]:
                     continue
-                info = extraire(email.message_from_bytes(brut[0][1]))
+                msg = email.message_from_bytes(brut[0][1])
+                sujet = str(make_header(decode_header(msg.get("Subject") or ""))).strip()
+                cat = categorie(sujet, str(msg.get("From") or ""))
+                if spam and cat == "important":
+                    a_remonter.append(uid)
+                elif not spam and cat == "pub":
+                    a_descendre.append(uid)
+                info = extraire(msg)
                 if info and info["id"] not in vus:
                     vus.add(info["id"])
                     info["dossier"] = dossier
                     out.append(info)
-            if spam and uids:
+            for cibles, destination, libelle in ((a_remonter if spam and DEPLACER_SPAM else [], "INBOX", "important(s) remis dans la boîte de réception"),
+                                                 (a_descendre if not spam and PUB_VERS_SPAM else [], DOSSIER_SPAM, "pub renvoyé(s) dans le Spam")):
                 deplaces = 0
-                for uid in uids:
+                for uid in cibles:
                     try:
-                        if boite.uid("MOVE", uid, "INBOX")[0] == "OK":
+                        if boite.uid("MOVE", uid, destination)[0] == "OK":
                             deplaces += 1
                     except imaplib.IMAP4.error as erreur:
                         journal.warning("Bans par mail : déplacement depuis %s : %s", dossier, erreur)
                         break
                 if deplaces:
-                    journal.info("Bans par mail : %d mail(s) Meta remis dans la boîte de réception depuis %s", deplaces, dossier)
+                    journal.info("Bans par mail : %d mail(s) Meta %s (depuis %s)", deplaces, libelle, dossier)
     return out
 
 
@@ -177,6 +226,10 @@ def _quand(iso: str) -> str:
 def ligne_push(t: dict, c: dict | None, ecrit: bool) -> str:
     """Une ligne par ban : le pseudo, le clipper, la créatrice, le numéro de mail, ce qui a été fait."""
     pseudo = f"@{t['pseudo']}" if t.get("pseudo") else (t.get("alias") or "compte inconnu")
+    if t.get("type") == "retour":
+        qui = "" if c is None else f" · {str(c.get('gerant') or '').split()[0] if str(c.get('gerant') or '').strip() else 'sans gérant'} · {c.get('onglet') or '?'}" + (f" · mail n° {c['numero']}" if c.get("numero") else "")
+        etat = "" if c is None else f" · ligne {c.get('etat') or '?'} dans le classeur, à toi de la remettre WARMUP si tu le reprends"
+        return f"✅ {pseudo} — de retour sur Instagram, appel accepté ({_quand(t['date'])}){qui}{etat}"
     if c is None:
         return f"🚫 {pseudo} — suspendu ({_quand(t['date'])}), hors classeur (alias inconnu)"
     gerant = str(c.get("gerant") or "").split()[0] if str(c.get("gerant") or "").strip() else "sans gérant"
@@ -202,6 +255,11 @@ async def traiter(trouves: list | None = None) -> dict:
     for t in sorted(nouveaux, key=lambda x: x["date"]):
         c = associer(t, comptes)
         ecrit = False
+        if t.get("type") == "retour":                                   # appel accepté : signalé, jamais réécrit (règle BAN de Gaëtan)
+            d["vus"][t["id"]] = t["date"]
+            bilan["nouveaux"] += 1
+            bilan["lignes"].append(ligne_push(t, c, False))
+            continue
         if c is not None and _n(c.get("etat")) != "ban":
             try:
                 await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, "etat"), [["BAN"]])

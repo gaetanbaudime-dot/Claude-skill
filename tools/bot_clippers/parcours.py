@@ -29,21 +29,22 @@ WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)   # 26/09 (Gaëtan)
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 ETAPES = {
-    # 26/09 (Gaëtan) : textes courts, un compte par jour avec 24 h de warm-up sur chaque compte, puis les Reels.
+    # 26/09 (Gaëtan) : textes courts, 24 h de warm-up sur chaque compte, puis les Reels.
+    # 29/09 (Gaëtan) : « un compte tous les 48 h » — jamais plus vite, c'est ce qui limite les bans (7 comptes perdus le 28/09).
     1: {"titre": "Étape 1 · Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 prêt", "salons": ["info"],
         "texte": ("**Compte 1** · chaque bloc se copie d'un geste (bouton du bloc).\n"
                   "Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
                   "📁 Ton Drive (photos, Reels, TOP 20) : {drive}\n\n"
                   "{creation1}\n\n"
                   "Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
-                  "Fini ? Appuie sur le bouton. Compte 2 demain.")},
+                  "Fini ? Appuie sur le bouton. Compte 2 dans 48 h, jamais avant : c'est ce qui évite les bans.")},
     2: {"titre": "Étape 2 · Ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 prêt", "salons": ["info"],
         "texte": ("**Compte 2** · chaque bloc se copie d'un geste (bouton du bloc).\n"
                   "Identifiant :\n```\n{compte2}\n```\nE-mail :\n```\n{mail2}\n```\nMot de passe :\n```\n{mdp2}\n```\n"
                   "{creation2}\n\n"
                   "Photo et bio différentes du compte 1. Puis 24 h de warm-up dessus.\n\n"
                   "Le compte 1 a fini ses 24 h ? Tu peux déjà y publier 2 Reels par jour, pris dans ton Drive.\n\n"
-                  "Fini ? Appuie sur le bouton. Compte 3 demain.")},
+                  "Fini ? Appuie sur le bouton. Compte 3 dans 48 h, jamais avant.")},
     3: {"titre": "Étape 3 · Ton compte 3", "fiche": "1", "bouton": "✅ Compte 3 prêt", "salons": ["info"],
         "texte": ("**Compte 3** · chaque bloc se copie d'un geste (bouton du bloc).\n"
                   "Identifiant :\n```\n{compte3}\n```\nE-mail :\n```\n{mail3}\n```\nMot de passe :\n```\n{mdp3}\n```\n"
@@ -581,7 +582,7 @@ def contexte_llm(uid: str) -> str:
             "vérification), `!mesclics` (ses visites). Les comptes se créent ici, guidés par le parcours : plus de créneau "
             "lundi/mercredi/vendredi, plus de contrat, plus de distinction France/International. Ne redonne jamais un mot "
             "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, le 5 et le 20, USDC ou virement. "
-            "Règle des 24 h (26/09) : un compte par jour (compte 1, puis 2, puis le privé), 24 h de warm-up sur chaque compte "
+            "Règle des 48 h (29/09) : un compte tous les 48 h, jamais plus vite (compte 1, 48 h, compte 2, 48 h, compte 3), 24 h de warm-up sur chaque compte "
             "après sa création (Reels, likes, abonnements, zéro publication) ; le premier Reel arrive après le warm-up du "
             f"compte 3 (étape 4, {WARMUP_JOURS} jour(s)) — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». "
             "Le lien (28/09) : une seule fois, dans une story à la une sur chaque compte, et on n'y touche plus ; jamais en bio, "

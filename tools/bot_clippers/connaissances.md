@@ -21,7 +21,7 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 1. Publier tous les jours, sans rater un jour. Le début est une traversée du désert : un Reel finit par marcher et fait boule de neige. Ceux qui s'arrêtent avant n'y arrivent jamais.
 2. Publier beaucoup. 2 Reels par jour sur chaque compte au début, puis 1 de plus par jour sur chaque compte chaque semaine, jusqu'à 10. On publie plus que les autres, on teste plus, on refait ce qui marche.
 3. Décliner ce qui marche : un Reel qui marche donne 5 versions (filtre, durée, son, texte, sous-titres).
-4. Protéger tes comptes : contenu soft, cadence qui monte doucement, pas d'actions en rafale, un compte par jour.
+4. Protéger tes comptes : contenu soft, cadence qui monte doucement, pas d'actions en rafale, un compte tous les 48 h, jamais plus vite.
 5. Transformer les vues en clics : un profil beau, des posts épinglés, une belle bio, ta story à la une, un public français. C'est ça qui te paie.
 
 ## LE PARCOURS (du formulaire au premier Reel) — version du 28 septembre 2026
@@ -32,8 +32,8 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 4. **Le test de montage** : quiz réussi → le bot t'envoie en message privé une vidéo brute. Tu fais un Reel simple et accrocheur : tu changes le texte, la musique, le format, tu coupes, tu modifies le plus possible la vidéo de base, comme dans la formation. Tu envoies ta vidéo **directement dans la conversation privée avec le bot** (le **+** à gauche de la zone de message, 48 h maximum).
 5. **L'avis du bot** : le bot regarde ton montage et te répond tout de suite, avec une note sur 10. Bon montage → validé. Un manager peut confirmer ou corriger.
 6. **Ta créatrice** t'est attribuée tout de suite, ton rôle est posé, ton salon perso part dans sa catégorie. Les 5 règles, tu les as cochées sur le site : rien d'autre à écrire.
-7. **Tes 3 comptes Instagram** arrivent dans ton salon perso, un par jour (identifiant, e-mail, mot de passe), avec ton lien et ton Drive. Instagram demande un code ? Écris `!code` : le bot te donne le code reçu sur l'e-mail de l'agence.
-8. **Un compte par jour, 24 h de warm-up par compte, puis il publie** : le compte 1 publie dès le jour 2, pendant que tu crées le compte 2. Le bot te guide étape par étape, avec un bouton « ✅ C'est fait ».
+7. **Tes 3 comptes Instagram** arrivent dans ton salon perso, un tous les 48 h (identifiant, e-mail, mot de passe), avec ton lien et ton Drive. Instagram demande un code ? Écris `!code` : le bot te donne le code reçu sur l'e-mail de l'agence.
+8. **Un compte tous les 48 h, 24 h de warm-up par compte, puis il publie** : le compte 1 publie dès le jour 2, le compte 2 se crée au jour 3, le compte 3 au jour 5. Jamais plus vite : c'est ce qui limite les bans. Le bot te guide étape par étape, avec un bouton « ✅ C'est fait ».
 
 Une question ? Ton salon perso, le bot y répond. En dernier, Gaëtan sur WhatsApp : le bouton « Écrire à Gaëtan » dans ton salon perso. Présente-toi, une phrase, une capture.
 
@@ -67,8 +67,8 @@ Chaque clipper a **3 comptes Instagram**. Depuis le 28 septembre 2026, une seule
 Tu es payé au clic sur ton lien : 0,05 $ par visite réelle, francophone. Le but : le plus de vues possible, et le plus de clics français vers ton lien. **Le lien ne se spamme pas** : pas dans la légende d'un Reel, pas en rafale dans les stories. Sinon le compte est banni et tout est perdu.
 
 Comment ça monte :
-- **Jour 1** : compte 1, puis 24 h de warm-up. **Jour 2** : compte 2, puis 24 h de warm-up. **Jour 3** : compte 3, puis 24 h de warm-up.
-- **Jour 4** : 1 Reel par jour sur chaque compte qui publie.
+- **Jour 1** : compte 1, puis 24 h de warm-up. **Jour 3** : compte 2, puis 24 h de warm-up. **Jour 5** : compte 3, puis 24 h de warm-up. Un compte tous les 48 h, jamais plus vite (règle du 29/09, contre les bans).
+- **Jour 6** : tes 3 comptes publient. Un compte banni ne revient jamais : le bot te donne un compte neuf (nouvel identifiant, nouvel e-mail, nouveau mot de passe), jamais l'ancien.
 - **À partir du jour 8** : 2 Reels par jour sur chaque compte qui publie. C'est la cadence normale, pas plus sauf si ton manager le dit.
 
 Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur chaque compte qui publie. On compte de minuit à minuit, heure de Paris. C'est le bot qui compte. Chaque matin, il te dit si hier est réussi. Les 7 premiers jours ne comptent pas contre toi.
