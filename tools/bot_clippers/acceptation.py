@@ -73,30 +73,34 @@ def vue(uid: str) -> discord.ui.View:
 
 
 async def envoyer_boutons_en_attente(client) -> list:
-    """Au démarrage, une fois par personne : chaque validé encore sans acceptation, présent sur le serveur, reçoit les
-    5 règles avec le bouton. Trace `bouton_accepte` dans son état du pipeline."""
+    """Au démarrage : chaque validé encore sans acceptation, présent sur le serveur (il attendait devant le bouton), est
+    accepté d'office — 30/09 (Gaëtan : « supprime cette étape, on l'a déjà faite dans le formulaire ») : les 5 règles sont
+    acceptées dans le formulaire, l'accès s'ouvre sans bouton. Trace `acceptation_auto` dans son état du pipeline."""
     await client.wait_until_ready()
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
-    envoyes = []
-    for uid, info in pipe.get("etats", {}).items():
-        if info.get("etat") != "valide" or not info.get("conditions_envoyees") or info.get("bouton_accepte"):
+    faits = []
+    for uid, info in list(pipe.get("etats", {}).items()):
+        if info.get("etat") != "valide" or not info.get("conditions_envoyees") or info.get("acceptation_auto"):
             continue
-        if _deps["est_signe"](uid):
-            continue
-        membre = _deps["membre_par_id"](uid)
-        if membre is None:
+        if _deps["est_signe"](uid) or _deps["membre_par_id"](uid) is None:
             continue
         try:
-            await membre.send("✍️ **Plus besoin d'écrire J'ACCEPTE : un bouton suffit.**\n\n"
-                              "Ton test est validé. Il ne manque que ton accord sur les 5 règles.\n\n" + REGLES
-                              + "\n\nAppuie sur le bouton. Ton accès s'ouvre tout de suite, ta créatrice et tes comptes arrivent.",
-                              view=vue(uid))
-        except (discord.Forbidden, discord.HTTPException):
+            texte = await _deps["accepter"](uid, "site", info.get("conditions_grille", ""))
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Acceptation d'office de %s : %s", uid, erreur)
             continue
-        info["bouton_accepte"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        envoyes.append(uid)
-    if envoyes:
+        if texte.startswith(("Je n'ai pas", "Je ne te trouve")):          # rien à ouvrir (recrutement en pause, parti…)
+            continue
+        pipe = lire(fichier, {"liaisons": {}, "etats": {}})
+        pipe.setdefault("etats", {}).setdefault(uid, {})["acceptation_auto"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         ecrire(fichier, pipe)
-        journal.info("Bouton J'accepte envoyé à %d validé(s) en attente", len(envoyes))
-    return envoyes
+        membre = _deps["membre_par_id"](uid)
+        try:
+            await membre.send("🏆 **Ton accès est ouvert.** Les 5 règles, tu les as acceptées dans le formulaire.\n\n" + texte[:1800])
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        faits.append(uid)
+    if faits:
+        journal.info("Acceptation d'office de %d validé(s) qui attendaient le bouton", len(faits))
+    return faits

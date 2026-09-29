@@ -3043,17 +3043,12 @@ async def suite_validation(membre, guild):
     ecrire_json(FICHIER_PIPELINE, donnees)
     titre_cond = ("🏆 **Test validé — bienvenue dans la sélection Team International !**\n\n" if grille_cond == "mg"
                   else "🏆 **Test validé — bienvenue dans l'équipe !**\n\n")
-    if liaison.get("conditions_site"):
-        # 27/09 (Gaëtan) : « J'ACCEPTE devient une case cochée » — cochée sur le site, l'accès s'ouvre à la validation
-        retour_acc = await accepter_conditions(str(membre.id), "site", grille_cond)
-        await envoyer_mp(membre, titre_cond + "Tu as accepté les 5 règles sur le site : ton accès est ouvert.\n\n" + retour_acc)
-        return (f"✅ {membre.mention} validé → accès ouvert (règles cochées sur le site)"
-                + (", créatrice automatique." if attribution.actif() else f" · `!creatrice {membre.display_name} <prénom>`."))
-    await envoyer_mp(membre, titre_cond + "Avant d'ouvrir ton accès, lis les 5 règles :\n" + acceptation.REGLES
-                             + "\n\nTu es d'accord ? Appuie sur le bouton. Ton accès s'ouvre tout de suite.",
-                     view=acceptation.vue(membre.id))
-    return (f"✅ {membre.mention} validé → règles + bouton ✅ en MP. Dès son clic : rôle, salon perso"
-            + (", créatrice automatique." if attribution.actif() else f", puis `!creatrice {membre.display_name} <prénom>`."))
+    # 27/09 : « J'ACCEPTE devient une case cochée » ; 30/09 (Gaëtan : « supprime cette étape, on l'a déjà faite dans le
+    # formulaire ») : plus de règles ni de bouton après le test — test validé = accès ouvert, créatrice et comptes derrière.
+    retour_acc = await accepter_conditions(str(membre.id), "site", grille_cond)
+    await envoyer_mp(membre, titre_cond + retour_acc)
+    return (f"✅ {membre.mention} validé → accès ouvert (règles acceptées au formulaire)"
+            + (", créatrice automatique." if attribution.actif() else f" · `!creatrice {membre.display_name} <prénom>`."))
 
 
 async def traiter_candidature_webhook(message, silencieux=False):
@@ -6139,7 +6134,7 @@ async def on_ready():
         acceptation.configurer({"accepter": accepter_conditions, "lire_json": lire_json, "ecrire_json": ecrire_json,
                                 "FICHIER_PIPELINE": FICHIER_PIPELINE, "membre_par_id": membre_par_id,
                                 "est_signe": lambda uid: bool(lire_json(FICHIER_EQUIPES, {}).get(str(uid)))})
-        client.loop.create_task(acceptation.envoyer_boutons_en_attente(client))   # les validés en attente reçoivent le bouton
+        client.loop.create_task(acceptation.envoyer_boutons_en_attente(client))   # 30/09 : les validés en attente devant le bouton passent
 
         async def _etats_classeur():
             if not onboarding.actif():
