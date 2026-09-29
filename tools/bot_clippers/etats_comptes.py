@@ -34,7 +34,7 @@ HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après 
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
 VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
-DASHBOARD_VERSION = 5             # 29/09 : + mise en forme des onglets créatrices (blocs par clipper) ; changée → réécrit au démarrage, sans scan
+DASHBOARD_VERSION = 6             # 29/09 soir : liens du bloc sur la ligne du milieu + clippers regroupés (classeur_forme) ; changée → réécrit au démarrage, sans scan
 EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
 
 

@@ -3,17 +3,24 @@ MYM / GAML de chaque clipper, par clipper et plus lisibles, uniquement ces colon
 sans effacer aucune donnée »).
 
 Un BLOC = les lignes consécutives d'un même Gérant (Utilisation Clipper ou vide) : ses comptes. Sur les colonnes du bloc (Gérant,
-POD, Lien Infloww, Lien MYM, Lien GAML), le bloc reçoit la teinte de sa créatrice (deux teintes en alternance), un cadre, le
-Gérant en gras sur la première ligne ; les valeurs répétées des lignes suivantes (même POD, même lien) sont écrites dans la couleur
-du fond : ça se lit comme une cellule fusionnée, mais rien n'est fusionné ni effacé, le bot continue de lire chaque ligne. Les
-liens du bloc absents des lignes 2 et 3 sont recopiés depuis la première ligne (« ses 3 liens à mettre sur les 3 comptes »).
-Rejoué après chaque scan, sur `!dashboard` et quand la structure change : les lignes bougent, la mise en forme suit."""
+POD, Lien Infloww, Lien MYM, Lien GAML), le bloc reçoit la teinte de sa créatrice (deux teintes en alternance) et un cadre ; une
+seule ligne du bloc montre le Gérant (en gras), le POD et les liens : **celle du milieu** (29/09, Gaëtan : « les liens OF / MYM /
+GAML au milieu du pod du clippeur ») ; sur les autres lignes, les mêmes valeurs sont écrites dans la couleur du fond. Ça se lit
+comme une cellule fusionnée, mais rien n'est fusionné ni effacé, le bot continue de lire chaque ligne. Une valeur différente sur une
+ligne du bloc reste visible (un conflit se voit, il ne se cache pas). Les liens du bloc absents d'une ligne sont recopiés depuis la
+première ligne du bloc qui les a (« ses 3 liens à mettre sur les 3 comptes »).
+
+Regroupement (29/09, Gaëtan : « associer les clippeurs ensemble, si ça ne détruit pas toute la structure ») : un Gérant dont les
+comptes sont éparpillés dans l'onglet (deux blocs ou plus) voit ses petits blocs déplacés juste après son plus grand (à taille égale
+le premier reste en place) : le moins de lignes possible bougent, la ligne entière est déplacée (moveDimension), rien n'est effacé,
+tout le reste de l'onglet garde son ordre. Rejoué après chaque scan, sur `!dashboard` et quand la structure change."""
 import logging
 
 journal = logging.getLogger("bot.classeur_forme")
 COLONNES_BLOC = ("gerant", "pod", "lien_infloww", "lien_mym", "lien_gaml")
 COLONNES_RECOPIEES = ("pod", "lien_infloww", "lien_mym", "lien_gaml")
 GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
+PREMIERE_LIGNE = 2                                                          # la ligne 1 est l'en-tête
 _deps: dict = {}
 
 
@@ -36,12 +43,48 @@ def blocs(comptes_onglet: list) -> list:
         if not g or g in GERANTS_LIBRES or not en_gestion:
             courant = None
             continue
-        if courant and courant[0] == g and int(c["ligne"]) == courant[1][-1]["ligne"] + 1:
+        if courant and courant[0] == g and int(c["ligne"]) == int(courant[1][-1]["ligne"]) + 1:
             courant[1].append(c)
         else:
             courant = (g, [c])
             out.append(courant)
     return out
+
+
+def requetes_regroupement(sid: int, comptes_onglet: list) -> tuple:
+    """(requêtes moveDimension dans l'ordre d'application, {ancienne ligne: nouvelle ligne} pour toutes les lignes de l'onglet).
+    Simulé sur la liste des lignes : chaque bloc déplacé est pris entier et posé juste après le plus grand bloc de son Gérant (puis
+    à la suite des blocs déjà déplacés, dans leur ordre) ; un Gérant déjà réuni par un déplacement précédent n'est plus touché."""
+    lignes = sorted(int(c["ligne"]) for c in comptes_onglet)
+    if not lignes:
+        return [], {}
+    debut = min(PREMIERE_LIGNE, lignes[0])
+    courant = list(range(debut, lignes[-1] + 1))
+    par_gerant = {}
+    for g, ls in blocs(comptes_onglet):
+        par_gerant.setdefault(g, []).append([int(c["ligne"]) for c in ls])
+    req = []
+    for g, fragments in par_gerant.items():
+        if len(fragments) < 2:
+            continue
+        ancre = max(fragments, key=lambda f: (len(f), -f[0]))
+        queue = ancre[-1]
+        for f in fragments:
+            if f is ancre:
+                continue
+            positions = sorted(courant.index(l) for fr in fragments for l in fr)
+            if positions[-1] - positions[0] + 1 == len(positions):           # déjà contigus (réunis par un déplacement précédent)
+                break
+            j0 = courant.index(f[0]); j1 = j0 + len(f)
+            dest = courant.index(queue) + 1
+            if dest != j0:
+                req.append({"moveDimension": {"source": {"sheetId": sid, "dimension": "ROWS", "startIndex": debut - 1 + j0, "endIndex": debut - 1 + j1},
+                                              "destinationIndex": debut - 1 + dest}})
+                del courant[j0:j1]
+                dest = courant.index(queue) + 1
+                courant[dest:dest] = f
+            queue = f[-1]
+    return req, {l: debut + i for i, l in enumerate(courant)}
 
 
 def _plage(sid, r0, r1, c0, c1):
@@ -87,6 +130,11 @@ def _runs(indices: list) -> list:
     return out
 
 
+def ligne_visible(lignes: list) -> dict:
+    """La ligne du bloc qui montre le Gérant, le POD et les liens : celle du milieu (la première pour un bloc de 1 ou 2 lignes)."""
+    return lignes[(len(lignes) - 1) // 2]
+
+
 def requetes_onglet(sid: int, titre: str, cols: dict, comptes_onglet: list) -> tuple:
     """(requêtes batchUpdate, écritures [(plage A1, [[valeur]])]) pour un onglet."""
     idx = {ch: cols[ch] for ch in COLONNES_BLOC if ch in cols}
@@ -105,42 +153,59 @@ def requetes_onglet(sid: int, titre: str, cols: dict, comptes_onglet: list) -> t
     for k, (g, lignes) in enumerate(blocs(comptes_onglet)):
         fond = teinte if k % 2 == 0 else teinte2
         r0, r1 = int(lignes[0]["ligne"]) - 1, int(lignes[-1]["ligne"])           # index 0-based, fin exclusive
-        ancre = lignes[0]
+        visible = ligne_visible(lignes)
+        rv = int(visible["ligne"]) - 1
         for c0, c1 in _runs(list(idx.values())):
             req.append(_fmt(sid, r0, r1, c0, c1, fond=fond, gras=False))
             req.append(_bordure(sid, r0, r1, c0, c1, bande))
-        req.append(_fmt(sid, r0, r0 + 1, idx["gerant"], idx["gerant"] + 1, fond=fond, gras=True))
+        req.append(_fmt(sid, rv, rv + 1, idx["gerant"], idx["gerant"] + 1, fond=fond, gras=True))
         if "pod" in idx:
             req.append(_fmt(sid, r0, r1, idx["pod"], idx["pod"] + 1, fond=fond, aligne="CENTER"))
-        for c in lignes[1:]:
+        for ch in COLONNES_RECOPIEES:                                       # 1) la valeur du bloc = la première non vide ; recopiée où elle manque
+            if ch not in idx:
+                continue
+            v_bloc = next((str(c.get(ch) or "").strip() for c in lignes if str(c.get(ch) or "").strip()), "")
+            for c in lignes:
+                if v_bloc and not str(c.get(ch) or "").strip():
+                    ecritures.append((f"{a1(titre)}!{lettre(idx[ch])}{c['ligne']}", [[v_bloc]]))
+                    c[ch] = v_bloc
+        for c in lignes:                                                    # 2) hors de la ligne visible, les mêmes valeurs se fondent
+            if c is visible:
+                continue
             rr = int(c["ligne"]) - 1
             req.append(_fmt(sid, rr, rr + 1, idx["gerant"], idx["gerant"] + 1, fond=fond, texte=fond))     # Gérant répété : discret
             for ch in COLONNES_RECOPIEES:
                 if ch not in idx:
                     continue
-                v_ancre, v = str(ancre.get(ch) or "").strip(), str(c.get(ch) or "").strip()
-                if v_ancre and not v:                                          # le lien du bloc manque sur cette ligne : recopié
-                    ecritures.append((f"{a1(titre)}!{lettre(idx[ch])}{c['ligne']}", [[v_ancre]]))
-                    c[ch] = v_ancre; v = v_ancre
-                if v and v == v_ancre:
+                v, v_visible = str(c.get(ch) or "").strip(), str(visible.get(ch) or "").strip()
+                if v and v == v_visible:
                     req.append(_fmt(sid, rr, rr + 1, idx[ch], idx[ch] + 1, fond=fond, texte=fond))         # même valeur : cachée
     return req, ecritures
 
 
-async def formater(comptes: list) -> dict:
-    """Met en forme tous les onglets créatrices présents dans `comptes` (lus par onboarding.lire_comptes). Renvoie un bilan."""
+async def formater(comptes: list, regrouper: bool = True) -> dict:
+    """Met en forme tous les onglets créatrices présents dans `comptes` (lus par onboarding.lire_comptes), après avoir regroupé les
+    lignes des clippers éparpillés (les numéros de ligne de `comptes` sont mis à jour). Renvoie un bilan."""
     g = _deps["google_api"]
     cid = _deps["classeur_id"]
     props = await g.sheets_proprietes(cid)
     par_onglet = {}
     for c in comptes:
         par_onglet.setdefault(c.get("onglet") or "", []).append(c)
-    bilan = {"onglets": 0, "blocs": 0, "recopies": 0}
+    bilan = {"onglets": 0, "blocs": 0, "recopies": 0, "deplacees": 0}
     for titre, lignes in par_onglet.items():
         sid = props.get(titre, {}).get("id")
         cols = (_deps.get("colonnes_par_onglet") or {}).get(titre) or {}
-        if sid is None or not cols:
+        if sid is None or not cols or "gerant" not in cols:
             continue
+        if regrouper:
+            req_dep, correspondance = requetes_regroupement(sid, lignes)
+            if req_dep:
+                await g.sheets_batch_update(cid, req_dep)
+                for c in lignes:
+                    c["ligne"] = correspondance.get(int(c["ligne"]), int(c["ligne"]))
+                bilan["deplacees"] += len(req_dep)
+                journal.info("Classeur %s : %d bloc(s) déplacé(s) pour réunir les comptes d'un même clipper", titre, len(req_dep))
         req, ecritures = requetes_onglet(sid, titre, cols, lignes)
         if not req:
             continue
@@ -149,5 +214,6 @@ async def formater(comptes: list) -> dict:
             bilan["recopies"] += await g.sheets_ecrire_plusieurs(cid, ecritures)
         bilan["onglets"] += 1
         bilan["blocs"] += len(blocs(lignes))
-    journal.info("Classeur : %d onglet(s) mis en forme, %d bloc(s), %d lien(s) recopié(s)", bilan["onglets"], bilan["blocs"], bilan["recopies"])
+    journal.info("Classeur : %d onglet(s) mis en forme, %d bloc(s), %d lien(s) recopié(s), %d bloc(s) déplacé(s)",
+                 bilan["onglets"], bilan["blocs"], bilan["recopies"], bilan["deplacees"])
     return bilan
