@@ -31,7 +31,7 @@ REGLES = ("1. Les comptes de la mission sont **à l'agence**. Le téléphone aus
           "5. 2 Reels par jour sur chaque compte. 3 jours sans publier = avertissement. 7 jours = licenciement.")   # 30/09 (Gaëtan)
 
 # La même chose, en une ligne pour le formulaire du site (aide sous la case à cocher)
-REGLES_SITE = ("1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès si on te les demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte ; 3 jours sans publier, c'est un avertissement ; 7 jours, c'est le licenciement.")   # 30/09 : mêmes règles, formulées court (formulaire du site)
+REGLES_SITE = ("1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence. Tu rends les accès si on te les demande. 3. La formation reste entre nous. Tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe. Les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte. 3 jours sans publier, c'est un avertissement. 7 jours, c'est le licenciement.")   # 30/09 : mêmes règles, formulées court (formulaire du site)
 
 
 def conditions_texte(titre: str = "") -> str:

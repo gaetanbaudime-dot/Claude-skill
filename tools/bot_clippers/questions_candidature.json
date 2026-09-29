@@ -6,8 +6,8 @@
     "## Comment ça se passe",
     [
       "Tu remplis ce formulaire : 3 minutes.",
-      "Tu regardes la formation (15 minutes) et tu passes le quiz, ici.",
-      "Quiz réussi : tu rejoins le Discord, tu fais un petit test, puis tu reçois tes comptes Instagram.",
+      "Tu regardes la formation (15 minutes) et tu passes le quizz, ici.",
+      "Quizz réussi : tu rejoins le Discord, tu fais un petit test, puis tu reçois tes comptes Instagram.",
       "Tu publies. Tu es payé le 5 et le 20."
     ],
     "-# Les vidéos viennent des créatrices OnlyFans de l'agence. Tout ce que tu publies est 100 % SFW et respecte les règles d'Instagram. Pas besoin d'expérience, mais il faut être sérieux tous les jours. 18 ans minimum."
@@ -76,7 +76,7 @@
       "type": "checkbox",
       "requis": true,
       "label": "Les 5 règles de l'équipe",
-      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès si on te les demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte ; 3 jours sans publier, c'est un avertissement ; 7 jours, c'est le licenciement.",
+      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence. Tu rends les accès si on te les demande. 3. La formation reste entre nous. Tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe. Les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte. 3 jours sans publier, c'est un avertissement. 7 jours, c'est le licenciement.",
       "case": "J'ai 18 ans ou plus et j'accepte les 5 règles"
     }
   ]

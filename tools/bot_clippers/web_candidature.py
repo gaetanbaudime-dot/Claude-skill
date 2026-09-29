@@ -174,7 +174,9 @@ def _champ(q: dict, valeur: str = "") -> str:
     aide = f"<div class='aide'>{html.escape(q['aide'])}</div>" if q.get("aide") else ""
     if t == "checkbox":
         # 29/09 : une règle par ligne, puis la case
-        regles = ("<ol class='regles'>" + "".join(f"<li>{html.escape(r)}</li>" for r in _regles(q["aide"])) + "</ol>") if q.get("aide") else ""
+        # 30/09 (Gaëtan : « des points et saute des lignes ») : une phrase par ligne dans chaque règle
+        regles = ("<ol class='regles'>" + "".join(f"<li>{re.sub(r'[.] (?=[A-ZÀ-ÝÉ0-9])', '.<br>', html.escape(r))}</li>"
+                                                  for r in _regles(q["aide"])) + "</ol>") if q.get("aide") else ""
         return regles + h
     return f"<label>{html.escape(q['label'])}</label>{aide}{h}"
 
@@ -227,7 +229,7 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Respon
              f"<form method='post' action='/candidature' autocomplete='on'>"
              f"<input type='hidden' name='f' value='{html.escape(jeton('f' + str(int(time.time()))))}'>"
              + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "") + f"{champs}"
-             f"<button class='b' type='submit'>Passer à la formation + quiz</button></form>")   # 30/09 (Gaëtan)
+             f"<button class='b' type='submit'>Passer à la formation + quizz</button></form>")   # 30/09 (Gaëtan)
     return _page(cfg.get("titre", "Candidature"), corps)
 
 
@@ -397,7 +399,7 @@ async def get_invitation(request):
     journal.info("Site : page « Rejoindre le Discord » (invitation) pour la candidature %s", cand_id)
     corps = ("<h1>Candidature reçue ✅</h1>"
              "<p><b>Dernière étape : rejoins le Discord.</b> Appuie sur le bouton, l'appli Discord s'ouvre, tu appuies sur "
-             "<b>Accepter l'invitation</b>, et ton salon perso t'attend avec la formation et ton quiz.</p>"
+             "<b>Accepter l'invitation</b>, et ton salon perso t'attend avec la formation et ton quizz.</p>"
              "<ol class='regles'><li>Pas encore de compte Discord ? Crée-le quand Discord te le demande (e-mail + mot de passe), "
              "l'invitation s'ouvre juste après.</li>"
              "<li>Cette invitation est pour toi seul, valable 7 jours.</li>"
@@ -501,7 +503,7 @@ def _page_bravo(guild_id: str):
     lien_app = f"https://discord.com/channels/{guild_id}" if guild_id else "https://discord.com/app"
     return _page("C'est bon", "<h1>C'est bon 🎉</h1><div class='ok'>Tu es sur le serveur et ta candidature est reliée "
                              "à ton compte Discord.</div><p><b>Ouvre Discord</b> : ton salon perso t'attend, avec la "
-                             "formation et ton lien de quiz. Le bot t'y parle.</p>"
+                             "formation et ton lien de quizz. Le bot t'y parle.</p>"
                              f"<a class='b' href='{lien_app}'>Ouvrir Discord</a>")
 
 
@@ -562,15 +564,16 @@ async def get_formation(request):
     journal.info("Site : page formation pour la candidature %s", cand_id)
     # 30/09 (Gaëtan : « ajoute un 1 et 2 aux étapes », « des phrases niveau collège », « chaque bouton pertinent »)
     corps = ("<h1>Candidature reçue ✅</h1>"
-             "<p>Il te reste <b>2 étapes</b>, ici : <b>1.</b> la formation (15 minutes), <b>2.</b> le quiz (10 questions). "
-             "Quiz réussi : tu rejoins le Discord.</p>"
-             "<h2>1. Regarde la formation</h2>"
+             "<p>Il te reste <b>2 étapes</b>, ici :</p>"
+             "<p>1️⃣ Regarder la formation (15 minutes)<br>2️⃣ Passer le quizz (10 questions)</p>"
+             "<p>Quizz réussi ➡️ tu rejoins le Discord</p>"
+             "<h2>1️⃣ Regarder la formation</h2>"
              + _video(_deps.get("LIEN_VIDEO_FORMATION", ""))
-             + "<p><b>Note les 5 mots-clés cachés, dans l'ordre.</b> Le quiz te les demande.</p>"
-             f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>2. Passer le quiz</a>"
+             + "<p><b>Note les 5 mots-clés cachés, dans l'ordre.</b> Le quizz te les demande.</p>"
+             f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>2️⃣ Passer le quizz</a>"
              # 30/09 (Gaëtan : « mets juste : pas le temps maintenant ? rejoins le Discord et passe le quiz plus tard »)
              f"<p class='aide2'>Pas le temps maintenant ? <a href='{html.escape(_url_discord(cand_id))}'>Rejoins le Discord</a> "
-             "et passe le quiz plus tard.</p>")
+             "et passe le quizz plus tard.</p>")
     return _page("La formation", corps)
 
 
@@ -590,7 +593,7 @@ def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int) -> web.Res
              f"Essai {essai} sur {QUIZ_ESSAIS_MAX}.</p>"
              f"<form method='post' action='/quiz'><input type='hidden' name='{champ}' value='{html.escape(valeur)}'>"
              f"{qs}<button class='b' type='submit'>Valider mes réponses</button></form>")
-    return _page("Quiz", corps)
+    return _page("Quizz", corps)
 
 
 async def get_quiz_cand(request, cand_id: str):
@@ -602,8 +605,8 @@ async def get_quiz_cand(request, cand_id: str):
         raise web.HTTPSeeOther(location=_url_discord(cand_id))
     essais = essais_cand(q)
     if essais >= QUIZ_ESSAIS_MAX:
-        return _page("Quiz", "<h1>Quiz</h1>" + _attente_cand(q) + f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>"
-                                                                 "1. Revoir la formation</a>")
+        return _page("Quizz", "<h1>Quizz</h1>" + _attente_cand(q) + f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>"
+                                                                 "1️⃣ Revoir la formation</a>")
     return _formulaire_quiz(quiz, "c", jeton(cand_id), essais + 1)
 
 
@@ -620,7 +623,7 @@ async def post_quiz_cand(data, cand_id: str):
         raise web.HTTPSeeOther(location=_url_discord(cand_id))
     essais = essais_cand(ancien)
     if essais >= QUIZ_ESSAIS_MAX:
-        return _page("Quiz", "<h1>Quiz</h1>" + _attente_cand(ancien))
+        return _page("Quizz", "<h1>Quizz</h1>" + _attente_cand(ancien))
     score, total, details = noter(quiz, data)
     seuil, _ = quiz_seuil_total()
     reussite = score >= seuil
@@ -632,18 +635,18 @@ async def post_quiz_cand(data, cand_id: str):
     if _deps.get("quiz_candidat"):                                      # la ligne « Quiz bot » du classeur, en tâche de fond
         asyncio.create_task(_deps["quiz_candidat"](prenom, f"{score} / {total}", essais + 1, reussite, details))
     if reussite:
-        return _page("Quiz validé", f"<h1>Bravo, {score}/{total} ✅</h1>"
+        return _page("Quizz validé", f"<h1>Bravo, {score}/{total} ✅</h1>"
                                     "<p><b>Dernière étape : rejoins le Discord.</b> Ton salon perso t'y attend, avec ton test "
                                     "de montage.</p>"
                                     "<ol class='regles'><li>Pas de compte Discord ? Crée-le quand Discord le demande (e-mail + mot "
                                     "de passe).</li><li>Sur le serveur, ouvre le salon à ton prénom : tout se passe là.</li></ol>"
-                                    f"<a class='b' href='{html.escape(_url_discord(cand_id))}'>3. Rejoindre le Discord</a>" + _secours())
+                                    f"<a class='b' href='{html.escape(_url_discord(cand_id))}'>3️⃣ Rejoindre le Discord</a>" + _secours())
     reste = QUIZ_ESSAIS_MAX - (essais + 1)
     suite = (f"<p>Il te reste {reste} essai. Revois la vidéo et note les 5 mots-clés, dans l'ordre.</p>"
-             f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>1. Revoir la formation</a>"
-             f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>2. Repasser le quiz</a>") if reste > 0 \
+             f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>1️⃣ Revoir la formation</a>"
+             f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>2️⃣ Repasser le quizz</a>") if reste > 0 \
         else _attente_cand(fiche["quiz"])
-    return _page("Quiz", f"<h1>{score}/{total}</h1><p>Il faut {seuil}.</p>" + suite + _secours())
+    return _page("Quizz", f"<h1>{score}/{total}</h1><p>Il faut {seuil}.</p>" + suite + _secours())
 
 
 # ------------------------------------------------------------------ quiz
@@ -696,10 +699,10 @@ async def get_quiz(request):
                                       "<code>!quiz</code> sur le serveur.</p>")
     quiz = _quiz()
     if not quiz.get("questions"):
-        return _page("Quiz", "<h1>Le quiz arrive</h1><p>Il est en préparation, le bot te préviendra.</p>")
+        return _page("Quizz", "<h1>Le quizz arrive</h1><p>Il est en préparation, le bot te préviendra.</p>")
     essais = _deps["essais_quiz"](uid)
     if essais >= QUIZ_ESSAIS_MAX:
-        return _page("Quiz", "<h1>Quiz</h1>" + _texte_attente(uid))
+        return _page("Quizz", "<h1>Quizz</h1>" + _texte_attente(uid))
     return _formulaire_quiz(quiz, "t", jeton(uid), essais + 1)
 
 
@@ -730,15 +733,15 @@ async def post_quiz(request):
     if not uid or not quiz.get("questions"):
         return _page("Lien invalide", "<h1>Lien invalide</h1>")
     if _deps["essais_quiz"](uid) >= QUIZ_ESSAIS_MAX:
-        return _page("Quiz", "<h1>Quiz</h1>" + _texte_attente(uid))
+        return _page("Quizz", "<h1>Quizz</h1>" + _texte_attente(uid))
     score, total, details = noter(quiz, data)
     seuil, _ = quiz_seuil_total()
     reussite = score >= seuil
     await _deps["traiter_quiz_web"](uid, f"{score} / {total}", reussite, details)
     if reussite:
-        return _page("Quiz validé", f"<h1>Bravo, {score}/{total} ✅</h1><p>Le bot t'envoie ton test de montage "
+        return _page("Quizz validé", f"<h1>Bravo, {score}/{total} ✅</h1><p>Le bot t'envoie ton test de montage "
                                     "dans ton salon Discord, tout de suite.</p>")
-    return _page("Quiz", f"<h1>{score}/{total}</h1><p>Il faut {seuil}. Revois la formation ; "
+    return _page("Quizz", f"<h1>{score}/{total}</h1><p>Il faut {seuil}. Revois la formation ; "
                          "le bot t'a écrit dans ton salon pour la suite.</p>")
 
 
