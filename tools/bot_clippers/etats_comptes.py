@@ -288,6 +288,11 @@ async def executer(ecrire: bool = True) -> dict:
             d["dashboard_version"] = DASHBOARD_VERSION
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Dashboard : %s", erreur)
+    if ecrire and _deps.get("verifier_classeur"):                                 # 29/09 : le classeur se vérifie seul, rien corrigé
+        try:
+            await _deps["verifier_classeur"](comptes, d["historique"])
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Vérification du classeur : %s", erreur)
     if ecrire:
         d["dernier"] = jour
         d["version"] = VERSION
