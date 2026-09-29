@@ -47,7 +47,7 @@ Problèmes fréquents : tu n'as pas de salon perso → écris un mot dans #gén�
 - **Ton salon perso** : tes comptes, tes codes, ton lien, ton Drive, tes visites chaque matin, ta paie, ton parcours. C'est ton salon de travail. **Le salon de ta créatrice** (ℹ️ infos, 🗂️ base) : ses comptes officiels, sa bio modèle, ses rushs.
 - **#ressources** : les captions, les tutos, la liste des créatrices à suivre pour le warm-up. Il s'ouvre une fois dans l'équipe.
 - **#reporting** (équipe) : ton compte-rendu chaque dimanche, obligatoire, via le formulaire https://forms.gle/uhPewryox7R4jifv5 (aussi épinglé dans le salon).
-- **#rémunération** : la règle de paie pour tout le monde : 0,05 $ par visite réelle sur ton lien (visiteurs francophones d'Europe et du Canada, robots exclus), payé le 5 et le 20, en USDC ou par virement pour les Français. 1 000 visites = 50 $, 5 000 = 250 $, sans plafond.
+- **#rémunération** : la règle de paie pour tout le monde : 0,05 $ par visite réelle sur ton lien (visiteurs francophones d'Europe et du Canada, robots exclus), payé tous les 15 jours, en USDC ou par virement pour les Français. 1 000 visites = 50 $, 5 000 = 250 $, sans plafond.
 - **#annonces** : les annonces officielles, les paiements et les victoires de l'équipe. On lit, on ne répond pas.
 - Un autre salon que tu verrais passer (tips, dopamine, bump…) est archivé : il ne sert plus, tout est dans les salons ci-dessus.
 
@@ -316,7 +316,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Quiz raté ?** Le bot te l'écrit avec ton score. Revois la vidéo, note les 5 mots-clés dans l'ordre, il te reste un essai. Deux échecs = candidature close.
 
-**On est payé chaque semaine ou chaque mois ?** Deux fois par mois, le 5 et le 20. 0,05 $ par visite réelle et francophone sur ton lien, en USDC ou par virement, pas de fixe. Ta paie en cours s'affiche chaque matin dans ton salon perso, et `!mesclics` la redonne.
+**On est payé chaque semaine ou chaque mois ?** Tous les 15 jours. 0,05 $ par visite réelle et francophone sur ton lien, en USDC ou par virement, pas de fixe. Ta paie en cours s'affiche chaque matin dans ton salon perso, et `!mesclics` la redonne.
 
 **Qui est mon manager ?** Dans ton salon perso, c'est moi, le bot : tes comptes, ton lien, tes vidéos, tes étapes, tes questions. Un humain, Gaëtan, intervient seulement quand ça bloque vraiment : compte banni, numéro, paiement. Le bouton WhatsApp de ton salon est là pour ça.
 

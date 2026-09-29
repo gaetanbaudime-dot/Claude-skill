@@ -28,7 +28,7 @@ OBJECTIF = ("Transformer chaque clipper en trois comptes Instagram qui postent l
 DOCTRINE = ("Doctrine (elle prime sur tout) : le clipper met SON numéro de téléphone (un numéro = ses 3 comptes) ; le selfie "
             "vidéo, il le fait lui-même ; un compte par jour, 24 h de warm-up après chaque compte, premier Reel après ; le lien "
             "vit dans la bio du compte privé et dans la story à la une, jamais dans un Reel ; paie 0,05 $ par visite "
-            "francophone réelle, le 5 et le 20 ; codes par `!code`, code de récupération par `!recup` ; trois cas seulement "
+            "francophone réelle, tous les 15 jours ; codes par `!code`, code de récupération par `!recup` ; trois cas seulement "
             "vont à un humain (ban, numéro refusé, paiement) via WhatsApp ; le bot ne donne jamais la cause d'un blocage, "
             "seulement la marche à suivre ; jamais de pseudo inventé ; jamais « ton manager te donne une solution demain » ; "
             "un « ok » ne mérite aucune réponse ; une réponse fait trois lignes au plus, une action à la fois.")

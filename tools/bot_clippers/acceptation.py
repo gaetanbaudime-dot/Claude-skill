@@ -25,7 +25,7 @@ REGLES = ("1. Les comptes de la mission sont **à l'agence**. Le téléphone aus
           "2. La formation, la méthode et les vidéos sont **secrètes**. Tu ne partages rien. Tu ne copies rien.\n"
           "3. Tu as **18 ans ou plus**.\n"
           "4. Ta paie : **0,05 $ par visite qui compte sur ton lien**. Une visite qui compte vient de France "
-          "ou d'un pays francophone. Pas un robot. Payé le 5 et le 20, en USDC ou par virement. "
+          "ou d'un pays francophone. Pas un robot. Payé tous les 15 jours, en USDC ou par virement. "
           "Pas de fixe. 1 000 visites = 50 $. 5 000 visites = 250 $. "
           "Robots, clics achetés ou clics forcés = licenciement.\n"
           "5. 2 Reels par jour sur chaque compte. 3 jours sans publier = avertissement. 7 jours = licenciement.")   # 30/09 (Gaëtan)

@@ -69,7 +69,7 @@ ETAPES = {
                   "2. Une seule fois. Ensuite tu n'y touches plus.\n"
                   "3. Jamais de lien ni d'@ dans la bio, jamais dans un Reel. Les @ en bio font des bans.\n"
                   "4. Chaque jour, une story avec le widget Instagram de ton profil et une capture : elle envoie les gens vers ta story à la une.\n"
-                  "5. `!mesclics` ici : ce lien compte tes visites, donc ta paie, le 5 et le 20.\n\n"
+                  "5. `!mesclics` ici : ce lien compte tes visites, donc ta paie, tous les 15 jours.\n\n"
                   "Fini ? Appuie sur le bouton.")},
     7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": [],
         "texte": ("Chaque jour : 2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une, quelques commentaires.\n\n"
@@ -581,7 +581,7 @@ def contexte_llm(uid: str) -> str:
             "guide-le selon son étape en cours, renvoie aux fiches du forum et aux commandes `!code` (son code de "
             "vérification), `!mesclics` (ses visites). Les comptes se créent ici, guidés par le parcours : plus de créneau "
             "lundi/mercredi/vendredi, plus de contrat, plus de distinction France/International. Ne redonne jamais un mot "
-            "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, le 5 et le 20, USDC ou virement. "
+            "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, tous les 15 jours, USDC ou virement. "
             "Règle des 48 h (29/09) : un compte tous les 48 h, jamais plus vite (compte 1, 48 h, compte 2, 48 h, compte 3), 24 h de warm-up sur chaque compte "
             "après sa création (Reels, likes, abonnements, zéro publication) ; le premier Reel arrive après le warm-up du "
             f"compte 3 (étape 4, {WARMUP_JOURS} jour(s)) — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». "
