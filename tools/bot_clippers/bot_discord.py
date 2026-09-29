@@ -40,6 +40,7 @@ import matin                              # un seul message du matin par clipper
 import sortie_auto                        # sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
 import pods                              # !pods : POD neufs au classeur des logins (30/09)
+import relances                          # relances Telegram en un appui, chaque matin (30/09)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
@@ -6164,6 +6165,11 @@ async def on_ready():
                                  "canal_admin": canal_admin, "est_staff": _staff,
                                  "disponibles": onboarding.disponibles, "normaliser": normaliser})   # 29/09 : délai et déclencheurs
         client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
+        relances.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "relances.json",
+                             "FICHIER_PIPELINE": FICHIER_PIPELINE, "heure_paris": heure_paris, "canal_admin": canal_admin,
+                             "est_staff": _staff,
+                             "lien_formation": lambda cid: f"{web_candidature.WEB_URL_PUBLIQUE}/formation?t={web_candidature.jeton(cid)}"})
+        client.loop.create_task(relances.boucle(client))                        # 30/09 : relances Telegram du matin
         client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
         client.loop.create_task(reels_uniques.boucle(client))                   # TOP 20 de chaque créatrice décliné pour tout son roster (27/09)
         async def _rattrapage_salons():
@@ -6937,6 +6943,9 @@ async def on_message(message):
             return
     if texte.startswith("!attribution"):                                    # 30/09 : voir et changer les coefficients d'attribution
         if await attribution.commande(message, texte):
+            return
+    if texte.startswith("!relances"):                                       # 30/09 : relances Telegram, tout de suite
+        if await relances.commande(message, texte):
             return
     if texte.split()[:1] == ["!pods"]:                                      # 30/09 : POD neufs dans le classeur, avant les e-mails
         if await pods.commande(message, texte):

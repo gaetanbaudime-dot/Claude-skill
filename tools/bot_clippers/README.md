@@ -157,6 +157,13 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Relances Telegram en un appui (30/09, Gaëtan : « go idée 3 avec Telegram uniquement »)** : `relances.py`. Chaque matin à 10 h
+(Paris), le salon admin reçoit les candidats qui ont envoyé le formulaire depuis plus de 24 h sans réussir le quizz ni arriver
+sur Discord : un message par candidat, le lien qui ouvre sa conversation Telegram (`t.me/@pseudo`, sinon `t.me/+numéro`,
+signalé « par numéro ») et le message à copier avec SON lien vers `/formation`. Rien ne part tout seul. Deux relances au plus (24 h
+puis 72 h), 30 par jour (`RELANCES_MAX`), candidatures des 7 derniers jours ; rien n'est posté le matin quand il n'y a personne.
+`!relances` : la liste tout de suite ; `!relances voir` : l'aperçu sans rien compter ; `RELANCES=0` éteint.
+
 **Premier Reel fêté dans #dopamine (30/09, Gaëtan)** : le scan quotidien (`etats_comptes.scanner`) garde l'image de couverture
 et le lien du dernier Reel des 24 h ; au premier Reel vu pour un Gérant, `premier_reel_dopamine` poste « 🎉 Bravo @clippeur pour
 ton premier Reel ! » dans #dopamine avec l'image et le lien (le lien seul si l'image ne se télécharge pas), une seule fois par
