@@ -32,9 +32,11 @@ def definir_ordre(texte: str) -> list:
         if not nom:
             continue
         try:
-            n = max(1, int(poids.strip() or 1))
+            n = max(0, int(poids.strip() or 1))                        # 30/09 : « Clara:0 » = exclue (avant, 0 valait 1)
         except ValueError:
             n = 1
+        if n == 0:
+            continue
         if nom not in ORDRE:
             ORDRE.append(nom)
         POIDS[nom] = POIDS.get(nom, 0) + n
@@ -59,8 +61,58 @@ class _Par:
 
 def configurer(deps: dict):
     """deps : lire_json, ecrire_json, FICHIER, FICHIER_EQUIPES, categorie_de_creatrice, role_creatrice, onboarder_membre,
-    canal_admin, membre_par_id, est_staff, prenom_de, roster, etats_classeur (async), normaliser."""
+    canal_admin, membre_par_id, est_staff, prenom_de, roster, etats_classeur (async), normaliser, livrables (async, 30/09).
+    30/09 : un ordre posé par `!attribution` (clé « ordre_force » de l'état) prime sur ATTRIBUTION_ORDRE, redémarrages compris."""
     _deps.update(deps)
+    force = (_etat().get("ordre_force") or "").strip()
+    if force:
+        definir_ordre(force)
+
+
+async def commande(message, texte: str) -> bool:
+    """30/09 (Gaëtan : « redonne-moi les coefficients, on va ajuster ») — staff :
+    `!attribution` : l'ordre, la séquence et les clippers livrables par créatrice ;
+    `!attribution Chloé:4,Sophie:3,Sarah:2,Jade:1` : nouvel ordre (0 = exclue), gardé aux redémarrages, compteur remis au début ;
+    `!attribution défaut` : retour à ATTRIBUTION_ORDRE (Railway)."""
+    if not texte.lower().startswith("!attribution"):
+        return False
+    if not _deps["est_staff"](message.author):
+        await message.reply("Commande réservée au staff.")
+        return True
+    arg = texte[len("!attribution"):].strip()
+    e = _etat()
+    if arg.lower() in ("défaut", "defaut", "reset"):
+        e.pop("ordre_force", None); _ecrire(e)
+        definir_ordre(os.environ.get("ATTRIBUTION_ORDRE", "Chloé:3,Sarah:3,Sophie:3,Jade:1"))
+        arg = ""
+        entete = "↩️ Ordre remis à celui de Railway."
+    elif arg:
+        ancien = ORDRE_TEXTE
+        definir_ordre(arg)
+        if not SEQUENCE:
+            definir_ordre(ancien)
+            await message.reply("❌ Ordre vide. Exemple : `!attribution Chloé:4,Sophie:3,Sarah:2,Jade:1` (0 = exclue).")
+            return True
+        e["ordre_force"] = ORDRE_TEXTE; _ecrire(e)
+        entete = "✅ Nouvel ordre enregistré, le compteur repart au début."
+    else:
+        entete = "🎬 **Attribution des nouveaux clippers**"
+    livr = {}
+    if _deps.get("livrables"):
+        try:
+            livr = await _deps["livrables"]()
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("!attribution, livrables : %s", erreur)
+    lignes = [entete, f"Ordre : **{ordre_texte()}** · sur {len(SEQUENCE)} nouveaux clippers : "
+              + ", ".join(f"{c} {POIDS[c]}" for c in ORDRE)]
+    if livr:
+        lignes.append("Clippers livrables (comptes prêts ÷ 3) : " + " · ".join(f"{c} {n}" for c, n in sorted(livr.items(), key=lambda x: -x[1])))
+        vides = [c for c in ORDRE if livr.get(c, 0) == 0]
+        if vides:
+            lignes.append("⚠️ Dans l'ordre mais sans compte livrable : " + ", ".join(vides) + " — ses nouveaux attendront des comptes.")
+    lignes.append("-# Changer : `!attribution Chloé:4,Sophie:3,Sarah:2,Jade:1` (0 = exclue) · `!attribution défaut`")
+    await message.reply("\n".join(lignes)[:1990])
+    return True
 
 
 def actif() -> bool:

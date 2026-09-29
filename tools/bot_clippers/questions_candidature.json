@@ -2,7 +2,7 @@
   "titre": "Clippeur Reels Instagram 🎥",
   "intro": [
     "**Tu publies des Reels sur Instagram depuis ton téléphone**, à côté de ton travail ou de tes études. On te fournit les vidéos, la formation et la méthode (+11 millions de vues générées).",
-    "!! 💰 **0,05 $ par visite sur ton lien Instagram**\n1 000 visites = 50 $ · 5 000 visites = 250 $ · 20 000 visites = 1 000 $\nPayé le 5 et le 20 de chaque mois, en USDC ou par virement.",
+    "!! 💰 **0,05 $ par visite sur ton lien Instagram**\n\n1 000 visites = 50 $\n5 000 visites = 250 $\n10 000 visites = 500 $\n20 000 visites = 1 000 $\n\nPayé le 5 et le 20 de chaque mois, en USDC ou par virement.",
     "## Comment ça se passe",
     [
       "Tu remplis ce formulaire : 3 minutes.",
@@ -76,7 +76,7 @@
       "type": "checkbox",
       "requis": true,
       "label": "Les 5 règles de l'équipe",
-      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès quand on te le demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est la sortie. 5. Tu publies 2 Reels par jour sur chaque compte ; deux jours ratés de suite, ou moins de 1 000 visites le premier mois, c'est la sortie.",
+      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès quand on te le demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte ; 3 jours sans publier, c'est le licenciement.",
       "case": "J'ai 18 ans ou plus et j'accepte les 5 règles"
     }
   ]

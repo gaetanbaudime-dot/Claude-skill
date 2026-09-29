@@ -506,18 +506,6 @@ def _page_bravo(guild_id: str):
 
 
 # ------------------------------------------------------------------ formation + quiz avant Discord (29/09, GO axe 1)
-def _embed_video(url: str) -> str:
-    """Loom « share » → lecteur intégré ; tout autre lien → bouton qui ouvre la vidéo."""
-    m = re.search(r"loom\.com/(?:share|embed)/([0-9a-f]{16,})", url or "")
-    if m:
-        return (f"<div style='position:relative;padding-bottom:62%;height:0;margin:14px 0;border-radius:12px;overflow:hidden'>"
-                f"<iframe src='https://www.loom.com/embed/{m.group(1)}' frameborder='0' allowfullscreen "
-                f"style='position:absolute;top:0;left:0;width:100%;height:100%'></iframe></div>"
-                f"<p class='aide2'>La vidéo ne s'affiche pas ? <a href='{html.escape(url)}' target='_blank' rel='noopener'>"
-                "Ouvre-la ici</a>.</p>")
-    return f"<a class='b' href='{html.escape(url)}' target='_blank' rel='noopener'>▶️ Regarder la formation</a>" if url else ""
-
-
 def _fiche_cand(cand_id: str) -> dict:
     return ((_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}).get("candidatures_web") or {}).get(cand_id)) or {}
 
@@ -563,9 +551,11 @@ async def get_formation(request):
     corps = ("<h1>Candidature reçue ✅</h1>"
              "<p><b>Deux étapes, ici, maintenant :</b> la formation (15 minutes), puis le quiz (10 questions). "
              "Quiz réussi → tu rejoins le Discord, ton test de montage t'y attend.</p>"
-             + _embed_video(_deps.get("LIEN_VIDEO_FORMATION", ""))
              + "<p>Regarde-la en entier. <b>Note les 5 mots-clés cachés, dans l'ordre</b> : le quiz les demande.</p>"
-             f"<a class='b' href='/quiz?c={html.escape(jeton(cand_id))}'>J'ai regardé, je passe le quiz</a>"
+             # 30/09 (Gaëtan) : deux boutons, « Voir la formation » puis « Passer le quiz », plus de lecteur intégré
+             + (f"<a class='b' href='{html.escape(_deps.get('LIEN_VIDEO_FORMATION', ''))}' target='_blank' rel='noopener'>"
+                "▶️ Voir la formation</a>" if _deps.get("LIEN_VIDEO_FORMATION") else "")
+             + f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>📝 Passer le quiz</a>"
              "<p class='aide2'>Pas le temps maintenant ? Garde cette page : le lien reste valable. Tu peux aussi "
              f"<a href='{html.escape(_url_discord(cand_id))}'>rejoindre le Discord tout de suite</a> : ton salon garde la "
              "formation et le quiz.</p>" + _secours())

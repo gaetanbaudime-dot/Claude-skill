@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 — Coefficients d'attribution en main, POD neufs avant les e-mails iCloud, règles durcies
+- **Demandes de Gaëtan** : redonner les coefficients de l'axe 7 « on va ajuster » ; ajouter des lignes POD après POD pour préparer ses e-mails iCloud (ETAT, 3 @ uniques par POD, MDP aléatoire, Utilisation, Numéro Mail, Créatrice, POD) ; encadré paie sur plusieurs lignes avec 10 000 visites ; « faux clics = licenciement », « 3 jours sans publier = licenciement » ; deux boutons « Voir la formation » et « Passer le quiz ».
+- **Livré** : `!attribution` (voir et changer l'ordre depuis Discord, 0 = exclue ; défaut Chloé 3, Sarah 3, Sophie 3, Jade 1) ; `!pods` (état, aperçu, écriture de POD au format relevé dans le classeur, @ uniques contre tout le classeur) ; formulaire et message d'acceptation alignés sur les nouvelles règles ; `!parrain-top` réparé (le bot ne le recevait pas).
+- **Avocat du diable** : la règle affichée dit 3 jours, la sortie automatique du bot en compte 14 : un candidat lira une règle que le bot n'applique pas ; à aligner sur décision de Gaëtan. Les @ générés sont uniques dans le classeur, pas vérifiés sur Instagram : un @ pris se découvre à la création. Mettre des POD chez Chloé ne sert que si les e-mails suivent : 15 lignes sans e-mail ne livrent personne.
+- **Prédiction (30/09, revue le 07/10)** : Gaëtan lance `!pods` sur Chloé et pose au moins 15 e-mails iCloud avant le 07/10, et Chloé passe d'au plus 3 à au moins 8 clippers livrables (55 %).
+
 ### 2026-09-29 (nuit) — Le « Merci » sans formation était le piège à robots ; formulaire sans âge, en quatre étapes
 - **Demande de Gaëtan** (capture « Merci, candidature reçue » sur le site) : enlever l'âge, le lien de la formation n'apparaît pas après l'envoi, formulaire plus lisible, 5 règles simplifiées.
 - **Cause** : la page « Merci » était celle du pot de miel. Le champ caché « site_web » est rempli par la saisie automatique des navigateurs : le candidat voyait « candidature reçue », rien n'était enregistré ni journalisé. Combien de vrais candidats y sont passés depuis le 23/09 : **inconnu** (aucune trace), c'est peut-être une part de l'écart 68 ouvertures → 27 envois du 27-28/09.

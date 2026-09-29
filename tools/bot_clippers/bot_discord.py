@@ -39,6 +39,7 @@ import etats_comptes                      # colonne ETAT du classeur mise à jou
 import matin                              # un seul message du matin par clipper (26/09)
 import sortie_auto                        # sortie automatique à 14 jours sans Reel (28/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
+import pods                              # !pods : POD neufs au classeur des logins (30/09)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
@@ -6142,11 +6143,17 @@ async def on_ready():
             if not onboarding.actif():
                 return {}
             return {c["handle"].lower(): c["etat"] for c in await onboarding.lire_comptes()}
+        async def _livrables_par_creatrice() -> dict:
+            comptes = await onboarding.lire_comptes()
+            noms = sorted({str(c.get("creatrice") or "").strip() for c in comptes if str(c.get("creatrice") or "").strip()})
+            return {n: len(onboarding.disponibles(comptes, n, 999)) // 3 for n in noms}
+        pods.configurer({"google_api": google_api, "onboarding": onboarding, "est_staff": _staff})
         attribution.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "attribution.json",
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "categorie_de_creatrice": categorie_de_creatrice,
                                 "role_creatrice": role_creatrice, "onboarder_membre": onboarder_membre, "canal_admin": canal_admin,
                                 "membre_par_id": membre_par_id, "est_staff": _staff, "prenom_de": prenom_de, "roster": roster,
-                                "etats_classeur": _etats_classeur, "normaliser": normaliser})
+                                "etats_classeur": _etats_classeur, "normaliser": normaliser,
+                                "livrables": _livrables_par_creatrice})                       # 30/09 : `!attribution`
         client.loop.create_task(attribution.rattraper(client))                  # signés sans créatrice : un par un (27/09)
         tableau_bord.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "tableau_bord.json",
                                  "FICHIER_PIPELINE": FICHIER_PIPELINE,
@@ -6869,6 +6876,15 @@ async def on_message(message):
             return
     if texte.startswith("!tableau"):                                        # 27/09 : le tableau de bord d'une ligne
         if await tableau_bord.commande(message, texte):
+            return
+    if texte.startswith("!parrain-top"):                                    # 29/09 : le lien de parrainage au top 5, tout de suite
+        if await parrainage.commande(message, texte):
+            return
+    if texte.startswith("!attribution"):                                    # 30/09 : voir et changer les coefficients d'attribution
+        if await attribution.commande(message, texte):
+            return
+    if texte.split()[:1] == ["!pods"]:                                      # 30/09 : POD neufs dans le classeur, avant les e-mails
+        if await pods.commande(message, texte):
             return
     if texte.startswith(("!retro", "!rétro")):                               # 27/09 : la rétrospective, à la main
         if await retro.commande(message, texte):

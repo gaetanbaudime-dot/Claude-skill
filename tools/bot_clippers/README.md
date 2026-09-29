@@ -157,6 +157,18 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**POD neufs, coefficients d'attribution, règles (30/09, Gaëtan)** : `!pods` (staff, `pods.py`) montre par onglet le dernier POD et
+les lignes « à créer » sans e-mail ; `!pods Chloé 5 voir` affiche l'aperçu ; `!pods Chloé 5` écrit 5 POD de 3 lignes sous la
+dernière ligne de l'onglet (ETAT « à créer », @ neufs au format du classeur — alias + expression pour les deux premiers,
+alias + mot court + « .vip/.prive/.club/.clic » pour le troisième, sans le nom chez Maddie —, MDP de 18 caractères, Utilisation
+et Créatrice recopiées, Numéro Mail et POD qui suivent), mise en forme de la ligne du dessus recopiée ; Mail, Gérant, Phone vides
+(une ligne sans e-mail n'est jamais livrée). Unicité des @ vérifiée contre tout le classeur, pas la disponibilité sur Instagram.
+`!attribution` montre l'ordre pondéré et les clippers livrables par créatrice ; `!attribution Chloé:4,Sophie:3,Sarah:2,Jade:1`
+le change (0 = exclue, gardé aux redémarrages, prime sur ATTRIBUTION_ORDRE) ; `!attribution défaut` y revient. `!parrain-top`
+est maintenant reçu par le bot (seul `!parrain` exact l'était). Formulaire : encadré paie sur plusieurs lignes (1 000 / 5 000 /
+10 000 / 20 000 visites), règles 4 et 5 « faux clics = licenciement », « 3 jours sans publier = licenciement » (même texte dans
+`acceptation.REGLES`) ; la page `/formation` a deux boutons, « Voir la formation » et « Passer le quiz », plus de lecteur intégré.
+
 **Formulaire relu (29/09 soir, Gaëtan : « enlève l'âge », « plus lisible », « simplifie les 5 règles », et sa capture « Merci,
 candidature reçue » sans lien de formation)** : la page « Merci » était celle du pot de miel — le champ caché `site_web` se faisait
 remplir par la saisie automatique du navigateur, et un vrai candidat voyait « candidature reçue » sans que rien soit enregistré ni
