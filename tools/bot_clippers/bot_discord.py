@@ -50,6 +50,7 @@ import retro                              # rétrospective nocturne : le bot app
 import drive_agence                       # script Apps Script de l'agence : dépôts de fichiers dans le Drive (26/09, reels_uniques)
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 import telegram                           # alerte Telegram de l'agence : acceptation, sortie, copie du digest (29/09, ex-inputs_clippers)
+import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -6205,6 +6206,12 @@ async def on_ready():
                                   "reconcilier": lambda e, p=None: parcours.reconcilier(client, e, p),
                                   "reservations_expirees": expirer_reservations})              # 28/09 : réservation qui expire
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
+        rapport_quotidien.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "rapport_quotidien.json",
+                                      "FICHIER_ETATS": FICHIER_ETATS, "lire_comptes": onboarding.lire_comptes, "clics_de": _clics_7j,
+                                      "groupes": roster.groupes, "exclus": etats_comptes.dashboard_exclus, "canal_admin": canal_admin,
+                                      "envoyer_telegram": telegram.envoyer_telegram, "heure_paris": heure_paris, "normaliser": normaliser,
+                                      "google_api": google_api, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+        client.loop.create_task(rapport_quotidien.boucle(client))               # 29/09 : la veille en 8 lignes, 13 h Paris
         sortie_auto.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "sortie_auto.json",
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                                 "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,
@@ -6976,6 +6983,8 @@ async def on_message(message):
         if await paie_clics.commande_staff(message, texte):
             return
         if await onboarding.commande_staff(message, texte):
+            return
+        if await rapport_quotidien.commande(message, texte):                    # !rapport [telegram] (29/09)
             return
         if await etats_comptes.commande_staff(message, texte):
             return

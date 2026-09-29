@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-29 (matin, 6) — Le rapport du soir en huit lignes, dans le bot
+- **Demande de Gaëtan** : « simplifie le GAML Report Bot, le plus pertinent et compact possible ».
+- **Constat** : le rapport GitHub Actions faisait 120 lignes tronquées par Telegram, et tournait à vide depuis le 22/09 : clé GAML révoquée, onglet Tracking cassé par la refonte du classeur, inputs Apify de l'ancien système, actions périmées (« créer un groupe GAML pour Chloé », « relancer Gaetan »). Trois clés en dur dans le dépôt, dont le jeton Telegram.
+- **Décision** : le rapport vit dans le bot Discord, qui tient déjà les subs (Data G&M), les visites (relevés GAML), les Reels (scan du classeur) et Telegram. Huit lignes, la veille : subs et CA par créatrice avec 7 jours et €/sub, visites payables, Reels et clippers qui publient, top 5, silencieux, Metricool, saisie manquante. 13 h Paris, après la saisie de Rianah. Le cron GitHub est retiré, les clés en dur aussi.
+- **Ce qui manque** : la clé Metricool valide est un secret GitHub que je ne peux pas lire ; celle du dépôt est révoquée. Sans elle, la ligne Metricool ne s'affiche pas.
+- **Prédiction (29/09, revue le 06/10)** : Gaëtan lit le rapport chaque jour sans demander de section en plus (70 %) ; une demande de section en plus arrive dans la semaine (50 %), et ce sera Metricool.
+
 ### 2026-09-29 (matin, 5) — Les liens GAML de Chloé, Sarah et Jade, tous pareils, tous reliés au classeur
 - **Demande de Gaëtan** : la colonne « Lien MYM Tracking » sur Sophie et Clara ; comparer tous les liens GAML de Chloé, Sarah et Jade ; « je veux exactement les mêmes à chaque fois, on va rediriger vers MYM et OF, images, textes, photos, widget » ; les liens de tracking doivent correspondre au classeur.
 - **Constat avant** : 26 liens. Aucun lien de clipper n'avait le fond de la page de référence ; chez Chloé, cinq liens n'avaient pas de bouton MYM alors que le classeur avait le lien (Romaric, Hasina), chez Sarah les effets des deux boutons étaient inversés, chez Jade pas de MYM du tout ; le classeur pointait pour Eddy vers un lien /12 qui n'existait plus sur GAML.
