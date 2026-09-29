@@ -64,13 +64,18 @@ SALON_CODES_NOM = os.environ.get("CANAL_CODES_NOM", "🔐-code-instagram").strip
 SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)
 SALON_RECUP_MINUTES = int(os.environ.get("CODES_SALON_RECUP_MINUTES", "30") or 30)
 DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()
-EXPLICATION_SALON = ("🔐 **Codes Instagram et Facebook, pour tout le monde.**\n\n"
-                     "Tu crées un compte, tu te connectes, tu fais appel ? Instagram envoie un code sur l'e-mail du compte. "
-                     "Écris `!code` ici : je te donne les codes reçus dans les {minutes} dernières minutes, avec l'adresse masquée "
-                     "(jamais l'e-mail complet, jamais le mot de passe).\n\n"
-                     "Plusieurs codes en même temps ? Repère le tien à l'adresse masquée : les 3 premières lettres et les 2 dernières "
-                     "de ton e-mail. Rien ? Appuie sur « Renvoyer le code » dans Instagram, puis retape `!code`.\n\n"
-                     "`!recup` : le code de récupération (mot de passe oublié, appel après un ban), {recup} dernières minutes.")
+# 29/09 (Gaëtan) : « restreins le salon au rôle Clippeur ; simplifie, rajoute des émojis, mets en forme, langage niveau collège »
+ROLES_SALON_CODES = tuple(r.strip() for r in os.environ.get("CODES_SALON_ROLES", "Clippeur,Rookie,Confirmé,Elite").split(",") if r.strip())
+VERSION_EXPLICATION = 2
+EXPLICATION_SALON = ("🔐 **Ton code Instagram, c'est ici.**\n\n"
+                     "1️⃣ Tu crées un compte ou tu te connectes → Instagram t'envoie un code par e-mail.\n"
+                     "2️⃣ Tu écris `!code` ici.\n"
+                     "3️⃣ Je te donne le code reçu dans les {minutes} dernières minutes. ✅\n\n"
+                     "📧 L'adresse est à moitié cachée, du genre `orb…8i@icloud.com`. C'est pour reconnaître ton compte. "
+                     "Jamais l'e-mail complet, jamais le mot de passe.\n\n"
+                     "👥 Plusieurs codes en même temps ? Prends celui qui a les lettres de ton e-mail.\n\n"
+                     "😴 Pas de code ? Dans Instagram, appuie sur « Renvoyer le code », attends 30 secondes, puis retape `!code`.\n\n"
+                     "🛟 Mot de passe oublié ou compte banni (appel) ? Écris `!recup`.")
 
 # Sous-chaînes cherchées côté serveur dans l'en-tête From (IMAP FROM) : courtes pour attraper les expéditeurs
 # réécrits par iCloud, sans « meta » seul qui ramènerait Metricool.
@@ -119,42 +124,66 @@ def ligne_code_masquee(t: dict) -> str:
             f"\n```\n{t['code']}\n```")
 
 
+def _droits_salon_codes(guild) -> tuple:
+    """(overwrites, noms des rôles admis) : fermé à @everyone, ouvert aux rôles de l'équipe (CODES_SALON_ROLES) et aux managers."""
+    voir = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+    overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                  guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, manage_messages=True)}
+    cibles = {_cle(n) for n in ROLES_SALON_CODES} | {_cle(ROLE_MANAGER_NOM), _cle("Manager"), _cle("Manageur")}
+    admis = []
+    for role in guild.roles:
+        if _cle(role.name) in cibles:
+            overwrites[role] = voir
+            admis.append(role.name)
+    return overwrites, admis
+
+
 async def assurer_salon_codes(client):
-    """Au démarrage : le salon commun existe (créé sinon, ouvert à tout le monde), son id est retenu, son mode d'emploi épinglé."""
+    """Au démarrage : le salon commun existe (créé sinon), réservé aux rôles de l'équipe et aux managers, son id est retenu,
+    son mode d'emploi épinglé (remplacé quand le texte change : VERSION_EXPLICATION)."""
     await client.wait_until_ready()
     if not actif():
         return
     registre = _lire()
     info = registre.get("_salon_codes") or {}
+    sujet = "Écris !code : je te donne ton code Instagram ou Facebook (10 dernières minutes, adresse à moitié cachée)."
     for guild in client.guilds:
         salon = client.get_channel(int(info["id"])) if info.get("id") else None
         if salon is None:
             cible = _cle(SALON_CODES_NOM)
             salon = next((c for c in guild.text_channels if _cle(c.name) == cible), None)
+        overwrites, admis = _droits_salon_codes(guild)
         if salon is None:
             try:
-                overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-                              guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_messages=True)}
-                salon = await guild.create_text_channel(SALON_CODES_NOM, overwrites=overwrites,
-                                                        topic="Écris !code : le bot te donne ton code Instagram/Facebook (10 dernières minutes, adresse masquée).",
-                                                        reason="Salon commun des codes 2FA (29/09)")
+                salon = await guild.create_text_channel(SALON_CODES_NOM, overwrites=overwrites, topic=sujet, reason="Salon commun des codes 2FA (29/09)")
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Salon des codes : création refusée (%s)", erreur)
                 return
-        if not info.get("explique") or str(info.get("id")) != str(salon.id):
+        else:
             try:
+                await salon.edit(overwrites=overwrites, topic=sujet, reason="Salon des codes : réservé à l'équipe (29/09)")
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Salon des codes : droits non posés (%s)", erreur)
+        if info.get("version") != VERSION_EXPLICATION or str(info.get("id")) != str(salon.id):
+            try:
+                for ancien in await salon.pins():                        # l'ancien mode d'emploi du bot s'efface
+                    if ancien.author == guild.me:
+                        try:
+                            await ancien.delete()
+                        except (discord.Forbidden, discord.HTTPException):
+                            pass
                 m = await salon.send(EXPLICATION_SALON.format(minutes=SALON_CODES_MINUTES, recup=SALON_RECUP_MINUTES))
                 try:
                     await m.pin()
                 except (discord.Forbidden, discord.HTTPException):
                     pass
-            except (discord.Forbidden, discord.HTTPException):
-                pass
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Salon des codes : mode d'emploi non posté (%s)", erreur)
         registre = _lire()
-        registre["_salon_codes"] = {"id": str(salon.id), "guild": str(guild.id), "explique": True,
+        registre["_salon_codes"] = {"id": str(salon.id), "guild": str(guild.id), "explique": True, "version": VERSION_EXPLICATION,
                                     "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         _ecrire(registre)
-        journal.info("Salon des codes : #%s prêt", salon.name)
+        journal.info("Salon des codes : #%s prêt, réservé à %s", salon.name, ", ".join(admis) or "personne (rôles introuvables !)")
         return
 
 
