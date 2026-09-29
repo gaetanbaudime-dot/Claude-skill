@@ -76,7 +76,7 @@
       "type": "checkbox",
       "requis": true,
       "label": "Les 5 règles de l'équipe",
-      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès quand on te le demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte ; 3 jours sans publier, c'est le licenciement.",
+      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès quand on te le demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte ; 3 jours sans publier, c'est un avertissement ; 7 jours, c'est le licenciement.",
       "case": "J'ai 18 ans ou plus et j'accepte les 5 règles"
     }
   ]

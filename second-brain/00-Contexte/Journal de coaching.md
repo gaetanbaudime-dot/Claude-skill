@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 — Averti à 3 jours sans Reel, sorti à 7
+- **Décision de Gaëtan** : GO sur ma recommandation (avertissement automatique à 3 jours, sortie à 7) plutôt qu'une sortie sèche à 3 jours, qui aurait sorti des clippers les jours où le scan rate.
+- **Livré** : la sortie automatique compte désormais depuis la dernière publication, et non plus « jamais publié depuis 14 jours » (la règle d'avant laissait en place un clipper qui publiait une semaine puis s'arrêtait). Message dans le salon à 3 jours avec la date de sortie, sortie à 7 avec au moins 5 jours de scan dans le silence ; compteur parti du 30/09 pour tout le monde : premiers avertissements le 03/10, premières sorties possibles le 07/10. Règle 5 alignée partout : « 3 jours sans publier = avertissement, 7 jours = licenciement ».
+- **Avocat du diable** : le 07/10, tous les clippers muets depuis le 30/09 sortent d'un coup, dont les 10 du Dashboard qui n'ont créé aucun compte (et ceux qui en ont créé mais n'ont rien publié) : c'est voulu, mais la liste arrive dans le salon admin et `!note @x garde` protège un cas. Un clipper qui publie sur un compte hors classeur passe pour muet.
+- **Prédiction (30/09, revue le 14/10)** : entre 5 et 12 sorties automatiques du 07 au 14/10, au plus une contestée à juste titre (Reel publié mais non vu par le scan) (60 %) ; parmi les avertis, au moins un sur trois republie avant la date de sortie (50 %).
+
 ### 2026-09-30 — Coefficients d'attribution en main, POD neufs avant les e-mails iCloud, règles durcies
 - **Demandes de Gaëtan** : redonner les coefficients de l'axe 7 « on va ajuster » ; ajouter des lignes POD après POD pour préparer ses e-mails iCloud (ETAT, 3 @ uniques par POD, MDP aléatoire, Utilisation, Numéro Mail, Créatrice, POD) ; encadré paie sur plusieurs lignes avec 10 000 visites ; « faux clics = licenciement », « 3 jours sans publier = licenciement » ; deux boutons « Voir la formation » et « Passer le quiz ».
 - **Livré** : `!attribution` (voir et changer l'ordre depuis Discord, 0 = exclue ; défaut Chloé 3, Sarah 3, Sophie 3, Jade 1) ; `!pods` (état, aperçu, écriture de POD au format relevé dans le classeur, @ uniques contre tout le classeur) ; formulaire et message d'acceptation alignés sur les nouvelles règles ; `!parrain-top` réparé (le bot ne le recevait pas).

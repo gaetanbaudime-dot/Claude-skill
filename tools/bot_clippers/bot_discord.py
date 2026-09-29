@@ -37,7 +37,7 @@ import rapport_stats                      # rapport GAML quotidien du manager, #
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import matin                              # un seul message du matin par clipper (26/09)
-import sortie_auto                        # sortie automatique à 14 jours sans Reel (28/09)
+import sortie_auto                        # sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
 import pods                              # !pods : POD neufs au classeur des logins (30/09)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
@@ -6249,8 +6249,8 @@ async def on_ready():
                                 "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
                                 "sortir": lambda m, raison, pool=False: sortir_membre(m, raison, None, pool=pool),
                                 "membre_par_id": membre_par_id, "prenom_de": prenom_de, "roster": roster, "canal_admin": canal_admin,
-                                "normaliser": normaliser, "heure_paris": heure_paris})
-        client.loop.create_task(sortie_auto.boucle(client))                     # 14 jours sans Reel → sorti, comptes et lien au suivant (28/09)
+                                "normaliser": normaliser, "heure_paris": heure_paris, "salon_perso": salon_perso_de})
+        client.loop.create_task(sortie_auto.boucle(client))                     # 30/09 : averti à 3 jours sans Reel, sorti à 7, comptes et lien au suivant
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
                           "prenom_salon": prenom_du_salon})                         # 26/09 : « Bonjour Maxence » chez Daniella

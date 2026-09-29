@@ -1,4 +1,14 @@
-"""Sortie automatique à 14 jours (28/09, feu vert de Gaëtan : « code-le, et réattribue comptes et liens au suivant »).
+"""Sortie automatique (28/09, feu vert de Gaëtan : « code-le, et réattribue comptes et liens au suivant »).
+
+30/09 (Gaëtan, GO : « un avertissement automatique à 3 jours, puis la sortie à 7 jours », règle 5 : 3 jours sans publier =
+licenciement) : le compteur n'est plus « jamais publié depuis 14 jours » mais « jours depuis la DERNIÈRE publication » (ou depuis
+la créatrice s'il n'a jamais publié). À AVERT_JOURS (3) : un message dans son salon perso, une fois par silence, avec la date de
+sortie. À JOURS (7) : la sortie ci-dessous. Une publication = une hausse du nombre de publications d'un de ses comptes entre deux
+scans (ou la première valeur d'un compte vu après son arrivée : un compte rendu garde les Reels du clipper d'avant). Il faut au
+moins SCANS_MIN jours de scan où un de ses comptes existe pendant le silence : un compte banni ou un scan en panne ne fait sortir
+personne. Personne n'est averti ni sorti pour un silence antérieur à REGLE_DEPUIS (30/09) : premières sorties possibles le 07/10.
+
+Texte d'origine (14/09 → 29/09) :
 
 Chaque jour à SORTIE_AUTO_HEURE_UTC (8 h, après le scan Apify du classeur) : un clipper signé avec une créatrice depuis au
 moins SORTIE_AUTO_JOURS jours (14), dont les comptes ont été regardés au moins SCANS_MIN fois (7) et n'ont JAMAIS porté une
@@ -19,9 +29,11 @@ from datetime import datetime, timedelta, timezone
 journal = logging.getLogger("sortie_auto")
 
 ACTIF = os.environ.get("SORTIE_AUTO", "1").strip() != "0"
-JOURS = int(os.environ.get("SORTIE_AUTO_JOURS", "14") or 14)
-SCANS_MIN = int(os.environ.get("SORTIE_AUTO_SCANS_MIN", "7") or 7)
+JOURS = int(os.environ.get("SORTIE_AUTO_JOURS", "7") or 7)                 # 30/09 : 14 → 7
+AVERT_JOURS = int(os.environ.get("SORTIE_AUTO_AVERT_JOURS", "3") or 3)     # 30/09 : l'avertissement
+SCANS_MIN = int(os.environ.get("SORTIE_AUTO_SCANS_MIN", "5") or 5)         # jours de scan pendant le silence (7 → 5 sur 7 jours)
 HEURE_UTC = int(os.environ.get("SORTIE_AUTO_HEURE_UTC", "8") or 8)
+REGLE_DEPUIS = os.environ.get("SORTIE_AUTO_DEPUIS", "2026-09-30")
 RAISON = f"{JOURS} jours sans Reel (sortie automatique)"
 _deps = {}
 
@@ -29,7 +41,7 @@ _deps = {}
 def configurer(deps: dict):
     """deps : lire_json, ecrire_json, FICHIER (état), FICHIER_EQUIPES, etats_lire (-> etats_comptes.json), comptes_lire (async ->
     lignes du classeur), notes (uid -> [textes]), sortir (async membre, raison, pool), membre_par_id, prenom_de, roster, canal_admin,
-    normaliser, heure_paris."""
+    normaliser, heure_paris, salon_perso (uid -> salon, 30/09 : l'avertissement)."""
     _deps.update(deps)
 
 
@@ -52,11 +64,31 @@ def debut_de(fiche: dict, onboarding: dict, uid: str) -> datetime | None:
     return max(dates) if dates else None
 
 
-def a_sortir(fiches: dict, onboarding: dict, historique: dict, comptes: list, notes, prenom_de, maintenant=None,
-             jours: int = JOURS, scans_min: int = SCANS_MIN, garder=()) -> list:
-    """[(uid, prénom, jours depuis le début, scans)] des clippers à sortir : créatrice attribuée depuis ≥ `jours`, au moins
-    `scans_min` scans de leurs comptes, aucune publication vue, pas de note « garde », pas dans `garder` (prénoms protégés)."""
+def derniere_publication(handles: set, historique: dict, debut: datetime):
+    """(jour de la dernière publication vue sur ses comptes ou None, jours de scan où un compte existe {date})."""
+    derniere, jours_scan = None, set()
+    for h in handles:
+        prec = None
+        for e in sorted(historique.get(h, []) or [], key=lambda x: str(x.get("jour", ""))):
+            j = _jour(e.get("jour"))
+            if j is None or not e.get("existe"):
+                continue
+            jours_scan.add(j.date())
+            posts = int(e.get("posts") or 0)
+            publie = (posts > prec) if prec is not None else (posts > 0 and j >= debut.replace(hour=0, minute=0, second=0, microsecond=0))
+            if publie and (derniere is None or j > derniere):
+                derniere = j
+            prec = posts
+    return derniere, jours_scan
+
+
+def silences(fiches: dict, onboarding: dict, historique: dict, comptes: list, notes, prenom_de, maintenant=None,
+             garder=(), depuis: str = None) -> list:
+    """[(uid, prénom, jours sans publier, jours de scan pendant le silence, référence du silence)] pour chaque clipper signé
+    avec une créatrice, hors note « garde » et prénoms protégés. La référence = dernière publication, sinon le début ; jamais
+    avant `depuis` (REGLE_DEPUIS)."""
     maintenant = maintenant or datetime.now(timezone.utc)
+    borne = _jour((depuis or REGLE_DEPUIS) + "T00:00:00")
     proteges = {_n(p) for p in garder}
     par_prenom = {}
     for c in comptes:
@@ -71,21 +103,43 @@ def a_sortir(fiches: dict, onboarding: dict, historique: dict, comptes: list, no
         if not prenom or _n(prenom) in proteges:
             continue
         debut = debut_de(fiche, onboarding, uid)
-        if debut is None or (maintenant - debut).days < jours:
+        if debut is None:
             continue
         if any("garde" in _n(t) for t in (notes(uid) if notes else [])):
             continue
         handles = set(par_prenom.get(_n(prenom), [])) | {str(h).lower() for h in (onboarding.get("clippers", {}).get(str(uid)) or {}).get("comptes", [])}
-        scans, publications = 0, 0
-        for h in handles:
-            for e in historique.get(h, []) or []:
-                if e.get("existe"):
-                    scans += 1
-                    publications += int(e.get("posts") or 0)
-        if scans < scans_min or publications > 0:
-            continue
-        out.append((str(uid), prenom, (maintenant - debut).days, scans))
+        derniere, jours_scan = derniere_publication(handles, historique, debut)
+        ref = max(d for d in (derniere, debut, borne) if d is not None)
+        silence = (maintenant - ref).days
+        scans = sum(1 for j in jours_scan if j > ref.date())
+        out.append((str(uid), prenom, silence, scans, ref))
     return out
+
+
+def a_sortir(fiches: dict, onboarding: dict, historique: dict, comptes: list, notes, prenom_de, maintenant=None,
+             jours: int = JOURS, scans_min: int = SCANS_MIN, garder=(), depuis: str = None) -> list:
+    """[(uid, prénom, jours sans publier, scans)] : silence ≥ `jours`, avec au moins `scans_min` jours de scan pendant le silence."""
+    return [(u, p, j, s) for u, p, j, s, _ in silences(fiches, onboarding, historique, comptes, notes, prenom_de, maintenant,
+                                                         garder, depuis) if j >= jours and s >= scans_min]
+
+
+def a_avertir(fiches: dict, onboarding: dict, historique: dict, comptes: list, notes, prenom_de, deja: dict, maintenant=None,
+              garder=(), depuis: str = None) -> list:
+    """[(uid, prénom, jours sans publier, référence iso)] : silence entre AVERT_JOURS et JOURS - 1, au moins deux jours de
+    scan pendant le silence, pas déjà averti pour ce même silence (`deja` : {uid: référence iso})."""
+    out = []
+    for u, p, j, s, ref in silences(fiches, onboarding, historique, comptes, notes, prenom_de, maintenant, garder, depuis):
+        cle = ref.isoformat(timespec="seconds")
+        if AVERT_JOURS <= j < JOURS and s >= 2 and deja.get(u) != cle:
+            out.append((u, p, j, cle))
+    return out
+
+
+def texte_avertissement(prenom: str, jours: int, date_sortie: str) -> str:
+    return (f"⚠️ {prenom}, **{jours} jours sans Reel** sur tes comptes.\n\n"
+            "La règle de l'équipe : sans publication, tu sors. "
+            f"Sans nouveau Reel d'ici là, **tu sors le {date_sortie}**, et tes comptes vont au suivant.\n\n"
+            "Publie aujourd'hui : le compteur repart à zéro. Un souci (compte bloqué, téléphone) ? Écris-le ici.")
 
 
 def _etat() -> dict:
@@ -111,13 +165,29 @@ async def executer(client, appliquer: bool = True) -> list:
         m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
         return _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
 
+    bilan = []
+    d = _etat()
+    avertir = a_avertir(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de, d.get("avertis", {}), garder=garder)
+    for uid, prenom, nb_jours, cle in avertir:
+        date_sortie = (_jour(cle) + timedelta(days=JOURS)).strftime("%d/%m")
+        if not appliquer:
+            bilan.append(f"· {prenom} : {nb_jours} jours sans Reel → averti (sortie le {date_sortie} sans Reel)")
+            continue
+        salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+        if salon is None:
+            continue
+        try:
+            await salon.send(texte_avertissement(prenom, nb_jours, date_sortie))
+            d = _etat(); d.setdefault("avertis", {})[uid] = cle; _deps["ecrire_json"](_deps["FICHIER"], d)
+            bilan.append(f"⚠️ {prenom} : averti ({nb_jours} jours sans Reel, sortie le {date_sortie} sans Reel)")
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Avertissement de %s : %s", prenom, erreur)
     cibles = a_sortir(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de, garder=garder)
     if not cibles:
-        return []
-    bilan = []
+        return bilan
     for uid, prenom, nb_jours, scans in cibles:
         if not appliquer:
-            bilan.append(f"· {prenom} : {nb_jours} jours depuis sa créatrice, {scans} scans, 0 publication → sortirait")
+            bilan.append(f"· {prenom} : {nb_jours} jours sans Reel ({scans} jours de scan) → sortirait")
             continue
         m = _deps["membre_par_id"](uid)
         if m is None:
@@ -128,7 +198,7 @@ async def executer(client, appliquer: bool = True) -> list:
             d.setdefault("sorties", {})[uid] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "prenom": prenom,
                                                  "jours": nb_jours, "scans": scans}
             _deps["ecrire_json"](_deps["FICHIER"], d)
-            bilan.append(f"🚪 {prenom} : sorti ({nb_jours} jours, 0 publication) · comptes rendus au vivier : {res.get('comptes', 0)} · "
+            bilan.append(f"🚪 {prenom} : sorti ({nb_jours} jours sans Reel) · comptes rendus au vivier : {res.get('comptes', 0)} · "
                          f"lien libéré : {res.get('liens', 0)}")
             journal.info("Sortie automatique : %s (%s) après %d jours, %d scans", prenom, uid, nb_jours, scans)
         except Exception as erreur:                                         # noqa: BLE001
@@ -144,10 +214,10 @@ async def commande(message, texte: str) -> bool:
     go = texte.lower().split()[1:2] == ["go"]
     bilan = await executer(message.client if hasattr(message, "client") else None, appliquer=go)
     if not bilan:
-        await message.reply(f"✅ Personne à sortir : aucun clipper à {JOURS} jours ou plus sans publication (avec {SCANS_MIN} scans au moins)."
+        await message.reply(f"✅ Personne à avertir ni à sortir : aucun clipper à {AVERT_JOURS} jours ou plus sans Reel."
                             + ("" if ACTIF else " Sortie automatique éteinte (`SORTIE_AUTO=0`)."))
         return True
-    await message.reply((("🚪 **Sorties automatiques**\n" if go else f"🔎 **Sortiraient aujourd'hui** (`!sortie-auto go` pour le faire)\n")
+    await message.reply((("🚪 **Avertissements et sorties automatiques**\n" if go else "🔎 **Aujourd'hui** (`!sortie-auto go` pour le faire)\n")
                          + "\n".join(bilan))[:1990])
     return True
 
@@ -157,7 +227,8 @@ async def boucle(client):
     if not ACTIF:
         journal.info("Sortie automatique éteinte (SORTIE_AUTO=0)")
         return
-    journal.info("Sortie automatique active : %d jours sans publication, %d scans au moins, à %d h UTC", JOURS, SCANS_MIN, HEURE_UTC)
+    journal.info("Sortie automatique active : avertissement à %d jours sans Reel, sortie à %d (%d jours de scan au moins), à %d h UTC",
+                 AVERT_JOURS, JOURS, SCANS_MIN, HEURE_UTC)
     while not client.is_closed():
         maintenant = datetime.now(timezone.utc)
         d = _etat()
@@ -174,7 +245,7 @@ async def boucle(client):
                     if canal is not None:
                         entete = ("🔎 **Sortie automatique, première liste** — rien n'est fait aujourd'hui. Demain à la même heure, ces "
                                   "clippers sortent tout seuls (`!sortie-auto go` pour le faire maintenant, `!note @x garde` pour en protéger un).\n"
-                                  if premiere else "🚪 **Sorties automatiques du jour**\n")
+                                  if premiere else "🚪 **Avertissements et sorties automatiques du jour**\n")
                         await canal.send((entete + "\n".join(bilan))[:1990])
             except Exception as erreur:                                     # noqa: BLE001
                 journal.warning("Boucle de sortie automatique : %s", erreur)

@@ -183,7 +183,7 @@ Ton suivi, c'est ton salon perso : chaque matin, tes visites d'hier et tes publi
 
 Les 2 ou 3 premières semaines, les vues sont basses. C'est normal. C'est là que tout le monde abandonne. Puis un Reel marche et tout monte. Tu ne peux pas rater si tu publies tous les jours et si tu t'améliores chaque semaine.
 
-Les règles du jeu : **14 jours après ta créatrice sans une seule publication = sortie automatique**, tes comptes et ton lien vont au suivant. Un lien qui ne ramène presque personne après un mois : on en parle avec Gaëtan. On garde les meilleurs.
+Les règles du jeu : **3 jours sans Reel = un avertissement dans ton salon ; 7 jours sans Reel = sortie automatique**, tes comptes et ton lien vont au suivant. Un seul Reel remet le compteur à zéro. Un lien qui ne ramène presque personne après un mois : on en parle avec Gaëtan. On garde les meilleurs.
 
 ## FICHE 5 — Les Reels d'essai et la suite
 

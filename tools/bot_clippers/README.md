@@ -157,6 +157,16 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09, GO de Gaëtan)** : `sortie_auto.py` compte les jours depuis la
+DERNIÈRE publication (une hausse du nombre de publications d'un de ses comptes entre deux scans ; la première valeur d'un compte
+ne compte que s'il est vu après l'arrivée du clipper, un compte rendu garde les Reels d'avant), ou depuis la créatrice s'il n'a
+jamais publié, jamais avant le 30/09 (`SORTIE_AUTO_DEPUIS`). À 3 jours (`SORTIE_AUTO_AVERT_JOURS`) : un message dans son salon
+perso avec la date de sortie, une fois par silence. À 7 jours (`SORTIE_AUTO_JOURS`, 14 avant) avec au moins 5 jours de scan où
+un de ses comptes existe pendant le silence (`SORTIE_AUTO_SCANS_MIN`) : la sortie habituelle, comptes et lien au suivant. Un
+compte banni ou un scan en panne ne fait sortir personne ; la note « garde » et la liste de Jonas protègent toujours.
+`!sortie-auto` montre les avertis et les sortants du jour, `!sortie-auto go` l'applique. Règle 5 du formulaire, du message
+d'acceptation et de la base : « 3 jours sans publier = avertissement, 7 jours = licenciement ».
+
 **POD neufs, coefficients d'attribution, règles (30/09, Gaëtan)** : `!pods` (staff, `pods.py`) montre par onglet le dernier POD et
 les lignes « à créer » sans e-mail ; `!pods Chloé 5 voir` affiche l'aperçu ; `!pods Chloé 5` écrit 5 POD de 3 lignes sous la
 dernière ligne de l'onglet (ETAT « à créer », @ neufs au format du classeur — alias + expression pour les deux premiers,
