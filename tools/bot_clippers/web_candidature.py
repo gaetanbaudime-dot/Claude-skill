@@ -31,6 +31,8 @@ from pathlib import Path
 import aiohttp
 from aiohttp import web
 
+import numeros
+
 journal = logging.getLogger("web")
 DOSSIER = Path(__file__).parent
 
@@ -231,7 +233,7 @@ def _intro_html(intro) -> str:
     return "".join(out)
 
 
-def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Response:
+def _formulaire(valeurs=None, erreur: str = "", parrain: str = "", tel_ok: str = "") -> web.Response:
     cfg = _questions(); valeurs = valeurs or {}
     champs, section, n = "", None, 0
     for q in cfg["questions"]:
@@ -243,7 +245,8 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Respon
     corps = (f"<h1>{html.escape(cfg.get('titre', 'Candidature'))}</h1>{_intro_html(cfg.get('intro', ''))}{err}"
              f"<form method='post' action='/candidature' autocomplete='on'>"
              f"<input type='hidden' name='f' value='{html.escape(jeton('f' + str(int(time.time()))))}'>"
-             + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "") + f"{champs}"
+             + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "")
+             + (f"<input type='hidden' name='tel_ok' value='{html.escape(tel_ok)}'>" if tel_ok else "") + f"{champs}"
              f"<button class='b' type='submit'>Passer à la formation + quizz</button></form>")   # 30/09 (Gaëtan)
     video = re.search(r"loom\.com/(?:share|embed)/([0-9a-f]{16,})", _deps.get("LIEN_VIDEO_FORMATION", "") or "")
     tete = (f"<link rel='prefetch' href='https://www.loom.com/embed/{video.group(1)}'>" if video else "")
@@ -311,10 +314,16 @@ async def post_candidature(request):
     if reponses.get("majeur") == "Non" or (0 < age < 18):
         return _page("Candidature", "<h1>Désolé</h1><p>Il faut avoir 18 ans pour travailler avec nous. "
                                     "Reviens nous voir plus tard.</p>")
-    tel = _deps["tel_selon_pays"](reponses.get("whatsapp", ""), reponses.get("pays", ""))
-    if not tel:
-        return _formulaire(reponses, "Le numéro WhatsApp n'est pas lisible : écris-le avec l'indicatif, "
-                                     "par exemple +261 34 12 345 67 ou +229 01 23 45 67.", data.get("p", ""))
+    # 30/09 (Gaëtan : « assure-toi qu'ils ne mettent pas des numéros erronés ») : le numéro doit exister (longueur, indicatif) ;
+    # un numéro d'un autre pays que celui choisi, ou un fixe, est réaffiché une fois pour confirmation (numeros.py).
+    secours = _deps["tel_selon_pays"](reponses.get("whatsapp", ""), reponses.get("pays", ""))
+    tel, joli, erreur_tel, alerte_tel = numeros.verifier(reponses.get("whatsapp", ""), reponses.get("pays", ""), secours)
+    if erreur_tel:
+        journal.info("Candidature web : numéro refusé (%s)", reponses.get("pays", "?"))
+        return _formulaire(reponses, erreur_tel, data.get("p", ""))
+    if alerte_tel and data.get("tel_ok", "") != tel:
+        return _formulaire({**reponses, "whatsapp": joli}, alerte_tel, data.get("p", ""), tel_ok=tel)
+    reponses["whatsapp"] = joli or reponses.get("whatsapp", "")      # le classeur garde le numéro propre, prêt pour WhatsApp
     cand_id = secrets.token_urlsafe(9)
     maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
