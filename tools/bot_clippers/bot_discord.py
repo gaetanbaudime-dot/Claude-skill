@@ -51,6 +51,8 @@ import drive_agence                       # script Apps Script de l'agence : dé
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 import telegram                           # alerte Telegram de l'agence : acceptation, sortie, copie du digest (29/09, ex-inputs_clippers)
 import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
+import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
+import classeur_verif                     # le classeur se vérifie seul après le scan : doublons, BAN avec Gérant… (29/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -3820,7 +3822,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -6204,8 +6206,17 @@ async def on_ready():
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e, p=None: parcours.reconcilier(client, e, p),
-                                  "reservations_expirees": expirer_reservations})              # 28/09 : réservation qui expire
+                                  "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
+                                  "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
+        classeur_verif.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_VERIF": DONNEES / "classeur_verif.json",
+                                   "canal_admin": canal_admin, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
+                                   "normaliser": normaliser, "exclus": etats_comptes.dashboard_exclus, "lire_comptes": onboarding.lire_comptes,
+                                   "historique": lambda: etats_comptes._lire().get("historique", {})})
+        bans_mail.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_BANS": DONNEES / "bans_mail.json",
+                              "canal_admin": canal_admin, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
+                              "normaliser": normaliser, "etat_scan": etats_comptes._lire, "ecrire_etat_scan": etats_comptes._ecrire})
+        client.loop.create_task(bans_mail.boucle(client))                       # 29/09 : mails de suspension → BAN + push
         rapport_quotidien.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "rapport_quotidien.json",
                                       "FICHIER_ETATS": FICHIER_ETATS, "lire_comptes": onboarding.lire_comptes, "clics_de": _clics_7j,
                                       "groupes": roster.groupes, "exclus": etats_comptes.dashboard_exclus, "canal_admin": canal_admin,
@@ -6985,6 +6996,10 @@ async def on_message(message):
         if await onboarding.commande_staff(message, texte):
             return
         if await rapport_quotidien.commande(message, texte):                    # !rapport [telegram] (29/09)
+            return
+        if await bans_mail.commande(message, texte):                            # !bans [jours] (29/09)
+            return
+        if await classeur_verif.commande(message, texte):                       # !classeur (29/09)
             return
         if await etats_comptes.commande_staff(message, texte):
             return
