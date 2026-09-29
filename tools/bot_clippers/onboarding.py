@@ -390,7 +390,7 @@ def acces_ordonnes(comptes: list) -> list:
 def message_comptes_court(prenom: str) -> str:
     """27/09 (Gaëtan : « donne les comptes 24 h par 24 h, pas un message énorme dès le début ») : une ligne. Chaque accès
     (identifiant, mot de passe, e-mail) arrive dans l'étape du jour du parcours, un par jour."""
-    return (f"🔐 {prenom}, tes accès arrivent **un par jour**, dans l'étape du jour. "
+    return (f"🔐 {prenom}, tes accès arrivent **un compte tous les 48 h**, dans l'étape du jour. "   # 30/09 : règle des 48 h
             "Ils sont à l'agence : tu ne les donnes à personne.")
 
 
@@ -453,6 +453,28 @@ async def restructurer_drives(client, prenoms_par_creatrice: dict, email_de) -> 
     _ecrire_etat(etat)
     journal.info("Structure Drive v2 posée pour %d clipper(s)", len(faits))
     return faits
+
+
+_sources_publiques = set()
+
+
+async def ouvrir_sources_par_lien() -> int:
+    """30/09 (Ricardo : « pour télécharger la photo il faut une autorisation ») : depuis le 28/09 le dossier du clipper se lit
+    par le lien, sans e-mail — mais Photos et Reels y sont des RACCOURCIS vers les dossiers sources de la créatrice, qui
+    n'étaient partagés qu'à l'e-mail du clipper. Sans e-mail : le TOP 20 (vrai sous-dossier) s'ouvrait, Photos et Reels
+    répondaient « Vous devez disposer d'une autorisation ». Chaque source passe en lecture par le lien, une fois par
+    démarrage (puis à chaque nouveau Drive). Renvoie le nombre de sources ouvertes."""
+    if not google_api.actif():
+        return 0
+    n = 0
+    for cfg in _sources().values():
+        for src in (cfg or {}).get("sources", []):
+            sid = src.get("id") if isinstance(src, dict) else src
+            if sid and sid not in _sources_publiques and await google_api.drive_partager_public(sid):
+                _sources_publiques.add(sid)
+                n += 1
+    journal.info("Sources Drive ouvertes par le lien : %d", n)
+    return n
 
 
 def _source_de(creatrice: str) -> dict:
@@ -541,6 +563,8 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
         nom = f"{libelle} {vus[libelle]}" if vus[libelle] > 1 else libelle
         if email:
             await _partager(src["id"], email)
+        if src["id"] not in _sources_publiques and await google_api.drive_partager_public(src["id"]):
+            _sources_publiques.add(src["id"])                           # 30/09 : le raccourci s'ouvre sans e-mail (Ricardo)
         try:
             ancien = next((f for f in existants if f.get("shortcutDetails", {}).get("targetId") == src["id"]), None)
             if ancien is not None and ancien.get("name") != nom:

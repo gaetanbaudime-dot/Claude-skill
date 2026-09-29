@@ -143,4 +143,23 @@ Demande de Gaëtan : « encore 10 façons d'augmenter mon nombre de clippers qui
 
 Hors liste, toujours en attente et plus rentables que la plupart : l'axe 2 (supprimer le test de montage, le clipper ne monte plus) et l'axe 9 (Indeed relancé, source mesurée par lien d'annonce). Ordre recommandé : 1, 2 et 3 cette semaine, puis 4 et 7 ; 5, 6, 8, 9, 10 après la mesure du 06/10. Avocat du diable : le n° 1 concentre le risque sur quelques téléphones (un ban en cascade coûte six comptes au lieu de trois) ; le n° 2 par WhatsApp en masse expose le numéro de Gaëtan au signalement pour spam : listes de diffusion par lots, jamais un envoi groupé à des inconnus.
 
+## 8. Ce que le parcours d'un clipper a appris (30/09)
+
+> [!tip] Verdict
+> Le fil complet d'un clipper, du quizz raté au compte 1 créé, a montré **sept frictions en six heures**, dont deux vraies pannes : les photos du Drive inaccessibles et l'assistant qui contredisait l'écran. Tout est corrigé dans le bot le jour même. La leçon de fond : **un clipper bloqué pose sa question, et une mauvaise réponse du bot coûte plus cher que pas de réponse.**
+
+| Friction vue | Cause réelle | Correction |
+|---|---|---|
+| « Pour télécharger la photo il faut une autorisation » | Le dossier du clipper s'ouvre par le lien, mais Photos et Reels sont des raccourcis vers des dossiers partagés seulement par e-mail | Les dossiers sources s'ouvrent par le lien, au démarrage et à chaque nouveau Drive |
+| Le bot répond « le Drive marche pour tout » | L'assistant préfère une explication à l'aveu | Règle : ne jamais contredire ce que le clipper voit à l'écran |
+| La photo de profil annoncée n'arrive pas | Échec silencieux du module photo | Message de secours et trace dans le journal |
+| « Ajoutez votre nom », le bot improvise | Le nom du profil n'était donné nulle part | Bloc « Nom du profil » envoyé avec la bio : le prénom de la créatrice |
+| « Code » tapé trois fois | Le bot attendait une minute, le mail en met parfois trois | `!code` guette cinq minutes et affiche le code tout seul |
+| « Ton manager, c'est moi, le bot » | La base de connaissances le disait | Corrigé : l'assistant n'est pas le manager |
+| « Avant le 2026-09-30 », « en MP » | Dates brutes et vieux vocabulaire | Dates à la française, tout se passe dans le salon perso |
+
+Deux frictions venaient d'avant les corrections du matin (les 5 règles avec « J'accepte » après le test, la ligne « Ton salon perso ») et ne se reproduisent plus. Une annonce générale (la règle des 48 h) est tombée chez un clipper qui n'avait encore aucun compte : **toute annonce future ne va qu'aux clippers concernés.**
+
+Même jour, deux ajouts liés : le formulaire refuse les numéros WhatsApp impossibles (indicatif d'un autre pays, chiffre manquant) et corrige les cas sûrs, car la liste des clippeurs du 29/09 comptait plusieurs numéros inutilisables ; et Gaëtan observe que **les clippers répondent plus vite sur WhatsApp que sur Discord** (probable, non mesuré : le bot ne voit pas WhatsApp). D'où la priorité donnée aux relances WhatsApp en un appui, envoyées à la main.
+
 Le cadre : [[Goulot de l'agence - l'équation du scale]] (clippers productifs × subs par clipper × € par sub, recruter en dernier) et la [[Théorie des contraintes]]. Les quarante idées précédentes : [[Process clippers - 10 automatisations de plus (28 septembre 2026, soir)]] et [[Bilan des 20 simplifications - fait, plus besoin, à faire (27 septembre 2026)]]. La règle de paie : [[Podcast Open Source - le clipping vu par un studio SaaS, ce qu'on en tire (28 septembre 2026)]]. Les annonces : [[Recrutement clippers - annonces et formulaire]]. Décision et prédiction dans le [[Journal de coaching]] ; le hub : [[LTP Models]].

@@ -362,7 +362,11 @@ message de comptes (le compte existe peut-être déjà). Si ça échoue, créer 
 plus à la fin, et écrire ici le pseudo exact créé pour que le manager mette le classeur à jour. Tu n'inventes \
 jamais de pseudo.
 25. Tu ne parles que des comptes CRÉÉS d'après la mémoire du clipper (« Comptes créés : N sur 3 »). \
-Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore."""
+Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
+26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de comptes.
+27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
+28. Dates toujours à la française : « le 30/09 », « demain 14 h ». Jamais « 2026-09-30 ». Tout se passe dans le salon perso : jamais « en MP ». Les codes : le clipper tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
+29. « Qui est mon manager ? » : ton manager a le rôle « Manager », il lit ton salon perso ; écris-lui ici. Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
@@ -859,7 +863,7 @@ def contexte_auteur(message) -> str:
             if not lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)):
                 return (base + "\n[Candidat en MP — où il en est d'après le pipeline : " + ou_en_es_tu(str(message.author.id))
                         + "\nTu l'aides sur CETTE étape (quiz, test de montage, MP fermés) avec la base ; pour le test : un Reel "
-                          "vertical avec sous-titres, à rendre ici en MP avant l'échéance, jugé par le bot. Tu ne promets rien d'autre.]")
+                          "vertical avec sous-titres, à rendre ici avant l'échéance, jugé par le bot. Tu ne promets rien d'autre.]")
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Contexte candidat %s : %s", message.author.id, erreur)
     sp = salon_perso_de(message.author.id) if message.guild is not None else None
@@ -1353,6 +1357,25 @@ def corriger_prenom(texte: str, membre) -> str:
     if re.match(r"(?i)^" + re.escape(creatrice) + r"\b[ ,!:]", texte):
         texte = prenom + texte[len(creatrice):]
     return texte
+
+
+def date_fr(iso) -> str:
+    """« 2026-09-30T14:03:00+00:00 » → « 30/09 à 16 h » (heure de Paris) ; « 2026-09-30 » → « 30/09 ». 30/09 : le bot écrivait
+    « avant le 2026-09-30 » à Ricardo."""
+    texte = str(iso or "").strip()
+    if not texte:
+        return ""
+    try:
+        d = datetime.fromisoformat(texte[:25])
+    except ValueError:
+        return texte[:10]
+    if len(texte) <= 10:
+        return d.strftime("%d/%m")
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    from zoneinfo import ZoneInfo
+    d = d.astimezone(ZoneInfo("Europe/Paris"))
+    return d.strftime("%d/%m à ") + f"{d.hour} h" + (f" {d.minute:02d}" if d.minute else "")
 
 
 def prenom_de(membre) -> str:
@@ -2753,23 +2776,22 @@ def ou_en_es_tu(uid: str) -> str:
         return ("Tu es dans l'équipe. **Prochaine étape : ton manager t'attribue ta créatrice** (sous 48 h) "
                 "et te donne ton créneau de création. Rien à faire de ton côté d'ici là.")
     if not liaison.get("tel"):
-        return "**Prochaine étape : envoie-moi ton numéro de téléphone** (celui du formulaire), ici en MP."
+        return "**Prochaine étape : envoie-moi ton numéro de téléphone** (celui du formulaire), ici."
     if not etat or etat == "quiz_rate":
         return (f"**Prochaine étape : la formation puis le quiz** (seuil {seuil_quiz_texte()}, deux essais). Ton lien personnel : "
                 f"{lien_quiz}")
     if etat == "test_envoye":
-        return ("**Ton test est en cours** : dépose tes 2 clips ici en MP (fichiers ou lien Drive) avant "
-                f"l'échéance du {str(info.get('echeance', ''))[:10]}.")
+        return ("**Ton test est en cours** : dépose tes 2 clips ici (fichiers ou lien Drive) avant "
+                f"le {date_fr(info.get('echeance', ''))}.")
     if etat == "test_rendu":
         return "**Ton test est reçu.** Je te donne mon avis ici dans les minutes qui suivent, un manager confirme."
     if etat in ("test_expire", "refuse"):
-        retest = str(info.get("retest", ""))[:10]
+        retest = date_fr(info.get("retest", ""))
         return (f"**Retest possible à partir du {retest}** : ce jour-là, écris **VALIDÉ** ici et ton test "
-                "(2 clips, 48 h) repart en MP." if retest else "Écris **VALIDÉ** ici pour redemander un test.")
+                "(2 clips, 48 h) repart ici." if retest else "Écris **VALIDÉ** ici pour redemander un test.")
     if etat == "valide":
-        if info.get("conditions_envoyees"):
-            return "**Test validé** : il ne manque que ton **J'ACCEPTE** (les conditions sont dans un message plus haut ↑)."
-        return "**Test validé** : tes conditions arrivent ici en MP, tu réponds **J'ACCEPTE** et ton accès s'ouvre."
+        # 30/09 : plus de J'ACCEPTE après le test (les 5 règles sont acceptées au formulaire) — l'accès s'ouvre tout seul
+        return "**Test validé** : tu as rejoint l'agence. Ta créatrice et ton compte 1 arrivent ici."
     if etat == "sorti":
         return "Ton parcours avec l'équipe est terminé. Merci pour le temps donné."
     return "Envoie-moi ton numéro de téléphone ici pour reprendre le parcours."
@@ -3976,7 +3998,7 @@ def texte_aide(membre, est_admin: bool) -> str:
             "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
             f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {seuil_quiz_texte()}, 2 essais).\n"
             "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
-            "4. Test validé → **J'ACCEPTE** → ton salon perso et tes 3 comptes, un par jour avec 24 h de warm-up.\n"
+            "4. Test validé → ta créatrice et tes 3 comptes, un tous les 48 h, avec 24 h de warm-up sur chacun.\n"
             "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
             "Une question ? Pose-la ici, je réponds avec le kit.")
 
@@ -6294,6 +6316,7 @@ async def on_ready():
                     return liaisons_e.get(uid_e, {}).get("email", "") or fiche_e.get("email", "")
             return ""
         client.loop.create_task(onboarding.restructurer_drives(client, roster.groupes(), _email_de_prenom))   # Photos / Reels / TOP 20 (27/09)
+        client.loop.create_task(onboarding.ouvrir_sources_par_lien())       # 30/09 : Photos s'ouvre sans autorisation (Ricardo)
         def _clics_7j(prenom, jours=7):                                      # visites payables des `jours` derniers jours du clipper
             m = membre_par_prenom(normaliser(prenom))                        # (28/09 : jours=1 → « Visites hier » du Dashboard)
             if m is None:

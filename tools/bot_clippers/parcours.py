@@ -82,7 +82,7 @@ ETAPES = {
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. Code demandé ? Écris `!code` ici.\n"
             "3. Mets ce mot de passe. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
-            "4. Mets la photo et la bio que je t'envoie juste en dessous. Pas de lien, pas d'@.",
+            "4. Mets la photo, le nom et la bio que je t'envoie juste en dessous. Pas de lien, pas d'@.",
             "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
             "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.",
             "Crée-le comme les autres, sur le même téléphone.")

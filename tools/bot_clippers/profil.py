@@ -11,7 +11,7 @@ import discord
 
 journal = logging.getLogger("profil")
 ACTIF = os.environ.get("PROFIL", "1").strip() != "0"
-PHOTO_MAX_OCTETS = 20_000_000
+PHOTO_MAX_OCTETS = 9_500_000                    # 30/09 : la limite d'envoi de Discord est 10 Mo par fichier
 _deps = {}
 
 BIOS = (
@@ -111,8 +111,11 @@ async def photo_pour(creatrice: str):
     return nom, octets
 
 
-def texte_bio(n: int, bio: str) -> str:
-    return f"✏️ Bio du compte {n}, à coller telle quelle :\n```\n{bio}\n```"
+def texte_bio(n: int, bio: str, nom: str = "") -> str:
+    """30/09 (Ricardo demandait quoi mettre dans « Ajoutez votre nom », Gaëtan : « mets Chloé, t'embêtes pas ») : le nom du
+    profil arrive avec la bio, prêt à coller — le prénom de la créatrice, rien d'autre."""
+    tete = f"✏️ Nom du profil, à coller tel quel :\n```\n{nom}\n```\n" if nom else ""
+    return tete + f"✏️ Bio du compte {n}, à coller telle quelle :\n```\n{bio}\n```"
 
 
 async def envoyer(salon, uid: str, n: int, creatrice: str) -> bool:
@@ -120,12 +123,21 @@ async def envoyer(salon, uid: str, n: int, creatrice: str) -> bool:
     if not ACTIF or salon is None or not creatrice:
         return False
     photo = await photo_pour(creatrice)
-    try:
-        if photo is not None:
-            nom, octets = photo
+    envoyee = False
+    if photo is not None:
+        try:
+            nom_fichier, octets = photo
             await salon.send(f"📷 Photo de profil du compte {n} : télécharge-la, mets-la sur le compte.",
-                             file=discord.File(io.BytesIO(octets), filename=nom))
-        await salon.send(texte_bio(n, bio_pour(creatrice)))
+                             file=discord.File(io.BytesIO(octets), filename=nom_fichier))
+            envoyee = True
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Photo du compte %s pour %s : %s", n, uid, erreur)
+    try:
+        if not envoyee:                                                 # 30/09 (Ricardo) : jamais une photo promise qui n'arrive pas
+            journal.warning("Pas de photo de profil envoyée à %s (%s, compte %s)", uid, creatrice, n)
+            await salon.send(f"📷 Photo de profil du compte {n} : prends-en une dans le dossier **Photos** de ton Drive.")
+        prenom = (creatrice or "").split()[0] if (creatrice or "").split() else creatrice
+        await salon.send(texte_bio(n, bio_pour(creatrice), prenom))
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Profil du compte %s pour %s : %s", n, uid, erreur)
         return False

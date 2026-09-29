@@ -44,9 +44,10 @@ IMAP_PASSWORD = os.environ.get("CODES_IMAP_PASSWORD", "").strip()
 IMAP_DOSSIER = os.environ.get("CODES_IMAP_DOSSIER", "INBOX").strip() or "INBOX"
 ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 INTERVALLE = int(os.environ.get("CODES_INTERVALLE_SEC", "45"))
+_guets = set()                                                  # salons où un !code guette déjà (30/09 : pas de doublon)
 # 27/09 (Daniella, 22:13) : « Code » tapé juste après « Envoyer le code » → « pas de code depuis 2 heures », puis le code
 # posté une seconde plus tard par la boucle. `!code` attend maintenant jusqu'à ATTENTE_SEC que le mail arrive.
-ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "60"))
+ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "300"))   # 30/09 (Ricardo a tapé « code » 3 fois) : 5 min de guet, plus 1
 ATTENTE_PAS = int(os.environ.get("CODES_ATTENTE_PAS_SEC", "15"))
 IMAP_TIMEOUT = int(os.environ.get("CODES_IMAP_TIMEOUT_SEC", "30"))
 # Mots attendus dans le SUJET d'un mail de code (Meta en envoie aussi sur les connexions, les
@@ -496,18 +497,26 @@ async def commande(message, admin_ids) -> bool:
         await message.reply("⚠️ Je n'arrive pas à lire la boîte mail. Réessaie dans 2 minutes. Si ça continue, dis-le à ton manager.")
         return True
     attente = None
-    if not codes and ATTENTE_SEC > 0:                          # le mail met 10 à 40 s : on attend avant de dire non
-        attente = await message.reply("⏳ Pas encore reçu. J'attends une minute…")
+    if not codes and ATTENTE_SEC > 0 and canal_id in _guets:
+        await message.reply("⏳ Je guette déjà ton code : il s'affiche ici dès qu'il arrive. Pas besoin de retaper.")
+        return True
+    if not codes and ATTENTE_SEC > 0:                          # le mail met 10 s à 3 min : on guette avant de dire non
+        _guets.add(canal_id)
+        attente = await message.reply(f"⏳ Pas encore reçu. Je guette {max(1, ATTENTE_SEC // 60)} minute{'s' if ATTENTE_SEC >= 120 else ''} et je le mets ici "
+                                      "tout seul. Pas besoin de retaper.")
         debut = time.monotonic()
-        while time.monotonic() - debut < ATTENTE_SEC:
-            await asyncio.sleep(ATTENTE_PAS)
-            try:
-                codes = _filtrer(await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, fenetre), timeout=IMAP_TIMEOUT * 3))
-            except Exception as erreur:
-                journal.warning("IMAP (attente) : %s", erreur)
-                codes = []
-            if codes:
-                break
+        try:
+            while time.monotonic() - debut < ATTENTE_SEC:
+                await asyncio.sleep(ATTENTE_PAS)
+                try:
+                    codes = _filtrer(await asyncio.wait_for(asyncio.to_thread(_lire_boite, False, None, fenetre), timeout=IMAP_TIMEOUT * 3))
+                except Exception as erreur:
+                    journal.warning("IMAP (attente) : %s", erreur)
+                    codes = []
+                if codes:
+                    break
+        finally:
+            _guets.discard(canal_id)
 
     async def _dire(texte):
         if attente is not None and hasattr(attente, "edit"):
@@ -524,7 +533,7 @@ async def commande(message, admin_ids) -> bool:
             await _dire(f"Pas de code de récupération depuis 6 h{pour}. Sur Instagram : « Mot de passe oublié » "
                         "ou « Faire appel », choisis l'e-mail, puis retape `!recup`.")
         else:
-            await _dire(f"Pas de code reçu depuis 2 h{pour}. Sur Instagram, appuie sur « Renvoyer le code », "
+            await _dire(f"Toujours pas de code{pour}. Sur Instagram, vérifie l'adresse e-mail, appuie sur « Renvoyer le code », "
                         "puis retape `!code`.")
         return True
     derniers = {}
@@ -580,7 +589,7 @@ async def _commande_salon_commun(message, recup: bool) -> bool:
     if not codes and ATTENTE_SEC > 0:
         attente = await message.reply("⏳ Pas encore reçu. J'attends une minute…")
         debut = time.monotonic()
-        while time.monotonic() - debut < ATTENTE_SEC:
+        while time.monotonic() - debut < min(ATTENTE_SEC, 60):         # salon commun : une minute, le relais perso fait le reste
             await asyncio.sleep(ATTENTE_PAS)
             try:
                 codes = await _lire()
