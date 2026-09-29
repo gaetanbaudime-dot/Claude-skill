@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-29 (nuit) — Le « Merci » sans formation était le piège à robots ; formulaire sans âge, en quatre étapes
+- **Demande de Gaëtan** (capture « Merci, candidature reçue » sur le site) : enlever l'âge, le lien de la formation n'apparaît pas après l'envoi, formulaire plus lisible, 5 règles simplifiées.
+- **Cause** : la page « Merci » était celle du pot de miel. Le champ caché « site_web » est rempli par la saisie automatique des navigateurs : le candidat voyait « candidature reçue », rien n'était enregistré ni journalisé. Combien de vrais candidats y sont passés depuis le 23/09 : **inconnu** (aucune trace), c'est peut-être une part de l'écart 68 ouvertures → 27 envois du 27-28/09.
+- **Livré** : pot de miel remplacé par un jeton signé à l'affichage (jamais de faux merci, refus journalisé) ; âge retiré, « J'ai 18 ans ou plus » dans la case des règles (mineurs : la déclaration reste obligatoire) ; quatre étapes numérotées, aide sous chaque libellé, encadré paie, « Comment ça se passe » en quatre lignes ; 5 règles au même fond en phrases courtes ; lien de secours sous la vidéo. Vérifié sur une capture téléphone et par les tests de bout en bout.
+- **Prédiction (29/09, revue le 06/10)** : le nombre de formulaires envoyés par jour augmente d'au moins 30 % sur la semaine du 30/09 au 06/10 par rapport aux 27-28/09, à trafic d'annonces égal (50 %).
+
 ### 2026-09-29 (soir) — GO axes 1, 4 et 8 : quiz avant Discord, délai mesuré, parrainage par lien ; le top 5 vient d'Indeed
 - **Décisions de Gaëtan** : GO 1 (formation et quiz sur le site juste après le formulaire, Discord au quiz réussi), GO 4 (délai formulaire → premier Reel), GO 8 (« prépare un message ») ; axe 7 à réexpliquer ; « d'où viennent ceux du top 5 ? » ; « on est à combien sur les trois déclencheurs ? ».
 - **Livré** : les trois dans le bot, testés de bout en bout (site, arrivée, parrainage, tableau). Le formulaire mène à `/formation` (vidéo intégrée, quiz sur place), le quiz réussi ouvre l'invitation, l'arrivée envoie le test tout seul ; les cinq premiers du lundi reçoivent leur lien personnel, le filleul est enregistré à son arrivée, `!parrain-top` l'envoie dès maintenant ; `!tableau` affiche le délai et les trois déclencheurs. Et une panne corrigée au passage : depuis l'invitation personnelle du matin, aucune candidature ne s'écrivait dans le classeur.

@@ -123,6 +123,14 @@ textarea{min-height:96px}small{color:#555;display:block;margin-top:4px}
 .ck input{width:22px;height:22px;flex:none;margin:1px 0 0;accent-color:var(--n)}
 .regles{margin:10px 0 0;padding-left:22px;color:#333}.regles li{margin:10px 0;line-height:1.5}
 .aide2{color:#555;margin:14px 0 0;line-height:1.5}.aide2 a{color:var(--n);font-weight:600}
+h2{font-size:18px;color:var(--n);margin:22px 0 8px}
+.box{background:#eef3fa;border:1px solid #cddbef;border-radius:12px;padding:14px 16px;margin:16px 0;line-height:1.6}
+.etapes{margin:8px 0 0;padding-left:22px}.etapes li{margin:8px 0;line-height:1.5}
+.petit{color:#666;font-size:14px;line-height:1.5;margin:16px 0 0}
+.sec{display:flex;align-items:center;gap:10px;font-size:17px;color:var(--n);margin:30px 0 4px;padding-top:18px;border-top:1px solid #e3e6eb}
+.sec span{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--n);color:#fff;font-size:15px;flex:none}
+.aide{color:#555;font-size:14px;font-weight:400;margin:-2px 0 8px;line-height:1.45}
+input,select,textarea{font-size:16px}
 </style>"""
 
 
@@ -162,11 +170,13 @@ def _champ(q: dict, valeur: str = "") -> str:
         h = f"<input type='tel' name='{i}' value='{v}' inputmode='tel' autocomplete='tel'{req}>"
     else:
         h = f"<input type='text' name='{i}' value='{v}'{req}>"
-    aide = f"<small>{html.escape(q['aide'])}</small>" if q.get("aide") else ""
-    if t == "checkbox" and q.get("aide"):
-        # 29/09 (Gaëtan : « les 5 règles doivent avoir des retours à la ligne et être plus espacées ») : une règle par ligne
-        aide = "<ol class='regles'>" + "".join(f"<li>{html.escape(r)}</li>" for r in _regles(q["aide"])) + "</ol>"
-    return f"<label>{html.escape(q['label'])}{' *' if q.get('requis') else ''}</label>{h}{aide}"
+    # 29/09 soir (Gaëtan : « plus lisible et compréhensible ») : l'aide se lit sous le libellé, avant la case à remplir
+    aide = f"<div class='aide'>{html.escape(q['aide'])}</div>" if q.get("aide") else ""
+    if t == "checkbox":
+        # 29/09 : une règle par ligne, puis la case
+        regles = ("<ol class='regles'>" + "".join(f"<li>{html.escape(r)}</li>" for r in _regles(q["aide"])) + "</ol>") if q.get("aide") else ""
+        return regles + h
+    return f"<label>{html.escape(q['label'])}</label>{aide}{h}"
 
 
 def _regles(texte: str) -> list:
@@ -180,25 +190,42 @@ def _intro_html(intro) -> str:
     `**gras**` devient du gras, une ligne `---` devient un séparateur. Tout le reste est échappé."""
     paragraphes = intro if isinstance(intro, list) else [intro]
     out = []
+
+    def fmt(t: str) -> str:
+        return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", html.escape(t)).replace("\n", "<br>")
+
     for p in paragraphes:
+        if isinstance(p, list):                                        # 29/09 soir : une liste = les étapes numérotées
+            out.append("<ol class='etapes'>" + "".join(f"<li>{fmt(str(e))}</li>" for e in p if str(e).strip()) + "</ol>")
+            continue
         p = str(p or "").strip()
         if not p:
             continue
         if p == "---":
             out.append("<hr>")
-            continue
-        t = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", html.escape(p))
-        out.append(f"<p>{t}</p>")
+        elif p.startswith("## "):
+            out.append(f"<h2>{fmt(p[3:])}</h2>")
+        elif p.startswith("!! "):
+            out.append(f"<div class='box'>{fmt(p[3:])}</div>")
+        elif p.startswith("-# "):
+            out.append(f"<p class='petit'>{fmt(p[3:])}</p>")
+        else:
+            out.append(f"<p>{fmt(p)}</p>")
     return "".join(out)
 
 
 def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Response:
     cfg = _questions(); valeurs = valeurs or {}
-    champs = "".join(_champ(q, valeurs.get(q["id"], "")) for q in cfg["questions"])
+    champs, section, n = "", None, 0
+    for q in cfg["questions"]:
+        if q.get("section") and q["section"] != section:              # 29/09 soir : les questions groupées en étapes
+            section, n = q["section"], n + 1
+            champs += f"<div class='sec'><span>{n}</span>{html.escape(section)}</div>"
+        champs += _champ(q, valeurs.get(q["id"], ""))
     err = f"<div class='e'>{html.escape(erreur)}</div>" if erreur else ""
     corps = (f"<h1>{html.escape(cfg.get('titre', 'Candidature'))}</h1>{_intro_html(cfg.get('intro', ''))}{err}"
              f"<form method='post' action='/candidature' autocomplete='on'>"
-             f"<input class='hp' type='text' name='site_web' tabindex='-1' autocomplete='off'>"
+             f"<input type='hidden' name='f' value='{html.escape(jeton('f' + str(int(time.time()))))}'>"
              + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "") + f"{champs}"
              f"<button class='b' type='submit'>Envoyer ma candidature</button></form>")
     return _page(cfg.get("titre", "Candidature"), corps)
@@ -207,6 +234,15 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Respon
 # ------------------------------------------------------------------ candidature
 def _ip(request) -> str:
     return (request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.remote or "?")
+
+
+def _jeton_formulaire_ok(valeur: str, maintenant: float = None) -> bool:
+    """Le jeton « f<horodatage> » posé à l'affichage : signature valide, envoi entre 3 secondes et 24 heures après."""
+    v = verifier_jeton(valeur or "")
+    if not v or not v.startswith("f") or not v[1:].isdigit():
+        return False
+    ecart = (maintenant or time.time()) - int(v[1:])
+    return 3 <= ecart <= 86400
 
 
 def _rafale(ip: str, max_par_heure: int = 6) -> bool:
@@ -226,8 +262,15 @@ async def get_candidature(request):
 
 async def post_candidature(request):
     data = await request.post()
-    if data.get("site_web"):                                   # pot de miel : un robot a rempli le champ caché
-        return _page("Merci", "<h1>Merci</h1><p>Candidature reçue.</p>")
+    # 29/09 soir : le pot de miel (champ caché « site_web ») était rempli par la saisie automatique des navigateurs, et un vrai
+    # candidat recevait « Merci, candidature reçue » sans que rien ne soit enregistré (Gaëtan l'a vu en testant). Remplacé
+    # par un jeton signé posé à l'affichage du formulaire : absent, faux, ou renvoyé en moins de 3 secondes → on réaffiche
+    # le formulaire avec un message, jamais un faux « merci ».
+    if not _jeton_formulaire_ok(data.get("f", "")):
+        journal.warning("Candidature web refusée : jeton de formulaire %s", "absent" if not data.get("f") else "invalide ou trop rapide")
+        reprise = {k: str(v) for k, v in data.items() if k not in ("f", "p")}
+        return _formulaire(reprise, "Petit souci technique : vérifie tes réponses et appuie de nouveau sur « Envoyer ».",
+                           data.get("p", ""))
     if _rafale(_ip(request)):
         return _formulaire(dict(data), "Trop de tentatives depuis ta connexion. Réessaie dans une heure.", data.get("p", ""))
     cfg = _questions()
@@ -469,7 +512,9 @@ def _embed_video(url: str) -> str:
     if m:
         return (f"<div style='position:relative;padding-bottom:62%;height:0;margin:14px 0;border-radius:12px;overflow:hidden'>"
                 f"<iframe src='https://www.loom.com/embed/{m.group(1)}' frameborder='0' allowfullscreen "
-                f"style='position:absolute;top:0;left:0;width:100%;height:100%'></iframe></div>")
+                f"style='position:absolute;top:0;left:0;width:100%;height:100%'></iframe></div>"
+                f"<p class='aide2'>La vidéo ne s'affiche pas ? <a href='{html.escape(url)}' target='_blank' rel='noopener'>"
+                "Ouvre-la ici</a>.</p>")
     return f"<a class='b' href='{html.escape(url)}' target='_blank' rel='noopener'>▶️ Regarder la formation</a>" if url else ""
 
 

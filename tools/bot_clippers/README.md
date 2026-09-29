@@ -157,6 +157,18 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Formulaire relu (29/09 soir, Gaëtan : « enlève l'âge », « plus lisible », « simplifie les 5 règles », et sa capture « Merci,
+candidature reçue » sans lien de formation)** : la page « Merci » était celle du pot de miel — le champ caché `site_web` se faisait
+remplir par la saisie automatique du navigateur, et un vrai candidat voyait « candidature reçue » sans que rien soit enregistré ni
+journalisé. Le pot de miel est retiré ; à la place, un jeton signé posé à l'affichage (`f`) : absent, faux, ou renvoyé en moins de
+3 secondes → le formulaire revient avec « Petit souci technique… », jamais un faux merci, et le refus est journalisé. Le champ âge
+disparaît : « J'ai 18 ans ou plus et j'accepte les 5 règles » dans la case (la note sur 8 compte « majeur » sur cette case). Le
+formulaire est groupé en quatre étapes numérotées (Toi, Te joindre, Ton matériel et ton expérience, Les règles), l'aide se lit sous
+chaque libellé, et la présentation a un encadré paie et « Comment ça se passe » en quatre étapes (`questions_candidature.json` :
+une liste = étapes numérotées, `## ` = sous-titre, `!! ` = encadré, `-# ` = petit texte, `\n` = retour à la ligne ; `section` par
+question). Les 5 règles gardent leur fond, en phrases courtes (même texte dans `acceptation.REGLES_SITE`). Sous la vidéo de
+`/formation`, un lien « Ouvre-la ici » si le lecteur Loom ne s'affiche pas.
+
 **Formation et quiz avant Discord, parrainage par lien, délai et déclencheurs au tableau (29/09 après-midi, GO des axes 1, 4 et 8)** :
 (1) le formulaire envoyé mène à `/formation` (la vidéo Loom intégrée, les 5 mots-clés, le bouton du quiz) et le quiz se passe sur
 le site, rattaché à la candidature (`/quiz?c=jeton`, deux essais, deux nouveaux 24 h après, ligne « avant Discord » dans l'onglet

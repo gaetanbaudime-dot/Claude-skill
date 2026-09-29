@@ -32,12 +32,7 @@ REGLES = ("1. Les comptes de la mission sont **à l'agence**. Le téléphone aus
           "Moins de 1 000 visites le premier mois = tu sors.")
 
 # La même chose, en une ligne pour le formulaire du site (aide sous la case à cocher)
-REGLES_SITE = ("1. Les comptes et le matériel restent à l'agence, tu rends les accès quand on te le demande. "
-               "2. La formation et la méthode sont secrètes, rien n'est partagé ni copié. "
-               "3. Tu as 18 ans ou plus. "
-               "4. Paie : 0,05 $ par visite réelle et francophone sur ton lien, le 5 et le 20, en USDC ou par virement, pas de fixe ; "
-               "robots ou clics forcés = sortie. "
-               "5. 2 Reels par jour sur chaque compte ; deux jours ratés de suite ou moins de 1 000 visites le premier mois = sortie.")
+REGLES_SITE = ("1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès quand on te le demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est la sortie. 5. Tu publies 2 Reels par jour sur chaque compte ; deux jours ratés de suite, ou moins de 1 000 visites le premier mois, c'est la sortie.")   # 29/09 soir : mêmes règles, formulées court (formulaire du site)
 
 
 def conditions_texte(titre: str = "") -> str:

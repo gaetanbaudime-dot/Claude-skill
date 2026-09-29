@@ -1610,7 +1610,7 @@ def score_candidature(c: dict) -> tuple:
     exp, tels = n("experience"), n("telephones")
     points, raisons = 0, []
     age = re.search(r"\d+", n("age"))
-    if n("majeur").startswith("oui") or (age and int(age.group(0)) >= 18):
+    if n("majeur").startswith("oui") or (age and int(age.group(0)) >= 18) or n("conditions") == "oui":   # 29/09 : 18 ans dans la case
         points += 1; raisons.append("majeur")
     if "iphone" in tels:
         points += 1; raisons.append("iPhone")
