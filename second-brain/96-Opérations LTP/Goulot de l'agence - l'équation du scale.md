@@ -103,3 +103,5 @@ Analyse Goldratt de Gaëtan (marge de contribution) + stats 30 j du 24/07. Deux 
 ## Le pont vers l'action
 
 Cette page = le **pourquoi**. Le **quoi-faire-quand** vit dans [[Cockpit opérationnel LTP (actions)]] (mode owner 4h/jour, mêmes 3 facteurs). On ne relit cette page que pour re-trancher une priorité de scale — jamais pour agir au quotidien.
+
+**Application du 29/09 au pôle clipping** : la question « faut-il doubler le lead flow ? » tranchée avec cette équation (non, pas avant trois déclencheurs : passage Discord, premier Reel, comptes livrables) dans [[Pôle clipping - plus de clippers qui publient plus vite, 10 axes et le lead flow (29 septembre 2026)]].

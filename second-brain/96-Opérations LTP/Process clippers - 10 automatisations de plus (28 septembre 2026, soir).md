@@ -40,6 +40,8 @@ Les trente précédentes : [[Process clippers de bout en bout - 10 simplificatio
 
 **Prédiction (28/09, revue le 12/10)** : n° 1 et 2 en ligne avant le 05/10 → moins de 10 lignes « à créer » avec Gérant non créées et 0 ligne BAN avec Gérant le 12/10 (70 %) ; n° 7 et 8 en ligne → aucune question « c'est combien / c'est quand ma paie » dans les salons persos entre le 05/10 et le 20/10 (55 %).
 
+**Suite (29/09)** : la question du volume — faut-il doubler le lead flow ? — et dix axes vitesse et capacité dans [[Pôle clipping - plus de clippers qui publient plus vite, 10 axes et le lead flow (29 septembre 2026)]].
+
 Décisions et prédictions dans le [[Journal de coaching]] ; les trois exceptions humaines, dont le ban que le n° 2 absorbe : [[Trois exceptions humaines - ban, numéro, paiement (27 septembre 2026)]] ; le chantier de fond : [[Machine horizontale v2 - plan de chantier (23 septembre 2026)]] ; le hub business : [[LTP Models]].
 
 > [!info] Décisions de Gaëtan (28/09 soir) et mise en ligne
