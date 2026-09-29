@@ -157,6 +157,12 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Fiche contacts (30/09, Gaëtan : « le WhatsApp ou Telegram de tous les clippeurs du roster, et de ceux en attente sous
+Clippers »)** : `!contacts`, admins seulement, affichée dans le salon admin ou envoyée en message privé (elle contient des
+numéros). Deux parties : le roster par créatrice, puis les membres des salons « 🎬 Clippers » hors roster et hors staff, avec
+leur étape. Pour chacun, lien WhatsApp (`wa.me`) et lien Telegram ; le numéro vient de la liaison du formulaire, sinon du
+classeur des candidatures (par numéro, puis par prénom : « trouvé par prénom, à vérifier »). Rien n'est écrit dans le dépôt.
+
 **Relances Telegram en un appui (30/09, Gaëtan : « go idée 3 avec Telegram uniquement »)** : `relances.py`. Chaque matin à 10 h
 (Paris), le salon admin reçoit les candidats qui ont envoyé le formulaire depuis plus de 24 h sans réussir le quizz ni arriver
 sur Discord : un message par candidat, le lien qui ouvre sa conversation Telegram (`t.me/@pseudo`, sinon `t.me/+numéro`,

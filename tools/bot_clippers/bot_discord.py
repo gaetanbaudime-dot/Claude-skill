@@ -6334,6 +6334,88 @@ async def premier_reel_dopamine(gerant: str, handle: str, dernier: dict):
     journal.info("Premier Reel fêté dans #dopamine : %s (@%s)", gerant, handle)
 
 
+def _liens_contact(tel: str, telegram: str) -> str:
+    """« WhatsApp <wa.me/…> · Telegram <t.me/…> », ce qui existe."""
+    chiffres = re.sub(r"\D", "", tel or "")
+    morceaux = []
+    if len(chiffres) >= 8:
+        morceaux.append(f"WhatsApp <https://wa.me/{chiffres}>")
+    lien_tg, etiquette = relances.lien_telegram(telegram or "", "")
+    if lien_tg and etiquette != "par numéro":
+        morceaux.append(f"Telegram {etiquette} <{lien_tg}>")
+    return " · ".join(morceaux) or "aucun contact trouvé"
+
+
+async def fiche_contacts() -> list:
+    """30/09 (Gaëtan : « envoie la fiche avec le WhatsApp ou Telegram de tous les clippeurs du roster, et de ceux en attente sous
+    Clippers ») : [lignes]. Numéro = liaison du formulaire, sinon classeur des candidatures (par numéro, puis par prénom)."""
+    g = client.guilds[0] if client.guilds else None
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    try:
+        feuille = await lire_candidatures_sheets()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Fiche contacts, classeur : %s", erreur)
+        feuille = []
+
+    def contact(uid: str, prenom: str) -> str:
+        tel = str((pipe.get("liaisons", {}).get(str(uid)) or {}).get("tel", "")) if uid else ""
+        web = (pipe.get("candidatures") or {}).get(tel) or {}
+        ligne = candidature_de(feuille, tel, prenom) if (feuille and (tel or prenom)) else {}
+        texte = _liens_contact(tel or str(ligne.get("tel", "")), web.get("pseudo") or str(ligne.get("telegram", "")))
+        if not tel and ligne:
+            texte += " _(trouvé par prénom, à vérifier)_"
+        return texte
+
+    out, vus = ["📇 **Fiche contacts — roster**"], set()
+    for creatrice, noms in roster.groupes().items():
+        if not noms:
+            continue
+        out.append(f"__{creatrice}__ ({len(noms)})")
+        for nom in noms:
+            m = membre_par_prenom(normaliser(str(nom).split()[0]))
+            uid = str(m.id) if m is not None else ""
+            vus.add(uid or normaliser(nom))
+            out.append(f"· **{nom}** — {contact(uid, nom)}")
+    attente = []
+    if g is not None:
+        for salon in g.text_channels:
+            if salon.category is None or normaliser(salon.category.name) != normaliser(CATEGORIE_CLIPPERS_NOM):
+                continue
+            for cible in salon.overwrites:
+                if not isinstance(cible, discord.Member) or cible.bot or str(cible.id) in vus:
+                    continue
+                if str(cible.id) in ADMIN_IDS or est_manager(cible):
+                    continue
+                vus.add(str(cible.id))
+                rang, _ = etape_recrutement(cible.id)
+                attente.append(f"· **{prenom_de(cible)}** · #{salon.name} · étape : {PARCOURS_ARRIVANT[min(rang, len(PARCOURS_ARRIVANT) - 1)]} — "
+                               f"{contact(str(cible.id), prenom_de(cible))}")
+    out.append(f"\n⏳ **En attente sous {CATEGORIE_CLIPPERS_NOM}** ({len(attente)})")
+    out += attente or ["· personne"]
+    return out
+
+
+async def commande_contacts(message) -> bool:
+    """`!contacts` : admins seulement, dans le salon admin ou en message privé (des numéros de téléphone y figurent)."""
+    if str(message.author.id) not in ADMIN_IDS:
+        await message.reply("Commande réservée aux admins.")
+        return True
+    ici = message.guild is None or str(message.channel.id) == str(CANAL_ADMIN_ID)
+    lignes = await fiche_contacts()
+    cible = message.channel if ici else message.author
+    bloc = ""
+    for ligne in lignes:
+        if len(bloc) + len(ligne) + 1 > 1900:
+            await cible.send(bloc)
+            bloc = ""
+        bloc += ligne + "\n"
+    if bloc:
+        await cible.send(bloc)
+    if not ici:
+        await message.reply("📇 Fiche envoyée en message privé (elle contient des numéros).")
+    return True
+
+
 async def parrainage_top_maintenant() -> tuple:
     """`!parrain-top` (29/09) : le top 5 des sept derniers jours pleins, comme le classement du lundi, reçoit son lien."""
     d = paie_clics._lire()
@@ -6943,6 +7025,9 @@ async def on_message(message):
             return
     if texte.startswith("!attribution"):                                    # 30/09 : voir et changer les coefficients d'attribution
         if await attribution.commande(message, texte):
+            return
+    if texte.split()[:1] == ["!contacts"]:                                  # 30/09 : WhatsApp / Telegram du roster et des arrivants
+        if await commande_contacts(message):
             return
     if texte.startswith("!relances"):                                       # 30/09 : relances Telegram, tout de suite
         if await relances.commande(message, texte):
