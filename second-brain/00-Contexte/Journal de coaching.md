@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 (nuit, 3) — Le seuil du test reste, l'effort compte ; Indeed complètement banni
+- **Décisions de Gaëtan** : « important de garder le seuil : le bot doit voir que le Reel est différent du rush de base, bien monté, bon hook ; fais en sorte d'avoir peu d'attente ; valorise l'effort plus que le résultat » (il revient sur la validation de toute vidéo décidée une heure plus tôt) ; « Indeed complètement BAN » ; le message d'arrivée ne doit plus pointer vers le salon où il est posté.
+- **Livré** : seuil de 7 gardé, grille qui note d'abord le travail fait sur le rush, rush de base montré au modèle, copie du rush plafonnée à 3 (testé sur de vraies vidéos), sous le seuil un nouvel essai immédiat avec les corrections, manager au 3ᵉ raté seulement. Et un bug ancien corrigé : la validation automatique était effacée juste après avoir été faite (état repassé à « test rendu »), ce qui sous-comptait les validés du tableau du lundi et faussait le taux validés → premier Reel.
+- **Conséquence pour le lead flow** : Indeed, d'où viennent deux ou trois des cinq meilleurs clippers, est fermé. L'axe 9 du 29/09 devient : trouver l'équivalent d'Indeed (sites d'emploi francophones, groupes Facebook d'emploi, Telegram) et le juger sur les clippers productifs, pas sur les candidatures.
+- **Prédiction (30/09, revue le 14/10)** : au moins 70 % des tests rendus sont validés en deux essais au plus, et aucun test n'attend un manager plus de 24 h (60 %) ; le nombre de validés du tableau du lundi 06/10 dépasse celui du 29/09, en partie grâce au bug corrigé (65 %).
+
 ### 2026-09-30 (nuit, 2) — Un seul recrutement France + International ; le test de montage accepté par le bot
 - **Décisions de Gaëtan** : « on associe le recrutement FR et INT, on les félicite d'avoir rejoint l'agence et on leur donne les prochaines étapes » ; « fais en sorte d'accepter toi-même le test de montage vidéo » ; plus d'étape « 5 règles + bouton » après le test (déjà acceptées au formulaire).
 - **Livré** : toute vidéo de test rendue dans les temps est validée par le bot, la note devient un conseil ; plus de pause possible du recrutement international ; un seul message d'arrivée « Félicitations, tu as rejoint l'agence » avec trois prochaines étapes. C'est, de fait, l'axe 2 du 29/09 à moitié : le test reste une étape, mais il ne bloque plus personne.

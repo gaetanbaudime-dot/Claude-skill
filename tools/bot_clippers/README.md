@@ -157,6 +157,17 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Test de montage : seuil gardé, effort valorisé, zéro attente (30/09 soir, Gaëtan : « important de garder le seuil, le bot
+doit voir que le Reel est différent du rush de base, bien monté, bon hook ; peu d'attente ; valorise l'effort plus que le
+résultat »)** : `TEST_TOUT_ACCEPTER` repasse à 0 (seuil `TEST_AUTO_SEUIL` = 7). Grille : travail visible sur le rush (4),
+accroche de la première seconde (3), lisibilité (1), format et durée (2), avec la consigne de valoriser l'effort. Le modèle voit
+d'abord deux images de deux rushes du dossier du test (`rushes_reference`, lus sur le Drive de `LIEN_TEST`, cache 6 h), puis le
+Reel ; `copie_du_rush` (même durée à 1 s près, trois images 16×16 quasi identiques) plafonne la note à 3, comme un
+`differe_du_rush: false` du modèle. Sous le seuil : pas de review, « Presque ! … renvoie ta vidéo ici » et l'état repasse à
+`test_envoye` (`essais_rendu`) ; le manager ne voit que le 3ᵉ raté (`TEST_ESSAIS`), avec « réponse sous 24 h ». Bug corrigé : la
+réécriture de l'état lu avant l'avis effaçait la validation automatique (« valide » repassait à « test_rendu ») ; les liens admin
+s'écrivent maintenant sur un état relu. Le message d'arrivée ne dit plus « Ton salon perso : #… » (il y est déjà posté).
+
 **Un seul recrutement, test accepté par le bot (30/09, Gaëtan : « on associe le recrutement FR et INT, on les félicite d'avoir
 rejoint l'agence et on donne les prochaines étapes ; accepte toi-même le test de montage »)** : toute vidéo de test rendue dans
 les temps est validée par le bot, quelle que soit la note (`test_accepte`, `TEST_TOUT_ACCEPTER=0` rend le seuil de 7) ; l'avis

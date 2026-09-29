@@ -110,6 +110,8 @@ L'avocat du diable contre ce verdict : le trafic suit une loi de puissance (§ 2
 
 Lecture : **deux, peut-être trois des cinq meilleurs viennent d'Indeed**, et Caroline, la première, avait la note maximale à la candidature. Or depuis que le site a remplacé le Google Form (24/09), **zéro candidature Indeed** : Telegram 15, publicités 4, Discord 2, et des candidats surtout malgaches et béninois (Madagascar 16, Bénin 12, France 4). Telegram apporte le volume (147 candidatures au total), Indeed a apporté les clippers qui font le trafic (116 candidatures). Et depuis le formulaire à huit champs du 28/09, **la question « où as-tu vu l'annonce ? » n'existe plus** : la source n'est plus mesurée. C'est l'axe 9 en une phrase : **remettre Indeed dans le tuyau et remettre la source dans le lien de chaque annonce**, avant de doubler quoi que ce soit.
 
+**Mise à jour du 30/09 : Indeed est complètement banni** (confirmé par Gaëtan). La recommandation « remettre Indeed dans le tuyau » tombe ; il reste la moitié utile : chercher la source qui ressemble à Indeed (candidats francophones, démarche d'emploi, pas de curiosité Telegram) et la mesurer sur les clippers productifs.
+
 **Deux pannes trouvées en lisant le classeur** : depuis l'invitation personnelle du 29/09 au matin, les candidatures ne s'écrivaient plus dans l'onglet « Candidatures bot » (une seule ligne le 29/09, un test) ; corrigé avec l'axe 1. Et 30 à 40 % du trafic GAML des liens de clippers passe par des liens qui n'ont pas de clipper actif dans le Dashboard (Sophie :3, Maddie :2 : 1 240 et 647 visiteurs sur 7 jours, zéro visite payable côté Dashboard) : trafic d'anciens clippers ou d'exclus, ni payé ni suivi, à trancher.
 
 **Où en sont les trois déclencheurs le 29/09** :

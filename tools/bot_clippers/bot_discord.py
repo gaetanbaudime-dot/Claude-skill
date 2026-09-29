@@ -2862,9 +2862,13 @@ async def traiter_rendu_webhook(message, silencieux=False):
 # de TEST_AUTO_SEUIL, le test est validé tout seul (même chemin que `!test-ok`) ; en dessous, l'avis part au manager.
 TEST_AUTO = os.environ.get("TEST_AUTO", "1").strip() == "1"
 TEST_AUTO_SEUIL = int(os.environ.get("TEST_AUTO_SEUIL", "7") or 7)
-# 30/09 (Gaëtan : « fais en sorte d'accepter toi-même le test de montage ») : toute vidéo rendue dans les temps est validée
-# par le bot, quelle que soit la note ; l'avis reste, en conseils. TEST_TOUT_ACCEPTER=0 rend le seuil.
-TEST_TOUT_ACCEPTER = os.environ.get("TEST_TOUT_ACCEPTER", "1").strip() != "0"
+# 30/09 (Gaëtan) : d'abord « accepte toi-même le test », puis le soir même « important de garder le seuil : le bot doit voir que
+# le Reel est différent du rush de base, bien monté, bon hook ; fais en sorte d'avoir peu d'attente ; valorise l'effort plus que
+# le résultat ». Donc : seuil gardé (TEST_AUTO_SEUIL), grille qui note d'abord le travail fait sur le rush, rush de base montré
+# au modèle à côté du Reel, copie du rush plafonnée à 3 ; sous le seuil, pas de review : les points à corriger tout de suite et
+# un nouvel essai (TEST_ESSAIS), le manager ne voit que le troisième raté. TEST_TOUT_ACCEPTER=1 valide tout.
+TEST_TOUT_ACCEPTER = os.environ.get("TEST_TOUT_ACCEPTER", "0").strip() == "1"
+TEST_ESSAIS = int(os.environ.get("TEST_ESSAIS", "3") or 3)
 
 
 def test_accepte(avis: dict) -> bool:
@@ -2873,14 +2877,73 @@ def test_accepte(avis: dict) -> bool:
     if TEST_TOUT_ACCEPTER:
         return True
     return not avis.get("erreur") and avis.get("note", 0) >= TEST_AUTO_SEUIL
+
+
 GRILLE_AVIS_TEST = (
     "Tu juges le test de montage d'un candidat clipper pour une agence : un Reel Instagram vertical fait à partir d'une vidéo "
-    "brute d'une créatrice. Tu vois {n} images prises à des moments différents du Reel, et ses caractéristiques : {largeur}×{hauteur}, "
-    "{duree:.0f} secondes. Grille (10 points) : format vertical 9:16 (2), durée entre 7 et 60 s (1), accroche visible dans la "
-    "première image, texte ou cadrage qui donne envie (3), sous-titres lisibles et bien placés (2), travail visible sur la vidéo "
-    "brute : recadrage, texte, rythme, effets (2). Réponds UNIQUEMENT en JSON : {{\"note\": entier 0-10, \"bien\": [2 points forts "
-    "courts], \"a_corriger\": [2 points à corriger courts], \"verdict\": \"bon\" | \"moyen\" | \"insuffisant\"}}. Phrases de 10 mots, tutoiement, français."
+    "brute d'une créatrice.{rush} Tu vois ensuite {n} images prises à des moments différents du Reel du candidat, et ses "
+    "caractéristiques : {largeur}×{hauteur}, {duree:.0f} secondes.\n\n"
+    "Valorise l'EFFORT plus que le résultat : un montage simple mais clairement retravaillé mérite au moins la moyenne ; une vidéo "
+    "presque identique au rush de base ne dépasse jamais 3.\n\n"
+    "Grille (10 points) : travail visible par rapport au rush de base : recadrage, coupes, texte à l'écran, sous-titres, zoom, "
+    "rythme, son (4) ; accroche de la première seconde, texte ou image qui donne envie de rester (3) ; texte et sous-titres "
+    "lisibles (1) ; format vertical 9:16 et durée entre 7 et 60 s (2).\n\n"
+    "Réponds UNIQUEMENT en JSON : {{\"note\": entier 0-10, \"differe_du_rush\": true/false, \"bien\": [2 points forts courts], "
+    "\"a_corriger\": [2 corrections concrètes et courtes], \"verdict\": \"bon\" | \"moyen\" | \"insuffisant\"}}. "
+    "Phrases de 10 mots, tutoiement, français, encourageant."
 )
+_RUSHES = {"quand": 0.0, "items": []}                                      # rushes du test, lus une fois toutes les 6 h
+
+
+def _empreinte(chemin: str, t: float) -> bytes:
+    """Une image réduite à 16×16 en niveaux de gris : de quoi reconnaître un rush repris tel quel."""
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{max(0.0, t):.2f}", "-i", chemin, "-frames:v", "1",
+                        "-vf", "scale=16:16,format=gray", "-f", "rawvideo", "-"], capture_output=True, timeout=60)
+    return r.stdout if len(r.stdout or b"") == 256 else b""
+
+
+def _empreintes(chemin: str, duree: float) -> list:
+    return [_empreinte(chemin, duree * f) for f in (0.25, 0.5, 0.85)]
+
+
+def _ecart(a: bytes, b: bytes) -> float:
+    return sum(abs(x - y) for x, y in zip(a, b)) / 256.0 if a and b else 255.0
+
+
+async def rushes_reference() -> list:
+    """[{images (2 base64), duree, empreintes}] des vidéos brutes du dossier du test (LIEN_TEST), en cache 6 h. [] si rien."""
+    if time.time() - _RUSHES["quand"] < 6 * 3600 and _RUSHES["items"]:
+        return _RUSHES["items"]
+    m = re.search(r"folders/([A-Za-z0-9_-]{10,})", LIEN_TEST or "")
+    if not (m and google_api.actif() and shutil.which("ffmpeg")):
+        return []
+    items = []
+    try:
+        fichiers = [f for f in await google_api.drive_lister(m.group(1)) if str(f.get("mimeType", "")).startswith("video/")][:4]
+        for f in fichiers:
+            donnees = await google_api.drive_telecharger(f["id"], 80_000_000)
+            with tempfile.TemporaryDirectory() as tmp:
+                chemin = os.path.join(tmp, "rush.mp4")
+                with open(chemin, "wb") as fh:
+                    fh.write(donnees)
+                meta = await asyncio.to_thread(_ffprobe, chemin)
+                images = (await asyncio.to_thread(_images_video, chemin, tmp, meta["duree"] or 10))[:2]
+                emp = await asyncio.to_thread(_empreintes, chemin, meta["duree"] or 10)
+            items.append({"images": images, "duree": meta["duree"], "empreintes": emp})
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Rushes du test : %s", erreur)
+    if items:
+        _RUSHES.update({"quand": time.time(), "items": items})
+    return items
+
+
+def copie_du_rush(emp_candidat: list, duree: float, rushes: list) -> bool:
+    """Vrai si la vidéo rendue est un rush du test presque tel quel : même durée à 1 s près et images quasi identiques."""
+    for r in rushes:
+        if abs((r.get("duree") or 0) - duree) <= 1.0 and emp_candidat and all(
+                _ecart(a, b) < 10 for a, b in zip(emp_candidat, r.get("empreintes") or [])):
+            return True
+    return False
 
 
 def _ffprobe(chemin: str) -> dict:
@@ -2933,18 +2996,34 @@ async def avis_test_montage(message) -> dict:
                 f.write(donnees)
             meta = await asyncio.to_thread(_ffprobe, chemin)
             images = await asyncio.to_thread(_images_video, chemin, tmp, meta["duree"] or 10)
+            emp = await asyncio.to_thread(_empreintes, chemin, meta["duree"] or 10)
         if not images:
             return {"erreur": "images non extraites", "meta": meta}
-        contenu = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b}} for b in images]
-        contenu.append({"type": "text", "text": GRILLE_AVIS_TEST.format(n=len(images), **meta)})
+        rushes = await rushes_reference()
+        copie = copie_du_rush(emp, meta["duree"] or 0, rushes)
+        img = lambda b: {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b}}   # noqa: E731
+        contenu = []
+        imgs_rush = [i for r in rushes[:2] for i in r["images"][:2]]
+        if imgs_rush:
+            contenu.append({"type": "text", "text": "Images du RUSH DE BASE, avant montage :"})
+            contenu += [img(b) for b in imgs_rush]
+            contenu.append({"type": "text", "text": "Images du REEL DU CANDIDAT :"})
+        contenu += [img(b) for b in images]
+        rush_txt = (" Tu vois d'abord quelques images du rush de base (avant montage), pour juger ce que le candidat a changé."
+                    if imgs_rush else "")
+        contenu.append({"type": "text", "text": GRILLE_AVIS_TEST.format(n=len(images), rush=rush_txt, **meta)})
         brut = await asyncio.to_thread(_avis_sync, contenu)
         m = re.search(r"\{.*\}", brut, re.S)
         avis = json.loads(m.group(0)) if m else {}
         note = int(avis.get("note", -1))
         if not 0 <= note <= 10:
             return {"erreur": "réponse du modèle illisible", "meta": meta}
+        corriger = [str(x)[:120] for x in (avis.get("a_corriger") or [])][:3]
+        if copie or avis.get("differe_du_rush") is False:              # le rush tel quel : jamais au-dessus de 3
+            note = min(note, 3)
+            corriger = ["Ta vidéo est presque le rush de base : coupe, recadre, ajoute un texte d'accroche"] + corriger[:1]
         return {"note": note, "bien": [str(x)[:120] for x in (avis.get("bien") or [])][:3],
-                "a_corriger": [str(x)[:120] for x in (avis.get("a_corriger") or [])][:3],
+                "a_corriger": corriger, "copie": bool(copie),
                 "verdict": str(avis.get("verdict") or ("bon" if note >= TEST_AUTO_SEUIL else "moyen")), "meta": meta}
     except Exception as erreur:                                             # noqa: BLE001
         journal.warning("Avis test montage : %s", erreur)
@@ -3011,8 +3090,7 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
                                    "Prochaine étape : ta créatrice et tes comptes.", view=vue_whatsapp())
             except (discord.Forbidden, discord.HTTPException):
                 pass
-        if salon_a is not None:
-            suite = suite.replace("Tes prochaines étapes :", f"Ton salon perso : <#{salon_a.id}>\n\nTes prochaines étapes :")
+        # 30/09 (Gaëtan) : plus de « Ton salon perso : #… » — le message part déjà dans ce salon.
         texte_retour = (suite if err_a is None else
                         "✅ **C'est noté !** L'équipe ouvre ton accès à la main "
                         "(petit souci technique de mon côté, déjà signalé) — ton manager t'écrit ensuite.")
@@ -7140,7 +7218,7 @@ async def on_message(message):
             canal = await canal_admin()
             # 26/09 : le bot regarde la vidéo et donne son avis ; bon montage = validé tout seul (Gaëtan : « le bot va dire si le montage est bon »)
             # 27/09 : UN seul message admin, l'avis compris (avant : « test rendu » puis « avis du bot », deux fois par vidéo).
-            avis_t, valide_auto = None, False
+            avis_t, valide_auto, msg_admin = None, False, None
             if message.attachments and not hors_delai:
                 avis_t = await avis_test_montage(message)
                 try:
@@ -7156,7 +7234,8 @@ async def on_message(message):
                     verdict_t = (f"**{avis_t['note']}/10**"
                                  + (" — " + " · ".join(avis_t["a_corriger"][:2]) if avis_t.get("a_corriger") else "")
                                  + (" → ✅ validé automatiquement" if test_accepte(avis_t)
-                                    else f" → `!test-ok {prenom_t}` / `!test-non {prenom_t} raison`"))
+                                    else (" → nouvel essai demandé" if int((info or {}).get("essais_rendu", 0) or 0) + 1 < TEST_ESSAIS
+                                          and not complement else f" → `!test-ok {prenom_t}` / `!test-non {prenom_t} raison`")))
                 texte_rendu = ((f"🧪 **{'Complément' if complement else 'Test'}{' HORS DÉLAI' if hors_delai else ''}** de "
                                 f"{message.author.mention} (quiz {info.get('score_quiz') or '?'}) : {verdict_t}")
                                + (" · " + liens if liens else "") + (f"\n-# {texte[:300]}" if texte else ""))[:1990]
@@ -7165,6 +7244,23 @@ async def on_message(message):
                 if salon_m is not None and salon_m.id != canal.id:
                     try:
                         await salon_m.send(texte_rendu)
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+            nouvel_essai = False
+            if avis_t is not None and not avis_t.get("erreur") and not test_accepte(avis_t) and not complement:
+                # 30/09 (« peu d'attente ») : sous le seuil, pas de review — les corrections tout de suite et un nouvel essai
+                donnees_e = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+                info_e = donnees_e.get("etats", {}).get(str(utilisateur), {})
+                essais_r = int(info_e.get("essais_rendu", 0) or 0) + 1
+                info_e["essais_rendu"] = essais_r
+                if essais_r < TEST_ESSAIS:
+                    info_e["etat"] = "test_envoye"                          # le prochain envoi est jugé comme un nouveau rendu
+                    nouvel_essai = True
+                ecrire_json(FICHIER_PIPELINE, donnees_e)
+                if nouvel_essai:
+                    try:
+                        await message.reply(f"💪 Presque ! Il faut **{TEST_AUTO_SEUIL}/10** pour passer. Corrige les points ✏️ au-dessus "
+                                            f"et renvoie ta vidéo ici : je la regarde tout de suite. Essai {essais_r}/{TEST_ESSAIS}.")
                     except (discord.Forbidden, discord.HTTPException):
                         pass
             if avis_t is not None:
@@ -7185,10 +7281,15 @@ async def on_message(message):
                             journal.warning("Validation automatique %s : %s", utilisateur, erreur)
                 # Lien permanent vers le message admin (les URL de pièces jointes Discord
                 # expirent ; le lien de saut, jamais) — c'est ce que !tests ressort.
-                info.setdefault("liens_admin", []).append(msg_admin.jump_url)
-                ecrire_json(FICHIER_PIPELINE, donnees_pipe)
-            await message.reply("📥 Bien reçu ! " + ("Fichier ajouté à ton rendu." if complement else
-                                ("Test validé ✅" if valide_auto else "Ton test part en review — réponse sous 72 h maximum. 🤞")))
+                # 30/09 : relu frais — réécrire `donnees_pipe` (lu avant l'avis) effaçait la validation automatique (etat « valide »
+                # repassait à « test_rendu ») et le nouvel essai ; le tableau du lundi sous-comptait les validés.
+                if msg_admin is not None:
+                    donnees_l = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+                    donnees_l.setdefault("etats", {}).setdefault(str(utilisateur), {}).setdefault("liens_admin", []).append(msg_admin.jump_url)
+                    ecrire_json(FICHIER_PIPELINE, donnees_l)
+            if not nouvel_essai:
+                await message.reply("📥 Bien reçu ! " + ("Fichier ajouté à ton rendu." if complement else
+                                    ("Test validé ✅" if valide_auto else "Un manager regarde ta vidéo, réponse sous 24 h. 🤞")))
             journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
             return
 
