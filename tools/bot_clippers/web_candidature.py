@@ -126,7 +126,7 @@ textarea{min-height:96px}small{color:#555;display:block;margin-top:4px}
 h2{font-size:18px;color:var(--n);margin:22px 0 8px}
 .box{background:#eef3fa;border:1px solid #cddbef;border-radius:12px;padding:14px 16px;margin:16px 0;line-height:1.6}
 .etapes{margin:8px 0 0;padding-left:22px}.etapes li{margin:8px 0;line-height:1.5}
-.petit{color:#666;font-size:14px;line-height:1.5;margin:16px 0 0}
+.petit{color:#666;font-size:14px;line-height:1.5;margin:16px 0 0}.petit a{color:var(--n);font-weight:600}
 .sec{display:flex;align-items:center;gap:10px;font-size:17px;color:var(--n);margin:30px 0 4px;padding-top:18px;border-top:1px solid #e3e6eb}
 .sec span{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--n);color:#fff;font-size:15px;flex:none}
 .aide{color:#555;font-size:14px;font-weight:400;margin:-2px 0 8px;line-height:1.45}
@@ -227,7 +227,7 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Respon
              f"<form method='post' action='/candidature' autocomplete='on'>"
              f"<input type='hidden' name='f' value='{html.escape(jeton('f' + str(int(time.time()))))}'>"
              + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "") + f"{champs}"
-             f"<button class='b' type='submit'>Envoyer ma candidature</button></form>")
+             f"<button class='b' type='submit'>Passer à la formation + quiz</button></form>")   # 30/09 (Gaëtan)
     return _page(cfg.get("titre", "Candidature"), corps)
 
 
@@ -540,22 +540,34 @@ def _attente_cand(q: dict) -> str:
             "dans l'ordre.</p>")
 
 
+def _video(url: str) -> str:
+    """30/09 : le lecteur Loom dans la page (un bouton de moins), et un lien si le son ou l'image ne marche pas."""
+    m = re.search(r"loom\.com/(?:share|embed)/([0-9a-f]{16,})", url or "")
+    if not m:
+        return f"<a class='b' href='{html.escape(url)}' target='_blank' rel='noopener'>1. Voir la formation</a>" if url else ""
+    return (f"<div style='position:relative;padding-bottom:62%;height:0;margin:12px 0 6px;border-radius:12px;overflow:hidden'>"
+            f"<iframe src='https://www.loom.com/embed/{m.group(1)}' frameborder='0' allow='autoplay; fullscreen' allowfullscreen "
+            f"style='position:absolute;top:0;left:0;width:100%;height:100%'></iframe></div>"
+            f"<p class='petit' style='margin-top:4px'>Pas de son ou pas d'image ? <a href='{html.escape(url)}' target='_blank' "
+            f"rel='noopener'>Ouvre la vidéo sur Loom</a>.</p>")
+
+
 async def get_formation(request):
     cand_id = _cand_depuis(request.query.get("t", ""))
     if not cand_id:
-        return _page("Lien invalide", "<h1>Lien invalide</h1><p>Ce lien est abîmé. Recommence depuis le formulaire, ça prend "
+        return _page("Lien invalide", "<h1>Lien invalide</h1><p>Ce lien est abîmé. Refais le formulaire, ça prend "
                                       "deux minutes.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
     if (_fiche_cand(cand_id).get("quiz") or {}).get("reussi"):
         raise web.HTTPSeeOther(location=_url_discord(cand_id))
     journal.info("Site : page formation pour la candidature %s", cand_id)
+    # 30/09 (Gaëtan : « ajoute un 1 et 2 aux étapes », « des phrases niveau collège », « chaque bouton pertinent »)
     corps = ("<h1>Candidature reçue ✅</h1>"
-             "<p><b>Deux étapes, ici, maintenant :</b> la formation (15 minutes), puis le quiz (10 questions). "
-             "Quiz réussi → tu rejoins le Discord, ton test de montage t'y attend.</p>"
-             + "<p>Regarde-la en entier. <b>Note les 5 mots-clés cachés, dans l'ordre</b> : le quiz les demande.</p>"
-             # 30/09 (Gaëtan) : deux boutons, « Voir la formation » puis « Passer le quiz », plus de lecteur intégré
-             + (f"<a class='b' href='{html.escape(_deps.get('LIEN_VIDEO_FORMATION', ''))}' target='_blank' rel='noopener'>"
-                "▶️ Voir la formation</a>" if _deps.get("LIEN_VIDEO_FORMATION") else "")
-             + f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>📝 Passer le quiz</a>"
+             "<p>Il te reste <b>2 étapes</b>, ici : <b>1.</b> la formation (15 minutes), <b>2.</b> le quiz (10 questions). "
+             "Quiz réussi : tu rejoins le Discord.</p>"
+             "<h2>1. Regarde la formation</h2>"
+             + _video(_deps.get("LIEN_VIDEO_FORMATION", ""))
+             + "<p><b>Note les 5 mots-clés cachés, dans l'ordre.</b> Le quiz te les demande.</p>"
+             f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>2. Passer le quiz</a>"
              # 30/09 (Gaëtan : « mets juste : pas le temps maintenant ? rejoins le Discord et passe le quiz plus tard »)
              f"<p class='aide2'>Pas le temps maintenant ? <a href='{html.escape(_url_discord(cand_id))}'>Rejoins le Discord</a> "
              "et passe le quiz plus tard.</p>")
@@ -566,14 +578,16 @@ def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int) -> web.Res
     qs = ""
     for n, q in enumerate(quiz["questions"], 1):
         if q.get("reponses"):                                           # 28/09 : les mots-clés se tapent, ils ne se cochent pas
-            opts = f"<input type='text' name='q{n}' required autocomplete='off' maxlength='40' placeholder='Un mot'>"
+            k = sum(1 for x in quiz["questions"][:n] if x.get("reponses"))   # 30/09 : « 1er mot-clé », « 2e mot-clé »…
+            opts = (f"<input type='text' name='q{n}' required autocomplete='off' maxlength='40' "
+                    f"placeholder='{'1er' if k == 1 else f'{k}e'} mot-clé'>")
         else:
             opts = "".join(f"<label class='o'><input type='radio' name='q{n}' value='{i}' required>{html.escape(c)}</label>"
                            for i, c in enumerate(q["choix"]))
         qs += f"<div class='q'><b>{n}. {html.escape(q['q'])}</b>{opts}</div>"
     seuil, total = quiz_seuil_total()
-    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{total} questions · il faut {seuil} bonnes réponses · "
-             f"essai {essai}/{QUIZ_ESSAIS_MAX}</p>"
+    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{total} questions. Il faut {seuil} bonnes réponses. "
+             f"Essai {essai} sur {QUIZ_ESSAIS_MAX}.</p>"
              f"<form method='post' action='/quiz'><input type='hidden' name='{champ}' value='{html.escape(valeur)}'>"
              f"{qs}<button class='b' type='submit'>Valider mes réponses</button></form>")
     return _page("Quiz", corps)
@@ -589,7 +603,7 @@ async def get_quiz_cand(request, cand_id: str):
     essais = essais_cand(q)
     if essais >= QUIZ_ESSAIS_MAX:
         return _page("Quiz", "<h1>Quiz</h1>" + _attente_cand(q) + f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>"
-                                                                 "Revoir la formation</a>")
+                                                                 "1. Revoir la formation</a>")
     return _formulaire_quiz(quiz, "c", jeton(cand_id), essais + 1)
 
 
@@ -619,16 +633,15 @@ async def post_quiz_cand(data, cand_id: str):
         asyncio.create_task(_deps["quiz_candidat"](prenom, f"{score} / {total}", essais + 1, reussite, details))
     if reussite:
         return _page("Quiz validé", f"<h1>Bravo, {score}/{total} ✅</h1>"
-                                    "<p><b>Dernière étape : rejoins le Discord.</b> Ton salon perso t'y attend avec ton test de "
-                                    "montage. Appuie sur le bouton, l'appli Discord s'ouvre, puis <b>Accepter l'invitation</b>.</p>"
-                                    "<ol class='regles'><li>Pas encore de compte Discord ? Crée-le quand Discord te le demande "
-                                    "(e-mail + mot de passe), l'invitation s'ouvre juste après.</li>"
-                                    "<li>Une fois sur le serveur, ouvre le salon à ton prénom : tout se passe là.</li></ol>"
-                                    f"<a class='b' href='{html.escape(_url_discord(cand_id))}'>Rejoindre le Discord</a>" + _secours())
+                                    "<p><b>Dernière étape : rejoins le Discord.</b> Ton salon perso t'y attend, avec ton test "
+                                    "de montage.</p>"
+                                    "<ol class='regles'><li>Pas de compte Discord ? Crée-le quand Discord le demande (e-mail + mot "
+                                    "de passe).</li><li>Sur le serveur, ouvre le salon à ton prénom : tout se passe là.</li></ol>"
+                                    f"<a class='b' href='{html.escape(_url_discord(cand_id))}'>3. Rejoindre le Discord</a>" + _secours())
     reste = QUIZ_ESSAIS_MAX - (essais + 1)
-    suite = (f"<p>Il te reste {reste} essai. Revois la vidéo, note les 5 mots-clés dans l'ordre, puis réessaie.</p>"
-             f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>Revoir la formation</a>"
-             f"<p class='aide2'><a href='/quiz?c={html.escape(jeton(cand_id))}'>Repasser le quiz directement</a></p>") if reste > 0 \
+    suite = (f"<p>Il te reste {reste} essai. Revois la vidéo et note les 5 mots-clés, dans l'ordre.</p>"
+             f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>1. Revoir la formation</a>"
+             f"<a class='b' style='background:#2e7d4f' href='/quiz?c={html.escape(jeton(cand_id))}'>2. Repasser le quiz</a>") if reste > 0 \
         else _attente_cand(fiche["quiz"])
     return _page("Quiz", f"<h1>{score}/{total}</h1><p>Il faut {seuil}.</p>" + suite + _secours())
 

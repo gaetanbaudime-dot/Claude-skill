@@ -1,16 +1,16 @@
 {
   "titre": "Clippeur Reels Instagram 🎥",
   "intro": [
-    "**Tu publies des Reels sur Instagram depuis ton téléphone**, à côté de ton travail ou de tes études. On te fournit les vidéos, la formation et la méthode (+11 millions de vues générées).",
+    "**Tu publies des Reels sur Instagram depuis ton téléphone**, à côté de ton travail ou de tes études. On te donne les vidéos, la formation et la méthode (+11 millions de vues).",
     "!! 💰 **0,05 $ par visite sur ton lien Instagram**\n\n1 000 visites = 50 $\n5 000 visites = 250 $\n10 000 visites = 500 $\n20 000 visites = 1 000 $\n\nPayé le 5 et le 20 de chaque mois, en USDC ou par virement.",
     "## Comment ça se passe",
     [
       "Tu remplis ce formulaire : 3 minutes.",
-      "Juste après, sur ce site : la formation (15 minutes) et le quiz.",
-      "Quiz réussi : tu rejoins notre Discord, un test court, puis tes comptes Instagram.",
-      "Tu publies, tu es payé le 5 et le 20."
+      "Tu regardes la formation (15 minutes) et tu passes le quiz, ici.",
+      "Quiz réussi : tu rejoins le Discord, tu fais un petit test, puis tu reçois tes comptes Instagram.",
+      "Tu publies. Tu es payé le 5 et le 20."
     ],
-    "-# Les vidéos viennent des créatrices OnlyFans de notre agence ; tout ce que tu publies est 100 % SFW et conforme aux règles d'Instagram. Aucune expérience nécessaire, mais sérieux et régularité obligatoires. 18 ans minimum."
+    "-# Les vidéos viennent des créatrices OnlyFans de l'agence. Tout ce que tu publies est 100 % SFW et respecte les règles d'Instagram. Pas besoin d'expérience, mais il faut être sérieux tous les jours. 18 ans minimum."
   ],
   "questions": [
     {
@@ -52,7 +52,7 @@
       "label": "Ton Telegram",
       "type": "text",
       "requis": true,
-      "aide": "Ton @ ou ton lien t.me/… : on t'écrit en message privé."
+      "aide": "Ton @ ou ton lien t.me/… On t'écrit en privé."
     },
     {
       "id": "telephones",
@@ -60,7 +60,7 @@
       "label": "Tes téléphones réservés à ce travail",
       "type": "text",
       "requis": true,
-      "aide": "Combien, et quel modèle. Réservé = sans ton Instagram perso dessus. Exemple : « 1 iPhone 11 ». Réponds « 0 » si tu n'en as pas encore."
+      "aide": "Combien, et quels modèles ? Réservé = sans ton Instagram perso dessus. Exemple : « 1 iPhone 11 ». Si tu n'en as pas encore, écris « 0 »."
     },
     {
       "id": "experience",
@@ -68,7 +68,7 @@
       "label": "Ton expérience",
       "type": "textarea",
       "requis": true,
-      "aide": "Instagram, TikTok, montage, clipping : ce que tu as déjà fait, tes vues ou abonnés, ton appli (CapCut, Edits…) et combien d'heures par jour tu peux y consacrer. Plus tu détailles, mieux c'est."
+      "aide": "Ce que tu as déjà fait sur Instagram, TikTok ou en montage : tes vues ou tes abonnés, ton appli (CapCut, Edits…) et tes heures par jour. Plus tu détailles, mieux c'est."
     },
     {
       "id": "conditions",
@@ -76,7 +76,7 @@
       "type": "checkbox",
       "requis": true,
       "label": "Les 5 règles de l'équipe",
-      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès quand on te le demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte ; 3 jours sans publier, c'est un avertissement ; 7 jours, c'est le licenciement.",
+      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence : tu rends les accès si on te les demande. 3. La formation reste entre nous : tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe ; les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte ; 3 jours sans publier, c'est un avertissement ; 7 jours, c'est le licenciement.",
       "case": "J'ai 18 ans ou plus et j'accepte les 5 règles"
     }
   ]
