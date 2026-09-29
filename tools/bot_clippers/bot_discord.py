@@ -6070,7 +6070,7 @@ async def on_ready():
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
             "essais_quiz": essais_quiz, "traiter_quiz_web": traiter_quiz_web,
-            "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD,
+            "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD, "WHATSAPP": WHATSAPP_GAETAN_URL,
             "journaliser_candidature": journaliser_candidature_sheet}))
         deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,

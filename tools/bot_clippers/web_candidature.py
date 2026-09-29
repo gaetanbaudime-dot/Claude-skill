@@ -101,6 +101,10 @@ textarea{min-height:96px}small{color:#555;display:block;margin-top:4px}
 .ok{background:#e9f7ef;border:1px solid #b7e1c5;color:#1e5a34;padding:12px;border-radius:10px;margin:12px 0}
 .hp{position:absolute;left:-9999px}.q{margin:22px 0}.o{display:block;padding:10px 12px;border:1px solid #cfd4dc;border-radius:10px;margin:6px 0;font-weight:400}
 .o input{width:auto;margin-right:8px}
+.ck{display:flex;align-items:flex-start;gap:12px;margin:10px 0 4px;font-weight:600;font-size:16px;cursor:pointer}
+.ck input{width:22px;height:22px;flex:none;margin:1px 0 0;accent-color:var(--n)}
+.regles{margin:10px 0 0;padding-left:22px;color:#333}.regles li{margin:10px 0;line-height:1.5}
+.aide2{color:#555;margin:14px 0 0;line-height:1.5}.aide2 a{color:var(--n);font-weight:600}
 </style>"""
 
 
@@ -141,7 +145,16 @@ def _champ(q: dict, valeur: str = "") -> str:
     else:
         h = f"<input type='text' name='{i}' value='{v}'{req}>"
     aide = f"<small>{html.escape(q['aide'])}</small>" if q.get("aide") else ""
+    if t == "checkbox" and q.get("aide"):
+        # 29/09 (Gaëtan : « les 5 règles doivent avoir des retours à la ligne et être plus espacées ») : une règle par ligne
+        aide = "<ol class='regles'>" + "".join(f"<li>{html.escape(r)}</li>" for r in _regles(q["aide"])) + "</ol>"
     return f"<label>{html.escape(q['label'])}{' *' if q.get('requis') else ''}</label>{h}{aide}"
+
+
+def _regles(texte: str) -> list:
+    """« 1. … 2. … 5. … » en une ligne → une liste de règles sans leur numéro (l'ordre vient de la liste HTML)."""
+    morceaux = [m.strip() for m in re.split(r"(?:^|\s)\d{1,2}\.\s+", texte) if m.strip()]
+    return morceaux if len(morceaux) > 1 else [texte.strip()]
 
 
 def _intro_html(intro) -> str:
@@ -255,25 +268,67 @@ def _url_autorisation(state: str) -> str:
         "scope": "identify guilds.join", "state": state, "prompt": "consent"})
 
 
+def _cand_depuis(param: str) -> str:
+    """L'identifiant de candidature porté par `t`/`state`. Signature valide → direct. Sinon (29/09 : un navigateur Samsung a
+    livré un jeton avec la signature altérée), l'identifiant seul suffit s'il existe côté serveur : il fait 72 bits d'aléa,
+    il n'est pas devinable, et la candidature est déjà enregistrée. Journalisé pour suivre ces cas."""
+    param = (param or "").strip()
+    cand_id = verifier_jeton(param)
+    if cand_id:
+        return cand_id
+    brut = param.split(".", 1)[0].strip()
+    if brut and _deps.get("lire_json"):
+        try:
+            pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+            if brut in (pipe.get("candidatures_web") or {}):
+                journal.warning("Site : jeton altéré (%s), candidature %s retrouvée par son identifiant", param[:60], brut)
+                return brut
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Site : lecture du pipeline impossible (%s)", erreur)
+    journal.warning("Site : jeton invalide (%s)", param[:60])
+    return ""
+
+
+def _secours() -> str:
+    """Le filet sous les pages Discord : WhatsApp de Gaëtan si configuré."""
+    lien = _deps.get("WHATSAPP", "")
+    return (f"<p class='aide2'>Ça bloque ? <a href='{html.escape(lien)}'>Écris à Gaëtan sur WhatsApp</a>, "
+            "il te fait entrer à la main.</p>") if lien else ""
+
+
 async def get_connexion(request):
-    cand_id = verifier_jeton(request.query.get("t", ""))
+    cand_id = _cand_depuis(request.query.get("t", ""))
     if not cand_id:
-        return _page("Lien invalide", "<h1>Lien invalide</h1><p>Recommence depuis le formulaire.</p>")
-    corps = ("<h1>Candidature reçue ✅</h1><p>Dernière étape : rejoins le Discord. Discord te demande "
-             "d'autoriser <b>LTP</b> à t'ajouter au serveur, tu confirmes, et le bot t'écrit tout de suite "
-             "avec la formation.</p><p>Pas encore de compte Discord ? Crée-le sur l'écran suivant, puis "
-             "reviens sur ce bouton.</p>"
-             f"<a class='b' href='{html.escape(_url_autorisation(jeton(cand_id)))}'>Rejoindre le Discord</a>")
+        return _page("Lien invalide", "<h1>Lien invalide</h1><p>Ce lien est abîmé. Recommence depuis le formulaire, "
+                                      "ça prend deux minutes.</p>" + (f"<a class='b' href='/candidature'>Refaire le formulaire</a>")
+                                      + _secours())
+    journal.info("Site : page « Rejoindre le Discord » pour la candidature %s", cand_id)
+    corps = ("<h1>Candidature reçue ✅</h1>"
+             "<p><b>Dernière étape : rejoins le Discord.</b> Appuie sur le bouton, Discord te demande d'autoriser "
+             "<b>LTP</b> à t'ajouter au serveur, tu appuies sur <b>Autoriser</b>, et le bot t'écrit tout de suite "
+             "avec la formation.</p>"
+             "<ol class='regles'><li>Discord te demande de te connecter ? Connecte-toi, puis il t'affiche l'autorisation.</li>"
+             "<li>Pas encore de compte Discord ? Crée-le sur l'écran de Discord (e-mail + mot de passe), puis reviens ici "
+             "et appuie à nouveau sur le bouton.</li>"
+             "<li>Tu as l'appli Discord sur ton téléphone ? Elle peut s'ouvrir toute seule, c'est normal : appuie sur "
+             "Autoriser.</li></ol>"
+             f"<a class='b' href='{html.escape(_url_autorisation(jeton(cand_id)))}'>Rejoindre le Discord</a>"
+             + _secours())
     return _page("Rejoindre le Discord", corps)
 
 
 async def get_callback(request):
-    cand_id = verifier_jeton(request.query.get("state", ""))
+    cand_id = _cand_depuis(request.query.get("state", ""))
     code = request.query.get("code", "")
+    if request.query.get("error"):                                      # 29/09 : Discord dit pourquoi (access_denied…), on le garde
+        journal.warning("OAuth refusé par Discord pour %s : %s — %s", cand_id or "?", request.query.get("error"),
+                        request.query.get("error_description", "")[:120])
     if not cand_id or not code:
-        return _page("Refusé", "<h1>Autorisation refusée</h1><p>Sans autorisation, le bot ne peut pas t'ajouter. "
-                               f"<a href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" if cand_id
-                               else "<h1>Lien invalide</h1><p>Recommence depuis le formulaire.</p>")
+        return _page("Refusé", ("<h1>Autorisation refusée</h1><p>Sans autorisation, le bot ne peut pas t'ajouter au serveur. "
+                                "Réessaie et appuie sur <b>Autoriser</b> sur l'écran de Discord.</p>"
+                                f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours()) if cand_id
+                               else "<h1>Lien invalide</h1><p>Recommence depuis le formulaire.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
+    journal.info("OAuth : retour Discord pour la candidature %s", cand_id)
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
     fiche_web = pipe.get("candidatures_web", {}).get(cand_id)
@@ -314,9 +369,9 @@ async def get_callback(request):
             asyncio.create_task(_deps["traiter_liaison"](membre, fiche_web["tel"]))
             pipe = lire(fichier, {"liaisons": {}, "etats": {}}); pipe.get("web_attendus", {}).pop(uid, None); ecrire(fichier, pipe)
     elif statut != 201:
-        return _page("Presque", "<h1>Presque ✅</h1><p>Ta candidature est enregistrée mais je n'ai pas pu t'ajouter "
-                               "au serveur automatiquement. Rejoins-le avec le lien de l'annonce et envoie ton "
-                               "numéro WhatsApp au bot en message privé.</p>")
+        return _page("Presque", "<h1>Presque ✅</h1><p>Ta candidature est enregistrée mais Discord n'a pas voulu t'ajouter "
+                               "au serveur automatiquement. Réessaie une fois ; si ça bloque encore, on te fait entrer à la main.</p>"
+                               f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours())
     journal.info("OAuth : candidature %s reliée au Discord %s (join %s)", cand_id, uid, statut)
     lien_app = f"https://discord.com/channels/{guild_id}" if guild_id else "https://discord.com/app"
     return _page("C'est bon", "<h1>C'est bon 🎉</h1><div class='ok'>Tu es sur le serveur et ta candidature est reliée "

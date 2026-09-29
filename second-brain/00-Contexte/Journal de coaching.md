@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-29 (matin) — Le formulaire respire, et le passage vers Discord perd du monde
+- **Demande de Gaëtan** : les 5 règles du formulaire avec des retours à la ligne et de l'espace ; vérifier que la transition vers Discord marche, deux personnes n'ont pas réussi à rejoindre.
+- **Constat dans les journaux** : sur les 10 derniers candidats arrivés sur la page « Rejoindre le Discord » (17 h), 2 seulement sont revenus par l'autorisation Discord ; un lien est arrivé avec sa signature abîmée (navigateur Samsung) et a fini sur « Lien invalide ». Le reste s'est perdu entre notre bouton et l'écran d'autorisation de Discord : connexion, création de compte, appli qui s'ouvre. Aucune erreur côté serveur.
+- **Livré** : règles en liste ; lien tolérant (l'identifiant de candidature suffit, il n'est pas devinable) ; refus Discord journalisé avec son motif ; page « Rejoindre » qui explique les trois cas ; page d'échec qui propose de réessayer au lieu d'un lien d'annonce qui n'existe plus ; WhatsApp de Gaëtan en filet sur chaque page.
+- **Avocat du diable** : le vrai goulot est l'écran d'autorisation de Discord, que je ne contrôle pas. Si le taux ne remonte pas, la marche suivante est un lien d'invitation personnel généré par le bot dès le formulaire envoyé, sans OAuth, avec la liaison par numéro de téléphone qui existe déjà.
+- **Prédiction (29/09, revue le 06/10)** : sur les 20 prochains candidats arrivés sur la page « Rejoindre », au moins 10 reviennent par le callback (60 %) ; sinon, le lien d'invitation personnel remplace l'OAuth avant le 13/10.
+
 ### 2026-09-28 (soir, 17) — Julien et Rianah hors du Dashboard ; les liens MYM regardés, tracking en attente
 - **Décisions de Gaëtan** : Julien et Rianah sortent totalement du clipping (Rianah reviendra tester sur Sophie avec trois comptes) ; le lien de Sarah est terminé sur son domaine ; les MYM entrent dans les liens en bio, le tracking attend ses instructions, il a ajouté les liens MYM pour Chloé, Sarah et Jade.
 - **Livré** : liste « hors clipping » du Dashboard, Julien et Rianah par défaut, tenue par `!dashboard exclure` / `!dashboard inclure` ; le roster reste tel quel (Julien y compte encore pour 23, à trancher avec `!sortie` si c'est voulu).
