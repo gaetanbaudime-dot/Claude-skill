@@ -61,12 +61,14 @@ FICHIER_ALIAS = None            # injecté par bot_discord.py (volume persistant
 # le code 2FA des dernières minutes, sans e-mail ni mot de passe ». Un salon commun, ouvert à tous, `!code` y répond à tout le
 # monde avec les codes des CODES_SALON_MINUTES dernières minutes, adresse masquée (3 premières lettres, 2 dernières).
 SALON_CODES_NOM = os.environ.get("CANAL_CODES_NOM", "🔐-code-instagram").strip() or "🔐-code-instagram"
-SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "15") or 15)   # 30/09 : une fenêtre pour tout (création, connexion, appel)
+# 30/09 : une fenêtre pour tout (création, connexion, appel). 15 → 60 min le même jour : Tara a tapé `!code` 21 min après le
+# mail de son appel (on demande le code sur Instagram, on arrive sur Discord bien après), Gaëtan a dû le lui donner à la main.
+SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "60") or 60)
 SALON_RECUP_MINUTES = int(os.environ.get("CODES_SALON_RECUP_MINUTES", "30") or 30)
 DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()
 # 29/09 (Gaëtan) : « restreins le salon au rôle Clippeur ; simplifie, rajoute des émojis, mets en forme, langage niveau collège »
 ROLES_SALON_CODES = tuple(r.strip() for r in os.environ.get("CODES_SALON_ROLES", "Clippeur,Rookie,Confirmé,Elite").split(",") if r.strip())
-VERSION_EXPLICATION = 3
+VERSION_EXPLICATION = 4
 # 30/09 (Gaëtan : « la même commande pour faire appel, créer un compte ou se connecter ; jamais le code pour modifier les
 # informations sensibles ; supprime la ligne de l'adresse à moitié cachée »)
 EXPLICATION_SALON = ("🔐 **Ton code Instagram, c'est ici.**\n\n"
@@ -598,8 +600,8 @@ async def _commande_salon_commun(message, recup: bool) -> bool:
         await message.reply(texte)
 
     if not codes:
-        await _dire(f"Pas de code reçu depuis {fenetre} min. Sur Instagram, appuie sur « Renvoyer le code », puis retape "
-                    f"`{'!recup' if recup else '!code'}`.")
+        await _dire(f"Pas de code reçu depuis {fenetre} min. Regarde aussi ton salon perso : tes codes y arrivent tout seuls.\n\n"
+                    "Sinon, sur Instagram, appuie sur « Renvoyer le code », attends 30 secondes, puis retape `!code`.")
         return True
     derniers = {}
     for t in sorted(codes, key=lambda x: x.get("age_min", 0), reverse=True):

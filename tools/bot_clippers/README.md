@@ -157,6 +157,13 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Moins d'informations au clipper, le TOP 20 en direct, codes sur 60 min (30/09, Gaëtan)** : le lien Drive donné au clipper
+ouvre directement son dossier « TOP 20 Reels » (`dossier_drive` renvoie ce sous-dossier ; le partage par lien du parent vaut
+pour lui) et n'apparaît qu'une fois, dans l'étape 1 (« 📁 Tes Reels à publier (TOP 20) ») puis à l'étape 5 ; le message
+d'accès redevient une ligne, sans lien de paie ni Drive (le lien arrive à l'étape 6). Salon des codes : fenêtre de 15 → 60 min
+(Tara a tapé `!code` 21 min après le mail de son appel ; Gaëtan a dû lui donner le code à la main), et sans code trouvé, le bot
+rappelle que les codes arrivent aussi tout seuls dans le salon perso. Mode d'emploi épinglé v4.
+
 **Plus d'étape « 5 règles + bouton » après le test (30/09, Gaëtan : « supprime cette étape, on l'a déjà faite dans le
 formulaire »)** : `suite_validation` accepte d'office (`accepter_conditions(uid, "site")`) — test validé = rôle, salon perso,
 créatrice et comptes, avec un seul message « Test validé » suivi de la suite. Au démarrage, `acceptation.envoyer_boutons_en_attente`

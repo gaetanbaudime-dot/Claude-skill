@@ -34,7 +34,7 @@ ETAPES = {
     1: {"titre": "Étape 1 · Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 prêt", "salons": ["info"],
         "texte": ("**Compte 1** · chaque bloc se copie d'un geste (bouton du bloc).\n"
                   "Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
-                  "📁 Ton Drive (photos, Reels, TOP 20) : {drive}\n\n"
+                  "📁 Tes Reels à publier (TOP 20) : {drive}\n\n"
                   "{creation1}\n\n"
                   "Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 2 dans 48 h, jamais avant : c'est ce qui évite les bans.")},
@@ -58,8 +58,8 @@ ETAPES = {
                   "Les comptes 1 et 2 ont fini leur warm-up : 2 Reels par jour dessus, pris dans ton Drive.\n\n"
                   "Au jour {jour_suivant}, tes 3 comptes publient.")},
     5: {"titre": "Étape 5 · Tes Reels sur les 3 comptes (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
-        "texte": ("Tes vidéos : {drive}\n\n"
-                  "1. Prends un Reel du dossier « TOP 20 Reels ». Il est prêt, rien à monter.\n"
+        "texte": ("Tes Reels à publier : {drive}\n\n"
+                  "1. Prends un Reel dans ce dossier. Il est prêt, rien à monter.\n"
                   "2. Publie-le sur `{compte1}`, `{compte2}` et `{compte3}`. Jamais le même Reel sur deux comptes le même jour.\n"
                   "3. Tu veux monter toi-même ? Edits, une première seconde qui accroche, des sous-titres lisibles ({ressources}).\n\n"
                   "Premier Reel en ligne ? Appuie sur le bouton.")},

@@ -468,9 +468,8 @@ def _source_de(creatrice: str) -> dict:
 
 def texte_drive(prenom: str, creatrice: str, drive: str) -> str:
     """Le message du Drive, seul (rattrapage) : 28/09 (Gaëtan, Simon) « envoie-lui le lien de son Drive »."""
-    return (f"📁 **Ton Drive, {prenom}** (photos, Reels et TOP 20 de {creatrice.split()[0] if creatrice.split() else creatrice}) : <{drive}>\n\n"
-            "Il s'ouvre depuis ton téléphone, en lecture, sans compte Google.\n\n"
-            "Tes Reels à publier sont dans « TOP 20 Reels ».")
+    return (f"📁 **Tes Reels à publier, {prenom}** (TOP 20 de {creatrice.split()[0] if creatrice.split() else creatrice}) : <{drive}>\n\n"
+            "Il s'ouvre depuis ton téléphone, sans compte Google.")
 
 
 async def drives_manquants(client=None, maxi: int = 3) -> list:
@@ -560,13 +559,16 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
                 await google_api.drive_supprimer(f["id"])
             except RuntimeError as erreur:
                 journal.warning("Ancien raccourci %s de %s : %s", f.get("name"), prenom, erreur)
+    top20 = ""
     try:
         ancien_top = next((f for f in existants if f.get("mimeType") == google_api.DOSSIER_MIME
                            and f.get("name", "").strip().lower() == "reels uniques"), None)
         if ancien_top is not None:
             await google_api.drive_renommer(ancien_top["id"], NOM_TOP20)
-        elif not await google_api.drive_trouver_dossier(NOM_TOP20, dossier):
-            await google_api.drive_creer_dossier(NOM_TOP20, dossier)
+            top20 = ancien_top["id"]
+        else:
+            top20 = (await google_api.drive_trouver_dossier(NOM_TOP20, dossier)
+                     or await google_api.drive_creer_dossier(NOM_TOP20, dossier))
     except RuntimeError as erreur:
         journal.warning("Dossier « %s » pour %s : %s", NOM_TOP20, prenom, erreur)
     if email:
@@ -576,7 +578,9 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Partage par lien du Drive de %s : %s", prenom, erreur)
     journal.info("Drive de %s (%s) prêt : %s sources, lecture par le lien", prenom, creatrice, len(sources))
-    return google_api.drive_lien(dossier)
+    # 30/09 (Gaëtan : « ajoute le TOP 20 Reels dans le Drive directement ») : le lien donné au clipper ouvre son dossier
+    # « TOP 20 Reels », ses vidéos prêtes à publier (le partage par lien du dossier parent vaut pour lui).
+    return google_api.drive_lien(top20 or dossier)
 
 
 RESERVATION_JOURS = int(os.environ.get("RESERVATION_JOURS", "2") or 2)   # 28/09 (Gaëtan : GO) : la réservation qui expire ; 29/09 : 48 h au lieu de 5 jours
@@ -733,10 +737,13 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     # 4. message
     texte = (message_comptes_court(prenom) if (UN_PAR_JOUR and comptes and not declencheur.startswith("!onboarding"))
              else message_comptes(comptes, prenom, creatrice))
-    if lien:
-        texte += f"\n\n🔗 **Ton lien** : {lien} · tes visites : `!mesclics`"
-    if drive:
-        texte += f"\n📁 **Ton Drive** (photos et vidéos de {creatrice.split()[0]}) : <{drive}>"
+    # 30/09 (Gaëtan : « ne spam pas le clippeur avec trop d'informations ») : le message court reste une ligne ; le Drive
+    # arrive dans l'étape 1, le lien dans l'étape 6, là où ils servent. Le message long (`!onboarding` forcé) les garde.
+    if not (UN_PAR_JOUR and comptes and not declencheur.startswith("!onboarding")):
+        if lien:
+            texte += f"\n\n🔗 **Ton lien** : {lien} · tes visites : `!mesclics`"
+        if drive:
+            texte += f"\n📁 **Tes Reels à publier** (TOP 20 de {creatrice.split()[0]}) : <{drive}>"
     if salon is not None and codes_2fa.actif():
         try:
             n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")
