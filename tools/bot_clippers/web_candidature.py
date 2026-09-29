@@ -123,6 +123,8 @@ textarea{min-height:96px}small{color:#555;display:block;margin-top:4px}
 .ck input{width:22px;height:22px;flex:none;margin:1px 0 0;accent-color:var(--n)}
 .regles{margin:10px 0 0;padding-left:22px;color:#333}.regles li{margin:10px 0;line-height:1.5}
 .aide2{color:#555;margin:14px 0 0;line-height:1.5}.aide2 a{color:var(--n);font-weight:600}
+html{-webkit-text-size-adjust:100%}a,button,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.b{transition:transform .08s ease,opacity .15s ease}.b:active{transform:scale(.98);opacity:.9}.b[disabled]{opacity:.65;cursor:wait}
 h2{font-size:18px;color:var(--n);margin:22px 0 8px}
 .box{background:#eef3fa;border:1px solid #cddbef;border-radius:12px;padding:14px 16px;margin:16px 0;line-height:1.6}
 .etapes{margin:8px 0 0;padding-left:22px}.etapes li{margin:8px 0;line-height:1.5}
@@ -134,12 +136,26 @@ input,select,textarea{font-size:16px}
 </style>"""
 
 
-def _page(titre: str, corps: str) -> web.Response:
+# 30/09 (Gaëtan : « améliore la rapidité de chargement et la fluidité ») : un seul envoi par formulaire (le bouton passe à
+# « ⏳ Un instant… » et se bloque — les candidatures en double venaient des doubles appuis), rétabli si on revient en arrière.
+SCRIPT = ("<script>document.addEventListener('submit',function(e){var f=e.target;if(f.dataset.envoi){e.preventDefault();return}"
+          "f.dataset.envoi='1';var b=f.querySelector('button[type=submit]');if(b){b.dataset.t=b.textContent;"
+          "b.textContent='⏳ Un instant…';b.disabled=true}});window.addEventListener('pageshow',function(){"
+          "document.querySelectorAll('form').forEach(function(f){delete f.dataset.envoi;var b=f.querySelector("
+          "'button[type=submit]');if(b&&b.dataset.t){b.textContent=b.dataset.t;b.disabled=false}})});</script>")
+# La connexion à Loom se prépare dès la première page : la vidéo de la page formation démarre plus vite.
+PRECONNEXION = ("<link rel='preconnect' href='https://www.loom.com' crossorigin>"
+                "<link rel='dns-prefetch' href='https://cdn.loom.com'>")
+
+
+def _page(titre: str, corps: str, tete: str = "") -> web.Response:
     doc = (f"<!doctype html><html lang='fr'><head><meta charset='utf-8'><meta name='viewport' "
-           f"content='width=device-width,initial-scale=1'><title>{html.escape(titre)}</title>{STYLE}</head>"
+           f"content='width=device-width,initial-scale=1'><title>{html.escape(titre)}</title>{PRECONNEXION}{tete}{STYLE}</head>"
            f"<body><div class='w'><div class='c'>{corps}</div><p style='text-align:center;color:#777;"
-           f"font-size:12px'>LTP · candidature clipper</p></div></body></html>")
-    return web.Response(text=doc, content_type="text/html", charset="utf-8")
+           f"font-size:12px'>LTP · candidature clipper</p></div>{SCRIPT}</body></html>")
+    r = web.Response(text=doc, content_type="text/html", charset="utf-8")
+    r.enable_compression()                                              # gzip : la page pèse trois fois moins sur le réseau
+    return r
 
 
 def _questions() -> dict:
@@ -229,7 +245,9 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Respon
              f"<input type='hidden' name='f' value='{html.escape(jeton('f' + str(int(time.time()))))}'>"
              + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "") + f"{champs}"
              f"<button class='b' type='submit'>Passer à la formation + quizz</button></form>")   # 30/09 (Gaëtan)
-    return _page(cfg.get("titre", "Candidature"), corps)
+    video = re.search(r"loom\.com/(?:share|embed)/([0-9a-f]{16,})", _deps.get("LIEN_VIDEO_FORMATION", "") or "")
+    tete = (f"<link rel='prefetch' href='https://www.loom.com/embed/{video.group(1)}'>" if video else "")
+    return _page(cfg.get("titre", "Candidature"), corps, tete)
 
 
 # ------------------------------------------------------------------ candidature
@@ -317,6 +335,12 @@ async def post_candidature(request):
     # suivante ne l'attend pas.
     if _deps.get("journaliser_candidature"):
         asyncio.create_task(_journaliser(reponses))
+    fiche_inv = {"tel": tel, "prenom": pipe["candidatures"][tel]["prenom"], "pays": reponses.get("pays", "")}
+    if _deps.get("invitation_site") and QUIZ_AVANT_DISCORD and _quiz().get("questions"):
+        # 30/09 (« améliore la rapidité ») : l'invitation se crée pendant qu'il regarde la formation, la page arrive sans
+        # attendre les deux appels à Discord ; /discord/invitation l'attend ou la crée si besoin.
+        _lancer_invitation(cand_id, fiche_inv)
+        raise web.HTTPSeeOther(location=f"/formation?t={jeton(cand_id)}")
     # 29/09 : une invitation personnelle plutôt que l'autorisation Discord (4 candidats sur 5 s'y perdaient).
     invitation = ""
     if _deps.get("invitation_site"):
@@ -339,6 +363,49 @@ async def post_candidature(request):
                               "numéro WhatsApp au bot en message privé : il te relie et t'envoie la formation.</p>"
                               + (f"<a class='b' href='{html.escape(lien)}'>Rejoindre le Discord</a>" if lien else ""))
     raise web.HTTPSeeOther(location=f"/discord/connexion?t={jeton(cand_id)}")
+
+
+_invitations_en_cours: dict = {}                                            # cand_id → tâche de création de l'invitation
+
+
+async def _creer_invitation(cand_id: str, fiche: dict) -> str:
+    try:
+        url = await _deps["invitation_site"](cand_id, fiche)
+    except Exception as erreur:                                         # noqa: BLE001 — l'OAuth reste en secours
+        journal.warning("Invitation du site : %s", erreur)
+        return ""
+    if url:
+        lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
+        pipe = lire(fichier, {"liaisons": {}, "etats": {}})
+        pipe.setdefault("candidatures_web", {}).setdefault(cand_id, {"tel": fiche.get("tel", "")})["invitation"] = url
+        ecrire(fichier, pipe)
+    return url
+
+
+def _lancer_invitation(cand_id: str, fiche: dict):
+    t = _invitations_en_cours.get(cand_id)
+    if t is None or (t.done() and not t.result()):
+        _invitations_en_cours[cand_id] = asyncio.create_task(_creer_invitation(cand_id, fiche))
+
+
+async def _invitation_prete(cand_id: str, attente: float = 10.0) -> str:
+    """L'URL de l'invitation : déjà enregistrée, en cours de création (on l'attend), ou créée maintenant (après un redémarrage)."""
+    pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    fiche_web = (pipe.get("candidatures_web", {}).get(cand_id) or {})
+    if fiche_web.get("invitation"):
+        return fiche_web["invitation"]
+    if not _deps.get("invitation_site") or not fiche_web.get("tel"):
+        return ""
+    cand = (pipe.get("candidatures", {}).get(fiche_web["tel"]) or {})
+    _lancer_invitation(cand_id, {"tel": fiche_web["tel"], "prenom": cand.get("prenom", ""), "pays": cand.get("pays", "")})
+    try:
+        return await asyncio.wait_for(asyncio.shield(_invitations_en_cours[cand_id]), attente) or ""
+    except asyncio.TimeoutError:
+        return ""
+    finally:
+        t = _invitations_en_cours.get(cand_id)
+        if t is not None and t.done():
+            _invitations_en_cours.pop(cand_id, None)
 
 
 async def _journaliser(reponses: dict):
@@ -391,8 +458,7 @@ async def get_invitation(request):
     if not cand_id:
         return _page("Lien invalide", "<h1>Lien invalide</h1><p>Ce lien est abîmé. Recommence depuis le formulaire, ça prend "
                                       "deux minutes.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
-    pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
-    url = (pipe.get("candidatures_web", {}).get(cand_id) or {}).get("invitation", "")
+    url = await _invitation_prete(cand_id)                              # 30/09 : créée en arrière-plan depuis le formulaire
     if not url:
         raise web.HTTPSeeOther(location=f"/discord/connexion?t={jeton(cand_id)}")
     journal.info("Site : page « Rejoindre le Discord » (invitation) pour la candidature %s", cand_id)
@@ -513,7 +579,8 @@ def _fiche_cand(cand_id: str) -> dict:
 
 def _url_discord(cand_id: str) -> str:
     """L'invitation personnelle si elle existe, sinon la connexion Discord (OAuth) en secours."""
-    return ("/discord/invitation?t=" if _fiche_cand(cand_id).get("invitation") else "/discord/connexion?t=") + jeton(cand_id)
+    ok = _fiche_cand(cand_id).get("invitation") or _deps.get("invitation_site")   # 30/09 : l'invitation peut être en cours
+    return ("/discord/invitation?t=" if ok else "/discord/connexion?t=") + jeton(cand_id)
 
 
 def essais_cand(q: dict, maintenant: float = None) -> int:
@@ -563,9 +630,7 @@ async def get_formation(request):
     journal.info("Site : page formation pour la candidature %s", cand_id)
     # 30/09 (Gaëtan : « ajoute un 1 et 2 aux étapes », « des phrases niveau collège », « chaque bouton pertinent »)
     corps = ("<h1>Candidature reçue ✅</h1>"
-             "<p>Il te reste <b>2 étapes</b>, ici :</p>"
-             "<p>1️⃣ Regarder la formation (15 minutes)<br>2️⃣ Passer le quizz (10 questions)</p>"
-             "<p>Quizz réussi ➡️ tu rejoins le Discord</p>"
+             # 30/09 (Gaëtan) : plus de paragraphe d'étapes, les titres 1️⃣ et 2️⃣ suffisent
              "<h2>1️⃣ Regarder la formation</h2>"
              + _video(_deps.get("LIEN_VIDEO_FORMATION", ""))
              + "<p><b>Note les 5 mots-clés cachés, dans l'ordre.</b> Le quizz te les demande.</p>"

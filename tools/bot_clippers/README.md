@@ -157,6 +157,13 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Site plus rapide et plus fluide (30/09, Gaëtan)** : l'envoi du formulaire n'attend plus Discord — l'invitation personnelle se
+crée en arrière-plan pendant la formation (`_lancer_invitation`), `/discord/invitation` l'attend ou la recrée après un
+redémarrage (`_invitation_prete`) ; mesuré en test avec un Discord à 2 s : la page formation arrive en quelques millisecondes.
+Pages compressées (gzip, 7,4 → 3,1 Ko), connexion à Loom préparée dès le formulaire (preconnect + prefetch de la vidéo), boutons
+qui réagissent au toucher, et un seul envoi par formulaire (« ⏳ Un instant… », fin des candidatures en double par double appui).
+La page formation n'a plus de paragraphe d'étapes : « 1️⃣ Regarder la formation », la vidéo, « 2️⃣ Passer le quizz ».
+
 **Sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09, GO de Gaëtan)** : `sortie_auto.py` compte les jours depuis la
 DERNIÈRE publication (une hausse du nombre de publications d'un de ses comptes entre deux scans ; la première valeur d'un compte
 ne compte que s'il est vu après l'arrivée du clipper, un compte rendu garde les Reels d'avant), ou depuis la créatrice s'il n'a
