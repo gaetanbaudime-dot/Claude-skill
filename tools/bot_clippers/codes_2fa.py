@@ -61,21 +61,24 @@ FICHIER_ALIAS = None            # injecté par bot_discord.py (volume persistant
 # le code 2FA des dernières minutes, sans e-mail ni mot de passe ». Un salon commun, ouvert à tous, `!code` y répond à tout le
 # monde avec les codes des CODES_SALON_MINUTES dernières minutes, adresse masquée (3 premières lettres, 2 dernières).
 SALON_CODES_NOM = os.environ.get("CANAL_CODES_NOM", "🔐-code-instagram").strip() or "🔐-code-instagram"
-SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)
+SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "15") or 15)   # 30/09 : une fenêtre pour tout (création, connexion, appel)
 SALON_RECUP_MINUTES = int(os.environ.get("CODES_SALON_RECUP_MINUTES", "30") or 30)
 DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()
 # 29/09 (Gaëtan) : « restreins le salon au rôle Clippeur ; simplifie, rajoute des émojis, mets en forme, langage niveau collège »
 ROLES_SALON_CODES = tuple(r.strip() for r in os.environ.get("CODES_SALON_ROLES", "Clippeur,Rookie,Confirmé,Elite").split(",") if r.strip())
-VERSION_EXPLICATION = 2
+VERSION_EXPLICATION = 3
+# 30/09 (Gaëtan : « la même commande pour faire appel, créer un compte ou se connecter ; jamais le code pour modifier les
+# informations sensibles ; supprime la ligne de l'adresse à moitié cachée »)
 EXPLICATION_SALON = ("🔐 **Ton code Instagram, c'est ici.**\n\n"
-                     "1️⃣ Tu crées un compte ou tu te connectes → Instagram t'envoie un code par e-mail.\n"
-                     "2️⃣ Tu écris `!code` ici.\n"
-                     "3️⃣ Je te donne le code reçu dans les {minutes} dernières minutes. ✅\n\n"
-                     "📧 L'adresse est à moitié cachée, du genre `orb…8i@icloud.com`. C'est pour reconnaître ton compte. "
-                     "Jamais l'e-mail complet, jamais le mot de passe.\n\n"
+                     "Une seule commande pour tout : `!code`\n\n"
+                     "1️⃣ Créer un compte\n"
+                     "2️⃣ Te connecter\n"
+                     "3️⃣ Faire appel après un ban\n\n"
+                     "➡️ Tu fais ta demande sur Instagram. Instagram t'envoie un code par e-mail. Tu écris `!code` ici. "
+                     "Je te donne le code reçu dans les {minutes} dernières minutes. ✅\n\n"
                      "👥 Plusieurs codes en même temps ? Prends celui qui a les lettres de ton e-mail.\n\n"
                      "😴 Pas de code ? Dans Instagram, appuie sur « Renvoyer le code », attends 30 secondes, puis retape `!code`.\n\n"
-                     "🛟 Mot de passe oublié ou compte banni (appel) ? Écris `!recup`.")
+                     "⛔ Changer l'e-mail, le mot de passe ou le numéro d'un compte : jamais. Ces codes-là, je ne les donne pas.")
 
 # Sous-chaînes cherchées côté serveur dans l'en-tête From (IMAP FROM) : courtes pour attraper les expéditeurs
 # réécrits par iCloud, sans « meta » seul qui ramènerait Metricool.
@@ -86,11 +89,41 @@ MOTIF_ALIAS = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 # un ban) arrivent par le même chemin que les codes 2FA — même alias, même boîte, même salon. On les distingue pour
 # que le clipper, ou le manager qui fait appel, sache quel code Instagram attend, et pour que `!recup` ne renvoie
 # jamais un code de connexion à la place. Le sujet décide ; le corps ne compte que pour quelques tournures sûres.
-MOTS_RECUP_SUJET = ("recovery", "récupér", "recuper", "reset", "réinitialis", "reinitialis", "retrouver", "get back")
+MOTS_RECUP_SUJET = ("recovery", "récupér", "recuper", "retrouver", "get back", "appel", "appeal", "review", "examen")
+# 30/09 (Gaëtan : « jamais renvoyer le code pour modifier les informations sensibles ») : un mail dont le SUJET ou le
+# DÉBUT (les 500 premiers caractères, là où Meta dit à quoi sert le code) parle de changer l'e-mail, le mot de passe, le
+# numéro, la double authentification, ou de désactiver / supprimer le compte : le code n'est donné à personne, ni ici, ni
+# dans un salon perso, ni au staff ; une ligne part au salon admin. Le bas du mail n'est pas lu : les codes de connexion y
+# disent souvent « si ce n'était pas vous, changez votre mot de passe ».
+MOTIFS_SENSIBLES = tuple(re.compile(m) for m in (
+    r"(reset|reinitialis|change|chang|modif|update|mettre a jour|nouve(au|l|lle)|new|add|ajout)\w*\W+(\w+\W+){0,4}"
+    r"(password|mot de passe|e-?mail|adresse|phone|telephone|numero|mobile)",
+    r"(password|mot de passe)\W+(\w+\W+){0,2}(reset|reinitialis|change|oubli)",
+    r"(e-?mail|adresse)\W+(\w+\W+){0,2}(change|modifi)",
+    r"two[- ]factor|2fa|deux facteurs|double authentification|authentification a deux",
+    r"deactivat|desactiv|delete your account|supprimer (votre|ton) compte|suppression (de|du) (votre |ton )?compte"))
 MOTS_RECUP_CORPS = ("recovery code", "code de récupération", "code de recuperation", "get back into", "without password",
                     "sans mot de passe", "retrouver l'accès", "retrouver votre compte")
 MOTIF_COMPTE = re.compile(r"\b(?:Hi|Hello|Bonjour|Salut)\s+([A-Za-z0-9][A-Za-z0-9._]{1,40}?)\s*[,!]")
-TYPE_RECUP, TYPE_CONNEXION = "récupération", "connexion"
+TYPE_RECUP, TYPE_CONNEXION, TYPE_SENSIBLE = "récupération", "connexion", "sensible"
+
+
+def _sans_accents(t: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", (t or "").lower()) if unicodedata.category(c) != "Mn")
+
+
+def est_sensible(sujet: str, corps: str) -> bool:
+    """Vrai si le code sert à changer une information sensible du compte. On lit le sujet et le mail jusqu'à la fin de la
+    phrase qui porte le code (500 caractères au plus) : ce qui suit (« si ce n'était pas vous, changez votre mot de passe »)
+    ne compte pas."""
+    debut = corps[:500]
+    m = MOTIF_CODE.search(debut)
+    if m:
+        fin = re.search(r"[.!?](\s|$)|\n", debut[m.end():])
+        debut = debut[:m.end() + (fin.end() if fin else len(debut))]
+    texte = _sans_accents(f"{sujet} {debut}")
+    return any(r.search(texte) for r in MOTIFS_SENSIBLES)
 COMMANDES_RECUP = ("!recup", "!récup", "!recuperation", "!récupération", "!appel", "!unban", "!deban")
 
 
@@ -146,7 +179,7 @@ async def assurer_salon_codes(client):
         return
     registre = _lire()
     info = registre.get("_salon_codes") or {}
-    sujet = "Écris !code : je te donne ton code Instagram ou Facebook (10 dernières minutes, adresse à moitié cachée)."
+    sujet = "Écris !code : ton code Instagram ou Facebook pour créer un compte, te connecter ou faire appel."
     for guild in client.guilds:
         salon = client.get_channel(int(info["id"])) if info.get("id") else None
         if salon is None:
@@ -244,6 +277,9 @@ def extraire(msg) -> dict:
         return {"expediteur": expediteur, "alias": alias, "code": None, "sujet": sujet, "plateforme": plateforme}
     code = None
     corps = _corps(msg)[:3000]
+    if est_sensible(sujet, corps):                             # 30/09 : jamais relayé, à personne
+        return {"expediteur": expediteur, "alias": alias, "code": None, "sujet": sujet, "plateforme": plateforme,
+                "type": TYPE_SENSIBLE}
     for source in (sujet, corps):
         m = MOTIF_CODE.search(source)
         if m:
@@ -391,8 +427,10 @@ async def commande(message, admin_ids) -> bool:
         return False
     registre = _lire()
     mots = texte.split()
-    recup = mots[0].lower() in COMMANDES_RECUP                    # 27/09 : `!recup` = les codes de récupération seulement
-    if recup:
+    # 30/09 (Gaëtan : « la même commande pour faire appel, créer un compte ou se connecter ») : `!recup` et ses variantes
+    # font exactement `!code` — tous les codes utiles, jamais ceux qui changent une information sensible.
+    recup = False
+    if mots[0].lower() in COMMANDES_RECUP:
         mots[0] = "!code"
     canal_id = str(message.channel.id) if message.guild is not None else ""
     if canal_id and canal_id == salon_codes_id() and mots[0].lower() == "!code" and not (len(mots) >= 2 and "@" in mots[1]):
@@ -444,8 +482,7 @@ async def commande(message, admin_ids) -> bool:
         await message.reply(f"Format : `{nom} alias@icloud.com` — je cherche le dernier code reçu "
                             f"({'6 h' if recup else '2 h'}). Dans un salon perso avec des adresses rattachées, `{nom}` tout court suffit.")
         return True
-    # Un code de récupération sert à un appel ou à « mot de passe oublié » : on remonte plus loin (6 h) qu'un 2FA (2 h).
-    fenetre = 360 if recup else 120
+    fenetre = 120                                              # 30/09 : création, connexion et appel, 2 h
 
     def _filtrer(trouves):
         return [t for t in trouves if t["code"] and t["alias"] in cibles and (not recup or t.get("type") == TYPE_RECUP)]
@@ -522,7 +559,7 @@ async def _commande_salon_commun(message, recup: bool) -> bool:
     if not actif():
         await message.reply("Relais des codes éteint : `CODES_IMAP_USER` / `CODES_IMAP_PASSWORD` absents.")
         return True
-    fenetre = SALON_RECUP_MINUTES if recup else SALON_CODES_MINUTES
+    fenetre = SALON_CODES_MINUTES                                       # 30/09 : une seule fenêtre, une seule commande
     dossiers = [IMAP_DOSSIER] + ([DOSSIER_SPAM] if DOSSIER_SPAM and DOSSIER_SPAM != IMAP_DOSSIER else [])
 
     def _filtrer(trouves):
@@ -603,6 +640,22 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
             if trouves:
                 journal.info("Relais 2FA : %d mail(s) Meta non lus, %d avec code", len(trouves), sum(1 for t in trouves if t["code"]))
             for t in trouves:
+                if t.get("type") == TYPE_SENSIBLE:                     # 30/09 : jamais relayé ; l'admin le sait, une fois
+                    cle_s = f"sensible|{t.get('num')}|{t.get('alias')}"
+                    if cle_s not in deja:
+                        deja[cle_s] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                        _ecrire(registre)
+                        salon_a = await canal_admin_async()
+                        if salon_a is not None:
+                            try:
+                                await salon_a.send(f"⛔ Code de changement d'informations sensibles reçu pour `{_masquer(t.get('alias', ''))}` "
+                                                   f"(« {str(t.get('sujet', ''))[:80]} ») : **non transmis**. Si ce n'est pas toi, "
+                                                   "quelqu'un essaie de modifier ce compte.")
+                            except (discord.Forbidden, discord.HTTPException):
+                                pass
+                    if t.get("num"):
+                        relayes.append(t["num"])
+                    continue
                 if not t["code"]:
                     continue
                 cle_r = f"{t['alias']}|{t['code']}"

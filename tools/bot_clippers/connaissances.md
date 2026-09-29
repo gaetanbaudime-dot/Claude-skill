@@ -203,7 +203,7 @@ La suite, c'est ton manager qui décide, selon tes résultats :
 1. Pas de panique. Ce n'est pas ta faute. Ça arrive dans ce métier. Ne tente rien seul. Pas d'appel tout seul. Pas de nouveau compte avec le même e-mail.
 2. Fais une capture de l'écran « Statut du compte ». Poste-la dans ton salon perso.
 3. Ton manager décide : faire appel, ou remplacer le compte.
-4. S'il fait appel, Instagram envoie un **code de récupération** sur l'e-mail du compte. Le code arrive dans ton salon tout seul. Sinon, écris `!recup`. Tu donnes le code à ton manager.
+4. S'il fait appel, Instagram envoie un **code de récupération** sur l'e-mail du compte. Le code arrive dans ton salon tout seul. Sinon, écris `!code`. Tu donnes le code à ton manager.
 5. Si le compte est remplacé, ton manager libère l'identifiant et t'en donne un neuf. Tu le crées le lendemain, comme à l'étape 1.
 
 **« Ce compte n'est pas recommandé aux moins de 18 ans »** : pas grave. C'est normal chez nous. Les adultes voient le compte. Grave, c'est autre chose : Instagram cache tes Reels à tout le monde, ou supprime tes Reels plusieurs fois. Là, capture à ton manager.
@@ -340,9 +340,9 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Comment je récupère les codes envoyés par mail ?** Tu tapes `!code` dans ton salon perso : le bot lit la boîte de l'agence et te donne le dernier code reçu pour tes adresses. Souvent il le poste tout seul, en moins d'une minute. Rien après deux minutes ? Redemande le code sur Instagram, puis `!code`.
 
-**C'est quoi un code de récupération, et `!recup` ?** Instagram envoie un code de récupération quand on fait « mot de passe oublié » ou quand on fait appel pour un compte bloqué. Il arrive sur l'e-mail du compte, donc dans ton salon perso, comme les autres codes. Le bot l'appelle « code de récupération ». Tu peux le redemander avec `!recup`. Il ne remplace pas le code de connexion : pour te connecter, c'est `!code`.
+**Quelle commande pour quel code ?** Une seule : `!code`. Elle donne le code pour créer un compte, te connecter ou faire appel après un ban. Les codes pour changer l'e-mail, le mot de passe ou le numéro d'un compte ne sont jamais donnés, à personne : les comptes sont à l'agence.
 
-**Instagram m'a déconnecté : « le propriétaire du compte a modifié son mot de passe » ?** Personne ne sait pourquoi, et ce n'est pas grave. Appuie sur « Mot de passe oublié ». Choisis l'e-mail du compte. Écris `!recup` dans ton salon : je te donne le code. Remets le mot de passe de ton message de comptes. Instagram le refuse ? Choisis-en un nouveau et écris-le dans ton salon pour ton manager.
+**Instagram m'a déconnecté : « le propriétaire du compte a modifié son mot de passe » ?** Personne ne sait pourquoi, et ce n'est pas grave. Reconnecte-toi avec le mot de passe de ton message de comptes. Instagram envoie un code : écris `!code`. Le mot de passe ne marche plus ? Ne clique pas sur « Mot de passe oublié » : écris à Gaëtan sur WhatsApp, il s'en occupe.
 
 **Le pseudo du classeur est « déjà utilisé » ?** D'abord, essaie de te connecter avec cet identifiant et le mot de passe de ton message de comptes : le compte existe peut-être déjà. Ça ne marche pas ? Crée le compte avec le pseudo plus un point ou un chiffre à la fin. Puis écris dans ton salon le pseudo exact que tu as créé. Ton manager met le classeur à jour.
 

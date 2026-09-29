@@ -157,6 +157,16 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Une seule commande `!code`, jamais les codes sensibles (30/09, Gaëtan)** : `!code` donne le code pour créer un compte, se
+connecter ou faire appel après un ban (fenêtre de 15 minutes dans #🔐-code-instagram, 2 h dans un salon perso) ; `!recup`,
+`!appel`, `!unban` font exactement la même chose. `codes_2fa.est_sensible` lit le sujet et le mail jusqu'à la fin de la phrase
+qui porte le code (jamais le bas du mail, où les codes de connexion disent « si ce n'était pas vous, changez votre mot de
+passe ») : changer ou réinitialiser le mot de passe, l'e-mail, le numéro, la double authentification, désactiver ou supprimer
+le compte → le code n'est donné à personne, ni au staff, et le salon admin reçoit une ligne « non transmis ». Testé sur 17
+mails types (8 à donner, 9 à bloquer) : zéro erreur. Mode d'emploi épinglé v3 (création / connexion / appel, sans la ligne de
+l'adresse masquée) ; base de connaissances : « déconnecté » = se reconnecter avec le mot de passe du message de comptes, jamais
+« Mot de passe oublié », WhatsApp Gaëtan sinon.
+
 **Site plus rapide et plus fluide (30/09, Gaëtan)** : l'envoi du formulaire n'attend plus Discord — l'invitation personnelle se
 crée en arrière-plan pendant la formation (`_lancer_invitation`), `/discord/invitation` l'attend ou la recrée après un
 redémarrage (`_invitation_prete`) ; mesuré en test avec un Discord à 2 s : la page formation arrive en quelques millisecondes.

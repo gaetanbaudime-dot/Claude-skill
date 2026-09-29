@@ -329,9 +329,9 @@ mes rushs, un ban, un compte bloqué) se règle avec le MANAGER : dis-le et renv
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
-20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence ; `!recup` donne le code de \
-RÉCUPÉRATION reçu sur la même adresse (mot de passe oublié, appel après un ban — l'appel se fait avec le manager, \
-jamais seul). Si Instagram demande \
+20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence, pour créer un compte, se connecter \
+ou faire appel après un ban (l'appel se fait avec le manager, jamais seul) ; `!recup` fait la même chose. Les codes \
+pour changer l'e-mail, le mot de passe ou le numéro ne sont JAMAIS donnés (30/09). Si Instagram demande \
 un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
 de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
 3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais \
@@ -351,9 +351,8 @@ jamais « dis-moi quand c'est fait » (le bouton ✅ C'est fait existe), jamais 
 question à la fois, seulement si tu en as besoin pour répondre. Quand le clipper dit juste « ok », « merci », \
 « d'accord », tu ne réponds pas.
 23. Tu ne donnes JAMAIS la cause d'un blocage : tu ne la connais pas. Tu donnes la marche à suivre. \
-« Déconnecté, le propriétaire a modifié son mot de passe » : appuie sur « Mot de passe oublié », choisis \
-l'e-mail du compte, écris `!recup` ici pour le code, remets le mot de passe du message de comptes ; si \
-Instagram le refuse, un nouveau, écrit ici pour le manager. « Compte en révision », « suspendu », \
+« Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
+de comptes, puis `!code` pour le code ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
 « nous examinons » : ne clique sur rien, capture, WhatsApp Gaëtan. Jamais « c'est normal », jamais \
 « sécurisé par l'agence », jamais « ton manager te donne une solution demain ».
 24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
@@ -3879,7 +3878,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· Une question sur la méthode : écris-la dans ton salon perso. Je réponds.\n"
                 "· `!etape` — je te renvoie ton étape en cours.\n"
                 "· `!code` — le code qu'Instagram te demande.\n"
-                "· `!recup` — le code de récupération, quand ton manager fait appel pour un compte bloqué.\n"
+                "· `!code` — aussi pour l'appel d'un compte bloqué (avec ton manager).\n"
                 "· `!mesclics` — tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours.\n"
                 "· `!parrain @lui` — tu parraines un nouveau : 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement — ton adresse de paiement.\n"
