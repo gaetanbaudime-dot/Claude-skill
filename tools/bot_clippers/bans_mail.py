@@ -26,7 +26,10 @@ import onboarding
 import telegram
 
 journal = logging.getLogger("bot.bans_mail")
-INTERVALLE = int(os.environ.get("BANS_INTERVALLE_SEC", "600") or 600)
+INTERVALLE = int(os.environ.get("BANS_INTERVALLE_SEC", "180") or 180)
+# 29/09 (Gaëtan : « fais le filtre Gmail pour moi ») : les mails Meta trouvés dans le Spam sont remis dans la boîte de réception
+# (UID MOVE), ce que ferait un filtre « ne jamais envoyer dans le spam » — et le relais des codes les voit alors.
+DEPLACER_SPAM = os.environ.get("BANS_DEPLACER_SPAM", "1").strip() != "0"
 JOURS = int(os.environ.get("BANS_JOURS", "3") or 3)
 DOSSIERS = tuple(d.strip() for d in os.environ.get("BANS_IMAP_DOSSIERS", "INBOX,[Gmail]/Spam").split(",") if d.strip())
 MOTS_EXPEDITEUR = ("instagram", "facebookmail")
@@ -108,27 +111,30 @@ def extraire(msg) -> dict | None:
 
 
 def _lire_boite(jours: int = JOURS) -> list:
-    """Bloquant (à appeler via to_thread) : les mails de suspension Instagram des `jours` derniers jours, INBOX et Spam,
-    en lecture seule. Le corps n'est lu que pour confirmer le mot « suspendu » et trouver le pseudo."""
+    """Bloquant (à appeler via to_thread) : les mails de suspension Instagram des `jours` derniers jours, INBOX et Spam.
+    Rien n'est marqué lu (BODY.PEEK) ; dans le Spam, les mails Meta sont remis dans INBOX (le filtre Gmail que le bot fait
+    lui-même). Le corps n'est lu que pour confirmer le mot « suspendu » et trouver le pseudo."""
     out, vus = [], set()
     depuis = (datetime.now(timezone.utc) - timedelta(days=jours)).strftime("%d-%b-%Y")
     with imaplib.IMAP4_SSL(codes_2fa.IMAP_HOST, timeout=codes_2fa.IMAP_TIMEOUT) as boite:
         boite.login(codes_2fa.IMAP_USER, codes_2fa.IMAP_PASSWORD)
         for dossier in DOSSIERS:
+            spam = dossier.upper() != "INBOX" and DEPLACER_SPAM
             try:
-                ok, _ = boite.select(dossier, readonly=True)
+                ok, _ = boite.select(dossier, readonly=not spam)
             except imaplib.IMAP4.error:
                 ok = "NO"
             if ok != "OK":
                 journal.warning("Bans par mail : dossier %s illisible", dossier)
                 continue
-            nums = set()
+            uids = set()
             for mot in MOTS_EXPEDITEUR:
-                ok, ids = boite.search(None, f'(SINCE {depuis} FROM "{mot}")')
+                ok, ids = boite.uid("SEARCH", None, f'(SINCE {depuis} FROM "{mot}")')
                 if ok == "OK" and ids and ids[0]:
-                    nums.update(ids[0].split())
-            for num in sorted(nums, key=int)[-80:]:
-                ok, brut = boite.fetch(num, "(BODY.PEEK[]<0.30000>)")
+                    uids.update(ids[0].split())
+            uids = sorted(uids, key=int)[-80:]
+            for uid in uids:
+                ok, brut = boite.uid("FETCH", uid, "(BODY.PEEK[]<0.30000>)")
                 if ok != "OK" or not brut or not brut[0]:
                     continue
                 info = extraire(email.message_from_bytes(brut[0][1]))
@@ -136,6 +142,17 @@ def _lire_boite(jours: int = JOURS) -> list:
                     vus.add(info["id"])
                     info["dossier"] = dossier
                     out.append(info)
+            if spam and uids:
+                deplaces = 0
+                for uid in uids:
+                    try:
+                        if boite.uid("MOVE", uid, "INBOX")[0] == "OK":
+                            deplaces += 1
+                    except imaplib.IMAP4.error as erreur:
+                        journal.warning("Bans par mail : déplacement depuis %s : %s", dossier, erreur)
+                        break
+                if deplaces:
+                    journal.info("Bans par mail : %d mail(s) Meta remis dans la boîte de réception depuis %s", deplaces, dossier)
     return out
 
 
