@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 (nuit) — Un seul !code, jamais les codes sensibles ; premier Reel fêté avec son image ; Telegram sans connecteur
+- **Demandes de Gaëtan** : une seule commande pour créer, se connecter et faire appel, « attention, jamais renvoyer le code pour modifier les informations sensibles », mode d'emploi du salon réécrit sans la ligne de l'adresse masquée ; « Bravo @clippeur pour ton premier Reel » avec la capture du Reel dans #dopamine (idée n° 8 du 30/09) ; les relances WhatsApp à la main par peur du ban ; « Telegram, on peut y aller fort ? ».
+- **Livré** : `!code` pour tout (`!recup` fait pareil), filtre sur le sujet et la phrase qui porte le code, testé sur 17 mails types sans erreur, code sensible jamais relayé et signalé à l'admin ; « déconnecté » ne passe plus par « Mot de passe oublié ». Premier Reel fêté dans #dopamine avec l'image de couverture lue par le scan et le lien, une fois par clipper.
+- **Telegram** : aucun connecteur Telegram n'est branché sur la session. Et « fort » serait une erreur : un compte Telegram qui écrit en masse à des inconnus est restreint aux seuls contacts (signalements pour spam), et un envoi automatisé depuis un compte personnel est contraire aux conditions de Telegram. Recommandation : 20 à 30 messages par jour, personnalisés, depuis un compte ancien, plus des annonces dans les groupes et canaux où les 147 candidatures Telegram sont nées.
+- **Avocat du diable** : bloquer « Mot de passe oublié » renvoie vers Gaëtan chaque clipper qui perd son mot de passe ; c'est le prix de la sécurité des comptes, à mesurer en nombre de messages par semaine.
+- **Prédiction (30/09, revue le 14/10)** : au moins 5 premiers Reels fêtés dans #dopamine d'ici le 14/10 (60 %) ; au plus 2 demandes par semaine « mot de passe perdu » arrivent à Gaëtan (65 %).
+
 ### 2026-09-30 (soir) — « Tous les 15 jours » partout ; dix façons de plus d'avoir des clippers qui publient
 - **Livré** : la fréquence de paie dit « tous les 15 jours » dans le formulaire, les règles d'acceptation, le parcours et la base du bot. Dix idées neuves dans [[Pôle clipping - plus de clippers qui publient plus vite, 10 axes et le lead flow (29 septembre 2026)]] (§ 7) : deuxième téléphone pour les meilleurs, vivier réveillé, relance en un appui, numéro d'abord, preuve sur la page, parrain de démarrage, vidéo de 60 s, premier Reel fêté, retour des sortis, défi des nouveaux.
 - **Prédiction (30/09, revue le 14/10)** : si les n° 1, 2 et 3 sont lancés avant le 07/10, le trafic des liens de clippers sur 7 jours dépasse 9 000 visiteurs la semaine du 07 au 13/10, contre 6 802 le 29/09 (50 %).

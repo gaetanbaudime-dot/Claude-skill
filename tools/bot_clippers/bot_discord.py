@@ -6228,6 +6228,7 @@ async def on_ready():
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e, p=None: parcours.reconcilier(client, e, p),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
+                                  "premier_reel": premier_reel_dopamine,                        # 30/09 : premier Reel fêté
                                   "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         classeur_verif.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_VERIF": DONNEES / "classeur_verif.json",
@@ -6298,6 +6299,33 @@ async def on_ready():
         parrainage.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "parrainage.json",
                                "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                "membre_par_id": membre_par_id, "top_maintenant": parrainage_top_maintenant})
+
+
+async def premier_reel_dopamine(gerant: str, handle: str, dernier: dict):
+    """30/09 (Gaëtan : « Bravo @clippeur pour ton premier Reel, avec le screenshot du Reel ») : dans #dopamine, la mention du
+    clipper et l'image de couverture de son Reel (celle que le scan a lue), le lien du Reel en dessous. Sans image
+    téléchargeable, le message part avec le lien seul."""
+    canal = await canal_par_id(CANAL_DOPAMINE_ID) if CANAL_DOPAMINE_ID else None
+    if canal is None:
+        return
+    membre = membre_par_prenom(normaliser(str(gerant).split()[0]))
+    qui = membre.mention if membre is not None else f"**{str(gerant).split()[0]}**"
+    texte = f"🎉 Bravo {qui} pour ton premier Reel !"
+    if dernier.get("url"):
+        texte += f"\n<{dernier['url']}>"
+    fichier = None
+    if dernier.get("image"):
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
+                async with session.get(dernier["image"]) as r:
+                    if r.status == 200:
+                        data = await r.content.read(8_000_000)
+                        if data:
+                            fichier = discord.File(io.BytesIO(data), filename="premier-reel.jpg")
+        except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
+            journal.info("Premier Reel de %s : image non téléchargée (%s)", gerant, erreur)
+    await canal.send(texte, file=fichier) if fichier else await canal.send(texte)
+    journal.info("Premier Reel fêté dans #dopamine : %s (@%s)", gerant, handle)
 
 
 async def parrainage_top_maintenant() -> tuple:

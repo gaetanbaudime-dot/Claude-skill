@@ -157,6 +157,11 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard mis en forme (28/09, « des couleurs, des groupes, des cards »)** : à chaque écriture, `etats_comptes.requetes_mise_en_forme` recalcule la mise en forme sur les lignes réellement écrites et l'envoie par `google_api.sheets_batch_update` : titre en bandeau sombre, un bloc par créatrice avec son bandeau de couleur (`PALETTE_DASHBOARD`), en-têtes gris, lignes en zébrure, « Créés » en vert quand tout est créé, « À créer » en orange, « BAN » en rouge, « Visites 7 j » en dégradé vert (racine carrée du ratio au maximum), cadre coloré autour de chaque bloc, quadrillage masqué, titre et colonne des prénoms figés, largeurs fixes, aucune fusion (une colonne figée ne se fusionne pas). Une mise en forme qui échoue n'arrête jamais le scan (avertissement dans le journal).
 
+**Premier Reel fêté dans #dopamine (30/09, Gaëtan)** : le scan quotidien (`etats_comptes.scanner`) garde l'image de couverture
+et le lien du dernier Reel des 24 h ; au premier Reel vu pour un Gérant, `premier_reel_dopamine` poste « 🎉 Bravo @clippeur pour
+ton premier Reel ! » dans #dopamine avec l'image et le lien (le lien seul si l'image ne se télécharge pas), une seule fois par
+clipper (`premiers_reels` dans l'état). Au premier passage, ceux qui ont déjà publié sont notés sans message.
+
 **Une seule commande `!code`, jamais les codes sensibles (30/09, Gaëtan)** : `!code` donne le code pour créer un compte, se
 connecter ou faire appel après un ban (fenêtre de 15 minutes dans #🔐-code-instagram, 2 h dans un salon perso) ; `!recup`,
 `!appel`, `!unban` font exactement la même chose. `codes_2fa.est_sensible` lit le sujet et le mail jusqu'à la fin de la phrase

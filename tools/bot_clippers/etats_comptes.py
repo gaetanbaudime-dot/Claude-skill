@@ -115,6 +115,9 @@ async def scanner(handles: list) -> dict:
                 continue
             if quand >= limite:
                 fiche["posts"] += 1
+                if not fiche.get("dernier") or str(post.get("timestamp")) > fiche["dernier"].get("quand", ""):
+                    fiche["dernier"] = {"image": post.get("displayUrl") or "", "url": post.get("url") or "",   # 30/09 : premier Reel fêté
+                                        "quand": str(post.get("timestamp") or "")}
                 if RE_FAUTE.search(str(post.get("caption") or "")):    # 28/09 : lien ou @ dans la légende → ❌
                     fiche["fautes"] += 1
     return out
@@ -224,6 +227,30 @@ async def executer(ecrire: bool = True) -> dict:
                     d["bans_auto"][h] = jour
                 elif h in d["bans_auto"]:
                     d["bans_auto"].pop(h, None)
+    # 30/09 (Gaëtan : « Bravo @clippeur pour ton premier Reel, avec le screenshot du Reel, dans #dopamine ») : le premier
+    # Reel vu par le scan pour un Gérant part dans #dopamine, une seule fois. Au premier passage, ceux qui ont déjà publié
+    # sont notés sans message.
+    fetes = d.setdefault("premiers_reels", {})
+    premier_passage = not d.get("premiers_reels_init")
+    for c in lignes:
+        g = _norm(c.get("gerant") or "").split(" ")[0] if c.get("gerant") else ""
+        if not g or g in ("x", "y", "z", "aaa", "?", "-", "libre", "dispo") or g in fetes:
+            continue
+        h = c["handle"].lower()
+        m = mesures.get(h) or {}
+        deja = any(int(e.get("posts") or 0) > 0 for e in d["historique"].get(h, []) if e.get("jour") != jour)
+        if premier_passage and (deja or m.get("posts")):
+            fetes[g] = jour
+            continue
+        if m.get("existe") and m.get("posts") and not deja:
+            fetes[g] = jour
+            if ecrire and _deps.get("premier_reel"):
+                try:
+                    await _deps["premier_reel"](c["gerant"], c["handle"], m.get("dernier") or {})
+                except Exception as erreur:                              # noqa: BLE001
+                    journal.warning("Premier Reel de %s : %s", c["gerant"], erreur)
+    if premier_passage:
+        d["premiers_reels_init"] = jour
     # 26/09 : tableau de bord — pour chaque ligne qui a un Gérant, ses visites payables des 7 derniers jours
     # (le lien GAML de la ligne est tenu par onboarding.liens_classeur depuis le 27/09 : un lien par créatrice)
     if ecrire and _deps.get("clics_7j"):
