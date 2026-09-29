@@ -22,6 +22,10 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 (soir) — « Tous les 15 jours » partout ; dix façons de plus d'avoir des clippers qui publient
+- **Livré** : la fréquence de paie dit « tous les 15 jours » dans le formulaire, les règles d'acceptation, le parcours et la base du bot. Dix idées neuves dans [[Pôle clipping - plus de clippers qui publient plus vite, 10 axes et le lead flow (29 septembre 2026)]] (§ 7) : deuxième téléphone pour les meilleurs, vivier réveillé, relance en un appui, numéro d'abord, preuve sur la page, parrain de démarrage, vidéo de 60 s, premier Reel fêté, retour des sortis, défi des nouveaux.
+- **Prédiction (30/09, revue le 14/10)** : si les n° 1, 2 et 3 sont lancés avant le 07/10, le trafic des liens de clippers sur 7 jours dépasse 9 000 visiteurs la semaine du 07 au 13/10, contre 6 802 le 29/09 (50 %).
+
 ### 2026-09-30 — Averti à 3 jours sans Reel, sorti à 7
 - **Décision de Gaëtan** : GO sur ma recommandation (avertissement automatique à 3 jours, sortie à 7) plutôt qu'une sortie sèche à 3 jours, qui aurait sorti des clippers les jours où le scan rate.
 - **Livré** : la sortie automatique compte désormais depuis la dernière publication, et non plus « jamais publié depuis 14 jours » (la règle d'avant laissait en place un clipper qui publiait une semaine puis s'arrêtait). Message dans le salon à 3 jours avec la date de sortie, sortie à 7 avec au moins 5 jours de scan dans le silence ; compteur parti du 30/09 pour tout le monde : premiers avertissements le 03/10, premières sorties possibles le 07/10. Règle 5 alignée partout : « 3 jours sans publier = avertissement, 7 jours = licenciement ».

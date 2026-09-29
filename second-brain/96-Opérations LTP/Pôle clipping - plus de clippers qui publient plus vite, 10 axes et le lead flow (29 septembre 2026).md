@@ -122,4 +122,23 @@ Lecture : **deux, peut-être trois des cinq meilleurs viennent d'Indeed**, et Ca
 
 Un vert sur trois : **on ne double pas encore**. Le premier déclencheur à reverdir est le premier Reel : dix clippers du Dashboard n'ont créé aucun compte.
 
+## 7. Dix façons de plus (30/09)
+
+Demande de Gaëtan : « encore 10 façons d'augmenter mon nombre de clippers qui créent et publient des comptes IG ». Aucune ne refait les axes du 29/09 ni les quarante idées des 26-28/09. Chiffres de départ : 5 liens font 73 % du trafic, 10 clippers sur 29 n'ont créé aucun compte, 31 % des validés publient, environ 420 anciens candidats jamais arrivés au bout, 28 clippers livrables en comptes.
+
+| # | Idée | Ce que ça change | Coût | Statut |
+|---|---|---|---|---|
+| 1 | **Un deuxième téléphone pour les meilleurs** : à 1 500 visites sur 15 jours, le bot propose 3 comptes de plus | Plus de comptes chez ceux qui convertissent déjà ; le plus gros levier de trafic | 2 h de bot, comptes déjà livrables | Probable |
+| 2 | **Réveiller le vivier** : les ~420 anciens candidats reçoivent le nouveau lien (formation et quizz sur place) | Des candidats déjà intéressés, zéro coût d'annonce | 1 h de Rianah par 100 messages | Probable |
+| 3 | **Relance en un appui** : chaque matin, la liste des formulaires sans quizz réussi depuis 24 h, avec un lien WhatsApp au message prérempli | Récupère ceux qui ont quitté la page formation | 1 h de bot, 5 min par jour | Probable |
+| 4 | **Le numéro d'abord** : le formulaire enregistre prénom et WhatsApp dès le premier écran | 41 formulaires ouverts sans envoi en deux jours deviennent relançables | 2 h de bot | Probable |
+| 5 | **La preuve sur la page** : « le top 5 de la semaine a gagné X $ », tiré de GAML, prénoms seuls | Plus de formulaires envoyés (40 % aujourd'hui) | 1 h de bot | Spéculatif |
+| 6 | **Un parrain de démarrage** : chaque nouveau reçoit un clipper du top 10, payé 3 $ quand son filleul publie son premier Reel sous 7 jours | Un humain pour le passage « compte créé → premier Reel » | 2 h de bot + 3 $ par activation | Spéculatif |
+| 7 | **La vidéo de 60 secondes « créer le compte 1 »** dans l'étape 1 du parcours | La création de compte, là où 10 clippers sur 29 bloquent | 20 min de Gaëtan | Probable |
+| 8 | **Le premier Reel fêté** : message automatique dans #dopamine au premier Reel vu par le scan | Reconnaissance sans prime (la prime J7 a été refusée) | 30 min de bot | Spéculatif |
+| 9 | **Le retour des sortis** : 14 jours après une sortie automatique, un message « tu peux revenir », comptes neufs | Des clippers déjà formés, sans formation ni quizz | 1 h de bot | Spéculatif |
+| 10 | **Le défi des nouveaux** : premier arrivé du mois à 1 000 visites en 14 jours = 20 $ | Une course visible, un seul paiement | 1 h de bot + 20 $ par mois | Spéculatif |
+
+Hors liste, toujours en attente et plus rentables que la plupart : l'axe 2 (supprimer le test de montage, le clipper ne monte plus) et l'axe 9 (Indeed relancé, source mesurée par lien d'annonce). Ordre recommandé : 1, 2 et 3 cette semaine, puis 4 et 7 ; 5, 6, 8, 9, 10 après la mesure du 06/10. Avocat du diable : le n° 1 concentre le risque sur quelques téléphones (un ban en cascade coûte six comptes au lieu de trois) ; le n° 2 par WhatsApp en masse expose le numéro de Gaëtan au signalement pour spam : listes de diffusion par lots, jamais un envoi groupé à des inconnus.
+
 Le cadre : [[Goulot de l'agence - l'équation du scale]] (clippers productifs × subs par clipper × € par sub, recruter en dernier) et la [[Théorie des contraintes]]. Les quarante idées précédentes : [[Process clippers - 10 automatisations de plus (28 septembre 2026, soir)]] et [[Bilan des 20 simplifications - fait, plus besoin, à faire (27 septembre 2026)]]. La règle de paie : [[Podcast Open Source - le clipping vu par un studio SaaS, ce qu'on en tire (28 septembre 2026)]]. Les annonces : [[Recrutement clippers - annonces et formulaire]]. Décision et prédiction dans le [[Journal de coaching]] ; le hub : [[LTP Models]].
