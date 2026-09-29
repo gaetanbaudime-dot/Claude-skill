@@ -6,6 +6,8 @@ Remplace Google Forms + Apps Script + la liaison par téléphone :
                       scopes identify + guilds.join) qui porte l'identifiant de candidature ; le bot
                       ajoute lui-même le candidat au serveur, déjà relié à ses réponses (100 %).
   /quiz               le quiz, servi ici (quiz.json), score renvoyé directement au bot.
+  /formation          29/09 (Gaëtan, GO axe 1) : juste après le formulaire, la vidéo et le quiz sur place ; l'invitation
+                      Discord ne s'affiche qu'au quiz réussi (QUIZ_AVANT_DISCORD=0 rend l'ancien ordre).
   /health             état du service (pour Railway et pour Claude).
 
 Tout est derrière WEB_ACTIVER=1 (défaut : actif si DISCORD_CLIENT_ID et DISCORD_CLIENT_SECRET sont
@@ -40,6 +42,10 @@ DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "").strip()
 WEB_SECRET = os.environ.get("WEB_SECRET", "").strip() or DISCORD_CLIENT_SECRET
 QUIZ_SEUIL = int(os.environ.get("QUIZ_SEUIL", "30") or 30)   # 24/09 : 27 → 30
 QUIZ_ESSAIS_MAX = int(os.environ.get("QUIZ_ESSAIS_MAX", "2") or 2)
+QUIZ_CYCLE_H = int(os.environ.get("QUIZ_CYCLE_H", "24") or 24)          # deux échecs → deux nouveaux essais 24 h plus tard
+# 29/09 (Gaëtan, GO axe 1) : le pic de motivation, c'est la seconde où il envoie le formulaire. La formation et le quiz se
+# passent là, sur le site ; Discord n'arrive qu'au quiz réussi, avec le test de montage qui l'y attend.
+QUIZ_AVANT_DISCORD = os.environ.get("QUIZ_AVANT_DISCORD", "1").strip() != "0"
 GUILD_ID = os.environ.get("GUILD_ID", "").strip()
 FICHIER_QUESTIONS = DOSSIER / "questions_candidature.json"
 FICHIER_QUIZ = DOSSIER / "quiz.json"
@@ -83,6 +89,18 @@ def lien_quiz(uid) -> str:
 
 def lien_candidature() -> str:
     return f"{WEB_URL_PUBLIQUE}/candidature" if (actif() and WEB_URL_PUBLIQUE) else ""
+
+
+def lien_parrainage(uid) -> str:
+    """29/09 (GO axe 8) : le lien du formulaire propre à un clipper ; la candidature envoyée par ce lien porte son parrain, et
+    le parrainage s'enregistre tout seul à l'arrivée du filleul sur Discord (plus de `!parrain` à taper)."""
+    base = lien_candidature()
+    return f"{base}?p={jeton('p' + str(uid))}" if base else ""
+
+
+def _parrain_depuis(param: str) -> str:
+    valeur = verifier_jeton((param or "").strip())
+    return valeur[1:] if valeur and valeur.startswith("p") and valeur[1:].isdigit() else ""
 
 
 # ------------------------------------------------------------------ HTML
@@ -174,13 +192,14 @@ def _intro_html(intro) -> str:
     return "".join(out)
 
 
-def _formulaire(valeurs=None, erreur: str = "") -> web.Response:
+def _formulaire(valeurs=None, erreur: str = "", parrain: str = "") -> web.Response:
     cfg = _questions(); valeurs = valeurs or {}
     champs = "".join(_champ(q, valeurs.get(q["id"], "")) for q in cfg["questions"])
     err = f"<div class='e'>{html.escape(erreur)}</div>" if erreur else ""
     corps = (f"<h1>{html.escape(cfg.get('titre', 'Candidature'))}</h1>{_intro_html(cfg.get('intro', ''))}{err}"
              f"<form method='post' action='/candidature' autocomplete='on'>"
-             f"<input class='hp' type='text' name='site_web' tabindex='-1' autocomplete='off'>{champs}"
+             f"<input class='hp' type='text' name='site_web' tabindex='-1' autocomplete='off'>"
+             + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "") + f"{champs}"
              f"<button class='b' type='submit'>Envoyer ma candidature</button></form>")
     return _page(cfg.get("titre", "Candidature"), corps)
 
@@ -201,7 +220,8 @@ def _rafale(ip: str, max_par_heure: int = 6) -> bool:
 
 
 async def get_candidature(request):
-    return _formulaire()
+    p = request.query.get("p", "")
+    return _formulaire(parrain=p if _parrain_depuis(p) else "")
 
 
 async def post_candidature(request):
@@ -209,7 +229,7 @@ async def post_candidature(request):
     if data.get("site_web"):                                   # pot de miel : un robot a rempli le champ caché
         return _page("Merci", "<h1>Merci</h1><p>Candidature reçue.</p>")
     if _rafale(_ip(request)):
-        return _formulaire(dict(data), "Trop de tentatives depuis ta connexion. Réessaie dans une heure.")
+        return _formulaire(dict(data), "Trop de tentatives depuis ta connexion. Réessaie dans une heure.", data.get("p", ""))
     cfg = _questions()
     reponses, manquants = {}, []
     for q in cfg["questions"]:
@@ -220,7 +240,7 @@ async def post_candidature(request):
             manquants.append(q["label"])
         reponses[q["id"]] = val[:2000]
     if manquants:
-        return _formulaire(reponses, "Il manque : " + " · ".join(m[:60] for m in manquants[:4]))
+        return _formulaire(reponses, "Il manque : " + " · ".join(m[:60] for m in manquants[:4]), data.get("p", ""))
     # Mineurs : non négociable. On ne stocke rien.
     try:
         age = int(re.sub(r"\D", "", reponses.get("age", ""))[:3] or 0)
@@ -232,7 +252,7 @@ async def post_candidature(request):
     tel = _deps["tel_selon_pays"](reponses.get("whatsapp", ""), reponses.get("pays", ""))
     if not tel:
         return _formulaire(reponses, "Le numéro WhatsApp n'est pas lisible : écris-le avec l'indicatif, "
-                                     "par exemple +261 34 12 345 67 ou +229 01 23 45 67.")
+                                     "par exemple +261 34 12 345 67 ou +229 01 23 45 67.", data.get("p", ""))
     cand_id = secrets.token_urlsafe(9)
     maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
@@ -242,9 +262,17 @@ async def post_candidature(request):
                                  "pays": reponses.get("pays", ""), "pseudo": reponses.get("telegram", ""),
                                  "date": maintenant, "id": cand_id, "source": "web",
                                  "reponses": reponses}
+    parrain = _parrain_depuis(data.get("p", ""))
+    if parrain:
+        pipe["candidatures"][tel]["parrain"] = parrain
     pipe.setdefault("candidatures_web", {})[cand_id] = {"tel": tel, "date": maintenant}
     ecrire(fichier, pipe)
-    journal.info("Candidature web %s (%s, …%s)", cand_id, reponses.get("pays", "?"), tel[-4:])
+    journal.info("Candidature web %s (%s, …%s)%s", cand_id, reponses.get("pays", "?"), tel[-4:], " parrainée" if parrain else "")
+    # 29/09 : la sauvegarde dans le classeur passe AVANT l'invitation — depuis l'invitation personnelle du matin, le chemin qui
+    # redirige vers l'invitation sortait de la fonction sans écrire la ligne « Candidatures bot ». En tâche de fond : la page
+    # suivante ne l'attend pas.
+    if _deps.get("journaliser_candidature"):
+        asyncio.create_task(_journaliser(reponses))
     # 29/09 : une invitation personnelle plutôt que l'autorisation Discord (4 candidats sur 5 s'y perdaient).
     invitation = ""
     if _deps.get("invitation_site"):
@@ -257,12 +285,9 @@ async def post_candidature(request):
         pipe = lire(fichier, {"liaisons": {}, "etats": {}})
         pipe.setdefault("candidatures_web", {}).setdefault(cand_id, {"tel": tel, "date": maintenant})["invitation"] = invitation
         ecrire(fichier, pipe)
+        if QUIZ_AVANT_DISCORD and _quiz().get("questions"):
+            raise web.HTTPSeeOther(location=f"/formation?t={jeton(cand_id)}")
         raise web.HTTPSeeOther(location=f"/discord/invitation?t={jeton(cand_id)}")
-    if _deps.get("journaliser_candidature"):                        # sauvegarde dans le classeur (au cas où), sans bloquer
-        try:
-            await _deps["journaliser_candidature"](reponses, "web")
-        except Exception as erreur:                                 # noqa: BLE001
-            journal.warning("Sauvegarde candidature : %s", erreur)
     if not (DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET and WEB_URL_PUBLIQUE):
         # Connexion Discord pas encore configurée : on garde le lien d'invitation classique.
         lien = _deps.get("LIEN_DISCORD", "")
@@ -270,6 +295,13 @@ async def post_candidature(request):
                               "numéro WhatsApp au bot en message privé : il te relie et t'envoie la formation.</p>"
                               + (f"<a class='b' href='{html.escape(lien)}'>Rejoindre le Discord</a>" if lien else ""))
     raise web.HTTPSeeOther(location=f"/discord/connexion?t={jeton(cand_id)}")
+
+
+async def _journaliser(reponses: dict):
+    try:
+        await _deps["journaliser_candidature"](reponses, "web")
+    except Exception as erreur:                                     # noqa: BLE001
+        journal.warning("Sauvegarde candidature : %s", erreur)
 
 
 # ------------------------------------------------------------------ Discord OAuth2
@@ -430,6 +462,142 @@ def _page_bravo(guild_id: str):
                              f"<a class='b' href='{lien_app}'>Ouvrir Discord</a>")
 
 
+# ------------------------------------------------------------------ formation + quiz avant Discord (29/09, GO axe 1)
+def _embed_video(url: str) -> str:
+    """Loom « share » → lecteur intégré ; tout autre lien → bouton qui ouvre la vidéo."""
+    m = re.search(r"loom\.com/(?:share|embed)/([0-9a-f]{16,})", url or "")
+    if m:
+        return (f"<div style='position:relative;padding-bottom:62%;height:0;margin:14px 0;border-radius:12px;overflow:hidden'>"
+                f"<iframe src='https://www.loom.com/embed/{m.group(1)}' frameborder='0' allowfullscreen "
+                f"style='position:absolute;top:0;left:0;width:100%;height:100%'></iframe></div>")
+    return f"<a class='b' href='{html.escape(url)}' target='_blank' rel='noopener'>▶️ Regarder la formation</a>" if url else ""
+
+
+def _fiche_cand(cand_id: str) -> dict:
+    return ((_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}).get("candidatures_web") or {}).get(cand_id)) or {}
+
+
+def _url_discord(cand_id: str) -> str:
+    """L'invitation personnelle si elle existe, sinon la connexion Discord (OAuth) en secours."""
+    return ("/discord/invitation?t=" if _fiche_cand(cand_id).get("invitation") else "/discord/connexion?t=") + jeton(cand_id)
+
+
+def essais_cand(q: dict, maintenant: float = None) -> int:
+    """Essais consommés dans le cycle en cours pour un quiz passé avant Discord : deux échecs → deux nouveaux essais
+    QUIZ_CYCLE_H heures après le dernier."""
+    essais = int((q or {}).get("essais", 0) or 0)
+    if essais >= QUIZ_ESSAIS_MAX:
+        try:
+            age_h = ((maintenant or time.time()) - datetime.fromisoformat(q.get("date", "")).timestamp()) / 3600
+        except (TypeError, ValueError):
+            age_h = 0
+        if age_h >= QUIZ_CYCLE_H:
+            return 0
+    return essais
+
+
+def _attente_cand(q: dict) -> str:
+    try:
+        age_h = (time.time() - datetime.fromisoformat(q.get("date", "")).timestamp()) / 3600
+    except (TypeError, ValueError):
+        age_h = 0
+    heures = max(1, int(QUIZ_CYCLE_H - age_h) + 1)
+    return (f"<p>Tu as utilisé tes {QUIZ_ESSAIS_MAX} essais. <b>Tu peux recommencer dans {heures} h</b>, avec "
+            f"{QUIZ_ESSAIS_MAX} nouveaux essais et ce même lien. D'ici là, revois la vidéo en entier et note les 5 mots-clés "
+            "dans l'ordre.</p>")
+
+
+async def get_formation(request):
+    cand_id = _cand_depuis(request.query.get("t", ""))
+    if not cand_id:
+        return _page("Lien invalide", "<h1>Lien invalide</h1><p>Ce lien est abîmé. Recommence depuis le formulaire, ça prend "
+                                      "deux minutes.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
+    if (_fiche_cand(cand_id).get("quiz") or {}).get("reussi"):
+        raise web.HTTPSeeOther(location=_url_discord(cand_id))
+    journal.info("Site : page formation pour la candidature %s", cand_id)
+    corps = ("<h1>Candidature reçue ✅</h1>"
+             "<p><b>Deux étapes, ici, maintenant :</b> la formation (15 minutes), puis le quiz (10 questions). "
+             "Quiz réussi → tu rejoins le Discord, ton test de montage t'y attend.</p>"
+             + _embed_video(_deps.get("LIEN_VIDEO_FORMATION", ""))
+             + "<p>Regarde-la en entier. <b>Note les 5 mots-clés cachés, dans l'ordre</b> : le quiz les demande.</p>"
+             f"<a class='b' href='/quiz?c={html.escape(jeton(cand_id))}'>J'ai regardé, je passe le quiz</a>"
+             "<p class='aide2'>Pas le temps maintenant ? Garde cette page : le lien reste valable. Tu peux aussi "
+             f"<a href='{html.escape(_url_discord(cand_id))}'>rejoindre le Discord tout de suite</a> : ton salon garde la "
+             "formation et le quiz.</p>" + _secours())
+    return _page("La formation", corps)
+
+
+def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int) -> web.Response:
+    qs = ""
+    for n, q in enumerate(quiz["questions"], 1):
+        if q.get("reponses"):                                           # 28/09 : les mots-clés se tapent, ils ne se cochent pas
+            opts = f"<input type='text' name='q{n}' required autocomplete='off' maxlength='40' placeholder='Un mot'>"
+        else:
+            opts = "".join(f"<label class='o'><input type='radio' name='q{n}' value='{i}' required>{html.escape(c)}</label>"
+                           for i, c in enumerate(q["choix"]))
+        qs += f"<div class='q'><b>{n}. {html.escape(q['q'])}</b>{opts}</div>"
+    seuil, total = quiz_seuil_total()
+    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{total} questions · il faut {seuil} bonnes réponses · "
+             f"essai {essai}/{QUIZ_ESSAIS_MAX}</p>"
+             f"<form method='post' action='/quiz'><input type='hidden' name='{champ}' value='{html.escape(valeur)}'>"
+             f"{qs}<button class='b' type='submit'>Valider mes réponses</button></form>")
+    return _page("Quiz", corps)
+
+
+async def get_quiz_cand(request, cand_id: str):
+    quiz = _quiz()
+    if not quiz.get("questions"):
+        raise web.HTTPSeeOther(location=_url_discord(cand_id))
+    q = _fiche_cand(cand_id).get("quiz") or {}
+    if q.get("reussi"):
+        raise web.HTTPSeeOther(location=_url_discord(cand_id))
+    essais = essais_cand(q)
+    if essais >= QUIZ_ESSAIS_MAX:
+        return _page("Quiz", "<h1>Quiz</h1>" + _attente_cand(q) + f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>"
+                                                                 "Revoir la formation</a>")
+    return _formulaire_quiz(quiz, "c", jeton(cand_id), essais + 1)
+
+
+async def post_quiz_cand(data, cand_id: str):
+    quiz = _quiz()
+    lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
+    pipe = lire(fichier, {"liaisons": {}, "etats": {}})
+    fiche = (pipe.get("candidatures_web") or {}).get(cand_id)
+    if not fiche or not quiz.get("questions"):
+        return _page("Introuvable", "<h1>Candidature introuvable</h1><p>Recommence depuis le formulaire.</p>"
+                                    "<a class='b' href='/candidature'>Refaire le formulaire</a>")
+    ancien = fiche.get("quiz") or {}
+    if ancien.get("reussi"):
+        raise web.HTTPSeeOther(location=_url_discord(cand_id))
+    essais = essais_cand(ancien)
+    if essais >= QUIZ_ESSAIS_MAX:
+        return _page("Quiz", "<h1>Quiz</h1>" + _attente_cand(ancien))
+    score, total, details = noter(quiz, data)
+    seuil, _ = quiz_seuil_total()
+    reussite = score >= seuil
+    fiche["quiz"] = {"score": f"{score} / {total}", "reussi": reussite, "essais": essais + 1, "details": details,
+                     "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    ecrire(fichier, pipe)
+    prenom = (pipe.get("candidatures", {}).get(fiche.get("tel", "")) or {}).get("prenom", "")
+    journal.info("Site : quiz avant Discord %s pour la candidature %s (essai %s)", f"{score}/{total}", cand_id, essais + 1)
+    if _deps.get("quiz_candidat"):                                      # la ligne « Quiz bot » du classeur, en tâche de fond
+        asyncio.create_task(_deps["quiz_candidat"](prenom, f"{score} / {total}", essais + 1, reussite, details))
+    if reussite:
+        return _page("Quiz validé", f"<h1>Bravo, {score}/{total} ✅</h1>"
+                                    "<p><b>Dernière étape : rejoins le Discord.</b> Ton salon perso t'y attend avec ton test de "
+                                    "montage. Appuie sur le bouton, l'appli Discord s'ouvre, puis <b>Accepter l'invitation</b>.</p>"
+                                    "<ol class='regles'><li>Pas encore de compte Discord ? Crée-le quand Discord te le demande "
+                                    "(e-mail + mot de passe), l'invitation s'ouvre juste après.</li>"
+                                    "<li>Une fois sur le serveur, ouvre le salon à ton prénom : tout se passe là.</li></ol>"
+                                    f"<a class='b' href='{html.escape(_url_discord(cand_id))}'>Rejoindre le Discord</a>" + _secours())
+    reste = QUIZ_ESSAIS_MAX - (essais + 1)
+    suite = (f"<p>Il te reste {reste} essai. Revois la vidéo, note les 5 mots-clés dans l'ordre, puis réessaie.</p>"
+             f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>Revoir la formation</a>"
+             f"<p class='aide2'><a href='/quiz?c={html.escape(jeton(cand_id))}'>Repasser le quiz directement</a></p>") if reste > 0 \
+        else _attente_cand(fiche["quiz"])
+    return _page("Quiz", f"<h1>{score}/{total}</h1><p>Il faut {seuil}.</p>" + suite + _secours())
+
+
 # ------------------------------------------------------------------ quiz
 def _quiz() -> dict:
     try:
@@ -470,6 +638,10 @@ def noter(quiz: dict, data) -> tuple:
 
 
 async def get_quiz(request):
+    if request.query.get("c"):                                          # 29/09 : quiz passé avant Discord
+        cand_id = _cand_depuis(request.query.get("c", ""))
+        if cand_id:
+            return await get_quiz_cand(request, cand_id)
     uid = verifier_jeton(request.query.get("t", ""))
     if not uid:
         return _page("Lien invalide", "<h1>Lien invalide</h1><p>Demande ton lien personnel au bot : tape "
@@ -480,20 +652,7 @@ async def get_quiz(request):
     essais = _deps["essais_quiz"](uid)
     if essais >= QUIZ_ESSAIS_MAX:
         return _page("Quiz", "<h1>Quiz</h1>" + _texte_attente(uid))
-    qs = ""
-    for n, q in enumerate(quiz["questions"], 1):
-        if q.get("reponses"):                                           # 28/09 : les mots-clés se tapent, ils ne se cochent pas
-            opts = f"<input type='text' name='q{n}' required autocomplete='off' maxlength='40' placeholder='Un mot'>"
-        else:
-            opts = "".join(f"<label class='o'><input type='radio' name='q{n}' value='{i}' required>{html.escape(c)}</label>"
-                           for i, c in enumerate(q["choix"]))
-        qs += f"<div class='q'><b>{n}. {html.escape(q['q'])}</b>{opts}</div>"
-    seuil, total = quiz_seuil_total()
-    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{total} questions · il faut {seuil} bonnes réponses · "
-             f"essai {essais + 1}/{QUIZ_ESSAIS_MAX}</p>"
-             f"<form method='post' action='/quiz'><input type='hidden' name='t' value='{html.escape(jeton(uid))}'>"
-             f"{qs}<button class='b' type='submit'>Valider mes réponses</button></form>")
-    return _page("Quiz", corps)
+    return _formulaire_quiz(quiz, "t", jeton(uid), essais + 1)
 
 
 def _texte_attente(uid) -> str:
@@ -512,6 +671,12 @@ def _texte_attente(uid) -> str:
 
 async def post_quiz(request):
     data = await request.post()
+    if data.get("c"):                                                   # 29/09 : quiz passé avant Discord
+        cand_id = _cand_depuis(data.get("c", ""))
+        if cand_id:
+            return await post_quiz_cand(data, cand_id)
+        return _page("Lien invalide", "<h1>Lien invalide</h1><p>Recommence depuis le formulaire.</p>"
+                                      "<a class='b' href='/candidature'>Refaire le formulaire</a>")
     uid = verifier_jeton(data.get("t", ""))
     quiz = _quiz()
     if not uid or not quiz.get("questions"):
@@ -546,7 +711,7 @@ def creer_app() -> web.Application:
     app.add_routes([web.get("/", get_racine), web.get("/health", get_health),
                     web.get("/candidature", get_candidature), web.post("/candidature", post_candidature),
                     web.get("/discord/connexion", get_connexion), web.get("/discord/callback", get_callback),
-                    web.get("/discord/invitation", get_invitation),
+                    web.get("/discord/invitation", get_invitation), web.get("/formation", get_formation),
                     web.get("/quiz", get_quiz), web.post("/quiz", post_quiz)])
     return app
 

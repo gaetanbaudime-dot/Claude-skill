@@ -2304,19 +2304,30 @@ async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
     contenu = f"{'QUIZ_OK' if reussite else 'QUIZ_KO'}|{uid}|{score}"
     await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal))
     # 28/09 (Gaëtan : « tant que j'ai un backup dans mon Google Sheets ») : une ligne par essai dans l'onglet « Quiz bot »
-    if SHEET_CANDIDATURES_ID and google_api.actif():
-        try:
-            m = membre_par_id(uid)
-            prenom = prenom_de(m) if m is not None else ""
-            onglet = "Quiz bot"
-            if await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet):
-                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"'{onglet}'!A1",
-                                               [["Date", "Prénom", "Discord", "Score", "Essai", "Réussite", "Mots-clés donnés"]])
-            await google_api.sheets_ajouter(SHEET_CANDIDATURES_ID, f"'{onglet}'!A1",
-                                            [[datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"), prenom, str(uid), score, essai,
-                                              "oui" if reussite else "non", " · ".join(details or [])]])
-        except Exception as erreur:                                        # noqa: BLE001
-            journal.warning("Quiz bot : ligne non écrite dans le classeur pour %s : %s", uid, erreur)
+    m = membre_par_id(uid)
+    await ligne_quiz_bot(prenom_de(m) if m is not None else "", str(uid), score, essai, reussite, details)
+
+
+async def ligne_quiz_bot(prenom: str, discord_id: str, score: str, essai: int, reussite: bool, details=None):
+    """Une ligne par essai dans l'onglet « Quiz bot » du classeur des candidatures. 29/09 : le quiz passé sur le site avant
+    Discord écrit « avant Discord » dans la colonne Discord."""
+    if not (SHEET_CANDIDATURES_ID and google_api.actif()):
+        return
+    try:
+        onglet = "Quiz bot"
+        if await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet):
+            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"'{onglet}'!A1",
+                                           [["Date", "Prénom", "Discord", "Score", "Essai", "Réussite", "Mots-clés donnés"]])
+        await google_api.sheets_ajouter(SHEET_CANDIDATURES_ID, f"'{onglet}'!A1",
+                                        [[datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"), prenom, discord_id, score, essai,
+                                          "oui" if reussite else "non", " · ".join(details or [])]])
+    except Exception as erreur:                                        # noqa: BLE001
+        journal.warning("Quiz bot : ligne non écrite dans le classeur pour %s : %s", prenom or discord_id, erreur)
+
+
+async def quiz_candidat_site(prenom: str, score: str, essai: int, reussite: bool, details=None):
+    """29/09 (GO axe 1) : le quiz passé sur le site juste après le formulaire, avant Discord."""
+    await ligne_quiz_bot(prenom, "avant Discord", score, essai, reussite, details)
 
 
 async def traiter_quiz_webhook(message, silencieux=False):
@@ -6097,7 +6108,8 @@ async def on_ready():
             "essais_quiz": essais_quiz, "traiter_quiz_web": traiter_quiz_web,
             "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD, "WHATSAPP": WHATSAPP_GAETAN_URL,
             "invitation_site": invitation_site, "prochain_essai_quiz": prochain_essai_quiz,         # 29/09
-            "journaliser_candidature": journaliser_candidature_sheet}))
+            "journaliser_candidature": journaliser_candidature_sheet,
+            "LIEN_VIDEO_FORMATION": LIEN_VIDEO_FORMATION, "quiz_candidat": quiz_candidat_site}))      # 29/09 : quiz avant Discord
         deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
                     "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
@@ -6139,7 +6151,8 @@ async def on_ready():
                                  "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,   # 27/09 : premier Reel depuis Apify du classeur
                                  "JOURNAL_PAIEMENTS": JOURNAL_PAIEMENTS, "paie_lire": paie_clics._lire,
                                  "lire_candidatures": lire_candidatures_sheets, "heure_paris": heure_paris,
-                                 "canal_admin": canal_admin, "est_staff": _staff})
+                                 "canal_admin": canal_admin, "est_staff": _staff,
+                                 "disponibles": onboarding.disponibles, "normaliser": normaliser})   # 29/09 : délai et déclencheurs
         client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
         client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
         client.loop.create_task(reels_uniques.boucle(client))                   # TOP 20 de chaque créatrice décliné pour tout son roster (27/09)
@@ -6261,9 +6274,19 @@ async def on_ready():
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
             "salon_perso": salon_perso_de, "primes_parrainage": parrainage.primes_dues,
             "canal_dopamine": lambda: canal_par_id(CANAL_DOPAMINE_ID),   # 28/09 : classement du lundi
-            "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves}))
+            "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves,
+            "apres_classement": lambda uids: parrainage.inviter_top(uids, web_candidature.lien_parrainage, salon_perso_de)}))
         parrainage.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "parrainage.json",
-                               "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+                               "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
+                               "membre_par_id": membre_par_id, "top_maintenant": parrainage_top_maintenant})
+
+
+async def parrainage_top_maintenant() -> tuple:
+    """`!parrain-top` (29/09) : le top 5 des sept derniers jours pleins, comme le classement du lundi, reçoit son lien."""
+    d = paie_clics._lire()
+    uids = paie_clics.top_uids(d, heure_paris().date() - timedelta(days=1))
+    n = await parrainage.inviter_top(uids, web_candidature.lien_parrainage, salon_perso_de)
+    return n, len(uids)
 
 
 async def annoncer_demarrage():
@@ -6399,8 +6422,10 @@ async def on_member_join(member):
     attendu = donnees.get("web_attendus", {}).pop(str(member.id), None)
     ecrire_json(FICHIER_PIPELINE, donnees)
     if attendu:
+        score_site = preparer_arrivee_site(str(member.id), attendu.get("cand", ""), attendu.get("tel", ""))   # 29/09
         await assurer_salon_arrivee(member, accueil=False)             # 27/09 : son salon avant tout ; 28/09 : un seul message, celui de la liaison
         await traiter_liaison(member, attendu.get("tel", ""))
+        await suite_arrivee_site(member, score_site)
         return
     # Porte d'entrée : l'invitation dont le compteur a bougé (cache avant/après). Le cache n'est
     # PAS mis à jour ici : accueillir() refait sa propre lecture pour le parrainage.
@@ -6579,8 +6604,41 @@ async def accueillir_site(member, code, fiche, invitation):
         except (discord.Forbidden, discord.HTTPException):
             pass
     journal.info("Site : %s arrivé par son invitation (candidature %s)", uid, fiche.get("cand"))
+    score_site = preparer_arrivee_site(uid, fiche.get("cand", ""), fiche.get("tel", ""))
     await assurer_salon_arrivee(member, accueil=False)
     await traiter_liaison(member, fiche.get("tel", ""))
+    await suite_arrivee_site(member, score_site)
+
+
+def preparer_arrivee_site(uid: str, cand_id: str, tel: str) -> str:
+    """29/09 (GO axes 1 et 8), avant la liaison : (a) quiz réussi sur le site avant Discord → état « quiz_ok », le message
+    d'arrivée dit « ton test arrive » au lieu de redonner la formation et le quiz ; (b) candidature venue d'un lien de
+    parrainage → le parrainage s'enregistre sans commande. Renvoie le score du quiz du site s'il est réussi, sinon ''."""
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    q = ((pipe.get("candidatures_web") or {}).get(cand_id) or {}).get("quiz") or {}
+    parrain = ((pipe.get("candidatures") or {}).get(tel) or {}).get("parrain", "")
+    if parrain and parrain != str(uid):
+        try:
+            parrainage.enregistrer(parrain, str(uid))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Parrainage automatique %s → %s : %s", parrain, uid, erreur)
+    if not q.get("reussi"):
+        return ""
+    etat = (pipe.get("etats", {}).get(str(uid)) or {}).get("etat", "")
+    if etat in ("test_envoye", "test_rendu", "valide"):                  # déjà plus loin : on ne recule pas
+        return ""
+    pipe.setdefault("etats", {})[str(uid)] = {"etat": "quiz_ok", "score_quiz": q.get("score", ""), "essais_quiz": q.get("essais", 1),
+                                              "date_quiz": q.get("date", ""), "quiz_avant_discord": True}
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    return q.get("score", "") or "ok"
+
+
+async def suite_arrivee_site(member, score_site: str):
+    """Après la liaison : un quiz réussi sur le site déclenche le test de montage, par le même circuit qu'un quiz réussi
+    sur Discord (QUIZ_OK)."""
+    if not score_site:
+        return
+    await traiter_quiz_webhook(_MessageQuizWeb(f"QUIZ_OK|{member.id}|{score_site}", await canal_admin()))
 
 
 async def raccompagner(member, invitation, code):

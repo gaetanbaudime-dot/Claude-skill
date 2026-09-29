@@ -507,6 +507,17 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
     return appels
 
 
+def top_uids(d: dict, hier: date, n: int = 5) -> list:
+    """Les uid des n premiers en visites payées sur les sept jours finissant `hier` (même calcul que le classement)."""
+    debut = hier - timedelta(days=6)
+    par_uid = {}
+    for lid, info in d["liens"].items():
+        if info.get("uid"):
+            par_uid.setdefault(str(info["uid"]), []).append(lid)
+    rangs = [(uid, somme(d, lids, debut, hier)["payes"]) for uid, lids in par_uid.items()]
+    return [uid for uid, v in sorted((r for r in rangs if r[1] > 0), key=lambda r: -r[1])[:n]]
+
+
 def texte_classement(d: dict, nom_de, hier: date, n: int = 5) -> str:
     """28/09 (GO n° 7) : le lundi, dans #dopamine, les cinq premiers en visites payées sur les sept derniers jours. '' si personne."""
     debut = hier - timedelta(days=6)
@@ -626,6 +637,8 @@ async def boucle(client, deps: dict):
                     texte_c = texte_classement(d, prenom_c, maintenant.date() - timedelta(days=1))
                     if canal_c is not None and texte_c:
                         await canal_c.send(texte_c[:1990])
+                    if texte_c and _deps.get("apres_classement"):       # 29/09 (GO axe 8) : le lien de parrainage aux cinq premiers
+                        await _deps["apres_classement"](top_uids(d, maintenant.date() - timedelta(days=1)))
                 except Exception as erreur:                             # noqa: BLE001
                     journal.warning("Classement du lundi : %s", erreur)
                 d["classement"] = aujourdhui

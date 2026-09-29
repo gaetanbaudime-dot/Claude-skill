@@ -11,7 +11,7 @@ liens_forts: ["[[Process clippers - audit complet et 10 automatisations (28 sept
 # Pôle clipping : plus de clippers qui publient plus vite, 10 axes et le lead flow (29 septembre 2026)
 
 > [!tip] Verdict
-> **Non, ne double pas ton lead flow maintenant : ce n'est pas le goulot, et tu l'as probablement déjà doublé ce matin sans poster une annonce.** Sur 100 formulaires envoyés, 93 arrivaient sur la page « Rejoindre le Discord » et **19 seulement** entraient sur Discord (27-28/09) ; l'invitation personnelle livrée ce matin vise 50 % et plus. Derrière, **31 % des validés publient un premier Reel**, et **le classeur ne peut servir que 11 clippers de plus** avant de caler, faute d'e-mails de comptes. Doubler les candidatures (≈ 140 → 280 par mois), c'est **× 2 sur l'entrée d'un tuyau qui fuit à 80 % et qui est bouché au bout**. Réparer le passage Discord (× 2,5) et le premier Reel (31 → 50 %, × 1,6) fait **× 4 sur les mêmes candidats, gratuitement** ; et dès que ça marche, le mur des 11 comptes arrive en deux semaines. L'ordre : **vitesse** (axes 1 à 4), **capacité** (5 et 6), **valeur du candidat** (7 à 9), **garde-fou** (10), **puis** seulement le volume, sur trois déclencheurs chiffrés (§ 4).
+> **Non, ne double pas ton lead flow maintenant : ce n'est pas le goulot, et tu l'as probablement déjà doublé ce matin sans poster une annonce.** Sur 100 formulaires envoyés, 93 arrivaient sur la page « Rejoindre le Discord » et **19 seulement** entraient sur Discord (27-28/09) ; l'invitation personnelle livrée ce matin vise 50 % et plus. Derrière, **31 % des validés publient un premier Reel**. Doubler les candidatures (≈ 140 → 280 par mois), c'est **× 2 sur l'entrée d'un tuyau qui fuit à 80 %**. Réparer le passage Discord (× 2,5) et le premier Reel (31 → 50 %, × 1,6) fait **× 4 sur les mêmes candidats, gratuitement**. (Correction de l'après-midi : le classeur sert **28 clippers**, pas 11 ; des e-mails ont été posés depuis le 28/09, la capacité n'est plus le mur, sauf chez Maddie : § 6.) L'ordre : **vitesse** (axes 1 à 4), **capacité** (5 et 6), **valeur du candidat** (7 à 9), **garde-fou** (10), **puis** seulement le volume, sur trois déclencheurs chiffrés (§ 4).
 
 ## 1. Le tunnel tel qu'il est le 29/09
 
@@ -25,10 +25,10 @@ Les chiffres viennent des journaux du site (27-28/09), du tableau du lundi (25/0
 | « Rejoindre » → sur Discord | 25 → 5 (**20 %**) | **La fuite n° 1**, traitée ce matin (invitation personnelle), à mesurer le 06/10 |
 | Arrivé → quiz tenté sous 24 h | 2 sur 11 (18 %) | Candidat froid : la motivation est retombée entre le formulaire et le salon |
 | Validés → premier Reel | **31 %** (25/09) | **La fuite n° 2** |
-| Comptes livrables (lignes avec e-mail ÷ 3) | **11 clippers** | **Le mur** : 110 lignes sans e-mail (Jade 39, Maddie 37, Clara 29, Sarah 5) |
+| Comptes livrables (lignes avec e-mail ÷ 3) | **28 clippers** (relevé du 29/09 après-midi ; 11 le 27/09) | Plus le mur : 89 lignes « à créer » avec e-mail et sans Gérant ; restent 78 sans e-mail (Maddie 37, Clara 24, Jade 17) |
 | Délai formulaire → premier Reel | **Non mesuré** | La vitesse que tu demandes n'a pas de chiffre |
 
-Le calcul qui tranche la question du lead flow, sur 100 formulaires envoyés : 93 × 20 % ≈ 19 sur Discord ; avec l'invitation personnelle à 50 %, ≈ 46. **La correction de ce matin, si elle tient, vaut × 2,4 sur l'entrée, c'est-à-dire plus que doubler les annonces.** Et chaque candidat en plus qui passe le quiz demande trois comptes que le classeur n'a pas.
+Le calcul qui tranche la question du lead flow, sur 100 formulaires envoyés : 93 × 20 % ≈ 19 sur Discord ; avec l'invitation personnelle à 50 %, ≈ 46. **La correction de ce matin, si elle tient, vaut × 2,4 sur l'entrée, c'est-à-dire plus que doubler les annonces.** Chaque candidat en plus qui passe le quiz demande trois comptes : le classeur en a pour 28 clippers le 29/09.
 
 ## 2. Qui fait vraiment le trafic (GAML, 29/09)
 
@@ -58,7 +58,7 @@ Aucun ne refait les quarante idées des 26-28/09 ; deux reprennent des décision
 
 ### B. Capacité : pouvoir servir les clippers qui arrivent
 
-5. **Les e-mails de comptes : ton « non » du 28/09 est le plafond du pôle.** Onze clippers livrables, c'est la limite physique de tout ce qu'on fait au-dessus ; au rythme des axes 1 à 3, elle tombe en deux semaines. Tu as refusé le domaine à nous et les alias iCloud *faits par toi*. La voie qui respecte ton refus de perdre du temps : **Rianah crée les alias** sur un identifiant iCloud dédié aux comptes de clipping, jamais celui d'une créatrice, 3 minutes l'alias, 30 par séance, **110 lignes en 5 h 30 de VA**, et le bot relaie déjà les codes 2FA depuis la boîte. Commence par Maddie : 37 lignes sans e-mail, et le troisième lien du pôle (3 081 visiteurs en 30 jours) alors qu'elle est à zéro dans l'attribution. Si tu refuses aussi ça, dis-le dans l'ordre d'attribution et arrête de chercher des clippers pour Jade, Maddie et Clara : le pôle tourne à trois créatrices. Il n'y a pas de troisième voie gratuite. Coût : 5 h 30 de Rianah, une fois. Risque : la limite de création d'alias par jour côté Apple (à vérifier, non confirmé) ; un identifiant iCloud unique qui tombe emporte tous les alias (isolation : jamais relié à un compte d'une créatrice). Probable.
+5. **Les e-mails de comptes.** Écrit le matin sur le chiffre du 27/09 (11 clippers livrables) ; le classeur relu l'après-midi en sert **28** (Chloé 3, Sarah 8, Sophie 6, Jade 8, Clara 3, Maddie 0) : le plafond a reculé, il reste chez Maddie et chez Chloé, la créatrice qui convertit le mieux. Tu as refusé le domaine à nous et les alias iCloud *faits par toi*. La voie qui respecte ton refus de perdre du temps : **Rianah crée les alias** sur un identifiant iCloud dédié aux comptes de clipping, jamais celui d'une créatrice, 3 minutes l'alias, 30 par séance, **110 lignes en 5 h 30 de VA**, et le bot relaie déjà les codes 2FA depuis la boîte. Commence par Maddie : 37 lignes sans e-mail, et le troisième lien du pôle (3 081 visiteurs en 30 jours) alors qu'elle est à zéro dans l'attribution. Si tu refuses aussi ça, dis-le dans l'ordre d'attribution et arrête de chercher des clippers pour Jade, Maddie et Clara : le pôle tourne à trois créatrices. Il n'y a pas de troisième voie gratuite. Coût : 5 h 30 de Rianah, une fois. Risque : la limite de création d'alias par jour côté Apple (à vérifier, non confirmé) ; un identifiant iCloud unique qui tombe emporte tous les alias (isolation : jamais relié à un compte d'une créatrice). Probable.
 6. **La matière avant le volume : 20 Reels ne nourrissent pas 70 comptes.** 24 clippers × 3 comptes postent les mêmes TOP 20 déclinés ; en doublant les clippers sans renouveler la matière, tu doubles le contenu dupliqué qu'Instagram sait reconnaître, donc la portée baisse et le risque de BAN monte, compte par compte. Le TOP 20 assisté (n° 10 du 28/09 : le bot classe les meilleurs Reels le 1er et le 15, tu glisses les fichiers en dix minutes) devient une condition du volume, pas un confort. Règle proposée : **un TOP 20 neuf par créatrice et par quinzaine dès que la créatrice a plus de 10 clippers**. Coût : 2 h de bot + 10 min par créatrice par quinzaine. Risque CGU : contenu dupliqué sur comptes multiples, dette déjà écrite ([[Risques légaux et éthiques de l'OFM]]) ; la variation limite la détection, elle ne la supprime pas. Probable.
 
 ### C. La valeur de chaque candidat
@@ -81,7 +81,7 @@ Doubler les candidatures redevient juste quand ce n'est plus le reste qui bloque
 |---|---|---|
 | Arrivés sur Discord / formulaires envoyés | 20 % (27-28/09) | ≥ 50 % deux semaines de suite |
 | Validés → premier Reel | 31 % (25/09) | ≥ 50 % |
-| Clippers livrables (comptes avec e-mail ÷ 3) | 11 | ≥ 2 × les validés du mois |
+| Clippers livrables (comptes avec e-mail ÷ 3) | 28 (29/09 après-midi) | ≥ 2 × les validés du mois |
 
 L'avocat du diable contre ce verdict : le trafic suit une loi de puissance (§ 2), donc chaque candidat en plus est un ticket de plus pour trouver le prochain Josué, et le recrutement coûte presque zéro (annonces gratuites, bot automatique). C'est vrai, et c'est pourquoi le robinet reste ouvert. Mais doubler **maintenant** ne donne pas deux fois plus de tickets : il donne deux fois plus de gens perdus à l'écran de Discord, puis devant « pas encore de compte prêt ». Le jour où les trois déclencheurs sont verts, doubler coûte une annonce par semaine de plus, et ce jour-là c'est la bonne décision.
 
@@ -93,5 +93,33 @@ L'avocat du diable contre ce verdict : le trafic suit une loi de puissance (§ 2
 - **Croire que le volume remplace la matière.** Plus de clippers sur les mêmes 20 Reels, c'est plus de BAN, pas plus de visites.
 
 **Prédiction (29/09, revue le 20/10)** : si les axes 2 et 4 sont en ligne avant le 06/10 et l'axe 1 avant le 13/10, la médiane formulaire → premier Reel des arrivés de la semaine du 13/10 passe sous 96 h (55 %) ; sans e-mails neufs, au moins un clipper validé attend un compte plus de 48 h avant le 20/10 (75 %).
+
+## 6. Mise à jour du 29/09 après-midi : trois GO, les sources du top 5, les déclencheurs
+
+**Décisions de Gaëtan** : GO axe 1 (formation et quiz sur le site juste après le formulaire, l'invitation Discord au quiz réussi), GO axe 4 (délai formulaire → premier Reel mesuré), GO axe 8 (le lien de parrainage aux cinq premiers du classement du lundi) ; axe 7 à lui réexpliquer. Les trois sont codés et en ligne le jour même ; le lundi, `!tableau` affiche le délai et les trois déclencheurs.
+
+**D'où viennent les cinq premiers de la semaine du 21 au 27/09** (Caroline 1 744 visites, Josué 910, Lilian 733, Ckycia 387, Yves 156), lus dans le classeur des candidatures :
+
+| Clipper | Candidature | Source déclarée | Note /8 |
+|---|---|---|---|
+| Caroline | 20/08, France | **Indeed** | 8 |
+| Josué | 08/08 (une première en juin) | Discord (annonces) | 6 |
+| Lilian | 09/08, France | **Indeed** | 7 |
+| Ckycia | Introuvable dans les deux onglets | Hors formulaire (arrivée à la main, probable) | — |
+| Yves | Deux fiches possibles (18/07 Indeed, 22/07 Discord) | Indeed ou Discord | 5 ou 6 |
+
+Lecture : **deux, peut-être trois des cinq meilleurs viennent d'Indeed**, et Caroline, la première, avait la note maximale à la candidature. Or depuis que le site a remplacé le Google Form (24/09), **zéro candidature Indeed** : Telegram 15, publicités 4, Discord 2, et des candidats surtout malgaches et béninois (Madagascar 16, Bénin 12, France 4). Telegram apporte le volume (147 candidatures au total), Indeed a apporté les clippers qui font le trafic (116 candidatures). Et depuis le formulaire à huit champs du 28/09, **la question « où as-tu vu l'annonce ? » n'existe plus** : la source n'est plus mesurée. C'est l'axe 9 en une phrase : **remettre Indeed dans le tuyau et remettre la source dans le lien de chaque annonce**, avant de doubler quoi que ce soit.
+
+**Deux pannes trouvées en lisant le classeur** : depuis l'invitation personnelle du 29/09 au matin, les candidatures ne s'écrivaient plus dans l'onglet « Candidatures bot » (une seule ligne le 29/09, un test) ; corrigé avec l'axe 1. Et 30 à 40 % du trafic GAML des liens de clippers passe par des liens qui n'ont pas de clipper actif dans le Dashboard (Sophie :3, Maddie :2 : 1 240 et 647 visiteurs sur 7 jours, zéro visite payable côté Dashboard) : trafic d'anciens clippers ou d'exclus, ni payé ni suivi, à trancher.
+
+**Où en sont les trois déclencheurs le 29/09** :
+
+| Déclencheur | Valeur | Feu |
+|---|---|---|
+| Formulaire → quiz réussi (depuis l'axe 1 ; avant : formulaire → Discord) | Discord 20 % les 27-28/09 ; quiz : 1 réussite sur 3 essais, environ 25 candidats du site | ❌, à relire le 06/10 avec le nouvel ordre |
+| Validés → premier Reel | 31 % (25/09) ; 9 clippers sur 29 du Dashboard ont publié en 7 jours, 10 n'ont aucun compte créé | ❌ |
+| Clippers livrables | 28, pour un rythme de validés inférieur à 14 par mois (probable) | ✅ |
+
+Un vert sur trois : **on ne double pas encore**. Le premier déclencheur à reverdir est le premier Reel : dix clippers du Dashboard n'ont créé aucun compte.
 
 Le cadre : [[Goulot de l'agence - l'équation du scale]] (clippers productifs × subs par clipper × € par sub, recruter en dernier) et la [[Théorie des contraintes]]. Les quarante idées précédentes : [[Process clippers - 10 automatisations de plus (28 septembre 2026, soir)]] et [[Bilan des 20 simplifications - fait, plus besoin, à faire (27 septembre 2026)]]. La règle de paie : [[Podcast Open Source - le clipping vu par un studio SaaS, ce qu'on en tire (28 septembre 2026)]]. Les annonces : [[Recrutement clippers - annonces et formulaire]]. Décision et prédiction dans le [[Journal de coaching]] ; le hub : [[LTP Models]].

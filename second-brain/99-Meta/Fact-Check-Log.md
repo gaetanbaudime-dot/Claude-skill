@@ -4,6 +4,12 @@ Trace des vérifications WebSearch effectuées pendant le run. Format : page con
 
 ## Vérifications
 
+### Capacité en comptes du pôle clipping (29/09)
+- **Question** : combien de clippers le classeur des logins peut-il servir ?
+- **Sources** : relevé du classeur des logins le 29/09 après-midi (export complet, copie supprimée), contre le chiffre du 27/09 repris le matin dans [[Pôle clipping - plus de clippers qui publient plus vite, 10 axes et le lead flow (29 septembre 2026)]].
+- **Résultat** : **erreur corrigée** — « 11 clippers livrables » (chiffre du 27/09, réutilisé sans relecture) ; le 29/09, **28** (89 lignes « à créer » avec e-mail et sans Gérant ; 78 sans e-mail, dont Maddie 37). Le verdict (ne pas doubler le lead flow) tient, mais le mur n'est plus la capacité : c'est le premier Reel.
+- **Statut** : confirmé. Leçon : un chiffre de capacité se relit le jour même, il bouge à chaque séance d'e-mails.
+
 ### Deux corrections chiffrées sur le patrimoine et le CA (10/08)
 - **Question** : (1) le CA de l'agence est-il de 100 k€/mois ? (2) « 500 000 € placés sur le S&P 500 à 10 %/an = 50 k€/an pour vivre, avenir sécurisé » est-il exact ?
 - **Sources** : correction directe de Gaëtan le 10/08 (« là on est à 60 000 € par mois », 7 k€ de profit par associé en juillet) ; NYU Stern / officialdata.org (S&P 500 : ~10 % nominal, **~6,9-7 % réel** après inflation depuis 1928) ; étude Trinity et sa mise à jour (4 % sur 30 ans ; **3,25-3,5 % sur 40-50 ans**, horizon d'un investisseur de 24 ans).

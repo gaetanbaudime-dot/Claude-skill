@@ -6,7 +6,13 @@ demande. La seule décision de recrutement se lit sur « validés → premier Re
 Sources : classeur des candidatures (candidats), pipeline.json (validation), etats_comptes.json (27/09 : le premier jour où les
 comptes d'un clipper portent au moins une publication, puis 7 jours dont 5 à 2 publications ou plus, comptées par le scan Apify
 quotidien du classeur ; le module inputs_clippers a été retiré le 29/09), paiements.jsonl (`!paiement`) et clics.json
-« paies » (listes `!paie-clics`) pour le premier paiement."""
+« paies » (listes `!paie-clics`) pour le premier paiement.
+
+29/09 (Gaëtan, GO axe 4 et « on est à combien ? ») : deux lignes de plus. Le délai formulaire → premier Reel (médiane et 80 % en
+jours, pour les clippers dont le premier Reel tombe dans la semaine ; formulaire retrouvé par le prénom). Et les trois
+déclencheurs pour doubler le recrutement, sur 14 jours : formulaire → quiz réussi (≥ 30 %, le quiz se passe sur le site avant
+Discord depuis le 29/09 ; formulaire → Discord affiché à côté), validés → premier Reel (≥ 50 %), clippers livrables par le
+classeur ≥ 2 × les validés des 30 derniers jours."""
 
 import asyncio
 import json
@@ -23,7 +29,8 @@ LIBELLES = {"candidats": "Candidats", "valides": "Validés", "premier_reel": "Pr
 
 def configurer(deps: dict):
     """deps : lire_json, ecrire_json, FICHIER (état), FICHIER_PIPELINE, inputs_lire (-> dict), JOURNAL_PAIEMENTS (Path),
-    paie_lire (-> dict clics.json), lire_candidatures (async -> list), heure_paris, canal_admin, est_staff."""
+    paie_lire (-> dict clics.json), lire_candidatures (async -> list), heure_paris, canal_admin, est_staff,
+    disponibles (onboarding, 29/09), normaliser."""
     _deps.update(deps)
 
 
@@ -141,6 +148,72 @@ def premiers_paiements() -> dict:
     return premiers
 
 
+APRES_QUIZ = ("quiz_ok", "test_envoye", "test_rendu", "valide", "refuse", "test_expire")
+SEUIL_QUIZ_PCT, SEUIL_REEL_PCT, FACTEUR_COMPTES = 30, 50, 2
+
+
+def _pct(a: int, b: int) -> int | None:
+    return round(100 * a / b) if b else None
+
+
+def delais_premier_reel(pr: dict, pipe: dict, fen: tuple, debut_scan: date | None) -> list:
+    """Jours entre le formulaire et le premier Reel, pour les clippers dont le premier Reel tombe dans `fen`. Le formulaire est
+    celui du même prénom le plus récent avant le premier Reel ; un formulaire antérieur au début du scan est écarté (son
+    « premier Reel » serait le premier jour du scan, pas le vrai)."""
+    norm = _deps.get("normaliser") or (lambda t: (t or "").strip().lower())
+    par_prenom = {}
+    for c in (pipe.get("candidatures") or {}).values():
+        d, pn = _jour(c.get("date")), norm(str(c.get("prenom") or "").split(" ")[0])
+        if d and pn:
+            par_prenom.setdefault(pn, []).append(d)
+    out = []
+    for clipper, (d0, _) in pr.items():
+        if not (fen[0] <= d0 <= fen[1]):
+            continue
+        avant = [d for d in par_prenom.get(norm(str(clipper).split(" ")[0]), []) if d <= d0]
+        if not avant:
+            continue
+        df = max(avant)
+        if debut_scan and df < debut_scan:
+            continue
+        out.append((d0 - df).days)
+    return sorted(out)
+
+
+def _quantile(valeurs: list, q: float):
+    if not valeurs:
+        return None
+    k = min(len(valeurs) - 1, max(0, int(round(q * (len(valeurs) - 1)))))
+    return valeurs[k]
+
+
+def entonnoir_site(pipe: dict, debut: date, fin: date) -> dict:
+    """Formulaires du site envoyés entre `debut` et `fin` : combien sont arrivés sur Discord (numéro relié), combien ont
+    réussi le quiz (sur le site avant Discord, ou sur Discord)."""
+    uid_de_tel = {str(l.get("tel")): uid for uid, l in (pipe.get("liaisons") or {}).items() if l.get("tel")}
+    etats = pipe.get("etats") or {}
+    n = arrives = quiz = 0
+    for c in (pipe.get("candidatures_web") or {}).values():
+        d = _jour(c.get("date"))
+        if not d or not (debut <= d <= fin):
+            continue
+        n += 1
+        uid = uid_de_tel.get(str(c.get("tel")))
+        arrives += 1 if uid else 0
+        if (c.get("quiz") or {}).get("reussi") or (uid and (etats.get(uid) or {}).get("etat") in APRES_QUIZ):
+            quiz += 1
+    return {"formulaires": n, "discord": arrives, "quiz": quiz}
+
+
+def clippers_livrables(comptes: list) -> int:
+    """Clippers qu'on peut servir aujourd'hui : par créatrice, les lignes livrables (comptes rendus + à créer avec e-mail) ÷ 3."""
+    dispo = _deps.get("disponibles")
+    if not dispo or not comptes:
+        return 0
+    creatrices = sorted({str(c.get("creatrice") or "").strip() for c in comptes if str(c.get("creatrice") or "").strip()})
+    return sum(len(dispo(comptes, cr, 999)) // 3 for cr in creatrices)
+
+
 async def calculer(ref: date = None) -> dict:
     ref = ref or _deps["heure_paris"]().date()
     actuel, precedent = fenetres(ref)
@@ -154,6 +227,7 @@ async def calculer(ref: date = None) -> dict:
     dates_v = [_jour(i.get("validation")) for i in pipe.get("etats", {}).values() if i.get("validation")]
     hist = (_deps["inputs_lire"]() or {}).get("historique", {}) if _deps.get("inputs_lire") else {}
     pr = premiers_reels(hist)
+    etats, comptes = {}, []
     try:                                                                    # 27/09 : le scan Apify du classeur remplace les inputs
         etats = (_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}
         comptes = await _deps["comptes_lire"]() if _deps.get("comptes_lire") else []
@@ -166,9 +240,23 @@ async def calculer(ref: date = None) -> dict:
     dates_7 = [j7 for _, j7 in pr.values() if j7]
     dates_p = list(premiers_paiements().values())
     series = {"candidats": dates_c, "valides": dates_v, "premier_reel": dates_r, "jour7": dates_7, "premier_paiement": dates_p}
+    # 29/09 (GO axe 4) : le délai formulaire → premier Reel, et les trois déclencheurs pour doubler le recrutement
+    jours_scan = [_jour(e.get("jour")) for ent in (etats.get("historique") or {}).values() for e in (ent or []) if e.get("jour")]
+    debut_scan = min((j for j in jours_scan if j), default=None)
+    delais = delais_premier_reel(pr, pipe, actuel, debut_scan)
+    quinze = (precedent[0], actuel[1])
+    try:
+        livrables = clippers_livrables(comptes)
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Tableau de bord, comptes livrables : %s", erreur)
+        livrables = None
+    trente = (actuel[1] - timedelta(days=29), actuel[1])
     return {"actuel": {k: _compter(v, actuel) for k, v in series.items()},
             "precedent": {k: _compter(v, precedent) for k, v in series.items()},
-            "fenetre": actuel, "fenetre_precedente": precedent}
+            "fenetre": actuel, "fenetre_precedente": precedent,
+            "delais": delais, "entonnoir": entonnoir_site(pipe, *quinze),
+            "reel_14": (_compter(dates_r, quinze), _compter(dates_v, quinze)),
+            "livrables": livrables, "valides_30": _compter(dates_v, trente)}
 
 
 def texte(res: dict) -> str:
@@ -179,7 +267,41 @@ def texte(res: dict) -> str:
     conv = f"{a['premier_reel']}/{a['valides']}" if a["valides"] else "—"
     return (f"📊 **Tableau de bord — semaine du {deb.strftime('%d/%m')} au {fin.strftime('%d/%m')}**\n"
             f"{ligne}\n"
-            f"-# Semaine d'avant : {avant} · validés → premier Reel : {conv} · `!tableau` pour le revoir.")
+            f"-# Semaine d'avant : {avant} · validés → premier Reel : {conv} · `!tableau` pour le revoir."
+            + texte_vitesse(res) + texte_declencheurs(res))
+
+
+def texte_vitesse(res: dict) -> str:
+    d = res.get("delais")
+    if d is None:
+        return ""
+    if not d:
+        return "\n⏱️ Délai formulaire → premier Reel : pas encore mesurable cette semaine (aucun premier Reel relié à un formulaire)."
+    return (f"\n⏱️ Délai formulaire → premier Reel : médiane **{_quantile(d, 0.5)} j** · 80 % en {_quantile(d, 0.8)} j ou moins "
+            f"({len(d)} clipper{'s' if len(d) > 1 else ''}) · objectif : médiane ≤ 3 j")
+
+
+def texte_declencheurs(res: dict) -> str:
+    e = res.get("entonnoir")
+    if not e:
+        return ""
+    def feu(ok):
+        return "⚪" if ok is None else ("✅" if ok else "❌")
+    p_quiz, p_disc = _pct(e["quiz"], e["formulaires"]), _pct(e["discord"], e["formulaires"])
+    r, v = res.get("reel_14", (0, 0))
+    p_reel = _pct(r, v)
+    liv, v30 = res.get("livrables"), res.get("valides_30", 0)
+    ok_liv = None if liv is None else liv >= FACTEUR_COMPTES * max(v30, 1)
+    ok_quiz = None if p_quiz is None else p_quiz >= SEUIL_QUIZ_PCT
+    ok_reel = None if p_reel is None else p_reel >= SEUIL_REEL_PCT
+    tous = all(x is True for x in (ok_quiz, ok_reel, ok_liv))
+    return ("\n🚦 **Doubler le recrutement ?** " + ("**oui, les trois sont au vert**" if tous else "pas encore") + " (14 derniers jours)\n"
+            f"{feu(ok_quiz)} Formulaire → quiz réussi : {e['quiz']}/{e['formulaires']}"
+            + (f" ({p_quiz} %)" if p_quiz is not None else "") + f" · cible {SEUIL_QUIZ_PCT} % · arrivés sur Discord : {e['discord']}"
+            + (f" ({p_disc} %)" if p_disc is not None else "") + "\n"
+            f"{feu(ok_reel)} Validés → premier Reel : {r}/{v}" + (f" ({p_reel} %)" if p_reel is not None else "")
+            + f" · cible {SEUIL_REEL_PCT} %\n"
+            f"{feu(ok_liv)} Clippers livrables : {liv if liv is not None else '?'} pour {v30} validés sur 30 j · cible ≥ {FACTEUR_COMPTES} ×")
 
 
 async def envoyer(canal) -> bool:

@@ -4,7 +4,12 @@ Un clipper tape `!parrain @lui` dans son salon perso (ou en MP) : le plus ancien
 le filleul. Le parrain touche PRIME_USD (5 $) une seule fois, le jour où le filleul apparaît sur une liste de paie avec un
 montant : la prime s'ajoute à la ligne du parrain sur la liste de ce jour-là. Rien n'est dit au filleul, rien n'est promis
 avant. État dans DONNEES/parrainage.json : {"filleuls": {uid_filleul: {"parrain", "date", "periode"}}} ; `periode` = la clé
-de la liste de paie qui a porté la prime (vide tant qu'elle n'est pas due). PARRAINAGE=0 éteint la commande."""
+de la liste de paie qui a porté la prime (vide tant qu'elle n'est pas due). PARRAINAGE=0 éteint la commande.
+
+29/09 (Gaëtan, GO axe 8) : le lundi, après le classement de #dopamine, les cinq premiers reçoivent dans leur salon perso un
+message avec LEUR lien du formulaire (au plus une fois tous les PARRAINAGE_TOP_JOURS jours) ; un candidat venu par ce lien
+est enregistré comme filleul tout seul à son arrivée sur Discord (`enregistrer`). Rien n'est dit aux autres clippers.
+État en plus : {"invites_top": {uid: date du dernier message}}."""
 
 import logging
 import os
@@ -14,11 +19,12 @@ journal = logging.getLogger("parrainage")
 ACTIF = os.environ.get("PARRAINAGE", "1").strip() != "0"
 PRIME_USD = float(os.environ.get("PARRAINAGE_PRIME_USD", "5") or 5)
 JOURS_MAX = int(os.environ.get("PARRAINAGE_JOURS_MAX", "30") or 30)     # le filleul est là depuis moins de 30 jours
+TOP_JOURS = int(os.environ.get("PARRAINAGE_TOP_JOURS", "28") or 28)      # un même clipper du top 5 reçoit le message au plus 1 fois / 28 j
 _deps = {}
 
 
 def configurer(deps: dict):
-    """deps : lire_json, ecrire_json, FICHIER, prenom_de, est_staff (membre -> bool)."""
+    """deps : lire_json, ecrire_json, FICHIER, prenom_de, est_staff (membre -> bool), membre_par_id (29/09)."""
     _deps.update(deps)
 
 
@@ -62,10 +68,86 @@ def declarer(auteur, autre, maintenant=None) -> tuple:
                               f"{_prime()} pour {_deps['prenom_de'](parrain)} le jour de la première paie de {_deps['prenom_de'](filleul)}.")
 
 
+def enregistrer(parrain_uid: str, filleul_uid: str, maintenant=None) -> bool:
+    """29/09 : un filleul venu par le lien personnel d'un parrain, enregistré à son arrivée. Un filleul n'a qu'un parrain ;
+    pas de délai à vérifier, il vient d'arriver. True si enregistré."""
+    if not ACTIF or not parrain_uid or not filleul_uid or str(parrain_uid) == str(filleul_uid):
+        return False
+    d = _lire()
+    if str(filleul_uid) in d["filleuls"]:
+        return False
+    maintenant = maintenant or datetime.now(timezone.utc)
+    d["filleuls"][str(filleul_uid)] = {"parrain": str(parrain_uid), "date": maintenant.isoformat(timespec="seconds"),
+                                       "periode": "", "via": "lien"}
+    _ecrire(d)
+    journal.info("Parrainage par lien : %s parraine %s", parrain_uid, filleul_uid)
+    return True
+
+
+def texte_top(prenom: str, lien: str) -> str:
+    """Le message aux cinq premiers du classement du lundi (29/09, à la demande de Gaëtan : court, rien à taper)."""
+    return (f"🏆 {prenom}, tu es dans le top 5 de la semaine.\n\n"
+            "Tu connais quelqu'un de sérieux qui pourrait faire pareil ? Envoie-lui ton lien perso :\n\n"
+            f"{lien}\n\n"
+            f"Il remplit le formulaire, regarde la formation et passe le quiz. Le jour où il touche sa première paie, "
+            f"tu touches **{_prime()}** de plus sur la tienne.\n\n"
+            "Un ami sérieux = une prime. Pas de limite.")
+
+
+def a_inviter(uids: list, maintenant=None) -> list:
+    """Parmi les cinq premiers, ceux qui n'ont pas reçu le message depuis TOP_JOURS jours."""
+    if not ACTIF:
+        return []
+    maintenant = maintenant or datetime.now(timezone.utc)
+    deja = _lire().get("invites_top") or {}
+    out = []
+    for uid in uids:
+        try:
+            if maintenant - datetime.fromisoformat(deja[str(uid)]) < timedelta(days=TOP_JOURS):
+                continue
+        except (KeyError, TypeError, ValueError):
+            pass
+        out.append(str(uid))
+    return out
+
+
+def noter_invite(uid: str, maintenant=None):
+    d = _lire()
+    d.setdefault("invites_top", {})[str(uid)] = (maintenant or datetime.now(timezone.utc)).isoformat(timespec="seconds")
+    _ecrire(d)
+
+
+async def inviter_top(uids: list, lien_de, salon_de) -> int:
+    """Poste le message dans le salon perso de chaque clipper du top 5 à inviter. Renvoie le nombre de messages postés."""
+    n = 0
+    for uid in a_inviter(uids):
+        lien, salon = lien_de(uid), salon_de(uid)
+        if not lien or salon is None:
+            journal.info("Parrainage top 5 : %s sans %s", uid, "lien" if not lien else "salon")
+            continue
+        membre = _deps.get("membre_par_id", lambda _u: None)(uid)
+        prenom = _deps["prenom_de"](membre) if membre is not None else "Bravo"
+        try:
+            await salon.send(texte_top(prenom, lien))
+            noter_invite(uid)
+            n += 1
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Parrainage top 5, message à %s : %s", uid, erreur)
+    return n
+
+
 async def commande(message, texte: str) -> bool:
     """`!parrain @lui` : par l'un ou l'autre des deux, dans son salon perso ou en MP."""
     if not texte.lower().startswith("!parrain"):
         return False
+    if texte.lower().startswith("!parrain-top"):                        # 29/09 : staff, envoie tout de suite au top 5 de la semaine
+        if not (_deps.get("est_staff") and _deps["est_staff"](message.author)) or not _deps.get("top_maintenant"):
+            await message.reply("Commande réservée au staff.")
+            return True
+        n, total = await _deps["top_maintenant"]()
+        await message.reply(f"🏆 Lien de parrainage envoyé à {n} clipper(s) du top {total} de la semaine "
+                            f"(les autres l'ont reçu il y a moins de {TOP_JOURS} jours, ou n'ont pas de salon).")
+        return True
     if not ACTIF:
         await message.reply("Le parrainage n'est pas ouvert pour l'instant.")
         return True
