@@ -4,7 +4,7 @@ Le 29/09, la liste des clippeurs du Discord a sorti des numéros inutilisables :
 Bénin, des numéros malgaches à 8 chiffres au lieu de 9, un numéro béninois sans le « 01 » ajouté en 2024. Chaque numéro
 faux, c'est une relance WhatsApp impossible — et WhatsApp est le canal où ils répondent le plus vite.
 
-`verifier(brut, pays)` → (numéro +E164 ou "", joli format « +229 01 90 90 21 87 », erreur, alerte) :
+`verifier(brut, pays)` → (numéro +E164 ou "", joli format « +229 01 23 45 67 89 », erreur, alerte) :
 - erreur : le numéro n'existe pas (trop court, trop long, indicatif impossible) → le formulaire est réaffiché, rien n'est
   enregistré ;
 - alerte : le numéro existe mais surprend (un autre pays que celui choisi, un fixe) → réaffiché une fois ; s'il renvoie le
