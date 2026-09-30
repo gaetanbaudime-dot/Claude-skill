@@ -334,7 +334,9 @@ async def executer(ecrire: bool = True) -> dict:
         _ecrire(d)
     journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers, %d clics, %d liens mis à jour",
                  len(lignes), len(changements), followers_maj, clics_maj, liens_maj)
-    return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj}
+    avance = onboarding.comptes_d_avance(comptes)                        # 30/09 : comptes à créer sans Gérant, par créatrice
+    return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj,
+            "avance": avance}
 
 
 ONGLET_DASHBOARD = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
@@ -631,8 +633,12 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
     ch = bilan["changements"]
     entete = (f"🗂️ **États du classeur** · {bilan['scannes']} compte(s) regardés sur Instagram · "
               f"{bilan.get('followers', 0)} followers, {bilan.get('clics', 0)} clics 7 j, {bilan.get('liens', 0)} liens GAML mis à jour")
+    avance = bilan.get("avance") or {}
+    if avance:                                                          # 30/09 (Gaëtan) : la capacité d'onboarding en un coup d'œil
+        entete += (f"\n📦 **Comptes d'avance** (à créer, sans Gérant) : {sum(avance.values())} · "
+                   + " · ".join(f"{k} {v}" for k, v in sorted(avance.items(), key=lambda kv: -kv[1])))
     if not ch:
-        return entete + " · aucun état à changer."
+        return entete + "\n· aucun état à changer."
     par_etat = {}
     for handle, gerant, avant, apres, ligne in ch:
         par_etat.setdefault(apres, []).append(f"`{handle}` ({gerant}, était {avant})")

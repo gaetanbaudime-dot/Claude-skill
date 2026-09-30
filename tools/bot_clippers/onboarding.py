@@ -1131,7 +1131,11 @@ def plan_regroupement(lignes: list) -> tuple:
                 g = _norm(nom)
         cle[c["ligne"]] = None if g in GERANTS_LIBRES else g
     ordre = [c["ligne"] for c in lignes]
-    cible, vus = [], set()
+    # 30/09 (Gaëtan : « mets toujours les comptes sans gérant à créer en bas de la feuille, pour voir combien j'ai de comptes d'avance
+    # en capacité d'onboarding ») : ceux-là passent en bas, dans leur ordre (les POD restent groupés)
+    etat_de = {c["ligne"]: _norm(c.get("etat")) for c in lignes}
+    libres = [r for r in ordre if cle[r] is None and etat_de[r] in A_CREER]
+    cible, vus = [], set(libres)
     for r in ordre:
         if r in vus:
             continue
@@ -1141,6 +1145,7 @@ def plan_regroupement(lignes: list) -> tuple:
         for r2 in ordre:
             if r2 not in vus and cle[r2] == cle[r]:
                 cible.append(r2); vus.add(r2)
+    cible += libres
     courant, deplacements = list(ordre), []
     for t, r in enumerate(cible):
         p = courant.index(r)
@@ -1148,6 +1153,15 @@ def plan_regroupement(lignes: list) -> tuple:
             deplacements.append((p, t))
             courant.insert(t, courant.pop(p))
     return noms, deplacements
+
+
+def comptes_d_avance(comptes: list) -> dict:
+    """{créatrice (onglet): comptes à créer sans Gérant} — la capacité d'onboarding (30/09)."""
+    out = {}
+    for c in comptes:
+        if c.get("handle") and _norm(c.get("gerant")) in GERANTS_LIBRES and _norm(c.get("etat")) in A_CREER:
+            out[c["onglet"]] = out.get(c["onglet"], 0) + 1
+    return out
 
 
 async def regrouper_comptes(comptes: list) -> int:
