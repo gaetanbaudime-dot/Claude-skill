@@ -5,7 +5,7 @@ ou "xo", "x", ".", "_" en fin ou en liaison ; pour toutes les créatrices d'un c
 Tout se calcule AU MOMENT, dans le bot, à partir du classeur : rien de ces identifiants ni des pseudos existants n'est écrit
 dans le dépôt (règle de sécurité : jamais de handles ni de mots de passe commités).
   1. Les pseudos de chaque onglet sont découpés en mots (prénom de la créatrice, mots de style connus, et le reste = mots de
-     marque : « callista », « ivanova », « tora », « van »…).
+     marque : le nom de scène et ses variantes, ce qui reste une fois prénom et mots de style retirés).
   2. Des candidats combinent prénom / mots de marque / mots de style, avec une liaison (« », « . », « _ ») et une touche
      finale (« xo », « x », « _ », un nombre) ; jamais un pseudo du classeur, ni son double à la ponctuation près.
   3. Les candidats passent au scan Instagram (Apify, comme les états des comptes) : seuls ceux que le scan ne trouve pas
@@ -84,7 +84,7 @@ def _squash(h: str) -> str:
 def decouper(morceau: str, connus: list) -> list:
     """Découpe « lapetitesarahiva » avec les mots connus : ["la", "petite", "sarah", "iva"]. Programmation dynamique : une
     lettre non reconnue coûte 1, un mot reconnu 0,6 (peu de morceaux), un reste contigu forme un seul mot (mot de marque) ;
-    un mot connu de moins de 3 lettres n'est pris qu'en tête (« la », « le »), sinon « callista » devenait « call » + « i » + « sta »."""
+    un mot connu de moins de 3 lettres n'est pris qu'en tête (« la », « le »), sinon un nom de scène était haché en petits morceaux."""
     n = len(morceau)
     meilleur = [(0.0, [])] + [None] * n                                # (coût, découpage) pour morceau[:i]
     for i in range(n):
@@ -110,7 +110,7 @@ def vocabulaire(handles: list, creatrice: str) -> dict:
     prenoms = variantes_prenom(creatrice)
     avec_prenom = sum(1 for h in handles if any(p in _ascii(h) for p in prenoms))
     part = avec_prenom / len(handles) if handles else 1.0
-    # une créatrice « à prénom » (Chloé, Sarah…) : les mots d'ambiance ne découpent pas ses mots de marque (« ivanova » ≠ « iva » + « nova »)
+    # une créatrice « à prénom » (Chloé, Sarah…) : les mots d'ambiance ne découpent pas ses mots de marque (un nom de scène qui contient « nova » ne doit pas être coupé en deux)
     connus = sorted(set(prenoms) | set(STYLE) | (set(AMBIANCE) if part < 0.6 else set()), key=len, reverse=True)
     marques, style, ambiance = {}, set(), set()
     for h in handles:
@@ -129,7 +129,7 @@ def vocabulaire(handles: list, creatrice: str) -> dict:
                     ambiance.add(mot)
                 elif len(mot) >= 3 and mot not in STYLE:
                     marques[mot] = marques.get(mot, 0) + 1
-    # un mot de marque = vu dans au moins deux pseudos, ou long et distinctif (« callista »)
+    # un mot de marque = vu dans au moins deux pseudos, ou long et distinctif (5 lettres ou plus)
     marques_ok = [m for m, n in sorted(marques.items(), key=lambda kv: -kv[1]) if (n >= 2 or len(m) >= 5) and len(m) <= 10]
     return {"prenoms": prenoms, "marques": marques_ok[:6], "style": sorted(style), "ambiance": sorted(ambiance), "part_prenom": part}
 
