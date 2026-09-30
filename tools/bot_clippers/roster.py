@@ -322,7 +322,7 @@ async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: s
             except Exception as erreur:                                     # noqa: BLE001
                 detail.append(f"liens : {type(erreur).__name__}")
         # 3. Salon perso supprimé (28/09 ; avant : renommé « sorti-prenom ») : celui des fiches, et ceux qui portent son prénom sans homonyme.
-        # 01/10 (Jonas, devenu manageur) : `garder_salons` → aucun salon supprimé
+        # 30/09 (Jonas, devenu manageur) : `garder_salons` → aucun salon supprimé
         for c in ([] if garder_salons else salons_fiche + ([c for c in salons if c not in salons_fiche] if not homonyme else [])):
             nom_c = c.name
             try:

@@ -148,7 +148,7 @@ L'astuce de la vidéo : active la cloche sur les créatrices de la liste. Quand 
 
 L'appli : Edits. C'est le monteur vidéo d'Instagram. Gratuit. Les sous-titres se font tout seuls. Le matin tu prépares tes brouillons. Tu publies dans la journée, un par un.
 
-À faire une seule fois : télécharge les « bases ». C'est le dossier « TOP 20 Reels » de ton Drive : les 20 meilleurs Reels de ta créatrice. Tu ne les publies JAMAIS tels quels : tu modifies toujours chaque vidéo prise dans le Drive, TOP 20 compris (règle de Gaëtan, 01/10). Mets-en quelques-uns dans Edits comme modèles : extrais le son, garde le texte à l'écran, renomme le modèle. Un modèle se réutilise avec tous les rushs de ta créatrice.
+À faire une seule fois : télécharge les « bases ». C'est le dossier « TOP 20 Reels » de ton Drive : les 20 meilleurs Reels de ta créatrice. Tu ne les publies JAMAIS tels quels : tu modifies toujours chaque vidéo prise dans le Drive, TOP 20 compris (règle de Gaëtan, 30/09). Mets-en quelques-uns dans Edits comme modèles : extrais le son, garde le texte à l'écran, renomme le modèle. Un modèle se réutilise avec tous les rushs de ta créatrice.
 
 Pour chaque Reel, 10 minutes au début, 5 minutes après :
 1. Télécharge une vidéo brute depuis le Drive de la créatrice.

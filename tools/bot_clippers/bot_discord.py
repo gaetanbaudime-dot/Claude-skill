@@ -57,7 +57,7 @@ import telegram                           # alerte Telegram de l'agence : accept
 import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
 import classeur_verif                     # le classeur se vérifie seul après le scan : doublons, BAN avec Gérant… (29/09)
-import remplacements                      # comptes BAN d'un clipper remplacés par un dépôt, parcours relancé (01/10)
+import remplacements                      # comptes BAN d'un clipper remplacés par un dépôt, parcours relancé (30/09)
 
 DOSSIER = Path(__file__).parent
 
@@ -373,7 +373,7 @@ Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autr
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
 28. Dates toujours à la française : « le 30/09 », « demain 14 h ». Jamais « 2026-09-30 ». Tout se passe dans le salon perso : jamais « en MP ». Les codes : le clipper tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
 29. « Qui est mon manager ? » : ton manager a le rôle « Manager », il lit ton salon perso ; écris-lui ici. Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager. \
-30. Montage (01/10, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo prise dans le Drive, dossier « Reels » \
+30. Montage (30/09, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo prise dans le Drive, dossier « Reels » \
 ou « TOP 20 Reels », est MODIFIÉE avant d'être publiée, toujours, dès le premier jour : musique, texte à l'écran, filtres, \
 durée, zooms, avec un début le plus accrocheur possible. Tu ne dis JAMAIS qu'on peut publier une vidéo telle quelle."""
 
@@ -6432,7 +6432,7 @@ async def on_ready():
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
-        client.loop.create_task(remplacements.demarrage(client))                # 01/10 : Clarisse, trois comptes neufs
+        client.loop.create_task(remplacements.demarrage(client))                # 30/09 : Clarisse, trois comptes neufs
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
                                      "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
                                      "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id,

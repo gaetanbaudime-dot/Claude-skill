@@ -372,7 +372,7 @@ def _cles_infos(c: dict) -> dict:
 
 
 def infos_brulees(comptes: list) -> dict:
-    """01/10 (Gaëtan : « ON NE RÉUTILISE JAMAIS LES INFOS D'UN COMPTE BAN, on change mdp, username, mail, téléphone ») :
+    """30/09 (Gaëtan : « ON NE RÉUTILISE JAMAIS LES INFOS D'UN COMPTE BAN, on change mdp, username, mail, téléphone ») :
     {info: {valeurs}} de toutes les lignes BAN, tous onglets confondus."""
     out = {}
     for c in comptes:
@@ -398,7 +398,7 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
               and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)
               and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
-    brulees = infos_brulees(comptes)                                    # 01/10 : jamais un compte qui partage une info d'un BAN
+    brulees = infos_brulees(comptes)                                    # 30/09 : jamais un compte qui partage une info d'un BAN
     libres = [c for c in libres if not infos_d_un_ban(c, brulees)]
     # 28/09 (Gaëtan, sortie automatique) : « réattribue comptes et liens au suivant » — les comptes déjà créés et rendus
     # (chauffés, Gérant vidé) partent en premier ; le clipper s'y CONNECTE, le code de connexion arrive dans son salon.
@@ -1111,7 +1111,7 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
             blocs.append(courant)
         for bloc in blocs:
             g = _norm(bloc[0].get("gerant"))
-            if g in GERANTS_LIBRES:                                      # 01/10 : ligne rendue au vivier (réservation expirée,
+            if g in GERANTS_LIBRES:                                      # 30/09 : ligne rendue au vivier (réservation expirée,
                 for c in bloc:                                           # !liberer) → son ancien chiffre part avec le Gérant
                     if str(c.get("clics") or "").strip():
                         ecritures.append((cellule(c, "clics"), [[""]]))

@@ -1,9 +1,9 @@
-"""Comptes BAN d'un clipper remplacés, déposé dans le dépôt (01/10, Gaëtan : « Clarisse, donne-lui de nouveaux comptes »).
+"""Comptes BAN d'un clipper remplacés, déposé dans le dépôt (30/09, Gaëtan : « Clarisse, donne-lui de nouveaux comptes »).
 
 `remplacements_a_appliquer.json` : [{"id", "prenom", "creatrice"}], appliqué une fois au démarrage (trace par id sur le volume) :
 1. ses lignes BAN sont rendues (Gérant vidé ; la ligne reste BAN, rien d'elle n'est jamais réutilisé) ;
 2. des comptes neufs complètent son trio (`onboarding.livrer` : jamais un compte qui partage l'identifiant, le mot de passe,
-   l'e-mail ou le téléphone d'un compte BAN — règle de Gaëtan du 01/10) ;
+   l'e-mail ou le téléphone d'un compte BAN — règle de Gaëtan du 30/09) ;
 3. son parcours repart à l'étape du prochain compte à créer (un compte tous les 48 h), dates remises à zéro, notes gardées.
 Le bilan part au salon admin."""
 import json

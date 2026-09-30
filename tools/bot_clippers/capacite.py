@@ -1,4 +1,4 @@
-"""Onglet « Build capacity » du classeur des logins (01/10, Gaëtan : « une feuille avec mes coefficients d'attribution des
+"""Onglet « Build capacity » du classeur des logins (30/09, Gaëtan : « une feuille avec mes coefficients d'attribution des
 clippeurs et les clippeurs que je peux onboarder avec, pour savoir précisément combien de mails je dois créer pour quelles
 créatrices »).
 

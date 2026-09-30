@@ -205,7 +205,7 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban
             return ""
         if avant_ban in ("WARMUP", "GOOD", "PRIVE"):
             return avant_ban
-        # 01/10 : état d'avant inconnu. Un compte restreint cache ses Reels au scan : « jamais vu publier » ne prouve rien,
+        # 30/09 : état d'avant inconnu. Un compte restreint cache ses Reels au scan : « jamais vu publier » ne prouve rien,
         # et un compte restreint en WARMUP n'en sortirait jamais tout seul → GOOD (le chiffre de Clics dit la vérité)
         return "GOOD" if publie_deja(historique) or mesure.get("restreint") else "WARMUP"
     return ""
@@ -545,7 +545,7 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str,
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Classeur : mise en forme des onglets impossible (%s)", erreur)
     global CAPACITE
-    try:                                                                # 01/10 : l'onglet « Build capacity » suit le Dashboard
+    try:                                                                # 30/09 : l'onglet « Build capacity » suit le Dashboard
         import capacite
         CAPACITE = await capacite.ecrire(comptes)
     except Exception as erreur:                                         # noqa: BLE001
@@ -782,7 +782,7 @@ async def commande_staff(message, texte: str) -> bool:
     if _deps.get("est_staff") and not _deps["est_staff"](message.author):
         await message.reply("Réservé aux managers et aux admins.")
         return True
-    if mots[0].lower() in ("!capacite", "!capacité", "!build-capacity"):  # 01/10 : l'onglet Build capacity seul, sans scan
+    if mots[0].lower() in ("!capacite", "!capacité", "!build-capacity"):  # 30/09 : l'onglet Build capacity seul, sans scan
         import capacite
         try:
             await message.reply(capacite.texte_resume(await capacite.ecrire())[:1990])

@@ -132,7 +132,7 @@ def texte_bio(n: int, bio: str, nom: str = "") -> str:
 
 
 async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None):
-    """01/10 (Gaëtan : « arrête de spammer les clippeurs ») : le profil du compte n en UN message — la photo en pièce jointe
+    """30/09 (Gaëtan : « arrête de spammer les clippeurs ») : le profil du compte n en UN message — la photo en pièce jointe
     (ou le lien du dossier Photos), le nom et la bio prêts à coller, et le bouton `vue`. Renvoie le message envoyé, None sinon."""
     if not ACTIF or salon is None or not creatrice:
         return None

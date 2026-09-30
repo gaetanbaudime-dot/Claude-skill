@@ -34,12 +34,13 @@ ESSAI_REELS = int(os.environ.get("ESSAI_REELS", "5") or 5)
 ESSAI_DEPUIS = os.environ.get("ESSAI_DEPUIS", "2026-09-30").strip()
 TEXTE_ESSAI = ("🎯 **Période d'essai : ton compte 1 seulement.**\n\n"
                "D'abord 24 h de warm-up dessus : regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
-               "Je te dis ici quand il peut publier.")                   # 01/10 : la suite (5 Reels en 72 h) arrive quand elle sert
-# 01/10 (Gaëtan : « arrête de spammer les clippeurs : une information à la fois, au bon moment ; un compte par un compte, on
+               "Je te dis ici quand il peut publier.")                   # 30/09 : la suite (5 Reels en 72 h) arrive quand elle sert
+# 30/09 (Gaëtan : « arrête de spammer les clippeurs : une information à la fois, au bon moment ; un compte par un compte, on
 # distille l'information et on ne la donne que quand il en a réellement besoin ») : chaque compte se fait en trois temps,
 # un message chacun — 1) identifiants et création, bouton « créé » ; 2) photo, nom et bio en UN message, bouton « profil
 # fait » ; 3) une ligne de warm-up. Le compte suivant arrive tout seul 48 h plus tard (la règle des 48 h n'était qu'une
 # phrase : le compte 2 tombait dès le bouton du compte 1), et « il peut publier » arrive 24 h plus tard, avec le Drive.
+DISTILLE_DEPUIS = "2026-09-30T06:40:00+00:00"   # une étape envoyée avant : son profil est déjà parti (ancien déroulé), pas de doublon
 ATTENTE_COMPTE_H = int(os.environ.get("PARCOURS_ATTENTE_COMPTE_H", "48") or 48)
 WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 TEXTE_WARMUP = ("🔥 **Compte {n} : 24 h de warm-up.** Regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
@@ -333,9 +334,10 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
     fiche_p = d.get(str(uid))
     if not fiche_p or int(fiche_p.get("etape", 0)) != int(n):
         return False
-    # 01/10 : compte créé → d'abord son profil (photo, nom, bio en UN message, bouton « profil fait »), rien d'autre ; le
+    # 30/09 : compte créé → d'abord son profil (photo, nom, bio en UN message, bouton « profil fait »), rien d'autre ; le
     # deuxième appui (ou le scan qui voit le compte) ferme l'étape. Un compte rendu par un sortant garde son profil.
-    if n in (1, 2, 3) and not (fiche_p.get("profils") or {}).get(str(n)) and _deps.get("profil_envoyer"):
+    if n in (1, 2, 3) and not (fiche_p.get("profils") or {}).get(str(n)) and _deps.get("profil_envoyer") \
+            and str((fiche_p.get("dates") or {}).get(str(n)) or "9") >= DISTILLE_DEPUIS:
         ctx = await _contexte(getattr(salon, "guild", None), str(uid), fiche_p)
         if not str(ctx.get(f"creation{n}", "")).startswith("Ce compte existe déjà"):
             fiche_p.setdefault("profils", {})[str(n)] = _maintenant()
@@ -377,7 +379,7 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
         _ecrire(d)
         await _suite(salon, f"{membre.mention} " + TEXTE_ESSAI.format(n=ESSAI_REELS))
         return True
-    if n in (1, 2):                                                     # 01/10 : règle des 48 h tenue par le bot
+    if n in (1, 2):                                                     # 30/09 : règle des 48 h tenue par le bot
         quand = maintenant + timedelta(hours=ATTENTE_COMPTE_H)
         d = _lire()
         d[str(uid)]["programme"] = [{"quand": (maintenant + timedelta(hours=WARMUP_H)).isoformat(timespec="seconds"), "type": "publier", "n": n},
@@ -401,7 +403,7 @@ async def _retirer_bouton(salon, mid) -> None:
 
 
 async def programme_du_jour(client, maintenant=None) -> list:
-    """01/10 : les messages programmés qui arrivent à échéance — « ton compte n peut publier » (24 h après sa création) et
+    """30/09 : les messages programmés qui arrivent à échéance — « ton compte n peut publier » (24 h après sa création) et
     l'étape du compte suivant (48 h après). Chaque élément échu est retiré de la fiche AVANT l'envoi (jamais deux fois) ;
     un salon ou un membre introuvable le garde pour le passage suivant. Renvoie [(uid, type, n)] envoyés."""
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -477,7 +479,7 @@ async def boucle(client) -> None:
     while not client.is_closed():
         try:
             try:
-                await programme_du_jour(client)                         # 01/10 : « il peut publier », compte suivant à 48 h
+                await programme_du_jour(client)                         # 30/09 : « il peut publier », compte suivant à 48 h
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Programme du parcours : %s", erreur)
             maintenant = _deps["heure_paris"]()
@@ -654,7 +656,7 @@ def prochaine_etape(salon_id) -> str:
         comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(uid, {}) or {}).get("comptes") or []
         c = {f"compte{i + 1}": (comptes[i] if i < len(comptes) else "…") for i in range(3)}
         a = attente(fiche_p)
-        if a:                                                           # 01/10 : le compte suivant attend ses 48 h
+        if a:                                                           # 30/09 : le compte suivant attend ses 48 h
             return f"ton compte {a[0]} arrive ici le {_date_fr(a[1])}. Tes comptes prêts : 2 Reels par jour après leurs 24 h de warm-up."
         if n == 2 and en_essai(fiche_p):                                # 30/09 : période d'essai
             return (f"publie tes Reels sur `{c['compte1']}` : {ESSAI_REELS} en 72 h, et tes comptes 2 et 3 s'ouvrent.")

@@ -74,7 +74,7 @@ def anomalies(comptes: list, historique: dict | None = None, exclus=None) -> lis
             doublons.append(f"{ref} → " + " + ".join(_etiquette(c) for c in cs) + brule)
     if doublons:
         out.append("• Mail en double : " + " · ".join(sorted(doublons)))
-    # 1 bis. 01/10 (Gaëtan : « ON NE RÉUTILISE JAMAIS LES INFOS D'UN COMPTE BAN, on change mdp, username, mail, téléphone ») :
+    # 1 bis. 30/09 (Gaëtan : « ON NE RÉUTILISE JAMAIS LES INFOS D'UN COMPTE BAN, on change mdp, username, mail, téléphone ») :
     # toute ligne non BAN qui porte l'identifiant, le mot de passe, l'e-mail ou le téléphone d'un compte BAN, tous onglets
     # confondus. Les lignes libres ne sont plus livrées (onboarding.disponibles) ; les comptes en service sont à changer.
     import onboarding                                                   # (import tardif : les tests de ce module s'en passent)
@@ -125,7 +125,7 @@ def anomalies(comptes: list, historique: dict | None = None, exclus=None) -> lis
     # 5. plus de MAX_COMPTES comptes vivants pour un clipper (BAN exclus)
     vivants = {}
     for c in comptes:
-        # 01/10 : « Logs perdus » ne compte pas (Caroline signalée à 4 comptes : 3 utilisables + 1 aux identifiants perdus)
+        # 30/09 : « Logs perdus » ne compte pas (Caroline signalée à 4 comptes : 3 utilisables + 1 aux identifiants perdus)
         if _en_gestion(c) and _n(c.get("etat")) != "ban" and "perdu" not in _n(c.get("etat")) \
                 and _n(_prenom(c)) not in exclus and c.get("handle"):
             cle = (c.get("onglet") or "?", _n(_prenom(c)), _prenom(c))

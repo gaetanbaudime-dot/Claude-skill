@@ -110,7 +110,7 @@ async def commande(message, texte: str) -> bool:
         vides = [c for c in ORDRE if livr.get(c, 0) == 0]
         if vides:
             lignes.append("⚠️ Dans l'ordre mais sans compte livrable : " + ", ".join(vides) + " — ses nouveaux attendront des comptes.")
-    try:                                                                    # 01/10 : l'onglet « Build capacity » suit les coefficients
+    try:                                                                    # 30/09 : l'onglet « Build capacity » suit les coefficients
         import capacite
         lignes.append(capacite.texte_resume(await capacite.ecrire()))
     except Exception as erreur:                                             # noqa: BLE001
