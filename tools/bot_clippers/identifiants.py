@@ -138,7 +138,7 @@ def candidats(vocab: dict, n: int, interdits: set, rng: random.Random) -> list:
     """n pseudos neufs à la marque de la créatrice, valides pour Instagram, jamais dans `interdits` (comparés sans . ni _)."""
     p = vocab["prenoms"][0] if vocab["prenoms"] else ""
     marques = [m for m in vocab["marques"] if m != p]
-    longues = [m for m in marques if len(m) >= 4]                       # « van » seul ne dit rien : il reste collé au prénom
+    longues = [m for m in marques if len(m) >= 4]                       # un mot de marque de 3 lettres seul ne dit rien : il reste collé au prénom
     style = sorted(set(vocab["style"]) | {"club", "diary", "secret", "daily", "mood", "vibes", "room"})
     ambiance = vocab["ambiance"]
     fabriques = []
