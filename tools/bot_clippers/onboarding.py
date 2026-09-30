@@ -1035,89 +1035,77 @@ def _mots(texte: str) -> set:
 
 
 def liens_du_bloc(gerant: str, creatrice: str, liens_cellule: set, details: list) -> list:
-    """Les liens GAML d'un bloc de clipper : ceux de sa colonne « Lien GAML associé », sinon ceux de la créatrice dont la note
-    GAML contient tous les mots du Gérant (« Rianah (Metricool) » → note « Rianah Metricool », « Rianah Metricool 2 »)."""
+    """Les liens GAML d'un bloc de clipper : ceux de sa colonne « Lien GAML associé » PLUS ceux de la créatrice dont la note GAML
+    contient tous les mots du Gérant (30/09 : Lilian a deux liens « Clipping Lilian », /4 et /5 ; le classeur ne portait que /5, le
+    trafic était sur /4). Metricool et Clipping ne se mélangent pas : « Rianah (Metricool) » → notes « Rianah Metricool »,
+    « Rianah » → « Clipping Rianah » seulement."""
     par_url = {_url_cle(d["url"]): d for d in details if d.get("url")}
-    trouves = [par_url[_url_cle(u)] for u in liens_cellule if _url_cle(u) in par_url]
-    if trouves:
-        return trouves
+    trouves = {par_url[_url_cle(u)]["id"]: par_url[_url_cle(u)] for u in liens_cellule if _url_cle(u) in par_url}
     mots = _mots(gerant) - {"clipper", "compte"}
     cr = (_norm(creatrice).split() or [""])[0]
-    if not mots:
-        return []
-    return [d for d in details if mots <= _mots(d.get("note")) and (_norm(d.get("groupe")).split() or [""])[0] == cr]
+    if mots:
+        metricool = "metricool" in mots
+        for d in details:
+            mn = _mots(d.get("note"))
+            if mots <= mn and ("metricool" in mn) == metricool and (_norm(d.get("groupe")).split() or [""])[0] == cr:
+                trouves[d["id"]] = d
+    return list(trouves.values())
 
 
 async def clics_classeur(comptes: list, clics_de=None) -> dict:
     """30/09 (Gaëtan : « associe automatiquement les Clics last 7d avec les clippeurs, comme les liens de tracking à droite ») :
-    un chiffre par bloc de clipper (même Gérant dans un onglet) = les visites payables des 7 derniers jours de SES liens GAML
-    (liens_du_bloc) ; sans lien, l'ancien calcul par prénom (clics_de), sinon la cellule reste vide. Un Gérant fusionné sur
-    plusieurs lignes → le chiffre va dans la première cellule et la colonne Clics est fusionnée pareil. Renvoie
-    {"ecrits": n, "fusions": n}."""
+    un chiffre par clipper et par onglet = les visites payables des 7 derniers jours de TOUS ses liens GAML (liens_du_bloc),
+    écrit UNE fois, sur la ligne du milieu de chaque bloc (lignes qui se suivent avec le même Gérant), les autres lignes du bloc
+    vidées — comme la colonne des liens. Les onglets sont des tableaux Google : pas de cellules fusionnées possibles. Sans lien
+    GAML trouvé : cellule vide (l'ancien calcul par prénom additionnait les liens de toutes les créatrices). Renvoie {"ecrits": n}."""
     if not (actif() and paie_clics.actif()) or not comptes:
-        return {"ecrits": 0, "fusions": 0}
+        return {"ecrits": 0}
     details = await _liens_gaml_details()
     fin = datetime.now(timezone.utc).date() - timedelta(days=1)
     debut = fin - timedelta(days=6)
-    blocs = {}
+    par_onglet = {}
     for c in comptes:
-        g = _norm(c.get("gerant"))
-        if not c.get("handle") or g in GERANTS_LIBRES or not a_colonne("clics", c.get("onglet", "")):
-            continue
-        blocs.setdefault((c["onglet"], g), []).append(c)
-    visites, ecritures, fusions = {}, [], []
-    for (onglet, g), lignes in blocs.items():
-        premier = lignes[0]
-        liens = liens_du_bloc(premier["gerant"], premier.get("creatrice") or onglet,
-                              {str(c.get("lien_gaml") or "").strip() for c in lignes} - {""}, details)
-        if liens:
-            total = 0
-            for d in liens:
-                if d["id"] not in visites:
-                    try:
-                        visites[d["id"]] = await paie_clics.payes_periode(d["id"], debut, fin)
-                    except RuntimeError as erreur:
-                        journal.warning("Clics du lien %s : %s", d.get("url"), erreur)
-                        visites[d["id"]] = 0
-                total += visites[d["id"]]
-            valeur = str(total)
-        else:
-            try:
-                v = clics_de(premier["gerant"]) if clics_de else None
-            except Exception:                                           # noqa: BLE001
-                v = None
-            valeur = "" if v is None else str(v)
-        faits = set()
-        for c in lignes:
-            span = (c.get("fusions") or {}).get("gerant")
-            if span and span[1] > span[0]:
-                if span in faits:
-                    continue
-                faits.add(span)
-                haut = next((x for x in lignes if x["ligne"] == span[0]), c)
-                if valeur != str(haut.get("clics") or "").replace(" ", ""):
-                    ecritures.append((f"{onglet_a1(onglet)}!{lettre('clics', onglet)}{span[0]}", [[valeur]]))
-                if (c.get("fusions") or {}).get("clics") != span:
-                    fusions.append((onglet, span))
-            elif valeur != str(c.get("clics") or "").replace(" ", ""):
-                ecritures.append((cellule(c, "clics"), [[valeur]]))
+        if c.get("handle") and a_colonne("clics", c.get("onglet", "")):
+            par_onglet.setdefault(c["onglet"], []).append(c)
+    visites, valeurs, ecritures = {}, {}, []
+    for onglet, lignes in par_onglet.items():
+        lignes.sort(key=lambda c: c["ligne"])
+        blocs, courant = [], []
+        for c in lignes:                                                 # blocs = lignes qui se suivent avec le même Gérant
+            g = _norm(c.get("gerant"))
+            if courant and (g != _norm(courant[-1].get("gerant")) or c["ligne"] != courant[-1]["ligne"] + 1):
+                blocs.append(courant); courant = []
+            courant.append(c)
+        if courant:
+            blocs.append(courant)
+        for bloc in blocs:
+            g = _norm(bloc[0].get("gerant"))
+            if g in GERANTS_LIBRES:
+                continue
+            cle = (onglet, g)
+            if cle not in valeurs:
+                tous = [c for c in lignes if _norm(c.get("gerant")) == g]
+                liens = liens_du_bloc(bloc[0]["gerant"], bloc[0].get("creatrice") or onglet,
+                                      {str(c.get("lien_gaml") or "").strip() for c in tous} - {""}, details)
+                total = None
+                for d in liens:
+                    if d["id"] not in visites:
+                        try:
+                            visites[d["id"]] = await paie_clics.payes_periode(d["id"], debut, fin)
+                        except RuntimeError as erreur:
+                            journal.warning("Clics du lien %s : %s", d.get("url"), erreur)
+                            visites[d["id"]] = 0
+                    total = (total or 0) + visites[d["id"]]
+                valeurs[cle] = "" if total is None else str(total)
+            milieu = bloc[(len(bloc) - 1) // 2]
+            for c in bloc:
+                voulu = valeurs[cle] if c is milieu else ""
+                if voulu != str(c.get("clics") or "").replace(" ", "").strip():
+                    ecritures.append((cellule(c, "clics"), [[voulu]]))
     if ecritures:
         await google_api.sheets_ecrire_plusieurs(CLASSEUR_LOGINS_ID, ecritures)
-    if fusions:
-        props = await google_api.sheets_proprietes(CLASSEUR_LOGINS_ID)
-        req = []
-        for onglet, (l0, l1) in fusions:
-            sid = (props.get(onglet) or {}).get("id")
-            col = (_colonnes_par_onglet.get(onglet) or {}).get("clics")
-            if sid is None or col is None:
-                continue
-            req.append({"mergeCells": {"mergeType": "MERGE_ALL", "range": {"sheetId": sid, "startRowIndex": l0 - 1, "endRowIndex": l1,
-                                                                          "startColumnIndex": col, "endColumnIndex": col + 1}}})
-        if req:
-            await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, req)
-    if ecritures or fusions:
-        journal.info("Classeur, Clics last 7d. : %d cellule(s), %d fusion(s)", len(ecritures), len(fusions))
-    return {"ecrits": len(ecritures), "fusions": len(fusions)}
+        journal.info("Classeur, Clics last 7d. : %d cellule(s)", len(ecritures))
+    return {"ecrits": len(ecritures)}
 
 
 def texte_liens(bilan: dict) -> str:
