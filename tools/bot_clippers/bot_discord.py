@@ -1954,18 +1954,65 @@ def roles_creatrices(guild) -> list:
             and (normaliser(r.name).strip() in cats or any(normaliser(r.name).strip()[:4] == c[:4] and len(c) >= 4 for c in cats))]
 
 
+def _mots_role(nom: str) -> list:
+    return re.sub(r"[^a-z0-9]+", " ", normaliser(nom or "")).split()
+
+
 def role_creatrice(guild, prenom: str):
-    """Le rôle de cette créatrice : nom identique (accents/casse ignorés), sinon mêmes 4 premières lettres
-    (Maddy ↔ Maddie) s'il n'y a qu'un candidat."""
+    """Le rôle de cette créatrice : nom identique (accents/casse ignorés) ; sinon le même nom sans emoji ni signe
+    (« Chloé 💖 ») ; sinon le prénom en mot entier dans un rôle qui n'est pas un rôle d'équipe (« Team Chloé », le plus
+    court) ; sinon mêmes 4 premières lettres (Maddy ↔ Maddie) s'il n'y a qu'un candidat. 30/09 (Gaëtan : « tu n'ajoutes pas
+    le rôle de la créatrice aux clippeurs qu'on accepte ») : seul le nom exact était reconnu, et l'échec était silencieux."""
     cible = normaliser(prenom or "").strip()
     if not cible:
         return None
-    exact = discord.utils.find(lambda r: normaliser(r.name).strip() == cible and not r.managed, guild.roles)
+    roles = [r for r in guild.roles if not r.managed and r != guild.default_role]
+    exact = discord.utils.find(lambda r: normaliser(r.name).strip() == cible, roles)
     if exact is not None:
         return exact
-    proches = [r for r in guild.roles if not r.managed and r != guild.default_role and len(cible) >= 4
-               and normaliser(r.name).strip()[:4] == cible[:4]]
+    mots_cible = _mots_role(cible)
+    net = [r for r in roles if _mots_role(r.name) == mots_cible]
+    if len(net) == 1:
+        return net[0]
+    equipe = ("manag", "admin", "staff", "chat", "modo", "equipe", "team lead")
+    contient = [r for r in roles if mots_cible and mots_cible[0] in _mots_role(r.name)
+                and not any(x in normaliser(r.name) for x in equipe)]
+    if contient:
+        return min(contient, key=lambda r: len(r.name))
+    proches = [r for r in roles if len(cible) >= 4 and "".join(_mots_role(r.name))[:4] == cible[:4]
+               and not any(x in normaliser(r.name) for x in equipe)]
     return proches[0] if len(proches) == 1 else None
+
+
+async def roles_creatrices_manquants(client) -> list:
+    """30/09 : chaque signé du registre qui a une créatrice reçoit le rôle de cette créatrice s'il ne l'a pas (Mathias : accepté,
+    Chloé attribuée, rôle jamais posé). Renvoie les lignes du bilan : posés, refusés, rôles introuvables."""
+    registre = lire_json(FICHIER_EQUIPES, {})
+    poses, refuses, introuvables = [], {}, set()
+    for uid, fiche in registre.items():
+        creatrice = str(fiche.get("creatrice") or "").strip()
+        m = membre_par_id(uid)
+        if not creatrice or m is None or getattr(m, "bot", False):
+            continue
+        role = role_creatrice(m.guild, creatrice)
+        if role is None:
+            introuvables.add(creatrice)
+            continue
+        if role in m.roles:
+            continue
+        try:
+            await m.add_roles(role, reason=f"Clipper de {creatrice} (rattrapage du rôle créatrice, 30/09)")
+            poses.append(f"{prenom_de(m)} → {role.name}")
+        except (discord.Forbidden, discord.HTTPException):
+            refuses.setdefault(role.name, []).append(prenom_de(m))
+    lignes = []
+    if poses:
+        lignes.append(f"🎭 Rôle de la créatrice posé ({len(poses)}) : " + ", ".join(poses))
+    for nom, qui in refuses.items():
+        lignes.append(f"⚠️ Rôle « {nom} » refusé pour {', '.join(qui)} : dans Réglages → Rôles, monte le rôle du bot AU-DESSUS de « {nom} ».")
+    if introuvables:
+        lignes.append("⚠️ Aucun rôle trouvé pour : " + ", ".join(sorted(introuvables)) + " (crée un rôle à son prénom).")
+    return lignes
 
 
 def categorie_de_creatrice(guild, prenom: str):
@@ -4069,11 +4116,14 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         nom_r, err_r = await attribuer_equipe(g, m_, fiche_c.get("equipe") or "mg", par_id)
         extras.append(f"rôle {nom_r}" if nom_r else f"rôle refusé ({err_r})")
     role_c = role_creatrice(g, creatrice_c)
-    if role_c is not None and role_c not in m_.roles:
+    if role_c is None:                                                  # 30/09 : plus jamais silencieux
+        extras.append(f"⚠️ aucun rôle « {creatrice_c} » sur le serveur")
+    elif role_c not in m_.roles:
         try:
             await m_.add_roles(role_c, reason=f"Clipper de {creatrice_c} ({par_nom})")
+            extras.append(f"rôle {role_c.name}")
         except (discord.Forbidden, discord.HTTPException):
-            extras.append(f"rôle {role_c.name} refusé")
+            extras.append(f"⚠️ rôle {role_c.name} refusé (le rôle du bot doit être AU-DESSUS de « {role_c.name} »)")
     roster.ajouter(creatrice_c, prenom_de(m_))
     if cree_c:
         try:
@@ -6434,6 +6484,19 @@ async def on_ready():
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
         client.loop.create_task(remplacements.demarrage(client))
+
+        async def _roles_au_demarrage():                                # 30/09 : rôle de la créatrice rattrapé pour tous les signés
+            await client.wait_until_ready()
+            await asyncio.sleep(60)
+            try:
+                lignes_r = await roles_creatrices_manquants(client)
+                if lignes_r:
+                    canal_r = await canal_admin()
+                    if canal_r is not None:
+                        await canal_r.send("\n".join(lignes_r)[:1990])
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Rôles des créatrices : %s", erreur)
+        client.loop.create_task(_roles_au_demarrage())
         identifiants.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "identifiants.json",
                                  "scanner": etats_comptes.scanner})                     # 30/09 : 20 identifiants neufs par créatrice                # 30/09 : Clarisse, trois comptes neufs
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
