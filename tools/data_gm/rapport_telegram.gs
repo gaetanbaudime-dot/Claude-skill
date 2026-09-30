@@ -63,8 +63,8 @@ function _nb(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f\
 function _ltv(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") : ""; }
 
 // 30/09 (Gaëtan : « la LTV 30 jours par plateforme, sur la même ligne ») : un petit tableau aligné, 26 caractères, titres de
-// colonnes en première ligne ; chaque ligne en <code> (police à chasse fixe, sans le bouton « copier » d'un bloc <pre>)
-const TETE = `${"".padEnd(4)}${"subs".padStart(6)}${"CA€".padStart(9)}${"LTV€".padStart(7)}`;
+// colonnes en première ligne (le bouton « copier » du bloc Telegram se pose dessus, plus sur un chiffre)
+const TETE = `${"".padEnd(4)}${"subs".padStart(6)}${"CA€".padStart(9)}${"LTV€".padStart(7)}  `;
 function _ligne(libelle, subs, eur, ltv) {
   return `${libelle.padEnd(4)}${String(Math.round(subs)).padStart(6)}${_nb(eur).padStart(9)}${(ltv || "").padStart(7)}`.replace(/\s+$/, "");
 }
@@ -80,11 +80,11 @@ function construireRapport() {
     const L = _lire(ss, nom);
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
     totalHier.tot += h.tot;
-    const lignes = [TETE, "─".repeat(26)];                // 30/09 : un trait sous les titres de colonnes
+    const lignes = [TETE, "┈".repeat(26)];                // 30/09 : un trait fin sous les titres de colonnes
     if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE, _ltv(m.ofE, m.ofS)));
     if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE, _ltv(m.myE, m.myS)));
     lignes.push(_ligne("Hier", h.subs, h.tot));
-    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b> — ${_eur(m.tot)} last 30d\n${lignes.map(l => `<code>${l}</code>`).join("\n")}` });   // 30/09 : <code> par ligne, plus de bloc ni de bouton « copier »
+    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b> — ${_eur(m.tot)} last 30d\n<pre>${lignes.join("\n")}</pre>` });
   });
   blocs.sort((a, b) => b.tot - a.tot);
   const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours ➡️ OF · MYM · LTV\nHier : ${_jour(hier)}\n————————————\n\n`;
