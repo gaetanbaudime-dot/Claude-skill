@@ -263,27 +263,14 @@ async def executer(ecrire: bool = True) -> dict:
                     journal.warning("Premier Reel de %s : %s", c["gerant"], erreur)
     if premier_passage:
         d["premiers_reels_init"] = jour
-    # 26/09 : tableau de bord — pour chaque ligne qui a un Gérant, ses visites payables des 7 derniers jours
-    # (le lien GAML de la ligne est tenu par onboarding.liens_classeur depuis le 27/09 : un lien par créatrice)
-    if ecrire and _deps.get("clics_7j"):
-        cache = {}
-        for c in comptes:
-            g = _norm(c["gerant"])
-            if not c["handle"] or g in ("", "x", "y", "z"):
-                continue
-            if g not in cache:
-                try:
-                    cache[g] = _deps["clics_7j"](c["gerant"])
-                except Exception as erreur:                              # noqa: BLE001
-                    journal.warning("Clics de %s : %s", c["gerant"], erreur)
-                    cache[g] = None
-            clics = cache[g]
-            try:
-                if clics is not None and onboarding.a_colonne("clics", c.get("onglet", "")) and str(clics) != str(c.get("clics", "")).replace(" ", ""):
-                    await _cellule(c, "clics", clics)
-                    clics_maj += 1
-            except Exception as erreur:                                  # noqa: BLE001
-                journal.warning("Classeur : clics de %s non écrits : %s", c["handle"], erreur)
+    # 26/09 : tableau de bord — pour chaque ligne qui a un Gérant, ses visites payables des 7 derniers jours ; 30/09 (Gaëtan :
+    # « associe automatiquement les Clics last 7d avec les clippeurs ») : un chiffre par bloc de clipper, tiré de SES liens GAML
+    # (colonne « Lien GAML associé », sinon la note GAML), écrit une fois et fusionné comme le Gérant (onboarding.clics_classeur)
+    if ecrire:
+        try:
+            clics_maj = (await onboarding.clics_classeur(comptes, _deps.get("clics_7j"))).get("ecrits", 0)
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Classeur : Clics last 7d. non écrits : %s", erreur)
     if ecrire:
         try:
             liens_maj = (await onboarding.liens_classeur(comptes)).get("ecrits", 0)

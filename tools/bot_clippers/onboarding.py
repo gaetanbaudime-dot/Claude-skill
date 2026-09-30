@@ -226,7 +226,40 @@ async def lire_comptes() -> list:
                         "creatrice": champ("creatrice") or ("" if herite else titre), "lien_gaml": champ("lien_gaml"),
                         "pod": champ("pod"), "lien_infloww": champ("lien_infloww"), "lien_mym": champ("lien_mym"),
                         "reels_hier": champ("reels_hier")})
+    await _remplir_fusions(out, titres)
     return _sans_doublons(out)
+
+
+CHAMPS_FUSIONNES = ("gerant", "clics", "lien_gaml", "lien_infloww", "lien_mym", "pod")
+
+
+async def _remplir_fusions(lignes: list, titres: list) -> None:
+    """30/09 (Gaëtan : Gérant, Clics et liens fusionnés par clipper) : dans une fusion l'API ne rend la valeur que dans la
+    première cellule ; chaque ligne du bloc la reçoit, et note l'étendue du bloc (« fusions » : {champ: (1re ligne, dernière)})
+    pour que les écritures visent la bonne cellule. Sans l'API des fusions, rien ne change."""
+    try:
+        fusions = await google_api.sheets_fusions(CLASSEUR_LOGINS_ID)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Fusions du classeur illisibles : %s", erreur)
+        return
+    par_cle = {(c["onglet"], c["ligne"]): c for c in lignes}
+    for titre in titres:
+        cols = _colonnes_par_onglet.get(titre) or {}
+        champ_de = {i: ch for ch, i in cols.items() if ch in CHAMPS_FUSIONNES}
+        for r0, r1, c0, c1 in fusions.get(titre, []):
+            if c1 - c0 != 1 or r1 - r0 < 2 or c0 not in champ_de or r0 < 1:
+                continue
+            champ = champ_de[c0]
+            haut = par_cle.get((titre, r0 + 1))
+            if haut is None:
+                continue
+            for ligne in range(r0 + 1, r1 + 1):
+                c = par_cle.get((titre, ligne))
+                if c is None:
+                    continue
+                if ligne > r0 + 1 and not str(c.get(champ) or "").strip():
+                    c[champ] = haut.get(champ, "")
+                c.setdefault("fusions", {})[champ] = (r0 + 1, r1)
 
 
 STRUCTURE_LOGINS = 1                                                # 30/09 : Reels Hier + Clics à droite du Gérant
@@ -969,6 +1002,122 @@ async def liens_classeur(comptes: list = None) -> dict:
     if ecrits:
         journal.info("Classeur, colonne Lien GAML associé : %d cellule(s) corrigée(s)", ecrits)
     return {"ecrits": ecrits, "groupes": groupes}
+
+
+_details_gaml = {"jour": "", "liens": []}
+
+
+async def _liens_gaml_details() -> list:
+    """[{id, url, note, groupe}] de tous les liens GAML, relus une fois par jour (la liste ne porte ni l'URL ni la note)."""
+    jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if _details_gaml["jour"] == jour and _details_gaml["liens"]:
+        return _details_gaml["liens"]
+    out = []
+    for l in await paie_clics.liens_gaml():
+        if not l.get("id") or l.get("enabled") is False:
+            continue
+        try:
+            det = await paie_clics.lien_detail(l["id"])
+        except RuntimeError:
+            continue
+        out.append({"id": l["id"], "url": str(det.get("url") or ""), "note": str(det.get("note") or ""),
+                    "groupe": str(((det.get("group") or l.get("group") or {}).get("name")) or "")})
+    _details_gaml.update({"jour": jour, "liens": out})
+    return out
+
+
+def _url_cle(url: str) -> str:
+    return re.sub(r"^https?://(www\.)?", "", str(url or "").strip().lower()).rstrip("/")
+
+
+def _mots(texte: str) -> set:
+    return set(re.findall(r"[a-z0-9]+", _norm(texte or "")))
+
+
+def liens_du_bloc(gerant: str, creatrice: str, liens_cellule: set, details: list) -> list:
+    """Les liens GAML d'un bloc de clipper : ceux de sa colonne « Lien GAML associé », sinon ceux de la créatrice dont la note
+    GAML contient tous les mots du Gérant (« Rianah (Metricool) » → note « Rianah Metricool », « Rianah Metricool 2 »)."""
+    par_url = {_url_cle(d["url"]): d for d in details if d.get("url")}
+    trouves = [par_url[_url_cle(u)] for u in liens_cellule if _url_cle(u) in par_url]
+    if trouves:
+        return trouves
+    mots = _mots(gerant) - {"clipper", "compte"}
+    cr = (_norm(creatrice).split() or [""])[0]
+    if not mots:
+        return []
+    return [d for d in details if mots <= _mots(d.get("note")) and (_norm(d.get("groupe")).split() or [""])[0] == cr]
+
+
+async def clics_classeur(comptes: list, clics_de=None) -> dict:
+    """30/09 (Gaëtan : « associe automatiquement les Clics last 7d avec les clippeurs, comme les liens de tracking à droite ») :
+    un chiffre par bloc de clipper (même Gérant dans un onglet) = les visites payables des 7 derniers jours de SES liens GAML
+    (liens_du_bloc) ; sans lien, l'ancien calcul par prénom (clics_de), sinon la cellule reste vide. Un Gérant fusionné sur
+    plusieurs lignes → le chiffre va dans la première cellule et la colonne Clics est fusionnée pareil. Renvoie
+    {"ecrits": n, "fusions": n}."""
+    if not (actif() and paie_clics.actif()) or not comptes:
+        return {"ecrits": 0, "fusions": 0}
+    details = await _liens_gaml_details()
+    fin = datetime.now(timezone.utc).date() - timedelta(days=1)
+    debut = fin - timedelta(days=6)
+    blocs = {}
+    for c in comptes:
+        g = _norm(c.get("gerant"))
+        if not c.get("handle") or g in GERANTS_LIBRES or not a_colonne("clics", c.get("onglet", "")):
+            continue
+        blocs.setdefault((c["onglet"], g), []).append(c)
+    visites, ecritures, fusions = {}, [], []
+    for (onglet, g), lignes in blocs.items():
+        premier = lignes[0]
+        liens = liens_du_bloc(premier["gerant"], premier.get("creatrice") or onglet,
+                              {str(c.get("lien_gaml") or "").strip() for c in lignes} - {""}, details)
+        if liens:
+            total = 0
+            for d in liens:
+                if d["id"] not in visites:
+                    try:
+                        visites[d["id"]] = await paie_clics.payes_periode(d["id"], debut, fin)
+                    except RuntimeError as erreur:
+                        journal.warning("Clics du lien %s : %s", d.get("url"), erreur)
+                        visites[d["id"]] = 0
+                total += visites[d["id"]]
+            valeur = str(total)
+        else:
+            try:
+                v = clics_de(premier["gerant"]) if clics_de else None
+            except Exception:                                           # noqa: BLE001
+                v = None
+            valeur = "" if v is None else str(v)
+        faits = set()
+        for c in lignes:
+            span = (c.get("fusions") or {}).get("gerant")
+            if span and span[1] > span[0]:
+                if span in faits:
+                    continue
+                faits.add(span)
+                haut = next((x for x in lignes if x["ligne"] == span[0]), c)
+                if valeur != str(haut.get("clics") or "").replace(" ", ""):
+                    ecritures.append((f"{onglet_a1(onglet)}!{lettre('clics', onglet)}{span[0]}", [[valeur]]))
+                if (c.get("fusions") or {}).get("clics") != span:
+                    fusions.append((onglet, span))
+            elif valeur != str(c.get("clics") or "").replace(" ", ""):
+                ecritures.append((cellule(c, "clics"), [[valeur]]))
+    if ecritures:
+        await google_api.sheets_ecrire_plusieurs(CLASSEUR_LOGINS_ID, ecritures)
+    if fusions:
+        props = await google_api.sheets_proprietes(CLASSEUR_LOGINS_ID)
+        req = []
+        for onglet, (l0, l1) in fusions:
+            sid = (props.get(onglet) or {}).get("id")
+            col = (_colonnes_par_onglet.get(onglet) or {}).get("clics")
+            if sid is None or col is None:
+                continue
+            req.append({"mergeCells": {"mergeType": "MERGE_ALL", "range": {"sheetId": sid, "startRowIndex": l0 - 1, "endRowIndex": l1,
+                                                                          "startColumnIndex": col, "endColumnIndex": col + 1}}})
+        if req:
+            await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, req)
+    if ecritures or fusions:
+        journal.info("Classeur, Clics last 7d. : %d cellule(s), %d fusion(s)", len(ecritures), len(fusions))
+    return {"ecrits": len(ecritures), "fusions": len(fusions)}
 
 
 def texte_liens(bilan: dict) -> str:

@@ -138,6 +138,15 @@ async def releve(link_id: str, jour: date) -> dict:
     return {"brut": brut, "hors_robots": hors_robots, "payes": payes}
 
 
+async def payes_periode(link_id: str, debut: date, fin: date) -> int:
+    """Visites payables (pays de PAYS_PAYES, robots exclus) d'un lien sur une période, en un appel (30/09 : Clics last 7d. du
+    classeur, bloc par bloc)."""
+    pays = await _requete("GET", "/analytics/countries", params={"link_id": link_id, "range": "custom", "date_from": debut.isoformat(),
+                                                                  "date_to": fin.isoformat(), "timezone": FUSEAU})
+    pays = pays if isinstance(pays, list) else (pays.get("member") or pays.get("data") or [])
+    return sum(int(x.get("count", 0)) for x in pays if str(x.get("country", "")) in PAYS_PAYES)
+
+
 async def cloner_lien(base_id: str, nom: str, note: str) -> dict:
     """Clone un lien GAML (même boutons, même design), le renomme, l'active. Renvoie {id, url}."""
     clone = await _requete("POST", f"/links/{base_id}/clone")

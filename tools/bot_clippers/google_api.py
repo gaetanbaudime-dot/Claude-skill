@@ -310,6 +310,15 @@ async def sheets_proprietes(classeur_id: str) -> dict:
             for s in r.get("sheets", [])}
 
 
+async def sheets_fusions(classeur_id: str) -> dict:
+    """{titre: [(ligne début, ligne fin exclue, colonne début, colonne fin exclue)]} des cellules fusionnées de chaque onglet
+    (index 0). 30/09 : dans une fusion, l'API ne rend la valeur que dans la première cellule."""
+    r = await _appel("GET", f"{SHEETS}/{classeur_id}", params={"fields": "sheets(properties(title),merges)"})
+    return {s["properties"]["title"]: [(m.get("startRowIndex", 0), m.get("endRowIndex", 0), m.get("startColumnIndex", 0),
+                                         m.get("endColumnIndex", 0)) for m in s.get("merges", []) or []]
+            for s in r.get("sheets", [])}
+
+
 async def sheets_onglets_visibles(classeur_id: str) -> list:
     """Les titres des onglets non masqués, dans l'ordre du classeur (27/09 : Gaëtan masque Instagram et Backup, le bot les oublie)."""
     return [t for t, p in (await sheets_proprietes(classeur_id)).items() if not p["masque"]]
