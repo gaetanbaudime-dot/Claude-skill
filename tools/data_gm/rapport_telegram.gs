@@ -2,12 +2,13 @@
  * Pilotage G&M — rapport Telegram quotidien v3 (30/09/2026), pour le classeur « Data G&M Créatrices ».
  * 30/09 (Gaëtan : « une ligne OF, une ligne MYM, une ligne Hier pour chaque créatrice, sauf celles qui n'ont que MYM ; le
  * €/sub n'est pas mesurable comme ça ; sans perturber le formatage, lisible sur téléphone ») : même présentation que le
- * rapport actuel (titre, blocs numérotés, bloc copiable), une créatrice = un titre avec son total 30 jours, puis
- *   OF   :  1049 subs ·  7 411 €     (30 derniers jours, $ convertis en €)
- *   MYM  :  1869 subs · 14 309 €     (30 derniers jours)
- *   Hier :   105 subs ·  1 594 €     (OF + MYM de la veille)
+ * rapport actuel (titre, blocs numérotés, bloc copiable), une créatrice = un titre « Chloé — 23 219 € last 30d », puis
+ *             subs     CA €  LTV €
+ *       OF    1078    7 731   7,17     (30 derniers jours, $ convertis en € ; LTV = CA ÷ abonnés sur 30 jours)
+ *       MYM   1882   15 488   8,23
+ *       Hier   105    1 594            (OF + MYM de la veille)
  * Une plateforme sans aucun abonné ni euro sur 30 jours n'a pas de ligne (Maddy : MYM seul ; Sophie : OF seul).
- * Lignes de 28 caractères : elles tiennent sur un écran de téléphone sans retour à la ligne.
+ * Lignes de 26 à 28 caractères : elles tiennent sur un écran de téléphone sans retour à la ligne.
  *
  * Mise en place (une fois, 3 minutes) : Extensions → Apps Script → remplacer le code par ce fichier → Enregistrer →
  * Paramètres du projet → Propriétés du script : TELEGRAM_TOKEN et TELEGRAM_CHAT_ID (déjà là si vous remplacez l'ancien
@@ -58,8 +59,14 @@ function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f
 function _parSub(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") + " €" : "—"; }
 function _jour(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), "dd/MM"); }
 
-function _ligne(libelle, subs, eur) {                        // 28 caractères, alignés en colonnes
-  return `${libelle.padEnd(4)} : ${String(Math.round(subs)).padStart(5)} subs · ${_eur(eur).padStart(8)}`;
+function _nb(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f\u00a0 ]/g, "\u00a0"); }
+function _ltv(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") : ""; }
+
+// 30/09 (Gaëtan : « la LTV 30 jours par plateforme, sur la même ligne ») : un petit tableau aligné, 26 caractères, titres de
+// colonnes en première ligne (le bouton « copier » du bloc Telegram se pose dessus, plus sur un chiffre)
+const TETE = `${"".padEnd(4)}${"subs".padStart(6)}${"CA €".padStart(9)}${"LTV €".padStart(7)}  `;
+function _ligne(libelle, subs, eur, ltv) {
+  return `${libelle.padEnd(4)}${String(Math.round(subs)).padStart(6)}${_nb(eur).padStart(9)}${(ltv || "").padStart(7)}`.replace(/\s+$/, "");
 }
 
 function construireRapport() {
@@ -73,14 +80,14 @@ function construireRapport() {
     const L = _lire(ss, nom);
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
     totalHier.tot += h.tot;
-    const lignes = [];
-    if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE));
-    if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE));
+    const lignes = [TETE];
+    if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE, _ltv(m.ofE, m.ofS)));
+    if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE, _ltv(m.myE, m.myS)));
     lignes.push(_ligne("Hier", h.subs, h.tot));
-    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b> — ${_eur(m.tot)} / 30 j\n<pre>${lignes.join("\n")}</pre>` });
+    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b> — ${_eur(m.tot)} last 30d\n<pre>${lignes.join("\n")}</pre>` });
   });
   blocs.sort((a, b) => b.tot - a.tot);
-  const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours glissants ➡️ OF · MYM\nHier : ${_jour(hier)}\n————————————\n\n`;
+  const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours ➡️ OF · MYM · LTV\nHier : ${_jour(hier)}\n————————————\n\n`;
   const corps = blocs.map((b, i) => `${i + 1}. ${b.texte}`).join("\n\n");
   const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🏦 <b>PROFIT HIER : ${_eur(totalHier.tot * MARGE)}</b>`;
   return entete + corps + pied;
