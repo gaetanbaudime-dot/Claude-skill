@@ -16,8 +16,8 @@ groupe par créatrice). Les robots sont exclus par GAML.
 Sous les créatrices, des lignes par PERSONNE (30/09, Gaëtan : « rajoute Rianah (Metricool), Julien (Metricool) ; à l'avenir
 Rianah clipping, juste Rianah avec les comptes de tout le monde ») : la somme des liens dont la NOTE GAML contient tous les mots
 donnés, toutes créatrices confondues (« Rianah Metricool », « Rianah Metricool 2 »…). Réglage ACQUISITION_LIGNES :
-« Libellé=mots;Libellé=mots » — défaut « Rianah (Metricool)=rianah metricool;Julien (Metricool)=julien ». Pour ajouter plus
-tard Rianah sur tous ses comptes : « …;Rianah=rianah ».
+« Libellé=mots;Libellé=mots » — vide par défaut depuis le 30/09 (Gaëtan : « juste le total de la veille de chaque créatrice »).
+Pour remettre une ligne plus tard : « Rianah=rianah ».
 
 Lecture seule : le bot ne modifie rien dans GAML. Variables : GAML_API_KEY (obligatoire, sinon rien ne part),
 ACQUISITION_SALON_ID (défaut : le salon acquisition), ACQUISITION_HEURE (défaut 9), ACQUISITION_CREATRICES (l'ordre
@@ -59,7 +59,7 @@ def _lignes_personnes(texte: str) -> list:
     return out
 
 
-LIGNES_DEFAUT = "Rianah (Metricool)=rianah metricool;Julien (Metricool)=julien"
+LIGNES_DEFAUT = ""                                       # 30/09 (Gaëtan : « mets pas le Metricool, juste le total de chaque créatrice »)
 MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre")
 
 
