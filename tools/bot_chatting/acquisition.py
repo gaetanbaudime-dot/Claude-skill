@@ -38,6 +38,15 @@ import aiohttp
 log = logging.getLogger("chatting.acquisition")
 
 GAML_API_KEY = os.environ.get("GAML_API_KEY", "").strip()
+_cle_memoire = {"cle": ""}                             # 30/09 : clé donnée par `!cle-gaml` (volume), si la variable Railway manque
+
+
+def definir_cle(cle: str) -> None:
+    _cle_memoire["cle"] = (cle or "").strip()
+
+
+def cle() -> str:
+    return GAML_API_KEY or _cle_memoire["cle"]
 API = "https://getallmylinks.com/api/v1"
 FUSEAU = "Europe/Paris"
 SALON_ID = int(os.environ.get("ACQUISITION_SALON_ID", "1548671205890990240") or 0)
@@ -64,7 +73,7 @@ MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août
 
 
 def actif() -> bool:
-    return bool(GAML_API_KEY and SALON_ID)
+    return bool(cle() and SALON_ID)
 
 
 def _norm(texte: str) -> str:
@@ -99,7 +108,7 @@ async def _requete(session, chemin: str, params=None):
     """GET GAML, avec une reprise sur 429 / 5xx (limite : 60 appels par minute)."""
     for essai in range(4):
         async with session.get(f"{API}{chemin}", params=params,
-                               headers={"X-Api-Key": GAML_API_KEY, "Accept": "application/json"}) as r:
+                               headers={"X-Api-Key": cle(), "Accept": "application/json"}) as r:
             if r.status == 429 or r.status >= 500:
                 await asyncio.sleep(5 * (essai + 1))
                 continue
@@ -117,7 +126,8 @@ def clics_plateformes(lignes: list, jour: date) -> int:
             continue
         url = str(x.get("url") or x.get("value") or "").lower()
         quand = str(x.get("date") or "")[:10]
-        if any(p in url for p in PLATEFORMES) and (not quand or quand == jour.isoformat()):
+        # 30/09 : sur un seul jour, GAML découpe par HEURE (« date » : « 00:00 », « 01:00 »…) — une heure compte, une autre date non
+        if any(p in url for p in PLATEFORMES) and (not quand or "-" not in quand or quand == jour.isoformat()):
             total += int(x.get("clicks") or x.get("count") or 0)
     return total
 
