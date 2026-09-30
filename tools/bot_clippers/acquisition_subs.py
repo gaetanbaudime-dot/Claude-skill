@@ -29,9 +29,9 @@ import aiohttp
 journal = logging.getLogger("acquisition_subs")
 # 30/09 (Gaëtan) : cet ordre-là ; OF et/ou MYM selon ce qu'on gère pour chaque créatrice
 CREATRICES = [c.strip() for c in os.environ.get("ACQUISITION_SUBS_CREATRICES", "Chloé,Sarah,Sophie,Maddie,Jade,Clara").split(",") if c.strip()]
-# Plateformes gérées : déduites de Data G&M (une plateforme sans aucun sub ni CA sur 30 jours n'est pas gérée) ; ce réglage force,
-# ex. « Sophie=OF;Jade=MYM;Chloé=OF+MYM ».
-FORCE = {k.strip(): v.strip().upper() for k, v in (x.split("=", 1) for x in os.environ.get("ACQUISITION_SUBS_PLATEFORMES", "").split(";") if "=" in x)}
+# Plateformes gérées : déduites de Data G&M (une plateforme sans aucun sub ni CA sur 30 jours n'est pas gérée) ; ce réglage en
+# AJOUTE toujours, ex. « Jade=OF;Sophie=OF+MYM ». 30/09 (Gaëtan : « Jade on a OF, attention ») : Jade=OF par défaut.
+FORCE = {k.strip(): v.strip().upper() for k, v in (x.split("=", 1) for x in os.environ.get("ACQUISITION_SUBS_PLATEFORMES", "Jade=OF").split(";") if "=" in x)}
 HEURE_MIN = int(os.environ.get("SUBS_HEURE_MIN", "10") or 10)
 HEURE_MAX = int(os.environ.get("SUBS_HEURE_MAX", "18") or 18)
 MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre")
@@ -80,8 +80,8 @@ def lignes_du_jour(donnees: dict, jour) -> list:
         lignes = donnees.get(onglet) or [] if onglet else []
         of, mym = plateformes(lignes, jour)
         force = next((v for k, v in FORCE.items() if _norm(k)[:4] == _norm(crea)[:4]), "")
-        if force:
-            of, mym = "OF" in force, "MYM" in force
+        if force:                                                       # toujours affichée(s), en plus de ce que dit Data G&M
+            of, mym = of or "OF" in force, mym or "MYM" in force
         if not (of or mym):
             continue
         ligne = next((l for l in lignes if l["date"] == jour), None)
