@@ -34,7 +34,7 @@ HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après 
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
 VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
-DASHBOARD_VERSION = 6             # 29/09 soir : liens du bloc sur la ligne du milieu + clippers regroupés (classeur_forme) ; changée → réécrit au démarrage, sans scan
+DASHBOARD_VERSION = 7             # 29/09 soir : liens du bloc sur la ligne du milieu + clippers regroupés (classeur_forme) ; changée → réécrit au démarrage, sans scan
 EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
 
 
@@ -364,16 +364,18 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
     """28/09 (Gaëtan : « un dashboard par clipper, au même endroit ») : par créatrice, une ligne par clipper — comptes, créés,
     à créer, BAN, followers cumulés des comptes vivants, visites payables des 7 derniers jours (le chiffre de la colonne Clics,
     une seule fois), Reels vus par le scan sur 7 jours, dernier Reel, et le détail compte par compte. Triée par visites."""
-    exclus_n = {_norm(str(x).split()[0]) for x in (exclus or []) if str(x).strip()}
+    # 30/09 (Gaëtan : « considère Rianah (Metricool) et Julien (Metricool) comme des clippeurs, ajoute-les au dashboard ») : le Gérant
+    # compte en entier — « Rianah (Metricool) » a sa ligne, l'exclusion « Rianah » ne vise plus que le Gérant écrit exactement ainsi
+    exclus_n = {_norm(str(x)).strip() for x in (exclus or []) if str(x).strip()}
     par = {}
     for c in comptes:
         g = (c.get("gerant") or "").strip()
         if not g or _norm(g) in ("x", "y", "z", "aaa", "?", "-", "libre", "dispo") or not c.get("handle"):
             continue
-        if _norm(g.split()[0]) in exclus_n:                                 # hors clipping (Julien, Rianah…)
+        if _norm(g).strip() in exclus_n:                                    # hors clipping (Gérant écrit exactement « Julien », « Rianah »…)
             continue
         crea = ((c.get("creatrice") or c.get("onglet") or "?").split() or ["?"])[0]
-        par.setdefault(crea, {}).setdefault(g.split()[0], []).append(c)
+        par.setdefault(crea, {}).setdefault(g, []).append(c)
     lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables (GAML) sur 7 jours et hier, followers des comptes en gestion, Reels vus par le scan"
                + (f" · hors clipping : {', '.join(str(x) for x in exclus)}" if exclus else "")], []]
     tot_f = tot_v = tot_vh = tot_r = tot_rh = tot_c = 0
@@ -387,7 +389,7 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
             # 28/09 (Gaëtan : « la somme des followers des 3 comptes que le clipper a en gestion ») : les comptes dont
             # l'Utilisation est Clipper (ou vide), sauf les BAN (morts), quel que soit l'état ; un compte passé Metricool
             # ou « à mettre Metricool » n'est plus en gestion, il reste dans le détail.
-            en_gestion = [c for c, e in zip(cs, etats) if e != "ban" and _norm(c.get("utilisation") or "clipper") in ("clipper", "")]
+            en_gestion = [c for c, e in zip(cs, etats) if e != "ban" and _norm(c.get("utilisation") or "clipper") in ("clipper", "", "metricool")]
             followers = sum(_entier(c.get("followers")) for c in en_gestion)
             # Visites : d'abord la colonne « Clics last 7d. » du classeur (écrite par le scan, propre à la créatrice de la
             # ligne : Lilian sous Chloé et Lilian sous Sophie sont deux liens), sinon le total du clipper via clics_de.

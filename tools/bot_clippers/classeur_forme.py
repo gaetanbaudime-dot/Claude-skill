@@ -17,7 +17,8 @@ tout le reste de l'onglet garde son ordre. Rejoué après chaque scan, sur `!das
 import logging
 
 journal = logging.getLogger("bot.classeur_forme")
-COLONNES_BLOC = ("gerant", "pod", "lien_infloww", "lien_mym", "lien_gaml")
+# 30/09 (Gaëtan : « regroupe ces clics last 7d par clippeur, même mise en forme que les gérants avec leurs liens ») : Clics dans le bloc
+COLONNES_BLOC = ("gerant", "clics", "pod", "lien_infloww", "lien_mym", "lien_gaml")
 COLONNES_RECOPIEES = ("pod", "lien_infloww", "lien_mym", "lien_gaml")
 GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
 PREMIERE_LIGNE = 2                                                          # la ligne 1 est l'en-tête
@@ -35,12 +36,13 @@ def _n(t):
 
 
 def blocs(comptes_onglet: list) -> list:
-    """[(gérant, [lignes du bloc triées par numéro de ligne])] — lignes consécutives d'un même Gérant, Utilisation Clipper ou vide."""
+    """[(gérant, [lignes du bloc triées par numéro de ligne])] — lignes consécutives d'un même Gérant. 30/09 (Gaëtan : « considère
+    Rianah (Metricool) et Julien (Metricool) comme des clippeurs ; détecte automatiquement les gérants et mets-les en groupes ») : le
+    Gérant compte en ENTIER (« Rianah (Metricool) » n'est pas « Rianah »), et toute Utilisation compte (Metricool, Geelark…)."""
     out, courant = [], None
     for c in sorted(comptes_onglet, key=lambda x: int(x.get("ligne") or 0)):
-        g = _n(str(c.get("gerant") or "").split()[0] if str(c.get("gerant") or "").strip() else "")
-        en_gestion = _n(c.get("utilisation") or "clipper") in ("clipper", "")
-        if not g or g in GERANTS_LIBRES or not en_gestion:
+        g = _n(str(c.get("gerant") or "").strip())
+        if not g or g in GERANTS_LIBRES:
             courant = None
             continue
         if courant and courant[0] == g and int(c["ligne"]) == int(courant[1][-1]["ligne"]) + 1:
@@ -161,6 +163,9 @@ def requetes_onglet(sid: int, titre: str, cols: dict, comptes_onglet: list) -> t
         req.append(_fmt(sid, rv, rv + 1, idx["gerant"], idx["gerant"] + 1, fond=fond, gras=True))
         if "pod" in idx:
             req.append(_fmt(sid, r0, r1, idx["pod"], idx["pod"] + 1, fond=fond, aligne="CENTER"))
+        if "clics" in idx:                                                  # le total du clipper, en gras, au milieu du bloc
+            req.append(_fmt(sid, r0, r1, idx["clics"], idx["clics"] + 1, fond=fond, aligne="CENTER"))
+            req.append(_fmt(sid, rv, rv + 1, idx["clics"], idx["clics"] + 1, fond=fond, gras=True))
         for ch in COLONNES_RECOPIEES:                                       # 1) la valeur du bloc = la première non vide ; recopiée où elle manque
             if ch not in idx:
                 continue
@@ -174,6 +179,8 @@ def requetes_onglet(sid: int, titre: str, cols: dict, comptes_onglet: list) -> t
                 continue
             rr = int(c["ligne"]) - 1
             req.append(_fmt(sid, rr, rr + 1, idx["gerant"], idx["gerant"] + 1, fond=fond, texte=fond))     # Gérant répété : discret
+            if "clics" in idx:                                              # une ancienne valeur répétée ne se voit plus
+                req.append(_fmt(sid, rr, rr + 1, idx["clics"], idx["clics"] + 1, fond=fond, texte=fond))
             for ch in COLONNES_RECOPIEES:
                 if ch not in idx:
                     continue
