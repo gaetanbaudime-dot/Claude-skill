@@ -18,6 +18,40 @@ dans le CRM : le bot dit quand les utiliser, jamais leur texte. Le dossier
 premier démarrage : `!graine remplace` recharge toute la base (attention : efface les
 ajouts `!apprendre` faits entre-temps).
 
+## Message acquisition du matin (30/09/2026, demande de Gaëtan)
+
+Chaque matin à 9 h (Paris), dans le salon acquisition (`ACQUISITION_SALON_ID`, défaut `1548671205890990240`) :
+
+```
+Hier (30 septembre)
+
+Chloé 595
+Sophie 9876
+Sarah 543
+Jade 543
+Clara 876
+Maddie 120
+
+Rianah (Metricool) 1234
+Julien (Metricool) 56
+```
+
+Chaque chiffre = les **clics de la veille sur les boutons OnlyFans et MYM** des liens GetAllMyLinks (les gens réellement
+envoyés sur les deux plateformes, robots exclus). Une créatrice = un groupe GAML. Une personne = les liens dont la **note
+GAML** contient ses mots (« Rianah Metricool », « Rianah Metricool 2 »…), toutes créatrices confondues. Lecture seule : rien
+n'est écrit dans GAML. `!acquisition` (admin) envoie le message tout de suite ; `!acquisition 2026-09-28` pour un autre jour.
+
+Variables Railway du service chatting :
+
+| Variable | Rôle |
+|---|---|
+| `GAML_API_KEY` | **obligatoire** : clé GetAllMyLinks (la même que le bot clippers, ou une clé dédiée) |
+| `ACQUISITION_HEURE` | heure d'envoi, défaut 9 |
+| `ACQUISITION_CREATRICES` | ordre d'affichage, défaut `Chloé,Sophie,Sarah,Jade,Clara,Maddie` |
+| `ACQUISITION_LIGNES` | lignes par personne, `Libellé=mots;…`, défaut `Rianah (Metricool)=rianah metricool;Julien (Metricool)=julien`. Pour Rianah sur tous ses comptes : ajouter `;Rianah=rianah` |
+
+C'est la seule exception à la séparation marketing / chatting (décision de Gaëtan du 30/09).
+
 ## Installation (~30 min, une seule fois)
 
 1. **Application Discord** — discord.com/developers/applications > New Application
