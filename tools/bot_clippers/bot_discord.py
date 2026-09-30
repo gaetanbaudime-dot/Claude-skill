@@ -2041,6 +2041,12 @@ def trouver_salon_perso(guild, membre):
              and re.sub(r"[^a-z0-9]", "", normaliser(c.name)) in cles]
     if len(cands) > 1:                                                  # deux salons plausibles : celui qu'il voit
         cands = [c for c in cands if c.permissions_for(membre).view_channel] or cands
+    if not cands:
+        # 30/09 (#ez_exe et #noël pour le même arrivant) : il a changé de pseudo après son arrivée, le salon à l'ancien nom
+        # n'était plus reconnu et un deuxième s'ouvrait. Le salon perso est celui où il est le SEUL membre avec un droit direct.
+        moi = getattr(guild, "me", None)
+        cands = [c for c in guild.text_channels if c.category is not None and str(c.id) not in exclus
+                 and [m for m in c.overwrites if isinstance(m, discord.Member) and m != moi and not m.bot] == [membre]]
     return cands[0] if cands else None
 
 
@@ -3134,13 +3140,14 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
                         "✅ **C'est noté !** L'équipe ouvre ton accès à la main "
                         "(petit souci technique de mon côté, déjà signalé) — ton manager t'écrit ensuite.")
         tel_a = pipe_a.get("liaisons", {}).get(utilisateur, {}).get("tel", "")
-        origine = {"mp": "J'ACCEPTE en MP", "bouton": "bouton ✅", "site": "case cochée sur le site"}.get(via, via)
+        origine = {"mp": "J'ACCEPTE en MP", "bouton": "bouton ✅", "site": "règles acceptées au formulaire"}.get(via, via)
+        # 30/09 (extrait de #bot-gaetan : trois messages pour une seule arrivée) : une ligne ; la créatrice et les comptes
+        # arrivent dans le message d'attribution qui suit.
         await notifier_manager(
-            f"✍️ **{membre_a.mention} a rejoint l'agence** ({origine}) → "
-            + (f"rôle **{nom_role_a}** attribué, registre à jour." if err_a is None else f"⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`.")
-            + ("\n🎬 Créatrice : **attribution automatique en cours** (" + attribution.ordre_texte() + ")." if auto else
-               f"\n**Prochain geste ({mention_manager(membre_a.guild)}) : `!creatrice {membre_a.display_name} <prénom>`**.")
-            + (f"\n📞 WhatsApp : {tel_a}" if tel_a else ""), membre_a.guild)
+            f"✍️ **{membre_a.mention} a rejoint l'agence** ({origine})"
+            + ("" if err_a is None else f" · ⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`")
+            + ("" if auto else f" · **`!creatrice {membre_a.display_name} <prénom>`** ({mention_manager(membre_a.guild)})")
+            + (f" · WhatsApp {tel_a}" if tel_a else ""), membre_a.guild)
         await telegram.envoyer_telegram(f"✍️ A rejoint l'agence ({origine}) : {membre_a.display_name}"
                                               + (f" — WhatsApp {tel_a}" if tel_a else ""))
         if auto:
@@ -3174,8 +3181,8 @@ async def suite_validation(membre, guild):
     # formulaire ») : plus de règles ni de bouton après le test — test validé = accès ouvert, créatrice et comptes derrière.
     retour_acc = await accepter_conditions(str(membre.id), "site", grille_cond)
     await envoyer_mp(membre, titre_cond + retour_acc)
-    return (f"✅ {membre.mention} validé → accès ouvert (règles acceptées au formulaire)"
-            + (", créatrice automatique." if attribution.actif() else f" · `!creatrice {membre.display_name} <prénom>`."))
+    return (f"✅ {prenom_de(membre)} validé." if attribution.actif() else
+            f"✅ {prenom_de(membre)} validé · `!creatrice {membre.display_name} <prénom>`.")
 
 
 async def traiter_candidature_webhook(message, silencieux=False):
@@ -6940,7 +6947,7 @@ async def raccompagner(member, invitation, code):
         await envoyer_mp(member, f"👋 Bienvenue {member.display_name} ! Tu as été invité par l'équipe : "
                                  "ton manager t'écrit pour la suite. Une question ? Réponds-moi ici.")
         await notifier_manager(f"👋 {member.mention} est arrivé via une invitation de <@{inviteur.id}> (staff) — "
-                               "serveur fermé, gardé. S'il doit signer : `!equipe @x fr|int` après son J'ACCEPTE.",
+                               "serveur fermé, gardé. Pour l'ajouter à l'équipe : `!equipe @x int`.",
                                member.guild)
         return
     if invitation is None:

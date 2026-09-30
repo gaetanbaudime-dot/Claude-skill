@@ -25,13 +25,20 @@ journal = __import__("logging").getLogger("bot_clippers")
 _deps = {}
 OBJECTIF = ("Transformer chaque clipper en trois comptes Instagram qui postent le plus souvent possible des Reels de qualité "
             "exceptionnelle, avec le moins de messages possible, sans jamais contredire la doctrine.")
+# 30/09 (extrait de #bot-gaetan : la rétrospective a appris « à l'essai 3 raté, c'est terminé » et « aucun humain sur les
+# tests ») : la doctrine d'ici datait du 25/09 (un compte par jour, lien en bio du compte privé). Remise à jour.
 DOCTRINE = ("Doctrine (elle prime sur tout) : le clipper met SON numéro de téléphone (un numéro = ses 3 comptes) ; le selfie "
-            "vidéo, il le fait lui-même ; un compte par jour, 24 h de warm-up après chaque compte, premier Reel après ; le lien "
-            "vit dans la bio du compte privé et dans la story à la une, jamais dans un Reel ; paie 0,05 $ par visite "
-            "francophone réelle, tous les 15 jours ; tous les codes par `!code` (création, connexion, appel), jamais ceux qui changent l'e-mail, le mot de passe ou le numéro ; trois cas seulement "
-            "vont à un humain (ban, numéro refusé, paiement) via WhatsApp ; le bot ne donne jamais la cause d'un blocage, "
-            "seulement la marche à suivre ; jamais de pseudo inventé ; jamais « ton manager te donne une solution demain » ; "
-            "un « ok » ne mérite aucune réponse ; une réponse fait trois lignes au plus, une action à la fois.")
+            "vidéo, il le fait lui-même ; un compte tous les 48 h, 24 h de warm-up après chaque compte, puis CE compte publie "
+            "2 Reels et 1 story par jour sans attendre les autres ; un compte banni ne change rien pour les autres ; plus de "
+            "compte privé ; le lien vit dans une story à la une, jamais en bio, jamais dans un Reel ; la story du jour se prend "
+            "dans le dossier Photos du Drive ; test de montage : 1 vidéo, 7/10 pour passer, 3 essais notés tout de suite par le "
+            "bot, et au 3e essai raté un manager regarde la vidéo (ce n'est jamais « terminé » d'office) ; paie 0,05 $ par visite "
+            "francophone réelle, tous les 15 jours ; tous les codes par `!code` (création, connexion, appel), jamais ceux qui "
+            "changent l'e-mail, le mot de passe ou le numéro ; trois cas seulement vont à Gaëtan (ban, numéro refusé, paiement) ; "
+            "le bot ne donne jamais la cause d'un blocage, seulement la marche à suivre, et ne contredit jamais ce que le "
+            "clipper voit à l'écran ; jamais de pseudo ni de dossier inventé ; jamais « ton manager te donne un compte demain » ; "
+            "un « ok » ne mérite aucune réponse ; une réponse fait trois lignes au plus, une action à la fois, en mots de collège. "
+            "Une leçon qui contredit une seule de ces règles est fausse : ne la propose pas.")
 MAX_LECONS_SALON, MAX_LECONS_JOUR, MAX_CONSIGNES = 3, 20, 12
 
 
