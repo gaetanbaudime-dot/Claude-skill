@@ -32,22 +32,19 @@ ETAPES = {
     # 26/09 (Gaëtan) : textes courts, 24 h de warm-up sur chaque compte, puis les Reels.
     # 29/09 (Gaëtan) : « un compte tous les 48 h » — jamais plus vite, c'est ce qui limite les bans (7 comptes perdus le 28/09).
     1: {"titre": "Étape 1 · Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 prêt", "salons": ["info"],
-        "texte": ("**Compte 1** · chaque bloc se copie d'un geste (bouton du bloc).\n"
-                  "Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
-                  "📁 Tes Reels à publier (TOP 20) : {drive}\n\n"
+        "texte": ("Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
                   "{creation1}\n\n"
-                  "Puis 24 h de warm-up dessus : Reels de créatrices françaises, likes, 2 abonnements. Pas de Reel.\n\n"
-                  "Fini ? Appuie sur le bouton. Compte 2 dans 48 h, jamais avant : c'est ce qui évite les bans.")},
+                  "Ensuite, 24 h de warm-up : regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
+                  "📁 Ton Drive (tes Reels à publier après) : {drive}\n\n"
+                  "Fini ? Appuie sur le bouton. Le compte 2 arrive 48 h après.")},
     2: {"titre": "Étape 2 · Ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 prêt", "salons": ["info"],
-        "texte": ("**Compte 2** · chaque bloc se copie d'un geste (bouton du bloc).\n"
-                  "Identifiant :\n```\n{compte2}\n```\nE-mail :\n```\n{mail2}\n```\nMot de passe :\n```\n{mdp2}\n```\n"
+        "texte": ("Identifiant :\n```\n{compte2}\n```\nE-mail :\n```\n{mail2}\n```\nMot de passe :\n```\n{mdp2}\n```\n"
                   "{creation2}\n\n"
                   "Photo et bio différentes du compte 1. Puis 24 h de warm-up dessus.\n\n"
                   "Le compte 1 a fini ses 24 h ? Tu peux déjà y publier 2 Reels par jour, pris dans ton Drive.\n\n"
                   "Fini ? Appuie sur le bouton. Compte 3 dans 48 h, jamais avant.")},
     3: {"titre": "Étape 3 · Ton compte 3", "fiche": "1", "bouton": "✅ Compte 3 prêt", "salons": ["info"],
-        "texte": ("**Compte 3** · chaque bloc se copie d'un geste (bouton du bloc).\n"
-                  "Identifiant :\n```\n{compte3}\n```\nE-mail :\n```\n{mail3}\n```\nMot de passe :\n```\n{mdp3}\n```\n"
+        "texte": ("Identifiant :\n```\n{compte3}\n```\nE-mail :\n```\n{mail3}\n```\nMot de passe :\n```\n{mdp3}\n```\n"
                   "{creation3}\n\n"
                   "Comme les deux autres : bio sage, sans lien et sans @. Puis 24 h de warm-up dessus.\n\n"
                   "Les comptes 1 et 2 publient déjà : 2 Reels par jour chacun.\n\n"
@@ -81,9 +78,9 @@ ETAPES = {
 }
 # 28/09 : un compte rendu par un sortant existe déjà → on s'y connecte (le code de CONNEXION arrive dans le salon), pas d'inscription
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
-            "2. Code demandé ? Écris `!code` ici.\n"
-            "3. Mets ce mot de passe. Numéro demandé ? Mets le tien. Date de naissance : la vraie.\n"
-            "4. Mets la photo, le nom et la bio que je t'envoie juste en dessous. Pas de lien, pas d'@.",
+            "2. Un code est demandé ? Écris `!code` ici.\n"
+            "3. Mets ce mot de passe. Numéro demandé ? Le tien. Date de naissance : la vraie.\n"
+            "4. Mets la photo, le nom et la bio envoyés juste en dessous.",
             "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
             "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.",
             "Crée-le comme les autres, sur le même téléphone.")

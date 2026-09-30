@@ -86,7 +86,10 @@ async def photo_pour(creatrice: str):
     for did in dossiers:
         try:
             for f in await _deps["drive_lister"](did):
-                if str(f.get("mimeType", "")).startswith("image/") and f.get("id"):
+                # 30/09 (Mathias, pas de photo reçue) : une photo au-dessus de la limite Discord faisait tout échouer — on ne
+                # garde que celles qui passent (taille connue par le Drive)
+                if str(f.get("mimeType", "")).startswith("image/") and f.get("id") \
+                        and int(f.get("size") or 0) <= PHOTO_MAX_OCTETS:
                     images.append(f)
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Photos de %s : %s", creatrice, erreur)
@@ -109,6 +112,16 @@ async def photo_pour(creatrice: str):
     _ecrire(d)
     nom = str(choix.get("name") or "photo.jpg")
     return nom, octets
+
+
+def lien_photos(creatrice: str) -> str:
+    """Le lien direct du dossier Photos de la créatrice (ouvert par le lien depuis le 30/09) : le Drive donné à l'étape 1
+    ouvre le TOP 20, pas les photos."""
+    source_de = _deps.get("source_de")
+    for s in ((source_de(creatrice) or {}).get("sources") or []) if source_de else []:
+        if isinstance(s, dict) and str(s.get("sous", "")).strip().lower().startswith("photo") and s.get("id"):
+            return f"https://drive.google.com/drive/folders/{s['id']}"
+    return ""
 
 
 def texte_bio(n: int, bio: str, nom: str = "") -> str:
@@ -135,7 +148,9 @@ async def envoyer(salon, uid: str, n: int, creatrice: str) -> bool:
     try:
         if not envoyee:                                                 # 30/09 (Ricardo) : jamais une photo promise qui n'arrive pas
             journal.warning("Pas de photo de profil envoyée à %s (%s, compte %s)", uid, creatrice, n)
-            await salon.send(f"📷 Photo de profil du compte {n} : prends-en une dans le dossier **Photos** de ton Drive.")
+            lien = lien_photos(creatrice)
+            await salon.send(f"📷 Photo de profil du compte {n} : choisis-en une ici : <{lien}>" if lien else
+                             f"📷 Photo de profil du compte {n} : prends-en une dans le dossier **Photos** de ton Drive.")
         prenom = (creatrice or "").split()[0] if (creatrice or "").split() else creatrice
         await salon.send(texte_bio(n, bio_pour(creatrice), prenom))
     except Exception as erreur:                                         # noqa: BLE001

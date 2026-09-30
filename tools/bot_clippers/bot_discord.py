@@ -2233,16 +2233,13 @@ def indicatif_certain(tel: str) -> bool:
 
 def texte_test(score="") -> str:
     return (
-        (f"🎉 **Quiz réussi : {score}**, bravo !\n\n" if score else "🎉 **Quiz réussi, bravo !**\n\n")   # 28/09 : le score, tout de suite
-        + f"Voici ton test : {LIEN_TEST}\n\n"
-        "1. Télécharge les vidéos du dossier.\n"
-        "2. Monte **2 vidéos verticales**. La première seconde doit donner envie de rester. Mets des sous-titres.\n"
-        "3. Tu as **48 heures**.\n"
-        "4. Envoie tes 2 vidéos **ici** : appuie sur le **+** à gauche, puis **Uploader un fichier**. "
-        "Maximum 10 Mo par vidéo. Si c'est trop lourd, exporte en 720p.\n\n"
-        "Personne d'autre ne voit tes vidéos.\n"
-        + "Une question ? Écris-la ici, je réponds jour et nuit.\n"
-        + "\nBonne chance 🚀")
+        (f"🎉 **Quizz réussi : {score}**, bravo !\n\n" if score else "🎉 **Quizz réussi, bravo !**\n\n")   # 28/09 : le score, tout de suite
+        # 30/09 (Gaëtan : « simplifie encore ») : une seule vidéo (le bot note la première et valide dès 7/10), trois gestes
+        + f"🎬 Ton test de montage : {LIEN_TEST}\n\n"
+        "1. Prends une vidéo du dossier.\n"
+        "2. Monte-la en Reel vertical. Une première seconde qui accroche. Des sous-titres.\n"
+        "3. Envoie-la ici avec le **+** à gauche. 10 Mo maximum.\n\n"
+        "Tu as 48 h. Une question ? Écris ici.")
 
 
 async def envoyer_test_candidat(membre, score=""):
@@ -2763,19 +2760,16 @@ def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
     rang, suite = etape_recrutement(membre.id)
     alerte = ("" if candidature_trouvee else
               "⚠️ Je ne retrouve pas ta candidature avec ce numéro. Vérifie que c'est celui du formulaire, sinon on continue.\n\n")
-    entete = (f"🏠 {membre.mention}, bienvenue. Tout se passe ici.\n\n"
-              f"Ton parcours : {ligne_parcours(rang)}\n\n" + alerte)
+    # 30/09 (Gaëtan, salon de Mathias : « simplifie encore, langage collège ») : la mention est déjà posée par l'envoi (elle
+    # apparaissait deux fois), plus de ligne « Ton parcours : … », trois étapes numérotées, une phrase chacune.
+    entete = f"🏠 Bienvenue {prenom_de(membre)} ! Tout se passe ici.\n\n" + alerte
     if rang >= 2:                                                       # quiz déjà réussi : la formation et le quiz ne servent plus
         return entete + suite
     return (entete
-            + "🎓 **La formation**\n"
-            f"Regarde la vidéo dans {lien_formation()}, en entier.\n"
-            "Note les mots-clés cachés, dans l'ordre.\n\n"
-            + ((f"📝 **Le quiz**\n"
-                f"Ton lien personnel : <{lien_q}>\n"
-                f"Il faut {seuil_quiz_texte(' sur ')}. Deux essais.\n"
-                f"⏳ Tu as {QUIZ_DELAI_H} h pour le faire.\n\n") if lien_q else "")
-            + "Le test de montage arrive ici tout seul après le quiz.")
+            + f"1️⃣ Regarde la formation en entier : {lien_formation()}\nNote les mots-clés.\n\n"
+            + ((f"2️⃣ Passe le quizz : <{lien_q}>\nIl faut {seuil_quiz_texte('/')}. Tu as 2 essais et {QUIZ_DELAI_H} h.\n\n")
+               if lien_q else "")
+            + "3️⃣ Ensuite, le test de montage arrive ici.")
 
 
 def lien_quiz_pour(uid) -> str:
@@ -2806,14 +2800,14 @@ def ou_en_es_tu(uid: str) -> str:
         return (f"**Prochaine étape : la formation puis le quiz** (seuil {seuil_quiz_texte()}, deux essais). Ton lien personnel : "
                 f"{lien_quiz}")
     if etat == "test_envoye":
-        return ("**Ton test est en cours** : dépose tes 2 clips ici (fichiers ou lien Drive) avant "
+        return ("**Ton test est en cours** : envoie ta vidéo ici avant "
                 f"le {date_fr(info.get('echeance', ''))}.")
     if etat == "test_rendu":
         return "**Ton test est reçu.** Je te donne mon avis ici dans les minutes qui suivent, un manager confirme."
     if etat in ("test_expire", "refuse"):
         retest = date_fr(info.get("retest", ""))
         return (f"**Retest possible à partir du {retest}** : ce jour-là, écris **VALIDÉ** ici et ton test "
-                "(2 clips, 48 h) repart ici." if retest else "Écris **VALIDÉ** ici pour redemander un test.")
+                "(1 vidéo, 48 h) repart ici." if retest else "Écris **VALIDÉ** ici pour redemander un test.")
     if etat == "valide":
         # 30/09 : plus de J'ACCEPTE après le test (les 5 règles sont acceptées au formulaire) — l'accès s'ouvre tout seul
         return "**Test validé** : tu as rejoint l'agence. Ta créatrice et ton compte 1 arrivent ici."
@@ -2937,7 +2931,9 @@ GRILLE_AVIS_TEST = (
     "lisibles (1) ; format vertical 9:16 et durée entre 7 et 60 s (2).\n\n"
     "Réponds UNIQUEMENT en JSON : {{\"note\": entier 0-10, \"differe_du_rush\": true/false, \"bien\": [2 points forts courts], "
     "\"a_corriger\": [2 corrections concrètes et courtes], \"verdict\": \"bon\" | \"moyen\" | \"insuffisant\"}}. "
-    "Phrases de 10 mots, tutoiement, français, encourageant."
+    "Écris pour un élève de collège : 8 mots maximum par point, tutoiement, français, encourageant, un geste à faire. "
+    "Aucun mot technique (netteté, fondu, transition, rythme dynamique, recadrage, résolution, plan) : dis-le simplement, "
+    "par exemple « Coupe plus souvent », « Zoome sur son visage », « Mets un texte dès la 1re seconde »."
 )
 _RUSHES = {"quand": 0.0, "items": []}                                      # rushes du test, lus une fois toutes les 6 h
 
@@ -3080,11 +3076,10 @@ async def avis_test_montage(message) -> dict:
 def texte_avis_test(avis: dict) -> str:
     if avis.get("erreur"):
         return f"🎬 Je n'ai pas pu regarder ta vidéo moi-même ({avis['erreur']}). Un manager la regarde."
-    meta = avis.get("meta") or {}
-    fmt = f"{meta.get('largeur')}×{meta.get('hauteur')} · {meta.get('duree', 0):.0f} s" if meta.get("largeur") else ""
-    return (f"🎬 **Mon avis sur ton montage : {avis['note']}/10** ({avis['verdict']}" + (f", {fmt}" if fmt else "") + ")\n"
-            + ("✅ " + " · ".join(avis["bien"]) + "\n" if avis.get("bien") else "")
-            + ("✏️ " + " · ".join(avis["a_corriger"]) if avis.get("a_corriger") else ""))
+    # 30/09 (Mathias : « 480×854 · 7 s », « netteté », « fondus ») : la note, un point fort, deux choses à changer, une par ligne
+    return (f"🎬 **Ta note : {avis['note']}/10**\n\n"
+            + "".join(f"👍 {b}\n" for b in (avis.get("bien") or [])[:1])
+            + "".join(f"✏️ {c}\n" for c in (avis.get("a_corriger") or [])[:2])).rstrip()
 
 
 async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") -> str:
@@ -3098,12 +3093,9 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
     code_a, _ = equipe_deduite(utilisateur)
     grille_acc = grille or info_a.get("conditions_grille") or "mg"          # sans contrat (23/09) : la grille France passe aussi par ici
     auto = attribution.actif()
-    suite = ("Tes prochaines étapes :\n\n"
-             + ("1️⃣ Ta créatrice t'est attribuée tout de suite. Ton premier compte arrive dans ton salon perso.\n"
-                if auto else "1️⃣ Ta créatrice t'est attribuée sous 48 h. Ton premier compte arrive dans ton salon perso.\n")
-             + "2️⃣ Un compte tous les 48 h, sur ton téléphone, avec 24 h de warm-up. Le code : `!code`.\n"
-             "3️⃣ Warm-up fini : 2 Reels par jour sur chaque compte, pris dans ton TOP 20.\n\n"
-             "Le bot te guide étape par étape, avec des boutons. Une question ? Écris dans ton salon perso. 💪")
+    # 30/09 (Gaëtan, salon de Mathias : « simplifie encore ») : l'étape 1 arrive juste après avec tout ce qu'il faut
+    suite = ("Ton compte 1 arrive juste en dessous. Le bot te guide, étape par étape." if auto else
+             "Ta créatrice arrive sous 48 h, puis ton compte 1, ici.")
     if fiche_eq and (fiche_eq.get("equipe") == "mg" or fiche_eq.get("conditions")):
         if not fiche_eq.get("conditions"):
             fiche_eq["conditions"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -3318,8 +3310,8 @@ async def boucle_pipeline():
                     info["relance"] = True
                     modifie = True
                     if membre and not stop_t:
-                        await envoyer_mp(membre, "⏰ Rappel : il te reste **moins de 24 h** pour rendre ton test "
-                                                 "(2 clips). Dépose-les ici en MP. Tu tiens le bon bout 💪")
+                        await envoyer_mp(membre, "⏰ Il te reste **moins de 24 h** pour ton test. "
+                                                 "Envoie ta vidéo ici. Tu y es presque 💪")
             # ---- Relances 24/48 h à CHAQUE étape du tunnel (20/07) : personne ne reste bloqué ----
             # Doctrine : 2 relances max par étape (24 h puis 48 h), en MP, puis silence — on pousse,
             # on ne harcèle pas. Étapes couvertes : arrivée sans liaison · formation/quiz · e-mail
@@ -3456,9 +3448,8 @@ async def boucle_pipeline():
                     membre_r = membre_par_id(uid)
                     if membre_r and not rel.get("stop"):
                         await envoyer_mp(membre_r,
-                            "🔓 **Tu peux retenter ton test dès maintenant !** Revois les fiches, "
-                            "puis écris **VALIDÉ** ici en MP — ton test (2 clips, 48 h) "
-                            "repartira aussitôt. On t'attend 💪")
+                            "🔓 **Tu peux refaire ton test !** Écris **VALIDÉ** ici "
+                            "et il repart tout de suite (1 vidéo, 48 h). On t'attend 💪")
         except Exception as erreur:                                     # la boucle ne doit jamais mourir
             journal.warning("Boucle pipeline : %s", erreur)
         finally:
@@ -7266,11 +7257,21 @@ async def on_message(message):
             canal = await canal_admin()
             # 26/09 : le bot regarde la vidéo et donne son avis ; bon montage = validé tout seul (Gaëtan : « le bot va dire si le montage est bon »)
             # 27/09 : UN seul message admin, l'avis compris (avant : « test rendu » puis « avis du bot », deux fois par vidéo).
-            avis_t, valide_auto, msg_admin = None, False, None
+            avis_t, valide_auto, msg_admin, msg_avis = None, False, None, None
+
+            async def _suite_avis(ligne):                                   # 30/09 : la suite s'ajoute sous l'avis, pas un 2e message
+                if msg_avis is not None:
+                    try:
+                        await msg_avis.edit(content=f"{msg_avis.content}\n\n{ligne}"[:1990])
+                        return
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                await message.reply(ligne)
+
             if message.attachments and not hors_delai:
                 avis_t = await avis_test_montage(message)
                 try:
-                    await message.reply(texte_avis_test(avis_t))
+                    msg_avis = await message.reply(texte_avis_test(avis_t))
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             if canal:
@@ -7307,8 +7308,8 @@ async def on_message(message):
                 ecrire_json(FICHIER_PIPELINE, donnees_e)
                 if nouvel_essai:
                     try:
-                        await message.reply(f"💪 Presque ! Il faut **{TEST_AUTO_SEUIL}/10** pour passer. Corrige les points ✏️ au-dessus "
-                                            f"et renvoie ta vidéo ici : je la regarde tout de suite. Essai {essais_r}/{TEST_ESSAIS}.")
+                        await _suite_avis(f"💪 Il faut **{TEST_AUTO_SEUIL}/10**. Corrige les ✏️ et renvoie ta vidéo ici. "
+                                          f"Essai {essais_r} sur {TEST_ESSAIS}.")
                     except (discord.Forbidden, discord.HTTPException):
                         pass
             if avis_t is not None:
@@ -7336,8 +7337,8 @@ async def on_message(message):
                     donnees_l.setdefault("etats", {}).setdefault(str(utilisateur), {}).setdefault("liens_admin", []).append(msg_admin.jump_url)
                     ecrire_json(FICHIER_PIPELINE, donnees_l)
             if not nouvel_essai:
-                await message.reply("📥 Bien reçu ! " + ("Fichier ajouté à ton rendu." if complement else
-                                    ("Test validé ✅" if valide_auto else "Un manager regarde ta vidéo, réponse sous 24 h. 🤞")))
+                await _suite_avis("📥 Fichier ajouté à ton rendu." if complement else
+                                  ("✅ Test validé !" if valide_auto else "🤞 Un manager regarde ta vidéo. Réponse sous 24 h."))
             journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
             return
 

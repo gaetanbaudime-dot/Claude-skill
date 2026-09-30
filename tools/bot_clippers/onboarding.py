@@ -759,7 +759,9 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     except RuntimeError as erreur:
         resultat.append(f"Drive : {erreur}")
     # 4. message
-    texte = (message_comptes_court(prenom) if (UN_PAR_JOUR and comptes and not declencheur.startswith("!onboarding"))
+    # 30/09 (Gaëtan, salon de Mathias : « simplifie encore ») : en un-par-48 h, plus de ligne « tes accès arrivent… » — l'étape 1
+    # suit tout de suite avec le compte 1. Le message long (`!onboarding` forcé) reste.
+    texte = ("" if (UN_PAR_JOUR and comptes and not declencheur.startswith("!onboarding"))
              else message_comptes(comptes, prenom, creatrice))
     # 30/09 (Gaëtan : « ne spam pas le clippeur avec trop d'informations ») : le message court reste une ligne ; le Drive
     # arrive dans l'étape 1, le lien dans l'étape 6, là où ils servent. Le message long (`!onboarding` forcé) les garde.
@@ -777,7 +779,8 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             journal.warning("Alias 2FA %s : %s", prenom, erreur)
     cible = salon if salon is not None else membre
     try:
-        await cible.send(texte[:1990])
+        if texte:
+            await cible.send(texte[:1990])
         if len(texte) > 1990:
             await cible.send(texte[1990:3980])
     except (discord.Forbidden, discord.HTTPException) as erreur:
