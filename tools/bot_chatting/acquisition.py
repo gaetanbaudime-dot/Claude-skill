@@ -53,6 +53,9 @@ SALON_ID = int(os.environ.get("ACQUISITION_SALON_ID", "1548671205890990240") or 
 HEURE = int(os.environ.get("ACQUISITION_HEURE", "9") or 9)
 ORDRE = [c.strip() for c in os.environ.get("ACQUISITION_CREATRICES", "Chloé,Sophie,Sarah,Jade,Clara,Maddie").split(",") if c.strip()]
 PLATEFORMES = ("onlyfans.com", "mym.fans")
+# 30/09 (Gaëtan : « on va plutôt afficher les subs de la veille ») : le message du matin vient du bot clippers (acquisition_subs.py,
+# par webhook) ; ici, les clics GAML restent à la demande (`!acquisition`), plus d'envoi automatique.
+AUTO = os.environ.get("ACQUISITION_AUTO", "0").strip() == "1"
 
 
 def _lignes_personnes(texte: str) -> list:
@@ -195,6 +198,9 @@ async def boucle(client, lire, ecrire, fichier) -> None:
     await client.wait_until_ready()
     if not actif():
         log.info("Acquisition éteinte : GAML_API_KEY absente")
+        return
+    if not AUTO:
+        log.info("Message acquisition automatique éteint : les subs de la veille partent du bot clippers (ACQUISITION_AUTO=1 pour le rallumer)")
         return
     while not client.is_closed():
         try:

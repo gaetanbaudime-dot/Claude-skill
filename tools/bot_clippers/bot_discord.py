@@ -42,6 +42,7 @@ import parrainage                         # !parrain : 5 $ au parrain à la prem
 import pods                              # !pods : POD neufs au classeur des logins (30/09)
 import relances                          # relances Telegram en un appui, chaque matin (30/09)
 import bloques                           # les bloqués du matin, relance WhatsApp en un appui (30/09)
+import acquisition_subs                  # subs de la veille OF / MYM au salon acquisition du serveur chatting (30/09)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
@@ -6399,6 +6400,9 @@ async def on_ready():
                             "tel_de": lambda uid: str((lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}).get(str(uid)) or {}).get("tel", "")),
                             "jours_sans_reel": sortie_auto.jours_sans_reel, "canal_admin": canal_admin, "est_staff": _staff})
         client.loop.create_task(bloques.boucle(client))                         # 30/09 : bloqués du matin + WhatsApp en un appui
+        acquisition_subs.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "acquisition_subs.json",
+                                     "data_gm": rapport_quotidien.data_gm, "heure_paris": heure_paris, "est_staff": _staff})
+        client.loop.create_task(acquisition_subs.boucle(client))                # 30/09 : subs de la veille, salon acquisition
         client.loop.create_task(sortie_auto.boucle(client))                     # 30/09 : averti à 3 jours sans Reel, sorti à 7, comptes et lien au suivant
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
@@ -7223,6 +7227,9 @@ async def on_message(message):
             return
     if texte.split()[:1] == ["!contacts"]:                                  # 30/09 : WhatsApp / Telegram du roster et des arrivants
         if await commande_contacts(message):
+            return
+    if texte.startswith(("!acquisition-webhook", "!acquisition-subs")):     # 30/09 : subs de la veille au serveur chatting
+        if await acquisition_subs.commande(message, texte):
             return
     if texte.startswith(("!bloques", "!bloqués")):                          # 30/09 : bloqués du matin, tout de suite
         if await bloques.commande(message, texte):
