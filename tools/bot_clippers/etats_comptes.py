@@ -647,7 +647,9 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
         if apres in par_etat:
             lignes.append(f"→ **{apres}** : " + ", ".join(par_etat[apres]))
     if "BAN" in par_etat:
-        lignes.append("-# BAN = introuvable sur Instagram 2 jours de suite. Le compte est à remplacer : `!liberer Prénom handle` puis un nouvel identifiant.")
+        lignes.append(f"-# BAN = introuvable sur Instagram{' au premier scan' if BAN_JOURS <= 1 else f' {BAN_JOURS} jours de suite'} "
+                      "(et, en plus, tout mail « Action requise / compte suspendu » lu dans ta boîte toutes les 3 min). "
+                      "Le compte est à remplacer : `!liberer Prénom handle` puis un nouvel identifiant.")
     return "\n".join(lignes)
 
 
