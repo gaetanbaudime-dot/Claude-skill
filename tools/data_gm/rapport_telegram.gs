@@ -80,7 +80,7 @@ function construireRapport() {
     const L = _lire(ss, nom);
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
     totalHier.tot += h.tot;
-    const lignes = [TETE];
+    const lignes = [TETE, "─".repeat(26)];                // 30/09 : un trait sous les titres de colonnes
     if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE, _ltv(m.ofE, m.ofS)));
     if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE, _ltv(m.myE, m.myS)));
     lignes.push(_ligne("Hier", h.subs, h.tot));
