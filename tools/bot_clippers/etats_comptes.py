@@ -34,15 +34,27 @@ HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après 
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
 VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
-DASHBOARD_VERSION = 7             # 29/09 soir : liens du bloc sur la ligne du milieu + clippers regroupés (classeur_forme) ; changée → réécrit au démarrage, sans scan
+DASHBOARD_VERSION = 8             # 30/09 : Julien et Rianah remis au Dashboard ; changée → réécrit au démarrage, sans scan
 EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
+# 30/09 (Gaëtan : « inclus Julien et Rianah dans le dashboard aussi ») : le Dashboard ne masque plus personne par défaut.
+# La liste « hors clipping » ci-dessus ne sert plus qu'à la vérification du classeur et au rapport du jour (Rianah gère les
+# comptes de tout le monde : sans elle, le plafond de trois comptes la signalerait chaque matin).
+MASQUES_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_MASQUES", "").split(",") if m.strip()]
 
 
 def dashboard_exclus(d=None) -> list:
     """Les prénoms tenus hors du Dashboard (28/09, Gaëtan : « Julien et Rianah, on va les exclure totalement du clipping ») :
-    la liste de l'état, tenue par `!dashboard exclure Prénom` / `!dashboard inclure Prénom`, sinon DASHBOARD_EXCLUS."""
+    la liste de l'état (ancienne clé, plus modifiée depuis le 30/09), sinon DASHBOARD_EXCLUS. Sert à la vérification du
+    classeur et au rapport du jour, plus au Dashboard (voir dashboard_masques)."""
     d = d if d is not None else _lire()
     return list(d["dashboard_exclus"]) if isinstance(d.get("dashboard_exclus"), list) else list(EXCLUS_DEFAUT)
+
+
+def dashboard_masques(d=None) -> list:
+    """Les Gérants masqués du seul onglet Dashboard : `!dashboard exclure Prénom` / `!dashboard inclure Prénom`, sinon
+    DASHBOARD_MASQUES (vide)."""
+    d = d if d is not None else _lire()
+    return list(d["dashboard_masques"]) if isinstance(d.get("dashboard_masques"), list) else list(MASQUES_DEFAUT)
 LOT = 50                                                               # comptes par appel Apify
 
 _deps = {}
@@ -365,19 +377,19 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
     à créer, BAN, followers cumulés des comptes vivants, visites payables des 7 derniers jours (le chiffre de la colonne Clics,
     une seule fois), Reels vus par le scan sur 7 jours, dernier Reel, et le détail compte par compte. Triée par visites."""
     # 30/09 (Gaëtan : « considère Rianah (Metricool) et Julien (Metricool) comme des clippeurs, ajoute-les au dashboard ») : le Gérant
-    # compte en entier — « Rianah (Metricool) » a sa ligne, l'exclusion « Rianah » ne vise plus que le Gérant écrit exactement ainsi
+    # compte en entier — « Rianah (Metricool) » a sa ligne ; un masque (`!dashboard exclure`) ne vise que le Gérant écrit exactement ainsi
     exclus_n = {_norm(str(x)).strip() for x in (exclus or []) if str(x).strip()}
     par = {}
     for c in comptes:
         g = (c.get("gerant") or "").strip()
         if not g or _norm(g) in ("x", "y", "z", "aaa", "?", "-", "libre", "dispo") or not c.get("handle"):
             continue
-        if _norm(g).strip() in exclus_n:                                    # hors clipping (Gérant écrit exactement « Julien », « Rianah »…)
+        if _norm(g).strip() in exclus_n:                                    # masqué (`!dashboard exclure Prénom`, Gérant écrit exactement ainsi)
             continue
         crea = ((c.get("creatrice") or c.get("onglet") or "?").split() or ["?"])[0]
         par.setdefault(crea, {}).setdefault(g, []).append(c)
     lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables (GAML) sur 7 jours et hier, followers des comptes en gestion, Reels vus par le scan"
-               + (f" · hors clipping : {', '.join(str(x) for x in exclus)}" if exclus else "")], []]
+               + (f" · masqués : {', '.join(str(x) for x in exclus)}" if exclus else "")], []]
     tot_f = tot_v = tot_vh = tot_r = tot_rh = tot_c = 0
     for crea, clippers in par.items():
         rows = []
@@ -446,9 +458,9 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str,
     """Écrit l'onglet Dashboard du classeur des logins (créé s'il manque, vidé puis réécrit). Renvoie le nombre de lignes."""
     if exclus is None:
         try:
-            exclus = dashboard_exclus()
+            exclus = dashboard_masques()
         except Exception:                                                   # noqa: BLE001 — sans état (tests), la liste par défaut
-            exclus = list(EXCLUS_DEFAUT)
+            exclus = list(MASQUES_DEFAUT)
     lignes = lignes_dashboard(comptes, historique, clics_de, jour, exclus)
     cid = onboarding.CLASSEUR_LOGINS_ID
     try:
@@ -703,7 +715,7 @@ async def commande_staff(message, texte: str) -> bool:
             await message.reply("Classeur inactif : `CLASSEUR_LOGINS_ID` et le compte de service dans Railway.")
             return True
         d = _lire()
-        exclus = dashboard_exclus(d)
+        exclus = dashboard_masques(d)
         if len(mots) >= 3 and mots[1].lower() in ("exclure", "inclure"):     # `!dashboard exclure Julien` · `!dashboard inclure Rianah`
             prenom = " ".join(mots[2:]).strip()
             deja = [x for x in exclus if _norm(x) == _norm(prenom)]
@@ -711,14 +723,14 @@ async def commande_staff(message, texte: str) -> bool:
                 exclus.append(prenom)
             elif mots[1].lower() == "inclure":
                 exclus = [x for x in exclus if _norm(x) != _norm(prenom)]
-            d["dashboard_exclus"] = exclus
+            d["dashboard_masques"] = exclus
             _ecrire(d)
         try:
             n = await ecrire_dashboard(await onboarding.lire_comptes(), d.get("historique", {}), _deps.get("clics_7j"),
                                        datetime.now(timezone.utc).strftime("%Y-%m-%d"), exclus)
             await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par clipper, par créatrice."
-                                + (f"\nHors clipping : {', '.join(exclus)} (`!dashboard inclure Prénom` pour remettre quelqu'un)." if exclus
-                                   else "\nPersonne n'est exclu (`!dashboard exclure Prénom`)."))
+                                + (f"\nMasqués : {', '.join(exclus)} (`!dashboard inclure Prénom` pour remettre quelqu'un)." if exclus
+                                   else "\nPersonne n'est masqué, Julien et Rianah compris (`!dashboard exclure Prénom` pour masquer)."))
         except Exception as erreur:                                     # noqa: BLE001
             await message.reply(f"❌ Dashboard : {type(erreur).__name__} {str(erreur)[:150]}")
         return True
