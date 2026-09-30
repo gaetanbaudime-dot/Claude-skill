@@ -102,6 +102,13 @@ def configurer(deps: dict):
     _deps = deps
 
 
+async def _suite(salon, texte: str):
+    """Le message de suivi du salon : il remplace le précédent (matin.remplacer), sinon un envoi simple."""
+    if _deps.get("remplacer_suite"):
+        return await _deps["remplacer_suite"](salon, texte)
+    return await salon.send(texte)
+
+
 def _lire() -> dict:
     return _deps["lire_json"](_deps["FICHIER_PARCOURS"], {})
 
@@ -320,6 +327,11 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
     membre = _deps["membre_par_id"](uid)
     if membre is None:
         return True
+    if _deps.get("effacer_suite"):                                      # 30/09 (GO n° 4) : l'ancien « prochaine étape » s'en va
+        try:
+            await _deps["effacer_suite"](salon)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Message de suivi de %s : %s", uid, erreur)
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)
     return True
@@ -367,7 +379,7 @@ async def boucle(client) -> None:
                     else:
                         texte_w = WARMUP_JOUR_TEXTE.format(j=j, jours=WARMUP_JOURS)
                         if not (_deps.get("deposer") and _deps["deposer"](salon.id, "warmup", texte_w)):
-                            await salon.send(f"<@{uid}> " + texte_w)
+                            await _suite(salon, f"<@{uid}> " + texte_w)
                 # 28/09 : relance courte — une étape (1 à 3, 5, 6) qui traîne depuis RELANCE_JOURS jours → une ligne, tous les RELANCE_JOURS jours
                 for uid, fiche_p in list(d.items()):
                     n = int(fiche_p.get("etape", 0))
@@ -389,7 +401,7 @@ async def boucle(client) -> None:
                     suite = prochaine_etape(salon.id)
                     texte_r = f"👉 <@{uid}> {suite}\n\nBloqué ? Écris ici." if suite else f"👉 <@{uid}> Étape {n} toujours en cours : `!etape` pour la revoir.\n\nBloqué ? Écris ici."
                     if not (_deps.get("deposer") and _deps["deposer"](salon.id, "relance", texte_r)):
-                        await salon.send(texte_r)
+                        await _suite(salon, texte_r)                    # 30/09 (GO n° 4) : remplace, n'empile pas
         except Exception as erreur:                                 # la boucle ne meurt jamais
             journal.warning("Boucle parcours : %s", erreur)
         await asyncio.sleep(3600)

@@ -146,6 +146,19 @@ def _etat() -> dict:
     return _deps["lire_json"](_deps["FICHIER"], {"sorties": {}})
 
 
+async def jours_sans_reel() -> dict:
+    """{uid: jours sans Reel} de chaque clipper signé avec une créatrice (30/09 : la liste des bloqués du matin)."""
+    fiches = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+    onboarding = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}) if _deps.get("FICHIER_ONBOARDING") else {}
+    historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
+    comptes = await _deps["comptes_lire"]() if _deps.get("comptes_lire") else []
+
+    def prenom_de(uid):
+        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        return _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
+    return {uid: jours for uid, _, jours, _, _ in silences(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de)}
+
+
 async def executer(client, appliquer: bool = True) -> list:
     """Un passage. Renvoie les lignes du bilan (vide si personne)."""
     if not ACTIF and appliquer:

@@ -18,6 +18,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 journal = logging.getLogger("relances")
 ACTIF = os.environ.get("RELANCES", "1").strip() != "0"
@@ -89,9 +90,10 @@ def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
         if prenom.lower().startswith("test"):
             continue
         lien, etiquette = lien_telegram(cand.get("pseudo", ""), str(fiche.get("tel") or ""))
-        if not lien:
+        tel = str(fiche.get("tel") or "")
+        if not lien and len(re.sub(r"\D", "", tel)) < 8:
             continue
-        out.append((cid, prenom, cand.get("pays", ""), int(heures), len(faites) + 1, lien, etiquette))
+        out.append((cid, prenom, cand.get("pays", ""), int(heures), len(faites) + 1, lien, etiquette, tel))
     out.sort(key=lambda x: -x[3])
     return out[:MAX_JOUR]
 
@@ -99,10 +101,15 @@ def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
 def blocs(liste: list) -> list:
     """Un message Discord par candidat : la ligne d'info, puis le message à copier dans un bloc de code."""
     out = []
-    for cid, prenom, pays, heures, n, lien, etiquette in liste:
+    for cid, prenom, pays, heures, n, lien, etiquette, tel in liste:
+        texte = texte_message(prenom, _deps["lien_formation"](cid))
+        # 30/09 (Gaëtan, GO n° 2 : « relances WhatsApp en un appui ») : le lien WhatsApp ouvre sa conversation, message déjà écrit
+        chiffres = re.sub(r"\D", "", tel or "")
+        wa = f"[WhatsApp](https://wa.me/{chiffres}?text={quote(texte)})" if len(chiffres) >= 8 else ""
+        tg = f"Telegram {etiquette} : <{lien}>" if lien else ""
         info = (f"**{prenom}**{' · ' + pays if pays else ''} · formulaire il y a {heures} h · "
-                f"{'1re' if n == 1 else '2e'} relance · Telegram {etiquette} : <{lien}>")
-        out.append(info + "\n```\n" + texte_message(prenom, _deps["lien_formation"](cid)) + "\n```")
+                f"{'1re' if n == 1 else '2e'} relance · " + " · ".join(x for x in (wa, tg) if x))
+        out.append(info + "\n```\n" + texte + "\n```")
     return out
 
 
@@ -114,10 +121,11 @@ async def envoyer(canal, compter: bool = True, muet_si_vide: bool = False) -> in
         if not muet_si_vide:                                            # le matin, rien quand il n'y a personne
             await canal.send("📨 Relances Telegram : personne à relancer aujourd'hui.")
         return 0
-    await canal.send(f"📨 **Relances Telegram du jour ({len(liste)})** — formulaire envoyé, quizz pas réussi, pas encore sur "
-                     "Discord. Ouvre le lien, colle le message, envoie." + ("" if compter else " _(aperçu : rien n'est compté)_"))
+    await canal.send(f"📨 **Relances du jour ({len(liste)})** — formulaire envoyé, quizz pas réussi, pas encore sur Discord. "
+                     "WhatsApp : appuie, relis, envoie. Telegram : ouvre, colle, envoie."
+                     + ("" if compter else " _(aperçu : rien n'est compté)_"))
     for b in blocs(liste):
-        await canal.send(b[:1990])
+        await canal.send(b[:1990], suppress_embeds=True)
     if compter:
         etat = _deps["lire_json"](_deps["FICHIER"], {"relances": {}})
         maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")

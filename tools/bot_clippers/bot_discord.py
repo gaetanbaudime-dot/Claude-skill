@@ -41,6 +41,7 @@ import sortie_auto                        # sortie automatique : averti à 3 jou
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
 import pods                              # !pods : POD neufs au classeur des logins (30/09)
 import relances                          # relances Telegram en un appui, chaque matin (30/09)
+import bloques                           # les bloqués du matin, relance WhatsApp en un appui (30/09)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
@@ -6388,11 +6389,19 @@ async def on_ready():
                                 "sortir": lambda m, raison, pool=False: sortir_membre(m, raison, None, pool=pool),
                                 "membre_par_id": membre_par_id, "prenom_de": prenom_de, "roster": roster, "canal_admin": canal_admin,
                                 "normaliser": normaliser, "heure_paris": heure_paris, "salon_perso": salon_perso_de})
+        bloques.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "bloques.json",
+                            "FICHIER_PARCOURS": FICHIER_PARCOURS, "roster_groupes": roster.groupes,
+                            "membre_par_prenom": membre_par_prenom, "normaliser": normaliser, "heure_paris": heure_paris,
+                            "tel_de": lambda uid: str((lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}).get(str(uid)) or {}).get("tel", "")),
+                            "jours_sans_reel": sortie_auto.jours_sans_reel, "canal_admin": canal_admin, "est_staff": _staff})
+        client.loop.create_task(bloques.boucle(client))                         # 30/09 : bloqués du matin + WhatsApp en un appui
         client.loop.create_task(sortie_auto.boucle(client))                     # 30/09 : averti à 3 jours sans Reel, sorti à 7, comptes et lien au suivant
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
                           "prenom_salon": prenom_du_salon})                         # 26/09 : « Bonjour Maxence » chez Daniella
         parcours._deps["deposer"] = matin.deposer
+        parcours._deps["remplacer_suite"] = matin.remplacer                 # 30/09 (GO n° 4) : un seul message de suivi
+        parcours._deps["effacer_suite"] = matin.effacer
         client.loop.create_task(matin.boucle(client))                           # un seul message du matin par clipper (26/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
@@ -7158,6 +7167,9 @@ async def on_message(message):
             return
     if texte.split()[:1] == ["!contacts"]:                                  # 30/09 : WhatsApp / Telegram du roster et des arrivants
         if await commande_contacts(message):
+            return
+    if texte.startswith(("!bloques", "!bloqués")):                          # 30/09 : bloqués du matin, tout de suite
+        if await bloques.commande(message, texte):
             return
     if texte.startswith("!relances"):                                       # 30/09 : relances Telegram, tout de suite
         if await relances.commande(message, texte):

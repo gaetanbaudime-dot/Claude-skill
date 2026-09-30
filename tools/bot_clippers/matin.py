@@ -58,6 +58,39 @@ def deposer(salon_id, cle: str, texte: str) -> bool:
     return True
 
 
+async def remplacer(salon, texte: str, view=None):
+    """30/09 (Gaëtan, GO n° 4 : « un seul message Ta prochaine étape, le bot le met à jour au lieu d'empiler ») : le message
+    de suivi du salon (message du matin, relance, warm-up du jour) REMPLACE le précédent — l'ancien est effacé, le nouveau
+    arrive en bas du salon (un message modifié reste en haut, là où personne ne le voit). Les messages d'étape (identifiants,
+    boutons) ne passent jamais par ici : ils restent. Renvoie le message envoyé."""
+    d = _lire()
+    ancien = (d.setdefault("suite", {})).get(str(salon.id))
+    if ancien:
+        try:
+            await (await salon.fetch_message(int(ancien))).delete()
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
+            pass
+    msg = await salon.send(texte[:1990], view=view) if view is not None else await salon.send(texte[:1990])
+    d = _lire()
+    d.setdefault("suite", {})[str(salon.id)] = str(msg.id)
+    _ecrire(d)
+    return msg
+
+
+async def effacer(salon) -> bool:
+    """Une nouvelle étape vient d'être postée : le message de suivi d'avant ne dit plus la bonne chose, il disparaît."""
+    d = _lire()
+    ancien = d.setdefault("suite", {}).pop(str(getattr(salon, "id", "")), None)
+    if not ancien:
+        return False
+    _ecrire(d)
+    try:
+        await (await salon.fetch_message(int(ancien))).delete()
+        return True
+    except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
+        return False
+
+
 def composer(salon_id, m: dict) -> str:
     prenom = (_deps["prenom_salon"](salon_id) if _deps.get("prenom_salon") else "") or ""
     lignes = [f"☀️ **Bonjour {prenom}**".rstrip() if prenom else "☀️ **Bonjour**"]
@@ -92,7 +125,7 @@ async def envoyer_prets(client, force: bool = False) -> int:
             d["envoyes"][sid] = jour
             continue
         try:
-            await salon.send(composer(sid, m)[:1990])
+            await remplacer(salon, composer(sid, m))                    # 30/09 : remplace celui de la veille
             envoyes += 1
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Message du matin %s : %s", sid, erreur)

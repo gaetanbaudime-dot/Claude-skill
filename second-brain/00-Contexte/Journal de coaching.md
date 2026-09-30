@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 (soir) — GO : un seul message de suivi, les bloqués du matin, WhatsApp en un appui
+- **Décisions de Gaëtan** : GO sur trois des dix idées du jour (n° 2, 3, 4). Constat qui les motive : environ 10 clippers du roster sur 23 bloqués avant leur premier Reel, et des réponses plus rapides sur WhatsApp que sur Discord (observation, non mesurée).
+- **Livré** : un seul message de suivi par salon perso, remplacé au lieu d'empilé ; chaque matin à 11 h la liste des bloqués (compte à créer qui traîne, ou aucun Reel depuis 3 jours) avec pour chacun un lien WhatsApp au message déjà écrit ; le même lien dans les relances des candidats. L'envoi reste manuel : un envoi automatique ferait bannir le numéro.
+- **Avocat du diable** : la liste ne vaut que si quelqu'un appuie chaque matin. Vingt-cinq relances manuelles par jour, c'est 15 à 20 minutes ; sans ce créneau fixe, la liste devient du bruit dans le salon admin.
+- **Prédiction (30/09, revue le 14/10)** : parmi les clippers listés « compte à créer » la semaine du 01/10, au moins la moitié crée ce compte sous 48 h après la relance WhatsApp (55 %) ; le nombre de bloqués du roster passe sous 6 au 14/10 (45 %).
+
 ### 2026-09-30 (jour) — Numéros WhatsApp vérifiés au formulaire ; les leçons du parcours d'un clipper
 - **Demandes de Gaëtan** : « assure-toi qu'ils ne mettent pas des numéros erronés » (la liste des clippeurs du 29/09 en comptait plusieurs d'inutilisables) ; « ça répond plus vite aux relances WhatsApp que Discord » ; « apprends » sur le fil complet d'un clipper, du quizz raté au compte 1 créé.
 - **Livré** : le formulaire refuse un numéro impossible (indicatif d'un autre pays, chiffre manquant) avec l'indicatif attendu, fait confirmer un numéro d'un autre pays ou un fixe, corrige seul les cas sûrs (ancien numéro béninois à 8 chiffres, numéro sans indicatif). Sept frictions du fil corrigées : photos du Drive inaccessibles (raccourcis vers des dossiers partagés seulement par e-mail), photo de profil qui n'arrivait pas, nom du profil jamais donné, `!code` à retaper, l'assistant qui contredisait l'écran et se disait manager, dates brutes. Détail : [[Pôle clipping - plus de clippers qui publient plus vite, 10 axes et le lead flow (29 septembre 2026)]] (§ 8).
