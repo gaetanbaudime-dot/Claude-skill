@@ -54,7 +54,7 @@ function _somme(lignes, debut, fin, taux) {
   return { ofS, ofE, myS, myE, tot: ofE + myE, subs: ofS + myS };
 }
 
-function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/ /g, " ") + " €"; }
+function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f\u00a0 ]/g, "\u00a0") + "\u00a0€"; }
 function _parSub(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") + " €" : "—"; }
 function _jour(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), "dd/MM"); }
 
