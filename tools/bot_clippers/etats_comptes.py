@@ -6,7 +6,10 @@ ETAT de l'onglet Instagram, une cellule à la fois, jamais la structure :
   WARMUP  → GOOD     quand il a publié GOOD_JOURS jours de suite (au moins une publication par jour)
   WARMUP  → PRIVE    quand le compte est passé en privé (le 3e compte du trio)
   WARMUP / GOOD / PRIVE → BAN   quand Instagram ne le trouve plus BAN_JOURS jours de suite (posé par le bot, annulé s'il revient)
-  BAN posé par le bot → WARMUP  si le compte réapparaît
+  BAN → son état d'avant (sinon GOOD s'il a déjà publié, sinon WARMUP)  dès que le compte est vivant sur Instagram
+       (30/09, Gaëtan : « tous les comptes GOOD, BAN et WARMUP, vérifie-les à chaque fois », BAN posé à la main compris)
+  restreint (profil caché aux visiteurs non connectés) = vivant, jamais BAN
+`!dashboard` lance ce passage complet avant de réécrire l'onglet (30/09) ; `!dashboard rapide` réécrit sans scan.
 Les états posés à la main (PERDU LOGS, à vérifier, BIZARRE, ACTIF…) et les lignes sans Gérant ne sont jamais touchés :
 un compte du vivier libre ne peut pas se créer tout seul. La colonne Followers est remplie pour TOUS les comptes créés du
 classeur (26/09, « légendaire ») : clippers, créatrices sous Metricool, comptes libérés — pas les lignes « à créer » sans gérant.
@@ -92,6 +95,25 @@ async def scanner(handles: list) -> dict:
         return await _deps["scanner"](handles)
     if not APIFY_TOKEN or not handles:
         return None
+    items = await _apify(handles)
+    if items is None:
+        return None
+    # 30/09 : un compte absent de la réponse d'Apify n'est pas forcément mort (profil sauté par le robot) : les absents sont
+    # redemandés une fois, à part, avant de conclure
+    vus = {_handle_item(it) for it in items}
+    manquants = [h for h in handles if h.lower() not in vus]
+    if manquants:
+        encore = await _apify(manquants)
+        items += encore or []
+    return _lire_items(items, handles)
+
+
+def _handle_item(item: dict) -> str:
+    return (item.get("username") or item.get("inputUrl") or "").lower().rstrip("/").split("/")[-1].lstrip("@")
+
+
+async def _apify(handles: list):
+    """Les fiches Apify brutes de `handles`, par lots ; None si Apify est en panne."""
     url = f"https://api.apify.com/v2/acts/{ACTOR_IG}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     items = []
     for i in range(0, len(handles), LOT):                              # par lots : 130 comptes tiennent en deux ou trois appels
@@ -106,11 +128,15 @@ async def scanner(handles: list) -> dict:
             journal.error("Apify injoignable (états du classeur) : %s", erreur)
             return None
         items += lot if isinstance(lot, list) else []
+    return items
+
+
+def _lire_items(items: list, handles: list) -> dict:
     limite = datetime.now(timezone.utc) - timedelta(hours=24)
     out = {h.lower(): {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0, "fautes": 0} for h in handles}
     for item in items:
-        handle = (item.get("username") or item.get("inputUrl") or "").lower().rstrip("/").split("/")[-1].lstrip("@")
-        if handle not in out:
+        handle = _handle_item(item)
+        if handle not in out or (out[handle]["existe"] and not out[handle]["restreint"]):   # déjà lu en entier au premier appel
             continue
         erreur = str(item.get("error") or "").lower()
         if erreur and "restricted" not in erreur and not item.get("isRestrictedProfile"):
@@ -174,7 +200,7 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban
         return ""
     if e in ("good", "prive", "privé"):
         return "BAN" if absents >= BAN_JOURS else ""
-    if e == "ban" and ban_auto:                                         # BAN posé par le bot : le compte revient → son état d'avant
+    if e == "ban":                                                      # 30/09 : tout BAN vivant sur Instagram revient (à la main compris)
         if not mesure["existe"]:
             return ""
         return avant_ban if avant_ban in ("WARMUP", "GOOD", "PRIVE") else ("GOOD" if publie_deja(historique) else "WARMUP")
@@ -207,7 +233,18 @@ def a_scanner(comptes: list) -> list:
 
 
 # ------------------------------------------------------------------ cycle
+_verrou = None
+
+
 async def executer(ecrire: bool = True) -> dict:
+    """Un seul passage à la fois (30/09 : `!dashboard` scanne aussi ; deux scans en même temps écriraient deux fois)."""
+    global _verrou
+    _verrou = _verrou or asyncio.Lock()
+    async with _verrou:
+        return await _executer(ecrire)
+
+
+async def _executer(ecrire: bool = True) -> dict:
     """Un passage : lecture du classeur, scan Instagram, décisions, écriture des cellules. Renvoie le bilan
     {"changements": [(handle, gerant, avant, apres)], "scannes": n, "erreur": str}."""
     if not onboarding.actif():
@@ -683,7 +720,7 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
         if apres in par_etat:
             lignes.append(f"→ **{apres}** : " + ", ".join(par_etat[apres]))
     if "BAN" in par_etat:
-        lignes.append(f"-# BAN = introuvable sur Instagram{' au premier scan' if BAN_JOURS <= 1 else f' {BAN_JOURS} jours de suite'} "
+        lignes.append(f"-# BAN = introuvable sur Instagram (redemandé une fois avant de conclure ; un compte restreint n'est jamais BAN){' au premier scan' if BAN_JOURS <= 1 else f' {BAN_JOURS} jours de suite'} "
                       "(et, en plus, tout mail « Action requise / compte suspendu » lu dans ta boîte toutes les 3 min). "
                       "Le compte est à remplacer : `!liberer Prénom handle` puis un nouvel identifiant.")
     return "\n".join(lignes)
@@ -747,6 +784,16 @@ async def commande_staff(message, texte: str) -> bool:
                 exclus = [x for x in exclus if _norm(x) != _norm(prenom)]
             d["dashboard_masques"] = exclus
             _ecrire(d)
+        # 30/09 (Gaëtan : « tous les comptes GOOD, BAN et WARMUP, fais des vérifications à chaque fois que je fais !dashboard ») :
+        # le passage complet (Instagram, états, followers, Reels hier, clics, regroupement) avant l'onglet ; `!dashboard rapide`
+        # réécrit l'onglet seul, sans payer de scan
+        if actif() and not (len(mots) > 1 and mots[1].lower() in ("rapide", "vite")):
+            await message.reply("⏳ Je vérifie tous les comptes sur Instagram (GOOD, WARMUP, PRIVE, BAN, à créer réservés), puis je réécris le Dashboard. Quelques minutes.")
+            bilan = await executer(ecrire=True)
+            await message.reply(texte_bilan(bilan)[:1990])
+            if bilan.get("erreur"):
+                return True
+            d = _lire()
         try:
             n = await ecrire_dashboard(await onboarding.lire_comptes(), d.get("historique", {}), _deps.get("clics_7j"),
                                        datetime.now(timezone.utc).strftime("%Y-%m-%d"), exclus)
