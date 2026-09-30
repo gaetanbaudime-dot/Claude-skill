@@ -57,6 +57,7 @@ import telegram                           # alerte Telegram de l'agence : accept
 import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
 import classeur_verif                     # le classeur se vérifie seul après le scan : doublons, BAN avec Gérant… (29/09)
+import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
 import remplacements                      # comptes BAN d'un clipper remplacés par un dépôt, parcours relancé (30/09)
 
 DOSSIER = Path(__file__).parent
@@ -4004,7 +4005,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` (carte de chaque lien = tracking OF de son POD) · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
-                "· `!capacite` — l'onglet « Build capacity » : clippers onboardables par créatrice, e-mails et comptes à créer (objectif en B2)\n"
+                "· `!capacite` — l'onglet « Build capacity » : urgence par créatrice, e-mails et comptes à créer, 20 identifiants neufs chacune · `!capacite neufs` : nouvelle série\n"
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
                 "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
@@ -6432,7 +6433,9 @@ async def on_ready():
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
-        client.loop.create_task(remplacements.demarrage(client))                # 30/09 : Clarisse, trois comptes neufs
+        client.loop.create_task(remplacements.demarrage(client))
+        identifiants.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "identifiants.json",
+                                 "scanner": etats_comptes.scanner})                     # 30/09 : 20 identifiants neufs par créatrice                # 30/09 : Clarisse, trois comptes neufs
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
                                      "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
                                      "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id,

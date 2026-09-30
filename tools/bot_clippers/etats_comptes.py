@@ -785,7 +785,10 @@ async def commande_staff(message, texte: str) -> bool:
     if mots[0].lower() in ("!capacite", "!capacité", "!build-capacity"):  # 30/09 : l'onglet Build capacity seul, sans scan
         import capacite
         try:
-            await message.reply(capacite.texte_resume(await capacite.ecrire())[:1990])
+            neufs = len(mots) > 1 and mots[1].lower() in ("neufs", "nouveaux", "regenerer", "régénérer")
+            if neufs:
+                await message.reply("⏳ Nouveaux identifiants pour toutes les créatrices, vérifiés sur Instagram. Quelques minutes.")
+            await message.reply(capacite.texte_resume(await capacite.ecrire(neufs=neufs))[:1990])
         except Exception as erreur:                                     # noqa: BLE001
             await message.reply(f"❌ Build capacity : {type(erreur).__name__} {str(erreur)[:150]}")
         return True
