@@ -785,6 +785,11 @@ async def commande_staff(message, texte: str) -> bool:
     if mots[0].lower() in ("!capacite", "!capacité", "!build-capacity"):  # 30/09 : l'onglet Build capacity seul, sans scan
         import capacite
         try:
+            if len(mots) > 1 and mots[1].lower() in ("ajouter", "ajoute"):   # 30/09 : la réserve part dans les onglets
+                await message.reply("⏳ J'ajoute les identifiants de la réserve dans chaque onglet et j'étends les tableaux.")
+                await message.reply("\n".join(await capacite.ajouter_aux_onglets())[:1990])
+                await message.reply(capacite.texte_resume(await capacite.ecrire())[:1990])
+                return True
             neufs = len(mots) > 1 and mots[1].lower() in ("neufs", "nouveaux", "regenerer", "régénérer")
             if neufs:
                 await message.reply("⏳ Nouveaux identifiants pour toutes les créatrices, vérifiés sur Instagram. Quelques minutes.")

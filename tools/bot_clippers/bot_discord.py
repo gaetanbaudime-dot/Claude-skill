@@ -4052,7 +4052,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` (carte de chaque lien = tracking OF de son POD) · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
-                "· `!capacite` — l'onglet « Build capacity » : urgence par créatrice, e-mails et comptes à créer, 20 identifiants neufs chacune · `!capacite neufs` : nouvelle série\n"
+                "· `!capacite` — l'onglet « Build capacity » : urgence par créatrice, e-mails et comptes à créer, 20 identifiants neufs chacune · `!capacite neufs` : nouvelle série · `!capacite ajouter` : la série dans les onglets\n"
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
                 "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
@@ -6498,7 +6498,27 @@ async def on_ready():
                 journal.warning("Rôles des créatrices : %s", erreur)
         client.loop.create_task(_roles_au_demarrage())
         identifiants.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "identifiants.json",
-                                 "scanner": etats_comptes.scanner})                     # 30/09 : 20 identifiants neufs par créatrice                # 30/09 : Clarisse, trois comptes neufs
+                                 "scanner": etats_comptes.scanner})                     # 30/09 : 20 identifiants neufs par créatrice
+
+        async def _identifiants_au_demarrage():                        # 30/09 : la première réserve part dans les onglets, une fois
+            await client.wait_until_ready()
+            await asyncio.sleep(120)
+            try:
+                import capacite
+                trace = DONNEES / "identifiants_ajouts.json"
+                faits = lire_json(trace, {})
+                if capacite.AJOUT_AUTO in faits or not onboarding.actif():
+                    return
+                lignes_i = await capacite.ajouter_aux_onglets()
+                faits[capacite.AJOUT_AUTO] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                ecrire_json(trace, faits)
+                resume = capacite.texte_resume(await capacite.ecrire())
+                canal_i = await canal_admin()
+                if canal_i is not None:
+                    await canal_i.send(("🆕 **Identifiants neufs ajoutés dans les onglets**\n" + "\n".join(lignes_i) + "\n" + resume)[:1990])
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Ajout des identifiants : %s", erreur)
+        client.loop.create_task(_identifiants_au_demarrage())                # 30/09 : Clarisse, trois comptes neufs
         messages_deposes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "messages_envoyes.json",
                                      "chercher_membre": chercher_membre, "salon_perso": salon_perso_de, "canal_admin": canal_admin,
                                      "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id,

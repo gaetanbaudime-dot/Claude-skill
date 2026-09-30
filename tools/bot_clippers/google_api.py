@@ -336,6 +336,16 @@ async def sheets_assurer_colonnes(classeur_id: str, titre: str, minimum: int) ->
     return manque
 
 
+async def sheets_tables(classeur_id: str) -> dict:
+    """30/09 : {titre: {"id", "lignes", "tables": [{"tableId", "range"}]}} — les tableaux Google (Tables) de chaque onglet."""
+    r = await _appel("GET", f"{SHEETS}/{classeur_id}",
+                     params={"fields": "sheets(properties(title,sheetId,gridProperties(rowCount)),tables(tableId,name,range))"})
+    return {s["properties"]["title"]: {"id": s["properties"]["sheetId"],
+                                       "lignes": int((s["properties"].get("gridProperties") or {}).get("rowCount", 0)),
+                                       "tables": [{"tableId": t.get("tableId"), "range": t.get("range") or {}} for t in s.get("tables") or []]}
+            for s in r.get("sheets", [])}
+
+
 async def sheets_onglets(classeur_id: str) -> list:
     r = await _appel("GET", f"{SHEETS}/{classeur_id}", params={"fields": "sheets(properties(title,sheetId,gridProperties))"})
     return [s["properties"]["title"] for s in r.get("sheets", [])]

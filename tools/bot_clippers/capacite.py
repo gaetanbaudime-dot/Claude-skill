@@ -259,3 +259,71 @@ def texte_resume(r: dict) -> str:
             + (f" ({r['qui']})" if r["qui"] else "")
             + (f"\nÀ créer pour l'objectif : {r['mails']} e-mail(s) sur lignes existantes + {r['entiers']} compte(s) entier(s)"
                + (f" → {detail} (e-mails + comptes entiers)" if detail else "") if r["manque"] else "\nObjectif couvert : rien à créer."))
+
+
+AJOUT_AUTO = "ajout-3009"                                               # 30/09 : premier ajout fait tout seul au démarrage
+
+
+def plan_ajout(lignes_onglet: list, reserve_: list, creatrice: str) -> list:
+    """30/09 (Gaëtan : « ajoute tous les nouveaux @ et mdp dans les bonnes feuilles et étends les tableaux ») : les lignes à
+    écrire sous la dernière ligne remplie de l'onglet — [(n° de ligne, {champ: valeur})]. État « à créer », Utilisation Clipper,
+    la créatrice, le Numéro Mail suivant, et des POD de trois (le dernier POD entamé est complété d'abord). Sans e-mail : c'est
+    Gaëtan qui crée les iCloud (la colonne « À créer sans e-mail » du Build capacity les compte)."""
+    remplies = [c for c in lignes_onglet if c.get("handle") or c.get("mail") or c.get("etat")]
+    derniere = max((int(c["ligne"]) for c in remplies), default=1)
+    numeros = [int(c["numero"]) for c in lignes_onglet if str(c.get("numero") or "").strip().isdigit()]
+    pods = [int(c["pod"]) for c in lignes_onglet if str(c.get("pod") or "").strip().isdigit()]
+    num = max(numeros, default=0)
+    pod = max(pods, default=0)
+    dans_pod = sum(1 for p in pods if p == pod) if pod else 3
+    out = []
+    for i, x in enumerate(reserve_):
+        if dans_pod >= 3:
+            pod, dans_pod = pod + 1, 0
+        num += 1
+        dans_pod += 1
+        out.append((derniere + 1 + i, {"etat": "à créer", "handle": x["handle"], "mdp": x["mdp"], "utilisation": "Clipper",
+                                       "creatrice": creatrice, "numero": num, "pod": pod}))
+    return out
+
+
+async def ajouter_aux_onglets() -> list:
+    """Écrit la réserve d'identifiants de chaque créatrice dans son onglet et étend son tableau Google jusqu'à la dernière
+    ligne remplie (les lignes déjà hors du tableau y rentrent aussi). Renvoie les lignes du bilan."""
+    import identifiants
+    cid = onboarding.CLASSEUR_LOGINS_ID
+    comptes = await onboarding.lire_comptes()
+    etat = identifiants._deps["lire_json"](identifiants._deps["FICHIER"], {}) if identifiants._deps.get("lire_json") else {}
+    deja = {identifiants._squash(c["handle"]) for c in comptes if c.get("handle")}
+    infos = await google_api.sheets_tables(cid)
+    ecritures, requetes_t, bilan = [], [], []
+    for onglet in await onboarding.onglets_logins():
+        cle = _cle(onglet)
+        a_mettre = [x for x in etat.get(identifiants._cle_creatrice(onglet), []) if identifiants._squash(x["handle"]) not in deja]
+        lignes_o = [c for c in comptes if c.get("onglet") == onglet]
+        plan = plan_ajout(lignes_o, a_mettre, onglet)
+        for n, valeurs in plan:
+            for champ, v in valeurs.items():
+                if onboarding.a_colonne(champ, onglet):
+                    ecritures.append((f"{onboarding.onglet_a1(onglet)}!{onboarding.lettre(champ, onglet)}{n}", [[v]]))
+        fin = max([n for n, _ in plan] + [int(c["ligne"]) for c in lignes_o if c.get("handle") or c.get("mail") or c.get("etat")] + [1])
+        info = infos.get(onglet) or {}
+        if info and info.get("lignes", 0) < fin:
+            requetes_t.append({"appendDimension": {"sheetId": info["id"], "dimension": "ROWS", "length": fin - info["lignes"] + 5}})
+        table = next((t for t in info.get("tables", []) if int(t["range"].get("startRowIndex", 0)) == 0), None)
+        etendu = ""
+        if table and int(table["range"].get("endRowIndex", 0)) < fin:
+            rng = dict(table["range"], endRowIndex=fin)
+            requetes_t.append({"updateTable": {"table": {"tableId": table["tableId"], "range": rng}, "fields": "range"}})
+            etendu = f", tableau étendu jusqu'à la ligne {fin}"
+        if plan or etendu:
+            bilan.append(f"· {onglet} : {len(plan)} identifiant(s) ajouté(s)" + (f" (lignes {plan[0][0]} à {plan[-1][0]})" if plan else "") + etendu)
+        _ = cle
+    if requetes_t:
+        try:
+            await google_api.sheets_batch_update(cid, requetes_t)
+        except Exception as erreur:                                     # noqa: BLE001 — les valeurs s'écrivent quand même
+            bilan.append(f"⚠️ Tableaux non étendus : {str(erreur)[:160]} (étends-les à la main : coin bas droit du tableau)")
+    if ecritures:
+        await google_api.sheets_ecrire_plusieurs(cid, ecritures)
+    return bilan or ["Rien à ajouter : les identifiants de la réserve sont déjà dans les onglets."]
