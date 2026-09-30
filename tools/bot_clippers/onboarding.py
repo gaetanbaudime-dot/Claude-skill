@@ -1080,7 +1080,10 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
             blocs.append(courant)
         for bloc in blocs:
             g = _norm(bloc[0].get("gerant"))
-            if g in GERANTS_LIBRES:
+            if g in GERANTS_LIBRES:                                      # 01/10 : ligne rendue au vivier (réservation expirée,
+                for c in bloc:                                           # !liberer) → son ancien chiffre part avec le Gérant
+                    if str(c.get("clics") or "").strip():
+                        ecritures.append((cellule(c, "clics"), [[""]]))
                 continue
             cle = (onglet, g)
             if cle not in valeurs:

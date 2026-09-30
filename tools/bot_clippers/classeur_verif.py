@@ -105,7 +105,9 @@ def anomalies(comptes: list, historique: dict | None = None, exclus=None) -> lis
     # 5. plus de MAX_COMPTES comptes vivants pour un clipper (BAN exclus)
     vivants = {}
     for c in comptes:
-        if _en_gestion(c) and _n(c.get("etat")) != "ban" and _n(_prenom(c)) not in exclus and c.get("handle"):
+        # 01/10 : « Logs perdus » ne compte pas (Caroline signalée à 4 comptes : 3 utilisables + 1 aux identifiants perdus)
+        if _en_gestion(c) and _n(c.get("etat")) != "ban" and "perdu" not in _n(c.get("etat")) \
+                and _n(_prenom(c)) not in exclus and c.get("handle"):
             cle = (c.get("onglet") or "?", _n(_prenom(c)), _prenom(c))
             vivants[cle] = vivants.get(cle, 0) + 1
     trop = [f"{p} {n} ({o})" for (o, _, p), n in sorted(vivants.items()) if n > MAX_COMPTES]

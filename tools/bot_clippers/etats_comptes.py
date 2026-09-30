@@ -203,7 +203,11 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban
     if e == "ban":                                                      # 30/09 : tout BAN vivant sur Instagram revient (à la main compris)
         if not mesure["existe"]:
             return ""
-        return avant_ban if avant_ban in ("WARMUP", "GOOD", "PRIVE") else ("GOOD" if publie_deja(historique) else "WARMUP")
+        if avant_ban in ("WARMUP", "GOOD", "PRIVE"):
+            return avant_ban
+        # 01/10 : état d'avant inconnu. Un compte restreint cache ses Reels au scan : « jamais vu publier » ne prouve rien,
+        # et un compte restreint en WARMUP n'en sortirait jamais tout seul → GOOD (le chiffre de Clics dit la vérité)
+        return "GOOD" if publie_deja(historique) or mesure.get("restreint") else "WARMUP"
     return ""
 
 
