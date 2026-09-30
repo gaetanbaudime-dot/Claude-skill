@@ -58,6 +58,7 @@ import rapport_quotidien                  # rapport compact de la veille à 13 h
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
 import classeur_verif                     # le classeur se vérifie seul après le scan : doublons, BAN avec Gérant… (29/09)
 import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
+import relance_nouveaux                   # relance quotidienne des nouveaux jusqu'au test de montage (30/09)
 import remplacements                      # comptes BAN d'un clipper remplacés par un dépôt, parcours relancé (30/09)
 
 DOSSIER = Path(__file__).parent
@@ -3370,7 +3371,7 @@ async def boucle_pipeline():
                                                  "Pas grave — tu peux retenter à partir du "
                                                  f"{info['retest'][:10]}. Reste sur le serveur, revois les fiches, "
                                                  "et ce jour-là écris **VALIDÉ** ici en MP : ton test repartira.")
-                elif maintenant > envoi + timedelta(hours=24) and not info.get("relance"):
+                elif maintenant > envoi + timedelta(hours=24) and not info.get("relance") and not relance_nouveaux.ACTIF:
                     info["relance"] = True
                     modifie = True
                     if membre and not stop_t:
@@ -3435,8 +3436,9 @@ async def boucle_pipeline():
                     "⏳ Dernier rappel : ton parcours n'a pas encore commencé. Envoie **ton numéro du "
                     "formulaire** ici en MP et c'est parti — formation, quiz, test, paie. "
                     "Après, je te laisse tranquille 😉")
-            # ② Lié mais quiz jamais réussi (aucun état : le test n'a pas été déclenché).
-            for uid, li in list(liaisons_d.items()):
+            # ② Lié mais quiz jamais réussi (aucun état : le test n'a pas été déclenché). 30/09 : remplacé par la relance
+            # quotidienne (relance_nouveaux), sauf RELANCE_NOUVEAUX=0.
+            for uid, li in ([] if relance_nouveaux.ACTIF else list(liaisons_d.items())):
                 if uid in donnees.get("etats", {}):
                     continue
                 lien_quiz = (f"\n→ Ton lien de quiz personnel : {lien_quiz_pour(uid)}" if lien_quiz_pour(uid) else "")
@@ -4138,7 +4140,15 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     if reels_uniques.actif():
         client.loop.create_task(reels_uniques.pour_nouveau(prenom_de(m_), creatrice_c))   # 26/09 : ses Reels uniques, en tâche de fond
     try:
-        await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
+        # 30/09 (Gaëtan : « pourquoi Steeve, on lui donne directement 2 comptes ? ») : un clipper qui vient d'être accepté
+        # (test validé, jamais de parcours) commence TOUJOURS à l'étape 1, compte 1, période d'essai comprise. « Selon le
+        # classeur » ne vaut que pour un ancien clipper qui arrive avec des comptes à lui : un compte rendu par un sortant,
+        # déjà créé, comptait comme « son » compte 1 fait, et Steeve est parti à l'étape 2.
+        etat_pipe = (lire_json(FICHIER_PIPELINE, {}).get("etats", {}).get(str(m_.id)) or {}).get("etat")
+        if etat_pipe == "valide" and int((parcours._lire().get(str(m_.id)) or {}).get("etape", 0)) == 0:
+            await parcours.demarrer_parcours(salon_c, m_, creatrice_c)
+        else:
+            await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
     except Exception as erreur:                                             # noqa: BLE001
         journal.warning("Routine %s : %s", m_.id, erreur)
     return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
@@ -6497,6 +6507,38 @@ async def on_ready():
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Rôles des créatrices : %s", erreur)
         client.loop.create_task(_roles_au_demarrage())
+
+        async def _reparer_nouveaux_mal_partis():                       # 30/09 (Steeve) : remis à l'étape 1, une fois chacun
+            await client.wait_until_ready()
+            await asyncio.sleep(45)
+            try:
+                trace = DONNEES / "parcours_repares.json"
+                faits = lire_json(trace, {})
+                etats_p = lire_json(FICHIER_PIPELINE, {}).get("etats", {})
+                valides = {u for u, i in etats_p.items() if (i or {}).get("etat") == "valide"}
+                fiches = parcours._lire()
+                lignes_p = []
+                for uid in parcours.mal_partis(fiches, valides):
+                    m = membre_par_id(uid)
+                    salon = salon_perso_de(uid)
+                    if uid in faits or m is None or salon is None:
+                        continue
+                    await parcours.reprendre_au_compte_1(salon, m, fiches[uid].get("creatrice", ""))
+                    faits[uid] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                    lignes_p.append(prenom_de(m))
+                if lignes_p:
+                    ecrire_json(trace, faits)
+                    canal_p = await canal_admin()
+                    if canal_p is not None:
+                        await canal_p.send("🔁 Parcours remis au compte 1 (partis à l'étape 2 par erreur, sans période d'essai) : " + ", ".join(lignes_p))
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Réparation des parcours : %s", erreur)
+        client.loop.create_task(_reparer_nouveaux_mal_partis())
+        relance_nouveaux.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "relance_nouveaux.json",
+                                     "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_EQUIPES": FICHIER_EQUIPES, "client": client,
+                                     "heure_paris": heure_paris, "salon_perso": salon_perso_de, "lien_quiz": lien_quiz_pour,
+                                     "LIEN_TEST": LIEN_TEST, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+        client.loop.create_task(relance_nouveaux.boucle(client))               # 30/09 : une relance par jour jusqu'au test rendu
         identifiants.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "identifiants.json",
                                  "scanner": etats_comptes.scanner})                     # 30/09 : 20 identifiants neufs par créatrice
 

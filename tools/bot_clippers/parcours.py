@@ -307,6 +307,33 @@ async def demarrer_parcours(salon, membre, creatrice: str) -> None:
     await envoyer_etape(salon, membre, 1)
 
 
+def mal_partis(fiches: dict, valides: set) -> list:
+    """30/09 (Steeve) : les nouveaux (test validé) partis à l'étape 2 ou 3 sans jamais avoir eu l'étape 1 — [uid]."""
+    out = []
+    for uid, f in fiches.items():
+        dates = f.get("dates") or {}
+        if uid in valides and int(f.get("etape", 0)) in (2, 3) and not dates.get("1") and not dates.get("1_fait"):
+            out.append(uid)
+    return out
+
+
+async def reprendre_au_compte_1(salon, membre, creatrice: str) -> None:
+    """Remet un nouveau parti trop loin à l'étape 1 (calendrier, profils et programme effacés, notes gardées), avec une ligne
+    d'excuse, puis l'étape 1."""
+    d = _lire()
+    f = d.get(str(membre.id)) or {}
+    for cle in ("dates", "messages", "profils", "programme", "essai", "reconcilie", "corrige_4", "warmup_jour"):
+        f.pop(cle, None)
+    f["etape"] = 0
+    d[str(membre.id)] = f
+    _ecrire(d)
+    try:
+        await salon.send(f"{membre.mention} Petite erreur de ma part : on reprend dans l'ordre. Oublie le compte 2, commence par ton compte 1 👇")
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    await forcer_etape(salon, membre, creatrice or f.get("creatrice", ""), 1)
+
+
 async def demarrer_routine(salon, membre, creatrice: str) -> None:
     """Clipper déjà en place (comptes créés avant le bot) : le parcours démarre directement à la routine (étape 7),
     sans repasser par la création des comptes. Rejoué : rien."""
