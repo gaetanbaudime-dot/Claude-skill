@@ -1,17 +1,23 @@
 /**
- * Pilotage G&M — rapport Telegram quotidien v2 (14/09/2026), pour le classeur « Data G&M Créatrices v2 ».
- * Ce que ça envoie chaque matin : par créatrice, la valeur d'un abonné OF et MYM sur 30 jours, la veille,
- * puis CA et profit de la veille. Même style que le rapport actuel, avec OF et MYM séparés.
+ * Pilotage G&M — rapport Telegram quotidien v3 (30/09/2026), pour le classeur « Data G&M Créatrices ».
+ * 30/09 (Gaëtan : « une ligne OF, une ligne MYM, une ligne Hier pour chaque créatrice, sauf celles qui n'ont que MYM ; le
+ * €/sub n'est pas mesurable comme ça ; sans perturber le formatage, lisible sur téléphone ») : même présentation que le
+ * rapport actuel (titre, blocs numérotés, bloc copiable), une créatrice = un titre avec son total 30 jours, puis
+ *   OF   :  1049 subs ·  7 411 €     (30 derniers jours, $ convertis en €)
+ *   MYM  :  1869 subs · 14 309 €     (30 derniers jours)
+ *   Hier :   105 subs ·  1 594 €     (OF + MYM de la veille)
+ * Une plateforme sans aucun abonné ni euro sur 30 jours n'a pas de ligne (Maddy : MYM seul ; Sophie : OF seul).
+ * Lignes de 28 caractères : elles tiennent sur un écran de téléphone sans retour à la ligne.
  *
- * Mise en place (une fois, 3 minutes) : Extensions → Apps Script → coller ce fichier → Paramètres du projet →
- * Propriétés du script : TELEGRAM_TOKEN et TELEGRAM_CHAT_ID (les mêmes que l'ancien script) → exécuter
- * `installerDeclencheur` une fois (autoriser) → c'est fini. `envoyerRapportTelegram` teste l'envoi immédiat.
+ * Mise en place (une fois, 3 minutes) : Extensions → Apps Script → remplacer le code par ce fichier → Enregistrer →
+ * Paramètres du projet → Propriétés du script : TELEGRAM_TOKEN et TELEGRAM_CHAT_ID (déjà là si vous remplacez l'ancien
+ * code) → exécuter `installerDeclencheur` une fois (autoriser). `envoyerRapportTelegram` teste l'envoi immédiat.
  *
- * Réglages : CREATRICES = les onglets lus (ordre du rapport) ; MARGE = part nette estimée du CA (le rapport
- * actuel affiche ~28 % : 644 € de profit pour 2 321 € de CA) — à ajuster ici si votre calcul diffère.
+ * Réglages : CREATRICES = les onglets lus ; MARGE = part nette du CA pour le profit (le rapport actuel : 936 € de profit
+ * pour 3 118 € de CA, soit 30 %).
  */
 const CREATRICES = ["Chloé", "Sophie", "Maddy", "Sarah", "Jade", "Clara"];
-const MARGE = 0.28;
+const MARGE = 0.30;
 const HEURE_ENVOI = 8;           // heure locale du classeur
 
 function installerDeclencheur() {
@@ -20,12 +26,19 @@ function installerDeclencheur() {
 }
 
 function _taux(ss) {
-  const v = Number(ss.getSheetByName("Notice").getRange("B3").getValue());
+  const notice = ss.getSheetByName("Notice");                // absent dans l'ancien classeur : 0,92 par défaut
+  const v = notice ? Number(notice.getRange("B3").getValue()) : 0;
   return (v > 0 && v < 5) ? v : 0.92;
 }
 
+function _cle(t) { return String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "").slice(0, 4); }
+
+function _onglet(ss, nom) {                                   // « Maddy » trouve « Maddie », accents ignorés
+  return ss.getSheetByName(nom) || ss.getSheets().find(f => _cle(f.getName()) === _cle(nom)) || null;
+}
+
 function _lire(ss, nom) {
-  const f = ss.getSheetByName(nom);
+  const f = _onglet(ss, nom);
   if (!f) return [];
   const last = f.getLastRow();
   if (last < 5) return [];
@@ -45,6 +58,10 @@ function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/ /g, 
 function _parSub(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") + " €" : "—"; }
 function _jour(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), "dd/MM"); }
 
+function _ligne(libelle, subs, eur) {                        // 28 caractères, alignés en colonnes
+  return `${libelle.padEnd(4)} : ${String(Math.round(subs)).padStart(5)} subs · ${_eur(eur).padStart(8)}`;
+}
+
 function construireRapport() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const taux = _taux(ss);
@@ -57,13 +74,13 @@ function construireRapport() {
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
     totalHier.tot += h.tot;
     const lignes = [];
-    if (m.ofS || m.ofE) lignes.push(`OF   30 j : ${String(m.ofS).padStart(5)} subs · ${_eur(m.ofE).padStart(9)} · ${_parSub(m.ofE, m.ofS)}/sub`);
-    if (m.myS || m.myE) lignes.push(`MYM  30 j : ${String(m.myS).padStart(5)} subs · ${_eur(m.myE).padStart(9)} · ${_parSub(m.myE, m.myS)}/sub`);
-    lignes.push(`Hier      : ${String(h.subs).padStart(5)} subs · ${_eur(h.tot).padStart(9)}`);
-    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b>\n<pre>${lignes.join("\n")}</pre>` });
+    if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE));
+    if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE));
+    lignes.push(_ligne("Hier", h.subs, h.tot));
+    blocs.push({ nom, tot: m.tot, texte: `<b>${nom}</b> — ${_eur(m.tot)} / 30 j\n<pre>${lignes.join("\n")}</pre>` });
   });
   blocs.sort((a, b) => b.tot - a.tot);
-  const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours glissants ➡️ € par abonné, OF et MYM séparés\n————————————\n\n`;
+  const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours glissants ➡️ OF · MYM\nHier : ${_jour(hier)}\n————————————\n\n`;
   const corps = blocs.map((b, i) => `${i + 1}. ${b.texte}`).join("\n\n");
   const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🏦 <b>PROFIT HIER : ${_eur(totalHier.tot * MARGE)}</b>`;
   return entete + corps + pied;
