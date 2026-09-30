@@ -44,7 +44,7 @@ async def remplacer(prenom: str, creatrice: str) -> str:
         fiche = d.get(str(membre.id))
         if fiche is not None:                                           # nouveau trio : l'ancien calendrier ne vaut plus rien
             fiche["dates"] = {}
-            for cle in ("reconcilie", "corrige_4", "warmup_jour"):
+            for cle in ("reconcilie", "corrige_4", "warmup_jour", "messages", "profils", "programme"):
                 fiche.pop(cle, None)
             parcours._ecrire(d)
         await parcours.forcer_etape(salon, membre, creatrice, min(3, len(vivants)) + 1)

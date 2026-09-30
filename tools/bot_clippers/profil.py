@@ -127,33 +127,30 @@ def lien_photos(creatrice: str) -> str:
 def texte_bio(n: int, bio: str, nom: str = "") -> str:
     """30/09 (Ricardo demandait quoi mettre dans « Ajoutez votre nom », Gaëtan : « mets Chloé, t'embêtes pas ») : le nom du
     profil arrive avec la bio, prêt à coller — le prénom de la créatrice, rien d'autre."""
-    tete = f"✏️ Nom du profil, à coller tel quel :\n```\n{nom}\n```\n" if nom else ""
-    return tete + f"✏️ Bio du compte {n}, à coller telle quelle :\n```\n{bio}\n```"
+    tete = f"✏️ Nom :\n```\n{nom}\n```\n" if nom else ""
+    return tete + f"✏️ Bio :\n```\n{bio}\n```"
 
 
-async def envoyer(salon, uid: str, n: int, creatrice: str) -> bool:
-    """Après l'étape n (1 à 3) : la photo en pièce jointe, puis la bio dans un bloc copiable. Jamais bloquant."""
+async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None):
+    """01/10 (Gaëtan : « arrête de spammer les clippeurs ») : le profil du compte n en UN message — la photo en pièce jointe
+    (ou le lien du dossier Photos), le nom et la bio prêts à coller, et le bouton `vue`. Renvoie le message envoyé, None sinon."""
     if not ACTIF or salon is None or not creatrice:
-        return False
+        return None
     photo = await photo_pour(creatrice)
-    envoyee = False
-    if photo is not None:
-        try:
-            nom_fichier, octets = photo
-            await salon.send(f"📷 Photo de profil du compte {n} : télécharge-la, mets-la sur le compte.",
-                             file=discord.File(io.BytesIO(octets), filename=nom_fichier))
-            envoyee = True
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Photo du compte %s pour %s : %s", n, uid, erreur)
+    prenom = (creatrice or "").split()[0] if (creatrice or "").split() else creatrice
+    if photo is None:                                                   # 30/09 (Ricardo) : jamais une photo promise qui n'arrive pas
+        journal.warning("Pas de photo de profil envoyée à %s (%s, compte %s)", uid, creatrice, n)
+        lien = lien_photos(creatrice)
+        tete = (f"📷 Photo : choisis-en une ici : <{lien}>" if lien else "📷 Photo : prends-en une dans le dossier **Photos** de ton Drive.")
+    else:
+        tete = "📷 Photo : celle-ci, télécharge-la."
+    texte = f"**Ton profil du compte {n}**\n\n{tete}\n\n{texte_bio(n, bio_pour(creatrice), prenom)}\n\nPas de lien, pas d'@. Fait ? Appuie sur le bouton."
+    kwargs = {"view": vue} if vue is not None else {}
     try:
-        if not envoyee:                                                 # 30/09 (Ricardo) : jamais une photo promise qui n'arrive pas
-            journal.warning("Pas de photo de profil envoyée à %s (%s, compte %s)", uid, creatrice, n)
-            lien = lien_photos(creatrice)
-            await salon.send(f"📷 Photo de profil du compte {n} : choisis-en une ici : <{lien}>" if lien else
-                             f"📷 Photo de profil du compte {n} : prends-en une dans le dossier **Photos** de ton Drive.")
-        prenom = (creatrice or "").split()[0] if (creatrice or "").split() else creatrice
-        await salon.send(texte_bio(n, bio_pour(creatrice), prenom))
+        if photo is not None:
+            nom_fichier, octets = photo
+            return await salon.send(texte[:1990], file=discord.File(io.BytesIO(octets), filename=nom_fichier), **kwargs)
+        return await salon.send(texte[:1990], **kwargs)
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Profil du compte %s pour %s : %s", n, uid, erreur)
-        return False
-    return True
+        return None
