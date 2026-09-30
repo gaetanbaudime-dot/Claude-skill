@@ -6341,6 +6341,7 @@ async def on_ready():
             return ""
         client.loop.create_task(onboarding.restructurer_drives(client, roster.groupes(), _email_de_prenom))   # Photos / Reels / TOP 20 (27/09)
         client.loop.create_task(onboarding.ouvrir_sources_par_lien())       # 30/09 : Photos s'ouvre sans autorisation (Ricardo)
+        client.loop.create_task(boucle_drives_info())                       # 30/09 : Drives des salons ℹ️ ouverts par le lien
         client.loop.create_task(onboarding.structurer_onglets())            # 30/09 : Reels Hier + Clics à droite du Gérant
         def _clics_7j(prenom, jours=7):                                      # visites payables des `jours` derniers jours du clipper
             m = membre_par_prenom(normaliser(prenom))                        # (28/09 : jours=1 → « Visites hier » du Dashboard)
@@ -6561,6 +6562,58 @@ async def parrainage_top_maintenant() -> tuple:
     uids = paie_clics.top_uids(d, heure_paris().date() - timedelta(days=1))
     n = await parrainage.inviter_top(uids, web_candidature.lien_parrainage, salon_perso_de)
     return n, len(uids)
+
+
+RE_DOSSIER_DRIVE = re.compile(r"drive\.google\.com/drive/(?:u/\d+/)?folders/([A-Za-z0-9_-]{20,})")
+
+
+def est_salon_info(salon) -> bool:
+    """Le salon « ℹ️-créatrice » d'une catégorie créatrice (Gaëtan y poste le Drive, la présentation, la chaîne YouTube)."""
+    nom = getattr(salon, "name", "") or ""
+    return "ℹ" in nom or normaliser(nom).startswith(("i-", "info"))
+
+
+async def ouvrir_drives_salons_info() -> int:
+    """30/09 (Gaëtan : « j'ai mis ces liens dans les salons informations des créatrices, c'est ça qui demande des autorisations
+    à chaque fois dans mes mails ») : les dossiers Drive postés dans les salons ℹ️ étaient en accès « Limité » — chaque clipper
+    qui cliquait envoyait une demande d'accès. Le bot (éditeur de ces dossiers) les ouvre en lecture par le lien, comme les
+    dossiers des clippers depuis le 28/09. Relu toutes les 6 h : un lien posté plus tard s'ouvre aussi."""
+    fichier = DONNEES / "drives_info.json"
+    ouverts = set(lire_json(fichier, {}).get("ouverts", []))
+    trouves = set()
+    for g in client.guilds:
+        for salon in g.text_channels:
+            if not est_salon_info(salon):
+                continue
+            try:
+                async for m in salon.history(limit=300):
+                    trouves.update(RE_DOSSIER_DRIVE.findall(m.content or ""))
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.info("Salon info %s illisible : %s", salon.name, erreur)
+    nouveaux, refuses = [], []
+    for fid in sorted(trouves - ouverts):
+        (nouveaux if await google_api.drive_partager_public(fid) else refuses).append(fid)
+    ouverts.update(nouveaux)
+    ecrire_json(fichier, {"ouverts": sorted(ouverts)})
+    if nouveaux or refuses:
+        canal = await canal_admin()
+        if canal is not None:
+            await canal.send(f"🔓 {len(nouveaux)} dossier(s) Drive des salons ℹ️ ouverts en lecture par le lien : plus de demandes "
+                             "d'accès dans tes mails." + (f" ⚠️ {len(refuses)} refusé(s) : le bot n'en est pas éditeur, "
+                                                         "à ouvrir à la main (Partager → Tous les utilisateurs disposant du lien)."
+                                                         if refuses else ""))
+    return len(nouveaux)
+
+
+async def boucle_drives_info():
+    await client.wait_until_ready()
+    while not client.is_closed():
+        try:
+            if google_api.actif():
+                await ouvrir_drives_salons_info()
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Drives des salons info : %s", erreur)
+        await asyncio.sleep(6 * 3600)
 
 
 async def annoncer_regle_48h():
