@@ -1108,6 +1108,81 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
     return {"ecrits": len(ecritures)}
 
 
+def plan_regroupement(lignes: list) -> tuple:
+    """30/09 (Gaëtan : « regroupe les comptes des clippeurs ») : pour un onglet, ([(ligne, gérant à écrire)], [(position source,
+    position cible)]). 1) Une ligne sans Gérant dont le « Lien GAML associé » est celui d'UN seul Gérant de l'onglet reçoit son
+    nom (Ricado, Stéphane : des lignes de leur bloc restaient sans nom). 2) Toutes les lignes d'un Gérant se rangent ensemble, à la
+    place de sa première ligne ; les autres gardent leur ordre. Les positions sont comptées depuis la première ligne de données."""
+    lignes = sorted(lignes, key=lambda c: c["ligne"])
+    cle = {}
+    par_lien = {}
+    for c in lignes:
+        g = _norm(c.get("gerant"))
+        if g not in GERANTS_LIBRES and str(c.get("lien_gaml") or "").strip():
+            par_lien.setdefault(_url_cle(c["lien_gaml"]), set()).add(c["gerant"].strip())
+    noms = []
+    for c in lignes:
+        g = _norm(c.get("gerant"))
+        if g in GERANTS_LIBRES and str(c.get("lien_gaml") or "").strip():
+            cands = par_lien.get(_url_cle(c["lien_gaml"]), set())
+            if len({_norm(x) for x in cands}) == 1:
+                nom = sorted(cands)[0]
+                noms.append((c["ligne"], nom))
+                g = _norm(nom)
+        cle[c["ligne"]] = None if g in GERANTS_LIBRES else g
+    ordre = [c["ligne"] for c in lignes]
+    cible, vus = [], set()
+    for r in ordre:
+        if r in vus:
+            continue
+        if cle[r] is None:
+            cible.append(r); vus.add(r)
+            continue
+        for r2 in ordre:
+            if r2 not in vus and cle[r2] == cle[r]:
+                cible.append(r2); vus.add(r2)
+    courant, deplacements = list(ordre), []
+    for t, r in enumerate(cible):
+        p = courant.index(r)
+        if p != t:
+            deplacements.append((p, t))
+            courant.insert(t, courant.pop(p))
+    return noms, deplacements
+
+
+async def regrouper_comptes(comptes: list) -> int:
+    """Applique plan_regroupement à chaque onglet (écriture des noms manquants, puis déplacements de lignes entières : chaque ligne
+    garde son état, ses liens, ses followers). Renvoie le nombre de lignes touchées ; 0 = rien à faire."""
+    if not actif() or not comptes:
+        return 0
+    par_onglet = {}
+    for c in comptes:
+        par_onglet.setdefault(c["onglet"], []).append(c)
+    props = await google_api.sheets_proprietes(CLASSEUR_LOGINS_ID)
+    total = 0
+    for onglet, lignes in par_onglet.items():
+        sid = (props.get(onglet) or {}).get("id")
+        if sid is None or not a_colonne("gerant", onglet):
+            continue
+        noms, deplacements = plan_regroupement(lignes)
+        numeros = sorted(c["ligne"] for c in lignes)
+        if deplacements and numeros[-1] - numeros[0] + 1 != len(numeros):
+            journal.warning("Logins %s : lignes non continues (doublon écarté ?), regroupement laissé de côté", onglet)
+            deplacements = []
+        if noms:
+            await google_api.sheets_ecrire_plusieurs(CLASSEUR_LOGINS_ID, [(f"{onglet_a1(onglet)}!{lettre('gerant', onglet)}{r}", [[n]])
+                                                                          for r, n in noms])
+        if deplacements:
+            debut = min(c["ligne"] for c in lignes) - 1                      # index 0 de la première ligne de données
+            await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, [{"moveDimension": {
+                "source": {"sheetId": sid, "dimension": "ROWS", "startIndex": debut + p, "endIndex": debut + p + 1},
+                "destinationIndex": debut + t}} for p, t in deplacements])
+        if noms or deplacements:
+            journal.info("Logins %s : %d nom(s) de Gérant complété(s), %d ligne(s) déplacée(s)", onglet, len(noms), len(deplacements))
+        total += len(noms) + len(deplacements)
+    return total
+
+
 def texte_liens(bilan: dict) -> str:
     """Une ligne pour le salon admin : « 🔗 Lien GAML associé : 12 cellules · Julien / Maddie vidé ×1 · Mie02 / Chloé → chloe-callista.fr/15 ×3 »."""
     if not bilan.get("ecrits"):

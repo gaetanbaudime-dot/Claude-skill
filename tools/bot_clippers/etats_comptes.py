@@ -267,6 +267,11 @@ async def executer(ecrire: bool = True) -> dict:
     # « associe automatiquement les Clics last 7d avec les clippeurs ») : un chiffre par bloc de clipper, tiré de SES liens GAML
     # (colonne « Lien GAML associé », sinon la note GAML), écrit une fois et fusionné comme le Gérant (onboarding.clics_classeur)
     if ecrire:
+        try:                                                             # 30/09 : les comptes d'un clipper rangés ensemble d'abord
+            if await onboarding.regrouper_comptes(comptes):
+                comptes = await onboarding.lire_comptes()
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Classeur : regroupement des comptes impossible : %s", erreur)
         try:
             clics_maj = (await onboarding.clics_classeur(comptes, _deps.get("clics_7j"))).get("ecrits", 0)
         except Exception as erreur:                                      # noqa: BLE001
