@@ -55,7 +55,7 @@ function _somme(lignes, debut, fin, taux) {
   return { ofS, ofE, myS, myE, tot: ofE + myE, subs: ofS + myS };
 }
 
-function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f\u00a0 ]/g, "\u00a0") + "\u00a0€"; }
+function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f\u00a0 ]/g, "\u00a0") + "€"; }
 function _parSub(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") + " €" : "—"; }
 function _jour(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), "dd/MM"); }
 
@@ -64,7 +64,7 @@ function _ltv(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") : ""; }
 
 // 30/09 (Gaëtan : « la LTV 30 jours par plateforme, sur la même ligne ») : un petit tableau aligné, 26 caractères, titres de
 // colonnes en première ligne (le bouton « copier » du bloc Telegram se pose dessus, plus sur un chiffre)
-const TETE = `${"".padEnd(4)}${"subs".padStart(6)}${"CA €".padStart(9)}${"LTV €".padStart(7)}  `;
+const TETE = `${"".padEnd(4)}${"subs".padStart(6)}${"CA€".padStart(9)}${"LTV€".padStart(7)}  `;
 function _ligne(libelle, subs, eur, ltv) {
   return `${libelle.padEnd(4)}${String(Math.round(subs)).padStart(6)}${_nb(eur).padStart(9)}${(ltv || "").padStart(7)}`.replace(/\s+$/, "");
 }
