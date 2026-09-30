@@ -797,7 +797,32 @@ ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccor
                   "merci", "bcp", "beaucoup", "mrc", "parfait", "super", "top", "bien", "recu", "compris", "note", "c'est",
                   "cest", "vu", "yes", "oui", "entendu", "genial", "nickel", "cool", "thanks", "thx", "je", "vais", "faire",
                   "le", "la", "les", "ca", "tout", "de", "suite", "maintenant", "tres", "et", "a", "plus", "tard", "bonne",
-                  "journee", "nuit", "soiree", "bonjour", "bonsoir", "salut", "coucou", "hello"}
+                  "journee", "nuit", "soiree", "bonjour", "bonsoir", "salut", "coucou", "hello", "clair", "ah", "okay", "okok"}
+
+
+# 30/09 (salon de Daniella) : un compte désactivé ou un Drive fermé, signalés dans le salon perso, n'arrivaient à personne —
+# Gaëtan a ouvert le Drive le lendemain matin en lisant le fil. Une alerte au salon admin, une fois par clipper, sujet et jour.
+MOTIFS_ALERTE = (("un compte désactivé ou banni", re.compile(r"(?i)d[ée]sactiv|banni|\bban\b|suspendu|nous examinons|compte (?:est )?bloqu")),
+                 ("un accès refusé (Drive ou lien)", re.compile(r"(?i)(?:pas|plus) (?:encore )?acc[eè]s|autorisation|acc[eè]s refus")))
+_alertes_salon = set()
+
+
+async def alerter_admin_salon(message, texte: str) -> bool:
+    jour = heure_paris().strftime("%Y-%m-%d")
+    for sujet, motif in MOTIFS_ALERTE:
+        cle = (str(message.author.id), sujet, jour)
+        if cle in _alertes_salon or not motif.search(texte or ""):
+            continue
+        _alertes_salon.add(cle)
+        try:
+            canal = await canal_admin()
+            if canal is not None:
+                await canal.send(f"🚨 **{prenom_de(message.author)}** signale {sujet} dans <#{message.channel.id}> : "
+                                 f"« {(texte or '').strip()[:180]} »")
+                return True
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Alerte salon perso : %s", erreur)
+    return False
 
 
 def est_acquiescement(texte: str) -> bool:
@@ -7384,6 +7409,7 @@ async def on_message(message):
     sp_q = salon_perso_de(utilisateur) if message.guild is not None else None
     en_salon_perso = sp_q is not None and sp_q.id == message.channel.id
     if en_salon_perso:
+        await alerter_admin_salon(message, texte)                       # 30/09 (Daniella) : ban ou Drive fermé → Gaëtan le sait
         # 27/09 (relecture du salon de Daniella) : moins de bruit. Un « ok », « merci », « d'accord » reçoit un 👍,
         # pas trois lignes qui redisent l'étape ; un message adressé à un humain (@Gaëtan) n'est pas pour le bot ;
         # et quand le manager vient de parler, le bot se tait sauf question.

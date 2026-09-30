@@ -53,10 +53,11 @@ ETAPES = {
                   "Les comptes 1 et 2 publient déjà : 2 Reels par jour chacun.\n\n"
                   "Fini ? Appuie sur le bouton.")},
     4: {"titre": "Étape 4 · 24 h de warm-up sur le compte 3 (Fiche 2)", "fiche": "2", "bouton": "✅ Warm-up fini", "salons": ["ressources"],
-        "texte": ("Encore {jours} jour(s) sans publier sur le compte 3 : 10 min de Reels de créatrices françaises ({ressources}), "
+        "texte": ("**Compte 3, pendant 24 h** : pas de Reel. 10 min de Reels de créatrices françaises ({ressources}), "
                   "5 likes, 2 abonnements, 1 story sans lien.\n\n"
-                  "Les comptes 1 et 2 ont fini leur warm-up : 2 Reels par jour dessus, pris dans ton Drive.\n\n"
-                  "Au jour {jour_suivant}, tes 3 comptes publient.")},
+                  "**Comptes 1 et 2** : ils ont fini leur warm-up. 2 Reels par jour sur chacun, pris dans ton Drive, "
+                  "et 1 story par jour (une photo du dossier Photos de ton Drive).\n\n"
+                  "Dans 24 h, le compte 3 publie aussi.")},
     5: {"titre": "Étape 5 · Tes Reels sur les 3 comptes (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
         "texte": ("Tes Reels à publier : {drive}\n\n"
                   "1. Prends un Reel dans ce dossier. Il est prêt, rien à monter.\n"
@@ -93,8 +94,10 @@ CONNEXION = ("Ce compte existe déjà, il a déjà chauffé.\n"
              "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter, sans te déconnecter du compte 1. Code demandé ? Il arrive ici.",
              "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter. Code demandé ? Il arrive ici.")
 RELANCE_JOURS = int(os.environ.get("PARCOURS_RELANCE_JOURS", "2") or 2)   # 28/09 (Gaëtan) : « des relances simples, courtes »
-WARMUP_JOUR_TEXTE = ("🔥 **Warm-up : jour {j} sur {jours}.** Aujourd'hui, sur chaque compte : 10 minutes de Reels, "
-                     "5 likes, 2 abonnements, 1 story sans lien. Pas de Reel.")
+# 30/09 (Daniella) : « sur chaque compte… pas de Reel » contredisait l'étape 4 (comptes 1 et 2 publient déjà) — le warm-up du
+# jour ne concerne que le compte 3.
+WARMUP_JOUR_TEXTE = ("🔥 **Warm-up du compte 3 : jour {j} sur {jours}.** Sur le compte 3 : 10 minutes de Reels, 5 likes, "
+                     "2 abonnements, 1 story sans lien, pas de Reel. Comptes 1 et 2 : 2 Reels et 1 story chacun, comme d'habitude.")
 
 
 def configurer(deps: dict):
@@ -420,6 +423,10 @@ def memoire(uid: str) -> str:
               f"Étape en cours : {titre}" + (f" (depuis le {date_etape})" if date_etape else "")
               + (f" · warm-up jour {fiche_p['warmup_jour']}/{WARMUP_JOURS}" if fiche_p.get("warmup_jour") else ""),
               f"Comptes créés : {crees} sur 3" + (" — les autres n'existent pas encore, n'en parle pas" if crees < 3 else "")]
+    try:
+        lignes.append(etat_des_comptes(uid))
+    except Exception as erreur:                                     # noqa: BLE001
+        journal.warning("État des comptes de %s : %s", uid, erreur)
     if onb.get("comptes"):
         lignes.append("Comptes Instagram : " + ", ".join(onb["comptes"]) + " (mots de passe déjà dans le salon, ne jamais les redonner)")
     if onb.get("lien"):
@@ -440,6 +447,49 @@ def memoire(uid: str) -> str:
     return "\n".join(lignes)
 
 
+_derniers_etats = {}                                        # handle (minuscules) → état normalisé du classeur au dernier scan
+
+
+def etat_des_comptes(uid: str, maintenant=None) -> str:
+    """30/09 (Daniella, trois réponses contraires en une soirée : « publie demain », « ton compte 1 finit son warm-up demain
+    aussi », « pas de story ni de publication ») : l'état de chaque compte, calculé, que l'assistant recopie au lieu de le
+    déduire. Compte i créé à dates[« i_fait »] (sinon au début de l'étape i+1) ; warm-up WARMUP_JOURS × 24 h ; BAN d'après
+    le dernier scan du classeur."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    fiche_p = _lire().get(str(uid), {})
+    n = int(fiche_p.get("etape", 0))
+    dates = fiche_p.get("dates") or {}
+    comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(str(uid), {}) or {}).get("comptes") or []
+    parts = []
+    for i in (1, 2, 3):
+        h = comptes[i - 1] if i - 1 < len(comptes) else ""
+        nom = f"compte {i}" + (f" `{h}`" if h else "")
+        if _derniers_etats.get(h.lower()) == "ban":
+            parts.append(f"{nom} : BAN, ne rien faire dessus, capture et bouton « Écrire à Gaëtan »")
+            continue
+        if n <= i and n < 7:
+            parts.append(f"{nom} : pas encore créé")
+            continue
+        cree = dates.get(f"{i}_fait") or dates.get(str(i + 1)) or ""
+        try:
+            d = datetime.fromisoformat(cree)
+            d = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            d = None
+        fin = d + timedelta(days=WARMUP_JOURS) if d else None
+        if fin and maintenant < fin:
+            parts.append(f"{nom} : WARM-UP jusqu'au {_date_fr(fin)}, pas de Reel, 1 story sans lien par jour")
+        else:
+            parts.append(f"{nom} : PUBLIE, 2 Reels et 1 story par jour")
+    return "État de chaque compte (fait foi) : " + " ; ".join(parts)
+
+
+def _date_fr(d) -> str:
+    from zoneinfo import ZoneInfo
+    d = d.astimezone(ZoneInfo("Europe/Paris"))
+    return d.strftime("%d/%m à ") + f"{d.hour} h" + (f" {d.minute:02d}" if d.minute else "")
+
+
 def _prenom(membre) -> str:
     """Prénom d'un membre au pseudo « Prénom - Créatrice » (25/09) : avant le séparateur, puis premier mot."""
     nom = (getattr(membre, "display_name", "") or "").strip()
@@ -452,8 +502,8 @@ def _prenom(membre) -> str:
 
 PROCHAINES = {1: "ouvre ton compte 1, `{compte1}` (création ou connexion, c'est dans l'étape). Clique ✅ quand c'est fait.",
               2: "crée ton compte 2, `{compte2}`. Clique ✅ quand c'est fait.",
-              3: "crée ton compte privé, `{compte3}`. Clique ✅ quand c'est fait.",
-              4: "warm-up : 10 minutes de Reels, 5 likes, 2 abonnements, 1 story sur chaque compte. Pas de Reel.",
+              3: "crée ton compte 3, `{compte3}`. Clique ✅ quand c'est fait.",
+              4: "compte 3 en warm-up (Reels, likes, 1 story, pas de Reel) ; comptes 1 et 2 : 2 Reels et 1 story chacun.",
               5: "publie un Reel de ton Drive sur `{compte1}`, `{compte2}` et `{compte3}`. Clique ✅ quand c'est fait.",
               6: "mets ton lien une seule fois, en story à la une, sur chaque compte. Jamais en bio. Clique ✅ quand c'est fait.",
               7: "2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une."}
@@ -532,6 +582,8 @@ async def reconcilier(client, etats_par_handle: dict, publies=None) -> list:
     """Après chaque scan du classeur : un compte créé sur Instagram valide tout seul l'étape 1, 2 ou 3 ; un clipper mis
     en routine par erreur alors que ses comptes sont à créer ou en warm-up est remis à la bonne étape (une seule fois)."""
     faits = []
+    _derniers_etats.clear()
+    _derniers_etats.update({str(h).lower(): _norm(e or "") for h, e in (etats_par_handle or {}).items()})
     for uid, fiche_p in list(_lire().items()):
         n = int(fiche_p.get("etape", 0))
         salon = client.get_channel(int(fiche_p.get("salon_id") or 0)) if fiche_p.get("salon_id") else None
@@ -576,15 +628,21 @@ async def reconcilier(client, etats_par_handle: dict, publies=None) -> list:
 
 def contexte_llm(uid: str) -> str:
     """Le bloc de contexte ajouté à chaque question posée dans le salon perso : le bot y est le manager."""
-    return ("[Salon perso : ici tu es le MANAGER du clipper au quotidien. Tu parles comme à un élève de collège : phrases de "
+    return ("[Salon perso : ici tu es l'ASSISTANT du clipper au quotidien (pas son manager). Tu parles comme à un élève de collège : phrases de "
             "10 mots maximum, mots simples, une action par ligne, jamais de parenthèses. Réponds court, une action à la fois, tutoie, "
             "guide-le selon son étape en cours, renvoie aux fiches du forum et aux commandes `!code` (son code de "
             "vérification), `!mesclics` (ses visites). Les comptes se créent ici, guidés par le parcours : plus de créneau "
             "lundi/mercredi/vendredi, plus de contrat, plus de distinction France/International. Ne redonne jamais un mot "
             "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, tous les 15 jours, USDC ou virement. "
             "Règle des 48 h (29/09) : un compte tous les 48 h, jamais plus vite (compte 1, 48 h, compte 2, 48 h, compte 3), 24 h de warm-up sur chaque compte "
-            "après sa création (Reels, likes, abonnements, zéro publication) ; le premier Reel arrive après le warm-up du "
-            f"compte 3 (étape 4, {WARMUP_JOURS} jour(s)) — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». "
+            "après sa création (Reels, likes, abonnements, 1 story sans lien, zéro Reel), puis CE compte publie 2 Reels et 1 story par jour, "
+            "sans attendre les autres — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». La ligne « État de chaque "
+            "compte » de la mémoire FAIT FOI : tu ne la contredis jamais, ni le message d'étape posté dans le salon. "
+            "La story du jour se prend dans le dossier Photos de son Drive (une photo, ou une courte vidéo du dossier Reels) ; "
+            "tu n'inventes jamais un dossier (« Stories », « À publier ») qui n'est pas dans le Drive. Il demande OÙ prendre "
+            "la story : tu réponds au où, pas au widget. Un compte BAN ne change rien pour les autres : ils continuent. "
+            "Un compte banni : ne clique sur rien, capture, bouton « Écrire à Gaëtan » ; tu ne promets jamais un compte neuf "
+            "ni une date (« demain ») : c'est Gaëtan qui le remplace. "
             "Le lien (28/09) : une seule fois, dans une story à la une sur chaque compte, et on n'y touche plus ; jamais en bio, "
             "jamais d'@ en bio (ça fait des bans), jamais dans un Reel ; chaque jour une story avec le widget du profil vers la story "
             "à la une. Trois comptes de croissance, plus de compte privé (28/09) : chaque compte fait ses 24 h de warm-up après sa "
