@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 (soir, 2) — GO : période d'essai sur un compte ; Gaëtan prend le marketing de recrutement
+- **Décisions de Gaëtan** : GO sur le plan « volume avec un filtre sur l'action » — le formulaire, le quizz et le test restent ; un clipper validé ne reçoit que son compte 1 et débloque les comptes 2 et 3 après 5 Reels en 72 h ; la sortie automatique (3 jours avertissement, 7 jours sortie) fait le tri ; Gaëtan s'occupe lui-même d'augmenter les candidatures (le remplaçant d'Indeed).
+- **Livré** : la période d'essai dans le parcours, pour les nouveaux seulement, avec déblocage automatique par le scan du matin.
+- **Avocat du diable** : un bon clipper dont le compte 1 part en BAN pendant l'essai reste bloqué sur un compte mort ; à surveiller dans la liste des bloqués et à débloquer à la main (`!etape`). Et « 5 Reels en 72 h » se mesure au scan quotidien : un Reel publié juste après le scan compte le lendemain.
+- **Prédiction (30/09, revue le 21/10)** : parmi les validés entrés en essai entre le 01 et le 14/10, au moins 45 % débloquent le compte 2 sous 7 jours (50 %) ; la part des validés qui publient un premier Reel passe de 31 % à 45 % ou plus sur la même cohorte (45 %).
+
 ### 2026-09-30 (soir) — GO : un seul message de suivi, les bloqués du matin, WhatsApp en un appui
 - **Décisions de Gaëtan** : GO sur trois des dix idées du jour (n° 2, 3, 4). Constat qui les motive : environ 10 clippers du roster sur 23 bloqués avant leur premier Reel, et des réponses plus rapides sur WhatsApp que sur Discord (observation, non mesurée).
 - **Livré** : un seul message de suivi par salon perso, remplacé au lieu d'empilé ; chaque matin à 11 h la liste des bloqués (compte à créer qui traîne, ou aucun Reel depuis 3 jours) avec pour chacun un lien WhatsApp au message déjà écrit ; le même lien dans les relances des candidats. L'envoi reste manuel : un envoi automatique ferait bannir le numéro.

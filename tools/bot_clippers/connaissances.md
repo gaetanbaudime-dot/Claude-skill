@@ -340,6 +340,8 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Comment je récupère les codes envoyés par mail ?** Tu tapes `!code` dans ton salon perso : le bot lit la boîte de l'agence et te donne le dernier code reçu pour tes adresses. Souvent il le poste tout seul, en moins d'une minute. Rien après deux minutes ? Redemande le code sur Instagram, puis `!code`.
 
+**Quand est-ce que j'ai mes comptes 2 et 3 ?** Après ta période d'essai. Tu commences avec ton compte 1 seulement. Après ses 24 h de warm-up, tu publies 5 Reels en 72 h dessus. Tes comptes 2 et 3 s'ouvrent alors tout seuls dans ton salon. Pas avant, et pas à la demande.
+
 **Quelle commande pour quel code ?** Une seule : `!code`. Elle donne le code pour créer un compte, te connecter ou faire appel après un ban. Les codes pour changer l'e-mail, le mot de passe ou le numéro d'un compte ne sont jamais donnés, à personne : les comptes sont à l'agence.
 
 **Instagram m'a déconnecté : « le propriétaire du compte a modifié son mot de passe » ?** Personne ne sait pourquoi, et ce n'est pas grave. Reconnecte-toi avec le mot de passe de ton message de comptes. Instagram envoie un code : écris `!code`. Le mot de passe ne marche plus ? Ne clique pas sur « Mot de passe oublié » : écris à Gaëtan sur WhatsApp, il s'en occupe.

@@ -296,7 +296,11 @@ async def executer(ecrire: bool = True) -> dict:
                 etats_h[handle.lower()] = apres
             # 28/09 : les comptes qui ont publié au moins une fois (le premier Reel valide l'étape 5 tout seul)
             publies = {h for h, hist in d["historique"].items() if any(e.get("existe") and int(e.get("posts") or 0) > 0 for e in hist)}
-            await _deps["reconcilier"](etats_h, publies)
+            # 30/09 (période d'essai) : les Reels de chaque compte sur 72 h = ses trois derniers passages (chacun compte 24 h)
+            depuis_3j = _fenetre(jour, 3)
+            reels_72h = {h: sum(int(e.get("posts") or 0) for e in hist if e.get("existe") and str(e.get("jour", ""))[:10] >= depuis_3j)
+                         for h, hist in d["historique"].items()}
+            await _deps["reconcilier"](etats_h, publies, reels_72h)
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation des parcours : %s", erreur)
     if ecrire and _deps.get("reservations_expirees"):                             # 28/09 : la réservation qui expire

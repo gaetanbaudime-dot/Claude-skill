@@ -69,7 +69,8 @@ def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, mainte
                 continue
             fiche = parcours.get(str(uid)) or {}
             n = int(fiche.get("etape", 0) or 0)
-            if n in JOURS_ETAPE:
+            essai = bool(fiche.get("essai")) and not (fiche.get("essai") or {}).get("fini")   # 30/09 : compte 1 seul, on juge ses Reels
+            if n in JOURS_ETAPE and not essai:
                 jours = _jours_depuis((fiche.get("dates") or {}).get(str(n)), maintenant)
                 if jours <= JOURS_ETAPE[n]:
                     continue

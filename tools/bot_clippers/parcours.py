@@ -25,7 +25,16 @@ import paie_clics
 
 journal = logging.getLogger("parcours")
 _deps = {}
-WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)   # 26/09 (Gaëtan) : 24 h de warm-up par compte, plus une semaine
+WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)
+# 30/09 (Gaëtan, GO : « période d'essai sur 1 seul compte : le clippeur validé reçoit 1 compte, il débloque les comptes 2 et 3
+# seulement après 5 Reels publiés en 72 h ; ceux qui ne publient pas ne coûtent qu'un compte ») : pour les parcours commencés
+# à partir d'ESSAI_DEPUIS. Le scan du matin compte les Reels du compte 1 sur ses trois derniers passages.
+ESSAI = os.environ.get("ESSAI_UN_COMPTE", "1").strip() != "0"
+ESSAI_REELS = int(os.environ.get("ESSAI_REELS", "5") or 5)
+ESSAI_DEPUIS = os.environ.get("ESSAI_DEPUIS", "2026-09-30").strip()
+TEXTE_ESSAI = ("🎯 **Période d'essai : ton compte 1 seulement.**\n\n"
+               "Après ses 24 h de warm-up, publie **{n} Reels en 72 h** dessus, pris dans ton Drive.\n\n"
+               "C'est fait ? Tes comptes 2 et 3 s'ouvrent tout seuls ici.")   # 26/09 (Gaëtan) : 24 h de warm-up par compte, plus une semaine
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 ETAPES = {
@@ -36,7 +45,7 @@ ETAPES = {
                   "{creation1}\n\n"
                   "Ensuite, 24 h de warm-up : regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
                   "📁 Ton Drive (tes Reels à publier après) : {drive}\n\n"
-                  "Fini ? Appuie sur le bouton. Le compte 2 arrive 48 h après.")},
+                  "Fini ? Appuie sur le bouton.")},
     2: {"titre": "Étape 2 · Ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 prêt", "salons": ["info"],
         "texte": ("Identifiant :\n```\n{compte2}\n```\nE-mail :\n```\n{mail2}\n```\nMot de passe :\n```\n{mdp2}\n```\n"
                   "{creation2}\n\n"
@@ -100,6 +109,17 @@ WARMUP_JOUR_TEXTE = ("🔥 **Warm-up du compte 3 : jour {j} sur {jours}.** Sur l
 def configurer(deps: dict):
     global _deps
     _deps = deps
+
+
+def en_essai_neuf(fiche_p: dict) -> bool:
+    """Le parcours entre-t-il dans la période d'essai ? Seulement ceux dont l'étape 1 a commencé depuis ESSAI_DEPUIS."""
+    debut = str((fiche_p.get("dates") or {}).get("1", ""))[:10]
+    return ESSAI and bool(debut) and debut >= ESSAI_DEPUIS and not fiche_p.get("essai")
+
+
+def en_essai(fiche_p: dict) -> bool:
+    """Compte 1 seul, comptes 2 et 3 encore fermés."""
+    return bool(fiche_p.get("essai")) and not (fiche_p.get("essai") or {}).get("fini")
 
 
 async def _suite(salon, texte: str):
@@ -332,6 +352,12 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
             await _deps["effacer_suite"](salon)
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Message de suivi de %s : %s", uid, erreur)
+    if n == 1 and en_essai_neuf(fiche_p):                               # 30/09 : période d'essai, le compte 2 attend
+        d = _lire()
+        d[str(uid)]["essai"] = {"depuis": _maintenant()}
+        _ecrire(d)
+        await _suite(salon, f"{membre.mention} " + TEXTE_ESSAI.format(n=ESSAI_REELS))
+        return True
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)
     return True
@@ -476,6 +502,9 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
         if _derniers_etats.get(h.lower()) == "ban":
             parts.append(f"{nom} : BAN, ne rien faire dessus, capture et bouton « Écrire à Gaëtan »")
             continue
+        if i >= 2 and en_essai(fiche_p):
+            parts.append(f"{nom} : fermé, période d'essai — il s'ouvre après {ESSAI_REELS} Reels en 72 h sur le compte 1")
+            continue
         if n <= i and n < 7:
             parts.append(f"{nom} : pas encore créé")
             continue
@@ -528,6 +557,8 @@ def prochaine_etape(salon_id) -> str:
             return "" if n else "attends ta créatrice, ton manager te l'attribue."
         comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(uid, {}) or {}).get("comptes") or []
         c = {f"compte{i + 1}": (comptes[i] if i < len(comptes) else "…") for i in range(3)}
+        if n == 2 and en_essai(fiche_p):                                # 30/09 : période d'essai
+            return (f"publie tes Reels sur `{c['compte1']}` : {ESSAI_REELS} en 72 h, et tes comptes 2 et 3 s'ouvrent.")
         return PROCHAINES[n].format(**c)
     return ""
 
@@ -587,7 +618,7 @@ async def demarrer_selon_classeur(salon, membre, creatrice: str, etats_par_handl
     return n
 
 
-async def reconcilier(client, etats_par_handle: dict, publies=None) -> list:
+async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=None) -> list:
     """Après chaque scan du classeur : un compte créé sur Instagram valide tout seul l'étape 1, 2 ou 3 ; un clipper mis
     en routine par erreur alors que ses comptes sont à créer ou en warm-up est remis à la bonne étape (une seule fois)."""
     faits = []
@@ -611,6 +642,16 @@ async def reconcilier(client, etats_par_handle: dict, publies=None) -> list:
                 if cible != 7:
                     await forcer_etape(salon, membre, fiche_p.get("creatrice", ""), cible)
                     faits.append((_prenom(membre), 7, cible))
+            elif n == 2 and en_essai(fiche_p):
+                # 30/09 (période d'essai) : 5 Reels en 72 h sur le compte 1 → le compte 2 s'ouvre
+                nb = int((reels_72h or {}).get(str(etats[0][0]).lower(), 0)) if etats else 0
+                if nb >= ESSAI_REELS:
+                    d = _lire()
+                    d[uid]["essai"]["fini"] = _maintenant()
+                    _ecrire(d)
+                    await salon.send(f"{membre.mention} ✅ **Essai réussi : {nb} Reels en 72 h !** Ton compte 2 est juste en dessous.")
+                    await envoyer_etape(salon, membre, 2)
+                    faits.append((_prenom(membre), "essai", 2))
             elif n in (1, 2, 3) and n - 1 < len(etats):
                 h, e = etats[n - 1]
                 if e and e not in ("a creer", "à créer") and await valider_etape(salon, uid, n, par="classeur"):
@@ -645,7 +686,9 @@ def contexte_llm(uid: str) -> str:
             "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, tous les 15 jours, USDC ou virement. "
             "Règle des 48 h (29/09) : un compte tous les 48 h, jamais plus vite (compte 1, 48 h, compte 2, 48 h, compte 3), 24 h de warm-up sur chaque compte "
             "après sa création (Reels, likes, abonnements, 1 story sans lien, zéro Reel), puis CE compte publie 2 Reels et 1 story par jour, "
-            "sans attendre les autres — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». La ligne « État de chaque "
+            "sans attendre les autres — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». Période d'essai (30/09) : un "
+            f"nouveau clipper n'a que son compte 1 ; ses comptes 2 et 3 s'ouvrent tout seuls après {ESSAI_REELS} Reels publiés en "
+            "72 h sur le compte 1, jamais avant, jamais à la demande. La ligne « État de chaque "
             "compte » de la mémoire FAIT FOI : tu ne la contredis jamais, ni le message d'étape posté dans le salon. "
             "La story du jour se prend dans le dossier Photos de son Drive (une photo, ou une courte vidéo du dossier Reels) ; "
             "tu n'inventes jamais un dossier (« Stories », « À publier ») qui n'est pas dans le Drive. Il demande OÙ prendre "

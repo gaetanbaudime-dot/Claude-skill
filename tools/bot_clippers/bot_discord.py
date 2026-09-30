@@ -6363,7 +6363,7 @@ async def on_ready():
                                   "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager_seul,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
-                                  "reconcilier": lambda e, p=None: parcours.reconcilier(client, e, p),
+                                  "reconcilier": lambda e, p=None, r=None: parcours.reconcilier(client, e, p, r),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
                                   "premier_reel": premier_reel_dopamine,                        # 30/09 : premier Reel fêté
                                   "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul
