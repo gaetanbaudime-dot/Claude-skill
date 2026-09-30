@@ -6340,6 +6340,7 @@ async def on_ready():
             return ""
         client.loop.create_task(onboarding.restructurer_drives(client, roster.groupes(), _email_de_prenom))   # Photos / Reels / TOP 20 (27/09)
         client.loop.create_task(onboarding.ouvrir_sources_par_lien())       # 30/09 : Photos s'ouvre sans autorisation (Ricardo)
+        client.loop.create_task(onboarding.structurer_onglets())            # 30/09 : Reels Hier + Clics à droite du Gérant
         def _clics_7j(prenom, jours=7):                                      # visites payables des `jours` derniers jours du clipper
             m = membre_par_prenom(normaliser(prenom))                        # (28/09 : jours=1 → « Visites hier » du Dashboard)
             if m is None:

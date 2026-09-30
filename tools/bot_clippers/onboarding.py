@@ -53,7 +53,8 @@ ETATS_DISPONIBLES = {"a creer", "à créer", "good", "warmup", "warm-up", "prive
 COL_DEFAUT = {"etat": 0, "handle": 1, "mdp": 2, "followers": 3, "mail": 4, "phone": 5, "gerant": 6, "utilisation": 7, "numero": 8, "creatrice": 9}
 # 26/09 : Gaëtan insère des colonnes (Clics GAML, Lien GAML associé) → les colonnes se trouvent par leur en-tête, jamais par position
 MOTS_COLONNES = (("etat", ("etat", "statut")), ("handle", ("@", "ig", "compte", "pseudo")), ("mdp", ("mdp", "mot de passe", "password")),
-                 ("followers", ("followers", "abonnes")), ("clics", ("clics", "gaml last", "visites")), ("numero", ("numero",)),
+                 ("followers", ("followers", "abonnes")), ("reels_hier", ("reels hier", "reels d'hier")),   # 30/09
+                 ("clics", ("clics", "gaml last", "visites")), ("numero", ("numero",)),
                  ("mail", ("mail", "email")), ("phone", ("phone", "tel")), ("gerant", ("gerant", "clipper")),
                  ("utilisation", ("utilisation", "usage")), ("creatrice", ("creatrice",)), ("pod", ("pod",)),
                  ("lien_gaml", ("lien gaml", "gaml associe")), ("lien_infloww", ("infloww", "lien onlyfans", "onlyfans track")),
@@ -223,8 +224,56 @@ async def lire_comptes() -> list:
                         "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
                         "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
                         "creatrice": champ("creatrice") or ("" if herite else titre), "lien_gaml": champ("lien_gaml"),
-                        "pod": champ("pod"), "lien_infloww": champ("lien_infloww"), "lien_mym": champ("lien_mym")})
+                        "pod": champ("pod"), "lien_infloww": champ("lien_infloww"), "lien_mym": champ("lien_mym"),
+                        "reels_hier": champ("reels_hier")})
     return _sans_doublons(out)
+
+
+STRUCTURE_LOGINS = 1                                                # 30/09 : Reels Hier + Clics à droite du Gérant
+
+
+async def structurer_onglets() -> list:
+    """30/09 (Gaëtan, onglet Sarah en exemple : « ajoute une colonne Reels Hier ; déplace Clics last 7d à droite de son gérant,
+    on a un lien par clipper ») : dans chaque onglet de logins, une colonne « Reels Hier » juste après Followers (remplie par
+    le scan du matin), et « Clics last 7d. » juste à droite de Gérant. Une fois par version (état « structure_logins »),
+    et sans rien toucher à un onglet déjà rangé. Les colonnes se retrouvent par leur en-tête : le reste du bot suit."""
+    if not actif():
+        return []
+    etat = _lire_etat()
+    if etat.get("structure_logins") == STRUCTURE_LOGINS:
+        return []
+    props = await google_api.sheets_proprietes(CLASSEUR_LOGINS_ID)
+    faits = []
+    for titre in await onglets_logins(forcer=True):
+        sid = (props.get(titre) or {}).get("id")
+        if sid is None:
+            continue
+        try:
+            entete = ((await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!A1:Z1")) or [[]])[0]
+            cols = _colonnes_trouvees(entete)
+            if "reels_hier" not in cols and "followers" in cols:
+                i = cols["followers"] + 1
+                await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, [{"insertDimension": {
+                    "range": {"sheetId": sid, "dimension": "COLUMNS", "startIndex": i, "endIndex": i + 1},
+                    "inheritFromBefore": True}}])
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!{google_api.colonne(i)}1", [["Reels Hier"]])
+                faits.append(f"{titre} : Reels Hier ajoutée")
+                entete = ((await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!A1:Z1")) or [[]])[0]
+                cols = _colonnes_trouvees(entete)
+            if "clics" in cols and "gerant" in cols and cols["clics"] != cols["gerant"] + 1:
+                await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, [{"moveDimension": {
+                    "source": {"sheetId": sid, "dimension": "COLUMNS", "startIndex": cols["clics"], "endIndex": cols["clics"] + 1},
+                    "destinationIndex": cols["gerant"] + 1}}])
+                faits.append(f"{titre} : Clics à droite du Gérant")
+        except Exception as erreur:                                     # noqa: BLE001 — un onglet raté n'arrête pas les autres
+            journal.warning("Structure de l'onglet %s : %s", titre, erreur)
+            faits.append(f"{titre} : ⚠️ {erreur}")
+    etat = _lire_etat()
+    etat["structure_logins"] = STRUCTURE_LOGINS
+    _ecrire_etat(etat)
+    _onglets_cache["quand"] = 0                                         # relire les en-têtes au prochain passage
+    journal.info("Structure des logins : %s", " · ".join(faits) or "déjà en place")
+    return faits
 
 
 def _sans_doublons(lignes: list) -> list:

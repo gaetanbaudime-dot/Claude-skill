@@ -196,6 +196,7 @@ async def executer(ecrire: bool = True) -> dict:
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     changements, followers_maj, clics_maj, liens_maj = [], 0, 0, 0
+    reels_ecritures = []
     ids_suivis = {id(c) for c in suivis}
     async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
         await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
@@ -210,6 +211,12 @@ async def executer(ecrire: bool = True) -> dict:
                 journal.warning("Classeur : followers de %s non écrits : %s", c["handle"], erreur)
         if id(c) not in ids_suivis:
             continue
+        # 30/09 (Gaëtan : « une colonne Reels Hier, combien de Reels a posté chaque compte IG hier ») : les Reels des 24 h
+        # avant le scan, compte par compte, écrits en un seul appel à la fin (seulement les cellules qui changent)
+        if ecrire and onboarding.a_colonne("reels_hier", c.get("onglet", "")):
+            valeur = str(m["posts"]) if m["existe"] else ""
+            if valeur != str(c.get("reels_hier") or "").strip():
+                reels_ecritures.append((onboarding.cellule(c, "reels_hier"), [[valeur]]))
         hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
         hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
                      "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0)})
@@ -227,6 +234,11 @@ async def executer(ecrire: bool = True) -> dict:
                     d["bans_auto"][h] = jour
                 elif h in d["bans_auto"]:
                     d["bans_auto"].pop(h, None)
+    if reels_ecritures:
+        try:
+            await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, reels_ecritures)
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Classeur : colonne Reels Hier non écrite : %s", erreur)
     # 30/09 (Gaëtan : « Bravo @clippeur pour ton premier Reel, avec le screenshot du Reel, dans #dopamine ») : le premier
     # Reel vu par le scan pour un Gérant part dans #dopamine, une seule fois. Au premier passage, ceux qui ont déjà publié
     # sont notés sans message.
