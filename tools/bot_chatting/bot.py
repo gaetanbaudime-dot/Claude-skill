@@ -3,9 +3,8 @@ Assistant chatting — bot Discord du serveur chatting, propriété de Maxence.
 
 STRICTEMENT SÉPARÉ du bot clippers : autre application Discord, autre service Railway,
 autre volume, aucune donnée partagée avec le marketing. C'est une décision de Gaëtan
-(31/07/2026) : deux mondes, zéro pont. Seule exception, demandée par Gaëtan le 30/09/2026 :
-le message quotidien « acquisition » (acquisition.py), qui LIT les clics OF + MYM de la veille
-dans GetAllMyLinks avec sa propre clé GAML_API_KEY, sans rien écrire nulle part.
+(31/07/2026) : deux mondes, zéro pont. (30/09 : le message « acquisition » un temps ajouté ici
+est retiré — les subs de la veille partent du bot clippers, par le webhook du salon acquisition.)
 
 CE QUE FAIT CE BOT : il répond aux questions des chatteurs à partir d'UNE SEULE source de
 vérité — sa base de connaissances — et il dit franchement quand il ne sait pas (la question
@@ -28,8 +27,6 @@ Variables d'environnement (service Railway dédié) :
     ADMIN_IDS           ids Discord des admins, séparés par des virgules (Maxence + Gaëtan)
     DONNEES_DIR         répertoire persistant (volume Railway monté sur /data)
     MODELE              défaut : claude-haiku-4-5-20251001
-    GAML_API_KEY        clé GetAllMyLinks (lecture) pour le message acquisition ; sans elle, pas de message
-    ACQUISITION_SALON_ID, ACQUISITION_HEURE, ACQUISITION_CREATRICES : voir acquisition.py
 """
 
 import asyncio
@@ -43,7 +40,6 @@ from pathlib import Path
 import anthropic
 import discord
 
-import acquisition
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("chatting")
@@ -67,8 +63,7 @@ DONNEES.mkdir(parents=True, exist_ok=True)
 F_CONNAISSANCES = DONNEES / "connaissances.json"   # [{date, texte}]
 F_LACUNES = DONNEES / "lacunes.json"               # [{date, question, salon}]
 F_SALONS = DONNEES / "salons.json"                 # [ids des salons activés par !ici]
-F_ACQUISITION = DONNEES / "acquisition.json"       # {dernier: jour du dernier message acquisition}
-F_SECRETS = DONNEES / "secrets.json"               # {gaml: clé GetAllMyLinks donnée par !cle-gaml} — sur le volume, jamais dans le dépôt
+F_SECRETS = DONNEES / "secrets.json"               # 30/09 : ancienne clé GAML (!cle-gaml, retiré) — effacée au démarrage
 GRAINE = Path(__file__).parent / "connaissances_depart.md"
 
 claude = anthropic.Anthropic()  # lit ANTHROPIC_API_KEY dans l'environnement
@@ -208,9 +203,7 @@ async def gerer_commande(m: discord.Message) -> bool:
             "**Assistant chatting** — je réponds en MP, sur mention, ou dans les salons activés.\n"
             "Admin : `!apprendre <texte>` (ou fichier .md/.txt joint) · `!oublier <n°>` · "
             "`!connaissances` · `!lacunes` (+ `vider`) · `!ici` (active/désactive ce salon) · "
-            "`!graine remplace` (recharge la base de départ du dépôt) · "
-            "`!acquisition [AAAA-MM-JJ]` (visiteurs OF + MYM de la veille, par créatrice) · "
-            "`!cle-gaml <clé>` (la clé GetAllMyLinks, en message privé)")
+            "`!graine remplace` (recharge la base de départ du dépôt)")
         return True
 
     if not est_admin(m):
@@ -280,44 +273,6 @@ async def gerer_commande(m: discord.Message) -> bool:
         _ecrire(F_SALONS, salons)
         return True
 
-    if commande in ("cle-gaml", "clé-gaml"):
-        # 30/09 (Gaëtan : « déploie ») : la clé GAML se donne ici quand la variable Railway manque ; gardée sur le volume du bot,
-        # le message qui la contient est effacé aussitôt s'il est posté dans un salon.
-        if m.guild is not None:
-            try:
-                await m.delete()
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-        if not reste.startswith("gaml_") or len(reste) < 20:
-            await envoyer(m.channel, "Donne la clé complète : `!cle-gaml gaml_…` (de préférence en message privé au bot).")
-            return True
-        secrets_ = _lire(F_SECRETS, {})
-        secrets_["gaml"] = reste
-        _ecrire(F_SECRETS, secrets_)
-        acquisition.definir_cle(reste)
-        if "acquisition" not in _taches or _taches["acquisition"].done():
-            _taches["acquisition"] = asyncio.create_task(acquisition.boucle(client, _lire, _ecrire, F_ACQUISITION))
-        await envoyer(m.channel, "🔑 Clé GAML enregistrée (message effacé). Tape `!acquisition` pour le message d'hier.")
-        return True
-
-    if commande == "acquisition":
-        # 30/09 : le message du salon acquisition, tout de suite (hier, ou le jour donné AAAA-MM-JJ), ici même
-        if not acquisition.actif():
-            await envoyer(m.channel, "Message acquisition éteint : il manque la clé GAML. Donne-la avec `!cle-gaml gaml_…` "
-                                     "(en message privé au bot), ou ajoute la variable `GAML_API_KEY` sur Railway.")
-            return True
-        try:
-            jour = datetime.strptime(reste, "%Y-%m-%d").date() if reste else None
-        except ValueError:
-            await envoyer(m.channel, "`!acquisition` (hier) ou `!acquisition 2026-09-28`.")
-            return True
-        async with m.channel.typing():
-            try:
-                await acquisition.envoyer(client, jour, salon=m.channel)
-            except Exception as erreur:                                     # noqa: BLE001
-                await envoyer(m.channel, f"GAML ne répond pas ({erreur}). Réessaie dans quelques minutes.")
-        return True
-
     if commande == "graine":
         # Recharge connaissances_depart.md du dépôt en REMPLAÇANT toute la base vivante.
         # Sert quand la graine du repo a été réécrite après le premier démarrage (elle
@@ -344,16 +299,16 @@ async def gerer_commande(m: discord.Message) -> bool:
     return False
 
 
-_taches = {}
-
-
 @client.event
 async def on_ready():
     blocs = charger_connaissances()
     log.info("Connecté : %s · %d bloc(s) de connaissances · modèle %s", client.user, len(blocs), MODELE)
-    acquisition.definir_cle(_lire(F_SECRETS, {}).get("gaml", ""))         # 30/09 : la clé donnée par !cle-gaml
-    if "acquisition" not in _taches:                                        # on_ready revient à chaque reconnexion
-        _taches["acquisition"] = asyncio.create_task(acquisition.boucle(client, _lire, _ecrire, F_ACQUISITION))
+    if F_SECRETS.exists():                                                  # 30/09 : plus de clé GAML sur ce bot (deux mondes)
+        try:
+            F_SECRETS.unlink()
+            log.info("Ancienne clé GAML effacée du volume")
+        except OSError as erreur:
+            log.warning("Clé GAML non effacée : %s", erreur)
 
 
 @client.event

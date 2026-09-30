@@ -18,44 +18,6 @@ dans le CRM : le bot dit quand les utiliser, jamais leur texte. Le dossier
 premier démarrage : `!graine remplace` recharge toute la base (attention : efface les
 ajouts `!apprendre` faits entre-temps).
 
-## Message acquisition du matin (30/09/2026, demande de Gaëtan)
-
-Chaque matin à 9 h (Paris), dans le salon acquisition (`ACQUISITION_SALON_ID`, défaut `1548671205890990240`) :
-
-```
-Hier (30 septembre)
-
-Chloé 595
-Sophie 9876
-Sarah 543
-Jade 543
-Clara 876
-Maddie 120
-```
-
-Chaque chiffre = les **clics de la veille sur les boutons OnlyFans et MYM** des liens GetAllMyLinks (les gens réellement
-envoyés sur les deux plateformes, robots exclus). Une créatrice = un groupe GAML. Lecture seule : rien
-n'est écrit dans GAML. `!acquisition` (admin) envoie le message tout de suite ; `!acquisition 2026-09-28` pour un autre jour.
-
-Variables Railway du service chatting :
-
-| Variable | Rôle |
-|---|---|
-| `GAML_API_KEY` | **obligatoire** : clé GetAllMyLinks (la même que le bot clippers, ou une clé dédiée) |
-| `ACQUISITION_HEURE` | heure d'envoi, défaut 9 |
-| `ACQUISITION_CREATRICES` | ordre d'affichage, défaut `Chloé,Sophie,Sarah,Jade,Clara,Maddie` |
-| `ACQUISITION_LIGNES` | lignes par personne sous les créatrices, `Libellé=mots;…` (liens dont la note GAML contient ces mots). **Vide par défaut** (30/09 : « juste le total de chaque créatrice ») |
-
-**Sans accès à Railway** : envoie en message privé au bot `!cle-gaml gaml_…` (admin seulement). La clé est gardée sur le volume
-du bot (`secrets.json`), jamais dans le dépôt ; postée dans un salon, le message est effacé aussitôt. La variable Railway, si elle
-existe, reste prioritaire.
-
-**Correctif du 30/09** : sur un seul jour, GAML découpe les clics par heure (« date » : « 00:00 »…) ; les premières versions ne
-gardaient que les lignes datées et affichaient 0 partout. Vérifié sur le 29/09 : Chloé 546, Sophie 294, Sarah 404, Jade 16,
-Clara 0 (aucun clic enregistré sur ses boutons), Maddie 634.
-
-C'est la seule exception à la séparation marketing / chatting (décision de Gaëtan du 30/09).
-
 ## Installation (~30 min, une seule fois)
 
 1. **Application Discord** — discord.com/developers/applications > New Application

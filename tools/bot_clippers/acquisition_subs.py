@@ -27,7 +27,11 @@ from datetime import timedelta
 import aiohttp
 
 journal = logging.getLogger("acquisition_subs")
-CREATRICES = [c.strip() for c in os.environ.get("ACQUISITION_SUBS_CREATRICES", "Chloé,Sarah,Sophie").split(",") if c.strip()]
+# 30/09 (Gaëtan) : cet ordre-là ; OF et/ou MYM selon ce qu'on gère pour chaque créatrice
+CREATRICES = [c.strip() for c in os.environ.get("ACQUISITION_SUBS_CREATRICES", "Chloé,Sarah,Sophie,Maddie,Jade,Clara").split(",") if c.strip()]
+# Plateformes gérées : déduites de Data G&M (une plateforme sans aucun sub ni CA sur 30 jours n'est pas gérée) ; ce réglage force,
+# ex. « Sophie=OF;Jade=MYM;Chloé=OF+MYM ».
+FORCE = {k.strip(): v.strip().upper() for k, v in (x.split("=", 1) for x in os.environ.get("ACQUISITION_SUBS_PLATEFORMES", "").split(";") if "=" in x)}
 HEURE_MIN = int(os.environ.get("SUBS_HEURE_MIN", "10") or 10)
 HEURE_MAX = int(os.environ.get("SUBS_HEURE_MAX", "18") or 18)
 MOIS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre")
@@ -54,24 +58,46 @@ def _jour_fr(j) -> str:
     return f"{j.day}{'er' if j.day == 1 else ''} {MOIS[j.month - 1]}"
 
 
-def lignes_du_jour(donnees: dict, jour) -> dict:
-    """{créatrice de la liste: ligne Data G&M du jour ou None} — onglet trouvé par le prénom (« Maddy » = « Maddie »…)."""
-    out = {}
+def _onglet(donnees: dict, crea: str):
+    cle = _norm(crea)[:4]                                               # « Maddie » trouve l'onglet « Maddy »
+    return next((t for t in donnees if _norm(t).startswith(cle)), None)
+
+
+def plateformes(lignes: list, jour) -> tuple:
+    """(OF géré, MYM géré) d'après les 30 jours avant `jour` : une plateforme sans aucun sub ni CA n'est pas gérée."""
+    recentes = [l for l in lignes if jour - timedelta(days=30) <= l["date"] <= jour]
+    of = any((l.get("of_subs") or 0) or (l.get("of_usd") or 0) for l in recentes)
+    mym = any((l.get("mym_subs") or 0) or (l.get("mym_eur") or 0) for l in recentes)
+    return of, mym
+
+
+def lignes_du_jour(donnees: dict, jour) -> list:
+    """[(créatrice, ligne du jour ou None, OF géré, MYM géré, raison)] dans l'ordre de CREATRICES ; une créatrice sans
+    aucune donnée sur 30 jours (ni OF ni MYM) est laissée de côté."""
+    out = []
     for crea in CREATRICES:
-        cle = _norm(crea)[:4]
-        onglet = next((t for t in donnees if _norm(t).startswith(cle)), None)
-        ligne = next((l for l in (donnees.get(onglet) or []) if l["date"] == jour), None) if onglet else None
-        out[crea] = ligne if (ligne and ligne.get("saisi")) else None
+        onglet = _onglet(donnees, crea)
+        lignes = donnees.get(onglet) or [] if onglet else []
+        of, mym = plateformes(lignes, jour)
+        force = next((v for k, v in FORCE.items() if _norm(k)[:4] == _norm(crea)[:4]), "")
+        if force:
+            of, mym = "OF" in force, "MYM" in force
+        if not (of or mym):
+            continue
+        ligne = next((l for l in lignes if l["date"] == jour), None)
+        raison = "" if (ligne and ligne.get("saisi")) else ("onglet introuvable dans Data G&M" if not onglet else "pas encore saisi")
+        out.append((crea, ligne if not raison else None, of, mym, raison))
     return out
 
 
-def texte(jour, lignes: dict, titre: str = "Hier") -> str:
+def texte(jour, lignes: list, titre: str = "Hier") -> str:
     blocs = [f"{titre} ({_jour_fr(jour)})"]
-    for crea, l in lignes.items():
+    for crea, l, of, mym, raison in lignes:
         if l is None:
-            blocs.append(f"{crea} : pas encore saisi")
-        else:
-            blocs.append(f"{crea} OF {int(l.get('of_subs') or 0)}\n{crea} MYM {int(l.get('mym_subs') or 0)}")
+            blocs.append(f"{crea} : {raison}")
+            continue
+        morceaux = ([f"{crea} OF {int(l.get('of_subs') or 0)}"] if of else []) + ([f"{crea} MYM {int(l.get('mym_subs') or 0)}"] if mym else [])
+        blocs.append("\n".join(morceaux))
     return "\n\n".join(blocs)
 
 
@@ -90,7 +116,7 @@ async def preparer(forcer: bool = False):
     """(texte, complet) pour la veille."""
     hier = _deps["heure_paris"]().date() - timedelta(days=1)
     lignes = lignes_du_jour(await _deps["data_gm"](hier + timedelta(days=1)), hier)
-    return texte(hier, lignes), all(v is not None for v in lignes.values())
+    return texte(hier, lignes), bool(lignes) and all(l is not None for _, l, _, _, _ in lignes)
 
 
 async def commande(message, texte_cmd: str) -> bool:
@@ -123,7 +149,9 @@ async def commande(message, texte_cmd: str) -> bool:
             return True
         await message.reply("✅ Envoyé dans le salon acquisition." if ok else "Pas de webhook : `!acquisition-webhook <url>` d'abord.")
         return True
-    await message.reply("Aperçu" + ("" if complet else " (pas encore complet)") + " :\n```\n" + texte_ + "\n```")
+    absentes = [c for c in CREATRICES if not re.search(rf"(?m)^{re.escape(c)}\b", texte_)]
+    await message.reply("Aperçu" + ("" if complet else " (pas encore complet)") + " :\n```\n" + texte_ + "\n```"
+                        + (f"\n-# Non affichées (aucun sub ni CA sur 30 jours dans Data G&M) : {', '.join(absentes)}" if absentes else ""))
     return True
 
 
