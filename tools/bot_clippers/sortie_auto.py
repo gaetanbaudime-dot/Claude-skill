@@ -73,6 +73,8 @@ def derniere_publication(handles: set, historique: dict, debut: datetime):
             j = _jour(e.get("jour"))
             if j is None or not e.get("existe"):
                 continue
+            if e.get("restreint") and not e.get("posts"):               # 30/09 : compte restreint, Reels illisibles : ni scan ni silence
+                continue
             jours_scan.add(j.date())
             posts = int(e.get("posts") or 0)
             publie = (posts > prec) if prec is not None else (posts > 0 and j >= debut.replace(hour=0, minute=0, second=0, microsecond=0))

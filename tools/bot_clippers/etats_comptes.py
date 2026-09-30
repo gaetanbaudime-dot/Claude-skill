@@ -33,7 +33,7 @@ BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "1") or 1)           # 28/09 (
 HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après le rapport inputs du matin
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
-VERSION = 4                       # 26/09 soir : passage forcé au déploiement pour recaler le parcours de Daniella (étape 2)
+VERSION = 5                       # 30/09 : passage forcé au déploiement pour rendre leur état aux comptes restreints passés BAN à tort
 DASHBOARD_VERSION = 8             # 30/09 : Julien et Rianah remis au Dashboard ; changée → réécrit au démarrage, sans scan
 EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
 # 30/09 (Gaëtan : « inclus Julien et Rianah dans le dashboard aussi ») : le Dashboard ne masque plus personne par défaut.
@@ -138,19 +138,27 @@ async def scanner(handles: list) -> dict:
 # ------------------------------------------------------------------ règles
 def _series(historique: list) -> tuple:
     """(jours d'absence de suite, jours de publication de suite) en partant du dernier jour."""
+    # 30/09 (Gaëtan : « pourquoi ce compte est BAN alors que Caroline publie dessus et que c'est lui qui ramène le trafic ? ») :
+    # le 28/09, un compte « restreint » comptait absent, donc BAN au premier scan. Faux : restreint = Instagram cache le profil
+    # aux visiteurs non connectés (contenu jugé sensible, 18+), le compte est bien vivant, seuls ses chiffres sont illisibles
+    # pour le scan. Un jour restreint ne compte plus ni comme absence ni comme jour sans Reel : il est sauté.
     absents = publie = 0
     for j in reversed(historique):
-        if j.get("existe") and not j.get("restreint"):                  # 28/09 : un compte restreint (followers illisibles) compte absent
+        if j.get("existe") and j.get("restreint"):
+            continue
+        if j.get("existe"):
             break
         absents += 1
     for j in reversed(historique):
+        if j.get("existe") and j.get("restreint") and not j.get("posts"):
+            continue
         if not (j.get("existe") and j.get("posts", 0) >= 1):
             break
         publie += 1
     return absents, publie
 
 
-def decider(etat: str, mesure: dict, historique: list, ban_auto: bool) -> str:
+def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban: str = "") -> str:
     """Le nouvel état d'une ligne, ou '' si rien ne change. `historique` inclut la mesure du jour."""
     e = _norm(etat)
     absents, publie = _series(historique)
@@ -166,9 +174,16 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool) -> str:
         return ""
     if e in ("good", "prive", "privé"):
         return "BAN" if absents >= BAN_JOURS else ""
-    if e == "ban" and ban_auto:
-        return "WARMUP" if mesure["existe"] and not mesure["restreint"] else ""
+    if e == "ban" and ban_auto:                                         # BAN posé par le bot : le compte revient → son état d'avant
+        if not mesure["existe"]:
+            return ""
+        return avant_ban if avant_ban in ("WARMUP", "GOOD", "PRIVE") else ("GOOD" if publie_deja(historique) else "WARMUP")
     return ""
+
+
+def publie_deja(historique: list) -> bool:
+    """Au moins un Reel vu par le scan dans l'historique (14 jours)."""
+    return any(j.get("existe") and int(j.get("posts") or 0) > 0 for j in historique)
 
 
 def candidats(comptes: list) -> list:
@@ -226,14 +241,14 @@ async def executer(ecrire: bool = True) -> dict:
         # 30/09 (Gaëtan : « une colonne Reels Hier, combien de Reels a posté chaque compte IG hier ») : les Reels des 24 h
         # avant le scan, compte par compte, écrits en un seul appel à la fin (seulement les cellules qui changent)
         if ecrire and onboarding.a_colonne("reels_hier", c.get("onglet", "")):
-            valeur = str(m["posts"]) if m["existe"] else ""
+            valeur = str(m["posts"]) if m["existe"] and (m["posts"] or not m.get("restreint")) else ""   # restreint : illisible, pas 0
             if valeur != str(c.get("reels_hier") or "").strip():
                 reels_ecritures.append((onboarding.cellule(c, "reels_hier"), [[valeur]]))
         hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
         hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
                      "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0)})
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
-        apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"])
+        apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"], d.setdefault("avant_ban", {}).get(h, ""))
         if apres:
             changements.append((c["handle"], c["gerant"], c["etat"], apres, c["ligne"]))
             if ecrire:
@@ -244,8 +259,10 @@ async def executer(ecrire: bool = True) -> dict:
                     continue
                 if apres == "BAN":
                     d["bans_auto"][h] = jour
+                    d["avant_ban"][h] = str(c["etat"]).strip().upper().replace("É", "E")
                 elif h in d["bans_auto"]:
                     d["bans_auto"].pop(h, None)
+                    d["avant_ban"].pop(h, None)
     if reels_ecritures:
         try:
             await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, reels_ecritures)
@@ -347,8 +364,10 @@ async def executer(ecrire: bool = True) -> dict:
     journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers, %d clics, %d liens mis à jour",
                  len(lignes), len(changements), followers_maj, clics_maj, liens_maj)
     avance = onboarding.comptes_d_avance(comptes)                        # 30/09 : comptes à créer sans Gérant, par créatrice
+    restreints = sorted(f"`{c['handle']}` ({c['gerant']})" for c in lignes if c.get("gerant")
+                        and (mesures.get(c["handle"].lower()) or {}).get("restreint"))
     return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj,
-            "avance": avance}
+            "avance": avance, "restreints": restreints}
 
 
 ONGLET_DASHBOARD = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
@@ -626,9 +645,9 @@ def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
             continue
         entrees = [e for e in historique.get(h, []) if e.get("existe")]
         auj = next((e for e in entrees if e.get("jour") == jour), None)
-        if auj is None:
+        if auj is None or (auj.get("restreint") and not auj.get("posts")):   # 30/09 : restreint = illisible, pas « 0 Reel »
             continue
-        avant = [e for e in entrees if str(e.get("jour") or "") < jour]
+        avant = [e for e in entrees if str(e.get("jour") or "") < jour and not (e.get("restreint") and not e.get("posts"))]
         prev = int((avant[-1].get("posts") if avant else 0) or 0)
         delta = max(0, int(auj.get("posts") or 0) - prev)
         p = par.setdefault(g.split()[0], {"n": 0, "comptes": 0, "fautes": 0})
@@ -651,6 +670,9 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
     if avance:                                                          # 30/09 (Gaëtan) : la capacité d'onboarding en un coup d'œil
         entete += (f"\n📦 **Comptes d'avance** (à créer, sans Gérant) : {sum(avance.values())} · "
                    + " · ".join(f"{k} {v}" for k, v in sorted(avance.items(), key=lambda kv: -kv[1])))
+    if bilan.get("restreints"):                                         # 30/09 : vivants, jamais BAN, chiffres illisibles
+        entete += (f"\n🔒 **Restreints** (vivants, cachés aux visiteurs non connectés : followers et Reels illisibles pour le scan, "
+                   f"jamais passés BAN) : {', '.join(bilan['restreints'])}")
     if not ch:
         return entete + "\n· aucun état à changer."
     par_etat = {}
@@ -695,7 +717,7 @@ async def boucle(client) -> None:
                             await canal.send(texte_bilan(bilan)[:1990])
                     bans = [f"`{h}` ({g})" for h, g, _, a, _ in bilan["changements"] if a == "BAN"]
                     if bans and _deps.get("notifier"):
-                        await _deps["notifier"]("🚫 **Comptes introuvables ou illisibles sur Instagram, passés en BAN** : "
+                        await _deps["notifier"]("🚫 **Comptes introuvables sur Instagram, passés en BAN** : "
                                                 + ", ".join(bans) + ". À remplacer : `!liberer Prénom handle`, puis un nouvel identifiant.")
         except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le bot
             journal.exception("Boucle états du classeur : %s", erreur)
