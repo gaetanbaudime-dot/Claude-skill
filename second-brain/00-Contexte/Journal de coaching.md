@@ -22,6 +22,14 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-01 — Rien d'un compte BAN n'est jamais réutilisé ; Jonas passe manageur ; Clarisse repart sur trois comptes neufs
+- **Décision de Gaëtan** : « on ne réutilise jamais les infos d'un compte BAN : on change mot de passe, identifiant, mail, téléphone ». Le bot ne livre plus aucune ligne qui partage une de ces quatre infos avec un compte BAN (tous onglets confondus), et la vérification du classeur liste chaque compte en service qui en porte une.
+- **Constat qui l'a déclenché** : trois mails de comptes BAN réutilisés (Jade, Sarah, Sophie) et des mots de passe communs à des comptes BAN et vivants chez Sarah. Instagram relie les comptes par ces infos : un ban peut en entraîner d'autres.
+- **Jonas** ne clippe plus (manageur avec Gaëtan) : ses comptes, tous BAN, sont rendus et son lien libéré ; ses salons sont gardés. **Clarisse** (3 comptes BAN sur 3, encore 38 clics sur 7 jours) reçoit trois comptes neufs et repart à l'étape 1, un compte tous les 48 h.
+- **Montage** : la fiche 3 du bot disait « les TOP 20 peuvent être publiés tels quels la première semaine » et a contredit Gaëtan devant Daniella. Corrigé : toute vidéo du Drive est modifiée, toujours.
+- **Avocat du diable** : les lignes libres qui partagent un mot de passe avec un BAN sont maintenant bloquées. Si beaucoup de lignes « à créer » réutilisent les mêmes mots de passe, le stock livrable peut fondre d'un coup, et c'est le goulot d'onboarding qui en pâtit. À surveiller dans le prochain bilan du classeur.
+- **Prédiction (01/10, revue le 15/10)** : Clarisse publie son premier Reel sur un compte neuf avant le 06/10 (60 %) ; aucun nouveau ban « en chaîne » (deux comptes du même clipper bannis le même jour) sur les comptes créés après le 01/10 (70 %).
+
 ### 2026-09-30 (soir, 3) — Appel d'un compte banni : le clipper le fait lui-même, avec ses propres papiers
 - **Décision de Gaëtan** : le clipper fait toujours appel, tout de suite, lui-même : code par le salon code-instagram (`!code`), selfie vidéo, et SON numéro ou SA pièce d'identité si Instagram les demande. Ma recommandation était « jamais de pièce d'identité, remplacer le compte » ; Gaëtan tranche autrement.
 - **Garde-fous gardés dans le bot** : jamais les papiers de quelqu'un d'autre, jamais de faux (fraude, non négociable) ; jamais de pièce d'identité postée dans Discord (elle part seulement chez Instagram, l'agence ne la stocke pas) ; Gaëtan n'intervient qu'après un appel refusé ; l'alerte « compte désactivé » au salon admin reste.

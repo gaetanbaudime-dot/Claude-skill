@@ -361,6 +361,35 @@ def _crees(lignes: list) -> list:
     return [c for c in lignes if _norm(c["etat"]) not in A_CREER]
 
 
+def _cles_infos(c: dict) -> dict:
+    """Les infos d'un compte qu'Instagram relie entre elles : identifiant, mot de passe, e-mail, téléphone (normalisés)."""
+    tel = re.sub(r"\D", "", str(c.get("phone") or ""))
+    mdp = str(c.get("mdp") or "").strip()
+    return {"identifiant": str(c.get("handle") or "").strip().lower().lstrip("@"),
+            "mot de passe": mdp if len(mdp) >= 4 else "",
+            "e-mail": str(c.get("mail") or "").strip().lower(),
+            "téléphone": tel[-9:] if len(tel) >= 6 else ""}                  # +33 6… et 06… : les 9 derniers chiffres
+
+
+def infos_brulees(comptes: list) -> dict:
+    """01/10 (Gaëtan : « ON NE RÉUTILISE JAMAIS LES INFOS D'UN COMPTE BAN, on change mdp, username, mail, téléphone ») :
+    {info: {valeurs}} de toutes les lignes BAN, tous onglets confondus."""
+    out = {}
+    for c in comptes:
+        if _norm(c.get("etat") or "") == "ban":
+            for k, v in _cles_infos(c).items():
+                if v:
+                    out.setdefault(k, set()).add(v)
+    return out
+
+
+def infos_d_un_ban(c: dict, brulees: dict) -> list:
+    """Les infos de cette ligne (non BAN) déjà portées par un compte BAN : [] si elle est propre."""
+    if _norm(c.get("etat") or "") == "ban":
+        return []
+    return [k for k, v in _cles_infos(c).items() if v and v in brulees.get(k, ())]
+
+
 def disponibles(comptes: list, creatrice: str, n: int) -> list:
     """Lignes libres pour cette créatrice : Utilisation = Clipper, Gérant libre, état utilisable, handle présent.
     Les comptes déjà créés (GOOD, WARMUP, PRIVÉ, ACTIF) passent avant ceux « à créer ». Le trio livré fait
@@ -369,6 +398,8 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
               and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)
               and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
+    brulees = infos_brulees(comptes)                                    # 01/10 : jamais un compte qui partage une info d'un BAN
+    libres = [c for c in libres if not infos_d_un_ban(c, brulees)]
     # 28/09 (Gaëtan, sortie automatique) : « réattribue comptes et liens au suivant » — les comptes déjà créés et rendus
     # (chauffés, Gérant vidé) partent en premier ; le clipper s'y CONNECTE, le code de connexion arrive dans son salon.
     rendus = sorted([c for c in libres if _norm(c["etat"]) not in A_CREER], key=lambda c: c["ligne"])

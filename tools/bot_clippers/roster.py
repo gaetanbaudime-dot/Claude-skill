@@ -229,7 +229,7 @@ def _fichier_traites():
     return (_deps["DONNEES"] / "roster_sortis_traites.json") if _deps.get("DONNEES") else None
 
 
-async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: str = "roster (viré)") -> list:
+async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: str = "roster (viré)", garder_salons: bool = False) -> list:
     """Pour chaque prénom de `sortis` pas encore traité (ou `seulement` ce prénom, `uid` connu ou non) : fiche du registre →
     sortis.json, parcours candidat « sorti », comptes du classeur rendus AU VIVIER (`onboarding.liberer(pool=True)` : le
     suivant de la même créatrice les reçoit en premier), lien GAML libéré pour le suivant (`liberer_liens`), salon perso
@@ -322,7 +322,8 @@ async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: s
             except Exception as erreur:                                     # noqa: BLE001
                 detail.append(f"liens : {type(erreur).__name__}")
         # 3. Salon perso supprimé (28/09 ; avant : renommé « sorti-prenom ») : celui des fiches, et ceux qui portent son prénom sans homonyme.
-        for c in salons_fiche + ([c for c in salons if c not in salons_fiche] if not homonyme else []):
+        # 01/10 (Jonas, devenu manageur) : `garder_salons` → aucun salon supprimé
+        for c in ([] if garder_salons else salons_fiche + ([c for c in salons if c not in salons_fiche] if not homonyme else [])):
             nom_c = c.name
             try:
                 await c.delete(reason=f"Roster : {prenom} sorti ({raison})")
@@ -367,7 +368,8 @@ async def sorties_deposees(client) -> list:
         if not ident or not prenom or ident in faits:
             continue
         retirer(prenom)
-        lignes = await appliquer_sortis(client, seulement=prenom, raison=str(e.get("raison") or "sortie déposée"))
+        lignes = await appliquer_sortis(client, seulement=prenom, raison=str(e.get("raison") or "sortie déposée"),
+                                        garder_salons=bool(e.get("garder_salons")))
         faits[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": lignes}
         _deps["ecrire_json"](_fichier_deposees_faites(), faits)
         bilan.extend(lignes or [f"🚪 {prenom} : rien à nettoyer"])

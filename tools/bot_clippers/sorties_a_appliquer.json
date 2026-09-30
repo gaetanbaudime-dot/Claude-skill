@@ -8,5 +8,11 @@
     "id": "stephane-3009",
     "prenom": "Stéphane",
     "raison": "viré (30/09, Gaëtan : « libère Stéphane ») : comptes rendus au vivier, lien libéré pour le suivant, salon supprimé"
+  },
+  {
+    "id": "jonas-0110",
+    "prenom": "Jonas",
+    "garder_salons": true,
+    "raison": "ne clippe plus, devenu manageur (01/10, Gaëtan : « libère Jonas, il travaille avec moi en tant que manageur ») : comptes rendus, lien libéré, salons gardés"
   }
 ]

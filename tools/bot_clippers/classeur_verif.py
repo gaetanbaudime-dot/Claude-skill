@@ -74,6 +74,26 @@ def anomalies(comptes: list, historique: dict | None = None, exclus=None) -> lis
             doublons.append(f"{ref} → " + " + ".join(_etiquette(c) for c in cs) + brule)
     if doublons:
         out.append("• Mail en double : " + " · ".join(sorted(doublons)))
+    # 1 bis. 01/10 (Gaëtan : « ON NE RÉUTILISE JAMAIS LES INFOS D'UN COMPTE BAN, on change mdp, username, mail, téléphone ») :
+    # toute ligne non BAN qui porte l'identifiant, le mot de passe, l'e-mail ou le téléphone d'un compte BAN, tous onglets
+    # confondus. Les lignes libres ne sont plus livrées (onboarding.disponibles) ; les comptes en service sont à changer.
+    import onboarding                                                   # (import tardif : les tests de ce module s'en passent)
+    brulees = onboarding.infos_brulees(comptes)
+    en_service, bloquees = [], {}
+    for c in comptes:
+        infos = onboarding.infos_d_un_ban(c, brulees)
+        if not infos:
+            continue
+        if _n(_prenom(c)) in LIBRES:
+            bloquees[c.get("onglet") or "?"] = bloquees.get(c.get("onglet") or "?", 0) + 1
+        else:
+            ou = f"{c.get('onglet') or '?'} n° {c['numero']}" if c.get("numero") else f"{c.get('onglet') or '?'} ligne {c.get('ligne')}"
+            en_service.append(f"{ou} {_etiquette(c)} → {' + '.join(infos)}")
+    if en_service or bloquees:
+        out.append("• 🔥 Infos d'un compte BAN réutilisées (interdit, à changer) : "
+                   + (" · ".join(sorted(en_service)) if en_service else "aucun compte en service")
+                   + (" · lignes libres bloquées, jamais livrées tant qu'elles ne sont pas changées : "
+                      + ", ".join(f"{o} {n}" for o, n in sorted(bloquees.items())) if bloquees else ""))
     # 2. un même pseudo sur plusieurs lignes
     par_handle = {}
     for c in comptes:
