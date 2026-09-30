@@ -500,7 +500,7 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
         h = comptes[i - 1] if i - 1 < len(comptes) else ""
         nom = f"compte {i}" + (f" `{h}`" if h else "")
         if _derniers_etats.get(h.lower()) == "ban":
-            parts.append(f"{nom} : BAN, ne rien faire dessus, capture et bouton « Écrire à Gaëtan »")
+            parts.append(f"{nom} : BAN, il fait appel lui-même (Contester la décision, `!code`, selfie, son numéro ou sa pièce d'identité si demandés)")
             continue
         if i >= 2 and en_essai(fiche_p):
             parts.append(f"{nom} : fermé, période d'essai — il s'ouvre après {ESSAI_REELS} Reels en 72 h sur le compte 1")
@@ -693,7 +693,9 @@ def contexte_llm(uid: str) -> str:
             "La story du jour se prend dans le dossier Photos de son Drive (une photo, ou une courte vidéo du dossier Reels) ; "
             "tu n'inventes jamais un dossier (« Stories », « À publier ») qui n'est pas dans le Drive. Il demande OÙ prendre "
             "la story : tu réponds au où, pas au widget. Un compte BAN ne change rien pour les autres : ils continuent. "
-            "Un compte banni : ne clique sur rien, capture, bouton « Écrire à Gaëtan » ; tu ne promets jamais un compte neuf "
+            "Un compte banni (30/09) : il fait appel lui-même, tout de suite (« Contester la décision », code avec `!code`, selfie vidéo, son "
+            "numéro ou sa pièce d'identité si Instagram les demande, jamais ceux d'un autre, jamais sa pièce d'identité dans Discord) ; "
+            "tu ne promets jamais un compte neuf "
             "ni une date (« demain ») : c'est Gaëtan qui le remplace. "
             "Le lien (28/09) : une seule fois, dans une story à la une sur chaque compte, et on n'y touche plus ; jamais en bio, "
             "jamais d'@ en bio (ça fait des bans), jamais dans un Reel ; chaque jour une story avec le widget du profil vers la story "

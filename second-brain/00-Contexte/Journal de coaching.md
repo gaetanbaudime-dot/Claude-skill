@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-09-30 (soir, 3) — Appel d'un compte banni : le clipper le fait lui-même, avec ses propres papiers
+- **Décision de Gaëtan** : le clipper fait toujours appel, tout de suite, lui-même : code par le salon code-instagram (`!code`), selfie vidéo, et SON numéro ou SA pièce d'identité si Instagram les demande. Ma recommandation était « jamais de pièce d'identité, remplacer le compte » ; Gaëtan tranche autrement.
+- **Garde-fous gardés dans le bot** : jamais les papiers de quelqu'un d'autre, jamais de faux (fraude, non négociable) ; jamais de pièce d'identité postée dans Discord (elle part seulement chez Instagram, l'agence ne la stocke pas) ; Gaëtan n'intervient qu'après un appel refusé ; l'alerte « compte désactivé » au salon admin reste.
+- **Avocat du diable (dette)** : la pièce d'identité du clipper rattache son identité légale à un compte de l'agence, qui reste lié à lui après son départ ; et un appel réussi sur un compte en série reste une zone grise des CGU Instagram. Un clipper qui refuse de donner sa pièce d'identité ne doit pas être sanctionné : le compte est alors remplacé.
+- **Prédiction (30/09, revue le 31/10)** : sur les comptes bannis d'octobre, au moins 40 % sont récupérés en appel (50 %) ; au moins un clipper refuse de fournir sa pièce d'identité d'ici le 31/10 (60 %).
+
 ### 2026-09-30 (soir, 2) — GO : période d'essai sur un compte ; Gaëtan prend le marketing de recrutement
 - **Décisions de Gaëtan** : GO sur le plan « volume avec un filtre sur l'action » — le formulaire, le quizz et le test restent ; un clipper validé ne reçoit que son compte 1 et débloque les comptes 2 et 3 après 5 Reels en 72 h ; la sortie automatique (3 jours avertissement, 7 jours sortie) fait le tri ; Gaëtan s'occupe lui-même d'augmenter les candidatures (le remplaçant d'Indeed).
 - **Livré** : la période d'essai dans le parcours, pour les nouveaux seulement, avec déblocage automatique par le scan du matin.

@@ -199,12 +199,15 @@ La suite, c'est ton manager qui décide, selon tes résultats :
 
 ## FICHE 6 — Quand ça coince
 
-**Compte bloqué ou banni** :
-1. Pas de panique. Ce n'est pas ta faute. Ça arrive dans ce métier. Ne tente rien seul. Pas d'appel tout seul. Pas de nouveau compte avec le même e-mail.
-2. Fais une capture de l'écran « Statut du compte ». Poste-la dans ton salon perso.
-3. Ton manager décide : faire appel, ou remplacer le compte.
-4. S'il fait appel, Instagram envoie un **code de récupération** sur l'e-mail du compte. Le code arrive dans ton salon tout seul. Sinon, écris `!code`. Tu donnes le code à ton manager.
-5. Si le compte est remplacé, ton manager libère l'identifiant et t'en donne un neuf. Tu le crées le lendemain, comme à l'étape 1.
+**Compte bloqué ou banni : tu fais appel toi-même, tout de suite** (règle de Gaëtan du 30/09) :
+1. Pas de panique. Ça arrive dans ce métier.
+2. Sur le compte, appuie sur « Contester la décision » (ou « Faire appel »).
+3. Instagram demande un code ? Va dans le salon **code-instagram** et tape `!code`. Ou tape `!code` dans ton salon perso.
+4. Instagram demande un selfie vidéo ? Tu le fais toi-même, avec ton visage.
+5. Instagram demande un numéro de téléphone ? Tu mets le tien. Une pièce d'identité ? Tu mets la tienne.
+6. Jamais la pièce d'identité de quelqu'un d'autre. Jamais de faux papier. Jamais ta pièce d'identité dans Discord : tu l'envoies seulement à Instagram.
+7. Poste une capture de la réponse d'Instagram dans ton salon perso.
+8. Instagram refuse l'appel ? Le compte est remplacé. Pas de nouveau compte avec le même e-mail.
 
 **« Ce compte n'est pas recommandé aux moins de 18 ans »** : pas grave. C'est normal chez nous. Les adultes voient le compte. Grave, c'est autre chose : Instagram cache tes Reels à tout le monde, ou supprime tes Reels plusieurs fois. Là, capture à ton manager.
 
@@ -350,7 +353,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Instagram dit « compte en révision », « nous examinons », « suspendu » ?** Ne clique sur rien. Ne crée rien. Capture l'écran. Écris à Gaëtan sur WhatsApp avec ton prénom, ta créatrice et la capture. Le bot ne connaît pas la cause, il ne l'invente pas.
 
-**Mon compte est banni, on peut faire appel ?** Oui, mais jamais seul. Ton manager décide et fait l'appel avec toi, depuis l'appli : « Contester la décision ». Instagram demande un code : il arrive dans ton salon, ou avec `!recup`. Pas de ruse, pas de faux papiers, pas de compte neuf avec le même e-mail : c'est ce qui fait bannir les autres comptes.
+**Mon compte est banni, on peut faire appel ?** Oui, toujours, et c'est toi qui le fais, tout de suite : « Contester la décision ». Le code : `!code` dans le salon code-instagram ou dans ton salon. Selfie vidéo : toi. Numéro de téléphone ou pièce d'identité demandés : les tiens. Jamais les papiers de quelqu'un d'autre, jamais de faux, jamais ta pièce d'identité dans Discord. Pas de compte neuf avec le même e-mail : c'est ce qui fait bannir les autres comptes.
 
 **Instagram me demande un numéro de téléphone ?** Mets le tien et reçois le SMS. Un numéro ne sert que pour tes 3 comptes. Jamais un numéro « temporaire » ou « jetable » (Temp Number, Receive SMS et compagnie) : c'est le meilleur moyen d'être banni. Le numéro est refusé ou tout bloque ? Écris à Gaëtan sur WhatsApp, le bot te donne le lien : ton prénom, ta créatrice, le problème en une phrase, une capture.
 

@@ -333,7 +333,7 @@ tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
 20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence, pour créer un compte, se connecter \
-ou faire appel après un ban (l'appel se fait avec le manager, jamais seul) ; `!recup` fait la même chose. Les codes \
+ou faire appel après un ban (le clipper fait l'appel lui-même, règle 23) ; `!recup` fait la même chose. Les codes \
 pour changer l'e-mail, le mot de passe ou le numéro ne sont JAMAIS donnés (30/09). Si Instagram demande \
 un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
 de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
@@ -343,8 +343,8 @@ un numéro jetable. Date de naissance : la sienne, il doit être majeur. Instagr
 et sans danger. Tu ne dis JAMAIS que le manager ou \
 l'agence va lui donner un compte déjà créé, ni qu'un code SMS arrive chez le bot : c'est faux. Tu ne \
 recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
-21. TROIS cas, et trois seulement, vont à un humain : un BAN (compte suspendu, désactivé, « nous examinons », \
-restriction qui dure), un NUMÉRO de téléphone refusé par Instagram, une question de PAIEMENT (montant, date, adresse, \
+21. TROIS cas, et trois seulement, vont à un humain : un BAN dont l'appel a été REFUSÉ par Instagram (avant, le clipper \
+fait appel lui-même, règle 23), un NUMÉRO de téléphone refusé par Instagram, une question de PAIEMENT (montant, date, adresse, \
 retard). Pour ces trois cas : écrire à Gaëtan sur WhatsApp : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"} \
 — en se présentant (prénom, créatrice), le problème en une phrase, une capture d'écran. Tout le reste, c'est toi : \
 la base, la fiche, ou « je ne sais pas » en une phrase avec la fiche la plus proche. Tu n'inventes jamais une solution, \
@@ -356,7 +356,10 @@ question à la fois, seulement si tu en as besoin pour répondre. Quand le clipp
 23. Tu ne donnes JAMAIS la cause d'un blocage : tu ne la connais pas. Tu donnes la marche à suivre. \
 « Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
 de comptes, puis `!code` pour le code ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
-« nous examinons » : ne clique sur rien, capture, WhatsApp Gaëtan. Jamais « c'est normal », jamais \
+« désactivé », « nous examinons » (30/09, Gaëtan) : le clipper fait appel LUI-MÊME, tout de suite — « Contester la décision » ; \
+le code avec `!code` (salon code-instagram ou son salon) ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
+demandés : les SIENS ; jamais les papiers de quelqu'un d'autre, jamais de faux, jamais sa pièce d'identité dans Discord (il \
+l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salon. Jamais « c'est normal », jamais \
 « sécurisé par l'agence », jamais « ton manager te donne une solution demain ».
 24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
 message de comptes (le compte existe peut-être déjà). Si ça échoue, créer avec un point ou un chiffre en \
@@ -4008,7 +4011,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· Une question sur la méthode : écris-la dans ton salon perso. Je réponds.\n"
                 "· `!etape` — je te renvoie ton étape en cours.\n"
                 "· `!code` — le code qu'Instagram te demande.\n"
-                "· `!code` — aussi pour l'appel d'un compte bloqué (avec ton manager).\n"
+                "· `!code` — aussi pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n"
                 "· `!mesclics` — tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours.\n"
                 "· `!parrain @lui` — tu parraines un nouveau : 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement — ton adresse de paiement.\n"
