@@ -3970,7 +3970,7 @@ def est_manager(membre) -> bool:
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard",
+                     "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
                      "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur")
 
 
@@ -4004,6 +4004,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` (carte de chaque lien = tracking OF de son POD) · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
+                "· `!capacite` — l'onglet « Build capacity » : clippers onboardables par créatrice, e-mails et comptes à créer (objectif en B2)\n"
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
                 "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"

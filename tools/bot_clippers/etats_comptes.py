@@ -544,7 +544,16 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str,
         await classeur_forme.formater(comptes)
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Classeur : mise en forme des onglets impossible (%s)", erreur)
+    global CAPACITE
+    try:                                                                # 01/10 : l'onglet « Build capacity » suit le Dashboard
+        import capacite
+        CAPACITE = await capacite.ecrire(comptes)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Build capacity : %s", erreur)
     return len(lignes)
+
+
+CAPACITE = {}                                                           # dernier résumé de l'onglet Build capacity
 
 
 # Palette par créatrice : (bandeau, teinte des lignes). Lisible sur téléphone, une couleur par bloc.
@@ -768,10 +777,17 @@ async def boucle(client) -> None:
 async def commande_staff(message, texte: str) -> bool:
     """`!etats-comptes` : passage immédiat · `!etats-comptes test` : ce qui changerait, sans rien écrire."""
     mots = texte.split()
-    if not mots or mots[0].lower() not in ("!etats-comptes", "!états-comptes", "!dashboard"):
+    if not mots or mots[0].lower() not in ("!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity"):
         return False
     if _deps.get("est_staff") and not _deps["est_staff"](message.author):
         await message.reply("Réservé aux managers et aux admins.")
+        return True
+    if mots[0].lower() in ("!capacite", "!capacité", "!build-capacity"):  # 01/10 : l'onglet Build capacity seul, sans scan
+        import capacite
+        try:
+            await message.reply(capacite.texte_resume(await capacite.ecrire())[:1990])
+        except Exception as erreur:                                     # noqa: BLE001
+            await message.reply(f"❌ Build capacity : {type(erreur).__name__} {str(erreur)[:150]}")
         return True
     if mots[0].lower() == "!dashboard":                                # 28/09 : l'onglet Dashboard réécrit tout de suite, sans scan
         if not onboarding.actif():
@@ -801,7 +817,9 @@ async def commande_staff(message, texte: str) -> bool:
         try:
             n = await ecrire_dashboard(await onboarding.lire_comptes(), d.get("historique", {}), _deps.get("clics_7j"),
                                        datetime.now(timezone.utc).strftime("%Y-%m-%d"), exclus)
+            import capacite
             await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par clipper, par créatrice."
+                                + (f"\n{capacite.texte_resume(CAPACITE)}" if CAPACITE else "")
                                 + (f"\nMasqués : {', '.join(exclus)} (`!dashboard inclure Prénom` pour remettre quelqu'un)." if exclus
                                    else "\nPersonne n'est masqué, Julien et Rianah compris (`!dashboard exclure Prénom` pour masquer)."))
         except Exception as erreur:                                     # noqa: BLE001

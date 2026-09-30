@@ -41,7 +41,7 @@ journal = logging.getLogger("onboarding")
 
 CLASSEUR_LOGINS_ID = os.environ.get("CLASSEUR_LOGINS_ID", "").strip()
 ONGLET_LOGINS = os.environ.get("ONGLET_LOGINS", "").strip()             # 27/09 : vide ou « auto » = un onglet par créatrice, découverts
-ONGLETS_EXCLUS = os.environ.get("ONGLETS_EXCLUS", "Gaetan, Gaëtan, Tracking, Backup, Candidatures, Modèle, Template, Archive, Dashboard")
+ONGLETS_EXCLUS = os.environ.get("ONGLETS_EXCLUS", "Gaetan, Gaëtan, Tracking, Backup, Candidatures, Modèle, Template, Archive, Dashboard, Build capacity")
 ONGLETS_HERITES = ("instagram", "logins", "comptes")                     # l'ancien onglet global : lu seulement sans onglet créatrice
 CACHE_ONGLETS_SEC = 600                                                  # la liste des onglets est relue toutes les 10 minutes
 _onglets_cache = {"quand": 0.0, "titres": []}
