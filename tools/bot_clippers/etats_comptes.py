@@ -395,6 +395,10 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
                 visites_hier = None
             depuis = _fenetre(jour, 7)
             reels7, reels_hier, dernier = 0, 0, ""
+            # 30/09 (Gaëtan : « la colonne Reels hier ne marche pas », 0 partout) : elle ne lisait que le scan daté du jour de
+            # l'écriture ; un Dashboard réécrit le matin AVANT le scan du jour (redémarrage, `!dashboard`) mettait donc 0 à tout
+            # le monde. Elle lit maintenant le scan le plus récent (celui du jour, sinon celui de la veille) : les 24 h qu'il couvre.
+            veille = _fenetre(jour, 2) or ""
             for c in cs:
                 hist = historique.get(c["handle"].lower()) or []
                 for e in (hist if depuis else hist[-7:]):
@@ -402,8 +406,10 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
                     if not e.get("existe") or (depuis and not (depuis <= j_e <= str(jour)[:10])):
                         continue
                     reels7 += int(e.get("posts") or 0)
-                    if j_e == str(jour)[:10]:                             # le scan de `jour` compte ce qui est sorti depuis la veille
-                        reels_hier += int(e.get("posts") or 0)
+                recents = [e for e in hist if veille <= str(e.get("jour", ""))[:10] <= str(jour)[:10]]
+                if recents:
+                    e = max(recents, key=lambda x: str(x.get("jour", "")))
+                    reels_hier += int(e.get("posts") or 0) if e.get("existe") else 0
                 for e in hist:
                     if e.get("existe") and int(e.get("posts") or 0) > 0 and str(e.get("jour", "")) > dernier:
                         dernier = str(e.get("jour", ""))
