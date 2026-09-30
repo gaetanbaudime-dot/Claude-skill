@@ -777,8 +777,17 @@ async def salons_candidats_recents(jours: int = 14, maximum: int = 30) -> int:
     return n
 
 
+async def salons_clippers_acceptes() -> list:
+    """30/09 (Gaëtan : « seulement aux clippers acceptés ») : [(salon, membre)] des clippers signés avec une créatrice au
+    registre, qui ont un salon perso. C'est LA cible de toute annonce aux clippers : un candidat (quiz, test) n'est pas concerné
+    par les règles des comptes (Joaoo a reçu la règle des 48 h sans avoir un seul compte)."""
+    registre = lire_json(FICHIER_EQUIPES, {})
+    return [(s, m) for s, m in await salons_persos_actifs() if (registre.get(str(m.id)) or {}).get("creatrice")]
+
+
 async def salons_persos_actifs() -> list:
-    """[(salon, membre)] de tous les membres non staff qui ont un salon perso — pour la rétrospective."""
+    """[(salon, membre)] de tous les membres non staff qui ont un salon perso, candidats compris — jamais pour une annonce
+    aux clippers (salons_clippers_acceptes)."""
     resultat = []
     for g in client.guilds:
         for m in g.members:
@@ -6566,6 +6575,7 @@ async def on_ready():
                                      "vue_whatsapp": vue_whatsapp, "prenom_de": prenom_de, "accueil_liaison": texte_accueil_liaison, "membre_par_id": membre_par_id,
                                      "categorie_nom": CATEGORIE_CLIPPERS_NOM, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                      "signe_creatrice": lambda uid: bool((lire_json(FICHIER_EQUIPES, {}).get(str(uid)) or {}).get("creatrice")),
+                                     "salons_clippers": salons_clippers_acceptes,             # 30/09 : « tous_clippers »
                                      "assurer_salon_arrivee": assurer_salon_arrivee})
         client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
         client.loop.create_task(nettoyer_candidatures_test())                    # 29/09 : les candidatures de test s'effacent
@@ -6772,7 +6782,7 @@ async def annoncer_regle_48h():
              "C'est ce qui limite les bans : 7 comptes perdus hier. Un compte banni ne revient jamais, le bot t'en donne un neuf.")
     n = 0
     try:
-        for salon, membre in await salons_persos_actifs():
+        for salon, membre in await salons_clippers_acceptes():         # 30/09 : jamais aux candidats
             try:
                 await salon.send(f"{membre.mention} {texte}")
                 n += 1

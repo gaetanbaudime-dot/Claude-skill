@@ -13,7 +13,8 @@ Options (28/09) : "effacer_bot": true efface d'abord les messages du bot dans ce
 remplace le texte par le message d'arrivée du membre (parcours, formation, lien du quiz), calculé au moment de l'envoi ;
 "creer_salon": true crée le salon perso du membre « pour » s'il n'en a pas ; "tous_arrivants": true applique l'entrée à chaque
 salon de la catégorie Clippers dont le membre n'est ni staff ni signé avec une créatrice (« efface et renvoie ça à tous ceux
-qu'on a onboardés cette nuit », 28/09).
+qu'on a onboardés cette nuit », 28/09) ; "tous_clippers": true (30/09, Gaëtan : « seulement aux clippers acceptés ») l'applique
+au salon perso de chaque clipper signé avec une créatrice, jamais aux candidats — la forme de toute annonce de règle.
 """
 
 import json
@@ -132,9 +133,11 @@ async def envoyer_au_demarrage(client) -> list:
         if ident in envoyes:
             continue
         admin = await _deps["canal_admin"]()
-        if entree.get("tous_arrivants"):                                     # 28/09 : un envoi par salon de la catégorie Clippers
+        if entree.get("tous_arrivants") or entree.get("tous_clippers"):     # 28/09 arrivants ; 30/09 clippers acceptés seulement
             faits_ici = []
-            for salon_a, membre_a in salons_arrivants(client):
+            cibles = (await _deps["salons_clippers"]()) if entree.get("tous_clippers") and _deps.get("salons_clippers") else \
+                ([] if entree.get("tous_clippers") else salons_arrivants(client))
+            for salon_a, membre_a in cibles:
                 if await _envoyer_dans(client, salon_a, membre_a, entree, ident):
                     faits_ici.append(getattr(salon_a, "name", "?"))
             envoyes[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "salons": faits_ici}
