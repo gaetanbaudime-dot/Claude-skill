@@ -70,7 +70,10 @@ def anomalies(comptes: list, historique: dict | None = None, exclus=None) -> lis
         if len(cs) > 1:
             num = next((c["numero"] for c in cs if c.get("numero")), "")
             ref = f"{cs[0].get('onglet') or '?'} n° {num}" if num else f"{cs[0].get('onglet') or '?'} {m[:6]}…"
-            brule = " ⚠️ mail brûlé (ligne BAN) réutilisé" if any(_n(c.get("etat")) == "ban" for c in cs) else ""
+            # 01/10 : « brûlé » seulement si le mail d'un BAN sert encore à une ligne non BAN (deux lignes BAN qui partagent un
+            # mail, c'est un doublon, pas une réutilisation : 2 fausses alertes sur 3 le 01/10)
+            etats = [_n(c.get("etat")) for c in cs]
+            brule = " ⚠️ mail brûlé (ligne BAN) réutilisé" if "ban" in etats and any(e != "ban" for e in etats) else ""
             doublons.append(f"{ref} → " + " + ".join(_etiquette(c) for c in cs) + brule)
     if doublons:
         out.append("• Mail en double : " + " · ".join(sorted(doublons)))

@@ -1772,6 +1772,41 @@ async def lire_candidatures_sheets(forcer: bool = False) -> list:
     return lignes
 
 
+def candidatures_du_jour(jour, lignes: list, pipe: dict | None = None) -> list:
+    """01/10 (« 7 candidatures hier » au digest contre « 12 hier » dans !pipeline) : LE compteur des candidatures d'un jour,
+    pour le digest et pour !pipeline. Jour calendaire à Paris ; les lignes du classeur des candidatures (deux onglets, heure du
+    classeur) et celles du pipeline (heure UTC) réunies ; une personne = les 8 derniers chiffres de son numéro (comme
+    candidature_de) ; les numéros du staff (RELANCES_EXCLURE_TELS) exclus. Renvoie [{tel_chiffres, prenom, pays, date}]."""
+    try:
+        from zoneinfo import ZoneInfo
+        paris = ZoneInfo("Europe/Paris")
+    except Exception:                                                   # noqa: BLE001 — base de fuseaux absente
+        paris = timezone(timedelta(hours=2))
+    vues, out = set(), []
+
+    def _ajouter(d, tel, prenom, pays):
+        if d is None or d.date() != jour or relances.tel_exclu(tel):
+            return
+        chiffres = _chiffres_tel(tel)
+        cle = chiffres[-8:] if len(chiffres) >= 8 else None             # numéro illisible : compté tel quel
+        if cle is not None and cle in vues:
+            return
+        if cle is not None:
+            vues.add(cle)
+        out.append({"tel_chiffres": chiffres, "prenom": prenom, "pays": pays, "date": d})
+
+    for c in sorted(lignes or [], key=lambda c: c.get("date") or datetime.min):
+        _ajouter(c.get("date"), c.get("tel", ""), c.get("prenom", ""), c.get("pays", ""))
+    for tel, c in ((pipe or {}).get("candidatures") or {}).items():
+        try:
+            d = datetime.fromisoformat(str(c.get("date") or ""))
+        except ValueError:
+            continue
+        d = (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(paris).replace(tzinfo=None)
+        _ajouter(d, tel, c.get("prenom", ""), c.get("pays", ""))
+    return out
+
+
 def candidature_de(lignes: list, tel: str = "", prenom: str = "") -> dict:
     """La candidature d'une personne : par les 8 derniers chiffres du numéro, sinon par prénom (si unique). La plus récente gagne."""
     chiffres = _chiffres_tel(tel)
@@ -2197,9 +2232,23 @@ def managers_humains(guild) -> list:
     return trouves
 
 
+def _autres_occupants(salon, membre, staff=None) -> list:
+    """01/10 (#big ouvert à deux « Big Deo », #andry à « Andry » et « Andry - Sarah ») : les humains autres que `membre` qui ont
+    un droit direct sur le salon, sans le bot, les admins ni les managers (eux voient tous les salons perso)."""
+    moi = getattr(getattr(salon, "guild", None), "me", None)
+    staff = managers_humains(getattr(salon, "guild", None)) if staff is None else staff
+    return [m for m in salon.overwrites if isinstance(m, discord.Member) and not m.bot and m != moi and m.id != membre.id
+            and str(m.id) not in ADMIN_IDS and m not in staff]
+
+
+def _slug_salon(texte: str) -> str:
+    return re.sub(r"-{2,}", "-", re.sub(r"[^\w\s-]", "", texte).strip().lower().replace(" ", "-"))
+
+
 def nom_salon_cible(guild, membre) -> str:
     """Nom du salon perso (25/09) : le prénom seul (« thia »), ou « prenom-creatrice » si un autre signé porte le
-    même prénom (deux Julien)."""
+    même prénom (deux Julien). 01/10 : homonyme aussi quand un salon à ce nom appartient déjà à quelqu'un d'autre (un candidat
+    n'est pas au registre) ; si le salon au pseudo complet est lui aussi à un autre (deux « Big Deo »), on ajoute la fin de son id."""
     p = prenom_de(membre)
     homonyme = False
     for uid in lire_json(FICHIER_EQUIPES, {}):
@@ -2207,8 +2256,19 @@ def nom_salon_cible(guild, membre) -> str:
         if m is not None and m.id != membre.id and normaliser(prenom_de(m)) == normaliser(p):
             homonyme = True
             break
-    base = membre.display_name if homonyme else p
-    return re.sub(r"-{2,}", "-", re.sub(r"[^\w\s-]", "", base).strip().lower().replace(" ", "-")) or f"clipper-{membre.id}"
+    staff = []
+
+    def _a_un_autre(nom):                                               # un salon à ce nom où il n'est pas, ouvert à un autre
+        meme_nom = [c for c in (guild.text_channels if guild is not None else []) if c.name == nom and membre not in c.overwrites]
+        if meme_nom and not staff:                                      # (les managers, lus seulement si un salon est en jeu)
+            staff.extend(managers_humains(guild))
+        return any(_autres_occupants(c, membre, staff) for c in meme_nom)
+    if not homonyme and _a_un_autre(_slug_salon(p)):
+        homonyme = True
+    nom = _slug_salon(membre.display_name if homonyme else p)
+    if homonyme and nom and _a_un_autre(nom):
+        nom = f"{nom}-{str(membre.id)[-4:]}"
+    return nom or f"clipper-{membre.id}"
 
 
 def trouver_salon_perso(guild, membre):
@@ -2225,6 +2285,11 @@ def trouver_salon_perso(guild, membre):
     cles = {re.sub(r"[^a-z0-9]", "", normaliser(x)) for x in (membre.display_name, prenom_de(membre), nom_salon_cible(guild, membre))} - {""}
     cands = [c for c in guild.text_channels if c.category is not None and str(c.id) not in exclus
              and re.sub(r"[^a-z0-9]", "", normaliser(c.name)) in cles]
+    # 01/10 (#big et #andry ouverts à deux comptes homonymes, identifiants et mots de passe du compte 1 visibles par l'autre) :
+    # un salon trouvé par son nom où un autre humain a déjà un droit direct n'est jamais le sien — il en aura un à lui
+    if cands:
+        staff = managers_humains(guild)
+        cands = [c for c in cands if not _autres_occupants(c, membre, staff)]
     if len(cands) > 1:                                                  # deux salons plausibles : celui qu'il voit
         cands = [c for c in cands if c.permissions_for(membre).view_channel] or cands
     if not cands:
@@ -2895,9 +2960,12 @@ async def traiter_liaison(auteur, brut):
     # on n'écrase rien, on remonte à l'admin (audit du 10/09).
     for autre_uid, autre in donnees.get("liaisons", {}).items():
         if autre_uid != str(auteur.id) and autre.get("tel") == tel:
-            await envoyer_mp(auteur, f"⚠️ Le numéro **…{tel[-4:]}** est déjà relié à un autre compte Discord. "
-                                     "Si c'est ton ancien compte, dis-le-moi ici en une phrase : l'équipe "
-                                     "vérifie et te débloque.")
+            # 01/10 (Big Deo, 30/09 : « l'équipe te débloque » puis « Quizz réussi » et son test dans la même minute) : déjà
+            # engagé dans le parcours, il n'est pas bloqué — l'alerte va à l'admin seulement
+            if (donnees.get("etats", {}).get(str(auteur.id)) or {}).get("etat") not in ("quiz_ok", "test_envoye", "test_rendu", "valide"):
+                await envoyer_mp(auteur, f"⚠️ Le numéro **…{tel[-4:]}** est déjà relié à un autre compte Discord. "
+                                         "Si c'est ton ancien compte, dis-le-moi ici en une phrase : l'équipe "
+                                         "vérifie et te débloque.")
             canal_d = await canal_admin()
             if canal_d:
                 await canal_d.send(f"⚠️ **Numéro en doublon** : {auteur.mention} envoie …{tel[-4:]}, déjà relié à "
@@ -3756,7 +3824,13 @@ async def boucle_rappels():
                 # Le comptage des flux d'hier remplace les échos immédiats (« 1 candidature enregistrée »,
                 # « test envoyé en MP ») qui noyaient le salon (épuration du 23/09).
                 depuis_24h = (ref - timedelta(hours=24)).isoformat(timespec="seconds")
-                cand_24h = [c for c in pipe.get("candidatures", {}).values() if (c.get("date") or "") >= depuis_24h]
+                # 01/10 : le même compteur que !pipeline (candidatures_du_jour : hier à Paris, une par numéro, sans le staff)
+                try:
+                    lignes_c = await lire_candidatures_sheets()
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : classeur des candidatures illisible (%s)", erreur)
+                    lignes_c = []
+                cand_24h = candidatures_du_jour(maintenant.date() - timedelta(days=1), lignes_c, pipe)
                 cand_fr = sum(1 for c in cand_24h if equipe_du_pays(c.get("pays") or "") == "fr")
                 tests_24h = sum(1 for i in etats_p.values() if (i.get("envoi") or "") >= depuis_24h)
                 en_test = sum(1 for i in etats_p.values() if i.get("etat") == "test_envoye")
@@ -4546,8 +4620,9 @@ async def expirer_reservations(historique: dict) -> list:
             vue = discord.ui.View(timeout=None)
             vue.add_item(BoutonReprise(uid))
             try:
+                # 01/10 : « je t'en redonne trois » contredisait le parcours à un compte à la fois
                 await salon.send(f"⏳ **{onboarding.RESERVATION_JOURS} jours sans compte créé.** J'ai rendu tes accès au vivier, quelqu'un d'autre les prend.\n\n"
-                                 "Tu veux t'y mettre ? Appuie sur le bouton, je t'en redonne trois.", view=vue)
+                                 "Tu veux t'y mettre ? Appuie sur le bouton, je te redonne ton compte 1.", view=vue)
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Expiration de %s : %s", uid, erreur)
         canal = await canal_admin()
@@ -5884,7 +5959,8 @@ async def commande_admin(message, texte: str) -> bool:
         if cands_p:
             def _n_jours(j):
                 return sum(1 for c in cands_p if c.get("date") and (aujourdhui - c["date"].date()).days < j)
-            hier = sum(1 for c in cands_p if c.get("date") and (aujourdhui - c["date"].date()).days == 1)
+            # 01/10 : « hier » = le compteur du digest (candidatures_du_jour : une par numéro, sans le staff)
+            hier = len(candidatures_du_jour(aujourdhui - timedelta(days=1), cands_p, donnees))
             par_source = {}
             for c in cands_p:
                 par_source[c["source"]] = par_source.get(c["source"], 0) + 1
@@ -7607,8 +7683,14 @@ async def on_message(message):
         info = donnees_pipe.get("etats", {}).get(str(utilisateur))
         if info and info.get("etat") in ("test_envoye", "test_rendu", "test_expire", "refuse") \
                 and (message.attachments or "http" in texte.lower()):
-            complement = info.get("etat") == "test_rendu"        # 2ᵉ fichier envoyé dans un autre message
+            # 2ᵉ fichier envoyé dans un autre message. 01/10 (Steeve, 30/09 : « Ta note : 5/10 » puis « Fichier ajouté à ton
+            # rendu », sans nouvel essai) : complément seulement si le rendu a déjà reçu un avis valable (avis_ok) ; un premier
+            # envoi sans avis (lien, fichier qui n'est pas une vidéo, avis en échec, redémarrage) laisse la vidéo suivante être
+            # jugée comme un rendu (nouvel essai ou validation).
+            complement = info.get("etat") == "test_rendu" and bool(info.get("avis_ok"))
             hors_delai = info.get("etat") in ("test_expire", "refuse")
+            if not complement:
+                info.pop("avis_ok", None)                                   # nouveau rendu : il attend son propre avis
             info["etat"] = "test_rendu"
             info["rendu"] = info.get("rendu") or datetime.now(timezone.utc).isoformat(timespec="seconds")
             ecrire_json(FICHIER_PIPELINE, donnees_pipe)
@@ -7628,6 +7710,10 @@ async def on_message(message):
 
             if message.attachments and not hors_delai:
                 avis_t = await avis_test_montage(message)
+                if avis_t is not None and not avis_t.get("erreur"):          # 01/10 : avis valable → les envois suivants complètent
+                    donnees_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+                    donnees_a.setdefault("etats", {}).setdefault(str(utilisateur), {})["avis_ok"] = True
+                    ecrire_json(FICHIER_PIPELINE, donnees_a)
                 try:
                     msg_avis = await message.reply(texte_avis_test(avis_t))
                 except (discord.Forbidden, discord.HTTPException):

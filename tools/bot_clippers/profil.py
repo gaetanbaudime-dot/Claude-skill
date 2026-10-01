@@ -6,12 +6,14 @@ sage, sans lien ni @, jamais la même deux fois de suite pour une créatrice. Pl
 import io
 import logging
 import os
+import re
 
 import discord
 
 journal = logging.getLogger("profil")
 ACTIF = os.environ.get("PROFIL", "1").strip() != "0"
 PHOTO_MAX_OCTETS = 9_500_000                    # 30/09 : la limite d'envoi de Discord est 10 Mo par fichier
+DOSSIER_MIME = "application/vnd.google-apps.folder"
 _deps = {}
 
 BIOS = (
@@ -39,7 +41,8 @@ BIOS = (
 
 
 def configurer(deps: dict):
-    """deps : lire_json, ecrire_json, FICHIER, source_de (créatrice -> entrée DRIVE_SOURCES), drive_lister, drive_telecharger."""
+    """deps : lire_json, ecrire_json, FICHIER, source_de (créatrice -> entrée DRIVE_SOURCES), drive_lister, drive_telecharger,
+    et en option drive_vignette (id -> octets ; par défaut la vignette Drive lue par google_api)."""
     _deps.update(deps)
 
 
@@ -72,29 +75,84 @@ def bio_pour(creatrice: str) -> str:
     return BIOS[i].format(prenom=prenom)
 
 
+async def _vignette_drive(fichier_id: str) -> bytes:
+    """01/10 : la vignette Drive d'une image (agrandie à 1600 px), pour une photo trop lourde pour Discord."""
+    import google_api                                                   # (import tardif : les tests de ce module s'en passent)
+    r = await google_api._appel("GET", f"{google_api.DRIVE}/files/{fichier_id}",
+                                params={"supportsAllDrives": "true", "fields": "thumbnailLink"})
+    lien = str(r.get("thumbnailLink") or "")
+    if not lien:
+        raise RuntimeError("pas de vignette Drive")
+    lien = re.sub(r"=s\d+$", "=s1600", lien)
+    s_ = await google_api._session_http()
+    async with s_.get(lien, headers={"Authorization": f"Bearer {await google_api.jeton()}"}) as rep:
+        if rep.status >= 400:
+            raise RuntimeError(f"vignette refusée ({rep.status})")
+        return await rep.read()
+
+
+def _image(f: dict):
+    """Le fichier Drive vu comme une image {id, name, size}, raccourci compris (sa cible), ou None."""
+    raccourci = f.get("shortcutDetails") or {}
+    if str(f.get("mimeType", "")).startswith("image/") and f.get("id"):
+        return f
+    if str(raccourci.get("targetMimeType", "")).startswith("image/") and raccourci.get("targetId"):
+        return {"id": raccourci["targetId"], "name": f.get("name"), "size": None}
+    return None
+
+
+def _sous_dossier(f: dict) -> str:
+    raccourci = f.get("shortcutDetails") or {}
+    if f.get("mimeType") == DOSSIER_MIME and f.get("id"):
+        return f["id"]
+    return raccourci.get("targetId", "") if raccourci.get("targetMimeType") == DOSSIER_MIME else ""
+
+
 async def photo_pour(creatrice: str):
-    """(nom de fichier, octets) d'une photo du dossier « Photos » de la créatrice, en tournant ; None sans source ou sans image."""
+    """(nom de fichier, octets) d'une photo du dossier « Photos » de la créatrice, en tournant ; None sans source ou sans image.
+    01/10 (Ricardo, deux fois le texte de secours le 30/09, sans raison au journal) : la raison de chaque échec va au journal,
+    les sous-dossiers du dossier Photos sont parcourus (un niveau), et quand toutes les images dépassent la limite de Discord,
+    ou que le téléchargement échoue, c'est la vignette Drive qui part (résolution réduite, suffisante pour un profil)."""
     source_de = _deps.get("source_de")
     if source_de is None or not _deps.get("drive_lister") or not _deps.get("drive_telecharger"):
+        journal.warning("Photo de profil de %s : module non configuré", creatrice)
         return None
     sources = (source_de(creatrice) or {}).get("sources") or []
     dossiers = [s.get("id") if isinstance(s, dict) else s for s in sources
                 if isinstance(s, dict) and str(s.get("sous", "")).strip().lower().startswith("photo")]
     if not dossiers:
+        journal.warning("Photo de profil de %s : pas de dossier Photos dans DRIVE_SOURCES", creatrice)
         return None
-    images = []
-    for did in dossiers:
+    images, lourdes, vus = [], [], 0
+    a_voir = [(did, 0) for did in dossiers if did]
+    while a_voir:
+        did, niveau = a_voir.pop(0)
         try:
-            for f in await _deps["drive_lister"](did):
-                # 30/09 (Mathias, pas de photo reçue) : une photo au-dessus de la limite Discord faisait tout échouer — on ne
-                # garde que celles qui passent (taille connue par le Drive)
-                if str(f.get("mimeType", "")).startswith("image/") and f.get("id") \
-                        and int(f.get("size") or 0) <= PHOTO_MAX_OCTETS:
-                    images.append(f)
+            fichiers = await _deps["drive_lister"](did)
         except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Photos de %s : %s", creatrice, erreur)
-    if not images:
-        return None
+            journal.warning("Photos de %s : dossier %s illisible (%s)", creatrice, str(did)[:8], erreur)
+            continue
+        for f in fichiers:
+            vus += 1
+            sous = _sous_dossier(f)
+            if sous:
+                if niveau < 1:
+                    a_voir.append((sous, niveau + 1))
+                continue
+            img = _image(f)
+            if img is None:
+                continue
+            # 30/09 (Mathias, pas de photo reçue) : une photo au-dessus de la limite Discord faisait tout échouer — on ne
+            # garde que celles qui passent (taille connue par le Drive) ; les autres servent par leur vignette
+            (lourdes if int(img.get("size") or 0) > PHOTO_MAX_OCTETS else images).append(img)
+    vignette = not images
+    if vignette:
+        if not lourdes:
+            journal.warning("Photo de profil de %s : aucune image dans le dossier Photos (%d élément(s) vu(s))", creatrice, vus)
+            return None
+        journal.info("Photo de profil de %s : %d image(s), toutes au-dessus de %d Mo → vignette Drive", creatrice,
+                     len(lourdes), PHOTO_MAX_OCTETS // 1_000_000)
+        images = lourdes
     images.sort(key=lambda f: str(f.get("name", "")))
     d = _lire()
     servis = d["photos"].setdefault(_cle(creatrice), [])
@@ -102,11 +160,21 @@ async def photo_pour(creatrice: str):
     if choix is None:
         servis.clear()
         choix = images[0]
-    try:
-        octets = await _deps["drive_telecharger"](choix["id"], PHOTO_MAX_OCTETS)
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.warning("Photo %s de %s : %s", choix.get("name"), creatrice, erreur)
-        return None
+    octets = None
+    if not vignette:
+        try:
+            octets = await _deps["drive_telecharger"](choix["id"], PHOTO_MAX_OCTETS)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Photo %s de %s : téléchargement impossible (%s) → vignette Drive", choix.get("name"), creatrice, erreur)
+    if octets is None:
+        try:
+            octets = await (_deps.get("drive_vignette") or _vignette_drive)(choix["id"])
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Photo %s de %s : vignette impossible (%s)", choix.get("name"), creatrice, erreur)
+            return None
+        if len(octets) > PHOTO_MAX_OCTETS:
+            journal.warning("Photo %s de %s : vignette encore trop lourde (%d Mo)", choix.get("name"), creatrice, len(octets) // 1_000_000)
+            return None
     servis.append(choix["id"])
     d["photos"][_cle(creatrice)] = servis[-60:]
     _ecrire(d)
