@@ -52,12 +52,11 @@ def regle_comptes() -> str:
 def texte_codes() -> str:
     """01/10 (Gaëtan : « les codes Instagram se demandent uniquement dans le salon code-instagram ») : la phrase canonique,
     avec le salon en lien cliquable quand son id est connu."""
+    # 01/10 (fusion des lots) : une seule source, codes_2fa.texte_salon_codes() (lot B) ; même texte, même lien.
     try:
-        sid = codes_2fa.salon_codes_id()
+        return codes_2fa.texte_salon_codes()
     except Exception:                                                   # noqa: BLE001
-        sid = ""
-    salon = f"<#{sid}>" if sid else f"#{codes_2fa.SALON_CODES_NOM}"
-    return f"Un code Instagram ? Va dans {salon} et tape !code."
+        return "Un code Instagram ? Va dans #🔐-code-instagram et tape !code."
 
 
 # 01/10 : plus de date ni de « compte 2 demain » ici, la règle canonique ; la date « au plus tôt » vit dans la ligne du matin

@@ -27,14 +27,20 @@ OBJECTIF = ("Transformer chaque clipper en trois comptes Instagram qui postent l
             "exceptionnelle, avec le moins de messages possible, sans jamais contredire la doctrine.")
 # 30/09 (extrait de #bot-gaetan : la rétrospective a appris « à l'essai 3 raté, c'est terminé » et « aucun humain sur les
 # tests ») : la doctrine d'ici datait du 25/09 (un compte par jour, lien en bio du compte privé). Remise à jour.
+# 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens, plus de période d'essai à part » ; « les codes se
+# demandent UNIQUEMENT dans #🔐-code-instagram » ; « on ne réutilise jamais une info d'un compte BAN ») : la doctrine
+# reprend les deux textes canoniques, sinon la rétrospective réapprenait l'ancienne règle aux leçons.
 DOCTRINE = ("Doctrine (elle prime sur tout) : le clipper met SON numéro de téléphone (un numéro = ses 3 comptes) ; le selfie "
-            "vidéo, il le fait lui-même ; un compte tous les 48 h, 24 h de warm-up après chaque compte, puis CE compte publie "
-            "2 Reels et 1 story par jour sans attendre les autres ; période d'essai : un nouveau clipper n'a que son compte 1, "
-            "les comptes 2 et 3 s'ouvrent tout seuls après 5 Reels en 72 h sur le compte 1 ; un compte banni ne change rien pour les autres ; plus de "
+            "vidéo, il le fait lui-même ; règle des comptes, la même pour tous : « Un compte à la fois. Le suivant arrive tout "
+            "seul ici, au plus tôt 48 h après le précédent, dès que 2 Reels sont publiés dessus. » ; 24 h de warm-up après "
+            "chaque compte, puis CE compte publie 2 Reels et 1 story par jour sans attendre les autres ; jamais « un compte "
+            "par jour », jamais de période d'essai ; un compte banni ne change rien pour les autres, et on ne réutilise jamais "
+            "une info d'un compte banni ; plus de "
             "compte privé ; le lien vit dans une story à la une, jamais en bio, jamais dans un Reel ; la story du jour se prend "
             "dans le dossier Photos du Drive ; test de montage : 1 vidéo, 7/10 pour passer, 3 essais notés tout de suite par le "
             "bot, et au 3e essai raté un manager regarde la vidéo (ce n'est jamais « terminé » d'office) ; paie 0,05 $ par visite "
-            "francophone réelle, tous les 15 jours ; tous les codes par `!code` (création, connexion, appel), jamais ceux qui "
+            "francophone réelle, tous les 15 jours ; codes : « Un code Instagram ? Va dans #🔐-code-instagram et tape !code. » "
+            "(création, connexion, appel), uniquement dans ce salon, jamais ceux qui "
             "changent l'e-mail, le mot de passe ou le numéro ; un compte banni : le clipper fait appel lui-même tout de suite (code, "
             "selfie vidéo, SON numéro ou SA pièce d'identité si demandés, jamais ceux d'un autre, jamais dans Discord) ; trois cas "
             "seulement vont à Gaëtan (appel refusé, numéro refusé, paiement) ; "

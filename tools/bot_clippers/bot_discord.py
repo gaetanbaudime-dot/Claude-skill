@@ -248,9 +248,9 @@ MESSAGE_ESCALADE = "Je n'ai pas la réponse. J'ai transmis ta question à l'équ
 # partout. Le salon devient un lien cliquable <#id> en post-traitement (lier_salon_codes), dès que son id est connu.
 TEXTE_CODE = "Un code Instagram ? Va dans #🔐-code-instagram et tape !code."
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
-# jour » ni de « 5 Reels en 72 h ».
-TEXTE_COMPTES = ("Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, "
-                 "dès que 2 Reels sont publiés dessus.")
+# jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
+# PARCOURS_ATTENTE_COMPTE_H et PARCOURS_REELS_OUVERTURE (par défaut, mot pour mot le même texte).
+TEXTE_COMPTES = parcours.regle_comptes()
 
 # Le nom sous lequel le bot se présente DOIT être son vrai nom Discord : un candidat à qui
 # on dit « envoie ton numéro à LTP Assistant » cherche ce pseudo dans la liste des membres,
@@ -4284,7 +4284,10 @@ def texte_aide(membre, est_admin: bool) -> str:
             "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
             f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {seuil_quiz_texte()}, 2 essais).\n"
             "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
-            "4. Test validé → ta créatrice et tes 3 comptes, un tous les 48 h, avec 24 h de warm-up sur chacun.\n"
+            # 01/10 (Gaëtan : « la même règle pour tous ») : plus de « un tous les 48 h » seul ; la règle canonique,
+            # « ici » devenu « dans ton salon perso » parce que cette aide se lit en MP.
+            "4. Test validé → ta créatrice et ton compte 1, dans ton salon perso. Un compte à la fois : le suivant y arrive "
+            "tout seul, au plus tôt 48 h après le précédent, dès que 2 Reels sont publiés dessus.\n"
             "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
             "Une question ? Pose-la ici, je réponds avec le kit.")
 
@@ -6735,7 +6738,7 @@ async def on_ready():
                     ecrire_json(trace, faits)
                     canal_p = await canal_admin()
                     if canal_p is not None:
-                        await canal_p.send("🔁 Parcours remis au compte 1 (partis à l'étape 2 par erreur, sans période d'essai) : " + ", ".join(lignes_p))
+                        await canal_p.send("🔁 Parcours remis au compte 1 (partis à l'étape 2 par erreur) : " + ", ".join(lignes_p))
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Réparation des parcours : %s", erreur)
         client.loop.create_task(_reparer_nouveaux_mal_partis())
