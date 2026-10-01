@@ -189,7 +189,13 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban
     e = _norm(etat)
     absents, publie = _series(historique)
     if e in ("a creer", "à créer"):
-        return "WARMUP" if mesure["existe"] else ""
+        # 01/10 (Andry, Clarisse, Ricado, Michel : identifiants « WARMUP » avant même d'avoir été envoyés, comptes privés de
+        # 305 abonnés) : présent sur Instagram ne veut pas dire créé par NOTRE clipper. WARMUP seulement si un scan d'avant l'a
+        # vu absent (absent, puis présent). Présent dès le premier regard : identifiant peut-être pris par un tiers, la ligne
+        # reste « à créer » (alerte admin dans _executer) ; le bouton « créé » du parcours la passe à WARMUP s'il est bien à lui.
+        if not mesure["existe"]:
+            return ""
+        return "WARMUP" if any(not j.get("existe") for j in historique[:-1]) else ""
     if e == "warmup":
         if absents >= BAN_JOURS:
             return "BAN"
@@ -265,6 +271,7 @@ async def _executer(ecrire: bool = True) -> dict:
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     changements, followers_maj, clics_maj, liens_maj = [], 0, 0, 0
     reels_ecritures = []
+    pris = []                                                            # 01/10 : identifiants « à créer » déjà présents sur Instagram
     ids_suivis = {id(c) for c in suivis}
     async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
         await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
@@ -290,6 +297,10 @@ async def _executer(ecrire: bool = True) -> dict:
                      "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0)})
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
         apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"], d.setdefault("avant_ban", {}).get(h, ""))
+        if ecrire and not apres and m["existe"] and _norm(c["etat"]) in ("a creer", "à créer") \
+                and h not in d.setdefault("pris_signales", {}):
+            pris.append(f"{c['handle']} ({str(c.get('gerant') or '?').split()[0]})")   # 01/10 : vu présent sans avoir été vu absent
+            d["pris_signales"][h] = jour
         if apres:
             changements.append((c["handle"], c["gerant"], c["etat"], apres, c["ligne"]))
             if ecrire:
@@ -379,6 +390,15 @@ async def _executer(ecrire: bool = True) -> dict:
                 await canal_f.send("⚠️ Lien ou @ dans une légende de Reel hier : " + ", ".join(fautifs)[:1800])
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Alerte légendes : %s", erreur)
+    if ecrire and pris and _deps.get("canal_admin"):                              # 01/10 : une fois par identifiant
+        try:
+            canal_p = await _deps["canal_admin"]()
+            if canal_p is not None:
+                await canal_p.send("⚠️ Identifiant déjà pris sur Instagram ? Ces lignes « à créer » existent sans avoir jamais été vues "
+                                   "absentes, elles restent « à créer » : " + ", ".join(pris)[:1700]
+                                   + "\n\nSi le clipper l'a bien créé, son bouton « créé » la passe en WARMUP.")
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Alerte identifiants pris : %s", erreur)
     if ecrire and _deps.get("deposer") and _deps.get("salon_de_prenom"):        # 27/09 : « Reels d'hier » du message du matin
         for prenom, texte_r in lignes_reels(comptes, d["historique"], jour).items():
             try:

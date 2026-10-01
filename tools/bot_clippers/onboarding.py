@@ -502,19 +502,22 @@ def acces_ordonnes(comptes: list) -> list:
 
 def message_comptes_court(prenom: str) -> str:
     """27/09 (Gaëtan : « donne les comptes 24 h par 24 h, pas un message énorme dès le début ») : une ligne. Chaque accès
-    (identifiant, mot de passe, e-mail) arrive dans l'étape du jour du parcours, un par jour."""
-    return (f"🔐 {prenom}, tes accès arrivent **un compte tous les 48 h**, dans l'étape du jour. "   # 30/09 : règle des 48 h
+    (identifiant, mot de passe, e-mail) arrive dans l'étape du parcours qui le sert."""
+    import parcours                                                     # 01/10 : la règle canonique, une seule source (import tardif : parcours importe onboarding)
+    return (f"🔐 {prenom}, tes accès arrivent ici, dans l'étape du parcours.\n\n{parcours.regle_comptes()}\n\n"
             "Ils sont à l'agence : tu ne les donnes à personne.")
 
 
-def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
+def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) -> str:
     """26/09 (Gaëtan : « hyper long, trop d'informations ») : les 3 comptes et une ligne de règle, rien d'autre.
-    Depuis le 27/09, ne sert plus qu'à `!onboarding` forcé (COMPTES_UN_PAR_JOUR=0 pour le rétablir partout)."""
+    Depuis le 27/09, ne sert plus qu'à `!onboarding` forcé (COMPTES_UN_PAR_JOUR=0 pour le rétablir partout). 01/10 : `debut`
+    = le numéro du premier compte (sa place dans la fiche : un compte ajouté après les deux premiers est le compte 3)."""
+    import parcours                                                     # 01/10 : la règle canonique (import tardif)
     if not comptes:
         return (f"⚠️ Il n'y a pas encore de compte prêt pour {creatrice}. Ton manager en prépare. "
                 "Je te les envoie ici dès qu'ils sont prêts.")
     blocs = []
-    for i, c in enumerate(comptes, start=1):                        # 28/09 : trois comptes qui publient, plus de compte privé
+    for i, c in enumerate(comptes, start=debut):                    # 28/09 : trois comptes qui publient, plus de compte privé
         deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé, connecte-toi"
         # 28/09 (Gaëtan, Simon perdu) : identifiant, mot de passe, e-mail chacun dans son bloc, copiable d'un geste sur le téléphone
         blocs.append(f"**Compte {i}** · il publie{deja}\nIdentifiant :\n```\n{c['handle']}\n```\n"
@@ -522,7 +525,8 @@ def message_comptes(comptes: list, prenom: str, creatrice: str) -> str:
                      + (f"\nE-mail :\n```\n{c['mail']}\n```" if c["mail"] else "")
                      + (f"\nTéléphone : `{c['phone']}`" if c["phone"] else ""))
     return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice} · chaque bloc se copie d'un geste.\n\n" + "\n\n".join(blocs) + "\n\n"
-            "Un compte par jour, sur ton téléphone seulement. Ces accès sont à l'agence : tu ne les donnes à personne.")
+            f"{parcours.regle_comptes()} Sur ton téléphone seulement.\n\n"   # 01/10 : plus de « Un compte par jour »
+            "Ces accès sont à l'agence : tu ne les donnes à personne.")
 
 
 # ------------------------------------------------------------------ Drive
@@ -1393,19 +1397,36 @@ async def boucle(client, deps: dict):
                                 f"Sinon : `!liberer {prenom} {handles}` puis `!creatrice @{prenom} {creatrice}`."[:1990])
                     if not nouveaux:
                         continue
-                salon = deps["salon_perso"](str(membre.id))
-                cible = salon if salon is not None else membre
-                try:
-                    await cible.send(("🔐 **Compte(s) attribué(s) depuis le classeur**\n\n" +
-                                      message_comptes(nouveaux, prenom, creatrice or "?"))[:1990])
-                except (discord.Forbidden, discord.HTTPException) as erreur:
-                    journal.warning("Livraison classeur %s : %s", membre.display_name, erreur)
-                    continue
-                for c in nouveaux:
-                    etat["livres"][c["handle"].lower()] = {"uid": str(membre.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                # 01/10 (Ricado, Ricardo, Clarisse : accès déjà livrés renvoyés, futur compte 3 présenté « Compte 1 », 3 accès
+                # d'un coup) : seuls les identifiants absents de sa fiche sont nouveaux ; ils s'ajoutent DANS L'ORDRE (plus de
+                # tri : le parcours lit compte 1, 2, 3 dans cet ordre) avec leurs accès ; un clipper en plein parcours
+                # (étapes 1 à 6) ne reçoit rien ici, le parcours les lui donne un par un, l'admin a une ligne.
                 fiche = etat["clippers"].setdefault(str(membre.id), {})
-                fiche["comptes"] = sorted(set(fiche.get("comptes", [])) | {c["handle"] for c in nouveaux})
+                deja = {str(h).lower() for h in fiche.get("comptes", [])}
+                a_livrer = sorted([c for c in nouveaux if c["handle"].lower() not in deja], key=_est_prive)
+                try:
+                    import parcours                                     # import tardif : parcours importe onboarding
+                    etape_p = int((parcours._lire().get(str(membre.id)) or {}).get("etape", 0) or 0)
+                except Exception:                                       # noqa: BLE001
+                    etape_p = 0
+                en_parcours = 1 <= etape_p <= 6
+                if a_livrer and not en_parcours:
+                    salon = deps["salon_perso"](str(membre.id))
+                    cible = salon if salon is not None else membre
+                    try:
+                        await cible.send(("🔐 **Compte(s) attribué(s) depuis le classeur**\n\n" +
+                                          message_comptes(a_livrer, prenom, creatrice or "?", debut=len(deja) + 1))[:1990])
+                    except (discord.Forbidden, discord.HTTPException) as erreur:
+                        journal.warning("Livraison classeur %s : %s", membre.display_name, erreur)
+                        continue
+                for c in nouveaux:                                      # déjà dans sa fiche : seulement noté livré, sans message
+                    etat["livres"][c["handle"].lower()] = {"uid": str(membre.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+                fiche["comptes"] = list(fiche.get("comptes", [])) + [c["handle"] for c in a_livrer]
+                connus = {str(a.get("handle", "")).lower() for a in fiche.get("acces") or [] if isinstance(a, dict)}
+                fiche["acces"] = list(fiche.get("acces") or []) + [a for a in acces_ordonnes(a_livrer) if a["handle"].lower() not in connus]
                 _ecrire_etat(etat)
+                if not a_livrer:
+                    continue
                 if creatrice and roster.actif() and not roster.est_actif(prenom):   # 27/09 : Georgial servi par le classeur, absent du roster
                     try:
                         roster.ajouter(creatrice.split()[0], prenom)
@@ -1413,7 +1434,11 @@ async def boucle(client, deps: dict):
                         journal.warning("Roster (télécommande) : %s", erreur)
                 canal = await deps["canal_admin"]()
                 if canal:
-                    await canal.send(f"🔐 {len(nouveaux)} compte(s) du classeur livré(s) à {membre.mention} (colonne Gérant).")
+                    if en_parcours:
+                        await canal.send(f"🔐 {len(a_livrer)} compte(s) du classeur ajouté(s) à la fiche de {membre.mention} (colonne Gérant) : "
+                                         f"rien posté, son parcours est à l'étape {etape_p} et donne chaque accès à son tour.")
+                    else:
+                        await canal.send(f"🔐 {len(a_livrer)} compte(s) du classeur livré(s) à {membre.mention} (colonne Gérant).")
         except Exception as erreur:                                 # la boucle ne meurt jamais
             journal.warning("Boucle onboarding : %s", erreur)
         try:

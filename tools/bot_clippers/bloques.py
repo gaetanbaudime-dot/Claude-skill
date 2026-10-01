@@ -69,13 +69,14 @@ def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, mainte
                 continue
             fiche = parcours.get(str(uid)) or {}
             n = int(fiche.get("etape", 0) or 0)
-            essai = bool(fiche.get("essai")) and not (fiche.get("essai") or {}).get("fini")   # 30/09 : compte 1 seul, on juge ses Reels
-            if n in JOURS_ETAPE and not essai:
-                jours = _jours_depuis((fiche.get("dates") or {}).get(str(n)), maintenant)
-                if jours <= JOURS_ETAPE[n]:
-                    continue
+            jours = _jours_depuis((fiche.get("dates") or {}).get(str(n)), maintenant) if n in JOURS_ETAPE else -1
+            if n in JOURS_ETAPE and jours > JOURS_ETAPE[n]:
                 ou, texte = f"compte {n} à créer depuis {jours} j", message(prenom, "compte", n, jours)
+            elif n == 1:
+                continue
             else:
+                # 01/10 (Antoinr, étape 2 depuis 4 jours sans un Reel, jamais listé) : aux étapes 2 et 3, un clipper sans Reel est
+                # signalé même si l'étape est jeune — et c'est ce qui bloque l'ouverture de son compte suivant (règle du 01/10)
                 jours = int(sans_reel.get(str(uid), -1))
                 if jours < JOURS_SANS_REEL:
                     continue

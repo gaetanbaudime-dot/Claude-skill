@@ -20,21 +20,19 @@ from datetime import datetime, timedelta, timezone
 
 import discord
 
+import codes_2fa
 import onboarding
 import paie_clics
 
 journal = logging.getLogger("parcours")
 _deps = {}
 WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)
-# 30/09 (Gaëtan, GO : « période d'essai sur 1 seul compte : le clippeur validé reçoit 1 compte, il débloque les comptes 2 et 3
-# seulement après 5 Reels publiés en 72 h ; ceux qui ne publient pas ne coûtent qu'un compte ») : pour les parcours commencés
-# à partir d'ESSAI_DEPUIS. Le scan du matin compte les Reels du compte 1 sur ses trois derniers passages.
-ESSAI = os.environ.get("ESSAI_UN_COMPTE", "1").strip() != "0"
-ESSAI_REELS = int(os.environ.get("ESSAI_REELS", "5") or 5)
-ESSAI_DEPUIS = os.environ.get("ESSAI_DEPUIS", "2026-09-30").strip()
-TEXTE_ESSAI = ("🎯 **Période d'essai : ton compte 1 seulement.**\n\n"
-               "D'abord 24 h de warm-up dessus : regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
-               "Je te dis ici quand il peut publier.")                   # 30/09 : la suite (5 Reels en 72 h) arrive quand elle sert
+# 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens, plus de période d'essai à part : le compte suivant s'ouvre
+# tout seul, au plus tôt 48 h après la création du précédent, et seulement quand 2 Reels sont publiés dessus ») : remplace la
+# période d'essai du 30/09 (5 Reels en 72 h, nouveaux seulement). Les Reels sont ceux que le scan du matin voit, cumulés
+# compte par compte dans la fiche (_cumuler_reels) ; les fiches encore « en essai » passent sous la règle sans message
+# (_migrer_essai). `!etape @clipper n` (staff) force toujours.
+REELS_OUVERTURE = int(os.environ.get("PARCOURS_REELS_OUVERTURE", "2") or 2)
 # 30/09 (Gaëtan : « arrête de spammer les clippeurs : une information à la fois, au bon moment ; un compte par un compte, on
 # distille l'information et on ne la donne que quand il en a réellement besoin ») : chaque compte se fait en trois temps,
 # un message chacun — 1) identifiants et création, bouton « créé » ; 2) photo, nom et bio en UN message, bouton « profil
@@ -43,8 +41,29 @@ TEXTE_ESSAI = ("🎯 **Période d'essai : ton compte 1 seulement.**\n\n"
 DISTILLE_DEPUIS = "2026-09-30T06:40:00+00:00"   # une étape envoyée avant : son profil est déjà parti (ancien déroulé), pas de doublon
 ATTENTE_COMPTE_H = int(os.environ.get("PARCOURS_ATTENTE_COMPTE_H", "48") or 48)
 WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
+
+
+def regle_comptes() -> str:
+    """01/10 : le texte canonique de la règle des comptes, le même partout (salon, message de comptes, assistant)."""
+    return (f"Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le précédent, "
+            f"dès que {REELS_OUVERTURE} Reels sont publiés dessus.")
+
+
+def texte_codes() -> str:
+    """01/10 (Gaëtan : « les codes Instagram se demandent uniquement dans le salon code-instagram ») : la phrase canonique,
+    avec le salon en lien cliquable quand son id est connu."""
+    try:
+        sid = codes_2fa.salon_codes_id()
+    except Exception:                                                   # noqa: BLE001
+        sid = ""
+    salon = f"<#{sid}>" if sid else f"#{codes_2fa.SALON_CODES_NOM}"
+    return f"Un code Instagram ? Va dans {salon} et tape !code."
+
+
+# 01/10 : plus de date ni de « compte 2 demain » ici, la règle canonique ; la date « au plus tôt » vit dans la ligne du matin
 TEXTE_WARMUP = ("🔥 **Compte {n} : 24 h de warm-up.** Regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
-                "Ton compte {suivant} arrive ici le {quand}.")
+                "Je te dis ici quand il peut publier.\n\n"
+                "{regle}")
 TEXTE_PUBLIER = {1: ("✅ **Ton compte 1 peut publier.** {rythme}\n\n"
                      "Prends une vidéo dans ton Drive : {drive}\n\n"
                      "Modifie-la toujours avant : musique, texte, un début qui accroche (Fiche 3)."),
@@ -75,7 +94,7 @@ ETAPES = {
     5: {"titre": "Étape 5 · Tes Reels sur les 3 comptes (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
         "texte": ("Tes vidéos : {drive}\n\n"
                   "1. Prends une vidéo dans ce dossier. Modifie-la toujours : musique, texte, un début qui accroche.\n"
-                  "2. Publie-la sur `{compte1}`, `{compte2}` et `{compte3}`. Jamais la même vidéo sur deux comptes le même jour.\n\n"
+                  "2. Publie-la sur {vivants}. Jamais la même vidéo sur deux comptes le même jour.\n\n"   # 01/10 : sans les comptes BAN
                   "Premier Reel en ligne ? Appuie sur le bouton.")},
     6: {"titre": "Étape 6 · Mets ton lien, une seule fois (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
         "texte": ("**Ton lien** : {lien}\n\n"
@@ -86,25 +105,29 @@ ETAPES = {
                   "5. `!mesclics` ici : ce lien compte tes visites, donc ta paie, tous les 15 jours.\n\n"
                   "Fini ? Appuie sur le bouton.")},
     7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": [],
-        "texte": ("Chaque jour : 2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une, quelques commentaires.\n\n"
+        "texte": ("Chaque jour, sur {vivants} : 2 Reels chacun, 1 story avec le widget vers ta story à la une, quelques commentaires.\n\n"
                   "Chaque semaine, ajoute 1 Reel par jour sur chaque compte, jusqu'à 10. Le matin tu montes, tu mets en brouillon, tu publies dans la journée.\n\n"
                   "Chaque matin, tes visites d'hier ici.\n\n"
                   "Tu connais quelqu'un de sérieux ? Tape `!parrain @lui` ici : 5 $ pour toi le jour de sa première paie.\n\n"
                   "Une question ? Écris ici.")},
 }
-# 28/09 : un compte rendu par un sortant existe déjà → on s'y connecte (le code de CONNEXION arrive dans le salon), pas d'inscription
+# 28/09 : un compte rendu par un sortant existe déjà → on s'y connecte, pas d'inscription
+# 01/10 (Gaëtan : « les codes Instagram se demandent uniquement dans #🔐-code-instagram ») : plus de « écris !code ici » ni
+# de « il arrive ici tout seul », la phrase canonique {codes} ; « il a déjà chauffé » retiré (24 h de warm-up quand même).
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
-            "2. Un code est demandé ? Écris `!code` ici.\n"
+            "2. {codes}\n"
             "3. Mets ce mot de passe. Numéro demandé ? Le tien. Date de naissance : la vraie.",
             "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
-            "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.",
-            "Crée-le comme les autres, sur le même téléphone.")
-CONNEXION = ("Ce compte existe déjà, il a déjà chauffé.\n"
+            "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.\n"
+            "{codes}",
+            "Crée-le comme les autres, sur le même téléphone.\n"
+            "{codes}")
+CONNEXION = ("Ce compte existe déjà.\n"
              "1. Instagram → Se connecter → cet identifiant et ce mot de passe.\n"
-             "2. Code demandé ? Il arrive ici tout seul. Sinon écris `!code`.\n"
+             "2. {codes}\n"
              "3. Numéro demandé ? Mets le tien. Ne change ni la photo ni la bio pour l'instant.",
-             "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter, sans te déconnecter du compte 1. Code demandé ? Il arrive ici.",
-             "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter. Code demandé ? Il arrive ici.")
+             "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter, sans te déconnecter du compte 1.\n{codes}",
+             "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter.\n{codes}")
 RELANCE_JOURS = int(os.environ.get("PARCOURS_RELANCE_JOURS", "2") or 2)   # 28/09 (Gaëtan) : « des relances simples, courtes »
 # 30/09 (Daniella) : « sur chaque compte… pas de Reel » contredisait l'étape 4 (comptes 1 et 2 publient déjà) — le warm-up du
 # jour ne concerne que le compte 3.
@@ -117,15 +140,120 @@ def configurer(deps: dict):
     _deps = deps
 
 
-def en_essai_neuf(fiche_p: dict) -> bool:
-    """Le parcours entre-t-il dans la période d'essai ? Seulement ceux dont l'étape 1 a commencé depuis ESSAI_DEPUIS."""
-    debut = str((fiche_p.get("dates") or {}).get("1", ""))[:10]
-    return ESSAI and bool(debut) and debut >= ESSAI_DEPUIS and not fiche_p.get("essai")
+def _onb(uid) -> dict:
+    """La fiche d'onboarding du clipper (comptes, accès, lien, Drive), {} sans elle."""
+    try:
+        return (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(str(uid), {}) or {})
+    except Exception:                                                   # noqa: BLE001
+        return {}
 
 
-def en_essai(fiche_p: dict) -> bool:
-    """Compte 1 seul, comptes 2 et 3 encore fermés."""
-    return bool(fiche_p.get("essai")) and not (fiche_p.get("essai") or {}).get("fini")
+def _comptes_ordonnes(uid, onb=None) -> list:
+    """01/10 (bug de l'ordre : la boucle du classeur triait la liste, et chaque fonction relisait les comptes à sa façon —
+    « ouvre ton compte 1 » avec l'identifiant du compte 2) : l'ordre unique compte 1, 2, 3, pour tout le module. L'ordre des
+    accès livrés (fiche « acces ») fait foi, puis celui de la liste ; croissance d'abord, un identifiant de type privé en 3."""
+    onb = _onb(uid) if onb is None else onb
+    handles = [h for h in (onb.get("comptes") or []) if h]
+    acces = [a.get("handle") for a in (onb.get("acces") or []) if isinstance(a, dict) and a.get("handle") in handles]
+    base = list(dict.fromkeys(acces + handles))
+    prives = [h for h in base if onboarding._est_prive({"handle": h, "etat": ""})]
+    croissance = [h for h in base if h not in prives]
+    ordonnes = croissance[:2] + prives[:1]
+    if len(ordonnes) < 3:
+        ordonnes += [h for h in base if h not in ordonnes][:3 - len(ordonnes)]
+    return ordonnes + [h for h in base if h not in ordonnes]
+
+
+def _est_ban(h: str, fiche_p: dict = None, bans=()) -> bool:
+    """01/10 : BAN d'après le dernier scan, la fiche (retenu au scan, survit aux redémarrages) ou le classeur lu à l'instant."""
+    cle = str(h or "").lower()
+    return bool(cle) and (_derniers_etats.get(cle) == "ban" or cle in {str(x).lower() for x in (fiche_p or {}).get("bans") or []}
+                          or cle in {str(x).lower() for x in bans})
+
+
+def _vivants(uid, fiche_p: dict = None, comptes=None, bans=()) -> list:
+    """01/10 (Daniella : son compte 2 banni restait listé à l'étape 5 et le matin) : les comptes du clipper sans les BAN."""
+    fiche_p = _lire().get(str(uid), {}) if fiche_p is None else fiche_p
+    comptes = _comptes_ordonnes(uid) if comptes is None else comptes
+    return [h for h in comptes if not _est_ban(h, fiche_p, bans)]
+
+
+def _liste(handles: list) -> str:
+    """« `a`, `b` et `c` »."""
+    h = [f"`{x}`" for x in handles]
+    return " et ".join([", ".join(h[:-1]), h[-1]]) if len(h) > 1 else (h[0] if h else "tes comptes")
+
+
+def _date_creation(fiche_p: dict, i: int):
+    """01/10 : le compte i est créé au premier signal (bouton « créé » ou scan, qui envoie son profil), sinon à la fermeture
+    de son étape. Le warm-up et les 48 h se comptent de là, plus de l'heure du second appui."""
+    for valeur in ((fiche_p.get("profils") or {}).get(str(i)), (fiche_p.get("dates") or {}).get(f"{i}_fait")):
+        try:
+            d = datetime.fromisoformat(str(valeur))
+            return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _cree(fiche_p: dict, i: int) -> bool:
+    """01/10 (l'assistant disait « 2 comptes créés, compte 2 en warm-up » quand le bot avait seulement envoyé l'étape 2) : un
+    compte n'est créé que si son étape est fermée (dates « i_fait »). Seule exception, un parcours repris d'après le classeur
+    à une étape plus loin (jamais passé par l'étape 1) : ses comptes d'avant existent déjà."""
+    dates = fiche_p.get("dates") or {}
+    if dates.get(f"{i}_fait"):
+        return True
+    ancien = not dates.get("1") and not dates.get("1_fait")
+    return ancien and i < int(fiche_p.get("etape", 0) or 0)
+
+
+def _cumuler_reels(suivi: dict, n72: int, jour: str) -> dict:
+    """01/10 : les Reels d'un compte vus par le scan, cumulés. Le scan ne donne que les Reels de ses trois derniers passages
+    (reels_72h) : chaque jour, on ajoute ce que ce total a gagné depuis la veille (jamais plus que ce qui a été publié). Rejoué
+    le même jour, le chiffre du jour est remplacé, pas ajouté."""
+    suivi = dict(suivi or {})
+    if suivi.get("jour") != jour:
+        suivi = {"avant": int(suivi.get("vus", 0) or 0), "base": int(suivi.get("dernier", 0) or 0), "jour": jour}
+    suivi["dernier"] = int(n72 or 0)
+    suivi["vus"] = int(suivi.get("avant", 0)) + max(0, suivi["dernier"] - int(suivi.get("base", 0)))
+    return suivi
+
+
+def reels_vus(uid, fiche_p: dict, n: int) -> int:
+    """Les Reels vus par le scan sur le compte n ; compte n BAN : sur tous ses comptes vivants déjà créés."""
+    comptes = _comptes_ordonnes(uid)
+    suivis = fiche_p.get("reels") or {}
+    h = comptes[n - 1] if 0 < n <= len(comptes) else ""
+    if h and not _est_ban(h, fiche_p):
+        return int((suivis.get(h.lower()) or {}).get("vus", 0) or 0)
+    return sum(int((suivis.get(x.lower()) or {}).get("vus", 0) or 0) for i, x in enumerate(comptes[:3], start=1)
+               if _cree(fiche_p, i) and not _est_ban(x, fiche_p))
+
+
+def _ou_publier(uid, fiche_p: dict, n: int) -> str:
+    comptes = _comptes_ordonnes(uid)
+    h = comptes[n - 1] if 0 < n <= len(comptes) else ""
+    return f"ton compte {n}" if (not h or not _est_ban(h, fiche_p)) else "tes autres comptes"
+
+
+def _migrer_essai(d: dict) -> bool:
+    """01/10 : une fiche encore « en essai » (compte 1 seul, ancienne règle des 5 Reels en 72 h) passe sous la règle unique :
+    l'étape 2 est programmée 48 h après la création du compte 1 et part quand 2 Reels y sont vus. Aucun message."""
+    change = False
+    for fiche_p in d.values():
+        essai = fiche_p.get("essai") if isinstance(fiche_p, dict) else None
+        if not essai:
+            continue
+        fiche_p.pop("essai", None)
+        change = True
+        if (isinstance(essai, dict) and essai.get("fini")) or int(fiche_p.get("etape", 0) or 0) != 2 or (fiche_p.get("dates") or {}).get("2"):
+            continue
+        programme = fiche_p.setdefault("programme", [])
+        if any(x.get("type") == "etape" for x in programme):
+            continue
+        base = _date_creation(fiche_p, 1) or datetime.now(timezone.utc)
+        programme.append({"quand": (base + timedelta(hours=ATTENTE_COMPTE_H)).isoformat(timespec="seconds"), "type": "etape", "n": 2})
+    return change
 
 
 async def _suite(salon, texte: str):
@@ -181,30 +309,28 @@ async def _contexte(guild, uid: str, fiche_p: dict) -> dict:
     """Les valeurs des gabarits : comptes (handle + e-mail, croissance d'abord, privé en 3), lien, Drive, salons."""
     ctx = {"prenom": fiche_p.get("prenom", ""), "creatrice": fiche_p.get("creatrice", ""),
            "jours": WARMUP_JOURS, "jour_suivant": WARMUP_JOURS + 1}
-    try:
-        onb = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(uid, {})
-    except Exception:
-        onb = {}
+    onb = _onb(uid)
     handles = list(onb.get("comptes", []))
-    mails = {}
+    mails, mdps, bans = {}, {}, set()
     try:
         if onboarding.actif() and handles:
             for c in await onboarding.lire_comptes():
                 if c["handle"] in handles:
                     mails[c["handle"]] = c.get("mail", "")
+                    mdps[c["handle"]] = c.get("mdp", "")                # 01/10 (Simon) : repli du mot de passe sur le classeur
+                    if _norm(c.get("etat", "")) == "ban":
+                        bans.add(c["handle"].lower())
     except Exception as erreur:
         journal.info("Classeur indisponible pour le parcours : %s", erreur)
-    prives = [h for h in handles if onboarding._est_prive({"handle": h, "etat": ""})]
-    croissance = [h for h in handles if h not in prives]
-    ordonnes = croissance[:2] + prives[:1]
-    if len(ordonnes) < 3:
-        ordonnes += [h for h in handles if h not in ordonnes][:3 - len(ordonnes)]
+    ordonnes = _comptes_ordonnes(uid, onb)                              # 01/10 : le même ordre partout
     acces = {a.get("handle"): a for a in (onb.get("acces") or []) if isinstance(a, dict)}   # 27/09 : mot de passe et e-mail par compte
     for i in range(3):
         h = ordonnes[i] if i < len(ordonnes) else "?"
         ctx[f"compte{i + 1}"] = h
         ctx[f"mail{i + 1}"] = acces.get(h, {}).get("mail") or mails.get(h, "(dans ton message de comptes plus haut)")
-        ctx[f"mdp{i + 1}"] = acces.get(h, {}).get("mdp") or "(celui de ton message de comptes)"
+        ctx[f"mdp{i + 1}"] = acces.get(h, {}).get("mdp") or mdps.get(h) or "(demande-le à Gaëtan sur WhatsApp)"
+    ctx["vivants"] = _liste(_vivants(uid, fiche_p, ordonnes[:3], bans))   # 01/10 : étapes 5 et 7 sans les comptes BAN
+    ctx["codes"] = texte_codes()
     ctx["lien"] = onb.get("lien") or "(ton manager te le donne avec `!lien`)"
     ctx["drive"] = onb.get("drive") or "(pas encore prêt, je te le donne ici dès qu'il l'est)"
     creatrice = ctx["creatrice"]
@@ -214,7 +340,7 @@ async def _contexte(guild, uid: str, fiche_p: dict) -> dict:
     ctx["ressources"] = f"<#{res.id}>" if res is not None else "#ressources"
     for i in range(3):                                                  # 28/09 : création, ou connexion à un compte rendu par un sortant
         a = acces.get(ctx[f"compte{i + 1}"], {})
-        ctx[f"creation{i + 1}"] = (CONNEXION[i] if a.get("cree") else CREATION[i]).format(info=ctx["info"])
+        ctx[f"creation{i + 1}"] = (CONNEXION[i] if a.get("cree") else CREATION[i]).format(info=ctx["info"], codes=ctx["codes"])
     rep = _salon_nom(guild, "reporting") if guild is not None else None
     ctx["reporting"] = f"<#{rep.id}>" if rep is not None else "#reporting"
     ctx["lien_reporting"] = LIEN_REPORTING
@@ -252,7 +378,12 @@ class BoutonEtape(discord.ui.DynamicItem[discord.ui.Button], template=r"parcours
             await interaction.response.send_message("Ce bouton est pour le clipper de ce salon 🙂", ephemeral=True)
             return
         await interaction.response.defer()
-        await valider_etape(interaction.channel, self.uid, self.etape, par=str(interaction.user.id))
+        if not await valider_etape(interaction.channel, self.uid, self.etape, par=str(interaction.user.id)):
+            # 01/10 (Steeve : un vieux bouton du compte 2 a rouvert le compte 2 pendant l'attente) : refusé, et on le dit
+            try:
+                await interaction.followup.send("Ce bouton n'est plus valable. Suis le dernier message de ton salon 🙂", ephemeral=True)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
 
 
 def _vue(guild, uid: str, n: int, ctx: dict):
@@ -320,6 +451,8 @@ def mal_partis(fiches: dict, valides: set) -> list:
 async def reprendre_au_compte_1(salon, membre, creatrice: str) -> None:
     """Remet un nouveau parti trop loin à l'étape 1 (calendrier, profils et programme effacés, notes gardées), avec une ligne
     d'excuse, puis l'étape 1."""
+    for mid in list(((_lire().get(str(membre.id)) or {}).get("messages") or {}).values()):
+        await _retirer_bouton(salon, mid)                               # 01/10 (Steeve) : plus de bouton fantôme des étapes effacées
     d = _lire()
     f = d.get(str(membre.id)) or {}
     for cle in ("dates", "messages", "profils", "programme", "essai", "reconcilie", "corrige_4", "warmup_jour"):
@@ -361,6 +494,10 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
     fiche_p = d.get(str(uid))
     if not fiche_p or int(fiche_p.get("etape", 0)) != int(n):
         return False
+    if not (fiche_p.get("dates") or {}).get(str(n)):
+        # 01/10 (Steeve, Ricardo) : une étape pas encore ouverte (le compte suivant attend ses 48 h et ses Reels) ne se ferme
+        # pas — ni par un vieux bouton, ni par le scan qui voit le compte (identifiant pris par un tiers, liste dans le désordre)
+        return False
     # 30/09 : compte créé → d'abord son profil (photo, nom, bio en UN message, bouton « profil fait »), rien d'autre ; le
     # deuxième appui (ou le scan qui voit le compte) ferme l'étape. Un compte rendu par un sortant garde son profil.
     if n in (1, 2, 3) and not (fiche_p.get("profils") or {}).get(str(n)) and _deps.get("profil_envoyer") \
@@ -399,20 +536,20 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Message de suivi de %s : %s", uid, erreur)
     maintenant = datetime.now(timezone.utc)
-    if n == 1 and en_essai_neuf(fiche_p):                               # 30/09 : période d'essai, le compte 2 attend
+    if n in (1, 2):
+        # 30/09 : règle des 48 h tenue par le bot ; 01/10 : la même pour tous, comptée depuis la création du compte (premier
+        # signal), et l'étape suivante n'est envoyée qu'avec REELS_OUVERTURE Reels vus sur ce compte (programme_du_jour)
+        base = min(_date_creation(fiche_p, n) or maintenant, maintenant)
+        publier = {"quand": (base + timedelta(hours=WARMUP_H)).isoformat(timespec="seconds"), "type": "publier", "n": n}
+        etape = {"quand": (base + timedelta(hours=ATTENTE_COMPTE_H)).isoformat(timespec="seconds"), "type": "etape", "n": n + 1}
+        deja_chaud = _echu(publier, maintenant)                         # compte créé il y a plus de 24 h : il publie tout de suite
         d = _lire()
-        d[str(uid)]["essai"] = {"depuis": _maintenant()}
-        d[str(uid)]["programme"] = [{"quand": (maintenant + timedelta(hours=WARMUP_H)).isoformat(timespec="seconds"), "type": "publier", "n": 1}]
+        d[str(uid)]["programme"] = [etape] if deja_chaud else [publier, etape]
         _ecrire(d)
-        await _suite(salon, f"{membre.mention} " + TEXTE_ESSAI.format(n=ESSAI_REELS))
-        return True
-    if n in (1, 2):                                                     # 30/09 : règle des 48 h tenue par le bot
-        quand = maintenant + timedelta(hours=ATTENTE_COMPTE_H)
-        d = _lire()
-        d[str(uid)]["programme"] = [{"quand": (maintenant + timedelta(hours=WARMUP_H)).isoformat(timespec="seconds"), "type": "publier", "n": n},
-                                    {"quand": quand.isoformat(timespec="seconds"), "type": "etape", "n": n + 1}]
-        _ecrire(d)
-        await _suite(salon, f"{membre.mention} " + TEXTE_WARMUP.format(n=n, suivant=n + 1, quand=_date_fr(quand)))
+        if deja_chaud:
+            await _envoyer_publier(salon, membre, uid, n)
+        else:
+            await _suite(salon, f"{membre.mention} " + TEXTE_WARMUP.format(n=n, regle=regle_comptes()))
         return True
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)
@@ -429,35 +566,69 @@ async def _retirer_bouton(salon, mid) -> None:
         pass
 
 
+def _etape_attendue(fiche_p: dict, item: dict) -> bool:
+    """L'élément « etape n » vaut encore : le parcours attend bien ce compte (étape n, pas encore envoyée)."""
+    n = int(item.get("n") or 0)
+    return int(fiche_p.get("etape", 0) or 0) == n and not (fiche_p.get("dates") or {}).get(str(n))
+
+
+async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
+    """« Ton compte n peut publier », avec le Drive ; 01/10 : et ce qui ouvre le compte suivant, s'il attend encore."""
+    if n not in TEXTE_PUBLIER:
+        return
+    fiche_p = _lire().get(str(uid), {})
+    ctx = await _contexte(getattr(salon, "guild", None), str(uid), fiche_p)
+    texte = TEXTE_PUBLIER[n].format(rythme="2 Reels par jour dessus.", drive=ctx.get("drive", "ton Drive"))
+    a = attente(fiche_p)
+    if a and a[0] == n + 1 and reels_vus(uid, fiche_p, n) < REELS_OUVERTURE:
+        texte += f"\n\nTon compte {n + 1} arrive tout seul ici dès que {REELS_OUVERTURE} Reels sont publiés sur ton compte {n}."
+    await salon.send(f"{membre.mention} " + texte)
+
+
 async def programme_du_jour(client, maintenant=None) -> list:
     """30/09 : les messages programmés qui arrivent à échéance — « ton compte n peut publier » (24 h après sa création) et
-    l'étape du compte suivant (48 h après). Chaque élément échu est retiré de la fiche AVANT l'envoi (jamais deux fois) ;
-    un salon ou un membre introuvable le garde pour le passage suivant. Renvoie [(uid, type, n)] envoyés."""
+    l'étape du compte suivant (48 h après). 01/10 : l'étape du compte suivant ne part qu'avec REELS_OUVERTURE Reels vus par le
+    scan sur le compte d'avant ; sinon elle reste au programme, sans message, et part au passage (heure ou scan) qui la voit
+    remplie. Chaque élément qui part est retiré de la fiche AVANT l'envoi (jamais deux fois) ; un salon ou un membre
+    introuvable le garde pour le passage suivant. Renvoie [(uid, type, n)] envoyés."""
     maintenant = maintenant or datetime.now(timezone.utc)
     faits = []
-    for uid, fiche_p in list(_lire().items()):
-        programme = fiche_p.get("programme") or []
-        echus = [x for x in programme if _echu(x, maintenant)]
-        if not echus:
+    d0 = _lire()
+    if _migrer_essai(d0):                                               # 01/10 : fin de la période d'essai, sans message
+        _ecrire(d0)
+    for uid, fiche_p in list(d0.items()):
+        if not any(_echu(x, maintenant) for x in fiche_p.get("programme") or []):
             continue
         salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
         membre = _deps["membre_par_id"](uid)
         if salon is None or membre is None:
             continue
-        d = _lire()
-        d[uid]["programme"] = [x for x in programme if x not in echus]
+        d = _lire()                                                     # relu et réécrit sans attente entre les deux : le passage
+        fiche_p = d.get(uid) or {}                                      # de l'heure et celui du scan n'envoient jamais deux fois
+        programme = fiche_p.get("programme") or []
+        partants, gardes = [], []
+        for x in programme:
+            if not _echu(x, maintenant):
+                gardes.append(x)
+            elif x.get("type") != "etape":
+                partants.append(x)
+            elif not _etape_attendue(fiche_p, x):
+                continue                                                # déjà envoyée (`!etape` du staff) : retirée, sans message
+            elif reels_vus(uid, fiche_p, int(x.get("n") or 0) - 1) >= REELS_OUVERTURE:
+                partants.append(x)
+            else:
+                gardes.append(x)                                        # 48 h passées, Reels pas encore là : on attend, sans rien dire
+        if gardes == programme:
+            continue
+        fiche_p["programme"] = gardes
         _ecrire(d)
-        for item in echus:
+        for item in partants:
             n = int(item.get("n") or 0)
-            fiche_p = _lire().get(uid, {})
             try:
                 if item.get("type") == "publier" and n in TEXTE_PUBLIER:
-                    ctx = await _contexte(getattr(salon, "guild", None), uid, fiche_p)
-                    rythme = (f"Objectif : **{ESSAI_REELS} Reels en 72 h** dessus. Tes comptes 2 et 3 s'ouvrent ensuite tout seuls."
-                              if en_essai(fiche_p) else "2 Reels par jour dessus.")
-                    await salon.send(f"{membre.mention} " + TEXTE_PUBLIER[n].format(rythme=rythme, drive=ctx.get("drive", "ton Drive")))
+                    await _envoyer_publier(salon, membre, uid, n)
                     faits.append((uid, "publier", n))
-                elif item.get("type") == "etape" and int(fiche_p.get("etape", 0)) == n and not (fiche_p.get("dates") or {}).get(str(n)):
+                elif item.get("type") == "etape":
                     await envoyer_etape(salon, membre, n)
                     faits.append((uid, "etape", n))
             except (discord.Forbidden, discord.HTTPException) as erreur:
@@ -473,7 +644,7 @@ def _echu(item: dict, maintenant) -> bool:
 
 
 def attente(fiche_p: dict):
-    """(n, date) du compte qui attend ses 48 h, sinon None."""
+    """(n, date au plus tôt) du compte qui attend ses 48 h et ses Reels, sinon None."""
     for item in fiche_p.get("programme") or []:
         if item.get("type") == "etape" and int(fiche_p.get("etape", 0)) == int(item.get("n") or 0) \
                 and not (fiche_p.get("dates") or {}).get(str(item.get("n"))):
@@ -490,7 +661,7 @@ async def _classeur_etat(uid: str, n: int) -> None:
     marquer = _deps.get("marquer_etat")
     if marquer is None or n not in (1, 2, 3, 4):
         return
-    comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(str(uid), {}) or {}).get("comptes") or []
+    comptes = _comptes_ordonnes(uid)                                    # 01/10 : le même ordre que l'étape envoyée
     cibles = comptes[n - 1:n] if n <= 3 else comptes[:3]
     for h in cibles:
         try:
@@ -525,13 +696,14 @@ async def boucle(client) -> None:
                     fiche_p["warmup_jour"] = j
                     _ecrire(d)
                     if j > WARMUP_JOURS:
-                        await salon.send(f"🎉 <@{uid}> tes {WARMUP_JOURS} jours de warm-up sont finis. Tu peux publier tes Reels !")
+                        await salon.send(f"🎉 <@{uid}> ton warm-up est fini. Tu peux publier tes Reels !")   # 01/10 : plus de « tes 1 jours »
                         await valider_etape(salon, uid, 4, par="bot")
                     else:
                         texte_w = WARMUP_JOUR_TEXTE.format(j=j, jours=WARMUP_JOURS)
                         if not (_deps.get("deposer") and _deps["deposer"](salon.id, "warmup", texte_w)):
                             await _suite(salon, f"<@{uid}> " + texte_w)
                 # 28/09 : relance courte — une étape (1 à 3, 5, 6) qui traîne depuis RELANCE_JOURS jours → une ligne, tous les RELANCE_JOURS jours
+                d = _lire()                                             # 01/10 : relu, valider_etape a pu écrire au-dessus
                 for uid, fiche_p in list(d.items()):
                     n = int(fiche_p.get("etape", 0))
                     if n not in (1, 2, 3, 5, 6) or not fiche_p.get("dates", {}).get(str(n)):
@@ -570,14 +742,16 @@ def memoire(uid: str) -> str:
     creatrice = fiche_p.get("creatrice") or equipes.get("creatrice") or onb.get("creatrice") or "aucune"
     n = int(fiche_p.get("etape", 0))
     titre = ETAPES[n]["titre"].format(jours=WARMUP_JOURS) if n in ETAPES else ("parcours non commencé" if n == 0 else "parcours terminé")
+    if attente(fiche_p):                                                # 01/10 : l'étape n'est pas encore ouverte, rien à créer
+        titre = f"attente du compte {n}, pas encore ouvert : rien à créer pour l'instant"
     date_etape = (fiche_p.get("dates") or {}).get(str(n), "")[:10]
     try:
         regime = paie_clics.regime(uid)
     except Exception:
         regime = "?"
-    # 27/09 : le nombre de comptes CRÉÉS se déduit de l'étape (étape 1 = aucun, 2 = un, 3 = deux, 4 et plus = trois) —
-    # l'assistant disait « continue sur tes deux autres comptes » à Daniella qui n'en avait qu'un.
-    crees = 3 if n >= 4 else max(0, n - 1)
+    # 27/09 : l'assistant disait « continue sur tes deux autres comptes » à Daniella qui n'en avait qu'un. 01/10 : le nombre
+    # de comptes CRÉÉS ne se déduit plus de l'étape (l'étape 2 attend souvent son compte) : seulement les étapes fermées.
+    crees = sum(1 for i in (1, 2, 3) if _cree(fiche_p, i))
     lignes = [f"Clipper : {nom} (Discord {uid}) · créatrice : {creatrice} · signé le {str(equipes.get('date', ''))[:10] or '?'} "
               f"· paie : {regime}",
               f"Étape en cours : {titre}" + (f" (depuis le {date_etape})" if date_etape else "")
@@ -587,8 +761,9 @@ def memoire(uid: str) -> str:
         lignes.append(etat_des_comptes(uid))
     except Exception as erreur:                                     # noqa: BLE001
         journal.warning("État des comptes de %s : %s", uid, erreur)
-    if onb.get("comptes"):
-        lignes.append("Comptes Instagram : " + ", ".join(onb["comptes"]) + " (mots de passe déjà dans le salon, ne jamais les redonner)")
+    vivants = _vivants(uid, fiche_p)                                    # 01/10 : un compte BAN ne sert plus, on n'en parle plus
+    if vivants:
+        lignes.append("Comptes Instagram : " + ", ".join(vivants) + " (mots de passe déjà dans le salon, ne jamais les redonner)")
     if onb.get("lien"):
         lignes.append(f"Lien (en story à la une sur chaque compte) : {onb['lien']}")
     lignes.append("Drive : " + (onb["drive"] if onb.get("drive") else "pas encore prêt"))
@@ -613,32 +788,33 @@ _derniers_etats = {}                                        # handle (minuscules
 def etat_des_comptes(uid: str, maintenant=None) -> str:
     """30/09 (Daniella, trois réponses contraires en une soirée : « publie demain », « ton compte 1 finit son warm-up demain
     aussi », « pas de story ni de publication ») : l'état de chaque compte, calculé, que l'assistant recopie au lieu de le
-    déduire. Compte i créé à dates[« i_fait »] (sinon au début de l'étape i+1) ; warm-up WARMUP_JOURS × 24 h ; BAN d'après
-    le dernier scan du classeur."""
+    déduire. 01/10 : compte i créé seulement si son étape est fermée (_cree), warm-up compté depuis sa création
+    (_date_creation) ; BAN d'après le dernier scan du classeur ; le compte qui attend dit ce qui l'ouvre."""
     maintenant = maintenant or datetime.now(timezone.utc)
     fiche_p = _lire().get(str(uid), {})
-    n = int(fiche_p.get("etape", 0))
-    dates = fiche_p.get("dates") or {}
-    comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(str(uid), {}) or {}).get("comptes") or []
+    comptes = _comptes_ordonnes(uid)                                    # 01/10 : le même ordre que les étapes
+    a = attente(fiche_p)
     parts = []
     for i in (1, 2, 3):
         h = comptes[i - 1] if i - 1 < len(comptes) else ""
         nom = f"compte {i}" + (f" `{h}`" if h else "")
-        if _derniers_etats.get(h.lower()) == "ban":
+        if _est_ban(h, fiche_p):
             parts.append(f"{nom} : BAN, il fait appel lui-même (Contester la décision, `!code`, selfie, son numéro ou sa pièce d'identité si demandés)")
             continue
-        if i >= 2 and en_essai(fiche_p):
-            parts.append(f"{nom} : fermé, période d'essai — il s'ouvre après {ESSAI_REELS} Reels en 72 h sur le compte 1")
+        if not _cree(fiche_p, i):
+            if a and a[0] == i:                                         # 01/10 : la règle unique, sans date promise
+                parts.append(f"{nom} : pas encore ouvert, il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {i - 1}, "
+                             f"dès que {REELS_OUVERTURE} Reels sont publiés dessus ({reels_vus(uid, fiche_p, i - 1)} vu(s) par le scan)")
+            else:
+                parts.append(f"{nom} : pas encore créé")
             continue
-        if n <= i and n < 7:
-            parts.append(f"{nom} : pas encore créé")
-            continue
-        cree = dates.get(f"{i}_fait") or dates.get(str(i + 1)) or ""
-        try:
-            d = datetime.fromisoformat(cree)
-            d = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
-        except (TypeError, ValueError):
-            d = None
+        d = _date_creation(fiche_p, i)
+        if d is None:                                                   # parcours repris d'après le classeur : début de l'étape d'après
+            try:
+                d = datetime.fromisoformat(str((fiche_p.get("dates") or {}).get(str(i + 1))))
+                d = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                d = None
         fin = d + timedelta(days=WARMUP_JOURS) if d else None
         if fin and maintenant < fin:
             parts.append(f"{nom} : WARM-UP jusqu'au {_date_fr(fin)}, pas de Reel, 1 story sans lien par jour")
@@ -650,7 +826,8 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
 def _date_fr(d) -> str:
     from zoneinfo import ZoneInfo
     d = d.astimezone(ZoneInfo("Europe/Paris"))
-    return d.strftime("%d/%m à ") + f"{d.hour} h" + (f" {d.minute:02d}" if d.minute else "")
+    # 01/10 : les clippers sont à Dubaï, Madagascar, au Bénin — « 10 h 12 » sans fuseau trompait tout le monde
+    return d.strftime("%d/%m à ") + f"{d.hour} h" + (f" {d.minute:02d}" if d.minute else "") + " (heure de Paris)"
 
 
 def _prenom(membre) -> str:
@@ -666,35 +843,51 @@ def _prenom(membre) -> str:
 PROCHAINES = {1: "ouvre ton compte 1, `{compte1}` (création ou connexion, c'est dans l'étape). Clique ✅ quand c'est fait.",
               2: "crée ton compte 2, `{compte2}`. Clique ✅ quand c'est fait.",
               3: "crée ton compte 3, `{compte3}`. Clique ✅ quand c'est fait.",
-              4: "compte 3 en warm-up (Reels, likes, 1 story, pas de Reel) ; comptes 1 et 2 : 2 Reels et 1 story chacun.",
-              5: "publie un Reel de ton Drive sur `{compte1}`, `{compte2}` et `{compte3}`. Clique ✅ quand c'est fait.",
+              4: "compte 3 en warm-up (Reels, likes, 1 story, pas de Reel) ; {autres} : 2 Reels et 1 story chacun.",
+              5: "publie un Reel de ton Drive sur {vivants}. Clique ✅ quand c'est fait.",
               6: "mets ton lien une seule fois, en story à la une, sur chaque compte. Jamais en bio. Clique ✅ quand c'est fait.",
-              7: "2 Reels sur chacun de tes 3 comptes, 1 story avec le widget vers ta story à la une."}
+              7: "2 Reels sur chacun de ces comptes : {vivants}. 1 story avec le widget vers ta story à la une."}
 
 
-def prochaine_etape(salon_id) -> str:
+def prochaine_etape(salon_id, maintenant=None) -> str:
     """La ligne « 👉 Aujourd'hui » du message du matin, d'après l'étape du clipper dont c'est le salon."""
+    maintenant = maintenant or datetime.now(timezone.utc)
     for uid, fiche_p in _lire().items():
         if str(fiche_p.get("salon_id")) != str(salon_id):
             continue
         n = int(fiche_p.get("etape", 0))
         if n not in PROCHAINES:
             return "" if n else "attends ta créatrice, ton manager te l'attribue."
-        comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(uid, {}) or {}).get("comptes") or []
+        comptes = _comptes_ordonnes(uid)                                # 01/10 : le même ordre que les étapes (plus la liste brute)
         c = {f"compte{i + 1}": (comptes[i] if i < len(comptes) else "…") for i in range(3)}
+        vivants = _vivants(uid, fiche_p, comptes[:3])                   # 01/10 : sans les comptes BAN
+        c["vivants"] = _liste(vivants)
+        c["autres"] = _liste([h for h in vivants if h != c["compte3"]])
+        for item in fiche_p.get("programme") or []:
+            # 01/10 (Mathias, Steeve : « publie tes Reels » le matin, « pas de Reel » une heure avant) : un compte encore en
+            # warm-up le dit, et rien d'autre
+            if item.get("type") == "publier" and not _echu(item, maintenant):
+                k = int(item.get("n") or 0)
+                quand = datetime.fromisoformat(str(item["quand"]))
+                return (f"compte {k} en warm-up jusqu'au {_date_fr(quand)} : pas de Reel dessus. Je te dis ici quand il peut publier."
+                        + (" Tes autres comptes : 2 Reels par jour." if k > 1 else ""))
         a = attente(fiche_p)
-        if a:                                                           # 30/09 : le compte suivant attend ses 48 h
-            return f"ton compte {a[0]} arrive ici le {_date_fr(a[1])}. Tes comptes prêts : 2 Reels par jour après leurs 24 h de warm-up."
-        if n == 2 and en_essai(fiche_p):                                # 30/09 : période d'essai
-            return (f"publie tes Reels sur `{c['compte1']}` : {ESSAI_REELS} en 72 h, et tes comptes 2 et 3 s'ouvrent.")
+        if a:                                                           # 01/10 : le compte suivant attend ses 48 h ET ses Reels
+            m = a[0] - 1
+            ou = _ou_publier(uid, fiche_p, m)
+            if reels_vus(uid, fiche_p, m) >= REELS_OUVERTURE:
+                return f"ton compte {a[0]} arrive ici le {_date_fr(a[1])}. D'ici là : 2 Reels par jour sur {ou}."
+            if maintenant < a[1]:
+                return (f"2 Reels par jour sur {ou}. Ton compte {a[0]} arrive ici au plus tôt le {_date_fr(a[1])}, "
+                        f"dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}.")
+            return f"ton compte {a[0]} arrive dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}. Prends-les dans ton Drive."
         return PROCHAINES[n].format(**c)
     return ""
 
 
 def _etats_comptes(uid, etats_par_handle: dict) -> list:
-    """[(handle, état normalisé du classeur)] des comptes livrés au clipper, dans l'ordre compte 1, 2, privé."""
-    comptes = (_deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {}).get(str(uid), {}) or {}).get("comptes") or []
-    return [(h, _norm(etats_par_handle.get(h.lower(), "") or "")) for h in comptes]
+    """[(handle, état normalisé du classeur)] des comptes livrés au clipper, dans l'ordre compte 1, 2, 3 (_comptes_ordonnes)."""
+    return [(h, _norm(etats_par_handle.get(h.lower(), "") or "")) for h in _comptes_ordonnes(uid)]
 
 
 def etape_selon_classeur(etats: list) -> int:
@@ -752,6 +945,31 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
     faits = []
     _derniers_etats.clear()
     _derniers_etats.update({str(h).lower(): _norm(e or "") for h, e in (etats_par_handle or {}).items()})
+    # 01/10 : d'abord, retenus dans chaque fiche (sans attente ni envoi entre la lecture et l'écriture) : les comptes BAN, et
+    # les Reels vus sur chaque compte créé — c'est ce qui ouvre le compte suivant (règle unique, programme_du_jour)
+    jour = datetime.now(timezone.utc).date().isoformat()
+    d = _lire()
+    change = _migrer_essai(d)
+    for uid, fiche_p in d.items():
+        comptes = _comptes_ordonnes(uid)
+        if not comptes or not isinstance(fiche_p, dict):
+            continue
+        bans = sorted(h.lower() for h in comptes if _derniers_etats.get(h.lower()) == "ban")
+        if bans != sorted(fiche_p.get("bans") or []):
+            fiche_p["bans"] = bans
+            change = True
+        if reels_72h is None:
+            continue
+        for i, h in enumerate(comptes[:3], start=1):
+            if not _cree(fiche_p, i) or _derniers_etats.get(h.lower(), "") in ("", "a creer", "à créer"):
+                continue
+            avant = (fiche_p.get("reels") or {}).get(h.lower())
+            apres = _cumuler_reels(avant, int((reels_72h or {}).get(h.lower(), 0) or 0), jour)
+            if apres != avant:
+                fiche_p.setdefault("reels", {})[h.lower()] = apres
+                change = True
+    if change:
+        _ecrire(d)
     for uid, fiche_p in list(_lire().items()):
         n = int(fiche_p.get("etape", 0))
         salon = client.get_channel(int(fiche_p.get("salon_id") or 0)) if fiche_p.get("salon_id") else None
@@ -770,19 +988,12 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
                 if cible != 7:
                     await forcer_etape(salon, membre, fiche_p.get("creatrice", ""), cible)
                     faits.append((_prenom(membre), 7, cible))
-            elif n == 2 and en_essai(fiche_p):
-                # 30/09 (période d'essai) : 5 Reels en 72 h sur le compte 1 → le compte 2 s'ouvre
-                nb = int((reels_72h or {}).get(str(etats[0][0]).lower(), 0)) if etats else 0
-                if nb >= ESSAI_REELS:
-                    d = _lire()
-                    d[uid]["essai"]["fini"] = _maintenant()
-                    _ecrire(d)
-                    await salon.send(f"{membre.mention} ✅ **Essai réussi : {nb} Reels en 72 h !** Ton compte 2 est juste en dessous.")
-                    await envoyer_etape(salon, membre, 2)
-                    faits.append((_prenom(membre), "essai", 2))
             elif n in (1, 2, 3) and n - 1 < len(etats):
                 h, e = etats[n - 1]
-                if e and e not in ("a creer", "à créer") and await valider_etape(salon, uid, n, par="classeur"):
+                # 01/10 (Steeve) : un compte rendu par un sortant existe avant même que le clipper s'y connecte → jamais validé
+                # sur sa seule existence, il faut le bouton
+                recycle = any(isinstance(a, dict) and a.get("handle") == h and a.get("cree") for a in (_onb(uid).get("acces") or []))
+                if e and e not in ("a creer", "à créer") and not recycle and await valider_etape(salon, uid, n, par="classeur"):
                     faits.append((_prenom(membre), n, n + 1))
             elif n == 5 and publies and any(str(h).lower() in publies for h, _ in etats):
                 # 28/09 (GO n° 4) : le premier Reel vu par le scan ferme l'étape 5 tout seul
@@ -799,6 +1010,10 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
                     faits.append((_prenom(membre), 4, cible))
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation du parcours de %s : %s", uid, erreur)
+    try:                                                                # 01/10 : les Reels du scan ouvrent le compte suivant tout de suite
+        faits += [(u, t, k) for u, t, k in await programme_du_jour(client) if t == "etape"]
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Programme après le scan : %s", erreur)
     if faits:
         journal.info("Parcours réconciliés avec le classeur : %s", faits)
     return faits
@@ -812,15 +1027,20 @@ def contexte_llm(uid: str) -> str:
             "vérification), `!mesclics` (ses visites). Les comptes se créent ici, guidés par le parcours : plus de créneau "
             "lundi/mercredi/vendredi, plus de contrat, plus de distinction France/International. Ne redonne jamais un mot "
             "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, tous les 15 jours, USDC ou virement. "
-            "Règle des 48 h (29/09) : un compte tous les 48 h, jamais plus vite (compte 1, 48 h, compte 2, 48 h, compte 3), 24 h de warm-up sur chaque compte "
-            "après sa création (Reels, likes, abonnements, 1 story sans lien, zéro Reel), puis CE compte publie 2 Reels et 1 story par jour, "
-            "sans attendre les autres — ne dis jamais « une semaine de warm-up » ni « dans 7 jours ». Période d'essai (30/09) : un "
-            f"nouveau clipper n'a que son compte 1 ; ses comptes 2 et 3 s'ouvrent tout seuls après {ESSAI_REELS} Reels publiés en "
-            "72 h sur le compte 1, jamais avant, jamais à la demande. La ligne « État de chaque "
+            # 01/10 (Gaëtan) : une seule règle des comptes, pour tous, mot pour mot ; une seule phrase pour les codes
+            f"Règle des comptes (01/10), la même pour tous, nouveaux et anciens, à redire mot pour mot : « {regle_comptes()} » "
+            "Jamais « un compte par jour », jamais « demain », jamais un autre nombre de Reels, jamais de période d'essai ; tu ne "
+            "promets jamais de date pour le compte suivant et tu ne pousses jamais à créer un compte que le bot n'a pas encore "
+            "ouvert. 24 h de warm-up sur chaque compte après sa création (Reels, likes, abonnements, 1 story sans lien, zéro Reel), "
+            "puis CE compte publie 2 Reels et 1 story par jour, sans attendre les autres — ne dis jamais « une semaine de warm-up » "
+            f"ni « dans 7 jours ». Les codes Instagram, une seule phrase : « {texte_codes()} » Jamais « écris !code ici », jamais "
+            "« le code arrive ici tout seul ». La ligne « État de chaque "
             "compte » de la mémoire FAIT FOI : tu ne la contredis jamais, ni le message d'étape posté dans le salon. "
             "La story du jour se prend dans le dossier Photos de son Drive (une photo, ou une courte vidéo du dossier Reels) ; "
-            "tu n'inventes jamais un dossier (« Stories », « À publier ») qui n'est pas dans le Drive. Il demande OÙ prendre "
+            "si le clipper voit un dossier, il existe : tu ne le nies jamais ; s'il est vide, il prend sa story dans Photos et "
+            "l'équipe est prévenue. Il demande OÙ prendre "
             "la story : tu réponds au où, pas au widget. Un compte BAN ne change rien pour les autres : ils continuent. "
+            "On ne réutilise jamais une info d'un compte BAN (identifiant, e-mail, mot de passe) pour un autre compte. "
             "Un compte banni (30/09) : il fait appel lui-même, tout de suite (« Contester la décision », code avec `!code`, selfie vidéo, son "
             "numéro ou sa pièce d'identité si Instagram les demande, jamais ceux d'un autre, jamais sa pièce d'identité dans Discord) ; "
             "tu ne promets jamais un compte neuf "
@@ -829,14 +1049,14 @@ def contexte_llm(uid: str) -> str:
             "jamais d'@ en bio (ça fait des bans), jamais dans un Reel ; chaque jour une story avec le widget du profil vers la story "
             "à la une. Trois comptes de croissance, plus de compte privé (28/09) : chaque compte fait ses 24 h de warm-up après sa "
             "création puis publie, sans attendre les autres. Un compte « qui existe déjà » (rendu par un ancien) : on s'y "
-            "connecte, le code de connexion arrive dans le salon. Le Drive s'ouvre par son lien, jamais besoin d'une adresse e-mail. "
+            "connecte, et le code se demande comme les autres. Le Drive s'ouvre par son lien, jamais besoin d'une adresse e-mail. "
             "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
             "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
             "Trois lignes maximum. La ligne « 👉 Prochaine étape : … » seulement si elle dit autre chose que l'étape déjà "
             "affichée dans le salon avec son bouton. Aucune question inutile (modèle de téléphone, « dis-moi quand c'est "
             "fait »). Tu ne parles que des comptes CRÉÉS d'après la mémoire : jamais « tes deux autres comptes » s'ils "
             "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
-            "mot de passe modifié » = se reconnecter avec le mot de passe du message de comptes puis `!code` ; s'il ne marche plus, "
+            "mot de passe modifié » = se reconnecter avec le mot de passe de son étape puis `!code` ; s'il ne marche plus, "
             "WhatsApp Gaëtan, jamais « Mot de passe oublié ». `!code` ne donne QUE les codes reçus par e-mail (création, "
             "connexion, appel), jamais ceux qui changent l'e-mail, le mot de passe ou le numéro. Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
             "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
