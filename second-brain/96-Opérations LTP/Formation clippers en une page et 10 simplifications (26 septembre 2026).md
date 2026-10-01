@@ -25,7 +25,7 @@ Version du 26 septembre 2026, telle que le bot la raconte déjà dans son salon 
 3. **Prouver que tu as compris.** Le quiz : `!quiz`, **30 bonnes réponses sur 34**, deux essais.
 4. **Prouver que tu sais monter.** Le bot t'envoie une vidéo brute en message privé. Tu fais un Reel accrocheur (texte, musique, format, coupes) et tu le renvoies dans la conversation. **Le bot te donne son avis et une note sur 10** ; bon montage, test validé.
 5. **Entrer dans l'équipe.** Tu réponds J'ACCEPTE aux conditions. Ton salon perso s'ouvre, tes **3 comptes Instagram** arrivent (identifiants, mots de passe, e-mails), ton lien et ton Drive aussi.
-6. **Créer tes comptes, un par jour.** Compte 1, puis 24 h de warm-up. Compte 2, 24 h. Compte 3, 24 h. Le code arrive avec `!code`. Instagram demande un numéro ? Mets le tien. Un selfie vidéo ? Fais-le toi-même.
+6. **Créer tes comptes, un tous les 48 h.** Compte 1, puis 24 h de warm-up ; compte 2 quarante-huit heures après, et ainsi de suite (règle du 29/09). **Le code se demande dans le salon `#🔐-code-instagram`, avec `!code`, et nulle part ailleurs** (règle du 01/10 : plus de code dans le salon perso). Instagram demande un numéro ? Mets le tien. Un selfie vidéo ? Fais-le toi-même.
 7. **Publier.** 2 Reels par jour sur chaque compte qui publie, montés dans Edits : première seconde qui accroche, sous-titres lisibles. Tes rushs et tes **Reels uniques** (les TOP 20 de ta créatrice, déclinés pour toi) sont dans ton Drive.
 8. **Le lien et la paie.** Le lien vit dans la bio du compte privé et dans une story à la une, nulle part ailleurs. Tu es payé **0,05 $ par visite française réelle**, le 5 et le 20. Une question : le bot dans ton salon, puis Gaëtan sur WhatsApp, avec une capture.
 

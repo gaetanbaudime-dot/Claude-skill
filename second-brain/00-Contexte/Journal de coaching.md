@@ -22,6 +22,13 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-01 (matin) — Les codes Instagram se demandent dans le salon code-instagram, plus dans le salon perso
+- **Décision de Gaëtan** : « maintenant le clipper doit demander les codes dans le salon code Instagram, ce sera plus simple si tout le monde fait ça là-bas ». Un seul endroit pour `!code`, que le clipper crée un compte, se connecte ou fasse appel.
+- **Ce qui l'a déclenché (fils du 29/09 au 01/10)** : dans un salon perso, `!code` a répondu « je n'arrive pas à lire la boîte mail » deux minutes après qu'il a marché dans le salon commun ; des codes postés en double ; Gaëtan obligé de recopier un code à la main dans un salon perso ; des clippers qui tapent « Code » sans le point d'exclamation et attendent.
+- **Reste à faire côté bot** : les messages d'étape disent encore « Code demandé ? Écris `!code` ici » et « il arrive ici tout seul ». Ils doivent renvoyer vers `#🔐-code-instagram`, et `!code` tapé dans un salon perso doit répondre d'une ligne avec le lien du salon. Chantier inclus dans l'analyse du 01/10.
+- **Avocat du diable** : un salon commun mélange les codes de tout le monde ; deux clippers qui créent un compte à la même minute peuvent prendre le mauvais. Le bot n'affiche que le début masqué de l'adresse, le clipper doit reconnaître la sienne. Et le salon commun expose le rythme de création de chacun aux autres clippers.
+- **Prédiction (01/10, revue le 15/10)** : plus aucun code donné dans un salon perso après la mise à jour du bot (85 %) ; au plus un mauvais code pris dans le salon commun signalé d'ici le 15/10 (70 %).
+
 ### 2026-09-30 (soir, 4) — Vertical (comptes des créatrices) ou horizontal (clippers) : la vraie question est le contrat
 - **Question de Gaëtan** : scaler en vertical (aider Chloé et Sarah à monter leurs propres comptes, ce qu'il sait faire) ou en horizontal (50 comptes de clippers par créatrice), pour le maximum de cash le plus vite ; et la peur : « si les créatrices se cassent, elles partent avec le marketing ».
 - **Données (GAML 30 j, export Infloww du 30/09 cumulé par lien, MyPuls de Chloé, chiffres de Sarah)** : compte principal de Chloé 18 723 visites en 30 j (≈ 620/j), 0,96 $ par clic et 8,44 $ par abonné OF, 7,85 € par abonné MYM ; ses clippers ≈ 6 000 visites, 0,44 $ par clic OF, la moitié par une seule clippeuse. Lien bio de Sarah : 6 744 visiteurs en juillet, 5 636 en août, **19 270 en septembre** (×3,4), mais 0,13 $ par clic et 1,15 $ par abonné OF (clippers : 0,07 $ par clic) ; environ 0,40 € de CA par visiteur au plus contre ≈ 1,1 € pour Chloé (page du 22/09). Les SFS restent la source la plus rentable par clic (Chloé 5 à 8 $, Jade 3 à 8 $).
