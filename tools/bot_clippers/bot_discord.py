@@ -239,11 +239,18 @@ def avertissements_recents(heures=24) -> list:
 
 claude = anthropic.Anthropic()  # lit ANTHROPIC_API_KEY dans l'environnement
 
-MESSAGE_ESCALADE = (
-    "Je n'ai pas la réponse dans le kit. Si c'est sur tes comptes, ta créatrice ou tes Reels : "
-    "écris à ton manager. Sinon, pose ta question dans le salon de l'assistant en mentionnant "
-    "@Gaëtan."
-)
+# 01/10 (Gaëtan : « le bot renvoie vers #assistant-ia, qui n'existe plus ») : l'ancien texte envoyait vers « le salon de
+# l'assistant », supprimé le 29/09, et personne n'était prévenu (Ricardo, 20 h sans réponse). Désormais la question part
+# vraiment à l'équipe : on_message prévient le salon admin (notifier_manager), une fois par clipper et par jour.
+MESSAGE_ESCALADE = "Je n'ai pas la réponse. J'ai transmis ta question à l'équipe, la réponse arrive ici."
+
+# 01/10 (Gaëtan : « les codes Instagram se demandent UNIQUEMENT dans #🔐-code-instagram ») : le texte canonique, le même
+# partout. Le salon devient un lien cliquable <#id> en post-traitement (lier_salon_codes), dès que son id est connu.
+TEXTE_CODE = "Un code Instagram ? Va dans #🔐-code-instagram et tape !code."
+# 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
+# jour » ni de « 5 Reels en 72 h ».
+TEXTE_COMPTES = ("Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, "
+                 "dès que 2 Reels sont publiés dessus.")
 
 # Le nom sous lequel le bot se présente DOIT être son vrai nom Discord : un candidat à qui
 # on dit « envoie ton numéro à LTP Assistant » cherche ce pseudo dans la liste des membres,
@@ -286,7 +293,7 @@ d'étape déjà posté dans le salon : le geste précis à faire maintenant, et 
 est déjà affichée avec son bouton ✅, tu t'arrêtes après la réponse. Rien d'autre après cette ligne, pas \
 d'étiquette de source.
 4ter. La bonne fiche selon le sujet : créer un compte, identifiants, téléphone cloud, \
-numéro demandé par Instagram, bio, photo, pseudo → Fiche 1 ; un compte tous les 48 h, warm-up 24 h par compte, \
+numéro demandé par Instagram, bio, photo, pseudo, quand arrive le compte suivant → Fiche 1 ; warm-up 24 h par compte, \
 comptes à suivre → Fiche 2 ; monter un Reel, hook, sous-titres, caption, miniature, musique, \
 publier, heure de publication → Fiche 3 ; routine du jour, \
 cadence, semaine type, reporting → Fiche 4 ; Reels d'essai, dupliquer ce qui marche, tests, \
@@ -316,8 +323,8 @@ chose ») ; ne pose une vraie question de clarification que si deviner est vraim
 et jamais deux fois de suite.
 10bis. Dans les salons d'équipe et de pods (quand on te mentionne hors du salon assistant), \
 tu es un COACH, pas un standard : un clipper partage un palier de vues → félicite en UNE \
-phrase avec son chiffre, puis UN conseil actionnable du kit (compte privé bien relié ? Reels \
-d'essai lancés ? → Fiche 1 et Fiche 5). Un screenshot d'avertissement Meta/Instagram → réponds \
+phrase avec son chiffre, puis UN conseil actionnable du kit (story à la une bien posée ? Reels \
+d'essai lancés ? → Fiche 4 et Fiche 5). Un screenshot d'avertissement Meta/Instagram → réponds \
 selon la base, dis clairement si c'est grave ou pas, et ce qu'il faut changer (ou rien). \
 Même registre que l'équipe : direct, chaleureux, zéro blabla.
 15. Chaque message que tu reçois commence par une ligne [Contexte : …] qui dit OÙ on te parle \
@@ -336,7 +343,9 @@ mes rushs, un ban, un compte bloqué) se règle avec le MANAGER : dis-le et renv
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
-20. `!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence, pour créer un compte, se connecter \
+20. Les codes Instagram se demandent UNIQUEMENT dans le salon #🔐-code-instagram (01/10, Gaëtan) : jamais « ici », \
+jamais dans le salon perso, jamais en MP. Tu dis toujours, mot pour mot : « {TEXTE_CODE} » \
+`!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence, pour créer un compte, se connecter \
 ou faire appel après un ban (le clipper fait l'appel lui-même, règle 23) ; `!recup` fait la même chose. Les codes \
 pour changer l'e-mail, le mot de passe ou le numéro ne sont JAMAIS donnés (30/09). Si Instagram demande \
 un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
@@ -359,11 +368,12 @@ question à la fois, seulement si tu en as besoin pour répondre. Quand le clipp
 « d'accord », tu ne réponds pas.
 23. Tu ne donnes JAMAIS la cause d'un blocage : tu ne la connais pas. Tu donnes la marche à suivre. \
 « Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
-de comptes, puis `!code` pour le code ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
+de comptes, puis le code dans #🔐-code-instagram avec `!code` ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
 « désactivé », « nous examinons » (30/09, Gaëtan) : le clipper fait appel LUI-MÊME, tout de suite — « Contester la décision » ; \
-le code avec `!code` (salon code-instagram ou son salon) ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
+le code : « {TEXTE_CODE} » ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
 demandés : les SIENS ; jamais les papiers de quelqu'un d'autre, jamais de faux, jamais sa pièce d'identité dans Discord (il \
-l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salon. Jamais « c'est normal », jamais \
+l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salon. Si l'appel échoue, Gaëtan décide. On ne \
+réutilise JAMAIS une info d'un compte BAN : ni son e-mail, ni son mot de passe, ni son identifiant (01/10, Gaëtan). Jamais « c'est normal », jamais \
 « sécurisé par l'agence », jamais « ton manager te donne une solution demain ».
 24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
 message de comptes (le compte existe peut-être déjà). Si ça échoue, créer avec un point ou un chiffre en \
@@ -373,11 +383,19 @@ jamais de pseudo.
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de comptes.
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
-28. Dates toujours à la française : « le 30/09 », « demain 14 h ». Jamais « 2026-09-30 ». Tout se passe dans le salon perso : jamais « en MP ». Les codes : le clipper tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
-29. « Qui est mon manager ? » : ton manager a le rôle « Manager », il lit ton salon perso ; écris-lui ici. Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager. \
+28. Dates toujours à la française : « le 30/09 », « demain 14 h ». Jamais « 2026-09-30 ». Tout se passe dans le salon perso, sauf les codes : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
+29. « Qui est mon manager ? » : « Ton manager est un humain (Jonas ou Gaëtan). Il lit ton salon perso. Moi, je suis l'assistant. » Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager. \
 30. Montage (30/09, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo prise dans le Drive, dossier « Reels » \
 ou « TOP 20 Reels », est MODIFIÉE avant d'être publiée, toujours, dès le premier jour : musique, texte à l'écran, filtres, \
-durée, zooms, avec un début le plus accrocheur possible. Tu ne dis JAMAIS qu'on peut publier une vidéo telle quelle."""
+durée, zooms, avec un début le plus accrocheur possible. Tu ne dis JAMAIS qu'on peut publier une vidéo telle quelle.
+31. Jamais « c'est bon » sur un Reel, une vidéo ou une capture que tu n'as pas vu. Tu dis que tu ne peux pas voir la vidéo \
+et ce qu'il doit vérifier. Jamais de promesse de review. Une ligne « [Pièce jointe : … que tu ne peux PAS voir] » veut dire \
+que tu ne l'as PAS vue (01/10, Gaëtan, après Daniella : « c'est bon » sur une vidéo que le bot n'avait pas reçue).
+32. Règle des comptes, la même pour TOUS, nouveaux et anciens (01/10, Gaëtan) : « {TEXTE_COMPTES} » Jamais « un compte \
+par jour », jamais « demain », jamais « 5 Reels en 72 h », jamais de « période d'essai ». Tu ne donnes ni date ni heure, et tu \
+ne pousses jamais le clipper à créer un compte que le bot n'a pas encore ouvert.
+33. Un message « [Prénom (équipe) a écrit : …] » dans l'historique vient d'un HUMAIN de l'équipe : tu ne le contredis jamais \
+et tu ne réponds pas à sa place."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
@@ -391,6 +409,16 @@ _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "
 # du modèle (Laure, 11/09 : « Fiche 2 (forum formation) » en texte mort, et la mauvaise fiche).
 _SALONS = {}
 _FORUM = {"id": ""}
+
+
+def lier_salon_codes(reponse: str) -> str:
+    """01/10 : « #🔐-code-instagram » (ou « #code-instagram ») devient le lien cliquable <#id> dès que l'id du salon des
+    codes est connu (codes_2fa.salon_codes_id, sinon l'index des salons). lier_references ne le fait pas : l'emoji
+    collé au « # » échappe à son motif."""
+    cid = codes_2fa.salon_codes_id() or _SALONS.get("codeinstagram", "")
+    if not cid:
+        return reponse
+    return re.sub(r"#(?:🔐\ufe0f?-?)?code-instagram", f"<#{cid}>", reponse)
 
 
 def regle_liens_formation() -> str:
@@ -806,7 +834,7 @@ def doit_repondre(message) -> bool:
     if message.guild is None:
         return True
     canal = message.channel
-    sp = salon_perso_de(message.author.id)                     # 25/09 : dans son salon perso, le bot est le manager du clipper
+    sp = salon_perso_de(message.author.id)                     # 25/09 : son salon perso, où le bot l'assiste (01/10 : l'assistant, pas le manager)
     if sp is not None and sp.id == canal.id and not (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
         return True
     # 27/09 : plus d'assistant global — une mention hors salon perso n'est servie qu'au staff
@@ -823,7 +851,9 @@ ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccor
 # 30/09 (salon de Daniella) : un compte désactivé ou un Drive fermé, signalés dans le salon perso, n'arrivaient à personne —
 # Gaëtan a ouvert le Drive le lendemain matin en lisant le fil. Une alerte au salon admin, une fois par clipper, sujet et jour.
 MOTIFS_ALERTE = (("un compte désactivé ou banni", re.compile(r"(?i)d[ée]sactiv|banni|\bban\b|suspendu|nous examinons|compte (?:est )?bloqu")),
-                 ("un accès refusé (Drive ou lien)", re.compile(r"(?i)(?:pas|plus) (?:encore )?acc[eè]s|autorisation|acc[eè]s refus")))
+                 ("un accès refusé (Drive ou lien)", re.compile(r"(?i)(?:pas|plus) (?:encore )?acc[eè]s|autorisation|acc[eè]s refus")),
+                 # 01/10 (Gaëtan, après Daniella : « sur le dossier story il y a rien ») : un dossier Drive vide n'arrivait à personne.
+                 ("un dossier Drive vide", re.compile(r"(?i)(?:dossier|drive).{0,40}(?:vide|rien)")))
 _alertes_salon = set()
 
 
@@ -858,14 +888,103 @@ def est_acquiescement(texte: str) -> bool:
     return len(mots) <= 5 and all(m in ACQUIESCEMENTS for m in mots) and ("?" not in t)
 
 
+# 01/10 (Gaëtan : « Je vais bien gaetan » chez Simon, le bot a répondu à ma place) : le prénom du staff écrit en clair
+# compte comme une mention. Prénoms sans accents, en minuscules, séparés par des virgules (variable Railway PRENOMS_STAFF).
+PRENOMS_STAFF = tuple(p.strip() for p in os.environ.get("PRENOMS_STAFF", "gaetan,jonas").split(",") if p.strip())
+
+
+def est_staff(membre) -> bool:
+    """Un admin (ADMIN_IDS) ou un manager : un humain de l'équipe."""
+    return membre is not None and (str(getattr(membre, "id", "")) in ADMIN_IDS or est_manager(membre))
+
+
 def mentionne_humain(message) -> bool:
-    """Le message mentionne un membre humain (« @Gaëtan et je fais quoi ? ») sans mentionner le bot : ce n'est pas
-    au bot de répondre (27/09 : il répondait à la place de Gaëtan, et le contraire)."""
+    """Le message s'adresse à un humain sans mentionner le bot : ce n'est pas au bot de répondre (27/09 : il répondait à
+    la place de Gaëtan, et le contraire). Trois cas : une vraie mention (« @Gaëtan et je fais quoi ? ») ; 01/10 (Gaëtan :
+    « l'humain a la main ») le prénom du staff écrit en clair (« Je vais bien gaetan ») ; une réponse à un message du staff."""
     mentions = list(getattr(message, "mentions", []) or [])
     bot_id = getattr(getattr(client, "user", None), "id", None)
     if any(getattr(m, "id", None) == bot_id for m in mentions):
         return False
-    return any(not getattr(m, "bot", False) for m in mentions)
+    if any(not getattr(m, "bot", False) for m in mentions):
+        return True
+    texte = normaliser(getattr(message, "content", "") or "")
+    if PRENOMS_STAFF and re.search(r"\b(?:" + "|".join(map(re.escape, PRENOMS_STAFF)) + r")\b", texte):
+        return True
+    ref = getattr(message, "reference", None)
+    cible = (getattr(ref, "resolved", None) or getattr(ref, "cached_message", None)) if ref is not None else None
+    auteur = getattr(cible, "author", None)
+    return auteur is not None and not getattr(auteur, "bot", False) and est_staff(auteur)
+
+
+async def suite_message_humain(message, minutes: int = 3) -> bool:
+    """01/10 (Gaëtan, salon de Simon : « @Gaëtan » puis « Warm up sur le premier compte fini » une minute après, le bot a
+    répondu) : si le message précédent de l'auteur, envoyé moins de `minutes` avant, s'adressait à un humain, la suite
+    est pour lui aussi : le bot se tait."""
+    try:
+        async for ancien in message.channel.history(limit=10, before=message):
+            if ancien.author.id != message.author.id:
+                continue
+            age = (message.created_at - ancien.created_at).total_seconds() / 60
+            return age <= minutes and mentionne_humain(ancien)
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    return False
+
+
+def ligne_historique_staff(ancien) -> str:
+    """01/10 (Gaëtan) : l'historique transmis au modèle excluait le staff, le bot ne voyait ni mes questions ni mes
+    consignes. Un message du staff y entre sous la forme « [Gaëtan (équipe) a écrit : …] »."""
+    return f"[{prenom_de(ancien.author)} (équipe) a écrit : {ancien.content}]"
+
+
+# 01/10 (Gaëtan, après Daniella : « c'est bon » sur un Reel que le bot n'avait pas vu) : une pièce jointe non transmise
+# au modèle (vidéo, image trop lourde, autre format) était jetée sans le dire. Le modèle est prévenu, en toutes lettres.
+MARQUEUR_VIDEO = "[Pièce jointe : une vidéo que tu ne peux PAS voir]"
+MARQUEUR_FICHIER = "[Pièce jointe : une image ou un fichier que tu ne peux PAS voir]"
+
+
+async def pieces_pour_le_modele(pieces) -> tuple:
+    """Les blocs de contenu des pièces jointes : l'image si elle passe (image_en_base64), sinon le marqueur qui dit au
+    modèle qu'il ne la voit pas. Renvoie (blocs, nombre d'images transmises)."""
+    blocs, images = [], 0
+    for piece in pieces or []:
+        image, media = await image_en_base64(piece)
+        if image:
+            blocs.append({"type": "image", "source": {"type": "base64", "media_type": media, "data": image}})
+            images += 1
+        else:
+            video = (piece.content_type or "").startswith("video/")
+            blocs.append({"type": "text", "text": MARQUEUR_VIDEO if video else MARQUEUR_FICHIER})
+    return blocs, images
+
+
+def est_escalade(reponse: str) -> bool:
+    """La réponse dit que le bot n'a pas la réponse (MESSAGE_ESCALADE ou une variante écrite par le modèle)."""
+    r = normaliser((reponse or "").replace("’", "'"))
+    return MESSAGE_ESCALADE in (reponse or "") or "transmis ta question" in r or "je n'ai pas la reponse" in r
+
+
+async def signaler_escalade(message, question: str) -> bool:
+    """01/10 (Gaëtan, Ricardo 20 h sans réponse) : « J'ai transmis ta question à l'équipe » doit être vrai. Le salon admin
+    (notifier_manager, comme l'alerte du numéro de téléphone) est prévenu, une fois par clipper et par jour."""
+    uid = str(message.author.id)
+    compteurs = lire_json(FICHIER_COMPTEURS, {})
+    jour = heure_paris().date().isoformat()
+    if compteurs.setdefault("alertes_escalade", {}).get(uid) == jour:
+        return False
+    compteurs["alertes_escalade"][uid] = jour
+    ecrire_json(FICHIER_COMPTEURS, compteurs)
+    lieu = f"<#{message.channel.id}>" if message.guild is not None else f"en message privé avec le bot (<@{uid}>)"
+    try:
+        await notifier_manager(f"❓ **{prenom_de(message.author)}** : le bot n'a pas la réponse ({lieu}).\n\n"
+                               f"Question : « {(question or '').strip()[:300]} »\n\n"
+                               f"👉 Le bot lui a promis une réponse de l'équipe : réponds-lui "
+                               + ("dans ce salon." if message.guild is not None else "dans son salon perso ou en MP."))
+        return True
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Alerte escalade : %s", erreur)
+        return False
 
 
 async def staff_a_parle(message, minutes: int = 30) -> bool:
@@ -7649,7 +7768,9 @@ async def on_message(message):
             except (discord.Forbidden, discord.HTTPException):
                 pass
             return
-        if mentionne_humain(message):
+        if mentionne_humain(message):                                    # 01/10 : prénom du staff ou réponse au staff aussi
+            return
+        if await suite_message_humain(message):                          # 01/10 (Simon) : la suite d'un message à un humain
             return
         if "?" not in texte and await staff_a_parle(message):
             return
@@ -7671,15 +7792,12 @@ async def on_message(message):
             except Exception as erreur:                                  # noqa: BLE001
                 journal.warning("Alerte numéro de téléphone : %s", erreur)
 
-    # Construction du contenu : texte + éventuelle capture d'écran
-    contenu = []
-    for piece in message.attachments:
-        image, media = await image_en_base64(piece)
-        if image:
-            contenu.append({"type": "image",
-                            "source": {"type": "base64", "media_type": media, "data": image}})
+    # Construction du contenu : texte + éventuelle capture d'écran. 01/10 (Daniella) : une pièce non transmise (vidéo,
+    # image trop lourde) porte le marqueur « que tu ne peux PAS voir », le modèle ne valide plus à l'aveugle.
+    contenu, nb_images = await pieces_pour_le_modele(message.attachments)
     contenu.append({"type": "text", "text": contexte_auteur(message)})
-    contenu.append({"type": "text", "text": texte or "Voici une capture d'écran, aide-moi."})
+    contenu.append({"type": "text", "text": texte or ("Voici une capture d'écran, aide-moi." if nb_images
+                                                      else "Voici une pièce jointe, aide-moi.")})
 
     # Historique récent de CE candidat (+ mes réponses) → le modèle garde le contexte : fini les
     # « c'est la première fois qu'on se parle » et les questions de suivi mal comprises (18/07).
@@ -7692,6 +7810,8 @@ async def on_message(message):
                 historique.append(("assistant", ancien.content))
             elif ancien.author.id == message.author.id:
                 historique.append(("user", ancien.content))
+            elif not getattr(ancien.author, "bot", False) and est_staff(ancien.author):
+                historique.append(("user", ligne_historique_staff(ancien)))   # 01/10 : le bot voit ce que le staff a dit
     except (discord.Forbidden, discord.HTTPException):
         pass
     historique.reverse()
@@ -7746,9 +7866,11 @@ async def on_message(message):
             lacunes.append({"q": texte[:300], "qui": str(utilisateur),
                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             ecrire_json(FICHIER_LACUNES, lacunes[-200:])
+    if est_escalade(reponse) and not est_staff(message.author):
+        await signaler_escalade(message, texte)       # 01/10 : « J'ai transmis ta question à l'équipe » devient vrai
     reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
     reponse = re.sub(r"\n\s*\(?(Fiche \d[^\n]*|Manager\)?(\s*[—-]\s*Salon perso)?|FAQ terrain\)?|Parcours candidat\)?|Stratégie marketing\)?)\s*$", "", reponse).rstrip()
-    reponse_liee = lier_references(assainir_mentions(reponse))
+    reponse_liee = lier_salon_codes(lier_references(assainir_mentions(reponse)))   # 01/10 : #🔐-code-instagram cliquable
     await repondre_long(message, reponse_liee)   # limite Discord = 2000 caractères, coupe propre
     await etiqueter_forum(message, reponse)      # range le post par sujet (texte brut : « Fiche N » lisible)
 
