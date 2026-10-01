@@ -163,14 +163,20 @@ def reels(comptes: list, historique: dict, jour_scan: str, groupes: dict, exclus
             crea_de.setdefault(_n(p), crea)
     depuis7 = (date.fromisoformat(jour_scan) - timedelta(days=6)).isoformat()
     depuis_s = (date.fromisoformat(jour_scan) - timedelta(days=JOURS_SILENCE - 1)).isoformat()
+    # 01/10 (Mathias listé « sans Reel » le jour de son warm-up, Ricado et Michel pour un ancien compte privé) : seuls comptent
+    # les comptes qui publient (GOOD, WARMUP, ACTIF — plus PRIVE) vus vivants par le scan depuis au moins JOURS_SILENCE + 1 jours
+    # (24 h de warm-up, puis JOURS_SILENCE jours pour publier)
+    limite = (date.fromisoformat(jour_scan) - timedelta(days=JOURS_SILENCE + 1)).isoformat()
     par_crea, par_clipper, recents, crees = {}, {}, set(), set()
     for c in comptes:
         g = _n(str(c.get("gerant") or "").split()[0] if str(c.get("gerant") or "").strip() else "")
         if not g or g in ex or g not in crea_de:
             continue
         crea = crea_de[g]
-        if _n(c.get("etat") or "") in ("good", "warmup", "prive", "privé", "actif"):
-            crees.add(g)
+        if _n(c.get("etat") or "") in ("good", "warmup", "actif"):
+            vus = sorted(str(e.get("jour", ""))[:10] for e in historique.get(str(c.get("handle") or "").lower()) or [] if e.get("existe"))
+            if vus and vus[0] <= limite:
+                crees.add(g)
         for e in historique.get(str(c.get("handle") or "").lower()) or []:
             j = str(e.get("jour", ""))[:10]
             p = int(e.get("posts") or 0) if e.get("existe") else 0
