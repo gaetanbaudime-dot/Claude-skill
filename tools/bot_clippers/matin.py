@@ -94,7 +94,7 @@ async def effacer(salon) -> bool:
 def composer(salon_id, m: dict) -> str:
     prenom = (_deps["prenom_salon"](salon_id) if _deps.get("prenom_salon") else "") or ""
     lignes = [f"☀️ **Bonjour {prenom}**".rstrip() if prenom else "☀️ **Bonjour**"]
-    for cle in ("inputs", "clics"):
+    for cle in ("inputs", "clics", "review"):                             # 01/10 : la ligne de review du Reel d'hier (review_reels)
         if m.get(cle):
             lignes.append(m[cle])
     if m.get("warmup"):

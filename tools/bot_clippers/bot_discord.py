@@ -60,6 +60,7 @@ import classeur_verif                     # le classeur se vérifie seul après 
 import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
 import relance_nouveaux                   # relance quotidienne des nouveaux jusqu'au test de montage (30/09)
 import remplacements                      # comptes BAN d'un clipper remplacés par un dépôt, parcours relancé (30/09)
+import review_reels                       # review des Reels : avant publication (vidéo envoyée) et après (scan du matin) (01/10)
 
 DOSSIER = Path(__file__).parent
 
@@ -394,7 +395,9 @@ ou « TOP 20 Reels », est MODIFIÉE avant d'être publiée, toujours, dès le p
 durée, zooms, avec un début le plus accrocheur possible. Tu ne dis JAMAIS qu'on peut publier une vidéo telle quelle.
 31. Jamais « c'est bon » sur un Reel, une vidéo ou une capture que tu n'as pas vu. Tu dis que tu ne peux pas voir la vidéo \
 et ce qu'il doit vérifier. Jamais de promesse de review. Une ligne « [Pièce jointe : … que tu ne peux PAS voir] » veut dire \
-que tu ne l'as PAS vue (01/10, Gaëtan, après Daniella : « c'est bon » sur une vidéo que le bot n'avait pas reçue).
+que tu ne l'as PAS vue (01/10, Gaëtan, après Daniella : « c'est bon » sur une vidéo que le bot n'avait pas reçue). La relecture \
+d'une vidéo, c'est le bot qui la fait tout seul, à part, quand un clipper déjà dans son parcours l'envoie dans son salon \
+(01/10) : s'il demande s'il peut montrer son Reel avant de le publier, tu dis « Oui : envoie la vidéo ici, je te réponds en 1 minute. »
 32. Règle des comptes, la même pour TOUS, nouveaux et anciens (01/10, Gaëtan) : « {TEXTE_COMPTES} » Jamais « un compte \
 par jour », jamais « demain », jamais « 5 Reels en 72 h », jamais de « période d'essai ». Tu ne donnes jamais de date ni \
 d'heure pour le compte suivant ; les heures de la mémoire (fin du warm-up), tu les recopies telles quelles. Tu ne pousses \
@@ -3298,8 +3301,9 @@ def _avis_sync(contenu: list) -> str:
         return ""
 
 
-async def avis_test_montage(message) -> dict:
-    """{note, bien, a_corriger, verdict, meta} ou {"erreur": …}. Ne lève jamais."""
+async def _extraire_video(message) -> dict:
+    """La vidéo jointe, lue par ffprobe et ffmpeg : {meta, images (base64), emp, nom} ou {"erreur": …}. 01/10 : sortie
+    d'avis_test_montage, telle quelle, pour servir aussi la review des Reels avant publication (le même juge)."""
     videos = [p for p in message.attachments if (p.content_type or "").startswith("video/")
               or p.filename.lower().endswith((".mp4", ".mov", ".m4v", ".webm"))]
     if not videos:
@@ -3309,17 +3313,26 @@ async def avis_test_montage(message) -> dict:
     p = videos[0]
     if p.size and p.size > 80_000_000:
         return {"erreur": "vidéo de plus de 80 Mo"}
+    donnees = await p.read()
+    with tempfile.TemporaryDirectory() as tmp:
+        chemin = os.path.join(tmp, "test" + os.path.splitext(p.filename or "v.mp4")[1].lower())
+        with open(chemin, "wb") as f:
+            f.write(donnees)
+        meta = await asyncio.to_thread(_ffprobe, chemin)
+        images = await asyncio.to_thread(_images_video, chemin, tmp, meta["duree"] or 10)
+        emp = await asyncio.to_thread(_empreintes, chemin, meta["duree"] or 10)
+    if not images:
+        return {"erreur": "images non extraites", "meta": meta}
+    return {"meta": meta, "images": images, "emp": emp, "nom": p.filename or ""}
+
+
+async def avis_test_montage(message) -> dict:
+    """{note, bien, a_corriger, verdict, meta} ou {"erreur": …}. Ne lève jamais."""
     try:
-        donnees = await p.read()
-        with tempfile.TemporaryDirectory() as tmp:
-            chemin = os.path.join(tmp, "test" + os.path.splitext(p.filename or "v.mp4")[1].lower())
-            with open(chemin, "wb") as f:
-                f.write(donnees)
-            meta = await asyncio.to_thread(_ffprobe, chemin)
-            images = await asyncio.to_thread(_images_video, chemin, tmp, meta["duree"] or 10)
-            emp = await asyncio.to_thread(_empreintes, chemin, meta["duree"] or 10)
-        if not images:
-            return {"erreur": "images non extraites", "meta": meta}
+        lu = await _extraire_video(message)
+        if lu.get("erreur"):
+            return lu
+        meta, images, emp = lu["meta"], lu["images"], lu["emp"]
         rushes = await rushes_reference()
         copie = copie_du_rush(emp, meta["duree"] or 0, rushes)
         img = lambda b: {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b}}   # noqa: E731
@@ -3358,6 +3371,51 @@ def texte_avis_test(avis: dict) -> str:
     return (f"🎬 **Ta note : {avis['note']}/10**\n\n"
             + "".join(f"👍 {b}\n" for b in (avis.get("bien") or [])[:1])
             + "".join(f"✏️ {c}\n" for c in (avis.get("a_corriger") or [])[:2])).rstrip()
+
+
+# ------------------------------------------------------------------ review des Reels avant publication (01/10)
+# 01/10 (Gaëtan : « Il faut qu'il soit capable de faire des reviews des Reels des clippeurs ») : le même juge que le test de
+# montage (_extraire_video, _avis_sync, MODELE), la grille « publication » de review_reels. La vidéo de base est le TOP 20 de
+# sa créatrice quand ses empreintes sont prêtes (review_reels.references, jamais d'attente réseau ici). Ne lève jamais.
+def creatrice_de(uid) -> str:
+    uid = str(uid)
+    return ((lire_json(FICHIER_PARCOURS, {}).get(uid) or {}).get("creatrice")
+            or (lire_json(FICHIER_EQUIPES, {}).get(uid) or {}).get("creatrice") or "")
+
+
+async def avis_publication(message) -> dict:
+    """{note, verdict, risque, defaut, bien, a_corriger, meta} ou {"erreur": …}."""
+    try:
+        lu = await _extraire_video(message)
+        if lu.get("erreur"):
+            return lu
+        refs = review_reels.references(creatrice_de(message.author.id))
+        proche, ecart, _ = review_reels.plus_proche(lu["emp"], lu["meta"]["duree"] or 0, refs)
+        copie = review_reels.copie_du_top20(lu["emp"], lu["meta"]["duree"] or 0, refs)
+        base = proche.get("image", "") if proche is not None and ecart < 40 else ""      # la même scène : la vidéo de base
+        contenu = review_reels.contenu_avant(lu["images"], lu["meta"], base, lu.get("nom", ""))
+        brut = await asyncio.to_thread(_avis_sync, contenu)
+        return review_reels.lire_avis_avant(brut, lu["meta"], copie)
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.warning("Review avant publication : %s", type(erreur).__name__)
+        return {"erreur": f"{type(erreur).__name__}"}
+
+
+async def relire_video_clipper(message) -> None:
+    """La relecture postée en réponse, avec « en train d'écrire » pendant le jugement (~20 s)."""
+    texte = None
+    try:
+        async with message.channel.typing():
+            texte = await review_reels.relire_avant(message)
+    except (AttributeError, TypeError, discord.HTTPException):
+        pass                                                                # « en train d'écrire » impossible : sans lui
+    if texte is None:
+        texte = await review_reels.relire_avant(message)
+    try:
+        await message.reply(texte[:1990])
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Review avant publication (réponse) : %s", type(erreur).__name__)
+    journal.info("Vidéo relue avant publication pour %s", message.author.id)
 
 
 async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") -> str:
@@ -6709,6 +6767,41 @@ async def on_ready():
         parcours._deps["deposer"] = matin.deposer
         parcours._deps["remplacer_suite"] = matin.remplacer                 # 30/09 (GO n° 4) : un seul message de suivi
         parcours._deps["effacer_suite"] = matin.effacer
+
+        async def _envoyer_salon(sid, texte_s):                          # 01/10 : ligne de review, message du matin déjà parti
+            salon_s = client.get_channel(int(sid))
+            if salon_s is None:
+                return False
+            await salon_s.send(texte_s[:1990])
+            return True
+
+        async def _telecharger_couverture(url_c):                        # 01/10 : couverture d'un Reel (lien donné par le scan)
+            try:
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session_c:
+                    async with session_c.get(url_c) as rep_c:
+                        if rep_c.status >= 400 or int(rep_c.headers.get("Content-Length") or 0) > 5_000_000:
+                            return b""
+                        return (await rep_c.read())[:5_000_000]
+            except (aiohttp.ClientError, asyncio.TimeoutError):
+                return b""
+
+        # 01/10 (Gaëtan : « Il faut qu'il soit capable de faire des reviews des Reels des clippeurs ») : avant publication (la vidéo
+        # envoyée au salon perso, même juge que le test) et après (couverture et légende du scan du matin, résumé du lundi).
+        review_reels.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "review_reels.json",
+                                 "FICHIER_TOP20": DONNEES / "review_reels_top20.json", "FICHIER_PARCOURS": FICHIER_PARCOURS,
+                                 "FICHIER_PIPELINE": FICHIER_PIPELINE, "normaliser": normaliser, "heure_paris": heure_paris,
+                                 "est_staff": est_staff, "juger_avant": avis_publication,
+                                 "juger": lambda contenu: asyncio.to_thread(_avis_sync, contenu),
+                                 "alerter": notifier_manager, "canal_manager": canal_manager,
+                                 "prenom_de_uid": lambda uid: prenom_de(membre_par_id(uid)) if membre_par_id(uid) is not None else "",
+                                 "deposer": matin.deposer, "salon_de_prenom": _salon_de_prenom, "envoyer_salon": _envoyer_salon,
+                                 "dans_fenetre_matin": lambda: matin.MATIN_HEURE_MIN <= datetime.now(timezone.utc).hour <= matin.MATIN_HEURE_MAX + 1,
+                                 "telecharger": _telecharger_couverture,
+                                 "dossier_top20": reels_uniques.dossier_top20, "videos_top20": reels_uniques.videos_top20,
+                                 "drive_telecharger": google_api.drive_telecharger, "ffprobe": _ffprobe, "empreintes": _empreintes})
+        etats_comptes._deps["reels_publies"] = review_reels.enregistrer_publies     # le scan du matin donne ses Reels à relire
+        parcours._deps["ligne_review"] = review_reels.ligne_proposition           # « Avant de publier, envoie-moi ta vidéo ici »
+        client.loop.create_task(review_reels.boucle(client))
         client.loop.create_task(matin.boucle(client))                           # un seul message du matin par clipper (26/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
         client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
@@ -7905,8 +7998,14 @@ async def on_message(message):
             return
         if await suite_message_humain(message):                          # 01/10 (Simon) : la suite d'un message à un humain
             return
-        if "?" not in texte and await staff_a_parle(message):
-            return
+        if "?" not in texte and not review_reels.video_a_relire(message) and await staff_a_parle(message):
+            return                                                       # 01/10 : une vidéo à relire passe quand même
+    # 01/10 (Gaëtan : « Il faut qu'il soit capable de faire des reviews des Reels des clippeurs ») : la vidéo d'un clipper
+    # dont le parcours a commencé part à la relecture (le juge du test, grille publication) au lieu du marqueur « vidéo que
+    # tu ne peux PAS voir ». Un candidat en test de montage n'arrive jamais ici : son rendu est intercepté plus haut.
+    if review_reels.video_a_relire(message):
+        await relire_video_clipper(message)
+        return
     if not en_salon_perso and quota_atteint(utilisateur):               # 26/09 : jamais de quota dans son salon perso (Daniella coupée à 30)
         await message.reply(f"Tu as posé beaucoup de questions aujourd'hui ({QUESTIONS_MAX_PAR_JOUR} max). "
                             "Regarde le Loom ou le canal #faq, et reviens demain !")

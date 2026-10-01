@@ -285,7 +285,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Beaucoup de clics, peu d'abonnés ?** Objectif : sur 100 clics, au moins 7 abonnés (jusqu'à 18 selon la créatrice). En dessous de 3, il faut travailler. Pourquoi c'est bas : les gens cliquent par curiosité sans connaître la créatrice. Le fix : montre-la souvent à tes abonnés, 1 à 3 stories par jour, un carrousel quand un Reel marche, des réponses en commentaire. Quelqu'un qui l'a vue 5 fois s'abonne bien plus facilement.
 
-**Faire valider mes Reels avant de publier ?** Non, tu publies directement. Les retours arrivent après, dans le salon de ta créatrice. La seule validation, c'est le test de montage d'entrée.
+**Je peux te montrer mon Reel avant de le publier ?** Oui : envoie la vidéo ici, je te réponds en 1 minute.
 
 **Je peux répondre aux commentaires sous mes Reels ?** Oui, c'est même bon pour le Reel. Réponds court, gentil, soft : pas de lien, pas de « écris-moi en privé », pas de sous-entendu. Quelques réponses dans la journée, jamais en rafale. Les MP, c'est autre chose : on n'y répond quasiment jamais (voir « Des MP arrivent sur mes comptes »).
 

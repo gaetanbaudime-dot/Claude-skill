@@ -158,6 +158,14 @@ def _lire_items(items: list, handles: list) -> dict:
                                         "quand": str(post.get("timestamp") or "")}
                 if RE_FAUTE.search(str(post.get("caption") or "")):    # 28/09 : lien ou @ dans la légende → ❌
                     fiche["fautes"] += 1
+                # 01/10 (review des Reels) : ce que le scan sait déjà de chaque Reel des 24 h — URL, couverture, légende,
+                # dimensions, date — gardé pour une relecture légère, sans autre appel Apify (review_reels)
+                if str(post.get("type") or "Video") == "Video" or str(post.get("productType") or "") == "clips":
+                    fiche.setdefault("reels", []).append({
+                        "url": post.get("url") or "", "image": post.get("displayUrl") or "",
+                        "legende": str(post.get("caption") or "")[:400], "quand": str(post.get("timestamp") or ""),
+                        "largeur": post.get("dimensionsWidth") or 0, "hauteur": post.get("dimensionsHeight") or 0,
+                        "duree": post.get("videoDuration") or 0})
     return out
 
 
@@ -271,7 +279,8 @@ async def _executer(ecrire: bool = True) -> dict:
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     changements, followers_maj, clics_maj, liens_maj = [], 0, 0, 0
     reels_ecritures = []
-    pris = []                                                            # 01/10 : identifiants « à créer » déjà présents sur Instagram
+    a_relire = []                                                        # 01/10 : Reels des 24 h des clippers, pour la review
+    pris = []                                                          # 01/10 : identifiants « à créer » déjà présents sur Instagram
     ids_suivis = {id(c) for c in suivis}
     async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
         await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
@@ -292,6 +301,8 @@ async def _executer(ecrire: bool = True) -> dict:
             valeur = str(m["posts"]) if m["existe"] and (m["posts"] or not m.get("restreint")) else ""   # restreint : illisible, pas 0
             if valeur != str(c.get("reels_hier") or "").strip():
                 reels_ecritures.append((onboarding.cellule(c, "reels_hier"), [[valeur]]))
+        if m.get("reels") and c.get("gerant") and _norm(c.get("utilisation") or "") == "clipper":
+            a_relire += [{**r, "handle": h, "gerant": c["gerant"]} for r in m["reels"][:10]]   # 01/10 : review des Reels
         hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
         hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
                      "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0)})
@@ -320,6 +331,11 @@ async def _executer(ecrire: bool = True) -> dict:
             await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, reels_ecritures)
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Classeur : colonne Reels Hier non écrite : %s", erreur)
+    if ecrire and a_relire and _deps.get("reels_publies"):                  # 01/10 : relus ensuite, à part (review_reels.boucle)
+        try:
+            _deps["reels_publies"](jour, a_relire)
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Reels à relire : %s", type(erreur).__name__)
     # 30/09 (Gaëtan : « Bravo @clippeur pour ton premier Reel, avec le screenshot du Reel, dans #dopamine ») : le premier
     # Reel vu par le scan pour un Gérant part dans #dopamine, une seule fois. Au premier passage, ceux qui ont déjà publié
     # sont notés sans message.

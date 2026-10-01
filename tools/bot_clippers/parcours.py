@@ -439,6 +439,8 @@ async def envoyer_etape(salon, membre, n: int) -> None:
     _ecrire(d)
     e = ETAPES[n]
     texte = f"{membre.mention} **{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
+    if n == 5:                                                          # 01/10 : il publie sur ses comptes, la relecture est proposée
+        texte += _ligne_review(uid)
     try:
         msg = await salon.send(texte[:1990], view=_vue(getattr(salon, "guild", None), uid, n, ctx))
     except (discord.Forbidden, discord.HTTPException) as erreur:
@@ -622,7 +624,19 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
         texte += (f"\n\nTon compte {n + 1} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après ton compte {n}, "
                   + (f"dès que {REELS_OUVERTURE} Reels sont publiés dessus." if ou == f"ton compte {n}" else
                      f"dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}."))
+    texte += _ligne_review(uid)
     await salon.send(f"{membre.mention} " + texte)
+
+
+def _ligne_review(uid) -> str:
+    """01/10 (Gaëtan, review des Reels) : « Avant de publier, envoie-moi ta vidéo ici… », pour ses 5 premiers Reels
+    (review_reels.ligne_proposition, branchée par bot_discord). Sans elle, rien."""
+    try:
+        ligne = _deps["ligne_review"](uid) if _deps.get("ligne_review") else ""
+    except Exception as erreur:                                         # noqa: BLE001 — une ligne en moins, jamais une étape en moins
+        journal.warning("Ligne de review : %s", type(erreur).__name__)
+        ligne = ""
+    return f"\n\n{ligne}" if ligne else ""
 
 
 async def programme_du_jour(client, maintenant=None) -> list:

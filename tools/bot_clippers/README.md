@@ -820,3 +820,49 @@ Trois décisions de Gaëtan du 01/10, appliquées partout (textes du salon perso
 - `RELANCES_EXCLURE_TELS` (vide) : numéros de test à exclure des relances et du compte des candidatures, séparés par des virgules.
 
 Variables devenues inutiles : `ESSAI_UN_COMPTE`, `ESSAI_REELS`, `ESSAI_DEPUIS`.
+
+## 🎬 Review des Reels des clippers (01/10, `review_reels.py`)
+
+Demande de Gaëtan : « Il faut qu'il soit capable de faire des reviews des Reels des clippeurs ». Deux temps, une seule grille « publication ».
+
+**Avant publication (le plus utile).** Un clipper dont le parcours a commencé (fiche du parcours à l'étape 1 ou plus) envoie une vidéo dans son salon perso, ou en MP. Le bot la relit avec le juge du test de montage : `ffprobe`, 4 images extraites par `ffmpeg`, le modèle `MODELE`. La grille change : accroche dans la première seconde, sous-titres lisibles, vidéo vraiment modifiée (pas un TOP 20 tel quel), vertical, 7 à 30 secondes, texte à l'écran, et risque CGU. Nudité, contenu trop explicite, personne qui paraît mineure, lien ou @ à l'image : « ⛔ Ne la publie pas ». Une personne qui paraît mineure prévient aussi l'équipe (`notifier_manager`).
+
+La réponse tient en 4 lignes, le verdict d'abord :
+
+```
+🎬 **5/10** · ✏️ Corrige d'abord : mets un texte dès la 1re seconde.
+
+👍 Belle image de départ
+✏️ Grossis les sous-titres
+```
+
+Les verdicts : « ✅ Publie-la. » (7/10 et plus), « ✏️ Corrige d'abord : … », « ⛔ Ne la publie pas : … ». Des règles fixes passent avant le modèle : vidéo horizontale, moins de 7 s ou plus de 30 s, copie d'un TOP 20 (plafond 3/10). Elles interdisent le ✅.
+
+La vidéo de base, c'est le TOP 20 de sa créatrice. Ses empreintes (durée, 3 images 16×16, une image réduite) sont calculées une fois par semaine, en tâche de fond, dans `DONNEES/review_reels_top20.json`. Une relecture n'attend jamais ce calcul : la première se fait sans vidéo de base.
+
+**Jamais confondu avec le test de montage.** Un candidat en test (`test_envoye`, `test_rendu`, `test_expire`, `refuse`) est intercepté plus haut par le circuit du test, comme avant. La review ne le prend jamais.
+
+**Juge en échec, jamais de note.** Vidéo illisible, ffmpeg absent, réponse du modèle illisible : « Je n'ai pas pu regarder ta vidéo, réessaie dans 2 minutes. » Rien n'est noté.
+
+**L'assistant ne dit toujours pas « c'est bon » à l'aveugle.** La vidéo d'un clipper éligible part à la relecture au lieu du marqueur « vidéo que tu ne peux PAS voir ». Sans parcours, ou avec `REVIEW_REELS=0`, le marqueur reste. Une vidéo à relire passe même si le staff vient de parler ; un message adressé à un humain (@Gaëtan) reste pour l'humain.
+
+**La relecture est proposée** pour les 5 premiers Reels : une ligne ajoutée à « Ton compte peut publier » et à l'étape 5, « Avant de publier, envoie-moi ta vidéo ici : je te dis en 1 minute si elle est prête. » Elle disparaît après 5 relectures ou 5 Reels vus par le scan. Le service reste ouvert ensuite.
+
+**Après publication (léger).** Le scan Apify du matin (`etats_comptes`) garde déjà, pour chaque Reel des 24 h des comptes de clippers : URL, image de couverture, légende, dimensions, date. Aucun appel Apify en plus. Un échantillon de `REVIEW_REELS_MAX_JOUR` Reels par jour (réparti entre les clippers, le plus récent d'abord) est relu sur la couverture et la légende. Une légende avec un lien ou un @ donne toujours la correction.
+
+Résultat : au plus UNE ligne par clipper et par jour, dans son message du matin, seulement si une correction est utile. Si le message du matin est déjà parti, la ligne part seule, mais seulement dans la fenêtre du matin. Jamais d'envoi groupé l'après-midi ni au redémarrage.
+
+**Le lundi** (9 h Paris, une fois par semaine, pas de rattrapage le mardi) : un résumé au salon du manager (`canal_manager()`, qui retombe sur le salon admin). Par clipper : Reels relus, vidéos montrées avant, note moyenne, la correction la plus fréquente, les Reels « ⛔ » à retirer.
+
+**Ce que le scan ne voit pas.** La vidéo publiée elle-même : seulement sa couverture et sa légende. Donc ni l'accroche réelle de la première seconde, ni les sous-titres, ni le son, ni la durée (sauf si Apify la donne). Les Reels publiés hors des 24 h du scan, ou sur un compte restreint, ne sont pas relus. Le lien de la couverture expire en quelques jours : un Reel non relu sous 2 jours est oublié.
+
+**Coût.** Modèle par défaut `claude-haiku-4-5` (1 $ et 5 $ par million de jetons). Avant publication : 4 images 540×960 et une image de base, environ 4 000 jetons d'entrée et 300 de sortie, soit environ 0,0055 $. Après publication : une couverture réduite, environ 0,0015 $. Plafond par clipper : `REVIEW_AVANT_MAX_JOUR` relectures avant publication par jour.
+
+**Variables Railway** (toutes facultatives) :
+
+- `REVIEW_REELS` (1) : 0 coupe tout (avant, après, lundi, ligne proposée).
+- `REVIEW_AVANT_PROPOSER` (5) : Reels pour lesquels la relecture est proposée.
+- `REVIEW_REELS_MAX_JOUR` (30) : Reels publiés relus par jour, tous clippers confondus.
+- `REVIEW_AVANT_MAX_JOUR` (15) : relectures avant publication par clipper et par jour.
+
+Fichiers sur le volume : `review_reels.json` (relectures, quotas, lignes du jour, semaine envoyée) et `review_reels_top20.json`. Base de connaissances : la FAQ « Faire valider mes Reels avant de publier ? Non » devient « Je peux te montrer mon Reel avant de le publier ? Oui : envoie la vidéo ici, je te réponds en 1 minute. » ; la règle 31 de l'assistant dit que la relecture est faite par le bot.
