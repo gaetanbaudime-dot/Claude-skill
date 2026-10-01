@@ -4075,8 +4075,9 @@ def texte_aide(membre, est_admin: bool) -> str:
         return ("🧰 **Ce que tu peux me demander**\n"
                 "· Une question sur la méthode : écris-la dans ton salon perso. Je réponds.\n"
                 "· `!etape` — je te renvoie ton étape en cours.\n"
-                "· `!code` — le code qu'Instagram te demande.\n"
-                "· `!code` — aussi pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n"
+                # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
+                "· " + codes_2fa.texte_salon_codes() + "\n"
+                "· Même salon, même `!code` pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n"
                 "· `!mesclics` — tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours.\n"
                 "· `!parrain @lui` — tu parraines un nouveau : 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement — ton adresse de paiement.\n"
@@ -7352,15 +7353,24 @@ async def on_message(message):
 
     # 26/09 (Thia « ! code », Daniella « Code ») : dans son salon perso, le mot seul vaut la commande.
     # 27/09 : « recup » / « récup » seul = `!recup`, le code de récupération (mot de passe oublié, appel après un ban).
-    if message.guild is not None and re.fullmatch(r"!?\s*(codes?|r[ée]cup(?:[ée]ration)?)\s*[!?.]*", texte.strip(), re.I):
+    # 01/10 (Gaëtan : « les codes Instagram se demandent UNIQUEMENT dans #🔐-code-instagram ») : une phrase courte autour du
+    # mot « code » (« code pour le compte 2 », « le code stp », « j'ai pas reçu le code ») vaut aussi la commande. En salon
+    # perso, un clipper reçoit alors une ligne : le salon où demander son code (codes_2fa.commande).
+    demande_code = codes_2fa.demande_de_code(texte) if message.guild is not None else ""
+    if demande_code:
         sp_code = salon_perso_de(message.author.id)
         if (sp_code is not None and sp_code.id == message.channel.id) or str(message.channel.id) == codes_2fa.salon_codes_id():
-            texte = "!code" if re.match(r"!?\s*code", texte.strip(), re.I) else "!recup"       # 29/09 : aussi dans le salon commun
+            texte = demande_code                                                               # 29/09 : aussi dans le salon commun
             message.content = texte
     # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin,
     # et des codes de récupération (`!recup`) pour retrouver un compte ou faire appel (27/09)
     if texte.startswith(("!alias", "!code") + codes_2fa.COMMANDES_RECUP):
-        if await codes_2fa.commande(message, ADMIN_IDS):
+        def _adresses_auteur(uid=message.author.id):
+            """01/10 : salon commun, un clipper ne voit que SES codes : alias de son salon perso + e-mails de ses comptes."""
+            sp_a = salon_perso_de(uid)
+            fiche_a = lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(str(uid), {})
+            return codes_2fa.adresses_de(str(sp_a.id) if sp_a is not None else "", fiche_a)
+        if await codes_2fa.commande(message, ADMIN_IDS, _adresses_auteur):
             return
     if texte.startswith("!tableau"):                                        # 27/09 : le tableau de bord d'une ligne
         if await tableau_bord.commande(message, texte):
