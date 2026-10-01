@@ -287,6 +287,17 @@ def plan_ajout(lignes_onglet: list, reserve_: list, creatrice: str) -> list:
     return out
 
 
+def _chevauche(bande: dict, debut: int, fin: int, table: dict) -> bool:
+    """01/10 : la zébrure `bande` (GridRange, index 0, fin exclue, bornes absentes = sans limite) touche-t-elle les lignes
+    [debut, fin) que le tableau va reprendre, dans ses colonnes ?"""
+    b_debut, b_fin = int(bande.get("startRowIndex", 0) or 0), bande.get("endRowIndex")
+    if b_debut >= fin or (b_fin is not None and int(b_fin) <= debut):
+        return False
+    c_debut, c_fin = int(bande.get("startColumnIndex", 0) or 0), bande.get("endColumnIndex")
+    t_debut, t_fin = int(table.get("startColumnIndex", 0) or 0), table.get("endColumnIndex")
+    return (t_fin is None or c_debut < int(t_fin)) and (c_fin is None or int(c_fin) > t_debut)
+
+
 async def ajouter_aux_onglets() -> list:
     """Écrit la réserve d'identifiants de chaque créatrice dans son onglet et étend son tableau Google jusqu'à la dernière
     ligne remplie (les lignes déjà hors du tableau y rentrent aussi). Renvoie les lignes du bilan."""
@@ -296,7 +307,7 @@ async def ajouter_aux_onglets() -> list:
     etat = identifiants._deps["lire_json"](identifiants._deps["FICHIER"], {}) if identifiants._deps.get("lire_json") else {}
     deja = {identifiants._squash(c["handle"]) for c in comptes if c.get("handle")}
     infos = await google_api.sheets_tables(cid)
-    ecritures, requetes_t, bilan = [], [], []
+    ecritures, bilan = [], []
     for onglet in await onboarding.onglets_logins():
         cle = _cle(onglet)
         a_mettre = [x for x in etat.get(identifiants._cle_creatrice(onglet), []) if identifiants._squash(x["handle"]) not in deja]
@@ -308,22 +319,36 @@ async def ajouter_aux_onglets() -> list:
                     ecritures.append((f"{onboarding.onglet_a1(onglet)}!{onboarding.lettre(champ, onglet)}{n}", [[v]]))
         fin = max([n for n, _ in plan] + [int(c["ligne"]) for c in lignes_o if c.get("handle") or c.get("mail") or c.get("etat")] + [1])
         info = infos.get(onglet) or {}
-        if info and info.get("lignes", 0) < fin:
-            requetes_t.append({"appendDimension": {"sheetId": info["id"], "dimension": "ROWS", "length": fin - info["lignes"] + 5}})
+        # 01/10 (Google 400 du 30/09 : les 6 tableaux non étendus, et pourtant « tableau étendu » au bilan) : un batch par onglet
+        # avec son propre try/except (Sheets applique un batch d'un bloc : l'onglet refusé bloquait les cinq autres), et « tableau
+        # étendu » écrit seulement après la réponse de Google.
+        if info and info.get("lignes", 0) < fin:                       # la grille d'abord : sans elle, les valeurs ne s'écrivent pas
+            try:
+                await google_api.sheets_batch_update(cid, [{"appendDimension": {"sheetId": info["id"], "dimension": "ROWS",
+                                                                                "length": fin - info["lignes"] + 5}}])
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Lignes ajoutées à %s refusées : %s", onglet, erreur)
         table = next((t for t in info.get("tables", []) if int(t["range"].get("startRowIndex", 0)) == 0), None)
-        etendu = ""
+        etendu, refus = "", ""
         if table and int(table["range"].get("endRowIndex", 0)) < fin:
+            debut = int(table["range"].get("endRowIndex", 0))
             rng = dict(table["range"], endRowIndex=fin)
-            requetes_t.append({"updateTable": {"table": {"tableId": table["tableId"], "range": rng}, "fields": "range"}})
-            etendu = f", tableau étendu jusqu'à la ligne {fin}"
+            # une zébrure (« Couleurs en alternance ») sur les lignes que le tableau reprend fait refuser l'extension : elle est
+            # retirée, le tableau garde sa propre alternance
+            requetes_o = [{"deleteBanding": {"bandedRangeId": b["bandedRangeId"]}} for b in info.get("bandes", [])
+                          if b.get("bandedRangeId") is not None and _chevauche(b.get("range") or {}, debut, fin, table["range"])]
+            requetes_o.append({"updateTable": {"table": {"tableId": table["tableId"], "range": rng}, "fields": "range"}})
+            try:
+                await google_api.sheets_batch_update(cid, requetes_o)
+                etendu = f", tableau étendu jusqu'à la ligne {fin}"
+            except Exception as erreur:                                 # noqa: BLE001 — les valeurs s'écrivent quand même
+                refus = (f"⚠️ {onglet} : tableau non étendu ({str(erreur)[:160]}) — étends-le à la main jusqu'à la ligne {fin} "
+                         "(coin bas droit du tableau)")
         if plan or etendu:
             bilan.append(f"· {onglet} : {len(plan)} identifiant(s) ajouté(s)" + (f" (lignes {plan[0][0]} à {plan[-1][0]})" if plan else "") + etendu)
+        if refus:
+            bilan.append(refus)
         _ = cle
-    if requetes_t:
-        try:
-            await google_api.sheets_batch_update(cid, requetes_t)
-        except Exception as erreur:                                     # noqa: BLE001 — les valeurs s'écrivent quand même
-            bilan.append(f"⚠️ Tableaux non étendus : {str(erreur)[:160]} (étends-les à la main : coin bas droit du tableau)")
     if ecritures:
         await google_api.sheets_ecrire_plusieurs(cid, ecritures)
     return bilan or ["Rien à ajouter : les identifiants de la réserve sont déjà dans les onglets."]

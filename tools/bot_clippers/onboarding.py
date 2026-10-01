@@ -602,8 +602,11 @@ def _source_de(creatrice: str) -> dict:
 
 
 def texte_drive(prenom: str, creatrice: str, drive: str) -> str:
-    """Le message du Drive, seul (rattrapage) : 28/09 (Gaëtan, Simon) « envoie-lui le lien de son Drive »."""
-    return (f"📁 **Tes Reels à publier, {prenom}** (TOP 20 de {creatrice.split()[0] if creatrice.split() else creatrice}) : <{drive}>\n\n"
+    """Le message du Drive, seul (rattrapage) : 28/09 (Gaëtan, Simon) « envoie-lui le lien de son Drive ».
+    01/10 (Daniella a cru qu'on publiait sans monter, l'ancien titre parlant de Reels « à publier ») : « Tes vidéos à monter »,
+    règle du 30/09 : chaque vidéo se modifie avant d'être publiée, TOP 20 compris."""
+    return (f"📁 **Tes vidéos à monter, {prenom}** (TOP 20 de {creatrice.split()[0] if creatrice.split() else creatrice}) : <{drive}>\n\n"
+            "Modifie chaque vidéo avant de la publier.\n\n"
             "Il s'ouvre depuis ton téléphone, sans compte Google.")
 
 
@@ -882,7 +885,9 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         if lien:
             texte += f"\n\n🔗 **Ton lien** : {lien} · tes visites : `!mesclics`"
         if drive:
-            texte += f"\n📁 **Tes Reels à publier** (TOP 20 de {creatrice.split()[0]}) : <{drive}>"
+            # 01/10 : « Tes vidéos à monter », jamais « à publier » (chaque vidéo se modifie avant d'être publiée)
+            texte += (f"\n\n📁 **Tes vidéos à monter** (TOP 20 de {creatrice.split()[0]}) : <{drive}>"
+                      "\n\nModifie chaque vidéo avant de la publier.")
     if salon is not None and codes_2fa.actif():
         try:
             n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")
@@ -911,45 +916,13 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     return f"📦 Onboarding de {membre.display_name} ({creatrice}) : " + " · ".join(resultat)
 
 
-RE_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-
-
 async def message_clipper(message) -> bool:
-    """Un clipper qui poste son adresse e-mail dans son salon perso (ou en MP) alors que son Drive n'a pas encore
-    été partagé : l'adresse va dans sa fiche et le partage part tout de suite (25/09 : Daniella, « sans e-mail :
-    rien partagé », un bilan que seul l'admin voyait)."""
-    if not actif() or getattr(message.author, "bot", False):
-        return False
-    m = RE_EMAIL.search(message.content or "")
-    if not m:
-        return False
-    uid = str(message.author.id)
-    etat = _lire_etat()
-    fiche = etat["clippers"].get(uid)
-    if not fiche or not fiche.get("creatrice"):
-        return False
-    if message.guild is not None:
-        salon = _deps["salon_perso"](uid)
-        if salon is None or salon.id != message.channel.id:
-            return False
-    email = m.group(0).strip().lower()
-    if fiche.get("email") == email and fiche.get("drive"):
-        return False
-    fiche["email"] = email
-    _ecrire_etat(etat)
-    prenom = message.author.display_name.split()[0] if message.author.display_name.split() else message.author.display_name
-    try:
-        drive = await dossier_drive(prenom, fiche["creatrice"], email)
-    except RuntimeError as erreur:
-        await message.reply(f"J'ai noté ton adresse : {email}. Mais le partage du Drive n'a pas marché. Ton manager va le refaire.")
-        return True
-    if drive:
-        fiche["drive"] = drive
-        _ecrire_etat(etat)
-        await message.reply(f"📁 C'est fait, le Drive est partagé avec {email} : {drive}\nOuvre-le avec ce compte Google. Tu reçois aussi un e-mail.")
-    else:
-        await message.reply(f"J'ai noté ton adresse : {email}. Le Drive de {fiche['creatrice']} n'est pas encore prêt. Ton manager s'en occupe.")
-    return True
+    """25/09 : un clipper qui postait une adresse e-mail dans son salon perso (ou en MP) recevait le Drive partagé à cette
+    adresse. 01/10 : éteint, le message n'est plus jamais intercepté (renvoie toujours False). Depuis le 28/09 le Drive s'ouvre
+    par son lien, sans compte Google (texte_drive) ; or toute adresse était captée, y compris l'e-mail d'un compte Instagram
+    donné par l'agence : la fiche était écrasée, le Drive partagé avec cette adresse, « Ouvre-le avec ce compte Google » répondu,
+    et la question du clipper n'arrivait jamais à l'assistant. Le message suit maintenant son chemin normal."""
+    return False
 
 
 # ------------------------------------------------------------------ liens GAML dans le classeur

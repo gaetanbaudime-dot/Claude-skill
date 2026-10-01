@@ -27,7 +27,23 @@ MAX_JOUR = int(os.environ.get("RELANCES_MAX", "30") or 30)
 DELAIS_H = (24, 72)                                                        # 1re relance à 24 h, 2e à 72 h
 FENETRE_JOURS = 7
 APRES_QUIZ = ("quiz_ok", "test_envoye", "test_rendu", "valide", "refuse", "test_expire")
+# 01/10 (Gaëtan : « une ligne par personne ») : les numéros du staff (candidatures de test), séparés par des virgules, ne sont
+# jamais relancés ni comptés dans les candidatures du jour (comparés sur leurs 8 derniers chiffres).
+EXCLURE_TELS = {re.sub(r"\D", "", t)[-8:] for t in os.environ.get("RELANCES_EXCLURE_TELS", "").split(",")
+                if len(re.sub(r"\D", "", t)) >= 8}
 _deps = {}
+
+
+def cle_tel(tel) -> str:
+    """Une personne = un numéro : ses 8 derniers chiffres (comme candidature_de), sinon le numéro tel quel."""
+    chiffres = re.sub(r"\D", "", str(tel or ""))
+    return chiffres[-8:] if len(chiffres) >= 8 else str(tel or "").strip()
+
+
+def tel_exclu(tel) -> bool:
+    """Numéro du staff (RELANCES_EXCLURE_TELS) : jamais relancé, jamais compté."""
+    chiffres = re.sub(r"\D", "", str(tel or ""))
+    return len(chiffres) >= 8 and chiffres[-8:] in EXCLURE_TELS
 
 
 def configurer(deps: dict):
@@ -66,24 +82,40 @@ def texte_message(prenom: str, lien: str) -> str:
 
 def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
     """[(cand_id, prénom, pays, heures depuis le formulaire, n° de relance, lien Telegram, étiquette)], les plus anciens
-    d'abord, RELANCES_MAX au plus."""
+    d'abord, RELANCES_MAX au plus.
+    01/10 (Gaëtan : « une ligne par personne ») : `candidatures_web` a une entrée par ENVOI du formulaire (Lucio, Enzo : deux
+    lignes et deux liens chacun le 30/09). Les envois sont regroupés par numéro : on garde le dernier (son lien le plus récent),
+    les relances déjà faites comptent tous ses envois, un quizz réussi avec n'importe lequel de ses liens le sort de la liste,
+    et les numéros du staff (RELANCES_EXCLURE_TELS) n'y sont jamais."""
     maintenant = maintenant or datetime.now(timezone.utc)
-    lies = {str(l.get("tel")) for l in (pipe.get("liaisons") or {}).values() if l.get("tel")}
+    lies = {cle_tel(l.get("tel")) for l in (pipe.get("liaisons") or {}).values() if l.get("tel")}
     deja = etat.get("relances") or {}
+    web = pipe.get("candidatures_web") or {}
+    par_tel = {}
+    for cid, fiche in web.items():
+        par_tel.setdefault(cle_tel(fiche.get("tel")), []).append(cid)
     out = []
-    for cid, fiche in (pipe.get("candidatures_web") or {}).items():
+    for cle, cids in par_tel.items():
+        if cle in lies or any(tel_exclu(web[c].get("tel")) for c in cids):
+            continue
+        if any((web[c].get("quiz") or {}).get("reussi") for c in cids):
+            continue
+        cid = max(cids, key=lambda c: str(web[c].get("date") or ""))
+        fiche = web[cid]
         d = _jour(fiche.get("date"))
         if d is None:
             continue
         heures = (maintenant - d).total_seconds() / 3600
         if heures < DELAIS_H[0] or heures > FENETRE_JOURS * 24:
             continue
-        if (fiche.get("quiz") or {}).get("reussi") or str(fiche.get("tel")) in lies:
-            continue
-        faites = deja.get(cid) or []
+        # ses relances, tous envois confondus ; deux lignes du même matin (l'ancien doublon) comptent pour une relance
+        par_jour = {}
+        for x in (x for c in cids for x in (deja.get(c) or [])):
+            par_jour[str(x)[:10]] = max(par_jour.get(str(x)[:10], x), x, key=lambda y: _jour(y) or maintenant)
+        faites = sorted(par_jour.values(), key=lambda x: _jour(x) or maintenant)
         if len(faites) >= len(DELAIS_H) or heures < DELAIS_H[len(faites)]:
             continue
-        if faites and (maintenant - _jour(faites[-1])).total_seconds() < 20 * 3600:
+        if faites and (maintenant - (_jour(faites[-1]) or maintenant)).total_seconds() < 20 * 3600:
             continue
         cand = (pipe.get("candidatures") or {}).get(str(fiche.get("tel"))) or {}
         prenom = str(cand.get("prenom") or "").strip() or "toi"
