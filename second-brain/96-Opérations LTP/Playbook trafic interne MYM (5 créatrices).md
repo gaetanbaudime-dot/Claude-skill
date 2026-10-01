@@ -13,6 +13,9 @@ liens_forts: ["[[Stratégie trafic interne MYM]]", "[[Sprint été - croissance 
 > [!tip] Verdict
 > Le plan actuel est **quasi le bon** : 5 publics/jour à 8/12/16/20/23h, les 2 meilleurs restent publics à vie, les 3 autres passent en privé à J+3/J+4, 5 stories/jour. On le rend **expérimental et pilotable** : 3 stratégies réparties sur 5 créatrices (2 « public permanent », 2 « hybride 48h », 1 « hybride 4 j »), tout le reste tenu constant, décision sur **CA net / post public** et **fans intéressés**, jamais sur les vues seules. Durée : **21 à 30 jours**, puis test croisé. Le pilotage se fait depuis un tableau de bord (une ligne par post). C'est le pôle « trafic MYM » du [[Sprint été - croissance sans moi|sprint été]].
 
+> [!note] Mise à jour du 01/10/2026 — la méthode officielle MYM
+> MYM a publié sa méthode en 5 étapes pour les agences (comparée point par point à ce playbook dans [[Stratégie trafic interne MYM]]). Trois écarts à corriger ici : **répondre au chat dans les 10 minutes** après un nouvel abonné (ce playbook disait moins de 30), **un lien de suivi MYM par source, clipper compris**, et **demander les mises en avant en semaine 4** (le pop-up n'a jamais été demandé à Judith). Le reste du playbook (5 publics par jour, 3 photos et 2 vidéos, pushs sur les trois publics) est déjà conforme.
+
 ## Diagnostic du rapport Judith (juillet 2026) — où est vraiment le goulot
 
 **Deal juillet : cible 20 000 € → 2 slots carrousel en août.** Condition ⚠️ : la cible est atteinte **et** les deux créatrices sous condition (rôles *Vitrine* et *Reconstruction* ci-dessous) **ne baissent pas** vs juin. Au 8 juillet : **6 574 € = 33 %**, soit ~822 €/jour → sur un rythme d'environ **25 k€/mois**, donc **en avance** sur la cible (il restait ~13 400 € à faire, ~560 €/jour). La cible est atteignable ; le vrai enjeu est de **ne pas laisser Vitrine/Reconstruction décrocher** et de réparer les KPI en amont.

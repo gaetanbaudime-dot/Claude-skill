@@ -6,7 +6,7 @@ statut: verified
 controverse: medium
 importance: forte
 source_knowledge: mixed
-sources_count: 6
+sources_count: 7
 tags: [ofm/trafic, ofm/mym, pont/marketing]
 créé: 2026-07-10
 liens_forts: ["[[Trafic et réseaux sociaux pour l'OFM]]", "[[Rétention et LTV]]", "[[Modèle d'agence OFM]]", "[[Opérations de chatting]]"]
@@ -61,6 +61,33 @@ Conséquence stratégique : **garder une petite couche de posts gagnants publics
 
 Pas de « vidéo > photo » automatique. La doc parle explicitement de **photos publiques** mises en avant ; l'observation des comptes confirme des photos ET des vidéos à plusieurs milliers de vues. La vraie règle : **contenu recommandable > format**. Ce qui marche : visage/identité claire, pose suggestive non explicite, bonne lumière, cadrage propre, première image forte, **zéro texte incrusté, zéro emoji** (ça casse l'éligibilité). L'appel à l'action va dans la légende ou en story, jamais sur le média.
 
+## La méthode officielle MYM en 5 étapes (publiée le 01/10/2026)
+
+> [!tip] Verdict
+> MYM l'écrit noir sur blanc : **environ 50 % du CA généré sur MYM vient de son trafic interne, et ce trafic interne est déclenché par le trafic externe que les agences amènent.** Les agences qui gardent un flux régulier gagnent en plus des **mises en avant** (pop-up, carrousel, tendances). Conséquence pour LTP : une visite de clipper qui part vers MYM vaut plus que ce que mesure son seul lien. **Il faut un lien de suivi MYM par clipper** pour le prouver, avant de décider le 15/10 du prix d'une visite.
+
+La source : un article du responsable croissance et CRM de MYM, relayé par Infloww le 01/10/2026[^7]. C'est la plateforme qui parle de ses propres mécanismes : utile parce qu'elle est seule à les connaître, mais elle a intérêt à ce que les agences lui envoient du trafic. Les chiffres sont des « jusqu'à », sans méthode publiée.
+
+| Étape | Ce que MYM demande | Où en est LTP (à jour 01/10/2026) |
+|---|---|---|
+| 1. Page prête avant tout trafic | bio, photo, bannière ; **un compte par langue** ; lien en bio ; scripts importés ; message de bienvenue automatique ; **au moins 20 posts publiés** | proche : le [[Playbook trafic interne MYM (5 créatrices)|playbook]] demande 20 à 30 privés visibles ; le compte par langue n'existe pas |
+| 2. Publication quotidienne | **2 à 5 posts publics par jour**, environ 60 % photos et 40 % vidéos | conforme : 5 publics par jour, 3 photos et 2 vidéos |
+| 3. Trafic externe, du moins cher au plus cher | bios et redirections (gratuit) ; plusieurs comptes sociaux (peu cher) ; fermes de téléphones (moyen) ; pub Meta et TikTok (payant) — **un lien de suivi par source** | le clipping est la 2ᵉ et la 3ᵉ catégorie ; **pas de lien de suivi MYM par clipper** : c'est le trou de mesure du 01/10 |
+| 4. Distribution et mises en avant gagnées | pages Pour toi et Découvrir ; pop-up : **+200 à +300 % d'abonnements, +400 % de trafic de profil, +200 % de CA en 24 h** ; carrousel : +100 % d'abonnements, +200 % de trafic, +150 % de CA sur une semaine ; page Tendances : +50 % d'abonnements, +100 % de trafic, +100 % de CA sur deux semaines | le carrousel est déjà négocié avec Judith (cible de CA contre des emplacements, voir [[Promos MYM (carrousel) - fonctionnement et deal août 2026|le deal d'août]]) ; jamais demandé de pop-up |
+| 5. Monétisation | **répondre dans les 10 minutes** à un nouvel abonné ; push au moins une fois par semaine sur trois publics (abonnés, intéressés non abonnés, anciens abonnés) ; MOD alimenté en continu | le playbook dit « moins de 30 minutes » : à resserrer à 10 avec Maxence ; les pushs sont déjà conformes |
+
+**Les repères de la plateforme (moyennes MYM)** : 41 % d'abonnements gratuits et 59 % payants ; abonnement 9,90 $ ; PPV en message privé 42 $ ; push 30 $ ; pourboire 52 $ ; MOD 37 $. MYM précise que ce sont des **signaux de diagnostic, pas des objectifs**, et qu'un résultat faible vient le plus souvent d'une mise en place incomplète plutôt que du contenu.
+
+**Le plan de lancement en 30 jours (par créatrice)** : avant tout trafic, la page et 20 posts ; semaine 1, rythme de publication, premières sources de trafic, chat couvert, premier push ; semaine 2, ajuster les pushs et les PPV, tester la conversion par source, « couper ce qui ne convertit pas, doubler ce qui convertit » ; semaine 3, rythme stable entre push, chat et MOD, et montée des meilleures sources ; semaine 4, **demander les mises en avant** et analyser la LTV à 3 mois.
+
+### Ce que ça change pour LTP
+
+1. **Le verdict du 01/10 sur le clipping est à nuancer, pas à jeter.** L'analyse disait : une visite de clipper rapporte environ 0,03 € côté OnlyFans pour 0,041 € de paie. Elle ne voyait pas MYM par clipper, ni l'effet d'entraînement que MYM décrit (trafic interne et mises en avant déclenchés par le trafic externe). Si cet effet est réel, une visite envoyée vers MYM vaut davantage que son abonné direct. Ce qui ne change pas : la paie fixe des anciens et le forfait de Jonas à 100 € par tête restent à couper.
+2. **Le lien de suivi MYM par clipper devient l'action n° 1 de mesure.** Il existe déjà dans MYM (attribution au dernier contact, fenêtre d'une heure, CA net en temps réel, voir plus haut). Un lien par clipper, dans sa carte MYM GAML, avant le 15/10 : c'est ce qui tranchera le prix d'une visite pour Chloé, Sarah et Maddie.
+3. **Demander les mises en avant à Judith** : le pop-up (le plus fort, 24 h) n'a jamais été demandé. Le dossier à lui apporter : la régularité du trafic externe par créatrice, chiffrée par les liens de suivi.
+4. **Réponse au chat en moins de 10 minutes** après un nouvel abonné : à voir avec Maxence, c'est son périmètre.
+5. **Avocat du diable** : les chiffres des mises en avant sont des maximums annoncés par la plateforme elle-même ; l'article ne dit ni la taille de l'échantillon, ni ce que donne la médiane. Les « fermes de téléphones » qu'il range parmi les sources de trafic restent contraires aux CGU de Meta ([[Risques légaux et éthiques de l'OFM]]) : MYM les cite, Meta les sanctionne. Et la proposition de loi en débat depuis le 01/10 (article 25, intermédiaires) concerne exactement ce rôle d'agence qui pousse le trafic.
+
 ## Confirmé / probable / spéculatif (honnêteté épistémique)
 
 - **Confirmé (doc + ambassadrice)** : seuls les publics sont recommandés aux non-abonnés ; critères d'éligibilité (public, HD, non explicite, sans texte/emoji, compte actif) ; likes/vues ont un impact ; le like public crée un fan intéressé ; diffusion du fil ~6h ; stories = visibilité, 24h, max 20/24h ; pushs intéressés/anciens tous les 7 j ; liens de suivi = attribution au dernier contact, fenêtre 1h.
@@ -83,3 +110,4 @@ Cette page est le **pourquoi** ; le **comment** (SOP quotidienne, répartition d
 [^4]: support.mym.fans — « Les différents types de fans sur MYM » (définition du fan intéressé, offres tous les 7 j).
 [^5]: support.mym.fans — « Push », « MOD - Média à la demande », « Planifier mes posts/push » (limite 5 publics/jour, pushs payants, MOD).
 [^6]: support.mym.fans — « Liens de suivi » (attribution au dernier contact, fenêtre 1h, revenu net en temps réel).
+[^7]: Dorian (responsable croissance et CRM de MYM), « How to Scale on mym: The Five-Step Agency Operating System », blog Infloww, 01/10/2026 (infloww.com/blog/how-to-scale-on-mym), relayé le même jour sur le canal Telegram d'Infloww — environ 50 % du CA issu du trafic interne, mises en avant, repères de prix, plan de 30 jours.

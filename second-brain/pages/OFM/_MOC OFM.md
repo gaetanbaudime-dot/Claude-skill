@@ -9,7 +9,7 @@ Cluster du modèle OnlyFans Management, traité pour ce qu'il est : un business 
 - [[Acquisition de créatrices]] : le pipeline, transposition du cluster Recrutement, vendre la réalité et documenter les limites.
 - [[Opérations de chatting]] : le moteur du revenu et son problème éthique central, gestion d'équipe et garde-fous.
 - [[Trafic et réseaux sociaux pour l'OFM]] : l'acquisition sous contraintes maximales, marque personnelle contre spam.
-- [[Stratégie trafic interne MYM]] : le canal gratuit propre à MYM — modèle d'attractivité (Judith + doc officielle), boucle public→intéressé→abo→CA, garde-fou CGU. Son exécution : [[Playbook trafic interne MYM (5 créatrices)]].
+- [[Stratégie trafic interne MYM]] : le canal gratuit propre à MYM — modèle d'attractivité (Judith + doc officielle), boucle public→intéressé→abo→CA, garde-fou CGU, et depuis le 01/10 la méthode officielle MYM en 5 étapes (≈ 50 % du CA vient du trafic interne déclenché par l'externe, mises en avant, repères de prix). Son exécution : [[Playbook trafic interne MYM (5 créatrices)]].
 
 ## Ordre de lecture
 
