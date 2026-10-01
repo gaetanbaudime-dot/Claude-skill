@@ -30,16 +30,23 @@ OBJECTIF = ("Transformer chaque clipper en trois comptes Instagram qui postent l
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens, plus de période d'essai à part » ; « les codes se
 # demandent UNIQUEMENT dans #🔐-code-instagram » ; « on ne réutilise jamais une info d'un compte BAN ») : la doctrine
 # reprend les deux textes canoniques, sinon la rétrospective réapprenait l'ancienne règle aux leçons.
+# 01/10 (relecture) : les deux textes canoniques viennent de leur source (parcours.regle_comptes, codes_2fa.texte_salon_codes),
+# plus d'une copie en dur qui ne suivait ni PARCOURS_ATTENTE_COMPTE_H, ni PARCOURS_REELS_OUVERTURE, ni CANAL_CODES_NOM.
+def doctrine() -> str:
+    import codes_2fa                                                    # import tardif : retro est importé par bot_discord
+    import parcours
+    return DOCTRINE.format(regle=parcours.regle_comptes(), codes=codes_2fa.texte_salon_codes())
+
+
 DOCTRINE = ("Doctrine (elle prime sur tout) : le clipper met SON numéro de téléphone (un numéro = ses 3 comptes) ; le selfie "
-            "vidéo, il le fait lui-même ; règle des comptes, la même pour tous : « Un compte à la fois. Le suivant arrive tout "
-            "seul ici, au plus tôt 48 h après le précédent, dès que 2 Reels sont publiés dessus. » ; 24 h de warm-up après "
+            "vidéo, il le fait lui-même ; règle des comptes, la même pour tous : « {regle} » ; 24 h de warm-up après "
             "chaque compte, puis CE compte publie 2 Reels et 1 story par jour sans attendre les autres ; jamais « un compte "
             "par jour », jamais de période d'essai ; un compte banni ne change rien pour les autres, et on ne réutilise jamais "
             "une info d'un compte banni ; plus de "
             "compte privé ; le lien vit dans une story à la une, jamais en bio, jamais dans un Reel ; la story du jour se prend "
             "dans le dossier Photos du Drive ; test de montage : 1 vidéo, 7/10 pour passer, 3 essais notés tout de suite par le "
             "bot, et au 3e essai raté un manager regarde la vidéo (ce n'est jamais « terminé » d'office) ; paie 0,05 $ par visite "
-            "francophone réelle, tous les 15 jours ; codes : « Un code Instagram ? Va dans #🔐-code-instagram et tape !code. » "
+            "francophone réelle, tous les 15 jours ; codes : « {codes} » "
             "(création, connexion, appel), uniquement dans ce salon, jamais ceux qui "
             "changent l'e-mail, le mot de passe ou le numéro ; un compte banni : le clipper fait appel lui-même tout de suite (code, "
             "selfie vidéo, SON numéro ou SA pièce d'identité si demandés, jamais ceux d'un autre, jamais dans Discord) ; trois cas "
@@ -133,7 +140,7 @@ def _anonymiser(texte: str) -> str:
 
 # ------------------------------------------------------------------ l'analyse
 def prompt_analyse(nom_salon: str, transcription: list, deja: list) -> str:
-    return (f"Tu es le coach du bot Discord d'une agence de clippers Instagram. Objectif : {OBJECTIF}\n{DOCTRINE}\n\n"
+    return (f"Tu es le coach du bot Discord d'une agence de clippers Instagram. Objectif : {OBJECTIF}\n{doctrine()}\n\n"
             f"Voici la conversation des dernières 24 h dans le salon perso d'un clipper (#{nom_salon}). Le BOT, c'est toi.\n"
             "Note-toi honnêtement de 0 à 10 sur : le clipper a-t-il avancé vers ses 3 comptes qui postent ? as-tu été court, "
             "juste, sans inventer, sans contredire un HUMAIN ? Si un HUMAIN (staff) t'a corrigé, sa consigne devient une leçon.\n"

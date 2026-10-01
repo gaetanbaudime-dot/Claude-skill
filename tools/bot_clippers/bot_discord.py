@@ -241,12 +241,16 @@ claude = anthropic.Anthropic()  # lit ANTHROPIC_API_KEY dans l'environnement
 
 # 01/10 (Gaëtan : « le bot renvoie vers #assistant-ia, qui n'existe plus ») : l'ancien texte envoyait vers « le salon de
 # l'assistant », supprimé le 29/09, et personne n'était prévenu (Ricardo, 20 h sans réponse). Désormais la question part
-# vraiment à l'équipe : on_message prévient le salon admin (notifier_manager), une fois par clipper et par jour.
+# vraiment à l'équipe : on_message prévient le salon admin (notifier_manager), une fois par question (relecture du 01/10).
 MESSAGE_ESCALADE = "Je n'ai pas la réponse. J'ai transmis ta question à l'équipe, la réponse arrive ici."
+# 01/10 (relecture : en MP, « la réponse arrive ici » était faux — personne de l'équipe n'écrit dans le MP du bot) : en MP,
+# la réponse arrive dans le salon perso, ou en message privé de l'équipe sans salon perso.
+MESSAGE_ESCALADE_MP = "Je n'ai pas la réponse. J'ai transmis ta question à l'équipe. La réponse arrive dans ton salon perso."
+MESSAGE_ESCALADE_MP_SANS_SALON = "Je n'ai pas la réponse. J'ai transmis ta question à l'équipe. La réponse arrive en message privé."
 
 # 01/10 (Gaëtan : « les codes Instagram se demandent UNIQUEMENT dans #🔐-code-instagram ») : le texte canonique, le même
 # partout. Le salon devient un lien cliquable <#id> en post-traitement (lier_salon_codes), dès que son id est connu.
-TEXTE_CODE = "Un code Instagram ? Va dans #🔐-code-instagram et tape !code."
+TEXTE_CODE = f"Un code Instagram ? Va dans #{codes_2fa.SALON_CODES_NOM} et tape !code."   # 01/10 (relecture) : suit CANAL_CODES_NOM
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
 # jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
 # PARCOURS_ATTENTE_COMPTE_H et PARCOURS_REELS_OUVERTURE (par défaut, mot pour mot le même texte).
@@ -339,7 +343,7 @@ reste. Une réponse trop longue est coupée : mieux vaut courte et complète.
 17. Image hors sujet (arnaque, publicité, mème, capture sans rapport avec le kit) : UNE phrase \
 pour dire que ce n'est pas le sujet, sans décrire l'image, et tu proposes ton aide sur le kit.
 18. Tout ce qui est OPÉRATIONNEL (mes comptes, ma créatrice, mon téléphone cloud, mes accès, \
-mes rushs, un ban, un compte bloqué) se règle avec le MANAGER : dis-le et renvoie vers lui, \
+mes rushs) se règle avec le MANAGER : dis-le et renvoie vers lui, \
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
@@ -383,7 +387,7 @@ jamais de pseudo.
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de comptes.
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
-28. Dates toujours à la française : « le 30/09 », « demain 14 h ». Jamais « 2026-09-30 ». Tout se passe dans le salon perso, sauf les codes : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
+28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Tout se passe dans le salon perso, sauf les codes : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
 29. « Qui est mon manager ? » : « Ton manager est un humain (Jonas ou Gaëtan). Il lit ton salon perso. Moi, je suis l'assistant. » Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager. \
 30. Montage (30/09, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo prise dans le Drive, dossier « Reels » \
 ou « TOP 20 Reels », est MODIFIÉE avant d'être publiée, toujours, dès le premier jour : musique, texte à l'écran, filtres, \
@@ -392,8 +396,9 @@ durée, zooms, avec un début le plus accrocheur possible. Tu ne dis JAMAIS qu'o
 et ce qu'il doit vérifier. Jamais de promesse de review. Une ligne « [Pièce jointe : … que tu ne peux PAS voir] » veut dire \
 que tu ne l'as PAS vue (01/10, Gaëtan, après Daniella : « c'est bon » sur une vidéo que le bot n'avait pas reçue).
 32. Règle des comptes, la même pour TOUS, nouveaux et anciens (01/10, Gaëtan) : « {TEXTE_COMPTES} » Jamais « un compte \
-par jour », jamais « demain », jamais « 5 Reels en 72 h », jamais de « période d'essai ». Tu ne donnes ni date ni heure, et tu \
-ne pousses jamais le clipper à créer un compte que le bot n'a pas encore ouvert.
+par jour », jamais « demain », jamais « 5 Reels en 72 h », jamais de « période d'essai ». Tu ne donnes jamais de date ni \
+d'heure pour le compte suivant ; les heures de la mémoire (fin du warm-up), tu les recopies telles quelles. Tu ne pousses \
+jamais le clipper à créer un compte que le bot n'a pas encore ouvert.
 33. Un message « [Prénom (équipe) a écrit : …] » dans l'historique vient d'un HUMAIN de l'équipe : tu ne le contredis jamais \
 et tu ne réponds pas à sa place."""
 
@@ -967,20 +972,31 @@ def est_escalade(reponse: str) -> bool:
 
 async def signaler_escalade(message, question: str) -> bool:
     """01/10 (Gaëtan, Ricardo 20 h sans réponse) : « J'ai transmis ta question à l'équipe » doit être vrai. Le salon admin
-    (notifier_manager, comme l'alerte du numéro de téléphone) est prévenu, une fois par clipper et par jour."""
+    (notifier_manager, comme l'alerte du numéro de téléphone) est prévenu.
+    01/10 (relecture : une alerte par clipper et par jour — la 2e question du jour n'était transmise à personne) : une
+    alerte par QUESTION ; seule la même question reposée le même jour n'en refait pas."""
     uid = str(message.author.id)
     compteurs = lire_json(FICHIER_COMPTEURS, {})
     jour = heure_paris().date().isoformat()
-    if compteurs.setdefault("alertes_escalade", {}).get(uid) == jour:
+    cle_q = normaliser((question or "").strip())[:200]
+    deja = compteurs.setdefault("alertes_escalade", {}).get(uid)
+    if not isinstance(deja, dict) or deja.get("jour") != jour:          # ancien format (« jour » seul) ou autre jour
+        deja = {"jour": jour, "questions": []}
+    if cle_q in deja["questions"]:
         return False
-    compteurs["alertes_escalade"][uid] = jour
+    deja["questions"] = (deja["questions"] + [cle_q])[-20:]
+    compteurs["alertes_escalade"][uid] = deja
     ecrire_json(FICHIER_COMPTEURS, compteurs)
     lieu = f"<#{message.channel.id}>" if message.guild is not None else f"en message privé avec le bot (<@{uid}>)"
+    if message.guild is not None:
+        ou = "réponds-lui dans ce salon."
+    else:                                                                # 01/10 (relecture) : le MP du bot, personne n'y écrit
+        ou = ("réponds-lui dans son salon perso." if salon_perso_de(message.author.id) is not None
+              else "écris-lui en MP depuis ton compte.")
     try:
         await notifier_manager(f"❓ **{prenom_de(message.author)}** : le bot n'a pas la réponse ({lieu}).\n\n"
                                f"Question : « {(question or '').strip()[:300]} »\n\n"
-                               f"👉 Le bot lui a promis une réponse de l'équipe : réponds-lui "
-                               + ("dans ce salon." if message.guild is not None else "dans son salon perso ou en MP."))
+                               f"👉 Le bot lui a promis une réponse de l'équipe : {ou}")
         return True
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Alerte escalade : %s", erreur)
@@ -1539,7 +1555,8 @@ def date_fr(iso) -> str:
         d = d.replace(tzinfo=timezone.utc)
     from zoneinfo import ZoneInfo
     d = d.astimezone(ZoneInfo("Europe/Paris"))
-    return d.strftime("%d/%m à ") + f"{d.hour} h" + (f" {d.minute:02d}" if d.minute else "")
+    # 01/10 (relecture) : candidats à Madagascar, Dubaï, au Bénin — une échéance sans fuseau trompait d'une heure ou plus
+    return d.strftime("%d/%m à ") + f"{d.hour} h" + (f" {d.minute:02d}" if d.minute else "") + " (heure de Paris)"
 
 
 def prenom_de(membre) -> str:
@@ -2233,7 +2250,7 @@ def managers_humains(guild) -> list:
 
 
 def _autres_occupants(salon, membre, staff=None) -> list:
-    """01/10 (#big ouvert à deux « Big Deo », #andry à « Andry » et « Andry - Sarah ») : les humains autres que `membre` qui ont
+    """01/10 (#big ouvert à deux homonymes, #andry à « Andry » et « Andry - Sarah ») : les humains autres que `membre` qui ont
     un droit direct sur le salon, sans le bot, les admins ni les managers (eux voient tous les salons perso)."""
     moi = getattr(getattr(salon, "guild", None), "me", None)
     staff = managers_humains(getattr(salon, "guild", None)) if staff is None else staff
@@ -2248,7 +2265,7 @@ def _slug_salon(texte: str) -> str:
 def nom_salon_cible(guild, membre) -> str:
     """Nom du salon perso (25/09) : le prénom seul (« thia »), ou « prenom-creatrice » si un autre signé porte le
     même prénom (deux Julien). 01/10 : homonyme aussi quand un salon à ce nom appartient déjà à quelqu'un d'autre (un candidat
-    n'est pas au registre) ; si le salon au pseudo complet est lui aussi à un autre (deux « Big Deo »), on ajoute la fin de son id."""
+    n'est pas au registre) ; si le salon au pseudo complet est lui aussi à un autre (deux homonymes), on ajoute la fin de son id."""
     p = prenom_de(membre)
     homonyme = False
     for uid in lire_json(FICHIER_EQUIPES, {}):
@@ -2349,7 +2366,8 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
     """Le salon nominatif du clipper : trouvé n'importe où sur le serveur (nom = pseudo normalisé), déplacé dans
     `categorie` si elle est donnée, sinon créé (dans `categorie`, ou dans la catégorie Clippers). Privé : lui, le
     rôle Manager, le bot ; les admins voient tout. Renvoie (salon, créé, erreur). Décision du 24/09 : ce salon est
-    l'endroit où tout ce qui concerne le clipper arrive (comptes, codes, lien, clics, paies) pour que Gaëtan le voie."""
+    l'endroit où tout ce qui concerne le clipper arrive (comptes, lien, clics, paies) pour que Gaëtan le voie. 01/10 : sauf
+    les codes Instagram, qui se demandent uniquement dans #🔐-code-instagram."""
     salon = trouver_salon_perso(guild, membre)
     avert = ""
     manque = acces_categorie(guild, categorie)
@@ -2359,7 +2377,7 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
     if categorie is None:
         categorie = (salon.category if salon is not None else None) or await categorie_clippers(guild)
     sujet = f"Salon de {membre.display_name}" + (f" — créatrice {prenom_creatrice}" if prenom_creatrice else "") + \
-            ". Comptes, codes, lien, clics du matin, paies : tout arrive ici."
+            ". Comptes, lien, clics du matin, paies : tout arrive ici. Codes Instagram : #🔐-code-instagram."   # 01/10 (relecture)
     perms_bot = categorie.permissions_for(guild.me) if categorie is not None else guild.me.guild_permissions
 
     def _ouvert():                                                       # Discord refuse d'accorder ce que le bot n'a pas
@@ -2960,7 +2978,7 @@ async def traiter_liaison(auteur, brut):
     # on n'écrase rien, on remonte à l'admin (audit du 10/09).
     for autre_uid, autre in donnees.get("liaisons", {}).items():
         if autre_uid != str(auteur.id) and autre.get("tel") == tel:
-            # 01/10 (Big Deo, 30/09 : « l'équipe te débloque » puis « Quizz réussi » et son test dans la même minute) : déjà
+            # 01/10 (un candidat, 30/09 : « l'équipe te débloque » puis « Quizz réussi » et son test dans la même minute) : déjà
             # engagé dans le parcours, il n'est pas bloqué — l'alerte va à l'admin seulement
             if (donnees.get("etats", {}).get(str(auteur.id)) or {}).get("etat") not in ("quiz_ok", "test_envoye", "test_rendu", "valide"):
                 await envoyer_mp(auteur, f"⚠️ Le numéro **…{tel[-4:]}** est déjà relié à un autre compte Discord. "
@@ -3052,8 +3070,8 @@ def ou_en_es_tu(uid: str) -> str:
         if fiche.get("creatrice"):
             return (f"Tu es dans l'équipe, ta créatrice est **{fiche['creatrice']}** : tes comptes se créent "
                     "avec ton manager au créneau (lundi, mercredi, vendredi 17 h Paris). Une question → ton manager.")
-        return ("Tu es dans l'équipe. **Prochaine étape : ton manager t'attribue ta créatrice** (sous 48 h) "
-                "et te donne ton créneau de création. Rien à faire de ton côté d'ici là.")
+        return ("Tu es dans l'équipe. **Prochaine étape : ton manager t'attribue ta créatrice** (sous 48 h). "
+                "Rien à faire de ton côté d'ici là.")                     # 01/10 (relecture) : plus de créneau de création
     if not liaison.get("tel"):
         return "**Prochaine étape : envoie-moi ton numéro de téléphone** (celui du formulaire), ici."
     if not etat or etat == "quiz_rate":
@@ -3385,8 +3403,10 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
             creatrice_a, f"Salon perso ouvert à l'acceptation ({via})")
         if salon_a is not None and cree_a:
             try:
-                await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. "
-                                   "Prochaine étape : ta créatrice et tes comptes.", view=vue_whatsapp())
+                # 01/10 (relecture : « Tout arrive ici : … codes » contredisait la décision du jour dès le premier message)
+                await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tout arrive ici : comptes, visites, paie.\n\n"
+                                   + codes_2fa.texte_salon_codes() + "\n\nProchaine étape : ta créatrice et tes comptes.",
+                                   view=vue_whatsapp())
             except (discord.Forbidden, discord.HTTPException):
                 pass
         # 30/09 (Gaëtan) : plus de « Ton salon perso : #… » — le message part déjà dans ce salon.
@@ -4286,8 +4306,10 @@ def texte_aide(membre, est_admin: bool) -> str:
             "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
             # 01/10 (Gaëtan : « la même règle pour tous ») : plus de « un tous les 48 h » seul ; la règle canonique,
             # « ici » devenu « dans ton salon perso » parce que cette aide se lit en MP.
-            "4. Test validé → ta créatrice et ton compte 1, dans ton salon perso. Un compte à la fois : le suivant y arrive "
-            "tout seul, au plus tôt 48 h après le précédent, dès que 2 Reels sont publiés dessus.\n"
+            # 01/10 (relecture) : la règle tirée de parcours.regle_comptes(), qui suit PARCOURS_ATTENTE_COMPTE_H et
+            # PARCOURS_REELS_OUVERTURE, au lieu d'une copie en dur
+            "4. Test validé → ta créatrice et ton compte 1, dans ton salon perso. "
+            + parcours.regle_comptes().replace(" ici,", " dans ton salon perso,") + "\n"
             "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
             "Une question ? Pose-la ici, je réponds avec le kit.")
 
@@ -4335,7 +4357,9 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     roster.ajouter(creatrice_c, prenom_de(m_))
     if cree_c:
         try:
-            await salon_c.send(f"🏠 {m_.mention}, ton salon perso. Tout arrive ici : comptes, codes, visites, paie. Une question ? Écris ici."
+            # 01/10 (relecture) : plus de « codes » ici, la phrase canonique du salon des codes
+            await salon_c.send(f"🏠 {m_.mention}, ton salon perso. Tout arrive ici : comptes, visites, paie.\n\n"
+                               + codes_2fa.texte_salon_codes() + "\n\nUne question ? Écris ici."
                                + (f" {', '.join(x.mention for x in mgrs)} lit ce salon." if mgrs else ""), view=vue_whatsapp())
         except (discord.Forbidden, discord.HTTPException):
             pass
@@ -6509,7 +6533,8 @@ async def on_ready():
         # ne dépendait que de LIEN_TRESORERIE/CANAL_REPORTING_ID — sans eux, aucun digest (audit 10/09).
         client.loop.create_task(boucle_rappels())
         client.loop.create_task(annoncer_demarrage())
-        client.loop.create_task(annoncer_regle_48h())         # 29/09 : la règle des 48 h, une fois, dans chaque salon perso
+        # 01/10 (relecture) : annonce périmée (« un compte tous les 48 h », « le bot t'en donne un neuf ») — la règle du 01/10
+        # la remplace ; elle n'était retenue que par annonces.json et repartait dans tous les salons si ce fichier se perdait.
         client.loop.create_task(rattraper_webhooks())  # quiz/candidatures manqués pendant un redéploiement
         client.loop.create_task(boucle_posts_formation())  # liens des fiches + index des salons (fini « #inconnu »)
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
@@ -7554,7 +7579,9 @@ async def on_message(message):
     # 01/10 (Gaëtan : « les codes Instagram se demandent UNIQUEMENT dans #🔐-code-instagram ») : une phrase courte autour du
     # mot « code » (« code pour le compte 2 », « le code stp », « j'ai pas reçu le code ») vaut aussi la commande. En salon
     # perso, un clipper reçoit alors une ligne : le salon où demander son code (codes_2fa.commande).
-    demande_code = codes_2fa.demande_de_code(texte) if message.guild is not None else ""
+    # 01/10 (relecture : Jonas écrit « tape !code ici » au salon commun pour guider un nouveau, le bot y postait les codes des
+    # autres) : la phrase ne vaut `!code` que pour un clipper ; le staff tape `!code` lui-même.
+    demande_code = codes_2fa.demande_de_code(texte) if message.guild is not None and not est_staff(message.author) else ""
     if demande_code:
         sp_code = salon_perso_de(message.author.id)
         if (sp_code is not None and sp_code.id == message.channel.id) or str(message.channel.id) == codes_2fa.salon_codes_id():
@@ -7568,7 +7595,14 @@ async def on_message(message):
             sp_a = salon_perso_de(uid)
             fiche_a = lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(str(uid), {})
             return codes_2fa.adresses_de(str(sp_a.id) if sp_a is not None else "", fiche_a)
-        if await codes_2fa.commande(message, ADMIN_IDS, _adresses_auteur):
+
+        async def _alerter_admin(texte_a):
+            """01/10 (relecture) : clipper sans adresse connue au salon commun → une ligne au salon admin."""
+            canal_x = await canal_admin()
+            if canal_x is None:
+                raise RuntimeError("salon admin introuvable")
+            await canal_x.send(texte_a[:1990])
+        if await codes_2fa.commande(message, ADMIN_IDS, _adresses_auteur, alerter=_alerter_admin):
             return
     if texte.startswith("!tableau"):                                        # 27/09 : le tableau de bord d'une ligne
         if await tableau_bord.commande(message, texte):
@@ -7967,6 +8001,9 @@ async def on_message(message):
             ecrire_json(FICHIER_LACUNES, lacunes[-200:])
     if est_escalade(reponse) and not est_staff(message.author):
         await signaler_escalade(message, texte)       # 01/10 : « J'ai transmis ta question à l'équipe » devient vrai
+        if message.guild is None and MESSAGE_ESCALADE in reponse:      # 01/10 (relecture) : en MP, « arrive ici » était faux
+            reponse = reponse.replace(MESSAGE_ESCALADE, MESSAGE_ESCALADE_MP if salon_perso_de(message.author.id) is not None
+                                      else MESSAGE_ESCALADE_MP_SANS_SALON)
     reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
     reponse = re.sub(r"\n\s*\(?(Fiche \d[^\n]*|Manager\)?(\s*[—-]\s*Salon perso)?|FAQ terrain\)?|Parcours candidat\)?|Stratégie marketing\)?)\s*$", "", reponse).rstrip()
     reponse_liee = lier_salon_codes(lier_references(assainir_mentions(reponse)))   # 01/10 : #🔐-code-instagram cliquable

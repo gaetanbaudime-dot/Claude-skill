@@ -505,14 +505,13 @@ def message_comptes_court(prenom: str) -> str:
     (identifiant, mot de passe, e-mail) arrive dans l'étape du parcours qui le sert."""
     import parcours                                                     # 01/10 : la règle canonique, une seule source (import tardif : parcours importe onboarding)
     return (f"🔐 {prenom}, tes accès arrivent ici, dans l'étape du parcours.\n\n{parcours.regle_comptes()}\n\n"
-            "Ils sont à l'agence : tu ne les donnes à personne.")
+            "Tes accès sont à l'agence : tu ne les donnes à personne.")      # 01/10 (relecture) : « Ils » n'avait plus de référent
 
 
 def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) -> str:
     """26/09 (Gaëtan : « hyper long, trop d'informations ») : les 3 comptes et une ligne de règle, rien d'autre.
     Depuis le 27/09, ne sert plus qu'à `!onboarding` forcé (COMPTES_UN_PAR_JOUR=0 pour le rétablir partout). 01/10 : `debut`
     = le numéro du premier compte (sa place dans la fiche : un compte ajouté après les deux premiers est le compte 3)."""
-    import parcours                                                     # 01/10 : la règle canonique (import tardif)
     if not comptes:
         return (f"⚠️ Il n'y a pas encore de compte prêt pour {creatrice}. Ton manager en prépare. "
                 "Je te les envoie ici dès qu'ils sont prêts.")
@@ -524,8 +523,14 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
                      f"Mot de passe :\n```\n{c['mdp'] or 'demande-le à ton manager'}\n```"
                      + (f"\nE-mail :\n```\n{c['mail']}\n```" if c["mail"] else "")
                      + (f"\nTéléphone : `{c['phone']}`" if c["phone"] else ""))
+    # 01/10 (relecture) : ce message livre déjà les comptes — « le suivant arrive tout seul ici » y était faux (plusieurs
+    # comptes sous les yeux, ou un remplaçant livré à l'étape 7 qui n'aura pas de suivant). Plus de règle recollée ici.
+    import parcours                                                     # 01/10 : les deux conditions de la règle (import tardif)
+    consigne = (f"Crée-les un par un : le suivant au plus tôt {parcours.ATTENTE_COMPTE_H} h après le précédent, et seulement "
+                f"quand {parcours.REELS_OUVERTURE} Reels sont publiés dessus.\n\nSur ton téléphone seulement."
+                if len(comptes) > 1 else "Sur ton téléphone seulement.")
     return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice} · chaque bloc se copie d'un geste.\n\n" + "\n\n".join(blocs) + "\n\n"
-            f"{parcours.regle_comptes()} Sur ton téléphone seulement.\n\n"   # 01/10 : plus de « Un compte par jour »
+            f"{consigne}\n\n"
             "Ces accès sont à l'agence : tu ne les donnes à personne.")
 
 
@@ -1312,6 +1317,10 @@ async def boucle(client, deps: dict):
     except Exception as erreur:                                     # noqa: BLE001
         onglets = f"onglets illisibles : {erreur}"
     journal.info("Onboarding par classeur actif (%s ; %s comptes par clipper)", onglets, COMPTES_PAR_CLIPPER)
+    try:                                                                # 01/10 : avant la boucle, qui écrit la même fiche
+        await rattraper_acces(client)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Rattrapage des accès : %s", erreur)
     while not client.is_closed():
         try:
             etat = _lire_etat()
@@ -1421,6 +1430,52 @@ async def boucle(client, deps: dict):
         await asyncio.sleep(900)
 
 
+async def rattraper_acces(client) -> int:
+    """01/10 (relecture : les comptes livrés depuis le classeur avant la fusion n'ont ni accès dans la fiche ni alias au
+    registre — avec CODES_PUSH_SALON_PERSO=0, `!code` au salon commun ne trouvait jamais leurs codes) : au démarrage, une
+    passe, un seul appel au classeur. Chaque compte de « comptes » absent de « acces » y est ajouté (dans l'ordre de la
+    fiche, donc sans changer la numérotation), et son adresse est rattachée au salon perso si personne ne l'a déjà.
+    `cree` reste faux, comme avant le rattrapage : l'étape garde son texte et le scan peut toujours la fermer.
+    Renvoie le nombre d'accès ajoutés."""
+    await client.wait_until_ready()
+    if not actif():
+        return 0
+    try:
+        lignes = await lire_comptes()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Rattrapage des accès : classeur illisible (%s)", erreur)
+        return 0
+    par_handle = {str(c.get("handle") or "").lower(): c for c in lignes if c.get("handle")}
+    etat = _lire_etat()                                                 # lu APRÈS l'appel au classeur, écrit sans attente
+    ajoutes, a_rattacher = 0, []
+    for uid, fiche in etat["clippers"].items():
+        if not isinstance(fiche, dict):
+            continue
+        connus = {str(a.get("handle", "")).lower() for a in fiche.get("acces") or [] if isinstance(a, dict)}
+        manquants = [par_handle[str(h).lower()] for h in fiche.get("comptes") or []
+                     if h and str(h).lower() not in connus and str(h).lower() in par_handle]
+        if not manquants:
+            continue
+        fiche["acces"] = list(fiche.get("acces") or []) + [dict(acces_ordonnes([c])[0], cree=False) for c in manquants]
+        ajoutes += len(manquants)
+        a_rattacher.append((uid, [c["mail"] for c in manquants if c.get("mail")]))
+    if not ajoutes:
+        return 0
+    _ecrire_etat(etat)
+    if codes_2fa.actif():
+        registre = codes_2fa._lire()
+        for uid, mails in a_rattacher:
+            salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+            libres = [m for m in mails if str(m).strip().lower() not in registre]
+            if salon is not None and libres:
+                try:
+                    codes_2fa.rattacher(libres, str(salon.id), "onboarding")
+                except Exception as erreur:                             # noqa: BLE001
+                    journal.warning("Rattrapage des alias de %s : %s", uid, erreur)
+    journal.info("Rattrapage des accès : %d compte(s) ajouté(s) à %d fiche(s)", ajoutes, len(a_rattacher))
+    return ajoutes
+
+
 # ------------------------------------------------------------------ commande
 async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     """Rend les comptes d'un clipper parti : colonne Gérant vidée sur ses lignes (toutes, ou seulement `handles`) ;
@@ -1446,6 +1501,10 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
         for fiche in etat["clippers"].values():
             if c["handle"] in fiche.get("comptes", []):
                 fiche["comptes"] = [x for x in fiche["comptes"] if x != c["handle"]]
+            # 01/10 (relecture : l'accès restait dans « acces », et `!code` au salon commun donnait encore les codes de ce
+            # compte à l'ancien clipper) : l'accès part avec le compte
+            if any(isinstance(a, dict) and str(a.get("handle", "")).lower() == h for a in fiche.get("acces") or []):
+                fiche["acces"] = [a for a in fiche["acces"] if not (isinstance(a, dict) and str(a.get("handle", "")).lower() == h)]
         bilan.append(f"· `{c['handle']}` ({c['etat'] or 'état ?'}) → " + (MENTION_LIBERE if metricool else "retour au pool des clippers"))
     _ecrire_etat(etat)
     if codes_2fa.actif():

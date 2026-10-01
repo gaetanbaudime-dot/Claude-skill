@@ -95,7 +95,7 @@ EXPLICATION_SALON = ("🔐 **Ton code Instagram, c'est ici.**\n\n"
 MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com")
 # 01/10 (faux code « 94025 » donné deux fois à Steeve le 30/09) : le premier nombre du corps était le code postal du pied
 # de page de Meta (« Menlo Park, CA 94025 ») sur des mails sans code (« Vérifiez votre compte », « confirm your email »).
-# Le nombre doit maintenant être isolé (pas collé à un pseudo comme « chloe.vip12345 »), le pied de page est retiré, et
+# Le nombre doit maintenant être isolé (pas collé à un pseudo comme « prenom.vip12345 »), le pied de page est retiré, et
 # dans le corps on ne prend qu'un nombre qui suit « code » ou « confirmation » de près. Le sujet reste lu tel quel.
 MOTIF_CODE = re.compile(r"(?<![\w.@-])(?:FB-?)?(\d{5,8})(?![\w@])")
 MOTIF_CODE_CORPS = re.compile(r"(?:code|confirmation)\D{0,60}?(?<![\w.@-])((?:FB-?)?\d{5,8})(?![\w@])", re.I)
@@ -184,8 +184,16 @@ def adresses_de(salon_perso_id: str = "", fiche: dict = None) -> set:
         for alias, v in _lire().items():
             if "@" in alias and isinstance(v, dict) and str(v.get("canal_id")) == str(salon_perso_id):
                 adresses.add(alias.strip().lower())
-    for acces in (fiche or {}).get("acces") or []:
-        mail = str((acces or {}).get("mail") or "").strip().lower() if isinstance(acces, dict) else ""
+    # 01/10 (relecture : `!liberer Prénom h2` retire h2 de « comptes » mais pas de « acces » — le clipper gardait les codes
+    # d'un compte qui n'est plus à lui) : seulement les accès des comptes encore dans sa fiche.
+    fiche = fiche or {}
+    siens = {str(h).strip().lower() for h in fiche.get("comptes") or []} if "comptes" in fiche else None
+    for acces in fiche.get("acces") or []:
+        if not isinstance(acces, dict):
+            continue
+        if siens is not None and str(acces.get("handle") or "").strip().lower() not in siens:
+            continue
+        mail = str(acces.get("mail") or "").strip().lower()
         if "@" in mail:
             adresses.add(mail)
     return adresses
@@ -195,6 +203,11 @@ def adresses_de(salon_perso_id: str = "", fiche: dict = None) -> set:
 _MOT_SEUL = re.compile(r"!?\s*(codes?|r[ée]cup(?:[ée]ration)?)\s*[!?.]*", re.I)
 _MOT_CODE = re.compile(r"(?<![\w-])codes?(?![\w-])", re.I)
 _AUTRE_QUESTION = re.compile(r"(?<!\w)(comment|pourquoi|combien|quand)(?!\w)", re.I)
+# 01/10 (relecture : « merci pour le code », « code bon » relançaient un guet de 5 min et reposaient le code) : un
+# remerciement n'est jamais une demande ; une confirmation non plus, sauf niée (« j'ai pas reçu le code » reste une demande).
+_MERCI = re.compile(r"(?<!\w)(merci|mrc|thanks?|thx)(?!\w)", re.I)
+_CONFIRME = re.compile(r"(?<!\w)(bon|ok|okay|re[çc]u|marche|parfait|nickel|top|super|good)(?!\w)", re.I)
+_NEGATION = re.compile(r"(?<!\w)(?:(?:pas|plus|toujours|jamais|rien|aucun|ne)(?!\w)|n['’])", re.I)
 
 
 def demande_de_code(texte: str) -> str:
@@ -210,6 +223,8 @@ def demande_de_code(texte: str) -> str:
         return ""                                                       # une autre commande
     if not _MOT_CODE.search(t) or _AUTRE_QUESTION.search(t):
         return ""
+    if _MERCI.search(t) or (_CONFIRME.search(t) and not _NEGATION.search(t)):
+        return ""                                                       # 01/10 : « merci pour le code », « code bon »
     return "!code"
 
 
@@ -537,11 +552,12 @@ def _est_manager(membre, admin_ids) -> bool:
     return any(_cle(r.name) in cibles for r in getattr(membre, "roles", []))
 
 
-async def commande(message, admin_ids, adresses_de_membre=None) -> bool:
+async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) -> bool:
     """`!alias ajouter <alias>` (dans le salon qui recevra les codes) · `!alias retirer <alias>` ·
     `!alias liste` · `!code <alias>` (recherche à la demande, 30 dernières minutes).
     Réservé aux admins et aux membres portant le rôle manager. Renvoie True si traité.
-    `adresses_de_membre` (01/10) : fonction sans argument qui donne les adresses de l'auteur (salon commun)."""
+    `adresses_de_membre` (01/10) : fonction sans argument qui donne les adresses de l'auteur (salon commun).
+    `alerter` (01/10) : coroutine qui poste une ligne au salon admin (clipper sans adresse connue au salon commun)."""
     texte = message.content.strip()
     if not texte.lower().startswith(("!alias", "!code") + COMMANDES_RECUP):
         return False
@@ -554,9 +570,11 @@ async def commande(message, admin_ids, adresses_de_membre=None) -> bool:
         mots[0] = "!code"
     canal_id = str(message.channel.id) if message.guild is not None else ""
     manager = message.guild is not None and _est_manager(message.author, admin_ids)
-    if (canal_id and canal_id == salon_codes_id() and mots[0].lower() == "!code"
-            and not (manager and len(mots) >= 2 and "@" in mots[1])):
-        return await _commande_salon_commun(message, recup, manager, adresses_de_membre)   # 29/09 : le salon commun
+    if canal_id and canal_id == salon_codes_id() and mots[0].lower() == "!code":
+        # 29/09 : le salon commun. 01/10 (relecture) : le staff aussi y passe, `!code adresse` compris — plus jamais la liste
+        # des codes de tout le monde ni un code en clair sans effacement dans un salon que tous les clippers lisent.
+        adresse = mots[1].lower() if manager and len(mots) >= 2 and "@" in mots[1] else ""
+        return await _commande_salon_commun(message, recup, manager, adresses_de_membre, adresse=adresse, alerter=alerter)
     # 01/10 (Gaëtan : « les codes Instagram se demandent UNIQUEMENT dans #🔐-code-instagram ») : ailleurs, un clipper qui
     # demande un code reçoit une seule ligne, le salon où le demander. Le staff garde `!code` partout.
     if not manager and mots[0].lower() == "!code":
@@ -693,28 +711,63 @@ async def commande(message, admin_ids, adresses_de_membre=None) -> bool:
     return True
 
 
-async def _commande_salon_commun(message, recup: bool, manager: bool = True, adresses_de_membre=None) -> bool:
+async def _alerter_sans_adresse(message, alerter) -> bool:
+    """01/10 (relecture) : un clipper sans adresse connue tape `!code` au salon commun → une ligne au salon admin, une fois
+    par clipper et par jour (clé `_sans_adresse` du registre). Vrai si l'équipe est prévenue (maintenant ou plus tôt)."""
+    if alerter is None:
+        return False
+    uid = str(getattr(message.author, "id", ""))
+    jour = datetime.now(timezone.utc).date().isoformat()
+    registre = _lire()
+    faits = registre.setdefault("_sans_adresse", {})
+    if faits.get(uid) == jour:
+        return True
+    prenom = getattr(message.author, "display_name", "") or f"<@{uid}>"
+    try:
+        await alerter(f"🔐 `!code` : aucune adresse pour **{prenom}** (<@{uid}>) : sa fiche n'a aucun accès. "
+                      "Ajoute ses comptes à sa fiche, puis réponds-lui dans son salon perso.")
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Alerte « aucune adresse » : %s", _err(erreur))
+        return False
+    faits[uid] = jour
+    _ecrire(registre)
+    return True
+
+
+async def _commande_salon_commun(message, recup: bool, manager: bool = True, adresses_de_membre=None,
+                                 adresse: str = "", alerter=None) -> bool:
     """`!code` / `!recup` dans le salon commun : les codes reçus dans les dernières minutes (boîte de réception et Spam),
     adresse masquée, le plus récent par adresse. Rien n'est marqué lu.
-    01/10 : un clipper n'y reçoit que les codes de SES adresses (adresses_de_membre) ; le staff voit tout. Le message qui
-    porte un code s'efface seul après EFFACER_MIN minutes."""
+    01/10 : un clipper n'y reçoit que les codes de SES adresses (adresses_de_membre). Le message qui porte un code s'efface
+    seul après EFFACER_MIN minutes. 01/10 (relecture : « chacun ses codes ») : le staff non plus ne voit plus tout ici —
+    ses adresses à lui, ou `!code adresse` pour celle d'un clipper (`adresse`)."""
     if not actif():
         await message.reply("Relais des codes éteint : `CODES_IMAP_USER` / `CODES_IMAP_PASSWORD` absents.")
         return True
     adresses = set()
-    if not manager:
+    if adresse:
+        adresses = {adresse.strip().lower()}
+    else:
         try:
             adresses = {str(a).strip().lower() for a in (adresses_de_membre() if adresses_de_membre else []) if a and "@" in str(a)}
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Adresses du clipper (salon commun) : %s", _err(erreur))
-        if not adresses:
-            await message.reply("Je ne trouve aucune adresse à ton nom. Écris à Gaëtan sur WhatsApp.")
+    if not adresses:
+        if manager:
+            await message.reply("Ici, chacun ses codes : je ne liste pas ceux de tout le monde.\n\n"
+                                "Pour l'adresse d'un clipper : `!code adresse@icloud.com`.")
             return True
+        # 01/10 (relecture : « Écris à Gaëtan sur WhatsApp » sortait de la règle 21) : l'équipe est prévenue au salon admin
+        if await _alerter_sans_adresse(message, alerter):
+            await message.reply("Je ne trouve pas ton adresse.\n\nL'équipe est prévenue : elle te répond dans ton salon perso.")
+        else:
+            await message.reply("Je ne trouve pas ton adresse.\n\nDis-le à ton manager dans ton salon perso.")
+        return True
     fenetre = SALON_CODES_MINUTES                                       # 30/09 : une seule fenêtre, une seule commande
     dossiers = [IMAP_DOSSIER] + ([DOSSIER_SPAM] if DOSSIER_SPAM and DOSSIER_SPAM != IMAP_DOSSIER else [])
 
     def _filtrer(trouves):
-        return [t for t in trouves if t["code"] and (manager or t.get("alias") in adresses)
+        return [t for t in trouves if t["code"] and t.get("alias") in adresses
                 and (not recup or t.get("type") == TYPE_RECUP)]
 
     async def _lire():
@@ -768,7 +821,7 @@ async def _commande_salon_commun(message, recup: bool, manager: bool = True, adr
         await _dire("⚠️ Je n'arrive pas à lire la boîte mail. Réessaie dans 2 minutes.")
         return True
     if not codes:
-        await _dire(f"Pas de code reçu depuis {fenetre} min{'' if manager else ' sur tes adresses'}.\n\n"
+        await _dire(f"Pas de code reçu depuis {fenetre} min{' sur cette adresse' if adresse else ' sur tes adresses'}.\n\n"
                     "Sur Instagram, appuie sur « Renvoyer le code », attends 30 secondes, puis retape `!code`.")
         return True
     derniers = {}
@@ -776,7 +829,7 @@ async def _commande_salon_commun(message, recup: bool, manager: bool = True, adr
         derniers[(t["alias"], t.get("type", TYPE_CONNEXION))] = t          # le plus récent par adresse et par type
     lignes = [ligne_code_masquee(t) for t in sorted(derniers.values(), key=lambda x: x.get("age_min", 0))[:5]]
     if len(lignes) > 1:
-        lignes.insert(0, f"{len(lignes)} codes sont tombés en même temps : repère le tien à l'adresse masquée." if manager else
+        lignes.insert(0, f"{len(lignes)} codes sur cette adresse : connexion et récupération." if adresse else
                       f"{len(lignes)} codes sur tes adresses : prends celui de l'adresse que tu as donnée à Instagram.")
     if EFFACER_MIN > 0:
         lignes.append(f"-# Ce message s'efface dans {EFFACER_MIN} min.")

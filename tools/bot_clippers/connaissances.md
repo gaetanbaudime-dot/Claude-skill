@@ -221,7 +221,7 @@ La suite, c'est ton manager qui décide, selon tes résultats :
 
 **Une question ? Dans cet ordre** : 1. La vidéo de formation, dans le forum formation. 2. Le bot, dans ton salon perso. Il connaît ton étape, tes comptes, ton lien. 3. Ton manager, dans ton salon perso. 4. Gaëtan, seulement pour la paie.
 
-Les 3 règles à ne jamais oublier : un compte à la fois, le suivant arrive tout seul. 24 h de warm-up par compte. 2 Reels par jour sur chaque compte qui publie. Être régulier, c'est mieux que faire beaucoup d'un coup.
+Les 3 règles à ne jamais oublier : un compte à la fois, le suivant au plus tôt 48 h après, dès 2 Reels publiés dessus. 24 h de warm-up par compte. 2 Reels par jour sur chaque compte qui publie. Être régulier, c'est mieux que faire beaucoup d'un coup.
 
 Le mental : la fin de la vidéo de formation, à écouter les jours difficiles. Tu ne peux pas rater si tu n'abandonnes jamais. Le meilleur clipper devient Team Leader.
 
@@ -230,7 +230,7 @@ Le mental : la fin de la vidéo de formation, à écouter les jours difficiles. 
 Quand la personne qui te parle a le rôle **Manager** (par exemple Jonas), elle ne cherche pas le parcours candidat : elle gère des clippers. Ses missions, chaque jour et chaque semaine :
 
 1. **Faire publier tous les jours** : chaque matin, le bot lui envoie le bilan de ses clippers (qui a publié, qui est à zéro, quelle journée n'est pas validée et pourquoi). Un clipper à zéro est relancé sous 24 h, en message privé, par lui.
-2. **Vérifier la création des comptes** : le bot guide le clipper étape par étape dans son salon perso (comptes, codes, warm-up, premier Reel, lien) ; le manager débloque ce qui coince et recrée un compte banni (`!liberer` puis nouvel identifiant du classeur).
+2. **Vérifier la création des comptes** : le bot guide le clipper étape par étape dans son salon perso (comptes, warm-up, premier Reel, lien) ; le manager débloque ce qui coince. Un compte banni : le clipper fait appel ; si l'appel échoue, Gaëtan décide (jamais une info du compte banni réutilisée).
 3. **Gérer les téléphones et les accès** : règles de l'appareil rappelées à l'étape 1 du parcours (comptes perso déconnectés, pas de VPN, français, un iPhone dédié de préférence), téléphones cloud quand il y en a (attribution, comptes installés, accès retirés le jour où le clipper sort, `!liberer`).
 4. **Suivre les visites** : chaque clipper a son lien GetAllMyLinks livré par le bot ; `!clics` donne les visites payables de tous, `!bilan-fixe` le verdict des anciens au fixe.
 5. **Former et corriger** : au moins 2 relectures de Reels par clipper et par semaine (hook, durée, choix du rush), un conseil simple à chaque fois. Les nouveaux, c'est lui qui les accueille.
@@ -345,7 +345,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Qui me donne mes identifiants (mail, mot de passe, pseudo) ?** Le bot, dans ton salon perso, dès que ton manager t'a attribué ta créatrice : 3 comptes, avec pour chacun l'identifiant, le mot de passe et l'e-mail. Ils restent à l'agence : jamais partagés, jamais changés sans prévenir.
 
-**Comment je récupère les codes envoyés par mail ?** Un code Instagram ? Va dans #🔐-code-instagram et tape !code. Le bot lit la boîte de l'agence et y donne le dernier code reçu pour tes adresses, dès qu'il arrive. Rien après deux minutes ? Redemande le code sur Instagram, puis `!code`.
+**Comment je récupère les codes envoyés par mail ?** Un code Instagram ? Va dans #🔐-code-instagram et tape !code. Le bot lit la boîte de l'agence et y donne le dernier code reçu pour tes adresses, dès qu'il arrive. Rien après 5 minutes ? Sur Instagram, appuie sur « Renvoyer le code », attends 30 secondes, puis retape `!code`.
 
 **Quand est-ce que j'ai mes comptes 2 et 3 ?** Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, dès que 2 Reels sont publiés dessus. Pas avant, et pas à la demande. La règle est la même pour tous.
 

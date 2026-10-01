@@ -805,6 +805,12 @@ Trois décisions de Gaëtan du 01/10, appliquées partout (textes du salon perso
 
 **Fusion (01/10)** : `retro.py` (doctrine de la rétrospective), l'aide « nouveau » en MP et l'alerte admin de réparation des parcours reprennent la règle du 01/10.
 
+**Relecture (01/10)** :
+
+- Codes : au salon commun, le staff ne voit plus les codes de tout le monde (ses adresses, ou `!code adresse` pour celle d'un clipper, masquée et effacée). Une phrase avec « code » ne vaut `!code` que pour un clipper, et plus pour « merci pour le code » ni « code bon ». Un compte libéré par `!liberer` sort aussi de la fiche `acces` : ses codes ne vont plus à l'ancien clipper. Au démarrage, les comptes livrés depuis le classeur avant la fusion reçoivent leur accès dans la fiche. Clipper sans adresse : une ligne au salon admin (une fois par jour), plus de renvoi vers WhatsApp.
+- Parcours : compte BAN sans aucun compte vivant → la ligne du matin dit « fais appel, l'équipe est prévenue », et le salon admin reçoit une alerte une fois (Gaëtan décide : `!etape` ou remplacement). Un seul `programme_du_jour` à la fois, et `envoyer_etape` / `valider_etape` relisent la fiche après chaque attente (étape envoyée deux fois). « Ton compte n+1 arrive » redit les deux conditions (48 h et 2 Reels). Étape 4 et warm-up du jour sans les comptes BAN.
+- Textes : salon perso (premier message et sujet) sans « codes » ; message de comptes sans « le suivant arrive tout seul » ; escalade une alerte par question, et en MP « la réponse arrive dans ton salon perso » ; règles 18, 28 et 32 de l'assistant alignées ; échéances des candidats en heure de Paris ; l'annonce périmée du 29/09 (`annoncer_regle_48h`) ne part plus au démarrage.
+
 **Nouvelles variables Railway** (toutes facultatives) :
 
 - `PARCOURS_REELS_OUVERTURE` (2) : Reels vus sur un compte avant d'ouvrir le suivant. `PARCOURS_ATTENTE_COMPTE_H` (48) reste le délai minimum.

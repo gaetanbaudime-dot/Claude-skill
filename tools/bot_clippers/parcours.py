@@ -66,7 +66,7 @@ TEXTE_WARMUP = ("🔥 **Compte {n} : 24 h de warm-up.** Regarde des Reels, mets 
 TEXTE_PUBLIER = {1: ("✅ **Ton compte 1 peut publier.** {rythme}\n\n"
                      "Prends une vidéo dans ton Drive : {drive}\n\n"
                      "Modifie-la toujours avant : musique, texte, un début qui accroche (Fiche 3)."),
-                 2: "✅ **Ton compte 2 peut publier.** 2 Reels par jour dessus aussi, comme sur le compte 1."}   # 26/09 (Gaëtan) : 24 h de warm-up par compte, plus une semaine
+                 2: "✅ **Ton compte 2 peut publier.** 2 Reels par jour dessus aussi."}   # 26/09 (Gaëtan) : 24 h de warm-up par compte ; 01/10 : sans « comme sur le compte 1 » (BAN)
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 ETAPES = {
@@ -87,7 +87,7 @@ ETAPES = {
     4: {"titre": "Étape 4 · 24 h de warm-up sur le compte 3 (Fiche 2)", "fiche": "2", "bouton": "✅ Warm-up fini", "salons": ["ressources"],
         "texte": ("**Compte 3, pendant 24 h** : pas de Reel. 10 min de Reels de créatrices françaises ({ressources}), "
                   "5 likes, 2 abonnements, 1 story sans lien.\n\n"
-                  "**Comptes 1 et 2** : ils ont fini leur warm-up. 2 Reels par jour sur chacun, pris dans ton Drive, "
+                  "**{autres}** : ils ont fini leur warm-up. 2 Reels par jour sur chacun, pris dans ton Drive, "   # 01/10 : sans les BAN
                   "et 1 story par jour (une photo du dossier Photos de ton Drive).\n\n"
                   "Dans 24 h, le compte 3 publie aussi.")},
     5: {"titre": "Étape 5 · Tes Reels sur les 3 comptes (Fiche 3)", "fiche": "3", "bouton": "✅ Premier Reel publié", "salons": ["ressources"],
@@ -130,8 +130,9 @@ CONNEXION = ("Ce compte existe déjà.\n"
 RELANCE_JOURS = int(os.environ.get("PARCOURS_RELANCE_JOURS", "2") or 2)   # 28/09 (Gaëtan) : « des relances simples, courtes »
 # 30/09 (Daniella) : « sur chaque compte… pas de Reel » contredisait l'étape 4 (comptes 1 et 2 publient déjà) — le warm-up du
 # jour ne concerne que le compte 3.
+# 01/10 (relecture) : « Comptes 1 et 2 » devient {autres}, les comptes vivants hors compte 3 (un compte BAN ne publie plus)
 WARMUP_JOUR_TEXTE = ("🔥 **Warm-up du compte 3 : jour {j} sur {jours}.** Sur le compte 3 : 10 minutes de Reels, 5 likes, "
-                     "2 abonnements, 1 story sans lien, pas de Reel. Comptes 1 et 2 : 2 Reels et 1 story chacun, comme d'habitude.")
+                     "2 abonnements, 1 story sans lien, pas de Reel. {autres} : 2 Reels et 1 story chacun, comme d'habitude.")
 
 
 def configurer(deps: dict):
@@ -235,6 +236,22 @@ def _ou_publier(uid, fiche_p: dict, n: int) -> str:
     return f"ton compte {n}" if (not h or not _est_ban(h, fiche_p)) else "tes autres comptes"
 
 
+def _bloque_ban(uid, fiche_p: dict, n: int) -> bool:
+    """01/10 (relecture : compte 1 BAN à l'étape 2, aucun autre compte créé — reels_vus restait à 0 pour toujours et la ligne
+    du matin disait « tes autres comptes ») : le compte n est BAN et le clipper n'a aucun compte vivant déjà créé. Le parcours
+    attend : c'est Gaëtan qui décide (`!etape` ou remplacement), aucune règle n'est inventée ici."""
+    comptes = _comptes_ordonnes(uid)
+    h = comptes[n - 1] if 0 < n <= len(comptes) else ""
+    if not h or not _est_ban(h, fiche_p):
+        return False
+    return not any(_cree(fiche_p, i) and not _est_ban(x, fiche_p) for i, x in enumerate(comptes[:3], start=1))
+
+
+def texte_bloque(n: int) -> str:
+    """La ligne donnée au clipper bloqué par le BAN de son compte n (_bloque_ban)."""
+    return f"Ton compte {n} est bloqué : fais appel sur Instagram (« Contester la décision »).\n\nL'équipe est prévenue."
+
+
 def _migrer_essai(d: dict) -> bool:
     """01/10 : une fiche encore « en essai » (compte 1 seul, ancienne règle des 5 Reels en 72 h) passe sous la règle unique :
     l'étape 2 est programmée 48 h après la création du compte 1 et part quand 2 Reels y sont vus. Aucun message."""
@@ -328,7 +345,9 @@ async def _contexte(guild, uid: str, fiche_p: dict) -> dict:
         ctx[f"compte{i + 1}"] = h
         ctx[f"mail{i + 1}"] = acces.get(h, {}).get("mail") or mails.get(h, "(dans ton message de comptes plus haut)")
         ctx[f"mdp{i + 1}"] = acces.get(h, {}).get("mdp") or mdps.get(h) or "(demande-le à Gaëtan sur WhatsApp)"
-    ctx["vivants"] = _liste(_vivants(uid, fiche_p, ordonnes[:3], bans))   # 01/10 : étapes 5 et 7 sans les comptes BAN
+    vivants = _vivants(uid, fiche_p, ordonnes[:3], bans)
+    ctx["vivants"] = _liste(vivants)                                    # 01/10 : étapes 5 et 7 sans les comptes BAN
+    ctx["autres"] = _liste([h for h in vivants if h != ctx["compte3"]])  # 01/10 (relecture) : étape 4, sans les BAN
     ctx["codes"] = texte_codes()
     ctx["lien"] = onb.get("lien") or "(ton manager te le donne avec `!lien`)"
     ctx["drive"] = onb.get("drive") or "(pas encore prêt, je te le donne ici dès qu'il l'est)"
@@ -406,22 +425,29 @@ def _vue(guild, uid: str, n: int, ctx: dict):
 
 # ------------------------------------------------------------------ déroulé
 async def envoyer_etape(salon, membre, n: int) -> None:
-    d = _lire()
     uid = str(membre.id)
+    # 01/10 (relecture : deux programme_du_jour à 50 ms d'écart, le clipper 2 a reçu deux fois « Étape 2 ») : la fiche était
+    # lue, puis réécrite après l'appel au classeur (_contexte) et l'envoi — elle écrasait ce qui avait été écrit entre-temps.
+    # Le contexte d'abord ; la fiche relue après l'attente, posée et écrite sans attente ; relue encore pour l'id du message.
+    ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or {"prenom": _prenom(membre)})
+    d = _lire()
     fiche_p = d.setdefault(uid, {"prenom": _prenom(membre),
                                  "creatrice": "", "salon_id": str(salon.id), "etape": n, "dates": {}, "notes": []})
     fiche_p["etape"] = n
     fiche_p["salon_id"] = str(salon.id)
     fiche_p.setdefault("dates", {})[str(n)] = _maintenant()
-    ctx = await _contexte(getattr(salon, "guild", None), uid, fiche_p)
+    _ecrire(d)
     e = ETAPES[n]
     texte = f"{membre.mention} **{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
     try:
         msg = await salon.send(texte[:1990], view=_vue(getattr(salon, "guild", None), uid, n, ctx))
-        fiche_p.setdefault("messages", {})[str(n)] = str(msg.id)
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Étape %s pour %s : %s", n, uid, erreur)
-    _ecrire(d)
+        return
+    d = _lire()
+    if uid in d:
+        d[uid].setdefault("messages", {})[str(n)] = str(msg.id)
+        _ecrire(d)
 
 
 async def demarrer_parcours(salon, membre, creatrice: str) -> None:
@@ -502,6 +528,14 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
     if n in (1, 2, 3) and not (fiche_p.get("profils") or {}).get(str(n)) and _deps.get("profil_envoyer") \
             and str((fiche_p.get("dates") or {}).get(str(n)) or "9") >= DISTILLE_DEPUIS:
         ctx = await _contexte(getattr(salon, "guild", None), str(uid), fiche_p)
+        # 01/10 (relecture) : relue après l'appel au classeur — l'ancienne copie écrasait ce qui avait été écrit pendant
+        # l'attente ; un double appui arrivé entre-temps a déjà envoyé le profil
+        d = _lire()
+        fiche_p = d.get(str(uid))
+        if not fiche_p or int(fiche_p.get("etape", 0)) != int(n) or not (fiche_p.get("dates") or {}).get(str(n)):
+            return False
+        if (fiche_p.get("profils") or {}).get(str(n)):
+            return True
         if not str(ctx.get(f"creation{n}", "")).startswith("Ce compte existe déjà"):
             fiche_p.setdefault("profils", {})[str(n)] = _maintenant()
             _ecrire(d)
@@ -520,6 +554,8 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
                 return True
             d = _lire()
             fiche_p = d.get(str(uid))                                   # profil impossible : on ferme l'étape quand même
+            if not fiche_p or int(fiche_p.get("etape", 0)) != int(n):   # 01/10 (relecture) : fermée entre-temps
+                return False
     fiche_p.setdefault("dates", {})[f"{n}_fait"] = _maintenant()
     fiche_p["etape"] = n + 1
     _ecrire(d)
@@ -579,8 +615,13 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
     ctx = await _contexte(getattr(salon, "guild", None), str(uid), fiche_p)
     texte = TEXTE_PUBLIER[n].format(rythme="2 Reels par jour dessus.", drive=ctx.get("drive", "ton Drive"))
     a = attente(fiche_p)
-    if a and a[0] == n + 1 and reels_vus(uid, fiche_p, n) < REELS_OUVERTURE:
-        texte += f"\n\nTon compte {n + 1} arrive tout seul ici dès que {REELS_OUVERTURE} Reels sont publiés sur ton compte {n}."
+    # 01/10 (relecture) : les deux conditions de la règle, plus seulement les Reels ; compte n BAN : « sur tes autres
+    # comptes » ; BAN sans aucun compte vivant : rien ici, l'équipe est prévenue (_signaler_bloques)
+    if a and a[0] == n + 1 and reels_vus(uid, fiche_p, n) < REELS_OUVERTURE and not _bloque_ban(uid, fiche_p, n):
+        ou = _ou_publier(uid, fiche_p, n)
+        texte += (f"\n\nTon compte {n + 1} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après ton compte {n}, "
+                  + (f"dès que {REELS_OUVERTURE} Reels sont publiés dessus." if ou == f"ton compte {n}" else
+                     f"dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}."))
     await salon.send(f"{membre.mention} " + texte)
 
 
@@ -589,12 +630,66 @@ async def programme_du_jour(client, maintenant=None) -> list:
     l'étape du compte suivant (48 h après). 01/10 : l'étape du compte suivant ne part qu'avec REELS_OUVERTURE Reels vus par le
     scan sur le compte d'avant ; sinon elle reste au programme, sans message, et part au passage (heure ou scan) qui la voit
     remplie. Chaque élément qui part est retiré de la fiche AVANT l'envoi (jamais deux fois) ; un salon ou un membre
-    introuvable le garde pour le passage suivant. Renvoie [(uid, type, n)] envoyés."""
+    introuvable le garde pour le passage suivant. Renvoie [(uid, type, n)] envoyés.
+    01/10 (relecture) : un seul passage à la fois (la boucle horaire et la fin du scan se chevauchaient), et le clipper
+    bloqué par un BAN sans aucun compte vivant (_bloque_ban) est signalé une fois au salon admin."""
+    async with _verrou_programme():
+        return await _programme_du_jour(client, maintenant)
+
+
+_verrou_prog = (None, None)
+
+
+def _verrou_programme():
+    """Le verrou de programme_du_jour, créé dans la boucle asyncio qui tourne (même modèle que codes_2fa._verrou)."""
+    global _verrou_prog
+    boucle_a = asyncio.get_running_loop()
+    if _verrou_prog[0] is not boucle_a:
+        _verrou_prog = (boucle_a, asyncio.Lock())
+    return _verrou_prog[1]
+
+
+async def _signaler_bloques(d0: dict) -> None:
+    """01/10 (relecture) : le compte qui ouvre le suivant est BAN et aucun compte vivant n'est créé — le parcours attend
+    sans fin. Une ligne au salon admin, une fois par compte banni (clé « alerte_ban » de la fiche). Gaëtan décide."""
+    for uid, fiche_p in list(d0.items()):
+        a = attente(fiche_p) if isinstance(fiche_p, dict) else None
+        if not a or not _bloque_ban(uid, fiche_p, a[0] - 1):
+            continue
+        cle = str(a[0] - 1)
+        if fiche_p.get("alerte_ban") == cle:
+            continue
+        d = _lire()                                                     # écrit AVANT l'envoi : jamais deux alertes
+        if uid not in d:
+            continue
+        d[uid]["alerte_ban"] = cle
+        _ecrire(d)
+        canal = None
+        try:
+            canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+            if canal is not None:
+                await canal.send(f"⛔ **{fiche_p.get('prenom') or uid}** (<@{uid}>) bloqué : compte {a[0] - 1} BAN, aucun compte "
+                                 f"vivant, parcours en attente. Tu décides : `!etape @{fiche_p.get('prenom') or uid} {a[0]}` pour "
+                                 "ouvrir le suivant, ou un remplacement.")
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Alerte BAN de %s : %s", uid, erreur)
+        if canal is None:                                               # pas prévenu : on retentera au passage suivant
+            d = _lire()
+            if uid in d and d[uid].get("alerte_ban") == cle:
+                d[uid].pop("alerte_ban", None)
+                _ecrire(d)
+
+
+async def _programme_du_jour(client, maintenant=None) -> list:
     maintenant = maintenant or datetime.now(timezone.utc)
     faits = []
     d0 = _lire()
     if _migrer_essai(d0):                                               # 01/10 : fin de la période d'essai, sans message
         _ecrire(d0)
+    try:
+        await _signaler_bloques(d0)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Clippers bloqués par un BAN : %s", erreur)
     for uid, fiche_p in list(d0.items()):
         if not any(_echu(x, maintenant) for x in fiche_p.get("programme") or []):
             continue
@@ -698,7 +793,9 @@ async def boucle(client) -> None:
                         await salon.send(f"🎉 <@{uid}> ton warm-up est fini. Tu peux publier tes Reels !")   # 01/10 : plus de « tes 1 jours »
                         await valider_etape(salon, uid, 4, par="bot")
                     else:
-                        texte_w = WARMUP_JOUR_TEXTE.format(j=j, jours=WARMUP_JOURS)
+                        comptes_w = _comptes_ordonnes(uid)              # 01/10 (relecture) : les autres comptes, sans les BAN
+                        autres_w = [h for h in _vivants(uid, fiche_p, comptes_w[:3]) if h not in comptes_w[2:3]]
+                        texte_w = WARMUP_JOUR_TEXTE.format(j=j, jours=WARMUP_JOURS, autres=_liste(autres_w))
                         if not (_deps.get("deposer") and _deps["deposer"](salon.id, "warmup", texte_w)):
                             await _suite(salon, f"<@{uid}> " + texte_w)
                 # 28/09 : relance courte — une étape (1 à 3, 5, 6) qui traîne depuis RELANCE_JOURS jours → une ligne, tous les RELANCE_JOURS jours
@@ -798,7 +895,9 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
         h = comptes[i - 1] if i - 1 < len(comptes) else ""
         nom = f"compte {i}" + (f" `{h}`" if h else "")
         if _est_ban(h, fiche_p):
-            parts.append(f"{nom} : BAN, il fait appel lui-même (Contester la décision, `!code`, selfie, son numéro ou sa pièce d'identité si demandés)")
+            # 01/10 (relecture) : le salon des codes nommé, plus « `!code` » seul (l'assistant disait « tape !code » au salon perso)
+            parts.append(f"{nom} : BAN, il fait appel lui-même (Contester la décision, code dans #{codes_2fa.SALON_CODES_NOM} avec !code, "
+                         "selfie, son numéro ou sa pièce d'identité si demandés)")
             continue
         if not _cree(fiche_p, i):
             if a and a[0] == i:                                         # 01/10 : la règle unique, sans date promise
@@ -873,13 +972,17 @@ def prochaine_etape(salon_id, maintenant=None) -> str:
         a = attente(fiche_p)
         if a:                                                           # 01/10 : le compte suivant attend ses 48 h ET ses Reels
             m = a[0] - 1
+            if _bloque_ban(uid, fiche_p, m):                            # 01/10 (relecture) : plus de « tes autres comptes » fantôme
+                return texte_bloque(m)[0].lower() + texte_bloque(m)[1:]
             ou = _ou_publier(uid, fiche_p, m)
             if reels_vus(uid, fiche_p, m) >= REELS_OUVERTURE:
                 return f"ton compte {a[0]} arrive ici le {_date_fr(a[1])}. D'ici là : 2 Reels par jour sur {ou}."
             if maintenant < a[1]:
                 return (f"2 Reels par jour sur {ou}. Ton compte {a[0]} arrive ici au plus tôt le {_date_fr(a[1])}, "
                         f"dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}.")
-            return f"ton compte {a[0]} arrive dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}. Prends-les dans ton Drive."
+            # 01/10 (relecture, règle 30) : plus de « Prends-les dans ton Drive », qui laissait publier sans modifier
+            return (f"ton compte {a[0]} arrive dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}.\n\n"
+                    "Prends une vidéo dans ton Drive et modifie-la avant de la publier.")
         return PROCHAINES[n].format(**c)
     return ""
 
@@ -1022,8 +1125,9 @@ def contexte_llm(uid: str) -> str:
     """Le bloc de contexte ajouté à chaque question posée dans le salon perso : le bot y est le manager."""
     return ("[Salon perso : ici tu es l'ASSISTANT du clipper au quotidien (pas son manager). Tu parles comme à un élève de collège : phrases de "
             "10 mots maximum, mots simples, une action par ligne, jamais de parenthèses. Réponds court, une action à la fois, tutoie, "
-            "guide-le selon son étape en cours, renvoie aux fiches du forum et aux commandes `!code` (son code de "
-            "vérification), `!mesclics` (ses visites). Les comptes se créent ici, guidés par le parcours : plus de créneau "
+            # 01/10 (relecture) : plus de `!code` seul, qui faisait dire « tape !code » dans le salon perso
+            "guide-le selon son étape en cours, renvoie aux fiches du forum et à `!mesclics` (ses visites) ; pour un code, "
+            "la phrase canonique ci-dessous. Les comptes se créent ici, guidés par le parcours : plus de créneau "
             "lundi/mercredi/vendredi, plus de contrat, plus de distinction France/International. Ne redonne jamais un mot "
             "de passe. Paie : 0,05 $ par visite francophone réelle sur son lien, tous les 15 jours, USDC ou virement. "
             # 01/10 (Gaëtan) : une seule règle des comptes, pour tous, mot pour mot ; une seule phrase pour les codes
@@ -1040,10 +1144,11 @@ def contexte_llm(uid: str) -> str:
             "l'équipe est prévenue. Il demande OÙ prendre "
             "la story : tu réponds au où, pas au widget. Un compte BAN ne change rien pour les autres : ils continuent. "
             "On ne réutilise jamais une info d'un compte BAN (identifiant, e-mail, mot de passe) pour un autre compte. "
-            "Un compte banni (30/09) : il fait appel lui-même, tout de suite (« Contester la décision », code avec `!code`, selfie vidéo, son "
+            f"Un compte banni (30/09) : il fait appel lui-même, tout de suite (« Contester la décision », le code dans "
+            f"#{codes_2fa.SALON_CODES_NOM} avec !code, selfie vidéo, son "
             "numéro ou sa pièce d'identité si Instagram les demande, jamais ceux d'un autre, jamais sa pièce d'identité dans Discord) ; "
             "tu ne promets jamais un compte neuf "
-            "ni une date (« demain ») : c'est Gaëtan qui le remplace. "
+            "ni une date (« demain ») : si l'appel échoue, Gaëtan décide. "   # 01/10 (relecture) : une seule version du ban
             "Le lien (28/09) : une seule fois, dans une story à la une sur chaque compte, et on n'y touche plus ; jamais en bio, "
             "jamais d'@ en bio (ça fait des bans), jamais dans un Reel ; chaque jour une story avec le widget du profil vers la story "
             "à la une. Trois comptes de croissance, plus de compte privé (28/09) : chaque compte fait ses 24 h de warm-up après sa "
@@ -1055,7 +1160,8 @@ def contexte_llm(uid: str) -> str:
             "affichée dans le salon avec son bouton. Aucune question inutile (modèle de téléphone, « dis-moi quand c'est "
             "fait »). Tu ne parles que des comptes CRÉÉS d'après la mémoire : jamais « tes deux autres comptes » s'ils "
             "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
-            "mot de passe modifié » = se reconnecter avec le mot de passe de son étape puis `!code` ; s'il ne marche plus, "
+            f"mot de passe modifié » = se reconnecter avec le mot de passe de son étape, puis le code dans "
+            f"#{codes_2fa.SALON_CODES_NOM} avec !code ; s'il ne marche plus, "
             "WhatsApp Gaëtan, jamais « Mot de passe oublié ». `!code` ne donne QUE les codes reçus par e-mail (création, "
             "connexion, appel), jamais ceux qui changent l'e-mail, le mot de passe ou le numéro. Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
             "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
