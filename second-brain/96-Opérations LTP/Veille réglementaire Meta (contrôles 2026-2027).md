@@ -39,6 +39,10 @@ Le texte interdisant l'accès aux réseaux sociaux aux mineurs de 15 ans a été
 
 **Ce que ça change pour LTP** [probable] : **peu**. L'audience des fan pages clippers est adulte (contenu 18+ par nature), pas des 13-14 ans. Le seul enseignement dur : **mineurs = ligne rouge absolue**, réaffirmée par tout le mouvement réglementaire (KYC créatrices, vérification d'âge partout). C'est la seule règle du vault qui ne se négocie jamais — cf. [[Risques légaux et éthiques de l'OFM]].
 
+## 5. Liens de profil vers OF-MYM — vague du 29/09/2026 [confirmé pour la règle, probable pour la vague]
+
+Instagram ne recommande pas un compte qui affiche un lien adulte dans son profil (bio ou story à la une) ; un lien vers OnlyFans/MYM est permis mais réservé aux 18+ depuis le 14/05/2025 ; le cloaking est interdit mot pour mot par la politique anti-spam. Une vague a appliqué la première règle en masse à partir du 29/09, comme en mai. Le détail, les tests de 12 pages concurrentes et le plan de LTP sont dans [[Liens Instagram vers OF-MYM - règles, vague de septembre et plan (2 octobre 2026)]] (à jour 2026-10-02).
+
 ## Le fil à tenir
 
 Cette page alimente la **veille réglementaire mensuelle** décidée au [[Journal de coaching]] (entrée du 19/07, renforcée par la loi Mercier le 09/08). La bascule de fond n'est pas « l'interdiction des réseaux aux enfants » : c'est le passage d'un monde où Meta fixait ses propres garde-fous à un monde où **l'âge et le système de recommandation deviennent des surfaces réglementées** — donc plus instables. Pour une machine qui vit de comptes gratuits sur le terrain de Meta, la parade reste la même : diversifier les canaux, détenir un actif (capture Telegram/e-mail), et ne jamais dépendre d'un seul tuyau.

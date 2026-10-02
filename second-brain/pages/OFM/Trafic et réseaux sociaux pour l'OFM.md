@@ -40,6 +40,8 @@ Ce terrain évolue plus vite que n'importe quelle page : algorithmes, CGU et out
 
 Le trafic applique le cluster [[_MOC Marketing|Marketing]] sous contraintes maximales, ce qui en fait paradoxalement une excellente école d'acquisition. Tableau de bord par source et règles de diversification dans `98-Rapports/Rapport OFM`. Cas particulier : le trafic *interne* MYM, un canal gratuit fourni par la plateforme elle-même (recommandation aux non-abonnés) qui se cumule à l'acquisition externe — modèle et playbook dans [[Stratégie trafic interne MYM]].
 
+L'application la plus récente de ces invariants à LTP — ce que les règles de Meta disent des liens en bio, en story et à la une, la vague de septembre 2026 et pourquoi le cloaking coûte plus qu'il ne protège — est dans [[Liens Instagram vers OF-MYM - règles, vague de septembre et plan (2 octobre 2026)]] ; l'idée d'une audience possédée par e-mail y est chiffrée dans [[Newsletter quotidienne vers OF-MYM - verdict (2 octobre 2026)]].
+
 ## Sources
 
 [^1]: Règles de contenu et de promotion publiques des principales plateformes (TikTok, Instagram/Meta, X, Reddit), telles qu'évolutives.
