@@ -17,8 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import paie_clics as pc, onboarding as ob, classeur_forme as cf  # noqa: E402
 S = sys.argv[1] if len(sys.argv) > 1 else "."
 REF = {"Chloé": "chloecallistafr:", "Sarah": "sarahivanovafr:", "Jade": "jadetorafr:"}
-FICHIERS = {"Chloé": ("chloe_fond.png", {"Miam": "chloe_carte0_Miam.jpg", "0F": "chloe_carte1_0F.jpg"}),
-            "Sarah": ("sarah_fond.jpg", {"Miam": "sarah_carte0_Miam.jpg", "0F": "sarah_carte1_0F.jpg"}),
+# 02/10 : les images se choisissent par plateforme (MYM / OF), plus par libellé — les boutons s'appellent « Plateforme exclusive »
+FICHIERS = {"Chloé": ("chloe_fond.png", {"MYM": "chloe_carte0_Miam.jpg", "OF": "chloe_carte1_0F.jpg"}),
+            "Sarah": ("sarah_fond.jpg", {"MYM": "sarah_carte0_Miam.jpg", "OF": "sarah_carte1_0F.jpg"}),
             "Jade": ("jade_fond.mp4", {})}
 DESIGN = ("template", "templateConfig", "contentStyle", "buttonStyle", "backgroundType", "textColor", "templateColor", "iconColor",
           "buttonColor", "buttonTextColor", "buttonIconColor", "hideContentIcons", "shield", "isDeeplinkEnabled", "isDeeplinkLongPress",
@@ -57,7 +58,7 @@ async def main(cibles):
     # Jade : sa référence n'a qu'un bouton OnlyFans ; on va « rediriger vers MYM et OF » → un bouton MYM en plus, sans image
     if not any("mym" in (c.get("value") or "") for c in details["jadetorafr:"].get("contents") or []):
         details["jadetorafr:"]["contents"] = list(details["jadetorafr:"].get("contents") or []) + [
-            {"name": "Miam", "value": "https://mym.fans/", "effect": None, "cardType": "simple", "is18Plus": True, "image": ""}]
+            {"name": "Plateforme exclusive", "value": "https://mym.fans/", "effect": None, "cardType": "simple", "is18Plus": True, "image": ""}]
     comptes = await ob.lire_comptes()
     attendu = {}
     for t in REF:
@@ -103,8 +104,9 @@ async def main(cibles):
             attrs = {"name": rc["name"], "value": valeur, "effect": rc.get("effect"), "cardType": rc.get("cardType") or "simple", "is18Plus": bool(rc.get("is18Plus"))}
             nouveau = await appel("POST", f"/links/{d['id']}/contents", corps=attrs)
             nid = nouveau.get("id") or (nouveau.get("content") or {}).get("id")
-            if rc.get("image") and nid and cartes.get(rc["name"]):
-                r_img = televerser(f"{pc.API}/contents/{nid}/image", f"{S}/gaml_ref/{cartes[rc['name']]}")
+            cle_img = "MYM" if est_mym else "OF"
+            if rc.get("image") and nid and cartes.get(cle_img):
+                r_img = televerser(f"{pc.API}/contents/{nid}/image", f"{S}/gaml_ref/{cartes[cle_img]}")
                 if r_img.get("erreur"): notes.append(f"image {rc['name']} : {str(r_img)[:60]}")
         for cid in anciennes_cartes:
             try: await appel("DELETE", f"/contents/{cid}")

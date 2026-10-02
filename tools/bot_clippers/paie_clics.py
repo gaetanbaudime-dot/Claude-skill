@@ -162,14 +162,24 @@ async def lien_detail(link_id: str) -> dict:
 
 
 def _carte_privee(detail: dict):
-    """La carte « Plateforme privée » d'un lien (celle qui porte le lien de tracking), sinon la première carte."""
+    """La carte OnlyFans d'un lien (celle qui porte le lien de tracking). 02/10 : les deux boutons s'appellent désormais
+    « Plateforme exclusive » ; la carte se repère d'abord par sa destination (onlyfans.com), puis par son nom, et jamais une
+    carte MYM : un lien sans carte OnlyFans renvoie None plutôt que d'écraser le lien MYM (cause des « Miam » → OnlyFans)."""
     cartes = detail.get("contents") or []
     if not cartes:
         return None
     def _nom(c):
         return str(c.get("name", "")).lower().strip()
-    return next((c for c in cartes if any(m in _nom(c) for m in ("priv", "platform", "plateforme", "onlyfans", "only fans"))
-                 or _nom(c) in ("of", "0f")), cartes[0])                   # 27/09 : la carte de Clara s'appelle « 0F »
+    def _dest(c):
+        return str(c.get("value") or "").lower()
+    carte_of = next((c for c in cartes if "onlyfans.com" in _dest(c)), None)
+    if carte_of:
+        return carte_of
+    hors_mym = [c for c in cartes if "mym.fans" not in _dest(c)]
+    if not hors_mym:
+        return None
+    return next((c for c in hors_mym if any(m in _nom(c) for m in ("priv", "platform", "plateforme", "exclusi", "onlyfans", "only fans"))
+                 or _nom(c) in ("of", "0f")), hors_mym[0])                  # 27/09 : la carte de Clara s'appelait « 0F »
 
 
 async def poser_tracking(link_id: str, url: str) -> str:
@@ -179,7 +189,7 @@ async def poser_tracking(link_id: str, url: str) -> str:
         return "sans tracking"
     carte = _carte_privee(await lien_detail(link_id))
     if carte is None:
-        return "lien sans carte"
+        return "pas de carte OnlyFans sur ce lien"
     if (carte.get("value") or "").strip() == url.strip():
         return "déjà"
     await _requete("PATCH", f"/contents/{carte['id']}", corps={"value": url.strip()})
