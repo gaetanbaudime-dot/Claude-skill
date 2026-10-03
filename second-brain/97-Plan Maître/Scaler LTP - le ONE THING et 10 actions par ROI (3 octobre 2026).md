@@ -19,6 +19,9 @@ liens_forts: ["[[Goulot de l'agence - l'équation du scale]]", "[[Plan Maître 5
 >
 > **Vérité brutale :** 500 k€/mois n'est pas atteignable en 2026 avec 6 créatrices. L'objectif des 90 jours : remettre ta part au-dessus de tes dépenses, et débloquer les nouvelles signatures.
 
+> [!note] Révision du soir
+> Gaëtan a redonné le cadre le soir même (Loris en vertical, horizontal au variable le 05/10, tout sur MYM, lui au recrutement) : les dix actions ont été refaites dans [[Octobre lean - Loris en vertical, tout au variable, tout sur MYM (3 octobre 2026, soir)|Octobre lean]], qui corrige « tout sur MYM » créatrice par créatrice.
+
 Légende : [C] confirmé, [P] probable, [S] spéculatif.
 
 ## 1. L'état réel en 6 chiffres
