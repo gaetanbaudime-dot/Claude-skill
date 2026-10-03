@@ -86,3 +86,6 @@ OnlyFans 2024 : 7,2 Md$ de paiements fans (+9 %), 4,6 M créateurs pour 377 M co
 
 [^1]: Benchmarks agences 2025-2026 : LTV 50-500 $/fan mid-tier, conversion 1er PPV 30-60 % à 7 j, churn 15-25 % vs 40-60 %, chatting 70-80 % du temps opérationnel (synthèse CreatorHero, Desirely, Aruna Talent, everything-pr, 2025-2026) ; recoupés par [[Croisement des deep research marché OFM]] et les données internes du 13/07.
 [^2]: Fenix International, résultats fiscaux 2024 (Variety, 2025) : 7,22 Md$ brut, 5,80 Md$ reversés, 4,63 M créateurs, 377,5 M comptes fans.
+
+> [!warning] Mise à jour du 03/10/2026
+> Confrontation du plan à la réalité de septembre (CA ≈ 49 k€ plat, goulot = temps de Gaëtan) : [[Scaler LTP - le ONE THING et 10 actions par ROI (3 octobre 2026)]].
