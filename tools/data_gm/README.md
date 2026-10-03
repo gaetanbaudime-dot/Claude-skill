@@ -83,3 +83,8 @@ groupe AGENCE grisé ; mise en forme conditionnelle en fond clair, texte noir : 
 jaune 8-15 €, vert ≥ 15 €.
 Correctif : la colonne F (espace entre 30 et 90 jours) avait été rétrécie, ce qui écrasait « novembre » dans les blocs par
 mois ; elle est remise à 110 px.
+
+**Seuils de la Synthèse (03/10/2026, « pour les 90 j, multiplie par 3 les subs »)** : même règle que le rapport sur chaque
+période — subs sous le seuil en rouge ; au-dessus, LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 € ; pas de couleur de LTV sous
+le seuil. Seuil de subs : 800 sur 30 jours, 2 400 sur 90 jours. Formules de mise en forme sans séparateur (`(a)*(b)`),
+indépendantes de la langue du classeur.

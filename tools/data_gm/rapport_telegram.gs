@@ -336,7 +336,7 @@ function alignerSynthese() {
   f.getRange(5, 1, 1, 9).setValues([["Créatrice", "Plateforme", "Subs", "CA", "LTV", "", "Subs", "CA", "LTV"]]);
   const fin = D0 + 4 * crea.length - 2;                        // dernière ligne « Total » d'une créatrice
   const ltv = (l, ca, subs) => `=IFERROR(${ca}${l}/${subs}${l},"—")`;
-  const plages = { subs: [], ltv: [] };
+  const plages = { 3: [], 7: [] };                             // plages des subs 30 j (C) et 90 j (G), groupe par groupe
   const groupe = (r0, nom, plat) => {
     f.getRange(r0, 1, 3, 1).merge().setValue(nom).setFontWeight("bold").setVerticalAlignment("middle");
     f.getRange(r0, 2, 3, 1).setValues([["OF"], ["MYM"], ["Total"]]);
@@ -345,8 +345,7 @@ function alignerSynthese() {
     [3, 7].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('#,##0;-#,##0;"—"'));
     [4, 8].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('#,##0 "€";-#,##0 "€";"—"'));
     [5, 9].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('0.00 "€"').setHorizontalAlignment("right"));
-    [3, 7].forEach(c => plages.subs.push(f.getRange(r0, c, 3, 1)));
-    [5, 9].forEach(c => plages.ltv.push(f.getRange(r0, c, 3, 1)));
+    [3, 7].forEach(c => plages[c].push(f.getRange(r0, c, 3, 1)));
     f.getRange(r0 + 2, 2, 1, 8).setFontWeight("bold").setBackground("#F2F2F5");
     f.getRange(r0 + 2, 1, 1, 9).setBorder(null, null, true, null, null, null, "#9E9EB8", SpreadsheetApp.BorderStyle.SOLID);
   };
@@ -364,15 +363,22 @@ function alignerSynthese() {
     fx(`${c2}${r0 + k}`, `=SUMIFS(${c2}$${D0}:${c2}$${fin},$B$${D0}:$B$${fin},"${pl}")`))));
   f.getRange(ra, 1, 3, 9).setFontWeight("bold").setBackground("#E8E8EC");
 
-  // couleurs : règle du rapport (subs < 800) ; LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 €. 03/10 (Gaëtan, exemple en L11:L14 :
-  // « juste un fond de couleur léger ») : fond clair de la palette Google, texte noir normal
+  // couleurs, fond clair et texte noir (03/10, exemple de Gaëtan en L11:L14). Règle du rapport, sur chaque période :
+  //   subs sous le seuil → subs en rouge ; sinon LTV < 8 € rouge, 8-15 € jaune, ≥ 15 € vert ; pas de couleur de LTV sous le seuil.
+  // 03/10 (Gaëtan : « pour les 90 j, multiplie par 3 les subs ») : seuil 800 sur 30 jours, 2 400 sur 90 jours ; LTV 8 € et 15 €.
+  // Formules sans séparateur ni nom de fonction ((a)*(b) = ET) : elles marchent quelle que soit la langue du classeur.
   const regle = () => SpreadsheetApp.newConditionalFormatRule();
-  const ROUGE = "#F4CCCC", JAUNE = "#FFF2CC", VERT = "#D9EAD3";
-  f.setConditionalFormatRules(f.getConditionalFormatRules().concat([
-    regle().whenNumberLessThan(SEUIL_SUBS).setBackground(ROUGE).setRanges(plages.subs).build(),
-    regle().whenNumberLessThan(SEUIL_LTV_JAUNE).setBackground(ROUGE).setRanges(plages.ltv).build(),
-    regle().whenNumberLessThan(SEUIL_LTV).setBackground(JAUNE).setRanges(plages.ltv).build(),
-    regle().whenNumberGreaterThanOrEqualTo(SEUIL_LTV).setBackground(VERT).setRanges(plages.ltv).build()]));
+  const ROUGE = "#F4CCCC", JAUNE = "#FFF2CC", VERT = "#D9EAD3", der = ra + 2;
+  const regles = [];
+  [["C", "E", SEUIL_SUBS], ["G", "I", SEUIL_SUBS * 3]].forEach(([cs, cl, seuil]) => {
+    const ok = `(${cs}${D0}>=${seuil})`, v = `${cl}${D0}`, cible = [f.getRange(`${cl}${D0}:${cl}${der}`)];
+    regles.push(
+      regle().whenNumberLessThan(seuil).setBackground(ROUGE).setRanges(plages[cs === "C" ? 3 : 7]).build(),
+      regle().whenFormulaSatisfied(`=${ok}*(${v}<${SEUIL_LTV_JAUNE})`).setBackground(ROUGE).setRanges(cible).build(),
+      regle().whenFormulaSatisfied(`=${ok}*(${v}>=${SEUIL_LTV_JAUNE})*(${v}<${SEUIL_LTV})`).setBackground(JAUNE).setRanges(cible).build(),
+      regle().whenFormulaSatisfied(`=${ok}*(${v}>=${SEUIL_LTV})`).setBackground(VERT).setRanges(cible).build());
+  });
+  f.setConditionalFormatRules(f.getConditionalFormatRules().concat(regles));
   f.setColumnWidth(6, 110);                                    // 03/10 : rétrécie par erreur à 24 (colonne « novembre » des blocs par mois)
   Logger.log(`Synthèse : bloc 30 / 90 jours par créatrice (${crea.map(c => c.nom).join(", ")}, puis AGENCE), séparateur « ${sep} ».`);
 }
