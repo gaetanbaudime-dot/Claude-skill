@@ -116,3 +116,12 @@ Chatting ; sinon Scaler. Gain Chatting = somme, par plateforme, de subs × LTV c
 LTV. Couleurs de LTV par plateforme : OF 8 / 15 €, MYM 5 / 10 € (Synthèse, Subs & LTV par mois et pastilles du rapport
 Telegram). Synthèse sans tuiles, sans bloc AGENCE ni colonne « Actuel » ; Commission & profit sans la « vue agence » (doublon
 des lignes TOTAL). Recalcul LibreOffice sur une copie du classeur : aucune erreur.
+
+**Règle de scaling, 3e version, et noms des onglets (03/10/2026)** : la règle s'applique **plateforme par plateforme, en deux
+étapes** — 1. une plateforme active sous 800 nouveaux subs sur 30 jours → problème de marketing (sa LTV n'est pas jugée) ;
+2. à partir de 800 subs, LTV sous 15 € (OF) ou 10 € (MYM) → problème de chatting. Levier de la créatrice : Marketing,
+Chatting, « Marketing + Chatting » ou Scaler ; objectif écrit plateforme par plateforme (« OF : 800 subs · MYM : LTV 10 € ») ;
+gain = somme des objectifs atteints. Couleurs = la règle (subs rouges sous 800 ; LTV colorée seulement à partir de 800 subs).
+Onglets renommés et rangés dans l'ordre de lecture : **Pilotage** (ex-Synthèse), **Profit** (ex-Commission & profit),
+**CA mensuel**, **Subs & LTV mensuels**, puis les onglets de saisie et la Notice. Le renommage garde les formules ; le rapport
+Telegram lit les taux dans « Profit » (repli sur l'ancien nom).

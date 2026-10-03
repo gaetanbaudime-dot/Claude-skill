@@ -34,7 +34,12 @@
 const CREATRICES = ["Chloé", "Sophie", "Maddy", "Sarah", "Jade", "Clara"];
 const COMMISSIONS = { "Chloé": 0.40, "Sophie": 0.50, "Maddy": 0.50, "Sarah": 0.50, "Jade": 0.60, "Clara": 0.50 };
 const FRAIS = 0.15;              // frais + chatting, en part du CA
-const ONGLET_PROFIT = "Commission & profit";
+// 03/10 (Gaëtan : « est-ce que les titres sont bons ? simplifie-les, travaille l'ordre ») : noms courts, dans l'ordre de lecture.
+// Les anciens noms sont renommés par `construireDashboards` (un renommage garde toutes les formules qui pointent vers l'onglet).
+const ONGLETS = { pilotage: "Pilotage", profit: "Profit", ca: "CA mensuel", subs: "Subs & LTV mensuels" };
+const ANCIENS_NOMS = { "Synthèse": ONGLETS.pilotage, "Commission & profit": ONGLETS.profit, "CA par mois": ONGLETS.ca,
+  "Subs & LTV par mois": ONGLETS.subs };
+const ONGLET_PROFIT = ONGLETS.profit;
 // 03/10 (Gaëtan : « fais en sorte qu'il s'envoie tous les jours proprement ») : un déclencheur toutes les heures appelle
 // `envoiQuotidien`, qui envoie UNE fois par jour : dès HEURE_ENVOI si la veille est saisie pour toutes les créatrices actives,
 // sinon il attend la saisie jusqu'à HEURE_LIMITE puis envoie quand même (avec « ⚠️ Hier non saisi »). Un envoi raté (Telegram,
@@ -182,7 +187,7 @@ function construireRapport() {
 function _tauxProfit(ss) {
   const tx = {};
   CREATRICES.forEach(nom => { tx[nom] = { com: COMMISSIONS[nom], frais: FRAIS }; });
-  const f = ss.getSheetByName(ONGLET_PROFIT);
+  const f = ss.getSheetByName(ONGLET_PROFIT) || ss.getSheetByName("Commission & profit");   // avant renommage
   if (f) f.getRange(4, 1, CREATRICES.length, 3).getValues().forEach(([nom, com, frais]) => {
     const cible = CREATRICES.find(c => _cle(c) === _cle(nom));
     if (cible && typeof com === "number" && typeof frais === "number") tx[cible] = { com, frais };
@@ -224,9 +229,9 @@ function _ecrivain(f) {
 // Fenêtres « 30 / 90 jours » : jours complets, du J-30 (J-90) à hier. Mois : mois civils, juillet → décembre 2026.
 // ============================================================================================================================
 const T_SOMBRE = "#3D3D5C", T_CLAIR = "#F2F2F5", T_GRIS = "#E8E8EC", T_TUILE = "#F4F4F9";
-const C_ROUGE = "#F4CCCC", C_JAUNE = "#FFF2CC", C_VERT = "#D9EAD3", C_BLEU = "#CFE2F3", C_ROSE = "#EAD1DC";
+const C_ROUGE = "#F4CCCC", C_JAUNE = "#FFF2CC", C_VERT = "#D9EAD3", C_BLEU = "#CFE2F3", C_ROSE = "#EAD1DC", C_ORANGE = "#FCE5CD";
 const F_SUBS = '#,##0;-#,##0;"—"', F_EUR = '#,##0 "€";-#,##0 "€";"—"', F_LTV = '0.00 "€"', F_PCT = "0%";
-const ONGLET_CA = "CA par mois", ONGLET_SUBS = "Subs & LTV par mois";
+const ONGLET_CA = ONGLETS.ca, ONGLET_SUBS = ONGLETS.subs;
 const MOIS_DEBUT = [2026, 7], NB_MOIS = 6;
 
 function _lettre(n) { let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; } return s; }
@@ -298,11 +303,11 @@ function _src(c) {
 function creerOngletCommission() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const garde = ss.getSheetByName(ONGLET_PROFIT) ? _tauxProfit(ss) : null;     // taux saisis à la main : conservés
-  const f = _feuille(ss, ONGLET_PROFIT, ss.getSheetByName("Synthèse"));
+  const f = _feuille(ss, ONGLET_PROFIT, ss.getSheetByName(ONGLETS.pilotage));
   const { sep, fx } = _ecrivain(f), crea = _ordre(ss), n = crea.length;
   [110, 88, 88, 88, 88, 88, 88, 20, 110, 88, 88, 88, 88, 88, 88].forEach((w, i) => f.setColumnWidth(i + 1, w));
-  _bandeau(f, "A1:O1", "COMMISSION & PROFIT — mise à jour automatique ; seules les cases jaunes (taux) se modifient");
-  _legende(f, "A2:O2", "Profit = CA × (commission agence − frais & chatting). Les taux jaunes sont lus aussi par la Synthèse et par le " +
+  _bandeau(f, "A1:O1", "PROFIT — commission et profit par créatrice ; seules les cases jaunes (taux) se modifient");
+  _legende(f, "A2:O2", "Profit = CA × (commission agence − frais & chatting). Les taux jaunes sont lus aussi par Pilotage et par le " +
     "rapport Telegram. OF converti en € au taux du jour (Notice!B3). 30 / 90 jours = jours complets jusqu'à hier.");
 
   // taux (A3:D9, ordre fixe de CREATRICES : le rapport Telegram les lit par prénom)
@@ -384,39 +389,40 @@ function _blocMois(f, fx, r, c0, titre, crea, cellule, totalMois, fmt, avecTotal
 }
 
 // --------------------------------------------------------------------------------------------------------- Synthèse
-// 03/10 (2e version, Gaëtan : « un levier par créatrice ; la règle des 15 € vaut pour OnlyFans, MYM c'est moins ; enlève la
-// partie agence, déjà ailleurs ; pas d'information en double ; propre et lisible ») :
-//   — une ligne de décision par créatrice (cellules fusionnées sur ses 3 lignes), calculée sur ses 30 derniers jours :
-//     moins de 800 nouveaux subs (OF + MYM) → MARKETING ; sinon, une plateforme sous sa LTV cible → CHATTING ; sinon → SCALER ;
-//   — LTV cible : OnlyFans 15 €, MYM 10 € (CIBLES) ; objectif écrit en clair, gain = objectif atteint, le reste constant :
-//     Marketing : (800 − subs) × LTV actuelle ; Chatting : somme, plateforme par plateforme, de subs × LTV cible − CA ;
-//   — plus de tuiles ni de bloc AGENCE (déjà dans Commission & profit et CA par mois), plus de colonne « Actuel » (les subs et
-//     la LTV sont déjà dans le tableau).
+// 03/10 (3e version, Gaëtan : « je t'ai dit par étape : sur les 30 derniers jours, si les subs sont au-dessus de 800, pas de
+// problème de marketing ; en dessous, problème de marketing. Ensuite la règle de la LTV : 15 € sur OF, 10 € sur MYM ») :
+// la règle s'applique PLATEFORME PAR PLATEFORME, en deux étapes, puis donne un levier par créatrice :
+//   1. une plateforme active sous 800 nouveaux subs → problème de MARKETING (sa LTV n'est pas jugée : pas de volume) ;
+//   2. une plateforme à 800 subs ou plus, sous sa LTV cible (OF 15 €, MYM 10 €) → problème de CHATTING ;
+//   levier de la créatrice : Marketing, Chatting, « Marketing + Chatting » (une plateforme de chaque), ou Scaler (aucun problème).
+// Objectif = ce qui manque, plateforme par plateforme ; gain = somme des objectifs atteints, le reste constant :
+//   marketing → (800 − subs) × LTV de la plateforme ; chatting → subs × LTV cible − CA.
+// Couleurs = la règle : subs rouges sous 800 (OF / MYM) ; LTV colorée seulement au-dessus de 800 subs, avec les paliers de sa
+// plateforme. Sur 90 jours, seuil de subs × 3. Plus de tuiles ni de bloc agence (déjà dans Profit et CA mensuel).
 function alignerSynthese() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss.getSheetByName("Synthèse")) throw new Error("Onglet « Synthèse » introuvable.");
-  const f = _feuille(ss, "Synthèse");
+  const f = _feuille(ss, ONGLETS.pilotage);
   const { sep, fx } = _ecrivain(f), crea = _ordre(ss);
   const S = SEUIL_SUBS, OF = CIBLES.OF, MY = CIBLES.MYM, P = `'${ONGLET_PROFIT}'`;
-  // A créatrice | B plateforme | C espace | D-F 30 j | G espace | H-J 90 j | K espace | L-O scaling
-  [110, 78, 14, 70, 88, 72, 14, 70, 88, 72, 14, 100, 175, 110, 110].forEach((w, i) => f.setColumnWidth(i + 1, w));
+  // A créatrice | B plateforme | C espace | D-F 30 j | G espace | H-J 90 j | K espace | L-O décision
+  [110, 78, 14, 70, 88, 72, 14, 70, 88, 72, 14, 150, 200, 110, 110].forEach((w, i) => f.setColumnWidth(i + 1, w));
   const D0 = 5, der = D0 + 4 * crea.length - 2;
 
-  _bandeau(f, "A1:O1", "SYNTHÈSE CRÉATRICES — mise à jour automatique, ne rien saisir ici");
-  _legende(f, "A2:O2", `LEVIER (30 derniers jours, une décision par créatrice) : moins de ${S} nouveaux subs → MARKETING · ` +
-    `sinon, une plateforme sous sa LTV cible → CHATTING · sinon → SCALER. LTV cible : OnlyFans ${OF.vert} €, MYM ${MY.vert} € ` +
-    `(trafic interne MYM, moins qualifié). Couleurs LTV : OF rouge < ${OF.jaune} €, jaune ${OF.jaune}-${OF.vert} €, vert ≥ ` +
-    `${OF.vert} € · MYM rouge < ${MY.jaune} €, jaune ${MY.jaune}-${MY.vert} €, vert ≥ ${MY.vert} €. Gain = objectif atteint, ` +
-    `le reste constant, par mois. LTV = CA ÷ nouveaux subs. OF converti au taux du jour (Notice!B3).`);
+  _bandeau(f, "A1:O1", "PILOTAGE — un levier par créatrice, décidé sur les 30 derniers jours");
+  _legende(f, "A2:O2", `RÈGLE, plateforme par plateforme : 1. moins de ${S} nouveaux subs → problème de MARKETING. ` +
+    `2. à partir de ${S} subs, LTV sous ${OF.vert} € (OnlyFans) ou sous ${MY.vert} € (MYM) → problème de CHATTING. ` +
+    `Aucun problème → SCALER. Couleurs : subs rouges sous ${S} ; LTV jugée seulement à partir de ${S} subs — OF rouge < ` +
+    `${OF.jaune} €, jaune ${OF.jaune}-${OF.vert} €, vert ≥ ${OF.vert} € · MYM rouge < ${MY.jaune} €, jaune ${MY.jaune}-${MY.vert} €, ` +
+    `vert ≥ ${MY.vert} €. Sur 90 jours, seuil × 3 (${S * 3}). Gain = objectif atteint, le reste constant, par mois. ` +
+    `LTV = CA ÷ nouveaux subs ; OF converti au taux du jour (Notice!B3).`);
   f.setRowHeight(2, 46);
-  _tete(f, 3, 1, ["", "", "", "30 DERNIERS JOURS", "", "", "", "90 DERNIERS JOURS", "", "", "", "SCALING (30 derniers jours)", "", "", ""]);
+  _tete(f, 3, 1, ["", "", "", "30 DERNIERS JOURS", "", "", "", "90 DERNIERS JOURS", "", "", "", "DÉCISION (30 derniers jours)", "", "", ""]);
   ["D3:F3", "H3:J3", "L3:O3"].forEach(a1 => f.getRange(a1).merge().setBackground(T_SOMBRE));
   f.getRange("A3:B3").setBackground(T_SOMBRE);
   _tete(f, 4, 1, ["Créatrice", "Plateforme", "", "Subs", "CA", "LTV", "", "Subs", "CA", "LTV", "",
     "Levier", "Objectif", "Gain CA / mois", "Gain profit / mois"]);
 
   const ltv = (l, ca, subs) => `=IFERROR(${ca}${l}/${subs}${l},"—")`;
-  const lignes = { subs30: [], subs90: [], ltvOF: [], ltvMYM: [] };
   crea.forEach((c, g) => {
     const o = D0 + 4 * g, m = o + 1, t = o + 2, s = _src(c);
     f.getRange(o, 1, 3, 1).merge().setValue(c.nom).setFontWeight("bold").setVerticalAlignment("middle");
@@ -428,17 +434,21 @@ function alignerSynthese() {
     ["D", "E", "H", "I"].forEach(col => fx(`${col}${t}`, `=${col}${o}+${col}${m}`));
     for (let l = o; l <= t; l++) { fx(`F${l}`, ltv(l, "E", "D")); fx(`J${l}`, ltv(l, "I", "H")); }
 
-    // décision (fusionnée sur les 3 lignes) ; manque = ce qui sépare chaque plateforme de sa LTV cible, en € par mois
-    const manqueOF = `MAX(0,D${o}*${OF.vert}-E${o})`, manqueMY = `MAX(0,D${m}*${MY.vert}-E${m})`;
+    // verdict de chaque plateforme (1 = problème), puis décision de la créatrice (fusionnée sur ses 3 lignes)
+    const mkOF = `(D${o}>0)*(D${o}<${S})`, mkMY = `(D${m}>0)*(D${m}<${S})`;
+    const chOF = `(D${o}>=${S})*(E${o}<D${o}*${OF.vert})`, chMY = `(D${m}>=${S})*(E${m}<D${m}*${MY.vert})`;
     ["L", "M", "N", "O"].forEach(col => f.getRange(`${col}${o}:${col}${t}`).merge().setVerticalAlignment("middle")
       .setHorizontalAlignment("center"));
-    fx(`L${o}`, `=IF(D${t}=0,"—",IF(D${t}<${S},"Marketing",IF(${manqueOF}+${manqueMY}>0,"Chatting","Scaler")))`);
-    fx(`M${o}`, `=IF(L${o}="Marketing","${S} subs / mois",IF(L${o}="Chatting",` +
-      `IF(${manqueOF}>0,"LTV OF ${OF.vert} €","")&IF(${manqueOF}*${manqueMY}>0," · ","")&IF(${manqueMY}>0,"LTV MYM ${MY.vert} €",""),` +
-      `IF(L${o}="Scaler","plus de trafic","—")))`);
-    fx(`N${o}`, `=IF(L${o}="Marketing",(${S}-D${t})*F${t},IF(L${o}="Chatting",${manqueOF}+${manqueMY},0))`);
+    fx(`L${o}`, `=IF(D${t}=0,"—",IF(${mkOF}+${mkMY}>0,IF(${chOF}+${chMY}>0,"Marketing + Chatting","Marketing"),` +
+      `IF(${chOF}+${chMY}>0,"Chatting","Scaler")))`);
+    // chaque morceau commence par « · » ; MID(…;4;…) retire le premier (pas de TEXTJOIN : inconnu de certains tableurs)
+    fx(`M${o}`, `=IF(L${o}="Scaler","plus de trafic",IF(L${o}="—","—",MID(IF(${mkOF}," · OF : ${S} subs","")&IF(${mkMY}," · MYM : ${S} subs","")&` +
+      `IF(${chOF}," · OF : LTV ${OF.vert} €","")&IF(${chMY}," · MYM : LTV ${MY.vert} €",""),4,200)))`);
+    fx(`N${o}`, `=${mkOF}*(${S}-D${o})*IFERROR(E${o}/D${o},0)+${mkMY}*(${S}-D${m})*IFERROR(E${m}/D${m},0)` +
+      `+${chOF}*(D${o}*${OF.vert}-E${o})+${chMY}*(D${m}*${MY.vert}-E${m})`);
     fx(`O${o}`, `=N${o}*${P}!$D$${c.t}`);
     f.getRange(`L${o}`).setFontWeight("bold");
+    f.getRange(`M${o}`).setWrap(true);
     f.getRange(`N${o}:O${o}`).setNumberFormat(F_EUR).setFontWeight("bold");
 
     [4, 8].forEach(col => f.getRange(o, col, 3, 1).setNumberFormat(F_SUBS));
@@ -447,26 +457,29 @@ function alignerSynthese() {
     f.getRange(t, 2, 1, 9).setFontWeight("bold");
     [[2, 1], [4, 3], [8, 3]].forEach(([col, k]) => f.getRange(t, col, 1, k).setBackground(T_CLAIR)
       .setBorder(true, null, null, null, null, null, "#9E9EB8", SpreadsheetApp.BorderStyle.SOLID));
-    lignes.subs30.push(f.getRange(`D${t}`)); lignes.subs90.push(f.getRange(`H${t}`));
-    lignes.ltvOF.push(f.getRange(`F${o}`), f.getRange(`J${o}`)); lignes.ltvMYM.push(f.getRange(`F${m}`), f.getRange(`J${m}`));
   });
 
-  // couleurs : subs totaux sous le seuil (× 3 sur 90 jours) ; LTV OF et MYM selon leurs paliers ; levier
+  // couleurs = la règle. Une seule plage par colonne ; la colonne B (« OF » / « MYM » / « Total ») choisit les paliers, la
+  // ligne Total n'est jamais colorée. Formules sans séparateur ni nom de fonction : indépendantes de la langue du classeur.
   const regle = () => SpreadsheetApp.newConditionalFormatRule();
-  const paliers = (plages, c) => [regle().whenNumberLessThan(c.jaune).setBackground(C_ROUGE).setRanges(plages).build(),
-    regle().whenNumberLessThan(c.vert).setBackground(C_JAUNE).setRanges(plages).build(),
-    regle().whenNumberGreaterThanOrEqualTo(c.vert).setBackground(C_VERT).setRanges(plages).build()];
+  const R = (formule, couleur, a1) => regle().whenFormulaSatisfied(formule).setBackground(couleur).setRanges([f.getRange(a1)]).build();
+  const regles = [];
+  [["D", "F", S], ["H", "J", S * 3]].forEach(([cs, cl, seuil]) => {
+    const b = `$B${D0}`, n = `${cs}${D0}`, v = `${cl}${D0}`, ok = `(${n}>=${seuil})`;
+    const estOF = `(${b}="OF")`, estMY = `(${b}="MYM")`;
+    regles.push(
+      R(`=(${n}>0)*(${n}<${seuil})*(${estOF}+${estMY})`, C_ROUGE, `${cs}${D0}:${cs}${der}`),
+      R(`=${ok}*(${estOF}*(${v}<${OF.jaune})+${estMY}*(${v}<${MY.jaune}))`, C_ROUGE, `${cl}${D0}:${cl}${der}`),
+      R(`=${ok}*(${estOF}*(${v}>=${OF.jaune})*(${v}<${OF.vert})+${estMY}*(${v}>=${MY.jaune})*(${v}<${MY.vert}))`, C_JAUNE, `${cl}${D0}:${cl}${der}`),
+      R(`=${ok}*(${estOF}*(${v}>=${OF.vert})+${estMY}*(${v}>=${MY.vert}))`, C_VERT, `${cl}${D0}:${cl}${der}`));
+  });
   const lev = [f.getRange(`L${D0}:L${der}`)];
-  f.setConditionalFormatRules([
-    regle().whenNumberLessThan(S).setBackground(C_ROUGE).setRanges(lignes.subs30).build(),
-    regle().whenNumberLessThan(S * 3).setBackground(C_ROUGE).setRanges(lignes.subs90).build()]
-    .concat(paliers(lignes.ltvOF, OF), paliers(lignes.ltvMYM, MY), [
-    regle().whenTextEqualTo("Marketing").setBackground(C_BLEU).setRanges(lev).build(),
-    regle().whenTextEqualTo("Chatting").setBackground(C_ROSE).setRanges(lev).build(),
-    regle().whenTextEqualTo("Scaler").setBackground(C_VERT).setRanges(lev).build()]));
+  [["Marketing", C_BLEU], ["Chatting", C_ROSE], ["Marketing + Chatting", C_ORANGE], ["Scaler", C_VERT]].forEach(([t, couleur]) =>
+    regles.push(regle().whenTextEqualTo(t).setBackground(couleur).setRanges(lev).build()));
+  f.setConditionalFormatRules(regles);
   f.setFrozenRows(4);
-  _proteger(f, "Synthèse — mise à jour automatique");
-  Logger.log(`Synthèse : ${crea.map(c => c.nom).join(", ")} ; un levier par créatrice ; séparateur « ${sep} ».`);
+  _proteger(f, "Pilotage — mise à jour automatique");
+  Logger.log(`${ONGLETS.pilotage} : ${crea.map(c => c.nom).join(", ")} ; règle en deux étapes, plateforme par plateforme ; séparateur « ${sep} ».`);
 }
 
 // ------------------------------------------------------------------------------------- CA par mois, Subs & LTV par mois
@@ -484,7 +497,7 @@ function creerOngletsMensuels() {
   const fca = _feuille(ss, ONGLET_CA, ss.getSheetByName(ONGLET_PROFIT));
   const e1 = _ecrivain(fca);
   [110, 92, 92, 92, 92, 92, 92, 100, 60].forEach((w, i) => fca.setColumnWidth(i + 1, w));
-  _bandeau(fca, "A1:I1", "CA PAR MOIS — par créatrice et par plateforme");
+  _bandeau(fca, "A1:I1", "CA MENSUEL — par créatrice et par plateforme");
   _legende(fca, "A2:I2", "Mois civils. OF converti en € au taux du jour (Notice!B3). Part = part de la créatrice dans le CA de " +
     "l'agence sur juillet → décembre. Le mois en cours est incomplet.");
   const pas = crea.length + 4;
@@ -496,7 +509,7 @@ function creerOngletsMensuels() {
   const fs = _feuille(ss, ONGLET_SUBS, fca);
   const e2 = _ecrivain(fs);
   [110, 80, 80, 80, 80, 80, 80, 22, 110, 80, 80, 80, 80, 80, 80].forEach((w, i) => fs.setColumnWidth(i + 1, w));
-  _bandeau(fs, "A1:O1", "SUBS & LTV PAR MOIS — par créatrice et par plateforme");
+  _bandeau(fs, "A1:O1", "SUBS & LTV MENSUELS — par créatrice et par plateforme");
   _legende(fs, "A2:O2", `LTV du mois = CA du mois ÷ nouveaux subs du mois. Couleurs : OnlyFans rouge < ${CIBLES.OF.jaune} €, ` +
     `jaune ${CIBLES.OF.jaune}-${CIBLES.OF.vert} €, vert ≥ ${CIBLES.OF.vert} € · MYM rouge < ${CIBLES.MYM.jaune} €, jaune ` +
     `${CIBLES.MYM.jaune}-${CIBLES.MYM.vert} €, vert ≥ ${CIBLES.MYM.vert} €. OF converti au taux du jour (Notice!B3). Mois en cours incomplet.`);
@@ -514,13 +527,22 @@ function creerOngletsMensuels() {
   Logger.log(`Onglets « ${ONGLET_CA} » et « ${ONGLET_SUBS} » reconstruits.`);
 }
 
-// tout reconstruire, dans l'ordre des dépendances (la Synthèse lit Commission & profit), sans envoyer de rapport
+// tout reconstruire, dans l'ordre des dépendances (Pilotage lit Profit), sans envoyer de rapport
 function construireDashboards() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Object.entries(ANCIENS_NOMS).forEach(([ancien, nouveau]) => {
+    const f = ss.getSheetByName(ancien);
+    if (f && !ss.getSheetByName(nouveau)) f.setName(nouveau);
+  });
+  if (!ss.getSheetByName(ONGLETS.pilotage)) ss.insertSheet(ONGLETS.pilotage, 0);
   creerOngletCommission();
   alignerSynthese();
   creerOngletsMensuels();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.setActiveSheet(ss.getSheetByName("Synthèse"));
+  // ordre de lecture : Pilotage, Profit, CA mensuel, Subs & LTV mensuels, puis les onglets de saisie et la Notice
+  [ONGLETS.pilotage, ONGLETS.profit, ONGLETS.ca, ONGLETS.subs].forEach((nom, i) => {
+    ss.setActiveSheet(ss.getSheetByName(nom)); ss.moveActiveSheet(i + 1);
+  });
+  ss.setActiveSheet(ss.getSheetByName(ONGLETS.pilotage));
 }
 
 // 03/10 : tout en un clic — envoi automatique (orphelins retirés), tableaux de bord, rapport de test
