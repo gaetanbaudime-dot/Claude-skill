@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-03 (suite) — Scaler par le revenu par fan, données des 30 derniers jours
+- **Données de Gaëtan (30 jours)** : CA 46,5 k€, profit 14,1 k€ (30 %), 9 100 nouveaux fans, 5,1 €/fan. Profit par fan : Maddie 3,50 € · Sophie 2,30 € · Chloé 2,01 € · Sarah 1,01 € · Clara 0,95 € · Jade 0,77 €. Gaëtan rejette le ONE THING « temps » du matin et veut du CA et de la marge : recruter, tout miser sur le vertical, supprimer l'horizontal (clippers au clic le 05/10), renégocier Jonas, Julien en variantes de Reels sur le vertical, renégocier Chloé de 40 à 50 %.
+- **ONE THING révisé** : faire passer le revenu par fan de 5 € à 8 € avant d'acheter du trafic ou de signer des créatrices (redirection MYM d'abord pour Sarah, Clara et Jade, accueil chat standard avec Maxence) ; puis diriger le trafic vertical vers les créatrices au plus fort profit par fan. À 8 €/fan à volume constant : ≈ 72,8 k€ de CA et ≈ +8 k€ de profit par mois.
+- **Prédictions (03/10, revue le 03/01/2027)** : CA mensuel ≥ 100 k€ fin décembre (25 %) ; ≥ 150 k€ (8 %) ; revenu par fan agence ≥ 7 € sur novembre (40 %).
+
 ### 2026-10-03 — Comment scaler : le goulot est le temps de Gaëtan, pas le trafic
 - **Analyse** (7 angles multi-agents, chiffres revérifiés) : [[Scaler LTP - le ONE THING et 10 actions par ROI (3 octobre 2026)]]. CA de septembre ≈ 49 k€, plat depuis août ; revenu par nouvel abonné 5,12 € (cible 10-15 €) ; Chloé 47 % du CA ; ≈ 120 h de septembre sur une machine clippeurs qui perd de l'argent, ≈ 10 h sur le compte de Chloé (≈ 410 €/h) ; 83 % des commits du 27/09 au 02/10 sur le bot malgré la kill-list. 500 k€/mois n'est pas atteignable en 2026 avec 6 créatrices.
 - **ONE THING proposé** : sortir de l'opérationnel clippers dès le 05/10 (tout le monde au clic, Jonas responsable et payé sur la marge, gel du bot 30 jours) et mettre la première heure libérée sur l'avocat pénaliste avec Maxence. En attente de décision de Gaëtan.
