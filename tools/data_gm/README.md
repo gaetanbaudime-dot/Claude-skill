@@ -68,3 +68,10 @@ est saisie pour toutes les créatrices actives, sinon il attend jusqu'à 12 h (`
 saisi ». Un envoi raté est retenté l'heure suivante. Heures et jours au fuseau du classeur. `alignerSynthese` réécrit le bloc
 30 jours de la Synthèse (B, C, F, G, I, J des lignes 5 à 10) sur 30 jours complets jusqu'à hier, au séparateur du classeur.
 `miseEnPlace` enchaîne déclencheur, Synthèse, onglet Commission & profit et rapport de test.
+
+**Synthèse par créatrice, 30 et 90 jours (03/10/2026)** : `alignerSynthese` reconstruit le bloc du haut de la Synthèse —
+pour chaque créatrice, trois lignes OF / MYM / Total (subs, CA, LTV sur 30 jours, une colonne vide, puis sur 90 jours), une
+ligne vide, rangées par CA 30 jours décroissant au moment du lancement (comme le rapport), puis le groupe AGENCE. Fenêtres
+complètes jusqu'à hier. Les blocs par mois sont décalés vers le bas (lignes insérées), leurs formules suivent. Relancer la
+fonction refait le bloc à l'identique et le re-trie. Vérifié avant : aucune formule, aucun graphique ni aucune règle du
+classeur ne lisait l'ancien bloc (colonne M comprise).

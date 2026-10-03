@@ -296,26 +296,61 @@ function creerOngletCommission() {
   Logger.log(`Onglet « ${ONGLET_PROFIT} » ${ancien ? "reconstruit (taux gardés)" : "créé"}, séparateur « ${sep} », ${erreurs} cellule(s) en erreur.`);
 }
 
-// 03/10 (Gaëtan : « aligne aussi la Synthèse ») : le bloc 30 jours de la Synthèse (lignes 5 à 10) comptait aujourd'hui, en
-// général vide, donc 29 jours pleins. Ses formules sont réécrites sur 30 jours complets, du J-30 à hier, comme le rapport et
-// l'onglet Commission & profit. Colonnes : B subs (H), C CA € (I), F subs OF (B), G CA OF (C × taux), I subs MYM (E),
-// J CA MYM (F) ; D, H, K, L (€/sub, écart) et les blocs par mois ne bougent pas.
+// 03/10 (Gaëtan : « aligne aussi la Synthèse », puis « trie par créatrice comme le rapport Telegram : Chloé OF, Chloé MYM,
+// Chloé Total, une ligne vide, Sophie… ; subs, CA, LTV sur 30 jours, un espace, puis sur 90 jours ») : le bloc du haut de la
+// Synthèse est reconstruit — un groupe de 3 lignes par créatrice (OF, MYM, Total) + une ligne vide, rangées par CA 30 jours
+// décroissant au moment du lancement (comme le rapport), puis le groupe AGENCE. Fenêtres complètes jusqu'à hier : du J-30 et du
+// J-90 à J-1, OF converti au taux de Notice!B3. Les blocs « par mois » en dessous sont décalés (lignes insérées ou retirées),
+// leurs formules suivent. Relancer la fonction refait le bloc au propre et le re-trie.
 function alignerSynthese() {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), f = ss.getSheetByName("Synthèse");
   if (!f) throw new Error("Onglet « Synthèse » introuvable.");
   const { sep, fx } = _ecrivain(f);
-  const cols = { B: "H", C: "I", F: "B", G: "C", I: "E", J: "F" };
-  let n = 0;
-  f.getRange("A5:A10").getValues().forEach(([nom], i) => {
-    const o = _onglet(ss, nom);
-    if (!o) return;
-    const l = 5 + i, r = c => `'${o.getName()}'!$${c}$3:$${c}$1000`;
-    const fen = `${r("A")},">="&TODAY()-30,${r("A")},"<="&TODAY()-1`;
-    Object.entries(cols).forEach(([c, src]) => fx(`${c}${l}`, `=SUMIFS(${r(src)},${fen})${c === "G" ? "*Notice!$B$3" : ""}`));
-    n++;
-  });
-  f.getRange("A3").setValue("30 derniers jours complets (du J-30 à hier) — total, puis OF et MYM séparés (OF converti en € au taux de Notice!B3)");
-  Logger.log(`Synthèse alignée : ${n} créatrice(s), 30 jours complets jusqu'à hier, séparateur « ${sep} ».`);
+  const colA = f.getRange(1, 1, f.getLastRow(), 1).getDisplayValues().map(r => r[0]);
+  const titreMois = colA.findIndex(v => /^CA total/.test(v)) + 1;
+  if (titreMois < 1) throw new Error("Bloc « CA total (€) par mois » introuvable dans la Synthèse.");
+
+  // ordre : CA 30 jours décroissant, comme le rapport
+  const taux = _taux(ss), hier = _numJour(new Date(), ss.getSpreadsheetTimeZone()) - 1;
+  const crea = CREATRICES.map(nom => ({ nom, o: _onglet(ss, nom) })).filter(c => c.o)
+    .map(c => ({ ...c, ca: _somme(_lire(ss, c.nom), hier - 30, hier, taux).tot })).sort((a, b) => b.ca - a.ca);
+
+  // place : titre + en-tête + 4 lignes par groupe (créatrices + agence) + 1 ligne vide avant les blocs par mois
+  const G = crea.length + 1, voulu = 3 + 2 + 4 * G + 1;
+  if (titreMois < voulu) f.insertRowsBefore(titreMois, voulu - titreMois);
+  if (titreMois > voulu) f.deleteRows(voulu, titreMois - voulu);
+  f.getRange(3, 1, voulu - 3, 13).clear();
+
+  f.getRange("A3").setValue("30 et 90 derniers jours complets (jusqu'à hier), par créatrice et par plateforme — OF converti en € au taux de Notice!B3")
+    .setFontWeight("bold");
+  f.getRange(4, 1, 1, 9).setValues([["Créatrice", "Plateforme", "Subs 30 j", "CA 30 j", "LTV 30 j", "", "Subs 90 j", "CA 90 j", "LTV 90 j"]])
+    .setFontWeight("bold").setBackground("#DCE6F1");
+  const fin = 5 + 4 * crea.length - 2;                         // dernière ligne « Total » d'une créatrice
+  const ltv = (l, ca, subs) => `=IFERROR(${ca}${l}/${subs}${l},"—")`;
+  const groupe = (r0, nom, plat) => {
+    f.getRange(r0, 1, 3, 2).setValues([[nom, "OF"], [nom, "MYM"], [nom, "Total"]]);
+    plat(r0);
+    ["E", "I"].forEach(c => [0, 1, 2].forEach(k => fx(`${c}${r0 + k}`, ltv(r0 + k, c === "E" ? "D" : "H", c === "E" ? "C" : "G"))));
+    f.getRange(r0 + 2, 1, 1, 9).setFontWeight("bold").setBackground("#F2F2F5");
+    f.getRange(r0, 3, 3, 1).setNumberFormat("#,##0"); f.getRange(r0, 7, 3, 1).setNumberFormat("#,##0");
+    f.getRange(r0, 4, 3, 1).setNumberFormat('#,##0.00 "€"'); f.getRange(r0, 8, 3, 1).setNumberFormat('#,##0.00 "€"');
+    f.getRange(r0, 5, 3, 1).setNumberFormat('0.00 "€"'); f.getRange(r0, 9, 3, 1).setNumberFormat('0.00 "€"');
+  };
+  crea.forEach((c, g) => groupe(5 + 4 * g, c.nom, r0 => {
+    const r = col => `'${c.o.getName()}'!$${col}$3:$${col}$1000`;
+    const fen = j => `${r("A")},">="&TODAY()-${j},${r("A")},"<="&TODAY()-1`;
+    [[r0, "B", "C", "*Notice!$B$3"], [r0 + 1, "E", "F", ""]].forEach(([l, subs, ca, conv]) => {
+      fx(`C${l}`, `=SUMIFS(${r(subs)},${fen(30)})`); fx(`D${l}`, `=SUMIFS(${r(ca)},${fen(30)})${conv}`);
+      fx(`G${l}`, `=SUMIFS(${r(subs)},${fen(90)})`); fx(`H${l}`, `=SUMIFS(${r(ca)},${fen(90)})${conv}`);
+    });
+    ["C", "D", "G", "H"].forEach(c2 => fx(`${c2}${r0 + 2}`, `=${c2}${r0}+${c2}${r0 + 1}`));
+  }));
+  const ra = 5 + 4 * crea.length;                              // groupe AGENCE
+  groupe(ra, "AGENCE", r0 => ["OF", "MYM", "Total"].forEach((pl, k) => ["C", "D", "G", "H"].forEach(c2 =>
+    fx(`${c2}${r0 + k}`, `=SUMIFS(${c2}$5:${c2}$${fin},$B$5:$B$${fin},"${pl}")`))));
+  f.getRange(ra, 1, 3, 9).setFontWeight("bold");
+  f.setColumnWidth(6, 24);
+  Logger.log(`Synthèse : bloc 30 / 90 jours par créatrice (${crea.map(c => c.nom).join(", ")}, puis AGENCE), séparateur « ${sep} ».`);
 }
 
 // 03/10 : tout en un clic — envoi automatique (orphelins retirés), Synthèse alignée, onglet Commission & profit, rapport de test
