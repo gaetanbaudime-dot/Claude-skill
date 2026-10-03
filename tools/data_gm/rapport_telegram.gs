@@ -364,13 +364,15 @@ function alignerSynthese() {
     fx(`${c2}${r0 + k}`, `=SUMIFS(${c2}$${D0}:${c2}$${fin},$B$${D0}:$B$${fin},"${pl}")`))));
   f.getRange(ra, 1, 3, 9).setFontWeight("bold").setBackground("#E8E8EC");
 
-  // couleurs : règle du rapport (subs < 800 en rouge) ; LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 €
+  // couleurs : règle du rapport (subs < 800) ; LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 €. 03/10 (Gaëtan, exemple en L11:L14 :
+  // « juste un fond de couleur léger ») : fond clair de la palette Google, texte noir normal
   const regle = () => SpreadsheetApp.newConditionalFormatRule();
+  const ROUGE = "#F4CCCC", JAUNE = "#FFF2CC", VERT = "#D9EAD3";
   f.setConditionalFormatRules(f.getConditionalFormatRules().concat([
-    regle().whenNumberLessThan(SEUIL_SUBS).setFontColor("#C62828").setBold(true).setRanges(plages.subs).build(),
-    regle().whenNumberLessThan(SEUIL_LTV_JAUNE).setBackground("#F8D7DA").setFontColor("#8A1C1C").setRanges(plages.ltv).build(),
-    regle().whenNumberLessThan(SEUIL_LTV).setBackground("#FFF3CD").setFontColor("#7A5B00").setRanges(plages.ltv).build(),
-    regle().whenNumberGreaterThanOrEqualTo(SEUIL_LTV).setBackground("#D4EDDA").setFontColor("#1B5E20").setRanges(plages.ltv).build()]));
+    regle().whenNumberLessThan(SEUIL_SUBS).setBackground(ROUGE).setRanges(plages.subs).build(),
+    regle().whenNumberLessThan(SEUIL_LTV_JAUNE).setBackground(ROUGE).setRanges(plages.ltv).build(),
+    regle().whenNumberLessThan(SEUIL_LTV).setBackground(JAUNE).setRanges(plages.ltv).build(),
+    regle().whenNumberGreaterThanOrEqualTo(SEUIL_LTV).setBackground(VERT).setRanges(plages.ltv).build()]));
   f.setColumnWidth(6, 110);                                    // 03/10 : rétrécie par erreur à 24 (colonne « novembre » des blocs par mois)
   Logger.log(`Synthèse : bloc 30 / 90 jours par créatrice (${crea.map(c => c.nom).join(", ")}, puis AGENCE), séparateur « ${sep} ».`);
 }
