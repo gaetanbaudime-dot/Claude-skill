@@ -74,12 +74,12 @@ function _lire(ss, nom) {
   if (last < PREMIERE_LIGNE) return [];
   return f.getRange(PREMIERE_LIGNE, 1, last - PREMIERE_LIGNE + 1, 6).getValues()
     .filter(r => r[0] instanceof Date)
-    .map(r => ({ d: r[0], ofS: Number(r[1]) || 0, ofUsd: Number(r[2]) || 0, myS: Number(r[4]) || 0, myEur: Number(r[5]) || 0,
+    .map(r => ({ n: _numJour(r[0], ss.getSpreadsheetTimeZone()), ofS: Number(r[1]) || 0, ofUsd: Number(r[2]) || 0, myS: Number(r[4]) || 0, myEur: Number(r[5]) || 0,
                  vide: [1, 2, 4, 5].every(i => r[i] === "") }));   // Notice, règle 3 : une case vide = « non saisi »
 }
 
 function _somme(lignes, debut, fin, taux) {
-  const sel = lignes.filter(l => l.d > debut && l.d <= fin);
+  const sel = lignes.filter(l => l.n > debut && l.n <= fin);
   const ofS = sel.reduce((a, l) => a + l.ofS, 0), ofE = sel.reduce((a, l) => a + l.ofUsd, 0) * taux;
   const myS = sel.reduce((a, l) => a + l.myS, 0), myE = sel.reduce((a, l) => a + l.myEur, 0);
   return { ofS, ofE, myS, myE, tot: ofE + myE, subs: ofS + myS };
@@ -87,7 +87,15 @@ function _somme(lignes, debut, fin, taux) {
 
 function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f\u00a0 ]/g, "\u00a0") + "€"; }
 function _parSub(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") + " €" : "—"; }
-function _jour(d) { return Utilities.formatDate(d, Session.getScriptTimeZone(), "dd/MM"); }
+// 03/10 (Gaëtan : « ça dit hier 2 octobre et ça affiche les stats du 1 octobre ») : le projet Apps Script et le classeur
+// n'ont pas le même fuseau ; une date du classeur (minuit, fuseau du classeur) tombait la veille côté script. Les jours se
+// comparent maintenant en numéro de jour du calendrier : chaque ligne lue dans le fuseau du classeur, « aujourd'hui » dans
+// celui du script (celui de l'heure d'envoi).
+function _numJour(d, tz) {
+  const [a, m, j] = Utilities.formatDate(d, tz, "yyyy-MM-dd").split("-").map(Number);
+  return Date.UTC(a, m - 1, j) / 864e5;
+}
+function _jour(n) { return Utilities.formatDate(new Date(n * 864e5), "UTC", "dd/MM"); }
 
 function _nb(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f\u00a0 ]/g, "\u00a0"); }
 function _ltv(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") : ""; }
@@ -119,9 +127,8 @@ function _ligne(libelle, subs, eur, ltv) {
 function construireRapport() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const taux = _taux(ss);
-  const hier = new Date(); hier.setHours(0, 0, 0, 0); hier.setDate(hier.getDate() - 1);
-  const avantHier = new Date(hier); avantHier.setDate(avantHier.getDate() - 1);
-  const debut30 = new Date(hier); debut30.setDate(debut30.getDate() - 30);
+  const hier = _numJour(new Date(), Session.getScriptTimeZone()) - 1;      // la veille, à l'heure de l'envoi (fuseau du script)
+  const avantHier = hier - 1, debut30 = hier - 30;                         // 30 jours = du J-30 à hier inclus
   const tx = _tauxProfit(ss);
   const blocs = [], totalHier = { tot: 0, com: 0, profit: 0 }, total30 = { com: 0, profit: 0 }, nonSaisi = [];
   CREATRICES.forEach(nom => {
@@ -130,7 +137,7 @@ function construireRapport() {
     const { com, frais } = tx[nom];
     totalHier.tot += h.tot; totalHier.com += h.tot * com; totalHier.profit += h.tot * (com - frais);
     total30.com += m.tot * com; total30.profit += m.tot * (com - frais);
-    const ligneHier = L.find(l => l.d > avantHier && l.d <= hier);
+    const ligneHier = L.find(l => l.n === hier);
     if ((m.subs || m.tot) && (!ligneHier || ligneHier.vide)) nonSaisi.push(nom);
     const lignes = [TETE, "┈".repeat(28)];                // 30/09 : un trait fin sous les titres de colonnes
     if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE, _ltv(m.ofE, m.ofS)));
@@ -143,7 +150,7 @@ function construireRapport() {
   const corps = blocs.map((b, i) => `${i + 1}. ${b.texte}`).join("\n\n");
   const alerte = nonSaisi.length ? `\n⚠️ Hier non saisi : ${nonSaisi.join(", ")}` : "";
   const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🤝 COMMISSION HIER : ${_eur(totalHier.com)}` +
-    `\n🏦 <b>PROFIT HIER : ${_eur(totalHier.profit)}</b>\n📆 Profit 30 j : ${_eur(total30.profit)} (commission ${_eur(total30.com)})${alerte}`;
+    `\n🏦 <b>PROFIT HIER : ${_eur(totalHier.profit)}</b>\n📆 Profit 30 j : ${_eur(total30.profit)}${alerte}`;
   return entete + corps + pied;
 }
 
@@ -206,12 +213,12 @@ function creerOngletCommission() {
   f.getRange(4, 2, n, 2).setBackground("#FFF9C4");
   f.getRange(4, 2, n, 3).setNumberFormat(PCT);
 
-  // 2. 30 derniers jours glissants (même fenêtre que la Synthèse)
+  // 2. 30 derniers jours complets, du J-30 à hier (03/10 : même fenêtre que le rapport Telegram ; la Synthèse compte aujourd'hui)
   const l30 = 4 + n + 2;                                     // 12
   titre(l30 - 1, "30 derniers jours glissants");
   tete(l30, ["Créatrice", "CA 30 j", "Commission", "Frais + chatting", "Profit", "Nouveaux subs", "Profit / sub"]);
   CREATRICES.forEach((nom, i) => {
-    const l = l30 + 1 + i, t = 4 + i, fen = `${dates(nom)},">="&TODAY()-29,${dates(nom)},"<="&TODAY()`;
+    const l = l30 + 1 + i, t = 4 + i, fen = `${dates(nom)},">="&TODAY()-30,${dates(nom)},"<="&TODAY()-1`;
     f.getRange(l, 1).setValue(nom);
     fx(`B${l}`, `=SUMIFS(${plage(nom, "I")},${fen})`);
     fx(`C${l}`, `=B${l}*$B$${t}`);
@@ -290,12 +297,13 @@ function envoyerRapportTelegram() {
 // 03/10 : à lancer une fois depuis l'éditeur (▶ Exécuter), le résultat est dans le « Journal d'exécution »
 function diagnostic() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log(`Fuseaux : script ${Session.getScriptTimeZone()}, classeur ${ss.getSpreadsheetTimeZone()}`);
   Logger.log("Déclencheurs : " + (ScriptApp.getProjectTriggers().map(t => `${t.getHandlerFunction()}${typeof globalThis[t.getHandlerFunction()] === "function" ? "" : " (ORPHELIN)"}`).join(", ") || "aucun"));
   const { token, chat, cles } = _proprietes();
   Logger.log(`Propriétés : ${cles.join(", ") || "aucune"} → jeton ${token ? "trouvé" : "MANQUANT"}, canal ${chat ? "trouvé" : "MANQUANT"}`);
   CREATRICES.forEach(nom => {
     const L = _lire(ss, nom).filter(l => !l.vide);
-    Logger.log(`${nom} : ${_onglet(ss, nom) ? "onglet trouvé" : "ONGLET ABSENT"}, dernière date saisie ${L.length ? _jour(L[L.length - 1].d) : "aucune"}`);
+    Logger.log(`${nom} : ${_onglet(ss, nom) ? "onglet trouvé" : "ONGLET ABSENT"}, dernière date saisie ${L.length ? _jour(L[L.length - 1].n) : "aucune"}`);
   });
   envoyerRapportTelegram();
   Logger.log("Rapport envoyé.");

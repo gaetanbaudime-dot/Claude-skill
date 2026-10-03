@@ -24,7 +24,7 @@ tags: [contexte/coaching]
 
 ### 2026-10-03 (soir) — Sophie signée sur MYM à 50 % ; rapport Telegram G&M rétabli
 - **Fait** : Sophie signée à 50 % sur MYM. Saisie MYM dans Data G&M depuis le 01/10 ; la Synthèse (30 jours et CA MYM par mois) et le rapport Telegram la prennent déjà en compte, rien à modifier. Rapport quotidien rétabli le 03/10 (cause : déclencheur orphelin `envoyerRapportQuotidien` depuis le collage de la v3, confirmée par `diagnostic`).
-- **À vérifier** : la ligne du 02/10 (352 nouveaux subs MYM pour 323 €) ressemble à un total d'abonnés plutôt qu'au flux du jour (règle 2 de la Notice) ; si c'est un report de fans existants, la LTV MYM de Sophie sera écrasée (≈ 2,3 € affichés) pendant 30 jours.
+- **Confirmé par Gaëtan** : le 02/10, 352 nouveaux subs MYM (lancement) pour 323 € ; la LTV MYM de Sophie part donc basse (≈ 2,3 €) et se lira vraiment fin octobre.
 - **Profit exact (même soir)** : onglet « Commission & profit » et rapport Telegram calculés par créatrice, profit = CA × (commission − 15 % de frais + chatting) ; commissions Chloé 40 %, Sarah, Sophie, Maddie, Clara 50 %, Jade 60 %. Vérifié contre la Synthèse au 03/10 : 30 jours = CA 47 491 €, commission 21 622 €, **profit 14 498 €**, 1,53 € de profit par nouveau sub (Maddie 3,65 € · Chloé 1,96 € · Sophie 1,83 € · Sarah 1,00 € · Clara 0,95 € · Jade 0,86 €). Profit mensuel plat : juillet 16 744 €, août 14 668 €, septembre 14 910 €. Rapport : pastilles 🔴 subs < 800, 🔴 LTV < 8 €, 🟡 8-15 €, 🟢 ≥ 15 € (règle épinglée dans le groupe).
 - **Prédiction (03/10, revue le 03/11)** : LTV MYM de Sophie sur 30 jours ≥ 6,76 € (sa LTV OF) au 03/11, hors ligne du 02/10 corrigée (45 %).
 

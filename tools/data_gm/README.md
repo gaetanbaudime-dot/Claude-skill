@@ -53,3 +53,10 @@ français, refusait les formules à virgules écrites par le script. `creerOngle
 accepté (`,` ou `;`) avant d'écrire, écrit les mois en `DATE()` (plus de décalage de fuseau), reconstruit l'onglet s'il
 existe en gardant les taux saisis, et écrit dans le journal le nombre de cellules en erreur. `miseEnPlace` fait tout en
 un clic : déclencheur de 8 h (orphelins retirés), onglet, rapport de test.
+
+**Correctif du 03/10 (« ça dit hier 2 octobre et ça affiche les stats du 1 octobre »)** : le projet Apps Script et le
+classeur n'avaient pas le même fuseau ; une date du classeur tombait la veille côté script, donc « Hier » et les 30 jours
+étaient décalés d'un jour. Les jours se comparent maintenant au calendrier (lignes dans le fuseau du classeur, aujourd'hui
+dans celui du script) ; `diagnostic` affiche les deux fuseaux. Régler le classeur sur Dubaï (Fichier → Paramètres) pour que
+`AUJOURDHUI()` de l'onglet bascule à minuit Dubaï. Onglet Commission & profit : 30 jours complets, du J-30 à hier, comme le
+rapport. « Profit 30 j » sans la commission.
