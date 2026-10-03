@@ -33,7 +33,10 @@ ACTIF = os.environ.get("VISITES_TELEGRAM", "1").strip() != "0"                  
 HEURE_PARIS = int(os.environ.get("VISITES_TELEGRAM_HEURE", "9") or 9)
 SUJET_NOM = os.environ.get("VISITES_TELEGRAM_SUJET", "📈 Visites de la veille").strip() or "📈 Visites de la veille"
 INTERVALLE_DECOUVERTE = int(os.environ.get("VISITES_TELEGRAM_DECOUVERTE_SEC", "300") or 300)
-CREATRICES_DEFAUT = ("Chloé", "Sarah", "Sophie", "Jade", "Maddie", "Clara")
+CREATRICES_DEFAUT = ("Chloé", "Sarah", "Sophie", "Jade", "Maddie", "Clara", "Leatitia")
+# 03/10 (Gaëtan : « ajoute Leatitia ») : des créatrices sans clippers n'ont pas d'onglet dans le classeur des logins → la liste
+# vient du classeur + ces prénoms + VISITES_TELEGRAM_CREATRICES (« Prénom,Prénom »), sans doublon
+EN_PLUS = tuple(x.strip() for x in os.environ.get("VISITES_TELEGRAM_CREATRICES", "").split(",") if x.strip())
 PERIODES = (("hier", 1), ("j7", 7), ("j30", 30))
 _deps: dict = {}
 
@@ -71,7 +74,11 @@ def _creatrices() -> list:
         noms = list(_deps["creatrices"]()) if _deps.get("creatrices") else []
     except Exception:                                                   # noqa: BLE001
         noms = []
-    return [n for n in noms if n] or list(CREATRICES_DEFAUT)
+    vus, out = set(), []
+    for n in [*noms, *CREATRICES_DEFAUT, *EN_PLUS]:
+        if n and _n(n) not in vus:
+            vus.add(_n(n)); out.append(n)
+    return out
 
 
 def creatrice_de(texte: str, creatrices=None) -> str:
@@ -91,11 +98,12 @@ def _domaine(url: str) -> str:
 
 
 def liens_par_creatrice(liens: list, creatrices=None) -> dict:
-    """{créatrice: {"domaine": …, "liens": [liens]}} — le domaine du lien (url) contient le prénom de la créatrice."""
+    """{créatrice: {"domaine": …, "liens": [liens]}} — la créatrice du groupe GAML du lien, sinon celle dont le prénom est dans
+    le domaine. 03/10 : le groupe d'abord, car un domaine ne porte pas toujours le prénom (Maddie → maaaad.fr)."""
     out = {}
     for l in liens or []:
         dom = _domaine(l.get("url") or "")
-        c = creatrice_de(dom, creatrices) if dom else ""
+        c = creatrice_de((l.get("group") or {}).get("name") or "", creatrices) or (creatrice_de(dom, creatrices) if dom else "")
         if c:
             out.setdefault(c, {"domaine": dom, "liens": []})["liens"].append(l)
     return out
@@ -167,6 +175,10 @@ async def decouvrir(d: dict) -> list:
             if str(info.get("sujet_id")) != str(msg["message_thread_id"]):
                 info["sujet_id"] = int(msg["message_thread_id"]); info["ferme"] = False; info.pop("erreur", None)
                 journal.info("Visites Telegram : sujet « %s » retrouvé dans %s", cree.get("name"), info["titre"])
+    # 03/10 : un groupe déjà connu mais pas encore relié (créatrice ajoutée depuis, ex. Leatitia) est réexaminé à chaque passage
+    for info in d["groupes"].values():
+        if not info.get("creatrice") and info.get("titre"):
+            info["creatrice"] = creatrice_de(info["titre"], creatrices)
     return [cle for cle in d["groupes"] if cle not in avant and d["groupes"][cle].get("creatrice")]
 
 
