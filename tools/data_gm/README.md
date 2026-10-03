@@ -88,3 +88,23 @@ mois ; elle est remise à 110 px.
 période — subs sous le seuil en rouge ; au-dessus, LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 € ; pas de couleur de LTV sous
 le seuil. Seuil de subs : 800 sur 30 jours, 2 400 sur 90 jours. Formules de mise en forme sans séparateur (`(a)*(b)`),
 indépendantes de la langue du classeur.
+
+## Tableaux de bord (03/10/2026)
+
+**Demande** : « 3 ou 4 dashboards lisibles à 75 %, partageables avec Maxence, pour savoir créatrice par créatrice si on
+scale le chatting ou le marketing, l'objectif et ce que ça rapporte ». `construireDashboards` (aucun envoi Telegram)
+reconstruit **en place** quatre onglets — jamais supprimés, donc aucune formule ne casse et les cadenas restent :
+
+| Onglet | Contenu |
+|---|---|
+| Synthèse | tuiles (CA 30 j, profit 30 j, LTV agence, potentiels) ; par créatrice et plateforme : 30 j, espace, 90 j, espace, SCALING (levier, actuel, objectif, gain CA, gain profit) |
+| Commission & profit | taux jaunes (A4:C9, lus par le rapport), vue agence 30 / 90 j, blocs 30 j et 90 j, commission et profit par mois côte à côte |
+| CA par mois | CA total, OF, MYM par mois, total et part de l'agence |
+| Subs & LTV par mois | nouveaux subs et LTV par mois : total, OF, MYM |
+
+**Règles** (celles du rapport) : sur 30 jours, subs < 800 → Marketing ; subs ≥ 800 et LTV < 15 € → Chatting ; sinon
+Scaler. LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 € ; 90 jours : seuil de subs × 3. Gain = objectif atteint, le reste
+constant (Marketing : (800 − subs) × LTV ; Chatting : subs × (15 − LTV)), calculé ligne par ligne ; profit = gain × marge
+nette de la créatrice. Dollars OF convertis au taux du jour (Notice!B3) partout. Vérifié le 03/10 : formules recalculées par
+LibreOffice sur une copie du classeur (aucune erreur, chiffres identiques au rapport et à l'ancienne Synthèse), écriture en
+mode « ; » sans virgule résiduelle, deux lancements identiques.

@@ -187,7 +187,6 @@ function _tauxProfit(ss) {
   return tx;
 }
 
-// 03/10 : crée l'onglet « Commission & profit ». Relancer la fonction le reconstruit en gardant les taux saisis.
 // 03/10 (premier essai : #ERROR! partout dans le classeur en français) : le séparateur d'arguments accepté par le classeur
 // est testé d'abord (« , » ou « ; »), toutes les formules l'utilisent ; les mois sont des formules DATE() (une date écrite par
 // le script prenait le fuseau du projet et tombait la veille).
@@ -206,188 +205,349 @@ function _ecrivain(f) {
   return { sep, fx: (a1, t) => f.getRange(a1).setFormula(sep === "," ? t : t.replace(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ";")) };
 }
 
+// ============================================================================================================================
+// TABLEAUX DE BORD (03/10/2026, Gaëtan : « 3 ou 4 dashboards lisibles à 75 % de zoom, que je peux partager avec Maxence, pour
+// savoir créatrice par créatrice si on doit scaler le chatting ou le marketing, l'objectif et ce que ça rapporte »).
+// Quatre onglets, reconstruits EN PLACE (jamais supprimés : les formules qui pointent vers eux ne cassent pas, les cadenas
+// restent) par `construireDashboards` :
+//   Synthèse              — par créatrice et plateforme : 30 j, 90 j, puis l'axe SCALING (levier, actuel, objectif, gains)
+//   Commission & profit   — taux (cases jaunes, lus aussi par le rapport Telegram), 30 j et 90 j, commission et profit par mois
+//   CA par mois           — CA total, OF et MYM par mois et par créatrice, total et part de l'agence
+//   Subs & LTV par mois   — nouveaux subs et LTV par mois, total / OF / MYM
+// Règles « immuables » (celles du rapport) : sur 30 jours, subs < 800 → MARKETING ; subs ≥ 800 et LTV < 15 € → CHATTING ;
+// sinon → SCALER. Couleurs de LTV : rouge < 8 €, jaune 8-15 €, vert ≥ 15 €. Sur 90 jours, seuil de subs × 3.
+// Gain = objectif atteint, le reste constant : MARKETING → (800 − subs) × LTV actuelle ; CHATTING → subs × (15 € − LTV).
+// Dollars : le CA OF ($) est converti au taux du jour de Notice!B3, partout (comme les colonnes « TOTAL € » des onglets).
+// Fenêtres « 30 / 90 jours » : jours complets, du J-30 (J-90) à hier. Mois : mois civils, juillet → décembre 2026.
+// ============================================================================================================================
+const T_SOMBRE = "#3D3D5C", T_CLAIR = "#F2F2F5", T_GRIS = "#E8E8EC", T_TUILE = "#F4F4F9";
+const C_ROUGE = "#F4CCCC", C_JAUNE = "#FFF2CC", C_VERT = "#D9EAD3", C_BLEU = "#CFE2F3", C_ROSE = "#EAD1DC";
+const F_SUBS = '#,##0;-#,##0;"—"', F_EUR = '#,##0 "€";-#,##0 "€";"—"', F_LTV = '0.00 "€"', F_PCT = "0%";
+const ONGLET_CA = "CA par mois", ONGLET_SUBS = "Subs & LTV par mois";
+const MOIS_DEBUT = [2026, 7], NB_MOIS = 6;
+
+function _lettre(n) { let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; } return s; }
+
+// créatrices présentes, rangées par CA 30 jours décroissant (comme le rapport) ; idx = ligne de taux dans Commission & profit
+function _ordre(ss) {
+  const taux = _taux(ss), hier = _numJour(new Date(), ss.getSpreadsheetTimeZone()) - 1;
+  return CREATRICES.map((nom, i) => ({ nom, o: _onglet(ss, nom), t: 4 + i })).filter(c => c.o)
+    .map(c => ({ ...c, ca: _somme(_lire(ss, c.nom), hier - 30, hier, taux).tot })).sort((a, b) => b.ca - a.ca);
+}
+
+// onglet repris en place (ou créé après `apres`) : contenu, formats, fusions et couleurs conditionnelles remis à zéro
+function _feuille(ss, nom, apres) {
+  let f = ss.getSheetByName(nom);
+  if (!f) f = ss.insertSheet(nom, apres ? apres.getIndex() : ss.getNumSheets());
+  else {
+    const tout = f.getRange(1, 1, f.getMaxRows(), f.getMaxColumns());
+    tout.breakApart(); tout.clear();
+    f.setConditionalFormatRules([]);
+  }
+  f.setHiddenGridlines(true); f.setFrozenRows(0);
+  return f;
+}
+
+// cadenas : seul le propriétaire (et la personne qui lance le script) modifie ; rien n'est touché si l'onglet en a déjà un
+function _proteger(f, texte) {
+  try {
+    if (f.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) return;
+    const p = f.protect().setDescription(texte);
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+  } catch (e) { Logger.log(`Cadenas non posé sur « ${f.getName()} » : ${e.message}`); }
+}
+
+function _bandeau(f, a1, texte) {
+  f.getRange(a1).merge().setValue(texte).setBackground(T_SOMBRE).setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13)
+    .setVerticalAlignment("middle");
+  f.setRowHeight(f.getRange(a1).getRow(), 30);
+}
+function _legende(f, a1, texte) {
+  f.getRange(a1).merge().setValue(texte).setFontSize(9).setFontStyle("italic").setFontColor("#55556A").setWrap(true)
+    .setVerticalAlignment("middle");
+}
+// en-tête sombre ; une cellule vide ("") reste blanche (colonne d'espace)
+function _tete(f, ligne, col, libelles) {
+  libelles.forEach((t, i) => {
+    const c = f.getRange(ligne, col + i);
+    if (t === "") return;
+    c.setValue(t).setBackground(T_SOMBRE).setFontColor("#FFFFFF").setFontWeight("bold").setHorizontalAlignment("center");
+  });
+}
+function _titreBloc(f, a1, texte) {
+  f.getRange(a1).merge().setValue(texte).setFontWeight("bold").setFontColor(T_SOMBRE).setFontSize(11)
+    .setBorder(null, null, true, null, null, null, T_SOMBRE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+}
+
+// expressions de lecture des onglets créatrices (colonnes : A date, B subs OF, C CA OF $, E subs MYM, F CA MYM €, H subs, I CA €)
+function _src(c) {
+  const r = col => `'${c.o.getName()}'!$${col}$3:$${col}$1000`;
+  const jours = j => `${r("A")},">="&TODAY()-${j},${r("A")},"<="&TODAY()-1`;
+  const mois = h => `${r("A")},">="&${h},${r("A")},"<"&EDATE(${h},1)`;
+  const v = (col, crit, usd) => `SUMIFS(${r(col)},${crit})${usd ? "*Notice!$B$3" : ""}`;
+  return {
+    subsOF: k => v("B", k), caOF: k => v("C", k, true), subsMYM: k => v("E", k), caMYM: k => v("F", k),
+    subs: k => v("H", k), ca: k => v("I", k), jours, mois };
+}
+
+// ---------------------------------------------------------------------------------------------- Commission & profit
 function creerOngletCommission() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ancien = ss.getSheetByName(ONGLET_PROFIT), garde = ancien ? _tauxProfit(ss) : null;
-  if (ancien) ss.deleteSheet(ancien);
-  const f = ss.insertSheet(ONGLET_PROFIT, (ss.getSheetByName("Synthèse") || ss.getSheets()[0]).getIndex());
-  const { sep, fx } = _ecrivain(f);
-  const n = CREATRICES.length, ref = nom => `'${(_onglet(ss, nom) || { getName: () => nom }).getName()}'`;
-  const plage = (nom, col) => `${ref(nom)}!$${col}$3:$${col}$1000`;
-  const dates = nom => plage(nom, "A");
-  const EUR = '#,##0 "€"', PCT = "0%";
-  const titre = (ligne, texte) => f.getRange(ligne, 1).setValue(texte).setFontWeight("bold").setFontColor("#4A6FA5");
-  const tete = (ligne, cols) => f.getRange(ligne, 1, 1, cols.length).setValues([cols]).setFontWeight("bold").setBackground("#E8E8EC");
-  const total = (ligne, de, a, cols) => {
-    f.getRange(ligne, 1).setValue("TOTAL");
-    cols.forEach(c => fx(`${c}${ligne}`, `=SUM(${c}${de}:${c}${a})`));
-    f.getRange(ligne, 1, 1, cols.length + 1).setFontWeight("bold");
-  };
-  f.getRange("A1:H1").merge().setValue("COMMISSION & PROFIT — calcul automatique ; seules les cases jaunes (taux) se modifient")
-    .setFontWeight("bold").setFontColor("#FFFFFF").setBackground("#6B6B7B");
+  const garde = ss.getSheetByName(ONGLET_PROFIT) ? _tauxProfit(ss) : null;     // taux saisis à la main : conservés
+  const f = _feuille(ss, ONGLET_PROFIT, ss.getSheetByName("Synthèse"));
+  const { sep, fx } = _ecrivain(f), crea = _ordre(ss), n = crea.length;
+  [110, 88, 88, 88, 88, 88, 88, 20, 110, 88, 88, 88, 88, 88, 88].forEach((w, i) => f.setColumnWidth(i + 1, w));
+  _bandeau(f, "A1:O1", "COMMISSION & PROFIT — mise à jour automatique ; seules les cases jaunes (taux) se modifient");
+  _legende(f, "A2:O2", "Profit = CA × (commission agence − frais & chatting). Les taux jaunes sont lus aussi par la Synthèse et par le " +
+    "rapport Telegram. OF converti en € au taux du jour (Notice!B3). 30 / 90 jours = jours complets jusqu'à hier.");
 
-  // 1. Taux (lignes 4 à 9) : lus aussi par le rapport Telegram
-  titre(2, "Taux — profit = CA × (commission − frais)");
-  tete(3, ["Créatrice", "Commission agence", "Frais + chatting", "Marge nette"]);
+  // taux (A3:D9, ordre fixe de CREATRICES : le rapport Telegram les lit par prénom)
+  _tete(f, 3, 1, ["Créatrice", "Commission", "Frais + chat", "Marge nette"]);
   CREATRICES.forEach((nom, i) => {
-    const l = 4 + i;
-    const tx = garde ? garde[nom] : { com: COMMISSIONS[nom], frais: FRAIS };
+    const l = 4 + i, tx = garde ? garde[nom] : { com: COMMISSIONS[nom], frais: FRAIS };
     f.getRange(l, 1, 1, 3).setValues([[nom, tx.com, tx.frais]]);
     fx(`D${l}`, `=B${l}-C${l}`);
   });
-  f.getRange(4, 2, n, 2).setBackground("#FFF9C4");
-  f.getRange(4, 2, n, 3).setNumberFormat(PCT);
+  f.getRange(4, 2, CREATRICES.length, 2).setBackground("#FFF9C4");
+  f.getRange(4, 2, CREATRICES.length, 3).setNumberFormat(F_PCT).setHorizontalAlignment("center");
+  f.getRange(4, 4, CREATRICES.length, 1).setFontWeight("bold");
 
-  // 2. 30 derniers jours complets, du J-30 à hier (03/10 : même fenêtre que le rapport Telegram ; la Synthèse compte aujourd'hui)
-  const l30 = 4 + n + 2;                                     // 12
-  titre(l30 - 1, "30 derniers jours glissants");
-  tete(l30, ["Créatrice", "CA 30 j", "Commission", "Frais + chatting", "Profit", "Nouveaux subs", "Profit / sub"]);
-  CREATRICES.forEach((nom, i) => {
-    const l = l30 + 1 + i, t = 4 + i, fen = `${dates(nom)},">="&TODAY()-30,${dates(nom)},"<="&TODAY()-1`;
-    f.getRange(l, 1).setValue(nom);
-    fx(`B${l}`, `=SUMIFS(${plage(nom, "I")},${fen})`);
-    fx(`C${l}`, `=B${l}*$B$${t}`);
-    fx(`D${l}`, `=B${l}*$C$${t}`);
-    fx(`E${l}`, `=C${l}-D${l}`);
-    fx(`F${l}`, `=SUMIFS(${plage(nom, "H")},${fen})`);
-    fx(`G${l}`, `=IFERROR(E${l}/F${l},"—")`);
-  });
-  const t30 = l30 + n + 1;
-  total(t30, l30 + 1, l30 + n, ["B", "C", "D", "E", "F"]);
-  fx(`G${t30}`, `=IFERROR(E${t30}/F${t30},"—")`);
-  f.getRange(l30 + 1, 2, n + 1, 4).setNumberFormat(EUR);
-  f.getRange(l30 + 1, 7, n + 1, 1).setNumberFormat('0.00 "€"');
-
-  // 3. Hier
-  const lh = t30 + 3;
-  titre(lh - 1, "Hier");
-  tete(lh, ["Créatrice", "CA hier", "Commission", "Frais + chatting", "Profit"]);
-  CREATRICES.forEach((nom, i) => {
-    const l = lh + 1 + i, t = 4 + i;
-    f.getRange(l, 1).setValue(nom);
-    fx(`B${l}`, `=SUMIFS(${plage(nom, "I")},${dates(nom)},TODAY()-1)`);
-    fx(`C${l}`, `=B${l}*$B$${t}`);
-    fx(`D${l}`, `=B${l}*$C$${t}`);
-    fx(`E${l}`, `=C${l}-D${l}`);
-  });
-  const th = lh + n + 1;
-  total(th, lh + 1, lh + n, ["B", "C", "D", "E"]);
-  f.getRange(lh + 1, 2, n + 1, 4).setNumberFormat(EUR);
-
-  // 4. Commission puis profit par mois (juillet → décembre 2026)
-  [["Commission par mois", "B"], ["Profit par mois", "D"]].forEach(([texte, colTaux], bloc) => {
-    const lm = th + 3 + bloc * (n + 5);
-    titre(lm - 1, texte);
-    tete(lm, ["Créatrice"]);
-    ["B", "C", "D", "E", "F", "G"].forEach((c, k) => fx(`${c}${lm}`, `=DATE(2026,${7 + k},1)`));
-    f.getRange(lm, 2, 1, 6).setNumberFormat("mmmm").setFontWeight("bold").setBackground("#E8E8EC");
-    CREATRICES.forEach((nom, i) => {
-      const l = lm + 1 + i, t = 4 + i;
-      f.getRange(l, 1).setValue(nom);
-      ["B", "C", "D", "E", "F", "G"].forEach(c => fx(`${c}${l}`, 
-        `=SUMIFS(${plage(nom, "I")},${dates(nom)},">="&${c}$${lm},${dates(nom)},"<"&EDATE(${c}$${lm},1))*$${colTaux}$${t}`));
+  // blocs 30 j (A11:G19) et 90 j (I11:O19) — le profit 30 j de l'agence est en E(13 + nb de créatrices), lu par la Synthèse
+  const l0 = 13, lt = l0 + n;
+  [[1, 30, "30 DERNIERS JOURS"], [9, 90, "90 DERNIERS JOURS"]].forEach(([c0, j, titre]) => {
+    const L = k => _lettre(c0 + k);
+    _titreBloc(f, `${L(0)}11:${L(6)}11`, titre);
+    _tete(f, 12, c0, ["Créatrice", "CA", "Commission", "Frais + chat", "Profit", "Nouveaux subs", "Profit / sub"]);
+    crea.forEach((c, i) => {
+      const l = l0 + i, s = _src(c);
+      f.getRange(l, c0).setValue(c.nom);
+      fx(`${L(1)}${l}`, `=${s.ca(s.jours(j))}`);
+      fx(`${L(2)}${l}`, `=${L(1)}${l}*$B$${c.t}`);
+      fx(`${L(3)}${l}`, `=${L(1)}${l}*$C$${c.t}`);
+      fx(`${L(4)}${l}`, `=${L(2)}${l}-${L(3)}${l}`);
+      fx(`${L(5)}${l}`, `=${s.subs(s.jours(j))}`);
+      fx(`${L(6)}${l}`, `=IFERROR(${L(4)}${l}/${L(5)}${l},"—")`);
     });
-    total(lm + n + 1, lm + 1, lm + n, ["B", "C", "D", "E", "F", "G"]);
-    f.getRange(lm + 1, 2, n + 1, 6).setNumberFormat(EUR);
+    f.getRange(lt, c0).setValue("TOTAL");
+    [1, 2, 3, 4, 5].forEach(k => fx(`${L(k)}${lt}`, `=SUM(${L(k)}${l0}:${L(k)}${lt - 1})`));
+    fx(`${L(6)}${lt}`, `=IFERROR(${L(4)}${lt}/${L(5)}${lt},"—")`);
+    f.getRange(l0, c0 + 1, n + 1, 4).setNumberFormat(F_EUR);
+    f.getRange(l0, c0 + 5, n + 1, 1).setNumberFormat(F_SUBS);
+    f.getRange(l0, c0 + 6, n + 1, 1).setNumberFormat(F_LTV).setHorizontalAlignment("right");
+    f.getRange(l0, c0 + 4, n + 1, 1).setFontWeight("bold");
+    f.getRange(lt, c0, 1, 7).setFontWeight("bold").setBackground(T_GRIS);
   });
-  f.setColumnWidth(1, 110); f.setColumnWidths(2, 7, 115); f.setFrozenRows(1);
-  SpreadsheetApp.flush();
-  const erreurs = f.getRange(1, 1, f.getLastRow(), 8).getDisplayValues().flat().filter(v => /^#/.test(v)).length;
-  Logger.log(`Onglet « ${ONGLET_PROFIT} » ${ancien ? "reconstruit (taux gardés)" : "créé"}, séparateur « ${sep} », ${erreurs} cellule(s) en erreur.`);
+
+  // vue agence (I3:K9), à côté des taux
+  _tete(f, 3, 9, ["Agence", "30 jours", "90 jours"]);
+  [["CA", "B", "J", F_EUR], ["Commission", "C", "K", F_EUR], ["Frais + chat", "D", "L", F_EUR], ["Profit", "E", "M", F_EUR]]
+    .forEach(([lib, a, b, fmt], i) => {
+      f.getRange(4 + i, 9).setValue(lib);
+      fx(`J${4 + i}`, `=${a}${lt}`); fx(`K${4 + i}`, `=${b}${lt}`);
+      f.getRange(4 + i, 10, 1, 2).setNumberFormat(fmt);
+    });
+  f.getRange(8, 9).setValue("Marge nette"); fx("J8", `=IFERROR(E${lt}/B${lt},0)`); fx("K8", `=IFERROR(M${lt}/J${lt},0)`);
+  f.getRange(8, 10, 1, 2).setNumberFormat("0.0%");
+  f.getRange(9, 9).setValue("Profit / sub"); fx("J9", `=G${lt}`); fx("K9", `=O${lt}`);
+  f.getRange(9, 10, 1, 2).setNumberFormat(F_LTV);
+  f.getRange(7, 9, 1, 3).setFontWeight("bold").setBackground(T_CLAIR);
+
+  // commission par mois (A21:G29) et profit par mois (I21:O29)
+  [[1, "COMMISSION PAR MOIS", "B"], [9, "PROFIT PAR MOIS", "D"]].forEach(([c0, titre, colTaux]) =>
+    _blocMois(f, fx, 21, c0, titre, crea, (c, h) => `=${_src(c).ca(_src(c).mois(h))}*$${colTaux}$${c.t}`, null, F_EUR, false));
+  _proteger(f, "Commission & profit — mise à jour automatique (seuls les taux jaunes se modifient)");
+  Logger.log(`Onglet « ${ONGLET_PROFIT} » reconstruit (taux ${garde ? "gardés" : "par défaut"}), séparateur « ${sep} ».`);
 }
 
-// 03/10 (Gaëtan : « aligne aussi la Synthèse », puis « trie par créatrice comme le rapport Telegram : Chloé OF, Chloé MYM,
-// Chloé Total, une ligne vide, Sophie… ; subs, CA, LTV sur 30 jours, un espace, puis sur 90 jours ») : le bloc du haut de la
-// Synthèse est reconstruit — un groupe de 3 lignes par créatrice (OF, MYM, Total) + une ligne vide, rangées par CA 30 jours
-// décroissant au moment du lancement (comme le rapport), puis le groupe AGENCE. Fenêtres complètes jusqu'à hier : du J-30 et du
-// J-90 à J-1, OF converti au taux de Notice!B3. Les blocs « par mois » en dessous sont décalés (lignes insérées ou retirées),
-// leurs formules suivent. Relancer la fonction refait le bloc au propre et le re-trie.
+// bloc mensuel : bandeau (ligne r), en-tête (r+1 : Créatrice + mois [+ Total, Part]), une ligne par créatrice, TOTAL.
+// cellule(c, "B$x") → formule d'une créatrice pour le mois de l'en-tête ; totalMois(h) → formule de la ligne TOTAL (sinon SOMME)
+function _blocMois(f, fx, r, c0, titre, crea, cellule, totalMois, fmt, avecTotal) {
+  const L = k => _lettre(c0 + k), n = crea.length, lh = r + 1, l0 = r + 2, lt = l0 + n, larg = 7 + (avecTotal ? 2 : 0);
+  _titreBloc(f, `${L(0)}${r}:${L(larg - 1)}${r}`, titre);
+  _tete(f, lh, c0, ["Créatrice", "", "", "", "", "", ""].concat(avecTotal ? ["Total", "Part"] : []));
+  for (let k = 1; k <= NB_MOIS; k++) {
+    fx(`${L(k)}${lh}`, `=DATE(${MOIS_DEBUT[0]},${MOIS_DEBUT[1] + k - 1},1)`);
+  }
+  f.getRange(lh, c0, 1, larg).setBackground(T_SOMBRE).setFontColor("#FFFFFF").setFontWeight("bold").setHorizontalAlignment("center");
+  f.getRange(lh, c0 + 1, 1, NB_MOIS).setNumberFormat("mmmm");
+  crea.forEach((c, i) => {
+    const l = l0 + i;
+    f.getRange(l, c0).setValue(c.nom);
+    for (let k = 1; k <= NB_MOIS; k++) fx(`${L(k)}${l}`, cellule(c, `${L(k)}$${lh}`));
+  });
+  f.getRange(lt, c0).setValue("TOTAL");
+  for (let k = 1; k <= NB_MOIS; k++) {
+    fx(`${L(k)}${lt}`, totalMois ? totalMois(`${L(k)}$${lh}`) : `=SUM(${L(k)}${l0}:${L(k)}${lt - 1})`);
+  }
+  if (avecTotal) {
+    for (let l = l0; l <= lt; l++) {
+      fx(`${L(7)}${l}`, `=SUM(${L(1)}${l}:${L(NB_MOIS)}${l})`);
+      fx(`${L(8)}${l}`, `=IFERROR(${L(7)}${l}/${L(7)}$${lt},0)`);
+    }
+    f.getRange(l0, c0 + 8, n + 1, 1).setNumberFormat(F_PCT).setHorizontalAlignment("center");
+    f.getRange(l0, c0 + 7, n + 1, 1).setFontWeight("bold").setBackground(T_CLAIR);
+  }
+  f.getRange(l0, c0 + 1, n + 1, NB_MOIS + (avecTotal ? 1 : 0)).setNumberFormat(fmt);
+  if (fmt === F_LTV) f.getRange(l0, c0 + 1, n + 1, NB_MOIS).setHorizontalAlignment("right");
+  f.getRange(lt, c0, 1, larg).setFontWeight("bold").setBackground(T_GRIS);
+  return f.getRange(l0, c0 + 1, n + 1, NB_MOIS);                // plage des valeurs (pour les couleurs)
+}
+
+// --------------------------------------------------------------------------------------------------------- Synthèse
 function alignerSynthese() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet(), f = ss.getSheetByName("Synthèse");
-  if (!f) throw new Error("Onglet « Synthèse » introuvable.");
-  const { sep, fx } = _ecrivain(f);
-  const colA = f.getRange(1, 1, f.getLastRow(), 1).getDisplayValues().map(r => r[0]);
-  const titreMois = colA.findIndex(v => /^CA total/.test(v)) + 1;
-  if (titreMois < 1) throw new Error("Bloc « CA total (€) par mois » introuvable dans la Synthèse.");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss.getSheetByName("Synthèse")) throw new Error("Onglet « Synthèse » introuvable.");
+  const f = _feuille(ss, "Synthèse");
+  const { sep, fx } = _ecrivain(f), crea = _ordre(ss);
+  const S = SEUIL_SUBS, LT = SEUIL_LTV, LJ = SEUIL_LTV_JAUNE, P = `'${ONGLET_PROFIT}'`;
+  // A créatrice | B plateforme | C espace | D-F 30 j | G espace | H-J 90 j | K espace | L-P scaling
+  [110, 78, 14, 70, 88, 72, 14, 70, 88, 72, 14, 92, 104, 96, 112, 112].forEach((w, i) => f.setColumnWidth(i + 1, w));
+  const D0 = 7, ra = D0 + 4 * crea.length, fin = ra - 2, der = ra + 2;
 
-  // ordre : CA 30 jours décroissant, comme le rapport
-  const taux = _taux(ss), hier = _numJour(new Date(), ss.getSpreadsheetTimeZone()) - 1;
-  const crea = CREATRICES.map(nom => ({ nom, o: _onglet(ss, nom) })).filter(c => c.o)
-    .map(c => ({ ...c, ca: _somme(_lire(ss, c.nom), hier - 30, hier, taux).tot })).sort((a, b) => b.ca - a.ca);
+  _bandeau(f, "A1:P1", "SYNTHÈSE CRÉATRICES — mise à jour automatique, ne rien saisir ici");
+  // tuiles (lignes 2-3)
+  [["A", "B", "CA 30 jours", `=E${der}`, F_EUR], ["D", "F", "Profit 30 jours", `=${P}!$E$${13 + crea.length}`, F_EUR],
+   ["H", "J", "LTV agence 30 jours", `=F${der}`, F_LTV], ["L", "N", "Potentiel CA / mois", `=O${der}`, F_EUR],
+   ["O", "P", "Potentiel profit / mois", `=P${der}`, F_EUR]].forEach(([a, b, lib, formule, fmt]) => {
+    f.getRange(`${a}2:${b}2`).merge().setValue(lib).setFontSize(9).setFontColor("#55556A").setHorizontalAlignment("center")
+      .setBackground(T_TUILE);
+    const v = f.getRange(`${a}3:${b}3`).merge();
+    fx(`${a}3`, formule);
+    v.setNumberFormat(fmt).setFontSize(15).setFontWeight("bold").setHorizontalAlignment("center").setBackground(T_TUILE)
+      .setFontColor(T_SOMBRE);
+  });
+  f.setRowHeight(3, 34);
+  _legende(f, "A4:P4", `Règle (30 jours) : subs < ${S} → MARKETING · subs ≥ ${S} et LTV < ${LT} € → CHATTING · sinon → SCALER. ` +
+    `LTV : rouge < ${LJ} €, jaune ${LJ}-${LT} €, vert ≥ ${LT} € ; sur 90 jours, seuil de subs × 3 (${S * 3}). ` +
+    `LTV = CA ÷ nouveaux subs. Gain = objectif atteint, le reste constant, par mois ; AGENCE = somme des créatrices. ` +
+    `OF converti au taux du jour (Notice!B3).`);
+  f.setRowHeight(4, 30);
+  // en-têtes (lignes 5-6)
+  _tete(f, 5, 1, ["", "", "", "30 DERNIERS JOURS", "", "", "", "90 DERNIERS JOURS", "", "", "", "SCALING (règle 30 jours)", "", "", "", ""]);
+  [["D5:F5"], ["H5:J5"], ["L5:P5"]].forEach(([a1]) => f.getRange(a1).merge().setBackground(T_SOMBRE));
+  f.getRange("A5:B5").setBackground(T_SOMBRE);
+  _tete(f, 6, 1, ["Créatrice", "Plateforme", "", "Subs", "CA", "LTV", "", "Subs", "CA", "LTV", "",
+    "Levier", "Actuel", "Objectif", "Gain CA / mois", "Gain profit / mois"]);
 
-  // place : titre + 2 lignes d'en-tête + 4 lignes par groupe (créatrices + agence) + 1 ligne vide avant les blocs par mois
-  // 03/10 (Gaëtan : « un peu illisible ») : prénom fusionné sur ses 3 lignes, en-têtes « 30 derniers jours » / « 90 derniers
-  // jours », CA sans centimes, zéros en « — », LTV colorée (rouge < 8 €, jaune 8-15 €, vert ≥ 15 €), subs en rouge sous 800
-  // (règle du rapport), trait sous chaque Total. La colonne F reste un espace sans être rétrécie (elle sert aux blocs par mois).
-  const G = crea.length + 1, D0 = 6, voulu = D0 + 4 * G + 1;
-  if (titreMois < voulu) f.insertRowsBefore(titreMois, voulu - titreMois);
-  if (titreMois > voulu) f.deleteRows(voulu, titreMois - voulu);
-  const zone = f.getRange(3, 1, voulu - 3, 13);
-  zone.breakApart(); zone.clear();
-  f.setConditionalFormatRules(f.getConditionalFormatRules().filter(r => r.getRanges().every(g => g.getRow() >= voulu || g.getLastRow() < 3)));
-
-  f.getRange("A3").setValue("Par créatrice et par plateforme — jours complets jusqu'à hier, OF converti en € au taux de Notice!B3")
-    .setFontWeight("bold");
-  const SOMBRE = "#3D3D5C";
-  f.getRange(4, 1, 2, 9).setBackground(SOMBRE).setFontColor("#FFFFFF").setFontWeight("bold").setHorizontalAlignment("center");
-  f.getRange(4, 6, 2, 1).setBackground(null);
-  f.getRange("C4:E4").merge().setValue("30 DERNIERS JOURS");
-  f.getRange("G4:I4").merge().setValue("90 DERNIERS JOURS");
-  f.getRange(5, 1, 1, 9).setValues([["Créatrice", "Plateforme", "Subs", "CA", "LTV", "", "Subs", "CA", "LTV"]]);
-  const fin = D0 + 4 * crea.length - 2;                        // dernière ligne « Total » d'une créatrice
   const ltv = (l, ca, subs) => `=IFERROR(${ca}${l}/${subs}${l},"—")`;
-  const plages = { 3: [], 7: [] };                             // plages des subs 30 j (C) et 90 j (G), groupe par groupe
-  const groupe = (r0, nom, plat) => {
+  const levier = l => `=IF(D${l}=0,"—",IF(D${l}<${S},"Marketing",IF(F${l}<${LT},"Chatting","Scaler")))`;
+  const actuel = l => `=IF(L${l}="Marketing",ROUND(D${l},0)&" subs",IF(L${l}="—","—",ROUND(F${l},2)&" € LTV"))`;
+  const objectif = l => `=IF(L${l}="Marketing","${S} subs",IF(L${l}="Chatting","${LT} € LTV",IF(L${l}="Scaler","+ trafic","—")))`;
+  const gain = l => `=IF(L${l}="Marketing",(${S}-D${l})*F${l},IF(L${l}="Chatting",D${l}*(${LT}-F${l}),0))`;
+  const subs30 = [], subs90 = [];
+  const groupe = (r0, nom, remplir) => {
     f.getRange(r0, 1, 3, 1).merge().setValue(nom).setFontWeight("bold").setVerticalAlignment("middle");
     f.getRange(r0, 2, 3, 1).setValues([["OF"], ["MYM"], ["Total"]]);
-    plat(r0);
-    ["E", "I"].forEach(c => [0, 1, 2].forEach(k => fx(`${c}${r0 + k}`, ltv(r0 + k, c === "E" ? "D" : "H", c === "E" ? "C" : "G"))));
-    [3, 7].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('#,##0;-#,##0;"—"'));
-    [4, 8].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('#,##0 "€";-#,##0 "€";"—"'));
-    [5, 9].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('0.00 "€"').setHorizontalAlignment("right"));
-    [3, 7].forEach(c => plages[c].push(f.getRange(r0, c, 3, 1)));
-    f.getRange(r0 + 2, 2, 1, 8).setFontWeight("bold").setBackground("#F2F2F5");
-    f.getRange(r0 + 2, 1, 1, 9).setBorder(null, null, true, null, null, null, "#9E9EB8", SpreadsheetApp.BorderStyle.SOLID);
+    remplir(r0);
+    for (let l = r0; l < r0 + 3; l++) {
+      fx(`F${l}`, ltv(l, "E", "D")); fx(`J${l}`, ltv(l, "I", "H"));
+      fx(`L${l}`, levier(l)); fx(`M${l}`, actuel(l)); fx(`N${l}`, objectif(l));
+    }
+    [4, 8].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat(F_SUBS));
+    [5, 9, 15, 16].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat(F_EUR));
+    [6, 10].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat(F_LTV).setHorizontalAlignment("right"));
+    f.getRange(r0, 12, 3, 3).setHorizontalAlignment("center");
+    subs30.push(f.getRange(r0, 4, 3, 1)); subs90.push(f.getRange(r0, 8, 3, 1));
+    f.getRange(r0 + 2, 2, 1, 15).setFontWeight("bold");
+    [[2, 2], [4, 3], [8, 3], [12, 5]].forEach(([c, k]) => f.getRange(r0 + 2, c, 1, k).setBackground(T_CLAIR)
+      .setBorder(true, null, null, null, null, null, "#9E9EB8", SpreadsheetApp.BorderStyle.SOLID));
   };
   crea.forEach((c, g) => groupe(D0 + 4 * g, c.nom, r0 => {
-    const r = col => `'${c.o.getName()}'!$${col}$3:$${col}$1000`;
-    const fen = j => `${r("A")},">="&TODAY()-${j},${r("A")},"<="&TODAY()-1`;
-    [[r0, "B", "C", "*Notice!$B$3"], [r0 + 1, "E", "F", ""]].forEach(([l, subs, ca, conv]) => {
-      fx(`C${l}`, `=SUMIFS(${r(subs)},${fen(30)})`); fx(`D${l}`, `=SUMIFS(${r(ca)},${fen(30)})${conv}`);
-      fx(`G${l}`, `=SUMIFS(${r(subs)},${fen(90)})`); fx(`H${l}`, `=SUMIFS(${r(ca)},${fen(90)})${conv}`);
+    const s = _src(c), marge = `${P}!$D$${c.t}`;
+    [[r0, s.subsOF, s.caOF], [r0 + 1, s.subsMYM, s.caMYM]].forEach(([l, subs, ca]) => {
+      fx(`D${l}`, `=${subs(s.jours(30))}`); fx(`E${l}`, `=${ca(s.jours(30))}`);
+      fx(`H${l}`, `=${subs(s.jours(90))}`); fx(`I${l}`, `=${ca(s.jours(90))}`);
     });
-    ["C", "D", "G", "H"].forEach(c2 => fx(`${c2}${r0 + 2}`, `=${c2}${r0}+${c2}${r0 + 1}`));
+    ["D", "E", "H", "I"].forEach(c2 => fx(`${c2}${r0 + 2}`, `=${c2}${r0}+${c2}${r0 + 1}`));
+    // chaque ligne (OF, MYM, Total) a son levier ET son gain calculés sur ses propres chiffres : jamais un gain « marketing »
+    // affiché à côté d'un levier « chatting »
+    for (let l = r0; l < r0 + 3; l++) { fx(`O${l}`, gain(l)); fx(`P${l}`, `=O${l}*${marge}`); }
   }));
-  const ra = D0 + 4 * crea.length;                             // groupe AGENCE
-  groupe(ra, "AGENCE", r0 => ["OF", "MYM", "Total"].forEach((pl, k) => ["C", "D", "G", "H"].forEach(c2 =>
+  groupe(ra, "AGENCE", r0 => ["OF", "MYM", "Total"].forEach((pl, k) => ["D", "E", "H", "I", "O", "P"].forEach(c2 =>
     fx(`${c2}${r0 + k}`, `=SUMIFS(${c2}$${D0}:${c2}$${fin},$B$${D0}:$B$${fin},"${pl}")`))));
-  f.getRange(ra, 1, 3, 9).setFontWeight("bold").setBackground("#E8E8EC");
+  [[1, 2], [4, 3], [8, 3], [12, 5]].forEach(([c, k]) => f.getRange(ra, c, 3, k).setBackground(T_GRIS));
+  f.getRange(ra, 1, 3, 16).setFontWeight("bold");
 
-  // couleurs, fond clair et texte noir (03/10, exemple de Gaëtan en L11:L14). Règle du rapport, sur chaque période :
-  //   subs sous le seuil → subs en rouge ; sinon LTV < 8 € rouge, 8-15 € jaune, ≥ 15 € vert ; pas de couleur de LTV sous le seuil.
-  // 03/10 (Gaëtan : « pour les 90 j, multiplie par 3 les subs ») : seuil 800 sur 30 jours, 2 400 sur 90 jours ; LTV 8 € et 15 €.
-  // Formules sans séparateur ni nom de fonction ((a)*(b) = ET) : elles marchent quelle que soit la langue du classeur.
+  // couleurs (formules sans séparateur ni nom de fonction : indépendantes de la langue du classeur)
   const regle = () => SpreadsheetApp.newConditionalFormatRule();
-  const ROUGE = "#F4CCCC", JAUNE = "#FFF2CC", VERT = "#D9EAD3", der = ra + 2;
   const regles = [];
-  [["C", "E", SEUIL_SUBS], ["G", "I", SEUIL_SUBS * 3]].forEach(([cs, cl, seuil]) => {
+  [["D", "F", S, subs30], ["H", "J", S * 3, subs90]].forEach(([cs, cl, seuil, plages]) => {
     const ok = `(${cs}${D0}>=${seuil})`, v = `${cl}${D0}`, cible = [f.getRange(`${cl}${D0}:${cl}${der}`)];
     regles.push(
-      regle().whenNumberLessThan(seuil).setBackground(ROUGE).setRanges(plages[cs === "C" ? 3 : 7]).build(),
-      regle().whenFormulaSatisfied(`=${ok}*(${v}<${SEUIL_LTV_JAUNE})`).setBackground(ROUGE).setRanges(cible).build(),
-      regle().whenFormulaSatisfied(`=${ok}*(${v}>=${SEUIL_LTV_JAUNE})*(${v}<${SEUIL_LTV})`).setBackground(JAUNE).setRanges(cible).build(),
-      regle().whenFormulaSatisfied(`=${ok}*(${v}>=${SEUIL_LTV})`).setBackground(VERT).setRanges(cible).build());
+      regle().whenNumberLessThan(seuil).setBackground(C_ROUGE).setRanges(plages).build(),
+      regle().whenFormulaSatisfied(`=${ok}*(${v}<${LJ})`).setBackground(C_ROUGE).setRanges(cible).build(),
+      regle().whenFormulaSatisfied(`=${ok}*(${v}>=${LJ})*(${v}<${LT})`).setBackground(C_JAUNE).setRanges(cible).build(),
+      regle().whenFormulaSatisfied(`=${ok}*(${v}>=${LT})`).setBackground(C_VERT).setRanges(cible).build());
   });
-  f.setConditionalFormatRules(f.getConditionalFormatRules().concat(regles));
-  f.setColumnWidth(6, 110);                                    // 03/10 : rétrécie par erreur à 24 (colonne « novembre » des blocs par mois)
-  Logger.log(`Synthèse : bloc 30 / 90 jours par créatrice (${crea.map(c => c.nom).join(", ")}, puis AGENCE), séparateur « ${sep} ».`);
+  const lev = [f.getRange(`L${D0}:L${der}`)];
+  regles.push(
+    regle().whenFormulaSatisfied(`=(D${D0}>=${S})*(F${D0}>=${LT})`).setBackground(C_VERT).setRanges([f.getRange(`B${D0}:B${der}`)]).build(),
+    regle().whenTextEqualTo("Marketing").setBackground(C_BLEU).setRanges(lev).build(),
+    regle().whenTextEqualTo("Chatting").setBackground(C_ROSE).setRanges(lev).build(),
+    regle().whenTextEqualTo("Scaler").setBackground(C_VERT).setRanges(lev).build());
+  f.setConditionalFormatRules(regles);
+  f.setFrozenRows(6);
+  _proteger(f, "Synthèse — mise à jour automatique");
+  Logger.log(`Synthèse : ${crea.map(c => c.nom).join(", ")}, puis AGENCE ; axe scaling ; séparateur « ${sep} ».`);
 }
 
-// 03/10 : tout en un clic — envoi automatique (orphelins retirés), Synthèse alignée, onglet Commission & profit, rapport de test
+// ------------------------------------------------------------------------------------- CA par mois, Subs & LTV par mois
+function creerOngletsMensuels() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), crea = _ordre(ss);
+  const somme = (h, expr) => `(${crea.map(c => expr(_src(c), _src(c).mois(h))).join("+")})`;
+  const regleLTV = plages => {
+    const regle = () => SpreadsheetApp.newConditionalFormatRule();
+    return [regle().whenNumberLessThan(SEUIL_LTV_JAUNE).setBackground(C_ROUGE).setRanges(plages).build(),
+      regle().whenNumberLessThan(SEUIL_LTV).setBackground(C_JAUNE).setRanges(plages).build(),
+      regle().whenNumberGreaterThanOrEqualTo(SEUIL_LTV).setBackground(C_VERT).setRanges(plages).build()];
+  };
+
+  // CA par mois : total, OF, MYM empilés (A..I)
+  const fca = _feuille(ss, ONGLET_CA, ss.getSheetByName(ONGLET_PROFIT));
+  const e1 = _ecrivain(fca);
+  [110, 92, 92, 92, 92, 92, 92, 100, 60].forEach((w, i) => fca.setColumnWidth(i + 1, w));
+  _bandeau(fca, "A1:I1", "CA PAR MOIS — par créatrice et par plateforme");
+  _legende(fca, "A2:I2", "Mois civils. OF converti en € au taux du jour (Notice!B3). Part = part de la créatrice dans le CA de " +
+    "l'agence sur juillet → décembre. Le mois en cours est incomplet.");
+  const pas = crea.length + 4;
+  [["CA TOTAL (OF + MYM)", "ca"], ["CA ONLYFANS", "caOF"], ["CA MYM", "caMYM"]].forEach(([titre, cle], b) =>
+    _blocMois(fca, e1.fx, 4 + b * pas, 1, titre, crea, (c, h) => `=${_src(c)[cle](_src(c).mois(h))}`, null, F_EUR, true));
+  _proteger(fca, "CA par mois — mise à jour automatique");
+
+  // Subs & LTV par mois : bandes (subs | LTV) × (total, OF, MYM)
+  const fs = _feuille(ss, ONGLET_SUBS, fca);
+  const e2 = _ecrivain(fs);
+  [110, 80, 80, 80, 80, 80, 80, 22, 110, 80, 80, 80, 80, 80, 80].forEach((w, i) => fs.setColumnWidth(i + 1, w));
+  _bandeau(fs, "A1:O1", "SUBS & LTV PAR MOIS — par créatrice et par plateforme");
+  _legende(fs, "A2:O2", `LTV du mois = CA du mois ÷ nouveaux subs du mois. LTV : rouge < ${SEUIL_LTV_JAUNE} €, jaune ` +
+    `${SEUIL_LTV_JAUNE}-${SEUIL_LTV} €, vert ≥ ${SEUIL_LTV} €. OF converti au taux du jour (Notice!B3). Le mois en cours est incomplet.`);
+  const plages = [];
+  [["TOTAL (OF + MYM)", "subs", "ca"], ["ONLYFANS", "subsOF", "caOF"], ["MYM", "subsMYM", "caMYM"]].forEach(([nom, cs, cc], b) => {
+    const r = 4 + b * pas;
+    _blocMois(fs, e2.fx, r, 1, `NOUVEAUX SUBS — ${nom}`, crea, (c, h) => `=${_src(c)[cs](_src(c).mois(h))}`, null, F_SUBS, false);
+    plages.push(_blocMois(fs, e2.fx, r, 9, `LTV — ${nom}`, crea,
+      (c, h) => `=IFERROR(${_src(c)[cc](_src(c).mois(h))}/${_src(c)[cs](_src(c).mois(h))},"—")`,
+      h => `=IFERROR(${somme(h, (s, k) => s[cc](k))}/${somme(h, (s, k) => s[cs](k))},"—")`, F_LTV, false));
+  });
+  fs.setConditionalFormatRules(regleLTV(plages));
+  _proteger(fs, "Subs & LTV par mois — mise à jour automatique");
+  Logger.log(`Onglets « ${ONGLET_CA} » et « ${ONGLET_SUBS} » reconstruits.`);
+}
+
+// tout reconstruire, dans l'ordre des dépendances (la Synthèse lit Commission & profit), sans envoyer de rapport
+function construireDashboards() {
+  creerOngletCommission();
+  alignerSynthese();
+  creerOngletsMensuels();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.setActiveSheet(ss.getSheetByName("Synthèse"));
+}
+
+// 03/10 : tout en un clic — envoi automatique (orphelins retirés), tableaux de bord, rapport de test
 function miseEnPlace() {
   installerDeclencheur();
-  alignerSynthese();
-  creerOngletCommission();
+  construireDashboards();
   diagnostic();
 }
 

@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-03 (nuit) — Tableaux de bord G&M : règle de scaling par créatrice
+- **Fait** : quatre onglets dans Data G&M (Synthèse avec axe SCALING, Commission & profit, CA par mois, Subs & LTV par mois), partageables avec Maxence. Règle immuable sur 30 jours : subs < 800 → Marketing ; LTV < 15 € → Chatting ; sinon Scaler.
+- **Lecture au 03/10** : Chatting partout où le volume existe (Chloé 7,88 €, Sarah 2,84 €, Sophie 5,35 €, Clara 2,82 € de LTV) ; Marketing pour Maddie (579 subs, 10,41 €) et Jade (684 subs). Potentiel affiché si tout le monde atteint 15 € : ≈ 87 k€ de CA et 28 k€ de profit par mois — **plafond théorique, pas une prévision**. Premier palier réaliste (8 € de LTV + Maddie à 800 subs) : ≈ +28 k€ de CA et ≈ +10 k€ de profit par mois, dont 60 % sur Sarah.
+- **Prédiction (03/10, revue le 03/11)** : la LTV 30 jours de Sarah (total) dépasse 4 € au 03/11 (35 %) ; aucune créatrice ne passe « Scaler » d'ici là (85 %).
+
 ### 2026-10-03 (soir) — Sophie signée sur MYM à 50 % ; rapport Telegram G&M rétabli
 - **Fait** : Sophie signée à 50 % sur MYM. Saisie MYM dans Data G&M depuis le 01/10 ; la Synthèse (30 jours et CA MYM par mois) et le rapport Telegram la prennent déjà en compte, rien à modifier. Rapport quotidien rétabli le 03/10 (cause : déclencheur orphelin `envoyerRapportQuotidien` depuis le collage de la v3, confirmée par `diagnostic`).
 - **Confirmé par Gaëtan** : le 02/10, 352 nouveaux subs MYM (lancement) pour 323 € ; la LTV MYM de Sophie part donc basse (≈ 2,3 €) et se lira vraiment fin octobre.
