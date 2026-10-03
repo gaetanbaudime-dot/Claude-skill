@@ -45,4 +45,5 @@ qu'exige Apps Script : Google Sheets les affiche en français. Le rapport Telegr
 constantes `COMMISSIONS` et `FRAIS`) et affiche en pied la commission et le profit d'hier, plus le profit sur 30 jours.
 
 **Seuils 800 subs / 15 € (03/10/2026)** : sur les lignes OF et MYM du rapport, 🔴 devant les subs si moins de 800 sur 30
-jours ; sinon 🔴 devant la LTV si elle est sous 15 € ; sinon 🟢 devant la plateforme. Réglables : `SEUIL_SUBS`, `SEUIL_LTV`.
+jours ; sinon 🔴 devant la LTV sous 8 €, 🟡 entre 8 et 15 € ; sinon 🟢 devant la plateforme. Réglables : `SEUIL_SUBS`,
+`SEUIL_LTV_JAUNE`, `SEUIL_LTV`. Pas de légende dans le rapport (la règle est épinglée dans le groupe).

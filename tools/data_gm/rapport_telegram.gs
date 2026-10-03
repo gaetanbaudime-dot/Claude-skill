@@ -97,8 +97,9 @@ function _ltv(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") : ""; }
 // 03/10 (Gaëtan : « si subs last 30d < 800 : subs en rouge ; si > 800 et LTV < 15 € : LTV en rouge ; si > 800 et LTV > 15 € :
 // plateforme en vert ») : Telegram ne colore pas le texte → pastille 🔴 / 🟢 collée à la valeur visée, sur les lignes OF et MYM
 // (pas sur « Hier »). 800 tout rond compte comme « au moins 800 », 15 € tout rond comme « au moins 15 € ». Colonnes élargies
-// pour garder l'alignement (une pastille occupe deux caractères) : 28 caractères.
-const SEUIL_SUBS = 800, SEUIL_LTV = 15;
+// pour garder l'alignement (une pastille occupe deux caractères) : 28 caractères. 03/10 : palier 🟡 sur la LTV entre 8 et
+// 15 € (Gaëtan : « ajoute le palier jaune à 8 € » ; la règle est épinglée dans le groupe, pas de légende dans le rapport).
+const SEUIL_SUBS = 800, SEUIL_LTV_JAUNE = 8, SEUIL_LTV = 15;
 function _larg(t) { return [...t].reduce((a, ch) => a + (ch.codePointAt(0) > 0xffff ? 2 : 1), 0); }
 function _gauche(t, n) { return t + " ".repeat(Math.max(0, n - _larg(t))); }
 function _droite(t, n) { return " ".repeat(Math.max(0, n - _larg(t))) + t; }
@@ -108,7 +109,8 @@ function _ligne(libelle, subs, eur, ltv) {
   if (ltv !== undefined) {                                  // lignes OF / MYM : la règle des 800 subs et des 15 €
     const valeur = subs ? eur / subs : 0;
     if (subs < SEUIL_SUBS) s = "🔴" + s;
-    else if (valeur < SEUIL_LTV) l = "🔴" + l;
+    else if (valeur < SEUIL_LTV_JAUNE) l = "🔴" + l;
+    else if (valeur < SEUIL_LTV) l = "🟡" + l;
     else lib = "🟢" + lib;
   }
   return `${_gauche(lib, 5)}${_droite(s, 7)}${_droite(_nb(eur), 8)}${_droite(l, 8)}`.replace(/\s+$/, "");
