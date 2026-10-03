@@ -7,13 +7,15 @@ Chaque matin à VISITES_TELEGRAM_HEURE (9 h Paris), pour chaque groupe Telegram 
 « Chloé | G&M »), le bot poste trois chiffres dans le sujet « 📈 Visites de la veille » — créé par lui, **fermé** (personne n'y
 écrit : il le rouvre le temps de poster, puis le referme) :
 
-    📈 chloe-callista.fr
+    📈 chloe-callista.fr · visiteurs francophones
     Hier (02/10) : 412 visiteurs
     7 derniers jours : 2 411
     30 derniers jours : 9 870
 
-Les visiteurs = tous les liens GAML du domaine de la créatrice, hors robots (`/analytics/countries`, un appel par lien et par
-période). Jamais un nom de clipper, jamais un lien, aucune répartition.
+Les visiteurs (03/10, Gaëtan : « son compte seulement, francophones ») = la page GAML du compte de la créatrice (le lien sans
+suffixe, « Compte de @… »), hors liens de clippeurs, visiteurs des pays francophones de la paie, hors robots
+(`/analytics/countries`). Jamais un nom de clipper, jamais un lien, aucune répartition. Aucun envoi immédiat : le message part
+le matin, entre 9 h et 12 h Paris.
 
 Découverte des groupes : le bot Telegram doit être ajouté au groupe en admin (« Gérer les sujets ») ; il voit son ajout
 (`my_chat_member`) ou une mention @bot (`getUpdates`), retient le chat et le relie à la créatrice. `!visites-telegram groupes`
@@ -33,9 +35,10 @@ ACTIF = os.environ.get("VISITES_TELEGRAM", "1").strip() != "0"                  
 HEURE_PARIS = int(os.environ.get("VISITES_TELEGRAM_HEURE", "9") or 9)
 SUJET_NOM = os.environ.get("VISITES_TELEGRAM_SUJET", "📈 Visites de la veille").strip() or "📈 Visites de la veille"
 INTERVALLE_DECOUVERTE = int(os.environ.get("VISITES_TELEGRAM_DECOUVERTE_SEC", "300") or 300)
-CREATRICES_DEFAUT = ("Chloé", "Sarah", "Sophie", "Jade", "Maddie", "Clara", "Leatitia")
-# 03/10 (Gaëtan : « ajoute Leatitia ») : des créatrices sans clippers n'ont pas d'onglet dans le classeur des logins → la liste
-# vient du classeur + ces prénoms + VISITES_TELEGRAM_CREATRICES (« Prénom,Prénom »), sans doublon
+CREATRICES_DEFAUT = ("Chloé", "Sarah", "Sophie", "Jade", "Maddie", "Clara")
+# 03/10 : la liste vient du classeur des logins + ces noms de scène + VISITES_TELEGRAM_CREATRICES (« Nom,Nom »), sans doublon.
+# Un groupe dont le titre porte un autre prénom que le nom de scène se relie par `!visites-telegram relier <mot du titre> <Créatrice>`
+# (stocké dans les données du bot, jamais dans le dépôt : pas de prénom réel versionné).
 EN_PLUS = tuple(x.strip() for x in os.environ.get("VISITES_TELEGRAM_CREATRICES", "").split(",") if x.strip())
 PERIODES = (("hier", 1), ("j7", 7), ("j30", 30))
 _deps: dict = {}
@@ -109,8 +112,21 @@ def liens_par_creatrice(liens: list, creatrices=None) -> dict:
     return out
 
 
+def page_compte(l: dict) -> bool:
+    """La page du compte Instagram de la créatrice (« Compte de @… » dans GAML) : le lien sans suffixe, chloe-callista.fr et non
+    chloe-callista.fr/3 (clippeur) ni /fb, /ytb. 03/10 (Gaëtan) : seules les visites de son compte, celles que ses Reels font monter."""
+    slug = str(l.get("slug") or "")
+    if slug:
+        return slug.endswith(":")
+    try:
+        return urlparse(l.get("url") or "").path in ("", "/")
+    except Exception:                                                   # noqa: BLE001
+        return False
+
+
 async def visiteurs(liens: list, debut: date, fin: date) -> int:
-    """Les visiteurs hors robots d'une période, tous liens confondus (un appel GAML par lien)."""
+    """Les visiteurs francophones hors robots d'une période (pays de la paie des clippeurs : paie_clics.PAYS_PAYES), tous les
+    liens donnés confondus (un appel GAML par lien). 03/10 (Gaëtan) : francophones seulement."""
     total = 0
     base = {"range": "custom", "date_from": debut.isoformat(), "date_to": fin.isoformat(), "timezone": paie_clics.FUSEAU}
     for l in liens:
@@ -118,7 +134,7 @@ async def visiteurs(liens: list, debut: date, fin: date) -> int:
             continue
         pays = await paie_clics._requete("GET", "/analytics/countries", params={**base, "link_id": l["id"]})
         pays = pays if isinstance(pays, list) else (pays or {}).get("member", [])
-        total += sum(int(x.get("count", 0)) for x in pays)
+        total += sum(int(x.get("count", 0)) for x in pays if str(x.get("country", "")) in paie_clics.PAYS_PAYES)
     return total
 
 
@@ -136,7 +152,7 @@ def _nb(n) -> str:
 
 def texte(domaine: str, hier: date, c: dict) -> str:
     """Trois chiffres, rien d'autre."""
-    return (f"📈 {domaine}\n"
+    return (f"📈 {domaine} · visiteurs francophones\n"
             f"Hier ({hier.strftime('%d/%m')}) : {_nb(c.get('hier', 0))} visiteurs\n"
             f"7 derniers jours : {_nb(c.get('j7', 0))}\n"
             f"30 derniers jours : {_nb(c.get('j30', 0))}")
@@ -175,7 +191,7 @@ async def decouvrir(d: dict) -> list:
             if str(info.get("sujet_id")) != str(msg["message_thread_id"]):
                 info["sujet_id"] = int(msg["message_thread_id"]); info["ferme"] = False; info.pop("erreur", None)
                 journal.info("Visites Telegram : sujet « %s » retrouvé dans %s", cree.get("name"), info["titre"])
-    # 03/10 : un groupe déjà connu mais pas encore relié (créatrice ajoutée depuis, ex. Leatitia) est réexaminé à chaque passage
+    # 03/10 : un groupe déjà connu mais pas encore relié (créatrice ajoutée depuis à la liste) est réexaminé à chaque passage
     for info in d["groupes"].values():
         if not info.get("creatrice") and info.get("titre"):
             info["creatrice"] = creatrice_de(info["titre"], creatrices)
@@ -251,19 +267,24 @@ async def executer(jour: date | None = None, seulement: str = "", d: dict | None
         c = info["creatrice"]
         bloc = par_creatrice.get(c)
         if not bloc:
-            bilan["erreurs"].append(f"{c} : aucun lien GAML sur un domaine à son prénom")
+            bilan["erreurs"].append(f"{c} : aucun lien GAML (groupe ou domaine à son nom)")
+            continue
+        compte = [l for l in bloc["liens"] if page_compte(l)]
+        if not compte:
+            bilan["erreurs"].append(f"{c} : pas de page « compte » (lien GAML sans suffixe) sur {bloc['domaine']}")
             continue
         h = d["historique"].setdefault(c, {})
-        if not h.get(hier.isoformat()):
+        cle_h = f"{hier.isoformat()}|compte-fr"                        # 03/10 : nouveau comptage, l'ancien cache est ignoré
+        if not h.get(cle_h):
             try:
-                h[hier.isoformat()] = await chiffres(bloc["liens"], hier)
+                h[cle_h] = await chiffres(compte, hier)
             except RuntimeError as erreur:
                 bilan["erreurs"].append(f"{c} : {erreur}")
                 continue
             for j in [k for k in h if (hier - date.fromisoformat(k)).days > 60]:
                 h.pop(j, None)
             _ecrire(d)
-        if await poster(cle, info, texte(bloc["domaine"], hier, h[hier.isoformat()])):
+        if await poster(cle, info, texte(bloc["domaine"], hier, h[cle_h])):
             bilan["postes"] += 1
             info["dernier"] = hier.isoformat()
         bilan["groupes"] += 1
@@ -272,8 +293,8 @@ async def executer(jour: date | None = None, seulement: str = "", d: dict | None
 
 
 async def boucle(client):
-    """Toutes les INTERVALLE_DECOUVERTE secondes : les nouveaux groupes (premier message tout de suite) ; chaque jour à HEURE_PARIS,
-    le message du matin dans chaque groupe relié."""
+    """Toutes les INTERVALLE_DECOUVERTE secondes : les nouveaux groupes (reliés, sans message) ; chaque jour entre HEURE_PARIS et
+    HEURE_PARIS + 3 h, le message du matin dans chaque groupe relié."""
     if not actif():
         journal.info("Visites Telegram désactivées (TELEGRAM_TOKEN ou GAML_API_KEY absent)")
         return
@@ -285,13 +306,12 @@ async def boucle(client):
             _ecrire(d)
             maintenant = _deps["heure_paris"]()
             hier = (maintenant.date() - timedelta(days=1)).isoformat()
+            # 03/10 (Gaëtan : « n'envoie pas tout de suite ») : un groupe relié attend le message du matin, jamais d'envoi immédiat ;
+            # et le message du matin ne part qu'entre HEURE_PARIS et HEURE_PARIS + 3 h (un redémarrage le soir n'envoie rien)
             for cle in nouveaux:
                 info = d["groupes"][cle]
-                journal.info("Visites Telegram : groupe « %s » relié à %s", info.get("titre"), info.get("creatrice"))
-                if not info.get("dernier"):
-                    bilan = await executer(seulement=info["creatrice"], d=d)
-                    journal.info("Visites Telegram : premier message pour %s : %s", info.get("creatrice"), bilan)
-            if maintenant.hour >= HEURE_PARIS:
+                journal.info("Visites Telegram : groupe « %s » relié à %s (premier message au prochain matin)", info.get("titre"), info.get("creatrice"))
+            if HEURE_PARIS <= maintenant.hour < HEURE_PARIS + 3:
                 d = _lire()
                 if any(i.get("creatrice") and i.get("dernier") != hier for i in d["groupes"].values()):
                     bilan = await executer(d=d)
@@ -303,7 +323,8 @@ async def boucle(client):
 
 async def commande(message, texte_cmd: str) -> bool:
     """`!visites-telegram` : état · `groupes` : les groupes connus et le bot à ajouter · `test [Créatrice]` : poste tout de suite ·
-    `lier Créatrice chat_id` : relie un groupe à la main · `oublier chat_id`."""
+    `lier Créatrice chat_id` : relie un groupe à la main · `relier <mot du titre> <Créatrice>` : relie les groupes dont le titre
+    contient ce mot · `oublier chat_id`."""
     mots = texte_cmd.split()
     if not mots or mots[0].lower() not in ("!visites-telegram", "!visites-tg"):
         return False
@@ -325,6 +346,16 @@ async def commande(message, texte_cmd: str) -> bool:
         d["groupes"][mots[3]] = {"titre": mots[3], "creatrice": mots[2], "forum": True}
         _ecrire(d)
         await message.reply(f"✅ Groupe {mots[3]} relié à {mots[2]}. `!visites-telegram test {mots[2]}` pour poster.")
+        return True
+    if action == "relier" and len(mots) >= 4:
+        # 03/10 : groupe au titre portant un autre prénom que le nom de scène → relié à la créatrice, sujet et réglages gardés
+        mot, crea = _n(mots[2]), " ".join(mots[3:])
+        trouves = [info for info in d["groupes"].values() if mot and mot in _n(info.get("titre"))]
+        for info in trouves:
+            info["creatrice"] = crea
+        _ecrire(d)
+        await message.reply(f"✅ {len(trouves)} groupe(s) relié(s) à {crea} : " + ", ".join(i.get("titre", "?") for i in trouves)
+                            + ". Premier message au prochain matin." if trouves else f"Aucun groupe connu dont le titre contient « {mots[2]} ».")
         return True
     if action == "oublier" and len(mots) >= 3:
         d["groupes"].pop(mots[2], None); _ecrire(d)
