@@ -38,3 +38,25 @@ async def envoyer_telegram(texte: str):
                     journal.warning("Telegram HTTP %s", reponse.status)
     except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
         journal.warning("Telegram injoignable : %s", erreur)
+
+
+async def appeler(methode: str, charge: dict | None = None) -> dict | list | bool:
+    """03/10 : un appel à l'API Bot Telegram (`getUpdates`, `createForumTopic`, `sendMessage`…). Renvoie `result` ; lève
+    RuntimeError avec la description Telegram sinon. Silencieux et vide si le jeton manque."""
+    if not TELEGRAM_TOKEN:
+        raise RuntimeError("TELEGRAM_TOKEN absent")
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/{methode}"
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=40)) as session:
+        async with session.post(url, json=charge or {}) as reponse:
+            corps = await reponse.json(content_type=None)
+    if not isinstance(corps, dict) or not corps.get("ok"):
+        raise RuntimeError(str((corps or {}).get("description") or f"HTTP {reponse.status}")[:200])
+    return corps.get("result")
+
+
+async def envoyer(chat_id, texte: str, thread_id=None) -> dict:
+    """Un message en texte brut dans un chat, et dans un sujet de forum si `thread_id` est donné."""
+    charge = {"chat_id": chat_id, "text": _sans_markdown(texte)[:4000]}
+    if thread_id:
+        charge["message_thread_id"] = int(thread_id)
+    return await appeler("sendMessage", charge)

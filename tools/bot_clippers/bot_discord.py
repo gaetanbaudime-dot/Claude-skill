@@ -55,6 +55,7 @@ import drive_agence                       # script Apps Script de l'agence : dé
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 import telegram                           # alerte Telegram de l'agence : acceptation, sortie, copie du digest (29/09, ex-inputs_clippers)
 import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
+import visites_telegram                   # les visites de la veille dans le groupe Telegram de chaque créatrice (03/10)
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
 import classeur_verif                     # le classeur se vérifie seul après le scan : doublons, BAN avec Gérant… (29/09)
 import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
@@ -4301,7 +4302,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -6744,6 +6745,11 @@ async def on_ready():
                                       "envoyer_telegram": telegram.envoyer_telegram, "heure_paris": heure_paris, "normaliser": normaliser,
                                       "google_api": google_api, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
         client.loop.create_task(rapport_quotidien.boucle(client))               # 29/09 : la veille en 8 lignes, 13 h Paris
+        visites_telegram.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "visites_telegram.json",
+                                     "heure_paris": heure_paris, "normaliser": normaliser, "canal_admin": canal_admin,
+                                     "creatrices": lambda: list(onboarding._colonnes_par_onglet.keys()),
+                                     "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+        client.loop.create_task(visites_telegram.boucle(client))                # 03/10 : visites de la veille → groupe Telegram de la créatrice
         sortie_auto.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "sortie_auto.json",
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                                 "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,
@@ -7949,6 +7955,8 @@ async def on_message(message):
         if await onboarding.commande_staff(message, texte):
             return
         if await rapport_quotidien.commande(message, texte):                    # !rapport [telegram] (29/09)
+            return
+        if await visites_telegram.commande(message, texte):                     # !visites-telegram (03/10)
             return
         if await bans_mail.commande(message, texte):                            # !bans [jours] (29/09)
             return
