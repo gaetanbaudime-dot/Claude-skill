@@ -35,3 +35,11 @@ un autre nom ; un refus de Telegram fait échouer l'exécution au lieu de passer
 une alerte dans le canal ; le pied liste les créatrices dont la veille n'est pas saisie ; lecture dès la ligne 3
 (« 1 juillet »). Remise en route : coller le code → exécuter `diagnostic` (journal + envoi test) → exécuter
 `installerDeclencheur`.
+
+**Commission & profit (03/10/2026, Gaëtan : « commission d'agence sur le CA : Chloé 40 %, Sarah, Sophie, Maddie, Clara
+50 %, Jade 60 % ; ensuite tu retires 15 % de CA de dépenses et on a notre profit précisément »)** : la marge unique de 30 %
+est supprimée. Profit = CA × (commission − 15 % de frais + chatting). `creerOngletCommission` (à lancer une fois) crée
+l'onglet « Commission & profit » : taux en cases jaunes, puis 30 derniers jours (CA, commission, frais, profit, profit
+par nouveau sub), hier, commission par mois et profit par mois. Formules écrites par le script en syntaxe anglaise, ce
+qu'exige Apps Script : Google Sheets les affiche en français. Le rapport Telegram lit ses taux dans cet onglet (repli : les
+constantes `COMMISSIONS` et `FRAIS`) et affiche en pied la commission et le profit d'hier, plus le profit sur 30 jours.

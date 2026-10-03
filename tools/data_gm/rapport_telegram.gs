@@ -14,8 +14,7 @@
  * Paramètres du projet → Propriétés du script : TELEGRAM_TOKEN et TELEGRAM_CHAT_ID (déjà là si vous remplacez l'ancien
  * code) → exécuter `installerDeclencheur` une fois (autoriser). `envoyerRapportTelegram` teste l'envoi immédiat.
  *
- * Réglages : CREATRICES = les onglets lus ; MARGE = part nette du CA pour le profit (le rapport actuel : 936 € de profit
- * pour 3 118 € de CA, soit 30 %).
+ * Réglages : CREATRICES = les onglets lus ; taux de commission et de frais : voir le 03/10 plus bas.
  *
  * 03/10 (dernier rapport reçu : 29/09, la veille du collage de la v3 ; Gaëtan : « rétablir ce bot afin que Maxence voie tous
  * les jours les LTV ») : la panne ne vient pas du classeur (saisi jusqu'au 02/10). Cause probable : l'ancien déclencheur
@@ -25,9 +24,17 @@
  * une erreur de construction envoie une alerte dans le canal ; le pied signale les créatrices dont la veille n'est pas saisie.
  * `diagnostic` (à lancer une fois) écrit dans le journal les déclencheurs, les propriétés et la dernière date saisie, puis
  * envoie le rapport.
+ *
+ * 03/10 (Gaëtan : « commission d'agence sur le CA : Chloé 40 %, Sarah, Sophie, Maddie, Clara 50 %, Jade 60 % ; ensuite tu
+ * retires 15 % de CA de dépenses (frais + chatting) et on a notre profit précisément ») : la marge unique de 30 % disparaît.
+ * Profit = CA × (commission − 15 %). `creerOngletCommission` (à lancer une fois) crée l'onglet « Commission & profit » :
+ * taux modifiables (cases jaunes), 30 derniers jours, hier, commission et profit par mois. Le rapport lit ses taux dans cet
+ * onglet (repli : COMMISSIONS et FRAIS ci-dessous) et donne en pied la commission et le profit d'hier et des 30 jours.
  */
 const CREATRICES = ["Chloé", "Sophie", "Maddy", "Sarah", "Jade", "Clara"];
-const MARGE = 0.30;
+const COMMISSIONS = { "Chloé": 0.40, "Sophie": 0.50, "Maddy": 0.50, "Sarah": 0.50, "Jade": 0.60, "Clara": 0.50 };
+const FRAIS = 0.15;              // frais + chatting, en part du CA
+const ONGLET_PROFIT = "Commission & profit";
 const HEURE_ENVOI = 8;           // heure locale du classeur
 const PREMIERE_LIGNE = 3;        // 03/10 : « 1 juillet » est en ligne 3 (titres en lignes 1-2)
 
@@ -98,11 +105,14 @@ function construireRapport() {
   const hier = new Date(); hier.setHours(0, 0, 0, 0); hier.setDate(hier.getDate() - 1);
   const avantHier = new Date(hier); avantHier.setDate(avantHier.getDate() - 1);
   const debut30 = new Date(hier); debut30.setDate(debut30.getDate() - 30);
-  const blocs = [], totalHier = { tot: 0 }, nonSaisi = [];
+  const tx = _tauxProfit(ss);
+  const blocs = [], totalHier = { tot: 0, com: 0, profit: 0 }, total30 = { com: 0, profit: 0 }, nonSaisi = [];
   CREATRICES.forEach(nom => {
     const L = _lire(ss, nom);
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
-    totalHier.tot += h.tot;
+    const { com, frais } = tx[nom];
+    totalHier.tot += h.tot; totalHier.com += h.tot * com; totalHier.profit += h.tot * (com - frais);
+    total30.com += m.tot * com; total30.profit += m.tot * (com - frais);
     const ligneHier = L.find(l => l.d > avantHier && l.d <= hier);
     if ((m.subs || m.tot) && (!ligneHier || ligneHier.vide)) nonSaisi.push(nom);
     const lignes = [TETE, "┈".repeat(26)];                // 30/09 : un trait fin sous les titres de colonnes
@@ -115,8 +125,107 @@ function construireRapport() {
   const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours ➡️ OF · MYM · LTV\nHier : ${_jour(hier)}\n————————————\n\n`;
   const corps = blocs.map((b, i) => `${i + 1}. ${b.texte}`).join("\n\n");
   const alerte = nonSaisi.length ? `\n⚠️ Hier non saisi : ${nonSaisi.join(", ")}` : "";
-  const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🏦 <b>PROFIT HIER : ${_eur(totalHier.tot * MARGE)}</b>${alerte}`;
+  const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🤝 COMMISSION HIER : ${_eur(totalHier.com)}` +
+    `\n🏦 <b>PROFIT HIER : ${_eur(totalHier.profit)}</b>\n📆 Profit 30 j : ${_eur(total30.profit)} (commission ${_eur(total30.com)})${alerte}`;
   return entete + corps + pied;
+}
+
+// 03/10 : taux de commission et de frais lus dans l'onglet « Commission & profit » (A4:C9), sinon les constantes
+function _tauxProfit(ss) {
+  const tx = {};
+  CREATRICES.forEach(nom => { tx[nom] = { com: COMMISSIONS[nom], frais: FRAIS }; });
+  const f = ss.getSheetByName(ONGLET_PROFIT);
+  if (f) f.getRange(4, 1, CREATRICES.length, 3).getValues().forEach(([nom, com, frais]) => {
+    const cible = CREATRICES.find(c => _cle(c) === _cle(nom));
+    if (cible && typeof com === "number" && typeof frais === "number") tx[cible] = { com, frais };
+  });
+  return tx;
+}
+
+// 03/10 : crée l'onglet « Commission & profit » (une fois ; supprimer l'onglet pour le recréer). Formules en syntaxe anglaise :
+// c'est ce qu'attend Apps Script, Google Sheets les affiche ensuite dans la langue du classeur.
+function creerOngletCommission() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName(ONGLET_PROFIT)) throw new Error(`L'onglet « ${ONGLET_PROFIT} » existe déjà : supprime-le pour le recréer.`);
+  const f = ss.insertSheet(ONGLET_PROFIT, (ss.getSheetByName("Synthèse") || ss.getSheets()[0]).getIndex());
+  const n = CREATRICES.length, ref = nom => `'${(_onglet(ss, nom) || { getName: () => nom }).getName()}'`;
+  const plage = (nom, col) => `${ref(nom)}!$${col}$3:$${col}$1000`;
+  const dates = nom => plage(nom, "A");
+  const EUR = '#,##0 "€"', PCT = "0%";
+  const titre = (ligne, texte) => f.getRange(ligne, 1).setValue(texte).setFontWeight("bold").setFontColor("#4A6FA5");
+  const tete = (ligne, cols) => f.getRange(ligne, 1, 1, cols.length).setValues([cols]).setFontWeight("bold").setBackground("#E8E8EC");
+  const total = (ligne, de, a, cols) => {
+    f.getRange(ligne, 1).setValue("TOTAL");
+    cols.forEach(c => f.getRange(`${c}${ligne}`).setFormula(`=SUM(${c}${de}:${c}${a})`));
+    f.getRange(ligne, 1, 1, cols.length + 1).setFontWeight("bold");
+  };
+  f.getRange("A1:H1").merge().setValue("COMMISSION & PROFIT — calcul automatique ; seules les cases jaunes (taux) se modifient")
+    .setFontWeight("bold").setFontColor("#FFFFFF").setBackground("#6B6B7B");
+
+  // 1. Taux (lignes 4 à 9) : lus aussi par le rapport Telegram
+  titre(2, "Taux — profit = CA × (commission − frais)");
+  tete(3, ["Créatrice", "Commission agence", "Frais + chatting", "Marge nette"]);
+  CREATRICES.forEach((nom, i) => {
+    const l = 4 + i;
+    f.getRange(l, 1, 1, 3).setValues([[nom, COMMISSIONS[nom], FRAIS]]);
+    f.getRange(`D${l}`).setFormula(`=B${l}-C${l}`);
+  });
+  f.getRange(4, 2, n, 2).setBackground("#FFF9C4");
+  f.getRange(4, 2, n, 3).setNumberFormat(PCT);
+
+  // 2. 30 derniers jours glissants (même fenêtre que la Synthèse)
+  const l30 = 4 + n + 2;                                     // 12
+  titre(l30 - 1, "30 derniers jours glissants");
+  tete(l30, ["Créatrice", "CA 30 j", "Commission", "Frais + chatting", "Profit", "Nouveaux subs", "Profit / sub"]);
+  CREATRICES.forEach((nom, i) => {
+    const l = l30 + 1 + i, t = 4 + i, fen = `${dates(nom)},">="&TODAY()-29,${dates(nom)},"<="&TODAY()`;
+    f.getRange(l, 1).setValue(nom);
+    f.getRange(`B${l}`).setFormula(`=SUMIFS(${plage(nom, "I")},${fen})`);
+    f.getRange(`C${l}`).setFormula(`=B${l}*$B$${t}`);
+    f.getRange(`D${l}`).setFormula(`=B${l}*$C$${t}`);
+    f.getRange(`E${l}`).setFormula(`=C${l}-D${l}`);
+    f.getRange(`F${l}`).setFormula(`=SUMIFS(${plage(nom, "H")},${fen})`);
+    f.getRange(`G${l}`).setFormula(`=IFERROR(E${l}/F${l},"—")`);
+  });
+  const t30 = l30 + n + 1;
+  total(t30, l30 + 1, l30 + n, ["B", "C", "D", "E", "F"]);
+  f.getRange(`G${t30}`).setFormula(`=IFERROR(E${t30}/F${t30},"—")`);
+  f.getRange(l30 + 1, 2, n + 1, 4).setNumberFormat(EUR);
+  f.getRange(l30 + 1, 7, n + 1, 1).setNumberFormat('0.00 "€"');
+
+  // 3. Hier
+  const lh = t30 + 3;
+  titre(lh - 1, "Hier");
+  tete(lh, ["Créatrice", "CA hier", "Commission", "Frais + chatting", "Profit"]);
+  CREATRICES.forEach((nom, i) => {
+    const l = lh + 1 + i, t = 4 + i;
+    f.getRange(l, 1).setValue(nom);
+    f.getRange(`B${l}`).setFormula(`=SUMIFS(${plage(nom, "I")},${dates(nom)},TODAY()-1)`);
+    f.getRange(`C${l}`).setFormula(`=B${l}*$B$${t}`);
+    f.getRange(`D${l}`).setFormula(`=B${l}*$C$${t}`);
+    f.getRange(`E${l}`).setFormula(`=C${l}-D${l}`);
+  });
+  const th = lh + n + 1;
+  total(th, lh + 1, lh + n, ["B", "C", "D", "E"]);
+  f.getRange(lh + 1, 2, n + 1, 4).setNumberFormat(EUR);
+
+  // 4. Commission puis profit par mois (juillet → décembre 2026)
+  const mois = [0, 1, 2, 3, 4, 5].map(k => new Date(2026, 6 + k, 1));
+  [["Commission par mois", "B"], ["Profit par mois", "D"]].forEach(([texte, colTaux], bloc) => {
+    const lm = th + 3 + bloc * (n + 5);
+    titre(lm - 1, texte);
+    tete(lm, ["Créatrice"]);
+    f.getRange(lm, 2, 1, 6).setValues([mois]).setNumberFormat("mmmm").setFontWeight("bold").setBackground("#E8E8EC");
+    CREATRICES.forEach((nom, i) => {
+      const l = lm + 1 + i, t = 4 + i;
+      f.getRange(l, 1).setValue(nom);
+      ["B", "C", "D", "E", "F", "G"].forEach(c => f.getRange(`${c}${l}`).setFormula(
+        `=SUMIFS(${plage(nom, "I")},${dates(nom)},">="&${c}$${lm},${dates(nom)},"<"&EDATE(${c}$${lm},1))*$${colTaux}$${t}`));
+    });
+    total(lm + n + 1, lm + 1, lm + n, ["B", "C", "D", "E", "F", "G"]);
+    f.getRange(lm + 1, 2, n + 1, 6).setNumberFormat(EUR);
+  });
+  f.setColumnWidth(1, 110); f.setColumnWidths(2, 7, 115); f.setFrozenRows(1);
 }
 
 function _envoyer(token, chat, texte) {
