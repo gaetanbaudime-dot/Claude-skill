@@ -153,7 +153,16 @@ async def cloner_lien(base_id: str, nom: str, note: str) -> dict:
     nouveau_id = clone.get("id")
     if not nouveau_id:
         raise RuntimeError("clone GAML sans identifiant")
-    maj = await _requete("PATCH", f"/links/{nouveau_id}", corps={"name": nom, "note": note, "enabled": True})
+    try:
+        maj = await _requete("PATCH", f"/links/{nouveau_id}", corps={"name": nom, "note": note, "enabled": True})
+    except RuntimeError as erreur:
+        # 03/10 : le clone réussit mais l'activation échoue (forfait GAML plein) → sans ça, chaque relance laissait un clone
+        # désactivé de plus (22 « Clipping Andry » le 01/10). On efface le clone avant de remonter l'erreur.
+        try:
+            await _requete("DELETE", f"/links/{nouveau_id}")
+        except RuntimeError:
+            pass
+        raise RuntimeError(f"{erreur} — clone effacé ; forfait GAML plein ?") from erreur
     return {"id": nouveau_id, "url": maj.get("url") or clone.get("url") or ""}
 
 
@@ -485,7 +494,10 @@ async def associer_auto(d: dict, liens: list) -> list:
             continue
         surs = [c for c in candidats if c[1]] or (candidats if len(candidats) == 1 else [])
         if len(surs) != 1:
-            lignes.append(f"⚠️ {l.get('note')} ({creatrice}) : {len(candidats)} membres possibles, à trancher avec `!lien`.")
+            jour = _aujourdhui().isoformat()                               # 03/10 (Gaëtan) : l'alerte une fois par jour et par lien, pas à chaque passage
+            if d.setdefault("avertis", {}).get(lid) != jour:
+                d["avertis"][lid] = jour
+                lignes.append(f"⚠️ {l.get('note')} ({creatrice}) : {len(candidats)} membres possibles, à trancher avec `!lien`.")
             journal.info("Lien GAML %s (%s) : %s candidats, non attribué", l.get("note"), creatrice, len(candidats))
             continue
         uid = surs[0][0]

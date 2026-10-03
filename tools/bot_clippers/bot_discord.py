@@ -97,6 +97,7 @@ ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.
 
 # ---- v2 (programme clippers) ----
 CANAL_DOPAMINE_ID = os.environ.get("CANAL_DOPAMINE_ID", "").strip()       # canal des paiements/wins
+DOPAMINE_PREMIER_REEL = os.environ.get("DOPAMINE_PREMIER_REEL", "0").strip() == "1"   # 03/10 : « Bravo pour ton premier Reel » éteint par défaut
 CANAL_CANDIDATURE_ID = os.environ.get("CANAL_CANDIDATURE_ID", "").strip() # canal d'accueil des candidats
 SHEET_CANDIDATURES_ID = os.environ.get("SHEET_CANDIDATURES_ID", "").strip()   # classeur de sauvegarde des candidatures (24/09)
 SHEET_CANDIDATURES_ONGLET = os.environ.get("SHEET_CANDIDATURES_ONGLET", "Candidatures bot").strip() or "Candidatures bot"
@@ -6728,7 +6729,7 @@ async def on_ready():
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e, p=None, r=None: parcours.reconcilier(client, e, p, r),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
-                                  "premier_reel": premier_reel_dopamine,                        # 30/09 : premier Reel fêté
+                                  "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None,   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer
                                   "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         classeur_verif.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_VERIF": DONNEES / "classeur_verif.json",

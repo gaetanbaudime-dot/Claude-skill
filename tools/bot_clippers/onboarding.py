@@ -853,8 +853,18 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             modeles.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)        # le plus récent d'abord
             if not modeles:                                              # 27/09 : première créatrice sans lien de clipper (Jade, Clara, Maddie) →
                 modeles = [l for l in de_la_creatrice if "/fb" not in str(l.get("url", "")) and "/ytb" not in str(l.get("url", ""))]   # on part de son lien principal
-            if modeles:
+            # 03/10 : un lien « Clipping Prénom » de la créatrice existe déjà (relance après une activation ratée : 22 clones
+            # « Clipping Andry » le 01/10, GAML plein) → on le reprend, jamais un clone de plus.
+            existants = [l for l in de_la_creatrice if _norm(paie_clics._prenom_note(l.get("note"))) == _norm(prenom) and l.get("enabled", True)
+                         and str((d["liens"].get(l.get("id")) or {}).get("uid") or "") in ("", str(membre.id))]
+            existants.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)
+            nouveau = None
+            if existants:
+                nouveau = {"id": existants[0]["id"], "url": existants[0].get("url", "")}
+                journal.info("Lien GAML de %s repris (%s), pas de clone", prenom, nouveau["url"])
+            elif modeles:
                 nouveau = await paie_clics.cloner_lien(modeles[0]["id"], modeles[0].get("name", creatrice), f"Clipping {prenom}")
+            if nouveau:
                 d["liens"][nouveau["id"]] = {"uid": str(membre.id), "note": f"Clipping {prenom}", "url": nouveau["url"],
                                              "creatrice": creatrice.split()[0], "depuis": _deps["heure_paris"]().date().isoformat(),
                                              "par": "onboarding"}
