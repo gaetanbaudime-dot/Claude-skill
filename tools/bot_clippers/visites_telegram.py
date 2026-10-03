@@ -1,13 +1,19 @@
-"""Les visites de la veille dans le groupe Telegram de chaque créatrice (03/10, Gaëtan : « une automatisation qui enverrait le nombre
-de visiteurs sur chloe-callista.fr et sarah-ivanova.fr dans un groupe Telegram, dans un salon « visites de la veille » où les gens ne
-peuvent pas parler, pour motiver les créatrices à poster des Reels et voir leurs clics augmenter » — Loris fait le marketing vertical
-de Chloé et Sarah en octobre).
+"""Les visiteurs du site de chaque créatrice dans son groupe Telegram (03/10, Gaëtan : « une automatisation qui enverrait le
+nombre de visiteurs sur chloe-callista.fr et sarah-ivanova.fr dans un groupe Telegram, dans un salon « visites de la veille » où
+les gens ne peuvent pas parler, pour motiver les créatrices à poster des Reels et voir leurs clics augmenter » ; puis « simplifie :
+seulement les visiteurs du domaine, pas de comparaison avec le clipping, hier, 7 derniers jours, 30 derniers jours »).
 
 Chaque matin à VISITES_TELEGRAM_HEURE (9 h Paris), pour chaque groupe Telegram relié à une créatrice (son prénom dans le titre :
-« Chloé | G&M »), le bot poste dans le sujet « 📈 Visites de la veille » — créé par lui, **fermé** (personne n'y écrit : il le rouvre
-le temps de poster, puis le referme) : les visites hors robots de la veille sur TOUS les liens GAML de son domaine, réparties
-« toi / clippers / agence », la variation vs l'avant-veille, les francophones, la courbe des 7 jours, le record des 30 jours. Jamais
-un nom de clipper ni un lien de tracking : la créatrice voit un chiffre qui monte, pas la machine.
+« Chloé | G&M »), le bot poste trois chiffres dans le sujet « 📈 Visites de la veille » — créé par lui, **fermé** (personne n'y
+écrit : il le rouvre le temps de poster, puis le referme) :
+
+    📈 chloe-callista.fr
+    Hier (02/10) : 412 visiteurs
+    7 derniers jours : 2 411
+    30 derniers jours : 9 870
+
+Les visiteurs = tous les liens GAML du domaine de la créatrice, hors robots (`/analytics/countries`, un appel par lien et par
+période). Jamais un nom de clipper, jamais un lien, aucune répartition.
 
 Découverte des groupes : le bot Telegram doit être ajouté au groupe en admin (« Gérer les sujets ») ; il voit son ajout
 (`my_chat_member`) ou une mention @bot (`getUpdates`), retient le chat et le relie à la créatrice. `!visites-telegram groupes`
@@ -16,7 +22,7 @@ import asyncio
 import logging
 import os
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from urllib.parse import urlparse
 
 import paie_clics
@@ -26,11 +32,8 @@ journal = logging.getLogger("bot.visites_telegram")
 HEURE_PARIS = int(os.environ.get("VISITES_TELEGRAM_HEURE", "9") or 9)
 SUJET_NOM = os.environ.get("VISITES_TELEGRAM_SUJET", "📈 Visites de la veille").strip() or "📈 Visites de la veille"
 INTERVALLE_DECOUVERTE = int(os.environ.get("VISITES_TELEGRAM_DECOUVERTE_SEC", "300") or 300)
-JOURS_COURBE, JOURS_RECORD = 7, 30
 CREATRICES_DEFAUT = ("Chloé", "Sarah", "Sophie", "Jade", "Maddie", "Clara")
-MOTS_CLIPPERS = ("clipping", "clipper")
-MOTS_AGENCE = ("rianah", "metricool", "loris", "facebook", "fb", "agence", "tiktok", "ytb", "youtube")
-BARRES = "▁▂▃▄▅▆▇█"
+PERIODES = (("hier", 1), ("j7", 7), ("j30", 30))
 _deps: dict = {}
 
 
@@ -82,109 +85,54 @@ def _domaine(url: str) -> str:
         return ""
 
 
-def categorie(lien: dict) -> str:
-    """« clippers » (note ou nom « Clipping Prénom »), « agence » (Rianah, Metricool, Loris, Facebook…), sinon « toi »."""
-    texte = _n(f"{lien.get('name') or ''} {lien.get('note') or ''} {lien.get('slug') or ''}")
-    if any(m in texte for m in MOTS_CLIPPERS):
-        return "clippers"
-    mots = set(re.split(r"[^a-z0-9]+", texte))
-    if any(m in mots for m in MOTS_AGENCE):
-        return "agence"
-    return "toi"
-
-
 def liens_par_creatrice(liens: list, creatrices=None) -> dict:
     """{créatrice: {"domaine": …, "liens": [liens]}} — le domaine du lien (url) contient le prénom de la créatrice."""
     out = {}
     for l in liens or []:
-        if not l.get("enabled", True) and l.get("enabled") is not None:
-            pass                                                        # un lien désactivé compte quand même : ses visites passées existent
         dom = _domaine(l.get("url") or "")
         c = creatrice_de(dom, creatrices) if dom else ""
-        if not c:
-            continue
-        out.setdefault(c, {"domaine": dom, "liens": []})["liens"].append(l)
+        if c:
+            out.setdefault(c, {"domaine": dom, "liens": []})["liens"].append(l)
     return out
 
 
-async def releve_jour(liens: list, jour: date) -> dict:
-    """Les visites hors robots d'un jour pour une liste de liens : total, toi/clippers/agence, francophones (payables)."""
-    out = {"total": 0, "toi": 0, "clippers": 0, "agence": 0, "fr": 0, "liens": 0}
-    base = {"range": "custom", "date_from": jour.isoformat(), "date_to": jour.isoformat(), "timezone": paie_clics.FUSEAU}
+async def visiteurs(liens: list, debut: date, fin: date) -> int:
+    """Les visiteurs hors robots d'une période, tous liens confondus (un appel GAML par lien)."""
+    total = 0
+    base = {"range": "custom", "date_from": debut.isoformat(), "date_to": fin.isoformat(), "timezone": paie_clics.FUSEAU}
     for l in liens:
         if not l.get("id"):
             continue
         pays = await paie_clics._requete("GET", "/analytics/countries", params={**base, "link_id": l["id"]})
         pays = pays if isinstance(pays, list) else (pays or {}).get("member", [])
-        n = sum(int(x.get("count", 0)) for x in pays)
-        fr = sum(int(x.get("count", 0)) for x in pays if str(x.get("country", "")) in paie_clics.PAYS_PAYES)
-        out["total"] += n; out["fr"] += fr; out[categorie(l)] += n; out["liens"] += 1
+        total += sum(int(x.get("count", 0)) for x in pays)
+    return total
+
+
+async def chiffres(liens: list, hier: date) -> dict:
+    """{hier, j7, j30} : la veille, les 7 et les 30 derniers jours (la veille incluse)."""
+    out = {}
+    for cle, jours in PERIODES:
+        out[cle] = await visiteurs(liens, hier - timedelta(days=jours - 1), hier)
     return out
 
 
-def courbe(valeurs: list) -> str:
-    haut = max([v for v in valeurs if v is not None] or [0])
-    out = ""
-    for v in valeurs:
-        if v is None:
-            out += "·"
-        elif haut <= 0:
-            out += BARRES[0]
-        else:
-            out += BARRES[min(len(BARRES) - 1, int(round(v / haut * (len(BARRES) - 1))))]
-    return out
+def _nb(n) -> str:
+    return f"{int(n):,}".replace(",", " ")
 
 
-def _pct(nouveau: int, ancien: int) -> str:
-    if ancien <= 0:
-        return "" if nouveau <= 0 else "▲ nouveau"
-    delta = (nouveau - ancien) / ancien * 100
-    fleche = "▲" if delta > 0.5 else ("▼" if delta < -0.5 else "＝")
-    return f"{fleche} {delta:+.0f} % vs la veille"
-
-
-JOURS_FR = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
-
-
-def texte(creatrice: str, domaine: str, historique: dict, jour: date) -> str:
-    """Le message du matin pour une créatrice : hier, la répartition, les francophones, 7 jours, le record du mois."""
-    h = historique.get(creatrice) or {}
-    hier = h.get(jour.isoformat()) or {}
-    avant = h.get((jour - timedelta(days=1)).isoformat()) or {}
-    total = int(hier.get("total", 0))
-    lignes = [f"📈 {creatrice} · visites d'hier ({JOURS_FR[jour.weekday()]} {jour.strftime('%d/%m')})"]
-    variation = _pct(total, int(avant.get("total", 0))) if avant else ""
-    lignes.append(f"👀 {total} sur {domaine}" + (f" · {variation}" if variation else ""))
-    parts = [(f"toi {int(hier.get('toi', 0))}" if hier.get("toi") else ""),
-             (f"agence {int(hier.get('agence', 0))}" if hier.get("agence") else ""),
-             (f"clippers {int(hier.get('clippers', 0))}" if hier.get("clippers") else "")]
-    parts = [x for x in parts if x]
-    if len(parts) > 1:
-        lignes.append("   " + " · ".join(parts))
-    if hier.get("fr"):
-        lignes.append(f"🇫🇷 {int(hier['fr'])} francophones")
-    jours = [(jour - timedelta(days=i)) for i in range(JOURS_COURBE - 1, -1, -1)]
-    valeurs = [int(h[j.isoformat()]["total"]) if h.get(j.isoformat()) else None for j in jours]
-    total7 = sum(v for v in valeurs if v)
-    sem = [h.get((jour - timedelta(days=i)).isoformat()) for i in range(JOURS_COURBE, 2 * JOURS_COURBE)]
-    sem_avant = sum(int(x["total"]) for x in sem if x) if all(sem) else 0
-    tendance = ""
-    if sem_avant > 0:
-        d7 = (total7 - sem_avant) / sem_avant * 100
-        tendance = f" · semaine {'▲' if d7 > 0.5 else ('▼' if d7 < -0.5 else '＝')} {d7:+.0f} %"
-    lignes.append(f"📅 7 jours : {courbe(valeurs)} · {total7}{tendance}")
-    passe = [(j, int(v["total"])) for j, v in h.items() if (jour - date.fromisoformat(j)).days < JOURS_RECORD]
-    if passe:
-        j_rec, rec = max(passe, key=lambda jv: jv[1])
-        if rec > 0:
-            lignes.append(f"🏆 record 30 jours : {rec}" + (" (hier !)" if j_rec == jour.isoformat() else f" ({date.fromisoformat(j_rec).strftime('%d/%m')})"))
-    return "\n".join(lignes)
+def texte(domaine: str, hier: date, c: dict) -> str:
+    """Trois chiffres, rien d'autre."""
+    return (f"📈 {domaine}\n"
+            f"Hier ({hier.strftime('%d/%m')}) : {_nb(c.get('hier', 0))} visiteurs\n"
+            f"7 derniers jours : {_nb(c.get('j7', 0))}\n"
+            f"30 derniers jours : {_nb(c.get('j30', 0))}")
 
 
 # ------------------------------------------------------------------ Telegram : groupes et sujets
 async def decouvrir(d: dict) -> list:
     """Lit les mises à jour Telegram (ajout du bot à un groupe, mention @bot) et relie les groupes aux créatrices. Renvoie les
-    chat_id nouvellement reliés."""
+    chat_id nouvellement reliés (sans sujet encore)."""
     nouveaux = []
     try:
         maj = await telegram.appeler("getUpdates", {"offset": int(d.get("offset") or 0), "timeout": 0,
@@ -260,8 +208,8 @@ async def poster(chat_id: str, info: dict, message: str) -> bool:
 
 # ------------------------------------------------------------------ cycle
 async def executer(jour: date | None = None, seulement: str = "", d: dict | None = None) -> dict:
-    """Un passage : les relevés manquants (hier et jusqu'à 7 jours en arrière), un message par groupe relié. Renvoie un bilan."""
-    bilan = {"postes": 0, "releves": 0, "groupes": 0, "erreurs": []}
+    """Un passage : les trois chiffres de chaque créatrice reliée, un message par groupe. Renvoie un bilan."""
+    bilan = {"postes": 0, "groupes": 0, "erreurs": []}
     if not actif():
         return bilan
     d = d if d is not None else _lire()
@@ -280,22 +228,16 @@ async def executer(jour: date | None = None, seulement: str = "", d: dict | None
             bilan["erreurs"].append(f"{c} : aucun lien GAML sur un domaine à son prénom")
             continue
         h = d["historique"].setdefault(c, {})
-        for i in range(JOURS_COURBE - 1, -1, -1):                      # les jours manquants, du plus ancien au plus récent
-            j = hier - timedelta(days=i)
-            if j.isoformat() in h and (i > 0 or h[j.isoformat()].get("liens")):
-                continue
+        if not h.get(hier.isoformat()):
             try:
-                h[j.isoformat()] = await releve_jour(bloc["liens"], j)
-                bilan["releves"] += 1
+                h[hier.isoformat()] = await chiffres(bloc["liens"], hier)
             except RuntimeError as erreur:
-                bilan["erreurs"].append(f"{c} {j.isoformat()} : {erreur}")
-                break
-        for j in [k for k in h if (hier - date.fromisoformat(k)).days > 2 * JOURS_RECORD]:
-            h.pop(j, None)
-        _ecrire(d)
-        if hier.isoformat() not in h:
-            continue
-        if await poster(cle, info, texte(c, bloc["domaine"], d["historique"], hier)):
+                bilan["erreurs"].append(f"{c} : {erreur}")
+                continue
+            for j in [k for k in h if (hier - date.fromisoformat(k)).days > 60]:
+                h.pop(j, None)
+            _ecrire(d)
+        if await poster(cle, info, texte(bloc["domaine"], hier, h[hier.isoformat()])):
             bilan["postes"] += 1
             info["dernier"] = hier.isoformat()
         bilan["groupes"] += 1
@@ -324,8 +266,7 @@ async def boucle(client):
                 journal.info("Visites Telegram : premier message pour %s : %s", info.get("creatrice"), bilan)
             if maintenant.hour >= HEURE_PARIS:
                 d = _lire()
-                en_retard = [c for c, i in d["groupes"].items() if i.get("creatrice") and i.get("dernier") != hier]
-                if en_retard:
+                if any(i.get("creatrice") and i.get("dernier") != hier for i in d["groupes"].values()):
                     bilan = await executer(d=d)
                     journal.info("Visites Telegram : %s", bilan)
         except Exception as erreur:                                      # noqa: BLE001
@@ -349,7 +290,7 @@ async def commande(message, texte_cmd: str) -> bool:
     d = _lire()
     if action == "test":
         bilan = await executer(seulement=" ".join(mots[2:]) if len(mots) > 2 else "", d=d)
-        await message.reply(f"📈 {bilan['postes']} message(s) posté(s) dans {bilan['groupes']} groupe(s), {bilan['releves']} relevé(s) GAML"
+        await message.reply(f"📈 {bilan['postes']} message(s) posté(s) dans {bilan['groupes']} groupe(s)"
                             + (" · " + " ; ".join(bilan["erreurs"])[:900] if bilan["erreurs"] else "")
                             + ("" if bilan["groupes"] else " · aucun groupe relié : `!visites-telegram groupes`"))
         return True
@@ -368,7 +309,7 @@ async def commande(message, texte_cmd: str) -> bool:
         nom_bot = f"@{moi.get('username')}" if isinstance(moi, dict) and moi.get("username") else "le bot"
     except RuntimeError:
         nom_bot = "le bot"
-    lignes = [f"📈 Visites de la veille sur Telegram · {HEURE_PARIS} h Paris · sujet « {SUJET_NOM} »"]
+    lignes = [f"📈 Visiteurs du site sur Telegram · {HEURE_PARIS} h Paris · sujet « {SUJET_NOM} »"]
     for cle, info in d["groupes"].items():
         etat = ("sujet prêt" if info.get("sujet_id") else ("sujets non activés dans le groupe" if not info.get("forum") else "sujet à créer"))
         lignes.append(f"• {info.get('titre') or cle} → {info.get('creatrice') or 'créatrice non reconnue dans le titre'} · {etat}"
