@@ -314,28 +314,42 @@ function alignerSynthese() {
   const crea = CREATRICES.map(nom => ({ nom, o: _onglet(ss, nom) })).filter(c => c.o)
     .map(c => ({ ...c, ca: _somme(_lire(ss, c.nom), hier - 30, hier, taux).tot })).sort((a, b) => b.ca - a.ca);
 
-  // place : titre + en-tête + 4 lignes par groupe (créatrices + agence) + 1 ligne vide avant les blocs par mois
-  const G = crea.length + 1, voulu = 3 + 2 + 4 * G + 1;
+  // place : titre + 2 lignes d'en-tête + 4 lignes par groupe (créatrices + agence) + 1 ligne vide avant les blocs par mois
+  // 03/10 (Gaëtan : « un peu illisible ») : prénom fusionné sur ses 3 lignes, en-têtes « 30 derniers jours » / « 90 derniers
+  // jours », CA sans centimes, zéros en « — », LTV colorée (rouge < 8 €, jaune 8-15 €, vert ≥ 15 €), subs en rouge sous 800
+  // (règle du rapport), trait sous chaque Total. La colonne F reste un espace sans être rétrécie (elle sert aux blocs par mois).
+  const G = crea.length + 1, D0 = 6, voulu = D0 + 4 * G + 1;
   if (titreMois < voulu) f.insertRowsBefore(titreMois, voulu - titreMois);
   if (titreMois > voulu) f.deleteRows(voulu, titreMois - voulu);
-  f.getRange(3, 1, voulu - 3, 13).clear();
+  const zone = f.getRange(3, 1, voulu - 3, 13);
+  zone.breakApart(); zone.clear();
+  f.setConditionalFormatRules(f.getConditionalFormatRules().filter(r => r.getRanges().every(g => g.getRow() >= voulu || g.getLastRow() < 3)));
 
-  f.getRange("A3").setValue("30 et 90 derniers jours complets (jusqu'à hier), par créatrice et par plateforme — OF converti en € au taux de Notice!B3")
+  f.getRange("A3").setValue("Par créatrice et par plateforme — jours complets jusqu'à hier, OF converti en € au taux de Notice!B3")
     .setFontWeight("bold");
-  f.getRange(4, 1, 1, 9).setValues([["Créatrice", "Plateforme", "Subs 30 j", "CA 30 j", "LTV 30 j", "", "Subs 90 j", "CA 90 j", "LTV 90 j"]])
-    .setFontWeight("bold").setBackground("#DCE6F1");
-  const fin = 5 + 4 * crea.length - 2;                         // dernière ligne « Total » d'une créatrice
+  const SOMBRE = "#3D3D5C";
+  f.getRange(4, 1, 2, 9).setBackground(SOMBRE).setFontColor("#FFFFFF").setFontWeight("bold").setHorizontalAlignment("center");
+  f.getRange(4, 6, 2, 1).setBackground(null);
+  f.getRange("C4:E4").merge().setValue("30 DERNIERS JOURS");
+  f.getRange("G4:I4").merge().setValue("90 DERNIERS JOURS");
+  f.getRange(5, 1, 1, 9).setValues([["Créatrice", "Plateforme", "Subs", "CA", "LTV", "", "Subs", "CA", "LTV"]]);
+  const fin = D0 + 4 * crea.length - 2;                        // dernière ligne « Total » d'une créatrice
   const ltv = (l, ca, subs) => `=IFERROR(${ca}${l}/${subs}${l},"—")`;
+  const plages = { subs: [], ltv: [] };
   const groupe = (r0, nom, plat) => {
-    f.getRange(r0, 1, 3, 2).setValues([[nom, "OF"], [nom, "MYM"], [nom, "Total"]]);
+    f.getRange(r0, 1, 3, 1).merge().setValue(nom).setFontWeight("bold").setVerticalAlignment("middle");
+    f.getRange(r0, 2, 3, 1).setValues([["OF"], ["MYM"], ["Total"]]);
     plat(r0);
     ["E", "I"].forEach(c => [0, 1, 2].forEach(k => fx(`${c}${r0 + k}`, ltv(r0 + k, c === "E" ? "D" : "H", c === "E" ? "C" : "G"))));
-    f.getRange(r0 + 2, 1, 1, 9).setFontWeight("bold").setBackground("#F2F2F5");
-    f.getRange(r0, 3, 3, 1).setNumberFormat("#,##0"); f.getRange(r0, 7, 3, 1).setNumberFormat("#,##0");
-    f.getRange(r0, 4, 3, 1).setNumberFormat('#,##0.00 "€"'); f.getRange(r0, 8, 3, 1).setNumberFormat('#,##0.00 "€"');
-    f.getRange(r0, 5, 3, 1).setNumberFormat('0.00 "€"'); f.getRange(r0, 9, 3, 1).setNumberFormat('0.00 "€"');
+    [3, 7].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('#,##0;-#,##0;"—"'));
+    [4, 8].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('#,##0 "€";-#,##0 "€";"—"'));
+    [5, 9].forEach(c => f.getRange(r0, c, 3, 1).setNumberFormat('0.00 "€"').setHorizontalAlignment("right"));
+    [3, 7].forEach(c => plages.subs.push(f.getRange(r0, c, 3, 1)));
+    [5, 9].forEach(c => plages.ltv.push(f.getRange(r0, c, 3, 1)));
+    f.getRange(r0 + 2, 2, 1, 8).setFontWeight("bold").setBackground("#F2F2F5");
+    f.getRange(r0 + 2, 1, 1, 9).setBorder(null, null, true, null, null, null, "#9E9EB8", SpreadsheetApp.BorderStyle.SOLID);
   };
-  crea.forEach((c, g) => groupe(5 + 4 * g, c.nom, r0 => {
+  crea.forEach((c, g) => groupe(D0 + 4 * g, c.nom, r0 => {
     const r = col => `'${c.o.getName()}'!$${col}$3:$${col}$1000`;
     const fen = j => `${r("A")},">="&TODAY()-${j},${r("A")},"<="&TODAY()-1`;
     [[r0, "B", "C", "*Notice!$B$3"], [r0 + 1, "E", "F", ""]].forEach(([l, subs, ca, conv]) => {
@@ -344,11 +358,19 @@ function alignerSynthese() {
     });
     ["C", "D", "G", "H"].forEach(c2 => fx(`${c2}${r0 + 2}`, `=${c2}${r0}+${c2}${r0 + 1}`));
   }));
-  const ra = 5 + 4 * crea.length;                              // groupe AGENCE
+  const ra = D0 + 4 * crea.length;                             // groupe AGENCE
   groupe(ra, "AGENCE", r0 => ["OF", "MYM", "Total"].forEach((pl, k) => ["C", "D", "G", "H"].forEach(c2 =>
-    fx(`${c2}${r0 + k}`, `=SUMIFS(${c2}$5:${c2}$${fin},$B$5:$B$${fin},"${pl}")`))));
-  f.getRange(ra, 1, 3, 9).setFontWeight("bold");
-  f.setColumnWidth(6, 24);
+    fx(`${c2}${r0 + k}`, `=SUMIFS(${c2}$${D0}:${c2}$${fin},$B$${D0}:$B$${fin},"${pl}")`))));
+  f.getRange(ra, 1, 3, 9).setFontWeight("bold").setBackground("#E8E8EC");
+
+  // couleurs : règle du rapport (subs < 800 en rouge) ; LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 €
+  const regle = () => SpreadsheetApp.newConditionalFormatRule();
+  f.setConditionalFormatRules(f.getConditionalFormatRules().concat([
+    regle().whenNumberLessThan(SEUIL_SUBS).setFontColor("#C62828").setBold(true).setRanges(plages.subs).build(),
+    regle().whenNumberLessThan(SEUIL_LTV_JAUNE).setBackground("#F8D7DA").setFontColor("#8A1C1C").setRanges(plages.ltv).build(),
+    regle().whenNumberLessThan(SEUIL_LTV).setBackground("#FFF3CD").setFontColor("#7A5B00").setRanges(plages.ltv).build(),
+    regle().whenNumberGreaterThanOrEqualTo(SEUIL_LTV).setBackground("#D4EDDA").setFontColor("#1B5E20").setRanges(plages.ltv).build()]));
+  f.setColumnWidth(6, 110);                                    // 03/10 : rétrécie par erreur à 24 (colonne « novembre » des blocs par mois)
   Logger.log(`Synthèse : bloc 30 / 90 jours par créatrice (${crea.map(c => c.nom).join(", ")}, puis AGENCE), séparateur « ${sep} ».`);
 }
 

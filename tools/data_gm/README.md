@@ -76,3 +76,9 @@ ligne vide, rangées par CA 30 jours décroissant au moment du lancement (comme 
 complètes jusqu'à hier. Les blocs par mois sont décalés vers le bas (lignes insérées), leurs formules suivent. Relancer la
 fonction refait le bloc à l'identique et le re-trie. Vérifié avant : aucune formule, aucun graphique ni aucune règle du
 classeur ne lisait l'ancien bloc (colonne M comprise).
+
+**Lisibilité de la Synthèse (03/10/2026, « un peu illisible »)** : prénom fusionné sur ses trois lignes, double en-tête
+sombre « 30 DERNIERS JOURS » / « 90 DERNIERS JOURS », CA sans centimes, zéros affichés « — », trait sous chaque Total,
+groupe AGENCE grisé ; mise en forme conditionnelle : subs en rouge sous 800, LTV rouge < 8 €, jaune 8-15 €, vert ≥ 15 €.
+Correctif : la colonne F (espace entre 30 et 90 jours) avait été rétrécie, ce qui écrasait « novembre » dans les blocs par
+mois ; elle est remise à 110 px.
