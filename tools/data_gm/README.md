@@ -67,7 +67,8 @@ horaire appelle `envoiQuotidien`, qui envoie une seule fois par jour (propriét�
 est saisie pour toutes les créatrices actives, sinon il attend jusqu'à 12 h (`HEURE_LIMITE`) et envoie avec « ⚠️ Hier non
 saisi ». Un envoi raté est retenté l'heure suivante. Heures et jours au fuseau du classeur. `alignerSynthese` réécrit le bloc
 30 jours de la Synthèse (B, C, F, G, I, J des lignes 5 à 10) sur 30 jours complets jusqu'à hier, au séparateur du classeur.
-`miseEnPlace` enchaîne déclencheur, Synthèse, onglet Commission & profit et rapport de test.
+`miseEnPlace` enchaîne déclencheur, Synthèse, onglet Commission & profit et rapport de test. Tout envoi réussi, manuel compris,
+marque le jour : jamais deux rapports le même jour.
 
 **Synthèse par créatrice, 30 et 90 jours (03/10/2026)** : `alignerSynthese` reconstruit le bloc du haut de la Synthèse —
 pour chaque créatrice, trois lignes OF / MYM / Total (subs, CA, LTV sur 30 jours, une colonne vide, puis sur 90 jours), une

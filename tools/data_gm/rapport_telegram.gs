@@ -57,8 +57,7 @@ function envoiQuotidien() {
   const props = PropertiesService.getScriptProperties();
   if (Number(props.getProperty("DERNIER_ENVOI")) === jour || heure < HEURE_ENVOI) return;    // déjà envoyé, ou trop tôt
   if (heure < HEURE_LIMITE && _nonSaisis(ss, jour - 1).length) return;                       // on attend la saisie de la veille
-  envoyerRapportTelegram();
-  props.setProperty("DERNIER_ENVOI", String(jour));
+  envoyerRapportTelegram();                                                                    // marque le jour lui-même
 }
 
 // créatrices actives sur 30 jours dont la ligne de la veille est vide (Notice, règle 3 : vide = « non saisi »)
@@ -375,6 +374,9 @@ function envoyerRapportTelegram() {
   try { texte = construireRapport(); }
   catch (e) { _envoyer(token, chat, `⚠️ Rapport G&amp;M non construit : ${String(e.message || e).replace(/[<>&]/g, "")}`); throw e; }
   _envoyer(token, chat, texte);
+  // 03/10 : tout envoi réussi, manuel compris (diagnostic, miseEnPlace), compte comme l'envoi du jour → jamais deux rapports
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  PropertiesService.getScriptProperties().setProperty("DERNIER_ENVOI", String(_numJour(new Date(), ss.getSpreadsheetTimeZone())));
 }
 
 // 03/10 : à lancer une fois depuis l'éditeur (▶ Exécuter), le résultat est dans le « Journal d'exécution »
