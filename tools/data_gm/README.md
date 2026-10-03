@@ -47,3 +47,9 @@ constantes `COMMISSIONS` et `FRAIS`) et affiche en pied la commission et le prof
 **Seuils 800 subs / 15 € (03/10/2026)** : sur les lignes OF et MYM du rapport, 🔴 devant les subs si moins de 800 sur 30
 jours ; sinon 🔴 devant la LTV sous 8 €, 🟡 entre 8 et 15 € ; sinon 🟢 devant la plateforme. Réglables : `SEUIL_SUBS`,
 `SEUIL_LTV_JAUNE`, `SEUIL_LTV`. Pas de légende dans le rapport (la règle est épinglée dans le groupe).
+
+**Correctif du 03/10 (premier essai : `#ERROR!` dans tout l'onglet, mois décalés d'un jour)** : le classeur, réglé en
+français, refusait les formules à virgules écrites par le script. `creerOngletCommission` teste maintenant le séparateur
+accepté (`,` ou `;`) avant d'écrire, écrit les mois en `DATE()` (plus de décalage de fuseau), reconstruit l'onglet s'il
+existe en gardant les taux saisis, et écrit dans le journal le nombre de cellules en erreur. `miseEnPlace` fait tout en
+un clic : déclencheur de 8 h (orphelins retirés), onglet, rapport de test.

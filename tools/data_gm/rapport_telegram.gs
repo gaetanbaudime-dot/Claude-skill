@@ -159,12 +159,27 @@ function _tauxProfit(ss) {
   return tx;
 }
 
-// 03/10 : crée l'onglet « Commission & profit » (une fois ; supprimer l'onglet pour le recréer). Formules en syntaxe anglaise :
-// c'est ce qu'attend Apps Script, Google Sheets les affiche ensuite dans la langue du classeur.
+// 03/10 : crée l'onglet « Commission & profit ». Relancer la fonction le reconstruit en gardant les taux saisis.
+// 03/10 (premier essai : #ERROR! partout dans le classeur en français) : le séparateur d'arguments accepté par le classeur
+// est testé d'abord (« , » ou « ; »), toutes les formules l'utilisent ; les mois sont des formules DATE() (une date écrite par
+// le script prenait le fuseau du projet et tombait la veille).
+function _separateur(f) {
+  const essai = f.getRange("Z1");
+  for (const sep of [",", ";"]) {
+    essai.setFormula(`=SUM(1${sep}1)`); SpreadsheetApp.flush();
+    if (essai.getValue() === 2) { essai.clear(); return sep; }
+  }
+  essai.clear();
+  throw new Error("Le classeur n'accepte ni « , » ni « ; » comme séparateur de formule.");
+}
+
 function creerOngletCommission() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName(ONGLET_PROFIT)) throw new Error(`L'onglet « ${ONGLET_PROFIT} » existe déjà : supprime-le pour le recréer.`);
+  const ancien = ss.getSheetByName(ONGLET_PROFIT), garde = ancien ? _tauxProfit(ss) : null;
+  if (ancien) ss.deleteSheet(ancien);
   const f = ss.insertSheet(ONGLET_PROFIT, (ss.getSheetByName("Synthèse") || ss.getSheets()[0]).getIndex());
+  const sep = _separateur(f);
+  const fx = (a1, t) => f.getRange(a1).setFormula(sep === "," ? t : t.replace(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ";"));
   const n = CREATRICES.length, ref = nom => `'${(_onglet(ss, nom) || { getName: () => nom }).getName()}'`;
   const plage = (nom, col) => `${ref(nom)}!$${col}$3:$${col}$1000`;
   const dates = nom => plage(nom, "A");
@@ -173,7 +188,7 @@ function creerOngletCommission() {
   const tete = (ligne, cols) => f.getRange(ligne, 1, 1, cols.length).setValues([cols]).setFontWeight("bold").setBackground("#E8E8EC");
   const total = (ligne, de, a, cols) => {
     f.getRange(ligne, 1).setValue("TOTAL");
-    cols.forEach(c => f.getRange(`${c}${ligne}`).setFormula(`=SUM(${c}${de}:${c}${a})`));
+    cols.forEach(c => fx(`${c}${ligne}`, `=SUM(${c}${de}:${c}${a})`));
     f.getRange(ligne, 1, 1, cols.length + 1).setFontWeight("bold");
   };
   f.getRange("A1:H1").merge().setValue("COMMISSION & PROFIT — calcul automatique ; seules les cases jaunes (taux) se modifient")
@@ -184,8 +199,9 @@ function creerOngletCommission() {
   tete(3, ["Créatrice", "Commission agence", "Frais + chatting", "Marge nette"]);
   CREATRICES.forEach((nom, i) => {
     const l = 4 + i;
-    f.getRange(l, 1, 1, 3).setValues([[nom, COMMISSIONS[nom], FRAIS]]);
-    f.getRange(`D${l}`).setFormula(`=B${l}-C${l}`);
+    const tx = garde ? garde[nom] : { com: COMMISSIONS[nom], frais: FRAIS };
+    f.getRange(l, 1, 1, 3).setValues([[nom, tx.com, tx.frais]]);
+    fx(`D${l}`, `=B${l}-C${l}`);
   });
   f.getRange(4, 2, n, 2).setBackground("#FFF9C4");
   f.getRange(4, 2, n, 3).setNumberFormat(PCT);
@@ -197,16 +213,16 @@ function creerOngletCommission() {
   CREATRICES.forEach((nom, i) => {
     const l = l30 + 1 + i, t = 4 + i, fen = `${dates(nom)},">="&TODAY()-29,${dates(nom)},"<="&TODAY()`;
     f.getRange(l, 1).setValue(nom);
-    f.getRange(`B${l}`).setFormula(`=SUMIFS(${plage(nom, "I")},${fen})`);
-    f.getRange(`C${l}`).setFormula(`=B${l}*$B$${t}`);
-    f.getRange(`D${l}`).setFormula(`=B${l}*$C$${t}`);
-    f.getRange(`E${l}`).setFormula(`=C${l}-D${l}`);
-    f.getRange(`F${l}`).setFormula(`=SUMIFS(${plage(nom, "H")},${fen})`);
-    f.getRange(`G${l}`).setFormula(`=IFERROR(E${l}/F${l},"—")`);
+    fx(`B${l}`, `=SUMIFS(${plage(nom, "I")},${fen})`);
+    fx(`C${l}`, `=B${l}*$B$${t}`);
+    fx(`D${l}`, `=B${l}*$C$${t}`);
+    fx(`E${l}`, `=C${l}-D${l}`);
+    fx(`F${l}`, `=SUMIFS(${plage(nom, "H")},${fen})`);
+    fx(`G${l}`, `=IFERROR(E${l}/F${l},"—")`);
   });
   const t30 = l30 + n + 1;
   total(t30, l30 + 1, l30 + n, ["B", "C", "D", "E", "F"]);
-  f.getRange(`G${t30}`).setFormula(`=IFERROR(E${t30}/F${t30},"—")`);
+  fx(`G${t30}`, `=IFERROR(E${t30}/F${t30},"—")`);
   f.getRange(l30 + 1, 2, n + 1, 4).setNumberFormat(EUR);
   f.getRange(l30 + 1, 7, n + 1, 1).setNumberFormat('0.00 "€"');
 
@@ -217,32 +233,42 @@ function creerOngletCommission() {
   CREATRICES.forEach((nom, i) => {
     const l = lh + 1 + i, t = 4 + i;
     f.getRange(l, 1).setValue(nom);
-    f.getRange(`B${l}`).setFormula(`=SUMIFS(${plage(nom, "I")},${dates(nom)},TODAY()-1)`);
-    f.getRange(`C${l}`).setFormula(`=B${l}*$B$${t}`);
-    f.getRange(`D${l}`).setFormula(`=B${l}*$C$${t}`);
-    f.getRange(`E${l}`).setFormula(`=C${l}-D${l}`);
+    fx(`B${l}`, `=SUMIFS(${plage(nom, "I")},${dates(nom)},TODAY()-1)`);
+    fx(`C${l}`, `=B${l}*$B$${t}`);
+    fx(`D${l}`, `=B${l}*$C$${t}`);
+    fx(`E${l}`, `=C${l}-D${l}`);
   });
   const th = lh + n + 1;
   total(th, lh + 1, lh + n, ["B", "C", "D", "E"]);
   f.getRange(lh + 1, 2, n + 1, 4).setNumberFormat(EUR);
 
   // 4. Commission puis profit par mois (juillet → décembre 2026)
-  const mois = [0, 1, 2, 3, 4, 5].map(k => new Date(2026, 6 + k, 1));
   [["Commission par mois", "B"], ["Profit par mois", "D"]].forEach(([texte, colTaux], bloc) => {
     const lm = th + 3 + bloc * (n + 5);
     titre(lm - 1, texte);
     tete(lm, ["Créatrice"]);
-    f.getRange(lm, 2, 1, 6).setValues([mois]).setNumberFormat("mmmm").setFontWeight("bold").setBackground("#E8E8EC");
+    ["B", "C", "D", "E", "F", "G"].forEach((c, k) => fx(`${c}${lm}`, `=DATE(2026,${7 + k},1)`));
+    f.getRange(lm, 2, 1, 6).setNumberFormat("mmmm").setFontWeight("bold").setBackground("#E8E8EC");
     CREATRICES.forEach((nom, i) => {
       const l = lm + 1 + i, t = 4 + i;
       f.getRange(l, 1).setValue(nom);
-      ["B", "C", "D", "E", "F", "G"].forEach(c => f.getRange(`${c}${l}`).setFormula(
+      ["B", "C", "D", "E", "F", "G"].forEach(c => fx(`${c}${l}`, 
         `=SUMIFS(${plage(nom, "I")},${dates(nom)},">="&${c}$${lm},${dates(nom)},"<"&EDATE(${c}$${lm},1))*$${colTaux}$${t}`));
     });
     total(lm + n + 1, lm + 1, lm + n, ["B", "C", "D", "E", "F", "G"]);
     f.getRange(lm + 1, 2, n + 1, 6).setNumberFormat(EUR);
   });
   f.setColumnWidth(1, 110); f.setColumnWidths(2, 7, 115); f.setFrozenRows(1);
+  SpreadsheetApp.flush();
+  const erreurs = f.getRange(1, 1, f.getLastRow(), 8).getDisplayValues().flat().filter(v => /^#/.test(v)).length;
+  Logger.log(`Onglet « ${ONGLET_PROFIT} » ${ancien ? "reconstruit (taux gardés)" : "créé"}, séparateur « ${sep} », ${erreurs} cellule(s) en erreur.`);
+}
+
+// 03/10 : tout en un clic — déclencheur de 8 h (orphelins retirés), onglet Commission & profit, rapport de test
+function miseEnPlace() {
+  installerDeclencheur();
+  creerOngletCommission();
+  diagnostic();
 }
 
 function _envoyer(token, chat, texte) {
