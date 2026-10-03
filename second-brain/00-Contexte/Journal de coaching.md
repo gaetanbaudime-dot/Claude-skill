@@ -24,7 +24,8 @@ tags: [contexte/coaching]
 
 ### 2026-10-03 (nuit) — Tableaux de bord G&M : règle de scaling par créatrice
 - **Fait** : quatre onglets dans Data G&M (Synthèse avec axe SCALING, Commission & profit, CA par mois, Subs & LTV par mois), partageables avec Maxence. Règle immuable sur 30 jours : subs < 800 → Marketing ; LTV < 15 € → Chatting ; sinon Scaler.
-- **Lecture au 03/10** : Chatting partout où le volume existe (Chloé 7,88 €, Sarah 2,84 €, Sophie 5,35 €, Clara 2,82 € de LTV) ; Marketing pour Maddie (579 subs, 10,41 €) et Jade (684 subs). Potentiel affiché si tout le monde atteint 15 € : ≈ 87 k€ de CA et 28 k€ de profit par mois — **plafond théorique, pas une prévision**. Premier palier réaliste (8 € de LTV + Maddie à 800 subs) : ≈ +28 k€ de CA et ≈ +10 k€ de profit par mois, dont 60 % sur Sarah.
+- **Règle révisée le soir même (Gaëtan)** : un levier par créatrice ; LTV cible OF 15 €, MYM 10 € (trafic interne MYM abondant mais peu qualifié, LTV ≈ 3 €). Nouvelle lecture : Chatting pour Chloé (+11,5 k€ de CA/mois si cibles atteintes), Sarah (+29,8 k€), Sophie (+8,5 k€), Clara (+10,3 k€) ; Marketing pour Maddie (+2,3 k€) et Jade (+0,2 k€) ; plafond total ≈ 62,6 k€ de CA et 20,8 k€ de profit par mois.
+- **Lecture initiale (règle unique 15 €, remplacée)** : Chatting partout où le volume existe (Chloé 7,88 €, Sarah 2,84 €, Sophie 5,35 €, Clara 2,82 € de LTV) ; Marketing pour Maddie (579 subs, 10,41 €) et Jade (684 subs). Potentiel affiché si tout le monde atteint 15 € : ≈ 87 k€ de CA et 28 k€ de profit par mois — **plafond théorique, pas une prévision**. Premier palier réaliste (8 € de LTV + Maddie à 800 subs) : ≈ +28 k€ de CA et ≈ +10 k€ de profit par mois, dont 60 % sur Sarah.
 - **Prédiction (03/10, revue le 03/11)** : la LTV 30 jours de Sarah (total) dépasse 4 € au 03/11 (35 %) ; aucune créatrice ne passe « Scaler » d'ici là (85 %).
 
 ### 2026-10-03 (soir) — Sophie signée sur MYM à 50 % ; rapport Telegram G&M rétabli

@@ -108,3 +108,11 @@ constant (Marketing : (800 − subs) × LTV ; Chatting : subs × (15 − LTV)), 
 nette de la créatrice. Dollars OF convertis au taux du jour (Notice!B3) partout. Vérifié le 03/10 : formules recalculées par
 LibreOffice sur une copie du classeur (aucune erreur, chiffres identiques au rapport et à l'ancienne Synthèse), écriture en
 mode « ; » sans virgule résiduelle, deux lancements identiques.
+
+**Règle de scaling, 2e version (03/10/2026, « un levier par créatrice ; 15 € de LTV c'est pour OnlyFans, MYM a du trafic
+interne en masse mais peu qualifié ; enlève l'agence et les doublons »)** : une décision par créatrice, sur ses 30 derniers
+jours — moins de 800 nouveaux subs (OF + MYM) → Marketing ; sinon une plateforme sous sa LTV cible (OF 15 €, MYM 10 €) →
+Chatting ; sinon Scaler. Gain Chatting = somme, par plateforme, de subs × LTV cible − CA ; gain Marketing = (800 − subs) ×
+LTV. Couleurs de LTV par plateforme : OF 8 / 15 €, MYM 5 / 10 € (Synthèse, Subs & LTV par mois et pastilles du rapport
+Telegram). Synthèse sans tuiles, sans bloc AGENCE ni colonne « Actuel » ; Commission & profit sans la « vue agence » (doublon
+des lignes TOTAL). Recalcul LibreOffice sur une copie du classeur : aucune erreur.
