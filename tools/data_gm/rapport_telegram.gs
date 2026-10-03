@@ -35,15 +35,39 @@ const CREATRICES = ["Chloé", "Sophie", "Maddy", "Sarah", "Jade", "Clara"];
 const COMMISSIONS = { "Chloé": 0.40, "Sophie": 0.50, "Maddy": 0.50, "Sarah": 0.50, "Jade": 0.60, "Clara": 0.50 };
 const FRAIS = 0.15;              // frais + chatting, en part du CA
 const ONGLET_PROFIT = "Commission & profit";
-const HEURE_ENVOI = 8;           // heure locale du classeur
+// 03/10 (Gaëtan : « fais en sorte qu'il s'envoie tous les jours proprement ») : un déclencheur toutes les heures appelle
+// `envoiQuotidien`, qui envoie UNE fois par jour : dès HEURE_ENVOI si la veille est saisie pour toutes les créatrices actives,
+// sinon il attend la saisie jusqu'à HEURE_LIMITE puis envoie quand même (avec « ⚠️ Hier non saisi »). Un envoi raté (Telegram,
+// Google) est retenté l'heure suivante. Les heures et les jours sont ceux du FUSEAU DU CLASSEUR (Dubaï), quel que soit celui
+// du projet Apps Script (Paris le 03/10).
+const HEURE_ENVOI = 8, HEURE_LIMITE = 12;
 const PREMIERE_LIGNE = 3;        // 03/10 : « 1 juillet » est en ligne 3 (titres en lignes 1-2)
 
 function installerDeclencheur() {
   ScriptApp.getProjectTriggers().forEach(t => {
     const f = t.getHandlerFunction();
-    if (f === "envoyerRapportTelegram" || typeof globalThis[f] !== "function") ScriptApp.deleteTrigger(t);   // orphelins compris
+    if (["envoyerRapportTelegram", "envoiQuotidien"].includes(f) || typeof globalThis[f] !== "function") ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger("envoyerRapportTelegram").timeBased().everyDays(1).atHour(HEURE_ENVOI).create();
+  ScriptApp.newTrigger("envoiQuotidien").timeBased().everyHours(1).create();
+}
+
+function envoiQuotidien() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), tz = ss.getSpreadsheetTimeZone(), maintenant = new Date();
+  const jour = _numJour(maintenant, tz), heure = Number(Utilities.formatDate(maintenant, tz, "H"));
+  const props = PropertiesService.getScriptProperties();
+  if (Number(props.getProperty("DERNIER_ENVOI")) === jour || heure < HEURE_ENVOI) return;    // déjà envoyé, ou trop tôt
+  if (heure < HEURE_LIMITE && _nonSaisis(ss, jour - 1).length) return;                       // on attend la saisie de la veille
+  envoyerRapportTelegram();
+  props.setProperty("DERNIER_ENVOI", String(jour));
+}
+
+// créatrices actives sur 30 jours dont la ligne de la veille est vide (Notice, règle 3 : vide = « non saisi »)
+function _nonSaisis(ss, hier) {
+  return CREATRICES.filter(nom => {
+    const L = _lire(ss, nom);
+    const active = L.some(l => l.n > hier - 30 && l.n <= hier && !l.vide), ligne = L.find(l => l.n === hier);
+    return active && (!ligne || ligne.vide);
+  });
 }
 
 // 03/10 : l'ancien script « Pilotage G&M » rangeait peut-être le jeton et le canal sous d'autres noms → on les reconnaît
@@ -89,8 +113,7 @@ function _eur(x) { return Math.round(x).toLocaleString("fr-FR").replace(/[\u202f
 function _parSub(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") + " €" : "—"; }
 // 03/10 (Gaëtan : « ça dit hier 2 octobre et ça affiche les stats du 1 octobre ») : le projet Apps Script et le classeur
 // n'ont pas le même fuseau ; une date du classeur (minuit, fuseau du classeur) tombait la veille côté script. Les jours se
-// comparent maintenant en numéro de jour du calendrier : chaque ligne lue dans le fuseau du classeur, « aujourd'hui » dans
-// celui du script (celui de l'heure d'envoi).
+// comparent maintenant en numéro de jour du calendrier, tout dans le fuseau du classeur (réglé sur Dubaï le 03/10).
 function _numJour(d, tz) {
   const [a, m, j] = Utilities.formatDate(d, tz, "yyyy-MM-dd").split("-").map(Number);
   return Date.UTC(a, m - 1, j) / 864e5;
@@ -127,18 +150,16 @@ function _ligne(libelle, subs, eur, ltv) {
 function construireRapport() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const taux = _taux(ss);
-  const hier = _numJour(new Date(), Session.getScriptTimeZone()) - 1;      // la veille, à l'heure de l'envoi (fuseau du script)
+  const hier = _numJour(new Date(), ss.getSpreadsheetTimeZone()) - 1;     // la veille, au calendrier du classeur
   const avantHier = hier - 1, debut30 = hier - 30;                         // 30 jours = du J-30 à hier inclus
   const tx = _tauxProfit(ss);
-  const blocs = [], totalHier = { tot: 0, com: 0, profit: 0 }, total30 = { com: 0, profit: 0 }, nonSaisi = [];
+  const blocs = [], totalHier = { tot: 0, com: 0, profit: 0 }, total30 = { com: 0, profit: 0 }, nonSaisi = _nonSaisis(ss, hier);
   CREATRICES.forEach(nom => {
     const L = _lire(ss, nom);
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
     const { com, frais } = tx[nom];
     totalHier.tot += h.tot; totalHier.com += h.tot * com; totalHier.profit += h.tot * (com - frais);
     total30.com += m.tot * com; total30.profit += m.tot * (com - frais);
-    const ligneHier = L.find(l => l.n === hier);
-    if ((m.subs || m.tot) && (!ligneHier || ligneHier.vide)) nonSaisi.push(nom);
     const lignes = [TETE, "┈".repeat(28)];                // 30/09 : un trait fin sous les titres de colonnes
     if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE, _ltv(m.ofE, m.ofS)));
     if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE, _ltv(m.myE, m.myS)));
@@ -180,13 +201,17 @@ function _separateur(f) {
   throw new Error("Le classeur n'accepte ni « , » ni « ; » comme séparateur de formule.");
 }
 
+function _ecrivain(f) {
+  const sep = _separateur(f);
+  return { sep, fx: (a1, t) => f.getRange(a1).setFormula(sep === "," ? t : t.replace(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ";")) };
+}
+
 function creerOngletCommission() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ancien = ss.getSheetByName(ONGLET_PROFIT), garde = ancien ? _tauxProfit(ss) : null;
   if (ancien) ss.deleteSheet(ancien);
   const f = ss.insertSheet(ONGLET_PROFIT, (ss.getSheetByName("Synthèse") || ss.getSheets()[0]).getIndex());
-  const sep = _separateur(f);
-  const fx = (a1, t) => f.getRange(a1).setFormula(sep === "," ? t : t.replace(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/g, ";"));
+  const { sep, fx } = _ecrivain(f);
   const n = CREATRICES.length, ref = nom => `'${(_onglet(ss, nom) || { getName: () => nom }).getName()}'`;
   const plage = (nom, col) => `${ref(nom)}!$${col}$3:$${col}$1000`;
   const dates = nom => plage(nom, "A");
@@ -271,9 +296,32 @@ function creerOngletCommission() {
   Logger.log(`Onglet « ${ONGLET_PROFIT} » ${ancien ? "reconstruit (taux gardés)" : "créé"}, séparateur « ${sep} », ${erreurs} cellule(s) en erreur.`);
 }
 
-// 03/10 : tout en un clic — déclencheur de 8 h (orphelins retirés), onglet Commission & profit, rapport de test
+// 03/10 (Gaëtan : « aligne aussi la Synthèse ») : le bloc 30 jours de la Synthèse (lignes 5 à 10) comptait aujourd'hui, en
+// général vide, donc 29 jours pleins. Ses formules sont réécrites sur 30 jours complets, du J-30 à hier, comme le rapport et
+// l'onglet Commission & profit. Colonnes : B subs (H), C CA € (I), F subs OF (B), G CA OF (C × taux), I subs MYM (E),
+// J CA MYM (F) ; D, H, K, L (€/sub, écart) et les blocs par mois ne bougent pas.
+function alignerSynthese() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), f = ss.getSheetByName("Synthèse");
+  if (!f) throw new Error("Onglet « Synthèse » introuvable.");
+  const { sep, fx } = _ecrivain(f);
+  const cols = { B: "H", C: "I", F: "B", G: "C", I: "E", J: "F" };
+  let n = 0;
+  f.getRange("A5:A10").getValues().forEach(([nom], i) => {
+    const o = _onglet(ss, nom);
+    if (!o) return;
+    const l = 5 + i, r = c => `'${o.getName()}'!$${c}$3:$${c}$1000`;
+    const fen = `${r("A")},">="&TODAY()-30,${r("A")},"<="&TODAY()-1`;
+    Object.entries(cols).forEach(([c, src]) => fx(`${c}${l}`, `=SUMIFS(${r(src)},${fen})${c === "G" ? "*Notice!$B$3" : ""}`));
+    n++;
+  });
+  f.getRange("A3").setValue("30 derniers jours complets (du J-30 à hier) — total, puis OF et MYM séparés (OF converti en € au taux de Notice!B3)");
+  Logger.log(`Synthèse alignée : ${n} créatrice(s), 30 jours complets jusqu'à hier, séparateur « ${sep} ».`);
+}
+
+// 03/10 : tout en un clic — envoi automatique (orphelins retirés), Synthèse alignée, onglet Commission & profit, rapport de test
 function miseEnPlace() {
   installerDeclencheur();
+  alignerSynthese();
   creerOngletCommission();
   diagnostic();
 }

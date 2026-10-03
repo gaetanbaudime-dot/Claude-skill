@@ -60,3 +60,11 @@ classeur n'avaient pas le même fuseau ; une date du classeur tombait la veille 
 dans celui du script) ; `diagnostic` affiche les deux fuseaux. Régler le classeur sur Dubaï (Fichier → Paramètres) pour que
 `AUJOURDHUI()` de l'onglet bascule à minuit Dubaï. Onglet Commission & profit : 30 jours complets, du J-30 à hier, comme le
 rapport. « Profit 30 j » sans la commission.
+
+**Envoi quotidien fiable et Synthèse alignée (03/10/2026)** : le projet Apps Script est à l'heure de Paris, le classeur à
+celle de Dubaï ; l'ancien « 8 h » partait à 10 h Dubaï, parfois avant la saisie de la veille. Désormais un déclencheur
+horaire appelle `envoiQuotidien`, qui envoie une seule fois par jour (propriété `DERNIER_ENVOI`) : dès 8 h Dubaï si la veille
+est saisie pour toutes les créatrices actives, sinon il attend jusqu'à 12 h (`HEURE_LIMITE`) et envoie avec « ⚠️ Hier non
+saisi ». Un envoi raté est retenté l'heure suivante. Heures et jours au fuseau du classeur. `alignerSynthese` réécrit le bloc
+30 jours de la Synthèse (B, C, F, G, I, J des lignes 5 à 10) sur 30 jours complets jusqu'à hier, au séparateur du classeur.
+`miseEnPlace` enchaîne déclencheur, Synthèse, onglet Commission & profit et rapport de test.
