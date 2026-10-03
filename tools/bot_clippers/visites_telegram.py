@@ -29,6 +29,7 @@ import paie_clics
 import telegram
 
 journal = logging.getLogger("bot.visites_telegram")
+ACTIF = os.environ.get("VISITES_TELEGRAM", "1").strip() != "0"                     # 03/10 : coupe-circuit
 HEURE_PARIS = int(os.environ.get("VISITES_TELEGRAM_HEURE", "9") or 9)
 SUJET_NOM = os.environ.get("VISITES_TELEGRAM_SUJET", "📈 Visites de la veille").strip() or "📈 Visites de la veille"
 INTERVALLE_DECOUVERTE = int(os.environ.get("VISITES_TELEGRAM_DECOUVERTE_SEC", "300") or 300)
@@ -43,7 +44,11 @@ def configurer(deps: dict):
 
 
 def actif() -> bool:
-    return bool(telegram.TELEGRAM_TOKEN) and paie_clics.actif()
+    return ACTIF and bool(telegram.TELEGRAM_TOKEN) and paie_clics.actif()
+
+
+def _cle(t: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", _n(t))
 
 
 def _n(t):
@@ -133,7 +138,7 @@ def texte(domaine: str, hier: date, c: dict) -> str:
 async def decouvrir(d: dict) -> list:
     """Lit les mises à jour Telegram (ajout du bot à un groupe, mention @bot) et relie les groupes aux créatrices. Renvoie les
     chat_id nouvellement reliés (sans sujet encore)."""
-    nouveaux = []
+    avant = set(d["groupes"])
     try:
         maj = await telegram.appeler("getUpdates", {"offset": int(d.get("offset") or 0), "timeout": 0,
                                                     "allowed_updates": ["message", "my_chat_member"]})
@@ -143,7 +148,8 @@ async def decouvrir(d: dict) -> list:
     creatrices = _creatrices()
     for u in maj or []:
         d["offset"] = max(int(d.get("offset") or 0), int(u.get("update_id", 0)) + 1)
-        chat = (u.get("my_chat_member") or u.get("message") or {}).get("chat") or {}
+        msg = u.get("message") or {}
+        chat = (u.get("my_chat_member") or msg).get("chat") or {}
         if chat.get("type") not in ("group", "supergroup") or not chat.get("id"):
             continue
         if u.get("my_chat_member") and (u["my_chat_member"].get("new_chat_member") or {}).get("status") in ("left", "kicked"):
@@ -152,12 +158,16 @@ async def decouvrir(d: dict) -> list:
         cle = str(chat["id"])
         info = d["groupes"].setdefault(cle, {})
         info["titre"] = chat.get("title") or ""
-        info["forum"] = bool(chat.get("is_forum"))
+        info["forum"] = info.get("forum") or bool(chat.get("is_forum")) or bool(msg.get("is_topic_message"))
         if not info.get("creatrice"):
             info["creatrice"] = creatrice_de(info["titre"], creatrices)
-        if info.get("creatrice") and cle not in nouveaux and not info.get("sujet_id"):
-            nouveaux.append(cle)
-    return nouveaux
+        # 03/10 : le sujet créé à la main par Gaëtan — reconnu à son nom dès qu'un message y est posté (ou à sa création)
+        cree = msg.get("forum_topic_created") or ((msg.get("reply_to_message") or {}).get("forum_topic_created"))
+        if msg.get("message_thread_id") and cree and _cle(cree.get("name", "")) == _cle(SUJET_NOM):
+            if str(info.get("sujet_id")) != str(msg["message_thread_id"]):
+                info["sujet_id"] = int(msg["message_thread_id"]); info["ferme"] = False; info.pop("erreur", None)
+                journal.info("Visites Telegram : sujet « %s » retrouvé dans %s", cree.get("name"), info["titre"])
+    return [cle for cle in d["groupes"] if cle not in avant and d["groupes"][cle].get("creatrice")]
 
 
 async def assurer_sujet(chat_id: str, info: dict) -> int | None:
@@ -184,6 +194,10 @@ async def assurer_sujet(chat_id: str, info: dict) -> int | None:
 async def poster(chat_id: str, info: dict, message: str) -> bool:
     """Poste dans le sujet (rouvert le temps du message, puis refermé), sinon dans le fil principal."""
     sujet = await assurer_sujet(chat_id, info)
+    if sujet is None and info.get("forum"):                            # 03/10 (Gaëtan : « tu envoies dans le mauvais salon ») : jamais dans General
+        info["erreur"] = "sujet introuvable : écris un mot dans « Visites de la veille », ou donne au bot le droit « Gérer les sujets »"
+        journal.warning("Visites Telegram : pas de sujet dans %s, rien posté", info.get("titre"))
+        return False
     if sujet and info.get("ferme"):
         try:
             await telegram.appeler("reopenForumTopic", {"chat_id": int(chat_id), "message_thread_id": sujet})
@@ -262,8 +276,9 @@ async def boucle(client):
             for cle in nouveaux:
                 info = d["groupes"][cle]
                 journal.info("Visites Telegram : groupe « %s » relié à %s", info.get("titre"), info.get("creatrice"))
-                bilan = await executer(seulement=info["creatrice"], d=d)
-                journal.info("Visites Telegram : premier message pour %s : %s", info.get("creatrice"), bilan)
+                if not info.get("dernier"):
+                    bilan = await executer(seulement=info["creatrice"], d=d)
+                    journal.info("Visites Telegram : premier message pour %s : %s", info.get("creatrice"), bilan)
             if maintenant.hour >= HEURE_PARIS:
                 d = _lire()
                 if any(i.get("creatrice") and i.get("dernier") != hier for i in d["groupes"].values()):
@@ -311,12 +326,13 @@ async def commande(message, texte_cmd: str) -> bool:
         nom_bot = "le bot"
     lignes = [f"📈 Visiteurs du site sur Telegram · {HEURE_PARIS} h Paris · sujet « {SUJET_NOM} »"]
     for cle, info in d["groupes"].items():
-        etat = ("sujet prêt" if info.get("sujet_id") else ("sujets non activés dans le groupe" if not info.get("forum") else "sujet à créer"))
+        etat = ("sujet prêt" if info.get("sujet_id") else ("sujets non activés dans le groupe" if not info.get("forum") else "sujet à trouver"))
         lignes.append(f"• {info.get('titre') or cle} → {info.get('creatrice') or 'créatrice non reconnue dans le titre'} · {etat}"
                       + (f" · dernier : {info['dernier']}" if info.get("dernier") else "") + (f" · ⚠️ {info['erreur']}" if info.get("erreur") else ""))
     if not d["groupes"]:
         lignes.append("Aucun groupe connu.")
-    lignes.append(f"Pour relier un groupe : ajoute {nom_bot} au groupe Telegram de la créatrice **en admin avec « Gérer les sujets »**, "
-                  f"puis écris {nom_bot} dans le groupe. Le prénom de la créatrice doit être dans le titre du groupe. Le premier message part dans les 5 minutes.")
+    lignes.append(f"Pour relier un groupe : ajoute {nom_bot} au groupe Telegram de la créatrice en admin, puis écris un mot **dans le sujet « {SUJET_NOM} »** "
+                  f"(le bot le retrouve à son nom). Sans sujet existant, il le crée s'il a le droit « Gérer les sujets ». Le prénom de la créatrice doit être dans le titre du groupe. "
+                  "Jamais de message dans General.")
     await message.reply("\n".join(lignes)[:1900])
     return True
