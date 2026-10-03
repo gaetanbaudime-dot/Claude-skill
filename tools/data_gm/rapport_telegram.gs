@@ -168,9 +168,10 @@ function construireRapport() {
   blocs.sort((a, b) => b.tot - a.tot);
   const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours ➡️ OF · MYM · LTV\nHier : ${_jour(hier)}\n————————————\n\n`;
   const corps = blocs.map((b, i) => `${i + 1}. ${b.texte}`).join("\n\n");
-  const alerte = nonSaisi.length ? `\n⚠️ Hier non saisi : ${nonSaisi.join(", ")}` : "";
-  const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🤝 COMMISSION HIER : ${_eur(totalHier.com)}` +
-    `\n🏦 <b>PROFIT HIER : ${_eur(totalHier.profit)}</b>\n📆 Profit 30 j : ${_eur(total30.profit)}${alerte}`;
+  // 03/10 (Gaëtan) : pied réduit à trois lignes séparées par une ligne vide, sans la commission
+  const alerte = nonSaisi.length ? `\n\n⚠️ Hier non saisi : ${nonSaisi.join(", ")}` : "";
+  const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n\n🏦 <b>PROFIT HIER : ${_eur(totalHier.profit)}</b>` +
+    `\n\n📆 Profit 30 j : ${_eur(total30.profit)}${alerte}`;
   return entete + corps + pied;
 }
 
