@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-03 (soir) — Sophie signée sur MYM à 50 % ; rapport Telegram G&M rétabli
+- **Fait** : Sophie signée à 50 % sur MYM. Saisie MYM dans Data G&M depuis le 01/10 ; la Synthèse (30 jours et CA MYM par mois) et le rapport Telegram la prennent déjà en compte, rien à modifier. Rapport quotidien rétabli le 03/10 (cause : déclencheur orphelin `envoyerRapportQuotidien` depuis le collage de la v3, confirmée par `diagnostic`).
+- **À vérifier** : la ligne du 02/10 (352 nouveaux subs MYM pour 323 €) ressemble à un total d'abonnés plutôt qu'au flux du jour (règle 2 de la Notice) ; si c'est un report de fans existants, la LTV MYM de Sophie sera écrasée (≈ 2,3 € affichés) pendant 30 jours.
+- **Limite** : le profit du rapport reste à 30 % du CA pour toutes les créatrices ; le MYM de Sophie à 50 % n'y est pas reflété.
+- **Prédiction (03/10, revue le 03/11)** : LTV MYM de Sophie sur 30 jours ≥ 6,76 € (sa LTV OF) au 03/11, hors ligne du 02/10 corrigée (45 %).
+
 ### 2026-10-03 (suite) — Scaler par le revenu par fan, données des 30 derniers jours
 - **Données de Gaëtan (30 jours)** : CA 46,5 k€, profit 14,1 k€ (30 %), 9 100 nouveaux fans, 5,1 €/fan. Profit par fan : Maddie 3,50 € · Sophie 2,30 € · Chloé 2,01 € · Sarah 1,01 € · Clara 0,95 € · Jade 0,77 €. Gaëtan rejette le ONE THING « temps » du matin et veut du CA et de la marge : recruter, tout miser sur le vertical, supprimer l'horizontal (clippers au clic le 05/10), renégocier Jonas, Julien en variantes de Reels sur le vertical, renégocier Chloé de 40 à 50 %.
 - **ONE THING révisé** : faire passer le revenu par fan de 5 € à 8 € avant d'acheter du trafic ou de signer des créatrices (redirection MYM d'abord pour Sarah, Clara et Jade, accueil chat standard avec Maxence) ; puis diriger le trafic vertical vers les créatrices au plus fort profit par fan. À 8 €/fan à volume constant : ≈ 72,8 k€ de CA et ≈ +8 k€ de profit par mois.
