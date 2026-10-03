@@ -16,14 +16,36 @@
  *
  * Réglages : CREATRICES = les onglets lus ; MARGE = part nette du CA pour le profit (le rapport actuel : 936 € de profit
  * pour 3 118 € de CA, soit 30 %).
+ *
+ * 03/10 (dernier rapport reçu : 29/09, la veille du collage de la v3 ; Gaëtan : « rétablir ce bot afin que Maxence voie tous
+ * les jours les LTV ») : la panne ne vient pas du classeur (saisi jusqu'au 02/10). Cause probable : l'ancien déclencheur
+ * appelle une fonction de l'ancien code qui n'existe plus, et `installerDeclencheur` n'a pas été lancé. Donc :
+ * `installerDeclencheur` retire aussi les déclencheurs orphelins ; les propriétés de l'ancien script sont reconnues même sous
+ * un autre nom ; une erreur Telegram fait échouer l'exécution (visible dans « Exécutions ») au lieu de passer en silence ;
+ * une erreur de construction envoie une alerte dans le canal ; le pied signale les créatrices dont la veille n'est pas saisie.
+ * `diagnostic` (à lancer une fois) écrit dans le journal les déclencheurs, les propriétés et la dernière date saisie, puis
+ * envoie le rapport.
  */
 const CREATRICES = ["Chloé", "Sophie", "Maddy", "Sarah", "Jade", "Clara"];
 const MARGE = 0.30;
 const HEURE_ENVOI = 8;           // heure locale du classeur
+const PREMIERE_LIGNE = 3;        // 03/10 : « 1 juillet » est en ligne 3 (titres en lignes 1-2)
 
 function installerDeclencheur() {
-  ScriptApp.getProjectTriggers().forEach(t => { if (t.getHandlerFunction() === "envoyerRapportTelegram") ScriptApp.deleteTrigger(t); });
+  ScriptApp.getProjectTriggers().forEach(t => {
+    const f = t.getHandlerFunction();
+    if (f === "envoyerRapportTelegram" || typeof globalThis[f] !== "function") ScriptApp.deleteTrigger(t);   // orphelins compris
+  });
   ScriptApp.newTrigger("envoyerRapportTelegram").timeBased().everyDays(1).atHour(HEURE_ENVOI).create();
+}
+
+// 03/10 : l'ancien script « Pilotage G&M » rangeait peut-être le jeton et le canal sous d'autres noms → on les reconnaît
+function _proprietes() {
+  const p = PropertiesService.getScriptProperties().getProperties();
+  const cles = Object.keys(p);
+  const token = p.TELEGRAM_TOKEN || p[cles.find(k => /token/i.test(k))];
+  const chat = p.TELEGRAM_CHAT_ID || p[cles.find(k => /chat|canal|channel/i.test(k))];
+  return { token, chat, cles };
 }
 
 function _taux(ss) {
@@ -42,10 +64,11 @@ function _lire(ss, nom) {
   const f = _onglet(ss, nom);
   if (!f) return [];
   const last = f.getLastRow();
-  if (last < 5) return [];
-  return f.getRange(5, 1, last - 4, 6).getValues()
+  if (last < PREMIERE_LIGNE) return [];
+  return f.getRange(PREMIERE_LIGNE, 1, last - PREMIERE_LIGNE + 1, 6).getValues()
     .filter(r => r[0] instanceof Date)
-    .map(r => ({ d: r[0], ofS: Number(r[1]) || 0, ofUsd: Number(r[2]) || 0, myS: Number(r[4]) || 0, myEur: Number(r[5]) || 0 }));
+    .map(r => ({ d: r[0], ofS: Number(r[1]) || 0, ofUsd: Number(r[2]) || 0, myS: Number(r[4]) || 0, myEur: Number(r[5]) || 0,
+                 vide: [1, 2, 4, 5].every(i => r[i] === "") }));   // Notice, règle 3 : une case vide = « non saisi »
 }
 
 function _somme(lignes, debut, fin, taux) {
@@ -75,11 +98,13 @@ function construireRapport() {
   const hier = new Date(); hier.setHours(0, 0, 0, 0); hier.setDate(hier.getDate() - 1);
   const avantHier = new Date(hier); avantHier.setDate(avantHier.getDate() - 1);
   const debut30 = new Date(hier); debut30.setDate(debut30.getDate() - 30);
-  const blocs = [], totalHier = { tot: 0 };
+  const blocs = [], totalHier = { tot: 0 }, nonSaisi = [];
   CREATRICES.forEach(nom => {
     const L = _lire(ss, nom);
     const m = _somme(L, debut30, hier, taux), h = _somme(L, avantHier, hier, taux);
     totalHier.tot += h.tot;
+    const ligneHier = L.find(l => l.d > avantHier && l.d <= hier);
+    if ((m.subs || m.tot) && (!ligneHier || ligneHier.vide)) nonSaisi.push(nom);
     const lignes = [TETE, "┈".repeat(26)];                // 30/09 : un trait fin sous les titres de colonnes
     if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE, _ltv(m.ofE, m.ofS)));
     if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE, _ltv(m.myE, m.myS)));
@@ -89,15 +114,37 @@ function construireRapport() {
   blocs.sort((a, b) => b.tot - a.tot);
   const entete = `📊 <b>G&amp;M — ${_jour(hier)}</b>\n30 derniers jours ➡️ OF · MYM · LTV\nHier : ${_jour(hier)}\n————————————\n\n`;
   const corps = blocs.map((b, i) => `${i + 1}. ${b.texte}`).join("\n\n");
-  const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🏦 <b>PROFIT HIER : ${_eur(totalHier.tot * MARGE)}</b>`;
+  const alerte = nonSaisi.length ? `\n⚠️ Hier non saisi : ${nonSaisi.join(", ")}` : "";
+  const pied = `\n\n————————————\n💰 <b>CA HIER : ${_eur(totalHier.tot)}</b>\n🏦 <b>PROFIT HIER : ${_eur(totalHier.tot * MARGE)}</b>${alerte}`;
   return entete + corps + pied;
 }
 
-function envoyerRapportTelegram() {
-  const props = PropertiesService.getScriptProperties();
-  const token = props.getProperty("TELEGRAM_TOKEN"), chat = props.getProperty("TELEGRAM_CHAT_ID");
-  if (!token || !chat) throw new Error("TELEGRAM_TOKEN et TELEGRAM_CHAT_ID manquent dans les propriétés du script.");
-  const texte = construireRapport();
-  UrlFetchApp.fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+function _envoyer(token, chat, texte) {
+  const r = UrlFetchApp.fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "post", payload: { chat_id: chat, text: texte, parse_mode: "HTML", disable_web_page_preview: "true" }, muteHttpExceptions: true });
+  const rep = JSON.parse(r.getContentText() || "{}");
+  if (!rep.ok) throw new Error(`Telegram refuse l'envoi (${r.getResponseCode()}) : ${rep.description || r.getContentText()}`);
+}
+
+function envoyerRapportTelegram() {
+  const { token, chat } = _proprietes();
+  if (!token || !chat) throw new Error("TELEGRAM_TOKEN et TELEGRAM_CHAT_ID manquent dans les propriétés du script.");
+  let texte;
+  try { texte = construireRapport(); }
+  catch (e) { _envoyer(token, chat, `⚠️ Rapport G&amp;M non construit : ${String(e.message || e).replace(/[<>&]/g, "")}`); throw e; }
+  _envoyer(token, chat, texte);
+}
+
+// 03/10 : à lancer une fois depuis l'éditeur (▶ Exécuter), le résultat est dans le « Journal d'exécution »
+function diagnostic() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log("Déclencheurs : " + (ScriptApp.getProjectTriggers().map(t => `${t.getHandlerFunction()}${typeof globalThis[t.getHandlerFunction()] === "function" ? "" : " (ORPHELIN)"}`).join(", ") || "aucun"));
+  const { token, chat, cles } = _proprietes();
+  Logger.log(`Propriétés : ${cles.join(", ") || "aucune"} → jeton ${token ? "trouvé" : "MANQUANT"}, canal ${chat ? "trouvé" : "MANQUANT"}`);
+  CREATRICES.forEach(nom => {
+    const L = _lire(ss, nom).filter(l => !l.vide);
+    Logger.log(`${nom} : ${_onglet(ss, nom) ? "onglet trouvé" : "ONGLET ABSENT"}, dernière date saisie ${L.length ? _jour(L[L.length - 1].d) : "aucune"}`);
+  });
+  envoyerRapportTelegram();
+  Logger.log("Rapport envoyé.");
 }
