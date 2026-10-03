@@ -43,3 +43,6 @@ l'onglet « Commission & profit » : taux en cases jaunes, puis 30 derniers jour
 par nouveau sub), hier, commission par mois et profit par mois. Formules écrites par le script en syntaxe anglaise, ce
 qu'exige Apps Script : Google Sheets les affiche en français. Le rapport Telegram lit ses taux dans cet onglet (repli : les
 constantes `COMMISSIONS` et `FRAIS`) et affiche en pied la commission et le profit d'hier, plus le profit sur 30 jours.
+
+**Seuils 800 subs / 15 € (03/10/2026)** : sur les lignes OF et MYM du rapport, 🔴 devant les subs si moins de 800 sur 30
+jours ; sinon 🔴 devant la LTV si elle est sous 15 € ; sinon 🟢 devant la plateforme. Réglables : `SEUIL_SUBS`, `SEUIL_LTV`.

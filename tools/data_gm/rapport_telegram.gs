@@ -94,9 +94,24 @@ function _ltv(e, s) { return s ? (e / s).toFixed(2).replace(".", ",") : ""; }
 
 // 30/09 (Gaëtan : « la LTV 30 jours par plateforme, sur la même ligne ») : un petit tableau aligné, 26 caractères, titres de
 // colonnes en première ligne (le bouton « copier » du bloc Telegram se pose dessus, plus sur un chiffre)
-const TETE = `${"".padEnd(4)}${"subs".padStart(6)}${"CA€".padStart(9)}${"LTV€".padStart(7)}  `;
+// 03/10 (Gaëtan : « si subs last 30d < 800 : subs en rouge ; si > 800 et LTV < 15 € : LTV en rouge ; si > 800 et LTV > 15 € :
+// plateforme en vert ») : Telegram ne colore pas le texte → pastille 🔴 / 🟢 collée à la valeur visée, sur les lignes OF et MYM
+// (pas sur « Hier »). 800 tout rond compte comme « au moins 800 », 15 € tout rond comme « au moins 15 € ». Colonnes élargies
+// pour garder l'alignement (une pastille occupe deux caractères) : 28 caractères.
+const SEUIL_SUBS = 800, SEUIL_LTV = 15;
+function _larg(t) { return [...t].reduce((a, ch) => a + (ch.codePointAt(0) > 0xffff ? 2 : 1), 0); }
+function _gauche(t, n) { return t + " ".repeat(Math.max(0, n - _larg(t))); }
+function _droite(t, n) { return " ".repeat(Math.max(0, n - _larg(t))) + t; }
+const TETE = `${_gauche("", 5)}${_droite("subs", 7)}${_droite("CA€", 8)}${_droite("LTV€", 8)}`;
 function _ligne(libelle, subs, eur, ltv) {
-  return `${libelle.padEnd(4)}${String(Math.round(subs)).padStart(6)}${_nb(eur).padStart(9)}${(ltv || "").padStart(7)}`.replace(/\s+$/, "");
+  let lib = libelle, s = String(Math.round(subs)), l = ltv || "";
+  if (ltv !== undefined) {                                  // lignes OF / MYM : la règle des 800 subs et des 15 €
+    const valeur = subs ? eur / subs : 0;
+    if (subs < SEUIL_SUBS) s = "🔴" + s;
+    else if (valeur < SEUIL_LTV) l = "🔴" + l;
+    else lib = "🟢" + lib;
+  }
+  return `${_gauche(lib, 5)}${_droite(s, 7)}${_droite(_nb(eur), 8)}${_droite(l, 8)}`.replace(/\s+$/, "");
 }
 
 function construireRapport() {
@@ -115,7 +130,7 @@ function construireRapport() {
     total30.com += m.tot * com; total30.profit += m.tot * (com - frais);
     const ligneHier = L.find(l => l.d > avantHier && l.d <= hier);
     if ((m.subs || m.tot) && (!ligneHier || ligneHier.vide)) nonSaisi.push(nom);
-    const lignes = [TETE, "┈".repeat(26)];                // 30/09 : un trait fin sous les titres de colonnes
+    const lignes = [TETE, "┈".repeat(28)];                // 30/09 : un trait fin sous les titres de colonnes
     if (m.ofS || m.ofE) lignes.push(_ligne("OF", m.ofS, m.ofE, _ltv(m.ofE, m.ofS)));
     if (m.myS || m.myE) lignes.push(_ligne("MYM", m.myS, m.myE, _ltv(m.myE, m.myS)));
     lignes.push(_ligne("Hier", h.subs, h.tot));
