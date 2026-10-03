@@ -28,7 +28,8 @@ du classeur par ce fichier, enregistrer, exécuter `installerDeclencheur` une fo
 
 **v3.1 (03/10/2026, Gaëtan : « rétablir ce bot afin que Maxence voie tous les jours les LTV »)** : dernier rapport reçu le
 29/09, la veille du collage de la v3, alors que le classeur est saisi jusqu'au 02/10. Cause probable : l'ancien
-déclencheur appelle une fonction de l'ancien code qui n'existe plus. La v3.1 garde la présentation de la v3 et ajoute :
+déclencheur appelle une fonction de l'ancien code qui n'existe plus — **confirmé le 03/10 par `diagnostic`** : seul
+déclencheur en place, `envoyerRapportQuotidien` (orphelin) ; propriétés et saisie en ordre, rapport envoyé. La v3.1 garde la présentation de la v3 et ajoute :
 `installerDeclencheur` retire les déclencheurs orphelins ; le jeton et le canal de l'ancien script sont reconnus même sous
 un autre nom ; un refus de Telegram fait échouer l'exécution au lieu de passer en silence ; une erreur de calcul envoie
 une alerte dans le canal ; le pied liste les créatrices dont la veille n'est pas saisie ; lecture dès la ligne 3
