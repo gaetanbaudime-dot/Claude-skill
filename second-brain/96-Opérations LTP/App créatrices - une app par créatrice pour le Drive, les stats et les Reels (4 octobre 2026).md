@@ -11,7 +11,7 @@ liens_forts: ["[[Cockpit opérationnel LTP (actions)]]", "[[SOP - Machine à con
 # App créatrices - une app par créatrice pour le Drive, les stats et les Reels (4 octobre 2026)
 
 > [!tip] Verdict
-> L'app est construite, testée avec les vraies données des six créatrices et poussée sur GitHub (`tools/app_creatrices`). Une seule chose la sépare de la mise en ligne : **importer le dépôt sur Vercel avec les trois variables d'environnement**, deux minutes sur ordinateur, que seul Gaëtan peut faire (le connecteur Vercel de la session n'a pas le droit de créer un projet). Ensuite, envoyer à chaque créatrice son lien secret et le message « ajoute-la à ton écran d'accueil ». Le reste (dossiers de la semaine, stats, conversion dollar-euro) tourne tout seul.
+> **En ligne depuis le 4 octobre 2026 sur `app-creatrices.vercel.app`**, un lien secret `/c/<jeton>` par créatrice (les jetons restent hors vault, dans la configuration Vercel). Construite, testée avec les vraies données des six, déployée depuis GitHub (`tools/app_creatrices`) : chaque push sur ce dossier se déploie seul. Il reste à Gaëtan une seule chose : **envoyer à chaque créatrice son lien avec le message « ajoute-la à ton écran d'accueil »**. Le reste (dossiers de la semaine, stats, conversion dollar-euro) tourne tout seul.
 
 ## Ce que c'est
 
@@ -34,14 +34,15 @@ Quand le dossier du jour n'existe pas encore (le mois n'est pas créé, la semai
 - Stats de Chloé : 7 jours = 6 475 € net (OF 1 992 €, MYM 4 483 €, 504 nouveaux abonnés), septembre = 23 405 € (contre 19 237 € en août). Quand un jour n'est saisi que d'un côté, le bas de page le dit (« OnlyFans pas encore saisi pour le 03/10 »).
 - Captures iPhone (390 × 844) des trois onglets et des cinq périodes : lisibles, animations fluides, aucune erreur console.
 
-## Mise en ligne (à faire par Gaëtan, une fois)
+## Mise en ligne (faite le 4 octobre 2026)
 
-1. `vercel.com/new` → importer `gaetanbaudime-dot/Claude-skill` → nom `app-creatrices` → **Root Directory** `tools/app_creatrices`.
-2. Coller le contenu du fichier `.env` fourni dans la session dans le champ des variables d'environnement (Vercel découpe les trois variables tout seul : le compte de service Google, l'identifiant de Data G&M, la configuration des créatrices avec leurs jetons et leurs dossiers).
-3. Déployer. Les commits suivants se déploient seuls ; ceux qui ne touchent pas le dossier de l'app sont ignorés (`vercel.json`).
-4. Envoyer à chaque créatrice son lien `/c/<jeton>` avec le message « Safari → Partager → Sur l'écran d'accueil ». Le guide complet et les six liens sont dans la session (fichier `app_creatrices_GUIDE.md`).
+- Projet Vercel `app-creatrices` lié au dépôt GitHub, répertoire racine `tools/app_creatrices`, framework Next.js, trois variables d'environnement (compte de service Google en lecture seule, identifiant de Data G&M, configuration des créatrices avec jetons et dossiers), pas de connexion Vercel imposée aux visiteuses.
+- Domaine : `app-creatrices.vercel.app`. Chaque push sur le dossier de l'app se déploie seul ; les commits qui ne le touchent pas sont ignorés (`vercel.json`), ce qui a annulé le premier build (commit du vault) avant un second lancé sur le commit de l'app.
+- Vérifié en production : page, 404 sur jeton inconnu, stats des six (Chloé 7 jours = 6 475 € net), redirections Drive des quatre tuiles, manifeste et icône, en-têtes `noindex` et `no-referrer`.
+- Comment on y est arrivé : le connecteur Vercel de la session pouvait déployer mais **ni créer un projet, ni écrire une variable** (403) ; le garde-fou de la session a refusé l'écriture des variables sur l'hébergeur du bot. Gaëtan a demandé « fais-le à ma place, connecte-toi » : connexion par code d'appareil (`vercel login`), validée par lui en un clic, qui donne un accès complet au compte depuis la session. Cohérent avec la règle de [[Automatisation et agents IA (SOP par des agents)]] : l'agent construit et teste, l'humain tient les clés et les donne explicitement.
+- Pour envoyer les liens : le guide avec les six liens et le message WhatsApp « Safari → Partager → Sur l'écran d'accueil » est dans la session (fichier `app_creatrices_GUIDE.md`).
 
-Pourquoi ce n'est pas déjà fait : le connecteur Vercel de la session peut déployer (le build depuis GitHub a réussi en 37 secondes) mais ne peut **ni créer un projet, ni écrire une variable** (403). L'écriture des variables sur l'hébergeur du bot a été refusée par le garde-fou de la session. Les secrets ne vont ni dans le dépôt ni dans le chat : la seule voie propre passe par Gaëtan. Cohérent avec la règle de [[Automatisation et agents IA (SOP par des agents)]] : l'agent construit et teste, l'humain tient les clés.
+**Hébergement, pour ne plus se poser la question** : Vercel pour l'app (Next.js natif, gratuit, déploiement à chaque push) ; Supabase est une base de données, pas un hébergeur, inutile tant que les chiffres viennent de Data G&M ; Railway reste pour le bot, parce qu'il fait tourner des programmes permanents (Discord, lecture des mails, Telegram) que Vercel ne sait pas faire.
 
 ## Avocat du diable [P]
 

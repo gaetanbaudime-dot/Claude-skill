@@ -8,7 +8,7 @@ Petite application web mobile (PWA) pour les créatrices : un lien secret par cr
 
 ## Pile
 
-Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel depuis ce dépôt avec `tools/app_creatrices` comme répertoire racine ; `vercel.json` ignore les commits qui ne touchent pas ce dossier.
+Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (projet `app-creatrices`, domaine `app-creatrices.vercel.app`) depuis ce dépôt avec `tools/app_creatrices` comme répertoire racine ; `vercel.json` ignore les commits qui ne touchent pas ce dossier. Mise en ligne le 4 octobre 2026.
 
 ## Variables d'environnement (Vercel, jamais dans le dépôt)
 
