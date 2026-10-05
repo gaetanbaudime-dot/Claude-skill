@@ -48,7 +48,7 @@ VERSION = 6                       # 05/10 : passage forcé au déploiement pour 
 NON_LU_JOURS = int(os.environ.get("ETATS_NON_LU_JOURS", "3") or 3)   # 05/10 : passages non lus de suite avant de traiter le compte comme absent
 A_CREER = ("a creer", "à créer")
 GERANTS_LIBRES = ("", "x", "y", "z")                                     # la ligne n'a pas de clipper
-DASHBOARD_VERSION = 8             # 30/09 : Julien et Rianah remis au Dashboard ; changée → réécrit au démarrage, sans scan
+DASHBOARD_VERSION = 9             # 05/10 : ligne « Créatrice » en tête de bloc ; changée → réécrit au démarrage, sans scan (Clics relevés avant)
 EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
 # 30/09 (Gaëtan : « inclus Julien et Rianah dans le dashboard aussi ») : le Dashboard ne masque plus personne par défaut.
 # La liste « hors clipping » ci-dessus ne sert plus qu'à la vérification du classeur et au rapport du jour (Rianah gère les
@@ -988,7 +988,12 @@ async def boucle(client) -> None:
             jour = maintenant.strftime("%Y-%m-%d")
             d = _lire()
             if d.get("historique") and d.get("dashboard_version") != DASHBOARD_VERSION:     # 28/09 : nouvelle structure → réécrit
-                await ecrire_dashboard(await onboarding.lire_comptes(), d.get("historique", {}), _deps.get("clics_7j"), jour)
+                comptes_d = await onboarding.lire_comptes()
+                try:                                                    # 05/10 : les Clics des blocs (créatrices comprises) d'abord, sans scan Apify
+                    await onboarding.clics_classeur(comptes_d, _deps.get("clics_7j"))
+                except Exception as erreur:                             # noqa: BLE001
+                    journal.warning("Dashboard : Clics non relevés avant la réécriture (%s)", erreur)
+                await ecrire_dashboard(comptes_d, d.get("historique", {}), _deps.get("clics_7j"), jour)
                 d = _lire(); d["dashboard_version"] = DASHBOARD_VERSION; _ecrire(d)
                 journal.info("Dashboard réécrit (structure v%s)", DASHBOARD_VERSION)
             if maintenant.hour >= HEURE_UTC and (d.get("dernier") != jour or d.get("version") != VERSION) \
