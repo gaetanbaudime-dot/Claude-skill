@@ -74,8 +74,13 @@ def comptes_par_clipper(comptes: list, prenoms: list) -> dict:
             continue
         if any(e in _norm(c.get("etat")) for e in ETATS_IGNORES):
             continue
-        handle = str(c.get("handle") or "").strip().lstrip("@").rstrip("/").split("/")[-1]
-        if handle and handle not in out[voulu[gerant]]:
+        # 05/10 : même nettoyage d'identifiant que le scan du classeur (onboarding.normaliser_handle quand bot_discord le passe) :
+        # @, URL, espaces invisibles, premier mot — sinon le profil part tel quel chez Apify et compte « non lu »
+        if _deps.get("normaliser_handle"):
+            handle = _deps["normaliser_handle"](c.get("handle"))
+        else:
+            handle = str(c.get("handle") or "").strip().lstrip("@").rstrip("/").split("/")[-1]
+        if handle and handle.lower() not in {h.lower() for h in out[voulu[gerant]]}:
             out[voulu[gerant]].append(handle)
     return out
 
@@ -226,6 +231,12 @@ async def _followers(par_clipper: dict) -> dict:
         return {}
     out = {}
     for p, hs in par_clipper.items():
+        # 05/10 : une fiche non lue (Apify muet) ou restreinte (chiffres cachés) ne vaut pas 0 : on le dit dans le journal, par
+        # clipper et en nombre de comptes, jamais par identifiant
+        non_lus = sum(1 for h in hs if not (fiches.get(h.lower()) or {}).get("lu", True))
+        restreints = sum(1 for h in hs if (fiches.get(h.lower()) or {}).get("restreint"))
+        if non_lus or restreints:
+            journal.info("Cadence followers %s : %d compte(s) non lu(s), %d restreint(s) sur %d — followers incomplets", p, non_lus, restreints, len(hs))
         out[p] = sum(int((fiches.get(h.lower()) or {}).get("followers") or 0) for h in hs)
     return out
 

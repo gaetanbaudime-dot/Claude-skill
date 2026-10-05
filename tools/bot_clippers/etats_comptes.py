@@ -10,9 +10,17 @@ ETAT de l'onglet Instagram, une cellule à la fois, jamais la structure :
        (30/09, Gaëtan : « tous les comptes GOOD, BAN et WARMUP, vérifie-les à chaque fois », BAN posé à la main compris)
   restreint (profil caché aux visiteurs non connectés) = vivant, jamais BAN
 `!dashboard` lance ce passage complet avant de réécrire l'onglet (30/09) ; `!dashboard rapide` réécrit sans scan.
-Les états posés à la main (PERDU LOGS, à vérifier, BIZARRE, ACTIF…) et les lignes sans Gérant ne sont jamais touchés :
+Les états posés à la main (PERDU LOGS, à vérifier, BIZARRE, ACTIF…) ne sont jamais touchés, ni une ligne « à créer » sans Gérant :
 un compte du vivier libre ne peut pas se créer tout seul. La colonne Followers est remplie pour TOUS les comptes créés du
 classeur (26/09, « légendaire ») : clippers, créatrices sous Metricool, comptes libérés — pas les lignes « à créer » sans gérant.
+05/10 (Gaëtan : « pour CHAQUE ligne ayant un @, tous les états sauf à créer, le classeur tenu à jour chaque jour ») :
+  - l'ETAT suit toute ligne créée (Gérant ou pas, Utilisation quelle qu'elle soit) ; un BAN sans Gérant n'est jamais ressuscité ;
+  - Followers, « Reels Hier », « Reels 7 j » (Reels = vidéos, jour civil de Paris, tirés des latestPosts d'Apify — 12 publications
+    au plus, complétés par l'historique du scan) sont écrits pour chaque compte lisible ; un restreint ou un privé cache ses Reels ;
+  - un compte ABSENT de la réponse d'Apify (après la deuxième demande) ou renvoyé sans chiffres est « non lu » : rien n'est écrit,
+    il garde son état et ses valeurs ; seul un « introuvable » explicite d'Apify compte comme absence (→ BAN). Au bout de
+    NON_LU_JOURS passages non lus de suite, le compte est traité comme absent. Plus de la moitié non lue = Apify en panne, rien changé ;
+  - les identifiants sont nettoyés (onboarding.normaliser_handle : @, URL, espaces, casse) avant d'être envoyés et comparés.
 Le module ne connaît pas bot_discord : dépendances dans `configurer(deps)` (lire_json, ecrire_json, FICHIER_ETATS,
 normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les tests)."""
 import asyncio
@@ -36,7 +44,10 @@ BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "1") or 1)           # 28/09 (
 HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après le rapport inputs du matin
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
-VERSION = 5                       # 30/09 : passage forcé au déploiement pour rendre leur état aux comptes restreints passés BAN à tort
+VERSION = 6                       # 05/10 : passage forcé au déploiement pour remplir Reels 7 j / Clics hier et suivre toutes les lignes créées
+NON_LU_JOURS = int(os.environ.get("ETATS_NON_LU_JOURS", "3") or 3)   # 05/10 : passages non lus de suite avant de traiter le compte comme absent
+A_CREER = ("a creer", "à créer")
+GERANTS_LIBRES = ("", "x", "y", "z")                                     # la ligne n'a pas de clipper
 DASHBOARD_VERSION = 8             # 30/09 : Julien et Rianah remis au Dashboard ; changée → réécrit au démarrage, sans scan
 EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
 # 30/09 (Gaëtan : « inclus Julien et Rianah dans le dashboard aussi ») : le Dashboard ne masque plus personne par défaut.
@@ -76,6 +87,34 @@ def _norm(t: str) -> str:
     return _deps["normaliser"](t or "") if _deps.get("normaliser") else (t or "").strip().lower()
 
 
+def _cle(handle: str) -> str:
+    """05/10 : la clé d'un compte partout dans ce module (historique, mesures, Apify) : identifiant nettoyé (sans @, sans URL,
+    sans espace) en minuscules. Avant, un « @ » ou une URL dans la cellule partait tel quel chez Apify : compte « introuvable »."""
+    return onboarding.normaliser_handle(handle).lower()
+
+
+_PARIS = None
+
+
+def _paris(quand: datetime) -> datetime:
+    """L'heure de Paris (repli UTC+2 si la base de fuseaux manque sur le conteneur, comme bot_discord.heure_paris)."""
+    global _PARIS
+    if _PARIS is None:
+        try:
+            from zoneinfo import ZoneInfo
+            _PARIS = ZoneInfo("Europe/Paris")
+        except Exception:                                                # noqa: BLE001
+            _PARIS = timezone(timedelta(hours=2))
+    return quand.astimezone(_PARIS)
+
+
+def _est_reel(post: dict) -> bool:
+    """Une publication est un Reel si Apify la dit vidéo (type Video, productType clips/reels/igtv) ; sans type, on compte."""
+    t = str(post.get("type") or "").lower()
+    pt = str(post.get("productType") or "").lower()
+    return t == "video" or pt in ("clips", "reels", "igtv") or (not t and not pt)
+
+
 def _lire() -> dict:
     d = _deps["lire_json"](_deps["FICHIER_ETATS"], {})
     d.setdefault("historique", {}); d.setdefault("bans_auto", {})
@@ -88,28 +127,46 @@ def _ecrire(d: dict):
 
 # ------------------------------------------------------------------ Instagram
 async def scanner(handles: list) -> dict:
-    """Un appel Apify pour tous les comptes → {handle: {existe, prive, restreint, followers, posts}} ; `posts` =
-    publications des dernières 24 h. Un compte absent de la réponse, ou renvoyé avec une erreur, n'existe pas
-    (banni, renommé, jamais créé). None si Apify est en panne : on ne conclut rien ce jour-là."""
+    """Un appel Apify pour tous les comptes → {clé: {lu, existe, prive, restreint, followers, posts, reels_hier, reels_7j, posts_lus…}} ;
+    `posts` = publications des dernières 24 h (compatibilité : message du matin, parcours, sortie auto), `reels_hier` / `reels_7j` =
+    Reels (vidéos) de la veille et des 7 derniers jours en jour civil de Paris. None si Apify est en panne : on ne conclut rien.
+    05/10 : `lu` = Apify a répondu pour ce compte (fiche, ou erreur explicite « introuvable »). Un compte absent de la réponse après
+    la deuxième demande, ou renvoyé sans aucun chiffre (mur de connexion, page incomplète), est `lu: False` : l'appelant n'en conclut
+    rien et n'écrit rien. `existe: False` avec `lu: True` = Apify a bien dit que le compte n'existe pas (banni, renommé, jamais créé)."""
     if _deps.get("scanner"):
         return await _deps["scanner"](handles)
     if not APIFY_TOKEN or not handles:
         return None
-    items = await _apify(handles)
+    cles = []
+    for h in handles:                                                    # 05/10 : identifiants nettoyés, sans doublon
+        k = _cle(h)
+        if k and k not in cles:
+            cles.append(k)
+    items = await _apify(cles)
     if items is None:
         return None
     # 30/09 : un compte absent de la réponse d'Apify n'est pas forcément mort (profil sauté par le robot) : les absents sont
     # redemandés une fois, à part, avant de conclure
     vus = {_handle_item(it) for it in items}
-    manquants = [h for h in handles if h.lower() not in vus]
+    manquants = [h for h in cles if h not in vus]
     if manquants:
+        journal.info("Apify (états) : %d compte(s) sur %d absent(s) de la première réponse, redemandés à part", len(manquants), len(cles))
         encore = await _apify(manquants)
         items += encore or []
-    return _lire_items(items, handles)
+    out = _lire_items(items, cles)
+    journal.info("Apify (états) : %d demandés, %d fiches reçues, %d lus, %d introuvables (réponse explicite), %d restreints, %d non lus",
+                 len(cles), len(items), sum(1 for f in out.values() if f["lu"]), sum(1 for f in out.values() if f["lu"] and not f["existe"]),
+                 sum(1 for f in out.values() if f["restreint"]), sum(1 for f in out.values() if not f["lu"]))
+    return out
 
 
 def _handle_item(item: dict) -> str:
-    return (item.get("username") or item.get("inputUrl") or "").lower().rstrip("/").split("/")[-1].lstrip("@")
+    """La clé du compte d'une fiche Apify : `username`, sinon le dernier segment de `inputUrl` / `url` (fiches d'erreur)."""
+    u = item.get("username")
+    if not u:
+        brut = str(item.get("inputUrl") or item.get("url") or "")
+        u = brut.split("?")[0].split("#")[0].rstrip("/").split("/")[-1]
+    return _cle(str(u))
 
 
 async def _apify(handles: list):
@@ -131,26 +188,53 @@ async def _apify(handles: list):
     return items
 
 
-def _lire_items(items: list, handles: list) -> dict:
-    limite = datetime.now(timezone.utc) - timedelta(hours=24)
-    out = {h.lower(): {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0, "fautes": 0} for h in handles}
+def _fiche_vide() -> dict:
+    return {"lu": False, "existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0, "fautes": 0,
+            "reels_hier": 0, "reels_7j": 0, "posts_lus": 0}
+
+
+def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict:
+    maintenant = maintenant or datetime.now(timezone.utc)
+    limite = maintenant - timedelta(hours=24)
+    hier = _paris(maintenant).date() - timedelta(days=1)                  # 05/10 : la veille en jour civil de Paris
+    debut_7j = hier - timedelta(days=6)
+    out = {_cle(h): _fiche_vide() for h in handles if _cle(h)}
     for item in items:
-        handle = _handle_item(item)
-        if handle not in out or (out[handle]["existe"] and not out[handle]["restreint"]):   # déjà lu en entier au premier appel
+        if not isinstance(item, dict):
             continue
-        erreur = str(item.get("error") or "").lower()
-        if erreur and "restricted" not in erreur and not item.get("isRestrictedProfile"):
-            continue                                                    # not found, invalid… → n'existe pas
+        handle = _handle_item(item)
+        if handle not in out or (out[handle]["lu"] and out[handle]["existe"] and not out[handle]["restreint"]):   # déjà lu en entier
+            continue
         fiche = out[handle]
-        fiche["existe"] = True
-        fiche["restreint"] = bool(item.get("isRestrictedProfile") or "restricted" in erreur)
-        fiche["prive"] = bool(item.get("private"))
-        fiche["followers"] = int(item.get("followersCount") or 0)
-        for post in item.get("latestPosts") or []:
+        erreur = str(item.get("error") or "").lower()
+        restreint = bool(item.get("isRestrictedProfile") or "restricted" in erreur)
+        if erreur and not restreint:
+            fiche["lu"] = True                                           # not found, invalid… : Apify dit que le compte n'existe pas
+            continue
+        followers_brut = item.get("followersCount")
+        if not restreint and not isinstance(followers_brut, (int, float)) and not item.get("latestPosts") \
+                and item.get("private") is None and item.get("postsCount") is None:
+            # 05/10 : une fiche sans aucun chiffre (mur de connexion, page incomplète) n'est pas « 0 followers, 0 Reel » :
+            # elle est illisible, le compte reste non lu et garde ses valeurs dans le classeur
+            fiche["illisible"] = True
+            continue
+        fiche.update({"lu": True, "existe": True, "restreint": restreint, "prive": bool(item.get("private")),
+                      "followers": int(followers_brut or 0)})
+        posts = item.get("latestPosts") or []
+        fiche["posts_lus"] = len(posts)
+        for post in posts:
             try:
                 quand = datetime.fromisoformat(str(post.get("timestamp") or "").replace("Z", "+00:00"))
             except ValueError:
                 continue
+            if quand.tzinfo is None:
+                quand = quand.replace(tzinfo=timezone.utc)
+            jour_paris = _paris(quand).date()
+            if _est_reel(post):
+                if jour_paris == hier:
+                    fiche["reels_hier"] += 1
+                if debut_7j <= jour_paris <= hier:
+                    fiche["reels_7j"] += 1
             if quand >= limite:
                 fiche["posts"] += 1
                 if not fiche.get("dernier") or str(post.get("timestamp")) > fiche["dernier"].get("quand", ""):
@@ -166,7 +250,24 @@ def _lire_items(items: list, handles: list) -> dict:
                         "legende": str(post.get("caption") or "")[:400], "quand": str(post.get("timestamp") or ""),
                         "largeur": post.get("dimensionsWidth") or 0, "hauteur": post.get("dimensionsHeight") or 0,
                         "duree": post.get("videoDuration") or 0})
+        # 05/10 : 12 publications au plus dans latestPosts ; si la plus ancienne est encore dans la fenêtre des 7 jours, le
+        # décompte est un minimum (complété par l'historique du scan dans reels_7j_estime)
+        plus_ancien = min((str(p.get("timestamp") or "") for p in posts if p.get("timestamp")), default="")
+        fiche["plafonne"] = bool(plus_ancien and plus_ancien[:10] >= debut_7j.isoformat())
     return out
+
+
+def reels_7j_estime(mesure: dict, historique: list, jour: str) -> int:
+    """Reels des 7 derniers jours d'un compte : le décompte des latestPosts du jour (12 publications au plus) ou, s'il est plus
+    grand, la somme des « Reels hier » des 7 derniers passages du scan (chacun couvre la veille ; `historique` sans le jour même).
+    Deux minorants : on garde le meilleur. Exact dès que le scan tourne chaque jour et qu'un compte publie moins de 12 fois par jour."""
+    depuis = _fenetre(jour, 7)
+    somme = int(mesure.get("reels_hier") or 0)                           # le passage du jour couvre la veille
+    for e in historique:
+        j = str(e.get("jour", ""))[:10]
+        if depuis and depuis <= j < str(jour)[:10] and e.get("existe") and "reels_hier" in e:
+            somme += int(e.get("reels_hier") or 0)
+    return max(int(mesure.get("reels_7j") or 0), somme)
 
 
 # ------------------------------------------------------------------ règles
@@ -230,10 +331,30 @@ def publie_deja(historique: list) -> bool:
     return any(j.get("existe") and int(j.get("posts") or 0) > 0 for j in historique)
 
 
+def _en_gestion(c: dict) -> bool:
+    """Utilisation Clipper ou vide. 05/10 : le scan exigeait « Clipper » écrit ; 13 lignes du classeur ont la cellule vide et
+    n'avaient donc ni ETAT suivi ni Reels Hier — même règle désormais que le Dashboard, classeur_forme et classeur_verif."""
+    return _norm(c.get("utilisation") or "") in ("clipper", "")
+
+
 def candidats(comptes: list) -> list:
-    """Les lignes dont l'ETAT peut bouger : Utilisation = Clipper, un Gérant, un identifiant, un état que le bot sait faire évoluer."""
-    return [c for c in comptes if _norm(c["utilisation"]) == "clipper" and c["handle"]
-            and _norm(c["gerant"]) not in ("", "x", "y", "z") and _norm(c["etat"]) in SUIVIS]
+    """Les lignes dont l'ETAT peut bouger. 05/10 (Gaëtan : « pour CHAQUE ligne ayant un @, tous les états sauf à créer ») : toute
+    ligne créée (WARMUP, GOOD, PRIVE, BAN) dans un état que le bot sait faire évoluer, Gérant ou pas, Utilisation quelle qu'elle
+    soit (Metricool, Geelark, comptes libérés compris) ; une ligne « à créer » seulement si un clipper la gère (Utilisation Clipper
+    ou vide) : un compte du vivier libre ne peut pas se créer tout seul ; un BAN sans Gérant n'est jamais ressuscité (30/09 :
+    retirer le Gérant d'un BAN, c'est le garder hors jeu)."""
+    out = []
+    for c in comptes:
+        e = _norm(c["etat"])
+        if not c["handle"] or e not in SUIVIS:
+            continue
+        libre = _norm(c["gerant"]) in GERANTS_LIBRES
+        if e in A_CREER and (libre or not _en_gestion(c)):
+            continue
+        if e == "ban" and libre:
+            continue
+        out.append(c)
+    return out
 
 
 def a_scanner(comptes: list) -> list:
@@ -241,10 +362,10 @@ def a_scanner(comptes: list) -> list:
     un Gérant. Le vivier « à créer » sans gérant n'existe pas encore sur Instagram, inutile de payer pour lui."""
     vus, out = set(), []
     for c in comptes:
-        h = c["handle"].lower()
+        h = _cle(c["handle"])
         if not h or h in vus:
             continue
-        if _norm(c["etat"]) not in ("a creer", "à créer") or _norm(c["gerant"]) not in ("", "x", "y", "z"):
+        if _norm(c["etat"]) not in A_CREER or _norm(c["gerant"]) not in GERANTS_LIBRES:
             vus.add(h)
             out.append(c)
     return out
@@ -272,12 +393,36 @@ async def _executer(ecrire: bool = True) -> dict:
     lignes = a_scanner(comptes)
     if not lignes:
         return {"changements": [], "scannes": 0, "erreur": ""}
-    mesures = await scanner([c["handle"].lower() for c in lignes])
+    mesures = await scanner([_cle(c["handle"]) for c in lignes])
     if mesures is None:
         return {"changements": [], "scannes": 0, "erreur": "Instagram illisible aujourd'hui (Apify), rien changé"}
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    changements, followers_maj, clics_maj, liens_maj = [], 0, 0, 0
+    # 05/10 (Gaëtan : « le scan ne doit jamais conclure BAN à cause d'un simple raté d'Apify ») : un compte absent de la réponse
+    # (après la deuxième demande) ou renvoyé sans chiffres est « non lu » : rien n'est écrit pour lui, il garde son état et ses
+    # valeurs. Au bout de NON_LU_JOURS passages non lus de suite, il est traité comme absent (sinon un compte vraiment mort ne
+    # passerait jamais BAN). Plus de la moitié du classeur non lue = Apify en panne : rien n'est touché, la boucle réessaie.
+    non_lus_d = d.setdefault("non_lus", {})
+    non_lus = []
+    for c in lignes:
+        h = _cle(c["handle"])
+        m = mesures.get(h)
+        if m is not None and m.get("lu", True):                           # (un faux scanner de test sans clé `lu` = lu)
+            non_lus_d.pop(h, None)
+            continue
+        suivi = non_lus_d.get(h) or {}
+        n = int(suivi.get("jours") or 0) + (0 if suivi.get("dernier") == jour else 1)
+        non_lus_d[h] = {"jours": n, "dernier": jour}
+        if n >= NON_LU_JOURS:
+            mesures[h] = {**_fiche_vide(), "lu": True, "force_absent": True}   # non lu depuis NON_LU_JOURS passages : absent
+        else:
+            non_lus.append(c)
+    if non_lus and len(non_lus) * 2 > len(lignes):
+        return {"changements": [], "scannes": len(lignes), "non_lus": [],
+                "erreur": f"Apify n'a lu que {len(lignes) - len(non_lus)} compte(s) sur {len(lignes)}, rien changé (nouvel essai plus tard)"}
+    ids_non_lus = {id(c) for c in non_lus}
+    changements, followers_maj, clics_maj, liens_maj, reels_maj = [], 0, 0, 0, 0
+    restreints_n = absents_n = forces_n = 0
     reels_ecritures = []
     a_relire = []                                                        # 01/10 : Reels des 24 h des clippers, pour la review
     pris = []                                                          # 01/10 : identifiants « à créer » déjà présents sur Instagram
@@ -285,30 +430,47 @@ async def _executer(ecrire: bool = True) -> dict:
     async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
         await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
     for c in lignes:
-        h = c["handle"].lower()
-        m = mesures.get(h) or {"existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0}
-        if ecrire and m["existe"] and not m["restreint"] and str(m["followers"]) != str(c.get("followers", "")).replace(" ", ""):
+        if id(c) in ids_non_lus:
+            continue                                                     # 05/10 : non lu → rien d'écrit, rien de conclu, pas d'historique
+        h = _cle(c["handle"])
+        m = {**_fiche_vide(), **(mesures.get(h) or {})}
+        onglet = c.get("onglet", "")
+        restreints_n += 1 if m["restreint"] else 0
+        absents_n += 0 if m["existe"] else 1
+        forces_n += 1 if m.get("force_absent") else 0
+        # Followers : pour tout compte lisible (vivant, pas restreint) dont l'onglet a la colonne ; un restreint ou un introuvable
+        # garde sa dernière valeur (05/10 : jamais vidé, jamais mis à 0)
+        if ecrire and m["existe"] and not m["restreint"] and onboarding.a_colonne("followers", onglet) \
+                and str(m["followers"]) != str(c.get("followers", "")).replace(" ", "").replace("\u202f", "").replace("\u00a0", ""):
             try:
                 await _cellule(c, "followers", m["followers"])
                 followers_maj += 1
             except Exception as erreur:                                  # noqa: BLE001
-                journal.warning("Classeur : followers de %s non écrits : %s", c["handle"], erreur)
-        if id(c) not in ids_suivis:
-            continue
-        # 30/09 (Gaëtan : « une colonne Reels Hier, combien de Reels a posté chaque compte IG hier ») : les Reels des 24 h
-        # avant le scan, compte par compte, écrits en un seul appel à la fin (seulement les cellules qui changent)
-        if ecrire and onboarding.a_colonne("reels_hier", c.get("onglet", "")):
-            valeur = str(m["posts"]) if m["existe"] and (m["posts"] or not m.get("restreint")) else ""   # restreint : illisible, pas 0
-            if valeur != str(c.get("reels_hier") or "").strip():
-                reels_ecritures.append((onboarding.cellule(c, "reels_hier"), [[valeur]]))
-        if m.get("reels") and c.get("gerant") and _norm(c.get("utilisation") or "") == "clipper":
+                journal.warning("Classeur : followers non écrits (%s ligne %s) : %s", onglet, c.get("ligne"), type(erreur).__name__)
+        # 30/09 (Gaëtan : « une colonne Reels Hier, combien de Reels a posté chaque compte IG hier ») ; 05/10 : pour CHAQUE compte
+        # scanné (plus seulement les lignes suivies), la veille en jour civil de Paris et les 7 derniers jours (colonne « Reels 7 j »),
+        # écrits en un seul appel à la fin, seulement les cellules qui changent. Restreint ou privé : Reels illisibles → cellule
+        # vide, pas 0 ; introuvable (réponse explicite d'Apify) : vide.
+        if ecrire:
+            hist_prec = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
+            lisible = m["existe"] and not m["restreint"] and not m["prive"]
+            valeurs = {"reels_hier": str(m["reels_hier"]) if lisible else "",
+                       "reels_7j": str(reels_7j_estime(m, hist_prec, jour)) if lisible else ""}
+            for champ, valeur in valeurs.items():
+                if onboarding.a_colonne(champ, onglet) and valeur != str(c.get(champ) or "").strip():
+                    reels_ecritures.append((onboarding.cellule(c, champ), [[valeur]]))
+        if m.get("reels") and c.get("gerant") and _en_gestion(c):
             a_relire += [{**r, "handle": h, "gerant": c["gerant"]} for r in m["reels"][:10]]   # 01/10 : review des Reels
         hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
         hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
-                     "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0)})
+                     "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0),
+                     "reels_hier": int(m.get("reels_hier") or 0), "reels_7j": int(m.get("reels_7j") or 0),   # 05/10
+                     "posts_lus": int(m.get("posts_lus") or 0)})
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
+        if id(c) not in ids_suivis:
+            continue
         apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"], d.setdefault("avant_ban", {}).get(h, ""))
-        if ecrire and not apres and m["existe"] and _norm(c["etat"]) in ("a creer", "à créer") \
+        if ecrire and not apres and m["existe"] and _norm(c["etat"]) in A_CREER \
                 and h not in d.setdefault("pris_signales", {}):
             pris.append(f"{c['handle']} ({str(c.get('gerant') or '?').split()[0]})")   # 01/10 : vu présent sans avoir été vu absent
             d["pris_signales"][h] = jour
@@ -318,7 +480,7 @@ async def _executer(ecrire: bool = True) -> dict:
                 try:
                     await _cellule(c, "etat", apres)
                 except Exception as erreur:                              # noqa: BLE001
-                    journal.warning("Classeur : état de %s non écrit : %s", c["handle"], erreur)
+                    journal.warning("Classeur : état non écrit (%s ligne %s) : %s", onglet, c.get("ligne"), type(erreur).__name__)
                     continue
                 if apres == "BAN":
                     d["bans_auto"][h] = jour
@@ -329,8 +491,9 @@ async def _executer(ecrire: bool = True) -> dict:
     if reels_ecritures:
         try:
             await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, reels_ecritures)
+            reels_maj = len(reels_ecritures)
         except Exception as erreur:                                      # noqa: BLE001
-            journal.warning("Classeur : colonne Reels Hier non écrite : %s", erreur)
+            journal.warning("Classeur : colonnes Reels Hier / Reels 7 j non écrites : %s", erreur)
     if ecrire and a_relire and _deps.get("reels_publies"):                  # 01/10 : relus ensuite, à part (review_reels.boucle)
         try:
             _deps["reels_publies"](jour, a_relire)
@@ -345,8 +508,10 @@ async def _executer(ecrire: bool = True) -> dict:
         g = _norm(c.get("gerant") or "").split(" ")[0] if c.get("gerant") else ""
         if not g or g in ("x", "y", "z", "aaa", "?", "-", "libre", "dispo") or g in fetes:
             continue
-        h = c["handle"].lower()
+        h = _cle(c["handle"])
         m = mesures.get(h) or {}
+        if id(c) in ids_non_lus:
+            continue
         deja = any(int(e.get("posts") or 0) > 0 for e in d["historique"].get(h, []) if e.get("jour") != jour)
         if premier_passage and (deja or m.get("posts")):
             fetes[g] = jour
@@ -398,7 +563,7 @@ async def _executer(ecrire: bool = True) -> dict:
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réservations expirées : %s", erreur)
     fautifs = sorted({f"{c['gerant'].split()[0]} (@{c['handle']})" for c in lignes
-                      if c.get("gerant") and (mesures.get(c["handle"].lower()) or {}).get("fautes")})
+                      if c.get("gerant") and (mesures.get(_cle(c["handle"])) or {}).get("fautes")})
     if ecrire and fautifs and _deps.get("canal_admin"):                           # 28/09 : contrôle par Reel, une ligne à l'admin
         try:
             canal_f = await _deps["canal_admin"]()
@@ -438,13 +603,18 @@ async def _executer(ecrire: bool = True) -> dict:
         d["dernier"] = jour
         d["version"] = VERSION
         _ecrire(d)
-    journal.info("États du classeur : %d compte(s) scanné(s), %d changement(s), %d followers, %d clics, %d liens mis à jour",
-                 len(lignes), len(changements), followers_maj, clics_maj, liens_maj)
+    # 05/10 : les compteurs du passage dans le journal (jamais d'identifiant de compte) — c'est ici qu'on lit, dans Railway, pourquoi
+    # une cellule n'a pas bougé : non lu (Apify muet), restreint (chiffres cachés), introuvable (réponse explicite)
+    journal.info("États du classeur : %d compte(s) scanné(s), %d non lu(s) laissés tels quels, %d restreint(s), %d introuvable(s) "
+                 "(dont %d après %d passages non lus), %d changement(s), %d followers, %d cellules Reels, %d clics, %d liens mis à jour",
+                 len(lignes), len(non_lus), restreints_n, absents_n, forces_n, NON_LU_JOURS, len(changements), followers_maj, reels_maj,
+                 clics_maj, liens_maj)
     avance = onboarding.comptes_d_avance(comptes)                        # 30/09 : comptes à créer sans Gérant, par créatrice
     restreints = sorted(f"`{c['handle']}` ({c['gerant']})" for c in lignes if c.get("gerant")
-                        and (mesures.get(c["handle"].lower()) or {}).get("restreint"))
+                        and (mesures.get(_cle(c["handle"])) or {}).get("restreint"))
+    non_lus_txt = sorted(f"`{c['handle']}` ({c.get('gerant') or 'sans gérant'})" for c in non_lus)
     return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj,
-            "avance": avance, "restreints": restreints}
+            "reels": reels_maj, "avance": avance, "restreints": restreints, "non_lus": non_lus_txt}
 
 
 ONGLET_DASHBOARD = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
@@ -529,7 +699,7 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
                 recents = [e for e in hist if veille <= str(e.get("jour", ""))[:10] <= str(jour)[:10]]
                 if recents:
                     e = max(recents, key=lambda x: str(x.get("jour", "")))
-                    reels_hier += int(e.get("posts") or 0) if e.get("existe") else 0
+                    reels_hier += int(e.get("reels_hier", e.get("posts")) or 0) if e.get("existe") else 0   # 05/10 : veille civile
                 for e in hist:
                     if e.get("existe") and int(e.get("posts") or 0) > 0 and str(e.get("jour", "")) > dernier:
                         dernier = str(e.get("jour", ""))
@@ -576,7 +746,8 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str,
         import classeur_forme
         classeur_forme.configurer({"google_api": google_api, "classeur_id": cid, "colonnes_par_onglet": onboarding._colonnes_par_onglet,
                                    "palette": PALETTE_DASHBOARD, "palette_defaut": PALETTE_DEFAUT, "melange": _melange, "rgb": _rgb,
-                                   "normaliser": _norm, "onglet_a1": onboarding.onglet_a1, "colonne_lettre": google_api.colonne_lettre})
+                                   "normaliser": _norm, "onglet_a1": onboarding.onglet_a1, "colonne_lettre": google_api.colonne_lettre,
+                                   "creatrices": onboarding.creatrices_connues(comptes)})   # 05/10 : la ligne d'une créatrice n'est jamais réécrite
         await classeur_forme.formater(comptes)
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Classeur : mise en forme des onglets impossible (%s)", erreur)
@@ -727,7 +898,7 @@ def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
     for c in comptes:
         g = str(c.get("gerant") or "").strip()
         h = str(c.get("handle") or "").lower()
-        if not h or not g or _norm(g) in ("", "x", "y", "z") or _norm(c.get("utilisation") or "") != "clipper":
+        if not h or not g or _norm(g) in GERANTS_LIBRES or not _en_gestion(c):   # 05/10 : Utilisation vide = Clipper
             continue
         entrees = [e for e in historique.get(h, []) if e.get("existe")]
         auj = next((e for e in entrees if e.get("jour") == jour), None)
@@ -751,7 +922,8 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
         return f"⚠️ États du classeur : {bilan['erreur']}."
     ch = bilan["changements"]
     entete = (f"🗂️ **États du classeur** · {bilan['scannes']} compte(s) regardés sur Instagram · "
-              f"{bilan.get('followers', 0)} followers, {bilan.get('clics', 0)} clics 7 j, {bilan.get('liens', 0)} liens GAML mis à jour")
+              f"{bilan.get('followers', 0)} followers, {bilan.get('reels', 0)} cellules Reels (hier / 7 j), {bilan.get('clics', 0)} clics, "
+              f"{bilan.get('liens', 0)} liens GAML mis à jour")
     avance = bilan.get("avance") or {}
     if avance:                                                          # 30/09 (Gaëtan) : la capacité d'onboarding en un coup d'œil
         entete += (f"\n📦 **Comptes d'avance** (à créer, sans Gérant) : {sum(avance.values())} · "
@@ -759,6 +931,9 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
     if bilan.get("restreints"):                                         # 30/09 : vivants, jamais BAN, chiffres illisibles
         entete += (f"\n🔒 **Restreints** (vivants, cachés aux visiteurs non connectés : followers et Reels illisibles pour le scan, "
                    f"jamais passés BAN) : {', '.join(bilan['restreints'])}")
+    if bilan.get("non_lus"):                                            # 05/10 : Apify muet sur ces comptes, rien conclu
+        entete += (f"\n⚠️ **Non lus par Apify** ({len(bilan['non_lus'])}, laissés tels quels, ni BAN ni 0 ; absents s'ils restent "
+                   f"non lus {NON_LU_JOURS} passages de suite) : {', '.join(bilan['non_lus'][:25])}")
     if not ch:
         return entete + "\n· aucun état à changer."
     par_etat = {}
@@ -797,7 +972,7 @@ async def boucle(client) -> None:
                     d = _lire(); d.setdefault("essais", {})[jour] = int(d.get("essais", {}).get(jour, 0)) + 1; _ecrire(d)
                     journal.warning("États du classeur : %s", bilan["erreur"])
                 else:
-                    if (bilan["changements"] or bilan.get("followers") or bilan.get("clics")) and _deps.get("canal_admin"):
+                    if (bilan["changements"] or bilan.get("followers") or bilan.get("clics") or bilan.get("non_lus")) and _deps.get("canal_admin"):
                         canal = await _deps["canal_admin"]()
                         if canal is not None:
                             await canal.send(texte_bilan(bilan)[:1990])

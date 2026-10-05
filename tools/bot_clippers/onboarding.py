@@ -54,12 +54,16 @@ COL_DEFAUT = {"etat": 0, "handle": 1, "mdp": 2, "followers": 3, "mail": 4, "phon
 # 26/09 : Gaëtan insère des colonnes (Clics GAML, Lien GAML associé) → les colonnes se trouvent par leur en-tête, jamais par position
 MOTS_COLONNES = (("etat", ("etat", "statut")), ("handle", ("@", "ig", "compte", "pseudo")), ("mdp", ("mdp", "mot de passe", "password")),
                  ("followers", ("followers", "abonnes")), ("reels_hier", ("reels hier", "reels d'hier")),   # 30/09
+                 ("reels_7j", ("reels 7",)),                                                      # 05/10 : « Reels 7 j »
+                 ("clics_hier", ("clics hier", "clics d'hier", "visites hier")),   # 05/10 : AVANT « clics » (plus précis, sinon « clics » la prendrait)
                  ("clics", ("clics", "gaml last", "visites")), ("numero", ("numero",)),
                  ("mail", ("mail", "email")), ("phone", ("phone", "tel")), ("gerant", ("gerant", "clipper")),
                  ("utilisation", ("utilisation", "usage")), ("creatrice", ("creatrice",)), ("pod", ("pod",)),
                  ("lien_gaml", ("lien gaml", "gaml associe")), ("lien_infloww", ("infloww", "lien onlyfans", "onlyfans track")),
                  ("lien_mym", ("lien mym", "mym track")))                       # 29/09 : jamais « Clics vers MYM » (tableau du mois)
 _colonnes = dict(COL_DEFAUT)
+_colonnes_lues_par_onglet = {}      # 05/10 : les colonnes RÉELLEMENT présentes dans l'en-tête de chaque onglet (sans position par défaut)
+_colonnes_journalisees = {}
 
 
 def _colonnes_trouvees(en_tete: list) -> dict:
@@ -102,7 +106,12 @@ def lettre(champ: str, onglet: str = "") -> str:
 
 
 def a_colonne(champ: str, onglet: str = "") -> bool:
-    """L'onglet a-t-il cette colonne (clics, lien_gaml… ne sont écrits que si l'en-tête les porte) ?"""
+    """L'onglet a-t-il cette colonne (clics, lien_gaml… ne sont écrits que si l'en-tête les porte) ? 05/10 : d'après l'en-tête
+    RÉEL de l'onglet (une colonne absente de l'en-tête n'existe pas, même si COL_DEFAUT lui donne une position : Followers écrit
+    en colonne D d'un onglet sans Followers, c'était possible avant)."""
+    lues = _colonnes_lues_par_onglet.get(onglet)
+    if lues is not None:
+        return champ in lues
     return champ in (_colonnes_par_onglet.get(onglet) or _colonnes)
 
 
@@ -148,6 +157,26 @@ def _norm(t: str) -> str:
         return _deps["normaliser"](t or "")
     t = unicodedata.normalize("NFD", (t or "").strip().lower())            # même règle que bot_discord : sans accents, minuscules
     return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+
+_RE_URL_IG = re.compile(r"^(?:https?://)?(?:www\.)?(?:instagram\.com|instagr\.am)/", re.I)
+_INVISIBLES = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff\u00a0"), None)
+
+
+def normaliser_handle(brut) -> str:
+    """05/10 : l'identifiant Instagram tel qu'Apify le comprend, à partir de ce qui est écrit dans la cellule « @ IG » : sans
+    espace invisible ni espace autour, sans URL (https://www.instagram.com/x/ → x), sans « @ », sans « / » ni paramètre, premier
+    mot seulement (« x (perso) » → x), sans ponctuation finale. La casse est gardée (Instagram l'ignore ; les clés du scan passent
+    en minuscules). Avant, un « @ » restait retiré mais une URL ou un espace interne partait tel quel chez Apify : « introuvable »."""
+    t = str(brut or "").translate(_INVISIBLES).strip()
+    if not t:
+        return ""
+    t = _RE_URL_IG.sub("", t)
+    t = t.split("?")[0].split("#")[0].strip().strip("/")
+    t = t.split("/")[0] if t else t
+    t = t.strip().lstrip("@").strip()
+    t = (t.split() or [""])[0]
+    return t.rstrip(".,;:")
 
 
 def _exclus() -> set:
@@ -213,24 +242,51 @@ async def lire_comptes() -> list:
             continue
         cols = colonnes(lignes[0])
         _colonnes_par_onglet[titre] = cols
+        # 05/10 : on LIT seulement les colonnes présentes dans l'en-tête. Avant, un champ absent de l'en-tête (Utilisation,
+        # Créatrice, Numéro) était lu à sa position historique de COL_DEFAUT : depuis l'insertion de « Reels Hier » le 30/09, cette
+        # position pointe sur une autre colonne (7 = Gérant), et « Caroline » lu comme Utilisation sortait la ligne du scan.
+        trouve = _colonnes_trouvees(lignes[0])
+        lues = trouve if all(k in trouve for k in ("etat", "handle", "gerant")) else cols
+        _colonnes_lues_par_onglet[titre] = lues
+        if _colonnes_journalisees.get(titre) != sorted(lues):               # une ligne de journal par onglet quand l'en-tête change
+            _colonnes_journalisees[titre] = sorted(lues)
+            journal.info("Classeur %s : colonnes reconnues → %s", titre, ", ".join(sorted(lues)))
         if titre == titres[0]:
             _colonnes = cols
         herite = _norm(titre).strip() in ONGLETS_HERITES
         for i, l in enumerate(lignes[1:], start=2):
             l = (l + [""] * 26)[:26]
             def champ(nom):
-                return l[cols[nom]].strip() if nom in cols else ""
-            out.append({"onglet": titre, "ligne": i, "etat": champ("etat"), "handle": champ("handle").lstrip("@"), "mdp": champ("mdp"),
+                return l[lues[nom]].strip() if nom in lues and lues[nom] < len(l) else ""
+            brut = champ("handle")
+            out.append({"onglet": titre, "ligne": i, "etat": champ("etat"), "handle": normaliser_handle(brut), "handle_brut": brut, "mdp": champ("mdp"),
                         "followers": champ("followers"), "clics": champ("clics"), "mail": champ("mail"), "phone": champ("phone"),
                         "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
                         "creatrice": champ("creatrice") or ("" if herite else titre), "lien_gaml": champ("lien_gaml"),
                         "pod": champ("pod"), "lien_infloww": champ("lien_infloww"), "lien_mym": champ("lien_mym"),
-                        "reels_hier": champ("reels_hier")})
+                        "reels_hier": champ("reels_hier"), "reels_7j": champ("reels_7j"), "clics_hier": champ("clics_hier")})   # 05/10
     await _remplir_fusions(out, titres)
     return _sans_doublons(out)
 
 
-CHAMPS_FUSIONNES = ("gerant", "clics", "lien_gaml", "lien_infloww", "lien_mym", "pod")
+CHAMPS_FUSIONNES = ("gerant", "clics", "clics_hier", "lien_gaml", "lien_infloww", "lien_mym", "pod")   # 05/10 : + Clics hier
+
+
+def creatrices_connues(comptes: list) -> set:
+    """05/10 : les prénoms (normalisés, premier mot) des créatrices du classeur : titres des onglets et colonne Créatrice."""
+    noms = set()
+    for c in comptes or []:
+        for x in (c.get("onglet"), c.get("creatrice")):
+            mots = _norm(x or "").split()
+            if mots and mots[0] not in ONGLETS_HERITES:
+                noms.add(mots[0])
+    return noms
+
+
+def est_creatrice(gerant: str, creatrices: set) -> bool:
+    """05/10 (Gaëtan : « le lien GAML de la ligne de la créatrice est effacé à chaque passage ») : la ligne dont le Gérant est une
+    créatrice (son compte principal, Gérant = « Chloé ») n'est pas celle d'un clipper : le bot ne touche jamais à ses liens."""
+    return (_norm(gerant or "").split() or [""])[0] in (creatrices or set())
 
 
 async def _remplir_fusions(lignes: list, titres: list) -> None:
@@ -262,13 +318,23 @@ async def _remplir_fusions(lignes: list, titres: list) -> None:
                 c.setdefault("fusions", {})[champ] = (r0 + 1, r1)
 
 
-STRUCTURE_LOGINS = 1                                                # 30/09 : Reels Hier + Clics à droite du Gérant
+STRUCTURE_LOGINS = 2                                                # 05/10 : + « Reels 7 j » après Reels Hier, « Clics hier » après Clics
+
+
+async def _inserer_colonne(sid: int, titre: str, index: int, nom: str) -> list:
+    """Insère une colonne vide à `index` (format hérité de la colonne de gauche), écrit son en-tête, renvoie l'en-tête relu.
+    Les cellules fusionnées et les tableaux Google suivent le décalage tout seuls (Sheets déplace, n'efface rien)."""
+    await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, [{"insertDimension": {
+        "range": {"sheetId": sid, "dimension": "COLUMNS", "startIndex": index, "endIndex": index + 1}, "inheritFromBefore": True}}])
+    await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!{google_api.colonne(index)}1", [[nom]])
+    return ((await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!A1:Z1")) or [[]])[0]
 
 
 async def structurer_onglets() -> list:
     """30/09 (Gaëtan, onglet Sarah en exemple : « ajoute une colonne Reels Hier ; déplace Clics last 7d à droite de son gérant,
     on a un lien par clipper ») : dans chaque onglet de logins, une colonne « Reels Hier » juste après Followers (remplie par
-    le scan du matin), et « Clics last 7d. » juste à droite de Gérant. Une fois par version (état « structure_logins »),
+    le scan du matin), et « Clics last 7d. » juste à droite de Gérant. 05/10 (Gaëtan : « Reels 7 derniers jours, Clics hier ») :
+    « Reels 7 j » juste après Reels Hier, « Clics hier » juste après Clics last 7d. Une fois par version (état « structure_logins »),
     et sans rien toucher à un onglet déjà rangé. Les colonnes se retrouvent par leur en-tête : le reste du bot suit."""
     if not actif():
         return []
@@ -285,19 +351,24 @@ async def structurer_onglets() -> list:
             entete = ((await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!A1:Z1")) or [[]])[0]
             cols = _colonnes_trouvees(entete)
             if "reels_hier" not in cols and "followers" in cols:
-                i = cols["followers"] + 1
-                await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, [{"insertDimension": {
-                    "range": {"sheetId": sid, "dimension": "COLUMNS", "startIndex": i, "endIndex": i + 1},
-                    "inheritFromBefore": True}}])
-                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!{google_api.colonne(i)}1", [["Reels Hier"]])
-                faits.append(f"{titre} : Reels Hier ajoutée")
-                entete = ((await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!A1:Z1")) or [[]])[0]
+                entete = await _inserer_colonne(sid, titre, cols["followers"] + 1, "Reels Hier")
                 cols = _colonnes_trouvees(entete)
+                faits.append(f"{titre} : Reels Hier ajoutée")
+            if "reels_7j" not in cols and "reels_hier" in cols:          # 05/10
+                entete = await _inserer_colonne(sid, titre, cols["reels_hier"] + 1, "Reels 7 j")
+                cols = _colonnes_trouvees(entete)
+                faits.append(f"{titre} : Reels 7 j ajoutée")
             if "clics" in cols and "gerant" in cols and cols["clics"] != cols["gerant"] + 1:
                 await google_api.sheets_batch_update(CLASSEUR_LOGINS_ID, [{"moveDimension": {
                     "source": {"sheetId": sid, "dimension": "COLUMNS", "startIndex": cols["clics"], "endIndex": cols["clics"] + 1},
                     "destinationIndex": cols["gerant"] + 1}}])
                 faits.append(f"{titre} : Clics à droite du Gérant")
+                entete = ((await google_api.sheets_lire(CLASSEUR_LOGINS_ID, f"{onglet_a1(titre)}!A1:Z1")) or [[]])[0]
+                cols = _colonnes_trouvees(entete)
+            if "clics_hier" not in cols and "clics" in cols:             # 05/10
+                entete = await _inserer_colonne(sid, titre, cols["clics"] + 1, "Clics hier")
+                cols = _colonnes_trouvees(entete)
+                faits.append(f"{titre} : Clics hier ajoutée")
         except Exception as erreur:                                     # noqa: BLE001 — un onglet raté n'arrête pas les autres
             journal.warning("Structure de l'onglet %s : %s", titre, erreur)
             faits.append(f"{titre} : ⚠️ {erreur}")
@@ -1004,12 +1075,21 @@ async def liens_classeur(comptes: list = None) -> dict:
         cr = _creatrice_du_lien(noms.get(lid, ""), info, url, creatrices)
         par_prenom.setdefault(_norm(prenom), []).append((cr, url, str(info.get("depuis") or ""), str(lid)))
     ecrits, groupes = 0, {}
+    creatrices = creatrices_connues(comptes)
     for c in comptes:
         g = _norm(c["gerant"])
         if not c["handle"] or g in GERANTS_LIBRES or not a_colonne("lien_gaml", c.get("onglet", "")):
             continue
+        # 05/10 (Gaëtan : « sur la ligne du compte principal de la créatrice, le lien GAML est effacé à chaque passage ») : la
+        # cause était ici — Gérant « Chloé » n'a aucun lien dans paie_clics (ce n'est pas un clipper), donc `voulu` valait "" et
+        # la cellule était vidée, puis revidée à chaque scan. Une ligne dont le Gérant est une créatrice, ou dont le Gérant n'a
+        # AUCUN lien GAML connu du bot (Rianah (Metricool), un prénom écrit autrement…), n'est plus jamais touchée.
+        if est_creatrice(c["gerant"], creatrices):
+            continue
         cr = (_norm(c["creatrice"]).split() or [""])[0]
         liens = par_prenom.get(g, [])
+        if not liens:
+            continue
         cands = [x for x in liens if x[0] == cr] or ([x for x in liens] if len(liens) == 1 and not liens[0][0] else [])
         voulu = max(cands, key=lambda x: (x[2], x[3]))[1] if cands else ""
         if voulu == str(c.get("lien_gaml") or "").strip():
@@ -1075,23 +1155,38 @@ def liens_du_bloc(gerant: str, creatrice: str, liens_cellule: set, details: list
     return list(trouves.values())
 
 
+def _payes_hier_connu(store: dict, lid: str, hier) -> int | None:
+    """Les visites payables d'hier d'un lien si paie_clics les a déjà relevées (aucun appel GAML), sinon None."""
+    v = ((store or {}).get("jours") or {}).get(str(lid), {}).get(hier.isoformat())
+    return int(v.get("payes") or 0) if isinstance(v, dict) and "payes" in v and not v.get("erreur") else None
+
+
 async def clics_classeur(comptes: list, clics_de=None) -> dict:
     """30/09 (Gaëtan : « associe automatiquement les Clics last 7d avec les clippeurs, comme les liens de tracking à droite ») :
     un chiffre par clipper et par onglet = les visites payables des 7 derniers jours de TOUS ses liens GAML (liens_du_bloc),
     écrit UNE fois, sur la ligne du milieu de chaque bloc (lignes qui se suivent avec le même Gérant), les autres lignes du bloc
     vidées — comme la colonne des liens. Les onglets sont des tableaux Google : pas de cellules fusionnées possibles. Sans lien
-    GAML trouvé : cellule vide (l'ancien calcul par prénom additionnait les liens de toutes les créatrices). Renvoie {"ecrits": n}."""
+    GAML trouvé : cellule vide (l'ancien calcul par prénom additionnait les liens de toutes les créatrices).
+    05/10 (Gaëtan : « Clics hier ») : même chose dans la colonne « Clics hier » (la veille, heure de Paris), prise dans le relevé
+    quotidien de paie_clics quand il l'a (zéro appel GAML), sinon un appel par lien. La ligne d'une créatrice (Gérant = son prénom)
+    ne compte que le lien écrit dans sa cellule, jamais les liens « Clipping » de ses clippers. Renvoie {"ecrits": n}."""
     if not (actif() and paie_clics.actif()) or not comptes:
         return {"ecrits": 0}
     details = await _liens_gaml_details()
     fin = datetime.now(timezone.utc).date() - timedelta(days=1)
     debut = fin - timedelta(days=6)
+    try:
+        store = paie_clics._lire()
+    except Exception:                                                   # noqa: BLE001 — sans relevé local, tout passe par l'API
+        store = {}
+    creatrices = creatrices_connues(comptes)
     par_onglet = {}
     for c in comptes:
-        if c.get("handle") and a_colonne("clics", c.get("onglet", "")):
+        if c.get("handle") and (a_colonne("clics", c.get("onglet", "")) or a_colonne("clics_hier", c.get("onglet", ""))):
             par_onglet.setdefault(c["onglet"], []).append(c)
-    visites, valeurs, ecritures = {}, {}, []
+    visites, visites_hier, valeurs, ecritures = {}, {}, {}, []
     for onglet, lignes in par_onglet.items():
+        champs = [ch for ch in ("clics", "clics_hier") if a_colonne(ch, onglet)]
         lignes.sort(key=lambda c: c["ligne"])
         blocs, courant = [], []
         for c in lignes:                                                 # blocs = lignes qui se suivent avec le même Gérant
@@ -1105,15 +1200,20 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
             g = _norm(bloc[0].get("gerant"))
             if g in GERANTS_LIBRES:                                      # 30/09 : ligne rendue au vivier (réservation expirée,
                 for c in bloc:                                           # !liberer) → son ancien chiffre part avec le Gérant
-                    if str(c.get("clics") or "").strip():
-                        ecritures.append((cellule(c, "clics"), [[""]]))
+                    for ch in champs:
+                        if str(c.get(ch) or "").strip():
+                            ecritures.append((cellule(c, ch), [[""]]))
                 continue
             cle = (onglet, g)
             if cle not in valeurs:
                 tous = [c for c in lignes if _norm(c.get("gerant")) == g]
-                liens = liens_du_bloc(bloc[0]["gerant"], bloc[0].get("creatrice") or onglet,
-                                      {str(c.get("lien_gaml") or "").strip() for c in tous} - {""}, details)
-                total = None
+                dans_cellules = {str(c.get("lien_gaml") or "").strip() for c in tous} - {""}
+                if est_creatrice(bloc[0].get("gerant"), creatrices):     # 05/10 : la créatrice : son lien, pas ceux de ses clippers
+                    par_url = {_url_cle(d["url"]): d for d in details if d.get("url")}
+                    liens = list({par_url[_url_cle(u)]["id"]: par_url[_url_cle(u)] for u in dans_cellules if _url_cle(u) in par_url}.values())
+                else:
+                    liens = liens_du_bloc(bloc[0]["gerant"], bloc[0].get("creatrice") or onglet, dans_cellules, details)
+                total = total_hier = None
                 for d in liens:
                     if d["id"] not in visites:
                         try:
@@ -1122,15 +1222,27 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
                             journal.warning("Clics du lien %s : %s", d.get("url"), erreur)
                             visites[d["id"]] = 0
                     total = (total or 0) + visites[d["id"]]
-                valeurs[cle] = "" if total is None else str(total)
+                    if "clics_hier" in champs and d["id"] not in visites_hier:
+                        connu = _payes_hier_connu(store, d["id"], fin)
+                        if connu is None:
+                            try:
+                                connu = await paie_clics.payes_periode(d["id"], fin, fin)
+                            except RuntimeError as erreur:
+                                journal.warning("Clics d'hier du lien %s : %s", d.get("url"), erreur)
+                                connu = 0
+                        visites_hier[d["id"]] = connu
+                    if "clics_hier" in champs:
+                        total_hier = (total_hier or 0) + visites_hier[d["id"]]
+                valeurs[cle] = {"clics": "" if total is None else str(total), "clics_hier": "" if total_hier is None else str(total_hier)}
             milieu = bloc[(len(bloc) - 1) // 2]
             for c in bloc:
-                voulu = valeurs[cle] if c is milieu else ""
-                if voulu != str(c.get("clics") or "").replace(" ", "").strip():
-                    ecritures.append((cellule(c, "clics"), [[voulu]]))
+                for ch in champs:
+                    voulu = valeurs[cle][ch] if c is milieu else ""
+                    if voulu != str(c.get(ch) or "").replace(" ", "").strip():
+                        ecritures.append((cellule(c, ch), [[voulu]]))
     if ecritures:
         await google_api.sheets_ecrire_plusieurs(CLASSEUR_LOGINS_ID, ecritures)
-        journal.info("Classeur, Clics last 7d. : %d cellule(s)", len(ecritures))
+        journal.info("Classeur, Clics last 7d. / Clics hier : %d cellule(s)", len(ecritures))
     return {"ecrits": len(ecritures)}
 
 

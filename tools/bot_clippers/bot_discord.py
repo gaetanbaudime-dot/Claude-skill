@@ -6706,7 +6706,7 @@ async def on_ready():
         client.loop.create_task(onboarding.restructurer_drives(client, roster.groupes(), _email_de_prenom))   # Photos / Reels / TOP 20 (27/09)
         client.loop.create_task(onboarding.ouvrir_sources_par_lien())       # 30/09 : Photos s'ouvre sans autorisation (Ricardo)
         client.loop.create_task(boucle_drives_info())                       # 30/09 : Drives des salons ℹ️ ouverts par le lien
-        client.loop.create_task(onboarding.structurer_onglets())            # 30/09 : Reels Hier + Clics à droite du Gérant
+        client.loop.create_task(onboarding.structurer_onglets())            # 30/09 : Reels Hier + Clics à droite du Gérant · 05/10 : + Reels 7 j, Clics hier
         def _clics_7j(prenom, jours=7):                                      # visites payables des `jours` derniers jours du clipper
             m = membre_par_prenom(normaliser(prenom))                        # (28/09 : jours=1 → « Visites hier » du Dashboard)
             if m is None:
@@ -6755,6 +6755,7 @@ async def on_ready():
         cadence_reels.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "cadence_reels.json",
                                   "heure_paris": heure_paris, "normaliser": normaliser, "canal_admin": canal_admin,
                                   "lire_comptes": onboarding.lire_comptes, "groupes": roster.groupes, "scanner_profils": etats_comptes.scanner,
+                                  "normaliser_handle": onboarding.normaliser_handle,            # 05/10 : même nettoyage des @ que le scan
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
         client.loop.create_task(cadence_reels.boucle(client))                   # 05/10 : Reels publiés et vues par clipper, une fois par déploiement
         sortie_auto.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "sortie_auto.json",

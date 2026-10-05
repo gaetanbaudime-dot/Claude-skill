@@ -18,7 +18,9 @@ import logging
 
 journal = logging.getLogger("bot.classeur_forme")
 # 30/09 (Gaëtan : « regroupe ces clics last 7d par clippeur, même mise en forme que les gérants avec leurs liens ») : Clics dans le bloc
-COLONNES_BLOC = ("gerant", "clics", "pod", "lien_infloww", "lien_mym", "lien_gaml")
+# 05/10 : « Clics hier » suit la même règle que Clics (un chiffre par bloc, au milieu, les répétitions fondues)
+COLONNES_BLOC = ("gerant", "clics", "clics_hier", "pod", "lien_infloww", "lien_mym", "lien_gaml")
+COLONNES_CLICS = ("clics", "clics_hier")
 COLONNES_RECOPIEES = ("pod", "lien_infloww", "lien_mym", "lien_gaml")
 GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
 PREMIERE_LIGNE = 2                                                          # la ligne 1 est l'en-tête
@@ -27,12 +29,18 @@ _deps: dict = {}
 
 def configurer(deps: dict):
     """deps : google_api, classeur_id, colonnes_par_onglet (dict onglet → {champ: index}), palette (créatrice → (bande, teinte)),
-    palette_defaut, melange(hexa, t), rgb(hexa), normaliser, onglet_a1, colonne_lettre."""
+    palette_defaut, melange(hexa, t), rgb(hexa), normaliser, onglet_a1, colonne_lettre, creatrices (05/10 : prénoms normalisés des
+    créatrices — la ligne du compte principal d'une créatrice n'est jamais réécrite)."""
     _deps.update(deps)
 
 
 def _n(t):
     return _deps["normaliser"](t or "") if _deps.get("normaliser") else (t or "").strip().lower()
+
+
+def _est_creatrice(gerant: str) -> bool:
+    """05/10 : le Gérant est une créatrice (Gérant = « Chloé » sur son compte principal) : mise en forme oui, écriture jamais."""
+    return (_n(gerant or "").split() or [""])[0] in set(_deps.get("creatrices") or ())
 
 
 def blocs(comptes_onglet: list) -> list:
@@ -163,11 +171,13 @@ def requetes_onglet(sid: int, titre: str, cols: dict, comptes_onglet: list) -> t
         req.append(_fmt(sid, rv, rv + 1, idx["gerant"], idx["gerant"] + 1, fond=fond, gras=True))
         if "pod" in idx:
             req.append(_fmt(sid, r0, r1, idx["pod"], idx["pod"] + 1, fond=fond, aligne="CENTER"))
-        if "clics" in idx:                                                  # le total du clipper, en gras, au milieu du bloc
-            req.append(_fmt(sid, r0, r1, idx["clics"], idx["clics"] + 1, fond=fond, aligne="CENTER"))
-            req.append(_fmt(sid, rv, rv + 1, idx["clics"], idx["clics"] + 1, fond=fond, gras=True))
+        for ch in COLONNES_CLICS:                                           # le total du clipper, en gras, au milieu du bloc
+            if ch in idx:
+                req.append(_fmt(sid, r0, r1, idx[ch], idx[ch] + 1, fond=fond, aligne="CENTER"))
+                req.append(_fmt(sid, rv, rv + 1, idx[ch], idx[ch] + 1, fond=fond, gras=True))
+        creatrice = _est_creatrice(lignes[0].get("gerant"))                 # 05/10 : jamais d'écriture sur la ligne d'une créatrice
         for ch in COLONNES_RECOPIEES:                                       # 1) la valeur du bloc = la première non vide ; recopiée où elle manque
-            if ch not in idx:
+            if ch not in idx or creatrice:
                 continue
             v_bloc = next((str(c.get(ch) or "").strip() for c in lignes if str(c.get(ch) or "").strip()), "")
             for c in lignes:
@@ -179,8 +189,9 @@ def requetes_onglet(sid: int, titre: str, cols: dict, comptes_onglet: list) -> t
                 continue
             rr = int(c["ligne"]) - 1
             req.append(_fmt(sid, rr, rr + 1, idx["gerant"], idx["gerant"] + 1, fond=fond, texte=fond))     # Gérant répété : discret
-            if "clics" in idx:                                              # une ancienne valeur répétée ne se voit plus
-                req.append(_fmt(sid, rr, rr + 1, idx["clics"], idx["clics"] + 1, fond=fond, texte=fond))
+            for ch in COLONNES_CLICS:                                       # une ancienne valeur répétée ne se voit plus
+                if ch in idx:
+                    req.append(_fmt(sid, rr, rr + 1, idx[ch], idx[ch] + 1, fond=fond, texte=fond))
             for ch in COLONNES_RECOPIEES:
                 if ch not in idx:
                     continue
