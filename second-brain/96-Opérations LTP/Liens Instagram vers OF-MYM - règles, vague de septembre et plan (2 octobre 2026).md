@@ -51,6 +51,7 @@ Dans les données GAML, la chute est **concentrée** : Chloé −73 % (tous lien
 |---|---|---|
 | **Furtif** | oopsie (mode « page » : 6 pages sur 10), LinkScale chez Jenny, page sans fournisseur identifiable (Andie), Bouncy chez Lena The Plug, **GAML chez nous** | leurre ou page vide aux robots, jeton jetable, pièges à robots, domaines jetables |
 | **Transparent** | Beacons (Satirya, Charlie, Ylla), LinkScale chez Alice, LinkStack auto-hébergé (Hope Heaven), oopsie en mode « lien direct » (4 pages sur 10) | même page pour tous, lien adulte visible, 18+ |
+| **Pont neutre** (ajout du 05/10) | `annabeatse.com` chez « Anna » : page maison sans un mot adulte → Link.me (« 0F GRATUIT », « M¥M FREE ») → OF/MYM | même page pour tous, rien à lire pour le robot au premier saut, prix « GRATUIT » interdit au second ; à copier devant GAML, pas avec Link.me — [[Analyse annabeatse.com - le pont neutre à deux sauts devant OF-MYM (5 octobre 2026)]] |
 
 Oopsie n'est pas « juste un 18+ » comme le dit son fondateur dans son podcast : son mode principal sert une page leurre (boutons vers Wikipédia) au robot de Meta et passe par un jeton de 15 minutes. Correction d'une analyse antérieure : sa fenêtre 18+ existe bien, au clic. Les gros comptes américains ne sont pas « intouchables » parce qu'honnêtes : ancienneté, notoriété, vitrine propre — et souvent cloaking sous-traité.
 
