@@ -22,6 +22,10 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-05 (Discord, 15 h 30) — Tout à 48 h : « donne leur 48 h, on a pas le temps, vire tout le monde, les inactifs »
+- **Décision de Gaëtan**, une demi-heure après la règle des 3 jours (entrée ci-dessous) : test de montage en 48 h, compte 1 en 48 h après sa livraison, candidat sans quiz réussi sorti à 48 h (7 jours avant), appel de présence après 2 jours sans activité (4 avant) puis 48 h pour répondre. Restent sur le serveur : les tests rendus en attente d'avis et les validés sans créatrice, qui attendent une action de l'agence, pas la leur.
+- **Avocat du diable** : 48 h tombe souvent sur un week-end ; un candidat qui travaille la semaine ne rend pas son test. Le prix est assumé (« on a pas le temps ») ; le vivier de candidats, lui, doit suivre, sinon le goulot passe à l'acquisition.
+
 ### 2026-10-05 (Discord, 15 h) — Deux délais de 3 jours : le test de montage, puis le compte 1, sinon expulsion
 - **Décision de Gaëtan** : « je veux qu'il fasse le test de montage vidéo en 3 jours. Puis premier compte IG créé en 3 jours », « GO, applique à tout le monde ». Livré : le test passe de 48 h à 3 jours (les tests en cours sont prolongés) ; sans vidéo à l'échéance, MP puis expulsion avec le lien du formulaire pour recandidater, plus de retest à 15 jours ; les candidats dont le test avait déjà expiré et encore sur le serveur sortent au premier passage. Côté signés, la purge ne demande plus le silence : compte 1 non créé 3 jours après sa livraison = sortie, à chaque passage de 30 min. Un compte livré que le scan Instagram voit exister compte comme créé, même sans le bouton.
 - **Avocat du diable** : la règle stricte sort aussi celui qui répond « je m'y mets ce soir » ; un compte créé sous un autre identifiant que celui livré n'est pas vu par le scan. `!note @x garde` protège, `PURGE_SILENCE=1` remet l'ancienne règle, `TEST_SORTIE=0` remet le retest.

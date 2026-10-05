@@ -25,18 +25,18 @@ import discord
 journal = logging.getLogger("appel")
 ACTIF = os.environ.get("APPEL", "1").strip() != "0"
 HEURES = int(os.environ.get("APPEL_HEURES", "48") or 48)
-INACTIF_JOURS = int(os.environ.get("APPEL_INACTIF_JOURS", "4") or 4)
+INACTIF_JOURS = int(os.environ.get("APPEL_INACTIF_JOURS", "2") or 2)       # 05/10, 15 h 30 : 2 jours (4 avant)
 KICK = os.environ.get("APPEL_KICK", "1").strip() != "0"
 GENERAL = os.environ.get("APPEL_GENERAL", "1").strip() != "0"
 # 05/10 (Gaëtan : « vire directement les clippeurs qui n'ont pas créé de compte dans les 72 h et n'ont pas répondu sur leur salon
 # privé ») : la purge, une fois au démarrage (PURGE_72H=1), puis `!purge` / `!purge go`.
 PURGE = os.environ.get("PURGE_72H", "1").strip() != "0"
-PURGE_HEURES = int(os.environ.get("PURGE_HEURES", "72") or 72)
+PURGE_HEURES = int(os.environ.get("PURGE_HEURES", "48") or 48)         # 05/10, 15 h 30 : compte 1 en 48 h (72 avant)
 # 05/10, 15 h (Gaëtan : « premier compte IG créé en 3 jours », « applique à tout le monde ») : le compte 1 non créé suffit, qu'il ait
 # parlé ou non dans son salon (PURGE_SILENCE=1 pour revenir à « et pas un mot ») ; la purge tourne à chaque passage (30 min).
 PURGE_SILENCE = os.environ.get("PURGE_SILENCE", "0").strip() == "1"
 RAISON_PURGE = (f"{PURGE_HEURES} h sans créer ton compte 1 et sans un mot dans ton salon" if PURGE_SILENCE
-                else f"compte 1 Instagram non créé {PURGE_HEURES // 24} jours après l'avoir reçu")
+                else f"compte 1 Instagram non créé {PURGE_HEURES} h après l'avoir reçu")
 _deps = {}
 
 TEXTE_APPEL = ("📢 **{prenom}, réponds ici dans les {heures} h.** Un mot suffit : « présent ».\n\n"

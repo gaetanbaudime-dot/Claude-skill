@@ -2715,7 +2715,7 @@ def texte_test(score="") -> str:
         "1. Prends une vidéo du dossier.\n"
         "2. Monte-la en Reel vertical. Une première seconde qui accroche. Des sous-titres.\n"
         "3. Envoie-la ici avec le **+** à gauche. 10 Mo maximum.\n\n"
-        f"Tu as {TEST_HEURES // 24} jours. Sans vidéo à temps, tu sors du serveur. Une question ? Écris ici.")
+        f"Tu as {TEST_HEURES} h. Sans vidéo à temps, tu sors du serveur. Une question ? Écris ici.")
 
 
 async def envoyer_test_candidat(membre, score=""):
@@ -2743,9 +2743,9 @@ QUIZ_CYCLE_H = int(os.environ.get("QUIZ_CYCLE_H", "24") or 24)          # 29/09 
 QUIZ_DELAI_H = int(os.environ.get("QUIZ_DELAI_H", "72") or 72)           # l'échéance annoncée pour faire le quiz
 # 05/10 (Gaëtan, GO « applique à tout le monde » : « je veux qu'il fasse le test de montage vidéo en 3 jours ») : le test se rend
 # en TEST_HEURES ; sans vidéo à l'échéance, MP puis expulsion (il peut refaire le formulaire). TEST_SORTIE=0 : ancien retest à 15 j.
-TEST_HEURES = int(os.environ.get("TEST_HEURES", "72") or 72)
+TEST_HEURES = int(os.environ.get("TEST_HEURES", "48") or 48)               # 05/10, 15 h 30 (Gaëtan : « donne leur 48 h, on a pas le temps »)
 TEST_SORTIE = os.environ.get("TEST_SORTIE", "1").strip() != "0"
-CANDIDAT_SORTIE_JOURS = int(os.environ.get("CANDIDAT_SORTIE_JOURS", "7") or 7)   # sans quiz réussi au bout de 7 j : sortie (0 = jamais)
+CANDIDAT_SORTIE_JOURS = int(os.environ.get("CANDIDAT_SORTIE_JOURS", "2") or 2)   # sans quiz réussi au bout de 2 j : sortie (0 = jamais ; 7 avant le 05/10)
 SORTIE_QUIZ_DEPUIS = "2026-09-29"                                        # personne ne sort pour un retard antérieur à cette règle
 
 
@@ -3838,7 +3838,7 @@ async def boucle_pipeline():
                     continue
                 echeance = datetime.fromisoformat(info["echeance"])
                 envoi = datetime.fromisoformat(info["envoi"])
-                if echeance < envoi + timedelta(hours=TEST_HEURES):         # 05/10 : les tests en cours passent de 48 h à 72 h
+                if echeance != envoi + timedelta(hours=TEST_HEURES):        # 05/10 : l'échéance suit TEST_HEURES, tests en cours compris
                     echeance = envoi + timedelta(hours=TEST_HEURES)
                     info["echeance"] = echeance.isoformat(timespec="seconds")
                     modifie = True
@@ -3975,14 +3975,14 @@ async def boucle_pipeline():
                 if any(r.name != "@everyone" and normaliser(r.name) not in sans_poids for r in getattr(membre_t, "roles", [])):
                     continue                                                # staff, créatrice, équipe : jamais
                 lien_site = web_candidature.lien_candidature() or LIEN_FORMULAIRE
-                await envoyer_mp(membre_t, f"⌛ {TEST_HEURES // 24} jours sans test de montage rendu : ta place est partie.\n\n"
+                await envoyer_mp(membre_t, f"⌛ {TEST_HEURES} h sans test de montage rendu : ta place est partie.\n\n"
                                            "Tu peux recommencer quand tu veux : refais le formulaire, tu reçois une nouvelle invitation."
                                            + (f"\n{lien_site}" if lien_site else ""))
                 try:
                     await membre_t.kick(reason=f"Test de montage non rendu en {TEST_HEURES} h")
                     info_t["etat"] = "test_expire"; info_t["sortie_test"] = maintenant.isoformat(timespec="seconds")
                     info_t.setdefault("relances", {})["stop"] = True; modifie = True
-                    await notifier_manager(f"🚪 {membre_t.display_name} sorti : test de montage non rendu en {TEST_HEURES // 24} jours. "
+                    await notifier_manager(f"🚪 {membre_t.display_name} sorti : test de montage non rendu en {TEST_HEURES} h. "
                                            "Il peut refaire le formulaire.")
                 except (discord.Forbidden, discord.HTTPException) as erreur:
                     journal.warning("Sortie test de %s impossible : %s", uid, erreur)
@@ -4384,7 +4384,7 @@ async def accueillir(member):
                      f"{LIEN_FORMULAIRE} — à la fin il te ramène ici, et je te guide.\n") if LIEN_FORMULAIRE else "")
                  + "✅ **Déjà candidaté ?** Réponds-moi simplement avec **ton numéro de téléphone** ici "
                    "(celui du formulaire) — je te guide ensuite étape par étape.\n"
-                 f"Pas d'entretien : formation → quiz → test de montage à rendre en 3 jours. Ceux qui livrent sont pris 🚀{aide}\n"
+                 f"Pas d'entretien : formation → quiz → test de montage à rendre en {TEST_HEURES} h. Ceux qui livrent sont pris 🚀{aide}\n"
                  "-# 🛡️ Sécurité : l'agence ne recrute et ne paie QUE via ce serveur et moi. Un inconnu "
                  "qui te DM une « offre » (lives TikTok, job…) = arnaque : bloque + signale à Gaëtan.")
     mp_ok = await envoyer_mp(member, guide)
@@ -4604,7 +4604,7 @@ def texte_aide(membre, est_admin: bool) -> str:
     return ("🧰 **Ton parcours, dans l'ordre**\n"
             "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
             f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {seuil_quiz_texte()}, 2 essais).\n"
-            "3. Quiz réussi → **test de montage à rendre en 3 jours** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
+            f"3. Quiz réussi → **test de montage à rendre en {TEST_HEURES} h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
             # 01/10 (Gaëtan : « la même règle pour tous ») : plus de « un tous les 48 h » seul ; la règle canonique,
             # « ici » devenu « dans ton salon perso » parce que cette aide se lit en MP.
             # 01/10 (relecture) : la règle tirée de parcours.regle_comptes(), qui suit PARCOURS_ATTENTE_COMPTE_H et
