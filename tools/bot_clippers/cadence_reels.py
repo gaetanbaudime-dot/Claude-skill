@@ -193,8 +193,9 @@ def texte(resultat: dict, equipes: dict, jours: int, fin) -> list:
         if r["comptes_vus"] == 0:
             lignes.append(f"• **{p}**{f' ({cre})' if cre else ''} · {r['comptes']} compte(s), aucun lisible (privés, bannis ou renommés)")
             continue
+        fol = f" · {_fmt(r['followers'])} followers" if r.get("followers") is not None else ""
         lignes.append(
-            f"• **{p}**{f' ({cre})' if cre else ''} · {r['comptes_vus']}/{r['comptes']} comptes lus · **{r['reels']} Reels** ({r['par_jour']} par jour) · "
+            f"• **{p}**{f' ({cre})' if cre else ''} · {r['comptes_vus']}/{r['comptes']} comptes lus{fol} · **{r['reels']} Reels** ({r['par_jour']} par jour) · "
             f"jours avec un Reel : {r['jours_1']}/{jours}, avec deux : {r['jours_2']} · vues : **{_fmt(r['vues'])}** (médiane {_fmt(r['vues_mediane'])}, meilleure {_fmt(r['meilleure'])})"
         )
     lignes.append("Un jour « tenu » au sens de la fiche de Jonas = deux Reels par jour sur chaque compte de croissance ; ici on compte les Reels réellement visibles, les comptes bannis ou privés ne remontent pas.")
@@ -208,6 +209,44 @@ def _equipes(prenoms: list) -> dict:
         for p in membres or []:
             out[p] = cre
     return {p: out.get(p, "") for p in prenoms}
+
+
+async def _followers(par_clipper: dict) -> dict:
+    """{prénom: followers cumulés de ses comptes} via le relevé de profils du module des états (acteur léger) ; {} si indisponible."""
+    scanner = _deps.get("scanner_profils")
+    handles = [h for hs in par_clipper.values() for h in hs]
+    if not scanner or not handles:
+        return {}
+    try:
+        fiches = await scanner(handles)
+    except Exception as erreur:                                        # jamais bloquant
+        journal.warning("Relevé des followers en échec : %s", erreur)
+        return {}
+    if not fiches:
+        return {}
+    out = {}
+    for p, hs in par_clipper.items():
+        out[p] = sum(int((fiches.get(h.lower()) or {}).get("followers") or 0) for h in hs)
+    return out
+
+
+async def completer_followers() -> dict:
+    """Ajoute les followers au résultat du jour déjà calculé (sans relire les publications) ; renvoie {prénom: followers}."""
+    d = _lire()
+    dernier = d.get("dernier") or {}
+    resultat = dernier.get("resultat") or {}
+    if not resultat or not _deps.get("lire_comptes"):
+        return {}
+    comptes = await _deps["lire_comptes"]()
+    par_clipper = comptes_par_clipper(comptes, list(resultat.keys()))
+    fol = await _followers(par_clipper)
+    for p, n in fol.items():
+        resultat[p]["followers"] = n
+        journal.info("Cadence followers %s : %s (sur %s comptes)", p, n, len(par_clipper.get(p, [])))
+    if fol:
+        d["dernier"]["resultat"] = resultat
+        _ecrire(d)
+    return fol
 
 
 async def executer(jours: int = JOURS_DEFAUT, prenoms=None) -> tuple:
@@ -226,9 +265,11 @@ async def executer(jours: int = JOURS_DEFAUT, prenoms=None) -> tuple:
     if items is None:
         return (["Cadence : Apify ne répond pas, rien n'a été lu. Relance plus tard avec `!cadence`."], {})
     resultat = agreger(items, par_clipper, jours, fin)
+    for p, n in (await _followers(par_clipper)).items():
+        resultat[p]["followers"] = n
     for p, r in resultat.items():
-        journal.info("Cadence %s : comptes=%s lus=%s reels=%s par_jour=%s jours1=%s jours2=%s vues=%s mediane=%s meilleure=%s",
-                     p, r["comptes"], r["comptes_vus"], r["reels"], r["par_jour"], r["jours_1"], r["jours_2"], r["vues"], r["vues_mediane"], r["meilleure"])
+        journal.info("Cadence %s : comptes=%s lus=%s reels=%s par_jour=%s jours1=%s jours2=%s vues=%s mediane=%s meilleure=%s followers=%s",
+                     p, r["comptes"], r["comptes_vus"], r["reels"], r["par_jour"], r["jours_1"], r["jours_2"], r["vues"], r["vues_mediane"], r["meilleure"], r.get("followers", "?"))
     d = _lire()
     d["dernier"] = {"jour": fin.isoformat(), "jours": jours, "resultat": resultat, "calcule_le": datetime.now(timezone.utc).isoformat()}
     _ecrire(d)
@@ -255,11 +296,18 @@ async def boucle(client) -> None:
     await client.wait_until_ready()
     await asyncio.sleep(DELAI_AUTO)
     d = _lire()
-    if d.get("dernier_auto") == _aujourdhui().isoformat():
-        return
-    d["dernier_auto"] = _aujourdhui().isoformat()
-    _ecrire(d)
     try:
+        if d.get("dernier_auto") == _aujourdhui().isoformat():
+            dernier = (d.get("dernier") or {}).get("resultat") or {}
+            if dernier and not any("followers" in r for r in dernier.values()):   # résultat du jour sans followers : on les ajoute seulement
+                fol = await completer_followers()
+                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                if canal and fol:
+                    await _envoyer(canal, ["**Followers Instagram par clipper** (comptes du classeur, relevé de ce matin)"] +
+                                   [f"• **{p}** : {_fmt(n)}" for p, n in sorted(fol.items(), key=lambda x: -x[1])])
+            return
+        d["dernier_auto"] = _aujourdhui().isoformat()
+        _ecrire(d)
         lignes, _ = await executer()
         canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
         if canal:

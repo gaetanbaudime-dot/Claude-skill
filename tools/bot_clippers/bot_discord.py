@@ -6754,7 +6754,7 @@ async def on_ready():
         client.loop.create_task(visites_telegram.boucle(client))                # 03/10 : visites de la veille → groupe Telegram de la créatrice
         cadence_reels.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "cadence_reels.json",
                                   "heure_paris": heure_paris, "normaliser": normaliser, "canal_admin": canal_admin,
-                                  "lire_comptes": onboarding.lire_comptes, "groupes": roster.groupes,
+                                  "lire_comptes": onboarding.lire_comptes, "groupes": roster.groupes, "scanner_profils": etats_comptes.scanner,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
         client.loop.create_task(cadence_reels.boucle(client))                   # 05/10 : Reels publiés et vues par clipper, une fois par déploiement
         sortie_auto.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "sortie_auto.json",
