@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-05 (Discord, 15 h 45) — Hasina et Ckycia virés
+- **Décision de Gaëtan** : « on vire Hasina et Ckycia ». Livré par le dépôt (`sorties_a_appliquer.json`, option `expulser`) : au redémarrage, sortie comme `!sortie` avec expulsion, comptes au vivier, liens libérés pour le suivant.
+- **Avocat du diable** : dans la projection du 1 au 20/10, Hasina était le seul clipper nettement rentable (13 visites par sub, +123 € projetés), Ckycia le pire (162 visites par sub). Mais le scan ne voit qu'un Reel de Hasina en 30 jours : son trafic vient de Reels anciens, qui restent sur les comptes rendus au vivier. Le lien libéré passe au suivant avec ces comptes, donc le trafic devrait suivre.
+- **Prédiction** : le lien de Hasina garde au moins 50 visites par jour la semaine du 12/10 s'il est repris avec ses comptes — 60 %.
+
 ### 2026-10-05 (Discord, 15 h 30) — Tout à 48 h : « donne leur 48 h, on a pas le temps, vire tout le monde, les inactifs »
 - **Décision de Gaëtan**, une demi-heure après la règle des 3 jours (entrée ci-dessous) : test de montage en 48 h, compte 1 en 48 h après sa livraison, candidat sans quiz réussi sorti à 48 h (7 jours avant), appel de présence après 2 jours sans activité (4 avant) puis 48 h pour répondre. Restent sur le serveur : les tests rendus en attente d'avis et les validés sans créatrice, qui attendent une action de l'agence, pas la leur.
 - **Avocat du diable** : 48 h tombe souvent sur un week-end ; un candidat qui travaille la semaine ne rend pas son test. Le prix est assumé (« on a pas le temps ») ; le vivier de candidats, lui, doit suivre, sinon le goulot passe à l'acquisition.

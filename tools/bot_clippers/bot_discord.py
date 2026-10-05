@@ -7227,7 +7227,9 @@ async def on_ready():
                            "onboarding": onboarding, "est_manager": est_manager, "ADMIN_IDS": ADMIN_IDS, "notifier": notifier_manager,
                            "mettre_a_jour_stats": mettre_a_jour_stats, "prenom_de": prenom_de, "NOMS_RANGS": NOMS_RANGS,
                            "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier,
-                           "liberer_liens": liberer_liens_de})
+                           "liberer_liens": liberer_liens_de,
+                           "chercher_membre": lambda p: chercher_membre(p, exact=True),                  # 05/10 : sorties déposées « expulser »
+                           "sortir": lambda m, raison: sortir_membre(m, raison, None, pool=True, expulser=True)})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})

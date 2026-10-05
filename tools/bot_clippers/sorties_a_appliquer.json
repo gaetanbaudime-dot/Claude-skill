@@ -14,5 +14,17 @@
     "prenom": "Jonas",
     "garder_salons": true,
     "raison": "ne clippe plus, devenu manageur (30/09, Gaëtan : « libère Jonas, il travaille avec moi en tant que manageur ») : comptes rendus, lien libéré, salons gardés"
+  },
+  {
+    "id": "hasina-0510",
+    "prenom": "Hasina",
+    "expulser": true,
+    "raison": "viré (05/10, Gaëtan : « on vire Hasina et Ckycia ») : expulsé, comptes rendus au vivier, lien libéré pour le suivant"
+  },
+  {
+    "id": "ckycia-0510",
+    "prenom": "Ckycia",
+    "expulser": true,
+    "raison": "viré (05/10, Gaëtan : « on vire Hasina et Ckycia ») : expulsé, comptes rendus au vivier, lien libéré pour le suivant"
   }
 ]

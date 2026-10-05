@@ -367,9 +367,21 @@ async def sorties_deposees(client) -> list:
         ident, prenom = str(e.get("id") or ""), str(e.get("prenom") or "").strip()
         if not ident or not prenom or ident in faits:
             continue
-        retirer(prenom)
-        lignes = await appliquer_sortis(client, seulement=prenom, raison=str(e.get("raison") or "sortie déposée"),
-                                        garder_salons=bool(e.get("garder_salons")))
+        raison_e = str(e.get("raison") or "sortie déposée")
+        # 05/10 (Gaëtan : « on vire Hasina et Ckycia ») : "expulser": true → la vraie sortie (`!sortie` : accès, comptes au vivier,
+        # lien libéré, salon) avec expulsion du serveur, si le membre est trouvé par son prénom exact ; sinon le nettoyage habituel.
+        membre_e = _deps["chercher_membre"](prenom) if e.get("expulser") and _deps.get("chercher_membre") and _deps.get("sortir") else None
+        if membre_e is not None:
+            try:
+                res = await _deps["sortir"](membre_e, raison_e)
+                lignes = [f"🚪 {prenom} : sorti" + (" et expulsé" if res.get("expulse") else " (⚠️ pas expulsé)")
+                          + f" · {res.get('comptes', 0)} compte(s) au vivier · {res.get('liens', 0)} lien(s) libéré(s)"]
+            except Exception as erreur:                                     # noqa: BLE001
+                lignes = [f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}"]
+            retirer(prenom)
+        else:
+            retirer(prenom)
+            lignes = await appliquer_sortis(client, seulement=prenom, raison=raison_e, garder_salons=bool(e.get("garder_salons")))
         faits[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": lignes}
         _deps["ecrire_json"](_fichier_deposees_faites(), faits)
         bilan.extend(lignes or [f"🚪 {prenom} : rien à nettoyer"])
