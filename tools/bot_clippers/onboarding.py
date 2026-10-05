@@ -35,6 +35,7 @@ import codes_2fa
 import drive_agence
 import google_api
 import paie_clics
+import reserve_mym
 import roster
 
 journal = logging.getLogger("onboarding")
@@ -945,6 +946,13 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
                 journal.info("Lien GAML de %s repris (%s), pas de clone", prenom, nouveau["url"])
             elif modeles:
                 nouveau = await paie_clics.cloner_lien(modeles[0]["id"], modeles[0].get("name", creatrice), f"Clipping {prenom}")
+                # 05/10 : le clone reçoit le tracking MYM réservé à SON numéro (onglet « Réserve trackings MYM »), jamais celui du modèle
+                try:
+                    ligne_mym = await reserve_mym.pour_clone(nouveau["id"], creatrice)
+                except Exception as erreur:                         # noqa: BLE001
+                    ligne_mym = f"⚠️ réserve MYM : {type(erreur).__name__} {str(erreur)[:80]}"
+                if ligne_mym:
+                    resultat.append(ligne_mym)
             if nouveau:
                 d["liens"][nouveau["id"]] = {"uid": str(membre.id), "note": f"Clipping {prenom}", "url": nouveau["url"],
                                              "creatrice": creatrice.split()[0], "depuis": _deps["heure_paris"]().date().isoformat(),

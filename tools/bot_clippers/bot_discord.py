@@ -34,6 +34,7 @@ import web_candidature                    # site du tunnel candidat : formulaire
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
 import rapport_stats                      # rapport GAML quotidien du manager, #jonas-stats (24/09)
+import reserve_mym                        # réserve de trackings MYM par numéro de lien GAML (05/10)
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import matin                              # un seul message du matin par clipper (26/09)
@@ -4499,7 +4500,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!reserve-mym")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -7011,6 +7012,23 @@ async def on_ready():
                     except (discord.Forbidden, discord.HTTPException):
                         pass
         client.loop.create_task(_trackings_demarrage())                          # carte de chaque lien = tracking de son POD (27/09)
+        reserve_mym.configurer(onboarding.CLASSEUR_LOGINS_ID)
+
+        async def _reserve_mym_boucle():                                    # 05/10 : onglet « Réserve trackings MYM », toutes les heures
+            await client.wait_until_ready()
+            await asyncio.sleep(240)
+            while not client.is_closed():
+                try:
+                    await reserve_mym.assurer_onglet()
+                    bilan_rm = await reserve_mym.poser_sur_existants()
+                    if bilan_rm and onboarding.bilan_a_poster(bilan_rm, "reserve_mym"):
+                        canal_rm = await canal_admin()
+                        if canal_rm is not None:
+                            await canal_rm.send(("🎟️ **Réserve trackings MYM**\n" + "\n".join(bilan_rm))[:1990])
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Réserve MYM : %s", erreur)
+                await asyncio.sleep(3600)
+        client.loop.create_task(_reserve_mym_boucle())
         retro.configurer({"client": client, "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "retro.json",
                           "FICHIER_FAQ_APPRISE": FICHIER_FAQ_APPRISE, "FICHIER_CONSIGNES": DONNEES / "consignes_apprises.json",
                           "salons_persos": salons_persos_actifs, "canal_admin": canal_admin, "heure_paris": heure_paris,
@@ -8097,6 +8115,20 @@ async def on_message(message):
     if texte.startswith(("!retro", "!rétro")):                               # 27/09 : la rétrospective, à la main
         if await retro.commande(message, texte):
             return
+    if texte.startswith("!reserve-mym") and (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
+        # 05/10 : pose tout de suite les trackings de l'onglet « Réserve trackings MYM » sur les liens /N qui existent déjà
+        try:
+            await reserve_mym.assurer_onglet()
+            bilan_rm = await reserve_mym.poser_sur_existants()
+            libres_rm = [r for r in await reserve_mym.lignes() if not r["pose"]]
+        except Exception as erreur:                                             # noqa: BLE001
+            await message.reply(f"❌ Réserve MYM : {type(erreur).__name__} {str(erreur)[:120]}")
+            return
+        onboarding.bilan_a_poster(bilan_rm, "reserve_mym")
+        reste = " · ".join(f"{r['creatrice']} /{r['numero']}" for r in libres_rm) or "aucun"
+        await message.channel.send(("🎟️ **Réserve trackings MYM**\n" + ("\n".join(bilan_rm) + "\n" if bilan_rm else "Rien à poser sur les liens existants.\n")
+                                    + f"-# En réserve pour les prochains liens : {reste}")[:1990])
+        return
     if texte.startswith("!trackings") and (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
         await message.reply("🔗 Je vérifie la carte de chaque lien GAML contre le tracking de son POD, et la colonne « Lien GAML associé »…")
         try:

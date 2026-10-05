@@ -206,6 +206,38 @@ async def poser_tracking(link_id: str, url: str) -> str:
     return "ok"
 
 
+async def poser_mym(link_id: str, url: str, image: str = "") -> str:
+    """05/10 (Gaëtan : MYM en premier, « Miam ») : le bouton MYM d'un lien reçoit `url` (tracking MyPulse). S'il manque, il est
+    créé comme les autres (« Miam », effet pulsant, `image` si les cartes du lien sont illustrées) puis remonté au-dessus
+    d'OnlyFriends. Repéré par sa destination (mym.fans), jamais la carte OnlyFans. Renvoie 'ok', 'déjà' ou la raison."""
+    url = (url or "").strip()
+    if not url.startswith("https://mym.fans/"):
+        return "pas un lien MYM"
+    detail = await lien_detail(link_id)
+    cartes = detail.get("contents") or []
+    mym = next((c for c in cartes if "mym.fans" in str(c.get("value") or "").lower()), None)
+    if mym:
+        if str(mym.get("value") or "").strip() == url and mym.get("name") == "Miam":
+            return "déjà"
+        await _requete("PATCH", f"/contents/{mym['id']}", corps={"value": url, "name": "Miam"})
+        return "ok"
+    attrs = {"name": "Miam", "value": url, "effect": "button-pulsing", "cardType": "simple", "is18Plus": True}
+    if image and any(c.get("image") for c in cartes):                   # cartes illustrées (Chloé) : même image que ses autres Miam
+        attrs["imageUrl"] = image
+    nouveau = await _requete("POST", f"/links/{link_id}/contents", corps=attrs)
+    nid = (nouveau or {}).get("id")
+    if nid and cartes:
+        ordre = [nid] + [c["id"] for c in sorted(cartes, key=lambda c: c.get("position") or 0)]
+        for methode, chemin in (("PUT", f"/links/{link_id}/contents/reorder"), ("POST", f"/links/{link_id}/contents/reorder")):
+            try:
+                await _requete(methode, chemin, corps={"order": ordre})
+                return "ok"
+            except RuntimeError:
+                continue
+        return "ok (Miam ajouté sous OnlyFriends : à remonter dans GAML)"
+    return "ok"
+
+
 # ------------------------------------------------------------------ calculs
 def periode(cle: str, mois: str = "") -> tuple:
     """`5` : 16 → fin du mois précédent (paie du 5 de `mois`) ; `20` : 1 → 15 de `mois`."""

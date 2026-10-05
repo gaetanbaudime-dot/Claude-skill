@@ -1,0 +1,10 @@
+{
+  "_note": "05/10 : premières lignes de l'onglet « Réserve trackings MYM », écrites une seule fois si l'onglet est vide. Trackings MyPulse de Sophie créés le 05/10 sous les noms gaml-lien1, 2, 4, 6, 8 : GAML ne donnera jamais ces numéros (/13, /14, /15 existent, le prochain clone sera /16), ils sont donc rangés sur /13 à /17 et Gaëtan les renomme dans MyPulse.",
+  "lignes": [
+    ["Sophie", "13", "gaml-lien13 (ex gaml-lien1)", "https://mym.fans/app/t/hmxcamtgtqQb80z"],
+    ["Sophie", "14", "gaml-lien14 (ex gaml-lien2)", "https://mym.fans/app/t/hmxcar6tt0X6TTI"],
+    ["Sophie", "15", "gaml-lien15 (ex gaml-lien4)", "https://mym.fans/app/t/hmxcbjisf35G47d"],
+    ["Sophie", "16", "gaml-lien16 (ex gaml-lien6)", "https://mym.fans/app/t/hmxcbtjzmxMAsvD"],
+    ["Sophie", "17", "gaml-lien17 (ex gaml-lien8)", "https://mym.fans/app/t/hmxcc2fkd4LAb1Q"]
+  ]
+}
