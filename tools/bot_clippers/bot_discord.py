@@ -4499,7 +4499,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -7096,7 +7096,7 @@ async def on_ready():
         client.loop.create_task(bloques.boucle(client))                         # 30/09 : bloqués du matin + WhatsApp en un appui
         appel.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "appel.json",
                           "salons_clippers": salons_clippers_acceptes, "salon_perso": salon_perso_de,
-                          "parcours_lire": lambda: lire_json(FICHIER_PARCOURS, {}),
+                          "parcours_lire": lambda: lire_json(FICHIER_PARCOURS, {}), "onboarding_lire": lambda: lire_json(FICHIER_ONBOARDING, {}),
                           "sortir": lambda m, raison, pool=True, expulser=True: sortir_membre(m, raison, None, pool=pool, expulser=expulser),
                           "canal_admin": canal_admin, "prenom_de": prenom_de,
                           "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
