@@ -41,20 +41,20 @@ Doctrine d'acquisition : "contenu 100% safe sur plateforme, conversion hors plat
 >
 > **La faute à ne pas commettre** : envoyer des clippers sur Sarah/Amanda parce qu'« elles sont grosses ». Plus de subs à 2 €/2,8 € de LTV ne fait quasi pas d'argent — c'est gâcher la ressource rare. **Amanda reste un chantier chat ; Sarah, corrigé le 19/07, n'est même pas un chantier : c'est une démonstration** — ~3 000 subs/mois GRATUITS via le débordement de trafic interne MYM (LTV structurelle ~3 €, confirmé Maxime). [[Supervision chatting (top 5) et le cas Sarah|Le vrai chantier est de la répliquer]] sur les créatrices qui monétisent. Cette matrice **complète** (ne remplace pas) l'ordre de montée créatrices du roster ci-dessous : le roster dit *dans quelles créatrices investir*, cette matrice dit *où va la main-d'œuvre clipping*. Les 4 créatrices à zéro rappellent le vrai plafond : **le trafic (clippers) est le goulot n°1 de l'agence** ([[Théorie des contraintes]]).
 
-### Valeur d'un abonné OF contre MYM — 30 jours au 27/09/2026 (classeur Data G&M, OF converti en € au taux du jour 0,8789)
+### Valeur d'un abonné OF contre MYM — 30 jours au 05/10/2026 (classeur Data G&M, OF en € = total − MYM, conversion du classeur au taux du jour)
 
 | Créatrice | OF : abonnés · € · €/ab. | MYM : abonnés · € · €/ab. | Écart MYM − OF | Total 30 j |
 |---|---|---|---|---|
-| Chloé | 1 049 · 7 411 € · **7,1 €** | 1 869 · 14 309 € · 7,7 € | +0,6 € | 21 720 € |
-| Sarah | 1 215 · 1 538 € · **1,3 €** | 1 846 · 6 103 € · 3,3 € | +2,0 € | 7 641 € |
-| Maddy | — | 500 · 6 182 € · **12,4 €** | — | 6 182 € |
-| Sophie | 642 · 5 003 € · **7,8 €** | — | — | 5 003 € |
-| Clara | 392 · 1 693 € · 4,3 € | 708 · 1 121 € · 1,6 € | −2,7 € | 2 814 € |
-| Jade | 329 · 333 € · 1,0 € | 240 · 781 € · 3,3 € | +2,2 € | 1 114 € |
-| Amanda | 103 · 656 € · 6,4 € | 110 · 351 € · 3,2 € | −3,2 € | 1 007 € |
-| **Total** | **3 730 · 16 633 € · 4,5 €** | **5 273 · 28 847 € · 5,5 €** | | **45 480 €** |
+| Chloé | 1 084 · 8 283 € · **7,6 €** | 1 829 · 14 236 € · 7,8 € | +0,1 € | 22 519 € |
+| Sarah | 1 294 · 2 033 € · **1,6 €** | 1 990 · 7 751 € · 3,9 € | +2,3 € | 9 784 € |
+| Sophie | 683 · 4 950 € · **7,2 €** | 858 · 2 622 € · 3,1 € | −4,2 € | 7 572 € |
+| Maddy | — | 576 · 5 939 € · **10,3 €** | — | 5 939 € |
+| Clara | 449 · 1 829 € · 4,1 € | 675 · 1 119 € · 1,7 € | −2,4 € | 2 948 € |
+| Jade | 392 · 627 € · 1,6 € | 321 · 602 € · 1,9 € | +0,3 € | 1 229 € |
+| Amanda | 85 · 128 € · 1,5 € | 60 · 243 € · 4,0 € | +2,5 € | 371 € |
+| **Total** | **3 987 · 17 852 € · 4,5 €** | **6 309 · 32 512 € · 5,2 €** | | **50 364 €** |
 
-Lecture : **45 480 € sur 30 jours contre 42 769 € la semaine passée (+6 %), mais un abonné vaut moins** (OF 4,5 € contre 5,1 €, MYM 5,5 € contre 5,9 €) : le volume monte (9 003 abonnés contre 7 663), pas la valeur. Chloé fait 21 720 € (+2 500 €) avec un abonné OF qui redescend à 7,1 € (8,4 €) ; Sarah reste le plus gros volume (3 061 abonnés) pour le moins de valeur (1,3 / 3,3 €) ; Maddy baisse (12,4 € contre 14,0 €, 6 182 € contre 7 134 €) ; **Clara : la chute de la semaine passée était une saisie manquante** (392 abonnés OF pour 1 693 €, 4,3 €/ab. contre 1,9 €) ; **Jade tombe à 1,0 € sur OF** (329 abonnés pour 333 €, et 110 abonnés pour 30 € sur les sept derniers jours : saisie ou vraie chute, à vérifier avec Rianah) ; Amanda n'est plus saisie depuis le 18/09 (sortie ou saisie arrêtée, à trancher). Sur 7 jours (21-27/09) : **8 547 €, soit 1 221 €/j contre 1 516 €/j sur 30 jours (−19 %)** ; Chloé OF 7,1 € · MYM 7,1 € ; Sarah OF 1,6 € · MYM 3,0 € ; **Sophie remonte à 6,8 € sur OF** (1,4 € la semaine passée) ; Clara OF 7,1 € · MYM 0,9 € ; Maddy MYM 5,0 € ; Jade 0,3 / 0,4 €. Cette synthèse est recalculée chaque lundi par une routine et lue par le bot (`!ltv`, rapport du lundi).
+Lecture : **50 364 € sur 30 jours contre 45 480 € la semaine passée (+11 %), un abonné qui vaut pareil** (OF 4,5 € contre 4,5 €, MYM 5,2 € contre 5,5 €) : c'est encore le volume qui monte (10 296 abonnés contre 9 003). Chloé fait 22 519 € (+800 €) et son abonné OF remonte à 7,6 € (7,1 €) ; Sarah 9 784 € (+2 100 €), toujours le plus gros volume (3 284 abonnés) pour le moins de valeur (1,6 / 3,9 €) ; **Sophie a ouvert MYM le 1er octobre : 858 abonnés et 2 622 € en quatre jours (3,1 €/ab.)**, à vérifier avec Rianah car le 01/10 porte 2 abonnés pour 480 € (report probable) ; Maddy 5 939 € (10,3 €, −4 %) ; Clara 2 948 € (OF 4,1 €, stable) ; Jade remonte à 1,6 € sur OF (1,0 €) mais sa saisie reste irrégulière (0 € le 29/09, 4 € le 03/10 pour 9 abonnés) ; Amanda n'est plus saisie depuis le 18/09 (371 € résiduels). Sur 7 jours (29/09-04/10, six jours saisis) : **13 834 €, soit 2 306 €/j contre 1 737 €/j sur 30 jours (+33 %) et 1 221 €/j la semaine passée** ; Chloé OF 12,7 € · MYM 12,1 € (5 300 €) ; Sophie 3 542 € ; Sarah OF 3,9 € · MYM 5,0 € (2 512 €) ; Maddy MYM 7,3 € ; Clara OF 11,7 € · MYM 2,3 € ; Jade OF 6,2 € · MYM 0,7 €. Contrôle : les totaux de septembre recalculés depuis les onglets retrouvent l'onglet « Subs & LTV mensuels » pour les six créatrices (l'onglet Synthèse n'existe plus, remplacé par Pilotage, Profit, CA mensuel et Subs & LTV mensuels). Cette synthèse est recalculée chaque lundi par une routine et lue par le bot (`!ltv`, rapport du lundi).
 
 **Sheet « Data G&M Créatrices » (OF + MYM, €, Synthèse du 28/09/2026, fenêtre au 27/09, dernier jour saisi) :** 30 j glissants **44 473 €** pour 8 790 abonnés (5,06 €/ab., Amanda hors Synthèse) — Chloé 21 720 € (2 918 ab., 7,44 €/ab.) · Sarah 7 641 € (3 061 ab., **2,50 €**) · Maddy 6 182 € (500 ab., **12,36 €**) · Sophie 5 003 € (642 ab., 7,79 €) · Clara 2 814 € (1 100 ab., 2,56 €) · Jade 1 114 € (569 ab., 1,96 €) ; Amanda n'est plus saisie depuis le 18/09. Par mois, tous onglets Amanda comprise : **juillet 54 884 € · août 47 532 € · septembre 1-27 : 41 924 €** (1 553 €/j, contre 1 533 €/j en août). Vue OF/MYM séparée pour Chloé et Sarah demandée le 14/09 (reporting Telegram de la différence de LTV) : en cours.
 

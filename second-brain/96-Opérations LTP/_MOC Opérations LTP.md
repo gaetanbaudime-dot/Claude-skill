@@ -18,6 +18,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 
 ## 🎯 Pôle prioritaire : recrutement, management & délégation
 
+- **[[Audit du bot Discord clippers - inventaire et refonte en trois lots (5 octobre 2026)]]** 🔥 : pourquoi les salons privés sont « le carnage » (message du matin vide par un bug de clés, trois horloges de sanction qui se contredisent, assistant IA à 70 Ko de prompt dans chaque salon, personne jamais expulsé), l'inventaire message par message de ce que le bot envoie, et la refonte en trois lots : le calme (1 jour), le flux 1 → 2 → 3 + WhatsApp + expulsion (2-3 jours), la base de connaissances nourrie par Gaëtan (1-2 jours) ; cinq décisions à trancher, la première sur le lien en bio du compte privé.
 - **[[Architecture Discord - simple au quotidien (14 septembre 2026)]]** 🧭 : analyse en profondeur du serveur (deux populations, 3 étages d'accès, 51 commandes, 7 boucles), la décision qui simplifie tout (serveur fermé aux candidats, tunnel hors Discord), la carte cible (4 catégories, 11 salons, 3 endroits par personne et par jour), la mise en place en 45 minutes et ce qui casse.
 
 - [[Goulot de l'agence - l'équation du scale]] : **la boussole de scale** — `CA = clippers productifs × subs/clipper × €/sub`, les 3 goulots comme facteurs, la séquence fixe (temps → rétention → trafic monétisé → recruter) et la prédiction datée (clonage chatting avant le clipper N+13). À relire pour re-trancher une priorité, jamais pour agir (ça, c'est le cockpit).
