@@ -24,6 +24,7 @@ export async function POST(req: Request, { params }: { params: { token: string }
   const n = x && x.minute === minute ? x.n + 1 : 1;
   compteur.set(c.jeton, { n, minute });
   if (n > 60) return new NextResponse(null, { status: 204 });
-  await enregistrer(c.prenom, e, m);
+  const erreur = await enregistrer(c.prenom, e, m);
+  if (erreur && req.headers.get("x-debug") === "1") return NextResponse.json({ erreur }, { status: 200 });   // diagnostic, jamais visible dans l'app
   return new NextResponse(null, { status: 204 });
 }

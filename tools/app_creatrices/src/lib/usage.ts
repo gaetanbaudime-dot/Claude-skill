@@ -14,13 +14,13 @@ let cache: { id: string; expire: number } | null = null;
 async function appel(url: string, init: RequestInit = {}): Promise<Record<string, unknown>> {
   const jeton = await jetonGoogle();
   const r = await fetch(url, { ...init, headers: { Authorization: `Bearer ${jeton}`, "Content-Type": "application/json", ...(init.headers || {}) }, cache: "no-store" });
-  if (!r.ok) throw new Error(`${url.split("?")[0]} ${r.status}`);
+  if (!r.ok) throw new Error(`${url.split("?")[0]} ${r.status} ${(await r.text()).slice(0, 300)}`);
   return (await r.json()) as Record<string, unknown>;
 }
 
 async function chercher(): Promise<string | null> {
   const q = `name='${NOM_FEUILLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
-  const d = await appel(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`);
+  const d = await appel(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1&supportsAllDrives=true&includeItemsFromAllDrives=true`);
   const fichiers = (d.files as { id: string }[] | undefined) || [];
   return fichiers[0]?.id || null;
 }
@@ -73,15 +73,19 @@ function maintenantParis(): { date: string; heure: string } {
   return { date: `${p.year}-${p.month}-${p.day}`, heure: `${p.hour}:${p.minute}:${p.second}` };
 }
 
-export async function enregistrer(prenom: string, evenement: string, mode: string): Promise<void> {
+/** Renvoie null si la ligne est écrite, sinon le message d'erreur (journalisé, jamais montré à la créatrice). */
+export async function enregistrer(prenom: string, evenement: string, mode: string): Promise<string | null> {
   try {
     const id = await feuille();
     const { date, heure } = maintenantParis();
     await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${ONGLET}!A:E`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
       method: "POST", body: JSON.stringify({ values: [[date, heure, prenom, evenement, mode]] }),
     });
+    return null;
   } catch (e) {
     cache = null;                                                      // on recherchera la feuille au prochain événement
-    console.warn("usage :", (e as Error).message);
+    const message = (e as Error).message;
+    console.warn("usage :", message);
+    return message;
   }
 }
