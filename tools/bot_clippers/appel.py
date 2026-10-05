@@ -28,6 +28,11 @@ HEURES = int(os.environ.get("APPEL_HEURES", "48") or 48)
 INACTIF_JOURS = int(os.environ.get("APPEL_INACTIF_JOURS", "4") or 4)
 KICK = os.environ.get("APPEL_KICK", "1").strip() != "0"
 GENERAL = os.environ.get("APPEL_GENERAL", "1").strip() != "0"
+# 05/10 (Gaëtan : « vire directement les clippeurs qui n'ont pas créé de compte dans les 72 h et n'ont pas répondu sur leur salon
+# privé ») : la purge, une fois au démarrage (PURGE_72H=1), puis `!purge` / `!purge go`.
+PURGE = os.environ.get("PURGE_72H", "1").strip() != "0"
+PURGE_HEURES = int(os.environ.get("PURGE_HEURES", "72") or 72)
+RAISON_PURGE = f"{PURGE_HEURES} h sans créer ton compte 1 et sans un mot dans ton salon"
 _deps = {}
 
 TEXTE_APPEL = ("📢 **{prenom}, réponds ici dans les {heures} h.** Un mot suffit : « présent ».\n\n"
@@ -289,6 +294,76 @@ async def appel_general(client) -> list:
     return appeles
 
 
+def _compte_cree(uid: str, parcours: dict, onboarding: dict):
+    """(compte créé ?, date de livraison du compte 1 ou None) d'après la fiche de parcours, sinon la fiche d'onboarding."""
+    f = parcours.get(uid) or {}
+    if f:
+        dates = f.get("dates") or {}
+        cree = bool(dates.get("1_fait") or (f.get("profils") or {}).get("1") or int(f.get("etape", 0) or 0) >= 2)
+        return cree, _dt(dates.get("1")) or _dt((onboarding.get("clippers", {}).get(uid) or {}).get("date"))
+    onb = onboarding.get("clippers", {}).get(uid) or {}
+    if not onb.get("comptes"):
+        return True, None                                               # rien livré : rien à juger
+    cree = any(isinstance(a, dict) and a.get("cree") for a in onb.get("acces") or [])
+    return cree, _dt(onb.get("date"))
+
+
+async def candidats_purge(cibles: list, maintenant=None) -> list:
+    """[(salon, membre, heures depuis la livraison, dernier message iso ou '')] : compte 1 livré depuis PURGE_HEURES ou plus, jamais
+    créé (ni bouton, ni profil, ni étape 2), et aucun message du clipper dans son salon depuis PURGE_HEURES. Protégés exclus."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    parcours = _deps["parcours_lire"]() if _deps.get("parcours_lire") else {}
+    onboarding = _deps["onboarding_lire"]() if _deps.get("onboarding_lire") else {}
+    deja = {str(x.get("uid")) for x in _lire().get("purges", [])}      # jamais purgé deux fois (expulsion refusée : Gaëtan tranche)
+    out = []
+    for salon, membre in cibles:
+        uid = str(membre.id)
+        prenom = _deps["prenom_de"](membre) if _deps.get("prenom_de") else getattr(membre, "display_name", uid)
+        if uid in deja or _protege(uid, prenom):
+            continue
+        cree, livraison = _compte_cree(uid, parcours, onboarding)
+        if cree or livraison is None or maintenant - livraison < timedelta(hours=PURGE_HEURES):
+            continue
+        dernier = await derniere_activite_salon(salon, membre, limite=300)
+        if dernier is not None and maintenant - dernier < timedelta(hours=PURGE_HEURES):
+            continue
+        out.append((salon, membre, int((maintenant - livraison).total_seconds() // 3600), _iso(dernier) if dernier else ""))
+    return out
+
+
+async def purger(client, appliquer: bool = True, maintenant=None) -> list:
+    """La purge : sortie + expulsion immédiate des candidats_purge. Renvoie le bilan (lignes)."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    if not _deps.get("salons_clippers"):
+        return []
+    cibles = await _deps["salons_clippers"]()
+    bilan = []
+    for salon, membre, heures, dernier in await candidats_purge(cibles, maintenant):
+        prenom = _deps["prenom_de"](membre) if _deps.get("prenom_de") else membre.display_name
+        detail = f"compte 1 livré il y a {heures} h, jamais créé, " + (f"dernier message le {dernier[:10]}" if dernier else "aucun message dans son salon")
+        if not appliquer:
+            bilan.append(f"· {prenom} : {detail} → sortirait" + (" et expulsé" if KICK else ""))
+            continue
+        try:
+            res = await _deps["sortir"](membre, RAISON_PURGE, pool=True, expulser=KICK)
+            d = _lire()
+            d.setdefault("purges", []).append({"uid": str(membre.id), "prenom": prenom, "date": _iso(maintenant), "heures": heures,
+                                               "expulse": bool(res.get("expulse"))})
+            a = d["appels"].get(str(membre.id))
+            if a and not a.get("sorti"):
+                a["sorti"] = _iso(maintenant)
+            _ecrire(d)
+            bilan.append(f"🚪 {prenom} : sorti ({detail})" + (" · expulsé" if res.get("expulse") else " · ⚠️ pas expulsé")
+                         + (f" · refus : {', '.join(res.get('refus') or [])}" if res.get("refus") else ""))
+        except Exception as erreur:                                     # noqa: BLE001
+            bilan.append(f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}")
+            journal.warning("Purge de %s : %s", prenom, erreur)
+    if appliquer:
+        d = _lire(); d["purge_72h"] = {"date": _iso(maintenant), "n": sum(1 for b in bilan if b.startswith("🚪"))}; _ecrire(d)
+        journal.info("Purge 72 h : %d sortie(s)", d["purge_72h"]["n"])
+    return bilan
+
+
 def etat_texte(maintenant=None) -> str:
     maintenant = maintenant or datetime.now(timezone.utc)
     d = _lire()
@@ -314,12 +389,20 @@ def etat_texte(maintenant=None) -> str:
 
 
 async def commande(message, texte: str) -> bool:
-    if not texte.lower().startswith("!appel"):
+    if not texte.lower().startswith(("!appel", "!purge")):
         return False
     if _deps.get("est_staff") and not _deps["est_staff"](message.author):
         await message.reply("Réservé aux managers et aux admins.")
         return True
     mots = texte.split()[1:]
+    if texte.lower().startswith("!purge"):                              # 05/10 : `!purge` = liste, `!purge go` = sortie + expulsion
+        go = mots[:1] == ["go"]
+        bilan = await purger(message.client if hasattr(message, "client") else None, appliquer=go)
+        if not bilan:
+            await message.reply(f"✅ Personne à purger : aucun compte 1 livré depuis {PURGE_HEURES} h sans création ni réponse.")
+            return True
+        await message.reply((("🚪 **Purge faite**\n" if go else f"🔎 **Purge {PURGE_HEURES} h : ce que `!purge go` ferait**\n") + "\n".join(bilan))[:1990])
+        return True
     if message.mentions:
         m = message.mentions[0]
         salon = _deps["salon_perso"](str(m.id)) if _deps.get("salon_perso") else None
@@ -348,6 +431,15 @@ async def boucle(client):
         return
     journal.info("Appel de présence actif : %d h pour répondre, inactif %d j = appelé, expulsion %s", HEURES, INACTIF_JOURS, "ON" if KICK else "OFF")
     await asyncio.sleep(90)                                             # le reste du démarrage d'abord (salons, registre)
+    try:                                                                # 05/10 : la purge demandée par Gaëtan, une fois
+        if PURGE and not _lire().get("purge_72h"):
+            bilan_p = await purger(client, appliquer=True)
+            canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+            if canal is not None:
+                await canal.send((f"🚪 **Purge {PURGE_HEURES} h** (compte 1 jamais créé, pas un mot dans le salon) : "
+                                  + (f"{sum(1 for b in bilan_p if b.startswith('🚪'))} sortie(s)\n" + "\n".join(bilan_p) if bilan_p else "personne"))[:1990])
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Purge 72 h : %s", erreur)
     try:
         if GENERAL and not _lire().get("general"):
             appeles = await appel_general(client)

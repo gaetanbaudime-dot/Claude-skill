@@ -22,6 +22,10 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-05 (Discord, purge) — Sortie immédiate : compte 1 jamais créé en 72 h et pas un mot dans le salon
+- **Décision de Gaëtan** : « vire directement les clippeurs qui n'ont pas créé de compte dans les 72 h et n'ont pas répondu sur leur salon privé Discord ». Livré : purge au redémarrage, sans avertissement, pour tout signé dont le compte 1 est livré depuis 72 h sans création ni message dans son salon depuis 72 h ; expulsion, comptes au vivier, lien libéré, salon supprimé ; `!purge` liste, `!purge go` refait. L'appel de présence de 12 h 39 continue pour les autres.
+- **Prédiction (écrite le 05/10 avant le redémarrage)** : la purge sort 4 à 8 clippers sur les 14 appelés ; aucun d'eux n'avait de visite GAML en octobre — 70 %.
+
 ### 2026-10-05 (Discord, présence) — Appel de présence : réponds sous 48 h et viens sur WhatsApp, sinon tu sors du serveur
 - **Décision de Gaëtan** : « vire tous les clippeurs qui ne répondent pas et qui sont inactifs sur le serveur, je veux que ça réponde et qu'ils viennent sur WA ». Livré : appel général dans chaque salon perso des signés (bouton WhatsApp pré-rempli), puis appel individuel pour tout clipper sans message, sans bouton et sans Reel depuis 4 jours ; sans réponse à 48 h, sortie avec expulsion ; a répondu sans WhatsApp, une relance et une ligne à Gaëtan ; `!appel` pour suivre, `!wa` pour noter WhatsApp.
 - **Avocat du diable** : l'appel général tombe en même temps sur 26 clippers, dont les bons ; ceux qui publient mais ne lisent pas Discord vont sortir s'ils ne répondent pas en 48 h. C'est le prix de la règle demandée ; `!note @x garde` protège quelqu'un, `APPEL_KICK=0` passe en mode liste.
