@@ -1,6 +1,7 @@
 /** Journal d'usage de l'app, pour Gaëtan uniquement : une ligne par événement (ouverture, onglet, période, tuile Drive)
- *  dans un tableur « App créatrices · usage » que l'app crée elle-même au premier événement avec le compte de service,
- *  dans le dossier interne de l'agence (« [A] G&M — Interne », à la racine du Drive, hors de portée des créatrices).
+ *  dans un tableur nommé exactement « App créatrices · usage », créé par Gaëtan dans son Drive (dossier « [A] G&M — Interne »)
+ *  et partagé en modification avec le compte de service : un compte de service n'a pas de quota Drive, il ne peut pas posséder de fichier,
+ *  mais il peut écrire dans un fichier qu'on lui partage. L'app trouve le tableur par son nom, prépare l'onglet « Événements » et y ajoute les lignes.
  *  Rien d'autre n'est collecté : ni adresse IP, ni appareil, ni navigateur. Toute erreur est avalée : le journal ne doit jamais gêner l'app. */
 import { jetonGoogle } from "./google";
 import { creatrices } from "./config";
@@ -60,11 +61,35 @@ async function creer(): Promise<string> {
   return id;
 }
 
+/** Un tableur créé par Gaëtan n'a qu'un onglet « Feuille 1 » : on le renomme en « Événements » et on pose l'en-tête, une seule fois. */
+async function preparer(id: string): Promise<void> {
+  const meta = await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
+  const feuilles = ((meta.sheets as { properties: { sheetId: number; title: string } }[] | undefined) || []).map((s) => s.properties);
+  if (feuilles.some((f) => f.title === ONGLET)) return;
+  const premiere = feuilles[0];
+  if (!premiere) throw new Error("tableur sans onglet");
+  await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, {
+    method: "POST",
+    body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: premiere.sheetId, title: ONGLET, gridProperties: { frozenRowCount: 1 } }, fields: "title,gridProperties.frozenRowCount" } }] }),
+  });
+  await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${ONGLET}!A1:E1`)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ values: [ENTETE] }) });
+}
+
+let echecJusqua = 0;                                                   // après un échec (tableur absent, quota), on n'insiste pas pendant 10 minutes
+
 async function feuille(): Promise<string> {
   if (cache && cache.expire > Date.now()) return cache.id;
-  const id = (await chercher()) || (await creer());
-  cache = { id, expire: Date.now() + 6 * 60 * 60 * 1000 };
-  return id;
+  if (echecJusqua > Date.now()) throw new Error("journal d'usage indisponible (nouvel essai dans 10 min)");
+  try {
+    const trouve = await chercher();
+    const id = trouve || (await creer());                              // la création échoue tant que le tableur n'est pas créé par un humain (quota nul du compte de service)
+    if (trouve) await preparer(id);
+    cache = { id, expire: Date.now() + 6 * 60 * 60 * 1000 };
+    return id;
+  } catch (e) {
+    echecJusqua = Date.now() + 10 * 60 * 1000;
+    throw e;
+  }
 }
 
 function maintenantParis(): { date: string; heure: string } {

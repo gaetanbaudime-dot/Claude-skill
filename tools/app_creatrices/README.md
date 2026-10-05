@@ -29,7 +29,7 @@ Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (
 
 ## Journal d'usage (pour l'agence)
 
-Chaque ouverture, changement d'onglet, période de stats et tuile Drive envoie un événement à `/api/c/<jeton>/ev`. L'app écrit une ligne (date, heure Paris, prénom, événement, mode app ou navigateur) dans un tableur « App créatrices · usage » qu'elle crée elle-même au premier événement, avec le compte de service, dans le dossier interne « [A] G&M — Interne » à la racine du Drive de l'agence. Rien d'autre n'est collecté. Le tableur sert à juger si l'app est utilisée.
+Chaque ouverture, changement d'onglet, période de stats et tuile Drive envoie un événement à `/api/c/<jeton>/ev`. L'app écrit une ligne (date, heure Paris, prénom, événement, mode app ou navigateur) dans un tableur nommé exactement « App créatrices · usage », à créer une fois par l'agence dans son Drive (dossier « [A] G&M — Interne ») et à partager en modification avec le compte de service (un compte de service n'a pas de quota Drive et ne peut pas posséder de fichier). L'app le trouve par son nom et prépare l'onglet « Événements » elle-même. Rien d'autre n'est collecté. Le tableur sert à juger si l'app est utilisée.
 
 ## Routes
 
