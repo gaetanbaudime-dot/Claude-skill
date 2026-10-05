@@ -61,6 +61,50 @@ Lecture rapide. Le trafic est concentré : Rianah seule fait autant de visiteurs
 - **Lucas, Thia, Tara** : dehors. Lucas 4 abonnés en un mois, Thia 8 visiteurs, Tara zéro visiteur depuis le 1er octobre (ses comptes sont morts ou elle a arrêté : à vérifier avant de lui écrire).
 - **Jonas** : pour septembre, les 500 € garantis (premier mois) ; sa commission ne ferait que 90 € (300 abonnés × 0,30 €) et aucun bonus (équipe à 300 abonnés, loin des 1 000). Dès octobre, 100 € par clipper actif ferait 1 200 € pour une équipe qui rapporte ≈ 1 200 € au rythme actuel : impossible. Jonas au variable aussi (0,30 € par abonné, bonus inchangés), avec un fixe uniquement par clipper **rentable**, pas par clipper « actif ». C'est ce que le cadre du 03/10 avait décidé ; les chiffres le confirment.
 
+## 3 bis. Jonas en détail : ce que son contrat lui doit, et ce que son équipe a vraiment fait (ajout du 05/10)
+
+Personne ne sait combien de Reels chaque clipper a postés par jour. Mais GAML sait, jour par jour, combien de visiteurs chaque lien de clipper a reçus (robots exclus) : un lien à zéro pendant dix jours, c'est un clipper qui n'a rien publié ou des comptes morts. Seuil retenu : **un jour « tenu » = au moins 5 visiteurs** sur son lien. Septembre, jour par jour (· = 0, ▪ = 1 à 4, █ = 5 et plus) :
+
+| Clipper | Lien actif depuis | Jours tenus en septembre | Plus longue série à zéro | Profil du 1er au 30/09 |
+|---|---|---|---|---|
+| Josué | 14/08 | **30 / 30** | 0 | ██████████████████████████████ |
+| Yves | 20/09 (lien repris de Jonas, qui le portait avant) | 29 / 30, dont tous depuis le 20/09 | 0 | █████████▪████████████████████ |
+| Caroline | 09/09 | 21 / 22 depuis son départ (70 % du mois) | 0 | ▪██▪▪▪▪▪█▪█▪▪█████████████████ |
+| Lilian | 13/09 | 16 / 18 depuis son départ (53 % du mois) | **12** | ············████·█▪███████████ |
+| Tara | 03/09 | 21 / 28, **plus rien depuis le 29/09** | 2 | ▪·▪██▪███▪██████▪██████████··▪ |
+| Lucas | 02/09 | 9 / 29 (31 %) | 8 | ·▪········▪··▪▪····▪█████▪████ |
+| Ckycia | 10/09 | 8 / 21 (38 %) | **13** | ······················████████ |
+| Clarisse | 10/09 | 4 / 21 (19 %) | **13** | ······················█·███··· |
+| Romaric | 25/09 | 5 / 6 | 0 | ························██▪███ |
+| Hasina | 25/09 | 4 / 6 | 0 | ························▪███▪█ |
+| Thia | 16/09 | 1 / 15 (7 %) | 10 | ·························▪▪▪█▪ |
+| Rianah | avril | 30 / 30 (396 visiteurs par jour en médiane) | 0 | ██████████████████████████████ |
+
+**Clippers « actifs » au sens du contrat** (cadence tenue au moins 80 % des jours du mois) : en lecture stricte, **deux** (Josué, Rianah, plus Yves si on compte le lien de Jonas) ; en lecture indulgente (depuis le premier jour de chacun), **cinq à huit** (Josué, Rianah, Yves, Caroline, Lilian, et les trois Malgaches arrivés le 25/09 sur six jours). **Jamais douze.** Cinq clippers ont eu au moins une série de 8 à 13 jours à zéro (Lucas, Lilian, Ckycia, Clarisse, Thia) : la règle « deux jours ratés de suite → licencié le lundi suivant » de son propre contrat aurait dû sortir cinq personnes en septembre ; aucune n'est sortie. La règle « moins de 50 abonnés le premier mois » en sort trois autres (Lucas, Thia, Tara) ; elles sont encore là.
+
+Ce que le contrat lui doit pour septembre (son premier mois, du 07/09) :
+
+| Poste | Contrat | Septembre |
+|---|---|---|
+| Fixe | 100 € par clipper actif, **500 € garantis le premier mois** (l'exemple de la fiche donne 500 € tout rond pour le premier mois) | **500 €** (le strict donnerait 200 à 300 €, l'indulgent 500 à 800 €) |
+| Commission | 0,30 € par abonné OnlyFans de ses clippers | 285 abonnés (hors Rianah) × 0,30 = **85 €** ; ≈ 106 € si Rianah compte |
+| Bonus discipline | +150 € si tous tiennent la cadence | **0** |
+| Bonus équipe | à partir de 1 000 abonnés dans le mois | **0** (285 à 355) |
+| **Total** | | **500 € si le premier mois est forfaitaire (lecture de la fiche), 585 à 606 € si la commission s'ajoute** |
+
+S'il réclame 100 € × 12 « actifs », c'est 1 200 € + 85 € = 1 285 € : les séries ci-dessus suffisent à refuser.
+
+Ce que coûterait Jonas en octobre, deuxième mois, selon la règle choisie, pour une équipe au rythme actuel (≈ 300 abonnés OF et ≈ 440 MYM par mois, ≈ 1 200 € de profit agence) :
+
+| Règle | Coût d'octobre | Lecture |
+|---|---|---|
+| Contrat tel quel, 100 € par clipper actif (5 à 6) + 0,30 € × 350 | **600 à 700 €** | son équipe doit rapporter 700 € de profit rien que pour le payer, pendant que ses clippers au variable ne coûtent que ≈ 300 € |
+| Variable pur, 0,30 € par abonné + bonus | 105 € | il part ou se désengage ; ses quatre Malgaches qui montent restent sans suivi |
+| **Fixe par clipper rentable** (≥ 50 abonnés OF + MYM dans le mois) + 0,30 € par abonné, bonus inchangés | **300 à 400 €** (2 à 3 rentables aujourd'hui) | il est payé pour faire réussir des clippers, pas pour en compter ; chaque clipper qu'il fait passer la barre lui rapporte 100 € |
+| Commission seule relevée à 0,50 € par abonné, zéro fixe | 175 € (350 abonnés) ; 500 € à 1 000 abonnés | aligné, mais 1 000 abonnés est loin |
+
+**Verdict sur Jonas** : par les chiffres, il n'est pas un atout aujourd'hui. Les deux personnes qui rapportent (Rianah, Caroline) n'ont pas besoin de lui, son équipe est à la moitié de l'objectif de son premier mois (600 abonnés attendus pour 12 clippers, 285 faits), et il n'a appliqué aucune des deux règles de sortie de son contrat. Ce qui plaide pour lui : les trois Malgaches du 25/09 montent vite, et quelqu'un doit exécuter le passage au variable de douze personnes et les trois sorties. Décision recommandée : **octobre sous la règle « fixe par clipper rentable » + 0,30 € par abonné**, avec trois obligations écrites (les trois sorties cette semaine, la règle des deux jours appliquée chaque lundi avec le rapport du bot comme juge, cinq lignes par jour dans le salon admin) et un seul chiffre à atteindre : **600 abonnés OF + MYM pour l'équipe en octobre**, sinon fin de période d'essai le 05/11. Le passer au variable pur revient à le faire partir ; le garder au contrat actuel revient à payer 700 € pour compter des têtes.
+
 ## 4. Ce qu'il faut corriger dans les outils avant la paie MYM du 15/10
 
 1. Un bouton MYM sur la page GAML de Lilian (il n'en a pas).
