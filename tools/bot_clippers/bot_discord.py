@@ -43,6 +43,7 @@ import pods                              # !pods : POD neufs au classeur des log
 import relances                          # relances Telegram en un appui, chaque matin (30/09)
 import bloques                           # les bloqués du matin, relance WhatsApp en un appui (30/09)
 import acquisition_subs                  # subs de la veille OF / MYM au salon acquisition du serveur chatting (30/09)
+import appel                             # l'appel de présence : réponds sous 48 h et viens sur WhatsApp, sinon tu sors (05/10)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
@@ -101,6 +102,39 @@ EFFORT_ASSISTANT = os.environ.get("EFFORT_ASSISTANT", "low").strip() or "low"
 MAX_TOKENS_ASSISTANT = int(os.environ.get("MAX_TOKENS_ASSISTANT", "1500") or 1500)
 # Prix (par million de tokens, API Anthropic, septembre 2026) : entrée, sortie, lecture du cache, écriture du cache (TTL 1 h = 2×)
 PRIX_TOKENS = {"claude-sonnet-5-5": (2.0, 10.0, 0.20, 4.0), "claude-haiku-4-5": (1.0, 5.0, 0.10, 2.0)}
+# 05/10 (Gaëtan : « change de modèle en fonction du besoin du clipper et de ses questions ») : Haiku répond aux questions simples
+# (le kit suffit), Sonnet prend ce qui demande du jugement — compte bloqué ou banni, paie, capture d'écran à lire, question longue ou
+# multiple, clipper qui dit que la réponse d'avant était fausse — et rattrape Haiku quand il n'a pas su (ROUTAGE_ASSISTANT=0 : Sonnet partout dans #assistant).
+ROUTAGE_ASSISTANT = os.environ.get("ROUTAGE_ASSISTANT", "1").strip() != "0"
+MOTS_SONNET = ("ban", "bloqu", "suspend", "restrein", "desactiv", "revision", "verification", "selfie", "appel", "contest", "erreur", "bug",
+               "marche pas", "fonctionne pas", "impossible", "pourquoi", "paie", "paiement", "virement", "wallet", "usdc", "pas recu", "argent",
+               "arnaque", "injuste", "pas normal", "urgent", "deconnect", "mot de passe", "0 vue", "zero vue", "shadow", "hack", "pirat")
+MOTS_INSATISFAIT = ("pas compris", "tu te trompes", "c'est pas ca", "pas ca", "deja fait", "toujours pas", "ca marche toujours pas", "faux",
+                    "n'importe quoi", "tu m'as dit", "t'as dit", "encore")
+
+
+def choisir_modele(texte: str, nb_images: int = 0, dans_assistant: bool = True) -> tuple:
+    """(modèle, raison) pour cette question. Score : capture d'écran +2, mot de blocage/paie +2, question longue (> 220 caractères) +2,
+    plusieurs questions +1 par « ? » au-delà du premier (2 au plus), clipper insatisfait de la réponse d'avant +2 ; Sonnet dès 2."""
+    if not ROUTAGE_ASSISTANT:
+        return (MODELE_ASSISTANT if dans_assistant else MODELE), "routage éteint"
+    t = normaliser((texte or "").replace("’", "'"))
+    raisons, score = [], 0
+    if nb_images:
+        score += 2; raisons.append("capture")
+    mots = [m for m in MOTS_SONNET if m in t]
+    if mots:
+        score += 2; raisons.append("blocage/paie : " + ", ".join(mots[:3]))
+    if len(t) > 220:
+        score += 2; raisons.append("question longue")
+    n_q = t.count("?")
+    if n_q > 1:
+        score += min(2, n_q - 1); raisons.append(f"{n_q} questions")
+    if any(m in t for m in MOTS_INSATISFAIT):
+        score += 2; raisons.append("insatisfait")
+    if score >= 2:
+        return MODELE_ASSISTANT, f"Sonnet, score {score} ({' · '.join(raisons)})"
+    return MODELE, "Haiku, question simple"
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
 ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.strip()}
 
@@ -541,6 +575,13 @@ def repondre_sync(messages, modele: str = None) -> str:
         if reponse.stop_reason == "refusal" and modele != MODELE:
             journal.info("Refus de %s, rejoué sur %s", modele, MODELE)
             reponse = _appel_modele(messages, MODELE)
+        elif modele == MODELE and ROUTAGE_ASSISTANT and MODELE_ASSISTANT != MODELE and reponse.stop_reason != "refusal" \
+                and est_escalade(terminer_proprement(reponse)):
+            # 05/10 : Haiku n'a pas su → Sonnet tente avant de transmettre à un humain (un seul essai, compté comme les autres)
+            journal.info("Haiku sans réponse, rejoué sur %s", MODELE_ASSISTANT)
+            seconde = _appel_modele(messages, MODELE_ASSISTANT)
+            if seconde.stop_reason != "refusal" and not est_escalade(terminer_proprement(seconde)):
+                reponse = seconde
     except anthropic.RateLimitError:
         return "Trop de questions en même temps, réessaie dans une minute."
     except anthropic.APIStatusError as erreur:
@@ -4458,7 +4499,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -7053,6 +7094,16 @@ async def on_ready():
                             "tel_de": lambda uid: str((lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}).get(str(uid)) or {}).get("tel", "")),
                             "jours_sans_reel": sortie_auto.jours_sans_reel, "canal_admin": canal_admin, "est_staff": _staff})
         client.loop.create_task(bloques.boucle(client))                         # 30/09 : bloqués du matin + WhatsApp en un appui
+        appel.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "appel.json",
+                          "salons_clippers": salons_clippers_acceptes, "salon_perso": salon_perso_de,
+                          "parcours_lire": lambda: lire_json(FICHIER_PARCOURS, {}),
+                          "sortir": lambda m, raison, pool=True, expulser=True: sortir_membre(m, raison, None, pool=pool, expulser=expulser),
+                          "canal_admin": canal_admin, "prenom_de": prenom_de,
+                          "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
+                          "roster": roster, "normaliser": normaliser, "heure_paris": heure_paris, "jours_sans_reel": sortie_auto.jours_sans_reel,
+                          "lien_whatsapp": parcours.lien_whatsapp_prerempli, "est_staff": _staff, "membre_par_id": membre_par_id})
+        parcours._deps["activite"] = appel.noter_activite                  # un bouton d'étape = une réponse à l'appel
+        client.loop.create_task(appel.boucle(client))                           # 05/10 : l'appel de présence, sans réponse 48 h = sorti
         acquisition_subs.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "acquisition_subs.json",
                                      "data_gm": rapport_quotidien.data_gm, "heure_paris": heure_paris, "est_staff": _staff})
         client.loop.create_task(acquisition_subs.boucle(client))                # 30/09 : subs de la veille, salon acquisition
@@ -7930,6 +7981,11 @@ async def on_message(message):
 
     texte = nettoyer(message)
     utilisateur = message.author.id
+    if message.guild is not None:
+        try:                                                              # 05/10 : l'appel de présence — il a écrit, il est là
+            appel.noter_activite(str(utilisateur))
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Activité de %s : %s", utilisateur, erreur)
 
     # MP « STOP » : coupe toutes les relances automatiques pour cette personne. Une relance
     # sans porte de sortie ne récolte que du ressentiment — et un candidat qui dit stop
@@ -8271,6 +8327,8 @@ async def on_message(message):
             return
         if await cadence_reels.commande(message, texte):                        # !cadence [jours] [prénoms] (05/10)
             return
+        if await appel.commande(message, texte):                                # !appel [go|@clipper|passe] (05/10)
+            return
         if await bans_mail.commande(message, texte):                            # !bans [jours] (29/09)
             return
         if await classeur_verif.commande(message, texte):                       # !classeur (29/09)
@@ -8395,8 +8453,10 @@ async def on_message(message):
     else:
         messages.append({"role": "user", "content": contenu})
 
-    # 05/10 (Gaëtan : « Go pour Sonnet sur #assistant ») : Sonnet dans le salon commun, Haiku ailleurs (MP des candidats)
-    modele_q = MODELE_ASSISTANT if (message.guild is not None and salon_assistant_id() and str(message.channel.id) == salon_assistant_id()) else MODELE
+    # 05/10 (Gaëtan : « change de modèle en fonction du besoin du clipper et de ses questions ») : Haiku ou Sonnet selon la question
+    dans_assistant_q = message.guild is not None and bool(salon_assistant_id()) and str(message.channel.id) == salon_assistant_id()
+    modele_q, raison_q = choisir_modele(texte, nb_images, dans_assistant_q)
+    journal.info("Routage assistant (%s) : %s", "salon #assistant" if dans_assistant_q else "MP", raison_q)
     async with message.channel.typing():
         reponse = await asyncio.to_thread(repondre_sync, messages, modele_q)
 

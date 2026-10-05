@@ -22,6 +22,21 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-05 (Discord, présence) — Appel de présence : réponds sous 48 h et viens sur WhatsApp, sinon tu sors du serveur
+- **Décision de Gaëtan** : « vire tous les clippeurs qui ne répondent pas et qui sont inactifs sur le serveur, je veux que ça réponde et qu'ils viennent sur WA ». Livré : appel général dans chaque salon perso des signés (bouton WhatsApp pré-rempli), puis appel individuel pour tout clipper sans message, sans bouton et sans Reel depuis 4 jours ; sans réponse à 48 h, sortie avec expulsion ; a répondu sans WhatsApp, une relance et une ligne à Gaëtan ; `!appel` pour suivre, `!wa` pour noter WhatsApp.
+- **Avocat du diable** : l'appel général tombe en même temps sur 26 clippers, dont les bons ; ceux qui publient mais ne lisent pas Discord vont sortir s'ils ne répondent pas en 48 h. C'est le prix de la règle demandée ; `!note @x garde` protège quelqu'un, `APPEL_KICK=0` passe en mode liste.
+- **Prédiction (écrite le 05/10 à 12 h 30 Paris, avant l'appel)** : sur 26 signés, 10 à 14 répondent sous 48 h, 8 à 12 sortent le 07/10 ; le roster actif tombe à 15 au plus et le trafic GAML des 7 jours suivants ne baisse pas de plus de 10 % (les sortants ne publiaient pas) — 65 %.
+
+### 2026-10-05 (équipe) — Jonas : septembre payé 500 €, octobre au variable avec 50 à 100 clippers malgaches, message préparé
+- **Demande de Gaëtan** : un message à Jonas pour sa rémunération de septembre, l'annonce des 50 à 100 Malgaches au variable et du volume, et la vérité : ce n'est pas rentable, il doit mériter son salaire, Gaëtan sent qu'il ne se donne pas à fond.
+- **Chiffres repris du rapport du 05/10** : septembre = 500 € garantis (la commission seule aurait fait 90 €) ; équipe à 285 abonnés contre 600 attendus ; deux clippers à la cadence du contrat ; ≈ 1 950 € de paie pour ≈ 630 € de profit attribué. Message rédigé dans la réponse du 05/10 (ton direct, chiffres, cap clair), à envoyer sur WhatsApp.
+- **Prédiction (écrite le 05/10)** : si Jonas reçoit 50 Malgaches au variable avant le 20/10, son équipe passe 600 abonnés OnlyFans en novembre et sa commission dépasse 200 € ; sinon il part avant fin novembre — 55 %.
+
+### 2026-10-05 (Discord, routage) — Le modèle suit la question : Haiku pour le simple, Sonnet pour le blocage, la paie, la capture, le long, l'insatisfait
+- **Décision de Gaëtan** : « go, on avisera, fais en sorte de changer de modèle en fonction du besoin du clipper et de ses questions ». Livré : un score par question (capture, mots de blocage ou de paie, longueur, questions multiples, insatisfaction) → Sonnet dès 2, Haiku sinon ; et Sonnet rattrape Haiku quand il répond « je n'ai pas la réponse », avant tout humain. Le choix est journalisé, le coût par modèle est dans `!stats`.
+- **Ce que ça change au chiffrage** : la majorité des questions d'un kit (« c'est quoi le warm-up ») partent sur Haiku ; Sonnet ne paie que les cas qui demandent du jugement. Attendu : 60 à 70 % des questions sur Haiku, donc un coût mensuel entre celui de Haiku seul et celui de Sonnet seul, plus près du bas.
+- **Prédiction (écrite le 05/10)** : en octobre, `!stats` montre plus de réponses Haiku que Sonnet, et le coût total de l'assistant reste sous 12 $ — 70 %.
+
 ### 2026-10-05 (Discord, modèle) — Sonnet dans `#assistant`, Haiku partout ailleurs, coût compté réponse par réponse
 - **Décision de Gaëtan** : « Go pour Sonnet sur #assistant, chiffre-moi ». Livré : le salon commun tourne sur Sonnet 5.5 (réflexion basse, 1 500 tokens de sortie), le reste reste sur Haiku ; un refus de Sonnet est rejoué sur Haiku ; chaque réponse compte ses tokens et `!stats` affiche le coût réel du mois par modèle.
 - **Chiffrage avant mesure** (prompt système ≈ 20 000 tokens, cache 1 h) : une question à cache froid ≈ 0,09 $ sur Sonnet (93 % pour l'écriture du cache) contre 0,04 $ sur Haiku ; à cache chaud 0,011 $ contre 0,004 $. Avec 40 % de questions à cache chaud : 3 questions par jour ≈ 5,5 $ par mois (Haiku 2,3 $), 10 par jour ≈ 18 $ (7,7 $), 30 par jour ≈ 55 $ (23 $). Le levier si ça monte : raccourcir la base de 47 Ko, pas changer de modèle.

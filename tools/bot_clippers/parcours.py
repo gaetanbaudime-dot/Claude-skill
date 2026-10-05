@@ -575,6 +575,11 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
     fiche_p.setdefault("dates", {})[f"{n}_fait"] = _maintenant()
     fiche_p["etape"] = n + 1
     _ecrire(d)
+    if _deps.get("activite"):                                           # 05/10 : un bouton d'étape = une réponse à l'appel de présence
+        try:
+            _deps["activite"](str(uid))
+        except Exception:                                               # noqa: BLE001
+            pass
     for cle in (str(n), f"{n}p"):
         await _retirer_bouton(salon, (fiche_p.get("messages") or {}).get(cle))
     await _classeur_etat(uid, n)
