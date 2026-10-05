@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-05 (Discord, 15 h) — Deux délais de 3 jours : le test de montage, puis le compte 1, sinon expulsion
+- **Décision de Gaëtan** : « je veux qu'il fasse le test de montage vidéo en 3 jours. Puis premier compte IG créé en 3 jours », « GO, applique à tout le monde ». Livré : le test passe de 48 h à 3 jours (les tests en cours sont prolongés) ; sans vidéo à l'échéance, MP puis expulsion avec le lien du formulaire pour recandidater, plus de retest à 15 jours ; les candidats dont le test avait déjà expiré et encore sur le serveur sortent au premier passage. Côté signés, la purge ne demande plus le silence : compte 1 non créé 3 jours après sa livraison = sortie, à chaque passage de 30 min. Un compte livré que le scan Instagram voit exister compte comme créé, même sans le bouton.
+- **Avocat du diable** : la règle stricte sort aussi celui qui répond « je m'y mets ce soir » ; un compte créé sous un autre identifiant que celui livré n'est pas vu par le scan. `!note @x garde` protège, `PURGE_SILENCE=1` remet l'ancienne règle, `TEST_SORTIE=0` remet le retest.
+- **Prédiction (écrite le 05/10 avant le redéploiement)** : d'ici le 08/10, la première vague sort au moins 5 candidats au test expiré, et au plus 2 signés de plus que la purge du matin ; aucun clipper qui a publié un Reel en octobre ne sort par erreur — 70 %.
+
 ### 2026-10-05 (Discord, purge) — Sortie immédiate : compte 1 jamais créé en 72 h et pas un mot dans le salon
 - **Décision de Gaëtan** : « vire directement les clippeurs qui n'ont pas créé de compte dans les 72 h et n'ont pas répondu sur leur salon privé Discord ». Livré : purge au redémarrage, sans avertissement, pour tout signé dont le compte 1 est livré depuis 72 h sans création ni message dans son salon depuis 72 h ; expulsion, comptes au vivier, lien libéré, salon supprimé ; `!purge` liste, `!purge go` refait. L'appel de présence de 12 h 39 continue pour les autres.
 - **Prédiction (écrite le 05/10 avant le redémarrage)** : la purge sort 4 à 8 clippers sur les 14 appelés ; aucun d'eux n'avait de visite GAML en octobre — 70 %.

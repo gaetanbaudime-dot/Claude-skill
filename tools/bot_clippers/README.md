@@ -975,3 +975,11 @@ Gaëtan : « Mets les numéros sur les bons numéros. Tu créeras les liens gaml
 - **À l'onboarding** (`onboarding`, juste après `cloner_lien`) : `reserve_mym.pour_clone` pose la ligne du numéro que GAML vient de donner. Sans ligne pour ce numéro, le bilan dit « crée gaml-lienN dans MyPulse », jamais un tracking d'un autre numéro.
 
 - **Chloé (05/10)** : Miam posé sur /4, /12, /15 et /fb, tracking de /16 remplacé, avec les liens donnés par Gaëtan. Trois de ces trackings étaient déjà sur un autre lien (/12 sur /2, /fb sur /1, /16 sur /14) : ces trois liens attendent leur propre tracking.
+
+## ⏱️ Deux délais de 3 jours : test de montage, puis compte 1 (05/10, 15 h)
+
+Gaëtan : « je veux qu'il fasse le test de montage vidéo en 3 jours. Puis premier compte IG créé en 3 jours », « GO, applique à tout le monde ».
+
+- **Test de montage** (`bot_discord.py`, `TEST_HEURES` = 72) : le MP du test annonce 3 jours et la sortie. L'échéance des tests en cours est repoussée à 72 h après l'envoi. La relance part la veille de l'échéance. À l'échéance : état `test_expire`, puis la sortie ⑦ de la boucle pipeline (MP avec le lien du formulaire, expulsion, `sortie_test` noté, relances arrêtées). Elle vaut aussi pour les `test_expire` d'avant la règle encore sur le serveur, et pour un test parti MP fermés. Jamais un signé, le staff, une créatrice, ni un test rendu (`test_rendu`, `refuse`, `valide`). `TEST_SORTIE=0` remet le retest à 15 jours. Le quiz reste avant l'arrivée sur le serveur.
+
+- **Compte 1** (`appel.py`) : la purge ne demande plus le silence dans le salon. Compte 1 non créé 3 jours après sa livraison = sortie et expulsion, à chaque passage de la boucle (30 min), plus seulement au démarrage. Un des comptes livrés vu existant par le scan Instagram (`etats_comptes.json`) compte comme créé, même sans le bouton « C'est fait ». `PURGE_SILENCE=1` remet « et pas un mot depuis 72 h ».

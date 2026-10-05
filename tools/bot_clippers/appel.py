@@ -32,7 +32,11 @@ GENERAL = os.environ.get("APPEL_GENERAL", "1").strip() != "0"
 # privé ») : la purge, une fois au démarrage (PURGE_72H=1), puis `!purge` / `!purge go`.
 PURGE = os.environ.get("PURGE_72H", "1").strip() != "0"
 PURGE_HEURES = int(os.environ.get("PURGE_HEURES", "72") or 72)
-RAISON_PURGE = f"{PURGE_HEURES} h sans créer ton compte 1 et sans un mot dans ton salon"
+# 05/10, 15 h (Gaëtan : « premier compte IG créé en 3 jours », « applique à tout le monde ») : le compte 1 non créé suffit, qu'il ait
+# parlé ou non dans son salon (PURGE_SILENCE=1 pour revenir à « et pas un mot ») ; la purge tourne à chaque passage (30 min).
+PURGE_SILENCE = os.environ.get("PURGE_SILENCE", "0").strip() == "1"
+RAISON_PURGE = (f"{PURGE_HEURES} h sans créer ton compte 1 et sans un mot dans ton salon" if PURGE_SILENCE
+                else f"compte 1 Instagram non créé {PURGE_HEURES // 24} jours après l'avoir reçu")
 _deps = {}
 
 TEXTE_APPEL = ("📢 **{prenom}, réponds ici dans les {heures} h.** Un mot suffit : « présent ».\n\n"
@@ -308,6 +312,20 @@ def _compte_cree(uid: str, parcours: dict, onboarding: dict):
     return cree, _dt(onb.get("date"))
 
 
+def _compte_cree_ou_vu(uid: str, parcours: dict, onboarding: dict):
+    """05/10, 15 h : la règle « compte 1 créé en 3 jours » est stricte (le silence ne protège plus) ; un compte créé sans appuyer sur
+    le bouton ne doit pas faire sortir son clipper → un de ses comptes livrés vu existant par le scan Instagram compte comme créé."""
+    cree, livraison = _compte_cree(uid, parcours, onboarding)
+    if cree or not _deps.get("compte_vu"):
+        return cree, livraison
+    handles = (onboarding.get("clippers", {}).get(uid) or {}).get("comptes") or []
+    try:
+        return bool(handles and _deps["compte_vu"](handles)), livraison
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Scan des comptes de %s illisible : %s", uid, erreur)
+        return True, livraison                                          # dans le doute, personne ne sort
+
+
 async def candidats_purge(cibles: list, maintenant=None) -> list:
     """[(salon, membre, heures depuis la livraison, dernier message iso ou '')] : compte 1 livré depuis PURGE_HEURES ou plus, jamais
     créé (ni bouton, ni profil, ni étape 2), et aucun message du clipper dans son salon depuis PURGE_HEURES. Protégés exclus."""
@@ -321,11 +339,11 @@ async def candidats_purge(cibles: list, maintenant=None) -> list:
         prenom = _deps["prenom_de"](membre) if _deps.get("prenom_de") else getattr(membre, "display_name", uid)
         if uid in deja or _protege(uid, prenom):
             continue
-        cree, livraison = _compte_cree(uid, parcours, onboarding)
+        cree, livraison = _compte_cree_ou_vu(uid, parcours, onboarding)
         if cree or livraison is None or maintenant - livraison < timedelta(hours=PURGE_HEURES):
             continue
         dernier = await derniere_activite_salon(salon, membre, limite=300)
-        if dernier is not None and maintenant - dernier < timedelta(hours=PURGE_HEURES):
+        if PURGE_SILENCE and dernier is not None and maintenant - dernier < timedelta(hours=PURGE_HEURES):
             continue
         out.append((salon, membre, int((maintenant - livraison).total_seconds() // 3600), _iso(dernier) if dernier else ""))
     return out
@@ -431,15 +449,6 @@ async def boucle(client):
         return
     journal.info("Appel de présence actif : %d h pour répondre, inactif %d j = appelé, expulsion %s", HEURES, INACTIF_JOURS, "ON" if KICK else "OFF")
     await asyncio.sleep(90)                                             # le reste du démarrage d'abord (salons, registre)
-    try:                                                                # 05/10 : la purge demandée par Gaëtan, une fois
-        if PURGE and not _lire().get("purge_72h"):
-            bilan_p = await purger(client, appliquer=True)
-            canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
-            if canal is not None:
-                await canal.send((f"🚪 **Purge {PURGE_HEURES} h** (compte 1 jamais créé, pas un mot dans le salon) : "
-                                  + (f"{sum(1 for b in bilan_p if b.startswith('🚪'))} sortie(s)\n" + "\n".join(bilan_p) if bilan_p else "personne"))[:1990])
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.warning("Purge 72 h : %s", erreur)
     try:
         if GENERAL and not _lire().get("general"):
             appeles = await appel_general(client)
@@ -450,6 +459,15 @@ async def boucle(client):
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Appel général : %s", erreur)
     while not client.is_closed():
+        try:                                                            # 05/10, 15 h : la purge à chaque passage, plus une seule fois
+            if PURGE:
+                bilan_p = await purger(client, appliquer=True)
+                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                if bilan_p and canal is not None:
+                    await canal.send((f"🚪 **Purge** ({RAISON_PURGE}) : {sum(1 for b in bilan_p if b.startswith('🚪'))} sortie(s)\n"
+                                      + "\n".join(bilan_p))[:1990])
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Purge : %s", erreur)
         try:
             bilan = await executer(client, appliquer=True)
             if bilan and _deps.get("canal_admin"):

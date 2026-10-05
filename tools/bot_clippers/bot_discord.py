@@ -2715,11 +2715,11 @@ def texte_test(score="") -> str:
         "1. Prends une vidéo du dossier.\n"
         "2. Monte-la en Reel vertical. Une première seconde qui accroche. Des sous-titres.\n"
         "3. Envoie-la ici avec le **+** à gauche. 10 Mo maximum.\n\n"
-        "Tu as 48 h. Une question ? Écris ici.")
+        f"Tu as {TEST_HEURES // 24} jours. Sans vidéo à temps, tu sors du serveur. Une question ? Écris ici.")
 
 
 async def envoyer_test_candidat(membre, score=""):
-    """Enregistre l'état test_envoye et envoie le test 48 h en MP. Retourne True si le MP est parti.
+    """Enregistre l'état test_envoye et envoie le test (TEST_HEURES, 72 h depuis le 05/10) en MP. Retourne True si le MP est parti.
     MP fermés : l'état garde mp_ok=False et l'horloge ne démarre PAS — la boucle pipeline
     retente l'envoi à chaque tour, et pose l'échéance au moment où le MP part vraiment."""
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -2730,7 +2730,7 @@ async def envoyer_test_candidat(membre, score=""):
         "etat": "test_envoye", "score_quiz": score or ancien.get("score_quiz", ""), "relance": False,
         "mp_ok": envoye, "essais_test": int(ancien.get("essais_test", 0)) + 1,
         "envoi": maintenant.isoformat(timespec="seconds"),
-        "echeance": (maintenant + timedelta(hours=48)).isoformat(timespec="seconds")}
+        "echeance": (maintenant + timedelta(hours=TEST_HEURES)).isoformat(timespec="seconds")}
     if ancien.get("relances", {}).get("stop"):
         nouvel_etat["relances"] = {"stop": True}
     donnees.setdefault("etats", {})[str(membre.id)] = nouvel_etat
@@ -2741,6 +2741,10 @@ async def envoyer_test_candidat(membre, score=""):
 QUIZ_CYCLE_H = int(os.environ.get("QUIZ_CYCLE_H", "24") or 24)          # 29/09 (Gaëtan : « il a le droit de recommencer ») :
                                                                           # deux essais ratés → deux nouveaux essais 24 h plus tard
 QUIZ_DELAI_H = int(os.environ.get("QUIZ_DELAI_H", "72") or 72)           # l'échéance annoncée pour faire le quiz
+# 05/10 (Gaëtan, GO « applique à tout le monde » : « je veux qu'il fasse le test de montage vidéo en 3 jours ») : le test se rend
+# en TEST_HEURES ; sans vidéo à l'échéance, MP puis expulsion (il peut refaire le formulaire). TEST_SORTIE=0 : ancien retest à 15 j.
+TEST_HEURES = int(os.environ.get("TEST_HEURES", "72") or 72)
+TEST_SORTIE = os.environ.get("TEST_SORTIE", "1").strip() != "0"
 CANDIDAT_SORTIE_JOURS = int(os.environ.get("CANDIDAT_SORTIE_JOURS", "7") or 7)   # sans quiz réussi au bout de 7 j : sortie (0 = jamais)
 SORTIE_QUIZ_DEPUIS = "2026-09-29"                                        # personne ne sort pour un retard antérieur à cette règle
 
@@ -3286,7 +3290,7 @@ def ou_en_es_tu(uid: str) -> str:
     if etat in ("test_expire", "refuse"):
         retest = date_fr(info.get("retest", ""))
         return (f"**Retest possible à partir du {retest}** : ce jour-là, écris **VALIDÉ** ici et ton test "
-                "(1 vidéo, 48 h) repart ici." if retest else "Écris **VALIDÉ** ici pour redemander un test.")
+                f"(1 vidéo, {TEST_HEURES // 24} jours) repart ici." if retest else "Écris **VALIDÉ** ici pour redemander un test.")
     if etat == "valide":
         # 30/09 : plus de J'ACCEPTE après le test (les 5 règles sont acceptées au formulaire) — l'accès s'ouvre tout seul
         return "**Test validé** : tu as rejoint l'agence. Ta créatrice et ton compte 1 arrivent ici."
@@ -3826,15 +3830,22 @@ async def boucle_pipeline():
                     if membre and not stop_t and await envoyer_mp(membre, texte_test(info.get("score_quiz", ""))):
                         info["mp_ok"] = True
                         info["envoi"] = maintenant.isoformat(timespec="seconds")
-                        info["echeance"] = (maintenant + timedelta(hours=48)).isoformat(timespec="seconds")
+                        info["echeance"] = (maintenant + timedelta(hours=TEST_HEURES)).isoformat(timespec="seconds")
                         modifie = True
                         canal_t = await canal_admin()
                         if canal_t:
-                            await canal_t.send(f"🧪 MP enfin ouverts : test envoyé à {membre.mention}, 48 h à partir de maintenant.")
+                            await canal_t.send(f"🧪 MP enfin ouverts : test envoyé à {membre.mention}, {TEST_HEURES} h à partir de maintenant.")
                     continue
                 echeance = datetime.fromisoformat(info["echeance"])
                 envoi = datetime.fromisoformat(info["envoi"])
-                if maintenant > echeance:
+                if echeance < envoi + timedelta(hours=TEST_HEURES):         # 05/10 : les tests en cours passent de 48 h à 72 h
+                    echeance = envoi + timedelta(hours=TEST_HEURES)
+                    info["echeance"] = echeance.isoformat(timespec="seconds")
+                    modifie = True
+                if maintenant > echeance and TEST_SORTIE:
+                    info["etat"] = "test_expire"                                # la sortie ⑦ plus bas : MP puis expulsion
+                    modifie = True
+                elif maintenant > echeance:
                     info["etat"] = "test_expire"
                     info["retest"] = (maintenant + timedelta(days=15)).isoformat(timespec="seconds")
                     modifie = True
@@ -3843,7 +3854,7 @@ async def boucle_pipeline():
                                                  "Pas grave — tu peux retenter à partir du "
                                                  f"{info['retest'][:10]}. Reste sur le serveur, revois les fiches, "
                                                  "et ce jour-là écris **VALIDÉ** ici en MP : ton test repartira.")
-                elif maintenant > envoi + timedelta(hours=24) and not info.get("relance") and not relance_nouveaux.ACTIF:
+                elif maintenant > echeance - timedelta(hours=24) and not info.get("relance") and not relance_nouveaux.ACTIF:
                     info["relance"] = True
                     modifie = True
                     if membre and not stop_t:
@@ -3944,6 +3955,38 @@ async def boucle_pipeline():
                 except (discord.Forbidden, discord.HTTPException) as erreur:
                     journal.warning("Sortie quiz de %s impossible : %s", uid, erreur)
                     cible_s["sortie_quiz"] = "echec"; modifie = True
+                await asyncio.sleep(1.2)
+            # ⑦ 05/10 (Gaëtan : test de montage en 3 jours, « applique à tout le monde ») : test envoyé il y a TEST_HEURES ou plus et
+            # jamais rendu (test_envoye échu ou test_expire, y compris les expirés d'avant cette règle encore sur le serveur) →
+            # MP puis expulsion. Jamais un signé, jamais le staff ; un rendu (test_rendu, refuse, valide) n'est pas concerné.
+            for uid, info_t in (list(donnees.get("etats", {}).items()) if TEST_SORTIE else []):
+                if info_t.get("etat") not in ("test_envoye", "test_expire") or uid in equipes_r or info_t.get("sortie_test"):
+                    continue
+                try:
+                    envoi_t = datetime.fromisoformat(info_t.get("envoi") or "")
+                except ValueError:
+                    continue
+                if maintenant - envoi_t < timedelta(hours=TEST_HEURES):
+                    continue
+                membre_t = membre_par_id(uid)
+                if membre_t is None:
+                    info_t["sortie_test"] = maintenant.isoformat(timespec="seconds"); modifie = True
+                    continue
+                if any(r.name != "@everyone" and normaliser(r.name) not in sans_poids for r in getattr(membre_t, "roles", [])):
+                    continue                                                # staff, créatrice, équipe : jamais
+                lien_site = web_candidature.lien_candidature() or LIEN_FORMULAIRE
+                await envoyer_mp(membre_t, f"⌛ {TEST_HEURES // 24} jours sans test de montage rendu : ta place est partie.\n\n"
+                                           "Tu peux recommencer quand tu veux : refais le formulaire, tu reçois une nouvelle invitation."
+                                           + (f"\n{lien_site}" if lien_site else ""))
+                try:
+                    await membre_t.kick(reason=f"Test de montage non rendu en {TEST_HEURES} h")
+                    info_t["etat"] = "test_expire"; info_t["sortie_test"] = maintenant.isoformat(timespec="seconds")
+                    info_t.setdefault("relances", {})["stop"] = True; modifie = True
+                    await notifier_manager(f"🚪 {membre_t.display_name} sorti : test de montage non rendu en {TEST_HEURES // 24} jours. "
+                                           "Il peut refaire le formulaire.")
+                except (discord.Forbidden, discord.HTTPException) as erreur:
+                    journal.warning("Sortie test de %s impossible : %s", uid, erreur)
+                    info_t["sortie_test"] = "echec"; modifie = True
                 await asyncio.sleep(1.2)
             # ③④⑤ Étapes portées par l'état du pipeline.
             for uid, info in list(donnees.get("etats", {}).items()):
@@ -4341,7 +4384,7 @@ async def accueillir(member):
                      f"{LIEN_FORMULAIRE} — à la fin il te ramène ici, et je te guide.\n") if LIEN_FORMULAIRE else "")
                  + "✅ **Déjà candidaté ?** Réponds-moi simplement avec **ton numéro de téléphone** ici "
                    "(celui du formulaire) — je te guide ensuite étape par étape.\n"
-                 f"Pas d'entretien : formation → quiz → test de montage 48 h. Ceux qui livrent sont pris 🚀{aide}\n"
+                 f"Pas d'entretien : formation → quiz → test de montage à rendre en 3 jours. Ceux qui livrent sont pris 🚀{aide}\n"
                  "-# 🛡️ Sécurité : l'agence ne recrute et ne paie QUE via ce serveur et moi. Un inconnu "
                  "qui te DM une « offre » (lives TikTok, job…) = arnaque : bloque + signale à Gaëtan.")
     mp_ok = await envoyer_mp(member, guide)
@@ -4561,7 +4604,7 @@ def texte_aide(membre, est_admin: bool) -> str:
     return ("🧰 **Ton parcours, dans l'ordre**\n"
             "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
             f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {seuil_quiz_texte()}, 2 essais).\n"
-            "3. Quiz réussi → **test de montage 48 h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
+            "3. Quiz réussi → **test de montage à rendre en 3 jours** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
             # 01/10 (Gaëtan : « la même règle pour tous ») : plus de « un tous les 48 h » seul ; la règle canonique,
             # « ici » devenu « dans ton salon perso » parce que cette aide se lit en MP.
             # 01/10 (relecture) : la règle tirée de parcours.regle_comptes(), qui suit PARCOURS_ATTENTE_COMPTE_H et
@@ -5908,7 +5951,7 @@ async def commande_admin(message, texte: str) -> bool:
         if not score:
             score = next(iter(re.findall(r"\d+", re.sub(r"<@!?\d+>", "", corps))), "") if message.mentions else ""
         envoye = await envoyer_test_candidat(membre, score)
-        await message.reply(f"✅ {membre.mention} → test envoyé en MP, deadline 48 h, relance auto à 24 h."
+        await message.reply(f"✅ {membre.mention} → test envoyé en MP, deadline {TEST_HEURES} h, relance auto la veille."
                             if envoye else
                             f"⚠️ {membre.mention} a ses MP fermés — état enregistré, mais envoie-lui le lien à la main.")
         return True
@@ -6430,7 +6473,7 @@ async def commande_admin(message, texte: str) -> bool:
             if not encore:
                 lignes.append("· personne d'encore présent sur le serveur.")
             elif not relancer:
-                lignes.append("→ Pour leur rouvrir un créneau de 48 h : `!tests relancer`")
+                lignes.append(f"→ Pour leur rouvrir un créneau de {TEST_HEURES // 24} jours : `!tests relancer`")
         else:
             lignes.append("⌛ Aucun test expiré.")
 
@@ -6445,12 +6488,12 @@ async def commande_admin(message, texte: str) -> bool:
                 ignores.append(f"<@{u}>")
                 continue
             await envoyer_mp(m, "🔄 **On te redonne une chance.** Ton test avait expiré — on rouvre "
-                                "un créneau de 48 h à partir de maintenant. Si le timing ne va pas, "
+                                f"un créneau de {TEST_HEURES // 24} jours à partir de maintenant. Si le timing ne va pas, "
                                 "dis-le-nous plutôt que de laisser filer : on peut décaler.")
             ok = await envoyer_test_candidat(m, i.get("score_quiz", ""))
             relances.append(f"{m.display_name}{'' if ok else ' (MP fermés — à relancer à la main)'}")
             await asyncio.sleep(1.2)
-        bilan = [f"🔄 **{len(relances)} test(s) relancé(s)** — nouvelle échéance dans 48 h",
+        bilan = [f"🔄 **{len(relances)} test(s) relancé(s)** — nouvelle échéance dans {TEST_HEURES} h",
                  *[f"· {r}" for r in relances]]
         if ignores:
             bilan += ["", f"⏭️ **{len(ignores)} ignoré(s)** (plus sur le serveur) : {', '.join(ignores)}"]
@@ -7119,7 +7162,11 @@ async def on_ready():
                           "canal_admin": canal_admin, "prenom_de": prenom_de,
                           "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
                           "roster": roster, "normaliser": normaliser, "heure_paris": heure_paris, "jours_sans_reel": sortie_auto.jours_sans_reel,
-                          "lien_whatsapp": parcours.lien_whatsapp_prerempli, "est_staff": _staff, "membre_par_id": membre_par_id})
+                          "lien_whatsapp": parcours.lien_whatsapp_prerempli, "est_staff": _staff, "membre_par_id": membre_par_id,
+                          # 05/10 : un compte livré vu existant par le scan Instagram = compte créé (la purge ne sort pas sur le seul bouton)
+                          "compte_vu": lambda handles: any(any(x.get("existe") for x in lire_json(FICHIER_ETATS, {}).get("historique", {})
+                                                                   .get(onboarding.normaliser_handle(str(h)).lower(), []))
+                                                           for h in handles)})
         parcours._deps["activite"] = appel.noter_activite                  # un bouton d'étape = une réponse à l'appel
         client.loop.create_task(appel.boucle(client))                           # 05/10 : l'appel de présence, sans réponse 48 h = sorti
         acquisition_subs.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "acquisition_subs.json",
