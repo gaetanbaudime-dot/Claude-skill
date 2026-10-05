@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 
+import { signaler } from "@/lib/signal";
+
 type Dest = { chemin: string[]; complet: boolean };
 const TUILES = [
   { type: "reels", titre: "Reels", sous: "Instagram", lettre: "R", teinte: "from-[#2b6cff]/40 to-[#7aa7ff]/10" },
@@ -24,7 +26,7 @@ export default function DriveTab({ jeton, mym }: { jeton: string; mym: boolean }
           const d = dest?.[t.type];
           const ou = d ? (d.chemin.length ? d.chemin.join(" · ") : (t.type === "feed" || t.type === "scripts") && !mym ? "Ton dossier Drive" : `Dossier ${t.titre}`) : "";
           return (
-            <a key={t.type} href={`/api/c/${jeton}/drive/${t.type}`} target="_blank" rel="noopener"
+            <a key={t.type} href={`/api/c/${jeton}/drive/${t.type}`} target="_blank" rel="noopener" onClick={() => signaler(jeton, `drive:${t.type}`)}
                className={`tuile carte apparait-${i + 1} relative overflow-hidden p-4 aspect-[0.92] flex flex-col justify-between`}>
               <div className={`absolute inset-0 bg-gradient-to-br ${t.teinte} opacity-90`} />
               <div className="relative flex items-start justify-between">

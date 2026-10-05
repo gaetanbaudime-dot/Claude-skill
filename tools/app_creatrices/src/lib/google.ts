@@ -21,7 +21,7 @@ export async function jetonGoogle(): Promise<string> {
   const entete = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const corps = b64url(JSON.stringify({
     iss: c.client_email, aud: "https://oauth2.googleapis.com/token", iat: maintenant, exp: maintenant + 3600,
-    scope: "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.readonly",
+    scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive",
   }));
   const signeur = createSign("RSA-SHA256");
   signeur.update(`${entete}.${corps}`);

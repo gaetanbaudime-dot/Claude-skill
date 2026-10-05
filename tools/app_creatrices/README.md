@@ -14,7 +14,7 @@ Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (
 
 | Variable | Contenu |
 |---|---|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | le JSON du compte de service de l'agence (lecture seule Sheets + Drive) |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | le JSON du compte de service de l'agence (lecture Sheets + Drive, écriture du seul tableur d'usage) |
 | `DATA_GM_ID` | l'identifiant du classeur Data G&M |
 | `CREATRICES_JSON` | un objet `{ "<jeton>": { "prenom", "onglet", "racine", "reels", "photos", "feed", "scripts" } }` par créatrice, le jeton étant un secret aléatoire de 12 à 64 caractères (`[A-Za-z0-9_-]`) |
 
@@ -27,12 +27,17 @@ Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (
 - Le compte de service n'a que des droits de lecture.
 - L'API ne renvoie que des chiffres déjà convertis et des identifiants de dossiers Drive que la créatrice peut ouvrir.
 
+## Journal d'usage (pour l'agence)
+
+Chaque ouverture, changement d'onglet, période de stats et tuile Drive envoie un événement à `/api/c/<jeton>/ev`. L'app écrit une ligne (date, heure Paris, prénom, événement, mode app ou navigateur) dans un tableur « App créatrices · usage » qu'elle crée elle-même au premier événement, avec le compte de service, dans le dossier interne « [A] G&M — Interne » à la racine du Drive de l'agence. Rien d'autre n'est collecté. Le tableur sert à juger si l'app est utilisée.
+
 ## Routes
 
 - `/c/<jeton>` : l'application.
 - `/api/c/<jeton>/stats?periode=hier|j7|j30|m|m1` : chiffres de la période (JSON).
 - `/api/c/<jeton>/drive` : libellés des dossiers visés par les quatre tuiles.
 - `/api/c/<jeton>/drive/<reels|photos|feed|scripts>` : redirection 302 vers le dossier Drive du moment.
+- `/api/c/<jeton>/ev` (POST) : événement d'usage, liste fermée, 60 par minute et par créatrice au plus.
 
 ## Ajouter une créatrice
 

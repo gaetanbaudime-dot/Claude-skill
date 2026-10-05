@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { signaler } from "@/lib/signal";
 /** Graduations courtes de l'axe Y : 1 800 → « 1,8 k », pour tenir dans la marge gauche sur téléphone. */
 const compact = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k` : `${Math.round(v)}`);
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -67,7 +68,7 @@ export default function StatsTab({ jeton }: { jeton: string }) {
       .catch((e: Error) => { if (vivant) { setErreur(e.message); setChargement(false); } });
     return () => { vivant = false; };
   }, [jeton, periode]);
-  const choisir = (p: string) => { setPeriode(p); try { localStorage.setItem("gm-periode", p); } catch { /* privé */ } };
+  const choisir = (p: string) => { setPeriode(p); signaler(jeton, `stats:${p}`); try { localStorage.setItem("gm-periode", p); } catch { /* privé */ } };
   const index = PERIODES.findIndex((p) => p.cle === periode);
   const serie = useMemo(() => (stats?.serie || []).map((j) => ({ ...j, label: jourCourt(j.jour) })), [stats]);
   const unJour = stats ? stats.periode.debut === stats.periode.fin : false;

@@ -4,6 +4,7 @@ import Logo from "./Logo";
 import DriveTab from "./DriveTab";
 import ReelsTab from "./ReelsTab";
 import StatsTab from "./StatsTab";
+import { modeApp, signaler } from "@/lib/signal";
 
 type Onglet = "drive" | "reels" | "stats";
 
@@ -26,8 +27,9 @@ export default function App({ prenom, jeton, mym }: { prenom: string; jeton: str
   const [onglet, setOnglet] = useState<Onglet>("stats");
   useEffect(() => {
     try { const m = localStorage.getItem("gm-onglet") as Onglet | null; if (m && ONGLETS.some((o) => o.cle === m)) setOnglet(m); } catch { /* privé */ }
-  }, []);
-  const choisir = (o: Onglet) => { setOnglet(o); try { localStorage.setItem("gm-onglet", o); } catch { /* privé */ } };
+    signaler(jeton, "ouverture", modeApp());
+  }, [jeton]);
+  const choisir = (o: Onglet) => { setOnglet(o); signaler(jeton, `onglet:${o}`); try { localStorage.setItem("gm-onglet", o); } catch { /* privé */ } };
   const heure = new Date().getHours();
   const salut = heure < 5 ? "Bonne nuit" : heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
   return (
