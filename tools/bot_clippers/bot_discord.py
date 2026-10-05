@@ -93,6 +93,14 @@ CANAL_MANAGER_ID = os.environ.get("CANAL_MANAGER_ID", "").strip()
 # effacée une fois traitée — elle porte un numéro de téléphone et n'apporte rien de plus que la fiche.
 WEBHOOK_EFFACER = os.environ.get("WEBHOOK_EFFACER", "1").strip() == "1"
 MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
+# 05/10 (Gaëtan : « Go pour Sonnet sur #assistant ») : le salon commun de l'assistant tourne sur Sonnet, tout le reste (juge du test,
+# relecture des Reels, rétrospective, MP des candidats) reste sur Haiku. Réflexion adaptative au niveau « low » (c'est du chat, la
+# réponse est plafonnée à 450 caractères par le prompt), plus de marge de sortie pour que la réflexion ne mange pas la réponse.
+MODELE_ASSISTANT = os.environ.get("MODELE_ASSISTANT", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
+EFFORT_ASSISTANT = os.environ.get("EFFORT_ASSISTANT", "low").strip() or "low"
+MAX_TOKENS_ASSISTANT = int(os.environ.get("MAX_TOKENS_ASSISTANT", "1500") or 1500)
+# Prix (par million de tokens, API Anthropic, septembre 2026) : entrée, sortie, lecture du cache, écriture du cache (TTL 1 h = 2×)
+PRIX_TOKENS = {"claude-sonnet-5-5": (2.0, 10.0, 0.20, 4.0), "claude-haiku-4-5": (1.0, 5.0, 0.10, 2.0)}
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
 ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.strip()}
 
@@ -115,6 +123,10 @@ NOMS_RANGS = ("Clippeur", "Rookie", "Confirmé", "Elite")                       
 CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # « 💸 Déjà payés : X € »
 CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # « 🎬 Clippers : N »
 WHATSAPP_GAETAN_URL = os.environ.get("WHATSAPP_GAETAN_URL", "").strip()        # 26/09 : escalade des blocages vers Gaëtan (lien wa.me)
+# 05/10 (Gaëtan, après l'audit : « arrêter de polluer chaque salon privé », « assistant IA général dans un salon ») : l'assistant ne
+# répond plus dans les salons persos (ASSISTANT_SALON_PERSO=1 pour revenir en arrière) mais dans #assistant, pour tout le monde.
+ASSISTANT_SALON_PERSO = os.environ.get("ASSISTANT_SALON_PERSO", "0").strip() == "1"
+SALON_ASSISTANT_NOM = os.environ.get("SALON_ASSISTANT_NOM", "💬-assistant").strip() or "💬-assistant"
 SALON_PERSO_MANAGERS = os.environ.get("SALON_PERSO_MANAGERS", "0").strip() == "1"  # 26/09 : « n'ajoute pas Jonas dans les nouveaux salons »
 ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) d'équipe (ex. Rookie,Confirmé,Élite) ; depuis le 26/09 le salon « Clippers : N » compte le roster de rapport_jonas.json, plus ces rôles
 # Rôles d'ÉQUIPE (accès aux salons rémunération/discussion par pays) : attribution UNIQUEMENT via
@@ -177,7 +189,8 @@ DONNEES.mkdir(parents=True, exist_ok=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
 JOURNAL = DONNEES / "journal_questions.jsonl"
 FICHIER_CONNAISSANCES = DOSSIER / "connaissances.md"          # base curée, versionnée dans le repo
-FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via !apprendre, sur le volume persistant
+FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via !apprendre Q | R, sur le volume persistant
+FICHIER_AJOUTS = DONNEES / "connaissances_ajouts.md"         # 05/10 : les ajouts de Gaëtan en texte libre (!apprendre), PRIMAIRES
 FICHIER_COMPTEUR_VERSE = DONNEES / "compteur_verse.json"     # {"total": float, "message_id": int}
 FICHIER_INVITES = DONNEES / "invites.json"                   # attribution des joins par invitation
 JOURNAL_PAIEMENTS = DONNEES / "paiements.jsonl"              # trace de chaque !paiement
@@ -268,10 +281,8 @@ NOM_BOT = os.environ.get("NOM_BOT", "G&M Assistant Marketing").strip()
 INSTRUCTIONS = f"""Tu es « {NOM_BOT} », le bot d'aide aux clippers de l'équipe.
 RÈGLE DES PRÉNOMS : les pseudos des clippers sont « Prénom - Créatrice » (Georgial - Sophie). La personne s'appelle Georgial ; \
 Sophie est SA CRÉATRICE, pas lui. Tu appelles toujours le clipper par le prénom AVANT le tiret, jamais par celui d'après.
-Fait capital : tu es AUSSI le bot du tunnel candidat — le numéro en MP, !lier, le quiz, le
-test, le contrat, c'est TOI, le même compte Discord, le même nom. Quand quelqu'un demande
-« quel bot ? » ou « tu as reçu mon MP ? », la réponse est : c'est moi, envoie ton numéro ici
-même en message privé. Tu ne renvoies JAMAIS vers un « autre bot ».
+Fait capital : tu es AUSSI le bot du tunnel candidat (formulaire du site, quiz, test de montage) : le même compte
+Discord, le même nom. « Quel bot ? » : c'est moi. Tu ne renvoies JAMAIS vers un « autre bot ».
 Ton unique rôle : répondre aux questions des clippers à partir de la BASE DE CONNAISSANCES \
 ci-dessous (le kit clipper officiel + la stratégie marketing de l'équipe), et rien d'autre.
 
@@ -293,8 +304,8 @@ dans le kit (Reel, story, bio, warm-up, hook, rush, ban). Pas de jargon marketin
 1bis. Si la base ne répond qu'en PARTIE, donne la partie connue et dis clairement ce que tu \
 ne sais pas — jamais de délai, de montant, de date ou de règle qui ne soit pas écrit dans la \
 base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LES \
-CRÉNEAUX DE CRÉATION DE COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; la base \
-curée prime toujours sur la « FAQ apprise » qui la suit.
+CRÉNEAUX DE CRÉATION DE COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; les « AJOUTS DE GAËTAN » \
+placés en tête de la base PRIMENT sur tout le reste (c'est lui qui décide) ; la base curée prime sur la « FAQ apprise » qui la suit.
 4. Une ligne « 👉 Prochaine étape : … » ferme ta réponse SEULEMENT si elle dit autre chose que le message \
 d'étape déjà posté dans le salon : le geste précis à faire maintenant, et la fiche à ouvrir si elle aide \
 (ex. « 👉 Prochaine étape : ouvre la Fiche 2 et fais tes 10 minutes de Reels »). Si la prochaine étape \
@@ -329,25 +340,18 @@ et ne redemande JAMAIS une info déjà donnée plus haut. Par défaut tu RÉPOND
 l'interprétation la plus probable (en ajoutant au besoin « dis-moi si tu voulais dire autre \
 chose ») ; ne pose une vraie question de clarification que si deviner est vraiment impossible, \
 et jamais deux fois de suite.
-10bis. Dans les salons d'équipe et de pods (quand on te mentionne hors du salon assistant), \
-tu es un COACH, pas un standard : un clipper partage un palier de vues → félicite en UNE \
-phrase avec son chiffre, puis UN conseil actionnable du kit (story à la une bien posée ? Reels \
-d'essai lancés ? → Fiche 4 et Fiche 5). Un screenshot d'avertissement Meta/Instagram → réponds \
-selon la base, dis clairement si c'est grave ou pas, et ce qu'il faut changer (ou rien). \
-Même registre que l'équipe : direct, chaleureux, zéro blabla.
 15. Chaque message que tu reçois commence par une ligne [Contexte : …] qui dit OÙ on te parle \
 (message privé, ou le nom du salon) et les RÔLES de la personne. Sers-t'en : tu ne dis jamais à \
 quelqu'un qu'il est « dans le mauvais salon » s'il est déjà dans le salon de l'assistant ; un rôle \
-« Team France » ou « Team International » = clipper sous contrat ; un rôle « Manager » = il gère \
-des clippers : réponds-lui avec la section MANAGER de la base (ses missions, ses créneaux, ses \
-commandes), jamais avec le parcours candidat.
+« Clippeur » (ou un rôle au prénom d'une créatrice) = clipper signé ; un rôle « Manager » = il gère \
+des clippers : réponds-lui avec la section MANAGER de la base, jamais avec le parcours candidat.
 16. Longueur : JAMAIS plus de 450 caractères (4 lignes courtes, 3 puces maximum). Si la \
 question demande plus, donne les 3 points essentiels puis le lien de la fiche — la fiche fait le \
 reste. Une réponse trop longue est coupée : mieux vaut courte et complète.
 17. Image hors sujet (arnaque, publicité, mème, capture sans rapport avec le kit) : UNE phrase \
 pour dire que ce n'est pas le sujet, sans décrire l'image, et tu proposes ton aide sur le kit.
 18. Tout ce qui est OPÉRATIONNEL (mes comptes, ma créatrice, mon téléphone cloud, mes accès, \
-mes rushs) se règle avec le MANAGER : dis-le et renvoie vers lui, \
+mes rushs) se règle avec Gaëtan, sur WhatsApp (le lien est dans tes règles) ou dans le groupe WhatsApp du clipper : dis-le, \
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
@@ -391,7 +395,7 @@ jamais de pseudo.
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de comptes.
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
-28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Tout se passe dans le salon perso, sauf les codes : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
+28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent dans le salon #assistant ; les étapes et leurs boutons sont dans le salon perso ; les codes dans leur salon : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
 29. « Qui est mon manager ? » : « Ton manager est un humain (Jonas ou Gaëtan). Il lit ton salon perso. Moi, je suis l'assistant. » Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager. \
 30. Montage (30/09, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo prise dans le Drive, dossier « Reels » \
 ou « TOP 20 Reels », est MODIFIÉE avant d'être publiée, toujours, dès le premier jour : musique, texte à l'écran, filtres, \
@@ -413,7 +417,9 @@ et tu ne réponds pas à sa place."""
 if CANAL_FORMATION_ID:
     INSTRUCTIONS += (f"\n11. Dès que tu diriges vers le forum « formation », écris le lien cliquable "
                      f"<#{CANAL_FORMATION_ID}> (jamais le nom seul).")
-INSTRUCTIONS += "\n12. Il n'y a plus de salon assistant : les questions se posent dans le salon perso du clipper (ou en MP avant qu'il existe)."
+INSTRUCTIONS += ("\n12. Les questions des clippers se posent dans le salon #assistant, commun : tu y réponds à tout le monde, sans jamais "
+                 "citer un identifiant, un mot de passe ou un lien de quelqu'un (le contexte ne t'en donne pas). Dans un salon perso, le "
+                 "bot ne répond qu'aux boutons et aux commandes ; un candidat pas encore signé peut t'écrire en message privé.")   # 05/10
 _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
 # Index des salons du serveur (nom normalisé → identifiant) et forum formation résolu, remplis au
 # démarrage puis toutes les 6 h : les liens cliquables se posent en POST-TRAITEMENT, sans dépendre
@@ -452,12 +458,18 @@ def ligne_facturation() -> str:
 _connaissances = {"texte": "", "signature": None}
 
 def connaissances() -> str:
-    """Base curée (connaissances.md) + FAQ apprise (faq_apprise.md). Rechargées si un fichier change."""
+    """Ajouts de Gaëtan (connaissances_ajouts.md, 05/10, PRIMAIRES) + base curée (connaissances.md) + FAQ apprise (faq_apprise.md).
+    Rechargées si un fichier change."""
     sig_base = FICHIER_CONNAISSANCES.stat().st_mtime
     sig_faq = FICHIER_FAQ_APPRISE.stat().st_mtime if FICHIER_FAQ_APPRISE.exists() else 0.0
-    signature = (sig_base, sig_faq)
+    sig_ajouts = FICHIER_AJOUTS.stat().st_mtime if FICHIER_AJOUTS.exists() else 0.0
+    signature = (sig_base, sig_faq, sig_ajouts)
     if signature != _connaissances["signature"]:
         texte = FICHIER_CONNAISSANCES.read_text(encoding="utf-8")
+        ajouts = FICHIER_AJOUTS.read_text(encoding="utf-8").strip() if FICHIER_AJOUTS.exists() else ""
+        if ajouts:
+            texte = ("## AJOUTS DE GAËTAN (PRIMAIRES : en cas de désaccord avec la suite, c'est CECI qui fait foi, toujours)\n\n"
+                     + ajouts + "\n\n---\n\n" + texte)
         if FICHIER_FAQ_APPRISE.exists():
             texte += ("\n\n## FAQ apprise (ajouts au fil de l'eau via !apprendre — SECONDAIRE : en cas de "
                       "désaccord, la base ci-dessus fait foi)\n" + FICHIER_FAQ_APPRISE.read_text(encoding="utf-8"))
@@ -467,26 +479,68 @@ def connaissances() -> str:
     return _connaissances["texte"]
 
 
+def regle_lien_assistant() -> str:
+    """05/10 : le salon de l'assistant en lien cliquable, dès que son id est connu."""
+    cid = salon_assistant_id()
+    return f"\n12bis. Le salon de l'assistant, en lien cliquable quand tu y renvoies : <#{cid}>." if cid else ""
+
+
 def bloc_systeme():
     return [{
         "type": "text",
-        "text": INSTRUCTIONS + regle_liens_formation() + ligne_facturation() + retro.consignes_texte()
+        "text": INSTRUCTIONS + regle_lien_assistant() + regle_liens_formation() + ligne_facturation() + retro.consignes_texte()
                 + "\n\n# BASE DE CONNAISSANCES\n\n" + connaissances(),
         "cache_control": {"type": "ephemeral", "ttl": "1h"},
     }]
 
 
-def repondre_sync(messages) -> str:
+def _appel_modele(messages, modele: str):
+    """05/10 : un appel au modèle choisi — Sonnet (#assistant) avec l'effort réglé et plus de sortie, Haiku tel quel."""
+    kwargs = {"model": modele, "max_tokens": MAX_TOKENS_REPONSE, "system": bloc_systeme(), "messages": messages}
+    if modele != MODELE:
+        kwargs.update(max_tokens=MAX_TOKENS_ASSISTANT, output_config={"effort": EFFORT_ASSISTANT})
+    reponse = claude.messages.create(**kwargs)
+    compter_usage(modele, getattr(reponse, "usage", None))
+    return reponse
+
+
+def compter_usage(modele: str, usage) -> None:
+    """05/10 (Gaëtan : « chiffre-moi ») : les tokens de chaque réponse, par mois et par modèle, dans compteurs.json — `!stats`
+    en fait un coût réel. Une ligne de journal par appel (jamais le contenu)."""
+    if usage is None:
+        return
+    try:
+        entree = int(getattr(usage, "input_tokens", 0) or 0)
+        lus = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+        ecrits = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
+        sortie = int(getattr(usage, "output_tokens", 0) or 0)
+        compteurs = lire_json(FICHIER_COMPTEURS, {})
+        mois = compteurs.setdefault("usage", {}).setdefault(datetime.now(timezone.utc).strftime("%Y-%m"), {})
+        u = mois.setdefault(modele, {"questions": 0, "entree": 0, "cache_lus": 0, "cache_ecrits": 0, "sortie": 0})
+        u["questions"] += 1; u["entree"] += entree; u["cache_lus"] += lus; u["cache_ecrits"] += ecrits; u["sortie"] += sortie
+        ecrire_json(FICHIER_COMPTEURS, compteurs)
+        journal.info("Assistant %s : %d entrée, %d cache lus, %d cache écrits, %d sortie (%.4f $)", modele, entree, lus, ecrits, sortie,
+                     cout_tokens(modele, entree, lus, ecrits, sortie))
+    except Exception as erreur:                                         # noqa: BLE001 — le comptage ne bloque jamais une réponse
+        journal.warning("Comptage des tokens : %s", type(erreur).__name__)
+
+
+def cout_tokens(modele: str, entree: int, lus: int, ecrits: int, sortie: int) -> float:
+    pi, po, pl, pe = PRIX_TOKENS.get(modele, PRIX_TOKENS["claude-haiku-4-5"])
+    return (entree * pi + sortie * po + lus * pl + ecrits * pe) / 1e6
+
+
+def repondre_sync(messages, modele: str = None) -> str:
     """Appel Claude (bloquant) — lancé dans un thread depuis l'event loop Discord.
     `messages` = la conversation complète (historique récent + question courante) au format API,
-    pour que l'assistant garde le fil (fini les « c'est la première fois qu'on se parle »)."""
+    pour que l'assistant garde le fil (fini les « c'est la première fois qu'on se parle »).
+    05/10 : `modele` = Sonnet dans #assistant ; un refus de Sonnet (classifieur) est rejoué une fois sur Haiku."""
+    modele = modele or MODELE
     try:
-        reponse = claude.messages.create(
-            model=MODELE,
-            max_tokens=MAX_TOKENS_REPONSE,
-            system=bloc_systeme(),
-            messages=messages,
-        )
+        reponse = _appel_modele(messages, modele)
+        if reponse.stop_reason == "refusal" and modele != MODELE:
+            journal.info("Refus de %s, rejoué sur %s", modele, MODELE)
+            reponse = _appel_modele(messages, MODELE)
     except anthropic.RateLimitError:
         return "Trop de questions en même temps, réessaie dans une minute."
     except anthropic.APIStatusError as erreur:
@@ -496,9 +550,13 @@ def repondre_sync(messages) -> str:
         if erreur.status_code >= 500 or erreur.status_code == 529:
             time.sleep(2)
             try:
-                reponse = claude.messages.create(model=MODELE, max_tokens=MAX_TOKENS_REPONSE,
-                                                 system=bloc_systeme(), messages=messages)
-                return terminer_proprement(reponse)
+                return terminer_proprement(_appel_modele(messages, modele))
+            except Exception:                                   # noqa: BLE001
+                pass
+        if erreur.status_code == 400 and modele != MODELE:      # 05/10 : paramètre refusé pour Sonnet → Haiku, et on le dit dans le journal
+            journal.error("Paramètres refusés pour %s (%s) : réponse sur %s", modele, erreur.message, MODELE)
+            try:
+                return terminer_proprement(_appel_modele(messages, MODELE))
             except Exception:                                   # noqa: BLE001
                 pass
         journal.error("Erreur API Claude %s : %s", erreur.status_code, erreur.message)
@@ -842,14 +900,66 @@ def doit_repondre(message) -> bool:
     """On répond si : message privé, OU son salon perso, OU mention par le staff (29/09 : plus de canal ni de forum
     dédiés, ASSISTANT_GLOBAL retiré). En MP le bot dit « réponds-moi ici » à chaque étape : un texte libre y tombait
     dans le silence total (audit du 10/09) — désormais l'assistant répond, avec le contexte du parcours."""
+    staff = str(message.author.id) in ADMIN_IDS or est_manager(message.author)
     if message.guild is None:
-        return True
+        # 05/10 : en MP, un candidat (pas encore signé) pendant son test, ou le staff ; un clipper signé est renvoyé vers #assistant
+        return staff or not lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id))
     canal = message.channel
-    sp = salon_perso_de(message.author.id)                     # 25/09 : son salon perso, où le bot l'assiste (01/10 : l'assistant, pas le manager)
-    if sp is not None and sp.id == canal.id and not (str(message.author.id) in ADMIN_IDS or est_manager(message.author)):
+    cid = salon_assistant_id()
+    if cid and str(canal.id) == cid:                            # 05/10 : le salon #assistant, pour tout le monde
         return True
-    # 27/09 : plus d'assistant global — une mention hors salon perso n'est servie qu'au staff
-    return client.user in message.mentions and (str(message.author.id) in ADMIN_IDS or est_manager(message.author))
+    sp = salon_perso_de(message.author.id)                     # 25/09 : son salon perso (05/10 : plus d'IA ici, sauf ASSISTANT_SALON_PERSO=1)
+    if sp is not None and sp.id == canal.id and not staff:
+        return ASSISTANT_SALON_PERSO
+    # 27/09 : une mention hors salon perso n'est servie qu'au staff
+    return client.user in message.mentions and staff
+
+
+def salon_assistant_id() -> str:
+    """05/10 : l'id du salon #assistant (CANAL_ASSISTANT_ID, réparé ou créé par assurer_salon_assistant), '' sans lui."""
+    return str(CANAL_ASSISTANT_ID or "")
+
+
+async def assurer_salon_assistant():
+    """05/10 (Gaëtan : « on va repartir sur l'assistant IA général dans un salon ») : le salon #assistant existe (retrouvé par son
+    nom, sinon créé dans la catégorie Clippers, lisible par tout le serveur), son id est retenu, un mode d'emploi épinglé."""
+    global CANAL_ASSISTANT_ID
+    await client.wait_until_ready()
+    for guild in client.guilds:
+        salon = client.get_channel(int(CANAL_ASSISTANT_ID)) if str(CANAL_ASSISTANT_ID).isdigit() else None
+        if salon is None:
+            salon = next((c for c in guild.text_channels if "assistant" in normaliser(c.name)), None)
+        sujet = "Pose ta question ici, le bot répond. Jamais d'identifiant, de mot de passe ni de lien perso ici."
+        if salon is None:
+            try:
+                cat = await categorie_clippers(guild)
+                overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+                              guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)}
+                salon = await guild.create_text_channel(SALON_ASSISTANT_NOM, category=cat, overwrites=overwrites, topic=sujet,
+                                                        reason="Salon de l'assistant IA (05/10)")
+                journal.info("Salon #%s créé pour l'assistant", salon.name)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Salon #assistant : création refusée (%s) — crée-le à la main et pose CANAL_ASSISTANT_ID", erreur)
+                return
+        CANAL_ASSISTANT_ID = str(salon.id)
+        _SALONS["assistant"] = str(salon.id)
+        marque = lire_json(DONNEES / "annonces.json", {})
+        if marque.get("assistant_mode_emploi") != {"salon": str(salon.id), "version": 1}:
+            try:
+                m = await salon.send("💬 **Ici, tu poses tes questions au bot** : la méthode, les comptes, le warm-up, les Reels, le lien, la paie. "
+                                     "Il répond en quelques secondes, à tout le monde.\n\n"
+                                     "Jamais ici : un identifiant, un mot de passe, ton lien. Ça, c'est dans ton salon perso.\n\n"
+                                     "Le bot ne sait pas ? Il te le dit. Alors : Gaëtan sur WhatsApp, avec une capture.")
+                try:
+                    await m.pin()
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+                marque["assistant_mode_emploi"] = {"salon": str(salon.id), "version": 1}
+                ecrire_json(DONNEES / "annonces.json", marque)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Salon #assistant : mode d'emploi non posté (%s)", erreur)
+        journal.info("Salon de l'assistant : #%s (%s)", salon.name, salon.id)
+        return
 
 
 ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccord", "dac", "dacc", "dak", "ca", "marche",
@@ -1052,6 +1162,16 @@ def contexte_auteur(message) -> str:
                           "vertical avec sous-titres, à rendre ici avant l'échéance, jugé par le bot. Tu ne promets rien d'autre.]")
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Contexte candidat %s : %s", message.author.id, erreur)
+    if message.guild is not None and salon_assistant_id() and str(message.channel.id) == salon_assistant_id():
+        # 05/10 : salon commun — l'étape et le nombre de comptes créés, jamais la mémoire (identifiants, lien) : rien ne doit
+        # passer d'un clipper à l'autre
+        try:
+            if lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)):
+                return base + "\n[Salon #assistant, commun à tous — " + parcours.contexte_court(str(message.author.id)) + "]"
+            return base + "\n[Salon #assistant, commun à tous — candidat pas encore signé]"
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Contexte court de %s : %s", message.author.id, erreur)
+        return base
     sp = salon_perso_de(message.author.id) if message.guild is not None else None
     if sp is not None and sp.id == message.channel.id:
         try:
@@ -3108,7 +3228,7 @@ def ou_en_es_tu(uid: str) -> str:
         fiche = registre[uid]
         if fiche.get("creatrice"):
             return (f"Tu es dans l'équipe, ta créatrice est **{fiche['creatrice']}** : tes comptes se créent "
-                    "avec ton manager au créneau (lundi, mercredi, vendredi 17 h Paris). Une question → ton manager.")
+                    "dans ton salon perso, un à la fois, avec le bot. Une question → le salon #assistant.")   # 05/10 : plus de créneau
         return ("Tu es dans l'équipe. **Prochaine étape : ton manager t'attribue ta créatrice** (sous 48 h). "
                 "Rien à faire de ton côté d'ici là.")                     # 01/10 (relecture) : plus de créneau de création
     if not liaison.get("tel"):
@@ -3498,9 +3618,9 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
         if salon_a is not None and cree_a:
             try:
                 # 01/10 (relecture : « Tout arrive ici : … codes » contredisait la décision du jour dès le premier message)
-                await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tout arrive ici : comptes, visites, paie.\n\n"
-                                   + codes_2fa.texte_salon_codes() + "\n\nProchaine étape : ta créatrice et tes comptes.",
-                                   view=vue_whatsapp())
+                await salon_a.send(f"🏠 {membre_a.mention}, ton salon perso. Tes comptes arrivent ici, un par un, et ta paie.\n\n"
+                                   + codes_2fa.texte_salon_codes() + "\n\nTes questions : le salon #assistant.\n\n"
+                                   "Prochaine étape : ta créatrice et ton compte 1.", view=vue_whatsapp())   # 05/10
             except (discord.Forbidden, discord.HTTPException):
                 pass
         # 30/09 (Gaëtan) : plus de « Ton salon perso : #… » — le message part déjà dans ce salon.
@@ -4023,9 +4143,10 @@ async def boucle_rappels():
                 else:
                     etat["tests_soir"] = aujourdhui        # rien en attente → pas de bruit le soir
                     ecrire_json(FICHIER_RAPPELS, etat)
-            # Reporting clippers : le dimanche à partir de 17:00, une fois.
-            if CANAL_REPORTING_ID and maintenant.weekday() == 6 and maintenant.hour >= 17 \
-                    and etat.get("reporting") != aujourdhui:
+            # Reporting clippers : le dimanche à partir de 17:00, une fois. 05/10 : plus de formulaire du dimanche ni de fixe
+            # conditionné (RAPPEL_REPORTING=1 pour le rallumer) — le suivi, c'est le scan et `!mesclics`.
+            if CANAL_REPORTING_ID and os.environ.get("RAPPEL_REPORTING", "0").strip() == "1" and maintenant.weekday() == 6 \
+                    and maintenant.hour >= 17 and etat.get("reporting") != aujourdhui:
                 canal = await canal_par_id(CANAL_REPORTING_ID)
                 if canal is not None:
                     try:
@@ -4337,7 +4458,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -4354,7 +4475,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!archiver #salon…`\n"
                 "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang`\n"
-                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre Q | R` · `!faq [retirer N|vider]` · `!retro` (il relit ses salons et apprend) · `!sauvegarde`\n"
+                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre <texte libre, ou un fichier .md/.txt joint>` (prime sur tout) · "
+                "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus) · `!sauvegarde`\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
         return ("🧰 **Commandes manager**\n"
@@ -4452,9 +4574,9 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     if cree_c:
         try:
             # 01/10 (relecture) : plus de « codes » ici, la phrase canonique du salon des codes
-            await salon_c.send(f"🏠 {m_.mention}, ton salon perso. Tout arrive ici : comptes, visites, paie.\n\n"
-                               + codes_2fa.texte_salon_codes() + "\n\nUne question ? Écris ici."
-                               + (f" {', '.join(x.mention for x in mgrs)} lit ce salon." if mgrs else ""), view=vue_whatsapp())
+            await salon_c.send(f"🏠 {m_.mention}, ton salon perso. Tes comptes arrivent ici, un par un, et ta paie.\n\n"
+                               + codes_2fa.texte_salon_codes() + "\n\nTes questions : le salon #assistant."
+                               + (f" {', '.join(x.mention for x in mgrs)} lit ce salon." if mgrs else ""), view=vue_whatsapp())   # 05/10
         except (discord.Forbidden, discord.HTTPException):
             pass
     try:
@@ -4663,11 +4785,8 @@ async def commande_creatrice(message, texte: str) -> bool:
             f"🎬 **Ta créatrice : {prenom}.**\n"
             + ((f"Son salon est ouvert pour toi : " + " ".join(f"<#{c.id}>" for c in ouverts)
                 + " — dedans : ses rushs et ses modèles.\n") if ouverts else "")
-            + ((f"Ton salon perso : <#{salon_perso.id}> — c'est là que ton bilan quotidien arrive et que tu parles à "
-                "ton manager.\n") if salon_perso is not None else "")
-            + ("Tes comptes, ton lien en bio et ton Drive sont dans ton salon perso. " if salon_perso is not None else
-               "Tes comptes, ton lien en bio et ton Drive arrivent ici. ")
-            + "Crée tes comptes depuis ton téléphone en suivant la Fiche 1 et la Fiche 2 ; le bot te relaie les codes. 🚀")
+            + ((f"Ton salon perso : <#{salon_perso.id}> — tes comptes y arrivent, un par un, avec le bot.\n") if salon_perso is not None else "")
+            + "Tes questions : dans le salon #assistant. 🚀")   # 05/10 : plus de « bilan quotidien », de « lien en bio » ni de codes relayés
     # 27/09 (Gaëtan : « simplifie tout ça ») : une ligne — les rôles posés et les salons ouverts sont l'évidence, seuls les
     # refus et les manques sont dits. Un changement de créatrice avec des comptes déjà livrés d'une autre est signalé.
     avert = []
@@ -4685,6 +4804,24 @@ async def commande_creatrice(message, texte: str) -> bool:
                          + " · " + attribution.bilan_court(bilan_onb)
                          + (("\n⚠️ " + " · ".join(avert)) if avert else ""))[:1990])
     return True
+
+
+SEPARATEUR_AJOUTS = "\n\n=====\n\n"
+
+
+def _blocs_ajouts() -> list:
+    """05/10 : les ajouts de Gaëtan (connaissances_ajouts.md), un bloc par `!apprendre`."""
+    if not FICHIER_AJOUTS.exists():
+        return []
+    return [b.strip() for b in FICHIER_AJOUTS.read_text(encoding="utf-8").split(SEPARATEUR_AJOUTS.strip()) if b.strip()]
+
+
+def _ecrire_ajouts(blocs: list) -> None:
+    if not blocs:
+        if FICHIER_AJOUTS.exists():
+            FICHIER_AJOUTS.unlink()
+        return
+    FICHIER_AJOUTS.write_text(SEPARATEUR_AJOUTS.join(b.strip() for b in blocs) + "\n", encoding="utf-8")
 
 
 def _entrees_faq_apprise() -> list:
@@ -4769,15 +4906,49 @@ def liberer_liens_de(uids, prenom: str, uids_connus=None) -> int:
     return n
 
 
-async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> dict:
+async def attribuer_lien_parcours(membre) -> None:
+    """05/10 (Gaëtan : « le lien que pour le troisième compte ») : appelé par le parcours à l'ouverture de l'étape 3 — le lien GAML
+    du clipper est créé (ou repris) maintenant, écrit dans sa fiche, et l'admin a une ligne."""
+    uid = str(membre.id)
+    creatrice = ((lire_json(FICHIER_EQUIPES, {}).get(uid) or {}).get("creatrice")
+                 or (lire_json(FICHIER_PARCOURS, {}).get(uid) or {}).get("creatrice")
+                 or (lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(uid) or {}).get("creatrice", ""))
+    if not creatrice:
+        journal.warning("Lien GAML de %s : créatrice inconnue, rien créé", uid)
+        return
+    deja = (lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(uid) or {}).get("lien")
+    bilan = await onboarding.attribuer_lien(membre, creatrice, creer=True)
+    if bilan.get("lien") and bilan["lien"] != deja:
+        canal = await canal_admin()
+        if canal is not None:
+            try:
+                await canal.send(f"🔗 Lien GAML de {prenom_de(membre)} ({creatrice}), créé avec son compte 3 : {bilan['lien']} · "
+                                 + " · ".join(bilan.get("lignes") or []))
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
+
+_EXPULSES = {}                                                          # uid → date : sortis par le bot (traiter_depart se tait)
+
+
+async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expulser: bool = False) -> dict:
     """La sortie d'équipe (corps de `!sortie`, factorisé le 28/09 pour la sortie automatique) : rôles et accès retirés, pipeline
     en « sorti », classeur rendu (pool=True : les comptes créés restent dans le vivier et le lien GAML est libéré pour le suivant),
     registre → sortis.json, roster, messages au membre, au manager et à Telegram. `par` = le membre qui commande, None = automatique.
-    Renvoie {"roles", "acces", "comptes", "liens", "refus"}."""
+    05/10 (Gaëtan : « virer et expulser ceux qui ne foutent rien ») : `expulser=True` → le message part AVANT le retrait des accès,
+    le salon perso est supprimé, la fiche de parcours oubliée, et le membre est expulsé du serveur (kick). Renvoie
+    {"roles", "acces", "comptes", "liens", "refus", "expulse"}."""
     g = membre.guild
     nom_par = getattr(par, "display_name", "le bot (automatique)")
     par_id = str(getattr(par, "id", "auto"))
     raison = raison.strip(" []").strip() or "non précisée"
+    salon_p = salon_perso_de(membre.id) if expulser else None         # trouvé AVANT le retrait des accès (après, il est invisible)
+    if expulser:                                                        # le message avant tout : après le kick, plus aucun canal
+        try:
+            await envoyer_mp(membre, "🚪 " + raison[0].upper() + raison[1:] + ". Tu sors du serveur : ta place, tes comptes et ton lien vont au suivant.\n\n"
+                                     "Tu veux revenir plus tard ? Écris à Gaëtan.", view=vue_whatsapp())
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.info("Message de sortie à %s : %s", membre.id, erreur)
     # 1. Rôles : Team, rangs.
     a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
     for nom_r in NOMS_RANGS:
@@ -4844,7 +5015,25 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> di
     ecrire_json(FICHIER_SORTIS, sortis[-500:])
     roster.retirer(prenom_de(membre))                                   # 26/09 : le roster (compteur, rapport Jonas) suit
     # 5. Le membre, le manager, l'admin, Telegram.
-    if pool:
+    expulse = False
+    if expulser:                                                        # 05/10 : salon supprimé, parcours oublié, expulsé
+        try:
+            parcours.oublier(uid_s)
+        except Exception:                                               # noqa: BLE001
+            pass
+        if salon_p is not None:
+            try:
+                await salon_p.delete(reason=f"Sortie — {raison}")
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                refus_s.append(f"salon perso non supprimé ({type(erreur).__name__})")
+        _EXPULSES[uid_s] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        try:
+            await membre.kick(reason=f"{raison} (par {nom_par})"[:500])
+            expulse = True
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus_s.append(f"expulsion refusée ({type(erreur).__name__} : « Expulser des membres » au bot, rôle au-dessus de Clippeur)")
+            _EXPULSES.pop(uid_s, None)
+    elif pool:
         await envoyer_mp(membre, "🚪 " + raison[0].upper() + raison[1:] + ". Je libère ta place : tes comptes et ton lien vont au suivant.\n\n"
                                  "Tu veux revenir ? Écris à Gaëtan.", view=vue_whatsapp())
     else:
@@ -4854,7 +5043,7 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> di
             "l'agence, ton manager te contacte pour la restitution ; ce qui t'est dû est réglé au prochain "
             "décompte. Merci pour le temps donné, et bonne route.")
     await notifier_manager(
-        f"🚪 **{membre.display_name} sorti de l'équipe** (par {nom_par}) — {raison}\n"
+        f"🚪 **{membre.display_name} sorti de l'équipe** (par {nom_par}) — {raison}" + (" · **expulsé du serveur**" if expulse else "") + "\n"
         f"Rôles retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · accès fermés : {len(fermes)} salon(s)"
         f" · comptes du classeur rendus : {len(libere_s)}"
         + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
@@ -4863,8 +5052,8 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False) -> di
         + "mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
         "lien GAML à désactiver, dernier décompte.", g)
     await telegram.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
-    journal.info("Sortie d'équipe : %s par %s (%s)", membre.id, par_id, raison)
-    return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s}
+    journal.info("Sortie d'équipe : %s par %s (%s)%s", membre.id, par_id, raison, ", expulsé" if expulse else "")
+    return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s, "expulse": expulse}
 
 
 async def commande_admin(message, texte: str) -> bool:
@@ -6512,13 +6701,69 @@ async def commande_admin(message, texte: str) -> bool:
         lignes = JOURNAL.read_text(encoding="utf-8").splitlines() if JOURNAL.exists() else []
         escalades = sum(1 for l in lignes if '"escalade": true' in l)
         pourcentage = f"{escalades / len(lignes) * 100:.0f} %" if lignes else "—"
-        await message.reply(f"📊 {len(lignes)} questions au total · {escalades} hors kit ({pourcentage}).")
+        sortie_s = [f"📊 {len(lignes)} questions au total · {escalades} hors kit ({pourcentage})."]
+        # 05/10 : le coût réel par mois et par modèle (tokens comptés à chaque réponse, prix PRIX_TOKENS)
+        usage = lire_json(FICHIER_COMPTEURS, {}).get("usage", {})
+        for mois_u in sorted(usage)[-2:]:
+            for modele_u, u in usage[mois_u].items():
+                cout = cout_tokens(modele_u, u.get("entree", 0), u.get("cache_lus", 0), u.get("cache_ecrits", 0), u.get("sortie", 0))
+                sortie_s.append(f"💶 {mois_u} · {modele_u} : {u.get('questions', 0)} réponse(s) · {cout:.2f} $ "
+                                f"(entrée {u.get('entree', 0)}, cache lus {u.get('cache_lus', 0)}, cache écrits {u.get('cache_ecrits', 0)}, sortie {u.get('sortie', 0)} tokens)")
+        await message.reply("\n".join(sortie_s)[:1990])
         return True
 
     if texte.startswith("!apprendre"):
         corps = texte[len("!apprendre"):].strip()
+        # 05/10 (Gaëtan : « un salon assistant que je nourris par copier-coller ») : en texte libre (plusieurs lignes) ou par
+        # fichier .md/.txt joint → connaissances_ajouts.md, en tête de la base, PRIMAIRE. `!apprendre liste` / `retirer N`.
+        # L'ancien `Q | R` reste (FAQ apprise, secondaire).
+        pieces = [a for a in message.attachments if str(a.filename).lower().endswith((".md", ".txt"))]
+        if corps.lower() in ("liste", "list"):
+            blocs = _blocs_ajouts()
+            if not blocs:
+                await message.reply("📚 Aucun ajout pour l'instant. `!apprendre <ton texte>` ou un fichier .md/.txt joint.")
+                return True
+            await envoyer_long(message, [f"📚 **Ajouts de Gaëtan — {len(blocs)}** (primaires : ils priment sur la base)"]
+                               + [f"{i}. {b[:160].replace(chr(10), ' ')}" for i, b in enumerate(blocs, 1)]
+                               + ["→ `!apprendre retirer N` pour en enlever un."])
+            return True
+        if corps.lower().startswith("retirer"):
+            nums = {int(n) for n in re.findall(r"\d+", corps)}
+            blocs = _blocs_ajouts()
+            restants = [b for i, b in enumerate(blocs, 1) if i not in nums]
+            if len(restants) == len(blocs):
+                await message.reply("Format : `!apprendre retirer 2` (numéro donné par `!apprendre liste`).")
+                return True
+            _ecrire_ajouts(restants)
+            await message.reply(f"🗑️ {len(blocs) - len(restants)} ajout(s) retiré(s), {len(restants)} restant(s). Le bot s'en sert dès maintenant.")
+            return True
+        if pieces or (corps and "|" not in corps):
+            textes_a = [corps] if corps else []
+            for a_ in pieces:
+                try:
+                    octets = await a_.read()
+                    textes_a.append(octets.decode("utf-8", errors="replace")[:60000])
+                except Exception as erreur:                             # noqa: BLE001
+                    await message.reply(f"❌ Fichier {a_.filename} illisible ({type(erreur).__name__}).")
+                    return True
+            contenu_a = "\n\n".join(t.strip() for t in textes_a if t.strip())
+            if not contenu_a:
+                await message.reply("Format : `!apprendre <ton texte, sur plusieurs lignes si tu veux>`, ou un fichier .md/.txt joint.")
+                return True
+            if not retro._propre(contenu_a):
+                await message.reply("❌ Pas ajouté : le texte contient un e-mail, un numéro, un mot de passe ou un @ de compte. "
+                                    "La base est lue par tous les clippers : retire ça et renvoie.")
+                return True
+            blocs = _blocs_ajouts()
+            blocs.append(f"[Ajout du {heure_paris().strftime('%d/%m/%Y')}]\n{contenu_a}")
+            _ecrire_ajouts(blocs)
+            journal.info("Ajout de Gaëtan à la base (%d caractères, %d ajout(s))", len(contenu_a), len(blocs))
+            await message.reply(f"✅ Ajouté en tête de la base ({len(contenu_a)} caractères, {len(blocs)} ajout(s)). "
+                                "Il prime sur tout le reste, dès la prochaine question.")
+            return True
         if "|" not in corps:
-            await message.reply("Format : !apprendre La question ? | La réponse en une ou deux phrases.")
+            await message.reply("Format : `!apprendre <texte libre>` (ou un fichier .md/.txt joint), `!apprendre liste`, "
+                                "`!apprendre retirer N`, ou l'ancien `!apprendre La question ? | La réponse.`")
             return True
         question, _, reponse = corps.partition("|")
         with FICHIER_FAQ_APPRISE.open("a", encoding="utf-8") as flux:
@@ -6654,7 +6899,10 @@ async def on_ready():
                              "chercher_membre": lambda nom: chercher_membre(nom),
                              "marquer_etat": onboarding.marquer_etat,                 # 25/09 : ETAT du classeur suit le parcours
                              "profil_envoyer": profil.envoyer,                        # 28/09 : photo et bio avec chaque compte
+                             "attribuer_lien": attribuer_lien_parcours,               # 05/10 : le lien GAML est créé avec le compte 3
                              "whatsapp": WHATSAPP_GAETAN_URL})                       # 26/09 : bouton « Écrire à Gaëtan » sous chaque étape
+        client.loop.create_task(parcours.migrer_au_demarrage(client))            # 05/10 : fiches aux étapes 4/5 → étape 6
+        client.loop.create_task(assurer_salon_assistant())                       # 05/10 : le salon #assistant, pour tout le monde
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
         client.add_dynamic_items(acceptation.BoutonAccepte)                     # bouton « ✅ J'accepte » persistant (27/09)
         client.add_dynamic_items(BoutonReprise)                                 # bouton « 🔄 Je reprends » persistant (28/09)
@@ -6795,7 +7043,8 @@ async def on_ready():
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                                 "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,
                                 "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
-                                "sortir": lambda m, raison, pool=False: sortir_membre(m, raison, None, pool=pool),
+                                "sortir": lambda m, raison, pool=False, expulser=False: sortir_membre(m, raison, None, pool=pool, expulser=expulser),
+                                "parcours_lire": lambda: lire_json(FICHIER_PARCOURS, {}),   # 05/10 : la règle unique lit l'étape 1
                                 "membre_par_id": membre_par_id, "prenom_de": prenom_de, "roster": roster, "canal_admin": canal_admin,
                                 "normaliser": normaliser, "heure_paris": heure_paris, "salon_perso": salon_perso_de})
         bloques.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "bloques.json",
@@ -6807,7 +7056,7 @@ async def on_ready():
         acquisition_subs.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "acquisition_subs.json",
                                      "data_gm": rapport_quotidien.data_gm, "heure_paris": heure_paris, "est_staff": _staff})
         client.loop.create_task(acquisition_subs.boucle(client))                # 30/09 : subs de la veille, salon acquisition
-        client.loop.create_task(sortie_auto.boucle(client))                     # 30/09 : averti à 3 jours sans Reel, sorti à 7, comptes et lien au suivant
+        client.loop.create_task(sortie_auto.boucle(client))                     # 05/10 : compte 1 pas créé en 3 jours → averti la veille, sorti et expulsé
         matin.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_MATIN": FICHIER_MATIN,
                           "heure_paris": heure_paris, "prochaine_etape": parcours.prochaine_etape,
                           "prenom_salon": prenom_du_salon})                         # 26/09 : « Bonjour Maxence » chez Daniella
@@ -7206,6 +7455,8 @@ async def traiter_depart(membre) -> str:
     if roster.sans_salon(prenom):
         return ""
     uid = str(membre.id)
+    if _EXPULSES.pop(uid, None):                                        # 05/10 : sorti et expulsé par le bot, tout est déjà fait
+        return ""
     registre = lire_json(FICHIER_EQUIPES, {})
     fiche = registre.get(uid) or {}
     if fiche.get("creatrice") or fiche.get("equipe") or roster.est_actif(prenom):
@@ -7630,6 +7881,23 @@ async def filtrer_spam(message) -> bool:
     return True
 
 
+async def alerte_numero_demande(message, texte: str) -> None:
+    """26/09 (Daniella) : le mur du numéro de téléphone bloque un clipper toute une nuit → le manager est prévenu, une fois par jour."""
+    if re.search(r"num[ée]ro de t[ée]l|demande un num[ée]ro|numero de tel", texte, re.I):
+        utilisateur = message.author.id
+        compteurs_t = lire_json(FICHIER_COMPTEURS, {})
+        jour_t = heure_paris().date().isoformat()
+        if compteurs_t.setdefault("alertes_tel", {}).get(str(utilisateur)) != jour_t:
+            compteurs_t["alertes_tel"][str(utilisateur)] = jour_t
+            ecrire_json(FICHIER_COMPTEURS, compteurs_t)
+            try:                                                       # 26/09 (Gaëtan) : il met SON numéro ; le manager vérifie qu'il ne porte pas d'autres comptes
+                await notifier_manager(f"📱 **{prenom_de(message.author)} : Instagram lui demande un numéro de téléphone** "
+                                       f"({message.channel.mention}). Règle du 26/09 : il met le sien et reçoit le SMS. 👉 À vérifier "
+                                       f"avec lui : ce numéro ne sert à aucun autre compte Instagram (un numéro = ses 3 comptes, sinon ban en chaîne).")
+            except Exception as erreur:                                  # noqa: BLE001
+                journal.warning("Alerte numéro de téléphone : %s", erreur)
+
+
 @client.event
 async def on_message(message):
     # Automatisation quiz → test : l'Apps Script de la feuille du quiz poste « QUIZ_OK|pseudo|score »
@@ -8026,6 +8294,31 @@ async def on_message(message):
             and SALON_ARRIVEE and await orienter_arrivant(message):
         return                                                           # 27/09 : arrivant sans salon → son salon, tout de suite
 
+    # 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : dans son salon perso, le bot ne parle plus de lui-même. Il garde
+    # ce qui sert : l'alerte admin (ban, Drive fermé), l'alerte « numéro demandé », la relecture d'une vidéo. Pas d'IA.
+    sp_q = salon_perso_de(utilisateur) if message.guild is not None else None
+    en_salon_perso = sp_q is not None and sp_q.id == message.channel.id
+    if en_salon_perso and not ASSISTANT_SALON_PERSO and not est_staff(message.author):
+        await alerter_admin_salon(message, texte)
+        await alerte_numero_demande(message, texte)
+        if review_reels.video_a_relire(message):
+            await relire_video_clipper(message)
+        return
+    if message.guild is None and not est_staff(message.author) and lire_json(FICHIER_EQUIPES, {}).get(str(utilisateur)) \
+            and not texte.startswith("!"):
+        # 05/10 : un clipper signé qui écrit en MP est renvoyé vers #assistant (une fois par jour, pas de dialogue en MP)
+        compteurs_mp = lire_json(FICHIER_COMPTEURS, {})
+        jour_mp = heure_paris().date().isoformat()
+        if compteurs_mp.setdefault("renvois_assistant", {}).get(str(utilisateur)) != jour_mp:
+            compteurs_mp["renvois_assistant"][str(utilisateur)] = jour_mp
+            ecrire_json(FICHIER_COMPTEURS, compteurs_mp)
+            cid_a = salon_assistant_id()
+            try:
+                await message.reply("Pose ta question dans " + (f"<#{cid_a}>" if cid_a else "le salon #assistant") + " du serveur, je te réponds là-bas 🙂")
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        return
+
     if not doit_repondre(message):
         return
 
@@ -8034,8 +8327,6 @@ async def on_message(message):
         await message.reply("Je ne sais pas encore écouter les vocaux 🙂 Écris-moi ta question en une phrase.")
         return
 
-    sp_q = salon_perso_de(utilisateur) if message.guild is not None else None
-    en_salon_perso = sp_q is not None and sp_q.id == message.channel.id
     if en_salon_perso:
         await alerter_admin_salon(message, texte)                       # 30/09 (Daniella) : ban ou Drive fermé → Gaëtan le sait
         # 27/09 (relecture du salon de Daniella) : moins de bruit. Un « ok », « merci », « d'accord » reçoit un 👍,
@@ -8063,19 +8354,9 @@ async def on_message(message):
         await message.reply(f"Tu as posé beaucoup de questions aujourd'hui ({QUESTIONS_MAX_PAR_JOUR} max). "
                             "Regarde le Loom ou le canal #faq, et reviens demain !")
         return
-    if en_salon_perso and re.search(r"num[ée]ro de t[ée]l|demande un num[ée]ro|numero de tel", texte, re.I):
-        # 26/09 (Daniella) : le mur du numéro de téléphone bloque un clipper toute une nuit → le manager est prévenu, une fois par jour
-        compteurs_t = lire_json(FICHIER_COMPTEURS, {})
-        jour_t = heure_paris().date().isoformat()
-        if compteurs_t.setdefault("alertes_tel", {}).get(str(utilisateur)) != jour_t:
-            compteurs_t["alertes_tel"][str(utilisateur)] = jour_t
-            ecrire_json(FICHIER_COMPTEURS, compteurs_t)
-            try:                                                       # 26/09 (Gaëtan) : il met SON numéro ; le manager vérifie qu'il ne porte pas d'autres comptes
-                await notifier_manager(f"📱 **{prenom_de(message.author)} : Instagram lui demande un numéro de téléphone** "
-                                       f"({message.channel.mention}). Règle du 26/09 : il met le sien et reçoit le SMS. 👉 À vérifier "
-                                       f"avec lui : ce numéro ne sert à aucun autre compte Instagram (un numéro = ses 3 comptes, sinon ban en chaîne).")
-            except Exception as erreur:                                  # noqa: BLE001
-                journal.warning("Alerte numéro de téléphone : %s", erreur)
+    if en_salon_perso:
+        await alerte_numero_demande(message, texte)
+
 
     # Construction du contenu : texte + éventuelle capture d'écran. 01/10 (Daniella) : une pièce non transmise (vidéo,
     # image trop lourde) porte le marqueur « que tu ne peux PAS voir », le modèle ne valide plus à l'aveugle.
@@ -8114,8 +8395,10 @@ async def on_message(message):
     else:
         messages.append({"role": "user", "content": contenu})
 
+    # 05/10 (Gaëtan : « Go pour Sonnet sur #assistant ») : Sonnet dans le salon commun, Haiku ailleurs (MP des candidats)
+    modele_q = MODELE_ASSISTANT if (message.guild is not None and salon_assistant_id() and str(message.channel.id) == salon_assistant_id()) else MODELE
     async with message.channel.typing():
-        reponse = await asyncio.to_thread(repondre_sync, messages)
+        reponse = await asyncio.to_thread(repondre_sync, messages, modele_q)
 
     # Panne d'assistant VISIBLE : 3 « petit souci technique » en une heure = les candidats
     # tournent en rond sans qu'aucun humain ne le sache (vécu les 21-22/08). On alerte le

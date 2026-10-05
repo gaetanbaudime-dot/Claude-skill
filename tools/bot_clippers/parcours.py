@@ -32,7 +32,7 @@ WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)
 # période d'essai du 30/09 (5 Reels en 72 h, nouveaux seulement). Les Reels sont ceux que le scan du matin voit, cumulés
 # compte par compte dans la fiche (_cumuler_reels) ; les fiches encore « en essai » passent sous la règle sans message
 # (_migrer_essai). `!etape @clipper n` (staff) force toujours.
-REELS_OUVERTURE = int(os.environ.get("PARCOURS_REELS_OUVERTURE", "2") or 2)
+REELS_OUVERTURE = int(os.environ.get("PARCOURS_REELS_OUVERTURE", "4") or 4)   # 05/10 (Gaëtan) : « 48 h et 4 Reels »
 # 30/09 (Gaëtan : « arrête de spammer les clippeurs : une information à la fois, au bon moment ; un compte par un compte, on
 # distille l'information et on ne la donne que quand il en a réellement besoin ») : chaque compte se fait en trois temps,
 # un message chacun — 1) identifiants et création, bouton « créé » ; 2) photo, nom et bio en UN message, bouton « profil
@@ -80,9 +80,12 @@ ETAPES = {
         "texte": ("Identifiant :\n```\n{compte2}\n```\nE-mail :\n```\n{mail2}\n```\nMot de passe :\n```\n{mdp2}\n```\n"
                   "{creation2}\n\n"
                   "Créé ? Appuie sur le bouton.")},
-    3: {"titre": "Étape 3 · Crée ton compte 3", "fiche": "1", "bouton": "✅ Compte 3 créé", "salons": [],
+    # 05/10 (Gaëtan : « 2 comptes de croissance, story à la une qui mentionne le 3e compte privé avec le lien en bio ») : le
+    # compte 3 est PRIVÉ, il ne publie pas ; son profil porte le lien dans la bio ; les comptes 1 et 2 pointent vers lui.
+    3: {"titre": "Étape 3 · Crée ton compte 3, le privé", "fiche": "1", "bouton": "✅ Compte 3 créé", "salons": [],
         "texte": ("Identifiant :\n```\n{compte3}\n```\nE-mail :\n```\n{mail3}\n```\nMot de passe :\n```\n{mdp3}\n```\n"
                   "{creation3}\n\n"
+                  "Ce compte est **privé** : il ne publie pas de Reel. C'est lui qui portera ton lien.\n\n"
                   "Créé ? Appuie sur le bouton.")},
     4: {"titre": "Étape 4 · 24 h de warm-up sur le compte 3 (Fiche 2)", "fiche": "2", "bouton": "✅ Warm-up fini", "salons": ["ressources"],
         "texte": ("**Compte 3, pendant 24 h** : pas de Reel. 10 min de Reels de créatrices françaises ({ressources}), "
@@ -95,18 +98,20 @@ ETAPES = {
                   "1. Prends une vidéo dans ce dossier. Modifie-la toujours : musique, texte, un début qui accroche.\n"
                   "2. Publie-la sur {vivants}. Jamais la même vidéo sur deux comptes le même jour.\n\n"   # 01/10 : sans les comptes BAN
                   "Premier Reel en ligne ? Appuie sur le bouton.")},
-    6: {"titre": "Étape 6 · Mets ton lien, une seule fois (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
+    6: {"titre": "Étape 6 · Ton lien et ta story à la une (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
         "texte": ("**Ton lien** : {lien}\n\n"
-                  "1. Sur chaque compte : le lien dans une story, puis cette story **à la une** (épinglée sur ton profil).\n"
-                  "2. Une seule fois. Ensuite tu n'y touches plus.\n"
-                  "3. Jamais de lien ni d'@ dans la bio, jamais dans un Reel. Les @ en bio font des bans.\n"
-                  "4. Chaque jour, une story avec le widget Instagram de ton profil et une capture : elle envoie les gens vers ta story à la une.\n"
+                  "1. Sur ton compte 3 (`{compte3}`, privé) : ce lien dans la **bio**. Nulle part ailleurs.\n"
+                  "2. Sur ton compte 1 et ton compte 2 : une story (une photo ou une vidéo de ton Drive) avec le **widget de mention** "
+                  "`@{compte3}`, puis cette story **à la une** (épinglée sur le profil). Une seule fois.\n"
+                  "3. Jamais de lien sur les comptes 1 et 2 : ni en bio, ni en story, ni dans un Reel. Le lien ne vit que dans la bio du compte 3.\n"
+                  "4. Chaque jour, une story sur les comptes 1 et 2 avec le widget vers ta story à la une.\n"
                   "5. `!mesclics` ici : ce lien compte tes visites, donc ta paie, tous les 15 jours.\n\n"
                   "Fini ? Appuie sur le bouton.")},
     7: {"titre": "🎉 Bravo, tu as fini · Ta routine de chaque jour", "fiche": "4", "bouton": "", "salons": [],
-        "texte": ("Chaque jour, sur {vivants} : 2 Reels chacun, 1 story avec le widget vers ta story à la une, quelques commentaires.\n\n"
+        "texte": ("Chaque jour, sur {croissance} : 2 Reels chacun, 1 story avec le widget vers ta story à la une, quelques commentaires. "
+                  "Le compte 3 reste privé, avec ton lien en bio.\n\n"
                   "Chaque semaine, ajoute 1 Reel par jour sur chaque compte, jusqu'à 10. Le matin tu montes, tu mets en brouillon, tu publies dans la journée.\n\n"
-                  "Chaque matin, tes visites d'hier ici.\n\n"
+                  "Tes visites : `!mesclics` ici, quand tu veux. Ta paie arrive ici les 5 et 20.\n\n"
                   "Tu connais quelqu'un de sérieux ? Tape `!parrain @lui` ici : 5 $ pour toi le jour de sa première paie.\n\n"
                   "Une question ? Écris ici.")},
 }
@@ -127,7 +132,7 @@ CONNEXION = ("Ce compte existe déjà.\n"
              "3. Numéro demandé ? Mets le tien. Ne change ni la photo ni la bio pour l'instant.",
              "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter, sans te déconnecter du compte 1.\n{codes}",
              "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter.\n{codes}")
-RELANCE_JOURS = int(os.environ.get("PARCOURS_RELANCE_JOURS", "2") or 2)   # 28/09 (Gaëtan) : « des relances simples, courtes »
+RELANCE_JOURS = int(os.environ.get("PARCOURS_RELANCE_JOURS", "0") or 0)   # 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : 0 = plus de relance ; 28/09 : 2
 # 30/09 (Daniella) : « sur chaque compte… pas de Reel » contredisait l'étape 4 (comptes 1 et 2 publient déjà) — le warm-up du
 # jour ne concerne que le compte 3.
 # 01/10 (relecture) : « Comptes 1 et 2 » devient {autres}, les comptes vivants hors compte 3 (un compte BAN ne publie plus)
@@ -348,8 +353,9 @@ async def _contexte(guild, uid: str, fiche_p: dict) -> dict:
     vivants = _vivants(uid, fiche_p, ordonnes[:3], bans)
     ctx["vivants"] = _liste(vivants)                                    # 01/10 : étapes 5 et 7 sans les comptes BAN
     ctx["autres"] = _liste([h for h in vivants if h != ctx["compte3"]])  # 01/10 (relecture) : étape 4, sans les BAN
+    ctx["croissance"] = ctx["autres"]                                   # 05/10 : les comptes qui publient (le compte 3 est privé)
     ctx["codes"] = texte_codes()
-    ctx["lien"] = onb.get("lien") or "(ton manager te le donne avec `!lien`)"
+    ctx["lien"] = onb.get("lien") or "(il arrive ici dès que ton compte 3 est prêt)"   # 05/10 : le lien est créé avec le compte 3
     ctx["drive"] = onb.get("drive") or "(pas encore prêt, je te le donne ici dès qu'il l'est)"
     creatrice = ctx["creatrice"]
     info = _salon_info(guild, creatrice) if guild is not None else None
@@ -426,6 +432,13 @@ def _vue(guild, uid: str, n: int, ctx: dict):
 # ------------------------------------------------------------------ déroulé
 async def envoyer_etape(salon, membre, n: int) -> None:
     uid = str(membre.id)
+    if n in (3, 6) and _deps.get("attribuer_lien"):
+        # 05/10 (Gaëtan : « le lien que pour le troisième compte ») : le lien GAML n'existe pas avant le compte 3 ; il est créé
+        # (ou repris) à l'ouverture de l'étape 3, pour être dans la bio du compte 3 dès son profil, puis donné à l'étape 6.
+        try:
+            await _deps["attribuer_lien"](membre)
+        except Exception as erreur:                                     # noqa: BLE001 — sans lien, l'étape part quand même
+            journal.warning("Lien GAML pour %s à l'étape %s : %s", uid, n, erreur)
     # 01/10 (relecture : deux programme_du_jour à 50 ms d'écart, le clipper 2 a reçu deux fois « Étape 2 ») : la fiche était
     # lue, puis réécrite après l'appel au classeur (_contexte) et l'envoi — elle écrasait ce qui avait été écrit entre-temps.
     # Le contexte d'abord ; la fiche relue après l'attente, posée et écrite sans attente ; relue encore pour l'id du message.
@@ -545,7 +558,8 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
             vue = discord.ui.View(timeout=None)
             vue.add_item(BoutonEtape(uid, n, "✅ Profil fait"))
             try:
-                msg = await _deps["profil_envoyer"](salon, uid, n, fiche_p.get("creatrice", ""), vue=vue)
+                msg = await _deps["profil_envoyer"](salon, uid, n, fiche_p.get("creatrice", ""), vue=vue,
+                                                    **({"lien": _onb(uid).get("lien", "")} if n == 3 else {}))   # 05/10 : le lien dans la bio du compte 3
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Profil du compte %s pour %s : %s", n, uid, erreur)
                 msg = None
@@ -588,6 +602,13 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
         else:
             await _suite(salon, f"{membre.mention} " + TEXTE_WARMUP.format(n=n, regle=regle_comptes()))
         return True
+    if n == 3:                                                          # 05/10 : compte 3 privé → le lien, pas de warm-up ni d'étapes 4-5
+        d = _lire()
+        if str(uid) in d:
+            d[str(uid)]["etape"] = 6
+            _ecrire(d)
+        await envoyer_etape(salon, membre, 6)
+        return True
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)
     return True
@@ -625,7 +646,38 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
                   + (f"dès que {REELS_OUVERTURE} Reels sont publiés dessus." if ou == f"ton compte {n}" else
                      f"dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}."))
     texte += _ligne_review(uid)
-    await salon.send(f"{membre.mention} " + texte)
+    vue = None
+    if n == 1 and _deps.get("whatsapp"):
+        # 05/10 (Gaëtan : « oblige les gens à me contacter sur WhatsApp une fois qu'il a créé le premier IG ») : pas bloquant,
+        # mais demandé ici, une fois, avec le message déjà écrit ; `!wa @clipper` (staff) note que c'est fait.
+        texte += ("\n\n📲 **Maintenant, écris à Gaëtan sur WhatsApp** (bouton ci-dessous, le message est déjà écrit) : "
+                  "il ouvre ton groupe avec Jonas. C'est là que tu poses tes questions.")
+        vue = discord.ui.View(timeout=None)
+        vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link,
+                                       url=lien_whatsapp_prerempli(uid, fiche_p)))
+    await salon.send(f"{membre.mention} " + texte, view=vue) if vue is not None else await salon.send(f"{membre.mention} " + texte)
+
+
+def lien_whatsapp_prerempli(uid, fiche_p: dict = None) -> str:
+    """05/10 : le wa.me de Gaëtan avec le message du clipper déjà écrit (prénom, créatrice, compte 1 créé)."""
+    from urllib.parse import quote
+    base = str(_deps.get("whatsapp") or "").split("?")[0]
+    if not base:
+        return ""
+    fiche_p = _lire().get(str(uid), {}) if fiche_p is None else fiche_p
+    prenom = fiche_p.get("prenom") or "un clipper"
+    creatrice = fiche_p.get("creatrice") or "?"
+    return f"{base}?text=" + quote(f"Bonjour Gaëtan, je suis {prenom}, clipper de {creatrice}. Mon compte 1 est créé et il publie.")
+
+
+def marquer_whatsapp(uid: str) -> bool:
+    """05/10 : `!wa @clipper` (staff) : le clipper a écrit sur WhatsApp, son groupe est ouvert. Renvoie False sans fiche."""
+    d = _lire()
+    if str(uid) not in d:
+        return False
+    d[str(uid)]["whatsapp"] = _maintenant()
+    _ecrire(d)
+    return True
 
 
 def _ligne_review(uid) -> str:
@@ -767,13 +819,12 @@ async def _classeur_etat(uid: str, n: int) -> None:
     """25/09 : le classeur des logins suit le parcours — compte 1/2/3 validé → sa ligne passe à WARMUP, warm-up
     fini (étape 4) → les trois lignes passent à GOOD. Sans le classeur (ou sans la dépendance), rien."""
     marquer = _deps.get("marquer_etat")
-    if marquer is None or n not in (1, 2, 3, 4):
+    if marquer is None or n not in (1, 2, 3):
         return
     comptes = _comptes_ordonnes(uid)                                    # 01/10 : le même ordre que l'étape envoyée
-    cibles = comptes[n - 1:n] if n <= 3 else comptes[:3]
-    for h in cibles:
+    for h in comptes[n - 1:n]:
         try:
-            await marquer(h, "WARMUP" if n <= 3 else "GOOD")
+            await marquer(h, "PRIVE" if n == 3 else "WARMUP")           # 05/10 : le compte 3 est privé, il ne chauffe pas
         except Exception as erreur:
             journal.warning("Classeur étape %s de %s : %s", n, uid, erreur)
 
@@ -789,7 +840,9 @@ async def boucle(client) -> None:
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Programme du parcours : %s", erreur)
             maintenant = _deps["heure_paris"]()
-            if maintenant.hour >= paie_clics.CLICS_HEURE:
+            if maintenant.hour >= paie_clics.CLICS_HEURE and RELANCE_JOURS > 0:
+                # 05/10 : les étapes 4 et 5 ne s'ouvrent plus (compte 3 privé → lien → routine) ; les fiches encore à 4 ou 5
+                # sont migrées au démarrage (migrer_etapes_45). La ligne de warm-up quotidienne ne sert donc plus.
                 d = _lire()
                 for uid, fiche_p in list(d.items()):
                     if int(fiche_p.get("etape", 0)) != 4 or not fiche_p.get("dates", {}).get("4"):
@@ -813,10 +866,11 @@ async def boucle(client) -> None:
                         if not (_deps.get("deposer") and _deps["deposer"](salon.id, "warmup", texte_w)):
                             await _suite(salon, f"<@{uid}> " + texte_w)
                 # 28/09 : relance courte — une étape (1 à 3, 5, 6) qui traîne depuis RELANCE_JOURS jours → une ligne, tous les RELANCE_JOURS jours
+                # 05/10 : éteinte par défaut (RELANCE_JOURS = 0) — « des relances simples » faisaient un message du matin vide chaque jour
                 d = _lire()                                             # 01/10 : relu, valider_etape a pu écrire au-dessus
                 for uid, fiche_p in list(d.items()):
                     n = int(fiche_p.get("etape", 0))
-                    if n not in (1, 2, 3, 5, 6) or not fiche_p.get("dates", {}).get(str(n)):
+                    if RELANCE_JOURS <= 0 or n not in (1, 2, 3, 5, 6) or not fiche_p.get("dates", {}).get(str(n)):
                         continue
                     try:
                         depuis = (maintenant.date() - datetime.fromisoformat(fiche_p["dates"][str(n)]).date()).days
@@ -875,7 +929,7 @@ def memoire(uid: str) -> str:
     if vivants:
         lignes.append("Comptes Instagram : " + ", ".join(vivants) + " (mots de passe déjà dans le salon, ne jamais les redonner)")
     if onb.get("lien"):
-        lignes.append(f"Lien (en story à la une sur chaque compte) : {onb['lien']}")
+        lignes.append(f"Lien (dans la bio du compte 3 privé seulement ; comptes 1 et 2 : story à la une avec le widget de mention du compte 3) : {onb['lien']}")
     lignes.append("Drive : " + (onb["drive"] if onb.get("drive") else "pas encore prêt"))
     try:
         if paie_clics.actif():
@@ -954,11 +1008,11 @@ def _prenom(membre) -> str:
 
 PROCHAINES = {1: "ouvre ton compte 1, `{compte1}` (création ou connexion, c'est dans l'étape). Clique ✅ quand c'est fait.",
               2: "crée ton compte 2, `{compte2}`. Clique ✅ quand c'est fait.",
-              3: "crée ton compte 3, `{compte3}`. Clique ✅ quand c'est fait.",
+              3: "crée ton compte 3, `{compte3}`, le privé. Clique ✅ quand c'est fait.",
               4: "compte 3 en warm-up (Reels, likes, 1 story, pas de Reel) ; {autres} : 2 Reels et 1 story chacun.",
               5: "publie un Reel de ton Drive sur {vivants}. Clique ✅ quand c'est fait.",
-              6: "mets ton lien une seule fois, en story à la une, sur chaque compte. Jamais en bio. Clique ✅ quand c'est fait.",
-              7: "2 Reels sur chacun de ces comptes : {vivants}. 1 story avec le widget vers ta story à la une."}
+              6: "mets ton lien dans la bio du compte 3, et sur les comptes 1 et 2 une story à la une avec le widget de mention du compte 3. Clique ✅ quand c'est fait.",
+              7: "2 Reels sur chacun de ces comptes : {autres}. 1 story avec le widget vers ta story à la une."}
 
 
 def prochaine_etape(salon_id, maintenant=None) -> str:
@@ -1018,6 +1072,60 @@ def etape_selon_classeur(etats: list) -> int:
     if len(e) >= 2 and all(x == "good" for x in e[:2]):
         return 7
     return 4
+
+
+def migrer_etapes_45(d: dict) -> list:
+    """05/10 : les étapes 4 (warm-up du compte 3) et 5 (Reels sur 3 comptes) n'existent plus. Une fiche encore à 4 ou 5 passe à 6
+    (le lien), sans message ici : l'appelant envoie l'étape 6. Renvoie les uid migrés."""
+    migres = []
+    for uid, fiche_p in d.items():
+        if isinstance(fiche_p, dict) and int(fiche_p.get("etape", 0) or 0) in (4, 5):
+            fiche_p["etape"] = 6
+            fiche_p.pop("warmup_jour", None)
+            migres.append(uid)
+    return migres
+
+
+async def migrer_au_demarrage(client) -> int:
+    """05/10 : au démarrage, les fiches aux étapes 4 et 5 reçoivent l'étape 6 (lien et story à la une) dans leur salon."""
+    d = _lire()
+    migres = migrer_etapes_45(d)
+    if not migres:
+        return 0
+    _ecrire(d)
+    n = 0
+    for uid in migres:
+        fiche_p = _lire().get(uid) or {}
+        salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0)) if client is not None else None
+        membre = _deps["membre_par_id"](uid)
+        if salon is None or membre is None:
+            continue
+        try:
+            await envoyer_etape(salon, membre, 6)
+            n += 1
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Migration de l'étape de %s : %s", uid, erreur)
+    journal.info("Parcours : %d fiche(s) migrée(s) des étapes 4/5 à l'étape 6, %d étape(s) envoyée(s)", len(migres), n)
+    return n
+
+
+def contexte_court(uid: str) -> str:
+    """05/10 : ce que l'assistant du salon #assistant sait du clipper — l'étape et le nombre de comptes créés, jamais un
+    identifiant, un mot de passe ni un lien (le salon est commun : rien ne doit passer d'un clipper à l'autre)."""
+    fiche_p = _lire().get(str(uid), {})
+    n = int(fiche_p.get("etape", 0) or 0)
+    crees = sum(1 for i in (1, 2, 3) if _cree(fiche_p, i))
+    if n == 0:
+        etape = "parcours pas encore commencé (il attend sa créatrice et son compte 1)"
+    elif n in ETAPES:
+        etape = ETAPES[n]["titre"]
+        a = attente(fiche_p)
+        if a and a[0] == n:
+            etape = f"attente du compte {n} : il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, dès que {REELS_OUVERTURE} Reels sont publiés dessus"
+    else:
+        etape = "parcours terminé (routine)"
+    return (f"étape : {etape} · comptes créés : {crees} sur 3 · WhatsApp fait : {'oui' if fiche_p.get('whatsapp') else 'non'} · "
+            "règle du lien : seulement dans la bio du compte 3 privé ; comptes 1 et 2 : une story à la une avec le widget de mention du compte 3")
 
 
 def oublier(uid: str) -> bool:
@@ -1163,10 +1271,10 @@ def contexte_llm(uid: str) -> str:
             "numéro ou sa pièce d'identité si Instagram les demande, jamais ceux d'un autre, jamais sa pièce d'identité dans Discord) ; "
             "tu ne promets jamais un compte neuf "
             "ni une date (« demain ») : si l'appel échoue, Gaëtan décide. "   # 01/10 (relecture) : une seule version du ban
-            "Le lien (28/09) : une seule fois, dans une story à la une sur chaque compte, et on n'y touche plus ; jamais en bio, "
-            "jamais d'@ en bio (ça fait des bans), jamais dans un Reel ; chaque jour une story avec le widget du profil vers la story "
-            "à la une. Trois comptes de croissance, plus de compte privé (28/09) : chaque compte fait ses 24 h de warm-up après sa "
-            "création puis publie, sans attendre les autres. Un compte « qui existe déjà » (rendu par un ancien) : on s'y "
+            "Le lien (05/10) : il n'existe qu'avec le compte 3, le compte PRIVÉ, dans sa bio, et nulle part ailleurs ; les comptes 1 et 2 "
+            "(croissance) ne portent jamais de lien : une story (photo ou vidéo) avec le widget de mention du compte 3, mise à la une, une "
+            "seule fois ; chaque jour une story avec le widget vers cette story à la une. Deux comptes de croissance qui font 24 h de "
+            "warm-up après leur création puis publient, et un compte 3 privé qui ne publie pas. Un compte « qui existe déjà » (rendu par un ancien) : on s'y "
             "connecte, et le code se demande comme les autres. Le Drive s'ouvre par son lien, jamais besoin d'une adresse e-mail. "
             "Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
             "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
@@ -1187,7 +1295,7 @@ def contexte_llm(uid: str) -> str:
 # ------------------------------------------------------------------ commandes manager
 async def commande_staff(message, texte: str) -> bool:
     mots = texte.split()
-    if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire"):
+    if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire", "!wa"):
         return False
     est_staff = _deps.get("est_staff")
     if len(mots) == 1 and mots[0].lower() == "!etape" and est_staff is not None and not est_staff(message.author):
@@ -1199,7 +1307,17 @@ async def commande_staff(message, texte: str) -> bool:
             await message.reply("Ton parcours n'a pas encore commencé. Ton manager le lance." if n == 0
                                 else "Ton parcours est fini. Écris `!mesclics` pour voir tes visites.")
             return True
-        await envoyer_etape(message.channel, message.author, n)
+        # 05/10 : plus de renvoi de l'étape entière (identifiants compris) : le titre et le lien vers le message d'origine
+        mid = (fiche_p.get("messages") or {}).get(str(n))
+        guild = getattr(message, "guild", None)
+        lien_m = f"https://discord.com/channels/{guild.id}/{message.channel.id}/{mid}" if (mid and guild is not None) else ""
+        a = attente(fiche_p)
+        if a and a[0] == n:
+            await message.reply(f"Ton compte {n} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, "
+                                f"dès que {REELS_OUVERTURE} Reels sont publiés dessus ({reels_vus(uid, fiche_p, n - 1)} vu(s) par le scan).")
+            return True
+        await message.reply(f"📍 **{ETAPES[n]['titre']}**" + (f" — ton message d'étape est là : {lien_m}" if lien_m else "")
+                            + "\n\nFait ? Appuie sur son bouton ✅.")
         return True
     membre = message.mentions[0] if message.mentions else None
     reste = [m for m in mots[1:] if not m.startswith("<@")]
@@ -1209,10 +1327,16 @@ async def commande_staff(message, texte: str) -> bool:
             reste = reste[1:]
     if membre is None:
         await message.reply("Format : `!etape @clipper [n]` (renvoyer ou forcer une étape) · `!note @clipper texte` "
-                            "(mémoire du bot sur lui) · `!memoire @clipper` (ce que le bot sait). Le @ doit être une vraie "
-                            "mention, ou tape le prénom tel quel.")
+                            "(mémoire du bot sur lui) · `!memoire @clipper` (ce que le bot sait) · `!wa @clipper` (il a écrit sur "
+                            "WhatsApp). Le @ doit être une vraie mention, ou tape le prénom tel quel.")
         return True
     uid = str(membre.id)
+    if mots[0].lower() == "!wa":                                          # 05/10 : le clipper a écrit sur WhatsApp, son groupe est ouvert
+        if marquer_whatsapp(uid):
+            await message.reply(f"📲 Noté : {membre.display_name} a écrit sur WhatsApp. Il ne sera plus listé dans les bloqués pour ça.")
+        else:
+            await message.reply(f"{membre.display_name} n'a pas de fiche de parcours (pas encore de créatrice ?).")
+        return True
     if mots[0].lower() in ("!memoire", "!mémoire"):
         await _deps["envoyer_long"](message, [f"🧠 **Mémoire de {membre.display_name}**"] + memoire(uid).split("\n"))
         return True

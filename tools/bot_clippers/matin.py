@@ -17,6 +17,9 @@ journal = logging.getLogger("matin")
 
 MATIN_HEURE_MIN = int(os.environ.get("MATIN_HEURE_MIN_UTC", "8") or 8)     # jamais avant (10 h Paris)
 MATIN_HEURE_MAX = int(os.environ.get("MATIN_HEURE_MAX_UTC", "10") or 10)   # au plus tard, même sans bilan des Reels
+# 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : le message du matin est ÉTEINT par défaut (MATIN=1 pour le
+# rallumer). Les morceaux déposés sont gardés et effacés le lendemain, rien ne part. Un message = un événement du clipper.
+ACTIF = os.environ.get("MATIN", "0").strip() == "1"
 
 _deps = {}
 
@@ -45,6 +48,8 @@ def deposer(salon_id, cle: str, texte: str) -> bool:
     n'est pas configuré) : l'appelant envoie lui-même."""
     if not _deps or not salon_id or not texte:
         return False
+    if not ACTIF:
+        return True                                                     # 05/10 : éteint — le morceau est accepté et n'est jamais envoyé
     d = _lire()
     jour, sid = _jour(), str(salon_id)
     if d["envoyes"].get(sid) == jour:
@@ -68,8 +73,10 @@ async def remplacer(salon, texte: str, view=None):
     if ancien:
         try:
             await (await salon.fetch_message(int(ancien))).delete()
-        except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
+        except discord.NotFound:
             pass
+        except (discord.Forbidden, discord.HTTPException, ValueError) as erreur:   # 05/10 : l'empilement s'explique ici, journalisé
+            journal.warning("Message de suivi de #%s non effacé (%s) : les messages s'empilent", getattr(salon, "name", salon.id), erreur)
     msg = await salon.send(texte[:1990], view=view) if view is not None else await salon.send(texte[:1990])
     d = _lire()
     d.setdefault("suite", {})[str(salon.id)] = str(msg.id)
@@ -94,8 +101,8 @@ async def effacer(salon) -> bool:
 def composer(salon_id, m: dict) -> str:
     prenom = (_deps["prenom_salon"](salon_id) if _deps.get("prenom_salon") else "") or ""
     lignes = [f"☀️ **Bonjour {prenom}**".rstrip() if prenom else "☀️ **Bonjour**"]
-    for cle in ("inputs", "clics", "review"):                             # 01/10 : la ligne de review du Reel d'hier (review_reels)
-        if m.get(cle):
+    for cle in ("inputs", "clics", "review", "reels", "relance"):          # 01/10 : review ; 05/10 : « reels » et « relance » étaient
+        if m.get(cle):                                                     # déposés sous des clés jamais lues → message du matin vide
             lignes.append(m[cle])
     if m.get("warmup"):
         lignes.append(m["warmup"])
@@ -111,6 +118,8 @@ async def envoyer_prets(client, force: bool = False) -> int:
     d = _lire()
     jour = _jour()
     heure = datetime.now(timezone.utc).hour
+    if not ACTIF and not force:                                          # 05/10 : éteint (MATIN=1 pour rallumer)
+        return 0
     if not force and not (MATIN_HEURE_MIN <= heure <= MATIN_HEURE_MAX + 1):
         return 0                                                        # 26/09 : jamais de message du matin l'après-midi (Daniella, 17 h)
     attendre_inputs = _deps.get("inputs_actifs", lambda: False)() and heure < MATIN_HEURE_MAX and not force

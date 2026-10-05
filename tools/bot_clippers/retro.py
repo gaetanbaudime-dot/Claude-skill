@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 import discord
 
 journal = __import__("logging").getLogger("bot_clippers")
+ECRIT = __import__("os").environ.get("RETRO_ECRIT", "0").strip() == "1"   # 05/10 : la rétrospective ne modifie plus la base toute seule
 _deps = {}
 OBJECTIF = ("Transformer chaque clipper en trois comptes Instagram qui postent le plus souvent possible des Reels de qualité "
             "exceptionnelle, avec le moins de messages possible, sans jamais contredire la doctrine.")
@@ -207,7 +208,9 @@ def appliquer(resultats: list) -> dict:
                 continue
             connus.add(cle)
             ajoutees.append((q, r))
-            if f is not None:
+            # 05/10 (audit : des leçons fausses apprises toutes seules deux fois) : plus rien n'est écrit dans la FAQ apprise —
+            # les leçons proposées vont au digest, Gaëtan garde celles qu'il veut avec `!apprendre` (RETRO_ECRIT=1 pour l'ancien mode)
+            if f is not None and ECRIT:
                 with f.open("a", encoding="utf-8") as flux:
                     flux.write(f"\n**Q : {q}**\nR : {r} (appris tout seul le {jour})\n")
         for c in (res.get("consignes") or [])[:2]:
@@ -247,8 +250,9 @@ async def executer(client) -> str:
     _deps["ecrire_json"](_deps["FICHIER"], etat)
     if not lus:
         return "🧠 Rétrospective : aucun salon perso actif ces 24 h."
+    mot_lecons = "apprise(s)" if ECRIT else "proposée(s), rien d'appris tout seul"
     digest = (f"🧠 **Rétrospective du soir** : {lus} salon(s) lu(s) · note moyenne {round(sum(notes) / len(notes), 1) if notes else '—'}/10 · "
-              f"{len(bilan['lecons'])} leçon(s) apprise(s) · {len(bilan['consignes'])} consigne(s)")
+              f"{len(bilan['lecons'])} leçon(s) {mot_lecons} · {len(bilan['consignes'])} consigne(s)")
     if bilan["lecons"]:
         digest += "\n" + "\n".join(f"· **{q[:90]}** → {r[:160]}" for q, r in bilan["lecons"][:8])
     if bilan["consignes"]:
@@ -256,7 +260,8 @@ async def executer(client) -> str:
                    + " · ".join(c[:120] for c in bilan["consignes"][:4]))
     if defauts:
         digest += "\n⚠️ Vu : " + " · ".join(dict.fromkeys(defauts))[:600]
-    digest += "\n-# `!faq` pour relire, `!faq retirer N` pour annuler une leçon, `!retro` pour relancer."
+    digest += ("\n-# `!apprendre <texte>` pour garder une leçon (elle prime sur tout), `!faq` pour relire l'ancienne FAQ, `!retro` pour relancer."
+               if not ECRIT else "\n-# `!faq` pour relire, `!faq retirer N` pour annuler une leçon, `!retro` pour relancer.")
     journal.info("Rétrospective : %d salons, %d leçons, %d consignes", lus, len(bilan["lecons"]), len(bilan["consignes"]))
     return digest
 

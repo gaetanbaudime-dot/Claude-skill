@@ -836,11 +836,16 @@ async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
 RESERVATION_JOURS = int(os.environ.get("RESERVATION_JOURS", "2") or 2)   # 28/09 (Gaëtan : GO) : la réservation qui expire ; 29/09 : 48 h au lieu de 5 jours
 
 
+RESERVATION_ACTIVE = os.environ.get("RESERVATION_EXPIRE", "0").strip() == "1"   # 05/10 : éteinte, la règle unique de sortie_auto la remplace
+
+
 async def reservations_expirees(historique: dict, maintenant=None) -> list:
     """Un clipper livré depuis RESERVATION_JOURS jours ou plus dont AUCUN compte n'existe (toutes ses lignes encore « à créer »,
     au moins trois scans sans le voir) : ses lignes retournent au vivier (Gérant vidé), ses alias 2FA sont détachés, sa fiche est
-    vidée ; l'appelant remet son parcours à zéro et lui propose de reprendre. Renvoie [(uid, prénom, créatrice, nb de lignes)]."""
-    if not actif():
+    vidée ; l'appelant remet son parcours à zéro et lui propose de reprendre. Renvoie [(uid, prénom, créatrice, nb de lignes)].
+    05/10 (Gaëtan : « juste 3 jours sans compte créé ») : ÉTEINTE (RESERVATION_EXPIRE=1 pour la rallumer) — trois horloges
+    se contredisaient ; la sortie à 3 jours (sortie_auto) rend les comptes au vivier elle-même."""
+    if not actif() or not RESERVATION_ACTIVE:
         return []
     maintenant = maintenant or datetime.now(timezone.utc)
     etat = _lire_etat()
@@ -884,58 +889,33 @@ async def reservations_expirees(historique: dict, maintenant=None) -> list:
 
 
 # ------------------------------------------------------------------ livraison
-async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice") -> str:
-    """Tout l'onboarding d'un clipper. Renvoie la ligne à poster à l'admin / au manager."""
+async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: list = None, creer: bool = True) -> dict:
+    """Le lien GAML du clipper : celui déjà à lui (paie_clics), sinon — seulement si `creer` — le lien libéré d'un sortant de la
+    même créatrice, sinon un lien « Clipping Prénom » déjà dans GAML, sinon un clone du modèle de la créatrice (27/09 : « tu
+    dupliques celui d'avant ») ; puis la carte « Plateforme privée » reçoit le tracking OnlyFans du POD (si `comptes`).
+    05/10 (Gaëtan : « le lien que pour le troisième compte ») : appelée avec creer=True par le parcours à l'ouverture de
+    l'étape 3, et avec creer=False par `livrer` (rappel d'un lien existant seulement). Écrit `fiche["lien"]` dans onboarding.json.
+    Renvoie {"lien", "lid", "lignes"} (lignes = bilan pour l'admin)."""
     prenom = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
-    etat = _lire_etat()
-    fiche = etat["clippers"].setdefault(str(membre.id), {})
-    resultat = []
-    # 26/09 : `!salons-equipe` relancé = le même message de comptes deux fois dans chaque salon. Une livraison déjà faite
-    # dans les 24 h n'est pas rejouée, sauf forçage explicite (`!onboarding @clipper`).
-    if not declencheur.startswith("!onboarding") and fiche.get("comptes") and fiche.get("date"):
-        try:
-            depuis = datetime.now(timezone.utc) - datetime.fromisoformat(fiche["date"])
-        except ValueError:
-            depuis = timedelta(days=9)
-        if depuis < timedelta(hours=24):
-            return f"📦 Onboarding de {membre.display_name} ({fiche.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
-    # 1. comptes depuis le classeur
-    comptes, tous = [], []
-    if actif():
+    if tous is None and actif():
         try:
             tous = await lire_comptes()
-            deja = [c for c in tous if _norm(c["gerant"]) == _norm(prenom) and _norm(c["utilisation"]) == "clipper"
-                    and _pour_creatrice(c, creatrice)]
-            if declencheur.startswith("!onboarding"):                # forçage explicite : on lève les écartés
-                for c in deja:
-                    etat.get("ecartes", {}).pop(c["handle"].lower(), None)
-            elif _nouveau(membre, etat):                             # 24/09 : nouvel Eddy ≠ ancien Eddy viré
-                douteux = _ecarter(etat, membre, deja)
-                if douteux:
-                    deja = [c for c in deja if c not in douteux]
-                    resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
-                                    f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
-                                    f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
-            comptes = deja[:COMPTES_PAR_CLIPPER]
-            if len(comptes) < COMPTES_PAR_CLIPPER:
-                nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes))
-                if nouveaux:
-                    await reserver(nouveaux, prenom)
-                comptes += nouveaux
-            resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
-        except RuntimeError as erreur:
-            resultat.append(f"classeur : {erreur}")
-    else:
-        resultat.append("classeur non branché")
-    # 2. lien GAML — cloné depuis le DERNIER lien de clipper de la créatrice (27/09 : « tu dupliques celui d'avant »), puis la carte
-    # « Plateforme privée » reçoit le lien de tracking OnlyFans du POD du clipper (colonne « Lien Infloww Tracking » du classeur).
+        except RuntimeError:
+            tous = []
+    tous = tous or []
+    if comptes is None:
+        handles = {str(h).lower() for h in (_lire_etat()["clippers"].get(str(membre.id)) or {}).get("comptes", [])}
+        comptes = [c for c in tous if c.get("handle") and c["handle"].lower() in handles]
     lien, lid = "", ""
+    resultat = []
     try:
         d = paie_clics._lire() if paie_clics.actif() else {"liens": {}}
         lids = paie_clics.liens_de(d, str(membre.id))
         if lids:
             lid = lids[0]
             lien = d["liens"][lid].get("url", "")
+        elif not creer:
+            return {"lien": "", "lid": "", "lignes": []}                    # 05/10 : pas encore le moment (compte 3 pas ouvert)
         elif paie_clics.actif() and paie_clics.lien_libre(d, creatrice):        # 28/09 : le lien d'un sortant va au suivant
             lid, info_l = paie_clics.lien_libre(d, creatrice)
             await paie_clics.reprendre_lien(d, lid, str(membre.id), prenom, creatrice)
@@ -983,6 +963,68 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                 resultat.append("tracking OF " + ("✅" if etat_tr in ("ok", "déjà") else f"⚠️ {etat_tr}") + f" ({tracking.rsplit('/', 1)[-1]})")
             else:
                 resultat.append(f"⚠️ pas de lien de tracking OnlyFans dans le classeur pour {'le POD ' + pod if pod else 'ses comptes'}")
+    except RuntimeError as erreur:
+        resultat.append(f"GAML : {erreur}")
+    if lien:
+        etat = _lire_etat()
+        fiche = etat["clippers"].setdefault(str(membre.id), {})
+        if fiche.get("lien") != lien:
+            fiche["lien"] = lien
+            fiche.setdefault("creatrice", creatrice)
+            _ecrire_etat(etat)
+    return {"lien": lien, "lid": lid, "lignes": resultat}
+
+
+async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice") -> str:
+    """Tout l'onboarding d'un clipper. Renvoie la ligne à poster à l'admin / au manager."""
+    prenom = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
+    etat = _lire_etat()
+    fiche = etat["clippers"].setdefault(str(membre.id), {})
+    resultat = []
+    # 26/09 : `!salons-equipe` relancé = le même message de comptes deux fois dans chaque salon. Une livraison déjà faite
+    # dans les 24 h n'est pas rejouée, sauf forçage explicite (`!onboarding @clipper`).
+    if not declencheur.startswith("!onboarding") and fiche.get("comptes") and fiche.get("date"):
+        try:
+            depuis = datetime.now(timezone.utc) - datetime.fromisoformat(fiche["date"])
+        except ValueError:
+            depuis = timedelta(days=9)
+        if depuis < timedelta(hours=24):
+            return f"📦 Onboarding de {membre.display_name} ({fiche.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
+    # 1. comptes depuis le classeur
+    comptes, tous = [], []
+    if actif():
+        try:
+            tous = await lire_comptes()
+            deja = [c for c in tous if _norm(c["gerant"]) == _norm(prenom) and _norm(c["utilisation"]) == "clipper"
+                    and _pour_creatrice(c, creatrice)]
+            if declencheur.startswith("!onboarding"):                # forçage explicite : on lève les écartés
+                for c in deja:
+                    etat.get("ecartes", {}).pop(c["handle"].lower(), None)
+            elif _nouveau(membre, etat):                             # 24/09 : nouvel Eddy ≠ ancien Eddy viré
+                douteux = _ecarter(etat, membre, deja)
+                if douteux:
+                    deja = [c for c in deja if c not in douteux]
+                    resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
+                                    f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
+                                    f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
+            comptes = deja[:COMPTES_PAR_CLIPPER]
+            if len(comptes) < COMPTES_PAR_CLIPPER:
+                nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes))
+                if nouveaux:
+                    await reserver(nouveaux, prenom)
+                comptes += nouveaux
+            resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
+        except RuntimeError as erreur:
+            resultat.append(f"classeur : {erreur}")
+    else:
+        resultat.append("classeur non branché")
+    # 2. lien GAML — 05/10 (Gaëtan : « le lien que pour le troisième compte ») : plus créé ici. Un lien déjà attribué à ce clipper
+    # est simplement rappelé ; sinon le parcours le crée à l'ouverture de l'étape 3 (attribuer_lien, creer=True).
+    lien, lid = "", ""
+    try:
+        bilan_lien = await attribuer_lien(membre, creatrice, tous, comptes, creer=declencheur.startswith("!onboarding"))
+        lien, lid = bilan_lien.get("lien", ""), bilan_lien.get("lid", "")
+        resultat += bilan_lien.get("lignes", [])
     except RuntimeError as erreur:
         resultat.append(f"GAML : {erreur}")
     # 3. Drive
@@ -1571,8 +1613,11 @@ async def boucle(client, deps: dict):
                 # tri : le parcours lit compte 1, 2, 3 dans cet ordre) avec leurs accès ; un clipper en plein parcours
                 # (étapes 1 à 6) ne reçoit rien ici, le parcours les lui donne un par un, l'admin a une ligne.
                 fiche = etat["clippers"].setdefault(str(membre.id), {})
-                deja = {str(h).lower() for h in fiche.get("comptes", [])}
-                a_livrer = sorted([c for c in nouveaux if c["handle"].lower() not in deja], key=_est_prive)
+                # 05/10 (doublons « mêmes identifiants » vus dans les salons) : la fiche peut porter « @x » ou une URL d'avant la
+                # normalisation ; comparés normalisés des deux côtés, et un accès déjà livré n'est jamais renvoyé
+                deja = {normaliser_handle(h).lower() for h in fiche.get("comptes", [])} | \
+                       {normaliser_handle(a.get("handle")).lower() for a in fiche.get("acces") or [] if isinstance(a, dict)}
+                a_livrer = sorted([c for c in nouveaux if normaliser_handle(c["handle"]).lower() not in deja], key=_est_prive)
                 try:
                     import parcours                                     # import tardif : parcours importe onboarding
                     etape_p = int((parcours._lire().get(str(membre.id)) or {}).get("etape", 0) or 0)

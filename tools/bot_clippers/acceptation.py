@@ -28,10 +28,11 @@ REGLES = ("1. Les comptes de la mission sont **à l'agence**. Le téléphone aus
           "ou d'un pays francophone. Pas un robot. Payé tous les 15 jours, en USDC ou par virement. "
           "Pas de fixe. 1 000 visites = 50 $. 5 000 visites = 250 $. "
           "Robots, clics achetés ou clics forcés = licenciement.\n"
-          "5. 2 Reels par jour sur chaque compte. 3 jours sans publier = avertissement. 7 jours = licenciement.")   # 30/09 (Gaëtan)
+          "5. 2 Reels par jour sur chaque compte de croissance. Ton compte 1 : créé dans les 3 jours, sinon tu sors du serveur "
+          "et ta place va au suivant.")   # 30/09 (Gaëtan) ; 05/10 : la règle unique de sortie (3 jours sans compte créé)
 
 # La même chose, en une ligne pour le formulaire du site (aide sous la case à cocher)
-REGLES_SITE = ("1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence. Tu rends les accès si on te les demande. 3. La formation reste entre nous. Tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe. Les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte. 3 jours sans publier, c'est un avertissement. 7 jours, c'est le licenciement.")   # 30/09 : mêmes règles, formulées court (formulaire du site)
+REGLES_SITE = ("1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence. Tu rends les accès si on te les demande. 3. La formation reste entre nous. Tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe. Les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte de croissance. Ton compte 1 doit être créé dans les 3 jours, sinon tu sors.")   # 30/09 : mêmes règles, formulées court (formulaire du site) ; 05/10 : règle de sortie unique
 
 
 def conditions_texte(titre: str = "") -> str:

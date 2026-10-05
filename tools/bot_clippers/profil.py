@@ -199,9 +199,10 @@ def texte_bio(n: int, bio: str, nom: str = "") -> str:
     return tete + f"✏️ Bio :\n```\n{bio}\n```"
 
 
-async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None):
+async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str = ""):
     """30/09 (Gaëtan : « arrête de spammer les clippeurs ») : le profil du compte n en UN message — la photo en pièce jointe
-    (ou le lien du dossier Photos), le nom et la bio prêts à coller, et le bouton `vue`. Renvoie le message envoyé, None sinon."""
+    (ou le lien du dossier Photos), le nom et la bio prêts à coller, et le bouton `vue`. Renvoie le message envoyé, None sinon.
+    05/10 : le compte 3 est privé et porte le lien dans sa bio (`lien`) ; les comptes 1 et 2 n'ont ni lien ni @."""
     if not ACTIF or salon is None or not creatrice:
         return None
     photo = await photo_pour(creatrice)
@@ -212,7 +213,14 @@ async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None):
         tete = (f"📷 Photo : choisis-en une ici : <{lien}>" if lien else "📷 Photo : prends-en une dans le dossier **Photos** de ton Drive.")
     else:
         tete = "📷 Photo : celle-ci, télécharge-la."
-    texte = f"**Ton profil du compte {n}**\n\n{tete}\n\n{texte_bio(n, bio_pour(creatrice), prenom)}\n\nPas de lien, pas d'@. Fait ? Appuie sur le bouton."
+    bio = bio_pour(creatrice)
+    if n == 3 and lien:
+        bio = f"{bio}\n{lien}"
+        fin = ("Ce compte est **privé** : Réglages → Confidentialité du compte → Compte privé. Le lien est dans la bio, rien d'autre. "
+               "Fait ? Appuie sur le bouton.")
+    else:
+        fin = "Pas de lien, pas d'@. Fait ? Appuie sur le bouton."
+    texte = f"**Ton profil du compte {n}**\n\n{tete}\n\n{texte_bio(n, bio, prenom)}\n\n{fin}"
     kwargs = {"view": vue} if vue is not None else {}
     try:
         if photo is not None:
