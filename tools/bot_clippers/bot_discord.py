@@ -93,6 +93,14 @@ CANAL_MANAGER_ID = os.environ.get("CANAL_MANAGER_ID", "").strip()
 # effacée une fois traitée — elle porte un numéro de téléphone et n'apporte rien de plus que la fiche.
 WEBHOOK_EFFACER = os.environ.get("WEBHOOK_EFFACER", "1").strip() == "1"
 MODELE = os.environ.get("MODELE", "claude-haiku-4-5")
+# 05/10 (Gaëtan : « Go pour Sonnet sur #assistant ») : le salon commun de l'assistant tourne sur Sonnet, tout le reste (juge du test,
+# relecture des Reels, rétrospective, MP des candidats) reste sur Haiku. Réflexion adaptative au niveau « low » (c'est du chat, la
+# réponse est plafonnée à 450 caractères par le prompt), plus de marge de sortie pour que la réflexion ne mange pas la réponse.
+MODELE_ASSISTANT = os.environ.get("MODELE_ASSISTANT", "claude-sonnet-5-5").strip() or "claude-sonnet-5-5"
+EFFORT_ASSISTANT = os.environ.get("EFFORT_ASSISTANT", "low").strip() or "low"
+MAX_TOKENS_ASSISTANT = int(os.environ.get("MAX_TOKENS_ASSISTANT", "1500") or 1500)
+# Prix (par million de tokens, API Anthropic, septembre 2026) : entrée, sortie, lecture du cache, écriture du cache (TTL 1 h = 2×)
+PRIX_TOKENS = {"claude-sonnet-5-5": (2.0, 10.0, 0.20, 4.0), "claude-haiku-4-5": (1.0, 5.0, 0.10, 2.0)}
 QUESTIONS_MAX_PAR_JOUR = int(os.environ.get("QUESTIONS_MAX_PAR_JOUR", "30"))
 ADMIN_IDS = {i.strip() for i in os.environ.get("ADMIN_IDS", "").split(",") if i.strip()}
 
@@ -486,17 +494,53 @@ def bloc_systeme():
     }]
 
 
-def repondre_sync(messages) -> str:
+def _appel_modele(messages, modele: str):
+    """05/10 : un appel au modèle choisi — Sonnet (#assistant) avec l'effort réglé et plus de sortie, Haiku tel quel."""
+    kwargs = {"model": modele, "max_tokens": MAX_TOKENS_REPONSE, "system": bloc_systeme(), "messages": messages}
+    if modele != MODELE:
+        kwargs.update(max_tokens=MAX_TOKENS_ASSISTANT, output_config={"effort": EFFORT_ASSISTANT})
+    reponse = claude.messages.create(**kwargs)
+    compter_usage(modele, getattr(reponse, "usage", None))
+    return reponse
+
+
+def compter_usage(modele: str, usage) -> None:
+    """05/10 (Gaëtan : « chiffre-moi ») : les tokens de chaque réponse, par mois et par modèle, dans compteurs.json — `!stats`
+    en fait un coût réel. Une ligne de journal par appel (jamais le contenu)."""
+    if usage is None:
+        return
+    try:
+        entree = int(getattr(usage, "input_tokens", 0) or 0)
+        lus = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+        ecrits = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
+        sortie = int(getattr(usage, "output_tokens", 0) or 0)
+        compteurs = lire_json(FICHIER_COMPTEURS, {})
+        mois = compteurs.setdefault("usage", {}).setdefault(datetime.now(timezone.utc).strftime("%Y-%m"), {})
+        u = mois.setdefault(modele, {"questions": 0, "entree": 0, "cache_lus": 0, "cache_ecrits": 0, "sortie": 0})
+        u["questions"] += 1; u["entree"] += entree; u["cache_lus"] += lus; u["cache_ecrits"] += ecrits; u["sortie"] += sortie
+        ecrire_json(FICHIER_COMPTEURS, compteurs)
+        journal.info("Assistant %s : %d entrée, %d cache lus, %d cache écrits, %d sortie (%.4f $)", modele, entree, lus, ecrits, sortie,
+                     cout_tokens(modele, entree, lus, ecrits, sortie))
+    except Exception as erreur:                                         # noqa: BLE001 — le comptage ne bloque jamais une réponse
+        journal.warning("Comptage des tokens : %s", type(erreur).__name__)
+
+
+def cout_tokens(modele: str, entree: int, lus: int, ecrits: int, sortie: int) -> float:
+    pi, po, pl, pe = PRIX_TOKENS.get(modele, PRIX_TOKENS["claude-haiku-4-5"])
+    return (entree * pi + sortie * po + lus * pl + ecrits * pe) / 1e6
+
+
+def repondre_sync(messages, modele: str = None) -> str:
     """Appel Claude (bloquant) — lancé dans un thread depuis l'event loop Discord.
     `messages` = la conversation complète (historique récent + question courante) au format API,
-    pour que l'assistant garde le fil (fini les « c'est la première fois qu'on se parle »)."""
+    pour que l'assistant garde le fil (fini les « c'est la première fois qu'on se parle »).
+    05/10 : `modele` = Sonnet dans #assistant ; un refus de Sonnet (classifieur) est rejoué une fois sur Haiku."""
+    modele = modele or MODELE
     try:
-        reponse = claude.messages.create(
-            model=MODELE,
-            max_tokens=MAX_TOKENS_REPONSE,
-            system=bloc_systeme(),
-            messages=messages,
-        )
+        reponse = _appel_modele(messages, modele)
+        if reponse.stop_reason == "refusal" and modele != MODELE:
+            journal.info("Refus de %s, rejoué sur %s", modele, MODELE)
+            reponse = _appel_modele(messages, MODELE)
     except anthropic.RateLimitError:
         return "Trop de questions en même temps, réessaie dans une minute."
     except anthropic.APIStatusError as erreur:
@@ -506,9 +550,13 @@ def repondre_sync(messages) -> str:
         if erreur.status_code >= 500 or erreur.status_code == 529:
             time.sleep(2)
             try:
-                reponse = claude.messages.create(model=MODELE, max_tokens=MAX_TOKENS_REPONSE,
-                                                 system=bloc_systeme(), messages=messages)
-                return terminer_proprement(reponse)
+                return terminer_proprement(_appel_modele(messages, modele))
+            except Exception:                                   # noqa: BLE001
+                pass
+        if erreur.status_code == 400 and modele != MODELE:      # 05/10 : paramètre refusé pour Sonnet → Haiku, et on le dit dans le journal
+            journal.error("Paramètres refusés pour %s (%s) : réponse sur %s", modele, erreur.message, MODELE)
+            try:
+                return terminer_proprement(_appel_modele(messages, MODELE))
             except Exception:                                   # noqa: BLE001
                 pass
         journal.error("Erreur API Claude %s : %s", erreur.status_code, erreur.message)
@@ -6653,7 +6701,15 @@ async def commande_admin(message, texte: str) -> bool:
         lignes = JOURNAL.read_text(encoding="utf-8").splitlines() if JOURNAL.exists() else []
         escalades = sum(1 for l in lignes if '"escalade": true' in l)
         pourcentage = f"{escalades / len(lignes) * 100:.0f} %" if lignes else "—"
-        await message.reply(f"📊 {len(lignes)} questions au total · {escalades} hors kit ({pourcentage}).")
+        sortie_s = [f"📊 {len(lignes)} questions au total · {escalades} hors kit ({pourcentage})."]
+        # 05/10 : le coût réel par mois et par modèle (tokens comptés à chaque réponse, prix PRIX_TOKENS)
+        usage = lire_json(FICHIER_COMPTEURS, {}).get("usage", {})
+        for mois_u in sorted(usage)[-2:]:
+            for modele_u, u in usage[mois_u].items():
+                cout = cout_tokens(modele_u, u.get("entree", 0), u.get("cache_lus", 0), u.get("cache_ecrits", 0), u.get("sortie", 0))
+                sortie_s.append(f"💶 {mois_u} · {modele_u} : {u.get('questions', 0)} réponse(s) · {cout:.2f} $ "
+                                f"(entrée {u.get('entree', 0)}, cache lus {u.get('cache_lus', 0)}, cache écrits {u.get('cache_ecrits', 0)}, sortie {u.get('sortie', 0)} tokens)")
+        await message.reply("\n".join(sortie_s)[:1990])
         return True
 
     if texte.startswith("!apprendre"):
@@ -8339,8 +8395,10 @@ async def on_message(message):
     else:
         messages.append({"role": "user", "content": contenu})
 
+    # 05/10 (Gaëtan : « Go pour Sonnet sur #assistant ») : Sonnet dans le salon commun, Haiku ailleurs (MP des candidats)
+    modele_q = MODELE_ASSISTANT if (message.guild is not None and salon_assistant_id() and str(message.channel.id) == salon_assistant_id()) else MODELE
     async with message.channel.typing():
-        reponse = await asyncio.to_thread(repondre_sync, messages)
+        reponse = await asyncio.to_thread(repondre_sync, messages, modele_q)
 
     # Panne d'assistant VISIBLE : 3 « petit souci technique » en une heure = les candidats
     # tournent en rond sans qu'aucun humain ne le sache (vécu les 21-22/08). On alerte le
