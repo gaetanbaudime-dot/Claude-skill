@@ -870,3 +870,12 @@ Résultat : au plus UNE ligne par clipper et par jour, dans son message du matin
 - `REVIEW_AVANT_MAX_JOUR` (15) : relectures avant publication par clipper et par jour.
 
 Fichiers sur le volume : `review_reels.json` (relectures, quotas, lignes du jour, semaine envoyée) et `review_reels_top20.json`. Base de connaissances : la FAQ « Faire valider mes Reels avant de publier ? Non » devient « Je peux te montrer mon Reel avant de le publier ? Oui : envoie la vidéo ici, je te réponds en 1 minute. » ; la règle 31 de l'assistant dit que la relecture est faite par le bot.
+
+## 🎞️ Cadence et vues Instagram par clipper (05/10, `cadence_reels.py`)
+
+Personne ne savait combien de Reels chaque clipper publiait vraiment, et la fiche de Jonas paie 100 € par clipper « actif » (cadence tenue 80 % des jours). Le module lit les publications elles-mêmes : pour chaque clipper (par défaut les équipes de Jonas et Julien, d'après le roster), il prend ses comptes vivants dans le classeur (colonne Gérant), demande à Apify (`apify~instagram-scraper`, type posts) les publications des 30 derniers jours, puis calcule par clipper : Reels publiés, Reels par jour, jours avec au moins un Reel et avec au moins deux, vues cumulées, vues médianes et meilleure vidéo. Le résultat est posté dans le salon admin, enregistré dans `cadence_reels.json`, et résumé dans le journal sans aucun identifiant de compte.
+
+- `!cadence [jours] [prénom …]` (staff) : relance à la demande, par défaut 30 jours et les équipes par défaut.
+- Lancement automatique une fois par déploiement, 90 secondes après le démarrage, au plus une fois par jour (`CADENCE_AUTO=0` pour l'éteindre).
+- Coût Apify : environ 2,3 $ pour 1 000 publications lues, soit 5 $ pour 40 comptes sur 30 jours.
+- Limites : les comptes bannis, privés ou renommés ne remontent pas (ils sont comptés « non lus ») ; un jour tenu au sens de la fiche (deux Reels par compte de croissance) se lit dans « jours avec deux Reels ».
