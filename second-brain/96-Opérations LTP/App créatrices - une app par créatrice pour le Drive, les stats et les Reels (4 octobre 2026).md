@@ -52,6 +52,10 @@ Quand le dossier du jour n'existe pas encore (le mois n'est pas créé, la semai
 - **Le duplicateur n'existe pas.** L'onglet « bientôt » crée une attente ; s'il reste vide un mois, il décrédibilise l'app. Soit on le livre en octobre, soit on retire l'onglet.
 - **Dépendance au taux de change.** Le revenu OF affiché bouge avec le dollar, pas avec les ventes ; sur un jour, l'effet est négligeable, sur un mois il peut faire 2 à 3 % d'écart avec le relevé OnlyFans.
 
+## Ce qui a cassé au premier test (5 octobre) et la correction [C]
+
+Gaëtan a ajouté l'app à son écran d'accueil depuis le lien d'une créatrice : l'icône ouvrait la page d'accueil générique, pas son espace. Cause : iOS n'enregistre pas l'adresse de la page mais le `start_url` du manifeste d'app web, qui pointait sur la racine. Correction le 05/10 : un manifeste **par créatrice**, généré avec son jeton (`/c/<jeton>/manifest.webmanifest`, `start_url` = son espace), déclaré dans la page de son espace à la place du manifeste global. Une icône ajoutée avant la correction reste cassée : la supprimer et la recréer depuis le lien personnel dans Safari. À retenir pour toute app à lien secret : le manifeste doit porter le lien, sinon l'icône oublie qui est la personne.
+
 ## Ce qui manque et ce qui suit [S]
 
 - Ajouter les dossiers Feed et Scripts MYM des quatre créatrices dès qu'ils existent (une entrée de configuration, pas de code).
