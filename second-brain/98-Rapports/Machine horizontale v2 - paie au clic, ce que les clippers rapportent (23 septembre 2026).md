@@ -14,6 +14,9 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Rapport GAML - d'o
 > [!tip] Verdict
 > **Passer les clippers au variable est juste : aujourd'hui ils coûtent ≈ 3 050 € par mois et le tracking OnlyFans leur attribue ≈ 1 800 $ de CA par mois, dont 800 à 900 $ pour l'agence. Au clic, les mêmes clippers coûteraient ≈ 500 $ par mois.** Mais 0,05 $ le visiteur est trop cher pour ce que vaut un clic de clipper : 0,30 $ de CA OnlyFans par clic sortant, contre 0,94 $ pour le lien de Chloé elle-même. Ramené au visiteur GAML et à la part agence, ça fait 0,06 à 0,07 $ sur OnlyFans seul, peut-être 0,12 à 0,15 $ avec MYM (non tracé par clipper). Payer 0,05 $, c'est donner 35 à 80 % de la marge brute avant chatting, et ouvrir la porte aux clics achetés à 5 $ le millier. **Recommandation : 0,03 $ par visiteur francophone hors robots + 0,50 $ par abonné tracé, ou 0,05 $ avec un plancher de conversion et un plafond par compte.** Le pote qui paie 0,05 $ tient sur le volume et sur des comptes jetables à 1 500 : ce n'est pas le modèle « qualitatif » annoncé, il faut choisir.
 
+> [!info] Prolongement (2026-10-05)
+> Le bilan personne par personne pour la paie de septembre, avec GAML, Infloww et les premiers liens MYM par clipper : [[Rentabilité des clippers de Jonas, de Jonas et de Julien - paie de septembre (5 octobre 2026)]]. Deux rentables au fixe (Rianah, Caroline), le reste au variable ou dehors.
+
 > [!info] Prolongement (2026-09-28)
 > La règle « jamais plus d'un tiers du revenu jour 1 » d'un studio SaaS, posée sur ces chiffres : 0,02 $ sur OnlyFans seul, 0,04 à 0,05 $ avec MYM ; mesure par créatrice en octobre, taux par créatrice le 05/11 : [[Podcast Open Source - le clipping vu par un studio SaaS, ce qu'on en tire (28 septembre 2026)]], § 3.
 
