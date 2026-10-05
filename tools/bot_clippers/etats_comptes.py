@@ -344,9 +344,15 @@ def candidats(comptes: list) -> list:
     ou vide) : un compte du vivier libre ne peut pas se créer tout seul ; un BAN sans Gérant n'est jamais ressuscité (30/09 :
     retirer le Gérant d'un BAN, c'est le garder hors jeu)."""
     out = []
+    creatrices = onboarding.creatrices_connues(comptes)
     for c in comptes:
         e = _norm(c["etat"])
         if not c["handle"] or e not in SUIVIS:
+            continue
+        # 05/10 (Gaëtan : « scrape les infos des comptes des créas ») : le compte principal d'une créatrice (Gérant = Chloé,
+        # Utilisation « Compte de la créatrice ») est scanné pour ses followers et ses Reels, mais son ETAT n'est jamais décidé par
+        # le bot : un gros compte restreint ou mal lu ne doit pas finir « BAN » sur la ligne de la créatrice.
+        if onboarding.est_ligne_creatrice(c, creatrices):
             continue
         libre = _norm(c["gerant"]) in GERANTS_LIBRES
         if e in A_CREER and (libre or not _en_gestion(c)):
@@ -645,6 +651,8 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
     # 30/09 (Gaëtan : « considère Rianah (Metricool) et Julien (Metricool) comme des clippeurs, ajoute-les au dashboard ») : le Gérant
     # compte en entier — « Rianah (Metricool) » a sa ligne ; un masque (`!dashboard exclure`) ne vise que le Gérant écrit exactement ainsi
     exclus_n = {_norm(str(x)).strip() for x in (exclus or []) if str(x).strip()}
+    creatrices = onboarding.creatrices_connues(comptes)
+    CLE_CREA = "\u0000creatrice"                                         # 05/10 : les comptes de la créatrice elle-même, en tête de son bloc
     par = {}
     for c in comptes:
         g = (c.get("gerant") or "").strip()
@@ -653,36 +661,49 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
         if _norm(g).strip() in exclus_n:                                    # masqué (`!dashboard exclure Prénom`, Gérant écrit exactement ainsi)
             continue
         crea = ((c.get("creatrice") or c.get("onglet") or "?").split() or ["?"])[0]
+        # 05/10 (Gaëtan : « scrape les infos des comptes des créas, leurs Reels, leurs clics, ajoute-les au Dashboard ») : les lignes
+        # dont le Gérant est une créatrice (ou l'Utilisation « Compte de la créatrice ») font une ligne à part, la première du bloc
+        if onboarding.est_ligne_creatrice(c, creatrices):
+            par.setdefault(crea, {}).setdefault(CLE_CREA, []).append(c)
+            continue
         par.setdefault(crea, {}).setdefault(g, []).append(c)
     lignes = [[f"Dashboard clippers — mis à jour le {jour} · visites payables (GAML) sur 7 jours et hier, followers des comptes en gestion, Reels vus par le scan"
                + (f" · masqués : {', '.join(str(x) for x in exclus)}" if exclus else "")], []]
     tot_f = tot_v = tot_vh = tot_r = tot_rh = tot_c = 0
     for crea, clippers in par.items():
-        rows = []
+        rows, rows_crea = [], []
         for g, cs in clippers.items():
+            est_crea = g == CLE_CREA
             etats = [_norm(c.get("etat") or "") for c in cs]
             ban = sum(1 for e in etats if e == "ban")
             a_creer = sum(1 for e in etats if e in ("a creer", "à créer", ""))
             crees = len(cs) - ban - a_creer
             # 28/09 (Gaëtan : « la somme des followers des 3 comptes que le clipper a en gestion ») : les comptes dont
             # l'Utilisation est Clipper (ou vide), sauf les BAN (morts), quel que soit l'état ; un compte passé Metricool
-            # ou « à mettre Metricool » n'est plus en gestion, il reste dans le détail.
-            en_gestion = [c for c, e in zip(cs, etats) if e != "ban" and _norm(c.get("utilisation") or "clipper") in ("clipper", "", "metricool")]
+            # ou « à mettre Metricool » n'est plus en gestion, il reste dans le détail. 05/10 : pour la créatrice, tous ses comptes vivants.
+            en_gestion = [c for c, e in zip(cs, etats)
+                          if e != "ban" and (est_crea or _norm(c.get("utilisation") or "clipper") in ("clipper", "", "metricool"))]
             followers = sum(_entier(c.get("followers")) for c in en_gestion)
             # Visites : d'abord la colonne « Clics last 7d. » du classeur (écrite par le scan, propre à la créatrice de la
             # ligne : Lilian sous Chloé et Lilian sous Sophie sont deux liens), sinon le total du clipper via clics_de.
             en_colonne = [_entier(c.get("clics")) for c in cs if str(c.get("clics") or "").strip() != ""]
             if en_colonne:
                 visites = max(en_colonne)
+            elif est_crea:
+                visites = None
             else:
                 try:
                     visites = clics_de(g) if clics_de else None
                 except Exception:                                       # noqa: BLE001
                     visites = None
-            try:                                                        # visites d'hier (dépendance à deux arguments, 28/09)
-                visites_hier = clics_de(g, 1) if clics_de else None
-            except Exception:                                           # noqa: BLE001
-                visites_hier = None
+            if est_crea:                                                # 05/10 : la créatrice n'a pas de paie au clic, ses clics d'hier sont dans sa colonne
+                hier_col = [_entier(c.get("clics_hier")) for c in cs if str(c.get("clics_hier") or "").strip() != ""]
+                visites_hier = max(hier_col) if hier_col else None
+            else:
+                try:                                                    # visites d'hier (dépendance à deux arguments, 28/09)
+                    visites_hier = clics_de(g, 1) if clics_de else None
+                except Exception:                                       # noqa: BLE001
+                    visites_hier = None
             depuis = _fenetre(jour, 7)
             reels7, reels_hier, dernier = 0, 0, ""
             # 30/09 (Gaëtan : « la colonne Reels hier ne marche pas », 0 partout) : elle ne lisait que le scan daté du jour de
@@ -703,18 +724,23 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
                 for e in hist:
                     if e.get("existe") and int(e.get("posts") or 0) > 0 and str(e.get("jour", "")) > dernier:
                         dernier = str(e.get("jour", ""))
+            def _restreint(c):                                          # 05/10 : profil restreint au dernier scan = chiffres cachés par Instagram
+                hist_c = historique.get(c["handle"].lower()) or []
+                return bool(hist_c and hist_c[-1].get("restreint"))
             detail = " · ".join(f"{c['handle']} ({(c.get('etat') or '?').strip()}, {_entier(c.get('followers'))}"
-                                + ("" if _norm(c.get("utilisation") or "clipper") == "clipper" else f", {str(c.get('utilisation')).strip()}") + ")"
+                                + ("" if _norm(c.get("utilisation") or "clipper") == "clipper" else f", {str(c.get('utilisation')).strip()}")
+                                + (", restreint : chiffres cachés" if _restreint(c) else "") + ")"
                                 for c in cs)
-            rows.append([g, len(cs), crees, a_creer, ban, followers, visites if visites is not None else "",
-                         visites_hier if visites_hier is not None else "", reels7, reels_hier, dernier, detail])
+            ligne = [f"{crea} (créatrice)" if est_crea else g, len(cs), crees, a_creer, ban, followers, visites if visites is not None else "",
+                     visites_hier if visites_hier is not None else "", reels7, reels_hier, dernier, detail]
+            (rows_crea if est_crea else rows).append(ligne)
         rows.sort(key=lambda r: (-(r[6] if isinstance(r[6], int) else -1), -r[5]))
         somme = lambda i: sum(r[i] for r in rows if isinstance(r[i], int))  # noqa: E731
         f_c, v_c, vh_c, r_c, rh_c = somme(5), somme(6), somme(7), somme(8), somme(9)
         tot_f += f_c; tot_v += v_c; tot_vh += vh_c; tot_r += r_c; tot_rh += rh_c; tot_c += len(rows)
         lignes.append([crea.upper(), f"{len(rows)} clipper(s)", "", "", "", f_c, v_c, vh_c, r_c, rh_c, "", ""])
         lignes.append(list(ENTETE_DASHBOARD))
-        lignes.extend(rows)
+        lignes.extend(rows_crea + rows)                                 # 05/10 : la créatrice d'abord, hors des totaux des clippers
         lignes.append([])
     lignes.append(["TOTAL", f"{tot_c} clipper(s)", "", "", "", tot_f, tot_v, tot_vh, tot_r, tot_rh, "", ""])
     return lignes

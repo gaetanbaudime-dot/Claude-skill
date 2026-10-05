@@ -289,6 +289,36 @@ def est_creatrice(gerant: str, creatrices: set) -> bool:
     return (_norm(gerant or "").split() or [""])[0] in (creatrices or set())
 
 
+def est_ligne_creatrice(c: dict, creatrices: set) -> bool:
+    """05/10 (Gaëtan : « scrape les infos des comptes des créas, leurs Reels, leurs clics ») : la ligne du compte principal d'une
+    créatrice = Gérant à son prénom (Chloé, Jade) ou Utilisation « Compte de la créatrice ». Pas « Compte redirection créatrice »
+    (le compte privé de redirection, Gérant Gaëtan : un compte géré comme les autres)."""
+    u = _norm(c.get("utilisation") or "").strip()
+    return est_creatrice(c.get("gerant"), creatrices) or u == "creatrice" or u.startswith("compte de la creatrice")
+
+
+def _compact(t) -> str:
+    return re.sub(r"[^a-z0-9]", "", _norm(str(t or "")))
+
+
+def lien_gaml_creatrice(c: dict, details: list):
+    """05/10 : le lien GAML du compte principal d'une créatrice = celui dont la note GAML dit « Compte de @<identifiant> ».
+    L'identifiant de la note et celui du classeur ne s'écrivent pas toujours pareil (« prenom_nom » dans la note, « prenom.nom__ » dans le classeur) : comparés
+    sans ponctuation. À défaut, l'unique note « Compte de @… » qui commence par le prénom de la créatrice. Rien de sûr → None."""
+    handle = _compact(normaliser_handle(c.get("handle")))
+    prenom = _compact((_norm(c.get("creatrice") or c.get("onglet") or "").split() or [""])[0])
+    notes = []
+    for d in details or []:
+        m = re.match(r"\s*compte\s+de\s+@?\s*(\S+)", _norm(str(d.get("note") or "")))
+        if m and str(d.get("url") or "").strip():
+            notes.append((_compact(m.group(1)), d))
+    exact = [d for h, d in notes if handle and h == handle]
+    if exact:
+        return exact[0]
+    par_prenom = [d for h, d in notes if prenom and h.startswith(prenom)]
+    return par_prenom[0] if len(par_prenom) == 1 else None
+
+
 async def _remplir_fusions(lignes: list, titres: list) -> None:
     """30/09 (Gaëtan : Gérant, Clics et liens fusionnés par clipper) : dans une fusion l'API ne rend la valeur que dans la
     première cellule ; chaque ligne du bloc la reçoit, et note l'étendue du bloc (« fusions » : {champ: (1re ligne, dernière)})
@@ -1084,7 +1114,28 @@ async def liens_classeur(comptes: list = None) -> dict:
         # cause était ici — Gérant « Chloé » n'a aucun lien dans paie_clics (ce n'est pas un clipper), donc `voulu` valait "" et
         # la cellule était vidée, puis revidée à chaque scan. Une ligne dont le Gérant est une créatrice, ou dont le Gérant n'a
         # AUCUN lien GAML connu du bot (Rianah (Metricool), un prénom écrit autrement…), n'est plus jamais touchée.
-        if est_creatrice(c["gerant"], creatrices):
+        if est_ligne_creatrice(c, creatrices):
+            # 05/10 (Gaëtan : « scrape les clics des comptes des créas ») : la ligne de la créatrice reçoit SON lien GAML, celui dont
+            # la note dit « Compte de @<son identifiant> » (lien_gaml_creatrice), seulement si la cellule est vide ; jamais écrasée,
+            # jamais vidée.
+            if str(c.get("lien_gaml") or "").strip():
+                continue
+            try:
+                details = await _liens_gaml_details()
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Liens GAML (créatrices) illisibles : %s", erreur)
+                continue
+            voulu = str((lien_gaml_creatrice(c, details) or {}).get("url") or "").strip()
+            if not voulu:
+                continue
+            try:
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "lien_gaml"), [[voulu]])
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Classeur : lien GAML de la créatrice %s non écrit : %s", c.get("creatrice") or c.get("onglet"), erreur)
+                continue
+            c["lien_gaml"] = voulu                                      # la lecture en mémoire suit (même passage)
+            ecrits += 1
+            groupes[(c["gerant"], c.get("creatrice") or c.get("onglet") or "?", voulu)] = 1
             continue
         cr = (_norm(c["creatrice"]).split() or [""])[0]
         liens = par_prenom.get(g, [])
@@ -1208,9 +1259,12 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
             if cle not in valeurs:
                 tous = [c for c in lignes if _norm(c.get("gerant")) == g]
                 dans_cellules = {str(c.get("lien_gaml") or "").strip() for c in tous} - {""}
-                if est_creatrice(bloc[0].get("gerant"), creatrices):     # 05/10 : la créatrice : son lien, pas ceux de ses clippers
+                if est_ligne_creatrice(bloc[0], creatrices):            # 05/10 : la créatrice : son lien, pas ceux de ses clippers
                     par_url = {_url_cle(d["url"]): d for d in details if d.get("url")}
                     liens = list({par_url[_url_cle(u)]["id"]: par_url[_url_cle(u)] for u in dans_cellules if _url_cle(u) in par_url}.values())
+                    if not liens:                                        # cellule encore vide : la note GAML « Compte de @… »
+                        trouve = lien_gaml_creatrice(bloc[0], details)
+                        liens = [trouve] if trouve else []
                 else:
                     liens = liens_du_bloc(bloc[0]["gerant"], bloc[0].get("creatrice") or onglet, dans_cellules, details)
                 total = total_hier = None
@@ -1240,6 +1294,7 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
                     voulu = valeurs[cle][ch] if c is milieu else ""
                     if voulu != str(c.get(ch) or "").replace(" ", "").strip():
                         ecritures.append((cellule(c, ch), [[voulu]]))
+                        c[ch] = voulu                                    # 05/10 : la lecture en mémoire suit (Dashboard du même passage)
     if ecritures:
         await google_api.sheets_ecrire_plusieurs(CLASSEUR_LOGINS_ID, ecritures)
         journal.info("Classeur, Clics last 7d. / Clics hier : %d cellule(s)", len(ecritures))
