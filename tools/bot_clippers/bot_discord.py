@@ -43,6 +43,7 @@ import pods                              # !pods : POD neufs au classeur des log
 import relances                          # relances Telegram en un appui, chaque matin (30/09)
 import bloques                           # les bloqués du matin, relance WhatsApp en un appui (30/09)
 import acquisition_subs                  # subs de la veille OF / MYM au salon acquisition du serveur chatting (30/09)
+import appel                             # l'appel de présence : réponds sous 48 h et viens sur WhatsApp, sinon tu sors (05/10)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
@@ -4498,7 +4499,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -7093,6 +7094,16 @@ async def on_ready():
                             "tel_de": lambda uid: str((lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}).get(str(uid)) or {}).get("tel", "")),
                             "jours_sans_reel": sortie_auto.jours_sans_reel, "canal_admin": canal_admin, "est_staff": _staff})
         client.loop.create_task(bloques.boucle(client))                         # 30/09 : bloqués du matin + WhatsApp en un appui
+        appel.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "appel.json",
+                          "salons_clippers": salons_clippers_acceptes, "salon_perso": salon_perso_de,
+                          "parcours_lire": lambda: lire_json(FICHIER_PARCOURS, {}),
+                          "sortir": lambda m, raison, pool=True, expulser=True: sortir_membre(m, raison, None, pool=pool, expulser=expulser),
+                          "canal_admin": canal_admin, "prenom_de": prenom_de,
+                          "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
+                          "roster": roster, "normaliser": normaliser, "heure_paris": heure_paris, "jours_sans_reel": sortie_auto.jours_sans_reel,
+                          "lien_whatsapp": parcours.lien_whatsapp_prerempli, "est_staff": _staff, "membre_par_id": membre_par_id})
+        parcours._deps["activite"] = appel.noter_activite                  # un bouton d'étape = une réponse à l'appel
+        client.loop.create_task(appel.boucle(client))                           # 05/10 : l'appel de présence, sans réponse 48 h = sorti
         acquisition_subs.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "acquisition_subs.json",
                                      "data_gm": rapport_quotidien.data_gm, "heure_paris": heure_paris, "est_staff": _staff})
         client.loop.create_task(acquisition_subs.boucle(client))                # 30/09 : subs de la veille, salon acquisition
@@ -7970,6 +7981,11 @@ async def on_message(message):
 
     texte = nettoyer(message)
     utilisateur = message.author.id
+    if message.guild is not None:
+        try:                                                              # 05/10 : l'appel de présence — il a écrit, il est là
+            appel.noter_activite(str(utilisateur))
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Activité de %s : %s", utilisateur, erreur)
 
     # MP « STOP » : coupe toutes les relances automatiques pour cette personne. Une relance
     # sans porte de sortie ne récolte que du ressentiment — et un candidat qui dit stop
@@ -8310,6 +8326,8 @@ async def on_message(message):
         if await visites_telegram.commande(message, texte):                     # !visites-telegram (03/10)
             return
         if await cadence_reels.commande(message, texte):                        # !cadence [jours] [prénoms] (05/10)
+            return
+        if await appel.commande(message, texte):                                # !appel [go|@clipper|passe] (05/10)
             return
         if await bans_mail.commande(message, texte):                            # !bans [jours] (29/09)
             return
