@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import paie_clics as pc, onboarding as ob, classeur_forme as cf  # noqa: E402
 S = sys.argv[1] if len(sys.argv) > 1 else "."
 REF = {"Chloé": "chloecallistafr:", "Sarah": "sarahivanovafr:", "Jade": "jadetorafr:"}
-# 02/10 : les images se choisissent par plateforme (MYM / OF), plus par libellé — les boutons s'appellent « Plateforme exclusive »
+# 02/10 : les images se choisissent par plateforme (MYM / OF), plus par libellé. 05/10 (Gaëtan) : les boutons s'appellent « Miam » (MYM, en premier) et « OnlyFriends » (OF)
 FICHIERS = {"Chloé": ("chloe_fond.png", {"MYM": "chloe_carte0_Miam.jpg", "OF": "chloe_carte1_0F.jpg"}),
             "Sarah": ("sarah_fond.jpg", {"MYM": "sarah_carte0_Miam.jpg", "OF": "sarah_carte1_0F.jpg"}),
             "Jade": ("jade_fond.mp4", {})}
@@ -58,7 +58,7 @@ async def main(cibles):
     # Jade : sa référence n'a qu'un bouton OnlyFans ; on va « rediriger vers MYM et OF » → un bouton MYM en plus, sans image
     if not any("mym" in (c.get("value") or "") for c in details["jadetorafr:"].get("contents") or []):
         details["jadetorafr:"]["contents"] = list(details["jadetorafr:"].get("contents") or []) + [
-            {"name": "Plateforme exclusive", "value": "https://mym.fans/", "effect": None, "cardType": "simple", "is18Plus": True, "image": ""}]
+            {"name": "Miam", "value": "https://mym.fans/", "effect": None, "cardType": "simple", "is18Plus": True, "image": ""}]
     comptes = await ob.lire_comptes()
     attendu = {}
     for t in REF:
