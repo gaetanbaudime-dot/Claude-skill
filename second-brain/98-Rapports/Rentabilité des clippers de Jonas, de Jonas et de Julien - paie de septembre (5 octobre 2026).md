@@ -130,6 +130,30 @@ Le bot a lu les publications des comptes de chaque clipper (colonne Gérant du c
 
 **Pour le contrat de Jonas**, les « clippers actifs » (cadence tenue 80 % des jours, soit 24 jours sur 30) sont **deux : Lilian et Tara**. Lucas est à 22 jours, Josué à 18, les autres loin derrière. Son fixe d'octobre à la lettre du contrat serait donc **200 €**, plus 0,30 € par abonné. Pour septembre, les 500 € garantis du premier mois restent la seule lecture possible.
 
+## 3 quater. Le tableau comparatif demandé par Gaëtan : followers, cadence, visiteurs, abonnés, Infloww, coût et CA (05/10, 06 h 40)
+
+Fenêtre commune : les **14 jours du 23/09 au 05/10** (abonnés OnlyFans donnés par Gaëtan depuis le 23/09, progression du CA Infloww entre les deux exports, coût = la moitié du fixe mensuel + 0,50 € par abonné OnlyFans). Followers et cadence : comptes du classeur, relevés le 05/10 au matin. MYM : abonnés des liens par clipper créés le 28/09 (7 jours), revenu encore à 0 € partout (un abonné MYM ne paie que plus tard : 2,16 € par abonné sur le lien principal de Sarah à ce jour).
+
+| Clipper | Statut | Followers (comptes) | Reels 30 j · jours ≥ 1 | Vues 30 j | Visiteurs GAML sept · oct 1-4 | Abonnés OF 14 j | Abonnés MYM 7 j | Infloww cumulé : clics · abonnés · $ · payeurs (créé) | Coût 14 j | CA OF 14 j | Lecture |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Caroline** | FR, Chloé | 2 (4) | 9 · 9 | 1 194 | 2 468 · 558 | **59** | **32** | 1 297 · 75 · **591 $** · 9 (08/09) | 130 € | **591 $** | la seule qui gagne plus qu'elle ne coûte ; ses comptes du classeur sont vides (2 followers), elle publie ailleurs |
+| **Yves** | MG, Sarah | 19 (3) | 0 · 0 | 0 | 249 · 226 | **37** | 11 | 338 · 37 · **219 $** · 3 (20/09) | 69 € | **219 $** | rentable en deux semaines, trafic Facebook ou comptes hors classeur |
+| **Ckycia** | MG, Chloé | 65 (3) | 49 · 18 | 61 809 | 512 · 17 | 4 | 2 | 58 · 4 · 144 $ · 1 (27/09) | 52 € | 144 $ | un seul payeur, trafic éteint en octobre |
+| **Josué** | FR, Sarah | 938 (3) | 21 · 18 | 29 009 | **2 996** · 312 | 32 | 18 | 2 539 · 165 · 171 $ · 5 (18/08) | 116 € | 76 $ | le plus efficace (143 visiteurs par Reel), mais Sarah vaut 1 $ par abonné OF |
+| **Lilian** | FR, Chloé | 1 032 (3) | **62 · 28** | **456 633** | 1 282 · 119 | 21 | 0 (pas de bouton) | 676 · 37 · 518 $ · 4 (02/09) | 111 € | 52 $ | le plus régulier, bien lu, mal outillé côté MYM |
+| **Hasina** | MG, Chloé | 842 (3) | 1 · 1 | 147 | 23 · 197 | 20 | 11 | 280 · 20 · 0 $ · 0 (23/09, Facebook) | 60 € | 0 $ | abonnés gratuits par Facebook, aucun payeur encore |
+| **Clarisse** | MG, Sarah | 153 (2) | 0 · 0 | 0 | 38 · 158 | 10 | 7 | 56 · 10 · 0 $ · 0 (18/09) | 55 € | 0 $ | démarre, hors Instagram lisible |
+| **Romaric** | MG, Chloé | 153 (1) | 9 · 6 | 30 746 | 63 · 112 | 4 | 9 | 41 · 4 · 0 $ · 0 (17/09) | 52 € | 0 $ | démarre, bonnes vues par Reel |
+| **Lucas** | FR, Chloé | 204 (2) | 36 · 22 | 69 419 | 86 · 29 | 4 | 2 | 34 · 4 · 0 $ · 0 (02/09) | 102 € | 0 $ | publie et fait des vues, lien inopérant |
+| **Tara** | FR, Sarah | 100 (3) | **65 · 28** | 39 012 | 1 048 · **0** | 3 | 0 | 573 · 45 · 64 $ · 1 (31/08) | 102 € | 0 $ | la plus assidue, comptes morts |
+| **Thia** | MG, Sophie | 965 (3) | 6 · 5 | 7 718 | 8 · 1 | 1 | 0 | 8 · 1 · 0 $ · 0 (26/09) | 51 € | 0 $ | rien |
+| **Total équipe Jonas (11)** | | 4 473 | 258 Reels | 696 000 | 9 773 · 1 729 | **195** | **92** | | **≈ 900 €** | **≈ 1 082 $** brut | l'agence en garde ≈ 40 à 50 % : 430 à 540 $ pour 900 € de paie |
+| **Jonas** (manager) | | | | | | | | son ancien lien : 1 407 · 61 · 71 $ (22/07) | **250 €** (500 € garantis sur le mois) | le CA de son équipe : ≈ 1 082 $ brut | 2 clippers actifs au sens de son contrat (Lilian, Tara) |
+| **Julien** (hors équipe) | FR, Chloé + Sophie | 0 (1) | 0 · 0 | 0 | 1 596 · 87 | ≈ 3 | 11 | 3 011 · 150 · 1 298 $ · 11 (29/07) | 103 € | 1 $ | ne clippe plus, ses anciens liens vivent sur leur lancée |
+| **Rianah** (Metricool) | MG, Sophie + Maddie | 3 268 (8) | **151 · 23** | **848 604** | **12 169** · 757 | non attribué | | 2 923 · 212 · 770 $ · 10 (29/07, un seul lien pour trois pages) | 200 € (400 € par mois depuis le 05/10) | non attribuable, le plus gros poste de trafic | à mesurer avec un lien par page |
+
+Ce que le tableau dit en une phrase : **sur quatorze jours, l'équipe de Jonas coûte ≈ 900 € de paie plus 250 € de manager pour ≈ 1 082 $ de CA OnlyFans brut, dont l'agence garde 430 à 540 $ ; MYM n'a encore rien rapporté sur les liens par clipper.** Au fixe, la machine perd ≈ 600 à 700 € par quinzaine. Trois personnes font 90 % du CA (Caroline, Yves, Ckycia), et deux d'entre elles ne publient pas sur les comptes que le bot surveille.
+
 ## 4. Ce qu'il faut corriger dans les outils avant la paie MYM du 15/10
 
 1. Un bouton MYM sur la page GAML de Lilian (il n'en a pas).
