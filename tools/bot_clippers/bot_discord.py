@@ -1252,8 +1252,13 @@ async def verifier_canaux_configures():
         elif nom == "CANAL_CANDIDATURE_ID":                          # 25/09 : #candidature est devenu #bienvenue
             remplacant = next((c for g in client.guilds for c in g.text_channels
                                if "bienvenue" in normaliser(c.name) or "candidature" in normaliser(c.name)), None)
+        elif nom == "CANAL_ASSISTANT_ID":                            # 05/10 : le salon de l'assistant a été supprimé → celui qui porte ce nom
+            remplacant = next((c for g in client.guilds for c in g.text_channels if "assistant" in normaliser(c.name)), None)
+        elif nom == "CANAL_BOT_ID":                                  # 05/10 : idem pour le salon « bot » (repli admin)
+            remplacant = next((c for g in client.guilds for c in g.text_channels
+                               if "bot" in normaliser(c.name).split("-") and "assistant" not in normaliser(c.name)), None)
         if remplacant is None:
-            if nom == "CANAL_CANDIDATURE_ID":      # 25/09 : salon supprimé → fonction éteinte, sans bruit
+            if nom in ("CANAL_CANDIDATURE_ID", "CANAL_BOT_ID", "CANAL_ASSISTANT_ID"):   # salon supprimé → fonction éteinte, sans bruit (25/09, 05/10)
                 globals()[nom] = ""
                 journal.info("%s = %s : salon supprimé, fonction désactivée (variable Railway à vider à l'occasion)", nom, val)
                 continue
