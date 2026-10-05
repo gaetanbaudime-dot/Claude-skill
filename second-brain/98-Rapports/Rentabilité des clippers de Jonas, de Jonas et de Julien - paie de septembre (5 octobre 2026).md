@@ -105,6 +105,31 @@ Ce que coûterait Jonas en octobre, deuxième mois, selon la règle choisie, pou
 
 **Verdict sur Jonas** : par les chiffres, il n'est pas un atout aujourd'hui. Les deux personnes qui rapportent (Rianah, Caroline) n'ont pas besoin de lui, son équipe est à la moitié de l'objectif de son premier mois (600 abonnés attendus pour 12 clippers, 285 faits), et il n'a appliqué aucune des deux règles de sortie de son contrat. Ce qui plaide pour lui : les trois Malgaches du 25/09 montent vite, et quelqu'un doit exécuter le passage au variable de douze personnes et les trois sorties. Décision recommandée : **octobre sous la règle « fixe par clipper rentable » + 0,30 € par abonné**, avec trois obligations écrites (les trois sorties cette semaine, la règle des deux jours appliquée chaque lundi avec le rapport du bot comme juge, cinq lignes par jour dans le salon admin) et un seul chiffre à atteindre : **600 abonnés OF + MYM pour l'équipe en octobre**, sinon fin de période d'essai le 05/11. Le passer au variable pur revient à le faire partir ; le garder au contrat actuel revient à payer 700 € pour compter des têtes.
 
+## 3 ter. La cadence réelle, lue sur Instagram (Apify, 05/09 → 04/10, ajout du 05/10 à 06 h 20 Paris)
+
+Le bot a lu les publications des comptes de chaque clipper (colonne Gérant du classeur, comptes vivants) sur 30 jours : Reels publiés, jours avec au moins un Reel, jours avec au moins deux, vues. Rianah est payée à part (Metricool, 400 € par mois depuis le 05/10 pour le travail de deux clippers), les autres selon les règles du § 1.
+
+| Clipper | Comptes lus | Reels sur 30 j (par jour) | Jours avec 1 Reel · avec 2 | Vues (médiane · meilleure) | Visiteurs GAML sept | Lecture |
+|---|---|---|---|---|---|---|
+| **Rianah** | 8 | **151** (5,0) | 23 · 22 | **848 604** (1 924 · 142 036) | 12 169 | le moteur ; 400 € par mois largement justifiés |
+| **Lilian** | 3 | **62** (2,1) | **28 · 21** | **456 633** (2 217 · 117 283) | 1 282 | actif au sens du contrat, le seul avec Tara ; sans bouton MYM |
+| **Tara** | 3 | **65** (2,2) | **28 · 24** | 39 012 (179 · 7 699) | 1 048, **0 en octobre** | la plus disciplinée, mais 600 vues par Reel et plus un visiteur : ses comptes sont morts ou son lien a sauté, pas elle |
+| Ckycia | 3 | 49 (1,6) | 18 · 12 | 61 809 (414 · 10 159) | 512, 17 en octobre | a publié, trafic effondré en octobre : comptes à vérifier |
+| Lucas | 2 | 36 (1,2) | 22 · 14 | 69 419 (308 · 33 982) | 86 | publie et fait des vues, **presque aucun clic** : le lien n'est pas en place, ou pas dans la bio |
+| Josué | 3 | 21 (0,7) | 18 · 3 | 29 009 (168 · 8 371) | 2 996 | peu de Reels, beaucoup de visiteurs : 143 visiteurs par Reel, le plus efficace |
+| Caroline | 4 | 9 (0,3) | 9 · 0 | 1 194 (59 · 465) | 2 468 | **ses visiteurs ne viennent pas des comptes du classeur** : elle publie ailleurs (comptes à elle ?), à clarifier |
+| Romaric | 1 | 9 (0,3) | 6 · 3 | 30 746 (2 909 · 12 537) | 63, 112 en octobre | démarre, bonnes vues par Reel |
+| Thia | 3 | 6 (0,2) | 5 · 1 | 7 718 (376 · 5 333) | 8 | n'a presque rien publié |
+| Hasina | 3 | 1 | 1 · 0 | 147 | 23, 197 en octobre | son trafic vient de **Facebook** (source Infloww), que ce passage ne lit pas |
+| Yves | 3 | 0 | 0 · 0 | 0 | 249, 226 en octobre | idem : visiteurs en hausse sans Reel Instagram lisible, Facebook ou comptes hors classeur |
+| Clarisse | 2 | 0 | 0 · 0 | 0 | 38, 158 en octobre | idem |
+| Julien | 1 | 0 | 0 · 0 | 0 | 1 596 | publie sur les comptes des créatrices via Metricool, pas sur un compte à lui |
+| Autres (Simon 13, Andry 16, Ricardo 10, Antoinr 10, Mathias 1, Michel, Mohamed, Ricado 0) | | | | | | les nouveaux de fin septembre |
+
+**Ce que ça change.** Deux verdicts bougent. **Tara** n'est pas à sortir pour faute : elle a tenu la cadence 28 jours sur 30 ; ce sont ses comptes (600 vues par Reel) et son lien (zéro visiteur depuis le 01/10) qui sont morts. Lui refaire trois comptes et un lien, au variable, et juger sur 15 jours. **Lucas** publie et fait des vues (34 000 sur sa meilleure vidéo) mais ne ramène personne : avant de le sortir, vérifier que son lien est bien dans la bio de son compte privé et que ses deux comptes de croissance le taguent ; s'il manque, c'est un réglage, pas un clipper. Deux questions s'ouvrent : d'où viennent les 2 468 visiteurs de **Caroline** si ses quatre comptes du classeur n'ont publié que neuf Reels (des comptes à elle, non déclarés ? alors les scans du bot et la sortie automatique la jugent sur les mauvais comptes), et les trois Malgaches de Sarah et Chloé qui montent (Hasina, Yves, Clarisse) le font-ils sur **Facebook** ? Les pages Facebook ne sont ni dans le classeur ni dans ce passage.
+
+**Pour le contrat de Jonas**, les « clippers actifs » (cadence tenue 80 % des jours, soit 24 jours sur 30) sont **deux : Lilian et Tara**. Lucas est à 22 jours, Josué à 18, les autres loin derrière. Son fixe d'octobre à la lettre du contrat serait donc **200 €**, plus 0,30 € par abonné. Pour septembre, les 500 € garantis du premier mois restent la seule lecture possible.
+
 ## 4. Ce qu'il faut corriger dans les outils avant la paie MYM du 15/10
 
 1. Un bouton MYM sur la page GAML de Lilian (il n'en a pas).
