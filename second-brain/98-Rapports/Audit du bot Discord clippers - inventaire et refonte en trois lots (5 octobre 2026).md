@@ -257,6 +257,13 @@ Livrable : les salons se taisent dès le redéploiement ; tout est réversible (
 
 ---
 
+## F bis. Les réponses de Gaëtan (05/10, après-midi) et ce qui a été livré
+
+> [!tip] Décisions
+> 1. **Le lien** : deux comptes de croissance ; le compte 3 est **privé** et porte le lien **dans sa bio** ; sur les comptes 1 et 2, une story à la une (photo ou vidéo) avec le **widget de mention** du compte 3. 2. **Expulsion** : « juste 3 jours sans compte créé ». 3. **Critère** : 48 h et 4 Reels. 4. **WhatsApp** : pas bloquant, mais demandé (`!wa @clipper` note que c'est fait). 5. **Assistant** : salon commun `#assistant`, contexte court sans identifiant ni lien, Haiku d'abord, à mesurer deux semaines.
+
+Les trois lots ont été livrés le jour même dans le dépôt du bot (section « Refonte du bot Discord en trois lots » du README du bot) ; la décision et ses prédictions sont dans le [[Journal de coaching]] du 05/10.
+
 ## F. Les cinq questions que seul Gaëtan peut trancher
 
 1. **Où va le lien ?** La doctrine du 05/10 dit « lien de tracking dans la bio du compte 3 privé » ; le bot dit partout depuis le 28/09 « jamais de lien ni d'@ dans la bio, les @ en bio font des bans ; une story à la une sur chaque compte » (`ETAPES[6]`, règle 32 du prompt, `connaissances.md` « LE MATÉRIEL DE TRAVAIL », `retro.DOCTRINE`). Les deux ne peuvent pas coexister dans les textes. **Proposition par défaut** : lien **uniquement** en bio du compte 3 privé (un compte sans Reels ni actions risque moins), rien sur les comptes 1 et 2 (ni bio ni story), et les comptes 1-2 renvoient vers le compte 3 par le widget de profil en story. Si le compte 3 se fait bannir, c'est le seul à remplacer.
