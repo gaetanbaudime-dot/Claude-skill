@@ -2180,13 +2180,31 @@ async def roles_creatrices_manquants(client) -> list:
     """30/09 : chaque signé du registre qui a une créatrice reçoit le rôle de cette créatrice s'il ne l'a pas (Mathias : accepté,
     Chloé attribuée, rôle jamais posé). Renvoie les lignes du bilan : posés, refusés, rôles introuvables."""
     registre = lire_json(FICHIER_EQUIPES, {})
-    poses, refuses, introuvables = [], {}, set()
+    poses, refuses, introuvables, corriges, a_ecrire = [], {}, set(), [], {}
+    connues = {normaliser(c): c for c in roster.groupes()}
+    surnoms = {normaliser(s_) for s_ in roster.lire().get("alias", {})}
     for uid, fiche in registre.items():
         creatrice = str(fiche.get("creatrice") or "").strip()
         m = membre_par_id(uid)
         if not creatrice or m is None or getattr(m, "bot", False):
             continue
         role = role_creatrice(m.guild, creatrice)
+        if role is None and normaliser(creatrice) not in connues:
+            # 05/10 (« vire pépita ») : « pepita », surnom de Ricado, était resté en créatrice d'une fiche depuis le
+            # `!creatrice chloé pepita` du 26/09. Une créatrice sans rôle ni place au roster est remplacée par celle du
+            # roster (ou du pseudo « Prénom - Créatrice ») ; un surnom de clipper est simplement retiré.
+            prenom_n = normaliser(prenom_de(m))
+            vraie = next((c for c, noms in roster.groupes().items() if prenom_n in {normaliser(n_) for n_ in noms}), "")
+            if not vraie and " - " in (m.display_name or ""):
+                vraie = connues.get(normaliser(m.display_name.split(" - ", 1)[1].strip()), "")
+            if vraie:
+                a_ecrire[uid] = vraie
+                corriges.append(f"{prenom_de(m)} : « {creatrice} » → {vraie}")
+                creatrice, role = vraie, role_creatrice(m.guild, vraie)
+            elif normaliser(creatrice) in surnoms or normaliser(creatrice) == prenom_n:
+                a_ecrire[uid] = None
+                corriges.append(f"{prenom_de(m)} : « {creatrice} » retiré (surnom, pas une créatrice)")
+                continue
         if role is None:
             introuvables.add(creatrice)
             continue
@@ -2198,6 +2216,16 @@ async def roles_creatrices_manquants(client) -> list:
         except (discord.Forbidden, discord.HTTPException):
             refuses.setdefault(role.name, []).append(prenom_de(m))
     lignes = []
+    if a_ecrire:
+        registre = lire_json(FICHIER_EQUIPES, {})                       # relu : la boucle a attendu Discord entre-temps
+        for uid, vraie in a_ecrire.items():
+            if uid in registre:
+                if vraie:
+                    registre[uid]["creatrice"] = vraie
+                else:
+                    registre[uid].pop("creatrice", None)
+        ecrire_json(FICHIER_EQUIPES, registre)
+        lignes.append(f"🎭 Créatrice corrigée au registre ({len(corriges)}) : " + " · ".join(corriges))
     if poses:
         lignes.append(f"🎭 Rôle de la créatrice posé ({len(poses)}) : " + ", ".join(poses))
     for nom, qui in refuses.items():

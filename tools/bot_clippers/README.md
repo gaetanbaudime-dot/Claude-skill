@@ -919,3 +919,5 @@ Chaque push redéploie le bot, et les bilans de démarrage repartaient à chaque
 - **Rapport de la veille** : les onglets Pilotage, Profit, CA mensuel, Subs & LTV mensuels (et Commission) du classeur Data G&M sont ignorés ; ils sortaient en « Non saisi hier ».
 
 - **Bilan des fixes et paie au clic** : un membre parti du serveur et sans lien GAML n'apparaît plus (les vingt lignes « id 1127… · aucun lien GAML ») ; à défaut de pseudo Discord, le prénom de la fiche remplace l'identifiant.
+
+- **« pepita » viré (05/10, « vire pépita »)** : `roles_creatrices_manquants` corrige au démarrage une fiche du registre dont la créatrice n'a ni rôle ni place au roster. Il reprend la créatrice du roster (ou du pseudo « Prénom - Créatrice ») ; un surnom de clipper (alias du roster, comme « Pepita » = Ricado) est simplement retiré. Le bilan le dit une fois (« 🎭 Créatrice corrigée au registre »). Le registre est relu juste avant l'écriture.
