@@ -281,7 +281,7 @@ async def executer(jour: date | None = None, seulement: str = "", d: dict | None
             except RuntimeError as erreur:
                 bilan["erreurs"].append(f"{c} : {erreur}")
                 continue
-            for j in [k for k in h if (hier - date.fromisoformat(k)).days > 60]:
+            for j in [k for k in h if (hier - date.fromisoformat(str(k).split("|")[0])).days > 60]:   # 05/10 : clés « jour|compte-fr »
                 h.pop(j, None)
             _ecrire(d)
         if await poster(cle, info, texte(bloc["domaine"], hier, h[cle_h])):
