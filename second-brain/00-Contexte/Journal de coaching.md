@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-05 (Discord, routage) — Le modèle suit la question : Haiku pour le simple, Sonnet pour le blocage, la paie, la capture, le long, l'insatisfait
+- **Décision de Gaëtan** : « go, on avisera, fais en sorte de changer de modèle en fonction du besoin du clipper et de ses questions ». Livré : un score par question (capture, mots de blocage ou de paie, longueur, questions multiples, insatisfaction) → Sonnet dès 2, Haiku sinon ; et Sonnet rattrape Haiku quand il répond « je n'ai pas la réponse », avant tout humain. Le choix est journalisé, le coût par modèle est dans `!stats`.
+- **Ce que ça change au chiffrage** : la majorité des questions d'un kit (« c'est quoi le warm-up ») partent sur Haiku ; Sonnet ne paie que les cas qui demandent du jugement. Attendu : 60 à 70 % des questions sur Haiku, donc un coût mensuel entre celui de Haiku seul et celui de Sonnet seul, plus près du bas.
+- **Prédiction (écrite le 05/10)** : en octobre, `!stats` montre plus de réponses Haiku que Sonnet, et le coût total de l'assistant reste sous 12 $ — 70 %.
+
 ### 2026-10-05 (Discord, modèle) — Sonnet dans `#assistant`, Haiku partout ailleurs, coût compté réponse par réponse
 - **Décision de Gaëtan** : « Go pour Sonnet sur #assistant, chiffre-moi ». Livré : le salon commun tourne sur Sonnet 5.5 (réflexion basse, 1 500 tokens de sortie), le reste reste sur Haiku ; un refus de Sonnet est rejoué sur Haiku ; chaque réponse compte ses tokens et `!stats` affiche le coût réel du mois par modèle.
 - **Chiffrage avant mesure** (prompt système ≈ 20 000 tokens, cache 1 h) : une question à cache froid ≈ 0,09 $ sur Sonnet (93 % pour l'écriture du cache) contre 0,04 $ sur Haiku ; à cache chaud 0,011 $ contre 0,004 $. Avec 40 % de questions à cache chaud : 3 questions par jour ≈ 5,5 $ par mois (Haiku 2,3 $), 10 par jour ≈ 18 $ (7,7 $), 30 par jour ≈ 55 $ (23 $). Le levier si ça monte : raccourcir la base de 47 Ko, pas changer de modèle.
