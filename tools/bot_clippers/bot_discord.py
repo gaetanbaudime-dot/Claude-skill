@@ -6845,7 +6845,9 @@ async def on_ready():
             await asyncio.sleep(60)
             try:
                 lignes_r = await roles_creatrices_manquants(client)
-                if lignes_r:
+                # 05/10 : « Aucun rôle trouvé pour : pepita » repartait à chaque redémarrage (cinq fois du 03 au 05/10) :
+                # posté une fois, puis seulement si la liste change ou qu'un rôle a été posé.
+                if lignes_r and onboarding.bilan_a_poster(lignes_r, "roles"):
                     canal_r = await canal_admin()
                     if canal_r is not None:
                         await canal_r.send("\n".join(lignes_r)[:1990])

@@ -902,3 +902,19 @@ Constat du 05/10 (Gaëtan) : des comptes GOOD bien vivants (Caroline, 1 016 foll
 - `VERSION` 6 : un passage complet au déploiement, qui remplit les nouvelles colonnes.
 
 **Limites.** Un profil restreint ne livre pas ses chiffres à un robot non connecté : ses Followers et ses Reels restent ceux du dernier jour lisible (Followers) ou vides (Reels), et le bilan le dit (🔒). Les Reels d'un compte qui publie plus de 12 fois en 7 jours sont un minimum le premier jour. « Clics hier » et « Clics last 7d. » sont par bloc de clipper (un lien GAML pour ses comptes), pas par compte.
+
+## 🔕 Salon admin : une alerte ne revient plus à chaque redémarrage (05/10)
+
+Chaque push redéploie le bot, et les bilans de démarrage repartaient à chaque fois (« Aucun rôle trouvé pour : pepita » cinq fois, « Rianah : GAML 404 » quatre fois, la panne 2FA trois fois le 05/10 au matin).
+
+- **Rôles des créatrices** : le bilan passe par `onboarding.bilan_a_poster(…, "roles")` : posté une fois, puis seulement si la liste des rôles introuvables change ou qu'un rôle a été posé (🎭).
+
+- **Bilan liens GAML et trackings** : une erreur ❌ qui revient à l'identique compte comme un avertissement (signature), plus comme une action. Seuls 🔧, 🔗 et 🎭 forcent l'envoi.
+
+- **Lien GAML effacé dans GAML** (404 « Link not found ») : `verifier_trackings` le marque `supprime_gaml` dans `clics.json` et l'ignore ; `paie_clics.rattraper` ne le relève plus. Ses relevés passés restent.
+
+- **Panne du relais 2FA** : l'état « déjà signalée » est gardé dans `alias_codes.json` (`_panne`), donc une seule alerte jusqu'au retour de la boîte, redémarrages compris. Quand Gmail refuse la connexion (`imaplib.error`), l'alerte dit quoi faire : nouveau mot de passe d'application, à remettre dans `CODES_IMAP_PASSWORD` sur Railway.
+
+- **Rapport de la veille** : les onglets Pilotage, Profit, CA mensuel, Subs & LTV mensuels (et Commission) du classeur Data G&M sont ignorés ; ils sortaient en « Non saisi hier ».
+
+- **Bilan des fixes et paie au clic** : un membre parti du serveur et sans lien GAML n'apparaît plus (les vingt lignes « id 1127… · aucun lien GAML ») ; à défaut de pseudo Discord, le prénom de la fiche remplace l'identifiant.

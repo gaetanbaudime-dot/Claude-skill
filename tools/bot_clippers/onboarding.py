@@ -1351,10 +1351,12 @@ def bilan_a_poster(lignes: list, cle: str) -> bool:
     le dernier bilan posté (27/09 : cinq bilans identiques dans l'après-midi, à chaque redémarrage)."""
     if not lignes:
         return False
-    signature = "|".join(sorted(l for l in lignes if l.startswith("⚠️")))
+    # 05/10 : une erreur ❌ qui revient à l'identique (« Rianah : GAML 404 », quatre fois le 03/10) n'est plus une action :
+    # elle compte dans la signature comme un avertissement, donc postée une fois puis seulement si elle change.
+    signature = "|".join(sorted(l for l in lignes if l.startswith(("⚠️", "❌"))))
     etat = _lire_etat()
     avant = etat.setdefault("bilans", {}).get(cle)
-    action = any(l.startswith(("🔧", "❌", "🔗")) for l in lignes)
+    action = any(l.startswith(("🔧", "🔗", "🎭")) for l in lignes)
     if signature != avant:
         etat["bilans"][cle] = signature
         _ecrire_etat(etat)
@@ -1388,6 +1390,14 @@ async def verifier_trackings() -> list:
     for lid, info in d.get("liens", {}).items():
         nom = _prenom_du_lien(info)
         if not nom:
+            continue
+        if noms_liens and lid not in noms_liens:
+            # 05/10 : lien effacé dans GAML (404 « Link not found » de Rianah à chaque passage) : plus rien à poser dessus.
+            # Ses relevés passés restent dans clics.json ; on le marque une fois et on n'en parle plus.
+            if not info.get("supprime_gaml"):
+                info["supprime_gaml"] = datetime.now(timezone.utc).date().isoformat()
+                paie_clics._ecrire(d)
+                journal.info("Lien GAML %s (%s) absent de GAML : marqué supprimé", lid, nom)
             continue
         cr = _creatrice_du_lien(noms_liens.get(lid, ""), info, str(info.get("url") or ""), creatrices)
         liens_de_prenom.setdefault(_norm(nom), []).append((lid, cr))

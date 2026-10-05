@@ -318,11 +318,14 @@ def texte_bilan_fixe(d: dict, jours: int = BILAN_FIXE_JOURS) -> list:
         if info.get("uid"):
             par_uid.setdefault(str(info["uid"]), []).append(lid)
     registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
-    nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None) or f"id {uid}")
+    nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None)
+                          or str((registre.get(uid) or {}).get("prenom") or "").title() or f"id {uid}")
     rangs = []
     for uid in registre:
         if regime(uid) != "fixe":
             continue
+        if not par_uid.get(uid) and _deps["membre_par_id"](uid) is None:
+            continue                    # 05/10 : parti du serveur et sans lien (les 20 lignes « id 1127… · aucun lien GAML »)
         s = somme(d, par_uid.get(uid, []), debut, hier)
         rangs.append((nom_de(uid), s, s["payes"] / jours, uid, bool(par_uid.get(uid))))
     rangs.sort(key=lambda r: -r[2])
@@ -515,8 +518,8 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
     hier = _aujourdhui() - timedelta(days=1)
     appels = 0
     for lid, info in list(d["liens"].items()):
-        if not (info.get("uid") or info.get("suivi")):
-            continue
+        if not (info.get("uid") or info.get("suivi")) or info.get("supprime_gaml"):
+            continue                                                    # 05/10 : lien effacé dans GAML, plus de relevé
         debut = max(_jour(info.get("depuis") or CLICS_DEPUIS), hier - timedelta(days=45))
         jours = d["jours"].setdefault(lid, {})
         j = hier
@@ -595,7 +598,9 @@ async def annoncer_paie(client, d: dict, maintenant) -> None:
     et dans le salon perso de chaque clipper au clic sa ligne (visites payées, montant, adresse)."""
     cle = "5" if maintenant.day == 5 else "20"
     debut, fin = periode(cle, maintenant.strftime("%Y-%m"))
-    nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None) or f"id {uid}")
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+    nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None)          # noqa: E731
+                          or str((registre.get(uid) or {}).get("prenom") or "").title() or f"id {uid}")
     lignes, csv_texte = liste_paie(d, nom_de, debut, fin, maintenant.strftime("%d/%m"))
     canal = await _deps["canal_admin"]()
     if canal is not None:

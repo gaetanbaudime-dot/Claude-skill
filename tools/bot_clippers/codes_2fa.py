@@ -369,6 +369,17 @@ def _ecrire(registre):
         Path(FICHIER_ALIAS).write_text(json.dumps(registre, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _marquer_panne(en_panne: bool):
+    """05/10 : garde dans alias_codes.json le fait que la panne IMAP a déjà été signalée au salon admin."""
+    try:
+        registre = _lire()
+        if bool((registre.get("_panne") or {}).get("signalee")) != en_panne:
+            registre["_panne"] = {"signalee": en_panne}
+            _ecrire(registre)
+    except OSError as erreur:
+        journal.warning("État de panne des codes non écrit : %s", erreur)
+
+
 def _texte(valeur) -> str:
     try:
         return str(make_header(decode_header(valeur or "")))
@@ -846,13 +857,16 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
         journal.info("Relais codes 2FA désactivé (CODES_IMAP_USER absent)")
         return
     await client.wait_until_ready()
-    pannes, alerte_faite = 0, False
+    # 05/10 : l'état « panne déjà signalée » survit aux redémarrages (chaque push redéploie le bot ; l'alerte repartait à
+    # chaque fois, trois fois le 05/10 au matin). Il retombe quand la boîte redevient joignable.
+    pannes, alerte_faite = 0, bool((_lire().get("_panne") or {}).get("signalee"))
     while not client.is_closed():
         try:
             trouves = await _imap(_lire_boite, True, None, 30)
             pannes = 0
             if alerte_faite:
                 alerte_faite = False
+                _marquer_panne(False)
                 salon_a = await canal_admin_async()
                 if salon_a is not None:
                     try:
@@ -936,12 +950,18 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
                 # 5 échecs de suite (~4 min) : les managers attendent des codes qui n'arrivent pas
                 # sans que personne ne le sache — on le dit UNE fois, et on dit quand ça revient.
                 alerte_faite = True
+                _marquer_panne(True)
+                # 05/10 : « error » seul ne disait rien. imaplib.error = la boîte refuse la connexion (mot de passe
+                # d'application révoqué ou changé, le cas le plus fréquent) ; le reste = réseau ou délai.
+                cause = (f"Gmail refuse la connexion ({_err(erreur)[:120]}) : génère un nouveau mot de passe d'application "
+                         "pour la boîte des codes et remplace CODES_IMAP_PASSWORD sur Railway."
+                         if type(erreur).__name__ == "error" else
+                         f"{_err(erreur)[:120]} — vérifie CODES_IMAP_USER / mot de passe d'application / IMAP activé.")
                 salon_a = await canal_admin_async()
                 if salon_a is not None:
                     try:
                         await salon_a.send(f"⚠️ **Relais des codes 2FA en panne** ({pannes} lectures échouées de suite) : "
-                                           f"{type(erreur).__name__} — vérifie CODES_IMAP_USER / mot de passe d'application / "
-                                           "IMAP activé. Les managers ne reçoivent plus les codes.")
+                                           f"{cause} Les managers ne reçoivent plus les codes. (Une seule alerte jusqu'au retour.)")
                     except (discord.Forbidden, discord.HTTPException):
                         pass
         await asyncio.sleep(INTERVALLE)

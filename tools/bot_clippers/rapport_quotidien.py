@@ -25,7 +25,9 @@ DATA_GM_ID = os.environ.get("DATA_GM_ID", "").strip()
 METRICOOL_API_KEY = os.environ.get("METRICOOL_API_KEY", "").strip()
 METRICOOL_USER_ID = os.environ.get("METRICOOL_USER_ID", "").strip()
 TAUX_USD_EUR = float((os.environ.get("TAUX_USD_EUR", "0.92") or "0.92").replace(",", "."))
-ONGLETS_IGNORES = ("synth", "notice", "param", "config", "dashboard")
+ONGLETS_IGNORES = ("synth", "notice", "param", "config", "dashboard",
+                   # 05/10 : les tableaux de bord du 03/10 ne sont pas des créatrices (« Non saisi hier : Pilotage, Profit… »)
+                   "pilotage", "profit", "ca mensuel", "subs & ltv", "commission")
 JOURS_SILENCE = 3
 MOIS_FR = {"janvier": 1, "fevrier": 2, "février": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6, "juillet": 7, "aout": 8, "août": 8,
            "septembre": 9, "octobre": 10, "novembre": 11, "decembre": 12, "décembre": 12}
