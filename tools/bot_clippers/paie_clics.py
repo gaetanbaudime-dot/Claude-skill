@@ -41,6 +41,7 @@ PAYS_PAYES = [p.strip() for p in os.environ.get("PAYS_PAYES", PAYS_PAYES_DEFAUT)
 PAYS_LIBELLE = os.environ.get("PAYS_LIBELLE", "francophones").strip() or "francophones"
 CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-09-16").strip()          # début du relevé rétroactif
 CLICS_HEURE = int(os.environ.get("CLICS_HEURE", "7") or 7)                    # ligne du matin (heure de Paris)
+LIGNE_MATIN = os.environ.get("CLICS_LIGNE_MATIN", "0").strip() == "1"   # 05/10 : la ligne « Visites hier » du salon perso, éteinte
 # 25/09 : les anciens clippers gardent leur fixe deux semaines, puis clic ou sortie. Le bilan part tout seul ce jour-là.
 BILAN_FIXE_DATE = os.environ.get("BILAN_FIXE_DATE", "2026-10-05").strip()      # 28/09 (Gaëtan) : bascule le 05/10, plus le 09/10
 BILAN_FIXE_JOURS = int(os.environ.get("BILAN_FIXE_JOURS", "14") or 14)
@@ -661,10 +662,12 @@ async def boucle(client, deps: dict):
             hier_iso = (maintenant.date() - timedelta(days=1)).isoformat()
             complets = all(hier_iso in d["jours"].get(lid, {}) for lid, i in d["liens"].items() if i.get("uid"))
             if maintenant.hour >= CLICS_HEURE and d.get("matin") != aujourdhui and complets:
-                n = await envoyer_lignes_matin(d)
+                # 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : plus de ligne de visites quotidienne dans les
+                # salons persos (CLICS_LIGNE_MATIN=1 pour la rallumer) ; `!mesclics` et la paie des 5 et 20 restent.
+                n = await envoyer_lignes_matin(d) if LIGNE_MATIN else 0
                 d["matin"] = aujourdhui
                 _ecrire(d)
-                journal.info("Lignes du matin envoyées : %s", n)
+                journal.info("Lignes du matin : %s", n if LIGNE_MATIN else "éteintes (CLICS_LIGNE_MATIN=0)")
             if (maintenant.weekday() == 0 and maintenant.hour >= CLICS_HEURE and d.get("classement") != aujourdhui and complets
                     and _deps.get("canal_dopamine")):                   # 28/09 (GO n° 7) : le classement du lundi dans #dopamine
                 try:

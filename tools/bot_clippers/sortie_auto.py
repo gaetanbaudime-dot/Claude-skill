@@ -28,13 +28,24 @@ from datetime import datetime, timedelta, timezone
 
 journal = logging.getLogger("sortie_auto")
 
+# 05/10 (Gaëtan, après l'audit du bot : « règle expulsion oui, juste 3 jours sans compte créé ») : UNE règle, à la place des trois
+# horloges (réservation 48 h, 3 j sans Reel, 7 j sans Reel). Un clipper dont le compte 1 est ouvert dans son salon depuis
+# SORTIE_JOURS_COMPTE1 jours sans être créé (étape 1 jamais fermée) : un avertissement la veille (J-1), puis la sortie : rôles et
+# accès retirés, salon perso supprimé, parcours oublié, comptes et lien au vivier, et il est EXPULSÉ du serveur (SORTIE_KICK=1).
+# Le compteur ne commence jamais avant SORTIE_COMPTE1_DEPUIS (la règle annoncée) : personne n'est sorti pour un retard antérieur.
+# Un clipper qui a créé son compte 1 mais ne publie pas n'est plus sorti tout seul : il n'obtient simplement pas le compte 2, et
+# la liste des bloqués du matin le montre à Gaëtan. Les anciens compteurs restent lisibles (jours_sans_reel) pour cette liste.
 ACTIF = os.environ.get("SORTIE_AUTO", "1").strip() != "0"
+JOURS_COMPTE1 = int(os.environ.get("SORTIE_JOURS_COMPTE1", "3") or 3)
+KICK = os.environ.get("SORTIE_KICK", "1").strip() != "0"
+COMPTE1_DEPUIS = os.environ.get("SORTIE_COMPTE1_DEPUIS", "2026-10-05")
 JOURS = int(os.environ.get("SORTIE_AUTO_JOURS", "7") or 7)                 # 30/09 : 14 → 7
 AVERT_JOURS = int(os.environ.get("SORTIE_AUTO_AVERT_JOURS", "3") or 3)     # 30/09 : l'avertissement
 SCANS_MIN = int(os.environ.get("SORTIE_AUTO_SCANS_MIN", "5") or 5)         # jours de scan pendant le silence (7 → 5 sur 7 jours)
 HEURE_UTC = int(os.environ.get("SORTIE_AUTO_HEURE_UTC", "8") or 8)
 REGLE_DEPUIS = os.environ.get("SORTIE_AUTO_DEPUIS", "2026-09-30")
-RAISON = f"{JOURS} jours sans Reel (sortie automatique)"
+RAISON = f"{JOURS} jours sans Reel (sortie automatique)"                     # ancienne règle (30/09), plus appliquée
+RAISON_COMPTE1 = f"{JOURS_COMPTE1} jours sans créer ton compte 1 (règle de l'équipe)"
 _deps = {}
 
 
@@ -161,8 +172,104 @@ async def jours_sans_reel() -> dict:
     return {uid: jours for uid, _, jours, _, _ in silences(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de)}
 
 
+def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(), prenom_de=None, notes=None) -> list:
+    """05/10 : [(uid, prénom, jours depuis l'ouverture du compte 1, référence iso)] pour chaque fiche de parcours à l'étape 1
+    (ouverte, jamais fermée). La référence = la date d'ouverture de l'étape 1, jamais avant `depuis` (la règle annoncée).
+    Protégés : prénoms de `garder` (anciens de Jonas), note « garde » du manager."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    borne = _jour((depuis or COMPTE1_DEPUIS) + "T00:00:00")
+    proteges = {_n(p) for p in garder}
+    out = []
+    for uid, fiche_p in (parcours or {}).items():
+        if not isinstance(fiche_p, dict) or int(fiche_p.get("etape", 0) or 0) != 1:
+            continue
+        dates = fiche_p.get("dates") or {}
+        if dates.get("1_fait") or (fiche_p.get("profils") or {}).get("1"):   # un premier signal (profil envoyé) = compte créé
+            continue
+        ouverture = _jour(dates.get("1"))
+        if ouverture is None:
+            continue
+        prenom = (prenom_de(uid) if prenom_de else "") or fiche_p.get("prenom") or ""
+        if not prenom or _n(prenom) in proteges:
+            continue
+        if any("garde" in _n(t) for t in (notes(uid) if notes else [])):
+            continue
+        ref = max(d for d in (ouverture, borne) if d is not None)
+        out.append((str(uid), prenom, (maintenant - ref).days, ref.isoformat(timespec="seconds")))
+    return out
+
+
+def a_avertir_compte1(parcours: dict, deja: dict, maintenant=None, **kw) -> list:
+    """Ceux à J-1 (JOURS_COMPTE1 - 1 jours), pas encore avertis pour cette référence."""
+    return [(u, p, j, ref) for u, p, j, ref in sans_compte1(parcours, maintenant, **kw)
+            if JOURS_COMPTE1 - 1 <= j < JOURS_COMPTE1 and deja.get(u) != ref]
+
+
+def a_sortir_compte1(parcours: dict, maintenant=None, **kw) -> list:
+    """Ceux à JOURS_COMPTE1 jours ou plus."""
+    return [(u, p, j, ref) for u, p, j, ref in sans_compte1(parcours, maintenant, **kw) if j >= JOURS_COMPTE1]
+
+
+def texte_avertissement_compte1(prenom: str, jours: int) -> str:
+    return (f"⚠️ {prenom}, **ton compte 1 n'est toujours pas créé** ({jours} jours).\n\n"
+            f"La règle de l'équipe : {JOURS_COMPTE1} jours sans compte créé, tu sors du serveur et ta place va au suivant.\n\n"
+            "Crée-le aujourd'hui, puis appuie sur le bouton ✅ de ton étape. Un souci ? Écris à Gaëtan sur WhatsApp.")
+
+
 async def executer(client, appliquer: bool = True) -> list:
-    """Un passage. Renvoie les lignes du bilan (vide si personne)."""
+    """Un passage. 05/10 : la règle unique du compte 1 (avertissement à J-1, sortie + expulsion à J). Renvoie les lignes du bilan."""
+    if not ACTIF and appliquer:
+        return []
+    roster = _deps.get("roster")
+    garder = list(roster.lire().get("sans_salon", [])) if roster is not None else []
+    parcours = _deps["parcours_lire"]() if _deps.get("parcours_lire") else {}
+
+    def prenom_de(uid):
+        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        return _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
+
+    bilan = []
+    d = _etat()
+    kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes")}
+    for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, d.get("avertis_compte1", {}), **kw):
+        if not appliquer:
+            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → averti (sortie demain)")
+            continue
+        salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+        if salon is None:
+            continue
+        try:
+            await salon.send(texte_avertissement_compte1(prenom, nb_jours))
+            d = _etat(); d.setdefault("avertis_compte1", {})[uid] = ref; _deps["ecrire_json"](_deps["FICHIER"], d)
+            bilan.append(f"⚠️ {prenom} : averti (compte 1 pas créé depuis {nb_jours} j, sortie demain)")
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Avertissement compte 1 de %s : %s", prenom, erreur)
+    for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, **kw):
+        if not appliquer:
+            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → sortirait" + (" et expulsé" if KICK else ""))
+            continue
+        m = _deps["membre_par_id"](uid)
+        if m is None:
+            continue
+        try:
+            res = await _deps["sortir"](m, RAISON_COMPTE1, pool=True, expulser=KICK)
+            d = _etat()
+            d.setdefault("sorties", {})[uid] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "prenom": prenom,
+                                                 "jours": nb_jours, "regle": "compte1", "expulse": bool(res.get("expulse"))}
+            _deps["ecrire_json"](_deps["FICHIER"], d)
+            bilan.append(f"🚪 {prenom} : sorti ({nb_jours} j sans compte 1)" + (" · expulsé" if res.get("expulse") else " · ⚠️ pas expulsé")
+                         + f" · comptes rendus : {res.get('comptes', 0)} · lien libéré : {res.get('liens', 0)}"
+                         + (f" · refus : {', '.join(res.get('refus') or [])}" if res.get("refus") else ""))
+            journal.info("Sortie automatique (compte 1) : %s (%s) après %d jours", prenom, uid, nb_jours)
+        except Exception as erreur:                                         # noqa: BLE001
+            bilan.append(f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}")
+            journal.warning("Sortie automatique de %s : %s", prenom, erreur)
+    return bilan
+
+
+async def executer_sans_reel(client, appliquer: bool = True) -> list:
+    """L'ancienne règle du 30/09 (3 j sans Reel → avertissement, 7 j → sortie). Plus appelée depuis le 05/10 ; gardée pour
+    `!sortie-auto reels` (liste seulement)."""
     if not ACTIF and appliquer:
         return []
     fiches = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
@@ -226,10 +333,16 @@ async def commande(message, texte: str) -> bool:
     """`!sortie-auto` : qui partirait aujourd'hui ; `!sortie-auto go` : sortir maintenant."""
     if not texte.lower().startswith("!sortie-auto"):
         return False
-    go = texte.lower().split()[1:2] == ["go"]
+    mots = texte.lower().split()[1:2]
+    go = mots == ["go"]
+    if mots == ["reels"]:                                                # 05/10 : l'ancienne lecture « sans Reel », liste seulement
+        bilan = await executer_sans_reel(None, appliquer=False)
+        await message.reply(("🔎 **Silences (ancienne règle, pour information)**\n" + "\n".join(bilan))[:1990] if bilan
+                            else "✅ Aucun silence de 3 jours ou plus sans Reel.")
+        return True
     bilan = await executer(message.client if hasattr(message, "client") else None, appliquer=go)
     if not bilan:
-        await message.reply(f"✅ Personne à avertir ni à sortir : aucun clipper à {AVERT_JOURS} jours ou plus sans Reel."
+        await message.reply(f"✅ Personne à avertir ni à sortir : aucun compte 1 ouvert depuis {JOURS_COMPTE1 - 1} jours sans être créé."
                             + ("" if ACTIF else " Sortie automatique éteinte (`SORTIE_AUTO=0`)."))
         return True
     await message.reply((("🚪 **Avertissements et sorties automatiques**\n" if go else "🔎 **Aujourd'hui** (`!sortie-auto go` pour le faire)\n")
@@ -242,16 +355,17 @@ async def boucle(client):
     if not ACTIF:
         journal.info("Sortie automatique éteinte (SORTIE_AUTO=0)")
         return
-    journal.info("Sortie automatique active : avertissement à %d jours sans Reel, sortie à %d (%d jours de scan au moins), à %d h UTC",
-                 AVERT_JOURS, JOURS, SCANS_MIN, HEURE_UTC)
+    journal.info("Sortie automatique active (règle du 05/10) : compte 1 pas créé → averti à J-1, sorti%s à %d jours, à %d h UTC, "
+                 "jamais pour un retard antérieur au %s", " et expulsé" if KICK else "", JOURS_COMPTE1, HEURE_UTC, COMPTE1_DEPUIS)
     while not client.is_closed():
         maintenant = datetime.now(timezone.utc)
         d = _etat()
         jour = maintenant.strftime("%Y-%m-%d")
         if maintenant.hour >= HEURE_UTC and d.get("dernier") != jour:
             try:
-                premiere = not d.get("dernier")                                # la toute première passe ne sort personne : liste seulement
+                premiere = not d.get("dernier_compte1")                        # la première passe de la règle ne sort personne : liste seulement
                 bilan = await executer(client, appliquer=not premiere)
+                d = _etat(); d["dernier_compte1"] = jour; _deps["ecrire_json"](_deps["FICHIER"], d)
                 d = _etat()
                 d["dernier"] = jour
                 _deps["ecrire_json"](_deps["FICHIER"], d)

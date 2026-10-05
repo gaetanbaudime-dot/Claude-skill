@@ -45,6 +45,9 @@ def message(prenom: str, cas: str, n: int, jours: int) -> str:
     if cas == "compte":
         return (f"Salut {prenom} ! Ton compte {n} t'attend dans ton salon Discord. "
                 "Tu bloques où ? Réponds-moi ici, je t'aide 🙂")
+    if cas == "whatsapp":                                                # 05/10 : compte 1 créé, il n'a pas encore écrit
+        return (f"Salut {prenom} ! Ton compte 1 est créé, bravo. C'est ici qu'on se parle : "
+                "réponds-moi un mot, j'ouvre ton groupe avec Jonas 🙂")
     return (f"Salut {prenom} ! Pas de Reel depuis {jours} jours sur tes comptes. "
             "Tout va bien ? Dis-moi ce qui bloque, on règle ça ensemble 💪")
 
@@ -70,8 +73,13 @@ def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, mainte
             fiche = parcours.get(str(uid)) or {}
             n = int(fiche.get("etape", 0) or 0)
             jours = _jours_depuis((fiche.get("dates") or {}).get(str(n)), maintenant) if n in JOURS_ETAPE else -1
+            fait1 = (fiche.get("dates") or {}).get("1_fait")
             if n in JOURS_ETAPE and jours > JOURS_ETAPE[n]:
                 ou, texte = f"compte {n} à créer depuis {jours} j", message(prenom, "compte", n, jours)
+            elif fait1 and not fiche.get("whatsapp") and _jours_depuis(fait1, maintenant) >= 1:
+                # 05/10 (Gaëtan : WhatsApp demandé après le compte 1, pas bloquant) : il n'a pas écrit, Gaëtan le relance d'un appui
+                jours = _jours_depuis(fait1, maintenant)
+                ou, texte = f"compte 1 créé depuis {jours} j, pas de WhatsApp (`!wa @{prenom}` quand c'est fait)", message(prenom, "whatsapp", 1, jours)
             elif n == 1:
                 continue
             else:
