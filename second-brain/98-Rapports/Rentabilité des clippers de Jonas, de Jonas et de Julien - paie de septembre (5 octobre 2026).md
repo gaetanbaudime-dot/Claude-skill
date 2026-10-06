@@ -154,6 +154,23 @@ Fenêtre commune : les **14 jours du 23/09 au 05/10** (abonnés OnlyFans donnés
 
 Ce que le tableau dit en une phrase : **sur quatorze jours, l'équipe de Jonas coûte ≈ 900 € de paie plus 250 € de manager pour ≈ 1 082 $ de CA OnlyFans brut, dont l'agence garde 430 à 540 $ ; MYM n'a encore rien rapporté sur les liens par clipper.** Au fixe, la machine perd ≈ 600 à 700 € par quinzaine. Trois personnes font 90 % du CA (Caroline, Yves, Ckycia), et deux d'entre elles ne publient pas sur les comptes que le bot surveille.
 
+## 3 quinquies. Vérification du 06/10 : ce qui est exact, estimé, incomplet (avant l'envoi à Jonas)
+
+Gaëtan demande si les abonnés et la cadence de septembre par clipper sont « les bons chiffres ». Recalcul depuis les exports bruts (Infloww du 23/09 et du 05/10, GetAllMyLinks jour par jour, captures MYM du 05/10) : les abonnés sont **exacts comme cumul de lien** et **estimés comme « mois de septembre »** ; la cadence Reels est **incomplète pour cinq clippers** ; une erreur d'addition corrigée.
+
+| Chiffre | Statut | Ce que c'est vraiment |
+|---|---|---|
+| Abonnés OF « de septembre » = **285** | **[P] estimé** | 402 abonnés cumulés sur les 11 liens au 05/10 04 h 20, dont 194 depuis le 23/09. Pour les 8 liens créés en septembre, le cumul inclut 1 à 5 jours d'octobre ; pour Josué (lien du 18/08) et Tara (31/08), le mois est extrapolé de la progression sur 12 jours (+34 → ≈ 85 ; +3 → ≈ 8). 285 = 75 + 37 + 10 + 4 + 20 + 4 + 4 + 37 + 1 + 85 + 8. Par clipper, les cumuls et la progression depuis le 23/09 sont exacts. |
+| « 600 attendus » | **[C]** | 50 par clipper le premier mois (fiche du 07/09) × 12 clippers listés le 05/10 ; avec les 11 de septembre, 550. |
+| Visiteurs GAML de septembre par clipper | **[C] exact** | visiteurs uniques, robots exclus, du 01 au 30/09 par lien ; Yves compté depuis le 20/09 (lien repris de Jonas). **Total équipe : 8 773, pas 9 773** (erreur d'addition dans le tableau du § 3 quater) ; octobre 1-4 : 1 729 juste. |
+| Jours « tenus » (≥ 5 visites sur le lien) | **[C] exact** | reproduit à l'identique depuis la série quotidienne ; c'est du trafic, pas des Reels. Depuis le premier jour actif du lien : Josué 30/30, Yves 11/11, Caroline 21/30, Tara 21/30 (0 depuis le 29/09), Lilian 16/18, Ckycia 8/8, Lucas 9/29, Romaric 5/6, Hasina 4/6, Clarisse 4/8, Thia 1/5. |
+| Reels sur 30 jours (Apify, 05/09 → 04/10) | **[P] pour 6, incomplet pour 5** | fiable pour Lilian, Tara, Ckycia, Lucas, Josué, Romaric, Thia (comptes du classeur lus) ; **zéro ou presque pour Caroline, Yves, Clarisse, Hasina** alors qu'ils ont du trafic (comptes hors classeur, restreints ou Facebook) et Julien (Metricool). La fenêtre n'est pas septembre mais 05/09 → 04/10. |
+| « Deux clippers tiennent la cadence » | **[P]** | 2 à 3 selon la mesure : Lilian et Tara aux Reels lus (28 jours sur 30) ; Josué et Yves au trafic (30/30, 11/11). Jamais plus de trois, jamais douze. |
+| CA OnlyFans cumulé des liens | **[C]** | 1 707 $ et 23 payeurs sur les 11 liens ; Caroline, Lilian, Yves font 78 % (le § 3 quater disait 90 % avec Ckycia au lieu de Lilian : c'est 78 % dans les deux lectures). |
+| Abonnés MYM 7 jours : 92 | **[C]** | captures du 05/10, liens du 28/09. |
+
+**Verdict pour l'envoi à Jonas** : ne pas envoyer le tableau du § 3 quater tel quel. Envoyer la feuille « Ton équipe en septembre 2026 » (une page, générée le 06/10 : abonnés cumulés par lien avec la date du lien, progression depuis le 23/09, visiteurs et jours tenus GAML, Reels lus avec la mention « aucun Reel lisible » là où le bot n'a rien pu lire, MYM 7 jours) : chaque colonne y est datée et sourcée, et les cinq lignes « non lisible » évitent le faux procès sur Yves ou Caroline. Le 285 reste présentable comme ordre de grandeur (« environ 285, ramené au mois ») ; le chiffre indiscutable est 402 cumulés dont 194 en 12 jours.
+
 ## 4. Ce qu'il faut corriger dans les outils avant la paie MYM du 15/10
 
 1. Un bouton MYM sur la page GAML de Lilian (il n'en a pas).

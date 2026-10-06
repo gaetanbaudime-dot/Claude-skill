@@ -4,84 +4,95 @@ type: sop
 cluster: "96-Opérations LTP"
 statut: verified
 créé: 2026-09-07
-tags: [ops/équipe, ops/rémunération, ops/clippers, business/scaling]
-liens_forts: ["[[Développer un manager clipper (Julien et Jonas)]]", "[[Équipe marketing - structure et rémunération (FR × MG)]]", "[[Journal de coaching]]", "[[LTP Models]]"]
+modifié: 2026-10-06
+tags: [ops/équipe, ops/rémunération, ops/clippers, business/scaling, ops/paie]
+liens_forts: ["[[Rentabilité des clippers de Jonas, de Jonas et de Julien - paie de septembre (5 octobre 2026)]]", "[[Audit du bot Discord clippers - inventaire et refonte en trois lots (5 octobre 2026)]]", "[[Développer un manager clipper (Julien et Jonas)]]", "[[Équipe marketing - structure et rémunération (FR × MG)]]", "[[Octobre lean - Loris en vertical, tout au variable, tout sur MYM (3 octobre 2026, soir)]]", "[[Journal de coaching]]", "[[LTP Models]]"]
 ---
 
 # Fiche de poste — Manager marketing (Jonas)
 
-> [!note] 27/09/2026 — PDF « Fiche de poste Manager Clippers v2 » reçu (daté du 07/09, période d'essai 90 jours, points à J+30, J+60, J+90)
-> Le PDF reprend cette page : 5 Français puis 2 à 3 Malgaches par semaine, 2 comptes de croissance + 1 privé + 3 pages Facebook, 10 publications par jour, créneaux lundi-mercredi-vendredi 17 h, 100 € par clipper actif et par mois (500 € garantis le premier mois), 0,30 € par abonné, +150 € cadence, paliers 300 / 800 / 1 600 €, deux règles de sortie (2 jours ratés de suite ; moins de 50 abonnés le premier mois). Ce qui a changé depuis : plus de Facebook, plus de créneaux (les comptes se créent avec le bot, un par jour), paie des clippers au clic. **Décision du 27/09** : revue du pôle à 10 jours ; s'il n'est pas rentable, 80 % des clippers sortent, les meilleurs restent, et la rémunération de Jonas est revue (voir [[Journal de coaching]], 27/09 soir).
+> [!tip] Verdict (v3, avenant du 06/10/2026)
+> **Jonas lance et fait tenir 50 à 100 clippers malgaches payés au résultat, et il est payé sur ce qu'ils ramènent, pas sur leur nombre.** Plus de fixe par clipper : 0,30 € par abonné OnlyFans ou MYM, 1 € par clipper qui tient 26 jours de cadence, bonus équipe inchangés (300 / 800 / 1 600 €), +150 € quand 80 % de l'équipe tient. Septembre reste à 500 € (premier mois garanti par la fiche du 07/09). Les règles du process sont celles du bot depuis le 05/10 : 2 comptes de croissance + 1 privé avec le lien en bio, 4 Reels par jour, compte suivant après 48 h et 4 Reels, sortie automatique à 3 jours sans compte 1 et à 48 h sans réponse à l'appel de présence, WhatsApp obligatoire. Un seul chiffre pour l'essai : **600 abonnés OF + MYM en octobre**, sinon fin de période d'essai le 05/11. *Le PDF v3 (deux pages, signable) est généré depuis cette page ; toute modification se fait ici et dans le PDF.*
 
-> [!tip] Verdict
-> **Ta mission : faire publier tes clippers tous les jours, sur des comptes qu'on renouvelle plus vite qu'ils ne meurent — sans que Gaëtan ait à relancer qui que ce soit.** Tu commences avec **5 Français**, et Gaëtan t'ajoute **2 à 3 Malgaches par semaine** ; chaque lundi, tu tries. Tu es payé sur trois choses : le nombre de clippers réellement actifs, les subs que ton équipe génère, et la discipline tenue. Le poste grandit avec toi : vers 15 clippers, tu nommes des chefs d'équipe et tu passes chef de pods. *Cette page est le miroir du PDF signé le 07/09 (version v2 aérée, 2 pages) : toute modification se fait ici ET dans le PDF.*
+> [!warning] La ligne de paie est une proposition de Claude, pas encore une décision de Gaëtan
+> Gaëtan a décidé le 05/10 : « 50 à 100 Malgaches au variable, on fait du volume, je compte sur lui pour mériter son salaire ». Le montant exact de la nouvelle grille n'a pas été fixé. La grille ci-dessous (0,30 € par abonné + 1 € par clipper tenu, zéro fixe) est celle recommandée dans le [[Rentabilité des clippers de Jonas, de Jonas et de Julien - paie de septembre (5 octobre 2026)|rapport du 05/10]] et dans la réponse du 05/10 ; l'alternative chiffrée était « 100 € par clipper rentable (≥ 50 abonnés) + 0,30 € ». À trancher avant le call du 07/10 ; le PDF se régénère en une minute.
 
-## 1. Ton équipe type
+## 0. Ce qui change par rapport à la fiche du 7 septembre
 
-**5 clippers = 1 créatrice.** Chaque clipper tient **2 comptes Instagram de croissance + 1 compte privé** (qui porte le lien, tagué dans la bio des deux autres, il ne publie pas) **+ 3 pages Facebook**. Cadence : **2 Reels par jour sur chaque compte de croissance et chaque page** — 10 publications par jour et par clipper, 26 jours sur 30. La cadence peut monter si l'équipe le demande, jamais descendre. Montée : semaine 1 = création des comptes aux créneaux + warmup (on ne publie pas) · semaine 2 = 1 Reel/jour par surface · semaine 3 et après = 2 Reels/jour par surface.
+| Avant (07/09, PDF v2) | Maintenant (06/10, v3) |
+|---|---|
+| 5 Français + 2 à 3 Malgaches par semaine | **50 à 100 Malgaches**, par vagues, **tous au variable** |
+| 2 comptes de croissance + 1 privé + 3 pages Facebook, 10 publications par jour | **2 comptes Instagram de croissance + 1 compte privé, 4 Reels par jour.** Plus de Facebook |
+| Créneaux lundi, mercredi, vendredi 17 h avec Gaëtan | **Le bot livre les comptes un par un** : compte 2 après 48 h et 4 Reels, compte 3 (privé) après 48 h et 4 Reels de plus |
+| Lien tagué dans la bio des deux comptes de croissance | **Le lien est dans la bio du compte 3 privé, et nulle part ailleurs** ; les comptes 1 et 2 le montrent par une story à la une (photo ou vidéo) et le widget de mention |
+| 100 € par clipper actif et par mois | **Plus de fixe par clipper** : 0,30 € par abonné, 1 € par clipper-mois tenu, bonus équipe inchangés |
+| Sorties jugées par Jonas le lundi | **Sorties automatiques par le bot** (3 jours sans compte 1 ; 48 h sans réponse à l'appel de présence ; purge 72 h) + tri du lundi (50 abonnés) |
+| WhatsApp facultatif | **Chaque clipper écrit à Gaëtan sur WhatsApp dès son compte 1 créé** ; `!wa @clipper` le note |
 
-## 2. Tes 7 missions
+## 1. Ce que chaque clipper doit tenir
 
-1. **Faire publier tous les jours** — chaque matin, le rapport Discord dit qui a publié et qui est à zéro ; un clipper à zéro est relancé **sous 24 h**, par toi, en message privé.
-2. **Créer les comptes** — trois créneaux fixes, **lundi, mercredi et vendredi à 17 h (heure française)**, avec Gaëtan et le clipper : création des comptes Instagram et des pages Facebook, lancement du warmup. Un compte banni est recréé au créneau suivant. (Pas de bot ni de relais de codes dans la fiche : Gaëtan a choisi de bloquer 3 h d'agenda par semaine plutôt que d'outiller la délégation du 2FA — le relais `!code` reste disponible en coulisses, voir [[Équipe marketing - structure et rémunération (FR × MG)]].)
-3. **Gérer les téléphones et les accès** — avec Gaëtan, sur les téléphones cloud iRemoteTech de ses clippers : attribution du téléphone, comptes Instagram installés dessus, accès donnés au clipper et **retirés le jour où il sort**. Un clipper sans téléphone ni accès ne peut pas publier : il les a sous 24 h.
-4. **Poser les liens de tracking** — pour chaque nouveau clipper, Jonas crée **son lien de tracking OnlyFans** (depuis le compte de la créatrice) et **son lien GetAllMyLinks**, et les met dans la bio du compte privé avant la première publication. Sans lien, pas d'attribution des subs — et pas de commission manager : l'incitation est alignée par construction.
-5. **Former et corriger** — au moins 2 relectures de Reels par clipper et par semaine (hook, durée, choix du rush — un conseil simple à chaque fois) ; les nouveaux Malgaches, c'est lui qui les accueille et les lance (Fiche 1).
-6. **Manager, motiver — et trier** — un call d'équipe par semaine ; un clipper qui bloque : chercher la cause (motivation, discipline, infos, contenu) avant de juger. **Chaque lundi, tri selon les deux règles de sortie** (§5).
-7. **Rendre compte** — cinq lignes par jour dans le salon admin (publiés / à zéro / comptes créés / bans / blocage) et un call de 30 min par semaine avec Gaëtan.
+**Ses comptes, dans l'ordre, donnés par le bot** ([[Audit du bot Discord clippers - inventaire et refonte en trois lots (5 octobre 2026)|refonte du 05/10]]) : compte 1 (croissance) → profil → 24 h de warm-up → il publie ; compte 2 (croissance) 48 h plus tard, quand 4 Reels sont publiés sur le 1 ; compte 3 (privé) 48 h après le 2, quand 4 Reels de plus sont publiés. Le compte 3 porte le lien GetAllMyLinks dans sa bio et ne publie pas. Sur les comptes 1 et 2 : story à la une (photo ou vidéo) + widget de mention vers le compte 3.
 
-Temps : 1 à 2 h par jour, plus les trois créneaux de création de comptes. **Ce qu'il ne gère pas** (Gaëtan) : la paie et les montants, les contrats, le choix des créatrices, le recrutement des Malgaches.
+**Sa cadence** : 2 Reels par jour sur chaque compte de croissance = **4 Reels par jour**, 26 jours sur 30. Les Reels viennent du Drive de sa créatrice (TOP 20 décliné par le bot) ou de son propre montage.
 
-## 3. Tes trois chiffres
+## 2. Les règles de sortie (le bot les applique, Jonas les explique)
 
-| Chiffre | Objectif | Qui le mesure |
-|---|---|---|
-| **Surfaces vivantes** de l'équipe | 30 (10 IG croissance + 5 privés + 15 FB) | Le sheet + le rapport quotidien |
-| **Journées validées** (structure complète + cadence IG et FB) | ≥ 26/mois par clipper | Le bot (`🏅 Journée validée`) |
-| **Subs OF vérifiés** de l'équipe | ≥ 50 par clipper le 1ᵉʳ mois · 1 000 au 2ᵉ mois · **2 000 au 3ᵉ mois** | Les liens de tracking (posés par Jonas) |
-| **Téléphone, accès, liens** | Posés avant la première publication, retirés le jour de la sortie | iRemoteTech + OF + GetAllMyLinks |
+- **3 jours sans compte 1** après sa livraison → avertissement la veille, puis sortie du serveur et expulsion (`sortie_auto`, depuis le 05/10).
+- **Appel de présence** : 4 jours sans message, sans bouton d'étape et sans Reel → le bot l'appelle ; 48 h sans réponse → sortie et expulsion. A répondu mais pas écrit à Gaëtan sur WhatsApp → relance 24 h après (`appel.py`).
+- **Purge** : compte 1 livré depuis 72 h, jamais créé, et pas un mot dans le salon perso → sortie immédiate (`!purge`).
+- **Tri du lundi (Jonas)** : moins de **50 abonnés OnlyFans + MYM dans son premier mois de publication** → il le signale, le clipper sort, sa place va à un nouveau. **2 jours sans Reel** → relance sous 24 h, notée dans le salon admin.
 
-## 4. Ta rémunération
+Un clipper qui sort rend ses comptes au vivier et son lien est libéré.
+
+## 3. Les 7 missions (v3)
+
+1. **Faire publier tous les jours** : le Dashboard du classeur et le rapport du bot disent qui publie et qui est à zéro ; relance sous 24 h en MP Discord et sur WhatsApp.
+2. **Lancer chaque vague** : Gaëtan recrute et signe ; Jonas accueille chaque nouveau sur Discord et WhatsApp, vérifie le compte 1 sous 3 jours et le suivi des étapes (1 → 2 → 3 → lien → routine).
+3. **Garantir le tunnel** : pour chaque clipper au compte 3, lien dans la bio du compte 3, story à la une et widget sur 1 et 2, page GetAllMyLinks avec bouton OnlyFans **et** bouton MYM (le cas Lilian du 05/10 : pas de bouton MYM, abonnés perdus), lien de tracking OnlyFans existant.
+4. **Former et corriger** : 10 Reels relus par semaine en groupe sur WhatsApp (les meilleurs et les pires), un conseil simple à chaque fois ; les nouveaux lancés avec les fiches et `#assistant`.
+5. **Trier** chaque lundi (50 abonnés, 2 jours sans Reel) : Jonas propose, Gaëtan tranche, le bot exécute.
+6. **Rendre compte** : cinq lignes par jour dans le salon admin (publiés / à zéro / comptes créés / bans / blocages), un call de 30 min par semaine.
+7. **Remonter les blocages** (ban, numéro, paiement) à Gaëtan sur WhatsApp le jour même ([[Trois exceptions humaines - ban, numéro, paiement (27 septembre 2026)]]).
+
+Temps : 2 à 3 h par jour à 100 clippers. Il ne gère pas : la paie et les montants, les contrats, le choix des créatrices, le recrutement.
+
+## 4. La paie (à partir du 1er octobre 2026)
 
 | Ligne | Montant | Condition |
 |---|---|---|
-| **Fixe par clipper actif** | **100 €/mois** par clipper | Actif = ≥ 80 % de journées validées dans le mois. **Premier mois de chaque équipe : 500 € garantis** (lancement + warmup). |
-| **Variable** | **0,30 € par sub OF vérifié** de chaque clipper de tes équipes | Sans plafond. Comptés sur les créatrices à ≥ 5 €/sub. |
-| **Bonus cadence** | **+150 €/mois par équipe** | Toute l'équipe a sa prime discipline le même mois. |
-| **Bonus paliers** (chaque mois où l'équipe les atteint) | **+300 €** au-dessus de 1 000 subs · **+800 €** au-dessus de 2 500 · **+1 600 €** au-dessus de 5 000 | Chaque mois où l'équipe l'atteint ; le palier atteint donne le bonus du mois (non cumulés) — choix de Gaëtan du 07/09 (« 1 000 sera atteint souvent, 5 000 jamais »). |
+| **Septembre** | **500 €** | Premier mois garanti (fiche du 07/09), versé le 05/10 sur facture. Au variable, septembre aurait fait 92 € (≈ 300 abonnés × 0,30 € + 2 clippers tenus). |
+| **Commission** | **0,30 € par abonné OnlyFans ou MYM vérifié** | Venu des liens de ses clippers, sans plafond, jamais gelée. |
+| **Prime par clipper tenu** | **1 € par clipper** à 26 jours sur 30 | Cadence 4 Reels par jour, mesurée par le bot (comptes du classeur). Remplace le fixe. |
+| **Bonus équipe** | +300 € au-delà de 1 000 abonnés dans le mois · +800 € au-delà de 2 500 · +1 600 € au-delà de 5 000 | Palier atteint, non cumulés. Inchangé. |
+| **Bonus discipline** | +150 € | Quand 80 % des clippers tiennent 26 jours le même mois. |
+| **Fixe** | aucun | Plus de fixe par clipper ni de minimum garanti après septembre. Paie le 5 du mois, sur facture. |
 
-**Ce que ça donne concrètement :**
+Exemples : 12 clippers · 300 abonnés · 2 tenus = **92 €** (septembre tel quel) · 50 clippers · 1 000 abonnés · 30 tenus = **630 €** · 100 · 1 500 · 60 = **810 €** · 100 · 2 500 · 80 = **1 780 €** · 100 · 5 000 · 90 = **3 340 €**.
 
-| Situation | Ton mois |
+Ce que ça coûte à l'agence : à 0,30 € pour Jonas plus ≈ 0,50 € pour le clipper, l'abonné coûte ≈ 0,80 € de paie pour un profit moyen de 1,5 à 2 € ([[Octobre lean - Loris en vertical, tout au variable, tout sur MYM (3 octobre 2026, soir)]]). La marge tient tant que les abonnés sont vérifiés sur les liens.
+
+## 5. Les chiffres regardés chaque semaine et la réussite
+
+| Quoi | Objectif |
 |---|---|
-| Mois 1, équipe en lancement | 500 € garantis |
-| 1 équipe à 1 000 subs | 500 + 150 + 300 + 300 = **1 250 €** |
-| 1 équipe à 1 500 subs | **1 400 €** |
-| 1 équipe à 2 500 subs | 500 + 150 + 750 + 800 = **2 200 €** |
-| 2 équipes à 1 500 subs | **2 800 €** |
-| 3 équipes à 2 000 subs | **4 650 €/mois** |
+| Clippers au compte 3 avec un tunnel complet | tous ceux arrivés au compte 3 depuis plus de 48 h |
+| Jours tenus (4 Reels par jour) | 26 par mois par clipper · 2 jours sans Reel = relance sous 24 h |
+| Abonnés OF + MYM | 50 par clipper le premier mois · **600 pour l'équipe en octobre · 1 000 en novembre · 2 500 en décembre** |
+| Sorties | faites dans la semaine |
+| Compte rendu | 5 lignes par jour · le call de la semaine tenu |
 
-Paie **le 5 du mois, sur facture** (le PDF fait foi).
+**J+60 (06/11)** : 50 clippers au compte 3, 600 abonnés OF + MYM en octobre. **J+90 (06/12)** : 100 clippers, 2 500 abonnés dans le mois. Sous 600 abonnés au 05/11, la période d'essai s'arrête.
 
-**La suite** : 3 équipes tenues seul = ton plafond (36 h/semaine). Au-delà, tu nommes un **chef d'équipe** (le meilleur clipper de chaque équipe, +50 €/mois + 0,10 €/sub d'équipe) et tu passes **chef de pods**, intéressé au résultat net du pôle marketing.
+## 6. Avocat du diable [P]
 
-## 5. Les règles du jeu (dans les deux sens)
+- **La prime de 1 € par clipper tenu dépend de la lecture Apify** des comptes du classeur : un compte restreint ou non déclaré compte zéro (Caroline, Yves le 05/10). Avant de payer, le bot doit marquer « non lisible » plutôt que zéro, sinon Jonas contestera à raison.
+- **Au variable pur, Jonas peut partir** : son octobre réaliste est 300 à 800 €. Si Gaëtan veut le garder à tout prix, l'alternative « 100 € par clipper rentable » coûte 300 à 400 € pour 2 à 3 clippers rentables aujourd'hui.
+- **50 à 100 Malgaches au variable, c'est 100 à 300 comptes Instagram à créer** par le bot : le goulot devient les bans et les numéros, pas Jonas. La fiche lui demande de remonter les blocages, pas de les résoudre.
+- **Les abonnés MYM ne sont vérifiables par clipper que depuis le 28/09** et trois clones partagent encore un lien MYM : la commission MYM d'octobre sera contestable si ce n'est pas nettoyé avant le 15/10.
 
-**Les deux règles de sortie (non négociables, ajoutées le 07/09 au soir)** :
-- **Cadence non tenue 2 jours de suite → licencié le lundi suivant.** Jonas le signale à Gaëtan dès le 2ᵉ jour, sans attendre le lundi.
-- **Moins de 50 abonnés dans son premier mois → licencié.** Le mois est compté **à partir de la première publication, après le warmup** (hypothèse posée par Claude pour rendre la règle cohérente avec la semaine 1 sans publication — à confirmer par Gaëtan). Sa place va à un nouveau Malgache.
-- 🚩 Avocat du diable : la médiane des clippers FR productifs est à 80 subs/mois en régime de croisière (tracking OF du 07/09) ; 50 en premier mois de publication est atteignable mais exigeant — s'attendre à un taux de sortie ≥ 50 % sur la première vague, ce qui est le design (recruter → tester → trier), pas un échec.
+## 7. Historique
 
-
-- **Une équipe ne va que sur une créatrice qui monétise** (≥ 9 €/sub : Chloé, Sophie, Jade). Pas de sub gratuit sur une créatrice qui ne convertit pas — ni pour toi, ni pour l'agence.
-- **Une équipe qui n'atteint pas 750 subs au 2ᵉ mois passe à 3 clippers.** Une 2ᵉ équipe s'ouvre quand la 1ʳᵉ dépasse 1 000. Une équipe toutes les 3 semaines, pas plus.
-- **Ce que Gaëtan te doit** : le rapport quotidien Discord, les fiches et les Loom, les trois créneaux de création de comptes, les accès iRemoteTech / OnlyFans (tracking) / GetAllMyLinks, la paie de l'équipe le 5 sans retard, un call hebdo tenu, une réponse à toute question sous 24 h — et **zéro intervention directe auprès de tes clippers** : ton équipe, c'est toi.
-
-## 6. Tes 30 premiers jours
-
-- **Semaine 1** : les 5 Français repris en main, premiers Malgaches ajoutés, comptes créés aux créneaux lun/mer/ven 17 h, téléphones iRemoteTech attribués, liens OF + GetAllMyLinks posés, warmup lancé (Fiche 1). Tes 2 iPhone 8 reçus.
-- **Semaine 2** : warmup tenu, premières publications sur les pages FB, 1ʳᵉ relecture de montage par clipper.
-- **Semaine 3** : cadence 2/j sur toutes les surfaces, premier reporting quotidien complet, premiers subs trackés.
-- **Semaine 4** : bilan `!primes` du mois, premier tri « 50 subs », décision sur la 2ᵉ équipe.
-
-Le cadre complet de ton développement (1-on-1, arc 90 jours, ce qu'on ne fera pas) est dans [[Développer un manager clipper (Julien et Jonas)]] ; l'économie qui justifie ces chiffres est au [[Journal de coaching]] (entrée du 07/09).
+- **07/09 (v1 → PDF v2 « aéré », signé)** : 5 Français puis 2 à 3 Malgaches par semaine ; 2 comptes de croissance + 1 privé + 3 pages Facebook, 10 publications par jour ; créneaux lundi, mercredi, vendredi 17 h ; téléphones cloud iRemoteTech ; **100 € par clipper actif et par mois (≥ 80 % de cadence), 500 € garantis le premier mois, 0,30 € par abonné OnlyFans, +150 € si tous tiennent 26 jours, paliers 300 / 800 / 1 600 €** ; deux règles de sortie (2 jours ratés de suite → dehors le lundi ; moins de 50 abonnés le premier mois → dehors) ; paie le 5 sur facture. Ce texte sert de référence pour la paie de septembre (500 €).
+- **27/09** : revue du pôle à 10 jours décidée ; plus de Facebook, plus de créneaux, paie des clippers au clic.
+- **05/10** : [[Rentabilité des clippers de Jonas, de Jonas et de Julien - paie de septembre (5 octobre 2026)|rapport de rentabilité]] (285 abonnés estimés pour 600 attendus, 2 à 3 clippers à la cadence, ≈ 1 950 € de paie pour ≈ 630 € de profit) ; refonte du bot ; décision « 50 à 100 Malgaches au variable ».
+- **06/10 (v3)** : cette page et le PDF v3 ; chiffres de septembre revérifiés depuis les exports bruts (section 3 quinquies du rapport du 05/10). Le développement du poste sur 90 jours reste dans [[Développer un manager clipper (Julien et Jonas)]].
