@@ -1004,7 +1004,8 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         try:
             tous = await lire_comptes()
             deja = [c for c in tous if _norm(c["gerant"]) == _norm(prenom) and _norm(c["utilisation"]) == "clipper"
-                    and _pour_creatrice(c, creatrice)]
+                    and _pour_creatrice(c, creatrice)
+                    and _norm(c.get("etat") or "") != "ban"]                # 06/10 : un compte banni n'est jamais livré (Clarisse : 3 BAN)
             if declencheur.startswith("!onboarding"):                # forçage explicite : on lève les écartés
                 for c in deja:
                     etat.get("ecartes", {}).pop(c["handle"].lower(), None)

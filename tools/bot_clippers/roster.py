@@ -393,6 +393,51 @@ async def sorties_deposees(client) -> list:
     return bilan
 
 
+FICHIER_SALONS_DEPOSES = Path(__file__).parent / "salons_a_ouvrir.json"
+
+
+async def salons_deposes(client) -> list:
+    """06/10 (Gaëtan : « créer un salon personnel dans le discord avec ses login de comptes pour les clippeurs suivants ») :
+    `salons_a_ouvrir.json` = [{"id", "prenoms": [...]}]. Chaque entrée, une fois : les prénoms sortent de `sans_salon` (sinon
+    `supprimer_salons` effacerait le salon au démarrage suivant), puis `ouvrir_salon` (bot_discord) crée le salon dans la
+    catégorie de la créatrice et livre tous les logins. Trace dans DONNEES/roster_salons_ouverts.json."""
+    if client is None or not FICHIER_SALONS_DEPOSES.exists() or not _deps.get("DONNEES") or not _deps.get("lire_json") \
+            or not _deps.get("ouvrir_salon"):
+        return []
+    try:
+        entrees = json.loads(FICHIER_SALONS_DEPOSES.read_text(encoding="utf-8"))
+    except ValueError as erreur:
+        journal.warning("salons_a_ouvrir.json illisible : %s", erreur)
+        return []
+    trace = _deps["DONNEES"] / "roster_salons_ouverts.json"
+    faits = _deps["lire_json"](trace, {})
+    bilan = []
+    for e in entrees if isinstance(entrees, list) else []:
+        ident = str(e.get("id") or "")
+        prenoms = [str(p).strip() for p in e.get("prenoms") or [] if str(p).strip()]
+        if not ident or not prenoms or ident in faits:
+            continue
+        d = lire()
+        cles = {_n(p) for p in prenoms}
+        d["sans_salon"] = [x for x in d.get("sans_salon", []) if _n(x) not in cles]
+        ecrire(d)
+        lignes = []
+        for p in prenoms:
+            try:
+                lignes.append(await _deps["ouvrir_salon"](p))
+            except Exception as erreur:                                     # noqa: BLE001
+                lignes.append(f"❌ {p} : {type(erreur).__name__} {str(erreur)[:100]}")
+        faits[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": lignes}
+        _deps["ecrire_json"](trace, faits)
+        bilan.extend(lignes)
+    if bilan and _deps.get("notifier"):
+        try:
+            await _deps["notifier"]("**Salons perso ouverts (anciens de Jonas)**\n" + "\n".join(bilan), client.guilds[0] if client.guilds else None)
+        except Exception:                                                   # noqa: BLE001
+            pass
+    return bilan
+
+
 def _dernier_mot(nom: str) -> str:
     parts = _n(nom).split("-")
     return parts[-1] if parts else ""
@@ -502,6 +547,7 @@ async def demarrage(client):
     try:
         await appliquer_sortis(client)
         await sorties_deposees(client)                                     # 28/09 : sorties écrites dans le dépôt
+        await salons_deposes(client)                                       # 06/10 : AVANT supprimer_salons (qui viderait les nouveaux)
         await supprimer_salons(client)
         await completer_depuis_pseudos(client)
         if _deps.get("onboarder_manquants"):

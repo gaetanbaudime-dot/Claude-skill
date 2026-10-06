@@ -4616,7 +4616,8 @@ def texte_aide(membre, est_admin: bool) -> str:
             "Une question ? Pose-la ici, je réponds avec le kit.")
 
 
-async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list, forcer_salon: bool = False) -> str:
+async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list, forcer_salon: bool = False,
+                           declencheur: str = "") -> str:
     """Un clipper prêt à travailler (corps de `!salons-equipe`, réutilisé au démarrage pour le roster) : salon perso dans la
     catégorie de sa créatrice, registre, pseudo « Prénom - Créatrice », rôle Clippeur et rôle de la créatrice, roster, comptes du
     classeur (3 comptes neufs du même POD), lien, Drive, alias 2FA, parcours à l'étape que le classeur implique. Renvoie une ligne de bilan."""
@@ -4666,7 +4667,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         except (discord.Forbidden, discord.HTTPException):
             pass
     try:
-        bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=f"!salons-equipe par {par_id}")
+        bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=declencheur or f"!salons-equipe par {par_id}")
     except Exception as erreur:                                             # noqa: BLE001
         bilan_onb_c = f"onboarding : {type(erreur).__name__} {str(erreur)[:80]}"
     if reels_uniques.actif():
@@ -4686,6 +4687,26 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
             + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
             + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+
+
+async def ouvrir_salon_ancien(prenom: str) -> str:
+    """06/10 (Gaëtan : « créer un salon personnel avec ses logins de comptes » pour neuf anciens de Jonas) : salon perso dans la
+    catégorie de sa créatrice (roster), puis livraison forcée comme `!onboarding` : TOUS ses comptes du classeur (jamais un BAN,
+    complétés par des comptes neufs), son lien GAML, son Drive. Appelée par `roster.salons_deposes`, une fois par dépôt."""
+    m_ = chercher_membre(prenom, exact=True)
+    if m_ is None:
+        return f"⚠️ {prenom} : introuvable sur le serveur, pas de salon"
+    creatrice = roster.creatrice_de(prenom) or (lire_json(FICHIER_EQUIPES, {}).get(str(m_.id)) or {}).get("creatrice") or ""
+    if not creatrice:
+        return f"⚠️ {prenom} : aucune créatrice au roster ni au registre, pas de salon"
+    etats_o = {}
+    if onboarding.actif():
+        try:
+            etats_o = {c["handle"].lower(): c["etat"] for c in await onboarding.lire_comptes()}
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("États du classeur pour %s : %s", prenom, erreur)
+    return await onboarder_membre(m_.guild, m_, creatrice, None, etats_o, [], forcer_salon=True,
+                                  declencheur="!onboarding (salon perso des anciens, 06/10)")
 
 
 async def onboarder_roster_manquants() -> list:
@@ -7230,6 +7251,7 @@ async def on_ready():
                            "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier,
                            "liberer_liens": liberer_liens_de,
                            "chercher_membre": lambda p: chercher_membre(p, exact=True),                  # 05/10 : sorties déposées « expulser »
+                           "ouvrir_salon": ouvrir_salon_ancien,                                           # 06/10 : salons_a_ouvrir.json
                            "sortir": lambda m, raison: sortir_membre(m, raison, None, pool=True, expulser=True)})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,

@@ -993,3 +993,13 @@ Gaëtan : « je veux qu'il fasse le test de montage vidéo en 3 jours. Puis prem
 - **Salons perso (GO 2 de Gaëtan)** : l'IA n'y répond plus depuis le 05/10, et deux messages de Simon étaient restés sans réponse. `relayer_mention_staff` : une mention de Gaëtan, d'un admin ou d'un manager (ou « @Gaëtan » écrit) part au salon admin avec le lien du message, 📨 sur le message, au plus `RELAIS_MAX_JOUR` (3) par clipper et par jour. `renvoyer_vers_assistant` : une question (mention du bot ou « ? ») reçoit une phrase qui renvoie vers #assistant, une fois par jour et par clipper ; « présent », « fait », « ok » ne déclenchent rien.
 
 - **Le lien, stratégie du 06/10 (Gaëtan)** : « mettre le lien en bio du 3e Instagram, et passer le compte en privé. Ensuite, mentionner ce compte privé en story à la une des 2 comptes Instagram de croissance ». Le parcours et `connaissances.md` (v15) le disaient déjà depuis le 05/10 ; trois textes périmés sont alignés : la bonne réponse du quiz « Où mets-tu ton lien ? » (`quiz.json`), la ligne du matin sur un lien dans une légende (`etats_comptes.py`), la doctrine de la rétrospective (`retro.py`). Le message épinglé de #tips (Gaëtan, 27/09) est à remplacer à la main.
+
+## 🏠 Salons perso pour les anciens de Jonas (06/10)
+
+Gaëtan : « Créer un salon personnel dans le discord avec ses login de comptes pour les clippeurs suivants : Caroline, Lilian, Josué, Yves, Thia, Romaric, Lucas, Tara, Clarisse ».
+
+- **Dépôt `salons_a_ouvrir.json`** ([{"id", "prenoms"}]), appliqué une fois au démarrage par `roster.salons_deposes`, **avant** `supprimer_salons` : les prénoms sortent de `sans_salon` (sinon leur salon serait effacé au démarrage suivant), puis `bot_discord.ouvrir_salon_ancien` crée le salon dans la catégorie de la créatrice du roster et livre comme `!onboarding` : tous ses comptes du classeur, son lien GAML, son Drive. Bilan au salon admin (« Salons perso ouverts »). Trace dans `DONNEES/roster_salons_ouverts.json`.
+
+- **Jamais un compte BAN livré** (`onboarding.livrer`) : les comptes au nom du clipper dont l'ETAT est BAN sont écartés, et des comptes neufs les remplacent jusqu'à trois (Clarisse avait ses trois comptes BAN).
+
+- **Ce que ça change pour eux** : sortis de `sans_salon`, ils suivent les règles de tout le monde (appel de présence après 2 jours sans activité, avertissement et sortie sans Reel). Rianah reste protégée.
