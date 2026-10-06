@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; --safe-bas: env(safe-area-inset-bottom, 0px); --safe-haut: env(safe-area-inset-top, 0px); }
+html, body { background: #070f1c; color: #e7ebf1; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
+body { min-height: 100dvh; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif; }
+* { -webkit-font-smoothing: antialiased; }
+
+.fond { background: radial-gradient(1200px 600px at 50% -200px, rgba(122,167,255,0.16), transparent 60%), #070f1c; }
+.carte { background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06); border-radius: 22px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.titre-argent { background: linear-gradient(180deg, #ffffff 0%, #c9d1dc 55%, #8b96a8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -0.02em; }
+.tuile { transition: transform 160ms cubic-bezier(.2,.8,.2,1), box-shadow 160ms; }
+.tuile:active { transform: scale(0.965); }
+.segment { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; border-radius: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.06); }
+.segment .pastille { position: absolute; top: 4px; bottom: 4px; border-radius: 11px; background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08)); box-shadow: 0 4px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.14); transition: left 260ms cubic-bezier(.2,.8,.2,1), width 260ms; }
+.segment button { position: relative; z-index: 1; padding: 9px 0; font-size: 13px; font-weight: 600; color: #8b96a8; transition: color 200ms; }
+.segment button[aria-pressed="true"] { color: #ffffff; }
+.barre { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); background: rgba(10,16,30,0.78); border-top: 1px solid rgba(255,255,255,0.07); }
+.barre button { transition: color 180ms, transform 180ms; }
+.barre button:active { transform: scale(0.92); }
+.apparait { animation: apparait 420ms cubic-bezier(.2,.8,.2,1) both; }
+.apparait-2 { animation: apparait 420ms cubic-bezier(.2,.8,.2,1) 80ms both; }
+.apparait-3 { animation: apparait 420ms cubic-bezier(.2,.8,.2,1) 160ms both; }
+.apparait-4 { animation: apparait 420ms cubic-bezier(.2,.8,.2,1) 240ms both; }
+@keyframes apparait { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+.pulse { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+.squelette { background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.1), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: brille 1.4s linear infinite; border-radius: 10px; }
+@keyframes brille { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.recharts-tooltip-wrapper { outline: none; }
