@@ -47,7 +47,10 @@ TEXTE_ECHEC = "Je n'ai pas pu regarder ta vidéo, réessaie dans 2 minutes."
 LIGNE_PROPOSITION = "Avant de publier, envoie-moi ta vidéo ici : je te dis en 1 minute si elle est prête."
 
 # Les risques CGU (01/10, Gaëtan : « nudité, contenu trop explicite, mineur apparent, lien ou @ à l'image → ne publie pas »)
-RISQUES = {"nudite": "on voit trop de peau",
+# 06/10 (Gaëtan : « ton système trop de peau est faux, j'ai mis que des rush soft dans les drive ») : 14 clippers sur 15 avaient des
+# Reels « à retirer » pour un décolleté ou un crop top. Les deux grilles disent maintenant ce qui est autorisé (le soft du Drive) et
+# ce qui ne l'est pas (vraie nudité, acte sexuel) ; le doute profite à la vidéo, sauf pour un mineur.
+RISQUES = {"nudite": "on voit de la nudité",
            "explicite": "c'est trop explicite pour Instagram",
            "mineur": "une personne paraît mineure",
            "lien": "un lien ou un @ se voit à l'image"}
@@ -76,6 +79,11 @@ GRILLE_AVANT = (
     "RISQUE CGU Instagram, à regarder sur CHAQUE image : nudité ou trop de peau (\"nudite\"), pose ou contenu trop explicite "
     "(\"explicite\"), une personne qui paraît avoir moins de 18 ans (\"mineur\"), un lien, une adresse web ou un @ écrit à "
     "l'image (\"lien\"). Sinon \"aucun\". En cas de doute sur un mineur, mets \"mineur\".\n\n"
+    "Les vidéos viennent du Drive de la créatrice, déjà choisi SOFT par l'agence : un décolleté, un crop top, un maillot de "
+    "bain, une tenue moulante ou courte, de la lingerie qui couvre, une pose sexy ou suggestive sont AUTORISÉS, c'est \"aucun\". "
+    "\"nudite\" seulement si on voit un téton, un sexe ou des fesses nues, ou un vêtement transparent qui les montre. "
+    "\"explicite\" seulement pour un acte sexuel, réel ou mimé, sans ambiguïté. En cas de doute sur \"nudite\" ou "
+    "\"explicite\", mets \"aucun\" (le doute sur un mineur, lui, reste \"mineur\").\n\n"
     "Réponds UNIQUEMENT en JSON : {{\"note\": entier 0-10, \"differe_du_rush\": true/false, \"accroche\": true/false, "
     "\"sous_titres_lisibles\": true/false, \"texte_ecran\": true/false, \"risque\": \"aucun\" | \"nudite\" | \"explicite\" | "
     "\"mineur\" | \"lien\", \"defaut\": \"accroche\" | \"sous_titres\" | \"texte\" | \"format\" | \"duree\" | \"copie\" | "
@@ -92,6 +100,11 @@ GRILLE_APRES = (
     "RISQUE CGU Instagram sur la couverture : nudité ou trop de peau (\"nudite\"), trop explicite (\"explicite\"), une personne "
     "qui paraît avoir moins de 18 ans (\"mineur\"), un lien ou un @ écrit à l'image (\"lien\"). Sinon \"aucun\". En cas de "
     "doute sur un mineur, mets \"mineur\".\n\n"
+    "Les vidéos viennent du Drive de la créatrice, déjà choisi SOFT par l'agence : un décolleté, un crop top, un maillot de "
+    "bain, une tenue moulante ou courte, de la lingerie qui couvre, une pose sexy ou suggestive sont AUTORISÉS, c'est \"aucun\". "
+    "\"nudite\" seulement si on voit un téton, un sexe ou des fesses nues, ou un vêtement transparent qui les montre. "
+    "\"explicite\" seulement pour un acte sexuel, réel ou mimé, sans ambiguïté. En cas de doute sur \"nudite\" ou "
+    "\"explicite\", mets \"aucun\" (le doute sur un mineur, lui, reste \"mineur\").\n\n"
     "Réponds UNIQUEMENT en JSON : {{\"note\": entier 0-10, \"risque\": \"aucun\" | \"nudite\" | \"explicite\" | \"mineur\" | "
     "\"lien\", \"defaut\": \"accroche\" | \"texte\" | \"couverture\" | \"autre\" | \"aucun\", \"bien\": \"1 point fort court\", "
     "\"correction\": \"1 correction concrète pour le prochain Reel, 8 mots maximum, tutoiement, sans mot technique\"}}."

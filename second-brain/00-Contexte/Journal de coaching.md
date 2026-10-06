@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-06 (Discord) — La review « trop de peau » était fausse : les rushs du Drive sont soft
+- **Constat de Gaëtan** : « ton système trop de peau est faux, j'ai mis que des rush soft dans les drive ». La review demandait de retirer des Reels chez 14 clippers sur 15 et refusait des rushs du Drive (Andry : « 20 vidéos, toutes presque comme ça ») ; mon analyse du 06/10 au matin, qui y voyait la cause des bans, reposait sur ce faux signal. Livré : grilles recalibrées (le soft est autorisé, « nudité » = vraie nudité, le doute profite à la vidéo sauf pour un mineur), et GO 2 : les mentions de Gaëtan dans un salon perso remontent au salon admin, une question y est renvoyée vers #assistant.
+- **Leçon** : un juge automatique non calibré sur un échantillon validé par Gaëtan produit des consignes fausses envoyées aux clippers ; avant d'en tirer une cause (les bans), vérifier le juge.
+- **Prédiction** : sur la review du lundi 12/10, moins de 3 Reels « à retirer » sur toute l'équipe — 75 %.
+
 ### 2026-10-05 (Discord, 15 h 45) — Hasina et Ckycia virés
 - **Décision de Gaëtan** : « on vire Hasina et Ckycia ». Livré par le dépôt (`sorties_a_appliquer.json`, option `expulser`) : au redémarrage, sortie comme `!sortie` avec expulsion, comptes au vivier, liens libérés pour le suivant.
 - **Avocat du diable** : dans la projection du 1 au 20/10, Hasina était le seul clipper nettement rentable (13 visites par sub, +123 € projetés), Ckycia le pire (162 visites par sub). Mais le scan ne voit qu'un Reel de Hasina en 30 jours : son trafic vient de Reels anciens, qui restent sur les comptes rendus au vivier. Le lien libéré passe au suivant avec ces comptes, donc le trafic devrait suivre.

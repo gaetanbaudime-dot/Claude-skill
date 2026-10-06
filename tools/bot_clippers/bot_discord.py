@@ -161,6 +161,7 @@ WHATSAPP_GAETAN_URL = os.environ.get("WHATSAPP_GAETAN_URL", "").strip()        #
 # 05/10 (Gaëtan, après l'audit : « arrêter de polluer chaque salon privé », « assistant IA général dans un salon ») : l'assistant ne
 # répond plus dans les salons persos (ASSISTANT_SALON_PERSO=1 pour revenir en arrière) mais dans #assistant, pour tout le monde.
 ASSISTANT_SALON_PERSO = os.environ.get("ASSISTANT_SALON_PERSO", "0").strip() == "1"
+RELAIS_MAX_JOUR = int(os.environ.get("RELAIS_MAX_JOUR", "3") or 3)   # 06/10 : « @Gaëtan » d'un salon perso relayés au salon admin, par jour
 SALON_ASSISTANT_NOM = os.environ.get("SALON_ASSISTANT_NOM", "💬-assistant").strip() or "💬-assistant"
 SALON_PERSO_MANAGERS = os.environ.get("SALON_PERSO_MANAGERS", "0").strip() == "1"  # 26/09 : « n'ajoute pas Jonas dans les nouveaux salons »
 ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) d'équipe (ex. Rookie,Confirmé,Élite) ; depuis le 26/09 le salon « Clippers : N » compte le roster de rapport_jonas.json, plus ces rôles
@@ -7999,6 +8000,56 @@ async def filtrer_spam(message) -> bool:
     return True
 
 
+async def relayer_mention_staff(message) -> bool:
+    """06/10 (Gaëtan, GO 2 : « remontée des @Gaëtan ») : dans son salon perso, un clipper qui mentionne Gaëtan, un admin ou un
+    manager (Simon, 03/10 : « @Gaëtan », sans réponse) → le message part au salon admin avec son lien, et 📨 sur le message pour
+    que le clipper sache que c'est transmis. Au plus RELAIS_MAX_JOUR par clipper et par jour. Vrai si relayé."""
+    texte_c = (message.clean_content or "").strip()
+    vise = [m for m in message.mentions if not getattr(m, "bot", False) and (str(m.id) in ADMIN_IDS or est_manager(m))]
+    if not vise and not re.search(r"@\s*ga[eé]tan\b", texte_c, re.I):
+        return False
+    compteurs_r = lire_json(FICHIER_COMPTEURS, {})
+    cle_r = f"{message.author.id}|{heure_paris().date().isoformat()}"
+    faits_r = compteurs_r.setdefault("relais_staff", {})
+    if faits_r.get(cle_r, 0) >= RELAIS_MAX_JOUR:
+        return True                                                     # déjà relayé assez aujourd'hui : silence, pas de renvoi
+    canal_r = await canal_admin()
+    if canal_r is None:
+        return False
+    try:
+        await canal_r.send((f"📣 **{prenom_de(message.author)}** te demande dans {message.channel.mention} : "
+                            f"« {texte_c[:300] or '(pièce jointe)'} »\n{message.jump_url}")[:1990])
+        await message.add_reaction("📨")
+    except (discord.Forbidden, discord.HTTPException):
+        return False
+    faits_r[cle_r] = faits_r.get(cle_r, 0) + 1
+    for k in [k for k in faits_r if not k.endswith(heure_paris().date().isoformat())]:
+        faits_r.pop(k, None)                                            # on ne garde que le jour en cours
+    ecrire_json(FICHIER_COMPTEURS, compteurs_r)
+    return True
+
+
+async def renvoyer_vers_assistant(message, texte: str) -> None:
+    """06/10 (GO 2) : l'IA ne répond plus dans les salons perso (05/10) ; une question posée là (mention du bot ou « ? ») ne tombe
+    plus dans le vide (Simon, 06/10 à 3 h : son Instagram et « analyse », aucune réponse). Une phrase qui renvoie vers #assistant,
+    une fois par jour et par clipper ; un « présent », un « fait » ou un « ok » ne déclenche rien."""
+    question = (client.user is not None and client.user in message.mentions) or "?" in (texte or "")
+    if not question:
+        return
+    compteurs_q = lire_json(FICHIER_COMPTEURS, {})
+    jour_q = heure_paris().date().isoformat()
+    if compteurs_q.setdefault("renvois_assistant_salon", {}).get(str(message.author.id)) == jour_q:
+        return
+    compteurs_q["renvois_assistant_salon"][str(message.author.id)] = jour_q
+    ecrire_json(FICHIER_COMPTEURS, compteurs_q)
+    cid_q = salon_assistant_id()
+    try:
+        await message.reply("Je réponds aux questions dans " + (f"<#{cid_q}>" if cid_q else "le salon #assistant")
+                            + " : pose-la là-bas, je te réponds tout de suite 🙂\n-# Pour parler à Gaëtan, mentionne-le ici, il est prévenu.")
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+
+
 async def alerte_numero_demande(message, texte: str) -> None:
     """26/09 (Daniella) : le mur du numéro de téléphone bloque un clipper toute une nuit → le manager est prévenu, une fois par jour."""
     if re.search(r"num[ée]ro de t[ée]l|demande un num[ée]ro|numero de tel", texte, re.I):
@@ -8442,6 +8493,8 @@ async def on_message(message):
         await alerte_numero_demande(message, texte)
         if review_reels.video_a_relire(message):
             await relire_video_clipper(message)
+        elif not await relayer_mention_staff(message):                  # 06/10 (GO 2) : plus de question sans réponse
+            await renvoyer_vers_assistant(message, texte)
         return
     if message.guild is None and not est_staff(message.author) and lire_json(FICHIER_EQUIPES, {}).get(str(utilisateur)) \
             and not texte.startswith("!"):
