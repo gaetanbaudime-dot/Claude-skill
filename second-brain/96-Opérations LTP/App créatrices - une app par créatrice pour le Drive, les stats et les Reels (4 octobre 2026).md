@@ -13,6 +13,9 @@ liens_forts: ["[[Cockpit opérationnel LTP (actions)]]", "[[SOP - Machine à con
 > [!tip] Verdict
 > **En ligne depuis le 4 octobre 2026 sur `app-creatrices.vercel.app`**, un lien secret `/c/<jeton>` par créatrice (les jetons restent hors vault, dans la configuration Vercel). Construite, testée avec les vraies données des six, déployée depuis GitHub (`tools/app_creatrices`) : chaque push sur ce dossier se déploie seul. Il reste à Gaëtan une seule chose : **envoyer à chaque créatrice son lien avec le message « ajoute-la à ton écran d'accueil »**. Le reste (dossiers de la semaine, stats, conversion dollar-euro) tourne tout seul.
 
+> [!note] 06/10/2026 — Jumelle pour les clippers
+> L'[[App clippers - une app par clipper pour le Drive, les Reels et les versements (6 octobre 2026)|app clippers]] reprend ce design (Drive, duplicateur, versements au clic GAML), avec un jeton calculé par prénom et une liste lue dans GAML : zéro configuration par clipper. Le tableur « App créatrices · usage » n'a jamais été créé dans le Drive agence (recherche du 06/10) : le journal d'usage de cette app n'écrit rien tant qu'il n'existe pas.
+
 ## Ce que c'est
 
 Une application web mobile (PWA) au branding G&M, nuit et argent, qui s'ajoute à l'écran d'accueil du téléphone comme une vraie app. **Un lien secret par créatrice**, pas de mot de passe, pas de code : qui a le lien voit l'app. Trois onglets en bas d'écran, dans l'esprit de la [[SOP - Machine à contenu hebdomadaire]] : la créatrice dépose son contenu au bon endroit sans réfléchir et voit ce que ça rapporte.
