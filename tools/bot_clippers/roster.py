@@ -425,6 +425,10 @@ async def salons_deposes(client) -> list:
         ouvrir = _deps.get("ouvrir_salon_simple") if e.get("simple") else _deps["ouvrir_salon"]   # 07/10 : salon seul, sans logins
         for p in prenoms:
             try:
+                if e.get("onboarding"):                                     # 07/10 : onboarding complet sur une ou plusieurs créatrices
+                    lignes.append(await _deps["onboarder_multi"](p, list(e["onboarding"])) if _deps.get("onboarder_multi")
+                                  else f"⚠️ {p} : onboarding indisponible")
+                    continue
                 lignes.append(await ouvrir(p) if ouvrir else f"⚠️ {p} : ouverture simple indisponible")
             except Exception as erreur:                                     # noqa: BLE001
                 lignes.append(f"❌ {p} : {type(erreur).__name__} {str(erreur)[:100]}")

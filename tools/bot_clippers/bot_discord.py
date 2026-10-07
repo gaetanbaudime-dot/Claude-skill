@@ -4689,6 +4689,100 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
 
 
+async def onboarder_multi(prenom: str, creatrices: list) -> str:
+    """07/10 (Gaëtan : « Rianah, deux téléphones : clipping sur Chloé et sur Sarah, trois Instagram de chaque, comme une nouvelle
+    clippeuse, sans test de montage, direct sur le premier compte ») : la PREMIÈRE créatrice est la principale (salon dans sa
+    catégorie, rôles, roster, 3 comptes réservés, parcours remis à l'étape 1 et livré compte par compte) ; chaque autre reçoit
+    son rôle, 3 comptes réservés livrés d'un bloc dans le même salon, son Drive, ses alias 2FA et son propre lien GAML."""
+    m_ = chercher_membre(prenom, exact=True)
+    if m_ is None:
+        return f"⚠️ {prenom} : introuvable sur le serveur"
+    if not creatrices:
+        return f"⚠️ {prenom} : aucune créatrice donnée"
+    g, uid = m_.guild, str(m_.id)
+    principale, autres = creatrices[0], list(creatrices[1:])
+    maintenant_o = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    parcours.oublier(uid)                                                  # repart de zéro : étape 1, compte 1
+    pipe_o = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    pipe_o.setdefault("etats", {}).setdefault(uid, {}).update({"etat": "valide", "sans_test": f"Gaëtan, {maintenant_o[:10]}"})
+    ecrire_json(FICHIER_PIPELINE, pipe_o)
+    reg_o = lire_json(FICHIER_EQUIPES, {})
+    fiche_o = reg_o.setdefault(uid, {"equipe": "", "par": "gaetan", "date": maintenant_o})
+    fiche_o.update({"creatrice": principale, "creatrice_par": "gaetan", "creatrice_date": maintenant_o, "creatrices_en_plus": autres})
+    ecrire_json(FICHIER_EQUIPES, reg_o)
+    etats_o = {}
+    tous_o = []
+    if onboarding.actif():
+        try:
+            tous_o = await onboarding.lire_comptes()
+            etats_o = {c["handle"].lower(): c["etat"] for c in tous_o}
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Classeur pour %s : %s", prenom, erreur)
+    lignes_o = [await onboarder_membre(g, m_, principale, None, etats_o, [], forcer_salon=True)]
+    salon_o = salon_perso_de(uid)
+    for autre in autres:
+        bilan_a = [autre]
+        role_a = role_creatrice(g, autre)
+        if role_a is not None and role_a not in m_.roles:
+            try:
+                await m_.add_roles(role_a, reason=f"Clipper de {autre} aussi (Gaëtan, 07/10)")
+                bilan_a.append(f"rôle {role_a.name}")
+            except (discord.Forbidden, discord.HTTPException):
+                bilan_a.append(f"⚠️ rôle {role_a.name} refusé")
+        elif role_a is None:
+            bilan_a.append(f"⚠️ aucun rôle « {autre} »")
+        comptes_a = []
+        if onboarding.actif():
+            try:
+                tous_o = await onboarding.lire_comptes()
+                deja_a = [c for c in tous_o if normaliser(c.get("gerant") or "") == normaliser(prenom)
+                          and normaliser(c.get("utilisation") or "") == "clipper" and onboarding._pour_creatrice(c, autre)
+                          and normaliser(c.get("etat") or "") != "ban"]
+                comptes_a = deja_a[:onboarding.COMPTES_PAR_CLIPPER]
+                if len(comptes_a) < onboarding.COMPTES_PAR_CLIPPER:
+                    nouveaux_a = onboarding.disponibles(tous_o, autre, onboarding.COMPTES_PAR_CLIPPER - len(comptes_a))
+                    if nouveaux_a:
+                        await onboarding.reserver(nouveaux_a, prenom)
+                    comptes_a += nouveaux_a
+                bilan_a.append(f"{len(comptes_a)} compte(s)")
+            except Exception as erreur:                                     # noqa: BLE001
+                bilan_a.append(f"classeur : {type(erreur).__name__}")
+        drive_a = ""
+        try:
+            drive_a = await onboarding.dossier_drive(prenom, autre, "")
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.warning("Drive %s pour %s : %s", autre, prenom, erreur)
+        lien_a = ""
+        try:
+            res_l = await onboarding.attribuer_lien(m_, autre, tous_o, comptes_a, creer=True)
+            lien_a = res_l.get("lien", "")
+        except Exception as erreur:                                         # noqa: BLE001
+            bilan_a.append(f"lien GAML : {type(erreur).__name__}")
+        if salon_o is not None and comptes_a and codes_2fa.actif():
+            try:
+                codes_2fa.rattacher([c["mail"] for c in comptes_a if c.get("mail")], str(salon_o.id), "onboarding")
+            except Exception as erreur:                                     # noqa: BLE001
+                journal.warning("Alias 2FA %s : %s", prenom, erreur)
+        texte_a = (f"📱 **Ton 2e téléphone : {autre}**\n\n" + onboarding.message_comptes(comptes_a, prenom, autre)
+                   + (f"\n\n📁 **Tes vidéos {autre} à monter** : <{drive_a}>" if drive_a else "")
+                   + (f"\n\n🔗 **Ton lien {autre}** (dans la bio de ton compte 3 {autre}, en privé) : {lien_a}" if lien_a else "")
+                   + "\n\nMême règle que pour Chloé : 2 Reels et 1 story par jour sur chaque compte qui publie.")
+        if salon_o is not None:
+            try:
+                await salon_o.send(texte_a[:1990])
+                if len(texte_a) > 1990:
+                    await salon_o.send(texte_a[1990:3980])
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                bilan_a.append(f"envoi impossible ({type(erreur).__name__})")
+        if comptes_a:
+            etat_l = onboarding._lire_etat()
+            for c in comptes_a:
+                etat_l.setdefault("livres", {})[c["handle"].lower()] = {"uid": uid, "date": maintenant_o}
+            onboarding._ecrire_etat(etat_l)
+        lignes_o.append("➕ " + " · ".join(bilan_a) + (" · lien ✅" if lien_a else ""))
+    return " | ".join(lignes_o)
+
+
 async def ouvrir_salon_simple(prenom: str) -> str:
     """07/10 (Gaëtan : « GO faire Jonas et Julien, j'ai deux gros messages à leur faire ») : un salon privé (lui, le bot ; les
     admins voient tout), retrouvé s'il existe déjà, sinon créé dans la catégorie de sa créatrice ou dans Clippers. Rien d'autre :
@@ -7268,6 +7362,7 @@ async def on_ready():
                            "chercher_membre": lambda p: chercher_membre(p, exact=True),                  # 05/10 : sorties déposées « expulser »
                            "ouvrir_salon": ouvrir_salon_ancien,                                           # 06/10 : salons_a_ouvrir.json
                            "ouvrir_salon_simple": ouvrir_salon_simple,                                    # 07/10 : entrée « simple »
+                           "onboarder_multi": onboarder_multi,                                            # 07/10 : entrée « onboarding »
                            "sortir": lambda m, raison: sortir_membre(m, raison, None, pool=True, expulser=True)})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,

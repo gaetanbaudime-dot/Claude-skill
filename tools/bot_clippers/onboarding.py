@@ -912,6 +912,13 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
     try:
         d = paie_clics._lire() if paie_clics.actif() else {"liens": {}}
         lids = paie_clics.liens_de(d, str(membre.id))
+        # 07/10 (Rianah sur Chloé et Sarah, avec ses liens Sophie) : le lien de CETTE créatrice ; un lien sans créatrice notée garde
+        # l'ancien comportement ; si tous ses liens sont à d'autres créatrices, on passe à la reprise ou au clone.
+        cr_n = (_norm(creatrice).split() or [""])[0]
+        lids_c = [l for l in lids if (_norm(str((d["liens"].get(l) or {}).get("creatrice") or "")).split() or [""])[0] == cr_n]
+        fiche_eq = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(membre.id)) or {}) if _deps.get("FICHIER_EQUIPES") else {}
+        multi = bool(fiche_eq.get("creatrices_en_plus"))                    # plusieurs créatrices : jamais le lien d'une autre
+        lids = lids_c or ([] if multi else [l for l in lids if not (d["liens"].get(l) or {}).get("creatrice")])
         if lids:
             lid = lids[0]
             lien = d["liens"][lid].get("url", "")
