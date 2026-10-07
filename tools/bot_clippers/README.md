@@ -1003,3 +1003,5 @@ Gaëtan : « Créer un salon personnel dans le discord avec ses login de comptes
 - **Jamais un compte BAN livré** (`onboarding.livrer`) : les comptes au nom du clipper dont l'ETAT est BAN sont écartés, et des comptes neufs les remplacent jusqu'à trois (Clarisse avait ses trois comptes BAN).
 
 - **Ce que ça change pour eux** : sortis de `sans_salon`, ils suivent les règles de tout le monde (appel de présence après 2 jours sans activité, avertissement et sortie sans Reel). Rianah reste protégée.
+
+- **Salon privé seul (07/10, « GO faire Jonas et Julien, j'ai deux gros messages à leur faire »)** : une entrée de `salons_a_ouvrir.json` avec `"simple": true` passe par `ouvrir_salon_simple` : le salon privé est retrouvé s'il existe (celui de Jonas a été gardé à sa sortie du clipping), sinon créé dans la catégorie de la créatrice ou dans Clippers. Ni rôle, ni comptes, ni parcours.

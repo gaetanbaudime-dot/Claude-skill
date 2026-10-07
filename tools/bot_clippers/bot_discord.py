@@ -4689,6 +4689,21 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
 
 
+async def ouvrir_salon_simple(prenom: str) -> str:
+    """07/10 (Gaëtan : « GO faire Jonas et Julien, j'ai deux gros messages à leur faire ») : un salon privé (lui, le bot ; les
+    admins voient tout), retrouvé s'il existe déjà, sinon créé dans la catégorie de sa créatrice ou dans Clippers. Rien d'autre :
+    ni rôle, ni comptes, ni parcours (Jonas est manager)."""
+    m_ = chercher_membre(prenom, exact=True)
+    if m_ is None:
+        return f"⚠️ {prenom} : introuvable sur le serveur, pas de salon"
+    creatrice = roster.creatrice_de(prenom) or (lire_json(FICHIER_EQUIPES, {}).get(str(m_.id)) or {}).get("creatrice") or ""
+    cat = categorie_de_creatrice(m_.guild, creatrice) if creatrice else None
+    salon_s, cree_s, err_s = await assurer_salon_perso(m_.guild, m_, cat, creatrice, "salon privé demandé par Gaëtan (07/10)")
+    if salon_s is None:
+        return f"❌ {prenom} : {err_s or 'salon impossible'}"
+    return f"{'🆕' if cree_s else '✅'} {m_.display_name} · <#{salon_s.id}>" + (f" · ⚠️ {err_s}" if err_s else "")
+
+
 async def ouvrir_salon_ancien(prenom: str) -> str:
     """06/10 (Gaëtan : « créer un salon personnel avec ses logins de comptes » pour neuf anciens de Jonas) : salon perso dans la
     catégorie de sa créatrice (roster), puis livraison forcée comme `!onboarding` : TOUS ses comptes du classeur (jamais un BAN,
@@ -7252,6 +7267,7 @@ async def on_ready():
                            "liberer_liens": liberer_liens_de,
                            "chercher_membre": lambda p: chercher_membre(p, exact=True),                  # 05/10 : sorties déposées « expulser »
                            "ouvrir_salon": ouvrir_salon_ancien,                                           # 06/10 : salons_a_ouvrir.json
+                           "ouvrir_salon_simple": ouvrir_salon_simple,                                    # 07/10 : entrée « simple »
                            "sortir": lambda m, raison: sortir_membre(m, raison, None, pool=True, expulser=True)})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,

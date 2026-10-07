@@ -422,9 +422,10 @@ async def salons_deposes(client) -> list:
         d["sans_salon"] = [x for x in d.get("sans_salon", []) if _n(x) not in cles]
         ecrire(d)
         lignes = []
+        ouvrir = _deps.get("ouvrir_salon_simple") if e.get("simple") else _deps["ouvrir_salon"]   # 07/10 : salon seul, sans logins
         for p in prenoms:
             try:
-                lignes.append(await _deps["ouvrir_salon"](p))
+                lignes.append(await ouvrir(p) if ouvrir else f"⚠️ {p} : ouverture simple indisponible")
             except Exception as erreur:                                     # noqa: BLE001
                 lignes.append(f"❌ {p} : {type(erreur).__name__} {str(erreur)[:100]}")
         faits[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": lignes}
@@ -432,7 +433,7 @@ async def salons_deposes(client) -> list:
         bilan.extend(lignes)
     if bilan and _deps.get("notifier"):
         try:
-            await _deps["notifier"]("**Salons perso ouverts (anciens de Jonas)**\n" + "\n".join(bilan), client.guilds[0] if client.guilds else None)
+            await _deps["notifier"]("**Salons perso ouverts**\n" + "\n".join(bilan), client.guilds[0] if client.guilds else None)
         except Exception:                                                   # noqa: BLE001
             pass
     return bilan
