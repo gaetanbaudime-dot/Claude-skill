@@ -86,6 +86,8 @@ def derniere_publication(handles: set, historique: dict, debut: datetime):
                 continue
             if e.get("restreint") and not e.get("posts"):               # 30/09 : compte restreint, Reels illisibles : ni scan ni silence
                 continue
+            if e.get("prive"):                                          # 07/10 : le compte 3 privé ne publie jamais, par règle (05/10)
+                continue
             jours_scan.add(j.date())
             posts = int(e.get("posts") or 0)
             publie = (posts > prec) if prec is not None else (posts > 0 and j >= debut.replace(hour=0, minute=0, second=0, microsecond=0))
@@ -121,6 +123,10 @@ def silences(fiches: dict, onboarding: dict, historique: dict, comptes: list, no
         if any("garde" in _n(t) for t in (notes(uid) if notes else [])):
             continue
         handles = set(par_prenom.get(_n(prenom), [])) | {str(h).lower() for h in (onboarding.get("clippers", {}).get(str(uid)) or {}).get("comptes", [])}
+        # 07/10 (Caroline, Yves : trafic tous les jours, « aucun Reel depuis 5 j » dans le bilan) : un compte restreint cache ses
+        # Reels au scan ; tant qu'un de ses comptes l'est, le clipper n'est pas mesurable → ni avertissement ni sortie sur les Reels.
+        if any(((historique.get(h) or [{}])[-1] or {}).get("restreint") for h in handles):
+            continue
         derniere, jours_scan = derniere_publication(handles, historique, debut)
         ref = max(d for d in (derniere, debut, borne) if d is not None)
         silence = (maintenant - ref).days
