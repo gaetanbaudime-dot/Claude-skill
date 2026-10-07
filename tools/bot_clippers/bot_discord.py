@@ -4783,6 +4783,22 @@ async def onboarder_multi(prenom: str, creatrices: list) -> str:
     return " | ".join(lignes_o)
 
 
+async def noter_depose(prenom: str, texte: str) -> str:
+    """07/10 : une note de manager déposée par le dépôt (comme `!note @x texte`), dans la fiche de parcours. « garde » protège de
+    la purge, de l'appel de présence et de la sortie sans Reel (Rianah : 400 € fixe, Metricool + 2 téléphones)."""
+    m_ = chercher_membre(prenom, exact=True)
+    if m_ is None:
+        return f"⚠️ {prenom} : introuvable, note non posée"
+    d_p = lire_json(FICHIER_PARCOURS, {})
+    fiche_p = d_p.setdefault(str(m_.id), {"prenom": prenom_de(m_), "creatrice": "", "salon_id": "", "etape": 0, "dates": {}, "notes": []})
+    if any(str(n.get("texte", "")) == texte for n in fiche_p.get("notes") or []):
+        return f"✅ {prenom} : note déjà posée"
+    fiche_p.setdefault("notes", []).append({"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": "gaetan",
+                                            "texte": texte[:400]})
+    ecrire_json(FICHIER_PARCOURS, d_p)
+    return f"📝 {prenom} : note « {texte[:60]} » posée"
+
+
 async def ouvrir_salon_simple(prenom: str) -> str:
     """07/10 (Gaëtan : « GO faire Jonas et Julien, j'ai deux gros messages à leur faire ») : un salon privé (lui, le bot ; les
     admins voient tout), retrouvé s'il existe déjà, sinon créé dans la catégorie de sa créatrice ou dans Clippers. Rien d'autre :
@@ -7363,6 +7379,7 @@ async def on_ready():
                            "ouvrir_salon": ouvrir_salon_ancien,                                           # 06/10 : salons_a_ouvrir.json
                            "ouvrir_salon_simple": ouvrir_salon_simple,                                    # 07/10 : entrée « simple »
                            "onboarder_multi": onboarder_multi,                                            # 07/10 : entrée « onboarding »
+                           "noter": noter_depose,                                                         # 07/10 : entrée « note »
                            "sortir": lambda m, raison: sortir_membre(m, raison, None, pool=True, expulser=True)})
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,

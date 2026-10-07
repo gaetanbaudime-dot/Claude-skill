@@ -425,6 +425,9 @@ async def salons_deposes(client) -> list:
         ouvrir = _deps.get("ouvrir_salon_simple") if e.get("simple") else _deps["ouvrir_salon"]   # 07/10 : salon seul, sans logins
         for p in prenoms:
             try:
+                if e.get("note"):                                           # 07/10 : note de manager (« garde »)
+                    lignes.append(await _deps["noter"](p, str(e["note"])) if _deps.get("noter") else f"⚠️ {p} : note indisponible")
+                    continue
                 if e.get("onboarding"):                                     # 07/10 : onboarding complet sur une ou plusieurs créatrices
                     lignes.append(await _deps["onboarder_multi"](p, list(e["onboarding"])) if _deps.get("onboarder_multi")
                                   else f"⚠️ {p} : onboarding indisponible")

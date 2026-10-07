@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-07 (équipe) — Rianah : 400 € fixe pour le Metricool et deux téléphones de clipping (Chloé, Sarah)
+- **Décision de Gaëtan** : Rianah clippe sur Chloé et sur Sarah (deux téléphones, trois comptes chacune, sans test de montage, directement au compte 1) en plus du Metricool, pour 400 € fixe par mois, sans paie à la visite. Livré : onboarding sur deux créatrices (Chloé principale), lien GAML par créatrice, note « garde » qui la protège des sorties automatiques.
+- **Avocat du diable** : trois postes pour une seule personne (Metricool de Sophie et Maddie, six comptes de clipping) ; si sa cadence baisse, c'est le Metricool qui trinque, et c'est lui qui rapporte (≈ 12 000 visiteurs par mois). À surveiller dans le rapport du lundi.
+- **Prédiction** : d'ici le 07/11, ses liens Chloé et Sarah dépassent ensemble 50 visiteurs par jour sans que le trafic de ses pages Sophie ne baisse de plus de 20 % — 55 %.
+
 ### 2026-10-06 (outil) — App clippers en ligne : un lien par clipper, Drive en quatre tuiles, versements au clic en direct
 - **Demande de Gaëtan** : « la même application que pour les créatrices », à clipper sur le téléphone (iPhone et Samsung), un lien unique par clipper, Drive en quatre sections, duplicateur de Reels au milieu, et à droite un onglet versements avec la courbe de ses visiteurs français GetAllMyLinks mise à jour toute la journée et « Prochain versement : 130 $ le 20 octobre » calculé automatiquement, « parce qu'ils vont tous être payés sur les visites de leur lien bio ».
 - **Livré** (agent dédié, fusionné et poussé le jour même) : [[App clippers - une app par clipper pour le Drive, les Reels et les versements (6 octobre 2026)]], `app-clippers.vercel.app`, 30 clippers servis sans configuration (jeton calculé par prénom, liste lue dans GAML), règle de paie reprise du bot (0,05 $ la visite francophone ; 1-15 versé le 20, 16-fin versé le 5), versements vérifiés égaux au relevé GAML pour trois clippers, journal d'usage dans un tableur créé dans le Drive agence.
