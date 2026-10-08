@@ -324,6 +324,11 @@ def reels_vus(uid, fiche_p: dict, n: int) -> int:
                if _cree(fiche_p, i) and i != n_prive(fiche_p) and not _est_ban(x, fiche_p))   # 08/10 : jamais le privé
 
 
+def _de_plus(fiche_p: dict, n: int) -> str:
+    """08/10 (revue) : « de plus » quand l'ouverture du compte n compte depuis une base (compte 3 en ordre « prive2 »)."""
+    return " de plus" if (fiche_p.get("base_reels") or {}).get(str(n)) is not None else ""
+
+
 def reels_pour(uid, fiche_p: dict, n: int) -> int:
     """08/10 : les Reels qui comptent pour ouvrir le compte n — ceux du compte source (source_reels), moins la base retenue à la
     création du privé pour le compte 3 en ordre « prive2 » (4 Reels DE PLUS sur le compte 1)."""
@@ -671,7 +676,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> None:
     """Envoie l'étape n et en fait l'étape en cours (`pointer=False` : 08/10, le message du lien envoyé à côté du parcours, en
     ordre « prive2 », pendant que le compte 3 attend)."""
     uid = str(membre.id)
-    if n == 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon
+    if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
         d = _lire()
         if uid in d and d[uid].get("ordre") not in ("prive2", "prive3"):
             d[uid]["ordre"] = ordre(d[uid])
@@ -742,7 +747,7 @@ async def reprendre_au_compte_1(salon, membre, creatrice: str) -> None:
         await _retirer_bouton(salon, mid)                               # 01/10 (Steeve) : plus de bouton fantôme des étapes effacées
     d = _lire()
     f = d.get(str(membre.id)) or {}
-    for cle in ("dates", "messages", "profils", "programme", "essai", "reconcilie", "corrige_4", "warmup_jour"):
+    for cle in ("dates", "messages", "profils", "programme", "essai", "reconcilie", "corrige_4", "warmup_jour", "base_reels", "reels_soir"):
         f.pop(cle, None)
     f["etape"] = 0
     d[str(membre.id)] = f
@@ -861,11 +866,13 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
         # parcours), et le compte 3 dans 48 h, quand 4 Reels DE PLUS sont publiés sur le compte 1 (base retenue ici)
         base = min(_date_creation(fiche_p, n) or maintenant, maintenant)
         d = _lire()
-        d[str(uid)]["programme"] = [{"quand": (base + timedelta(hours=ATTENTE_COMPTE_H)).isoformat(timespec="seconds"),
-                                     "type": "etape", "n": 3}]
-        d[str(uid)].setdefault("base_reels", {})["3"] = reels_vus(uid, d[str(uid)], 1)
+        f2 = d[str(uid)]
+        f2["programme"] = [{"quand": (base + timedelta(hours=ATTENTE_COMPTE_H)).isoformat(timespec="seconds"), "type": "etape", "n": 3}]
+        f2.setdefault("base_reels", {}).setdefault("3", reels_vus(uid, f2, 1))   # (revue) réouverture par `!etape @x 2` : base gardée
+        lien_deja = bool((f2.get("dates") or {}).get("6"))
         _ecrire(d)
-        await envoyer_etape(salon, membre, 6, pointer=False)
+        if not lien_deja:                                               # le lien est déjà parti : pas de second message
+            await envoyer_etape(salon, membre, 6, pointer=False)
         return True
     if n in (1, 2, 3):
         # 30/09 : règle des 48 h tenue par le bot ; 01/10 : la même pour tous, comptée depuis la création du compte (premier
@@ -1078,7 +1085,9 @@ def lien_du(fiche_p: dict) -> bool:
 def lien_a_dire(fiche_p: dict) -> bool:
     """Le lien peut être annoncé (« Ton lien est prêt ») : son compte privé est créé, ou le parcours en est au lien."""
     fiche_p = fiche_p or {}
-    return int(fiche_p.get("etape", 0) or 0) >= 6 or bool((fiche_p.get("dates") or {}).get(f"{n_prive(fiche_p)}_fait"))
+    np_ = str(n_prive(fiche_p))
+    return (int(fiche_p.get("etape", 0) or 0) >= 6 or bool((fiche_p.get("dates") or {}).get(f"{np_}_fait"))
+            or bool((fiche_p.get("profils") or {}).get(np_)))         # (revue) le profil du privé a promis « ton lien arrive ici »
 
 
 def trois_comptes(fiche_p: dict) -> bool:
@@ -1328,7 +1337,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
         fiche_p["programme"] = gardes
         _ecrire(d)
         for n_x, src, vus in dites:                                     # 08/10 : « je vois N Reels », une fois par compte attendu
-            de_plus = " de plus" if (fiche_p.get("base_reels") or {}).get(str(n_x)) is not None else ""
+            de_plus = _de_plus(fiche_p, n_x)
             try:
                 await _suite(salon, f"{membre.mention} Ton compte {n_x} arrive dès que je vois {REELS_OUVERTURE} Reels{de_plus} sur ton "
                                     f"compte {src}. Pour l'instant, j'en vois {vus}.\n\nTu publies sous un autre identifiant ? "
@@ -1541,7 +1550,8 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
             if a and a[0] == i:                                         # 01/10 : la règle unique, sans date promise
                 src = source_reels(fiche_p, i)
                 parts.append(f"{nom} : pas encore ouvert, il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {i - 1}, "
-                             f"dès que {REELS_OUVERTURE} Reels sont publiés sur le compte {src} ({reels_pour(uid, fiche_p, i)} vu(s) par le scan)"
+                             f"dès que {REELS_OUVERTURE} Reels{_de_plus(fiche_p, i)} sont publiés sur le compte {src} "
+                             f"({reels_pour(uid, fiche_p, i)}{_de_plus(fiche_p, i)} vu(s) par le scan)"
                              + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
             else:
                 parts.append(f"{nom} : pas encore créé")
@@ -1706,12 +1716,14 @@ def _en_place(uid: str) -> str:
             morceaux.append(f"{s7.get('payes', 0)} visites payées sur 7 jours, il a donc son lien et publie")
     except Exception:                                                   # noqa: BLE001
         pass
-    if not morceaux:
+    if not morceaux and not fiche:
         try:                                                            # 08/10 : un ancien du roster de Jonas, absent du registre
             import roster as _roster
             m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+            n_ = _deps.get("normaliser") or (lambda t: (t or "").strip().lower())
+            role_equipe = m is not None and any(n_(r.name) in {"clippeur", "rookie"} for r in getattr(m, "roles", []) or [])
             prenom = (m.display_name.split() or [""])[0] if m is not None else ""
-            if prenom and _roster.actif() and _roster.est_actif(prenom):
+            if role_equipe and prenom and _roster.actif() and _roster.est_actif(prenom):   # (revue : jamais un homonyme sans rôle)
                 morceaux.append("clipper du roster de Jonas (ancien, déjà en place)")
         except Exception:                                               # noqa: BLE001
             pass
@@ -1744,7 +1756,8 @@ def contexte_court(uid: str) -> str:
         a = attente(fiche_p)
         if a and a[0] == n:
             etape = (f"attente du compte {n} : il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, dès que "
-                     f"{REELS_OUVERTURE} Reels sont publiés sur le compte {source_reels(fiche_p, n)}")
+                     f"{REELS_OUVERTURE} Reels{_de_plus(fiche_p, n)} sont publiés sur le compte {source_reels(fiche_p, n)} "
+                     f"(déjà {reels_pour(uid, fiche_p, n)} vu(s) par le scan)")
     else:
         etape = "parcours terminé (routine)"
     np_ = n_prive(fiche_p)
@@ -1819,6 +1832,8 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
             change = True
         if reels_72h is None:
             continue
+        if fiche_p.pop("reels_soir", None) is not None:                # 08/10 (revue) : le passage complet les compte déjà
+            change = True
         for i, h in enumerate(comptes[:3], start=1):
             if not _cree(fiche_p, i) or _derniers_etats.get(h.lower(), "") in ("", "a creer", "à créer"):
                 continue
@@ -1980,7 +1995,7 @@ async def commande_pseudo(message, texte: str) -> bool:
         return True
     ancien = comptes[n - 1]
     nouveau = onboarding.normaliser_handle(reste[1]).lower()
-    if n in (1, 2) and onboarding.RE_PRIVE.search(nouveau):
+    if n != n_prive(_lire().get(uid) or {}) and onboarding.RE_PRIVE.search(nouveau):   # 08/10 (revue) : le privé est le 2 chez les nouveaux
         await message.reply("❌ Pas changé : ce nom ressemble à un compte privé (priv, secret, perso). Choisis-en un autre.")
         return True
     try:
@@ -2029,7 +2044,7 @@ async def commande_staff(message, texte: str) -> bool:
         a = attente(fiche_p)
         if a and a[0] == n:
             await message.reply(f"Ton compte {n} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, "
-                                f"dès que {REELS_OUVERTURE} Reels sont publiés sur ton compte {source_reels(fiche_p, n)} "
+                                f"dès que {REELS_OUVERTURE} Reels{_de_plus(fiche_p, n)} sont publiés sur ton compte {source_reels(fiche_p, n)} "
                                 f"({reels_pour(uid, fiche_p, n)} vu(s) par le scan).")
             return True
         await message.reply(f"📍 **{etape_def(fiche_p, n)['titre']}**" + (f" — ton message d'étape est là : {lien_m}" if lien_m else "")

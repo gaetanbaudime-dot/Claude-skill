@@ -140,6 +140,7 @@ Les pannes trouvées, toutes confirmées dans le code ou dans les messages du bo
 - **Les fiches des expulsés étaient effacées** : la trace du parcours (étape, dates) est gardée à la sortie, l'entonnoir par étape redevient mesurable.
 - **L'assistant de #assistant mélangeait les clippers** : la réponse faite à l'un arrivait au modèle comme « ce que je t'ai dit » au suivant. Corrigé ; les anciens hors registre ne sont plus traités en candidats ; `!aide` reconnaît le rôle Clippeur ; le salon des codes a son lien cliquable.
 - **La base de connaissances se contredisait une quinzaine de fois** : réécrite en v16 (une version de chaque règle).
+- **Revue adversariale du code du jour** (trois relecteurs, un sceptique par trouvaille) : **19 bugs confirmés, tous corrigés le 08/10**, dont un bloquant (avec le privé en 2, un compte 1 banni pendant l'attente figeait le parcours sans alerte), une double paie possible après `!paie`, une app qui devinait le régime au lieu de le lire, et un clipper débloqué qui pouvait sortir 24 h après avoir reçu ses comptes.
 - **Restent ouverts** (critique de complétude) : le seul instrument d'entonnoir (`!tableau`) est faux par construction, la source des candidats n'est pas tracée, et le bot reçoit plus de commits qu'on ne l'observe — un gel des fonctionnalités d'une semaine serait sain.
 
 ## 7. Avocat du diable

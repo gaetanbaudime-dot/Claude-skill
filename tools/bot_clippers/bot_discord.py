@@ -1216,13 +1216,9 @@ def contexte_auteur(message) -> str:
         try:
             # 08/10 (audit : un ancien absent du registre, rôle Clippeur et visites GAML, traité en « candidat ») : signé = au
             # registre, OU rôle d'équipe, OU au roster de Jonas ; `contexte_court` sait parler d'un ancien sans fiche de parcours.
+            # 08/10 (revue) : le roster est par prénom — un candidat homonyme d'un clipper n'est pas un ancien ; il faut le rôle
             equipe_n = {normaliser(r) for r in ROLES_EQUIPE_ACCEPTES}
-            au_roster = False
-            try:
-                au_roster = roster.actif() and roster.est_actif(prenom_de(qui))
-            except Exception:                                               # noqa: BLE001
-                pass
-            if (lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)) or au_roster
+            if (lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id))
                     or any(normaliser(r) in equipe_n for r in roles)):
                 return base + "\n[Salon #assistant, commun à tous — " + parcours.contexte_court(str(message.author.id)) + "]"
             return base + "\n[Salon #assistant, commun à tous — candidat pas encore signé]"
