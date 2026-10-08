@@ -45,6 +45,10 @@ TEXTE_APPEL = ("📢 **{prenom}, réponds ici dans les {heures} h.** Un mot suff
 TEXTE_RELANCE_WA = ("📲 {prenom}, merci pour ta réponse. Il manque WhatsApp : écris à Gaëtan maintenant (bouton ci-dessous), "
                     "il ouvre ton groupe. C'est là que tout se passe.\n\nDéjà fait ? Appuie sur « ✅ J'ai écrit à Gaëtan ».")
 RAISON = f"sans réponse à l'appel depuis {HEURES} h"
+# 08/10 (audit : les anciens rouverts, muets sur Discord, comptes restreints, allaient être appelés puis expulsés alors que leur lien
+# ramène du monde) : des visites sur ses liens GAML sur INACTIF_JOURS jours = une activité. Au-dessous du seuil, nos propres
+# clics de contrôle.
+VISITES_ACTIF = int(os.environ.get("APPEL_VISITES_ACTIF", "5") or 5)
 
 
 def configurer(deps: dict):
@@ -148,6 +152,8 @@ async def _completer_activite(cibles: list) -> None:
         uid = str(membre.id)
         if uid not in connues and uid not in lues:
             quand = await derniere_activite_salon(salon, membre)
+            # 08/10 : rien écrit dans le salon → la date de création du salon (un salon neuf a ses jours de grâce)
+            quand = quand or getattr(salon, "created_at", None)
             lues[uid] = _iso(quand) if quand else ""
     if lues:
         d = _lire()
@@ -183,11 +189,28 @@ async def lancer_appel(cibles: list, motif: str, maintenant=None) -> list:
         d_a["appels"][uid] = {"date": _iso(maintenant), "salon_id": str(salon.id), "message_id": str(getattr(msg, "id", "")),
                               "motif": motif, "prenom": prenom, "repondu": None, "relance_wa": None, "sorti": None}
         _ecrire(d_a)
-        appeles.append(prenom)
+        appeles.append(f"{prenom} (<@{uid}>)")                           # 08/10 : deux « Andry » → la mention lève le doute
         await asyncio.sleep(0.5)
     if appeles:
         journal.info("Appel (%s) posté à %d clipper(s)", motif, len(appeles))
     return appeles
+
+
+def visites(uid: str, jours: int) -> int:
+    """08/10 : visiteurs (hors robots) sur ses liens GAML les `jours` derniers jours, hier compris ; 0 sans paie au clic."""
+    try:
+        import paie_clics                                               # import tardif : appel ne dépend pas de la paie
+        if not paie_clics.actif():
+            return 0
+        d = paie_clics._lire()
+        lids = paie_clics.liens_de(d, str(uid))
+        if not lids:
+            return 0
+        hier = datetime.now(timezone.utc).date() - timedelta(days=1)
+        return int(paie_clics.somme(d, lids, hier - timedelta(days=max(int(jours), 1) - 1), hier).get("hors_robots", 0) or 0)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Visites de %s illisibles : %s", uid, erreur)
+        return 0
 
 
 def a_sortir(d: dict, maintenant=None) -> list:
@@ -208,8 +231,8 @@ def a_relancer_wa(d: dict, parcours: dict, maintenant=None) -> list:
     maintenant = maintenant or datetime.now(timezone.utc)
     out = []
     for uid, a in d.get("appels", {}).items():
-        if not a.get("repondu") or a.get("sorti") or a.get("relance_wa"):
-            continue
+        if not a.get("repondu") or a.get("sorti") or a.get("relance_wa") or a.get("repondu_par") == "visites":
+            continue                                                    # 08/10 : muet mais actif : pas de « merci pour ta réponse »
         if (parcours.get(uid) or {}).get("whatsapp"):
             continue
         rep = _dt(a.get("repondu"))
@@ -218,7 +241,7 @@ def a_relancer_wa(d: dict, parcours: dict, maintenant=None) -> list:
     return out
 
 
-def inactifs(activite: dict, sans_reel: dict, cibles: list, appels: dict, maintenant=None, jours: int = None) -> list:
+def inactifs(activite: dict, sans_reel: dict, cibles: list, appels: dict, maintenant=None, jours: int = None, vues=None) -> list:
     """[(salon, membre, jours d'inactivité)] : signés sans appel en cours, dont la dernière activité connue (message, bouton)
     ET le dernier Reel vu remontent à `jours` jours ou plus. Sans aucune activité connue : considéré inactif (l'historique a été lu)."""
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -229,6 +252,8 @@ def inactifs(activite: dict, sans_reel: dict, cibles: list, appels: dict, mainte
         a = appels.get(uid)
         if a and (a.get("sorti") or not a.get("repondu") or (_dt(a.get("date")) or maintenant) + timedelta(days=jours) > maintenant):
             continue                                                    # déjà sorti (jamais rappelé tout seul), appel en cours, ou répondu récemment
+        if vues is not None and vues(uid, jours) >= VISITES_ACTIF:
+            continue                                                    # 08/10 : son lien ramène du monde, il travaille
         derniere = _dt(activite.get(uid))
         jr = sans_reel.get(uid)
         if jr is not None and jr >= 0:
@@ -255,6 +280,16 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
             continue
         m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
         d = _lire()
+        if (d["appels"].get(uid) or {}).get("repondu"):
+            continue                                                    # 08/10 : a répondu pendant le passage
+        n_vis = visites(uid, max(1, HEURES // 24))
+        if n_vis >= VISITES_ACTIF:
+            # 08/10 (audit : les six sorties du 07/10 ignoraient Reels et visites) : muet sur Discord mais son lien travaille
+            d["appels"][uid]["repondu"] = _iso(maintenant)
+            d["appels"][uid]["repondu_par"] = "visites"
+            _ecrire(d)
+            bilan.append(f"🔇 {prenom} (<@{uid}>) : muet sur Discord mais actif ({n_vis} visiteurs en {max(1, HEURES // 24) * 24} h) → pas sorti")
+            continue
         if m is None:                                                   # déjà parti du serveur : on solde
             d["appels"][uid]["sorti"] = _iso(maintenant); _ecrire(d)
             bilan.append(f"· {prenom} (<@{uid}>) : plus sur le serveur, appel clos")
@@ -282,7 +317,7 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
                 await (salon.send(texte, view=vue) if vue is not None else salon.send(texte))
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Relance WhatsApp de %s : %s", prenom, erreur)
-        bilan.append(f"📲 {prenom} (<@{uid}>) : a répondu, pas de WhatsApp → relancé (`!wa @{prenom}` quand c'est fait, `!sortie` sinon)")
+        bilan.append(f"📲 {prenom} (<@{uid}>) : a répondu, pas de WhatsApp → relancé (`!wa @{prenom}` quand c'est fait)")
     # 3. inactifs → appel individuel
     if _deps.get("salons_clippers"):
         try:
@@ -294,10 +329,10 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
             sans_reel = await _deps["jours_sans_reel"]() if _deps.get("jours_sans_reel") else {}
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Jours sans Reel illisibles : %s", erreur)
-            sans_reel = {}
+            sans_reel = None                                            # 08/10 : scan illisible → personne n'est appelé à ce passage
         await _completer_activite(cibles)
         d = _lire()
-        lents = inactifs(d["activite"], sans_reel, cibles, d["appels"], maintenant)
+        lents = inactifs(d["activite"], sans_reel, cibles, d["appels"], maintenant, vues=visites) if sans_reel is not None else []
         lents = [(s, m, j) for s, m, j in lents if not _protege(str(m.id), _deps["prenom_de"](m) if _deps.get("prenom_de") else "")]
         if lents and appliquer:
             appeles = await lancer_appel([(s, m) for s, m, _ in lents], f"inactif depuis {INACTIF_JOURS} j ou plus", maintenant)
@@ -360,6 +395,8 @@ async def candidats_purge(cibles: list, maintenant=None) -> list:
         prenom = _deps["prenom_de"](membre) if _deps.get("prenom_de") else getattr(membre, "display_name", uid)
         if uid in deja or _protege(uid, prenom):
             continue
+        if uid in parcours:
+            continue                                                    # 08/10 : une seule règle, sortie_auto (avertissement à 24 h, preuve du scan)
         cree, livraison = _compte_cree_ou_vu(uid, parcours, onboarding)
         if cree or livraison is None or maintenant - livraison < timedelta(hours=PURGE_HEURES):
             continue

@@ -1725,6 +1725,11 @@ async def commande_staff(message, texte: str) -> bool:
                                 else f"{membre.display_name} n'a pas de fiche de parcours.")
             return True
         if marquer_whatsapp(uid):
+            if _deps.get("activite"):                                   # 08/10 (audit) : le `!wa` du staff vaut réponse à l'appel
+                try:
+                    _deps["activite"](uid)
+                except Exception:                                       # noqa: BLE001
+                    pass
             await message.reply(f"📲 Noté : {membre.display_name} a écrit sur WhatsApp. Il ne sera plus listé dans les bloqués pour ça.")
         else:
             await message.reply(f"{membre.display_name} n'a pas de fiche de parcours (pas encore de créatrice ?).")

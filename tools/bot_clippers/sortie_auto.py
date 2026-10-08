@@ -206,6 +206,15 @@ def compte1_prouve(uid: str, ouverture, onboarding_d: dict, historique: dict) ->
     return False
 
 
+def _visites_actives(uid: str) -> bool:
+    """08/10 (audit : un ancien rouvert aux comptes restreints n'a aucun Reel lisible) : son lien GAML ramène du monde sur 48 h."""
+    try:
+        import appel
+        return appel.visites(uid, 2) >= appel.VISITES_ACTIF
+    except Exception:                                                   # noqa: BLE001
+        return False
+
+
 def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(), prenom_de=None, notes=None, prouve=None) -> list:
     """05/10 : [(uid, prénom, jours depuis l'ouverture du compte 1, référence iso)] pour chaque fiche de parcours à l'étape 1
     (ouverte, jamais fermée). La référence = la date d'ouverture de l'étape 1, jamais avant `depuis` (la règle annoncée).
@@ -277,7 +286,7 @@ async def executer(client, appliquer: bool = True) -> list:
     onboarding_d = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}) if _deps.get("FICHIER_ONBOARDING") else {}
     historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
     kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes"),
-          "prouve": lambda u, ouv: compte1_prouve(u, ouv, onboarding_d, historique)}       # 08/10 : le scan vaut le bouton
+          "prouve": lambda u, ouv: compte1_prouve(u, ouv, onboarding_d, historique) or _visites_actives(u)}   # 08/10 : scan ou visites
     avertis_avant = dict(d.get("avertis_compte1", {}))                  # 08/10 : la sortie exige un avertissement d'une passe précédente
     for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, avertis_avant, **kw):
         if not appliquer:
