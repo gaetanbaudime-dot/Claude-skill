@@ -23,6 +23,16 @@ La liste des clippers vient en direct de GAML : tous les liens dont la note est 
 - Première ouverture d'un clipper : environ 15 appels (14 jours + l'historique), par lots de 4 ; ensuite une ouverture coûte au plus 1 à 2 appels (le jour en cours, et le jour qui vient de se terminer).
 - Un 429, ou une limite annoncée par les en-têtes `X-RateLimit-*`, n'est jamais une erreur pour le clipper : les appels s'arrêtent, l'app rend ce qu'elle a avec la mention « chiffres en cours de mise à jour ». Les appels sont lancés par ordre d'importance (aujourd'hui, hier, puis les jours plus anciens).
 
+## Installation sur l'écran d'accueil (ce qui est vrai, ce qu'on fait)
+
+Aucun navigateur ne permet d'installer une app web en un geste depuis un lien reçu : iPhone n'offre aucune invite (Partager → « Sur l'écran d'accueil » → Ajouter, trois gestes dans Safari), et les navigateurs intégrés de WhatsApp, Instagram ou Facebook ne savent pas installer du tout. L'app réduit la friction au minimum :
+
+- un **service worker** (`public/sw.js`, rien en cache, une page hors ligne) rend l'app installable sur Android : Chrome propose alors l'événement `beforeinstallprompt`, et la carte affiche un seul bouton **« Installer l'app »** qui ouvre la fenêtre d'installation native ; Samsung Internet affiche son icône d'installation dans la barre d'adresse ;
+- une **carte « Mets l'app sur ton écran d'accueil »** (`Installer.tsx`), visible tant que l'app tourne dans un navigateur, qui détecte le cas : navigateur intégré (dire d'abord d'ouvrir dans Safari ou Chrome), iPhone (les trois gestes avec les icônes), Android (le bouton, sinon les gestes du menu Chrome ou Samsung Internet). « Plus tard » la cache pour la session, « C'est fait » pour 30 jours ; une fois installée (`appinstalled` ou mode standalone) elle disparaît ;
+- le manifeste par jeton (`start_url` avec le jeton, icônes `any` et `maskable`, `standalone`, couleur de thème) et les icônes Apple, pour que l'icône ouvre directement l'espace du clipper, en plein écran.
+
+Le journal d'usage reçoit `install:affiche`, `install:prompt`, `install:accepte`, `install:refuse`, `install:fait`, `install:plus_tard`, `install:ok` : on sait combien ont vu la carte et combien ont installé.
+
 ## Pile
 
 Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (projet `app-clippers`, domaine `app-clippers.vercel.app`) avec `tools/app_clippers` comme répertoire racine ; `vercel.json` ignore les commits qui ne touchent pas ce dossier. Mise en ligne le 6 octobre 2026.

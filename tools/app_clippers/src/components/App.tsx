@@ -4,6 +4,7 @@ import Logo from "./Logo";
 import DriveTab from "./DriveTab";
 import ReelsTab from "./ReelsTab";
 import VersementsTab from "./VersementsTab";
+import Installer from "./Installer";
 import { modeApp, signaler } from "@/lib/signal";
 
 type Onglet = "drive" | "reels" | "versements";
@@ -32,6 +33,8 @@ export default function App({ prenom, creatrice, jeton }: { prenom: string; crea
   useEffect(() => {
     try { const m = localStorage.getItem("gm-clipper-onglet") as Onglet | null; if (m && ONGLETS.some((o) => o.cle === m)) setOnglet(m); } catch { /* privé */ }
     signaler(jeton, "ouverture", modeApp());
+    // Le service worker rend l'app installable d'un geste sur Android (Chrome, Samsung Internet) et donne une page hors ligne.
+    try { if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("/sw.js").catch(() => undefined); } catch { /* rien */ }
   }, [jeton]);
   const choisir = (o: Onglet) => { setOnglet(o); signaler(jeton, `onglet:${o}`); try { localStorage.setItem("gm-clipper-onglet", o); } catch { /* privé */ } };
   const heure = new Date().getHours();
@@ -46,6 +49,7 @@ export default function App({ prenom, creatrice, jeton }: { prenom: string; crea
         </div>
       </header>
       <main className="flex-1 px-4 pb-28" key={onglet}>
+        <Installer jeton={jeton} />
         {onglet === "drive" && <DriveTab jeton={jeton} creatrice={creatrice} />}
         {onglet === "reels" && <ReelsTab />}
         {onglet === "versements" && <VersementsTab jeton={jeton} />}
