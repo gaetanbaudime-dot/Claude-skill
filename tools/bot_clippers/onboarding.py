@@ -663,7 +663,9 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
     for i, c in enumerate(comptes, start=debut):                    # 28/09 : trois comptes qui publient, plus de compte privé
         deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé, connecte-toi"
         # 28/09 (Gaëtan, Simon perdu) : identifiant, mot de passe, e-mail chacun dans son bloc, copiable d'un geste sur le téléphone
-        blocs.append(f"**Compte {i}** · il publie{deja}\nIdentifiant :\n```\n{c['handle']}\n```\n"
+        # 08/10 (audit de l'assistant : « Compte 3 · il publie » pour le compte privé des anciens) : le privé est dit privé
+        role = "privé, il ne publie pas, ton lien va dans sa bio" if _est_prive(c) else "il publie"
+        blocs.append(f"**Compte {i}** · {role}{deja}\nIdentifiant :\n```\n{c['handle']}\n```\n"
                      f"Mot de passe :\n```\n{c['mdp'] or 'demande-le à ton manager'}\n```"
                      + (f"\nE-mail :\n```\n{c['mail']}\n```" if c["mail"] else "")
                      + (f"\nTéléphone : `{c['phone']}`" if c["phone"] else ""))
@@ -671,7 +673,7 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
     # comptes sous les yeux, ou un remplaçant livré à l'étape 7 qui n'aura pas de suivant). Plus de règle recollée ici.
     import parcours                                                     # 01/10 : les deux conditions de la règle (import tardif)
     consigne = (f"Crée-les un par un : le suivant au plus tôt {parcours.ATTENTE_COMPTE_H} h après le précédent, et seulement "
-                f"quand {parcours.REELS_OUVERTURE} Reels sont publiés dessus.\n\nSur ton téléphone seulement."
+                f"quand {parcours.REELS_OUVERTURE} Reels sont publiés sur ton dernier compte qui publie.\n\nSur ton téléphone seulement."
                 if len(comptes) > 1 else "Sur ton téléphone seulement.")
     return (f"🔐 **Tes comptes Instagram, {prenom}** · créatrice : {creatrice} · chaque bloc se copie d'un geste.\n\n" + "\n\n".join(blocs) + "\n\n"
             f"{consigne}\n\n"
@@ -1636,10 +1638,12 @@ async def boucle(client, deps: dict):
                     # pendant la création des comptes (étapes 1 à 5), c'est l'étape 3 qui crée le lien.
                     try:
                         import parcours                                     # import tardif : parcours importe onboarding
-                        etape_r = int((parcours._lire().get(str(uid_r)) or {}).get("etape", 0) or 0)
+                        fiche_pr = parcours._lire().get(str(uid_r)) or {}
+                        etape_r = int(fiche_pr.get("etape", 0) or 0)
+                        du_r, dire_r = parcours.lien_du(fiche_pr), parcours.lien_a_dire(fiche_pr)
                     except Exception:                                       # noqa: BLE001
-                        etape_r = 0
-                    if 1 <= etape_r <= 5:
+                        etape_r, du_r, dire_r = 0, False, False
+                    if etape_r >= 1 and not du_r:                           # 08/10 : dû dès le compte privé (le 2 pour les nouveaux)
                         continue
                     essai = str(fiche_r.get("lien_essai") or "")
                     if essai and essai > (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(timespec="seconds"):
@@ -1650,13 +1654,13 @@ async def boucle(client, deps: dict):
                         _ecrire_etat(etat_e)
                     try:
                         # créer un clone seulement quand le lien est dû (étape 6 ou plus) : le forfait GAML est presque plein
-                        res_r = await attribuer_lien(m_r, fiche_r["creatrice"], comptes, None, creer=etape_r >= 6)
+                        res_r = await attribuer_lien(m_r, fiche_r["creatrice"], comptes, None, creer=du_r)
                         relances += 1
                         journal.info("Lien GAML retenté pour %s : %s", uid_r, (res_r.get("lien") or "aucun")[:120])
-                        salon_r = _deps["salon_perso"](uid_r) if (res_r.get("lien") and etape_r >= 6 and _deps.get("salon_perso")) else None
+                        salon_r = _deps["salon_perso"](uid_r) if (res_r.get("lien") and dire_r and _deps.get("salon_perso")) else None
                         if salon_r is not None:
                             await salon_r.send(f"🔗 {m_r.mention} **Ton lien est prêt** : {res_r['lien']}\n\n"
-                                               "Il va seulement dans la bio de ton compte 3.")
+                                               "Il va seulement dans la bio de ton compte privé.")
                     except Exception as erreur:                             # noqa: BLE001
                         journal.warning("Lien GAML retenté pour %s : %s", uid_r, erreur)
                 etat = _lire_etat()

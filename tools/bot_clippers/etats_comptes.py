@@ -938,7 +938,7 @@ def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
         p["comptes"] += 1
         p["fautes"] += int(auj.get("fautes") or 0)
     return {prenom: f"🎬 Hier : {p['n']} publication(s) sur tes comptes." + (" ✅" if p["n"] >= 2 and not p["fautes"] else "")
-            + ("\n❌ Un lien ou un @ dans la légende d'un Reel d'hier : enlève-le. Le lien va seulement dans la bio de ton compte 3 privé."
+            + ("\n❌ Un lien ou un @ dans la légende d'un Reel d'hier : enlève-le. Le lien va seulement dans la bio de ton compte privé."
                if p["fautes"] else "")
             for prenom, p in par.items()}
 

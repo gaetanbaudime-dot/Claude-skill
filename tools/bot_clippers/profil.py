@@ -199,10 +199,12 @@ def texte_bio(n: int, bio: str, nom: str = "") -> str:
     return tete + f"✏️ Bio :\n```\n{bio}\n```"
 
 
-async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str = ""):
+async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str = "", prive=None):
     """30/09 (Gaëtan : « arrête de spammer les clippeurs ») : le profil du compte n en UN message — la photo en pièce jointe
     (ou le lien du dossier Photos), le nom et la bio prêts à coller, et le bouton `vue`. Renvoie le message envoyé, None sinon.
-    05/10 : le compte 3 est privé et porte le lien dans sa bio (`lien`) ; les comptes 1 et 2 n'ont ni lien ni @."""
+    05/10 : le compte 3 est privé et porte le lien dans sa bio (`lien`) ; les comptes 1 et 2 n'ont ni lien ni @.
+    08/10 (privé en 2) : `prive` dit si CE compte est le privé (le 2 pour les nouveaux parcours) ; sans lien encore prêt, il passe
+    en privé quand même et le lien arrive dans le salon."""
     if not ACTIF or salon is None or not creatrice:
         return None
     photo = await photo_pour(creatrice)
@@ -214,10 +216,13 @@ async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str =
     else:
         tete = "📷 Photo : celle-ci, télécharge-la."
     bio = bio_pour(creatrice)
-    if n == 3 and lien:
-        bio = f"{bio}\n{lien}"
-        fin = ("Ce compte est **privé** : Réglages → Confidentialité du compte → Compte privé. Le lien est dans la bio, rien d'autre. "
-               "Fait ? Appuie sur le bouton.")
+    prive = (n == 3) if prive is None else bool(prive)
+    if prive:
+        if lien:
+            bio = f"{bio}\n{lien}"
+        fin = ("Ce compte est **privé** : Réglages → Confidentialité du compte → Compte privé. "
+               + ("Le lien est dans la bio, rien d'autre. " if lien else "Ton lien arrive ici dans quelques minutes : tu le mettras dans la bio, rien d'autre. ")
+               + "Fait ? Appuie sur le bouton.")
     else:
         fin = "Pas de lien, pas d'@. Fait ? Appuie sur le bouton."
     texte = f"**Ton profil du compte {n}**\n\n{tete}\n\n{texte_bio(n, bio, prenom)}\n\n{fin}"

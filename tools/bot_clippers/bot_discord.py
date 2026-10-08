@@ -4807,7 +4807,7 @@ async def onboarder_multi(prenom: str, creatrices: list) -> str:
                 journal.warning("Alias 2FA %s : %s", prenom, erreur)
         texte_a = (f"📱 **Ton 2e téléphone : {autre}**\n\n" + onboarding.message_comptes(comptes_a, prenom, autre)
                    + (f"\n\n📁 **Tes vidéos {autre} à monter** : <{drive_a}>" if drive_a else "")
-                   + (f"\n\n🔗 **Ton lien {autre}** (dans la bio de ton compte 3 {autre}, en privé) : {lien_a}" if lien_a else "")
+                   + (f"\n\n🔗 **Ton lien {autre}** (dans la bio de ton compte privé {autre}) : {lien_a}" if lien_a else "")
                    + "\n\nMême règle que pour Chloé : 2 Reels et 1 story par jour sur chaque compte qui publie.")
         if salon_o is not None:
             try:
@@ -5196,7 +5196,7 @@ async def attribuer_lien_parcours(membre) -> None:
         canal = await canal_admin()
         if canal is not None:
             try:
-                await canal.send(f"🔗 Lien GAML de {prenom_de(membre)} ({creatrice}), créé avec son compte 3 : {bilan['lien']} · "
+                await canal.send(f"🔗 Lien GAML de {prenom_de(membre)} ({creatrice}), créé avec son compte privé : {bilan['lien']} · "
                                  + " · ".join(bilan.get("lignes") or []))
             except (discord.Forbidden, discord.HTTPException):
                 pass
