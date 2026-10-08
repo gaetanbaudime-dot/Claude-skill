@@ -136,7 +136,24 @@ async def _requete(methode: str, chemin: str, params=None, corps=None):
 
 
 async def liens_gaml() -> list:
-    return await _requete("GET", "/links")
+    """08/10 (audit : 50 liens renvoyés pile, forfait à 49 actifs) : page 2, 3… tant qu'elles apportent des liens nouveaux.
+    Une API qui ignore `page` renvoie la même liste (rien de neuf : on s'arrête) ; une page refusée arrête la lecture sans
+    perdre la première."""
+    def _lot(r):
+        return r if isinstance(r, list) else ((r or {}).get("member") or (r or {}).get("links") or (r or {}).get("data") or [])
+    tous = _lot(await _requete("GET", "/links"))
+    vus = {l.get("id") for l in tous}
+    for page in range(2, 11):
+        try:
+            neufs = [l for l in _lot(await _requete("GET", "/links", params={"page": page})) if l.get("id") not in vus]
+        except RuntimeError as erreur:
+            journal.info("Liens GAML : page %s refusée (%s), %s liens lus", page, erreur, len(tous))
+            break
+        if not neufs:
+            break
+        tous += neufs
+        vus.update(l.get("id") for l in neufs)
+    return tous
 
 
 async def releve(link_id: str, jour: date) -> dict:
@@ -430,7 +447,17 @@ def synchroniser_notes(d: dict, liens: list) -> list:
     « Clipping Prénom » sort le lien du clipping (jamais repris pour un nouveau clipper, jamais désactivé par le ménage).
     La note redevient « Clipping … » → le lien revient. Renvoie les lignes pour l'admin (seulement les changements)."""
     lignes = []
-    par_id = {l.get("id"): l for l in liens or [] if l.get("id")}
+    par_id = {l.get("id"): l for l in liens or [] if l.get("id") and "note" in l}    # note absente de la réponse : on ne juge pas
+    sortants = [lid for lid, info in d.get("liens", {}).items()
+                if lid in par_id and (str(info.get("uid") or "") or info.get("libere")) and not info.get("hors_clipping")
+                and not _prenom_note(str(par_id[lid].get("note") or ""))]
+    if len(sortants) > 3:                                               # garde-fou : jamais une sortie en masse sur une réponse GAML bizarre
+        journal.warning("Notes GAML : %s liens sortiraient du clipping d'un coup, rien appliqué", len(sortants))
+        if d.get("alerte_notes") == _aujourdhui().isoformat():
+            return []                                                   # l'alerte une fois par jour
+        d["alerte_notes"] = _aujourdhui().isoformat()
+        return [f"⚠️ {len(sortants)} liens de clippers n'ont plus de note « Clipping Prénom » dans GAML d'un coup : rien appliqué, "
+                "à vérifier (une note changée à la main sort le lien du clipping, trois au plus par passage)."]
     for lid, info in d.get("liens", {}).items():
         l = par_id.get(lid)
         if l is None or not (str(info.get("uid") or "") or info.get("libere") or info.get("hors_clipping")):
