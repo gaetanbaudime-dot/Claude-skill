@@ -43,6 +43,10 @@ Gaëtan demande si les clippers arriveront « facilement » à épingler l'app. 
 
 Le message WhatsApp qui accompagne le lien doit dire « ouvre-le dans Safari (iPhone) ou Chrome (Android) » : c'est là que se perd la moitié des gens, pas sur les gestes.
 
+## 2 ter. L'app envoyée toute seule après les 3 comptes (08/10)
+
+Demande de Gaëtan : « envoie automatiquement l'app dans le salon privé du clippeur, une fois seulement qu'il a créé les 3 IG, l'app + son lien de tracking GAML ». Dès que l'étape du compte 3 est fermée, le bot poste dans le salon perso le bouton « Ouvrir mon app », les gestes pour l'écran d'accueil (Safari ou Chrome) et le lien GAML pour la bio du compte 3, une seule fois, avec un rattrapage chaque heure pour les clippers déjà à l'étape 6 ou 7 ; `!app` la renvoie. Rien à configurer : le secret des jetons ne quitte pas Vercel, l'app écrit « clipper → lien de l'app » dans l'onglet « Liens app » de son tableur d'usage (vérifié le 08/10 : 29 clippers), le bot le lit avec le compte de service et cherche par le lien GAML, jamais par le prénom seul. Ce tableur ouvre désormais la paie et l'adresse de chaque clipper : il reste privé. Contexte et chiffres : [[Checkup clippers - où ça coince et d'où viennent les visiteurs (8 octobre 2026)]].
+
 ## 3. Vérifié le 06/10
 
 Build sans erreur ; prod : jeton réel 200, jeton inconnu 404, quatre redirections Drive en 302 ; versements égaux au relevé GAML brut pour trois clippers (Caroline : 817 visites du 1 au 15/10 = 40,85 $ au moment du test, 2 133 visites du 16 au 30/09 = 106,65 $ versés le 05/10 ; Simon 68 visites = 3,40 $ ; Andry 0, liens du 1er et du 3/10) ; écart app / brut nul.

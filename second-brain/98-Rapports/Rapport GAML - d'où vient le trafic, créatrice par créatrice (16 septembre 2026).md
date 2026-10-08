@@ -11,6 +11,9 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Chloé et Loris - 
 
 # Rapport GAML : d'où vient le trafic, créatrice par créatrice (16 septembre 2026)
 
+> [!info] Suite
+> Le même découpage refait le 08/10, sur 7 et 30 jours, avec les abonnés MyPulse en face : [[Checkup clippers - où ça coince et d'où viennent les visiteurs (8 octobre 2026)]] (créatrices 49 %, clippers 32 %, Metricool 11 %).
+
 > [!tip] Verdict
 > **« Nul sur toutes les créatrices » est faux. Sur 30 jours, GAML compte 43 004 visiteurs : un tiers vient des comptes des créatrices, deux tiers de l'agence.** Mais ces deux tiers reposent sur trois personnes : **Rianah (25 % de tout le trafic à elle seule)**, **Julien et Josué (72 % du trafic des clippers à eux deux)**, plus des pages Facebook que la décision « Instagram seul » n'a pas le droit de couper (13 %). Neuf clippers sur quatorze n'ont produit aucun visiteur en 30 jours. Ce n'est pas un marketing nul, c'est un marketing à deux vitesses : trois moteurs qui tournent, une équipe qui n'a pas démarré. Le travail de Jonas n'est pas de « mettre la pression », c'est de faire monter les neuf à zéro au niveau des cinq du milieu, et de comprendre pourquoi Julien décroche depuis le 1er septembre.
 >
