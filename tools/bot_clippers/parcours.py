@@ -141,7 +141,8 @@ ETAPES = {
     # {cprive}, {pointent}, {pointent_court}) : même texte pour les deux ordres.
     6: {"titre": "Étape 4 · Ton lien et ta story à la une (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
         "texte": ("**Ton lien** : {lien}\n\n"
-                  "1. Sur ton compte {nprive} (`{cprive}`, privé) : ce lien dans la **bio**. Nulle part ailleurs.\n"
+                  "1. Sur ton compte {nprive} (`{cprive}`, privé) : Modifier le profil → **Liens** → Ajouter un lien externe → colle ce lien. "
+                  "Pas dans le texte de la bio (il ne s'y clique pas). Nulle part ailleurs.\n"
                   "2. Sur {pointent} : une story (une photo ou une vidéo de ton Drive) avec le **widget de mention** "
                   "`@{cprive}`, puis cette story **à la une** (épinglée sur le profil). Une seule fois.\n"
                   "3. Jamais de lien sur {pointent_court} : ni en bio, ni en story, ni dans un Reel. Le lien ne vit que dans la bio du compte {nprive}.\n"
@@ -327,6 +328,82 @@ def reels_pour(uid, fiche_p: dict, n: int) -> int:
     création du privé pour le compte 3 en ordre « prive2 » (4 Reels DE PLUS sur le compte 1)."""
     base = int((fiche_p.get("base_reels") or {}).get(str(n), 0) or 0)
     return max(0, reels_vus(uid, fiche_p, source_reels(fiche_p, n)) - base)
+
+
+LIEN_BIO_H = int(os.environ.get("PARCOURS_LIEN_BIO_H", "24") or 24)   # délai laissé après la création du privé
+
+
+def _cle_url(u) -> str:
+    u = str(u or "").strip().lower().split("?")[0].split("#")[0]
+    for prefixe in ("https://", "http://", "www."):
+        u = u[len(prefixe):] if u.startswith(prefixe) else u
+    return u.rstrip("/")
+
+
+async def controler_liens_bio(client, bios: dict, maintenant=None) -> list:
+    """08/10 (critique de complétude : « rien ne vérifie que le lien est dans la bio du compte privé », et le profil le faisait
+    coller dans le texte de la bio, où il ne se clique pas) : après le scan du matin, pour chaque compte privé créé depuis
+    LIEN_BIO_H heures et lu aujourd'hui par le scan (`bios` : {clé: {jour, liens, texte}}), le lien GAML du clipper est-il dans
+    le champ « Liens » du profil ? Oui → noté (`lien_bio_ok`). Non → une ligne dans son salon (tous les 2 jours au plus) et une
+    ligne au salon admin. Profil non lu (Apify) → rien conclu. Renvoie les lignes admin."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    jour = maintenant.date().isoformat()
+    d = _lire()
+    a_dire, lignes = [], []
+    for uid, f in d.items():
+        if not isinstance(f, dict):
+            continue
+        np_ = n_prive(f)
+        cree = _date_creation(f, np_)
+        if cree is None or maintenant - cree < timedelta(hours=LIEN_BIO_H):
+            continue
+        comptes = _comptes_ordonnes(uid, fiche_p=f)
+        h = comptes[np_ - 1] if len(comptes) >= np_ else ""
+        if not h or _est_ban(h, f):
+            continue
+        b = (bios or {}).get(onboarding.normaliser_handle(h).lower())
+        if not b or b.get("jour") != jour:
+            continue                                                    # pas lu aujourd'hui : on ne conclut rien
+        lien, tous = _liens_gaml(uid, f.get("creatrice", ""))
+        if not tous:
+            continue
+        cibles = {_cle_url(x) for x in tous}
+        if any(_cle_url(x) in cibles for x in b.get("liens") or []):
+            f["lien_bio_ok"] = jour
+            f.pop("lien_bio_dit", None)
+            continue
+        dit = str(f.get("lien_bio_dit") or "")
+        try:
+            recent = bool(dit) and (maintenant.date() - datetime.fromisoformat(dit).date()).days < 2
+        except ValueError:
+            recent = False
+        f.pop("lien_bio_ok", None)
+        if recent:
+            continue
+        f["lien_bio_dit"] = jour
+        a_dire.append((uid, f, h, lien, bool(b.get("texte")), bool(b.get("liens"))))
+    _ecrire(d)                                                          # écrit AVANT les envois : jamais deux fois
+    for uid, f, h, lien, texte, autre in a_dire:
+        salon = client.get_channel(int(f.get("salon_id", 0) or 0)) if client is not None else None
+        membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        pourquoi = ("Il est dans le texte de ta bio : là, il ne se clique pas." if texte else
+                    "Le lien de ton profil n'est pas le tien." if autre else "Ton profil n'a pas encore de lien.")
+        if salon is not None and membre is not None:
+            try:
+                await salon.send(f"🔗 {membre.mention} **Ton lien n'est pas sur ton compte privé** `{h}`. {pourquoi}\n\n"
+                                 f"Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n```\n{lien}\n```\n"
+                                 "Sans lui, tes Reels ne rapportent rien : c'est ce lien qui compte tes visites.")
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Lien en bio de %s : %s", uid, erreur)
+        lignes.append(f"· {f.get('prenom') or uid} (<@{uid}>) : compte privé `{h}` sans son lien ({pourquoi.lower().rstrip('.')})")
+    if lignes and _deps.get("canal_admin"):
+        try:
+            canal = await _deps["canal_admin"]()
+            if canal is not None:
+                await canal.send(("🔗 **Lien absent du compte privé** (scan du matin, prévenus dans leur salon)\n" + "\n".join(lignes))[:1900])
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Liens en bio (admin) : %s", erreur)
+    return lignes
 
 
 def comptes_du_soir(maintenant=None) -> list:
@@ -1503,7 +1580,7 @@ PROCHAINES = {1: "ouvre ton compte 1, `{compte1}` (création ou connexion, c'est
               3: "crée ton compte 3, `{compte3}`{prive3}. Clique ✅ quand c'est fait.",
               4: "compte 3 en warm-up (Reels, likes, 1 story, pas de Reel) ; {autres} : 2 Reels et 1 story chacun.",
               5: "publie un Reel de ton Drive sur {vivants}. Clique ✅ quand c'est fait.",
-              6: "mets ton lien dans la bio du compte {nprive}, et sur {pointent_court} une story à la une avec le widget de mention du compte {nprive}. Clique ✅ quand c'est fait.",
+              6: "mets ton lien dans le champ Liens du profil du compte {nprive} (Modifier le profil → Liens), et sur {pointent_court} une story à la une avec le widget de mention du compte {nprive}. Clique ✅ quand c'est fait.",
               7: "2 Reels sur chacun de ces comptes : {autres}. 1 story avec le widget vers ta story à la une."}
 
 

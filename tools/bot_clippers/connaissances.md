@@ -58,7 +58,7 @@ Commandes utiles pour tous : ton numéro en MP au bot = candidature reliée · `
 ## LE MATÉRIEL DE TRAVAIL : 3 comptes Instagram sur ton téléphone
 
 Chaque clipper a **3 comptes Instagram** : **2 comptes de croissance** (ils publient) et **1 compte privé** (il ne publie pas). **Depuis le 8 octobre 2026, le compte privé est le compte 2** : compte 1 croissance, compte 2 privé, compte 3 croissance. Tu avais déjà ton compte 2 avant le 8 octobre ? Ton privé reste le compte 3. Le bot te dit toujours lequel est le privé. Une seule règle pour le lien :
-- **Le lien va dans la bio du compte privé.** Nulle part ailleurs. Le bot te le donne quand ton compte privé est ouvert, pas avant.
+- **Le lien va dans la bio du compte privé, dans le champ « Liens »** : Modifier le profil → Liens → Ajouter un lien externe. Jamais dans le texte de la bio : là, Instagram ne le rend pas cliquable, personne ne peut cliquer dessus. Nulle part ailleurs. Le bot te le donne quand ton compte privé est ouvert, pas avant.
 - **Sur les comptes qui publient : jamais de lien** (ni en bio, ni en story, ni dans un Reel). À la place : une story (une photo ou une vidéo de ton Drive) avec le **widget de mention du compte privé** (son @), mise **à la une** (épinglée sur le profil), une seule fois par compte.
 - **Chaque jour, sur les comptes qui publient, une story avec le widget Instagram de ton profil** : elle envoie les gens vers ta story à la une, qui envoie vers le compte privé, qui porte le lien.
 - **Les 2 comptes de croissance publient 2 Reels par jour chacun.** Le compte privé reste privé : profil, bio avec le lien, et c'est tout.
@@ -278,7 +278,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Je peux parrainer quelqu'un ?** Oui. L'un de vous deux tape `!parrain @l'autre` dans son salon perso. Le plus ancien des deux est le parrain : il touche 5 $ une fois, le jour où le nouveau apparaît sur une liste de paie. Rien avant, rien d'autre.
 
-**Où va le lien ?** Dans la bio de ton compte privé (le compte 2 ; le 3 si tu avais ton compte 2 avant le 8 octobre). Nulle part ailleurs. Sur les comptes qui publient : une story à la une avec le widget de mention du privé, une seule fois, puis chaque jour une story avec le widget de ton profil qui renvoie vers cette story à la une. Jamais de lien dans un Reel, jamais sur les comptes qui publient.
+**Où va le lien ?** Dans la bio de ton compte privé (le compte 2 ; le 3 si tu avais ton compte 2 avant le 8 octobre), dans le champ « Liens » : Modifier le profil → Liens → Ajouter un lien externe. Pas dans le texte de la bio : il ne s'y clique pas. Nulle part ailleurs. Sur les comptes qui publient : une story à la une avec le widget de mention du privé, une seule fois, puis chaque jour une story avec le widget de ton profil qui renvoie vers cette story à la une. Jamais de lien dans un Reel, jamais sur les comptes qui publient.
 
 **Et le compte privé ?** C'est ton compte 2 depuis le 8 octobre 2026 (le 3 pour ceux qui avaient déjà leur compte 2). Il ne publie pas. Il est privé, avec ta photo, ta bio et ton lien dans la bio. Tes comptes qui publient envoient vers lui par la story à la une. Pourquoi en 2 : ton lien existe 3 jours plus tôt, et les premiers Reels de ton compte 1 ramènent déjà des visites.
 

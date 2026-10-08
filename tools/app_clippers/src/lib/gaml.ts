@@ -52,8 +52,19 @@ export type LienGaml = { id: string; url: string; name: string; note: string; cr
 let derniereListe: LienGaml[] | null = null;                       // repli si GAML tombe : la dernière liste connue de l'instance
 
 const liensEnCache = unstable_cache(async (): Promise<LienGaml[]> => {
-  const d = await requete<unknown>("/links");
-  return liste<Record<string, unknown>>(d).map((l) => ({
+  // 08/10 (audit : 50 liens renvoyés pile) : pages 2, 3… tant qu'elles apportent des liens nouveaux, comme le bot ; une API qui
+  // ignore `page` renvoie la même liste (on s'arrête), une page refusée garde ce qui est lu.
+  const tous = liste<Record<string, unknown>>(await requete<unknown>("/links"));
+  const vus = new Set(tous.map((l) => String(l.id || "")));
+  for (let page = 2; page <= 10; page++) {
+    let neufs: Record<string, unknown>[] = [];
+    try { neufs = liste<Record<string, unknown>>(await requete<unknown>("/links", { page: String(page) })).filter((l) => !vus.has(String(l.id || ""))); }
+    catch { break; }
+    if (!neufs.length) break;
+    neufs.forEach((l) => vus.add(String(l.id || "")));
+    tous.push(...neufs);
+  }
+  return tous.map((l) => ({
     id: String(l.id || ""), url: String(l.url || ""), name: String(l.name || ""), note: String(l.note || ""),
     createdAt: String(l.createdAt || ""), enabled: l.enabled !== false,
   })).filter((l) => l.id);

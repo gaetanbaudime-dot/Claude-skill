@@ -218,10 +218,12 @@ async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str =
     bio = bio_pour(creatrice)
     prive = (n == 3) if prive is None else bool(prive)
     if prive:
-        if lien:
-            bio = f"{bio}\n{lien}"
-        fin = ("Ce compte est **privé** : Réglages → Confidentialité du compte → Compte privé. "
-               + ("Le lien est dans la bio, rien d'autre. " if lien else "Ton lien arrive ici dans quelques minutes : tu le mettras dans la bio, rien d'autre. ")
+        # 08/10 (checkup) : le lien était collé DANS le texte de la bio, où Instagram ne le rend pas cliquable ; il va dans le
+        # champ « Liens » du profil (le seul lien cliquable d'un profil, visible même sur un compte privé)
+        fin = ("Ce compte est **privé** : Réglages → Confidentialité du compte → Compte privé.\n\n"
+               + (f"🔗 **Ton lien** : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n```\n{lien}\n```\n"
+                  "Pas dans le texte de la bio : là, il ne se clique pas.\n\n" if lien else
+                  "🔗 Ton lien arrive ici dans quelques minutes : tu le mettras dans Modifier le profil → **Liens**, pas dans le texte de la bio.\n\n")
                + "Fait ? Appuie sur le bouton.")
     else:
         fin = "Pas de lien, pas d'@. Fait ? Appuie sur le bouton."

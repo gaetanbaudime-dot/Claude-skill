@@ -193,7 +193,18 @@ async def _apify(handles: list):
 
 def _fiche_vide() -> dict:
     return {"lu": False, "existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0, "fautes": 0,
-            "reels_hier": 0, "reels_7j": 0, "posts_lus": 0}
+            "reels_hier": 0, "reels_7j": 0, "posts_lus": 0, "bio_liens": [], "bio_lu": False, "lien_dans_texte": False}
+
+
+RE_URL_TEXTE = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(fr|com|app|link|me|io)/", re.I)
+
+
+def _liens_profil(item: dict) -> tuple:
+    """08/10 (critique : le lien en bio n'était jamais vérifié) : (liens cliquables du profil, champ lu, lien collé dans le texte de
+    la bio). Le lien cliquable est le champ « Liens » (externalUrl / externalUrls), visible même sur un compte privé."""
+    liens = [item.get("externalUrl")] + [u.get("url") for u in item.get("externalUrls") or [] if isinstance(u, dict)]
+    lu = any(k in item for k in ("externalUrl", "externalUrls", "biography"))
+    return [str(x) for x in liens if x], lu, bool(RE_URL_TEXTE.search(str(item.get("biography") or "")))
 
 
 def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict:
@@ -223,6 +234,7 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
             continue
         fiche.update({"lu": True, "existe": True, "restreint": restreint, "prive": bool(item.get("private")),
                       "followers": int(followers_brut or 0)})
+        fiche["bio_liens"], fiche["bio_lu"], fiche["lien_dans_texte"] = _liens_profil(item)
         posts = item.get("latestPosts") or []
         fiche["posts_lus"] = len(posts)
         for post in posts:
@@ -479,6 +491,9 @@ async def _executer(ecrire: bool = True) -> dict:
                      "reels_hier": int(m.get("reels_hier") or 0), "reels_7j": int(m.get("reels_7j") or 0),   # 05/10
                      "posts_lus": int(m.get("posts_lus") or 0)})
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
+        if ecrire and m["existe"] and m.get("bio_lu"):                  # 08/10 : le lien du profil, pour vérifier celui du privé
+            d.setdefault("bios", {})[h] = {"jour": jour, "liens": list(m.get("bio_liens") or [])[:5],
+                                           "texte": bool(m.get("lien_dans_texte"))}
         if id(c) not in ids_suivis:
             continue
         apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"], d.setdefault("avant_ban", {}).get(h, ""))
@@ -567,6 +582,8 @@ async def _executer(ecrire: bool = True) -> dict:
             reels_72h = {h: sum(int(e.get("posts") or 0) for e in hist if e.get("existe") and str(e.get("jour", ""))[:10] >= depuis_3j)
                          for h, hist in d["historique"].items()}
             await _deps["reconcilier"](etats_h, publies, reels_72h, d["historique"])   # 08/10 : l'historique, pour compter les Reels
+            if _deps.get("controler_bios"):                             # 08/10 : le lien est-il vraiment sur le compte privé ?
+                await _deps["controler_bios"](d.get("bios") or {})
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation des parcours : %s", erreur)
     if ecrire and _deps.get("reservations_expirees"):                             # 28/09 : la réservation qui expire
