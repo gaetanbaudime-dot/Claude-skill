@@ -73,8 +73,10 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 ETAPES = {
     # 26/09 (Gaëtan) : textes courts, 24 h de warm-up sur chaque compte, puis les Reels.
     # 29/09 (Gaëtan) : « un compte tous les 48 h » — jamais plus vite, c'est ce qui limite les bans (7 comptes perdus le 28/09).
-    1: {"titre": "Étape 1 · Crée ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": [],
-        "texte": ("Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
+    # 08/10 (audit : dans le parcours automatique, la créatrice n'était jamais annoncée) : son nom et le bouton de son salon d'infos
+    1: {"titre": "Étape 1 · Crée ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": ["info"],
+        "texte": ("Ta créatrice : **{creatrice}**.\n\n"
+                  "Identifiant :\n```\n{compte1}\n```\nE-mail :\n```\n{mail1}\n```\nMot de passe :\n```\n{mdp1}\n```\n"
                   "{creation1}\n\n"
                   "Créé ? Appuie sur le bouton.")},
     2: {"titre": "Étape 2 · Crée ton compte 2", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
@@ -99,7 +101,9 @@ ETAPES = {
                   "1. Prends une vidéo dans ce dossier. Modifie-la toujours : musique, texte, un début qui accroche.\n"
                   "2. Publie-la sur {vivants}. Jamais la même vidéo sur deux comptes le même jour.\n\n"   # 01/10 : sans les comptes BAN
                   "Premier Reel en ligne ? Appuie sur le bouton.")},
-    6: {"titre": "Étape 6 · Ton lien et ta story à la une (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
+    # 08/10 (audit) : les étapes 4 et 5 n'existent plus depuis le 05/10 ; le clipper voyait « Étape 3 » puis « Étape 6 ». Le numéro
+    # interne reste 6 (fiches, boutons), seul le titre dit 4.
+    6: {"titre": "Étape 4 · Ton lien et ta story à la une (Fiche 4)", "fiche": "4", "bouton": "✅ Lien mis", "salons": [],
         "texte": ("**Ton lien** : {lien}\n\n"
                   "1. Sur ton compte 3 (`{compte3}`, privé) : ce lien dans la **bio**. Nulle part ailleurs.\n"
                   "2. Sur ton compte 1 et ton compte 2 : une story (une photo ou une vidéo de ton Drive) avec le **widget de mention** "
@@ -1006,7 +1010,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
         d = _lire()                                                     # relu et réécrit sans attente entre les deux : le passage
         fiche_p = d.get(uid) or {}                                      # de l'heure et celui du scan n'envoient jamais deux fois
         programme = fiche_p.get("programme") or []
-        partants, gardes = [], []
+        partants, gardes, dites = [], [], []
         for x in programme:
             if not _echu(x, maintenant):
                 gardes.append(x)
@@ -1017,11 +1021,22 @@ async def _programme_du_jour(client, maintenant=None) -> list:
             elif reels_vus(uid, fiche_p, int(x.get("n") or 0) - 1) >= REELS_OUVERTURE:
                 partants.append(x)
             else:
-                gardes.append(x)                                        # 48 h passées, Reels pas encore là : on attend, sans rien dire
-        if gardes == programme:
+                gardes.append(x)                                        # 48 h passées, Reels pas encore là : on attend
+                n_x = int(x.get("n") or 0)
+                if fiche_p.get("attente_dite") != n_x:                   # 08/10 (audit) : une fois, il sait ce qui manque
+                    fiche_p["attente_dite"] = n_x
+                    dites.append((n_x, reels_vus(uid, fiche_p, n_x - 1)))
+        if gardes == programme and not dites:
             continue
         fiche_p["programme"] = gardes
         _ecrire(d)
+        for n_x, vus in dites:                                          # 08/10 : « je vois N Reels », une fois par compte attendu
+            try:
+                await _suite(salon, f"{membre.mention} Ton compte {n_x} arrive dès que je vois {REELS_OUVERTURE} Reels sur ton "
+                                    f"compte {n_x - 1}. Pour l'instant, j'en vois {vus}.\n\nTu publies sous un autre identifiant ? "
+                                    f"Tape `!pseudo {n_x - 1} ton_identifiant`.")
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Attente du compte %s de %s : %s", n_x, uid, erreur)
         for item in partants:
             n = int(item.get("n") or 0)
             try:
@@ -1362,12 +1377,46 @@ async def migrer_au_demarrage(client) -> int:
     return n
 
 
+def _en_place(uid: str) -> str:
+    """08/10 : '' pour un inconnu ; sinon ce que le registre et la paie au clic disent d'un clipper sans fiche de parcours (ancien) :
+    sa créatrice, ses visites payées sur 7 jours, son salon perso. Jamais d'identifiant ni de lien (salon commun)."""
+    morceaux = []
+    try:
+        fiche = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else {}).get(uid) or {}
+    except Exception:                                                   # noqa: BLE001
+        fiche = {}
+    if fiche.get("creatrice"):
+        morceaux.append(f"créatrice {fiche['creatrice']}")
+    try:
+        d = paie_clics._lire()
+        lids = paie_clics.liens_de(d, uid)
+        if lids:
+            hier = datetime.now(timezone.utc).date() - timedelta(days=1)
+            s7 = paie_clics.somme(d, lids, hier - timedelta(days=6), hier)
+            morceaux.append(f"{s7.get('payes', 0)} visites payées sur 7 jours, il a donc son lien et publie")
+    except Exception:                                                   # noqa: BLE001
+        pass
+    if not morceaux:
+        return ""
+    salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+    morceaux.append("salon perso : " + ("oui" if salon is not None else "PAS ENCORE"))
+    return ", ".join(morceaux)
+
+
 def contexte_court(uid: str) -> str:
     """05/10 : ce que l'assistant du salon #assistant sait du clipper — l'étape et le nombre de comptes créés, jamais un
     identifiant, un mot de passe ni un lien (le salon est commun : rien ne doit passer d'un clipper à l'autre)."""
     fiche_p = _lire().get(str(uid), {})
     n = int(fiche_p.get("etape", 0) or 0)
     crees = sum(1 for i in (1, 2, 3) if _cree(fiche_p, i))
+    if n == 0 and not fiche_p:
+        # 08/10 (Yves, ancien à 50 visites par jour, sans salon à cause d'une panne : l'assistant lui a dit d'attendre son compte 1,
+        # puis de taper J'ACCEPTE et de faire la formation) : sans fiche de parcours, les faits du registre et de la paie au clic.
+        en_place = _en_place(str(uid))
+        if en_place:
+            return (f"clipper DÉJÀ EN PLACE, sans parcours guidé : {en_place}. Ne lui parle ni de compte 1 à attendre, ni de formation, "
+                    "ni de quiz, ni de J'ACCEPTE. Sans salon perso : l'équipe le lui ouvre, il mentionne @Gaëtan ici. "
+                    "Règle du lien : seulement dans la bio du compte 3 privé ; comptes 1 et 2 : une story à la une avec le widget de mention du compte 3")
     if n == 0:
         etape = "parcours pas encore commencé (il attend sa créatrice et son compte 1)"
     elif n in ETAPES:

@@ -86,7 +86,7 @@ Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur 
 - Instagram demande un **selfie vidéo** (« confirmez que vous êtes une personne réelle ») ? Fais-le toi-même, avec ton visage, en bonne lumière. C'est normal et sans danger. Personne d'autre ne le fait à ta place.
 - Un compte banni : tu fais appel toi-même avec !code dans #🔐-code-instagram. Si l'appel échoue, Gaëtan décide. On ne réutilise jamais une info d'un compte banni : ni son e-mail, ni son mot de passe, ni son identifiant.
 - Tu travailles sur **ton propre téléphone**. Un iPhone rien que pour ce travail, c'est mieux. Un téléphone cloud, c'est possible, mais seulement si l'agence le décide.
-- Ton **lien** : le bot te le donne dans ton salon perso avec ton compte 3. Tu le mets **toi-même** dans la bio du compte 3 (privé), et sur les comptes 1 et 2 une story à la une avec le widget de mention du compte 3 (étape 6). Avant le compte 3, aucun lien nulle part.
+- Ton **lien** : le bot te le donne dans ton salon perso avec ton compte 3. Tu le mets **toi-même** dans la bio du compte 3 (privé), et sur les comptes 1 et 2 une story à la une avec le widget de mention du compte 3 (étape 4, « Ton lien et ta story à la une »). Avant le compte 3, aucun lien nulle part.
 - Tu bloques à une étape ? Pose ta question dans #assistant, ou écris à Gaëtan sur WhatsApp. Ton manager voit ton salon perso.
 
 Ton téléphone, les règles :
@@ -107,7 +107,7 @@ Si tu as lu une vieille version du kit, voilà ce qui a changé :
 - **Depuis le 5 octobre 2026** : le compte 3 redevient **privé** et porte le lien **dans sa bio** ; les comptes 1 et 2 ne portent jamais de lien, ils pointent vers le compte 3 par une story à la une avec le widget de mention. Les questions se posent dans **#assistant**, plus dans le salon perso. La seule règle de sortie : **48 h sans créer le compte 1 = sortie du serveur** (48 h depuis le 5 octobre au soir). Plus de « 3 jours sans Reel = avertissement, 7 jours = licenciement ».
 - **Plus de pages Facebook depuis le 14 septembre 2026** : la mission est 100 % Instagram (3 comptes de croissance). Tu en avais créé avant ? N'y publie plus, ton manager te dit quoi en faire. Aucune page ne compte pour ta journée validée.
 - **Depuis le 28 septembre 2026** : plus de lien ni d'@ dans les bios des comptes qui publient (ça fait des bans). **Depuis le 5 octobre 2026** : le lien vit dans la bio du compte 3 privé, et les comptes 1 et 2 y envoient par une story à la une avec le widget de mention. Jamais de lien dans la description d'un Reel, même « 1 sur 10 ».
-- Le lien, c'est toi qui le mets, à l'étape 6, quand ton compte 3 existe. Le bot te le donne et te dit quand.
+- Le lien, c'est toi qui le mets, à l'étape 4 (« Ton lien et ta story à la une »), quand ton compte 3 existe. Le bot te le donne et te dit quand.
 - Un compte « qui existe déjà » dans ton étape (rendu par un ancien clipper) : tu t'y connectes avec l'identifiant et le mot de passe, tu ne le crées pas. Le code de connexion : va dans #🔐-code-instagram et tape !code.
 - L'équipe internationale n'est plus en pause : ouverte depuis le 8 septembre 2026.
 - Les évolutions (Metricool, 2ᵉ téléphone) n'ont pas de date (« J+30 », « J+60 ») : ton manager décide.
@@ -130,7 +130,7 @@ Les règles d'or :
 - Jamais relier les comptes entre eux. Le piège : Instagram crée le nouveau compte sans demander d'e-mail ni de mot de passe. Ça veut dire qu'il l'a relié à l'ancien. Arrête. Écris-le dans ton salon perso.
 - Ta vraie date de naissance : tu dois être majeur. Si Instagram demande un jour une vérification, c'est ta date et ton numéro qui servent.
 
-Le lien : dans la bio du compte 3 (privé), et sur les comptes 1 et 2 une story à la une avec le widget de mention du compte 3. C'est toi qui le mets, à l'étape 6, quand ton compte 3 existe. Le bot te dit quand. Jamais de lien ni d'@ dans la bio des comptes 1 et 2.
+Le lien : dans la bio du compte 3 (privé), et sur les comptes 1 et 2 une story à la une avec le widget de mention du compte 3. C'est toi qui le mets, à l'étape 4 (« Ton lien et ta story à la une »), quand ton compte 3 existe. Le bot te dit quand. Jamais de lien ni d'@ dans la bio des comptes 1 et 2.
 
 La vidéo pas à pas est dans le post Fiche 1 du forum formation. Les passages sur Facebook ne comptent plus.
 
@@ -283,7 +283,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Et les pages Facebook ?** Plus dans la mission depuis le 14 septembre 2026 : 100 % Instagram, 3 comptes de croissance. Tu en avais créé ? N'y publie plus et demande à ton manager quoi en faire. Aucune page ne compte pour ta journée validée, et personne ne te demandera d'en créer.
 
-**GetAllMyLinks, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice) et c'est elle qui compte tes visites. Ton lien arrive dans ton salon perso avec ton compte 3. Tu le poses toi-même dans la bio du compte 3, à l'étape 6 du parcours. `!mesclics` pour voir tes visites.
+**GetAllMyLinks, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice) et c'est elle qui compte tes visites. Ton lien arrive dans ton salon perso avec ton compte 3. Tu le poses toi-même dans la bio du compte 3, à l'étape 4 du parcours (« Ton lien et ta story à la une »). `!mesclics` pour voir tes visites.
 
 **C'est quoi une visite payable ?** Une visite réelle sur ton lien, venue de France, Belgique, Suisse, Canada, Luxembourg, Monaco ou des DOM-TOM, robots exclus. Une personne qui clique dix fois compte une fois. Madagascar, Bénin, Algérie ne comptent pas. Tape `!mesclics` dans ton salon perso pour le voir. Après ton compte 3, ton app te le montre aussi (`!app` dans ton salon).
 

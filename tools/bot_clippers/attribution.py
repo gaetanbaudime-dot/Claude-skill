@@ -177,12 +177,25 @@ def prochaine(guild) -> tuple:
 
 
 def sans_creatrice(membre) -> bool:
-    fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(membre.id)) or {}
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+    fiche = registre.get(str(membre.id)) or {}
     if fiche.get("creatrice"):
         return False
     roster = _deps.get("roster")
     prenom = _deps["prenom_de"](membre)
-    return not (roster and (roster.creatrice_de(prenom) or roster.sans_salon(prenom)))
+    if not (roster and (roster.creatrice_de(prenom) or roster.sans_salon(prenom))):
+        return True
+    # 08/10 (audit) : le roster parle par prénom. S'il désigne un AUTRE signé du même prénom, qui a déjà sa créatrice au registre,
+    # ce membre-ci n'est pas l'ancien du roster : avant, il était sauté en silence et n'avait jamais de créatrice.
+    norm = _deps.get("normaliser") or (lambda t: str(t or "").strip().lower())
+    cle = norm(prenom)
+    for uid, f in registre.items():
+        if str(uid) == str(membre.id) or not (f or {}).get("creatrice"):
+            continue
+        autre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        if autre is not None and norm(_deps["prenom_de"](autre)) == cle:
+            return True
+    return False
 
 
 async def attribuer(membre, via: str) -> str:
