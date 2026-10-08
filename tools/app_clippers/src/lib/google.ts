@@ -58,3 +58,17 @@ export async function driveParents(id: string): Promise<string[]> {
   const d = (await r.json()) as { parents?: string[] };
   return d.parents || [];
 }
+
+export type Fichier = { id: string; name: string; mimeType: string };
+
+/** Les fichiers (pas les dossiers, pas les raccourcis) directement dans un dossier Drive, `maxi` au plus : sert à compter
+ *  ce qui attend le clipper. Un dossier illisible renvoie [] (jamais d'erreur affichée). */
+export async function driveFichiers(parent: string, maxi = 100): Promise<Fichier[]> {
+  const jeton = await jetonGoogle();
+  const q = `'${parent}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder' and mimeType!='application/vnd.google-apps.shortcut'`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&pageSize=${Math.min(1000, Math.max(1, maxi))}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
+  if (!r.ok) return [];
+  const d = (await r.json()) as { files?: Fichier[] };
+  return d.files || [];
+}

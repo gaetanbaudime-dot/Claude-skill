@@ -2,7 +2,7 @@
 
 Petite application web mobile (PWA) pour les clippers, jumelle de l'app créatrices : un lien personnel par clipper, à ajouter sur l'écran d'accueil du téléphone (iPhone Safari « Sur l'écran d'accueil », Android Chrome « Ajouter à l'écran d'accueil »). Trois onglets en bas, dans l'ordre du dessin de Gaëtan (nuage, flèche, dollar) :
 
-- **Drive** (onglet par défaut) : quatre tuiles qui ouvrent le bon dossier du moment dans l'application Google Drive du téléphone. **Reels** = le dossier de la semaine en cours de sa créatrice (`2026 / 10.Octobre / Semaine N`, semaine 1 = jours 1 à 7, 2 = 8 à 14, 3 = 15 à 21, 4 = 22 à 31). **Photos** = le dossier du mois de sa créatrice. **Top Reels** = le sous-dossier « TOP 20 Reels » de son dossier personnel (`🎬 Clippers / <Prénom>`), où le bot dépose ses variantes uniques ; s'il n'existe pas encore, le « TOP 20 Reels » de la créatrice, sinon son dossier personnel. **Stories** = le dossier Stories de sa créatrice (le kit demande 1 à 3 stories par jour depuis ce dossier). Un dossier pas encore créé fait reculer au plus récent existant : la tuile ouvre toujours quelque chose d'utile, jamais une erreur. Les dossiers ne sont jamais créés ici.
+- **Drive** (onglet par défaut) : quatre tuiles, **Carrousel · Reels · Stories · TOP 20 Reels** (les Reels à droite, plus faciles au pouce), qui ouvrent le **dossier racine** de la section dans l'application Google Drive du téléphone ; le clipper descend lui-même dans le mois ou la semaine. **Reels** = la source Reels de sa créatrice. **Carrousel** = la source « Carrousel » si elle existe, sinon le dossier « Carrousel » du dossier Instagram de la créatrice (le parent de « 🎬 Clippers »), sinon la source Photos. **Stories** = la source Stories, sinon le dossier « Stories » du dossier Instagram. **TOP 20 Reels** = le sous-dossier « TOP 20 Reels » de son dossier personnel (`🎬 Clippers / <Prénom>`), où le bot dépose ses variantes uniques ; s'il n'existe pas encore, le « TOP 20 Reels » de la créatrice, sinon son dossier personnel. Sous chaque tuile, l'état du **dossier du moment** (Reels : `année / mois / Semaine N` en cours, semaine 1 = jours 1 à 7, 2 = 8 à 14, 3 = 15 à 21, 4 = 22 à 31 ; Carrousel et Stories : le mois en cours ; TOP 20 : le dossier lui-même ; un mois ou une semaine absents font reculer au plus récent existant) : **✅ plein** à partir du seuil (Reels 14, Carrousel 10, Stories 10, TOP 20 20 fichiers), **⏳ en cours de remplissage** en dessous, **❌ dossier vide** à zéro. Les fichiers sont comptés directement dans le dossier (ni sous-dossiers ni raccourcis), en cache 10 minutes. Les dossiers ne sont jamais créés ici.
 - **Reels** : le duplicateur de Reels, écran « Bientôt », identique à celui de l'app créatrices.
 - **Versements** : ses visites francophones GetAllMyLinks jour par jour (14 jours, ou la période de paie en cours si elle est plus longue), le montant de la période en cours, la phrase « Prochain versement : 40,65 $ le 20 octobre », aujourd'hui, hier, les périodes précédentes (montant et date de versement), et son lien GAML à mettre dans la bio de son compte privé, avec un bouton Copier. Le jour en cours se rafraîchit toutes les 5 minutes tant que l'onglet est ouvert.
 
@@ -36,7 +36,7 @@ Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (
 | `ADMIN_SECRET` | 32 octets aléatoires : la clé de la route d'administration |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | le JSON du compte de service de l'agence (lecture Drive, écriture du seul tableur d'usage), le même que l'app créatrices |
 | `CREATRICES_JSON` | le même contenu que l'app créatrices (`prenom`, `racine`, `reels`, `photos` par créatrice ; les jetons des créatrices y sont ignorés) |
-| `DRIVE_SOURCES` | le même JSON que le bot Discord : `{ "Chloé": { "parent": "<id de 🎬 Clippers>", "sources": [{ "id", "sous": "Reels|Photos|Stories" }] } }` |
+| `DRIVE_SOURCES` | le même JSON que le bot Discord : `{ "Chloé": { "parent": "<id de 🎬 Clippers>", "sources": [{ "id", "sous": "Reels|Photos|Stories|Carrousel" }] } }` |
 
 `.env.local` sert au test en local et reste ignoré par Git (`.env.local.exemple` donne la forme).
 
@@ -55,7 +55,7 @@ Même mécanisme que l'app créatrices : chaque ouverture, changement d'onglet, 
 
 - `/k/<jeton>` : l'application ; `/k/<jeton>/manifest.webmanifest` : son manifeste (start_url avec le jeton, icônes `any` et `maskable`).
 - `/api/k/<jeton>/versements` : chiffres de la période (JSON).
-- `/api/k/<jeton>/drive` : libellés des dossiers visés par les quatre tuiles.
+- `/api/k/<jeton>/drive` : pour les quatre tuiles, la racine ouverte, le dossier du moment, son état (`plein`, `en_cours`, `vide`, `inconnu`), son libellé et le nombre de fichiers comptés.
 - `/api/k/<jeton>/drive/<reels|photos|top|stories>` : redirection 302 vers le dossier Drive du moment.
 - `/api/k/<jeton>/ev` (POST) : événement d'usage, liste fermée, 60 par minute et par clipper au plus.
 - `/api/admin/liens?cle=<ADMIN_SECRET>` : « prénom → lien personnel » de tous les clippers (JSON), `&format=texte` pour une ligne par clipper à coller. Pour distribuer les liens à la main ou par le bot Discord.

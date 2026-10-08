@@ -5,7 +5,7 @@ import { enregistrer } from "@/lib/usage";
 
 export const dynamic = "force-dynamic";
 
-const EVENEMENT = /^(ouverture|onglet:(drive|reels|versements)|drive:(reels|photos|top|stories)|lien:copie)$/;
+const EVENEMENT = /^(ouverture|onglet:(drive|reels|versements)|drive:(carrousel|reels|photos|top|stories)|lien:copie)$/;
 const compteur = new Map<string, { n: number; minute: number }>();
 
 export async function POST(req: Request, { params }: { params: { token: string } }) {

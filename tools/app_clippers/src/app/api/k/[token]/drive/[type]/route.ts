@@ -4,8 +4,8 @@ import { cibleClipper, TUILES, urlDeSecours, type TypeTuile } from "@/lib/drive"
 
 export const dynamic = "force-dynamic";
 
-/** Redirige vers le bon dossier Drive : sur le téléphone, Google Drive s'ouvre directement dedans. Jamais d'erreur affichée :
- *  si la cible ne se trouve pas, on ouvre le dossier personnel du clipper. */
+/** Redirige vers le DOSSIER RACINE de la section (08/10, Gaëtan) : sur le téléphone, Google Drive s'ouvre directement dedans et
+ *  le clipper descend dans le mois ou la semaine. Jamais d'erreur affichée : si la racine ne se trouve pas, on ouvre son dossier personnel. */
 export async function GET(_req: Request, { params }: { params: { token: string; type: string } }) {
   const c = await clipperParJeton(params.token).catch(() => null);
   if (!c || !TUILES.includes(params.type as TypeTuile)) return NextResponse.json({ erreur: "lien invalide" }, { status: 404 });
