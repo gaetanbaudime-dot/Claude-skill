@@ -76,9 +76,34 @@ async function preparer(id: string): Promise<void> {
   await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${ONGLET}!A1:E1`)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ values: [ENTETE] }) });
 }
 
+/** Un onglet de plus dans le même tableur (ex. « Adresses USDC »), créé avec son en-tête s'il n'existe pas encore. */
+export async function assurerOnglet(id: string, titre: string, entete: string[]): Promise<void> {
+  const meta = await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
+  const feuilles = ((meta.sheets as { properties: { sheetId: number; title: string } }[] | undefined) || []).map((s) => s.properties);
+  if (feuilles.some((f) => f.title === titre)) return;
+  await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, {
+    method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: titre, gridProperties: { frozenRowCount: 1 } } } }] }),
+  });
+  const fin = String.fromCharCode(64 + entete.length);
+  await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${titre}!A1:${fin}1`)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ values: [entete] }) });
+}
+
+/** Lecture et écriture brutes d'une plage du tableur (pour les onglets autres que le journal). */
+export async function lirePlage(id: string, plage: string): Promise<string[][]> {
+  const d = await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(plage)}`);
+  return (d.values as string[][] | undefined) || [];
+}
+export async function ecrirePlage(id: string, plage: string, valeurs: string[][]): Promise<void> {
+  await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(plage)}?valueInputOption=RAW`, { method: "PUT", body: JSON.stringify({ values: valeurs }) });
+}
+export async function ajouterLignes(id: string, plage: string, valeurs: string[][]): Promise<void> {
+  await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(plage)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: "POST", body: JSON.stringify({ values: valeurs }) });
+}
+
 let echecJusqua = 0;                                                   // après un échec (tableur absent, quota), on n'insiste pas pendant 10 minutes
 
-async function feuille(): Promise<string> {
+/** L'identifiant du tableur « App clippers · usage » (cherché par son nom, en cache 6 h). */
+export async function tableur(): Promise<string> {
   if (cache && cache.expire > Date.now()) return cache.id;
   if (echecJusqua > Date.now()) throw new Error("journal d'usage indisponible (nouvel essai dans 10 min)");
   try {
@@ -93,7 +118,7 @@ async function feuille(): Promise<string> {
   }
 }
 
-function maintenantParis(): { date: string; heure: string } {
+export function maintenantParis(): { date: string; heure: string } {
   const f = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   const p = Object.fromEntries(f.formatToParts(new Date()).map((x) => [x.type, x.value]));
   return { date: `${p.year}-${p.month}-${p.day}`, heure: `${p.hour}:${p.minute}:${p.second}` };
@@ -102,7 +127,7 @@ function maintenantParis(): { date: string; heure: string } {
 /** Renvoie null si la ligne est écrite, sinon le message d'erreur (journalisé, jamais montré au clipper). */
 export async function enregistrer(prenom: string, evenement: string, mode: string): Promise<string | null> {
   try {
-    const id = await feuille();
+    const id = await tableur();
     const { date, heure } = maintenantParis();
     await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`${ONGLET}!A:E`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
       method: "POST", body: JSON.stringify({ values: [[date, heure, prenom, evenement, mode]] }),

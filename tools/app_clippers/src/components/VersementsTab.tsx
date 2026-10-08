@@ -45,6 +45,63 @@ function Infobulle({ active, payload, label, taux }: { active?: boolean; payload
   );
 }
 
+/** L'adresse USDC (ERC-20) du clipper, sous son lien (08/10, Gaëtan) : c'est là que partent les virements du 5 et du 20.
+ *  Enregistrée côté agence (tableur « App clippers · usage », onglet « Adresses USDC »), affichée en entier pour qu'il la vérifie. */
+function AdresseUsdc({ jeton }: { jeton: string }) {
+  const [enregistree, setEnregistree] = useState<{ adresse: string; majLe: string } | null | undefined>(undefined);
+  const [saisie, setSaisie] = useState("");
+  const [edition, setEdition] = useState(false);
+  const [envoi, setEnvoi] = useState(false);
+  const [message, setMessage] = useState<{ texte: string; ok: boolean } | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    fetch(`/api/k/${jeton}/adresse`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!vivant) return;
+      setEnregistree(d && d.adresse ? { adresse: d.adresse, majLe: d.majLe || "" } : null);
+    }).catch(() => { if (vivant) setEnregistree(null); });
+    return () => { vivant = false; };
+  }, [jeton]);
+  const valide = /^0x[0-9a-fA-F]{40}$/.test(saisie.trim());
+  const enregistrer = async () => {
+    if (!valide || envoi) return;
+    setEnvoi(true); setMessage(null);
+    try {
+      const r = await fetch(`/api/k/${jeton}/adresse`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adresse: saisie.trim() }) });
+      const d = (await r.json()) as { ok?: boolean; adresse?: string; majLe?: string; erreur?: string };
+      if (r.ok && d.ok && d.adresse) { setEnregistree({ adresse: d.adresse, majLe: d.majLe || "" }); setEdition(false); setSaisie(""); setMessage({ texte: "Adresse enregistrée. Tes prochains versements partent dessus.", ok: true }); signaler(jeton, "adresse:enregistree"); }
+      else setMessage({ texte: d.erreur || "Enregistrement impossible pour l'instant, réessaie dans une minute.", ok: false });
+    } catch { setMessage({ texte: "Enregistrement impossible pour l'instant, réessaie dans une minute.", ok: false }); }
+    setEnvoi(false);
+  };
+  const formulaire = (
+    <div className="mt-3">
+      <input value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder="0x…" inputMode="text" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+             className="w-full rounded-2xl px-3 py-3 text-[14px] font-semibold tabular-nums outline-none" style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${saisie && !valide ? "rgba(255,138,154,0.6)" : "rgba(255,255,255,0.08)"}` }} />
+      <div className="flex items-center justify-between gap-3 mt-2">
+        <span className="text-[11px] text-argent2 leading-snug">{saisie && !valide ? "Elle doit commencer par 0x et faire 42 caractères." : "Réseau Ethereum (ERC-20) uniquement."}</span>
+        <div className="flex gap-2 shrink-0">
+          {enregistree && <button onClick={() => { setEdition(false); setSaisie(""); setMessage(null); }} className="text-[12px] font-bold text-argent2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.05)" }}>Annuler</button>}
+          <button onClick={enregistrer} disabled={!valide || envoi} className="text-[12px] font-bold text-accent px-3 py-2 rounded-xl disabled:opacity-40" style={{ background: "rgba(122,167,255,0.12)" }}>{envoi ? "…" : "Enregistrer"}</button>
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div className="carte apparait-4 p-4">
+      <div className="text-[14px] font-semibold">Ton adresse USDC</div>
+      <p className="text-[12px] text-argent2 mt-1 leading-relaxed">C'est là que tes versements arrivent, le 5 et le 20. Colle ton adresse USDC sur le réseau Ethereum (ERC-20). Vérifie-la deux fois : un virement vers une mauvaise adresse est perdu.</p>
+      {enregistree === undefined ? <div className="squelette h-10 w-full mt-3 rounded-2xl" /> : enregistree && !edition ? (
+        <div className="mt-3 rounded-2xl px-3 py-2.5" style={{ background: "rgba(52,211,153,0.10)" }}>
+          <div className="text-[11px] font-bold tracking-widest uppercase text-emerald-300">Enregistrée{enregistree.majLe ? ` · ${enregistree.majLe.slice(0, 10).split("-").reverse().join("/")}` : ""}</div>
+          <div className="text-[13px] font-semibold break-all tabular-nums mt-1">{enregistree.adresse}</div>
+          <button onClick={() => { setEdition(true); setSaisie(enregistree.adresse); setMessage(null); }} className="text-[12px] font-bold text-accent mt-2">Modifier</button>
+        </div>
+      ) : formulaire}
+      {message && <div className={`text-[12px] mt-2 ${message.ok ? "text-emerald-300" : "text-[#ff8a9a]"}`}>{message.texte}</div>}
+    </div>
+  );
+}
+
 export default function VersementsTab({ jeton }: { jeton: string }) {
   const [v, setV] = useState<Versements | null>(null);
   const [erreur, setErreur] = useState(false);
@@ -161,6 +218,8 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
           ))}
         </div>
       )}
+
+      {v && <AdresseUsdc jeton={jeton} />}
 
       {v && (
         <p className="text-[11px] text-argent2/70 text-center px-4 leading-relaxed">
