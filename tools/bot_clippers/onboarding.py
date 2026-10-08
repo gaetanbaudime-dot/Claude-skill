@@ -1580,11 +1580,34 @@ async def boucle(client, deps: dict):
                     m_r = _deps["membre_par_id"](uid_r) if _deps.get("membre_par_id") else None
                     if m_r is None:
                         continue
+                    # 08/10 (régression du 05/10, vue par l'audit : Mohamed a reçu deux fois ses 3 comptes) : depuis le 05/10, le lien
+                    # n'existe qu'avec le compte 3. Ce rattrapage appelait livrer(), qui renvoyait tout le pavé (les 3 comptes, le
+                    # compte 3 « il publie », le lien sans dire où le mettre) à tout nouveau 15 min après son étape 1. Il ne fait plus
+                    # que créer le lien, sans message, quand le parcours en est au lien (étape 6 ou plus) ou n'a pas commencé ;
+                    # pendant la création des comptes (étapes 1 à 5), c'est l'étape 3 qui crée le lien.
                     try:
-                        bilan_l = await livrer(m_r, fiche_r["creatrice"], _deps["salon_perso"](uid_r) if _deps.get("salon_perso") else None,
-                                               declencheur="!onboarding lien manquant")
+                        import parcours                                     # import tardif : parcours importe onboarding
+                        etape_r = int((parcours._lire().get(str(uid_r)) or {}).get("etape", 0) or 0)
+                    except Exception:                                       # noqa: BLE001
+                        etape_r = 0
+                    if 1 <= etape_r <= 5:
+                        continue
+                    essai = str(fiche_r.get("lien_essai") or "")
+                    if essai and essai > (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(timespec="seconds"):
+                        continue                                            # un essai toutes les 6 h au plus (clone refusé : forfait plein)
+                    etat_e = _lire_etat()
+                    if uid_r in etat_e.get("clippers", {}):
+                        etat_e["clippers"][uid_r]["lien_essai"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                        _ecrire_etat(etat_e)
+                    try:
+                        # créer un clone seulement quand le lien est dû (étape 6 ou plus) : le forfait GAML est presque plein
+                        res_r = await attribuer_lien(m_r, fiche_r["creatrice"], comptes, None, creer=etape_r >= 6)
                         relances += 1
-                        journal.info("Lien GAML retenté pour %s : %s", uid_r, bilan_l[-160:])
+                        journal.info("Lien GAML retenté pour %s : %s", uid_r, (res_r.get("lien") or "aucun")[:120])
+                        salon_r = _deps["salon_perso"](uid_r) if (res_r.get("lien") and etape_r >= 6 and _deps.get("salon_perso")) else None
+                        if salon_r is not None:
+                            await salon_r.send(f"🔗 {m_r.mention} **Ton lien est prêt** : {res_r['lien']}\n\n"
+                                               "Il va seulement dans la bio de ton compte 3.")
                     except Exception as erreur:                             # noqa: BLE001
                         journal.warning("Lien GAML retenté pour %s : %s", uid_r, erreur)
                 etat = _lire_etat()

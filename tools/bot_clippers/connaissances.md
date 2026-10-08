@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v15, 5 octobre 2026 : 2 comptes de croissance + 1 compte privé avec le lien en bio, questions dans #assistant, sortie à 3 jours sans compte 1 ; v14, 1er octobre 2026, niveau collège — vidéo de formation de 15 minutes à 5 mots-clés, salon perso guidé par le bot, lien en story à la une seulement, codes dans #🔐-code-instagram, un compte à la fois)
+# Base de connaissances — Kit Clipper G&M (v15, 5 octobre 2026 : 2 comptes de croissance + 1 compte privé avec le lien en bio, questions dans #assistant, sortie à 48 h sans compte 1 ; v14, 1er octobre 2026, niveau collège — vidéo de formation de 15 minutes à 5 mots-clés, salon perso guidé par le bot, lien en story à la une seulement, codes dans #🔐-code-instagram, un compte à la fois)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -80,7 +80,7 @@ Une **journée réussie** = tes 3 comptes marchent ET tu as publié 2 Reels sur 
 ## LA CRÉATION DES COMPTES (dans ton salon perso, avec le bot)
 
 - Tu crées tes 3 comptes **toi-même, sur ton téléphone**. Le bot te guide étape par étape dans ton salon perso. **Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, dès que 4 Reels sont publiés dessus.** Le compte 3 est le privé : il arrive après le compte 2, avec ton lien.
-- **Ton compte 1 doit être créé dans les 3 jours** après son arrivée dans ton salon. Sinon tu sors du serveur et ta place va au suivant (avertissement la veille).
+- **Ton compte 1 doit être créé dans les 48 h** après son arrivée dans ton salon. Sinon tu sors du serveur et ta place va au suivant (avertissement à 24 h).
 - **L'agence te donne les e-mails et les mots de passe.** Ils sont dans ton message de comptes. Tu ne crées pas de Gmail. Tu n'inventes rien. Un code Instagram ? Va dans #🔐-code-instagram et tape !code. Le code s'affiche tout seul dès qu'il arrive.
 - Instagram demande un **numéro de téléphone** ? Mets **le tien**, celui de ton téléphone. Tu reçois le SMS toi-même. Ce numéro ne sert que pour tes 3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais un numéro jetable. Jamais de VPN.
 - Instagram demande un **selfie vidéo** (« confirmez que vous êtes une personne réelle ») ? Fais-le toi-même, avec ton visage, en bonne lumière. C'est normal et sans danger. Personne d'autre ne le fait à ta place.
@@ -104,7 +104,7 @@ Si tu as lu une vieille version du kit, voilà ce qui a changé :
 - Plus de créneau lundi/mercredi/vendredi : tes comptes se créent dans ton salon perso, étape par étape avec le bot, un compte à la fois. Gaëtan n'envoie pas d'identifiants, ils sont dans ton salon.
 - Pas de numéro « jetable » ou temporaire, jamais.
 - **Depuis le 1er octobre 2026** : une seule règle des comptes, pour tous, plus de période d'essai à part. Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt 48 h après le précédent, dès que 4 Reels (2 depuis le 5 octobre) sont publiés dessus. Et les codes Instagram se demandent uniquement dans #🔐-code-instagram.
-- **Depuis le 5 octobre 2026** : le compte 3 redevient **privé** et porte le lien **dans sa bio** ; les comptes 1 et 2 ne portent jamais de lien, ils pointent vers le compte 3 par une story à la une avec le widget de mention. Les questions se posent dans **#assistant**, plus dans le salon perso. La seule règle de sortie : **3 jours sans créer le compte 1 = sortie du serveur**. Plus de « 3 jours sans Reel = avertissement, 7 jours = licenciement ».
+- **Depuis le 5 octobre 2026** : le compte 3 redevient **privé** et porte le lien **dans sa bio** ; les comptes 1 et 2 ne portent jamais de lien, ils pointent vers le compte 3 par une story à la une avec le widget de mention. Les questions se posent dans **#assistant**, plus dans le salon perso. La seule règle de sortie : **48 h sans créer le compte 1 = sortie du serveur** (48 h depuis le 5 octobre au soir). Plus de « 3 jours sans Reel = avertissement, 7 jours = licenciement ».
 - **Plus de pages Facebook depuis le 14 septembre 2026** : la mission est 100 % Instagram (3 comptes de croissance). Tu en avais créé avant ? N'y publie plus, ton manager te dit quoi en faire. Aucune page ne compte pour ta journée validée.
 - **Depuis le 28 septembre 2026** : plus de lien ni d'@ dans les bios des comptes qui publient (ça fait des bans). **Depuis le 5 octobre 2026** : le lien vit dans la bio du compte 3 privé, et les comptes 1 et 2 y envoient par une story à la une avec le widget de mention. Jamais de lien dans la description d'un Reel, même « 1 sur 10 ».
 - Le lien, c'est toi qui le mets, à l'étape 6, quand ton compte 3 existe. Le bot te le donne et te dit quand.
@@ -191,7 +191,7 @@ Ton suivi : `!mesclics` dans ton salon perso, quand tu veux. Ta paie y arrive le
 
 Les 2 ou 3 premières semaines, les vues sont basses. C'est normal. C'est là que tout le monde abandonne. Puis un Reel marche et tout monte. Tu ne peux pas rater si tu publies tous les jours et si tu t'améliores chaque semaine.
 
-Les règles du jeu : **ton compte 1 doit être créé dans les 3 jours** après son arrivée dans ton salon (avertissement la veille) ; sinon tu sors du serveur, tes comptes et ta place vont au suivant. Ensuite, ton compte suivant n'arrive que si tu publies (48 h et 4 Reels). Un lien qui ne ramène presque personne après un mois : on en parle avec Gaëtan. On garde les meilleurs.
+Les règles du jeu : **ton compte 1 doit être créé dans les 48 h** après son arrivée dans ton salon (avertissement à 24 h) ; sinon tu sors du serveur, tes comptes et ta place vont au suivant. Ensuite, ton compte suivant n'arrive que si tu publies (48 h et 4 Reels). Un lien qui ne ramène presque personne après un mois : on en parle avec Gaëtan. On garde les meilleurs.
 
 ## FICHE 5 — Les Reels d'essai et la suite
 

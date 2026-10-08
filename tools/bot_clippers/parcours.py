@@ -576,7 +576,8 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
     fiche_p.setdefault("dates", {})[f"{n}_fait"] = _maintenant()
     fiche_p["etape"] = n + 1
     _ecrire(d)
-    if _deps.get("activite"):                                           # 05/10 : un bouton d'étape = une réponse à l'appel de présence
+    if _deps.get("activite") and par != "bot":                          # 05/10 : un bouton d'étape = une réponse à l'appel de présence
+        # (08/10 : une étape fermée par le bot lui-même — warm-up fini, profil oublié — n'est pas une réponse du clipper)
         try:
             _deps["activite"](str(uid))
         except Exception:                                               # noqa: BLE001
@@ -807,6 +808,40 @@ async def livrer_app(uid: str, salon=None, membre=None, client=None, forcer: boo
     return "envoye"
 
 
+PROFIL_AUTO_H = int(os.environ.get("PARCOURS_PROFIL_AUTO_H", "6") or 6)
+
+
+async def fermer_profils_oublies(client, maintenant=None) -> list:
+    """08/10 (audit : « oublier Profil fait fige le parcours sans un mot ») : le compte est créé (premier appui ou scan, profil
+    envoyé) mais « ✅ Profil fait » n'a jamais été pressé. Au bout de PROFIL_AUTO_H heures, l'étape se ferme comme si le clipper
+    avait appuyé : rien n'est retardé, le warm-up et les 48 h comptent déjà depuis la création. Renvoie [(uid, n)] fermés."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    faits = []
+    for uid, fiche_p in list(_lire().items()):
+        if not isinstance(fiche_p, dict):
+            continue
+        n = int(fiche_p.get("etape", 0) or 0)
+        dates = fiche_p.get("dates") or {}
+        if n not in (1, 2, 3) or dates.get(f"{n}_fait") or not dates.get(str(n)):
+            continue
+        try:
+            quand = datetime.fromisoformat(str((fiche_p.get("profils") or {}).get(str(n))))
+        except (TypeError, ValueError):
+            continue                                                    # pas encore créé : rien à fermer
+        quand = quand if quand.tzinfo else quand.replace(tzinfo=timezone.utc)
+        if maintenant - quand < timedelta(hours=PROFIL_AUTO_H):
+            continue
+        salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0)) if client is not None else None
+        if salon is None:
+            continue
+        try:
+            if await valider_etape(salon, uid, n, par="bot"):
+                faits.append((uid, n))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Profil oublié de %s (compte %s) : %s", uid, n, erreur)
+    return faits
+
+
 async def rattraper_app(client) -> list:
     """Passe horaire : chaque clipper aux 3 comptes créés qui n'a pas encore son app la reçoit (APP_PAR_PASSE au plus). Ceux que
     l'app ne connaît pas encore : une ligne au salon admin, une fois par jour et par clipper. Renvoie les lignes de bilan."""
@@ -996,6 +1031,12 @@ async def boucle(client) -> None:
                 await programme_du_jour(client)                         # 30/09 : « il peut publier », compte suivant à 48 h
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Programme du parcours : %s", erreur)
+            try:                                                        # 08/10 : « Profil fait » oublié → l'étape se ferme seule
+                fermes = await fermer_profils_oublies(client)
+                if fermes:
+                    journal.info("Étapes fermées après un profil oublié : %s", fermes)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Profils oubliés : %s", erreur)
             try:                                                        # 08/10 : l'app de ceux qui ont leurs 3 comptes
                 bilan_app = await rattraper_app(client)
                 canal = await _deps["canal_admin"]() if (bilan_app and _deps.get("canal_admin")) else None
@@ -1235,7 +1276,7 @@ def etape_selon_classeur(etats: list) -> int:
         return 1 + len(crees)
     if len(e) >= 2 and all(x == "good" for x in e[:2]):
         return 7
-    return 4
+    return 6                                                            # 08/10 : plus l'étape 4 (supprimée le 05/10) : le lien
 
 
 def migrer_etapes_45(d: dict) -> list:

@@ -36,7 +36,9 @@ journal = logging.getLogger("sortie_auto")
 # Un clipper qui a créé son compte 1 mais ne publie pas n'est plus sorti tout seul : il n'obtient simplement pas le compte 2, et
 # la liste des bloqués du matin le montre à Gaëtan. Les anciens compteurs restent lisibles (jours_sans_reel) pour cette liste.
 ACTIF = os.environ.get("SORTIE_AUTO", "1").strip() != "0"
-JOURS_COMPTE1 = int(os.environ.get("SORTIE_JOURS_COMPTE1", "3") or 3)
+# 08/10 (audit : « 3 jours » annoncé, purge à 48 h sans prévenir) : la règle suit la dernière consigne de Gaëtan (05/10, 15 h 30 :
+# « donne-leur 48 h ») — avertissement à 24 h, sortie à 48 h, et le même chiffre dans tous les textes.
+JOURS_COMPTE1 = int(os.environ.get("SORTIE_JOURS_COMPTE1", "2") or 2)
 KICK = os.environ.get("SORTIE_KICK", "1").strip() != "0"
 COMPTE1_DEPUIS = os.environ.get("SORTIE_COMPTE1_DEPUIS", "2026-10-05")
 JOURS = int(os.environ.get("SORTIE_AUTO_JOURS", "7") or 7)                 # 30/09 : 14 → 7
@@ -45,7 +47,7 @@ SCANS_MIN = int(os.environ.get("SORTIE_AUTO_SCANS_MIN", "5") or 5)         # jou
 HEURE_UTC = int(os.environ.get("SORTIE_AUTO_HEURE_UTC", "8") or 8)
 REGLE_DEPUIS = os.environ.get("SORTIE_AUTO_DEPUIS", "2026-09-30")
 RAISON = f"{JOURS} jours sans Reel (sortie automatique)"                     # ancienne règle (30/09), plus appliquée
-RAISON_COMPTE1 = f"{JOURS_COMPTE1} jours sans créer ton compte 1 (règle de l'équipe)"
+RAISON_COMPTE1 = f"{JOURS_COMPTE1 * 24} h sans créer ton compte 1 (règle de l'équipe)"
 _deps = {}
 
 
@@ -239,19 +241,22 @@ def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(),
 
 
 def a_avertir_compte1(parcours: dict, deja: dict, maintenant=None, **kw) -> list:
-    """Ceux à J-1 (JOURS_COMPTE1 - 1 jours), pas encore avertis pour cette référence."""
+    """Ceux à J-1 (JOURS_COMPTE1 - 1 jours) ou plus, pas encore avertis pour cette référence. 08/10 : « ou plus » — un clipper déjà
+    au-delà (règle passée de 3 jours à 48 h) est averti d'abord, il ne sort jamais sans avertissement."""
     return [(u, p, j, ref) for u, p, j, ref in sans_compte1(parcours, maintenant, **kw)
-            if JOURS_COMPTE1 - 1 <= j < JOURS_COMPTE1 and deja.get(u) != ref]
+            if j >= JOURS_COMPTE1 - 1 and deja.get(u) != ref]
 
 
-def a_sortir_compte1(parcours: dict, maintenant=None, **kw) -> list:
-    """Ceux à JOURS_COMPTE1 jours ou plus."""
-    return [(u, p, j, ref) for u, p, j, ref in sans_compte1(parcours, maintenant, **kw) if j >= JOURS_COMPTE1]
+def a_sortir_compte1(parcours: dict, maintenant=None, deja: dict = None, **kw) -> list:
+    """Ceux à JOURS_COMPTE1 jours ou plus. 08/10 : seulement ceux déjà avertis pour cette référence à une passe précédente
+    (`deja` = les avertis lus AVANT la passe) : jamais de sortie sans avertissement la veille."""
+    return [(u, p, j, ref) for u, p, j, ref in sans_compte1(parcours, maintenant, **kw)
+            if j >= JOURS_COMPTE1 and (deja is None or deja.get(u) == ref)]
 
 
 def texte_avertissement_compte1(prenom: str, jours: int) -> str:
     return (f"⚠️ {prenom}, **ton compte 1 n'est toujours pas créé** ({jours} jours).\n\n"
-            f"La règle de l'équipe : {JOURS_COMPTE1} jours sans compte créé, tu sors du serveur et ta place va au suivant.\n\n"
+            f"La règle de l'équipe : {JOURS_COMPTE1 * 24} h sans compte créé, tu sors du serveur et ta place va au suivant.\n\n"
             "Crée-le aujourd'hui, puis appuie sur le bouton ✅ de ton étape. Un souci ? Écris à Gaëtan sur WhatsApp.")
 
 
@@ -273,7 +278,8 @@ async def executer(client, appliquer: bool = True) -> list:
     historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
     kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes"),
           "prouve": lambda u, ouv: compte1_prouve(u, ouv, onboarding_d, historique)}       # 08/10 : le scan vaut le bouton
-    for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, d.get("avertis_compte1", {}), **kw):
+    avertis_avant = dict(d.get("avertis_compte1", {}))                  # 08/10 : la sortie exige un avertissement d'une passe précédente
+    for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, avertis_avant, **kw):
         if not appliquer:
             bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → averti (sortie demain)")
             continue
@@ -286,7 +292,7 @@ async def executer(client, appliquer: bool = True) -> list:
             bilan.append(f"⚠️ {prenom} : averti (compte 1 pas créé depuis {nb_jours} j, sortie demain)")
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Avertissement compte 1 de %s : %s", prenom, erreur)
-    for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, **kw):
+    for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, deja=avertis_avant, **kw):
         if not appliquer:
             bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → sortirait" + (" et expulsé" if KICK else ""))
             continue
