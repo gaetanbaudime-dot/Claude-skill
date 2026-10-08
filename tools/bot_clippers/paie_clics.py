@@ -56,6 +56,7 @@ PAIE_FIXE = {"".join(c for c in unicodedata.normalize("NFD", p.strip().lower()) 
 PAIE_DECISION = "2026-10-08"
 # 08/10 (ménage GAML) : un lien libéré sous ce nombre de visiteurs (hors robots) sur 7 jours est désactivé, une fois par jour.
 MENAGE_SEUIL = int(os.environ.get("CLICS_MENAGE_SEUIL", "15") or 15)
+MENAGE_VERSION = 2                                                      # changée → le ménage repasse dès le déploiement
 # 08/10 (Gaëtan : « branche le tableau d'adresses dans la paie du bot ») : l'app clippers enregistre l'adresse USDC de chaque
 # clipper dans l'onglet « Adresses USDC » du tableur « App clippers · usage » (Drive agence). Le bot le lit à chaque paie, une fois
 # par jour et sur `!adresses`, et complète ses `wallets` : la plus récente des deux adresses (app ou `!wallet`) gagne.
@@ -439,6 +440,70 @@ async def menage_liens(d: dict, seuil: int = None, jours: int = 7) -> list:
         lignes.append(f"· {str(info.get('creatrice') or '?').title()} · ex-{info.get('ancien') or info.get('note') or '?'} · "
                       f"{n} visiteur(s) en {jours} jours → désactivé")
         journal.info("Ménage GAML : lien %s (%s) désactivé, %s visiteurs en %s jours", lid, info.get("ancien"), n, jours)
+    return lignes
+
+
+ORPHELINS_MAX = int(os.environ.get("CLICS_ORPHELINS_MAX", "8") or 8)       # liens rattrapés au plus par passage
+
+
+async def rattraper_orphelins(d: dict, liens: list, seuil: int = None, jours: int = 7) -> list:
+    """08/10 (premier ménage : 1 seul lien désactivé sur 12 liens morts) : des clippers sont partis sans que leur lien soit
+    libéré (sortis avant la libération automatique, ou jamais rattachés au bot). Deux cas, rattrapés comme une sortie (`libere`),
+    que le ménage désactive ensuite s'ils dorment :
+    1. lien rattaché à un uid qui n'est plus au registre ET plus sur le serveur ;
+    2. lien GAML « Clipping Prénom » inconnu du bot, dont le prénom n'est ni au registre, ni au roster, ni exclu.
+    Garde-fous : jamais un lien qui ramène encore `seuil` visiteurs sur 7 jours (son clipper travaille), jamais avec un registre
+    presque vide (lecture ratée), ORPHELINS_MAX au plus par passage. L'appelant écrit `d`. Renvoie les lignes pour l'admin."""
+    seuil = MENAGE_SEUIL if seuil is None else seuil
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else {}
+    if len(registre) < 5:
+        journal.warning("Orphelins GAML : registre presque vide (%s fiches), rien rattrapé", len(registre))
+        return []
+    membre_de = _deps.get("membre_par_id") or (lambda u: None)
+    connus = set()
+    for uid, fiche in registre.items():
+        m = membre_de(uid)
+        for nom in (getattr(m, "display_name", "") if m is not None else "", fiche.get("prenom") or ""):
+            if str(nom).split():
+                connus.add(_n_note(str(nom).split()[0]))
+    try:
+        import roster as _roster
+        connus |= {_n_note(x) for x in _roster.noms_actifs()}
+    except Exception:                                                   # noqa: BLE001
+        pass
+    fin = _aujourdhui() - timedelta(days=1)
+    debut = fin - timedelta(days=jours - 1)
+    candidats = []
+    for lid, info in d.get("liens", {}).items():                        # 1. un uid parti
+        uid = str(info.get("uid") or "")
+        if uid and uid not in registre and membre_de(uid) is None and not info.get("suivi") and not info.get("hors_clipping"):
+            candidats.append((lid, info.get("creatrice") or "", _prenom_note(info.get("note")) or info.get("note") or "?", info))
+    for l in liens or []:                                               # 2. un lien « Clipping Prénom » inconnu du bot
+        lid, prenom = l.get("id"), _prenom_note(l.get("note"))
+        if (not lid or lid in d.get("liens", {}) or not prenom or l.get("enabled") is False
+                or _n_note(prenom) in connus or _n_note(prenom) in CLICS_EXCLURE):
+            continue
+        creatrice = str(l.get("name") or "").split()[0] if str(l.get("name") or "").split() else ""
+        candidats.append((lid, creatrice, prenom, None, l))
+    lignes = []
+    for c in candidats[:ORPHELINS_MAX * 2]:
+        if len(lignes) >= ORPHELINS_MAX:
+            break
+        lid, creatrice, prenom, info = c[0], c[1], c[2], c[3]
+        try:
+            n = await visiteurs_periode(lid, debut, fin)
+        except RuntimeError as erreur:
+            journal.warning("Orphelin %s : visites illisibles (%s)", lid, erreur)
+            continue
+        if n >= seuil:
+            continue                                                    # il ramène du monde : quelqu'un s'en sert, on n'y touche pas
+        if info is None:
+            l = c[4]
+            d["liens"][lid] = {"uid": "", "note": l.get("note"), "url": l.get("url") or "", "creatrice": creatrice,
+                               "depuis": CLICS_DEPUIS, "par": "orphelin", "libere": _aujourdhui().isoformat(), "ancien": prenom}
+        else:
+            info.update({"ancien_uid": str(info.get("uid") or ""), "uid": "", "libere": _aujourdhui().isoformat(), "ancien": prenom})
+        lignes.append(f"· {str(creatrice or '?').title()} · ex-{prenom} : {n} visiteur(s) en {jours} jours, clipper parti → libéré")
     return lignes
 
 
@@ -870,10 +935,18 @@ async def boucle(client, deps: dict):
                             await canal_a.send(("📒 **Adresses USDC reprises de l'app**\n" + "\n".join(reprises))[:1900])
                         except (discord.Forbidden, discord.HTTPException) as erreur:
                             journal.warning("Adresses USDC (admin) : %s", erreur)
-            if maintenant.hour >= CLICS_HEURE and d.get("menage") != aujourdhui:     # 08/10 : les liens libérés sans visites
+            if maintenant.hour >= CLICS_HEURE and (d.get("menage") != aujourdhui or d.get("menage_v") != MENAGE_VERSION):
+                d["menage"], d["menage_v"] = aujourdhui, MENAGE_VERSION     # 08/10 : les liens libérés sans visites (v2 : + orphelins)
+                _ecrire(d)                                              # une fois par jour, même si GAML échoue en route
+                try:
+                    orphelins = await rattraper_orphelins(d, await liens_gaml())
+                except RuntimeError as erreur:
+                    journal.warning("Orphelins GAML : %s", erreur)
+                    orphelins = []
                 faits = await menage_liens(d)
-                d["menage"] = aujourdhui
                 _ecrire(d)
+                if orphelins:
+                    faits = ["**Liens de clippers partis, rattrapés**"] + orphelins + (["**Désactivés**"] + faits if faits else [])
                 if faits:
                     canal_m = await _deps["canal_admin"]()
                     if canal_m is not None:
