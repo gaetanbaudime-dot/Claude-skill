@@ -129,6 +129,16 @@ async def drive_lister(dossier_id: str) -> list:
             return out
 
 
+async def drive_chercher(nom: str, mime: str = "") -> str:
+    """L'identifiant du premier fichier (corbeille exclue) qui porte exactement ce nom, partagé ou non ; '' si aucun.
+    08/10 : sert à trouver le tableur « App clippers · usage » de l'app (onglet « Adresses USDC »)."""
+    q = f"name = '{nom.replace(chr(39), chr(92) + chr(39))}' and trashed = false" + (f" and mimeType = '{mime}'" if mime else "")
+    r = await _appel("GET", f"{DRIVE}/files", params={**_PARAMS_DRIVES, "includeItemsFromAllDrives": "true", "pageSize": "5",
+                                                      "q": q, "fields": "files(id,name)"})
+    fichiers = r.get("files", [])
+    return fichiers[0]["id"] if fichiers else ""
+
+
 async def drive_trouver_dossier(nom: str, parent_id: str) -> str:
     for f in await drive_lister(parent_id):
         if f.get("mimeType") == DOSSIER_MIME and f.get("name", "").strip().lower() == nom.strip().lower():

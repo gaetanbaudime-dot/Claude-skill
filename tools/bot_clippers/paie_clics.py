@@ -29,6 +29,8 @@ from datetime import date, datetime, timedelta, timezone
 import aiohttp
 import discord
 
+import google_api
+
 journal = logging.getLogger("clics")
 
 GAML_API_KEY = os.environ.get("GAML_API_KEY", "").strip()
@@ -48,6 +50,12 @@ BILAN_FIXE_JOURS = int(os.environ.get("BILAN_FIXE_JOURS", "14") or 14)
 SEUIL_FIXE_100 = int(os.environ.get("SEUIL_FIXE_100", "32") or 32)            # visites payables/jour qui rentabilisent 100 €
 SEUIL_FIXE_200 = int(os.environ.get("SEUIL_FIXE_200", "65") or 65)            # … et 200 € (0,30 $ de CA par visite, 35 % de marge)
 CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "rianah,gaetan,gaëtan,jonas,x,y").split(",") if p.strip()}
+# 08/10 (Gaëtan : « branche le tableau d'adresses dans la paie du bot ») : l'app clippers enregistre l'adresse USDC de chaque
+# clipper dans l'onglet « Adresses USDC » du tableur « App clippers · usage » (Drive agence). Le bot le lit à chaque paie, une fois
+# par jour et sur `!adresses`, et complète ses `wallets` : la plus récente des deux adresses (app ou `!wallet`) gagne.
+ADRESSES_TABLEUR = os.environ.get("ADRESSES_TABLEUR", "App clippers · usage").strip()
+ADRESSES_ONGLET = os.environ.get("ADRESSES_ONGLET", "Adresses USDC").strip()
+ADRESSES_CLASSEUR_ID = os.environ.get("ADRESSES_CLASSEUR_ID", "").strip()        # pour éviter la recherche par nom
 API = "https://getallmylinks.com/api/v1"
 FUSEAU = "Europe/Paris"
 
@@ -414,7 +422,7 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
                 f"{_usd(q['payes'] * TAUX_CLIC)}**.\n"))
             +
             f"Une visite qui compte = {_usd(TAUX_CLIC)}. Elle vient de France ou d'un pays francophone. Ce n'est pas un robot.\n\n"
-            + ("" if not au_clic or str(uid) in d["wallets"] else "⚠️ Je n'ai pas ton adresse de paiement. Écris `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement.\n\n")
+            + ("" if not au_clic or str(uid) in d["wallets"] else "⚠️ Je n'ai pas ton adresse de paiement. Colle ton adresse USDC dans ton app (onglet Versements), ou écris `!wallet 0x…` ici (`!wallet FR76…` pour un virement).\n\n")
             + "-# Ton lien : " + " · ".join(d["liens"][l].get("url", "") for l in lids))
 
 
@@ -435,7 +443,7 @@ def ligne_matin(d: dict, uid: str) -> str:
     montant = f" = {_usd(q['payes'] * TAUX_CLIC)} · virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}" if au_clic else ""   # 28/09 (GO n° 8)
     # 26/09 : une ligne, dans le message du matin (les détails restent dans `!mesclics`)
     return (f"👀 Visites hier : **{_fmt(h['payes'])}** · quinzaine : **{_fmt(q['payes'])}{montant}**"
-            + ("" if not au_clic or str(uid) in d["wallets"] else "\n⚠️ Adresse de paiement manquante : `!wallet 0x…` ou `!wallet FR76…`"))
+            + ("" if not au_clic or str(uid) in d["wallets"] else "\n⚠️ Adresse de paiement manquante : colle-la dans ton app (onglet Versements) ou `!wallet 0x…`"))
 
 
 def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple:
@@ -634,7 +642,12 @@ async def annoncer_paie(client, d: dict, maintenant) -> None:
     registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
     nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None)          # noqa: E731
                           or str((registre.get(uid) or {}).get("prenom") or "").title() or f"id {uid}")
+    reprises = await synchroniser_adresses(d)                           # 08/10 : les adresses collées dans l'app, avant la liste
+    if reprises:
+        _ecrire(d)
     lignes, csv_texte = liste_paie(d, nom_de, debut, fin, maintenant.strftime("%d/%m"))
+    if reprises:
+        lignes.append(f"📒 {len(reprises)} adresse(s) reprise(s) de l'app : " + ", ".join(reprises)[:600])
     canal = await _deps["canal_admin"]()
     if canal is not None:
         try:
@@ -654,7 +667,7 @@ async def annoncer_paie(client, d: dict, maintenant) -> None:
         adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else w
         texte = (f"💸 **Ta paie du {maintenant.strftime('%d/%m')}** (période {debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : "
                  f"**{_fmt(s['payes'])} visites payées = {_usd(s['payes'] * TAUX_CLIC)}**"
-                 + (f" → virement vers {adr} dans la journée." if w else " → ⚠️ pas d'adresse enregistrée : `!wallet 0x…` ou `!wallet FR76…` maintenant, sinon la paie attend la prochaine."))
+                 + (f" → virement vers {adr} dans la journée." if w else " → ⚠️ pas d'adresse enregistrée : colle-la dans ton app (onglet Versements) ou `!wallet 0x…` maintenant, sinon la paie attend la prochaine."))
         try:
             await salon.send(texte)
             envoyes += 1
@@ -693,6 +706,17 @@ async def boucle(client, deps: dict):
             aujourdhui = maintenant.date().isoformat()
             hier_iso = (maintenant.date() - timedelta(days=1)).isoformat()
             complets = all(hier_iso in d["jours"].get(lid, {}) for lid, i in d["liens"].items() if i.get("uid"))
+            if maintenant.hour >= CLICS_HEURE and d.get("adresses_sync") != aujourdhui:   # 08/10 : les adresses de l'app, chaque matin
+                reprises = await synchroniser_adresses(d)
+                d["adresses_sync"] = aujourdhui
+                _ecrire(d)
+                if reprises:
+                    canal_a = await _deps["canal_admin"]()
+                    if canal_a is not None:
+                        try:
+                            await canal_a.send(("📒 **Adresses USDC reprises de l'app**\n" + "\n".join(reprises))[:1900])
+                        except (discord.Forbidden, discord.HTTPException) as erreur:
+                            journal.warning("Adresses USDC (admin) : %s", erreur)
             if maintenant.hour >= CLICS_HEURE and d.get("matin") != aujourdhui and complets:
                 # 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : plus de ligne de visites quotidienne dans les
                 # salons persos (CLICS_LIGNE_MATIN=1 pour la rallumer) ; `!mesclics` et la paie des 5 et 20 restent.
@@ -737,6 +761,76 @@ async def boucle(client, deps: dict):
 
 
 # ------------------------------------------------------------------ commandes
+_adresses_classeur = {"id": "", "expire": 0.0}
+
+
+def _cle_prenom(t: str) -> str:
+    """La clé de l'app : prénom sans accents, en minuscules (même règle que `normaliser` côté Next)."""
+    return "".join(c for c in unicodedata.normalize("NFD", str(t or "")) if not unicodedata.combining(c)).lower().strip()
+
+
+def _date_app_vers_utc(brut: str) -> str:
+    """« 2026-10-08 14:03:21 » (heure de Paris) → ISO UTC ; '' si illisible."""
+    try:
+        from zoneinfo import ZoneInfo
+        d = datetime.strptime(str(brut).strip()[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo(FUSEAU))
+        return d.astimezone(timezone.utc).isoformat(timespec="seconds")
+    except (ValueError, TypeError):
+        return ""
+
+
+async def synchroniser_adresses(d: dict) -> list:
+    """Lit l'onglet « Adresses USDC » du tableur de l'app et complète `d["wallets"]`. Renvoie une ligne par adresse reprise
+    (« Prénom → 0x1234…abcd »), vide si rien de neuf. Jamais d'exception : la paie ne doit pas dépendre du tableur."""
+    if not google_api.actif():
+        return []
+    try:
+        if _adresses_classeur["id"] and _adresses_classeur["expire"] > time.time():
+            classeur = _adresses_classeur["id"]
+        else:
+            classeur = ADRESSES_CLASSEUR_ID or await google_api.drive_chercher(ADRESSES_TABLEUR, "application/vnd.google-apps.spreadsheet")
+            if not classeur:
+                journal.info("Adresses USDC : tableur « %s » introuvable", ADRESSES_TABLEUR)
+                return []
+            _adresses_classeur.update({"id": classeur, "expire": time.time() + 6 * 3600})
+        lignes = await google_api.sheets_lire(classeur, f"{ADRESSES_ONGLET}!A2:E")
+    except Exception as erreur:                                        # noqa: BLE001
+        journal.warning("Adresses USDC : lecture impossible (%s)", str(erreur)[:160])
+        return []
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+    par_cle = {}
+    for uid, fiche in registre.items():
+        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        nom = getattr(m, "display_name", "") or str((fiche or {}).get("prenom") or "")
+        cle = _cle_prenom(nom.split()[0] if nom.split() else "")
+        if cle:
+            par_cle.setdefault(cle, []).append(str(uid))
+    reprises = []
+    for l in lignes:
+        l = list(l) + [""] * (5 - len(l))
+        cle = _cle_prenom(l[4] or l[0])
+        adresse = _adresse_valide(l[2])
+        if not cle or not adresse or not adresse.startswith("0x"):
+            continue
+        uids = par_cle.get(cle, [])
+        if len(uids) != 1:
+            if uids:
+                journal.info("Adresses USDC : « %s » correspond à %d membres, non reprise", l[0], len(uids))
+            continue
+        uid = uids[0]
+        date_app = _date_app_vers_utc(l[3]) or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        w = d["wallets"].get(uid) or {}
+        if w.get("adresse") == adresse:
+            continue
+        if w.get("adresse") and w.get("source") != "app" and str(w.get("date", "")) >= date_app:
+            continue                                                    # `!wallet` plus récent que l'app : on le garde
+        d["wallets"][uid] = {"adresse": adresse, "date": date_app, "type": "usdc", "source": "app"}
+        reprises.append(f"{l[0] or cle} → `{adresse[:6]}…{adresse[-4:]}`")
+    if reprises:
+        journal.info("Adresses USDC reprises de l'app : %d", len(reprises))
+    return reprises
+
+
 _ADRESSE_EVM = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _IBAN = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$")
 
@@ -784,8 +878,18 @@ async def commande_staff(message, texte: str) -> bool:
     if not mots:
         return False
     cmd = mots[0].lower()
-    if cmd not in ("!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!bilan-fixe"):
+    if cmd not in ("!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!bilan-fixe", "!adresses"):
         return False
+    if cmd == "!adresses":                                              # 08/10 : relire le tableur de l'app maintenant
+        d = _lire()
+        reprises = await synchroniser_adresses(d)
+        if reprises:
+            _ecrire(d)
+        avec = sum(1 for i in d["liens"].values() if i.get("uid") and d["wallets"].get(str(i["uid"]), {}).get("adresse"))
+        total = len({str(i.get("uid")) for i in d["liens"].values() if i.get("uid")})
+        await message.reply((f"📒 {len(reprises)} adresse(s) reprise(s) de l'app" + (" : " + ", ".join(reprises)[:1200] if reprises else "")
+                             + f"\n{avec} clipper(s) avec adresse sur {total} avec un lien.")[:1990])
+        return True
     if cmd == "!paie":
         if not message.mentions or not mots[-1].lower() in ("clic", "fixe"):
             await message.reply("Format : `!paie @clipper clic` (payé sur la liste du 5 et du 20) ou `!paie @clipper fixe` (ancien modèle).")
@@ -828,7 +932,12 @@ async def commande_staff(message, texte: str) -> bool:
                 mois = mois or suivant.strftime("%Y-%m")
         debut, fin = periode(cle, mois)
         jour_paie = f"{cle.rjust(2, '0')}/{(mois or (fin + timedelta(days=1)).strftime('%Y-%m'))[5:7]}"
+        reprises = await synchroniser_adresses(d)
+        if reprises:
+            _ecrire(d)
         lignes, csv_texte = liste_paie(d, nom_de, debut, fin, jour_paie)
+        if reprises:
+            lignes.append(f"📒 {len(reprises)} adresse(s) reprise(s) de l'app : " + ", ".join(reprises)[:600])
         manquants = [lid for lid, i in d["liens"].items() if i.get("uid")
                      and any(j.isoformat() not in d["jours"].get(lid, {}) for j in
                              (debut + timedelta(days=k) for k in range((min(fin, _aujourdhui() - timedelta(days=1)) - debut).days + 1)))]
