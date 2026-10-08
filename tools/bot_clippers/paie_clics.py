@@ -660,6 +660,8 @@ async def annoncer_paie(client, d: dict, maintenant) -> None:
         if regime(uid) != "clic":
             continue
         s = somme(d, liens_de(d, uid), debut, fin)
+        if not s["payes"]:
+            continue                                                    # 08/10 (audit) : plus de « 0,00 $, !wallet maintenant » à un nouveau
         salon = _deps["salon_perso"](uid)
         if salon is None:
             continue

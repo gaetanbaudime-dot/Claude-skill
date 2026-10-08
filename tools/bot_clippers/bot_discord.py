@@ -424,9 +424,9 @@ l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salo
 réutilise JAMAIS une info d'un compte BAN : ni son e-mail, ni son mot de passe, ni son identifiant (01/10, Gaëtan). Jamais « c'est normal », jamais \
 « sécurisé par l'agence », jamais « ton manager te donne une solution demain ».
 24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
-message de comptes (le compte existe peut-être déjà). Si ça échoue, créer avec un point ou un chiffre en \
-plus à la fin, et écrire ici le pseudo exact créé pour que le manager mette le classeur à jour. Tu n'inventes \
-jamais de pseudo.
+message de comptes (le compte existe peut-être déjà). Si ça échoue, créer avec un chiffre en plus à la fin, \
+puis taper dans SON SALON PERSO `!pseudo N identifiant` (N = 1, 2 ou 3, le numéro du compte) : le bot met le classeur \
+à jour tout seul. Tu n'inventes jamais de pseudo, et tu ne dis jamais « ton compte N est créé » à sa place.
 25. Tu ne parles que des comptes CRÉÉS d'après la mémoire du clipper (« Comptes créés : N sur 3 »). \
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de comptes.
@@ -4561,7 +4561,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -7153,6 +7153,7 @@ async def on_ready():
         client.loop.create_task(parcours.migrer_au_demarrage(client))            # 05/10 : fiches aux étapes 4/5 → étape 6
         client.loop.create_task(assurer_salon_assistant())                       # 05/10 : le salon #assistant, pour tout le monde
         client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
+        client.add_dynamic_items(parcours.BoutonWhatsApp)                       # « ✅ J'ai écrit à Gaëtan » persistant (08/10)
         client.add_dynamic_items(acceptation.BoutonAccepte)                     # bouton « ✅ J'accepte » persistant (27/09)
         client.add_dynamic_items(BoutonReprise)                                 # bouton « 🔄 Je reprends » persistant (28/09)
         profil.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "profil.json",
@@ -7327,6 +7328,7 @@ async def on_ready():
                           "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
                           "roster": roster, "normaliser": normaliser, "heure_paris": heure_paris, "jours_sans_reel": sortie_auto.jours_sans_reel,
                           "lien_whatsapp": parcours.lien_whatsapp_prerempli, "consigne_whatsapp": parcours.consigne_whatsapp,
+                          "bouton_wa": parcours.BoutonWhatsApp,
                           "est_staff": _staff, "membre_par_id": membre_par_id,
                           # 05/10 : un compte livré vu existant par le scan Instagram = compte créé (la purge ne sort pas sur le seul bouton)
                           "compte_vu": lambda handles: any(any(x.get("existe") for x in lire_json(FICHIER_ETATS, {}).get("historique", {})
@@ -8605,6 +8607,11 @@ async def on_message(message):
     # App clippers (08/10) : `!app` seul, dans son salon perso → le bouton de son app et son lien, une fois ses 3 comptes créés.
     if texte.split() == ["!app"] and not est_staff(message.author):
         if await parcours.commande_app(message):
+            return
+
+    # Identifiant pris (08/10) : `!pseudo 1 ton_identifiant` dans son salon perso → classeur, fiche et scan suivent le nouveau nom.
+    if texte.split()[:1] == ["!pseudo"] and not est_staff(message.author):
+        if await parcours.commande_pseudo(message, texte):
             return
 
     # !aide : pour tout le monde, adaptée au rôle de celui qui demande.

@@ -119,14 +119,18 @@ ETAPES = {
 # 28/09 : un compte rendu par un sortant existe déjà → on s'y connecte, pas d'inscription
 # 01/10 (Gaëtan : « les codes Instagram se demandent uniquement dans #🔐-code-instagram ») : plus de « écris !code ici » ni
 # de « il arrive ici tout seul », la phrase canonique {codes} ; « il a déjà chauffé » retiré (24 h de warm-up quand même).
+# 08/10 (audit : l'identifiant déjà pris est le blocage le plus courant à la création ; Mohamed a créé une variante que le bot ne
+# connaissait pas) : la consigne et la commande `!pseudo n identifiant`, qui met le classeur et la fiche à jour.
+PSEUDO_PRIS = "Identifiant déjà pris ? Ajoute un chiffre à la fin. Puis tape ici : `!pseudo {n} ton_identifiant`."
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. {codes}\n"
-            "3. Mets ce mot de passe. Numéro demandé ? Le tien. Date de naissance : la vraie.",
+            "3. Mets ce mot de passe. Numéro demandé ? Le tien. Date de naissance : la vraie.\n"
+            "4. " + PSEUDO_PRIS.format(n=1),
             "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n"
             "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.\n"
-            "{codes}",
+            "{codes}\n" + PSEUDO_PRIS.format(n=2),
             "Crée-le comme les autres, sur le même téléphone.\n"
-            "{codes}")
+            "{codes}\n" + PSEUDO_PRIS.format(n=3))
 CONNEXION = ("Ce compte existe déjà.\n"
              "1. Instagram → Se connecter → cet identifiant et ce mot de passe.\n"
              "2. {codes}\n"
@@ -662,10 +666,11 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
         # 05/10 (Gaëtan : « oblige les gens à me contacter sur WhatsApp une fois qu'il a créé le premier IG ») : pas bloquant,
         # mais demandé ici, une fois, avec le message déjà écrit ; `!wa @clipper` (staff) note que c'est fait.
         texte += (f"\n\n📲 **Maintenant, écris à Gaëtan sur WhatsApp** (bouton ci-dessous, {consigne_whatsapp(uid, fiche_p)}) : "
-                  "il ouvre ton groupe avec Jonas. C'est là que tu poses tes questions.")
+                  "il ouvre ton groupe avec Jonas. C'est là que tu poses tes questions.\n\nFait ? Appuie sur « ✅ J'ai écrit à Gaëtan ».")
         vue = discord.ui.View(timeout=None)
         vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link,
                                        url=lien_whatsapp_prerempli(uid, fiche_p)))
+        vue.add_item(BoutonWhatsApp(uid))                              # 08/10 : il se déclare lui-même
     await salon.send(f"{membre.mention} " + texte, view=vue) if vue is not None else await salon.send(f"{membre.mention} " + texte)
 
 
@@ -708,14 +713,57 @@ def consigne_whatsapp(uid, fiche_p: dict = None) -> str:
     return f"envoie-lui : « {_message_wa(uid, fiche_p)} »"
 
 
-def marquer_whatsapp(uid: str) -> bool:
-    """05/10 : `!wa @clipper` (staff) : le clipper a écrit sur WhatsApp, son groupe est ouvert. Renvoie False sans fiche."""
+def marquer_whatsapp(uid: str, par: str = "staff", annuler: bool = False) -> bool:
+    """05/10 : `!wa @clipper` (staff) : le clipper a écrit sur WhatsApp, son groupe est ouvert. 08/10 : aussi le bouton du clipper
+    (par="clipper", déclaratif) et `!wa @clipper non` (annuler). Renvoie False sans fiche."""
     d = _lire()
     if str(uid) not in d:
         return False
-    d[str(uid)]["whatsapp"] = _maintenant()
+    if annuler:
+        d[str(uid)].pop("whatsapp", None)
+        d[str(uid)].pop("whatsapp_par", None)
+    else:
+        d[str(uid)]["whatsapp"] = _maintenant()
+        d[str(uid)]["whatsapp_par"] = par
     _ecrire(d)
     return True
+
+
+class BoutonWhatsApp(discord.ui.DynamicItem[discord.ui.Button], template=r"wa:(?P<uid>[0-9]+)"):
+    """08/10 (audit : Simon répond « Déjà fait » et reste « pas de WhatsApp » ; chaque confirmation attendait un `!wa` de Gaëtan) :
+    « ✅ J'ai écrit à Gaëtan », sous chaque demande de WhatsApp. Le clipper se déclare lui-même, Gaëtan est prévenu au salon admin
+    et annule d'un `!wa @clipper non` si ce n'est pas vrai. Persistant (custom_id), comme les boutons d'étape."""
+
+    def __init__(self, uid: str):
+        super().__init__(discord.ui.Button(label="✅ J'ai écrit à Gaëtan", style=discord.ButtonStyle.success, custom_id=f"wa:{uid}"))
+        self.uid = str(uid)
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["uid"])
+
+    async def callback(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.uid:
+            await interaction.response.send_message("Ce bouton est pour le clipper de ce salon 🙂", ephemeral=True)
+            return
+        deja = (_lire().get(self.uid) or {}).get("whatsapp")
+        if not marquer_whatsapp(self.uid, par="clipper"):
+            await interaction.response.send_message("Ton parcours n'a pas encore commencé.", ephemeral=True)
+            return
+        await interaction.response.send_message("📲 Merci, c'est noté. Gaëtan te répond sur WhatsApp.", ephemeral=True)
+        if _deps.get("activite"):
+            try:
+                _deps["activite"](self.uid)                             # un appui du clipper = une réponse à l'appel
+            except Exception:                                           # noqa: BLE001
+                pass
+        if not deja:
+            try:
+                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                if canal is not None:
+                    prenom = (_lire().get(self.uid) or {}).get("prenom") or self.uid
+                    await canal.send(f"📲 {prenom} (<@{self.uid}>) dit avoir écrit sur WhatsApp. Pas vrai ? `!wa @{prenom} non`.")
+            except Exception:                                           # noqa: BLE001
+                pass
 
 
 # ------------------------------------------------------------------ app clippers
@@ -1524,10 +1572,60 @@ async def commande_app(message) -> bool:
     return True
 
 
+async def commande_pseudo(message, texte: str) -> bool:
+    """08/10 : `!pseudo 1 nouvel_identifiant` (le clipper, dans son salon perso) ou `!pseudo @clipper 1 nouvel_identifiant` (staff) :
+    l'identifiant prévu du compte n était pris sur Instagram, le clipper en a créé un autre. Le classeur, sa fiche, les Reels suivis
+    et le scan passent au nouveau nom (onboarding.renommer_compte) ; une ligne au salon admin."""
+    staff = bool(_deps.get("est_staff") and _deps["est_staff"](message.author))
+    membre = message.mentions[0] if (staff and message.mentions) else message.author
+    reste = [m for m in texte.split()[1:] if not m.startswith("<@")]
+    if len(reste) != 2 or not reste[0].isdigit() or int(reste[0]) not in (1, 2, 3):
+        await message.reply("Écris : `!pseudo 1 ton_identifiant` (1, 2 ou 3 : le numéro du compte).")
+        return True
+    uid, n = str(membre.id), int(reste[0])
+    if not staff:
+        salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+        if salon is None or getattr(message.channel, "id", None) != salon.id:
+            await message.reply("Tape `!pseudo` dans ton salon perso.")
+            return True
+    comptes = _comptes_ordonnes(uid)
+    if n > len(comptes) or not comptes[n - 1]:
+        await message.reply(f"Je n'ai pas de compte {n} pour toi.")
+        return True
+    ancien = comptes[n - 1]
+    nouveau = onboarding.normaliser_handle(reste[1]).lower()
+    if n in (1, 2) and onboarding.RE_PRIVE.search(nouveau):
+        await message.reply("❌ Pas changé : ce nom ressemble à un compte privé (priv, secret, perso). Choisis-en un autre.")
+        return True
+    try:
+        raison = await onboarding.renommer_compte(uid, ancien, nouveau)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("!pseudo de %s : %s", uid, erreur)
+        raison = "le classeur ne répond pas, réessaie dans une minute"
+    if raison:
+        await message.reply(f"❌ Pas changé : {raison}.")
+        return True
+    d = _lire()                                                         # les Reels déjà vus suivent le compte
+    suivis = (d.get(uid) or {}).get("reels") or {}
+    if ancien.lower() in suivis:
+        suivis[nouveau] = suivis.pop(ancien.lower())
+        _ecrire(d)
+    await message.reply(f"✅ C'est noté : ton compte {n} est maintenant `{nouveau}`. Je le suis sous ce nom.")
+    try:
+        canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+        if canal is not None:
+            await canal.send(f"✏️ {membre.display_name} : compte {n} `{ancien}` → `{nouveau}` (identifiant prévu pris, classeur mis à jour)")
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return True
+
+
 async def commande_staff(message, texte: str) -> bool:
     mots = texte.split()
-    if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire", "!wa", "!app"):
+    if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire", "!wa", "!app", "!pseudo"):
         return False
+    if mots[0].lower() == "!pseudo":
+        return await commande_pseudo(message, texte)
     est_staff = _deps.get("est_staff")
     if len(mots) == 1 and mots[0].lower() == "!etape" and est_staff is not None and not est_staff(message.author):
         # 25/09 (Daniella) : le clipper tape `!etape` seul dans son salon → je lui renvoie son étape en cours
@@ -1573,6 +1671,10 @@ async def commande_staff(message, texte: str) -> bool:
                             else f"📱 Pas d'app envoyée à {membre.display_name} : {TEXTES_APP.get(etat, etat)}.")
         return True
     if mots[0].lower() == "!wa":                                          # 05/10 : le clipper a écrit sur WhatsApp, son groupe est ouvert
+        if reste and reste[0].lower() in ("non", "annuler", "pas"):         # 08/10 : il s'est déclaré à tort
+            await message.reply(f"📲 Annulé : {membre.display_name} redevient « pas de WhatsApp »." if marquer_whatsapp(uid, annuler=True)
+                                else f"{membre.display_name} n'a pas de fiche de parcours.")
+            return True
         if marquer_whatsapp(uid):
             await message.reply(f"📲 Noté : {membre.display_name} a écrit sur WhatsApp. Il ne sera plus listé dans les bloqués pour ça.")
         else:

@@ -554,6 +554,48 @@ async def marquer_etat(handle: str, etat: str) -> bool:
     return False
 
 
+RE_HANDLE_IG = re.compile(r"^[a-z0-9._]{1,30}$")
+
+
+async def renommer_compte(uid: str, ancien: str, nouveau: str) -> str:
+    """08/10 (Mohamed : « le nom d'utilisateur que vous m'avez proposé est indisponible » ; l'audit : le blocage le plus courant à la
+    création) : l'identifiant prévu était pris, le clipper a créé une variante. La cellule « @ IG » de la ligne du classeur, sa fiche
+    d'onboarding (comptes, accès) et l'état des livraisons passent au nouvel identifiant : le scan, le parcours et l'app le suivent.
+    Le compte doit être à lui (dans sa fiche). Renvoie '' si c'est fait, sinon la raison, en mots simples."""
+    nouveau_n = normaliser_handle(nouveau).lower()
+    ancien_n = normaliser_handle(ancien).lower()
+    if not RE_HANDLE_IG.match(nouveau_n):
+        return "cet identifiant n'est pas valable : lettres, chiffres, point et tiret bas, 30 caractères au plus"
+    if nouveau_n == ancien_n:
+        return "c'est déjà cet identifiant"
+    if not actif():
+        return "le classeur est indisponible"
+    fiche = (_lire_etat()["clippers"].get(str(uid)) or {})
+    if ancien_n not in {normaliser_handle(h).lower() for h in fiche.get("comptes", [])}:
+        return "ce compte n'est pas dans tes comptes"
+    tous = await lire_comptes()
+    if any(normaliser_handle(c["handle"]).lower() == nouveau_n for c in tous):
+        return "cet identifiant est déjà dans le classeur de l'agence"
+    ligne = next((c for c in tous if normaliser_handle(c["handle"]).lower() == ancien_n), None)
+    if ligne is None:
+        return "je ne trouve pas ce compte dans le classeur"
+    await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(ligne, "handle"), [[nouveau_n]])
+    etat = _lire_etat()
+    fiche = etat["clippers"].setdefault(str(uid), {})
+    fiche["comptes"] = [nouveau_n if normaliser_handle(h).lower() == ancien_n else h for h in fiche.get("comptes", [])]
+    for a in fiche.get("acces") or []:
+        if isinstance(a, dict) and normaliser_handle(a.get("handle")).lower() == ancien_n:
+            a["handle"] = nouveau_n
+    livres = etat.setdefault("livres", {})
+    for cle in [k for k in livres if normaliser_handle(k).lower() == ancien_n]:
+        livres[nouveau_n] = livres.pop(cle)
+    fiche.setdefault("renommes", []).append({"ancien": ancien_n, "nouveau": nouveau_n,
+                                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    _ecrire_etat(etat)
+    journal.info("Compte renommé pour %s : %s → %s (%s, ligne %s)", uid, ancien_n, nouveau_n, ligne.get("onglet"), ligne.get("ligne"))
+    return ""
+
+
 def _nouveau(membre, etat: dict) -> bool:
     """Un clipper que le bot n'a jamais onboardé (aucune créatrice dans sa fiche) et arrivé sur le serveur depuis
     moins de JOURS_NOUVEAU jours. Un tel membre ne peut pas légitimement posséder des comptes déjà créés :

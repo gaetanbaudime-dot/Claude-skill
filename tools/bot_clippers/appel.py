@@ -43,7 +43,7 @@ TEXTE_APPEL = ("📢 **{prenom}, réponds ici dans les {heures} h.** Un mot suff
                "Et écris à Gaëtan sur WhatsApp (bouton ci-dessous, {wa}) : c'est là que l'équipe te parle.\n\n"
                "Sans réponse ici dans {heures} h, tu sors du serveur et ta place va au suivant.")
 TEXTE_RELANCE_WA = ("📲 {prenom}, merci pour ta réponse. Il manque WhatsApp : écris à Gaëtan maintenant (bouton ci-dessous), "
-                    "il ouvre ton groupe. C'est là que tout se passe.")
+                    "il ouvre ton groupe. C'est là que tout se passe.\n\nDéjà fait ? Appuie sur « ✅ J'ai écrit à Gaëtan ».")
 RAISON = f"sans réponse à l'appel depuis {HEURES} h"
 
 
@@ -132,6 +132,8 @@ def _vue(uid: str):
         return None
     vue = discord.ui.View(timeout=None)
     vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link, url=url))
+    if _deps.get("bouton_wa"):                                          # 08/10 : « ✅ J'ai écrit à Gaëtan » (parcours.BoutonWhatsApp)
+        vue.add_item(_deps["bouton_wa"](uid))
     return vue
 
 
