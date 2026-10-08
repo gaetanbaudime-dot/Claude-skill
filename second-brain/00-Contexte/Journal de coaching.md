@@ -22,6 +22,11 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-08 (liens) — Icônes OnlyFans et MYM masquées sur toutes les pages GAML
+- **Décision de Gaëtan** : « enlève les logos MYM et OF de tous mes liens GAML ». Fait sur les 49 pages par l'API (`hideContentIcons`), rendu public vérifié sur quatre pages ; les images de cartes de Chloé ne portent pas de logo. Contexte : la vague de modération Instagram du 29/09 sur les profils qui affichent un lien adulte ([[Liens Instagram vers OF-MYM - règles, vague de septembre et plan (2 octobre 2026)]]).
+- **Avocat du diable** : une icône en moins ne change ni l'adresse de destination (onlyfans.com, mym.fans) ni la mention 18+ ; le robot qui suit le lien voit toujours la même page. Le gain est sur l'œil humain et la capture d'écran, pas sur la détection automatique : le pont neutre reste à faire.
+- **Prédiction (écrite le 08/10)** : aucune baisse mesurable des visites GAML ni des abonnés OF + MYM sur les 7 jours suivants (le clic ne dépend pas de l'icône) — 80 % ; et aucune baisse du nombre de comptes restreints non plus, parce que ce n'est pas l'icône qui déclenche la restriction — 70 %.
+
 ### 2026-10-08 (clôture) — Septembre avec Maxence : 22 126 € de commissions, 10 084 € de charges, 12 042 € de profit, 6 021 € chacun ; 5 000 € envoyés en AED, « la part de l'appartement » déduite
 - **Fait (WhatsApp, 13 h 45 à 14 h 07)** : part agence 22 126 € − marketing et chatting 10 083,53 € (10 005,64 + 77,89, sans ventilation) = profit 12 042,47 €, soit 6 021 € chacun. Maxence : « il faut absolument que le marketing rapporte plus, CA équivalent aux mois précédents mais plus de frais ; le chatting est au prorata habituel ; on va avoir le coût de Loris ». Gaëtan : « tout le monde est au variable sauf Loris et Rianah, maintenant ça va coûter 0 ».
 - **Décision de Gaëtan** (« Aller on fait comme ça ») : Maxence reçoit l'équivalent de 5 000 € en AED au lieu de 6 021 € ; la différence de 1 021 € couvre « la part de l'appartement » et « les petites dépenses annexes », sans ligne écrite.
