@@ -22,6 +22,12 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-08 (outil) — App clippers : Drive en quatre tuiles Carrousel · Reels · Stories · TOP 20, dossiers racine, état plein / en cours / vide ; lien GAML de test supprimé
+- **Demande de Gaëtan** : quatre boutons Carrousel, Reels, Stories, TOP 20 Reels ; les Reels à droite de l'écran ; rediriger sur les dossiers racine ; un petit texte ✅ plein / ⏳ en cours de remplissage / ❌ dossier vide. Et « Meiji, Adam, Gordon, Raphaël, tests : supprime-les ».
+- **Livré** : [[App clippers - une app par clipper pour le Drive, les Reels et les versements (6 octobre 2026)]] mise à jour et déployée depuis GitHub ; l'état se lit en comptant les fichiers du dossier du moment (seuils 14 / 10 / 10 / 20, choix de Claude). Lien GAML de test « Clipping Gaëtan » supprimé (9 visites en tout). **Meiji, Adam, Gordon et Raphaël ne sont pas des liens GAML mais des liens de tracking Infloww** (OnlyFans) : ma note du 06/10 les avait confondus ; Infloww n'a ni API ni connecteur, Gaëtan les supprime lui-même dans Infloww (et ça ne libère rien côté GAML : 49 liens sur 50 après la suppression du test).
+- **Contexte** : conteneur neuf le 08/10, scratchpad et identifiants de session perdus (clé GAML, compte de service, secrets de l'app, CLI Vercel) ; la vérification en prod s'est limitée aux codes HTTP et au build, faute de jeton de clipper. Gaëtan a les 30 liens dans le guide du 06/10.
+- **Prédiction (écrite le 08/10)** : au premier retour d'un clipper sur l'onglet Drive, c'est le mot « Carrousel » ou un dossier « en cours » alors qu'il est plein qui remonte, pas la navigation dans les racines — 60 %.
+
 ### 2026-10-07 (équipe) — Rianah : 400 € fixe pour le Metricool et deux téléphones de clipping (Chloé, Sarah)
 - **Décision de Gaëtan** : Rianah clippe sur Chloé et sur Sarah (deux téléphones, trois comptes chacune, sans test de montage, directement au compte 1) en plus du Metricool, pour 400 € fixe par mois, sans paie à la visite. Livré : onboarding sur deux créatrices (Chloé principale), lien GAML par créatrice, note « garde » qui la protège des sorties automatiques.
 - **Avocat du diable** : trois postes pour une seule personne (Metricool de Sophie et Maddie, six comptes de clipping) ; si sa cadence baisse, c'est le Metricool qui trinque, et c'est lui qui rapporte (≈ 12 000 visiteurs par mois). À surveiller dans le rapport du lundi.

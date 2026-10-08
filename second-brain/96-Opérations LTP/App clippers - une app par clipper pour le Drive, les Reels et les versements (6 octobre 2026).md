@@ -17,7 +17,7 @@ liens_forts: ["[[App créatrices - une app par créatrice pour le Drive, les sta
 
 | Onglet | Contenu | Source |
 |---|---|---|
-| **Drive** (défaut, icône nuage) | Reels = dossier de la semaine en cours de sa créatrice ; Photos = dossier du mois (repli au plus récent) ; **Top Reels** = le sous-dossier « TOP 20 Reels » de son dossier personnel dans « 🎬 Clippers », là où le bot dépose ses variantes uniques (repli sur le TOP 20 de la créatrice) ; **Stories** = le dossier Stories de sa créatrice (quatrième tuile choisie : présente chez les six créatrices, le kit demande 1 à 3 stories par jour). Redirection 302 vers l'app Google Drive. | `CREATRICES_JSON`, `DRIVE_SOURCES`, compte de service Google en lecture |
+| **Drive** (défaut, icône nuage) | **Depuis le 08/10 (Gaëtan) : quatre tuiles Carrousel · Reels · Stories · TOP 20 Reels, les Reels à droite (plus faciles au pouce).** Chaque tuile ouvre le **dossier racine** de la section (le clipper descend lui-même dans le mois ou la semaine) et affiche l'état du dossier du moment : **✅ plein · ⏳ en cours de remplissage · ❌ dossier vide**, par comptage des fichiers (Reels : la semaine en cours, seuil 14 ; Carrousel et Stories : le mois, seuil 10 ; TOP 20 : le dossier, seuil 20 ; un niveau plus bas si le mois est rangé en semaines ; cache 10 min). Reels = la source Reels de sa créatrice ; Carrousel = la source ou le dossier « Carrousel » du dossier Instagram de la créatrice, sinon Photos ; Stories = la source ou le dossier « Stories » ; TOP 20 Reels = le sous-dossier de son dossier personnel dans « 🎬 Clippers » où le bot dépose ses variantes uniques. Redirection 302 vers l'app Google Drive. (Avant le 08/10 : Reels de la semaine, Photos du mois, Top Reels, Stories, avec descente automatique.) | `CREATRICES_JSON`, `DRIVE_SOURCES`, compte de service Google en lecture |
 | **Reels** (flèche) | Le duplicateur de Reels, écran « Bientôt » identique à l'app créatrices. | — |
 | **Versements** (dollar) | Montant de la période en cours, « Prochain versement : X $ le 20 (ou le 5) », aujourd'hui et hier, graphique des visites francophones sur 14 jours (période en cours en bleu, aujourd'hui en blanc), versements précédents (montant et date), **son lien public à mettre dans la bio du compte 3**, bouton Copier. Rafraîchi toutes les 5 minutes tant que l'onglet est ouvert. | API GetAllMyLinks `analytics/countries`, robots exclus, pays de `PAYS_PAYES`, heure de Paris |
 
@@ -43,6 +43,9 @@ Build sans erreur ; prod : jeton réel 200, jeton inconnu 404, quatre redirectio
 - **Quatre notes GAML douteuses** créent des apps à part : « LATE2 », « Mie02 », « Antoinr », « Ricado » (à côté de « Ricardo »). Corriger la note suffit, l'app suit.
 - **Le tableur d'usage de l'app créatrices n'existe pas** (recherche vide le 06/10) : son journal d'usage n'a jamais rien écrit. À créer de la même façon si on veut mesurer.
 - **Captures prises sur le serveur local du build**, pas sur la prod (Chromium du conteneur refuse le certificat du proxy) ; la prod a été vérifiée par les codes HTTP et les JSON, pas à l'œil.
+
+- **Les seuils « plein » sont un choix de Claude, pas de Gaëtan** (14 Reels par semaine, 10 photos ou stories par mois, 20 TOP 20) : un dossier à 9 photos s'affiche « en cours de remplissage » alors que l'agence a peut-être fini. Le script Drive de l'agence pose déjà ✅ ⏳ ❌ dans les noms de dossiers avec une autre logique (✅ dès qu'il y a du contenu, ⏳ période en cours vide, ❌ période passée vide) : deux conventions coexistent, à unifier si un clipper s'en plaint.
+- **Le dossier « Carrousel » n'a pas pu être vérifié le 08/10** (conteneur neuf, sans accès Drive) : s'il n'existe pas dans le dossier Instagram d'une créatrice, la tuile ouvre ses Photos, sans le dire.
 
 ## 5. Ce qui vient
 
