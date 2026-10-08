@@ -42,6 +42,9 @@ ACTIF = (os.environ.get("ETATS_CLASSEUR", "1").strip() or "1") != "0"
 GOOD_JOURS = int(os.environ.get("ETATS_GOOD_JOURS", "3") or 3)         # jours de publication de suite pour GOOD
 BAN_JOURS = int(os.environ.get("ETATS_BAN_JOURS", "1") or 1)           # 28/09 (Gaëtan) : plus lisible = BAN par défaut, dès le premier scan
 HEURE_UTC = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)           # après le rapport inputs du matin
+# 08/10 (GO n° 2 du checkup) : un 2e passage, le soir (heure de Paris), sur les seuls comptes dont les Reels ouvrent un compte en
+# attente ; il n'écrit ni le classeur ni l'historique (un passage par jour), il donne au parcours les Reels publiés depuis le matin.
+SOIR_HEURE = int(os.environ.get("ETATS_SOIR_HEURE", "19") or 19)                # -1 pour l'éteindre
 JOURS_HISTORIQUE = 14
 SUIVIS = ("a creer", "à créer", "warmup", "good", "prive", "privé", "ban")
 VERSION = 6                       # 05/10 : passage forcé au déploiement pour remplir Reels 7 j / Clics hier et suivre toutes les lignes créées
@@ -399,11 +402,14 @@ async def _executer(ecrire: bool = True) -> dict:
     lignes = a_scanner(comptes)
     if not lignes:
         return {"changements": [], "scannes": 0, "erreur": ""}
+    debut_scan = datetime.now(timezone.utc).isoformat(timespec="seconds")
     mesures = await scanner([_cle(c["handle"]) for c in lignes])
     if mesures is None:
         return {"changements": [], "scannes": 0, "erreur": "Instagram illisible aujourd'hui (Apify), rien changé"}
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if ecrire:
+        d["scan_iso"] = debut_scan                                      # 08/10 : le scan du soir compte les Reels publiés après
     # 05/10 (Gaëtan : « le scan ne doit jamais conclure BAN à cause d'un simple raté d'Apify ») : un compte absent de la réponse
     # (après la deuxième demande) ou renvoyé sans chiffres est « non lu » : rien n'est écrit pour lui, il garde son état et ses
     # valeurs. Au bout de NON_LU_JOURS passages non lus de suite, il est traité comme absent (sinon un compte vraiment mort ne
@@ -1011,9 +1017,39 @@ async def boucle(client) -> None:
                     if bans and _deps.get("notifier"):
                         await _deps["notifier"]("🚫 **Comptes introuvables sur Instagram, passés en BAN** : "
                                                 + ", ".join(bans) + ". À remplacer : `!liberer Prénom handle`, puis un nouvel identifiant.")
+            if SOIR_HEURE >= 0 and _paris(maintenant).hour >= SOIR_HEURE and d.get("dernier") == jour and d.get("soir") != jour:
+                d = _lire(); d["soir"] = jour; _ecrire(d)               # une fois par jour, même si Apify échoue
+                await scan_du_soir(client, d.get("scan_iso") or f"{jour}T{HEURE_UTC:02d}:00:00+00:00")
         except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le bot
             journal.exception("Boucle états du classeur : %s", erreur)
         await asyncio.sleep(900)
+
+
+async def scan_du_soir(client, depuis_iso: str) -> list:
+    """08/10 (GO n° 2) : les comptes dont les Reels ouvrent un compte en attente, relus le soir ; le parcours ouvre aussitôt ceux
+    qui ont leurs Reels (un jour gagné par compte). Renvoie [(uid, type, n)] des étapes envoyées."""
+    import parcours                                                     # import tardif : parcours importe onboarding
+    handles = parcours.comptes_du_soir()
+    if not handles:
+        journal.info("Scan du soir : aucun compte en attente de Reels")
+        return []
+    mesures = await scanner([_cle(h) for h in handles])
+    if mesures is None:
+        journal.warning("Scan du soir : Apify illisible, rien conclu")
+        return []
+    n = parcours.noter_reels_soir(mesures, depuis_iso, cle=_cle)
+    faits = await parcours.programme_du_jour(client)
+    ouverts = [f for f in faits if f[1] == "etape"]
+    journal.info("Scan du soir : %d compte(s) relu(s), %d fiche(s) mise(s) à jour, %d compte(s) ouvert(s)", len(handles), n, len(ouverts))
+    if ouverts and _deps.get("canal_admin"):
+        canal = await _deps["canal_admin"]()
+        if canal is not None:
+            try:
+                await canal.send(f"🌙 Scan du soir : {len(ouverts)} compte(s) ouvert(s) un jour plus tôt (" +
+                                 ", ".join(f"<@{u}> compte {k}" for u, _, k in ouverts)[:1500] + ")")
+            except Exception:                                           # noqa: BLE001
+                pass
+    return faits
 
 
 async def commande_staff(message, texte: str) -> bool:

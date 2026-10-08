@@ -304,13 +304,20 @@ def _cumuler_reels(suivi: dict, n72: int, jour: str) -> dict:
     return suivi
 
 
+def _reels_soir(fiche_p: dict, h: str) -> int:
+    """08/10 (GO n° 2 du checkup) : les Reels vus par le scan du soir depuis celui du matin, valables le jour même seulement (le
+    scan du lendemain matin les compte dans son passage, ils ne comptent jamais deux fois)."""
+    e = (fiche_p.get("reels_soir") or {}).get(str(h).lower()) or {}
+    return int(e.get("n") or 0) if e.get("jour") == datetime.now(timezone.utc).date().isoformat() else 0
+
+
 def reels_vus(uid, fiche_p: dict, n: int) -> int:
     """Les Reels vus par le scan sur le compte n ; compte n BAN : sur tous ses comptes vivants déjà créés."""
-    comptes = _comptes_ordonnes(uid)
+    comptes = _comptes_ordonnes(uid, fiche_p=fiche_p)
     suivis = fiche_p.get("reels") or {}
     h = comptes[n - 1] if 0 < n <= len(comptes) else ""
     if h and not _est_ban(h, fiche_p):
-        return int((suivis.get(h.lower()) or {}).get("vus", 0) or 0)
+        return int((suivis.get(h.lower()) or {}).get("vus", 0) or 0) + _reels_soir(fiche_p, h)
     return sum(int((suivis.get(x.lower()) or {}).get("vus", 0) or 0) for i, x in enumerate(comptes[:3], start=1)
                if _cree(fiche_p, i) and not _est_ban(x, fiche_p))
 
@@ -320,6 +327,63 @@ def reels_pour(uid, fiche_p: dict, n: int) -> int:
     création du privé pour le compte 3 en ordre « prive2 » (4 Reels DE PLUS sur le compte 1)."""
     base = int((fiche_p.get("base_reels") or {}).get(str(n), 0) or 0)
     return max(0, reels_vus(uid, fiche_p, source_reels(fiche_p, n)) - base)
+
+
+def comptes_du_soir(maintenant=None) -> list:
+    """08/10 (GO n° 2 du checkup : « un 2e scan Instagram à 19 h pour les seuls comptes en attente ») : les comptes dont les Reels
+    ouvrent un compte en attente — ses 48 h passées ou finies avant le scan du lendemain matin — et qui n'ont pas encore leurs
+    4 Reels. Quelques dizaines au plus : le seul coût du scan du soir."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    out = []
+    for uid, f in _lire().items():
+        a = attente(f) if isinstance(f, dict) else None
+        if not a:
+            continue
+        quand = a[1] if a[1].tzinfo else a[1].replace(tzinfo=timezone.utc)
+        if quand > maintenant + timedelta(hours=14) or reels_pour(uid, f, a[0]) >= REELS_OUVERTURE:
+            continue
+        src = source_reels(f, a[0])
+        comptes = _comptes_ordonnes(uid, fiche_p=f)
+        h = comptes[src - 1] if 0 < src <= len(comptes) else ""
+        if h and not _est_ban(h, f) and h not in out:
+            out.append(h)
+    return out
+
+
+def _apres(quand, depuis_iso: str) -> bool:
+    try:
+        q = datetime.fromisoformat(str(quand or "").replace("Z", "+00:00"))
+        dep = datetime.fromisoformat(str(depuis_iso).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    q = q if q.tzinfo else q.replace(tzinfo=timezone.utc)
+    dep = dep if dep.tzinfo else dep.replace(tzinfo=timezone.utc)
+    return q > dep
+
+
+def noter_reels_soir(mesures: dict, depuis_iso: str, cle=None) -> int:
+    """Retient dans chaque fiche en attente les Reels du compte source publiés après `depuis_iso` (le scan du matin), d'après le
+    scan du soir (`mesures` : {clé: fiche du scanner}, avec la liste `reels` et leurs dates). Renvoie le nombre de fiches touchées."""
+    cle = cle or (lambda h: onboarding.normaliser_handle(h).lower())
+    jour = datetime.now(timezone.utc).date().isoformat()
+    d = _lire()
+    n = 0
+    for uid, f in d.items():
+        a = attente(f) if isinstance(f, dict) else None
+        if not a:
+            continue
+        comptes = _comptes_ordonnes(uid, fiche_p=f)
+        src = source_reels(f, a[0])
+        h = comptes[src - 1] if 0 < src <= len(comptes) else ""
+        m = mesures.get(cle(h)) if h else None
+        if not m or not m.get("lu", True) or not m.get("existe", True):
+            continue
+        nb = sum(1 for r in m.get("reels") or [] if _apres(r.get("quand"), depuis_iso))
+        f.setdefault("reels_soir", {})[h.lower()] = {"jour": jour, "n": nb}
+        n += 1
+    if n:
+        _ecrire(d)
+    return n
 
 
 def _ou_publier(uid, fiche_p: dict, n: int) -> str:
