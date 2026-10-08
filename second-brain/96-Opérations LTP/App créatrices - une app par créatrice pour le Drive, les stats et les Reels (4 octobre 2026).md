@@ -63,7 +63,7 @@ Gaëtan a ajouté l'app à son écran d'accueil depuis le lien d'une créatrice 
 
 - Ajouter les dossiers Feed et Scripts MYM des quatre créatrices dès qu'ils existent (une entrée de configuration, pas de code).
 - Faire créer les dossiers de mois et de semaine à l'avance par le script Drive de l'agence, pour que le repli « plus récent existant » ne serve jamais.
-- Le duplicateur de Reels, troisième onglet : la suite logique de la machine à contenu.
+- Le duplicateur de Reels, troisième onglet : la suite logique de la machine à contenu. Spécification v1 et choix de ne pas passer par Crayo : [[Analyse Crayo.ai - ce qu'on reprend pour le duplicateur de Reels (8 octobre 2026)]] (08/10).
 - Un domaine propre (`app.` sur le domaine de l'agence) pour que l'icône sur l'écran d'accueil ne porte pas un nom technique.
 
 Les décisions et prédictions sont dans le [[Journal de coaching]] (entrée du 4 octobre 2026) ; l'action « mettre en ligne » est à cocher dans le [[Cockpit opérationnel LTP (actions)]].
