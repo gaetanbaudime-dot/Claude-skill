@@ -11,7 +11,7 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Rapport GAML - d'o
 # Checkup clippers : où ça coince, et d'où viennent les visiteurs (8 octobre 2026)
 
 > [!tip] Verdict
-> **La moitié des visiteurs GetAllMyLinks vient de nous, l'autre moitié des comptes des créatrices. Mais le goulot n'est ni Instagram ni le contenu : c'est le bot lui-même, qui cassait le passage « signé → compte créé → lien en bio ».** Sur 7 jours (02 au 08/10), 12 249 visiteurs : **49 % comptes des créatrices, 51 % agence** (clippers 32 %, Metricool 11 %, Facebook et YouTube 8 %). Huit des neuf anciens les plus productifs n'avaient pas de salon, les nouveaux recevaient leurs trois comptes d'un coup, un oubli de bouton figeait le parcours, le bouton WhatsApp ouvrait le mauvais écran, des réponses à l'appel étaient effacées, et un clipper qui publiait allait être expulsé. **Tout est corrigé et poussé le 08/10 (cinq lots).** Deux alertes restent pour cette semaine : **le moteur Metricool a perdu 54 % de ses visites en une semaine**, et **les abonnés MYM de Sophie, Jade et Clara arrivent surtout hors GAML**. La vraie part « créatrices contre nous » se tranche avec l'export MyPulse par lien de tracking, pas avec les visites.
+> **La moitié des visiteurs GetAllMyLinks vient de nous, l'autre moitié des comptes des créatrices. Mais le goulot n'est ni Instagram ni le contenu : c'est le bot lui-même, qui cassait le passage « signé → compte créé → lien en bio ».** Sur 7 jours (02 au 08/10), 12 249 visiteurs : **49 % comptes des créatrices, 51 % agence** (clippers 32 %, Metricool 11 %, Facebook et YouTube 8 %). Huit des neuf anciens les plus productifs n'avaient pas de salon, les nouveaux recevaient leurs trois comptes d'un coup, un oubli de bouton figeait le parcours, le bouton WhatsApp ouvrait le mauvais écran, des réponses à l'appel étaient effacées, et un clipper qui publiait allait être expulsé. **Tout est corrigé et poussé le 08/10 (cinq lots).** Deux alertes restent pour cette semaine : **le moteur Metricool a perdu 54 % de ses visites en une semaine**, et **les abonnés MYM de Sophie, Jade et Clara arrivent surtout hors GAML**. La vraie part « créatrices contre nous » se tranche avec l'export MyPulse par lien de tracking, pas avec les visites. **Les cinq décisions du 08/10 sont en place le jour même** (privé en 2, scan du soir, paie au clic sauf sept fixes, ménage GAML par désactivation, comptes d'Hasina sur Metricool) : section 6.
 
 ## 1. La part des visiteurs : créatrices contre nous
 
@@ -113,18 +113,32 @@ Les pannes trouvées, toutes confirmées dans le code ou dans les messages du bo
 1. **L'app part toute seule** dans le salon perso dès que l'étape du compte 3 est fermée, avec le lien GAML et les gestes pour l'écran d'accueil, sans rien à configurer : l'app écrit « clipper → lien de l'app » dans son tableur d'usage, le bot le lit (vérifié en ligne : 29 clippers écrits). `!app` pour la renvoyer. Détail : [[App clippers - une app par clipper pour le Drive, les Reels et les versements (6 octobre 2026)]].
 2. **Les pannes du tableau** ci-dessus, en quatre lots poussés sur GitHub (Railway redéploie seul), trois jours après la refonte de l'[[Audit du bot Discord clippers - inventaire et refonte en trois lots (5 octobre 2026)|audit du 05/10]] dont plusieurs pannes sont des effets de bord. Détail technique dans le README du bot, section « Checkup du 08/10 ».
 
-## 6. À trancher par Gaëtan
+## 6. Tranché par Gaëtan le 08/10, et en place le jour même
 
-| Décision | Ma recommandation |
-|---|---|
-| **Metricool −54 % en une semaine** : lien de bio changé, comptes restreints, ou temps de Rianah passé au clipping ? | Vérifier les bios des comptes Metricool de Sophie et Maddie aujourd'hui ; si un lien MYM direct a remplacé GAML, le remettre derrière un lien GAML avec son tracking MyPulse, sinon on pilote à l'aveugle |
-| **Le compte privé en 2e position** au lieu de 3e | Oui : le lien existe à J+2 au lieu de J+5-6, les Reels du compte 1 ont enfin une destination ; le compte privé ne publie pas, il ne change rien au rythme anti-ban d'un compte tous les 48 h |
-| **Un 2e scan Instagram à 19 h** pour les seuls comptes en attente | Oui (quelques dizaines de profils, coût Apify faible) : un jour gagné par compte, soit 2 jours sur les trois |
-| « **Tu es au fixe** » dit par `!mesclics` aux inscrits d'avant le 24/09 (Simon, Yves) alors que l'app leur affiche une paie au clic | Tout le monde au clic sauf Rianah (`!paie @x clic`), comme le prévoit la [[Machine horizontale v2 - paie au clic, ce que les clippers rapportent (23 septembre 2026)|paie au clic]] ; sinon l'app ment |
-| **Lien d'Hasina** (sortie, 301 visiteurs cette semaine) | Le garder actif et savoir qui publie ; si c'est elle, décider de la payer au clic plutôt que de perdre ce trafic (voir la [[Rentabilité des clippers de Jonas, de Jonas et de Julien - paie de septembre (5 octobre 2026)|rentabilité de septembre]]) |
-| **Forfait GAML** : 48 liens actifs sur 50 | Supprimer les liens morts des sortants (Eddy, Steeve, Ricado, LATE2, Mie02, Mathias, Georgial, Antoinr, Andry ×2 : 1 à 6 visiteurs chacun, nos propres clics) avant la vague malgache |
-| **Questions dans #assistant seulement** (GO 2) | À revoir avec l'audit de l'assistant : le salon perso muet perd les clippers (Mohamed : « pourquoi vous ne me répondez plus ? ») |
-| **Export MyPulse par lien de tracking** | Le demander une fois par semaine : c'est lui qui dit qui ramène des abonnés, pas les visites |
+> [!warning] Correction de ma propre recommandation
+> J'avais écrit « supprimer les liens morts des sortants ». **C'était une erreur** : un lien libéré garde la carte et le tracking MYM de sa créatrice, et le bot le redonne au clipper suivant. L'effacer détruisait la réserve de liens réutilisables et forçait des clones. La bonne version, en place : **désactiver** (un lien désactivé ne compte pas dans le forfait), **jamais effacer**, et réactiver à la reprise.
+
+| Décision | Tranché | Ce qui tourne depuis le 08/10 |
+|---|---|---|
+| **Compte privé en 2e position** | GO | Nouveaux parcours : compte 1 croissance, **compte 2 privé avec le lien**, compte 3 croissance. Le lien existe à J+2 ; le compte 3 s'ouvre 48 h après le privé, à 4 Reels de plus sur le compte 1. Ceux dont le compte 2 était déjà ouvert gardent le privé en 3. |
+| **2e scan Instagram à 19 h** | GO | Seuls les comptes dont les Reels ouvrent un compte en attente sont relus le soir ; le compte suivant s'ouvre le soir même s'ils ont leurs Reels. Le scan du soir n'écrit ni le classeur ni l'historique (pas de double compte). |
+| **Paie** | « Tout le monde au variable sauf Caroline, Lilian, Josué, Yves et Rianah. Julien montage YouTube, Jonas manager » | Ces sept prénoms au fixe, tous les autres au clic. **Mon choix par défaut, à valider** : un ancien passé du fixe au clic est payé au clic **à partir du 08/10**, sa quinzaine d'avant reste au fixe (jamais payé deux fois). L'app affiche « au fixe » aux sept, et compte la même période que le bot. |
+| **Forfait GAML** | « Combien coûte le supérieur ? On fait le ménage » | Paliers Agency : 10, 25, 50, 100 liens, puis sur devis à partir de 400. **Seul le palier 10 liens a un prix public : 29 $/mois** (−20 % à l'année) ; le prix du palier 100 n'est publié nulle part, il se demande au support sur Telegram. Ménage automatique chaque matin : un lien libéré sous 15 visiteurs en 7 jours est désactivé, réactivé pour le suivant ; les liens de clippers partis sans libération (orphelins) sont rattrapés. Premier passage du 08/10 : 1 lien désactivé ; le passage v2 (orphelins) doit en libérer une dizaine. |
+| **Comptes d'Hasina** | Sur Metricool, gérés par Rianah. « Rianah = Metricool désormais » | Note GAML du lien d'Hasina changée en « Rianah Metricool 3 (ex-Hasina) » : le bot le détache du clipping (plus compté pour un clipper, jamais redonné). |
+| **Metricool −54 % en une semaine** | ouvert | Vérifier les bios des comptes Metricool de Sophie et Maddie ; un lien MYM direct à la place de GAML = pilotage à l'aveugle. |
+| **Questions dans #assistant seulement** (GO 2 du 06/10) | ouvert | L'audit de l'assistant recommande de remettre l'IA dans le salon perso (`ASSISTANT_SALON_PERSO=1`) : #assistant est le salon où elle en sait le moins. |
+| **Export MyPulse par lien de tracking** | ouvert | Une fois par semaine : c'est lui qui dit qui ramène des abonnés. |
+
+**Le forfait, chiffré** : 48 liens actifs ce matin, dont environ 19 hors clipping (pages des créatrices, Facebook, YouTube, Metricool). Si le ménage désactive les onze liens morts, il reste une douzaine de places, soit une douzaine de nouveaux clippers ; le nouvel ordre ne crée pas plus de liens (un par clipper, comme avant). **Recommandation : ne pas monter de palier aujourd'hui, mais demander le prix du palier 100 au support cette semaine**, parce que la vague malgache prévue par Jonas (50 à 100 clippers) le rendra obligatoire, et un clone refusé, c'est un clipper sans lien, donc sans app et sans paie.
+
+## 6 bis. Ce que les audits de l'assistant et le critique de complétude ont ajouté (corrigé le 08/10)
+
+- **Expulsions impossibles à éviter** : un clipper sans aucun compte livré (vivier vide) ou dont le compte 1 a été banni à la création sortait pour « compte 1 pas créé ». Il ne sort plus ; le salon admin reçoit « 🧱 à débloquer ».
+- **La liste des bloqués arrivait après l'expulsion** : l'étape 1 n'y apparaissait qu'à plus de 2 jours, la sortie tombe à 48 h. Elle y est dès le 1er jour.
+- **Les fiches des expulsés étaient effacées** : la trace du parcours (étape, dates) est gardée à la sortie, l'entonnoir par étape redevient mesurable.
+- **L'assistant de #assistant mélangeait les clippers** : la réponse faite à l'un arrivait au modèle comme « ce que je t'ai dit » au suivant. Corrigé ; les anciens hors registre ne sont plus traités en candidats ; `!aide` reconnaît le rôle Clippeur ; le salon des codes a son lien cliquable.
+- **La base de connaissances se contredisait une quinzaine de fois** : réécrite en v16 (une version de chaque règle).
+- **Restent ouverts** (critique de complétude) : rien ne vérifie que le lien est vraiment dans la bio du compte privé, le seul instrument d'entonnoir (`!tableau`) est faux par construction, la source des candidats n'est pas tracée, et le bot reçoit plus de commits qu'on ne l'observe — un gel des fonctionnalités d'une semaine serait sain.
 
 ## 7. Avocat du diable
 
@@ -133,6 +147,8 @@ Les pannes trouvées, toutes confirmées dans le code ou dans les messages du bo
 - **Le bouton « J'ai écrit à Gaëtan » est déclaratif** : un clipper peut mentir. Le prix est faible (une relance en moins) et Gaëtan est prévenu à chaque appui.
 - **La fermeture automatique du profil** fait avancer un clipper qui n'a peut-être pas mis sa photo ni sa bio : un compte sans profil vit moins longtemps. Six heures laissent le temps de le faire ; à surveiller dans les bans.
 - **48 h pour le compte 1** sortira aussi des gens de bonne foi (Mohamed a eu trois jours de coupure internet). L'avertissement à 24 h et la preuve du scan limitent le risque, sans l'annuler.
+- **Le privé en 2 rend le compte 3 dépendant du seul compte 1** : si le compte 1 est banni pendant l'attente, le compte 3 ne s'ouvre plus (aucun Reel ne peut arriver). L'alerte « bloqué par un BAN » existe, c'est Gaëtan qui débloque.
+- **Le paiement des anciens au clic à partir du 08/10** est mon choix par défaut ; si leur dernier fixe ne couvrait pas le début d'octobre, ils perdent une semaine de visites. À confirmer avant la paie du 20/10.
 - **CGU Instagram** : trois comptes par personne, du contenu repris d'une même créatrice et des comptes « repris » d'un sortant, c'est le cœur du comportement non authentique que l'Instagram sanctionne. La dette est connue ; ce checkup ne la réduit pas, il évite seulement d'y ajouter des erreurs du bot.
 
 ## 8. Prédictions (écrites le 08/10, avant observation, reprises au [[Journal de coaching]])
@@ -140,3 +156,5 @@ Les pannes trouvées, toutes confirmées dans le code ou dans les messages du bo
 - D'ici le 15/10, au moins 6 des 8 anciens rouverts ont leur salon et ont reçu leur app (onglet « Liens app », `!audit`) — 75 %.
 - Sur la semaine du 09 au 15/10, la part agence reste entre 45 et 55 % des visiteurs GAML — 60 % ; sans action sur le Metricool, sa part tombe sous 8 % — 65 %.
 - Aucune sortie automatique contestée (clipper qui publiait) d'ici le 20/10 — 70 %.
+- Avec le privé en 2, le délai médian « compte 1 créé → lien en bio » passe sous 3 jours pour les parcours ouverts après le 08/10 (contre 5 à 6) — 70 %.
+- Le ménage libère au moins 8 places GAML d'ici le 10/10 sans couper un lien qui ramène des visiteurs — 75 %.
