@@ -1859,15 +1859,21 @@ def chercher_par_prenom(prenom: str):
     Jonas - Manageur) ; seule Thia passait, par son nom d'utilisateur. D'abord l'exact, puis le membre dont le prénom du pseudo
     (`prenom_de`) vaut exactement celui demandé : un seul, sinon personne (deux Julien : on ne choisit pas). Jamais de
     correspondance partielle (« Roman » ne donne pas « Romane »). Pour les dépôts (salons, onboarding, notes), pas les sorties."""
-    m = chercher_membre(prenom, exact=True)
-    if m is not None:
-        return m
     cle = normaliser(prenom)
     cle = normaliser(roster.resoudre_alias(cle)) or cle
     if not cle:
         return None
+    # 08/10 (relecture de l'audit) : les correspondances exactes ET par prénom sont mises ensemble avant de décider — un candidat
+    # dont le nom d'utilisateur est « Lucas » ne passe plus devant « Lucas - Chloé » pour recevoir ses logins.
     trouves = {m.id: m for g in client.guilds for m in g.members if not m.bot and normaliser(prenom_de(m)) == cle}
-    return next(iter(trouves.values())) if len(trouves) == 1 else None
+    exact = chercher_membre(prenom, exact=True)
+    if exact is not None:
+        trouves[exact.id] = exact
+    if len(trouves) == 1:
+        return next(iter(trouves.values()))
+    registre = lire_json(FICHIER_EQUIPES, {})
+    signes = [m for m in trouves.values() if str(m.id) in registre]
+    return signes[0] if len(signes) == 1 else None                         # plusieurs : un seul signé tranche, sinon personne
 
 
 class Fantome:
@@ -5192,11 +5198,15 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     par_id = str(getattr(par, "id", "auto"))
     raison = raison.strip(" []").strip() or "non précisée"
     salon_p = salon_perso_de(membre.id) if expulser else None         # trouvé AVANT le retrait des accès (après, il est invisible)
+    prevenu = True
     if expulser:                                                        # le message avant tout : après le kick, plus aucun canal
+        # 08/10 (audit) : en MP direct. envoyer_mp le déposait dans le salon perso, supprimé quelques secondes plus tard : l'expulsé
+        # ne savait ni pourquoi il sortait ni comment revenir. MP fermés → « non prévenu » dans la ligne admin.
         try:
-            await envoyer_mp(membre, "🚪 " + raison[0].upper() + raison[1:] + ". Tu sors du serveur : ta place, tes comptes et ton lien vont au suivant.\n\n"
-                                     "Tu veux revenir plus tard ? Écris à Gaëtan.", view=vue_whatsapp())
+            await membre.send("🚪 " + raison[0].upper() + raison[1:] + ". Tu sors du serveur : ta place, tes comptes et ton lien vont au suivant.\n\n"
+                              "Tu veux revenir plus tard ? Écris à Gaëtan.", view=vue_whatsapp())
         except Exception as erreur:                                     # noqa: BLE001
+            prevenu = False
             journal.info("Message de sortie à %s : %s", membre.id, erreur)
     # 1. Rôles : Team, rangs.
     a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
@@ -5262,7 +5272,11 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
                    "creatrice": fiche_s.get("creatrice", ""), "date": info_s["sortie"]["date"],
                    "par": par_id, "raison": raison})
     ecrire_json(FICHIER_SORTIS, sortis[-500:])
-    roster.retirer(prenom_de(membre))                                   # 26/09 : le roster (compteur, rapport Jonas) suit
+    autre_r = membre_par_prenom(normaliser(prenom_de(membre)))          # 08/10 (deux « Andry ») : le roster est par prénom
+    if autre_r is None or autre_r == membre:
+        roster.retirer(prenom_de(membre))                               # 26/09 : le roster (compteur, rapport Jonas) suit
+    else:
+        refus_s.append(f"roster non touché (un autre {prenom_de(membre)} est signé)")
     # 5. Le membre, le manager, l'admin, Telegram.
     expulse = False
     if expulser:                                                        # 05/10 : salon supprimé, parcours oublié, expulsé
@@ -5292,7 +5306,8 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
             "l'agence, ton manager te contacte pour la restitution ; ce qui t'est dû est réglé au prochain "
             "décompte. Merci pour le temps donné, et bonne route.")
     await notifier_manager(
-        f"🚪 **{membre.display_name} sorti de l'équipe** (par {nom_par}) — {raison}" + (" · **expulsé du serveur**" if expulse else "") + "\n"
+        f"🚪 **{membre.display_name}** (<@{uid_s}>) **sorti de l'équipe** (par {nom_par}) — {raison}" + (" · **expulsé du serveur**" if expulse else "")
+        + ("" if prevenu else " · ⚠️ non prévenu (MP fermés) : préviens-le sur WhatsApp") + "\n"
         f"Rôles retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · accès fermés : {len(fermes)} salon(s)"
         f" · comptes du classeur rendus : {len(libere_s)}"
         + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
@@ -7276,7 +7291,7 @@ async def on_ready():
                                   "normaliser": normaliser, "canal_admin": canal_admin, "notifier": notifier_manager_seul,
                                   "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
-                                  "reconcilier": lambda e, p=None, r=None: parcours.reconcilier(client, e, p, r),
+                                  "reconcilier": lambda e, p=None, r=None, h=None: parcours.reconcilier(client, e, p, r, h),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
                                   "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None,   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer
                                   "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul

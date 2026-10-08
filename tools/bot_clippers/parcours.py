@@ -1465,7 +1465,16 @@ async def demarrer_selon_classeur(salon, membre, creatrice: str, etats_par_handl
     return n
 
 
-async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=None) -> list:
+def reels_depuis(historique: list, depuis) -> int:
+    """08/10 (audit : avec 1 Reel par jour, le cumul par différence d'une fenêtre glissante de 3 jours plafonnait à 3, et le
+    compte suivant, qui en demande 4, ne s'ouvrait jamais) : la somme des publications de chaque passage du scan (chaque passage
+    couvre ses 24 h, un passage par jour) depuis la création du compte."""
+    jour0 = depuis.date().isoformat() if depuis is not None else ""
+    return sum(int(e.get("posts") or 0) for e in historique or []
+               if e.get("existe") and str(e.get("jour", ""))[:10] >= jour0)
+
+
+async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=None, historique=None) -> list:
     """Après chaque scan du classeur : un compte créé sur Instagram valide tout seul l'étape 1, 2 ou 3 ; un clipper mis
     en routine par erreur alors que ses comptes sont à créer ou en warm-up est remis à la bonne étape (une seule fois)."""
     faits = []
@@ -1491,6 +1500,9 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
                 continue
             avant = (fiche_p.get("reels") or {}).get(h.lower())
             apres = _cumuler_reels(avant, int((reels_72h or {}).get(h.lower(), 0) or 0), jour)
+            if historique is not None:                                  # 08/10 : le vrai cumul, jamais en baisse
+                somme = reels_depuis(historique.get(onboarding.normaliser_handle(h).lower(), []), _date_creation(fiche_p, i))
+                apres["vus"] = max(int(apres.get("vus", 0) or 0), somme)
             if apres != avant:
                 fiche_p.setdefault("reels", {})[h.lower()] = apres
                 change = True

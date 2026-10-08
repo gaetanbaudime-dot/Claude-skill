@@ -560,7 +560,7 @@ async def _executer(ecrire: bool = True) -> dict:
             depuis_3j = _fenetre(jour, 3)
             reels_72h = {h: sum(int(e.get("posts") or 0) for e in hist if e.get("existe") and str(e.get("jour", ""))[:10] >= depuis_3j)
                          for h, hist in d["historique"].items()}
-            await _deps["reconcilier"](etats_h, publies, reels_72h)
+            await _deps["reconcilier"](etats_h, publies, reels_72h, d["historique"])   # 08/10 : l'historique, pour compter les Reels
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Réconciliation des parcours : %s", erreur)
     if ecrire and _deps.get("reservations_expirees"):                             # 28/09 : la réservation qui expire
