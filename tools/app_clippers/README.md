@@ -56,6 +56,7 @@ Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (
 - `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer` : le lien ne fuit pas dans les en-têtes vers Drive.
 - L'API ne renvoie que des chiffres, l'URL publique du lien GAML du clipper et des identifiants de dossiers Drive qu'il peut ouvrir. Jamais l'identifiant GAML interne.
 - La route d'administration compare la clé en temps constant et répond 404 sans la bonne clé.
+- `POST /api/liens` n'a pas de clé mais ne renvoie que le nombre de clippers : les liens personnels partent seulement dans l'onglet « Liens app » du tableur d'usage, privé (Gaëtan et le compte de service). Ce tableur donne accès à la paie et à l'adresse USDC de chaque clipper : ne jamais le partager.
 
 ## Journal d'usage (pour l'agence)
 
@@ -70,11 +71,12 @@ Même mécanisme que l'app créatrices : chaque ouverture, changement d'onglet, 
 - `/api/admin/adresses?cle=<ADMIN_SECRET>` : toutes les adresses USDC (JSON, ou `&format=csv` avec `;` pour Google Sheets), pour les paies du 5 et du 20.
 - `/api/k/<jeton>/drive/<carrousel|top|story|reels>` : redirection 302 vers le dossier racine de la section.
 - `/api/k/<jeton>/ev` (POST) : événement d'usage, liste fermée, 60 par minute et par clipper au plus.
-- `/api/admin/liens?cle=<ADMIN_SECRET>` : « prénom → lien personnel » de tous les clippers (JSON), `&format=texte` pour une ligne par clipper à coller. Pour distribuer les liens à la main ou par le bot Discord.
+- `/api/admin/liens?cle=<ADMIN_SECRET>` : « prénom → lien personnel » de tous les clippers (JSON), `&format=texte` pour une ligne par clipper à coller. Pour distribuer les liens à la main.
+- `/api/liens` (POST, 08/10) : écrit l'onglet « Liens app » du tableur d'usage (Clipper, Créatrice, Lien de l'app, Liens GAML, Clé, Mis à jour), seulement si la liste a changé, une fois par minute au plus ; l'adresse des liens est toujours `APP_URL` (défaut `https://app-clippers.vercel.app`), jamais l'en-tête Host. Appelée par le bot Discord, qui lit ensuite l'onglet avec le compte de service (`tools/bot_clippers/lien_app.py`).
 
 ## Ajouter un clipper
 
-Rien à faire ici : créer son lien GAML avec la note « Clipping Prénom » (ce que fait déjà `!lien` dans le bot), puis lui envoyer son lien personnel lu sur `/api/admin/liens`. Son dossier Drive et son « TOP 20 Reels » viennent du bot à l'onboarding.
+Rien à faire ici : créer son lien GAML avec la note « Clipping Prénom » (ce que fait déjà `!lien` dans le bot). **Depuis le 08/10, le bot lui envoie son app tout seul** dans son salon perso dès que ses 3 comptes Instagram sont créés (étape du compte 3 fermée), avec son lien GAML ; `!app @clipper` la renvoie. Son dossier Drive et son « TOP 20 Reels » viennent du bot à l'onboarding.
 
 ## En local
 

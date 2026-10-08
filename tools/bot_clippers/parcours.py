@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 import discord
 
 import codes_2fa
+import lien_app
 import onboarding
 import paie_clics
 
@@ -613,6 +614,10 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
             d[str(uid)]["etape"] = 6
             _ecrire(d)
         await envoyer_etape(salon, membre, 6)
+        try:                                                            # 08/10 : les 3 comptes sont créés → son app et son lien
+            await livrer_app(str(uid), salon=salon, membre=membre)
+        except Exception as erreur:                                     # noqa: BLE001 — la passe horaire réessaiera
+            journal.warning("App clippers pour %s : %s", uid, erreur)
         return True
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)
@@ -683,6 +688,126 @@ def marquer_whatsapp(uid: str) -> bool:
     d[str(uid)]["whatsapp"] = _maintenant()
     _ecrire(d)
     return True
+
+
+# ------------------------------------------------------------------ app clippers
+# 08/10 (Gaëtan : « envoie automatiquement l'app dans le salon Discord privé du clippeur, une fois seulement qu'il a créé les
+# 3 IG : l'app + son lien de tracking GAML ») : dès que l'étape du compte 3 est fermée (étape 6 ou plus : compte 3 créé, ou
+# parcours repris plus loin par le staff), un message dans son salon perso avec le bouton de son app et son lien GAML. Une
+# seule fois (« app » dans la fiche, écrite avant l'envoi) ; si l'app ne le connaît pas encore, la passe horaire réessaie et
+# le salon admin est prévenu une fois par jour. Le lien de l'app vient de l'app elle-même (lien_app.py), jamais deviné.
+TEXTE_APP = ("📱 {mention} **Ton app clipper est prête.**\n\n"
+             "Dedans : tes vidéos à publier, tes visites, ta paie.\n\n"
+             "1. Appuie sur « 📱 Ouvrir mon app ».\n"
+             "2. Ouvre-la dans Safari (iPhone) ou Chrome (Android).\n"
+             "3. Mets-la sur ton écran d'accueil. L'app te montre comment.\n\n"
+             "Ton app : <{app}>\n\n"
+             "🔗 **Ton lien** : {lien}\n"
+             "Il va seulement dans la bio de ton compte 3.\n\n"
+             "🔒 Ton app est à toi. Ne donne son lien à personne.")
+APP_PAR_PASSE = 5                                                       # rattrapage : 5 messages au plus par passe horaire
+
+
+def trois_comptes(fiche_p: dict) -> bool:
+    """Ses 3 comptes sont créés : l'étape du compte 3 est fermée (étape 6, le lien, ou 7, la routine)."""
+    return int((fiche_p or {}).get("etape", 0) or 0) >= 6
+
+
+def _liens_gaml(uid: str, creatrice: str) -> tuple:
+    """(le lien à lui donner, tous ses liens) : ses liens GAML de la paie au clic (adresse à jour, comme `!mesclics`), le plus
+    récent de sa créatrice d'abord ; repli sur le lien de sa fiche d'onboarding."""
+    infos = []
+    try:
+        d = paie_clics._lire()
+        infos = [d["liens"][l] for l in paie_clics.liens_de(d, uid)
+                 if d["liens"][l].get("url") and not d["liens"][l].get("supprime_gaml")]
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Liens GAML de %s illisibles : %s", uid, erreur)
+    cle = (_norm(creatrice).split() or [""])[0]
+    siens = sorted([i for i in infos if (_norm(i.get("creatrice") or "").split() or [""])[0] == cle],
+                   key=lambda i: str(i.get("depuis") or ""), reverse=True)
+    onb = str(_onb(uid).get("lien") or "")
+    tous = [str(i["url"]) for i in siens + infos] + ([onb] if onb else [])
+    return (tous[0] if tous else ""), list(dict.fromkeys(tous))
+
+
+async def livrer_app(uid: str, salon=None, membre=None, client=None, forcer: bool = False) -> str:
+    """Envoie dans son salon perso le bouton de son app et son lien GAML, une seule fois (forcer : staff ou `!app`, renvoyé
+    même si déjà envoyé). Renvoie « envoye », « deja », « pas_pret », « exclu », « sans_lien », « sans_app » ou « erreur »."""
+    uid = str(uid)
+    fiche_p = _lire().get(uid) or {}
+    if not forcer:
+        if fiche_p.get("app"):
+            return "deja"
+        if not trois_comptes(fiche_p):
+            return "pas_pret"
+        if _deps.get("FICHIER_EQUIPES") and uid not in _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}):
+            return "pas_pret"                                           # sorti de l'équipe (sa fiche reste au parcours)
+    prenom = fiche_p.get("prenom") or (_prenom(membre) if membre is not None else "")
+    if _norm(prenom) in paie_clics.CLICS_EXCLURE:                       # Rianah, le staff : pas d'app au clic
+        return "exclu"
+    if salon is None and client is not None:
+        salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
+    membre = membre if membre is not None else _deps["membre_par_id"](uid)
+    if salon is None or membre is None:
+        return "pas_pret"
+    lien_gaml, tous = _liens_gaml(uid, fiche_p.get("creatrice", ""))
+    if not lien_gaml:
+        return "sans_lien"
+    url = await lien_app.lien(tous)
+    if not url:
+        return "sans_app"
+    d = _lire()                                                         # écrit AVANT l'envoi : jamais deux fois
+    if uid in d:
+        if d[uid].get("app") and not forcer:
+            return "deja"
+        d[uid]["app"] = _maintenant()
+        d[uid].pop("app_alerte", None)
+        _ecrire(d)
+    vue = discord.ui.View(timeout=None)
+    vue.add_item(discord.ui.Button(label="📱 Ouvrir mon app", style=discord.ButtonStyle.link, url=url))
+    try:
+        await salon.send(TEXTE_APP.format(mention=membre.mention, app=url, lien=lien_gaml)[:1990], view=vue)
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("App pour %s : %s", uid, erreur)
+        if not forcer:
+            d = _lire()
+            if uid in d:
+                d[uid].pop("app", None)
+                _ecrire(d)
+        return "erreur"
+    journal.info("App clippers envoyée à %s", uid)
+    return "envoye"
+
+
+async def rattraper_app(client) -> list:
+    """Passe horaire : chaque clipper aux 3 comptes créés qui n'a pas encore son app la reçoit (APP_PAR_PASSE au plus). Ceux que
+    l'app ne connaît pas encore : une ligne au salon admin, une fois par jour et par clipper. Renvoie les lignes de bilan."""
+    if not lien_app.actif():
+        return []
+    envoyes, manquants = 0, []
+    jour = datetime.now(timezone.utc).date().isoformat()
+    for uid, fiche_p in list(_lire().items()):
+        if envoyes >= APP_PAR_PASSE:
+            break
+        if not isinstance(fiche_p, dict) or fiche_p.get("app") or not trois_comptes(fiche_p):
+            continue
+        etat = await livrer_app(uid, client=client)
+        if etat == "envoye":
+            envoyes += 1
+        elif (etat == "sans_lien" or (etat == "sans_app" and lien_app.onglet_rempli())) and fiche_p.get("app_alerte") != jour:
+            d = _lire()
+            if uid in d:
+                d[uid]["app_alerte"] = jour
+                _ecrire(d)
+            manquants.append(f"{fiche_p.get('prenom') or uid}" + (" (aucun lien GAML)" if etat == "sans_lien" else ""))
+    bilan = []
+    if manquants:
+        bilan.append("📱 App clippers pas encore envoyée, l'app ne connaît pas leur lien GAML (note « Clipping Prénom » ?) : "
+                     + ", ".join(manquants))
+    if envoyes:
+        bilan.append(f"📱 App clippers envoyée à {envoyes} clipper(s) aux 3 comptes créés")
+    return bilan
 
 
 def _ligne_review(uid) -> str:
@@ -844,6 +969,13 @@ async def boucle(client) -> None:
                 await programme_du_jour(client)                         # 30/09 : « il peut publier », compte suivant à 48 h
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Programme du parcours : %s", erreur)
+            try:                                                        # 08/10 : l'app de ceux qui ont leurs 3 comptes
+                bilan_app = await rattraper_app(client)
+                canal = await _deps["canal_admin"]() if (bilan_app and _deps.get("canal_admin")) else None
+                if canal is not None:
+                    await canal.send("\n".join(bilan_app)[:1990])
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("App clippers (rattrapage) : %s", erreur)
             maintenant = _deps["heure_paris"]()
             if maintenant.hour >= paie_clics.CLICS_HEURE and RELANCE_JOURS > 0:
                 # 05/10 : les étapes 4 et 5 ne s'ouvrent plus (compte 3 privé → lien → routine) ; les fiches encore à 4 ou 5
@@ -1298,9 +1430,35 @@ def contexte_llm(uid: str) -> str:
 
 
 # ------------------------------------------------------------------ commandes manager
+TEXTES_APP = {"exclu": "pas d'app au clic pour lui (prénom exclu de la paie au clic)",
+              "sans_lien": "aucun lien GAML à son nom",
+              "sans_app": "l'app ne connaît pas son lien GAML (note « Clipping Prénom » ? onglet « Liens app » pas encore écrit ?)",
+              "pas_pret": "pas de salon perso ou plus sur le serveur",
+              "erreur": "message refusé par Discord"}
+
+
+async def commande_app(message) -> bool:
+    """08/10 : `!app` tapé par le clipper : dans son salon perso, le bouton de son app et son lien, une fois ses 3 comptes créés.
+    Jamais ailleurs : le lien de l'app ouvre sa paie et son adresse USDC."""
+    uid = str(message.author.id)
+    salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+    if salon is None or getattr(message.channel, "id", None) != salon.id:
+        await message.reply("Tape `!app` dans ton salon perso. Ton lien d'app est à toi seul.")
+        return True
+    if not trois_comptes(_lire().get(uid) or {}):
+        await message.reply("Ton app arrive ici dès que ton compte 3 est créé.")
+        return True
+    etat = await livrer_app(uid, salon=salon, membre=message.author, forcer=True)
+    if etat != "envoye":
+        await message.reply({"exclu": "Ta paie ne passe pas par les visites : pas d'app pour toi.",
+                             "sans_lien": "Tu n'as pas encore de lien. Ton manager s'en occupe."}.get(
+                                 etat, "Je n'arrive pas à trouver ton app. Réessaie dans une heure."))
+    return True
+
+
 async def commande_staff(message, texte: str) -> bool:
     mots = texte.split()
-    if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire", "!wa"):
+    if not mots or mots[0].lower() not in ("!etape", "!note", "!memoire", "!mémoire", "!wa", "!app"):
         return False
     est_staff = _deps.get("est_staff")
     if len(mots) == 1 and mots[0].lower() == "!etape" and est_staff is not None and not est_staff(message.author):
@@ -1333,9 +1491,19 @@ async def commande_staff(message, texte: str) -> bool:
     if membre is None:
         await message.reply("Format : `!etape @clipper [n]` (renvoyer ou forcer une étape) · `!note @clipper texte` "
                             "(mémoire du bot sur lui) · `!memoire @clipper` (ce que le bot sait) · `!wa @clipper` (il a écrit sur "
-                            "WhatsApp). Le @ doit être une vraie mention, ou tape le prénom tel quel.")
+                            "WhatsApp) · `!app @clipper` (renvoyer son app et son lien dans son salon). Le @ doit être une vraie "
+                            "mention, ou tape le prénom tel quel.")
         return True
     uid = str(membre.id)
+    if mots[0].lower() == "!app":                                         # 08/10 : renvoyer son app et son lien, même avant le compte 3
+        salon_a = _deps["salon_perso"](uid)
+        if salon_a is None:
+            await message.reply(f"{membre.display_name} n'a pas de salon perso.")
+            return True
+        etat = await livrer_app(uid, salon=salon_a, membre=membre, forcer=True)
+        await message.reply(f"📱 App envoyée à {membre.display_name} dans <#{salon_a.id}>." if etat == "envoye"
+                            else f"📱 Pas d'app envoyée à {membre.display_name} : {TEXTES_APP.get(etat, etat)}.")
+        return True
     if mots[0].lower() == "!wa":                                          # 05/10 : le clipper a écrit sur WhatsApp, son groupe est ouvert
         if marquer_whatsapp(uid):
             await message.reply(f"📲 Noté : {membre.display_name} a écrit sur WhatsApp. Il ne sera plus listé dans les bloqués pour ça.")

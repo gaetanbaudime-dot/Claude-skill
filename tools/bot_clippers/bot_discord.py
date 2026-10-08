@@ -4544,7 +4544,7 @@ def est_manager(membre) -> bool:
 COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym")
+                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -8582,6 +8582,11 @@ async def on_message(message):
     # Paie au clic (23/09) : le clipper voit ses propres clics et pose son adresse — en MP ou dans son salon.
     if texte.split()[:1] in (["!mesclics"], ["!wallet"]) and not (message.mentions and est_manager(message.author)):
         if await paie_clics.commande_clipper(message, texte):
+            return
+
+    # App clippers (08/10) : `!app` seul, dans son salon perso → le bouton de son app et son lien, une fois ses 3 comptes créés.
+    if texte.split() == ["!app"] and not est_staff(message.author):
+        if await parcours.commande_app(message):
             return
 
     # !aide : pour tout le monde, adaptée au rôle de celui qui demande.

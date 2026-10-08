@@ -99,6 +99,9 @@ export async function ecrirePlage(id: string, plage: string, valeurs: string[][]
 export async function ajouterLignes(id: string, plage: string, valeurs: string[][]): Promise<void> {
   await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(plage)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: "POST", body: JSON.stringify({ values: valeurs }) });
 }
+export async function viderPlage(id: string, plage: string): Promise<void> {
+  await appel(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(plage)}:clear`, { method: "POST", body: "{}" });
+}
 
 let echecJusqua = 0;                                                   // après un échec (tableur absent, quota), on n'insiste pas pendant 10 minutes
 
