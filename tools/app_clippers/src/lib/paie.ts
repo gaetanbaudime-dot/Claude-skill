@@ -16,6 +16,15 @@ export const PAYS_PAYES = new Set([
 /** Début du régime au clic (CLICS_DEPUIS du bot) : aucune paie au clic n'existe avant, inutile de montrer plus ancien. */
 export const CLICS_DEPUIS = "2026-09-16";
 
+/** 08/10 (Gaëtan : « tout le monde au variable sauf Caroline, Lilian, Josué, Yves et Rianah. Julien montage vidéo YTB et Jonas
+ *  manageur ») : ces prénoms (sans accents, en minuscules) ne sont pas payés au clic. Même liste que `PAIE_FIXE` du bot. */
+export const PAIE_FIXE = new Set(["caroline", "lilian", "josue", "yves", "rianah", "julien", "jonas"]);
+
+/** Les anciens (premier lien d'avant le 24/09, l'ancien modèle au fixe) passent au clic le 08/10 : leurs visites d'avant
+ *  restent au fixe, comme dans le bot (`debut_clic`). */
+export const ANCIENS_AVANT = "2026-09-24";
+export const BASCULE_CLIC = "2026-10-08";
+
 export type PeriodePaie = { debut: string; fin: string; paie: string };
 
 /** La période de paie qui contient `jour` et sa date de versement. */

@@ -305,11 +305,11 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Une journée validée, c'est de quelle heure à quelle heure ?** De minuit à minuit, heure de Paris. Le bot compte tes publications de la veille et te dit chaque matin si la journée est validée. Tu penses qu'il s'est trompé ? Envoie une capture de tes publications à ton manager le jour même, il vérifie.
 
-**C'est quoi la prime de discipline ?** Elle n'existe que dans l'ancien modèle (clippers arrivés avant le 24 septembre 2026, tant que leur manager ne les a pas passés au clic). Pour tout le monde depuis le 24 septembre : pas de prime, pas de fixe, chaque visite payée 0,05 $.
+**C'est quoi la prime de discipline ?** Elle n'existe plus. Depuis le 8 octobre 2026, tous les clippers sont payés au clic : pas de prime, pas de fixe, chaque visite payée 0,05 $. Seuls quelques membres de l'équipe avec un autre rôle (Metricool, montage YouTube, manager) gardent un fixe, fixé avec Gaëtan.
 
 **Je suis malade, en vacances, en examens ?** Préviens ton manager AVANT, dans ton salon perso, avec les dates. Une absence prévenue n'est pas une sortie. Ton lien continue à compter les visites pendant ce temps.
 
-**Comment marche la rémunération ?** Tu es payé **0,05 $ par visite payable sur ton lien**. 1 000 visites = 50 $, 5 000 = 250 $, 20 000 = 1 000 $, sans plafond. Le compte de l'influenceuse elle-même fait 20 000 à 30 000 visiteurs par mois : c'est le plafond visible. Les clippers arrivés avant le 24 septembre 2026 gardent leur ancien fixe jusqu'à ce que leur manager les passe au clic.
+**Comment marche la rémunération ?** Tu es payé **0,05 $ par visite payable sur ton lien**. 1 000 visites = 50 $, 5 000 = 250 $, 20 000 = 1 000 $, sans plafond. Le compte de l'influenceuse elle-même fait 20 000 à 30 000 visiteurs par mois : c'est le plafond visible. Depuis le 8 octobre 2026, c'est la règle pour tous les clippers, anciens compris : un ancien qui était au fixe est payé au clic sur ses visites à partir du 8 octobre (ce qui précède reste payé au fixe).
 
 **Le salaire, c'est combien par mois ?** Il n'y a plus de salaire fixe : tu gagnes ce que ton lien ramène. Nos meilleurs clippeurs font aujourd'hui environ 3 000 visites par mois, soit 150 $. Les deux premières semaines rapportent peu, les comptes doivent d'abord grandir.
 

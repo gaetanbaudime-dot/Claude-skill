@@ -50,6 +50,12 @@ BILAN_FIXE_JOURS = int(os.environ.get("BILAN_FIXE_JOURS", "14") or 14)
 SEUIL_FIXE_100 = int(os.environ.get("SEUIL_FIXE_100", "32") or 32)            # visites payables/jour qui rentabilisent 100 €
 SEUIL_FIXE_200 = int(os.environ.get("SEUIL_FIXE_200", "65") or 65)            # … et 200 € (0,30 $ de CA par visite, 35 % de marge)
 CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "rianah,gaetan,gaëtan,jonas,x,y").split(",") if p.strip()}
+# 08/10 (Gaëtan) : tout le monde au clic sauf ces prénoms (Julien = montage YouTube, Jonas = manager). Sans accents.
+PAIE_FIXE = {"".join(c for c in unicodedata.normalize("NFD", p.strip().lower()) if unicodedata.category(c) != "Mn")
+             for p in os.environ.get("PAIE_FIXE", "caroline,lilian,josue,yves,rianah,julien,jonas").split(",") if p.strip()}
+PAIE_DECISION = "2026-10-08"
+# 08/10 (ménage GAML) : un lien libéré sous ce nombre de visiteurs (hors robots) sur 7 jours est désactivé, une fois par jour.
+MENAGE_SEUIL = int(os.environ.get("CLICS_MENAGE_SEUIL", "15") or 15)
 # 08/10 (Gaëtan : « branche le tableau d'adresses dans la paie du bot ») : l'app clippers enregistre l'adresse USDC de chaque
 # clipper dans l'onglet « Adresses USDC » du tableur « App clippers · usage » (Drive agence). Le bot le lit à chaque paie, une fois
 # par jour et sur `!adresses`, et complète ses `wallets` : la plus récente des deux adresses (app ou `!wallet`) gagne.
@@ -154,6 +160,14 @@ async def payes_periode(link_id: str, debut: date, fin: date) -> int:
                                                                   "date_to": fin.isoformat(), "timezone": FUSEAU})
     pays = pays if isinstance(pays, list) else (pays.get("member") or pays.get("data") or [])
     return sum(int(x.get("count", 0)) for x in pays if str(x.get("country", "")) in PAYS_PAYES)
+
+
+async def visiteurs_periode(link_id: str, debut: date, fin: date) -> int:
+    """Visites hors robots (tous pays) d'un lien sur une période, en un appel (08/10 : le ménage des liens libérés)."""
+    pays = await _requete("GET", "/analytics/countries", params={"link_id": link_id, "range": "custom", "date_from": debut.isoformat(),
+                                                                  "date_to": fin.isoformat(), "timezone": FUSEAU})
+    pays = pays if isinstance(pays, list) else (pays.get("member") or pays.get("data") or [])
+    return sum(int(x.get("count", 0)) for x in pays)
 
 
 async def cloner_lien(base_id: str, nom: str, note: str) -> dict:
@@ -276,11 +290,41 @@ def periode_en_cours() -> tuple:
     return date(ref.year, ref.month, 16), fin
 
 
-def regime(uid: str) -> str:
-    """« clic » ou « fixe ». Décision du 23/09 : les clippers déjà signés gardent leur fixe, tout nouveau signé
-    passe au clic (le handler J'ACCEPTE pose `paie: clic`). `!paie @clipper clic|fixe` pour changer à la main."""
-    fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(uid), {})
+def _ancien_regime(fiche: dict) -> str:
+    """La règle d'avant le 08/10 : fixe pour les signés d'avant le 24/09, clic après, `!paie` par-dessus."""
     return fiche.get("paie") or ("clic" if str(fiche.get("date", ""))[:10] >= "2026-09-24" else "fixe")
+
+
+def _prenom_uid(uid: str, fiche: dict) -> str:
+    m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+    nom = str(getattr(m, "display_name", "") or fiche.get("prenom") or "")
+    return _n_note(nom.split()[0]) if nom.split() else ""
+
+
+def regime(uid: str) -> str:
+    """« clic » ou « fixe ». 08/10 (Gaëtan : « tout le monde au variable sauf Caroline, Lilian, Josué, Yves et Rianah. Julien
+    montage vidéo YTB et Jonas manageur ») : tout le monde au clic, sauf les prénoms de PAIE_FIXE signés avant la décision (un
+    nouveau Julien signé après est au clic). Un `!paie @clipper clic|fixe` posé depuis le 08/10 passe par-dessus."""
+    fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(uid), {})
+    if fiche.get("paie") and str(fiche.get("paie_le", ""))[:10] >= PAIE_DECISION:
+        return fiche["paie"]
+    if str(fiche.get("date", ""))[:10] > PAIE_DECISION:
+        return "clic"
+    return "fixe" if _prenom_uid(str(uid), fiche) in PAIE_FIXE else "clic"
+
+
+def debut_clic(uid: str) -> str:
+    """08/10 : un clipper passé du fixe au clic par la décision du 08/10 est payé au clic à partir de ce jour-là (sa quinzaine
+    d'avant reste au fixe : jamais payé deux fois). '' pour les autres."""
+    fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(uid), {})
+    if regime(uid) == "clic" and _ancien_regime(fiche) == "fixe" and not str(fiche.get("paie_le", ""))[:10] >= PAIE_DECISION:
+        return PAIE_DECISION
+    return ""
+
+
+def _debut_paie(uid: str, debut: date) -> date:
+    dc = debut_clic(uid)
+    return max(debut, _jour(dc)) if dc else debut
 
 
 def liens_de(d: dict, uid: str) -> list:
@@ -313,26 +357,101 @@ def liberer_liens(d: dict, uid: str, prenom: str = "", uids_connus=None) -> list
 
 
 def lien_libre(d: dict, creatrice: str):
-    """(id, fiche) du premier lien libéré de cette créatrice, ou None."""
+    """(id, fiche) d'un lien libéré de cette créatrice, ou None. 08/10 (ménage GAML) : jamais un lien effacé dans GAML ni un lien
+    passé hors clipping (note GAML changée à la main, ex. Metricool) ; un lien encore actif d'abord (il ne prend pas de place
+    de plus dans le forfait), un lien désactivé par le ménage ensuite (`reprendre_lien` le réactive)."""
     cible = (creatrice or "").split()[0].lower() if creatrice else ""
-    for lid, info in d.get("liens", {}).items():
-        if not str(info.get("uid") or "") and info.get("libere") and str(info.get("creatrice") or "").split()[:1] == [cible] if cible else False:
-            return lid, info
-        if not str(info.get("uid") or "") and info.get("libere") and cible and str(info.get("creatrice") or "").lower().startswith(cible):
-            return lid, info
-    return None
+    if not cible:
+        return None
+    libres = [(lid, info) for lid, info in d.get("liens", {}).items()
+              if not str(info.get("uid") or "") and info.get("libere") and not info.get("supprime_gaml") and not info.get("hors_clipping")
+              and str(info.get("creatrice") or "").lower().startswith(cible)]
+    libres.sort(key=lambda li: bool(li[1].get("desactive")))
+    return libres[0] if libres else None
 
 
-async def reprendre_lien(d: dict, lid: str, uid: str, prenom: str, creatrice: str) -> None:
+async def reprendre_lien(d: dict, lid: str, uid: str, prenom: str, creatrice: str) -> bool:
     """Le lien d'un sortant passe au suivant : uid, `depuis` = aujourd'hui (ses visites commencent là), note « Clipping Prénom »
-    (aussi côté GAML, sans bloquer si l'API refuse). L'appelant écrit `d`."""
+    (aussi côté GAML, sans bloquer si l'API refuse). 08/10 : réactivé côté GAML s'il avait été désactivé par le ménage ; si
+    GAML refuse la réactivation (forfait plein), rien n'est repris (jamais un lien mort dans une bio) et on renvoie False.
+    L'appelant écrit `d`."""
     info = d["liens"][lid]
-    info.update({"uid": str(uid), "depuis": _aujourdhui().isoformat(), "note": f"Clipping {prenom}", "creatrice": creatrice.split()[0],
-                 "par": "reprise", "repris_de": info.pop("ancien", ""), "libere": ""})
+    avant = dict(info)
     try:
-        await _requete("PATCH", f"/links/{lid}", corps={"note": f"Clipping {prenom}"})
+        await _requete("PATCH", f"/links/{lid}", corps={"note": f"Clipping {prenom}", "enabled": True})
     except RuntimeError as erreur:
+        if info.get("desactive"):
+            journal.warning("Lien %s désactivé non repris pour %s : réactivation refusée (%s)", lid, prenom, erreur)
+            info["reactivation_echouee"] = _aujourdhui().isoformat()
+            return False
         journal.warning("Lien %s repris pour %s : note GAML non mise à jour (%s)", lid, prenom, erreur)
+    info.update({"uid": str(uid), "depuis": _aujourdhui().isoformat(), "note": f"Clipping {prenom}", "creatrice": creatrice.split()[0],
+                 "par": "reprise", "repris_de": avant.get("ancien", ""), "libere": ""})
+    for cle in ("ancien", "desactive", "reactivation_echouee"):
+        info.pop(cle, None)
+    return True
+
+
+async def menage_liens(d: dict, seuil: int = None, jours: int = 7) -> list:
+    """08/10 (Gaëtan : « on fait le ménage avec les clippeurs qui partent ») : un lien libéré qui ne fait plus de visites est
+    désactivé dans GAML (un lien désactivé ne compte pas dans le forfait). Jamais effacé : il reste à sa créatrice, avec son
+    tracking, et `reprendre_lien` le réactive pour le suivant. Un lien libéré qui travaille encore (les Reels de l'ancien
+    amènent des visites à la créatrice) reste actif jusqu'à ce qu'il tombe sous le seuil. Renvoie les lignes pour l'admin.
+    L'appelant écrit `d`."""
+    seuil = MENAGE_SEUIL if seuil is None else seuil
+    fin = _aujourdhui() - timedelta(days=1)
+    debut = fin - timedelta(days=jours - 1)
+    lignes = []
+    for lid, info in d.get("liens", {}).items():
+        if (str(info.get("uid") or "") or not info.get("libere") or info.get("desactive") or info.get("supprime_gaml")
+                or info.get("hors_clipping") or info.get("suivi")):
+            continue
+        try:
+            n = await visiteurs_periode(lid, debut, fin)
+        except RuntimeError as erreur:
+            journal.warning("Ménage %s : visites illisibles (%s)", lid, erreur)
+            continue
+        if n >= seuil:
+            continue
+        try:
+            await _requete("PATCH", f"/links/{lid}", corps={"enabled": False})
+        except RuntimeError as erreur:
+            journal.warning("Ménage %s : désactivation refusée (%s)", lid, erreur)
+            continue
+        info["desactive"] = _aujourdhui().isoformat()
+        lignes.append(f"· {str(info.get('creatrice') or '?').title()} · ex-{info.get('ancien') or info.get('note') or '?'} · "
+                      f"{n} visiteur(s) en {jours} jours → désactivé")
+        journal.info("Ménage GAML : lien %s (%s) désactivé, %s visiteurs en %s jours", lid, info.get("ancien"), n, jours)
+    return lignes
+
+
+def synchroniser_notes(d: dict, liens: list) -> list:
+    """08/10 (comptes d'Hasina passés sur Metricool, gérés par Rianah) : une note GAML changée à la main qui n'est plus
+    « Clipping Prénom » sort le lien du clipping (jamais repris pour un nouveau clipper, jamais désactivé par le ménage).
+    La note redevient « Clipping … » → le lien revient. Renvoie les lignes pour l'admin (seulement les changements)."""
+    lignes = []
+    par_id = {l.get("id"): l for l in liens or [] if l.get("id")}
+    for lid, info in d.get("liens", {}).items():
+        l = par_id.get(lid)
+        if l is None or not (str(info.get("uid") or "") or info.get("libere") or info.get("hors_clipping")):
+            continue                                                    # liens de la créatrice / Metricool suivis par le rapport : pas du clipping
+        note = str(l.get("note") or "").strip()
+        hors = not _prenom_note(note)
+        if hors and not info.get("hors_clipping"):
+            # Détaché de son clipper comme à une sortie (uid vidé, plus de relevé ni de paie au clic dessus), jamais libéré.
+            uid_av = str(info.get("uid") or "")
+            info.update({"hors_clipping": note or "(note vide)", "hors_depuis": _aujourdhui().isoformat(), "uid": "", "libere": "",
+                         "ancien": info.get("ancien") or _prenom_note(info.get("note")) or str(info.get("note") or ""),
+                         "note": note})
+            if uid_av:
+                info["ancien_uid"] = uid_av
+            lignes.append(f"· {str(info.get('creatrice') or '?').title()} · ex-{info['ancien'] or '?'} devenu « {note or '(vide)'} » : "
+                          f"sorti du clipping, plus compté pour un clipper ni repris par le bot")
+        elif not hors and info.get("hors_clipping"):
+            info.pop("hors_clipping", None)
+            info["note"] = note                                         # `associer_auto` le rattache au membre de ce prénom
+            lignes.append(f"· {str(info.get('creatrice') or '?').title()} · « {note} » : revenu au clipping")
+    return lignes
 
 
 def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
@@ -408,6 +527,7 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
     h = somme(d, lids, hier, hier)
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
     debut, fin = periode_en_cours()
+    debut = _debut_paie(uid, debut)                                     # 08/10 : passé au clic ce jour-là
     q = somme(d, lids, debut, min(fin, hier))
     part = f" ({h['payes'] * 100 // h['hors_robots']} % de tes visiteurs)" if h["hors_robots"] else ""
     robots = h["brut"] - h["hors_robots"]
@@ -455,10 +575,10 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple
             par_uid.setdefault(uid, []).append(lid)
     lignes, rangs, total, sans, fixes = [], [], 0.0, 0, []
     for uid, lids in par_uid.items():
-        s = somme(d, lids, debut, fin)
         if regime(uid) != "clic":
-            fixes.append((nom_de(uid), s["payes"]))
+            fixes.append((nom_de(uid), somme(d, lids, debut, fin)["payes"]))
             continue
+        s = somme(d, lids, _debut_paie(uid, debut), fin)              # 08/10 : passé au clic ce jour-là, pas avant
         if s["payes"] == 0:
             continue
         montant = round(s["payes"] * TAUX_CLIC, 2); total += montant
@@ -659,7 +779,7 @@ async def annoncer_paie(client, d: dict, maintenant) -> None:
     for uid in {str(i.get("uid")) for i in d["liens"].values() if i.get("uid")}:
         if regime(uid) != "clic":
             continue
-        s = somme(d, liens_de(d, uid), debut, fin)
+        s = somme(d, liens_de(d, uid), _debut_paie(uid, debut), fin)
         if not s["payes"]:
             continue                                                    # 08/10 (audit) : plus de « 0,00 $, !wallet maintenant » à un nouveau
         salon = _deps["salon_perso"](uid)
@@ -695,6 +815,10 @@ async def boucle(client, deps: dict):
                 lignes = await associer_auto(d, liens_tous)
                 if _deps.get("associer_suivi") and _deps["associer_suivi"](d, liens_tous):
                     _ecrire(d)
+                notes = synchroniser_notes(d, liens_tous)              # 08/10 : une note changée à la main (Metricool) sort le lien
+                if notes:
+                    _ecrire(d)
+                    lignes += ["🏷️ **Note GAML changée à la main**"] + notes
                 derniere_assoc = time.time()
                 if lignes:
                     _ecrire(d)
@@ -719,6 +843,19 @@ async def boucle(client, deps: dict):
                             await canal_a.send(("📒 **Adresses USDC reprises de l'app**\n" + "\n".join(reprises))[:1900])
                         except (discord.Forbidden, discord.HTTPException) as erreur:
                             journal.warning("Adresses USDC (admin) : %s", erreur)
+            if maintenant.hour >= CLICS_HEURE and d.get("menage") != aujourdhui:     # 08/10 : les liens libérés sans visites
+                faits = await menage_liens(d)
+                d["menage"] = aujourdhui
+                _ecrire(d)
+                if faits:
+                    canal_m = await _deps["canal_admin"]()
+                    if canal_m is not None:
+                        try:
+                            await canal_m.send(("🧹 **Ménage GAML** (liens de clippers partis, moins de "
+                                                f"{MENAGE_SEUIL} visiteurs en 7 jours ; réactivés tout seuls pour le suivant)\n"
+                                                + "\n".join(faits))[:1900])
+                        except (discord.Forbidden, discord.HTTPException) as erreur:
+                            journal.warning("Ménage GAML (admin) : %s", erreur)
             if maintenant.hour >= CLICS_HEURE and d.get("matin") != aujourdhui and complets:
                 # 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : plus de ligne de visites quotidienne dans les
                 # salons persos (CLICS_LIGNE_MATIN=1 pour la rallumer) ; `!mesclics` et la paie des 5 et 20 restent.
@@ -899,6 +1036,7 @@ async def commande_staff(message, texte: str) -> bool:
         registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
         fiche = registre.setdefault(str(message.mentions[0].id), {})
         fiche["paie"] = mots[-1].lower(); fiche["paie_par"] = str(message.author.id)
+        fiche["paie_le"] = _aujourdhui().isoformat()                    # 08/10 : passe par-dessus la règle du 08/10
         _deps["ecrire_json"](_deps["FICHIER_EQUIPES"], registre)
         await message.reply(f"✅ {message.mentions[0].display_name} → paie **{fiche['paie']}**.")
         return True
@@ -975,7 +1113,8 @@ async def commande_staff(message, texte: str) -> bool:
             lignes.append(f"· {nom} [{reg}] — hier {_fmt(h['payes'])} · 7 j {_fmt(s7['payes'])} ({part} payables, "
                           f"{_fmt(s7['payes'] / 7)}/j) · quinzaine {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
                           + ("" if reg != "clic" or uid in d["wallets"] else " · ⚠️ sans adresse"))
-        lignes.append("-# [fixe] = ancien modèle (grille + 0,50 €/abonné), [clic] = payé sur la liste du 5 et du 20. "
+        lignes.append("-# [fixe] = Caroline, Lilian, Josué, Yves, Rianah (et Julien, Jonas hors clipping), décision du 08/10 ; "
+                      "[clic] = tous les autres, payés sur la liste du 5 et du 20 (au clic depuis le 08/10 pour les anciens fixes). "
                       "`!paie @clipper clic|fixe` pour changer. Repère de rentabilité d'un fixe : ≈ 65 visites payables/jour "
                       "pour 200 €, ≈ 32/jour pour 100 € (0,30 $ de CA par visite, 35 % de marge).")
         if not rangs:

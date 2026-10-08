@@ -6,7 +6,7 @@ import { signaler } from "@/lib/signal";
 type Jour = { jour: string; visites: number; complet: boolean };
 type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
 type Versements = {
-  prenom: string; creatrice: string; taux: number;
+  prenom: string; creatrice: string; taux: number; fixe?: boolean; depuis?: string;
   liens: { url: string; creeLe: string }[];
   periode: Bloc; aujourdhui: Jour; hier: Jour; serie: Jour[];
   precedents: (Bloc & { versee: boolean })[];
@@ -143,12 +143,12 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
           {v && <span className="text-[11px] text-argent2/70">{fmtUsd(v.taux, true)} la visite</span>}
         </div>
         <div className="titre-argent text-[40px] font-bold leading-none mt-2 tabular-nums">{p ? <Compteur valeur={p.montant} format={(n) => fmtUsd(Math.round(n * 100) / 100, true)} /> : <span className="squelette inline-block h-9 w-40" />}</div>
-        <div className="text-[12px] text-argent2 mt-1">{p ? `${fmtNb(p.visites)} visite${p.visites > 1 ? "s" : ""} francophone${p.visites > 1 ? "s" : ""} depuis le ${jourCourt(p.debut)}` : "visites francophones"}</div>
+        <div className="text-[12px] text-argent2 mt-1">{p ? `${fmtNb(p.visites)} visite${p.visites > 1 ? "s" : ""} francophone${p.visites > 1 ? "s" : ""} depuis le ${jourCourt(v?.depuis || p.debut)}` : "visites francophones"}</div>
         <div className="mt-4 rounded-2xl p-3 flex items-center gap-3" style={{ background: "rgba(52,211,153,0.10)" }}>
           <svg className="text-emerald-300 shrink-0" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /><path d="m9.5 15.5 1.8 1.8 3.4-3.6" /></svg>
           <div className="leading-tight">
-            <div className="text-[11px] font-bold tracking-widest uppercase text-emerald-300">Prochain versement</div>
-            <div className="text-[17px] font-bold mt-0.5">{p ? `${fmtUsd(p.montant)} le ${p.libellePaie}` : "—"}</div>
+            <div className="text-[11px] font-bold tracking-widest uppercase text-emerald-300">{v?.fixe ? "Tu es au fixe" : "Prochain versement"}</div>
+            <div className="text-[17px] font-bold mt-0.5">{v?.fixe ? "Montants pour info, ta paie ne change pas" : p ? `${fmtUsd(p.montant)} le ${p.libellePaie}` : "—"}</div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 mt-4">
@@ -189,7 +189,7 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
         <div className="text-[11px] text-argent2/70 mt-2 flex gap-3"><span><span className="text-accent">●</span> période en cours</span><span><span className="text-white">●</span> aujourd'hui</span><span>mis à jour toutes les 5 min</span></div>
       </div>
 
-      {v && v.precedents.length > 0 && (
+      {v && !v.fixe && v.precedents.length > 0 && (
         <div className="carte apparait-3 p-4">
           <div className="text-[14px] font-semibold mb-2">Versements précédents</div>
           <div className="divide-y divide-white/5">
@@ -219,7 +219,7 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
         </div>
       )}
 
-      {v && <AdresseUsdc jeton={jeton} />}
+      {v && !v.fixe && <AdresseUsdc jeton={jeton} />}
 
       {v && (
         <p className="text-[11px] text-argent2/70 text-center px-4 leading-relaxed">

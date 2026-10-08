@@ -961,16 +961,23 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
         fiche_eq = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(membre.id)) or {}) if _deps.get("FICHIER_EQUIPES") else {}
         multi = bool(fiche_eq.get("creatrices_en_plus"))                    # plusieurs créatrices : jamais le lien d'une autre
         lids = lids_c or ([] if multi else [l for l in lids if not (d["liens"].get(l) or {}).get("creatrice")])
+        repris = False
+        if not lids and creer and paie_clics.actif():
+            libre = paie_clics.lien_libre(d, creatrice)
+            # 28/09 : le lien d'un sortant va au suivant ; 08/10 : réactivé s'il avait été désactivé par le ménage, sinon on clone
+            if libre and await paie_clics.reprendre_lien(d, libre[0], str(membre.id), prenom, creatrice):
+                lid, lien, repris = libre[0], libre[1].get("url", ""), True
+            elif libre:
+                resultat.append("⚠️ lien libéré désactivé, réactivation refusée par GAML (forfait plein ?) : clone tenté")
+            if libre:
+                paie_clics._ecrire(d)
         if lids:
             lid = lids[0]
             lien = d["liens"][lid].get("url", "")
         elif not creer:
             return {"lien": "", "lid": "", "lignes": []}                    # 05/10 : pas encore le moment (compte 3 pas ouvert)
-        elif paie_clics.actif() and paie_clics.lien_libre(d, creatrice):        # 28/09 : le lien d'un sortant va au suivant
-            lid, info_l = paie_clics.lien_libre(d, creatrice)
-            await paie_clics.reprendre_lien(d, lid, str(membre.id), prenom, creatrice)
-            paie_clics._ecrire(d)
-            lien = info_l.get("url", "")
+        elif repris:
+            pass
         elif paie_clics.actif():
             liens = await paie_clics.liens_gaml()
             de_la_creatrice = [l for l in liens if _norm(str(l.get("name", "")).split()[0] if l.get("name") else "") == _norm(creatrice.split()[0])]

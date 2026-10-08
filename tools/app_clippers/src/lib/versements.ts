@@ -4,13 +4,15 @@
  *  jours plus anciens, puis l'historique) ; si la limite est atteinte en route, on rend ce qu'on a avec `partiel`. */
 import { aujourdhuiParis, decaler, libelleLong, libellePlage } from "./dates";
 import { ErreurGaml, visitesJour, visitesPeriodePassee } from "./gaml";
-import { CLICS_DEPUIS, montant, periodeEnCours, periodePrecedente, TAUX_CLIC, type PeriodePaie } from "./paie";
-import type { Clipper } from "./clippers";
+import { ANCIENS_AVANT, BASCULE_CLIC, CLICS_DEPUIS, montant, PAIE_FIXE, periodeEnCours, periodePrecedente, TAUX_CLIC, type PeriodePaie } from "./paie";
+import { normaliser, type Clipper } from "./clippers";
 
 export type Jour = { jour: string; visites: number; complet: boolean };
 export type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
 export type Versements = {
   prenom: string; creatrice: string; taux: number;
+  fixe: boolean;                  // 08/10 : au fixe (Caroline, Lilian, Josué, Yves, Rianah…), les montants ne sont que pour info
+  depuis: string;                 // premier jour compté dans la période en cours (le 08/10 pour un ancien passé au clic)
   liens: { url: string; creeLe: string }[];
   periode: Bloc;
   aujourdhui: Jour; hier: Jour;
@@ -48,17 +50,20 @@ export async function versements(c: Clipper): Promise<Versements> {
     catch (e) { if ((e as ErreurGaml).limite) etat.limite = true; return null; }
   };
   const premierLien = liens.map((l) => l.creeLe).filter(Boolean).sort()[0] || aujourdhui;
+  const fixe = PAIE_FIXE.has(normaliser(c.prenom).split(" ")[0] || "");
+  const plancher = !fixe && premierLien < ANCIENS_AVANT ? BASCULE_CLIC : "";   // un ancien : au clic depuis le 08/10 seulement
+  const depuis = plancher > p.debut ? plancher : p.debut;
   const precedentsP: PeriodePaie[] = [];
   let q = periodePrecedente(p);
   for (let i = 0; i < 2 && q.fin >= CLICS_DEPUIS; i++) {
-    if (q.fin >= premierLien) precedentsP.push(q);                       // pas d'historique avant son premier lien : rien à verser
+    if (q.fin >= premierLien && q.fin >= plancher) precedentsP.push(q);  // pas d'historique avant son premier lien ni avant son passage au clic
     q = periodePrecedente(q);
   }
 
   const taches: (() => Promise<number | null>)[] = [];
   const index: { jour?: string; periode?: number; lien: number }[] = [];
   for (const j of jours) liens.forEach((l, k) => { taches.push(() => lire(l.id, l.creeLe, j, j, true)); index.push({ jour: j, lien: k }); });
-  precedentsP.forEach((pp, n) => liens.forEach((l, k) => { taches.push(() => lire(l.id, l.creeLe, pp.debut, pp.fin, false)); index.push({ periode: n, lien: k }); }));
+  precedentsP.forEach((pp, n) => liens.forEach((l, k) => { taches.push(() => lire(l.id, l.creeLe, pp.debut > plancher ? pp.debut : plancher, pp.fin, false)); index.push({ periode: n, lien: k }); }));
   const resultats = await enParallele(taches, 4);
 
   const parJour = new Map<string, { visites: number; complet: boolean }>();
@@ -70,11 +75,11 @@ export async function versements(c: Clipper): Promise<Versements> {
     if (v === null) cible.complet = false; else cible.visites += v;
   });
   const serie: Jour[] = [...jours].reverse().map((j) => ({ jour: j, ...parJour.get(j)! }));
-  const dansPeriode = serie.filter((j) => j.jour >= p.debut && j.jour <= p.fin);
+  const dansPeriode = serie.filter((j) => j.jour >= depuis && j.jour <= p.fin);
   const visitesPeriode = dansPeriode.reduce((s, j) => s + j.visites, 0);
   const hier = decaler(aujourdhui, -1);
   return {
-    prenom: c.prenom, creatrice: c.creatrice, taux: TAUX_CLIC,
+    prenom: c.prenom, creatrice: c.creatrice, taux: TAUX_CLIC, fixe, depuis,
     liens: liens.filter((l) => l.enabled).map((l) => ({ url: l.url, creeLe: l.creeLe })),
     periode: bloc(p, visitesPeriode, dansPeriode.every((j) => j.complet)),
     aujourdhui: serie.find((j) => j.jour === aujourdhui) || { jour: aujourdhui, visites: 0, complet: false },
