@@ -660,7 +660,7 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
     if n == 1 and _deps.get("whatsapp"):
         # 05/10 (Gaëtan : « oblige les gens à me contacter sur WhatsApp une fois qu'il a créé le premier IG ») : pas bloquant,
         # mais demandé ici, une fois, avec le message déjà écrit ; `!wa @clipper` (staff) note que c'est fait.
-        texte += ("\n\n📲 **Maintenant, écris à Gaëtan sur WhatsApp** (bouton ci-dessous, le message est déjà écrit) : "
+        texte += (f"\n\n📲 **Maintenant, écris à Gaëtan sur WhatsApp** (bouton ci-dessous, {consigne_whatsapp(uid, fiche_p)}) : "
                   "il ouvre ton groupe avec Jonas. C'est là que tu poses tes questions.")
         vue = discord.ui.View(timeout=None)
         vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link,
@@ -668,16 +668,43 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
     await salon.send(f"{membre.mention} " + texte, view=vue) if vue is not None else await salon.send(f"{membre.mention} " + texte)
 
 
-def lien_whatsapp_prerempli(uid, fiche_p: dict = None) -> str:
-    """05/10 : le wa.me de Gaëtan avec le message du clipper déjà écrit (prénom, créatrice, compte 1 créé)."""
-    from urllib.parse import quote
+# 08/10 (Mathieu : « ça me redirige vers WhatsApp mais il demande d'envoyer le message à un contact dans mon téléphone ») : le
+# lien de Gaëtan est un lien court WhatsApp Business (wa.me/message/…), qui ne prend pas de texte ; le « ?text= » ajouté le
+# cassait (WhatsApp ouvrait le choix d'un contact). Le texte n'est ajouté qu'à un lien wa.me/<numéro> — ou au numéro de
+# WHATSAPP_GAETAN_NUMERO s'il est posé dans Railway (jamais dans le dépôt) ; sinon le lien court part tel quel et le message à
+# envoyer est écrit dans Discord, à copier.
+WHATSAPP_NUMERO = re.sub(r"\D", "", os.environ.get("WHATSAPP_GAETAN_NUMERO", ""))
+
+
+def _message_wa(uid, fiche_p: dict = None) -> str:
+    fiche_p = _lire().get(str(uid), {}) if fiche_p is None else fiche_p
+    return f"Bonjour Gaëtan, je suis {fiche_p.get('prenom') or 'un clipper'}, clipper de {fiche_p.get('creatrice') or '?'}."
+
+
+def whatsapp_prerempli() -> bool:
+    """Le bouton WhatsApp peut-il porter le message déjà écrit ? Seulement vers un numéro (wa.me/<numéro>)."""
     base = str(_deps.get("whatsapp") or "").split("?")[0]
+    return bool(WHATSAPP_NUMERO) or bool(re.search(r"wa\.me/\+?\d{6,}/?$", base))
+
+
+def lien_whatsapp_prerempli(uid, fiche_p: dict = None) -> str:
+    """05/10 : le wa.me de Gaëtan avec le message du clipper déjà écrit (prénom, créatrice) quand c'est possible ; sinon le lien
+    court WhatsApp Business tel quel (08/10)."""
+    from urllib.parse import quote
+    brut = str(_deps.get("whatsapp") or "")
+    base = f"https://wa.me/{WHATSAPP_NUMERO}" if WHATSAPP_NUMERO else brut.split("?")[0]
     if not base:
         return ""
-    fiche_p = _lire().get(str(uid), {}) if fiche_p is None else fiche_p
-    prenom = fiche_p.get("prenom") or "un clipper"
-    creatrice = fiche_p.get("creatrice") or "?"
-    return f"{base}?text=" + quote(f"Bonjour Gaëtan, je suis {prenom}, clipper de {creatrice}. Mon compte 1 est créé et il publie.")
+    if not whatsapp_prerempli():
+        return brut
+    return f"{base.rstrip('/')}?text=" + quote(_message_wa(uid, fiche_p))
+
+
+def consigne_whatsapp(uid, fiche_p: dict = None) -> str:
+    """Ce qui accompagne le bouton : « le message est déjà écrit » seulement si c'est vrai, sinon le message à lui envoyer."""
+    if whatsapp_prerempli():
+        return "le message est déjà écrit"
+    return f"envoie-lui : « {_message_wa(uid, fiche_p)} »"
 
 
 def marquer_whatsapp(uid: str) -> bool:

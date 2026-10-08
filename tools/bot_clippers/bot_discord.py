@@ -1853,6 +1853,23 @@ def chercher_membre(reference, exact=False):
 
 
 
+def chercher_par_prenom(prenom: str):
+    """08/10 (salons des anciens du 06/10 : 8 « introuvable sur le serveur » sur 9, puis Jonas et Julien le 07/10) :
+    `chercher_membre(exact=True)` ne compare que le pseudo ENTIER, or les pseudos sont « Prénom - Créatrice » (Yves - Sarah,
+    Jonas - Manageur) ; seule Thia passait, par son nom d'utilisateur. D'abord l'exact, puis le membre dont le prénom du pseudo
+    (`prenom_de`) vaut exactement celui demandé : un seul, sinon personne (deux Julien : on ne choisit pas). Jamais de
+    correspondance partielle (« Roman » ne donne pas « Romane »). Pour les dépôts (salons, onboarding, notes), pas les sorties."""
+    m = chercher_membre(prenom, exact=True)
+    if m is not None:
+        return m
+    cle = normaliser(prenom)
+    cle = normaliser(roster.resoudre_alias(cle)) or cle
+    if not cle:
+        return None
+    trouves = {m.id: m for g in client.guilds for m in g.members if not m.bot and normaliser(prenom_de(m)) == cle}
+    return next(iter(trouves.values())) if len(trouves) == 1 else None
+
+
 class Fantome:
     """Un clipper parti du serveur (27/09) : juste ce qu'il faut pour `!paiement` — identifiant, nom, pas de mention."""
     def __init__(self, uid, nom: str):
@@ -4694,9 +4711,9 @@ async def onboarder_multi(prenom: str, creatrices: list) -> str:
     clippeuse, sans test de montage, direct sur le premier compte ») : la PREMIÈRE créatrice est la principale (salon dans sa
     catégorie, rôles, roster, 3 comptes réservés, parcours remis à l'étape 1 et livré compte par compte) ; chaque autre reçoit
     son rôle, 3 comptes réservés livrés d'un bloc dans le même salon, son Drive, ses alias 2FA et son propre lien GAML."""
-    m_ = chercher_membre(prenom, exact=True)
+    m_ = chercher_par_prenom(prenom)
     if m_ is None:
-        return f"⚠️ {prenom} : introuvable sur le serveur"
+        return f"⚠️ {prenom} : introuvable sur le serveur, ou deux membres de ce prénom"
     if not creatrices:
         return f"⚠️ {prenom} : aucune créatrice donnée"
     g, uid = m_.guild, str(m_.id)
@@ -4786,7 +4803,7 @@ async def onboarder_multi(prenom: str, creatrices: list) -> str:
 async def noter_depose(prenom: str, texte: str) -> str:
     """07/10 : une note de manager déposée par le dépôt (comme `!note @x texte`), dans la fiche de parcours. « garde » protège de
     la purge, de l'appel de présence et de la sortie sans Reel (Rianah : 400 € fixe, Metricool + 2 téléphones)."""
-    m_ = chercher_membre(prenom, exact=True)
+    m_ = chercher_par_prenom(prenom)
     if m_ is None:
         return f"⚠️ {prenom} : introuvable, note non posée"
     d_p = lire_json(FICHIER_PARCOURS, {})
@@ -4803,9 +4820,9 @@ async def ouvrir_salon_simple(prenom: str) -> str:
     """07/10 (Gaëtan : « GO faire Jonas et Julien, j'ai deux gros messages à leur faire ») : un salon privé (lui, le bot ; les
     admins voient tout), retrouvé s'il existe déjà, sinon créé dans la catégorie de sa créatrice ou dans Clippers. Rien d'autre :
     ni rôle, ni comptes, ni parcours (Jonas est manager)."""
-    m_ = chercher_membre(prenom, exact=True)
+    m_ = chercher_par_prenom(prenom)
     if m_ is None:
-        return f"⚠️ {prenom} : introuvable sur le serveur, pas de salon"
+        return f"⚠️ {prenom} : introuvable sur le serveur, ou deux membres de ce prénom : pas de salon"
     creatrice = roster.creatrice_de(prenom) or (lire_json(FICHIER_EQUIPES, {}).get(str(m_.id)) or {}).get("creatrice") or ""
     cat = categorie_de_creatrice(m_.guild, creatrice) if creatrice else None
     salon_s, cree_s, err_s = await assurer_salon_perso(m_.guild, m_, cat, creatrice, "salon privé demandé par Gaëtan (07/10)")
@@ -4818,9 +4835,9 @@ async def ouvrir_salon_ancien(prenom: str) -> str:
     """06/10 (Gaëtan : « créer un salon personnel avec ses logins de comptes » pour neuf anciens de Jonas) : salon perso dans la
     catégorie de sa créatrice (roster), puis livraison forcée comme `!onboarding` : TOUS ses comptes du classeur (jamais un BAN,
     complétés par des comptes neufs), son lien GAML, son Drive. Appelée par `roster.salons_deposes`, une fois par dépôt."""
-    m_ = chercher_membre(prenom, exact=True)
+    m_ = chercher_par_prenom(prenom)
     if m_ is None:
-        return f"⚠️ {prenom} : introuvable sur le serveur, pas de salon"
+        return f"⚠️ {prenom} : introuvable sur le serveur, ou deux membres de ce prénom : pas de salon"
     creatrice = roster.creatrice_de(prenom) or (lire_json(FICHIER_EQUIPES, {}).get(str(m_.id)) or {}).get("creatrice") or ""
     if not creatrice:
         return f"⚠️ {prenom} : aucune créatrice au roster ni au registre, pas de salon"
@@ -7309,7 +7326,8 @@ async def on_ready():
                           "canal_admin": canal_admin, "prenom_de": prenom_de,
                           "notes": lambda uid: [str(n.get("texte", "")) for n in (lire_json(FICHIER_PARCOURS, {}).get(str(uid)) or {}).get("notes", [])],
                           "roster": roster, "normaliser": normaliser, "heure_paris": heure_paris, "jours_sans_reel": sortie_auto.jours_sans_reel,
-                          "lien_whatsapp": parcours.lien_whatsapp_prerempli, "est_staff": _staff, "membre_par_id": membre_par_id,
+                          "lien_whatsapp": parcours.lien_whatsapp_prerempli, "consigne_whatsapp": parcours.consigne_whatsapp,
+                          "est_staff": _staff, "membre_par_id": membre_par_id,
                           # 05/10 : un compte livré vu existant par le scan Instagram = compte créé (la purge ne sort pas sur le seul bouton)
                           "compte_vu": lambda handles: any(any(x.get("existe") for x in lire_json(FICHIER_ETATS, {}).get("historique", {})
                                                                    .get(onboarding.normaliser_handle(str(h)).lower(), []))

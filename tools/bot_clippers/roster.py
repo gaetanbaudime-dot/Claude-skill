@@ -396,6 +396,27 @@ async def sorties_deposees(client) -> list:
 FICHIER_SALONS_DEPOSES = Path(__file__).parent / "salons_a_ouvrir.json"
 
 
+SALONS_ESSAIS_MAX = 3                                                   # 08/10 : démarrages où un prénom en échec est repris
+
+
+def _ligne_reussie(ligne) -> bool:
+    """Une ligne de bilan d'ouverture qui dit que c'est fait : salon créé ou retrouvé, note posée (« ⚠️ » et « ❌ » = échec)."""
+    return str(ligne).startswith(("🆕", "✅", "📝"))
+
+
+def _prenoms_reussis(deja: dict, prenoms: list) -> set:
+    """Les prénoms (normalisés) déjà servis pour une entrée : la liste « faits » de la trace, sinon (traces d'avant le 08/10)
+    ceux dont une ligne de bilan réussie porte le prénom en tête."""
+    if isinstance(deja.get("faits"), list):
+        return {_n(p) for p in deja["faits"]}
+    ok = set()
+    for ligne in deja.get("bilan") or []:
+        if _ligne_reussie(ligne):
+            tete = _n(str(ligne)[:60])
+            ok |= {_n(p) for p in prenoms if _n(p) and _n(p) in tete.split() + [w.strip("·→") for w in tete.split()]}
+    return ok
+
+
 async def salons_deposes(client) -> list:
     """06/10 (Gaëtan : « créer un salon personnel dans le discord avec ses login de comptes pour les clippeurs suivants ») :
     `salons_a_ouvrir.json` = [{"id", "prenoms": [...]}]. Chaque entrée, une fois : les prénoms sortent de `sans_salon` (sinon
@@ -415,15 +436,24 @@ async def salons_deposes(client) -> list:
     for e in entrees if isinstance(entrees, list) else []:
         ident = str(e.get("id") or "")
         prenoms = [str(p).strip() for p in e.get("prenoms") or [] if str(p).strip()]
-        if not ident or not prenoms or ident in faits:
+        if not ident or not prenoms:
+            continue
+        # 08/10 : une entrée n'est plus close au premier passage. Les anciens du 06/10 (8 « introuvable » sur 9, recherche
+        # du membre corrigée le 08/10) et Jonas et Julien n'avaient jamais été retentés : un prénom en échec est repris aux
+        # démarrages suivants, SALONS_ESSAIS_MAX fois au plus ; un prénom réussi ne l'est jamais.
+        deja = faits.get(ident) or {}
+        reussis = _prenoms_reussis(deja, prenoms)
+        essais = dict(deja.get("essais") or {})
+        restants = [p for p in prenoms if _n(p) not in reussis and int(essais.get(_n(p), 0)) < SALONS_ESSAIS_MAX]
+        if not restants:
             continue
         d = lire()
-        cles = {_n(p) for p in prenoms}
+        cles = {_n(p) for p in restants}
         d["sans_salon"] = [x for x in d.get("sans_salon", []) if _n(x) not in cles]
         ecrire(d)
         lignes = []
         ouvrir = _deps.get("ouvrir_salon_simple") if e.get("simple") else _deps["ouvrir_salon"]   # 07/10 : salon seul, sans logins
-        for p in prenoms:
+        for p in restants:
             try:
                 if e.get("note"):                                           # 07/10 : note de manager (« garde »)
                     lignes.append(await _deps["noter"](p, str(e["note"])) if _deps.get("noter") else f"⚠️ {p} : note indisponible")
@@ -435,7 +465,14 @@ async def salons_deposes(client) -> list:
                 lignes.append(await ouvrir(p) if ouvrir else f"⚠️ {p} : ouverture simple indisponible")
             except Exception as erreur:                                     # noqa: BLE001
                 lignes.append(f"❌ {p} : {type(erreur).__name__} {str(erreur)[:100]}")
-        faits[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": lignes}
+        maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for p, ligne in zip(restants, lignes):
+            if _ligne_reussie(ligne):
+                reussis.add(_n(p))
+            else:
+                essais[_n(p)] = int(essais.get(_n(p), 0)) + 1
+        faits[ident] = {"date": deja.get("date") or maintenant, "maj": maintenant,
+                        "bilan": ((deja.get("bilan") or []) + lignes)[-40:], "faits": sorted(reussis), "essais": essais}
         _deps["ecrire_json"](trace, faits)
         bilan.extend(lignes)
     if bilan and _deps.get("notifier"):

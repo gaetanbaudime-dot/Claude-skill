@@ -40,7 +40,7 @@ RAISON_PURGE = (f"{PURGE_HEURES} h sans créer ton compte 1 et sans un mot dans 
 _deps = {}
 
 TEXTE_APPEL = ("📢 **{prenom}, réponds ici dans les {heures} h.** Un mot suffit : « présent ».\n\n"
-               "Et écris à Gaëtan sur WhatsApp (bouton ci-dessous, le message est déjà écrit) : c'est là que l'équipe te parle.\n\n"
+               "Et écris à Gaëtan sur WhatsApp (bouton ci-dessous, {wa}) : c'est là que l'équipe te parle.\n\n"
                "Sans réponse ici dans {heures} h, tu sors du serveur et ta place va au suivant.")
 TEXTE_RELANCE_WA = ("📲 {prenom}, merci pour ta réponse. Il manque WhatsApp : écris à Gaëtan maintenant (bouton ci-dessous), "
                     "il ouvre ton groupe. C'est là que tout se passe.")
@@ -118,6 +118,14 @@ def _protege(uid: str, prenom: str) -> bool:
     return any("garde" in _n(t) for t in (notes(uid) if notes else []))
 
 
+def _consigne_wa(uid: str) -> str:
+    """08/10 : « le message est déjà écrit » seulement si le lien le porte (parcours.consigne_whatsapp), sinon le message à envoyer."""
+    try:
+        return _deps["consigne_whatsapp"](uid) if _deps.get("consigne_whatsapp") else "le message est déjà écrit"
+    except Exception:                                                   # noqa: BLE001
+        return "dis-lui ton prénom et ta créatrice"
+
+
 def _vue(uid: str):
     url = _deps["lien_whatsapp"](uid) if _deps.get("lien_whatsapp") else ""
     if not url:
@@ -128,6 +136,24 @@ def _vue(uid: str):
 
 
 # ------------------------------------------------------------------ l'appel
+async def _completer_activite(cibles: list) -> None:
+    """La dernière activité inconnue de chaque cible, lue une fois dans l'historique de son salon. 08/10 : les lectures d'abord
+    (elles attendent Discord), puis l'état relu et complété sans attente : l'ancienne version réécrivait une copie lue AVANT ces
+    attentes et effaçait une réponse à l'appel arrivée entre-temps (« repondu » perdu = sortie pour « sans réponse »)."""
+    connues = _lire()["activite"]
+    lues = {}
+    for salon, membre in cibles:
+        uid = str(membre.id)
+        if uid not in connues and uid not in lues:
+            quand = await derniere_activite_salon(salon, membre)
+            lues[uid] = _iso(quand) if quand else ""
+    if lues:
+        d = _lire()
+        for uid, v in lues.items():
+            d["activite"].setdefault(uid, v)
+        _ecrire(d)
+
+
 async def lancer_appel(cibles: list, motif: str, maintenant=None) -> list:
     """Poste l'appel dans le salon perso de chaque (salon, membre) sans appel en cours. Renvoie les prénoms appelés."""
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -143,16 +169,20 @@ async def lancer_appel(cibles: list, motif: str, maintenant=None) -> list:
             continue
         try:
             vue = _vue(uid)
-            texte = f"{membre.mention} " + TEXTE_APPEL.format(prenom=prenom, heures=HEURES)
+            texte = f"{membre.mention} " + TEXTE_APPEL.format(prenom=prenom, heures=HEURES, wa=_consigne_wa(uid))
             msg = await (salon.send(texte, view=vue) if vue is not None else salon.send(texte))
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Appel de %s : %s", prenom, erreur)
             continue
-        d["appels"][uid] = {"date": _iso(maintenant), "salon_id": str(salon.id), "message_id": str(getattr(msg, "id", "")),
-                            "motif": motif, "prenom": prenom, "repondu": None, "relance_wa": None, "sorti": None}
+        # 08/10 : l'appel est écrit tout de suite, dans l'état relu, sans attente entre la lecture et l'écriture. Avant, la copie lue
+        # au début était réécrite après tous les envois (pauses comprises) : une réponse arrivée pendant ces secondes (un clipper qui
+        # répond « présent » dès la notification) était effacée, et il sortait 48 h plus tard « sans réponse ».
+        d_a = _lire()
+        d_a["appels"][uid] = {"date": _iso(maintenant), "salon_id": str(salon.id), "message_id": str(getattr(msg, "id", "")),
+                              "motif": motif, "prenom": prenom, "repondu": None, "relance_wa": None, "sorti": None}
+        _ecrire(d_a)
         appeles.append(prenom)
         await asyncio.sleep(0.5)
-    _ecrire(d)
     if appeles:
         journal.info("Appel (%s) posté à %d clipper(s)", motif, len(appeles))
     return appeles
@@ -225,12 +255,12 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
         d = _lire()
         if m is None:                                                   # déjà parti du serveur : on solde
             d["appels"][uid]["sorti"] = _iso(maintenant); _ecrire(d)
-            bilan.append(f"· {prenom} : plus sur le serveur, appel clos")
+            bilan.append(f"· {prenom} (<@{uid}>) : plus sur le serveur, appel clos")
             continue
         try:
             res = await _deps["sortir"](m, RAISON, pool=True, expulser=KICK)
             d = _lire(); d["appels"][uid]["sorti"] = _iso(maintenant); d["appels"][uid]["expulse"] = bool(res.get("expulse")); _ecrire(d)
-            bilan.append(f"🚪 {prenom} : sorti ({RAISON})" + (" · expulsé" if res.get("expulse") else " · ⚠️ pas expulsé")
+            bilan.append(f"🚪 {prenom} (<@{uid}>) : sorti ({RAISON})" + (" · expulsé" if res.get("expulse") else " · ⚠️ pas expulsé")
                          + (f" · refus : {', '.join(res.get('refus') or [])}" if res.get("refus") else ""))
         except Exception as erreur:                                     # noqa: BLE001
             bilan.append(f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}")
@@ -250,7 +280,7 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
                 await (salon.send(texte, view=vue) if vue is not None else salon.send(texte))
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Relance WhatsApp de %s : %s", prenom, erreur)
-        bilan.append(f"📲 {prenom} : a répondu, pas de WhatsApp → relancé (`!wa @{prenom}` quand c'est fait, `!sortie` sinon)")
+        bilan.append(f"📲 {prenom} (<@{uid}>) : a répondu, pas de WhatsApp → relancé (`!wa @{prenom}` quand c'est fait, `!sortie` sinon)")
     # 3. inactifs → appel individuel
     if _deps.get("salons_clippers"):
         try:
@@ -263,13 +293,8 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Jours sans Reel illisibles : %s", erreur)
             sans_reel = {}
+        await _completer_activite(cibles)
         d = _lire()
-        for salon, membre in cibles:                                    # dernière activité inconnue → lue une fois dans l'historique
-            uid = str(membre.id)
-            if uid not in d["activite"]:
-                quand = await derniere_activite_salon(salon, membre)
-                d["activite"][uid] = _iso(quand) if quand else ""
-        _ecrire(d)
         lents = inactifs(d["activite"], sans_reel, cibles, d["appels"], maintenant)
         lents = [(s, m, j) for s, m, j in lents if not _protege(str(m.id), _deps["prenom_de"](m) if _deps.get("prenom_de") else "")]
         if lents and appliquer:
@@ -286,13 +311,7 @@ async def appel_general(client) -> list:
         return []
     cibles = await _deps["salons_clippers"]()
     maintenant = datetime.now(timezone.utc)
-    d = _lire()
-    for salon, membre in cibles:                                        # 05/10 : la dernière activité lue avant l'appel, pour l'état
-        uid = str(membre.id)
-        if uid not in d["activite"]:
-            quand = await derniere_activite_salon(salon, membre)
-            d["activite"][uid] = _iso(quand) if quand else ""
-    _ecrire(d)
+    await _completer_activite(cibles)                                   # 05/10 : la dernière activité lue avant l'appel, pour l'état
     appeles = await lancer_appel(cibles, f"appel général du {maintenant.strftime('%d/%m')}", maintenant)
     d = _lire(); d["general"] = {"date": _iso(maintenant), "n": len(appeles)}; _ecrire(d)
     return appeles

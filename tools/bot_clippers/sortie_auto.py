@@ -178,10 +178,37 @@ async def jours_sans_reel() -> dict:
     return {uid: jours for uid, _, jours, _, _ in silences(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de)}
 
 
-def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(), prenom_de=None, notes=None) -> list:
+def compte1_prouve(uid: str, ouverture, onboarding_d: dict, historique: dict) -> bool:
+    """08/10 (Mohamed : averti « compte 1 pas créé, sortie demain » alors que ses comptes 1 et 2 existaient et qu'il publiait ; il
+    n'avait jamais appuyé sur le bouton, et le pseudo prévu d'un compte était pris) : le scan Instagram vaut le bouton. Preuve :
+    un Reel publié depuis l'ouverture de l'étape 1 sur un de ses comptes livrés (reels_hier d'un scan postérieur), ou son compte 1,
+    livré « à créer », vu existant depuis. Un compte repris d'un sortant existait déjà : son existence seule ne prouve rien."""
+    import onboarding as _onb_mod
+    import parcours as _parcours
+    onb = ((onboarding_d or {}).get("clippers", {}) or {}).get(str(uid)) or {}
+    handles = [h for h in _parcours._comptes_ordonnes(uid, onb) if h]
+    neufs = {str(a.get("handle") or "").lower() for a in onb.get("acces") or [] if isinstance(a, dict) and not a.get("cree")}
+    jour0 = ouverture.date() if ouverture is not None else None
+    for i, h in enumerate(handles):
+        for e in (historique or {}).get(_onb_mod.normaliser_handle(h).lower(), []):
+            try:
+                j = datetime.fromisoformat(str(e.get("jour", ""))[:10]).date()
+            except ValueError:
+                continue
+            if jour0 is None or j < jour0 or not e.get("existe"):
+                continue
+            if j > jour0 and int(e.get("reels_hier") or 0) > 0:
+                return True
+            if i == 0 and str(h).lower() in neufs:
+                return True
+    return False
+
+
+def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(), prenom_de=None, notes=None, prouve=None) -> list:
     """05/10 : [(uid, prénom, jours depuis l'ouverture du compte 1, référence iso)] pour chaque fiche de parcours à l'étape 1
     (ouverte, jamais fermée). La référence = la date d'ouverture de l'étape 1, jamais avant `depuis` (la règle annoncée).
-    Protégés : prénoms de `garder` (anciens de Jonas), note « garde » du manager."""
+    Protégés : prénoms de `garder` (anciens de Jonas), note « garde » du manager ; 08/10 : ceux dont le scan prouve le compte
+    (`prouve(uid, ouverture)`, compte1_prouve)."""
     maintenant = maintenant or datetime.now(timezone.utc)
     borne = _jour((depuis or COMPTE1_DEPUIS) + "T00:00:00")
     proteges = {_n(p) for p in garder}
@@ -199,6 +226,12 @@ def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(),
         if not prenom or _n(prenom) in proteges:
             continue
         if any("garde" in _n(t) for t in (notes(uid) if notes else [])):
+            continue
+        try:
+            if prouve is not None and prouve(str(uid), ouverture):
+                continue
+        except Exception as erreur:                                         # noqa: BLE001 — dans le doute, personne ne sort
+            journal.warning("Preuve du compte 1 de %s illisible : %s", uid, erreur)
             continue
         ref = max(d for d in (ouverture, borne) if d is not None)
         out.append((str(uid), prenom, (maintenant - ref).days, ref.isoformat(timespec="seconds")))
@@ -236,7 +269,10 @@ async def executer(client, appliquer: bool = True) -> list:
 
     bilan = []
     d = _etat()
-    kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes")}
+    onboarding_d = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}) if _deps.get("FICHIER_ONBOARDING") else {}
+    historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
+    kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes"),
+          "prouve": lambda u, ouv: compte1_prouve(u, ouv, onboarding_d, historique)}       # 08/10 : le scan vaut le bouton
     for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, d.get("avertis_compte1", {}), **kw):
         if not appliquer:
             bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → averti (sortie demain)")
