@@ -27,10 +27,21 @@ La règle de paie est celle du bot, reprise à l'identique de `paie_clics.py` ([
 
 - **Jeton** = HMAC-SHA256 d'un secret Vercel et du prénom normalisé, tronqué à 24 caractères, route `/k/<jeton>` ; jeton inconnu → 404 muet. Pas de liste à tenir : la liste des clippers est lue dans GAML (`GET /links`, notes « Clipping Prénom », regroupées par prénom, liens additionnés, créatrice = premier mot du nom du lien le plus récent), cache 10 minutes, prénoms exclus comme dans le bot (Rianah, Gaëtan, Jonas).
 - **Distribution** : route `/api/admin/liens?cle=<secret>` (JSON ou `&format=texte`) qui renvoie « prénom → lien personnel » ; le guide du 06/10 (scratchpad, jamais dans le dépôt) contient les 30 liens et le message WhatsApp (iPhone : Safari → Partager → Sur l'écran d'accueil ; Android : Chrome → trois points → Ajouter à l'écran d'accueil). Révocation : renommer ou supprimer la note GAML du clipper, ou changer le secret pour tout régénérer.
+- **Adresses USDC et le bot (08/10)** : le bot Discord lit l'onglet « Adresses USDC » avec le compte de service à chaque paie du 5 et du 20, avant chaque `!paie-clics`, une fois par jour et sur `!adresses`, et complète ses `wallets` ; la plus récente des deux adresses (app ou `!wallet`) gagne, un prénom porté par deux membres n'est pas repris. Un seul carnet pour la liste de paie, donc.
 - **Budget d'appels GAML** (60 par minute pour toute l'agence, bot compris) : jours passés en cache 7 jours, jour en cours 5 minutes, liste des liens 10 minutes ; première ouverture d'un clipper ≈ 15 appels par lots de 4, ensuite 1 à 2 ; en-têtes de limite suivis, un 429 donne une réponse partielle « chiffres en cours de mise à jour », jamais une erreur.
 - **PWA** : manifeste par jeton (`start_url` avec le jeton, icônes 192/512 any + maskable, `standalone`, `theme_color`), en-têtes `noindex` et `no-referrer`, pas de mot de passe. Vérifié sur Chrome Android et Safari iPhone par le manifeste ; captures 390 × 844 relues.
 - **Journal d'usage** : tableur « App clippers · usage » créé dans le Drive agence (dossier Interne), partagé en modification avec le compte de service, un événement par ouverture, onglet et tuile (mécanisme de l'app créatrices). Sert à juger si l'app est utilisée.
 - **Code** : `tools/app_clippers/` (Next.js 14, Tailwind, Recharts), projet Vercel `app-clippers` connecté au dépôt, déploiement automatique à chaque push sur `main` qui touche le dossier. Six variables d'environnement, jamais dans le dépôt.
+
+## 2 bis. L'écran d'accueil : ce qui est vrai, ce que l'app fait (08/10)
+
+Gaëtan demande si les clippers arriveront « facilement » à épingler l'app. La réponse honnête : **aucun navigateur ne permet d'installer une app web en un geste depuis un lien reçu.** iPhone n'offre aucune invite (Partager → « Sur l'écran d'accueil » → Ajouter, trois gestes, et seulement dans Safari) ; le navigateur intégré de WhatsApp, d'Instagram ou de Facebook ne sait pas installer du tout, il faut d'abord « Ouvrir dans Safari / Chrome » ; sur Android, Chrome et Samsung Internet savent installer, à condition que l'app ait un service worker. Ce que l'app fait depuis le 08/10 :
+
+- un **service worker** (rien en cache, une page hors ligne) : l'app devient installable sur Android et Chrome propose l'invite native ; la carte affiche alors **un seul bouton « Installer l'app »** ;
+- une **carte « Mets l'app sur ton écran d'accueil »**, visible tant que l'app tourne dans un navigateur, qui reconnaît le cas (navigateur intégré, iPhone, Android Chrome ou Samsung) et montre les gestes avec les icônes ; « Plus tard » (session) ou « C'est fait » (30 jours) la cachent ; installée, elle disparaît ;
+- le journal d'usage compte les cartes vues et les installations (`install:*`), donc on saura en une semaine combien l'ont fait.
+
+Le message WhatsApp qui accompagne le lien doit dire « ouvre-le dans Safari (iPhone) ou Chrome (Android) » : c'est là que se perd la moitié des gens, pas sur les gestes.
 
 ## 3. Vérifié le 06/10
 
@@ -44,7 +55,7 @@ Build sans erreur ; prod : jeton réel 200, jeton inconnu 404, quatre redirectio
 - **Le tableur d'usage de l'app créatrices n'existe pas** (recherche vide le 06/10) : son journal d'usage n'a jamais rien écrit. À créer de la même façon si on veut mesurer.
 - **Captures prises sur le serveur local du build**, pas sur la prod (Chromium du conteneur refuse le certificat du proxy) ; la prod a été vérifiée par les codes HTTP et les JSON, pas à l'œil.
 
-- **Deux carnets d'adresses coexistent** : le bot Discord garde les adresses saisies par `!wallet` (USDC ou IBAN) dans son état, l'app écrit les siennes dans le tableur. Tant que `!paie-clics` ne lit pas le tableur, Gaëtan doit croiser les deux le 5 et le 20 ; la jonction (le bot lit l'onglet « Adresses USDC » et complète ses `wallets` par prénom) est le prochain pas.
+- **La fusion des adresses se fait par prénom** : deux Juliens, et aucun des deux n'est repris (le bot le journalise) ; un clipper renommé sur Discord n'est plus retrouvé. Le bon identifiant serait le jeton de l'app ou l'identifiant Discord, que l'app ne connaît pas. À surveiller à la paie du 20/10 avec `!adresses`.
 - **L'adresse est en clair dans un tableur Drive** partagé avec le compte de service : c'est une adresse publique de réception, pas une clé, mais une erreur de saisie d'un clipper (adresse d'un autre réseau, adresse d'échange sans mémo) fait perdre le virement. L'app ne vérifie que la forme ERC-20, pas le réseau sur lequel le clipper a créé l'adresse.
 - **Les dossiers Carrousel, Reels et Story sont trouvés par leur nom dans le dossier Instagram** de chaque créatrice : une créatrice dont le dossier s'appelle autrement (« Photos », « Stories ») tombe sur les sources du bot, et sans source la tuile ouvre son dossier personnel sans le dire.
 
