@@ -30,6 +30,9 @@ Légende : [C] confirmé (Data G&M, GAML, journal), [P] probable, [S] spéculati
 
 Le goulot n'a pas bougé depuis ce matin : **le revenu par abonné**, pas le trafic. Sarah apporte 3 000 abonnés par mois pour 1 € de profit chacun ; un euro de plus par abonné chez elle vaut plus que tout le clipping réuni. C'est pour ça que la moitié des dix actions ci-dessous touchent à la valeur, pas au volume, et c'est la ligne du [[Scaler LTP - le ONE THING et 10 actions par ROI (3 octobre 2026)|ONE THING révisé ce matin]] : passer de 5 à 8 € par abonné avant d'acheter du trafic.
 
+> [!warning] Mise à jour du 08/10 (clôture de septembre)
+> Septembre réel : 22 126 € de commissions, 10 084 € de charges, 12 042 € de profit (54 % sur commissions), 6 021 € chacun. Et le marketing d'octobre ne tombe pas à zéro : Loris 1 000 €, Rianah 400 €, quatre clippers gardés au fixe 700 €, soit 2 100 € de fixes, plus le variable et les outils, ≈ 3 k€, autant qu'en septembre ; ce qui change, c'est qui est payé. Détail et ce que la clôture a manqué : [[Clôture de septembre 2026 avec Maxence - 12 042 € de profit, 6 021 € chacun (8 octobre 2026)]].
+
 ## 2. Les 10 actions, dans l'ordre
 
 | # | Action | Effet réaliste par mois | Qui · délai | Niveau |
