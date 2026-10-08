@@ -965,14 +965,16 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
         lids = lids_c or ([] if multi else [l for l in lids if not (d["liens"].get(l) or {}).get("creatrice")])
         repris = False
         if not lids and creer and paie_clics.actif():
-            libre = paie_clics.lien_libre(d, creatrice)
-            # 28/09 : le lien d'un sortant va au suivant ; 08/10 : réactivé s'il avait été désactivé par le ménage, sinon on clone
-            if libre and await paie_clics.reprendre_lien(d, libre[0], str(membre.id), prenom, creatrice):
-                lid, lien, repris = libre[0], libre[1].get("url", ""), True
-            elif libre:
-                resultat.append("⚠️ lien libéré désactivé, réactivation refusée par GAML (forfait plein ?) : clone tenté")
-            if libre:
-                paie_clics._ecrire(d)
+            async with paie_clics.verrou_liens:                          # 08/10 (revue) : jamais pendant que le ménage le désactive
+                d = paie_clics._lire()
+                libre = paie_clics.lien_libre(d, creatrice)
+                # 28/09 : le lien d'un sortant va au suivant ; 08/10 : réactivé s'il avait été désactivé par le ménage, sinon on clone
+                if libre and await paie_clics.reprendre_lien(d, libre[0], str(membre.id), prenom, creatrice):
+                    lid, lien, repris = libre[0], libre[1].get("url", ""), True
+                elif libre:
+                    resultat.append("⚠️ lien libéré désactivé, réactivation refusée par GAML (forfait plein ?) : clone tenté")
+                if libre:
+                    paie_clics._ecrire(d)
         if lids:
             lid = lids[0]
             lien = d["liens"][lid].get("url", "")

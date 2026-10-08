@@ -57,7 +57,8 @@ def ordre(fiche_p: dict) -> str:
     if fiche_p.get("ordre") in ("prive2", "prive3"):
         return fiche_p["ordre"]
     dates = fiche_p.get("dates") or {}
-    if PRIVE_EN_2 and not dates.get("2") and not dates.get("2_fait") and int(fiche_p.get("etape", 0) or 0) <= 2:
+    # 08/10 (revue) : seulement un parcours commencé (étape 1 envoyée) ; une fiche créée par `!note` pour un ancien garde l'ordre du 05/10
+    if PRIVE_EN_2 and dates.get("1") and not dates.get("2") and not dates.get("2_fait") and int(fiche_p.get("etape", 0) or 0) <= 2:
         return "prive2"
     return "prive3"
 
@@ -320,7 +321,7 @@ def reels_vus(uid, fiche_p: dict, n: int) -> int:
     if h and not _est_ban(h, fiche_p):
         return int((suivis.get(h.lower()) or {}).get("vus", 0) or 0) + _reels_soir(fiche_p, h)
     return sum(int((suivis.get(x.lower()) or {}).get("vus", 0) or 0) for i, x in enumerate(comptes[:3], start=1)
-               if _cree(fiche_p, i) and not _est_ban(x, fiche_p))
+               if _cree(fiche_p, i) and i != n_prive(fiche_p) and not _est_ban(x, fiche_p))   # 08/10 : jamais le privé
 
 
 def reels_pour(uid, fiche_p: dict, n: int) -> int:
@@ -473,11 +474,12 @@ def _bloque_ban(uid, fiche_p: dict, n: int) -> bool:
     """01/10 (relecture : compte 1 BAN à l'étape 2, aucun autre compte créé — reels_vus restait à 0 pour toujours et la ligne
     du matin disait « tes autres comptes ») : le compte n est BAN et le clipper n'a aucun compte vivant déjà créé. Le parcours
     attend : c'est Gaëtan qui décide (`!etape` ou remplacement), aucune règle n'est inventée ici."""
-    comptes = _comptes_ordonnes(uid)
+    comptes = _comptes_ordonnes(uid, fiche_p=fiche_p)
     h = comptes[n - 1] if 0 < n <= len(comptes) else ""
     if not h or not _est_ban(h, fiche_p):
         return False
-    return not any(_cree(fiche_p, i) and not _est_ban(x, fiche_p) for i, x in enumerate(comptes[:3], start=1))
+    np_ = n_prive(fiche_p)                                              # 08/10 (revue) : le privé ne publie pas, il ne débloque rien
+    return not any(_cree(fiche_p, i) and i != np_ and not _est_ban(x, fiche_p) for i, x in enumerate(comptes[:3], start=1))
 
 
 def texte_bloque(n: int) -> str:
@@ -1080,8 +1082,12 @@ def lien_a_dire(fiche_p: dict) -> bool:
 
 
 def trois_comptes(fiche_p: dict) -> bool:
-    """Ses 3 comptes sont créés : l'étape du compte 3 est fermée (étape 6, le lien, ou 7, la routine)."""
-    return int((fiche_p or {}).get("etape", 0) or 0) >= 6
+    """Ses 3 comptes sont créés : l'étape du compte 3 est fermée (étape 6, le lien, ou 7, la routine). 08/10 (revue) : en ordre
+    « prive2 », l'étape 6 peut être en cours avant le compte 3 ; il faut le compte 3 fermé ou la routine."""
+    n = int((fiche_p or {}).get("etape", 0) or 0)
+    if ordre(fiche_p) == "prive2":
+        return n >= 7 or (n >= 6 and bool(((fiche_p or {}).get("dates") or {}).get("3_fait")))
+    return n >= 6
 
 
 def _liens_gaml(uid: str, creatrice: str) -> tuple:
@@ -1270,7 +1276,7 @@ async def _signaler_bloques(d0: dict) -> None:
             canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
             if canal is not None:
                 await canal.send(f"⛔ **{fiche_p.get('prenom') or uid}** (<@{uid}>) bloqué : compte {cle} BAN, aucun compte "
-                                 f"vivant, parcours en attente. Tu décides : `!etape @{fiche_p.get('prenom') or uid} {a[0]}` pour "
+                                 f"qui publie, parcours en attente. Tu décides : `!etape @{fiche_p.get('prenom') or uid} {a[0]}` pour "
                                  "ouvrir le suivant, ou un remplacement.")
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Alerte BAN de %s : %s", uid, erreur)
@@ -2093,6 +2099,16 @@ async def commande_staff(message, texte: str) -> bool:
         d[uid] = {"prenom": _prenom(membre), "creatrice": equipes.get("creatrice", ""), "salon_id": str(salon.id),
                   "etape": 0, "dates": {}, "notes": []}
         _ecrire(d)
-    await envoyer_etape(salon, membre, n)
-    await message.reply(f"📍 Étape {n} envoyée à {membre.display_name} dans <#{salon.id}>.")
+    # 08/10 (revue) : en ordre « prive2 », l'étape 6 (le lien) part À CÔTÉ du parcours tant que les comptes 2 et 3 sont en cours ;
+    # en faire l'étape en cours perdait le compte 3 en silence (programme retiré, routine, app). Sauter le compte 3 : `!etape @x 7`.
+    f_n = _lire().get(uid) or {}
+    a_cote = n == 6 and ordre(f_n) == "prive2" and int(f_n.get("etape", 0) or 0) in (2, 3)
+    if a_cote:
+        d = _lire()
+        if uid in d:
+            (d[uid].get("dates") or {}).pop("6_fait", None)
+            _ecrire(d)
+    await envoyer_etape(salon, membre, n, pointer=not a_cote)
+    await message.reply(f"📍 Étape {n} envoyée à {membre.display_name} dans <#{salon.id}>"
+                        + (" (à côté du parcours : son compte 3 attend toujours)." if a_cote else "."))
     return True

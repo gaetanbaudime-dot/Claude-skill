@@ -6,6 +6,7 @@ import { aujourdhuiParis, decaler, libelleLong, libellePlage } from "./dates";
 import { ErreurGaml, visitesJour, visitesPeriodePassee } from "./gaml";
 import { ANCIENS_AVANT, BASCULE_CLIC, CLICS_DEPUIS, montant, PAIE_FIXE, periodeEnCours, periodePrecedente, TAUX_CLIC, type PeriodePaie } from "./paie";
 import { normaliser, type Clipper } from "./clippers";
+import { regimeDe } from "./regimes";
 
 export type Jour = { jour: string; visites: number; complet: boolean };
 export type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
@@ -50,8 +51,12 @@ export async function versements(c: Clipper): Promise<Versements> {
     catch (e) { if ((e as ErreurGaml).limite) etat.limite = true; return null; }
   };
   const premierLien = liens.map((l) => l.creeLe).filter(Boolean).sort()[0] || aujourdhui;
-  const fixe = PAIE_FIXE.has(normaliser(c.prenom).split(" ")[0] || "");
-  const plancher = !fixe && premierLien < ANCIENS_AVANT ? BASCULE_CLIC : "";   // un ancien : au clic depuis le 08/10 seulement
+  // 08/10 (revue) : le régime publié par le bot fait foi (onglet « Régime paie ») ; la règle locale n'est qu'un repli
+  const r = await regimeDe(c.cle);
+  const fixe = r ? r.regime === "fixe" : PAIE_FIXE.has(normaliser(c.prenom).split(" ")[0] || "");
+  const plancher = r ? r.clicDepuis : (!fixe && premierLien < ANCIENS_AVANT ? BASCULE_CLIC : "");   // un ancien : au clic depuis le 08/10
+  const plancherLien = (id: string) => r?.liens.get(id) || "";        // un lien repris : compté à partir de la reprise
+  const max = (a: string, b: string) => (a > b ? a : b);
   const depuis = plancher > p.debut ? plancher : p.debut;
   const precedentsP: PeriodePaie[] = [];
   let q = periodePrecedente(p);
@@ -63,7 +68,11 @@ export async function versements(c: Clipper): Promise<Versements> {
   const taches: (() => Promise<number | null>)[] = [];
   const index: { jour?: string; periode?: number; lien: number }[] = [];
   for (const j of jours) liens.forEach((l, k) => { taches.push(() => lire(l.id, l.creeLe, j, j, true)); index.push({ jour: j, lien: k }); });
-  precedentsP.forEach((pp, n) => liens.forEach((l, k) => { taches.push(() => lire(l.id, l.creeLe, pp.debut > plancher ? pp.debut : plancher, pp.fin, false)); index.push({ periode: n, lien: k }); }));
+  precedentsP.forEach((pp, n) => liens.forEach((l, k) => {
+    const debutL = max(max(pp.debut, plancher), plancherLien(l.id));
+    taches.push(() => (debutL > pp.fin ? Promise.resolve(0) : lire(l.id, l.creeLe, debutL, pp.fin, false)));
+    index.push({ periode: n, lien: k });
+  }));
   const resultats = await enParallele(taches, 4);
 
   const parJour = new Map<string, { visites: number; complet: boolean }>();
@@ -71,6 +80,7 @@ export async function versements(c: Clipper): Promise<Versements> {
   const parPeriode = precedentsP.map(() => ({ visites: 0, complet: liens.length > 0 }));
   resultats.forEach((v, i) => {
     const x = index[i];
+    if (x.jour !== undefined && x.jour < plancherLien(liens[x.lien].id)) return;   // avant la reprise : les visites de l'ancien
     const cible = x.jour !== undefined ? parJour.get(x.jour)! : parPeriode[x.periode!];
     if (v === null) cible.complet = false; else cible.visites += v;
   });
