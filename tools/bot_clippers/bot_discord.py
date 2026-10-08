@@ -518,7 +518,12 @@ def connaissances() -> str:
 def regle_lien_assistant() -> str:
     """05/10 : le salon de l'assistant en lien cliquable, dès que son id est connu."""
     cid = salon_assistant_id()
-    return f"\n12bis. Le salon de l'assistant, en lien cliquable quand tu y renvoies : <#{cid}>." if cid else ""
+    sid = codes_2fa.salon_codes_id()
+    # 08/10 (audit de l'assistant) : le seul <#id> du prompt était celui de #assistant, recopié pour « va chercher ton code » ;
+    # le salon des codes a désormais le sien, et la règle dit lequel sert à quoi.
+    return ((f"\n12bis. Le salon de l'assistant, en lien cliquable quand tu y renvoies : <#{cid}>." if cid else "")
+            + (f"\n12ter. Un code Instagram (connexion, vérification, appel d'un compte bloqué) se demande UNIQUEMENT dans <#{sid}> "
+               "avec `!code` : c'est ce lien que tu donnes, jamais celui de l'assistant." if sid else ""))
 
 
 def bloc_systeme():
@@ -1209,7 +1214,16 @@ def contexte_auteur(message) -> str:
         # 05/10 : salon commun — l'étape et le nombre de comptes créés, jamais la mémoire (identifiants, lien) : rien ne doit
         # passer d'un clipper à l'autre
         try:
-            if lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)):
+            # 08/10 (audit : un ancien absent du registre, rôle Clippeur et visites GAML, traité en « candidat ») : signé = au
+            # registre, OU rôle d'équipe, OU au roster de Jonas ; `contexte_court` sait parler d'un ancien sans fiche de parcours.
+            equipe_n = {normaliser(r) for r in ROLES_EQUIPE_ACCEPTES}
+            au_roster = False
+            try:
+                au_roster = roster.actif() and roster.est_actif(prenom_de(qui))
+            except Exception:                                               # noqa: BLE001
+                pass
+            if (lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)) or au_roster
+                    or any(normaliser(r) in equipe_n for r in roles)):
                 return base + "\n[Salon #assistant, commun à tous — " + parcours.contexte_court(str(message.author.id)) + "]"
             return base + "\n[Salon #assistant, commun à tous — candidat pas encore signé]"
         except Exception as erreur:                                         # noqa: BLE001
@@ -4609,9 +4623,14 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
-    if any("team" in r for r in roles_n):
+    # 08/10 (audit de l'assistant) : le rôle d'équipe s'appelle « Clippeur » depuis le 25/09 ; le test sur « team » servait le
+    # parcours candidat (numéro, quiz, J'ACCEPTE) à un clipper signé. Et les questions vont dans #assistant depuis le 05/10.
+    equipe_n = {normaliser(r) for r in ROLES_EQUIPE_ACCEPTES}
+    signe = any("team" in r or r in equipe_n for r in roles_n) or bool(lire_json(FICHIER_EQUIPES, {}).get(str(getattr(membre, "id", ""))))
+    if signe:
+        ou_q = f"<#{salon_assistant_id()}>" if salon_assistant_id() else "#assistant"
         return ("🧰 **Ce que tu peux me demander**\n"
-                "· Une question sur la méthode : écris-la dans ton salon perso. Je réponds.\n"
+                f"· Une question sur la méthode : pose-la dans {ou_q}. Je réponds.\n"
                 "· `!etape` — je te renvoie ton étape en cours.\n"
                 # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
                 "· " + codes_2fa.texte_salon_codes() + "\n"
@@ -5268,9 +5287,14 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     fiche_s = registre_s.pop(uid_s, None) or {}
     ecrire_json(FICHIER_EQUIPES, registre_s)
     sortis = lire_json(FICHIER_SORTIS, [])
+    try:                                                                # 08/10 (critique de l'audit) : où il a décroché, gardé
+        fiche_p_s = dict(parcours._lire().get(uid_s) or {})            # avant que `oublier` efface la fiche (l'entonnoir par étape)
+        trace_p = {k: fiche_p_s[k] for k in ("etape", "dates", "whatsapp", "app", "warmup_jour") if k in fiche_p_s}
+    except Exception:                                                   # noqa: BLE001
+        trace_p = {}
     sortis.append({"uid": uid_s, "nom": membre.display_name, "equipe": fiche_s.get("equipe", ""),
                    "creatrice": fiche_s.get("creatrice", ""), "date": info_s["sortie"]["date"],
-                   "par": par_id, "raison": raison})
+                   "par": par_id, "raison": raison, "signe_le": str(fiche_s.get("date", ""))[:10], "parcours": trace_p})
     ecrire_json(FICHIER_SORTIS, sortis[-500:])
     autre_r = membre_par_prenom(normaliser(prenom_de(membre)))          # 08/10 (deux « Andry ») : le roster est par prénom
     if autre_r is None or autre_r == membre:
@@ -8755,15 +8779,25 @@ async def on_message(message):
     # Historique récent de CE candidat (+ mes réponses) → le modèle garde le contexte : fini les
     # « c'est la première fois qu'on se parle » et les questions de suivi mal comprises (18/07).
     historique = []
+    # 08/10 (audit de l'assistant) : dans un salon commun (#assistant-ia), les réponses faites aux AUTRES clippers arrivaient au
+    # modèle comme « ce que je t'ai dit » (« pas de compte créé » d'Yves relu pour le suivant). Là, on ne garde que les messages
+    # de l'auteur et les réponses (du bot ou du staff) qui lui répondent ou le mentionnent.
+    commun = not en_salon_perso and not isinstance(message.channel, discord.DMChannel)
+
+    def _pour_lui(m) -> bool:
+        ref = getattr(getattr(m, "reference", None), "resolved", None)
+        return (getattr(getattr(ref, "author", None), "id", None) == message.author.id
+                or any(u.id == message.author.id for u in getattr(m, "mentions", []) or []))
     try:
-        async for ancien in message.channel.history(limit=12, before=message):
+        async for ancien in message.channel.history(limit=40 if commun else 12, before=message):
             if not ancien.content or ancien.content.startswith("!"):
                 continue
             if ancien.author.id == client.user.id:
-                historique.append(("assistant", ancien.content))
+                if not commun or _pour_lui(ancien):
+                    historique.append(("assistant", ancien.content))
             elif ancien.author.id == message.author.id:
                 historique.append(("user", ancien.content))
-            elif not getattr(ancien.author, "bot", False) and est_staff(ancien.author):
+            elif not getattr(ancien.author, "bot", False) and est_staff(ancien.author) and (not commun or _pour_lui(ancien)):
                 historique.append(("user", ligne_historique_staff(ancien)))   # 01/10 : le bot voit ce que le staff a dit
     except (discord.Forbidden, discord.HTTPException):
         pass

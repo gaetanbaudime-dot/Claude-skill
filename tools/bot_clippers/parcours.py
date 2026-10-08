@@ -1397,6 +1397,15 @@ def _en_place(uid: str) -> str:
     except Exception:                                                   # noqa: BLE001
         pass
     if not morceaux:
+        try:                                                            # 08/10 : un ancien du roster de Jonas, absent du registre
+            import roster as _roster
+            m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+            prenom = (m.display_name.split() or [""])[0] if m is not None else ""
+            if prenom and _roster.actif() and _roster.est_actif(prenom):
+                morceaux.append("clipper du roster de Jonas (ancien, déjà en place)")
+        except Exception:                                               # noqa: BLE001
+            pass
+    if not morceaux:
         return ""
     salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
     morceaux.append("salon perso : " + ("oui" if salon is not None else "PAS ENCORE"))

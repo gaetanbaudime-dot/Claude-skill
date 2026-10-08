@@ -206,6 +206,21 @@ def compte1_prouve(uid: str, ouverture, onboarding_d: dict, historique: dict) ->
     return False
 
 
+def compte1_bloque(uid: str, onboarding_d: dict, etats_classeur) -> str:
+    """08/10 (critique de l'audit) : le clipper ne PEUT pas créer son compte 1 → jamais « 48 h sans compte créé ». Renvoie la
+    raison, '' sinon : aucun compte livré (vivier vide à la livraison, identifiant « ? ») ou compte 1 passé BAN au classeur
+    (banni à la création, relevé des bans par mail). `etats_classeur` = {handle normalisé: état} ou None (classeur illisible)."""
+    import onboarding as _onb_mod
+    import parcours as _parcours
+    onb = ((onboarding_d or {}).get("clippers", {}) or {}).get(str(uid)) or {}
+    handles = [h for h in _parcours._comptes_ordonnes(uid, onb) if h and str(h).strip("@ ?")]
+    if not handles:
+        return "aucun compte livré (vivier vide ?)"
+    if etats_classeur and _n(etats_classeur.get(_onb_mod.normaliser_handle(handles[0]).lower(), "")) == "ban":
+        return "compte 1 BAN au classeur"
+    return ""
+
+
 def _visites_actives(uid: str) -> bool:
     """08/10 (audit : un ancien rouvert aux comptes restreints n'a aucun Reel lisible) : son lien GAML ramène du monde sur 48 h."""
     try:
@@ -285,8 +300,22 @@ async def executer(client, appliquer: bool = True) -> list:
     d = _etat()
     onboarding_d = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}) if _deps.get("FICHIER_ONBOARDING") else {}
     historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
+    try:
+        import onboarding as _onb_mod
+        lignes_c = await _deps["comptes_lire"]() if _deps.get("comptes_lire") else []
+        etats_classeur = {_onb_mod.normaliser_handle(c.get("handle") or "").lower(): str(c.get("etat") or "") for c in lignes_c if c.get("handle")}
+    except Exception as erreur:                                         # noqa: BLE001 — sans classeur, seule la livraison est vérifiée
+        journal.warning("Sortie compte 1 : classeur illisible (%s), BAN non vérifiés", erreur)
+        etats_classeur = None
+    bloques = {}
+
+    def _bloque(u):
+        raison = compte1_bloque(u, onboarding_d, etats_classeur)
+        if raison:
+            bloques[str(u)] = raison
+        return bool(raison)
     kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes"),
-          "prouve": lambda u, ouv: compte1_prouve(u, ouv, onboarding_d, historique) or _visites_actives(u)}   # 08/10 : scan ou visites
+          "prouve": lambda u, ouv: _bloque(u) or compte1_prouve(u, ouv, onboarding_d, historique) or _visites_actives(u)}   # 08/10 : scan ou visites
     avertis_avant = dict(d.get("avertis_compte1", {}))                  # 08/10 : la sortie exige un avertissement d'une passe précédente
     for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, avertis_avant, **kw):
         if not appliquer:
@@ -321,6 +350,16 @@ async def executer(client, appliquer: bool = True) -> list:
         except Exception as erreur:                                         # noqa: BLE001
             bilan.append(f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}")
             journal.warning("Sortie automatique de %s : %s", prenom, erreur)
+    jour = datetime.now(timezone.utc).date().isoformat()
+    d = _etat()
+    for uid, raison in bloques.items():                                 # 08/10 : on ne sort pas, on dit au staff quoi débloquer
+        if (d.get("bloques_compte1") or {}).get(uid) == jour:
+            continue
+        bilan.append(f"🧱 {prenom_de(uid) or uid} (<@{uid}>) : {raison} → pas de sortie ; à débloquer (`!onboarding @…` ou un compte neuf)")
+        if appliquer:
+            d.setdefault("bloques_compte1", {})[uid] = jour
+    if bloques and appliquer:
+        _deps["ecrire_json"](_deps["FICHIER"], d)
     return bilan
 
 

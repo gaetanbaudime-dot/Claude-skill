@@ -21,7 +21,9 @@ ACTIF = os.environ.get("BLOQUES", "1").strip() != "0"
 HEURE = int(os.environ.get("BLOQUES_HEURE", "11") or 11)
 MAX_JOUR = int(os.environ.get("BLOQUES_MAX", "25") or 25)
 JOURS_SANS_REEL = int(os.environ.get("BLOQUES_JOURS_SANS_REEL", "3") or 3)
-JOURS_ETAPE = {1: 2, 2: 4, 3: 4}                                        # jours au-delà desquels une étape de compte bloque
+# jours au-delà desquels une étape de compte bloque. 08/10 (critique de l'audit) : étape 1 dès 1 jour, le jour de
+# l'avertissement — à « plus de 2 jours », le clipper était déjà sorti par la règle des 48 h avant d'être jamais listé.
+JOURS_ETAPE = {1: 0, 2: 4, 3: 4}
 _deps = {}
 
 
