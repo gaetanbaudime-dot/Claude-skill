@@ -2127,8 +2127,13 @@ async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
         ligne[0] = heure_paris().strftime("%d/%m/%Y %H:%M")
         origine = (str(reponses.get("source", "")).strip() + (" · " + str(reponses.get("source_detail", "")).strip()
                                                             if str(reponses.get("source_detail", "")).strip() else "")).strip(" ·")
+        # 09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > … ») : la colonne Source porte la source de
+        # l'annonce (`?src=tg-<groupe>`, passée par le site), sinon « web » ; jamais vide, jamais lue comme une formule
+        source = str(source or "").strip() or "web"
         if len(ligne) > 1:
             ligne[1] = origine or source
+            if ligne[1][:1] in ("+", "=", "-", "@"):
+                ligne[1] = "'" + ligne[1]
         for q in questions:
             ident = q.get("id", ""); libelle = q.get("label", ident)
             col = next((i for i, h in enumerate(en_tete) if normaliser(h).strip() == normaliser(libelle).strip()), None)

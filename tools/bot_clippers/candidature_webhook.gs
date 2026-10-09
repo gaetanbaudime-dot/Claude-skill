@@ -1,4 +1,22 @@
 /**
+ * ⛔ RETIRÉ le 09/10 : fermer le formulaire, supprimer le déclencheur, retirer LIEN_TEST, LIEN_RENDU et ENVOYER_MAILS
+ * dans les propriétés du script.
+ *
+ * 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : tout le tunnel passe par le site
+ * du bot (/candidature → /formation → /quiz → invitation Discord). Il n'y a plus de test de montage. Ce script n'est
+ * plus maintenu : ne le recolle pas, ne le corrige pas.
+ *
+ * À faire à la main côté Google (le dépôt ne peut pas le faire) :
+ *  1. Le formulaire « Recherche Clipper » : Réponses → décocher « Accepter les réponses ».
+ *  2. Apps Script → Déclencheurs : supprimer celui de surCandidature.
+ *  3. Paramètres du projet → Propriétés du script : supprimer LIEN_TEST, LIEN_RENDU et ENVOYER_MAILS
+ *     (celles qui existent dans ce projet).
+ *
+ * Tant que ce n'est pas fait, un candidat qui tombe sur l'ancien formulaire peut encore recevoir le test et le
+ * dossier Drive par e-mail.
+ */
+
+/**
  * Candidatures Clipper G&M — notificateur CANDIDATURE vers Discord.
  *
  * RÔLE : à chaque soumission du formulaire de candidature (« Recherche Clipper »),
