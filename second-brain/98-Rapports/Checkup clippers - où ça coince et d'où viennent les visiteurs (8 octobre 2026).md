@@ -13,6 +13,9 @@ liens_forts: ["[[LTP Models]]", "[[Journal de coaching]]", "[[Rapport GAML - d'o
 > [!tip] Verdict
 > **La moitié des visiteurs GetAllMyLinks vient de nous, l'autre moitié des comptes des créatrices. Mais le goulot n'est ni Instagram ni le contenu : c'est le bot lui-même, qui cassait le passage « signé → compte créé → lien en bio ».** Sur 7 jours (02 au 08/10), 12 249 visiteurs : **49 % comptes des créatrices, 51 % agence** (clippers 32 %, Metricool 11 %, Facebook et YouTube 8 %). Huit des neuf anciens les plus productifs n'avaient pas de salon, les nouveaux recevaient leurs trois comptes d'un coup, un oubli de bouton figeait le parcours, le bouton WhatsApp ouvrait le mauvais écran, des réponses à l'appel étaient effacées, et un clipper qui publiait allait être expulsé. **Tout est corrigé et poussé le 08/10 (cinq lots).** Deux alertes restent pour cette semaine : **le moteur Metricool a perdu 54 % de ses visites en une semaine**, et **les abonnés MYM de Sophie, Jade et Clara arrivent surtout hors GAML**. La vraie part « créatrices contre nous » se tranche avec l'export MyPulse par lien de tracking, pas avec les visites. **Les cinq décisions du 08/10 sont en place le jour même** (privé en 2, scan du soir, paie au clic sauf sept fixes, ménage GAML par désactivation, comptes d'Hasina sur Metricool) : section 6.
 
+> [!info] Prolongement (2026-10-09)
+> Jonas parti le 09/10 : le goulot nommé ici (« signé → compte créé → lien en bio ») devient la mission d'un Team Leader joueur-entraîneur plutôt que d'un nouveau manager : [[Team Leader clippers - le premier poste après Jonas (9 octobre 2026)]].
+
 ## 1. La part des visiteurs : créatrices contre nous
 
 Source : API GetAllMyLinks, 49 liens lus un par un, robots exclus, heure de Paris, 164 appels le 08/10. « 7 j » = 02 au 08/10 (le 08 en cours) ; « 30 j » = 09/09 au 08/10.

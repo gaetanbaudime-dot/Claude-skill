@@ -11,6 +11,9 @@ liens_forts: ["[[Rentabilité des clippers de Jonas, de Jonas et de Julien - pai
 
 # Fiche de poste — Manager marketing (Jonas)
 
+> [!danger] Poste vacant depuis le 09/10/2026
+> Jonas a quitté l'agence le 09/10. Cette fiche reste comme référence (règles du process, grille v3). La suite recommandée n'est pas un nouveau manager mais un Team Leader joueur-entraîneur : [[Team Leader clippers - le premier poste après Jonas (9 octobre 2026)]].
+
 > [!tip] Verdict (v3, avenant du 06/10/2026)
 > **Jonas lance et fait tenir 50 à 100 clippers malgaches payés au résultat, et il est payé sur ce qu'ils ramènent, pas sur leur nombre.** Plus de fixe par clipper : 0,30 € par abonné OnlyFans ou MYM, 1 € par clipper qui tient 26 jours de cadence, bonus équipe inchangés (300 / 800 / 1 600 €), +150 € quand 80 % de l'équipe tient. Septembre reste à 500 € (premier mois garanti par la fiche du 07/09). Les règles du process sont celles du bot depuis le 05/10 : 2 comptes de croissance + 1 privé avec le lien en bio, 4 Reels par jour, compte suivant après 48 h et 4 Reels, sortie automatique à 3 jours sans compte 1 et à 48 h sans réponse à l'appel de présence, WhatsApp obligatoire. Un seul chiffre pour l'essai : **600 abonnés OF + MYM en octobre**, sinon fin de période d'essai le 05/11. *Le PDF v3 (deux pages, signable) est généré depuis cette page ; toute modification se fait ici et dans le PDF.*
 
