@@ -428,6 +428,9 @@ def _sans_doublons(lignes: list) -> list:
         chez_elle = [c for c in cs if _norm(c["creatrice"]).split() and _norm(c["onglet"]).startswith(_norm(c["creatrice"]).split()[0])]
         garde = (chez_elle or cs)[0]["onglet"]
         ecartes.update(id(c) for c in cs if c["onglet"] != garde)
+        for c in cs:                                                    # 09/10 (dashboard) : la ligne gardée dit où étaient les
+            if c["onglet"] == garde:                                    # autres, pour que le contrôle (C11) le signale
+                c["doublons_ecartes"] = sorted([x["onglet"], x["ligne"]] for x in cs if x["onglet"] != garde)
     if doublons and doublons != _doublons_vus:
         journal.warning("Classeur : %d compte(s) présent(s) sur plusieurs onglets, seule la ligne de l'onglet de la créatrice compte : %s",
                         len(doublons), ", ".join(sorted(doublons)[:10]))
@@ -1757,6 +1760,11 @@ async def boucle(client, deps: dict):
             await liens_classeur()                                      # 27/09 : Gérant changé à la main → lien GAML de la ligne à jour
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Colonne Lien GAML (boucle) : %s", erreur)
+        try:                                                            # 09/10 (dashboard) : contrôle d'attribution, après les liens ;
+            import controle                                             # salon admin seulement si l'empreinte change (import tardif :
+            await controle.passage(deps)                                # controle importe onboarding)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Contrôle d'attribution (boucle) : %s", erreur)
         await asyncio.sleep(900)
 
 
