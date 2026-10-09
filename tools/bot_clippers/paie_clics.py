@@ -18,6 +18,7 @@ Sans GAML_API_KEY, tout est inactif et les commandes le disent.
 import asyncio
 import csv
 import io
+import copy
 import json
 import logging
 import os
@@ -86,14 +87,54 @@ def actif() -> bool:
 
 
 # ------------------------------------------------------------------ données
+class _Etat(dict):
+    """09/10 (revue : la boucle horaire lisait les liens en début de tour et les réécrivait minutes plus tard, effaçant une sortie,
+    une reprise ou un `!monteur` faits entre-temps — l'ancien Julien redevenait payé) : l'état lu garde une copie de ce qu'il était
+    à la lecture (`_base`), pour que `_ecrire` n'applique que ce que l'appelant a changé lui-même."""
+    _base = None
+
+
+_ABSENT = object()
+
+
+def _fusion(base, mien, frais):
+    """Fusion à trois voies : ce que j'ai changé depuis ma lecture (`base` → `mien`) appliqué sur le disque (`frais`). Un sous-dict
+    changé des deux côtés est fusionné clé par clé ; une même valeur changée des deux côtés : celle du disque gagne (écrite par un
+    autre, en connaissance de cause, pendant que je travaillais sur une copie)."""
+    out = {}
+    for k in list(frais) + [k for k in mien if k not in frais] + [k for k in base if k not in frais and k not in mien]:
+        b, m, f = base.get(k, _ABSENT), mien.get(k, _ABSENT), frais.get(k, _ABSENT)
+        if m == b:
+            v = f
+        elif f == b:
+            v = m
+        elif isinstance(m, dict) and isinstance(f, dict) and isinstance(b, dict):
+            v = _fusion(b, m, f)
+        else:
+            v = f
+        if v is not _ABSENT:
+            out[k] = v
+    return out
+
+
 def _lire() -> dict:
-    d = _deps["lire_json"](_deps["FICHIER_CLICS"], {})
+    d = _Etat(_deps["lire_json"](_deps["FICHIER_CLICS"], {}))
     d.setdefault("liens", {}); d.setdefault("jours", {}); d.setdefault("wallets", {})
+    d._base = copy.deepcopy(dict(d))
     return d
 
 
 def _ecrire(d: dict):
-    _deps["ecrire_json"](_deps["FICHIER_CLICS"], d)
+    base = getattr(d, "_base", None)
+    if base is not None:
+        frais = _deps["lire_json"](_deps["FICHIER_CLICS"], {})
+        frais.setdefault("liens", {}); frais.setdefault("jours", {}); frais.setdefault("wallets", {})
+        if frais != base:                                              # quelqu'un a écrit depuis ma lecture : on fusionne
+            fusion = _fusion(base, dict(d), frais)
+            d.clear()
+            d.update(fusion)
+        d._base = copy.deepcopy(dict(d))
+    _deps["ecrire_json"](_deps["FICHIER_CLICS"], dict(d))
 
 
 def _aujourdhui() -> date:
@@ -357,7 +398,12 @@ def debut_clic(uid: str, d: dict = None) -> str:
     if regime(uid) != "clic":
         return ""
     if fiche.get("clic_depuis"):
-        return str(fiche["clic_depuis"])[:10]
+        dc = str(fiche["clic_depuis"])[:10]
+        # 09/10 (revue) : un `!paie clic` redondant tapé entre le déploiement du 08/10 et celui du 09/10 a figé l'ancien plancher
+        # (le 08/10) ; hors PAIE_FIXE, la décision du 09/10 paie au clic depuis le 05/10
+        if dc == PAIE_DECISION and _prenom_uid(str(uid), fiche) not in PAIE_FIXE:
+            return min(dc, BASCULE_CLIC)
+        return dc
     if _ancien_regime(fiche) == "fixe" and not str(fiche.get("paie_le", ""))[:10] >= PAIE_DECISION:
         return BASCULE_CLIC
     return ""
@@ -395,6 +441,78 @@ def liberer_liens(d: dict, uid: str, prenom: str = "", uids_connus=None) -> list
             info.update({"uid": "", "libere": _aujourdhui().isoformat(), "ancien": prenom or info.get("note", "")})
             libres.append(lid)
     return libres
+
+
+def note_du_sortant(info: dict, note) -> bool:
+    """09/10 : le lien est libéré et sa note GAML est encore « Clipping <le sortant> » (`ancien`) — pas encore renommée, pas
+    réattribuée à la main à quelqu'un d'autre. Un tel lien n'est jamais rattaché par prénom (`associer_auto`, lien « existant »
+    de l'onboarding) : un homonyme signé plus tard hériterait des Reels de l'ancien, et l'app additionnerait les deux."""
+    if str((info or {}).get("uid") or "") or not (info or {}).get("libere") or info.get("hors_clipping"):
+        return False
+    p = _n_note(_prenom_note(note)).split()
+    ancien = str(info.get("ancien") or "")
+    a = _n_note(_prenom_note(ancien) or ancien).split()
+    return bool(p) and bool(a) and p[0] != "libre" and p[0] == a[0]
+
+
+def numero_metricool(liens, repreneur: str) -> int:
+    """Le prochain numéro des liens « Rianah Metricool N » (« Rianah Metricool » seul = 1, « Rianah Metricool 3 (ex-Hasina) » = 3) :
+    1 s'il n'y en a aucun. Lu dans les notes GAML (`liens`)."""
+    cible = _n_note(repreneur).split()
+    if not cible:
+        return 1
+    nums = []
+    for l in liens or []:
+        mots = re.sub(r"\(.*?\)", " ", _n_note(l.get("note"))).split()
+        if mots[:len(cible) + 1] == cible + ["metricool"]:
+            suite = mots[len(cible) + 1:]
+            nums.append(int(suite[0]) if suite and suite[0].isdigit() else 1)
+    return max(nums) + 1 if nums else 1
+
+
+RENOMMER_MAX = int(os.environ.get("CLICS_RENOMMER_MAX", "10") or 10)     # notes GAML renommées au plus par passage
+
+
+async def renommer_liberes(liens: list, seulement=None, maximum: int = None) -> list:
+    """09/10 (homonymes : un deuxième Julien signé) : la note GAML d'un lien libéré passe de « Clipping Eddy » à « Clipping libre
+    (ex-Eddy) ». Le lien reste dans le clipping (`lien_libre` le redonne au suivant, `reprendre_lien` pose « Clipping Prénom »),
+    mais ni l'app ni `associer_auto` ne le donnent plus à un homonyme. Revue du 09/10 : candidats choisis sur la liste GAML de la
+    passe, puis, lien par lien, la fiche relue et la note relue dans GAML juste avant le PATCH (une note changée à la main entre-temps
+    n'est jamais écrasée) ; aucun verrou tenu pendant les appels réseau ; `maximum` tentatives par passage, arrêt au premier refus
+    de GAML (le reste au passage suivant). Les liens « suivi » par le rapport du manager sont renommés comme les autres (seul un lien
+    jamais attribué par le bot, créé par le rapport, est laissé). Renvoie les lignes pour l'admin."""
+    maximum = RENOMMER_MAX if maximum is None else maximum
+    par_id = {l.get("id"): l for l in liens or [] if l.get("id") and "note" in l}    # note absente de la réponse : on ne juge pas
+    lignes, essais = [], 0
+    for lid, info in list(_lire().get("liens", {}).items()):
+        if essais >= maximum:
+            break
+        l = par_id.get(lid)
+        if l is None or (seulement is not None and lid not in seulement) or info.get("supprime_gaml") \
+                or (info.get("suivi") and info.get("par") == "rapport"):
+            continue
+        if not note_du_sortant(info, str(l.get("note") or "").strip()):
+            continue
+        essais += 1
+        try:
+            vivant = await lien_detail(lid)                             # la note de maintenant, pas celle du début de la passe
+            note = str((vivant or {}).get("note") or "").strip()
+            if not note_du_sortant((_lire().get("liens") or {}).get(lid) or {}, note):
+                continue
+            nouvelle = f"Clipping libre (ex-{_prenom_note(note)})"
+            await _requete("PATCH", f"/links/{lid}", corps={"note": nouvelle})
+        except RuntimeError as erreur:
+            journal.warning("Lien libéré %s : note GAML non renommée (%s), le reste au passage suivant", lid, erreur)
+            break
+        async with verrou_liens:                                        # écrit sur une relecture, sans await entre lecture et écriture
+            frais = _lire()
+            g = frais.get("liens", {}).get(lid)
+            if g is not None and not str(g.get("uid") or ""):
+                g["note"] = nouvelle
+                g.pop("suivi", None)
+                _ecrire(frais)
+        lignes.append(f"· {str(info.get('creatrice') or '?').title()} · « {note} » → « {nouvelle} »")
+    return lignes
 
 
 def lien_libre(d: dict, creatrice: str):
@@ -583,12 +701,23 @@ def synchroniser_notes(d: dict, liens: list) -> list:
                 info["ancien_uid"] = uid_av
             lignes.append(f"· {str(info.get('creatrice') or '?').title()} · ex-{info['ancien'] or '?'} devenu « {note or '(vide)'} » : "
                           f"sorti du clipping, plus compté pour un clipper ni repris par le bot")
+        elif hors and info.get("hors_clipping") and note and note != str(info.get("note") or ""):
+            # 09/10 (« Rianah reprend ses liens Metricool ») : toujours hors clipping, la note change de main
+            lignes.append(f"· {str(info.get('creatrice') or '?').title()} · « {info.get('note') or info.get('hors_clipping')} » devenu « {note} »")
+            info.update({"hors_clipping": note, "note": note})
         elif not hors and info.get("hors_clipping"):
             info.pop("hors_clipping", None)
+            info.pop("ancien", None)                                    # 09/10 (revue) : décision à la main, jamais renommé « libre »
             info["note"] = note                                         # `associer_auto` le rattache au membre de ce prénom
             if not str(info.get("uid") or ""):
                 info["libere"] = _aujourdhui().isoformat()              # sinon il redevient libre pour le suivant
             lignes.append(f"· {str(info.get('creatrice') or '?').title()} · « {note} » : revenu au clipping")
+        elif not hors and str(info.get("uid") or "") and _n_note(_prenom_note(note)).startswith("libre"):
+            # 09/10 (revue) : la note dit « libre » mais le bot croit le lien encore attribué (écriture concurrente) → libéré
+            m_ex = re.search(r"\(ex-([^)]*)\)", note)
+            info.update({"ancien_uid": str(info.get("uid")), "uid": "", "libere": _aujourdhui().isoformat(), "note": note,
+                         "ancien": (m_ex.group(1).strip() if m_ex else "") or str(info.get("ancien") or "")})
+            lignes.append(f"· {str(info.get('creatrice') or '?').title()} · « {note} » : noté libre dans GAML, détaché de son clipper")
     return lignes
 
 
@@ -783,6 +912,8 @@ async def associer_auto(d: dict, liens: list) -> list:
         lid, prenom = l.get("id"), _prenom_note(l.get("note"))
         if not lid or lid in deja or not prenom or normaliser(prenom) in CLICS_EXCLURE or len(prenom) < 3:
             continue
+        if note_du_sortant(d["liens"].get(lid) or {}, l.get("note")):  # 09/10 : le lien d'un sortant, jamais à son homonyme
+            continue
         creatrice = str(l.get("name", "")).split()[0] if l.get("name") else ""
         candidats = []
         for uid, fiche in registre.items():
@@ -964,6 +1095,15 @@ async def boucle(client, deps: dict):
                 derniere_assoc = time.time()
                 if lignes:
                     _ecrire(d)
+                try:                                                    # 09/10 : liens libérés renommés « Clipping libre (ex-…) »
+                    renommes = await renommer_liberes(liens_tous)
+                except Exception as erreur:                             # noqa: BLE001
+                    journal.warning("Renommage des liens libérés : %s", erreur)
+                    renommes = []
+                if renommes:
+                    d = _lire()                                         # écrit sur une relecture (d déjà écrit juste au-dessus)
+                    lignes += ["🏷️ **Liens libérés renommés** (plus jamais donnés à un homonyme)"] + renommes
+                if lignes:
                     canal = await _deps["canal_admin"]()
                     if canal:
                         await canal.send("🔗 **Liens GAML attribués automatiquement**\n" + "\n".join(lignes)[:1800])

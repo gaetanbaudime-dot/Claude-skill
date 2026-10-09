@@ -42,7 +42,8 @@ export function regrouper(liens: LienGaml[]): Clipper[] {
   for (const l of liens) {
     const prenom = prenomNote(l.note);
     const cle = normaliser(prenom);
-    if (!prenom || prenom.length < 3 || EXCLURE.has(cle)) continue;
+    // 09/10 : « Clipping libre (ex-Eddy) » = lien d'un clipper parti, en attente du suivant (le bot le renomme) : à personne
+    if (!prenom || prenom.length < 3 || EXCLURE.has(cle) || cle.split(/\s+/)[0] === "libre") continue;
     const g = parCle.get(cle) || { liens: [] };
     g.liens.push(l);
     parCle.set(cle, g);

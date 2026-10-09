@@ -5340,6 +5340,11 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s, "expulse": expulse}
 
 
+# 09/10 (Gaëtan : « Rianah = Metricool désormais », puis « Rianah reprend ses liens Metricool ainsi que ses liens de tracking OF
+# MYM ») : qui reprend les liens GAML et les lignes « Prénom (Metricool) » d'un clipper passé hors clipping. Vide = liens libérés.
+REPRENEUR_METRICOOL = os.environ.get("REPRENEUR_METRICOOL", "Rianah").strip()
+
+
 async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -> dict:
     """09/10 (Gaëtan : « Julien arrête tout, il va juste faire le monteur vidéo maintenant pour moi ») : un clipper qui passe dans
     l'équipe de Gaëtan sort du clipping SANS être viré : ni message de sortie, ni expulsion, son salon perso reste. Tout se fait
@@ -5354,6 +5359,19 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
     raison = f"hors clipping : {role}"
     nom_par = getattr(par, "display_name", "le bot")
     refus = []
+    # 0. Revue du 09/10 : les notes GAML de ses liens lues AVANT tout geste. Illisibles ou incomplètes → rien n'est fait (relancer
+    #    est sans effet de bord) : sinon un lien déjà passé à la main chez Rianah pouvait être libéré et redonné, tracking compris.
+    vivants = {}
+    if paie_clics.actif():
+        siens = [lid for lid, i in paie_clics._lire().get("liens", {}).items()
+                 if str(i.get("uid") or "") == uid and not i.get("supprime_gaml")]
+        try:
+            vivants = {l.get("id"): l for l in await paie_clics.liens_gaml() if l.get("id")}
+        except Exception as erreur:                                         # noqa: BLE001
+            return {"annule": f"GAML illisible ({type(erreur).__name__}) : rien n'a été fait, relance `!monteur` dans quelques minutes."}
+        manquants = [lid for lid in siens if "note" not in (vivants.get(lid) or {})]
+        if manquants:
+            return {"annule": f"lecture GAML incomplète ({len(manquants)} de ses liens non lus) : rien n'a été fait, relance `!monteur`."}
     registre = lire_json(FICHIER_EQUIPES, {})
     homonymes = [u for u in registre if u != uid and membre_par_id(u) is not None
                  and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)]
@@ -5390,23 +5408,52 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
         if uid in pipe.get(sec, {}):
             pipe[sec][uid]["stop"] = True
     ecrire_json(FICHIER_PIPELINE, pipe)
-    # 4. Liens GAML : par uid seulement (`prenom` vide : jamais un lien « Clipping Julien » de l'homonyme), note changée.
-    liens = []
+    # 4. Liens GAML, par uid seulement (jamais un lien « Clipping Julien » de l'homonyme). 09/10 (Gaëtan : « Rianah reprend ses
+    #    liens Metricool ainsi que ses liens de tracking OF MYM ») : ses comptes créés partent sur Metricool, ses liens les suivent
+    #    chez REPRENEUR_METRICOOL — note « Rianah Metricool N (ex-Julien) », détachés comme une note changée à la main ; les cartes
+    #    Miam et OnlyFriends (ses trackings MYM et OF) restent posées sur le lien. Un lien déjà sorti du clipping à la main est
+    #    seulement détaché. Sans repreneur (ou GAML illisible / refus), le lien est libéré pour le suivant de la créatrice et sa
+    #    note devient « Clipping libre (ex-Julien) ».
+    liens, repris = [], []
     if paie_clics.actif():
         async with paie_clics.verrou_liens:
             d_l = paie_clics._lire()
+            numero = max(paie_clics.numero_metricool(vivants.values(), REPRENEUR_METRICOOL),
+                          paie_clics.numero_metricool(d_l.get("liens", {}).values(), REPRENEUR_METRICOOL))
+            for lid in paie_clics.liens_de(d_l, uid):
+                vivant = vivants.get(lid) or {}
+                cr_l = str(d_l["liens"][lid].get("creatrice") or "?").title()
+                note_v = str(vivant.get("note") or "").strip()
+                p_note = (paie_clics._n_note(paie_clics._prenom_note(note_v)).split() or [""])[0]
+                if "note" in vivant and not p_note:
+                    paie_clics.synchroniser_notes(d_l, [{"id": lid, "note": note_v}])
+                    repris.append(f"{cr_l} « {note_v or '(note vide)'} » (déjà changée à la main)")
+                    continue
+                if p_note != (paie_clics._n_note(prenom).split() or [""])[0]:
+                    refus.append(f"lien {cr_l} noté « {note_v} » dans GAML : laissé à ce clipper (détaché de {prenom})")
+                    continue                                                # libéré plus bas sans renommage : associer_auto le rattache
+                if REPRENEUR_METRICOOL:
+                    nouvelle = f"{REPRENEUR_METRICOOL} Metricool{f' {numero}' if numero > 1 else ''} (ex-{prenom})"
+                    try:
+                        await paie_clics._requete("PATCH", f"/links/{lid}", corps={"note": nouvelle})
+                    except Exception as erreur:                             # noqa: BLE001
+                        refus.append(f"lien {cr_l} pas passé à {REPRENEUR_METRICOOL} ({erreur}) : libéré pour le suivant")
+                    else:
+                        paie_clics.synchroniser_notes(d_l, [{"id": lid, "note": nouvelle}])
+                        repris.append(f"{cr_l} « {nouvelle} »")
+                        numero += 1
+                        continue
             liens = paie_clics.liberer_liens(d_l, uid, "")
             for lid in liens:
-                note = f"Clipping libre (ex-{prenom})"
-                d_l["liens"][lid].update({"ancien": prenom, "note": note})
-                try:
-                    await paie_clics._requete("PATCH", f"/links/{lid}", corps={"note": note})
-                except Exception as erreur:                                 # noqa: BLE001
-                    refus.append(f"note GAML du lien {d_l['liens'][lid].get('creatrice') or lid} à changer à la main ({erreur})")
-            if liens:
-                paie_clics._ecrire(d_l)
+                d_l["liens"][lid]["ancien"] = prenom
+            paie_clics._ecrire(d_l)
+        if liens and vivants:
+            try:
+                await paie_clics.renommer_liberes(list(vivants.values()), seulement=set(liens))
+            except Exception as erreur:                                     # noqa: BLE001
+                refus.append(f"notes des liens libérés ({type(erreur).__name__}) : renommées au prochain passage")
     # 5. Classeur : les lignes à son prénom, moins les comptes d'un homonyme signé (sa fiche d'onboarding les connaît).
-    comptes = []
+    comptes, metricool = [], []
     if onboarding.actif():
         etat_o = onboarding._lire_etat()
         fiches_h = [etat_o.get("clippers", {}).get(u) or {} for u in homonymes]
@@ -5421,6 +5468,11 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
                     comptes = [b for b in await onboarding.liberer(prenom, handles=siens) if b.startswith("·")]
             except Exception as erreur:                                     # noqa: BLE001
                 refus.append(f"classeur ({type(erreur).__name__})")
+        if REPRENEUR_METRICOOL:                                             # ses lignes « Julien (Metricool) » → « Rianah (Metricool) »
+            try:                                                            # (jamais écrites par le bot : jamais celles d'un homonyme)
+                metricool = await onboarding.changer_gerant(f"{prenom} (Metricool)", f"{REPRENEUR_METRICOOL} (Metricool)")
+            except Exception as erreur:                                     # noqa: BLE001
+                refus.append(f"lignes {prenom} (Metricool) ({type(erreur).__name__})")
     # 6. Registre → sortis.json (avec où il en était), parcours oublié, roster seulement sans homonyme. Relu ici : les étapes
     #    d'avant attendent Discord, GAML et le classeur, une signature arrivée entre-temps ne doit pas être écrasée.
     registre = lire_json(FICHIER_EQUIPES, {})
@@ -5444,10 +5496,15 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
     await notifier_manager(
         f"🎬 **{membre.display_name}** (<@{uid}>) **sort du clipping** : {role} pour Gaëtan (par {nom_par}). Pas de message, pas d'expulsion.\n"
         f"Rôles de clipper retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · salons de créatrice fermés : {len(fermes)}"
-        f" · liens GAML libérés pour le suivant : {len(liens)} · comptes du classeur rendus : {len(comptes)}"
+        f" · comptes du classeur rendus : {len(comptes)}"
+        + (f"\n🔁 À {REPRENEUR_METRICOOL}, avec leurs trackings OF et MYM : {' · '.join(repris)}" if repris else "")
+        + (f"\n🔓 Liens libérés pour le suivant de la créatrice : {len(liens)}" if liens else "")
+        + (f"\n🔁 Lignes Metricool passées à {REPRENEUR_METRICOOL} :\n" + "\n".join(metricool) if metricool else "")
         + (f"\n⚠️ {' · '.join(refus)}" if refus else "") + ("\n" + "\n".join(comptes) if comptes else ""), g)
-    journal.info("Hors clipping : %s (%s) par %s, %s lien(s), %s compte(s)", uid, role, nom_par, len(liens), len(comptes))
-    return {"roles": len(a_retirer), "acces": len(fermes), "liens": len(liens), "comptes": len(comptes), "refus": refus}
+    journal.info("Hors clipping : %s (%s) par %s, %s lien(s) repris, %s libéré(s), %s compte(s), %s ligne(s) Metricool",
+                 uid, role, nom_par, len(repris), len(liens), len(comptes), len(metricool))
+    return {"roles": len(a_retirer), "acces": len(fermes), "liens": len(liens), "repris": len(repris), "comptes": len(comptes),
+            "metricool": len(metricool), "refus": refus}
 
 
 async def commande_admin(message, texte: str) -> bool:
@@ -6486,8 +6543,13 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("⛔ Membre admin.")
             return True
         res = await passer_hors_clipping(membre, role_m or "monteur vidéo", message.author)
+        if res.get("annule"):
+            await message.reply(f"⏸️ {membre.mention} : {res['annule']}")
+            return True
         await message.reply(f"🎬 {membre.mention} hors clipping : {res['roles']} rôle(s) de clipper retiré(s), {res['acces']} salon(s) de "
-                            f"créatrice fermé(s), {res['liens']} lien(s) libéré(s), {res['comptes']} compte(s) du classeur rendu(s), "
+                            f"créatrice fermé(s), {res['repris']} lien(s) passé(s) à {REPRENEUR_METRICOOL or 'personne'}, "
+                            f"{res['liens']} lien(s) libéré(s), {res['comptes']} compte(s) du classeur rendu(s), "
+                            f"{res['metricool']} ligne(s) Metricool passée(s) à {REPRENEUR_METRICOOL or 'personne'}, "
                             "parcours et relances arrêtés." + (f"\n⚠️ {' · '.join(res['refus'])}" if res["refus"] else ""))
         return True
 

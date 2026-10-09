@@ -27,6 +27,7 @@ import asyncio
 import logging
 import os
 import re
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 
 import aiohttp
@@ -209,6 +210,34 @@ def _fiche_vide() -> dict:
 # BAN seulement après INTROUVABLE_JOURS passages sans le voir.
 INTROUVABLE_JOURS = int(os.environ.get("ETATS_INTROUVABLE_JOURS", "3") or 3)
 VARIANTES_MAX = int(os.environ.get("ETATS_VARIANTES_MAX", "12") or 12)   # comptes cherchés au plus par passage
+# 09/10 (revue) : un BAN n'est cherché sous un @ proche que dans les jours qui suivent le BAN posé par le bot (un vrai BAN, vu
+# vivant un jour, ne l'est jamais ; sans limite, les vieux BAN prenaient chaque jour toutes les places de la recherche).
+BAN_RECHERCHE_JOURS = int(os.environ.get("ETATS_BAN_RECHERCHE_JOURS", "7") or 7)
+CREES = ("warmup", "prive", "privé")                                    # créés, pas encore GOOD : le délai avant BAN les protège
+
+
+def _absents_depuis(historique: list, depuis: str) -> int:
+    """09/10 (revue : le délai comptait les jours où la ligne était encore « à créer ») : les passages absents de suite, en partant
+    du dernier, seulement depuis le jour où la ligne a été vue créée (`depuis`, AAAA-MM-JJ)."""
+    n = 0
+    for j in reversed(historique or []):
+        if str(j.get("jour", ""))[:10] < str(depuis or "")[:10]:
+            break
+        if j.get("existe") and j.get("restreint"):
+            continue
+        if j.get("existe"):
+            break
+        n += 1
+    return n
+
+
+def _ban_recent(d: dict, h: str, jour: str) -> bool:
+    """Le BAN de ce compte a été posé par le bot il y a au plus BAN_RECHERCHE_JOURS jours."""
+    pose = str((d.get("bans_auto") or {}).get(h) or "")[:10]
+    try:
+        return bool(pose) and (date.fromisoformat(jour) - date.fromisoformat(pose)).days <= BAN_RECHERCHE_JOURS
+    except ValueError:
+        return False
 
 
 def variantes(h: str) -> list:
@@ -227,17 +256,21 @@ def variantes(h: str) -> list:
     return out[:16]
 
 
+def _lettres(t: str) -> str:
+    sans = "".join(ch for ch in unicodedata.normalize("NFD", str(t or "").lower()) if unicodedata.category(ch) != "Mn")
+    return re.sub(r"[^a-z0-9]+", " ", sans).strip()
+
+
 def est_a_nous(m: dict, creatrice: str) -> bool:
-    """Le profil trouvé est bien celui que le bot a fait préparer : jeune (peu d'abonnés) ET avec le nom (prénom de la créatrice)
-    ou une bio de la banque de profil.py."""
+    """Le profil trouvé est bien celui que le bot a fait préparer : jeune (peu d'abonnés) ET avec une bio de la banque de profil.py
+    (lettres et chiffres comparés, emojis et ponctuation ignorés). 09/10 (revue) : le nom seul (« Sophie », « Chloé ») ne suffit
+    plus — c'est le nom de milliers de comptes personnels, le scan aurait suivi le compte d'une inconnue."""
     prenom = (str(creatrice or "").split() or [""])[0]
-    if not prenom or not m or not m.get("existe") or int(m.get("followers") or 0) > 3000:
+    if not prenom or not m or not m.get("existe") or int(m.get("followers") or 0) > 3000 or not _lettres(m.get("bio")):
         return False
-    if _norm(m.get("nom") or "") == _norm(prenom):
-        return True
     try:
         import profil
-        return any(_norm(m.get("bio") or "") == _norm(b.format(prenom=prenom)) for b in profil.BIOS)
+        return any(_lettres(m.get("bio")) == _lettres(b.format(prenom=prenom)) for b in profil.BIOS)
     except Exception:                                                   # noqa: BLE001
         return False
 
@@ -516,10 +549,33 @@ async def _executer(ecrire: bool = True) -> dict:
     reels_ecritures = []
     a_relire = []                                                        # 01/10 : Reels des 24 h des clippers, pour la review
     pris = []                                                          # 01/10 : identifiants « à créer » déjà présents sur Instagram
-    a_chercher = []                                                    # 09/10 : créés mais jamais vus vivants (@ changé ?)
+    a_chercher = []                                                    # 09/10 : créés mais jamais vus vivants (@ changé ?) : (priorité, ligne)
+    differes = {}                                                      # 09/10 (revue) : BAN écrits après la recherche du jour
+    try:                                                               # 09/10 (revue) : @ changés par le clipper → jamais « pris »
+        renommes = {str(r.get("nouveau") or "").lower() for f in (onboarding._lire_etat().get("clippers") or {}).values()
+                    for r in (f.get("renommes") or []) if isinstance(r, dict)}
+    except Exception:                                                  # noqa: BLE001
+        renommes = set()
     ids_suivis = {id(c) for c in suivis}
     async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
         await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
+
+    async def _appliquer(c, apres):
+        h_a = _cle(c["handle"])
+        changements.append((c["handle"], c["gerant"], c["etat"], apres, c["ligne"]))
+        if not ecrire:
+            return
+        try:
+            await _cellule(c, "etat", apres)
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Classeur : état non écrit (%s ligne %s) : %s", c.get("onglet", ""), c.get("ligne"), type(erreur).__name__)
+            return
+        if apres == "BAN":
+            d["bans_auto"][h_a] = jour
+            d["avant_ban"][h_a] = str(c["etat"]).strip().upper().replace("É", "E")
+        elif h_a in d["bans_auto"]:
+            d["bans_auto"].pop(h_a, None)
+            d["avant_ban"].pop(h_a, None)
     for c in lignes:
         if id(c) in ids_non_lus:
             continue                                                     # 05/10 : non lu → rien d'écrit, rien de conclu, pas d'historique
@@ -563,52 +619,76 @@ async def _executer(ecrire: bool = True) -> dict:
                                            "texte": bool(m.get("lien_dans_texte"))}
         if id(c) not in ids_suivis:
             continue
+        e_c = _norm(c["etat"])
+        if m["existe"]:
+            d.setdefault("vivants_vus", {}).setdefault(h, jour)         # 09/10 (revue) : vu vivant un jour, au-delà des 14 jours
+        if e_c in CREES + ("good",):
+            d.setdefault("cree_vu", {}).setdefault(h, jour)             # 09/10 (revue) : premier passage où la ligne est créée
         apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"], d.setdefault("avant_ban", {}).get(h, ""))
-        jamais_vu = not any(e.get("existe") for e in d["historique"][h])
-        if c.get("gerant") and _en_gestion(c) and jamais_vu and not m["existe"]:
-            e_c = _norm(c["etat"])
-            if apres == "BAN" and e_c == "warmup":
-                a_chercher.append(c)                                    # 09/10 : peut-être un @ légèrement changé
-                if _series(d["historique"][h])[0] < INTROUVABLE_JOURS:
-                    apres = ""                                          # pas BAN tant qu'on le cherche
-            elif e_c == "ban" and d.setdefault("cherches", {}).get(h) != jour:
-                d["cherches"][h] = jour                                 # un BAN jamais vu vivant (faux BAN d'avant le 09/10 ?)
-                a_chercher.append(c)
+        jamais_vu = h not in d.get("vivants_vus", {}) and not any(e.get("existe") for e in d["historique"][h])
+        gere = bool(c.get("gerant")) and _en_gestion(c)
+        if gere and e_c in CREES and jamais_vu and not m["existe"]:
+            a_chercher.append((0, c))                                   # 09/10 : peut-être un @ légèrement changé
+            if apres == "BAN":
+                if _absents_depuis(d["historique"][h], d["cree_vu"].get(h, jour)) < INTROUVABLE_JOURS:
+                    apres = ""                                          # pas BAN tant qu'on le cherche (jours comptés depuis sa création)
+                else:
+                    differes[id(c)] = (c, apres)                        # BAN écrit après la recherche du jour : retrouvé → jamais BAN
+                    continue
+        elif gere and e_c == "ban" and jamais_vu and not m["existe"] and _ban_recent(d, h, jour):
+            a_chercher.append((1, c))                                   # un BAN récent jamais vu vivant (faux BAN ?)
+        elif gere and e_c in CREES and m["existe"] and h in d.get("pris_signales", {}) \
+                and not est_a_nous(m, c.get("creatrice") or c.get("onglet") or ""):
+            a_chercher.append((0, c))                                   # 09/10 (revue) : @ prévu pris par un inconnu, le sien est à côté ?
         if ecrire and not apres and m["existe"] and _norm(c["etat"]) in A_CREER \
-                and h not in d.setdefault("pris_signales", {}):
+                and h not in d.setdefault("pris_signales", {}) and h not in renommes:
             pris.append(f"{c['handle']} ({str(c.get('gerant') or '?').split()[0]})")   # 01/10 : vu présent sans avoir été vu absent
             d["pris_signales"][h] = jour
         if apres:
-            changements.append((c["handle"], c["gerant"], c["etat"], apres, c["ligne"]))
-            if ecrire:
-                try:
-                    await _cellule(c, "etat", apres)
-                except Exception as erreur:                              # noqa: BLE001
-                    journal.warning("Classeur : état non écrit (%s ligne %s) : %s", onglet, c.get("ligne"), type(erreur).__name__)
-                    continue
-                if apres == "BAN":
-                    d["bans_auto"][h] = jour
-                    d["avant_ban"][h] = str(c["etat"]).strip().upper().replace("É", "E")
-                elif h in d["bans_auto"]:
-                    d["bans_auto"].pop(h, None)
-                    d["avant_ban"].pop(h, None)
+            await _appliquer(c, apres)
     if ecrire and a_chercher:                                           # 09/10 : les @ légèrement changés
+        # 09/10 (revue) : les comptes créés d'abord (WARMUP, PRIVE), les BAN récents ensuite ; une fois par jour et par compte
+        # (`!dashboard` relance le scan), noté seulement pour ceux vraiment cherchés ; le reste attend le passage suivant
+        a_chercher.sort(key=lambda x: x[0])
+        lot = [c for _, c in a_chercher if d.setdefault("cherches", {}).get(_cle(c["handle"])) != jour]
+        if len(lot) > VARIANTES_MAX:
+            journal.info("Recherche des @ changés : %s comptes, %s cherchés ce passage", len(lot), VARIANTES_MAX)
+        lot = lot[:VARIANTES_MAX]
+        for c in lot:
+            d["cherches"][_cle(c["handle"])] = jour
         try:
-            trouves, perdus = await chercher_variantes(a_chercher[:VARIANTES_MAX])
-            for c, nouveau in trouves:
-                if _deps.get("compte_retrouve"):
-                    await _deps["compte_retrouve"](c["handle"], nouveau)
-                if _norm(c["etat"]) == "ban":                            # faux BAN : le compte vit sous son vrai @
-                    try:
-                        await _cellule(c, "etat", "WARMUP")
-                    except Exception:                                   # noqa: BLE001
-                        pass
-                changements.append((c["handle"], c["gerant"], c["etat"], f"retrouvé sous {nouveau}", c["ligne"]))
-            for c in perdus:
-                if _norm(c["etat"]) == "warmup" and _deps.get("compte_introuvable"):
-                    await _deps["compte_introuvable"](c["handle"])
+            trouves, perdus = await chercher_variantes(lot) if lot else ([], [])
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Recherche des @ changés : %s", erreur)
+            trouves, perdus = [], []
+        for c, nouveau in trouves:
+            h_c = _cle(c["handle"])
+            try:
+                ok = bool(await _deps["compte_retrouve"](c["handle"], nouveau)) if _deps.get("compte_retrouve") else False
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Compte retrouvé %s → %s : %s", c["handle"], nouveau, erreur)
+                ok = False
+            if not ok:                                                  # 09/10 (revue) : jamais WARMUP sous un @ qui n'existe pas
+                changements.append((c["handle"], c["gerant"], c["etat"], f"vu sous {nouveau}, pas renommé (`!pseudo`)", c["ligne"]))
+                continue
+            differes.pop(id(c), None)                                   # retrouvé : jamais BAN
+            if _norm(c["etat"]) == "ban":                               # faux BAN : le compte vit sous son vrai @, état d'avant rendu
+                retour = d.get("avant_ban", {}).get(h_c) or "WARMUP"
+                try:
+                    await _cellule(c, "etat", retour)
+                    d["bans_auto"].pop(h_c, None)
+                    d["avant_ban"].pop(h_c, None)
+                except Exception:                                       # noqa: BLE001
+                    pass
+            changements.append((c["handle"], c["gerant"], c["etat"], f"retrouvé sous {nouveau}", c["ligne"]))
+        for c in perdus:
+            if _norm(c["etat"]) in CREES and _deps.get("compte_introuvable"):
+                try:
+                    await _deps["compte_introuvable"](c["handle"])
+                except Exception as erreur:                             # noqa: BLE001
+                    journal.warning("Compte introuvable %s : %s", c["handle"], erreur)
+    for c, apres in list(differes.values()):                            # 09/10 (revue) : pas retrouvé → le BAN différé est écrit
+        await _appliquer(c, apres)
     if reels_ecritures:
         try:
             await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, reels_ecritures)
@@ -1086,6 +1166,9 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
     for apres in ("WARMUP", "GOOD", "PRIVE", "BAN"):
         if apres in par_etat:
             lignes.append(f"→ **{apres}** : " + ", ".join(par_etat[apres]))
+    for apres, quoi in par_etat.items():                                # 09/10 (revue) : comptes retrouvés sous un @ proche
+        if apres not in ("WARMUP", "GOOD", "PRIVE", "BAN"):
+            lignes.append(f"🔎 {', '.join(quoi)} → {apres}")
     if "BAN" in par_etat:
         lignes.append(f"-# BAN = introuvable sur Instagram (redemandé une fois avant de conclure ; un compte restreint n'est jamais BAN){' au premier scan' if BAN_JOURS <= 1 else f' {BAN_JOURS} jours de suite'} "
                       "(et, en plus, tout mail « Action requise / compte suspendu » lu dans ta boîte toutes les 3 min). "

@@ -16,6 +16,7 @@ sous Sophie). Ces liens sont relevés même sans membre Discord attribué (`suiv
 """
 
 import json
+import re
 import os
 import logging
 from datetime import timedelta
@@ -124,9 +125,10 @@ def associer_suivi(d: dict, liens: list) -> int:
     for creatrice, noms in groupes_actifs().items():
         for nom in noms:
             for l in liens:
-                lid, note = l.get("id"), _n(l.get("note"))
+                # 09/10 (revue) : « (ex-Julien) » dit l'ancien propriétaire, jamais le clipper suivi ; un lien « Clipping libre » n'est à personne
+                lid, note = l.get("id"), _n(re.sub(r"\(\s*ex[^)]*\)", " ", str(l.get("note") or ""), flags=re.I))
                 cr = _n(str(l.get("name", "")).split()[0] if l.get("name") else "")
-                if not lid or _n(nom) not in note or cr != _n(creatrice):
+                if not lid or _n(nom) not in note or cr != _n(creatrice) or note.strip().startswith("clipping libre"):
                     continue
                 info = d["liens"].setdefault(lid, {"uid": "", "note": l.get("note"), "url": l.get("url"),
                                                    "creatrice": creatrice, "depuis": paie_clics.CLICS_DEPUIS, "par": "rapport"})
