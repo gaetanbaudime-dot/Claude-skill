@@ -1156,7 +1156,7 @@ async def _executer(ecrire: bool = True) -> dict:
                 journal.warning("Reels du matin pour %s : %s", prenom, erreur)
     if ecrire:
         try:                                                                        # 28/09 : l'onglet Dashboard, une ligne par clipper
-            await ecrire_dashboard(comptes, d["historique"], _deps.get("clics_7j"), jour)
+            await ecrire_dashboard(comptes, d["historique"], _deps.get("clics_7j"), jour, forme=True)   # 09/10 : + onglets, capacité
             d["dashboard_version"] = DASHBOARD_VERSION
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Dashboard : %s", erreur)
@@ -1508,28 +1508,30 @@ def lignes_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclu
     return lignes
 
 
-async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclus=None) -> int:
-    """Écrit l'onglet Dashboard du classeur des logins (créé s'il manque, vidé puis réécrit). Renvoie le nombre de lignes."""
-    if exclus is None:
-        try:
-            exclus = dashboard_masques()
-        except Exception:                                                   # noqa: BLE001 — sans état (tests), la liste par défaut
-            exclus = list(MASQUES_DEFAUT)
-    lignes = lignes_dashboard(comptes, historique, clics_de, jour, exclus)
-    cid = onboarding.CLASSEUR_LOGINS_ID
+async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str, exclus=None, forme: bool = False) -> int:
+    """Écrit l'onglet Dashboard du classeur des logins. Renvoie le nombre de lignes.
+    09/10 (dashboard, contrat C5) : délègue à dashboard.ecrire(force=True), qui relit lui-même le classeur, les séries, les états,
+    les clics et le contrôle, et réécrit l'onglet en place (plus vidé d'abord) ; les arguments restent pour les appelants. La mise
+    en forme des onglets créatrices et l'onglet Build capacity ne suivent plus chaque réécriture (un Dashboard réécrit toutes les
+    15 min déplacerait des lignes pendant que Gaëtan édite et pourrait payer Apify) : `forme=True`, passé par le seul passage
+    complet, les lance ensuite (mettre_en_forme_classeur)."""
+    import dashboard                                                    # import tardif : dashboard lit l'état de ce module
     try:
-        await google_api.sheets_creer_onglet(cid, ONGLET_DASHBOARD)
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.info("Onglet %s : %s", ONGLET_DASHBOARD, erreur)
-    await google_api.sheets_effacer(cid, f"'{ONGLET_DASHBOARD}'!A1:N500")
-    await google_api.sheets_ecrire(cid, f"'{ONGLET_DASHBOARD}'!A1", lignes)
-    try:                                                                # 28/09 (Gaëtan : « des couleurs, des groupes, des cards »)
-        props = await google_api.sheets_proprietes(cid)
-        sid = props.get(ONGLET_DASHBOARD, {}).get("id")
-        if sid is not None:
-            await google_api.sheets_batch_update(cid, requetes_mise_en_forme(lignes, sid))
-    except Exception as erreur:                                         # noqa: BLE001 — la mise en forme ne bloque jamais le scan
-        journal.warning("Dashboard : mise en forme impossible (%s)", erreur)
+        bilan = await dashboard.ecrire(force=True)
+    finally:
+        if forme:
+            await mettre_en_forme_classeur(comptes)
+    if bilan.get("erreur"):
+        raise RuntimeError(bilan["erreur"])
+    return int(bilan.get("lignes") or 0)
+
+
+async def mettre_en_forme_classeur(comptes: list) -> None:
+    """09/10 (dashboard) : la mise en forme des onglets créatrices (classeur_forme, qui peut déplacer des lignes) et l'onglet Build
+    capacity (capacite, qui peut lancer Apify), sortis du chemin du Dashboard : passage complet du matin seulement."""
+    if not (onboarding.actif() and google_api.actif()):
+        return
+    cid = onboarding.CLASSEUR_LOGINS_ID
     try:                                                                # 29/09 : les onglets créatrices, un bloc par clipper
         import classeur_forme
         classeur_forme.configurer({"google_api": google_api, "classeur_id": cid, "colonnes_par_onglet": onboarding._colonnes_par_onglet,
@@ -1540,12 +1542,11 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str,
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Classeur : mise en forme des onglets impossible (%s)", erreur)
     global CAPACITE
-    try:                                                                # 30/09 : l'onglet « Build capacity » suit le Dashboard
+    try:                                                                # 30/09 : l'onglet « Build capacity » (09/10 : passage complet seulement)
         import capacite
         CAPACITE = await capacite.ecrire(comptes)
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Build capacity : %s", erreur)
-    return len(lignes)
 
 
 CAPACITE = {}                                                           # dernier résumé de l'onglet Build capacity

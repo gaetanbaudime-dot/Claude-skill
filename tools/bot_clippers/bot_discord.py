@@ -37,6 +37,7 @@ import rapport_stats                      # rapport GAML quotidien du manager, #
 import reserve_mym                        # réserve de trackings MYM par numéro de lien GAML (05/10)
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
+import dashboard                          # 09/10 (dashboard) : onglet Dashboard, une ligne par compte, réécrit toutes les 15 min si changé
 import matin                              # un seul message du matin par clipper (26/09)
 import sortie_auto                        # sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
@@ -7529,6 +7530,10 @@ async def on_ready():
                                   "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None,   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer
                                   "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
+        dashboard.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "dashboard.json",
+                              "FICHIER_ETATS": FICHIER_ETATS, "FICHIER_CLICS": FICHIER_CLICS, "FICHIER_EQUIPES": FICHIER_EQUIPES,
+                              "FICHIER_ONBOARDING": FICHIER_ONBOARDING, "membre_par_id": membre_par_id, "normaliser": normaliser})
+        client.loop.create_task(dashboard.boucle(client))                       # 09/10 (dashboard) : relu toutes les 15 min, sans Apify ni GAML
         classeur_verif.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_VERIF": DONNEES / "classeur_verif.json",
                                    "canal_admin": canal_admin, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                                    "normaliser": normaliser, "exclus": etats_comptes.dashboard_exclus, "lire_comptes": onboarding.lire_comptes,
