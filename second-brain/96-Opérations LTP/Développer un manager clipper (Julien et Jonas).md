@@ -13,6 +13,9 @@ liens_forts: ["[[Les 6 Loom de délégation manager (passation été)]]", "[[Ét
 > [!tip] Verdict
 > Les [[Les 6 Loom de délégation manager (passation été)|6 Loom]] disent le QUOI (piloter, valider, payer). Cette page dit le **COMMENT on fabrique les deux gars** — qui n'ont jamais managé. On ne forme pas un manager avec un cours : on le fabrique avec **① un chiffre qu'il possède, ② des reps quotidiens, ③ un 1-on-1 hebdo sur UNE chose, ④ le fondateur qui se retire.** Piège n°1 nommé : **Julien est le meilleur producteur** (Chloé) — le risque n'est pas qu'il manage mal, c'est de **perdre le meilleur clipper pour fabriquer un manager moyen** (le piège documenté du meilleur exécutant promu, [[Étude - Structurer l'agence de 55k à 500k (août 2026)]]).
 
+> [!info] Suite (09/10/2026)
+> Jonas est parti le 09/10. Le piège du meilleur exécutant promu, nommé ici, dicte la suite : un Team Leader joueur-entraîneur qui garde ses comptes, essai d'un mois, prime au seul chiffre de son équipe : [[Team Leader clippers - le premier poste après Jonas (9 octobre 2026)]].
+
 ## Les 5 leviers
 
 1. **Le feu comme premier test, pas un cours.** Production à 1/15 le 11/08 : leur première mission n'est pas « apprends les Loom », c'est *« ton pod poste tous les jours d'ici vendredi »*. Un manager se forge sur un vrai problème qu'il possède ; les Loom sont le manuel qu'il ouvre quand il bute, pas le préalable.

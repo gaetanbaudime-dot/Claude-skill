@@ -151,6 +151,9 @@ Changement structurel vs l'ancienne chaîne : le clipping est **absorbé dans le
 
 ## L'équipe
 
+> [!warning] Mouvement (09/10/2026) — Jonas a quitté l'agence
+> Le manager clippers est parti le 09/10. Recommandation : pas de pyramide manager → Team Leaders → clippers tant que quatre clippers seulement produisent ; un **Team Leader joueur-entraîneur malgache** choisi sur ses chiffres, payé sa paie de clipper + 10 $ par clipper de son équipe au-dessus de 500 visiteurs et 5 abonnés par quinzaine, Gaëtan et le bot à la place du manager ; clipper à 0,05 $ inchangé. Le soir même, Clarisse et Yves acceptent : **Clarisse Team Leader Chloé, Yves Team Leader Sarah, Sophie sans Team Leader** jusqu'à ce qu'un clipper Sophie fasse ses preuves. Accès de Jonas à couper et mots de passe à changer. Détail : [[Team Leader clippers - le premier poste après Jonas (9 octobre 2026)]].
+
 > [!warning] Mouvements (14/09/2026)
 > **Emma a quitté l'agence** : la casquette Creator Success Manager (tendances, rushs, cadence, SFS, listes d'amis) est reprise par Gaëtan pour 30 jours avec playbook écrit, CSM à recruter le 15/10. **Jonas** manage les clippers (10 FR + cohorte malgache), **Julien** redevient clipper seul, **Hugo** n'est pas nommé 2ᵉ manager (règle : au-delà de 20 actifs, avec preuve de production). Détail : [[Direction marketing - deux moteurs, pôle malgache chiffré et objectif 70 k€ (14 septembre 2026)]].
 
