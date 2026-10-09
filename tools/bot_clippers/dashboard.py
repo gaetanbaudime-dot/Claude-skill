@@ -31,17 +31,32 @@ DASHBOARD_VERSION. Aucune formule (le classeur est en locale française) : valeu
 (updateCells sur toute la grille), jamais d'onglet vidé d'abord. La mise en forme des onglets créatrices (classeur_forme) et
 l'onglet Build capacity (capacite) ne suivent plus le Dashboard : passage complet du matin seulement.
 
+09/10 (revue DASH) — ce qui a changé après la revue adversariale :
+  - titre : budget Apify d'après `apify_budget` (contrat C6a) rapporté au budget de Gaëtan (25 $), « ⛔ Apify coupé jusqu'au
+    JJ/MM » à 100 %, alerte dès que la trajectoire du budget est dépassée ; fraîcheur Metricool d'après le dernier passage RÉUSSI
+    (C6b), « ⚠ Metricool en échec depuis JJ/MM » sinon ; alertes en lignes à part sous le titre (visibles au téléphone) ;
+  - « lien d'un autre clipper » décidé sur les identifiants (C6d : onboarding.json → uid, uid du lien), jamais sur un prénom ;
+  - une somme qui ne couvre qu'une partie des comptes ou des liens le dit dans la colonne Mesure (« k/n ») ; un followers d'un vieux
+    relevé porte sa date ; un compte relu par le passage léger n'est plus « non lu » ; Reels du classeur repris seulement si le scan
+    qui les a écrits a le même « hier » (heure de Paris) ; vues comparées seulement quand chaque Reel publié est mesuré à 48 h ;
+  - bouclage : ✅ seulement si tout est mesuré, sans écart, et concordant avec le TOTAL Clics 7 j (C6e) ; les liens des Gérants
+    masqués vont dans le seau « masqués » (jamais une fausse alerte) ;
+  - l'onglet part en UN appel HTTP (plus de découpage par 400) ; l'empreinte porte aussi la fraîcheur des sources ;
+  - la réécriture forcée du passage complet attend la fin du passage (ecrire_apres_passage).
+
 Les modules des autres lots (series, controle, metricool_comptes, paie_clics.clics_lien / clics_aujourdhui) sont importés s'ils
 sont là : s'il en manque un, sa section dit « source indisponible », ou les chiffres viennent des cellules du classeur (repli
 marqué), et les clics d'un lien sont recalculés depuis clics.json « jours » selon la même règle que le contrat C2.
 Dépendances (`configurer`) : lire_json, ecrire_json, FICHIER (état du Dashboard : empreinte, version, lignes écrites),
 FICHIER_ETATS, FICHIER_CLICS, FICHIER_EQUIPES, FICHIER_ONBOARDING ; facultatifs membre_par_id, normaliser."""
 import asyncio
+import calendar
 import hashlib
 import json
 import logging
 import os
 import re
+import time
 from datetime import date, datetime, time as dtime, timedelta, timezone
 
 import google_api
@@ -67,7 +82,8 @@ except ImportError:
 journal = logging.getLogger("dashboard")
 
 ONGLET = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
-DASHBOARD_VERSION = 10                 # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
+DASHBOARD_VERSION = 11                 # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
+                                       # 11 (revue DASH) : lignes d'alerte « ⛔ » sous le titre, règle de couleur « ⛔ »
 ACTIF = os.environ.get("DASHBOARD_BOUCLE", "1").strip() != "0"
 INTERVALLE_S = 900                     # la boucle regarde toutes les 15 minutes
 ECART_MIN_S = 14 * 60                  # deux réécritures non forcées : au moins 14 minutes d'écart
@@ -76,6 +92,16 @@ ANOMALIES_MAX = 15
 TOP = 5
 AGE_VUES_H = 48                        # vues d'un Reel relevées 48 h après sa publication (même âge pour comparer)
 METRICOOL_RECENT_J = 4                 # un relevé Metricool plus vieux ne compte plus dans la Mesure
+# 09/10 (revue DASH) : budget Apify TOTAL du mois décidé par Gaëtan (« Dépasse pas 25 $ / mois »), le même que le lot SCAN
+try:
+    APIFY_BUDGET_MOIS = float(os.environ.get("APIFY_BUDGET_MOIS", "25") or 25)
+except ValueError:
+    APIFY_BUDGET_MOIS = 25.0
+FOLLOWERS_PERIME_J = 7                 # followers illisibles depuis plus longtemps (compte relu entre-temps) : cellule vide
+CLICS_VIEUX_MIN = 45                   # clics du jour relevés il y a plus longtemps : l'heure est écrite sur la ligne (la boucle des
+                                       # clics relit chaque lien toutes les 15 à 30 min, plus le décalage de la boucle du Dashboard)
+METRICOOL_VIEUX_J = 3                  # données Metricool plus vieilles (J-3 et au-delà) : « ⚠ » dans la fraîcheur
+ATTENTE_PASSAGE_S = 1800               # réécriture différée : attendre au plus 30 min la fin du passage complet
 
 COLONNES = ["Gérant", "@", "Utilisation", "ETAT", "Followers", "Δ 24 h", "Δ 7 j", "Reels hier", "Reels 7 j", "Δ Reels",
             "Vues 7 j (48 h)", "Δ vues", "Vue médiane", "Lien", "Clics auj.", "Clics hier", "Clics 7 j", "Δ clics", "Mesure", "Relevé"]
@@ -98,14 +124,17 @@ PALETTE = {"chloe": ("#C2185B", "#FCE4EC"), "sarah": ("#1565C0", "#E3F2FD"), "so
 PALETTE_DEFAUT = ("#455A64", "#ECEFF1")
 SOMBRE, SECTION, BLANC, GRIS_CLAIR, GRIS_TEXTE = "#263238", "#37474F", "#FFFFFF", "#ECEFF1", "#546E7A"
 
-# Les catégories de lien qu'une ligne peut porter (sinon : « ⚠ » dans la colonne Lien, et le lien reste dans sa ligne de résumé)
-AUTORISES = {"clipper": {"attribue", "suivi"}, "metricool": {"attribue", "suivi", "hors_clipping"}, "creatrice": {"page"},
-             "libre": set()}
+# Les catégories de lien qu'une ligne peut porter (sinon : « ⚠ » dans la colonne Lien, et le lien reste dans sa ligne de résumé).
+# 09/10 (revue DASH) : « non_attribue » = la catégorie du contrôle (controle.categorie) pour un lien de clipping sans détenteur
+# (note « Clipping X » jamais attribuée, lien suivi par le rapport) : porté par la ligne qui l'a en cellule, comme « suivi ».
+AUTORISES = {"clipper": {"attribue", "suivi", "non_attribue"}, "metricool": {"attribue", "suivi", "non_attribue", "hors_clipping"},
+             "creatrice": {"page"}, "libre": set()}
 INACTIFS = ("desactive", "supprime")
 
 _deps: dict = {}
 _verrou = None
 _PARIS = None
+_differees: set = set()                # réécritures forcées qui attendent la fin du passage complet (ecrire_apres_passage)
 
 
 def configurer(deps: dict):
@@ -218,7 +247,16 @@ def _urls(texte) -> list:
 
 def _categorie(info: dict) -> str:
     """attribue / suivi (rapport, sans clipper payé) / hors_clipping / libere / page (créatrice, /fb, /ytb, jamais attribué) /
-    desactive / supprime — même découpage que le contrôle (bouclage), « suivi » mis à part."""
+    desactive / supprime — même découpage que le contrôle (bouclage), « suivi » mis à part.
+    09/10 (revue DASH) : la règle du contrôle (controle.categorie : « page » définie positivement, « non_attribue » pour un lien de
+    clipping sans détenteur) quand elle est là — les lignes « Pages » et « Libérés » du Dashboard et les seaux du bouclage disent
+    la même chose ; ce découpage local n'est qu'un repli."""
+    f = getattr(controle, "categorie", None) if controle is not None else None
+    if callable(f):
+        try:
+            return str(f(info))
+        except Exception as erreur:                                      # noqa: BLE001 — repli local
+            journal.debug("Catégorie du contrôle : %s", erreur)
     if info.get("supprime_gaml"):
         return "supprime"
     if info.get("desactive"):
@@ -246,6 +284,32 @@ def _slug(info: dict, lid: str) -> str:
 
 def _est_prive(c: dict) -> bool:
     return _norm(c.get("etat")) in ("prive", "privé") or bool(onboarding.RE_PRIVE.search(_norm(c.get("handle"))))
+
+
+def _mots_nom(t) -> set:
+    """Les mots d'un pseudo avant « - Créatrice » (ou d'un Gérant), tirets et emoji ignorés : « 🌸 Jean-Marc - Sophie » → {jean,
+    marc}. Même règle que onboarding (liens_classeur, contrat C6d) : sert seulement à écarter un détenteur périmé, jamais à décider
+    qu'un lien est celui d'un autre."""
+    return set(re.findall(r"[a-z0-9]+", _norm(str(t or "").split(" - ")[0]))) - {"metricool", "clipper", "compte"}
+
+
+def _proprietaires(onb: dict) -> dict:
+    """Contrat C6(d) : {clé du @ : {uid}} — qui détient chaque compte d'après onboarding.json : la livraison la plus récente
+    (`livres`) prime, sinon les fiches (comptes, accès) qui portent ce @. {} si le fichier manque (rien n'est alors décidé)."""
+    onb = onb if isinstance(onb, dict) else {}
+    out = {}
+    for uid, fiche in (onb.get("clippers") or {}).items() if isinstance(onb.get("clippers"), dict) else ():
+        if not isinstance(fiche, dict):
+            continue
+        hs = {h for h in fiche.get("comptes") or [] if isinstance(h, str)}
+        hs |= {a.get("handle") for a in fiche.get("acces") or [] if isinstance(a, dict) and isinstance(a.get("handle"), str)}
+        for h in hs:
+            if _cle(h):
+                out.setdefault(_cle(h), set()).add(str(uid))
+    for h, l in (onb.get("livres") or {}).items() if isinstance(onb.get("livres"), dict) else ():
+        if isinstance(l, dict) and str(l.get("uid") or "") and _cle(h):
+            out[_cle(h)] = {str(l["uid"])}
+    return out
 
 
 def _type_ligne(c: dict, creatrices: set) -> str:
@@ -312,7 +376,10 @@ def _clics_aujourdhui(d: dict, lid: str, j0: date) -> tuple:
     f = getattr(paie_clics, "clics_aujourdhui", None) if paie_clics is not None else None
     try:
         if callable(f):
-            n, t = f(d, lid)
+            try:                                                         # 09/10 (revue DASH) : le jour du Dashboard, pas l'horloge
+                n, t = f(d, lid, jour=j0)
+            except TypeError:                                            # signature du contrat sans `jour`
+                n, t = f(d, lid)
         else:
             e = ((d or {}).get("aujourdhui") or {}).get(str(lid)) or {}
             n, t = (e.get("payes"), str(e.get("t") or "")) if str(e.get("jour") or "") == j0.isoformat() else (None, "")
@@ -345,25 +412,46 @@ class _Ctx:
             if u:
                 self.par_url.setdefault(u, lid)
         self._clics = {}
+        self._cats = {}
         self.seriesok = series_dispo()
-        # le prénom de chaque membre connu (pseudo Discord, sinon prénom du registre) : un lien attribué à un autre prénom que le
-        # Gérant de la ligne est le lien d'un autre clipper (jamais compté sur cette ligne)
-        self.prenoms = {}
-        for uid, f in (e.get("registre") or {}).items():
-            if isinstance(f, dict) and _premier(f.get("prenom")):
-                self.prenoms[str(uid)] = _premier(f.get("prenom"))
-        for uid, nom in (e.get("membres") or {}).items() if isinstance(e.get("membres"), dict) else ():
-            if _premier(nom):
-                self.prenoms[str(uid)] = _premier(nom)
+        # 09/10 (revue DASH, contrat C6d) : « lien d'un autre clipper » se décide sur les IDENTIFIANTS — qui détient chaque compte
+        # d'après onboarding.json (uid), et l'uid du lien dans clics.json —, jamais sur le premier mot d'un pseudo ou du Gérant
+        # (avant : « 🌸 Paul - Sophie » voyait son propre lien refusé sur sa ligne, ses clics partaient en « Sans ligne »).
+        self.proprietaires = _proprietaires(e.get("onboarding"))
+        registre = e.get("registre") if isinstance(e.get("registre"), dict) else {}
+        membres = e.get("membres") if isinstance(e.get("membres"), dict) else {}
+        self.noms_uid = {}
+        for uid in set(map(str, registre)) | set(map(str, membres)):
+            f = registre.get(uid) if isinstance(registre.get(uid), dict) else {}
+            self.noms_uid[uid] = _mots_nom(membres.get(uid)) | _mots_nom(f.get("prenom"))
 
     def cat(self, lid) -> str:
-        return _categorie(self.liens.get(lid) or {})
+        if lid not in self._cats:
+            self._cats[lid] = _categorie(self.liens.get(lid) or {})
+        return self._cats[lid]
 
-    def a_un_autre(self, lid, gerant) -> bool:
-        """Lien attribué à un membre dont le prénom connu n'est pas celui du Gérant de la ligne."""
+    def detenteurs(self, c: dict) -> set:
+        """Contrat C6(d) : les uid qui détiennent la ligne d'après onboarding.json, gardés s'ils sont compatibles avec le Gérant écrit
+        (un mot en commun avec le nom du membre, ou membre sans nom connu : onboarding.json fait foi) — même règle que
+        onboarding.liens_classeur. Un Gérant changé à la main sans que le bot ait suivi n'hérite pas de l'ancien détenteur."""
+        mots_g = _mots_nom(c.get("gerant"))
+        out = set()
+        for uid in self.proprietaires.get(_cle(c.get("handle")), set()):
+            noms = self.noms_uid.get(str(uid)) or set()
+            if not noms or (mots_g & noms):
+                out.add(str(uid))
+        return out
+
+    def a_un_autre(self, lid, L: dict) -> bool:
+        """Contrat C6(d) : le lien est attribué (uid dans clics.json) à un autre identifiant que le(s) détenteur(s) de la ligne
+        (onboarding.json). Détenteur inconnu → non : rien ne prouve que ce n'est pas le sien (le contrôle signale)."""
         uid = str((self.liens.get(lid) or {}).get("uid") or "")
-        p = self.prenoms.get(uid)
-        return bool(uid and p and p != _premier(gerant))
+        if not uid:
+            return False
+        props = L.get("detenteurs")
+        if props is None:
+            props = L["detenteurs"] = self.detenteurs(L["c"])
+        return bool(props) and uid not in props
 
     def cr_lien(self, lid, creatrices: set) -> str:
         """La créatrice d'un lien (prénom normalisé) : sa fiche (créatrice, créatrice suivie, nom GAML), sinon son domaine."""
@@ -387,10 +475,15 @@ class _Ctx:
         auj, t = _clics_aujourdhui(self.clics, lid, j0)
         r = {"auj": auj, "t_auj": t, "hier": _clics_lien(self.clics, lid, self.hier, self.hier),
              "c7": _clics_lien(self.clics, lid, j0 - timedelta(days=7), self.hier),
-             "c7p": _clics_lien(self.clics, lid, j0 - timedelta(days=14), j0 - timedelta(days=8))}
+             "c7p": _clics_lien(self.clics, lid, j0 - timedelta(days=14), j0 - timedelta(days=8)), "depuis": None}
         dep = str((self.liens.get(lid) or {}).get("depuis") or "")[:10]
         if dep and dep > (j0 - timedelta(days=14)).isoformat():
             r["c7p"] = None
+        if dep and dep > (j0 - timedelta(days=7)).isoformat():          # 09/10 (revue DASH) : 7 j raccourcis par la reprise, dit
+            try:
+                r["depuis"] = date.fromisoformat(dep)
+            except ValueError:
+                pass
         self._clics[lid] = r
         return r
 
@@ -417,7 +510,68 @@ def _clics_de(ctx: _Ctx, lids) -> dict:
     complet = lids and all(c["c7"] is not None and c["c7p"] is not None for c in cs)
     out["delta"] = _delta_pct(out["c7"], out["c7p"]) if complet else ""
     out["comparable"] = bool(complet)
+    deps = [c["depuis"] for c in cs if c.get("depuis") and c["c7"] is not None]
+    out["depuis"] = max(deps) if deps else None
+    out["repris"], out["n_liens"] = len(deps), len(lids)
+    ts = [_instant(c["t_auj"]) for c in cs if c["auj"] is not None and _instant(c["t_auj"])]
+    out["t_auj_min"] = min(ts) if ts else None
     return out
+
+
+def _notes_clics(ctx: _Ctx, k: dict, heure: bool = False) -> list:
+    """09/10 (revue DASH : « sommes partielles affichées comme complètes ») : ce qu'une somme de clics ne couvre pas, pour la colonne
+    Mesure — « clics 7 j : 1/2 liens relevés », « clics hier : 1/2 », « clics du jour : 3/9 liens relus », « clics depuis le 06/10
+    (lien repris) » ; `heure` : l'heure du relevé du jour le plus ancien s'il a plus de CLICS_VIEUX_MIN minutes (« clics du jour
+    à 09h00 »)."""
+    if not k:
+        return []
+    notes = []
+    for cle, nom, verbe in (("c7", "clics 7 j", "relevés"), ("hier", "clics hier", "relevés"), ("auj", "clics du jour", "relus")):
+        n, tot = k.get(cle + "_n"), k.get(cle + "_tot")
+        if tot and n and n < tot:                                        # 0 lien mesuré : la cellule est vide, elle le dit déjà
+            notes.append(f"{nom} : {n}/{tot} lien{'s' if tot > 1 else ''} {verbe if tot > 1 else verbe[:-1]}")
+    if k.get("depuis"):
+        if k.get("n_liens", 1) <= 1:
+            notes.append(f"clics depuis le {k['depuis'].strftime('%d/%m')} (lien repris)")
+        else:                                                            # une somme : la reprise ne raccourcit qu'une partie
+            notes.append(f"{k['repris']} lien{'s' if k['repris'] > 1 else ''} repris dans la semaine (7 j raccourcis)")
+    t = k.get("t_auj_min")
+    if heure and t is not None and ctx.maintenant - t > timedelta(minutes=CLICS_VIEUX_MIN):
+        notes.append(f"clics du jour à {_hm(t, ctx.j0)}")
+    return notes
+
+
+def _vues_mesurees(L: dict):
+    """La contribution d'un compte à une somme de vues : (vues, mesuré ?) — un compte sans Reel publié dans la période compte pour
+    une mesure (rien à additionner), un compte dont un Reel publié n'est pas mesuré à 48 h, non."""
+    if L.get("vues_etat") == "complet":
+        return L["vues"][0], True
+    if L.get("vues_etat") == "aucun":
+        return None, True
+    return (L["vues"][0] if L.get("vues") else None), False
+
+
+def _notes_sommes(lignes: list) -> list:
+    """09/10 (revue DASH) : ce que les sommes Followers, Reels 7 j et Vues d'un groupe ne couvrent pas (« followers 2/3 ») —
+    restreints, privés, non lus et Metricool compris ; les comptes « à créer » ne comptent pas."""
+    base = [L for L in lignes if L.get("mesure_base") != "à créer"]
+    if not base:
+        return []
+    notes = []
+    for nom, mesure in (("followers", lambda L: L.get("followers") is not None), ("Reels 7 j", lambda L: L.get("r7") is not None),
+                        ("vues", lambda L: _vues_mesurees(L)[1])):
+        n = sum(1 for L in base if mesure(L))
+        if 0 < n < len(base):                                            # rien de mesuré : la somme est vide, elle le dit déjà
+            notes.append(f"{nom} {n}/{len(base)}")
+    return notes
+
+
+def _texte_partiel(notes_comptes: list, notes_clics: list) -> str:
+    out = []
+    if notes_comptes:
+        out.append("partiel : " + ", ".join(notes_comptes))
+    out += notes_clics
+    return " · ".join(out)
 
 
 # ------------------------------------------------------------------ comptes
@@ -426,7 +580,7 @@ def _mesure(ctx: _Ctx, L: dict) -> str:
     if _norm(c.get("etat")) in onboarding.A_CREER:
         return "à créer"
     rels = [r for r in (serie.get("releves") or []) if isinstance(r, dict)]
-    apify = [r for r in rels if r.get("source") != "metricool"]
+    apify = sorted((r for r in rels if r.get("source") != "metricool" and _instant(r.get("t"))), key=lambda r: _instant(r["t"]))
     metri = [r for r in rels if r.get("source") == "metricool"
              and (_instant(r.get("t")) or ctx.maintenant) >= ctx.maintenant - timedelta(days=METRICOOL_RECENT_J)]
     hist = ctx.hist.get(cle) or []
@@ -438,7 +592,12 @@ def _mesure(ctx: _Ctx, L: dict) -> str:
     t_h = (scan or _instant(jour_h + "T00:00:00+00:00")) if jour_h else None
     t_a = _instant(apify[-1].get("t")) if apify else None
     absent_h = bool(dernier_h) and not dernier_h.get("existe") and (t_a is None or t_h is None or t_a <= t_h)
-    if suivi is not None or cle in set(ctx.dp.get("non_lus") or []):
+    # 09/10 (revue DASH : un compte relu par le passage léger de 14 h restait « non lu » toute la journée — `non_lus` n'est vidé que
+    # par le passage complet) : l'entrée `non_lus` ne compte plus dès qu'un relevé Apify est postérieur au passage complet qui l'a
+    # posée ; « non lu » reste vrai si le DERNIER passage (complet ou léger) ne l'a pas lu
+    t_complet = _instant(ctx.etats.get("scan_iso")) or (_instant(ctx.dp.get("t")) if ctx.dp.get("mode") == "complet" else None)
+    relu_depuis = t_a is not None and t_complet is not None and t_a > t_complet
+    if cle in set(ctx.dp.get("non_lus") or []) or (suivi is not None and not relu_depuis):
         n = int((suivi or {}).get("jours") or 0)
         base = f"non lu ({n} passages)" if n >= 2 else "non lu"
     elif cle in set(ctx.dp.get("introuvables") or []) or absent_h:
@@ -486,9 +645,29 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
     c, cle = L["c"], L["cle"]
     j0 = ctx.j0
     L["serie"] = (_serie("serie", cle) or {}) if ctx.seriesok else {}
+    notes = []
     f = _serie("followers_a", cle) if ctx.seriesok else None
     L["followers_source"] = "série" if f is not None else ""
-    if f is None:
+    if f is not None:
+        # 09/10 (revue DASH : un followers de 5 ou 15 jours affiché « lu » avec l'heure du jour) : l'heure du relevé qui a FOURNI les
+        # followers (même choix que series.followers_a : le plus récent, Metricool d'abord à la même heure). Plus vieux que le
+        # dernier relevé Apify du compte (relu, followers illisibles ou restreint) : la date est écrite dans la Mesure ; au-delà de
+        # FOLLOWERS_PERIME_J jours, la cellule reste vide (« followers non lus depuis JJ/MM »), jamais un vieux chiffre pour frais.
+        rels = [r for r in (L["serie"].get("releves") or []) if isinstance(r, dict) and _instant(r.get("t"))
+                and _instant(r.get("t")) <= ctx.maintenant]
+        avec = [r for r in rels if isinstance(r.get("followers"), int) and not isinstance(r.get("followers"), bool)]
+        r_f = max(avec, key=lambda r: (_instant(r["t"]), r.get("source") == "metricool")) if avec else None
+        t_f = _instant(r_f["t"]) if r_f else None
+        t_apify = max((_instant(r["t"]) for r in rels if r.get("source") != "metricool"), default=None)
+        if t_f is not None and t_apify is not None and t_f < t_apify:
+            if ctx.maintenant - t_f > timedelta(days=FOLLOWERS_PERIME_J):
+                f = None
+                notes.append(f"followers non lus depuis le {_paris(t_f):%d/%m}")
+            elif r_f.get("source") == "metricool":                      # photo de la nuit : le jour des données
+                notes.append(f"followers Metricool {(_paris(t_f) - timedelta(minutes=1)):%d/%m}")
+            else:
+                notes.append(f"followers {_hm(t_f, j0)}")
+    else:
         f = _entier(c.get("followers"))
         L["followers_source"] = "classeur" if f is not None else ""
     L["followers"] = f
@@ -499,10 +678,15 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
     r7 = _serie("reels_publies", cle, m7, m0) if ctx.seriesok else None
     L["r7p"] = _serie("reels_publies", cle, m14, m7) if ctx.seriesok else None
     # repli : les cellules Reels du classeur, seulement si le scan du jour a lu ce compte en entier (sinon la cellule porte un autre
-    # jour : critique du 09/10, « Reels hier » de l'avant-veille affiché sans le dire)
+    # jour : critique du 09/10, « Reels hier » de l'avant-veille affiché sans le dire). 09/10 (revue DASH : entre 0 h et 2 h à Paris,
+    # la date UTC est encore la veille, et la cellule du scan d'hier — qui compte l'avant-veille — passait pour « hier ») : la
+    # cellule n'est reprise que si le passage complet qui l'a écrite (scan_iso) a le même « hier » que le Dashboard, en heure de
+    # Paris, et si l'entrée d'historique est bien celle de ce passage.
     hist = ctx.hist.get(cle) or []
     d_h = hist[-1] if hist and isinstance(hist[-1], dict) else {}
-    lu_du_jour = (str(d_h.get("jour") or "")[:10] == ctx.maintenant.astimezone(timezone.utc).strftime("%Y-%m-%d")
+    scan = _instant(ctx.etats.get("scan_iso")) or (_instant(ctx.dp.get("t")) if ctx.dp.get("mode") == "complet" else None)
+    lu_du_jour = (scan is not None and _paris(scan).date() == j0
+                  and str(d_h.get("jour") or "")[:10] == scan.astimezone(timezone.utc).strftime("%Y-%m-%d")
                   and d_h.get("existe") and not d_h.get("restreint") and not d_h.get("prive") and not d_h.get("reels_non_lus"))
     L["r7_serie"] = r7 is not None                                      # Δ Reels : deux périodes de la même source
     if rh is None and lu_du_jour:
@@ -510,11 +694,36 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
     if r7 is None and lu_du_jour:
         r7 = _entier(c.get("reels_7j"))
     L["rh"], L["r7"] = rh, r7
-    vA = _serie("vues_age_fixe", cle, _minuit(j0 - timedelta(days=9)), _minuit(j0 - timedelta(days=2)), AGE_VUES_H) if ctx.seriesok else None
-    vB = _serie("vues_age_fixe", cle, _minuit(j0 - timedelta(days=16)), _minuit(j0 - timedelta(days=9)), AGE_VUES_H) if ctx.seriesok else None
+    # vues à âge fixe : 09/10 (revue DASH : un seul passage manqué retirait un Reel de la somme, faux « ▼ 33 % » en tête des
+    # baisses) — une période n'est « complète » que si chaque Reel publié (reels_publies) est mesuré à 48 h (2e valeur du C1) ;
+    # Δ vues et tendance seulement entre deux périodes complètes, sinon la Mesure dit « vues 2/3 Reels ».
+    a0, a1 = _minuit(j0 - timedelta(days=9)), _minuit(j0 - timedelta(days=2))
+    b0, b1 = _minuit(j0 - timedelta(days=16)), _minuit(j0 - timedelta(days=9))
+    vA = _serie("vues_age_fixe", cle, a0, a1, AGE_VUES_H) if ctx.seriesok else None
+    vB = _serie("vues_age_fixe", cle, b0, b1, AGE_VUES_H) if ctx.seriesok else None
+    pA = _serie("reels_publies", cle, a0, a1) if ctx.seriesok else None
+    pB = _serie("reels_publies", cle, b0, b1) if ctx.seriesok else None
     L["vues"] = tuple(vA) if vA else None
     L["vues_p"] = tuple(vB) if vB else None
-    L["mesure"] = _mesure(ctx, L)
+
+    def etat_vues(v, p):
+        if v and isinstance(p, int) and v[1] >= p:
+            return "complet"
+        if not v and p == 0:
+            return "aucun"
+        return "partiel" if v else "non mesuré"
+    L["vues_etat"], L["vues_p_etat"] = etat_vues(L["vues"], pA), etat_vues(L["vues_p"], pB)
+    L["vues_comparable"] = L["vues_etat"] == "complet" and L["vues_p_etat"] == "complet"
+    if L["vues_etat"] == "partiel":
+        notes.append(f"vues {L['vues'][1]}/{pA if isinstance(pA, int) else '?'} Reels mesurés à 48 h")
+    base = _mesure(ctx, L)
+    L["mesure_base"] = base
+    if base == "à créer":
+        notes = []
+    elif L["followers_source"] == "classeur" and base != "classeur":
+        notes.insert(0, "followers : classeur")
+    L["mesure_notes"] = notes
+    L["mesure"] = " · ".join([base] + notes)
     L["releve"] = _releve(ctx, L)
 
 
@@ -532,7 +741,7 @@ def _resoudre_liens(ctx: _Ctx, lignes: list, creatrices: set):
                 continue
             cat = ctx.cat(lid)
             cr = ctx.cr_lien(lid, creatrices)
-            autre = L["typ"] == "clipper" and cat == "attribue" and ctx.a_un_autre(lid, L["c"].get("gerant"))
+            autre = L["typ"] == "clipper" and cat == "attribue" and ctx.a_un_autre(lid, L)
             if cat in AUTORISES[L["typ"]] and (not cr or cr == L["cr"]) and not autre:
                 if lid not in L["ok"]:
                     L["ok"].append(lid)
@@ -549,7 +758,7 @@ def _resoudre_liens(ctx: _Ctx, lignes: list, creatrices: set):
                 continue
             cr = ctx.cr_lien(lid, creatrices)
             cat = ctx.cat(lid)
-            autre = L["typ"] == "clipper" and cat == "attribue" and ctx.a_un_autre(lid, L["c"].get("gerant"))
+            autre = L["typ"] == "clipper" and cat == "attribue" and ctx.a_un_autre(lid, L)
             if cat in AUTORISES[L["typ"]] and (not cr or cr == L["cr"]) and not autre:
                 L["ok"].append(lid)
                 L["bio"] = lid not in maison                             # « (bio) » seulement quand aucune cellule ne le porte
@@ -580,7 +789,7 @@ def _grouper(lignes: list, ctx: _Ctx):
             for u in _urls(L["c"].get("lien_gaml")):
                 lid = ctx.par_url.get(u)
                 uid = str((ctx.liens.get(lid) or {}).get("uid") or "") if lid else ""
-                if uid and not ctx.a_un_autre(lid, L["c"].get("gerant")):   # le lien d'un autre ne fait pas un homonyme
+                if uid and not ctx.a_un_autre(lid, L):   # le lien d'un autre ne fait pas un homonyme
                     L.setdefault("uids", []).append(uid)
                     uids.setdefault((L["cr"], _norm(L["c"].get("gerant"))), set()).add(uid)
     for L in lignes:
@@ -622,7 +831,7 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
         kinds.append({"kind": kind, **info})
 
     # -------- les comptes montrés
-    ordre_cr, comptes_l, hors = [], [], {}
+    ordre_cr, comptes_l, masques_l, hors = [], [], [], {}
     for i, c in enumerate(comptes):
         if not c.get("handle"):
             continue
@@ -638,13 +847,19 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
         if typ == "libre" and e_n == "ban":
             h["ban"] += 1                                                # BAN rendus (sans Gérant) : comptés au bandeau
             continue
-        if _norm(c.get("gerant")) in masques:
-            h["masques"] += 1
-            continue
         nom_cr = (str(c.get("creatrice") or c.get("onglet") or "").split() or ["?"])[0]
-        comptes_l.append({"c": c, "typ": typ, "cr": cr, "cr_nom": nom_cr, "cle": _cle(c["handle"]), "ordre": i})
-    _grouper(comptes_l, ctx)
-    porte_par = _resoudre_liens(ctx, comptes_l, creatrices)
+        L = {"c": c, "typ": typ, "cr": cr, "cr_nom": nom_cr, "cle": _cle(c["handle"]), "ordre": i}
+        if _norm(c.get("gerant")) in masques:
+            # 09/10 (revue DASH : masquer un Gérant faisait passer ses liens en « ⚠ Sans ligne » et le bouclage en écart bloquant) :
+            # ses lignes ne sont pas montrées, mais leurs liens sont résolus comme les autres et rangés dans le seau « masqués »
+            h["masques"] += 1
+            L["masque"] = True
+            masques_l.append(L)
+            continue
+        comptes_l.append(L)
+    tous_l = comptes_l + masques_l
+    _grouper(tous_l, ctx)
+    porte_par = _resoudre_liens(ctx, tous_l, creatrices)
     for L in comptes_l:
         _chiffres_compte(ctx, L)
     # liens attribués au même clipper (même uid, même créatrice) qu'aucune ligne ne porte : sur la ligne porteuse de son groupe
@@ -667,24 +882,33 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
         if L is not None:
             L["attaches"].append(lid)
             porte_par[lid] = L
-    for L in comptes_l:
+    for L in tous_l:
         L["lids"] = L["portes"] + L["attaches"]
-        L["clics"] = _clics_de(ctx, L["lids"]) if L["lids"] else None
+        L["clics"] = _clics_de(ctx, L["lids"]) if L["lids"] and not L.get("masque") else None
+    lids_lignes = sorted(lid for lid, L in porte_par.items() if not L.get("masque"))
+    lids_masques = sorted(lid for lid, L in porte_par.items() if L.get("masque"))
 
-    # -------- liens restants, par créatrice : pages, libérés / hors clipping, attribués sans ligne
+    # -------- liens restants, par créatrice : pages, libérés / hors clipping, attribués sans ligne ; liens des Gérants masqués
     restes = {}
+    vide_r = lambda: {"pages": [], "liberes": [], "sans_ligne": [], "masques": []}   # noqa: E731
+    for lid in lids_masques:
+        cr = porte_par[lid]["cr"]
+        restes.setdefault(cr if cr in ordre_cr else "", vide_r())["masques"].append(lid)
     for lid in sorted(actifs - set(porte_par)):
         cr = ctx.cr_lien(lid, creatrices)
         cr = cr if cr in ordre_cr else ""
         cat = ctx.cat(lid)
-        seau = "pages" if cat == "page" else ("liberes" if cat in ("libere", "hors_clipping", "suivi") else "sans_ligne")
-        restes.setdefault(cr, {"pages": [], "liberes": [], "sans_ligne": []})[seau].append(lid)
+        # 09/10 (revue DASH) : un lien « suivi » ou « non_attribue » (lien de clipping sans détenteur) qu'aucune ligne ne porte est
+        # un lien de clipper perdu, comme pour le bouclage : « ⚠ Sans ligne », jamais rangé avec les pages ou les libérés
+        seau = "pages" if cat == "page" else ("liberes" if cat in ("libere", "hors_clipping") else "sans_ligne")
+        restes.setdefault(cr, vide_r())[seau].append(lid)
+    tout = _clics_de(ctx, sorted(actifs)) if actifs else {}               # tous les liens actifs, chacun une fois (= le TOTAL)
 
     # -------- tendances
     tend = {"vues": [], "clics": [], "followers": []}
     for L in comptes_l:
         qui = (L["c"].get("gerant") or "sans Gérant").strip()
-        if L["vues"] and L["vues_p"]:
+        if L["vues_comparable"]:                                         # chaque Reel publié mesuré à 48 h, sur les deux périodes
             tend["vues"].append((L["vues"][0] - L["vues_p"][0], L["c"]["handle"], qui, L["cr_nom"], _delta_pct(L["vues"][0], L["vues_p"][0]),
                                  L["vues"][0], L["vues_p"][0]))
         if L["clics"] and L["clics"]["comparable"]:
@@ -695,17 +919,20 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
             tend["followers"].append((L["df7"], L["c"]["handle"], qui, L["cr_nom"], _delta_abs(L["df7"]), L["followers"],
                                       L["followers"] - L["df7"]))
 
-    # -------- titre et fraîcheur
+    # -------- titre, fraîcheur et alertes (09/10, revue DASH : une alerte budget Apify ou Metricool a sa propre ligne, « ⛔ » / « ⚠ »
+    # en tête de cellule — la mise en forme conditionnelle la colore, lisible au téléphone sans faire défiler le titre)
     p = ctx.p
-    ajouter(["Dashboard · mis à jour le " + p.strftime("%d/%m à %Hh%M") + " (Paris)", "", _fraicheur(ctx, e, comptes_l)], "titre")
+    fraicheur, alertes = _fraicheur(ctx, e, comptes_l)
+    ajouter(["Dashboard · mis à jour le " + p.strftime("%d/%m à %Hh%M") + " (Paris)", "", fraicheur], "titre")
+    for quoi, gravite, texte in alertes:
+        ajouter([quoi, "", texte], "alerte", gravite=gravite)
     ajouter(["", "", "Clics = visites payables GAML (pays francophones) · Vues = vues Instagram des Reels, relevées 48 h après la "
              "publication · cellule vide = pas mesuré (jamais 0 par défaut) · ▲ ▼ = contre les 7 jours d'avant · Mesure = d'où vient "
-             "le chiffre"], "legende")
+             "le chiffre (« k/n » : somme qui ne couvre pas tout)"], "legende")
     ajouter([], "vide")
 
     # -------- CONTRÔLE
-    lids_lignes = sorted(porte_par)
-    n_anomalies = _section_controle(ajouter, ctx, e, comptes, lids_lignes)
+    n_anomalies = _section_controle(ajouter, ctx, e, comptes, lids_lignes, lids_masques, tout)
     ajouter([], "vide")
 
     # -------- TENDANCES
@@ -713,92 +940,197 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
     ajouter([], "vide")
 
     # -------- COMPTES par créatrice
-    tot = {"comptes": 0, "fol": [], "r7": [], "v7": [], "lids": []}
+    tot = {"comptes": 0, "lignes": [], "lids": []}
     for cr in ordre_cr + ([""] if restes.get("") else []):
         lignes_cr = [L for L in comptes_l if L["cr"] == cr] if cr else []
-        r_cr = restes.get(cr, {"pages": [], "liberes": [], "sans_ligne": []})
+        r_cr = restes.get(cr, vide_r())
         if cr and not lignes_cr and not any(r_cr.values()) and not any((hors.get(cr) or {}).values()):
             continue
         _bloc_creatrice(ajouter, ctx, cr, lignes_cr, r_cr, hors.get(cr) or {}, tot)
         ajouter([], "vide")
-    tout = _clics_de(ctx, tot["lids"]) if tot["lids"] else {}
     r = _ligne_vide()
     r[C_GERANT], r[C_HANDLE] = "TOTAL", f"{tot['comptes']} comptes"
-    r[C_FOL], r[C_R7], r[C_V7] = _v(_somme(tot["fol"])[0]), _v(_somme(tot["r7"])[0]), _v(_somme(tot["v7"])[0])
+    r[C_FOL] = _v(_somme(L["followers"] for L in tot["lignes"])[0])
+    r[C_R7] = _v(_somme(L["r7"] for L in tot["lignes"])[0])
+    r[C_V7] = _v(_somme(_vues_mesurees(L)[0] for L in tot["lignes"])[0])
     if tout:
         r[C_CA], r[C_CH], r[C_C7] = _v(tout["auj"]), _v(tout["hier"]), _v(tout["c7"])
         r[C_DC] = tout["delta"]
         r[C_LIEN] = f"{len(set(tot['lids']))} liens actifs"
-        r[C_MES] = _partiel_auj(tout).lstrip(" ·")
+    r[C_MES] = _texte_partiel(_notes_sommes(tot["lignes"]), _notes_clics(ctx, tout))
     ajouter(r, "total")
 
-    contenu = json.dumps([DASHBOARD_VERSION] + rows[1:], ensure_ascii=False, default=str)
+    # 09/10 (revue DASH : la fraîcheur du titre était hors empreinte — des clics relus sans changement laissaient au titre l'heure
+    # de la réécriture d'avant) : l'empreinte porte tout sauf « mis à jour le … » (l'heure de l'écriture elle-même)
+    contenu = json.dumps([DASHBOARD_VERSION, rows[0][1:]] + rows[1:], ensure_ascii=False, default=str)
     return {"lignes": rows, "types": kinds, "empreinte": hashlib.sha1(contenu.encode("utf-8")).hexdigest()[:20],
-            "comptes": len(comptes_l), "anomalies": n_anomalies, "lids_lignes": lids_lignes}
+            "comptes": len(comptes_l), "anomalies": n_anomalies, "lids_lignes": lids_lignes, "lids_masques": lids_masques}
 
 
 def _v(x):
     return "" if x is None else x
 
 
-def _partiel_auj(k: dict) -> str:
-    """« · clics du jour : 3/9 liens relus » quand la somme du jour ne couvre pas tous les liens (jamais une somme qui se fait
-    passer pour complète)."""
-    if k and k.get("auj_tot") and k.get("auj_n") is not None and k["auj_n"] < k["auj_tot"]:
-        return f" · clics du jour : {k['auj_n']}/{k['auj_tot']} liens relus"
-    return ""
+def _montant(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v < 0:
+        return None
+    return float(v)
 
 
-def _fraicheur(ctx: _Ctx, e: dict, comptes_l: list) -> str:
-    """« Instagram 14h05 · Clics 16h45 · Metricool J-1 (08/10) · Apify 12,30 $ sur 29 $ ce mois » : l'âge de chaque source."""
-    parts = []
+def _euros(x) -> str:
+    """« 12,30 » ; un montant rond sans décimales (« 25 »)."""
+    return (f"{x:.0f}" if abs(x - round(x)) < 0.005 else f"{x:.2f}").replace(".", ",")
+
+
+def _mois_suivant(d: datetime) -> datetime:
+    a, m = (d.year + 1, 1) if d.month == 12 else (d.year, d.month + 1)
+    return d.replace(year=a, month=m, day=min(d.day, calendar.monthrange(a, m)[1]))
+
+
+def budget_apify(b: dict, maintenant: datetime = None):
+    """Contrat C6(a) lu par le Dashboard : {usage, budget, trajectoire, coupe, atteint, leger_ok, fin, t, source} ; None si le budget
+    n'a jamais été lu. Budget = `budget_usd` (APIFY_BUDGET_MOIS du lot SCAN, défaut 25 $) ; un état d'avant le C6 (sans
+    budget_usd, trajectoire_usd ni coupe) est lu avec le même budget et la trajectoire linéaire calculée à l'heure du relevé."""
+    b = b if isinstance(b, dict) else {}
+    usage = _montant(b.get("usage_usd"))
+    if usage is None:
+        return None
+    maintenant = maintenant or datetime.now(timezone.utc)
+    budget = _montant(b.get("budget_usd")) or APIFY_BUDGET_MOIS
+    t = _instant(b.get("t")) or maintenant
+    d0, d1 = _instant(b.get("cycle_debut") or b.get("debut")), _instant(b.get("cycle_fin") or b.get("fin"))
+    if not (d0 and d1 and d1 > d0):
+        d0 = t.astimezone(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        d1 = _mois_suivant(d0)
+    traj = _montant(b.get("trajectoire_usd"))
+    if traj is None:
+        traj = budget * min(1.0, max(0.0, (t - d0).total_seconds() / (d1 - d0).total_seconds()))
+    coupe = b.get("coupe") if isinstance(b.get("coupe"), bool) else None
+    return {"usage": usage, "budget": budget, "trajectoire": traj, "coupe": coupe, "atteint": usage >= budget - 1e-9,
+            "leger_ok": b.get("leger_ok", b.get("ok")), "fin": d1, "t": t, "source": str(b.get("source") or "")}
+
+
+def _fraicheur_apify(ctx: _Ctx) -> tuple:
+    """(texte du titre, alerte ou None). 09/10 (revue DASH, décision de Gaëtan « Dépasse pas 25 $ / mois ») : la dépense est
+    rapportée au BUDGET de 25 $ (avant : à la limite du compte Apify, 25,20 $ dépensés sur 29 $ s'affichaient sans alerte) ;
+    « ⛔ Apify coupé jusqu'au JJ/MM » à 100 % ; « ⚠ » dès que la dépense dépasse la trajectoire linéaire du budget."""
+    st = budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant)
+    if st is None:
+        return "Apify : budget pas encore lu", None
+    u, bud = _euros(st["usage"]), _euros(st["budget"])
+    local = " (compté par le bot)" if st["source"] == "local" else ""
+    fin = _paris(st["fin"]).strftime("%d/%m")
+    if st["coupe"] or (st["coupe"] is None and st["atteint"]):
+        coupe = bool(st["coupe"])
+        titre = f"⛔ Apify coupé jusqu'au {fin} ({u} $ / {bud} $)" if coupe else f"⛔ Apify {u} $ / {bud} $ : budget atteint"
+        texte = (f"budget Apify du mois atteint : {u} $ dépensés sur {bud} $ (décision de Gaëtan){local}"
+                 + (f" — plus aucun appel Apify jusqu'au {fin} : followers, Reels et vues restent à leur dernier relevé (colonne "
+                    "Relevé)" if coupe else ""))
+        return titre, ("⛔ Apify", "bloquant", texte)
+    if st["atteint"]:                                                     # coupe=False malgré tout : dit quand même
+        return f"⛔ Apify {u} $ / {bud} $ : budget atteint", ("⛔ Apify", "bloquant", f"budget Apify du mois atteint : {u} $ sur {bud} ${local}")
+    if st["usage"] > st["trajectoire"] + 1e-9:
+        texte = (f"{u} $ dépensés sur {bud} $, au-dessus de la trajectoire du budget ({_euros(st['trajectoire'])} $ au "
+                 f"{_paris(st['t']):%d/%m}){local}" + (" : relectures légères sautées" if st["leger_ok"] is False else ""))
+        return f"⚠ Apify {u} $ / {bud} $", ("⚠ Apify", "important", texte)
+    return f"Apify {u} $ / {bud} ${local}", None
+
+
+def _fraicheur_metricool(ctx: _Ctx, e: dict, comptes_l: list) -> tuple:
+    """(texte du titre, alerte ou None). 09/10 (revue DASH, contrat C6b : avant, « Metricool J-1 » s'affichait d'après le jour du
+    dernier passage TENTÉ, même raté) : l'âge vient du dernier passage RÉUSSI (`jour`, `dernier_ok`) ; un passage en erreur
+    → « ⚠ Metricool en échec depuis JJ/MM » (JJ/MM : dernier passage réussi). Un état d'avant le C6 (sans `jour_essai`, où
+    `jour` est celui du dernier essai) est lu d'après `dernier_ok`."""
+    met = e.get("metricool") if isinstance(e.get("metricool"), dict) else {}
+    erreur = str(met.get("erreur") or "").strip()
+    ok = _instant(met.get("dernier_ok"))
+    nouveau = "jour_essai" in met
+    jour = str(met.get("jour") or "")[:10]
+    lus_vides = isinstance(met.get("lus"), list) and not met.get("lus") and bool(met.get("t") or jour)
+    echec = bool(erreur) or (not nouveau and lus_vides)
+    if echec and not nouveau:                                            # ancien état : `jour` = veille du dernier ESSAI
+        jour = (_paris(ok).date() - timedelta(days=1)).isoformat() if ok else ""
+    if not jour and not echec and ctx.seriesok:                          # sans état : le dernier relevé Metricool des séries
+        ts = [_instant(r.get("t")) for L in comptes_l for r in (L.get("serie") or {}).get("releves") or []
+              if isinstance(r, dict) and r.get("source") == "metricool" and _instant(r.get("t"))]
+        if ts:
+            jour = (_paris(max(ts)) - timedelta(minutes=1)).date().isoformat()
+    try:
+        j = date.fromisoformat(jour) if jour else None
+    except ValueError:
+        j = None
+    if echec:
+        donnees = f" (données du {j:%d/%m})" if j else ""
+        if ok is None:
+            return f"⚠ Metricool en échec (aucun passage réussi){donnees}", \
+                ("⚠ Metricool", "important", "en échec, aucun passage réussi" + (f" : {erreur[:140]}" if erreur else ""))
+        depuis = _paris(ok).strftime("%d/%m")
+        texte = (f"en échec depuis le {depuis} (dernier passage réussi à {_paris(ok):%Hh%M})" + (f" : {erreur[:140]}" if erreur else
+                 " : aucun compte lu") + (f" — les comptes Metricool gardent les chiffres du {j:%d/%m}" if j else ""))
+        return f"⚠ Metricool en échec depuis {depuis}{donnees}", ("⚠ Metricool", "important", texte)
+    if j is not None:
+        ecart = (ctx.j0 - j).days
+        if ecart < 1:
+            return "Metricool du jour", None
+        txt = f"Metricool J-{ecart} ({j:%d/%m})"
+        return ("⚠ " + txt) if ecart >= METRICOOL_VIEUX_J else txt, None
+    if metricool_comptes is None and not met:
+        return "Metricool : source indisponible", None
+    return "Metricool : aucun relevé", None
+
+
+def _fraicheur(ctx: _Ctx, e: dict, comptes_l: list) -> tuple:
+    """(« Instagram 14h05 · Clics 16h45 · Metricool J-1 (08/10) · Apify 12,30 $ / 25 $ », [alertes (quoi, gravité, texte)]) : l'âge
+    de chaque source, et ce qui mérite une ligne d'alerte sous le titre."""
+    parts, alertes = [], []
     ts_ig = [t for t in (_instant(x) for x in ((ctx.dp or {}).get("t"), ctx.etats.get("leger_iso"), ctx.etats.get("scan_iso"))) if t]
     parts.append("Instagram " + (_hm(max(ts_ig), ctx.j0) if ts_ig else "jamais lu"))
-    ts_cl = [t for t in (_instant(v.get("t")) for v in (ctx.clics.get("aujourdhui") or {}).values()
-                         if isinstance(v, dict) and str(v.get("jour") or "") == ctx.j0.isoformat()) if t]
+    # 09/10 (revue DASH : « Clics 16h45 » quand un autre lien n'avait pas été relu depuis 09h00) : l'heure du relevé le plus ancien
+    # des liens actifs relus aujourd'hui aussi, s'il a plus de CLICS_VIEUX_MIN minutes de retard sur le plus récent
+    ts_cl = [t for t in (_instant(v.get("t")) for lid, v in (ctx.clics.get("aujourdhui") or {}).items()
+                         if isinstance(v, dict) and str(v.get("jour") or "") == ctx.j0.isoformat()
+                         and str(lid) in ctx.liens and ctx.cat(str(lid)) not in INACTIFS) if t]
     if ts_cl:
-        parts.append("Clics " + _hm(max(ts_cl), ctx.j0))
+        t0, t1 = min(ts_cl), max(ts_cl)
+        parts.append("Clics " + (_hm(t1, ctx.j0) if t1 - t0 <= timedelta(minutes=CLICS_VIEUX_MIN)
+                                 else f"{_hm(t0, ctx.j0)} → {_hm(t1, ctx.j0)}"))
     else:
         jours = sorted(j for v in (ctx.clics.get("jours") or {}).values() if isinstance(v, dict) for j in v
                        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(j)))
         parts.append("Clics jusqu'au " + date.fromisoformat(jours[-1]).strftime("%d/%m") if jours else "Clics : aucun relevé")
-    met = e.get("metricool") if isinstance(e.get("metricool"), dict) else {}
-    jour_m = str(met.get("jour") or "")[:10]
-    if not jour_m and ctx.seriesok:                                      # sinon : le dernier relevé Metricool des séries
-        ts = [_instant(r.get("t")) for L in comptes_l for r in (L.get("serie") or {}).get("releves") or []
-              if isinstance(r, dict) and r.get("source") == "metricool" and _instant(r.get("t"))]
-        if ts:
-            jour_m = (_paris(max(ts)) - timedelta(minutes=1)).date().isoformat()
-    if jour_m:
-        try:
-            ecart = (ctx.j0 - date.fromisoformat(jour_m)).days
-            parts.append(f"Metricool J-{ecart} ({date.fromisoformat(jour_m).strftime('%d/%m')})" if ecart >= 1 else "Metricool du jour")
-        except ValueError:
-            pass
-    elif metricool_comptes is None:
-        parts.append("Metricool : source indisponible")
-    else:
-        parts.append("Metricool : aucun relevé")
+    txt, alerte = _fraicheur_metricool(ctx, e, comptes_l)
+    parts.append(txt)
+    if alerte:
+        alertes.append(alerte)
     if not ctx.seriesok:
         parts.append("séries indisponibles (chiffres des cellules du classeur)")
-    b = ctx.etats.get("apify_budget") if isinstance(ctx.etats.get("apify_budget"), dict) else {}
-    if b.get("usage_usd") is not None:
-        txt = f"Apify {b['usage_usd']:.2f} $".replace(".", ",")
-        if b.get("limite_usd"):
-            txt += f" sur {b['limite_usd']:.0f} $ ce mois"
-        if b.get("projete_usd") is not None:
-            txt += f" (projeté {b['projete_usd']:.0f} $" + (f", {int(round(b['part'] * 100))} %" if b.get("part") is not None else "") + ")"
-        if b.get("ok") is False:
-            txt = "⚠ " + txt + " : passages légers sautés"
-        parts.append(txt)
-    else:
-        parts.append("Apify : budget pas encore lu")
-    return " · ".join(parts)
+    txt, alerte = _fraicheur_apify(ctx)
+    parts.append(txt)
+    if alerte:
+        alertes.insert(0, alerte)
+    return " · ".join(parts), alertes
 
 
-def _section_controle(ajouter, ctx: _Ctx, e: dict, comptes: list, lids_lignes: list):
+def _appel_bouclage(ctx: _Ctx, lids_lignes: list, lids_masques: list):
+    """controle.bouclage sur la fenêtre du Dashboard (`fin` = hier, heure de Paris : les deux totaux portent sur les mêmes jours)
+    avec le seau « masqués » (09/10, revue DASH). Contrat plus ancien sans `masques` : les liens masqués comptent avec les lignes
+    (jamais en écart) ; sans `fin` : la fenêtre du contrôle."""
+    essais = ([{"fin": ctx.hier, "masques": list(lids_masques)}] if lids_masques else []) + [{"fin": ctx.hier}, {}]
+    for i, kw in enumerate(essais):
+        lignes = list(lids_lignes) + ([] if "masques" in kw else list(lids_masques))
+        try:
+            return controle.bouclage(ctx.clics, lignes, **kw)
+        except TypeError:
+            if i == len(essais) - 1:                                     # aucune signature ne passe : erreur dite, jamais tue
+                raise
+    return None
+
+
+def _section_controle(ajouter, ctx: _Ctx, e: dict, comptes: list, lids_lignes: list, lids_masques: list = (), tout: dict = None):
     """CONTRÔLE (contrat C3) : compteur par famille, les 15 premières anomalies, bouclage des visites 7 j. Renvoie le nombre
-    d'anomalies, None si la source manque."""
+    d'anomalies, None si la source manque. 09/10 (revue DASH) : une famille qui n'a pas pu juger (anomalie « non_mesure » du
+    contrôle) est dite « non mesuré », jamais « sans anomalie » ni ✅ ; le bouclage n'a ✅ que si tous les liens sont mesurés, sans
+    écart, ET si son total concorde avec le TOTAL Clics 7 j du Dashboard (contrat C6e : une seule règle des visites)."""
     if controle is None or not callable(getattr(controle, "anomalies", None)):
         ajouter(["CONTRÔLE", "", "source indisponible (module controle absent) : attribution non vérifiée"], "section")
         return None
@@ -813,18 +1145,31 @@ def _section_controle(ajouter, ctx: _Ctx, e: dict, comptes: list, lids_lignes: l
     args = (comptes, ctx.clics, e.get("onboarding") or {}, e.get("registre") or {}, e.get("membres"), series_etat)
     try:
         try:
-            an = controle.anomalies(*args, etats=ctx.etats, maintenant=ctx.maintenant)
+            toutes = controle.anomalies(*args, etats=ctx.etats, maintenant=ctx.maintenant)
         except TypeError:                                                # contrat strict : six arguments
-            an = controle.anomalies(*args)
-        an = [a for a in an or [] if isinstance(a, dict)]
+            toutes = controle.anomalies(*args)
+        toutes = [a for a in toutes or [] if isinstance(a, dict)]
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Dashboard : contrôle illisible (%s)", erreur)
         ajouter(["CONTRÔLE", "", f"source indisponible (erreur du contrôle : {type(erreur).__name__})"], "section")
         return None
+    an = [a for a in toutes if not a.get("non_mesure")]
+    nm_f = {}
+    for a in toutes:
+        if a.get("non_mesure"):
+            nm_f.setdefault(str(a.get("famille") or "?"), re.sub(r"^non mesuré : ", "", str(a.get("texte") or "")))
+    rang = lambda f: int(f[1:]) if f[1:].isdigit() else 99              # noqa: E731
     n = {g: sum(1 for a in an if a.get("gravite") == g) for g in GRAVITES}
-    ajouter(["CONTRÔLE", "", (f"{len(an)} anomalie(s) : {n['bloquant']} bloquante(s), {n['important']} importante(s), {n['info']} info"
-                              " · rien n'est corrigé tout seul : à trancher dans le classeur ou dans GAML") if an
-             else "aucune anomalie : chaque compte et chaque lien est attribué ✅"], "section")
+    if an:
+        tete = (f"{len(an)} anomalie(s) : {n['bloquant']} bloquante(s), {n['important']} importante(s), {n['info']} info"
+                " · rien n'est corrigé tout seul : à trancher dans le classeur ou dans GAML")
+        if nm_f:
+            tete += " · non mesuré : " + ", ".join(sorted(nm_f, key=rang))
+    elif nm_f:
+        tete = "aucune anomalie trouvée, mais non mesuré : " + ", ".join(sorted(nm_f, key=rang)) + " (pas prouvé complet)"
+    else:
+        tete = "aucune anomalie : chaque compte et chaque lien est attribué ✅"
+    ajouter(["CONTRÔLE", "", tete], "section")
     noms = dict(FAMILLES)
     noms.update(getattr(controle, "FAMILLES", None) or {})
     compte_f = {f: 0 for f in noms}
@@ -835,8 +1180,10 @@ def _section_controle(ajouter, ctx: _Ctx, e: dict, comptes: list, lids_lignes: l
     for f, k in compte_f.items():
         if k:
             gr = min((a.get("gravite") for a in an if a.get("famille") == f), key=lambda g: list(GRAVITES).index(g) if g in GRAVITES else 9)
-            ajouter([f, k, noms.get(f, f)], "famille", gravite=gr)
-    zeros = [f for f, k in compte_f.items() if not k]
+            ajouter([f, k, (noms.get(f, f) + (f" · en partie non mesuré : {nm_f[f]}" if f in nm_f else ""))[:300]], "famille", gravite=gr)
+        elif f in nm_f:
+            ajouter([f, "?", f"{noms.get(f, f)} · non mesuré : {nm_f[f]}"[:300]], "famille", gravite="important")
+    zeros = [f for f, k in compte_f.items() if not k and f not in nm_f]
     if zeros:
         ajouter(["0", "", "sans anomalie : " + " · ".join(zeros)], "famille", gravite="ok")
     if an:
@@ -849,27 +1196,62 @@ def _section_controle(ajouter, ctx: _Ctx, e: dict, comptes: list, lids_lignes: l
                     "anomalie", gravite="info")
     if callable(getattr(controle, "bouclage", None)):
         try:
-            b = controle.bouclage(ctx.clics, lids_lignes)
+            b = _appel_bouclage(ctx, lids_lignes, lids_masques)
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Dashboard : bouclage illisible (%s)", erreur)
             b = None
+            ajouter(["Bouclage", "⚠", f"illisible (erreur du contrôle : {type(erreur).__name__}) : rien ne prouve que chaque visite est "
+                     "portée"], "bouclage", gravite="important")
         if isinstance(b, dict):
-            ecart = int(b.get("ecart") or 0)
-            try:
-                periode = f"{date.fromisoformat(b['debut']).strftime('%d/%m')} → {date.fromisoformat(b['fin']).strftime('%d/%m')}"
-            except (KeyError, ValueError, TypeError):
-                periode = "7 j"
-            txt = (f"Visites 7 j ({periode}) : {_txt_n(b.get('total') or 0)} = lignes {_txt_n(b.get('lignes') or 0)} + pages "
-                   f"{_txt_n(b.get('pages') or 0)} + libérés / hors clipping {_txt_n(b.get('liberes') or 0)} + écart {_txt_n(ecart)}"
-                   + (" ✅" if not ecart else " ⚠"))
-            if b.get("non_mesures"):
-                txt += f" · {len(b['non_mesures'])} lien(s) non mesuré(s) (relevé incomplet), hors des sommes"
-            ajouter(["Bouclage", ecart if ecart else "✅", txt], "bouclage", gravite="bloquant" if ecart else "ok")
-            for x in (b.get("non_comptes") or [])[:10]:
-                ajouter(["", x.get("visites", ""), f"⚠ lien {x.get('url') or x.get('lid')} ({x.get('creatrice') or '?'}"
-                         + (f", note « {x.get('note')} »" if x.get("note") else "") + ") : visites portées par aucune ligne"],
-                        "anomalie", gravite="bloquant")
+            _ligne_bouclage(ajouter, ctx, b, tout)
     return len(an)
+
+
+def _ligne_bouclage(ajouter, ctx: _Ctx, b: dict, tout: dict = None):
+    """La ligne Bouclage. 09/10 (revue DASH) : « 0 = … ✅ » ne s'affiche plus quand aucun lien n'est mesuré (un jour de GAML en
+    panne : sommes vides, « non mesurable ») ; un relevé incomplet → « ⚠ incomplet (k/n liens) », jamais ✅ ; le total du
+    bouclage est comparé au TOTAL Clics 7 j de la même page (contrat C6e) — s'ils diffèrent, c'est dit, sans ✅."""
+    ecart = int(b.get("ecart") or 0)
+    try:
+        periode = f"{date.fromisoformat(b['debut']).strftime('%d/%m')} → {date.fromisoformat(b['fin']).strftime('%d/%m')}"
+    except (KeyError, ValueError, TypeError):
+        periode = "7 j"
+    non_mes = list(b.get("non_mesures") or [])
+    n_liens = b.get("liens") if isinstance(b.get("liens"), int) and not isinstance(b.get("liens"), bool) else None
+    mesures = b.get("mesures") if isinstance(b.get("mesures"), int) and not isinstance(b.get("mesures"), bool) else \
+        (n_liens - len(non_mes) if n_liens is not None else None)
+    if n_liens is None and mesures is not None:
+        n_liens = mesures + len(non_mes)
+    if non_mes and (mesures == 0 or (mesures is None and not b.get("total"))):
+        ajouter(["Bouclage", "⚠", f"Visites 7 j ({periode}) : non mesurable, relevé incomplet ({len(non_mes)}"
+                 + (f"/{n_liens}" if n_liens is not None else "") + " lien(s) sans 7 jours relevés) — sommes laissées vides, jamais un 0"],
+                "bouclage", gravite="important")
+        return
+    total = int(b.get("total") or 0)
+    masques = int(b.get("masques") or 0)
+    txt = (f"Visites 7 j ({periode}) : {_txt_n(total)} = lignes {_txt_n(b.get('lignes') or 0)}"
+           + (f" + masqués {_txt_n(masques)}" if masques or b.get("liens_masques") else "")
+           + f" + pages {_txt_n(b.get('pages') or 0)} + libérés / hors clipping {_txt_n(b.get('liberes') or 0)} + écart {_txt_n(ecart)}"
+           + (" ⚠" if ecart else ""))
+    problemes = []
+    if non_mes:
+        problemes.append(f"⚠ incomplet : {len(non_mes)}" + (f"/{n_liens}" if n_liens is not None else "")
+                         + " lien(s) sans 7 jours relevés, hors des sommes")
+    # contrat C6e : le TOTAL Clics 7 j (paie_clics.clics_lien sur tous les liens actifs) et le bouclage doivent donner le même chiffre
+    if tout and str(b.get("fin") or "")[:10] in ("", ctx.hier.isoformat()):
+        t_dash = tout.get("c7") if tout.get("c7") is not None else 0
+        if t_dash != total:
+            problemes.append(f"⚠ ne concorde pas avec le TOTAL Clics 7 j ({_txt_n(t_dash)}) : deux règles de calcul des visites")
+    if problemes:
+        txt += " · " + " · ".join(problemes)
+    elif not ecart:
+        txt += " ✅"
+    statut = ecart if ecart else ("⚠" if problemes else "✅")
+    ajouter(["Bouclage", statut, txt], "bouclage", gravite="bloquant" if ecart else ("important" if problemes else "ok"))
+    for x in (b.get("non_comptes") or [])[:10]:
+        ajouter(["", x.get("visites", ""), f"⚠ lien {x.get('url') or x.get('lid')} ({x.get('creatrice') or '?'}"
+                 + (f", note « {x.get('note')} »" if x.get("note") else "") + ") : visites portées par aucune ligne"],
+                "anomalie", gravite="bloquant")
 
 
 def _section_tendances(ajouter, ctx: _Ctx, tend: dict, n_comptes: int):
@@ -880,7 +1262,7 @@ def _section_tendances(ajouter, ctx: _Ctx, tend: dict, n_comptes: int):
              f"publiés du {va.strftime('%d/%m')} au {vb.strftime('%d/%m')}, relevées 48 h après la publication · seulement ce qui est "
              "mesuré sur les deux périodes · classés par écart"], "section")
     ajouter(["Quoi", "Compte / lien", "Gérant", "Δ", "Actuel", "Avant", "Créatrice"], "sous_titre")
-    noms = {"vues": ("Vues", "il faut des Reels mesurés à 48 h sur les deux périodes (16 jours de séries)"),
+    noms = {"vues": ("Vues", "il faut que chaque Reel publié soit mesuré à 48 h, sur les deux périodes (16 jours de séries)"),
             "clics": ("Clics", "il faut 14 jours de relevés complets du lien (un jour manquant ou un lien repris : pas comparé)"),
             "followers": ("Followers", "il faut deux relevés à 7 jours d'écart (même source)")}
     for k, (nom, raison) in noms.items():
@@ -907,9 +1289,10 @@ def _lien_texte(ctx: _Ctx, L: dict) -> str:
     elif L["trio"]:
         morceaux.append(f"(trio) {_slug(ctx.liens[L['trio'][0][0]], L['trio'][0][0])}")
     for lid, porteur in L["ailleurs"]:
-        morceaux.append(f"⚠ {_slug(ctx.liens[lid], lid)} déjà compté chez {(porteur['c'].get('gerant') or '?').strip()}")
+        chez = "un Gérant masqué" if porteur.get("masque") else (porteur["c"].get("gerant") or "?").strip()
+        morceaux.append(f"⚠ {_slug(ctx.liens[lid], lid)} déjà compté chez {chez}")
     noms = {"libere": "libéré", "hors_clipping": "hors clipping", "page": "page de la créatrice", "desactive": "désactivé",
-            "supprime": "supprimé", "attribue": "lien d'un clipper", "suivi": "lien suivi"}
+            "supprime": "supprimé", "attribue": "lien d'un clipper", "suivi": "lien suivi", "non_attribue": "jamais attribué"}
     for lid, raison in L["ko"]:
         morceaux.append(f"⚠ {_slug(ctx.liens[lid], lid)} ({noms.get(raison, raison)})")
     if not L["ok"]:
@@ -953,12 +1336,14 @@ def _ligne_compte(ctx: _Ctx, L: dict, gerant: str) -> list:
     r[C_DR] = _delta_abs(L["r7"] - L["r7p"]) if L["r7"] is not None and L["r7p"] is not None and L["r7_serie"] else ""
     if L["vues"]:
         r[C_V7], r[C_VMED] = L["vues"][0], L["vues"][2]
-        r[C_DV] = _delta_pct(L["vues"][0], L["vues_p"][0]) if L["vues_p"] else ""
+        r[C_DV] = _delta_pct(L["vues"][0], L["vues_p"][0]) if L["vues_comparable"] else ""
     r[C_LIEN] = _lien_texte(ctx, L)
+    notes = []
     if L["clics"]:
         k = L["clics"]
         r[C_CA], r[C_CH], r[C_C7], r[C_DC] = _v(k["auj"]), _v(k["hier"]), _v(k["c7"]), k["delta"]
-    r[C_MES] = L["mesure"]
+        notes = _notes_clics(ctx, k, heure=True)                         # 09/10 (revue DASH) : k/n liens, reprise, heure du jour
+    r[C_MES] = " · ".join([L["mesure"]] + notes)
     r[C_REL] = L["releve"]
     return r
 
@@ -975,16 +1360,18 @@ def _sous_total(ctx: _Ctx, groupe: list, nom: str) -> list:
     r[C_R7] = _v(_somme(L["r7"] for L in groupe)[0])
     comp = [L for L in groupe if L["r7"] is not None and L["r7p"] is not None and L["r7_serie"]]
     r[C_DR] = _delta_abs(sum(L["r7"] - L["r7p"] for L in comp)) if comp else ""
-    r[C_V7] = _v(_somme(L["vues"][0] if L["vues"] else None for L in groupe)[0])
-    comp = [L for L in groupe if L["vues"] and L["vues_p"]]
+    r[C_V7] = _v(_somme(_vues_mesurees(L)[0] for L in groupe)[0])
+    comp = [L for L in groupe if L["vues_comparable"]]
     r[C_DV] = _delta_pct(sum(L["vues"][0] for L in comp), sum(L["vues_p"][0] for L in comp)) if comp else ""
     lids = [x for L in groupe for x in L["lids"]]
+    k = {}
     if lids:
         k = _clics_de(ctx, lids)
         r[C_CA], r[C_CH], r[C_C7], r[C_DC] = _v(k["auj"]), _v(k["hier"]), _v(k["c7"]), k["delta"]
         r[C_LIEN] = f"{len(set(lids))} lien(s)"
-    manques = sum(1 for L in groupe if L["mesure"].startswith(("non lu", "jamais lu", "introuvable")))
-    r[C_MES] = f"{len(groupe)} comptes" + (f" · {manques} non mesuré(s) : somme partielle" if manques else "")
+    # 09/10 (revue DASH) : une somme partielle le dit, mesure par mesure (« partiel : followers 2/3, Reels 7 j 1/3 · clics 7 j : 1/2
+    # liens relevés »)
+    r[C_MES] = " · ".join(x for x in (f"{len(groupe)} comptes", _texte_partiel(_notes_sommes(groupe), _notes_clics(ctx, k))) if x)
     return r
 
 
@@ -1004,11 +1391,10 @@ def _ligne_liens(ctx: _Ctx, titre: str, sous: str, lids: list, kind: str) -> lis
         elif ctx.cat(x) == "hors_clipping" and str(info.get("hors_clipping") or "").strip() not in ("", "True", "1"):
             s += f" ({str(info['hors_clipping'])[:20]})"
         noms.append(s)
-    r[C_LIEN] = " · ".join(noms)
+    r[C_LIEN] = f"{len(lids)} lien(s)" if kind == "masques" else " · ".join(noms)   # masqués : pas de détail
     k = _clics_de(ctx, lids)
     r[C_CA], r[C_CH], r[C_C7], r[C_DC] = _v(k["auj"]), _v(k["hier"]), _v(k["c7"]), k["delta"]
-    manque = k["c7_tot"] - k["c7_n"]
-    r[C_MES] = "GAML" + (f" · {manque} lien(s) non relevé(s) sur 7 j" if manque else "") + _partiel_auj(k)
+    r[C_MES] = " · ".join(["GAML"] + _notes_clics(ctx, k))
     return r
 
 
@@ -1030,7 +1416,7 @@ def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, ho
     bande[C_GERANT], bande[C_HANDLE] = nom_cr.upper(), f"{len(lignes_cr)} comptes" if cr else ""
     bande[C_FOL] = _v(_somme(L["followers"] for L in lignes_cr)[0])
     bande[C_R7] = _v(_somme(L["r7"] for L in lignes_cr)[0])
-    bande[C_V7] = _v(_somme(L["vues"][0] if L["vues"] else None for L in lignes_cr)[0])
+    bande[C_V7] = _v(_somme(_vues_mesurees(L)[0] for L in lignes_cr)[0])
     if k_cr:
         bande[C_CA], bande[C_CH], bande[C_C7], bande[C_DC] = _v(k_cr["auj"]), _v(k_cr["hier"]), _v(k_cr["c7"]), k_cr["delta"]
         bande[C_LIEN] = f"{len(set(tous_lids))} liens actifs"
@@ -1040,9 +1426,10 @@ def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, ho
     if hors.get("ban"):
         extra.append(f"{hors['ban']} BAN rendus")
     if hors.get("masques"):
-        extra.append(f"{hors['masques']} masqué(s)")
-    bande[C_MES] = " · ".join(extra) + (_partiel_auj(k_cr) if k_cr else "")
-    bande[C_MES] = bande[C_MES].lstrip(" ·")
+        n_m = len(r_cr.get("masques") or [])
+        extra.append(f"{hors['masques']} masqué(s)" + (f", {n_m} lien(s) de Gérants masqués" if n_m else ""))
+    extra.append(_texte_partiel(_notes_sommes(lignes_cr), _notes_clics(ctx, k_cr)))
+    bande[C_MES] = " · ".join(x for x in extra if x)
     ajouter(bande, "creatrice", cr=cr)
     ajouter(COLONNES, "entete", cr=cr)
     zebre = 0
@@ -1063,12 +1450,12 @@ def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, ho
         zebre += 1
     ajouter(_ligne_liens(ctx, "Pages", "de la créatrice" if cr else "sans créatrice", r_cr["pages"], "pages"), "liens", cr=cr)
     ajouter(_ligne_liens(ctx, "Libérés", "hors clipping", r_cr["liberes"], "liberes"), "liens", cr=cr)
+    if r_cr.get("masques"):                                              # 09/10 (revue DASH) : rien ne se perd, rien n'est montré
+        ajouter(_ligne_liens(ctx, "Masqués", "Gérants masqués", r_cr["masques"], "masques"), "liens", cr=cr)
     if r_cr["sans_ligne"]:
         ajouter(_ligne_liens(ctx, "⚠ Sans ligne", "liens attribués", r_cr["sans_ligne"], "sans_ligne"), "sans_ligne", cr=cr)
     tot["comptes"] += len(lignes_cr)
-    tot["fol"] += [L["followers"] for L in lignes_cr]
-    tot["r7"] += [L["r7"] for L in lignes_cr]
-    tot["v7"] += [L["vues"][0] if L["vues"] else None for L in lignes_cr]
+    tot["lignes"] += lignes_cr
     tot["lids"] += tous_lids
 
 
@@ -1162,6 +1549,13 @@ def requetes(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> lis
                     _style(sid, i, i + 1, 0, 2, fond=SOMBRE, texte=BLANC, gras=True, taille=12, coupe="WRAP"),
                     {"mergeCells": {"range": _plage(sid, i, i + 1, 0, 2), "mergeType": "MERGE_ALL"}},
                     _style(sid, i, i + 1, 2, NB, fond=SOMBRE, texte="#CFD8DC", taille=10, coupe="OVERFLOW_CELL"), _hauteur(sid, i, i + 1, 44)]
+        elif k == "alerte":                                              # 09/10 (revue DASH) : budget Apify, Metricool en échec
+            fond = "#FFEBEE" if t.get("gravite") == "bloquant" else "#FFF8E1"
+            req += [_style(sid, i, i + 1, 0, NB, fond=fond, texte="#212121", taille=10),
+                    _style(sid, i, i + 1, 0, 2, fond=fond, texte="#B71C1C" if t.get("gravite") == "bloquant" else "#E65100", gras=True,
+                           taille=11, aligne="LEFT"),
+                    _style(sid, i, i + 1, 2, NB, fond=fond, texte="#212121", gras=True, taille=10, coupe="OVERFLOW_CELL"),
+                    _hauteur(sid, i, i + 1, 28)]
         elif k == "legende":
             req.append(_style(sid, i, i + 1, 2, NB, texte=GRIS_TEXTE, italique=True, taille=9, coupe="OVERFLOW_CELL"))
         elif k == "vide":
@@ -1225,8 +1619,8 @@ def requetes(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> lis
 
 
 def regles(sid: int) -> list:
-    """La mise en forme conditionnelle (posée une fois par DASHBOARD_VERSION) : ▲ en vert, ▼ en rouge, « ⚠ » en orange, « non lu »
-    en ambre, BAN en rouge — sur tout l'onglet, quelle que soit la ligne : le contenu bouge, les règles restent."""
+    """La mise en forme conditionnelle (posée une fois par DASHBOARD_VERSION) : ▲ en vert, ▼ en rouge, « ⛔ » en rouge, « ⚠ » en
+    orange, « non lu » en ambre, BAN en rouge — sur tout l'onglet, quelle que soit la ligne : le contenu bouge, les règles restent."""
     plage = [{"sheetId": sid, "startColumnIndex": 0, "endColumnIndex": NB}]
 
     def regle(type_, valeur, texte, fond, gras=True):
@@ -1235,6 +1629,7 @@ def regles(sid: int) -> list:
                                                             "backgroundColor": _rgb(fond)}}}
     return [regle("TEXT_STARTS_WITH", "▲", "#1B5E20", "#E8F5E9"),
             regle("TEXT_STARTS_WITH", "▼", "#B71C1C", "#FFEBEE"),
+            regle("TEXT_STARTS_WITH", "⛔", "#B71C1C", "#FFCDD2"),           # 09/10 (revue DASH) : Apify coupé, budget atteint
             regle("TEXT_STARTS_WITH", "⚠", "#E65100", "#FFF3E0"),
             regle("TEXT_STARTS_WITH", "non lu", "#E65100", "#FFF8E1", gras=False),
             regle("TEXT_EQ", "BAN", "#B71C1C", "#FFCDD2")]
@@ -1248,12 +1643,19 @@ async def _nb_regles(cid: str, sid: int) -> int:
     return 0
 
 
+async def _batch_unique(cid: str, req: list) -> None:
+    """09/10 (revue DASH : google_api.sheets_batch_update découpe par paquets de 400 — à la taille réelle (~130 comptes, ~620
+    requêtes) l'onglet partait en DEUX appels non atomiques, valeurs et formats vidés dans le 1er, mise en forme dans le 2e) :
+    UN seul batchUpdate, sans découpage — Google applique tout ou rien (pas de limite de nombre de requêtes côté Google)."""
+    await google_api._appel("POST", f"{google_api.SHEETS}/{cid}:batchUpdate", corps={"requests": list(req)})
+
+
 async def _poser_regles(cid: str, sid: int) -> None:
     """Les règles conditionnelles de l'onglet remplacées par les nôtres (le bot seul écrit dans le Dashboard)."""
     n = await _nb_regles(cid, sid)
     req = [{"deleteConditionalFormatRule": {"sheetId": sid, "index": 0}} for _ in range(n)]
     req += [{"addConditionalFormatRule": {"rule": rg, "index": i}} for i, rg in enumerate(regles(sid))]
-    await google_api.sheets_batch_update(cid, req)
+    await _batch_unique(cid, req)
 
 
 # ------------------------------------------------------------------ état, lecture, écriture
@@ -1325,7 +1727,7 @@ async def _ecrire_onglet(r: dict) -> int:
     sid = p.get("id")
     if sid is None:
         raise RuntimeError(f"onglet « {ONGLET} » introuvable")
-    await google_api.sheets_batch_update(cid, requetes(r, sid, int(p.get("lignes") or 0), int(p.get("colonnes") or 0)))
+    await _batch_unique(cid, requetes(r, sid, int(p.get("lignes") or 0), int(p.get("colonnes") or 0)))
     return sid
 
 
@@ -1377,6 +1779,27 @@ async def ecrire(force: bool = False, *, maintenant: datetime = None) -> dict:
         journal.info("Dashboard réécrit : %d lignes, %d compte(s), %s anomalie(s)", len(r["lignes"]), r["comptes"],
                      "?" if r["anomalies"] is None else r["anomalies"])
         return bilan
+
+
+def ecrire_apres_passage(verrou, attente_max_s: float = ATTENTE_PASSAGE_S):
+    """09/10 (revue DASH : la réécriture forcée qui suit le passage complet relisait etats_comptes.json AVANT son enregistrement —
+    historique sans le jour, non lus et dernier passage de la veille : un compte lu le matin s'affichait « non lu ») : planifie
+    `ecrire(force=True)` pour le moment où le passage en cours rend son verrou (`verrou`, celui de etats_comptes.executer), donc
+    après l'enregistrement de son état. Attente plafonnée à `attente_max_s`. Renvoie la tâche (gardée dans `_differees`)."""
+    async def _tache():
+        debut = time.monotonic()
+        while verrou is not None and verrou.locked() and time.monotonic() - debut < attente_max_s:
+            await asyncio.sleep(0.5)
+        try:
+            b = await ecrire(force=True)
+            if b.get("erreur"):
+                journal.warning("Dashboard (après le passage complet) : %s", b["erreur"])
+        except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le bot
+            journal.warning("Dashboard (après le passage complet) : %s", erreur)
+    tache = asyncio.get_running_loop().create_task(_tache())
+    _differees.add(tache)
+    tache.add_done_callback(_differees.discard)
+    return tache
 
 
 async def boucle(client) -> None:
