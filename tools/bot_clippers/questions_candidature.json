@@ -1,16 +1,13 @@
 {
-  "titre": "Clippeur Reels Instagram 🎥",
+  "titre": "Clippeur payé au clic",
   "intro": [
-    "**Tu publies des Reels sur Instagram depuis ton téléphone**, à côté de ton travail ou de tes études. On te donne les vidéos, la formation et la méthode (+11 millions de vues).",
-    "!! 💰 **0,05 $ par visite sur ton lien Instagram**\n\n1 000 visites = 50 $\n5 000 visites = 250 $\n10 000 visites = 500 $\n20 000 visites = 1 000 $\n\nPayé tous les 15 jours, en USDC ou par virement.",
-    "## Comment ça se passe",
+    "Trois étapes, puis tu commences :",
     [
-      "Tu remplis ce formulaire : 3 minutes.",
-      "Tu regardes la formation (15 minutes) et tu passes le quizz, ici.",
-      "Quizz réussi : tu rejoins le Discord, tu fais un petit test, puis tu reçois tes comptes Instagram.",
-      "Tu publies. Tu es payé tous les 15 jours en fonction de tes clics."
+      "Ce formulaire, 2 minutes.",
+      "Une vidéo de formation (15 minutes) et un quizz.",
+      "Le Discord : ta créatrice et ton premier compte."
     ],
-    "-# Les vidéos viennent des créatrices OnlyFans de l'agence. Tout ce que tu publies est 100 % SFW et respecte les règles d'Instagram. Pas besoin d'expérience, mais il faut être sérieux tous les jours. 18 ans minimum."
+    "Contenu SFW uniquement. 18 ans minimum."
   ],
   "questions": [
     {
@@ -76,7 +73,7 @@
       "type": "checkbox",
       "requis": true,
       "label": "Les 5 règles de l'équipe",
-      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence. Tu rends les accès si on te les demande. 3. La formation reste entre nous. Tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe. Les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte de croissance. Ton compte 1 doit être créé dans les 3 jours, sinon tu sors.",
+      "aide": "1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence. Tu rends les accès si on te les demande. 3. La formation reste entre nous. Tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe, le 5 et le 20 de chaque mois. Les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte de croissance. Ton compte 1 doit être créé dans les 48 h, sinon tu sors.",
       "case": "J'ai 18 ans ou plus et j'accepte les 5 règles"
     }
   ]

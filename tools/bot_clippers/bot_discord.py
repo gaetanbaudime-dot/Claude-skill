@@ -2343,8 +2343,13 @@ async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
         ligne[0] = heure_paris().strftime("%d/%m/%Y %H:%M")
         origine = (str(reponses.get("source", "")).strip() + (" · " + str(reponses.get("source_detail", "")).strip()
                                                             if str(reponses.get("source_detail", "")).strip() else "")).strip(" ·")
+        # 09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > … ») : la colonne Source porte la source de
+        # l'annonce (`?src=tg-<groupe>`, passée par le site), sinon « web » ; jamais vide, jamais lue comme une formule
+        source = str(source or "").strip() or "web"
         if len(ligne) > 1:
             ligne[1] = origine or source
+            if ligne[1][:1] in ("+", "=", "-", "@"):
+                ligne[1] = "'" + ligne[1]
         for q in questions:
             ident = q.get("id", ""); libelle = q.get("label", ident)
             col = next((i for i, h in enumerate(en_tete) if normaliser(h).strip() == normaliser(libelle).strip()), None)
@@ -3068,14 +3073,28 @@ async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
     canal = await canal_admin()
     essai = essais_quiz(uid) + 1
     contenu = f"{'QUIZ_OK' if reussite else 'QUIZ_KO'}|{uid}|{score}"
+    # 09/10 (revue L8, Gaëtan : « Chaque étape à la fois… on se complique pas la vie ») : la page du site affiche déjà l'échec
+    # (score, seuil, « Revois la vidéo », « Réessayer ») ; silencieux=True compte l'essai (état, date) sans le redire dans son
+    # salon. Seul appelant : le quizz du site (web_candidature.post_quiz, et post_quiz_cand pour un membre déjà présent).
     try:
-        await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal))
+        await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal), silencieux=not reussite)
     except Exception:                                                   # noqa: BLE001
         # 09/10 (relecture du lot L1) : jamais d'erreur 500 sur la page POST /quiz du site ; valider_candidat alerte le staff
         journal.exception("Quiz du site (%s, %s) : traitement interrompu", uid, "réussi" if reussite else "raté")
     # 28/09 (Gaëtan : « tant que j'ai un backup dans mon Google Sheets ») : une ligne par essai dans l'onglet « Quiz bot »
     m = membre_par_id(uid)
     await ligne_quiz_bot(prenom_de(m) if m is not None else "", str(uid), score, essai, reussite, details)
+
+
+def peut_revenir_site(uid) -> bool:
+    """09/10 (revue L8 : un clipper sorti rouvrait son vieux lien du site, recevait une invitation neuve et était re-validé, avec
+    3 comptes réservés sur le stock) : un membre parti dont l'invitation du site a déjà servi peut-il rentrer seul ? Oui pour
+    un candidat sorti sans être passé par l'équipe (48 h sans quizz, départ volontaire) ; non pour un clipper sorti de l'équipe
+    (!sortie, sortie déposée, !monteur : sa fiche est dans sortis.json) : Gaëtan le fait entrer à la main.
+    Dépendance « peut_revenir » de web_candidature, branchée dans on_ready par le lot L10."""
+    uid = str(uid or "").strip()
+    return uid.isdigit() and not any(isinstance(s, dict) and str(s.get("uid") or "") == uid
+                                     for s in lire_json(FICHIER_SORTIS, []))
 
 
 async def ligne_quiz_bot(prenom: str, discord_id: str, score: str, essai: int, reussite: bool, details=None):
