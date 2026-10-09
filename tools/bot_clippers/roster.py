@@ -229,6 +229,38 @@ def _fichier_traites():
     return (_deps["DONNEES"] / "roster_sortis_traites.json") if _deps.get("DONNEES") else None
 
 
+def _marquer_traite(prenom: str):
+    """09/10 : une sortie déjà faite par `sortir_depose` (qui met le prénom aux sortis) n'est pas rejouée par le passage
+    d'`appliquer_sortis` du démarrage suivant (qui prendrait par prénom la fiche d'un nouveau signé du même prénom)."""
+    if _fichier_traites() is None or not _deps.get("lire_json") or not _deps.get("ecrire_json"):
+        return
+    traites = _deps["lire_json"](_fichier_traites(), [])
+    if _n(prenom) not in {_n(x) for x in traites}:
+        traites.append(prenom)
+        _deps["ecrire_json"](_fichier_traites(), traites[-300:])
+
+
+async def _retirer_roles(m, raison: str) -> str:
+    """09/10 (Gaëtan : « On vire Tara ») : les rôles de clipper (rangs : Clippeur, Rookie…) et de créatrice d'un sortant encore
+    sur le serveur, retirés comme `!sortie`. Avant, une sortie par le roster les laissait : la catégorie et les rushs de la
+    créatrice restaient visibles. Jamais pour le staff. Renvoie une ligne de bilan ('' si rien à retirer)."""
+    if str(getattr(m, "id", "")) in _deps.get("ADMIN_IDS", ()) or (_deps.get("est_manager") and _deps["est_manager"](m)):
+        return ""
+    rangs = [_n(x) for x in _deps.get("NOMS_RANGS", ("Clippeur", "Rookie", "Confirmé", "Elite")) if _n(x)]
+    g = getattr(m, "guild", None)
+    crea = list(_deps["roles_creatrices"](g)) if (_deps.get("roles_creatrices") and g is not None) else []
+    noms_c = {_n(c) for c in lire()["equipes"] if _n(c)}                # repli : le nom de la créatrice en premier mot du rôle
+    a_retirer = [r for r in getattr(m, "roles", []) if not getattr(r, "managed", False) and not _n(r.name).startswith("@")
+                 and (r in crea or any(x in _n(r.name) for x in rangs) or (_n(r.name).split() or [""])[0] in noms_c)]
+    if not a_retirer:
+        return ""
+    try:
+        await m.remove_roles(*a_retirer, reason=raison[:500])
+    except Exception as erreur:                                         # noqa: BLE001
+        return f"⚠️ rôles non retirés ({type(erreur).__name__})"
+    return "rôles retirés : " + ", ".join(r.name for r in a_retirer)
+
+
 async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: str = "roster (viré)", garder_salons: bool = False) -> list:
     """Pour chaque prénom de `sortis` pas encore traité (ou `seulement` ce prénom, `uid` connu ou non) : fiche du registre →
     sortis.json, parcours candidat « sorti », comptes du classeur rendus AU VIVIER (`onboarding.liberer(pool=True)` : le
@@ -304,6 +336,16 @@ async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: s
                     info["etat"] = "sorti"; info.setdefault("relances", {})["stop"] = True
                 ecrire_json(_deps["FICHIER_PIPELINE"], pipe)
             detail.append(f"{len(uids)} fiche(s) au registre des sortis")
+        # 1b. 09/10 (Gaëtan : « On vire Tara ») : ses rôles de clipper et de créatrice retirés s'il est encore sur le serveur. Par le
+        #     prénom : jamais avec un homonyme sur le serveur, ni quand plusieurs fiches y répondent ; par uid connu : lui seul. Jamais
+        #     pour un passage dans l'équipe (`garder_salons`).
+        if client is not None and uids and not garder_salons and (str(uid) or (len(uids) == 1 and not homonyme)):
+            for uid_f in uids:
+                m_r = next((g.get_member(int(uid_f)) for g in client.guilds if uid_f.isdigit() and g.get_member(int(uid_f))), None)
+                if m_r is not None:
+                    ligne_r = await _retirer_roles(m_r, f"Roster : {prenom} sorti ({raison})")
+                    if ligne_r:
+                        detail.append(ligne_r)
         # 2. Classeur des logins : ses comptes rendus au vivier — sauf si un homonyme est encore sur le serveur (Julien ×2).
         onb = _deps.get("onboarding")
         if onb is not None and onb.actif() and homonyme:
@@ -352,10 +394,60 @@ def _fichier_deposees_faites():
     return (_deps["DONNEES"] / "roster_sorties_deposees.json") if _deps.get("DONNEES") else None
 
 
+SORTIES_ESSAIS_MAX = 5                                                  # 09/10 : démarrages où une sortie non faite est reprise
+
+
+def _sortie_faite(trace) -> bool:
+    """Une entrée de la trace des sorties déposées qui est close : faite, ou abandonnée après SORTIES_ESSAIS_MAX essais. Les traces
+    d'avant le 09/10 ({"date", "bilan"}) sont closes."""
+    return bool(trace) and (not isinstance(trace, dict) or bool(trace.get("fait", True)))
+
+
+async def _expulser_depose(e: dict, prenom: str, raison: str) -> tuple:
+    """09/10 (Gaëtan : « On vire Tara ») : une sortie déposée "expulser": true (et "metricool": true pour que ses comptes créés
+    partent sur Metricool et ses liens chez le repreneur, au lieu du vivier). Renvoie (lignes de bilan, faite). Non faite, donc
+    retentée au démarrage suivant : membre introuvable ou ambigu (rien touché, rôles gardés), sortie annulée ({"annule": …},
+    GAML illisible), erreur, ou bot pas à jour (jamais de repli sur la sortie au vivier pour une sortie Metricool)."""
+    metricool = bool(e.get("metricool"))
+    if metricool and not e.get("expulser"):
+        return [f"⚠️ {prenom} : « metricool » sans « expulser » dans le dépôt, rien fait (la sortie Metricool expulse)"], False
+    sortir_d = _deps.get("sortir_depose")
+    if sortir_d is None and (metricool or not _deps.get("sortir")):
+        return [f"⚠️ {prenom} : sortie {'Metricool ' if metricool else ''}indisponible (bot pas à jour), rien fait"], False
+    chercher = _deps.get("chercher_prenom") or _deps.get("chercher_membre")    # 09/10 : un seul clipper de ce prénom, sinon personne
+    membre_e = chercher(prenom) if chercher else None
+    if membre_e is None:
+        return [f"⚠️ {prenom} introuvable ou ambigu : pas expulsé(e), rôles gardés"], False
+    try:
+        res = await (sortir_d(membre_e, raison, metricool=metricool) if sortir_d else _deps["sortir"](membre_e, raison))
+    except Exception as erreur:                                         # noqa: BLE001
+        return [f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}"], False
+    res = res if isinstance(res, dict) else {}
+    if res.get("annule"):
+        return [f"⚠️ {prenom} : rien fait ({str(res['annule']).split(' : ')[0]})"], False
+    morceaux = [f"🚪 {prenom} : sorti(e)" + (" et expulsé(e)" if res.get("expulse") else " (⚠️ pas expulsé(e) : à la main)")]
+    if metricool:
+        morceaux.append(f"{res.get('comptes', 0)} compte(s) rendu(s), les créés « à mettre Metricool »")
+        morceaux.append(f"{res.get('repris', 0)} lien(s) chez {res.get('repreneur') or 'le repreneur'} Metricool")
+        if res.get("metricool"):
+            morceaux.append(f"{res['metricool']} ligne(s) Metricool à {res.get('repreneur')}")
+    else:
+        morceaux.append(f"{res.get('comptes', 0)} compte(s) au vivier")
+    if res.get("liens"):
+        morceaux.append(f"{res['liens']} lien(s) libéré(s)")
+    if res.get("refus"):
+        morceaux.append("⚠️ " + ", ".join(str(r) for r in res["refus"])[:300])
+    _marquer_traite(prenom)
+    return [" · ".join(morceaux)], True
+
+
 async def sorties_deposees(client) -> list:
     """28/09 : `sorties_a_appliquer.json` (un dépôt, comme les messages) — [{"id", "prenom", "raison"}]. Chaque entrée est
     appliquée une fois au démarrage (retirée du roster, puis `appliquer_sortis`), trace par id. Pour sortir quelqu'un qui a
-    déjà quitté le serveur sans taper de commande (Marias, 28/09)."""
+    déjà quitté le serveur sans taper de commande (Marias, 28/09).
+    09/10 (Gaëtan : « On vire Tara ») : "expulser": true passe par `sortir_depose` ("metricool": true : comptes créés sur
+    Metricool, liens chez le repreneur, rien au vivier) avec un membre cherché par prénom (un seul clipper, sinon personne). Une
+    sortie non faite (introuvable, ambigu, annulée) n'est PAS close : reprise aux démarrages suivants, SORTIES_ESSAIS_MAX fois."""
     if client is None or not FICHIER_SORTIES_DEPOSEES.exists() or _fichier_deposees_faites() is None or not _deps.get("lire_json"):
         return []
     try:
@@ -367,24 +459,31 @@ async def sorties_deposees(client) -> list:
     bilan = []
     for e in entrees if isinstance(entrees, list) else []:
         ident, prenom = str(e.get("id") or ""), str(e.get("prenom") or "").strip()
-        if not ident or not prenom or ident in faits:
+        if not ident or not prenom or _sortie_faite(faits.get(ident)):
             continue
         raison_e = str(e.get("raison") or "sortie déposée")
-        # 05/10 (Gaëtan : « on vire Hasina et Ckycia ») : "expulser": true → la vraie sortie (`!sortie` : accès, comptes au vivier,
-        # lien libéré, salon) avec expulsion du serveur, si le membre est trouvé par son prénom exact ; sinon le nettoyage habituel.
-        membre_e = _deps["chercher_membre"](prenom) if e.get("expulser") and _deps.get("chercher_membre") and _deps.get("sortir") else None
-        if membre_e is not None:
-            try:
-                res = await _deps["sortir"](membre_e, raison_e)
-                lignes = [f"🚪 {prenom} : sorti" + (" et expulsé" if res.get("expulse") else " (⚠️ pas expulsé)")
-                          + f" · {res.get('comptes', 0)} compte(s) au vivier · {res.get('liens', 0)} lien(s) libéré(s)"]
-            except Exception as erreur:                                     # noqa: BLE001
-                lignes = [f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}"]
-            retirer(prenom)
+        maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        # 05/10 (Gaëtan : « on vire Hasina et Ckycia ») : "expulser": true → la vraie sortie (`!sortie` : accès, comptes, lien,
+        # salon) avec expulsion du serveur. 09/10 : par `_expulser_depose` (jamais le nettoyage par prénom en repli : il rendait
+        # au vivier les comptes d'une sortie Metricool, et laissait les rôles d'un membre introuvable sans le dire).
+        if e.get("expulser") or e.get("metricool"):
+            lignes, faite = await _expulser_depose(e, prenom, raison_e)
         else:
             retirer(prenom)
             lignes = await appliquer_sortis(client, seulement=prenom, raison=raison_e, garder_salons=bool(e.get("garder_salons")))
-        faits[ident] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "bilan": lignes}
+            faite = True
+        if faite:
+            faits[ident] = {"date": maintenant, "bilan": lignes, "fait": True}
+        else:
+            deja = faits.get(ident) if isinstance(faits.get(ident), dict) else {}
+            essais = int(deja.get("essais", 0) or 0) + 1
+            if essais >= SORTIES_ESSAIS_MAX:
+                lignes = lignes + [f"❌ {prenom} : sortie abandonnée après {essais} démarrages. À la main : `!sortie @{prenom} <raison>`, "
+                                   "puis l'expulsion."]
+                faits[ident] = {"date": maintenant, "bilan": lignes, "fait": True, "abandon": True, "essais": essais}
+            else:
+                lignes = [f"{lignes[0]} (essai {essais}/{SORTIES_ESSAIS_MAX}, retenté au prochain démarrage)"] + lignes[1:]
+                faits[ident] = {"maj": maintenant, "bilan": lignes, "fait": False, "essais": essais}
         _deps["ecrire_json"](_fichier_deposees_faites(), faits)
         bilan.extend(lignes or [f"🚪 {prenom} : rien à nettoyer"])
     if bilan and _deps.get("notifier"):
@@ -461,8 +560,10 @@ async def salons_deposes(client) -> list:
                     lignes.append(await _deps["noter"](p, str(e["note"])) if _deps.get("noter") else f"⚠️ {p} : note indisponible")
                     continue
                 if e.get("onboarding"):                                     # 07/10 : onboarding complet sur une ou plusieurs créatrices
-                    lignes.append(await _deps["onboarder_multi"](p, list(e["onboarding"])) if _deps.get("onboarder_multi")
-                                  else f"⚠️ {p} : onboarding indisponible")
+                    # 09/10 (Gaëtan : « Ajoute Andry Sarah », « Ajoute Gasboy Sarah » ; deux membres du même prénom) : "nouveau": true
+                    # → le SEUL membre non signé de ce prénom ; zéro ou plusieurs : « ⚠️ », rien fait, repris au démarrage suivant
+                    lignes.append(await _deps["onboarder_multi"](p, list(e["onboarding"]), nouveau=bool(e.get("nouveau")))
+                                  if _deps.get("onboarder_multi") else f"⚠️ {p} : onboarding indisponible")
                     continue
                 lignes.append(await ouvrir(p) if ouvrir else f"⚠️ {p} : ouverture simple indisponible")
             except Exception as erreur:                                     # noqa: BLE001
@@ -593,6 +694,8 @@ async def demarrage(client):
     """Au démarrage : sorties appliquées, roster complété depuis les pseudos, compteur rafraîchi."""
     try:
         await appliquer_sortis(client)
+        # 09/10 (Gaëtan : « On vire Tara », « Ajoute Andry Sarah ») : les sorties AVANT les salons. Une sortie Metricool ne rend
+        # rien au vivier : les nouveaux de la même créatrice n'héritent jamais des comptes chauffés du sortant.
         await sorties_deposees(client)                                     # 28/09 : sorties écrites dans le dépôt
         await salons_deposes(client)                                       # 06/10 : AVANT supprimer_salons (qui viderait les nouveaux)
         await supprimer_salons(client)
