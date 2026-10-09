@@ -1,3 +1,6 @@
+// RETIRÉ le 09/10/2026 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : plus de test de
+// montage, le bot ne lit plus TEST_RENDU (traiter_rendu_webhook supprimée). Action manuelle côté Google : fermer le
+// formulaire « Rendu du test » et supprimer le déclencheur surRendu. Fichier gardé pour l'historique : à ne plus installer.
 /**
  * Rendu du test Clipper G&M — notificateur TEST_RENDU vers Discord (v1, 14/09/2026 — serveur fermé).
  *

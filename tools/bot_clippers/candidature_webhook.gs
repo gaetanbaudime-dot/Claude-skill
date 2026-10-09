@@ -1,3 +1,7 @@
+// RETIRÉ le 09/10/2026 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : le bot ne lit plus
+// les lignes CANDIDATURE (traiter_candidature_webhook supprimée) ; la candidature se fait sur le site du bot (/candidature).
+// Action manuelle côté Google : fermer le formulaire « Recherche Clipper » et supprimer le déclencheur onFormSubmit
+// (surCandidature). Fichier gardé pour l'historique : à ne plus installer.
 /**
  * Candidatures Clipper G&M — notificateur CANDIDATURE vers Discord.
  *
