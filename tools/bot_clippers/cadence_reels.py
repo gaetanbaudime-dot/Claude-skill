@@ -11,8 +11,11 @@ Pourquoi : la fiche de poste de Jonas paie 100 € par clipper « actif » (cade
 qui a réellement publié ; les visiteurs GAML ne disent qu'une partie de l'histoire. Ici on lit les publications elles-mêmes.
 
 Commande (staff) : `!cadence [jours] [prénom …]` — par défaut 30 jours, les équipes de Jonas et Julien.
-Lancement automatique : une fois par déploiement si `CADENCE_AUTO=1` (défaut), 90 s après le démarrage, puis jamais
+Lancement automatique : une fois par déploiement si `CADENCE_AUTO=1`, 90 s après le démarrage, puis jamais
 plus de une fois par jour. Coût : environ 2,3 $ pour 1 000 publications lues ; 40 comptes sur 30 jours ≈ 5 $.
+09/10 (dashboard) : `CADENCE_AUTO` vaut 0 par défaut — relancée à chaque déploiement (presque tous les jours), c'était le
+premier poste Apify (1 à 5 $ par passage) ; les vues par compte viennent maintenant des séries du scan (series.py), sans coût.
+`!cadence` reste. Vues d'une publication : la même règle partout (series.vues_post : videoPlayCount, sinon videoViewCount).
 """
 import asyncio
 import logging
@@ -26,7 +29,7 @@ journal = logging.getLogger("bot.cadence")
 
 APIFY_TOKEN = os.environ.get("APIFY_TOKEN", "").strip()
 ACTOR_POSTS = os.environ.get("APIFY_ACTOR_POSTS", "apify~instagram-scraper").strip()
-AUTO = os.environ.get("CADENCE_AUTO", "1").strip() == "1"
+AUTO = os.environ.get("CADENCE_AUTO", "0").strip() == "1"              # 09/10 (dashboard) : éteinte par défaut, `!cadence` reste
 JOURS_DEFAUT = 30
 LIMITE_PAR_COMPTE = 70                                                  # 30 jours × 2 Reels par jour, avec de la marge
 LOT = 8                                                                 # profils par appel Apify (la lecture des posts est lente)
@@ -136,11 +139,11 @@ def _est_reel(item: dict) -> bool:
 
 
 def _vues(item: dict) -> int:
-    for k in ("videoPlayCount", "videoViewCount", "playCount", "viewCount"):
-        v = item.get(k)
-        if isinstance(v, (int, float)) and v > 0:
-            return int(v)
-    return 0
+    """09/10 (dashboard) : la même règle de vues partout (series.vues_post : videoPlayCount si c'est un nombre, sinon
+    videoViewCount) ; avant, le premier champ non nul de quatre, différent d'une publication à l'autre. Absent = 0 ici (somme)."""
+    import series
+    v = series.vues_post(item)
+    return v if v is not None else 0
 
 
 def _jour(item: dict) -> str:

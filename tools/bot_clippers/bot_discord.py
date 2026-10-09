@@ -4615,7 +4615,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
                 "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
-                "· `!etats-comptes [test]` — passe le classeur au crible d'Instagram maintenant (à créer → WARMUP → GOOD, BAN, PRIVE) ; `test` = sans rien écrire\n"
+                "· `!etats-comptes [test|leger]` — passe le classeur au crible d'Instagram maintenant (à créer → WARMUP → GOOD, BAN, PRIVE) ; `test` = sans rien écrire ; `leger` = followers et Reels seuls\n"
+                "· `!dashboard` — réécrit l'onglet Dashboard sans scan (gratuit) · `!dashboard scan` — relit d'abord tout Instagram (passage complet, payant)\n"
                 "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]

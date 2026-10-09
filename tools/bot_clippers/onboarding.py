@@ -592,6 +592,11 @@ async def renommer_compte(uid: str, ancien: str, nouveau: str) -> str:
     fiche.setdefault("renommes", []).append({"ancien": ancien_n, "nouveau": nouveau_n,
                                              "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
     _ecrire_etat(etat)
+    try:                                                                # 09/10 (dashboard) : la série du compte (followers, Reels, vues) suit
+        import series
+        series.renommer(ancien_n, nouveau_n)
+    except Exception as erreur:                                         # noqa: BLE001 — le renommage reste fait
+        journal.warning("Séries : renommage non suivi (%s)", type(erreur).__name__)
     journal.info("Compte renommé pour %s : %s → %s (%s, ligne %s)", uid, ancien_n, nouveau_n, ligne.get("onglet"), ligne.get("ligne"))
     return ""
 
