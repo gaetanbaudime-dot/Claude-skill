@@ -5,8 +5,10 @@ Contrat C4 de la spécification du dashboard :
     await releves() -> {"<clé IG>": {"followers": int | None, "reels": [{"code", "publie", "vues"}], "jour": "AAAA-MM-JJ"}}
 pour les comptes Instagram branchés à Metricool. Metricool passe par l'API officielle d'Instagram : lisible même pour un compte
 restreint, sans scraping (la voie propre au regard des CGU, contrairement à Apify). `boucle(client)` le relit deux fois par jour
-(METRICOOL_HEURES, heures de Paris, défaut « 8,15 ») et écrit chaque compte lu dans les séries (series.ajouter_releve, contrat C1,
-source « metricool »).
+(METRICOOL_HEURES, heures de Paris, défaut « 8,15 ») et écrit les comptes lus dans les séries en UNE écriture par passage
+(series.ajouter_releves, contrats C1 et C6c, source « metricool »).
+Contrat C6(b) : `etat()` = {"jour": J-1 des données du dernier passage RÉUSSI ou "", "dernier_ok": iso de ce passage ou "",
+"jour_essai": J-1 du dernier essai, "erreur": erreur du dernier essai, "lus": comptes lus au dernier passage réussi}.
 
 Routes REST : UNIQUEMENT celles déjà utilisées dans le dépôt, aucune inventée (base https://app.metricool.com/api, en-tête
 X-Mc-Auth = METRICOOL_API_KEY, userId = METRICOOL_USER_ID s'il est posé) :
@@ -14,14 +16,16 @@ X-Mc-Auth = METRICOOL_API_KEY, userId = METRICOOL_USER_ID s'il est posé) :
     branché (champ `instagram`) ;
   - GET /v2/analytics/brand-summary/posts?blogId=&from=AAAA-MM-JJT00:00:00&to=AAAA-MM-JJT23:59:59 (rapport_quotidien.metricool),
     un appel par marque et par JOUR comme le rapport → les publications de la marque, tous réseaux ; on ne garde que les Reels
-    Instagram (réseau INSTAGRAM, type REEL, lien instagram.com/reel/<shortcode>/).
+    Instagram (réseau INSTAGRAM…, type REEL, lien instagram.com/reel/<shortcode>/).
     (/v2/analytics/posts/instagram, l'autre route connue, ne rend PAS les Reels : vérifié le 09/10 en lecture par le connecteur
     Metricool, Instagram Posts vide pour une marque qui publie 5 Reels par jour.)
 
 Ce que le module NE sait PAS lire (laissé à None, jamais 0) :
-  - followers : aucune route REST du dépôt ne les lit. La donnée existe chez Metricool (Instagram Evolution > Followers, quotidienne,
-    J-1, vérifiée en lecture le 09/10 par le connecteur) mais sa route REST n'est confirmée par aucun code du dépôt : à brancher
-    quand elle le sera. En attendant `followers` vaut toujours None et Apify reste la source des followers ;
+  - followers : 09/10 (correctif) — la métrique existe chez Metricool (IGEV01 « Instagram Evolution > Followers », agrégation
+    LAST, confirmée en lecture par le connecteur Metricool, getAnalyticsAvailableMetrics). Mais AUCUNE route REST du dépôt ne la
+    lit : tools/mcp_metricool/metricool_mcp.py n'utilise que admin/simpleProfiles et v2/analytics/posts/<réseau>,
+    rapport_quotidien que brand-summary/posts. La spec interdit d'inventer une route : `followers` reste None et Apify reste la
+    source des followers, jusqu'à ce qu'une route REST des followers soit utilisée (et vérifiée) dans le dépôt ;
   - posts_total, id Instagram (simpleProfiles ne donne que l'@).
 
 Règles (jamais un faux 0) :
@@ -33,21 +37,36 @@ Règles (jamais un faux 0) :
     fenêtre (series : les Reels publiés depuis sont tous connus) ;
   - vues d'un Reel : UNE métrique, les vues Instagram du Reel (« Instagram Reels > Views »). Dans brand-summary elle s'appelle VIEWS,
     ou IMPRESSIONS (même chiffre pour un Reel Instagram : vérifié le 09/10 sur 10 Reels, impressions du résumé = views des Reels).
-    Une valeur absente, illisible ou 0 = pas de point (un Reel de la veille à 0 vue est un chiffre pas encore relevé, pas un 0) ;
-  - un compte n'est écrit que s'il est lu ENTIER : un jour en erreur → compte non lu ; aucune publication Instagram sur la fenêtre
-    → non lu (Instagram débranché de Metricool ou compte à l'arrêt : on ne l'écrit pas comme « 0 Reel ») ; un Reel sans lien ou sans
-    date → format non reconnu, non lu ; 0 Reel la veille alors que les deux jours d'avant en ont → veille pas encore synchronisée,
-    non lu (le passage suivant le relira) ; au moins 2 Reels déjà connus de la série (Apify ou Metricool) absents de la réponse et
-    au moins le quart des connus → liste incomplète, non lu ;
-  - dédoublonnage par (réseau, compte) : deux marques qui portent le même @ Instagram ne sont lues qu'une fois (la marque d'id le
-    plus petit) ;
+    Une valeur absente ou illisible = pas de point. 09/10 (correctif) : un 0 n'est « pas encore relevé » (pas de point) que pour
+    un Reel publié moins de 24 h avant la fin de la fenêtre ; plus vieux, c'est un VRAI 0 de l'API officielle (Reel bloqué,
+    compte shadowban), gardé comme le fait Apify (series.vues_post) ;
+  - une seule source par Reel pour les vues (09/10, correctif) : Metricool n'ajoute pas de point à un Reel qu'Apify suit encore
+    (un point Apify dans les 24 h qui précèdent la photo de Metricool) — les deux outils ne mesurent pas forcément la même chose
+    (VIEWS contre videoPlayCount) et la photo de Metricool est datée à quelques heures près ; et le passage de 15 h ne remplace
+    pas les vues déjà notées à 8 h pour la même veille (la lecture la plus proche de l'heure du relevé est gardée) ;
+  - un compte n'est écrit que s'il est lu ENTIER, sinon « non lu » (rien d'écrit, jamais un 0) :
+      · un jour en erreur → non lu (aucune fenêtre à trous) ; un Reel sans lien ou sans date → format non compris ;
+      · aucune publication Instagram sur la fenêtre → non lu (Instagram débranché de Metricool, ou compte à l'arrêt) ;
+      · 09/10 (correctif) : les derniers jours de la fenêtre SANS AUCUNE publication Instagram (Reel, photo, carrousel, story)
+        ne sont jamais revendiqués comme « 0 Reel » sur la seule foi de Metricool : veille pas encore synchronisée ou Instagram
+        débranché (jeton expiré) se ressemblent. Le compte est non lu, sauf si un relevé Apify lisible (ni restreint, ni privé,
+        Reels lus) couvre ces jours et n'y voit aucun Reel. Rien depuis 2 jours ou plus → listé « débranché ? » au salon admin ;
+      · 09/10 (correctif) : liste incomplète = au moins 2 Reels (et le quart des vérifiables) qu'Apify a vus VIVANTS après la photo
+        de Metricool (un point de vues après la fin de la fenêtre) absents de la réponse. Un Reel supprimé par le clipper (pratique
+        courante : on retire ceux qui floppent) n'est plus pris pour un manque : il n'a plus de point après sa suppression ;
+  - un même @ porté par plusieurs marques : lu par la première marque (ordre des id) qui le lit entier ; si elle est en erreur
+    ou le rend non lu, la suivante est essayée (09/10, correctif) ;
   - correspondance marque → @ Instagram → clé du classeur : la clé est celle du scan (etats_comptes._cle =
     onboarding.normaliser_handle en minuscules) ; un @ renommé est suivi par les alias de series.
+Pannes jamais silencieuses (09/10, correctif) : une alerte au salon admin par jour et par motif (Metricool en panne, réponse non
+comprise, aucun compte lu, aucune vue lisible, comptes « débranchés ? »). Deux 429 de suite arrêtent tout le passage (nouvel essai
+au tour suivant). Un passage qui lève une exception compte comme un essai raté (ESSAIS_MAX par heure de passage), même si l'état
+ne peut pas être écrit sur le disque (compteurs gardés en mémoire).
 
-Dépendances (`configurer`, toutes facultatives) : lire_json, ecrire_json, FICHIER (état : passages faits, dernier bilan),
-FICHIER_SERIES (series n'est configuré ici que s'il ne l'est pas déjà — c'est le scan qui le configure normalement), heure_paris,
-canal_admin (une alerte par jour au plus si Metricool est en panne ou si sa réponse n'est plus comprise), cle (fonction @ → clé),
-lire_comptes (le classeur : les comptes Metricool dont l'@ n'est sur aucune ligne sont listés au bilan, `hors_classeur`).
+Dépendances (`configurer`, toutes facultatives) : lire_json, ecrire_json, FICHIER (état : passages faits, essais, alertes, dernier
+essai, dernier passage réussi), FICHIER_SERIES (series n'est configuré ici que s'il ne l'est pas déjà — c'est le scan qui le
+configure normalement), heure_paris, canal_admin, cle (fonction @ → clé), lire_comptes (le classeur : les comptes Metricool dont
+l'@ n'est sur aucune ligne sont listés au bilan, `hors_classeur`).
 Variables : METRICOOL_API_KEY (sans elle : rien), METRICOOL_USER_ID, METRICOOL_COMPTES=0 pour éteindre, METRICOOL_HEURES,
 METRICOOL_JOURS."""
 import asyncio
@@ -72,18 +91,30 @@ HEURES = sorted({int(h) for h in re.findall(r"\d+", os.environ.get("METRICOOL_HE
 JOURS = max(3, min(30, int((re.findall(r"\d+", os.environ.get("METRICOOL_JOURS", "") or "") or ["9"])[0])))
 SOURCE = "metricool"
 PAUSE_S = 0.5                                    # entre deux appels (comme le rapport) : Metricool ne publie pas sa limite
-PAUSE_429_S = 60                                 # « trop d'appels » : une minute, puis un seul nouvel essai
+PAUSE_429_S = 60                                 # « trop d'appels » : une minute, puis un seul nouvel essai ; deux 429 : passage arrêté
 TIMEOUT_S = 60
 DELAI_DEMARRAGE_S = 120
 TOUR_S = 600                                     # la boucle regarde l'heure toutes les 10 min
-ESSAIS_MAX = 3                                   # passage en panne : retenté au tour suivant, 3 fois au plus par jour
+ESSAIS_MAX = 3                                   # passage en panne : retenté au tour suivant, 3 fois au plus par heure de passage
 TYPES_REEL = {"REEL", "REELS", "CLIPS", "VIDEO"}
-MANQUANTS_MIN = 2                                # liste incomplète : au moins 2 Reels connus absents…
-MANQUANTS_PART = 0.25                            # … et au moins le quart des Reels connus de la fenêtre
+MANQUANTS_MIN = 2                                # liste incomplète : au moins 2 Reels vus vivants par Apify absents…
+MANQUANTS_PART = 0.25                            # … et au moins le quart des Reels vérifiables de la fenêtre
+AGE_VRAI_ZERO_H = 24                             # 0 vue d'un Reel publié au moins 24 h avant la fin de la fenêtre : un vrai 0
+SUIVI_APIFY_H = 24                               # un point Apify dans les 24 h avant la photo Metricool : Apify suit le Reel
+MEME_REEL_S = 120                                # deux codes, publiés à 2 minutes près = le même Reel (comme series)
+DEBRANCHE_J = 2                                  # rien depuis 2 jours ou plus, non confirmé : « débranché ? » au salon admin
+VUES_ALERTE_MIN = 3                              # au moins 3 Reels de plus de 24 h lus sans aucune vue : alerte « vues illisibles »
+# réseaux connus qui ne sont pas Instagram (un réseau inconnu avec un lien instagram.com est pris pour Instagram)
+RESEAUX_AUTRES = {"facebook", "fb", "tiktok", "youtube", "yt", "twitter", "x", "linkedin", "pinterest", "threads", "bluesky",
+                  "twitch", "gmb", "googlebusinessprofile", "google", "website", "smartlinks"}
 
 _RE_CODE = re.compile(r"instagram\.com/(?:[A-Za-z0-9_.]+/)?(?:reel|reels|p|tv)/([A-Za-z0-9_-]+)")
 _PARIS = None
 _dernier_bilan: dict = {}
+_format_journalise = {"fait": False}
+# 09/10 (correctif) : compteurs gardés aussi en mémoire — un état illisible ou impossible à écrire (disque plein) ne doit pas
+# faire repartir un passage complet toutes les 10 min, ni répéter une alerte à chaque passage
+_memoire: dict = {"faits": {}, "essais": {}, "alertes": {}}
 
 
 class ErreurMetricool(Exception):
@@ -95,6 +126,8 @@ class ErreurMetricool(Exception):
 
 
 def configurer(deps: dict):
+    if "FICHIER" in (deps or {}) and str(deps.get("FICHIER")) != str(_deps.get("FICHIER")):
+        _memoire.update(faits={}, essais={}, alertes={})                 # un autre fichier d'état : la mémoire repart de zéro
     _deps.update(deps or {})
     if _deps.get("FICHIER_SERIES") and _deps.get("lire_json") and _deps.get("ecrire_json"):
         try:
@@ -168,6 +201,10 @@ def fenetre(veille: date) -> tuple:
     return debut, fin
 
 
+def _minuit(jour: date) -> datetime:
+    return datetime.combine(jour, dtime(0), tzinfo=_paris_tz())
+
+
 def _instant(v, tz=None):
     """Une date de publication Metricool → instant avec fuseau, ou None. Formes acceptées : {"dateTime", "timezone"} (forme des
     dates de Metricool), ISO avec ou sans fuseau (sans fuseau = fuseau de la marque), « AAAAMMJJHHMMSS », secondes ou
@@ -175,6 +212,8 @@ def _instant(v, tz=None):
     tz = tz or _paris_tz()
     if v is None or v == "" or isinstance(v, bool):
         return None
+    if isinstance(v, datetime):
+        return v if v.tzinfo else v.replace(tzinfo=tz)
     if isinstance(v, dict):
         brut = v.get("dateTime") or v.get("date") or v.get("value")
         return None if isinstance(brut, dict) else _instant(brut, _fuseau(v.get("timezone")) if v.get("timezone") else tz)
@@ -208,7 +247,7 @@ def _nombre(v):
     if v is None or isinstance(v, bool):
         return None
     if isinstance(v, str):
-        t = v.strip().replace(" ", "").replace(" ", "")
+        t = v.strip().replace(" ", "").replace(" ", "")
         if not re.fullmatch(r"\d+(?:\.\d+)?", t):
             return None
         v = float(t)
@@ -231,17 +270,29 @@ def _champ(d: dict, *noms):
     return None
 
 
-def vues_metricool(post: dict):
+def vues_metricool(post: dict, publie=None, fin=None):
     """La règle des vues d'un Reel Instagram lu dans brand-summary, une seule métrique : VIEWS, sinon IMPRESSIONS (le même chiffre
-    pour un Reel Instagram dans ce résumé). Absent, illisible ou 0 → None : aucun point, jamais un faux 0."""
+    pour un Reel Instagram dans ce résumé). Absent ou illisible → None (aucun point). 09/10 (correctif) : un 0 est un VRAI 0
+    (gardé) quand le Reel a été publié au moins AGE_VRAI_ZERO_H heures avant `fin` (déjà passé par une synchro de nuit
+    complète) ; sinon (Reel de la veille, ou âge inconnu) c'est un chiffre pas encore relevé → None. Un VIEWS à 0 avec des
+    IMPRESSIONS positives : IMPRESSIONS (VIEWS pas rempli, jamais un faux 0)."""
     metriques = post.get("metrics") if isinstance(post.get("metrics"), dict) else {}
+    lus = []
     for nom in ("VIEWS", "IMPRESSIONS"):
         v = _champ(metriques, nom)
         if v is None:
             v = _champ(post, nom)
         if v is not None:
-            n = _nombre(v)
-            return n if n else None
+            lus.append(_nombre(v))
+    if not lus or lus[0] is None:
+        return None
+    if lus[0] > 0:
+        return lus[0]
+    if len(lus) > 1 and lus[1]:
+        return lus[1]                                                    # VIEWS à 0 mais IMPRESSIONS lues : VIEWS pas rempli
+    p, f = _instant(publie, timezone.utc), _instant(fin, timezone.utc)
+    if p is not None and f is not None and f - p >= timedelta(hours=AGE_VRAI_ZERO_H):
+        return 0
     return None
 
 
@@ -249,9 +300,19 @@ def _lien(post: dict) -> str:
     return str(_champ(post, "link", "url", "permalink", "postUrl") or "").strip()
 
 
+def _reseau(post: dict) -> str:
+    return str(_champ(post, "network", "socialNetwork", "provider") or "").strip().lower()
+
+
 def _est_instagram(post: dict) -> bool:
-    reseau = str(_champ(post, "network", "socialNetwork", "provider") or "").strip().lower()
-    return reseau in ("instagram", "ig") or (not reseau and "instagram.com/" in _lien(post).lower())
+    """09/10 (correctif) : INSTAGRAM, INSTAGRAM_BUSINESS, IG… (le nom exact du champ n'est confirmé par aucun code du dépôt) ;
+    réseau absent ou inconnu → un lien instagram.com décide."""
+    r = _reseau(post)
+    if r.startswith("instagram") or r == "ig" or r.startswith("ig_"):
+        return True
+    if r and re.split(r"[^a-z]", r)[0] in RESEAUX_AUTRES:
+        return False
+    return "instagram.com/" in _lien(post).lower()
 
 
 def _type(post: dict) -> str:
@@ -282,8 +343,9 @@ def _liste(corps) -> list:
 
 
 def marques_instagram(profils: list) -> tuple:
-    """simpleProfiles → ({clé: marque}, [textes des @ partagés]). Une marque = {"id", "nom", "ig", "cle", "tz"} ; seules les
-    marques qui ont un Instagram branché ; dédoublonnage par (instagram, compte) : la marque d'id le plus petit lit le compte."""
+    """simpleProfiles → ({clé: marque}, [textes des @ partagés]). Une marque = {"id", "nom", "ig", "cle", "tz", "autres"} ; seules
+    les marques qui ont un Instagram branché ; une clé = un compte Instagram, lu par la marque d'id le plus petit, puis (si elle
+    échoue ou le rend non lu) par les suivantes (`autres`, même forme, ordre des id)."""
     out, partages = {}, {}
     def _id(p):
         n = _nombre(p.get("id"))
@@ -299,17 +361,21 @@ def marques_instagram(profils: list) -> tuple:
             continue
         nom = str(p.get("label") or p.get("name") or p.get("id"))
         partages.setdefault(cle, []).append(nom)
+        m = {"id": p.get("id"), "nom": nom, "ig": str(ig), "cle": cle, "tz": p.get("timezone") or ""}
         if cle not in out:
-            out[cle] = {"id": p.get("id"), "nom": nom, "ig": str(ig), "cle": cle, "tz": p.get("timezone") or ""}
-    textes = [f"@{c} partagé par {len(n)} marques ({', '.join(n)}) : lu une fois" for c, n in partages.items() if len(n) > 1]
+            out[cle] = {**m, "autres": []}
+        else:
+            out[cle]["autres"].append(m)
+    textes = [f"@{c} partagé par {len(n)} marques ({', '.join(n)}) : lu une fois, par la première qui le lit entier"
+              for c, n in partages.items() if len(n) > 1]
     return out, textes
 
 
 def reels_de(publications: list, tz, debut: datetime, fin: datetime) -> tuple:
-    """Les publications d'une marque → (reels, par_jour, nb_instagram, illisibles). reels = [{"code", "publie", "vues"}] des Reels
-    Instagram publiés dans [début, fin[, triés ; par_jour = {date de Paris: nombre de Reels} ; nb_instagram = publications
-    Instagram de la fenêtre (Reels ou non) ; illisibles = Reels Instagram sans shortcode ou sans date (format non compris)."""
-    par_code, par_jour, nb_ig, illisibles = {}, {}, 0, 0
+    """Les publications d'une marque → (reels, par_jour, ig_jours, illisibles). reels = [{"code", "publie", "vues"}] des Reels
+    Instagram publiés dans [début, fin[, triés ; par_jour = {date de Paris: nombre de Reels} ; ig_jours = {date de Paris: nombre
+    de publications Instagram, tous types} ; illisibles = Reels Instagram sans shortcode ou sans date (format non compris)."""
+    par_code, par_jour, ig_jours, illisibles = {}, {}, {}, 0
     for p in publications or []:
         if not isinstance(p, dict) or not _est_instagram(p):
             continue
@@ -320,52 +386,138 @@ def reels_de(publications: list, tz, debut: datetime, fin: datetime) -> tuple:
             continue
         if not (debut <= quand < fin):
             continue
-        nb_ig += 1
+        j = quand.astimezone(_paris_tz()).date()
+        ig_jours[j] = ig_jours.get(j, 0) + 1
         if not reel:
             continue
         code = code_reel(_lien(p))
         if not code:
             illisibles += 1
             continue
-        vues = vues_metricool(p)
+        vues = vues_metricool(p, quand, fin)
         if code in par_code:                                             # le même Reel rendu deux fois : la plus grande valeur lue
             a = par_code[code]["vues"]
             par_code[code]["vues"] = max(x for x in (a, vues) if x is not None) if (a, vues) != (None, None) else None
             continue
         par_code[code] = {"code": code, "publie": _iso(quand), "vues": vues}
-        j = quand.astimezone(_paris_tz()).date()
         par_jour[j] = par_jour.get(j, 0) + 1
     reels = sorted(par_code.values(), key=lambda r: (r["publie"], r["code"]))
-    return reels, par_jour, nb_ig, illisibles
+    return reels, par_jour, ig_jours, illisibles
 
 
-def _connus(cle: str, debut: datetime, fin: datetime) -> set:
-    """Les shortcodes des Reels déjà dans la série du compte (toutes sources), publiés dans [début, fin[ ; vide sans series."""
+# ------------------------------------------------------------------ ce que la série sait déjà (Apify)
+def _serie(cle: str) -> dict:
+    """La série du compte (copie, alias suivis) ; {} sans series."""
     try:
         import series
-        s = series.serie(cle) or {}
+        s = series.serie(cle)
     except Exception:                                                    # noqa: BLE001
-        return set()
-    out = set()
-    for code, x in (s.get("reels") or {}).items():
-        p = _instant((x or {}).get("publie"), timezone.utc)
-        if p is not None and debut <= p < fin:
-            out.add(str(code))
+        return {}
+    return s if isinstance(s, dict) else {}
+
+
+def _points(x: dict) -> list:
+    """Les points de vues d'un Reel de la série : [(instant, vues)] lisibles."""
+    out = []
+    for pt in (x or {}).get("vues") or []:
+        if isinstance(pt, (list, tuple)) and len(pt) == 2:
+            t = _instant(pt[0], timezone.utc)
+            if t is not None:
+                out.append((t, pt[1]))
     return out
 
 
-def raison_incomplet(veille: date, reels: list, par_jour: dict, nb_ig: int, illisibles: int, connus: set) -> str:
-    """'' si la lecture d'un compte est entière ; sinon pourquoi elle ne l'est pas (le compte est alors « non lu »)."""
+def _point_metricool(t: datetime) -> bool:
+    """Un point posé par Metricool est daté de minuit pile à Paris (fin d'une veille) ; les relevés Apify, de l'heure du scan."""
+    p = t.astimezone(_paris_tz())
+    return (p.hour, p.minute, p.second, p.microsecond) == (0, 0, 0, 0)
+
+
+def _lisible_apify(r: dict) -> bool:
+    """Un relevé d'une autre source que Metricool qui voit les Reels du compte (ni restreint, ni privé, Reels lus)."""
+    return isinstance(r, dict) and str(r.get("source") or "apify") != SOURCE and not r.get("restreint") \
+        and not r.get("prive") and r.get("reels_lus", True) is not False
+
+
+def _intervalle(r: dict):
+    """[début, fin] des publications qu'un relevé voit toutes (contrat C1 : `couvre` absent = les 48 h avant le relevé, "" = tout
+    l'historique, une date = depuis cette date)."""
+    t = _instant(r.get("t"), timezone.utc)
+    if t is None:
+        return None
+    if "couvre" not in r:
+        return t - timedelta(hours=48), t
+    if r.get("couvre") == "":
+        return datetime(2000, 1, 1, tzinfo=timezone.utc), t
+    c = _instant(r.get("couvre"), timezone.utc)
+    return (min(c, t), t) if c is not None else (t, t)
+
+
+def confirme_par_apify(serie: dict, debut: datetime, fin: datetime) -> str:
+    """'' si des relevés Apify lisibles couvrent [début, fin] sans y voir aucun Reel (la période est bien vide) ; sinon pourquoi
+    ce n'est pas confirmé. Les relevés Metricool ne comptent jamais (ils ne se confirmeraient qu'eux-mêmes)."""
+    ints = sorted(i for i in (_intervalle(r) for r in (serie or {}).get("releves") or [] if _lisible_apify(r)) if i)
+    cur = debut
+    for a, b in ints:
+        if b < cur:
+            continue
+        if a > cur:
+            break
+        cur = max(cur, b)
+        if cur >= fin:
+            break
+    if cur < fin:
+        return "Apify ne couvre pas ces jours"
+    vus = [c for c, x in ((serie or {}).get("reels") or {}).items()
+           if (p := _instant((x or {}).get("publie"), timezone.utc)) is not None and debut <= p < fin]
+    if vus:
+        return f"la série connaît {len(vus)} Reel(s) publié(s) ces jours-là, absent(s) de Metricool"
+    return ""
+
+
+def _meme(publie: datetime, autres: list) -> bool:
+    return any(abs((publie - q).total_seconds()) <= MEME_REEL_S for q in autres)
+
+
+def manquants(serie: dict, reels: list, debut: datetime, fin: datetime) -> tuple:
+    """(manquants, vérifiables) : les Reels de la série publiés dans [début, fin[ qu'une autre source (Apify) a vus VIVANTS après
+    la photo de Metricool (un point de vues après `fin`, jamais posé par Metricool), et, parmi eux, ceux que Metricool ne rend pas
+    (ni sous le même code, ni publiés à 2 minutes près). Un Reel supprimé n'a plus de point après sa suppression : jamais compté."""
+    codes = {r["code"] for r in reels}
+    instants = [p for p in (_instant(r.get("publie"), timezone.utc) for r in reels) if p is not None]
+    miss, verif = [], 0
+    for code, x in ((serie or {}).get("reels") or {}).items():
+        p = _instant((x or {}).get("publie"), timezone.utc)
+        if p is None or not (debut <= p < fin):
+            continue
+        if not any(t > fin and not _point_metricool(t) for t, _ in _points(x)):
+            continue
+        verif += 1
+        autres_codes = {str(c) for c in (x or {}).get("codes") or []}           # le même Reel vu sous plusieurs codes (series)
+        if str(code) not in codes and not (autres_codes & codes) and not _meme(p, instants):
+            miss.append(str(code))
+    return miss, verif
+
+
+def raison_incomplet(veille: date, reels: list, ig_jours: dict, illisibles: int, serie: dict = None,
+                     debut: datetime = None, fin: datetime = None) -> str:
+    """'' si la lecture d'un compte est entière ; sinon pourquoi elle ne l'est pas (le compte est alors « non lu »).
+    ig_jours = {jour de Paris: publications Instagram de tous types} (reels_de) ; serie = la série du compte (series.serie)."""
+    if debut is None or fin is None:
+        debut, fin = fenetre(veille)
     if illisibles:
         return f"{illisibles} Reel(s) Instagram sans lien ou sans date : réponse de Metricool non comprise"
-    if not nb_ig:
+    if not ig_jours:
         return f"aucune publication Instagram en {JOURS} jours (Instagram débranché de Metricool, ou compte à l'arrêt)"
-    j1, j2, j3 = veille, veille - timedelta(days=1), veille - timedelta(days=2)
-    if not par_jour.get(j1) and par_jour.get(j2) and par_jour.get(j3):
-        return "0 Reel la veille alors que les deux jours d'avant en ont : veille pas encore synchronisée"
-    manquants = connus - {r["code"] for r in reels}
-    if len(manquants) >= MANQUANTS_MIN and len(manquants) >= MANQUANTS_PART * len(connus):
-        return f"{len(manquants)} Reels déjà connus sur {len(connus)} absents de Metricool : liste incomplète"
+    horizon = max(ig_jours)
+    if horizon < veille:                                                 # 09/10 (correctif) : jours vides en fin de fenêtre
+        pourquoi = confirme_par_apify(serie or {}, _minuit(horizon + timedelta(days=1)), fin)
+        if pourquoi:
+            return (f"rien de Metricool depuis le {horizon:%d/%m} (veille pas encore synchronisée, ou Instagram débranché de "
+                    f"Metricool) et {pourquoi}")
+    miss, verif = manquants(serie or {}, reels, debut, fin)
+    if len(miss) >= MANQUANTS_MIN and len(miss) >= MANQUANTS_PART * verif:
+        return f"{len(miss)} Reels vus vivants par Apify sur {verif} absents de Metricool : liste incomplète"
     return ""
 
 
@@ -396,6 +548,21 @@ async def _get(chemin: str, params: dict):
     return corps
 
 
+def _journaliser_format(publications: list):
+    """09/10 (correctif) : une fois par démarrage, les CLÉS (jamais les valeurs) d'une publication brute de brand-summary et de
+    ses métriques, pour confirmer sur une vraie réponse les noms de champs que le code suppose."""
+    if _format_journalise["fait"]:
+        return
+    pubs = [p for p in publications or [] if isinstance(p, dict)]
+    for p in sorted(pubs, key=lambda p: not _est_instagram(p)):         # une publication Instagram d'abord, s'il y en a
+        if isinstance(p, dict):
+            m = p.get("metrics") if isinstance(p.get("metrics"), dict) else {}
+            journal.info("Metricool : format de brand-summary — clés %s ; métriques %s ; réseau %r ; type %r",
+                         sorted(map(str, p)), sorted(map(str, m)), _reseau(p), _type(p))
+            _format_journalise["fait"] = True
+            return
+
+
 async def _publications(marque: dict, debut: datetime, fin: datetime) -> list:
     """Toutes les publications de la marque sur la fenêtre, un appel par jour (dans le fuseau de la marque, comme le rapport).
     Une seule erreur → exception : le compte n'est pas lu (jamais une fenêtre à trous)."""
@@ -411,16 +578,61 @@ async def _publications(marque: dict, debut: datetime, fin: datetime) -> list:
 
 
 # ------------------------------------------------------------------ contrat C4
+def _texte_erreur(erreur: Exception) -> str:
+    return str(erreur)[:160] if isinstance(erreur, ErreurMetricool) else f"{type(erreur).__name__} {str(erreur)[:120]}"
+
+
+async def _lire_compte(cle: str, m: dict, veille: date, debut: datetime, fin: datetime, b: dict):
+    """Un compte Instagram : ses marques l'une après l'autre jusqu'à une lecture entière. Renvoie ses Reels, ou None (le bilan
+    dit pourquoi : non_lus, echecs, debranches). Deux 429 de suite → ErreurMetricool(429) remonte : le passage s'arrête."""
+    marques = [m] + list(m.get("autres") or [])
+    serie = _serie(cle)
+    raisons, erreurs = [], []
+    for mq in marques:
+        await asyncio.sleep(PAUSE_S)
+        try:
+            pubs = await _publications(mq, debut, fin)
+            _journaliser_format(pubs)
+            reels, _par_jour, ig_jours, illisibles = reels_de(pubs, _fuseau(mq.get("tz")), debut, fin)
+            raison = raison_incomplet(veille, reels, ig_jours, illisibles, serie, debut, fin)
+        except ErreurMetricool as erreur:
+            if erreur.statut == 429:
+                raise
+            erreurs.append(_texte_erreur(erreur))
+            journal.warning("Metricool : @%s (%s) non lu (%s)", cle, mq["nom"], erreurs[-1])
+            continue
+        except Exception as erreur:                                      # noqa: BLE001 — un compte en erreur n'arrête pas les autres
+            erreurs.append(_texte_erreur(erreur))
+            journal.warning("Metricool : @%s (%s) non lu (%s)", cle, mq["nom"], erreurs[-1])
+            continue
+        if not raison:
+            if mq is not m:
+                journal.info("Metricool : @%s lu par la marque %s (la première ne le lisait pas)", cle, mq["nom"])
+            b["debranches"].pop(cle, None)
+            return reels
+        raisons.append(raison)
+        journal.warning("Metricool : @%s (%s) non lu : %s", cle, mq["nom"], raison)
+        if ig_jours and (veille - max(ig_jours)).days >= DEBRANCHE_J and raison.startswith("rien de Metricool"):
+            b["debranches"].setdefault(cle, max(ig_jours).isoformat())
+    if raisons:
+        b["non_lus"][cle] = raisons[0] + (f" ({len(marques)} marques essayées)" if len(marques) > 1 else "")
+        if erreurs:                                                      # une autre marque en erreur : on ne sait pas, pas d'alerte
+            b["debranches"].pop(cle, None)
+    else:
+        b["echecs"][cle] = erreurs[0] if erreurs else "aucune marque lue"
+    return None
+
+
 async def releves(maintenant=None) -> dict:
     """{"<clé IG>": {"followers": None, "reels": [{"code", "publie", "vues"}], "jour": "AAAA-MM-JJ"}} des comptes Instagram
     branchés à Metricool et lus ENTIERS (données à J-1). Un compte non lu est absent (jamais un faux 0) ; {} sans clé ou en panne.
-    Le détail (non lus et pourquoi, erreurs) est dans `bilan()`."""
+    Le détail (non lus et pourquoi, erreurs, débranchés ?) est dans `bilan()`."""
     global _dernier_bilan
     now = _maintenant_paris(maintenant)
     veille = now.date() - timedelta(days=1)
     debut, fin = fenetre(veille)
     b = {"t": _iso(now), "jour": veille.isoformat(), "marques_ig": 0, "lus": [], "non_lus": {}, "echecs": {}, "partages": [],
-         "erreur": ""}
+         "debranches": {}, "erreur": ""}
     _dernier_bilan = b
     if not actif():
         b["erreur"] = "inactif (METRICOOL_API_KEY absente ou METRICOOL_COMPTES=0)"
@@ -434,23 +646,19 @@ async def releves(maintenant=None) -> dict:
     b["marques_ig"] = len(comptes)
     out = {}
     for cle, m in comptes.items():
-        await asyncio.sleep(PAUSE_S)
         try:
-            pubs = await _publications(m, debut, fin)
-            reels, par_jour, nb_ig, illisibles = reels_de(pubs, _fuseau(m.get("tz")), debut, fin)
-            raison = raison_incomplet(veille, reels, par_jour, nb_ig, illisibles, _connus(cle, debut, fin))
-        except Exception as erreur:                                      # noqa: BLE001 — un compte en erreur n'arrête pas les autres
-            b["echecs"][cle] = str(erreur)[:160] if isinstance(erreur, ErreurMetricool) else \
-                f"{type(erreur).__name__} {str(erreur)[:120]}"
-            journal.warning("Metricool : @%s (%s) non lu (%s)", cle, m["nom"], b["echecs"][cle])
-            continue
-        if raison:
-            b["non_lus"][cle] = raison
-            journal.warning("Metricool : @%s (%s) non lu : %s", cle, m["nom"], raison)
+            reels = await _lire_compte(cle, m, veille, debut, fin, b)
+        except ErreurMetricool as erreur:                                # deux 429 de suite : on s'arrête là (09/10, correctif)
+            b["erreur"] = (f"trop d'appels (429 deux fois de suite) : passage arrêté à @{cle}, "
+                           f"{len(comptes) - len(out) - len(b['non_lus']) - len(b['echecs'])} compte(s) pas relu(s), "
+                           f"nouvel essai au tour suivant")
+            journal.warning("Metricool : %s (%s)", b["erreur"], erreur)
+            break
+        if reels is None:
             continue
         out[cle] = {"followers": None, "reels": reels, "jour": veille.isoformat()}
         b["lus"].append(cle)
-    if comptes and not out and len(b["echecs"]) == len(comptes):
+    if comptes and not out and not b["erreur"] and len(b["echecs"]) == len(comptes):
         b["erreur"] = "aucun compte lu (toutes les lectures en erreur)"
     for t in b["partages"]:
         journal.info("Metricool : %s", t)
@@ -460,14 +668,53 @@ async def releves(maintenant=None) -> dict:
 
 
 def bilan() -> dict:
-    """Le détail du dernier `releves()` : jour, marques Instagram, lus, non lus (raison), échecs, @ partagés, erreur."""
+    """Le détail du dernier `releves()` : jour, marques Instagram, lus, non lus (raison), échecs, débranchés ?, @ partagés, erreur."""
     return dict(_dernier_bilan)
 
 
-# ------------------------------------------------------------------ séries (contrat C1)
+# ------------------------------------------------------------------ séries (contrats C1 et C6c)
+def _reel_de_serie(serie: dict, code: str, publie):
+    """L'entrée de la série pour un Reel de Metricool : même code, sinon publiée à 2 minutes près (comme series)."""
+    reels = (serie or {}).get("reels") or {}
+    if code in reels:
+        return reels[code]
+    for x in reels.values():                                             # code déjà rattaché à un Reel vu sous un autre code
+        if code in ((x or {}).get("codes") or []):
+            return x
+    p = _instant(publie, timezone.utc)
+    if p is None:
+        return None
+    for x in reels.values():
+        q = _instant((x or {}).get("publie"), timezone.utc)
+        if q is not None and abs((p - q).total_seconds()) <= MEME_REEL_S:
+            return x
+    return None
+
+
+def _vues_a_ecrire(serie: dict, x: dict, fin: datetime):
+    """Les vues Metricool d'un Reel à écrire dans la série, ou None (aucun point) : une seule source par Reel — pas de point si
+    Apify le suit encore (un de ses points dans les SUIVI_APIFY_H heures avant la photo, ou après) ; et pas de remplacement des
+    vues déjà notées pour cette même photo (passage de 8 h gardé au passage de 15 h : la lecture la plus proche de l'heure du
+    relevé)."""
+    v = x.get("vues")
+    if v is None:
+        return None
+    e = _reel_de_serie(serie, x.get("code"), x.get("publie"))
+    if e is None:
+        return v
+    pts = _points(e)
+    if any(t == fin for t, _ in pts):
+        return None
+    if any(not _point_metricool(t) and t >= fin - timedelta(hours=SUIVI_APIFY_H) for t, _ in pts):
+        return None
+    return v
+
+
 def ecrire_series(rels: dict) -> int:
-    """Chaque compte lu → un relevé « metricool » dans sa série (series.ajouter_releve), daté de la fin de sa veille (minuit à Paris),
-    couvrant la fenêtre lue ; ses Reels avec leurs vues. Renvoie le nombre de relevés écrits."""
+    """Les comptes lus → un relevé « metricool » chacun, en UNE écriture (series.ajouter_releves, contrat C6c : tout écrivain
+    de séries passe par lui, jamais un appel par compte) : daté de la fin de sa veille (minuit à Paris), couvrant la fenêtre
+    lue ; ses Reels avec leurs vues (une seule source par Reel, voir _vues_a_ecrire). Renvoie le nombre de relevés écrits
+    (0 sans series.ajouter_releves : rien n'est écrit, et le passage n'est pas « réussi »)."""
     if not rels:
         return 0
     try:
@@ -475,57 +722,111 @@ def ecrire_series(rels: dict) -> int:
     except ImportError:
         journal.warning("Metricool : series.py absent, %d relevé(s) non écrit(s)", len(rels))
         return 0
-    n = 0
+    if not callable(getattr(series, "ajouter_releves", None)):
+        journal.warning("Metricool : series.ajouter_releves absent (contrat C6c), %d relevé(s) non écrit(s)", len(rels))
+        return 0
+    entrees = []
     for cle, r in rels.items():
         try:
             veille = date.fromisoformat(str(r.get("jour")))
         except (TypeError, ValueError):
             continue
         debut, fin = fenetre(veille)
+        serie = _serie(cle)
         releve = {"t": _iso(fin), "source": SOURCE, "followers": r.get("followers"), "posts_total": None,
                   "restreint": False, "prive": False, "reels_lus": True, "couvre": _iso(debut)}
-        reels = [{"code": x["code"], "publie": x["publie"], "type": "Video", "vues": x.get("vues")} for x in r.get("reels") or []]
-        try:
-            if series.ajouter_releve(cle, releve, reels, ig_id="") is not False:
-                n += 1
-        except Exception as erreur:                                      # noqa: BLE001 — un compte abîmé n'empêche pas les autres
-            journal.warning("Metricool : série de @%s non écrite (%s)", cle, type(erreur).__name__)
-    return n
+        reels = [{"code": x["code"], "publie": x["publie"], "type": "Video", "vues": _vues_a_ecrire(serie, x, fin)}
+                 for x in r.get("reels") or [] if isinstance(x, dict) and x.get("code")]
+        entrees.append({"cle": cle, "releve": releve, "reels": reels, "ig_id": "", "source": SOURCE, "couvre": _iso(debut)})
+    if not entrees:
+        return 0
+    try:
+        n = series.ajouter_releves(entrees)
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Metricool : séries non écrites (%s)", type(erreur).__name__)
+        return 0
+    return int(n) if isinstance(n, int) and not isinstance(n, bool) else 0
 
 
 # ------------------------------------------------------------------ passage, état, boucle
 def _lire() -> dict:
     if not (_deps.get("lire_json") and _deps.get("FICHIER")):
         return {}
-    d = _deps["lire_json"](_deps["FICHIER"], {})
+    try:
+        d = _deps["lire_json"](_deps["FICHIER"], {})
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Metricool : état illisible (%s)", type(erreur).__name__)
+        return {}
     return d if isinstance(d, dict) else {}
 
 
-def _ecrire(d: dict):
-    if _deps.get("ecrire_json") and _deps.get("FICHIER"):
+def _ecrire(d: dict) -> bool:
+    """09/10 (correctif) : une écriture impossible (disque plein, volume en lecture seule) est journalisée, jamais levée : le
+    passage n'est pas perdu pour autant (les séries sont écrites à part) et les compteurs restent en mémoire."""
+    if not (_deps.get("ecrire_json") and _deps.get("FICHIER")):
+        return False
+    try:
         _deps["ecrire_json"](_deps["FICHIER"], d)
+        return True
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Metricool : état non écrit (%s)", type(erreur).__name__)
+        return False
+
+
+def _jour_de(t: str) -> str:
+    """La veille (Paris) d'un passage fait à l'instant `t` : le jour des données qu'il a lues."""
+    i = _instant(t, timezone.utc)
+    return (i.astimezone(_paris_tz()).date() - timedelta(days=1)).isoformat() if i is not None else ""
 
 
 def etat() -> dict:
-    """Pour le Dashboard (fraîcheur « Metricool J-1 ») : le dernier passage {t, jour, marques_ig, lus, non_lus, echecs, partages,
-    hors_classeur, ecrits, erreur} et l'heure du dernier passage réussi (`dernier_ok`)."""
+    """Contrat C6(b) à la lettre, pour le Dashboard (fraîcheur « Metricool J-1 ») : {"jour": J-1 des données du dernier passage
+    RÉUSSI (au moins un compte lu, aucune erreur, séries écrites) ou "", "dernier_ok": iso de ce passage ou "", "jour_essai":
+    J-1 du dernier essai, "erreur": erreur du dernier essai ("" s'il a réussi), "lus": comptes lus au dernier passage réussi}.
+    Un essai raté ne change ni `jour`, ni `dernier_ok`, ni `lus` (jamais une fraîcheur annoncée à tort). Le détail du dernier
+    essai (non lus, échecs, débranchés ?, @ partagés, hors classeur, écrits) : `dernier_essai()`."""
     d = _lire()
-    return {**(d.get("dernier") or {}), "dernier_ok": d.get("dernier_ok", "")}
+    dern = d.get("dernier") if isinstance(d.get("dernier"), dict) else {}
+    ok = d.get("ok") if isinstance(d.get("ok"), dict) else {}
+    dernier_ok = str(ok.get("t") or d.get("dernier_ok") or "")
+    jour = str(ok.get("jour") or "") or (_jour_de(dernier_ok) if dernier_ok else "")
+    if "lus" in ok:
+        lus = list(ok.get("lus") or [])
+    else:                                                                # état d'avant le correctif
+        lus = list(dern.get("lus") or []) if dernier_ok and dern.get("t") == dernier_ok else []
+    return {"jour": jour, "dernier_ok": dernier_ok, "jour_essai": str(dern.get("jour") or ""),
+            "erreur": str(dern.get("erreur") or ""), "lus": lus}
 
 
-async def _alerter(texte: str, jour: str):
-    """Une alerte au salon admin par jour au plus (Metricool en panne, réponse plus comprise)."""
+def dernier_essai() -> dict:
+    """Le bilan complet du dernier essai, gardé dans l'état (survit à un redémarrage, contrairement à `bilan()`)."""
     d = _lire()
-    if d.get("alerte") == jour or not callable(_deps.get("canal_admin")):
+    return dict(d["dernier"]) if isinstance(d.get("dernier"), dict) else {}
+
+
+async def _alerter(lignes: list, jour: str):
+    """Une alerte au salon admin par jour et par motif au plus : lignes = [(motif, texte)] ; les motifs déjà signalés aujourd'hui
+    (état ou mémoire) sont retirés, le reste part en UN message."""
+    d = _lire()
+    faites = dict(d.get("alertes") or {}) if isinstance(d.get("alertes"), dict) else {}
+    faites.update({k: v for k, v in _memoire["alertes"].items() if v == jour})
+    a_dire = [(k, t) for k, t in lignes if faites.get(k) != jour]
+    if not a_dire or not callable(_deps.get("canal_admin")):
         return
     try:
         canal = await _deps["canal_admin"]()
-        if canal is not None:
-            await canal.send(texte[:1990])
-            d["alerte"] = jour
-            _ecrire(d)
+        if canal is None:
+            return
+        await canal.send(("⚠️ **Metricool**\n\n" + "\n\n".join(t for _, t in a_dire))[:1990])
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Metricool : alerte admin non envoyée (%s)", type(erreur).__name__)
+        return
+    for k, _ in a_dire:
+        _memoire["alertes"][k] = jour
+        faites[k] = jour
+    d = _lire()
+    d["alertes"] = {k: v for k, v in faites.items() if v >= (date.fromisoformat(jour) - timedelta(days=3)).isoformat()}
+    _ecrire(d)
 
 
 async def _hors_classeur(cles_ig: set) -> list:
@@ -546,49 +847,117 @@ async def _hors_classeur(cles_ig: set) -> list:
     return hors
 
 
+def _lignes_alerte(b: dict, rels: dict, now: datetime) -> list:
+    """Les motifs d'alerte d'un passage (09/10, correctif : plus de panne silencieuse)."""
+    lignes = []
+    if b.get("erreur"):
+        lignes.append(("panne", f"{b['erreur']}. Les Reels et vues des comptes Instagram branchés ne sont pas à jour (rien "
+                                f"n'est écrit à 0)."))
+        return lignes
+    format_ko = [c for c, r in b["non_lus"].items() if "non comprise" in r]
+    if format_ko:
+        lignes.append(("format", f"réponse non comprise pour {len(format_ko)} compte(s) Instagram — format de brand-summary à "
+                                 f"vérifier. Rien n'est écrit pour eux."))
+    if b.get("marques_ig") and not b["lus"]:
+        sync = all(r.startswith("rien de Metricool") for r in b["non_lus"].values()) and not b["echecs"]
+        if not sync or now.hour >= HEURES[-1]:                           # pas encore synchronisé à 8 h : 15 h relira
+            raisons = {}
+            for r in list(b["non_lus"].values()) + [f"erreur : {e}" for e in b["echecs"].values()]:
+                k = r.split(" (")[0].split(" et ")[0][:70]
+                raisons[k] = raisons.get(k, 0) + 1
+            lignes.append(("aucun", f"aucun compte Instagram lu sur {b['marques_ig']} branché(s) — "
+                                    + " ; ".join(f"{n} × {k}" for k, n in sorted(raisons.items(), key=lambda x: -x[1]))
+                                    + ". Rien n'est écrit à 0."))
+    if rels:
+        _, fin = fenetre(date.fromisoformat(b["jour"]))
+        agees = [x for r in rels.values() for x in r.get("reels") or []
+                 if (p := _instant(x.get("publie"), timezone.utc)) is not None and fin - p >= timedelta(hours=AGE_VRAI_ZERO_H)]
+        if len(agees) >= VUES_ALERTE_MIN and all(x.get("vues") is None for x in agees):
+            lignes.append(("vues", f"aucune vue lisible sur {len(agees)} Reels de plus de 24 h ({len(rels)} compte(s) lus) — "
+                                   f"métrique VIEWS / IMPRESSIONS introuvable dans brand-summary, à vérifier."))
+    if b.get("debranches"):
+        lignes.append(("debranche", "rien de Metricool depuis 2 jours ou plus, et Apify ne confirme pas ces jours sans "
+                                    "publication : Instagram débranché de Metricool (jeton expiré) ? "
+                       + ", ".join(f"@{c} (dernière publication le {date.fromisoformat(j):%d/%m})"
+                                   for c, j in sorted(b["debranches"].items()))
+                       + ". Ces comptes sont non lus, rien n'est écrit à 0."))
+    return lignes
+
+
 async def executer(maintenant=None, ecrire: bool = True) -> dict:
-    """Un passage : releves() puis, si `ecrire`, les séries. Renvoie le bilan (avec `ecrits`) et le garde dans l'état."""
-    rels = await releves(maintenant)
+    """Un passage : releves() puis, si `ecrire`, les séries (une écriture). Renvoie le bilan (avec `ecrits`) et le garde dans
+    l'état ; le passage est RÉUSSI (etat()["jour"], "dernier_ok", "lus") s'il a lu au moins un compte, sans erreur, et écrit les
+    séries."""
+    now = _maintenant_paris(maintenant)
+    rels = await releves(now)
     b = bilan()
     b["ecrits"] = ecrire_series(rels) if ecrire else 0
+    if ecrire and rels and not b["ecrits"] and not b["erreur"]:
+        b["erreur"] = f"séries non écrites ({len(rels)} compte(s) lus)"
     b["hors_classeur"] = await _hors_classeur(set(b.get("lus") or []) | set(b.get("non_lus") or {}) | set(b.get("echecs") or {}))
     d = _lire()
     d["dernier"] = b
-    if b["lus"] and not b["erreur"]:
+    if b["lus"] and not b["erreur"] and ecrire:
+        d["ok"] = {"t": b["t"], "jour": b["jour"], "lus": list(b["lus"])}
         d["dernier_ok"] = b["t"]
     _ecrire(d)
-    format_ko = [c for c, r in b["non_lus"].items() if "non comprise" in r]
-    if b["erreur"] and actif():
-        await _alerter(f"⚠️ **Metricool** : {b['erreur']}. Les Reels et vues des comptes Instagram branchés ne sont pas relus "
-                       f"(rien n'est écrit à 0).", _maintenant_paris(maintenant).date().isoformat())
-    elif format_ko:
-        await _alerter(f"⚠️ **Metricool** : réponse non comprise pour {len(format_ko)} compte(s) Instagram — format de "
-                       f"brand-summary à vérifier. Rien n'est écrit pour eux.", _maintenant_paris(maintenant).date().isoformat())
+    if actif():
+        lignes = _lignes_alerte(b, rels, now)
+        if lignes:
+            await _alerter(lignes, now.date().isoformat())
     return b
+
+
+def _faits(d: dict, jour: str) -> set:
+    f = d.get("faits") if isinstance(d.get("faits"), dict) else {}
+    return set(f.get(jour) or []) | set(_memoire["faits"].get(jour) or [])
+
+
+def _essais(d: dict, jour: str, cran: int) -> int:
+    e = d.get("essais") if isinstance(d.get("essais"), dict) else {}
+    n = int(e.get("n") or 0) if e.get("jour") == jour and e.get("cran", cran) == cran else 0
+    m = _memoire["essais"]
+    if m.get("jour") == jour and m.get("cran") == cran:
+        n = max(n, int(m.get("n") or 0))
+    return n
 
 
 async def tour(maintenant=None):
     """Un tour de boucle : un passage si une heure de METRICOOL_HEURES (Paris) est passée et pas encore faite aujourd'hui (après un
-    redémarrage, les heures manquées se rattrapent en UN passage). Passage en panne : retenté au tour suivant, ESSAIS_MAX fois."""
+    redémarrage, les heures manquées se rattrapent en UN passage). Passage en panne (erreur ou exception) : retenté au tour
+    suivant, ESSAIS_MAX fois par heure de passage ; l'essai est compté AVANT le passage (09/10, correctif)."""
     now = _maintenant_paris(maintenant)
     jour = now.date().isoformat()
     d = _lire()
-    faits = list((d.get("faits") or {}).get(jour) or [])
+    faits = _faits(d, jour)
     dues = [h for h in HEURES if now.hour >= h and h not in faits]
     if not dues:
         return None
-    b = await executer(now)
-    d = _lire()                                                          # relu : executer() a écrit le bilan
-    essais = d.get("essais") if isinstance(d.get("essais"), dict) and d["essais"].get("jour") == jour else {"jour": jour, "n": 0}
-    if b.get("erreur") and essais["n"] + 1 < ESSAIS_MAX:
-        essais["n"] += 1
-        d["essais"] = essais
+    cran = max(dues)
+    n = _essais(d, jour, cran) + 1
+    _memoire["essais"] = {"jour": jour, "cran": cran, "n": n}
+    d["essais"] = dict(_memoire["essais"])
+    _ecrire(d)
+    try:
+        b = await executer(now)
+    except Exception as erreur:                                          # noqa: BLE001 — compté comme un essai raté
+        journal.exception("Metricool (comptes) : passage interrompu : %s", erreur)
+        b = {"t": _iso(now), "jour": (now.date() - timedelta(days=1)).isoformat(), "lus": [], "non_lus": {}, "echecs": {},
+             "erreur": f"passage interrompu ({type(erreur).__name__})"}
+        d = _lire()
+        d["dernier"] = b                                                 # etat() (C6b) : l'essai raté se voit, `jour` ne bouge pas
         _ecrire(d)
+    if b.get("erreur") and n < ESSAIS_MAX:
         return b
-    faits_j = sorted(set(faits) | set(dues))
-    d["faits"] = {k: v for k, v in (d.get("faits") or {}).items() if k >= (now.date() - timedelta(days=3)).isoformat()}
+    faits_j = sorted(faits | set(dues))
+    _memoire["faits"] = {k: v for k, v in _memoire["faits"].items() if k >= (now.date() - timedelta(days=3)).isoformat()}
+    _memoire["faits"][jour] = faits_j
+    d = _lire()
+    d["faits"] = {k: v for k, v in (d.get("faits") or {}).items() if k >= (now.date() - timedelta(days=3)).isoformat()} \
+        if isinstance(d.get("faits"), dict) else {}
     d["faits"][jour] = faits_j
-    d["essais"] = {"jour": jour, "n": 0}
+    d["essais"] = {"jour": jour, "cran": cran, "n": 0}
+    _memoire["essais"] = dict(d["essais"])
     _ecrire(d)
     return b
 
