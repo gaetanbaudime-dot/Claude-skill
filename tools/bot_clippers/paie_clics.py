@@ -85,6 +85,7 @@ DIRECT_MAX = int(os.environ.get("CLICS_DIRECT_MAX", "45") or 45)          # appe
 DIRECT_PAUSE = float(os.environ.get("CLICS_DIRECT_PAUSE", "4") or 4)      # secondes entre deux appels « aujourd'hui »
 DIRECT_RESERVE = int(os.environ.get("CLICS_DIRECT_RESERVE", "15") or 15)  # requêtes de la minute laissées à l'app : on s'arrête avant
 DIRECT_SI_RATTRAPAGE = int(os.environ.get("CLICS_DIRECT_SI_RATTRAPAGE", "60") or 60)   # passage chargé (minuit, 6 h) : pas de direct
+DIRECT_MALADES = int(os.environ.get("CLICS_DIRECT_MALADES", "3") or 3)    # 09/10 : essais réservés aux liens en échec récent, en fin de passage
 
 _deps = {}
 _client = None
@@ -181,6 +182,7 @@ async def _requete(methode: str, chemin: str, params=None, corps=None):
     if _session is None or _session.closed:
         _session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=45))
     entetes = {"X-Api-Key": GAML_API_KEY, "Accept": "application/json", "Content-Type": "application/json"}
+    dernier = 0                                                         # le dernier statut rejoué (429 ou 5xx)
     for essai in range(3):
         async with _verrou:
             if _limite["restant"] <= 2 and _limite["reset"] > time.time():
@@ -195,6 +197,7 @@ async def _requete(methode: str, chemin: str, params=None, corps=None):
                 if r.status == 429 and _arret_429.get():
                     raise LimiteGAML(f"GAML 429 sur {chemin} : limite de la minute atteinte")
                 if r.status == 429 or r.status >= 500:
+                    dernier = r.status
                     await asyncio.sleep(5 * (essai + 1) if r.status >= 500 else max(2.0, _limite["reset"] - time.time() + 1))
                     continue
                 if r.status >= 400:
@@ -207,7 +210,11 @@ async def _requete(methode: str, chemin: str, params=None, corps=None):
             await asyncio.sleep(3 * (essai + 1))
         except asyncio.TimeoutError as erreur:                           # 08/10 (revue) : pas un ClientError ; jamais rejoué
             raise RuntimeError(f"GAML : délai dépassé sur {chemin}") from erreur   # (un POST /clone rejoué ferait un doublon)
-    raise RuntimeError(f"GAML : trop de tentatives sur {chemin}")
+    # 09/10 (revue CLICS, R3 bis) : le 429 épuisé (limite de la minute : global) n'est plus confondu avec le 5xx épuisé (souvent propre
+    # à un lien : une page /ytb que l'analytique ne sait pas lire) ; les relevés ne s'arrêtent que sur le premier
+    if dernier == 429:
+        raise RuntimeError(f"GAML : trop de tentatives (429) sur {chemin}")
+    raise RuntimeError(f"GAML {dernier or '5xx'} répété : trop de tentatives (5xx) sur {chemin}")
 
 
 async def liens_gaml() -> list:
@@ -649,12 +656,15 @@ async def renommer_liberes(liens: list, seulement=None, maximum: int = None) -> 
 def lien_libre(d: dict, creatrice: str):
     """(id, fiche) d'un lien libéré de cette créatrice, ou None. 08/10 (ménage GAML) : jamais un lien effacé dans GAML ni un lien
     passé hors clipping (note GAML changée à la main, ex. Metricool) ; un lien encore actif d'abord (il ne prend pas de place
-    de plus dans le forfait), un lien désactivé par le ménage ensuite (`reprendre_lien` le réactive)."""
+    de plus dans le forfait), un lien désactivé par le ménage ensuite (`reprendre_lien` le réactive). 09/10 (revue CLICS) : jamais un
+    lien introuvable dans GAML (404 au relevé) aujourd'hui ou hier : il serait posé mort dans la bio du suivant."""
     cible = (creatrice or "").split()[0].lower() if creatrice else ""
     if not cible:
         return None
+    recent = (_aujourdhui() - timedelta(days=1)).isoformat()
     libres = [(lid, info) for lid, info in d.get("liens", {}).items()
               if not str(info.get("uid") or "") and info.get("libere") and not info.get("supprime_gaml") and not info.get("hors_clipping")
+              and str(info.get("introuvable") or "")[:10] < recent
               and str(info.get("creatrice") or "").lower().startswith(cible)]
     libres.sort(key=lambda li: bool(li[1].get("desactive")))
     return libres[0] if libres else None
@@ -872,69 +882,166 @@ def _note_du_detenteur(info: dict, note) -> bool:
     return bool(p) and p == a
 
 
-async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants: dict, dus: bool = False) -> dict:
+def _membres_du_prenom(prenom: str, creatrice: str = "", sauf: str = "") -> tuple:
+    """09/10 (revue CLICS, contrat C6(d)) : les membres SIGNÉS présents sur le serveur dont le premier mot du pseudo vaut `prenom`
+    (la recherche d'associer_auto), sauf l'uid `sauf`. Renvoie (tous ces uid, les uid « sûrs » : ceux de la même créatrice, ou le
+    seul candidat)."""
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else {}
+    membre_de = _deps.get("membre_par_id") or (lambda u: None)
+    normaliser = _deps.get("normaliser") or _n_note
+    cible = normaliser(str(prenom or "").strip())
+    if not cible:
+        return [], []
+    candidats = []
+    for u, fiche in (registre or {}).items():
+        if str(u) == str(sauf or ""):
+            continue
+        m = membre_de(u)
+        if m is None or not ((fiche or {}).get("equipe") or (fiche or {}).get("creatrice")):
+            continue
+        nom = str(getattr(m, "display_name", "") or "")
+        if normaliser(nom.split()[0] if nom.split() else "") != cible:
+            continue
+        candidats.append((str(u), normaliser(fiche.get("creatrice") or "") == normaliser(creatrice or "")))
+    surs = [u for u, meme in candidats if meme] or ([candidats[0][0]] if len(candidats) == 1 else [])
+    return [u for u, _ in candidats], surs
+
+
+async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants: dict, dus: bool = False,
+                                 notes_lues: bool = True) -> dict:
     """09/10 (Gaëtan : « Rianah reprend ses liens Metricool ainsi que ses liens de tracking OF MYM ») ; revue CLICS du 09/10 : la
     fonction commune de `!monteur` et de `!sortie` sans pool quand les comptes créés du membre partent sur Metricool (avant, `!sortie`
     libérait le lien : le clipper suivant de la créatrice le reprenait et était payé pour le trafic des comptes partis sur Metricool).
     Les liens du membre `uid` (par uid seulement : jamais ceux d'un homonyme) suivent ses comptes chez `repreneur` : note GAML
     « <repreneur> Metricool N (ex-Prénom) », détachés hors clipping comme une note changée à la main (uid vidé, `ancien_uid` ; jamais
     redonnés à un clipper, jamais ménagés) ; les cartes Miam et OnlyFriends (ses trackings) restent posées. Un lien déjà sorti du
-    clipping à la main est seulement détaché ; un lien que GAML note au prénom d'un autre clipper est libéré sans renommage
-    (associer_auto le rattache). Sans repreneur, les liens sont libérés pour le suivant (« Clipping libre (ex-Prénom) »). GAML refuse
-    la note : le lien est détaché quand même (`note_attendue`, retentée à chaque passe horaire par poser_notes_attendues ; jamais
-    libéré ni « revenu au clipping » entre-temps). `dus` : ses visites au clic jusqu'à hier lui restent dues (garder_dus, `!sortie`).
-    `vivants` = {id: lien de la liste GAML}, lue AVANT l'appel. À appeler avant le retrait du registre.
+    clipping à la main est seulement détaché. Sans repreneur, les liens sont libérés pour le suivant (« Clipping libre (ex-Prénom) »).
+    GAML refuse la note : le lien est détaché quand même (`note_attendue`, retentée à chaque passe horaire par poser_notes_attendues ;
+    jamais libéré ni « revenu au clipping » entre-temps). `dus` : ses visites au clic jusqu'à hier lui restent dues (garder_dus,
+    `!sortie`). `vivants` = {id: lien de la liste GAML}, lue AVANT l'appel (notes_gaml_de). À appeler avant le retrait du registre.
+    Revue CLICS du 09/10 (suite) :
+    1. contrat C6(d) : « lien d'un autre clipper » décidé sur les identifiants, jamais sur le prénom du pseudo. Le lien est au membre
+       quand la note GAML porte son prénom, ou la note posée par le bot pour lui (fiche `note` : « Clipping Eddy » d'un Eddy devenu
+       « Eddie » ou « 🌸Eddy »), ou un prénom qu'aucun AUTRE membre signé ne porte. Il est à l'autre seulement quand la note désigne
+       un autre membre signé (uid différent) : rattaché à lui s'il est seul (comme associer_auto), sinon détaché sans être libéré
+       (jamais redonné au suivant, à trancher avec `!lien`). Avant : libéré dès que le prénom du pseudo différait, donc redonné au
+       clipper suivant avec le trafic des comptes partis sur Metricool ;
+    2. aucun appel réseau sous verrou_liens : le plan sur une lecture, les PATCH hors verrou, le résultat appliqué sur une relecture
+       sans await entre la lecture et l'écriture ; un lien changé de main entre-temps n'est pas touché ;
+    3. `dus` posés pour tous ses liens, ceux effacés de GAML compris (avant : sautés avant garder_dus, visites perdues) ;
+    4. un lien introuvable dans GAML (`vivants[lid]["introuvable"]`, 404 lu par notes_gaml_de) est marqué `supprime_gaml` et détaché,
+       jamais libéré (avant : vu « noté au prénom d'un autre », libéré, et redonné mort au suivant) ;
+    5. `notes_lues=False` (GAML illisible pendant `!sortie`) : rien n'est bloqué, ses liens sont détachés vers le repreneur avec la note
+       en attente (`note_attendue`, posée à la passe horaire si GAML dit encore « Clipping <lui> » ; une note changée à la main
+       entre-temps gagne, comme pour un refus de GAML).
     Renvoie {"repris": [lignes], "liberes": [ids], "refus": [lignes]}."""
     uid, repreneur = str(uid or ""), str(repreneur or "").strip()
     repris, refus, liberes = [], [], []
     if not uid:
         return {"repris": repris, "liberes": liberes, "refus": refus}
+    vivants = vivants or {}
     p_sortant = (_n_note(prenom).split() or [""])[0]
+    jour = _aujourdhui().isoformat()
+    # 1. le plan, sur une lecture (aucun verrou : rien n'est écrit ici)
+    d0 = _lire()
+    numero = max(numero_metricool(vivants.values(), repreneur), numero_metricool(d0.get("liens", {}).values(), repreneur))
+    plan = []
+    for lid in liens_de(d0, uid):
+        info = d0["liens"][lid]
+        vivant = vivants.get(lid) or {}
+        note_v = str(vivant.get("note") or "").strip()
+        lue = notes_lues and "note" in vivant
+        p = {"lid": lid, "note": note_v, "nouvelle": "", "autres": [], "surs": []}
+        if info.get("supprime_gaml") or vivant.get("introuvable"):
+            p["action"] = "efface"
+        elif lue and not _prenom_note(note_v):
+            p["action"] = "main"                                        # déjà sortie du clipping à la main
+        else:
+            if lue:
+                p_note = _prenom_note(note_v)
+                if (_n_note(p_note).split() or [""])[0] != p_sortant and _n_note(note_v) != _n_note(info.get("note")):
+                    creatrice = (str(vivant.get("name") or "").split() or [str(info.get("creatrice") or "")])[0]
+                    p["autres"], p["surs"] = _membres_du_prenom(p_note, creatrice, sauf=uid)
+            if p["autres"]:
+                p["action"] = "autre"
+            elif not repreneur:
+                p["action"] = "libre"
+            else:
+                p["action"] = "patch" if lue else "attente"
+                p["nouvelle"] = f"{repreneur} Metricool{f' {numero}' if numero > 1 else ''} (ex-{prenom})"
+                numero += 1
+        plan.append(p)
+    # 2. les notes GAML, hors verrou
+    erreurs = {}
+    for p in plan:
+        if p["action"] != "patch":
+            continue
+        try:
+            await _requete("PATCH", f"/links/{p['lid']}", corps={"note": p["nouvelle"]})
+        except Exception as erreur:                                     # noqa: BLE001
+            erreurs[p["lid"]] = str(erreur)[:80] or type(erreur).__name__
+    # 3. le résultat, sur une relecture, sans await entre la lecture et l'écriture
     async with verrou_liens:
         d_l = _lire()
-        jour = _aujourdhui().isoformat()
-        numero = max(numero_metricool(vivants.values(), repreneur), numero_metricool(d_l.get("liens", {}).values(), repreneur))
-        for lid in liens_de(d_l, uid):
-            info = d_l["liens"][lid]
-            if info.get("supprime_gaml"):
+        for p in plan:
+            lid, note_v, nouvelle = p["lid"], p["note"], p["nouvelle"]
+            info = d_l.get("liens", {}).get(lid)
+            cr_l = str((info or {}).get("creatrice") or "?").title()
+            if info is None or str(info.get("uid") or "") != uid:
+                refus.append(f"lien {cr_l} changé de main pendant l'opération : non touché")
                 continue
-            vivant = vivants.get(lid) or {}
-            cr_l = str(info.get("creatrice") or "?").title()
-            note_v = str(vivant.get("note") or "").strip()
-            p_note = (_n_note(_prenom_note(note_v)).split() or [""])[0]
             if dus:
-                garder_dus(info, uid, d_l, jour)
-            if "note" in vivant and not p_note:
+                garder_dus(info, uid, d_l, jour)                        # avant de vider l'uid, effacés de GAML compris
+            # le prénom sous lequel GAML connaît le détenteur (note lue, sinon celle posée par le bot) : poser_notes_attendues et
+            # renommer_liberes le comparent à la note GAML (un pseudo changé en « Eddie » ne les bloque plus)
+            ancien_gaml = _prenom_note(note_v) or _prenom_note(info.get("note")) or prenom
+            action = p["action"]
+            if action == "efface":
+                if not info.get("supprime_gaml"):
+                    info["supprime_gaml"] = jour
+                    refus.append(f"lien {cr_l} introuvable dans GAML (404) : marqué effacé, jamais redonné")
+                info.update({"uid": "", "ancien_uid": uid, "ancien": prenom})
+            elif action == "main":
                 synchroniser_notes(d_l, [{"id": lid, "note": note_v}])
                 repris.append(f"{cr_l} « {note_v or '(note vide)'} » (déjà changée à la main)")
-                continue
-            if p_note != p_sortant:
-                refus.append(f"lien {cr_l} noté « {note_v} » dans GAML : laissé à ce clipper (détaché de {prenom})")
-                continue                                                # libéré plus bas sans renommage : associer_auto le rattache
-            if not repreneur:
-                continue                                                # libéré plus bas pour le suivant de la créatrice
-            nouvelle = f"{repreneur} Metricool{f' {numero}' if numero > 1 else ''} (ex-{prenom})"
-            numero += 1
-            try:
-                await _requete("PATCH", f"/links/{lid}", corps={"note": nouvelle})
-            except Exception as erreur:                                 # noqa: BLE001
-                # `ancien` = le sortant : tant que GAML dit « Clipping <lui> », la note est retentée (poser_notes_attendues)
+            elif action == "autre":
+                if len(p["surs"]) == 1:
+                    info.update({"uid": p["surs"][0], "note": note_v, "depuis": jour, "par": "auto", "ancien_uid": uid, "ancien": prenom,
+                                 "libere": ""})
+                    refus.append(f"lien {cr_l} noté « {note_v} » dans GAML : rattaché à <@{p['surs'][0]}> (ses visites comptent à "
+                                 f"partir d'aujourd'hui), plus à {prenom}")
+                else:
+                    info.update({"uid": "", "note": note_v, "ancien_uid": uid, "ancien": prenom, "libere": ""})
+                    refus.append(f"lien {cr_l} noté « {note_v} » dans GAML ({len(p['autres'])} membres de ce prénom) : détaché de "
+                                 f"{prenom}, jamais redonné au suivant, à rattacher avec `!lien`")
+            elif action == "libre":
+                info.update({"uid": "", "libere": jour, "ancien": ancien_gaml, "ancien_uid": uid})
+                liberes.append(lid)
+            elif action == "patch" and lid not in erreurs:
+                synchroniser_notes(d_l, [{"id": lid, "note": nouvelle}])
+                repris.append(f"{cr_l} « {nouvelle} »")
+            else:                                                       # refusée par GAML, ou GAML illisible : détaché quand même
+                # `ancien` = le détenteur selon GAML : tant que GAML dit « Clipping <lui> », la note est retentée (poser_notes_attendues)
                 info.update({"hors_clipping": nouvelle, "hors_depuis": jour, "uid": "", "libere": "", "ancien_uid": uid,
-                             "ancien": prenom, "note": nouvelle, "note_attendue": nouvelle})
-                refus.append(f"lien {cr_l} : note GAML pas changée ({str(erreur)[:80]}) — détaché quand même, « {nouvelle} » retentée "
-                             "à chaque passe horaire")
+                             "ancien": ancien_gaml, "note": nouvelle, "note_attendue": nouvelle})
+                if action == "patch":
+                    refus.append(f"lien {cr_l} : note GAML pas changée ({erreurs[lid]}) — détaché quand même, « {nouvelle} » "
+                                 "retentée à chaque passe horaire")
+                else:
+                    refus.append(f"lien {cr_l} : note GAML non lue (GAML illisible) — détaché quand même, « {nouvelle} » posée à la "
+                                 "passe horaire")
                 repris.append(f"{cr_l} « {nouvelle} » (note à poser)")
-                continue
-            synchroniser_notes(d_l, [{"id": lid, "note": nouvelle}])
-            repris.append(f"{cr_l} « {nouvelle} »")
-        liberes = liberer_liens(d_l, uid, "")
-        for lid in liberes:
-            d_l["liens"][lid]["ancien"] = prenom
-            d_l["liens"][lid]["ancien_uid"] = uid
+        vus = {p["lid"] for p in plan}
+        for lid in liens_de(d_l, uid):
+            if lid not in vus:                                          # attribué pendant l'opération : jamais touché sans plan
+                refus.append(f"lien {str(d_l['liens'][lid].get('creatrice') or '?').title()} attribué pendant l'opération : "
+                             "non touché, relance la commande")
         _ecrire(d_l)
-    if liberes and vivants:
-        try:
-            await renommer_liberes(list(vivants.values()), seulement=set(liberes))
+    if liberes and notes_lues:
+        try:                                                            # la note relue dans GAML avant chaque PATCH (renommer_liberes)
+            await renommer_liberes([{"id": lid, "note": str((vivants.get(lid) or {}).get("note")
+                                                            or (d_l["liens"].get(lid) or {}).get("note") or "")} for lid in liberes],
+                                   seulement=set(liberes))
         except Exception as erreur:                                     # noqa: BLE001
             refus.append(f"notes des liens libérés ({type(erreur).__name__}) : renommées au prochain passage")
     return {"repris": repris, "liberes": liberes, "refus": refus}
@@ -943,13 +1050,38 @@ async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants:
 async def poser_notes_attendues(liens: list) -> list:
     """Revue CLICS du 09/10 : la note « <repreneur> Metricool N (ex-Prénom) » refusée par GAML au passage chez le repreneur est retentée
     à chaque passe horaire, seulement si la note GAML est encore celle de l'ancien détenteur (une note changée à la main entre-temps
-    n'est jamais écrasée : synchroniser_notes lève l'attente). Arrêt au premier refus. Écrit sur une relecture. Renvoie les lignes."""
+    n'est jamais écrasée : synchroniser_notes lève l'attente). Arrêt au premier refus. Écrit sur une relecture. Renvoie les lignes.
+    09/10 (revue CLICS : une liste /links sans `note` laissait l'attente sans fin, et le lien à la merci d'un homonyme) : la note est
+    lue dans le détail du lien (lien_detail) quand la liste ne la porte pas ; un lien introuvable (404) est marqué `supprime_gaml`
+    (plus rien à poser) ; une autre erreur de lecture arrête la passe (le reste au passage suivant)."""
     par_id = {l.get("id"): l for l in liens or [] if l.get("id") and "note" in l}
     lignes = []
     for lid, info in list(_lire().get("liens", {}).items()):
         attendue = str(info.get("note_attendue") or "").strip()
+        if not attendue:
+            continue
         l = par_id.get(lid)
-        if not attendue or l is None or not _note_du_detenteur(info, str(l.get("note") or "")):
+        if l is None:
+            try:
+                det = await lien_detail(lid)
+            except RuntimeError as erreur:
+                if "404" in str(erreur):
+                    async with verrou_liens:                            # effacé de GAML : plus rien à poser
+                        frais = _lire()
+                        g = frais.get("liens", {}).get(lid)
+                        if g is not None and str(g.get("note_attendue") or "").strip() == attendue:
+                            g.pop("note_attendue", None)
+                            g["supprime_gaml"] = g.get("supprime_gaml") or _aujourdhui().isoformat()
+                            _ecrire(frais)
+                    lignes.append(f"· {str(info.get('creatrice') or '?').title()} · « {attendue} » : lien introuvable dans GAML, "
+                                  "marqué effacé")
+                    continue
+                journal.warning("Lien %s : note GAML illisible (%s), « %s » au passage suivant", lid, erreur, attendue)
+                break
+            if not isinstance(det, dict) or "note" not in det:
+                continue                                                # note toujours inconnue : on ne juge pas
+            l = {"id": lid, "note": det.get("note")}
+        if not _note_du_detenteur(info, str(l.get("note") or "")):
             continue
         try:
             await _requete("PATCH", f"/links/{lid}", corps={"note": attendue})
@@ -1174,12 +1306,15 @@ def liberer_sortant(d: dict, uid: str, prenom: str = "") -> list:
     jour = _aujourdhui().isoformat()
     for lid in liens_de(d, uid):                                        # avant liberer_liens : il vide l'uid
         garder_dus(d["liens"][lid], uid, d, jour)
+    notes = {lid: _prenom_note(d["liens"][lid].get("note")) for lid in liens_de(d, uid)}
     libres = liberer_liens(d, uid, "")
     for lid in libres:
         info = d["liens"][lid]
         info["ancien_uid"] = uid
-        if prenom:
-            info["ancien"] = prenom
+        # 09/10 (revue CLICS, C6(d)) : `ancien` = le prénom de la note posée pour lui (« Clipping Eddy » d'un Eddy devenu « Eddie ») :
+        # renommer_liberes le compare à la note GAML (sinon jamais renommé « libre », donc donné à un homonyme par associer_auto)
+        if notes.get(lid) or prenom:
+            info["ancien"] = notes.get(lid) or prenom
     return libres
 
 
@@ -1335,14 +1470,76 @@ def _manque(jours: dict, j: date) -> bool:
 
 
 ECHEC_REESSAI = int(os.environ.get("CLICS_ECHEC_REESSAI", "1800") or 1800)   # revue CLICS : un lien en erreur retenté 30 min après
-_ERREURS_GLOBALES = ("injoignable", "trop de tentatives")
+ECHEC_MALADE = int(os.environ.get("CLICS_ECHEC_MALADE", "86400") or 86400)   # 09/10 : un lien en échec depuis moins de 24 h = « malade »
+SUITE_MAX = int(os.environ.get("CLICS_SUITE_MAX", "5") or 5)                   # garde-fou : erreurs de suite qui arrêtent un passage
+_ERREURS_GLOBALES = ("injoignable", "trop de tentatives (429)")
 
 
 def _erreur_globale(erreur) -> bool:
     """Revue CLICS du 09/10 (un seul lien /ytb qui répondait « GAML 400 » arrêtait le direct de tous les liens et la relecture de
-    6 h) : une erreur GLOBALE (limite de la minute, GAML injoignable, 5xx ou 429 répétés jusqu'à « trop de tentatives ») arrête le
-    passage ; toute autre erreur (400, 403, délai dépassé sur une analytique lourde…) est propre au lien : on passe au suivant."""
+    6 h) : une erreur GLOBALE (limite de la minute, GAML injoignable, 429 répété jusqu'à « trop de tentatives (429) ») arrête le
+    passage ; toute autre erreur (400, 403, 5xx répété, délai dépassé sur une analytique lourde…) est propre au lien : on passe au
+    suivant. 09/10 (R3 bis) : le 5xx répété n'est plus global (un lien /ytb en 500 permanent arrêtait encore tout) ; une vraie panne
+    se voit à deux liens sains en erreur de suite (_Suite)."""
     return isinstance(erreur, LimiteGAML) or any(m in str(erreur) for m in _ERREURS_GLOBALES)
+
+
+def _erreur_du_lien(erreur) -> bool:
+    """09/10 (revue CLICS, R3 bis : toutes les pages /ytb en « GAML 400 unsupported link type ») : un 4xx définitif (400, 403, 405,
+    410, 422…) est propre au lien par nature — GAML a répondu, tout de suite, sans rejeu : jamais le signe d'une panne. Il ne compte
+    donc pas dans les erreurs de suite qui arrêtent un passage. 401 (clé refusée) et 408 (délai) restent des signes de panne."""
+    m = re.match(r"\s*GAML (4\d\d) sur ", str(erreur or ""))
+    return bool(m) and m.group(1) not in ("401", "408", "429")
+
+
+def _malade(info: dict, maintenant) -> bool:
+    """09/10 (revue CLICS, R3 bis) : le lien a-t-il échoué (relevé `echec` ou direct `echec_direct`) depuis moins de ECHEC_MALADE
+    secondes ? Un tel lien passe APRÈS les liens sains et son erreur ne compte pas comme un signe de panne (un succès efface l'échec)."""
+    for cle in ("echec", "echec_direct"):
+        e = (info or {}).get(cle) or {}
+        try:
+            if e and maintenant.timestamp() - float(e.get("ts") or 0) < ECHEC_MALADE:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
+def _sain(d: dict, lid: str, maintenant) -> bool:
+    """09/10 (revue CLICS, R3 bis) : le lien a-t-il été lu avec succès récemment (direct du jour ou de la veille, ou un relevé des
+    trois derniers jours) sans échec depuis ? Seule l'erreur d'un tel lien est un signe de panne de GAML : une page jamais lisible
+    (/ytb « unsupported link type », 5xx permanent) ne l'est pas."""
+    if _malade((d.get("liens") or {}).get(lid), maintenant):
+        return False
+    veille = (maintenant.date() - timedelta(days=1)).isoformat()
+    if str(((d.get("aujourdhui") or {}).get(lid) or {}).get("jour") or "") >= veille:
+        return True
+    depuis = (maintenant.date() - timedelta(days=3)).isoformat()
+    return any(j >= depuis for j in ((d.get("jours") or {}).get(lid) or {}))
+
+
+class _Suite:
+    """09/10 (revue CLICS, R3 bis : 4 pages /ytb en erreur persistante, toujours en tête, arrêtaient chaque passage sur « deux liens
+    différents de suite ») : quand arrêter un passage de relevés sur des erreurs de suite. Arrêt sur deux erreurs de suite de deux
+    liens SAINS différents (lus avec succès récemment, sans échec depuis : GAML probablement en panne), ou sur SUITE_MAX erreurs de
+    suite en tout (garde-fou : liens tous malades ou jamais lus pendant une panne). Un 4xx définitif (_erreur_du_lien) ne compte
+    jamais ; un succès remet tout à zéro."""
+
+    def __init__(self):
+        self.saines, self.toutes = [], 0
+
+    def succes(self) -> None:
+        self.saines.clear()
+        self.toutes = 0
+
+    def erreur(self, lid: str, erreur, sain: bool) -> bool:
+        """Note l'erreur du lien `lid` (`sain` : jugé AVANT cet essai, _sain). True = arrêter le passage."""
+        if _erreur_du_lien(erreur):
+            return False
+        self.toutes += 1
+        if sain:
+            self.saines.append(lid)
+        return len(set(self.saines[-2:])) == 2 or self.toutes >= SUITE_MAX
 
 
 def _horodatage(maintenant=None) -> str:
@@ -1391,6 +1588,7 @@ async def relever_jour(d: dict, lid: str, j: date, maintenant=None) -> str:
         return "erreur"
     d.setdefault("jours", {}).setdefault(lid, {})[j.isoformat()] = v
     info.pop("echec", None)
+    info.pop("echec_direct", None)                                      # 09/10 (R3 bis) : lu, donc plus « malade » pour le direct non plus
     js = j.isoformat()
     if j == hier and maintenant.hour < RELECTURE_HEURE:
         if js not in provisoires.setdefault(lid, []):
@@ -1413,50 +1611,61 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
     toute la minute de l'app) ; 3. une erreur GAML n'écrit JAMAIS de 0 : le jour reste absent (relever_jour) ; 4. une veille lue avant
     RELECTURE_HEURE (Paris) est provisoire : relue une fois après, puis figée (dernières visites de la soirée, robots reclassés).
     Revue CLICS du 09/10 : une erreur propre à UN lien (400, 403, délai dépassé…) ne bloque plus les autres : le lien est noté
-    `echec` et sauté ECHEC_REESSAI secondes ; le passage s'arrête seulement sur une erreur globale (limite, GAML injoignable, trop de
-    tentatives) ou sur deux échecs de suite de deux liens différents (GAML probablement en panne)."""
+    `echec` et sauté ECHEC_REESSAI secondes ; le passage s'arrête seulement sur une erreur globale (limite, GAML injoignable, 429
+    répété) ou sur deux échecs de suite de deux liens différents (GAML probablement en panne).
+    09/10 (R3 bis : toutes les pages /ytb en erreur persistante arrêtaient encore chaque passage) : un lien « malade » (en échec depuis
+    moins de 24 h) passe après les liens sains à chaque étape (sa veille après les relectures de l'étape 2) et son erreur ne compte
+    pas comme un signe de panne, pas plus qu'un 4xx définitif ou l'erreur d'un lien jamais lu (_Suite, _sain)."""
     maintenant = _deps["heure_paris"]()
     aujourdhui = maintenant.date()
     hier = aujourdhui - timedelta(days=1)
     jour_iso = aujourdhui.isoformat()
     provisoires = d.setdefault("provisoires", {})
     appels, anciens = 0, 0
-    suite = []                                                          # liens en échec de suite (remis à zéro par un succès)
+    suite = _Suite()                                                    # erreurs de suite (remises à zéro par un succès)
 
     async def lire(lid: str, j: date) -> str:
         """'ok', '404', 'erreur' (ce lien seulement) ou 'stop' (fin du passage)."""
         nonlocal appels
         if appels and RELEVE_PAUSE > 0:
             await asyncio.sleep(RELEVE_PAUSE)                           # minuit : ~55 liens d'un coup, la minute reste partagée avec l'app
+        sain = _sain(d, lid, maintenant)                                # jugé AVANT l'essai (relever_jour pose le nouvel échec)
         r = await relever_jour(d, lid, j, maintenant)
         appels += 2 if r == "ok" else 1
         if r == "global":
             return "stop"
         if r == "erreur":
-            suite.append(lid)
-            if len(set(suite[-2:])) == 2:
-                journal.warning("Relevés GAML : deux liens en erreur de suite, la suite au prochain passage")
+            if suite.erreur(lid, ((d["liens"].get(lid) or {}).get("echec") or {}).get("erreur"), sain):
+                journal.warning("Relevés GAML : liens en erreur de suite, la suite au prochain passage")
                 return "stop"
             return "erreur"
-        suite.clear()
+        suite.succes()
         return r
 
     def payant(info):
         return bool(str(info.get("uid") or "") or info.get("suivi"))
     cibles = [(lid, info) for lid, info in list(d["liens"].items()) if a_relever(info, jour_iso)]
-    cibles.sort(key=lambda li: 0 if payant(li[1]) else 1)              # tri stable : l'ordre du fichier sinon
-    # 1. la veille de chaque lien
-    for lid, info in cibles:
-        if appels >= limite_appels:
-            return appels
-        debut = _en_date(info.get("depuis")) or _jour(CLICS_DEPUIS)
-        if (hier < debut or not _manque(d["jours"].get(lid, {}), hier) or str(info.get("introuvable") or "") == jour_iso
-                or _en_echec(info, "echec", maintenant)):
-            continue
-        if await lire(lid, hier) == "stop":
-            return appels
-    # 2. la relecture des veilles provisoires, une fois passé RELECTURE_HEURE (ou un jour plus tard)
-    for lid in list(provisoires):
+    # tri stable (l'ordre du fichier sinon) : les liens malades en dernier, puis les liens payés en tête
+    cibles.sort(key=lambda li: (_malade(li[1], maintenant), 0 if payant(li[1]) else 1))
+    malades = {lid for lid, info in cibles if _malade(info, maintenant)}
+
+    async def veilles(liste) -> bool:
+        """La veille de chaque lien de `liste` ; True = fin du passage (budget ou arrêt)."""
+        for lid, info in liste:
+            if appels >= limite_appels:
+                return True
+            debut = _en_date(info.get("depuis")) or _jour(CLICS_DEPUIS)
+            if (hier < debut or not _manque(d["jours"].get(lid, {}), hier) or str(info.get("introuvable") or "") == jour_iso
+                    or _en_echec(info, "echec", maintenant)):
+                continue
+            if await lire(lid, hier) == "stop":
+                return True
+        return False
+    # 1. la veille de chaque lien sain (09/10 : ceux des liens malades après les relectures de l'étape 2, qu'ils ne retardent jamais)
+    if await veilles([li for li in cibles if li[0] not in malades]):
+        return appels
+    # 2. la relecture des veilles provisoires, une fois passé RELECTURE_HEURE (ou un jour plus tard) ; les liens malades en dernier
+    for lid in sorted(provisoires, key=lambda l_: l_ in malades):
         info = d["liens"].get(lid)
         if info is None or not a_relever(info, jour_iso):
             provisoires.pop(lid, None)
@@ -1478,7 +1687,10 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
                 return appels
             if r in ("404", "erreur"):
                 break
-    # 3. les jours plus anciens
+    # 2 bis. la veille des liens malades
+    if await veilles([li for li in cibles if li[0] in malades]):
+        return appels
+    # 3. les jours plus anciens (les liens malades en dernier)
     for lid, info in cibles:
         recul = 45 if payant(info) else RELEVE_RECUL - 1
         debut = max(_en_date(info.get("depuis")) or _jour(CLICS_DEPUIS), hier - timedelta(days=recul))
@@ -1542,7 +1754,11 @@ async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
     Revue CLICS du 09/10 : 1. une erreur propre à UN lien (400, 403, délai dépassé…) ne coupe plus le direct des autres : le lien
     est noté `echec_direct` et sauté ECHEC_REESSAI secondes (avant : jamais lu, il revenait en tête à chaque passage et arrêtait
     tout) ; arrêt seulement sur une erreur globale ou deux échecs de suite de deux liens différents ; 2. chaque relevé porte l'heure
-    de SA réponse (avant : l'heure du début du passage, jusqu'à 3 min d'avance)."""
+    de SA réponse (avant : l'heure du début du passage, jusqu'à 3 min d'avance). 09/10 (R3 bis : 4 pages /ytb en erreur persistante,
+    jamais lues donc toujours en tête, arrêtaient chaque passage) : les liens malades (en échec depuis moins de 24 h) passent après
+    les liens sains, et ni leur erreur, ni celle d'un lien jamais lu, ni un 4xx définitif ne comptent comme un signe de panne
+    (_Suite, _sain) ; DIRECT_MALADES essais leur
+    restent réservés en fin de passage (plus de liens sains que le budget : un lien en échec passager est quand même retenté)."""
     maximum = DIRECT_MAX if maximum is None else maximum
     maintenant = _deps["heure_paris"]()
     jour = maintenant.date()
@@ -1553,17 +1769,22 @@ async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
             auj.pop(lid, None)
     cibles = [lid for lid, info in d.get("liens", {}).items()
               if a_relever(info, jour_iso) and not _en_echec(info, "echec_direct", maintenant)]
+    malades = {lid for lid in cibles if _malade(d["liens"].get(lid), maintenant)}
     cibles.sort(key=lambda lid: ((auj.get(lid) or {}).get("jour") == jour_iso, str((auj.get(lid) or {}).get("t") or "")))
-    appels, suite = 0, []
+    sains, mal = [l for l in cibles if l not in malades], [l for l in cibles if l in malades]
+    n_mal = min(len(mal), max(DIRECT_MALADES, max(0, maximum) - len(sains)), max(0, maximum))
+    cibles = sains[:max(0, maximum) - n_mal] + mal[:n_mal]              # les malades en dernier, quelques essais réservés
+    appels, suite = 0, _Suite()
     jeton = _arret_429.set(True)
     try:
-        for lid in cibles[:max(0, maximum)]:
+        for lid in cibles:
             if appels and DIRECT_PAUSE > 0:
                 await asyncio.sleep(DIRECT_PAUSE)
             if _limite["restant"] <= DIRECT_RESERVE and _limite["reset"] > time.time():
                 journal.info("Clics du jour : %s requêtes GAML restantes dans la minute, la suite au prochain passage", _limite["restant"])
                 break
             info = d["liens"].get(lid) or {}
+            sain = _sain(d, lid, maintenant)                            # jugé AVANT l'essai
             try:
                 rep = await _requete("GET", "/analytics/countries", params={"link_id": lid, "range": "custom", "date_from": jour_iso,
                                                                              "date_to": jour_iso, "timezone": FUSEAU})
@@ -1579,14 +1800,14 @@ async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
                 if _erreur_globale(erreur):
                     break                                               # GAML en panne : on n'insiste pas
                 _echec(info, "echec_direct", erreur, _deps["heure_paris"](), jour_iso)
-                suite.append(lid)
-                if len(set(suite[-2:])) == 2:
-                    journal.warning("Clics du jour : deux liens en erreur de suite, la suite au prochain passage")
+                if suite.erreur(lid, erreur, sain):
+                    journal.warning("Clics du jour : liens en erreur de suite, la suite au prochain passage")
                     break
                 continue
             appels += 1
-            suite.clear()
+            suite.succes()
             info.pop("echec_direct", None)
+            info.pop("echec", None)                                     # 09/10 (R3 bis) : lu, donc plus « malade » pour le relevé
             auj[lid] = {"jour": jour_iso, "t": _horodatage(), "brut": None, "hors_robots": hors_robots, "payes": payes}
     finally:
         _arret_429.reset(jeton)

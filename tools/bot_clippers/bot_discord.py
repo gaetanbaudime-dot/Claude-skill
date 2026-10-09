@@ -5206,8 +5206,10 @@ _EXPULSES = {}                                                          # uid �
 
 async def notes_gaml_de(uid: str) -> tuple:
     """({id: lien de la liste GAML}, '') avec la note vivante de chaque lien du membre `uid`, ou ({}, raison) si GAML est illisible
-    ou incomplet. Lue AVANT tout geste par `!monteur` et `!sortie` (revue du 09/10). Revue CLICS du 09/10 : la liste /links ne
-    porte pas toujours la note ; le détail du lien est lu en secours (un lien introuvable, 404, est laissé de côté : effacé de GAML)."""
+    ou incomplet. Lue AVANT tout geste par `!monteur`, et par `!sortie` quand ses comptes créés partent sur Metricool (revue du 09/10).
+    Revue CLICS du 09/10 : la liste /links ne porte pas toujours la note ; le détail du lien est lu en secours. Un lien introuvable
+    (404 : effacé de GAML) est rendu `{"id", "introuvable": True}`, sans note : passer_liens_metricool le marque effacé, jamais libéré
+    (avant : laissé de côté, il passait pour « noté au prénom d'un autre » et était redonné mort au suivant)."""
     uid = str(uid)
     siens = [lid for lid, i in paie_clics._lire().get("liens", {}).items()
              if str(i.get("uid") or "") == uid and not i.get("supprime_gaml")]
@@ -5224,6 +5226,7 @@ async def notes_gaml_de(uid: str) -> tuple:
             det = await paie_clics.lien_detail(lid)
         except Exception as erreur:                                     # noqa: BLE001
             if "404" in str(erreur):
+                vivants[lid] = {"id": lid, "introuvable": True}
                 continue
             return {}, f"lecture GAML incomplète (lien {lid} : {type(erreur).__name__})"
         if not isinstance(det, dict) or "note" not in det:
@@ -5258,13 +5261,8 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     nom_par = getattr(par, "display_name", "le bot (automatique)")
     par_id = str(getattr(par, "id", "auto"))
     raison = raison.strip(" []").strip() or "non précisée"
-    # 0. Revue CLICS du 09/10 (`!sortie` sans pool) : ses liens suivront peut-être ses comptes créés chez le repreneur Metricool,
-    #    comme `!monteur` : les notes GAML de ses liens sont lues AVANT tout geste ; illisibles → rien n'est fait (relancer `!sortie`).
-    vivants_s = {}
-    if not pool and paie_clics.actif():
-        vivants_s, pb = await notes_gaml_de(str(membre.id))
-        if pb:
-            return {"annule": f"{pb} : rien n'a été fait, relance `!sortie` dans quelques minutes."}
+    # 09/10 (revue CLICS) : plus aucune lecture GAML avant les gestes. Avant, une panne GAML annulait toute la sortie (rôles et accès
+    # gardés) ; les notes ne sont plus lues qu'à l'étape des liens, quand elles servent, et jamais pour bloquer (voir plus bas).
     salon_p = salon_perso_de(membre.id) if expulser else None         # trouvé AVANT le retrait des accès (après, il est invisible)
     prevenu = True
     if expulser:                                                        # le message avant tout : après le kick, plus aucun canal
@@ -5351,7 +5349,13 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
             # ses liens les suivent chez le repreneur, exactement comme `!monteur` (« Rianah Metricool N (ex-Prénom) », hors
             # clipping, jamais redonnés) ; ses visites d'avant la sortie restent sur la liste de paie s'il était au clic (`dus`).
             # Avant : libérés, le clipper suivant de la créatrice était payé pour le trafic de ces comptes.
-            res_l = await paie_clics.passer_liens_metricool(uid_s, prenom_de(membre), REPRENEUR_METRICOOL, vivants_s, dus=True)
+            # Revue CLICS du 09/10 : les notes GAML de ses liens lues ici seulement ; GAML illisible → la sortie se fait quand même,
+            # ses liens partent chez le repreneur avec la note en attente (posée par la passe horaire, jamais redonnés entre-temps).
+            vivants_s, pb = await notes_gaml_de(uid_s)
+            if pb:
+                refus_s.append(f"{pb} : notes des liens à poser à la passe horaire")
+            res_l = await paie_clics.passer_liens_metricool(uid_s, prenom_de(membre), REPRENEUR_METRICOOL, vivants_s, dus=True,
+                                                            notes_lues=not pb)
             n_liens, repris_s = len(res_l["liberes"]), res_l["repris"]
             refus_s += res_l["refus"]
         else:
@@ -5364,9 +5368,12 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
                 if libres_s:
                     paie_clics._ecrire(d_l)
             n_liens = len(libres_s)
-            if libres_s and vivants_s:                                  # « Clipping libre (ex-Prénom) » : jamais à un homonyme
+            if libres_s:                                                # « Clipping libre (ex-Prénom) » : jamais à un homonyme
+                # revue CLICS du 09/10 : sans lire la liste GAML (une panne n'arrête plus rien) ; renommer_liberes relit la note de
+                # chaque lien dans GAML avant de la changer ; GAML illisible → renommées à la passe horaire
                 try:
-                    await paie_clics.renommer_liberes(list(vivants_s.values()), seulement=set(libres_s))
+                    await paie_clics.renommer_liberes([{"id": lid, "note": str(d_l["liens"][lid].get("note") or "")} for lid in libres_s],
+                                                      seulement=set(libres_s))
                 except Exception as erreur:                             # noqa: BLE001
                     refus_s.append(f"notes des liens libérés ({type(erreur).__name__}) : renommées au prochain passage")
     # 4. Registre : la fiche part dans sortis.json (trace), plus dans equipes.json (digest, primes).

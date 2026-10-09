@@ -1015,9 +1015,14 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
                 modeles = [l for l in de_la_creatrice if "/fb" not in str(l.get("url", "")) and "/ytb" not in str(l.get("url", ""))]   # on part de son lien principal
             # 03/10 : un lien « Clipping Prénom » de la créatrice existe déjà (relance après une activation ratée : 22 clones
             # « Clipping Andry » le 01/10, GAML plein) → on le reprend, jamais un clone de plus.
-            # 09/10 : jamais le lien libéré d'un homonyme parti (note encore « Clipping Julien ») : ses visites sont celles de l'ancien
+            # 09/10 : jamais le lien libéré d'un homonyme parti (note encore « Clipping Julien ») : ses visites sont celles de l'ancien.
+            # Revue CLICS du 09/10 : jamais non plus un lien passé chez le repreneur Metricool (`hors_clipping`), même quand GAML a refusé
+            # sa nouvelle note (`note_attendue` : il dit encore « Clipping <l'ancien> ») — la garde d'associer_auto ; avant, le nouvel
+            # homonyme le recevait et la fiche (hors clipping, note attendue, visites dues à l'ancien) était écrasée
             existants = [l for l in de_la_creatrice if _norm(paie_clics._prenom_note(l.get("note"))) == _norm(prenom) and l.get("enabled", True)
                          and str((d["liens"].get(l.get("id")) or {}).get("uid") or "") in ("", str(membre.id))
+                         and not (d["liens"].get(l.get("id")) or {}).get("hors_clipping")
+                         and not (d["liens"].get(l.get("id")) or {}).get("note_attendue")
                          and not paie_clics.note_du_sortant(d["liens"].get(l.get("id")) or {}, l.get("note"))]
             existants.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)
             nouveau = None
@@ -1034,9 +1039,12 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
                 if ligne_mym:
                     resultat.append(ligne_mym)
             if nouveau:
+                dus_av = (d["liens"].get(nouveau["id"]) or {}).get("dus")
                 d["liens"][nouveau["id"]] = {"uid": str(membre.id), "note": f"Clipping {prenom}", "url": nouveau["url"],
                                              "creatrice": creatrice.split()[0], "depuis": _deps["heure_paris"]().date().isoformat(),
                                              "par": "onboarding"}
+                if dus_av:                                               # revue CLICS du 09/10 : les visites dues à un sortant restent à lui
+                    d["liens"][nouveau["id"]]["dus"] = dus_av
                 paie_clics._ecrire(d)
                 lien, lid = nouveau["url"], nouveau["id"]
         resultat.append("lien GAML " + ("✅" if lien else "absent"))
