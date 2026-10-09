@@ -1514,8 +1514,21 @@ async def ecrire_dashboard(comptes: list, historique: dict, clics_de, jour: str,
     les clics et le contrôle, et réécrit l'onglet en place (plus vidé d'abord) ; les arguments restent pour les appelants. La mise
     en forme des onglets créatrices et l'onglet Build capacity ne suivent plus chaque réécriture (un Dashboard réécrit toutes les
     15 min déplacerait des lignes pendant que Gaëtan édite et pourrait payer Apify) : `forme=True`, passé par le seul passage
-    complet, les lance ensuite (mettre_en_forme_classeur)."""
+    complet, les lance ensuite (mettre_en_forme_classeur). 09/10 (revue DASH) : appelé pendant le passage complet (verrou tenu),
+    la réécriture de l'onglet attend la fin du passage (dashboard.ecrire_apres_passage) et la fonction renvoie 0."""
     import dashboard                                                    # import tardif : dashboard lit l'état de ce module
+    # le verrou des passages : un asyncio.Lock, ou (boucle, verrou) selon la version de executer
+    verrou = _verrou[-1] if isinstance(_verrou, tuple) and _verrou else _verrou
+    if forme and callable(getattr(verrou, "locked", None)) and verrou.locked() \
+            and callable(getattr(dashboard, "ecrire_apres_passage", None)):
+        # 09/10 (revue DASH) : appelé PENDANT le passage complet (son verrou est tenu), le Dashboard relirait etats_comptes.json avant
+        # que le passage ne l'enregistre (historique, non lus, dernier passage de la veille) : la réécriture forcée part à la fin du
+        # passage, verrou rendu ; la mise en forme des onglets, elle, ne dépend pas de l'état et passe tout de suite
+        try:
+            await mettre_en_forme_classeur(comptes)
+        finally:
+            dashboard.ecrire_apres_passage(verrou)
+        return 0
     try:
         bilan = await dashboard.ecrire(force=True)
     finally:
