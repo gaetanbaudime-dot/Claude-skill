@@ -57,6 +57,7 @@ import drive_agence                       # script Apps Script de l'agence : dé
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 import telegram                           # alerte Telegram de l'agence : acceptation, sortie, copie du digest (29/09, ex-inputs_clippers)
 import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
+import metricool_comptes                  # 09/10 (dashboard) : Reels et vues des comptes Instagram branchés à Metricool → séries
 import visites_telegram                   # les visites de la veille dans le groupe Telegram de chaque créatrice (03/10)
 import cadence_reels                      # cadence de publication et vues Instagram par clipper, via Apify (05/10)
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
@@ -7536,6 +7537,10 @@ async def on_ready():
                                       "envoyer_telegram": telegram.envoyer_telegram, "heure_paris": heure_paris, "normaliser": normaliser,
                                       "google_api": google_api, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
         client.loop.create_task(rapport_quotidien.boucle(client))               # 29/09 : la veille en 8 lignes, 13 h Paris
+        metricool_comptes.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "metricool_comptes.json",
+                                      "FICHIER_SERIES": DONNEES / "series_comptes.json", "heure_paris": heure_paris,
+                                      "canal_admin": canal_admin, "cle": etats_comptes._cle, "lire_comptes": onboarding.lire_comptes})
+        client.loop.create_task(metricool_comptes.boucle(client))               # 09/10 (dashboard) : Metricool (J-1) → séries, 2 fois par jour
         visites_telegram.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "visites_telegram.json",
                                      "heure_paris": heure_paris, "normaliser": normaliser, "canal_admin": canal_admin,
                                      "creatrices": lambda: list(onboarding._colonnes_par_onglet.keys()),
