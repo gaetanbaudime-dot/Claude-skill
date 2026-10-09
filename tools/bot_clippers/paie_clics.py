@@ -4,7 +4,9 @@ Le clipper est payé TAUX_CLIC dollars (0,05 $ par défaut) par visite réelle s
 visiteurs francophones (PAYS_PAYES : France, Belgique, Suisse, Canada, DOM-TOM… par défaut), robots exclus par GAML. Ce module :
 
   - lit chaque jour les relevés de tous les liens attribués (deux appels par lien et par jour :
-    pays hors robots, total avec robots) et les range dans clics.json sur le volume ;
+    pays hors robots, total avec robots) et les range dans clics.json sur le volume ; 09/10 (dashboard, contrat C2) : de TOUS
+    les liens GAML actifs (pages de créatrice, /ytb, /fb, libérés, hors clipping), la veille relue vers 6 h puis figée, et le
+    jour en cours relu toutes les 15 minutes (`aujourdhui`) ; lecteurs : `clics_lien`, `clics_aujourdhui` (jamais un faux 0) ;
   - envoie chaque matin, dans le salon perso de chaque clipper, sa ligne de la veille ;
   - répond à `!mesclics` (le clipper ne voit que lui) et `!wallet` (son adresse de paiement) ;
   - donne aux managers `!clics`, `!liens`, `!lien @clipper …` (attribuer ou cloner un lien) et
@@ -16,6 +18,7 @@ Sans GAML_API_KEY, tout est inactif et les commandes le disent.
 """
 
 import asyncio
+import contextvars
 import csv
 import io
 import copy
@@ -71,6 +74,17 @@ ADRESSES_ONGLET = os.environ.get("ADRESSES_ONGLET", "Adresses USDC").strip()
 ADRESSES_CLASSEUR_ID = os.environ.get("ADRESSES_CLASSEUR_ID", "").strip()        # pour éviter la recherche par nom
 API = "https://getallmylinks.com/api/v1"
 FUSEAU = "Europe/Paris"
+# 09/10 (dashboard : « tout voir, le plus souvent possible, pas de manquements ») : TOUS les liens GAML actifs sont relevés chaque
+# jour (pages de créatrice, /ytb, /fb, libérés, hors clipping, en plus des liens payés), et le jour en cours est relu toutes les
+# 15 minutes (`aujourdhui`). Une erreur GAML n'écrit jamais 0 : le jour reste absent, le lecteur affiche « non lu ».
+RELEVE_RECUL = int(os.environ.get("CLICS_RELEVE_RECUL", "15") or 15)     # jours relus en arrière pour un lien sans clipper
+RELEVE_ANCIENS_MAX = int(os.environ.get("CLICS_RELEVE_ANCIENS_MAX", "40") or 40)   # appels de rattrapage (jours anciens) par passage
+RELEVE_PAUSE = float(os.environ.get("CLICS_RELEVE_PAUSE", "2") or 2)      # secondes entre deux relevés (2 appels) : ≈ 45 appels/min
+RELECTURE_HEURE = int(os.environ.get("CLICS_RELECTURE_HEURE", "6") or 6)  # J-1 lu avant cette heure (Paris) : relu après, puis figé
+DIRECT_MAX = int(os.environ.get("CLICS_DIRECT_MAX", "45") or 45)          # appels « aujourd'hui » au plus par passage de 15 min
+DIRECT_PAUSE = float(os.environ.get("CLICS_DIRECT_PAUSE", "4") or 4)      # secondes entre deux appels « aujourd'hui »
+DIRECT_RESERVE = int(os.environ.get("CLICS_DIRECT_RESERVE", "15") or 15)  # requêtes de la minute laissées à l'app : on s'arrête avant
+DIRECT_SI_RATTRAPAGE = int(os.environ.get("CLICS_DIRECT_SI_RATTRAPAGE", "60") or 60)   # passage chargé (minuit, 6 h) : pas de direct
 
 _deps = {}
 _client = None
@@ -80,6 +94,13 @@ _verrou = asyncio.Lock()
 # toute décision sur un lien libéré (désactiver, rattraper, reprendre) relit clics.json et l'écrit sous ce verrou.
 verrou_liens = asyncio.Lock()
 _limite = {"restant": 60, "reset": 0.0}
+# 09/10 (dashboard) : la boucle « aujourd'hui » s'arrête sur un 429 au lieu d'attendre (la minute appartient alors à l'app). Une
+# variable de contexte : seule la tâche qui la pose est concernée, jamais une commande ou l'onboarding qui appellent GAML en même temps.
+_arret_429 = contextvars.ContextVar("clics_arret_429", default=False)
+
+
+class LimiteGAML(RuntimeError):
+    """09/10 (dashboard) : 429 de GAML dans la boucle « aujourd'hui » (limite de 60 requêtes/min partagée avec l'app)."""
 
 
 def actif() -> bool:
@@ -171,6 +192,8 @@ async def _requete(methode: str, chemin: str, params=None, corps=None):
                     _limite["reset"] = float(r.headers.get("X-RateLimit-Reset", 0))
                 except ValueError:
                     pass
+                if r.status == 429 and _arret_429.get():
+                    raise LimiteGAML(f"GAML 429 sur {chemin} : limite de la minute atteinte")
                 if r.status == 429 or r.status >= 500:
                     await asyncio.sleep(5 * (essai + 1) if r.status >= 500 else max(2.0, _limite["reset"] - time.time() + 1))
                     continue
@@ -208,17 +231,43 @@ async def liens_gaml() -> list:
     return tous
 
 
+def _liste_reponse(r, chemin: str) -> list:
+    """09/10 (dashboard) : les lignes d'une réponse d'analytique GAML : une liste, ou l'enveloppe `{member}` / `{hydra:member}` /
+    `{data}` (celle du MCP). Toute autre forme lève une erreur : avant, une enveloppe inconnue donnait une liste vide, donc un
+    relevé à 0 écrit pour toujours (« jamais un faux 0 »)."""
+    if isinstance(r, list):
+        return r
+    if isinstance(r, dict):
+        for cle in ("member", "hydra:member", "data"):
+            if isinstance(r.get(cle), list):
+                return r[cle]
+    raise RuntimeError(f"GAML : réponse inattendue sur {chemin} ({type(r).__name__} {str(r)[:80]})")
+
+
+def _nombre(x: dict, *cles) -> int:
+    """La première clé présente parmi `cles` (« count », « totalVisits » ou « total_visits » selon l'API ou le MCP), en entier."""
+    for cle in cles:
+        if x.get(cle) is not None:
+            return int(x.get(cle) or 0)
+    return 0
+
+
+def _comptes_pays(pays: list) -> tuple:
+    """(hors robots, payés) d'une réponse `/analytics/countries` (robots déjà exclus par GAML)."""
+    hors_robots = sum(_nombre(x, "count", "visits", "total_visits", "totalVisits") for x in pays)
+    payes = sum(_nombre(x, "count", "visits", "total_visits", "totalVisits") for x in pays if str(x.get("country", "")) in PAYS_PAYES)
+    return hors_robots, payes
+
+
 async def releve(link_id: str, jour: date) -> dict:
-    """Relevé d'un lien pour un jour (heure de Paris) : brut (robots inclus), hors robots, payés."""
+    """Relevé d'un lien pour un jour (heure de Paris) : brut (robots inclus), hors robots, payés. 09/10 (dashboard) : accepte
+    l'enveloppe `{data}` et la clé `total_visits` (forme du MCP), et lève une erreur sur une réponse illisible (jamais un 0)."""
     base = {"link_id": link_id, "range": "custom", "date_from": jour.isoformat(), "date_to": jour.isoformat(),
             "timezone": FUSEAU}
-    pays = await _requete("GET", "/analytics/countries", params=base)
-    pays = pays if isinstance(pays, list) else pays.get("member", [])
-    hors_robots = sum(int(x.get("count", 0)) for x in pays)
-    payes = sum(int(x.get("count", 0)) for x in pays if str(x.get("country", "")) in PAYS_PAYES)
-    avec = await _requete("GET", "/analytics/visitors", params={**base, "hide_bots": "false"})
-    avec = avec if isinstance(avec, list) else avec.get("member", [])
-    brut = sum(int(x.get("totalVisits", 0)) for x in avec)
+    pays = _liste_reponse(await _requete("GET", "/analytics/countries", params=base), "/analytics/countries")
+    hors_robots, payes = _comptes_pays(pays)
+    avec = _liste_reponse(await _requete("GET", "/analytics/visitors", params={**base, "hide_bots": "false"}), "/analytics/visitors")
+    brut = sum(_nombre(x, "totalVisits", "total_visits", "visits", "count") for x in avec)
     return {"brut": brut, "hors_robots": hors_robots, "payes": payes}
 
 
@@ -227,16 +276,14 @@ async def payes_periode(link_id: str, debut: date, fin: date) -> int:
     classeur, bloc par bloc)."""
     pays = await _requete("GET", "/analytics/countries", params={"link_id": link_id, "range": "custom", "date_from": debut.isoformat(),
                                                                   "date_to": fin.isoformat(), "timezone": FUSEAU})
-    pays = pays if isinstance(pays, list) else (pays.get("member") or pays.get("data") or [])
-    return sum(int(x.get("count", 0)) for x in pays if str(x.get("country", "")) in PAYS_PAYES)
+    return _comptes_pays(_liste_reponse(pays, "/analytics/countries"))[1]
 
 
 async def visiteurs_periode(link_id: str, debut: date, fin: date) -> int:
     """Visites hors robots (tous pays) d'un lien sur une période, en un appel (08/10 : le ménage des liens libérés)."""
     pays = await _requete("GET", "/analytics/countries", params={"link_id": link_id, "range": "custom", "date_from": debut.isoformat(),
                                                                   "date_to": fin.isoformat(), "timezone": FUSEAU})
-    pays = pays if isinstance(pays, list) else (pays.get("member") or pays.get("data") or [])
-    return sum(int(x.get("count", 0)) for x in pays)
+    return _comptes_pays(_liste_reponse(pays, "/analytics/countries"))[0]
 
 
 async def cloner_lien(base_id: str, nom: str, note: str) -> dict:
@@ -418,6 +465,72 @@ def liens_de(d: dict, uid: str) -> list:
     return [lid for lid, info in d["liens"].items() if str(info.get("uid")) == str(uid)]
 
 
+def releve_seul(info: dict) -> bool:
+    """09/10 (dashboard) : fiche créée seulement pour relever le lien (`releve`) : page de créatrice, /ytb, /fb, lien jamais
+    attribué. Personne ne l'a jamais eu : pour l'attribution (associer_auto, orphelins, sortie par la note), c'est comme si le bot
+    ne le connaissait pas."""
+    info = info or {}
+    return (bool(info.get("releve")) and info.get("par") == "releve"
+            and not (str(info.get("uid") or "") or info.get("suivi") or info.get("libere") or info.get("hors_clipping")
+                     or info.get("ancien") or info.get("ancien_uid")))
+
+
+def a_relever(info: dict, jour_iso: str = "") -> bool:
+    """09/10 (dashboard, contrat C2) : le lien est-il relevé chaque jour ? Tout lien actif connu du bot : attribué, suivi par le
+    rapport, libéré, hors clipping (Metricool), ou marqué `releve` (pages de créatrice, /ytb, /fb, liens jamais attribués). Jamais
+    un lien effacé dans GAML, ni un lien désactivé sans clipper (aucune visite possible), ni un lien introuvable aujourd'hui (404 :
+    retenté demain, rien d'écrit)."""
+    info = info or {}
+    if info.get("supprime_gaml") or (jour_iso and str(info.get("introuvable") or "") == jour_iso):
+        return False
+    if str(info.get("uid") or "") or info.get("suivi"):
+        return True                                                     # inchangé : les liens payés ou suivis
+    if info.get("desactive"):
+        return False
+    return bool(info.get("libere") or info.get("hors_clipping") or info.get("releve") or info.get("ancien"))
+
+
+def marquer_releves(d: dict, liens: list) -> int:
+    """09/10 (dashboard, contrat C2) : chaque lien GAML actif de la liste est relevé. Un lien inconnu du bot reçoit une fiche
+    `{"uid": "", "releve": true, "par": "releve", …}` (créatrice, nom, slug, URL et note quand la liste les porte) ; une fiche
+    existante qui ne serait plus relevée (ancien lien retiré à la main) reçoit `releve`. Une fiche `releve` seule suit la liste
+    (note, nom, URL, désactivation dans GAML) : personne d'autre ne l'écrit. Renvoie le nombre de fiches créées ou changées.
+    L'appelant écrit `d`."""
+    n = 0
+    fiches = d.setdefault("liens", {})
+    for l in liens or []:
+        lid = l.get("id")
+        if not lid:
+            continue
+        nom = str(l.get("name") or "")
+        info = fiches.get(lid)
+        if info is None:
+            if l.get("enabled") is False:
+                continue                                                # un lien éteint ne fait aucune visite
+            info = {"uid": "", "releve": True, "par": "releve", "creatrice": nom.split()[0] if nom.split() else ""}
+            for cle_l, cle_f in (("name", "nom"), ("slug", "slug"), ("url", "url"), ("note", "note")):
+                if l.get(cle_l):
+                    info[cle_f] = l.get(cle_l)
+            fiches[lid] = info
+            n += 1
+            continue
+        if releve_seul(info):
+            avant = dict(info)
+            for cle_l, cle_f in (("name", "nom"), ("slug", "slug"), ("url", "url"), ("note", "note")):
+                if l.get(cle_l) is not None and (l.get(cle_l) or cle_f in info):
+                    info[cle_f] = l.get(cle_l)
+            if l.get("enabled") is False:
+                info["desactive"] = info.get("desactive") or "gaml"
+            elif info.get("desactive") == "gaml":
+                info.pop("desactive", None)
+            n += info != avant
+            continue
+        if l.get("enabled") is not False and not a_relever(info) and not (info.get("supprime_gaml") or info.get("desactive")):
+            info["releve"] = True
+            n += 1
+    return n
+
+
 def _n_note(t) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", str(t or "").lower()) if unicodedata.category(c) != "Mn").strip()
 
@@ -436,7 +549,10 @@ def liberer_liens(d: dict, uid: str, prenom: str = "", uids_connus=None) -> list
             continue
         par_uid = bool(str(uid)) and uid_l == str(uid)
         inconnu = not uid_l or (connus is not None and uid_l not in connus)
-        par_note = bool(cible) and inconnu and _n_note(info.get("note")) == cible
+        # 09/10 (dashboard) : une fiche seulement relevée (jamais attribuée) n'est pas libérée par la note : avant le relevé de tous
+        # les liens, le bot ne la connaissait pas (un « Clipping Eddy » laissé sans clipper, faute de candidat unique, est peut-être
+        # celui de l'autre Eddy)
+        par_note = bool(cible) and inconnu and _n_note(info.get("note")) == cible and not releve_seul(info)
         if par_uid or par_note:
             info.update({"uid": "", "libere": _aujourdhui().isoformat(), "ancien": prenom or info.get("note", "")})
             libres.append(lid)
@@ -632,7 +748,8 @@ async def rattraper_orphelins(d: dict, liens: list, seuil: int = None, jours: in
             candidats.append((lid, info.get("creatrice") or "", _prenom_note(info.get("note")) or info.get("note") or "?", info))
     for l in liens or []:                                               # 2. un lien « Clipping Prénom » inconnu du bot
         lid, prenom = l.get("id"), _prenom_note(l.get("note"))
-        if (not lid or lid in d.get("liens", {}) or not prenom or l.get("enabled") is False
+        connu = lid in d.get("liens", {}) and not releve_seul(d["liens"][lid])   # 09/10 : une fiche de relevé seule = inconnu
+        if (not lid or connu or not prenom or l.get("enabled") is False
                 or _n_note(prenom) in connus or _n_note(prenom) in CLICS_EXCLURE):
             continue
         creatrice = str(l.get("name") or "").split()[0] if str(l.get("name") or "").split() else ""
@@ -653,7 +770,7 @@ async def rattraper_orphelins(d: dict, liens: list, seuil: int = None, jours: in
             frais = _lire()
             liens_f = frais.setdefault("liens", {})
             if info is None:
-                if lid in liens_f:
+                if lid in liens_f and not releve_seul(liens_f[lid]):
                     continue                                            # rattaché entre-temps (onboarding, associer_auto)
                 l = c[4]
                 liens_f[lid] = {"uid": "", "note": l.get("note"), "url": l.get("url") or "", "creatrice": creatrice,
@@ -732,6 +849,66 @@ def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
                 tot["brut"] += v.get("brut", 0); tot["hors_robots"] += v.get("hors_robots", 0)
                 tot["payes"] += v.get("payes", 0); tot["jours"] += 1
     return tot
+
+
+def _en_date(x):
+    """Une date depuis `date` ou « AAAA-MM-JJ » (ou ISO plus long) ; None si illisible."""
+    if isinstance(x, datetime):
+        return x.date()
+    if isinstance(x, date):
+        return x
+    try:
+        return date.fromisoformat(str(x or "")[:10])
+    except ValueError:
+        return None
+
+
+def jour_paris() -> date:
+    """La date du jour à Paris : `heure_paris` du bot si le module est branché, sinon l'horloge (lecteurs hors boucle, tests)."""
+    try:
+        return _deps["heure_paris"]().date()
+    except Exception:                                                   # noqa: BLE001
+        try:
+            from zoneinfo import ZoneInfo
+            return datetime.now(ZoneInfo(FUSEAU)).date()
+        except Exception:                                               # noqa: BLE001
+            return (datetime.now(timezone.utc) + timedelta(hours=2)).date()
+
+
+def clics_lien(d: dict, lid: str, debut, fin, depuis: bool = True):
+    """Contrat C2 (09/10, dashboard) : visites payables du lien `lid` du `debut` au `fin` inclus, lues dans `jours` — aucun appel
+    GAML. None si un jour de la période manque (pas encore relevé, erreur GAML, jour en cours) : jamais un faux 0. Un lien repris
+    ne compte qu'à partir de sa reprise (`depuis`, comme la paie : les visites d'avant sont celles de l'ancien clipper) ; une période
+    tout entière avant `depuis` → None (rien à mesurer pour le détenteur actuel, pas un zéro). `depuis=False` : le lien entier.
+    Un vieux relevé marqué `erreur` (404 enregistré à 0 avant le 09/10) compte comme manquant."""
+    debut, fin = _en_date(debut), _en_date(fin)
+    if debut is None or fin is None or fin < debut:
+        return None
+    if depuis:
+        dep = _en_date(((d or {}).get("liens", {}).get(str(lid)) or {}).get("depuis"))
+        if dep is not None and dep > debut:
+            debut = dep
+        if debut > fin:
+            return None
+    jours = ((d or {}).get("jours") or {}).get(str(lid)) or {}
+    total, j = 0, debut
+    while j <= fin:
+        v = jours.get(j.isoformat())
+        if not isinstance(v, dict) or v.get("erreur") or v.get("payes") is None:
+            return None
+        total += int(v.get("payes") or 0)
+        j += timedelta(days=1)
+    return total
+
+
+def clics_aujourdhui(d: dict, lid: str, jour=None) -> tuple:
+    """Contrat C2 (09/10, dashboard) : (visites payables du jour en cours à Paris, heure ISO du relevé) d'après `aujourdhui`, rafraîchi
+    toutes les 15 minutes par la boucle. (None, '') si le lien n'a pas été relu aujourd'hui (jamais un faux 0)."""
+    e = ((d or {}).get("aujourdhui") or {}).get(str(lid)) or {}
+    j = _en_date(jour) if jour is not None else jour_paris()
+    if not e or str(e.get("jour") or "") != (j.isoformat() if j else "") or e.get("payes") is None:
+        return None, ""
+    return int(e["payes"]), str(e.get("t") or "")
 
 
 def texte_bilan_fixe(d: dict, jours: int = BILAN_FIXE_JOURS) -> list:
@@ -833,6 +1010,53 @@ def ligne_matin(d: dict, uid: str) -> str:
             + ("" if not au_clic or str(uid) in d["wallets"] else "\n⚠️ Adresse de paiement manquante : colle-la dans ton app (onglet Versements) ou `!wallet 0x…`"))
 
 
+def liberer_sortant(d: dict, uid: str, prenom: str = "") -> list:
+    """09/10 (dashboard : « pas de liens pas assignés ») : `!sortie` sans pool libère aussi les liens du sortant — par son uid
+    seulement (jamais par la note : un homonyme garde les siens). Avant, le lien restait attribué à un membre parti de l'équipe :
+    lien sans compte, jamais redonné ni ménagé. Les visites d'AVANT la sortie restent à lui (le MP de sortie promet « ce qui t'est
+    dû est réglé au prochain décompte ») : chaque lien garde `dus` = [{uid, depuis, avant}], que la liste de paie compte (jours
+    `depuis` ≤ j < `avant`, le jour de la sortie exclu : il revient au suivant si le lien est repris le jour même). À appeler AVANT
+    le retrait du registre (régime et plancher du clic lus sur sa fiche) ; un sortant au fixe n'a rien de dû au clic. Renvoie les
+    identifiants libérés. L'appelant écrit `d`."""
+    uid = str(uid or "")
+    if not uid:
+        return []
+    au_clic = regime(uid) == "clic"
+    plancher = debut_clic(uid, d) if au_clic else ""
+    jour = _aujourdhui().isoformat()
+    libres = liberer_liens(d, uid, "")
+    for lid in libres:
+        info = d["liens"][lid]
+        info["ancien_uid"] = uid
+        if prenom:
+            info["ancien"] = prenom
+        if au_clic:
+            dep = max(str(info.get("depuis") or CLICS_DEPUIS)[:10], str(plancher or "")[:10])
+            if dep < jour:
+                info.setdefault("dus", []).append({"uid": uid, "depuis": dep, "avant": jour})
+    return libres
+
+
+def dus_sortie(d: dict, debut: date, fin: date) -> dict:
+    """{uid: {"payes", "hors_robots"}} : les visites dues aux sortants sur [debut, fin] (`dus` posés par liberer_sortant)."""
+    out = {}
+    for lid, info in (d.get("liens") or {}).items():
+        for e in info.get("dus") or []:
+            u = str(e.get("uid") or "")
+            de, av = _en_date(e.get("depuis")), _en_date(e.get("avant"))
+            if not u or de is None or av is None:
+                continue
+            a, b = max(debut, de), min(fin, av - timedelta(days=1))
+            if a > b:
+                continue
+            tot = out.setdefault(u, {"payes": 0, "hors_robots": 0})
+            for j, v in (d.get("jours") or {}).get(lid, {}).items():
+                if a.isoformat() <= j <= b.isoformat() and isinstance(v, dict):
+                    tot["payes"] += int(v.get("payes") or 0)
+                    tot["hors_robots"] += int(v.get("hors_robots") or 0)
+    return out
+
+
 def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple:
     """Lignes Discord + CSV de la paie : un clipper par ligne, visites payées, montant, adresse."""
     par_uid = {}
@@ -840,12 +1064,19 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple
         uid = str(info.get("uid") or "")
         if uid:
             par_uid.setdefault(uid, []).append(lid)
+    dus = dus_sortie(d, debut, fin)                                     # 09/10 : visites d'avant un `!sortie` manuel
     lignes, rangs, total, sans, fixes = [], [], 0.0, 0, []
-    for uid, lids in par_uid.items():
-        if regime(uid) != "clic":
+    for uid in list(par_uid) + [u for u in dus if u not in par_uid]:
+        lids = par_uid.get(uid, [])
+        du = dus.get(uid, {"payes": 0, "hors_robots": 0})
+        if lids and regime(uid) != "clic":
             fixes.append((nom_de(uid), somme(d, lids, debut, fin)["payes"]))
-            continue
-        s = somme(d, lids, _debut_paie(uid, debut, d), fin)           # 08/10 : passé au clic ce jour-là, pas avant
+            if not du["payes"]:
+                continue
+            s = {"payes": 0, "hors_robots": 0}
+        else:
+            s = somme(d, lids, _debut_paie(uid, debut, d), fin) if lids else {"payes": 0, "hors_robots": 0}   # 08/10 : passé au clic ce jour-là
+        s = {"payes": s["payes"] + du["payes"], "hors_robots": s["hors_robots"] + du["hors_robots"]}
         if s["payes"] == 0:
             continue
         montant = round(s["payes"] * TAUX_CLIC, 2); total += montant
@@ -934,42 +1165,174 @@ async def associer_auto(d: dict, liens: list) -> list:
             journal.info("Lien GAML %s (%s) : %s candidats, non attribué", l.get("note"), creatrice, len(candidats))
             continue
         uid = surs[0][0]
-        connu = lid in d["liens"]                                       # 08/10 (revue) : libéré, repris, revenu au clipping
+        # 08/10 (revue) : libéré, repris, revenu au clipping → ses visites partent d'aujourd'hui. 09/10 (dashboard) : une fiche
+        # seulement relevée n'a jamais eu de clipper (lien neuf « Clipping Prénom ») : tout son historique est à lui
+        connu = lid in d["liens"] and not releve_seul(d["liens"][lid])
+        dus_av = (d["liens"].get(lid) or {}).get("dus")
         d["liens"][lid] = {"uid": uid, "note": l.get("note"), "url": l.get("url"), "creatrice": creatrice,
                            "depuis": _aujourdhui().isoformat() if connu else max(CLICS_DEPUIS, str(l.get("createdAt", ""))[:10] or CLICS_DEPUIS),
                            "par": "auto"}
+        if dus_av:
+            d["liens"][lid]["dus"] = dus_av                             # 09/10 : les visites dues à un sortant restent à lui
         lignes.append(f"🔗 {l.get('note')} ({creatrice}) → <@{uid}>")
         journal.info("Lien GAML %s (%s) → membre %s", l.get("note"), creatrice, uid)
     return lignes
 
 
 # ------------------------------------------------------------------ relevés et ligne du matin
+def _manque(jours: dict, j: date) -> bool:
+    """Le jour `j` est-il à (re)lire ? Absent, ou un vieux 404 enregistré à 0 avant le 09/10 (`erreur`)."""
+    v = (jours or {}).get(j.isoformat())
+    return not isinstance(v, dict) or bool(v.get("erreur"))
+
+
 async def rattraper(d: dict, limite_appels: int = 110) -> int:
-    """Complète les jours manquants (depuis `depuis`, jusqu'à hier) pour chaque lien attribué.
-    Borné par appel pour respecter la limite GAML ; la boucle repasse un quart d'heure plus tard."""
-    hier = _aujourdhui() - timedelta(days=1)
-    appels = 0
-    for lid, info in list(d["liens"].items()):
-        if not (info.get("uid") or info.get("suivi")) or info.get("supprime_gaml"):
-            continue                                                    # 05/10 : lien effacé dans GAML, plus de relevé
-        debut = max(_jour(info.get("depuis") or CLICS_DEPUIS), hier - timedelta(days=45))
-        jours = d["jours"].setdefault(lid, {})
-        j = hier
-        while j >= debut and appels < limite_appels:
-            if j.isoformat() not in jours:
-                try:
-                    jours[j.isoformat()] = await releve(lid, j)
-                except RuntimeError as erreur:
-                    journal.warning("Relevé %s %s : %s", info.get("note"), j, erreur)
-                    if "404" in str(erreur):
-                        jours[j.isoformat()] = {"brut": 0, "hors_robots": 0, "payes": 0, "erreur": "404"}
-                    else:
-                        return appels
-                appels += 2
-                _ecrire(d)
-            j -= timedelta(days=1)
+    """Complète les jours manquants (depuis `depuis`, jusqu'à hier) de chaque lien relevé (`a_relever`). Borné par appel pour
+    respecter la limite GAML ; la boucle repasse un quart d'heure plus tard.
+    09/10 (dashboard, contrat C2) : 1. tous les liens actifs, pas seulement les payés (pages de créatrice, /ytb, /fb, libérés, hors
+    clipping : RELEVE_RECUL jours en arrière pour eux) ; 2. la veille d'abord pour tous (paie, ligne du matin, rapport), les liens
+    payés en tête, puis les jours anciens (RELEVE_ANCIENS_MAX appels par passage : le rattrapage d'un lien neuf ne prend jamais
+    toute la minute de l'app) ; 3. une erreur GAML n'écrit JAMAIS de 0 : le jour reste absent (404 : lien introuvable, rien écrit,
+    retenté demain ; autre erreur : on s'arrête, la boucle repasse) ; 4. une veille lue avant RELECTURE_HEURE (Paris) est provisoire :
+    relue une fois après, puis figée (dernières visites de la soirée, robots reclassés par GAML)."""
+    maintenant = _deps["heure_paris"]()
+    aujourdhui = maintenant.date()
+    hier = aujourdhui - timedelta(days=1)
+    jour_iso = aujourdhui.isoformat()
+    provisoires = d.setdefault("provisoires", {})
+    appels, anciens = 0, 0
+
+    def retirer_provisoire(lid: str, js: str) -> None:
+        if js in provisoires.get(lid, []):
+            provisoires[lid].remove(js)
+        if lid in provisoires and not provisoires[lid]:
+            provisoires.pop(lid, None)
+
+    async def lire(lid: str, info: dict, j: date) -> str:
+        """'ok', '404' ou 'stop' (erreur GAML : fin du passage). Écrit seulement un relevé réussi."""
+        nonlocal appels
+        if appels and RELEVE_PAUSE > 0:
+            await asyncio.sleep(RELEVE_PAUSE)                           # minuit : ~55 liens d'un coup, la minute reste partagée avec l'app
+        try:
+            v = await releve(lid, j)
+        except RuntimeError as erreur:
+            journal.warning("Relevé %s %s : %s", info.get("note") or lid, j, erreur)
+            appels += 1
+            if "404" in str(erreur):
+                info["introuvable"] = jour_iso                          # rien d'écrit : ni 0 ni trou comblé, retenté demain
+                return "404"
+            return "stop"
+        appels += 2
+        d["jours"].setdefault(lid, {})[j.isoformat()] = v
+        if j == hier and maintenant.hour < RELECTURE_HEURE:
+            if j.isoformat() not in provisoires.setdefault(lid, []):
+                provisoires[lid].append(j.isoformat())
+        else:
+            retirer_provisoire(lid, j.isoformat())                      # relu après RELECTURE_HEURE : figé
+        _ecrire(d)
+        return "ok"
+
+    def payant(info):
+        return bool(str(info.get("uid") or "") or info.get("suivi"))
+    cibles = [(lid, info) for lid, info in list(d["liens"].items()) if a_relever(info, jour_iso)]
+    cibles.sort(key=lambda li: 0 if payant(li[1]) else 1)              # tri stable : l'ordre du fichier sinon
+    # 1. la veille de chaque lien
+    for lid, info in cibles:
         if appels >= limite_appels:
-            break
+            return appels
+        debut = _en_date(info.get("depuis")) or _jour(CLICS_DEPUIS)
+        if hier < debut or not _manque(d["jours"].get(lid, {}), hier) or str(info.get("introuvable") or "") == jour_iso:
+            continue
+        if await lire(lid, info, hier) == "stop":
+            return appels
+    # 2. la relecture des veilles provisoires, une fois passé RELECTURE_HEURE (ou un jour plus tard)
+    for lid in list(provisoires):
+        info = d["liens"].get(lid)
+        if info is None or not a_relever(info, jour_iso):
+            provisoires.pop(lid, None)
+            continue
+        for js in sorted(provisoires.get(lid, [])):
+            j = _en_date(js)
+            if j is None or j >= aujourdhui:
+                retirer_provisoire(lid, js)
+                continue
+            if j == hier and maintenant.hour < RELECTURE_HEURE:
+                continue
+            if appels >= limite_appels:
+                return appels
+            r = await lire(lid, info, j)
+            if r == "stop":
+                return appels
+            if r == "404":
+                break
+    # 3. les jours plus anciens
+    for lid, info in cibles:
+        recul = 45 if payant(info) else RELEVE_RECUL - 1
+        debut = max(_en_date(info.get("depuis")) or _jour(CLICS_DEPUIS), hier - timedelta(days=recul))
+        jours = d["jours"].get(lid, {})
+        j = hier - timedelta(days=1)
+        while j >= debut:
+            if str(info.get("introuvable") or "") == jour_iso:
+                break
+            if _manque(jours, j):
+                if appels >= limite_appels or anciens >= RELEVE_ANCIENS_MAX:
+                    return appels
+                avant = appels
+                r = await lire(lid, info, j)
+                anciens += appels - avant
+                if r == "stop":
+                    return appels
+                jours = d["jours"].get(lid, {})
+            j -= timedelta(days=1)
+    return appels
+
+
+async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
+    """Contrat C2 (09/10, dashboard : « tout voir, le plus souvent possible ») : `aujourdhui[lid]` = {jour (Paris), t (ISO UTC), brut,
+    hors_robots, payes} de la journée de Paris en cours, un appel `/analytics/countries` par lien relevé (`a_relever`). `brut` reste
+    None : le total robots compris demande un second appel par lien, hors budget toutes les 15 minutes (jamais un faux 0). Budget
+    GAML (60 requêtes/min partagées avec l'app) : `maximum` appels au plus (DIRECT_MAX), DIRECT_PAUSE secondes entre deux, arrêt
+    sur un 429 ou quand il reste moins de DIRECT_RESERVE requêtes dans la minute ; les liens jamais lus aujourd'hui passent d'abord,
+    puis les plus anciens (tous relus en deux passages au pire). Une erreur n'écrit rien : la valeur précédente reste, avec son
+    heure. Renvoie le nombre d'appels faits. Écrit `d`."""
+    maximum = DIRECT_MAX if maximum is None else maximum
+    maintenant = _deps["heure_paris"]()
+    jour = maintenant.date()
+    jour_iso, veille = jour.isoformat(), (jour - timedelta(days=1)).isoformat()
+    auj = d.setdefault("aujourdhui", {})
+    for lid in list(auj):                                               # ménage : un lien disparu, un relevé d'avant-hier
+        if lid not in d.get("liens", {}) or str((auj.get(lid) or {}).get("jour") or "") < veille:
+            auj.pop(lid, None)
+    cibles = [lid for lid, info in d.get("liens", {}).items() if a_relever(info, jour_iso)]
+    cibles.sort(key=lambda lid: ((auj.get(lid) or {}).get("jour") == jour_iso, str((auj.get(lid) or {}).get("t") or "")))
+    appels = 0
+    jeton = _arret_429.set(True)
+    try:
+        for lid in cibles[:max(0, maximum)]:
+            if appels and DIRECT_PAUSE > 0:
+                await asyncio.sleep(DIRECT_PAUSE)
+            if _limite["restant"] <= DIRECT_RESERVE and _limite["reset"] > time.time():
+                journal.info("Clics du jour : %s requêtes GAML restantes dans la minute, la suite au prochain passage", _limite["restant"])
+                break
+            try:
+                rep = await _requete("GET", "/analytics/countries", params={"link_id": lid, "range": "custom", "date_from": jour_iso,
+                                                                             "date_to": jour_iso, "timezone": FUSEAU})
+                hors_robots, payes = _comptes_pays(_liste_reponse(rep, "/analytics/countries"))
+            except LimiteGAML as erreur:
+                journal.info("Clics du jour : %s — arrêt du passage", erreur)
+                break
+            except RuntimeError as erreur:
+                appels += 1
+                journal.warning("Clics du jour %s : %s", lid, erreur)
+                if "404" in str(erreur):
+                    continue                                            # ce lien seulement ; le relevé quotidien le marquera
+                break                                                   # GAML en panne : on n'insiste pas
+            appels += 1
+            t = (maintenant.astimezone(timezone.utc) if maintenant.tzinfo else datetime.now(timezone.utc)).isoformat(timespec="seconds")
+            auj[lid] = {"jour": jour_iso, "t": t, "brut": None, "hors_robots": hors_robots, "payes": payes}
+    finally:
+        _arret_429.reset(jeton)
+    _ecrire(d)
     return appels
 
 
@@ -1087,6 +1450,8 @@ async def boucle(client, deps: dict):
                 lignes = await associer_auto(d, liens_tous)
                 if _deps.get("associer_suivi") and _deps["associer_suivi"](d, liens_tous):
                     _ecrire(d)
+                if marquer_releves(d, liens_tous):                     # 09/10 (dashboard) : tous les liens actifs relevés
+                    _ecrire(d)
                 await publier_regimes(d)                                 # 08/10 (revue) : l'app lit le régime du bot
                 notes = synchroniser_notes(d, liens_tous)              # 08/10 : une note changée à la main (Metricool) sort le lien
                 if notes:
@@ -1113,7 +1478,11 @@ async def boucle(client, deps: dict):
             maintenant = _deps["heure_paris"]()
             aujourdhui = maintenant.date().isoformat()
             hier_iso = (maintenant.date() - timedelta(days=1)).isoformat()
-            complets = all(hier_iso in d["jours"].get(lid, {}) for lid, i in d["liens"].items() if i.get("uid"))
+            # 09/10 (dashboard) : une erreur n'écrit plus de 0, donc un lien introuvable aujourd'hui (404) ou attribué aujourd'hui
+            # (rien à relever pour hier) ne bloque plus la ligne du matin, le classement ni l'annonce de paie
+            complets = all(not _manque(d["jours"].get(lid, {}), maintenant.date() - timedelta(days=1))
+                           for lid, i in d["liens"].items()
+                           if i.get("uid") and a_relever(i, aujourdhui) and str(i.get("depuis") or "")[:10] <= hier_iso)
             if maintenant.hour >= CLICS_HEURE and d.get("adresses_sync") != aujourdhui:   # 08/10 : les adresses de l'app, chaque matin
                 reprises = await synchroniser_adresses(d)
                 d["adresses_sync"] = aujourdhui
@@ -1181,9 +1550,19 @@ async def boucle(client, deps: dict):
                 _ecrire(d)
             if _deps.get("apres_releves"):
                 await _deps["apres_releves"](client, d)
-            journal.info("État clics : %s liens attribués, %s suivis, relevés d'hier %s, matin %s, rapport %s",
+            journal.info("État clics : %s liens attribués, %s suivis, %s relevés en tout, relevés d'hier %s, matin %s, rapport %s",
                          sum(1 for i in d["liens"].values() if i.get("uid")), sum(1 for i in d["liens"].values() if i.get("suivi")),
+                         sum(1 for i in d["liens"].values() if a_relever(i, aujourdhui)),
                          "complets" if complets else "en cours", d.get("matin", "-"), d.get("rapport_jonas", "-"))
+            # 09/10 (dashboard, contrat C2) : les clics de la journée en cours, toutes les 15 minutes, en fin de passage (jamais
+            # avant la paie ni le rapport) ; sautés quand le rattrapage vient de prendre la minute (minuit, relecture de 6 h)
+            if appels < DIRECT_SI_RATTRAPAGE:
+                try:
+                    n_direct = await rafraichir_aujourdhui(d)
+                    if n_direct:
+                        journal.info("Clics du jour : %s lien(s) relu(s)", n_direct)
+                except Exception as erreur:                         # noqa: BLE001
+                    journal.warning("Clics du jour : %s", erreur)
         except Exception as erreur:                                  # la boucle ne meurt jamais
             journal.warning("Boucle clics : %s", erreur)
         await asyncio.sleep(900)
@@ -1508,15 +1887,15 @@ async def commande_staff(message, texte: str) -> bool:
                    "→ **libre**")
             lignes.append(f"· {str(l.get('name', '')).split()[0]} · {l.get('note')} · <{l.get('url')}> {qui}"
                           + (f" · hier {_fmt(h['payes'])} payées" if info.get("uid") else ""))
-        lignes.append("-# `!lien @clipper <url ou slug>` pour attribuer · `!lien @clipper nouveau` pour cloner un lien de sa créatrice · "
-                      "`!lien @clipper retirer`")
+        lignes.append("-# `!lien @clipper <url ou slug>` pour attribuer (`forcer` si le lien est déjà à quelqu'un) · "
+                      "`!lien @clipper nouveau` pour cloner un lien de sa créatrice · `!lien @clipper retirer` (libéré pour le suivant)")
         await _deps["envoyer_long"](message, lignes)
         return True
 
     # !lien @clipper [url | slug | nouveau [Créatrice] | retirer]
     if not message.mentions:
-        await message.reply("Format : `!lien @clipper <url ou slug GAML>` · `!lien @clipper nouveau [Créatrice]` · "
-                            "`!lien @clipper retirer` · `!lien @clipper` pour voir.")
+        await message.reply("Format : `!lien @clipper <url ou slug GAML>` (`forcer` à la fin pour un lien déjà à quelqu'un) · "
+                            "`!lien @clipper nouveau [Créatrice]` · `!lien @clipper retirer` (le lien est libéré) · `!lien @clipper` pour voir.")
         return True
     membre = message.mentions[0]; uid = str(membre.id)
     reste = [m for m in mots[1:] if not m.startswith("<@")]
@@ -1526,10 +1905,18 @@ async def commande_staff(message, texte: str) -> bool:
                             + ("" if uid in d["wallets"] else " · ⚠️ pas d'adresse de paiement"))
         return True
     if reste[0].lower() == "retirer":
-        for lid in liens_de(d, uid):
-            d["liens"][lid]["uid"] = ""
+        # 09/10 (dashboard) : le lien retiré est LIBÉRÉ (`libere`, `ancien`) : avant, seul l'uid était vidé et `associer_auto` le
+        # rendait au même membre dans l'heure (note « Clipping Prénom » inchangée), ou le lien restait dans les limbes (ni libre, ni
+        # ménagé, ni relevé). Libéré, il n'est plus rendu par la note (renommé « Clipping libre (ex-…) » à la passe horaire), il
+        # repart au suivant de la créatrice, et le ménage le désactive s'il ne fait plus de visites. Ses visites passées restent
+        # dans le relevé ; elles ne sont plus payées à ce membre (un retrait corrige une attribution).
+        prenom_r = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
+        libres = liberer_liens(d, uid, "")
+        for lid in libres:
+            d["liens"][lid].update({"ancien": prenom_r, "ancien_uid": uid})
         _ecrire(d)
-        await message.reply(f"✅ Liens de {membre.display_name} détachés (l'historique reste).")
+        await message.reply(f"✅ {len(libres)} lien(s) de {membre.display_name} retiré(s) et libéré(s) pour le suivant de la créatrice "
+                            "(l'historique des visites reste)." if libres else f"{membre.display_name} n'a aucun lien attribué.")
         return True
     try:
         liens = await liens_gaml()
@@ -1563,6 +1950,7 @@ async def commande_staff(message, texte: str) -> bool:
                             f"quand la clé Infloww sera posée.")
         return True
     cible = reste[0].strip().rstrip("/")
+    forcer = any(m.lower() == "forcer" for m in reste[1:])               # 09/10 : `!lien @x <url> forcer`
     trouve = next((l for l in liens if l.get("id") == cible or str(l.get("url", "")).rstrip("/") == cible
                    or str(l.get("url", "")).rstrip("/").endswith("/" + cible.split("/")[-1])), None)
     if trouve is None:
@@ -1570,6 +1958,22 @@ async def commande_staff(message, texte: str) -> bool:
         return True
     info_av = d["liens"].get(trouve["id"]) or {}
     eteint = trouve.get("enabled") is False
+    # 09/10 (dashboard : « pas de liens pas assignés ») : un lien déjà à quelqu'un — un autre clipper, une ligne Metricool (hors
+    # clipping), un clipper suivi par le rapport sous un autre prénom — n'est plus réattribué en silence : refusé sans `forcer`. Avant,
+    # il changeait de main avec `depuis` = sa date de création : tout son historique, quinzaine en cours comprise, passait au nouveau.
+    uid_av = str(info_av.get("uid") or "")
+    if uid_av == uid:
+        await message.reply(f"{trouve.get('url')} est déjà le lien de {membre.display_name} : rien changé.")
+        return True
+    prenom_n = _n_note(prenom).split()[:1]
+    suivi_autre = bool(info_av.get("suivi")) and not info_av.get("libere") and _n_note(info_av.get("suivi_nom")).split()[:1] != prenom_n
+    proprio = (f"<@{uid_av}>" if uid_av else f"la ligne « {info_av.get('hors_clipping')} »" if info_av.get("hors_clipping")
+               else f"{info_av.get('suivi_nom')} (suivi par le rapport)" if suivi_autre else "")
+    if proprio and not forcer:
+        await message.reply(f"⛔ {trouve.get('url')} ({trouve.get('note') or info_av.get('note') or '?'}) est déjà à {proprio} : rien changé. "
+                            f"Pour le donner quand même à {membre.display_name} (ses visites comptent alors à partir d'aujourd'hui) : "
+                            f"`!lien @{prenom} {cible} forcer`.")
+        return True
     if not str(info_av.get("uid") or "") and (info_av.get("libere") or info_av.get("desactive") or eteint):
         # 08/10 (revue) : un lien libéré ou désactivé passe par la reprise — réactivé, visites comptées à partir d'aujourd'hui
         cr = (str(trouve.get("name") or "").split() or [str(info_av.get("creatrice") or "?")])[0]
@@ -1585,11 +1989,30 @@ async def commande_staff(message, texte: str) -> bool:
         await message.reply(f"✅ {trouve.get('url')} repris (réactivé, note « Clipping {prenom} », visites comptées à partir "
                             f"d'aujourd'hui) → {membre.display_name}.")
         return True
-    d["liens"][trouve["id"]] = {"uid": uid, "note": trouve.get("note"), "url": trouve.get("url"),
-                                "creatrice": str(trouve.get("name", "")).split()[0] if trouve.get("name") else "",
-                                "depuis": max(CLICS_DEPUIS, str(trouve.get("createdAt", ""))[:10] or CLICS_DEPUIS),
-                                "par": str(message.author.id)}
+    # 09/10 (dashboard) : un lien qui a déjà eu un détenteur (forcé, retiré avant le 09/10, rendu par un orphelin…) compte pour le
+    # nouveau à partir d'aujourd'hui ; un lien neuf ou seulement relevé, à partir de sa création (son historique est à lui)
+    deja_eu = bool(proprio) or (bool(info_av) and not releve_seul(info_av) and info_av.get("par") != "rapport")
+    fiche_n = {"uid": uid, "note": trouve.get("note"), "url": trouve.get("url"),
+               "creatrice": str(trouve.get("name", "")).split()[0] if trouve.get("name") else "",
+               "depuis": _aujourdhui().isoformat() if deja_eu else max(CLICS_DEPUIS, str(trouve.get("createdAt", ""))[:10] or CLICS_DEPUIS),
+               "par": str(message.author.id)}
+    if uid_av:
+        fiche_n["ancien_uid"] = uid_av
+    if info_av.get("dus"):
+        fiche_n["dus"] = info_av["dus"]                                 # les visites dues à un sortant restent à lui
+    avert = ""
+    p_note = _n_note(_prenom_note(trouve.get("note"))).split()[:1]
+    if proprio or (p_note and p_note != prenom_n):
+        # forcé, ou note « Clipping <un autre prénom> » : la note GAML suit le nouveau détenteur (sinon l'app la montre à l'ancien,
+        # et une note « Metricool » laissée ferait ressortir le lien du clipping à la passe horaire)
+        try:
+            await _requete("PATCH", f"/links/{trouve['id']}", corps={"note": f"Clipping {prenom}"})
+            fiche_n["note"] = f"Clipping {prenom}"
+        except RuntimeError as erreur:
+            avert = f"\n⚠️ Note GAML non changée ({erreur}) : mets « Clipping {prenom} » à la main dans GAML."
+    d["liens"][trouve["id"]] = fiche_n
     _ecrire(d)
-    await message.reply(f"✅ {trouve.get('url')} ({trouve.get('note')}) → {membre.display_name}. Relevé rétroactif en cours, "
-                        f"`!mesclics` pour lui d'ici un quart d'heure.")
+    await message.reply(f"✅ {trouve.get('url')} ({trouve.get('note')}) → {membre.display_name}"
+                        + (f" (repris de {proprio}, visites comptées à partir d'aujourd'hui)" if proprio else "")
+                        + ". Relevé rétroactif en cours, `!mesclics` pour lui d'ici un quart d'heure." + avert)
     return True

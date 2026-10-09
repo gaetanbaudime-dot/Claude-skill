@@ -118,17 +118,38 @@ def texte_actifs() -> str:
 
 
 # ------------------------------------------------------------------ liens suivis
+def _mots(t: str) -> list:
+    """Les mots d'un texte, sans accents ni casse ni ponctuation (« Clipping Anaïs » → ["clipping", "anais"])."""
+    return re.findall(r"[a-z0-9]+", paie_clics._n_note(t))
+
+
 def associer_suivi(d: dict, liens: list) -> int:
     """Marque dans clics.json les liens GAML des clippers du rapport (relevés même sans membre Discord).
-    Renvoie le nombre de liens nouvellement suivis."""
+    Renvoie le nombre de liens nouvellement suivis. 09/10 (dashboard) : le prénom est cherché comme MOT ENTIER de la note (tous
+    ses mots, dans l'ordre de la note ou non) : « Ana » ne prend plus « Clipping Anaïs », « Rianah » prend toujours « Rianah
+    Metricool ». Un suivi déjà posé dont la note GAML actuelle ne contient plus le prénom suivi en mot entier (posé par l'ancienne
+    règle, « Ana » sur « Clipping Anaïs ») est retiré, puis rattaché au bon prénom s'il y en a un ; le lien reste relevé
+    (paie_clics.marquer_releves). Renvoie le nombre de liens nouvellement suivis ou retirés (l'appelant écrit si > 0)."""
     nouveaux = 0
+    notes = {l.get("id"): str(l.get("note") or "") for l in liens if l.get("id") and "note" in l}
+    for lid, info in d.get("liens", {}).items():
+        if not info.get("suivi") or lid not in notes:
+            continue
+        mots_note = set(_mots(re.sub(r"\(\s*ex[^)]*\)", " ", notes[lid], flags=re.I)))
+        if set(_mots(info.get("suivi_nom"))) and set(_mots(info.get("suivi_nom"))) <= mots_note:
+            continue
+        for cle in ("suivi", "suivi_nom", "suivi_creatrice"):
+            info.pop(cle, None)
+        nouveaux += 1
     for creatrice, noms in groupes_actifs().items():
         for nom in noms:
+            mots_nom = set(_mots(nom))
             for l in liens:
                 # 09/10 (revue) : « (ex-Julien) » dit l'ancien propriétaire, jamais le clipper suivi ; un lien « Clipping libre » n'est à personne
                 lid, note = l.get("id"), _n(re.sub(r"\(\s*ex[^)]*\)", " ", str(l.get("note") or ""), flags=re.I))
                 cr = _n(str(l.get("name", "")).split()[0] if l.get("name") else "")
-                if not lid or _n(nom) not in note or cr != _n(creatrice) or note.strip().startswith("clipping libre"):
+                if (not lid or not mots_nom or not mots_nom <= set(_mots(note)) or cr != _n(creatrice)
+                        or note.strip().startswith("clipping libre")):
                     continue
                 info = d["liens"].setdefault(lid, {"uid": "", "note": l.get("note"), "url": l.get("url"),
                                                    "creatrice": creatrice, "depuis": paie_clics.CLICS_DEPUIS, "par": "rapport"})

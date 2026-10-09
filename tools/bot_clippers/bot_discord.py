@@ -5274,9 +5274,14 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
         else:
             refus_s.append(f"classeur non touché (prénom {prenom_s} partagé : `!liberer {prenom_s} <handles>`)")
     n_liens = 0
-    if pool and paie_clics.actif():                                     # 28/09 : son lien GAML reste à la créatrice, pour le suivant
+    if paie_clics.actif():                                              # 28/09 : son lien GAML reste à la créatrice, pour le suivant
         d_l = paie_clics._lire()
-        n_liens = len(paie_clics.liberer_liens(d_l, uid_s, prenom_de(membre)))
+        if pool:
+            n_liens = len(paie_clics.liberer_liens(d_l, uid_s, prenom_de(membre)))
+        else:
+            # 09/10 (dashboard) : `!sortie` manuel libère aussi ses liens, par uid seulement (avant : lien d'un parti, jamais redonné
+            # ni ménagé) ; ses visites d'avant la sortie restent sur la liste de paie (registre encore lu ici, retiré plus bas)
+            n_liens = len(paie_clics.liberer_sortant(d_l, uid_s, prenom_de(membre)))
         if n_liens:
             paie_clics._ecrire(d_l)
     # 4. Registre : la fiche part dans sortis.json (trace), plus dans equipes.json (digest, primes).
