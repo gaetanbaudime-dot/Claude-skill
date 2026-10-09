@@ -4,8 +4,11 @@ Chaque matin à RELANCES_HEURE (10 h, Paris), le bot poste dans le salon admin l
 formulaire du site depuis plus de 24 h sans réussir le quizz et sans être arrivés sur Discord (ceux-là, le bot les relance
 déjà dans leur salon). Pour chacun : prénom, pays, depuis quand, le lien qui ouvre sa conversation Telegram, et le message à
 copier d'un appui, avec SON lien vers la page formation (il reprend là où il s'était arrêté, sans refaire le formulaire).
+09/10 : un message groupé (un candidat par bloc, coupé entre deux candidats au-delà de 1 990 caractères). Plus rien à copier :
+un seul lien par candidat, Telegram ou WhatsApp, qui ouvre sa conversation avec le message déjà écrit (paramètre « text » des
+liens t.me, documenté par Telegram pour t.me/<pseudo> comme pour t.me/+<numéro>). Un appui, relire, envoyer.
 
-Rien ne part tout seul : Gaëtan (ou Rianah) ouvre la conversation, colle, envoie. Deux relances au plus par candidat
+Rien ne part tout seul : Gaëtan (ou Rianah) appuie sur le lien, relit, envoie. Deux relances au plus par candidat
 (à 24 h puis à 72 h), RELANCES_MAX par jour (30 : le rythme qui ne fait pas restreindre un compte Telegram), candidatures
 des 7 derniers jours seulement. Sans @ Telegram lisible, le lien par numéro (t.me/+numéro) ne marche que si le candidat
 l'autorise dans ses réglages : il est signalé comme tel.
@@ -26,7 +29,6 @@ HEURE = int(os.environ.get("RELANCES_HEURE", "10") or 10)
 MAX_JOUR = int(os.environ.get("RELANCES_MAX", "30") or 30)
 DELAIS_H = (24, 72)                                                        # 1re relance à 24 h, 2e à 72 h
 FENETRE_JOURS = 7
-APRES_QUIZ = ("quiz_ok", "test_envoye", "test_rendu", "valide", "refuse", "test_expire")
 # 01/10 (Gaëtan : « une ligne par personne ») : les numéros du staff (candidatures de test), séparés par des virgules, ne sont
 # jamais relancés ni comptés dans les candidatures du jour (comparés sur leurs 8 derniers chiffres).
 EXCLURE_TELS = {re.sub(r"\D", "", t)[-8:] for t in os.environ.get("RELANCES_EXCLURE_TELS", "").split(",")
@@ -72,12 +74,6 @@ def lien_telegram(pseudo: str, tel: str = "") -> tuple:
     if len(chiffres) >= 8:
         return f"https://t.me/+{chiffres}", "par numéro"
     return "", ""
-
-
-def texte_message(prenom: str, lien: str) -> str:
-    return (f"Salut {prenom} ! Ta candidature est bien reçue ✅\n\n"
-            f"Il te reste la formation (15 min) et le quizz, ici : {lien}\n\n"
-            "Dès que c'est fait, tu rejoins le Discord.")
 
 
 def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
@@ -130,19 +126,47 @@ def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
     return out[:MAX_JOUR]
 
 
-def blocs(liste: list) -> list:
-    """Un message Discord par candidat : la ligne d'info, puis le message à copier dans un bloc de code."""
-    out = []
-    for cid, prenom, pays, heures, n, lien, etiquette, tel in liste:
-        texte = texte_message(prenom, _deps["lien_formation"](cid))
-        # 30/09 (Gaëtan, GO n° 2 : « relances WhatsApp en un appui ») : le lien WhatsApp ouvre sa conversation, message déjà écrit
-        chiffres = re.sub(r"\D", "", tel or "")
-        wa = f"[WhatsApp](https://wa.me/{chiffres}?text={quote(texte)})" if len(chiffres) >= 8 else ""
-        tg = f"Telegram {etiquette} : <{lien}>" if lien else ""
-        info = (f"**{prenom}**{' · ' + pays if pays else ''} · formulaire il y a {heures} h · "
-                f"{'1re' if n == 1 else '2e'} relance · " + " · ".join(x for x in (wa, tg) if x))
-        out.append(info + "\n```\n" + texte + "\n```")
-    return out
+def texte_relance(prenom: str, lien: str) -> str:
+    """09/10 (revue du lot L3 : 10 messages pour 30 candidats, deux copies par candidat côté Telegram) : le message pré-rempli,
+    court parce qu'il voyage encodé dans le lien. Bonjour, une action, son lien."""
+    return f"Salut {prenom} 👋\n\nTa formation t'attend :\n\n{lien}"
+
+
+def ligne(cid, prenom, pays, heures, n, lien, etiquette, tel) -> str:
+    """Un candidat : prénom, pays, depuis quand, n° de relance ; dessous, UN lien qui ouvre sa conversation, message déjà écrit.
+    Telegram s'il a un @ lisible (le funnel part de Telegram, t.me/<pseudo> s'ouvre toujours), sinon WhatsApp par son numéro,
+    sinon Telegram par numéro (il ne s'ouvre que si le candidat l'autorise : signalé)."""
+    texte = quote(texte_relance(prenom, _deps["lien_formation"](cid)), safe=":/")
+    # 30/09 (Gaëtan, GO n° 2 : « relances WhatsApp en un appui ») : le lien WhatsApp ouvre sa conversation, message déjà écrit.
+    # 09/10 (revue du lot L3) : le lien Telegram aussi (t.me/…?text=), et un seul lien par candidat : deux liens pré-remplis
+    # doublaient la longueur (10 messages pour 30 candidats).
+    chiffres = re.sub(r"\D", "", tel or "")
+    if lien and etiquette != "par numéro":
+        appui = f"[Telegram {etiquette}](<{lien}?text={texte}>)"
+    elif len(chiffres) >= 8:
+        appui = f"[WhatsApp](<https://wa.me/{chiffres}?text={texte}>)"
+    else:
+        appui = f"[Telegram par numéro](<{lien}?text={texte}>)" if lien else ""
+    return f"**{prenom}**{' · ' + pays if pays else ''} · {heures} h · {'1re' if n == 1 else '2e'} relance\n{appui}"
+
+
+def blocs(liste: list, apercu: bool = False) -> list:
+    """09/10 (revue du funnel : « Relances admin : 1 + N messages par jour ») : un message groupé, coupé à 1990 caractères.
+    L'en-tête (ce qu'il y a à faire, une fois), puis un candidat par bloc, une ligne vide entre deux. Une liste trop longue pour un
+    message continue dans le suivant, coupée entre deux candidats, jamais au milieu d'un candidat."""
+    entete = (f"📨 **Relances du jour : {len(liste)}**" + (" _(aperçu : rien n'est compté)_" if apercu else "") + "\n\n"
+              "Formulaire envoyé, quizz pas réussi, pas encore sur Discord.\n\n"
+              "Appuie sur son lien : son message est déjà écrit. Relis, envoie.")
+    morceaux, courant = [], entete
+    for x in liste:
+        l_ = ligne(*x)[:1900]
+        if len(courant) + 2 + len(l_) > 1990:
+            morceaux.append(courant)
+            courant = l_
+        else:
+            courant += "\n\n" + l_
+    morceaux.append(courant)
+    return morceaux
 
 
 async def envoyer(canal, compter: bool = True, muet_si_vide: bool = False) -> int:
@@ -153,10 +177,7 @@ async def envoyer(canal, compter: bool = True, muet_si_vide: bool = False) -> in
         if not muet_si_vide:                                            # le matin, rien quand il n'y a personne
             await canal.send("📨 Relances Telegram : personne à relancer aujourd'hui.")
         return 0
-    await canal.send(f"📨 **Relances du jour ({len(liste)})** — formulaire envoyé, quizz pas réussi, pas encore sur Discord. "
-                     "WhatsApp : appuie, relis, envoie. Telegram : ouvre, colle, envoie."
-                     + ("" if compter else " _(aperçu : rien n'est compté)_"))
-    for b in blocs(liste):
+    for b in blocs(liste, apercu=not compter):
         await canal.send(b[:1990], suppress_embeds=True)
     if compter:
         etat = _deps["lire_json"](_deps["FICHIER"], {"relances": {}})
