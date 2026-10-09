@@ -70,7 +70,7 @@ def comptes_par_clipper(comptes: list, prenoms: list) -> dict:
     out = {p: [] for p in prenoms}
     for c in comptes:
         gerant = _norm(str(c.get("gerant") or "").split()[0] if str(c.get("gerant") or "").split() else "")
-        if gerant not in voulu:
+        if gerant not in voulu or "metricool" in _norm(c.get("gerant")):    # 09/10 : « Julien (Metricool) » n'est pas le clipper Julien
             continue
         if any(e in _norm(c.get("etat")) for e in ETATS_IGNORES):
             continue
@@ -86,16 +86,14 @@ def comptes_par_clipper(comptes: list, prenoms: list) -> dict:
 
 
 def prenoms_par_defaut() -> list:
-    """Les équipes de Jonas (groupes du rapport) plus Julien ; sans groupes connus, personne (la commande dit alors quoi faire)."""
+    """Les équipes de Jonas (groupes du rapport) ; sans groupes connus, personne (la commande dit alors quoi faire). 09/10 : plus
+    « Julien » en dur (l'ancien est passé monteur vidéo, le nouveau Julien clipper est dans les groupes)."""
     groupes = _deps["groupes"]() if callable(_deps.get("groupes")) else (_deps.get("groupes") or {})
     prenoms = []
     for membres in (groupes or {}).values():
         for p in membres or []:
             if p not in prenoms:
                 prenoms.append(p)
-    for p in ("Julien",):
-        if p not in prenoms:
-            prenoms.append(p)
     return prenoms
 
 

@@ -4588,7 +4588,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!pipeline` · `!tableau` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · "
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · "
                 "`!ltv [jours]` · `!alias` · `!code` · `!recup`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
@@ -5338,6 +5338,116 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     await telegram.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
     journal.info("Sortie d'équipe : %s par %s (%s)%s", membre.id, par_id, raison, ", expulsé" if expulse else "")
     return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s, "expulse": expulse}
+
+
+async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -> dict:
+    """09/10 (Gaëtan : « Julien arrête tout, il va juste faire le monteur vidéo maintenant pour moi ») : un clipper qui passe dans
+    l'équipe de Gaëtan sort du clipping SANS être viré : ni message de sortie, ni expulsion, son salon perso reste. Tout se fait
+    par son identifiant, jamais par son prénom (un nouveau Julien clipper est signé) : rôles de clipper retirés, accès aux
+    salons de créatrice fermés, relances coupées, fiche du registre → sortis.json, parcours oublié, liens GAML libérés pour le
+    suivant de la créatrice avec la note « Clipping libre (ex-Prénom) » (gardée, l'app et `associer_auto` les donneraient à
+    l'homonyme), comptes du classeur rendus (créés → « à mettre Metricool », à créer → vivier) sauf ceux d'un homonyme.
+    Renvoie {"roles", "acces", "liens", "comptes", "refus"} pour l'admin."""
+    g = membre.guild
+    uid = str(membre.id)
+    prenom = prenom_de(membre)
+    raison = f"hors clipping : {role}"
+    nom_par = getattr(par, "display_name", "le bot")
+    refus = []
+    registre = lire_json(FICHIER_EQUIPES, {})
+    homonymes = [u for u in registre if u != uid and membre_par_id(u) is not None
+                 and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)]
+    # 1. Rôles de clipper (Team, rangs, créatrice) ; les autres rôles restent.
+    a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
+    for nom_r in NOMS_RANGS:
+        r_ = discord.utils.find(lambda x: normaliser(nom_r) in normaliser(x.name), g.roles)
+        if r_ is not None and r_ in membre.roles and r_ not in a_retirer:
+            a_retirer.append(r_)
+    a_retirer += [r_ for r_ in roles_creatrices(g) if r_ in membre.roles and r_ not in a_retirer]
+    if a_retirer:
+        try:
+            await membre.remove_roles(*a_retirer, reason=f"Hors clipping ({role}) par {nom_par}")
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus.append(f"rôles ({type(erreur).__name__})")
+    # 2. Accès nominatifs (salons de créatrice ouverts par !creatrice) ; son salon perso reste.
+    salon_p = salon_perso_de(membre.id)
+    fermes = []
+    for c in g.channels:
+        if membre in c.overwrites and (salon_p is None or c.id != salon_p.id):
+            try:
+                await c.set_permissions(membre, overwrite=None, reason=f"Hors clipping ({role})")
+                fermes.append(c.name)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                refus.append(f"#{c.name} ({type(erreur).__name__})")
+    # 3. Pipeline : plus aucune relance.
+    maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    info = pipe.setdefault("etats", {}).setdefault(uid, {})
+    info["etat"] = "sorti"
+    info["sortie"] = {"date": maintenant, "par": str(getattr(par, "id", "auto")), "raison": raison}
+    info.setdefault("relances", {})["stop"] = True
+    for sec in ("arrivees", "liaisons"):
+        if uid in pipe.get(sec, {}):
+            pipe[sec][uid]["stop"] = True
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    # 4. Liens GAML : par uid seulement (`prenom` vide : jamais un lien « Clipping Julien » de l'homonyme), note changée.
+    liens = []
+    if paie_clics.actif():
+        async with paie_clics.verrou_liens:
+            d_l = paie_clics._lire()
+            liens = paie_clics.liberer_liens(d_l, uid, "")
+            for lid in liens:
+                note = f"Clipping libre (ex-{prenom})"
+                d_l["liens"][lid].update({"ancien": prenom, "note": note})
+                try:
+                    await paie_clics._requete("PATCH", f"/links/{lid}", corps={"note": note})
+                except Exception as erreur:                                 # noqa: BLE001
+                    refus.append(f"note GAML du lien {d_l['liens'][lid].get('creatrice') or lid} à changer à la main ({erreur})")
+            if liens:
+                paie_clics._ecrire(d_l)
+    # 5. Classeur : les lignes à son prénom, moins les comptes d'un homonyme signé (sa fiche d'onboarding les connaît).
+    comptes = []
+    if onboarding.actif():
+        etat_o = onboarding._lire_etat()
+        fiches_h = [etat_o.get("clippers", {}).get(u) or {} for u in homonymes]
+        a_eux = {onboarding._norm(h).lstrip("@") for f in fiches_h for h in f.get("comptes") or []}
+        if homonymes and not a_eux:
+            refus.append(f"classeur non touché (un autre {prenom} est signé sans comptes connus : `!liberer {prenom} <handles>`)")
+        else:
+            try:
+                siens = [c["handle"] for c in await onboarding.lire_comptes()
+                         if onboarding._norm(c["gerant"]) == onboarding._norm(prenom) and onboarding._norm(c["handle"]).lstrip("@") not in a_eux]
+                if siens:
+                    comptes = [b for b in await onboarding.liberer(prenom, handles=siens) if b.startswith("·")]
+            except Exception as erreur:                                     # noqa: BLE001
+                refus.append(f"classeur ({type(erreur).__name__})")
+    # 6. Registre → sortis.json (avec où il en était), parcours oublié, roster seulement sans homonyme. Relu ici : les étapes
+    #    d'avant attendent Discord, GAML et le classeur, une signature arrivée entre-temps ne doit pas être écrasée.
+    registre = lire_json(FICHIER_EQUIPES, {})
+    fiche = registre.pop(uid, None) or {}
+    ecrire_json(FICHIER_EQUIPES, registre)
+    try:
+        fiche_p = dict(parcours._lire().get(uid) or {})
+        trace_p = {k: fiche_p[k] for k in ("etape", "dates", "whatsapp", "app", "warmup_jour") if k in fiche_p}
+        parcours.oublier(uid)
+    except Exception:                                                       # noqa: BLE001
+        trace_p = {}
+    sortis = lire_json(FICHIER_SORTIS, [])
+    sortis.append({"uid": uid, "nom": membre.display_name, "equipe": fiche.get("equipe", ""), "creatrice": fiche.get("creatrice", ""),
+                   "date": maintenant, "par": str(getattr(par, "id", "auto")), "raison": raison,
+                   "signe_le": str(fiche.get("date", ""))[:10], "parcours": trace_p, "hors_clipping": role})
+    ecrire_json(FICHIER_SORTIS, sortis[-500:])
+    if homonymes:
+        refus.append(f"roster non touché (un autre {prenom} est signé : `!roster` si son équipe n'est pas la bonne)")
+    else:
+        roster.retirer(prenom)
+    await notifier_manager(
+        f"🎬 **{membre.display_name}** (<@{uid}>) **sort du clipping** : {role} pour Gaëtan (par {nom_par}). Pas de message, pas d'expulsion.\n"
+        f"Rôles de clipper retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · salons de créatrice fermés : {len(fermes)}"
+        f" · liens GAML libérés pour le suivant : {len(liens)} · comptes du classeur rendus : {len(comptes)}"
+        + (f"\n⚠️ {' · '.join(refus)}" if refus else "") + ("\n" + "\n".join(comptes) if comptes else ""), g)
+    journal.info("Hors clipping : %s (%s) par %s, %s lien(s), %s compte(s)", uid, role, nom_par, len(liens), len(comptes))
+    return {"roles": len(a_retirer), "acces": len(fermes), "liens": len(liens), "comptes": len(comptes), "refus": refus}
 
 
 async def commande_admin(message, texte: str) -> bool:
@@ -6348,6 +6458,37 @@ async def commande_admin(message, texte: str) -> bool:
         await message.reply(f"✅ {membre.mention} sorti : {res['roles']} rôle(s) retiré(s), {res['acces']} accès fermé(s), "
                             f"{res['comptes']} compte(s) du classeur rendu(s)" + (f", {res['liens']} lien(s) libéré(s)" if res.get("liens") else "")
                             + ", relances coupées, registre tracé, MP envoyé, manager prévenu.")
+        return True
+
+    # ---- !monteur @x [rôle] : un clipper qui sort du clipping sans être viré (09/10, Julien devient monteur vidéo) ----
+    if texte.lower().startswith("!monteur"):
+        if str(message.author.id) not in ADMIN_IDS:
+            await message.reply("Commande admin.")
+            return True
+        corps = texte[len("!monteur"):].strip()
+        membre = message.mentions[0] if message.mentions else None
+        if membre is not None:
+            role_m = corps.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", "").strip()
+        else:
+            ref, _, role_m = corps.partition(" ")                        # sans mention : un identifiant Discord, jamais un nom
+            membre = chercher_membre(ref, exact=True) if ref.strip("<@!>").isdigit() else None
+        if membre is None:
+            # Par prénom, jamais de choix entre deux homonymes : on les montre, l'admin mentionne le bon.
+            registre_m = lire_json(FICHIER_EQUIPES, {})
+            cands = [m for g_ in client.guilds for m in g_.members if not m.bot and corps.split()
+                     and normaliser(prenom_de(m)) == normaliser(corps.split()[0])]
+            await message.reply("Format : `!monteur @membre [rôle]` (ex. `!monteur @Julien monteur vidéo`) : il sort du clipping "
+                                "(rôles de clipper, liens, comptes, parcours) sans message ni expulsion."
+                                + ("".join(f"\n· {m.mention} · signé le {str((registre_m.get(str(m.id)) or {}).get('date', '?'))[:10]}"
+                                           f" · créatrice {(registre_m.get(str(m.id)) or {}).get('creatrice') or '?'}" for m in cands[:6])))
+            return True
+        if str(membre.id) in ADMIN_IDS:
+            await message.reply("⛔ Membre admin.")
+            return True
+        res = await passer_hors_clipping(membre, role_m or "monteur vidéo", message.author)
+        await message.reply(f"🎬 {membre.mention} hors clipping : {res['roles']} rôle(s) de clipper retiré(s), {res['acces']} salon(s) de "
+                            f"créatrice fermé(s), {res['liens']} lien(s) libéré(s), {res['comptes']} compte(s) du classeur rendu(s), "
+                            "parcours et relances arrêtés." + (f"\n⚠️ {' · '.join(res['refus'])}" if res["refus"] else ""))
         return True
 
     # ---- !relancer-lien : rattraper les candidatures qui n'ont jamais fait !lier ----

@@ -52,7 +52,12 @@ NON_LU_JOURS = int(os.environ.get("ETATS_NON_LU_JOURS", "3") or 3)   # 05/10 : p
 A_CREER = ("a creer", "à créer")
 GERANTS_LIBRES = ("", "x", "y", "z")                                     # la ligne n'a pas de clipper
 DASHBOARD_VERSION = 9             # 05/10 : ligne « Créatrice » en tête de bloc ; changée → réécrit au démarrage, sans scan (Clics relevés avant)
-EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Julien, Rianah").split(",") if m.strip()]
+EXCLUS_DEFAUT = [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Rianah").split(",") if m.strip()]
+# 09/10 (Gaëtan : « Julien arrête tout, il va juste faire le monteur vidéo maintenant pour moi ») : l'ancien Julien sort du clipping
+# (`!monteur`, ses lignes « Julien » du classeur rendues) et un nouveau Julien clipper est signé. « Julien » n'est plus tenu hors de
+# la vérification ni du rapport (sinon les comptes du nouveau n'y passeraient jamais), y compris dans la liste d'état d'avant le 30/09.
+# Ses lignes « Julien (Metricool) » restent hors clipping : un Gérant « … (Metricool) » n'est jamais compté comme un clipper.
+REINTEGRES = {"julien"}
 # 30/09 (Gaëtan : « inclus Julien et Rianah dans le dashboard aussi ») : le Dashboard ne masque plus personne par défaut.
 # La liste « hors clipping » ci-dessus ne sert plus qu'à la vérification du classeur et au rapport du jour (Rianah gère les
 # comptes de tout le monde : sans elle, le plafond de trois comptes la signalerait chaque matin).
@@ -64,7 +69,8 @@ def dashboard_exclus(d=None) -> list:
     la liste de l'état (ancienne clé, plus modifiée depuis le 30/09), sinon DASHBOARD_EXCLUS. Sert à la vérification du
     classeur et au rapport du jour, plus au Dashboard (voir dashboard_masques)."""
     d = d if d is not None else _lire()
-    return list(d["dashboard_exclus"]) if isinstance(d.get("dashboard_exclus"), list) else list(EXCLUS_DEFAUT)
+    liste = list(d["dashboard_exclus"]) if isinstance(d.get("dashboard_exclus"), list) else list(EXCLUS_DEFAUT)
+    return [x for x in liste if _norm(str(x)).strip() not in REINTEGRES]
 
 
 def dashboard_masques(d=None) -> list:

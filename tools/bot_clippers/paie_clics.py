@@ -50,9 +50,11 @@ BILAN_FIXE_JOURS = int(os.environ.get("BILAN_FIXE_JOURS", "14") or 14)
 SEUIL_FIXE_100 = int(os.environ.get("SEUIL_FIXE_100", "32") or 32)            # visites payables/jour qui rentabilisent 100 €
 SEUIL_FIXE_200 = int(os.environ.get("SEUIL_FIXE_200", "65") or 65)            # … et 200 € (0,30 $ de CA par visite, 35 % de marge)
 CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "rianah,gaetan,gaëtan,jonas,x,y").split(",") if p.strip()}
-# 08/10 (Gaëtan) : tout le monde au clic sauf ces prénoms (Julien = montage YouTube, Jonas = manager). Sans accents.
+# 08/10 (Gaëtan) : tout le monde au clic sauf ces prénoms (Jonas = manager). Sans accents. 09/10 (Gaëtan : « Julien arrête tout, il va
+# juste faire le monteur vidéo maintenant pour moi ») : « julien » retiré, l'ancien sort du clipping (`!monteur`) et le nouveau Julien
+# clipper est au clic comme les autres.
 PAIE_FIXE = {"".join(c for c in unicodedata.normalize("NFD", p.strip().lower()) if unicodedata.category(c) != "Mn")
-             for p in os.environ.get("PAIE_FIXE", "caroline,lilian,josue,yves,rianah,julien,jonas").split(",") if p.strip()}
+             for p in os.environ.get("PAIE_FIXE", "caroline,lilian,josue,yves,rianah,jonas").split(",") if p.strip()}
 PAIE_DECISION = "2026-10-08"
 # 09/10 (Gaëtan : « tout le monde passe au clic depuis le 5 octobre, sauf Rianah, Caroline, Lilian, Josué et Yves qui restent au
 # fixe ») : un ancien fixe est payé au clic sur ses visites à partir du 05/10 (la bascule prévue par le bilan des fixes).
@@ -1328,7 +1330,7 @@ async def commande_staff(message, texte: str) -> bool:
             lignes.append(f"· {nom} [{reg}] — hier {_fmt(h['payes'])} · 7 j {_fmt(s7['payes'])} ({part} payables, "
                           f"{_fmt(s7['payes'] / 7)}/j) · quinzaine {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
                           + ("" if reg != "clic" or uid in d["wallets"] else " · ⚠️ sans adresse"))
-        lignes.append("-# [fixe] = Rianah, Caroline, Lilian, Josué, Yves (et Julien, Jonas hors clipping), décision du 09/10 ; "
+        lignes.append("-# [fixe] = Rianah, Caroline, Lilian, Josué, Yves (et Jonas, manager), décision du 09/10 ; "
                       "[clic] = tous les autres, payés sur la liste du 5 et du 20 (au clic depuis le 05/10 pour les anciens fixes). "
                       "`!paie @clipper clic|fixe` pour changer. Repère de rentabilité d'un fixe : ≈ 65 visites payables/jour "
                       "pour 200 €, ≈ 32/jour pour 100 € (0,30 $ de CA par visite, 35 % de marge).")
