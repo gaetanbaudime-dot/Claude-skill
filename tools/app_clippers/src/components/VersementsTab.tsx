@@ -142,6 +142,10 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
           <div className="text-[13px] text-argent2 font-medium">{p ? `Période en cours · ${p.libelle}` : "Chargement…"}</div>
           {v && <span className="text-[11px] text-argent2/70">{fmtUsd(v.taux, true)} la visite</span>}
         </div>
+        <div className="inline-flex items-center gap-1.5 mt-2 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide" style={{ background: "rgba(52,211,153,0.12)", color: "#7ef0b2" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+          Payé le 5 et le 20 de chaque mois
+        </div>
         <div className="titre-argent text-[40px] font-bold leading-none mt-2 tabular-nums">{p ? <Compteur valeur={p.montant} format={(n) => fmtUsd(Math.round(n * 100) / 100, true)} /> : <span className="squelette inline-block h-9 w-40" />}</div>
         <div className="text-[12px] text-argent2 mt-1">{p ? `${fmtNb(p.visites)} visite${p.visites > 1 ? "s" : ""} francophone${p.visites > 1 ? "s" : ""} depuis le ${jourCourt(v?.depuis || p.debut)}` : "visites francophones"}</div>
         <div className="mt-4 rounded-2xl p-3 flex items-center gap-3" style={{ background: "rgba(52,211,153,0.10)" }}>
@@ -151,6 +155,21 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
             <div className="text-[17px] font-bold mt-0.5">{v?.fixe ? "Montants pour info, ta paie ne change pas" : p ? `${fmtUsd(p.montant)} le ${p.libellePaie}` : "—"}</div>
           </div>
         </div>
+        {p && v && !v.fixe && (() => {
+          const nbJours = (a: string, b: string) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 86400000) + 1;
+          const total = nbJours(p.debut, p.fin), fait = Math.min(total, Math.max(1, nbJours(p.debut, v.aujourdhui.jour)));
+          return (
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-[11px] text-argent2 mb-1">
+                <span>Jour {fait} sur {total} de la période</span>
+                <span>{total - fait === 0 ? "dernier jour" : `${total - fait} jour${total - fait > 1 ? "s" : ""} avant le ${p.libellePaie}`}</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <div className="h-full rounded-full" style={{ width: `${Math.round((fait / total) * 100)}%`, background: "linear-gradient(90deg,#2b6cff,#7ef0b2)", transition: "width 600ms ease" }} />
+              </div>
+            </div>
+          );
+        })()}
         <div className="grid grid-cols-2 gap-3 mt-4">
           <div className="rounded-2xl p-3" style={{ background: "rgba(122,167,255,0.09)" }}>
             <div className="text-[11px] font-bold tracking-widest text-accent">AUJOURD'HUI</div>
@@ -224,7 +243,7 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
       {v && (
         <p className="text-[11px] text-argent2/70 text-center px-4 leading-relaxed">
           {fmtUsd(v.taux, true)} par visite francophone (France, Belgique, Suisse, Canada, Luxembourg, Monaco, DOM-TOM), robots exclus, heure de Paris.
-          {" "}Du 1 au 15 → versé le 20 ; du 16 à la fin du mois → versé le 5 du mois suivant.
+          {" "}Tu es payé deux fois par mois : du 5 au 19 inclus → versé le 20 ; du 20 au 4 inclus → versé le 5 du mois suivant.
         </p>
       )}
     </section>

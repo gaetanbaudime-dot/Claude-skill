@@ -1,7 +1,7 @@
 /** Les règles de la paie au clic, reprises à l'identique de `tools/bot_clippers/paie_clics.py`
  *  (`TAUX_CLIC`, `PAYS_PAYES_DEFAUT`, `periode_en_cours`, `prochaine_paie`) :
  *  - 0,05 $ par visite « francophone » sur le lien GetAllMyLinks du clipper, robots exclus par GAML, heure de Paris ;
- *  - quinzaine du 1 au 15 → versée le 20 du mois ; du 16 à la fin du mois → versée le 5 du mois suivant.
+ *  - paie le 5 et le 20 : du 5 au 19 inclus → versé le 20 ; du 20 au 4 inclus → versé le 5 du mois suivant (09/10).
  *  Le virement reste humain : l'app annonce le montant et la date, elle ne paie pas. */
 import { decaler, finDuMois } from "./dates";
 
@@ -27,13 +27,30 @@ export const BASCULE_CLIC = "2026-10-05";                      // 09/10 (Gaëtan
 
 export type PeriodePaie = { debut: string; fin: string; paie: string };
 
+/** 09/10 (Gaëtan : « la paie se fait le 5 et le 20 de chaque mois ; du 5 au 19 inclus et du 20 au 4 inclus ») : la période
+ *  du 5 au 19 est versée le 20, celle du 20 au 4 est versée le 5 du mois suivant. Bascule : la période 16 → 30/09 a été payée le
+ *  05/10 avec l'ancienne découpe, donc la paie du 20/10/2026 couvre le 1er → 19/10, une fois ; avant le 01/10/2026 l'historique
+ *  garde l'ancienne découpe (1 → 15 payé le 20, 16 → fin payé le 5). Même règle que `periode` dans paie_clics.py. */
+export const BASCULE_PERIODES = "2026-10-01";
+const pad = (n: number) => String(n).padStart(2, "0");
+
 /** La période de paie qui contient `jour` et sa date de versement. */
 export function periodeDe(jour: string): PeriodePaie {
   const annee = parseInt(jour.slice(0, 4), 10), mois = parseInt(jour.slice(5, 7), 10), j = parseInt(jour.slice(8, 10), 10);
-  const mm = String(mois).padStart(2, "0");
-  if (j <= 15) return { debut: `${annee}-${mm}-01`, fin: `${annee}-${mm}-15`, paie: `${annee}-${mm}-20` };
+  const mm = pad(mois);
+  if (jour < BASCULE_PERIODES) {                                        // ancienne découpe, pour l'historique
+    if (j <= 15) return { debut: `${annee}-${mm}-01`, fin: `${annee}-${mm}-15`, paie: `${annee}-${mm}-20` };
+    const [a2, m2] = mois === 12 ? [annee + 1, 1] : [annee, mois + 1];
+    return { debut: `${annee}-${mm}-16`, fin: `${annee}-${mm}-${pad(finDuMois(annee, mois))}`, paie: `${a2}-${pad(m2)}-05` };
+  }
+  if (jour <= "2026-10-19") return { debut: "2026-10-01", fin: "2026-10-19", paie: "2026-10-20" };   // la première période, une fois
+  if (j <= 4) {
+    const [a1, m1] = mois === 1 ? [annee - 1, 12] : [annee, mois - 1];
+    return { debut: `${a1}-${pad(m1)}-20`, fin: `${annee}-${mm}-04`, paie: `${annee}-${mm}-05` };
+  }
+  if (j <= 19) return { debut: `${annee}-${mm}-05`, fin: `${annee}-${mm}-19`, paie: `${annee}-${mm}-20` };
   const [a2, m2] = mois === 12 ? [annee + 1, 1] : [annee, mois + 1];
-  return { debut: `${annee}-${mm}-16`, fin: `${annee}-${mm}-${String(finDuMois(annee, mois)).padStart(2, "0")}`, paie: `${a2}-${String(m2).padStart(2, "0")}-05` };
+  return { debut: `${annee}-${mm}-20`, fin: `${a2}-${pad(m2)}-04`, paie: `${a2}-${pad(m2)}-05` };
 }
 
 export function periodeEnCours(aujourdhui: string): PeriodePaie {
