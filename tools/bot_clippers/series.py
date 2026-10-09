@@ -20,22 +20,33 @@ Règles (jamais un faux 0) :
     La même règle partout (scan des comptes, cadence_reels) ;
   - Reels = vidéos non épinglées vues dans latestPosts, gardés 40 jours après publication, 20 points de vues au plus
     (6 au-delà de 15 jours), les points proches de 24 h / 48 h / 72 h / 7 j après la publication toujours gardés ;
-  - un même Reel vu par deux sources sous deux codes (publié à 2 minutes près) n'est compté qu'une fois ;
+  - un même Reel vu par deux sources sous deux codes (publié à 2 minutes près) n'est compté qu'une fois ; 09/10 (revue) : les
+    codes vus d'un Reel sont gardés (« codes ») et cherchés d'abord, il reste un seul Reel aux passages suivants ;
   - `couvre` (facultatif) dit depuis quand le relevé voit TOUTES les publications du compte : "" = tout l'historique visible
     (moins de publications que latestPosts n'en montre), une date = la plus ancienne publication non épinglée vue (12 au plus),
     absent = les 48 h avant le relevé. `reels_publies` ne répond que si la période est entièrement couverte ;
   - un @ renommé (series.renommer, ou même id Instagram vu sous un autre @) : la série suit, l'ancienne clé devient un alias.
+    09/10 (revue) : une série qui porte l'id Instagram d'un compte (relevés Apify) ne suit plus un renommage du classeur (c'était
+    peut-être le compte d'un inconnu qui avait pris le @ prévu) ; si c'est le même compte, l'id la fait suivre au relevé suivant.
+    Un relevé Apify d'un AUTRE id que celui de la série repart d'une série vide (le @ est maintenant à quelqu'un d'autre).
 
 Calculs purs, testés : followers_a, delta_followers, vues_age_fixe, reels_publies, derniere_lecture. Les dates acceptent un
 `datetime` (sans fuseau = UTC), une chaîne ISO, ou une `date` (= minuit à Paris).
 Les écritures sont synchrones (lecture, modification, écriture sans `await` au milieu) : deux boucles asyncio ne peuvent pas
-s'écraser. La lecture est gardée en cache tant que le fichier ne change pas (le Dashboard relit souvent)."""
+s'écraser. La lecture est gardée en cache tant que le fichier ne change pas (le Dashboard relit souvent).
+09/10 (revue, contrat C6c) : `ajouter_releves(entrees)` = UNE écriture par passage, et tout écrivain de séries passe par lui
+(`ajouter_releve` aussi) ; le contenu reste en cache après l'écriture (plus relu ni re-purgé à chaque relevé : 0,7 s par
+relevé, 22 s par passage Metricool, boucle du bot bloquée) ; le fichier est écrit par ce module en JSON compact, de façon
+atomique (fichier temporaire puis os.replace, copie .bak gardée) ; la purge à 40 jours passe au plus une fois par heure."""
 import copy
+import json
 import logging
 import os
 import re
 import statistics
+import time as _horloge
 from datetime import date, datetime, time as dtime, timedelta, timezone
+from pathlib import Path
 
 journal = logging.getLogger("series")
 
@@ -50,18 +61,20 @@ PERIME_H = 60                                # un dernier relevé plus vieux que
 OUVERT_H = 26                                # période « jusqu'à maintenant » : dernier relevé lisible de moins de 26 h
 COUVERTURE_DEFAUT_H = 48                     # relevé sans `couvre` : il voit les 48 h qui le précèdent
 CIBLES_H = (6, 12, 24, 36, 48, 60, 72, 96, 120, 168, 240, 336, 504, 720)
-CIBLES_COURTES_H = (24, 48, 168)
+# 09/10 (revue) : 72 h ajouté — au-delà de 15 jours (6 points), le premier, le dernier, 24 h, 48 h, 72 h et 7 j restent
+CIBLES_COURTES_H = (24, 48, 72, 168)
 _DEBUT_DES_TEMPS = datetime(2000, 1, 1, tzinfo=timezone.utc)
+PURGE_S = 3600                                # 09/10 (revue) : la purge à 40 jours au plus une fois par heure
 
 _deps = {}
-_cache = {"d": None, "f": "", "sig": None}
+_cache = {"d": None, "f": "", "sig": None, "purge": 0.0}
 _PARIS = None
 
 
 def configurer(deps: dict):
     global _deps
     _deps = dict(deps or {})
-    _cache["d"] = None
+    _cache.update(d=None, f="", sig=None, purge=0.0)
 
 
 def actif() -> bool:
@@ -174,11 +187,34 @@ def _charger() -> dict:
     return d
 
 
+def _ecrire_fichier(f, d: dict):
+    """09/10 (revue) : l'écrivain du fichier des séries — JSON compact (deux fois plus petit et plus rapide que l'indenté du bot),
+    écriture atomique : fichier temporaire, l'ancien gardé en .bak (relu par lire_json si le fichier est abîmé), puis os.replace."""
+    p = Path(f)
+    contenu = json.dumps(d, ensure_ascii=False, separators=(",", ":"))
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(contenu, encoding="utf-8")
+    if p.exists():
+        try:
+            os.replace(p, p.with_suffix(p.suffix + ".bak"))
+        except OSError:
+            pass
+    os.replace(tmp, p)
+
+
 def _enregistrer(d: dict):
+    """Écrit le fichier et GARDE le contenu en cache (09/10, revue : avant, chaque relevé relisait tout le fichier). Si
+    l'écriture échoue, le cache est vidé : la prochaine lecture repart du disque."""
+    f = _deps["FICHIER_SERIES"]
     try:
-        _deps["ecrire_json"](_deps["FICHIER_SERIES"], d)
-    finally:
-        _cache["d"] = None                                              # relu au prochain appel (écrit ou pas)
+        if isinstance(f, (str, os.PathLike)):
+            _ecrire_fichier(f, d)
+        else:                                                           # cible non fichier (bouchon) : l'écrivain configuré
+            _deps["ecrire_json"](f, d)
+    except Exception:
+        _cache["d"] = None
+        raise
+    _cache.update(d=d, f=str(f), sig=_signature(f))
 
 
 def _resoudre(d: dict, cle: str) -> str:
@@ -247,11 +283,16 @@ def _ajouter_reel(compte: dict, r: dict, t_iso: str, source: str):
         return
     reels = compte.setdefault("reels", {})
     e = reels.get(code)
+    if e is None:                                                       # 09/10 (revue) : un code déjà vu sous un autre nom
+        e = next((x for x in reels.values() if code in (x.get("codes") or [])), None)
     if e is None:                                                       # le même Reel, vu par une autre source sous un autre code
-        for x in reels.values():
+        for k, x in reels.items():
             p = _instant(x.get("publie"))
             if p is not None and abs((p - publie).total_seconds()) <= MEME_REEL_S and source not in (x.get("sources") or []):
                 e = x
+                codes = x.setdefault("codes", [k])                      # les codes vus du Reel : retrouvé par le sien aux passages suivants
+                if code not in codes:
+                    codes.append(code)
                 break
     if e is None:
         e = reels[code] = {"publie": _iso(publie), "type": str(r.get("type") or "Video"), "vues": []}
@@ -282,21 +323,29 @@ def _fusionner(d: dict, ancienne: str, nouvelle: str) -> bool:
                                 key=lambda r: str(r.get("t") or ""))
         reels = dst.setdefault("reels", {})
         for code, x in (src.get("reels") or {}).items():
-            if code not in reels:
+            noms = {code} | set(x.get("codes") or [])
+            y = reels.get(code) or next((z for k, z in reels.items() if noms & ({k} | set(z.get("codes") or []))), None)
+            if y is None:
                 reels[code] = x
                 continue
-            y = reels[code]
             vus = {p[0] for p in y.get("vues", [])}
             pts = sorted(y.get("vues", []) + [p for p in x.get("vues", []) if p[0] not in vus], key=lambda p: str(p[0]))
             publie = _instant(y.get("publie")) or _instant(x.get("publie"))
             y["vues"] = _amincir(pts, publie, _maxi_points(publie, _instant(pts[-1][0]))) if pts and publie else pts
             y["sources"] = sorted(set(y.get("sources") or []) | set(x.get("sources") or []))
+            if y.get("codes") or x.get("codes"):                       # 09/10 (revue) : les codes vus suivent aussi
+                y["codes"] = sorted(set(y.get("codes") or []) | noms)
     d["alias"][a] = n
     for k, v in list(d["alias"].items()):
         if _cle(v) == a:
             d["alias"][k] = n
     d["alias"].pop(n, None)                                             # la nouvelle clé est vivante
     return src is not None
+
+
+def _id_apify(s: dict) -> bool:
+    """La série porte un id Instagram posé par un relevé Apify (le seul qui en donne un)."""
+    return bool(str((s or {}).get("id") or "")) and any(r.get("source") == "apify" for r in (s or {}).get("releves", []))
 
 
 def _ajouter(d: dict, cle, releve, reels=(), ig_id="", source=None, couvre=None) -> bool:
@@ -312,9 +361,15 @@ def _ajouter(d: dict, cle, releve, reels=(), ig_id="", source=None, couvre=None)
         if src == "apify" and ig and id_cible and ig != id_cible:       # l'ancien @ est maintenant le compte de quelqu'un d'autre
             d["alias"].pop(k, None)
             cible = k
-    if src == "apify" and ig:                                            # même id Instagram sous un autre @ : renommé, la série suit
-        for autre, s in list(d["comptes"].items()):
-            if autre != cible and str(s.get("id") or "") == ig and any(r.get("source") == "apify" for r in s.get("releves", [])):
+    if src == "apify" and ig:
+        # 09/10 (revue) : la série de cette clé porte l'id d'un AUTRE compte Instagram (le @ a été repris par quelqu'un d'autre, ou un
+        # renommage du classeur avait fait suivre la série d'un inconnu) : elle repart de zéro, jamais mélangée au compte lu
+        actuel = d["comptes"].get(cible)
+        if actuel and str(actuel.get("id") or "") not in ("", ig) and _id_apify(actuel):
+            d["comptes"][cible] = {"id": ig, "releves": [], "reels": {}}
+            journal.info("Séries : la série d'une clé portait un autre compte Instagram, elle repart de zéro")
+        for autre, s in list(d["comptes"].items()):                     # même id Instagram sous un autre @ : renommé, la série suit
+            if autre != cible and str(s.get("id") or "") == ig and _id_apify(s):
                 _fusionner(d, autre, cible)
                 journal.info("Séries : un compte renommé sur Instagram, sa série suit le nouvel identifiant")
     compte = d["comptes"].setdefault(cible, {"id": "", "releves": [], "reels": {}})
@@ -357,20 +412,16 @@ def _purger(d: dict, jours: int = JOURS, maintenant=None) -> int:
 
 def ajouter_releve(cle, releve: dict, reels=(), ig_id="", source=None, couvre=None) -> bool:
     """Un relevé d'un compte LU (jamais pour un non-lu) et les Reels vus à ce relevé ([{code, publie, type, vues}]).
-    `source` (facultatif) remplace releve["source"] ; `couvre` (facultatif) : voir l'en-tête du module."""
-    if not actif():
-        return False
-    d = _charger()
-    ok = _ajouter(d, cle, releve, reels, ig_id, source, couvre)
-    if ok:
-        _purger(d)
-        _enregistrer(d)
-    return ok
+    `source` (facultatif) remplace releve["source"] ; `couvre` (facultatif) : voir l'en-tête du module. 09/10 (contrat C6c) :
+    passe par ajouter_releves (une écriture) ; un écrivain de plusieurs comptes appelle ajouter_releves directement."""
+    entree = {"cle": cle, "releve": releve, "reels": list(reels or []), "ig_id": ig_id, "source": source, "couvre": couvre}
+    return ajouter_releves([entree]) == 1
 
 
 def ajouter_releves(entrees: list) -> int:
-    """Plusieurs relevés en UNE lecture et UNE écriture (le scan : ~150 comptes par passage). entrees = [{cle, releve, reels,
-    ig_id, source?, couvre?}]. Renvoie le nombre de relevés enregistrés."""
+    """Plusieurs relevés en UNE écriture (contrat C6c : un passage du scan, de Metricool… = un appel). entrees = [{cle, releve,
+    reels, ig_id, source?, couvre?}]. Renvoie le nombre de relevés enregistrés. Le contenu est pris du cache (relu seulement si
+    le fichier a changé), la purge passe au plus une fois par heure."""
     if not actif() or not entrees:
         return 0
     d = _charger()
@@ -382,13 +433,18 @@ def ajouter_releves(entrees: list) -> int:
         except Exception as erreur:                                     # noqa: BLE001 — un relevé abîmé n'empêche pas les autres
             journal.warning("Séries : un relevé ignoré (%s)", type(erreur).__name__)
     if n:
-        _purger(d)
+        if _horloge.monotonic() - _cache["purge"] >= PURGE_S or not _cache["purge"]:
+            _purger(d)
+            _cache["purge"] = _horloge.monotonic()
         _enregistrer(d)
     return n
 
 
 def renommer(ancienne, nouvelle) -> bool:
-    """@ renommé (onboarding.renommer_compte) : la série suit la nouvelle clé, l'ancienne devient un alias."""
+    """@ renommé (onboarding.renommer_compte) : la série suit la nouvelle clé, l'ancienne devient un alias.
+    09/10 (revue) : sauf si la série porte l'id Instagram d'un compte (relevés Apify) — c'était peut-être le compte d'un INCONNU
+    lu sous le @ prévu (@ pris, retrouvé sous un @ proche, `!pseudo`) : elle reste où elle est, rien n'est mélangé. Si c'est bien
+    le même compte (renommé sur Instagram), le premier relevé sous le nouvel @ porte le même id et la série suit alors."""
     if not actif():
         return False
     a, n = _cle(ancienne), _cle(nouvelle)
@@ -398,6 +454,9 @@ def renommer(ancienne, nouvelle) -> bool:
     vivante = _resoudre(d, a)
     if vivante == n or vivante not in d["comptes"]:
         return False                                                    # déjà fait, ou aucune série à faire suivre
+    if _id_apify(d["comptes"][vivante]):
+        journal.info("Séries : renommage sans fusion (la série porte un id Instagram ; elle suivra si le nouvel @ a le même)")
+        return False
     _fusionner(d, vivante, n)                                           # les alias vers l'ancienne clé suivent aussi
     _enregistrer(d)
     return True
@@ -409,6 +468,7 @@ def purger(jours: int = JOURS) -> int:
         return 0
     d = _charger()
     n = _purger(d, jours)
+    _cache["purge"] = _horloge.monotonic()
     _enregistrer(d)
     return n
 
@@ -417,6 +477,24 @@ def purger(jours: int = JOURS) -> int:
 def serie(cle) -> dict:
     """{"id", "releves", "reels"} du compte (alias suivis), copie ; {} si inconnu."""
     return copy.deepcopy(_serie_brute(cle))
+
+
+def id_instagram(cle) -> str:
+    """09/10 (revue) : l'id Instagram que les relevés Apify ont posé sur la série du compte ('' si aucun) — sans copie de la série.
+    Le scan s'en sert pour ne jamais juger un compte sur les chiffres d'un autre (même @, autre compte)."""
+    s = _serie_brute(cle)
+    return str(s.get("id") or "") if _id_apify(s) else ""
+
+
+def cle_du_compte(ig_id) -> str:
+    """09/10 (revue) : la clé de la série qui porte cet id Instagram (posé par Apify), sous quelque @ que ce soit ; '' si aucune."""
+    ig = str(ig_id or "").strip()
+    if not ig or not actif():
+        return ""
+    for k, s in _charger()["comptes"].items():
+        if str(s.get("id") or "") == ig and _id_apify(s):
+            return k
+    return ""
 
 
 def dernier_releve(cle, source=None):
