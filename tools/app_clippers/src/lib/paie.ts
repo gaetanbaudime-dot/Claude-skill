@@ -3,7 +3,7 @@
  *  - 0,05 $ par visite « francophone » sur le lien GetAllMyLinks du clipper, robots exclus par GAML, heure de Paris ;
  *  - paie le 5 et le 20 : du 5 au 19 inclus → versé le 20 ; du 20 au 4 inclus → versé le 5 du mois suivant (09/10).
  *  Le virement reste humain : l'app annonce le montant et la date, elle ne paie pas. */
-import { decaler, finDuMois } from "./dates";
+import { decaler } from "./dates";
 
 export const TAUX_CLIC = 0.05;
 
@@ -13,8 +13,9 @@ export const PAYS_PAYES = new Set([
   "French Guiana", "Mayotte", "New Caledonia", "French Polynesia",
 ]);
 
-/** Début du régime au clic (CLICS_DEPUIS du bot) : aucune paie au clic n'existe avant, inutile de montrer plus ancien. */
-export const CLICS_DEPUIS = "2026-09-16";
+/** Début du régime au clic (CLICS_DEPUIS du bot) : « j'ai commencé la rémunération au clic le 5 octobre » (Gaëtan, 09/10).
+ *  Aucune paie au clic n'existe avant, inutile de montrer plus ancien. */
+export const CLICS_DEPUIS = "2026-10-05";
 
 /** 08/10 (Gaëtan : « tout le monde au variable sauf Caroline, Lilian, Josué, Yves et Rianah. Julien montage vidéo YTB et Jonas
  *  manageur ») : ces prénoms (sans accents, en minuscules) ne sont pas payés au clic. Même liste que `PAIE_FIXE` du bot. */
@@ -28,22 +29,14 @@ export const BASCULE_CLIC = "2026-10-05";                      // 09/10 (Gaëtan
 export type PeriodePaie = { debut: string; fin: string; paie: string };
 
 /** 09/10 (Gaëtan : « la paie se fait le 5 et le 20 de chaque mois ; du 5 au 19 inclus et du 20 au 4 inclus ») : la période
- *  du 5 au 19 est versée le 20, celle du 20 au 4 est versée le 5 du mois suivant. Bascule : la période 16 → 30/09 a été payée le
- *  05/10 avec l'ancienne découpe, donc la paie du 20/10/2026 couvre le 1er → 19/10, une fois ; avant le 01/10/2026 l'historique
- *  garde l'ancienne découpe (1 → 15 payé le 20, 16 → fin payé le 5). Même règle que `periode` dans paie_clics.py. */
-export const BASCULE_PERIODES = "2026-10-01";
+ *  du 5 au 19 est versée le 20, celle du 20 au 4 est versée le 5 du mois suivant. « J'ai commencé la rémunération au clic le
+ *  5 octobre » : la première période est le 5 → 19/10/2026 (CLICS_DEPUIS), sans exception. Même règle que `periode` du bot. */
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** La période de paie qui contient `jour` et sa date de versement. */
 export function periodeDe(jour: string): PeriodePaie {
   const annee = parseInt(jour.slice(0, 4), 10), mois = parseInt(jour.slice(5, 7), 10), j = parseInt(jour.slice(8, 10), 10);
   const mm = pad(mois);
-  if (jour < BASCULE_PERIODES) {                                        // ancienne découpe, pour l'historique
-    if (j <= 15) return { debut: `${annee}-${mm}-01`, fin: `${annee}-${mm}-15`, paie: `${annee}-${mm}-20` };
-    const [a2, m2] = mois === 12 ? [annee + 1, 1] : [annee, mois + 1];
-    return { debut: `${annee}-${mm}-16`, fin: `${annee}-${mm}-${pad(finDuMois(annee, mois))}`, paie: `${a2}-${pad(m2)}-05` };
-  }
-  if (jour <= "2026-10-19") return { debut: "2026-10-01", fin: "2026-10-19", paie: "2026-10-20" };   // la première période, une fois
   if (j <= 4) {
     const [a1, m1] = mois === 1 ? [annee - 1, 12] : [annee, mois - 1];
     return { debut: `${a1}-${pad(m1)}-20`, fin: `${annee}-${mm}-04`, paie: `${annee}-${mm}-05` };

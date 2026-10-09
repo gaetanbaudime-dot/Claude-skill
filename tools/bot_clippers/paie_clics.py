@@ -8,7 +8,7 @@ visiteurs francophones (PAYS_PAYES : France, Belgique, Suisse, Canada, DOM-TOM�
   - envoie chaque matin, dans le salon perso de chaque clipper, sa ligne de la veille ;
   - répond à `!mesclics` (le clipper ne voit que lui) et `!wallet` (son adresse de paiement) ;
   - donne aux managers `!clics`, `!liens`, `!lien @clipper …` (attribuer ou cloner un lien) et
-    `!paie-clics 5|20 [AAAA-MM]` : la liste adresse-montant de la paie du 5 (20 → 4, règle du 09/10 ; avant : 16 → fin du mois
+    `!paie-clics 5|20 [AAAA-MM]` : la liste adresse-montant de la paie du 5 (20 → 4, règle du 09/10 ; la paie au clic a commencé le 05/10
     précédent) ou du 20 (1 → 15 du mois), avec le CSV. Le virement reste humain.
 
 Le module ne connaît pas bot_discord : il reçoit ses dépendances dans `demarrer(client, deps)`.
@@ -42,7 +42,7 @@ PAYS_PAYES_DEFAUT = ("France,Belgium,Switzerland,Canada,Luxembourg,Monaco,Réuni
                      "Mayotte,New Caledonia,French Polynesia")
 PAYS_PAYES = [p.strip() for p in os.environ.get("PAYS_PAYES", PAYS_PAYES_DEFAUT).split(",") if p.strip()]
 PAYS_LIBELLE = os.environ.get("PAYS_LIBELLE", "francophones").strip() or "francophones"
-CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-09-16").strip()          # début du relevé rétroactif
+CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-10-05").strip()          # 09/10 (Gaëtan) : la paie au clic a commencé le 05/10
 CLICS_HEURE = int(os.environ.get("CLICS_HEURE", "7") or 7)                    # ligne du matin (heure de Paris)
 LIGNE_MATIN = os.environ.get("CLICS_LIGNE_MATIN", "0").strip() == "1"   # 05/10 : la ligne « Visites hier » du salon perso, éteinte
 # 25/09 : les anciens clippers gardent leur fixe deux semaines, puis clic ou sortie. Le bilan part tout seul ce jour-là.
@@ -331,10 +331,8 @@ async def poser_mym(link_id: str, url: str, image: str = "") -> str:
 
 # ------------------------------------------------------------------ calculs
 # 09/10 (Gaëtan : « la paie se fait le 5 et le 20 de chaque mois ; ils sont payés sur les périodes du 5 au 19 inclus et du 20 au 4
-# inclus ») : `20` = 5 → 19 du mois (payé le 20) ; `5` = 20 du mois précédent → 4 du mois (payé le 5). Bascule : la dernière
-# période de l'ancienne règle (16 → 30/09) a été payée le 05/10 ; la période payée le 20/10/2026 couvre donc le 1er → 19/10, une
-# fois, pour ne laisser aucun jour impayé ; avant, l'historique garde l'ancienne découpe (1 → 15 payé le 20, 16 → fin payé le 5).
-BASCULE_PERIODES = date(2026, 10, 1)
+# inclus ») : `20` = 5 → 19 du mois (payé le 20) ; `5` = 20 du mois précédent → 4 du mois (payé le 5). « J'ai commencé la
+# rémunération au clic le 5 octobre » : la première période au clic est le 5 → 19/10/2026 (CLICS_DEPUIS), aucune exception.
 
 
 def _mois_prec(annee: int, m: int) -> tuple:
@@ -346,18 +344,11 @@ def _mois_suiv(annee: int, m: int) -> tuple:
 
 
 def periode(cle: str, mois: str = "") -> tuple:
-    """`20` : 5 → 19 de `mois` (paie du 20 ; 1er → 19 pour octobre 2026) ; `5` : 20 du mois précédent → 4 de `mois` (paie du 5).
-    Les mois d'avant la bascule gardent l'ancienne découpe."""
+    """`20` : 5 → 19 de `mois` (paie du 20) ; `5` : 20 du mois précédent → 4 de `mois` (paie du 5)."""
     ref = _aujourdhui()
     annee, m = (int(mois[:4]), int(mois[5:7])) if mois else (ref.year, ref.month)
-    premier = date(annee, m, 1)
     if cle == "20":
-        if premier < BASCULE_PERIODES:
-            return date(annee, m, 1), date(annee, m, 15)
-        return (BASCULE_PERIODES if premier == BASCULE_PERIODES else date(annee, m, 5)), date(annee, m, 19)
-    if premier <= BASCULE_PERIODES:                                     # paie du 5 : ancienne règle jusqu'au 05/10/2026 inclus
-        fin = premier - timedelta(days=1)
-        return date(fin.year, fin.month, 16), fin
+        return date(annee, m, 5), date(annee, m, 19)
     ap, mp = _mois_prec(annee, m)
     return date(ap, mp, 20), date(annee, m, 4)
 
