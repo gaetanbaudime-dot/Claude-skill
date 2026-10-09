@@ -1,8 +1,3 @@
-// RETIRÉ le 09/10/2026 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : le quizz se passe sur
-// le site du bot (/quiz). Le bot lit encore QUIZ_OK / QUIZ_KO (un quizz réussi fait entrer dans l'agence, sans test), MAIS
-// ce script envoie l'e-mail du test de montage tant que LIEN_TEST et LIEN_RENDU sont posés. Action manuelle côté Google :
-// fermer le formulaire « Quiz », supprimer le déclencheur onQuizSubmit, retirer les propriétés LIEN_TEST, LIEN_RENDU et
-// ENVOYER_MAILS. Fichier gardé pour l'historique : à ne plus installer.
 /**
  * Quiz Clipper G&M — notificateur QUIZ_OK / QUIZ_KO vers Discord (v4, 14/09/2026 — serveur fermé).
  *

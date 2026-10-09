@@ -2782,7 +2782,10 @@ def essais_quiz(uid: str) -> int:
     dépassé le quiz — sert au quiz servi par le site (web_candidature)."""
     info = lire_json(FICHIER_PIPELINE, {"etats": {}}).get("etats", {}).get(str(uid), {})
     # 09/10 : « attente_attribution » (quiz réussi, en file faute de comptes livrables) a dépassé le quiz ; les états test_*
-    # et refuse restent lus pour l'historique, plus aucun code n'en produit.
+    # et refuse restent lus pour l'historique, plus aucun code n'en produit. Un « valide » HORS registre (validation non
+    # aboutie, relecture du lot L1) peut rejouer le quizz : le QUIZ_OK suivant relance sa validation.
+    if info.get("etat") == "valide" and str(uid) not in lire_json(FICHIER_EQUIPES, {}):
+        return essais_quiz_cycle(info)
     if info.get("etat") in ("test_envoye", "test_rendu", "valide", "attente_attribution", "refuse", "test_expire", "sorti"):
         return 99
     return essais_quiz_cycle(info)
@@ -2840,7 +2843,11 @@ async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
     canal = await canal_admin()
     essai = essais_quiz(uid) + 1
     contenu = f"{'QUIZ_OK' if reussite else 'QUIZ_KO'}|{uid}|{score}"
-    await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal))
+    try:
+        await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal))
+    except Exception:                                                   # noqa: BLE001
+        # 09/10 (relecture du lot L1) : jamais d'erreur 500 sur la page POST /quiz du site ; valider_candidat alerte le staff
+        journal.exception("Quiz du site (%s, %s) : traitement interrompu", uid, "réussi" if reussite else "raté")
     # 28/09 (Gaëtan : « tant que j'ai un backup dans mon Google Sheets ») : une ligne par essai dans l'onglet « Quiz bot »
     m = membre_par_id(uid)
     await ligne_quiz_bot(prenom_de(m) if m is not None else "", str(uid), score, essai, reussite, details)
@@ -2872,8 +2879,9 @@ async def traiter_quiz_webhook(message, silencieux=False):
     """Message « QUIZ_OK|pseudo|score[|email] » (réussite) ou « QUIZ_KO|pseudo|score[|email] » (échec), posté par l'Apps
     Script de la feuille du quiz (webhook Discord, salon admin) ou rejoué par le quiz du site (_MessageQuizWeb).
     09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : une réussite fait entrer dans l'agence
-    (valider_candidat : rôle, registre, créatrice, compte 1), sans test et sans ligne admin. Un échec prévient le candidat
-    (score, lien, essai restant), sans ligne admin : le digest compte les échecs.
+    (valider_candidat : rôle, registre, créatrice, compte 1), sans test et sans ligne admin. Un échec est compté sans ligne
+    admin (le digest compte les échecs) ; seul l'ancien formulaire Google prévient le candidat (score, lien, essai restant) :
+    sur le site, la page d'échec suffit. Un pseudo tapé qui désigne plusieurs membres ne rattache personne.
     IDEMPOTENT par identifiant de message : un redéploiement relit les 100 derniers messages du salon admin, et un QUIZ_OK déjà
     traité ne refait jamais rien (audit du 10/09). silencieux=True (rattrapage au démarrage) : aucune notification.
     message.channel peut valoir None (quiz du site sans salon admin) : l'anomalie part alors au journal seulement."""
@@ -2914,18 +2922,26 @@ async def traiter_quiz_webhook(message, silencieux=False):
             membre_trouve = g.get_member(int(pseudo))
             if membre_trouve:
                 break
-    if membre_trouve is None:                     # repli : correspondance par nom (lien générique, pseudo tapé à la main)
+    if membre_trouve is None and pseudo_n:        # repli : correspondance par nom (lien générique, pseudo tapé à la main)
+        # 09/10 (relecture du lot L1 : « QUIZ_OK|Andry » validait le PREMIER Andry du serveur, qui entrait dans l'agence sans avoir
+        # passé le quizz) : le nom ne rattache que s'il désigne un seul membre ; sinon rien, et le staff tranche.
+        homonymes = {}
         for g in client.guilds:
             for m in g.members:
                 if m.bot:
                     continue
                 noms = {normaliser(m.name), normaliser(m.display_name),
                         normaliser(getattr(m, "global_name", "") or "")}
-                if pseudo_n and pseudo_n in noms:
-                    membre_trouve = m
-                    break
-            if membre_trouve:
-                break
+                if pseudo_n in noms:
+                    homonymes[m.id] = m
+        if len(homonymes) > 1:
+            if not silencieux and reussite:
+                await _signaler(f"⚠️ Quizz réussi ({score}) : plusieurs membres « {pseudo} », rien fait. "
+                                "`!quiz-ok @membre` pour valider le bon.")
+            else:
+                journal.info("Quiz %s (%s) : plusieurs membres « %s », rien fait", "réussi" if reussite else "raté", score, pseudo)
+            return
+        membre_trouve = next(iter(homonymes.values()), None)
     if membre_trouve is None and not pseudo and (tel_q or email_q):
         # Serveur fermé (14/09) : le quiz est passé HORS Discord, sans identifiant mais avec le numéro WhatsApp et l'e-mail.
         await enregistrer_quiz_hors_discord(reussite, score, email_q, tel_q, silencieux)
@@ -2951,7 +2967,9 @@ async def traiter_quiz_webhook(message, silencieux=False):
         donnees_q["etats"][uid_q] = {**info_q, "etat": "quiz_rate", "essais_quiz": essais, "score_quiz": score,
                                      "date_quiz": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         ecrire_json(FICHIER_PIPELINE, donnees_q)
-        if silencieux:
+        if silencieux or isinstance(message, _MessageQuizWeb):
+            # 09/10 (funnel, étape 4 bis : « Le nouvel essai se fait sur le site. Rien ne part sur Discord ») : la page du site
+            # montre déjà le score, la vidéo et « Réessayer ». Le message ci-dessous ne sert plus qu'à l'ancien formulaire Google.
             return
         # 09/10 (Gaëtan : « Chaque étape à la fois… Saute des lignes, aère ») : le score, une action, le lien. Plus de ligne
         # admin à chaque échec (:2980, :2988 avant le 09/10).
@@ -2970,9 +2988,10 @@ async def traiter_quiz_webhook(message, silencieux=False):
     etat_actuel = donnees_q.get("etats", {}).get(uid_q, {}).get("etat")
     if silencieux and etat_actuel:
         return                                       # rattrapage : tout état existant = déjà traité
-    if etat_actuel in ("valide", "attente_attribution"):
-        # 24/09 (Gaëtan a testé le tunnel sur lui-même) puis 09/10 : « valide » seul vaut « déjà fait » ; la file d'attribution
-        # se vide toute seule dès qu'un compte se libère. Silence côté admin.
+    if etat_actuel == "attente_attribution" or (etat_actuel == "valide" and uid_q in lire_json(FICHIER_EQUIPES, {})):
+        # 24/09 (Gaëtan a testé le tunnel sur lui-même) puis 09/10 : « valide » au registre vaut « déjà fait » ; la file
+        # d'attribution se vide toute seule dès qu'un compte se libère. Silence côté admin. Un « valide » HORS registre (validation
+        # non aboutie : réseau, membre introuvable) repasse par valider_candidat (relecture du lot L1 : il restait bloqué).
         journal.info("Quiz rejoué : membre %s déjà en état %s, rien fait", uid_q, etat_actuel)
         return
     if etat_actuel == "sorti":
@@ -3163,8 +3182,11 @@ async def traiter_liaison(auteur, brut):
     etat_l = donnees.get("etats", {}).get(str(auteur.id), {})
     if meme_numero and etat_l.get("etat"):
         # Déjà lié et déjà engagé dans le parcours : on ne rejoue pas l'accueil, on dit où il en est.
-        # 09/10 : plus de renvoi du test de montage (retiré) aux MP fermés.
-        await envoyer_mp(auteur, "✅ Ton numéro est déjà relié.\n\n" + ou_en_es_tu(str(auteur.id)))
+        # 09/10 : plus de renvoi du test de montage (retiré) aux MP fermés. 09/10 (relecture du lot L1 : un revenant repassé
+        # par le site avec le même numéro lisait « ✅ Ton numéro est déjà relié » avant le message de sa créatrice) : quiz
+        # réussi, en file ou signé → rien (même règle que texte_accueil_liaison) ; sinon une phrase, où il en est.
+        if texte_accueil_liaison(auteur):
+            await envoyer_mp(auteur, "✅ Ton numéro est déjà relié.\n\n" + ou_en_es_tu(str(auteur.id)))
         return
     membre_serveur = membre_par_id(auteur.id)
     if cand.get("prenom") and membre_serveur:
@@ -3172,40 +3194,68 @@ async def traiter_liaison(auteur, brut):
             await membre_serveur.edit(nick=cand["prenom"], reason="Candidature reliée")
         except (discord.Forbidden, discord.HTTPException):
             pass
+    salon_avant, salon = None, None
     if membre_serveur is not None:
         # 27/09 : le reste du parcours se passe dans son salon. 09/10 : créé sans accueil, le seul message est celui d'ici
-        await assurer_salon_arrivee(membre_serveur, accueil=False)
+        salon_avant = salon_perso_de(membre_serveur.id)
+        salon = await assurer_salon_arrivee(membre_serveur, accueil=False)
     # 09/10 (Gaëtan : « Chaque étape à la fois… Saute des lignes, aère ») : quiz réussi → aucun message (sa créatrice arrive
     # dans la minute) ; sinon un seul message, sans bouton WhatsApp (une seule action : la vidéo puis le quizz).
     texte = texte_accueil_liaison(auteur, bool(cand))
+    if texte and salon_avant is not None and await _accueil_deja_poste(salon_avant):
+        # 09/10 (relecture du lot L1 : la vidéo et le quizz partaient deux fois, à l'arrivée puis au numéro) : déjà dans son
+        # salon, une ligne suffit.
+        texte = ("✅ Numéro relié." if cand else
+                 "⚠️ Pas de candidature à ce numéro.\n\nPas grave, on continue : la vidéo et le quizz du message de bienvenue.")
+    if texte.startswith("👋") and salon is not None:
+        try:                             # l'accueil porte déjà sa mention : tel quel dans son salon (envoyer_mp la doublerait)
+            await salon.send(texte[:2000])
+            texte = ""
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.info("Salon de %s injoignable pour l'accueil (%s) : repli", auteur.id, erreur)
     if texte:
         await envoyer_mp(auteur, texte)
     journal.info("Liaison téléphone : membre %s -> …%s (%s)", auteur.id, tel[-4:],
                  "candidature retrouvée" if cand else "sans candidature")
 
 
+async def _accueil_deja_poste(salon) -> bool:
+    """09/10 (relecture du lot L1) : vrai si un message du bot, parmi les 30 derniers du salon, donne déjà la vidéo et le quizz
+    (message_accueil du lot L2, ou texte_accueil_liaison). Historique illisible : vrai, le salon a été ouvert avec son accueil
+    (assurer_salon_arrivee), mieux vaut une ligne courte qu'un pavé en double."""
+    moi = getattr(getattr(client, "user", None), "id", None)
+    try:
+        async for ancien in salon.history(limit=30):
+            if getattr(getattr(ancien, "author", None), "id", None) == moi \
+                    and "la vidéo de formation et le quizz" in (getattr(ancien, "content", "") or ""):
+                return True
+    except (AttributeError, TypeError, discord.Forbidden, discord.HTTPException):
+        return True
+    return False
+
+
 def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
     """Le message d'un arrivant relié SANS quiz réussi (étape 5 du funnel du 09/10) : la vidéo de formation et le quizz, et
     rien d'autre ; '' si le quiz est déjà réussi (quiz_ok, valide, en file d'attribution, ancien test) ou s'il est signé :
     rien à lui dire, le message de sa créatrice suit. Sert aussi aux messages déposés (« accueil_liaison »).
-    La mention est posée par l'envoi (envoyer_mp) : le texte ne la répète pas."""
+    09/10 (relecture du lot L1) : mot pour mot le message d'accueil du lot L2 (message_accueil, texte_arrivant_sans_quiz),
+    mention en tête ; un numéro inconnu ajoute une ligne discrète, sans seconde action."""
     rang, _ = etape_recrutement(membre.id)
     etat = ((lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats") or {}).get(str(membre.id)) or {}).get("etat", "")
     if rang >= 2 or etat in ("quiz_ok", "valide", "attente_attribution", "test_envoye", "test_rendu") \
             or str(membre.id) in lire_json(FICHIER_EQUIPES, {}):
         return ""
-    alerte = ("" if candidature_trouvee else
-              "⚠️ Je ne retrouve pas ta candidature avec ce numéro. Vérifie que c'est celui du formulaire, sinon on continue.\n\n")
     # Le lien de quizz personnel (site, sinon Google Form) : le formulaire de candidature ne sert pas ici, il est déjà sur le
     # serveur et un quizz réussi sur la page de candidature ne le relierait pas à son compte Discord.
     lien_q = lien_quiz_pour(membre.id)
-    liens = f"🎬 La vidéo : {lien_formation()}\n\n" + (f"📝 Le quizz : <{lien_q}>" if lien_q else "📝 Le quizz : tape `!quiz` ici.")
     # 09/10 (Gaëtan : « Les clippeurs se font submerger d'informations… Saute des lignes, aère ») : plus de trois étapes, plus
     # de « test de montage » ; une action, des lignes vides, lisible au téléphone.
-    return ("👋 Bienvenue.\n\n" + alerte
-            + "Pour rejoindre l'agence : la vidéo de formation et le quizz, ici :\n\n"
-            + liens + "\n\n"
-            + "Quizz réussi = ta créatrice et ton compte 1 arrivent ici.")
+    return (f"👋 {membre.mention}, bienvenue.\n\n"
+            "Pour rejoindre l'agence : la vidéo de formation et le quizz, ici :\n\n"
+            f"🎬 La vidéo : {lien_formation()}\n\n"
+            + (f"📝 Le quizz : <{lien_q}>\n\n" if lien_q else "📝 Le quizz : tape `!quiz` ici.\n\n")
+            + "Quizz réussi = ta créatrice et ton compte 1 arrivent ici."
+            + ("" if candidature_trouvee else "\n\n-# Pas de candidature à ce numéro : pas grave, on continue."))
 
 
 def lien_quiz_pour(uid) -> str:
@@ -3498,14 +3548,51 @@ def texte_repli_attente(prenom: str) -> str:
             + "\n\nTa créatrice arrive ici sous 48 h.\n\nRien à faire d'ici là.")
 
 
-def _deja_dans_l_equipe(membre) -> bool:
-    """Garde de valider_candidat : staff, ou porteur d'un rôle d'équipe (Clippeur, Rookie) sans être au registre — un ancien,
-    jamais à remettre au compte 1 (défaut « actifs re-onboardés » du 09/10). Volontairement SANS le roster par prénom : un
-    nouveau qui porte le prénom d'un ancien doit pouvoir entrer."""
-    if str(getattr(membre, "id", "")) in ADMIN_IDS or est_manager(membre):
+async def envoyer_repli_attente(membre) -> bool:
+    """09/10 (Gaëtan : « Chaque étape à la fois ») : après une validation ou une acceptation d'office, le seul message possible
+    ici. Attribution automatique : rien (le message de sa créatrice arrive dans la minute, parcours.demarrer_parcours) ; sinon
+    texte_repli_attente, par envoyer_mp (son salon perso, sinon MP). Sert à suite_validation et, en dépendance « repli », à
+    acceptation.envoyer_boutons_en_attente (branchée dans on_ready). Vrai si un message est parti."""
+    if membre is None or attribution.actif():
+        return False
+    return bool(await envoyer_mp(membre, texte_repli_attente(prenom_de(membre))))
+
+
+# 09/10 (relecture du lot L1) : un candidat connu du pipeline. Pour lui, le roster par prénom ne tranche pas : il ne dit pas
+# lequel des deux « Andry » il désigne, et un ancien suivi par Jonas sur WhatsApp n'est pas forcément sur le serveur.
+ETATS_CANDIDAT_CONNU = ("quiz_ok", "quiz_rate", "valide", "attente_attribution", "test_envoye", "test_rendu", "test_expire",
+                        "refuse")
+
+
+def deja_dans_l_agence(membre_ou_uid) -> bool:
+    """09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : la garde de valider_candidat, jamais un
+    ancien remis au compte 1 (défaut « actifs re-onboardés »). Vrai pour une fiche au registre, le staff, un rôle d'équipe (la
+    même liste que est_signe, lot L2 : Clippeur, Rookie, Confirmé, Elite, Team France, Team International…). Un membre que le
+    pipeline connaît candidat (ETATS_CANDIDAT_CONNU) n'est jugé que sur ces trois points ; les autres passent par est_signe
+    (roster compris). Accepte un membre ou un identifiant : sert aussi de dépendance « est_signe » à acceptation (on_ready)."""
+    uid = str(getattr(membre_ou_uid, "id", membre_ou_uid) or "")
+    if uid and uid in lire_json(FICHIER_EQUIPES, {}):
         return True
-    cibles = {normaliser(r).strip() for r in ROLES_EQUIPE_ACCEPTES if r} - {""}
-    return any(any(c in normaliser(getattr(r, "name", "") or "") for c in cibles) for r in (getattr(membre, "roles", None) or []))
+    membre = membre_ou_uid if hasattr(membre_ou_uid, "id") else (membre_par_id(uid) if uid.isdigit() else None)
+    if membre is None:
+        return False
+    if est_staff(membre):
+        return True
+    noms_equipe = {normaliser(r).strip() for r in (*ROLES_EQUIPE_ACCEPTES, *NOMS_RANGS, ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM,
+                                                    "Team International") if r and r.strip()}
+    for role in getattr(membre, "roles", None) or []:
+        nom_r = normaliser(getattr(role, "name", "") or "")
+        if any(n in nom_r for n in noms_equipe):
+            return True
+    etat = ((lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats") or {}).get(uid) or {}).get("etat", "")
+    if etat in ETATS_CANDIDAT_CONNU:
+        return False
+    return bool(est_signe(membre))
+
+
+# 09/10 (relecture du lot L1 : deux reprises de la file d'attribution, ou un `!quiz-ok` pendant une reprise, validaient deux fois
+# le même membre : rôle, « a rejoint l'agence », Telegram et attribution en double) : un membre à la fois.
+_VALIDATIONS_EN_COURS = set()
 
 
 async def valider_candidat(membre, score: str = "", via: str = "quiz") -> str:
@@ -3513,20 +3600,43 @@ async def valider_candidat(membre, score: str = "", via: str = "quiz") -> str:
     Pose l'état « valide » (validation datée, valide_par = via : quiz, staff, migration…, sans_test), l'ÉCRIT avant tout
     appel qui peut échouer (défaut D1 : un quiz_ok resté en plan était expulsé à 48 h), puis suite_validation : rôle Clippeur,
     registre (paie au clic), salon perso, créatrice et compte 1. Les clés du test (echeance, envoi, mp_ok, retest) tombent.
-    Renvoie "deja" sans rien écrire ni envoyer pour un membre déjà au registre, staff, ou qui porte un rôle d'équipe ; sinon
-    la ligne de suite_validation pour l'admin. Contrat appelé par traiter_quiz_webhook, !quiz-ok et !migrer-test (lot L5)."""
+    Renvoie "deja" sans rien écrire ni envoyer pour un membre déjà dans l'agence (deja_dans_l_agence) ou en cours de validation
+    (_VALIDATIONS_EN_COURS) ; sinon la ligne de suite_validation pour l'admin. Ne lève jamais : une suite qui échoue (réseau,
+    membre introuvable) renvoie une ligne « ⚠️ … `!quiz-ok …` », postée au staff sauf pour `!quiz-ok` (via « staff », qui
+    l'affiche lui-même). Contrat appelé par traiter_quiz_webhook, !quiz-ok et !migrer-test (lot L5), et les reprises (L3, L6)."""
     uid = str(membre.id)
-    if uid in lire_json(FICHIER_EQUIPES, {}) or _deja_dans_l_equipe(membre):
+    if uid in _VALIDATIONS_EN_COURS:
+        journal.info("Validation de %s (%s) : déjà en cours, rien fait", uid, via)
+        return "deja"
+    if deja_dans_l_agence(membre):
         journal.info("Validation de %s (%s) : déjà dans l'équipe, rien fait", uid, via)
         return "deja"
-    donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-    ancien = {k: v for k, v in (donnees.get("etats", {}).get(uid) or {}).items()
-              if k not in ("echeance", "envoi", "mp_ok", "retest")}
-    donnees.setdefault("etats", {})[uid] = {
-        **ancien, "etat": "valide", "score_quiz": score or ancien.get("score_quiz", ""),
-        "validation": datetime.now(timezone.utc).isoformat(timespec="seconds"), "valide_par": via, "sans_test": "09/10"}
-    ecrire_json(FICHIER_PIPELINE, donnees)
-    return await suite_validation(membre, getattr(membre, "guild", None))
+    _VALIDATIONS_EN_COURS.add(uid)                                      # avant le premier await : deux appels ne passent pas
+    try:
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        ancien = {k: v for k, v in (donnees.get("etats", {}).get(uid) or {}).items()
+                  if k not in ("echeance", "envoi", "mp_ok", "retest")}
+        donnees.setdefault("etats", {})[uid] = {
+            **ancien, "etat": "valide", "score_quiz": score or ancien.get("score_quiz", ""),
+            "validation": datetime.now(timezone.utc).isoformat(timespec="seconds"), "valide_par": via, "sans_test": "09/10"}
+        ecrire_json(FICHIER_PIPELINE, donnees)
+        # 09/10 (relecture du lot L1 : une erreur réseau pendant l'ajout du rôle remontait jusqu'au site, erreur 500 au candidat qui
+        # venait de réussir ; une validation non aboutie partait au journal seulement) : le staff le voit, avec la commande.
+        try:
+            retour = str(await suite_validation(membre, getattr(membre, "guild", None)) or "")
+        except Exception as erreur:                                         # noqa: BLE001
+            journal.exception("Validation de %s (%s) interrompue", uid, via)
+            retour = f"⚠️ {prenom_de(membre)} : validation non aboutie ({type(erreur).__name__})."
+        if retour.startswith("⚠️"):
+            retour = f"{retour} {membre.mention} · pour relancer : `!quiz-ok {uid}`"
+            if via != "staff":
+                try:
+                    await notifier_manager(retour, getattr(membre, "guild", None))
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Validation de %s : alerte non postée (%s)", uid, erreur)
+        return retour
+    finally:
+        _VALIDATIONS_EN_COURS.discard(uid)
 
 
 async def suite_validation(membre, guild):
@@ -3551,8 +3661,7 @@ async def suite_validation(membre, guild):
     if retour_acc.startswith(("Je n'ai pas", "Je ne te trouve")):
         journal.warning("Validation de %s non aboutie : %s", membre.id, retour_acc[:120])
         return f"⚠️ {prenom_de(membre)} : validation non aboutie ({retour_acc.splitlines()[0][:80]})."
-    if not attribution.actif():
-        await envoyer_mp(membre, texte_repli_attente(prenom_de(membre)))
+    await envoyer_repli_attente(membre)
     return (f"✅ {prenom_de(membre)} validé." if attribution.actif() else
             f"✅ {prenom_de(membre)} validé · `!creatrice {membre.display_name} <prénom>`.")
 
@@ -8032,6 +8141,8 @@ def preparer_arrivee_site(uid: str, cand_id: str, tel: str) -> str:
     if not q.get("reussi"):
         return ""
     etat = (pipe.get("etats", {}).get(str(uid)) or {}).get("etat", "")
+    if etat == "valide" and str(uid) not in lire_json(FICHIER_EQUIPES, {}):
+        return q.get("score", "") or "ok"                              # 09/10 : validation non aboutie, le QUIZ_OK la relance
     if etat in ("valide", "attente_attribution", "test_envoye", "test_rendu"):   # déjà plus loin : on ne recule pas
         return ""
     pipe.setdefault("etats", {})[str(uid)] = {"etat": "quiz_ok", "score_quiz": q.get("score", ""), "essais_quiz": q.get("essais", 1),
