@@ -749,7 +749,8 @@ def en_prive(message) -> bool:
     return sp is not None and sp.id == message.channel.id
 
 
-PARCOURS_ARRIVANT = ("Formation", "Quiz", "Test de montage", "Création du compte Instagram", "Publication")
+# 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : quatre étapes, plus de test de montage.
+PARCOURS_ARRIVANT = ("Formation", "Quiz", "Créatrice et compte 1", "Publication")
 
 
 LIEN_VIDEO_FORMATION = os.environ.get("LIEN_VIDEO_FORMATION", "https://www.loom.com/share/e7ffb70f9bd44d99b437ed8844e0e409").strip()
@@ -764,55 +765,157 @@ def lien_formation() -> str:
     return f"<#{post}>" if post else (f"<#{CANAL_FORMATION_ID}>" if CANAL_FORMATION_ID else "le salon formation")
 
 
+# 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : un quiz réussi, sur le site ou sur Discord, y compris ceux d'avant le
+# retrait du test (test envoyé, rendu, expiré ou refusé : la migration les valide). Il ne reste qu'à attendre la créatrice et le compte 1.
+ETATS_QUIZ_REUSSI = ("quiz_ok", "valide", "attente_attribution", "test_envoye", "test_rendu", "test_expire", "refuse")
+
+
+def texte_arrivant_sans_quiz(uid) -> str:
+    """09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie. Saute des lignes, aère ») : la seule action d'un
+    membre sans quiz réussi. Le quizz personnel du site ne montre pas la vidéo (les 5 mots-clés y sont) : les deux liens. Le
+    formulaire de candidature ne sert pas ici : il est déjà sur le serveur, un quizz réussi par là ne le relierait pas à son
+    compte Discord. Même texte que l'accueil de la liaison (texte_accueil_liaison)."""
+    lien_q = lien_quiz_pour(uid)
+    return ("Pour rejoindre l'agence : la vidéo de formation et le quizz, ici :\n\n"
+            f"🎬 La vidéo : {lien_formation()}\n\n"
+            + (f"📝 Le quizz : <{lien_q}>\n\n" if lien_q else "📝 Le quizz : tape `!quiz` ici.\n\n")
+            + "Quizz réussi = ta créatrice et ton compte 1 arrivent ici.")
+
+
+def texte_sorti(uid) -> str:
+    """09/10 (revue : « Tu peux revenir : refais le quizz ici » menait à une impasse, le quizz d'un « sorti » n'est jamais pris
+    en compte, l'admin décide) : ce qu'on dit à un membre « sorti » encore sur le serveur. Une seule action : écrire à Gaëtan,
+    qui le reprend par `!quiz-ok`. Un ancien signé (fiche dans sortis.json) lit que sa place a été libérée, comme dans le
+    message de sa sortie ; un candidat sorti, que son parcours est en pause."""
+    if sortie_d_un_ancien(uid):
+        return "Ta place dans l'équipe a été libérée.\n\nPour revenir, écris à Gaëtan."
+    return "Ton parcours est en pause.\n\nPour le reprendre, écris à Gaëtan."
+
+
 def etape_recrutement(uid) -> tuple:
-    """(rang de l'étape en cours dans PARCOURS_ARRIVANT, ligne « 👉 » de la prochaine action). 28/09 (Gaëtan) : s'il est sur
-    Discord, il a rempli le formulaire ; on ne le lui rappelle jamais, et on ne dit que la prochaine chose à faire."""
+    """(rang de l'étape en cours dans PARCOURS_ARRIVANT, texte de la prochaine action). 28/09 (Gaëtan) : s'il est sur Discord, il a
+    rempli le formulaire ; on ne le lui rappelle jamais, et on ne dit que la prochaine chose à faire. 09/10 (un nouveau a lu
+    « Candidature close » ; Gaëtan : « Chaque étape à la fois ») : trois cas. Signé → rien à dire ; quiz réussi → la créatrice
+    et le compte 1 arrivent ; sinon → la vidéo et le quizz. Un « sorti » encore là : écrire à Gaëtan (texte_sorti). Jamais
+    « Candidature close », jamais de test."""
     uid = str(uid)
-    if (lire_json(FICHIER_EQUIPES, {}).get(uid) or {}):
-        return 3, "👉 Tes comptes et ton parcours arrivent ici."
+    membre = membre_par_id(uid) if str(uid).isdigit() else None
+    if (lire_json(FICHIER_EQUIPES, {}).get(uid) or {}) or (membre is not None and est_signe(membre)):
+        return 3, ""
     etat = (lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats", {}).get(uid) or {}).get("etat", "")
-    if etat == "valide":
-        return 3, "👉 Test validé. Accepte les 5 règles avec le bouton, tes comptes arrivent."
-    if etat == "test_rendu":
-        return 2, "👉 Test rendu. Mon avis arrive ici."
-    if etat == "test_envoye":
-        return 2, "👉 Ton test de montage : envoie ta vidéo ici, en fichier."
-    if etat == "test_expire":
-        return 2, "👉 Test à refaire : demande-le ici."
-    if etat == "quiz_ok":
-        return 2, "👉 Quiz réussi. Ton test de montage arrive ici."
-    if etat == "quiz_rate":
-        return 1, f"👉 Quiz à repasser. Revois la formation dans {lien_formation()}, puis refais le quiz."
-    if etat in ("refuse", "sorti"):
-        return 0, "Candidature close."
-    return 0, f"👉 On commence par la formation : {lien_formation()}."
+    if etat in ETATS_QUIZ_REUSSI:
+        return 2, "Ta créatrice et ton compte 1 arrivent ici."
+    if etat == "sorti":
+        return 0, texte_sorti(uid)
+    return (1 if etat == "quiz_rate" else 0), texte_arrivant_sans_quiz(uid)
 
 
 def ligne_parcours(rang: int) -> str:
-    """« **Formation** → Quiz → Test de montage → Création du compte Instagram → Publication », l'étape en cours en gras."""
+    """« **Formation** → Quiz → Créatrice et compte 1 → Publication », l'étape en cours en gras. 09/10 : plus affichée au clipper
+    (« Chaque étape à la fois »), gardée pour un affichage staff."""
     return " → ".join(f"**{e}**" if i == rang else e for i, e in enumerate(PARCOURS_ARRIVANT))
 
 
 def message_accueil(membre) -> str:
+    """Le message posé à la création du salon d'un arrivant. 09/10 (Gaëtan : « Les clippeurs se font submerger d'informations
+    sur leur salon privé ») : un seul message, et seulement pour un membre sans quiz réussi ; '' pour un quiz réussi ou un signé
+    (le message de la créatrice arrive juste après, c'est lui le premier qu'il lit). Plus de ligne « Ton parcours ». Un
+    « sorti » : rien non plus, il n'a pas de salon (assurer_salon_arrivee)."""
     rang, suite = etape_recrutement(membre.id)
-    return (f"🏠 {membre.mention}, ton salon. Tout se passe ici.\n\n"
-            f"Ton parcours : {ligne_parcours(rang)}\n\n"
-            f"{suite}\n\n"
-            "Une question ? Écris-la ici.")
+    if rang >= 2 or not suite:
+        return ""
+    if ((lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats") or {}).get(str(membre.id)) or {}).get("etat") == "sorti":
+        return ""
+    return f"👋 {membre.mention}, bienvenue.\n\n{suite}"
+
+
+# 09/10 : états d'un candidat EN COURS dans le pipeline. Un membre dans l'un d'eux est un candidat, même si son prénom est celui
+# d'un clipper du roster (le roster est par prénom : deux homonymes sur le serveur, le nouveau n'est pas l'ancien).
+ETATS_CANDIDAT = ("quiz_ok", "quiz_rate", "test_envoye", "test_rendu", "test_expire", "refuse", "sorti")
+
+# 09/10 (revue : un nouveau « Kilian » pris pour le Kilian du roster, parti du serveur ou inscrit sous un autre pseudo : arrivée
+# muette, puis jamais relancé ni sorti) : le roster par prénom, et sa liste « sans salon » des anciens de Jonas, ne valent que
+# pour un membre arrivé AVANT l'ouverture des vannes. Tout arrivant d'après entre par le registre (valider_candidat,
+# onboarder_multi), qui suffit.
+OUVERTURE_VANNES = datetime(2026, 10, 9, tzinfo=timezone.utc)
+
+
+def est_signe(membre, registre: dict = None) -> bool:
+    """09/10 (audit : des actifs ré-onboardés à l'étape 1, un ancien relancé « fais le quiz ») : LA définition de « déjà dans
+    l'agence ». Vrai pour le staff, une fiche au registre (FICHIER_EQUIPES), un rôle d'équipe (Clippeur, Rookie, rangs, Team),
+    ou un prénom au roster actif — ce dernier seulement pour un membre arrivé avant le 09/10 (arrive_avant_vannes), qu'aucun
+    autre membre du serveur ne porte ce prénom et que le pipeline ne le voit pas candidat (le roster ne dit pas lequel des deux
+    homonymes il désigne). `registre` : déjà lu, pour les boucles."""
+    if membre is None or getattr(membre, "bot", False):
+        return False
+    uid = str(getattr(membre, "id", ""))
+    if getattr(membre, "guild", None) is None and uid.isdigit():       # un User (message privé) : le membre du serveur
+        membre = membre_par_id(uid) or membre
+    if est_staff(membre):
+        return True
+    registre = lire_json(FICHIER_EQUIPES, {}) if registre is None else registre
+    if registre.get(uid):
+        return True
+    noms_equipe = {normaliser(r).strip() for r in (*ROLES_EQUIPE_ACCEPTES, *NOMS_RANGS, ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM,
+                                                    "Team International") if r and r.strip()}
+    for role in getattr(membre, "roles", []) or []:
+        nom_r = normaliser(getattr(role, "name", "") or "")
+        if any(n in nom_r for n in noms_equipe):
+            return True
+    prenom = prenom_de(membre)
+    if not prenom or not roster.est_actif(prenom):
+        return False
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    etat = ((pipe.get("etats") or {}).get(uid) or {}).get("etat", "")
+    if etat in ETATS_CANDIDAT or not arrive_avant_vannes(membre, pipe):
+        return False
+    cle = normaliser(prenom)
+    homonymes = [m for m in (getattr(getattr(membre, "guild", None), "members", None) or [])
+                 if not getattr(m, "bot", False) and str(getattr(m, "id", "")) != uid and normaliser(prenom_de(m)) == cle]
+    return not homonymes
+
+
+def arrive_avant_vannes(membre, pipe: dict = None) -> bool:
+    """09/10 : vrai si l'on SAIT que `membre` était sur le serveur avant OUVERTURE_VANNES. Sa date d'arrivée Discord (joined_at,
+    la dernière en cas de retour), sinon celle du pipeline (arrivees : date, retour). Rien de connu → faux : un inconnu n'est
+    jamais pris pour un ancien du roster. `pipe` : le pipeline déjà lu."""
+    j = getattr(membre, "joined_at", None)
+    if isinstance(j, datetime):
+        return (j if j.tzinfo else j.replace(tzinfo=timezone.utc)) < OUVERTURE_VANNES
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}) if pipe is None else pipe
+    arrivee = (pipe.get("arrivees") or {}).get(str(getattr(membre, "id", ""))) or {}
+    dates = []
+    for cle in ("date", "retour"):
+        try:
+            d = datetime.fromisoformat(str(arrivee.get(cle) or ""))
+        except ValueError:
+            continue
+        dates.append(d if d.tzinfo else d.replace(tzinfo=timezone.utc))
+    return bool(dates) and max(dates) < OUVERTURE_VANNES
+
+
+def ancien_sans_salon(membre) -> bool:
+    """roster.sans_salon (anciens de Jonas : jamais de salon perso), pour un membre arrivé avant le 09/10 seulement. 09/10 (revue) :
+    un nouvel arrivant n'est jamais un ancien de Jonas, même s'il en porte le prénom ; il a son salon comme les autres."""
+    return bool(roster.sans_salon(prenom_de(membre))) and arrive_avant_vannes(membre)
 
 
 def arrivant_a_servir(membre, signes: dict, limite) -> bool:
-    """Un membre humain arrivé après `limite`, ni staff, ni ancien de Jonas, ni signé avec une créatrice : il lui faut un salon."""
+    """Un membre humain arrivé après `limite`, ni staff, ni ancien de Jonas, ni signé : il lui faut un salon. 09/10 (audit : des
+    anciens hors registre recevaient un salon neuf « On commence par la formation ») : tout signé est exclu (est_signe) ; un
+    ancien de Jonas l'est seulement s'il était là avant le 09/10 (ancien_sans_salon)."""
     if membre is None or getattr(membre, "bot", False) or str(membre.id) in ADMIN_IDS or est_manager(membre):
-        return False
-    if (signes.get(str(membre.id)) or {}).get("creatrice") or roster.sans_salon(prenom_de(membre)):
         return False
     j = getattr(membre, "joined_at", None)
     if j is None:
         return False
     if j.tzinfo is None:
         j = j.replace(tzinfo=timezone.utc)
-    return j >= limite
+    if j < limite:
+        return False
+    if (signes.get(str(membre.id)) or {}) or ancien_sans_salon(membre):
+        return False
+    return not est_signe(membre, signes)
 
 
 async def salons_arrivants_recents(jours: int = 14, maximum: int = 30) -> int:
@@ -839,15 +942,23 @@ async def salons_arrivants_recents(jours: int = 14, maximum: int = 30) -> int:
 async def orienter_arrivant(message) -> bool:
     """27/09 (Ascartel : « comment je fais pour bosser ? » dans #général, personne ne répond) : un arrivant sans salon perso qui
     écrit dans un salon public reçoit son salon sur-le-champ, un mot qui l'y envoie, et son message y est recopié. Une fois par
-    jour au plus par membre. Vrai si le message a été traité."""
+    jour au plus par membre. Vrai si le message a été traité. 09/10 (audit : un ancien hors registre recevait un salon neuf ; un
+    arrivant qui posait sa question dans #assistant était renvoyé ailleurs) : jamais un signé (est_signe), jamais dans #assistant,
+    où l'assistant lui répond sur place. Jamais un « sorti » (l'admin décide de son retour) ; un ancien de Jonas seulement s'il
+    était là avant le 09/10 (ancien_sans_salon)."""
     m = message.author
-    if getattr(m, "bot", False) or str(m.id) in ADMIN_IDS or est_manager(m) or roster.sans_salon(prenom_de(m)):
+    if getattr(m, "bot", False) or str(m.id) in ADMIN_IDS or est_manager(m) or ancien_sans_salon(m):
         return False
-    if (lire_json(FICHIER_EQUIPES, {}).get(str(m.id)) or {}).get("creatrice"):
+    cid = salon_assistant_id()
+    if cid and str(getattr(message.channel, "id", "")) == cid:
+        return False
+    if est_signe(m):
         return False
     if salon_perso_de(m.id) is not None:
         return False                                                    # il a un salon : s'il écrit ailleurs, c'est son choix
     pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    if ((pipe.get("etats") or {}).get(str(m.id)) or {}).get("etat") == "sorti":
+        return False
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if pipe.setdefault("orientes", {}).get(str(m.id)) == jour:
         return False
@@ -857,11 +968,12 @@ async def orienter_arrivant(message) -> bool:
     if salon is None:
         return False
     try:
-        await message.reply(f"👋 {m.mention}, ton salon perso est là : {salon.mention}. Je t'y attends, on continue là-bas.")
+        await message.reply(f"👋 {m.mention}, ton salon perso est là : {salon.mention}\n\nOn continue là-bas.")
     except (discord.Forbidden, discord.HTTPException):
         pass
     try:
-        await salon.send(f"Tu as écrit dans {message.channel.mention} : « {(message.content or '')[:200]} »\n\nRéponds-moi ici, je t'aide.")
+        await salon.send(f"Tu as écrit dans {message.channel.mention} :\n\n« {(message.content or '')[:200]} »\n\n"
+                         "Une question ? Écris-la ici, je réponds.")
     except (discord.Forbidden, discord.HTTPException):
         pass
     journal.info("Arrivant orienté vers son salon : %s → #%s", m.id, salon.name)
@@ -869,13 +981,20 @@ async def orienter_arrivant(message) -> bool:
 
 
 async def assurer_salon_arrivee(membre, accueil: bool = True):
-    """Le salon perso d'un arrivant, dans « 🎬 Clippers », dès son arrivée (27/09) : formation, quiz, test, règles, puis comptes,
-    tout s'y passe sous les yeux de Gaëtan ; à l'attribution, le salon part sous la créatrice. Renvoie le salon ou None.
-    `accueil=False` : le salon est créé sans message (l'arrivée par le site envoie le sien, un seul)."""
+    """Le salon perso d'un arrivant, dans « 🎬 Clippers », dès son arrivée (27/09) : tout s'y passe sous les yeux de Gaëtan ; à
+    l'attribution, le salon part sous la créatrice. Renvoie le salon ou None. `accueil=False` : le salon est créé sans message.
+    09/10 (Gaëtan : « Les clippeurs se font submerger d'informations sur leur salon privé ») : `accueil=True` ne poste que le
+    message d'un membre sans quiz réussi (message_accueil) ; rien pour un quiz réussi ou un signé, et plus de bouton WhatsApp à
+    l'arrivée (il vient avec la créatrice). Revue du 09/10 : pas de salon pour un « sorti » (l'admin décide de son retour) ni
+    pour un ancien de Jonas arrivé avant le 09/10 seulement (ancien_sans_salon) ; le message d'accueil envoyé est noté
+    (arrivees[uid]["accueil"], lu par accueil_deja_envoye) pour qu'aucun autre message ne redemande la même action."""
     if not SALON_ARRIVEE or membre is None or getattr(membre, "bot", False) or getattr(membre, "guild", None) is None:
         return None
-    if str(membre.id) in ADMIN_IDS or est_manager(membre) or roster.sans_salon(prenom_de(membre)):
+    if str(membre.id) in ADMIN_IDS or est_manager(membre) or ancien_sans_salon(membre):
         return None                                                     # les anciens gérés par Jonas sur WhatsApp : pas de salon
+    uid = str(membre.id)
+    if ((lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats") or {}).get(uid) or {}).get("etat") == "sorti":
+        return None
     try:
         salon, cree, err = await assurer_salon_perso(membre.guild, membre, None, "", "salon dès l'arrivée (27/09)")
     except Exception as erreur:                                             # noqa: BLE001
@@ -884,17 +1003,30 @@ async def assurer_salon_arrivee(membre, accueil: bool = True):
     if salon is None:
         journal.warning("Salon d'arrivée de %s impossible : %s", membre.id, err)
         return None
-    if cree and accueil:
+    texte = message_accueil(membre) if (cree and accueil) else ""
+    if texte:
         try:
-            await salon.send(message_accueil(membre), view=vue_whatsapp())
+            await salon.send(texte)
         except (discord.Forbidden, discord.HTTPException):
-            pass
+            return salon
+        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        donnees.setdefault("arrivees", {}).setdefault(uid, {})["accueil"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        ecrire_json(FICHIER_PIPELINE, donnees)
     return salon
 
 
+def accueil_deja_envoye(uid) -> bool:
+    """09/10 (revue : la même consigne « la vidéo et le quizz » partait deux fois quand l'arrivant envoyait ensuite son numéro) :
+    vrai si le salon de l'arrivant a déjà reçu son message d'accueil (assurer_salon_arrivee) depuis sa dernière arrivée. Pour
+    texte_accueil_liaison : rien à redire."""
+    return bool(((lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("arrivees") or {}).get(str(uid)) or {}).get("accueil"))
+
+
 async def salons_candidats_recents(jours: int = 14, maximum: int = 30) -> int:
-    """Au démarrage (27/09) : les candidats en cours (quiz, test, validés) présents sur le serveur et actifs depuis moins de
-    `jours` reçoivent leur salon perso s'ils n'en ont pas. Renvoie le nombre créé."""
+    """Au démarrage (27/09) : les candidats en cours présents sur le serveur et actifs depuis moins de `jours` reçoivent leur
+    salon perso s'ils n'en ont pas. Renvoie le nombre créé. 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : plus
+    d'états de test ni de « refuse » (ce dernier recevait exprès un salon pour y lire « Candidature close ») : le quiz réussi,
+    le validé et celui qui attend sa créatrice. Le salon est créé sans message, celui de la créatrice arrive après."""
     if not SALON_ARRIVEE or not client.guilds:
         return 0
     pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -902,15 +1034,16 @@ async def salons_candidats_recents(jours: int = 14, maximum: int = 30) -> int:
     limite = (datetime.now(timezone.utc) - timedelta(days=jours)).isoformat(timespec="seconds")
     n = 0
     for uid, info in pipe.get("etats", {}).items():
-        if n >= maximum or info.get("etat") not in ("test_envoye", "test_rendu", "valide", "refuse"):
+        if n >= maximum or info.get("etat") not in ("quiz_ok", "valide", "attente_attribution"):
             continue
         if uid in signes:                                                  # déjà signé : son salon vient de l'onboarding, pas d'ici
             continue
-        date = max(str(info.get(k) or "") for k in ("envoi", "rendu", "validation", "echeance"))
-        if not date or date < limite:
+        # 09/10 (revue) : la file d'attribution (migration L5, attribution._mettre_en_attente) date sous « attente_depuis »
+        date_c = max(str(info.get(k) or "") for k in ("date_quiz", "validation", "attente_depuis", "attente", "date"))
+        if not date_c or date_c < limite:
             continue
         m = membre_par_id(uid)
-        if m is None or salon_perso_de(m.id) is not None:
+        if m is None or salon_perso_de(m.id) is not None or est_signe(m, signes):
             continue
         if await assurer_salon_arrivee(m) is not None:
             n += 1
@@ -3267,41 +3400,31 @@ def lien_quiz_pour(uid) -> str:
 
 
 def ou_en_es_tu(uid: str) -> str:
-    """La prochaine action du candidat, en une phrase, d'après le pipeline et le registre — sert
-    au MP « VALIDÉ », à `!relance`, et à la réponse quand un numéro déjà lié est renvoyé."""
+    """La prochaine action du membre, en une ou deux phrases courtes, d'après le pipeline et le registre — sert à `!relance`, à
+    la réponse quand un numéro déjà lié est renvoyé et au contexte de l'assistant. 09/10 (Gaëtan : « Go enlever le test de
+    montage vidéo », « Chaque étape à la fois ») : plus de test, plus de retest, plus de numéro à envoyer ; un quiz réussi mène
+    à la créatrice et au compte 1. Revue du 09/10 : un « sorti » n'est plus renvoyé au quizz, qui ne le reprend pas (l'admin
+    décide) : il écrit à Gaëtan (texte_sorti)."""
+    uid = str(uid)
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     registre = lire_json(FICHIER_EQUIPES, {})
-    liaison = donnees.get("liaisons", {}).get(uid, {})
-    info = donnees.get("etats", {}).get(uid, {})
-    etat = info.get("etat", "")
-    lien_quiz = lien_quiz_pour(uid) or "`!quiz` sur le serveur"          # 28/09 : le site d'abord, plus jamais le Google Form
+    etat = (donnees.get("etats", {}).get(uid) or {}).get("etat", "")
     if uid in registre:
-        fiche = registre[uid]
-        if fiche.get("creatrice"):
-            return (f"Tu es dans l'équipe, ta créatrice est **{fiche['creatrice']}** : tes comptes se créent "
-                    "dans ton salon perso, un à la fois, avec le bot. Une question → le salon #assistant.")   # 05/10 : plus de créneau
-        return ("Tu es dans l'équipe. **Prochaine étape : ton manager t'attribue ta créatrice** (sous 48 h). "
-                "Rien à faire de ton côté d'ici là.")                     # 01/10 (relecture) : plus de créneau de création
-    if not liaison.get("tel"):
-        return "**Prochaine étape : envoie-moi ton numéro de téléphone** (celui du formulaire), ici."
-    if not etat or etat == "quiz_rate":
-        return (f"**Prochaine étape : la formation puis le quiz** (seuil {seuil_quiz_texte()}, deux essais). Ton lien personnel : "
-                f"{lien_quiz}")
-    if etat == "test_envoye":
-        return ("**Ton test est en cours** : envoie ta vidéo ici avant "
-                f"le {date_fr(info.get('echeance', ''))}.")
-    if etat == "test_rendu":
-        return "**Ton test est reçu.** Je te donne mon avis ici dans les minutes qui suivent, un manager confirme."
-    if etat in ("test_expire", "refuse"):
-        retest = date_fr(info.get("retest", ""))
-        return (f"**Retest possible à partir du {retest}** : ce jour-là, écris **VALIDÉ** ici et ton test "
-                f"(1 vidéo, {TEST_HEURES // 24} jours) repart ici." if retest else "Écris **VALIDÉ** ici pour redemander un test.")
-    if etat == "valide":
-        # 30/09 : plus de J'ACCEPTE après le test (les 5 règles sont acceptées au formulaire) — l'accès s'ouvre tout seul
-        return "**Test validé** : tu as rejoint l'agence. Ta créatrice et ton compte 1 arrivent ici."
+        creatrice = (registre.get(uid) or {}).get("creatrice")
+        if creatrice:
+            return (f"Tu es dans l'agence, ta créatrice est **{creatrice}**.\n\n"
+                    "Tes comptes arrivent ici, un par un. Tape `!etape` pour revoir ton étape en cours.")
+        return "Tu es dans l'agence. Ta créatrice arrive ici sous 48 h.\n\nRien à faire d'ici là."
+    membre = membre_par_id(uid) if uid.isdigit() else None
+    if membre is not None and est_signe(membre, registre):
+        return "Tu es dans l'agence. Tape `!etape` ici pour revoir ton étape en cours."
+    if etat == "attente_attribution":
+        return "Ton quizz est réussi : tu fais partie de l'agence.\n\nTa créatrice arrive ici sous 48 h. Rien à faire d'ici là."
+    if etat in ETATS_QUIZ_REUSSI:
+        return "Ton quizz est réussi : tu fais partie de l'agence.\n\nTa créatrice et ton compte 1 arrivent ici."
     if etat == "sorti":
-        return "Ton parcours avec l'équipe est terminé. Merci pour le temps donné."
-    return "Envoie-moi ton numéro de téléphone ici pour reprendre le parcours."
+        return texte_sorti(uid)
+    return texte_arrivant_sans_quiz(uid)
 
 
 async def enregistrer_quiz_hors_discord(reussite, score, email, tel, silencieux=False):
@@ -4219,8 +4342,9 @@ def candidature_par_pseudo(donnees, membre):
 
 
 async def accueillir(member):
-    """Bienvenue numérotée + parrainage + aiguillage par porte d'entrée : l'invitation dédiée du
-    formulaire (SOURCES_INVITES) distingue « vient de candidater » de « découvre le serveur »."""
+    """La porte d'entrée (SOURCES_INVITES) et le parrainage d'un arrivant, enregistrés pour le digest et parrainage.py. 09/10
+    (Gaëtan : « Les clippeurs se font submerger d'informations… Chaque étape à la fois ») : plus de guide en message privé ni de
+    ligne publique dans #candidature ; le seul message de l'arrivant est celui de son salon (message_accueil)."""
     guild = member.guild
     parrain_id, source, code = None, "autre", ""
     try:
@@ -4246,59 +4370,7 @@ async def accueillir(member):
         donnees["par_parrain"][cle] = donnees["par_parrain"].get(cle, 0) + 1
         donnees["attribution"][str(member.id)] = parrain_id
     ecrire_json(FICHIER_INVITES, donnees)
-
-    # Le guide COMPLET part en message privé — #candidature reste propre (demande du 18/07) :
-    # le salon ne garde qu'une ligne de preuve sociale (compteur + parrainage).
-    aide = " Une question ? Écris-la ici, je réponds 24h/24."
-    if source.startswith("formulaire"):
-        cand = candidature_par_pseudo(lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}), member)
-        retrouvee = (f"👋 Je crois avoir retrouvé ta candidature : **{cand.get('prenom') or 'toi'}** "
-                     f"({cand.get('pays') or 'pays ?'}).\n" if cand else "")
-        motiv = ""                                                     # 29/09 : plus de rôles de grille, #rémunération est public
-        # Une seule étape à la fois : d'abord le numéro, le reste arrive au fil de l'eau.
-        guide = (f"🎬 **Bienvenue {member.display_name} — ta candidature est bien arrivée !**\n"
-                 + retrouvee + motiv +
-                 "**Étape 1 — relie ton compte 🔗**\n"
-                 "Réponds-moi simplement avec **ton numéro de téléphone** (le MÊME que dans le "
-                 "formulaire), par exemple : `06 12 34 56 78`.\n"
-                 f"Je m'occupe de tout le reste, étape par étape.{aide}\n"
-                 "-# 🛡️ Sécurité : l'agence ne te contactera JAMAIS en MP pour te proposer un autre "
-                 "job (lives TikTok, affiliation…). Un inconnu qui te DM une « offre » = arnaque : "
-                 "ne réponds pas, bloque-le et signale-le à Gaëtan.")
-    else:
-        # Porte Disboard/découverte : il n'a probablement pas encore candidaté — le formulaire d'abord.
-        guide = (f"🎬 **Bienvenue {member.display_name} sur le serveur des clippers !**\n"
-                 + ((f"📝 **Pas encore candidaté ?** Tout commence par le formulaire (3 min) : "
-                     f"{LIEN_FORMULAIRE} — à la fin il te ramène ici, et je te guide.\n") if LIEN_FORMULAIRE else "")
-                 + "✅ **Déjà candidaté ?** Réponds-moi simplement avec **ton numéro de téléphone** ici "
-                   "(celui du formulaire) — je te guide ensuite étape par étape.\n"
-                 f"Pas d'entretien : formation → quiz → test de montage à rendre en {TEST_HEURES} h. Ceux qui livrent sont pris 🚀{aide}\n"
-                 "-# 🛡️ Sécurité : l'agence ne recrute et ne paie QUE via ce serveur et moi. Un inconnu "
-                 "qui te DM une « offre » (lives TikTok, job…) = arnaque : bloque + signale à Gaëtan.")
-    mp_ok = await envoyer_mp(member, guide)
-
-    canal = await canal_par_id(CANAL_CANDIDATURE_ID)
-    if canal is not None:
-        if mp_ok:
-            sp_b = salon_perso_de(member.id)
-            lignes = [f"🎬 Bienvenue {member.mention} — tu es le **{guild.member_count}ᵉ** futur clipper "
-                      f"de l'équipe ! 📬 Ton guide d'arrivée est dans " + (f"ton salon <#{sp_b.id}>." if sp_b is not None else "tes messages privés.")]
-        else:
-            # MP fermés : mieux vaut un guide public qu'un candidat perdu — version condensée.
-            lignes = [f"🎬 Bienvenue {member.mention} — **{guild.member_count}ᵉ** futur clipper ! "
-                      f"⚠️ Tes MP sont fermés (Paramètres de confidentialité du serveur) : ouvre-les, tout "
-                      f"ton parcours passe par moi en privé. En attendant : "
-                      + ("envoie-moi ton numéro de téléphone en MP dès qu'ils sont ouverts."
-                         if source.startswith("formulaire")
-                         else (f"formulaire (3 min) : {LIEN_FORMULAIRE} — puis ton numéro en MP." if LIEN_FORMULAIRE
-                               else "envoie-moi ton numéro de téléphone en MP dès qu'ils sont ouverts."))]
-        if parrain_id and parrain_id != member.id:
-            total = donnees.get("par_parrain", {}).get(str(parrain_id), 1)
-            lignes.append(f"-# Invité par <@{parrain_id}> ({total} au total) — le parrainage paie quand le filleul devient clipper actif.")
-        try:
-            await canal.send("\n".join(lignes))
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+    journal.info("Arrivée de %s : porte %s%s", member.id, source, f", parrain {parrain_id}" if parrain_id else "")
 
 
 async def verifier_salon(canal_id: str, nom: str, besoin_pin=False, besoin_renommage=False) -> list:
@@ -7899,14 +7971,18 @@ async def traiter_depart(membre) -> str:
     """28/09 (Gaëtan, Marias) : un membre qui quitte le serveur est sorti tout seul. Signé (registre ou roster) : comme
     `!roster sortie` — fiche → sortis.json, comptes rendus au vivier, lien GAML libéré pour le suivant, salon perso supprimé,
     roster à jour. Candidat : salon perso supprimé, fiche retirée, relances coupées. Staff et anciens de Jonas : rien.
-    Renvoie la ligne postée au salon admin ('' si rien)."""
+    Renvoie la ligne postée au salon admin ('' si rien). 09/10 (plan du funnel : la sortie ⑥ et le raccompagnement expulsent
+    aussi, et le bot a déjà prévenu l'admin) : expulsé par le bot → un signé n'est pas retraité (sortir_membre a tout fait), un
+    candidat est nettoyé (salon, état « sorti ») sans seconde ligne au salon admin. « Signé » = est_signe (deux homonymes : le
+    roster par prénom ne fait plus passer le nouveau pour l'ancien, ni un arrivant d'après le 09/10 pour un clipper du roster
+    absent), et un salon trouvé par son seul nom n'est jamais supprimé s'il est ouvert à un autre membre présent. Un ancien de
+    Jonas n'est ignoré que s'il était là avant le 09/10 (ancien_sans_salon)."""
     if getattr(membre, "bot", False) or str(membre.id) in ADMIN_IDS or est_manager(membre):
         return ""
-    prenom = prenom_de(membre)
-    if roster.sans_salon(prenom):
-        return ""
     uid = str(membre.id)
-    if _EXPULSES.pop(uid, None):                                        # 05/10 : sorti et expulsé par le bot, tout est déjà fait
+    expulse_bot = bool(_EXPULSES.pop(uid, None))                        # 05/10 : sorti et expulsé par le bot
+    prenom = prenom_de(membre)
+    if ancien_sans_salon(membre):
         return ""
     registre = lire_json(FICHIER_EQUIPES, {})
     fiche = registre.get(uid) or {}
@@ -7918,7 +7994,10 @@ async def traiter_depart(membre) -> str:
         return ligne
     homonyme_d = any(u != uid and membre_par_id(u) is not None and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)
                      for u in registre)
-    if fiche.get("creatrice") or fiche.get("equipe") or roster.est_actif(prenom):
+    if fiche.get("creatrice") or fiche.get("equipe") or est_signe(membre, registre):
+        if expulse_bot:
+            journal.info("Départ de %s : expulsé par le bot, sortie déjà faite", uid)
+            return ""
         if not homonyme_d:
             roster.retirer(prenom)
         bilan = await roster.appliquer_sortis(client, seulement=prenom, uid=uid, raison="a quitté le serveur")
@@ -7929,10 +8008,14 @@ async def traiter_depart(membre) -> str:
         if sid.isdigit() and client.get_channel(int(sid)) is not None:
             salons.append(client.get_channel(int(sid)))
         g = getattr(membre, "guild", None)
+
+        def _salon_d_un_autre(c) -> bool:                               # 09/10 : un membre présent y a son accès nominatif
+            return any(hasattr(t, "display_name") and not getattr(t, "bot", False) and str(getattr(t, "id", "")) != uid
+                       and not est_staff(t) for t in (getattr(c, "overwrites", None) or {}))
         for c in (g.text_channels if g is not None else []):
             nom_c = normaliser(c.name)
             if c not in salons and (nom_c == normaliser(prenom) or nom_c.startswith(normaliser(prenom) + "-")) \
-                    and c.category is not None and "clippers" in normaliser(c.category.name):
+                    and c.category is not None and "clippers" in normaliser(c.category.name) and not _salon_d_un_autre(c):
                 salons.append(c)
         for c in salons:
             nom_c = c.name
@@ -7959,6 +8042,9 @@ async def traiter_depart(membre) -> str:
         except Exception:                                                   # noqa: BLE001
             pass
         ligne = f"🚪 {prenom} (candidat) a quitté le serveur — " + (", ".join(detail) if detail else "rien à nettoyer")
+    if expulse_bot:                                                     # 09/10 : l'expulsion a déjà sa ligne au salon admin
+        journal.info("Départ traité sans ligne admin (expulsé par le bot) : %s", ligne)
+        return ""
     canal = await canal_admin()
     if canal is not None:
         try:
@@ -7992,18 +8078,96 @@ async def on_invite_delete(invite):
         await cacher_invites(invite.guild)
 
 
+# 09/10 (un nouveau a lu « Candidature close » à son arrivée) : états d'un passage précédent effacés à chaque arrivée.
+ETATS_REMIS_A_ZERO = ("sorti", "refuse", "test_expire", "quiz_rate")
+
+
+def sortie_d_un_ancien(uid, registre: dict = None) -> dict:
+    """09/10 (revue : une clippeuse virée qui revient était remise à zéro comme une candidate, puis revalidée toute seule par son
+    quizz) : la dernière fiche de sortie d'un ANCIEN SIGNÉ (sortis.json : `!sortie`, sortie déposée, sortie automatique,
+    appliquer_sortis, `!monteur`) qui n'est pas revenu au registre depuis ; {} sinon. Un candidat sorti (⑥, départ du
+    serveur) n'y est jamais : lui repart de zéro."""
+    uid = str(uid)
+    registre = lire_json(FICHIER_EQUIPES, {}) if registre is None else registre
+    if uid in registre:
+        return {}
+    for s in reversed(lire_json(FICHIER_SORTIS, []) or []):
+        if isinstance(s, dict) and str(s.get("uid") or "") == uid:
+            return s
+    return {}
+
+
+def remettre_a_zero_arrivee(donnees: dict, uid: str, maintenant: str) -> bool:
+    """09/10 (un nouveau a lu « Candidature close » ; Gaëtan : « Chaque étape à la fois ») : un retour sur le serveur est un
+    nouveau départ. L'état d'un ancien passage (sorti, refusé, test expiré, quiz raté) est effacé, la date d'arrivée repart de
+    maintenant et les marques qui bloquaient (STOP, sortie sans quiz, purge, raccompagné, relances faites, accueil envoyé) sont
+    retirées. Les autres états (quiz réussi, validé…) sont gardés. Revue du 09/10 : un ANCIEN SIGNÉ sorti de l'équipe
+    (sortie_d_un_ancien) n'est pas un candidat : il reste « sorti », ses marques restent, l'admin décide de son retour
+    (accueillir_ancien_sorti). Modifie `donnees` sans l'écrire ; vrai si c'est un revenant."""
+    uid = str(uid)
+    revenant = False
+    info = (donnees.get("etats") or {}).get(uid) or {}
+    ancien = bool(sortie_d_un_ancien(uid))
+    if ancien and (info.get("etat") in ETATS_REMIS_A_ZERO or not info.get("etat")):
+        donnees.setdefault("etats", {})[uid] = {**info, "etat": "sorti", "retour": maintenant}
+        revenant = True
+    elif info.get("etat") in ETATS_REMIS_A_ZERO:
+        donnees["etats"].pop(uid, None)
+        revenant = True
+    arrivee = donnees.setdefault("arrivees", {}).get(uid)
+    if arrivee:
+        revenant = True
+        if not ancien:
+            for cle in ("stop", "sortie_quiz", "purge", "raccompagne", "r24", "r48", "accueil"):
+                arrivee.pop(cle, None)
+        arrivee["date"] = maintenant
+        arrivee["retour"] = maintenant
+    else:
+        donnees["arrivees"][uid] = {"date": maintenant}
+    liaison = (donnees.get("liaisons") or {}).get(uid)
+    if liaison and not ancien:
+        for cle in ("stop", "sortie_quiz"):
+            liaison.pop(cle, None)
+    return revenant
+
+
+async def accueillir_ancien_sorti(member, sortie: dict) -> str:
+    """09/10 (revue : depuis l'ouverture des vannes, plus aucun manager ne filtre ; une clippeuse virée qui revient était
+    revalidée toute seule par son quizz) : un ancien signé sorti de l'équipe qui revient sur le serveur garde son état
+    « sorti ». Ni salon, ni quizz, ni créatrice, ni expulsion : un mot en privé (texte_sorti) et une ligne au manager, qui
+    décide (`!quiz-ok`). Passé hors clipping (`!monteur` : il travaille pour Gaëtan) : la ligne seulement. Renvoie la ligne du
+    manager."""
+    raison = str(sortie.get("raison") or "").strip()
+    ligne = (f"↩️ {member.mention} ({member.display_name}), sorti(e) de l'équipe le {date_fr(sortie.get('date', '')) or '?'}"
+             + (f" ({raison})" if raison else "") + ", revient sur le serveur : rien fait.\n\n"
+             f"Pour le reprendre : `!quiz-ok {member.display_name}`.")
+    journal.info("Arrivée de %s : ancien signé sorti, rien fait", member.id)
+    if not sortie.get("hors_clipping"):
+        await envoyer_mp(member, f"👋 Re-bonjour {member.display_name}.\n\n{texte_sorti(member.id)}")
+    await notifier_manager(ligne, member.guild)
+    await cacher_invites(member.guild)                                  # accueillir() ne passe pas : le compteur des invitations suit
+    return ligne
+
+
 @client.event
 async def on_member_join(member):
     if not ACTIVER_V2 or member.bot:
         return
-    # Horodatage d'arrivée : la base des relances 24/48 h « arrivé mais jamais lié ».
+    # Horodatage d'arrivée : la base des relances 24/48 h « arrivé mais jamais lié ». 09/10 : remis à zéro pour un revenant, AVANT
+    # tout aiguillage (plus jamais « Candidature close » pour qui revient).
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-    donnees.setdefault("arrivees", {}).setdefault(
-        str(member.id), {"date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    # 09/10 (revue) : un ancien signé sorti de l'équipe qui revient n'est pas un candidat (il reste « sorti ») ; seule une
+    # invitation `!inviter` (décision de l'admin) le fait entrer sans passer par le manager.
+    sortie = sortie_d_un_ancien(member.id)
+    if remettre_a_zero_arrivee(donnees, str(member.id), datetime.now(timezone.utc).isoformat(timespec="seconds")) and not sortie:
+        journal.info("Arrivée de %s : revenant, ancien passage remis à zéro", member.id)
     # Arrivant ajouté par le site (connexion Discord après le formulaire) : déjà relié à sa
     # candidature, on lance directement l'étape 2 — pas de porte, pas de numéro à envoyer.
     attendu = donnees.get("web_attendus", {}).pop(str(member.id), None)
     ecrire_json(FICHIER_PIPELINE, donnees)
+    if attendu and sortie:
+        await accueillir_ancien_sorti(member, sortie)
+        return
     if attendu:
         score_site = preparer_arrivee_site(str(member.id), attendu.get("cand", ""), attendu.get("tel", ""))   # 29/09
         await assurer_salon_arrivee(member, accueil=False)             # 27/09 : son salon avant tout ; 28/09 : un seul message, celui de la liaison
@@ -8025,6 +8189,9 @@ async def on_member_join(member):
     if fiche_inv and not fiche_inv.get("utilisee"):
         await accueillir_valide(member, code, fiche_inv, invitation)
         return
+    if sortie:                                                         # 09/10 (revue) : ni salon, ni quizz, ni expulsion
+        await accueillir_ancien_sorti(member, sortie)
+        return
     if serveur_ferme():
         if invitation_site_recente(donnees):
             # Une invitation du site vient d'être créée et je n'ai pas su laquelle a servi (deux arrivées en même temps,
@@ -8040,10 +8207,11 @@ async def on_member_join(member):
 
 
 async def accueillir_valide(member, code, fiche, invitation):
-    """Arrivée par une invitation `!inviter` (serveur fermé, 14/09) : le candidat a déjà réussi le quiz et
-    le test hors Discord. Liaison automatique (numéro, prénom, pays), état « valide », invitation
-    consommée (supprimée), puis la suite habituelle : contrat (FR) ou conditions + J'ACCEPTE (International).
-    Plus de numéro à envoyer, plus de quiz, plus de test en MP : trois étapes de moins pour lui."""
+    """Arrivée par une invitation `!inviter` (serveur fermé, 14/09) : le candidat a déjà réussi le quiz hors Discord. Liaison
+    automatique (numéro, prénom, pays), invitation consommée (supprimée), prénom posé, puis la validation commune.
+    09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : plus de test ; la validation passe par
+    valider_candidat (via « invitation »), comme un quiz réussi : état « valide », registre, rôle, puis la créatrice. Aucun
+    message ici : le premier qu'il lit est celui de sa créatrice."""
     maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     uid = str(member.id)
@@ -8055,8 +8223,8 @@ async def accueillir_valide(member, code, fiche, invitation):
     liaison["via"] = "invitation"
     donnees["liaisons"][uid] = liaison
     ancien = donnees.setdefault("etats", {}).get(uid, {})
-    donnees["etats"][uid] = {**ancien, "etat": "valide", "validation": maintenant, "hors_discord": True,
-                             "score_quiz": fiche.get("score", "") or ancien.get("score_quiz", "")}
+    score = fiche.get("score", "") or ancien.get("score_quiz", "")
+    donnees["etats"][uid] = {**ancien, "hors_discord": True, "score_quiz": score}    # l'état « valide » : valider_candidat
     fiche["utilisee"], fiche["membre"] = maintenant, uid
     donnees.setdefault("invitations", {})[code] = fiche
     cle_hd = fiche.get("cle", "")
@@ -8073,7 +8241,9 @@ async def accueillir_valide(member, code, fiche, invitation):
             await member.edit(nick=fiche["prenom"], reason="Arrivée par invitation validée")
         except (discord.Forbidden, discord.HTTPException):
             pass
-    retour = await suite_validation(member, member.guild)
+    retour = await valider_candidat(member, score, "invitation")
+    if retour == "deja":
+        retour = "Déjà au registre : rien refait."
     await notifier_manager(
         f"🚪 **{member.mention} est arrivé par son invitation** ({fiche.get('prenom') or '?'}, "
         f"{fiche.get('pays') or 'pays ?'}, quiz {fiche.get('score') or '?'}).\n" + retour, member.guild)
@@ -8165,16 +8335,24 @@ def invitation_site_recente(donnees: dict, maintenant=None, minutes: int = 20) -
 
 async def accueillir_site(member, code, fiche, invitation):
     """Arrivée par l'invitation personnelle créée par le site (29/09) : invitation consommée, prénom posé, salon perso, liaison
-    par le numéro du formulaire. Un ancien passage (quiz raté, sorti) est remis à zéro : il recommence avec deux essais."""
+    par le numéro du formulaire. Un ancien passage (quiz raté, sorti) est remis à zéro : il recommence avec deux essais. Sauf
+    (revue du 09/10) un ancien signé sorti de l'équipe : ni salon, ni liaison, ni quizz du site pris en compte, l'admin décide."""
     maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     uid = str(member.id)
     fiche["utilisee"], fiche["membre"] = maintenant, uid
     donnees.setdefault("invitations", {})[code] = fiche
-    if donnees.get("etats", {}).get(uid, {}).get("etat") in ("quiz_rate", "sorti", "test_expire"):
-        donnees["etats"].pop(uid, None)
-    donnees.get("liaisons", {}).pop(uid, None)
-    donnees.setdefault("arrivees", {})[uid] = {"date": maintenant, "via": "site"}
+    # 09/10 (revue : une clippeuse virée repassée par le site était remise à zéro puis revalidée par son quizz) : un ancien signé
+    # sorti de l'équipe garde « sorti », sa liaison et ses marques ; l'admin décide (accueillir_ancien_sorti).
+    sortie = sortie_d_un_ancien(uid)
+    if sortie:
+        remettre_a_zero_arrivee(donnees, uid, maintenant)
+        donnees["arrivees"][uid]["via"] = "site"
+    else:
+        if donnees.get("etats", {}).get(uid, {}).get("etat") in ETATS_REMIS_A_ZERO:     # 09/10 : « refuse » aussi
+            donnees["etats"].pop(uid, None)
+        donnees.get("liaisons", {}).pop(uid, None)
+        donnees.setdefault("arrivees", {})[uid] = {"date": maintenant, "via": "site"}
     ecrire_json(FICHIER_PIPELINE, donnees)
     if invitation is not None:
         try:
@@ -8187,6 +8365,9 @@ async def accueillir_site(member, code, fiche, invitation):
         except (discord.Forbidden, discord.HTTPException):
             pass
     journal.info("Site : %s arrivé par son invitation (candidature %s)", uid, fiche.get("cand"))
+    if sortie:
+        await accueillir_ancien_sorti(member, sortie)
+        return
     score_site = preparer_arrivee_site(uid, fiche.get("cand", ""), fiche.get("tel", ""))
     await assurer_salon_arrivee(member, accueil=False)
     await traiter_liaison(member, fiche.get("tel", ""))
@@ -8233,7 +8414,9 @@ async def raccompagner(member, invitation, code):
     formulaire, la suite par e-mail) puis expulsion. Deux exceptions : invité par un admin ou un rôle
     protégé (manager, staff) → gardé, accueil léger ; porte d'entrée indécidable (invitations
     illisibles, lien de vanité) → gardé et signalé, parce qu'expulser à l'aveugle peut sortir une
-    créatrice ou Rianah invitée à la main."""
+    créatrice ou Rianah invitée à la main. 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : le message dit le
+    formulaire, la vidéo et le quizz du site (plus de test par e-mail), part en vrai message privé AVANT l'expulsion (son
+    salon éventuel disparaît avec lui), et l'expulsion est marquée pour que traiter_depart ne reposte pas de ligne admin."""
     inviteur = invitation.inviter if invitation is not None else None
     invite_par_staff = False
     if inviteur is not None and not inviteur.bot:
@@ -8241,8 +8424,8 @@ async def raccompagner(member, invitation, code):
         invite_par_staff = (str(inviteur.id) in ADMIN_IDS or (m_inv is not None and any(
             any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in m_inv.roles)))
     if invite_par_staff:
-        await envoyer_mp(member, f"👋 Bienvenue {member.display_name} ! Tu as été invité par l'équipe : "
-                                 "ton manager t'écrit pour la suite. Une question ? Réponds-moi ici.")
+        await envoyer_mp(member, f"👋 Bienvenue {member.display_name} !\n\n"
+                                 "Tu as été invité par l'équipe : ton manager t'écrit ici pour la suite.")
         await notifier_manager(f"👋 {member.mention} est arrivé via une invitation de <@{inviteur.id}> (staff) — "
                                "serveur fermé, gardé. Pour l'ajouter à l'équipe : `!equipe @x int`.",
                                member.guild)
@@ -8252,21 +8435,28 @@ async def raccompagner(member, invitation, code):
                                "(invitations illisibles ou lien de vanité). Serveur fermé : je le garde par "
                                "prudence — `!purge-candidats appliquer` s'il n'a rien à faire là.", member.guild)
         return
-    texte = (f"👋 Bonjour {member.display_name} ! Ce serveur est réservé aux clippers **déjà validés** de "
-             "l'agence. La candidature se passe en dehors de Discord : "
-             + (f"formulaire (3 min) : {web_candidature.lien_candidature() or LIEN_FORMULAIRE} — "
-                if (web_candidature.lien_candidature() or LIEN_FORMULAIRE) else "")
-             + "tu reçois ensuite la formation, le quiz et le test par e-mail. Test validé → tu reçois ton "
-               "invitation personnelle. À bientôt !")
-    await envoyer_mp(member, texte)
+    lien = web_candidature.lien_candidature() or LIEN_FORMULAIRE
+    texte = (f"👋 Bonjour {member.display_name} !\n\n"
+             "Ce serveur est réservé aux clippers de l'agence.\n\n"
+             + (f"Pour nous rejoindre : le formulaire, la vidéo de formation et le quizz, ici :\n\n<{lien}>\n\n"
+                if lien else "Pour nous rejoindre, demande le lien du formulaire à l'équipe.\n\n")
+             + "Quizz réussi = ton invitation au Discord arrive tout de suite.")
+    try:
+        await member.send(texte)
+        prevenu = True
+    except Exception as erreur:                                             # noqa: BLE001
+        prevenu = False
+        journal.info("Message de raccompagnement à %s : %s", member.id, erreur)
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     donnees.setdefault("arrivees", {}).setdefault(str(member.id), {}).update(
         {"stop": True, "raccompagne": datetime.now(timezone.utc).isoformat(timespec="seconds")})
     ecrire_json(FICHIER_PIPELINE, donnees)
+    _EXPULSES[str(member.id)] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     try:
         await member.kick(reason="Serveur fermé : arrivée sans invitation validée")
-        sortie = "raccompagné (MP + expulsion)"
+        sortie = "raccompagné (MP + expulsion)" if prevenu else "expulsé, ⚠️ non prévenu (MP fermés)"
     except (discord.Forbidden, discord.HTTPException) as erreur:
+        _EXPULSES.pop(str(member.id), None)
         sortie = (f"⚠️ expulsion impossible ({type(erreur).__name__}) — mon rôle est sous le sien "
                   "ou « Expulser des membres » me manque")
     await notifier_manager(f"🚪 {member.mention} ({member.name}) est arrivé sans invitation validée "
