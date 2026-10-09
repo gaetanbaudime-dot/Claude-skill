@@ -1216,13 +1216,9 @@ def contexte_auteur(message) -> str:
         try:
             # 08/10 (audit : un ancien absent du registre, rôle Clippeur et visites GAML, traité en « candidat ») : signé = au
             # registre, OU rôle d'équipe, OU au roster de Jonas ; `contexte_court` sait parler d'un ancien sans fiche de parcours.
+            # 08/10 (revue) : le roster est par prénom — un candidat homonyme d'un clipper n'est pas un ancien ; il faut le rôle
             equipe_n = {normaliser(r) for r in ROLES_EQUIPE_ACCEPTES}
-            au_roster = False
-            try:
-                au_roster = roster.actif() and roster.est_actif(prenom_de(qui))
-            except Exception:                                               # noqa: BLE001
-                pass
-            if (lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)) or au_roster
+            if (lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id))
                     or any(normaliser(r) in equipe_n for r in roles)):
                 return base + "\n[Salon #assistant, commun à tous — " + parcours.contexte_court(str(message.author.id)) + "]"
             return base + "\n[Salon #assistant, commun à tous — candidat pas encore signé]"
@@ -4592,7 +4588,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!pipeline` · `!tableau` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
                 "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · "
                 "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · "
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · "
                 "`!ltv [jours]` · `!alias` · `!code` · `!recup`\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
@@ -5342,6 +5338,173 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     await telegram.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
     journal.info("Sortie d'équipe : %s par %s (%s)%s", membre.id, par_id, raison, ", expulsé" if expulse else "")
     return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s, "expulse": expulse}
+
+
+# 09/10 (Gaëtan : « Rianah = Metricool désormais », puis « Rianah reprend ses liens Metricool ainsi que ses liens de tracking OF
+# MYM ») : qui reprend les liens GAML et les lignes « Prénom (Metricool) » d'un clipper passé hors clipping. Vide = liens libérés.
+REPRENEUR_METRICOOL = os.environ.get("REPRENEUR_METRICOOL", "Rianah").strip()
+
+
+async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -> dict:
+    """09/10 (Gaëtan : « Julien arrête tout, il va juste faire le monteur vidéo maintenant pour moi ») : un clipper qui passe dans
+    l'équipe de Gaëtan sort du clipping SANS être viré : ni message de sortie, ni expulsion, son salon perso reste. Tout se fait
+    par son identifiant, jamais par son prénom (un nouveau Julien clipper est signé) : rôles de clipper retirés, accès aux
+    salons de créatrice fermés, relances coupées, fiche du registre → sortis.json, parcours oublié, liens GAML libérés pour le
+    suivant de la créatrice avec la note « Clipping libre (ex-Prénom) » (gardée, l'app et `associer_auto` les donneraient à
+    l'homonyme), comptes du classeur rendus (créés → « à mettre Metricool », à créer → vivier) sauf ceux d'un homonyme.
+    Renvoie {"roles", "acces", "liens", "comptes", "refus"} pour l'admin."""
+    g = membre.guild
+    uid = str(membre.id)
+    prenom = prenom_de(membre)
+    raison = f"hors clipping : {role}"
+    nom_par = getattr(par, "display_name", "le bot")
+    refus = []
+    # 0. Revue du 09/10 : les notes GAML de ses liens lues AVANT tout geste. Illisibles ou incomplètes → rien n'est fait (relancer
+    #    est sans effet de bord) : sinon un lien déjà passé à la main chez Rianah pouvait être libéré et redonné, tracking compris.
+    vivants = {}
+    if paie_clics.actif():
+        siens = [lid for lid, i in paie_clics._lire().get("liens", {}).items()
+                 if str(i.get("uid") or "") == uid and not i.get("supprime_gaml")]
+        try:
+            vivants = {l.get("id"): l for l in await paie_clics.liens_gaml() if l.get("id")}
+        except Exception as erreur:                                         # noqa: BLE001
+            return {"annule": f"GAML illisible ({type(erreur).__name__}) : rien n'a été fait, relance `!monteur` dans quelques minutes."}
+        manquants = [lid for lid in siens if "note" not in (vivants.get(lid) or {})]
+        if manquants:
+            return {"annule": f"lecture GAML incomplète ({len(manquants)} de ses liens non lus) : rien n'a été fait, relance `!monteur`."}
+    registre = lire_json(FICHIER_EQUIPES, {})
+    homonymes = [u for u in registre if u != uid and membre_par_id(u) is not None
+                 and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)]
+    # 1. Rôles de clipper (Team, rangs, créatrice) ; les autres rôles restent.
+    a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
+    for nom_r in NOMS_RANGS:
+        r_ = discord.utils.find(lambda x: normaliser(nom_r) in normaliser(x.name), g.roles)
+        if r_ is not None and r_ in membre.roles and r_ not in a_retirer:
+            a_retirer.append(r_)
+    a_retirer += [r_ for r_ in roles_creatrices(g) if r_ in membre.roles and r_ not in a_retirer]
+    if a_retirer:
+        try:
+            await membre.remove_roles(*a_retirer, reason=f"Hors clipping ({role}) par {nom_par}")
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            refus.append(f"rôles ({type(erreur).__name__})")
+    # 2. Accès nominatifs (salons de créatrice ouverts par !creatrice) ; son salon perso reste.
+    salon_p = salon_perso_de(membre.id)
+    fermes = []
+    for c in g.channels:
+        if membre in c.overwrites and (salon_p is None or c.id != salon_p.id):
+            try:
+                await c.set_permissions(membre, overwrite=None, reason=f"Hors clipping ({role})")
+                fermes.append(c.name)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                refus.append(f"#{c.name} ({type(erreur).__name__})")
+    # 3. Pipeline : plus aucune relance.
+    maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    info = pipe.setdefault("etats", {}).setdefault(uid, {})
+    info["etat"] = "sorti"
+    info["sortie"] = {"date": maintenant, "par": str(getattr(par, "id", "auto")), "raison": raison}
+    info.setdefault("relances", {})["stop"] = True
+    for sec in ("arrivees", "liaisons"):
+        if uid in pipe.get(sec, {}):
+            pipe[sec][uid]["stop"] = True
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    # 4. Liens GAML, par uid seulement (jamais un lien « Clipping Julien » de l'homonyme). 09/10 (Gaëtan : « Rianah reprend ses
+    #    liens Metricool ainsi que ses liens de tracking OF MYM ») : ses comptes créés partent sur Metricool, ses liens les suivent
+    #    chez REPRENEUR_METRICOOL — note « Rianah Metricool N (ex-Julien) », détachés comme une note changée à la main ; les cartes
+    #    Miam et OnlyFriends (ses trackings MYM et OF) restent posées sur le lien. Un lien déjà sorti du clipping à la main est
+    #    seulement détaché. Sans repreneur (ou GAML illisible / refus), le lien est libéré pour le suivant de la créatrice et sa
+    #    note devient « Clipping libre (ex-Julien) ».
+    liens, repris = [], []
+    if paie_clics.actif():
+        async with paie_clics.verrou_liens:
+            d_l = paie_clics._lire()
+            numero = max(paie_clics.numero_metricool(vivants.values(), REPRENEUR_METRICOOL),
+                          paie_clics.numero_metricool(d_l.get("liens", {}).values(), REPRENEUR_METRICOOL))
+            for lid in paie_clics.liens_de(d_l, uid):
+                vivant = vivants.get(lid) or {}
+                cr_l = str(d_l["liens"][lid].get("creatrice") or "?").title()
+                note_v = str(vivant.get("note") or "").strip()
+                p_note = (paie_clics._n_note(paie_clics._prenom_note(note_v)).split() or [""])[0]
+                if "note" in vivant and not p_note:
+                    paie_clics.synchroniser_notes(d_l, [{"id": lid, "note": note_v}])
+                    repris.append(f"{cr_l} « {note_v or '(note vide)'} » (déjà changée à la main)")
+                    continue
+                if p_note != (paie_clics._n_note(prenom).split() or [""])[0]:
+                    refus.append(f"lien {cr_l} noté « {note_v} » dans GAML : laissé à ce clipper (détaché de {prenom})")
+                    continue                                                # libéré plus bas sans renommage : associer_auto le rattache
+                if REPRENEUR_METRICOOL:
+                    nouvelle = f"{REPRENEUR_METRICOOL} Metricool{f' {numero}' if numero > 1 else ''} (ex-{prenom})"
+                    try:
+                        await paie_clics._requete("PATCH", f"/links/{lid}", corps={"note": nouvelle})
+                    except Exception as erreur:                             # noqa: BLE001
+                        refus.append(f"lien {cr_l} pas passé à {REPRENEUR_METRICOOL} ({erreur}) : libéré pour le suivant")
+                    else:
+                        paie_clics.synchroniser_notes(d_l, [{"id": lid, "note": nouvelle}])
+                        repris.append(f"{cr_l} « {nouvelle} »")
+                        numero += 1
+                        continue
+            liens = paie_clics.liberer_liens(d_l, uid, "")
+            for lid in liens:
+                d_l["liens"][lid]["ancien"] = prenom
+            paie_clics._ecrire(d_l)
+        if liens and vivants:
+            try:
+                await paie_clics.renommer_liberes(list(vivants.values()), seulement=set(liens))
+            except Exception as erreur:                                     # noqa: BLE001
+                refus.append(f"notes des liens libérés ({type(erreur).__name__}) : renommées au prochain passage")
+    # 5. Classeur : les lignes à son prénom, moins les comptes d'un homonyme signé (sa fiche d'onboarding les connaît).
+    comptes, metricool = [], []
+    if onboarding.actif():
+        etat_o = onboarding._lire_etat()
+        fiches_h = [etat_o.get("clippers", {}).get(u) or {} for u in homonymes]
+        a_eux = {onboarding._norm(h).lstrip("@") for f in fiches_h for h in f.get("comptes") or []}
+        if homonymes and not a_eux:
+            refus.append(f"classeur non touché (un autre {prenom} est signé sans comptes connus : `!liberer {prenom} <handles>`)")
+        else:
+            try:
+                siens = [c["handle"] for c in await onboarding.lire_comptes()
+                         if onboarding._norm(c["gerant"]) == onboarding._norm(prenom) and onboarding._norm(c["handle"]).lstrip("@") not in a_eux]
+                if siens:
+                    comptes = [b for b in await onboarding.liberer(prenom, handles=siens) if b.startswith("·")]
+            except Exception as erreur:                                     # noqa: BLE001
+                refus.append(f"classeur ({type(erreur).__name__})")
+        if REPRENEUR_METRICOOL:                                             # ses lignes « Julien (Metricool) » → « Rianah (Metricool) »
+            try:                                                            # (jamais écrites par le bot : jamais celles d'un homonyme)
+                metricool = await onboarding.changer_gerant(f"{prenom} (Metricool)", f"{REPRENEUR_METRICOOL} (Metricool)")
+            except Exception as erreur:                                     # noqa: BLE001
+                refus.append(f"lignes {prenom} (Metricool) ({type(erreur).__name__})")
+    # 6. Registre → sortis.json (avec où il en était), parcours oublié, roster seulement sans homonyme. Relu ici : les étapes
+    #    d'avant attendent Discord, GAML et le classeur, une signature arrivée entre-temps ne doit pas être écrasée.
+    registre = lire_json(FICHIER_EQUIPES, {})
+    fiche = registre.pop(uid, None) or {}
+    ecrire_json(FICHIER_EQUIPES, registre)
+    try:
+        fiche_p = dict(parcours._lire().get(uid) or {})
+        trace_p = {k: fiche_p[k] for k in ("etape", "dates", "whatsapp", "app", "warmup_jour") if k in fiche_p}
+        parcours.oublier(uid)
+    except Exception:                                                       # noqa: BLE001
+        trace_p = {}
+    sortis = lire_json(FICHIER_SORTIS, [])
+    sortis.append({"uid": uid, "nom": membre.display_name, "equipe": fiche.get("equipe", ""), "creatrice": fiche.get("creatrice", ""),
+                   "date": maintenant, "par": str(getattr(par, "id", "auto")), "raison": raison,
+                   "signe_le": str(fiche.get("date", ""))[:10], "parcours": trace_p, "hors_clipping": role})
+    ecrire_json(FICHIER_SORTIS, sortis[-500:])
+    if homonymes:
+        refus.append(f"roster non touché (un autre {prenom} est signé : `!roster` si son équipe n'est pas la bonne)")
+    else:
+        roster.retirer(prenom)
+    await notifier_manager(
+        f"🎬 **{membre.display_name}** (<@{uid}>) **sort du clipping** : {role} pour Gaëtan (par {nom_par}). Pas de message, pas d'expulsion.\n"
+        f"Rôles de clipper retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · salons de créatrice fermés : {len(fermes)}"
+        f" · comptes du classeur rendus : {len(comptes)}"
+        + (f"\n🔁 À {REPRENEUR_METRICOOL}, avec leurs trackings OF et MYM : {' · '.join(repris)}" if repris else "")
+        + (f"\n🔓 Liens libérés pour le suivant de la créatrice : {len(liens)}" if liens else "")
+        + (f"\n🔁 Lignes Metricool passées à {REPRENEUR_METRICOOL} :\n" + "\n".join(metricool) if metricool else "")
+        + (f"\n⚠️ {' · '.join(refus)}" if refus else "") + ("\n" + "\n".join(comptes) if comptes else ""), g)
+    journal.info("Hors clipping : %s (%s) par %s, %s lien(s) repris, %s libéré(s), %s compte(s), %s ligne(s) Metricool",
+                 uid, role, nom_par, len(repris), len(liens), len(comptes), len(metricool))
+    return {"roles": len(a_retirer), "acces": len(fermes), "liens": len(liens), "repris": len(repris), "comptes": len(comptes),
+            "metricool": len(metricool), "refus": refus}
 
 
 async def commande_admin(message, texte: str) -> bool:
@@ -6354,6 +6517,42 @@ async def commande_admin(message, texte: str) -> bool:
                             + ", relances coupées, registre tracé, MP envoyé, manager prévenu.")
         return True
 
+    # ---- !monteur @x [rôle] : un clipper qui sort du clipping sans être viré (09/10, Julien devient monteur vidéo) ----
+    if texte.lower().startswith("!monteur"):
+        if str(message.author.id) not in ADMIN_IDS:
+            await message.reply("Commande admin.")
+            return True
+        corps = texte[len("!monteur"):].strip()
+        membre = message.mentions[0] if message.mentions else None
+        if membre is not None:
+            role_m = corps.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", "").strip()
+        else:
+            ref, _, role_m = corps.partition(" ")                        # sans mention : un identifiant Discord, jamais un nom
+            membre = chercher_membre(ref, exact=True) if ref.strip("<@!>").isdigit() else None
+        if membre is None:
+            # Par prénom, jamais de choix entre deux homonymes : on les montre, l'admin mentionne le bon.
+            registre_m = lire_json(FICHIER_EQUIPES, {})
+            cands = [m for g_ in client.guilds for m in g_.members if not m.bot and corps.split()
+                     and normaliser(prenom_de(m)) == normaliser(corps.split()[0])]
+            await message.reply("Format : `!monteur @membre [rôle]` (ex. `!monteur @Julien monteur vidéo`) : il sort du clipping "
+                                "(rôles de clipper, liens, comptes, parcours) sans message ni expulsion."
+                                + ("".join(f"\n· {m.mention} · signé le {str((registre_m.get(str(m.id)) or {}).get('date', '?'))[:10]}"
+                                           f" · créatrice {(registre_m.get(str(m.id)) or {}).get('creatrice') or '?'}" for m in cands[:6])))
+            return True
+        if str(membre.id) in ADMIN_IDS:
+            await message.reply("⛔ Membre admin.")
+            return True
+        res = await passer_hors_clipping(membre, role_m or "monteur vidéo", message.author)
+        if res.get("annule"):
+            await message.reply(f"⏸️ {membre.mention} : {res['annule']}")
+            return True
+        await message.reply(f"🎬 {membre.mention} hors clipping : {res['roles']} rôle(s) de clipper retiré(s), {res['acces']} salon(s) de "
+                            f"créatrice fermé(s), {res['repris']} lien(s) passé(s) à {REPRENEUR_METRICOOL or 'personne'}, "
+                            f"{res['liens']} lien(s) libéré(s), {res['comptes']} compte(s) du classeur rendu(s), "
+                            f"{res['metricool']} ligne(s) Metricool passée(s) à {REPRENEUR_METRICOOL or 'personne'}, "
+                            "parcours et relances arrêtés." + (f"\n⚠️ {' · '.join(res['refus'])}" if res["refus"] else ""))
+        return True
+
     # ---- !relancer-lien : rattraper les candidatures qui n'ont jamais fait !lier ----
     # `!pipeline` annonce « N sans Discord lié » sans permettre d'agir. Ces gens se
     # répartissent en DEUX populations qu'on ne relance pas du tout de la même façon :
@@ -7317,6 +7516,8 @@ async def on_ready():
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e, p=None, r=None, h=None: parcours.reconcilier(client, e, p, r, h),
                                   "controler_bios": lambda b: parcours.controler_liens_bio(client, b),   # 08/10 : lien du privé
+                                  "compte_retrouve": lambda a, n: parcours.compte_retrouve(client, a, n),   # 09/10 : @ changés
+                                  "compte_introuvable": lambda h: parcours.compte_introuvable(client, h),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
                                   "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None,   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer
                                   "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul
@@ -7534,6 +7735,7 @@ async def on_ready():
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
+            "FICHIER_SORTIS": FICHIER_SORTIS,                                # 09/10 (revue) : adresses USDC d'un homonyme parti
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
             "salon_perso": salon_perso_de, "primes_parrainage": parrainage.primes_dues,
             "canal_dopamine": lambda: canal_par_id(CANAL_DOPAMINE_ID),   # 28/09 : classement du lundi
@@ -7788,8 +7990,17 @@ async def traiter_depart(membre) -> str:
         return ""
     registre = lire_json(FICHIER_EQUIPES, {})
     fiche = registre.get(uid) or {}
+    # 09/10 (revue : le monteur, ancien Julien, qui quitte le serveur faisait sortir le NOUVEAU Julien par son prénom) : un membre
+    # déjà sorti de l'équipe (`!sortie`, `!monteur`) n'est jamais retraité ; un homonyme signé → rien par prénom, roster gardé
+    if uid not in registre and any(str(s.get("uid") or "") == uid for s in lire_json(FICHIER_SORTIS, [])):
+        ligne = f"🚪 {prenom} a quitté le serveur — déjà sorti de l'équipe, rien à refaire"
+        journal.info("Départ traité : %s", ligne)
+        return ligne
+    homonyme_d = any(u != uid and membre_par_id(u) is not None and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)
+                     for u in registre)
     if fiche.get("creatrice") or fiche.get("equipe") or roster.est_actif(prenom):
-        roster.retirer(prenom)
+        if not homonyme_d:
+            roster.retirer(prenom)
         bilan = await roster.appliquer_sortis(client, seulement=prenom, uid=uid, raison="a quitté le serveur")
         ligne = f"🚪 **{prenom} a quitté le serveur** — " + ("; ".join(b.split(" : ", 1)[-1] for b in bilan) if bilan else "rien à nettoyer")
     else:

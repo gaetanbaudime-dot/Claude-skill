@@ -79,6 +79,7 @@ Le "comment on fait concrètement tourner l'agence" : SOP, fiches de poste, chec
 ## Pôle finances
 
 - [[SOP clôture mensuelle avec Maxence]] : le calcul du 1er du mois en 3 couches (P&L agence → allocations → distribution), ce qui remplace le calcul WhatsApp.
+- [[Clôture de septembre 2026 avec Maxence - 12 042 € de profit, 6 021 € chacun (8 octobre 2026)]] : la clôture réelle du 08/10 relue contre la SOP (les chiffres, les quatre affirmations de Maxence vérifiées, les trois défauts de juin revenus), l'onglet « Clôtures » qui remplace les trois couches, et les prédictions pour le 05/11.
 - [[Payoneer - rail de paie des contractors (Madagascar, France)]] : le rail de paie SORTANTE des clippers et VA malgaches (Payoneer → Payoneer gratuit, retrait local), au nom de la FZ-LLC en « agence marketing » — pas un remplaçant de Yoursafe pour les flux adultes (interdits par Payoneer) ; dossier KYB en 9 pièces, description à coller, étapes, garde-fous.
 - [[SOP paie chatteurs (Binance corporate)]] : le rail propre pour payer les chatteurs — compte Binance corporate (KYB en 4 étapes), financé depuis Wio Business, Binance Pay USDT gratuit ; les garde-fous CGU/compliance et le fallback si le KYB adulte bloque.
 - [[Fiscalité des créatrices FR (seuils, sortie du micro, commission agence)]] ⚠️ : le piège du micro quand l'agence prend 50 % (taxée sur le brut), les seuils TVA/micro 2026, la sortie vers le réel, et le lien avec la fiscalité propre du fondateur — le brief pour le comptable.

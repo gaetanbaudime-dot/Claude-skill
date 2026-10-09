@@ -965,14 +965,16 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
         lids = lids_c or ([] if multi else [l for l in lids if not (d["liens"].get(l) or {}).get("creatrice")])
         repris = False
         if not lids and creer and paie_clics.actif():
-            libre = paie_clics.lien_libre(d, creatrice)
-            # 28/09 : le lien d'un sortant va au suivant ; 08/10 : réactivé s'il avait été désactivé par le ménage, sinon on clone
-            if libre and await paie_clics.reprendre_lien(d, libre[0], str(membre.id), prenom, creatrice):
-                lid, lien, repris = libre[0], libre[1].get("url", ""), True
-            elif libre:
-                resultat.append("⚠️ lien libéré désactivé, réactivation refusée par GAML (forfait plein ?) : clone tenté")
-            if libre:
-                paie_clics._ecrire(d)
+            async with paie_clics.verrou_liens:                          # 08/10 (revue) : jamais pendant que le ménage le désactive
+                d = paie_clics._lire()
+                libre = paie_clics.lien_libre(d, creatrice)
+                # 28/09 : le lien d'un sortant va au suivant ; 08/10 : réactivé s'il avait été désactivé par le ménage, sinon on clone
+                if libre and await paie_clics.reprendre_lien(d, libre[0], str(membre.id), prenom, creatrice):
+                    lid, lien, repris = libre[0], libre[1].get("url", ""), True
+                elif libre:
+                    resultat.append("⚠️ lien libéré désactivé, réactivation refusée par GAML (forfait plein ?) : clone tenté")
+                if libre:
+                    paie_clics._ecrire(d)
         if lids:
             lid = lids[0]
             lien = d["liens"][lid].get("url", "")
@@ -995,8 +997,10 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
                 modeles = [l for l in de_la_creatrice if "/fb" not in str(l.get("url", "")) and "/ytb" not in str(l.get("url", ""))]   # on part de son lien principal
             # 03/10 : un lien « Clipping Prénom » de la créatrice existe déjà (relance après une activation ratée : 22 clones
             # « Clipping Andry » le 01/10, GAML plein) → on le reprend, jamais un clone de plus.
+            # 09/10 : jamais le lien libéré d'un homonyme parti (note encore « Clipping Julien ») : ses visites sont celles de l'ancien
             existants = [l for l in de_la_creatrice if _norm(paie_clics._prenom_note(l.get("note"))) == _norm(prenom) and l.get("enabled", True)
-                         and str((d["liens"].get(l.get("id")) or {}).get("uid") or "") in ("", str(membre.id))]
+                         and str((d["liens"].get(l.get("id")) or {}).get("uid") or "") in ("", str(membre.id))
+                         and not paie_clics.note_du_sortant(d["liens"].get(l.get("id")) or {}, l.get("note"))]
             existants.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)
             nouveau = None
             if existants:
@@ -1309,7 +1313,9 @@ def liens_du_bloc(gerant: str, creatrice: str, liens_cellule: set, details: list
     if mots:
         metricool = "metricool" in mots
         for d in details:
-            mn = _mots(d.get("note"))
+            # 09/10 : « (ex-Julien) » dit l'ancien propriétaire, jamais l'actuel (« Rianah Metricool 5 (ex-Julien) » est à Rianah,
+            # « Clipping libre (ex-Julien) » n'est à personne) : ces mots ne comptent pas
+            mn = _mots(re.sub(r"\(\s*ex[^)]*\)", " ", str(d.get("note") or ""), flags=re.I))
             if mots <= mn and ("metricool" in mn) == metricool and (_norm(d.get("groupe")).split() or [""])[0] == cr:
                 trouves[d["id"]] = d
     return list(trouves.values())
@@ -1801,6 +1807,18 @@ async def rattraper_acces(client) -> int:
 
 
 # ------------------------------------------------------------------ commande
+async def changer_gerant(ancien: str, nouveau: str) -> list:
+    """09/10 (Gaëtan : « Rianah reprend ses liens Metricool ») : les lignes dont le Gérant est exactement `ancien` (« Julien
+    (Metricool) ») passent à `nouveau` (« Rianah (Metricool) »), tous onglets. L'Utilisation ne bouge pas. Renvoie une ligne de
+    bilan par compte (sans mot de passe)."""
+    if not _norm(ancien) or _norm(ancien) == _norm(nouveau):
+        return []
+    lignes = [c for c in await lire_comptes() if _norm(c["gerant"]) == _norm(ancien)]
+    for c in lignes:
+        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[nouveau]])
+    return [f"· `{c['handle']}` ({c['etat'] or 'état ?'}) → Gérant {nouveau}" for c in lignes]
+
+
 async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     """Rend les comptes d'un clipper parti : colonne Gérant vidée sur ses lignes (toutes, ou seulement `handles`) ;
     les comptes déjà créés passent en Utilisation « à mettre Metricool » (ils sortent du pool des clippers), sauf

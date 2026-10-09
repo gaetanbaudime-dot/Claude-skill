@@ -18,12 +18,12 @@ export const CLICS_DEPUIS = "2026-09-16";
 
 /** 08/10 (Gaëtan : « tout le monde au variable sauf Caroline, Lilian, Josué, Yves et Rianah. Julien montage vidéo YTB et Jonas
  *  manageur ») : ces prénoms (sans accents, en minuscules) ne sont pas payés au clic. Même liste que `PAIE_FIXE` du bot. */
-export const PAIE_FIXE = new Set(["caroline", "lilian", "josue", "yves", "rianah", "julien", "jonas"]);
+export const PAIE_FIXE = new Set(["caroline", "lilian", "josue", "yves", "rianah", "jonas"]);   // 09/10 : « julien » retiré (monteur vidéo, hors clipping)
 
-/** Les anciens (premier lien d'avant le 24/09, l'ancien modèle au fixe) passent au clic le 08/10 : leurs visites d'avant
+/** Les anciens (premier lien d'avant le 24/09, l'ancien modèle au fixe) passent au clic le 05/10 : leurs visites d'avant
  *  restent au fixe, comme dans le bot (`debut_clic`). */
 export const ANCIENS_AVANT = "2026-09-24";
-export const BASCULE_CLIC = "2026-10-08";
+export const BASCULE_CLIC = "2026-10-05";                      // 09/10 (Gaëtan) : « tout le monde au clic depuis le 5 octobre »
 
 export type PeriodePaie = { debut: string; fin: string; paie: string };
 

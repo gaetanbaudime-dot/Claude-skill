@@ -259,6 +259,8 @@ async def appliquer_sortis(client, seulement: str = "", uid: str = "", raison: s
                         salons.append(c)
         uids = [str(uid)] if str(uid) and str(uid) in registre else []
         for uid_f, fiche in list(registre.items()):
+            if str(uid):
+                break                                                   # 09/10 (revue) : uid connu → jamais un homonyme par prénom
             if uid_f in uids:
                 continue
             nom_f = fiche.get("nom") or fiche.get("pseudo") or ""

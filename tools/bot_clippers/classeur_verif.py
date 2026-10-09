@@ -36,7 +36,9 @@ def _prenom(c) -> str:
 
 
 def _en_gestion(c) -> bool:
-    return _n(c.get("utilisation") or "clipper") in ("clipper", "") and _n(_prenom(c)) not in LIBRES
+    # 09/10 : un Gérant « … (Metricool) » n'est pas un clipper (« Julien (Metricool) » ne compte pas pour le nouveau Julien clipper)
+    return _n(c.get("utilisation") or "clipper") in ("clipper", "") and _n(_prenom(c)) not in LIBRES \
+        and "metricool" not in _n(c.get("gerant"))
 
 
 def _etiquette(c) -> str:

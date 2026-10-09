@@ -230,7 +230,8 @@ def _visites_actives(uid: str) -> bool:
         return False
 
 
-def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(), prenom_de=None, notes=None, prouve=None) -> list:
+def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(), prenom_de=None, notes=None, prouve=None,
+                 reprises: dict = None) -> list:
     """05/10 : [(uid, prénom, jours depuis l'ouverture du compte 1, référence iso)] pour chaque fiche de parcours à l'étape 1
     (ouverte, jamais fermée). La référence = la date d'ouverture de l'étape 1, jamais avant `depuis` (la règle annoncée).
     Protégés : prénoms de `garder` (anciens de Jonas), note « garde » du manager ; 08/10 : ceux dont le scan prouve le compte
@@ -259,7 +260,8 @@ def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(),
         except Exception as erreur:                                         # noqa: BLE001 — dans le doute, personne ne sort
             journal.warning("Preuve du compte 1 de %s illisible : %s", uid, erreur)
             continue
-        ref = max(d for d in (ouverture, borne) if d is not None)
+        # 08/10 (revue) : un clipper débloqué (compte enfin livré, BAN remplacé) repart de 48 h pleines, avertissement compris
+        ref = max(d for d in (ouverture, borne, _jour((reprises or {}).get(str(uid)))) if d is not None)
         out.append((str(uid), prenom, (maintenant - ref).days, ref.isoformat(timespec="seconds")))
     return out
 
@@ -308,13 +310,20 @@ async def executer(client, appliquer: bool = True) -> list:
         journal.warning("Sortie compte 1 : classeur illisible (%s), BAN non vérifiés", erreur)
         etats_classeur = None
     bloques = {}
+    instant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    deja_bloques = dict(d.get("bloques_compte1") or {})
+    reprises = dict(d.get("reprise_compte1") or {})
+    reprises_avant = dict(reprises)
 
     def _bloque(u):
         raison = compte1_bloque(u, onboarding_d, etats_classeur)
         if raison:
             bloques[str(u)] = raison
+            reprises.pop(str(u), None)                                  # rebloqué : la prochaine reprise repartira de zéro
+        elif str(u) in deja_bloques and str(u) not in reprises:
+            reprises[str(u)] = instant                                  # débloqué : les 48 h partent d'ici
         return bool(raison)
-    kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes"),
+    kw = {"garder": garder, "prenom_de": prenom_de, "notes": _deps.get("notes"), "reprises": reprises,
           "prouve": lambda u, ouv: _bloque(u) or compte1_prouve(u, ouv, onboarding_d, historique) or _visites_actives(u)}   # 08/10 : scan ou visites
     avertis_avant = dict(d.get("avertis_compte1", {}))                  # 08/10 : la sortie exige un avertissement d'une passe précédente
     for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, avertis_avant, **kw):
@@ -352,13 +361,17 @@ async def executer(client, appliquer: bool = True) -> list:
             journal.warning("Sortie automatique de %s : %s", prenom, erreur)
     jour = datetime.now(timezone.utc).date().isoformat()
     d = _etat()
+    registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else None
     for uid, raison in bloques.items():                                 # 08/10 : on ne sort pas, on dit au staff quoi débloquer
+        if registre is not None and str(uid) not in registre:
+            continue                                                    # sorti (sa fiche de parcours traîne) : rien à débloquer
         if (d.get("bloques_compte1") or {}).get(uid) == jour:
             continue
         bilan.append(f"🧱 {prenom_de(uid) or uid} (<@{uid}>) : {raison} → pas de sortie ; à débloquer (`!onboarding @…` ou un compte neuf)")
         if appliquer:
             d.setdefault("bloques_compte1", {})[uid] = jour
-    if bloques and appliquer:
+    if appliquer and (bloques or reprises != reprises_avant):
+        d["reprise_compte1"] = reprises
         _deps["ecrire_json"](_deps["FICHIER"], d)
     return bilan
 

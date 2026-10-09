@@ -69,6 +69,17 @@ Le jour où ta part arrive : **30 % → coffre intouchable AVANT toute dépense*
 4. **Désaccord → au call suivant**, pas en messages différés sur 3 semaines.
 5. **Propriétaire : toi** (tu reçois les fonds et répartis), **Maxence contrôle** — 30 minutes, pas plus. Décision et prédiction [[Journal de coaching|journalisées]].
 
+## Les clôtures depuis la SOP (relu le 08/10/2026)
+
+| Mois (date du calcul) | Commissions | Charges déduites | Profit | Marge | Part de chacun | Où |
+|---|---:|---:|---:|---:|---|---|
+| Juin (01/07) | 14 890 € | 5 474 € | 9 416 € | 63 % | 3 533 € après perso partagé, 2 911 € versés | WhatsApp |
+| Juillet (début août) | ≈ 25,7 k€ | ≈ 11,5 k€ (perso compris ?) | ≈ 14,2 k€ | ≈ 55 % | 7,1 k€ | WhatsApp, `to-verify` |
+| Août | non retrouvée dans le vault | | | | | `to-verify` |
+| Septembre (08/10) | 22 126 € | 10 083,53 € (marketing + chatting, sans détail) | 12 042,47 € | 54 % | 6 021 € ; Maxence 5 000 € en AED, « part de l'appartement » déduite | WhatsApp |
+
+**Verdict honnête sur la SOP, trois mois après** : aucune clôture n'a été faite dans un Sheet, les trois défauts de juin sont revenus en septembre (perso déduit dans le partage, aucune allocation visible, bloc de charges opaque), et la prédiction du 13/07 est perdue. La version à trois couches a perdu contre l'habitude. Ce qui reste à faire tenir est plus petit et ne dépend pas de Maxence : **un onglet « Clôtures » dans Data G&M (mois · commissions · marketing · chatting · profit · part de chacun · ajustement écrit), rempli en deux minutes à partir du message WhatsApp, puis tes allocations sur ta moitié le jour même (5 % réserve impôts + 10 % coffre boîte, puis 30 % du reste vers IBKR)**. Le reste (facture inter-sociétés de Maxence, virement sans spread, ventilation ligne à ligne) est détaillé dans [[Clôture de septembre 2026 avec Maxence - 12 042 € de profit, 6 021 € chacun (8 octobre 2026)]].
+
 ## Sources
 
 [^1]: Calcul interne du 01/07/2026 (WhatsApp, captures) : commissions 14 890 €, dépenses 5 474 €, profit 9 416 €, versement final 2 911 € — chiffres conservés tels quels, périmètre partiel sur le détail des dépenses.

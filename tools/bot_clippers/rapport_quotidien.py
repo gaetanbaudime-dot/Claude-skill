@@ -172,7 +172,7 @@ def reels(comptes: list, historique: dict, jour_scan: str, groupes: dict, exclus
     par_crea, par_clipper, recents, crees = {}, {}, set(), set()
     for c in comptes:
         g = _n(str(c.get("gerant") or "").split()[0] if str(c.get("gerant") or "").strip() else "")
-        if not g or g in ex or g not in crea_de:
+        if not g or g in ex or g not in crea_de or "metricool" in _n(c.get("gerant")):   # 09/10 : « Julien (Metricool) » ≠ le clipper Julien
             continue
         crea = crea_de[g]
         if _n(c.get("etat") or "") in ("good", "warmup", "actif"):
