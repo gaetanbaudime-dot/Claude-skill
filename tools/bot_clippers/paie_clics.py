@@ -10,7 +10,7 @@ visiteurs francophones (PAYS_PAYES : France, Belgique, Suisse, Canada, DOM-TOM�
   - envoie chaque matin, dans le salon perso de chaque clipper, sa ligne de la veille ;
   - répond à `!mesclics` (le clipper ne voit que lui) et `!wallet` (son adresse de paiement) ;
   - donne aux managers `!clics`, `!liens`, `!lien @clipper …` (attribuer ou cloner un lien) et
-    `!paie-clics 5|20 [AAAA-MM]` : la liste adresse-montant de la paie du 5 (16 → fin du mois
+    `!paie-clics 5|20 [AAAA-MM]` : la liste adresse-montant de la paie du 5 (20 → 4, règle du 09/10 ; la paie au clic a commencé le 05/10
     précédent) ou du 20 (1 → 15 du mois), avec le CSV. Le virement reste humain.
 
 Le module ne connaît pas bot_discord : il reçoit ses dépendances dans `demarrer(client, deps)`.
@@ -45,7 +45,7 @@ PAYS_PAYES_DEFAUT = ("France,Belgium,Switzerland,Canada,Luxembourg,Monaco,Réuni
                      "Mayotte,New Caledonia,French Polynesia")
 PAYS_PAYES = [p.strip() for p in os.environ.get("PAYS_PAYES", PAYS_PAYES_DEFAUT).split(",") if p.strip()]
 PAYS_LIBELLE = os.environ.get("PAYS_LIBELLE", "francophones").strip() or "francophones"
-CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-09-16").strip()          # début du relevé rétroactif
+CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-10-05").strip()          # 09/10 (Gaëtan) : la paie au clic a commencé le 05/10
 CLICS_HEURE = int(os.environ.get("CLICS_HEURE", "7") or 7)                    # ligne du matin (heure de Paris)
 LIGNE_MATIN = os.environ.get("CLICS_LIGNE_MATIN", "0").strip() == "1"   # 05/10 : la ligne « Visites hier » du salon perso, éteinte
 # 25/09 : les anciens clippers gardent leur fixe deux semaines, puis clic ou sortie. Le bilan part tout seul ce jour-là.
@@ -377,33 +377,48 @@ async def poser_mym(link_id: str, url: str, image: str = "") -> str:
 
 
 # ------------------------------------------------------------------ calculs
+# 09/10 (Gaëtan : « la paie se fait le 5 et le 20 de chaque mois ; ils sont payés sur les périodes du 5 au 19 inclus et du 20 au 4
+# inclus ») : `20` = 5 → 19 du mois (payé le 20) ; `5` = 20 du mois précédent → 4 du mois (payé le 5). « J'ai commencé la
+# rémunération au clic le 5 octobre » : la première période au clic est le 5 → 19/10/2026 (CLICS_DEPUIS), aucune exception.
+
+
+def _mois_prec(annee: int, m: int) -> tuple:
+    return (annee - 1, 12) if m == 1 else (annee, m - 1)
+
+
+def _mois_suiv(annee: int, m: int) -> tuple:
+    return (annee + 1, 1) if m == 12 else (annee, m + 1)
+
+
 def periode(cle: str, mois: str = "") -> tuple:
-    """`5` : 16 → fin du mois précédent (paie du 5 de `mois`) ; `20` : 1 → 15 de `mois`."""
+    """`20` : 5 → 19 de `mois` (paie du 20) ; `5` : 20 du mois précédent → 4 de `mois` (paie du 5)."""
     ref = _aujourdhui()
-    if mois:
-        annee, m = int(mois[:4]), int(mois[5:7])
-    else:
-        annee, m = ref.year, ref.month
+    annee, m = (int(mois[:4]), int(mois[5:7])) if mois else (ref.year, ref.month)
     if cle == "20":
-        return date(annee, m, 1), date(annee, m, 15)
-    fin = date(annee, m, 1) - timedelta(days=1)
-    return date(fin.year, fin.month, 16), fin
+        return date(annee, m, 5), date(annee, m, 19)
+    ap, mp = _mois_prec(annee, m)
+    return date(ap, mp, 20), date(annee, m, 4)
 
 
 def prochaine_paie(ref: date) -> date:
-    """Le prochain jour de paie : le 20 pour la quinzaine du 1 au 15, le 5 du mois suivant pour celle du 16 à la fin."""
-    if ref.day <= 15:
+    """Le prochain jour de paie : le 5 pour les jours 1 à 4 (fin de la période 20 → 4), le 20 pour les jours 5 à 19, le 5 du
+    mois suivant à partir du 20."""
+    if ref.day <= 4:
+        return date(ref.year, ref.month, 5)
+    if ref.day <= 19:
         return date(ref.year, ref.month, 20)
-    premier = (date(ref.year, ref.month, 1) + timedelta(days=32)).replace(day=1)
-    return date(premier.year, premier.month, 5)
+    a, m = _mois_suiv(ref.year, ref.month)
+    return date(a, m, 5)
 
 
 def periode_en_cours() -> tuple:
     ref = _aujourdhui()
-    if ref.day <= 15:
-        return date(ref.year, ref.month, 1), date(ref.year, ref.month, 15)
-    fin = (date(ref.year, ref.month, 1) + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-    return date(ref.year, ref.month, 16), fin
+    if ref.day <= 4:
+        return periode("5", ref.strftime("%Y-%m"))
+    if ref.day <= 19:
+        return periode("20", ref.strftime("%Y-%m"))
+    a, m = _mois_suiv(ref.year, ref.month)
+    return periode("5", f"{a:04d}-{m:02d}")
 
 
 def _ancien_regime(fiche: dict) -> str:
@@ -1097,7 +1112,7 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
             f"Sur 7 jours : **{_fmt(s7['payes'])}** visites qui comptent, sur {_fmt(s7['hors_robots'])} visiteurs.\n\n"
             + ((f"💸 **Ta paie en cours : {_usd(q['payes'] * TAUX_CLIC)}** ({_fmt(q['payes'])} visites du {debut.strftime('%d/%m')} au "
                 f"{fin.strftime('%d/%m')}), virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
-               (f"Quinzaine du {debut.strftime('%d/%m')} au {fin.strftime('%d/%m')} : **{_fmt(q['payes'])} visites = "
+               (f"Période du {debut.strftime('%d/%m')} au {fin.strftime('%d/%m')} : **{_fmt(q['payes'])} visites = "
                 f"{_usd(q['payes'] * TAUX_CLIC)}**.\n"))
             +
             f"Une visite qui compte = {_usd(TAUX_CLIC)}. Elle vient de France ou d'un pays francophone. Ce n'est pas un robot.\n\n"
@@ -1121,7 +1136,7 @@ def ligne_matin(d: dict, uid: str) -> str:
     au_clic = regime(uid) == "clic"
     montant = f" = {_usd(q['payes'] * TAUX_CLIC)} · virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}" if au_clic else ""   # 28/09 (GO n° 8)
     # 26/09 : une ligne, dans le message du matin (les détails restent dans `!mesclics`)
-    return (f"👀 Visites hier : **{_fmt(h['payes'])}** · quinzaine : **{_fmt(q['payes'])}{montant}**"
+    return (f"👀 Visites hier : **{_fmt(h['payes'])}** · période : **{_fmt(q['payes'])}{montant}**"
             + ("" if not au_clic or str(uid) in d["wallets"] else "\n⚠️ Adresse de paiement manquante : colle-la dans ton app (onglet Versements) ou `!wallet 0x…`"))
 
 
@@ -1254,7 +1269,7 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str) -> tuple
         fixes.sort(key=lambda f: -f[1])
         pied += ("\n\n🧾 **Au fixe, hors liste** (ce qu'ils auraient touché au clic) : "
                  + " · ".join(f"{n} {_fmt(v)} = {_usd(v * TAUX_CLIC)}" for n, v in fixes))
-    return [entete] + (lignes or ["· (aucune visite payée sur la période)"]) + [pied], tampon.getvalue()
+    return [entete] + (lignes or ["· (aucune visite payée sur la période)"]) + [pied], tampon.getvalue(), rangs
 
 
 # ------------------------------------------------------------------ attribution automatique
@@ -1632,7 +1647,7 @@ async def envoyer_lignes_matin(d: dict) -> int:
 
 
 async def annoncer_paie(client, d: dict, maintenant) -> None:
-    """Jour de paie (5 : période 16 → fin du mois précédent ; 20 : 1 → 15) : la liste et le CSV au salon admin,
+    """Jour de paie (5 : période 20 → 4 ; 20 : période 5 → 19) : la liste et le CSV au salon admin, la feuille dans le tableur,
     et dans le salon perso de chaque clipper au clic sa ligne (visites payées, montant, adresse)."""
     cle = "5" if maintenant.day == 5 else "20"
     debut, fin = periode(cle, maintenant.strftime("%Y-%m"))
@@ -1642,7 +1657,10 @@ async def annoncer_paie(client, d: dict, maintenant) -> None:
     reprises = await synchroniser_adresses(d)                           # 08/10 : les adresses collées dans l'app, avant la liste
     if reprises:
         _ecrire(d)
-    lignes, csv_texte = liste_paie(d, nom_de, debut, fin, maintenant.strftime("%d/%m"))
+    lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, maintenant.strftime("%d/%m"))
+    titre = await ecrire_feuille_paie(d, rangs, debut, fin, maintenant.strftime("%d/%m"))
+    if titre:
+        lignes.append(f"📗 Feuille « {titre} » écrite dans le tableur « {ADRESSES_TABLEUR} » (prénom, adresse USDC, montant).")
     if reprises:
         lignes.append(f"📒 {len(reprises)} adresse(s) reprise(s) de l'app : " + ", ".join(reprises)[:600])
     canal = await _deps["canal_admin"]()
@@ -1898,6 +1916,48 @@ async def publier_regimes(d: dict) -> int:
         return 0
 
 
+ONGLET_PAIE_PREFIXE = "Paie du "
+
+
+async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour_paie: str) -> str:
+    """09/10 (Gaëtan : « prépare-moi un sheet avec les adresses USDC ERC20 et le montant des clippers à payer, avec leur prénom ») :
+    un onglet « Paie du JJ/MM/AAAA » dans le tableur « App clippers · usage » (Drive agence), réécrit à chaque liste (annonce du 5 et
+    du 20, `!paie-clics`) : prénom, créatrice, adresse, visites payées, montant, période, date, note (adresse manquante ou IBAN).
+    Renvoie le titre de l'onglet, '' si rien n'a pu être écrit. Jamais d'exception."""
+    if not google_api.actif() or not rangs:
+        return ""
+    try:
+        classeur = await _classeur_usage()
+        if not classeur:
+            return ""
+        if "-" in jour_paie:
+            paie = date.fromisoformat(jour_paie[:10]).strftime("%d/%m/%Y")
+        else:
+            paie = jour_paie if jour_paie.count("/") == 2 else f"{jour_paie}/{fin.year if fin.month != 12 or jour_paie[3:5] != '01' else fin.year + 1}"
+        titre = f"{ONGLET_PAIE_PREFIXE}{paie}"
+        crea_de = {}
+        for info in d.get("liens", {}).values():
+            uid = str(info.get("uid") or "")
+            if uid and info.get("creatrice") and uid not in crea_de:
+                crea_de[uid] = str(info["creatrice"]).split()[0].title()
+        lignes = [["Prénom", "Créatrice", "Adresse USDC (ERC-20)", "Visites payées", "Montant ($)", "Période", "Payé le", "Note"]]
+        total = 0.0
+        for nom, uid, payes, hors, montant, w in rangs:
+            total += montant
+            note = "⚠️ adresse manquante" if not w else ("IBAN, pas USDC" if not str(w).startswith("0x") else "")
+            lignes.append([str(nom).split(" - ")[0].strip(), crea_de.get(uid, ""), w or "", int(payes), round(float(montant), 2),
+                           f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, note])
+        lignes.append(["Total", "", "", sum(int(r[2]) for r in rangs), round(total, 2), "", "", f"{len(rangs)} clipper(s)"])
+        await google_api.sheets_creer_onglet(classeur, titre)
+        await google_api.sheets_effacer(classeur, f"{titre}!A1:H")
+        await google_api.sheets_ecrire(classeur, f"{titre}!A1:H{len(lignes)}", lignes)
+        journal.info("Feuille de paie écrite : %s (%d clipper(s))", titre, len(rangs))
+        return titre
+    except Exception as erreur:                                        # noqa: BLE001
+        journal.warning("Feuille de paie : %s", str(erreur)[:160])
+        return ""
+
+
 async def synchroniser_adresses(d: dict) -> list:
     """Lit l'onglet « Adresses USDC » du tableur de l'app et complète `d["wallets"]`. Renvoie une ligne par adresse reprise
     (« Prénom → 0x1234…abcd »), vide si rien de neuf. Jamais d'exception : la paie ne doit pas dépendre du tableur."""
@@ -2063,9 +2123,9 @@ async def commande_staff(message, texte: str) -> bool:
         cle = next((a for a in args if a in ("5", "20")), "")
         mois = next((a for a in args if re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", a)), "")
         if not cle:
-            ref = _aujourdhui()
-            cle = "5" if ref.day <= 12 or ref.day >= 28 else "20"      # la prochaine paie
-            if ref.day >= 28:
+            ref = _aujourdhui()                                         # 09/10 : la prochaine paie, 5 → 19 payé le 20, 20 → 4 payé le 5
+            cle = "5" if ref.day <= 4 or ref.day >= 20 else "20"
+            if ref.day >= 20:
                 suivant = (ref.replace(day=1) + timedelta(days=32))
                 mois = mois or suivant.strftime("%Y-%m")
         debut, fin = periode(cle, mois)
@@ -2073,7 +2133,10 @@ async def commande_staff(message, texte: str) -> bool:
         reprises = await synchroniser_adresses(d)
         if reprises:
             _ecrire(d)
-        lignes, csv_texte = liste_paie(d, nom_de, debut, fin, jour_paie)
+        lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, jour_paie)
+        titre = await ecrire_feuille_paie(d, rangs, debut, fin, jour_paie)
+        if titre:
+            lignes.append(f"📗 Feuille « {titre} » écrite dans le tableur « {ADRESSES_TABLEUR} » (prénom, adresse USDC, montant).")
         if reprises:
             lignes.append(f"📒 {len(reprises)} adresse(s) reprise(s) de l'app : " + ", ".join(reprises)[:600])
         manquants = [lid for lid, i in d["liens"].items() if i.get("uid")
@@ -2093,7 +2156,7 @@ async def commande_staff(message, texte: str) -> bool:
     if cmd == "!clics":
         hier = _aujourdhui() - timedelta(days=1)
         debut, fin = periode_en_cours()
-        lignes = [f"📊 **Clics par clipper** — hier {hier.strftime('%d/%m')} · 7 jours · quinzaine "
+        lignes = [f"📊 **Clics par clipper** — hier {hier.strftime('%d/%m')} · 7 jours · période "
                   f"({debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}) à {_usd(TAUX_CLIC)}"]
         par_uid = {}
         for lid, info in d["liens"].items():
@@ -2109,7 +2172,7 @@ async def commande_staff(message, texte: str) -> bool:
             part = f"{s7['payes'] * 100 // s7['hors_robots']} %" if s7["hors_robots"] else "–"
             reg = regime(uid)
             lignes.append(f"· {nom} [{reg}] — hier {_fmt(h['payes'])} · 7 j {_fmt(s7['payes'])} ({part} payables, "
-                          f"{_fmt(s7['payes'] / 7)}/j) · quinzaine {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
+                          f"{_fmt(s7['payes'] / 7)}/j) · période {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
                           + ("" if reg != "clic" or uid in d["wallets"] else " · ⚠️ sans adresse"))
         lignes.append("-# [fixe] = Rianah, Caroline, Lilian, Josué, Yves (et Jonas, manager), décision du 09/10 ; "
                       "[clic] = tous les autres, payés sur la liste du 5 et du 20 (au clic depuis le 05/10 pour les anciens fixes). "

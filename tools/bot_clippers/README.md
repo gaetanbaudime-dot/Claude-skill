@@ -643,12 +643,16 @@ rien n'est supprimé, un glisser-déposer hors de la catégorie les fait revenir
 **Ce que fait le bot** (actif dès que `GAML_API_KEY` est posée dans Railway) :
 
 - **Attribution des liens** : au démarrage puis toutes les heures, chaque lien GAML dont la note est « Clipping Prénom » est rattaché au membre signé du même prénom (et de la même créatrice si possible) ; ambiguïté → ligne dans le salon admin, à trancher avec `!lien`. `CLICS_EXCLURE` (défaut : rianah, gaetan, jonas, x, y) écarte les liens du staff et les liens en attente.
-- **Relevés** : deux appels par lien et par jour (pays hors robots, total avec robots), rangés dans `clics.json` sur le volume, rétroactivement depuis `CLICS_DEPUIS` (défaut 2026-09-16), 110 appels au plus par passage pour rester sous la limite GAML (60 par minute), un passage tous les quarts d'heure.
+- **Relevés** : deux appels par lien et par jour (pays hors robots, total avec robots), rangés dans `clics.json` sur le volume, rétroactivement depuis `CLICS_DEPUIS` (défaut 2026-10-05 depuis le 09/10), 110 appels au plus par passage pour rester sous la limite GAML (60 par minute), un passage tous les quarts d'heure.
 - **Ligne du matin** (`CLICS_HEURE`, défaut 7 h Paris) dans le salon perso de chaque clipper : visiteurs et visites payées de la veille, quinzaine en cours avec le montant, 7 jours. Une fois par jour, seulement quand la veille est relevée pour tous les liens.
 - **Commandes clipper** (MP ou salon) : `!mesclics` (hier, 7 jours, quinzaine, montant en cours, part payable, robots exclus, son lien) · `!wallet 0x…` (USDC ERC20) ou `!wallet FR76…` (IBAN) pour son adresse de paiement.
 - **Commandes manager** : `!clics` (tableau par clipper) · `!liens` (tous les liens « Clipping », attribués ou libres) · `!lien @clipper <url|slug>` (attribuer) · `!lien @clipper nouveau [Créatrice]` (cloner un lien de sa créatrice via l'API, le renommer « Clipping Prénom », l'activer) · `!lien @clipper retirer` · `!wallet @clipper <adresse>` · **`!paie-clics 5|20 [AAAA-MM]`** : la liste prénom, visites payées, montant, adresse, avec le CSV joint (`;` comme séparateur, décimales à virgule). Le virement reste humain.
 
 **Ce qui manque encore** : le bouton OnlyFans d'un lien cloné pointe sur la destination du modèle ; il passera au lien de tracking Infloww du clipper quand l'export Infloww sera lu par le bot (API Infloww en bêta : Gaëtan exporte les liens de tracking tous les quinze jours, rappel agenda le 5 et le 20).
+
+### Périodes de paie du 09/10 et feuille de paie
+
+Depuis le 09/10 (Gaëtan) : **paie le 5 et le 20 de chaque mois ; du 5 au 19 inclus → versé le 20 ; du 20 au 4 inclus → versé le 5 du mois suivant** (`periode`, `prochaine_paie`, `periode_en_cours`). La paie au clic a commencé le **05/10/2026** (`CLICS_DEPUIS`) : la première période est le 5 → 19/10, payée le 20/10, sans exception ; rien n'est dû au clic avant. `!paie-clics` sans argument prépare la prochaine paie (le 5 pour les jours 1 à 4 et à partir du 20, le 20 pour les jours 5 à 19). À chaque liste (annonce du 5 et du 20, `!paie-clics`), le bot écrit aussi un onglet **« Paie du JJ/MM/AAAA »** dans le tableur « App clippers · usage » : prénom, créatrice, adresse USDC, visites payées, montant, période, date, note (adresse manquante, IBAN) et une ligne de total — la feuille que Gaëtan ouvre pour virer.
 
 ### Adresses USDC de l'app clippers (08/10)
 

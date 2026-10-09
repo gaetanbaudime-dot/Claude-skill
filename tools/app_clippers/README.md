@@ -8,7 +8,7 @@ Petite application web mobile (PWA) pour les clippers, jumelle de l'app créatri
 
 ## Règles de paie (reprises de `tools/bot_clippers/paie_clics.py`)
 
-0,05 $ par visite « francophone » (France, Belgique, Suisse, Canada, Luxembourg, Monaco, Réunion, Guadeloupe, Martinique, Guyane, Mayotte, Nouvelle-Calédonie, Polynésie), robots exclus par GAML, heure de Paris. Quinzaine du 1 au 15 → versée le 20 du mois ; du 16 à la fin du mois → versée le 5 du mois suivant (`periode_en_cours`, `prochaine_paie`). L'app annonce, le virement reste humain.
+0,05 $ par visite « francophone » (France, Belgique, Suisse, Canada, Luxembourg, Monaco, Réunion, Guadeloupe, Martinique, Guyane, Mayotte, Nouvelle-Calédonie, Polynésie), robots exclus par GAML, heure de Paris. Paie le 5 et le 20 de chaque mois : du 5 au 19 inclus → versé le 20, du 20 au 4 inclus → versé le 5 du mois suivant (règle du 09/10, `periodeDe` ; la paie au clic a commencé le 05/10, première période 5 → 19/10, rien avant). L'app l'affiche sous le montant (pastille « Payé le 5 et le 20 », barre « jour X sur N »). L'app annonce, le virement reste humain.
 
 ## Zéro configuration par clipper
 
