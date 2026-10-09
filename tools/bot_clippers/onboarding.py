@@ -7,8 +7,8 @@ apparaît dans la colonne Gérant du classeur des logins, le bot livre dans le s
      logins (Utilisation = Clipper, Gérant libre, Créatrice = la sienne), et il écrit son prénom dans la
      colonne Gérant : le classeur reste la source de vérité, modifiable à la main ;
   2. son lien GAML (cloné depuis un lien « Clipping » de la créatrice si aucun ne lui est attribué) ;
-  3. son dossier Drive personnel (photos et Reels de la créatrice), copié et partagé par le script de
-     l'agence quand il est déployé (drive_agence.py), sinon rien.
+  3. 09/10 : plus de dossier Drive personnel (« la qualité est pourrie », Gaëtan). Le parcours donne le lien des vidéos
+     d'ORIGINE de la créatrice (`lien_drive_creatrice`) ; les dossiers perso existants se referment par `fermer_dossiers_perso`.
 
 Le classeur (27/09) : **un onglet par créatrice** (Chloé, Sarah, Sophie, Jade, Maddie, Clara…), découverts tout seuls ;
 les onglets Gaetan, Tracking, Backup sont ignorés (ONGLETS_EXCLUS) et l'ancien onglet global « Instagram » n'est lu que
@@ -28,11 +28,11 @@ import re
 import time
 import unicodedata
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import discord
 
 import codes_2fa
-import drive_agence
 import google_api
 import paie_clics
 import reserve_mym
@@ -671,9 +671,9 @@ def message_comptes_court(prenom: str) -> str:
 
 
 def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) -> str:
-    """26/09 (Gaëtan : « hyper long, trop d'informations ») : les 3 comptes et une ligne de règle, rien d'autre.
-    Depuis le 27/09, ne sert plus qu'à `!onboarding` forcé (COMPTES_UN_PAR_JOUR=0 pour le rétablir partout). 01/10 : `debut`
-    = le numéro du premier compte (sa place dans la fiche : un compte ajouté après les deux premiers est le compte 3)."""
+    """26/09 (Gaëtan : « hyper long, trop d'informations ») : les comptes et une ligne de règle, rien d'autre. 01/10 : `debut`
+    = le numéro du premier compte. 09/10 : plus envoyé à un clipper (ni par `!onboarding` forcé, ni par la boucle du classeur, ni
+    par le 2e téléphone, qui donnent un compte à la fois) ; gardé pour les tests et la relecture."""
     if not comptes:
         return (f"⚠️ Il n'y a pas encore de compte prêt pour {creatrice}. Ton manager en prépare. "
                 "Je te les envoie ici dès qu'ils sont prêts.")
@@ -699,46 +699,16 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
 
 
 # ------------------------------------------------------------------ Drive
-async def _partager(fichier_id: str, email: str) -> bool:
-    """Partage en lecture : par le compte de service d'abord, par le script de l'agence sinon."""
-    try:
-        await google_api.drive_partager(fichier_id, email, "reader")
-        return True
-    except RuntimeError as erreur:
-        journal.info("Partage par le compte de service refusé (%s), essai par le script", str(erreur)[:80])
-    if drive_agence.actif():
-        try:
-            await drive_agence.partager(fichier_id, email, "reader")
-            return True
-        except RuntimeError as erreur:
-            journal.warning("Partage Drive %s : %s", fichier_id[:8], erreur)
-    return False
-
-
-UN_PAR_JOUR = os.environ.get("COMPTES_UN_PAR_JOUR", "1").strip() != "0"   # 27/09 : un accès par jour, dans l'étape du jour
-NOM_TOP20 = "TOP 20 Reels"                     # le sous-dossier des Reels uniques du clipper (27/09, avant : « Reels uniques »)
+# 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité est pourrie apparemment ») : plus de dossier
+# personnel (sa création, son partage, son envoi et son rattrapage sont supprimés), plus de « TOP 20 Reels » ré-encodé. Le clipper
+# reçoit le lien des vidéos d'ORIGINE de sa créatrice (lien_drive_creatrice) ; les dossiers perso déjà créés se referment par
+# fermer_dossiers_perso (`!drives-perso fermer`).
+NOM_TOP20 = "TOP 20 Reels"                     # l'ancien sous-dossier des Reels uniques du clipper (27/09, avant : « Reels uniques »)
 
 
 async def restructurer_drives(client, prenoms_par_creatrice: dict, email_de) -> list:
-    """Au démarrage, une fois (marqueur dans l'état) : chaque clipper du roster retrouve la structure Photos / Reels / Stories /
-    TOP 20 Reels dans son dossier Drive. `email_de(prenom)` renvoie l'adresse connue ou ''. Renvoie les prénoms traités."""
-    if not google_api.actif():
-        return []
-    etat = _lire_etat()
-    if etat.get("drive_structure") == 3:
-        return []
-    faits = []
-    for creatrice, prenoms in (prenoms_par_creatrice or {}).items():
-        for prenom in prenoms:
-            try:
-                if await dossier_drive(prenom, creatrice, email_de(prenom) or ""):
-                    faits.append(prenom)
-            except Exception as erreur:                                     # noqa: BLE001
-                journal.warning("Structure Drive de %s (%s) : %s", prenom, creatrice, erreur)
-    etat["drive_structure"] = 3
-    _ecrire_etat(etat)
-    journal.info("Structure Drive v2 posée pour %d clipper(s)", len(faits))
-    return faits
+    """09/10 : retiré, ne fait plus rien (plus de dossier perso à structurer). Gardée le temps que son appel quitte on_ready."""
+    return []
 
 
 _sources_publiques = set()
@@ -774,126 +744,262 @@ def _source_de(creatrice: str) -> dict:
     return {}
 
 
-def texte_drive(prenom: str, creatrice: str, drive: str) -> str:
-    """Le message du Drive, seul (rattrapage) : 28/09 (Gaëtan, Simon) « envoie-lui le lien de son Drive ».
-    01/10 (Daniella a cru qu'on publiait sans monter, l'ancien titre parlant de Reels « à publier ») : « Tes vidéos à monter »,
-    règle du 30/09 : chaque vidéo se modifie avant d'être publiée, TOP 20 compris."""
-    return (f"📁 **Tes vidéos à monter, {prenom}** (TOP 20 de {creatrice.split()[0] if creatrice.split() else creatrice}) : <{drive}>\n\n"
-            "Modifie chaque vidéo avant de la publier.\n\n"
-            "Il s'ouvre depuis ton téléphone, sans compte Google.")
+DRIVE_CREATRICE_TTL = int(os.environ.get("DRIVE_CREATRICE_TTL_SEC", "21600") or 21600)   # 09/10 : le « 📁 Reels » relu toutes les 6 h
+_drive_creatrice_cache = {}                                             # {créatrice normalisée: (instant, lien)}
 
 
-async def drives_manquants(client=None, maxi: int = 3) -> list:
-    """28/09 (Gaëtan, Simon : « veille à ce que les clippeurs l'aient avec leur premier compte ») : un clipper livré sans Drive
-    (créatrice écrite en minuscules, source absente ou Drive en panne à ce moment-là) le reçoit au passage suivant de la boucle,
-    dans son salon perso, et ses TOP 20 se déclinent dans la foulée. Renvoie les prénoms servis (au plus `maxi` par passage)."""
-    if not google_api.actif():
-        return []
-    etat = _lire_etat()
-    faits = []
-    for uid, fiche in list(etat.get("clippers", {}).items()):
-        if len(faits) >= maxi or fiche.get("drive") or not fiche.get("creatrice") or not fiche.get("comptes"):
-            continue
-        if not _source_de(fiche["creatrice"]):
-            continue                                                    # rien à créer tant que la créatrice n'a pas de source
-        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
-        if m is None:
-            continue
-        prenom = m.display_name.split()[0] if m.display_name.split() else m.display_name
+def _cle_creatrice(creatrice: str) -> str:
+    """La clé d'une créatrice dans drives_info.json : premier mot, sans accent ni casse (« Chloé 💖 » → « chloe »)."""
+    mots = str(creatrice or "").split()
+    return _norm(mots[0]) if mots else ""
+
+
+def _fichier_drives_info():
+    """DONNEES/drives_info.json, tenu par bot_discord.ouvrir_drives_salons_info (à côté de onboarding.json)."""
+    if _deps.get("FICHIER_DRIVES_INFO"):
+        return _deps["FICHIER_DRIVES_INFO"]
+    return Path(_deps["FICHIER_ONBOARDING"]).parent / "drives_info.json" if _deps.get("FICHIER_ONBOARDING") else None
+
+
+def drive_du_salon_info(creatrice: str) -> str:
+    """09/10 : le dossier Drive que Gaëtan a posté dans le salon ℹ️ de la catégorie de la créatrice ('' si aucun). Revue du lot L6 :
+    seulement s'il est noté ouvert par le lien (« ouverts » de drives_info.json) ; un dossier refusé (le bot n'en est pas éditeur)
+    n'est jamais donné, chaque clic serait une demande d'accès dans les mails de Gaëtan."""
+    cle, fichier = _cle_creatrice(creatrice), _fichier_drives_info()
+    if not cle or fichier is None or not _deps.get("lire_json"):
+        return ""
+    info = _deps["lire_json"](fichier, {}) or {}
+    par, ouverts = info.get("par_creatrice") or {}, set(info.get("ouverts") or [])
+    lien = str(par.get(cle) or "") or next((str(u) for c, u in par.items() if u and _cle_creatrice(c) == cle), "")
+    m = RE_ID_DOSSIER.search(lien)
+    return lien if m and m.group(1) in ouverts else ""
+
+
+async def _ouvert_par_lien(fid: str) -> bool:
+    """Le dossier se lit sans compte Google : ouvert par le bot (une fois par démarrage), ou déjà « toute personne ayant le lien »."""
+    if fid in _sources_publiques:
+        return True
+    if await google_api.drive_partager_public(fid):
+        _sources_publiques.add(fid)
+        return True
+    try:
+        return any(p.get("type") == "anyone" for p in await google_api.drive_partages(fid))
+    except RuntimeError:
+        return False
+
+
+async def lien_drive_creatrice(creatrice: str) -> str:
+    """09/10 (Gaëtan : « la qualité est pourrie ») : le lien des vidéos d'ORIGINE de la créatrice, donné au clipper dans le message
+    de bienvenue et dans « ton compte 1 peut publier ». Dans l'ordre : 1) le dossier Drive posté dans son salon ℹ️ ; 2) son
+    dossier « 📁 Reels » d'origine (le parent du TOP 20, ou la source « Reels » de DRIVE_SOURCES), ouvert par le lien ; 3) ''
+    (le texte du parcours renvoie alors au salon ℹ️). Jamais un dossier perso, jamais une vidéo ré-encodée."""
+    cle = _cle_creatrice(creatrice)
+    if not cle:
+        return ""
+    lien = drive_du_salon_info(creatrice)
+    if lien:
+        return lien
+    cache = _drive_creatrice_cache.get(cle)
+    # un échec (Drive injoignable, dossier absent) n'est gardé que 15 min : le lien revient vite au message suivant
+    if cache and time.time() - cache[0] < (DRIVE_CREATRICE_TTL if cache[1] else 900):
+        return cache[1]
+    lien = ""
+    if google_api.actif():
+        ids = []
         try:
-            drive = await dossier_drive(prenom, fiche["creatrice"], fiche.get("email", ""))
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Drive rattrapé pour %s : %s", prenom, erreur)
+            import reels_uniques                                        # import tardif : le Drive d'origine (📁 Reels)
+            reels_id, _ = await reels_uniques.dossier_reels(creatrice)
+            if reels_id:
+                ids.append(reels_id)
+        except Exception as erreur:                                     # noqa: BLE001 — repli sur DRIVE_SOURCES
+            journal.info("Dossier « Reels » de %s : %s", creatrice, type(erreur).__name__)
+        for src in _source_de(creatrice).get("sources", []):
+            if isinstance(src, dict) and "reel" in _norm(src.get("sous") or "") and src.get("id") and src["id"] not in ids:
+                ids.append(src["id"])
+        for fid in ids:
+            try:
+                if await _ouvert_par_lien(fid):
+                    lien = google_api.drive_lien(fid)
+                    break
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.info("Dossier d'origine de %s : %s", creatrice, type(erreur).__name__)
+    _drive_creatrice_cache[cle] = (time.time(), lien)
+    return lien
+
+
+RE_ID_DOSSIER = re.compile(r"/folders/([A-Za-z0-9_-]{10,})")
+
+
+def _videos_deja_passees(uid: str) -> bool:
+    """09/10 (revue du lot L6) : le parcours a-t-il déjà passé le message qui porte les vidéos (« ton compte 1 peut publier ») ?
+    Sans parcours (ancien, d'avant le parcours guidé) : oui. Pas commencé, ou compte 1 pas encore chaud : non, la bienvenue et
+    « compte 1 peut publier » les donneront."""
+    try:
+        import parcours                                                 # import tardif : parcours importe onboarding
+        fiche_p = parcours._lire().get(str(uid))
+    except Exception:                                                   # noqa: BLE001
+        return True
+    if not fiche_p:
+        return True
+    etape = int(fiche_p.get("etape", 0) or 0)
+    if etape != 1:
+        return etape >= 2
+    if any(i.get("type") == "publier" and int(i.get("n") or 0) == 1 for i in fiche_p.get("programme") or [] if isinstance(i, dict)):
+        return False
+    return bool((fiche_p.get("dates") or {}).get("1_fait"))
+
+
+def _a_prevenir_videos(apercu: bool) -> list:
+    """[(uid, créatrice)] des clippers présents, avec un salon perso, dont le dossier perso est fermé (ou le sera, en aperçu), pas
+    encore prévenus, et qui ont passé « compte 1 peut publier »."""
+    out = []
+    for uid, fiche in _lire_etat().get("clippers", {}).items():
+        if not isinstance(fiche, dict) or fiche.get("videos_annoncees") or not fiche.get("creatrice"):
             continue
-        if not drive:
+        if not (fiche.get("drive_ferme") or (apercu and RE_ID_DOSSIER.search(str(fiche.get("drive") or "")))):
+            continue
+        if _deps.get("membre_par_id") and _deps["membre_par_id"](uid) is None:
+            continue                                                    # parti du serveur
+        if _deps.get("salon_perso") and _deps["salon_perso"](uid) is None:
+            continue                                                    # sans salon perso : rien où lui écrire
+        if _videos_deja_passees(uid):
+            out.append((str(uid), fiche["creatrice"]))
+    return out
+
+
+def message_videos_d_origine(mention: str, creatrice: str, lien: str) -> str:
+    """09/10 : le seul message d'un clipper en route quand son dossier perso se ferme (court, aéré, aucune action à part cliquer)."""
+    ou = f"Celles de {creatrice}, en qualité d'origine :\n<{lien}>" if lien else \
+        f"Celles de {creatrice}, en qualité d'origine, sont dans son salon ℹ️."
+    return f"{mention} 📁 **Tes vidéos changent de place.**\n\n{ou}\n\nTon ancien dossier ne s'ouvre plus."
+
+
+async def prevenir_videos_d_origine(a_prevenir: list) -> int:
+    """09/10 (revue du lot L6) : une fois par clipper (trace « videos_annoncees »), dans son salon perso, le lien des vidéos d'origine
+    de sa créatrice (lien_drive_creatrice). Une pause entre deux envois. Renvoie le nombre de clippers prévenus."""
+    n = 0
+    for uid, creatrice in a_prevenir:
+        membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
+        if membre is None or salon is None:
+            continue
+        try:
+            lien = await lien_drive_creatrice(creatrice)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.info("Vidéos d'origine de %s : %s", creatrice, type(erreur).__name__)
+            lien = ""
+        try:
+            await salon.send(message_videos_d_origine(getattr(membre, "mention", f"<@{uid}>"), creatrice, lien)[:1990])
+        except (discord.Forbidden, discord.HTTPException) as erreur:
+            journal.warning("Vidéos d'origine pour %s : %s", uid, type(erreur).__name__)
             continue
         etat = _lire_etat()
-        etat.setdefault("clippers", {}).setdefault(uid, {})["drive"] = drive
-        _ecrire_etat(etat)
-        salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
-        cible = salon if salon is not None else m
-        try:
-            await cible.send(texte_drive(prenom, fiche["creatrice"], drive))
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Drive de %s : envoi impossible (%s)", prenom, erreur)
-        if _deps.get("reels_pour_nouveau") and client is not None:
-            try:
-                client.loop.create_task(_deps["reels_pour_nouveau"](prenom, fiche["creatrice"]))
-            except Exception as erreur:                                 # noqa: BLE001
-                journal.warning("TOP 20 après le Drive de %s : %s", prenom, erreur)
-        faits.append(prenom)
-        journal.info("Drive rattrapé pour %s (%s)", prenom, fiche["creatrice"])
-    return faits
+        if isinstance(etat.get("clippers", {}).get(uid), dict):
+            etat["clippers"][uid]["videos_annoncees"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            _ecrire_etat(etat)
+        n += 1
+        await asyncio.sleep(0.6)
+    return n
 
 
-async def dossier_drive(prenom: str, creatrice: str, email: str) -> str:
-    """Dossier personnel du clipper dans « 🎬 Clippers » de sa créatrice : un raccourci vers CHAQUE source (Reels,
-    photos : tout le contenu, rien de copié, aucun espace consommé), les sources partagées en lecture à son e-mail.
-    Décision du 24/09 : plus de copies limitées ; 25/09 : plus de sous-dossier « Reels spoofés » (spoofer abandonné).
-    '' si le Drive n'est pas configuré."""
+async def fermer_dossiers_perso(apercu: bool = True) -> str:
+    """09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : les dossiers personnels des clippers (sous
+    « 🎬 Clippers » de chaque créatrice de DRIVE_SOURCES, et ceux notés « drive » dans les fiches, TOP 20 compris) perdent l'accès
+    « toute personne ayant le lien ». Les fichiers restent dans le Drive de l'agence. `apercu` : on compte, rien ne change.
+    Renvoie le bilan pour le staff (aéré, lisible au téléphone).
+    09/10 (revue du lot L6 : depuis le 30/09, le dossier perso était le SEUL lien de vidéos d'un clipper en route ; fermé, rien ne
+    lui en redonnait) : en mode go, chaque clipper dont le dossier est fermé et qui a déjà passé « ton compte 1 peut publier » reçoit
+    une fois, dans son salon, le lien des vidéos d'origine de sa créatrice (trace « videos_annoncees » dans sa fiche). Un TOP 20
+    compte avec son dossier perso (plus de double compte)."""
     if not google_api.actif():
-        return ""
-    cfg = _source_de(creatrice)
-    parent, sources = cfg.get("parent", ""), cfg.get("sources", [])
-    if not parent or not sources:
-        journal.info("DRIVE_SOURCES sans entrée pour %s", creatrice)
-        return ""
-    dossier = await google_api.drive_trouver_dossier(prenom, parent) or await google_api.drive_creer_dossier(prenom, parent)
-    # 27/09 (Gaëtan) : « pour chaque clipper, un dossier avec dedans : Photos, Reels, TOP 20 Reels ». Les raccourcis portent
-    # le nom de la source tel quel (« Photos », « Reels », « Stories »), les anciens « Photos — Chloé » sont renommés, et le
-    # sous-dossier « TOP 20 Reels » (ses Reels uniques) existe dès le départ, même vide.
-    existants = await google_api.drive_lister(dossier)
-    vus = {}
-    for src in sources:
-        if not isinstance(src, dict):
-            src = {"id": src}
-        libelle = src.get("sous") or "Contenu"
-        vus[libelle] = vus.get(libelle, 0) + 1
-        nom = f"{libelle} {vus[libelle]}" if vus[libelle] > 1 else libelle
-        if email:
-            await _partager(src["id"], email)
-        if src["id"] not in _sources_publiques and await google_api.drive_partager_public(src["id"]):
-            _sources_publiques.add(src["id"])                           # 30/09 : le raccourci s'ouvre sans e-mail (Ricardo)
+        return "Google non branché : aucun dossier perso à fermer."
+    cibles, enfant_de, erreurs = {}, {}, []                             # {id: libellé}, les dossiers perso d'abord
+    for nom, cfg in _sources().items():
+        parent = (cfg or {}).get("parent")
+        if not parent:
+            continue
         try:
-            ancien = next((f for f in existants if f.get("shortcutDetails", {}).get("targetId") == src["id"]), None)
-            if ancien is not None and ancien.get("name") != nom:
-                await google_api.drive_renommer(ancien["id"], nom)
-            elif ancien is None:
-                await google_api.drive_raccourci(nom, src["id"], dossier)
+            for f in await google_api.drive_lister(parent):
+                if f.get("mimeType") == google_api.DOSSIER_MIME and f.get("id"):
+                    cibles.setdefault(f["id"], f"{f.get('name') or '?'} ({str(nom).split()[0] if str(nom).split() else nom})")
         except RuntimeError as erreur:
-            journal.warning("Raccourci %s pour %s : %s", nom, prenom, erreur)
-    # 27/09 : un ancien raccourci « Photos — Chloé » qui pointe vers un dossier qui n'est plus dans les sources (ids refaits le
-    # 26/09) reste à côté du nouveau « Photos » : on le retire (le compte de service l'avait créé).
-    cibles = {(src["id"] if isinstance(src, dict) else src) for src in sources}
-    for f in existants:
-        t = (f.get("shortcutDetails") or {}).get("targetId")
-        if t and t not in cibles and " — " in (f.get("name") or ""):
+            erreurs.append(f"🎬 Clippers de {nom} illisible ({str(erreur)[:60]})")
+    etat = _lire_etat()
+    sous = []                                                           # (uid, id du dossier noté dans la fiche, libellé)
+    for uid, fiche in etat.get("clippers", {}).items():
+        m = RE_ID_DOSSIER.search(str((fiche or {}).get("drive") or "")) if isinstance(fiche, dict) else None
+        if not m:
+            continue
+        membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        qui = (membre.display_name.split() or ["?"])[0] if membre is not None else "un ancien clipper"
+        sous.append((uid, m.group(1), f"{NOM_TOP20} de {qui}"))
+        try:
+            infos = await google_api.drive_infos(m.group(1))
+            if str(infos.get("name") or "").strip().lower() in (NOM_TOP20.lower(), "reels uniques"):
+                for p in (infos.get("parents") or [])[:1]:
+                    cibles.setdefault(p, f"dossier perso de {qui}")
+                    enfant_de[m.group(1)] = p
+        except RuntimeError as erreur:
+            erreurs.append(f"dossier de {qui} illisible ({str(erreur)[:60]})")
+    for _uid_s, fid, libelle in sous:
+        cibles.setdefault(fid, libelle)
+    ouverts, fermes, fermes_ids, herites = {}, [], [], 0                # {id: libellé} encore ouverts par le lien
+    restes = set()                                                      # encore ouverts après le passage (refus, erreur)
+    for fid, libelle in cibles.items():
+        try:
+            publics = [p for p in await google_api.drive_partages(fid) if p.get("type") == "anyone"]
+        except RuntimeError as erreur:
+            erreurs.append(f"{libelle} : {str(erreur)[:60]}")
+            restes.add(fid)
+            continue
+        if not publics or (apercu and enfant_de.get(fid) in ouverts):
+            continue                                                    # aperçu : un TOP 20 compte avec son dossier perso
+        ouverts[fid] = libelle
+        if apercu:
+            continue
+        ok = True
+        for p in publics:
             try:
-                await google_api.drive_supprimer(f["id"])
-            except RuntimeError as erreur:
-                journal.warning("Ancien raccourci %s de %s : %s", f.get("name"), prenom, erreur)
-    top20 = ""
-    try:
-        ancien_top = next((f for f in existants if f.get("mimeType") == google_api.DOSSIER_MIME
-                           and f.get("name", "").strip().lower() == "reels uniques"), None)
-        if ancien_top is not None:
-            await google_api.drive_renommer(ancien_top["id"], NOM_TOP20)
-            top20 = ancien_top["id"]
+                await google_api.drive_retirer_permission(fid, p["id"])
+            except RuntimeError:
+                ok = False                                              # refusé : reste ouvert, la fiche le garde
+        if ok:
+            fermes.append(libelle)
+            fermes_ids.append(fid)
         else:
-            top20 = (await google_api.drive_trouver_dossier(NOM_TOP20, dossier)
-                     or await google_api.drive_creer_dossier(NOM_TOP20, dossier))
-    except RuntimeError as erreur:
-        journal.warning("Dossier « %s » pour %s : %s", NOM_TOP20, prenom, erreur)
-    if email:
-        await _partager(dossier, email)
-    try:
-        await google_api.drive_partager_public(dossier)                 # 28/09 (Gaëtan) : lecture par le lien, plus besoin d'e-mail
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.warning("Partage par lien du Drive de %s : %s", prenom, erreur)
-    journal.info("Drive de %s (%s) prêt : %s sources, lecture par le lien", prenom, creatrice, len(sources))
-    # 30/09 (Gaëtan : « ajoute le TOP 20 Reels dans le Drive directement ») : le lien donné au clipper ouvre son dossier
-    # « TOP 20 Reels », ses vidéos prêtes à publier (le partage par lien du dossier parent vaut pour lui).
-    return google_api.drive_lien(top20 or dossier)
+            herites += 1
+            restes.add(fid)
+    if not apercu:
+        etat = _lire_etat()                                             # relu après les appels à Google
+        maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for uid, fid, _lib in sous:
+            fiche = etat.get("clippers", {}).get(uid)
+            if fid in restes or enfant_de.get(fid) in restes:
+                continue                                                # pas fermé : la fiche le garde pour la relance
+            if isinstance(fiche, dict) and fiche.get("drive"):
+                fiche["drive_ferme"] = {"lien": fiche.pop("drive"), "date": maintenant}
+        etat["dossiers_perso_fermes"] = maintenant
+        _ecrire_etat(etat)
+    a_prevenir = _a_prevenir_videos(apercu)
+    prevenus = 0 if apercu else await prevenir_videos_d_origine(a_prevenir)
+    dossiers = [f for f in cibles if enfant_de.get(f) not in cibles]  # un TOP 20 compte avec son dossier perso
+    noms = [lib for f, lib in ouverts.items() if enfant_de.get(f) not in ouverts]
+    lignes = [f"🔒 **Dossiers Drive perso des clippers** · {len(dossiers)} trouvé(s)",
+              (f"{len(noms)} encore ouvert(s) par le lien. Aperçu : rien n'a changé." if apercu
+               else f"{len({enfant_de.get(f, f) for f in fermes_ids})} fermé(s) : plus d'accès par le lien. "
+                    "Les fichiers restent dans le Drive de l'agence.")]
+    if noms:
+        lignes.append("· " + "\n· ".join(noms[:15]) + (f"\n· … et {len(noms) - 15} autre(s)" if len(noms) > 15 else ""))
+    if herites:
+        lignes.append(f"⚠️ {herites} dossier(s) toujours ouvert(s) : Google a refusé le retrait (le bot n'en est pas propriétaire ?). "
+                      "Relance la commande plus tard, ou ferme-les à la main (Partager → Accès limité).")
+    if apercu and a_prevenir:
+        lignes.append(f"{len(a_prevenir)} clipper(s) en route recevront dans leur salon le lien des vidéos d'origine de leur créatrice.")
+    elif prevenus:
+        lignes.append(f"📁 {prevenus} clipper(s) en route ont reçu dans leur salon le lien des vidéos d'origine de leur créatrice.")
+    if erreurs:
+        lignes.append("⚠️ " + "\n⚠️ ".join(erreurs[:5]))
+    return "\n\n".join(lignes)[:1990]
 
 
 RESERVATION_JOURS = int(os.environ.get("RESERVATION_JOURS", "2") or 2)   # 28/09 (Gaëtan : GO) : la réservation qui expire ; 29/09 : 48 h au lieu de 5 jours
@@ -1064,33 +1170,53 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
 
 
 async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice") -> str:
-    """Tout l'onboarding d'un clipper. Renvoie la ligne à poster à l'admin / au manager."""
+    """Tout l'onboarding d'un clipper : ses comptes réservés dans le classeur et notés dans sa fiche, son lien GAML s'il existe
+    déjà, ses alias 2FA. Renvoie la ligne à poster à l'admin / au manager.
+    09/10 (Gaëtan : « distribue connaissances et informations au compte-goutte afin d'éviter la surcharge ») : plus AUCUN message
+    au clipper ici, ni le pavé des 3 comptes (même forcé), ni le Drive. Le parcours donne chaque compte à son étape ; `!onboarding`
+    forcé renvoie seulement l'étape en cours. La fiche (comptes, accès, « livres », date) est écrite JUSTE APRÈS la réservation,
+    avant le GAML : la boucle du classeur ne voit plus des lignes à son prénom absentes de sa fiche (blocs en double)."""
     prenom = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
-    etat = _lire_etat()
-    fiche = etat["clippers"].setdefault(str(membre.id), {})
+    uid = str(membre.id)
+    force = declencheur.startswith("!onboarding")
+    fiche0 = _lire_etat()["clippers"].get(uid) or {}
     resultat = []
     # 26/09 : `!salons-equipe` relancé = le même message de comptes deux fois dans chaque salon. Une livraison déjà faite
     # dans les 24 h n'est pas rejouée, sauf forçage explicite (`!onboarding @clipper`).
-    if not declencheur.startswith("!onboarding") and fiche.get("comptes") and fiche.get("date"):
+    if not force and fiche0.get("comptes") and fiche0.get("date"):
         try:
-            depuis = datetime.now(timezone.utc) - datetime.fromisoformat(fiche["date"])
+            depuis = datetime.now(timezone.utc) - datetime.fromisoformat(fiche0["date"])
         except ValueError:
             depuis = timedelta(days=9)
         if depuis < timedelta(hours=24):
-            return f"📦 Onboarding de {membre.display_name} ({fiche.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
+            return f"📦 Onboarding de {membre.display_name} ({fiche0.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
     # 1. comptes depuis le classeur
-    comptes, tous = [], []
+    comptes, tous, lu, leves, douteux, pris = [], [], False, [], [], []
     if actif():
         try:
             tous = await lire_comptes()
             deja = [c for c in tous if _norm(c["gerant"]) == _norm(prenom) and _norm(c["utilisation"]) == "clipper"
                     and _pour_creatrice(c, creatrice)
                     and _norm(c.get("etat") or "") != "ban"]                # 06/10 : un compte banni n'est jamais livré (Clarisse : 3 BAN)
-            if declencheur.startswith("!onboarding"):                # forçage explicite : on lève les écartés
-                for c in deja:
-                    etat.get("ecartes", {}).pop(c["handle"].lower(), None)
-            elif _nouveau(membre, etat):                             # 24/09 : nouvel Eddy ≠ ancien Eddy viré
-                douteux = _ecarter(etat, membre, deja)
+            # 09/10 (revue du lot L6 : le nouveau « Lima » recevait les comptes de l'ancien « Lima » de la même créatrice, encore
+            # à lui ; la garde _nouveau ne jouait plus, la créatrice étant déjà au registre) : une ligne livrée à un AUTRE clipper,
+            # ou dans sa fiche, n'est jamais donnée, même forcée. Écartée, avec la ligne « homonyme » à l'admin.
+            proprietaires = _proprietaires()
+            d_autres = {}
+            for c in deja:
+                detenteurs = proprietaires.get(_cle_handle(c["handle"])) or set()
+                if detenteurs and uid not in detenteurs:
+                    d_autres[c["handle"]] = sorted(detenteurs)[0]
+            if d_autres:
+                pris = [c for c in deja if c["handle"] in d_autres]
+                deja = [c for c in deja if c["handle"] not in d_autres]
+                resultat.append(f"⚠️ {len(pris)} compte(s) au nom de {prenom} dans le classeur déjà à un autre clipper, NON livrés "
+                                f"(homonyme ?) : " + ", ".join(f"{c['handle']} (<@{d_autres[c['handle']]}>)" for c in pris)
+                                + f" — s'il est parti : `!liberer {prenom} <handles>`, puis `!onboarding @{prenom}`")
+            if force:                                                    # forçage explicite : on lève les écartés
+                leves = [c["handle"].lower() for c in deja]
+            elif _nouveau(membre, _lire_etat()):                         # 24/09 : nouvel Eddy ≠ ancien Eddy viré
+                douteux = _crees(deja)
                 if douteux:
                     deja = [c for c in deja if c not in douteux]
                     resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
@@ -1102,43 +1228,46 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                 if nouveaux:
                     await reserver(nouveaux, prenom)
                 comptes += nouveaux
+            lu = True
             resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
         except RuntimeError as erreur:
             resultat.append(f"classeur : {erreur}")
     else:
         resultat.append("classeur non branché")
-    # 2. lien GAML — 05/10 (Gaëtan : « le lien que pour le troisième compte ») : plus créé ici. Un lien déjà attribué à ce clipper
-    # est simplement rappelé ; sinon le parcours le crée à l'ouverture de l'étape 3 (attribuer_lien, creer=True).
-    lien, lid = "", ""
+    # 2. 09/10 : la fiche tout de suite (relue fraîche, écrite sans attente). Classeur illisible : ses comptes déjà notés restent.
+    maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    etat = _lire_etat()
+    fiche = etat["clippers"].setdefault(uid, {})
+    for h in leves:
+        etat.get("ecartes", {}).pop(h, None)
+    if douteux:
+        _ecarter(etat, membre, douteux)
+    for c in pris:                                                      # 09/10 : à un autre clipper, quel que soit son état
+        etat.setdefault("ecartes", {})[c["handle"].lower()] = {"uid": uid, "date": maintenant, "autre": "homonyme"}
+    if lu:
+        for c in comptes:
+            etat["livres"][c["handle"].lower()] = {"uid": uid, "date": maintenant}
+        fiche["acces"] = acces_ordonnes(comptes)                          # 27/09 : chaque étape du parcours donne l'accès du jour
+        fiche["comptes"] = [c["handle"] for c in comptes]
+    fiche.update({"creatrice": creatrice, "date": maintenant, "par": declencheur})
+    _ecrire_etat(etat)
+    # 3. lien GAML — 05/10 (Gaëtan : « le lien que pour le troisième compte ») : un lien déjà attribué est rappelé ; sinon le parcours
+    # le crée à l'ouverture du compte privé. 09/10 : même `!onboarding` forcé n'en crée un que s'il est dû (forfait GAML presque plein).
+    du = False
+    if force:
+        try:
+            import parcours                                             # import tardif : parcours importe onboarding
+            du = bool(parcours.lien_du(parcours._lire().get(uid) or {}))
+        except Exception:                                               # noqa: BLE001
+            du = False
     try:
-        bilan_lien = await attribuer_lien(membre, creatrice, tous, comptes, creer=declencheur.startswith("!onboarding"))
-        lien, lid = bilan_lien.get("lien", ""), bilan_lien.get("lid", "")
+        bilan_lien = await attribuer_lien(membre, creatrice, tous, comptes, creer=du)
         resultat += bilan_lien.get("lignes", [])
+        etat = _lire_etat()
+        etat["clippers"].setdefault(uid, {})["lien"] = bilan_lien.get("lien", "")
+        _ecrire_etat(etat)
     except RuntimeError as erreur:
         resultat.append(f"GAML : {erreur}")
-    # 3. Drive
-    drive, email = "", ""
-    try:
-        email = (_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}).get("liaisons", {}).get(str(membre.id), {}).get("email", "")
-                 or fiche.get("email", ""))
-        drive = await dossier_drive(prenom, creatrice, email)
-        resultat.append("Drive " + ("✅" if drive else "non configuré"))
-    except RuntimeError as erreur:
-        resultat.append(f"Drive : {erreur}")
-    # 4. message
-    # 30/09 (Gaëtan, salon de Mathias : « simplifie encore ») : en un-par-48 h, plus de ligne « tes accès arrivent… » — l'étape 1
-    # suit tout de suite avec le compte 1. Le message long (`!onboarding` forcé) reste.
-    texte = ("" if (UN_PAR_JOUR and comptes and not declencheur.startswith("!onboarding"))
-             else message_comptes(comptes, prenom, creatrice))
-    # 30/09 (Gaëtan : « ne spam pas le clippeur avec trop d'informations ») : le message court reste une ligne ; le Drive
-    # arrive dans l'étape 1, le lien dans l'étape 6, là où ils servent. Le message long (`!onboarding` forcé) les garde.
-    if not (UN_PAR_JOUR and comptes and not declencheur.startswith("!onboarding")):
-        if lien:
-            texte += f"\n\n🔗 **Ton lien** : {lien} · tes visites : `!mesclics`"
-        if drive:
-            # 01/10 : « Tes vidéos à monter », jamais « à publier » (chaque vidéo se modifie avant d'être publiée)
-            texte += (f"\n\n📁 **Tes vidéos à monter** (TOP 20 de {creatrice.split()[0]}) : <{drive}>"
-                      "\n\nModifie chaque vidéo avant de la publier.")
     if salon is not None and codes_2fa.actif():
         try:
             n_alias = codes_2fa.rattacher([c["mail"] for c in comptes if c.get("mail")], str(salon.id), "onboarding")
@@ -1146,20 +1275,18 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                 resultat.append(f"{n_alias} alias 2FA rattaché(s)")                # 26/09 : plus de ligne dans le message, l'étape 1 dit `!code`
         except Exception as erreur:                                     # jamais bloquer la livraison
             journal.warning("Alias 2FA %s : %s", prenom, erreur)
-    cible = salon if salon is not None else membre
-    try:
-        if texte:
-            await cible.send(texte[:1990])
-        if len(texte) > 1990:
-            await cible.send(texte[1990:3980])
-    except (discord.Forbidden, discord.HTTPException) as erreur:
-        resultat.append(f"envoi impossible ({type(erreur).__name__})")
-    for c in comptes:
-        etat["livres"][c["handle"].lower()] = {"uid": str(membre.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    fiche["acces"] = acces_ordonnes(comptes)                              # 27/09 : chaque étape du parcours donne l'accès du jour
-    fiche.update({"creatrice": creatrice, "comptes": [c["handle"] for c in comptes], "lien": lien, "drive": drive, "email": email,
-                  "date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "par": declencheur})
-    _ecrire_etat(etat)
+    # 4. 09/10 : `!onboarding` forcé = l'étape en cours, et elle seule (l'identifiant du compte du moment), jamais tout d'un coup
+    if force and salon is not None:
+        try:
+            import parcours                                             # import tardif : parcours importe onboarding
+            n = int((parcours._lire().get(uid) or {}).get("etape", 0) or 0)
+            if n in parcours.ETAPES:
+                await parcours.envoyer_etape(salon, membre, n)
+                resultat.append(f"étape {n} renvoyée")
+            elif n == 0:
+                resultat.append(f"parcours pas commencé : `!etape @{prenom} 1` le lance")
+        except Exception as erreur:                                     # noqa: BLE001
+            resultat.append(f"étape non renvoyée ({type(erreur).__name__})")
     try:
         await liens_classeur()                                          # 27/09 : la colonne « Lien GAML associé » suit tout de suite
     except Exception as erreur:                                         # noqa: BLE001
@@ -1920,10 +2047,297 @@ async def verifier_trackings() -> list:
     return bilan
 
 
+def _rangs_parcours(uid: str, fiche: dict, fiche_p: dict, handles: list) -> dict:
+    """09/10 (revue du lot L6 : le rang brut de la fiche n'est pas celui du parcours, qui range croissance d'abord et privé en 2 ou
+    en 3) : {handle: n}, n = le numéro du compte pour le clipper (parcours._comptes_ordonnes, le même ordre partout)."""
+    try:
+        import parcours                                                 # import tardif : parcours importe onboarding
+        ordre_p = parcours._comptes_ordonnes(uid, fiche, fiche_p or {})
+    except Exception:                                                   # noqa: BLE001 — sans parcours : l'ordre de la fiche
+        ordre_p = list(fiche.get("comptes") or [])
+    cles = [_cle_handle(h) for h in ordre_p]
+    return {h: cles.index(_cle_handle(h)) + 1 for h in handles if _cle_handle(h) in cles}
+
+
+def _remplacer_bans(fiche: dict, a_livrer: list, bans: set, partis=()) -> dict:
+    """09/10 (revue du lot L6 : un BAN resté dans la fiche poussait le remplaçant en 4e, qu'aucune étape ne donne) : chaque compte
+    neuf prend, dans la fiche (comptes et accès), la place d'un compte BAN, privé pour privé d'abord ; les autres s'ajoutent à la
+    suite. Le BAN reste noté livré au clipper (la boucle ne le repropose pas). `partis` : des BAN déjà sortis de la fiche
+    (`!liberer`) et pas encore remplacés, seulement nommés dans le message (« Il remplace … »). Renvoie {nouveau: ancien}."""
+    comptes_f = list(fiche.get("comptes") or [])
+    acces_f = [a for a in fiche.get("acces") or [] if isinstance(a, dict)]
+    prive_de = {_cle_handle(a.get("handle")): bool(a.get("prive")) for a in acces_f}
+    libres = [h for h in comptes_f if _cle_handle(h) in bans]
+    remplaces = {}
+    for c in a_livrer:
+        if not libres:
+            break
+        meme = [h for h in libres if (prive_de.get(_cle_handle(h)) or RE_PRIVE.search(_norm(h)) is not None) == _est_prive(c)]
+        ancien = (meme or libres)[0]
+        libres.remove(ancien)
+        remplaces[c["handle"]] = ancien
+    neufs = {_cle_handle(a["handle"]): a for a in acces_ordonnes(a_livrer)}
+    anciens = {_cle_handle(v): k for k, v in remplaces.items()}           # {BAN: son remplaçant}
+    fiche["comptes"] = [anciens.get(_cle_handle(h), h) for h in comptes_f] + \
+                       [c["handle"] for c in a_livrer if c["handle"] not in remplaces]
+    connus, places, acces_n = {_cle_handle(a.get("handle")) for a in acces_f}, set(), []
+    for a in acces_f:
+        neuf = neufs.get(_cle_handle(anciens.get(_cle_handle(a.get("handle")), "")))
+        if neuf is not None:                                            # l'accès du BAN laisse sa place à celui du remplaçant
+            acces_n.append(neuf)
+            places.add(_cle_handle(neuf["handle"]))
+        else:
+            acces_n.append(a)
+    fiche["acces"] = acces_n + [a for k, a in neufs.items() if k not in connus and k not in places]
+    deja_remplaces = {_cle_handle(r.get("ancien")) for r in fiche.get("remplaces") or [] if isinstance(r, dict)}
+    partis = [h for h in partis if _cle_handle(h) not in deja_remplaces and _cle_handle(h) not in {_cle_handle(x) for x in fiche["comptes"]}]
+    for c in a_livrer:
+        if partis and c["handle"] not in remplaces:
+            remplaces[c["handle"]] = partis.pop(0)
+    if remplaces:
+        maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        fiche.setdefault("remplaces", []).extend({"ancien": a, "nouveau": n, "date": maintenant} for n, a in remplaces.items())
+    return remplaces
+
+
+def _bloc_acces(acces: dict) -> str:
+    """Identifiant, e-mail, mot de passe, chacun dans son bloc (copiable d'un geste sur le téléphone)."""
+    inconnu = "(demande-le à Gaëtan sur WhatsApp)"
+    return (f"Identifiant :\n```\n{acces.get('handle')}\n```\n"
+            + (f"E-mail :\n```\n{acces['mail']}\n```\n" if acces.get("mail") else "")
+            + f"Mot de passe :\n```\n{acces.get('mdp') or inconnu}\n```")
+
+
+def message_nouveau_compte(mention: str, n: int, acces: dict, ancien: str = "", lien: str = "", codes: str = "") -> str:
+    """09/10 (revue du lot L6 : le remplaçant d'un compte banni n'arrivait plus au clipper en routine) : UN message court et aéré,
+    les seuls identifiants du compte n et une seule action (le créer, ou s'y connecter). Ni étape rejouée, ni bouton : la routine
+    ne bouge pas."""
+    lignes = [f"🔁 {mention} **Ton nouveau compte {n}**" if ancien else f"🔐 {mention} **Ton compte {n}**"]
+    if ancien:
+        lignes.append(f"Il remplace `{ancien}`.")
+    lignes.append(_bloc_acces(acces))
+    lignes.append("Ajoute-le sur ton téléphone : Instagram → Se connecter, sans te déconnecter des autres." if acces.get("cree")
+                  else "Crée-le sur ton téléphone : Instagram → Créer un compte → avec cet e-mail.")
+    if codes:
+        lignes.append(codes)
+    if acces.get("prive"):
+        lignes.append("C'est ton compte privé : pas de Reel. Ton lien va dans sa bio (Modifier le profil → Liens)"
+                      + (f" :\n{lien}" if lien else ", je te le donne ici dès qu'il est prêt."))
+    else:
+        lignes.append("24 h de warm-up dessus avant ton premier Reel.")
+    return "\n\n".join(lignes)
+
+
+async def dire_nouveaux_comptes(membre, uid: str) -> tuple:
+    """09/10 (revue du lot L6) : les comptes notés « a_dire » dans la fiche (un remplaçant donné en routine, ou d'un compte que le
+    parcours a déjà passé) partent au clipper, un message par compte, dans son salon perso (sinon en MP). Un envoi refusé reste
+    dans « a_dire » : la boucle le retente au passage suivant. Renvoie ([numéros envoyés], [identifiants restés])."""
+    etat = _lire_etat()
+    fiche = etat.get("clippers", {}).get(str(uid)) or {}
+    a_dire = [h for h in fiche.get("a_dire") or [] if h]
+    if not a_dire:
+        return [], []
+    try:
+        import parcours                                                 # import tardif : parcours importe onboarding
+        fiche_p = parcours._lire().get(str(uid)) or {}
+        codes = parcours.texte_codes()
+    except Exception:                                                   # noqa: BLE001
+        fiche_p, codes = {}, ""
+    rangs = _rangs_parcours(str(uid), fiche, fiche_p, a_dire)
+    acces = {_cle_handle(a.get("handle")): a for a in fiche.get("acces") or [] if isinstance(a, dict)}
+    anciens = {_cle_handle(r.get("nouveau")): r.get("ancien") for r in fiche.get("remplaces") or [] if isinstance(r, dict)}
+    salon = _deps["salon_perso"](str(uid)) if _deps.get("salon_perso") else None
+    cible = salon if salon is not None else membre
+    envoyes, restes = [], []
+    for h in a_dire:
+        a = acces.get(_cle_handle(h))
+        if a is None or h not in rangs:
+            continue                                                    # sorti de la fiche entre-temps (`!liberer`) : rien à dire
+        try:
+            await cible.send(message_nouveau_compte(membre.mention, rangs[h], a, anciens.get(_cle_handle(h), ""),
+                                                    fiche.get("lien", ""), codes)[:1990])
+            envoyes.append(rangs[h])
+        except (discord.Forbidden, discord.HTTPException, AttributeError) as erreur:
+            journal.warning("Nouveau compte %s pour %s : %s", h, uid, type(erreur).__name__)
+            restes.append(h)
+    etat = _lire_etat()                                                 # relu après les envois
+    if str(uid) in etat.get("clippers", {}):
+        if restes:
+            etat["clippers"][str(uid)]["a_dire"] = restes
+        else:
+            etat["clippers"][str(uid)].pop("a_dire", None)
+        _ecrire_etat(etat)
+    return envoyes, restes
+
+
+# 09/10 (revue du lot L6 : le 2e téléphone d'un clipper multi recevait ses 3 comptes, ses vidéos, son lien et la règle d'un seul
+# pavé) : un compte à la fois, comme le parcours. Fiche onboarding : « telephones » = {créatrice: {acces, donnes, dernier, lien}}.
+TELEPHONE2_ATTENTE_H = int(os.environ.get("TELEPHONE2_ATTENTE_H", "48") or 48)   # comme la règle des 48 h du parcours
+TELEPHONE2_LIEN_ESSAI_H = 6                                             # lien GAML refusé (forfait plein) : retenté toutes les 6 h
+
+
+def message_telephone(mention: str, creatrice: str, n: int, acces: dict, videos: str = "", lien: str = "", suivant: bool = False,
+                      codes: str = "") -> str:
+    """Un compte du 2e téléphone : un titre, ses identifiants, UNE action, et ce qui vient ensuite. Le compte 1 donne aussi les vidéos
+    d'origine de la créatrice ; le privé (en dernier) porte le lien GAML de cette créatrice."""
+    if n == 1:
+        lignes = [f"📱 {mention} **Ton 2e téléphone : {creatrice}**", f"Ton compte 1 {creatrice} :"]
+    else:
+        lignes = [f"📱 {mention} **{creatrice} · ton compte {n}" + (", le privé**" if acces.get("prive") else "**")]
+    lignes.append(_bloc_acces(acces))
+    faire = "Connecte-toi dessus sur ton 2e téléphone." if acces.get("cree") else "Crée-le sur ton 2e téléphone, avec cet e-mail."
+    if acces.get("prive"):
+        lignes.append(faire + " Il ne publie pas de Reel.")
+        lignes.append(f"Ton lien {creatrice} va dans sa bio (Modifier le profil → Liens) :\n{lien}" if lien
+                      else f"Ton lien {creatrice} arrive ici dès qu'il est prêt.")
+    else:
+        lignes.append(faire + " 24 h de warm-up, puis 2 Reels par jour dessus.")
+    if codes:
+        lignes.append(codes)
+    if n == 1:
+        lignes.append(f"Les vidéos de {creatrice}, en qualité d'origine :\n<{videos}>" if videos
+                      else f"Les vidéos de {creatrice} sont dans son salon ℹ️.")
+    if suivant:
+        lignes.append(f"Ton compte {n + 1} {creatrice} arrive ici dans {TELEPHONE2_ATTENTE_H} h.")
+    return "\n\n".join(lignes)
+
+
+async def lien_autre_creatrice(membre, creatrice: str, handles=(), creer: bool = True) -> str:
+    """Le lien GAML d'une AUTRE créatrice d'un clipper multi (attribuer_lien, avec ses comptes à elle pour le tracking du POD), sans
+    toucher au lien de sa créatrice principale noté dans sa fiche (attribuer_lien l'écrase, le parcours lirait le mauvais lien)."""
+    uid = str(membre.id)
+    avant = (_lire_etat().get("clippers", {}).get(uid) or {}).get("lien", "")
+    try:
+        tous = await lire_comptes() if actif() else []
+    except RuntimeError:
+        tous = []
+    cles = {_cle_handle(h) for h in handles}
+    try:
+        lien = (await attribuer_lien(membre, creatrice, tous, [c for c in tous if _cle_handle(c.get("handle")) in cles],
+                                     creer=creer)).get("lien", "")
+    except RuntimeError as erreur:
+        journal.warning("Lien GAML %s de %s : %s", creatrice, uid, erreur)
+        lien = ""
+    finally:
+        etat = _lire_etat()
+        fiche = etat.get("clippers", {}).get(uid)
+        if isinstance(fiche, dict) and fiche.get("lien", "") != avant:
+            fiche["lien"] = avant
+            _ecrire_etat(etat)
+    return lien
+
+
+async def donner_telephones(uid=None, maintenant=None) -> int:
+    """09/10 (revue du lot L6) : chaque autre créatrice d'un clipper multi (fiche « telephones ») reçoit, dans son salon perso, UN
+    compte à la fois : le compte 1 tout de suite, le suivant TELEPHONE2_ATTENTE_H heures après le précédent, le privé en dernier,
+    avec le lien GAML de cette créatrice, créé à ce moment-là (jamais avant : forfait GAML presque plein). Appelée par
+    bot_discord.onboarder_multi (uid) et par la boucle du classeur (tous). Renvoie le nombre de messages envoyés."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    envoyes = 0
+    for uid_t, fiche in list(_lire_etat().get("clippers", {}).items()):
+        if (uid is not None and str(uid_t) != str(uid)) or not isinstance(fiche, dict) or not fiche.get("telephones"):
+            continue
+        membre = _deps["membre_par_id"](uid_t) if _deps.get("membre_par_id") else None
+        salon = _deps["salon_perso"](uid_t) if _deps.get("salon_perso") else None
+        if membre is None or salon is None:
+            continue
+        for creatrice, t in list(fiche["telephones"].items()):
+            acces, donnes = list(t.get("acces") or []), int(t.get("donnes", 0) or 0)
+            texte, lien = "", t.get("lien", "")
+            if donnes < len(acces):
+                try:
+                    dernier = datetime.fromisoformat(str(t.get("dernier") or ""))
+                except ValueError:
+                    dernier = None
+                if dernier is not None and (maintenant - dernier).total_seconds() < TELEPHONE2_ATTENTE_H * 3600:
+                    continue
+                a = acces[donnes]
+                if a.get("prive") and not lien:
+                    lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces])
+                videos = ""
+                if donnes == 0:
+                    try:
+                        videos = await lien_drive_creatrice(creatrice)
+                    except Exception as erreur:                         # noqa: BLE001
+                        journal.info("Vidéos d'origine de %s : %s", creatrice, type(erreur).__name__)
+                try:
+                    import parcours                                     # import tardif : parcours importe onboarding
+                    codes = parcours.texte_codes()
+                except Exception:                                       # noqa: BLE001
+                    codes = ""
+                texte = message_telephone(membre.mention, creatrice, donnes + 1, a, videos, lien, donnes + 1 < len(acces), codes)
+            elif t.get("lien_du") and not lien:                         # le privé est parti sans lien : on le retente
+                try:
+                    essai = datetime.fromisoformat(str(t.get("lien_essai") or ""))
+                except ValueError:
+                    essai = None
+                if essai is not None and (maintenant - essai).total_seconds() < TELEPHONE2_LIEN_ESSAI_H * 3600:
+                    continue
+                lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces])
+                texte = (f"🔗 {membre.mention} **Ton lien {creatrice} est prêt** : {lien}\n\nIl va seulement dans la bio de ton "
+                         f"compte privé {creatrice}.") if lien else ""
+            else:
+                continue
+            if texte:
+                try:
+                    await salon.send(texte[:1990])
+                except (discord.Forbidden, discord.HTTPException) as erreur:
+                    journal.warning("2e téléphone de %s (%s) : %s", uid_t, creatrice, type(erreur).__name__)
+                    continue
+                envoyes += 1
+            etat = _lire_etat()                                         # relu après les appels (GAML, Drive, Discord)
+            t2 = ((etat.get("clippers", {}).get(str(uid_t)) or {}).get("telephones") or {}).get(creatrice)
+            if not isinstance(t2, dict):
+                continue
+            if lien:
+                t2["lien"] = lien
+                t2.pop("lien_du", None)
+            if donnes < len(acces) and texte:
+                t2["donnes"], t2["dernier"] = donnes + 1, maintenant.isoformat(timespec="seconds")
+                if acces[donnes].get("prive") and not lien:
+                    t2["lien_du"], t2["lien_essai"] = True, maintenant.isoformat(timespec="seconds")
+            if not texte and not lien:
+                t2["lien_essai"] = maintenant.isoformat(timespec="seconds")
+            _ecrire_etat(etat)
+    return envoyes
+
+
+def deja_passe(fiche_p: dict, n: int) -> bool:
+    """09/10 (revue du lot L6) : le parcours a-t-il déjà donné (ou ne donnera-t-il jamais) le compte n ? Étape n envoyée (ou
+    dépassée), routine, ou n au-delà de COMPTES_PAR_CLIPPER (aucune étape ne le donne). Parcours pas commencé : non."""
+    etape = int((fiche_p or {}).get("etape", 0) or 0)
+    if etape <= 0:
+        return False
+    if n > COMPTES_PAR_CLIPPER:
+        return True
+    return n < etape or (n == etape and bool(((fiche_p or {}).get("dates") or {}).get(str(n))))
+
+
+def ligne_comptes_classeur(mention: str, prenom: str, n: int, etape: int, a_venir=(), envoyes=(), restes=(),
+                           remplaces: dict = None) -> str:
+    """09/10 : la ligne du salon admin quand la colonne Gérant donne des comptes à un clipper. Parcours pas commencé :
+    `!etape @x 1`. Revue du lot L6 : un compte que le parcours a déjà passé (routine, remplaçant d'un BAN) part tout seul au clipper
+    (dire_nouveaux_comptes) ; un compte encore à venir (`a_venir`, ses numéros) arrive à son étape. Jamais de `!etape @x n` pour un
+    clipper déjà en route : elle ramènerait sa routine en arrière."""
+    tete = f"🔐 {n} compte(s) du classeur ajouté(s) à la fiche de {mention} (colonne Gérant)"
+    if remplaces:
+        tete += " à la place de " + ", ".join(f"`{a}`" for a in remplaces.values())
+    if etape <= 0:
+        return tete + f", rien posté : son parcours n'a pas commencé. `!etape @{prenom} 1` le lance avec son compte 1."
+    bouts = []
+    if envoyes:
+        bouts.append("envoyé dans son salon : " + ", ".join(f"compte {k}" for k in envoyes))
+    if restes:
+        bouts.append(f"⚠️ envoi refusé ({len(restes)}), retenté au prochain passage")
+    if a_venir:
+        bouts.append(f"son parcours (étape {etape}) le donnera : " + ", ".join(f"compte {k} à l'étape {k}" for k in a_venir))
+    return tete + " : " + (" · ".join(bouts) if bouts else "rien à envoyer") + "."
+
+
 async def boucle(client, deps: dict):
-    """Toutes les 15 minutes : un compte dont la colonne Gérant porte le prénom d'un membre, et qui ne lui a
-    pas encore été livré, part dans son salon perso. Attribuer ou changer un compte se fait donc dans le
-    classeur, sans commande."""
+    """Toutes les 15 minutes : un compte dont la colonne Gérant porte le prénom d'un membre, et qui ne lui a pas encore été livré,
+    s'ajoute à sa fiche (09/10 : sans aucun message au clipper, une ligne à l'admin). Attribuer ou changer un compte se fait donc
+    dans le classeur, sans commande. 09/10 : les membres « attente_attribution » sont repris ici dès qu'un compte se libère."""
     global _deps
     _deps = deps
     await client.wait_until_ready()
@@ -1986,11 +2400,15 @@ async def boucle(client, deps: dict):
                     except Exception as erreur:                             # noqa: BLE001
                         journal.warning("Lien GAML retenté pour %s : %s", uid_r, erreur)
                 etat = _lire_etat()
-            try:
-                if await drives_manquants(client):                      # 28/09 : le Drive manquant arrive au passage suivant
-                    etat = _lire_etat()
-            except Exception as erreur:                                 # noqa: BLE001
-                journal.warning("Drives manquants : %s", erreur)
+            # 09/10 : plus de rattrapage du Drive perso (supprimé avec le dossier perso)
+            # 09/10 (revue du lot L6) : un nouveau compte pas encore dit au clipper (salon et MP refusés au passage précédent)
+            for uid_d, fiche_d in list(_lire_etat().get("clippers", {}).items()):
+                m_d = deps["membre_par_id"](uid_d) if (isinstance(fiche_d, dict) and fiche_d.get("a_dire")
+                                                       and deps.get("membre_par_id")) else None
+                if m_d is not None:
+                    await dire_nouveaux_comptes(m_d, uid_d)
+            await donner_telephones()                                   # 09/10 (revue du lot L6) : le 2e téléphone, compte par compte
+            etat = _lire_etat()
             par_prenom = {}
             for c in comptes:
                 g = _norm(c["gerant"])
@@ -2001,6 +2419,7 @@ async def boucle(client, deps: dict):
                 membre = deps["membre_par_prenom"](g)
                 if membre is None:
                     continue
+                etat = _lire_etat()                                     # 09/10 : relu frais (livrer écrit la fiche juste après réserver)
                 nouveaux = [c for c in lignes if etat["livres"].get(c["handle"].lower(), {}).get("uid") != str(membre.id)
                             and not _ecarte_pour(etat, c, membre.id)]
                 if not nouveaux:
@@ -2022,6 +2441,7 @@ async def boucle(client, deps: dict):
                                 f"Sinon : `!liberer {prenom} {handles}` puis `!creatrice @{prenom} {creatrice}`."[:1990])
                     if not nouveaux:
                         continue
+                    etat = _lire_etat()                                 # 09/10 : relu après les envois au salon admin
                 # 01/10 (Ricado, Ricardo, Clarisse : accès déjà livrés renvoyés, futur compte 3 présenté « Compte 1 », 3 accès
                 # d'un coup) : seuls les identifiants absents de sa fiche sont nouveaux ; ils s'ajoutent DANS L'ORDRE (plus de
                 # tri : le parcours lit compte 1, 2, 3 dans cet ordre) avec leurs accès ; un clipper en plein parcours
@@ -2034,24 +2454,23 @@ async def boucle(client, deps: dict):
                 a_livrer = sorted([c for c in nouveaux if normaliser_handle(c["handle"]).lower() not in deja], key=_est_prive)
                 try:
                     import parcours                                     # import tardif : parcours importe onboarding
-                    etape_p = int((parcours._lire().get(str(membre.id)) or {}).get("etape", 0) or 0)
+                    fiche_p = parcours._lire().get(str(membre.id)) or {}
                 except Exception:                                       # noqa: BLE001
-                    etape_p = 0
-                en_parcours = 1 <= etape_p <= 6
-                if a_livrer and not en_parcours:
-                    salon = deps["salon_perso"](str(membre.id))
-                    cible = salon if salon is not None else membre
-                    try:
-                        await cible.send(("🔐 **Compte(s) attribué(s) depuis le classeur**\n\n" +
-                                          message_comptes(a_livrer, prenom, creatrice or "?", debut=len(deja) + 1))[:1990])
-                    except (discord.Forbidden, discord.HTTPException) as erreur:
-                        journal.warning("Livraison classeur %s : %s", membre.display_name, erreur)
-                        continue
+                    fiche_p = {}
+                etape_p = int(fiche_p.get("etape", 0) or 0)
+                # 09/10 (Gaëtan : « les clippeurs se font submerger d'informations ») : le bloc « 🔐 Compte(s) attribué(s) depuis le
+                # classeur » ne part PLUS JAMAIS au clipper (il collait jusqu'à 4 fois les mêmes identifiants). Les comptes s'ajoutent à
+                # sa fiche et le parcours les donne un par un. Revue du lot L6 : un remplaçant prend la place du compte BAN de la
+                # fiche ; un compte que le parcours a déjà passé (routine) part seul, un message court par compte (dire_nouveaux_comptes).
                 for c in nouveaux:                                      # déjà dans sa fiche : seulement noté livré, sans message
                     etat["livres"][c["handle"].lower()] = {"uid": str(membre.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-                fiche["comptes"] = list(fiche.get("comptes", [])) + [c["handle"] for c in a_livrer]
-                connus = {str(a.get("handle", "")).lower() for a in fiche.get("acces") or [] if isinstance(a, dict)}
-                fiche["acces"] = list(fiche.get("acces") or []) + [a for a in acces_ordonnes(a_livrer) if a["handle"].lower() not in connus]
+                bans = {_cle_handle(c["handle"]) for c in comptes if _norm(c.get("etat") or "") == "ban"} | \
+                       {_cle_handle(h) for h in fiche_p.get("bans") or []}
+                remplaces = _remplacer_bans(fiche, a_livrer, bans, list(fiche_p.get("bans") or []))
+                rangs = _rangs_parcours(str(membre.id), fiche, fiche_p, [c["handle"] for c in a_livrer])
+                a_dire = [c["handle"] for c in a_livrer if deja_passe(fiche_p, rangs.get(c["handle"], COMPTES_PAR_CLIPPER + 1))]
+                if a_dire:
+                    fiche["a_dire"] = list(dict.fromkeys(list(fiche.get("a_dire") or []) + a_dire))
                 _ecrire_etat(etat)
                 if not a_livrer:
                     continue
@@ -2060,13 +2479,12 @@ async def boucle(client, deps: dict):
                         roster.ajouter(creatrice.split()[0], prenom)
                     except Exception as erreur:                         # noqa: BLE001
                         journal.warning("Roster (télécommande) : %s", erreur)
+                envoyes, restes = await dire_nouveaux_comptes(membre, str(membre.id)) if a_dire else ([], [])
+                a_venir = sorted(rangs[c["handle"]] for c in a_livrer if c["handle"] not in a_dire and c["handle"] in rangs)
                 canal = await deps["canal_admin"]()
                 if canal:
-                    if en_parcours:
-                        await canal.send(f"🔐 {len(a_livrer)} compte(s) du classeur ajouté(s) à la fiche de {membre.mention} (colonne Gérant) : "
-                                         f"rien posté, son parcours est à l'étape {etape_p} et donne chaque accès à son tour.")
-                    else:
-                        await canal.send(f"🔐 {len(a_livrer)} compte(s) du classeur livré(s) à {membre.mention} (colonne Gérant).")
+                    await canal.send(ligne_comptes_classeur(membre.mention, prenom, len(a_livrer), etape_p, a_venir, envoyes, restes,
+                                                            remplaces)[:1990])
         except Exception as erreur:                                 # la boucle ne meurt jamais
             journal.warning("Boucle onboarding : %s", erreur)
         try:
@@ -2078,6 +2496,12 @@ async def boucle(client, deps: dict):
             await controle.passage(deps)                                # controle importe onboarding)
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Contrôle d'attribution (boucle) : %s", erreur)
+        try:                                                            # 09/10 (Gaëtan : « on va ouvrir les vannes ») : les membres
+            import attribution                                          # « attente_attribution » repris dès qu'un compte se libère,
+            if attribution.attente_a_reprendre():                       # sans commande ; tâche à part (une pause entre deux), une
+                client.loop.create_task(attribution.reprendre_attente())    # seule à la fois (import tardif)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Reprise des attentes d'attribution (boucle) : %s", erreur)
         await asyncio.sleep(900)
 
 
@@ -2178,7 +2602,8 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
 
 
 async def commande_staff(message, texte: str) -> bool:
-    """`!comptes-libres [Créatrice]` : ce que le classeur a de disponible ; `!onboarding @clipper` : rejouer la livraison ;
+    """`!comptes-libres [Créatrice]` : ce que le classeur a de disponible ; `!onboarding @clipper` : rejouer la livraison (09/10 :
+    comptes réservés et notés, puis l'étape en cours seule) ;
     `!liberer Prénom [handle …] [pool]` : rendre les comptes d'un clipper parti."""
     mots = texte.split()
     if not mots or mots[0].lower() not in ("!comptes-libres", "!onboarding", "!liberer", "!libérer"):
@@ -2233,7 +2658,8 @@ async def commande_staff(message, texte: str) -> bool:
                              + "\n-# Lien GAML, salon perso et rôles non touchés (`!sortie` pour ça).")[:1990])
         return True
     if not message.mentions:
-        await message.reply("Format : `!onboarding @clipper` — renvoie ses comptes, son lien et son Drive dans son salon perso.")
+        await message.reply("Format : `!onboarding @clipper` — réserve ses comptes s'il en manque, puis renvoie son étape en cours "
+                            "dans son salon perso (09/10 : une étape, jamais tous les comptes d'un coup).")
         return True
     membre = message.mentions[0]
     registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
