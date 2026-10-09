@@ -958,23 +958,34 @@ async def salons_persos_actifs() -> list:
     return resultat
 
 
+def mention_ecrite_du_bot(message) -> bool:
+    """09/10 (relecture : « j'ai créé le compte » posé en « Répondre » au message d'étape du bot faisait parler l'IA) : la
+    mention ÉCRITE du bot (« @Bot » dans le texte), pas celle qu'ajoute un « Répondre » : Discord met alors la personne à qui
+    on répond dans message.mentions, sans que le clipper ait rien demandé."""
+    bot = getattr(client, "user", None)
+    brut = getattr(message, "content", "") or ""
+    return bot is not None and (f"<@{bot.id}>" in brut or f"<@!{bot.id}>" in brut)
+
+
 def est_question(message, texte: str = None) -> bool:
     """09/10 (Gaëtan : « Améliore, simplifie… Chaque étape à la fois ») : le clipper s'adresse au bot — un « ? » dans son message,
-    ou une mention du bot. Seul cas où l'assistant parle dans un salon perso : il ne parle jamais de lui-même."""
+    ou une mention du bot. Seul cas où l'assistant parle dans un salon perso : il ne parle jamais de lui-même.
+    09/10 (relecture : « voilà mon premier reel https://www.instagram.com/reel/…/?igsh=… » faisait parler l'IA, dix liens collés
+    = dix réponses) : le « ? » d'un lien ne compte pas ; la mention, seulement écrite (mention_ecrite_du_bot)."""
     t = (getattr(message, "content", "") or "") if texte is None else (texte or "")
+    t = re.sub(r"<?https?://\S+>?", "", t)
     if "?" in t or "？" in t:
         return True
-    bot = getattr(client, "user", None)
-    return bot is not None and any(getattr(m, "id", None) == bot.id for m in (getattr(message, "mentions", None) or []))
+    return mention_ecrite_du_bot(message)
 
 
 def doit_repondre(message) -> bool:
     """On répond si : message privé, OU son salon perso, OU mention par le staff (29/09 : plus de canal ni de forum
     dédiés, ASSISTANT_GLOBAL retiré). En MP le bot dit « réponds-moi ici » à chaque étape : un texte libre y tombait
     dans le silence total (audit du 10/09) — désormais l'assistant répond, avec le contexte du parcours.
-    09/10 (Gaëtan : « simple et efficace ») : l'assistant répond là où le clipper écrit. Salon perso : une question (« ? » ou
-    mention du bot), même avec ASSISTANT_SALON_PERSO=0 ; le reste seulement avec ASSISTANT_SALON_PERSO=1. En MP : tout le monde,
-    clipper signé compris (sa réponse arrive en MP, plus de renvoi vers #assistant)."""
+    09/10 (Gaëtan : « simple et efficace ») : l'assistant répond là où le clipper écrit. Salon perso : une question (« ? » hors
+    lien, ou mention écrite du bot : est_question), même avec ASSISTANT_SALON_PERSO=0 ; le reste seulement avec
+    ASSISTANT_SALON_PERSO=1. En MP : tout le monde, clipper signé compris (sa réponse arrive en MP, plus de renvoi vers #assistant)."""
     staff = str(message.author.id) in ADMIN_IDS or est_manager(message.author)
     if message.guild is None:
         return True
@@ -1216,6 +1227,18 @@ CONTEXTE_0910 = ("[Mise à jour du 09/10, elle prime sur le bloc ci-dessus : plu
                  "Paie le 5 et le 20. Il pose ses questions là où il t'écrit : tu y réponds, jamais « va dans #assistant ». "
                  "Une seule action par réponse, des paragraphes courts séparés par une ligne vide.]")
 
+# 09/10 (relecture : la mémoire du parcours écrit encore « Drive : <dossier perso TOP 20> », puis « Drive : pas encore prêt »
+# une fois ce dossier fermé, alors que l'assistant répond maintenant dans chaque salon perso) : avant d'aller au modèle, la
+# ligne est remplacée par l'endroit où sont ses vidéos. Jamais le lien du dossier perso, jamais « pas encore prêt ».
+_LIGNE_DRIVE_MEMOIRE = re.compile(r"(?m)^Drive : .*$")
+LIGNE_VIDEOS_MEMOIRE = ("Vidéos de sa créatrice : le lien est dans son message de bienvenue, sinon dans le salon ℹ️ de sa "
+                        "créatrice. Il n'a pas de dossier Drive à lui.")
+
+
+def memoire_sans_drive_perso(texte: str) -> str:
+    """La mémoire du clipper (parcours.contexte_llm), sans la ligne « Drive : … » du dossier perso."""
+    return _LIGNE_DRIVE_MEMOIRE.sub(LIGNE_VIDEOS_MEMOIRE, texte or "")
+
 
 def contexte_auteur(message) -> str:
     """Ligne [Contexte : …] en tête de chaque question : où (MP ou salon) et quels rôles — le
@@ -1270,7 +1293,7 @@ def contexte_auteur(message) -> str:
     # salon, il y reçoit sa réponse, avec la même mémoire (jamais un mot de passe).
     if (sp is not None and sp.id == message.channel.id) or (message.guild is None and not est_staff(membre or message.author)):
         try:
-            return base + "\n" + parcours.contexte_llm(str(message.author.id)) + "\n" + CONTEXTE_0910
+            return base + "\n" + memoire_sans_drive_perso(parcours.contexte_llm(str(message.author.id))) + "\n" + CONTEXTE_0910
         except Exception as erreur:
             journal.warning("Mémoire du clipper %s : %s", message.author.id, erreur)
     return base
@@ -8541,10 +8564,17 @@ async def filtrer_spam(message) -> bool:
 async def relayer_mention_staff(message) -> bool:
     """06/10 (Gaëtan, GO 2 : « remontée des @Gaëtan ») : dans son salon perso, un clipper qui mentionne Gaëtan, un admin ou un
     manager (Simon, 03/10 : « @Gaëtan », sans réponse) → le message part au salon admin avec son lien, et 📨 sur le message pour
-    que le clipper sache que c'est transmis. Au plus RELAIS_MAX_JOUR par clipper et par jour. Vrai si relayé."""
+    que le clipper sache que c'est transmis. Au plus RELAIS_MAX_JOUR par clipper et par jour. Vrai si relayé.
+    09/10 (relecture : le message de bienvenue dit « écris à Gaëtan sur WhatsApp, il t'ajoute au groupe » ; « gaetan je t'ai
+    écrit sur WhatsApp, tu m'ajoutes au groupe ? », sans « @ », ne partait nulle part et mentionne_humain coupait l'assistant :
+    silence total) : une QUESTION qui nomme le staff en clair (PRENOMS_STAFF), sans mention écrite du bot, part aussi au salon
+    admin. Un « merci gaetan » sans question reste au salon : l'humain a la main (01/10)."""
     texte_c = (message.clean_content or "").strip()
     vise = [m for m in message.mentions if not getattr(m, "bot", False) and (str(m.id) in ADMIN_IDS or est_manager(m))]
-    if not vise and not re.search(r"@\s*ga[eé]tan\b", texte_c, re.I):
+    prenom_vise = (bool(PRENOMS_STAFF) and not mention_ecrite_du_bot(message)
+                   and re.search(r"\b(?:" + "|".join(map(re.escape, PRENOMS_STAFF)) + r")\b", normaliser(texte_c)) is not None
+                   and est_question(message, texte_c))
+    if not vise and not re.search(r"@\s*ga[eé]tan\b", texte_c, re.I) and not prenom_vise:
         return False
     compteurs_r = lire_json(FICHIER_COMPTEURS, {})
     cle_r = f"{message.author.id}|{heure_paris().date().isoformat()}"
@@ -8607,16 +8637,36 @@ def numero_a_lier(message, texte: str) -> bool:
     BRUT n'est lu comme le numéro de candidature que d'un membre pas encore dans l'agence (est_signe faux), en MP, dans son
     salon perso ou dans #candidature, et seulement de 9 à 15 chiffres. En MP et dans son salon : seulement sans liaison (un
     candidat déjà relié parle à l'assistant). Dans #candidature, salon public, le numéro est toujours effacé et basculé en
-    privé, liaison ou pas : il ne reste jamais visible. Le message d'un signé n'est jamais effacé."""
+    privé, liaison ou pas : il ne reste jamais visible. Le message d'un signé n'est jamais relié ; chez lui, jamais effacé
+    (dans #candidature, numero_public_a_effacer l'efface quand même)."""
     t = texte or ""
-    public = bool(CANAL_CANDIDATURE_ID) and message.guild is not None and str(message.channel.id) == CANAL_CANDIDATURE_ID
+    public = numero_dans_salon_public(message)
     if not (public or en_prive(message)):
         return False
-    if not re.fullmatch(r"[\d\s+().\-]{9,}", t) or not 9 <= len(re.sub(r"\D", "", t)) <= 15:
+    if not forme_numero(t):
         return False
     if not public and str(message.author.id) in lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}):
         return False
     return not est_signe(auteur_membre(message))
+
+
+def forme_numero(texte: str) -> bool:
+    """Un numéro de téléphone envoyé BRUT : chiffres, espaces, « + », points, tirets, parenthèses ; 9 à 15 chiffres (09/10 :
+    un code Instagram de 8 chiffres n'en est pas un)."""
+    t = texte or ""
+    return bool(re.fullmatch(r"[\d\s+().\-]{9,}", t)) and 9 <= len(re.sub(r"\D", "", t)) <= 15
+
+
+def numero_dans_salon_public(message) -> bool:
+    """Le message est dans #candidature (#bienvenue), le salon public des arrivants."""
+    return bool(CANAL_CANDIDATURE_ID) and message.guild is not None and str(message.channel.id) == CANAL_CANDIDATURE_ID
+
+
+def numero_public_a_effacer(message, texte: str) -> bool:
+    """09/10 (relecture : un signé qui colle « 06 12 34 56 78 » dans #bienvenue n'était ni relié ni effacé, son numéro restait
+    lisible par tout le serveur) : dans le salon public, un numéro brut est TOUJOURS effacé, signé ou pas. Seul un membre pas
+    encore dans l'agence est ensuite relié (numero_a_lier)."""
+    return numero_dans_salon_public(message) and forme_numero(texte)
 
 
 # 09/10 : dans le salon perso, l'assistant répond aux questions ; les messages d'étape du bot portent identifiant, e-mail et mot
@@ -8636,8 +8686,9 @@ _PUCE = re.compile(r"^\s*(?:[-•*·]\s|\d{1,2}[.)]\s|>)")
 
 def aerer(texte: str) -> str:
     """09/10 (Gaëtan : « Saute des lignes, aère » ; le clipper lit au téléphone) : la réponse de l'assistant reçoit une ligne
-    vide entre deux paragraphes, avant et après une liste ; les puces d'une même liste restent collées ; un bloc de code
-    n'est pas touché ; jamais deux lignes vides de suite. Déterministe : le modèle n'a pas à y penser."""
+    vide entre deux paragraphes, avant et après une liste ; les puces d'une même liste restent collées, avec la suite indentée
+    d'une puce (« 1. Coupe le début » puis «    pour accrocher ») ; un bloc de code n'est pas touché ; jamais deux lignes
+    vides de suite. Déterministe : le modèle n'a pas à y penser."""
     sortie, prec, dans_code = [], None, False                    # prec : « para », « liste », ou None après une ligne vide
     for ligne in (texte or "").strip().split("\n"):
         ligne = ligne.rstrip()
@@ -8652,6 +8703,8 @@ def aerer(texte: str) -> str:
             prec = None
             continue
         sorte = "liste" if _PUCE.match(ligne) else "para"
+        if prec == "liste" and re.match(r"\s{2,}\S", ligne):
+            sorte = "liste"                                     # 09/10 (relecture) : la suite indentée d'une puce reste collée
         if prec is not None and not (prec == "liste" and sorte == "liste"):
             sortie.append("")
         sortie.append(ligne)
@@ -8812,8 +8865,16 @@ async def on_message(message):
     # bascule en privé, un numéro ne doit jamais rester visible).
     # 09/10 (codes Instagram de 8 chiffres pris pour un numéro et effacés dans le salon d'un clipper) : seulement un membre pas
     # encore dans l'agence, de 9 à 15 chiffres, sans liaison s'il écrit chez lui (numero_a_lier). Le message d'un signé n'est
-    # jamais effacé.
+    # jamais effacé chez lui.
     numero_brut = numero_a_lier(message, texte)
+    if not numero_brut and numero_public_a_effacer(message, texte):
+        # 09/10 (relecture) : le numéro d'un signé posté dans #candidature, public, est effacé (jamais relié) ; une ligne, en privé.
+        try:
+            await message.delete()
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        await envoyer_mp(message.author, "🔒 Ton numéro ne se poste jamais dans un salon public : je l'ai effacé.")
+        return
     numero_phrase = ""
     if not numero_brut and message.guild is None and not texte.startswith("!"):
         # « voici mon numéro : 06 12 34 56 78 » — le numéro est dans une phrase. On ne le prend
@@ -8838,6 +8899,15 @@ async def on_message(message):
     # plus de test après le quizz ; un seul message, dans son salon perso de préférence (« arrivent ici » y est vrai), sinon
     # en MP ; tapé ailleurs, une ligne lui dit où il est.
     if texte.startswith("!quiz") and not texte.startswith("!quiz-ok"):
+        sp_quiz = salon_perso_de(utilisateur)
+        # 09/10 (relecture : un clipper signé qui tape !quiz recevait le lien et « ta créatrice et ton compte 1 arrivent ici »,
+        # qu'il a déjà) : un signé n'a plus de quizz à passer ; une ligne pour retrouver son étape. Le staff garde le lien.
+        if not est_staff(message.author) and est_signe(auteur_membre(message)):
+            chez_lui = message.guild is None or (sp_quiz is not None and sp_quiz.id == message.channel.id)
+            await message.reply("Tu es déjà dans l'agence. 🙂\n\nTon étape : tape `!etape`"
+                                + (" ici." if chez_lui else (f" dans {sp_quiz.mention}." if sp_quiz is not None
+                                                             else " dans ton salon perso.")))
+            return
         lien_q = lien_quiz_pour(utilisateur)
         if not lien_q:
             await message.reply("Le lien du quizz n'est pas encore prêt.\n\nDemande-le à Gaëtan.")
@@ -8846,10 +8916,10 @@ async def on_message(message):
         def _texte_quiz(ou: str) -> str:
             return (f"📝 Ton lien de quizz : <{lien_q}>\n\n"                # <…> : pas d'aperçu, le message reste court
                     f"Il faut {seuil_quiz_texte()}. Réussi = ta créatrice et ton compte 1 arrivent {ou}.")
-        sp_quiz = salon_perso_de(utilisateur)
         if en_prive(message):                                            # son salon perso, ou un MP
-            await message.reply(_texte_quiz("ici" if message.guild is not None or sp_quiz is None
-                                            else "dans ton salon perso"))
+            # 09/10 (relecture) : en MP, « ici » est toujours faux : sa créatrice et son compte 1 arrivent dans un salon perso
+            # (créé à la validation s'il n'en a pas encore), jamais en MP.
+            await message.reply(_texte_quiz("ici" if message.guild is not None else "dans ton salon perso"))
             return
         if sp_quiz is not None:
             try:
