@@ -2,8 +2,8 @@
 
 30/09 (Gaëtan : « fais une relance simple tous les jours pour les nouveaux ») : une ligne par jour, dans le salon du nouveau.
 
-09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes » et « Chaque étape à la fois, on se complique
-pas la vie ») : le test de montage n'existe plus et le quizz se fait sur le site, AVANT Discord. Presque personne n'arrive donc
+09/10 (Gaëtan : « on va ouvrir les vannes » et « Chaque étape à la fois, on se complique pas la vie ») : le test vidéo
+d'entrée n'existe plus et le quizz se fait sur le site, AVANT Discord. Presque personne n'arrive donc
 sans quizz : le module est ÉTEINT par défaut (RELANCE_NOUVEAUX=1 pour le rallumer). Rallumé, il n'envoie qu'un texte, son lien
 de quizz, au plus MAX_ENVOIS fois et jamais deux fois le même jour. Jamais le jour de l'arrivée (DELAI_H), jamais après un STOP,
 jamais pour un signé (registre, rôle d'équipe, roster : est_signe), un membre du staff ou quelqu'un qui a déjà réussi le quizz.
@@ -30,7 +30,8 @@ _deps = {}
 
 def configurer(deps: dict):
     """deps : lire_json, ecrire_json, FICHIER (état), FICHIER_PIPELINE, FICHIER_EQUIPES, client, heure_paris, salon_perso (uid),
-    lien_quiz (uid), est_staff (membre) ; est_signe (membre), facultatif. 09/10 : LIEN_TEST n'est plus lu (clé tolérée)."""
+    lien_quiz (uid), est_staff (membre) ; est_signe (membre), facultatif. 09/10 : l'ancien lien du dossier de test n'est plus
+    lu (une clé en trop dans deps est ignorée)."""
     _deps.update(deps)
 
 

@@ -3870,9 +3870,10 @@ async def attribuer_equipe(guild, membre, equipe, par_id):
 
 # 09/10 (décision prise pour Gaëtan avec « on va ouvrir les vannes ») : un membre en « attente_attribution » (aucune créatrice
 # n'avait de compte livrable) repart tout seul dès qu'un compte se libère, sans commande.
-REPRISE_ATTENTE_MIN = 30                                                # sans compte libre : classeur relu au plus toutes les 30 min
-REPRISE_ATTENTE_H = 6                                                   # un même membre : au plus un essai toutes les 6 h
-_REPRISE_ATTENTE = {"prochain": 0.0}
+# 09/10 (revue du lot L3 : deux reprises tournaient en même temps sans verrou commun, deux validations pour une seule place) :
+# UNE seule reprise, attribution.reprendre_attente (verrou « reprise », places comptées sur les seules créatrices ouvertes sur le
+# serveur, ATTRIBUTION_PAUSE_SEC entre deux). boucle_pipeline (5 min) et la boucle de l'onboarding (15 min) ne font que la lancer.
+_REPRISE_ATTENTE = {"tache": None}                                      # la tâche lancée, gardée pour qu'elle ne soit pas ramassée
 
 
 async def comptes_livrables_par_creatrice() -> dict:
@@ -3898,57 +3899,90 @@ async def comptes_livrables_par_creatrice() -> dict:
 
 
 async def reprendre_attente_attribution() -> str:
-    """09/10 : appelée à chaque tour de boucle_pipeline. Le plus ancien membre PRÉSENT en « attente_attribution » repart dès qu'une
-    créatrice de l'ordre a 3 comptes livrables : validé (valider_candidat) s'il n'est pas encore au registre, sinon attribué
-    (attribution.attribuer). Un seul par tour (la boucle tourne toutes les 5 min, plus lentement que ATTRIBUTION_PAUSE_SEC), un même
-    membre au plus toutes les REPRISE_ATTENTE_H heures (la trace est écrite AVANT l'appel), et le classeur relu au plus toutes les
-    REPRISE_ATTENTE_MIN minutes tant qu'il n'a rien de libre. Renvoie la ligne de bilan, '' si personne n'est parti."""
-    if not attribution.actif() or time.time() < _REPRISE_ATTENTE["prochain"]:
+    """09/10 : appelée à chaque tour de boucle_pipeline (5 min). Lance la reprise des membres « attente_attribution »
+    (attribution.reprendre_attente, la seule) en tâche à part, si attribution.attente_a_reprendre() : lecture seule, sans réseau,
+    vraie seulement si quelqu'un attend et qu'aucune reprise ne tourne. Ne valide et n'attribue rien elle-même, ne lit pas le
+    classeur, et n'attend pas les pauses ATTRIBUTION_PAUSE_SEC : boucle_pipeline n'est jamais retenue. Deux lancements proches
+    (celui-ci et la boucle de l'onboarding) ne font qu'une reprise : la seconde trouve le verrou pris et rend la main.
+    Renvoie « lancée », ou '' si rien n'a été lancé."""
+    if not attribution.attente_a_reprendre():
         return ""
-    maintenant = datetime.now(timezone.utc)
-    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-    registre = lire_json(FICHIER_EQUIPES, {})
-    en_attente = []
+    _REPRISE_ATTENTE["tache"] = asyncio.create_task(attribution.reprendre_attente())
+    return "lancée"
+
+
+# 09/10 (revue du lot L3 : un quizz réussi resté en plan n'était plus ni sorti, ni validé, ni affiché) : un redémarrage entre
+# preparer_arrivee_site (qui écrit « quiz_ok ») et suite_arrivee_site (qui lance valider_candidat) laissait le membre en
+# « quiz_ok » sans fin. boucle_pipeline le fait entrer, le digest le montre.
+QUIZ_OK_EN_PLAN_MIN = 30                                                # « quiz_ok » depuis 30 min sans validation : en plan
+QUIZ_OK_ESSAI_H = 1                                                     # un même membre : au plus un essai par heure
+
+
+def quiz_ok_en_plan(pipe: dict, registre: dict, maintenant, minutes: int = QUIZ_OK_EN_PLAN_MIN) -> list:
+    """[(uid, info, membre)] des membres restés en « quiz_ok » : PRÉSENTS, ni au registre, ni signés (est_signe), et rien de
+    plus récent que `minutes` parmi la date du quizz, de l'arrivée et de la liaison (sans date lisible : vieux). Le plus
+    ancien d'abord. Un est_signe qui lève : le membre est laissé de côté (on ne valide pas dans le doute)."""
+    out = []
     for uid, info in (pipe.get("etats") or {}).items():
         info = info or {}
-        if info.get("etat") != "attente_attribution" or (registre.get(uid) or {}).get("creatrice"):
-            continue                                                    # déjà servi : l'état est périmé, rien à refaire
-        if 0 <= _age_heures(info.get("reprise_essai"), maintenant) < REPRISE_ATTENTE_H:
+        if info.get("etat") != "quiz_ok" or uid in registre or not str(uid).isdigit():
             continue
+        dates = (info.get("date_quiz"), ((pipe.get("arrivees") or {}).get(uid) or {}).get("date"),
+                 ((pipe.get("liaisons") or {}).get(uid) or {}).get("date"))
+        ages = [_age_heures(d, maintenant) for d in dates if d]
+        ages = [a for a in ages if a != -1.0]                           # -1.0 : date illisible
+        if any(a < minutes / 60 for a in ages):
+            continue                                                    # trop récent : suite_arrivee_site tourne peut-être encore
         membre = membre_par_id(uid)
         if membre is None or getattr(membre, "bot", False):
             continue
-        depuis = str(info.get("attente_depuis") or info.get("validation") or info.get("date_quiz") or "")
-        en_attente.append((depuis, uid, info, membre))
-    if not en_attente:
+        try:
+            if est_signe(membre):
+                continue
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.info("Quizz réussi en plan, est_signe(%s) : %s", uid, erreur)
+            continue
+        out.append((min(ages) if ages else float("inf"), uid, info, membre))
+    out.sort(key=lambda x: -x[0])
+    return [(uid, info, membre) for _, uid, info, membre in out]
+
+
+async def revalider_quiz_ok() -> str:
+    """09/10 : appelée à chaque tour de boucle_pipeline, après la reprise. Le plus ancien membre resté en « quiz_ok »
+    (quiz_ok_en_plan) entre dans l'agence par le même circuit que suite_arrivee_site : valider_candidat(membre, score, "quiz").
+    Un par tour, un même membre au plus une fois par QUIZ_OK_ESSAI_H heure (la trace « revalidation_essai » est écrite AVANT
+    l'appel). Rien tant que la migration du 09/10 (migrer_test, trace DONNEES/migration_test_0910.json) n'est pas finie : les
+    anciens « quiz_ok » sont à elle, bornés par le stock de comptes et cadencés. Renvoie la ligne de bilan, '' si personne."""
+    if not (lire_json(DONNEES / "migration_test_0910.json", {}) or {}).get("fini"):
         return ""
-    livrables = await comptes_livrables_par_creatrice()
-    if not any(n >= 3 for n in livrables.values()):
-        _REPRISE_ATTENTE["prochain"] = time.time() + REPRISE_ATTENTE_MIN * 60
-        return ""
-    _, uid, info, membre = min(en_attente, key=lambda x: x[0])
+    maintenant = datetime.now(timezone.utc)
     pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-    pipe.setdefault("etats", {}).setdefault(uid, {})["reprise_essai"] = maintenant.isoformat(timespec="seconds")
-    ecrire_json(FICHIER_PIPELINE, pipe)
-    try:
-        if uid in registre:
-            creatrice = await attribution.attribuer(membre, "reprise après l'attente d'un compte")
-            bilan = f"créatrice {creatrice}" if creatrice else "rien d'attribué"
-        else:
-            bilan = await valider_candidat(membre, str(info.get("score_quiz") or ""), "attente")
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.warning("Reprise de l'attente de %s : %s", uid, erreur)
-        return ""
-    ligne = f"{prenom_de(membre)} repart après l'attente d'un compte : {str(bilan or '')[:200]}"
-    journal.info("Attente d'attribution : %s", ligne)
-    return ligne
+    for uid, info, membre in quiz_ok_en_plan(pipe, lire_json(FICHIER_EQUIPES, {}), maintenant):
+        if 0 <= _age_heures(info.get("revalidation_essai"), maintenant) < QUIZ_OK_ESSAI_H:
+            continue
+        pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        cible = (pipe.get("etats") or {}).get(uid)
+        if not isinstance(cible, dict) or cible.get("etat") != "quiz_ok":
+            continue                                                    # il a bougé entre-temps : rien à faire
+        cible["revalidation_essai"] = maintenant.isoformat(timespec="seconds")
+        ecrire_json(FICHIER_PIPELINE, pipe)
+        try:
+            bilan = await valider_candidat(membre, str(info.get("score_quiz") or ""), "quiz")
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Quizz réussi en plan, validation de %s : %s", uid, erreur)
+            return ""
+        ligne = f"{prenom_de(membre)} : quizz réussi resté en plan, validé maintenant ({str(bilan or '')[:120]})"
+        journal.info("Quizz réussi en plan : %s", ligne)
+        return ligne
+    return ""
 
 
 async def boucle_pipeline():
-    """Toutes les 5 min : la sortie des arrivés sans quizz réussi (⑥) et la reprise des membres en attente d'une créatrice.
+    """Toutes les 5 min : la sortie des arrivés sans quizz réussi (⑥), le lancement de la reprise des membres en attente d'une
+    créatrice, et l'entrée d'un quizz réussi resté en plan (revalider_quiz_ok).
     Écriture par FUSION (ecrire_pipeline_fusion) : la boucle n'écrase jamais ce qu'un MP a
     écrit pendant qu'elle tournait, et l'écriture a lieu même si un tour lève une exception.
-    09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : le quizz se fait sur le site, AVANT Discord.
+    09/10 (Gaëtan : « on va ouvrir les vannes ») : le test vidéo d'entrée est retiré, le quizz se fait sur le site, AVANT Discord.
     Retirés : la gestion du test (échéance, relances, sortie ⑦, retest ⑤), les relances J'ACCEPTE et les relances ① et ② (lie-toi,
     passe le quizz)."""
     while True:
@@ -3960,8 +3994,9 @@ async def boucle_pipeline():
             equipes_r = lire_json(FICHIER_EQUIPES, {})     # signés/onboardés = tunnel terminé
             # ⑥ 29/09 : sans quiz réussi au bout de CANDIDAT_SORTIE_JOURS jours, la place part — sortie, salon fermé, et il peut
             # recommencer quand il veut en refaisant le formulaire (nouvelle invitation, nouveaux essais).
-            # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : ⑥ ne vise plus que les arrivés SANS quizz. Jamais un signé
-            # (est_signe : registre, rôle d'équipe, roster), jamais un quizz réussi ni un membre qui attend sa créatrice. Le message
+            # 09/10 (Gaëtan : « on va ouvrir les vannes », le test vidéo retiré) : ⑥ ne vise plus que les arrivés SANS quizz.
+            # Jamais un signé (est_signe : registre, rôle d'équipe, roster), jamais un quizz réussi ni un membre qui attend sa
+            # créatrice. Le message
             # part en VRAI MP avant l'expulsion (envoyer_mp le déposait dans le salon perso, invisible une fois dehors) et
             # _EXPULSES est posé avant le kick : traiter_depart se tait, une seule ligne au manager. Le salon perso est donc
             # supprimé ici, et l'état passe à « sorti » (remis à zéro s'il revient).
@@ -4025,6 +4060,10 @@ async def boucle_pipeline():
             await reprendre_attente_attribution()
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Reprise des membres en attente : %s", erreur)
+        try:                                                            # 09/10 : un quizz réussi resté en plan entre dans l'agence
+            await revalider_quiz_ok()
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Quizz réussi en plan : %s", erreur)
         await asyncio.sleep(300)   # 5 min : l'auto-onboarding post-signature doit être quasi immédiat
 
 
@@ -4055,7 +4094,10 @@ def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
     """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice… ») :
     les flux d'un jour (Paris) pour le digest. quiz_ok et quiz_ko : le quizz du site (dernier essai de chaque numéro, staff exclu),
     plus le quizz passé depuis Discord par un arrivé sans quizz ; arrives : arrivées sur le serveur ; valides : validations du jour ;
-    attente : les membres en « attente_attribution » à l'instant (sauf ceux qui ont déjà leur créatrice au registre)."""
+    attente : les membres en « attente_attribution » à l'instant (sauf ceux qui ont déjà leur créatrice au registre).
+    09/10 (revue du lot L3 : « 0 quizz réussi · 2 validés ») : un quizz réussi DEPUIS Discord fait valider_candidat(…, "quiz"), qui
+    pose la date de validation mais garde la date_quiz d'un échec précédent (ou n'en pose aucune). Il compte donc le jour de sa
+    validation (valide_par « quiz »), jamais le jour de l'échec."""
     registre = registre or {}
     par_tel = {}
     for fiche in (pipe.get("candidatures_web") or {}).values():
@@ -4069,11 +4111,17 @@ def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
     etats = pipe.get("etats") or {}
     for info in etats.values():
         info = info or {}
-        if info.get("quiz_avant_discord") or _jour_paris(info.get("date_quiz")) != jour:
+        if info.get("quiz_avant_discord"):
             continue                                                    # un quizz du site est déjà compté plus haut
-        if info.get("etat") == "quiz_rate":
+        etat = info.get("etat")
+        if etat in ("valide", "attente_attribution") and info.get("valide_par") == "quiz" and info.get("validation"):
+            if _jour_paris(info.get("validation")) == jour:            # réussi depuis Discord : le jour de la validation
+                quiz_ok += 1
+        elif _jour_paris(info.get("date_quiz")) != jour:
+            continue
+        elif etat == "quiz_rate":
             quiz_ko += 1
-        elif info.get("etat") in ("quiz_ok", "valide", "attente_attribution"):
+        elif etat in ("quiz_ok", "valide", "attente_attribution"):
             quiz_ok += 1
     arrives = sum(1 for a in (pipe.get("arrivees") or {}).values() if _jour_paris((a or {}).get("date")) == jour)
     valides = sum(1 for i in etats.values() if _jour_paris((i or {}).get("validation")) == jour)
@@ -4130,10 +4178,11 @@ async def boucle_rappels():
                     ecrire_json(FICHIER_RAPPELS, etat)
             # Pipeline candidats : chaque matin dès 09:00 (Paris), le digest de l'entonnoir et des actions qui n'attendent que le
             # staff. Envoyé tous les jours (02/09) : un jour sans action est une information.
-            # 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : plus aucune ligne de test (tests à
+            # 09/10 (Gaëtan : « on va ouvrir les vannes », le test vidéo d'entrée retiré) : plus aucune ligne de test (tests à
             # reviewer, tests en cours, tests expirés, validés sans J'ACCEPTE) ni relance du soir à 18 h. À la place, l'entonnoir
             # d'hier (candidatures par source, quizz réussis et ratés, arrivés sur Discord, validés), les membres qui attendent une
-            # créatrice, et les comptes livrables par créatrice : sans le test, c'est le nouveau goulot.
+            # créatrice, les quizz réussis restés en plan, et les comptes livrables par créatrice : sans le test, c'est le nouveau
+            # goulot.
             if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.hour >= 9 and etat.get("pipeline_digest") != aujourdhui:
                 pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
                 try:
@@ -4157,9 +4206,14 @@ async def boucle_rappels():
                     m_ = membre_par_id(uid)
                     return m_ is None or uid in ADMIN_IDS or (role_mgr is not None and role_mgr in m_.roles)
 
+                # 09/10 (revue du lot L3) : un signé en « attente_attribution » (aucun compte livrable à sa validation) n'a qu'une
+                # consigne, celle du bloc ⏳ (il part tout seul). Avant, il sortait aussi ici avec « !creatrice » : forcer une
+                # créatrice sans compte lui envoyait son bienvenue sans compte 1.
+                en_attente_d = {uid for uid, i in (pipe.get("etats") or {}).items()
+                                if (i or {}).get("etat") == "attente_attribution"}
                 sans_creatrice_tous = sorted(((uid, _jours(e.get("date"))) for uid, e in equipes_r.items()
                                               if not e.get("creatrice") and _jours(e.get("date")) >= 2
-                                              and not _staff(uid)), key=lambda x: -x[1])
+                                              and uid not in en_attente_d and not _staff(uid)), key=lambda x: -x[1])
                 # En semaine, seuls les signés récents (≤ 14 j) : eux peuvent encore démarrer à chaud.
                 # Les anciens ressortent le lundi — soixante matins de « J+66 », c'est du bruit (23/09).
                 sans_creatrice = [x for x in sans_creatrice_tous if lundi or x[1] <= 14]
@@ -4200,6 +4254,14 @@ async def boucle_rappels():
                                     + " · ".join(f"<@{u}>" for u in attente[:8])
                                     + ("\n→ Ils partent tout seuls dès qu'un compte se libère." if attribution.actif()
                                        else "\n→ `!creatrice @membre Prénom`"))
+                # 09/10 (revue du lot L3) : un quizz réussi resté en « quiz_ok » depuis plus d'une heure (redémarrage pendant son
+                # entrée). boucle_pipeline le fait entrer tout seul une fois la migration du 09/10 finie ; s'il est encore là au
+                # matin, le manager le voit et peut le valider à la main.
+                en_plan = [u for u, _i, _m in quiz_ok_en_plan(pipe, equipes_r, ref, minutes=60)]
+                if en_plan:
+                    lignes_d.append(f"📝 **Quizz réussi, pas encore validés** : {len(en_plan)} · "
+                                    + " · ".join(f"<@{u}>" for u in en_plan[:8])
+                                    + "\n→ `!quiz-ok @membre`")
                 if sans_creatrice:
                     lignes_d.append(f"🎬 **Signés SANS créatrice depuis ≥ 48 h** ({mention_manager(guild_d)}) : "
                                     + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:6])
@@ -4217,7 +4279,7 @@ async def boucle_rappels():
                     lignes_d.append("🛠️ Avertissement technique : " + " · ".join(a[:90] for a in nouveaux_avert[:3]))
                     etat["avert_vus"] = (vus + [a[:90] for a in nouveaux_avert])[-20:]
 
-                if not (sans_creatrice or attente or vides):
+                if not (sans_creatrice or attente or vides or en_plan):
                     lignes_d.insert(0, "✅ Rien qui n'attende ton action aujourd'hui.")
                 canal = await canal_manager()                    # le manager agit, Gaëtan lit l'hebdo (14/09)
                 if canal is not None:

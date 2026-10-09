@@ -4,9 +4,11 @@ Chaque matin à RELANCES_HEURE (10 h, Paris), le bot poste dans le salon admin l
 formulaire du site depuis plus de 24 h sans réussir le quizz et sans être arrivés sur Discord (ceux-là, le bot les relance
 déjà dans leur salon). Pour chacun : prénom, pays, depuis quand, le lien qui ouvre sa conversation Telegram, et le message à
 copier d'un appui, avec SON lien vers la page formation (il reprend là où il s'était arrêté, sans refaire le formulaire).
-09/10 : tout tient dans UN message (une ligne par candidat, le message Telegram à copier une seule fois en bas).
+09/10 : un message groupé (un candidat par bloc, coupé entre deux candidats au-delà de 1 990 caractères). Plus rien à copier :
+un seul lien par candidat, Telegram ou WhatsApp, qui ouvre sa conversation avec le message déjà écrit (paramètre « text » des
+liens t.me, documenté par Telegram pour t.me/<pseudo> comme pour t.me/+<numéro>). Un appui, relire, envoyer.
 
-Rien ne part tout seul : Gaëtan (ou Rianah) ouvre la conversation, colle, envoie. Deux relances au plus par candidat
+Rien ne part tout seul : Gaëtan (ou Rianah) appuie sur le lien, relit, envoie. Deux relances au plus par candidat
 (à 24 h puis à 72 h), RELANCES_MAX par jour (30 : le rythme qui ne fait pas restreindre un compte Telegram), candidatures
 des 7 derniers jours seulement. Sans @ Telegram lisible, le lien par numéro (t.me/+numéro) ne marche que si le candidat
 l'autorise dans ses réglages : il est signalé comme tel.
@@ -74,12 +76,6 @@ def lien_telegram(pseudo: str, tel: str = "") -> tuple:
     return "", ""
 
 
-def texte_message(prenom: str, lien: str) -> str:
-    return (f"Salut {prenom} ! Ta candidature est bien reçue ✅\n\n"
-            f"Il te reste la formation (15 min) et le quizz, ici : {lien}\n\n"
-            "Dès que c'est fait, tu rejoins le Discord.")
-
-
 def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
     """[(cand_id, prénom, pays, heures depuis le formulaire, n° de relance, lien Telegram, étiquette)], les plus anciens
     d'abord, RELANCES_MAX au plus.
@@ -130,32 +126,37 @@ def a_relancer(pipe: dict, etat: dict, maintenant=None) -> list:
     return out[:MAX_JOUR]
 
 
-TEXTE_A_COPIER = ("Salut ! Ta candidature est bien reçue ✅\n\n"
-                  "Il te reste la formation et le quizz.\n\n"
-                  "Ton lien juste en dessous 👇")
+def texte_relance(prenom: str, lien: str) -> str:
+    """09/10 (revue du lot L3 : 10 messages pour 30 candidats, deux copies par candidat côté Telegram) : le message pré-rempli,
+    court parce qu'il voyage encodé dans le lien. Bonjour, une action, son lien."""
+    return f"Salut {prenom} 👋\n\nTa formation t'attend :\n\n{lien}"
 
 
 def ligne(cid, prenom, pays, heures, n, lien, etiquette, tel) -> str:
-    """Un candidat sur une ligne : prénom, pays, depuis quand, n° de relance, puis ses liens WhatsApp, Telegram et formation."""
-    texte = texte_message(prenom, _deps["lien_formation"](cid))
-    # 30/09 (Gaëtan, GO n° 2 : « relances WhatsApp en un appui ») : le lien WhatsApp ouvre sa conversation, message déjà écrit
+    """Un candidat : prénom, pays, depuis quand, n° de relance ; dessous, UN lien qui ouvre sa conversation, message déjà écrit.
+    Telegram s'il a un @ lisible (le funnel part de Telegram, t.me/<pseudo> s'ouvre toujours), sinon WhatsApp par son numéro,
+    sinon Telegram par numéro (il ne s'ouvre que si le candidat l'autorise : signalé)."""
+    texte = quote(texte_relance(prenom, _deps["lien_formation"](cid)), safe=":/")
+    # 30/09 (Gaëtan, GO n° 2 : « relances WhatsApp en un appui ») : le lien WhatsApp ouvre sa conversation, message déjà écrit.
+    # 09/10 (revue du lot L3) : le lien Telegram aussi (t.me/…?text=), et un seul lien par candidat : deux liens pré-remplis
+    # doublaient la longueur (10 messages pour 30 candidats).
     chiffres = re.sub(r"\D", "", tel or "")
-    liens = [f"[WhatsApp](<https://wa.me/{chiffres}?text={quote(texte)}>)" if len(chiffres) >= 8 else "",
-             f"[Telegram {etiquette}](<{lien}>)" if lien else "",
-             f"[son lien](<{_deps['lien_formation'](cid)}>)"]
-    return (f"**{prenom}**{' · ' + pays if pays else ''} · {heures} h · {'1re' if n == 1 else '2e'} relance · "
-            + " · ".join(x for x in liens if x))
+    if lien and etiquette != "par numéro":
+        appui = f"[Telegram {etiquette}](<{lien}?text={texte}>)"
+    elif len(chiffres) >= 8:
+        appui = f"[WhatsApp](<https://wa.me/{chiffres}?text={texte}>)"
+    else:
+        appui = f"[Telegram par numéro](<{lien}?text={texte}>)" if lien else ""
+    return f"**{prenom}**{' · ' + pays if pays else ''} · {heures} h · {'1re' if n == 1 else '2e'} relance\n{appui}"
 
 
 def blocs(liste: list, apercu: bool = False) -> list:
-    """09/10 (revue du funnel : « Relances admin : 1 + N messages par jour ») : UN message, coupé à 1990 caractères. L'en-tête,
-    une ligne par candidat, puis le message à copier une seule fois en bas. Une liste trop longue pour un message continue dans le
-    suivant, coupée entre deux candidats, jamais au milieu d'une ligne."""
+    """09/10 (revue du funnel : « Relances admin : 1 + N messages par jour ») : un message groupé, coupé à 1990 caractères.
+    L'en-tête (ce qu'il y a à faire, une fois), puis un candidat par bloc, une ligne vide entre deux. Une liste trop longue pour un
+    message continue dans le suivant, coupée entre deux candidats, jamais au milieu d'un candidat."""
     entete = (f"📨 **Relances du jour : {len(liste)}**" + (" _(aperçu : rien n'est compté)_" if apercu else "") + "\n\n"
               "Formulaire envoyé, quizz pas réussi, pas encore sur Discord.\n\n"
-              "WhatsApp : appuie, relis, envoie.\n"
-              "Telegram : ouvre, colle le message du bas, puis son lien.")
-    pied = "📋 À copier pour Telegram :\n```\n" + TEXTE_A_COPIER + "\n```"
+              "Appuie sur son lien : son message est déjà écrit. Relis, envoie.")
     morceaux, courant = [], entete
     for x in liste:
         l_ = ligne(*x)[:1900]
@@ -164,11 +165,6 @@ def blocs(liste: list, apercu: bool = False) -> list:
             courant = l_
         else:
             courant += "\n\n" + l_
-    if len(courant) + 2 + len(pied) > 1990:
-        morceaux.append(courant)
-        courant = pied
-    else:
-        courant += "\n\n" + pied
     morceaux.append(courant)
     return morceaux
 
