@@ -4609,85 +4609,85 @@ def est_manager(membre) -> bool:
 
 
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
-COMMANDES_MANAGER = ("!quiz-ok", "!test-ok", "!test-non", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings", "!tests",
+# 09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Enlève le truc qui envoie un dossier Drive au clippeur ») : plus de
+# !test-ok, !test-non, !tests, !refuser, !relance-telegram ni !reels-uniques. !quiz-ok reste : il valide à la main.
+COMMANDES_MANAGER = ("!quiz-ok", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
-                     "!inviter", "!refuser", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!relance-telegram", "!reels-uniques", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo")
+                     "!inviter", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
+                     "!stats-jonas", "!stats-manager", "!roster", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
-    """`!aide` selon qui demande : admin, manager, clipper sous contrat, candidat."""
+    """`!aide` selon qui demande : admin, manager, clipper sous contrat, candidat.
+    09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Saute des lignes, aère ») : plus de test, de J'ACCEPTE ni de
+    Drive perso ; une ligne vide entre deux blocs ; le candidat lit trois lignes au plus, une seule action."""
     if est_admin:
-        return ("🧰 **Commandes admin**\n"
-                "**Tunnel** : `!candidats` · `!inviter Prénom [fr|int]` · `!refuser Prénom motif` (hors Discord) · "
-                "`!pipeline` · `!tableau` · `!tests [relancer]` · `!quiz-ok @x [score]` · `!test-ok @x` · "
-                "`!test-non @x raison` · `!fiche @x` (salon privé) · `!relance @x` · "
-                "`!equipe @x fr|int|retirer` · `!equipes` · `!relancer-lien` · `!importer` · `!sync-noms`\n"
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · `!roster [Sophie: a, b ; Chloé: c]` · `!relance-telegram [jours] [min=4]` · `!reels-uniques Créatrice [Prénom] [refaire]` · "
-                "`!ltv [jours]` · `!alias` · `!code` · `!recup`\n"
+        return ("🧰 **Commandes admin**\n\n"
+                "**Candidats** : `!pipeline` · `!tableau` · `!quiz-ok @x [score]` (valider à la main) · `!fiche @x` (salon privé) · "
+                "`!relance @x` · `!candidats` · `!inviter Prénom [fr|int]` (hors Discord) · `!migrer-test [go]` (anciens du test) · "
+                "`!relancer-lien` · `!sync-noms`\n\n"
+                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
+                "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!equipes` · `!drives-perso fermer [go]` · "
+                "`!ltv [jours]` · `!alias` · `!code` · `!recup`\n\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
-                "`!ban-spam` · `!archiver #salon…`\n"
-                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang`\n"
+                "`!ban-spam` · `!archiver #salon…`\n\n"
+                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang`\n\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre <texte libre, ou un fichier .md/.txt joint>` (prime sur tout) · "
-                "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus) · `!sauvegarde`\n"
+                "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus) · `!sauvegarde`\n\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
-        return ("🧰 **Commandes manager**\n"
+        return ("🧰 **Commandes manager**\n\n"
                 "· `!creatrice @clipper Prénom` — attribue la créatrice, ouvre ses salons + crée le salon perso du clipper\n"
                 "· `!fiche @clipper` — sa fiche (numéro WhatsApp, e-mail masqué, parcours) — salon privé uniquement\n"
-                "· `!candidats` — les candidats hors Discord (quiz, tests rendus) · `!inviter Prénom` — test validé : "
-                "son invitation personnelle + le message WhatsApp · `!refuser Prénom motif`\n"
-                "· `!tests` · `!test-ok @x` · `!test-non @x raison` · `!quiz-ok @x` — l'ancien tunnel en MP\n"
+                "· `!quiz-ok @x` — valider un candidat à la main : sa créatrice et son compte 1 suivent tout seuls\n"
+                "· `!candidats` — les quizz réussis hors Discord · `!inviter Prénom` — son invitation personnelle + le message WhatsApp\n"
                 "· `!pipeline` — où en est chaque candidat · `!relance @x` — le pousser d'un cran\n"
                 "· `!sortie @clipper raison` — sortie de l'équipe (rôles + salons retirés, tout le monde prévenu)\n"
-                "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook dans ton salon · `!recup [alias]` — le code de "
-                "récupération (mot de passe oublié, appel après un ban), 6 h en arrière\n"
+                # 09/10 : l'aide manager dépassait 1 990 caractères (fin coupée par Discord) : lignes resserrées.
+                "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook · `!recup [alias]` — le code de récupération, 6 h en arrière\n"
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
-                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` (carte de chaque lien = tracking OF de son POD) · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
-                "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur · `!onboarding @clipper` — renvoyer comptes, lien, Drive\n"
-                "· `!capacite` — l'onglet « Build capacity » : urgence par créatrice, e-mails et comptes à créer, 20 identifiants neufs chacune · `!capacite neufs` : nouvelle série · `!capacite ajouter` : la série dans les onglets\n"
+                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
+                "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur (chaque nouveau en réserve 3)\n"
+                "· `!capacite` — l'onglet « Build capacity » : urgence par créatrice, e-mails et comptes à créer · `neufs` · `ajouter`\n"
                 "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
                 "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
                 "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
-                "· `!etats-comptes [test|leger]` — passe le classeur au crible d'Instagram maintenant (à créer → WARMUP → GOOD, BAN, PRIVE) ; `test` = sans rien écrire ; `leger` = followers et Reels seuls\n"
-                "· `!dashboard` — réécrit l'onglet Dashboard sans scan (gratuit) · `!dashboard scan` — relit d'abord tout Instagram (passage complet, payant)\n"
-                "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n"
+                "· `!etats-comptes [test|leger]` — le classeur au crible d'Instagram (`test` : sans rien écrire ; `leger` : followers et Reels)\n"
+                "· `!dashboard` — l'onglet Dashboard sans scan (gratuit) · `!dashboard scan` — avec un passage complet d'Instagram (payant)\n"
+                "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
-    roles_n = [normaliser(r.name) for r in getattr(membre, "roles", [])]
-    # 08/10 (audit de l'assistant) : le rôle d'équipe s'appelle « Clippeur » depuis le 25/09 ; le test sur « team » servait le
-    # parcours candidat (numéro, quiz, J'ACCEPTE) à un clipper signé. Et les questions vont dans #assistant depuis le 05/10.
-    equipe_n = {normaliser(r) for r in ROLES_EQUIPE_ACCEPTES}
-    signe = any("team" in r or r in equipe_n for r in roles_n) or bool(lire_json(FICHIER_EQUIPES, {}).get(str(getattr(membre, "id", ""))))
-    if signe:
-        ou_q = f"<#{salon_assistant_id()}>" if salon_assistant_id() else "#assistant"
-        return ("🧰 **Ce que tu peux me demander**\n"
-                f"· Une question sur la méthode : pose-la dans {ou_q}. Je réponds.\n"
-                "· `!etape` — je te renvoie ton étape en cours.\n"
+    # 09/10 : « déjà dans l'agence » a UNE définition, est_signe (registre, rôle d'équipe, roster) ; l'assistant répond là où le
+    # clipper écrit (plus de renvoi vers #assistant) ; la paie des clippers tombe les 5 et 20.
+    if est_signe(membre):
+        return ("🧰 **Ce que tu peux me demander**\n\n"
+                "· `!etape` : je te renvoie ton étape en cours.\n"
                 # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
                 "· " + codes_2fa.texte_salon_codes() + "\n"
                 "· Même salon, même `!code` pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n"
-                "· `!mesclics` — tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours.\n"
-                "· `!parrain @lui` — tu parraines un nouveau : 5 $ pour toi le jour de sa première paie.\n"
-                "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement — ton adresse de paiement.\n"
+                "· `!mesclics` : tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours (paie les 5 et 20).\n"
+                "· `!parrain @lui` : tu parraines un nouveau, 5 $ pour toi le jour de sa première paie.\n"
+                "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement : ton adresse de paiement.\n"
                 "· Un compte bloqué, un problème de téléphone : **ton manager**, dans ton salon perso.\n"
-                "· `STOP` en message privé — plus aucun rappel automatique.")
-    if serveur_ferme():
-        return ("🧰 **Tu es validé — il reste une étape**\n"
-                "· Réponds **J'ACCEPTE** aux conditions reçues ici (ou appuie sur le bouton ✅) → ton rôle s'ouvre aussitôt.\n"
-                "Ensuite ton manager t'attribue ta créatrice (sous 48 h). Une question ? Pose-la ici.")
-    return ("🧰 **Ton parcours, dans l'ordre**\n"
-            "1. Envoie-moi **ton numéro de téléphone** (celui du formulaire) ici en MP.\n"
-            f"2. Formation (vidéo) puis **quiz** : `!quiz` te donne ton lien personnel (seuil {seuil_quiz_texte()}, 2 essais).\n"
-            f"3. Quiz réussi → **test de montage à rendre en {TEST_HEURES} h** en MP, à rendre ici : je te donne mon avis tout de suite, un manager confirme.\n"
-            # 01/10 (Gaëtan : « la même règle pour tous ») : plus de « un tous les 48 h » seul ; la règle canonique,
-            # « ici » devenu « dans ton salon perso » parce que cette aide se lit en MP.
-            # 01/10 (relecture) : la règle tirée de parcours.regle_comptes(), qui suit PARCOURS_ATTENTE_COMPTE_H et
-            # PARCOURS_REELS_OUVERTURE, au lieu d'une copie en dur
-            "4. Test validé → ta créatrice et ton compte 1, dans ton salon perso. "
-            + parcours.regle_comptes().replace(" ici,", " dans ton salon perso,") + "\n"
-            "· **VALIDÉ** en MP : redemander ton test après une expiration · **STOP** : plus de rappels.\n"
-            "Une question ? Pose-la ici, je réponds avec le kit.")
+                "· `STOP` en message privé : plus aucun rappel automatique.\n\n"
+                "Une question ? Écris-la ici, je réponds.")
+    # 09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : le candidat ne lit que sa prochaine action. Un
+    # quizz réussi (y compris les anciens du test, que la migration valide) n'a plus rien à faire : sa créatrice arrive.
+    pipe_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    info_a = (pipe_a.get("etats") or {}).get(str(getattr(membre, "id", ""))) or {}
+    etat = info_a.get("etat", "")
+    # 09/10 (relecture du lot L5) : un ancien du test que la migration ne prend pas en lot (refus avec motif, STOP) n'a aucune
+    # créatrice en route : on ne la lui promet pas. Le staff tranche (`!migrer-test` les liste).
+    if etat in ETATS_A_MIGRER and _motif_hors_migration(getattr(membre, "id", ""), info_a, pipe_a)[0]:
+        return ("🧰 **Ton dossier est entre les mains de l'équipe.**\n\n"
+                "Une question ? Écris-la ici, je réponds.")
+    if etat in ("quiz_ok", "valide", "attente_attribution", "test_envoye", "test_rendu", "test_expire", "refuse"):
+        return ("🧰 **Ton quizz est réussi.**\n\n"
+                "Ta créatrice et ton compte 1 arrivent dans ton salon perso.\n\n"
+                "Une question ? Écris-la ici, je réponds.")
+    return ("🧰 **Pour rejoindre l'agence**\n\n"
+            f"Regarde la vidéo de formation, puis passe le quizz (il faut {seuil_quiz_texte()}) : tape `!quiz`, je te donne ton lien.\n\n"
+            "Quizz réussi = ta créatrice et ton compte 1 arrivent ici.")
 
 
 async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list, forcer_salon: bool = False,
@@ -5821,27 +5821,38 @@ async def commande_admin(message, texte: str) -> bool:
                             "sont supprimés.")
         return True
 
-    # ---- Serveur fermé (14/09) : !inviter · !refuser · !candidats · !fermer · !ouvrir · !purge-candidats ----
+    # ---- Serveur fermé (14/09) : !inviter · !candidats · !fermer · !ouvrir · !purge-candidats ----
+    # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : !refuser est retirée (elle refusait un test rendu) ; un quizz
+    # réussi hors Discord s'invite à la main, sans test.
     if texte.startswith("!inviter"):
         g = message.guild
         if g is None:
             await message.reply("À lancer depuis un salon du serveur.")
             return True
         mots = texte[len("!inviter"):].strip().split()
+        forcer_i = any(normaliser(m_i) == "forcer" for m_i in mots)
+        mots = [m_i for m_i in mots if normaliser(m_i) != "forcer"]
         grille_forcee = ""
         if mots and mots[-1].lower() in ("fr", "int", "mg", "international"):
             grille_forcee = "fr" if mots[-1].lower() == "fr" else "mg"
             mots = mots[:-1]
         reference = " ".join(mots)
         if not reference:
-            await message.reply("Format : `!inviter Prénom` (ou numéro / e-mail) `[fr|int]` — test rendu hors Discord "
-                                "validé → je crée son invitation personnelle et le message WhatsApp à lui envoyer.")
+            await message.reply("Format : `!inviter Prénom` (ou numéro / e-mail) `[fr|int]` — quizz réussi hors Discord "
+                                "→ je crée son invitation personnelle et le message WhatsApp à lui envoyer.")
             return True
         pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         cle, fiche = trouver_hors_discord(pipe, reference)
         if fiche is None:
             await message.reply(f"❌ Aucun candidat hors Discord ne correspond à « {reference} » — `!candidats` pour "
                                 "la liste (prénom, numéro ou e-mail).")
+            return True
+        # 09/10 (relecture du lot L5) : un refus avec motif se relit avant d'inviter (la raison peut être l'âge : mineurs = non
+        # négociable). Rien n'est fait sans « forcer », tapé en connaissance de cause.
+        if fiche.get("etat") == "refuse" and str(fiche.get("motif") or "").strip() and not forcer_i:
+            await message.reply(f"⛔ {fiche.get('prenom') or reference} a été refusé, motif : « {str(fiche['motif']).strip()[:80]} ».\n\n"
+                                "Rien fait.\n\n"
+                                f"Si le motif ne tient plus : `!inviter {reference} forcer`.")
             return True
         code_g, motif_g = equipe_deduite_tel(fiche.get("tel", ""), fiche.get("pays", ""))
         grille = grille_forcee or code_g
@@ -5874,49 +5885,18 @@ async def commande_admin(message, texte: str) -> bool:
         pipe.setdefault("hors_discord", {})[cle] = fiche
         ecrire_json(FICHIER_PIPELINE, pipe)
         await cacher_invites(g)
-        prenom = fiche.get("prenom") or "toi"
-        suite = ("les conditions de l'équipe à accepter (tu lui réponds J'ACCEPTE), puis ta créatrice et ton créneau de "
-                 "création avec ton manager")
-        message_wa = (f"Bonjour {prenom}, bonne nouvelle : ton test est validé, bienvenue dans l'équipe ! 🎉\n\n"
-                      f"Voici ton invitation personnelle au Discord de l'équipe (valable {INVITATION_JOURS} jours, "
-                      f"pour toi seul) :\n{inv.url}\n\n"
-                      f"Dès ton arrivée, le bot t'écrit en message privé : {suite}.\n\n"
-                      "Ouvre tes messages privés sur le serveur (paramètres de confidentialité) pour recevoir ses "
-                      "messages. À tout de suite !")
+        prenom = fiche.get("prenom") or ""
+        # 09/10 (Gaëtan : « Chaque étape à la fois… Saute des lignes, aère ») : le message WhatsApp du plan, une seule action.
+        message_wa = ((f"Bonjour {prenom},\n\n" if prenom else "Bonjour,\n\n")
+                      + "Ton quizz est validé.\n\n"
+                      f"Rejoins le Discord : {inv.url}\n\n"
+                      "Ta créatrice et ton compte 1 t'y attendent.")
         await message.reply(
-            f"✅ **Invitation créée pour {prenom}** ({'grille FR' if grille == 'fr' else 'International'}"
+            f"✅ **Invitation créée pour {prenom or reference}** ({'grille FR' if grille == 'fr' else 'International'}"
             f"{', ' + motif_g if not grille_forcee else ', grille forcée'}) — valable {INVITATION_JOURS} jours, une seule "
-            "personne, détruite à son arrivée. À son arrivée je fais tout seul : liaison, conditions.\n\n"
+            "personne, détruite à son arrivée. À son arrivée je fais tout seul : validation, créatrice, compte 1.\n\n"
             "À lui envoyer sur WhatsApp" + (f" ({fiche['tel']})" if fiche.get("tel") else "")
             + " — copie-colle :\n```\n" + message_wa + "\n```")
-        return True
-
-    if texte.startswith("!refuser"):
-        corps = texte[len("!refuser"):].strip()
-        pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        tokens = corps.split()
-        cle, fiche, motif = "", None, ""
-        for n in range(min(3, len(tokens)), 0, -1):
-            cle, fiche = trouver_hors_discord(pipe, " ".join(tokens[:n]))
-            if fiche is not None:
-                motif = " ".join(tokens[n:]).strip()
-                break
-        if fiche is None:
-            await message.reply("Format : `!refuser Prénom motif` (ou numéro / e-mail) — test rendu hors Discord non retenu. "
-                                "`!candidats` pour la liste.")
-            return True
-        fiche.update({"etat": "refuse", "refus": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                      "motif": motif, "par": str(message.author.id)})
-        pipe.setdefault("hors_discord", {})[cle] = fiche
-        ecrire_json(FICHIER_PIPELINE, pipe)
-        prenom = fiche.get("prenom") or "toi"
-        message_wa = (f"Bonjour {prenom}, merci d'avoir passé le test de montage. On ne va pas continuer ensemble "
-                      "cette fois" + (f" : {motif}." if motif else ".") + "\n\n"
-                      "Ce n'est pas un jugement sur toi : c'est le niveau attendu sur ce test précis. Tu peux "
-                      "retenter dans 15 jours en refaisant le formulaire, en travaillant les points ci-dessus.\n\n"
-                      "Merci pour le temps que tu nous as accordé.")
-        await message.reply(f"✅ **{prenom} refusé** (hors Discord" + (f", {fiche['tel']}" if fiche.get("tel") else "")
-                            + "). À lui envoyer sur WhatsApp — copie-colle :\n```\n" + message_wa + "\n```")
         return True
 
     if texte.startswith("!candidats"):
@@ -5934,33 +5914,46 @@ async def commande_admin(message, texte: str) -> bool:
             qui = f"{f.get('prenom') or '?'} ({f.get('pays') or 'pays ?'}" + (f", {cle}" if cle.startswith("+") else f", {cle}") + ")"
             return qui + (f" — quiz {f['score']}" if f.get("score") else "")
 
-        groupes = (("📥 **Tests rendus, à juger** (`!inviter` / `!refuser`)", "test_rendu", "rendu"),
-                   ("📨 **Invités, pas encore arrivés**", "invite", "invite_le"),
-                   ("📝 **Quiz réussi, test en cours (par e-mail)**", "quiz_ok", "date_quiz"),
-                   ("✅ **Arrivés sur le serveur**", "arrive", "arrive_le"),
-                   ("⛔ **Refusés**", "refuse", "refus"),
-                   ("📉 **Quiz raté**", "quiz_rate", "date_quiz"))
+        # 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : quizz réussi = entrée dans l'agence.
+        # Les anciens « test rendu » et « refusé » ont réussi le quizz : même groupe. Moins de 14 jours = à inviter (`!inviter`),
+        # plus vieux = à laisser (un candidat de plus de deux semaines ne répond presque jamais).
+        def _date_quiz(f):
+            return f.get("date_quiz") or f.get("rendu") or f.get("refus") or ""
+
+        # 09/10 (relecture du lot L5) : un refus AVEC motif (`!refuser Prénom mineur`) ne se range plus dans « à inviter » : la
+        # raison peut être l'âge (mineurs = non négociable). Il a son groupe, motif affiché, à trancher à la main. Sans motif, le
+        # refus jugeait le test de montage, retiré : il reste avec les quizz réussis.
+        def _refus_motive(f):
+            return f.get("etat") == "refuse" and bool(str(f.get("motif") or "").strip())
+
+        groupes = (("📝 **Quizz réussi, pas encore sur Discord** (`!inviter Prénom`)", ("quiz_ok", "test_rendu", "refuse"), _date_quiz),
+                   ("⛔ **Refusés avec un motif, à trancher à la main**", ("refuse_motive",), lambda f: f.get("refus", "")),
+                   ("📨 **Invités, pas encore arrivés**", ("invite",), lambda f: f.get("invite_le", "")),
+                   ("✅ **Arrivés sur le serveur**", ("arrive",), lambda f: f.get("arrive_le", "")),
+                   ("📉 **Quizz raté**", ("quiz_rate",), lambda f: f.get("date_quiz", "")))
         lignes = [f"🌐 **Candidats hors Discord** — {len(hd)} fiche(s)"
                   + (" · serveur **fermé** 🔒" if serveur_ferme() else " · serveur ouvert 🔓")]
-        for titre, etat, champ in groupes:
-            fiches = sorted(((c, f) for c, f in hd.items() if f.get("etat") == etat),
-                            key=lambda cf: -_jours(cf[1].get(champ, "")))
+        for titre, etats_g, date_de in groupes:
+            fiches = sorted(((c, f) for c, f in hd.items()
+                             if ("refuse_motive" if _refus_motive(f) else f.get("etat")) in etats_g),
+                            key=lambda cf: (not date_de(cf[1]), _jours(date_de(cf[1]))))
             if not fiches:
                 continue
             lignes += ["", f"{titre} — {len(fiches)}"]
             for cle, f in fiches[:15]:
-                extra = f" · J+{_jours(f.get(champ, ''))}"
-                if etat == "test_rendu" and f.get("lien"):
-                    extra += f" · {f['lien']}"
-                if etat == "invite" and f.get("invitation"):
+                j = _jours(date_de(f)) if date_de(f) else None
+                extra = f" · J+{j}" if j is not None else " · date inconnue"
+                if etats_g[0] == "quiz_ok" and j is not None:
+                    extra += " · à inviter" if j < 14 else " · plus de 14 j : on laisse"
+                if f.get("etat") == "invite" and f.get("invitation"):
                     extra += f" · code `{f['invitation']}`"
-                if etat == "refuse" and f.get("motif"):
-                    extra += f" · {f['motif'][:60]}"
+                if _refus_motive(f):
+                    extra += f" · motif : « {str(f['motif']).strip()[:60]} »"
                 lignes.append("· " + _ligne(cle, f) + extra)
             if len(fiches) > 15:
                 lignes.append(f"… et {len(fiches) - 15} de plus.")
         if len(lignes) == 1:
-            lignes.append("_Aucune fiche : les webhooks QUIZ_OK (avec numéro) et TEST_RENDU n'ont encore rien posté._")
+            lignes.append("_Aucune fiche : aucun quizz réussi sans compte Discord._")
         await envoyer_long(message, lignes)
         return True
 
@@ -5974,7 +5967,8 @@ async def commande_admin(message, texte: str) -> bool:
         pipe["ferme"] = fermer
         ecrire_json(FICHIER_PIPELINE, pipe)
         if not fermer:
-            await message.reply("🔓 **Serveur OUVERT** : les arrivants sont accueillis comme avant (numéro → quiz → test en MP)."
+            await message.reply("🔓 **Serveur OUVERT** : un arrivant sans quizz reçoit la vidéo et le quizz ; quizz réussi = sa "
+                                "créatrice et son compte 1."
                                 + (" ⚠️ DISCORD_FERME=1 est posé dans Railway et l'emporte : retire-le pour rouvrir vraiment."
                                    if DISCORD_FERME_ENV else ""))
             return True
@@ -6000,11 +5994,10 @@ async def commande_admin(message, texte: str) -> bool:
                           + ", ".join(f"`{i.code}` ({source_du_code(i.code)}, {i.inviter.display_name if i.inviter else '?'}, "
                                       f"{i.uses or 0} util.)" for i in autres[:15]))
             lignes.append("Tout révoquer d'un coup : `!fermer invitations` (les invitations `!inviter` sont conservées).")
-        lignes += ["", "Côté Google Forms, une fois : (1) le message de fin du formulaire de candidature donne la vidéo + "
-                       "le quiz, plus le lien Discord ; (2) le quiz demande le numéro WhatsApp à la place de l'identifiant "
-                       "Discord ; (3) le formulaire « Rendu du test » existe et son Apps Script est posé (README, section "
-                       "« Serveur fermé »).",
-                   "Vider le stock déjà présent : `!purge-candidats` (aperçu) puis `!purge-candidats appliquer`."]
+        # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : plus de formulaire « Rendu du test » à poser.
+        lignes += ["", "La candidature passe par le site : formulaire, vidéo, quizz, puis l'invitation Discord personnelle. "
+                       "Les formulaires Google (candidature, quiz, rendu du test) sont à fermer à la main.",
+                   "", "Vider le stock déjà présent : `!purge-candidats` (aperçu) puis `!purge-candidats appliquer`."]
         await envoyer_long(message, lignes)
         return True
 
@@ -6049,10 +6042,17 @@ async def commande_admin(message, texte: str) -> bool:
                 gardes["signé au registre sans rôle Team"] = gardes.get("signé au registre sans rôle Team", 0) + 1
                 actionnables.append(f"· {m.display_name} — signé au registre mais sans rôle Team : `!equipe {m.display_name} fr|int`")
                 continue
+            if est_signe(m):                                             # 09/10 : un ancien du roster sans rôle ni fiche reste
+                gardes["signé (roster)"] = gardes.get("signé (roster)", 0) + 1
+                continue
             etat_m = pipe.get("etats", {}).get(str(m.id), {}).get("etat", "")
-            if etat_m in ("test_envoye", "test_rendu", "valide") and not inclure_en_cours:
+            # 09/10 (Gaëtan : « on va ouvrir les vannes ») : un quizz réussi est dans l'agence, même en attente d'une créatrice ;
+            # les anciens du test aussi (expirés et refusés compris : ils ont réussi le quizz), tant que `!migrer-test` ne les a pas passés.
+            if etat_m in ("quiz_ok", "valide", "attente_attribution", "test_envoye", "test_rendu", "test_expire", "refuse") \
+                    and not inclure_en_cours:
                 gardes[f"parcours en cours ({etat_m})"] = gardes.get(f"parcours en cours ({etat_m})", 0) + 1
-                actionnables.append(f"· {m.display_name} — {etat_m} (gardé ; `!purge-candidats appliquer tout` pour l'inclure)")
+                if etat_m.startswith("test_") or etat_m == "refuse":     # à faire entrer : `!migrer-test`, pas à exclure
+                    actionnables.append(f"· {m.display_name} — ancien du test (gardé ; `!migrer-test` pour le faire entrer)")
                 continue
             anciennete = (ref - m.joined_at).days if m.joined_at else 999
             if jours and anciennete < jours:
@@ -6078,11 +6078,12 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, entete)
         if not appliquer:
             return True
-        adieu = ("Bonjour ! Le serveur passe en mode équipe : il est désormais réservé aux clippers validés, et ton "
-                 "compte en est retiré. Ce n'est pas un jugement sur ton profil. Pour (re)tenter le programme : "
-                 + (f"le formulaire {LIEN_FORMULAIRE} — " if LIEN_FORMULAIRE else "le formulaire de candidature — ")
-                 + "formation, quiz et test arrivent par e-mail, et ton invitation personnelle si ton test est "
-                   "validé. Merci pour le temps que tu nous as accordé.")
+        lien_adieu = web_candidature.lien_candidature() or LIEN_FORMULAIRE
+        adieu = ("Bonjour,\n\nLe serveur est réservé aux clippers de l'agence : ton compte en est retiré.\n\n"
+                 "Ce n'est pas un jugement sur toi.\n\n"
+                 + (f"Pour revenir : la vidéo de formation et le quizz, ici :\n{lien_adieu}\n\n" if lien_adieu
+                    else "Pour revenir : refais la candidature, puis la vidéo de formation et le quizz.\n\n")
+                 + "Quizz réussi = ta créatrice et ton compte 1.")
         sortis, echecs, sans_mp = 0, [], 0
         for m, _etat, _anc in cibles:
             try:
@@ -6213,18 +6214,18 @@ async def commande_admin(message, texte: str) -> bool:
         lignes.append("✅ Toutes les catégories sont ouvertes au bot (salons perso rangés sous chaque créatrice)" if not fermees
                       else f"⚠️ Catégories fermées au bot : {', '.join(fermees)} — les salons perso de leurs clippers "
                            f"tombent dans « {CATEGORIE_CLIPPERS_NOM} ». {CONSEIL_CATEGORIE}")
-        # Salons sensibles : tests rendus, numéros, contrats — ils ne doivent JAMAIS être publics.
+        # Salons sensibles : numéros, arrivées, paie — ils ne doivent JAMAIS être publics.
         for cid, etiquette in ((CANAL_ADMIN_ID, "admin (CANAL_ADMIN_ID)"), (CANAL_MANAGER_ID, "manager (CANAL_MANAGER_ID)")):
             if not cid:
                 lignes.append(f"{'❌' if 'admin' in etiquette else 'ℹ️'} Salon {etiquette} non défini"
                               + (" — les notifications tombent dans le salon public de l'assistant" if "admin" in etiquette
-                                 else " — tout va au salon admin (le manager ne voit ni tests ni J'ACCEPTE)"))
+                                 else " — tout va au salon admin (le manager ne voit pas les arrivées)"))
                 continue
             salon_s = g.get_channel(int(cid)) if cid.isdigit() else None
             if salon_s is None:
                 lignes.append(f"❌ Salon {etiquette} introuvable (id {cid})")
             elif salon_s.permissions_for(g.default_role).view_channel:
-                lignes.append(f"❌ Salon {etiquette} #{salon_s.name} est **PUBLIC** — numéros, tests et contrats y passent : rends-le privé")
+                lignes.append(f"❌ Salon {etiquette} #{salon_s.name} est **PUBLIC** — numéros et paie y passent : rends-le privé")
             else:
                 lignes.append(f"✅ Salon {etiquette} #{salon_s.name} privé")
         rm_v = role_manager(g)
@@ -6232,7 +6233,7 @@ async def commande_admin(message, texte: str) -> bool:
                       else f"❌ Rôle « {codes_2fa.ROLE_MANAGER_NOM} » introuvable (nom EXACT, ROLE_MANAGER_NOM) — aucune commande manager ne marche")
         lignes.append("✅ EMAIL_FACTURATION définie" if EMAIL_FACTURATION
                       else "⚠️ EMAIL_FACTURATION vide — le bot ne sait pas où les clippers FR envoient leur facture")
-        lignes.append("ℹ️ Recrutement international : " + ("EN PAUSE (PAUSE_INT=1)" if INT_EN_PAUSE else "ouvert"))
+        # 09/10 : plus de ligne « Recrutement international » : INT_EN_PAUSE (toujours fausse depuis le 30/09) part avec le test.
         lignes.append("🔒 Serveur FERMÉ aux candidats — arrivée uniquement par `!inviter`"
                       + (" (DISCORD_FERME=1)" if DISCORD_FERME_ENV else " (`!fermer`)")
                       if serveur_ferme() else "🔓 Serveur ouvert aux candidats (`!fermer` pour verrouiller)")
@@ -6289,6 +6290,11 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     # ---- !equipes : audit registre des signatures vs rôles réellement portés ----
+    # 09/10 (plan du funnel : « Team France / International absents de !equipes ») : la boucle cherchait « Team Madagascar »
+    # (défaut de ROLE_TEAM_MG_NOM) alors que le rôle s'appelle « Team International », et ignorait le rôle unique Clippeur posé
+    # à tous depuis le 25/09. Trois rôles audités : Clippeur contre tout le registre, puis Team France et Team International
+    # (recherche tolérante de role_team) contre l'équipe fr / mg du registre. Un rôle qui existe sans porteur dit « 0 porteur » ;
+    # un rôle introuvable est signalé une fois, sans arrêter le reste. Les anciens hors registre (rôle sans fiche) sortent ici.
     if texte.startswith("!equipes"):
         g = message.guild
         if g is None:
@@ -6296,24 +6302,64 @@ async def commande_admin(message, texte: str) -> bool:
             return True
         registre = lire_json(FICHIER_EQUIPES, {})
         lignes = ["👥 **Équipes — registre des signatures vs rôles portés**"]
-        for nom_court, nom_role, code in (("France", ROLE_TEAM_FR_NOM, "fr"), ("Madagascar", ROLE_TEAM_MG_NOM, "mg")):
-            role = discord.utils.find(lambda r: normaliser(nom_role) in normaliser(r.name), g.roles)
+
+        def _role_tolerant(noms):
+            cibles = [normaliser(n).strip() for n in noms if n and n.strip()]
+            for cible in cibles:                                         # le nom exact d'abord, puis « contient »
+                role = discord.utils.find(lambda r: normaliser(r.name).strip() == cible and not r.managed, g.roles)
+                if role is not None:
+                    return role
+            for cible in cibles:
+                role = discord.utils.find(lambda r: cible in normaliser(r.name) and not r.managed, g.roles)
+                if role is not None:
+                    return role
+            return None
+
+        def _staff_id(i):
+            m = g.get_member(i)
+            return str(i) in ADMIN_IDS or (m is not None and est_staff(m))
+
+        def _liste(ids):
+            ids = sorted(ids)
+            return ", ".join(f"<@{i}>" for i in ids[:15]) + (f" … et {len(ids) - 15} de plus" if len(ids) > 15 else "")
+
+        presents_reg = {int(u) for u in registre if str(u).isdigit() and g.get_member(int(u)) is not None}
+        partis = sum(1 for u in registre if not (str(u).isdigit() and int(u) in presents_reg))
+        for titre, noms, code in (("Clippeur", (ROLE_EQUIPE_UNIQUE, "Clippeur"), ""),
+                                  ("Team France", (ROLE_TEAM_FR_NOM,), "fr"),
+                                  ("Team International", (ROLE_TEAM_MG_NOM, "Team International", "Team Madagascar"), "mg")):
+            lignes.append("")
+            role = _role_tolerant(noms)
             if role is None:
-                lignes.append(f"❌ Rôle « {nom_role} » introuvable (variable ROLE_TEAM_*_NOM).")
+                # 09/10 (relecture) : sans rôle Clippeur (renommé, variable fausse), l'audit concluait « ✅ alignés ». Le rôle
+                # unique porté par tous les clippers manque : ❌. Les Team, optionnelles depuis le 25/09, restent en ℹ️.
+                autres_noms = [n for n in dict.fromkeys(noms) if n and normaliser(n).strip() != normaliser(titre)]
+                lignes.append(("❌" if not code else "ℹ️") + f" Rôle « {titre} » introuvable sur le serveur"
+                              + (f" (cherché aussi : {' / '.join(autres_noms)})" if autres_noms else "")
+                              + (". Vérifie ROLE_EQUIPE_UNIQUE et le nom du rôle." if not code else "."))
                 continue
             porteurs = {m.id for m in role.members if not m.bot}
-            valides = {int(mid) for mid, info in registre.items() if info.get("equipe") == code}
-            lignes.append(f"__{role.name}__ : {len(porteurs)} avec le rôle · {len(valides)} au registre")
-            intrus = porteurs - valides
-            manquants = valides - porteurs
+            attendus = presents_reg if not code else {i for i in presents_reg if (registre.get(str(i)) or {}).get("equipe") == code}
+            lignes.append(f"__{role.name}__ : {len(porteurs)} porteur{'s' if len(porteurs) > 1 else ''} · {len(attendus)} au registre"
+                          + (f" (équipe {code})" if code else ""))
+            intrus = {i for i in porteurs - presents_reg if not _staff_id(i)}
             if intrus:
-                lignes.append("❌ Rôle SANS signature enregistrée : " + ", ".join(f"<@{i}>" for i in list(intrus)[:15])
-                              + " → `!equipe @membre fr|mg` pour régulariser, ou retirer le rôle.")
-            if manquants:
-                lignes.append("⚠️ Signés mais SANS le rôle : " + ", ".join(f"<@{i}>" for i in list(manquants)[:15]))
+                lignes.append(f"❌ Rôle SANS fiche au registre ({len(intrus)}) : {_liste(intrus)} → `!equipe @membre fr|int` "
+                              "pour régulariser, ou retirer le rôle.")
+            if code:
+                autre = {i for i in porteurs & presents_reg if (registre.get(str(i)) or {}).get("equipe") not in (code, None, "")}
+                if autre:
+                    lignes.append(f"⚠️ Autre équipe au registre ({len(autre)}) : {_liste(autre)}")
+            # Depuis le 25/09, seul le rôle unique est posé : un signé sans rôle Team n'est un écart que sans ROLE_EQUIPE_UNIQUE.
+            if not code or not ROLE_EQUIPE_UNIQUE:
+                manquants = {i for i in attendus - porteurs if not _staff_id(i)}
+                if manquants:
+                    lignes.append(f"⚠️ Au registre mais SANS le rôle ({len(manquants)}) : {_liste(manquants)}")
+        if partis:
+            lignes += ["", f"ℹ️ {partis} fiche(s) du registre : membres partis du serveur, non comptées."]
         if all(not l.startswith(("❌", "⚠️")) for l in lignes[1:]):
-            lignes.append("✅ Registre et rôles parfaitement alignés.")
-        await message.reply("\n".join(lignes)[:1990])
+            lignes += ["", "✅ Registre et rôles alignés."]
+        await envoyer_long(message, lignes)
         return True
 
     # ---- !equipe @membre fr|mg|retirer : attribution des rôles d'accès à la signature du contrat ----
@@ -6390,35 +6436,91 @@ async def commande_admin(message, texte: str) -> bool:
         journal.info("Équipe %s -> membre %s (par %s)", equipe or "retirée", membre.id, message.author.id)
         return True
 
-    # ---- Pipeline candidat : !quiz-ok, !test-ok, !test-non, !pipeline, !fiche ----
+    # ---- Pipeline candidat : !quiz-ok, !migrer-test, !pipeline, !fiche ----
+    # 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : !quiz-ok valide à la main (même chemin
+    # qu'un quizz réussi : registre, rôle Clippeur, créatrice, compte 1). Plus de garde LIEN_TEST, plus de test envoyé.
     if texte.startswith("!quiz-ok"):
         corps = texte[len("!quiz-ok"):].strip()
         score = next(iter(re.findall(r"\d+\s*/\s*\d+", corps)), "")
-        nom = re.sub(r"<@!?\d+>", "", corps.replace(score, "")).strip()
-        membre = message.mentions[0] if message.mentions else (chercher_membre(nom) if nom else None)
+        nom = re.sub(r"<@!?\d+>", "", corps.replace(score, "") if score else corps).strip()
+        # 09/10 (relecture du lot L5) : valider engage maintenant le registre, le rôle et 3 comptes réservés 48 h. Le nom se résout
+        # donc sans correspondance partielle (« Roman » validait « Romane ») : le pseudo exact, ou le prénom du pseudo ; deux
+        # membres de ce prénom (deux Andry) → rien fait, mentionne le bon.
+        membre = message.mentions[0] if message.mentions else None
+        if membre is None and nom:
+            cle_q = normaliser(nom)
+            cle_q = normaliser(roster.resoudre_alias(cle_q)) or cle_q
+            trouves_q = {m.id: m for g in client.guilds for m in g.members if not m.bot and normaliser(prenom_de(m)) == cle_q}
+            exact_q = chercher_membre(nom, exact=True)
+            if exact_q is not None:
+                trouves_q[exact_q.id] = exact_q
+            if len(trouves_q) > 1:
+                await message.reply(f"⚠️ {len(trouves_q)} membres s'appellent « {nom} » : rien fait.\n\n"
+                                    f"Mentionne le bon : `!quiz-ok @{nom}`.")
+                return True
+            membre = next(iter(trouves_q.values()), None)
         if membre is None:
-            await message.reply("Format : `!quiz-ok @membre [score]` — ou `!quiz-ok Hugo 32/34` (nom en "
-                                "toutes lettres). Enregistre le quiz validé et envoie le test 48 h en MP.")
-            return True
-        if not LIEN_TEST:
-            await message.reply("❌ LIEN_TEST vide — pose le lien du dossier de test dans Railway d'abord.")
+            await message.reply("Format : `!quiz-ok @membre [score]` — ou `!quiz-ok Hugo 9/10` (pseudo ou prénom exact). "
+                                "Valide le candidat à la main : sa créatrice et son compte 1 suivent tout seuls.")
             return True
         if not score:
             score = next(iter(re.findall(r"\d+", re.sub(r"<@!?\d+>", "", corps))), "") if message.mentions else ""
-        envoye = await envoyer_test_candidat(membre, score)
-        await message.reply(f"✅ {membre.mention} → test envoyé en MP, deadline {TEST_HEURES} h, relance auto la veille."
-                            if envoye else
-                            f"⚠️ {membre.mention} a ses MP fermés — état enregistré, mais envoie-lui le lien à la main.")
+        # 09/10 (relecture) : sans score tapé, rien n'est passé : valider_candidat garde le vrai score du quizz (« manuel »
+        # l'écrasait) ; valide_par = « staff » dit déjà que c'est une validation à la main.
+        retour_v = str(await valider_candidat(membre, score, "staff") or "")
+        if retour_v == "deja":
+            await message.reply(f"ℹ️ {membre.mention} est déjà dans l'agence (registre, rôle d'équipe ou staff) : rien fait.")
+        elif retour_v.startswith(("⚠️", "❌")):
+            await message.reply(f"{retour_v}\n\n`!fiche {membre.display_name}` pour voir où il en est."[:1990])
+        else:
+            await message.reply((f"✅ {membre.mention} validé à la main."
+                                 + (f"\n\n{retour_v}" if "!creatrice" in retour_v
+                                    else " Sa créatrice et son compte 1 suivent tout seuls."))[:1990])
+        return True
+
+    # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : les candidats restés dans l'ancien tunnel (quiz_ok, test envoyé,
+    # rendu, expiré, refusé) entrent dans l'agence. Automatique une fois au démarrage (migrer_test, appelée par on_ready) ;
+    # la commande montre l'aperçu et relance.
+    if texte.lower().startswith("!migrer-test"):
+        if str(message.author.id) not in ADMIN_IDS:
+            await message.reply("Commande admin.")
+            return True
+        go = normaliser(texte[len("!migrer-test"):]).split()[:1] in (["go"], ["appliquer"])
+        # 09/10 (relecture) : « Migration lancée » ne part plus d'avance (il précédait « tourne déjà » ou « Personne à migrer ») :
+        # migrer_test l'annonce elle-même, une fois le verrou pris, le stock lu et quelqu'un à faire.
+
+        async def _annonce_m(t):
+            await message.reply(t)
+        await envoyer_long(message, (await migrer_test(apercu=not go, relance=True, annonce=_annonce_m if go else None)).split("\n"))
+        return True
+
+    # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité est pourrie apparemment ») : les dossiers
+    # perso et les TOP 20 ré-encodés déjà partagés perdent leur accès par lien. Les fichiers restent dans le Drive de l'agence.
+    if texte.lower().startswith("!drives-perso"):
+        if str(message.author.id) not in ADMIN_IDS:
+            await message.reply("Commande admin.")
+            return True
+        mots_d = normaliser(texte[len("!drives-perso"):]).split()
+        if mots_d[:1] != ["fermer"]:
+            await message.reply("Format : `!drives-perso fermer` (aperçu : les dossiers perso et TOP 20 encore ouverts par lien), "
+                                "puis `!drives-perso fermer go` (retire l'accès par lien ; les fichiers restent dans le Drive).")
+            return True
+        go_d = "go" in mots_d[1:] or "appliquer" in mots_d[1:]
+        try:
+            bilan_d = await onboarding.fermer_dossiers_perso(apercu=not go_d)
+        except Exception as erreur:                                      # noqa: BLE001
+            bilan_d = f"❌ Drive injoignable ({type(erreur).__name__}) : rien n'a été fermé, relance plus tard."
+        await envoyer_long(message, (str(bilan_d or "Aucun dossier perso à fermer.")
+                                     + ("" if go_d else "\n\nRien n'a été touché. Pour fermer : `!drives-perso fermer go`")).split("\n"))
         return True
 
     if await roster.commande(message, texte):                            # !roster (26/09) : afficher, remplacer, sortie, nouveau
         return True
-    if await reels_uniques.commande_staff(message, texte):               # !reels-uniques Créatrice [Prénom …] (26/09)
-        return True
+    # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : !reels-uniques est retirée.
     if texte.startswith("!salons-equipe"):
         # 25/09 : « fais un salon pour tous mes clippers actuels et ajoute Jonas ». Format :
         # !salons-equipe Sophie: Thia ; Chloé: Romaric, Hasina ; Sarah: Yves, Tara  — ou sans liste : tous les signés
-        # avec une créatrice au registre. Chaque salon reçoit ses comptes du classeur, son lien, son Drive, ses alias 2FA,
+        # avec une créatrice au registre. Chaque salon reçoit ses comptes du classeur, son lien, ses alias 2FA,
         # et le parcours démarre directement à la routine (ils ont déjà leurs comptes).
         g = message.guild
         if g is None:
@@ -6474,13 +6576,13 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, [f"🏠 **Salons d'équipe** ({len(cibles)})"] + bilan_se)
         return True
     if texte.startswith("!reset"):
-        # 24/09 : pour tester le tunnel entier sur un compte déjà passé (quiz → test → validation), il faut
+        # 24/09 : pour tester le tunnel entier sur un compte déjà passé (quiz → validation), il faut
         # pouvoir remettre son parcours à zéro sans toucher à sa liaison, ses rôles ni son équipe (`!sortie` pour ça).
         corps = texte[len("!reset"):].strip()
         nom = re.sub(r"<@!?\d+>", "", corps).strip()
         membre = message.mentions[0] if message.mentions else (chercher_membre(nom, exact=True) if nom else None)
         if membre is None:
-            await message.reply("Format : `!reset @membre` — remet son parcours candidat à zéro (quiz, test, validation) pour "
+            await message.reply("Format : `!reset @membre` — remet son parcours candidat à zéro (quizz, validation) pour "
                                 "le rejouer ; liaison téléphone, rôles et équipe conservés (`!sortie` pour une vraie sortie).")
             return True
         pipe_r = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -6488,61 +6590,11 @@ async def commande_admin(message, texte: str) -> bool:
         ecrire_json(FICHIER_PIPELINE, pipe_r)
         journal.info("Reset du parcours de %s par %s (état avant : %s)", membre.id, message.author.id, (ancien_r or {}).get("etat"))
         await message.reply(f"🔄 Parcours de {membre.mention} remis à zéro (état avant : **{(ancien_r or {}).get('etat') or 'aucun'}**, "
-                            f"essais de quiz : {(ancien_r or {}).get('essais_quiz', 0)}). Il peut repasser le quiz : "
-                            "QUIZ_OK → test 48 h en MP, comme un nouveau candidat. Liaison, rôles et équipe intacts.")
+                            f"essais de quiz : {(ancien_r or {}).get('essais_quiz', 0)}). Il peut repasser le quizz : "
+                            "réussi = validé, puis sa créatrice et son compte 1, comme un nouveau. Liaison, rôles et équipe intacts.")
         return True
-    if texte.startswith("!test-ok"):
-        corps = texte[len("!test-ok"):].strip()
-        membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
-        if membre is None:
-            await message.reply("Format : `!test-ok @membre` — ou `!test-ok Prénom`.")
-            return True
-        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        donnees.setdefault("etats", {}).setdefault(str(membre.id), {})["etat"] = "valide"
-        donnees["etats"][str(membre.id)]["validation"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        ecrire_json(FICHIER_PIPELINE, donnees)
-        # Aiguillage acté le 18/07 au soir (FR → contrat AVANT le rôle ; International → conditions
-        # puis J'ACCEPTE) : factorisé dans suite_validation, partagé avec l'arrivée par invitation.
-        await message.reply(await suite_validation(membre, message.guild))
-        return True
-
-    if texte.startswith("!test-non"):
-        # Comme !test-ok : on accepte la mention OU le prénom (le bot annonce « mention ou nom »,
-        # et dans un salon privé l'autocomplétion des @ ne propose pas tout le monde — sans ce
-        # fallback, `!test-non zeky raison` ou un `@pseudo` tapé à la main échouaient « Format »).
-        corps = texte[len("!test-non"):].strip()
-        if message.mentions:
-            membre = message.mentions[0]
-            raison = corps.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", "").strip()
-        else:
-            # Le nom peut contenir des espaces (« ben 10 ») : on prend le PLUS LONG préfixe qui
-            # résout un membre, le reste = la raison (les mots de la raison ne forment pas un nom).
-            membre, raison = None, ""
-            tokens = corps.split()
-            for n in range(min(4, len(tokens)), 0, -1):
-                cand = chercher_membre(" ".join(tokens[:n]), exact=True)   # jamais de nom partiel ici
-                if cand is not None:
-                    membre, raison = cand, " ".join(tokens[n:]).strip()
-                    break
-        if membre is None:
-            await message.reply("Format : `!test-non @membre raison` — ou `!test-non Prénom raison` "
-                                "(le prénom suffit, l'@ n'est pas obligatoire).")
-            return True
-        raison = raison.strip(" []").strip()  # tolère les crochets tapés d'après le libellé d'aide
-        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        retest = (datetime.now(timezone.utc) + timedelta(days=15)).isoformat(timespec="seconds")
-        info_n = donnees.setdefault("etats", {}).setdefault(str(membre.id), {})
-        info_n.update({"etat": "refuse", "retest": retest, "note": raison,
-                       "refus": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-        info_n.setdefault("relances", {}).pop("retest_ok", None)
-        ecrire_json(FICHIER_PIPELINE, donnees)
-        await envoyer_mp(membre, "Merci pour ton test — **pas retenu cette fois**."
-                                 + (f" Le point à travailler : {raison}." if raison else "")
-                                 + f"\n\nTu peux retenter à partir du **{retest[:10]}**. D'ici là : reste sur le serveur, "
-                                   "revois les fiches de formation, entraîne-toi — beaucoup de nos validés ont réussi "
-                                   "au 2e essai 💪")
-        await message.reply(f"📋 {membre.mention} → refusé, re-test possible le {retest[:10]}.")
-        return True
+    # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : !test-ok et !test-non sont retirées. Valider à la main :
+    # `!quiz-ok @x`.
 
     # ---- !relance @x : pousser un candidat d'un cran, d'après son état réel ----
     if texte.startswith("!relance ") or texte.strip() == "!relance":
@@ -6552,7 +6604,7 @@ async def commande_admin(message, texte: str) -> bool:
         membre = message.mentions[0] if message.mentions else (chercher_membre(corps) if corps else None)
         if membre is None:
             await message.reply("Format : `!relance @membre` — envoie en MP la prochaine étape de SON parcours "
-                                "(numéro, quiz, test, J'ACCEPTE…). `… forcer` ignore son STOP.")
+                                "(vidéo et quizz, ou sa créatrice qui arrive). `… forcer` ignore son STOP.")
             return True
         pipe_r = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         uid_r = str(membre.id)
@@ -6563,7 +6615,7 @@ async def commande_admin(message, texte: str) -> bool:
                                 "pour passer outre (en connaissance de cause).")
             return True
         etape = ou_en_es_tu(uid_r)
-        ok_r = await envoyer_mp(membre, "👋 **Petit rappel de l'équipe.** " + etape)
+        ok_r = await envoyer_mp(membre, "👋 **Petit rappel de l'équipe.**\n\n" + etape)      # 09/10 : « Saute des lignes, aère »
         await message.reply((f"📨 Relance envoyée à {membre.mention} : " if ok_r else f"⚠️ MP fermés pour {membre.mention} — à dire : ")
                             + etape.replace("**", ""))
         return True
@@ -6646,6 +6698,8 @@ async def commande_admin(message, texte: str) -> bool:
                             "parcours et relances arrêtés." + (f"\n⚠️ {' · '.join(res['refus'])}" if res["refus"] else ""))
         return True
 
+    # 09/10 : !relance-telegram (opération ponctuelle du 26/09) est retirée ; les relances passent par relances.py (`!relances`).
+
     # ---- !relancer-lien : rattraper les candidatures qui n'ont jamais fait !lier ----
     # `!pipeline` annonce « N sans Discord lié » sans permettre d'agir. Ces gens se
     # répartissent en DEUX populations qu'on ne relance pas du tout de la même façon :
@@ -6653,104 +6707,6 @@ async def commande_admin(message, texte: str) -> bool:
     #   B. formulaire rempli, jamais venus sur Discord → joignables SEULEMENT par WhatsApp.
     # Les confondre, c'est croire qu'on a relancé 184 personnes alors qu'on en a touché
     # une fraction. D'où deux sorties distinctes : un envoi de MP, et un export à appeler.
-    if texte.startswith("!relance-telegram"):
-        # 26/09 (Gaëtan) : « envoie un message Telegram à ceux des 20 derniers jours du classeur : bug, refaites le formulaire du
-        # site ». Un bot Telegram ne peut écrire qu'à qui lui a déjà parlé : le bot prépare donc la liste (les meilleurs, pas déjà
-        # sur Discord ni dans l'équipe), les liens t.me et wa.me et le message à coller, dans un onglet du classeur + ici.
-        mots_rt = texte.split()
-        jours_rt = next((int(m) for m in mots_rt[1:] if m.isdigit()), 20)
-        mini_rt = next((int(m.split("=")[1]) for m in mots_rt[1:] if m.startswith("min=") and m.split("=")[1].isdigit()), 4)
-        try:
-            cands_rt = await lire_candidatures_sheets(forcer=True)
-        except Exception as erreur:                                       # noqa: BLE001
-            await message.reply(f"Classeur des candidatures illisible ({type(erreur).__name__}).")
-            return True
-        donnees_rt = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        tels_discord = {_chiffres_tel(l.get("tel", ""))[-8:] for l in donnees_rt.get("liaisons", {}).values() if len(_chiffres_tel(l.get("tel", ""))) >= 8}
-        tels_site = {c["tel_chiffres"][-8:] for c in cands_rt if c["source"] == "site" and len(c["tel_chiffres"]) >= 8}
-        prenoms_equipe = {normaliser(n) for n in roster.noms_actifs()} | {normaliser(n) for n in roster.lire()["sortis"]}
-        for uid_rt in lire_json(FICHIER_EQUIPES, {}):
-            m_rt = membre_par_id(uid_rt)
-            if m_rt is not None:
-                prenoms_equipe.add(normaliser(prenom_de(m_rt)))
-        depuis_rt = datetime.now() - timedelta(days=jours_rt)
-        lien_rt = (web_candidature.WEB_URL_PUBLIQUE or "").rstrip("/") + "/candidature" if web_candidature.WEB_URL_PUBLIQUE else LIEN_FORMULAIRE
-
-        def _tel_intl(tel, pays):
-            d = _chiffres_tel(tel)
-            if d.startswith("00"):
-                d = d[2:]
-            p = normaliser(pays)
-            if d.startswith("0") and len(d) == 10 and "madagascar" in p:
-                d = "261" + d[1:]
-            elif d.startswith("0") and len(d) == 10 and ("france" in p or "belgique" in p):
-                d = ("33" if "france" in p else "32") + d[1:]
-            elif len(d) == 9 and "madagascar" in p and not d.startswith("261"):
-                d = "261" + d
-            elif len(d) == 8 and "benin" in p:
-                d = "229" + d
-            return d
-
-        def _handle(t):
-            t = t.strip().lstrip("@").strip()
-            return t if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{4,31}", t) else ""
-
-        def _message(prenom):
-            p = prenom.strip().split()[0].capitalize() if prenom.strip() else ""
-            return (f"Salut {p}, c'est Gaëtan de G&M 👋\n\nOn a eu un bug avec le formulaire de candidature : ta réponse ne nous est pas "
-                    f"arrivée correctement.\n\nRefais ta candidature ici, ça prend 3 minutes et tu arrives directement sur notre Discord :\n{lien_rt}"
-                    f"\n\nSi tu es toujours partant, c'est le moment 🚀")
-
-        vus_rt, retenus_rt, ecartes_rt = set(), [], {"déjà sur Discord": 0, "déjà par le site": 0, "déjà dans l'équipe": 0, "mineur": 0, "score faible": 0, "doublon": 0}
-        for c in sorted([c for c in cands_rt if c["source"] == "formulaire" and c.get("date") and c["date"] >= depuis_rt], key=lambda c: c["date"], reverse=True):
-            cle = c["tel_chiffres"][-8:] if len(c["tel_chiffres"]) >= 8 else normaliser(c.get("prenom", ""))
-            if cle in vus_rt:
-                ecartes_rt["doublon"] += 1; continue
-            vus_rt.add(cle)
-            if cle in tels_discord:
-                ecartes_rt["déjà sur Discord"] += 1; continue
-            if cle in tels_site:
-                ecartes_rt["déjà par le site"] += 1; continue
-            pr = normaliser(c.get("prenom", "")).split()
-            if pr and pr[0] in prenoms_equipe:
-                ecartes_rt["déjà dans l'équipe"] += 1; continue
-            age = re.search(r"\d+", c.get("age", "") or "")
-            if (age and int(age.group(0)) < 18) or normaliser(c.get("majeur", "")).startswith("non"):
-                ecartes_rt["mineur"] += 1; continue
-            pts, raisons = score_candidature(c)
-            if pts < mini_rt:
-                ecartes_rt["score faible"] += 1; continue
-            c["score"], c["raisons"] = pts, raisons
-            retenus_rt.append(c)
-        retenus_rt.sort(key=lambda c: (-c["score"], -c["date"].timestamp()))
-        onglet_rt = f"Relance Telegram {heure_paris().strftime('%d-%m')}"
-        lignes_rt = [["Prénom", "Score /8", "Pourquoi", "Telegram (lien)", "WhatsApp (lien)", "Pays", "Téléphones", "Candidature du", "Envoyé ?", "Message à coller"]]
-        for c in retenus_rt:
-            h, tel = _handle(c.get("telegram", "")), _tel_intl(c.get("tel", ""), c.get("pays", ""))
-            lignes_rt.append([c.get("prenom", "").strip(), c["score"], ", ".join(c["raisons"]),
-                              f"https://t.me/{h}" if h else f"(pas de @ valide : « {c.get('telegram', '')[:30]} »)", f"https://wa.me/{tel}" if tel else "",
-                              c.get("pays", ""), c.get("telephones", "")[:60], c["date"].strftime("%d/%m/%Y"), "", _message(c.get("prenom", ""))])
-        ecrit_rt = ""
-        if SHEET_CANDIDATURES_ID and google_api.actif():
-            try:
-                await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, onglet_rt)
-                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet_rt}!A1", [[""] * 10 for _ in range(400)])   # l'onglet du jour repart à blanc
-                await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet_rt}!A1", lignes_rt)
-                ecrit_rt = f"onglet **{onglet_rt}** du classeur des candidatures"
-            except Exception as erreur:                                   # noqa: BLE001
-                ecrit_rt = f"classeur non écrit ({type(erreur).__name__})"
-        sortie_rt = [f"📨 **Relance Telegram : {len(retenus_rt)} candidat(s)** des {jours_rt} derniers jours, score ≥ {mini_rt}/8, "
-                     f"pas sur Discord ni dans l'équipe ({', '.join(f'{k} {v}' for k, v in ecartes_rt.items() if v)})",
-                     (f"📋 Liste complète, liens et message à coller : {ecrit_rt}." if ecrit_rt else "") + " Un bot Telegram ne peut écrire "
-                     "qu'à qui lui a déjà parlé : l'envoi se fait à la main, un clic sur le lien, coller le message.", ""]
-        for l in lignes_rt[1:25]:
-            sortie_rt.append(f"· **{l[0]}** {l[1]}/8 · {l[5][:12]} · " + (f"<{l[3]}>" if l[3].startswith("https") else "pas de @") + (f" · <{l[4]}>" if l[4] else ""))
-        if len(lignes_rt) > 25:
-            sortie_rt.append(f"… et {len(lignes_rt) - 25} autres dans le classeur.")
-        sortie_rt += ["", "**Message :**", _message("Prénom")]
-        await envoyer_long(message, sortie_rt)
-        return True
-
     if texte.startswith("!relancer-lien"):
         g = message.guild
         if g is None:
@@ -6806,13 +6762,12 @@ async def commande_admin(message, texte: str) -> bool:
 
         envoyes, fermes = 0, 0
         for m in sur_serveur:
-            ok = await envoyer_mp(m, "👋 **Ta candidature est bien arrivée, mais elle n'est pas encore "
-                                     "reliée à ton compte Discord** — donc tu n'avances pas dans le "
-                                     "parcours et tu ne reçois ni formation, ni test.\n\n"
-                                     "**C'est 10 secondes** : réponds à ce message avec **ton numéro "
-                                     "WhatsApp**, celui que tu as mis dans le formulaire (avec l'indicatif, "
-                                     "ex. +33 6 12 34 56 78). Je fais le reste automatiquement.\n\n"
-                                     "Si tu n'es plus intéressé, dis-le-moi aussi — ça nous évite de te relancer.")
+            # 09/10 (Gaëtan : « Saute des lignes, aère ») : une seule action, des paragraphes courts, plus de test.
+            ok = await envoyer_mp(m, "👋 **Ta candidature est bien arrivée.**\n\n"
+                                     "Elle n'est pas encore reliée à ton compte Discord : tu n'avances pas.\n\n"
+                                     "👉 Réponds ici avec **ton numéro WhatsApp**, celui du formulaire, avec l'indicatif.\n\n"
+                                     "Je fais le reste.\n\n"
+                                     "Plus intéressé ? Dis-le-moi, je ne te relance plus.")
             envoyes += 1 if ok else 0
             fermes += 0 if ok else 1
             await asyncio.sleep(1.2)
@@ -6858,12 +6813,17 @@ async def commande_admin(message, texte: str) -> bool:
                           + " · ".join(f"{k} {v}" for k, v in sorted(par_source.items())))
         presents = {u: i for u, i in etats.items() if _present(u)}
         partis = len(etats) - len(presents)
+        # 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : quizz réussi = validé. Les anciens
+        # états du test sont comptés ensemble, « à migrer » (`!migrer-test`) ; plus de « à reviewer » ni d'échéance (la lecture
+        # de l'échéance plantait sur une vieille fiche sans elle).
+        anciens_test = ("test_envoye", "test_rendu", "test_expire", "refuse")
         compte = {}
         for i in presents.values():
-            compte[i.get("etat", "?")] = compte.get(i.get("etat", "?"), 0) + 1
-        libelles = {"test_envoye": "🧪 Test en cours", "test_rendu": "📥 Tests rendus (à reviewer)",
-                    "valide": "✅ Validés (bouton ✅ / case du site)", "refuse": "🔁 Refusés (re-test J+15)", "test_expire": "⌛ Tests expirés",
-                    "quiz_rate": "📝 Quiz raté", "sorti": "🚪 Sortis"}
+            e_p = "ancien_test" if i.get("etat") in anciens_test else i.get("etat", "?")
+            compte[e_p] = compte.get(e_p, 0) + 1
+        libelles = {"quiz_ok": "📝 Quizz réussi, en cours d'entrée", "valide": "✅ Validés",
+                    "attente_attribution": "⏳ En attente d'une créatrice", "ancien_test": "🧪 Anciens du test (à migrer)",
+                    "quiz_rate": "📉 Quizz raté", "sorti": "🚪 Sortis"}
         lignes.append("🧭 Sur le serveur : " + (" · ".join(f"{libelles.get(e, e)} {n}" for e, n in sorted(compte.items())) or "personne en parcours")
                       + (f" · {partis} parti(s) du serveur retirés du compte" if partis else ""))
         signes = lire_json(FICHIER_EQUIPES, {})
@@ -6873,127 +6833,41 @@ async def commande_admin(message, texte: str) -> bool:
                       + (f" ({len(signes) - len(signes_presents)} partis)" if len(signes) > len(signes_presents) else "")
                       + (f" · 👥 **Roster actif : {roster.effectif()}** (" + " · ".join(f"{c} {len(n)}" for c, n in groupes_p.items()) + ")"
                          if roster.actif() else ""))
-        en_retard = [uid for uid, i in presents.items() if i.get("etat") == "test_envoye"
-                     and datetime.now(timezone.utc) > datetime.fromisoformat(i["echeance"]) - timedelta(hours=12)]
-        if en_retard:
-            lignes.append("⏳ Bientôt à échéance : " + ", ".join(f"<@{u}>" for u in en_retard[:10]))
-        rendus_n = sorted(((u, _anciennete(i.get("rendu"))) for u, i in presents.items() if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
         deja_signes = set(signes)
+        # 09/10 : « valide » écrit, mais pas de fiche au registre : la validation n'a pas abouti (rôle, salon), à relancer.
         valides_n = sorted(((u, _anciennete(i.get("validation"))) for u, i in presents.items()
                             if i.get("etat") == "valide" and u not in deja_signes), key=lambda x: -x[1])
+        attente_n = sorted(((u, _anciennete(i.get("attente_depuis") or i.get("validation") or i.get("date_quiz")))
+                            for u, i in presents.items() if i.get("etat") == "attente_attribution"
+                            and not (signes.get(u) or {}).get("creatrice")), key=lambda x: -x[1])
+        anciens_n = [u for u, i in presents.items() if i.get("etat") in anciens_test and u not in deja_signes]
         sans_creatrice = []
+        deja_en_attente = {u for u, _ in attente_n}                    # 09/10 (relecture) : listés une fois, dans l'attente
         for u in signes_presents:
             m_p = membre_par_id(u)
-            if m_p is None or str(u) in ADMIN_IDS or est_manager(m_p):
+            if m_p is None or str(u) in ADMIN_IDS or est_manager(m_p) or u in deja_en_attente:
                 continue
             if not signes[u].get("creatrice") and not roster.creatrice_de(prenom_de(m_p)):
                 sans_creatrice.append((u, _anciennete(signes[u].get("conditions") or signes[u].get("date"))))
-        if rendus_n:
-            lignes.append("→ 📥 À reviewer (`!test-ok` / `!test-non`) : " + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus_n[:8]))
+        if anciens_n:
+            lignes.append(f"→ 🧪 {len(anciens_n)} ancien(s) du test encore là : `!migrer-test` (aperçu) puis `!migrer-test go`.")
         if valides_n:
-            lignes.append("→ ✅ Validés sans accord (bouton ✅ envoyé, je relance) : " + " · ".join(f"<@{u}> (J+{j})" for u, j in valides_n[:8]))
+            lignes.append("→ ⚠️ Validés sans fiche au registre (validation non aboutie, `!quiz-ok @x` relance) : "
+                          + " · ".join(f"<@{u}> (J+{j})" for u, j in valides_n[:8]))
+        if attente_n:
+            lignes.append("→ ⏳ En attente d'une créatrice (repartent seuls dès qu'un compte se libère, `!comptes-libres`) : "
+                          + " · ".join(f"<@{u}> (J+{j})" for u, j in attente_n[:8])
+                          + (f" … et {len(attente_n) - 8} de plus" if len(attente_n) > 8 else ""))
         if sans_creatrice:
             lignes.append(("→ 🎬 Signés sans créatrice (attribution automatique au prochain démarrage) : " if attribution.actif()
                            else "→ 🎬 Signés sans créatrice (`!creatrice @x Prénom`) : ")
                           + " · ".join(f"<@{u}> (J+{j})" for u, j in sorted(sans_creatrice, key=lambda x: -x[1])[:8]))
-        if not (rendus_n or valides_n or sans_creatrice):
-            lignes.append("→ Rien à faire côté candidats. `!roster` pour l'équipe, `!fiche @x` pour juger quelqu'un.")
+        if not (anciens_n or valides_n or attente_n or sans_creatrice):
+            lignes.append("→ Rien à faire côté candidats. `!roster` pour l'équipe, `!fiche @x` pour voir quelqu'un.")
         await envoyer_long(message, lignes)
         return True
 
-    if texte.startswith("!tests"):
-        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        ref = datetime.now(timezone.utc)
-
-        def _anc(iso):
-            try:
-                return max(0, (ref - datetime.fromisoformat(iso)).days)
-            except (TypeError, ValueError):
-                return 0
-
-        etats = donnees.get("etats", {})
-        relancer = "relanc" in normaliser(texte)
-
-        def _membre(uid):
-            for g in client.guilds:
-                m = g.get_member(int(uid))
-                if m:
-                    return m
-            return None
-
-        rendus = sorted(((u, i) for u, i in etats.items() if i.get("etat") == "test_rendu"),
-                        key=lambda x: x[1].get("rendu") or "")
-        en_cours = sorted(((u, i) for u, i in etats.items() if i.get("etat") == "test_envoye"),
-                          key=lambda x: x[1].get("echeance") or "")
-        expires = sorted(((u, i) for u, i in etats.items() if i.get("etat") in ("test_expire", "refuse")),
-                         key=lambda x: x[1].get("echeance") or x[1].get("refus") or "")
-
-        lignes = []
-        if rendus:
-            lignes.append(f"📥 **{len(rendus)} test(s) à reviewer** — du plus ancien au plus récent :")
-            for u, i in rendus:
-                liens = i.get("liens_admin") or []
-                lignes.append(f"· <@{u}> — quiz {i.get('score_quiz') or '?'} · rendu J+{_anc(i.get('rendu'))} "
-                              + (f"→ {liens[-1]}" if liens
-                                 else "→ pas de lien enregistré (rendu avant la v2) : cherche « Test rendu » 🔎 dans ce salon"))
-            lignes.append("Après visionnage : `!test-ok @membre` ou `!test-non @membre [raison]`.")
-        else:
-            lignes.append("📥 Aucun test en attente de review 🎉")
-
-        # En cours : le temps restant dit s'il faut relancer aujourd'hui ou laisser courir.
-        lignes.append("")
-        if en_cours:
-            lignes.append(f"🧪 **{len(en_cours)} test(s) en cours**")
-            for u, i in en_cours:
-                try:
-                    h = int((datetime.fromisoformat(i["echeance"]) - ref).total_seconds() // 3600)
-                    reste = f"{h} h restantes" if h > 0 else "échéance dépassée, clôture imminente"
-                except (KeyError, TypeError, ValueError):
-                    reste = "échéance inconnue"
-                lignes.append(f"· <@{u}> — quiz {i.get('score_quiz') or '?'} · {reste}")
-        else:
-            lignes.append("🧪 Aucun test en cours.")
-
-        # Expirés : un compteur sans nom ne se traite pas, d'où la liste et la relance.
-        lignes.append("")
-        if expires:
-            presents = [(u, i, _membre(u)) for u, i in expires]
-            partis = sum(1 for _, _, m in presents if m is None)
-            encore = [(u, i, m) for u, i, m in presents if m is not None]
-            lignes.append(f"⌛ **{len(encore)} test(s) expiré(s) ou refusé(s)**" + (f" ({partis} parti(s) du serveur, non listés)" if partis else ""))
-            for u, i, m in encore:                                   # 25/09 : dix-huit « parti du serveur » noyaient le seul cas utile
-                lignes.append(f"· <@{u}> {m.display_name} — " + (f"refusé le {str(i.get('refus', ''))[:10]}" if i.get("etat") == "refuse"
-                                                                else f"expiré le {str(i.get('echeance', ''))[:10]}")
-                              + (f", re-test ouvert le {str(i['retest'])[:10]}" if i.get("retest") else ""))
-            if not encore:
-                lignes.append("· personne d'encore présent sur le serveur.")
-            elif not relancer:
-                lignes.append(f"→ Pour leur rouvrir un créneau de {TEST_HEURES // 24} jours : `!tests relancer`")
-        else:
-            lignes.append("⌛ Aucun test expiré.")
-
-        await envoyer_long(message, lignes)
-        if not relancer or not expires:
-            return True
-
-        relances, ignores = [], []
-        for u, i in expires:
-            m = _membre(u)
-            if m is None:
-                ignores.append(f"<@{u}>")
-                continue
-            await envoyer_mp(m, "🔄 **On te redonne une chance.** Ton test avait expiré — on rouvre "
-                                f"un créneau de {TEST_HEURES // 24} jours à partir de maintenant. Si le timing ne va pas, "
-                                "dis-le-nous plutôt que de laisser filer : on peut décaler.")
-            ok = await envoyer_test_candidat(m, i.get("score_quiz", ""))
-            relances.append(f"{m.display_name}{'' if ok else ' (MP fermés — à relancer à la main)'}")
-            await asyncio.sleep(1.2)
-        bilan = [f"🔄 **{len(relances)} test(s) relancé(s)** — nouvelle échéance dans {TEST_HEURES} h",
-                 *[f"· {r}" for r in relances]]
-        if ignores:
-            bilan += ["", f"⏭️ **{len(ignores)} ignoré(s)** (plus sur le serveur) : {', '.join(ignores)}"]
-        await envoyer_long(message, bilan)
-        return True
+    # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : !tests [relancer] est retirée avec le test.
 
     if texte.startswith("!fiche"):
         if message.guild is not None and message.channel.permissions_for(message.guild.default_role).view_channel:
@@ -7037,16 +6911,24 @@ async def commande_admin(message, texte: str) -> bool:
                   + f" · `@{membre.name}`" + (" · ⚠️ **plus sur le serveur**" if parti else ""),
                   f"📞 **{tel or 'numéro non lié'}**" + (f" · {pays}" if pays else "")
                   + (" · ⚠️ pays déclaré ≠ indicatif" if incoherent else ""),
+                  # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : plus de re-test ; qui a validé (quiz, staff, migration).
                   "🧾 " + ("candidature ✓ → " if cand else "candidature ? → ")
                   + (f"quiz {etat['score_quiz']} → " if etat.get("score_quiz") else "quiz — → ")
-                  + f"{etat.get('etat', 'aucun test')}"
-                  + (f" · re-test {etat['retest'][:10]}" if etat.get("retest") else "")
-                  + (f" · signé le {str(equipe.get('conditions') or equipe.get('date'))[:10]}" if equipe else " · pas signé")]
+                  + f"{etat.get('etat') or 'aucun état'}"
+                  + (f" ({etat['valide_par']})" if etat.get("valide_par") else "")
+                  + (f" · signé le {str(equipe.get('conditions') or equipe.get('date') or '?')[:10]}" if equipe else " · pas signé")]
         if "@" in liaison.get("email", ""):
             lignes.append("📧 " + liaison["email"][0] + "•••" + liaison["email"][liaison["email"].index("@"):])
         if equipe.get("creatrice") or roster.creatrice_de(prenom_de(membre)):
             lignes.append(f"🎬 {equipe.get('creatrice') or roster.creatrice_de(prenom_de(membre))}"
                           + ("" if roster.est_actif(prenom_de(membre)) else " · ⚠️ pas au roster"))
+        lignes += _lignes_parcours_fiche(str(membre.id))
+        if not message.mentions and corps and len(corps.split()) == 1:   # 09/10 : deux membres au même prénom, on le dit
+            homonymes = [m for g_ in client.guilds for m in g_.members
+                         if not m.bot and normaliser(prenom_de(m)) == normaliser(corps)]
+            if len(homonymes) > 1:
+                lignes.append(f"⚠️ {len(homonymes)} membres portent ce prénom : " + ", ".join(m.mention for m in homonymes[:6])
+                              + " — `!fiche @le_bon` pour le bon.")
         try:                                                              # 26/09 : la qualité des réponses du classeur, avant d'attribuer
             cands_f = await lire_candidatures_sheets()
             lignes_c = texte_candidature(candidature_de(cands_f, tel, prenom or prenom_de(membre)))
@@ -7056,53 +6938,7 @@ async def commande_admin(message, texte: str) -> bool:
         await envoyer_long(message, lignes)
         return True
 
-    # ---- !importer : import direct du CSV de la feuille (aucun webhook, aucune limite Discord) ----
-    if texte.startswith("!importer"):
-        if not message.attachments:
-            await message.reply("Joins le **CSV de la feuille** à ton message `!importer` "
-                                "(Sheets → Fichier → Télécharger → Valeurs séparées par des virgules).")
-            return True
-        brut = (await message.attachments[0].read()).decode("utf-8", errors="replace")
-        lignes_csv = [l for l in csv.reader(io.StringIO(brut)) if any(c.strip() for c in l)]
-        if len(lignes_csv) < 2:
-            await message.reply("CSV vide ou illisible — vérifie le fichier téléchargé.")
-            return True
-        entetes = [normaliser(c) for c in lignes_csv[0]]
-
-        def colonne(mots):
-            for i, e in enumerate(entetes):
-                if any(m in e for m in mots):
-                    return i
-            return -1
-
-        i_prenom = colonne(["prenom"])
-        i_tel = colonne(["whatsapp", "telephone", "numero", "tel"])
-        i_pays = colonne(["pays", "resides"])
-        i_pseudo = colonne(["discord", "pseudo"])
-        if i_tel < 0:
-            await message.reply(("Colonne du numéro introuvable — entêtes lues : "
-                                 + " · ".join(lignes_csv[0]))[:1990])
-            return True
-
-        def cellule(ligne, i):
-            return ligne[i] if 0 <= i < len(ligne) else ""
-
-        quadruplets = [(cellule(l, i_prenom), cellule(l, i_tel), cellule(l, i_pays), cellule(l, i_pseudo))
-                       for l in lignes_csv[1:]]
-        nb, grilles, incoherences, rejets, rapproches = await enregistrer_candidatures(quadruplets)
-        lignes_rep = [f"📋 **Import CSV : {nb} candidature(s) enregistrée(s)** "
-                      f"(🇫🇷 grille FR {grilles.get('fr', 0)} · 🌍 International {grilles.get('mg', 0)})"]
-        if rejets:
-            lignes_rep.append(f"⚠️ {len(rejets)} sans numéro exploitable : " + ", ".join(rejets[:20])
-                              + (" …" if len(rejets) > 20 else "") + " — à traiter à la main.")
-        if incoherences:
-            lignes_rep.append("🚨 Pays déclaré ≠ indicatif : " + " · ".join(incoherences[:15]))
-        if rapproches:
-            lignes_rep.append("🔗 Fiches reliées à un Discord existant : " + ", ".join(rapproches[:15]))
-        lignes_rep.append("Vérification : `!pipeline`.")
-        await envoyer_long(message, lignes_rep)
-        journal.info("Import CSV : %d candidatures, %d rejets", nb, len(rejets))
-        return True
+    # 09/10 : !importer (CSV du Google Form) est retirée avec le chemin Google Form ; la candidature vit sur le site.
 
     # ---- !ltv : valeur d'un abonné OF contre MYM, par créatrice, 30 jours (classeur créatrices) ----
     if texte.startswith("!ltv"):
@@ -7194,7 +7030,7 @@ async def commande_admin(message, texte: str) -> bool:
             corps = corps.replace(f"<@{beneficiaire.id}>", "").replace(f"<@!{beneficiaire.id}>", "").strip()
         else:
             # Pas de vraie mention (un « @eddy » tapé en texte n'en est pas une) : on résout par
-            # le nom, comme !test-ok / !equipe. Nom = tout ce qui précède le premier nombre.
+            # le nom, comme !quiz-ok / !equipe. Nom = tout ce qui précède le premier nombre.
             decoupe = re.match(r"@?(.+?)\s+(\d+(?:[.,]\d+)?)(.*)$", corps, re.S)
             if decoupe:
                 beneficiaire = chercher_membre(decoupe.group(1).strip())
@@ -7406,6 +7242,425 @@ async def commande_admin(message, texte: str) -> bool:
         return True
 
     return False
+
+
+def _lignes_parcours_fiche(uid: str) -> list:
+    """09/10 (plan du funnel : « même pseudo pour les comptes 1 et 2 », fiches « prive2 » à relire une par une avant le
+    déploiement) : pour `!fiche`, l'étape du parcours guidé, la place du compte privé, les comptes dans l'ordre, et l'alerte
+    « deux comptes au même @ ». [] sans fiche de parcours ni compte livré. Salon privé seulement (comme toute la fiche)."""
+    try:
+        fiche_p = parcours._lire().get(uid) or {}
+    except Exception:                                                    # noqa: BLE001
+        fiche_p = {}
+    onb = lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(uid) or {}
+    comptes_b = [str(h) for h in (onb.get("comptes") or []) if h]
+    acces_b = [str(a.get("handle")) for a in (onb.get("acces") or []) if isinstance(a, dict) and a.get("handle")]
+    if not fiche_p and not comptes_b:
+        return []
+    try:
+        ordonnes = parcours._comptes_ordonnes(uid, onb=onb, fiche_p=fiche_p)
+    except Exception:                                                    # noqa: BLE001
+        ordonnes = list(dict.fromkeys(comptes_b))
+    prive = 2 if fiche_p and parcours.ordre(fiche_p) == "prive2" else 3
+    lignes = [f"🧭 Parcours : étape {int(fiche_p.get('etape', 0) or 0)} · compte privé en {prive}"
+              + (" · " + ", ".join(f"{i}. `{h}`" for i, h in enumerate(ordonnes[:3], 1)) if ordonnes else " · aucun compte livré")]
+    doublons = set()
+    for liste in (comptes_b, acces_b):
+        vus = set()
+        for h in liste:
+            cle = onboarding.normaliser_handle(h).lower()
+            if cle in vus:
+                doublons.add(cle)
+            vus.add(cle)
+    if doublons:
+        lignes.append("⚠️ Deux comptes au même @ : " + ", ".join(f"`{h}`" for h in sorted(doublons))
+                      + " — demande-lui le vrai @ du compte en double, il tape `!pseudo <n> <son_vrai_@>` dans son salon.")
+    return lignes
+
+
+# 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : les candidats restés dans l'ancien tunnel
+# entrent dans l'agence. Décision prise pour Gaëtan (A2) : AUTOMATIQUE, une seule fois, au premier démarrage après le déploiement
+# (on_ready appelle migrer_test(apercu=False)), bornée par le stock de comptes livrables et cadencée (ATTRIBUTION_PAUSE_SEC).
+# `!migrer-test` garde l'aperçu et la relance. Trace dans DONNEES/migration_test_0910.json (idempotente : un membre déjà passé
+# n'est jamais repris, une migration finie ne se relance pas toute seule).
+FICHIER_MIGRATION_TEST = DONNEES / "migration_test_0910.json"
+ETATS_A_MIGRER = ("test_rendu", "test_envoye", "quiz_ok", "test_expire", "refuse")   # ordre = priorité (le plus avancé d'abord)
+LIBELLES_MIGRATION = {"test_rendu": "test rendu", "test_envoye": "test envoyé", "quiz_ok": "quizz réussi",
+                      "test_expire": "test expiré", "refuse": "refusé"}
+_MIGRATION_TEST = {"en_cours": False}
+
+
+async def _stock_migration() -> tuple:
+    """({créatrice: comptes livrables du classeur}, places) pour la migration : les créatrices de l'ordre d'attribution (toutes
+    celles du classeur si l'attribution est éteinte), places = somme des livrables ÷ COMPTES_PAR_CLIPPER (un nouveau en réserve 3).
+    (None, 0) si le classeur est éteint ou illisible : on ne valide jamais à l'aveugle."""
+    if not onboarding.actif():
+        return None, 0
+    try:
+        comptes = await onboarding.lire_comptes()
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Migration du test, comptes livrables : %s", erreur)
+        return None, 0
+    noms = list(attribution.ORDRE) if attribution.actif() else sorted(
+        {str(c.get("creatrice") or "").strip() for c in comptes if str(c.get("creatrice") or "").strip()})
+    livrables = {}
+    for nom in noms:
+        try:
+            livrables[nom] = len(onboarding.disponibles(comptes, nom, 999))
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Migration du test, livrables de %s : %s", nom, erreur)
+            livrables[nom] = 0
+    par = max(1, int(onboarding.COMPTES_PAR_CLIPPER or 3))
+    return livrables, sum(n // par for n in livrables.values())
+
+
+# 09/10 (relecture du lot L5) : trois sortes d'anciens du test ne partent JAMAIS en lot, ni au démarrage ni par `!migrer-test go`.
+# Ils se tranchent un par un, à la main (`!quiz-ok @x`).
+# · « depot » : un dépôt salons_a_ouvrir.json « onboarding » attend son prénom (« Ajoute Andry Sarah »). La migration le validait
+#   AVANT le dépôt, avec la créatrice de l'ordre, et le dépôt "nouveau": true ne trouvait plus aucun membre non signé.
+# · « refus » : refusé avec une note ou un motif (`!test-non @x paraît mineur`), ou une note qui parle d'âge, de triche, de copie,
+#   d'insulte ou de spam. Mineurs = non négociable : la raison d'un refus se relit, elle ne se valide jamais en lot.
+# · « stop » : il a écrit STOP (les trois clés, comme `!relance`) : plus aucun message automatique.
+MOTIFS_HORS_MIGRATION = {"depot": ("Réservés au dépôt salons_a_ouvrir.json", "le dépôt les onboarde chez la bonne créatrice."),
+                         "refus": ("Refus à trancher à la main", "relis le motif, puis `!quiz-ok @x` seulement s'il ne tient plus."),
+                         "stop": ("STOP : à la main", "`!quiz-ok @x` seulement s'il revient vers vous.")}
+MOTS_A_RISQUE = re.compile(r"mineur|\bage\b|\b1[0-7] ?ans\b|trich|copi|insult|spam")
+
+
+def _prenoms_depot_en_attente() -> set:
+    """Les prénoms (normalisés, alias résolus) qu'une entrée « onboarding » de salons_a_ouvrir.json doit encore servir : ni
+    réussis ni abandonnés (SALONS_ESSAIS_MAX essais) d'après DONNEES/roster_salons_ouverts.json, la trace de roster.salons_deposes.
+    Dépôt absent ou illisible : aucun."""
+    try:
+        entrees = json.loads(Path(roster.FICHIER_SALONS_DEPOSES).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return set()
+    faits = lire_json(DONNEES / "roster_salons_ouverts.json", {})
+    out = set()
+    for e in entrees if isinstance(entrees, list) else []:
+        if not isinstance(e, dict) or not e.get("onboarding") or not str(e.get("id") or ""):
+            continue
+        prenoms = [str(p).strip() for p in e.get("prenoms") or [] if str(p).strip()]
+        deja = faits.get(str(e["id"])) or {}
+        reussis = roster._prenoms_reussis(deja, prenoms)
+        essais = deja.get("essais") or {}
+        for p in prenoms:
+            if roster._n(p) in reussis or int(essais.get(roster._n(p), 0) or 0) >= roster.SALONS_ESSAIS_MAX:
+                continue
+            cle = normaliser(p)
+            out |= {cle, normaliser(roster.resoudre_alias(cle)) or cle}
+    return out
+
+
+def _motif_hors_migration(uid, info: dict, pipe: dict = None, reserves: set = None, membre=None) -> tuple:
+    """('', '') si cet ancien du test peut partir en lot ; sinon (clé de MOTIFS_HORS_MIGRATION, détail à afficher).
+    `reserves` = _prenoms_depot_en_attente() (None : pas de contrôle du dépôt, pour `!aide`) ; `pipe` déjà lu, pour les boucles."""
+    uid = str(uid)
+    info = info or {}
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}) if pipe is None else pipe
+    if reserves and membre is not None:
+        noms = {normaliser(prenom_de(membre)), normaliser(getattr(membre, "name", "") or ""),
+                normaliser(getattr(membre, "display_name", "") or ""), normaliser(getattr(membre, "global_name", "") or "")}
+        if (noms - {""}) & reserves:
+            return "depot", ""
+    note = " ".join(str(info.get(k) or "").strip() for k in ("note", "motif")).strip()
+    if note and (info.get("etat") == "refuse" or MOTS_A_RISQUE.search(normaliser(note))):
+        return "refus", note[:80]
+    if any(((pipe.get(sec) or {}).get(uid) or {}).get("stop") for sec in ("arrivees", "liaisons")) \
+            or (info.get("relances") or {}).get("stop"):
+        return "stop", ""
+    return "", ""
+
+
+def _candidats_migration(trace: dict, exclus: list = None) -> list:
+    """Les membres à migrer : PRÉSENTS, non signés (est_signe faux), non staff, à l'un des ETATS_A_MIGRER, jamais déjà passés
+    par la migration. Triés : le plus avancé dans l'ancien tunnel d'abord (test rendu, envoyé, quizz réussi, expiré, refusé),
+    puis le plus récent (le plus chaud) : les comptes rares vont à ceux qui ont le plus de chances de publier.
+    [(etat, membre, info)]. 09/10 (relecture) : ceux que _motif_hors_migration écarte n'y sont pas ; `exclus` (une liste)
+    les reçoit, [(code, détail, etat, membre)], pour l'aperçu et le bilan."""
+    deja = {u for u, t in (trace.get("membres") or {}).items() if (t or {}).get("resultat") in ("valide", "attente")}
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    etats = pipe.get("etats") or {}
+    reserves = _prenoms_depot_en_attente()
+    out = []
+    for uid, info in etats.items():
+        info = info or {}
+        etat = info.get("etat", "")
+        if etat not in ETATS_A_MIGRER or uid in deja or not str(uid).isdigit() or uid in ADMIN_IDS:
+            continue
+        membre = membre_par_id(uid)
+        if membre is None or getattr(membre, "bot", False) or est_staff(membre) or est_signe(membre):
+            continue
+        code, detail = _motif_hors_migration(uid, info, pipe, reserves, membre)
+        if code:
+            if exclus is not None:
+                exclus.append((code, detail, etat, membre))
+            continue
+        recent = max(str(info.get(k) or "") for k in ("rendu", "envoi", "date_quiz", "echeance", "refus", "validation"))
+        out.append((ETATS_A_MIGRER.index(etat), recent, uid, etat, membre, info))
+    out.sort(key=lambda x: x[1], reverse=True)                           # le plus récent d'abord…
+    out.sort(key=lambda x: x[0])                                         # …à l'intérieur de chaque état (tri stable)
+    return [(etat, membre, info) for _, _, _, etat, membre, info in out]
+
+
+def _lignes_exclus_migration(exclus: list) -> list:
+    """Les écartés de la migration, groupés par motif, une ligne vide entre deux groupes (aperçu et bilan)."""
+    lignes = []
+    for code, (titre, suite) in MOTIFS_HORS_MIGRATION.items():
+        lot = [(d, e, m) for c, d, e, m in exclus if c == code]
+        if not lot:
+            continue
+        noms = ", ".join(f"{m.mention} {prenom_de(m) or m.display_name} ({LIBELLES_MIGRATION.get(e, e)}"
+                         + (f" : « {d} »" if d else "") + ")" for d, e, m in lot[:15]) \
+            + (f" … et {len(lot) - 15} de plus" if len(lot) > 15 else "")
+        lignes += ["", f"✋ {titre} ({len(lot)}) : {noms} — {suite}"]
+    return lignes
+
+
+def _en_file_attribution() -> int:
+    """Ceux qui passeront AVANT les migrés sur le même stock : les signés présents sans créatrice (rattrapés au démarrage par
+    attribution.rattraper) et les membres déjà en « attente_attribution »."""
+    registre = lire_json(FICHIER_EQUIPES, {})
+    n = 0
+    for uid, fiche in registre.items():
+        m = membre_par_id(uid) if str(uid).isdigit() else None
+        if m is None or est_staff(m) or (fiche or {}).get("creatrice") or roster.creatrice_de(prenom_de(m)):
+            continue
+        n += 1
+    for uid, info in (lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats") or {}).items():
+        if (info or {}).get("etat") == "attente_attribution" and uid not in registre and str(uid).isdigit() \
+                and membre_par_id(uid) is not None:
+            n += 1
+    return n
+
+
+def _quand_paris(iso: str) -> str:
+    """« 09/10 à 14:32 », heure de Paris, pour une date ISO de la trace ; le texte brut si illisible."""
+    try:
+        d = datetime.fromisoformat(str(iso))
+    except (TypeError, ValueError):
+        return str(iso)[:16]
+    try:
+        from zoneinfo import ZoneInfo
+        d = d.astimezone(ZoneInfo("Europe/Paris"))
+    except Exception:                                                    # noqa: BLE001 — sans base de fuseaux : l'heure stockée
+        pass
+    return d.strftime("%d/%m à %H:%M")
+
+
+def _noms_migration(lot: list, maxi: int = 25) -> str:
+    noms = [f"{prenom_de(m) or m.display_name} ({LIBELLES_MIGRATION.get(e, e)})" for e, m, _ in lot[:maxi]]
+    return ", ".join(noms) + (f" … et {len(lot) - maxi} de plus" if len(lot) > maxi else "")
+
+
+async def migrer_test(apercu: bool, relance: bool = False, annonce=None) -> str:
+    """09/10 : la migration des candidats de l'ancien test (A2). Renvoie le bilan à afficher (aéré, une ligne vide
+    entre deux blocs).
+    · apercu=True : ne touche à rien, montre qui serait validé, qui attendrait, qui reste à trancher à la main (et l'état de la trace).
+    · apercu=False, relance=False : l'appel du démarrage (on_ready). Une seule fois : si la trace dit « fini », renvoie "" sans
+      rien lire. Sans cache des membres (serveur pas encore chargé), ne marque rien et renvoie "" : réessai au démarrage suivant.
+    · apercu=False, relance=True : `!migrer-test go`, même travail sur ceux qui restent, même après une migration finie.
+    Dans la limite des places (comptes livrables ÷ 3, moins ceux déjà en file), un par un : valider_candidat(membre, score,
+    "migration") puis ATTRIBUTION_PAUSE_SEC. Attribution automatique en marche : les suivants passent en « attente_attribution »
+    (protégés de la sortie à 48 h, repris seuls dès qu'un compte se libère) et reçoivent une fois le repli « Ta créatrice arrive
+    ici sous 48 h ». Attribution éteinte : personne ne les reprendrait, ils restent où ils sont, sans message.
+    Jamais en lot : un dépôt en attente, un refus avec motif, un STOP (_motif_hors_migration) ; ils sont listés à part.
+    `annonce` (async, un texte) : appelée une fois, quand la migration part vraiment (verrou pris, stock lu, quelqu'un à faire).
+    Une ligne de bilan part au salon admin dès que quelqu'un a bougé ou reste à trancher."""
+    trace = lire_json(FICHIER_MIGRATION_TEST, {})
+    auto = not apercu and not relance
+    if auto and trace.get("fini"):
+        return ""
+    if _MIGRATION_TEST["en_cours"]:
+        return "⏳ Une migration du test tourne déjà : son bilan arrive au salon admin."
+    if auto and (not client.guilds or not any(getattr(g, "members", None) for g in client.guilds)
+                 or not all(getattr(g, "chunked", True) for g in client.guilds)):
+        journal.info("Migration du test : membres pas encore chargés, réessai au prochain démarrage")
+        return ""
+    if apercu:
+        return await _migrer_test_corps(trace, True, auto, annonce)
+    # 09/10 (relecture du lot L5, deux migrations simultanées) : le verrou est pris AVANT le premier await (la lecture du
+    # classeur). Posé après, la migration du démarrage et un `!migrer-test go` tapé dans la même seconde passaient tous deux
+    # la garde, chacun avec son budget de places : jusqu'à deux fois le stock validé.
+    _MIGRATION_TEST["en_cours"] = True
+    try:
+        return await _migrer_test_corps(trace, False, auto, annonce)
+    finally:
+        _MIGRATION_TEST["en_cours"] = False
+
+
+async def _migrer_test_corps(trace: dict, apercu: bool, auto: bool, annonce=None) -> str:
+    """Le travail de migrer_test, une fois les gardes passées (et le verrou pris hors aperçu)."""
+    exclus = []
+    candidats = _candidats_migration(trace, exclus)
+    lignes_exclus = _lignes_exclus_migration(exclus)
+    entete = "🧪 **Migration des anciens du test**" + (" — APERÇU" if apercu else "")
+    etat_trace = (f"Migration automatique : faite le {_quand_paris(trace['fini'])}."
+                  if trace.get("fini") else "Migration automatique : pas encore faite (elle part au prochain démarrage).")
+
+    async def _prevenir_admin(texte_a: str):
+        admin = await canal_admin()
+        if admin is not None:
+            try:
+                await admin.send(texte_a[:1990])
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
+    if not candidats:
+        if not apercu:
+            trace.setdefault("debut", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+            trace["fini"] = trace.get("fini") or datetime.now(timezone.utc).isoformat(timespec="seconds")
+            ecrire_json(FICHIER_MIGRATION_TEST, trace)
+            etat_trace = f"Migration automatique : faite le {_quand_paris(trace['fini'])}."
+            if exclus:
+                await _prevenir_admin(f"🧪 Migration du test ({'démarrage' if auto else 'commande'}) : personne en lot, "
+                                      f"{len(exclus)} à trancher à la main. `!migrer-test` pour la liste.")
+        return "\n".join([entete, "", "Personne à migrer en lot." if exclus else
+                          "Personne à migrer : aucun membre présent et non signé dans l'ancien tunnel."]
+                         + lignes_exclus + ["", etat_trace])
+    livrables, places_brutes = await _stock_migration()
+    if livrables is None:
+        return (f"{entete}\n\n⚠️ Classeur des comptes injoignable : je ne connais pas le stock, rien n'a été fait.\n\n"
+                + ("Réessai au prochain démarrage, ou `!migrer-test go`." if not apercu else etat_trace))
+    en_file = _en_file_attribution()
+    places = max(0, places_brutes - en_file)
+    # 09/10 (relecture, ATTRIBUTION_AUTO=0) : les deux reprises de l'attente ne tournent que si l'attribution est en marche.
+    # Éteinte, un migré mis en « attente_attribution » n'en sortait jamais, avec « Ta créatrice arrive ici sous 48 h » reçu.
+    attente_ok = attribution.actif()
+    par_etat = {}
+    for e, _, _ in candidats:
+        par_etat[e] = par_etat.get(e, 0) + 1
+    stock = " · ".join(f"{c} {n}" for c, n in livrables.items()) or "aucune créatrice"
+    lignes = [entete, "",
+              f"**{len(candidats)} candidat(s)** : " + " · ".join(f"{LIBELLES_MIGRATION[e]} {n}" for e, n in par_etat.items()), "",
+              f"📦 Comptes livrables : {stock} → **{places} place(s)** "
+              f"({onboarding.COMPTES_PAR_CLIPPER} comptes par clipper" + (f", moins {en_file} déjà en file" if en_file else "") + ")"]
+    if apercu:
+        a_valider, a_attendre = candidats[:places], candidats[places:]
+        lignes += ["", f"✅ À valider ({len(a_valider)}) : " + (_noms_migration(a_valider) or "personne")]
+        if a_valider and not attente_ok:
+            lignes += ["", "Attribution automatique éteinte : chaque validé attend sa créatrice à la main (`!creatrice @x Prénom`)."]
+        if a_attendre and attente_ok:
+            lignes += ["", f"⏳ En attente d'une créatrice ({len(a_attendre)}) : {_noms_migration(a_attendre)}", "",
+                       "Ils reçoivent « Ta créatrice arrive ici sous 48 h » et repartent seuls dès qu'un compte se libère."]
+        elif a_attendre:
+            lignes += ["", f"⏸️ Restent dans l'ancien tunnel, faute de place ({len(a_attendre)}) : {_noms_migration(a_attendre)}", "",
+                       "Attribution automatique éteinte : personne ne les reprendrait. Aucun message ; `!migrer-test go` "
+                       "quand des comptes se libèrent."]
+        lignes += lignes_exclus
+        lignes += ["", etat_trace, "",
+                   f"Rien n'a été fait. Pour lancer : `!migrer-test go` (un toutes les {attribution.PAUSE_SEC} s)."]
+        return "\n".join(lignes)
+
+    maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    trace.setdefault("debut", maintenant)
+    trace.setdefault("membres", {})
+    valides, deja, erreurs, attente, restes, a_la_main, sans_mp = [], [], [], [], [], [], 0
+    n_valider = min(places, len(candidats))
+    n_attendre = len(candidats) - n_valider if attente_ok else 0
+    if annonce is not None and (n_valider or n_attendre):
+        try:
+            await annonce(f"⏳ Migration lancée : {n_valider} à valider, un toutes les {attribution.PAUSE_SEC} s"
+                          + (f", {n_attendre} en attente d'une créatrice" if n_attendre else "")
+                          + ". Le bilan arrive ici et au salon admin.")
+        except Exception as erreur:                                      # noqa: BLE001 — l'annonce ne bloque jamais le travail
+            journal.warning("Migration du test, annonce : %s", erreur)
+    restantes, pause_due = places, False
+    for etat, membre, info in candidats:
+        uid = str(membre.id)
+        if restantes > 0 and pause_due:                                  # ATTRIBUTION_PAUSE_SEC entre deux validations, jamais après
+            await asyncio.sleep(attribution.PAUSE_SEC)                   # la dernière
+            pause_due = False
+        # Pendant la pause, il a pu bouger (quizz rejoué et validé, départ du serveur, STOP écrit) : on ne touche qu'à ce qui
+        # n'a pas bougé.
+        pipe_now = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        info_now = (pipe_now.get("etats") or {}).get(uid) or {}
+        if membre_par_id(uid) is None or info_now.get("etat") not in ETATS_A_MIGRER \
+                or _motif_hors_migration(uid, info_now, pipe_now)[0]:
+            continue
+        if restantes > 0:
+            trace["membres"][uid] = {"prenom": prenom_de(membre), "etat_avant": etat, "resultat": "en_cours",
+                                     "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            ecrire_json(FICHIER_MIGRATION_TEST, trace)                  # AVANT l'appel : un redémarrage ne le reprend pas deux fois
+            try:
+                retour = str(await valider_candidat(membre, str(info.get("score_quiz") or ""), "migration") or "")
+            except Exception as erreur:                                  # noqa: BLE001
+                retour = f"❌ {type(erreur).__name__} {str(erreur)[:120]}"
+            if retour == "deja":
+                deja.append(prenom_de(membre))
+                trace["membres"][uid]["resultat"] = "deja"
+            elif retour.startswith(("⚠️", "❌")):
+                erreurs.append(f"{prenom_de(membre)} ({retour[:80]})")
+                trace["membres"][uid].update({"resultat": "erreur", "bilan": retour[:200]})
+                restantes -= 1                                           # l'état « valide » est écrit : sa place est prise
+            else:
+                valides.append(prenom_de(membre))
+                trace["membres"][uid]["resultat"] = "valide"
+                restantes -= 1
+                if "!creatrice" in retour:                               # attribution éteinte : la ligne à taper, gardée au bilan
+                    a_la_main.append(retour[:200])
+            ecrire_json(FICHIER_MIGRATION_TEST, trace)
+            pause_due = retour != "deja"                                 # « déjà dans l'agence » : rien lancé, pas de pause
+            continue
+        if not attente_ok:                                               # éteinte : personne ne le reprendrait, il reste où il est
+            restes.append(prenom_de(membre))
+            continue
+        # Plus de place : « attente_attribution », écrit AVANT le message (un redémarrage ne renvoie jamais le repli).
+        pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        fiche_e = pipe.setdefault("etats", {}).setdefault(uid, {})
+        if fiche_e.get("etat") not in ETATS_A_MIGRER:                    # bougé entre-temps (quizz rejoué, sortie) : on laisse
+            continue
+        fiche_e.update({"etat": "attente_attribution", "attente_depuis": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                        "attente_par": "migration 09/10", "etat_avant_migration": etat})
+        ecrire_json(FICHIER_PIPELINE, pipe)
+        trace["membres"][uid] = {"prenom": prenom_de(membre), "etat_avant": etat, "resultat": "attente",
+                                 "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        ecrire_json(FICHIER_MIGRATION_TEST, trace)
+        try:
+            ok = await envoyer_mp(membre, texte_repli_attente(prenom_de(membre)))
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Migration du test, repli de %s : %s", uid, erreur)
+            ok = False
+        trace["membres"][uid]["repli"] = bool(ok)
+        ecrire_json(FICHIER_MIGRATION_TEST, trace)
+        attente.append(prenom_de(membre))
+        sans_mp += 0 if ok else 1
+        await asyncio.sleep(1.2)
+    fin = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    trace["fini"] = trace.get("fini") or fin
+    trace.setdefault("passages", []).append({"date": fin, "par": "démarrage" if auto else "commande", "places": places,
+                                             "valides": len(valides), "attente": len(attente), "deja": len(deja),
+                                             "erreurs": len(erreurs), "restes": len(restes), "a_trancher": len(exclus)})
+    ecrire_json(FICHIER_MIGRATION_TEST, trace)
+    lignes = ["🧪 **Migration des anciens du test** — FAITE", "",
+              f"✅ {len(valides)} validé(s) : " + (", ".join(valides) or "personne")
+              + (" — leur créatrice et leur compte 1 suivent." if attente_ok or not valides
+                 else " — attribution automatique éteinte : leur créatrice se donne à la main.")]
+    if a_la_main:
+        lignes += ["", "👉 **À faire**", ""] + [f"· {l}" for l in a_la_main[:15]]
+    if attente:
+        lignes += ["", f"⏳ {len(attente)} en attente d'une créatrice : {', '.join(attente[:25])}"
+                   + (f" … et {len(attente) - 25} de plus" if len(attente) > 25 else "")
+                   + (f" ({sans_mp} sans message : salon et MP fermés)" if sans_mp else "")
+                   + ". Ils repartent seuls dès qu'un compte se libère."]
+    if restes:
+        lignes += ["", f"⏸️ {len(restes)} restent dans l'ancien tunnel, faute de place : {', '.join(restes[:25])}"
+                   + (f" … et {len(restes) - 25} de plus" if len(restes) > 25 else "")
+                   + ". Attribution automatique éteinte, personne ne les reprendrait : `!migrer-test go` quand des comptes se libèrent."]
+    if deja:
+        lignes += ["", f"ℹ️ {len(deja)} déjà dans l'agence, rien fait : {', '.join(deja[:15])}"]
+    if erreurs:
+        lignes += ["", f"❌ {len(erreurs)} validation(s) non abouties : {' · '.join(erreurs[:10])} — `!pipeline` les liste."]
+    lignes += lignes_exclus
+    if valides or attente or erreurs or restes or exclus:
+        await _prevenir_admin(f"🧪 Migration du test ({'démarrage' if auto else 'commande'}) : {len(valides)} validé(s), "
+                              f"{len(attente)} en attente d'une créatrice, {len(erreurs)} erreur(s)"
+                              + (f", {len(restes)} restés faute de place" if restes else "")
+                              + (f", {len(exclus)} à trancher à la main (`!migrer-test` pour la liste)" if exclus else "")
+                              + ". `!pipeline` pour suivre.")
+    journal.info("Migration du test : %d validés, %d en attente, %d restés, %d déjà, %d erreurs, %d à trancher",
+                 len(valides), len(attente), len(restes), len(deja), len(erreurs), len(exclus))
+    return "\n".join(lignes)
 
 
 _taches_demarrees = False
