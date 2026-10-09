@@ -315,7 +315,7 @@ NOM_BOT = os.environ.get("NOM_BOT", "G&M Assistant Marketing").strip()
 INSTRUCTIONS = f"""Tu es « {NOM_BOT} », le bot d'aide aux clippers de l'équipe.
 RÈGLE DES PRÉNOMS : les pseudos des clippers sont « Prénom - Créatrice » (Georgial - Sophie). La personne s'appelle Georgial ; \
 Sophie est SA CRÉATRICE, pas lui. Tu appelles toujours le clipper par le prénom AVANT le tiret, jamais par celui d'après.
-Fait capital : tu es AUSSI le bot du tunnel candidat (formulaire du site, quiz, test de montage) : le même compte
+Fait capital : tu es AUSSI le bot du tunnel candidat (formulaire du site, vidéo de formation, quizz) : le même compte
 Discord, le même nom. « Quel bot ? » : c'est moi. Tu ne renvoies JAMAIS vers un « autre bot ».
 Ton unique rôle : répondre aux questions des clippers à partir de la BASE DE CONNAISSANCES \
 ci-dessous (le kit clipper officiel + la stratégie marketing de l'équipe), et rien d'autre.
@@ -369,14 +369,14 @@ fiche 6.
 puis réponds selon la base de connaissances (même règle d'escalade si tu ne sais pas).
 10. Tu reçois l'HISTORIQUE récent de la conversation — sers-t'en pour comprendre les messages \
 courts ou de suivi (ex. « et le son ? » ou « je peux ajouter des effets ? » juste après une \
-question sur le test de montage = c'est du MONTAGE, pas la création de comptes ni autre chose), \
+question sur le montage d'un Reel = c'est du MONTAGE, pas la création de comptes ni autre chose), \
 et ne redemande JAMAIS une info déjà donnée plus haut. Par défaut tu RÉPONDS directement avec \
 l'interprétation la plus probable (en ajoutant au besoin « dis-moi si tu voulais dire autre \
 chose ») ; ne pose une vraie question de clarification que si deviner est vraiment impossible, \
 et jamais deux fois de suite.
 15. Chaque message que tu reçois commence par une ligne [Contexte : …] qui dit OÙ on te parle \
 (message privé, ou le nom du salon) et les RÔLES de la personne. Sers-t'en : tu ne dis jamais à \
-quelqu'un qu'il est « dans le mauvais salon » s'il est déjà dans le salon de l'assistant ; un rôle \
+quelqu'un qu'il est « dans le mauvais salon », tu réponds là où il t'écrit ; un rôle \
 « Clippeur » (ou un rôle au prénom d'une créatrice) = clipper signé ; un rôle « Manager » = il gère \
 des clippers : réponds-lui avec la section MANAGER de la base, jamais avec le parcours candidat.
 16. Longueur : JAMAIS plus de 450 caractères (4 lignes courtes, 3 puces maximum). Si la \
@@ -385,7 +385,7 @@ reste. Une réponse trop longue est coupée : mieux vaut courte et complète.
 17. Image hors sujet (arnaque, publicité, mème, capture sans rapport avec le kit) : UNE phrase \
 pour dire que ce n'est pas le sujet, sans décrire l'image, et tu proposes ton aide sur le kit.
 18. Tout ce qui est OPÉRATIONNEL (mes comptes, ma créatrice, mon téléphone cloud, mes accès, \
-mes rushs) se règle avec Gaëtan, sur WhatsApp (le lien est dans tes règles) ou dans le groupe WhatsApp du clipper : dis-le, \
+les vidéos de ma créatrice) se règle avec Gaëtan, sur WhatsApp (le lien est dans tes règles) ou dans le groupe WhatsApp du clipper : dis-le, \
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
@@ -414,7 +414,7 @@ question à la fois, seulement si tu en as besoin pour répondre. Quand le clipp
 « d'accord », tu ne réponds pas.
 23. Tu ne donnes JAMAIS la cause d'un blocage : tu ne la connais pas. Tu donnes la marche à suivre. \
 « Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
-de comptes, puis le code dans #🔐-code-instagram avec `!code` ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
+de son compte, dans son salon perso, puis le code dans #🔐-code-instagram avec `!code` ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
 « désactivé », « nous examinons » (30/09, Gaëtan) : le clipper fait appel LUI-MÊME, tout de suite — « Contester la décision » ; \
 le code : « {TEXTE_CODE} » ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
 demandés : les SIENS ; jamais les papiers de quelqu'un d'autre, jamais de faux, jamais sa pièce d'identité dans Discord (il \
@@ -422,18 +422,19 @@ l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salo
 réutilise JAMAIS une info d'un compte BAN : ni son e-mail, ni son mot de passe, ni son identifiant (01/10, Gaëtan). Jamais « c'est normal », jamais \
 « sécurisé par l'agence », jamais « ton manager te donne une solution demain ».
 24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
-message de comptes (le compte existe peut-être déjà). Si ça échoue, créer avec un chiffre en plus à la fin, \
-puis taper dans SON SALON PERSO `!pseudo N identifiant` (N = 1, 2 ou 3, le numéro du compte) : le bot met le classeur \
-à jour tout seul. Tu n'inventes jamais de pseudo, et tu ne dis jamais « ton compte N est créé » à sa place.
+message de son compte (le compte existe peut-être déjà). Si ça échoue, créer avec un chiffre en plus à la fin, \
+puis taper dans SON SALON PERSO `!pseudo`, le numéro du compte (1, 2 ou 3) et le VRAI @ qu'il a pris, par exemple \
+`!pseudo 1 reels.paris27` : le bot met le classeur à jour tout seul (09/10 : jamais un mot d'exemple à recopier tel quel). Tu n'inventes jamais de pseudo, et tu ne dis jamais « ton compte N est créé » à sa place.
 25. Tu ne parles que des comptes CRÉÉS d'après la mémoire du clipper (« Comptes créés : N sur 3 »). \
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
-26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de comptes.
+26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de son compte (09/10 : un message par compte, plus de pavé des 3 comptes).
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
-28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent dans le salon #assistant ; les étapes et leurs boutons sont dans le salon perso ; les codes dans leur salon : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
+28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes dans leur salon : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
 29. « Qui est mon manager ? » : « Ton manager est un humain (Jonas ou Gaëtan). Il lit ton salon perso. Moi, je suis l'assistant. » Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager. \
-30. Montage (30/09, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo prise dans le Drive, dossier « Reels » \
-ou « TOP 20 Reels », est MODIFIÉE avant d'être publiée, toujours, dès le premier jour : musique, texte à l'écran, filtres, \
-durée, zooms, avec un début le plus accrocheur possible. Tu ne dis JAMAIS qu'on peut publier une vidéo telle quelle.
+30. Montage (30/09, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo de sa créatrice (09/10 : le lien de ses \
+vidéos est dans son message de bienvenue, il n'y a plus de Drive perso ni de « TOP 20 ») est MODIFIÉE avant d'être publiée, \
+toujours, dès le premier jour : musique, texte à l'écran, filtres, durée, zooms, avec un début le plus accrocheur possible. \
+Tu ne dis JAMAIS qu'on peut publier une vidéo telle quelle.
 31. Jamais « c'est bon » sur un Reel, une vidéo ou une capture que tu n'as pas vu. Tu dis que tu ne peux pas voir la vidéo \
 et ce qu'il doit vérifier. Jamais de promesse de review. Une ligne « [Pièce jointe : … que tu ne peux PAS voir] » veut dire \
 que tu ne l'as PAS vue (01/10, Gaëtan, après Daniella : « c'est bon » sur une vidéo que le bot n'avait pas reçue). La relecture \
@@ -444,16 +445,27 @@ par jour », jamais « demain », jamais « 5 Reels en 72 h », jamais de « pé
 d'heure pour le compte suivant ; les heures de la mémoire (fin du warm-up), tu les recopies telles quelles. Tu ne pousses \
 jamais le clipper à créer un compte que le bot n'a pas encore ouvert.
 33. Un message « [Prénom (équipe) a écrit : …] » dans l'historique vient d'un HUMAIN de l'équipe : tu ne le contredis jamais \
-et tu ne réponds pas à sa place."""
+et tu ne réponds pas à sa place.
+34. Le parcours (09/10, Gaëtan : « on va ouvrir les vannes ») : formulaire du site → vidéo de formation → quizz (8/10) → \
+Discord → sa créatrice, le lien de ses vidéos et le groupe WhatsApp, dans un seul message de bienvenue → compte 1 → 4 Reels → \
+compte 2 → 4 Reels → compte 3, le privé, avec son lien → son app de clippeur, qui montre ses visites et ses gains. Il n'y a PLUS \
+de test vidéo à rendre ni de note de montage pour entrer : tu n'en parles jamais, même à un ancien candidat. Quizz réussi = sa \
+créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois : tu ne parles que de l'étape où il est.
+35. Mise en forme (09/10, Gaëtan : « Saute des lignes, aère ») : le clipper te lit sur son téléphone. Des paragraphes d'une ou \
+deux phrases, une ligne vide entre chaque paragraphe, avant et après une liste. Une seule action demandée par réponse ; une \
+marche à suivre, seulement s'il la demande, en 3 étapes numérotées au plus."""
 
 # Les salons se donnent en LIEN CLIQUABLE (<#id>) dès que l'identifiant est configuré —
 # « va dans le forum formation » sans lien fait perdre tout le monde (retour Jonas, 18/07).
 if CANAL_FORMATION_ID:
     INSTRUCTIONS += (f"\n11. Dès que tu diriges vers le forum « formation », écris le lien cliquable "
                      f"<#{CANAL_FORMATION_ID}> (jamais le nom seul).")
-INSTRUCTIONS += ("\n12. Les questions des clippers se posent dans le salon #assistant, commun : tu y réponds à tout le monde, sans jamais "
-                 "citer un identifiant, un mot de passe ou un lien de quelqu'un (le contexte ne t'en donne pas). Dans un salon perso, le "
-                 "bot ne répond qu'aux boutons et aux commandes ; un candidat pas encore signé peut t'écrire en message privé.")   # 05/10
+# 09/10 (Gaëtan : « Les clippeurs se font submerger d'informations sur leur salon privé… simple et efficace ») : l'assistant répond
+# là où le clipper écrit. Dans son salon perso, seulement à une question (« ? » ou mention du bot) ; plus aucun renvoi vers #assistant.
+INSTRUCTIONS += ("\n12. Tu réponds là où on te parle : le salon perso du clipper (il t'a posé une question), un message privé, ou le "
+                 "salon #assistant. Tu ne renvoies JAMAIS vers un autre salon pour poser une question : ni « va dans #assistant », ni "
+                 "« écris-moi en MP ». Tu ne cites jamais un identifiant, un mot de passe ou un lien de quelqu'un d'autre. Dans le salon "
+                 "#assistant, commun à tous, tu ne cites même pas ceux de la personne qui te parle.")
 _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
 # Index des salons du serveur (nom normalisé → identifiant) et forum formation résolu, remplis au
 # démarrage puis toutes les 6 h : les liens cliquables se posent en POST-TRAITEMENT, sans dépendre
@@ -514,14 +526,14 @@ def connaissances() -> str:
 
 
 def regle_lien_assistant() -> str:
-    """05/10 : le salon de l'assistant en lien cliquable, dès que son id est connu."""
-    cid = salon_assistant_id()
+    """05/10 : le salon de l'assistant en lien cliquable, dès que son id est connu. 09/10 (Gaëtan : « simple et efficace ») :
+    l'assistant répond là où le clipper écrit, il ne renvoie plus vers #assistant : la règle 12bis (le lien de #assistant) est
+    retirée. Reste la règle 12ter, le salon des codes."""
     sid = codes_2fa.salon_codes_id()
     # 08/10 (audit de l'assistant) : le seul <#id> du prompt était celui de #assistant, recopié pour « va chercher ton code » ;
     # le salon des codes a désormais le sien, et la règle dit lequel sert à quoi.
-    return ((f"\n12bis. Le salon de l'assistant, en lien cliquable quand tu y renvoies : <#{cid}>." if cid else "")
-            + (f"\n12ter. Un code Instagram (connexion, vérification, appel d'un compte bloqué) se demande UNIQUEMENT dans <#{sid}> "
-               "avec `!code` : c'est ce lien que tu donnes, jamais celui de l'assistant." if sid else ""))
+    return (f"\n12ter. Un code Instagram (connexion, vérification, appel d'un compte bloqué) se demande UNIQUEMENT dans <#{sid}> "
+            "avec `!code` : c'est ce lien que tu donnes, jamais un autre salon." if sid else "")
 
 
 def bloc_systeme():
@@ -1075,21 +1087,44 @@ async def salons_persos_actifs() -> list:
     return resultat
 
 
+def mention_ecrite_du_bot(message) -> bool:
+    """09/10 (relecture : « j'ai créé le compte » posé en « Répondre » au message d'étape du bot faisait parler l'IA) : la
+    mention ÉCRITE du bot (« @Bot » dans le texte), pas celle qu'ajoute un « Répondre » : Discord met alors la personne à qui
+    on répond dans message.mentions, sans que le clipper ait rien demandé."""
+    bot = getattr(client, "user", None)
+    brut = getattr(message, "content", "") or ""
+    return bot is not None and (f"<@{bot.id}>" in brut or f"<@!{bot.id}>" in brut)
+
+
+def est_question(message, texte: str = None) -> bool:
+    """09/10 (Gaëtan : « Améliore, simplifie… Chaque étape à la fois ») : le clipper s'adresse au bot — un « ? » dans son message,
+    ou une mention du bot. Seul cas où l'assistant parle dans un salon perso : il ne parle jamais de lui-même.
+    09/10 (relecture : « voilà mon premier reel https://www.instagram.com/reel/…/?igsh=… » faisait parler l'IA, dix liens collés
+    = dix réponses) : le « ? » d'un lien ne compte pas ; la mention, seulement écrite (mention_ecrite_du_bot)."""
+    t = (getattr(message, "content", "") or "") if texte is None else (texte or "")
+    t = re.sub(r"<?https?://\S+>?", "", t)
+    if "?" in t or "？" in t:
+        return True
+    return mention_ecrite_du_bot(message)
+
+
 def doit_repondre(message) -> bool:
     """On répond si : message privé, OU son salon perso, OU mention par le staff (29/09 : plus de canal ni de forum
     dédiés, ASSISTANT_GLOBAL retiré). En MP le bot dit « réponds-moi ici » à chaque étape : un texte libre y tombait
-    dans le silence total (audit du 10/09) — désormais l'assistant répond, avec le contexte du parcours."""
+    dans le silence total (audit du 10/09) — désormais l'assistant répond, avec le contexte du parcours.
+    09/10 (Gaëtan : « simple et efficace ») : l'assistant répond là où le clipper écrit. Salon perso : une question (« ? » hors
+    lien, ou mention écrite du bot : est_question), même avec ASSISTANT_SALON_PERSO=0 ; le reste seulement avec
+    ASSISTANT_SALON_PERSO=1. En MP : tout le monde, clipper signé compris (sa réponse arrive en MP, plus de renvoi vers #assistant)."""
     staff = str(message.author.id) in ADMIN_IDS or est_manager(message.author)
     if message.guild is None:
-        # 05/10 : en MP, un candidat (pas encore signé) pendant son test, ou le staff ; un clipper signé est renvoyé vers #assistant
-        return staff or not lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id))
+        return True
     canal = message.channel
     cid = salon_assistant_id()
     if cid and str(canal.id) == cid:                            # 05/10 : le salon #assistant, pour tout le monde
         return True
-    sp = salon_perso_de(message.author.id)                     # 25/09 : son salon perso (05/10 : plus d'IA ici, sauf ASSISTANT_SALON_PERSO=1)
+    sp = salon_perso_de(message.author.id)                     # 25/09 : son salon perso
     if sp is not None and sp.id == canal.id and not staff:
-        return ASSISTANT_SALON_PERSO
+        return ASSISTANT_SALON_PERSO or est_question(message)
     # 27/09 : une mention hors salon perso n'est servie qu'au staff
     return client.user in message.mentions and staff
 
@@ -1312,6 +1347,28 @@ async def staff_a_parle(message, minutes: int = 30) -> bool:
     return False
 
 
+# 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité est pourrie apparemment ») : la mémoire
+# du parcours (parcours.contexte_llm) parle encore du Drive perso et de la paie « tous les 15 jours » ; ce rappel, ajouté après
+# elle, la corrige et dit où sont les vidéos et où se posent les questions.
+CONTEXTE_0910 = ("[Mise à jour du 09/10, elle prime sur le bloc ci-dessus : plus de test vidéo pour entrer ; plus de Drive perso "
+                 "ni de « TOP 20 ». Ses vidéos à monter, et les photos de sa story du jour : celles de sa créatrice, en qualité "
+                 "d'origine, avec le lien de son message de bienvenue ; pas de lien dans ce message : le salon ℹ️ de sa créatrice. "
+                 "Paie le 5 et le 20. Il pose ses questions là où il t'écrit : tu y réponds, jamais « va dans #assistant ». "
+                 "Une seule action par réponse, des paragraphes courts séparés par une ligne vide.]")
+
+# 09/10 (relecture : la mémoire du parcours écrit encore « Drive : <dossier perso TOP 20> », puis « Drive : pas encore prêt »
+# une fois ce dossier fermé, alors que l'assistant répond maintenant dans chaque salon perso) : avant d'aller au modèle, la
+# ligne est remplacée par l'endroit où sont ses vidéos. Jamais le lien du dossier perso, jamais « pas encore prêt ».
+_LIGNE_DRIVE_MEMOIRE = re.compile(r"(?m)^Drive : .*$")
+LIGNE_VIDEOS_MEMOIRE = ("Vidéos de sa créatrice : le lien est dans son message de bienvenue, sinon dans le salon ℹ️ de sa "
+                        "créatrice. Il n'a pas de dossier Drive à lui.")
+
+
+def memoire_sans_drive_perso(texte: str) -> str:
+    """La mémoire du clipper (parcours.contexte_llm), sans la ligne « Drive : … » du dossier perso."""
+    return _LIGNE_DRIVE_MEMOIRE.sub(LIGNE_VIDEOS_MEMOIRE, texte or "")
+
+
 def contexte_auteur(message) -> str:
     """Ligne [Contexte : …] en tête de chaque question : où (MP ou salon) et quels rôles — le
     modèle ne peut pas le deviner (Narovana, 05/09 : « tu es dans le mauvais salon » alors qu'elle
@@ -1333,12 +1390,16 @@ def contexte_auteur(message) -> str:
             + f" · rôles : {', '.join(roles) if roles else 'aucun (candidat)'}]")
     if en_prive(message):
         # 27/09 (Gaëtan) : « quand le clipper arrive avant la fin du test, il a besoin d'aide » — l'assistant reçoit
-        # où en est le candidat (numéro, quiz, test envoyé/rendu, échéance) pour répondre juste, sans inventer.
+        # où en est le candidat pour répondre juste, sans inventer. 09/10 (Gaëtan : « Go enlever le test… ») : plus de test ;
+        # le candidat n'a qu'une étape, la vidéo de formation et le quizz. Signé = au registre, ou est_signe (rôle d'équipe,
+        # ancien du roster) : un ancien hors registre n'est plus servi comme un candidat.
         try:
-            if not lire_json(FICHIER_EQUIPES, {}).get(str(message.author.id)):
-                return (base + "\n[Candidat en MP — où il en est d'après le pipeline : " + ou_en_es_tu(str(message.author.id))
-                        + "\nTu l'aides sur CETTE étape (quiz, test de montage, MP fermés) avec la base ; pour le test : un Reel "
-                          "vertical avec sous-titres, à rendre ici avant l'échéance, jugé par le bot. Tu ne promets rien d'autre.]")
+            uid_c = str(message.author.id)
+            if not lire_json(FICHIER_EQUIPES, {}).get(uid_c) and not (membre is not None and est_signe(membre)):
+                return (base + "\n[Candidat pas encore dans l'agence — où il en est : " + ou_en_es_tu(uid_c)
+                        + f"\nTu l'aides sur CETTE étape, avec la base. Avant le quizz : la vidéo de formation, puis le quizz du "
+                          f"site, {seuil_quiz_texte()} pour réussir. Quizz réussi = sa créatrice et son compte 1 arrivent dans son "
+                          "salon perso (sous 48 h si toutes les créatrices sont pleines). Tu ne promets rien d'autre.]")
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Contexte candidat %s : %s", message.author.id, erreur)
     if message.guild is not None and salon_assistant_id() and str(message.channel.id) == salon_assistant_id():
@@ -1357,9 +1418,11 @@ def contexte_auteur(message) -> str:
             journal.warning("Contexte court de %s : %s", message.author.id, erreur)
         return base
     sp = salon_perso_de(message.author.id) if message.guild is not None else None
-    if sp is not None and sp.id == message.channel.id:
+    # 09/10 (Gaëtan : « simple et efficace » ; plus de renvoi vers #assistant) : le MP d'un clipper signé est privé comme son
+    # salon, il y reçoit sa réponse, avec la même mémoire (jamais un mot de passe).
+    if (sp is not None and sp.id == message.channel.id) or (message.guild is None and not est_staff(membre or message.author)):
         try:
-            return base + "\n" + parcours.contexte_llm(str(message.author.id))
+            return base + "\n" + memoire_sans_drive_perso(parcours.contexte_llm(str(message.author.id))) + "\n" + CONTEXTE_0910
         except Exception as erreur:
             journal.warning("Mémoire du clipper %s : %s", message.author.id, erreur)
     return base
@@ -1654,9 +1717,12 @@ def role_team(guild, code: str):
 
 
 def texte_compteur(total: float) -> str:
+    # 09/10 : la paie des clippers tombe « les 5 et 20 » (paie au clic). Le compteur de #dopamine, lu par les clippers, disait
+    # encore « Paie le 16 et le 1er » et « reporting le dimanche » (retiré le 05/10). Aéré : une ligne vide entre les paragraphes.
     montant = f"{total:,.2f}".replace(",", " ")   # 1,234.50 -> 1 234.50 (sans toucher au texte)
-    return (f"💰 **{montant} € déjà versés aux clippers de l'équipe** 💰\n"
-            f"Paie le 16 et le 1er / reporting le dimanche. Rejoins-nous, performe, encaisse. 🚀\n"
+    return (f"💰 **{montant} € déjà versés aux clippers de l'équipe** 💰\n\n"
+            f"Paie le 5 et le 20.\n\n"
+            f"Rejoins-nous, performe, encaisse. 🚀\n\n"
             f"-# Mis à jour le {datetime.now(timezone.utc).strftime('%d/%m/%Y')}")
 
 
@@ -3226,8 +3292,8 @@ def resoudre_salons():
 
 def lier_references(reponse: str) -> str:
     """Post-traitement DÉTERMINISTE des liens : « Fiche 3 » → <#post>, « forum formation » → <#forum>,
-    « #assistant-ia »/« #candidature »/« #bump »… → <#salon>. Le modèle peut écrire du texte, le
-    clipper reçoit toujours un lien cliquable. Un doublon « <#x> <#x> » est replié."""
+    « #candidature »/« #ressources »… → <#salon>. Le modèle peut écrire du texte, le
+    clipper reçoit toujours un lien cliquable. Un doublon « <#x> <#x> » est replié. 09/10 : jamais vers #assistant."""
     # 1. Fiches : toute mention « Fiche N » hors d'une mention existante.
     def _fiche(m):
         pid = POSTS_FORMATION.get(m.group(1))
@@ -3245,12 +3311,18 @@ def lier_references(reponse: str) -> str:
     if fid and client.get_channel(int(fid)) is not None:
         reponse = re.sub(r"(?:le |du |au )?forum\s*«?\s*[Ff]ormation\s*»?(?![^<]*>)", f"<#{fid}>", reponse)
     # 5. Salons cités par leur nom « #truc » (jamais un <#…> existant, jamais un titre Markdown).
+    # 09/10 (Gaëtan : « simple et efficace ») : l'assistant répond là où le clipper écrit ; plus jamais de lien fabriqué vers
+    # #assistant (ni par son nom, ni par un début de nom, ni par l'id du salon).
+    cid_assistant = salon_assistant_id()
+
     def _salon(m):
         cle = re.sub(r"[^a-z0-9]", "", normaliser(m.group(1)))
-        alias = {"assistant": "assistantia", "remuneration": "remuneration"}
-        cid = _SALONS.get(cle) or _SALONS.get(alias.get(cle, "")) or next(
-            (v for k, v in _SALONS.items() if cle and (k.startswith(cle) or cle.startswith(k)) and len(cle) >= 4), None)
-        return f"<#{cid}>" if cid else m.group(0)
+        if "assist" in cle:
+            return m.group(0)
+        cid = _SALONS.get(cle) or next(
+            (v for k, v in _SALONS.items() if "assist" not in k and cle and (k.startswith(cle) or cle.startswith(k)) and len(cle) >= 4),
+            None)
+        return f"<#{cid}>" if cid and cid != cid_assistant else m.group(0)
     reponse = re.sub(r"(?<![<\w#])#([\w\-’'éèêëàâçùûîïô]{3,40})(?![^<]*>)", _salon, reponse)
     # 6. Doublons « <#x> <#x> » ou « <#x> (<#x>) » créés par le modèle + le post-traitement.
     reponse = re.sub(r"(<#\d+>)(\s*[:(—–-]?\s*)\1\)?", r"\1", reponse)
@@ -8602,10 +8674,17 @@ async def filtrer_spam(message) -> bool:
 async def relayer_mention_staff(message) -> bool:
     """06/10 (Gaëtan, GO 2 : « remontée des @Gaëtan ») : dans son salon perso, un clipper qui mentionne Gaëtan, un admin ou un
     manager (Simon, 03/10 : « @Gaëtan », sans réponse) → le message part au salon admin avec son lien, et 📨 sur le message pour
-    que le clipper sache que c'est transmis. Au plus RELAIS_MAX_JOUR par clipper et par jour. Vrai si relayé."""
+    que le clipper sache que c'est transmis. Au plus RELAIS_MAX_JOUR par clipper et par jour. Vrai si relayé.
+    09/10 (relecture : le message de bienvenue dit « écris à Gaëtan sur WhatsApp, il t'ajoute au groupe » ; « gaetan je t'ai
+    écrit sur WhatsApp, tu m'ajoutes au groupe ? », sans « @ », ne partait nulle part et mentionne_humain coupait l'assistant :
+    silence total) : une QUESTION qui nomme le staff en clair (PRENOMS_STAFF), sans mention écrite du bot, part aussi au salon
+    admin. Un « merci gaetan » sans question reste au salon : l'humain a la main (01/10)."""
     texte_c = (message.clean_content or "").strip()
     vise = [m for m in message.mentions if not getattr(m, "bot", False) and (str(m.id) in ADMIN_IDS or est_manager(m))]
-    if not vise and not re.search(r"@\s*ga[eé]tan\b", texte_c, re.I):
+    prenom_vise = (bool(PRENOMS_STAFF) and not mention_ecrite_du_bot(message)
+                   and re.search(r"\b(?:" + "|".join(map(re.escape, PRENOMS_STAFF)) + r")\b", normaliser(texte_c)) is not None
+                   and est_question(message, texte_c))
+    if not vise and not re.search(r"@\s*ga[eé]tan\b", texte_c, re.I) and not prenom_vise:
         return False
     compteurs_r = lire_json(FICHIER_COMPTEURS, {})
     cle_r = f"{message.author.id}|{heure_paris().date().isoformat()}"
@@ -8628,27 +8707,6 @@ async def relayer_mention_staff(message) -> bool:
     return True
 
 
-async def renvoyer_vers_assistant(message, texte: str) -> None:
-    """06/10 (GO 2) : l'IA ne répond plus dans les salons perso (05/10) ; une question posée là (mention du bot ou « ? ») ne tombe
-    plus dans le vide (Simon, 06/10 à 3 h : son Instagram et « analyse », aucune réponse). Une phrase qui renvoie vers #assistant,
-    une fois par jour et par clipper ; un « présent », un « fait » ou un « ok » ne déclenche rien."""
-    question = (client.user is not None and client.user in message.mentions) or "?" in (texte or "")
-    if not question:
-        return
-    compteurs_q = lire_json(FICHIER_COMPTEURS, {})
-    jour_q = heure_paris().date().isoformat()
-    if compteurs_q.setdefault("renvois_assistant_salon", {}).get(str(message.author.id)) == jour_q:
-        return
-    compteurs_q["renvois_assistant_salon"][str(message.author.id)] = jour_q
-    ecrire_json(FICHIER_COMPTEURS, compteurs_q)
-    cid_q = salon_assistant_id()
-    try:
-        await message.reply("Je réponds aux questions dans " + (f"<#{cid_q}>" if cid_q else "le salon #assistant")
-                            + " : pose-la là-bas, je te réponds tout de suite 🙂\n-# Pour parler à Gaëtan, mentionne-le ici, il est prévenu.")
-    except (discord.Forbidden, discord.HTTPException):
-        pass
-
-
 async def alerte_numero_demande(message, texte: str) -> None:
     """26/09 (Daniella) : le mur du numéro de téléphone bloque un clipper toute une nuit → le manager est prévenu, une fois par jour."""
     if re.search(r"num[ée]ro de t[ée]l|demande un num[ée]ro|numero de tel", texte, re.I):
@@ -8666,22 +8724,113 @@ async def alerte_numero_demande(message, texte: str) -> None:
                 journal.warning("Alerte numéro de téléphone : %s", erreur)
 
 
+def normaliser_commande(texte: str) -> str:
+    """09/10 (un clipper a tapé « ! pseudo 1 … », ignoré en silence) : « ! pseudo » et « !Pseudo » valent « !pseudo ». L'espace
+    après le « ! » saute et le premier mot passe en minuscules ; les arguments (un @, une adresse) restent tels quels. Vaut
+    pour toutes les commandes : !pseudo, !app, !etape, !mesclics, !code…"""
+    texte = re.sub(r"^!\s+", "!", (texte or "").strip())
+    if texte.startswith("!"):
+        texte = re.sub(r"^!\S+", lambda m: m.group(0).lower(), texte, count=1)
+    return texte
+
+
+def auteur_membre(message):
+    """09/10 : l'auteur en tant que MEMBRE du serveur (ses rôles comptent pour est_signe), aussi pour un message privé, où
+    message.author n'est qu'un utilisateur sans rôles. Repli : message.author."""
+    if message.guild is not None:
+        return message.author
+    return membre_par_id(message.author.id) or message.author
+
+
+def numero_a_lier(message, texte: str) -> bool:
+    """09/10 (codes Instagram de 8 chiffres pris pour un numéro et effacés dans le salon perso d'un clipper) : un numéro envoyé
+    BRUT n'est lu comme le numéro de candidature que d'un membre pas encore dans l'agence (est_signe faux), en MP, dans son
+    salon perso ou dans #candidature, et seulement de 9 à 15 chiffres. En MP et dans son salon : seulement sans liaison (un
+    candidat déjà relié parle à l'assistant). Dans #candidature, salon public, le numéro est toujours effacé et basculé en
+    privé, liaison ou pas : il ne reste jamais visible. Le message d'un signé n'est jamais relié ; chez lui, jamais effacé
+    (dans #candidature, numero_public_a_effacer l'efface quand même)."""
+    t = texte or ""
+    public = numero_dans_salon_public(message)
+    if not (public or en_prive(message)):
+        return False
+    if not forme_numero(t):
+        return False
+    if not public and str(message.author.id) in lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}):
+        return False
+    return not est_signe(auteur_membre(message))
+
+
+def forme_numero(texte: str) -> bool:
+    """Un numéro de téléphone envoyé BRUT : chiffres, espaces, « + », points, tirets, parenthèses ; 9 à 15 chiffres (09/10 :
+    un code Instagram de 8 chiffres n'en est pas un)."""
+    t = texte or ""
+    return bool(re.fullmatch(r"[\d\s+().\-]{9,}", t)) and 9 <= len(re.sub(r"\D", "", t)) <= 15
+
+
+def numero_dans_salon_public(message) -> bool:
+    """Le message est dans #candidature (#bienvenue), le salon public des arrivants."""
+    return bool(CANAL_CANDIDATURE_ID) and message.guild is not None and str(message.channel.id) == CANAL_CANDIDATURE_ID
+
+
+def numero_public_a_effacer(message, texte: str) -> bool:
+    """09/10 (relecture : un signé qui colle « 06 12 34 56 78 » dans #bienvenue n'était ni relié ni effacé, son numéro restait
+    lisible par tout le serveur) : dans le salon public, un numéro brut est TOUJOURS effacé, signé ou pas. Seul un membre pas
+    encore dans l'agence est ensuite relié (numero_a_lier)."""
+    return numero_dans_salon_public(message) and forme_numero(texte)
+
+
+# 09/10 : dans le salon perso, l'assistant répond aux questions ; les messages d'étape du bot portent identifiant, e-mail et mot
+# de passe (blocs de code). Ils n'entrent jamais dans l'historique transmis au modèle (audit : la règle 20 interdit de les redire).
+MOTIF_SENSIBLE = re.compile(r"```|(?:mot de passe|e-mail|email|identifiant|mdp)\s*:", re.I)
+
+
+def message_sensible(texte: str) -> bool:
+    """Un message du bot qui porte des accès (bloc de code, « Mot de passe », « E-mail : », « Identifiant : »)."""
+    return bool(MOTIF_SENSIBLE.search(texte or ""))
+
+
+# 09/10 (Gaëtan : « Saute des lignes, aère ») : une puce ou une étape numérotée d'une liste ; « -# » (petit texte Discord) n'en
+# est pas une.
+_PUCE = re.compile(r"^\s*(?:[-•*·]\s|\d{1,2}[.)]\s|>)")
+
+
+def aerer(texte: str) -> str:
+    """09/10 (Gaëtan : « Saute des lignes, aère » ; le clipper lit au téléphone) : la réponse de l'assistant reçoit une ligne
+    vide entre deux paragraphes, avant et après une liste ; les puces d'une même liste restent collées, avec la suite indentée
+    d'une puce (« 1. Coupe le début » puis «    pour accrocher ») ; un bloc de code n'est pas touché ; jamais deux lignes
+    vides de suite. Déterministe : le modèle n'a pas à y penser."""
+    sortie, prec, dans_code = [], None, False                    # prec : « para », « liste », ou None après une ligne vide
+    for ligne in (texte or "").strip().split("\n"):
+        ligne = ligne.rstrip()
+        if dans_code:
+            sortie.append(ligne)
+            if ligne.strip().startswith("```"):
+                dans_code, prec = False, "para"
+            continue
+        if not ligne.strip():
+            if sortie and sortie[-1] != "":
+                sortie.append("")
+            prec = None
+            continue
+        sorte = "liste" if _PUCE.match(ligne) else "para"
+        if prec == "liste" and re.match(r"\s{2,}\S", ligne):
+            sorte = "liste"                                     # 09/10 (relecture) : la suite indentée d'une puce reste collée
+        if prec is not None and not (prec == "liste" and sorte == "liste"):
+            sortie.append("")
+        sortie.append(ligne)
+        prec = sorte
+        if ligne.strip().startswith("```") and ligne.count("```") % 2 == 1:
+            dans_code = True
+    return "\n".join(sortie).strip()
+
+
 @client.event
 async def on_message(message):
-    # Automatisation quiz → test : l'Apps Script de la feuille du quiz poste « QUIZ_OK|pseudo|score »
-    # via un webhook Discord (salon admin verrouillé) — le bot envoie alors le test tout seul.
+    # Quiz : « QUIZ_OK|pseudo|score » posté par un webhook Discord (salon admin verrouillé), ou rejoué par le quiz du site.
+    # 09/10 (Gaëtan : « on va ouvrir les vannes ») : quiz réussi = entrée dans l'agence (traiter_quiz_webhook), plus de test.
+    # Les webhooks CANDIDATURE| et TEST_RENDU| du Google Form sont retirés : un auteur bot est ignoré juste en dessous.
     if message.webhook_id and message.content.startswith(("QUIZ_OK|", "QUIZ_KO|")):
         await traiter_quiz_webhook(message)
-        await effacer_webhook(message)
-        return
-    # Même mécanique pour le formulaire de candidature : « CANDIDATURE|prénom|tel|pays|pseudo »
-    if message.webhook_id and message.content.startswith("CANDIDATURE|"):
-        await traiter_candidature_webhook(message)
-        await effacer_webhook(message)
-        return
-    # Serveur fermé (14/09) : « TEST_RENDU|prénom|tel|email|lien|remarque » (formulaire « Rendu du test »)
-    if message.webhook_id and message.content.startswith("TEST_RENDU|"):
-        await traiter_rendu_webhook(message)
         await effacer_webhook(message)
         return
     if message.author.bot:
@@ -8697,6 +8846,11 @@ async def on_message(message):
             return
 
     texte = nettoyer(message)
+    # 09/10 : « ! pseudo », « !Pseudo » → « !pseudo » ; les modules qui relisent message.content (codes_2fa) voient la même chose.
+    texte_cmd = normaliser_commande(texte)
+    if texte_cmd != texte.strip():
+        message.content = texte_cmd
+    texte = texte_cmd                                                    # le premier mot d'une commande est déjà en minuscules
     utilisateur = message.author.id
     if message.guild is not None:
         try:                                                              # 05/10 : l'appel de présence — il a écrit, il est là
@@ -8720,42 +8874,13 @@ async def on_message(message):
             touche = True
         if touche:
             ecrire_json(FICHIER_PIPELINE, donnees_s)
-        await message.reply("✅ C'est noté — **plus aucune relance automatique**. Ton dossier reste "
-                            "ouvert : si tu veux reprendre un jour, renvoie simplement ton numéro ici. "
-                            "Bonne continuation 🙏")
+        # 09/10 (Gaëtan : « Saute des lignes, aère ») : deux paragraphes courts.
+        await message.reply("✅ C'est noté : plus aucune relance automatique.\n\n"
+                            "Ton dossier reste ouvert. Pour reprendre un jour, écris-moi ici. 🙏")
         return
 
-    # MP « VALIDÉ » / « RETEST » : le retest après expiration ou refus — promis dans tous les MP,
-    # jamais implémenté avant le 10/09. Dans #candidature, on efface et on traite en privé.
-    mot_valide = normaliser(texte).strip(" !.✅")
-    en_candidature = message.guild is not None and CANAL_CANDIDATURE_ID and str(message.channel.id) == CANAL_CANDIDATURE_ID
-    if (en_prive(message) or en_candidature) and mot_valide in ("valide", "retest", "re-test", "pret", "je suis pret"):
-        if en_candidature:
-            try:
-                await message.delete()
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-        donnees_v = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        info_v = donnees_v.get("etats", {}).get(str(utilisateur), {})
-        if info_v.get("etat") in ("test_expire", "refuse"):
-            try:
-                ouvert = not info_v.get("retest") or datetime.now(timezone.utc) >= datetime.fromisoformat(info_v["retest"])
-            except ValueError:
-                ouvert = True
-            if ouvert and LIEN_TEST:
-                membre_v = membre_par_id(utilisateur) or message.author
-                ok_v = await envoyer_test_candidat(membre_v, info_v.get("score_quiz", ""))
-                canal_v = await canal_admin()
-                if canal_v:
-                    await canal_v.send(f"🔄 {message.author.mention} a demandé son **retest** (VALIDÉ) — test "
-                                       + ("renvoyé en MP, 48 h." if ok_v else "⚠️ MP fermés, je retente."))
-                if not ok_v and message.guild is not None:
-                    await message.channel.send(f"{message.author.mention} ouvre tes MP : ton test t'y attend.", delete_after=60)
-            else:
-                await envoyer_mp(message.author, "⏳ " + ou_en_es_tu(str(utilisateur)))
-        else:
-            await envoyer_mp(message.author, "👋 " + ou_en_es_tu(str(utilisateur)))
-        return
+    # 09/10 (Gaëtan : « Go enlever le test… ») : le mot « VALIDÉ » / « RETEST » (retest après expiration) est retiré avec le
+    # test. Il interceptait aussi les clippers qui écrivaient « prêt » : ce mot ne déclenche plus rien.
 
     # 26/09 (Thia « ! code », Daniella « Code ») : dans son salon perso, le mot seul vaut la commande.
     # 27/09 : « recup » / « récup » seul = `!recup`, le code de récupération (mot de passe oublié, appel après un ban).
@@ -8848,15 +8973,26 @@ async def on_message(message):
     # `!lier <numéro>` (historique) OU le numéro envoyé BRUT, sans commande (parcours sans
     # friction du 18/07 : en MP c'est la voie normale ; dans #candidature on efface et on
     # bascule en privé, un numéro ne doit jamais rester visible).
-    numero_brut = (en_prive(message) or (CANAL_CANDIDATURE_ID and str(message.channel.id) == CANAL_CANDIDATURE_ID)) \
-        and re.fullmatch(r"[\d\s+().\-]{8,}", texte or "") and len(re.sub(r"\D", "", texte)) >= 8
+    # 09/10 (codes Instagram de 8 chiffres pris pour un numéro et effacés dans le salon d'un clipper) : seulement un membre pas
+    # encore dans l'agence, de 9 à 15 chiffres, sans liaison s'il écrit chez lui (numero_a_lier). Le message d'un signé n'est
+    # jamais effacé chez lui.
+    numero_brut = numero_a_lier(message, texte)
+    if not numero_brut and numero_public_a_effacer(message, texte):
+        # 09/10 (relecture) : le numéro d'un signé posté dans #candidature, public, est effacé (jamais relié) ; une ligne, en privé.
+        try:
+            await message.delete()
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        await envoyer_mp(message.author, "🔒 Ton numéro ne se poste jamais dans un salon public : je l'ai effacé.")
+        return
     numero_phrase = ""
     if not numero_brut and message.guild is None and not texte.startswith("!"):
         # « voici mon numéro : 06 12 34 56 78 » — le numéro est dans une phrase. On ne le prend
         # que si rien n'est encore lié (pas de fausse liaison sur un texte qui contient un chiffre).
         trouve_n = re.search(r"(?:\+\d{1,3}[\s.\-]?)?(?:\(?\d\)?[\s.\-]?){8,14}", texte or "")
         if trouve_n and 9 <= len(re.sub(r"\D", "", trouve_n.group(0))) <= 15 \
-                and str(utilisateur) not in lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}):
+                and str(utilisateur) not in lire_json(FICHIER_PIPELINE, {}).get("liaisons", {}) \
+                and not est_signe(auteur_membre(message)):              # 09/10 : un signé n'est jamais relié ni renommé
             numero_phrase = trouve_n.group(0)
     if texte.startswith("!lier") or numero_brut or numero_phrase:
         brut = texte if numero_brut else (numero_phrase or texte[len("!lier"):])
@@ -8868,19 +9004,45 @@ async def on_message(message):
         await traiter_liaison(message.author, brut)
         return
 
-    # Commande PUBLIQUE : !quiz — le bot envoie en MP le lien de quiz PERSONNEL (ID Discord pré-rempli,
-    # jointure infaillible avec la feuille). « !quiz-ok » reste la commande admin, exclue ici.
+    # Commande PUBLIQUE : !quiz — le lien de quiz PERSONNEL (ID Discord pré-rempli, jointure infaillible avec la feuille).
+    # « !quiz-ok » reste la commande admin, exclue ici. 09/10 (Gaëtan : « Chaque étape à la fois… Saute des lignes, aère ») :
+    # plus de test après le quizz ; un seul message, dans son salon perso de préférence (« arrivent ici » y est vrai), sinon
+    # en MP ; tapé ailleurs, une ligne lui dit où il est.
     if texte.startswith("!quiz") and not texte.startswith("!quiz-ok"):
-        if not lien_quiz_pour(utilisateur):
-            await message.reply("Le lien du quiz n'est pas encore configuré — demande à Gaëtan.")
+        sp_quiz = salon_perso_de(utilisateur)
+        # 09/10 (relecture : un clipper signé qui tape !quiz recevait le lien et « ta créatrice et ton compte 1 arrivent ici »,
+        # qu'il a déjà) : un signé n'a plus de quizz à passer ; une ligne pour retrouver son étape. Le staff garde le lien.
+        if not est_staff(message.author) and est_signe(auteur_membre(message)):
+            chez_lui = message.guild is None or (sp_quiz is not None and sp_quiz.id == message.channel.id)
+            await message.reply("Tu es déjà dans l'agence. 🙂\n\nTon étape : tape `!etape`"
+                                + (" ici." if chez_lui else (f" dans {sp_quiz.mention}." if sp_quiz is not None
+                                                             else " dans ton salon perso.")))
             return
-        ok = await envoyer_mp(message.author,
-            "📝 Voici **ton lien de quiz personnel** — il contient ton identifiant Discord, "
-            f"ne modifie pas le champ pré-rempli :\n{lien_quiz_pour(utilisateur)}\n\n"
-            f"Seuil : **{seuil_quiz_texte()}**. Si tu le passes, le test de montage arrive ici automatiquement. Bonne chance 🍀")
-        if message.guild is not None:
-            await message.reply("📬 Lien de quiz personnel envoyé en message privé !" if ok else
-                                "⚠️ Tes MP sont fermés — active-les (Paramètres de confidentialité du serveur) puis retape `!quiz`.")
+        lien_q = lien_quiz_pour(utilisateur)
+        if not lien_q:
+            await message.reply("Le lien du quizz n'est pas encore prêt.\n\nDemande-le à Gaëtan.")
+            return
+
+        def _texte_quiz(ou: str) -> str:
+            return (f"📝 Ton lien de quizz : <{lien_q}>\n\n"                # <…> : pas d'aperçu, le message reste court
+                    f"Il faut {seuil_quiz_texte()}. Réussi = ta créatrice et ton compte 1 arrivent {ou}.")
+        if en_prive(message):                                            # son salon perso, ou un MP
+            # 09/10 (relecture) : en MP, « ici » est toujours faux : sa créatrice et son compte 1 arrivent dans un salon perso
+            # (créé à la validation s'il n'en a pas encore), jamais en MP.
+            await message.reply(_texte_quiz("ici" if message.guild is not None else "dans ton salon perso"))
+            return
+        if sp_quiz is not None:
+            try:
+                await sp_quiz.send(f"{message.author.mention} {_texte_quiz('ici')}")
+                await message.reply(f"📬 Ton lien de quizz est dans {sp_quiz.mention}.")
+                return
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        try:
+            await message.author.send(_texte_quiz("dans ton salon perso"))
+            await message.reply("📬 Ton lien de quizz est dans tes messages privés.")
+        except (discord.Forbidden, discord.HTTPException):
+            await message.reply("⚠️ Tes messages privés sont fermés.\n\nOuvre-les, puis retape `!quiz`.")
         return
 
     # MP : « J'ACCEPTE » — acceptation horodatée des conditions Team International (remplace le
@@ -8890,139 +9052,23 @@ async def on_message(message):
         return
 
     # MP : une adresse e-mail envoyée brute — enregistrée sur la fiche (29/09 : plus de contrat DocuSeal à en faire partir ;
-    # le Drive s'ouvre par son lien depuis le 28/09).
+    # le Drive s'ouvre par son lien depuis le 28/09). 09/10 : plus de « Tes conditions arrivent… réponds J'ACCEPTE » ni de pause
+    # International (retirée le 30/09) : une ligne, rien d'autre à faire. Seulement pour un candidat : l'adresse qu'un clipper
+    # signé colle dans son salon est celle d'un compte de l'agence, elle n'écrase rien (même leçon que le 01/10 pour le Drive).
     email_brut = texte.strip().strip("<>")
-    if en_prive(message) and re.fullmatch(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", email_brut):
+    if en_prive(message) and re.fullmatch(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", email_brut) and not est_signe(auteur_membre(message)):
         donnees_pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         donnees_pipe.setdefault("liaisons", {}).setdefault(str(utilisateur), {})["email"] = email_brut
         ecrire_json(FICHIER_PIPELINE, donnees_pipe)
-        etat_cand = donnees_pipe.get("etats", {}).get(str(utilisateur), {}).get("etat", "")
-        if etat_cand == "valide":
-            await message.reply("📧 Bien reçu, ton e-mail est enregistré."
-                                + ("\n\n📅 Info importante : **le recrutement international est en "
-                                   "pause pour le moment**. Pas d'attribution tant qu'elle dure — "
-                                   "ton dossier est prêt et tu seras recontacté en priorité à la "
-                                   "réouverture." if INT_EN_PAUSE else
-                                   "\nTes conditions arrivent séparément en MP (réponds J'ACCEPTE) — pas de "
-                                   "contrat à signer pour toi."))
-        else:
-            await message.reply("📧 Adresse enregistrée sur ta fiche !")
+        await message.reply("📧 Adresse enregistrée sur ta fiche.")
         journal.info("E-mail enregistré : membre %s", utilisateur)
         return
 
-    # Rendu de test en MP ou dans son salon perso (27/09) : un candidat en état test_envoye envoie ses fichiers/lien,
-    # le bot les transmet au salon admin (personne d'autre ne voit les tests → zéro copie).
-    if en_prive(message):
-        donnees_pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        info = donnees_pipe.get("etats", {}).get(str(utilisateur))
-        if info and info.get("etat") in ("test_envoye", "test_rendu", "test_expire", "refuse") \
-                and (message.attachments or "http" in texte.lower()):
-            # 2ᵉ fichier envoyé dans un autre message. 01/10 (Steeve, 30/09 : « Ta note : 5/10 » puis « Fichier ajouté à ton
-            # rendu », sans nouvel essai) : complément seulement si le rendu a déjà reçu un avis valable (avis_ok) ; un premier
-            # envoi sans avis (lien, fichier qui n'est pas une vidéo, avis en échec, redémarrage) laisse la vidéo suivante être
-            # jugée comme un rendu (nouvel essai ou validation).
-            complement = info.get("etat") == "test_rendu" and bool(info.get("avis_ok"))
-            hors_delai = info.get("etat") in ("test_expire", "refuse")
-            if not complement:
-                info.pop("avis_ok", None)                                   # nouveau rendu : il attend son propre avis
-            info["etat"] = "test_rendu"
-            info["rendu"] = info.get("rendu") or datetime.now(timezone.utc).isoformat(timespec="seconds")
-            ecrire_json(FICHIER_PIPELINE, donnees_pipe)
-            canal = await canal_admin()
-            # 26/09 : le bot regarde la vidéo et donne son avis ; bon montage = validé tout seul (Gaëtan : « le bot va dire si le montage est bon »)
-            # 27/09 : UN seul message admin, l'avis compris (avant : « test rendu » puis « avis du bot », deux fois par vidéo).
-            avis_t, valide_auto, msg_admin, msg_avis = None, False, None, None
-
-            async def _suite_avis(ligne):                                   # 30/09 : la suite s'ajoute sous l'avis, pas un 2e message
-                if msg_avis is not None:
-                    try:
-                        await msg_avis.edit(content=f"{msg_avis.content}\n\n{ligne}"[:1990])
-                        return
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
-                await message.reply(ligne)
-
-            if message.attachments and not hors_delai:
-                avis_t = await avis_test_montage(message)
-                if avis_t is not None and not avis_t.get("erreur"):          # 01/10 : avis valable → les envois suivants complètent
-                    donnees_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-                    donnees_a.setdefault("etats", {}).setdefault(str(utilisateur), {})["avis_ok"] = True
-                    ecrire_json(FICHIER_PIPELINE, donnees_a)
-                try:
-                    msg_avis = await message.reply(texte_avis_test(avis_t))
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
-            if canal:
-                prenom_t = prenom_de(message.author) or message.author.display_name
-                liens = " ".join(f"[vidéo]({p.url})" if i else f"[vidéo]({p.url})" for i, p in enumerate(message.attachments))
-                if avis_t is None or avis_t.get("erreur"):
-                    verdict_t = "avis impossible" if avis_t else "sans vidéo"
-                else:
-                    verdict_t = (f"**{avis_t['note']}/10**"
-                                 + (" — " + " · ".join(avis_t["a_corriger"][:2]) if avis_t.get("a_corriger") else "")
-                                 + (" → ✅ validé automatiquement" if test_accepte(avis_t)
-                                    else (" → nouvel essai demandé" if int((info or {}).get("essais_rendu", 0) or 0) + 1 < TEST_ESSAIS
-                                          and not complement else f" → `!test-ok {prenom_t}` / `!test-non {prenom_t} raison`")))
-                texte_rendu = ((f"🧪 **{'Complément' if complement else 'Test'}{' HORS DÉLAI' if hors_delai else ''}** de "
-                                f"{message.author.mention} (quiz {info.get('score_quiz') or '?'}) : {verdict_t}")
-                               + (" · " + liens if liens else "") + (f"\n-# {texte[:300]}" if texte else ""))[:1990]
-                msg_admin = await canal.send(texte_rendu)
-                salon_m = await canal_manager()
-                if salon_m is not None and salon_m.id != canal.id:
-                    try:
-                        await salon_m.send(texte_rendu)
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
-            nouvel_essai = False
-            if avis_t is not None and not avis_t.get("erreur") and not test_accepte(avis_t) and not complement:
-                # 30/09 (« peu d'attente ») : sous le seuil, pas de review — les corrections tout de suite et un nouvel essai
-                donnees_e = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-                info_e = donnees_e.get("etats", {}).get(str(utilisateur), {})
-                essais_r = int(info_e.get("essais_rendu", 0) or 0) + 1
-                info_e["essais_rendu"] = essais_r
-                if essais_r < TEST_ESSAIS:
-                    info_e["etat"] = "test_envoye"                          # le prochain envoi est jugé comme un nouveau rendu
-                    nouvel_essai = True
-                ecrire_json(FICHIER_PIPELINE, donnees_e)
-                if nouvel_essai:
-                    try:
-                        await _suite_avis(f"💪 Il faut **{TEST_AUTO_SEUIL}/10**. Corrige les ✏️ et renvoie ta vidéo ici. "
-                                          f"Essai {essais_r} sur {TEST_ESSAIS}.")
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
-            if avis_t is not None:
-                membre_t = membre_par_id(utilisateur)
-                if test_accepte(avis_t) and membre_t is not None:
-                    donnees_v = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-                    if donnees_v.get("etats", {}).get(str(utilisateur), {}).get("etat") == "test_rendu":
-                        donnees_v["etats"][str(utilisateur)]["etat"] = "valide"
-                        donnees_v["etats"][str(utilisateur)]["validation"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                        donnees_v["etats"][str(utilisateur)]["valide_par"] = "bot"
-                        ecrire_json(FICHIER_PIPELINE, donnees_v)
-                        try:
-                            ligne_v = await suite_validation(membre_t, membre_t.guild)
-                            valide_auto = True
-                            if canal:
-                                await canal.send(f"✅ Test de {message.author.mention} validé par le bot ({avis_t.get('note', '?')}/10). {ligne_v}"[:1900])
-                        except Exception as erreur:                         # noqa: BLE001
-                            journal.warning("Validation automatique %s : %s", utilisateur, erreur)
-                # Lien permanent vers le message admin (les URL de pièces jointes Discord
-                # expirent ; le lien de saut, jamais) — c'est ce que !tests ressort.
-                # 30/09 : relu frais — réécrire `donnees_pipe` (lu avant l'avis) effaçait la validation automatique (etat « valide »
-                # repassait à « test_rendu ») et le nouvel essai ; le tableau du lundi sous-comptait les validés.
-                if msg_admin is not None:
-                    donnees_l = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-                    donnees_l.setdefault("etats", {}).setdefault(str(utilisateur), {}).setdefault("liens_admin", []).append(msg_admin.jump_url)
-                    ecrire_json(FICHIER_PIPELINE, donnees_l)
-            if not nouvel_essai:
-                await _suite_avis("📥 Fichier ajouté à ton rendu." if complement else
-                                  ("✅ Test validé !" if valide_auto else "🤞 Un manager regarde ta vidéo. Réponse sous 24 h."))
-            journal.info("Test rendu en MP par %s (%s)", utilisateur, "complément" if complement else "initial")
-            return
-
-    # Drive (25/09) : le clipper poste son adresse Gmail dans son salon perso ou en MP → partage immédiat.
-    if "@" in texte and not texte.startswith("!") and await onboarding.message_clipper(message):
-        return
+    # 09/10 (Gaëtan : « Go enlever le test… ») : l'interception du rendu de test (avis noté, nouvel essai, validation
+    # automatique) est retirée avec le test. Une vidéo postée dans son salon par un clipper part à la relecture des Reels
+    # (review_reels.video_a_relire), plus bas.
+    # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : l'appel au partage du Drive perso à
+    # l'adresse Gmail postée (éteint depuis le 01/10, il renvoyait toujours faux) est retiré.
 
     # Parrainage (28/09) : `!parrain @lui`, par l'un ou l'autre, dans son salon perso ou en MP.
     if texte.split()[:1] == ["!parrain"] and await parrainage.commande(message, texte):
@@ -9038,9 +9084,17 @@ async def on_message(message):
         if await parcours.commande_app(message):
             return
 
-    # Identifiant pris (08/10) : `!pseudo 1 ton_identifiant` dans son salon perso → classeur, fiche et scan suivent le nouveau nom.
+    # Identifiant pris (08/10) : `!pseudo 1 nouvel_identifiant` dans son salon perso → classeur, fiche et scan suivent le nouveau nom.
+    # 09/10 : « ! pseudo » et « !Pseudo » arrivent ici aussi (normaliser_commande).
     if texte.split()[:1] == ["!pseudo"] and not est_staff(message.author):
         if await parcours.commande_pseudo(message, texte):
+            return
+
+    # 09/10 : `!etape` seul, tapé par le clipper (promis par `!aide`, il n'arrivait jamais à parcours : la commande n'était
+    # servie qu'au staff) → le titre de son étape en cours et le lien du message. Dans son salon perso ou en MP seulement :
+    # le lien pointe vers le salon où il écrit.
+    if texte.split() in (["!etape"], ["!étape"]) and en_prive(message) and not est_staff(message.author):
+        if await parcours.commande_staff(message, "!etape"):
             return
 
     # !aide : pour tout le monde, adaptée au rôle de celui qui demande.
@@ -9094,51 +9148,44 @@ async def on_message(message):
         return                                                           # 27/09 : arrivant sans salon → son salon, tout de suite
 
     # 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : dans son salon perso, le bot ne parle plus de lui-même. Il garde
-    # ce qui sert : l'alerte admin (ban, Drive fermé), l'alerte « numéro demandé », la relecture d'une vidéo. Pas d'IA.
+    # ce qui sert : l'alerte admin (ban, Drive fermé), l'alerte « numéro demandé », la relecture d'une vidéo, le relais d'un @Gaëtan.
+    # 09/10 (Gaëtan : « Améliore, simplifie… simple et efficace ») : plus de renvoi vers #assistant. Une QUESTION (« ? » ou mention
+    # du bot) reçoit sa réponse ici même, par l'assistant ; tout le reste : silence (ASSISTANT_SALON_PERSO=1 : il répond à tout).
     sp_q = salon_perso_de(utilisateur) if message.guild is not None else None
     en_salon_perso = sp_q is not None and sp_q.id == message.channel.id
-    if en_salon_perso and not ASSISTANT_SALON_PERSO and not est_staff(message.author):
-        await alerter_admin_salon(message, texte)
+    if en_salon_perso and not est_staff(message.author):
+        await alerter_admin_salon(message, texte)                       # 30/09 (Daniella) : ban ou Drive fermé → Gaëtan le sait
         await alerte_numero_demande(message, texte)
         if review_reels.video_a_relire(message):
             await relire_video_clipper(message)
-        elif not await relayer_mention_staff(message):                  # 06/10 (GO 2) : plus de question sans réponse
-            await renvoyer_vers_assistant(message, texte)
-        return
-    if message.guild is None and not est_staff(message.author) and lire_json(FICHIER_EQUIPES, {}).get(str(utilisateur)) \
-            and not texte.startswith("!"):
-        # 05/10 : un clipper signé qui écrit en MP est renvoyé vers #assistant (une fois par jour, pas de dialogue en MP)
-        compteurs_mp = lire_json(FICHIER_COMPTEURS, {})
-        jour_mp = heure_paris().date().isoformat()
-        if compteurs_mp.setdefault("renvois_assistant", {}).get(str(utilisateur)) != jour_mp:
-            compteurs_mp["renvois_assistant"][str(utilisateur)] = jour_mp
-            ecrire_json(FICHIER_COMPTEURS, compteurs_mp)
-            cid_a = salon_assistant_id()
-            try:
-                await message.reply("Pose ta question dans " + (f"<#{cid_a}>" if cid_a else "le salon #assistant") + " du serveur, je te réponds là-bas 🙂")
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-        return
+            return
+        if await relayer_mention_staff(message):                        # 06/10 (GO 2) : un @Gaëtan part au salon admin
+            return
+        if not ASSISTANT_SALON_PERSO and not est_question(message, texte):
+            return                                                       # l'assistant ne parle jamais de lui-même
 
+    # 09/10 : en MP, un clipper signé reçoit sa réponse en MP (doit_repondre), plus de renvoi vers #assistant.
     if not doit_repondre(message):
         return
 
     # Vocaux : pas pris en charge
     if any((p.content_type or "").startswith("audio/") for p in message.attachments):
-        await message.reply("Je ne sais pas encore écouter les vocaux 🙂 Écris-moi ta question en une phrase.")
+        await message.reply("Je ne sais pas encore écouter les vocaux 🙂\n\nÉcris-moi ta question en une phrase.")
         return
 
+    # 27/09 (relecture du salon de Daniella) : moins de bruit. Un « ok », « merci », « d'accord » reçoit un 👍,
+    # pas trois lignes qui redisent l'étape. 09/10 : en MP aussi pour un clipper signé (il y est maintenant servi) ; un candidat
+    # qui dit « bonjour » en MP reçoit toujours une vraie réponse (sa prochaine étape).
+    if est_acquiescement(texte) and not message.attachments \
+            and (en_salon_perso or (message.guild is None and est_signe(auteur_membre(message)))):
+        try:
+            await message.add_reaction("👍")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        return
     if en_salon_perso:
-        await alerter_admin_salon(message, texte)                       # 30/09 (Daniella) : ban ou Drive fermé → Gaëtan le sait
-        # 27/09 (relecture du salon de Daniella) : moins de bruit. Un « ok », « merci », « d'accord » reçoit un 👍,
-        # pas trois lignes qui redisent l'étape ; un message adressé à un humain (@Gaëtan) n'est pas pour le bot ;
-        # et quand le manager vient de parler, le bot se tait sauf question.
-        if est_acquiescement(texte) and not message.attachments:
-            try:
-                await message.add_reaction("👍")
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-            return
+        # Un message adressé à un humain (@Gaëtan) n'est pas pour le bot ; et quand le manager vient de parler, le bot se tait
+        # sauf question.
         if mentionne_humain(message):                                    # 01/10 : prénom du staff ou réponse au staff aussi
             return
         if await suite_message_humain(message):                          # 01/10 (Simon) : la suite d'un message à un humain
@@ -9146,18 +9193,15 @@ async def on_message(message):
         if "?" not in texte and not review_reels.video_a_relire(message) and await staff_a_parle(message):
             return                                                       # 01/10 : une vidéo à relire passe quand même
     # 01/10 (Gaëtan : « Il faut qu'il soit capable de faire des reviews des Reels des clippeurs ») : la vidéo d'un clipper
-    # dont le parcours a commencé part à la relecture (le juge du test, grille publication) au lieu du marqueur « vidéo que
-    # tu ne peux PAS voir ». Un candidat en test de montage n'arrive jamais ici : son rendu est intercepté plus haut.
+    # dont le parcours a commencé part à la relecture (grille publication) au lieu du marqueur « vidéo que tu ne peux PAS
+    # voir ». 09/10 : plus de test, plus de rendu intercepté plus haut.
     if review_reels.video_a_relire(message):
         await relire_video_clipper(message)
         return
     if not en_salon_perso and quota_atteint(utilisateur):               # 26/09 : jamais de quota dans son salon perso (Daniella coupée à 30)
-        await message.reply(f"Tu as posé beaucoup de questions aujourd'hui ({QUESTIONS_MAX_PAR_JOUR} max). "
-                            "Regarde le Loom ou le canal #faq, et reviens demain !")
+        await message.reply(f"Tu as posé beaucoup de questions aujourd'hui ({QUESTIONS_MAX_PAR_JOUR} au plus).\n\n"
+                            "Reviens demain, je te réponds.")
         return
-    if en_salon_perso:
-        await alerte_numero_demande(message, texte)
-
 
     # Construction du contenu : texte + éventuelle capture d'écran. 01/10 (Daniella) : une pièce non transmise (vidéo,
     # image trop lourde) porte le marqueur « que tu ne peux PAS voir », le modèle ne valide plus à l'aveugle.
@@ -9183,6 +9227,8 @@ async def on_message(message):
             if not ancien.content or ancien.content.startswith("!"):
                 continue
             if ancien.author.id == client.user.id:
+                if message_sensible(ancien.content):                     # 09/10 : un message d'étape (identifiant, e-mail,
+                    continue                                             # mot de passe) n'est jamais transmis au modèle
                 if not commun or _pour_lui(ancien):
                     historique.append(("assistant", ancien.content))
             elif ancien.author.id == message.author.id:
@@ -9209,7 +9255,8 @@ async def on_message(message):
     # 05/10 (Gaëtan : « change de modèle en fonction du besoin du clipper et de ses questions ») : Haiku ou Sonnet selon la question
     dans_assistant_q = message.guild is not None and bool(salon_assistant_id()) and str(message.channel.id) == salon_assistant_id()
     modele_q, raison_q = choisir_modele(texte, nb_images, dans_assistant_q)
-    journal.info("Routage assistant (%s) : %s", "salon #assistant" if dans_assistant_q else "MP", raison_q)
+    journal.info("Routage assistant (%s) : %s", "salon #assistant" if dans_assistant_q else ("salon perso" if en_salon_perso else "MP"),
+                 raison_q)
     async with message.channel.typing():
         reponse = await asyncio.to_thread(repondre_sync, messages, modele_q)
 
@@ -9255,6 +9302,7 @@ async def on_message(message):
     reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
     reponse = re.sub(r"\n\s*\(?(Fiche \d[^\n]*|Manager\)?(\s*[—-]\s*Salon perso)?|FAQ terrain\)?|Parcours candidat\)?|Stratégie marketing\)?)\s*$", "", reponse).rstrip()
     reponse_liee = lier_salon_codes(lier_references(assainir_mentions(reponse)))   # 01/10 : #🔐-code-instagram cliquable
+    reponse_liee = aerer(reponse_liee)                             # 09/10 (Gaëtan : « Saute des lignes, aère ») : lu au téléphone
     await repondre_long(message, reponse_liee)   # limite Discord = 2000 caractères, coupe propre
     await etiqueter_forum(message, reponse)      # range le post par sujet (texte brut : « Fiche N » lisible)
 
