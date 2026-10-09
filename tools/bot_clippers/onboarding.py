@@ -1240,36 +1240,94 @@ def _lien_du_repreneur(info: dict, gerant: str) -> bool:
     return bool(rep) and note[:len(rep) + 1] == rep + ["metricool"]
 
 
-def _lien_d_un_autre(info: dict, gerant: str, note_vive: str = None) -> bool:
+def _lien_d_un_autre(info: dict, gerant: str, note_vive: str = None, proprietaires=None) -> bool:
     """09/10 (dashboard : « pas de liens pas assignés au compte ») : le lien d'une cellule (sa fiche clics.json) est-il, à coup
-    sûr, à quelqu'un d'autre que ce Gérant, ou à personne ? Effacé ou désactivé, libéré, hors clipping (sauf le lien Metricool du
-    repreneur de la ligne), attribué ou suivi sous un autre prénom → oui. Inconnu du bot ou seulement relevé (page de créatrice,
-    lien neuf collé à la main avant son attribution) → non : rien ne prouve qu'il n'est pas le sien. `note_vive` (la note GAML de
-    maintenant, si on l'a) qui dit que le lien est à ce Gérant (« Clipping <son prénom> », « <repreneur> Metricool N ») → non :
-    un renommage à la main pas encore suivi par la passe horaire ne fait jamais vider la cellule (sauf un lien libéré : le bot l'a
-    rendu, sa note n'est simplement pas encore renommée). Le contrôle signale le reste."""
+    sûr, à quelqu'un d'autre que le détenteur de la ligne, ou à personne ? Effacé ou désactivé, libéré, hors clipping (sauf le lien
+    Metricool du repreneur d'une ligne « X (Metricool) ») → à personne : oui. Contrat C6(d) (revue CLICS du 09/10 : un Gérant
+    « Jean-Marc » au pseudo « Jean Marc - Sophie » voyait son PROPRE lien effacé, comparé au premier mot du pseudo) : « lien d'un
+    autre clipper » se décide sur les IDENTIFIANTS — l'uid du lien (clics.json) n'est pas parmi `proprietaires`, les uid qui
+    détiennent la ligne d'après onboarding.json (_proprietaires) —, jamais sur un prénom. Ligne sans propriétaire connu, lien suivi
+    par le rapport (sans uid), inconnu du bot ou seulement relevé → non : rien ne prouve qu'il n'est pas le sien (le contrôle
+    signale). Une ligne « X (Metricool) » n'a pas de clipper : un lien attribué à un clipper n'y est jamais le sien ; `note_vive`
+    (la note GAML de maintenant) qui en fait un lien Metricool du repreneur → non (renommage pas encore suivi par la passe horaire)."""
     if not info:
         return False
-    p = _premier(gerant)
     if info.get("supprime_gaml") or info.get("desactive"):
         return True
     if info.get("libere") and not str(info.get("uid") or "") and not info.get("hors_clipping"):
         return True
-    if note_vive is not None and p:
-        if ligne_metricool(gerant):
-            if _lien_du_repreneur({"note": note_vive}, gerant):
-                return False
-        elif _premier(paie_clics._prenom_note(note_vive)) == p:
-            return False
+    metricool = ligne_metricool(gerant)
+    if metricool and note_vive is not None and _lien_du_repreneur({"note": note_vive}, gerant):
+        return False
     if info.get("hors_clipping"):
-        return not (ligne_metricool(gerant) and _lien_du_repreneur(info, gerant))
-    if str(info.get("uid") or ""):
-        return _premier(_prenom_du_lien(info)) != p
+        return not (metricool and _lien_du_repreneur(info, gerant))
+    uid = str(info.get("uid") or "")
+    if uid:
+        if metricool:
+            return True
+        props = {str(u) for u in (proprietaires or ()) if str(u)}
+        return bool(props) and uid not in props
     if info.get("libere"):
         return True
-    if info.get("suivi"):
-        return _premier(info.get("suivi_nom")) != p
     return False
+
+
+def _cle_handle(h) -> str:
+    return normaliser_handle(h).lower()
+
+
+def _proprietaires() -> dict:
+    """Contrat C6(d) (revue CLICS du 09/10) : {@ normalisé : {uid}} — qui détient chaque ligne d'après onboarding.json : la livraison
+    la plus récente (`livres`, posée quand le Gérant change dans le classeur) prime, sinon les fiches (comptes, accès) qui portent ce
+    @ (`liberer` les nettoie). {} si le fichier est illisible ou absent (rien n'est alors décidé sur les identifiants)."""
+    try:
+        etat = _lire_etat()
+    except Exception:                                                   # noqa: BLE001
+        return {}
+    out = {}
+    for uid, fiche in (etat.get("clippers") or {}).items():
+        if not isinstance(fiche, dict):
+            continue
+        hs = {h for h in fiche.get("comptes") or [] if isinstance(h, str)}
+        hs |= {a.get("handle") for a in fiche.get("acces") or [] if isinstance(a, dict) and isinstance(a.get("handle"), str)}
+        for h in hs:
+            if _cle_handle(h):
+                out.setdefault(_cle_handle(h), set()).add(str(uid))
+    for h, l in (etat.get("livres") or {}).items():
+        if isinstance(l, dict) and str(l.get("uid") or "") and _cle_handle(h):
+            out[_cle_handle(h)] = {str(l["uid"])}
+    return out
+
+
+def _mots_nom(t) -> set:
+    """Les mots d'un pseudo avant « - Créatrice » (ou d'un Gérant), tirets traités comme des espaces : « Jean-Marc » → {jean, marc}."""
+    return set(re.findall(r"[a-z0-9]+", _norm(str(t or "").split(" - ")[0]))) - {"metricool", "clipper", "compte"}
+
+
+def _detenteurs(gerant: str, uids, cache: dict = None) -> set:
+    """Les uid de `uids` (propriétaires d'une ligne selon onboarding.json) compatibles avec le Gérant écrit dans le classeur : un mot
+    en commun entre le Gérant et le nom du membre (pseudo, sinon prénom du registre), ou membre introuvable (onboarding.json fait
+    foi). Un Gérant changé à la main pour quelqu'un d'autre sans que le bot ait pu le suivre (homonymes) ne garde pas l'ancien
+    propriétaire : la ligne est alors traitée comme sans propriétaire connu (rien n'y est décidé sur un identifiant périmé)."""
+    cache = {} if cache is None else cache
+    mots_g = _mots_nom(gerant)
+    out = set()
+    for uid in uids or ():
+        uid = str(uid)
+        if uid not in cache:
+            noms = []
+            m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+            if m is not None:
+                noms.append(getattr(m, "display_name", "") or "")
+            try:
+                fiche = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) or {}).get(uid) or {} if _deps.get("FICHIER_EQUIPES") else {}
+            except Exception:                                           # noqa: BLE001
+                fiche = {}
+            noms.append(str((fiche or {}).get("prenom") or ""))
+            cache[uid] = set().union(*(_mots_nom(n) for n in noms))
+        if not cache[uid] or (mots_g & cache[uid]):
+            out.add(uid)
+    return out
 
 
 def _jour_paris():
@@ -1300,7 +1358,7 @@ async def liens_classeur(comptes: list = None) -> dict:
         journal.warning("Liens GAML illisibles pour le classeur : %s", erreur)
         noms = {}
     creatrices = {c["creatrice"] for c in comptes if c.get("creatrice")}
-    par_prenom, par_url = {}, {}
+    par_prenom, par_uid, par_url = {}, {}, {}
     for lid, info in d.get("liens", {}).items():
         url = str(info.get("url") or "").strip()
         if url:
@@ -1309,11 +1367,17 @@ async def liens_classeur(comptes: list = None) -> dict:
         # encore noté « Clipping Eddy », était écrit sur les lignes du nouvel Eddy) ; seulement les liens qui ont un détenteur
         if not url or not _lien_rangeable(info):
             continue
+        entree = (_creatrice_du_lien(noms.get(lid, ""), info, url, creatrices), url, str(info.get("depuis") or ""), str(lid))
+        uid_l = str(info.get("uid") or "")
+        if uid_l:
+            par_uid.setdefault(uid_l, []).append(entree)
         prenom = _prenom_du_lien(info)
-        if not prenom:
-            continue
-        cr = _creatrice_du_lien(noms.get(lid, ""), info, url, creatrices)
-        par_prenom.setdefault(_norm(prenom), []).append((cr, url, str(info.get("depuis") or ""), str(lid)))
+        if prenom:
+            par_prenom.setdefault(_norm(prenom), []).append((entree, uid_l or "suivi:" + _norm(info.get("suivi_nom") or prenom)))
+    # contrat C6(d) (revue CLICS du 09/10) : la ligne est rattachée à son détenteur par les IDENTIFIANTS (onboarding.json → uid →
+    # liens de clics.json) ; le prénom ne sert plus qu'aux anciennes lignes mises à la main (inconnues d'onboarding.json), et
+    # seulement s'il ne désigne qu'UN détenteur (deux Eddy : la cellule n'est jamais touchée par le prénom)
+    proprietaires, noms_uid = _proprietaires(), {}
     ecrits, groupes = 0, {}
     creatrices = creatrices_connues(comptes)
     for c in comptes:
@@ -1349,18 +1413,33 @@ async def liens_classeur(comptes: list = None) -> dict:
             groupes[(c["gerant"], c.get("creatrice") or c.get("onglet") or "?", voulu)] = 1
             continue
         cr = (_norm(c["creatrice"]).split() or [""])[0]
-        liens = [] if ligne_metricool(c["gerant"]) else par_prenom.get(g, [])
+        detenteurs = set()
+        if ligne_metricool(c["gerant"]):
+            liens = []
+        else:
+            detenteurs = _detenteurs(c["gerant"], proprietaires.get(_cle_handle(c["handle"]), set()), noms_uid)
+            if len(detenteurs) > 1:
+                continue                                                # fiches contradictoires : on ne tranche pas (le contrôle signale)
+            if detenteurs:
+                liens = par_uid.get(next(iter(detenteurs)), [])          # les liens de SON identifiant
+            else:
+                ents = par_prenom.get(g, [])
+                ids = {i for _, i in ents if not i.startswith("suivi:")} or {i for _, i in ents}
+                if len(ids) > 1:
+                    continue                                            # deux détenteurs de ce prénom (homonymes) : jamais par le prénom
+                liens = [e for e, i in ents if i in ids]
         if liens:
             cands = [x for x in liens if x[0] == cr] or ([x for x in liens] if len(liens) == 1 and not liens[0][0] else [])
             voulu = max(cands, key=lambda x: (x[2], x[3]))[1] if cands else ""
         else:
             # 09/10 (dashboard) : le Gérant n'a encore aucun lien (nouveau clipper sur une ligne redonnée, ligne « X (Metricool) »,
             # prénom inconnu du bot). Avant : cellule gardée, donc le lien de l'ancien clipper restait et ses clics comptaient pour
-            # le nouveau. Maintenant : vidée quand elle porte à coup sûr le lien d'un autre ou de personne (libéré, hors clipping,
-            # effacé, désactivé, attribué sous un autre prénom) ; une ligne « X (Metricool) » ne garde que les liens Metricool de SON
-            # repreneur ; un lien inconnu du bot (collé à la main avant son attribution) reste. Jamais remplie par le bot.
+            # le nouveau. Maintenant : vidée quand elle porte à coup sûr le lien de personne (libéré, hors clipping, effacé,
+            # désactivé) ou d'un autre clipper — décidé sur les identifiants (C6(d) : l'uid du lien n'est pas le détenteur de la
+            # ligne selon onboarding.json) ; une ligne « X (Metricool) » ne garde que les liens Metricool de SON repreneur ; un lien
+            # inconnu du bot (collé à la main avant son attribution) ou une ligne sans détenteur connu : la cellule reste.
             info_c, note_c = par_url.get(_url_cle(actuel)) or (None, None)
-            if not actuel or not _lien_d_un_autre(info_c, c["gerant"], note_c):
+            if not actuel or not _lien_d_un_autre(info_c, c["gerant"], note_c, detenteurs):
                 continue
             voulu = ""
         if voulu == actuel:
@@ -1379,6 +1458,7 @@ async def liens_classeur(comptes: list = None) -> dict:
 
 
 _details_gaml = {"jour": "", "liens": []}
+SECOURS_MAX = int(os.environ.get("CLICS_SECOURS_MAX", "40") or 40)         # revue CLICS : appels GAML de secours par passage de clics_classeur
 DETAILS_LISTE_TTL = int(os.environ.get("GAML_DETAILS_TTL", "3600") or 3600)   # 09/10 : la liste GAML relue au plus toutes les heures
 DETAILS_REESSAI = int(os.environ.get("GAML_DETAILS_REESSAI", "900") or 900)    # 09/10 : un détail illisible retenté 15 min après
 
@@ -1498,9 +1578,15 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
     l'API seulement en secours) ; 2. un lien repris ne compte qu'à partir de sa reprise (`depuis`, comme la paie : avant, les visites
     de l'ancien clipper étaient créditées au nouveau pendant 7 jours) ; 3. « hier » = la veille à Paris (avant : en UTC, J-2 entre 0 h
     et 2 h) ; 4. jamais 0 sur une erreur : un lien illisible (relevé et API) → les cellules du bloc sont GARDÉES telles quelles, et un
-    bloc sans lien trouvé alors que la liste GAML est partielle aussi ; 5. un lien trouvé seulement par la cellule, qui est à coup
-    sûr celui d'un autre (libéré, hors clipping, attribué sous un autre prénom, effacé, désactivé), n'est plus compté (double compte :
-    le contrôle le signale) ; 6. le repli de la ligne de créatrice seulement si elle n'a qu'une ligne de compte.
+    bloc sans lien trouvé alors que la liste GAML est partielle aussi ; 5. un lien qui est à coup sûr celui d'un autre ou de personne
+    (libéré, hors clipping, attribué à un autre identifiant — point 8 —, effacé, désactivé) n'est plus compté (double compte : le
+    contrôle le signale) ; 6. le repli de la ligne de créatrice seulement si elle n'a qu'une ligne de compte.
+    Revue CLICS du 09/10 : 7. contrat C6(e) — la valeur d'un lien sur une période est celle de paie_clics.clics_lien (plancher
+    `depuis`, None si un jour manque), la même que le Dashboard, le contrôle et le bouclage : le secours GAML relève les jours
+    manquants DANS clics.json (paie_clics.completer, SECOURS_MAX appels par passage) au lieu d'une somme GAML de toute la période ;
+    une période tout entière avant la reprise du lien n'est plus écrite « 0 » (rien à mesurer : cellule vide) ; 8. contrat C6(d) — un
+    lien n'est « d'un autre clipper » que sur les identifiants (uid du lien ≠ détenteurs du bloc selon onboarding.json), qu'il soit
+    trouvé par la cellule ou par la note ; sans détenteur connu, deux détenteurs différents parmi les liens du bloc → cellules gardées.
     Renvoie {"ecrits": n, "gardes": blocs gardés faute de chiffre sûr}."""
     if not (actif() and paie_clics.actif()) or not comptes:
         return {"ecrits": 0, "gardes": 0}
@@ -1509,27 +1595,33 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
     partiel = bool(_details_gaml.get("partiel"))
     fin = _jour_paris() - timedelta(days=1)
     debut = fin - timedelta(days=6)
+    etat_s = {"store": {}, "secours": 0}
     try:
-        store = paie_clics._lire()
-    except Exception:                                                   # noqa: BLE001 — sans relevé local, tout passe par l'API
-        store = {}
-    fiches = (store or {}).get("liens") or {}
+        etat_s["store"] = paie_clics._lire()
+    except Exception:                                                   # noqa: BLE001 — sans relevé local, rien n'est sûr : cellules gardées
+        etat_s["store"] = {}
 
     async def payes(lid: str, d0, d1):
-        """Visites payables du lien pour son détenteur (plancher `depuis`) ; None si illisible (jamais 0)."""
-        dep = paie_clics._en_date((fiches.get(lid) or {}).get("depuis"))
-        a = max(d0, dep) if dep else d0
-        if a > d1:
-            return 0                                                    # tout avant la reprise : rien pour le détenteur actuel
-        v = paie_clics.clics_lien(store, lid, a, d1)
-        if v is not None:
-            return v
-        try:
-            return await paie_clics.payes_periode(lid, a, d1)
-        except RuntimeError as erreur:
-            journal.warning("Clics du lien %s (%s → %s) : %s — cellule gardée", lid, a, d1, erreur)
-            return None
+        """Visites payables du lien pour son détenteur selon clics_lien (C6(e)) ; 'rien' si la période est tout entière avant la
+        reprise du lien (`depuis`) ; None si illisible, même après le secours (jamais 0)."""
+        store = etat_s["store"]
+        dep = paie_clics._en_date((((store or {}).get("liens") or {}).get(lid) or {}).get("depuis"))
+        if dep is not None and dep > d1:
+            return "rien"
+        v = paie_clics.clics_lien(store, lid, d0, d1)
+        reste = SECOURS_MAX - etat_s["secours"]
+        if v is None and reste > 0 and lid in ((store or {}).get("liens") or {}):
+            try:
+                etat_s["store"], n = await paie_clics.completer(lid, d0, d1, maximum=min(14, reste))
+                etat_s["secours"] += n
+                v = paie_clics.clics_lien(etat_s["store"], lid, d0, d1)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Clics du lien %s (%s → %s) : secours GAML impossible (%s)", lid, d0, d1, erreur)
+        if v is None:
+            journal.warning("Clics du lien %s (%s → %s) : jour(s) non relevé(s) — cellule gardée", lid, d0, d1)
+        return v
     creatrices = creatrices_connues(comptes)
+    proprietaires, noms_uid = _proprietaires(), {}
     par_onglet = {}
     for c in comptes:
         if c.get("handle") and (a_colonne("clics", c.get("onglet", "")) or a_colonne("clics_hier", c.get("onglet", ""))):
@@ -1567,30 +1659,59 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
                 else:
                     gerant = bloc[0]["gerant"]
                     liens = liens_du_bloc(gerant, bloc[0].get("creatrice") or onglet, dans_cellules, tous_details)
-                    par_note = {x["id"] for x in liens_du_bloc(gerant, bloc[0].get("creatrice") or onglet, set(), tous_details)}
-                    autres = [x for x in liens if x["id"] not in par_note
-                              and _lien_d_un_autre(fiches.get(x["id"]), gerant, x.get("note"))]
-                    if autres:                                           # 09/10 : la cellule porte le lien d'un autre : pas compté
-                        journal.info("Clics %s / %s : lien(s) d'un autre dans la cellule, pas comptés : %s", gerant, onglet,
+                    fiches = (etat_s["store"] or {}).get("liens") or {}
+                    # C6(d) : les détenteurs des lignes de ce Gérant d'après onboarding.json (uid), jamais son prénom
+                    detenteurs = set() if ligne_metricool(gerant) else set().union(
+                        *(_detenteurs(gerant, proprietaires.get(_cle_handle(c.get("handle")), set()), noms_uid) for c in tous))
+                    if len(detenteurs) > 1:                              # deux homonymes sous le même Gérant dans l'onglet :
+                        journal.info("Clics %s / %s : lignes de %d clippers différents sous ce Gérant — cellules gardées",
+                                     gerant, onglet, len(detenteurs))
+                        valeurs[cle] = None                              # jamais additionnés (un chiffre par Gérant et par onglet)
+                        gardes += 1
+                        continue
+                    autres = [x for x in liens if _lien_d_un_autre(fiches.get(x["id"]), gerant, x.get("note"), detenteurs)]
+                    if autres:                                           # 09/10 : le lien d'un autre ou de personne : pas compté
+                        journal.info("Clics %s / %s : lien(s) d'un autre ou de personne, pas comptés : %s", gerant, onglet,
                                      ", ".join(str(x.get("url") or x["id"]) for x in autres))
                         liens = [x for x in liens if x not in autres]
-                total = total_hier = 0
-                illisible = False
-                for d in liens:
-                    if d["id"] not in visites:
-                        visites[d["id"]] = await payes(d["id"], debut, fin)
-                    if "clics_hier" in champs and d["id"] not in visites_hier:
-                        visites_hier[d["id"]] = await payes(d["id"], fin, fin)
-                    if visites[d["id"]] is None or ("clics_hier" in champs and visites_hier[d["id"]] is None):
-                        illisible = True
-                        continue
-                    total += visites[d["id"]]
-                    total_hier += visites_hier.get(d["id"]) or 0
-                if illisible or (not liens and partiel):
-                    valeurs[cle] = None                                  # 09/10 : pas de chiffre sûr → cellules gardées
-                    gardes += 1
+                    if not detenteurs and not ligne_metricool(gerant):
+                        # lignes sans détenteur connu (anciennes lignes mises à la main) : rien n'est décidé sur un prénom. Liens de
+                        # plusieurs clippers (homonymes), ou lien d'un clipper trouvé par la seule cellule et dont le nom ne recoupe
+                        # pas le Gérant → pas de chiffre sûr : cellules gardées (ni compté pour lui, ni effacé)
+                        par_note = {x["id"] for x in liens_du_bloc(gerant, bloc[0].get("creatrice") or onglet, set(), tous_details)}
+                        uid_de = lambda x: str((fiches.get(x["id"]) or {}).get("uid") or "")   # noqa: E731
+                        uids_l = {uid_de(x) for x in liens} - {""}
+                        douteux = [x for x in liens if uid_de(x) and x["id"] not in par_note
+                                   and not _detenteurs(gerant, {uid_de(x)}, noms_uid)]
+                        if len(uids_l) > 1 or douteux:
+                            journal.info("Clics %s / %s : ligne sans détenteur connu, %s — cellules gardées", gerant, onglet,
+                                         f"liens de {len(uids_l)} clippers" if len(uids_l) > 1 else "lien d'un autre nom dans la cellule")
+                            valeurs[cle] = None
+                            gardes += 1
+                            liens = None
+                if liens is None:
+                    pass
                 else:
-                    valeurs[cle] = {"clics": str(total) if liens else "", "clics_hier": str(total_hier) if liens else ""}
+                    total = total_hier = 0
+                    mesure = mesure_hier = illisible = False
+                    for d in liens:
+                        if d["id"] not in visites:
+                            visites[d["id"]] = await payes(d["id"], debut, fin)
+                        if "clics_hier" in champs and d["id"] not in visites_hier:
+                            visites_hier[d["id"]] = await payes(d["id"], fin, fin)
+                        v, vh = visites[d["id"]], visites_hier.get(d["id"], "rien")
+                        if v is None or ("clics_hier" in champs and vh is None):
+                            illisible = True
+                            continue
+                        if v != "rien":
+                            total, mesure = total + v, True
+                        if vh != "rien":
+                            total_hier, mesure_hier = total_hier + vh, True
+                    if illisible or (not liens and partiel):
+                        valeurs[cle] = None                              # 09/10 : pas de chiffre sûr → cellules gardées
+                        gardes += 1
+                    else:                                                # rien à mesurer (repris aujourd'hui) : vide, jamais « 0 »
+                        valeurs[cle] = {"clics": str(total) if mesure else "", "clics_hier": str(total_hier) if mesure_hier else ""}
             if valeurs[cle] is None:
                 continue
             milieu = bloc[(len(bloc) - 1) // 2]
@@ -1604,7 +1725,8 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
         await google_api.sheets_ecrire_plusieurs(CLASSEUR_LOGINS_ID, ecritures)
         journal.info("Classeur, Clics last 7d. / Clics hier : %d cellule(s)", len(ecritures))
     if gardes:
-        journal.warning("Classeur, Clics : %d bloc(s) gardé(s) tels quels (GAML illisible ou liste partielle, jamais un faux 0)", gardes)
+        journal.warning("Classeur, Clics : %d bloc(s) gardé(s) tels quels (jour non relevé, liste GAML partielle ou détenteur "
+                        "incertain : jamais un faux 0)", gardes)
     return {"ecrits": len(ecritures), "gardes": gardes}
 
 

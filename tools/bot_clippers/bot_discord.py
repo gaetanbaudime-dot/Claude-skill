@@ -5204,6 +5204,49 @@ async def attribuer_lien_parcours(membre) -> None:
 _EXPULSES = {}                                                          # uid → date : sortis par le bot (traiter_depart se tait)
 
 
+async def notes_gaml_de(uid: str) -> tuple:
+    """({id: lien de la liste GAML}, '') avec la note vivante de chaque lien du membre `uid`, ou ({}, raison) si GAML est illisible
+    ou incomplet. Lue AVANT tout geste par `!monteur` et `!sortie` (revue du 09/10). Revue CLICS du 09/10 : la liste /links ne
+    porte pas toujours la note ; le détail du lien est lu en secours (un lien introuvable, 404, est laissé de côté : effacé de GAML)."""
+    uid = str(uid)
+    siens = [lid for lid, i in paie_clics._lire().get("liens", {}).items()
+             if str(i.get("uid") or "") == uid and not i.get("supprime_gaml")]
+    if not siens:
+        return {}, ""                                                   # aucun lien à lui : rien à lire (GAML en panne n'arrête rien)
+    try:
+        vivants = {l.get("id"): l for l in await paie_clics.liens_gaml() if l.get("id")}
+    except Exception as erreur:                                         # noqa: BLE001
+        return {}, f"GAML illisible ({type(erreur).__name__})"
+    for lid in siens:
+        if "note" in (vivants.get(lid) or {}):
+            continue
+        try:
+            det = await paie_clics.lien_detail(lid)
+        except Exception as erreur:                                     # noqa: BLE001
+            if "404" in str(erreur):
+                continue
+            return {}, f"lecture GAML incomplète (lien {lid} : {type(erreur).__name__})"
+        if not isinstance(det, dict) or "note" not in det:
+            return {}, f"lecture GAML incomplète (note du lien {lid} absente)"
+        vivants[lid] = dict(vivants.get(lid) or {"id": lid}, note=det.get("note"))
+    return vivants, ""
+
+
+def comptes_de_uid(uid: str) -> set:
+    """Revue CLICS du 09/10 (contrat C6(d) : décider sur les identifiants, jamais sur un prénom) : les @ des comptes du membre `uid`
+    d'après onboarding.json — sa fiche (comptes, accès) et les livraisons à son identifiant —, normalisés en minuscules. Vide si
+    illisible."""
+    try:
+        etat_o = onboarding._lire_etat()
+    except Exception:                                                   # noqa: BLE001
+        return set()
+    fiche = (etat_o.get("clippers") or {}).get(str(uid)) or {}
+    hs = {h for h in fiche.get("comptes") or [] if isinstance(h, str)}
+    hs |= {a.get("handle") for a in fiche.get("acces") or [] if isinstance(a, dict) and isinstance(a.get("handle"), str)}
+    hs |= {h for h, l in (etat_o.get("livres") or {}).items() if isinstance(l, dict) and str(l.get("uid") or "") == str(uid)}
+    return {onboarding.normaliser_handle(h).lower() for h in hs if h} - {""}
+
+
 async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expulser: bool = False) -> dict:
     """La sortie d'équipe (corps de `!sortie`, factorisé le 28/09 pour la sortie automatique) : rôles et accès retirés, pipeline
     en « sorti », classeur rendu (pool=True : les comptes créés restent dans le vivier et le lien GAML est libéré pour le suivant),
@@ -5215,6 +5258,13 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     nom_par = getattr(par, "display_name", "le bot (automatique)")
     par_id = str(getattr(par, "id", "auto"))
     raison = raison.strip(" []").strip() or "non précisée"
+    # 0. Revue CLICS du 09/10 (`!sortie` sans pool) : ses liens suivront peut-être ses comptes créés chez le repreneur Metricool,
+    #    comme `!monteur` : les notes GAML de ses liens sont lues AVANT tout geste ; illisibles → rien n'est fait (relancer `!sortie`).
+    vivants_s = {}
+    if not pool and paie_clics.actif():
+        vivants_s, pb = await notes_gaml_de(str(membre.id))
+        if pb:
+            return {"annule": f"{pb} : rien n'a été fait, relance `!sortie` dans quelques minutes."}
     salon_p = salon_perso_de(membre.id) if expulser else None         # trouvé AVANT le retrait des accès (après, il est invisible)
     prevenu = True
     if expulser:                                                        # le message avant tout : après le kick, plus aucun canal
@@ -5266,6 +5316,9 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     #     cette étape, le prochain clipper du même prénom hérite de ses comptes (Eddy). Avant le retrait du
     #     registre, pour vérifier que le prénom ne désigne que lui.
     libere_s = []
+    # revue CLICS du 09/10 : ses comptes connus par son IDENTIFIANT (fiche d'onboarding, livraisons), lus avant `liberer` qui les efface
+    comptes_uid = comptes_de_uid(uid_s) if (not pool and onboarding.actif()) else set()
+    crees_s = 0
     if onboarding.actif():
         prenom_s = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
         if membre_par_prenom(normaliser(prenom_s)) == membre:
@@ -5275,17 +5328,47 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
                 refus_s.append(f"classeur ({type(erreur).__name__})")
         else:
             refus_s.append(f"classeur non touché (prénom {prenom_s} partagé : `!liberer {prenom_s} <handles>`)")
-    n_liens = 0
+        crees_s = sum(1 for b in libere_s if onboarding.MENTION_LIBERE in b)
+    if not pool and not crees_s and comptes_uid:
+        # ses comptes sous un Gérant écrit autrement, ou classeur non touché (homonyme) : leur état lu au classeur ; illisible → on
+        # les tient pour créés (un lien passé à tort chez le repreneur coûte moins qu'un lien redonné avec le trafic de ses comptes)
+        try:
+            crees_s = sum(1 for c in await onboarding.lire_comptes()
+                          if onboarding.normaliser_handle(c.get("handle")).lower() in comptes_uid
+                          and normaliser(c.get("etat")) not in onboarding.A_CREER)
+        except Exception as erreur:                                     # noqa: BLE001
+            crees_s = len(comptes_uid)
+            refus_s.append(f"classeur illisible ({type(erreur).__name__}) : ses comptes tenus pour créés")
+    n_liens, repris_s = 0, []
     if paie_clics.actif():                                              # 28/09 : son lien GAML reste à la créatrice, pour le suivant
-        d_l = paie_clics._lire()
         if pool:
+            d_l = paie_clics._lire()
             n_liens = len(paie_clics.liberer_liens(d_l, uid_s, prenom_de(membre)))
+            if n_liens:
+                paie_clics._ecrire(d_l)
+        elif crees_s:
+            # revue CLICS du 09/10 : ses comptes créés partent sur Metricool (« à mettre Metricool ») en gardant son lien en bio :
+            # ses liens les suivent chez le repreneur, exactement comme `!monteur` (« Rianah Metricool N (ex-Prénom) », hors
+            # clipping, jamais redonnés) ; ses visites d'avant la sortie restent sur la liste de paie s'il était au clic (`dus`).
+            # Avant : libérés, le clipper suivant de la créatrice était payé pour le trafic de ces comptes.
+            res_l = await paie_clics.passer_liens_metricool(uid_s, prenom_de(membre), REPRENEUR_METRICOOL, vivants_s, dus=True)
+            n_liens, repris_s = len(res_l["liberes"]), res_l["repris"]
+            refus_s += res_l["refus"]
         else:
-            # 09/10 (dashboard) : `!sortie` manuel libère aussi ses liens, par uid seulement (avant : lien d'un parti, jamais redonné
-            # ni ménagé) ; ses visites d'avant la sortie restent sur la liste de paie (registre encore lu ici, retiré plus bas)
-            n_liens = len(paie_clics.liberer_sortant(d_l, uid_s, prenom_de(membre)))
-        if n_liens:
-            paie_clics._ecrire(d_l)
+            # 09/10 (dashboard) : `!sortie` manuel d'un clipper SANS compte créé : ses liens sont libérés pour le suivant, par uid
+            # seulement (avant : lien d'un parti, jamais redonné ni ménagé) ; ses visites d'avant la sortie restent sur la liste de
+            # paie (registre encore lu ici, retiré plus bas)
+            async with paie_clics.verrou_liens:
+                d_l = paie_clics._lire()
+                libres_s = paie_clics.liberer_sortant(d_l, uid_s, prenom_de(membre))
+                if libres_s:
+                    paie_clics._ecrire(d_l)
+            n_liens = len(libres_s)
+            if libres_s and vivants_s:                                  # « Clipping libre (ex-Prénom) » : jamais à un homonyme
+                try:
+                    await paie_clics.renommer_liberes(list(vivants_s.values()), seulement=set(libres_s))
+                except Exception as erreur:                             # noqa: BLE001
+                    refus_s.append(f"notes des liens libérés ({type(erreur).__name__}) : renommées au prochain passage")
     # 4. Registre : la fiche part dans sortis.json (trace), plus dans equipes.json (digest, primes).
     registre_s = lire_json(FICHIER_EQUIPES, {})
     fiche_s = registre_s.pop(uid_s, None) or {}
@@ -5340,12 +5423,15 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
         f" · comptes du classeur rendus : {len(libere_s)}"
         + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
         + ("\n".join(libere_s) + "\n" if libere_s else "")
+        + (f"🔁 Ses liens suivent ses comptes créés chez {REPRENEUR_METRICOOL} (hors clipping) : {' · '.join(repris_s)}\n" if repris_s else "")
+        + (f"🔓 Liens libérés pour le suivant de la créatrice : {n_liens}\n" if n_liens else "")
         + "→ À faire à la main : " + ("" if libere_s or not onboarding.actif() else "Sheet (ses comptes en « à réattribuer »), ")
         + "mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
-        "lien GAML à désactiver, dernier décompte.", g)
+        + ("" if (n_liens or repris_s) else "lien GAML à vérifier, ") + "dernier décompte.", g)
     await telegram.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
     journal.info("Sortie d'équipe : %s par %s (%s)%s", membre.id, par_id, raison, ", expulsé" if expulse else "")
-    return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "refus": refus_s, "expulse": expulse}
+    return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "repris": len(repris_s),
+            "refus": refus_s, "expulse": expulse}
 
 
 # 09/10 (Gaëtan : « Rianah = Metricool désormais », puis « Rianah reprend ses liens Metricool ainsi que ses liens de tracking OF
@@ -5371,15 +5457,9 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
     #    est sans effet de bord) : sinon un lien déjà passé à la main chez Rianah pouvait être libéré et redonné, tracking compris.
     vivants = {}
     if paie_clics.actif():
-        siens = [lid for lid, i in paie_clics._lire().get("liens", {}).items()
-                 if str(i.get("uid") or "") == uid and not i.get("supprime_gaml")]
-        try:
-            vivants = {l.get("id"): l for l in await paie_clics.liens_gaml() if l.get("id")}
-        except Exception as erreur:                                         # noqa: BLE001
-            return {"annule": f"GAML illisible ({type(erreur).__name__}) : rien n'a été fait, relance `!monteur` dans quelques minutes."}
-        manquants = [lid for lid in siens if "note" not in (vivants.get(lid) or {})]
-        if manquants:
-            return {"annule": f"lecture GAML incomplète ({len(manquants)} de ses liens non lus) : rien n'a été fait, relance `!monteur`."}
+        vivants, pb = await notes_gaml_de(uid)
+        if pb:
+            return {"annule": f"{pb} : rien n'a été fait, relance `!monteur` dans quelques minutes."}
     registre = lire_json(FICHIER_EQUIPES, {})
     homonymes = [u for u in registre if u != uid and membre_par_id(u) is not None
                  and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)]
@@ -5420,46 +5500,14 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
     #    liens Metricool ainsi que ses liens de tracking OF MYM ») : ses comptes créés partent sur Metricool, ses liens les suivent
     #    chez REPRENEUR_METRICOOL — note « Rianah Metricool N (ex-Julien) », détachés comme une note changée à la main ; les cartes
     #    Miam et OnlyFriends (ses trackings MYM et OF) restent posées sur le lien. Un lien déjà sorti du clipping à la main est
-    #    seulement détaché. Sans repreneur (ou GAML illisible / refus), le lien est libéré pour le suivant de la créatrice et sa
-    #    note devient « Clipping libre (ex-Julien) ».
+    #    seulement détaché. Sans repreneur, le lien est libéré pour le suivant de la créatrice (« Clipping libre (ex-Julien) »).
+    #    Revue CLICS du 09/10 : la logique est commune avec `!sortie` (paie_clics.passer_liens_metricool) ; une note refusée par
+    #    GAML ne libère plus le lien (détaché quand même, note retentée à la passe horaire).
     liens, repris = [], []
     if paie_clics.actif():
-        async with paie_clics.verrou_liens:
-            d_l = paie_clics._lire()
-            numero = max(paie_clics.numero_metricool(vivants.values(), REPRENEUR_METRICOOL),
-                          paie_clics.numero_metricool(d_l.get("liens", {}).values(), REPRENEUR_METRICOOL))
-            for lid in paie_clics.liens_de(d_l, uid):
-                vivant = vivants.get(lid) or {}
-                cr_l = str(d_l["liens"][lid].get("creatrice") or "?").title()
-                note_v = str(vivant.get("note") or "").strip()
-                p_note = (paie_clics._n_note(paie_clics._prenom_note(note_v)).split() or [""])[0]
-                if "note" in vivant and not p_note:
-                    paie_clics.synchroniser_notes(d_l, [{"id": lid, "note": note_v}])
-                    repris.append(f"{cr_l} « {note_v or '(note vide)'} » (déjà changée à la main)")
-                    continue
-                if p_note != (paie_clics._n_note(prenom).split() or [""])[0]:
-                    refus.append(f"lien {cr_l} noté « {note_v} » dans GAML : laissé à ce clipper (détaché de {prenom})")
-                    continue                                                # libéré plus bas sans renommage : associer_auto le rattache
-                if REPRENEUR_METRICOOL:
-                    nouvelle = f"{REPRENEUR_METRICOOL} Metricool{f' {numero}' if numero > 1 else ''} (ex-{prenom})"
-                    try:
-                        await paie_clics._requete("PATCH", f"/links/{lid}", corps={"note": nouvelle})
-                    except Exception as erreur:                             # noqa: BLE001
-                        refus.append(f"lien {cr_l} pas passé à {REPRENEUR_METRICOOL} ({erreur}) : libéré pour le suivant")
-                    else:
-                        paie_clics.synchroniser_notes(d_l, [{"id": lid, "note": nouvelle}])
-                        repris.append(f"{cr_l} « {nouvelle} »")
-                        numero += 1
-                        continue
-            liens = paie_clics.liberer_liens(d_l, uid, "")
-            for lid in liens:
-                d_l["liens"][lid]["ancien"] = prenom
-            paie_clics._ecrire(d_l)
-        if liens and vivants:
-            try:
-                await paie_clics.renommer_liberes(list(vivants.values()), seulement=set(liens))
-            except Exception as erreur:                                     # noqa: BLE001
-                refus.append(f"notes des liens libérés ({type(erreur).__name__}) : renommées au prochain passage")
+        res_l = await paie_clics.passer_liens_metricool(uid, prenom, REPRENEUR_METRICOOL, vivants, dus=False)
+        liens, repris = res_l["liberes"], res_l["repris"]
+        refus += res_l["refus"]
     # 5. Classeur : les lignes à son prénom, moins les comptes d'un homonyme signé (sa fiche d'onboarding les connaît).
     comptes, metricool = [], []
     if onboarding.actif():
@@ -6520,8 +6568,12 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("⛔ Membre protégé (admin/manager/staff) — pas de sortie par commande.")
             return True
         res = await sortir_membre(membre, raison, message.author)
+        if res.get("annule"):                                           # revue CLICS : notes GAML illisibles, rien n'a été fait
+            await message.reply(f"⏸️ {membre.mention} : {res['annule']}")
+            return True
         await message.reply(f"✅ {membre.mention} sorti : {res['roles']} rôle(s) retiré(s), {res['acces']} accès fermé(s), "
                             f"{res['comptes']} compte(s) du classeur rendu(s)" + (f", {res['liens']} lien(s) libéré(s)" if res.get("liens") else "")
+                            + (f", {res['repris']} lien(s) passé(s) à {REPRENEUR_METRICOOL} avec ses comptes créés" if res.get("repris") else "")
                             + ", relances coupées, registre tracé, MP envoyé, manager prévenu.")
         return True
 
