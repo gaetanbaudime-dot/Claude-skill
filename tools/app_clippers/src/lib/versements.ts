@@ -54,7 +54,7 @@ export async function versements(c: Clipper): Promise<Versements> {
   // 08/10 (revue) : le régime publié par le bot fait foi (onglet « Régime paie ») ; la règle locale n'est qu'un repli
   const r = await regimeDe(c.cle);
   const fixe = r ? r.regime === "fixe" : PAIE_FIXE.has(normaliser(c.prenom).split(" ")[0] || "");
-  const plancher = r ? r.clicDepuis : (!fixe && premierLien < ANCIENS_AVANT ? BASCULE_CLIC : "");   // un ancien : au clic depuis le 08/10
+  const plancher = r ? r.clicDepuis : (!fixe && premierLien < ANCIENS_AVANT ? BASCULE_CLIC : "");   // un ancien : au clic depuis le 05/10
   const plancherLien = (id: string) => r?.liens.get(id) || "";        // un lien repris : compté à partir de la reprise
   const max = (a: string, b: string) => (a > b ? a : b);
   const depuis = plancher > p.debut ? plancher : p.debut;

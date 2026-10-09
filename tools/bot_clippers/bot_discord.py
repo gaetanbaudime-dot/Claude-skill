@@ -7313,6 +7313,8 @@ async def on_ready():
                                   "clics_7j": _clics_7j,                                           # 26/09 : tableau de bord
                                   "reconcilier": lambda e, p=None, r=None, h=None: parcours.reconcilier(client, e, p, r, h),
                                   "controler_bios": lambda b: parcours.controler_liens_bio(client, b),   # 08/10 : lien du privé
+                                  "compte_retrouve": lambda a, n: parcours.compte_retrouve(client, a, n),   # 09/10 : @ changés
+                                  "compte_introuvable": lambda h: parcours.compte_introuvable(client, h),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
                                   "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None,   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer
                                   "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul

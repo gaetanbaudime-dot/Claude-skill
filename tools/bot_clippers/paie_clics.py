@@ -54,6 +54,9 @@ CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "ria
 PAIE_FIXE = {"".join(c for c in unicodedata.normalize("NFD", p.strip().lower()) if unicodedata.category(c) != "Mn")
              for p in os.environ.get("PAIE_FIXE", "caroline,lilian,josue,yves,rianah,julien,jonas").split(",") if p.strip()}
 PAIE_DECISION = "2026-10-08"
+# 09/10 (Gaëtan : « tout le monde passe au clic depuis le 5 octobre, sauf Rianah, Caroline, Lilian, Josué et Yves qui restent au
+# fixe ») : un ancien fixe est payé au clic sur ses visites à partir du 05/10 (la bascule prévue par le bilan des fixes).
+BASCULE_CLIC = os.environ.get("BASCULE_CLIC", "2026-10-05").strip() or "2026-10-05"
 # 08/10 (ménage GAML) : un lien libéré sous ce nombre de visiteurs (hors robots) sur 7 jours est désactivé, une fois par jour.
 MENAGE_SEUIL = int(os.environ.get("CLICS_MENAGE_SEUIL", "15") or 15)
 MENAGE_VERSION = 2                                                      # changée → le ménage repasse dès le déploiement
@@ -337,8 +340,8 @@ def regime(uid: str) -> str:
 
 
 def debut_clic(uid: str, d: dict = None) -> str:
-    """08/10 : un clipper passé du fixe au clic par la décision du 08/10 est payé au clic à partir de ce jour-là (sa quinzaine
-    d'avant reste au fixe : jamais payé deux fois). '' pour les autres. Revue du 08/10 : un `!paie clic` fige son propre plancher
+    """08/10 : un clipper passé du fixe au clic par la décision du 08/10 est payé au clic à partir de BASCULE_CLIC (09/10 : le 05/10 ;
+    ce qui précède reste au fixe : jamais payé deux fois). '' pour les autres. Revue du 08/10 : un `!paie clic` fige son propre plancher
     (`clic_depuis`, le jour de la bascule) ; une fiche absente du registre (sorti, ancien hors registre) se date par son premier
     lien, comme dans l'app."""
     fiche = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(uid))
@@ -354,7 +357,7 @@ def debut_clic(uid: str, d: dict = None) -> str:
     if fiche.get("clic_depuis"):
         return str(fiche["clic_depuis"])[:10]
     if _ancien_regime(fiche) == "fixe" and not str(fiche.get("paie_le", ""))[:10] >= PAIE_DECISION:
-        return PAIE_DECISION
+        return BASCULE_CLIC
     return ""
 
 
@@ -1325,8 +1328,8 @@ async def commande_staff(message, texte: str) -> bool:
             lignes.append(f"· {nom} [{reg}] — hier {_fmt(h['payes'])} · 7 j {_fmt(s7['payes'])} ({part} payables, "
                           f"{_fmt(s7['payes'] / 7)}/j) · quinzaine {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
                           + ("" if reg != "clic" or uid in d["wallets"] else " · ⚠️ sans adresse"))
-        lignes.append("-# [fixe] = Caroline, Lilian, Josué, Yves, Rianah (et Julien, Jonas hors clipping), décision du 08/10 ; "
-                      "[clic] = tous les autres, payés sur la liste du 5 et du 20 (au clic depuis le 08/10 pour les anciens fixes). "
+        lignes.append("-# [fixe] = Rianah, Caroline, Lilian, Josué, Yves (et Julien, Jonas hors clipping), décision du 09/10 ; "
+                      "[clic] = tous les autres, payés sur la liste du 5 et du 20 (au clic depuis le 05/10 pour les anciens fixes). "
                       "`!paie @clipper clic|fixe` pour changer. Repère de rentabilité d'un fixe : ≈ 65 visites payables/jour "
                       "pour 200 €, ≈ 32/jour pour 100 € (0,30 $ de CA par visite, 35 % de marge).")
         if not rangs:

@@ -193,7 +193,66 @@ async def _apify(handles: list):
 
 def _fiche_vide() -> dict:
     return {"lu": False, "existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0, "fautes": 0,
-            "reels_hier": 0, "reels_7j": 0, "posts_lus": 0, "bio_liens": [], "bio_lu": False, "lien_dans_texte": False}
+            "reels_hier": 0, "reels_7j": 0, "posts_lus": 0, "bio_liens": [], "bio_lu": False, "lien_dans_texte": False,
+            "nom": "", "bio": ""}
+
+
+# 09/10 (Gaëtan : « les clippeurs peuvent changer le @ légèrement quand il n'est pas disponible ») : un compte marqué créé mais
+# jamais vu vivant n'est plus passé BAN au premier passage. Le scan cherche les @ proches de celui prévu et reconnaît le compte
+# du clipper au nom et à la bio que le bot lui a donnés (profil.py). Trouvé → renommé partout ; rien → le clipper est prévenu,
+# BAN seulement après INTROUVABLE_JOURS passages sans le voir.
+INTROUVABLE_JOURS = int(os.environ.get("ETATS_INTROUVABLE_JOURS", "3") or 3)
+VARIANTES_MAX = int(os.environ.get("ETATS_VARIANTES_MAX", "12") or 12)   # comptes cherchés au plus par passage
+
+
+def variantes(h: str) -> list:
+    """Les @ qu'un clipper prend quand celui prévu est pris : un chiffre, un point, un tiret bas, une lettre doublée…"""
+    h = _cle(h)
+    if not h:
+        return []
+    racine = h.rstrip("0123456789._") or h
+    cands = [h + x for x in ("1", "2", "3", "_", "_1", "01", "x", "_off", ".off", "0")]
+    cands += [h.replace("_", "."), h.replace(".", "_"), h.replace("_", ""), h.replace(".", ""), "_" + h, h + h[-1],
+              racine + "_", racine + "1", racine + "2", racine + "_1"]
+    out = []
+    for v in cands:
+        if v != h and v not in out and onboarding.RE_HANDLE_IG.match(v) and not v.endswith(".") and not v.startswith("."):
+            out.append(v)
+    return out[:16]
+
+
+def est_a_nous(m: dict, creatrice: str) -> bool:
+    """Le profil trouvé est bien celui que le bot a fait préparer : jeune (peu d'abonnés) ET avec le nom (prénom de la créatrice)
+    ou une bio de la banque de profil.py."""
+    prenom = (str(creatrice or "").split() or [""])[0]
+    if not prenom or not m or not m.get("existe") or int(m.get("followers") or 0) > 3000:
+        return False
+    if _norm(m.get("nom") or "") == _norm(prenom):
+        return True
+    try:
+        import profil
+        return any(_norm(m.get("bio") or "") == _norm(b.format(prenom=prenom)) for b in profil.BIOS)
+    except Exception:                                                   # noqa: BLE001
+        return False
+
+
+async def chercher_variantes(lignes: list) -> tuple:
+    """([(ligne, nouveau @)], [ligne]) : les comptes retrouvés sous un @ proche (un seul profil qui est à nous), et les introuvables."""
+    cands = {id(c): variantes(c["handle"]) for c in lignes}
+    tous = sorted({v for vs in cands.values() for v in vs})
+    if not tous:
+        return [], list(lignes)
+    mesures = await scanner(tous)
+    if mesures is None:
+        return [], []                                                   # Apify en panne : on ne conclut rien
+    trouves, perdus = [], []
+    for c in lignes:
+        bons = [v for v in cands[id(c)] if est_a_nous(mesures.get(v) or {}, c.get("creatrice") or "")]
+        if len(bons) == 1:
+            trouves.append((c, bons[0]))
+        else:
+            perdus.append(c)
+    return trouves, perdus
 
 
 RE_URL_TEXTE = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(fr|com|app|link|me|io)/", re.I)
@@ -233,7 +292,8 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
             fiche["illisible"] = True
             continue
         fiche.update({"lu": True, "existe": True, "restreint": restreint, "prive": bool(item.get("private")),
-                      "followers": int(followers_brut or 0)})
+                      "followers": int(followers_brut or 0), "nom": str(item.get("fullName") or ""),
+                      "bio": str(item.get("biography") or "")})
         fiche["bio_liens"], fiche["bio_lu"], fiche["lien_dans_texte"] = _liens_profil(item)
         posts = item.get("latestPosts") or []
         fiche["posts_lus"] = len(posts)
@@ -450,6 +510,7 @@ async def _executer(ecrire: bool = True) -> dict:
     reels_ecritures = []
     a_relire = []                                                        # 01/10 : Reels des 24 h des clippers, pour la review
     pris = []                                                          # 01/10 : identifiants « à créer » déjà présents sur Instagram
+    a_chercher = []                                                    # 09/10 : créés mais jamais vus vivants (@ changé ?)
     ids_suivis = {id(c) for c in suivis}
     async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
         await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
@@ -497,6 +558,16 @@ async def _executer(ecrire: bool = True) -> dict:
         if id(c) not in ids_suivis:
             continue
         apres = decider(c["etat"], m, d["historique"][h], h in d["bans_auto"], d.setdefault("avant_ban", {}).get(h, ""))
+        jamais_vu = not any(e.get("existe") for e in d["historique"][h])
+        if c.get("gerant") and _en_gestion(c) and jamais_vu and not m["existe"]:
+            e_c = _norm(c["etat"])
+            if apres == "BAN" and e_c == "warmup":
+                a_chercher.append(c)                                    # 09/10 : peut-être un @ légèrement changé
+                if _series(d["historique"][h])[0] < INTROUVABLE_JOURS:
+                    apres = ""                                          # pas BAN tant qu'on le cherche
+            elif e_c == "ban" and d.setdefault("cherches", {}).get(h) != jour:
+                d["cherches"][h] = jour                                 # un BAN jamais vu vivant (faux BAN d'avant le 09/10 ?)
+                a_chercher.append(c)
         if ecrire and not apres and m["existe"] and _norm(c["etat"]) in A_CREER \
                 and h not in d.setdefault("pris_signales", {}):
             pris.append(f"{c['handle']} ({str(c.get('gerant') or '?').split()[0]})")   # 01/10 : vu présent sans avoir été vu absent
@@ -515,6 +586,23 @@ async def _executer(ecrire: bool = True) -> dict:
                 elif h in d["bans_auto"]:
                     d["bans_auto"].pop(h, None)
                     d["avant_ban"].pop(h, None)
+    if ecrire and a_chercher:                                           # 09/10 : les @ légèrement changés
+        try:
+            trouves, perdus = await chercher_variantes(a_chercher[:VARIANTES_MAX])
+            for c, nouveau in trouves:
+                if _deps.get("compte_retrouve"):
+                    await _deps["compte_retrouve"](c["handle"], nouveau)
+                if _norm(c["etat"]) == "ban":                            # faux BAN : le compte vit sous son vrai @
+                    try:
+                        await _cellule(c, "etat", "WARMUP")
+                    except Exception:                                   # noqa: BLE001
+                        pass
+                changements.append((c["handle"], c["gerant"], c["etat"], f"retrouvé sous {nouveau}", c["ligne"]))
+            for c in perdus:
+                if _norm(c["etat"]) == "warmup" and _deps.get("compte_introuvable"):
+                    await _deps["compte_introuvable"](c["handle"])
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Recherche des @ changés : %s", erreur)
     if reels_ecritures:
         try:
             await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, reels_ecritures)

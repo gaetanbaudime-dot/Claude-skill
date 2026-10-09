@@ -47,16 +47,23 @@ WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 # premières vues. Le compte privé ne publie pas : le compte 3 s'ouvre 48 h après lui, quand 4 Reels de plus sont publiés sur le
 # compte 1. L'ordre est figé dans la fiche à l'ouverture de l'étape 2 ; une fiche dont l'étape 2 est déjà partie garde l'ordre du
 # 05/10 (privé en 3). PARCOURS_PRIVE_EN_2=0 revient à l'ordre du 05/10 pour les nouvelles fiches.
-PRIVE_EN_2 = os.environ.get("PARCOURS_PRIVE_EN_2", "1").strip() != "0"
+# 09/10 (Gaëtan : « garde le compte privé en 3e position et fais-le créer uniquement si le clippeur publie bien sur les deux premiers
+# comptes ») : retour au privé en 3 par défaut. Une fiche notée « prive2 » dont l'étape 2 n'est pas encore partie repasse en
+# « prive3 » ; celles dont le privé (compte 2) est déjà ouvert le gardent (jamais un compte refait). Le privé (compte 3) s'ouvre
+# 48 h après le compte 2, quand 4 Reels sont publiés sur le compte 2 ET 4 Reels de plus sur le compte 1 depuis la création du
+# compte 2 (`sources_reels`, base retenue dans `base_reels["3"]`).
+PRIVE_EN_2 = os.environ.get("PARCOURS_PRIVE_EN_2", "0").strip() == "1"
 
 
 def ordre(fiche_p: dict) -> str:
     """« prive2 » (compte 2 privé) ou « prive3 » (l'ordre du 05/10). Figé dans `fiche_p["ordre"]` à l'ouverture de l'étape 2."""
     if not fiche_p:
         return "prive3"                                                 # pas de parcours (ancien, inconnu) : l'ordre du 05/10
+    dates = fiche_p.get("dates") or {}
+    if fiche_p.get("ordre") == "prive2" and not PRIVE_EN_2 and not dates.get("2") and not dates.get("2_fait"):
+        return "prive3"                                                 # 09/10 : retour au privé en 3, son compte 2 n'est pas ouvert
     if fiche_p.get("ordre") in ("prive2", "prive3"):
         return fiche_p["ordre"]
-    dates = fiche_p.get("dates") or {}
     # 08/10 (revue) : seulement un parcours commencé (étape 1 envoyée) ; une fiche créée par `!note` pour un ancien garde l'ordre du 05/10
     if PRIVE_EN_2 and dates.get("1") and not dates.get("2") and not dates.get("2_fait") and int(fiche_p.get("etape", 0) or 0) <= 2:
         return "prive2"
@@ -75,10 +82,19 @@ def source_reels(fiche_p: dict, n: int) -> int:
     return m - 1 if m == n_prive(fiche_p) and m > 1 else m
 
 
+def sources_reels(fiche_p: dict, n: int) -> list:
+    """09/10 : les comptes dont les Reels ouvrent le compte n. Le privé (compte 3, ordre « prive3 ») ne s'ouvre que si le clipper
+    publie bien sur ses DEUX premiers comptes : [1, 2]. Sinon le compte source unique (source_reels)."""
+    if n == 3 and ordre(fiche_p) == "prive3":
+        return [1, 2]
+    return [source_reels(fiche_p, n)]
+
+
 def regle_comptes() -> str:
     """01/10 : le texte canonique de la règle des comptes, le même partout (salon, message de comptes, assistant)."""
     return (f"Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le précédent, "
-            f"dès que {REELS_OUVERTURE} Reels sont publiés sur ton dernier compte qui publie.")   # 08/10 : le privé ne publie pas
+            f"quand tu publies bien : {REELS_OUVERTURE} Reels sur chacun de tes comptes qui publient. Ton compte 3, le privé, "
+            "arrive en dernier.")   # 09/10 : le privé seulement si les comptes 1 et 2 publient
 
 
 def texte_codes() -> str:
@@ -185,7 +201,8 @@ def etape_def(fiche_p: dict, n: int) -> dict:
 # de « il arrive ici tout seul », la phrase canonique {codes} ; « il a déjà chauffé » retiré (24 h de warm-up quand même).
 # 08/10 (audit : l'identifiant déjà pris est le blocage le plus courant à la création ; Mohamed a créé une variante que le bot ne
 # connaissait pas) : la consigne et la commande `!pseudo n identifiant`, qui met le classeur et la fiche à jour.
-PSEUDO_PRIS = "Identifiant déjà pris ? Ajoute un chiffre à la fin. Puis tape ici : `!pseudo {n} ton_identifiant`."
+# 09/10 : le bouton « Compte n créé » demande le @ exact (fenêtre ModalPseudo) ; `!pseudo` reste pour corriger après coup
+PSEUDO_PRIS = "Identifiant déjà pris ? Ajoute un chiffre ou un point. Quand tu appuies sur le bouton, je te demande ton @ exact."
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. {codes}\n"
             "3. Mets ce mot de passe. Numéro demandé ? Le tien. Date de naissance : la vraie.\n"
@@ -324,16 +341,55 @@ def reels_vus(uid, fiche_p: dict, n: int) -> int:
                if _cree(fiche_p, i) and i != n_prive(fiche_p) and not _est_ban(x, fiche_p))   # 08/10 : jamais le privé
 
 
-def _de_plus(fiche_p: dict, n: int) -> str:
-    """08/10 (revue) : « de plus » quand l'ouverture du compte n compte depuis une base (compte 3 en ordre « prive2 »)."""
-    return " de plus" if (fiche_p.get("base_reels") or {}).get(str(n)) is not None else ""
+def _de_plus(fiche_p: dict, n: int, src: int = 1) -> str:
+    """08/10 (revue) : « de plus » quand l'ouverture du compte n compte depuis une base (compte 1, pour le compte 3)."""
+    return " de plus" if src == 1 and (fiche_p.get("base_reels") or {}).get(str(n)) is not None else ""
+
+
+def reels_detail(uid, fiche_p: dict, n: int) -> list:
+    """09/10 : [(compte source, Reels qui comptent)] pour ouvrir le compte n, sans les sources BAN. Le compte 1 compte depuis sa
+    base (`base_reels[str(n)]`, retenue à la création du compte d'avant) quand n = 3 ; un compte 2 compte depuis sa création."""
+    comptes = _comptes_ordonnes(uid, fiche_p=fiche_p)
+    suivis = fiche_p.get("reels") or {}
+    out = []
+    for src in sources_reels(fiche_p, n):
+        h = comptes[src - 1] if 0 < src <= len(comptes) else ""
+        if not h or _est_ban(h, fiche_p):
+            continue
+        vus = int((suivis.get(h.lower()) or {}).get("vus", 0) or 0) + _reels_soir(fiche_p, h)
+        base = int((fiche_p.get("base_reels") or {}).get(str(n), 0) or 0) if (src == 1 and n == 3) else 0
+        out.append((src, max(0, vus - base)))
+    return out
 
 
 def reels_pour(uid, fiche_p: dict, n: int) -> int:
-    """08/10 : les Reels qui comptent pour ouvrir le compte n — ceux du compte source (source_reels), moins la base retenue à la
-    création du privé pour le compte 3 en ordre « prive2 » (4 Reels DE PLUS sur le compte 1)."""
+    """08/10 : les Reels qui comptent pour ouvrir le compte n. 09/10 : avec plusieurs sources (comptes 1 et 2 pour le privé),
+    le plus petit des deux — chacun doit avoir ses Reels. Toutes les sources BAN : le repli de reels_vus (les autres comptes)."""
+    det = reels_detail(uid, fiche_p, n)
+    if det:
+        return min(c for _, c in det)
     base = int((fiche_p.get("base_reels") or {}).get(str(n), 0) or 0)
     return max(0, reels_vus(uid, fiche_p, source_reels(fiche_p, n)) - base)
+
+
+def condition_texte(uid, fiche_p: dict, n: int, avec_compte: bool = True) -> str:
+    """09/10 : la condition d'ouverture du compte n, dite au clipper : « 4 Reels sur ton compte 1 et 4 sur ton compte 2 (pour
+    l'instant : 3 et 1) »."""
+    det = reels_detail(uid, fiche_p, n) or [(source_reels(fiche_p, n), reels_pour(uid, fiche_p, n))]
+    morceaux = [f"{REELS_OUVERTURE} Reels{_de_plus(fiche_p, n, src)} sur ton compte {src}" for src, _ in det]
+    texte = " et ".join(morceaux)
+    if avec_compte:
+        texte += " (pour l'instant : " + " et ".join(f"{c} sur le compte {src}" for src, c in det) + ")"
+    return texte
+
+
+def _bloque_sources(uid, fiche_p: dict, n: int) -> int:
+    """09/10 : le compte source BAN qui bloque l'ouverture du compte n (toutes ses sources BAN et aucun autre compte qui publie),
+    0 sinon."""
+    sources = sources_reels(fiche_p, n)
+    if not all(_bloque_ban(uid, fiche_p, src) for src in sources):
+        return 0
+    return sources[0]
 
 
 LIEN_BIO_H = int(os.environ.get("PARCOURS_LIEN_BIO_H", "24") or 24)   # délai laissé après la création du privé
@@ -425,11 +481,11 @@ def comptes_du_soir(maintenant=None) -> list:
         quand = a[1] if a[1].tzinfo else a[1].replace(tzinfo=timezone.utc)
         if quand > maintenant + timedelta(hours=14) or reels_pour(uid, f, a[0]) >= REELS_OUVERTURE:
             continue
-        src = source_reels(f, a[0])
         comptes = _comptes_ordonnes(uid, fiche_p=f)
-        h = comptes[src - 1] if 0 < src <= len(comptes) else ""
-        if h and not _est_ban(h, f) and h not in out:
-            out.append(h)
+        for src in sources_reels(f, a[0]):                              # 09/10 : les comptes 1 et 2 pour le privé
+            h = comptes[src - 1] if 0 < src <= len(comptes) else ""
+            if h and not _est_ban(h, f) and h not in out:
+                out.append(h)
     return out
 
 
@@ -456,14 +512,16 @@ def noter_reels_soir(mesures: dict, depuis_iso: str, cle=None) -> int:
         if not a:
             continue
         comptes = _comptes_ordonnes(uid, fiche_p=f)
-        src = source_reels(f, a[0])
-        h = comptes[src - 1] if 0 < src <= len(comptes) else ""
-        m = mesures.get(cle(h)) if h else None
-        if not m or not m.get("lu", True) or not m.get("existe", True):
-            continue
-        nb = sum(1 for r in m.get("reels") or [] if _apres(r.get("quand"), depuis_iso))
-        f.setdefault("reels_soir", {})[h.lower()] = {"jour": jour, "n": nb}
-        n += 1
+        touche = False
+        for src in sources_reels(f, a[0]):                              # 09/10 : toutes les sources (comptes 1 et 2 pour le privé)
+            h = comptes[src - 1] if 0 < src <= len(comptes) else ""
+            m = mesures.get(cle(h)) if h else None
+            if not m or not m.get("lu", True) or not m.get("existe", True):
+                continue
+            nb = sum(1 for r in m.get("reels") or [] if _apres(r.get("quand"), depuis_iso))
+            f.setdefault("reels_soir", {})[h.lower()] = {"jour": jour, "n": nb}
+            touche = True
+        n += int(touche)
     if n:
         _ecrire(d)
     return n
@@ -643,9 +701,174 @@ class BoutonEtape(discord.ui.DynamicItem[discord.ui.Button], template=r"parcours
         if str(interaction.user.id) != self.uid and not (staff and staff(interaction.user)):
             await interaction.response.send_message("Ce bouton est pour le clipper de ce salon 🙂", ephemeral=True)
             return
+        # 09/10 (Gaëtan : « les clippeurs peuvent changer le @ légèrement quand il n'est pas disponible ») : au premier appui
+        # « Compte n créé » du clipper, une fenêtre lui demande son @ exact, prérempli avec celui prévu.
+        prevu = handle_a_confirmer(self.uid, self.etape) if str(interaction.user.id) == self.uid else ""
+        if prevu:
+            await interaction.response.send_modal(ModalPseudo(self.uid, self.etape, prevu))
+            return
         await interaction.response.defer()
         if not await valider_etape(interaction.channel, self.uid, self.etape, par=str(interaction.user.id)):
             # 01/10 (Steeve : un vieux bouton du compte 2 a rouvert le compte 2 pendant l'attente) : refusé, et on le dit
+            try:
+                await interaction.followup.send("Ce bouton n'est plus valable. Suis le dernier message de ton salon 🙂", ephemeral=True)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
+
+def handle_a_confirmer(uid: str, n: int) -> str:
+    """09/10 : l'identifiant prévu du compte n si l'appui est celui de la création (étape n ouverte, profil pas encore envoyé) d'un
+    compte à créer (pas un compte repris d'un sortant, qui existe déjà) ; '' sinon."""
+    if n not in (1, 2, 3):
+        return ""
+    f = _lire().get(str(uid)) or {}
+    if int(f.get("etape", 0) or 0) != n or not (f.get("dates") or {}).get(str(n)) or (f.get("profils") or {}).get(str(n)):
+        return ""
+    comptes = _comptes_ordonnes(uid, fiche_p=f)
+    h = comptes[n - 1] if 0 < n <= len(comptes) else ""
+    acces = {str(a.get("handle") or "").lower(): a for a in (_onb(uid).get("acces") or []) if isinstance(a, dict)}
+    if not h or (acces.get(h.lower()) or {}).get("cree"):
+        return ""
+    return h
+
+
+async def renommer(uid: str, n: int, nouveau: str) -> tuple:
+    """09/10 : le compte n du clipper passe à `nouveau` (classeur, fiche d'onboarding, Reels suivis). Renvoie (ancien, raison) :
+    raison '' si c'est fait. Commun à `!pseudo`, à la fenêtre de création et au scan qui retrouve un compte."""
+    comptes = _comptes_ordonnes(uid)
+    if n < 1 or n > len(comptes) or not comptes[n - 1]:
+        return "", f"pas de compte {n} pour toi"
+    ancien = comptes[n - 1]
+    nouveau = onboarding.normaliser_handle(nouveau).lower()
+    if n != n_prive(_lire().get(str(uid)) or {}) and onboarding.RE_PRIVE.search(nouveau):
+        return ancien, "ce nom ressemble à un compte privé (priv, secret, perso) : choisis-en un autre"
+    try:
+        raison = await onboarding.renommer_compte(uid, ancien, nouveau)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Renommage du compte %s de %s : %s", n, uid, erreur)
+        raison = "le classeur ne répond pas, réessaie dans une minute"
+    if raison:
+        return ancien, raison
+    d = _lire()                                                         # les Reels déjà vus suivent le compte
+    f = d.get(str(uid)) or {}
+    for cle in ("reels", "reels_soir"):
+        suivis = f.get(cle) or {}
+        if ancien.lower() in suivis:
+            suivis[nouveau] = suivis.pop(ancien.lower())
+    if str(uid) in d:
+        _ecrire(d)
+    try:
+        canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+        if canal is not None:
+            await canal.send(f"✏️ {f.get('prenom') or uid} : compte {n} `{ancien}` → `{nouveau}` (identifiant prévu pris, classeur mis à jour)")
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return ancien, ""
+
+
+def proprietaire(handle: str) -> tuple:
+    """09/10 : (uid, n) du clipper à qui ce compte est livré (fiche d'onboarding), n = son numéro de compte ; ('', 0) sinon."""
+    cle = onboarding.normaliser_handle(handle).lower()
+    try:
+        clippers = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}).get("clippers", {})
+    except Exception:                                                   # noqa: BLE001
+        return "", 0
+    for uid, onb in clippers.items():
+        comptes = [onboarding.normaliser_handle(h).lower() for h in _comptes_ordonnes(uid, onb)]
+        if cle in comptes:
+            return str(uid), comptes.index(cle) + 1
+    return "", 0
+
+
+async def _dire_au_clipper(client, uid: str, texte: str) -> bool:
+    f = _lire().get(str(uid)) or {}
+    salon = client.get_channel(int(f.get("salon_id", 0) or 0)) if (client is not None and f.get("salon_id")) else None
+    if salon is None and _deps.get("salon_perso"):
+        salon = _deps["salon_perso"](str(uid))
+    if salon is None:
+        return False
+    try:
+        await salon.send(f"<@{uid}> {texte}")
+        return True
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Message @ changé pour %s : %s", uid, erreur)
+        return False
+
+
+async def compte_retrouve(client, ancien: str, nouveau: str) -> bool:
+    """09/10 : le scan a retrouvé le compte sous un @ proche (nom et bio du bot) → renommé partout, le clipper est prévenu."""
+    uid, n = proprietaire(ancien)
+    if not uid:
+        return False
+    _, raison = await renommer(uid, n, nouveau)
+    if raison:
+        journal.warning("Compte retrouvé %s → %s pour %s non renommé : %s", ancien, nouveau, uid, raison)
+        return False
+    await _dire_au_clipper(client, uid, f"🔎 J'ai trouvé ton compte {n} sous `{nouveau}` (le @ prévu, `{ancien}`, était pris). "
+                                        f"Je le suis sous ce nom.\n\nCe n'est pas le tien ? Tape `!pseudo {n} ton_@`.")
+    return True
+
+
+async def compte_introuvable(client, handle: str) -> bool:
+    """09/10 : un compte marqué créé que le scan ne voit pas, ni sous un @ proche → le clipper donne son @ (une fois par compte)."""
+    uid, n = proprietaire(handle)
+    if not uid:
+        return False
+    d = _lire()
+    f = d.get(uid)
+    cle = onboarding.normaliser_handle(handle).lower()
+    if f is not None:
+        if (f.get("introuvables") or {}).get(cle):
+            return False
+        f.setdefault("introuvables", {})[cle] = _maintenant()
+        _ecrire(d)
+    ok = await _dire_au_clipper(client, uid, f"🔎 Je ne trouve pas ton compte {n} `{handle}` sur Instagram.\n\n"
+                                             f"Tu as pris un autre @ ? Tape `!pseudo {n} ton_@`. Il est bloqué ? Dis-le dans #assistant.")
+    try:
+        canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+        if canal is not None:
+            await canal.send(f"🔎 {(f or {}).get('prenom') or uid} (<@{uid}>) : compte {n} `{handle}` introuvable, ni sous un @ proche "
+                             f"({'prévenu' if ok else 'pas prévenu'}) ; BAN après {3} passages sans le voir.")
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return ok
+
+
+class ModalPseudo(discord.ui.Modal):
+    """09/10 : « Ton compte n est créé ? Ton @ exact » — prérempli avec l'identifiant prévu ; un @ légèrement changé (pris sur
+    Instagram) met à jour le classeur et la fiche avant de fermer l'étape."""
+
+    def __init__(self, uid: str, n: int, prevu: str):
+        super().__init__(title=f"Ton compte {n} est créé ?", timeout=600)
+        self.uid, self.n, self.prevu = str(uid), int(n), prevu
+        self.champ = discord.ui.TextInput(label="Ton @ Instagram exact (sans le @)", default=prevu, min_length=1, max_length=30,
+                                          placeholder="Si le @ prévu était pris, celui que tu as choisi")
+        self.add_item(self.champ)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        brut = str(self.champ.value or "").strip()
+        saisi = onboarding.normaliser_handle(brut).lower()
+        if not saisi or len(brut.split()) > 1 or not onboarding.RE_HANDLE_IG.match(saisi):
+            try:                                                        # une phrase ou des signes : on ne devine jamais un @
+                await interaction.followup.send("❌ Écris seulement ton @ (lettres, chiffres, point, tiret bas), puis réappuie sur le "
+                                                "bouton.", ephemeral=True)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+            return
+        if saisi != self.prevu.lower():
+            _, raison = await renommer(self.uid, self.n, saisi)
+            if raison:
+                try:
+                    await interaction.followup.send(f"❌ {raison}. Réappuie sur le bouton avec ton @ exact.", ephemeral=True)
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+                return
+            try:
+                await interaction.followup.send(f"✅ Noté : ton compte {self.n} est `{saisi}`. Je le suis sous ce nom.", ephemeral=True)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        if not await valider_etape(interaction.channel, self.uid, self.n, par=self.uid):
             try:
                 await interaction.followup.send("Ce bouton n'est plus valable. Suis le dernier message de ton salon 🙂", ephemeral=True)
             except (discord.Forbidden, discord.HTTPException):
@@ -678,7 +901,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> None:
     uid = str(membre.id)
     if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
         d = _lire()
-        if uid in d and d[uid].get("ordre") not in ("prive2", "prive3"):
+        if uid in d and d[uid].get("ordre") != ordre(d[uid]):           # 09/10 : un « prive2 » pas encore ouvert repasse en « prive3 »
             d[uid]["ordre"] = ordre(d[uid])
             _ecrire(d)
     if (n == 6 or n == n_prive(_lire().get(uid) or {})) and _deps.get("attribuer_lien"):
@@ -888,6 +1111,8 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
             deja_chaud = _echu(publier, maintenant)                     # compte créé il y a plus de 24 h : il publie tout de suite
             d = _lire()
             d[str(uid)]["programme"] = [etape] if deja_chaud else [publier, etape]
+            if n == 2 and not prive2:                                   # 09/10 : le privé exige 4 Reels DE PLUS sur le compte 1
+                d[str(uid)].setdefault("base_reels", {}).setdefault("3", reels_vus(uid, d[str(uid)], 1))
             _ecrire(d)
             if deja_chaud:
                 await _envoyer_publier(salon, membre, uid, n)
@@ -942,12 +1167,10 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
     a = attente(fiche_p)
     # 01/10 (relecture) : les deux conditions de la règle, plus seulement les Reels ; compte n BAN : « sur tes autres
     # comptes » ; BAN sans aucun compte vivant : rien ici, l'équipe est prévenue (_signaler_bloques)
-    if a and a[0] == n + 1 and reels_pour(uid, fiche_p, n + 1) < REELS_OUVERTURE and not _bloque_ban(uid, fiche_p, n):
-        ou = _ou_publier(uid, fiche_p, n)
+    if a and a[0] == n + 1 and reels_pour(uid, fiche_p, n + 1) < REELS_OUVERTURE and not _bloque_sources(uid, fiche_p, n + 1):
         prive_suiv = " (le privé, celui qui portera ton lien)" if n + 1 == n_prive(fiche_p) else ""
         texte += (f"\n\nTon compte {n + 1}{prive_suiv} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après ton compte {n}, "
-                  + (f"dès que {REELS_OUVERTURE} Reels sont publiés dessus." if ou == f"ton compte {n}" else
-                     f"dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}."))
+                  f"dès que je vois {condition_texte(uid, fiche_p, n + 1, avec_compte=False)}.")   # 09/10 : les comptes 1 et 2 pour le privé
     texte += _ligne_review(uid)
     vue = None
     if n == 1 and _deps.get("whatsapp"):
@@ -1270,9 +1493,9 @@ async def _signaler_bloques(d0: dict) -> None:
     sans fin. Une ligne au salon admin, une fois par compte banni (clé « alerte_ban » de la fiche). Gaëtan décide."""
     for uid, fiche_p in list(d0.items()):
         a = attente(fiche_p) if isinstance(fiche_p, dict) else None
-        if not a or not _bloque_ban(uid, fiche_p, source_reels(fiche_p, a[0])):
+        if not a or not _bloque_sources(uid, fiche_p, a[0]):
             continue
-        cle = str(source_reels(fiche_p, a[0]))
+        cle = str(_bloque_sources(uid, fiche_p, a[0]))
         if fiche_p.get("alerte_ban") == cle:
             continue
         d = _lire()                                                     # écrit AVANT l'envoi : jamais deux alertes
@@ -1331,17 +1554,15 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 n_x = int(x.get("n") or 0)
                 if fiche_p.get("attente_dite") != n_x:                   # 08/10 (audit) : une fois, il sait ce qui manque
                     fiche_p["attente_dite"] = n_x
-                    dites.append((n_x, source_reels(fiche_p, n_x), reels_pour(uid, fiche_p, n_x)))
+                    dites.append((n_x, condition_texte(uid, fiche_p, n_x), sources_reels(fiche_p, n_x)))
         if gardes == programme and not dites:
             continue
         fiche_p["programme"] = gardes
         _ecrire(d)
-        for n_x, src, vus in dites:                                     # 08/10 : « je vois N Reels », une fois par compte attendu
-            de_plus = _de_plus(fiche_p, n_x)
+        for n_x, cond, srcs in dites:                                   # 08/10 : « je vois N Reels », une fois par compte attendu
             try:
-                await _suite(salon, f"{membre.mention} Ton compte {n_x} arrive dès que je vois {REELS_OUVERTURE} Reels{de_plus} sur ton "
-                                    f"compte {src}. Pour l'instant, j'en vois {vus}.\n\nTu publies sous un autre identifiant ? "
-                                    f"Tape `!pseudo {src} ton_identifiant`.")
+                await _suite(salon, f"{membre.mention} Ton compte {n_x} arrive dès que je vois {cond}.\n\n"
+                                    f"Tu publies sous un autre identifiant ? Tape `!pseudo {srcs[0]} ton_identifiant`.")
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Attente du compte %s de %s : %s", n_x, uid, erreur)
         for item in partants:
@@ -1548,10 +1769,8 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
             continue
         if not _cree(fiche_p, i):
             if a and a[0] == i:                                         # 01/10 : la règle unique, sans date promise
-                src = source_reels(fiche_p, i)
                 parts.append(f"{nom} : pas encore ouvert, il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {i - 1}, "
-                             f"dès que {REELS_OUVERTURE} Reels{_de_plus(fiche_p, i)} sont publiés sur le compte {src} "
-                             f"({reels_pour(uid, fiche_p, i)}{_de_plus(fiche_p, i)} vu(s) par le scan)"
+                             f"dès que le scan voit {condition_texte(uid, fiche_p, i)}"
                              + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
             else:
                 parts.append(f"{nom} : pas encore créé")
@@ -1627,17 +1846,18 @@ def prochaine_etape(salon_id, maintenant=None) -> str:
                         + (" Tes autres comptes : 2 Reels par jour." if k > 1 else ""))
         a = attente(fiche_p)
         if a:                                                           # 01/10 : le compte suivant attend ses 48 h ET ses Reels
-            m = source_reels(fiche_p, a[0])                             # 08/10 : le compte 1 pour le compte 3 (le 2 est privé)
-            if _bloque_ban(uid, fiche_p, m):                            # 01/10 (relecture) : plus de « tes autres comptes » fantôme
+            m = _bloque_sources(uid, fiche_p, a[0])                     # 09/10 : toutes ses sources BAN
+            if m:                                                       # 01/10 (relecture) : plus de « tes autres comptes » fantôme
                 return texte_bloque(m)[0].lower() + texte_bloque(m)[1:]
-            ou = _ou_publier(uid, fiche_p, m)
+            srcs = [src for src, _ in reels_detail(uid, fiche_p, a[0])] or [source_reels(fiche_p, a[0])]
+            ou = " et ".join(f"ton compte {x}" for x in srcs)
             if reels_pour(uid, fiche_p, a[0]) >= REELS_OUVERTURE:
                 return f"ton compte {a[0]} arrive ici le {_date_fr(a[1])}. D'ici là : 2 Reels par jour sur {ou}."
             if maintenant < a[1]:
                 return (f"2 Reels par jour sur {ou}. Ton compte {a[0]} arrive ici au plus tôt le {_date_fr(a[1])}, "
-                        f"dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}.")
+                        f"dès que je vois {condition_texte(uid, fiche_p, a[0])}.")
             # 01/10 (relecture, règle 30) : plus de « Prends-les dans ton Drive », qui laissait publier sans modifier
-            return (f"ton compte {a[0]} arrive dès que {REELS_OUVERTURE} Reels sont publiés sur {ou}.\n\n"
+            return (f"ton compte {a[0]} arrive dès que je vois {condition_texte(uid, fiche_p, a[0])}.\n\n"
                     "Prends une vidéo dans ton Drive et modifie-la avant de la publier.")
         return PROCHAINES[n].format(**c)
     return ""
@@ -1756,8 +1976,7 @@ def contexte_court(uid: str) -> str:
         a = attente(fiche_p)
         if a and a[0] == n:
             etape = (f"attente du compte {n} : il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, dès que "
-                     f"{REELS_OUVERTURE} Reels{_de_plus(fiche_p, n)} sont publiés sur le compte {source_reels(fiche_p, n)} "
-                     f"(déjà {reels_pour(uid, fiche_p, n)} vu(s) par le scan)")
+                     f"le scan voit {condition_texte(uid, fiche_p, n)}")
     else:
         etape = "parcours terminé (routine)"
     np_ = n_prive(fiche_p)
@@ -1925,7 +2144,7 @@ def contexte_llm(uid: str) -> str:
             "tu ne promets jamais un compte neuf "
             "ni une date (« demain ») : si l'appel échoue, Gaëtan décide. "   # 01/10 (relecture) : une seule version du ban
             f"Le lien (05/10) : il n'existe qu'avec le compte PRIVÉ — pour CE clipper le compte {n_prive(_lire().get(str(uid)) or {})} "
-            "(08/10 : le 2 pour les nouveaux, le 3 pour ceux qui avaient déjà leur compte 2) — dans sa bio, et nulle part ailleurs ; "
+            "(09/10 : le 3, il n'arrive que si les comptes 1 et 2 publient bien ; le 2 pour quelques parcours du 08/10) — dans sa bio, et nulle part ailleurs ; "
             "les comptes de croissance ne portent jamais de lien : une story (photo ou vidéo) avec le widget de mention du compte privé, "
             "mise à la une, une seule fois ; chaque jour une story avec le widget vers cette story à la une. Deux comptes de croissance "
             "qui font 24 h de warm-up après leur création puis publient, et un compte privé qui ne publie pas. Un compte « qui existe déjà » (rendu par un ancien) : on s'y "
@@ -1989,35 +2208,12 @@ async def commande_pseudo(message, texte: str) -> bool:
         if salon is None or getattr(message.channel, "id", None) != salon.id:
             await message.reply("Tape `!pseudo` dans ton salon perso.")
             return True
-    comptes = _comptes_ordonnes(uid)
-    if n > len(comptes) or not comptes[n - 1]:
-        await message.reply(f"Je n'ai pas de compte {n} pour toi.")
-        return True
-    ancien = comptes[n - 1]
     nouveau = onboarding.normaliser_handle(reste[1]).lower()
-    if n != n_prive(_lire().get(uid) or {}) and onboarding.RE_PRIVE.search(nouveau):   # 08/10 (revue) : le privé est le 2 chez les nouveaux
-        await message.reply("❌ Pas changé : ce nom ressemble à un compte privé (priv, secret, perso). Choisis-en un autre.")
-        return True
-    try:
-        raison = await onboarding.renommer_compte(uid, ancien, nouveau)
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.warning("!pseudo de %s : %s", uid, erreur)
-        raison = "le classeur ne répond pas, réessaie dans une minute"
+    _, raison = await renommer(uid, n, nouveau)                         # 09/10 : la même fonction que la fenêtre de création
     if raison:
         await message.reply(f"❌ Pas changé : {raison}.")
         return True
-    d = _lire()                                                         # les Reels déjà vus suivent le compte
-    suivis = (d.get(uid) or {}).get("reels") or {}
-    if ancien.lower() in suivis:
-        suivis[nouveau] = suivis.pop(ancien.lower())
-        _ecrire(d)
     await message.reply(f"✅ C'est noté : ton compte {n} est maintenant `{nouveau}`. Je le suis sous ce nom.")
-    try:
-        canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
-        if canal is not None:
-            await canal.send(f"✏️ {membre.display_name} : compte {n} `{ancien}` → `{nouveau}` (identifiant prévu pris, classeur mis à jour)")
-    except Exception:                                                   # noqa: BLE001
-        pass
     return True
 
 
@@ -2044,8 +2240,7 @@ async def commande_staff(message, texte: str) -> bool:
         a = attente(fiche_p)
         if a and a[0] == n:
             await message.reply(f"Ton compte {n} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, "
-                                f"dès que {REELS_OUVERTURE} Reels{_de_plus(fiche_p, n)} sont publiés sur ton compte {source_reels(fiche_p, n)} "
-                                f"({reels_pour(uid, fiche_p, n)} vu(s) par le scan).")
+                                f"dès que je vois {condition_texte(uid, fiche_p, n)}.")
             return True
         await message.reply(f"📍 **{etape_def(fiche_p, n)['titre']}**" + (f" — ton message d'étape est là : {lien_m}" if lien_m else "")
                             + "\n\nFait ? Appuie sur son bouton ✅.")
