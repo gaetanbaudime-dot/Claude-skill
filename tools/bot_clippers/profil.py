@@ -183,8 +183,8 @@ async def photo_pour(creatrice: str):
 
 
 def lien_photos(creatrice: str) -> str:
-    """Le lien direct du dossier Photos de la créatrice (ouvert par le lien depuis le 30/09) : le Drive donné à l'étape 1
-    ouvre le TOP 20, pas les photos."""
+    """Le lien direct du dossier Photos de la créatrice (ouvert par le lien depuis le 30/09), repli quand la photo n'a pas pu être
+    jointe au message de profil."""
     source_de = _deps.get("source_de")
     for s in ((source_de(creatrice) or {}).get("sources") or []) if source_de else []:
         if isinstance(s, dict) and str(s.get("sous", "")).strip().lower().startswith("photo") and s.get("id"):
@@ -204,29 +204,32 @@ async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str =
     (ou le lien du dossier Photos), le nom et la bio prêts à coller, et le bouton `vue`. Renvoie le message envoyé, None sinon.
     05/10 : le compte 3 est privé et porte le lien dans sa bio (`lien`) ; les comptes 1 et 2 n'ont ni lien ni @.
     08/10 (privé en 2) : `prive` dit si CE compte est le privé (le 2 pour les nouveaux parcours) ; sans lien encore prêt, il passe
-    en privé quand même et le lien arrive dans le salon."""
+    en privé quand même et le lien arrive dans le salon. 09/10 : le texte de l'étape 11 du funnel (« Passe-le en privé », « 🔗 Ton
+    lien », « Fait ? Appuie sur ✅. »), aéré ; c'est le SEUL endroit où le lien GAML est donné."""
     if not ACTIF or salon is None or not creatrice:
         return None
     photo = await photo_pour(creatrice)
     prenom = (creatrice or "").split()[0] if (creatrice or "").split() else creatrice
     if photo is None:                                                   # 30/09 (Ricardo) : jamais une photo promise qui n'arrive pas
         journal.warning("Pas de photo de profil envoyée à %s (%s, compte %s)", uid, creatrice, n)
-        lien = lien_photos(creatrice)
-        tete = (f"📷 Photo : choisis-en une ici : <{lien}>" if lien else "📷 Photo : prends-en une dans le dossier **Photos** de ton Drive.")
+        # 09/10 (carte de fin de funnel, défaut CONFIRMÉ : `lien = lien_photos(...)` écrasait le lien GAML du privé, et le clipper
+        # collait le dossier Photos dans le champ Liens) : une variable à part. Plus de « ton Drive » (il n'existe plus).
+        lien_ph = lien_photos(creatrice)
+        tete = (f"📷 Photo : choisis-en une ici :\n<{lien_ph}>" if lien_ph else f"📷 Photo : prends-en une dans le salon ℹ️ de {prenom}.")
     else:
         tete = "📷 Photo : celle-ci, télécharge-la."
     bio = bio_pour(creatrice)
     prive = (n == 3) if prive is None else bool(prive)
+    # 09/10 (Gaëtan : « Saute des lignes, aère ») : une ligne vide entre chaque paragraphe, une action, le bouton ✅
     if prive:
-        # 08/10 (checkup) : le lien était collé DANS le texte de la bio, où Instagram ne le rend pas cliquable ; il va dans le
-        # champ « Liens » du profil (le seul lien cliquable d'un profil, visible même sur un compte privé)
-        fin = ("Ce compte est **privé** : Réglages → Confidentialité du compte → Compte privé.\n\n"
-               + (f"🔗 **Ton lien** : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n```\n{lien}\n```\n"
-                  "Pas dans le texte de la bio : là, il ne se clique pas.\n\n" if lien else
-                  "🔗 Ton lien arrive ici dans quelques minutes : tu le mettras dans Modifier le profil → **Liens**, pas dans le texte de la bio.\n\n")
-               + "Fait ? Appuie sur le bouton.")
+        # 08/10 (checkup) : le lien va dans le champ « Liens » du profil (le seul lien cliquable d'un profil, visible même sur un
+        # compte privé), jamais dans le texte de la bio
+        fin = ("Passe-le en privé : Réglages → Confidentialité du compte → Compte privé.\n\n"
+               + (f"🔗 Ton lien : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n```\n{lien}\n```\n\n" if lien else
+                  "🔗 Ton lien arrive ici dans quelques minutes. Il ira dans Modifier le profil → **Liens**.\n\n")
+               + "Fait ? Appuie sur ✅.")
     else:
-        fin = "Pas de lien, pas d'@. Fait ? Appuie sur le bouton."
+        fin = "Pas de lien, pas d'@.\n\nFait ? Appuie sur ✅."
     texte = f"**Ton profil du compte {n}**\n\n{tete}\n\n{texte_bio(n, bio, prenom)}\n\n{fin}"
     kwargs = {"view": vue} if vue is not None else {}
     try:
