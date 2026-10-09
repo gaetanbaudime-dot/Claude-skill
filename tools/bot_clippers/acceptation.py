@@ -16,8 +16,30 @@ _deps = {}
 
 
 def configurer(deps: dict):
-    """deps : accepter (async (uid, via) -> texte), lire_json, ecrire_json, FICHIER_PIPELINE, membre_par_id, est_signe (uid -> bool)."""
+    """deps : accepter (async (uid, via) -> texte), lire_json, ecrire_json, FICHIER_PIPELINE, membre_par_id, est_signe (uid -> bool).
+    09/10, facultatif : repli (async (membre) -> bool), le seul message après une acceptation d'office quand l'attribution est
+    manuelle (bot_discord.envoyer_repli_attente) ; absent, rien n'est envoyé."""
     _deps.update(deps)
+
+
+# 09/10 (relecture du lot L1) : un « valide » plus récent que ça est en cours de validation (valider_candidat, migration
+# automatique au même démarrage) : l'acceptation d'office ne le touche pas, elle le traiterait en double.
+VALIDATION_EN_COURS_MIN = 10
+
+
+def _age_minutes(*dates) -> float:
+    """Minutes depuis la plus récente des dates ISO données ; très grand si aucune n'est lisible (un vieux « valide »)."""
+    plus_recente = None
+    for d in dates:
+        try:
+            v = datetime.fromisoformat(str(d))
+        except (TypeError, ValueError):
+            continue
+        v = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+        plus_recente = v if plus_recente is None or v > plus_recente else plus_recente
+    if plus_recente is None:
+        return float("inf")
+    return (datetime.now(timezone.utc) - plus_recente).total_seconds() / 60
 
 
 REGLES = ("1. Les comptes de la mission sont **à l'agence**. Le téléphone aussi, si on te le prête. "
@@ -76,13 +98,19 @@ def vue(uid: str) -> discord.ui.View:
 async def envoyer_boutons_en_attente(client) -> list:
     """Au démarrage : chaque validé encore sans acceptation, présent sur le serveur (il attendait devant le bouton), est
     accepté d'office — 30/09 (Gaëtan : « supprime cette étape, on l'a déjà faite dans le formulaire ») : les 5 règles sont
-    acceptées dans le formulaire, l'accès s'ouvre sans bouton. Trace `acceptation_auto` dans son état du pipeline."""
+    acceptées dans le formulaire, l'accès s'ouvre sans bouton. Trace `acceptation_auto` dans son état du pipeline.
+    09/10 (Gaëtan : « Les clippeurs se font submerger d'informations… Chaque étape à la fois ») : c'est aussi le filet d'une
+    validation qui n'a pas abouti (réseau, membre absent un instant). Plus de « 🎉 Félicitations » en MP : l'attribution
+    envoie le message de sa créatrice ; attribution manuelle, le seul repli (dépendance « repli »). Un « valide » de moins de
+    VALIDATION_EN_COURS_MIN minutes est en cours de validation : pas touché."""
     await client.wait_until_ready()
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
     faits = []
     for uid, info in list(pipe.get("etats", {}).items()):
         if info.get("etat") != "valide" or not info.get("conditions_envoyees") or info.get("acceptation_auto"):
+            continue
+        if _age_minutes(info.get("validation"), info.get("conditions_envoyees")) < VALIDATION_EN_COURS_MIN:
             continue
         if _deps["est_signe"](uid) or _deps["membre_par_id"](uid) is None:
             continue
@@ -96,12 +124,11 @@ async def envoyer_boutons_en_attente(client) -> list:
         pipe = lire(fichier, {"liaisons": {}, "etats": {}})
         pipe.setdefault("etats", {}).setdefault(uid, {})["acceptation_auto"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         ecrire(fichier, pipe)
-        membre = _deps["membre_par_id"](uid)
-        try:
-            prenom = (getattr(membre, "display_name", "") or "").split(" - ")[0].split()[0] if getattr(membre, "display_name", "") else ""
-            await membre.send(f"🎉 **Félicitations{' ' + prenom if prenom else ''}, tu as rejoint l'agence !**\n\n" + texte[:1800])
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+        if _deps.get("repli"):
+            try:
+                await _deps["repli"](_deps["membre_par_id"](uid))
+            except Exception as erreur:                                     # noqa: BLE001
+                journal.warning("Acceptation d'office de %s : repli non envoyé (%s)", uid, erreur)
         faits.append(uid)
     if faits:
         journal.info("Acceptation d'office de %d validé(s) qui attendaient le bouton", len(faits))
