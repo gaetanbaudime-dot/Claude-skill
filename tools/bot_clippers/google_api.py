@@ -215,6 +215,12 @@ async def drive_partages(fichier_id: str) -> list:
     return r.get("permissions", [])
 
 
+async def drive_retirer_permission(fichier_id: str, permission_id: str) -> None:
+    """09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : retire une permission (ex. « toute personne
+    ayant le lien ») d'un fichier ou d'un dossier. Lève RuntimeError si Google refuse (permission héritée du dossier parent)."""
+    await _appel("DELETE", f"{DRIVE}/files/{fichier_id}/permissions/{permission_id}", params=_PARAMS_DRIVES)
+
+
 async def drive_supprimer(fichier_id: str):
     await _appel("DELETE", f"{DRIVE}/files/{fichier_id}", params=_PARAMS_DRIVES)
 
