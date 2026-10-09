@@ -41,5 +41,17 @@
     ],
     "note": "garde : 400 € fixe par mois pour le Metricool et 2 téléphones de clipping (Chloé, Sarah), décision de Gaëtan du 07/10",
     "raison": "07/10, Gaëtan : « elle sera payée 400 € fixe pour gérer Metricool + 2 téléphones de clipping »"
+  },
+  {
+    "id": "andry-gasboy-sarah-0910",
+    "prenoms": [
+      "Andry",
+      "GasBoy"
+    ],
+    "onboarding": [
+      "Sarah"
+    ],
+    "nouveau": true,
+    "raison": "09/10, Gaëtan : « Ajoute Andry Sarah » et « Ajoute Gasboy Sarah » : sans test, direct au compte 1 ; \"nouveau\" : le seul membre non signé de ce prénom (deux Andry sur le serveur)"
   }
 ]

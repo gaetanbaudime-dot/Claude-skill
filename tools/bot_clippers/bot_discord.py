@@ -5423,13 +5423,18 @@ def comptes_de_uid(uid: str) -> set:
     return {onboarding.normaliser_handle(h).lower() for h in hs if h} - {""}
 
 
-async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expulser: bool = False) -> dict:
+async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expulser: bool = False, message: str = "",
+                        dus: bool = False) -> dict:
     """La sortie d'équipe (corps de `!sortie`, factorisé le 28/09 pour la sortie automatique) : rôles et accès retirés, pipeline
     en « sorti », classeur rendu (pool=True : les comptes créés restent dans le vivier et le lien GAML est libéré pour le suivant),
     registre → sortis.json, roster, messages au membre, au manager et à Telegram. `par` = le membre qui commande, None = automatique.
     05/10 (Gaëtan : « virer et expulser ceux qui ne foutent rien ») : `expulser=True` → le message part AVANT le retrait des accès,
     le salon perso est supprimé, la fiche de parcours oubliée, et le membre est expulsé du serveur (kick). Renvoie
-    {"roles", "acces", "comptes", "liens", "refus", "expulse"}."""
+    {"roles", "acces", "comptes", "liens", "refus", "expulse"}.
+    09/10 (Gaëtan : « On vire Tara ») : `message` = le texte du MP d'expulsion à la place de celui bâti sur la raison (une sortie
+    déposée porte une note interne, jamais montrée au membre). `dus=True` (sorties déposées seulement) : avec pool, ses liens sont
+    libérés par son uid et ses visites d'avant la sortie restent sur la paie ; sans (purges de l'appel et de la sortie auto),
+    rien ne change, en attendant que Gaëtan tranche s'il paie les purgés."""
     g = membre.guild
     nom_par = getattr(par, "display_name", "le bot (automatique)")
     par_id = str(getattr(par, "id", "auto"))
@@ -5446,9 +5451,11 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     if expulser:                                                        # le message avant tout : après le kick, plus aucun canal
         # 08/10 (audit) : en MP direct. envoyer_mp le déposait dans le salon perso, supprimé quelques secondes plus tard : l'expulsé
         # ne savait ni pourquoi il sortait ni comment revenir. MP fermés → « non prévenu » dans la ligne admin.
+        # 09/10 : sans pool (comptes créés partis sur Metricool), « tes comptes vont au suivant » était faux
         try:
-            await membre.send("🚪 " + raison[0].upper() + raison[1:] + ". Tu sors du serveur : ta place, tes comptes et ton lien vont au suivant.\n\n"
-                              "Tu veux revenir plus tard ? Écris à Gaëtan.", view=vue_whatsapp())
+            await membre.send(message or ("🚪 " + raison[0].upper() + raison[1:] + ". Tu sors du serveur"
+                                          + (" : ta place, tes comptes et ton lien vont au suivant" if pool else "") + ".\n\n"
+                                          "Tu veux revenir plus tard ? Écris à Gaëtan."), view=vue_whatsapp())
         except Exception as erreur:                                     # noqa: BLE001
             prevenu = False
             journal.info("Message de sortie à %s : %s", membre.id, erreur)
@@ -5518,10 +5525,16 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     n_liens, repris_s = 0, []
     if paie_clics.actif():                                              # 28/09 : son lien GAML reste à la créatrice, pour le suivant
         if pool:
-            d_l = paie_clics._lire()
-            n_liens = len(paie_clics.liberer_liens(d_l, uid_s, prenom_de(membre)))
-            if n_liens:
-                paie_clics._ecrire(d_l)
+            # 09/10 (sorties déposées, Gaëtan : « On vire Tara ») : `dus=True` → par `liberer_sortant`, comme `!sortie` sans compte
+            # créé — par uid seulement (jamais un lien « Clipping Prénom » d'un homonyme), et ses visites d'avant la sortie restent
+            # sur la liste de paie. Revue L9 : les purges (appel.py, sortie_auto.py) gardent `liberer_liens` (uid vidé sans « dus »,
+            # liens « Clipping Prénom » sans clipper libérés par leur note), tant que Gaëtan n'a pas dit s'il paie les purgés.
+            async with paie_clics.verrou_liens:
+                d_l = paie_clics._lire()
+                n_liens = len(paie_clics.liberer_sortant(d_l, uid_s, prenom_de(membre)) if dus
+                              else paie_clics.liberer_liens(d_l, uid_s, prenom_de(membre)))
+                if n_liens:
+                    paie_clics._ecrire(d_l)
         elif crees_s:
             # revue CLICS du 09/10 : ses comptes créés partent sur Metricool (« à mettre Metricool ») en gardant son lien en bio :
             # ses liens les suivent chez le repreneur, exactement comme `!monteur` (« Rianah Metricool N (ex-Prénom) », hors
@@ -5562,6 +5575,9 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     autre_r = membre_par_prenom(normaliser(prenom_de(membre)))          # 08/10 (deux « Andry ») : le roster est par prénom
     if autre_r is None or autre_r == membre:
         roster.retirer(prenom_de(membre))                               # 26/09 : le roster (compteur, rapport Jonas) suit
+        # 09/10 (revue L9) : tout est fait ici, le balayage du démarrage suivant ne rejoue pas cette sortie par le prénom (il
+        # prenait la fiche, l'état et les rôles d'un nouveau signé du même prénom)
+        roster.marquer_traite(prenom_de(membre))
     else:
         refus_s.append(f"roster non touché (un autre {prenom_de(membre)} est signé)")
     # 5. Le membre, le manager, l'admin, Telegram.
@@ -5608,6 +5624,123 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     journal.info("Sortie d'équipe : %s par %s (%s)%s", membre.id, par_id, raison, ", expulsé" if expulse else "")
     return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "repris": len(repris_s),
             "refus": refus_s, "expulse": expulse}
+
+
+def _clipper_sortable(m, registre: dict) -> bool:
+    """09/10 (revue L9) : un membre qu'une sortie déposée peut expulser : un clipper (fiche au registre, ou rôle de rang
+    — Clippeur… — ou de créatrice), jamais un bot ni le staff. Un candidat (ni fiche ni rôle) ne l'est jamais."""
+    if getattr(m, "bot", False) or str(m.id) in ADMIN_IDS or est_manager(m):
+        return False
+    rangs = [normaliser(r) for r in NOMS_RANGS]
+    g = getattr(m, "guild", None)
+    crea = roles_creatrices(g) if g is not None else []
+    return str(m.id) in registre or any(r in crea or any(x in normaliser(r.name) for x in rangs) for r in m.roles)
+
+
+def _entree_sortie_deposee(cle: str) -> dict:
+    """09/10 (revue L9) : la dernière entrée de sorties_a_appliquer.json pour ce prénom normalisé (alias compris), {} sinon."""
+    try:
+        entrees = json.loads(roster.FICHIER_SORTIES_DEPOSEES.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {}
+    retenue = {}
+    for e in entrees if isinstance(entrees, list) else []:
+        p = normaliser(str((e or {}).get("prenom") or "")).strip() if isinstance(e, dict) else ""
+        if p and cle in {p, normaliser(roster.resoudre_alias(p)).strip()}:
+            retenue = e
+    return retenue
+
+
+def chercher_sortant(prenom: str, creatrice=None, signe_avant=None):
+    """09/10 (Gaëtan : « On vire Tara ») : le membre qu'une sortie déposée (sorties_a_appliquer.json) désigne par son prénom.
+    Une expulsion ne se joue jamais à pile ou face. Parmi les membres de ce prénom (prénom du pseudo « Prénom - Créatrice »,
+    pseudo entier ou nom d'utilisateur ; casse et accents ignorés, « Gasboy » = « GasBoy » ; jamais de correspondance partielle),
+    seuls comptent les clippers : fiche au registre, ou rôle de rang (Clippeur…) ou de créatrice. Jamais le staff. Un seul
+    clipper → lui ; aucun ou plusieurs → None (le dépôt le dit, rien n'est fait, retenté au démarrage suivant). Un candidat du
+    même prénom n'est donc jamais expulsé à la place du clipper, même quand celui-ci est déjà parti.
+    Revue L9 (un quiz réussi écrit le registre tout de suite : un NOUVEAU signé du même prénom passait pour le sortant parti) :
+    `signe_avant` (AAAA-MM-JJ, le jour du dépôt) écarte toute fiche créée ce jour-là ou après ; `creatrice` (celle du dépôt) ne
+    garde que le membre qui la porte : fiche, rôle de la créatrice, ou pseudo « Prénom - Sarah ». Non donnés (None) : ceux de
+    l'entrée déposée pour ce prénom, sinon aujourd'hui et toute créatrice."""
+    cle = normaliser(prenom or "").strip()
+    cle = normaliser(roster.resoudre_alias(cle)) or cle
+    if not cle:
+        return None
+    if creatrice is None or signe_avant is None:
+        depot = _entree_sortie_deposee(cle)
+        creatrice = str(depot.get("creatrice") or "") if creatrice is None else creatrice
+        signe_avant = depot.get("signe_avant") if signe_avant is None else signe_avant
+    limite = str(signe_avant or datetime.now(timezone.utc).date().isoformat())[:10]
+    cible_c = normaliser(creatrice or "").strip()
+    registre = lire_json(FICHIER_EQUIPES, {})
+    trouves = {}
+    for g in client.guilds:
+        role_c = None                                                   # cherché au premier membre qui passe les autres filtres
+        for m in g.members:
+            if normaliser(prenom_de(m)) != cle and cle not in {normaliser(m.name), normaliser(m.display_name),
+                                                               normaliser(getattr(m, "global_name", "") or "")}:
+                continue
+            if not _clipper_sortable(m, registre):
+                continue
+            fiche = registre.get(str(m.id)) or {}
+            if str(fiche.get("date") or "")[:10] and str(fiche["date"])[:10] >= limite:
+                continue                                                # signé le jour du dépôt ou après : pas le sortant visé
+            if cible_c:
+                if role_c is None:
+                    try:
+                        role_c = role_creatrice(g, creatrice) or False
+                    except (AttributeError, TypeError):                 # serveur incomplet : la fiche et le pseudo suffisent
+                        role_c = False
+                suffixe = m.display_name or ""
+                for sep in SEPARATEURS_PSEUDO:
+                    if sep in suffixe:
+                        suffixe = suffixe.split(sep, 1)[1]
+                        break
+                else:
+                    suffixe = ""
+                if not (normaliser(fiche.get("creatrice") or "").strip() == cible_c
+                        or (role_c is not False and role_c in m.roles) or normaliser(suffixe).strip() == cible_c):
+                    continue
+            trouves[m.id] = m
+    return next(iter(trouves.values())) if len(trouves) == 1 else None
+
+
+async def sortir_depose(membre, raison: str, metricool: bool = False) -> dict:
+    """09/10 (Gaëtan : « On vire Tara ») : la sortie déposée dans sorties_a_appliquer.json ("expulser": true), appliquée au
+    démarrage par `roster.sorties_deposees`. Toujours : MP direct (jamais la raison, note interne du dépôt), rôles retirés, salon
+    supprimé, expulsion. Sans "metricool" : comptes au vivier, liens libérés pour le suivant, visites dues gardées (sortir_membre
+    pool=True). Avec "metricool": true : la sortie de `!sortie` sans pool, rien de plus (revue CLICS, déjà dans sortir_membre) :
+    comptes créés « à mettre Metricool », liens chez REPRENEUR_METRICOOL, visites dues gardées ; rien ne retourne au vivier, les
+    suivants de sa créatrice n'héritent pas de ses comptes chauffés. Ses lignes « Prénom (Metricool) » passent au repreneur, comme
+    `!monteur`. Un résultat {"annule": …} (GAML illisible) = rien n'a été fait : le dépôt le retente au démarrage suivant.
+    Renvoie le bilan de sortir_membre, plus "metricool" (lignes passées) et "repreneur".
+    Revue L9 : jamais un candidat ni le staff, quelle que soit la recherche branchée dans le roster (`_clipper_sortable`) ; sans
+    Metricool, les visites dues gardées (`dus=True`) ne concernent que les sorties déposées, pas les purges."""
+    if not _clipper_sortable(membre, lire_json(FICHIER_EQUIPES, {})):
+        return {"annule": "pas un clipper de l'équipe (ni fiche, ni rang, ni créatrice, ou staff) : rien n'a été fait"}
+    prenom = prenom_de(membre)
+    texte = ("🚪 **Ta collaboration avec l'équipe s'arrête ici.**\n\n"
+             + ("Tu sors du serveur. Tes comptes restent à l'agence.\n\n" if metricool
+                else "Tu sors du serveur : ta place, tes comptes et ton lien vont au suivant.\n\n")
+             + "Ce qui t'est dû est réglé à la prochaine paie, le 5 ou le 20.\n\n"
+             "Tu veux revenir plus tard ? Écris à Gaëtan.")
+    res = await sortir_membre(membre, raison, None, pool=not metricool, expulser=True, message=texte, dus=True)
+    if res.get("annule") or not metricool:
+        return res
+    res["repreneur"], res["metricool"] = REPRENEUR_METRICOOL, 0
+    if REPRENEUR_METRICOOL and onboarding.actif():
+        autre = membre_par_prenom(normaliser(prenom))                      # sa fiche est déjà retirée : un autre signé du même prénom ?
+        if autre is not None and autre != membre:
+            res.setdefault("refus", []).append(f"lignes « {prenom} (Metricool) » non touchées (un autre {prenom} est signé)")
+        else:
+            try:
+                lignes_m = await onboarding.changer_gerant(f"{prenom} (Metricool)", f"{REPRENEUR_METRICOOL} (Metricool)")
+                res["metricool"] = len(lignes_m)
+                if lignes_m:
+                    journal.info("Sortie déposée de %s : lignes Metricool à %s : %s", membre.id, REPRENEUR_METRICOOL, lignes_m)
+            except Exception as erreur:                                     # noqa: BLE001
+                res.setdefault("refus", []).append(f"lignes « {prenom} (Metricool) » ({type(erreur).__name__})")
+    return res
 
 
 # 09/10 (Gaëtan : « Rianah = Metricool désormais », puis « Rianah reprend ses liens Metricool ainsi que ses liens de tracking OF
@@ -5725,6 +5858,7 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
         refus.append(f"roster non touché (un autre {prenom} est signé : `!roster` si son équipe n'est pas la bonne)")
     else:
         roster.retirer(prenom)
+        roster.marquer_traite(prenom)                                   # 09/10 (revue L9) : jamais rejoué par prénom au démarrage
     await notifier_manager(
         f"🎬 **{membre.display_name}** (<@{uid}>) **sort du clipping** : {role} pour Gaëtan (par {nom_par}). Pas de message, pas d'expulsion.\n"
         f"Rôles de clipper retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · salons de créatrice fermés : {len(fermes)}"
