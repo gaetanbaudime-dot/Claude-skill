@@ -13,6 +13,9 @@ liens_forts: ["[[Fiche de poste - Manager marketing (Jonas)]]", "[[Checkup clipp
 > [!tip] Verdict
 > **Ne monte pas la pyramide manager → 5 Team Leaders → 50 clippers : tu as quatre clippers qui produisent, pas cinquante.** Seul poste à ouvrir : **un Team Leader joueur-entraîneur malgache, choisi sur ses chiffres** (Clarisse ou Yves, pas Thia), qui garde ses comptes, encadre 5 à 10 nouveaux et touche **sa paie de clipper + 10 $ par quinzaine pour chaque clipper de son équipe au-dessus de 500 visiteurs francophones et de 5 abonnés OF + MYM**. Pas de manager tant que trois équipes ne tiennent pas ce seuil : c'est toi et le bot. **Le 0,05 $ par visiteur ne bouge pas** : à 0,005 $, un clipper au seuil gagne 2,50 $, son Team Leader 10 $, et le manager plus que les cinquante clippers réunis.
 
+> [!info] Suite du 09/10 au soir : Clarisse et Yves ont dit oui, structure par créatrice
+> Gaëtan veut un Team Leader par créatrice (Chloé, Sarah, Sophie) et 10 clippers sous chacun. Recommandation : **deux Team Leaders maintenant, Clarisse sur Chloé, Yves sur Sarah ; Sophie sans Team Leader tant que personne n'a prouvé sur elle** (pas de nouveau cas Thia). Équipes de 5 d'abord, 10 quand 2 passent le seuil ; les cinq au fixe hors équipes. Détail en section 9.
+
 > [!warning] Proposition de Claude, à trancher par Gaëtan
 > Grille, seuil et candidats : recommandation du 09/10. **Seuil révisé le soir même de 1 000 à 500 visiteurs**, à la question de Gaëtan, avec un plancher de 5 abonnés (section 3). La grille de Gaëtan (manager 25 $ par Team Leader au-delà de 1 500 clics par quinzaine, Team Leader 10 $ par clipper au-delà de 500, clipper 0,005 $ le clic) est chiffrée en section 2.
 
@@ -78,6 +81,28 @@ Hors périmètre : la paie, la signature (tout nouveau passe par le formulaire e
 - La prime au seuil invite à acheter des clics pour passer de 450 à 500 ; le plancher de 5 abonnés ne filtre pas une ferme qui convertit un peu, ni un Team Leader qui s'abonne lui-même avec cinq comptes (5 abonnements payants coûtent plus que la prime sur une page payante, pas sur une page gratuite).
 - **Dette CGU** : trois comptes par personne, contenu repris, comptes tenus de l'étranger pour une créatrice française, c'est le comportement non authentique que Meta sanctionne ([[Risques légaux et éthiques de l'OFM]]). De 15 à 50 clippers, l'exposition triple.
 - **Sécurité du départ** : le message épinglé par Jonas dans les groupes contient en clair l'identifiant, le mot de passe et l'e-mail d'un compte de Sophie, et Yves publie sur un lien hérité de Jonas. Tant que les mots de passe ne changent pas, Jonas garde la main.
+
+## 9. Deux oui : un Team Leader par créatrice (09/10, soir)
+
+Clarisse et Yves ont accepté. Gaëtan veut une équipe par créatrice rentable (Chloé, Sarah, Sophie), 10 clippers et un Team Leader chacune. **La forme est bonne** : les rushs, le Drive, les groupes WhatsApp et les catégories Discord sont déjà rangés par créatrice, et la prime 100 % variable rend un Team Leader de trop presque gratuit. Ce qui coûte, ce n'est pas la paie, c'est un poste sans personne qui l'a prouvé, et une équipe vide qui fait partir son Team Leader comme Jonas.
+
+| Créatrice | Team Leader | Pourquoi | Équipe de départ |
+|---|---|---|---|
+| **Chloé** | **Clarisse** | La plus forte hausse sur la créatrice qui fait 45 % du CA (22 519 € sur 30 jours au 05/10) ; elle garde ses comptes Sarah pour sa paie | Romaric, Lucas, Ricardo + nouveaux |
+| **Sarah** | **Yves** | Il y clippe déjà, connaît le contenu ; Sarah convertit le mieux (11 abonnés MYM pour 100 visiteurs) mais l'abonné y vaut le moins (1,01 € de profit contre 2,01 € chez Chloé) | Tara, Mohamed, Andry, Michel + nouveaux |
+| **Sophie** | **Personne pour l'instant** | Aucun clipper Sophie n'a de chiffres (Thia 8 visiteurs en septembre ; Daniella, Antoine, Marias sans données) ; 56 % de son trafic vient déjà du Metricool de Rianah | Gaëtan + le bot ; le premier clipper Sophie à 500 visiteurs et 5 abonnés sur une quinzaine devient son Team Leader |
+
+Trois règles :
+
+1. **Les cinq au fixe ne sont dans aucune équipe** (Rianah, Caroline, Lilian, Josué, Yves pour sa paie de clipper) : la prime paie ce que le Team Leader fait monter, pas ce qui produisait déjà. Sinon Clarisse touche 10 $ sur Caroline dès la première quinzaine pour rien.
+2. **5 clippers par équipe d'abord, 10 quand 2 passent le seuil.** Un Team Leader apprend sur 5 ; 10 nouveaux d'un coup, c'est le pavé d'août (28 sous contrat, 0 qui produit).
+3. **Ordre de remplissage des nouveaux** : Chloé, puis Sarah. Avec ≈ 19 candidatures par semaine et 20 à 30 % qui deviennent actifs, 15 nouveaux prennent trois à quatre semaines.
+
+**À régler avant la vague** : le forfait GetAllMyLinks. 30 clippers en équipe, plus les liens de Caroline, Lilian, Josué, Clarisse et Yves, plus ≈ 19 liens hors clipping, cela fait ≈ 54 liens pour un palier de 50. Le prix du palier 100 est à demander au support cette semaine ; sans lien, un clipper n'a ni app ni paie.
+
+**Ce qui ferait échouer ça** : une pyramide « belle » sur le papier mais vide (à 25 % de producteurs, 10 clippers donnent 2 à 3 producteurs par équipe, soit 40 à 60 $ de prime par mois) ; deux Team Leaders qui perdent leur propre production (Clarisse et Yves pèsent ensemble une bonne part des 3 902 visiteurs hebdomadaires des clippers) ; et Gaëtan qui doit coacher deux personnes au lieu d'une (un point de 30 minutes par semaine chacun, plus la lecture du matin). Par profit par abonné, **Maddie est la plus rentable (3,50 €) et n'a presque pas de clippers (1 % de son trafic)** : la quatrième équipe, le jour venu, se discute sur elle avant tout autre.
+
+Prédictions (09/10 au soir, revue le 20/11) : l'équipe Chloé de Clarisse a au moins 3 clippers au seuil sur la quinzaine du 01 au 15/11 — 45 % ; l'équipe Sarah de Yves aussi — 50 % ; un Team Leader Sophie est nommé sur ses chiffres d'ici le 20/11 — 35 % ; Clarisse et Yves sont tous deux encore Team Leaders le 20/11 — 60 %.
 
 ## 8. Prédictions (écrites le 09/10, revues le 20/11)
 
