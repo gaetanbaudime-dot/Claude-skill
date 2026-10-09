@@ -1965,8 +1965,26 @@ def _chiffres_tel(t: str) -> str:
     return re.sub(r"\D", "", str(t or ""))
 
 
+# 09/10 (revue du funnel : « Note /8 » recréée, toutes les lignes « changées » à chaque démarrage) : UNE seule plage pour lire le
+# classeur des candidatures. Avant : A1:AB pour lire, A1:AD pour noter et compacter, A1:Z pour le nettoyage des tests.
+PLAGE_CANDIDATURES = "A1:AZ"
+
+
+async def lire_onglet_candidatures(onglet: str) -> list:
+    """Un onglet du classeur des candidatures sur PLAGE_CANDIDATURES. 09/10 : une grille plus étroite que AZ peut faire refuser la
+    plage par Google (« exceeds grid limits ») ; on relit alors l'onglet entier par son seul nom, sans jamais rien tronquer."""
+    try:
+        return await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!{PLAGE_CANDIDATURES}")
+    except Exception as erreur:                                            # noqa: BLE001
+        try:
+            return await google_api.sheets_lire(SHEET_CANDIDATURES_ID, "'" + onglet.replace("'", "''") + "'")
+        except Exception:                                                  # noqa: BLE001
+            raise erreur
+
+
 async def lire_candidatures_sheets(forcer: bool = False) -> list:
-    """Toutes les candidatures des deux onglets : [{source, date, prenom, tel, pays, telephones, experience, …}]."""
+    """Toutes les candidatures des deux onglets : [{source, src, date, prenom, tel, pays, telephones, experience, …}].
+    09/10 : « src » = la colonne Source de la ligne (« tg-<groupe> », « web »…), pour le digest des candidatures par source."""
     if not (SHEET_CANDIDATURES_ID and google_api.actif()):
         return []
     if not forcer and time.time() - _cache_candidatures["quand"] < 600:
@@ -1976,19 +1994,22 @@ async def lire_candidatures_sheets(forcer: bool = False) -> list:
         if not onglet:
             continue
         try:
-            brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:AB")
+            brut = await lire_onglet_candidatures(onglet)
         except Exception as erreur:                                        # noqa: BLE001
             journal.warning("Candidatures %s : %s", onglet, erreur)
             continue
         if not brut:
             continue
-        cols = _colonnes_candidature([str(x) for x in brut[0]])
+        en_tete = [str(x) for x in brut[0]]
+        cols = _colonnes_candidature(en_tete)
+        i_src = next((i for i, h in enumerate(en_tete) if normaliser(h).strip() == "source"), None)
         for r in brut[1:]:
-            r = [str(x) for x in r] + [""] * 30
+            r = [str(x) for x in r] + [""] * (len(en_tete) + 2)
             if not any(x.strip() for x in r[:6]):
                 continue
             c = {champ: r[i].strip() for champ, i in cols.items()}
             c["source"] = source
+            c["src"] = r[i_src].strip() if i_src is not None else ""
             c["date"] = _date_candidature(c.get("date", ""))
             c["tel_chiffres"] = _chiffres_tel(c.get("tel", ""))
             lignes.append(c)
@@ -2170,7 +2191,7 @@ async def noter_candidatures_sheet(onglets=None, tout: bool = False) -> dict:
     bilan = {}
     for onglet in (onglets or [o for o in (SHEET_CANDIDATURES_FORM_ONGLET, SHEET_CANDIDATURES_ONGLET) if o]):
         try:
-            brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:AD")
+            brut = await lire_onglet_candidatures(onglet)                  # 09/10 : la plage unique (PLAGE_CANDIDATURES)
         except Exception as erreur:                                        # noqa: BLE001
             journal.warning("Notation %s : %s", onglet, erreur)
             continue
@@ -2188,7 +2209,7 @@ async def noter_candidatures_sheet(onglets=None, tout: bool = False) -> dict:
         i_annonce = cols.get("annonce")
         notes, sources, n = [], [], 0
         for r in brut[1:]:
-            r = [str(x) for x in r] + [""] * 40
+            r = [str(x) for x in r] + [""] * (len(en_tete) + 2)           # 09/10 : la plage va jusqu'à AZ (52 colonnes)
             if not any(x.strip() for x in r[:6]):
                 notes.append(["", ""]); sources.append([r[i_source] if i_source is not None else ""])
                 continue
@@ -2221,7 +2242,7 @@ async def compacter_candidatures_sheet() -> int:
     if not (SHEET_CANDIDATURES_ID and google_api.actif() and SHEET_CANDIDATURES_ONGLET):
         return 0
     onglet = SHEET_CANDIDATURES_ONGLET
-    brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:AD")
+    brut = await lire_onglet_candidatures(onglet)                          # 09/10 : la plage unique (PLAGE_CANDIDATURES)
     if len(brut) < 2:
         return 0
     largeur = max(len(r) for r in brut)
@@ -2231,7 +2252,14 @@ async def compacter_candidatures_sheet() -> int:
     compact = list(range(2, 2 + len(donnees)))
     if donnees == compact:
         return 0
-    lignes = [[str(x) for x in brut[i - 1]] + [""] * (largeur - len(brut[i - 1])) for i in donnees]
+
+    def _texte(x) -> str:
+        # 09/10 (revue du funnel) : les valeurs sont relues brutes puis réécrites en USER_ENTERED ; « +261… » redevenait une
+        # formule (#ERROR!). Même règle que journaliser_candidature_sheet : + = - @ en tête → texte forcé par une apostrophe.
+        x = str(x)
+        return "'" + x if x[:1] in ("+", "=", "-", "@") else x
+
+    lignes = [[_texte(x) for x in brut[i - 1]] + [""] * (largeur - len(brut[i - 1])) for i in donnees]
     await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A2", lignes)
     fin = max(donnees)
     if fin > len(lignes) + 1:
@@ -2242,8 +2270,9 @@ async def compacter_candidatures_sheet() -> int:
 
 
 async def entretien_candidatures_sheet():
-    """Au démarrage (27/09) : compactage de l'onglet du site, puis notation des deux onglets. Une ligne au salon admin si quelque
-    chose a bougé."""
+    """Au démarrage (27/09) : compactage de l'onglet du site, puis notation des deux onglets.
+    09/10 (revue du funnel : la ligne « 📋 Classeur des candidatures » repartait au salon admin à chaque redéploiement) : le bilan
+    va au journal, plus jamais au salon."""
     await client.wait_until_ready()
     try:
         deplacees = await compacter_candidatures_sheet()
@@ -2253,13 +2282,8 @@ async def entretien_candidatures_sheet():
         return
     total = sum(bilan.values())
     if deplacees or total:
-        canal = await canal_admin()
-        if canal is not None:
-            try:
-                await canal.send(f"📋 Classeur des candidatures : {deplacees} ligne(s) remontée(s) à la suite · {total} note(s) écrite(s) "
-                                 f"({' · '.join(f'{o} {n}' for o, n in bilan.items())}).")
-            except (discord.Forbidden, discord.HTTPException):
-                pass
+        journal.info("Classeur des candidatures : %d ligne(s) remontée(s) à la suite · %d note(s) écrite(s) (%s)", deplacees, total,
+                     " · ".join(f"{o} {n}" for o, n in bilan.items()))
 
 
 def membre_par_prenom(prenom_n: str):
@@ -3844,131 +3868,105 @@ async def attribuer_equipe(guild, membre, equipe, par_id):
     return cible.name, None
 
 
+# 09/10 (décision prise pour Gaëtan avec « on va ouvrir les vannes ») : un membre en « attente_attribution » (aucune créatrice
+# n'avait de compte livrable) repart tout seul dès qu'un compte se libère, sans commande.
+REPRISE_ATTENTE_MIN = 30                                                # sans compte libre : classeur relu au plus toutes les 30 min
+REPRISE_ATTENTE_H = 6                                                   # un même membre : au plus un essai toutes les 6 h
+_REPRISE_ATTENTE = {"prochain": 0.0}
+
+
+async def comptes_livrables_par_creatrice() -> dict:
+    """09/10 (le test retiré, le goulot passe au stock de comptes) : {créatrice: lignes libres du classeur, onboarding.disponibles}
+    pour les créatrices de l'ordre d'attribution, toutes celles du classeur si l'ordre est vide. Un nouveau clipper en réserve 3.
+    {} si le classeur est éteint ou illisible."""
+    if not onboarding.actif():
+        return {}
+    try:
+        comptes = await onboarding.lire_comptes()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Comptes livrables : %s", erreur)
+        return {}
+    noms = list(attribution.ORDRE) or sorted({str(c.get("creatrice") or "").strip() for c in comptes
+                                              if str(c.get("creatrice") or "").strip()})
+    out = {}
+    for nom in noms:
+        try:
+            out[nom] = len(onboarding.disponibles(comptes, nom, 999))
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Comptes livrables de %s : %s", nom, erreur)
+    return out
+
+
+async def reprendre_attente_attribution() -> str:
+    """09/10 : appelée à chaque tour de boucle_pipeline. Le plus ancien membre PRÉSENT en « attente_attribution » repart dès qu'une
+    créatrice de l'ordre a 3 comptes livrables : validé (valider_candidat) s'il n'est pas encore au registre, sinon attribué
+    (attribution.attribuer). Un seul par tour (la boucle tourne toutes les 5 min, plus lentement que ATTRIBUTION_PAUSE_SEC), un même
+    membre au plus toutes les REPRISE_ATTENTE_H heures (la trace est écrite AVANT l'appel), et le classeur relu au plus toutes les
+    REPRISE_ATTENTE_MIN minutes tant qu'il n'a rien de libre. Renvoie la ligne de bilan, '' si personne n'est parti."""
+    if not attribution.actif() or time.time() < _REPRISE_ATTENTE["prochain"]:
+        return ""
+    maintenant = datetime.now(timezone.utc)
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    registre = lire_json(FICHIER_EQUIPES, {})
+    en_attente = []
+    for uid, info in (pipe.get("etats") or {}).items():
+        info = info or {}
+        if info.get("etat") != "attente_attribution" or (registre.get(uid) or {}).get("creatrice"):
+            continue                                                    # déjà servi : l'état est périmé, rien à refaire
+        if 0 <= _age_heures(info.get("reprise_essai"), maintenant) < REPRISE_ATTENTE_H:
+            continue
+        membre = membre_par_id(uid)
+        if membre is None or getattr(membre, "bot", False):
+            continue
+        depuis = str(info.get("attente_depuis") or info.get("validation") or info.get("date_quiz") or "")
+        en_attente.append((depuis, uid, info, membre))
+    if not en_attente:
+        return ""
+    livrables = await comptes_livrables_par_creatrice()
+    if not any(n >= 3 for n in livrables.values()):
+        _REPRISE_ATTENTE["prochain"] = time.time() + REPRISE_ATTENTE_MIN * 60
+        return ""
+    _, uid, info, membre = min(en_attente, key=lambda x: x[0])
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    pipe.setdefault("etats", {}).setdefault(uid, {})["reprise_essai"] = maintenant.isoformat(timespec="seconds")
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    try:
+        if uid in registre:
+            creatrice = await attribution.attribuer(membre, "reprise après l'attente d'un compte")
+            bilan = f"créatrice {creatrice}" if creatrice else "rien d'attribué"
+        else:
+            bilan = await valider_candidat(membre, str(info.get("score_quiz") or ""), "attente")
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Reprise de l'attente de %s : %s", uid, erreur)
+        return ""
+    ligne = f"{prenom_de(membre)} repart après l'attente d'un compte : {str(bilan or '')[:200]}"
+    journal.info("Attente d'attribution : %s", ligne)
+    return ligne
+
+
 async def boucle_pipeline():
-    """Relances de chaque étape, clôture des tests expirés, retentatives.
+    """Toutes les 5 min : la sortie des arrivés sans quizz réussi (⑥) et la reprise des membres en attente d'une créatrice.
     Écriture par FUSION (ecrire_pipeline_fusion) : la boucle n'écrase jamais ce qu'un MP a
-    écrit pendant qu'elle tournait, et l'écriture a lieu même si un tour lève une exception."""
+    écrit pendant qu'elle tournait, et l'écriture a lieu même si un tour lève une exception.
+    09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : le quizz se fait sur le site, AVANT Discord.
+    Retirés : la gestion du test (échéance, relances, sortie ⑦, retest ⑤), les relances J'ACCEPTE et les relances ① et ② (lie-toi,
+    passe le quizz)."""
     while True:
         instantane, donnees, modifie = None, None, False
         try:
             donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
             instantane = copy.deepcopy(donnees)
             maintenant = datetime.now(timezone.utc)
-            for uid, info in list(donnees.get("etats", {}).items()):
-                if info.get("etat") != "test_envoye":
-                    continue
-                stop_t = bool((info.get("relances") or {}).get("stop"))
-                membre = membre_par_id(uid)
-                # MP fermés à l'envoi : l'horloge n'a pas démarré, on retente à chaque tour.
-                if info.get("mp_ok") is False:
-                    if membre and not stop_t and await envoyer_mp(membre, texte_test(info.get("score_quiz", ""))):
-                        info["mp_ok"] = True
-                        info["envoi"] = maintenant.isoformat(timespec="seconds")
-                        info["echeance"] = (maintenant + timedelta(hours=TEST_HEURES)).isoformat(timespec="seconds")
-                        modifie = True
-                        canal_t = await canal_admin()
-                        if canal_t:
-                            await canal_t.send(f"🧪 MP enfin ouverts : test envoyé à {membre.mention}, {TEST_HEURES} h à partir de maintenant.")
-                    continue
-                echeance = datetime.fromisoformat(info["echeance"])
-                envoi = datetime.fromisoformat(info["envoi"])
-                if echeance != envoi + timedelta(hours=TEST_HEURES):        # 05/10 : l'échéance suit TEST_HEURES, tests en cours compris
-                    echeance = envoi + timedelta(hours=TEST_HEURES)
-                    info["echeance"] = echeance.isoformat(timespec="seconds")
-                    modifie = True
-                if maintenant > echeance and TEST_SORTIE:
-                    info["etat"] = "test_expire"                                # la sortie ⑦ plus bas : MP puis expulsion
-                    modifie = True
-                elif maintenant > echeance:
-                    info["etat"] = "test_expire"
-                    info["retest"] = (maintenant + timedelta(days=15)).isoformat(timespec="seconds")
-                    modifie = True
-                    if membre and not stop_t:
-                        await envoyer_mp(membre, "⌛ Le délai de 48 h de ton test est passé sans dépôt. "
-                                                 "Pas grave — tu peux retenter à partir du "
-                                                 f"{info['retest'][:10]}. Reste sur le serveur, revois les fiches, "
-                                                 "et ce jour-là écris **VALIDÉ** ici en MP : ton test repartira.")
-                elif maintenant > echeance - timedelta(hours=24) and not info.get("relance") and not relance_nouveaux.ACTIF:
-                    info["relance"] = True
-                    modifie = True
-                    if membre and not stop_t:
-                        await envoyer_mp(membre, "⏰ Il te reste **moins de 24 h** pour ton test. "
-                                                 "Envoie ta vidéo ici. Tu y es presque 💪")
-            # ---- Relances 24/48 h à CHAQUE étape du tunnel (20/07) : personne ne reste bloqué ----
-            # Doctrine : 2 relances max par étape (24 h puis 48 h), en MP, puis silence — on pousse,
-            # on ne harcèle pas. Étapes couvertes : arrivée sans liaison · formation/quiz · e-mail
-            # manquant · contrat non signé · retest disponible. (Le test 48 h a déjà ses relances.)
-            def _age_h(iso):
-                try:
-                    return (maintenant - datetime.fromisoformat(iso)).total_seconds() / 3600.0
-                except (TypeError, ValueError):
-                    return -1.0
-
-            async def _relancer(cible_dict, cle24, cle48, iso, uid_r, txt24, txt48):
-                nonlocal modifie
-                # STOP universel (demandé en MP) : plus aucune relance pour cette personne.
-                if cible_dict.get("stop"):
-                    return
-                # Internationaux pendant la pause : les relances « lie-toi / passe le quiz »
-                # deviennent du harcèlement sans issue (constat Mandresy/Narovana, 22/08 :
-                # « ce message arrive tous les jours et ça trouble »). Un message unique
-                # annonce la pause, puis silence.
-                code_rel, _ = equipe_deduite(uid_r)
-                if code_rel == "mg" and INT_EN_PAUSE:
-                    if not cible_dict.get("pause_int_ok"):
-                        cible_dict["pause_int_ok"] = True
-                        modifie = True
-                        membre_p = membre_par_id(uid_r)
-                        if membre_p:
-                            await envoyer_mp(membre_p,
-                                "📅 **Plus de rappels pour toi d'ici la réouverture** : le recrutement "
-                                "international est **en pause pour le moment**. Ton dossier est "
-                                "conservé, tu seras recontacté en priorité. 💪")
-                    return
-                age = _age_h(iso)
-                if age < 24:
-                    return
-                membre_r = membre_par_id(uid_r)
-                if membre_r is None:
-                    return
-                if age >= 48 and not cible_dict.get(cle48):
-                    cible_dict[cle48] = True
-                    modifie = True
-                    await envoyer_mp(membre_r, txt48)
-                elif age < 48 and not cible_dict.get(cle24):
-                    cible_dict[cle24] = True
-                    modifie = True
-                    await envoyer_mp(membre_r, txt24)
-
-            liaisons_d = donnees.get("liaisons", {})
             equipes_r = lire_json(FICHIER_EQUIPES, {})     # signés/onboardés = tunnel terminé
-            # ① Arrivé sur le serveur mais jamais lié (pas de numéro envoyé).
-            for uid, arr in list(donnees.get("arrivees", {}).items()):
-                if uid in liaisons_d:
-                    continue
-                await _relancer(arr, "r24", "r48", arr.get("date"), uid,
-                    "👋 Toujours partant ? Pour démarrer ton parcours, envoie-moi simplement **ton numéro "
-                    "de téléphone** (celui du formulaire) ici en MP — je te débloque la formation dans la "
-                    "foulée. 2 minutes chrono.",
-                    "⏳ Dernier rappel : ton parcours n'a pas encore commencé. Envoie **ton numéro du "
-                    "formulaire** ici en MP et c'est parti — formation, quiz, test, paie. "
-                    "Après, je te laisse tranquille 😉")
-            # ② Lié mais quiz jamais réussi (aucun état : le test n'a pas été déclenché). 30/09 : remplacé par la relance
-            # quotidienne (relance_nouveaux), sauf RELANCE_NOUVEAUX=0.
-            for uid, li in ([] if relance_nouveaux.ACTIF else list(liaisons_d.items())):
-                if uid in donnees.get("etats", {}):
-                    continue
-                lien_quiz = (f"\n→ Ton lien de quiz personnel : {lien_quiz_pour(uid)}" if lien_quiz_pour(uid) else "")
-                await _relancer(li, "r24", "r48", li.get("date"), uid,
-                    "🎓 Ta **formation** et ton **quiz** t'attendent. Regarde la vidéo en entier, elle dure 15 minutes. "
-                    "5 mots-clés sont cachés dedans. Note-les dans l'ordre." + lien_quiz +
-                    f"\nIl faut {seuil_quiz_texte(' bonnes réponses sur ')}. Tu as deux essais. Quiz réussi = ton test arrive tout seul."
-                    f"\n⏳ Il te reste {max(QUIZ_DELAI_H - 24, 24)} h.",
-                    "⏳ Il ne te manque que le **quiz**. Après, c'est le test, puis l'équipe." +
-                    lien_quiz + f"\nIl te reste {max(QUIZ_DELAI_H - 48, 12)} h. Après, ta place part. Tu bloques ? Réponds-moi ici, je t'aide.")
             # ⑥ 29/09 : sans quiz réussi au bout de CANDIDAT_SORTIE_JOURS jours, la place part — sortie, salon fermé, et il peut
             # recommencer quand il veut en refaisant le formulaire (nouvelle invitation, nouveaux essais).
+            # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : ⑥ ne vise plus que les arrivés SANS quizz. Jamais un signé
+            # (est_signe : registre, rôle d'équipe, roster), jamais un quizz réussi ni un membre qui attend sa créatrice. Le message
+            # part en VRAI MP avant l'expulsion (envoyer_mp le déposait dans le salon perso, invisible une fois dehors) et
+            # _EXPULSES est posé avant le kick : traiter_depart se tait, une seule ligne au manager. Le salon perso est donc
+            # supprimé ici, et l'état passe à « sorti » (remis à zéro s'il revient).
             sans_poids = ({normaliser(x.strip()) for x in ROLE_CLIPPER_NOM.split(",") if x.strip()} | {normaliser(x) for x in NOMS_RANGS})
+            jours_s = f"{CANDIDAT_SORTIE_JOURS} jour{'s' if CANDIDAT_SORTIE_JOURS > 1 else ''}"
             for uid, motif in candidats_a_sortir(donnees, equipes_r, maintenant):
                 membre_s = membre_par_id(uid)
                 cible_s = donnees.setdefault("arrivees", {}).setdefault(uid, {})
@@ -3977,94 +3975,44 @@ async def boucle_pipeline():
                     continue
                 if any(r.name != "@everyone" and normaliser(r.name) not in sans_poids for r in getattr(membre_s, "roles", [])):
                     continue                                                # staff, créatrice, équipe : jamais
+                if est_signe(membre_s) or ((donnees.get("etats") or {}).get(uid) or {}).get("etat") in (
+                        "quiz_ok", "valide", "attente_attribution"):
+                    continue
+                salon_s = salon_perso_de(uid)                               # trouvé AVANT l'expulsion (après, il est invisible)
                 lien_site = web_candidature.lien_candidature() or LIEN_FORMULAIRE
-                await envoyer_mp(membre_s, f"⌛ {CANDIDAT_SORTIE_JOURS} jours sans quiz réussi : ta place est partie et ton salon est fermé.\n\n"
-                                           "Tu peux recommencer quand tu veux : refais le formulaire, tu reçois une nouvelle invitation "
-                                           "et deux nouveaux essais." + (f"\n{lien_site}" if lien_site else ""))
+                prevenu = True
+                try:
+                    await membre_s.send(f"⌛ {jours_s} sans quizz réussi : ta place est libérée.\n\n"
+                                        + (f"Tu peux revenir quand tu veux : {lien_site}" if lien_site else "Tu peux revenir quand tu veux."))
+                except Exception as erreur:                                 # noqa: BLE001 — MP fermés : « non prévenu »
+                    prevenu = False
+                    journal.info("Message de sortie quiz à %s : %s", uid, erreur)
+                _EXPULSES[uid] = maintenant.isoformat(timespec="seconds")
                 try:
                     await membre_s.kick(reason=f"{CANDIDAT_SORTIE_JOURS} j sans quiz réussi ({motif})")
-                    cible_s["sortie_quiz"] = maintenant.isoformat(timespec="seconds"); cible_s["stop"] = True; modifie = True
-                    await notifier_manager(f"🚪 {membre_s.display_name} sorti : {CANDIDAT_SORTIE_JOURS} j sans quiz réussi ({motif}). "
-                                           "Il peut refaire le formulaire.")
                 except (discord.Forbidden, discord.HTTPException) as erreur:
+                    _EXPULSES.pop(uid, None)
                     journal.warning("Sortie quiz de %s impossible : %s", uid, erreur)
                     cible_s["sortie_quiz"] = "echec"; modifie = True
+                    await asyncio.sleep(1.2)
+                    continue
+                cible_s["sortie_quiz"] = maintenant.isoformat(timespec="seconds"); cible_s["stop"] = True
+                info_s = donnees.setdefault("etats", {}).setdefault(uid, {})
+                info_s["etat"] = "sorti"
+                info_s["sortie"] = {"date": maintenant.isoformat(timespec="seconds"), "par": "auto",
+                                    "raison": f"{CANDIDAT_SORTIE_JOURS} j sans quiz réussi ({motif})"}
+                info_s.setdefault("relances", {})["stop"] = True
+                if uid in donnees.get("liaisons", {}):
+                    donnees["liaisons"][uid]["stop"] = True
+                modifie = True
+                if salon_s is not None:
+                    try:
+                        await salon_s.delete(reason=f"Sortie : {CANDIDAT_SORTIE_JOURS} j sans quiz réussi")
+                    except Exception as erreur:                             # noqa: BLE001
+                        journal.info("Salon de %s non supprimé : %s", uid, erreur)
+                await notifier_manager(f"🚪 {membre_s.display_name} sorti : {CANDIDAT_SORTIE_JOURS} j sans quiz réussi ({motif})"
+                                       + ("" if prevenu else ", non prévenu (MP fermés)") + ". Il peut refaire le formulaire.")
                 await asyncio.sleep(1.2)
-            # ⑦ 05/10 (Gaëtan : test de montage en 3 jours, « applique à tout le monde ») : test envoyé il y a TEST_HEURES ou plus et
-            # jamais rendu (test_envoye échu ou test_expire, y compris les expirés d'avant cette règle encore sur le serveur) →
-            # MP puis expulsion. Jamais un signé, jamais le staff ; un rendu (test_rendu, refuse, valide) n'est pas concerné.
-            for uid, info_t in (list(donnees.get("etats", {}).items()) if TEST_SORTIE else []):
-                if info_t.get("etat") not in ("test_envoye", "test_expire") or uid in equipes_r or info_t.get("sortie_test"):
-                    continue
-                try:
-                    envoi_t = datetime.fromisoformat(info_t.get("envoi") or "")
-                except ValueError:
-                    continue
-                if maintenant - envoi_t < timedelta(hours=TEST_HEURES):
-                    continue
-                membre_t = membre_par_id(uid)
-                if membre_t is None:
-                    info_t["sortie_test"] = maintenant.isoformat(timespec="seconds"); modifie = True
-                    continue
-                if any(r.name != "@everyone" and normaliser(r.name) not in sans_poids for r in getattr(membre_t, "roles", [])):
-                    continue                                                # staff, créatrice, équipe : jamais
-                lien_site = web_candidature.lien_candidature() or LIEN_FORMULAIRE
-                await envoyer_mp(membre_t, f"⌛ {TEST_HEURES} h sans test de montage rendu : ta place est partie.\n\n"
-                                           "Tu peux recommencer quand tu veux : refais le formulaire, tu reçois une nouvelle invitation."
-                                           + (f"\n{lien_site}" if lien_site else ""))
-                try:
-                    await membre_t.kick(reason=f"Test de montage non rendu en {TEST_HEURES} h")
-                    info_t["etat"] = "test_expire"; info_t["sortie_test"] = maintenant.isoformat(timespec="seconds")
-                    info_t.setdefault("relances", {})["stop"] = True; modifie = True
-                    await notifier_manager(f"🚪 {membre_t.display_name} sorti : test de montage non rendu en {TEST_HEURES} h. "
-                                           "Il peut refaire le formulaire.")
-                except (discord.Forbidden, discord.HTTPException) as erreur:
-                    journal.warning("Sortie test de %s impossible : %s", uid, erreur)
-                    info_t["sortie_test"] = "echec"; modifie = True
-                await asyncio.sleep(1.2)
-            # ③④⑤ Étapes portées par l'état du pipeline.
-            for uid, info in list(donnees.get("etats", {}).items()):
-                etat_c = info.get("etat")
-                rel = info.setdefault("relances", {})
-                # Déjà signé/onboardé via !equipe (ex. signature faite en direct avec Gaëtan,
-                # cas Hugo) : le tunnel est terminé, plus aucune relance ni compteur.
-                if uid in equipes_r:
-                    continue
-                # Internationaux : les relances e-mail/contrat sont des relances vers un
-                # CONTRAT FRANCE — elles ne les concernent pas (Imelda a reçu « signe ton
-                # contrat » en boucle après avoir accepté ses conditions). Pendant la pause,
-                # un message unique donne la date de lancement au lieu du harcèlement.
-                code_rel, _ = equipe_deduite(uid)
-                if code_rel == "mg" or info.get("conditions_envoyees"):
-                    # Validé International : la seule chose qui manque est son J'ACCEPTE — relancé
-                    # à 24 h et 48 h comme les autres étapes (audit du 10/09 : aucune relance).
-                    if etat_c == "valide" and info.get("conditions_envoyees") \
-                            and not (INT_EN_PAUSE and info.get("conditions_grille", "mg") == "mg"):
-                        await _relancer(rel, "acc24", "acc48", info.get("conditions_envoyees"), uid,
-                            "✍️ Ton test est validé. Il manque juste ton accord : appuie sur le bouton ✅ du message des règles, "
-                            "ou réponds **J'ACCEPTE** ici. Ton accès s'ouvre tout de suite. 💪",
-                            "⏳ Dernier rappel : appuie sur le bouton ✅ (ou réponds **J'ACCEPTE** ici) pour entrer dans l'équipe. "
-                            "Sinon, ta place va à quelqu'un d'autre.")
-                    if INT_EN_PAUSE and not rel.get("pause_int_ok"):
-                        rel["pause_int_ok"] = True
-                        modifie = True
-                        membre_int = membre_par_id(uid)
-                        if membre_int:
-                            await envoyer_mp(membre_int,
-                                "📅 **Info de l'équipe** : le recrutement international est "
-                                "**en pause pour le moment**. Ton dossier est conservé (quiz compris) et tu "
-                                "seras recontacté en priorité à la réouverture. 💪")
-                    continue
-                # ⑤ Test expiré ou refusé : prévenir le jour où le retest s'ouvre (une fois).
-                if etat_c in ("test_expire", "refuse") and info.get("retest") and not rel.get("retest_ok") \
-                        and maintenant >= datetime.fromisoformat(info["retest"]):
-                    rel["retest_ok"] = True
-                    modifie = True
-                    membre_r = membre_par_id(uid)
-                    if membre_r and not rel.get("stop"):
-                        await envoyer_mp(membre_r,
-                            "🔓 **Tu peux refaire ton test !** Écris **VALIDÉ** ici "
-                            "et il repart tout de suite (1 vidéo, 48 h). On t'attend 💪")
         except Exception as erreur:                                     # la boucle ne doit jamais mourir
             journal.warning("Boucle pipeline : %s", erreur)
         finally:
@@ -4073,6 +4021,10 @@ async def boucle_pipeline():
                     ecrire_pipeline_fusion(instantane, donnees)
                 except Exception as erreur:                             # noqa: BLE001
                     journal.warning("Écriture pipeline : %s", erreur)
+        try:                                                            # 09/10 : après l'écriture du tour, jamais pendant
+            await reprendre_attente_attribution()
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Reprise des membres en attente : %s", erreur)
         await asyncio.sleep(300)   # 5 min : l'auto-onboarding post-signature doit être quasi immédiat
 
 
@@ -4083,6 +4035,77 @@ def heure_paris():
         return datetime.now(ZoneInfo("Europe/Paris"))
     except Exception:
         return datetime.now(timezone.utc) + timedelta(hours=2)
+
+
+def _jour_paris(iso):
+    """09/10 : la date, à Paris, d'un horodatage ISO du pipeline (UTC s'il n'a pas de fuseau) ; None s'il est illisible."""
+    try:
+        d = datetime.fromisoformat(str(iso or ""))
+    except ValueError:
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        paris = ZoneInfo("Europe/Paris")
+    except Exception:                                                   # noqa: BLE001 — base de fuseaux absente
+        paris = timezone(timedelta(hours=2))
+    return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(paris).date()
+
+
+def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
+    """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice… ») :
+    les flux d'un jour (Paris) pour le digest. quiz_ok et quiz_ko : le quizz du site (dernier essai de chaque numéro, staff exclu),
+    plus le quizz passé depuis Discord par un arrivé sans quizz ; arrives : arrivées sur le serveur ; valides : validations du jour ;
+    attente : les membres en « attente_attribution » à l'instant (sauf ceux qui ont déjà leur créatrice au registre)."""
+    registre = registre or {}
+    par_tel = {}
+    for fiche in (pipe.get("candidatures_web") or {}).values():
+        q = (fiche or {}).get("quiz") or {}
+        if not q or _jour_paris(q.get("date")) != jour or relances.tel_exclu(fiche.get("tel")):
+            continue
+        cle = relances.cle_tel(fiche.get("tel"))
+        par_tel[cle] = par_tel.get(cle, False) or bool(q.get("reussi"))
+    quiz_ok = sum(1 for v in par_tel.values() if v)
+    quiz_ko = len(par_tel) - quiz_ok
+    etats = pipe.get("etats") or {}
+    for info in etats.values():
+        info = info or {}
+        if info.get("quiz_avant_discord") or _jour_paris(info.get("date_quiz")) != jour:
+            continue                                                    # un quizz du site est déjà compté plus haut
+        if info.get("etat") == "quiz_rate":
+            quiz_ko += 1
+        elif info.get("etat") in ("quiz_ok", "valide", "attente_attribution"):
+            quiz_ok += 1
+    arrives = sum(1 for a in (pipe.get("arrivees") or {}).values() if _jour_paris((a or {}).get("date")) == jour)
+    valides = sum(1 for i in etats.values() if _jour_paris((i or {}).get("validation")) == jour)
+    attente = sorted((uid for uid, i in etats.items() if (i or {}).get("etat") == "attente_attribution"
+                      and not (registre.get(uid) or {}).get("creatrice")),
+                     key=lambda u: str(etats[u].get("attente_depuis") or etats[u].get("validation") or ""))
+    return {"quiz_ok": quiz_ok, "quiz_ko": quiz_ko, "arrives": arrives, "valides": valides, "attente": attente}
+
+
+def sources_candidatures(cands: list, lignes: list, pipe: dict) -> list:
+    """09/10 (l'annonce Telegram porte sa source : /candidature?src=tg-<groupe>) : [(source, nombre)] des candidatures `cands`
+    (candidatures_du_jour), la plus fréquente d'abord. La source d'un numéro : celle du pipeline (candidatures[tel]["source"], posée
+    par le site), sinon la colonne Source du classeur, sinon « formulaire » pour l'ancien Google Form, sinon « web »."""
+    def _propre(s):
+        s = str(s or "").split(" · ")[0].strip().lower()[:30]
+        return "" if s == "web" else s
+
+    du_classeur, du_pipeline = {}, {}
+    for c in lignes or []:
+        cle = (c.get("tel_chiffres") or "")[-8:]
+        if len(cle) == 8 and cle not in du_classeur:
+            du_classeur[cle] = _propre(c.get("src")) or ("formulaire" if c.get("source") == "formulaire" else "")
+    for tel, c in ((pipe or {}).get("candidatures") or {}).items():
+        chiffres = _chiffres_tel(tel)
+        if len(chiffres) >= 8:
+            du_pipeline[chiffres[-8:]] = _propre((c or {}).get("source"))
+    compte = {}
+    for c in cands or []:
+        cle = (c.get("tel_chiffres") or "")[-8:]
+        src = (du_pipeline.get(cle) or du_classeur.get(cle) or "web") if len(cle) == 8 else "web"
+        compte[src] = compte.get(src, 0) + 1
+    return sorted(compte.items(), key=lambda x: (-x[1], x[0]))
 
 
 async def boucle_rappels():
@@ -4105,13 +4128,14 @@ async def boucle_rappels():
                         "-# La ligne du jour remplie = l'esprit libre pour exécuter."):
                     etat["treso"] = aujourdhui
                     ecrire_json(FICHIER_RAPPELS, etat)
-            # Pipeline candidats : chaque matin dès 09:00 (Paris), le digest des actions qui
-            # n'attendent que l'admin — tests à reviewer, contrats qui traînent, nouveaux
-            # signés dont les comptes ne sont pas encore créés. Envoyé UNIQUEMENT s'il y a
-            # de l'actionnable : un digest vide tous les jours finirait ignoré.
+            # Pipeline candidats : chaque matin dès 09:00 (Paris), le digest de l'entonnoir et des actions qui n'attendent que le
+            # staff. Envoyé tous les jours (02/09) : un jour sans action est une information.
+            # 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : plus aucune ligne de test (tests à
+            # reviewer, tests en cours, tests expirés, validés sans J'ACCEPTE) ni relance du soir à 18 h. À la place, l'entonnoir
+            # d'hier (candidatures par source, quizz réussis et ratés, arrivés sur Discord, validés), les membres qui attendent une
+            # créatrice, et les comptes livrables par créatrice : sans le test, c'est le nouveau goulot.
             if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.hour >= 9 and etat.get("pipeline_digest") != aujourdhui:
                 pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-                etats_p = pipe.get("etats", {})
                 try:
                     await completer_creatrices()                       # 25/09 : les anciens ont une créatrice, pas au registre
                 except Exception as erreur:
@@ -4125,11 +4149,6 @@ async def boucle_rappels():
                     except (TypeError, ValueError):
                         return 0
 
-                rendus = sorted(((uid, _jours(i.get("rendu"))) for uid, i in etats_p.items()
-                                 if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
-                sans_acceptation = [uid for uid, i in etats_p.items()
-                                    if i.get("etat") == "valide" and i.get("conditions_envoyees")
-                                    and uid not in equipes_r and not (i.get("relances") or {}).get("stop")]
                 guild_d = client.guilds[0] if client.guilds else None
                 role_mgr = role_manager(guild_d)
                 lundi = maintenant.weekday() == 0
@@ -4147,55 +4166,50 @@ async def boucle_rappels():
                 anciens_sans = len(sans_creatrice_tous) - len(sans_creatrice)
                 signes_recents = sorted(((uid, _jours(e.get("date"))) for uid, e in equipes_r.items()
                                          if _jours(e.get("date")) <= 7), key=lambda x: x[1])
-                expires = sum(1 for i in etats_p.values() if i.get("etat") == "test_expire")
                 tels_lies = {l.get("tel") for l in pipe.get("liaisons", {}).values()}
                 orphelines = sum(1 for t in pipe.get("candidatures", {}) if t not in tels_lies)
 
-                liaisons_p = pipe.get("liaisons", {})
-
-                def _tel_de(uid):
-                    return (liaisons_p.get(uid) or {}).get("tel", "")
-
                 lignes_d = []
-                if rendus:
-                    lignes_d.append("📥 **Tests à reviewer — ton OUI/NON** : "
-                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus[:6])
-                                    + "\n→ `!test-ok @membre` ou `!test-non @membre`")
-                if signes_recents:
-                    # Le téléphone est là POUR APPELER (02/09) : un signé FR s'onboarde à chaud,
-                    # pas à J+3. Le numéro vient de la liaison candidature (WhatsApp).
-                    # 27/09 : les comptes se créent avec le bot et la créatrice s'attribue toute seule — plus d'appel, plus de numéro
-                    lignes_d.append("🎉 Signés cette semaine : " + " · ".join(f"<@{u}> (J+{j})" for u, j in signes_recents[:6]))
-                if sans_creatrice:
-                    lignes_d.append(f"🎬 **Signés SANS créatrice depuis ≥ 48 h** ({mention_manager(guild_d)}) : "
-                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:6])
-                                    + (f" · {anciens_sans} plus ancien(s), listés le lundi" if anciens_sans and not lundi else "")
-                                    + "\n→ `!creatrice @membre Prénom` — un signé sans créatrice ne produit rien.")
-                if sans_acceptation:
-                    lignes_d.append("✍️ Validés sans J'ACCEPTE (je relance tout seul) : "
-                                    + " · ".join(f"<@{u}>" for u in sans_acceptation[:8]))
                 # Le comptage des flux d'hier remplace les échos immédiats (« 1 candidature enregistrée »,
                 # « test envoyé en MP ») qui noyaient le salon (épuration du 23/09).
-                depuis_24h = (ref - timedelta(hours=24)).isoformat(timespec="seconds")
                 # 01/10 : le même compteur que !pipeline (candidatures_du_jour : hier à Paris, une par numéro, sans le staff)
                 try:
                     lignes_c = await lire_candidatures_sheets()
                 except Exception as erreur:                                 # noqa: BLE001
                     journal.warning("Digest : classeur des candidatures illisible (%s)", erreur)
                     lignes_c = []
-                cand_24h = candidatures_du_jour(maintenant.date() - timedelta(days=1), lignes_c, pipe)
-                cand_fr = sum(1 for c in cand_24h if equipe_du_pays(c.get("pays") or "") == "fr")
-                tests_24h = sum(1 for i in etats_p.values() if (i.get("envoi") or "") >= depuis_24h)
-                en_test = sum(1 for i in etats_p.values() if i.get("etat") == "test_envoye")
-                if cand_24h or tests_24h or en_test:
-                    lignes_d.append(f"📋 Hier : {len(cand_24h)} candidature(s)"
-                                    + (f" (FR {cand_fr} · International {len(cand_24h) - cand_fr})" if cand_24h else "")
-                                    + f" · {tests_24h} test(s) envoyé(s) · {en_test} en cours")
-                if lundi:                                   # les compteurs de fond, une fois par semaine
-                    fond = [f"tests expirés sans suite {expires}" if expires else "",
-                            f"candidatures sans Discord lié {orphelines} (`!pipeline`)" if orphelines else ""]
-                    if any(fond):
-                        lignes_d.append("🗂️ Fond de pipeline : " + " · ".join(f for f in fond if f))
+                hier = maintenant.date() - timedelta(days=1)
+                cand_24h = candidatures_du_jour(hier, lignes_c, pipe)
+                flux = compteurs_funnel(pipe, hier, equipes_r)
+                sources = sources_candidatures(cand_24h, lignes_c, pipe)
+                lignes_d.append(f"📋 **Hier** : {len(cand_24h)} candidature(s) · {flux['quiz_ok']} quizz réussi(s)"
+                                + (f" ({flux['quiz_ko']} raté(s))" if flux["quiz_ko"] else "")
+                                + f" · {flux['arrives']} arrivé(s) sur Discord · {flux['valides']} validé(s)"
+                                + ("\nSources : " + " · ".join(f"{s} {n}" for s, n in sources) if sources else ""))
+                livrables = await comptes_livrables_par_creatrice()
+                vides = [c for c, n in livrables.items() if n < 3]
+                if livrables:
+                    lignes_d.append("📦 **Comptes livrables** (3 par nouveau, le goulot) : "
+                                    + " · ".join(f"{c} {n}" + (" ⚠️" if n < 3 else f" → {n // 3} nouveau{'x' if n // 3 > 1 else ''}")
+                                                 for c, n in livrables.items())
+                                    + (f"\n→ Plus de place pour un nouveau chez {', '.join(vides)} (`!comptes-libres Prénom`)."
+                                       if vides else ""))
+                attente = [u for u in flux["attente"] if membre_par_id(u) is not None]
+                if attente:
+                    lignes_d.append(f"⏳ **En attente d'une créatrice** (aucun compte libre) : {len(attente)} · "
+                                    + " · ".join(f"<@{u}>" for u in attente[:8])
+                                    + ("\n→ Ils partent tout seuls dès qu'un compte se libère." if attribution.actif()
+                                       else "\n→ `!creatrice @membre Prénom`"))
+                if sans_creatrice:
+                    lignes_d.append(f"🎬 **Signés SANS créatrice depuis ≥ 48 h** ({mention_manager(guild_d)}) : "
+                                    + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:6])
+                                    + (f" · {anciens_sans} plus ancien(s), listés le lundi" if anciens_sans and not lundi else "")
+                                    + "\n→ `!creatrice @membre Prénom` — un signé sans créatrice ne produit rien.")
+                if signes_recents:
+                    # 27/09 : les comptes se créent avec le bot et la créatrice s'attribue toute seule — plus d'appel, plus de numéro
+                    lignes_d.append("🎉 Signés cette semaine : " + " · ".join(f"<@{u}> (J+{j})" for u, j in signes_recents[:6]))
+                if lundi and orphelines:                    # le compteur de fond, une fois par semaine
+                    lignes_d.append(f"🗂️ Fond de pipeline : candidatures sans Discord lié {orphelines} (`!pipeline`)")
                 avert = avertissements_recents(24)
                 vus = etat.get("avert_vus", [])
                 nouveaux_avert = [a for a in avert if a[:90] not in vus]
@@ -4203,18 +4217,13 @@ async def boucle_rappels():
                     lignes_d.append("🛠️ Avertissement technique : " + " · ".join(a[:90] for a in nouveaux_avert[:3]))
                     etat["avert_vus"] = (vus + [a[:90] for a in nouveaux_avert])[-20:]
 
-                # Le digest part TOUS les jours (demande du 02/09) : un jour sans action est une
-                # information — « la machine tourne » se constate, elle ne se devine pas.
-                if not (rendus or signes_recents or sans_creatrice):
-                    en_test = sum(1 for i in etats_p.values() if i.get("etat") == "test_envoye")
-                    lignes_d.insert(0, "✅ Rien qui n'attende TON action aujourd'hui"
-                                    + (f" · {en_test} test(s) en cours" if en_test else "")
-                                    + " — je relance les candidats tout seul.")
+                if not (sans_creatrice or attente or vides):
+                    lignes_d.insert(0, "✅ Rien qui n'attende ton action aujourd'hui.")
                 canal = await canal_manager()                    # le manager agit, Gaëtan lit l'hebdo (14/09)
                 if canal is not None:
                     try:
-                        texte_digest = ("☕ **Pipeline candidats — " + maintenant.strftime("%d/%m") + "**\n"
-                                        + "\n".join(lignes_d))[:1990]
+                        texte_digest = ("☕ **Pipeline candidats — " + maintenant.strftime("%d/%m") + "**\n\n"
+                                        + "\n\n".join(lignes_d))[:1990]     # 09/10 : une ligne vide entre deux blocs, lisible au téléphone
                         await canal.send(texte_digest)
                         etat["pipeline_digest"] = aujourdhui
                         ecrire_json(FICHIER_RAPPELS, etat)
@@ -4228,40 +4237,6 @@ async def boucle_rappels():
                                 re.sub(r"<@!?(\d+)>", _prenom, texte_digest).replace("**", "*"))
                     except (discord.Forbidden, discord.HTTPException):
                         pass
-            # Relance du soir (18 h Paris) : les tests qui attendent encore le OUI/NON de l'admin.
-            # Le digest du matin informe, la relance du soir empêche la nuit de passer dessus —
-            # un candidat qui attend 48 h son verdict est un candidat qui signe ailleurs (02/09).
-            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.hour >= 18 and etat.get("tests_soir") != aujourdhui:
-                pipe_s = lire_json(FICHIER_PIPELINE, {"etats": {}})
-                ref_s = datetime.now(timezone.utc)
-
-                def _jours_s(iso):
-                    try:
-                        return max(0, (ref_s - datetime.fromisoformat(iso)).days)
-                    except (TypeError, ValueError):
-                        return 0
-
-                rendus_s = sorted(((uid, _jours_s(i.get("rendu"))) for uid, i in pipe_s.get("etats", {}).items()
-                                   if i.get("etat") == "test_rendu"), key=lambda x: -x[1])
-                # Un test rendu aujourd'hui a été annoncé à sa réception : la relance du soir ne vise
-                # que ceux qui attendent depuis au moins 24 h (épuration du 23/09).
-                rendus_s = [x for x in rendus_s if x[1] >= 1]
-                if rendus_s:
-                    canal = await canal_admin()
-                    if canal is not None:
-                        try:
-                            await canal.send(
-                                f"⚖️ **{len(rendus_s)} test(s) attendent ton OUI ou ton NON** : "
-                                + " · ".join(f"<@{u}> (J+{j})" for u, j in rendus_s[:8])
-                                + "\n→ `!test-ok @membre` ou `!test-non @membre` — 2 minutes, "
-                                  "et le candidat dort motivé au lieu de dormir déçu.")
-                            etat["tests_soir"] = aujourdhui
-                            ecrire_json(FICHIER_RAPPELS, etat)
-                        except (discord.Forbidden, discord.HTTPException):
-                            pass
-                else:
-                    etat["tests_soir"] = aujourdhui        # rien en attente → pas de bruit le soir
-                    ecrire_json(FICHIER_RAPPELS, etat)
             # Reporting clippers : le dimanche à partir de 17:00, une fois. 05/10 : plus de formulaire du dimanche ni de fixe
             # conditionné (RAPPEL_REPORTING=1 pour le rallumer) — le suivi, c'est le scan et `!mesclics`.
             if CANAL_REPORTING_ID and os.environ.get("RAPPEL_REPORTING", "0").strip() == "1" and maintenant.weekday() == 6 \
@@ -8159,10 +8134,38 @@ async def accueillir_valide(member, code, fiche, invitation):
         f"{fiche.get('pays') or 'pays ?'}, quiz {fiche.get('score') or '?'}).\n" + retour, member.guild)
 
 
+def lignes_de_test_candidatures(brut: list, tels_tests=()) -> list:
+    """09/10 (revue du funnel : le nettoyage cherchait « test » dans TOUTES les cellules ; la réponse « Test… » d'un vrai candidat
+    faisait supprimer sa ligne) : les index (0 = en-tête) des lignes de test du classeur. Seule la colonne prénom est comparée :
+    elle commence par « test », ET la ligne porte le marqueur « test technique du site » ou le numéro d'une candidature de test
+    nettoyée du pipeline (`tels_tests`). Sans colonne prénom reconnue : aucune ligne."""
+    if not brut:
+        return []
+    en_tete = [str(x) for x in brut[0]]
+    cols = _colonnes_candidature(en_tete)
+    i_p, i_t = cols.get("prenom"), cols.get("tel")
+    if i_p is None:
+        return []
+    cles = {_chiffres_tel(t)[-8:] for t in tels_tests or () if len(_chiffres_tel(t)) >= 8}
+    out = []
+    for i, ligne in enumerate(brut):
+        if i == 0:
+            continue
+        ligne = [str(x) for x in ligne] + [""] * (len(en_tete) + 1)
+        prenom = normaliser(ligne[i_p]).strip()
+        if not (prenom == "test" or prenom.startswith("test ")):
+            continue
+        tel = _chiffres_tel(ligne[i_t]) if i_t is not None else ""
+        if any("test technique du site" in normaliser(x) for x in ligne) or (len(tel) >= 8 and tel[-8:] in cles):
+            out.append(i)
+    return out
+
+
 async def nettoyer_candidatures_test():
     """29/09 (Gaëtan : « supprime la candidature Test Claude du pipeline ») : toute candidature marquée « test technique du site »
     (ou dont le prénom commence par « Test ») disparaît du pipeline, de la liste web, avec son invitation Discord et sa ligne du
-    classeur des candidatures. Rejoué à chaque démarrage : un test futur se nettoie tout seul."""
+    classeur des candidatures. Rejoué à chaque démarrage : un test futur se nettoie tout seul.
+    09/10 : dans le classeur, seule la colonne prénom est comparée (lignes_de_test_candidatures)."""
     pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     tests = [tel for tel, c in (pipe.get("candidatures") or {}).items()
              if "test technique du site" in normaliser(json.dumps(c.get("reponses") or {}, ensure_ascii=False))
@@ -8190,9 +8193,8 @@ async def nettoyer_candidatures_test():
     if SHEET_CANDIDATURES_ID and google_api.actif():
         try:
             onglet = SHEET_CANDIDATURES_ONGLET
-            brut = await google_api.sheets_lire(SHEET_CANDIDATURES_ID, f"{onglet}!A1:Z")
-            a_sup = [i for i, l in enumerate(brut) if i > 0 and any(
-                "test technique du site" in normaliser(str(x)) or normaliser(str(x)).startswith("test ") for x in l)]
+            brut = await lire_onglet_candidatures(onglet)
+            a_sup = lignes_de_test_candidatures(brut, tests)
             sid = (await google_api.sheets_proprietes(SHEET_CANDIDATURES_ID)).get(onglet, {}).get("id")
             if a_sup and sid is not None:
                 await google_api.sheets_batch_update(SHEET_CANDIDATURES_ID, [

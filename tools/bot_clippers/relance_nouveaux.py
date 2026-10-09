@@ -1,14 +1,15 @@
-"""Relance simple, une fois par jour, des nouveaux qui n'ont pas encore rendu leur test de montage (30/09, Gaëtan : « fais une
-relance simple tous les jours pour les nouveaux, afin qu'ils fassent le test de montage vidéo »).
+"""Relance des arrivés sur Discord qui n'ont pas encore réussi le quizz (30/09, refondue le 09/10).
 
-Avant : deux relances seulement (24 h et 48 h après la liaison pour le quiz, 24 h après l'envoi pour le test), puis silence
-jusqu'à la sortie à 7 jours (Joaoo : accueilli le 28/09, plus rien du bot ensuite). Maintenant, chaque jour à HEURE (Paris),
-dans son salon, UNE ligne selon son étape :
-  · quiz pas encore réussi → « ton test de montage arrive juste après le quiz », avec son lien de quiz ;
-  · test envoyé, pas rendu → « ton test t'attend », le lien du dossier et les heures qui restent.
-Jamais le jour de son arrivée (ni dans les 20 h qui suivent l'envoi du test), jamais deux fois le même jour, jamais après un
-STOP, jamais pour un signé, un membre du staff ou quelqu'un qui a déjà rendu son test. La sortie à 7 jours sans quiz reste.
-RELANCE_NOUVEAUX=0 éteint (les anciennes relances 24/48 h reviennent)."""
+30/09 (Gaëtan : « fais une relance simple tous les jours pour les nouveaux ») : une ligne par jour, dans le salon du nouveau.
+
+09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes » et « Chaque étape à la fois, on se complique
+pas la vie ») : le test de montage n'existe plus et le quizz se fait sur le site, AVANT Discord. Presque personne n'arrive donc
+sans quizz : le module est ÉTEINT par défaut (RELANCE_NOUVEAUX=1 pour le rallumer). Rallumé, il n'envoie qu'un texte, son lien
+de quizz, au plus MAX_ENVOIS fois et jamais deux fois le même jour. Jamais le jour de l'arrivée (DELAI_H), jamais après un STOP,
+jamais pour un signé (registre, rôle d'équipe, roster : est_signe), un membre du staff ou quelqu'un qui a déjà réussi le quizz.
+La sortie à 2 jours sans quizz reste (boucle_pipeline ⑥).
+
+État dans DONNEES/relance_nouveaux.json : {uid: {"jour": "AAAA-MM-JJ", "n": envois}} (l'ancienne forme {uid: jour} vaut 1 envoi)."""
 import asyncio
 import logging
 import os
@@ -17,16 +18,19 @@ from datetime import datetime, timedelta, timezone
 import discord
 
 journal = logging.getLogger("relance_nouveaux")
-ACTIF = os.environ.get("RELANCE_NOUVEAUX", "1").strip() != "0"
+ACTIF = os.environ.get("RELANCE_NOUVEAUX", "0").strip() != "0"         # 09/10 : éteint par défaut
 HEURE = int(os.environ.get("RELANCE_NOUVEAUX_HEURE", "11") or 11)
-DELAI_H = 20                                                            # pas de relance dans les 20 h qui suivent l'arrivée / le test
-FINIS = ("quiz_ok", "test_rendu", "valide", "refuse", "test_expire", "sorti")
+DELAI_H = 20                                                            # pas de relance dans les 20 h qui suivent l'arrivée
+MAX_ENVOIS = 2                                                          # 09/10 : deux relances au plus, puis silence
+# 09/10 : un membre dans l'un de ces états a passé le quizz (ou est sorti). Un ancien état « test_* » d'avant la migration vaut
+# aussi « quizz réussi » (voir a_relancer).
+FINIS = ("quiz_ok", "valide", "attente_attribution", "refuse", "sorti")
 _deps = {}
 
 
 def configurer(deps: dict):
     """deps : lire_json, ecrire_json, FICHIER (état), FICHIER_PIPELINE, FICHIER_EQUIPES, client, heure_paris, salon_perso (uid),
-    lien_quiz (uid), LIEN_TEST, est_staff (membre)."""
+    lien_quiz (uid), est_staff (membre) ; est_signe (membre), facultatif. 09/10 : LIEN_TEST n'est plus lu (clé tolérée)."""
     _deps.update(deps)
 
 
@@ -38,77 +42,86 @@ def _date(iso):
         return None
 
 
-def texte(etape: str, mention: str, lien: str = "", heures: int = 0) -> str:
-    if etape == "test":
-        return (f"🎬 {mention} Ton test de montage t'attend : {lien}\n\n"
-                "Monte 1 vidéo du dossier en Reel vertical. Envoie-la ici avec le **+**."
-                + (f"\n\n⏳ Il te reste {heures} h." if heures > 0 else ""))
-    return (f"👋 {mention} Ton test de montage vidéo arrive juste après le quiz.\n\n"
-            "Étape du jour : regarde la formation, puis fais le quiz."
-            + (f"\n\n{lien}" if lien else ""))
+def texte(mention: str, lien: str) -> str:
+    """09/10 (Gaëtan : « Saute des lignes, aère ») : une seule action, son lien de quizz."""
+    return (f"👋 {mention}\n\n"
+            f"Ton quizz t'attend : {lien}\n\n"
+            "Réussi = ta créatrice et ton compte 1 arrivent ici.")
 
 
-def a_relancer(uid: str, pipe: dict, signes: dict, arrivee, maintenant) -> tuple:
-    """(étape, heures restantes) si ce membre doit être relancé aujourd'hui, sinon None."""
-    if uid in signes:
+def suivi(valeur) -> dict:
+    """L'état d'un membre : {"jour", "n"}. L'ancienne forme (le jour seul) compte pour un envoi."""
+    if isinstance(valeur, dict):
+        return {"jour": str(valeur.get("jour") or ""), "n": int(valeur.get("n") or 0)}
+    return {"jour": str(valeur or ""), "n": 1 if valeur else 0}
+
+
+def a_relancer(uid: str, pipe: dict, signes: dict, arrivee, maintenant, signe: bool = False, envois: int = 0) -> tuple:
+    """("quiz", 0) si ce membre doit être relancé aujourd'hui, sinon None. 09/10 : plus de branche « test » ; jamais un signé
+    (`signes` = le registre, `signe` = est_signe du membre), jamais au-delà de MAX_ENVOIS."""
+    if uid in signes or signe or envois >= MAX_ENVOIS:
         return None
     info = (pipe.get("etats") or {}).get(uid) or {}
     stop = any(bool((d or {}).get("stop")) for d in (info.get("relances"), (pipe.get("liaisons") or {}).get(uid),
                                                         (pipe.get("arrivees") or {}).get(uid)))
-    if stop or info.get("etat") in FINIS:
+    etat = str(info.get("etat") or "")
+    if stop or etat in FINIS or etat.startswith("test_"):
         return None
-    if info.get("etat") == "test_envoye":
-        envoi, echeance = _date(info.get("envoi")), _date(info.get("echeance"))
-        if info.get("mp_ok") is False or envoi is None or maintenant - envoi < timedelta(hours=DELAI_H):
-            return None
-        reste = int((echeance - maintenant).total_seconds() // 3600) if echeance else 0
-        return ("test", reste) if reste > 0 else None
     if arrivee is not None and maintenant - arrivee < timedelta(hours=DELAI_H):
         return None
     return ("quiz", 0)
 
 
 async def passage(maintenant=None) -> list:
-    """Un passage : relance chaque nouveau concerné. Renvoie [(uid, étape)]."""
+    """Un passage : relance chaque nouveau concerné. Renvoie [(uid, "quiz")]."""
     maintenant = maintenant or datetime.now(timezone.utc)
     jour = _deps["heure_paris"]().strftime("%Y-%m-%d")
     etat = _deps["lire_json"](_deps["FICHIER"], {})
     pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
     signes = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+    est_signe = _deps.get("est_signe")
     faits = []
     for g in _deps["client"].guilds:
         for m in g.members:
             uid = str(m.id)
-            if m.bot or etat.get(uid) == jour or _deps["est_staff"](m):
+            s = suivi(etat.get(uid))
+            if m.bot or s["jour"] == jour or _deps["est_staff"](m):
                 continue
             arrivee = m.joined_at if m.joined_at is None or m.joined_at.tzinfo else m.joined_at.replace(tzinfo=timezone.utc)
-            quoi = a_relancer(uid, pipe, signes, arrivee, maintenant)
+            try:
+                signe = bool(est_signe(m)) if est_signe else False
+            except Exception as erreur:                                 # noqa: BLE001 — dans le doute, on ne relance pas
+                journal.info("est_signe(%s) : %s", uid, erreur)
+                continue
+            quoi = a_relancer(uid, pipe, signes, arrivee, maintenant, signe=signe, envois=s["n"])
             if quoi is None:
                 continue
+            lien = _deps["lien_quiz"](uid) or ""
             salon = _deps["salon_perso"](uid)
-            if salon is None:
+            if salon is None or not lien:
                 continue
-            etape, reste = quoi
-            lien = _deps["LIEN_TEST"] if etape == "test" else (_deps["lien_quiz"](uid) or "")
             try:
-                await salon.send(texte(etape, m.mention, lien, reste)[:1990])
+                await salon.send(texte(m.mention, lien)[:1990])
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.info("Relance du nouveau %s : %s", uid, erreur)
                 continue
-            etat[uid] = jour
-            faits.append((uid, etape))
+            etat[uid] = {"jour": jour, "n": s["n"] + 1}
+            faits.append((uid, quoi[0]))
             await asyncio.sleep(1.2)
     if faits:
         _deps["ecrire_json"](_deps["FICHIER"], etat)
-        journal.info("Relance des nouveaux : %d (%s)", len(faits), ", ".join(e for _, e in faits))
+        journal.info("Relance des nouveaux : %d", len(faits))
     return faits
 
 
 async def boucle(client):
     await client.wait_until_ready()
+    if not ACTIF:
+        journal.info("Relance des nouveaux éteinte (RELANCE_NOUVEAUX=0, défaut depuis le 09/10)")
+        return
     while not client.is_closed():
         try:
-            if ACTIF and _deps["heure_paris"]().hour >= HEURE:
+            if _deps["heure_paris"]().hour >= HEURE:
                 await passage()
         except Exception as erreur:                                     # noqa: BLE001 — la boucle ne meurt jamais
             journal.warning("Relance des nouveaux : %s", erreur)
