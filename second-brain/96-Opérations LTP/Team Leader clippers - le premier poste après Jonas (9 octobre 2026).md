@@ -67,6 +67,9 @@ Les règles Team Leader et manager viennent du confrère de Lisbonne (journal du
 
 Hors périmètre : la paie, la signature (tout nouveau passe par le formulaire et le bot, vérification d'âge comprise), les identifiants des créatrices. Son seul chiffre, qui est aussi sa prime : **ses clippers au-dessus de 500 visiteurs et de 5 abonnés**. Le salon `#jonas-stats` devient le sien.
 
+> [!info] Fiche remise aux Team Leaders (09/10)
+> Une fiche d'une page au style Apple, niveau collège, sans abréviation : « Tu restes clippeur. Toujours. », les cinq missions (trois par jour, deux par semaine), 10 dollars tous les 15 jours par clipper qui fait plus de 500 clics et 5 nouveaux abonnés (exemples 10 / 30 / 100 dollars), trois interdits (mot de passe dans un groupe, recruter soi-même, la paie), essai d'un mois avec bilan le 20 novembre. Fichiers : dossier « Kit Clippers/Fiche Team Leader » (PDF d'une page longue pour le téléphone, quatre images pour WhatsApp, source HTML pour la modifier). Demandée par Yves le jour de sa nomination (« une fiche technique pour ne pas me perdre en chemin »).
+
 ## 5. Qui
 
 **Clarisse** (de 23 à 144 visiteurs par jour du 01 au 07/10) ou **Yves** (+100 %, 37 abonnés OnlyFans et 219 $ en septembre). **Pas Thia** : 8 visiteurs et 1 abonné en septembre, sortie recommandée le 05/10, et elle écrit elle-même plafonner à 9 spectateurs. **Pas Rianah** : déjà Metricool et six comptes, le moteur à ne pas surcharger. Le piège est celui de [[Développer un manager clipper (Julien et Jonas)|Julien et Jonas]] : promouvoir le meilleur et perdre sa production. D'où le joueur-entraîneur et un essai d'un mois (au 20/11, 3 clippers de sa cohorte au seuil, sinon retour clipper). Annoncée à tous avec sa condition chiffrée, la marche sert aussi la [[Rétention et motivation des marketeurs|rétention]].
