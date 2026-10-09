@@ -34,13 +34,22 @@ classeur (26/09, « légendaire ») : clippers, créatrices sous Metricool, comp
   - passages LÉGERS (`executer(leger=True)`, heures de Paris ETATS_HEURES_LEGERES, défaut 14 h et 20 h) : Followers, Reels et
     séries des comptes vivants, sans aucune décision, sous garde du budget Apify du mois (`apify_budget`) ;
   - `!dashboard` réécrit sans scan, `!dashboard scan` lance le passage complet payant ; `!etats-comptes leger` : un passage léger.
+09/10 (Gaëtan, 7 h 40 UTC : « Dépasse pas 25 $ / mois pour le moment, fais comme tu peux ») : la dépense Apify TOTALE du cycle
+(tous les acteurs : scan, relectures, recherches des @ changés, scan du soir, identifiants neufs, cadence) est plafonnée à
+APIFY_BUDGET_MOIS (25 $). Dépense lue par l'API Apify (users/me/limits, au plus toutes les 30 min) plus les appels faits depuis,
+à défaut comptée ici (profils demandés × APIFY_PRIX_1000, 2,30 $ les mille), gardée dans etats_comptes.json par cycle. Une
+relecture légère ne part que si la dépense, elle comprise, reste sous la trajectoire linéaire du budget ; un appel qui ferait
+dépasser le budget est refusé, et à 100 % plus aucun appel Apify jusqu'au cycle suivant (alerte admin une fois par jour, le
+Dashboard le dit : clé « apify_budget », contrat C6a).
 Le module ne connaît pas bot_discord : dépendances dans `configurer(deps)` (lire_json, ecrire_json, FICHIER_ETATS,
 normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les tests ; `FICHIER_SERIES` facultatif, sinon
 series_comptes.json à côté de FICHIER_ETATS)."""
 import asyncio
+import calendar
 import logging
 import os
 import re
+import time as _horloge
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -114,11 +123,24 @@ def _heures(brut: str) -> list:
     return sorted(out)
 
 
+def _flottant(brut, defaut: float) -> float:
+    """Un nombre de l'environnement (« 2,30 » ou « 2.30 ») ; le défaut s'il est absent, illisible ou négatif."""
+    try:
+        v = float(str(brut).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return defaut
+    return v if v == v and v >= 0 else defaut
+
+
 # 09/10 (dashboard) : passages légers aux heures de Paris (Followers, Reels, séries ; aucune décision) ; vide = éteints
 HEURES_LEGERES = _heures(os.environ.get("ETATS_HEURES_LEGERES", "14,20"))
 LEGER_APRES_COMPLET_H = 2              # un passage léger juste après le passage complet ne relirait rien de neuf
-BUDGET_SEUIL = float(os.environ.get("APIFY_BUDGET_SEUIL", "0.9") or 0.9)   # usage projeté du mois / limite au-delà duquel on saute
-BUDGET_CACHE_MIN = 30
+# 09/10 (Gaëtan : « Dépasse pas 25 $ / mois pour le moment ») : budget Apify TOTAL du cycle, et prix compté localement quand l'API
+# Apify ne répond pas (profils demandés ; publications lues pour la cadence)
+APIFY_BUDGET_MOIS = _flottant(os.environ.get("APIFY_BUDGET_MOIS"), 25.0)
+APIFY_PRIX_1000 = _flottant(os.environ.get("APIFY_PRIX_1000"), 2.30)
+BUDGET_CACHE_MIN = 30                  # l'API Apify (dépense du cycle) relue au plus toutes les 30 min
+RECOUVREMENT_API_MIN = 15              # un appel noté moins de 15 min avant la lecture de l'API compte encore (elle a du retard)
 APIFY_LIMITES = "https://api.apify.com/v2/users/me/limits"
 
 _deps = {}
@@ -180,6 +202,36 @@ def _ecrire(d: dict):
     _deps["ecrire_json"](_deps["FICHIER_ETATS"], d)
 
 
+# 09/10 (revue) : clés de etats_comptes.json écrites PENDANT un passage complet par d'autres que lui (garde et dépense du budget
+# Apify, heures légères faites, alertes du jour, essais de la boucle) : le passage complet, qui réécrit à la fin l'état lu au
+# début, les reprend du disque au lieu de les écraser (avant : la dépense des recherches de variantes et « legers » perdues)
+CLES_EXTERNES = ("apify_budget", "apify_local", "legers", "leger_iso", "alertes_legeres", "essais", "soir", "dashboard_masques",
+                 "dashboard_exclus")
+
+
+def _ecrire_passage(d: dict):
+    """Écrit l'état d'un passage complet en gardant les CLES_EXTERNES telles qu'elles sont sur le disque."""
+    try:
+        disque = _lire()
+    except Exception:                                                   # noqa: BLE001
+        disque = {}
+    for k in CLES_EXTERNES:
+        if k in disque:
+            d[k] = disque[k]
+    _ecrire(d)
+
+
+def _maj_etat(cles: dict):
+    """Quelques clés posées sur l'état relu à l'instant (lecture, modification, écriture sans `await` au milieu)."""
+    d = _lire()
+    d.update(cles)
+    _ecrire(d)
+
+
+def _etat_configure() -> bool:
+    return bool(_deps.get("lire_json") and _deps.get("ecrire_json") and _deps.get("FICHIER_ETATS"))
+
+
 # ------------------------------------------------------------------ Instagram
 async def scanner(handles: list) -> dict:
     """Un appel Apify pour tous les comptes → {clé: {lu, existe, prive, restreint, followers, posts, reels_hier, reels_7j, posts_lus…}} ;
@@ -187,28 +239,38 @@ async def scanner(handles: list) -> dict:
     Reels (vidéos) de la veille et des 7 derniers jours en jour civil de Paris. None si Apify est en panne : on ne conclut rien.
     05/10 : `lu` = Apify a répondu pour ce compte (fiche, ou erreur explicite « introuvable »). Un compte absent de la réponse après
     la deuxième demande, ou renvoyé sans aucun chiffre (mur de connexion, page incomplète), est `lu: False` : l'appelant n'en conclut
-    rien et n'écrit rien. `existe: False` avec `lu: True` = Apify a bien dit que le compte n'existe pas (banni, renommé, jamais créé)."""
+    rien et n'écrit rien. `existe: False` avec `lu: True` = Apify a bien dit que le compte n'existe pas (banni, renommé, jamais créé).
+    09/10 (budget de Gaëtan, 25 $ / mois) : rien n'est demandé si le scan ferait dépasser le budget Apify du mois (None, comme une
+    panne : personne n'en conclut rien) ; un compte d'un lot refusé en route est rendu `lu: False, budget: True` (jamais compté
+    comme un passage non lu, qui mène au BAN). Toute fonction du bot qui lit Instagram passe par ici (passages, recherche des @
+    changés, scan du soir, identifiants neufs, followers de la cadence)."""
+    cles = []
+    for h in handles or []:                                              # 05/10 : identifiants nettoyés, sans doublon
+        k = _cle(h)
+        if k and k not in cles:
+            cles.append(k)
+    if not await garde_apify(len(cles) * APIFY_PRIX_1000 / 1000, "profils Instagram"):
+        return None
     if _deps.get("scanner"):
         return await _deps["scanner"](handles)
     if not APIFY_TOKEN or not handles:
         return None
-    cles = []
-    for h in handles:                                                    # 05/10 : identifiants nettoyés, sans doublon
-        k = _cle(h)
-        if k and k not in cles:
-            cles.append(k)
-    items = await _apify(cles)
+    refuses = set()                                                      # 09/10 : comptes de lots refusés par la garde du budget
+    items = await _apify(cles, refuses)
     if items is None:
         return None
     # 30/09 : un compte absent de la réponse d'Apify n'est pas forcément mort (profil sauté par le robot) : les absents sont
     # redemandés une fois, à part, avant de conclure
     vus = {_handle_item(it) for it in items}
-    manquants = [h for h in cles if h not in vus]
+    manquants = [h for h in cles if h not in vus and h not in refuses]
     if manquants:
         journal.info("Apify (états) : %d compte(s) sur %d absent(s) de la première réponse, redemandés à part", len(manquants), len(cles))
-        encore = await _apify(manquants)
+        encore = await _apify(manquants, refuses)
         items += encore or []
     out = _lire_items(items, cles)
+    for h in refuses:                                                    # 09/10 : lot refusé (budget) : non lu, sans compter de jour
+        if h in out and not out[h]["lu"]:
+            out[h]["budget"] = True
     journal.info("Apify (états) : %d demandés, %d fiches reçues, %d lus, %d introuvables (réponse explicite), %d restreints, %d non lus",
                  len(cles), len(items), sum(1 for f in out.values() if f["lu"]), sum(1 for f in out.values() if f["lu"] and not f["existe"]),
                  sum(1 for f in out.values() if f["restreint"]), sum(1 for f in out.values() if not f["lu"]))
@@ -224,18 +286,31 @@ def _handle_item(item: dict) -> str:
     return _cle(str(u))
 
 
-async def _apify(handles: list):
+async def _apify(handles: list, refuses: set = None):
     """Les fiches Apify brutes de `handles`, par lots ; None si Apify est en panne (aucun lot lu).
     09/10 (dashboard) : un lot en échec ne fait plus tout jeter — les lots réussis sont gardés, les comptes du lot raté manquent
-    à la réponse (redemandés une fois par `scanner`, puis « non lus »)."""
+    à la réponse (redemandés une fois par `scanner`, puis « non lus »).
+    09/10 (budget) : chaque lot passe la garde du budget du mois (refusé s'il le ferait dépasser : ses comptes vont dans
+    `refuses` et `_derniers_refuses`) et sa dépense est notée (profils demandés × APIFY_PRIX_1000 ; un lot raté en route est compté aussi, la
+    course continue chez Apify ; un refus HTTP 4xx ne l'est pas, rien n'a tourné)."""
+    _derniers_refuses.clear()
     url = f"https://api.apify.com/v2/acts/{ACTOR_IG}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     items, reussis, rates = [], 0, 0
     for i in range(0, len(handles), LOT):                              # par lots : 130 comptes tiennent en deux ou trois appels
+        lot_h = handles[i:i + LOT]
+        cout = len(lot_h) * APIFY_PRIX_1000 / 1000
+        if not await garde_apify(cout, "profils Instagram"):
+            _derniers_refuses.update(lot_h)
+            if refuses is not None:
+                refuses.update(lot_h)
+            continue
+        paye = True
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=APIFY_TIMEOUT)) as session:
-                async with session.post(url, json={"usernames": handles[i:i + LOT]}) as reponse:
+                async with session.post(url, json={"usernames": lot_h}) as reponse:
                     if reponse.status >= 400:
                         journal.error("Apify HTTP %s (états du classeur, lot %d)", reponse.status, i // LOT + 1)
+                        paye = reponse.status >= 500 or reponse.status == 408       # 408 : la course a tourné 300 s, elle est payée
                         rates += 1
                         continue
                     lot = await reponse.json()
@@ -243,11 +318,19 @@ async def _apify(handles: list):
             journal.error("Apify injoignable (états du classeur, lot %d) : %s", i // LOT + 1, type(erreur).__name__)
             rates += 1
             continue
+        finally:
+            if paye:
+                noter_depense(cout, len(lot_h), "profils Instagram")
         reussis += 1
         items += lot if isinstance(lot, list) else []
     if rates and reussis:
         journal.warning("Apify (états) : %d lot(s) raté(s) sur %d, les lots lus sont gardés", rates, rates + reussis)
+    if _derniers_refuses:
+        journal.warning("Apify (états) : %d compte(s) non demandé(s), le lot ferait dépasser le budget du mois", len(_derniers_refuses))
     return items if reussis else None
+
+
+_derniers_refuses = set()                                               # 09/10 : comptes du dernier _apify refusés par la garde du budget
 
 
 def _fiche_vide() -> dict:
@@ -349,7 +432,10 @@ def est_a_nous(m: dict, creatrice: str) -> bool:
 
 
 async def chercher_variantes(lignes: list) -> tuple:
-    """([(ligne, nouveau @)], [ligne]) : les comptes retrouvés sous un @ proche (un seul profil qui est à nous), et les introuvables."""
+    """([(ligne, nouveau @)], [ligne]) : les comptes retrouvés sous un @ proche (un seul profil qui est à nous), et les introuvables.
+    09/10 (revue) : une ligne dont au moins une variante est revenue NON LUE (lot Apify raté ou refusé par le budget, fiche
+    illisible) n'est ni trouvée ni perdue — ni renommée, ni « introuvable » pour le clipper : elle est recherchée au passage
+    suivant. Seule une ligne dont TOUTES les variantes ont été lues peut être déclarée perdue."""
     cands = {id(c): variantes(c["handle"]) for c in lignes}
     tous = sorted({v for vs in cands.values() for v in vs})
     if not tous:
@@ -359,6 +445,8 @@ async def chercher_variantes(lignes: list) -> tuple:
         return [], []                                                   # Apify en panne : on ne conclut rien
     trouves, perdus = [], []
     for c in lignes:
+        if any(isinstance(mesures.get(v), dict) and mesures[v].get("lu", True) is False for v in cands[id(c)]):
+            continue                                                    # une variante non lue : on ne conclut rien pour cette ligne
         bons = [v for v in cands[id(c)] if est_a_nous(mesures.get(v) or {}, c.get("creatrice") or "")]
         if len(bons) == 1:
             trouves.append((c, bons[0]))
@@ -590,15 +678,22 @@ def a_scanner(comptes: list) -> list:
 
 
 # ------------------------------------------------------------------ cycle
-_verrou = None
+_verrou = (None, None)
+
+
+def _verrou_passages() -> asyncio.Lock:
+    """Le verrou des passages (complet, léger), créé dans la boucle asyncio qui tourne (même modèle que parcours._verrou_programme)."""
+    global _verrou
+    boucle_a = asyncio.get_running_loop()
+    if _verrou[0] is not boucle_a:
+        _verrou = (boucle_a, asyncio.Lock())
+    return _verrou[1]
 
 
 async def executer(ecrire: bool = True, leger: bool = False) -> dict:
     """Un seul passage à la fois (30/09 : `!dashboard` scanne aussi ; deux scans en même temps écriraient deux fois).
     09/10 (dashboard) : `leger=True` = passage léger (Followers, Reels et séries des comptes vivants, aucune décision)."""
-    global _verrou
-    _verrou = _verrou or asyncio.Lock()
-    async with _verrou:
+    async with _verrou_passages():
         return await (_executer_leger(ecrire) if leger else _executer(ecrire))
 
 
@@ -632,23 +727,71 @@ def _debut_jour_paris(maintenant: datetime, jours_avant: int = 0) -> datetime:
     return datetime(j.year, j.month, j.day, tzinfo=p.tzinfo)
 
 
+def _preuves(h: str, m: dict, hist: list) -> tuple:
+    """09/10 (revue : le compte neuf d'un clipper, retrouvé sous un @ proche, restait « suspect » pour toujours à cause des abonnés
+    de l'inconnu qui avait pris le @ prévu) : (historique utilisable, clé de la série de CE compte, cellule utilisable). Avec l'id
+    Instagram de la fiche, la série est celle qui porte cet id (sous quelque @ que ce soit) ; si la série de cette clé porte un
+    AUTRE id, l'historique et la cellule sont ceux de l'autre compte. Une cellule ne sert de preuve que pour un compte déjà suivi
+    (historique sous cette clé, ou série de ce compte) : celle d'un @ jamais scanné vient d'ailleurs (ancien @ de la ligne)."""
+    ig = str(m.get("ig_id") or "").strip()
+    cle_s, autre = h, False
+    if ig:
+        try:
+            sid, cle_s = series.id_instagram(h), series.cle_du_compte(ig)
+        except Exception:                                               # noqa: BLE001
+            sid, cle_s = "", h
+        autre = bool(sid) and sid != ig
+        if not cle_s and not autre:
+            cle_s = h                                                   # série sans id (relevés d'avant, Metricool) : la sienne
+    hist_ok = [] if autre else list(hist or [])
+    try:
+        suivi = bool(cle_s) and bool(series.derniere_lecture(cle_s))
+    except Exception:                                                   # noqa: BLE001
+        suivi = False
+    return hist_ok, cle_s, (not autre and (bool(hist_ok) or suivi))
+
+
 def _suspect(h: str, m: dict, hist: list, cellule) -> bool:
     """0 follower lu alors que le compte en avait plus de SUSPECT_FOLLOWERS (historique du scan, série, cellule du classeur) :
-    fiche suspecte (un compte vivant ne perd pas tous ses abonnés d'un coup). Un compte neuf à 0 reste écrit à 0."""
+    fiche suspecte (un compte vivant ne perd pas tous ses abonnés d'un coup). Un compte neuf à 0 reste écrit à 0. 09/10 (revue) :
+    jamais d'après les chiffres d'un autre compte (voir _preuves)."""
     f = m.get("followers")
     if not m.get("existe") or m.get("restreint") or isinstance(f, bool) or f != 0:
         return False
+    hist_ok, cle_s, cellule_ok = _preuves(h, m, hist)
     try:
-        dans_serie = series.followers_a(h)
+        dans_serie = series.followers_a(cle_s) if cle_s else None
     except Exception:                                                   # noqa: BLE001
         dans_serie = None
-    avant = [e.get("followers") for e in hist or []] + [dans_serie, _chiffre(cellule)]
+    avant = [e.get("followers") for e in hist_ok] + [dans_serie] + ([_chiffre(cellule)] if cellule_ok else [])
     return any(isinstance(x, int) and not isinstance(x, bool) and x > SUSPECT_FOLLOWERS for x in avant)
+
+
+def _publie_d_habitude(h: str, m: dict, hist: list) -> bool:
+    """09/10 (revue) : le compte publie (une publication vue par un passage des 14 derniers jours, ou postsCount > 0 dans un relevé
+    Apify de moins de 14 jours de la série de ce compte) — une fiche qui annonce 0 publication est alors dégradée."""
+    hist_ok, cle_s, _ = _preuves(h, m, hist)
+    if any(int(e.get("posts_lus") or 0) > 0 or int(e.get("posts") or 0) > 0 for e in hist_ok if e.get("existe")):
+        return True
+    if not cle_s:
+        return False
+    try:
+        r = series.dernier_releve(cle_s, source="apify")
+    except Exception:                                                   # noqa: BLE001
+        return False
+    t = _instant((r or {}).get("t"))
+    n = (r or {}).get("posts_total")
+    return isinstance(n, int) and not isinstance(n, bool) and n > 0 and t is not None \
+        and datetime.now(timezone.utc) - t <= timedelta(days=JOURS_HISTORIQUE)
 
 
 def _controler(lignes: list, mesures: dict, ids_non_lus: set, d: dict) -> tuple:
     """Les fiches lues passées au crible des faux 0 : ([lignes à followers suspects], [lignes à Reels non lus]). Un suspect perd
-    ses followers (None : rien écrit, null dans la série)."""
+    ses followers (None : rien écrit, null dans la série).
+    09/10 (revue : fiche « tout à zéro » — followersCount 0, postsCount 0, latestPosts vide — jugée suspecte pour les followers mais
+    crue pour les Reels, « Reels Hier » passait à 0) : une fiche suspecte sans aucune publication vue, ou qui annonce 0 publication
+    alors que le compte publie, a aussi ses Reels NON LUS — cellules gardées, jour sauté dans l'historique, relevé de série qui ne
+    couvre rien et ne certifie aucun 0. Une fiche suspecte qui montre des publications garde ses Reels (elles sont bien là)."""
     suspects, reels_nl, vus = [], [], set()
     for c in lignes:
         h = _cle(c["handle"])
@@ -656,11 +799,22 @@ def _controler(lignes: list, mesures: dict, ids_non_lus: set, d: dict) -> tuple:
         if id(c) in ids_non_lus or h in vus or not isinstance(m, dict) or not m.get("lu", True) or not m.get("existe"):
             continue
         vus.add(h)
-        if _suspect(h, m, (d.get("historique") or {}).get(h, []), c.get("followers")):
+        hist = (d.get("historique") or {}).get(h, [])
+        suspect = _suspect(h, m, hist, c.get("followers"))
+        if suspect:
             m["followers"] = None
             m["followers_suspect"] = True
             suspects.append(c)
-        if not m.get("reels_lus", True) and not m.get("restreint") and not m.get("prive"):
+        lisible = not m.get("restreint") and not m.get("prive")
+        sans_publication = not int(m.get("posts_lus") or 0)
+        if lisible and m.get("reels_lus", True) and sans_publication \
+                and (suspect or (m.get("posts_total") == 0 and _publie_d_habitude(h, m, hist))):
+            m["reels_lus"] = False                                      # la fiche ne prouve pas « 0 Reel »
+            m["reels_suspects"] = True
+            m.pop("couvre", None)
+            if m.get("posts_total") == 0:
+                m["posts_total"] = None                                 # « 0 publication » d'une fiche dégradée : non lu
+        if not m.get("reels_lus", True) and lisible:
             reels_nl.append(c)
     return suspects, reels_nl
 
@@ -705,25 +859,70 @@ def _followers_metricool(h: str):
     return f if datetime.now(timezone.utc) - t <= timedelta(hours=48) else None
 
 
-def _valeurs_reels(h: str, m: dict, hist_prec: list, jour: str, maintenant: datetime) -> dict:
+def _couvre_depuis(m: dict, depuis: datetime) -> bool:
+    """09/10 (revue) : la fiche voit-elle TOUTES les publications depuis `depuis` ? `couvre` "" = tout le compte, une date = la plus
+    ancienne publication non épinglée vue ; sans `couvre` (fiche d'avant le 09/10), on la croit comme avant."""
+    if "couvre" not in m or m.get("couvre") == "":
+        return True
+    c = _instant(m.get("couvre"))
+    return c is not None and c <= depuis
+
+
+def _historique_complet(hist_prec: list, jour: str) -> bool:
+    """Les 6 jours qui précèdent `jour` ont chacun un passage complet qui a lu les Reels de sa veille (reels_7j_estime est alors
+    un compte exact, pas un minorant)."""
+    jours = {str(e.get("jour", ""))[:10] for e in hist_prec or []
+             if e.get("existe") and "reels_hier" in e and not e.get("reels_non_lus") and not e.get("reels_hier_incomplet")
+             and not e.get("restreint") and not e.get("prive")}
+    try:
+        j0 = date.fromisoformat(str(jour)[:10])
+    except ValueError:
+        return False
+    return all((j0 - timedelta(days=k)).isoformat() in jours for k in range(1, 7))
+
+
+def _reels_hier_sur(h: str, m: dict, maintenant: datetime):
+    """Les Reels de la veille (Paris) d'une fiche lue, s'ils sont SÛRS : comptés par la fiche si elle voit toute la veille, sinon par
+    la série (si elle couvre la veille) ; None si personne n'a vu toute la veille (12 publications d'aujourd'hui remplissent
+    latestPosts, par exemple) — jamais un 0 par défaut."""
+    n_hier = int(m.get("reels_hier") or 0)
+    try:
+        s_hier = series.reels_publies(h, _debut_jour_paris(maintenant, 1), _debut_jour_paris(maintenant), maintenant)
+    except Exception:                                                   # noqa: BLE001
+        s_hier = None
+    if _couvre_depuis(m, _debut_jour_paris(maintenant, 1)):
+        return max(n_hier, s_hier) if s_hier is not None else n_hier
+    return max(n_hier, s_hier) if s_hier is not None else None
+
+
+def _valeurs_reels(h: str, m: dict, hist_prec: list, jour: str, maintenant: datetime, cellule_7j=None) -> dict:
     """Les cellules Reels Hier / Reels 7 j d'une fiche lue : '' si le compte cache ses Reels (restreint, privé) ou n'existe plus ;
     rien (cellules gardées) si les Reels n'ont pas été lus ; sinon le meilleur des minorants — latestPosts du passage, historique
-    du scan, série des passages précédents (même définition : vidéos non épinglées, jour civil de Paris)."""
+    du scan, série des passages précédents (même définition : vidéos non épinglées, jour civil de Paris).
+    09/10 (revue : « Reels Hier » écrit à 0 alors que latestPosts ne voyait pas la veille) : une période que ni la fiche (`couvre`)
+    ni la série ne voient en entier n'est pas écrite — « Reels Hier » est gardé ; « Reels 7 j » n'est écrit que si la fiche ou la
+    série couvrent les 7 jours, ou si l'historique du scan les a tous comptés, sinon seulement s'il ne baisse pas la cellule."""
     if not m.get("existe") or m.get("restreint") or m.get("prive"):
         return {"reels_hier": "", "reels_7j": ""}
     if not m.get("reels_lus", True):
         return {}
-    n_hier = int(m.get("reels_hier") or 0)
+    out = {}
+    n_hier = _reels_hier_sur(h, m, maintenant)
+    if n_hier is not None:
+        out["reels_hier"] = str(n_hier)
     n_7j = reels_7j_estime(m, hist_prec, jour)
     try:
-        auj = _debut_jour_paris(maintenant)
-        s_hier = series.reels_publies(h, _debut_jour_paris(maintenant, 1), auj, maintenant)
-        s_7j = series.reels_publies(h, _debut_jour_paris(maintenant, 7), auj, maintenant)
+        s_7j = series.reels_publies(h, _debut_jour_paris(maintenant, 7), _debut_jour_paris(maintenant), maintenant)
     except Exception:                                                   # noqa: BLE001
-        s_hier = s_7j = None
-    n_hier = max(n_hier, s_hier) if s_hier is not None else n_hier
+        s_7j = None
+    sur_7j = _couvre_depuis(m, _debut_jour_paris(maintenant, 7)) or s_7j is not None \
+        or (n_hier is not None and _historique_complet(hist_prec, jour))
     n_7j = max(n_7j, s_7j) if s_7j is not None else n_7j
-    return {"reels_hier": str(n_hier), "reels_7j": str(max(n_7j, n_hier))}
+    n_7j = max(n_7j, n_hier or 0)
+    cellule = _chiffre(cellule_7j)
+    if sur_7j or (n_7j > 0 and (cellule is None or n_7j >= cellule)):      # un minimum de 0 ne prouve rien : jamais écrit
+        out["reels_7j"] = str(n_7j)
+    return out
 
 
 def _ecritures_mesure(c: dict, m, hist_prec: list, jour: str, maintenant: datetime) -> list:
@@ -736,7 +935,7 @@ def _ecritures_mesure(c: dict, m, hist_prec: list, jour: str, maintenant: dateti
         f = m["followers"]
     if f is not None and onboarding.a_colonne("followers", onglet) and _propre(f) != _propre(c.get("followers")):
         out.append({"c": c, "champ": "followers", "valeur": f})
-    for champ, valeur in (_valeurs_reels(h, m, hist_prec, jour, maintenant) if m else {}).items():
+    for champ, valeur in (_valeurs_reels(h, m, hist_prec, jour, maintenant, c.get("reels_7j")) if m else {}).items():
         if onboarding.a_colonne(champ, onglet) and _propre(valeur) != _propre(c.get(champ)):
             out.append({"c": c, "champ": champ, "valeur": valeur})
     return out
@@ -799,6 +998,11 @@ async def _ecrire_lot(ecritures: list) -> tuple:
         ici = [r for r in toutes if r.get("onglet", "") == onglet]
         if not ici:
             perdues.append((e, "ligne passée dans un autre onglet" if toutes else "ligne disparue du classeur"))
+            continue
+        # 09/10 (revue) : l'en-tête RELU porte-t-il encore la colonne ? (« Reels 7 j » retouché pendant le passage : la lettre
+        # retombait sur la colonne A et le nombre de Reels écrasait l'ETAT de la ligne)
+        if e["champ"] != "etat" and not onboarding.a_colonne(e["champ"], onglet):
+            perdues.append((e, "colonne introuvable dans l'en-tête"))
             continue
         if e["champ"] == "etat":
             ici = [r for r in ici if _norm(r.get("etat") or "") == _norm(e.get("attendu") or "")]
@@ -867,9 +1071,10 @@ async def _executer(ecrire: bool = True) -> dict:
     if not lignes:
         return {"changements": [], "scannes": 0, "erreur": ""}
     debut_scan = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    t_refus = _horloge.monotonic()
     mesures = await scanner([_cle(c["handle"]) for c in lignes])
     if mesures is None:
-        return {"changements": [], "scannes": 0, "erreur": "Instagram illisible aujourd'hui (Apify), rien changé"}
+        return {"changements": [], "scannes": 0, "erreur": _erreur_budget(t_refus) or "Instagram illisible aujourd'hui (Apify), rien changé"}
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if ecrire:
@@ -885,6 +1090,9 @@ async def _executer(ecrire: bool = True) -> dict:
         m = mesures.get(h)
         if m is not None and m.get("lu", True):                           # (un faux scanner de test sans clé `lu` = lu)
             non_lus_d.pop(h, None)
+            continue
+        if m is not None and m.get("budget"):                           # 09/10 : pas demandé (budget du mois) : non lu, sans compter
+            non_lus.append(c)
             continue
         suivi = non_lus_d.get(h) or {}
         n = int(suivi.get("jours") or 0) + (0 if suivi.get("dernier") == jour else 1)
@@ -952,6 +1160,14 @@ async def _executer(ecrire: bool = True) -> dict:
                   "posts_lus": int(m.get("posts_lus") or 0)}
         if m["existe"] and not m["restreint"] and not m["prive"] and not m.get("reels_lus", True):
             entree["reels_non_lus"] = True                               # 09/10 (dashboard) : jour sauté, pas « 0 Reel »
+        elif m["existe"] and not m["restreint"] and not m["prive"]:
+            # 09/10 (revue) : la veille vue en entier ? Sinon « reels_hier » n'est qu'un minimum (latestPosts rempli par le jour même) :
+            # noté, pour que « Reels 7 j » ne le prenne jamais pour un compte exact
+            sur = _reels_hier_sur(h, m, maintenant)
+            if sur is None:
+                entree["reels_hier_incomplet"] = True
+            else:
+                entree["reels_hier"] = max(entree["reels_hier"], sur)
         hist.append(entree)
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
         if ecrire and m["existe"] and m.get("bio_lu"):                  # 08/10 : le lien du profil, pour vérifier celui du privé
@@ -995,6 +1211,7 @@ async def _executer(ecrire: bool = True) -> dict:
         if len(lot) > VARIANTES_MAX:
             journal.info("Recherche des @ changés : %s comptes, %s cherchés ce passage", len(lot), VARIANTES_MAX)
         lot = lot[:VARIANTES_MAX]
+        avant_cherches = {_cle(c["handle"]): d["cherches"].get(_cle(c["handle"])) for c in lot}
         for c in lot:
             d["cherches"][_cle(c["handle"])] = jour
         try:
@@ -1002,6 +1219,17 @@ async def _executer(ecrire: bool = True) -> dict:
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Recherche des @ changés : %s", erreur)
             trouves, perdus = [], []
+        # 09/10 (revue) : une ligne ni trouvée ni perdue (une variante non lue : lot raté, budget, Apify en panne) n'a pas vraiment été
+        # cherchée — pas notée « cherchée aujourd'hui » (elle repart au passage suivant) et pas de BAN différé conclu sans elle
+        conclus = {id(c) for c, _ in trouves} | {id(c) for c in perdus}
+        for c in lot:
+            if id(c) not in conclus:
+                h_i = _cle(c["handle"])
+                if avant_cherches.get(h_i):
+                    d["cherches"][h_i] = avant_cherches[h_i]
+                else:
+                    d["cherches"].pop(h_i, None)
+                differes.pop(id(c), None)
         for c, nouveau in trouves:
             h_c = _cle(c["handle"])
             try:
@@ -1154,12 +1382,6 @@ async def _executer(ecrire: bool = True) -> dict:
                     _deps["deposer"](sid, "reels", texte_r)
             except Exception as erreur:                                      # noqa: BLE001
                 journal.warning("Reels du matin pour %s : %s", prenom, erreur)
-    if ecrire:
-        try:                                                                        # 28/09 : l'onglet Dashboard, une ligne par clipper
-            await ecrire_dashboard(comptes, d["historique"], _deps.get("clics_7j"), jour, forme=True)   # 09/10 : + onglets, capacité
-            d["dashboard_version"] = DASHBOARD_VERSION
-        except Exception as erreur:                                      # noqa: BLE001
-            journal.warning("Dashboard : %s", erreur)
     if ecrire and _deps.get("verifier_classeur"):                                 # 29/09 : le classeur se vérifie seul, rien corrigé
         try:
             await _deps["verifier_classeur"](comptes, d["historique"])
@@ -1169,7 +1391,14 @@ async def _executer(ecrire: bool = True) -> dict:
         d["dernier"] = jour
         d["version"] = VERSION
         d["dernier_passage"] = _resume_passage("complet", maintenant, lignes, mesures, non_lus, suspects, reels_nl, perdues)
-        _ecrire(d)
+        _ecrire_passage(d)
+        # 09/10 (revue) : le Dashboard APRÈS l'enregistrement de l'état du passage (il relit etats_comptes.json : avant, il montrait
+        # l'historique, les non lus et le dernier passage de la veille — un compte lu ce matin affiché « non lu »)
+        try:                                                                        # 28/09 : l'onglet Dashboard
+            await ecrire_dashboard(comptes, d["historique"], _deps.get("clics_7j"), jour, forme=True)   # 09/10 : + onglets, capacité
+            _maj_etat({"dashboard_version": DASHBOARD_VERSION})
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.warning("Dashboard : %s", erreur)
     # 05/10 : les compteurs du passage dans le journal (jamais d'identifiant de compte) — c'est ici qu'on lit, dans Railway, pourquoi
     # une cellule n'a pas bougé : non lu (Apify muet), restreint (chiffres cachés), introuvable (réponse explicite)
     journal.info("États du classeur : %d compte(s) scanné(s), %d non lu(s) laissés tels quels, %d restreint(s), %d introuvable(s) "
@@ -1206,9 +1435,11 @@ async def _executer_leger(ecrire: bool = True) -> dict:
     lignes = [c for c in a_scanner(comptes) if _vivant(c)]
     if not lignes:
         return vide
+    t_refus = _horloge.monotonic()
     mesures = await scanner([_cle(c["handle"]) for c in lignes])
     if mesures is None:
-        return {**vide, "scannes": len(lignes), "erreur": "Instagram illisible (Apify), passage léger sans effet"}
+        return {**vide, "scannes": len(lignes),
+                "erreur": _erreur_budget(t_refus) or "Instagram illisible (Apify), passage léger sans effet"}
     non_lus = [c for c in lignes if not (isinstance(mesures.get(_cle(c["handle"])), dict) and mesures[_cle(c["handle"])].get("lu", True))]
     if non_lus and len(non_lus) * 2 > len(lignes):
         return {**vide, "scannes": len(lignes),
@@ -1235,9 +1466,20 @@ async def _executer_leger(ecrire: bool = True) -> dict:
     followers_maj = sum(1 for e in faites if e["champ"] == "followers")
     reels_maj = sum(1 for e in faites if e["champ"] in ("reels_hier", "reels_7j"))
     if ecrire:
-        d2 = _lire()                                                    # relu juste avant : seules ces deux clés changent
+        d2 = _lire()                                                    # relu juste avant : seules ces clés changent
         d2["leger_iso"] = maintenant.isoformat(timespec="seconds")
         d2["dernier_passage"] = _resume_passage("leger", maintenant, lignes, mesures, non_lus, suspects, reels_nl, perdues)
+        # 09/10 (revue) : un compte non lu au passage du matin et LU (vivant) par ce passage n'est plus « non lu » (le Dashboard et le
+        # contrôle l'affichaient « non lu » toute la journée) ; le compteur ne grandit jamais ici (seul le complet compte les jours)
+        if isinstance(d2.get("non_lus"), dict):
+            for c in lignes:
+                h = _cle(c["handle"])
+                m = mesures.get(h)
+                if id(c) not in ids_non_lus and isinstance(m, dict) and m.get("lu", True) and m.get("existe"):
+                    d2["non_lus"].pop(h, None)
+        loc = d2.get("apify_local") if isinstance(d2.get("apify_local"), dict) else {}
+        loc["cout_leger_usd"] = round(len({_cle(c["handle"]) for c in lignes}) * APIFY_PRIX_1000 / 1000, 4)   # le prochain, estimé
+        d2["apify_local"] = loc
         _ecrire(d2)
     journal.info("Passage léger : %d compte(s) vivant(s) demandé(s), %d non lu(s), %d followers et %d cellules Reels mis à jour, "
                  "%d followers suspects, %d Reels non lus, %d écriture(s) perdue(s)", len(lignes), len(non_lus), followers_maj,
@@ -1248,18 +1490,39 @@ async def _executer_leger(ecrire: bool = True) -> dict:
             "restreints": sorted(_txt_ligne(c) for c in lignes if (mesures.get(_cle(c["handle"])) or {}).get("restreint"))}
 
 
-# ------------------------------------------------------------------ 09/10 (dashboard) : budget Apify et passages légers
+# ------------------------------------------------------------------ 09/10 : budget Apify du mois (25 $, décision de Gaëtan) et passages légers
 def _montant(v):
     if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v < 0:
         return None
     return float(v)
 
 
-def projection_budget(brut, maintenant: datetime = None):
-    """La réponse de GET /v2/users/me/limits → {t, usage_usd, limite_usd, projete_usd, part, debut, fin, ok}. Usage projeté =
-    usage du cycle ÷ part du cycle écoulée (au moins 10 %, pour ne pas affoler le premier jour) ; part = projeté ÷ limite ;
-    ok = part sous BUDGET_SEUIL (ou aucune limite posée). None si la réponse est illisible."""
-    maintenant = maintenant or datetime.now(timezone.utc)
+def _iso(dt) -> str:
+    return dt.astimezone(timezone.utc).isoformat(timespec="seconds") if dt else ""
+
+
+def _plus_un_mois(dt: datetime) -> datetime:
+    a, m = (dt.year + 1, 1) if dt.month == 12 else (dt.year, dt.month + 1)
+    return dt.replace(year=a, month=m, day=min(dt.day, calendar.monthrange(a, m)[1]))
+
+
+def _cycle(maintenant: datetime, api: dict = None) -> tuple:
+    """(début, fin) du cycle de facturation Apify en cours : celui que l'API a donné (avancé d'un mois tant qu'il est fini), sinon
+    le mois civil (UTC)."""
+    api = api if isinstance(api, dict) else {}
+    d0, d1 = _instant(api.get("cycle_debut")), _instant(api.get("cycle_fin"))
+    if d0 is not None and d1 is not None and d1 > d0:
+        n = 0
+        while maintenant >= d1 and n < 36:
+            d0, d1, n = d1, _plus_un_mois(d1), n + 1
+        if d0 <= maintenant < d1:
+            return d0, d1
+    d0 = maintenant.astimezone(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return d0, _plus_un_mois(d0)
+
+
+def _lire_api(brut, maintenant: datetime):
+    """La réponse de GET /v2/users/me/limits → {t, usage_usd, limite_usd, cycle_debut, cycle_fin} ; None si illisible."""
     data = brut.get("data", brut) if isinstance(brut, dict) else None
     if not isinstance(data, dict):
         return None
@@ -1268,59 +1531,219 @@ def projection_budget(brut, maintenant: datetime = None):
         return None
     limite = _montant((data.get("limits") or {}).get("maxMonthlyUsageUsd")) or None
     cycle = data.get("monthlyUsageCycle") or {}
-    debut, fin = _instant(cycle.get("startAt")), _instant(cycle.get("endAt"))
-    projete = None
-    if debut and fin and fin > debut:
-        ecoule = min(1.0, max(0.1, (maintenant - debut) / (fin - debut)))
-        projete = usage / ecoule
-    base = projete if projete is not None else usage
-    part = base / limite if limite else None
-    return {"t": maintenant.isoformat(timespec="seconds"), "usage_usd": round(usage, 2),
-            "limite_usd": round(limite, 2) if limite else None, "projete_usd": round(projete, 2) if projete is not None else None,
-            "part": round(part, 3) if part is not None else None,
-            "debut": debut.isoformat(timespec="seconds") if debut else "", "fin": fin.isoformat(timespec="seconds") if fin else "",
-            "ok": part is None or part <= BUDGET_SEUIL}
+    d0, d1 = _instant(cycle.get("startAt")), _instant(cycle.get("endAt"))
+    return {"t": _iso(maintenant), "usage_usd": round(usage, 4), "limite_usd": round(limite, 2) if limite else None,
+            "cycle_debut": _iso(d0), "cycle_fin": _iso(d1)}
+
+
+def _registre(d: dict) -> dict:
+    """Le registre local du budget dans l'état (« apify_local ») : {api (dernière lecture de l'API), api_essai, entrees
+    [[iso, usd, unités, quoi]] du cycle, cout_leger_usd}."""
+    loc = d.get("apify_local") if isinstance(d.get("apify_local"), dict) else {}
+    if not isinstance(loc.get("entrees"), list):
+        loc["entrees"] = []
+    d["apify_local"] = loc
+    return loc
+
+
+def _cout_leger(d: dict) -> float:
+    """Ce que coûtera la prochaine relecture légère : celle d'avant (comptes vivants × prix), sinon les comptes du dernier passage."""
+    loc = d.get("apify_local") if isinstance(d.get("apify_local"), dict) else {}
+    c = _montant(loc.get("cout_leger_usd"))
+    if c is not None:
+        return c
+    n = (d.get("dernier_passage") or {}).get("demandes") if isinstance(d.get("dernier_passage"), dict) else None
+    return int(n) * APIFY_PRIX_1000 / 1000 if isinstance(n, int) and not isinstance(n, bool) and n > 0 else 0.0
+
+
+def etat_budget(d: dict = None, maintenant: datetime = None) -> dict:
+    """Le budget Apify du cycle (contrat C6a), calcul pur sur l'état (« apify_local ») :
+    {t, source (« apify » : dernière lecture de l'API + appels notés depuis ; « local » : appels notés seulement), usage_usd,
+     limite_usd (limite du compte Apify, si lue), budget_usd (APIFY_BUDGET_MOIS), trajectoire_usd (budget × part du cycle écoulée),
+     part (usage ÷ budget), coupe (usage ≥ budget : plus aucun appel Apify), leger_ok (pas coupé, et la dépense, relecture légère
+     comprise, reste sous la trajectoire), cycle_debut, cycle_fin}
+    et, en plus : projete_usd (usage ÷ part écoulée, au moins 10 %), cout_leger_usd, api_t (heure de la dernière lecture de
+    l'API), ok (= leger_ok, pour les lecteurs d'avant le 09/10)."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    if d is None:
+        d = _lire() if _etat_configure() else {}
+    loc = d.get("apify_local") if isinstance(d.get("apify_local"), dict) else {}
+    api = loc.get("api") if isinstance(loc.get("api"), dict) else {}
+    d0, d1 = _cycle(maintenant, api)
+    entrees = []
+    for e in loc.get("entrees") or []:
+        t = _instant(e[0]) if isinstance(e, list) and e else None
+        usd = _montant(e[1]) if isinstance(e, list) and len(e) > 1 else None
+        if t is not None and usd is not None and d0 <= t <= maintenant + timedelta(minutes=5):
+            entrees.append((t, usd))
+    t_api, u_api = _instant(api.get("t")), _montant(api.get("usage_usd"))
+    if t_api is not None and u_api is not None and d0 <= t_api <= maintenant + timedelta(minutes=5):
+        # l'API compte avec quelques minutes de retard : un appel noté juste avant sa lecture compte encore (au pire compté deux
+        # fois une demi-heure — prudent pour un plafond)
+        usage, source = u_api + sum(u for t, u in entrees if t > t_api - timedelta(minutes=RECOUVREMENT_API_MIN)), "apify"
+    else:
+        usage, source = sum(u for _, u in entrees), "local"
+    budget = APIFY_BUDGET_MOIS
+    duree = (d1 - d0).total_seconds()
+    ecoule = min(1.0, max(0.0, (maintenant - d0).total_seconds() / duree)) if duree > 0 else 1.0
+    trajectoire = budget * ecoule
+    cout_leger = _cout_leger(d)
+    coupe = usage >= budget
+    leger_ok = not coupe and usage + cout_leger <= trajectoire + 1e-9
+    return {"t": _iso(maintenant), "source": source, "usage_usd": round(usage, 4), "limite_usd": _montant(api.get("limite_usd")) or None,
+            "budget_usd": round(budget, 2), "trajectoire_usd": round(trajectoire, 2),
+            "part": round(usage / budget, 3) if budget > 0 else None, "coupe": coupe, "leger_ok": leger_ok,
+            "cycle_debut": _iso(d0), "cycle_fin": _iso(d1),
+            "projete_usd": round(usage / max(0.1, ecoule), 2), "cout_leger_usd": round(cout_leger, 2), "api_t": str(api.get("t") or ""),
+            "ok": leger_ok}
+
+
+def projection_budget(brut, maintenant: datetime = None):
+    """La réponse de GET /v2/users/me/limits seule → le budget du cycle (etat_budget, source « apify », sans les appels notés
+    depuis) ; None si la réponse est illisible."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    api = _lire_api(brut, maintenant)
+    if api is None:
+        return None
+    return etat_budget({"apify_local": {"api": api, "entrees": []}}, maintenant)
 
 
 def budget_apify_connu() -> dict:
-    """Le dernier budget Apify lu (etats_comptes.json, « apify_budget ») — pour le Dashboard, sans aucun appel ; {} si inconnu."""
+    """Le dernier budget Apify publié (etats_comptes.json, « apify_budget ») — pour le Dashboard, sans aucun appel ; {} si inconnu."""
     try:
         return dict(_lire().get("apify_budget") or {})
     except Exception:                                                   # noqa: BLE001
         return {}
 
 
-async def apify_budget(forcer: bool = False):
-    """Le budget Apify du mois (GET https://api.apify.com/v2/users/me/limits?token=…), gardé dans etats_comptes.json
-    (« apify_budget ») et relu au plus toutes les BUDGET_CACHE_MIN minutes. None si illisible."""
-    maintenant = datetime.now(timezone.utc)
-    connu = budget_apify_connu()
-    t = _instant(connu.get("t"))
-    if not forcer and t is not None and timedelta(0) <= maintenant - t < timedelta(minutes=BUDGET_CACHE_MIN):
-        return connu
-    brut = None
-    try:
-        if _deps.get("apify_limites"):
-            brut = await _deps["apify_limites"]()
-        elif APIFY_TOKEN:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-                async with session.get(APIFY_LIMITES, params={"token": APIFY_TOKEN}) as reponse:
-                    if reponse.status >= 400:
-                        journal.warning("Apify : budget du mois illisible (HTTP %s)", reponse.status)
-                    else:
-                        brut = await reponse.json()
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.warning("Apify : budget du mois illisible (%s)", type(erreur).__name__)
-    b = projection_budget(brut, maintenant) if brut is not None else None
-    if b is not None:
-        d = _lire()
-        d["apify_budget"] = b
+async def _lire_limites():
+    """GET https://api.apify.com/v2/users/me/limits?token=… (lecture seule, gratuite) ; None si illisible."""
+    if _deps.get("apify_limites"):
+        return await _deps["apify_limites"]()
+    if not APIFY_TOKEN:
+        return None
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+        async with session.get(APIFY_LIMITES, params={"token": APIFY_TOKEN}) as reponse:
+            if reponse.status >= 400:
+                journal.warning("Apify : dépense du mois illisible (HTTP %s), comptée localement", reponse.status)
+                return None
+            return await reponse.json()
+
+
+_CLES_DECISION = ("source", "usage_usd", "limite_usd", "budget_usd", "coupe", "leger_ok", "cycle_debut", "cycle_fin", "cout_leger_usd")
+
+
+async def apify_budget(forcer: bool = False, publier: bool = False, maintenant: datetime = None) -> dict:
+    """Le budget Apify du cycle (contrat C6a, voir etat_budget), publié dans etats_comptes.json (« apify_budget ») pour le Dashboard.
+    L'API Apify (users/me/limits) est relue au plus toutes les BUDGET_CACHE_MIN minutes (`forcer` : tout de suite), une panne de
+    l'API n'est réessayée qu'après le même délai ; à défaut, la dépense comptée localement. `publier` : écrit même si rien de décisif
+    n'a changé (heure et trajectoire fraîches, boucle de 15 min)."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    if not _etat_configure():
+        return etat_budget({}, maintenant)
+    d = _lire()
+    loc = d.get("apify_local") if isinstance(d.get("apify_local"), dict) else {}
+    t_api = _instant((loc.get("api") or {}).get("t")) if isinstance(loc.get("api"), dict) else None
+    essai = _instant(loc.get("api_essai"))
+    recent = lambda t: t is not None and timedelta(0) <= maintenant - t < timedelta(minutes=BUDGET_CACHE_MIN)   # noqa: E731
+    lu = essaye = False
+    if forcer or not (recent(t_api) or recent(essai)):
+        essaye = True
+        try:
+            brut = await _lire_limites()
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Apify : dépense du mois illisible (%s), comptée localement", type(erreur).__name__)
+            brut = None
+        api = _lire_api(brut, maintenant) if brut is not None else None
+        d = _lire()                                                     # relu après l'appel : rien d'écrit pendant n'est perdu
+        loc = _registre(d)
+        loc["api_essai"] = _iso(maintenant)
+        if api is not None:
+            loc["api"] = api
+            lu = True
+    st = etat_budget(d, maintenant)
+    ancien = d.get("apify_budget") if isinstance(d.get("apify_budget"), dict) else {}
+    if publier or essaye or any(st.get(k) != ancien.get(k) for k in _CLES_DECISION):
+        d["apify_budget"] = st
         _ecrire(d)
-    return b
+    if lu:
+        journal.info("Apify : %s $ dépensés ce cycle (budget %s $, trajectoire %s $)", _euros(st["usage_usd"]), _euros(st["budget_usd"]),
+                     _euros(st["trajectoire_usd"]))
+    return st
+
+
+def noter_depense(usd: float, unites: int = 0, quoi: str = "") -> None:
+    """Une dépense Apify faite par le bot (profils demandés, publications lues), notée dans le registre du cycle : elle compte
+    jusqu'à ce que l'API Apify, relue après elle, l'inclue (ou toute seule si l'API ne répond pas)."""
+    if not _etat_configure() or not usd or usd <= 0:
+        return
+    maintenant = datetime.now(timezone.utc)
+    try:
+        d = _lire()
+        loc = _registre(d)
+        d0, _ = _cycle(maintenant, loc.get("api"))
+        garde = [e for e in loc["entrees"] if isinstance(e, list) and e and (_instant(e[0]) or d0 - timedelta(1)) >= d0]
+        loc["entrees"] = garde[-1999:] + [[_iso(maintenant), round(float(usd), 4), int(unites or 0), str(quoi or "")[:40]]]
+        d["apify_budget"] = etat_budget(d, maintenant)
+        _ecrire(d)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Apify : dépense non notée (%s)", type(erreur).__name__)
+
+
+_refus = {"t": 0.0}                                                     # dernier appel refusé par la garde (horloge monotone)
+
+
+async def garde_apify(cout_usd: float, quoi: str = "") -> bool:
+    """09/10 (Gaëtan : « Dépasse pas 25 $ / mois ») : un appel Apify de `cout_usd` est-il permis ? Refusé si le budget du cycle est
+    atteint (coupe) ou si cet appel le ferait dépasser ; alerte admin une fois par jour. Sans état configuré (tests d'un autre
+    module) : permis ; si le budget ne peut pas être calculé : refusé (jamais de dépense à l'aveugle)."""
+    if not _etat_configure():
+        return True
+    try:
+        st = await apify_budget()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.error("Apify : budget du mois incalculable (%s), appel refusé par prudence", type(erreur).__name__)
+        _refus["t"] = _horloge.monotonic()
+        return False
+    usage, budget = float(st.get("usage_usd") or 0), float(st.get("budget_usd") or 0)
+    if st.get("coupe") or usage + max(0.0, float(cout_usd or 0)) > budget + 1e-9:
+        _refus["t"] = _horloge.monotonic()
+        journal.warning("Apify : appel refusé (%s, %s $) — %s $ dépensés ce cycle pour un budget de %s $", quoi or "?",
+                        _euros(cout_usd), _euros(usage), _euros(budget))
+        await _alerter_coupe(st, quoi, cout_usd)
+        return False
+    return True
+
+
+def _jusqu_au(st: dict) -> str:
+    fin = _instant(st.get("cycle_fin"))
+    return _paris(fin).strftime("%d/%m") if fin else "la fin du cycle"
+
+
+def _erreur_budget(depuis: float) -> str:
+    """Le texte d'erreur d'un passage qui n'a rien lu parce que la garde du budget a refusé (depuis l'instant `depuis`) ; '' sinon."""
+    if _refus["t"] < depuis:
+        return ""
+    st = budget_apify_connu() or etat_budget()
+    return (f"budget Apify du mois atteint ({_euros(st.get('usage_usd'))} $ sur {_euros(st.get('budget_usd'))} $) : aucun appel "
+            f"Apify jusqu'au {_jusqu_au(st)}, rien changé")
+
+
+async def _alerter_coupe(st: dict, quoi: str, cout_usd) -> None:
+    jour_p = _paris(datetime.now(timezone.utc)).date().isoformat()
+    if st.get("coupe"):
+        texte = (f"⛔ Budget Apify du mois atteint : {_euros(st.get('usage_usd'))} $ dépensés sur {_euros(st.get('budget_usd'))} $ "
+                 f"(décision de Gaëtan). Plus aucun appel Apify (scan du matin, relectures, recherche des @ changés, scan du soir, "
+                 f"identifiants neufs, cadence) jusqu'au {_jusqu_au(st)}. Le Dashboard le dit.")
+        await _alerter_une_fois("coupe", jour_p, texte)
+    else:
+        texte = (f"⚠️ Budget Apify presque atteint : {_euros(st.get('usage_usd'))} $ dépensés sur {_euros(st.get('budget_usd'))} $. "
+                 f"Un appel de {_euros(cout_usd)} $ ({quoi or 'Apify'}) le dépasserait : refusé.")
+        await _alerter_une_fois("budget_refus", jour_p, texte)
 
 
 def _euros(x) -> str:
-    return f"{x:.2f}".replace(".", ",") if isinstance(x, (int, float)) else "?"
+    return f"{x:.2f}".replace(".", ",") if isinstance(x, (int, float)) and not isinstance(x, bool) else "?"
 
 
 async def _alerter_une_fois(quoi: str, jour_p: str, texte: str) -> bool:
@@ -1342,10 +1765,29 @@ async def _alerter_une_fois(quoi: str, jour_p: str, texte: str) -> bool:
     return False
 
 
+def _complet_recent(d: dict, maintenant: datetime) -> bool:
+    """Le passage complet a relu Instagram il y a moins de LEGER_APRES_COMPLET_H heures. 09/10 (revue) : un passage complet APRÈS
+    `maintenant` (heure prise avant lui par la boucle, ou complet manuel fini pendant l'attente du verrou) compte aussi comme récent
+    (avant : écart négatif, garde contournée, relecture payante juste derrière le complet)."""
+    complet = _instant(d.get("scan_iso"))
+    if complet is None:
+        return False
+    ecart = maintenant - complet
+    return -timedelta(days=1) < ecart < timedelta(hours=LEGER_APRES_COMPLET_H)
+
+
+def _texte_trajectoire(h: int, st: dict, cout: float) -> str:
+    return (f"⏭️ Relecture légère de {h} h sautée : {_euros(st.get('usage_usd'))} $ dépensés sur Apify ce mois, la trajectoire du "
+            f"budget en permet {_euros(st.get('trajectoire_usd'))} $ à cette date (budget {_euros(st.get('budget_usd'))} $, décision "
+            f"de Gaëtan ; relecture estimée à {_euros(cout)} $). Le passage complet du matin continue.")
+
+
 async def passage_leger_si_du(maintenant: datetime = None) -> str:
     """Lance le passage léger d'une heure de ETATS_HEURES_LEGERES (Paris) pas encore faite aujourd'hui. Renvoie : '' (rien de dû),
     'attente' (le passage complet du jour passe d'abord), 'recent' (le complet vient de relire Instagram : heure notée faite),
-    'budget' (budget Apify projeté au-delà de BUDGET_SEUIL de la limite, ou illisible : sauté), 'erreur', 'fait'."""
+    'budget' (budget Apify du mois atteint, ou la relecture ferait passer la dépense au-dessus de la trajectoire linéaire du
+    budget : sautée), 'erreur', 'fait'. 09/10 (revue) : « récent » et budget revérifiés une fois le verrou des passages pris (un
+    passage complet manuel en cours finit d'abord : il a relu Instagram et dépensé)."""
     if not HEURES_LEGERES:
         return ""
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -1361,23 +1803,32 @@ async def passage_leger_si_du(maintenant: datetime = None) -> str:
         return "attente"
     d["legers"] = {jour_p: sorted(set(faits) | set(dus))}               # une heure ratée n'est pas rejouée en boucle
     _ecrire(d)
-    complet = _instant(d.get("scan_iso"))
-    if complet is not None and timedelta(0) <= maintenant - complet < timedelta(hours=LEGER_APRES_COMPLET_H):
+    if _complet_recent(d, maintenant):
         journal.info("Passage léger de %d h sauté : le passage complet a relu Instagram il y a moins de %d h", dus[-1], LEGER_APRES_COMPLET_H)
         return "recent"
-    budget = await apify_budget()
-    if not budget or not budget.get("ok"):
-        if budget:
-            texte = (f"⚠️ Budget Apify du mois : {_euros(budget.get('usage_usd'))} $ dépensés, {_euros(budget.get('projete_usd'))} $ "
-                     f"projetés pour une limite de {_euros(budget.get('limite_usd'))} $ ({round(100 * (budget.get('part') or 0))} %). "
-                     "Passages légers sautés aujourd'hui ; le passage complet du matin continue.")
-        else:
-            texte = ("⚠️ Budget Apify du mois illisible : passages légers sautés aujourd'hui par prudence ; le passage complet du "
-                     "matin continue.")
-        journal.warning("Passage léger de %d h sauté : budget Apify %s", dus[-1], "trop haut" if budget else "illisible")
-        await _alerter_une_fois("budget", jour_p, texte)
+
+    async def _budget_permet(st: dict, d_: dict) -> bool:
+        cout = _cout_leger(d_)
+        if st.get("coupe"):
+            journal.warning("Passage léger de %d h sauté : budget Apify du mois atteint", dus[-1])
+            await _alerter_coupe(st, "relecture légère", cout)
+            return False
+        if float(st.get("usage_usd") or 0) + cout > float(st.get("trajectoire_usd") or 0) + 1e-9:
+            journal.warning("Passage léger de %d h sauté : dépense Apify au-dessus de la trajectoire du budget", dus[-1])
+            await _alerter_une_fois("budget", jour_p, _texte_trajectoire(dus[-1], st, cout))
+            return False
+        return True
+
+    if not await _budget_permet(await apify_budget(maintenant=maintenant), d):
         return "budget"
-    bilan = await executer(ecrire=True, leger=True)
+    async with _verrou_passages():
+        d = _lire()
+        if _complet_recent(d, maintenant):
+            journal.info("Passage léger de %d h sauté : un passage complet vient de finir", dus[-1])
+            return "recent"
+        if not await _budget_permet(etat_budget(d, maintenant), d):     # la dépense du passage qui vient de finir comptée
+            return "budget"
+        bilan = await _executer_leger(True)
     if bilan.get("erreur"):
         journal.warning("Passage léger : %s", bilan["erreur"])
         await _alerter_une_fois("leger", jour_p, f"⚠️ Passage léger de {dus[-1]} h : {bilan['erreur']}.")
@@ -1755,7 +2206,8 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
 
 async def boucle(client) -> None:
     """Un passage par jour, à HEURE_UTC, après le rapport inputs. Trois tentatives espacées de 15 minutes. 09/10 (dashboard) :
-    puis les passages légers aux heures de Paris ETATS_HEURES_LEGERES (passage_leger_si_du), sous garde du budget Apify."""
+    puis les passages légers aux heures de Paris ETATS_HEURES_LEGERES (passage_leger_si_du), sous garde du budget Apify ; le
+    budget du mois (« apify_budget ») est republié à chaque tour (15 min) pour le Dashboard."""
     if not actif():
         journal.info("États du classeur désactivés (APIFY_TOKEN / classeur absents ou ETATS_CLASSEUR=0)")
         return
@@ -1790,12 +2242,14 @@ async def boucle(client) -> None:
                     if bans and _deps.get("notifier"):
                         await _deps["notifier"]("🚫 **Comptes introuvables sur Instagram, passés en BAN** : "
                                                 + ", ".join(bans) + ". À remplacer : `!liberer Prénom handle`, puis un nouvel identifiant.")
-                    try:                                                # 09/10 (dashboard) : le budget du mois, affiché au Dashboard
-                        await apify_budget()
-                    except Exception as erreur:                         # noqa: BLE001
-                        journal.warning("Budget Apify : %s", type(erreur).__name__)
+            try:                                                        # 09/10 : le budget du mois (contrat C6a), frais pour le Dashboard
+                await apify_budget(publier=True)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Budget Apify : %s", type(erreur).__name__)
             try:                                                        # 09/10 (dashboard) : passages légers (14 h, 20 h de Paris)
-                await passage_leger_si_du(maintenant)
+                # 09/10 (revue) : l'heure d'APRÈS le passage complet de cette itération (celle de la tête de boucle le précédait :
+                # la garde « complet de moins de 2 h » ne jouait pas et une relecture payante repartait juste derrière)
+                await passage_leger_si_du(datetime.now(timezone.utc))
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Passage léger : %s", erreur)
             if SOIR_HEURE >= 0 and _paris(maintenant).hour >= SOIR_HEURE and d.get("dernier") == jour and d.get("soir") != jour:
@@ -1876,7 +2330,11 @@ async def commande_staff(message, texte: str) -> bool:
         # le passage complet (Instagram, états, followers, Reels hier, clics, regroupement) avant l'onglet. 09/10 (dashboard) : le
         # Dashboard se tient à jour seul (passages légers, séries) ; `!dashboard` réécrit l'onglet SANS scan (gratuit), et
         # `!dashboard scan` lance d'abord le passage complet payant. « rapide » / « vite » restent acceptés (sans scan).
-        if actif() and len(mots) > 1 and mots[1].lower() == "scan":
+        st = etat_budget() if actif() and len(mots) > 1 and mots[1].lower() == "scan" else {}
+        if st.get("coupe"):                                             # 09/10 (budget de Gaëtan) : plus aucun appel Apify ce mois
+            await message.reply(f"⛔ Budget Apify du mois atteint ({_euros(st.get('usage_usd'))} $ sur {_euros(st.get('budget_usd'))} $) : "
+                                f"pas de scan jusqu'au {_jusqu_au(st)}. Je réécris le Dashboard sans relire Instagram.")
+        elif actif() and len(mots) > 1 and mots[1].lower() == "scan":
             await message.reply("⏳ Je vérifie tous les comptes sur Instagram (GOOD, WARMUP, PRIVE, BAN, à créer réservés), puis je réécris le Dashboard. Quelques minutes.")
             bilan = await executer(ecrire=True)
             await message.reply(texte_bilan(bilan)[:1990])

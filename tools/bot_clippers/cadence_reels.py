@@ -16,6 +16,9 @@ plus de une fois par jour. Coût : environ 2,3 $ pour 1 000 publications lues ; 
 09/10 (dashboard) : `CADENCE_AUTO` vaut 0 par défaut — relancée à chaque déploiement (presque tous les jours), c'était le
 premier poste Apify (1 à 5 $ par passage) ; les vues par compte viennent maintenant des séries du scan (series.py), sans coût.
 `!cadence` reste. Vues d'une publication : la même règle partout (series.vues_post : videoPlayCount, sinon videoViewCount).
+09/10 (Gaëtan : « Dépasse pas 25 $ / mois ») : la cadence passe par la garde du budget Apify du mois (etats_comptes.garde_apify) :
+refusée d'emblée si sa dépense maximale (comptes × LIMITE_PAR_COMPTE publications × APIFY_PRIX_1000) ferait dépasser le budget,
+chaque lot revérifié, et la dépense notée (publications lues ; un lot raté compté au maximum, la course continue chez Apify).
 """
 import asyncio
 import logging
@@ -101,14 +104,25 @@ def prenoms_par_defaut() -> list:
 
 
 # ------------------------------------------------------------------ Apify
+def _cout_max(n_comptes: int) -> float:
+    """09/10 : la dépense Apify au plus d'une lecture de `n_comptes` comptes (LIMITE_PAR_COMPTE publications chacun)."""
+    import etats_comptes
+    return n_comptes * LIMITE_PAR_COMPTE * etats_comptes.APIFY_PRIX_1000 / 1000
+
+
 async def _apify_posts(handles: list, depuis: datetime) -> list:
-    """Les publications des comptes depuis `depuis`, par lots ; None si Apify est en panne."""
+    """Les publications des comptes depuis `depuis`, par lots ; None si Apify est en panne, ou si un lot ferait dépasser le
+    budget Apify du mois (09/10)."""
     if _deps.get("apify_posts"):
         return await _deps["apify_posts"](handles, depuis)
+    import etats_comptes                                                # la garde et le registre du budget du mois
     url = f"https://api.apify.com/v2/acts/{ACTOR_POSTS}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     items = []
     for i in range(0, len(handles), LOT):
         lot = handles[i:i + LOT]
+        maxi = _cout_max(len(lot))
+        if not await etats_comptes.garde_apify(maxi, "cadence (publications)"):
+            return None
         charge = {"directUrls": [f"https://www.instagram.com/{h}/" for h in lot], "resultsType": "posts",
                   "resultsLimit": LIMITE_PAR_COMPTE, "onlyPostsNewerThan": depuis.strftime("%Y-%m-%d"), "addParentData": False}
         try:
@@ -116,12 +130,17 @@ async def _apify_posts(handles: list, depuis: datetime) -> list:
                 async with session.post(url, json=charge) as reponse:
                     if reponse.status >= 400:
                         journal.error("Apify HTTP %s (cadence)", reponse.status)
+                        if reponse.status >= 500 or reponse.status == 408:     # la course a tourné : payée
+                            etats_comptes.noter_depense(maxi, len(lot), "cadence (raté)")
                         return None
                     brut = await reponse.json()
         except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
             journal.error("Apify injoignable (cadence) : %s", erreur)
+            etats_comptes.noter_depense(maxi, len(lot), "cadence (raté)")
             return None
-        items += brut if isinstance(brut, list) else []
+        lus = brut if isinstance(brut, list) else []
+        etats_comptes.noter_depense(len(lus) * etats_comptes.APIFY_PRIX_1000 / 1000, len(lus), "cadence (publications)")
+        items += lus
     return items
 
 
@@ -273,9 +292,17 @@ async def executer(jours: int = JOURS_DEFAUT, prenoms=None) -> tuple:
     handles = [h for hs in par_clipper.values() for h in hs]
     fin = _aujourdhui() - timedelta(days=1)
     depuis = datetime.combine(fin - timedelta(days=jours - 1), datetime.min.time())
+    if handles:                                                         # 09/10 : budget Apify du mois (décision de Gaëtan, 25 $)
+        import etats_comptes
+        maxi = _cout_max(len(handles))
+        if not await etats_comptes.garde_apify(maxi, "cadence (publications)"):
+            st = etats_comptes.budget_apify_connu() or etats_comptes.etat_budget()
+            return ([f"Cadence : budget Apify du mois insuffisant ({etats_comptes._euros(st.get('usage_usd'))} $ dépensés sur "
+                     f"{etats_comptes._euros(st.get('budget_usd'))} $ ; cette lecture peut coûter jusqu'à {etats_comptes._euros(maxi)} $). "
+                     "Rien n'a été lu. Avec moins de prénoms, la lecture coûte moins : `!cadence 30 Prénom`."], {})
     items = await _apify_posts(handles, depuis) if handles else []
     if items is None:
-        return (["Cadence : Apify ne répond pas, rien n'a été lu. Relance plus tard avec `!cadence`."], {})
+        return (["Cadence : Apify ne répond pas (ou le budget du mois est atteint), rien n'a été lu. Relance plus tard avec `!cadence`."], {})
     resultat = agreger(items, par_clipper, jours, fin)
     for p, n in (await _followers(par_clipper)).items():
         resultat[p]["followers"] = n
