@@ -302,10 +302,20 @@ def _compact(t) -> str:
     return re.sub(r"[^a-z0-9]", "", _norm(str(t or "")))
 
 
-def lien_gaml_creatrice(c: dict, details: list):
+def lignes_creatrice(comptes: list, c: dict, creatrices: set = None) -> int:
+    """09/10 (dashboard) : le nombre de lignes de compte de la créatrice de `c` (Gérant à son prénom ou « Compte de la créatrice »)."""
+    creatrices = creatrices if creatrices is not None else creatrices_connues(comptes)
+    cle = (_norm(c.get("creatrice") or c.get("onglet") or "").split() or [""])[0]
+    return sum(1 for x in comptes or [] if x.get("handle") and est_ligne_creatrice(x, creatrices)
+               and (_norm(x.get("creatrice") or x.get("onglet") or "").split() or [""])[0] == cle)
+
+
+def lien_gaml_creatrice(c: dict, details: list, seule: bool = True):
     """05/10 : le lien GAML du compte principal d'une créatrice = celui dont la note GAML dit « Compte de @<identifiant> ».
     L'identifiant de la note et celui du classeur ne s'écrivent pas toujours pareil (« prenom_nom » dans la note, « prenom.nom__ » dans le classeur) : comparés
-    sans ponctuation. À défaut, l'unique note « Compte de @… » qui commence par le prénom de la créatrice. Rien de sûr → None."""
+    sans ponctuation. À défaut, l'unique note « Compte de @… » qui commence par le prénom de la créatrice. Rien de sûr → None.
+    09/10 (dashboard) : ce repli seulement si la créatrice n'a qu'UNE ligne de compte (`seule`) : son deuxième compte recevait le
+    lien du compte principal (la seule note qui commence par son prénom), et ses clics passaient pour ceux du principal."""
     handle = _compact(normaliser_handle(c.get("handle")))
     prenom = _compact((_norm(c.get("creatrice") or c.get("onglet") or "").split() or [""])[0])
     notes = []
@@ -317,7 +327,7 @@ def lien_gaml_creatrice(c: dict, details: list):
     if exact:
         return exact[0]
     par_prenom = [d for h, d in notes if prenom and h.startswith(prenom)]
-    return par_prenom[0] if len(par_prenom) == 1 else None
+    return par_prenom[0] if len(par_prenom) == 1 and seule else None
 
 
 async def _remplir_fusions(lignes: list, titres: list) -> None:
@@ -1192,6 +1202,76 @@ def _clipper_compte(prenom: str) -> bool:
         return True
 
 
+def _premier(t) -> str:
+    return (_norm(t or "").split() or [""])[0]
+
+
+def _lien_rangeable(info: dict) -> bool:
+    """09/10 (dashboard) : un lien que liens_classeur peut ranger sous un prénom = un lien qui a un détenteur dans le bot (uid, ou
+    clipper suivi par le rapport). Jamais un lien libéré (sa note dit encore « Clipping Eddy » jusqu'au renommage : le nouvel
+    homonyme l'aurait reçu), hors clipping (Metricool), effacé ou désactivé, ni une fiche seulement relevée (page de créatrice,
+    lien neuf pas encore attribué)."""
+    info = info or {}
+    if info.get("supprime_gaml") or info.get("desactive") or info.get("hors_clipping"):
+        return False
+    if str(info.get("uid") or ""):
+        return True
+    return bool(info.get("suivi")) and not info.get("libere")
+
+
+def ligne_metricool(gerant: str) -> bool:
+    """« Rianah (Metricool) » : une ligne passée sur Metricool, gérée par son repreneur."""
+    return "metricool" in _mots(gerant)
+
+
+def _lien_du_repreneur(info: dict, gerant: str) -> bool:
+    """09/10 (dashboard) : le lien (fiche clics.json) est-il un lien Metricool du repreneur de cette ligne (« Rianah Metricool N
+    (ex-…) » pour « Rianah (Metricool) ») ?"""
+    rep = [m for m in re.findall(r"[a-z0-9]+", _norm(gerant or "")) if m != "metricool"]
+    note = re.findall(r"[a-z0-9]+", _norm(re.sub(r"\(\s*ex[^)]*\)", " ", str((info or {}).get("note") or ""), flags=re.I)))
+    return bool(rep) and note[:len(rep) + 1] == rep + ["metricool"]
+
+
+def _lien_d_un_autre(info: dict, gerant: str, note_vive: str = None) -> bool:
+    """09/10 (dashboard : « pas de liens pas assignés au compte ») : le lien d'une cellule (sa fiche clics.json) est-il, à coup
+    sûr, à quelqu'un d'autre que ce Gérant, ou à personne ? Effacé ou désactivé, libéré, hors clipping (sauf le lien Metricool du
+    repreneur de la ligne), attribué ou suivi sous un autre prénom → oui. Inconnu du bot ou seulement relevé (page de créatrice,
+    lien neuf collé à la main avant son attribution) → non : rien ne prouve qu'il n'est pas le sien. `note_vive` (la note GAML de
+    maintenant, si on l'a) qui dit que le lien est à ce Gérant (« Clipping <son prénom> », « <repreneur> Metricool N ») → non :
+    un renommage à la main pas encore suivi par la passe horaire ne fait jamais vider la cellule (sauf un lien libéré : le bot l'a
+    rendu, sa note n'est simplement pas encore renommée). Le contrôle signale le reste."""
+    if not info:
+        return False
+    p = _premier(gerant)
+    if info.get("supprime_gaml") or info.get("desactive"):
+        return True
+    if info.get("libere") and not str(info.get("uid") or "") and not info.get("hors_clipping"):
+        return True
+    if note_vive is not None and p:
+        if ligne_metricool(gerant):
+            if _lien_du_repreneur({"note": note_vive}, gerant):
+                return False
+        elif _premier(paie_clics._prenom_note(note_vive)) == p:
+            return False
+    if info.get("hors_clipping"):
+        return not (ligne_metricool(gerant) and _lien_du_repreneur(info, gerant))
+    if str(info.get("uid") or ""):
+        return _premier(_prenom_du_lien(info)) != p
+    if info.get("libere"):
+        return True
+    if info.get("suivi"):
+        return _premier(info.get("suivi_nom")) != p
+    return False
+
+
+def _jour_paris():
+    """La date du jour à Paris (heure_paris du bot), repli sur l'horloge."""
+    try:
+        return _deps["heure_paris"]().date()
+    except Exception:                                                   # noqa: BLE001
+        return paie_clics.jour_paris()
+
+
 async def liens_classeur(comptes: list = None) -> dict:
     """27/09 (« c'est le bazar ») : la colonne « Lien GAML associé » de chaque ligne = LE lien du gérant pour la créatrice de la
     ligne (Julien : son lien Sophie sur ses lignes Sophie, son lien Chloé sur ses lignes Chloé, rien sur ses lignes Maddie) ;
@@ -1203,17 +1283,26 @@ async def liens_classeur(comptes: list = None) -> dict:
     if comptes is None:
         comptes = await lire_comptes()
     d = paie_clics._lire()
+    notes_vives = {}                                                    # 09/10 : la note GAML de maintenant, quand la liste la porte
     try:
-        noms = {l["id"]: str(l.get("name") or "") for l in await paie_clics.liens_gaml() if l.get("id")}
+        liste = [l for l in await paie_clics.liens_gaml() if l.get("id")]
+        noms = {l["id"]: str(l.get("name") or "") for l in liste}
+        notes_vives = {l["id"]: str(l.get("note") or "") for l in liste if "note" in l and l.get("note") is not None}
     except RuntimeError as erreur:
         journal.warning("Liens GAML illisibles pour le classeur : %s", erreur)
         noms = {}
     creatrices = {c["creatrice"] for c in comptes if c.get("creatrice")}
-    par_prenom = {}
+    par_prenom, par_url = {}, {}
     for lid, info in d.get("liens", {}).items():
         url = str(info.get("url") or "").strip()
+        if url:
+            par_url[_url_cle(url)] = (info, notes_vives.get(lid))
+        # 09/10 (dashboard) : jamais un lien libéré, hors clipping, effacé ou désactivé rangé par prénom (le lien libéré d'un sortant,
+        # encore noté « Clipping Eddy », était écrit sur les lignes du nouvel Eddy) ; seulement les liens qui ont un détenteur
+        if not url or not _lien_rangeable(info):
+            continue
         prenom = _prenom_du_lien(info)
-        if not url or not prenom:
+        if not prenom:
             continue
         cr = _creatrice_du_lien(noms.get(lid, ""), info, url, creatrices)
         par_prenom.setdefault(_norm(prenom), []).append((cr, url, str(info.get("depuis") or ""), str(lid)))
@@ -1223,22 +1312,23 @@ async def liens_classeur(comptes: list = None) -> dict:
         g = _norm(c["gerant"])
         if not c["handle"] or g in GERANTS_LIBRES or not a_colonne("lien_gaml", c.get("onglet", "")):
             continue
+        actuel = str(c.get("lien_gaml") or "").strip()
         # 05/10 (Gaëtan : « sur la ligne du compte principal de la créatrice, le lien GAML est effacé à chaque passage ») : la
         # cause était ici — Gérant « Chloé » n'a aucun lien dans paie_clics (ce n'est pas un clipper), donc `voulu` valait "" et
-        # la cellule était vidée, puis revidée à chaque scan. Une ligne dont le Gérant est une créatrice, ou dont le Gérant n'a
-        # AUCUN lien GAML connu du bot (Rianah (Metricool), un prénom écrit autrement…), n'est plus jamais touchée.
+        # la cellule était vidée, puis revidée à chaque scan. Une ligne dont le Gérant est une créatrice n'est jamais vidée.
         if est_ligne_creatrice(c, creatrices):
             # 05/10 (Gaëtan : « scrape les clics des comptes des créas ») : la ligne de la créatrice reçoit SON lien GAML, celui dont
             # la note dit « Compte de @<son identifiant> » (lien_gaml_creatrice), seulement si la cellule est vide ; jamais écrasée,
-            # jamais vidée.
-            if str(c.get("lien_gaml") or "").strip():
+            # jamais vidée. 09/10 (dashboard) : le repli « unique note qui commence par son prénom » seulement si elle n'a qu'une
+            # ligne de compte (son deuxième compte recevait le lien du principal).
+            if actuel:
                 continue
             try:
                 details = await _liens_gaml_details()
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Liens GAML (créatrices) illisibles : %s", erreur)
                 continue
-            voulu = str((lien_gaml_creatrice(c, details) or {}).get("url") or "").strip()
+            voulu = str((lien_gaml_creatrice(c, details, seule=lignes_creatrice(comptes, c, creatrices) <= 1) or {}).get("url") or "").strip()
             if not voulu:
                 continue
             try:
@@ -1251,12 +1341,21 @@ async def liens_classeur(comptes: list = None) -> dict:
             groupes[(c["gerant"], c.get("creatrice") or c.get("onglet") or "?", voulu)] = 1
             continue
         cr = (_norm(c["creatrice"]).split() or [""])[0]
-        liens = par_prenom.get(g, [])
-        if not liens:
-            continue
-        cands = [x for x in liens if x[0] == cr] or ([x for x in liens] if len(liens) == 1 and not liens[0][0] else [])
-        voulu = max(cands, key=lambda x: (x[2], x[3]))[1] if cands else ""
-        if voulu == str(c.get("lien_gaml") or "").strip():
+        liens = [] if ligne_metricool(c["gerant"]) else par_prenom.get(g, [])
+        if liens:
+            cands = [x for x in liens if x[0] == cr] or ([x for x in liens] if len(liens) == 1 and not liens[0][0] else [])
+            voulu = max(cands, key=lambda x: (x[2], x[3]))[1] if cands else ""
+        else:
+            # 09/10 (dashboard) : le Gérant n'a encore aucun lien (nouveau clipper sur une ligne redonnée, ligne « X (Metricool) »,
+            # prénom inconnu du bot). Avant : cellule gardée, donc le lien de l'ancien clipper restait et ses clics comptaient pour
+            # le nouveau. Maintenant : vidée quand elle porte à coup sûr le lien d'un autre ou de personne (libéré, hors clipping,
+            # effacé, désactivé, attribué sous un autre prénom) ; une ligne « X (Metricool) » ne garde que les liens Metricool de SON
+            # repreneur ; un lien inconnu du bot (collé à la main avant son attribution) reste. Jamais remplie par le bot.
+            info_c, note_c = par_url.get(_url_cle(actuel)) or (None, None)
+            if not actuel or not _lien_d_un_autre(info_c, c["gerant"], note_c):
+                continue
+            voulu = ""
+        if voulu == actuel:
             continue
         try:
             await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "lien_gaml"), [[voulu]])
@@ -1272,25 +1371,74 @@ async def liens_classeur(comptes: list = None) -> dict:
 
 
 _details_gaml = {"jour": "", "liens": []}
+DETAILS_LISTE_TTL = int(os.environ.get("GAML_DETAILS_TTL", "3600") or 3600)   # 09/10 : la liste GAML relue au plus toutes les heures
+DETAILS_REESSAI = int(os.environ.get("GAML_DETAILS_REESSAI", "900") or 900)    # 09/10 : un détail illisible retenté 15 min après
 
 
-async def _liens_gaml_details() -> list:
-    """[{id, url, note, groupe}] de tous les liens GAML, relus une fois par jour (la liste ne porte ni l'URL ni la note)."""
+def _fiches_clics() -> dict:
+    """Les fiches de liens de clics.json (URL et note connues du bot), {} si illisibles."""
+    try:
+        return paie_clics._lire().get("liens", {}) or {}
+    except Exception:                                                   # noqa: BLE001
+        return {}
+
+
+async def _liens_gaml_details(avec_desactives: bool = False) -> list:
+    """[{id, url, note, groupe, actif}] des liens GAML actifs (la liste ne porte ni l'URL ni la note : un détail par lien).
+    09/10 (dashboard) : 1. jamais une liste partielle gardée toute la journée : un détail illisible est retenté DETAILS_REESSAI
+    secondes plus tard, et en attendant le lien garde l'URL et la note connues de clics.json (sinon il manque, et
+    `_details_gaml["partiel"]` le dit aux appelants) ; 2. la liste est relue toutes les heures (un lien créé ou renommé dans la
+    journée apparaît le jour même, une note portée par la liste remplace celle du cache) ; chaque détail reste en cache le reste du
+    jour UTC ; 3. les liens désactivés sont lus aussi (la cellule qui en porte un garde ses visites), rendus seulement avec
+    `avec_desactives` ; 4. liste illisible : le cache du jour s'il existe, sinon l'erreur remonte (rien d'écrit à 0 par l'appelant)."""
+    c = _details_gaml
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    if _details_gaml["jour"] == jour and _details_gaml["liens"]:
-        return _details_gaml["liens"]
-    out = []
-    for l in await paie_clics.liens_gaml():
-        if not l.get("id") or l.get("enabled") is False:
+    maintenant = time.time()
+    if c.get("jour") != jour:
+        c.update({"jour": jour, "liens": [], "par_id": {}, "echecs": {}, "liste": [], "liste_t": 0.0, "partiel": False})
+    par_id, echecs = c.setdefault("par_id", {}), c.setdefault("echecs", {})
+    if not c.get("liste") or maintenant - float(c.get("liste_t") or 0.0) >= DETAILS_LISTE_TTL:
+        try:
+            c["liste"] = [l for l in await paie_clics.liens_gaml() if l.get("id")]
+            c["liste_t"] = maintenant
+        except RuntimeError as erreur:
+            if not c.get("liste"):
+                raise
+            journal.warning("Liens GAML : liste illisible (%s), celle de %s gardée", erreur,
+                            datetime.fromtimestamp(float(c.get("liste_t") or 0), timezone.utc).strftime("%H:%M"))
+    for l in c["liste"]:
+        lid = l["id"]
+        if lid in par_id or maintenant - float(echecs.get(lid) or 0.0) < DETAILS_REESSAI:
             continue
         try:
-            det = await paie_clics.lien_detail(l["id"])
-        except RuntimeError:
+            det = await paie_clics.lien_detail(lid)
+        except RuntimeError as erreur:
+            echecs[lid] = maintenant
+            journal.warning("Lien GAML %s : détail illisible (%s), retenté dans %s min", lid, erreur, DETAILS_REESSAI // 60)
             continue
-        out.append({"id": l["id"], "url": str(det.get("url") or ""), "note": str(det.get("note") or ""),
-                    "groupe": str(((det.get("group") or l.get("group") or {}).get("name")) or "")})
-    _details_gaml.update({"jour": jour, "liens": out})
-    return out
+        echecs.pop(lid, None)
+        par_id[lid] = {"id": lid, "url": str(det.get("url") or ""), "note": str(det.get("note") or ""),
+                       "groupe": str(((det.get("group") or l.get("group") or {}).get("name")) or "")}
+    out, manquants, fiches = [], 0, None
+    for l in c["liste"]:
+        lid = l["id"]
+        det = par_id.get(lid)
+        if det is None:                                                 # détail illisible : l'URL et la note de clics.json
+            fiches = _fiches_clics() if fiches is None else fiches
+            info = fiches.get(lid) or {}
+            if not str(info.get("url") or "").strip():
+                manquants += 1
+                continue
+            det = {"id": lid, "url": str(info.get("url") or ""), "note": str(info.get("note") or ""),
+                   "groupe": str(((l.get("group") or {}).get("name")) or "")}
+        e = dict(det)
+        if l.get("note") is not None and "note" in l:
+            e["note"] = str(l.get("note") or "")                       # la liste de l'heure est plus fraîche que le détail du matin
+        e["actif"] = l.get("enabled") is not False
+        out.append(e)
+    c["partiel"] = manquants > 0
+    c["liens"] = [e for e in out if e["actif"]]
+    return out if avec_desactives else list(c["liens"])
 
 
 def _url_cle(url: str) -> str:
@@ -1313,6 +1461,8 @@ def liens_du_bloc(gerant: str, creatrice: str, liens_cellule: set, details: list
     if mots:
         metricool = "metricool" in mots
         for d in details:
+            if d.get("actif") is False:
+                continue                                                # 09/10 : un lien désactivé n'est rattaché que par sa cellule
             # 09/10 : « (ex-Julien) » dit l'ancien propriétaire, jamais l'actuel (« Rianah Metricool 5 (ex-Julien) » est à Rianah,
             # « Clipping libre (ex-Julien) » n'est à personne) : ces mots ne comptent pas
             mn = _mots(re.sub(r"\(\s*ex[^)]*\)", " ", str(d.get("note") or ""), flags=re.I))
@@ -1335,22 +1485,48 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
     GAML trouvé : cellule vide (l'ancien calcul par prénom additionnait les liens de toutes les créatrices).
     05/10 (Gaëtan : « Clics hier ») : même chose dans la colonne « Clics hier » (la veille, heure de Paris), prise dans le relevé
     quotidien de paie_clics quand il l'a (zéro appel GAML), sinon un appel par lien. La ligne d'une créatrice (Gérant = son prénom)
-    ne compte que le lien écrit dans sa cellule, jamais les liens « Clipping » de ses clippers. Renvoie {"ecrits": n}."""
+    ne compte que le lien écrit dans sa cellule, jamais les liens « Clipping » de ses clippers. Renvoie {"ecrits": n}.
+    09/10 (dashboard) : 1. calcul depuis le relevé de clics.json (`paie_clics.clics_lien` : 0 appel GAML quand le relevé est complet,
+    l'API seulement en secours) ; 2. un lien repris ne compte qu'à partir de sa reprise (`depuis`, comme la paie : avant, les visites
+    de l'ancien clipper étaient créditées au nouveau pendant 7 jours) ; 3. « hier » = la veille à Paris (avant : en UTC, J-2 entre 0 h
+    et 2 h) ; 4. jamais 0 sur une erreur : un lien illisible (relevé et API) → les cellules du bloc sont GARDÉES telles quelles, et un
+    bloc sans lien trouvé alors que la liste GAML est partielle aussi ; 5. un lien trouvé seulement par la cellule, qui est à coup
+    sûr celui d'un autre (libéré, hors clipping, attribué sous un autre prénom, effacé, désactivé), n'est plus compté (double compte :
+    le contrôle le signale) ; 6. le repli de la ligne de créatrice seulement si elle n'a qu'une ligne de compte.
+    Renvoie {"ecrits": n, "gardes": blocs gardés faute de chiffre sûr}."""
     if not (actif() and paie_clics.actif()) or not comptes:
-        return {"ecrits": 0}
-    details = await _liens_gaml_details()
-    fin = datetime.now(timezone.utc).date() - timedelta(days=1)
+        return {"ecrits": 0, "gardes": 0}
+    tous_details = await _liens_gaml_details(avec_desactives=True)
+    details = [x for x in tous_details if x.get("actif") is not False]
+    partiel = bool(_details_gaml.get("partiel"))
+    fin = _jour_paris() - timedelta(days=1)
     debut = fin - timedelta(days=6)
     try:
         store = paie_clics._lire()
     except Exception:                                                   # noqa: BLE001 — sans relevé local, tout passe par l'API
         store = {}
+    fiches = (store or {}).get("liens") or {}
+
+    async def payes(lid: str, d0, d1):
+        """Visites payables du lien pour son détenteur (plancher `depuis`) ; None si illisible (jamais 0)."""
+        dep = paie_clics._en_date((fiches.get(lid) or {}).get("depuis"))
+        a = max(d0, dep) if dep else d0
+        if a > d1:
+            return 0                                                    # tout avant la reprise : rien pour le détenteur actuel
+        v = paie_clics.clics_lien(store, lid, a, d1)
+        if v is not None:
+            return v
+        try:
+            return await paie_clics.payes_periode(lid, a, d1)
+        except RuntimeError as erreur:
+            journal.warning("Clics du lien %s (%s → %s) : %s — cellule gardée", lid, a, d1, erreur)
+            return None
     creatrices = creatrices_connues(comptes)
     par_onglet = {}
     for c in comptes:
         if c.get("handle") and (a_colonne("clics", c.get("onglet", "")) or a_colonne("clics_hier", c.get("onglet", ""))):
             par_onglet.setdefault(c["onglet"], []).append(c)
-    visites, visites_hier, valeurs, ecritures = {}, {}, {}, []
+    visites, visites_hier, valeurs, ecritures, gardes = {}, {}, {}, [], 0
     for onglet, lignes in par_onglet.items():
         champs = [ch for ch in ("clics", "clics_hier") if a_colonne(ch, onglet)]
         lignes.sort(key=lambda c: c["ligne"])
@@ -1375,34 +1551,40 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
                 tous = [c for c in lignes if _norm(c.get("gerant")) == g]
                 dans_cellules = {str(c.get("lien_gaml") or "").strip() for c in tous} - {""}
                 if est_ligne_creatrice(bloc[0], creatrices):            # 05/10 : la créatrice : son lien, pas ceux de ses clippers
-                    par_url = {_url_cle(d["url"]): d for d in details if d.get("url")}
+                    par_url = {_url_cle(d["url"]): d for d in tous_details if d.get("url")}
                     liens = list({par_url[_url_cle(u)]["id"]: par_url[_url_cle(u)] for u in dans_cellules if _url_cle(u) in par_url}.values())
                     if not liens:                                        # cellule encore vide : la note GAML « Compte de @… »
-                        trouve = lien_gaml_creatrice(bloc[0], details)
+                        trouve = lien_gaml_creatrice(bloc[0], details, seule=lignes_creatrice(comptes, bloc[0], creatrices) <= 1)
                         liens = [trouve] if trouve else []
                 else:
-                    liens = liens_du_bloc(bloc[0]["gerant"], bloc[0].get("creatrice") or onglet, dans_cellules, details)
-                total = total_hier = None
+                    gerant = bloc[0]["gerant"]
+                    liens = liens_du_bloc(gerant, bloc[0].get("creatrice") or onglet, dans_cellules, tous_details)
+                    par_note = {x["id"] for x in liens_du_bloc(gerant, bloc[0].get("creatrice") or onglet, set(), tous_details)}
+                    autres = [x for x in liens if x["id"] not in par_note
+                              and _lien_d_un_autre(fiches.get(x["id"]), gerant, x.get("note"))]
+                    if autres:                                           # 09/10 : la cellule porte le lien d'un autre : pas compté
+                        journal.info("Clics %s / %s : lien(s) d'un autre dans la cellule, pas comptés : %s", gerant, onglet,
+                                     ", ".join(str(x.get("url") or x["id"]) for x in autres))
+                        liens = [x for x in liens if x not in autres]
+                total = total_hier = 0
+                illisible = False
                 for d in liens:
                     if d["id"] not in visites:
-                        try:
-                            visites[d["id"]] = await paie_clics.payes_periode(d["id"], debut, fin)
-                        except RuntimeError as erreur:
-                            journal.warning("Clics du lien %s : %s", d.get("url"), erreur)
-                            visites[d["id"]] = 0
-                    total = (total or 0) + visites[d["id"]]
+                        visites[d["id"]] = await payes(d["id"], debut, fin)
                     if "clics_hier" in champs and d["id"] not in visites_hier:
-                        connu = _payes_hier_connu(store, d["id"], fin)
-                        if connu is None:
-                            try:
-                                connu = await paie_clics.payes_periode(d["id"], fin, fin)
-                            except RuntimeError as erreur:
-                                journal.warning("Clics d'hier du lien %s : %s", d.get("url"), erreur)
-                                connu = 0
-                        visites_hier[d["id"]] = connu
-                    if "clics_hier" in champs:
-                        total_hier = (total_hier or 0) + visites_hier[d["id"]]
-                valeurs[cle] = {"clics": "" if total is None else str(total), "clics_hier": "" if total_hier is None else str(total_hier)}
+                        visites_hier[d["id"]] = await payes(d["id"], fin, fin)
+                    if visites[d["id"]] is None or ("clics_hier" in champs and visites_hier[d["id"]] is None):
+                        illisible = True
+                        continue
+                    total += visites[d["id"]]
+                    total_hier += visites_hier.get(d["id"]) or 0
+                if illisible or (not liens and partiel):
+                    valeurs[cle] = None                                  # 09/10 : pas de chiffre sûr → cellules gardées
+                    gardes += 1
+                else:
+                    valeurs[cle] = {"clics": str(total) if liens else "", "clics_hier": str(total_hier) if liens else ""}
+            if valeurs[cle] is None:
+                continue
             milieu = bloc[(len(bloc) - 1) // 2]
             for c in bloc:
                 for ch in champs:
@@ -1413,7 +1595,9 @@ async def clics_classeur(comptes: list, clics_de=None) -> dict:
     if ecritures:
         await google_api.sheets_ecrire_plusieurs(CLASSEUR_LOGINS_ID, ecritures)
         journal.info("Classeur, Clics last 7d. / Clics hier : %d cellule(s)", len(ecritures))
-    return {"ecrits": len(ecritures)}
+    if gardes:
+        journal.warning("Classeur, Clics : %d bloc(s) gardé(s) tels quels (GAML illisible ou liste partielle, jamais un faux 0)", gardes)
+    return {"ecrits": len(ecritures), "gardes": gardes}
 
 
 def plan_regroupement(lignes: list) -> tuple:
@@ -1558,6 +1742,8 @@ async def verifier_trackings() -> list:
     creatrices = {c["creatrice"] for c in tous if c.get("creatrice")}
     liens_de_prenom = {}
     for lid, info in d.get("liens", {}).items():
+        if paie_clics.releve_seul(info):
+            continue                                                    # 09/10 : fiche de relevé seule, à personne : rien à poser
         nom = _prenom_du_lien(info)
         if not nom:
             continue
