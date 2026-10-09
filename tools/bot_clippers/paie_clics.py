@@ -1306,7 +1306,17 @@ async def synchroniser_adresses(d: dict) -> list:
                 journal.info("Adresses USDC : « %s » correspond à %d membres, non reprise", l[0], len(uids))
             continue
         uid = uids[0]
-        date_app = _date_app_vers_utc(l[3]) or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        # 09/10 (revue : deux Julien) : l'app range les adresses par prénom ; une adresse saisie avant la signature de ce membre est
+        # celle d'un homonyme parti, jamais la sienne. Sans date et avec un homonyme sorti : on ne devine pas.
+        date_brute = _date_app_vers_utc(l[3])
+        signe = str((registre.get(uid) or {}).get("date") or "")[:10]
+        if date_brute and signe and date_brute[:10] < signe:
+            journal.info("Adresses USDC : « %s » saisie le %s, avant la signature du membre (%s) : non reprise", l[0], date_brute[:10], signe)
+            continue
+        if not date_brute and any(_cle_prenom(str(s.get("nom") or "").split(" - ")[0]) == cle
+                                  for s in (_deps["lire_json"](_deps["FICHIER_SORTIS"], []) if _deps.get("FICHIER_SORTIS") else [])):
+            continue
+        date_app = date_brute or datetime.now(timezone.utc).isoformat(timespec="seconds")
         w = d["wallets"].get(uid) or {}
         if w.get("adresse") == adresse:
             continue

@@ -7735,6 +7735,7 @@ async def on_ready():
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
+            "FICHIER_SORTIS": FICHIER_SORTIS,                                # 09/10 (revue) : adresses USDC d'un homonyme parti
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
             "salon_perso": salon_perso_de, "primes_parrainage": parrainage.primes_dues,
             "canal_dopamine": lambda: canal_par_id(CANAL_DOPAMINE_ID),   # 28/09 : classement du lundi
@@ -7989,8 +7990,17 @@ async def traiter_depart(membre) -> str:
         return ""
     registre = lire_json(FICHIER_EQUIPES, {})
     fiche = registre.get(uid) or {}
+    # 09/10 (revue : le monteur, ancien Julien, qui quitte le serveur faisait sortir le NOUVEAU Julien par son prénom) : un membre
+    # déjà sorti de l'équipe (`!sortie`, `!monteur`) n'est jamais retraité ; un homonyme signé → rien par prénom, roster gardé
+    if uid not in registre and any(str(s.get("uid") or "") == uid for s in lire_json(FICHIER_SORTIS, [])):
+        ligne = f"🚪 {prenom} a quitté le serveur — déjà sorti de l'équipe, rien à refaire"
+        journal.info("Départ traité : %s", ligne)
+        return ligne
+    homonyme_d = any(u != uid and membre_par_id(u) is not None and normaliser(prenom_de(membre_par_id(u))) == normaliser(prenom)
+                     for u in registre)
     if fiche.get("creatrice") or fiche.get("equipe") or roster.est_actif(prenom):
-        roster.retirer(prenom)
+        if not homonyme_d:
+            roster.retirer(prenom)
         bilan = await roster.appliquer_sortis(client, seulement=prenom, uid=uid, raison="a quitté le serveur")
         ligne = f"🚪 **{prenom} a quitté le serveur** — " + ("; ".join(b.split(" : ", 1)[-1] for b in bilan) if bilan else "rien à nettoyer")
     else:
