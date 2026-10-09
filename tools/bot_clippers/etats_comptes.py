@@ -9,7 +9,8 @@ ETAT de l'onglet Instagram, une cellule à la fois, jamais la structure :
   BAN → son état d'avant (sinon GOOD s'il a déjà publié, sinon WARMUP)  dès que le compte est vivant sur Instagram
        (30/09, Gaëtan : « tous les comptes GOOD, BAN et WARMUP, vérifie-les à chaque fois », BAN posé à la main compris)
   restreint (profil caché aux visiteurs non connectés) = vivant, jamais BAN
-`!dashboard` lance ce passage complet avant de réécrire l'onglet (30/09) ; `!dashboard rapide` réécrit sans scan.
+`!dashboard` lançait ce passage complet avant de réécrire l'onglet (30/09) ; depuis le 09/10, `!dashboard` réécrit sans scan et
+`!dashboard scan` lance le passage complet (payant).
 Les états posés à la main (PERDU LOGS, à vérifier, BIZARRE, ACTIF…) ne sont jamais touchés, ni une ligne « à créer » sans Gérant :
 un compte du vivier libre ne peut pas se créer tout seul. La colonne Followers est remplie pour TOUS les comptes créés du
 classeur (26/09, « légendaire ») : clippers, créatrices sous Metricool, comptes libérés — pas les lignes « à créer » sans gérant.
@@ -21,19 +22,34 @@ classeur (26/09, « légendaire ») : clippers, créatrices sous Metricool, comp
     il garde son état et ses valeurs ; seul un « introuvable » explicite d'Apify compte comme absence (→ BAN). Au bout de
     NON_LU_JOURS passages non lus de suite, le compte est traité comme absent. Plus de la moitié non lue = Apify en panne, rien changé ;
   - les identifiants sont nettoyés (onboarding.normaliser_handle : @, URL, espaces, casse) avant d'être envoyés et comparés.
+09/10 (dashboard — Gaëtan : « le dashboard se met à jour constamment, le plus précis possible, pas de trucs pas précis ») :
+  - jamais un faux 0 : followersCount absent ou non numérique = followers non lus (rien écrit) ; 0 alors que le compte en avait
+    plus de SUSPECT_FOLLOWERS = suspect (cellule gardée, listé au bilan) ; latestPosts vide alors que postsCount > 0 = Reels non
+    lus (cellules gardées) ; une erreur Apify n'est « introuvable » que si elle le dit (not found, does not exist…), sinon non lu ;
+  - publications épinglées (isPinned) hors du décompte des Reels et de `plafonne` ;
+  - chaque compte lu ajoute un relevé à sa série (series.py, contrat C1 : followers, Reels, vues, id Instagram) ;
+  - ETAT, Followers et Reels partent en UN lot à la fin du passage, après relecture du classeur : chaque ligne est retrouvée par
+    son @ dans son onglet (jamais par un numéro de ligne lu au début), un ETAT n'est écrit que si la cellule n'a pas bougé entre-
+    temps, un changement n'entre au bilan que si l'écriture a réussi, une ligne disparue ou déplacée est signalée ;
+  - passages LÉGERS (`executer(leger=True)`, heures de Paris ETATS_HEURES_LEGERES, défaut 14 h et 20 h) : Followers, Reels et
+    séries des comptes vivants, sans aucune décision, sous garde du budget Apify du mois (`apify_budget`) ;
+  - `!dashboard` réécrit sans scan, `!dashboard scan` lance le passage complet payant ; `!etats-comptes leger` : un passage léger.
 Le module ne connaît pas bot_discord : dépendances dans `configurer(deps)` (lire_json, ecrire_json, FICHIER_ETATS,
-normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les tests)."""
+normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les tests ; `FICHIER_SERIES` facultatif, sinon
+series_comptes.json à côté de FICHIER_ETATS)."""
 import asyncio
 import logging
 import os
 import re
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import aiohttp
 
 import google_api
 import onboarding
+import series
 
 journal = logging.getLogger("etats_comptes")
 
@@ -80,6 +96,30 @@ def dashboard_masques(d=None) -> list:
     d = d if d is not None else _lire()
     return list(d["dashboard_masques"]) if isinstance(d.get("dashboard_masques"), list) else list(MASQUES_DEFAUT)
 LOT = 50                                                               # comptes par appel Apify
+# 09/10 (dashboard) : Apify coupe un appel synchrone à 300 s (code 408) ; le bot attend un peu plus pour recevoir sa réponse
+# au lieu d'abandonner le premier (avant : 280 s, la course continuait et était payée pour rien)
+APIFY_TIMEOUT = 310
+SUSPECT_FOLLOWERS = 20                 # 09/10 (dashboard) : 0 lu alors que le compte en avait plus = fiche suspecte, rien écrit
+
+
+def _heures(brut: str) -> list:
+    out = set()
+    for x in str(brut or "").split(","):
+        try:
+            h = int(x.strip())
+        except ValueError:
+            continue
+        if 0 <= h <= 23:
+            out.add(h)
+    return sorted(out)
+
+
+# 09/10 (dashboard) : passages légers aux heures de Paris (Followers, Reels, séries ; aucune décision) ; vide = éteints
+HEURES_LEGERES = _heures(os.environ.get("ETATS_HEURES_LEGERES", "14,20"))
+LEGER_APRES_COMPLET_H = 2              # un passage léger juste après le passage complet ne relirait rien de neuf
+BUDGET_SEUIL = float(os.environ.get("APIFY_BUDGET_SEUIL", "0.9") or 0.9)   # usage projeté du mois / limite au-delà duquel on saute
+BUDGET_CACHE_MIN = 30
+APIFY_LIMITES = "https://api.apify.com/v2/users/me/limits"
 
 _deps = {}
 
@@ -87,6 +127,11 @@ _deps = {}
 def configurer(deps: dict):
     global _deps
     _deps = deps
+    # 09/10 (dashboard) : les séries par compte (series.py) vivent à côté de l'état du scan, sauf FICHIER_SERIES explicite
+    fichier = deps.get("FICHIER_SERIES") or (Path(str(deps["FICHIER_ETATS"])).with_name("series_comptes.json")
+                                             if deps.get("FICHIER_ETATS") else None)
+    if fichier and deps.get("lire_json") and deps.get("ecrire_json"):
+        series.configurer({"lire_json": deps["lire_json"], "ecrire_json": deps["ecrire_json"], "FICHIER_SERIES": fichier})
 
 
 def actif() -> bool:
@@ -180,28 +225,56 @@ def _handle_item(item: dict) -> str:
 
 
 async def _apify(handles: list):
-    """Les fiches Apify brutes de `handles`, par lots ; None si Apify est en panne."""
+    """Les fiches Apify brutes de `handles`, par lots ; None si Apify est en panne (aucun lot lu).
+    09/10 (dashboard) : un lot en échec ne fait plus tout jeter — les lots réussis sont gardés, les comptes du lot raté manquent
+    à la réponse (redemandés une fois par `scanner`, puis « non lus »)."""
     url = f"https://api.apify.com/v2/acts/{ACTOR_IG}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
-    items = []
+    items, reussis, rates = [], 0, 0
     for i in range(0, len(handles), LOT):                              # par lots : 130 comptes tiennent en deux ou trois appels
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=280)) as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=APIFY_TIMEOUT)) as session:
                 async with session.post(url, json={"usernames": handles[i:i + LOT]}) as reponse:
                     if reponse.status >= 400:
-                        journal.error("Apify HTTP %s (états du classeur)", reponse.status)
-                        return None
+                        journal.error("Apify HTTP %s (états du classeur, lot %d)", reponse.status, i // LOT + 1)
+                        rates += 1
+                        continue
                     lot = await reponse.json()
-        except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
-            journal.error("Apify injoignable (états du classeur) : %s", erreur)
-            return None
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as erreur:
+            journal.error("Apify injoignable (états du classeur, lot %d) : %s", i // LOT + 1, type(erreur).__name__)
+            rates += 1
+            continue
+        reussis += 1
         items += lot if isinstance(lot, list) else []
-    return items
+    if rates and reussis:
+        journal.warning("Apify (états) : %d lot(s) raté(s) sur %d, les lots lus sont gardés", rates, rates + reussis)
+    return items if reussis else None
 
 
 def _fiche_vide() -> dict:
     return {"lu": False, "existe": False, "prive": False, "restreint": False, "followers": 0, "posts": 0, "fautes": 0,
             "reels_hier": 0, "reels_7j": 0, "posts_lus": 0, "bio_liens": [], "bio_lu": False, "lien_dans_texte": False,
             "nom": "", "bio": ""}
+
+
+# 09/10 (dashboard) : seule une erreur qui DIT que le compte n'existe pas vaut « introuvable » (→ BAN possible) ; toute autre
+# erreur d'Apify (limite, page indisponible, délai…) laisse le compte « non lu » : rien n'est conclu ni écrit
+RE_INTROUVABLE = re.compile(r"not[\s_-]?found|does\s?n[o'’]?t\s+exist|does\s+not\s+exist|no\s+such\s+(user|profile|account)"
+                            r"|introuvable|n['’]existe\s+pas|page\s+(isn['’]t|is\s+not)\s+available", re.I)
+
+
+def _nombre(v):
+    """Un compteur Apify lisible (entier ou flottant, pas un booléen) → int ; sinon None (« 1,2k », None, texte : non lu)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v < 0:
+        return None
+    return int(v)
+
+
+def _quand_post(post: dict):
+    try:
+        quand = datetime.fromisoformat(str(post.get("timestamp") or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return quand if quand.tzinfo else quand.replace(tzinfo=timezone.utc)
 
 
 # 09/10 (Gaëtan : « les clippeurs peuvent changer le @ légèrement quand il n'est pas disponible ») : un compte marqué créé mais
@@ -318,37 +391,54 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
         if handle not in out or (out[handle]["lu"] and out[handle]["existe"] and not out[handle]["restreint"]):   # déjà lu en entier
             continue
         fiche = out[handle]
-        erreur = str(item.get("error") or "").lower()
+        erreur = " ".join(str(item.get(k) or "") for k in ("error", "errorDescription")).strip().lower()
         restreint = bool(item.get("isRestrictedProfile") or "restricted" in erreur)
         if erreur and not restreint:
-            fiche["lu"] = True                                           # not found, invalid… : Apify dit que le compte n'existe pas
+            if RE_INTROUVABLE.search(erreur):
+                fiche["lu"] = True                                       # Apify DIT que le compte n'existe pas (banni, renommé…)
+            else:
+                fiche["erreur"] = erreur[:120]                           # 09/10 (dashboard) : toute autre erreur = non lu, rien conclu
             continue
-        followers_brut = item.get("followersCount")
-        if not restreint and not isinstance(followers_brut, (int, float)) and not item.get("latestPosts") \
-                and item.get("private") is None and item.get("postsCount") is None:
+        followers = _nombre(item.get("followersCount"))
+        posts_total = _nombre(item.get("postsCount"))
+        posts = [p for p in (item.get("latestPosts") or []) if isinstance(p, dict)]
+        if not restreint and followers is None and not posts and item.get("private") is None and posts_total is None:
             # 05/10 : une fiche sans aucun chiffre (mur de connexion, page incomplète) n'est pas « 0 followers, 0 Reel » :
             # elle est illisible, le compte reste non lu et garde ses valeurs dans le classeur
             fiche["illisible"] = True
             continue
-        fiche.update({"lu": True, "existe": True, "restreint": restreint, "prive": bool(item.get("private")),
-                      "followers": int(followers_brut or 0), "nom": str(item.get("fullName") or ""),
-                      "bio": str(item.get("biography") or "")})
+        prive = bool(item.get("private"))
+        # 09/10 (dashboard) : followersCount absent ou non numérique → followers None (« non lu » : rien écrit, null dans la série),
+        # jamais 0 ; un restreint cache ses chiffres (None aussi)
+        fiche.update({"lu": True, "existe": True, "restreint": restreint, "prive": prive,
+                      "followers": None if restreint else followers, "posts_total": posts_total,
+                      "nom": str(item.get("fullName") or ""), "bio": str(item.get("biography") or ""),
+                      "ig_id": str(item.get("id") or "").strip()})
         fiche["bio_liens"], fiche["bio_lu"], fiche["lien_dans_texte"] = _liens_profil(item)
-        posts = item.get("latestPosts") or []
         fiche["posts_lus"] = len(posts)
+        # 09/10 (dashboard) : Reels lisibles = compte ni privé ni restreint, et au moins une publication non épinglée vue (ou latestPosts
+        # montre tout le compte, 0 publication comprise) ; latestPosts vide (ou rien que des épinglées) alors que postsCount en
+        # annonce d'autres, ou postsCount inconnu = Reels NON LUS → cellules gardées, jamais 0
+        n_libres = sum(1 for p in posts if not p.get("isPinned"))
+        fiche["reels_lus"] = not prive and not restreint and (n_libres > 0 or (posts_total is not None and posts_total <= len(posts)))
+        serie_reels, plus_ancien = [], None
         for post in posts:
-            try:
-                quand = datetime.fromisoformat(str(post.get("timestamp") or "").replace("Z", "+00:00"))
-            except ValueError:
+            quand = _quand_post(post)
+            if quand is None:
                 continue
-            if quand.tzinfo is None:
-                quand = quand.replace(tzinfo=timezone.utc)
             jour_paris = _paris(quand).date()
-            if _est_reel(post):
+            epingle = bool(post.get("isPinned"))                         # 09/10 (dashboard) : une épinglée (souvent vieille) ne compte pas
+            if not epingle:
+                plus_ancien = quand if plus_ancien is None or quand < plus_ancien else plus_ancien
+            if _est_reel(post) and not epingle:
                 if jour_paris == hier:
                     fiche["reels_hier"] += 1
                 if debut_7j <= jour_paris <= hier:
                     fiche["reels_7j"] += 1
+                code = series.code_post(post)
+                if code:                                                 # la série du compte (contrat C1) : vues = series.vues_post
+                    serie_reels.append({"code": code, "publie": quand.astimezone(timezone.utc).isoformat(timespec="seconds"),
+                                        "type": str(post.get("type") or "Video"), "vues": series.vues_post(post)})
             if quand >= limite:
                 fiche["posts"] += 1
                 if not fiche.get("dernier") or str(post.get("timestamp")) > fiche["dernier"].get("quand", ""):
@@ -365,9 +455,17 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
                         "largeur": post.get("dimensionsWidth") or 0, "hauteur": post.get("dimensionsHeight") or 0,
                         "duree": post.get("videoDuration") or 0})
         # 05/10 : 12 publications au plus dans latestPosts ; si la plus ancienne est encore dans la fenêtre des 7 jours, le
-        # décompte est un minimum (complété par l'historique du scan dans reels_7j_estime)
-        plus_ancien = min((str(p.get("timestamp") or "") for p in posts if p.get("timestamp")), default="")
-        fiche["plafonne"] = bool(plus_ancien and plus_ancien[:10] >= debut_7j.isoformat())
+        # décompte est un minimum (complété par l'historique du scan dans reels_7j_estime). 09/10 (dashboard) : la plus ancienne
+        # NON épinglée (une épinglée de l'an dernier faisait conclure « non plafonné »), et seulement si latestPosts ne montre pas
+        # tout le compte (moins de publications vues que postsCount ; sans postsCount, les 12 places prises)
+        incomplet = len(posts) < posts_total if posts_total is not None else len(posts) >= 12
+        fiche["plafonne"] = bool(plus_ancien is not None and incomplet and _paris(plus_ancien).date() >= debut_7j)
+        # 09/10 (dashboard) : depuis quand ce relevé voit TOUTES les publications ("" = tout le compte est visible)
+        if posts_total is not None and not incomplet:
+            fiche["couvre"] = ""
+        else:
+            fiche["couvre"] = (plus_ancien or maintenant).astimezone(timezone.utc).isoformat(timespec="seconds")
+        fiche["serie_reels"] = serie_reels
     return out
 
 
@@ -399,8 +497,8 @@ def _series(historique: list) -> tuple:
             break
         absents += 1
     for j in reversed(historique):
-        if j.get("existe") and j.get("restreint") and not j.get("posts"):
-            continue
+        if j.get("existe") and (j.get("restreint") or j.get("reels_non_lus")) and not j.get("posts"):
+            continue                                                    # 09/10 (dashboard) : Reels non lus ce jour-là = sauté, pas « 0 »
         if not (j.get("existe") and j.get("posts", 0) >= 1):
             break
         publie += 1
@@ -495,12 +593,267 @@ def a_scanner(comptes: list) -> list:
 _verrou = None
 
 
-async def executer(ecrire: bool = True) -> dict:
-    """Un seul passage à la fois (30/09 : `!dashboard` scanne aussi ; deux scans en même temps écriraient deux fois)."""
+async def executer(ecrire: bool = True, leger: bool = False) -> dict:
+    """Un seul passage à la fois (30/09 : `!dashboard` scanne aussi ; deux scans en même temps écriraient deux fois).
+    09/10 (dashboard) : `leger=True` = passage léger (Followers, Reels et séries des comptes vivants, aucune décision)."""
     global _verrou
     _verrou = _verrou or asyncio.Lock()
     async with _verrou:
-        return await _executer(ecrire)
+        return await (_executer_leger(ecrire) if leger else _executer(ecrire))
+
+
+# ------------------------------------------------------------------ 09/10 (dashboard) : chiffres justes, écritures fiables
+def _instant(x):
+    """Un instant ISO (sans fuseau = UTC) ; None si illisible."""
+    if not x:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(x).strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _propre(v) -> str:
+    """Une cellule comparable : sans espace (« 1 234 » = « 1234 »)."""
+    return re.sub(r"[\s  ]", "", str(v if v is not None else ""))
+
+
+def _chiffre(v):
+    """Le nombre d'une cellule ; None si vide ou illisible."""
+    t = _propre(v)
+    return int(t) if t.isdigit() else None
+
+
+def _debut_jour_paris(maintenant: datetime, jours_avant: int = 0) -> datetime:
+    """Minuit (heure de Paris) du jour de `maintenant` moins `jours_avant` jours."""
+    p = _paris(maintenant)
+    j = p.date() - timedelta(days=jours_avant)
+    return datetime(j.year, j.month, j.day, tzinfo=p.tzinfo)
+
+
+def _suspect(h: str, m: dict, hist: list, cellule) -> bool:
+    """0 follower lu alors que le compte en avait plus de SUSPECT_FOLLOWERS (historique du scan, série, cellule du classeur) :
+    fiche suspecte (un compte vivant ne perd pas tous ses abonnés d'un coup). Un compte neuf à 0 reste écrit à 0."""
+    f = m.get("followers")
+    if not m.get("existe") or m.get("restreint") or isinstance(f, bool) or f != 0:
+        return False
+    try:
+        dans_serie = series.followers_a(h)
+    except Exception:                                                   # noqa: BLE001
+        dans_serie = None
+    avant = [e.get("followers") for e in hist or []] + [dans_serie, _chiffre(cellule)]
+    return any(isinstance(x, int) and not isinstance(x, bool) and x > SUSPECT_FOLLOWERS for x in avant)
+
+
+def _controler(lignes: list, mesures: dict, ids_non_lus: set, d: dict) -> tuple:
+    """Les fiches lues passées au crible des faux 0 : ([lignes à followers suspects], [lignes à Reels non lus]). Un suspect perd
+    ses followers (None : rien écrit, null dans la série)."""
+    suspects, reels_nl, vus = [], [], set()
+    for c in lignes:
+        h = _cle(c["handle"])
+        m = mesures.get(h)
+        if id(c) in ids_non_lus or h in vus or not isinstance(m, dict) or not m.get("lu", True) or not m.get("existe"):
+            continue
+        vus.add(h)
+        if _suspect(h, m, (d.get("historique") or {}).get(h, []), c.get("followers")):
+            m["followers"] = None
+            m["followers_suspect"] = True
+            suspects.append(c)
+        if not m.get("reels_lus", True) and not m.get("restreint") and not m.get("prive"):
+            reels_nl.append(c)
+    return suspects, reels_nl
+
+
+def _alimenter_series(lignes: list, mesures: dict, ids_non_lus: set, t_iso: str) -> int:
+    """Un relevé par compte LU et vivant (jamais pour un non-lu ni un introuvable) dans series_comptes.json (contrat C1), en une
+    seule écriture. La série ne bloque jamais le passage."""
+    entrees, vus = [], set()
+    for c in lignes:
+        h = _cle(c["handle"])
+        m = mesures.get(h)
+        if id(c) in ids_non_lus or h in vus or not isinstance(m, dict) or not m.get("lu", True) or not m.get("existe") \
+                or m.get("force_absent"):
+            continue
+        vus.add(h)
+        lisible = not m.get("restreint") and not m.get("prive")
+        f = m.get("followers")
+        rel = {"t": t_iso, "source": "apify", "followers": None if m.get("restreint") or isinstance(f, bool) else f,
+               "posts_total": m.get("posts_total"), "restreint": bool(m.get("restreint")), "prive": bool(m.get("prive")),
+               "reels_lus": bool(lisible and m.get("reels_lus", True))}
+        if "couvre" in m:
+            rel["couvre"] = m["couvre"]
+        entrees.append({"cle": h, "releve": rel, "reels": m.get("serie_reels") or [], "ig_id": m.get("ig_id") or ""})
+    try:
+        return series.ajouter_releves(entrees)
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Séries : relevés non enregistrés (%s)", type(erreur).__name__)
+        return 0
+
+
+def _followers_metricool(h: str):
+    """Metricool prime sur Apify pour les followers des comptes branchés (source officielle, lisible même restreint) : son relevé
+    de moins de 48 h dans la série, sinon None."""
+    try:
+        r = series.dernier_releve(h, source="metricool")
+    except Exception:                                                   # noqa: BLE001
+        return None
+    f = (r or {}).get("followers")
+    t = _instant((r or {}).get("t"))
+    if isinstance(f, bool) or not isinstance(f, int) or t is None:
+        return None
+    return f if datetime.now(timezone.utc) - t <= timedelta(hours=48) else None
+
+
+def _valeurs_reels(h: str, m: dict, hist_prec: list, jour: str, maintenant: datetime) -> dict:
+    """Les cellules Reels Hier / Reels 7 j d'une fiche lue : '' si le compte cache ses Reels (restreint, privé) ou n'existe plus ;
+    rien (cellules gardées) si les Reels n'ont pas été lus ; sinon le meilleur des minorants — latestPosts du passage, historique
+    du scan, série des passages précédents (même définition : vidéos non épinglées, jour civil de Paris)."""
+    if not m.get("existe") or m.get("restreint") or m.get("prive"):
+        return {"reels_hier": "", "reels_7j": ""}
+    if not m.get("reels_lus", True):
+        return {}
+    n_hier = int(m.get("reels_hier") or 0)
+    n_7j = reels_7j_estime(m, hist_prec, jour)
+    try:
+        auj = _debut_jour_paris(maintenant)
+        s_hier = series.reels_publies(h, _debut_jour_paris(maintenant, 1), auj, maintenant)
+        s_7j = series.reels_publies(h, _debut_jour_paris(maintenant, 7), auj, maintenant)
+    except Exception:                                                   # noqa: BLE001
+        s_hier = s_7j = None
+    n_hier = max(n_hier, s_hier) if s_hier is not None else n_hier
+    n_7j = max(n_7j, s_7j) if s_7j is not None else n_7j
+    return {"reels_hier": str(n_hier), "reels_7j": str(max(n_7j, n_hier))}
+
+
+def _ecritures_mesure(c: dict, m, hist_prec: list, jour: str, maintenant: datetime) -> list:
+    """Les cellules Followers / Reels à écrire pour une ligne (seulement celles qui changent). `m` None = compte non lu par
+    Apify : seuls des followers Metricool peuvent alors être écrits."""
+    h, onglet, out = _cle(c["handle"]), c.get("onglet", ""), []
+    f = _followers_metricool(h)
+    if f is None and m and m.get("existe") and not m.get("restreint") and isinstance(m.get("followers"), int) \
+            and not isinstance(m.get("followers"), bool):
+        f = m["followers"]
+    if f is not None and onboarding.a_colonne("followers", onglet) and _propre(f) != _propre(c.get("followers")):
+        out.append({"c": c, "champ": "followers", "valeur": f})
+    for champ, valeur in (_valeurs_reels(h, m, hist_prec, jour, maintenant) if m else {}).items():
+        if onboarding.a_colonne(champ, onglet) and _propre(valeur) != _propre(c.get(champ)):
+            out.append({"c": c, "champ": champ, "valeur": valeur})
+    return out
+
+
+async def _envoyer_lot(ecr: list) -> set:
+    """Les plages écrites. Un seul appel pour tout (une seule cellule : un appel simple, même coût) ; si Google refuse le lot
+    (plage invalide, onglet renommé…), un nouvel essai onglet par onglet pour ne pas perdre les autres."""
+    if not ecr:
+        return set()
+    cid = onboarding.CLASSEUR_LOGINS_ID
+
+    async def _un(lot):
+        if len(lot) == 1:
+            await google_api.sheets_ecrire(cid, lot[0][0], lot[0][1])
+        else:
+            await google_api.sheets_ecrire_plusieurs(cid, lot)
+    try:
+        await _un(ecr)
+        return {p for p, _ in ecr}
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Classeur : lot de %d cellule(s) refusé (%s)", len(ecr), type(erreur).__name__)
+    par_onglet = {}
+    for p, v in ecr:
+        par_onglet.setdefault(p.rsplit("!", 1)[0], []).append((p, v))
+    ok = set()
+    if len(par_onglet) < 2:
+        return ok
+    for lot in par_onglet.values():
+        try:
+            await _un(lot)
+            ok |= {p for p, _ in lot}
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Classeur : %d cellule(s) d'un onglet non écrites (%s)", len(lot), type(erreur).__name__)
+    return ok
+
+
+async def _ecrire_lot(ecritures: list) -> tuple:
+    """(faites, perdues [(écriture, raison)], relus) : le classeur est relu juste avant d'écrire, chaque écriture va sur la ligne
+    retrouvée par son @ dans SON onglet (toutes les lignes de ce @ dans l'onglet, doublons compris), jamais sur un numéro de ligne
+    lu au début du passage ; un ETAT n'est écrit que si la cellule vaut encore ce que le passage a lu (un changement à la main
+    pendant le passage gagne). Une ligne disparue ou passée dans un autre onglet : rien écrit, signalé. Tout part en un appel."""
+    if not ecritures:
+        return [], [], None
+    try:
+        relus = await onboarding.lire_comptes()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Classeur : relecture impossible avant d'écrire (%s), rien écrit", type(erreur).__name__)
+        return [], [(e, "classeur illisible au moment d'écrire") for e in ecritures], None
+    index = {}
+    for r in relus:
+        k = _cle(r.get("handle") or "")
+        if k:
+            index.setdefault(k, []).append(r)
+    plages, prevues, perdues = {}, [], []
+    for e in ecritures:
+        c = e["c"]
+        k, onglet = _cle(c["handle"]), c.get("onglet", "")
+        toutes = index.get(k) or []
+        ici = [r for r in toutes if r.get("onglet", "") == onglet]
+        if not ici:
+            perdues.append((e, "ligne passée dans un autre onglet" if toutes else "ligne disparue du classeur"))
+            continue
+        if e["champ"] == "etat":
+            ici = [r for r in ici if _norm(r.get("etat") or "") == _norm(e.get("attendu") or "")]
+            if not ici:
+                perdues.append((e, "ETAT changé dans le classeur pendant le passage"))
+                continue
+        else:
+            ici = [r for r in ici if _propre(r.get(e["champ"])) != _propre(e["valeur"])]
+            if not ici:
+                continue                                                # la cellule a déjà la bonne valeur
+        e["plages"] = []
+        for r in ici:
+            p = onboarding.cellule(r, e["champ"])
+            if p in plages and _propre(plages[p]) != _propre(e["valeur"]):
+                continue                                                # deux valeurs pour une cellule : la première gagne
+            plages[p] = e["valeur"]
+            e["plages"].append((p, r))
+        if e["plages"]:
+            prevues.append(e)
+        else:
+            perdues.append((e, "deux valeurs pour la même cellule"))
+    ok = await _envoyer_lot([(p, [[v]]) for p, v in plages.items()])
+    faites = []
+    for e in prevues:
+        bonnes = [(p, r) for p, r in e["plages"] if p in ok]
+        if not bonnes:
+            perdues.append((e, "écriture refusée par Google"))
+            continue
+        faites.append(e)
+        for _, r in bonnes:
+            r[e["champ"]] = str(e["valeur"])                            # la relecture porte la valeur écrite (suite du passage)
+    return faites, perdues, relus
+
+
+def _txt_ligne(c: dict) -> str:
+    return f"`{c['handle']}` ({c.get('gerant') or 'sans gérant'})"
+
+
+def _txt_perdue(e: dict, raison: str) -> str:
+    noms = {"etat": "ETAT", "followers": "Followers", "reels_hier": "Reels Hier", "reels_7j": "Reels 7 j"}
+    return f"`{e['c']['handle']}` ({e['c'].get('onglet', '')}, {noms.get(e['champ'], e['champ'])}) : {raison}"
+
+
+def _resume_passage(mode: str, maintenant: datetime, lignes: list, mesures: dict, non_lus: list, suspects: list,
+                    reels_nl: list, perdues: list) -> dict:
+    """09/10 (dashboard) : ce que le dernier passage a lu, gardé dans etats_comptes.json (« dernier_passage ») pour le Dashboard
+    et le contrôle : clés de compte seulement."""
+    cles = {_cle(c["handle"]) for c in lignes}
+    return {"t": maintenant.isoformat(timespec="seconds"), "mode": mode, "demandes": len(cles),
+            "non_lus": sorted({_cle(c["handle"]) for c in non_lus}),
+            "restreints": sorted(h for h in cles if isinstance(mesures.get(h), dict) and mesures[h].get("restreint")),
+            "introuvables": sorted(h for h in cles if isinstance(mesures.get(h), dict) and mesures[h].get("lu", True)
+                                   and not mesures[h].get("existe") and h not in {_cle(c["handle"]) for c in non_lus}),
+            "suspects": sorted({_cle(c["handle"]) for c in suspects}), "reels_non_lus": sorted({_cle(c["handle"]) for c in reels_nl}),
+            "perdues": len(perdues)}
 
 
 async def _executer(ecrire: bool = True) -> dict:
@@ -544,9 +897,14 @@ async def _executer(ecrire: bool = True) -> dict:
         return {"changements": [], "scannes": len(lignes), "non_lus": [],
                 "erreur": f"Apify n'a lu que {len(lignes) - len(non_lus)} compte(s) sur {len(lignes)}, rien changé (nouvel essai plus tard)"}
     ids_non_lus = {id(c) for c in non_lus}
+    maintenant = datetime.now(timezone.utc)
+    # 09/10 (dashboard) : les faux 0 écartés avant toute décision ou écriture, puis un relevé par compte lu dans sa série
+    suspects, reels_nl = _controler(lignes, mesures, ids_non_lus, d)
+    if ecrire:
+        _alimenter_series(lignes, mesures, ids_non_lus, maintenant.isoformat(timespec="seconds"))
     changements, followers_maj, clics_maj, liens_maj, reels_maj = [], 0, 0, 0, 0
     restreints_n = absents_n = forces_n = 0
-    reels_ecritures = []
+    ecritures = []                                                       # 09/10 (dashboard) : ETAT, Followers et Reels, un lot à la fin
     a_relire = []                                                        # 01/10 : Reels des 24 h des clippers, pour la review
     pris = []                                                          # 01/10 : identifiants « à créer » déjà présents sur Instagram
     a_chercher = []                                                    # 09/10 : créés mais jamais vus vivants (@ changé ?) : (priorité, ligne)
@@ -557,62 +915,44 @@ async def _executer(ecrire: bool = True) -> dict:
     except Exception:                                                  # noqa: BLE001
         renommes = set()
     ids_suivis = {id(c) for c in suivis}
-    async def _cellule(c, champ, valeur):                                # 27/09 : la cellule retourne dans l'onglet de la ligne
-        await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, champ), [[valeur]])
 
-    async def _appliquer(c, apres):
-        h_a = _cle(c["handle"])
-        changements.append((c["handle"], c["gerant"], c["etat"], apres, c["ligne"]))
+    def _appliquer(c, apres):
+        # 09/10 (dashboard) : l'ETAT part dans le lot de la fin (ligne retrouvée par son @, ETAT inchangé entre-temps) ; il n'entre
+        # au bilan, et BAN / avant_ban ne sont notés, qu'une fois l'écriture faite
         if not ecrire:
+            changements.append((c["handle"], c["gerant"], c["etat"], apres, c["ligne"]))
             return
-        try:
-            await _cellule(c, "etat", apres)
-        except Exception as erreur:                                      # noqa: BLE001
-            journal.warning("Classeur : état non écrit (%s ligne %s) : %s", c.get("onglet", ""), c.get("ligne"), type(erreur).__name__)
-            return
-        if apres == "BAN":
-            d["bans_auto"][h_a] = jour
-            d["avant_ban"][h_a] = str(c["etat"]).strip().upper().replace("É", "E")
-        elif h_a in d["bans_auto"]:
-            d["bans_auto"].pop(h_a, None)
-            d["avant_ban"].pop(h_a, None)
+        ecritures.append({"c": c, "champ": "etat", "valeur": apres, "attendu": c["etat"], "changement": True})
     for c in lignes:
         if id(c) in ids_non_lus:
+            if ecrire:                                                   # 09/10 (dashboard) : seuls des followers Metricool peuvent s'écrire
+                ecritures += _ecritures_mesure(c, None, [], jour, maintenant)
             continue                                                     # 05/10 : non lu → rien d'écrit, rien de conclu, pas d'historique
         h = _cle(c["handle"])
         m = {**_fiche_vide(), **(mesures.get(h) or {})}
-        onglet = c.get("onglet", "")
         restreints_n += 1 if m["restreint"] else 0
         absents_n += 0 if m["existe"] else 1
         forces_n += 1 if m.get("force_absent") else 0
+        hist_prec = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
         # Followers : pour tout compte lisible (vivant, pas restreint) dont l'onglet a la colonne ; un restreint ou un introuvable
-        # garde sa dernière valeur (05/10 : jamais vidé, jamais mis à 0)
-        if ecrire and m["existe"] and not m["restreint"] and onboarding.a_colonne("followers", onglet) \
-                and str(m["followers"]) != str(c.get("followers", "")).replace(" ", "").replace("\u202f", "").replace("\u00a0", ""):
-            try:
-                await _cellule(c, "followers", m["followers"])
-                followers_maj += 1
-            except Exception as erreur:                                  # noqa: BLE001
-                journal.warning("Classeur : followers non écrits (%s ligne %s) : %s", onglet, c.get("ligne"), type(erreur).__name__)
+        # garde sa dernière valeur (05/10 : jamais vidé, jamais mis à 0 ; 09/10 : followers illisibles ou suspects non plus,
+        # Metricool d'abord pour un compte branché).
         # 30/09 (Gaëtan : « une colonne Reels Hier, combien de Reels a posté chaque compte IG hier ») ; 05/10 : pour CHAQUE compte
         # scanné (plus seulement les lignes suivies), la veille en jour civil de Paris et les 7 derniers jours (colonne « Reels 7 j »),
-        # écrits en un seul appel à la fin, seulement les cellules qui changent. Restreint ou privé : Reels illisibles → cellule
-        # vide, pas 0 ; introuvable (réponse explicite d'Apify) : vide.
+        # seulement les cellules qui changent. Restreint ou privé : Reels illisibles → cellule vide, pas 0 ; introuvable (réponse
+        # explicite d'Apify) : vide ; 09/10 : Reels non lus (latestPosts vide alors que le compte publie) → cellules gardées.
         if ecrire:
-            hist_prec = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
-            lisible = m["existe"] and not m["restreint"] and not m["prive"]
-            valeurs = {"reels_hier": str(m["reels_hier"]) if lisible else "",
-                       "reels_7j": str(reels_7j_estime(m, hist_prec, jour)) if lisible else ""}
-            for champ, valeur in valeurs.items():
-                if onboarding.a_colonne(champ, onglet) and valeur != str(c.get(champ) or "").strip():
-                    reels_ecritures.append((onboarding.cellule(c, champ), [[valeur]]))
+            ecritures += _ecritures_mesure(c, m, hist_prec, jour, maintenant)
         if m.get("reels") and c.get("gerant") and _en_gestion(c):
             a_relire += [{**r, "handle": h, "gerant": c["gerant"]} for r in m["reels"][:10]]   # 01/10 : review des Reels
-        hist = [x for x in d["historique"].get(h, []) if x.get("jour") != jour]
-        hist.append({"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
-                     "restreint": bool(m.get("restreint")), "followers": m.get("followers", 0),
-                     "reels_hier": int(m.get("reels_hier") or 0), "reels_7j": int(m.get("reels_7j") or 0),   # 05/10
-                     "posts_lus": int(m.get("posts_lus") or 0)})
+        hist = list(hist_prec)
+        entree = {"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
+                  "restreint": bool(m.get("restreint")), "followers": m.get("followers"),      # 09/10 : None = non lu, jamais 0
+                  "reels_hier": int(m.get("reels_hier") or 0), "reels_7j": int(m.get("reels_7j") or 0),   # 05/10
+                  "posts_lus": int(m.get("posts_lus") or 0)}
+        if m["existe"] and not m["restreint"] and not m["prive"] and not m.get("reels_lus", True):
+            entree["reels_non_lus"] = True                               # 09/10 (dashboard) : jour sauté, pas « 0 Reel »
+        hist.append(entree)
         d["historique"][h] = hist[-JOURS_HISTORIQUE:]
         if ecrire and m["existe"] and m.get("bio_lu"):                  # 08/10 : le lien du profil, pour vérifier celui du privé
             d.setdefault("bios", {})[h] = {"jour": jour, "liens": list(m.get("bio_liens") or [])[:5],
@@ -645,7 +985,8 @@ async def _executer(ecrire: bool = True) -> dict:
             pris.append(f"{c['handle']} ({str(c.get('gerant') or '?').split()[0]})")   # 01/10 : vu présent sans avoir été vu absent
             d["pris_signales"][h] = jour
         if apres:
-            await _appliquer(c, apres)
+            _appliquer(c, apres)
+    renommes_passe = {}                                                 # 09/10 (dashboard) : @ renommés pendant ce passage
     if ecrire and a_chercher:                                           # 09/10 : les @ légèrement changés
         # 09/10 (revue) : les comptes créés d'abord (WARMUP, PRIVE), les BAN récents ensuite ; une fois par jour et par compte
         # (`!dashboard` relance le scan), noté seulement pour ceux vraiment cherchés ; le reste attend le passage suivant
@@ -672,14 +1013,10 @@ async def _executer(ecrire: bool = True) -> dict:
                 changements.append((c["handle"], c["gerant"], c["etat"], f"vu sous {nouveau}, pas renommé (`!pseudo`)", c["ligne"]))
                 continue
             differes.pop(id(c), None)                                   # retrouvé : jamais BAN
+            renommes_passe[h_c] = _cle(nouveau)                         # la ligne porte maintenant le nouvel @ (cellule réécrite)
             if _norm(c["etat"]) == "ban":                               # faux BAN : le compte vit sous son vrai @, état d'avant rendu
                 retour = d.get("avant_ban", {}).get(h_c) or "WARMUP"
-                try:
-                    await _cellule(c, "etat", retour)
-                    d["bans_auto"].pop(h_c, None)
-                    d["avant_ban"].pop(h_c, None)
-                except Exception:                                       # noqa: BLE001
-                    pass
+                ecritures.append({"c": c, "champ": "etat", "valeur": retour, "attendu": c["etat"], "retour": True})
             changements.append((c["handle"], c["gerant"], c["etat"], f"retrouvé sous {nouveau}", c["ligne"]))
         for c in perdus:
             if _norm(c["etat"]) in CREES and _deps.get("compte_introuvable"):
@@ -688,13 +1025,39 @@ async def _executer(ecrire: bool = True) -> dict:
                 except Exception as erreur:                             # noqa: BLE001
                     journal.warning("Compte introuvable %s : %s", c["handle"], erreur)
     for c, apres in list(differes.values()):                            # 09/10 (revue) : pas retrouvé → le BAN différé est écrit
-        await _appliquer(c, apres)
-    if reels_ecritures:
-        try:
-            await google_api.sheets_ecrire_plusieurs(onboarding.CLASSEUR_LOGINS_ID, reels_ecritures)
-            reels_maj = len(reels_ecritures)
-        except Exception as erreur:                                      # noqa: BLE001
-            journal.warning("Classeur : colonnes Reels Hier / Reels 7 j non écrites : %s", erreur)
+        _appliquer(c, apres)
+    # 09/10 (dashboard) : ETAT, Followers et Reels en UN lot, après relecture du classeur (voir _ecrire_lot). Une ligne renommée
+    # pendant le passage est retrouvée sous son nouvel @ ; ses chiffres, mesurés sous l'ancien @ (introuvable), ne sont pas écrits.
+    perdues = []
+    if ecrire and ecritures:
+        for e in ecritures:
+            ancien = _cle(e["c"]["handle"])
+            if ancien in renommes_passe:
+                e["c"], e["cle"] = {**e["c"], "handle": renommes_passe[ancien]}, ancien
+        ecritures = [e for e in ecritures if e["champ"] == "etat" or _cle(e["c"]["handle"]) not in renommes_passe.values()]
+        faites, perdues, relus = await _ecrire_lot(ecritures)
+        for e in faites:
+            c, h_a = e["c"], e.get("cle") or _cle(e["c"]["handle"])     # bans_auto / avant_ban restent sous la clé du scan
+            if e["champ"] == "followers":
+                followers_maj += 1
+            elif e["champ"] in ("reels_hier", "reels_7j"):
+                reels_maj += 1
+            elif e.get("changement"):
+                changements.append((c["handle"], c["gerant"], c["etat"], e["valeur"], c["ligne"]))
+                if e["valeur"] == "BAN":
+                    d["bans_auto"][h_a] = jour
+                    d.setdefault("avant_ban", {})[h_a] = str(c["etat"]).strip().upper().replace("É", "E")
+                elif h_a in d["bans_auto"]:
+                    d["bans_auto"].pop(h_a, None)
+                    d.setdefault("avant_ban", {}).pop(h_a, None)
+            elif e.get("retour"):
+                d["bans_auto"].pop(h_a, None)
+                d.setdefault("avant_ban", {}).pop(h_a, None)
+        if perdues:
+            journal.warning("Classeur : %d écriture(s) non faite(s) (ligne disparue ou déplacée, ETAT changé à la main, refus de Google)",
+                            len(perdues))
+        if relus is not None:
+            comptes = relus                                             # la suite du passage part du classeur relu (valeurs écrites)
     if ecrire and a_relire and _deps.get("reels_publies"):                  # 01/10 : relus ensuite, à part (review_reels.boucle)
         try:
             _deps["reels_publies"](jour, a_relire)
@@ -805,19 +1168,221 @@ async def _executer(ecrire: bool = True) -> dict:
     if ecrire:
         d["dernier"] = jour
         d["version"] = VERSION
+        d["dernier_passage"] = _resume_passage("complet", maintenant, lignes, mesures, non_lus, suspects, reels_nl, perdues)
         _ecrire(d)
     # 05/10 : les compteurs du passage dans le journal (jamais d'identifiant de compte) — c'est ici qu'on lit, dans Railway, pourquoi
     # une cellule n'a pas bougé : non lu (Apify muet), restreint (chiffres cachés), introuvable (réponse explicite)
     journal.info("États du classeur : %d compte(s) scanné(s), %d non lu(s) laissés tels quels, %d restreint(s), %d introuvable(s) "
-                 "(dont %d après %d passages non lus), %d changement(s), %d followers, %d cellules Reels, %d clics, %d liens mis à jour",
+                 "(dont %d après %d passages non lus), %d changement(s), %d followers, %d cellules Reels, %d clics, %d liens mis à jour, "
+                 "%d followers suspects, %d Reels non lus, %d écriture(s) perdue(s)",
                  len(lignes), len(non_lus), restreints_n, absents_n, forces_n, NON_LU_JOURS, len(changements), followers_maj, reels_maj,
-                 clics_maj, liens_maj)
+                 clics_maj, liens_maj, len(suspects), len(reels_nl), len(perdues))
     avance = onboarding.comptes_d_avance(comptes)                        # 30/09 : comptes à créer sans Gérant, par créatrice
     restreints = sorted(f"`{c['handle']}` ({c['gerant']})" for c in lignes if c.get("gerant")
                         and (mesures.get(_cle(c["handle"])) or {}).get("restreint"))
     non_lus_txt = sorted(f"`{c['handle']}` ({c.get('gerant') or 'sans gérant'})" for c in non_lus)
     return {"changements": changements, "scannes": len(lignes), "erreur": "", "followers": followers_maj, "clics": clics_maj, "liens": liens_maj,
-            "reels": reels_maj, "avance": avance, "restreints": restreints, "non_lus": non_lus_txt}
+            "reels": reels_maj, "avance": avance, "restreints": restreints, "non_lus": non_lus_txt, "mode": "complet",
+            "suspects": sorted(_txt_ligne(c) for c in suspects), "reels_non_lus": sorted(_txt_ligne(c) for c in reels_nl),
+            "perdues": [_txt_perdue(e, r) for e, r in perdues]}
+
+
+def _vivant(c: dict) -> bool:
+    """09/10 (dashboard) : les lignes relues par le passage léger — un @, ni BAN, ni « à créer », ni Gérant libre."""
+    e = _norm(c.get("etat") or "")
+    g = _norm(c.get("gerant") or "").strip()
+    return bool(c.get("handle")) and e not in A_CREER and e != "ban" and g not in GERANTS_LIBRES and g not in onboarding.GERANTS_LIBRES
+
+
+async def _executer_leger(ecrire: bool = True) -> dict:
+    """09/10 (dashboard) : passage LÉGER — Apify sur les seuls comptes vivants, puis Followers, Reels Hier, Reels 7 j et séries.
+    Il ne décide AUCUN état, ne regroupe pas, ne met pas en forme, ne touche ni à la capacité, ni aux messages, ni à la recherche
+    des @ changés, ni aux parcours, et n'écrit pas l'entrée du jour de l'historique (seul le passage complet du matin le fait).
+    Un compte introuvable n'y est ni conclu ni vidé. Pas de bilan au salon (la boucle ne poste que les erreurs)."""
+    vide = {"changements": [], "scannes": 0, "erreur": "", "mode": "leger", "followers": 0, "reels": 0, "clics": 0, "liens": 0}
+    if not onboarding.actif():
+        return {**vide, "erreur": "classeur non configuré"}
+    comptes = await onboarding.lire_comptes()
+    lignes = [c for c in a_scanner(comptes) if _vivant(c)]
+    if not lignes:
+        return vide
+    mesures = await scanner([_cle(c["handle"]) for c in lignes])
+    if mesures is None:
+        return {**vide, "scannes": len(lignes), "erreur": "Instagram illisible (Apify), passage léger sans effet"}
+    non_lus = [c for c in lignes if not (isinstance(mesures.get(_cle(c["handle"])), dict) and mesures[_cle(c["handle"])].get("lu", True))]
+    if non_lus and len(non_lus) * 2 > len(lignes):
+        return {**vide, "scannes": len(lignes),
+                "erreur": f"Apify n'a lu que {len(lignes) - len(non_lus)} compte(s) sur {len(lignes)}, passage léger sans effet"}
+    ids_non_lus = {id(c) for c in non_lus}
+    d = _lire()                                                         # lecture seule : historique (Reels 7 j, garde des faux 0)
+    maintenant = datetime.now(timezone.utc)
+    jour = maintenant.strftime("%Y-%m-%d")
+    suspects, reels_nl = _controler(lignes, mesures, ids_non_lus, d)
+    ecritures = []
+    if ecrire:
+        _alimenter_series(lignes, mesures, ids_non_lus, maintenant.isoformat(timespec="seconds"))
+        for c in lignes:
+            h = _cle(c["handle"])
+            if id(c) in ids_non_lus:
+                ecritures += _ecritures_mesure(c, None, [], jour, maintenant)
+                continue
+            m = {**_fiche_vide(), **(mesures.get(h) or {})}
+            if not m["existe"]:
+                continue                                                # introuvable : le passage complet du matin décide
+            hist_prec = [x for x in (d.get("historique") or {}).get(h, []) if x.get("jour") != jour]
+            ecritures += _ecritures_mesure(c, m, hist_prec, jour, maintenant)
+    faites, perdues, _ = await _ecrire_lot(ecritures) if ecritures else ([], [], None)
+    followers_maj = sum(1 for e in faites if e["champ"] == "followers")
+    reels_maj = sum(1 for e in faites if e["champ"] in ("reels_hier", "reels_7j"))
+    if ecrire:
+        d2 = _lire()                                                    # relu juste avant : seules ces deux clés changent
+        d2["leger_iso"] = maintenant.isoformat(timespec="seconds")
+        d2["dernier_passage"] = _resume_passage("leger", maintenant, lignes, mesures, non_lus, suspects, reels_nl, perdues)
+        _ecrire(d2)
+    journal.info("Passage léger : %d compte(s) vivant(s) demandé(s), %d non lu(s), %d followers et %d cellules Reels mis à jour, "
+                 "%d followers suspects, %d Reels non lus, %d écriture(s) perdue(s)", len(lignes), len(non_lus), followers_maj,
+                 reels_maj, len(suspects), len(reels_nl), len(perdues))
+    return {**vide, "scannes": len(lignes), "followers": followers_maj, "reels": reels_maj,
+            "non_lus": sorted(_txt_ligne(c) for c in non_lus), "suspects": sorted(_txt_ligne(c) for c in suspects),
+            "reels_non_lus": sorted(_txt_ligne(c) for c in reels_nl), "perdues": [_txt_perdue(e, r) for e, r in perdues],
+            "restreints": sorted(_txt_ligne(c) for c in lignes if (mesures.get(_cle(c["handle"])) or {}).get("restreint"))}
+
+
+# ------------------------------------------------------------------ 09/10 (dashboard) : budget Apify et passages légers
+def _montant(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v < 0:
+        return None
+    return float(v)
+
+
+def projection_budget(brut, maintenant: datetime = None):
+    """La réponse de GET /v2/users/me/limits → {t, usage_usd, limite_usd, projete_usd, part, debut, fin, ok}. Usage projeté =
+    usage du cycle ÷ part du cycle écoulée (au moins 10 %, pour ne pas affoler le premier jour) ; part = projeté ÷ limite ;
+    ok = part sous BUDGET_SEUIL (ou aucune limite posée). None si la réponse est illisible."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    data = brut.get("data", brut) if isinstance(brut, dict) else None
+    if not isinstance(data, dict):
+        return None
+    usage = _montant((data.get("current") or {}).get("monthlyUsageUsd"))
+    if usage is None:
+        return None
+    limite = _montant((data.get("limits") or {}).get("maxMonthlyUsageUsd")) or None
+    cycle = data.get("monthlyUsageCycle") or {}
+    debut, fin = _instant(cycle.get("startAt")), _instant(cycle.get("endAt"))
+    projete = None
+    if debut and fin and fin > debut:
+        ecoule = min(1.0, max(0.1, (maintenant - debut) / (fin - debut)))
+        projete = usage / ecoule
+    base = projete if projete is not None else usage
+    part = base / limite if limite else None
+    return {"t": maintenant.isoformat(timespec="seconds"), "usage_usd": round(usage, 2),
+            "limite_usd": round(limite, 2) if limite else None, "projete_usd": round(projete, 2) if projete is not None else None,
+            "part": round(part, 3) if part is not None else None,
+            "debut": debut.isoformat(timespec="seconds") if debut else "", "fin": fin.isoformat(timespec="seconds") if fin else "",
+            "ok": part is None or part <= BUDGET_SEUIL}
+
+
+def budget_apify_connu() -> dict:
+    """Le dernier budget Apify lu (etats_comptes.json, « apify_budget ») — pour le Dashboard, sans aucun appel ; {} si inconnu."""
+    try:
+        return dict(_lire().get("apify_budget") or {})
+    except Exception:                                                   # noqa: BLE001
+        return {}
+
+
+async def apify_budget(forcer: bool = False):
+    """Le budget Apify du mois (GET https://api.apify.com/v2/users/me/limits?token=…), gardé dans etats_comptes.json
+    (« apify_budget ») et relu au plus toutes les BUDGET_CACHE_MIN minutes. None si illisible."""
+    maintenant = datetime.now(timezone.utc)
+    connu = budget_apify_connu()
+    t = _instant(connu.get("t"))
+    if not forcer and t is not None and timedelta(0) <= maintenant - t < timedelta(minutes=BUDGET_CACHE_MIN):
+        return connu
+    brut = None
+    try:
+        if _deps.get("apify_limites"):
+            brut = await _deps["apify_limites"]()
+        elif APIFY_TOKEN:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                async with session.get(APIFY_LIMITES, params={"token": APIFY_TOKEN}) as reponse:
+                    if reponse.status >= 400:
+                        journal.warning("Apify : budget du mois illisible (HTTP %s)", reponse.status)
+                    else:
+                        brut = await reponse.json()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Apify : budget du mois illisible (%s)", type(erreur).__name__)
+    b = projection_budget(brut, maintenant) if brut is not None else None
+    if b is not None:
+        d = _lire()
+        d["apify_budget"] = b
+        _ecrire(d)
+    return b
+
+
+def _euros(x) -> str:
+    return f"{x:.2f}".replace(".", ",") if isinstance(x, (int, float)) else "?"
+
+
+async def _alerter_une_fois(quoi: str, jour_p: str, texte: str) -> bool:
+    """Une alerte au salon admin, une seule fois par jour (de Paris) et par sujet."""
+    d = _lire()
+    alertes = d.setdefault("alertes_legeres", {})
+    if alertes.get(quoi) == jour_p:
+        return False
+    alertes[quoi] = jour_p
+    _ecrire(d)
+    if _deps.get("canal_admin"):
+        try:
+            canal = await _deps["canal_admin"]()
+            if canal is not None:
+                await canal.send(texte[:1990])
+                return True
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Alerte du passage léger : %s", type(erreur).__name__)
+    return False
+
+
+async def passage_leger_si_du(maintenant: datetime = None) -> str:
+    """Lance le passage léger d'une heure de ETATS_HEURES_LEGERES (Paris) pas encore faite aujourd'hui. Renvoie : '' (rien de dû),
+    'attente' (le passage complet du jour passe d'abord), 'recent' (le complet vient de relire Instagram : heure notée faite),
+    'budget' (budget Apify projeté au-delà de BUDGET_SEUIL de la limite, ou illisible : sauté), 'erreur', 'fait'."""
+    if not HEURES_LEGERES:
+        return ""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    p = _paris(maintenant)
+    jour_p, jour = p.date().isoformat(), maintenant.strftime("%Y-%m-%d")
+    d = _lire()
+    dus = [h for h in HEURES_LEGERES if p.hour >= h]
+    faits = [h for h in ((d.get("legers") or {}).get(jour_p) or []) if isinstance(h, int)]
+    if not [h for h in dus if h not in faits]:
+        return ""
+    if maintenant.hour >= HEURE_UTC and (d.get("dernier") != jour or d.get("version") != VERSION) \
+            and int((d.get("essais") or {}).get(jour, 0)) < 3:
+        return "attente"
+    d["legers"] = {jour_p: sorted(set(faits) | set(dus))}               # une heure ratée n'est pas rejouée en boucle
+    _ecrire(d)
+    complet = _instant(d.get("scan_iso"))
+    if complet is not None and timedelta(0) <= maintenant - complet < timedelta(hours=LEGER_APRES_COMPLET_H):
+        journal.info("Passage léger de %d h sauté : le passage complet a relu Instagram il y a moins de %d h", dus[-1], LEGER_APRES_COMPLET_H)
+        return "recent"
+    budget = await apify_budget()
+    if not budget or not budget.get("ok"):
+        if budget:
+            texte = (f"⚠️ Budget Apify du mois : {_euros(budget.get('usage_usd'))} $ dépensés, {_euros(budget.get('projete_usd'))} $ "
+                     f"projetés pour une limite de {_euros(budget.get('limite_usd'))} $ ({round(100 * (budget.get('part') or 0))} %). "
+                     "Passages légers sautés aujourd'hui ; le passage complet du matin continue.")
+        else:
+            texte = ("⚠️ Budget Apify du mois illisible : passages légers sautés aujourd'hui par prudence ; le passage complet du "
+                     "matin continue.")
+        journal.warning("Passage léger de %d h sauté : budget Apify %s", dus[-1], "trop haut" if budget else "illisible")
+        await _alerter_une_fois("budget", jour_p, texte)
+        return "budget"
+    bilan = await executer(ecrire=True, leger=True)
+    if bilan.get("erreur"):
+        journal.warning("Passage léger : %s", bilan["erreur"])
+        await _alerter_une_fois("leger", jour_p, f"⚠️ Passage léger de {dus[-1]} h : {bilan['erreur']}.")
+        return "erreur"
+    return "fait"
 
 
 ONGLET_DASHBOARD = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
@@ -1125,9 +1690,10 @@ def lignes_reels(comptes: list, historique: dict, jour: str) -> dict:
             continue
         entrees = [e for e in historique.get(h, []) if e.get("existe")]
         auj = next((e for e in entrees if e.get("jour") == jour), None)
-        if auj is None or (auj.get("restreint") and not auj.get("posts")):   # 30/09 : restreint = illisible, pas « 0 Reel »
-            continue
-        avant = [e for e in entrees if str(e.get("jour") or "") < jour and not (e.get("restreint") and not e.get("posts"))]
+        if auj is None or ((auj.get("restreint") or auj.get("reels_non_lus")) and not auj.get("posts")):   # 30/09 : restreint = illisible,
+            continue                                                    # pas « 0 Reel » ; 09/10 (dashboard) : Reels non lus non plus
+        avant = [e for e in entrees if str(e.get("jour") or "") < jour
+                 and not ((e.get("restreint") or e.get("reels_non_lus")) and not e.get("posts"))]
         prev = int((avant[-1].get("posts") if avant else 0) or 0)
         delta = max(0, int(auj.get("posts") or 0) - prev)
         p = par.setdefault(g.split()[0], {"n": 0, "comptes": 0, "fautes": 0})
@@ -1157,6 +1723,16 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
     if bilan.get("non_lus"):                                            # 05/10 : Apify muet sur ces comptes, rien conclu
         entete += (f"\n⚠️ **Non lus par Apify** ({len(bilan['non_lus'])}, laissés tels quels, ni BAN ni 0 ; absents s'ils restent "
                    f"non lus {NON_LU_JOURS} passages de suite) : {', '.join(bilan['non_lus'][:25])}")
+    if bilan.get("suspects"):                                           # 09/10 (dashboard) : faux 0 écartés
+        entete += (f"\n⚠️ **Followers suspects** ({len(bilan['suspects'])}, 0 lu alors que le compte en avait plus de "
+                   f"{SUSPECT_FOLLOWERS} : cellule gardée) : {', '.join(bilan['suspects'][:25])}")
+    if bilan.get("reels_non_lus"):
+        entete += (f"\n⚠️ **Reels non lus** ({len(bilan['reels_non_lus'])}, Apify n'a rendu aucune publication alors que le compte "
+                   f"en a : cellules gardées) : {', '.join(bilan['reels_non_lus'][:25])}")
+    if bilan.get("perdues"):                                            # 09/10 (dashboard) : jamais une écriture perdue en silence
+        entete += (f"\n❌ **Cellules non écrites** ({len(bilan['perdues'])}) : " + " · ".join(bilan["perdues"][:15]))
+    if bilan.get("mode") == "leger":
+        entete = entete.replace("**États du classeur**", "**États du classeur (passage léger : followers et Reels, aucun état)**", 1)
     if not ch:
         return entete + "\n· aucun état à changer."
     par_etat = {}
@@ -1177,7 +1753,8 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
 
 
 async def boucle(client) -> None:
-    """Un passage par jour, à HEURE_UTC, après le rapport inputs. Trois tentatives espacées de 15 minutes."""
+    """Un passage par jour, à HEURE_UTC, après le rapport inputs. Trois tentatives espacées de 15 minutes. 09/10 (dashboard) :
+    puis les passages légers aux heures de Paris ETATS_HEURES_LEGERES (passage_leger_si_du), sous garde du budget Apify."""
     if not actif():
         journal.info("États du classeur désactivés (APIFY_TOKEN / classeur absents ou ETATS_CLASSEUR=0)")
         return
@@ -1203,7 +1780,8 @@ async def boucle(client) -> None:
                     d = _lire(); d.setdefault("essais", {})[jour] = int(d.get("essais", {}).get(jour, 0)) + 1; _ecrire(d)
                     journal.warning("États du classeur : %s", bilan["erreur"])
                 else:
-                    if (bilan["changements"] or bilan.get("followers") or bilan.get("clics") or bilan.get("non_lus")) and _deps.get("canal_admin"):
+                    if (bilan["changements"] or bilan.get("followers") or bilan.get("clics") or bilan.get("non_lus")
+                            or bilan.get("suspects") or bilan.get("perdues")) and _deps.get("canal_admin"):
                         canal = await _deps["canal_admin"]()
                         if canal is not None:
                             await canal.send(texte_bilan(bilan)[:1990])
@@ -1211,6 +1789,14 @@ async def boucle(client) -> None:
                     if bans and _deps.get("notifier"):
                         await _deps["notifier"]("🚫 **Comptes introuvables sur Instagram, passés en BAN** : "
                                                 + ", ".join(bans) + ". À remplacer : `!liberer Prénom handle`, puis un nouvel identifiant.")
+                    try:                                                # 09/10 (dashboard) : le budget du mois, affiché au Dashboard
+                        await apify_budget()
+                    except Exception as erreur:                         # noqa: BLE001
+                        journal.warning("Budget Apify : %s", type(erreur).__name__)
+            try:                                                        # 09/10 (dashboard) : passages légers (14 h, 20 h de Paris)
+                await passage_leger_si_du(maintenant)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Passage léger : %s", erreur)
             if SOIR_HEURE >= 0 and _paris(maintenant).hour >= SOIR_HEURE and d.get("dernier") == jour and d.get("soir") != jour:
                 d = _lire(); d["soir"] = jour; _ecrire(d)               # une fois par jour, même si Apify échoue
                 await scan_du_soir(client, d.get("scan_iso") or f"{jour}T{HEURE_UTC:02d}:00:00+00:00")
@@ -1247,7 +1833,8 @@ async def scan_du_soir(client, depuis_iso: str) -> list:
 
 
 async def commande_staff(message, texte: str) -> bool:
-    """`!etats-comptes` : passage immédiat · `!etats-comptes test` : ce qui changerait, sans rien écrire."""
+    """`!etats-comptes` : passage immédiat · `!etats-comptes test` : ce qui changerait, sans rien écrire · `!etats-comptes leger` :
+    un passage léger (09/10) · `!dashboard` : l'onglet réécrit sans scan · `!dashboard scan` : passage complet puis l'onglet."""
     mots = texte.split()
     if not mots or mots[0].lower() not in ("!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity"):
         return False
@@ -1285,9 +1872,10 @@ async def commande_staff(message, texte: str) -> bool:
             d["dashboard_masques"] = exclus
             _ecrire(d)
         # 30/09 (Gaëtan : « tous les comptes GOOD, BAN et WARMUP, fais des vérifications à chaque fois que je fais !dashboard ») :
-        # le passage complet (Instagram, états, followers, Reels hier, clics, regroupement) avant l'onglet ; `!dashboard rapide`
-        # réécrit l'onglet seul, sans payer de scan
-        if actif() and not (len(mots) > 1 and mots[1].lower() in ("rapide", "vite")):
+        # le passage complet (Instagram, états, followers, Reels hier, clics, regroupement) avant l'onglet. 09/10 (dashboard) : le
+        # Dashboard se tient à jour seul (passages légers, séries) ; `!dashboard` réécrit l'onglet SANS scan (gratuit), et
+        # `!dashboard scan` lance d'abord le passage complet payant. « rapide » / « vite » restent acceptés (sans scan).
+        if actif() and len(mots) > 1 and mots[1].lower() == "scan":
             await message.reply("⏳ Je vérifie tous les comptes sur Instagram (GOOD, WARMUP, PRIVE, BAN, à créer réservés), puis je réécris le Dashboard. Quelques minutes.")
             bilan = await executer(ecrire=True)
             await message.reply(texte_bilan(bilan)[:1990])
@@ -1298,7 +1886,9 @@ async def commande_staff(message, texte: str) -> bool:
             n = await ecrire_dashboard(await onboarding.lire_comptes(), d.get("historique", {}), _deps.get("clics_7j"),
                                        datetime.now(timezone.utc).strftime("%Y-%m-%d"), exclus)
             import capacite
+            scan = len(mots) > 1 and mots[1].lower() == "scan"
             await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par clipper, par créatrice."
+                                + ("" if scan else "\nSans relire Instagram : `!dashboard scan` lance d'abord le passage complet (payant).")
                                 + (f"\n{capacite.texte_resume(CAPACITE)}" if CAPACITE else "")
                                 + (f"\nMasqués : {', '.join(exclus)} (`!dashboard inclure Prénom` pour remettre quelqu'un)." if exclus
                                    else "\nPersonne n'est masqué, Julien et Rianah compris (`!dashboard exclure Prénom` pour masquer)."))
@@ -1309,7 +1899,9 @@ async def commande_staff(message, texte: str) -> bool:
         await message.reply("États du classeur inactifs : il faut `APIFY_TOKEN`, `CLASSEUR_LOGINS_ID` et le compte de service dans Railway.")
         return True
     test = len(mots) > 1 and mots[1].lower() == "test"
-    await message.reply("⏳ Je regarde Instagram…")
-    bilan = await executer(ecrire=not test)
+    leger = len(mots) > 1 and _norm(mots[1]) == "leger"                 # 09/10 (dashboard) : `!etats-comptes leger`
+    await message.reply("⏳ Je regarde Instagram…" + (" (passage léger : comptes vivants, followers et Reels, aucun état changé)"
+                                                       if leger else ""))
+    bilan = await executer(ecrire=not test, leger=leger)
     await message.reply(texte_bilan(bilan, test)[:1990])
     return True
