@@ -11,10 +11,10 @@ liens_forts: ["[[Fiche de poste - Manager marketing (Jonas)]]", "[[Checkup clipp
 # Team Leader clippers : le premier poste après Jonas (9 octobre 2026)
 
 > [!tip] Verdict
-> **Ne monte pas la pyramide manager → 5 Team Leaders → 50 clippers : tu as quatre clippers qui produisent, pas cinquante.** Seul poste à ouvrir : **un Team Leader joueur-entraîneur malgache, choisi sur ses chiffres** (Clarisse ou Yves, pas Thia), qui garde ses comptes, encadre 5 à 10 nouveaux et touche **sa paie de clipper + 10 $ par quinzaine pour chaque clipper de son équipe au-dessus de 1 000 visiteurs francophones**. Pas de manager tant que trois équipes ne tiennent pas ce seuil : c'est toi et le bot. **Le 0,05 $ par visiteur ne bouge pas** : à 0,005 $, un clipper au seuil gagne 2,50 $, son Team Leader 10 $, et le manager plus que les cinquante clippers réunis.
+> **Ne monte pas la pyramide manager → 5 Team Leaders → 50 clippers : tu as quatre clippers qui produisent, pas cinquante.** Seul poste à ouvrir : **un Team Leader joueur-entraîneur malgache, choisi sur ses chiffres** (Clarisse ou Yves, pas Thia), qui garde ses comptes, encadre 5 à 10 nouveaux et touche **sa paie de clipper + 10 $ par quinzaine pour chaque clipper de son équipe au-dessus de 500 visiteurs francophones et de 5 abonnés OF + MYM**. Pas de manager tant que trois équipes ne tiennent pas ce seuil : c'est toi et le bot. **Le 0,05 $ par visiteur ne bouge pas** : à 0,005 $, un clipper au seuil gagne 2,50 $, son Team Leader 10 $, et le manager plus que les cinquante clippers réunis.
 
 > [!warning] Proposition de Claude, à trancher par Gaëtan
-> Grille, seuil et candidats : recommandation du 09/10. La grille de Gaëtan (manager 25 $ par Team Leader au-delà de 1 500 clics par quinzaine, Team Leader 10 $ par clipper au-delà de 500, clipper 0,005 $ le clic) est chiffrée en section 2.
+> Grille, seuil et candidats : recommandation du 09/10. **Seuil révisé le soir même de 1 000 à 500 visiteurs**, à la question de Gaëtan, avec un plancher de 5 abonnés (section 3). La grille de Gaëtan (manager 25 $ par Team Leader au-delà de 1 500 clics par quinzaine, Team Leader 10 $ par clipper au-delà de 500, clipper 0,005 $ le clic) est chiffrée en section 2.
 
 ## 1. Ce que le départ de Jonas change
 
@@ -29,7 +29,7 @@ Sur 7 jours, Caroline, Josué, Yves et Clarisse font **73 % du trafic des clippe
 | Par quinzaine, 50 clippers | Grille de Gaëtan à 0,005 $ | Même grille à 0,05 $ | Grille recommandée |
 |---|---|---|---|
 | Clippers | ≈ 94 $ (1,90 $ par tête) | ≈ 935 $ | ≈ 935 $ |
-| Team Leaders | 120 $ | 120 $ | 120 $ (seuil 1 000, mêmes 12) |
+| Team Leaders | 120 $ | 120 $ | 120 $ (seuil 500, mêmes 12) |
 | Manager | 125 $ | 125 $ | 0 $ (Gaëtan) |
 | **Total** | **≈ 339 $** | **≈ 1 180 $** | **≈ 1 055 $** |
 | Coût par visiteur | 0,018 $ | **0,063 $** | 0,056 $ |
@@ -46,10 +46,10 @@ Les règles Team Leader et manager viennent du confrère de Lisbonne (journal du
 | Rôle | Paie | Condition |
 |---|---|---|
 | Clipper | **0,05 $ par visiteur francophone hors robots**, inchangé | Payé le 20 et le 5 |
-| Team Leader | **Sa paie de clipper + 10 $ par quinzaine et par clipper de son équipe ≥ 1 000 visiteurs francophones** | Un lien à zéro abonné sur 1 000 visiteurs ne compte pas (clics achetés : 5 à 10 $ le millier) |
+| Team Leader | **Sa paie de clipper + 10 $ par quinzaine et par clipper de son équipe ≥ 500 visiteurs francophones** (son propre lien exclu) | **Au moins 5 abonnés OF + MYM sur le lien dans la quinzaine** (un vrai clipper en fait 10 à 15 pour 500 visiteurs, des clics achetés zéro) |
 | Manager | **Pas de poste** : Gaëtan + le bot | Ouvert à trois équipes de 5 clippers au seuil ; alors 25 $ par Team Leader qui tient ce seuil |
 
-Le seuil à 1 000 plutôt que 500 sélectionne les mêmes producteurs (la distribution est en deux blocs) et coupe le coût de l'étage de moitié (0,01 $ par visiteur au seuil). Le Team Leader gagne **40 à 60 $ de prime par mois** en réaliste (2 à 3 producteurs sur 10), 100 à 120 $ en optimiste, plus sa paie (Clarisse à 144 visiteurs par jour ≈ 215 $ par mois). Un producteur de plus rapporte 90 à 210 $ de part agence par quinzaine selon MYM, pour 80 $ versés.
+**Pourquoi 500 et pas 1 000 (révisé le 09/10 au soir).** J'avais proposé 1 000 pour couper de moitié le coût au seuil (0,01 $ par visiteur au lieu de 0,02 $). Mais la distribution est en deux blocs : les producteurs font ≈ 1 400 visiteurs, où la prime ne pèse que 0,007 $ par visiteur quel que soit le seuil, et seuls les nouveaux en montée passent par la zone 500-1 000. Or les faire monter, c'est exactement le métier du Team Leader : 500 paie l'activation, 1 000 la paierait trop tard. Le vrai risque du seuil bas est la fraude (500 clics achetés coûtent 2,50 à 5 $ pour 35 $ de paie), d'où le plancher de 5 abonnés : Caroline, Josué et Lilian font ≈ 3 abonnés OnlyFans pour 100 visiteurs, Tara 0,8. Au seuil exact, l'agence paie 35 $ (25 $ au clipper, 10 $ au Team Leader) pour 30 à 35 $ de part agence sur OnlyFans seul (à l'équilibre) ou 60 à 75 $ avec MYM (spéculatif) ; à 1 400 visiteurs, 80 $ pour 85 à 210 $. Sur un producteur, la prime pèse peu ; au seuil exact et sur OnlyFans seul, c'est elle qui ramène le clipper à l'équilibre : c'est le prix de l'activation, payé une ou deux quinzaines avant qu'il produise. Le Team Leader gagne **40 à 60 $ de prime par mois** en réaliste (2 à 3 producteurs sur 10), 100 à 120 $ en optimiste, plus sa paie (Clarisse à 144 visiteurs par jour ≈ 215 $ par mois).
 
 ## 4. Le poste : six tâches, 1 à 2 heures par jour
 
@@ -62,7 +62,7 @@ Le seuil à 1 000 plutôt que 500 sélectionne les mêmes producteurs (la distri
 5. **Chaque semaine**, partager les trois Reels de l'équipe qui ont le plus percé.
 6. **Continuer à clipper.**
 
-Hors périmètre : la paie, la signature (tout nouveau passe par le formulaire et le bot, vérification d'âge comprise), les identifiants des créatrices. Son seul chiffre, qui est aussi sa prime : **ses clippers au-dessus de 1 000 visiteurs**. Le salon `#jonas-stats` devient le sien.
+Hors périmètre : la paie, la signature (tout nouveau passe par le formulaire et le bot, vérification d'âge comprise), les identifiants des créatrices. Son seul chiffre, qui est aussi sa prime : **ses clippers au-dessus de 500 visiteurs et de 5 abonnés**. Le salon `#jonas-stats` devient le sien.
 
 ## 5. Qui
 
@@ -75,13 +75,14 @@ Hors périmètre : la paie, la signature (tout nouveau passe par le formulaire e
 ## 7. Avocat du diable
 
 - Un Team Leader mal choisi refait Jonas ; prime 100 % variable et essai daté limitent la casse, pas le risque qu'il parte si la prime est maigre.
-- La prime au seuil invite à acheter des clics pour passer de 950 à 1 000 ; le garde-fou ne filtre pas une ferme qui convertit un peu.
+- La prime au seuil invite à acheter des clics pour passer de 450 à 500 ; le plancher de 5 abonnés ne filtre pas une ferme qui convertit un peu, ni un Team Leader qui s'abonne lui-même avec cinq comptes (5 abonnements payants coûtent plus que la prime sur une page payante, pas sur une page gratuite).
 - **Dette CGU** : trois comptes par personne, contenu repris, comptes tenus de l'étranger pour une créatrice française, c'est le comportement non authentique que Meta sanctionne ([[Risques légaux et éthiques de l'OFM]]). De 15 à 50 clippers, l'exposition triple.
 - **Sécurité du départ** : le message épinglé par Jonas dans les groupes contient en clair l'identifiant, le mot de passe et l'e-mail d'un compte de Sophie, et Yves publie sur un lien hérité de Jonas. Tant que les mots de passe ne changent pas, Jonas garde la main.
 
 ## 8. Prédictions (écrites le 09/10, revues le 20/11)
 
 - Team Leader nommé avant le 16/10 avec une cohorte de 10 : **au moins 3 au-dessus de 1 000 visiteurs sur la quinzaine du 01 au 15/11** — 40 % (au moins 2 : 60 %).
+- Au seuil révisé (500 visiteurs et 5 abonnés), **au moins 4 de la cohorte le passent sur la quinzaine du 01 au 15/11** — 50 % (écrite le 09/10 au soir).
 - Le promu perd plus de 30 % de ses propres visiteurs le premier mois — 35 %.
 - Taux clipper passé à 0,005 $ : plus de la moitié des clippers au variable sans Reel 14 jours après l'annonce — 75 %.
 - Pyramide complète montée avant 20 producteurs : au 31/12, la hiérarchie coûte plus que la paie des clippers — 70 %.
