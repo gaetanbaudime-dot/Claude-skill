@@ -286,10 +286,15 @@ async def apres_releves(client, d: dict):
         return
     maintenant = _deps["heure_paris"]()
     hier = maintenant.date() - timedelta(days=1)
-    if maintenant.hour < paie_clics.CLICS_HEURE or d.get("rapport_jonas") == maintenant.date().isoformat():
+    aujourdhui = maintenant.date().isoformat()
+    if maintenant.hour < paie_clics.CLICS_HEURE or d.get("rapport_jonas") == aujourdhui:
         return
-    suivis = [lid for lid, i in d["liens"].items() if i.get("suivi")]
-    complets = all(hier.isoformat() in d["jours"].get(lid, {}) for lid in suivis)
+    # revue CLICS du 09/10 : la veille n'est attendue que des suivis relevés aujourd'hui (paie_clics.a_relever : pas un lien introuvable
+    # aujourd'hui, 404, ni effacé dans GAML) et comptés à partir d'hier au plus tard — comme `complets` dans paie_clics. Avant, un
+    # suivi introuvable (plus jamais écrit à 0) retardait le rapport de 7 h à 10 h chaque jour.
+    suivis = [lid for lid, i in d["liens"].items() if i.get("suivi") and paie_clics.a_relever(i, aujourdhui)
+              and str(i.get("depuis") or "")[:10] <= hier.isoformat()]
+    complets = all(not paie_clics._manque(d["jours"].get(lid, {}), hier) for lid in suivis)
     if suivis and not complets and maintenant.hour < paie_clics.CLICS_HEURE + 3:
         return                                     # on attend les relevés, mais jamais au-delà de 3 h
     if await envoyer(client, d, hier):
