@@ -5,10 +5,10 @@ les règles, il reçoit la créatrice suivante de la séquence et tout ce que `!
 comptes du classeur, lien, alias 2FA, parcours). Au démarrage, les signés présents sans créatrice sont rattrapés un
 par un, avec une pause entre deux.
 
-09/10 (Gaëtan : « on va ouvrir les vannes ») : le goulot passe du test de montage au stock de comptes. Une créatrice sans compte
-livrable est sautée ; si AUCUNE n'en a, le membre reçoit une fois le repli « Ta créatrice arrive ici sous 48 h » et passe à l'état
-« attente_attribution » du pipeline. La boucle de l'onboarding le reprend tout seul dès qu'un compte se libère (`reprendre_attente`),
-un par un, ATTRIBUTION_PAUSE_SEC entre deux, sans commande.
+09/10 (Gaëtan : « on va ouvrir les vannes ») : le quiz suffit pour entrer, le goulot devient le stock de comptes. Une créatrice sans
+compte livrable est sautée ; si AUCUNE n'en a, le membre reçoit une fois le repli « Ta créatrice arrive ici sous 48 h » et passe à
+l'état « attente_attribution » du pipeline. La boucle de l'onboarding le reprend tout seul dès qu'un compte se libère
+(`reprendre_attente`, la seule reprise), un par un, ATTRIBUTION_PAUSE_SEC entre deux, sans commande.
 
 Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:1 » depuis le 28/09 : Clara et
 Maddie à 0 tant qu'aucun e-mail de compte n'arrive ; sans poids = 1). Une créatrice sans catégorie ni rôle sur le serveur est sautée (et dite au salon admin). Un
@@ -308,21 +308,23 @@ async def _mettre_en_attente(membre, via: str) -> tuple:
     return nouveau, envoye
 
 
-def _sortir_d_attente(uid: str) -> None:
-    """09/10 : un membre qui reçoit sa créatrice quitte l'attente AVANT l'onboarding : l'état redevient « valide » (onboarder_membre
-    démarre alors le parcours à l'étape 1)."""
+def _sortir_d_attente(uid: str) -> bool:
+    """09/10 : un membre qui reçoit sa créatrice quitte l'attente AVANT l'onboarding : l'état redevient « valide » et « attente_fin »
+    est daté. bot_discord.parcours_a_demarrer compte cette date comme une validation : un nouveau qui a attendu plus de 7 jours
+    démarre quand même à l'étape 1 (bienvenue, compte 1), jamais en routine. Renvoie vrai si le membre était en attente."""
     fichier = _fichier_pipeline()
     if fichier is None:
-        return
+        return False
     pipe = _deps["lire_json"](fichier, {"liaisons": {}, "etats": {}})
     info = (pipe.get("etats") or {}).get(str(uid))
     if not info or info.get("etat") != ETAT_ATTENTE:
-        return
+        return False
     info["etat"] = "valide"
     info["attente_fin"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    for cle in ("attente_depuis", "attente_par", "repli_attente"):
+    for cle in ("attente_depuis", "attente_par", "repli_attente", "reprise_essai"):
         info.pop(cle, None)
     _deps["ecrire_json"](fichier, pipe)
+    return True
 
 
 def en_attente() -> list:
@@ -335,9 +337,47 @@ def en_attente() -> list:
     return sorted(attente, key=lambda x: str(x[1].get("attente_depuis") or ""))
 
 
+# 09/10 (revue du lot L6 : deux reprises lancées l'une après l'autre validaient deux fois le même candidat) : un même membre est
+# repris au plus une fois par REPRISE_ESSAI_H heure ; la trace « reprise_essai » est écrite dans le pipeline AVANT l'appel.
+REPRISE_ESSAI_H = float(os.environ.get("ATTRIBUTION_REPRISE_H", "1") or 1)
+
+
+def _essai_recent(info: dict, maintenant=None) -> bool:
+    try:
+        essai = datetime.fromisoformat(str((info or {}).get("reprise_essai") or ""))
+    except ValueError:
+        return False
+    if essai.tzinfo is None:
+        essai = essai.replace(tzinfo=timezone.utc)
+    return ((maintenant or datetime.now(timezone.utc)) - essai).total_seconds() < REPRISE_ESSAI_H * 3600
+
+
+def _noter_essai(uid: str) -> None:
+    fichier = _fichier_pipeline()
+    if fichier is None:
+        return
+    pipe = _deps["lire_json"](fichier, {"liaisons": {}, "etats": {}})
+    info = (pipe.get("etats") or {}).get(str(uid))
+    if isinstance(info, dict):
+        info["reprise_essai"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        _deps["ecrire_json"](fichier, pipe)
+
+
+def _repris_possible(uid: str, info: dict):
+    """Le membre si la reprise peut le prendre maintenant (présent, ni bot ni staff, pas essayé dans l'heure), sinon None."""
+    membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+    if membre is None or getattr(membre, "bot", False) or (_deps.get("est_staff") and _deps["est_staff"](membre)):
+        return None
+    return None if _essai_recent(info) else membre
+
+
 def attente_a_reprendre() -> bool:
-    """Lecture seule, sans réseau : y a-t-il quelqu'un à reprendre (et une reprise n'est pas déjà en cours) ?"""
-    return actif() and bool(_deps) and not _verrou("reprise").locked() and bool(en_attente())
+    """Lecture seule, sans réseau : y a-t-il quelqu'un à reprendre (et une reprise n'est pas déjà en cours) ? 09/10 (revue) : seuls
+    comptent les membres présents, ni bots ni staff, pas essayés dans l'heure : un absent garde son état sans faire relire le stock
+    toutes les 15 minutes."""
+    if not (actif() and bool(_deps) and not _verrou("reprise").locked()):
+        return False
+    return any(_repris_possible(u, i) is not None for u, i in en_attente())
 
 
 async def attribuer(membre, via: str) -> str:
@@ -392,17 +432,22 @@ async def reprendre_attente() -> list:
     l'onboarding (15 min). Les membres « attente_attribution » présents passent, les plus anciens d'abord, dans la limite du stock
     de comptes livrables, ATTRIBUTION_PAUSE_SEC entre deux : un signé reçoit sa créatrice (attribuer), un candidat mis en attente
     par la migration est validé (valider_candidat, qui mène à la même attribution). Stock inconnu ou nul : personne ne bouge.
-    Renvoie [(prénom, résultat)]."""
+    09/10 (revue du lot L6) : un staff en attente en sort ; un « deja » (rôle d'équipe sans être au registre) en sort aussi, avec une
+    ligne à l'admin, et ne prend pas de place ; un même membre au plus une fois par REPRISE_ESSAI_H heure (trace écrite avant l'appel :
+    deux reprises lancées coup sur coup ne valident jamais deux fois). Renvoie [(prénom, résultat)]."""
     if not actif() or _verrou("reprise").locked():
         return []
-    faits = []
+    faits, pris = [], 0
     async with _verrou("reprise"):
         attente = en_attente()
+        for uid, _info in attente:                                          # un staff n'attend jamais de créatrice
+            m_s = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+            if m_s is not None and _deps.get("est_staff") and _deps["est_staff"](m_s) and _sortir_d_attente(uid):
+                journal.info("Reprise des attentes : %s est du staff, sorti de l'attente", uid)
+        attente = [(u, i) for u, i in en_attente() if _repris_possible(u, i) is not None]
         if not attente:
             return []
-        presents = [m for m in (_deps["membre_par_id"](u) if _deps.get("membre_par_id") else None for u, _i in attente) if m is not None]
-        if not presents:
-            return []
+        presents = [_repris_possible(u, i) for u, i in attente]
         stock = await stock_livrable()
         guild = getattr(presents[0], "guild", None)                         # seules les créatrices ouvertes sur le serveur comptent
         places = sum(_stock_de(stock, c) for c in ORDRE if _existe(guild, c)) if stock is not None else 0
@@ -410,29 +455,43 @@ async def reprendre_attente() -> list:
             return []
         registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
         for uid, info in attente:
-            if len(faits) >= places:
+            if pris >= places:
                 break
             membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
-            if membre is None or getattr(membre, "bot", False) or (_deps.get("est_staff") and _deps["est_staff"](membre)):
-                continue                                                    # parti du serveur : il garde son état, rien à faire
+            info_f = dict(((_deps["lire_json"](_fichier_pipeline(), {}) or {}).get("etats") or {}).get(uid) or {})
+            if membre is None or info_f.get("etat") != ETAT_ATTENTE or _repris_possible(uid, info_f) is None:
+                continue                                                    # parti, déjà repris ailleurs, ou essayé dans l'heure
             prenom = _deps["prenom_de"](membre)
             if uid in registre:
                 if not sans_creatrice(membre):                              # créatrice reçue autrement (`!creatrice`, roster)
                     _sortir_d_attente(uid)
                     continue
+                _noter_essai(uid)
                 creatrice = await attribuer(membre, "reprise : compte libéré")
                 if not creatrice:
                     break                                                   # plus de compte en vrai : on s'arrête là
+                pris += 1
                 faits.append((prenom, creatrice))
             elif _deps.get("valider_candidat"):
+                _noter_essai(uid)
                 try:
                     retour = await _deps["valider_candidat"](membre, str(info.get("score_quiz") or ""), "reprise")
                 except Exception as erreur:                                 # noqa: BLE001
                     journal.warning("Reprise de %s : %s", uid, erreur)
                     continue
-                faits.append((prenom, "validé" if retour != "deja" else "déjà dans l'agence"))
-                if retour == "deja":
-                    continue                                                # aucune place prise, pas de pause
+                if retour == "deja":                                        # aucune place prise, pas de pause
+                    faits.append((prenom, "déjà dans l'agence"))
+                    if _sortir_d_attente(uid):                              # (une validation en cours ailleurs a déjà changé l'état)
+                        admin = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                        if admin is not None:
+                            try:
+                                await admin.send(f"⚠️ {membre.mention} attendait une créatrice mais porte déjà un rôle de l'équipe sans "
+                                                 f"être au registre : sorti de l'attente. Clipper ? `!creatrice @{prenom} <créatrice>`.")
+                            except (discord.Forbidden, discord.HTTPException):
+                                pass
+                    continue
+                pris += 1
+                faits.append((prenom, "validé"))
             else:
                 journal.warning("Reprise des attentes : valider_candidat non branché, %s attend", uid)
                 continue
