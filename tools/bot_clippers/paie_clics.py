@@ -884,8 +884,9 @@ def _note_du_detenteur(info: dict, note) -> bool:
 
 def _membres_du_prenom(prenom: str, creatrice: str = "", sauf: str = "") -> tuple:
     """09/10 (revue CLICS, contrat C6(d)) : les membres SIGNÉS présents sur le serveur dont le premier mot du pseudo vaut `prenom`
-    (la recherche d'associer_auto), sauf l'uid `sauf`. Renvoie (tous ces uid, les uid « sûrs » : ceux de la même créatrice, ou le
-    seul candidat)."""
+    (la recherche d'associer_auto), sauf l'uid `sauf`. Renvoie (tous ces uid, ceux de la créatrice `creatrice`). 10/10 (revue CLICS,
+    2e passe) : plus de repli « seul candidat » d'une autre créatrice (un Eddy signé chez Chloé recevait le lien de Sophie d'un
+    sortant)."""
     registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) if _deps.get("FICHIER_EQUIPES") else {}
     membre_de = _deps.get("membre_par_id") or (lambda u: None)
     normaliser = _deps.get("normaliser") or _n_note
@@ -903,8 +904,7 @@ def _membres_du_prenom(prenom: str, creatrice: str = "", sauf: str = "") -> tupl
         if normaliser(nom.split()[0] if nom.split() else "") != cible:
             continue
         candidats.append((str(u), normaliser(fiche.get("creatrice") or "") == normaliser(creatrice or "")))
-    surs = [u for u, meme in candidats if meme] or ([candidats[0][0]] if len(candidats) == 1 else [])
-    return [u for u, _ in candidats], surs
+    return [u for u, _ in candidats], [u for u, meme in candidats if meme]
 
 
 async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants: dict, dus: bool = False,
@@ -934,6 +934,10 @@ async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants:
     5. `notes_lues=False` (GAML illisible pendant `!sortie`) : rien n'est bloqué, ses liens sont détachés vers le repreneur avec la note
        en attente (`note_attendue`, posée à la passe horaire si GAML dit encore « Clipping <lui> » ; une note changée à la main
        entre-temps gagne, comme pour un refus de GAML).
+    10/10 (revue CLICS, 2e passe, C6(d)) : le lien n'est « à l'autre » que si la fiche porte une note (posée par le bot) que GAML
+    contredit ET que le prénom de la note GAML est celui d'un membre signé de la MÊME créatrice que le lien ; sinon l'uid l'emporte
+    (le lien suit le sortant, ligne admin « note GAML … inattendue, à vérifier »). Avant : une fiche sans note (`!lien` quand la liste
+    GAML ne portait pas la note) et un pseudo changé suffisaient à rattacher le lien de Sophie au seul « Eddy » signé, chez Chloé.
     Renvoie {"repris": [lignes], "liberes": [ids], "refus": [lignes]}."""
     uid, repreneur = str(uid or ""), str(repreneur or "").strip()
     repris, refus, liberes = [], [], []
@@ -951,7 +955,7 @@ async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants:
         vivant = vivants.get(lid) or {}
         note_v = str(vivant.get("note") or "").strip()
         lue = notes_lues and "note" in vivant
-        p = {"lid": lid, "note": note_v, "nouvelle": "", "autres": [], "surs": []}
+        p = {"lid": lid, "note": note_v, "nouvelle": "", "autres": [], "surs": [], "inattendue": False}
         if info.get("supprime_gaml") or vivant.get("introuvable"):
             p["action"] = "efface"
         elif lue and not _prenom_note(note_v):
@@ -961,7 +965,11 @@ async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants:
                 p_note = _prenom_note(note_v)
                 if (_n_note(p_note).split() or [""])[0] != p_sortant and _n_note(note_v) != _n_note(info.get("note")):
                     creatrice = (str(vivant.get("name") or "").split() or [str(info.get("creatrice") or "")])[0]
-                    p["autres"], p["surs"] = _membres_du_prenom(p_note, creatrice, sauf=uid)
+                    meme = _membres_du_prenom(p_note, creatrice, sauf=uid)[1]
+                    if meme and str(info.get("note") or "").strip():
+                        p["autres"] = p["surs"] = meme                  # note du bot contredite, membre de la même créatrice
+                    else:
+                        p["inattendue"] = True                          # 10/10 (C6(d)) : l'uid l'emporte, l'admin vérifie
             if p["autres"]:
                 p["action"] = "autre"
             elif not repreneur:
@@ -996,6 +1004,8 @@ async def passer_liens_metricool(uid: str, prenom: str, repreneur: str, vivants:
             # renommer_liberes le comparent à la note GAML (un pseudo changé en « Eddie » ne les bloque plus)
             ancien_gaml = _prenom_note(note_v) or _prenom_note(info.get("note")) or prenom
             action = p["action"]
+            if p.get("inattendue"):
+                refus.append(f"lien {cr_l} : note GAML « {note_v} » inattendue, à vérifier (le lien suit {prenom} par son identifiant)")
             if action == "efface":
                 if not info.get("supprime_gaml"):
                     info["supprime_gaml"] = jour
@@ -1492,28 +1502,33 @@ def _erreur_du_lien(erreur) -> bool:
     return bool(m) and m.group(1) not in ("401", "408", "429")
 
 
-def _malade(info: dict, maintenant) -> bool:
-    """09/10 (revue CLICS, R3 bis) : le lien a-t-il échoué (relevé `echec` ou direct `echec_direct`) depuis moins de ECHEC_MALADE
-    secondes ? Un tel lien passe APRÈS les liens sains et son erreur ne compte pas comme un signe de panne (un succès efface l'échec)."""
-    for cle in ("echec", "echec_direct"):
-        e = (info or {}).get(cle) or {}
-        try:
-            if e and maintenant.timestamp() - float(e.get("ts") or 0) < ECHEC_MALADE:
-                return True
-        except (TypeError, ValueError):
-            continue
-    return False
-
-
-def _sain(d: dict, lid: str, maintenant) -> bool:
-    """09/10 (revue CLICS, R3 bis) : le lien a-t-il été lu avec succès récemment (direct du jour ou de la veille, ou un relevé des
-    trois derniers jours) sans échec depuis ? Seule l'erreur d'un tel lien est un signe de panne de GAML : une page jamais lisible
-    (/ytb « unsupported link type », 5xx permanent) ne l'est pas."""
-    if _malade((d.get("liens") or {}).get(lid), maintenant):
+def _malade(info: dict, maintenant, cle: str) -> bool:
+    """09/10 (revue CLICS, R3 bis) : le lien a-t-il échoué depuis moins de ECHEC_MALADE secondes sur CE canal (`cle` : « echec » pour
+    le relevé, « echec_direct » pour le direct) ? Un tel lien passe APRÈS les liens sains et son erreur ne compte pas comme un signe
+    de panne (un succès du même canal efface l'échec). 10/10 (revue CLICS, 2e passe) : chaque canal ne juge que ses propres échecs.
+    Le direct (/analytics/countries sur la journée en cours, encore partielle) et le relevé (countries puis /analytics/visitors sur
+    une journée entière, plus lourd) n'échouent pas pour les mêmes raisons : un succès de l'un ne prouve rien pour l'autre (avant :
+    le direct effaçait l'`echec` du relevé, deux pages en « délai dépassé » sur visitors redevenaient « saines » à chaque passage
+    et arrêtaient rattraper à l'étape 1, relecture de 6 h et jours anciens jamais faits)."""
+    e = (info or {}).get(cle) or {}
+    try:
+        return bool(e) and maintenant.timestamp() - float(e.get("ts") or 0) < ECHEC_MALADE
+    except (TypeError, ValueError):
         return False
-    veille = (maintenant.date() - timedelta(days=1)).isoformat()
-    if str(((d.get("aujourdhui") or {}).get(lid) or {}).get("jour") or "") >= veille:
-        return True
+
+
+def _sain(d: dict, lid: str, maintenant, cle: str) -> bool:
+    """09/10 (revue CLICS, R3 bis) : le lien a-t-il été lu avec succès récemment sur ce canal, sans échec depuis ? Seule l'erreur d'un
+    tel lien est un signe de panne de GAML : une page jamais lisible (/ytb « unsupported link type », 5xx permanent) ne l'est pas.
+    10/10 (revue CLICS, 2e passe) : pour le relevé (`cle` = « echec »), seul son propre historique compte (un jour relevé dans les
+    trois derniers jours, pas d'`echec` récent) : un direct réussi ne rend pas « sain » un lien dont le relevé échoue. Pour le direct
+    (« echec_direct »), un direct du jour ou de la veille compte aussi."""
+    if _malade((d.get("liens") or {}).get(lid), maintenant, cle):
+        return False
+    if cle == "echec_direct":
+        veille = (maintenant.date() - timedelta(days=1)).isoformat()
+        if str(((d.get("aujourdhui") or {}).get(lid) or {}).get("jour") or "") >= veille:
+            return True
     depuis = (maintenant.date() - timedelta(days=3)).isoformat()
     return any(j >= depuis for j in ((d.get("jours") or {}).get(lid) or {}))
 
@@ -1587,8 +1602,7 @@ async def relever_jour(d: dict, lid: str, j: date, maintenant=None) -> str:
         _ecrire(d)
         return "erreur"
     d.setdefault("jours", {}).setdefault(lid, {})[j.isoformat()] = v
-    info.pop("echec", None)
-    info.pop("echec_direct", None)                                      # 09/10 (R3 bis) : lu, donc plus « malade » pour le direct non plus
+    info.pop("echec", None)                                             # 10/10 : seulement l'échec du relevé (`echec_direct` : le direct, _malade)
     js = j.isoformat()
     if j == hier and maintenant.hour < RELECTURE_HEURE:
         if js not in provisoires.setdefault(lid, []):
@@ -1629,7 +1643,7 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
         nonlocal appels
         if appels and RELEVE_PAUSE > 0:
             await asyncio.sleep(RELEVE_PAUSE)                           # minuit : ~55 liens d'un coup, la minute reste partagée avec l'app
-        sain = _sain(d, lid, maintenant)                                # jugé AVANT l'essai (relever_jour pose le nouvel échec)
+        sain = _sain(d, lid, maintenant, "echec")                       # jugé AVANT l'essai (relever_jour pose le nouvel échec)
         r = await relever_jour(d, lid, j, maintenant)
         appels += 2 if r == "ok" else 1
         if r == "global":
@@ -1646,8 +1660,8 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
         return bool(str(info.get("uid") or "") or info.get("suivi"))
     cibles = [(lid, info) for lid, info in list(d["liens"].items()) if a_relever(info, jour_iso)]
     # tri stable (l'ordre du fichier sinon) : les liens malades en dernier, puis les liens payés en tête
-    cibles.sort(key=lambda li: (_malade(li[1], maintenant), 0 if payant(li[1]) else 1))
-    malades = {lid for lid, info in cibles if _malade(info, maintenant)}
+    cibles.sort(key=lambda li: (_malade(li[1], maintenant, "echec"), 0 if payant(li[1]) else 1))
+    malades = {lid for lid, info in cibles if _malade(info, maintenant, "echec")}
 
     async def veilles(liste) -> bool:
         """La veille de chaque lien de `liste` ; True = fin du passage (budget ou arrêt)."""
@@ -1758,7 +1772,11 @@ async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
     jamais lues donc toujours en tête, arrêtaient chaque passage) : les liens malades (en échec depuis moins de 24 h) passent après
     les liens sains, et ni leur erreur, ni celle d'un lien jamais lu, ni un 4xx définitif ne comptent comme un signe de panne
     (_Suite, _sain) ; DIRECT_MALADES essais leur
-    restent réservés en fin de passage (plus de liens sains que le budget : un lien en échec passager est quand même retenté)."""
+    restent réservés en fin de passage (plus de liens sains que le budget : un lien en échec passager est quand même retenté).
+    10/10 (revue CLICS, 2e passe) : 1. les liens du passage sont choisis par ancienneté, malades compris (avant : les malades
+    n'avaient que les essais restants, 3 au moins ; après une panne de GAML de deux heures, une vingtaine de liens devenus
+    « malades » n'étaient relus que 3 par passage, plus d'une heure de « Clics aujourd'hui » périmé) ; les malades choisis passent
+    toujours en fin de passage ; 2. le direct n'efface que son propre échec (`echec_direct`), jamais celui du relevé (_malade)."""
     maximum = DIRECT_MAX if maximum is None else maximum
     maintenant = _deps["heure_paris"]()
     jour = maintenant.date()
@@ -1769,11 +1787,17 @@ async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
             auj.pop(lid, None)
     cibles = [lid for lid, info in d.get("liens", {}).items()
               if a_relever(info, jour_iso) and not _en_echec(info, "echec_direct", maintenant)]
-    malades = {lid for lid in cibles if _malade(d["liens"].get(lid), maintenant)}
+    malades = {lid for lid in cibles if _malade(d["liens"].get(lid), maintenant, "echec_direct")}
     cibles.sort(key=lambda lid: ((auj.get(lid) or {}).get("jour") == jour_iso, str((auj.get(lid) or {}).get("t") or "")))
-    sains, mal = [l for l in cibles if l not in malades], [l for l in cibles if l in malades]
-    n_mal = min(len(mal), max(DIRECT_MALADES, max(0, maximum) - len(sains)), max(0, maximum))
-    cibles = sains[:max(0, maximum) - n_mal] + mal[:n_mal]              # les malades en dernier, quelques essais réservés
+    budget = max(0, maximum)
+    mal = [l for l in cibles if l in malades]
+    choisis = set(mal[:min(len(mal), DIRECT_MALADES, budget)])          # quelques essais réservés aux malades
+    for lid in cibles:                                                  # puis les plus anciens, malades compris
+        if len(choisis) >= budget:
+            break
+        choisis.add(lid)
+    cibles = ([l for l in cibles if l in choisis and l not in malades]
+              + [l for l in cibles if l in choisis and l in malades])   # les malades en fin de passage
     appels, suite = 0, _Suite()
     jeton = _arret_429.set(True)
     try:
@@ -1784,7 +1808,7 @@ async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
                 journal.info("Clics du jour : %s requêtes GAML restantes dans la minute, la suite au prochain passage", _limite["restant"])
                 break
             info = d["liens"].get(lid) or {}
-            sain = _sain(d, lid, maintenant)                            # jugé AVANT l'essai
+            sain = _sain(d, lid, maintenant, "echec_direct")            # jugé AVANT l'essai
             try:
                 rep = await _requete("GET", "/analytics/countries", params={"link_id": lid, "range": "custom", "date_from": jour_iso,
                                                                              "date_to": jour_iso, "timezone": FUSEAU})
@@ -1806,8 +1830,7 @@ async def rafraichir_aujourdhui(d: dict, maximum: int = None) -> int:
                 continue
             appels += 1
             suite.succes()
-            info.pop("echec_direct", None)
-            info.pop("echec", None)                                     # 09/10 (R3 bis) : lu, donc plus « malade » pour le relevé
+            info.pop("echec_direct", None)                              # 10/10 : jamais `echec` (le relevé échoue peut-être encore)
             auj[lid] = {"jour": jour_iso, "t": _horodatage(), "brut": None, "hors_robots": hors_robots, "payes": payes}
     finally:
         _arret_429.reset(jeton)
