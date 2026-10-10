@@ -18,13 +18,13 @@ Puis : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité e
 
 1. **Telegram** : l'annonce de Gaëtan, avec le lien `/candidature?src=tg-<groupe>`. `!annonce <groupe>` la donne prête à coller.
 
-2. **Formulaire** (site, 2 minutes) : sept champs et la case des 5 règles. La source de l'annonce va dans la colonne Source du classeur.
+2. **Formulaire** (site, 2 minutes) : six champs et la case des 5 règles. La source de l'annonce va dans la colonne Source du classeur.
 
 3. **Formation** : la vidéo et ses 5 mots-clés. Plus de lien « Pas le temps ? Rejoins le Discord ».
 
 4. **Quizz** (8/10) : réussi, un bouton mène tout droit à son invitation Discord. Raté : deux essais, puis 24 h.
 
-5. **Discord** : il arrive, il est validé sans test (`valider_candidat`). Aucun message ici. Seule exception : « Ta créatrice arrive ici sous 48 h » quand aucune créatrice n'a de compte livrable.
+5. **Discord** : il arrive, il est validé sans test (`valider_candidat`). Aucun message ici. Seule exception : « Ta créatrice arrive ici dès qu'un compte est prêt pour toi » quand aucune créatrice n'a de compte livrable. Aucun délai n'est promis : la reprise dépend du stock.
 
 6. **Créatrice, vidéos d'origine, groupe WhatsApp** : un seul message de bienvenue. Le lien des vidéos est celui de la créatrice (son salon ℹ️, sinon son dossier « Reels » d'origine), jamais un dossier perso. Le bouton « Écrire à Gaëtan » : Gaëtan l'ajoute au groupe WhatsApp. ✅, ou 3 h plus tard : le compte 1.
 
@@ -41,6 +41,8 @@ Puis : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité e
 12. **Story à la une, puis l'app clipper** : une story avec le widget de mention du privé, mise à la une. Puis un seul message : la routine et l'app (visites et gains, jour par jour). Les consignes d'après arrivent 7 jours plus tard.
 
 Paie : 0,05 $ par visite qui compte, versée **les 5 et 20**. Le compteur épinglé de #dopamine est réécrit au démarrage.
+
+**Dette CGU** : comptes de l'agence confiés aux clippers (partage d'identifiants interdit par Instagram), plusieurs par personne, lien GAML dans le champ Liens du privé : risque de bans en chaîne qui grandit avec le volume. Voir le journal de coaching du 09/10. Ce parcours est la façon de faire du bot, pas une pratique conforme.
 
 ### Ce qui est retiré
 
@@ -74,7 +76,7 @@ Paie : 0,05 $ par visite qui compte, versée **les 5 et 20**. Le compteur éping
 
 Au premier démarrage après le déploiement, une tâche à la fois, dans cet ordre :
 
-1. Les dépôts du roster : Tara sort (Metricool, expulsée), puis Andry et GasBoy arrivent chez Sarah (`"nouveau": true`).
+1. Les dépôts du roster : Tara sort (Metricool, expulsée), puis Andry et le second nouveau de Sarah (dépôt du 09/10, « Ajoute … Sarah ») arrivent chez Sarah (`"nouveau": true`).
 
 2. Les signés sans créatrice reçoivent la suivante (`attribution.rattraper`).
 
@@ -86,11 +88,11 @@ Le surplus passe en « attente_attribution » : protégé de la sortie à 48 h, 
 
 Jamais en lot : un refus avec motif, un STOP, un dépôt en attente. Le staff tranche avec `!quiz-ok`.
 
-Trace : `DONNEES/migration_test_0910.json`. Bilan au salon admin. Le compteur « validés » du tableau de bord bondit ce jour-là : ce n'est pas une hausse du recrutement.
+Trace : `DONNEES/migration_test_0910.json`. Bilan au salon admin. Classeur des comptes injoignable à ce moment-là : une ligne au salon admin, et `boucle_pipeline` réessaie seule toutes les heures tant que la trace n'a pas « fini ». Le compteur « validés » du tableau de bord bondit ce jour-là : ce n'est pas une hausse du recrutement.
 
 ### Railway : les variables
 
-À retirer APRÈS une journée sans incident, jamais avant le déploiement : `LIEN_TEST`, `TEST_HEURES`, `TEST_SORTIE`, `TEST_AUTO`, `TEST_AUTO_SEUIL`, `TEST_TOUT_ACCEPTER`, `TEST_ESSAIS`, `DRIVE_AGENCE_URL`, `DRIVE_AGENCE_SECRET`, `RELANCE_NOUVEAUX` (ou `0`), `COMPTES_UN_PAR_JOUR`, `REELS_UNIQUES_*` sauf `REELS_UNIQUES_MAX`.
+À retirer APRÈS une journée sans incident, jamais avant le déploiement : `LIEN_TEST`, `TEST_HEURES`, `TEST_SORTIE`, `TEST_AUTO`, `TEST_AUTO_SEUIL`, `TEST_TOUT_ACCEPTER`, `TEST_ESSAIS`, `DRIVE_AGENCE_URL`, `DRIVE_AGENCE_SECRET`, `RELANCE_NOUVEAUX` (ou `0`), `COMPTES_UN_PAR_JOUR`, `REELS_UNIQUES_*` sauf `REELS_UNIQUES_MAX`, `LIEN_QUIZ` (le Google Form « Quiz », retiré le 09/10 : plus lu par le bot), `OPUSCLIP_API_KEY` (un secret), `OPUSCLIP_TEMPLATE_ID`, `OPUSCLIP_ATTENTE_MAX` (plus lus depuis le retrait des Reels uniques ; vérifier d'abord qu'aucun autre service Railway ne s'en sert).
 
 Nouvelles, toutes facultatives : `PARCOURS_BIENVENUE_H=3` (compte 1 parti seul), `PARCOURS_STORY_AUTO_H=24`, `PARCOURS_ROUTINE2_JOURS=7`, `ATTRIBUTION_REPRISE_H=1`, `TELEPHONE2_ATTENTE_H=48`, `DRIVE_CREATRICE_TTL_SEC=21600`, `APIFY_BUDGET_MOIS=25`.
 
@@ -104,11 +106,21 @@ Nouvelles, toutes facultatives : `PARCOURS_BIENVENUE_H=3` (compte 1 parti seul),
 
 Tant que ce n'est pas fait, un candidat qui tombe sur l'ancien formulaire peut encore recevoir le test et le Drive par e-mail.
 
+### Avant le déploiement
+
+- `!fiche` de l'ancien Andry : ses comptes de Sarah doivent être dans sa fiche d'onboarding. Sinon, retirer l'entrée Andry du dépôt et passer par `!creatrice @Andry Sarah` avec la mention du nouveau.
+
+  Depuis le 10/10, le bot ne livre plus au nouveau une ligne déjà créée qui n'est pas dans sa fiche, et le nouveau devient « Andry2 ». Ce contrôle reste la seule preuve que l'ancien garde bien ses comptes.
+
 ### Après le déploiement
 
 - Lire le bilan « Sorties déposées appliquées » (Tara), puis `!paie` : ses visites d'avant la sortie restent dues.
 
-- `!comptes-libres Sarah` : au moins 6 lignes libres avec e-mail pour Andry et GasBoy. Deux Andry : le dépôt prend le seul non signé (ou un inscrit sans créatrice ni parcours) ; sinon « ⚠️ », puis `!creatrice @Andry Sarah`.
+- `!comptes-libres Sarah` : au moins 6 lignes libres avec e-mail pour Andry et le second nouveau de Sarah. Deux Andry : le dépôt prend le seul non signé (ou un inscrit sans créatrice ni parcours) ; sinon « ⚠️ », puis `!creatrice @Andry Sarah`.
+
+- Après le dépôt : le nouvel Andry s'appelle « Andry2 - Sarah » (pseudo et Gérant distincts de l'ancien). Vérifier les deux pseudos et la colonne Gérant du classeur.
+
+- `!drives-perso fermer` (aperçu), puis `!drives-perso fermer go` : les anciens dossiers perso et TOP 20 ne s'ouvrent plus par le lien.
 
 - `!equipes`, puis `!equipe` pour régulariser un ancien sans fiche.
 
@@ -144,7 +156,9 @@ Tant que ce n'est pas fait, un candidat qui tombe sur l'ancien formulaire peut e
 
 - Le site : `/discord/invitation` mène tout droit sur discord.gg, et renvoie à `/formation` sans quizz réussi. Une invitation expirée est recréée seule. Un clipper sorti de l'équipe (`sortis.json`) ne rentre jamais seul par son vieux lien (`peut_revenir`).
 
-- Sorties déposées, le détail : le MP de sortie ne montre plus la raison interne du dépôt ; plus aucun repli sur une recherche par prénom ; « déjà sorti(e) » clôt l'entrée ; `roster.marquer_traite` note le prénom traité ; `sortir_membre` garde les visites dues (`dus`) et libère les liens par identifiant ; `appliquer_sortis` retire les rôles ; `roster.attendre_demarrage` fait passer les dépôts avant la migration. Au dépôt d'Andry et GasBoy, une ligne « ⚠️ … déjà à un autre clipper » au salon admin veut dire qu'une ligne du classeur a été écartée : à regarder.
+- Sorties déposées, le détail : le MP de sortie ne montre plus la raison interne du dépôt ; plus aucun repli sur une recherche par prénom ; « déjà sorti(e) » clôt l'entrée ; `roster.marquer_traite` note le prénom traité ; `sortir_membre` garde les visites dues (`dus`) et libère les liens par identifiant ; `appliquer_sortis` retire les rôles ; `roster.attendre_demarrage` fait passer les dépôts avant la migration. Au dépôt d'Andry et du second nouveau de Sarah, une ligne « ⚠️ … déjà à un autre clipper » ou « ⚠️ … NON livrés (homonyme ?) » au salon admin veut dire qu'une ligne du classeur a été écartée : à regarder.
+
+- Vérification du 10/10 (homonymes, redémarrages) : un nouveau dont le prénom est au roster n'est jamais pris pour l'ancien s'il est arrivé après le 09/10. Arrivé avant, sans créatrice : une ligne « ⚠️ … prénom au roster » au salon admin, le repli, puis `!creatrice`. Un nouveau qui porte le prénom d'un autre membre devient « Prénom2 » (pseudo et Gérant) et ne reçoit jamais les comptes déjà créés d'un autre. Un onboarding coupé par un redémarrage est relancé seul (« 🔁 Parcours relancés »). Un prénom attendu par un dépôt attend le dépôt (« ⏸️ »). Un double appui sur « ✅ Compte n créé » ne saute plus le profil.
 
 - À trancher par Gaëtan : payer ou non les visites d'avant la sortie aux clippers purgés (appel de présence, sortie automatique). Aujourd'hui, ils sortent de la paie suivante.
 
@@ -424,9 +438,9 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Dashboard : « Reels hier » à 0 partout (30/09, Gaëtan)** : la colonne ne lisait que le scan daté du jour de l'écriture ; le Dashboard réécrit le matin avant le scan du jour (redémarrage du bot, `!dashboard`) mettait 0 à tout le monde alors que « Dernier Reel » disait 29/09. Elle lit maintenant le scan le plus récent, celui du jour sinon celui de la veille (les 24 h qu'il couvre) ; plus de scan depuis deux jours = 0.
 
-**Salon admin allégé et rétrospective remise à jour (30/09, extrait de #bot-gaetan)** : une arrivée dans l'agence = une ligne (« a rejoint l'agence (règles acceptées au formulaire) · WhatsApp … »), la créatrice et les comptes suivent dans le message d'attribution ; `!test-ok` répond « ✅ Prénom validé. » ; l'arrivée par invitation du staff ne parle plus de J'ACCEPTE ni de fr|int. **Double salon** (#ez_exe puis #noël pour le même arrivant qui a changé de pseudo) : `trouver_salon_perso` retrouve désormais le salon où le membre est le seul à avoir un droit direct. **Rétrospective** : sa doctrine datait du 25/09 (« un compte par jour », « lien en bio du compte privé ») et lui a fait apprendre « à l'essai 3 raté, c'est terminé » et « aucun humain sur les tests » ; doctrine réécrite sur les règles du 30/09, et toute leçon qui en contredit une est déclarée fausse. Les leçons fausses déjà apprises se retirent avec `!faq` puis `!faq retirer N`.
+*(historique, avant le 09/10)* **Salon admin allégé et rétrospective remise à jour (30/09, extrait de #bot-gaetan)** : une arrivée dans l'agence = une ligne (« a rejoint l'agence (règles acceptées au formulaire) · WhatsApp … »), la créatrice et les comptes suivent dans le message d'attribution ; `!test-ok` répond « ✅ Prénom validé. » ; l'arrivée par invitation du staff ne parle plus de J'ACCEPTE ni de fr|int. **Double salon** (#ez_exe puis #noël pour le même arrivant qui a changé de pseudo) : `trouver_salon_perso` retrouve désormais le salon où le membre est le seul à avoir un droit direct. **Rétrospective** : sa doctrine datait du 25/09 (« un compte par jour », « lien en bio du compte privé ») et lui a fait apprendre « à l'essai 3 raté, c'est terminé » et « aucun humain sur les tests » ; doctrine réécrite sur les règles du 30/09, et toute leçon qui en contredit une est déclarée fausse. Les leçons fausses déjà apprises se retirent avec `!faq` puis `!faq retirer N`.
 
-**Parcours simplifié, langage collège (30/09, Gaëtan sur le salon de Mathias : « simplifie encore »)** : accueil en trois étapes numérotées sans double mention ni ligne « Ton parcours » ; test en trois gestes et **une seule vidéo** (le bot note la première et valide dès 7/10 ; rappels et retest disent « ta vidéo ») ; avis du bot = « Ta note : 6/10 », un 👍 et deux ✏️, sans résolution ni mot technique (consigne au modèle : 8 mots par point, jamais netteté, fondu, transition…), et la suite (« Il faut 7/10… Essai 1 sur 3 », « Test validé », « Un manager regarde ») s'ajoute sous l'avis au lieu d'un deuxième message ; « tu as rejoint l'agence » tient en une phrase, la ligne « tes accès arrivent… » disparaît, l'étape 1 perd « chaque bloc se copie d'un geste » et met le Drive après le warm-up ; la photo de profil ne prend que des images sous la limite Discord et, faute de photo, donne le lien direct du dossier Photos (le Drive de l'étape 1 ouvre le TOP 20).
+*(historique, avant le 09/10)* **Parcours simplifié, langage collège (30/09, Gaëtan sur le salon de Mathias : « simplifie encore »)** : accueil en trois étapes numérotées sans double mention ni ligne « Ton parcours » ; test en trois gestes et **une seule vidéo** (le bot note la première et valide dès 7/10 ; rappels et retest disent « ta vidéo ») ; avis du bot = « Ta note : 6/10 », un 👍 et deux ✏️, sans résolution ni mot technique (consigne au modèle : 8 mots par point, jamais netteté, fondu, transition…), et la suite (« Il faut 7/10… Essai 1 sur 3 », « Test validé », « Un manager regarde ») s'ajoute sous l'avis au lieu d'un deuxième message ; « tu as rejoint l'agence » tient en une phrase, la ligne « tes accès arrivent… » disparaît, l'étape 1 perd « chaque bloc se copie d'un geste » et met le Drive après le warm-up ; la photo de profil ne prend que des images sous la limite Discord et, faute de photo, donne le lien direct du dossier Photos (le Drive de l'étape 1 ouvre le TOP 20).
 
 **Leçons du salon de Daniella (30/09, Gaëtan : « apprends au bot »)** : en une soirée l'assistant a dit « publie demain », « ton compte 1 finit son warm-up demain aussi » et « pas de story ni de publication », alors que le message d'étape disait « comptes 1 et 2 : 2 Reels par jour ». Cause : ses consignes se contredisaient (« le premier Reel arrive après le warm-up du compte 3 » contre « chaque compte publie après ses 24 h »), et le message du warm-up disait « sur chaque compte… pas de Reel ». Corrigé : (1) `parcours.etat_des_comptes` calcule l'état de CHAQUE compte (pas créé · WARM-UP jusqu'au JJ/MM à H h · PUBLIE · BAN d'après le dernier scan du classeur, mis en cache par `reconcilier`) et la mémoire le donne à l'assistant comme « fait foi » ; (2) consignes réécrites : chaque compte publie à la fin de SES 24 h, un BAN ne change rien pour les autres, jamais de compte neuf promis « demain » ; (3) la story du jour se prend dans le dossier Photos du Drive, jamais un dossier inventé (« Stories », « À publier »), et « où je prends la story ? » reçoit le où, pas le widget ; (4) textes de l'étape 4, du warm-up du jour et de `PROCHAINES[4]` limités au compte 3 ; « compte privé » → « compte 3 » ; (5) `alerter_admin_salon` : un compte désactivé ou un accès refusé écrit dans un salon perso part au salon admin, une fois par clipper, sujet et jour ; (6) « Okey c'est clair merci » = accusé de réception, 👍 sans réponse.
 

@@ -1167,14 +1167,21 @@ async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: lis
     return {"lien": lien, "lid": lid, "lignes": resultat}
 
 
-async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice") -> str:
+async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice", nouveau: bool = False,
+                 gerant: str = "") -> str:
     """Tout l'onboarding d'un clipper : ses comptes réservés dans le classeur et notés dans sa fiche, son lien GAML s'il existe
     déjà, ses alias 2FA. Renvoie la ligne à poster à l'admin / au manager.
     09/10 (Gaëtan : « distribue connaissances et informations au compte-goutte afin d'éviter la surcharge ») : plus AUCUN message
     au clipper ici, ni le pavé des 3 comptes (même forcé), ni le Drive. Le parcours donne chaque compte à son étape ; `!onboarding`
     forcé renvoie seulement l'étape en cours. La fiche (comptes, accès, « livres », date) est écrite JUSTE APRÈS la réservation,
-    avant le GAML : la boucle du classeur ne voit plus des lignes à son prénom absentes de sa fiche (blocs en double)."""
-    prenom = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
+    avant le GAML : la boucle du classeur ne voit plus des lignes à son prénom absentes de sa fiche (blocs en double).
+    10/10 (vérification L10 : un nouveau « Lino » recevait les 3 comptes actifs, mot de passe compris, d'un ancien Lino suivi hors du
+    bot) : `nouveau` = l'appelant sait que c'est un NOUVEAU clipper (calculé AVANT d'écrire sa créatrice au registre, qui levait la
+    garde _nouveau). Alors aucune ligne déjà créée à son prénom n'est livrée si elle n'est pas dans SA fiche (ligne « ⚠️ … NON
+    livrés (homonyme ?) »). `gerant` : le prénom à écrire dans la colonne Gérant (bot_discord.prenom_distinct : « Lino2 » pour un
+    homonyme), sinon le premier mot du pseudo."""
+    prenom = (str(gerant or "").strip()
+              or (membre.display_name.split()[0] if membre.display_name.split() else membre.display_name))
     uid = str(membre.id)
     force = declencheur.startswith("!onboarding")
     fiche0 = _lire_etat()["clippers"].get(uid) or {}
@@ -1213,6 +1220,15 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                                 + f" — s'il est parti : `!liberer {prenom} <handles>`, puis `!onboarding @{prenom}`")
             if force:                                                    # forçage explicite : on lève les écartés
                 leves = [c["handle"].lower() for c in deja]
+            elif nouveau:                                                # 10/10 : nouveau venu, dit par l'appelant
+                propres = {_cle_handle(h) for h in fiche0.get("comptes") or []}
+                propres |= {_cle_handle(a.get("handle")) for a in fiche0.get("acces") or [] if isinstance(a, dict)}
+                douteux = [c for c in _crees(deja) if _cle_handle(c["handle"]) not in propres]
+                if douteux:
+                    deja = [c for c in deja if c not in douteux]
+                    resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
+                                    f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
+                                    f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
             elif _nouveau(membre, _lire_etat()):                         # 24/09 : nouvel Eddy ≠ ancien Eddy viré
                 douteux = _crees(deja)
                 if douteux:
@@ -1443,6 +1459,7 @@ def _detenteurs(gerant: str, uids, cache: dict = None) -> set:
             except Exception:                                           # noqa: BLE001
                 fiche = {}
             noms.append(str((fiche or {}).get("prenom") or ""))
+            noms.append(str((fiche or {}).get("prenom_distinct") or ""))   # 10/10 : « Lino2 », homonyme renommé par le bot
             cache[uid] = set().union(*(_mots_nom(n) for n in noms))
         if not cache[uid] or (mots_g & cache[uid]):
             out.add(uid)

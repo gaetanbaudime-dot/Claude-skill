@@ -6,8 +6,8 @@ comptes du classeur, lien, alias 2FA, parcours). Au démarrage, les signés pré
 par un, avec une pause entre deux.
 
 09/10 (Gaëtan : « on va ouvrir les vannes ») : le quiz suffit pour entrer, le goulot devient le stock de comptes. Une créatrice sans
-compte livrable est sautée ; si AUCUNE n'en a, le membre reçoit une fois le repli « Ta créatrice arrive ici sous 48 h » et passe à
-l'état « attente_attribution » du pipeline. boucle_pipeline (bot_discord, toutes les 5 min) le reprend tout seul dès qu'un compte se
+compte livrable est sautée ; si AUCUNE n'en a, le membre reçoit une fois le repli « Ta créatrice arrive ici dès qu'un compte est
+prêt pour toi » (10/10 : plus de délai promis) et passe à l'état « attente_attribution » du pipeline. boucle_pipeline (bot_discord, toutes les 5 min) le reprend tout seul dès qu'un compte se
 libère (`reprendre_attente`, la seule reprise, sous verrou), un par un, ATTRIBUTION_PAUSE_SEC entre deux, sans commande.
 
 Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:1 » depuis le 28/09 : Clara et
@@ -70,6 +70,8 @@ def configurer(deps: dict):
     canal_admin, membre_par_id, est_staff, prenom_de, roster, etats_classeur (async), normaliser, livrables (async, 30/09).
     09/10 : FICHIER_PIPELINE (sinon pipeline.json à côté du registre), texte_repli (bot_discord.texte_repli_attente),
     envoyer_mp (salon perso, sinon MP), valider_candidat (async, pour reprendre un candidat mis en attente par la migration).
+    10/10 (vérification L10) : arrive_avant_vannes (membre → bool : le roster par prénom ne vaut que pour un membre arrivé avant
+    le 09/10) et reserve_depot (membre → bool : son prénom est attendu par un dépôt salons_a_ouvrir.json « onboarding »).
     30/09 : un ordre posé par `!attribution` (clé « ordre_force » de l'état) prime sur ATTRIBUTION_ORDRE, redémarrages compris."""
     _deps.update(deps)
     force = (_etat().get("ordre_force") or "").strip()
@@ -228,6 +230,16 @@ def sans_creatrice(membre) -> bool:
     prenom = _deps["prenom_de"](membre)
     if not (roster and (roster.creatrice_de(prenom) or roster.sans_salon(prenom))):
         return True
+    # 10/10 (vérification L10 : un NOUVEAU « Timeo », quizz réussi, validé, n'avait jamais de créatrice ni aucun message, parce que
+    # le roster porte un ancien Timeo absent du serveur) : le roster par prénom ne vaut que pour un membre arrivé AVANT l'ouverture
+    # des vannes (la même garde que bot_discord.est_signe). Un arrivant d'après n'est jamais l'ancien du roster.
+    avant = _deps.get("arrive_avant_vannes")
+    if callable(avant):
+        try:
+            if not avant(membre):
+                return True
+        except Exception as erreur:                                         # noqa: BLE001 — dans le doute, le filet prévient l'admin
+            journal.info("arrive_avant_vannes(%s) : %s", getattr(membre, "id", "?"), erreur)
     # 08/10 (audit) : le roster parle par prénom. S'il désigne un AUTRE signé du même prénom, qui a déjà sa créatrice au registre,
     # ce membre-ci n'est pas l'ancien du roster : avant, il était sauté en silence et n'avait jamais de créatrice.
     norm = _deps.get("normaliser") or (lambda t: str(t or "").strip().lower())
@@ -243,6 +255,7 @@ def sans_creatrice(membre) -> bool:
 
 # ------------------------------------------------------------------ 09/10 : attente d'un compte livrable
 ETAT_ATTENTE = "attente_attribution"
+ATTENTE_ROSTER = "prénom au roster"                                      # 10/10 : « attente_par » du filet du roster
 _verrous = {}
 
 
@@ -267,7 +280,7 @@ def _texte_repli(prenom: str) -> str:
             return _deps["texte_repli"](prenom)
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Texte de repli : %s", erreur)
-    return f"🎉 **Bienvenue dans l'agence, {prenom} !**\n\nTa créatrice arrive ici sous 48 h.\n\nRien à faire d'ici là."
+    return f"🎉 **Bienvenue dans l'agence, {prenom} !**\n\nTa créatrice arrive ici dès qu'un compte est prêt pour toi.\n\nRien à faire d'ici là."
 
 
 async def _dire(membre, texte: str) -> bool:
@@ -363,10 +376,25 @@ def _noter_essai(uid: str) -> None:
         _deps["ecrire_json"](fichier, pipe)
 
 
+def _attend_le_staff(uid: str, info: dict) -> bool:
+    """10/10 : un membre mis en attente par le filet du roster (ATTENTE_ROSTER) attend une décision du staff, pas un compte : la
+    reprise ne le prend pas (elle ne relit pas le stock pour lui) tant que sa fiche n'a pas de créatrice."""
+    if (info or {}).get("attente_par") != ATTENTE_ROSTER:
+        return False
+    try:
+        fiche = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) or {}).get(str(uid)) or {}
+    except Exception:                                                       # noqa: BLE001
+        fiche = {}
+    return not fiche.get("creatrice")
+
+
 def _repris_possible(uid: str, info: dict):
-    """Le membre si la reprise peut le prendre maintenant (présent, ni bot ni staff, pas essayé dans l'heure), sinon None."""
+    """Le membre si la reprise peut le prendre maintenant (présent, ni bot ni staff, pas essayé dans l'heure, pas en attente d'une
+    décision du staff), sinon None."""
     membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
     if membre is None or getattr(membre, "bot", False) or (_deps.get("est_staff") and _deps["est_staff"](membre)):
+        return None
+    if _attend_le_staff(uid, info):
         return None
     return None if _essai_recent(info) else membre
 
@@ -380,10 +408,106 @@ def attente_a_reprendre() -> bool:
     return any(_repris_possible(u, i) is not None for u, i in en_attente())
 
 
+def _fiche_registre(membre):
+    """La fiche du registre du membre, None s'il n'y est pas."""
+    try:
+        return (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) or {}).get(str(membre.id))
+    except Exception:                                                       # noqa: BLE001
+        return None
+
+
+def _marquer_une_fois(uid: str, cle: str) -> bool:
+    """Pose la date `cle` dans l'état du pipeline du membre ; faux si elle y était déjà (la ligne à l'admin part une fois)."""
+    fichier = _fichier_pipeline()
+    if fichier is None:
+        return True
+    pipe = _deps["lire_json"](fichier, {"liaisons": {}, "etats": {}})
+    info = pipe.setdefault("etats", {}).setdefault(str(uid), {})
+    if info.get(cle):
+        return False
+    info[cle] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    _deps["ecrire_json"](fichier, pipe)
+    return True
+
+
+async def _ligne_admin(texte: str) -> None:
+    admin = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+    if admin is not None:
+        try:
+            await admin.send(texte[:1990])
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
+def _reserve_au_depot(membre) -> bool:
+    """10/10 (vérification L10, D3) : son prénom est attendu par un dépôt salons_a_ouvrir.json « onboarding » pas encore servi
+    (« Ajoute Andry Sarah ») : sa créatrice vient du dépôt, jamais de la séquence (sinon le dépôt « nouveau » ne le trouve plus)."""
+    reserve = _deps.get("reserve_depot")
+    if not callable(reserve):
+        return False
+    try:
+        return bool(reserve(membre))
+    except Exception as erreur:                                             # noqa: BLE001
+        journal.info("reserve_depot(%s) : %s", getattr(membre, "id", "?"), erreur)
+        return False
+
+
+def _valide_au_funnel(uid) -> bool:
+    """10/10 : validé par le funnel du 09/10 (quizz, migration, reprise, `!quiz-ok`, dépôt : clé « sans_test » du pipeline), donc un
+    NOUVEAU clipper. Un ancien du roster resté au registre sans créatrice n'en a pas : le filet ne lui parle jamais."""
+    fichier = _fichier_pipeline()
+    if fichier is None:
+        return False
+    info = ((_deps["lire_json"](fichier, {}) or {}).get("etats") or {}).get(str(uid)) or {}
+    return bool(info.get("sans_test")) and info.get("etat") in ("valide", ETAT_ATTENTE)
+
+
+async def _filet_roster(membre, via: str) -> None:
+    """10/10 (vérification L10 : un validé dont le prénom est au roster ne recevait RIEN, ni créatrice, ni repli, ni ligne admin) :
+    le roster le prend pour l'ancien clipper de ce prénom, l'attribution ne peut pas trancher. Une seule fois : une ligne à l'admin
+    avec la commande, le repli au membre, l'état « attente_attribution » (attente_par = ATTENTE_ROSTER : la reprise des attentes
+    ne le prend pas, c'est au staff de décider)."""
+    uid = str(membre.id)
+    if not _marquer_une_fois(uid, "roster_signale"):
+        return
+    prenom = _deps["prenom_de"](membre)
+    roster = _deps.get("roster")
+    creatrice_r = ""
+    try:
+        creatrice_r = (roster.creatrice_de(prenom) if roster else "") or ""
+    except Exception:                                                       # noqa: BLE001
+        pass
+    _, envoye = await _mettre_en_attente(membre, ATTENTE_ROSTER)
+    journal.info("Attribution de %s (%s) : prénom au roster, décision du staff attendue", prenom, via)
+    await _ligne_admin(f"⚠️ {membre.mention} validé, sans créatrice : son prénom « {prenom} » est au roster"
+                       + (f" ({creatrice_r})" if creatrice_r else " (anciens sans salon)") + ", je ne sais pas si c'est l'ancien.\n\n"
+                       f"Nouveau clipper : `!creatrice @{prenom} <créatrice>`."
+                       + (f" C'est bien l'ancien : `!creatrice @{prenom} {creatrice_r}`." if creatrice_r else "")
+                       + ("" if envoye else " (repli non envoyé : salon et MP fermés)"))
+
+
 async def attribuer(membre, via: str) -> str:
     """Attribue la créatrice suivante à un membre signé sans créatrice ; renvoie son prénom, ou "" si rien à faire.
-    09/10 : une seule attribution à la fois ; aucune créatrice avec un compte livrable → repli une fois, « attente_attribution »."""
-    if not actif() or membre is None or getattr(membre, "bot", False) or not sans_creatrice(membre):
+    09/10 : une seule attribution à la fois ; aucune créatrice avec un compte livrable → repli une fois, « attente_attribution ».
+    10/10 (vérification L10) : un prénom attendu par un dépôt « onboarding » attend le dépôt (une ligne à l'admin, une fois) ; un
+    nouveau validé (_valide_au_funnel) que le roster prend pour l'ancien de son prénom passe par le filet (_filet_roster), jamais
+    plus le silence."""
+    if not actif() or membre is None or getattr(membre, "bot", False):
+        return ""
+    fiche = _fiche_registre(membre)
+    if (fiche or {}).get("creatrice"):
+        return ""
+    if _reserve_au_depot(membre):
+        if _marquer_une_fois(str(membre.id), "depot_attendu"):
+            journal.info("Attribution de %s (%s) : prénom attendu par un dépôt, rien attribué", _deps["prenom_de"](membre), via)
+            await _ligne_admin(f"⏸️ {membre.mention} validé : son prénom est attendu par un dépôt `salons_a_ouvrir.json` "
+                               "(« onboarding »). Sa créatrice vient du dépôt, au prochain démarrage.\n\n"
+                               f"Pas lui ? `!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")
+        return ""
+    if not sans_creatrice(membre):
+        est_staff = _deps.get("est_staff")
+        if fiche is not None and not (est_staff and est_staff(membre)) and _valide_au_funnel(membre.id):
+            await _filet_roster(membre, via)
         return ""
     async with _verrou("attribution"):
         if not sans_creatrice(membre):                                      # attribué pendant l'attente du verrou
@@ -397,7 +521,7 @@ async def attribuer(membre, via: str) -> str:
             if admin is not None:
                 try:
                     await admin.send((f"⏳ {membre.mention} en attente d'une créatrice : aucun compte livrable ({via})."
-                                      + (" Repli « sous 48 h » envoyé." if prevenu else "")
+                                      + (" Repli « dès qu'un compte est prêt » envoyé." if prevenu else "")
                                       + " Repris tout seul dès qu'un compte se libère.")[:1990])
                 except (discord.Forbidden, discord.HTTPException):
                     pass

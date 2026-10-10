@@ -860,6 +860,19 @@ class BoutonEtape(discord.ui.DynamicItem[discord.ui.Button], template=r"parcours
     async def from_custom_id(cls, interaction, item, match):
         return cls(match["uid"], int(match["etape"]), item.label or "✅ C'est fait")
 
+    def appui_creation(self, interaction) -> bool:
+        """10/10 (vérification L10 : le même custom_id sert à « ✅ Compte n créé » et à « ✅ Profil fait ») : vrai si l'appui vient du
+        bouton de création du compte n (étapes 1 à 3) et non du message de profil. Le message de profil se reconnaît à son id
+        (messages["<n>p"] de la fiche), sinon au libellé « Profil »."""
+        if self.etape not in (1, 2, 3):
+            return False
+        fiche_p = _lire().get(self.uid) or {}
+        mid_profil = str((fiche_p.get("messages") or {}).get(f"{self.etape}p") or "")
+        mid = str(getattr(getattr(interaction, "message", None), "id", "") or "")
+        if mid and mid_profil and mid == mid_profil:
+            return False
+        return "profil" not in str(getattr(self.item, "label", "") or "").lower()
+
     async def callback(self, interaction: discord.Interaction):
         staff = _deps.get("est_staff")
         if str(interaction.user.id) != self.uid and not (staff and staff(interaction.user)):
@@ -872,7 +885,8 @@ class BoutonEtape(discord.ui.DynamicItem[discord.ui.Button], template=r"parcours
             await interaction.response.send_modal(ModalPseudo(self.uid, self.etape, prevu))
             return
         await interaction.response.defer()
-        if not await valider_etape(interaction.channel, self.uid, self.etape, par=str(interaction.user.id)):
+        if not await valider_etape(interaction.channel, self.uid, self.etape, par=str(interaction.user.id),
+                                   creation=self.appui_creation(interaction)):
             # 01/10 (Steeve : un vieux bouton du compte 2 a rouvert le compte 2 pendant l'attente) : refusé, et on le dit
             try:
                 await interaction.followup.send("Ce bouton n'est plus valable. Suis le dernier message de ton salon 🙂", ephemeral=True)
@@ -1082,7 +1096,7 @@ class ModalPseudo(discord.ui.Modal):
                 await interaction.followup.send(f"✅ Noté : ton compte {self.n} est `{saisi}`. Je le suis sous ce nom.", ephemeral=True)
             except (discord.Forbidden, discord.HTTPException):
                 pass
-        if not await valider_etape(interaction.channel, self.uid, self.n, par=self.uid):
+        if not await valider_etape(interaction.channel, self.uid, self.n, par=self.uid, creation=True):
             try:
                 await interaction.followup.send("Ce bouton n'est plus valable. Suis le dernier message de ton salon 🙂", ephemeral=True)
             except (discord.Forbidden, discord.HTTPException):
@@ -1185,6 +1199,29 @@ TEXTE_BIENVENUE = ("🎉 **Bienvenue dans l'agence, {prenom} !**\n\n"
                    "Ta créatrice : **{creatrice}**.\n\n"
                    "{videos_bienvenue}\n\n"
                    "{consigne_wa}")
+# 10/10 (vérification L10 : deux « 🎉 Bienvenue dans l'agence » à la suite) : un clipper qui a déjà reçu le repli d'attente (« Ta
+# créatrice arrive ici dès qu'un compte est prêt pour toi ») lit « Ta créatrice est là », pas une seconde bienvenue.
+TEXTE_CREATRICE_LA = TEXTE_BIENVENUE.replace("🎉 **Bienvenue dans l'agence, {prenom} !**", "🎉 **Ta créatrice est là, {prenom} !**", 1)
+
+
+def _a_attendu(uid) -> bool:
+    """10/10 : vrai si le membre est passé par l'attente d'une créatrice (repli reçu, attente datée), d'après le pipeline."""
+    if not (_deps.get("lire_json") and _deps.get("FICHIER_PIPELINE")):
+        return False
+    try:
+        info = ((_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}) or {}).get("etats") or {}).get(str(uid)) or {}
+    except Exception:                                                   # noqa: BLE001
+        return False
+    return bool(info.get("attente_fin") or info.get("repli_attente") or info.get("attente_depuis"))
+
+
+def _prenom_affiche(prenom: str) -> str:
+    """10/10 : « Andry2 » (pseudo distinct d'un homonyme, bot_discord.prenom_distinct) s'affiche « Andry » dans la bienvenue."""
+    p = str(prenom or "")
+    court = re.sub(r"(?<=[^\W\d_])\d+$", "", p)
+    return court or p
+
+
 CONSIGNE_WA = ("👉 **Une seule chose maintenant** : écris à Gaëtan sur WhatsApp avec le bouton. Il t'ajoute au groupe.\n\n"
                "{message_wa}"
                "Fait ? Appuie sur ✅. Ton compte 1 arrive juste après.")
@@ -1257,13 +1294,15 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
               "programme": [{"quand": (maintenant + timedelta(hours=BIENVENUE_H)).isoformat(timespec="seconds"), "type": "etape", "n": 1}]}
     _ecrire(d)
     ctx = await _contexte(getattr(salon, "guild", None), uid, d[uid], drive=True)
+    ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
     if wa:
         message_wa = "" if whatsapp_prerempli() else f"Envoie-lui : « {_message_wa(uid, d[uid], groupe=True)} »\n\n"
         ctx["consigne_wa"] = _rendre(CONSIGNE_WA, {"message_wa": message_wa})
     else:
         ctx["consigne_wa"] = SANS_WA
+    gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
     try:
-        msg = await salon.send((f"{membre.mention} " + _rendre(TEXTE_BIENVENUE, ctx))[:1990],
+        msg = await salon.send((f"{membre.mention} " + _rendre(gabarit, ctx))[:1990],
                                view=_vue_bienvenue(uid, d[uid]) if wa else None)
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Bienvenue de %s : %s", uid, erreur)            # le programme donnera le compte 1 dans BIENVENUE_H h
@@ -1402,8 +1441,11 @@ async def demarrer_routine(salon, membre, creatrice: str) -> None:
     await _envoyer_routine(salon, membre, uid)                          # 09/10 : la routine et son app, en UN message
 
 
-async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
-    """Le bouton (ou le manager) ferme l'étape n et ouvre la suivante. Idempotent : un double clic ne saute rien."""
+async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool = False) -> bool:
+    """Le bouton (ou le manager) ferme l'étape n et ouvre la suivante. Idempotent : un double clic ne saute rien.
+    10/10 (vérification L10 : deux appuis rapides sur « ✅ Compte 1 créé », la 2e fenêtre arrivait après le profil et fermait l'étape,
+    warm-up envoyé, profil sauté) : `creation` = l'appui vient du bouton « Compte n créé » (ou de sa fenêtre). Si le profil du
+    compte n est déjà parti, il ne ferme rien (renvoie vrai) : seul « ✅ Profil fait » du message de profil, ou le scan, ferme l'étape."""
     d = _lire()
     fiche_p = d.get(str(uid))
     if (fiche_p and int(n) == 6 and ordre(fiche_p) == "prive2" and int(fiche_p.get("etape", 0)) != 6
@@ -1426,6 +1468,8 @@ async def valider_etape(salon, uid: str, n: int, par: str = "") -> bool:
         # 01/10 (Steeve, Ricardo) : une étape pas encore ouverte (le compte suivant attend ses 48 h et ses Reels) ne se ferme
         # pas — ni par un vieux bouton, ni par le scan qui voit le compte (identifiant pris par un tiers, liste dans le désordre)
         return False
+    if creation and int(n) in (1, 2, 3) and (fiche_p.get("profils") or {}).get(str(n)):
+        return True                                                     # 10/10 : 2e appui de création, le profil est déjà parti
     # 30/09 : compte créé → d'abord son profil (photo, nom, bio en UN message, bouton « profil fait »), rien d'autre ; le
     # deuxième appui (ou le scan qui voit le compte) ferme l'étape. Un compte rendu par un sortant garde son profil.
     if n in (1, 2, 3) and not (fiche_p.get("profils") or {}).get(str(n)) and _deps.get("profil_envoyer") \

@@ -644,7 +644,7 @@ async def salons_deposes(client) -> list:
                     lignes.append(await _deps["noter"](p, str(e["note"])) if _deps.get("noter") else f"⚠️ {p} : note indisponible")
                     continue
                 if e.get("onboarding"):                                     # 07/10 : onboarding complet sur une ou plusieurs créatrices
-                    # 09/10 (Gaëtan : « Ajoute Andry Sarah », « Ajoute Gasboy Sarah » ; deux membres du même prénom) : "nouveau": true
+                    # 09/10 (Gaëtan : « Ajoute Andry Sarah », « Ajoute … Sarah » ; deux membres du même prénom) : "nouveau": true
                     # → le SEUL membre non signé de ce prénom ; zéro ou plusieurs : « ⚠️ », rien fait, repris au démarrage suivant
                     lignes.append(await _deps["onboarder_multi"](p, list(e["onboarding"]), nouveau=bool(e.get("nouveau")))
                                   if _deps.get("onboarder_multi") else f"⚠️ {p} : onboarding indisponible")
@@ -778,8 +778,8 @@ _DEMARRAGE = {"fini": False}                                            # 09/10 
 
 
 async def attendre_demarrage(delai: float = 900.0) -> bool:
-    """09/10 (revue L9 : « Ajoute Andry Sarah », « Ajoute Gasboy Sarah ») : ce qui doit passer APRÈS les dépôts du démarrage
-    l'attend ici. La migration automatique des candidats du test (bot_discord.migrer_test) validait Andry ou GasBoy avec la
+    """09/10 (revue L9 : « Ajoute Andry Sarah », « Ajoute … Sarah ») : ce qui doit passer APRÈS les dépôts du démarrage
+    l'attend ici. La migration automatique des candidats du test (bot_discord.migrer_test) validait Andry ou le second nouveau de Sarah avec la
     créatrice choisie par le stock avant que le dépôt « nouveau » ne les mette chez Sarah ; signés, le dépôt ne les trouvait
     plus. True quand `demarrage` est fini, False après `delai` secondes (on n'attend jamais sans fin)."""
     debut = time.monotonic()
