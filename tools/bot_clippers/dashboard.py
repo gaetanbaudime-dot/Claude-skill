@@ -44,6 +44,13 @@ l'onglet Build capacity (capacite) ne suivent plus le Dashboard : passage comple
   - l'onglet part en UN appel HTTP (plus de découpage par 400) ; l'empreinte porte aussi la fraîcheur des sources ;
   - la réécriture forcée du passage complet attend la fin du passage (ecrire_apres_passage).
 
+10/10 (restants de la revue DASH) :
+  - une somme de vues faite seulement de comptes partiels le dit (« partiel : vues 0/2 »), comme toute somme partielle ;
+  - relectures légères sautées par la garde du budget (`leger_ok` faux) : dit au titre et en ligne d'alerte, même quand la dépense
+    seule reste sous la trajectoire ;
+  - un lien compté sur une ligne dont le Gérant ne porte pas le nom du membre du lien (fiche d'onboarding écartée, ou Gérant au
+    nom d'un autre membre) est signalé « ⚠ lien de X d'après le nom, à vérifier », sans être refusé (C6d).
+
 Les modules des autres lots (series, controle, metricool_comptes, paie_clics.clics_lien / clics_aujourdhui) sont importés s'ils
 sont là : s'il en manque un, sa section dit « source indisponible », ou les chiffres viennent des cellules du classeur (repli
 marqué), et les clics d'un lien sont recalculés depuis clics.json « jours » selon la même règle que le contrat C2.
@@ -420,6 +427,7 @@ class _Ctx:
         self.proprietaires = _proprietaires(e.get("onboarding"))
         registre = e.get("registre") if isinstance(e.get("registre"), dict) else {}
         membres = e.get("membres") if isinstance(e.get("membres"), dict) else {}
+        self.registre, self.membres = registre, membres
         self.noms_uid = {}
         for uid in set(map(str, registre)) | set(map(str, membres)):
             f = registre.get(uid) if isinstance(registre.get(uid), dict) else {}
@@ -452,6 +460,41 @@ class _Ctx:
         if props is None:
             props = L["detenteurs"] = self.detenteurs(L["c"])
         return bool(props) and uid not in props
+
+    def nom_uid(self, uid) -> str:
+        """Le nom à afficher d'un membre : son pseudo avant « - Créatrice », sinon le prénom du registre (règle du contrôle)."""
+        uid = str(uid or "")
+        nom = str(self.membres.get(uid) or "").split(" - ")[0].strip()
+        if not nom:
+            f = self.registre.get(uid) if isinstance(self.registre.get(uid), dict) else {}
+            nom = str(f.get("prenom") or "").strip().title()
+        return nom[:24]
+
+    def lien_suspect(self, lid, L: dict) -> str:
+        """10/10 (revue DASH, restant 3 : Gérant changé à la main sans que le bot suive — onboarding.json livre encore la ligne à
+        Paul, la cellule garde le lien de Paul ; le détenteur écarté, rien ne prouvait sur les uid que le lien était à un autre, et la
+        ligne de Lea affichait p1 et ses clics sans rien dire, alors que le CONTRÔLE signale C6). Contrat C6(d) : le lien n'est PAS
+        refusé (dans le doute, il reste compté sur la ligne) ; il est seulement signalé « à vérifier » quand aucun détenteur
+        confirmé ne tranche sur les uid, que le nom connu du membre du lien n'a aucun mot commun avec le Gérant, ET que le doute est
+        fondé : la fiche d'onboarding de la ligne a été écartée (Gérant changé à la main), ou le Gérant porte le nom d'un autre
+        membre (même cas que le contrôle, « vu sur le seul nom »). Renvoie le nom du membre du lien, '' sinon."""
+        if L.get("typ") != "clipper" or self.cat(lid) != "attribue":
+            return ""
+        uid = str((self.liens.get(lid) or {}).get("uid") or "")
+        noms = self.noms_uid.get(uid) or set()
+        if not uid or not noms:                                          # membre sans nom connu : rien pour en douter
+            return ""
+        props = L.get("detenteurs")
+        if props is None:
+            props = L["detenteurs"] = self.detenteurs(L["c"])
+        if props:                                                        # détenteur confirmé : a_un_autre a tranché sur les uid
+            return ""
+        mots_g = _mots_nom(L["c"].get("gerant"))
+        if noms & mots_g:
+            return ""
+        ecartee = bool(self.proprietaires.get(_cle(L["c"].get("handle"))))   # fiche présente mais écartée (Gérant ≠ détenteur)
+        autre = bool(mots_g) and any(u != uid and (n & mots_g) for u, n in self.noms_uid.items())
+        return (self.nom_uid(uid) or "un autre membre") if (ecartee or autre) else ""
 
     def cr_lien(self, lid, creatrices: set) -> str:
         """La créatrice d'un lien (prénom normalisé) : sa fiche (créatrice, créatrice suivie, nom GAML), sinon son domaine."""
@@ -553,15 +596,20 @@ def _vues_mesurees(L: dict):
 
 def _notes_sommes(lignes: list) -> list:
     """09/10 (revue DASH) : ce que les sommes Followers, Reels 7 j et Vues d'un groupe ne couvrent pas (« followers 2/3 ») —
-    restreints, privés, non lus et Metricool compris ; les comptes « à créer » ne comptent pas."""
+    restreints, privés, non lus et Metricool compris ; les comptes « à créer » ne comptent pas.
+    10/10 (revue DASH, restant 1 : « somme des vues partielle affichée sans mention quand aucun compte n'est mesuré en entier ») :
+    la somme des vues additionne aussi les comptes PARTIELS (_vues_mesurees) ; « vues 0/2 » est donc écrit dès qu'une valeur est
+    additionnée sans qu'aucun compte soit mesuré en entier — seule une somme vraiment vide (cellule vide) se passe de note."""
     base = [L for L in lignes if L.get("mesure_base") != "à créer"]
     if not base:
         return []
     notes = []
-    for nom, mesure in (("followers", lambda L: L.get("followers") is not None), ("Reels 7 j", lambda L: L.get("r7") is not None),
-                        ("vues", lambda L: _vues_mesurees(L)[1])):
+    for nom, mesure, valeur in (("followers", lambda L: L.get("followers") is not None, lambda L: L.get("followers")),
+                                ("Reels 7 j", lambda L: L.get("r7") is not None, lambda L: L.get("r7")),
+                                ("vues", lambda L: _vues_mesurees(L)[1], lambda L: _vues_mesurees(L)[0])):
         n = sum(1 for L in base if mesure(L))
-        if 0 < n < len(base):                                            # rien de mesuré : la somme est vide, elle le dit déjà
+        somme_vide = all(valeur(L) is None for L in base)                # la cellule de la somme reste vide : elle le dit déjà
+        if n < len(base) and (n > 0 or not somme_vide):
             notes.append(f"{nom} {n}/{len(base)}")
     return notes
 
@@ -988,7 +1036,8 @@ def _mois_suivant(d: datetime) -> datetime:
 
 
 def budget_apify(b: dict, maintenant: datetime = None):
-    """Contrat C6(a) lu par le Dashboard : {usage, budget, trajectoire, coupe, atteint, leger_ok, fin, t, source} ; None si le budget
+    """Contrat C6(a) lu par le Dashboard : {usage, budget, trajectoire, coupe, atteint, leger_ok, fin, t, source, cout_leger (facultatif :
+    `cout_leger_usd` du lot SCAN, None s'il manque)} ; None si le budget
     n'a jamais été lu. Budget = `budget_usd` (APIFY_BUDGET_MOIS du lot SCAN, défaut 25 $) ; un état d'avant le C6 (sans
     budget_usd, trajectoire_usd ni coupe) est lu avec le même budget et la trajectoire linéaire calculée à l'heure du relevé."""
     b = b if isinstance(b, dict) else {}
@@ -1007,13 +1056,15 @@ def budget_apify(b: dict, maintenant: datetime = None):
         traj = budget * min(1.0, max(0.0, (t - d0).total_seconds() / (d1 - d0).total_seconds()))
     coupe = b.get("coupe") if isinstance(b.get("coupe"), bool) else None
     return {"usage": usage, "budget": budget, "trajectoire": traj, "coupe": coupe, "atteint": usage >= budget - 1e-9,
-            "leger_ok": b.get("leger_ok", b.get("ok")), "fin": d1, "t": t, "source": str(b.get("source") or "")}
+            "leger_ok": b.get("leger_ok", b.get("ok")), "fin": d1, "t": t, "source": str(b.get("source") or ""),
+            "cout_leger": _montant(b.get("cout_leger_usd"))}                  # facultatif (lot SCAN) : coût d'une relecture légère
 
 
 def _fraicheur_apify(ctx: _Ctx) -> tuple:
     """(texte du titre, alerte ou None). 09/10 (revue DASH, décision de Gaëtan « Dépasse pas 25 $ / mois ») : la dépense est
     rapportée au BUDGET de 25 $ (avant : à la limite du compte Apify, 25,20 $ dépensés sur 29 $ s'affichaient sans alerte) ;
-    « ⛔ Apify coupé jusqu'au JJ/MM » à 100 % ; « ⚠ » dès que la dépense dépasse la trajectoire linéaire du budget."""
+    « ⛔ Apify coupé jusqu'au JJ/MM » à 100 % ; « ⚠ » dès que la dépense dépasse la trajectoire linéaire du budget, ou dès que la
+    garde du lot SCAN saute les relectures légères (`leger_ok` faux : dépense + une relecture au-dessus de la trajectoire)."""
     st = budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant)
     if st is None:
         return "Apify : budget pas encore lu", None
@@ -1029,10 +1080,20 @@ def _fraicheur_apify(ctx: _Ctx) -> tuple:
         return titre, ("⛔ Apify", "bloquant", texte)
     if st["atteint"]:                                                     # coupe=False malgré tout : dit quand même
         return f"⛔ Apify {u} $ / {bud} $ : budget atteint", ("⛔ Apify", "bloquant", f"budget Apify du mois atteint : {u} $ sur {bud} ${local}")
+    saute = " : relectures légères sautées" if st["leger_ok"] is False else ""
     if st["usage"] > st["trajectoire"] + 1e-9:
         texte = (f"{u} $ dépensés sur {bud} $, au-dessus de la trajectoire du budget ({_euros(st['trajectoire'])} $ au "
-                 f"{_paris(st['t']):%d/%m}){local}" + (" : relectures légères sautées" if st["leger_ok"] is False else ""))
-        return f"⚠ Apify {u} $ / {bud} $", ("⚠ Apify", "important", texte)
+                 f"{_paris(st['t']):%d/%m}){local}" + saute)
+        return f"⚠ Apify {u} $ / {bud} ${saute}", ("⚠ Apify", "important", texte)
+    if saute:
+        # 10/10 (revue DASH, restant 2 : la garde du lot SCAN saute la relecture légère dès que la dépense PLUS une relecture
+        # dépasserait la trajectoire — la dépense seule peut rester dessous, et le Dashboard ne disait plus rien) : dit au titre
+        # et en ligne d'alerte, même sous la trajectoire
+        cout = f" + {_euros(st['cout_leger'])} $ par relecture" if st.get("cout_leger") else " + une relecture"
+        texte = (f"relectures légères sautées : {u} $ dépensés{cout} dépasseraient la trajectoire du budget de {bud} $ "
+                 f"({_euros(st['trajectoire'])} $ au {_paris(st['t']):%d/%m}){local} — les comptes ne sont relus qu'au passage "
+                 "complet du matin (colonne Relevé) tant que la trajectoire n'a pas rattrapé la dépense")
+        return f"⚠ Apify {u} $ / {bud} ${saute}", ("⚠ Apify", "important", texte)
     return f"Apify {u} $ / {bud} ${local}", None
 
 
@@ -1284,6 +1345,11 @@ def _section_tendances(ajouter, ctx: _Ctx, tend: dict, n_comptes: int):
 
 def _lien_texte(ctx: _Ctx, L: dict) -> str:
     morceaux = []
+    for lid in L["ok"]:
+        # 10/10 (revue DASH, restant 3) : compté sur la ligne (C6d), mais signalé EN TÊTE de cellule — la règle « ⚠ » la colore
+        nom = ctx.lien_suspect(lid, L)
+        if nom:
+            morceaux.append(f"⚠ {_slug(ctx.liens[lid], lid)} : lien de {nom} d'après le nom, à vérifier")
     if L["lids"]:
         morceaux.append(" + ".join(_slug(ctx.liens[x], x) for x in L["lids"]) + (" (bio)" if L["bio"] else ""))
     elif L["trio"]:
