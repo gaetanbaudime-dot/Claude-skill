@@ -19,6 +19,8 @@ premier poste Apify (1 à 5 $ par passage) ; les vues par compte viennent mainte
 09/10 (Gaëtan : « Dépasse pas 25 $ / mois ») : la cadence passe par la garde du budget Apify du mois (etats_comptes.garde_apify) :
 refusée d'emblée si sa dépense maximale (comptes × LIMITE_PAR_COMPTE publications × APIFY_PRIX_1000) ferait dépasser le budget,
 chaque lot revérifié, et la dépense notée (publications lues ; un lot raté compté au maximum, la course continue chez Apify).
+09/10 (revue 3) : la dépense maximale de chaque lot est réservée dans le registre du budget dès que la garde l'accepte (un scan
+lancé pendant la lecture la compte), puis remplacée par la dépense réelle.
 """
 import asyncio
 import logging
@@ -121,7 +123,10 @@ async def _apify_posts(handles: list, depuis: datetime) -> list:
     for i in range(0, len(handles), LOT):
         lot = handles[i:i + LOT]
         maxi = _cout_max(len(lot))
-        if not await etats_comptes.garde_apify(maxi, "cadence (publications)"):
+        # 09/10 (revue 3) : la dépense maximale du lot est RÉSERVÉE dès que la garde accepte (un scan lancé pendant la lecture la
+        # voit), puis remplacée par la dépense réelle, ou retirée sur un refus 4xx (rien n'a tourné)
+        jeton = await etats_comptes.garde_apify(maxi, "cadence (publications)", reserver=True)
+        if not jeton:
             return None
         charge = {"directUrls": [f"https://www.instagram.com/{h}/" for h in lot], "resultsType": "posts",
                   "resultsLimit": LIMITE_PAR_COMPTE, "onlyPostsNewerThan": depuis.strftime("%Y-%m-%d"), "addParentData": False}
@@ -131,15 +136,18 @@ async def _apify_posts(handles: list, depuis: datetime) -> list:
                     if reponse.status >= 400:
                         journal.error("Apify HTTP %s (cadence)", reponse.status)
                         if reponse.status >= 500 or reponse.status == 408:     # la course a tourné : payée
-                            etats_comptes.noter_depense(maxi, len(lot), "cadence (raté)")
+                            etats_comptes.noter_depense(maxi, len(lot), "cadence (raté)", reservation=jeton)
+                        else:
+                            etats_comptes.liberer_reservation(jeton)
                         return None
                     brut = await reponse.json()
         except (aiohttp.ClientError, asyncio.TimeoutError) as erreur:
             journal.error("Apify injoignable (cadence) : %s", erreur)
-            etats_comptes.noter_depense(maxi, len(lot), "cadence (raté)")
+            etats_comptes.noter_depense(maxi, len(lot), "cadence (raté)", reservation=jeton)
             return None
         lus = brut if isinstance(brut, list) else []
-        etats_comptes.noter_depense(len(lus) * etats_comptes.APIFY_PRIX_1000 / 1000, len(lus), "cadence (publications)")
+        etats_comptes.noter_depense(len(lus) * etats_comptes.APIFY_PRIX_1000 / 1000, len(lus), "cadence (publications)",
+                                    reservation=jeton)
         items += lus
     return items
 

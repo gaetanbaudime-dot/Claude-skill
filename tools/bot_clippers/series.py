@@ -12,7 +12,8 @@ passage qui a LU un compte ; Metricool y ajoute les siens (source « metricool �
                                         # facultatifs (09/10) : "reels_lus": bool, "couvre": iso | ""}],
                            "reels": {"<shortcode>": {"publie": iso, "type": "Video", "vues": [[iso, int], …],
                                                      # facultatif : "sources": ["apify", …]}}}},
-     "alias": {"<ancienne clé>": "<nouvelle clé>"}}
+     "alias": {"<ancienne clé>": "<nouvelle clé>"},
+     "renommes": {"<nouvelle clé>": {"de": "<ancienne clé>", "t": iso}}}      # 09/10 (revue 3), facultatif
 
 Règles (jamais un faux 0) :
   - un relevé n'existe que pour un compte LU ; `followers: None` = illisible, jamais 0 par défaut ;
@@ -28,7 +29,11 @@ Règles (jamais un faux 0) :
   - un @ renommé (series.renommer, ou même id Instagram vu sous un autre @) : la série suit, l'ancienne clé devient un alias.
     09/10 (revue) : une série qui porte l'id Instagram d'un compte (relevés Apify) ne suit plus un renommage du classeur (c'était
     peut-être le compte d'un inconnu qui avait pris le @ prévu) ; si c'est le même compte, l'id la fait suivre au relevé suivant.
-    Un relevé Apify d'un AUTRE id que celui de la série repart d'une série vide (le @ est maintenant à quelqu'un d'autre).
+    Un relevé Apify d'un AUTRE id que celui de la série repart d'une série vide (le @ est maintenant à quelqu'un d'autre) ; 09/10
+    (revue 3) : l'ancienne série est archivée sous « #<son id> », rendue à son compte au premier relevé qui porte cet id.
+    09/10 (revue 3) : tout renommage passé par `renommer` est noté (« renommes » : {nouvelle clé: {de, t}}, 40 jours), fusion ou
+    pas : `renomme_depuis(cle)` dit au scan que les cellules de la ligne viennent peut-être de l'ancien @.
+  - `reels_vus(cle, debut, fin)` : les Reels vus publiés dans la période, sans exiger qu'elle soit couverte (un minimum).
 
 Calculs purs, testés : followers_a, delta_followers, vues_age_fixe, reels_publies, derniere_lecture. Les dates acceptent un
 `datetime` (sans fuseau = UTC), une chaîne ISO, ou une `date` (= minuit à Paris).
@@ -65,6 +70,7 @@ CIBLES_H = (6, 12, 24, 36, 48, 60, 72, 96, 120, 168, 240, 336, 504, 720)
 CIBLES_COURTES_H = (24, 48, 72, 168)
 _DEBUT_DES_TEMPS = datetime(2000, 1, 1, tzinfo=timezone.utc)
 PURGE_S = 3600                                # 09/10 (revue) : la purge à 40 jours au plus une fois par heure
+ARCHIVE = "#"                                 # 09/10 (revue 3) : clé d'archive « #<id Instagram> » d'une série dont le @ a été repris
 
 _deps = {}
 _cache = {"d": None, "f": "", "sig": None, "purge": 0.0}
@@ -363,14 +369,21 @@ def _ajouter(d: dict, cle, releve, reels=(), ig_id="", source=None, couvre=None)
             cible = k
     if src == "apify" and ig:
         # 09/10 (revue) : la série de cette clé porte l'id d'un AUTRE compte Instagram (le @ a été repris par quelqu'un d'autre, ou un
-        # renommage du classeur avait fait suivre la série d'un inconnu) : elle repart de zéro, jamais mélangée au compte lu
+        # renommage du classeur avait fait suivre la série d'un inconnu) : elle repart de zéro, jamais mélangée au compte lu.
+        # 09/10 (revue 3 : l'historique du clipper était effacé) : l'ancienne série n'est plus jetée, elle est rangée sous la clé
+        # d'archive « #<son id> » (sans alias) ; la boucle « même id sous un autre @ » ci-dessous la rend à son compte dès qu'un
+        # relevé porte cet id, sinon la purge à 40 jours la retire
         actuel = d["comptes"].get(cible)
         if actuel and str(actuel.get("id") or "") not in ("", ig) and _id_apify(actuel):
+            _fusionner(d, cible, ARCHIVE + str(actuel.get("id")))
+            d["alias"].pop(cible, None)                                 # la clé reste celle du compte lu, pas un alias de l'archive
             d["comptes"][cible] = {"id": ig, "releves": [], "reels": {}}
-            journal.info("Séries : la série d'une clé portait un autre compte Instagram, elle repart de zéro")
+            journal.info("Séries : la série d'une clé portait un autre compte Instagram, archivée, la clé repart de zéro")
         for autre, s in list(d["comptes"].items()):                     # même id Instagram sous un autre @ : renommé, la série suit
             if autre != cible and str(s.get("id") or "") == ig and _id_apify(s):
                 _fusionner(d, autre, cible)
+                if autre.startswith(ARCHIVE):
+                    d["alias"].pop(autre, None)                         # une archive rendue à son compte n'est pas un @ : pas d'alias
                 journal.info("Séries : un compte renommé sur Instagram, sa série suit le nouvel identifiant")
     compte = d["comptes"].setdefault(cible, {"id": "", "releves": [], "reels": {}})
     if ig and (src == "apify" or not compte.get("id")):
@@ -407,6 +420,10 @@ def _purger(d: dict, jours: int = JOURS, maintenant=None) -> int:
     for a in list(d["alias"]):
         if _resoudre(d, a) not in d["comptes"]:
             del d["alias"][a]
+    ren = d.get("renommes") if isinstance(d.get("renommes"), dict) else {}
+    for k in list(ren):                                                 # 09/10 (revue 3) : renommages notés, 40 jours
+        if not isinstance(ren[k], dict) or (_instant(ren[k].get("t")) or limite - timedelta(1)) < limite:
+            del ren[k]
     return n
 
 
@@ -451,15 +468,19 @@ def renommer(ancienne, nouvelle) -> bool:
     if not a or not n or a == n:
         return False
     d = _charger()
+    # 09/10 (revue 3) : le renommage est noté dans tous les cas (fusion ou pas) : les cellules Followers / Reels de la ligne viennent
+    # peut-être de l'ancien @ (le compte d'un inconnu qui l'avait pris) — le scan ne s'en sert alors jamais comme preuve (renomme_depuis)
+    if not isinstance(d.get("renommes"), dict):
+        d["renommes"] = {}
+    d["renommes"][n] = {"de": a, "t": _iso(datetime.now(timezone.utc))}
     vivante = _resoudre(d, a)
-    if vivante == n or vivante not in d["comptes"]:
-        return False                                                    # déjà fait, ou aucune série à faire suivre
-    if _id_apify(d["comptes"][vivante]):
+    fusion = vivante != n and vivante in d["comptes"] and not _id_apify(d["comptes"][vivante])
+    if vivante != n and vivante in d["comptes"] and not fusion:
         journal.info("Séries : renommage sans fusion (la série porte un id Instagram ; elle suivra si le nouvel @ a le même)")
-        return False
-    _fusionner(d, vivante, n)                                           # les alias vers l'ancienne clé suivent aussi
+    if fusion:
+        _fusionner(d, vivante, n)                                       # les alias vers l'ancienne clé suivent aussi
     _enregistrer(d)
-    return True
+    return fusion
 
 
 def purger(jours: int = JOURS) -> int:
@@ -495,6 +516,20 @@ def cle_du_compte(ig_id) -> str:
         if str(s.get("id") or "") == ig and _id_apify(s):
             return k
     return ""
+
+
+def renomme_depuis(cle) -> str:
+    """09/10 (revue 3) : l'ancienne clé si ce @ est le nouveau nom d'un compte renommé (noté par `renommer`, fusion ou pas, ou un
+    alias vers lui) ; '' sinon. Le scan ne prend alors jamais les cellules de la ligne pour une preuve : elles viennent peut-être
+    de l'ancien @."""
+    k = _cle(cle)
+    if not k or not actif():
+        return ""
+    d = _charger()
+    r = (d.get("renommes") or {}).get(k) if isinstance(d.get("renommes"), dict) else None
+    if isinstance(r, dict) and r.get("de"):
+        return str(r["de"])
+    return next((a for a, v in (d.get("alias") or {}).items() if _cle(v) == k), "")
 
 
 def dernier_releve(cle, source=None):
@@ -640,6 +675,16 @@ def reels_publies(cle, debut, fin, maintenant=None):
     """Nombre de Reels publiés dans [debut, fin[ ; None si la période n'est pas entièrement couverte par des relevés lisibles
     (compte restreint, privé, trou dans les relevés, fin de période pas encore relue)."""
     return _reels_publies(_serie_brute(cle), debut, fin, maintenant)
+
+
+def reels_vus(cle, debut, fin) -> int:
+    """09/10 (revue 3) : le nombre de Reels VUS (par un relevé quelconque, toutes sources) publiés dans [debut, fin[ — un minimum,
+    sans exiger que la période soit couverte (reels_publies, lui, est exact ou None). 0 si aucun."""
+    d0, d1 = _instant(debut), _instant(fin)
+    if d0 is None or d1 is None or d1 <= d0:
+        return 0
+    return sum(1 for x in (_serie_brute(cle).get("reels") or {}).values()
+               if (p := _instant(x.get("publie"))) is not None and d0 <= p < d1)
 
 
 def derniere_lecture(cle) -> str:
