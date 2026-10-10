@@ -11,7 +11,12 @@ l'expéditeur est Meta (le nom affiché ne compte plus : « Action requise… <p
 plus un compte en BAN). Les mails de suspension attendent dans une file ; toutes les BANS_INTERVALLE_SEC (ou dès qu'un mail
 arrive) : la ligne du classeur (retrouvée par le pseudo, sinon par l'alias) passe BAN, `bans_auto` retient le ban (le scan rend
 WARMUP si le compte réapparaît après appel), et un push part sur Telegram et dans le salon admin. Du mail, on ne garde que le
-pseudo, l'alias et la date : jamais le corps."""
+pseudo, l'alias et la date : jamais le corps.
+
+10/10 (revue, BAN perdu au redémarrage) : le lecteur unique sauve son UID dès le passage fini ; la file des suspensions ne
+peut donc plus vivre seulement en mémoire. Elle est écrite dans bans_mail.json (clé « attente » : pseudo, alias, sujet,
+date, id, type, dossier — jamais le corps), vidée après l'écriture réussie du BAN, relue au démarrage et à chaque passage.
+CODES_PREUVE_RELAIS=1 : un mail relayé par iCloud sans la preuve Gmail de Meta n'est jamais pris pour une suspension."""
 import asyncio
 import email
 import email.utils
@@ -55,6 +60,8 @@ MOTIF_CORPS_COMPTE = re.compile(r"(?:Bonjour|Hi|Hello|accès à|access to)\s+@?(
 MOTIF_ADRESSE = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 _deps: dict = {}
 _en_attente: dict = {}                                                  # 10/10 : id du mail → info, en attente de traiter()
+# 10/10 (revue) : ce qui part sur le disque pour un mail en attente — jamais le corps.
+CHAMPS_ATTENTE = ("pseudo", "alias", "sujet", "date", "id", "type", "dossier")
 _evenement = (None, None)
 
 
@@ -83,8 +90,11 @@ def categorie(sujet: str, expediteur: str = "") -> str:
 
 def configurer(deps: dict):
     """deps : lire_json, ecrire_json, FICHIER_BANS, canal_admin, est_staff, normaliser, etat_scan (lecture/écriture du fichier
-    des états : bans_auto), lire_comptes (défaut onboarding.lire_comptes)."""
+    des états : bans_auto), lire_comptes (défaut onboarding.lire_comptes). La file du disque est rechargée ici (10/10)."""
     _deps.update(deps)
+    _charger_attente()
+    if _en_attente:                                                      # reçus avant configurer : écrits maintenant
+        _ecrire_attente()
 
 
 def _n(t):
@@ -93,8 +103,36 @@ def _n(t):
 
 def _lire() -> dict:
     d = _deps["lire_json"](_deps["FICHIER_BANS"], {}) if _deps.get("lire_json") else {}
-    d.setdefault("vus", {}); d.setdefault("bans", [])
+    d.setdefault("vus", {}); d.setdefault("bans", []); d.setdefault("attente", {})
     return d
+
+
+def _pour_disque(info: dict) -> dict:
+    return {c: info[c] for c in CHAMPS_ATTENTE if c in info}
+
+
+def _charger_attente():
+    """La file du disque rejoint celle en mémoire (redémarrage : la mémoire est vide, le disque non)."""
+    if not (_deps.get("lire_json") and _deps.get("FICHIER_BANS")):
+        return
+    try:
+        for cle, info in (_lire().get("attente") or {}).items():
+            if isinstance(info, dict) and info.get("id"):
+                _en_attente.setdefault(cle, dict(info))
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Bans par mail : file du disque illisible : %s", erreur)
+
+
+def _ecrire_attente(d: dict = None):
+    """La file en mémoire écrite sur le disque (sans le corps). `d` : le contenu déjà lu, sinon relu."""
+    if not (_deps.get("ecrire_json") and _deps.get("FICHIER_BANS")):
+        return
+    try:
+        d = _lire() if d is None else d
+        d["attente"] = {cle: _pour_disque(info) for cle, info in _en_attente.items()}
+        _ecrire(d)
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Bans par mail : file non écrite sur le disque : %s", erreur)
 
 
 def _ecrire(d: dict):
@@ -110,7 +148,7 @@ def _texte(msg) -> str:
 def extraire(msg) -> dict | None:
     """{pseudo, alias, sujet, date, id} pour un mail de suspension Instagram, None pour tout autre mail (connexion, code,
     paramètres, nouveautés…). 10/10 : l'ADRESSE de l'expéditeur doit être Meta, jamais le seul nom affiché."""
-    if not codes_2fa.expediteur_meta(msg.get("From")):
+    if not codes_2fa.expediteur_meta(msg.get("From")) or not codes_2fa.relais_accepte(msg):
         return None
     sujet = str(make_header(decode_header(msg.get("Subject") or ""))).strip()
     s = sujet.lower()
@@ -160,6 +198,7 @@ def recevoir(msg, dossier: str = "INBOX"):
         return
     info["dossier"] = dossier
     _en_attente[info["id"]] = info
+    _ecrire_attente()                                                    # 10/10 (revue) : survit à un redéploiement
     evenement = _evenement[1]
     if evenement is not None:
         evenement.set()
@@ -209,6 +248,7 @@ async def traiter(trouves: list | None = None) -> dict:
     if trouves is None:
         if not (codes_2fa.actif() and onboarding.actif()):
             return bilan
+        _charger_attente()                                              # 10/10 (revue) : la file survit au redémarrage
         limite_file = (datetime.now(timezone.utc) - timedelta(days=JOURS)).isoformat(timespec="minutes")
         for cle in [k for k, v in _en_attente.items() if str(v.get("date", "")) < limite_file]:
             _en_attente.pop(cle, None)                                  # plus vieux que BANS_JOURS : oublié
@@ -219,6 +259,8 @@ async def traiter(trouves: list | None = None) -> dict:
             _en_attente.pop(t["id"], None)
     nouveaux = [t for t in trouves if t["id"] not in d["vus"]]
     if not nouveaux:
+        if set(d.get("attente") or {}) != set(_en_attente):
+            _ecrire_attente(d)
         return bilan
     comptes = await (_deps.get("lire_comptes") or onboarding.lire_comptes)()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -250,10 +292,11 @@ async def traiter(trouves: list | None = None) -> dict:
     limite = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     d["vus"] = {k: v for k, v in d["vus"].items() if v >= limite}
     d["bans"] = d["bans"][-300:]
-    _ecrire(d)
     for t in nouveaux:                                                  # traité : hors de la file (un BAN non écrit y reste)
         if t["id"] in d["vus"]:
             _en_attente.pop(t["id"], None)
+    d["attente"] = {cle: _pour_disque(info) for cle, info in _en_attente.items()}
+    _ecrire(d)
     if bilan["lignes"]:
         texte = "\n".join(bilan["lignes"])
         journal.info("Bans par mail : %d nouveau(x), %d ligne(s) passée(s) BAN", bilan["nouveaux"], bilan["ecrits"])

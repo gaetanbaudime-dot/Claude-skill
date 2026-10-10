@@ -368,6 +368,10 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Instagram me propose la double authentification ?** Ne l'active jamais. Écris-le à ton manager dans ton salon perso.
 
+**Le code est refusé par Instagram ?** Tu as peut-être tapé un code déjà utilisé : Instagram en envoie souvent un deuxième juste après (création, puis connexion). Laisse ta réponse « 📩 Mon code » ouverte et appuie sur « Renvoyer le code » dans Instagram : pendant 5 minutes, le nouveau code remplace l'ancien tout seul, au même endroit. Après 5 minutes, rappuie sur « 📩 Mon code ».
+
+**Instagram est dans une autre langue ?** Le bot ne lit que les e-mails d'Instagram en français, anglais, espagnol, portugais, italien ou allemand. Dans une autre langue, il ne donne pas le code. Remets Instagram en français (Paramètres, Langue), puis appuie sur « Renvoyer le code » et sur « 📩 Mon code ».
+
 **Instagram m'a déconnecté : « le propriétaire du compte a modifié son mot de passe » ?** Personne ne sait pourquoi, et ce n'est pas grave. Reconnecte-toi avec le mot de passe du message de ce compte, dans ton salon perso. Instagram envoie un code : va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Le mot de passe ne marche plus ? Ne clique pas sur « Mot de passe oublié » : écris à Gaëtan sur WhatsApp, il s'en occupe.
 
 **Le pseudo du classeur est « déjà utilisé » ?** D'abord, essaie de te connecter avec cet identifiant et le mot de passe du message de ce compte : le compte existe peut-être déjà. Ça ne marche pas ? Crée le compte avec le pseudo plus un chiffre ou un point. Quand tu appuies sur « ✅ Compte créé », le bot te demande ton @ exact : écris celui que tu as pris, il met le classeur à jour tout seul. Oublié ? Tape dans ton salon perso `!pseudo`, le numéro du compte (1, 2 ou 3) et ton vrai @, par exemple : `!pseudo 1 reels.paris27`. Et si tu ne le fais pas, le bot cherche tout seul ton compte parmi les @ proches de celui prévu et te le dit.

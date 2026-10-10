@@ -256,6 +256,36 @@ Gaëtan : « Il faut que les 2FA et les codes que tu renvoies dans le salon code
 
 Tests : `test_codes2fa_corpus.py` (les 42 mails du corpus de la revue, au vrai filtre), `test_codes2fa_lecteur.py`, `test_codes2fa_bouton.py`, `test_codes2fa_demarrage.py`.
 
+### Revue du 10/10, 2e passe : 17 défauts corrigés
+
+**Verdict** : la revue a trouvé 28 codes de modification donnés sur 59 mails d'attaque. Il en reste 0, sauf une adresse iCloud ordinaire déguisée en Instagram, fermée par `CODES_PREUVE_RELAIS=1` une fois le format vérifié. Une coupure de la boîte ne perd plus aucun code.
+
+**Le filtre** :
+
+- une phrase « si ce n'était pas vous » qui porte le code ou le mot « code » est lue. Si c'est elle qui porte le code, il est gardé ;
+- liste noire complétée : sécuriser, retrouver l'accès, restaurer, débloquer, « à nouveau », desativar, Telefonnummer, Facebook, Threads, Horizon, déconnexion. Tirets Unicode et caractères invisibles neutralisés ;
+- le pseudo ne compte jamais comme but. Un mail écrit dans aucune des 6 langues est gardé ;
+- la liste noire lit tout le mail : texte, HTML, `<title>`, textes alternatifs. « Confirm your identity », « restore » et « unlock » seuls ne suffisent plus ;
+- un code écrit en deux blocs (« 956 472 ») ou sans le mot « code » est reconnu, donc classé et signalé.
+
+**Le lecteur** : l'UID n'avance qu'au bout d'un passage réussi. Un mail illisible est rejoué, puis sauté avec une ligne admin au 3e essai. IDLE se réveille aussi sur une ligne déjà lue. Un mail au nom de Meta dont l'adresse n'est pas reconnue donne une ligne admin (une par forme d'adresse et par jour) : un changement de format iCloud ne fait plus taire les codes en silence.
+
+**Discord** :
+
+- le guet continue 5 minutes après un code : le 2e code (création puis connexion, ou « Renvoyer le code ») remplace le 1er tout seul ;
+- le guet relit les adresses du clipper : sorti pendant son guet, il ne voit plus rien ;
+- un salon lu par un rôle de clippers, ou par deux clippers, n'est jamais « privé ». Un salon perso partagé ne donne aucun code (ligne admin) ;
+- une ligne admin ne recopie jamais un code, même « 555 666 ». Le bouton est enregistré dès `setup_hook`. Les e-mails des fiches d'onboarding sont rattachés une fois au démarrage (`_migration_fiches` dans `alias_codes.json`) ;
+- `bans_mail` écrit sa file sur le disque (sans le corps) : un BAN non écrit, puis un redéploiement, est rattrapé.
+
+**À faire avant de déployer** (2 minutes, dans la boîte des codes) :
+
+1. Ouvre un vrai mail Instagram relayé par iCloud et choisis « Afficher l'original ».
+2. Vérifie le `From` : `…_at_mail_instagram_com_…@icloud.com`. S'il a une autre forme, le salon admin le dira (« adresse non reconnue ») : il faudra corriger `RE_ICLOUD_*`.
+3. Regarde la 1re ligne `Authentication-Results` : si elle porte `arc=pass (… dkdomain=mail.instagram.com …)`, passe `CODES_PREUVE_RELAIS=1` sur Railway. Sinon, laisse « observer » (défaut) : rien n'est bloqué, une ligne admin par jour signale un relais sans preuve.
+
+Tests ajoutés : `test_codes2fa_fiabilite.py` (coupures, mail illisible, BAN au redémarrage, formats iCloud), `test_codes2fa_revue.py` (salons, guet, lignes admin). Le test du corpus passe aussi les 59 mails d'attaque.
+
 ## Présentation du bot
 
 Un bot **Discord** qui répond aux questions des clippers **uniquement à partir de `connaissances.md`**

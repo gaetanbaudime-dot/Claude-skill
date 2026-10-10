@@ -482,9 +482,62 @@ _FORUM = {"id": ""}
 
 def adresses_codes_de(uid) -> set:
     """10/10 (règle : « le code n'est donné qu'au clipper dont l'alias est rattaché ») : les adresses rattachées au salon perso
-    du membre dans alias_codes.json — la même source pour `!code` et pour le bouton « 📩 Mon code »."""
+    du membre dans alias_codes.json — la même source pour `!code` et pour le bouton « 📩 Mon code ».
+    10/10 (revue, homonymes du 01/10 : #big ouvert à deux comptes) : un salon perso où un AUTRE clipper a un droit direct ne
+    donne aucune adresse (sinon chacun recevrait les codes de l'autre) ; une ligne admin, une fois par jour et par salon."""
     sp_a = salon_perso_de(uid)
-    return codes_2fa.adresses_de(str(sp_a.id)) if sp_a is not None else set()
+    if sp_a is None:
+        return set()
+    membre = membre_par_id(uid)
+    autres = _autres_occupants(sp_a, membre) if membre is not None else []
+    if autres:
+        noms = ", ".join(str(getattr(m, "display_name", "?")) for m in autres[:3])
+        codes_2fa.signaler(f"salon_partage|{sp_a.id}",
+                           f"🔐 **Codes bloqués pour {getattr(membre, 'display_name', uid)}** : son salon perso <#{sp_a.id}> est "
+                           f"aussi ouvert à {noms}. Tant qu'il est partagé, je ne donne aucun code de ses adresses (chacun "
+                           "verrait ceux de l'autre).\n\nRetire l'accès en trop au salon, puis il rappuie sur « 📩 Mon code ».")
+        return set()
+    return codes_2fa.adresses_de(str(sp_a.id))
+
+
+def migrer_adresses_codes() -> int:
+    """10/10 (revue) : depuis le 10/10, seul alias_codes.json donne les codes ; une adresse présente seulement dans la fiche
+    d'onboarding (« acces ») n'en donnait plus. Une passe UNIQUE au démarrage : les e-mails des comptes encore dans
+    « comptes », absents du registre, rattachés au salon perso du clipper. Jamais une adresse déjà rattachée à un autre
+    salon, jamais un salon perso partagé. Renvoie le nombre d'adresses rattachées ; journalise aussi les clippers ignorés."""
+    registre = codes_2fa._lire()
+    if registre.get("_migration_fiches") or not client.guilds:
+        return 0
+    fiches = (lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers", {}) or {}
+    rattachees, ignorees = 0, 0
+    for uid, fiche in fiches.items():
+        if not isinstance(fiche, dict):
+            continue
+        siens = {str(h).strip().lower() for h in fiche.get("comptes") or []}
+        mails = []
+        for acces in fiche.get("acces") or []:
+            if not isinstance(acces, dict) or str(acces.get("handle") or "").strip().lower() not in siens:
+                continue
+            mail = str(acces.get("mail") or "").strip().lower()
+            if "@" in mail and mail not in registre and mail not in mails:
+                mails.append(mail)
+        if not mails:
+            continue
+        salon = salon_perso_de(uid)
+        membre = membre_par_id(uid)
+        if salon is None or membre is None or _autres_occupants(salon, membre):
+            ignorees += 1
+            continue
+        for mail in mails:
+            registre[mail] = {"canal_id": str(salon.id), "par": "migration",
+                              "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            rattachees += 1
+    registre["_migration_fiches"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                     "rattachees": rattachees, "ignorees": ignorees}
+    codes_2fa._ecrire(registre)
+    journal.info("Codes : migration des fiches d'onboarding → alias_codes.json : %d adresse(s) rattachée(s), %d clipper(s) "
+                 "ignoré(s) (sans salon perso, ou salon partagé)", rattachees, ignorees)
+    return rattachees
 
 
 def lier_salon_codes(reponse: str) -> str:
@@ -8328,12 +8381,27 @@ async def _migrer_test_corps(trace: dict, apercu: bool, auto: bool, annonce=None
 _taches_demarrees = False
 
 
+def brancher_codes():
+    """10/10 : le bouton « 📩 Mon code » (vue persistante) et ses dépendances. 10/10 (revue) : posé dans setup_hook, AVANT la
+    connexion à la passerelle, puis redit en tête d'on_ready (sans effet s'il l'est déjà) : un clic pendant les appels réseau
+    du démarrage ne donne plus « Échec de l'interaction »."""
+    codes_2fa.configurer({"canal_admin": canal_admin, "adresses_de_membre": adresses_codes_de, "est_staff": est_staff,
+                          "admin_ids": set(ADMIN_IDS)})
+    client.add_dynamic_items(codes_2fa.BoutonMonCode)
+
+
+@client.event
+async def setup_hook():
+    brancher_codes()
+
+
 @client.event
 async def on_ready():
     global _taches_demarrees
     journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s, v2 %s)",
                  client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
                  "ON" if ACTIVER_V2 else "off")
+    brancher_codes()                                           # 10/10 (revue) : avant le premier appel réseau
     try:
         await verifier_canaux_configures()                     # 24/09 : nomme la variable CANAL_* qui pointe dans le vide
     except Exception as erreur:                                # jamais bloquer le démarrage pour un contrôle
@@ -8396,13 +8464,14 @@ async def on_ready():
         client.loop.create_task(_apres_depots(rattraper_webhooks, "quizz manqués"))  # quiz/candidatures manqués pendant un redéploiement
         client.loop.create_task(boucle_posts_formation())  # liens des fiches + index des salons (fini « #inconnu »)
         # 10/10 (règle de Gaëtan : « uniquement les codes de connexion et de création de compte ») : le bouton « 📩 Mon code »
-        # (réponse éphémère), ses dépendances, bans_mail abonné AVANT le premier passage du lecteur unique, puis le lecteur.
-        codes_2fa.configurer({"canal_admin": canal_admin, "adresses_de_membre": adresses_codes_de, "est_staff": est_staff,
-                              "admin_ids": set(ADMIN_IDS)})
-        client.add_dynamic_items(codes_2fa.BoutonMonCode)                      # bouton « 📩 Mon code » persistant
+        # est déjà branché (brancher_codes) ; bans_mail abonné AVANT le premier passage du lecteur unique, puis le lecteur.
+        try:                                                                    # 10/10 (revue) : une passe unique
+            migrer_adresses_codes()
+        except Exception as erreur:                                             # noqa: BLE001 — jamais bloquer le démarrage
+            journal.warning("Codes : migration des fiches d'onboarding : %s", erreur)
         bans_mail.abonner()
         client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # le lecteur unique de la boîte (UID, IDLE)
-        client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # le salon commun, mode d'emploi v6 et son bouton
+        client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # le salon commun, mode d'emploi v7 et son bouton
         client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
