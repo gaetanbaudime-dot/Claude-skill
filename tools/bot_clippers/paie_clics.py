@@ -276,7 +276,17 @@ async def releve(link_id: str, jour: date) -> dict:
             "timezone": FUSEAU}
     pays = _liste_reponse(await _requete("GET", "/analytics/countries", params=base), "/analytics/countries")
     hors_robots, payes = _comptes_pays(pays)
-    avec = _liste_reponse(await _requete("GET", "/analytics/visitors", params={**base, "hide_bots": "false"}), "/analytics/visitors")
+    # 10/10 (revue CLICS, reprise de la 3e passe : le jour viral de Tom, /analytics/visitors en délai dépassé, countries répondait 71
+    # fois et tout était jeté) : le chiffre payé vient de countries seul ; le total robots compris (visitors) ne sert qu'à afficher les
+    # robots. Une erreur propre au lien sur visitors garde donc le jour : brut None (`brut_non_lu`, comme `aujourdhui`, contrat C2).
+    # Une erreur globale (panne, limite) remonte : le jour entier est relu au passage suivant.
+    try:
+        avec = _liste_reponse(await _requete("GET", "/analytics/visitors", params={**base, "hide_bots": "false"}), "/analytics/visitors")
+    except Exception as erreur:                                         # noqa: BLE001 — réponse illisible comprise
+        if _erreur_globale(erreur):
+            raise
+        journal.warning("Relevé %s %s : total robots compris illisible (%s), visites payées gardées", link_id, jour, erreur)
+        return {"brut": None, "hors_robots": hors_robots, "payes": payes, "brut_non_lu": True}
     brut = sum(_nombre(x, "totalVisits", "total_visits", "visits", "count") for x in avec)
     return {"brut": brut, "hors_robots": hors_robots, "payes": payes}
 
@@ -1115,14 +1125,17 @@ async def poser_notes_attendues(liens: list) -> list:
 
 def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
     """Visites des liens sur la période. 28/09 : un lien repris d'un sortant ne compte pour son nouveau clipper qu'à partir de
-    `depuis` (les visites d'avant sont celles de l'ancien)."""
-    tot = {"brut": 0, "hors_robots": 0, "payes": 0, "jours": 0}
+    `depuis` (les visites d'avant sont celles de l'ancien). 10/10 : un jour dont le total robots compris n'a pas pu être lu (`brut`
+    None, releve) compte ses visites payées ; `brut_non_lu` = le nombre de ces jours (les robots ne sont alors pas affichés)."""
+    tot = {"brut": 0, "hors_robots": 0, "payes": 0, "jours": 0, "brut_non_lu": 0}
     for lid in link_ids:
         dep = str((d.get("liens", {}).get(lid) or {}).get("depuis") or "")
         for j, v in d["jours"].get(lid, {}).items():
             if debut.isoformat() <= j <= fin.isoformat() and j >= dep:
-                tot["brut"] += v.get("brut", 0); tot["hors_robots"] += v.get("hors_robots", 0)
-                tot["payes"] += v.get("payes", 0); tot["jours"] += 1
+                if v.get("brut") is None:
+                    tot["brut_non_lu"] += 1
+                tot["brut"] += v.get("brut") or 0; tot["hors_robots"] += v.get("hors_robots") or 0
+                tot["payes"] += v.get("payes") or 0; tot["jours"] += 1
     return tot
 
 
@@ -1227,15 +1240,63 @@ def texte_bilan_fixe(d: dict, jours: int = BILAN_FIXE_JOURS) -> list:
     return lignes
 
 
-async def _envoyer_canal(canal, lignes: list) -> None:
-    bloc = ""
+def _blocs(lignes: list, taille: int = 1900) -> list:
+    """Les lignes regroupées en messages Discord de `taille` caractères au plus (une ligne trop longue est coupée)."""
+    blocs, bloc = [], ""
     for l in lignes:
-        if len(bloc) + len(l) + 1 > 1900:
-            await canal.send(bloc)
+        l = str(l)[:taille - 1]
+        if bloc and len(bloc) + len(l) + 1 > taille:
+            blocs.append(bloc)
             bloc = ""
         bloc += l + "\n"
     if bloc.strip():
-        await canal.send(bloc)
+        blocs.append(bloc)
+    return blocs
+
+
+async def _envoyer_blocs(envoyer, lignes: list, fichier=None) -> None:
+    """10/10 (revue CLICS, reprise de la 3e passe : la liste de paie coupée à 1990 caractères perdait l'alerte « Jours non relevés »,
+    les marqueurs « provisoire » des derniers clippers et le Total dès 20 à 25 clippers) : la liste entière, en plusieurs messages ;
+    `fichier` (le CSV) part avec le premier. `envoyer` = canal.send ou message.reply."""
+    blocs = _blocs(lignes) or (["📎"] if fichier is not None else [])
+    for i, bloc in enumerate(blocs):
+        if i == 0 and fichier is not None:
+            await envoyer(bloc, file=fichier)
+        else:
+            await envoyer(bloc)
+
+
+async def _envoyer_canal(canal, lignes: list) -> None:
+    await _envoyer_blocs(canal.send, lignes)
+
+
+def non_releves(d: dict, lids, debut: date, fin: date) -> list:
+    """10/10 (revue CLICS, reprise de la 3e passe : `!mesclics` disait « Hier : 0 visites qui comptent » le jour du Reel viral de Tom,
+    relevé en délai dépassé) : les (lid, « AAAA-MM-JJ ») de [debut, fin] (hier au plus) pas encore relevés pour ces liens, à partir de
+    leur `depuis` (contrat C2/C6(e) : un jour manquant n'est jamais un zéro). Un lien effacé de GAML ou introuvable aujourd'hui (404)
+    n'est pas attendu (même règle que jours_manquants_paie)."""
+    aujourdhui = _aujourdhui()
+    fin = min(fin, aujourdhui - timedelta(days=1))
+    out = []
+    for lid in lids:
+        info = (d.get("liens") or {}).get(lid) or {}
+        if info.get("supprime_gaml") or str(info.get("introuvable") or "") == aujourdhui.isoformat():
+            continue
+        jours, j = (d.get("jours") or {}).get(lid) or {}, max(debut, _en_date(info.get("depuis")) or debut)
+        while j <= fin:
+            if _manque(jours, j):
+                out.append((lid, j.isoformat()))
+            j += timedelta(days=1)
+    return out
+
+
+def _n_jours(paires) -> int:
+    return len({j for _, j in paires or []})
+
+
+def _jours_non_lus(n: int, court: bool = False) -> str:
+    """« 2 jour(s) pas encore relevé(s) » (ou « 2 j. non relevé(s) ») ; '' pour 0."""
+    return "" if not n else (f"{n} j. non relevé(s)" if court else f"{n} jour(s) pas encore relevé(s)")
 
 
 def texte_mesclics(d: dict, uid: str, nom: str) -> str:
@@ -1248,17 +1309,30 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
     debut, fin = periode_en_cours()
     debut = _debut_paie(uid, debut, d)                                  # 08/10 : passé au clic ce jour-là
     q = somme(d, lids, debut, min(fin, hier))
-    part = f" ({h['payes'] * 100 // h['hors_robots']} % de tes visiteurs)" if h["hors_robots"] else ""
-    robots = h["brut"] - h["hors_robots"]
     au_clic = regime(uid) == "clic"
+    # 10/10 (revue CLICS, reprise de la 3e passe) : un jour pas encore relevé n'est jamais affiché 0 (« Hier : pas encore relevé »),
+    # et la paie en cours dit combien de jours elle attend encore (les mêmes que la liste de paie : jours_manquants_paie)
+    manque_h = non_releves(d, lids, hier, hier)
+    n7 = _n_jours(non_releves(d, lids, hier - timedelta(days=6), hier))
+    nq = (_n_jours(jours_manquants_paie(d, debut, min(fin, hier)).get(str(uid))) if au_clic
+          else _n_jours(non_releves(d, lids, debut, min(fin, hier))))
+    part = f" ({h['payes'] * 100 // h['hors_robots']} % de tes visiteurs)" if h["hors_robots"] else ""
+    robots = h["brut"] - h["hors_robots"] if not h["brut_non_lu"] else 0
+    if manque_h and not h["jours"]:
+        ligne_hier = f"Hier, le {hier.strftime('%d/%m')} : pas encore relevé, le chiffre arrive dans la journée.\n\n"
+    else:
+        ligne_hier = (f"Hier, le {hier.strftime('%d/%m')} : **{_fmt(h['payes'])} visites qui comptent**{part}"
+                      + (" pour l'instant (un de tes liens pas encore relevé)" if manque_h else "")
+                      + (f". {robots} robots enlevés" if robots > 0 else "") + ".\n\n")
+    reste_q = f", {_jours_non_lus(nq)} : le montant va encore monter" if nq else ""
     return (f"📊 **Tes visites, {nom}**" + ("" if au_clic else " · tu es au fixe, ces montants sont juste pour info") + "\n\n"
-            f"Hier, le {hier.strftime('%d/%m')} : **{_fmt(h['payes'])} visites qui comptent**{part}"
-            + (f". {robots} robots enlevés" if robots > 0 else "") + ".\n\n"
-            f"Sur 7 jours : **{_fmt(s7['payes'])}** visites qui comptent, sur {_fmt(s7['hors_robots'])} visiteurs.\n\n"
+            + ligne_hier +
+            f"Sur 7 jours : **{_fmt(s7['payes'])}** visites qui comptent, sur {_fmt(s7['hors_robots'])} visiteurs"
+            + (f" ({_jours_non_lus(n7)})" if n7 else "") + ".\n\n"
             + ((f"💸 **Ta paie en cours : {_usd(q['payes'] * TAUX_CLIC)}** ({_fmt(q['payes'])} visites du {debut.strftime('%d/%m')} au "
-                f"{fin.strftime('%d/%m')}), virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
+                f"{fin.strftime('%d/%m')}{reste_q}), virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
                (f"Période du {debut.strftime('%d/%m')} au {fin.strftime('%d/%m')} : **{_fmt(q['payes'])} visites = "
-                f"{_usd(q['payes'] * TAUX_CLIC)}**.\n"))
+                f"{_usd(q['payes'] * TAUX_CLIC)}**{f' ({_jours_non_lus(nq)})' if nq else ''}.\n"))
             +
             f"Une visite qui compte = {_usd(TAUX_CLIC)}. Elle vient de France ou d'un pays francophone. Ce n'est pas un robot.\n\n"
             + ("" if not au_clic or str(uid) in d["wallets"] else "⚠️ Je n'ai pas ton adresse de paiement. Colle ton adresse USDC dans ton app (onglet Versements), ou écris `!wallet 0x…` ici (`!wallet FR76…` pour un virement).\n\n")
@@ -1280,8 +1354,14 @@ def ligne_matin(d: dict, uid: str) -> str:
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
     au_clic = regime(uid) == "clic"
     montant = f" = {_usd(q['payes'] * TAUX_CLIC)} · virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}" if au_clic else ""   # 28/09 (GO n° 8)
+    # 10/10 (revue CLICS, reprise de la 3e passe) : un lien pas encore relevé pour hier n'est pas compté 0 en silence
+    incomplet = " (pas encore tout relevé)" if non_releves(d, lids, hier, hier) else ""
+    dp = _debut_paie(uid, debut, d)
+    nq = (_n_jours(jours_manquants_paie(d, dp, min(fin, hier)).get(str(uid))) if au_clic
+          else _n_jours(non_releves(d, lids, dp, min(fin, hier))))
     # 26/09 : une ligne, dans le message du matin (les détails restent dans `!mesclics`)
-    return (f"👀 Visites hier : **{_fmt(h['payes'])}** · période : **{_fmt(q['payes'])}{montant}**"
+    return (f"👀 Visites hier : **{_fmt(h['payes'])}**{incomplet} · période : **{_fmt(q['payes'])}{montant}**"
+            + (f" ({_jours_non_lus(nq, court=True)})" if nq else "")
             + ("" if not au_clic or str(uid) in d["wallets"] else "\n⚠️ Adresse de paiement manquante : colle-la dans ton app (onglet Versements) ou `!wallet 0x…`"))
 
 
@@ -1395,9 +1475,20 @@ def texte_manquants(manquants: dict, nom_de, maximum: int = 8) -> str:
     return " · ".join(morceaux) + (f" · et {reste} autre(s)" if reste > 0 else "")
 
 
-def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquants: dict = None) -> tuple:
+def _cle_periode(jour_paie: str, fin: date) -> str:
+    """« AAAA-MM-JJ » du jour de paie (« 20/10 » + fin de période → « 2026-10-20 ») : la clé de `paies` et de `paies_annoncees`."""
+    return jour_paie if "-" in jour_paie else f"{fin.year}-{jour_paie[3:5]}-{jour_paie[:2]}"
+
+
+def _jjmm(jours) -> str:
+    return ", ".join(j[8:10] + "/" + j[5:7] for j in sorted(set(jours or [])))
+
+
+def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquants: dict = None, annonce: dict = None) -> tuple:
     """Lignes Discord + CSV de la paie : un clipper par ligne, visites payées, montant, adresse. 10/10 (revue CLICS, 3e passe) :
-    `manquants` (jours_manquants_paie) → la ligne d'un clipper dont des jours ne sont pas encore relevés est marquée « provisoire »."""
+    `manquants` (jours_manquants_paie) → la ligne d'un clipper dont des jours ne sont pas encore relevés est marquée « provisoire ».
+    10/10 (reprise de la 3e passe) : `annonce` ({uid: {"montant"}}, la liste déjà annoncée de cette paie, `paies_annoncees`) → chaque
+    ligne dit ce qui avait été annoncé et le complément (recompte − annoncé)."""
     manquants = manquants or {}
     par_uid = {}
     for lid, info in d["liens"].items():
@@ -1425,7 +1516,7 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquant
             sans += 1
         rangs.append((nom_de(uid), uid, s["payes"], s["hors_robots"], montant, w))
     rangs.sort(key=lambda r: -r[4])
-    cle_periode = jour_paie if "-" in jour_paie else f"{fin.year}-{jour_paie[3:5]}-{jour_paie[:2]}"
+    cle_periode = _cle_periode(jour_paie, fin)
     # 27/09 : la liste est mémorisée (jour de paie → uid → montant) pour le tableau de bord du lundi (« premier paiement »)
     if rangs and _deps.get("ecrire_json"):
         d.setdefault("paies", {})[cle_periode] = {uid: montant for _, uid, _, _, montant, _ in rangs}
@@ -1452,7 +1543,17 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquant
         bonus = "".join(f" · 🎁 +{_usd(pr)} parrainage de {f}" for f, pr in primes.get(uid, []))
         n_manq = len({j for _, j in manquants.get(uid, [])})
         prov = f" · ⚠️ provisoire : {n_manq} jour(s) non relevé(s)" if n_manq else ""
+        if annonce is not None:
+            ecart = round(montant - float((annonce.get(uid) or {}).get("montant") or 0), 2)
+            if abs(ecart) >= 0.01:
+                prov += (f" · annoncé {_usd(float((annonce.get(uid) or {}).get('montant') or 0))} → complément **+{_usd(ecart)}**" if ecart > 0
+                         else f" · annoncé {_usd(float((annonce.get(uid) or {}).get('montant') or 0))} : recompte plus bas ({_usd(ecart)}), rien à reprendre, à vérifier")
         lignes.append(f"· {nom} — {_fmt(payes)} payées ({_fmt(hors)} visiteurs) → **{_usd(montant)}** → {adr}{bonus}{prov}")
+    if annonce is not None:
+        presents = {uid for _, uid, _, _, _, _ in rangs}
+        for uid, a in annonce.items():
+            if uid not in presents and float((a or {}).get("montant") or 0) >= 0.01:
+                lignes.append(f"· {nom_de(uid)} — annoncé {_usd(float(a['montant']))}, plus rien au recompte : rien à reprendre, à vérifier")
     tampon = io.StringIO(); ecrivain = csv.writer(tampon, delimiter=";")
     ecrivain.writerow(["prenom", "discord_id", "visites_payees", "visiteurs_hors_robots", "montant_usd", "adresse"])
     for nom, uid, payes, hors, montant, w in rangs:
@@ -1628,6 +1729,72 @@ def _en_echec(info: dict, cle: str, maintenant) -> bool:
         return False
 
 
+def _depuis_moins_de(ts, maintenant, secondes: int) -> bool:
+    try:
+        return maintenant.timestamp() - float(ts) < secondes
+    except (TypeError, ValueError):
+        return False
+
+
+def _noter_echec_releve(info: dict, jour_iso: str, erreur, maintenant) -> None:
+    """10/10 (revue CLICS, reprise de la 3e passe : chez Tom, le 12/10, jour viral trop lourd pour GAML, échouait toujours et bloquait la
+    relecture des 05 → 11/10, pourtant lisibles) : l'échec du relevé est noté pour le JOUR. `echec` = le dernier échec (_malade, _sain),
+    avec `jours` = les jours différents en échec depuis le dernier succès du lien ; `echecs_jours` = {jour: ts} (gardés ECHEC_MALADE
+    secondes, même après le succès d'un autre jour) : ce jour seul n'est retenté qu'ECHEC_REESSAI secondes plus tard, et après les jours
+    jamais en échec."""
+    precedents = [j for j in ((info.get("echec") or {}).get("jours") or []) if j != jour_iso]
+    _echec(info, "echec", erreur, maintenant, jour_iso)
+    info["echec"]["jours"] = (precedents + [jour_iso])[-6:]
+    ej = {j: ts for j, ts in (info.get("echecs_jours") or {}).items() if _depuis_moins_de(ts, maintenant, ECHEC_MALADE)}
+    ej[jour_iso] = round(maintenant.timestamp(), 1)
+    info["echecs_jours"] = ej
+
+
+def _lien_bloque(info: dict, maintenant) -> bool:
+    """10/10 : le relevé du LIEN entier est-il en pause (ECHEC_REESSAI secondes après son dernier échec) ? Seulement quand l'échec
+    n'est pas propre à un jour : deux jours différents en échec sans un succès entre deux (page morte, 5xx permanent), ou un 4xx
+    définitif (/ytb « unsupported link type »). Un seul jour en échec (jour viral trop lourd) ne bloque que lui (_jour_en_echec)."""
+    if not _en_echec(info, "echec", maintenant):
+        return False
+    e = (info or {}).get("echec") or {}
+    if "jours" not in e:                                                # échec noté avant le 10/10 : son jour seulement (`jour`)
+        return not e.get("jour")
+    return len(set(e.get("jours") or [])) >= 2 or _erreur_du_lien(e.get("erreur"))
+
+
+def _jour_en_echec(info: dict, jour_iso: str, maintenant) -> bool:
+    """10/10 : le relevé de CE jour du lien a-t-il échoué il y a moins d'ECHEC_REESSAI secondes ?"""
+    ts = ((info or {}).get("echecs_jours") or {}).get(jour_iso)
+    if ts is not None:
+        return _depuis_moins_de(ts, maintenant, ECHEC_REESSAI)
+    e = (info or {}).get("echec") or {}
+    return "jours" not in e and str(e.get("jour") or "") == jour_iso and _en_echec(info, "echec", maintenant)
+
+
+def _releve_en_pause(info: dict, jour_iso: str, maintenant) -> bool:
+    return _lien_bloque(info, maintenant) or _jour_en_echec(info, jour_iso, maintenant)
+
+
+def _dus_recents(info: dict, hier: date, recul: int = 45) -> list:
+    """Les `dus` du lien (visites dues à un ancien détenteur) dont un jour tombe dans les `recul` jours avant `hier`."""
+    limite = hier - timedelta(days=recul)
+    out = []
+    for e in (info or {}).get("dus") or []:
+        de, av = (_en_date(e.get("depuis")), _en_date(e.get("avant"))) if isinstance(e, dict) else (None, None)
+        if de is not None and av is not None and av - timedelta(days=1) >= limite and de < av:
+            out.append((de, av))
+    return out
+
+
+def _plancher_releve(info: dict, hier: date):
+    """10/10 (revue CLICS, reprise de la 3e passe : `!lien @Tom <e1> forcer` tapé à 0 h, avant la relecture de la veille, ou pendant
+    que le relevé du 15/10 de e1 échouait : `depuis` passait au 16/10 et le 15/10, dû à Eddy, n'était plus jamais relu ; la paie de
+    toute l'équipe attendait midi, puis Eddy était payé « provisoire » pour toujours) : le premier jour à relever d'un lien = le plus
+    ancien de son `depuis` et des `dus[].depuis` encore dans la fenêtre de 45 jours (relus comme un lien payé). None sans l'un ni l'autre."""
+    dates = [x for x in [_en_date((info or {}).get("depuis"))] + [de for de, _ in _dus_recents(info, hier)] if x is not None]
+    return min(dates) if dates else None
+
+
 async def relever_jour(d: dict, lid: str, j: date, maintenant=None) -> str:
     """Le relevé d'un jour (heure de Paris) d'un lien, rangé dans `d["jours"]` puis écrit sur le disque. Renvoie 'ok', '404' (lien
     introuvable : `introuvable` posé, rien d'écrit, retenté demain), 'erreur' (propre à ce lien : `echec` posé, retenté
@@ -1649,12 +1816,17 @@ async def relever_jour(d: dict, lid: str, j: date, maintenant=None) -> str:
             return "404"
         if _erreur_globale(erreur):
             return "global"
-        _echec(info, "echec", erreur, maintenant, j.isoformat())
+        _noter_echec_releve(info, j.isoformat(), erreur, maintenant)     # 10/10 : l'échec du JOUR (les autres jours restent lus)
         _ecrire(d)
         return "erreur"
     d.setdefault("jours", {}).setdefault(lid, {})[j.isoformat()] = v
     info.pop("echec", None)                                             # 10/10 : seulement l'échec du relevé (`echec_direct` : le direct, _malade)
     js = j.isoformat()
+    ej = {k: ts for k, ts in (info.get("echecs_jours") or {}).items() if k != js and _depuis_moins_de(ts, maintenant, ECHEC_MALADE)}
+    if ej:
+        info["echecs_jours"] = ej                                       # les autres jours en échec gardent leur délai
+    else:
+        info.pop("echecs_jours", None)
     if j == hier and maintenant.hour < RELECTURE_HEURE:
         if js not in provisoires.setdefault(lid, []):
             provisoires[lid].append(js)
@@ -1694,7 +1866,10 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
         nonlocal appels
         if appels and RELEVE_PAUSE > 0:
             await asyncio.sleep(RELEVE_PAUSE)                           # minuit : ~55 liens d'un coup, la minute reste partagée avec l'app
-        sain = _sain(d, lid, maintenant, "echec")                       # jugé AVANT l'essai (relever_jour pose le nouvel échec)
+        # jugé AVANT l'essai (relever_jour pose le nouvel échec) ; 10/10 : un jour qui a déjà échoué (jour trop lourd pour GAML) et
+        # qu'on retente n'est jamais un signe de panne
+        sain = (_sain(d, lid, maintenant, "echec")
+                and j.isoformat() not in (((d.get("liens") or {}).get(lid) or {}).get("echecs_jours") or {}))
         r = await relever_jour(d, lid, j, maintenant)
         appels += 2 if r == "ok" else 1
         if r == "global":
@@ -1708,20 +1883,27 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
         return r
 
     def payant(info):
-        return bool(str(info.get("uid") or "") or info.get("suivi"))
+        # 10/10 : un lien qui porte des visites dues à un ancien détenteur (`dus`) est relu comme un lien payé
+        return bool(str(info.get("uid") or "") or info.get("suivi") or _dus_recents(info, hier))
     cibles = [(lid, info) for lid, info in list(d["liens"].items()) if a_relever(info, jour_iso)]
     # tri stable (l'ordre du fichier sinon) : les liens malades en dernier, puis les liens payés en tête
     cibles.sort(key=lambda li: (_malade(li[1], maintenant, "echec"), 0 if payant(li[1]) else 1))
     malades = {lid for lid, info in cibles if _malade(info, maintenant, "echec")}
+
+    def fiche(lid: str, info: dict) -> dict:
+        return d["liens"].get(lid) or info                              # relue : _ecrire peut avoir fusionné une écriture concurrente
 
     async def veilles(liste) -> bool:
         """La veille de chaque lien de `liste` ; True = fin du passage (budget ou arrêt)."""
         for lid, info in liste:
             if appels >= limite_appels:
                 return True
-            debut = _en_date(info.get("depuis")) or _jour(CLICS_DEPUIS)
+            info = fiche(lid, info)
+            # 10/10 : le plancher compte les jours dus à l'ancien détenteur (`dus`), et seul l'échec de la veille elle-même (ou du
+            # lien entier) la fait attendre
+            debut = _plancher_releve(info, hier) or _jour(CLICS_DEPUIS)
             if (hier < debut or not _manque(d["jours"].get(lid, {}), hier) or str(info.get("introuvable") or "") == jour_iso
-                    or _en_echec(info, "echec", maintenant)):
+                    or _releve_en_pause(info, hier.isoformat(), maintenant)):
                 continue
             if await lire(lid, hier) == "stop":
                 return True
@@ -1743,7 +1925,7 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
                 if lid in provisoires and not provisoires[lid]:
                     provisoires.pop(lid, None)
                 continue
-            if (j == hier and maintenant.hour < RELECTURE_HEURE) or _en_echec(info, "echec", maintenant):
+            if (j == hier and maintenant.hour < RELECTURE_HEURE) or _releve_en_pause(fiche(lid, info), js, maintenant):
                 continue
             if appels >= limite_appels:
                 return appels
@@ -1755,25 +1937,38 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
     # 2 bis. la veille des liens malades
     if await veilles([li for li in cibles if li[0] in malades]):
         return appels
-    # 3. les jours plus anciens (les liens malades en dernier)
+    # 3. les jours plus anciens (les liens malades en dernier). 10/10 (revue CLICS, reprise de la 3e passe : chez Tom, le 12/10 en
+    # échec permanent — jour viral trop lourd pour GAML — arrêtait la descente à chaque passage, les 05 → 11/10 n'étaient jamais
+    # relus) : un jour en échec ne fait attendre que lui ; la descente continue vers les jours plus anciens, les jours jamais en échec
+    # d'abord (les plus récents en tête), puis ceux dont l'échec a passé ECHEC_REESSAI. Le lien entier n'attend que si deux jours
+    # différents échouent sans un succès entre deux, ou sur un 4xx définitif (_lien_bloque) ; `_Suite` arrête toujours le passage
+    # sur une vraie panne. Le plancher compte les jours dus à un ancien détenteur (`dus`).
     for lid, info in cibles:
+        info = fiche(lid, info)
         recul = 45 if payant(info) else RELEVE_RECUL - 1
-        debut = max(_en_date(info.get("depuis")) or _jour(CLICS_DEPUIS), hier - timedelta(days=recul))
-        jours = d["jours"].get(lid, {})
-        j = hier - timedelta(days=1)
+        debut = max(_plancher_releve(info, hier) or _jour(CLICS_DEPUIS), hier - timedelta(days=recul))
+        if str(info.get("introuvable") or "") == jour_iso or _lien_bloque(info, maintenant):
+            continue
+        jours, a_lire, j = d["jours"].get(lid, {}), [], hier - timedelta(days=1)
         while j >= debut:
-            if str(info.get("introuvable") or "") == jour_iso or _en_echec(info, "echec", maintenant):
-                break
-            if _manque(jours, j):
-                if appels >= limite_appels or anciens >= RELEVE_ANCIENS_MAX:
-                    return appels
-                avant = appels
-                r = await lire(lid, j)
-                anciens += appels - avant
-                if r == "stop":
-                    return appels
-                jours = d["jours"].get(lid, {})
+            if _manque(jours, j) and not _jour_en_echec(info, j.isoformat(), maintenant):
+                a_lire.append(j)
             j -= timedelta(days=1)
+        deja = info.get("echecs_jours") or {}
+        a_lire.sort(key=lambda x: x.isoformat() in deja)                # tri stable : du plus récent au plus ancien dans chaque groupe
+        for j in a_lire:
+            info = fiche(lid, info)
+            if str(info.get("introuvable") or "") == jour_iso or _lien_bloque(info, maintenant):
+                break
+            if not _manque(d["jours"].get(lid, {}), j):
+                continue
+            if appels >= limite_appels or anciens >= RELEVE_ANCIENS_MAX:
+                return appels
+            avant = appels
+            r = await lire(lid, j)
+            anciens += appels - avant
+            if r == "stop":
+                return appels
     return appels
 
 
@@ -1782,7 +1977,10 @@ async def completer(lid: str, debut, fin, maximum: int = 14) -> tuple:
     fin] (fin ≤ hier ; le plancher `depuis` du lien appliqué) sont relevés et RANGÉS dans clics.json (relever_jour, `maximum` appels au
     plus), puis l'appelant relit la période avec clics_lien : le classeur, le Dashboard, le contrôle et le bouclage comptent les mêmes
     jours avec la même règle (avant : une somme GAML de toute la période, que ni clics.json ni le Dashboard ne connaissaient).
-    S'arrête au premier échec. Renvoie (état relu de clics.json, appels GAML faits)."""
+    10/10 (revue CLICS, reprise de la 3e passe) : un jour en échec ne fait attendre que lui (les autres jours sont relevés ; arrêt sur le
+    lien entier en échec, _lien_bloque, sur un 404 ou une panne) ; le plancher compte les jours dus à un ancien détenteur (`dus`), relevés
+    APRÈS ceux du détenteur actuel (du plus récent au plus ancien : le budget `maximum` sert d'abord ce que l'appelant relit).
+    Renvoie (état relu de clics.json, appels GAML faits)."""
     maintenant = _deps["heure_paris"]()
     hier = maintenant.date() - timedelta(days=1)
     debut, fin = _en_date(debut), min(_en_date(fin) or hier, hier)
@@ -1790,21 +1988,24 @@ async def completer(lid: str, debut, fin, maximum: int = 14) -> tuple:
     info = (d.get("liens") or {}).get(str(lid))
     if info is None:
         return d, 0                                                     # lien inconnu du bot : la passe horaire le marquera `releve`
-    dep = _en_date(info.get("depuis"))
+    dep = _plancher_releve(info, hier)
     if debut is None or (dep is not None and dep > debut):
         debut = dep
-    if debut is None or debut > fin or _en_echec(info, "echec", maintenant) or str(info.get("introuvable") or "") == maintenant.date().isoformat():
+    if debut is None or debut > fin or _lien_bloque(info, maintenant) or str(info.get("introuvable") or "") == maintenant.date().isoformat():
         return d, 0
-    appels, j = 0, debut
-    while j <= fin and appels < maximum:
-        if _manque((d.get("jours") or {}).get(str(lid), {}), j):
+    appels, j = 0, fin
+    while j >= debut and appels < maximum:
+        info = (d.get("liens") or {}).get(str(lid)) or info
+        if _lien_bloque(info, maintenant):
+            break
+        if _manque((d.get("jours") or {}).get(str(lid), {}), j) and not _jour_en_echec(info, j.isoformat(), maintenant):
             if appels and RELEVE_PAUSE > 0:
                 await asyncio.sleep(RELEVE_PAUSE)
             r = await relever_jour(d, str(lid), j, maintenant)
             appels += 2 if r == "ok" else 1
-            if r != "ok":
+            if r in ("404", "global"):
                 break
-        j += timedelta(days=1)
+        j -= timedelta(days=1)
     return d, appels
 
 
@@ -1957,20 +2158,27 @@ async def annoncer_paie(client, d: dict, maintenant, manquants: dict = None) -> 
         _ecrire(d)
     if manquants is None:
         manquants = jours_manquants_paie(d, debut, fin)
-    lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, maintenant.strftime("%d/%m"), manquants=manquants)
+    jour_paie = maintenant.strftime("%d/%m")
+    lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, jour_paie, manquants=manquants)
+    # 10/10 (revue CLICS, reprise de la 3e passe) : l'annonce est mémorisée une fois (`paies_annoncees`, jamais réécrite par
+    # `!paie-clics`) ; ses jours manquants relevés, le complément part tout seul (completer_paies)
+    memoriser_annonce(d, _cle_periode(jour_paie, fin), rangs, manquants, debut, fin, jour_paie, maintenant)
     if manquants:
+        limite = maintenant.date() + timedelta(days=COMPLEMENT_JOURS)
         lignes.insert(1, f"⚠️ **Jours pas encore relevés dans GAML** : montants provisoires, sous-estimés — {texte_manquants(manquants, nom_de)}. "
-                         f"`!paie-clics {cle}` les recompte une fois relevés ; le complément est à virer à la main.")
-    titre = await ecrire_feuille_paie(d, rangs, debut, fin, maintenant.strftime("%d/%m"))
+                         f"Dès qu'ils sont relevés (au plus tard le {limite.strftime('%d/%m')}), le **complément** est posté ici tout seul, "
+                         f"avec l'onglet « {ONGLET_COMPLEMENT_PREFIXE}{_date_paie(jour_paie, fin)} ».")
+    titre = await ecrire_feuille_paie(d, rangs, debut, fin, jour_paie, manquants=manquants)
     if titre:
-        lignes.append(f"📗 Feuille « {titre} » écrite dans le tableur « {ADRESSES_TABLEUR} » (prénom, adresse USDC, montant).")
+        lignes.append(f"📗 Feuille « {titre} » écrite dans le tableur « {ADRESSES_TABLEUR} » (prénom, adresse USDC, montant"
+                      + (", « provisoire » en note" if manquants else "") + ").")
     if reprises:
         lignes.append(f"📒 {len(reprises)} adresse(s) reprise(s) de l'app : " + ", ".join(reprises)[:600])
     canal = await _deps["canal_admin"]()
     if canal is not None:
-        try:
-            await canal.send("\n".join(lignes)[:1990], file=discord.File(io.BytesIO(csv_texte.encode("utf-8-sig")),
-                                                                        filename=f"paie_clics_{debut.isoformat()}_{fin.isoformat()}.csv"))
+        try:                                                            # 10/10 : la liste entière, en plusieurs messages
+            await _envoyer_blocs(canal.send, lignes, discord.File(io.BytesIO(csv_texte.encode("utf-8-sig")),
+                                                                  filename=f"paie_clics_{debut.isoformat()}_{fin.isoformat()}.csv"))
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Annonce de paie (admin) : %s", erreur)
     envoyes = 0
@@ -1992,13 +2200,124 @@ async def annoncer_paie(client, d: dict, maintenant, manquants: dict = None) -> 
         jours_m = sorted({j for _, j in manquants.get(uid, [])})
         if jours_m:                                                     # 10/10 : jamais un montant sous-estimé sans le dire
             texte += ("\n\n-# Montant provisoire : " + ", ".join(j[8:10] + "/" + j[5:7] for j in jours_m[:6])
-                      + (" et d'autres jours" if len(jours_m) > 6 else "") + " pas encore relevé(s) dans GAML. Gaëtan est prévenu.")
+                      + (" et d'autres jours" if len(jours_m) > 6 else "") + " pas encore relevé(s) dans GAML. Gaëtan est prévenu : "
+                      "le complément te sera versé dès qu'ils sont relevés.")
         try:
             await salon.send(texte)
             envoyes += 1
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Ligne de paie %s : %s", uid, erreur)
     journal.info("Paie du %s annoncée : liste au salon admin, %s ligne(s) en salon perso", maintenant.strftime("%d/%m"), envoyes)
+
+
+COMPLEMENT_JOURS = int(os.environ.get("CLICS_COMPLEMENT_JOURS", "3") or 3)   # complément d'une paie provisoire au plus tard à J+3
+
+
+def memoriser_annonce(d: dict, cle: str, rangs: list, manquants: dict, debut: date, fin: date, jour_paie: str, maintenant) -> bool:
+    """10/10 (revue CLICS, reprise de la 3e passe : `!paie-clics`, que le message de paie demandait de lancer, réécrivait la feuille
+    « Paie du … » et `paies` avec le recompte : le montant viré n'était plus écrit nulle part, le complément était à calculer à la main)
+    : `paies_annoncees[cle]` = ce que la paie automatique a annoncé (et que Gaëtan a viré), posé UNE fois, jamais réécrit : {jour_paie,
+    debut, fin, t, total, clippers: {uid: {montant, payes, manquants}}} (`total` et `montant` primes de parrainage comprises, comme
+    la liste). Renvoie True si posé maintenant. Écrit `d`."""
+    annonces = d.setdefault("paies_annoncees", {})
+    if cle in annonces:
+        return False
+    clippers = {uid: {"montant": round(float(montant), 2), "payes": int(payes), "manquants": sorted({j for _, j in (manquants or {}).get(uid, [])})}
+                for _, uid, payes, _, montant, _ in rangs}
+    for uid, paires in (manquants or {}).items():                       # un clipper à 0 sur la liste, dont tous les jours manquent
+        clippers.setdefault(str(uid), {"montant": 0.0, "payes": 0, "manquants": sorted({j for _, j in paires})})
+    annonces[cle] = {"jour_paie": jour_paie, "debut": debut.isoformat(), "fin": fin.isoformat(), "t": _horodatage(maintenant),
+                     "total": round(sum(float(r[4]) for r in rangs), 2), "clippers": clippers}
+    if _deps.get("ecrire_json"):
+        _ecrire(d)
+    return True
+
+
+async def completer_paies(d: dict, maintenant) -> int:
+    """10/10 (revue CLICS, reprise de la 3e passe : une paie partie « provisoire » à midi ne se refermait jamais — rien ne prévenait
+    quand le jour manquant arrivait, le complément de Tom restait à calculer à la main ou était oublié) : pour chaque paie annoncée
+    avec des jours manquants (`paies_annoncees`), dès que la période n'a plus de jour manquant (jours_manquants_paie), ou au plus tard
+    COMPLEMENT_JOURS jours après la paie avec ce qui reste : UN message au salon admin « Complément de la paie du 20/10 : Tom +10
+    visites = +0,50 $ → 0x… » (ou « rien à compléter »), l'onglet « Complément du JJ/MM/AAAA » (les différences seulement) et la ligne
+    du clipper dans son salon perso. Mémorisé dans `paies_complements` (une seule fois par paie ; `paies_annoncees` n'est pas touché).
+    Renvoie le nombre de compléments postés. Écrit `d`."""
+    annonces = d.get("paies_annoncees") or {}
+    faits = d.setdefault("paies_complements", {})
+    postes = 0
+    for cle, a in sorted(annonces.items()):
+        clippers = (a or {}).get("clippers") or {}
+        if cle in faits or not any((c or {}).get("manquants") for c in clippers.values()):
+            continue
+        debut, fin, jour_p = _en_date(a.get("debut")), _en_date(a.get("fin")), _en_date(cle)
+        if debut is None or fin is None or jour_p is None:
+            continue
+        limite = jour_p + timedelta(days=COMPLEMENT_JOURS)
+        restants = jours_manquants_paie(d, debut, fin)
+        if restants and (maintenant.date() < limite or (maintenant.date() == limite and maintenant.hour < CLICS_HEURE)):
+            continue                                                    # on attend encore les jours manquants
+        registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+        nom_de = lambda uid: (getattr(_deps["membre_par_id"](uid), "display_name", None)        # noqa: E731
+                              or str((registre.get(uid) or {}).get("prenom") or "").title() or f"id {uid}")
+        jour_paie = str(a.get("jour_paie") or jour_p.strftime("%d/%m"))
+        _, _, rangs = liste_paie(d, nom_de, debut, fin, jour_paie, manquants=restants)
+        recompte = {uid: (payes, montant, w, nom) for nom, uid, payes, _, montant, w in rangs}
+        plus, moins = [], []
+        for uid in sorted(set(clippers) | set(recompte), key=lambda u: -(recompte.get(u, (0, 0.0))[1])):
+            av = clippers.get(uid) or {}
+            p1, m1, w, nom = recompte.get(uid, (0, 0.0, d["wallets"].get(uid, {}).get("adresse", ""), nom_de(uid)))
+            ecart, ecart_p = round(m1 - float(av.get("montant") or 0), 2), int(p1) - int(av.get("payes") or 0)
+            if ecart >= 0.01:
+                plus.append((nom, uid, ecart_p, ecart, w, av.get("manquants") or []))
+            elif ecart <= -0.01:
+                moins.append((nom, ecart))
+        releves = {uid: [j for j in (c or {}).get("manquants") or [] if j not in {x for _, x in restants.get(uid, [])}]
+                   for uid, c in clippers.items()}
+        lignes = [f"🧾 **Complément de la paie du {jour_p.strftime('%d/%m')}** (période {debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}) — "
+                  f"jours relevés depuis l'annonce : " + (" · ".join(f"{str(nom_de(u)).split(' - ')[0]} ({_jjmm(js)})"
+                                                                     for u, js in releves.items() if js) or "aucun")]
+        for nom, uid, ecart_p, ecart, w, _ in plus:
+            adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else (w or "⚠️ adresse manquante")
+            lignes.append(f"· {nom} — +{_fmt(ecart_p)} visites → **+{_usd(ecart)}** → {adr}")
+        if plus:
+            lignes.append(f"**Total du complément : {_usd(sum(p[3] for p in plus))}** · {len(plus)} clipper(s) — à virer à la main, en "
+                          f"plus de la liste du {jour_p.strftime('%d/%m')} (déjà virée).")
+        else:
+            lignes.append("✅ Rien à compléter : les jours relevés n'ajoutent aucune visite payée.")
+        if moins:
+            lignes.append("⚠️ Recompte plus bas que l'annonce (rien à reprendre, à vérifier) : "
+                          + " · ".join(f"{str(n).split(' - ')[0]} {_usd(e)}" for n, e in moins))
+        if restants:
+            lignes.append(f"⚠️ Toujours pas relevés {COMPLEMENT_JOURS} jours après la paie, comptés 0 : {texte_manquants(restants, nom_de)} — "
+                          "à vérifier dans GAML (`!paie-clics` recompte si un jour arrive plus tard).")
+        if plus:
+            titre = await ecrire_feuille_complement(d, plus, debut, fin, jour_paie)
+            if titre:
+                lignes.append(f"📗 Onglet « {titre} » écrit dans le tableur « {ADRESSES_TABLEUR} » (les compléments seulement). "
+                              f"La feuille « {ONGLET_PAIE_PREFIXE}{_date_paie(jour_paie, fin)} » reste celle du virement.")
+        # mémorisé AVANT d'envoyer : jamais deux messages de complément pour la même paie
+        faits[cle] = {"t": _horodatage(maintenant), "clippers": {uid: {"montant": ecart, "payes": ecart_p} for _, uid, ecart_p, ecart, _, _ in plus},
+                      "restants": {uid: sorted({j for _, j in paires}) for uid, paires in restants.items()}}
+        _ecrire(d)
+        canal = await _deps["canal_admin"]()
+        if canal is not None:
+            try:
+                await _envoyer_blocs(canal.send, lignes)
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Complément de paie (admin) : %s", erreur)
+        for nom, uid, ecart_p, ecart, w, _ in plus:
+            salon = _deps["salon_perso"](uid) if regime(uid) == "clic" and _deps.get("salon_perso") else None
+            if salon is None:
+                continue
+            adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else w
+            try:
+                await salon.send(f"💸 **Complément de ta paie du {jour_p.strftime('%d/%m')}** : les jours qui manquaient sont relevés, "
+                                 f"**+{_fmt(ecart_p)} visites = +{_usd(ecart)}**"
+                                 + (f" → virement vers {adr}." if w else " → ⚠️ pas d'adresse enregistrée : colle-la dans ton app ou `!wallet 0x…`."))
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Complément de paie %s : %s", uid, erreur)
+        postes += 1
+        journal.info("Complément de la paie %s : %s clipper(s), %s", cle, len(plus), _usd(sum(p[3] for p in plus)))
+    return postes
 
 
 async def boucle(client, deps: dict):
@@ -2140,6 +2459,13 @@ async def boucle(client, deps: dict):
                                                 "ces jours signalés.")[:1900])
                         except (discord.Forbidden, discord.HTTPException) as erreur:
                             journal.warning("Paie en attente (admin) : %s", erreur)
+            # 10/10 (revue CLICS, reprise de la 3e passe) : une paie partie « provisoire » se referme toute seule — complément posté
+            # dès que ses jours manquants sont relevés (au plus tard COMPLEMENT_JOURS jours après), une seule fois
+            if any(cle not in (d.get("paies_complements") or {}) for cle in (d.get("paies_annoncees") or {})):
+                try:
+                    await completer_paies(d, maintenant)
+                except Exception as erreur:                             # noqa: BLE001
+                    journal.warning("Complément de paie : %s", erreur)
             if (BILAN_FIXE_DATE and aujourdhui >= BILAN_FIXE_DATE and d.get("bilan_fixe") != BILAN_FIXE_DATE
                     and maintenant.hour >= CLICS_HEURE and complets):        # 25/09 : le verdict des deux semaines, une fois
                 canal = await _deps["canal_admin"]()
@@ -2247,45 +2573,116 @@ async def publier_regimes(d: dict) -> int:
 
 
 ONGLET_PAIE_PREFIXE = "Paie du "
+ONGLET_RECOMPTE_PREFIXE = "Recompte du "                                # 10/10 : `!paie-clics` sur une paie déjà annoncée
+ONGLET_COMPLEMENT_PREFIXE = "Complément du "                            # 10/10 : les jours relevés après une paie provisoire
 
 
-async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour_paie: str) -> str:
-    """09/10 (Gaëtan : « prépare-moi un sheet avec les adresses USDC ERC20 et le montant des clippers à payer, avec leur prénom ») :
-    un onglet « Paie du JJ/MM/AAAA » dans le tableur « App clippers · usage » (Drive agence), réécrit à chaque liste (annonce du 5 et
-    du 20, `!paie-clics`) : prénom, créatrice, adresse, visites payées, montant, période, date, note (adresse manquante ou IBAN).
-    Renvoie le titre de l'onglet, '' si rien n'a pu être écrit. Jamais d'exception."""
-    if not google_api.actif() or not rangs:
+def _date_paie(jour_paie: str, fin: date) -> str:
+    """« 20/10 » (ou « 2026-10-20 ») → « 20/10/2026 » : le jour de paie dans le titre des onglets."""
+    if "-" in jour_paie:
+        return date.fromisoformat(jour_paie[:10]).strftime("%d/%m/%Y")
+    return jour_paie if jour_paie.count("/") == 2 else f"{jour_paie}/{fin.year if fin.month != 12 or jour_paie[3:5] != '01' else fin.year + 1}"
+
+
+def _creatrices_par_uid(d: dict) -> dict:
+    crea_de = {}
+    for info in d.get("liens", {}).values():
+        uid = str(info.get("uid") or "")
+        if uid and info.get("creatrice") and uid not in crea_de:
+            crea_de[uid] = str(info["creatrice"]).split()[0].title()
+    return crea_de
+
+
+async def _ecrire_onglet(titre: str, lignes: list) -> str:
+    """Écrit `lignes` dans l'onglet `titre` du tableur « App clippers · usage » (créé au besoin, vidé d'abord). Renvoie le titre, ''
+    si rien n'a pu être écrit. Jamais d'exception."""
+    if not google_api.actif() or not lignes:
         return ""
     try:
         classeur = await _classeur_usage()
         if not classeur:
             return ""
-        if "-" in jour_paie:
-            paie = date.fromisoformat(jour_paie[:10]).strftime("%d/%m/%Y")
-        else:
-            paie = jour_paie if jour_paie.count("/") == 2 else f"{jour_paie}/{fin.year if fin.month != 12 or jour_paie[3:5] != '01' else fin.year + 1}"
-        titre = f"{ONGLET_PAIE_PREFIXE}{paie}"
-        crea_de = {}
-        for info in d.get("liens", {}).values():
-            uid = str(info.get("uid") or "")
-            if uid and info.get("creatrice") and uid not in crea_de:
-                crea_de[uid] = str(info["creatrice"]).split()[0].title()
-        lignes = [["Prénom", "Créatrice", "Adresse USDC (ERC-20)", "Visites payées", "Montant ($)", "Période", "Payé le", "Note"]]
-        total = 0.0
+        col = chr(ord("A") + max(len(l) for l in lignes) - 1)
+        await google_api.sheets_creer_onglet(classeur, titre)
+        await google_api.sheets_effacer(classeur, f"{titre}!A1:J")
+        await google_api.sheets_ecrire(classeur, f"{titre}!A1:{col}{len(lignes)}", lignes)
+        return titre
+    except Exception as erreur:                                        # noqa: BLE001
+        journal.warning("Feuille « %s » : %s", titre, str(erreur)[:160])
+        return ""
+
+
+async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour_paie: str, manquants: dict = None,
+                              annonce: dict = None) -> str:
+    """09/10 (Gaëtan : « prépare-moi un sheet avec les adresses USDC ERC20 et le montant des clippers à payer, avec leur prénom ») :
+    un onglet « Paie du JJ/MM/AAAA » dans le tableur « App clippers · usage » (Drive agence), réécrit à chaque liste (annonce du 5 et
+    du 20, `!paie-clics`) : prénom, créatrice, adresse, visites payées, montant, période, date, note (adresse manquante ou IBAN).
+    10/10 (revue CLICS, reprise de la 3e passe) : `manquants` (jours_manquants_paie) → la note dit « provisoire : 12/10 non relevé(s) »
+    (la feuille est le support du virement : avant, Tom y était à 7,00 $ sans un mot) ; `annonce` ({uid: {montant}}, la paie déjà
+    annoncée, `paies_annoncees`) → l'onglet « Recompte du JJ/MM/AAAA » avec les colonnes « Annoncé » et « Complément », et la feuille
+    « Paie du … » (celle du virement) n'est jamais réécrite. Renvoie le titre de l'onglet, '' si rien n'a pu être écrit. Jamais
+    d'exception."""
+    if not google_api.actif() or not rangs:
+        return ""
+    try:
+        paie = _date_paie(jour_paie, fin)
+        titre = f"{ONGLET_RECOMPTE_PREFIXE if annonce is not None else ONGLET_PAIE_PREFIXE}{paie}"
+        crea_de = _creatrices_par_uid(d)
+        entete = ["Prénom", "Créatrice", "Adresse USDC (ERC-20)", "Visites payées", "Montant ($)", "Période", "Payé le", "Note"]
+        lignes = [entete + (["Annoncé ($)", "Complément ($)"] if annonce is not None else [])]
+        total, total_a = 0.0, 0.0
         for nom, uid, payes, hors, montant, w in rangs:
             total += montant
             note = "⚠️ adresse manquante" if not w else ("IBAN, pas USDC" if not str(w).startswith("0x") else "")
-            lignes.append([str(nom).split(" - ")[0].strip(), crea_de.get(uid, ""), w or "", int(payes), round(float(montant), 2),
-                           f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, note])
-        lignes.append(["Total", "", "", sum(int(r[2]) for r in rangs), round(total, 2), "", "", f"{len(rangs)} clipper(s)"])
-        await google_api.sheets_creer_onglet(classeur, titre)
-        await google_api.sheets_effacer(classeur, f"{titre}!A1:H")
-        await google_api.sheets_ecrire(classeur, f"{titre}!A1:H{len(lignes)}", lignes)
-        journal.info("Feuille de paie écrite : %s (%d clipper(s))", titre, len(rangs))
+            jours_m = sorted({j for _, j in (manquants or {}).get(uid, [])})
+            if jours_m:
+                note = " · ".join(x for x in (note, f"provisoire : {_jjmm(jours_m)} non relevé(s)") if x)
+            ligne = [str(nom).split(" - ")[0].strip(), crea_de.get(uid, ""), w or "", int(payes), round(float(montant), 2),
+                     f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, note]
+            if annonce is not None:
+                a = round(float((annonce.get(uid) or {}).get("montant") or 0), 2)
+                total_a += a
+                ligne += [a, round(float(montant) - a, 2)]
+            lignes.append(ligne)
+        if annonce is not None:                                         # annoncé, plus rien au recompte
+            presents = {r[1] for r in rangs}
+            for uid, a in annonce.items():
+                m = round(float((a or {}).get("montant") or 0), 2)
+                if uid not in presents and m:
+                    total_a += m
+                    membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+                    lignes.append([str(getattr(membre, "display_name", "") or f"id {uid}").split(" - ")[0], crea_de.get(uid, ""), "", 0, 0.0,
+                                   f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, "plus rien au recompte : à vérifier", m, -m])
+        pied = ["Total", "", "", sum(int(r[2]) for r in rangs), round(total, 2), "", "", f"{len(rangs)} clipper(s)"]
+        if annonce is not None:
+            pied += [round(total_a, 2), round(total - total_a, 2)]
+        lignes.append(pied)
+        titre = await _ecrire_onglet(titre, lignes)
+        if titre:
+            journal.info("Feuille de paie écrite : %s (%d clipper(s))", titre, len(rangs))
         return titre
     except Exception as erreur:                                        # noqa: BLE001
         journal.warning("Feuille de paie : %s", str(erreur)[:160])
         return ""
+
+
+async def ecrire_feuille_complement(d: dict, plus: list, debut: date, fin: date, jour_paie: str) -> str:
+    """10/10 (revue CLICS, reprise de la 3e passe) : l'onglet « Complément du JJ/MM/AAAA » — seulement les clippers dont le recompte
+    dépasse l'annonce : prénom, créatrice, adresse, visites en plus, complément, période, paie, jours relevés depuis. `plus` = [(nom,
+    uid, visites en plus, complément, adresse, jours manquants à l'annonce)]. Renvoie le titre, '' si rien n'a pu être écrit."""
+    if not plus:
+        return ""
+    paie = _date_paie(jour_paie, fin)
+    crea_de = _creatrices_par_uid(d)
+    lignes = [["Prénom", "Créatrice", "Adresse USDC (ERC-20)", "Visites en plus", "Complément ($)", "Période", "Paie du", "Note"]]
+    for nom, uid, ecart_p, ecart, w, jours_m in plus:
+        note = "⚠️ adresse manquante" if not w else ("IBAN, pas USDC" if not str(w).startswith("0x") else "")
+        note = " · ".join(x for x in (note, f"jours relevés après l'annonce : {_jjmm(jours_m)}" if jours_m else "") if x)
+        lignes.append([str(nom).split(" - ")[0].strip(), crea_de.get(uid, ""), w or "", int(ecart_p), round(float(ecart), 2),
+                       f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, note])
+    lignes.append(["Total", "", "", sum(int(p[2]) for p in plus), round(sum(float(p[3]) for p in plus), 2), "", "",
+                   f"{len(plus)} clipper(s), en plus de la feuille « {ONGLET_PAIE_PREFIXE}{paie} »"])
+    return await _ecrire_onglet(f"{ONGLET_COMPLEMENT_PREFIXE}{paie}", lignes)
 
 
 async def synchroniser_adresses(d: dict) -> list:
@@ -2466,17 +2863,38 @@ async def commande_staff(message, texte: str) -> bool:
         # 10/10 (revue CLICS, 3e passe) : les jours manquants comptés comme la paie automatique (jours_manquants_paie : `depuis` du
         # lien, plancher du clic, visites dues aux sortants), et la ligne de chaque clipper concerné marquée « provisoire »
         manquants = jours_manquants_paie(d, debut, fin)
-        lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, jour_paie, manquants=manquants)
-        titre = await ecrire_feuille_paie(d, rangs, debut, fin, jour_paie)
+        # 10/10 (revue CLICS, reprise de la 3e passe) : une paie déjà annoncée (et virée) n'est jamais réécrite par un recompte — ni la
+        # feuille « Paie du … », ni `paies_annoncees` : le recompte va dans « Recompte du … », avec ce qui avait été annoncé et le
+        # complément ; l'alerte des jours manquants en ligne 2, et la liste entière en plusieurs messages (avant : coupée à 1990
+        # caractères, l'alerte et le Total disparaissaient dès 20 clippers)
+        cle_p = _cle_periode(jour_paie, fin)
+        annonce = (d.get("paies_annoncees") or {}).get(cle_p)
+        clippers_a = (annonce.get("clippers") or {}) if annonce else None
+        lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, jour_paie, manquants=manquants, annonce=clippers_a)
+        en_tete = []
+        if annonce:
+            t_a = _en_date(annonce.get("t"))
+            complement = round(sum(float(r[4]) for r in rangs) - float(annonce.get("total") or 0), 2)
+            fait = (d.get("paies_complements") or {}).get(cle_p)
+            en_tete.append(f"ℹ️ **Paie du {jour_paie} déjà annoncée** ({t_a.strftime('%d/%m') if t_a else '?'}, total "
+                           f"{_usd(float(annonce.get('total') or 0))}) : ceci est un **recompte**. La feuille « {ONGLET_PAIE_PREFIXE}"
+                           f"{_date_paie(jour_paie, fin)} » (celle du virement) n'est pas touchée. Écart avec l'annonce : "
+                           f"**{'+' if complement >= 0 else ''}{_usd(complement)}** — "
+                           + ("complément déjà posté au salon admin." if fait else
+                              "le complément est posté tout seul au salon admin dès que les jours manquants sont relevés."
+                              if any((c or {}).get("manquants") for c in clippers_a.values()) else "à vérifier."))
+        if manquants:
+            en_tete.append(f"⚠️ **Jours non relevés sur la période** (montants provisoires, relevés retentés toutes les 30 min) : "
+                           f"{texte_manquants(manquants, nom_de)}.")
+        lignes[1:1] = en_tete
+        titre = await ecrire_feuille_paie(d, rangs, debut, fin, jour_paie, manquants=manquants, annonce=clippers_a)
         if titre:
-            lignes.append(f"📗 Feuille « {titre} » écrite dans le tableur « {ADRESSES_TABLEUR} » (prénom, adresse USDC, montant).")
+            lignes.append(f"📗 Feuille « {titre} » écrite dans le tableur « {ADRESSES_TABLEUR} » (prénom, adresse USDC, montant"
+                          + (", annoncé et complément" if annonce else "") + ").")
         if reprises:
             lignes.append(f"📒 {len(reprises)} adresse(s) reprise(s) de l'app : " + ", ".join(reprises)[:600])
-        if manquants:
-            lignes.append(f"⚠️ Jours non relevés sur la période (montants provisoires, relevé en cours, relance dans 15 min) : "
-                          f"{texte_manquants(manquants, nom_de)}.")
         fichier = discord.File(io.BytesIO(csv_texte.encode("utf-8-sig")), filename=f"paie_clics_{debut.isoformat()}_{fin.isoformat()}.csv")
-        await message.reply("\n".join(lignes)[:1990], file=fichier)
+        await _envoyer_blocs(message.reply, lignes, fichier)
         return True
 
     if cmd == "!bilan-fixe":
@@ -2494,6 +2912,9 @@ async def commande_staff(message, texte: str) -> bool:
             if info.get("uid"):
                 par_uid.setdefault(str(info["uid"]), []).append(lid)
         rangs = []
+        # 10/10 (revue CLICS, reprise de la 3e passe) : un jour pas encore relevé n'est plus affiché 0 (« hier non relevé ») et la
+        # période dit combien de jours elle attend (les mêmes que la liste de paie : jours_manquants_paie)
+        manq_p = jours_manquants_paie(d, debut, min(fin, hier))
         for uid, lids in par_uid.items():
             h = somme(d, lids, hier, hier); s7 = somme(d, lids, hier - timedelta(days=6), hier)
             q = somme(d, lids, _debut_paie(uid, debut, d), min(fin, hier))   # 08/10 (revue) : la même période que la paie
@@ -2502,8 +2923,17 @@ async def commande_staff(message, texte: str) -> bool:
         for nom, h, s7, q, uid in rangs:
             part = f"{s7['payes'] * 100 // s7['hors_robots']} %" if s7["hors_robots"] else "–"
             reg = regime(uid)
-            lignes.append(f"· {nom} [{reg}] — hier {_fmt(h['payes'])} · 7 j {_fmt(s7['payes'])} ({part} payables, "
-                          f"{_fmt(s7['payes'] / 7)}/j) · période {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
+            lids = par_uid[uid]
+            manque_h = non_releves(d, lids, hier, hier)
+            txt_h = ("non relevé" if manque_h and not h["jours"] else
+                     f"{_fmt(h['payes'])}" + (" (incomplet)" if manque_h else ""))
+            n7 = _n_jours(non_releves(d, lids, hier - timedelta(days=6), hier))
+            nq = (_n_jours(manq_p.get(uid)) if reg == "clic"
+                  else _n_jours(non_releves(d, lids, _debut_paie(uid, debut, d), min(fin, hier))))
+            lignes.append(f"· {nom} [{reg}] — hier {txt_h} · 7 j {_fmt(s7['payes'])} ({part} payables, {_fmt(s7['payes'] / 7)}/j"
+                          + (f" ; {_jours_non_lus(n7, True)}" if n7 else "")
+                          + f") · période {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
+                          + (f" ({_jours_non_lus(nq, True)})" if nq else "")
                           + ("" if reg != "clic" or uid in d["wallets"] else " · ⚠️ sans adresse"))
         lignes.append("-# [fixe] = Rianah, Caroline, Lilian, Josué, Yves (et Jonas, manager), décision du 09/10 ; "
                       "[clic] = tous les autres, payés sur la liste du 5 et du 20 (au clic depuis le 05/10 pour les anciens fixes). "
@@ -2531,8 +2961,10 @@ async def commande_staff(message, texte: str) -> bool:
                    "→ **hors clipping**" if info.get("hors_clipping") else
                    "→ **libre** (désactivé, réactivé à l'attribution)" if (l.get("enabled") is False or info.get("desactive")) else
                    "→ **libre**")
+            hier_txt = ("hier non relevé" if non_releves(d, [l.get("id")], hier, hier)       # 10/10 : jamais un faux 0
+                        else f"hier {_fmt(h['payes'])} payées")
             lignes.append(f"· {str(l.get('name', '')).split()[0]} · {l.get('note')} · <{l.get('url')}> {qui}"
-                          + (f" · hier {_fmt(h['payes'])} payées" if info.get("uid") else ""))
+                          + (f" · {hier_txt}" if info.get("uid") else ""))
         lignes.append("-# `!lien @clipper <url ou slug>` pour attribuer (`forcer` si le lien est déjà à quelqu'un) · "
                       "`!lien @clipper nouveau` pour cloner un lien de sa créatrice · `!lien @clipper retirer` (libéré pour le suivant, ses visites "
                       "jusqu'à hier restent sur sa paie ; `retirer erreur` si ce lien n'a jamais été le sien)")
