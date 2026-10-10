@@ -783,7 +783,11 @@ def _preuves(h: str, m: dict, hist: list, renommes=None) -> tuple:
 def _suspect(h: str, m: dict, hist: list, cellule, renommes=None) -> bool:
     """0 follower lu alors que le compte en avait plus de SUSPECT_FOLLOWERS (historique du scan, série, cellule du classeur) :
     fiche suspecte (un compte vivant ne perd pas tous ses abonnés d'un coup). Un compte neuf à 0 reste écrit à 0. 09/10 (revue) :
-    jamais d'après les chiffres d'un autre compte (voir _preuves)."""
+    jamais d'après les chiffres d'un autre compte (voir _preuves).
+    10/10 (passe 3 : @ corrigé à la main dans le classeur, sans `!pseudo` — la cellule de l'ancien compte, 5 000 abonnés, rendait
+    suspect chaque jour le 0 du compte neuf, qui affichait les chiffres de l'autre) : quand seule la cellule prouve plus de
+    SUSPECT_FOLLOWERS (ni l'historique ni la série), elle ne compte que tant que moins de NON_LU_JOURS passages complets ont lu
+    la fiche de ce compte (comme _publie_d_habitude) : un 0 répété finit par être cru."""
     f = m.get("followers")
     if not m.get("existe") or m.get("restreint") or isinstance(f, bool) or f != 0:
         return False
@@ -792,8 +796,13 @@ def _suspect(h: str, m: dict, hist: list, cellule, renommes=None) -> bool:
         dans_serie = series.followers_a(cle_s) if cle_s else None
     except Exception:                                                   # noqa: BLE001
         dans_serie = None
-    avant = [e.get("followers") for e in hist_ok] + [dans_serie] + ([_chiffre(cellule)] if cellule_ok else [])
-    return any(isinstance(x, int) and not isinstance(x, bool) and x > SUSPECT_FOLLOWERS for x in avant)
+
+    def _plus(x):
+        return isinstance(x, int) and not isinstance(x, bool) and x > SUSPECT_FOLLOWERS
+    if any(_plus(x) for x in [e.get("followers") for e in hist_ok] + [dans_serie]):
+        return True
+    lus = [e for e in hist_ok if e.get("existe") and not e.get("restreint")]
+    return bool(cellule_ok and len(lus) < NON_LU_JOURS and _plus(_chiffre(cellule)))
 
 
 def _publie_d_habitude(h: str, m: dict, hist: list, cellules=(), renommes=None) -> bool:
@@ -1264,8 +1273,9 @@ async def _executer(ecrire: bool = True) -> dict:
     renommes_passe = {}                                                 # 09/10 (dashboard) : @ renommés pendant ce passage
     if ecrire and a_chercher:                                           # 09/10 : les @ légèrement changés
         # 09/10 (revue) : les comptes créés d'abord (WARMUP, PRIVE), les BAN récents ensuite ; une fois par jour et par compte
-        # (`!dashboard` relance le scan), noté seulement pour ceux vraiment cherchés ; le reste attend le passage suivant
-        a_chercher.sort(key=lambda x: x[0])
+        # (`!dashboard` relance le scan), noté seulement pour ceux vraiment cherchés ; le reste attend le passage suivant.
+        # 10/10 (passe 3) : parmi les comptes créés, ceux dont le BAN attend cette recherche passent en premier
+        a_chercher.sort(key=lambda x: (x[0], id(x[1]) not in differes))
         lot = [c for _, c in a_chercher if d.setdefault("cherches", {}).get(_cle(c["handle"])) != jour]
         if len(lot) > VARIANTES_MAX:
             journal.info("Recherche des @ changés : %s comptes, %s cherchés ce passage", len(lot), VARIANTES_MAX)
@@ -1273,22 +1283,26 @@ async def _executer(ecrire: bool = True) -> dict:
         avant_cherches = {_cle(c["handle"]): d["cherches"].get(_cle(c["handle"])) for c in lot}
         for c in lot:
             d["cherches"][_cle(c["handle"])] = jour
+
+        def _non_conclu(c):
+            # 09/10 (revue) : pas vraiment cherchée — pas notée « cherchée aujourd'hui » (elle repart au passage suivant) et pas de
+            # BAN différé conclu sans elle
+            h_i = _cle(c["handle"])
+            if avant_cherches.get(h_i):
+                d["cherches"][h_i] = avant_cherches[h_i]
+            else:
+                d["cherches"].pop(h_i, None)
+            differes.pop(id(c), None)
         try:
             trouves, perdus = await chercher_variantes(lot) if lot else ([], [])
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Recherche des @ changés : %s", erreur)
             trouves, perdus = [], []
-        # 09/10 (revue) : une ligne ni trouvée ni perdue (une variante non lue : lot raté, budget, Apify en panne) n'a pas vraiment été
-        # cherchée — pas notée « cherchée aujourd'hui » (elle repart au passage suivant) et pas de BAN différé conclu sans elle
+        # 09/10 (revue) : une ligne ni trouvée ni perdue (une variante non lue : lot raté, budget, Apify en panne) n'est pas conclue
         conclus = {id(c) for c, _ in trouves} | {id(c) for c in perdus}
         for c in lot:
             if id(c) not in conclus:
-                h_i = _cle(c["handle"])
-                if avant_cherches.get(h_i):
-                    d["cherches"][h_i] = avant_cherches[h_i]
-                else:
-                    d["cherches"].pop(h_i, None)
-                differes.pop(id(c), None)
+                _non_conclu(c)
         for c, nouveau in trouves:
             h_c = _cle(c["handle"])
             try:
@@ -1297,6 +1311,10 @@ async def _executer(ecrire: bool = True) -> dict:
                 journal.warning("Compte retrouvé %s → %s : %s", c["handle"], nouveau, erreur)
                 ok = False
             if not ok:                                                  # 09/10 (revue) : jamais WARMUP sous un @ qui n'existe pas
+                # 10/10 (passe 3 : le BAN différé partait quand même, alerte « À remplacer » comprise, pour un compte qu'on venait de
+                # voir vivant sous un @ proche) : renommage raté (classeur muet, @ déjà dans le classeur, compte hors fiche) → jamais
+                # BAN ce jour-là, et la ligne repart au passage suivant
+                _non_conclu(c)
                 changements.append((c["handle"], c["gerant"], c["etat"], f"vu sous {nouveau}, pas renommé (`!pseudo`)", c["ligne"]))
                 continue
             differes.pop(id(c), None)                                   # retrouvé : jamais BAN
@@ -1312,6 +1330,8 @@ async def _executer(ecrire: bool = True) -> dict:
                 except Exception as erreur:                             # noqa: BLE001
                     journal.warning("Compte introuvable %s : %s", c["handle"], erreur)
     for c, apres in list(differes.values()):                            # 09/10 (revue) : pas retrouvé → le BAN différé est écrit
+        if ecrire and (d.get("cherches") or {}).get(_cle(c["handle"])) != jour:
+            continue        # 10/10 (passe 3) : pas cherché aujourd'hui (au-delà de VARIANTES_MAX) : le BAN attend sa recherche
         _appliquer(c, apres)
     # 09/10 (dashboard) : ETAT, Followers et Reels en UN lot, après relecture du classeur (voir _ecrire_lot). Une ligne renommée
     # pendant le passage est retrouvée sous son nouvel @ ; ses chiffres, mesurés sous l'ancien @ (introuvable), ne sont pas écrits.
