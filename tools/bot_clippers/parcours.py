@@ -14,6 +14,10 @@ notes du manager) avec chaque question.
 09/10 (Gaëtan : « distribue connaissances et informations au compte-goutte… Chaque étape à la fois… Saute des lignes, aère ») :
 bienvenue (créatrice, vidéos d'origine, WhatsApp, « ✅ C'est fait ») → compte 1 → 4 Reels → compte 2 → 4 Reels → compte 3 privé
 (son lien dans le profil) → story à la une → la routine et l'app en UN message → 7 jours plus tard, la suite de la routine.
+
+10/10 (Gaëtan : « simplifier et supprimer toutes les étapes inutiles… Ils peuvent directement créer le premier compte ») : bienvenue
+(WhatsApp sans attente) → compte 1 juste derrière → « Compte n créé » ferme l'étape, profil + warm-up en un message (plus de « Profil
+fait » sur les comptes qui publient) → compte 3 privé, « Profil fait » → story à la une et routine + app, sans étape 6 ni suite à J+7.
 """
 
 import asyncio
@@ -184,6 +188,11 @@ def texte_codes() -> str:
 TEXTE_WARMUP = ("🔥 **Compte {n} : {h} h de warm-up.**\n\n"
                 "Regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
                 "Je te dis ici quand il peut publier.")
+# 10/10 (Gaëtan : « simplifier et supprimer toutes les étapes inutiles ») : un compte qui publie n'a plus de bouton « ✅ Profil fait » ;
+# le warm-up est dit à la fin de son message de profil (profil.envoyer, `suite`), et l'étape se ferme au « ✅ Compte n créé ».
+# TEXTE_WARMUP ne part plus que si ce profil n'a pas pu partir (compte repris d'un sortant, photo ou Discord en panne, fiche d'avant).
+TEXTE_WARMUP_PROFIL = ("🔥 **Puis {h} h de warm-up.** Regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel.\n\n"
+                       "Je te dis ici quand il peut publier.")
 # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité est pourrie ») : plus de Drive perso ; les
 # vidéos d'ORIGINE de la créatrice ({videos} : onboarding.lien_drive_creatrice, sinon son salon ℹ️). Plus de demande WhatsApp ici :
 # elle est faite au message de bienvenue.
@@ -195,9 +204,8 @@ TEXTE_PUBLIER = {1: ("✅ **Ton compte 1 peut publier : 2 Reels par jour.**\n\n"
                  3: ("✅ **Ton compte 3 peut publier : 2 Reels par jour dessus aussi.**\n\n"
                      "Une fois : une story avec le widget de mention `@{cprive}`, puis mets-la à la une.\n\n"
                      "Pas de lien sur ce compte.")}
-# 09/10 : la relecture des premières vidéos (review_reels.ligne_proposition, tant qu'elle est proposée), en petit, sous « compte 1
-# peut publier »
-LIGNE_DOUTE = "-# Un doute sur une vidéo ? Envoie-la ici avant, je te dis si elle passe."
+# 10/10 (revue du recrutement) : plus de « Un doute sur une vidéo ? Envoie-la ici avant » sous « compte 1 peut publier » (LIGNE_DOUTE
+# retirée) : une action par message, et la relecture des Reels publiés reste (review_reels).
 LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R4jifv5").strip()   # formulaire du dimanche
 
 
@@ -213,7 +221,8 @@ ETAPES = {
     # 09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : la créatrice, ses vidéos et le WhatsApp sont donnés au
     # message de bienvenue ; l'étape 1 ne porte plus que le compte 1 (plus de ligne « Ta créatrice », plus de bouton ℹ️ ni WhatsApp).
     # {palier} : « 4 Reels vus… » quand c'est le palier qui ouvre le compte (rien si le staff le force) ; « icone » devant le titre.
-    1: {"titre": "Étape 1 · Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": [],
+    # 10/10 : plus de « Étape 1 · » dans le titre (aucune étape 2 ni 3 numérotée ne suit) : « 📱 Ton compte 1 »
+    1: {"icone": "📱", "titre": "Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": [],
         "texte": _identifiants(1) + "\n\n{creation1}\n\nCréé ? Appuie sur ✅."},
     2: {"icone": "🎯", "titre": "{palier}Voici ton compte 2.", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
         "texte": _identifiants(2) + "\n\n{creation2}\n\nCréé ? Appuie sur ✅."},
@@ -238,14 +247,16 @@ ETAPES = {
     # {pointent_tes} et {pointent_court} : les comptes qui pointent vers le privé, selon l'ordre (« prive2 » : 1 et 3).
     # 09/10 (revue : un clipper repris à l'étape 6 d'après le classeur n'a jamais reçu le profil du privé, donc jamais son lien GAML) :
     # {ligne_lien} donne le lien quand le profil du privé n'est pas parti avec lui (LIGNE_LIEN, _contexte) ; vide sinon.
-    6: {"titre": "Étape 4 · Ta story à la une", "fiche": "4", "bouton": "✅ Fait", "salons": [],
+    # 10/10 : l'étape 6 n'est plus dans le déroulé (la story part sans bouton avec la routine, TEXTE_STORY) ; elle ne sert plus qu'à
+    # `!etape @x 6`, au message du lien en ordre « prive2 » et aux fiches d'avant. Titre sans « Étape 4 · ».
+    6: {"icone": "📌", "titre": "Ta story à la une", "fiche": "4", "bouton": "✅ Fait", "salons": [],
         "texte": ("{ligne_lien}"
                   "Sur {pointent_tes} : une story avec le widget de mention `@{cprive}`, puis mets-la à la une.\n\n"
                   "Une seule fois. Jamais de lien sur {pointent_court}.\n\n"
                   "Fait ? Appuie sur ✅.")},
-    # 09/10 : la routine et l'app en UN message (livrer_app) ; la suite (1 Reel de plus par semaine, parrainage) arrive 7 jours plus
-    # tard, à part (TEXTE_ROUTINE2). {ligne_app} : vide si l'app ne peut pas partir avec (elle suit seule, rattraper_app).
-    # 09/10 (Gaëtan) : la paie des clippers tombe les 5 et 20.
+    # 09/10 : la routine et l'app en UN message (livrer_app). {ligne_app} : vide si l'app ne peut pas partir avec (elle suit seule,
+    # rattraper_app). 09/10 (Gaëtan) : la paie des clippers tombe les 5 et 20.
+    # 10/10 : au « ✅ Profil fait » du privé, TEXTE_STORY part juste avant (valider_etape), sans bouton ; plus de suite à J+7.
     7: {"icone": "🎉", "titre": "Bravo, tes 3 comptes sont en place.", "fiche": "", "bouton": "", "salons": [],
         "texte": ("Chaque jour : 2 Reels sur {pointent_tes}, et 1 story avec le widget vers ta story à la une.\n\n"
                   "{ligne_app}"
@@ -255,9 +266,16 @@ ETAPES = {
 LIGNE_APP = "📱 Ton app clipper te montre tes visites et tes gains, jour par jour. Garde-la en favori.\n\n"
 LIGNE_LIEN = ("🔗 **Ton lien**, sur ton compte privé `{cprive}` : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n"
               "```\n{lien}\n```\n\n")
+# 10/10 (revue du recrutement : « jusqu'à 10 Reels par jour » contredisait la règle 5 du formulaire, 2 Reels par jour, et le scan
+# qui ne lit que les 12 derniers posts) : la suite de la routine à J+7 (TEXTE_ROUTINE2) est supprimée. ROUTINE2_JOURS reste
+# seulement parce qu'envoyer_etape (lot L3) et demarrer_routine programment encore un élément « routine2 » : programme_du_jour le
+# retire sans message. À retirer avec ces deux lignes après la fusion.
 ROUTINE2_JOURS = int(os.environ.get("PARCOURS_ROUTINE2_JOURS", "7") or 7)
-TEXTE_ROUTINE2 = ("📈 Cette semaine : 1 Reel de plus par jour sur chaque compte, jusqu'à 10.\n\n"
-                  "Tu connais quelqu'un de sérieux ? Tape `!parrain @lui` : 5 $ pour toi à sa première paie.")
+# 10/10 (Gaëtan : le 3e compte « avec le lien GAML + l'application de clippeur ») : au « ✅ Profil fait » du privé, la story à la une
+# part sans bouton, juste avant la routine et l'app (étape 7). Plus d'étape 6 qui retenait l'app jusqu'à 24 h.
+TEXTE_STORY = ("📌 **Une fois, maintenant : ta story à la une.**\n\n"
+               "Sur {pointent_tes} : une story avec le widget de mention `@{cprive}`, puis mets-la à la une.\n\n"
+               "Jamais de lien sur {pointent_court}.")
 # 08/10 (privé en 2) : les étapes 2 et 3 de l'ordre « prive2 » — le compte 2 est le privé, le compte 3 le 2e compte de croissance.
 ETAPES_PRIVE2 = {
     2: {"icone": "🔒", "titre": "{palier}Voici ton compte 2, le privé.", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
@@ -1194,7 +1212,11 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> None:
 # 09/10 (Gaëtan : « Termine tout le funnel entier … Discord > attribution créatrice + Drive + Groupe WA > Création premier comptes ») :
 # à l'attribution, UN message de bienvenue — la créatrice, ses vidéos d'origine, le groupe WhatsApp — à la place de l'étape 1. Le
 # compte 1 part au clic sur « ✅ C'est fait » (BoutonPret), ou seul BIENVENUE_H heures plus tard : rien n'attend Gaëtan.
-BIENVENUE_H = int(os.environ.get("PARCOURS_BIENVENUE_H", "3") or 3)
+# 10/10 (Gaëtan : « Ils peuvent directement créer le premier compte ») : le compte 1 part TOUT DE SUITE après la bienvenue, sans
+# attendre ni clic ni délai. La bienvenue garde le bouton WhatsApp et « ✅ J'ai écrit à Gaëtan » (BoutonWhatsApp, qui prévient le
+# salon admin) ; qui n'a rien déclaré revoit la demande sous « compte 1 peut publier ». BIENVENUE_H n'est plus qu'un filet (membre
+# introuvable à l'instant, bienvenues d'avant le 10/10 programmées à 3 h) : 1 h au plus, relu toutes les 10 min (boucle).
+BIENVENUE_H = int(os.environ.get("PARCOURS_BIENVENUE_H", "1") or 1)
 TEXTE_BIENVENUE = ("🎉 **Bienvenue dans l'agence, {prenom} !**\n\n"
                    "Ta créatrice : **{creatrice}**.\n\n"
                    "{videos_bienvenue}\n\n"
@@ -1222,9 +1244,11 @@ def _prenom_affiche(prenom: str) -> str:
     return court or p
 
 
-CONSIGNE_WA = ("👉 **Une seule chose maintenant** : écris à Gaëtan sur WhatsApp avec le bouton. Il t'ajoute au groupe.\n\n"
+# 10/10 : le WhatsApp ne retient plus le compte 1 (il part juste en dessous) ; le ✅ ne fait que prévenir Gaëtan
+CONSIGNE_WA = ("📲 **Écris à Gaëtan sur WhatsApp** avec le bouton. Il t'ajoute au groupe.\n\n"
                "{message_wa}"
-               "Fait ? Appuie sur ✅. Ton compte 1 arrive juste après.")
+               "C'est fait ? Appuie sur ✅.\n\n"
+               "👇 Ton compte 1 arrive juste en dessous.")
 SANS_WA = "👇 Ton compte 1 arrive juste en dessous."
 
 
@@ -1234,21 +1258,25 @@ def lien_whatsapp_groupe(uid, fiche_p: dict = None) -> str:
     return lien_whatsapp_prerempli(uid, fiche_p, groupe=True)
 
 
-def _vue_bienvenue(uid: str, fiche_p: dict = None, avec_pret: bool = True):
-    """Le bouton WhatsApp (lien) et, tant que le compte 1 n'est pas donné, « ✅ C'est fait » (persistant). None sans bouton."""
+def _vue_bienvenue(uid: str, fiche_p: dict = None, avec_pret: bool = False):
+    """Le bouton WhatsApp (lien) et « ✅ J'ai écrit à Gaëtan » (BoutonWhatsApp, persistant ; caché s'il l'a déjà déclaré). None sans
+    lien WhatsApp. 10/10 : plus de « ✅ C'est fait » qui retenait le compte 1 ; `avec_pret` (BoutonPret) ne sert plus à rien de neuf."""
     vue = discord.ui.View(timeout=None)
     url = lien_whatsapp_groupe(uid, fiche_p)
     if url:
         vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link, url=url))
-    if avec_pret:
-        vue.add_item(BoutonPret(uid))
+        if avec_pret:
+            vue.add_item(BoutonPret(uid))
+        elif not (fiche_p or {}).get("whatsapp"):
+            vue.add_item(BoutonWhatsApp(uid))
     return vue if vue.children else None
 
 
 async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
-    """09/10 : le compte 1 est donné → le « ✅ C'est fait » de la bienvenue s'en va (le bouton WhatsApp reste)."""
+    """09/10 : le compte 1 est donné → le « ✅ C'est fait » de la bienvenue s'en va (le bouton WhatsApp reste). 10/10 : il devient
+    « ✅ J'ai écrit à Gaëtan » ; une bienvenue du 10/10 (« pret_retire ») n'a jamais eu de « ✅ C'est fait » : rien à modifier."""
     mid = (fiche_p.get("messages") or {}).get("bienvenue")
-    if not mid or not str(mid).isdigit() or salon is None:
+    if not mid or not str(mid).isdigit() or salon is None or fiche_p.get("pret_retire"):
         return
     try:
         msg = await salon.fetch_message(int(mid))
@@ -1287,10 +1315,11 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
         return
     wa = bool(lien_whatsapp_groupe(uid, nouveau))
     maintenant = datetime.now(timezone.utc)
-    # 09/10 : étape 1 « en attente » (pas de dates["1"]) : le compte 1 part au clic sur ✅, ou par le programme BIENVENUE_H h plus tard
+    # 09/10 : étape 1 « en attente » (pas de dates["1"]) le temps de la bienvenue. 10/10 : le compte 1 part juste après elle ; le
+    # programme à BIENVENUE_H h n'est qu'un filet (membre introuvable à l'instant). « pret_retire » : pas de « ✅ C'est fait » à retirer.
     d[uid] = {**nouveau, "salon_id": str(salon.id), "etape": 1, "dates": {}, "notes": (fiche_p or {}).get("notes", []),
               "ordre": "prive2" if PRIVE_EN_2 else "prive3",                # 08/10 : le privé en 2 pour tout nouveau parcours
-              "bienvenue": maintenant.isoformat(timespec="seconds"),
+              "bienvenue": maintenant.isoformat(timespec="seconds"), "pret_retire": True,
               "programme": [{"quand": (maintenant + timedelta(hours=BIENVENUE_H)).isoformat(timespec="seconds"), "type": "etape", "n": 1}]}
     _ecrire(d)
     ctx = await _contexte(getattr(salon, "guild", None), uid, d[uid], drive=True)
@@ -1303,17 +1332,17 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
     gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
     try:
         msg = await salon.send((f"{membre.mention} " + _rendre(gabarit, ctx))[:1990],
-                               view=_vue_bienvenue(uid, d[uid]) if wa else None)
+                               view=_vue_bienvenue(uid, d[uid], avec_pret=False) if wa else None)
     except (discord.Forbidden, discord.HTTPException) as erreur:
-        journal.warning("Bienvenue de %s : %s", uid, erreur)            # le programme donnera le compte 1 dans BIENVENUE_H h
+        journal.warning("Bienvenue de %s : %s", uid, erreur)            # le compte 1 part quand même (WhatsApp redit sous « publier »)
         msg = None
     if msg is not None:
         d = _lire()
         if uid in d:
             d[uid].setdefault("messages", {})["bienvenue"] = str(getattr(msg, "id", ""))
             _ecrire(d)
-    if not wa:                                                          # pas de WhatsApp à demander : le compte 1 tout de suite
-        await ouvrir_compte_1(salon, uid, par="bot")
+    # 10/10 (Gaëtan : « Ils peuvent directement créer le premier compte ») : le compte 1 tout de suite, WhatsApp demandé ou non
+    await ouvrir_compte_1(salon, uid, par="bot")
 
 
 async def ouvrir_compte_1(salon, uid: str, par: str = "bot") -> str:
@@ -1445,7 +1474,11 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
     """Le bouton (ou le manager) ferme l'étape n et ouvre la suivante. Idempotent : un double clic ne saute rien.
     10/10 (vérification L10 : deux appuis rapides sur « ✅ Compte 1 créé », la 2e fenêtre arrivait après le profil et fermait l'étape,
     warm-up envoyé, profil sauté) : `creation` = l'appui vient du bouton « Compte n créé » (ou de sa fenêtre). Si le profil du
-    compte n est déjà parti, il ne ferme rien (renvoie vrai) : seul « ✅ Profil fait » du message de profil, ou le scan, ferme l'étape."""
+    compte n est déjà parti, il ne ferme rien (renvoie vrai) : seul « ✅ Profil fait » du message de profil, ou le scan, ferme l'étape.
+    10/10 (Gaëtan : « simplifier et supprimer toutes les étapes inutiles ») : un compte qui publie (pas le privé) n'a plus de « ✅ Profil
+    fait ». Au « ✅ Compte n créé » (ou au scan qui voit le compte), l'étape se ferme ET son profil part, sans bouton, avec le warm-up à
+    la fin (profil.envoyer, `suite`) : un message au lieu de deux, un bouton de moins. Le privé garde son « ✅ Profil fait » (le lien,
+    le passage en privé) ; à cet appui partent la story à la une (TEXTE_STORY, sans bouton) puis la routine et l'app (étape 7)."""
     d = _lire()
     fiche_p = d.get(str(uid))
     if (fiche_p and int(n) == 6 and ordre(fiche_p) == "prive2" and int(fiche_p.get("etape", 0)) != 6
@@ -1462,6 +1495,9 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
             except Exception:                                           # noqa: BLE001
                 pass
         return True
+    if (creation and fiche_p and int(n) in (1, 2, 3) and int(fiche_p.get("etape", 0) or 0) != int(n)
+            and (fiche_p.get("dates") or {}).get(f"{int(n)}_fait")):
+        return True                                                     # 10/10 : 2e appui de création, l'étape est déjà fermée
     if not fiche_p or int(fiche_p.get("etape", 0)) != int(n):
         return False
     if not (fiche_p.get("dates") or {}).get(str(n)):
@@ -1472,6 +1508,8 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
         return True                                                     # 10/10 : 2e appui de création, le profil est déjà parti
     # 30/09 : compte créé → d'abord son profil (photo, nom, bio en UN message, bouton « profil fait »), rien d'autre ; le
     # deuxième appui (ou le scan qui voit le compte) ferme l'étape. Un compte rendu par un sortant garde son profil.
+    # 10/10 : seulement le privé ; le profil d'un compte qui publie part à la fermeture ci-dessous (`profil_suite`), sans bouton.
+    profil_suite = False
     if n in (1, 2, 3) and not (fiche_p.get("profils") or {}).get(str(n)) and _deps.get("profil_envoyer") \
             and str((fiche_p.get("dates") or {}).get(str(n)) or "9") >= DISTILLE_DEPUIS:
         ctx = await _contexte(getattr(salon, "guild", None), str(uid), fiche_p)
@@ -1483,19 +1521,22 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
             return False
         if (fiche_p.get("profils") or {}).get(str(n)):
             return True
-        if not str(ctx.get(f"creation{n}", "")).startswith("Ce compte existe déjà"):
-            prive_n = n == n_prive(fiche_p)                             # 05/10 : le lien dans la bio du compte privé (08/10 : le 2)
-            lien_p = str(_onb(uid).get("lien", "") or "") if prive_n else ""
+        existe = str(ctx.get(f"creation{n}", "")).startswith("Ce compte existe déjà")
+        if not existe and n != n_prive(fiche_p):
+            # 10/10 : un compte qui publie. Sa date de création (le warm-up et les 48 h en partent) est posée dans la MÊME écriture
+            # que la fermeture, sans attente entre les deux : un 2e appui ou le scan pendant l'envoi ne ferme jamais deux fois
             fiche_p.setdefault("profils", {})[str(n)] = _maintenant()
-            if prive_n:
-                fiche_p["lien_profil"] = lien_p                         # 09/10 (revue) : vide → l'étape 6 redonne le lien (lien_dans_profil)
+            profil_suite = True
+        elif not existe:
+            lien_p = str(_onb(uid).get("lien", "") or "")               # 05/10 : le lien dans la bio du compte privé (08/10 : le 2)
+            fiche_p.setdefault("profils", {})[str(n)] = _maintenant()
+            fiche_p["lien_profil"] = lien_p                             # 09/10 (revue) : vide → la story redonne le lien (lien_dans_profil)
             _ecrire(d)
             await _retirer_bouton(salon, (fiche_p.get("messages") or {}).get(str(n)))
             vue = discord.ui.View(timeout=None)
             vue.add_item(BoutonEtape(uid, n, "✅ Profil fait"))
             try:
-                msg = await _deps["profil_envoyer"](salon, uid, n, fiche_p.get("creatrice", ""), vue=vue,
-                                                    **({"lien": lien_p, "prive": True} if prive_n else {"prive": False}))
+                msg = await _deps["profil_envoyer"](salon, uid, n, fiche_p.get("creatrice", ""), vue=vue, lien=lien_p, prive=True)
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Profil du compte %s pour %s : %s", n, uid, erreur)
                 msg = None
@@ -1510,7 +1551,8 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
                 return False
     fiche_p.setdefault("dates", {})[f"{n}_fait"] = _maintenant()
     prive2 = ordre(fiche_p) == "prive2"
-    fiche_p["etape"] = 7 if (prive2 and n == 3) else n + 1              # 08/10 : en « prive2 », le compte 3 est le dernier
+    # 08/10 : en « prive2 », le compte 3 est le dernier. 10/10 : en « prive3 » aussi (le privé), plus d'étape 6 après lui
+    fiche_p["etape"] = 7 if n == 3 else n + 1
     _ecrire(d)
     if _deps.get("activite") and par != "bot":                          # 05/10 : un bouton d'étape = une réponse à l'appel de présence
         # (08/10 : une étape fermée par le bot lui-même — warm-up fini, profil oublié — n'est pas une réponse du clipper)
@@ -1560,21 +1602,33 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
             if n == 2 and not prive2:                                   # 09/10 : le privé exige 4 Reels DE PLUS sur le compte 1
                 d[str(uid)].setdefault("base_reels", {}).setdefault("3", reels_vus(uid, d[str(uid)], 1))
             _ecrire(d)
+            profil_parti = False
+            if profil_suite:
+                # 10/10 : le profil sans bouton, le warm-up à la fin ; s'il ne part pas, le warm-up seul, comme avant
+                try:
+                    profil_parti = await _deps["profil_envoyer"](salon, uid, n, fiche_p.get("creatrice", ""), vue=None, prive=False,
+                                                                 suite=TEXTE_WARMUP_PROFIL.format(h=WARMUP_H)) is not None
+                except Exception as erreur:                             # noqa: BLE001
+                    journal.warning("Profil du compte %s pour %s : %s", n, uid, erreur)
             if deja_chaud:
                 await _envoyer_publier(salon, membre, uid, n)
-            else:
+            elif not profil_parti:
                 # 09/10 (Gaëtan : « au compte-goutte ») : le warm-up seul, sans la règle complète des comptes
                 await _suite(salon, f"{membre.mention} " + TEXTE_WARMUP.format(n=n, h=WARMUP_H))
             # 09/10 : plus d'app ici (ordre « prive2 », compte 3) : elle part avec la routine, l'étape 7 programmée ci-dessus
             return True
-    if n == 3:                                                          # 05/10 : compte 3 privé → l'étape 6, pas de warm-up ni d'étapes 4-5
-        d = _lire()
-        if str(uid) in d:
-            d[str(uid)]["etape"] = 6
-            _ecrire(d)
-        # 09/10 (plan du funnel : « à ✅ Profil fait du compte privé, envoyer seulement l'étape 6 ») : la story à la une, seule ; la
-        # routine et l'app arrivent ensemble, en UN message, à son « ✅ Fait » (ou STORY_AUTO_H heures plus tard)
-        await envoyer_etape(salon, membre, 6)
+    if n == 3:
+        # 05/10 : compte 3 privé, pas de warm-up. 10/10 (Gaëtan : le 3e compte « avec le lien GAML + l'application de clippeur ») :
+        # plus d'étape 6 à bouton qui retenait l'app jusqu'à 24 h. La story à la une part sans bouton, puis la routine et l'app
+        # (étape 7, déjà posée ci-dessus). Le lien, si le profil du privé est parti sans lui, part avant, à part.
+        try:
+            ctx = await _contexte(getattr(salon, "guild", None), str(uid), _lire().get(str(uid)) or fiche_p)
+            if ctx.get("ligne_lien"):
+                await salon.send((f"{membre.mention} " + ctx["ligne_lien"].strip())[:1990])
+            await salon.send((f"{membre.mention} " + _rendre(TEXTE_STORY, ctx))[:1990])
+        except (discord.Forbidden, discord.HTTPException) as erreur:  # la routine et l'app partent quand même
+            journal.warning("Story à la une de %s : %s", uid, erreur)
+        await envoyer_etape(salon, membre, 7)
         return True
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)                      # 09/10 : n = 6 → l'étape 7, la routine avec l'app
@@ -1614,7 +1668,8 @@ def phrase_suivant(uid, fiche_p: dict, n: int) -> str:
 
 async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
     """« Ton compte n peut publier » ; 01/10 : et ce qui ouvre le compte suivant, s'il attend encore. 09/10 : les vidéos d'origine de
-    la créatrice (plus de Drive perso), plus de demande WhatsApp (faite à la bienvenue), une ligne vide entre chaque paragraphe."""
+    la créatrice (plus de Drive perso), une ligne vide entre chaque paragraphe. 10/10 : sous le compte 1, le rappel WhatsApp pour qui
+    ne l'a pas déclaré (le compte 1 ne l'attend plus) ; plus de ligne « Un doute sur une vidéo »."""
     if n not in TEXTE_PUBLIER:
         return
     fiche_p = _lire().get(str(uid), {})
@@ -1625,18 +1680,18 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
     # l'équipe est prévenue (_signaler_bloques)
     if a and a[0] == n + 1 and reels_pour(uid, fiche_p, n + 1) < REELS_OUVERTURE and not _bloque_sources(uid, fiche_p, n + 1):
         texte += "\n\n" + phrase_suivant(uid, fiche_p, n)
-    if n == 1 and _ligne_review(uid):                                   # 01/10 : la relecture, tant qu'elle est proposée
-        texte += "\n\n" + LIGNE_DOUTE
+    # 10/10 : plus de « Un doute sur une vidéo ? Envoie-la ici avant » ici (LIGNE_DOUTE retirée)
     vue = None
-    if n == 1 and not fiche_p.get("bienvenue") and not fiche_p.get("whatsapp") and not fiche_p.get("wa_demande"):
+    if n == 1 and not fiche_p.get("whatsapp") and not fiche_p.get("wa_demande"):
         # 09/10 (revue : un clipper en route au déploiement, compte 1 reçu avant le 09/10, n'aura jamais de bienvenue ; la demande de
-        # WhatsApp y a été déplacée) : une fois, la phrase courte et ses boutons ici
+        # WhatsApp y a été déplacée) : une fois, la phrase courte et ses boutons ici. 10/10 : le compte 1 n'attend plus le WhatsApp,
+        # donc tout clipper qui ne l'a pas déclaré (bienvenue reçue ou non) la revoit ici, une fois
         url = lien_whatsapp_groupe(uid, fiche_p)
         if url:
             vue = discord.ui.View(timeout=None)
             vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link, url=url))
             vue.add_item(BoutonWhatsApp(uid))
-            texte += ("\n\n📲 Écris à Gaëtan sur WhatsApp avec le bouton : il t'ajoute au groupe."
+            texte += ("\n\n📲 Pas encore écrit à Gaëtan sur WhatsApp ? Fais-le avec le bouton : il t'ajoute au groupe."
                       + ("" if whatsapp_prerempli() else f"\n\nEnvoie-lui : « {_message_wa(uid, fiche_p, groupe=True)} »"))
             d = _lire()
             if str(uid) in d:
@@ -1732,8 +1787,11 @@ class BoutonWhatsApp(discord.ui.DynamicItem[discord.ui.Button], template=r"wa:(?
             try:
                 canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
                 if canal is not None:
-                    prenom = (_lire().get(self.uid) or {}).get("prenom") or self.uid
-                    await canal.send(f"📲 {prenom} (<@{self.uid}>) dit avoir écrit sur WhatsApp. Pas vrai ? `!wa @{prenom} non`.")
+                    # 10/10 : c'est désormais le ✅ de la bienvenue : la créatrice et le geste à faire, comme l'ancien « C'est fait »
+                    f_wa = _lire().get(self.uid) or {}
+                    prenom = f_wa.get("prenom") or self.uid
+                    await canal.send(f"📲 {prenom} (<@{self.uid}>, {f_wa.get('creatrice') or '?'}) dit avoir écrit sur WhatsApp : "
+                                     f"ajoute-le au groupe. Pas vrai ? `!wa @{prenom} non`.")
             except Exception:                                           # noqa: BLE001
                 pass
 
@@ -1910,7 +1968,8 @@ PROFIL_AUTO_H = int(os.environ.get("PARCOURS_PROFIL_AUTO_H", "6") or 6)
 async def fermer_profils_oublies(client, maintenant=None) -> list:
     """08/10 (audit : « oublier Profil fait fige le parcours sans un mot ») : le compte est créé (premier appui ou scan, profil
     envoyé) mais « ✅ Profil fait » n'a jamais été pressé. Au bout de PROFIL_AUTO_H heures, l'étape se ferme comme si le clipper
-    avait appuyé : rien n'est retardé, le warm-up et les 48 h comptent déjà depuis la création. Renvoie [(uid, n)] fermés."""
+    avait appuyé : rien n'est retardé, le warm-up et les 48 h comptent déjà depuis la création. Renvoie [(uid, n)] fermés.
+    10/10 : seulement le profil du privé (les comptes qui publient n'ont plus ce bouton), sauf un profil d'avant parti avec lui."""
     maintenant = maintenant or datetime.now(timezone.utc)
     faits = []
     for uid, fiche_p in list(_lire().items()):
@@ -1922,6 +1981,10 @@ async def fermer_profils_oublies(client, maintenant=None) -> list:
             continue
         if n == 6 and str(dates.get("6")) < STORY_AUTO_DEPUIS:
             continue                                                    # étape 6 de l'ancien déroulé : on n'y touche pas
+        if n in (1, 2, 3) and n != n_prive(fiche_p) and not (fiche_p.get("messages") or {}).get(f"{n}p"):
+            # 10/10 : un compte qui publie n'a plus de « ✅ Profil fait » (son étape se ferme à sa création) : seul le privé se ferme
+            # ici, et un profil d'avant le 10/10 parti avec son bouton (messages « <n>p »), pour ne laisser personne en plan
+            continue
         # 09/10 : la story à la une (étape 6) oubliée se ferme aussi, STORY_AUTO_H heures après son envoi : la routine et l'app (qui
         # partent à son « ✅ Fait ») n'attendent jamais un bouton (carte de fin de funnel : « l'étape du lien ne se ferme jamais seule »)
         try:
@@ -2051,7 +2114,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Clippers bloqués par un BAN : %s", erreur)
     for uid, fiche_p in list(d0.items()):
-        if not any(_echu(x, maintenant) for x in fiche_p.get("programme") or []):
+        if not any(_a_traiter(fiche_p, x, maintenant) for x in fiche_p.get("programme") or []):
             continue
         salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
         membre = _deps["membre_par_id"](uid)
@@ -2062,8 +2125,10 @@ async def _programme_du_jour(client, maintenant=None) -> list:
         programme = fiche_p.get("programme") or []
         partants, gardes, dites = [], [], []
         for x in programme:
-            if not _echu(x, maintenant):
+            if not _a_traiter(fiche_p, x, maintenant):
                 gardes.append(x)
+            elif x.get("type") == "routine2":
+                continue                                                # 10/10 : la suite à J+7 n'existe plus, retirée sans message
             elif x.get("type") != "etape":
                 partants.append(x)
             elif not _etape_attendue(fiche_p, x):
@@ -2099,22 +2164,14 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                     await _envoyer_publier(salon, membre, uid, n)
                     faits.append((uid, "publier", n))
                 elif item.get("type") == "etape" and n == 1:
-                    # 09/10 : pas de « ✅ C'est fait » sous la bienvenue en BIENVENUE_H h → le compte 1 part quand même, une fois
+                    # 09/10 : pas de « ✅ C'est fait » sous la bienvenue en BIENVENUE_H h → le compte 1 part quand même, une fois.
+                    # 10/10 : le filet seulement (le compte 1 part déjà juste après la bienvenue)
                     if await ouvrir_compte_1(salon, uid, par="bot") == "envoye":
                         faits.append((uid, "etape", 1))
                 elif item.get("type") == "etape":
                     await envoyer_etape(salon, membre, n)
                     faits.append((uid, "etape", n))
-                elif item.get("type") == "routine2":
-                    # 09/10 : la suite de la routine, 7 jours après elle, une fois (« routine2 » écrit avant l'envoi). 09/10 (revue) :
-                    # un message durable (salon.send, comme la routine), jamais le message de suivi que le suivant efface ; et
-                    # seulement à la routine (un parcours remis plus tôt la reçoit 7 jours après sa nouvelle routine)
-                    d2 = _lire()
-                    if uid in d2 and not d2[uid].get("routine2") and int(d2[uid].get("etape", 0) or 0) >= 7:
-                        d2[uid]["routine2"] = _maintenant()
-                        _ecrire(d2)
-                        await salon.send((f"{membre.mention} " + TEXTE_ROUTINE2)[:1990])
-                        faits.append((uid, "routine2", 0))
+                # 10/10 : plus de « routine2 » (la suite de la routine à J+7, « jusqu'à 10 Reels par jour ») : retirée plus haut
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Programme de %s (%s %s) : %s", uid, item.get("type"), n, erreur)
     return faits
@@ -2125,6 +2182,23 @@ def _echu(item: dict, maintenant) -> bool:
         return datetime.fromisoformat(str(item.get("quand"))) <= maintenant
     except ValueError:
         return True                                                     # date illisible : on ne la garde pas indéfiniment
+
+
+def _a_traiter(fiche_p: dict, item: dict, maintenant) -> bool:
+    """10/10 : l'élément du programme est à traiter maintenant. Échu (_echu), ou :
+    - « routine2 » : supprimée le 10/10, toujours à retirer (envoyer_etape et demarrer_routine en programment encore) ;
+    - le compte 1 : jamais plus de BIENVENUE_H h après la bienvenue (celles d'avant le 10/10 l'avaient programmé à 3 h)."""
+    if item.get("type") == "routine2":
+        return True
+    if item.get("type") == "etape" and int(item.get("n") or 0) == 1 and (fiche_p or {}).get("bienvenue"):
+        try:
+            depart = datetime.fromisoformat(str(fiche_p["bienvenue"]))
+            depart = depart if depart.tzinfo else depart.replace(tzinfo=timezone.utc)
+            if depart + timedelta(hours=BIENVENUE_H) <= maintenant:
+                return True
+        except (TypeError, ValueError):
+            pass
+    return _echu(item, maintenant)
 
 
 def attente(fiche_p: dict):
@@ -2154,16 +2228,29 @@ async def _classeur_etat(uid: str, n: int) -> None:
             journal.warning("Classeur étape %s de %s : %s", n, uid, erreur)
 
 
+TICK_MIN = max(1, int(os.environ.get("PARCOURS_TICK_MIN", "10") or 10))
+
+
 async def boucle(client) -> None:
     """Chaque heure : le compte des jours de warm-up dans le salon (le matin), et l'ouverture automatique des Reels
-    au jour WARMUP_JOURS + 1."""
+    au jour WARMUP_JOURS + 1.
+    10/10 (revue du recrutement : la boucle horaire ajoutait jusqu'à 1 h à chaque échéance) : un tour léger toutes les TICK_MIN
+    minutes (PARCOURS_TICK_MIN, 10 par défaut) ne fait QUE programme_du_jour — lecture de parcours.json, aucun appel Apify ni GAML
+    tant que rien n'est échu. Le reste (profils oubliés, rattrapage de l'app, warm-up, relances) garde son rythme horaire : un tour
+    sur 60 / TICK_MIN, le premier compris."""
     await client.wait_until_ready()
+    tours, par_heure = 0, max(1, round(60 / TICK_MIN))
     while not client.is_closed():
+        horaire = tours % par_heure == 0
+        tours += 1
         try:
             try:
                 await programme_du_jour(client)                         # 30/09 : « il peut publier », compte suivant à 48 h
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Programme du parcours : %s", erreur)
+            if not horaire:                                             # 10/10 : tour léger, rien d'autre
+                await asyncio.sleep(TICK_MIN * 60)
+                continue
             try:                                                        # 08/10 : « Profil fait » oublié → l'étape se ferme seule
                 fermes = await fermer_profils_oublies(client)
                 if fermes:
@@ -2229,7 +2316,7 @@ async def boucle(client) -> None:
                         await _suite(salon, texte_r)                    # 30/09 (GO n° 4) : remplace, n'empile pas
         except Exception as erreur:                                 # la boucle ne meurt jamais
             journal.warning("Boucle parcours : %s", erreur)
-        await asyncio.sleep(3600)
+        await asyncio.sleep(TICK_MIN * 60)                              # 10/10 : 10 min (le reste ne tourne qu'un tour sur six)
 
 
 # ------------------------------------------------------------------ mémoire
