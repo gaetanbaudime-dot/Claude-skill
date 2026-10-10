@@ -5,6 +5,8 @@
 > Le nouveau goulot, c'est le stock de comptes livrables. Lis d'abord les deux sections du 09/10 ci-dessous : ce qui change, ce qu'il faut retirer de Railway, ce qu'il faut fermer côté Google.
 >
 > Plus bas, les sections marquées « (historique, avant le 09/10) » décrivent l'ancien tunnel : ne t'y fie plus.
+>
+> 10/10 : les codes Instagram ne sortent plus que pour la connexion et la création de compte, en privé. Voir « 10/10 : codes 2FA en liste blanche ».
 
 ## 09/10 : le funnel simplifié
 
@@ -222,6 +224,67 @@ Pour les comptes Instagram branchés à Metricool, les followers viennent de Met
 
 - Une sortie déposée avec `"metricool": true` (Tara) fait la même chose, puis expulse.
 
+
+## 10/10 : codes 2FA en liste blanche
+
+Gaëtan : « Il faut que les 2FA et les codes que tu renvoies dans le salon code Instagram soient uniquement les codes de connexion et de création de compte, pas de modifications de données importantes, uniquement ces codes-là. »
+
+**Verdict** : un code ne sort que s'il sert à se connecter ou à créer un compte Instagram. Tout le reste est gardé, et le clipper reçoit son code en privé, jamais dans le salon commun.
+
+**Ce qui sort** (`codes_2fa.classer`, liste blanche) :
+
+- l'**adresse** de l'expéditeur est Instagram (ou Meta pour un mail qui parle d'Instagram), réécriture iCloud comprise ; le nom affiché ne compte jamais ;
+- le sujet ou le début du mail écrit un but de **connexion** ou de **création** (FR, EN, DE, ES, PT, IT) ;
+- aucun mot de la liste noire : mot de passe, récupération, e-mail, numéro, 2FA, Espace Comptes, suppression, pseudo, codes de secours, changement, appel. Les phrases « si ce n'était pas vous… » sont retirées avant la lecture, et un mail HTML seul est converti en texte (CSS et scripts retirés).
+
+**Ce qui est gardé** : tout autre code. Il n'est jamais montré ni écrit sur le disque. Une ligne part au salon admin, sans le code : le type de mail, le compte, l'adresse masquée. Tu le lis dans la boîte si tu en as besoin.
+
+**Les alertes admin** :
+
+- changement déjà fait (mot de passe, e-mail, numéro, 2FA activée ou coupée, Espace Comptes, pseudo, suppression) : « ⚠️ changement sur le compte @x : … », une fois par e-mail ;
+- boîte illisible, mot de passe d'application refusé, boîte pleine (quota lu chaque heure), code reçu sur une adresse rattachée à personne : une ligne, une fois par heure au plus.
+
+**Le clipper** : le bouton persistant « 📩 Mon code », épinglé dans #🔐-code-instagram (mode d'emploi v6), répond en message éphémère, visible par lui seul. Il guette 5 minutes et se met à jour dès que le mail arrive. `!code` tapé dans le salon répond en MP (MP fermés : le bouton). `!recup`, `!appel`, `!unban` sont refusés. Le code n'est donné qu'au clipper dont le salon perso porte l'adresse dans `alias_codes.json` : la fiche d'onboarding ne compte plus. Les anciens messages du bot qui portaient un code en clair sont effacés du salon au premier démarrage.
+
+**Le code d'appel après un ban** : gardé par défaut. `CODES_APPEL=1` le donne, seulement si le mail ne parle que d'appel.
+
+**Un seul lecteur IMAP** (`codes_2fa.Lecteur`) : par UID, en-têtes d'abord, corps seulement pour les mails Meta, IDLE si Gmail le permet, sinon toutes les `CODES_SONDAGE_SEC` (20) secondes. Son état vit dans `codes_lecteur.json` : un redémarrage ne relit rien. Le bouton, `!code`, la boucle et `bans_mail` lisent ce flux. `bans_mail` n'ouvre plus de connexion à lui, et refuse un mail dont seul le nom affiché dit Instagram.
+
+**Railway** : rien à ajouter. Ces variables ne servent plus : `CODES_INTERVALLE_SEC`, `CODES_MOTS_SUJET`, `CODES_EXPEDITEURS`, `CODES_EFFACER_MIN`, `CODES_PUSH_SALON_PERSO`, `CODES_SALON_RECUP_MINUTES`, `BANS_IMAP_DOSSIERS`.
+
+**Limite à connaître** : le filtre ne voit que les mails. Un clipper qui connaît le mot de passe peut encore changer un compte depuis l'app, ou le réinitialiser par SMS sur son numéro. On détecte vite (alertes ci-dessus) et on reprend le compte par la boîte de l'agence.
+
+Tests : `test_codes2fa_corpus.py` (les 42 mails du corpus de la revue, au vrai filtre), `test_codes2fa_lecteur.py`, `test_codes2fa_bouton.py`, `test_codes2fa_demarrage.py`.
+
+### Revue du 10/10, 2e passe : 17 défauts corrigés
+
+**Verdict** : la revue a trouvé 28 codes de modification donnés sur 59 mails d'attaque. Il en reste 0, sauf une adresse iCloud ordinaire déguisée en Instagram, fermée par `CODES_PREUVE_RELAIS=1` une fois le format vérifié. Une coupure de la boîte ne perd plus aucun code.
+
+**Le filtre** :
+
+- une phrase « si ce n'était pas vous » qui porte le code ou le mot « code » est lue. Si c'est elle qui porte le code, il est gardé ;
+- liste noire complétée : sécuriser, retrouver l'accès, restaurer, débloquer, « à nouveau », desativar, Telefonnummer, Facebook, Threads, Horizon, déconnexion. Tirets Unicode et caractères invisibles neutralisés ;
+- le pseudo ne compte jamais comme but. Un mail écrit dans aucune des 6 langues est gardé ;
+- la liste noire lit tout le mail : texte, HTML, `<title>`, textes alternatifs. « Confirm your identity », « restore » et « unlock » seuls ne suffisent plus ;
+- un code écrit en deux blocs (« 956 472 ») ou sans le mot « code » est reconnu, donc classé et signalé.
+
+**Le lecteur** : l'UID n'avance qu'au bout d'un passage réussi. Un mail illisible est rejoué, puis sauté avec une ligne admin au 3e essai. IDLE se réveille aussi sur une ligne déjà lue. Un mail au nom de Meta dont l'adresse n'est pas reconnue donne une ligne admin (une par forme d'adresse et par jour) : un changement de format iCloud ne fait plus taire les codes en silence.
+
+**Discord** :
+
+- le guet continue 5 minutes après un code : le 2e code (création puis connexion, ou « Renvoyer le code ») remplace le 1er tout seul ;
+- le guet relit les adresses du clipper : sorti pendant son guet, il ne voit plus rien ;
+- un salon lu par un rôle de clippers, ou par deux clippers, n'est jamais « privé ». Un salon perso partagé ne donne aucun code (ligne admin) ;
+- une ligne admin ne recopie jamais un code, même « 555 666 ». Le bouton est enregistré dès `setup_hook`. Les e-mails des fiches d'onboarding sont rattachés une fois au démarrage (`_migration_fiches` dans `alias_codes.json`) ;
+- `bans_mail` écrit sa file sur le disque (sans le corps) : un BAN non écrit, puis un redéploiement, est rattrapé.
+
+**À faire avant de déployer** (2 minutes, dans la boîte des codes) :
+
+1. Ouvre un vrai mail Instagram relayé par iCloud et choisis « Afficher l'original ».
+2. Vérifie le `From` : `…_at_mail_instagram_com_…@icloud.com`. S'il a une autre forme, le salon admin le dira (« adresse non reconnue ») : il faudra corriger `RE_ICLOUD_*`.
+3. Regarde la 1re ligne `Authentication-Results` : si elle porte `arc=pass (… dkdomain=mail.instagram.com …)`, passe `CODES_PREUVE_RELAIS=1` sur Railway. Sinon, laisse « observer » (défaut) : rien n'est bloqué, une ligne admin par jour signale un relais sans preuve.
+
+Tests ajoutés : `test_codes2fa_fiabilite.py` (coupures, mail illisible, BAN au redémarrage, formats iCloud), `test_codes2fa_revue.py` (salons, guet, lignes admin). Le test du corpus passe aussi les 59 mails d'attaque.
 
 ## Présentation du bot
 

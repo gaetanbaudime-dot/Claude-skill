@@ -304,7 +304,8 @@ MESSAGE_ESCALADE_MP_SANS_SALON = "Je n'ai pas la réponse. J'ai transmis ta ques
 
 # 01/10 (Gaëtan : « les codes Instagram se demandent UNIQUEMENT dans #🔐-code-instagram ») : le texte canonique, le même
 # partout. Le salon devient un lien cliquable <#id> en post-traitement (lier_salon_codes), dès que son id est connu.
-TEXTE_CODE = f"Un code Instagram ? Va dans #{codes_2fa.SALON_CODES_NOM} et tape !code."   # 01/10 (relecture) : suit CANAL_CODES_NOM
+# 10/10 (règle de Gaëtan : « uniquement les codes de connexion et de création de compte ») : le bouton « 📩 Mon code ».
+TEXTE_CODE = codes_2fa.TEXTE_CODE_BRUT                                   # suit CANAL_CODES_NOM
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
 # jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
 # PARCOURS_ATTENTE_COMPTE_H et PARCOURS_REELS_OUVERTURE (par défaut, mot pour mot le même texte).
@@ -394,9 +395,11 @@ tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
 20. Les codes Instagram se demandent UNIQUEMENT dans le salon #🔐-code-instagram (01/10, Gaëtan) : jamais « ici », \
 jamais dans le salon perso, jamais en MP. Tu dis toujours, mot pour mot : « {TEXTE_CODE} » \
-`!code` ne donne QUE les codes reçus par e-mail sur les adresses de l'agence, pour créer un compte, se connecter \
-ou faire appel après un ban (le clipper fait l'appel lui-même, règle 23) ; `!recup` fait la même chose. Les codes \
-pour changer l'e-mail, le mot de passe ou le numéro ne sont JAMAIS donnés (30/09). Si Instagram demande \
+Le bouton « 📩 Mon code » (ou `!code` tapé dans ce salon, réponse en message privé) ne donne QUE les codes de CONNEXION \
+et de CRÉATION de compte reçus par e-mail sur SES adresses, visibles par lui seul (règle de Gaëtan du 10/10). Tout autre \
+code n'est JAMAIS donné, à personne : mot de passe oublié ou récupération, changer l'e-mail, le mot de passe, le numéro \
+ou le pseudo, double authentification, Espace Comptes, suppression. {"Le code d'un appel après un ban est donné aussi." if codes_2fa.CODES_APPEL else "Le code d'un appel après un ban ne passe pas par le bot : l'équipe le reçoit et répond au clipper dans son salon perso."} \
+`!recup` ne donne rien. Instagram propose la double authentification : il ne l'active JAMAIS. Si Instagram demande \
 un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
 de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
 3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais \
@@ -419,7 +422,7 @@ question à la fois, seulement si tu en as besoin pour répondre. Quand le clipp
 « Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
 de son compte, dans son salon perso, puis le code dans #🔐-code-instagram avec `!code` ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
 « désactivé », « nous examinons » (30/09, Gaëtan) : le clipper fait appel LUI-MÊME, tout de suite — « Contester la décision » ; \
-le code : « {TEXTE_CODE} » ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
+le code reçu par e-mail : {"« " + TEXTE_CODE + " »" if codes_2fa.CODES_APPEL else "il ne passe pas par le bot (10/10) : l'équipe le reçoit et lui répond dans son salon perso"} ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
 demandés : les SIENS ; jamais les papiers de quelqu'un d'autre, jamais de faux, jamais sa pièce d'identité dans Discord (il \
 l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salon. Si l'appel échoue, Gaëtan décide. On ne \
 réutilise JAMAIS une info d'un compte BAN : ni son e-mail, ni son mot de passe, ni son identifiant (01/10, Gaëtan). Jamais « c'est normal », jamais \
@@ -432,7 +435,7 @@ puis taper dans SON SALON PERSO `!pseudo`, le numéro du compte (1, 2 ou 3) et l
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de son compte (09/10 : un message par compte, plus de pavé des 3 comptes).
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
-28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes dans leur salon : jamais « en MP ». Les codes : « {TEXTE_CODE} » Le clipper y tape `!code` UNE fois, le code s'affiche tout seul dès qu'il arrive.
+28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes se demandent dans leur salon, jamais « écris-moi en MP ». Les codes : « {TEXTE_CODE} » Le clipper y appuie UNE fois sur « 📩 Mon code » : le code s'affiche pour lui seul dès qu'il arrive.
 29. « Qui est mon manager ? » : « Ton manager, c'est Gaëtan. Il lit ton salon perso. Moi, je suis l'assistant. » Tu ne dis JAMAIS « ton manager, c'est moi » : tu es l'assistant, pas le manager. \
 30. Montage (30/09, Gaëtan, après Daniella perdue entre deux réponses) : TOUTE vidéo de sa créatrice (09/10 : le lien de ses \
 vidéos est dans son message de bienvenue, il n'y a plus de Drive perso ni de « TOP 20 ») est MODIFIÉE avant d'être publiée, \
@@ -475,6 +478,66 @@ _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "
 # du modèle (Laure, 11/09 : « Fiche 2 (forum formation) » en texte mort, et la mauvaise fiche).
 _SALONS = {}
 _FORUM = {"id": ""}
+
+
+def adresses_codes_de(uid) -> set:
+    """10/10 (règle : « le code n'est donné qu'au clipper dont l'alias est rattaché ») : les adresses rattachées au salon perso
+    du membre dans alias_codes.json — la même source pour `!code` et pour le bouton « 📩 Mon code ».
+    10/10 (revue, homonymes du 01/10 : #big ouvert à deux comptes) : un salon perso où un AUTRE clipper a un droit direct ne
+    donne aucune adresse (sinon chacun recevrait les codes de l'autre) ; une ligne admin, une fois par jour et par salon."""
+    sp_a = salon_perso_de(uid)
+    if sp_a is None:
+        return set()
+    membre = membre_par_id(uid)
+    autres = _autres_occupants(sp_a, membre) if membre is not None else []
+    if autres:
+        noms = ", ".join(str(getattr(m, "display_name", "?")) for m in autres[:3])
+        codes_2fa.signaler(f"salon_partage|{sp_a.id}",
+                           f"🔐 **Codes bloqués pour {getattr(membre, 'display_name', uid)}** : son salon perso <#{sp_a.id}> est "
+                           f"aussi ouvert à {noms}. Tant qu'il est partagé, je ne donne aucun code de ses adresses (chacun "
+                           "verrait ceux de l'autre).\n\nRetire l'accès en trop au salon, puis il rappuie sur « 📩 Mon code ».")
+        return set()
+    return codes_2fa.adresses_de(str(sp_a.id))
+
+
+def migrer_adresses_codes() -> int:
+    """10/10 (revue) : depuis le 10/10, seul alias_codes.json donne les codes ; une adresse présente seulement dans la fiche
+    d'onboarding (« acces ») n'en donnait plus. Une passe UNIQUE au démarrage : les e-mails des comptes encore dans
+    « comptes », absents du registre, rattachés au salon perso du clipper. Jamais une adresse déjà rattachée à un autre
+    salon, jamais un salon perso partagé. Renvoie le nombre d'adresses rattachées ; journalise aussi les clippers ignorés."""
+    registre = codes_2fa._lire()
+    if registre.get("_migration_fiches") or not client.guilds:
+        return 0
+    fiches = (lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers", {}) or {}
+    rattachees, ignorees = 0, 0
+    for uid, fiche in fiches.items():
+        if not isinstance(fiche, dict):
+            continue
+        siens = {str(h).strip().lower() for h in fiche.get("comptes") or []}
+        mails = []
+        for acces in fiche.get("acces") or []:
+            if not isinstance(acces, dict) or str(acces.get("handle") or "").strip().lower() not in siens:
+                continue
+            mail = str(acces.get("mail") or "").strip().lower()
+            if "@" in mail and mail not in registre and mail not in mails:
+                mails.append(mail)
+        if not mails:
+            continue
+        salon = salon_perso_de(uid)
+        membre = membre_par_id(uid)
+        if salon is None or membre is None or _autres_occupants(salon, membre):
+            ignorees += 1
+            continue
+        for mail in mails:
+            registre[mail] = {"canal_id": str(salon.id), "par": "migration",
+                              "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            rattachees += 1
+    registre["_migration_fiches"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                     "rattachees": rattachees, "ignorees": ignorees}
+    codes_2fa._ecrire(registre)
+    journal.info("Codes : migration des fiches d'onboarding → alias_codes.json : %d adresse(s) rattachée(s), %d clipper(s) "
+                 "ignoré(s) (sans salon perso, ou salon partagé)", rattachees, ignorees)
+    return rattachees
 
 
 def lier_salon_codes(reponse: str) -> str:
@@ -535,8 +598,9 @@ def regle_lien_assistant() -> str:
     sid = codes_2fa.salon_codes_id()
     # 08/10 (audit de l'assistant) : le seul <#id> du prompt était celui de #assistant, recopié pour « va chercher ton code » ;
     # le salon des codes a désormais le sien, et la règle dit lequel sert à quoi.
-    return (f"\n12ter. Un code Instagram (connexion, vérification, appel d'un compte bloqué) se demande UNIQUEMENT dans <#{sid}> "
-            "avec `!code` : c'est ce lien que tu donnes, jamais un autre salon." if sid else "")
+    # 10/10 (règle de Gaëtan : « uniquement les codes de connexion et de création de compte ») : le bouton « 📩 Mon code ».
+    return (f"\n12ter. Un code Instagram de connexion ou de création de compte, et rien d'autre, se demande UNIQUEMENT dans "
+            f"<#{sid}> avec le bouton « 📩 Mon code » : c'est ce lien que tu donnes, jamais un autre salon." if sid else "")
 
 
 def bloc_systeme():
@@ -4704,7 +4768,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!relancer-lien` · `!sync-noms`\n\n"
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
                 "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!equipes` · `!drives-perso fermer [go]` · "
-                "`!ltv [jours]` · `!alias` · `!code` · `!recup`\n\n"
+                "`!ltv [jours]` · `!alias` · `!code [adresse]` (connexion et création seulement, en MP)\n\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!archiver #salon…`\n\n"
@@ -4722,7 +4786,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!pipeline` — où en est chaque candidat · `!relance @x` — le pousser d'un cran\n"
                 "· `!sortie @clipper raison` — sortie de l'équipe (rôles et salons retirés)\n"
                 # 09/10 : l'aide manager dépassait 1 990 caractères (fin coupée par Discord) : lignes resserrées.
-                "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook · `!recup [alias]` — le code de récupération, 6 h en arrière\n"
+                "· `!alias ajouter …` / `!code …` — codes Instagram de connexion et de création, jamais les autres (10/10)\n"
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur (chaque nouveau en réserve 3)\n"
@@ -4740,8 +4804,10 @@ def texte_aide(membre, est_admin: bool) -> str:
         return ("🧰 **Ce que tu peux me demander**\n\n"
                 "· `!etape` : je te renvoie ton étape en cours.\n"
                 # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
-                "· " + codes_2fa.texte_salon_codes() + "\n"
-                "· Même salon, même `!code` pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n"
+                "· " + codes_2fa.texte_salon_codes() + " Seulement les codes de connexion et de création, visibles par toi seul.\n"
+                # 10/10 (règle stricte de Gaëtan) : le code d'un appel ne passe plus par le bot, sauf CODES_APPEL=1
+                + ("· Même bouton pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n" if codes_2fa.CODES_APPEL else
+                   "· Compte bloqué : tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.\n") +
                 "· `!mesclics` : tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours (paie les 5 et 20).\n"
                 "· `!parrain @lui` : tu parraines un nouveau, 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement : ton adresse de paiement.\n"
@@ -8315,12 +8381,27 @@ async def _migrer_test_corps(trace: dict, apercu: bool, auto: bool, annonce=None
 _taches_demarrees = False
 
 
+def brancher_codes():
+    """10/10 : le bouton « 📩 Mon code » (vue persistante) et ses dépendances. 10/10 (revue) : posé dans setup_hook, AVANT la
+    connexion à la passerelle, puis redit en tête d'on_ready (sans effet s'il l'est déjà) : un clic pendant les appels réseau
+    du démarrage ne donne plus « Échec de l'interaction »."""
+    codes_2fa.configurer({"canal_admin": canal_admin, "adresses_de_membre": adresses_codes_de, "est_staff": est_staff,
+                          "admin_ids": set(ADMIN_IDS)})
+    client.add_dynamic_items(codes_2fa.BoutonMonCode)
+
+
+@client.event
+async def setup_hook():
+    brancher_codes()
+
+
 @client.event
 async def on_ready():
     global _taches_demarrees
     journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s, v2 %s)",
                  client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
                  "ON" if ACTIVER_V2 else "off")
+    brancher_codes()                                           # 10/10 (revue) : avant le premier appel réseau
     try:
         await verifier_canaux_configures()                     # 24/09 : nomme la variable CANAL_* qui pointe dans le vide
     except Exception as erreur:                                # jamais bloquer le démarrage pour un contrôle
@@ -8382,8 +8463,15 @@ async def on_ready():
             await coro_f()
         client.loop.create_task(_apres_depots(rattraper_webhooks, "quizz manqués"))  # quiz/candidatures manqués pendant un redéploiement
         client.loop.create_task(boucle_posts_formation())  # liens des fiches + index des salons (fini « #inconnu »)
-        client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # codes 2FA → managers
-        client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # 29/09 : le salon commun « code Instagram », pour tout le monde
+        # 10/10 (règle de Gaëtan : « uniquement les codes de connexion et de création de compte ») : le bouton « 📩 Mon code »
+        # est déjà branché (brancher_codes) ; bans_mail abonné AVANT le premier passage du lecteur unique, puis le lecteur.
+        try:                                                                    # 10/10 (revue) : une passe unique
+            migrer_adresses_codes()
+        except Exception as erreur:                                             # noqa: BLE001 — jamais bloquer le démarrage
+            journal.warning("Codes : migration des fiches d'onboarding : %s", erreur)
+        bans_mail.abonner()
+        client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # le lecteur unique de la boîte (UID, IDLE)
+        client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # le salon commun, mode d'emploi v7 et son bouton
         client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,
             "tel_selon_pays": tel_selon_pays, "membre_par_id": membre_par_id, "traiter_liaison": traiter_liaison,
@@ -9921,10 +10009,8 @@ async def on_message(message):
     # et des codes de récupération (`!recup`) pour retrouver un compte ou faire appel (27/09)
     if texte.startswith(("!alias", "!code") + codes_2fa.COMMANDES_RECUP):
         def _adresses_auteur(uid=message.author.id):
-            """01/10 : salon commun, un clipper ne voit que SES codes : alias de son salon perso + e-mails de ses comptes."""
-            sp_a = salon_perso_de(uid)
-            fiche_a = lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(str(uid), {})
-            return codes_2fa.adresses_de(str(sp_a.id) if sp_a is not None else "", fiche_a)
+            """10/10 : un clipper ne reçoit que les codes des adresses rattachées à SON salon perso (alias_codes.json)."""
+            return adresses_codes_de(uid)
 
         async def _alerter_admin(texte_a):
             """01/10 (relecture) : clipper sans adresse connue au salon commun → une ligne au salon admin."""
