@@ -3,22 +3,23 @@ compte vert inaccessible, note-le en BAN. Ensuite trouve un moyen de chopper ces
 un push sur Telegram ou Discord »).
 
 Quand Instagram suspend un compte, il écrit « Action requise sur votre compte, <pseudo> » (« Votre compte Instagram a été
-suspendu… vous avez jusqu'au … pour faire appel ») à l'adresse du compte : l'alias iCloud qui renvoie vers la boîte Gmail que
-le relais des codes lit déjà (CODES_IMAP_*). Ces mails tombent souvent dans le Spam de Gmail : on lit INBOX **et** [Gmail]/Spam,
-en lecture seule (BODY.PEEK, rien n'est marqué lu, rien n'est déplacé). Toutes les BANS_INTERVALLE_SEC (10 min) : les mails de
-suspension des BANS_JOURS derniers jours pas encore traités → la ligne du classeur (retrouvée par le pseudo, sinon par l'alias
-du mail) passe BAN, `bans_auto` retient le ban (le scan rend WARMUP si le compte réapparaît après appel), et un push part sur
-Telegram et dans le salon admin. Du mail, on ne garde que le pseudo, l'alias et la date : jamais le corps."""
+suspendu… vous avez jusqu'au … pour faire appel ») à l'adresse du compte : l'alias iCloud qui renvoie vers la boîte Gmail des
+codes. 10/10 : ce module n'ouvre plus de connexion IMAP. Il s'abonne au lecteur UNIQUE de codes_2fa (UID, IDLE) : chaque
+nouveau mail Meta lui est passé une fois (recevoir), boîte de réception et Spam ; le tri (pub Meta → Spam, mails Meta
+importants du Spam → boîte de réception) est fait par ce même lecteur (destination). Un mail n'est retenu que si l'ADRESSE de
+l'expéditeur est Meta (le nom affiché ne compte plus : « Action requise… <pseudo d'un autre> » écrit par un clipper ne passe
+plus un compte en BAN). Les mails de suspension attendent dans une file ; toutes les BANS_INTERVALLE_SEC (ou dès qu'un mail
+arrive) : la ligne du classeur (retrouvée par le pseudo, sinon par l'alias) passe BAN, `bans_auto` retient le ban (le scan rend
+WARMUP si le compte réapparaît après appel), et un push part sur Telegram et dans le salon admin. Du mail, on ne garde que le
+pseudo, l'alias et la date : jamais le corps."""
 import asyncio
 import email
 import email.utils
-import imaplib
 import logging
 import os
 import re
 from datetime import datetime, timedelta, timezone
 from email.header import decode_header, make_header
-from html import unescape
 
 import codes_2fa
 import google_api
@@ -44,8 +45,6 @@ MOTS_PUB = ("decouvrez", "ont partage", "a partage", "commence a vous suivre", "
 PREFIXES_PUB = ("posts-recap", "follow-sugg", "stories-rec", "digest", "news", "marketing", "promo", "reels-recap", "live-")
 MOTS_RETOUR = ("de retour sur instagram", "back on instagram", "de nouveau utiliser", "can use", "again")
 JOURS = int(os.environ.get("BANS_JOURS", "3") or 3)
-DOSSIERS = tuple(d.strip() for d in os.environ.get("BANS_IMAP_DOSSIERS", "INBOX,[Gmail]/Spam").split(",") if d.strip())
-MOTS_EXPEDITEUR = ("instagram", "facebookmail")
 # Le sujet décide, le corps confirme : « Action requise sur votre compte, pseudo » seul peut aussi servir à d'autres avis Meta.
 SUJETS_BAN = ("action requise sur votre compte", "action required on your account", "suspendu", "suspended", "désactivé",
               "desactive", "disabled", "compte restreint", "account restricted")
@@ -55,6 +54,8 @@ MOTIF_SUJET_COMPTE = re.compile(r",\s*@?([A-Za-z0-9][A-Za-z0-9._]{0,40})\s*$")
 MOTIF_CORPS_COMPTE = re.compile(r"(?:Bonjour|Hi|Hello|accès à|access to)\s+@?([A-Za-z0-9][A-Za-z0-9._]{0,40})\s*[,.!\s|]")
 MOTIF_ADRESSE = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 _deps: dict = {}
+_en_attente: dict = {}                                                  # 10/10 : id du mail → info, en attente de traiter()
+_evenement = (None, None)
 
 
 def _plat(t: str) -> str:
@@ -102,25 +103,15 @@ def _ecrire(d: dict):
 
 
 def _texte(msg) -> str:
-    """Le texte du mail (text/plain, sinon le HTML dépouillé), 6 000 caractères."""
-    morceaux = []
-    for part in msg.walk() if msg.is_multipart() else [msg]:
-        if part.get_content_type() not in ("text/plain", "text/html"):
-            continue
-        try:
-            brut = part.get_payload(decode=True) or b""
-            t = brut.decode(part.get_content_charset() or "utf-8", errors="replace")
-        except Exception:                                               # noqa: BLE001
-            continue
-        if part.get_content_type() == "text/html":
-            t = re.sub(r"<[^>]+>", " ", t)
-        morceaux.append(unescape(t))
-    return re.sub(r"\s+", " ", " ".join(morceaux))[:6000]
+    """Le texte du mail (text/plain, sinon le HTML converti : CSS et scripts retirés), 6 000 caractères."""
+    return re.sub(r"\s+", " ", codes_2fa.texte_du_mail(msg))[:6000]
 
 
 def extraire(msg) -> dict | None:
-    """{pseudo, alias, sujet, date, id} pour un mail de suspension Instagram, None pour tout autre mail Meta (connexion,
-    code, paramètres, nouveautés…)."""
+    """{pseudo, alias, sujet, date, id} pour un mail de suspension Instagram, None pour tout autre mail (connexion, code,
+    paramètres, nouveautés…). 10/10 : l'ADRESSE de l'expéditeur doit être Meta, jamais le seul nom affiché."""
+    if not codes_2fa.expediteur_meta(msg.get("From")):
+        return None
     sujet = str(make_header(decode_header(msg.get("Subject") or ""))).strip()
     s = sujet.lower()
     genre = "ban"
@@ -150,59 +141,33 @@ def extraire(msg) -> dict | None:
     return {"pseudo": pseudo, "alias": alias, "sujet": sujet[:120], "date": date.isoformat(timespec="minutes"), "id": ident, "type": genre}
 
 
-def _lire_boite(jours: int = JOURS) -> list:
-    """Bloquant (à appeler via to_thread) : les mails de suspension Instagram des `jours` derniers jours, INBOX et Spam.
-    Rien n'est marqué lu (BODY.PEEK) ; dans le Spam, les mails Meta sont remis dans INBOX (le filtre Gmail que le bot fait
-    lui-même). Le corps n'est lu que pour confirmer le mot « suspendu » et trouver le pseudo."""
-    out, vus = [], set()
-    depuis = (datetime.now(timezone.utc) - timedelta(days=jours)).strftime("%d-%b-%Y")
-    with imaplib.IMAP4_SSL(codes_2fa.IMAP_HOST, timeout=codes_2fa.IMAP_TIMEOUT) as boite:
-        boite.login(codes_2fa.IMAP_USER, codes_2fa.IMAP_PASSWORD)
-        for dossier in DOSSIERS:
-            spam = dossier.upper() != "INBOX"
-            bouge = (spam and DEPLACER_SPAM) or (not spam and PUB_VERS_SPAM)
-            try:
-                ok, _ = boite.select(dossier, readonly=not bouge)
-            except imaplib.IMAP4.error:
-                ok = "NO"
-            if ok != "OK":
-                journal.warning("Bans par mail : dossier %s illisible", dossier)
-                continue
-            uids = set()
-            for mot in MOTS_EXPEDITEUR:
-                ok, ids = boite.uid("SEARCH", None, f'(SINCE {depuis} FROM "{mot}")')
-                if ok == "OK" and ids and ids[0]:
-                    uids.update(ids[0].split())
-            a_remonter, a_descendre = [], []
-            for uid in sorted(uids, key=int)[-120:]:
-                ok, brut = boite.uid("FETCH", uid, "(BODY.PEEK[]<0.30000>)")
-                if ok != "OK" or not brut or not brut[0]:
-                    continue
-                msg = email.message_from_bytes(brut[0][1])
-                sujet = str(make_header(decode_header(msg.get("Subject") or ""))).strip()
-                cat = categorie(sujet, str(msg.get("From") or ""))
-                if spam and cat == "important":
-                    a_remonter.append(uid)
-                elif not spam and cat == "pub":
-                    a_descendre.append(uid)
-                info = extraire(msg)
-                if info and info["id"] not in vus:
-                    vus.add(info["id"])
-                    info["dossier"] = dossier
-                    out.append(info)
-            for cibles, destination, libelle in ((a_remonter if spam and DEPLACER_SPAM else [], "INBOX", "important(s) remis dans la boîte de réception"),
-                                                 (a_descendre if not spam and PUB_VERS_SPAM else [], DOSSIER_SPAM, "pub renvoyé(s) dans le Spam")):
-                deplaces = 0
-                for uid in cibles:
-                    try:
-                        if boite.uid("MOVE", uid, destination)[0] == "OK":
-                            deplaces += 1
-                    except imaplib.IMAP4.error as erreur:
-                        journal.warning("Bans par mail : déplacement depuis %s : %s", dossier, erreur)
-                        break
-                if deplaces:
-                    journal.info("Bans par mail : %d mail(s) Meta %s (depuis %s)", deplaces, libelle, dossier)
-    return out
+def destination(dossier: str, sujet: str, expediteur: str = ""):
+    """Le tri du 29/09, appliqué par le lecteur unique de codes_2fa sur chaque mail Meta : un mail important trouvé dans le
+    Spam remonte dans la boîte de réception, la pub Meta de la boîte de réception part dans le Spam. None = on ne bouge rien."""
+    spam = dossier.upper() != "INBOX"
+    cat = categorie(sujet, expediteur)
+    if spam and DEPLACER_SPAM and cat == "important":
+        return "INBOX"
+    if not spam and PUB_VERS_SPAM and cat == "pub":
+        return DOSSIER_SPAM
+    return None
+
+
+def recevoir(msg, dossier: str = "INBOX"):
+    """Appelé par le lecteur unique pour chaque nouveau mail Meta : un mail de suspension (ou de retour) entre dans la file."""
+    info = extraire(msg)
+    if info is None:
+        return
+    info["dossier"] = dossier
+    _en_attente[info["id"]] = info
+    evenement = _evenement[1]
+    if evenement is not None:
+        evenement.set()
+
+
+def abonner():
+    """S'abonne au lecteur unique (idempotent) : la file et le tri."""
+    codes_2fa.abonner(recevoir, trieur=destination)
 
 
 def associer(t: dict, comptes: list) -> dict | None:
@@ -244,8 +209,14 @@ async def traiter(trouves: list | None = None) -> dict:
     if trouves is None:
         if not (codes_2fa.actif() and onboarding.actif()):
             return bilan
-        trouves = await asyncio.wait_for(asyncio.to_thread(_lire_boite, JOURS), timeout=codes_2fa.IMAP_TIMEOUT * 4)
+        limite_file = (datetime.now(timezone.utc) - timedelta(days=JOURS)).isoformat(timespec="minutes")
+        for cle in [k for k, v in _en_attente.items() if str(v.get("date", "")) < limite_file]:
+            _en_attente.pop(cle, None)                                  # plus vieux que BANS_JOURS : oublié
+        trouves = list(_en_attente.values())                            # 10/10 : la file du lecteur unique, plus d'IMAP ici
     d = _lire()
+    for t in trouves:
+        if t["id"] in d["vus"]:
+            _en_attente.pop(t["id"], None)
     nouveaux = [t for t in trouves if t["id"] not in d["vus"]]
     if not nouveaux:
         return bilan
@@ -280,6 +251,9 @@ async def traiter(trouves: list | None = None) -> dict:
     d["vus"] = {k: v for k, v in d["vus"].items() if v >= limite}
     d["bans"] = d["bans"][-300:]
     _ecrire(d)
+    for t in nouveaux:                                                  # traité : hors de la file (un BAN non écrit y reste)
+        if t["id"] in d["vus"]:
+            _en_attente.pop(t["id"], None)
     if bilan["lignes"]:
         texte = "\n".join(bilan["lignes"])
         journal.info("Bans par mail : %d nouveau(x), %d ligne(s) passée(s) BAN", bilan["nouveaux"], bilan["ecrits"])
@@ -295,21 +269,30 @@ async def traiter(trouves: list | None = None) -> dict:
 
 
 async def boucle(client):
-    """Toutes les INTERVALLE secondes, dès le démarrage."""
+    """Dès le démarrage : abonné au lecteur unique, puis la file traitée dès qu'un mail de suspension arrive, au plus tard
+    toutes les INTERVALLE secondes. Aucune connexion IMAP ici (10/10)."""
+    global _evenement
     if not codes_2fa.actif():
         journal.info("Bans par mail désactivés (CODES_IMAP_USER absent)")
         return
+    abonner()
+    _evenement = (asyncio.get_running_loop(), asyncio.Event())
     await client.wait_until_ready()
     while not client.is_closed():
         try:
             await traiter()
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Bans par mail : %s", erreur)
-        await asyncio.sleep(INTERVALLE)
+        evenement = _evenement[1]
+        try:
+            await asyncio.wait_for(evenement.wait(), timeout=INTERVALLE)
+        except asyncio.TimeoutError:
+            pass
+        evenement.clear()
 
 
 async def commande(message, texte: str) -> bool:
-    """`!bans [jours]` : passage immédiat puis la liste des bans vus par mail sur `jours` jours (7 par défaut)."""
+    """`!bans [jours]` : la file traitée tout de suite, puis la liste des bans vus par mail sur `jours` jours (7 par défaut)."""
     mots = texte.split()
     if not mots or mots[0].lower() != "!bans":
         return False
@@ -323,7 +306,7 @@ async def commande(message, texte: str) -> bool:
     try:
         bilan = await traiter()
     except Exception as erreur:                                          # noqa: BLE001
-        await message.reply(f"Boîte mail illisible : {erreur}")
+        await message.reply(f"Bans par mail : {erreur}")
         return True
     depuis = (datetime.now(timezone.utc) - timedelta(days=jours)).isoformat()
     recents = [b for b in _lire()["bans"] if b.get("date", "") >= depuis]
