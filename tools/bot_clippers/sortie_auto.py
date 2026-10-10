@@ -19,6 +19,12 @@ créatrice les reçoit, avec l'e-mail rattaché à son salon pour que le code de
 Ne touche jamais : le staff, les anciens gérés par Jonas (`sans_salon` du roster), un clipper sans données de scan, un clipper
 dont une note du manager contient « garde ». `SORTIE_AUTO=0` éteint. `!sortie-auto` (admin) : liste ce qui partirait ;
 `!sortie-auto go` : l'applique maintenant. Le module ne connaît pas bot_discord : dépendances dans `configurer(deps)`.
+
+10/10 (ménage L9a) : l'ancienne règle « 7 jours sans Reel » (executer_sans_reel, a_sortir, a_avertir, `!sortie-auto reels`) est
+supprimée ; `silences` et `jours_sans_reel` restent pour les bloqués du matin. Le calcul des visites GAML vit ici (`visites`, avant
+dans appel.py) : la règle du compte 1 ne dépend plus de l'appel de présence. `mesures` et `compte_lu` disent si le scan a LU les
+comptes d'un clipper : sans relevé récent, il est « non mesuré », jamais inactif (l'appel de présence ne sort personne sur un scan
+coupé, un compte restreint ou un passage raté).
 """
 
 import asyncio
@@ -41,12 +47,12 @@ ACTIF = os.environ.get("SORTIE_AUTO", "1").strip() != "0"
 JOURS_COMPTE1 = int(os.environ.get("SORTIE_JOURS_COMPTE1", "2") or 2)
 KICK = os.environ.get("SORTIE_KICK", "1").strip() != "0"
 COMPTE1_DEPUIS = os.environ.get("SORTIE_COMPTE1_DEPUIS", "2026-10-05")
-JOURS = int(os.environ.get("SORTIE_AUTO_JOURS", "7") or 7)                 # 30/09 : 14 → 7
-AVERT_JOURS = int(os.environ.get("SORTIE_AUTO_AVERT_JOURS", "3") or 3)     # 30/09 : l'avertissement
-SCANS_MIN = int(os.environ.get("SORTIE_AUTO_SCANS_MIN", "5") or 5)         # jours de scan pendant le silence (7 → 5 sur 7 jours)
 HEURE_UTC = int(os.environ.get("SORTIE_AUTO_HEURE_UTC", "8") or 8)
 REGLE_DEPUIS = os.environ.get("SORTIE_AUTO_DEPUIS", "2026-09-30")
-RAISON = f"{JOURS} jours sans Reel (sortie automatique)"                     # ancienne règle (30/09), plus appliquée
+# 10/10 (L9a) : recopié d'appel.py (même variable) : au-dessous de ce seuil sur 48 h, ce sont nos propres clics de contrôle
+VISITES_ACTIF = int(os.environ.get("APPEL_VISITES_ACTIF", "5") or 5)
+# 10/10 (L9a) : un relevé du scan plus vieux que MESURE_JOURS jours ne mesure plus rien (budget Apify coupé, passage raté)
+MESURE_JOURS = int(os.environ.get("APPEL_MESURE_JOURS", "1") or 1)
 RAISON_COMPTE1 = f"{JOURS_COMPTE1 * 24} h sans créer ton compte 1 (règle de l'équipe)"
 _deps = {}
 
@@ -137,32 +143,6 @@ def silences(fiches: dict, onboarding: dict, historique: dict, comptes: list, no
     return out
 
 
-def a_sortir(fiches: dict, onboarding: dict, historique: dict, comptes: list, notes, prenom_de, maintenant=None,
-             jours: int = JOURS, scans_min: int = SCANS_MIN, garder=(), depuis: str = None) -> list:
-    """[(uid, prénom, jours sans publier, scans)] : silence ≥ `jours`, avec au moins `scans_min` jours de scan pendant le silence."""
-    return [(u, p, j, s) for u, p, j, s, _ in silences(fiches, onboarding, historique, comptes, notes, prenom_de, maintenant,
-                                                         garder, depuis) if j >= jours and s >= scans_min]
-
-
-def a_avertir(fiches: dict, onboarding: dict, historique: dict, comptes: list, notes, prenom_de, deja: dict, maintenant=None,
-              garder=(), depuis: str = None) -> list:
-    """[(uid, prénom, jours sans publier, référence iso)] : silence entre AVERT_JOURS et JOURS - 1, au moins deux jours de
-    scan pendant le silence, pas déjà averti pour ce même silence (`deja` : {uid: référence iso})."""
-    out = []
-    for u, p, j, s, ref in silences(fiches, onboarding, historique, comptes, notes, prenom_de, maintenant, garder, depuis):
-        cle = ref.isoformat(timespec="seconds")
-        if AVERT_JOURS <= j < JOURS and s >= 2 and deja.get(u) != cle:
-            out.append((u, p, j, cle))
-    return out
-
-
-def texte_avertissement(prenom: str, jours: int, date_sortie: str) -> str:
-    return (f"⚠️ {prenom}, **{jours} jours sans Reel** sur tes comptes.\n\n"
-            "La règle de l'équipe : sans publication, tu sors. "
-            f"Sans nouveau Reel d'ici là, **tu sors le {date_sortie}**, et tes comptes vont au suivant.\n\n"
-            "Publie aujourd'hui : le compteur repart à zéro. Un souci (compte bloqué, téléphone) ? Écris-le ici.")
-
-
 def _etat() -> dict:
     return _deps["lire_json"](_deps["FICHIER"], {"sorties": {}})
 
@@ -178,6 +158,72 @@ async def jours_sans_reel() -> dict:
         m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
         return _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
     return {uid: jours for uid, _, jours, _, _ in silences(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de)}
+
+
+# ------------------------------------------------------------------ mesuré ou non (10/10, L9a, amendement B)
+def _cle_compte(h) -> str:
+    """La clé d'un compte dans l'historique du scan (comme etats_comptes._cle) : identifiant nettoyé, en minuscules."""
+    try:
+        import onboarding as _onb_mod
+        return _onb_mod.normaliser_handle(str(h or "")).lower()
+    except Exception:                                                   # noqa: BLE001
+        return str(h or "").strip().lstrip("@").lower()
+
+
+def lu_recemment(handles, historique: dict, maintenant=None, jours: int = None, reels: bool = True) -> bool:
+    """Le scan a-t-il lu au moins un de ces comptes depuis `jours` jours (MESURE_JOURS) ? reels=True : un relevé où ses Reels se
+    lisent (compte existant, ni privé, ni restreint, Reels lus) ; reels=False : n'importe quel relevé, « introuvable » compris
+    (un compte jamais créé se mesure aussi). Aucun relevé récent : rien n'est mesuré."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    borne = (maintenant - timedelta(days=MESURE_JOURS if jours is None else jours)).date()
+    for h in handles or ():
+        for e in (historique or {}).get(_cle_compte(h), []) or []:
+            j = _jour(e.get("jour"))
+            if j is None or j.date() < borne:
+                continue
+            if not reels:
+                return True
+            if e.get("existe") and not e.get("prive") and not e.get("restreint") and not e.get("reels_non_lus"):
+                return True
+    return False
+
+
+def mesure(handles, historique: dict, maintenant=None, jours: int = None) -> bool:
+    """Un clipper est « mesuré » si un de ses comptes publics a un relevé lisible récent et qu'aucun de ses comptes n'est restreint
+    au dernier relevé (un restreint cache ses Reels, comme dans `silences`). Sinon : « non mesuré », jamais inactif."""
+    for h in handles or ():
+        dernier = ((historique or {}).get(_cle_compte(h)) or [{}])[-1] or {}
+        if dernier.get("restreint"):
+            return False
+    return lu_recemment(handles, historique, maintenant, jours, reels=True)
+
+
+async def mesures(maintenant=None) -> dict:
+    """{uid: True/False} pour chaque fiche du registre : son activité Instagram est-elle mesurée par le scan ? Ses comptes : ceux
+    du classeur à son prénom (colonne Gérant) et ceux qui lui ont été livrés. Une erreur de lecture remonte à l'appelant (l'appel
+    de présence n'appelle alors personne)."""
+    fiches = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
+    onboarding = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}) if _deps.get("FICHIER_ONBOARDING") else {}
+    historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
+    comptes = await _deps["comptes_lire"]() if _deps.get("comptes_lire") else []
+    par_prenom = {}
+    for c in comptes:
+        g = _n(c.get("gerant") or "")
+        if g and c.get("handle"):
+            par_prenom.setdefault(g, []).append(str(c["handle"]))
+    out = {}
+    for uid in fiches:
+        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+        prenom = _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
+        handles = (par_prenom.get(_n(prenom), []) if prenom else []) + list((onboarding.get("clippers", {}).get(str(uid)) or {}).get("comptes", []))
+        out[str(uid)] = mesure(handles, historique, maintenant)
+    return out
+
+
+def compte_lu(handles, maintenant=None) -> bool:
+    """Un de ces comptes a-t-il un relevé récent du scan (existant ou introuvable) ? La purge de l'appel ne sort personne sans."""
+    historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
+    return lu_recemment(handles, historique, maintenant, reels=False)
 
 
 def compte1_prouve(uid: str, ouverture, onboarding_d: dict, historique: dict) -> bool:
@@ -221,13 +267,28 @@ def compte1_bloque(uid: str, onboarding_d: dict, etats_classeur) -> str:
     return ""
 
 
-def _visites_actives(uid: str) -> bool:
-    """08/10 (audit : un ancien rouvert aux comptes restreints n'a aucun Reel lisible) : son lien GAML ramène du monde sur 48 h."""
+def visites(uid: str, jours: int) -> int:
+    """08/10 : visiteurs (hors robots) sur ses liens GAML les `jours` derniers jours, hier compris ; 0 sans paie au clic.
+    10/10 (L9a) : déplacé d'appel.py, qui s'en sert encore. Lecture seule de paie_clics (actif, _lire, liens_de, somme)."""
     try:
-        import appel
-        return appel.visites(uid, 2) >= appel.VISITES_ACTIF
-    except Exception:                                                   # noqa: BLE001
-        return False
+        import paie_clics                                               # import tardif : la sortie ne dépend pas de la paie
+        if not paie_clics.actif():
+            return 0
+        d = paie_clics._lire()
+        lids = paie_clics.liens_de(d, str(uid))
+        if not lids:
+            return 0
+        hier = datetime.now(timezone.utc).date() - timedelta(days=1)
+        return int(paie_clics.somme(d, lids, hier - timedelta(days=max(int(jours), 1) - 1), hier).get("hors_robots", 0) or 0)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Visites de %s illisibles : %s", uid, erreur)
+        return 0
+
+
+def _visites_actives(uid: str) -> bool:
+    """08/10 (audit : un ancien rouvert aux comptes restreints n'a aucun Reel lisible) : son lien GAML ramène du monde sur 48 h.
+    10/10 (L9a) : calculé ici, plus d'import d'appel (un import raté renvoyait Faux sans bruit et faisait sortir à 48 h)."""
+    return visites(uid, 2) >= VISITES_ACTIF
 
 
 def sans_compte1(parcours: dict, maintenant=None, depuis: str = None, garder=(), prenom_de=None, notes=None, prouve=None,
@@ -376,79 +437,12 @@ async def executer(client, appliquer: bool = True) -> list:
     return bilan
 
 
-async def executer_sans_reel(client, appliquer: bool = True) -> list:
-    """L'ancienne règle du 30/09 (3 j sans Reel → avertissement, 7 j → sortie). Plus appelée depuis le 05/10 ; gardée pour
-    `!sortie-auto reels` (liste seulement)."""
-    if not ACTIF and appliquer:
-        return []
-    fiches = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
-    onboarding = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {}) if _deps.get("FICHIER_ONBOARDING") else {}
-    historique = ((_deps["etats_lire"]() if _deps.get("etats_lire") else {}) or {}).get("historique", {})
-    try:
-        comptes = await _deps["comptes_lire"]() if _deps.get("comptes_lire") else []
-    except Exception as erreur:                                             # noqa: BLE001
-        journal.warning("Sortie automatique : classeur illisible (%s), passage annulé", erreur)
-        return []
-    roster = _deps.get("roster")
-    garder = list(roster.lire().get("sans_salon", [])) if roster is not None else []
-
-    def prenom_de(uid):
-        m = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
-        return _deps["prenom_de"](m) if (m is not None and _deps.get("prenom_de")) else ""
-
-    bilan = []
-    d = _etat()
-    avertir = a_avertir(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de, d.get("avertis", {}), garder=garder)
-    for uid, prenom, nb_jours, cle in avertir:
-        date_sortie = (_jour(cle) + timedelta(days=JOURS)).strftime("%d/%m")
-        if not appliquer:
-            bilan.append(f"· {prenom} : {nb_jours} jours sans Reel → averti (sortie le {date_sortie} sans Reel)")
-            continue
-        salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
-        if salon is None:
-            continue
-        try:
-            await salon.send(texte_avertissement(prenom, nb_jours, date_sortie))
-            d = _etat(); d.setdefault("avertis", {})[uid] = cle; _deps["ecrire_json"](_deps["FICHIER"], d)
-            bilan.append(f"⚠️ {prenom} : averti ({nb_jours} jours sans Reel, sortie le {date_sortie} sans Reel)")
-        except Exception as erreur:                                         # noqa: BLE001
-            journal.warning("Avertissement de %s : %s", prenom, erreur)
-    cibles = a_sortir(fiches, onboarding, historique, comptes, _deps.get("notes"), prenom_de, garder=garder)
-    if not cibles:
-        return bilan
-    for uid, prenom, nb_jours, scans in cibles:
-        if not appliquer:
-            bilan.append(f"· {prenom} : {nb_jours} jours sans Reel ({scans} jours de scan) → sortirait")
-            continue
-        m = _deps["membre_par_id"](uid)
-        if m is None:
-            continue
-        try:
-            res = await _deps["sortir"](m, RAISON, pool=True)
-            d = _etat()
-            d.setdefault("sorties", {})[uid] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "prenom": prenom,
-                                                 "jours": nb_jours, "scans": scans}
-            _deps["ecrire_json"](_deps["FICHIER"], d)
-            bilan.append(f"🚪 {prenom} : sorti ({nb_jours} jours sans Reel) · comptes rendus au vivier : {res.get('comptes', 0)} · "
-                         f"lien libéré : {res.get('liens', 0)}")
-            journal.info("Sortie automatique : %s (%s) après %d jours, %d scans", prenom, uid, nb_jours, scans)
-        except Exception as erreur:                                         # noqa: BLE001
-            bilan.append(f"❌ {prenom} : {type(erreur).__name__} {str(erreur)[:100]}")
-            journal.warning("Sortie automatique de %s : %s", prenom, erreur)
-    return bilan
-
-
 async def commande(message, texte: str) -> bool:
     """`!sortie-auto` : qui partirait aujourd'hui ; `!sortie-auto go` : sortir maintenant."""
     if not texte.lower().startswith("!sortie-auto"):
         return False
     mots = texte.lower().split()[1:2]
-    go = mots == ["go"]
-    if mots == ["reels"]:                                                # 05/10 : l'ancienne lecture « sans Reel », liste seulement
-        bilan = await executer_sans_reel(None, appliquer=False)
-        await message.reply(("🔎 **Silences (ancienne règle, pour information)**\n" + "\n".join(bilan))[:1990] if bilan
-                            else "✅ Aucun silence de 3 jours ou plus sans Reel.")
-        return True
+    go = mots == ["go"]                                                 # 10/10 (L9a) : plus de `!sortie-auto reels` (ancienne règle)
     bilan = await executer(message.client if hasattr(message, "client") else None, appliquer=go)
     if not bilan:
         await message.reply(f"✅ Personne à avertir ni à sortir : aucun compte 1 ouvert depuis {JOURS_COMPTE1 - 1} jours sans être créé."

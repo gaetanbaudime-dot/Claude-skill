@@ -594,10 +594,41 @@ async def relire_publies(client=None) -> dict:
     return bilan
 
 
+ALERTE_TOUT_DE_SUITE = ("mineur", "nudite")                                  # 10/10 (L9a) : au salon admin, sans attendre le matin
+
+
+async def alerter_risques(jour: str) -> int:
+    """10/10 (revue du recrutement, L9a : la relecture après publication est le seul détecteur de mineur sur un Reel publié, et
+    ses lignes étaient avalées par le message du matin éteint) : chaque Reel relu ce jour avec le motif « mineur » ou « nudité »
+    part TOUT DE SUITE au salon admin, comme l'alerte avant publication. Une seule fois par Reel. Renvoie le nombre d'alertes."""
+    if not _deps.get("alerter"):
+        return 0
+    d = _lire()
+    envoyees = 0
+    for url, r in d["relus"].items():
+        if r.get("relu") != jour or r.get("risque") not in ALERTE_TOUT_DE_SUITE or r.get("alerte"):
+            continue
+        qui = r.get("gerant") or r.get("handle") or "un clipper"
+        try:
+            await _deps["alerter"](f"⛔ Relecture après publication : {RISQUES[r['risque']]} sur un Reel de {qui}. "
+                                   f"À vérifier, et à faire retirer si c'est confirmé : <{url}>")
+        except Exception as erreur:                                            # noqa: BLE001 — retenté au passage suivant
+            journal.warning("Alerte après publication : %s", type(erreur).__name__)
+            continue
+        d = _lire()
+        if url in d["relus"]:
+            d["relus"][url]["alerte"] = jour
+            _ecrire(d)
+        envoyees += 1
+    return envoyees
+
+
 async def poser_lignes(jour: str) -> int:
     """Au plus une ligne par clipper et par jour, dans le message du matin (matin.deposer). Le message du matin déjà parti : la
     ligne part seule dans son salon, mais seulement dans la fenêtre du matin (jamais d'envoi groupé l'après-midi ni au
-    redémarrage) ; sinon elle reste pour le résumé du lundi."""
+    redémarrage) ; sinon elle reste pour le résumé du lundi. 10/10 (L9a) : avant tout dépôt, « mineur » et « nudité » partent
+    au salon admin (alerter_risques)."""
+    await alerter_risques(jour)
     d = _lire()
     par = {}
     for r in d["relus"].values():
