@@ -151,7 +151,7 @@ _format_journalise = {"fait": False}
 _memoire: dict = {"faits": {}, "essais": {}, "alertes": {}, "photos": {}}
 # 10/10 (revue) : ce que le dernier releves() a lu en plus des comptes entiers (C4) — comptes « partiels » (synchro vivante, Reels
 # non comptés) et lecture des vues de chaque compte (gardée dans l'état par executer, pour la comparer le lendemain) ; 10/10
-# (passe 3) : le classeur lu une fois par passage ({clé: vivant ?} ou None, voir _classeur)
+# (passe 3) : le classeur lu une fois par passage ({clé: '' si vivante, sinon le motif} ou None, voir _classeur)
 _passage: dict = {"partiels": {}, "photos": {}, "fin": "", "classeur": None}
 
 
@@ -824,8 +824,9 @@ async def _lire_compte(cle: str, m: dict, veille: date, debut: datetime, fin: da
     (reels, False) s'il est « partiel » (10/10, revue : jours sans Reel non confirmés mais synchro vivante — vues écrites, Reels
     non comptés), ou None (le bilan dit pourquoi : non_lus, echecs, debranches, a_retirer). Deux 429 de suite →
     ErreurMetricool(429) remonte : le passage s'arrête. `photos` = lectures gardées ({clé: {"fin", "vues", "prec"}}) ; la
-    lecture de ce passage est notée dans _passage["photos"]. `classeur` = {clé: vivant ?} lu une fois par passage, ou None
-    (10/10, passe 3 : décide « débranché ? » ou « à retirer de Metricool ? », voir _classer_debranche)."""
+    lecture de ce passage est notée dans _passage["photos"]. `classeur` = {clé: '' si vivante, sinon le motif} lu une fois par
+    passage (_classeur), ou None (10/10, passe 3 : décide « débranché ? » ou « à retirer de Metricool ? », voir
+    _classer_debranche)."""
     marques = [m] + list(m.get("autres") or [])
     serie = _serie(cle)
     photo = (photos or {}).get(cle)
