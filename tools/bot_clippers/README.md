@@ -184,9 +184,9 @@ Pour le Dashboard, cette section remplace les paragraphes du 28/09 au 05/10 plus
 
 ### Lire une ligne
 
-- Mesure : lu, restreint, privé, non lu (n passages), introuvable, Metricool, à créer, classeur (chiffre repris de la cellule), jamais lu. « k/n » signale une somme qui ne couvre pas tout : « followers 2/3 », « clics 7 j : 1/2 liens relevés », « vues 2/3 Reels mesurés à 48 h ». Un followers d'un ancien relevé porte sa date ; au-delà de 7 jours, la cellule reste vide.
+- Mesure : lu, restreint, privé, non lu (n passages), introuvable, Metricool, à créer, classeur (chiffre repris de la cellule), jamais lu. « k/n » signale une somme qui ne couvre pas tout : « followers 2/3 », « clics 7 j : 1/2 liens relevés », « vues 2/3 Reels mesurés à 48 h ». Un followers plus vieux que le dernier relevé Apify (compte relu, followers illisibles) porte sa date dans Mesure ; au-delà de 7 jours, la cellule reste vide (« followers non lus depuis le JJ/MM »). Un compte qui n'a plus été relu du tout (Apify coupé, compte sorti des passages) garde son dernier chiffre : la colonne Relevé en donne la date.
 
-- Lien : le slug court du lien de la ligne. Le trio d'un clipper partage un lien. Ses clics sont sur la ligne qui le porte (la bio qui l'affiche, sinon le privé, sinon le premier), « (trio) » sur les autres.
+- Lien : le slug court du lien de la ligne. Le trio d'un clipper partage un lien. Ses clics sont sur la ligne qui le porte (la bio qui l'affiche, sinon le privé, sinon le premier), « (trio) » sur les autres. Deux liens de même URL (un lien effacé de GAML, puis un nouveau qui a repris son slug) : la cellule va au lien actif, pour le Dashboard comme pour le contrôle.
 
 - « ⚠ … (autre clipper) » : la fiche d'onboarding prouve, par les identifiants, que le lien est à un autre. Il n'est pas compté sur la ligne.
 
@@ -216,7 +216,7 @@ Décision de Gaëtan : « Dépasse pas 25 $ / mois pour le moment, fais comme tu
 
 - À 100 % : plus aucun appel Apify jusqu'au cycle suivant, et `!dashboard scan` est refusé.
 
-- Ce que le Dashboard en dit (10/10). « Relecture légère du jour sautée » : seulement quand la garde l'a vraiment sautée aujourd'hui et que rien n'a relu Instagram depuis. « Relecture de 20 h : sera sautée (prévision) » : quand la trajectoire du budget à 20 h ne la permettra pas. Rien juste après une relecture faite.
+- Ce que le Dashboard en dit (10/10). « Relecture légère du jour sautée » : seulement quand la garde l'a vraiment sautée aujourd'hui et que rien n'a relu Instagram depuis. « Relecture de 20 h en cours » : la garde l'a lancée, elle n'est pas finie. « Relecture de 20 h : sera sautée (prévision) » : quand la dépense sûre, plus une relecture, dépassera la trajectoire du budget à 20 h. La dépense sûre ne compte pas deux fois un appel que l'API Apify a déjà vu : la prévision n'est jamais démentie. Rien juste après une relecture faite.
 
 - `CADENCE_AUTO=0` par défaut : `!cadence` reste à la main.
 

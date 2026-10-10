@@ -56,13 +56,23 @@ l'onglet Build capacity (capacite) ne suivent plus le Dashboard : passage comple
     posée au moment du saut) et Instagram n'a pas été relu depuis → « relecture légère du jour sautée ». `leger_ok` (une prédiction
     calculée maintenant) n'est plus lu : juste après une relecture faite, il est presque toujours faux. Une relecture encore prévue
     aujourd'hui n'est annoncée « sera sautée (prévision) » que si la dépense déjà faite, plus une relecture, dépasse la trajectoire
-    du budget À L'HEURE de cette relecture (la dépense ne fait que monter : la prévision ne se dément pas) ;
+    du budget À L'HEURE de cette relecture ;
   - « ⚠ lien de X d'après le nom » aligné sur controle.lien_de : aucun détenteur confirmé (un membre parti n'en est plus un), nom du
     membre du lien connu, aucun mot commun avec le Gérant, et le Gérant ne se résout pas par le prénom sur ce membre (sans registre
     ou sans liste des membres, rien n'est résolu ni signalé, comme le contrôle) ;
   - la catégorie d'un lien se lit PAR SON ID (controle.categorie_lien, avec les notes du bouclage lues une fois et passées aussi au
     bouclage) : une URL vide, périmée ou partagée par deux fiches ne fait plus diverger les lignes Pages / Libérés / ⚠ Sans ligne
     et les seaux du bouclage.
+
+10/10 (reprise de la passe 3 du lot DASH, vérification) :
+  - une URL reprise par un nouveau lien après l'effacement de l'ancien mène au lien ACTIF (_index_par_url, même règle que
+    controle._index_par_url) : avant, la cellule était rattachée au lien effacé de plus petit id (« ⚠ … (supprimé) », clics en
+    écart du bouclage, faux C6 « cellule = lien effacé de GAML ») ;
+  - la prévision « sera sautée » part du MINORANT de la dépense (_usage_minorant : la dernière lecture de l'API plus les appels
+    notés après elle) : la dépense publiée de la source « apify » compte deux fois un appel noté juste avant la lecture de l'API,
+    puis redescend — la prévision affichée à 9 h 05 était démentie à 14 h. Le minorant ne fait que monter : elle ne se dément pas ;
+  - la relecture notée traitée par la garde mais pas encore finie (`leger_iso` posé à la fin) est dite « relecture de H h en
+    cours », jamais « prochain relevé au passage complet du matin » (_relecture_en_cours).
 
 Les modules des autres lots (series, controle, metricool_comptes, paie_clics.clics_lien / clics_aujourdhui) sont importés s'ils
 sont là : s'il en manque un, sa section dit « source indisponible », ou les chiffres viennent des cellules du classeur (repli
@@ -123,6 +133,7 @@ CLICS_VIEUX_MIN = 45                   # clics du jour relevés il y a plus long
 METRICOOL_VIEUX_J = 3                  # données Metricool plus vieilles (J-3 et au-delà) : « ⚠ » dans la fraîcheur
 ATTENTE_PASSAGE_S = 1800               # réécriture différée : attendre au plus 30 min la fin du passage complet
 MARGE_PREVISION_USD = 0.011            # 10/10 (passe 3) : « sera sautée (prévision) » au-delà des arrondis au centime de l'état publié
+LEGER_EN_COURS_MIN = 30                # 10/10 (reprise) : heure de relecture traitée il y a moins longtemps, rien relu depuis : en cours
 
 COLONNES = ["Gérant", "@", "Utilisation", "ETAT", "Followers", "Δ 24 h", "Δ 7 j", "Reels hier", "Reels 7 j", "Δ Reels",
             "Vues 7 j (48 h)", "Δ vues", "Vue médiane", "Lien", "Clics auj.", "Clics hier", "Clics 7 j", "Δ clics", "Mesure", "Relevé"]
@@ -257,6 +268,20 @@ def _url_cle(u) -> str:
     t = re.sub(r"^https?://", "", t)
     t = re.sub(r"^www\.", "", t)
     return t.split("?")[0].split("#")[0].rstrip("/")
+
+
+def _index_par_url(liens: dict) -> dict:
+    """{URL (clé) : id du lien qu'une cellule ou une bio désigne par cette URL}. 10/10 (reprise de la passe 3 du lot DASH, même
+    règle que controle._index_par_url) : deux fiches de même URL — N0 effacé de GAML, N1 qui a repris son slug — mènent à la fiche
+    ACTIVE (ni `supprime_gaml` ni `desactive`), puis au plus petit id. Avant : le plus petit id seul — la cellule de N1 rattachée à
+    N0 effacé (« ⚠ paul (supprimé) », Clics 7 j vide, « écart 70 ⚠ » au bouclage, C6 « cellule = lien effacé de GAML »). Une URL
+    que seule une fiche effacée ou désactivée porte mène toujours à elle."""
+    out = {}
+    for lid, info in sorted(liens.items(), key=lambda x: (bool(x[1].get("supprime_gaml") or x[1].get("desactive")), x[0])):
+        u = _url_cle(info.get("url"))
+        if u:
+            out.setdefault(u, lid)
+    return out
 
 
 _RE_URL = re.compile(r"(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s,;|]*)?", re.I)
@@ -459,11 +484,7 @@ class _Ctx:
         self.non_lus = self.etats.get("non_lus") if isinstance(self.etats.get("non_lus"), dict) else {}
         self.bios = self.etats.get("bios") if isinstance(self.etats.get("bios"), dict) else {}
         self.liens = {str(k): v for k, v in (self.clics.get("liens") or {}).items() if isinstance(v, dict)}
-        self.par_url = {}
-        for lid, info in sorted(self.liens.items()):
-            u = _url_cle(info.get("url"))
-            if u:
-                self.par_url.setdefault(u, lid)
+        self.par_url = _index_par_url(self.liens)                        # 10/10 (reprise DASH) : le lien ACTIF d'une URL reprise
         self._clics = {}
         self._cats = {}
         self.notes = _notes_controle(self.clics)                         # 10/10 (passe 3) : les notes du bouclage, une fois
@@ -1225,20 +1246,81 @@ def _prochaine_relecture(ctx):
     return h, t_r, _a_heure(j, h)
 
 
+def _usage_minorant(ctx, st: dict) -> float:
+    """10/10 (reprise de la passe 3 du lot DASH) : la dépense SÛRE du cycle, celle que la garde de la relecture verra au moins.
+    Source « apify » : etats_comptes.etat_budget ajoute à la dernière lecture de l'API les appels notés depuis CETTE LECTURE MOINS
+    RECOUVREMENT_API_MIN minutes (l'API a du retard : prudent pour un plafond, au pire compté deux fois une demi-heure) — la dépense
+    publiée REDESCEND à la lecture suivante de l'API. Le minorant : la dernière lecture de l'API (`apify_local.api`) plus les seuls
+    appels notés APRÈS elle, jamais plus que la dépense publiée ; un `usage_min_usd` publié par le lot SCAN est pris tel quel.
+    Source « local » (appels notés seulement, aucun recouvrement), ou registre illisible : la dépense publiée."""
+    b = ctx.etats.get("apify_budget") if isinstance(ctx.etats.get("apify_budget"), dict) else {}
+    publie = _montant(b.get("usage_min_usd"))
+    if publie is not None:
+        return min(publie, st["usage"])
+    loc = ctx.etats.get("apify_local") if isinstance(ctx.etats.get("apify_local"), dict) else {}
+    api = loc.get("api") if isinstance(loc.get("api"), dict) else {}
+    t_api, u_api = _instant(api.get("t")), _montant(api.get("usage_usd"))
+    d0 = st.get("debut")
+    if st.get("source") != "apify" or t_api is None or u_api is None or (d0 is not None and t_api < d0) \
+            or t_api > ctx.maintenant + timedelta(minutes=5):
+        return st["usage"]
+    usage = u_api
+    for x in loc.get("entrees") if isinstance(loc.get("entrees"), list) else []:
+        t = _instant(x[0]) if isinstance(x, list) and x else None
+        usd = _montant(x[1]) if isinstance(x, list) and len(x) > 1 else None
+        if t is not None and usd is not None and t_api < t <= ctx.maintenant + timedelta(minutes=5) and (d0 is None or t >= d0):
+            usage += usd
+    return min(usage, st["usage"])
+
+
 def _relecture_prevue_sautee(ctx, st: dict, prochaine=None):
-    """10/10 (passe 3) : (heure, trajectoire à cette heure) de la prochaine relecture légère du jour (_prochaine_relecture) si elle
-    SERA sautée : dépense déjà faite + coût d'une relecture (`cout_leger_usd`, 0 s'il est inconnu) au-dessus de la trajectoire du
-    budget À L'HEURE de cette relecture — la dépense ne fait que monter, la prévision ne se dément pas ; None sinon."""
+    """10/10 (passe 3) : (heure, trajectoire à cette heure, dépense retenue) de la prochaine relecture légère du jour
+    (_prochaine_relecture) si elle SERA sautée : dépense déjà faite + coût d'une relecture (`cout_leger_usd`, 0 s'il est inconnu)
+    au-dessus de la trajectoire du budget À L'HEURE de cette relecture ; None sinon.
+    10/10 (reprise : la dépense publiée de la source « apify » compte deux fois un appel noté juste avant la lecture de l'API, puis
+    redescend — « relecture de 14 h : sera sautée (prévision) » affiché à 9 h 05 et 9 h 20, retiré à 9 h 35, relecture faite à
+    14 h ; 56 quarts d'heure démentis sur un mois simulé) : la prévision part du MINORANT de la dépense (_usage_minorant), qui ne
+    fait que monter jusqu'à l'heure de la relecture — la prévision ne se dément pas."""
     p = prochaine if prochaine is not None else _prochaine_relecture(ctx)
     if p is None or (st.get("fin") is not None and p[1] >= st["fin"]):  # cycle suivant : la dépense repart de 0
         return None
+    usage = _usage_minorant(ctx, st)
     # marge d'arrondi : l'état publié arrondit trajectoire et coût au centime (la garde calcule sans arrondi) — jamais « sera
     # sautée » à un centime près
-    if st["usage"] + (st.get("cout_leger") or 0.0) > _trajectoire_a(st, p[1]) + MARGE_PREVISION_USD:
+    if usage + (st.get("cout_leger") or 0.0) > _trajectoire_a(st, p[1]) + MARGE_PREVISION_USD:
         # la trajectoire écrite est celle de l'HEURE prévue (une relecture due mais pas encore traitée : le texte ne bouge pas de
         # quart d'heure en quart d'heure, l'empreinte non plus)
-        return p[0], _trajectoire_a(st, p[2])
+        return p[0], _trajectoire_a(st, p[2]), usage
     return None
+
+
+def _relecture_en_cours(ctx, st: dict):
+    """10/10 (reprise de la passe 3 du lot DASH) : l'heure H de la relecture légère qui tourne en ce moment, sinon None. La garde du
+    lot SCAN note H dans `legers` AVANT de lancer la relecture ; `leger_iso` n'est posé qu'après l'appel Apify (quelques minutes),
+    et la boucle de 15 min du Dashboard n'attend pas les passages légers. Avant, un quart d'heure tombé dans ce créneau, un jour où
+    la relecture de 14 h avait été sautée pour le budget, disait « prochain relevé au passage complet du matin » pendant que celle
+    de 20 h tournait. En cours : H, dernière heure traitée aujourd'hui, date de moins de LEGER_EN_COURS_MIN minutes ; rien relu
+    depuis H (ni `leger_iso`, ni passage complet qui l'aurait rendue inutile) ; et le budget publié la laissait passer, avec la
+    formule de la garde (passage_leger_si_du._budget_permet : pas coupé ; dépense publiée + coût d'une relecture — `apify_local`
+    `cout_leger_usd` non arrondi, celui de la garde — sous la trajectoire publiée, ramenée à H h : la garde passe à H h ou juste
+    après) — sinon la garde l'a sautée et le fait « sautée » reste entier."""
+    j, traitees = _legers_du_jour(ctx)
+    if not traitees:
+        return None
+    h = traitees[-1]
+    t_h = _a_heure(j, h)
+    if not timedelta(0) <= ctx.maintenant - t_h < timedelta(minutes=LEGER_EN_COURS_MIN):
+        return None
+    leger, complet = _instant(ctx.etats.get("leger_iso")), _instant(ctx.etats.get("scan_iso"))
+    _, apres, _ = _reglages_legers()
+    if (leger is not None and leger >= t_h) or (complet is not None and complet > t_h - timedelta(hours=apres)):
+        return None
+    loc = ctx.etats.get("apify_local") if isinstance(ctx.etats.get("apify_local"), dict) else {}
+    cout = _montant(loc.get("cout_leger_usd"))
+    cout = cout if cout is not None else (st.get("cout_leger") or 0.0)
+    if st.get("coupe") or st.get("atteint") or st["usage"] + cout > _trajectoire_a(st, t_h) + 1e-9:
+        return None
+    return h
 
 
 def _fraicheur_apify(ctx: _Ctx) -> tuple:
@@ -1247,7 +1329,8 @@ def _fraicheur_apify(ctx: _Ctx) -> tuple:
     « ⛔ Apify coupé jusqu'au JJ/MM » à 100 % ; « ⚠ » dès que la dépense dépasse la trajectoire linéaire du budget.
     10/10 (passe 3) : « relecture légère du jour sautée » seulement sur un fait (_relecture_sautee), « relecture de H h : sera
     sautée (prévision) » seulement quand la trajectoire à cette heure-là ne la permettra pas (_relecture_prevue_sautee) ; `leger_ok`
-    n'est plus lu ici."""
+    n'est plus lu ici. 10/10 (reprise) : prévision sur le minorant de la dépense, « relecture de H h en cours » pendant qu'elle
+    tourne (_relecture_en_cours)."""
     st = budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant)
     if st is None:
         return "Apify : budget pas encore lu", None
@@ -1268,15 +1351,22 @@ def _fraicheur_apify(ctx: _Ctx) -> tuple:
     prochaine = _prochaine_relecture(ctx)
     prevue = _relecture_prevue_sautee(ctx, st, prochaine)
     cout = f" + {_euros(st['cout_leger'])} $ par relecture" if st.get("cout_leger") else " + une relecture"
-    prevision = (f"relecture de {prevue[0]} h : sera sautée (prévision) — {u} $ dépensés{cout} dépasseront la trajectoire du budget à "
+    # 10/10 (reprise) : la dépense de la prévision est son minorant (_usage_minorant) ; « au moins » quand il est sous le titre
+    dep = "" if not prevue else (f"{u} $" if _euros(prevue[2]) == u else f"au moins {_euros(prevue[2])} $")
+    prevision = (f"relecture de {prevue[0]} h : sera sautée (prévision) — {dep} dépensés{cout} dépasseront la trajectoire du budget à "
                  f"{prevue[0]} h ({_euros(prevue[1])} $ sur {bud} $)") if prevue else ""
     if sautee:                                                           # le fait : sans chiffre d'un autre moment que le saut
-        suite = (f"celle de {prevue[0]} h le sera aussi (prévision : {u} $ dépensés{cout}, trajectoire de {_euros(prevue[1])} $ à "
-                 f"{prevue[0]} h)") if prevue else (f"prochaine relecture prévue à {prochaine[0]} h" if prochaine else
-                                                    "prochain relevé au passage complet du matin")
+        # 10/10 (reprise) : une relecture lancée par la garde et pas encore finie (_relecture_en_cours) est dite « en cours »,
+        # jamais « prochain relevé au passage complet du matin »
+        en_cours = _relecture_en_cours(ctx, st)
+        suites = ([f"celle de {prevue[0]} h le sera aussi (prévision : {dep} dépensés{cout}, trajectoire de {_euros(prevue[1])} $ à "
+                   f"{prevue[0]} h)"] if prevue else [f"prochaine relecture prévue à {prochaine[0]} h"] if prochaine else []) \
+            + ([f"relecture de {en_cours} h en cours"] if en_cours is not None else [])
+        suites = suites or ["prochain relevé au passage complet du matin"]
         fait = (f"relecture légère du jour sautée par la garde du budget (la dépense plus une relecture dépassait la trajectoire du "
-                f"budget de {bud} $){local} — comptes pas relus depuis (colonne Relevé) ; {suite}")
-        prevision, suffixe = "", " : relecture légère du jour sautée"
+                f"budget de {bud} $){local} — comptes pas relus depuis (colonne Relevé) ; {' ; '.join(suites)}")
+        prevision = ""
+        suffixe = " : relecture légère du jour sautée" + (f" · relecture de {en_cours} h en cours" if en_cours is not None else "")
     else:
         fait, suffixe = "", (f" · relecture de {prevue[0]} h : sera sautée (prévision)" if prevue else "")
     if st["usage"] > st["trajectoire"] + 1e-9:
