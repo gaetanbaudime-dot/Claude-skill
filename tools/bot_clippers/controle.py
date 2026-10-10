@@ -8,13 +8,14 @@ Familles (contrat C3) :
   C1  compte créé (hors BAN) sans Gérant — la file « à mettre Metricool » avec sa date de premier signalement ;
   C2  Gérant fantôme (ni membre signé unique sur le serveur, ni créatrice, ni « X (Metricool) » connu) ;
   C3  Gérant ambigu (deux membres signés du même prénom) ;
-  C4  Gérant ≠ propriétaire de la fiche d'onboarding (accès et codes 2FA encore chez un autre, compte jamais livré) ;
+  C4  Gérant ≠ propriétaire de la fiche d'onboarding (accès et codes 2FA encore chez un autre, compte jamais livré, compte d'un
+      homonyme parti — sortis.json) ; chaque remède tient en 300 caractères, étapes en flèches ;
   C5  clipper dont le lien est dû (parcours.lien_du, ou ancien avec un compte créé) sans lien pour la créatrice de la ligne ;
   C6  cellule « Lien GAML associé » ≠ lien attendu (libéré, hors clipping, supprimé, désactivé, autre clipper, page de la créatrice,
       lien jamais attribué), ou VIDE alors que le clipper a son lien ;
   C7  lien attribué sans ligne vivante (ou à un membre absent du registre) ;
   C8  lien libéré, hors clipping ou jamais attribué avec des visites payables sur 7 j, porté par aucune ligne ;
-  C9  note GAML ≠ attribution du bot ;
+  C9  note GAML ≠ attribution du bot (10/10 : lien attribué dont la note ne commence plus par « Clipping » — paie_clics le détache) ;
   C10 lien en bio Instagram (etats_comptes.json « bios ») ≠ lien attendu ;
   C11 @ en double (même onglet, ou deux onglets : la ligne écartée par onboarding._sans_doublons est invisible au bot) ;
   C12 compte non lu / restreint / illisible au dernier passage (etats « non_lus », « dernier_passage », historique, séries).
@@ -34,11 +35,14 @@ Règles communes (revue du 09/10) :
 
 API :
   anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat) -> [{"famille", "gravite", "texte", "cle"}]
-      pure : les entrées optionnelles (etats, parcours, details_gaml, premiers_vus, memoire, maintenant) se passent en mots-clés ;
+      pure : les entrées optionnelles (etats, parcours, details_gaml, premiers_vus, memoire, maintenant, sortis) se passent en
+      mots-clés ;
       laissées à None, elles sont LUES (lecture seule) dans les fichiers du bot quand le module est configuré, sinon ignorées.
   bouclage(clics, lignes_attribuees, fin=None, jours=7, masques=None, notes=None) -> dict : visites 7 j de tous les liens actifs =
-      lignes + masques + pages + libérés/hors clipping + écart (liens attribués ou de clipping portés par aucune ligne).
-  categorie(info, note=None) ; clics_lien(clics, lid, debut, fin) ; visites_7j(clics, lid, fin) ; texte_admin(anomalies) ;
+      lignes + masques + pages + libérés/hors clipping + écart (liens attribués ou de clipping portés par aucune ligne), et
+      `categories` {lid: catégorie} (10/10).
+  categorie(info, note) — sans `note`, celle que lit le bouclage (10/10 : le Dashboard et le bouclage rangent pareil) ;
+  categorie_lien(clics, lid) ; clics_lien(clics, lid, debut, fin) ; visites_7j(clics, lid, fin) ; texte_admin(anomalies) ;
   empreinte(anomalies, precedentes=None) ; compter(anomalies) ; non_mesurees(anomalies) -> {famille: raison}.
   await passage(deps) : le tour de 15 min (calcul, mémoire des premiers signalements, des dernières mesures, des notes GAML
       vivantes et des clés du tour d'avant, salon admin seulement si l'empreinte change).
@@ -81,7 +85,8 @@ GRAVITES = ("bloquant", "important", "info")
 # 09/10 (revue CONTROLE) : seulement quand AUCUN membre signé ne porte ce prénom (Rianah est aussi clippeuse signée depuis le 07/10).
 STAFF = {p for p in (onboarding._norm(x).strip() for x in os.environ.get("CONTROLE_STAFF", "gaetan,rianah,jonas").split(",")) if p}
 BIO_JOURS = int(os.environ.get("CONTROLE_BIO_JOURS", "7") or 7)         # une bio relevée il y a plus longtemps n'est plus jugée
-CLICS_DEPUIS = os.environ.get("CLICS_DEPUIS", "2026-09-16").strip()       # même début de relevé que paie_clics
+# 10/10 (paie du 5 et du 20) : le début du relevé est celui de paie_clics (2026-10-05), jamais une date recopiée ici
+CLICS_DEPUIS = str(getattr(paie_clics, "CLICS_DEPUIS", "") or os.environ.get("CLICS_DEPUIS", "2026-10-05")).strip()
 MEMOIRE_JOURS = int(os.environ.get("CONTROLE_MEMOIRE_JOURS", "3") or 3)   # C8 : dernière mesure gardée au plus 3 jours
 GRACE_H = int(os.environ.get("CONTROLE_GRACE_H", "24") or 24)            # C12 « jamais lu » : info pendant 24 h (ligne neuve)
 LIMITE_TEXTE = 1950
@@ -90,8 +95,34 @@ SEPARATEURS_PSEUDO = (" - ", " – ", " — ", " | ", " · ")                 # 
 PAGES_CHEMINS = {"ytb", "fb", "yt", "youtube", "facebook"}
 _RE_COMPTE_DE = re.compile(r"\s*compte\s+de\s+@?\s*(\S+)")
 _RE_CLIPPING = re.compile(r"\s*clipping\s+(.+)$", re.I)
+# 10/10 (vérification CONTROLE) : « Clipping » n'importe où dans la note (« Chloé - Clipping Nina », « Lien clipping Nina ») — un
+# lien de clipping, jamais une page de la créatrice
+_RE_CLIPPING_PARTOUT = re.compile(r"\bclipping\s+(\S.*)$", re.I)
+_RE_MOT_CLIPPING = re.compile(r"\bclipping\b", re.I)
+_RE_EX = re.compile(r"\(\s*ex\b[^)]*\)", re.I)                          # « (ex-Clipping Paul) » : l'ancien détenteur, pas la note
 _RE_METRICOOL = re.compile(r"\s*(\S+)\s+metricool\b")
 _RE_INSTAGRAM = re.compile(r"(^|\.)(instagram\.com|instagr\.am|threads\.net)$")
+
+
+def _clipping_de(note):
+    """10/10 (vérification CONTROLE) : le match « Clipping <nom> » d'une note, en tête (« Clipping Nina ») ou ailleurs (« Chloé -
+    Clipping Nina »), sans compter une parenthèse « (ex-…) » ; None si la note ne dit pas « Clipping <nom> »."""
+    note = str(note or "")
+    return _RE_CLIPPING.match(note) or _RE_CLIPPING_PARTOUT.search(_RE_EX.sub(" ", note))
+
+
+def _clipping_en_tete(note) -> bool:
+    """10/10 (vérification CONTROLE, 2e passe) : la règle de paie_clics (_prenom_note) — « Clipping <nom> » EN TÊTE de la note. Sans
+    elle, synchroniser_notes sort un lien attribué du clipping (uid vidé, plus payé au clic) : une seule règle pour les deux modules."""
+    f = getattr(paie_clics, "_prenom_note", None)
+    if callable(f):
+        try:
+            return bool(f(note))
+        except Exception:                                                # noqa: BLE001 — repli : la même expression
+            pass
+    m = _RE_CLIPPING.match(str(note or ""))
+    return bool(m and m.group(1).strip())
+
 
 _deps: dict = {}
 
@@ -346,13 +377,22 @@ def _chemin(info: dict):
     return u.split("/", 1)[1] if "/" in u else ""
 
 
-def categorie(info: dict, note: str = None) -> str:
+_NOTE_PAR_DEFAUT = object()                                              # categorie(info) sans note : la note du bouclage
+
+
+def categorie(info: dict, note: str = _NOTE_PAR_DEFAUT) -> str:
     """attribue / libere / hors_clipping / page / non_attribue / desactive / supprime. 09/10 (revue CONTROLE) : « page » est
     définie POSITIVEMENT — note « Compte de @… », lien /ytb ou /fb, page principale (domaine seul), note qui ne parle pas de
     clipping ; un lien de clipping sans détenteur (note « Clipping Nina » jamais attribuée, lien suivi par le rapport sans uid, lien
     sans note sur un chemin) est « non_attribue » (avant : rangé en page, l'écart du bouclage restait à 0). `note` = la note GAML
-    vivante si on l'a (sinon celle de clics.json)."""
+    vivante si on l'a ; None = celle de clics.json.
+    10/10 (vérification CONTROLE) : 1. « Clipping » n'importe où dans la note (« Chloé - Clipping Nina ») = un lien de clipping
+    (« non_attribue », « libere » pour « … Clipping libre »), jamais une page ; 2. appelée SANS note (le Dashboard), la note est
+    celle que le bouclage lit (_notes_par_defaut : note vivante du cache de l'onboarding, mémoire du contrôle, copie de clics.json),
+    retrouvée par l'URL du lien : les lignes « Pages » et « Libérés » du Dashboard et les seaux du bouclage disent la même chose."""
     info = info if isinstance(info, dict) else {}
+    if note is _NOTE_PAR_DEFAUT:
+        note = _note_par_defaut(info)
     if info.get("supprime_gaml"):
         return "supprime"
     if info.get("desactive"):
@@ -376,6 +416,10 @@ def categorie(info: dict, note: str = None) -> str:
         return "non_attribue"                                            # « Clipping » sans prénom : un lien de clipping
     if info.get("suivi"):
         return "non_attribue"
+    sans_ex = _RE_EX.sub(" ", n)                                         # 10/10 : « Chloé - Clipping Nina », « Lien clipping Nina »
+    m = _RE_CLIPPING_PARTOUT.search(sans_ex)
+    if m or _RE_MOT_CLIPPING.search(sans_ex):
+        return "libere" if m and _premier(m.group(1)) == "libre" else "non_attribue"
     chemin = _chemin(info)
     dernier = (chemin or "").strip("/").split("/")[-1] if chemin else ""
     if chemin == "" or _n(dernier) in PAGES_CHEMINS or _n(str(info.get("slug") or "").strip("/")) in PAGES_CHEMINS:
@@ -394,34 +438,124 @@ def _notes(clics: dict, details=None, memo=None) -> tuple:
     tant que le bot n'a pas changé sa copie depuis ; sinon la copie de clics.json. Un cache plus vieux qu'un changement fait par le
     bot (synchroniser_notes : la copie a bougé, pas le cache) ne gagne pas sur la copie."""
     liens = {str(k): v for k, v in (((clics or {}).get("liens") or {}) if isinstance(clics, dict) else {}).items() if isinstance(v, dict)}
-    memo = memo if isinstance(memo, dict) else {}
-    notes, vus = {}, {}
-    for lid, info in liens.items():
-        if info.get("note") is not None:
-            notes[lid] = str(info.get("note") or "")
-    for lid, m in memo.items():
-        lid = str(lid)
-        if lid in liens and isinstance(m, dict) and m.get("note") is not None and \
-                str(m.get("copie") or "") == str(liens[lid].get("note") or ""):
-            notes[lid] = str(m["note"])
+    memo = {str(k): v for k, v in memo.items()} if isinstance(memo, dict) else {}
+    vives = {}
     for d in details or []:
-        if not isinstance(d, dict) or not d.get("id") or d.get("note") is None or not str(d.get("note")).strip():
-            continue
-        lid, vive = str(d["id"]), str(d.get("note") or "")
-        copie = str((liens.get(lid) or {}).get("note") or "")
-        m = memo.get(lid) if isinstance(memo.get(lid), dict) else None
-        if lid in liens and m and str(m.get("note") or "") == vive and str(m.get("copie") or "") != copie:
-            continue                                                     # cache d'avant un changement du bot : la copie fait foi
-        notes[lid] = vive
-        vus[lid] = {"note": vive, "copie": copie}
+        if isinstance(d, dict) and d.get("id") and d.get("note") is not None and str(d.get("note")).strip():
+            vives[str(d["id"])] = str(d.get("note") or "")              # le dernier détail d'un id l'emporte
+    notes, vus = {}, {}
+    for lid in list(liens) + [l for l in vives if l not in liens]:
+        note, vu = _note_lien(liens.get(lid), vives.get(lid), memo.get(lid) if lid in liens else None)
+        if note is not None:
+            notes[lid] = note
+        if vu is not None:
+            vus[lid] = vu
     return notes, vus
+
+
+def _note_lien(info, vive=None, m=None) -> tuple:
+    """(note, vu) d'UN lien — la règle de _notes, écrite une seule fois (10/10, vérification CONTROLE : le Dashboard et le bouclage
+    lisent la même note). `info` = sa fiche de clics.json (None si inconnue), `vive` = la note du cache de l'onboarding, `m` = la
+    mémoire du contrôle. La mémoire sert tant que le bot n'a pas changé sa copie depuis ; la note vive gagne, sauf si elle date
+    d'avant un changement fait par le bot (synchroniser_notes : la copie a bougé, pas le cache). `vu` = ce qu'il faut mémoriser."""
+    copie_brute = info.get("note") if isinstance(info, dict) else None
+    copie = str(copie_brute or "")
+    note = None if copie_brute is None else copie
+    m = m if isinstance(m, dict) else None
+    if info is not None and m is not None and m.get("note") is not None and str(m.get("copie") or "") == copie:
+        note = str(m["note"])
+    if vive is None or not str(vive).strip():
+        return note, None
+    vive = str(vive)
+    if info is not None and m and str(m.get("note") or "") == vive and str(m.get("copie") or "") != copie:
+        return note, None                                                # cache d'avant un changement du bot : la copie fait foi
+    return vive, {"note": vive, "copie": copie}
+
+
+_index_defaut = {"cle": None, "par_url": {}}                               # cache de _note_par_defaut (une lecture par état)
+
+
+def _signature(f) -> tuple:
+    try:
+        st = f.stat() if f is not None else None
+        return (str(f), st.st_mtime_ns, st.st_size) if st is not None else (str(f), None, None)
+    except OSError:
+        return (str(f), None, None)
+
+
+def _index_notes_defaut() -> dict:
+    """{url : [(lid, note vive ou None, mémoire ou None, fiche clics.json ou None)]} : de quoi retrouver la note du bouclage d'un
+    lien passé sans son id. Le cache de l'onboarding (id, url, note) et la mémoire du contrôle (controle.json « notes », l'URL y est
+    gardée depuis le 10/10) — mêmes sources que _notes_par_defaut ; reconstruit seulement quand le cache, controle.json ou
+    clics.json changent (le Dashboard l'appelle par lien).
+    10/10 (vérification CONTROLE, 2e passe : N0 effacé de GAML, N1 a repris son slug — le Dashboard rangeait N1 en non attribué, le
+    bouclage en page ; même chose après un slug renommé dans GAML, l'URL de clics.json périmée) : quand clics.json est lisible,
+    l'index part de SES fiches, par id comme le bouclage — chaque URL de clics.json mène au lien qui la porte, avec la note vive et
+    la mémoire de CET id ; une fiche effacée ou désactivée n'est jamais candidate (sa catégorie ne dépend pas de la note)."""
+    cache = getattr(onboarding, "_details_gaml", None) or {}
+    liste = cache.get("liens") if isinstance(cache, dict) else None
+    lu = _dep("lire_json") and _dossier() is not None
+    f = _fichier("FICHIER_CONTROLE", "controle.json") if lu else None
+    fc = _fichier("FICHIER_CLICS", "clics.json") if lu else None
+    cle = (id(liste), len(liste or ()), str(cache.get("jour") or ""), cache.get("liste_t"), _signature(f), _signature(fc))
+    if _index_defaut["cle"] == cle:
+        return _index_defaut["par_url"]
+    memo = (_lire_etat().get("notes") or {}) if f is not None else {}
+    memo = {str(k): v for k, v in memo.items() if isinstance(v, dict)} if isinstance(memo, dict) else {}
+    clics = _lire_fichier("FICHIER_CLICS", "clics.json", {}) if fc is not None else None
+    liens = {str(k): v for k, v in (clics.get("liens") or {}).items() if isinstance(v, dict)} \
+        if isinstance(clics, dict) and isinstance(clics.get("liens"), dict) else {}
+    par_url, vives = {}, {}
+    for d in _details_en_cache():
+        if d.get("note") is not None and str(d.get("note")).strip():
+            vives[str(d["id"])] = (str(d.get("note") or ""), _url_cle(d.get("url")))   # le dernier détail d'un id l'emporte
+    if liens:
+        for lid, i in liens.items():
+            u = _url_cle(i.get("url"))
+            if u and not i.get("supprime_gaml") and not i.get("desactive"):
+                par_url.setdefault(u, []).append((lid, (vives.get(lid) or (None, ""))[0], memo.get(lid), i))
+    else:
+        for lid, (vive, u) in vives.items():
+            if u:
+                par_url.setdefault(u, []).append((lid, vive, memo.get(lid), None))
+        for lid, m in memo.items():
+            u = _url_cle(m.get("url"))
+            if u and lid not in vives:
+                par_url.setdefault(u, []).append((lid, None, m, None))
+    _index_defaut.update({"cle": cle, "par_url": par_url})
+    return par_url
+
+
+def _note_par_defaut(info: dict):
+    """La note que le bouclage lirait pour ce lien (contrat C6(e), 10/10) : retrouvé par son URL (celle de clics.json quand il est
+    lisible), la règle de _note_lien ; None (= la copie de clics.json) quand rien d'autre n'est connu ou que deux liens de même URL
+    ne disent pas la même chose — sauf quand l'un d'eux est cette fiche-là (même contenu)."""
+    u = _url_cle((info or {}).get("url"))
+    if not u:
+        return None
+    try:
+        cands = _index_notes_defaut().get(u) or []
+    except Exception as erreur:                                          # noqa: BLE001 — jamais bloquer une catégorie
+        journal.debug("Contrôle : notes par défaut illisibles (%s)", erreur)
+        return None
+    if len(cands) > 1:
+        memes = [k for k in cands if k[3] is not None and (k[3] is info or k[3] == info)]
+        cands = memes[:1] or cands
+    notes = {_note_lien(info, vive, m)[0] for _, vive, m, _ in cands}
+    return notes.pop() if len(notes) == 1 else None
 
 
 # ------------------------------------------------------------------ le contexte d'un calcul
 class _Ctx:
     def __init__(self, comptes, clics, onb, registre, membres_d, series_etat, etats, parcours, details, premiers_vus, maintenant,
-                 memoire=None):
+                 memoire=None, sortis=None):
         self.comptes = comptes
+        # 10/10 (vérification CONTROLE, cas Eddy du 24/09) : le pseudo des membres partis (sortis.json : `!sortie`, départ du
+        # serveur), seule trace de leur nom une fois sortis du registre — C4 sait si l'ancien détenteur d'un compte est un homonyme
+        self.noms_sortis = {}
+        for s in sortis if isinstance(sortis, list) else []:
+            if isinstance(s, dict) and str(s.get("uid") or "") and str(s.get("nom") or "").strip():
+                self.noms_sortis[str(s["uid"])] = str(s["nom"]).strip()
         self.clics = clics
         self.liens = {str(k): v for k, v in ((clics.get("liens") or {}) if isinstance(clics, dict) else {}).items() if isinstance(v, dict)}
         self.onb = onb
@@ -457,6 +591,11 @@ class _Ctx:
         self.hotes_gaml = {_hote(u) for u in self.par_url} | {_hote(d.get("url")) for d in details}
         self.hotes_gaml.discard("")
         self.cats = {lid: categorie(info, self.notes.get(lid)) for lid, info in self.liens.items()}
+        # 10/10 (vérification CONTROLE) : les liens suivis par le rapport (sans uid, ni libérés, ni hors clipping) — « le sien » sur
+        # une ligne dont le Gérant porte le nom suivi (suivis_siens)
+        self.suivis = sorted((lid, i) for lid, i in self.liens.items() if i.get("suivi") and not str(i.get("uid") or "")
+                             and self.cats.get(lid) == "non_attribue")
+        self.suivis_ids = {lid for lid, _ in self.suivis}
         self._resolus, self._cr, self._mots = {}, {}, {}
         self.cellules = {}                                               # url → lignes qui portent ce lien dans leur cellule
         for c in comptes:
@@ -550,11 +689,47 @@ class _Ctx:
             return not strict
         return bool(mots & _mots_nom(gerant))
 
+    def parti(self, uid) -> bool:
+        """10/10 (vérification CONTROLE) : membre parti = ni sur le serveur, ni au registre des signés (le départ retire sa fiche du
+        registre). Sans registre ou sans liste des membres, personne n'est dit parti (rien n'est décidé)."""
+        uid = str(uid or "")
+        return self.resolution and bool(uid) and uid not in self.membres and uid not in self.registre
+
+    def nom_parti(self, uid) -> str:
+        """10/10 : le nom d'un membre parti d'après sortis.json (pseudo avant « - Créatrice »), '' s'il n'y est pas."""
+        return _avant_separateur(self.noms_sortis.get(str(uid or ""), "")).strip()
+
+    def clipper_signe(self, c) -> str:
+        """Le clipper de la ligne (proprio) s'il est signé et présent ; '' pour un membre parti ou sorti du registre (10/10)."""
+        p = self.proprio(c)
+        return "" if (self.resolution and p not in self.signes) else p
+
     def detenteurs(self, c) -> set:
         """Contrat C6(d) : les uid qui détiennent la ligne d'après onboarding.json, compatibles avec le Gérant écrit (un Gérant changé
-        à la main pour quelqu'un d'autre ne garde pas l'ancien détenteur) — même règle que onboarding._detenteurs du lot CLICS."""
+        à la main pour quelqu'un d'autre ne garde pas l'ancien détenteur) — même règle que onboarding._detenteurs du lot CLICS.
+        10/10 (vérification CONTROLE : un compte encore livré à Paul, parti du serveur et du registre, puis donné à Lea à la main,
+        faisait sortir « lien de Lea, pas de Lea » en bloquant et un C5 « un membre parti ») : un membre parti n'est plus détenteur
+        de rien — son nom est inconnu, il passait pour compatible avec n'importe quel Gérant ; C4 dit que la fiche est à refaire."""
         h = _cle_compte(c.get("handle"))
-        return {u for u in self.detenteurs_bruts.get(h, ()) if self.compatible(u, c.get("gerant"))}
+        return {u for u in self.detenteurs_bruts.get(h, ()) if not self.parti(u) and self.compatible(u, c.get("gerant"))}
+
+    def suivis_siens(self, c, cr: str = None) -> list:
+        """10/10 (vérification CONTROLE : le lien « suivi » du rapport, que liens_classeur pose lui-même sur les lignes de son clipper,
+        sortait en C6 / C9 / C10 importants avec le conseil `!lien`, qui l'aurait fait passer au clic) : les liens suivis par le rapport
+        (sans uid, non libérés, ni effacés, ni désactivés, ni hors clipping) dont le nom suivi a un mot en commun avec le Gérant de la
+        ligne ou avec le nom de son détenteur — même règle que onboarding._lien_d_un_autre (un lien suivi n'y est jamais « d'un
+        autre ») ; `cr` : seulement ceux de cette créatrice (ou de créatrice inconnue)."""
+        mots = _mots_nom(c.get("gerant"))
+        for u in self.detenteurs(c):
+            mots |= self.mots_uid(u)
+        out = []
+        for lid, i in self.suivis:
+            if (mots & _mots_nom(i.get("suivi_nom") or "")) and (cr is None or self.cr_lien(lid) in ("", cr)):
+                out.append((lid, i))
+        return out
+
+    def suivi_sien(self, c, lid) -> bool:
+        return any(l == str(lid) for l, _ in self.suivis_siens(c))
 
     def proprio(self, c) -> str:
         """Le clipper de la ligne : son détenteur unique (onboarding.json), sinon le membre résolu par le prénom (règle du bot) ;
@@ -669,14 +844,67 @@ def _remede_liberer(x: _Ctx, c: dict, genre: str, uid: str = "") -> str:
     """09/10 (revue CONTROLE : `!liberer` ne prend que les lignes dont le Gérant EST le prénom donné — conseillé sur une ligne sans
     Gérant, il ne faisait rien et le bloquant restait à vie) : le remède qui marche. Un Gérant provisoire neutre (JETON_LIBERER,
     personne ne s'appelle ainsi : rien n'est livré entre-temps), `!liberer … pool` (retire le compte de TOUTES les fiches et ses
-    alias 2FA, revide le Gérant, garde l'Utilisation), puis le Gérant d'origine remis."""
+    alias 2FA, revide le Gérant, garde l'Utilisation), puis le Gérant d'origine remis.
+    10/10 (vérification CONTROLE : avec `pool`, le compte d'une clippeuse passait au vivier le temps de remettre son Gérant, et
+    onboarding.disponibles l'offrait en PREMIER au prochain clipper — mot de passe et codes 2FA compris) : `pool` seulement pour un
+    compte déjà sans Gérant (il est déjà au vivier, rien ne change). Sinon `!liberer` SANS `pool` (Utilisation « à mettre
+    Metricool » : hors de disponibles() ; pour un compte « à créer », que `!liberer` ne change pas, l'écrire d'abord à la main),
+    puis le Gérant d'origine remis AVANT l'Utilisation d'origine (jamais une fenêtre Gérant vide + Utilisation Clipper), puis
+    `!onboarding @membre <Créatrice de la ligne>` (sans créatrice, celle du registre : la ligne d'un autre onglet n'était pas livrée).
+    10/10 (vérification CONTROLE, 2e passe : 330 à 440 caractères, le Dashboard coupe à 300 et la coupe tombait avant « Clipper » dans
+    Utilisation et `!onboarding` — suivi à la lettre, le compte restait Gérant remis + « à mettre Metricool », livré à personne) : les
+    étapes en flèches, dans l'ordre, sans phrase autour (« Gérant « Rendu » → `!liberer Rendu h` → Gérant « Lea » → … »)."""
     h, g = c.get("handle"), str(c.get("gerant") or "").strip()
-    texte = f"remède : écrire « {JETON_LIBERER} » dans sa colonne Gérant, puis `!liberer {JETON_LIBERER} {h} pool`"
     if not g:
-        return texte + " (le Gérant redevient vide, l'Utilisation est gardée)"
+        return f"remède : Gérant « {JETON_LIBERER} » → `!liberer {JETON_LIBERER} {h} pool` (Gérant revidé, Utilisation gardée)"
+    u = str(c.get("utilisation") or "").strip()
+    gele = str(getattr(onboarding, "MENTION_LIBERE", "") or "à mettre Metricool")
+    deja_gele = _n(u) == _n(gele)
+    etapes = [] if deja_gele or not _a_creer(c) else [f"Utilisation « {gele} »"]
+    etapes += [f"Gérant « {JETON_LIBERER} »", f"`!liberer {JETON_LIBERER} {h}`", f"Gérant « {g} »"]
+    if not deja_gele:
+        etapes.append(f"Utilisation « {u} »" if u else "Utilisation vidée")
     # la livraison n'est jamais automatique (commandes `!onboarding`, `!creatrice`, reprise) : la commande est donnée
-    return texte + f", puis remettre « {g} »" + (f" et `!onboarding @{x.nom(uid)}` (accès et codes 2FA livrés au Gérant)"
-                                                 if genre == "membre" and uid else "")
+    if genre == "membre" and uid and _n(u) == "clipper":
+        etapes.append(_remede_onboarding(x, c, uid))
+    return "remède : " + " → ".join(etapes)
+
+
+def _remede_onboarding(x: _Ctx, c: dict, uid: str) -> str:
+    """10/10 (vérification CONTROLE) : `!onboarding @membre <Créatrice de la ligne>` — onboarding.livrer prend les lignes dont le Gérant
+    est son prénom chez CETTE créatrice, et complète jusqu'à COMPTES_PAR_CLIPPER avec des comptes libres : dit quand ça arrivera.
+    10/10 (2e passe : la commande ne pouvait rien y faire, ou défaisait une autre livraison) : jamais conseillée quand le Gérant a
+    déjà COMPTES_PAR_CLIPPER autres comptes chez cette créatrice (livrer n'en prend que les premiers : ce compte ne serait jamais
+    livré), ni quand sa fiche d'onboarding porte des comptes d'une AUTRE créatrice (livrer la réécrit pour cette seule créatrice :
+    ses comptes, ses accès et ses codes d'avant en sortiraient) — livraison à la main, dite telle quelle."""
+    cr = (str(c.get("creatrice") or "").split() or [""])[0]
+    nom = x.nom(uid)
+    if not cr:
+        return f"`!onboarding @{nom} <Créatrice>` (colonne Créatrice vide : la remplir d'abord)"
+    k = int(getattr(onboarding, "COMPTES_PAR_CLIPPER", 3) or 3)
+    autres = sum(1 for c2 in x.comptes if c2 is not c and _n(c2.get("gerant")) == _n(c.get("gerant"))
+                 and _n(c2.get("utilisation")) == "clipper" and _n(c2.get("creatrice")).startswith(_premier(cr)) and not _ban(c2))
+    if autres >= k:
+        return f"déjà {autres} autres comptes à son nom chez {cr} : `!onboarding` n'en livre que {k}, livraison à la main"
+    fiche = ((x.onb.get("clippers") or {}) if isinstance(x.onb, dict) else {}).get(str(uid))
+    if isinstance(fiche, dict) and fiche.get("comptes") and _premier(fiche.get("creatrice")) not in ("", _premier(cr)):
+        autre = str(fiche.get("creatrice")).split()[0]
+        return f"livraison à la main : `!onboarding` réécrirait sa fiche {autre} pour {cr} seule"
+    reste = k - autres - 1
+    return f"`!onboarding @{nom} {cr}`" + (f" (+{reste} compte(s) libre(s))" if reste > 0 else "")
+
+
+def _avec_remede(tetes: list, remede: str) -> str:
+    """10/10 (vérification CONTROLE, 2e passe) : « tête — remède » en LIGNE_MAX caractères, moins la place de « · C12 » que le salon
+    admin met devant (le Dashboard coupe le texte à 300, le salon admin la ligne) : la tête la plus longue qui tient avec le remède
+    entier ; sinon la plus courte, raccourcie — jamais le remède."""
+    maxi = LIGNE_MAX - len("· C12 ")
+    for t in tetes:
+        if len(t) + 3 + len(remede) <= maxi:
+            return f"{t} — {remede}"
+    t = tetes[-1]
+    place = max(40, maxi - 3 - len(remede))
+    return (t if len(t) <= place else t[:place - 1] + "…") + " — " + remede
 
 
 # ------------------------------------------------------------------ les familles
@@ -767,28 +995,71 @@ def _c4(x: _Ctx) -> list:
         presents = sorted(o for o in proprios if o != uid and o in x.membres)
         etrangers = [o for o in presents if not x.compatible(o, g, strict=True)]
         homonymes = [o for o in presents if o not in etrangers]
+        gele = str(getattr(onboarding, "MENTION_LIBERE", "") or "à mettre Metricool")
         if genre == "membre":
+            nom = x.nom(uid)
             if x.ecartes.get(h) == uid:
-                out.append(_a("C4", "important", f"{_ou(c)} · {_qui(c)} : écarté à la livraison (homonyme possible d'un ancien), jamais "
-                                                 f"livré — `!onboarding @{x.nom(uid)}` si c'est bien le sien, sinon vider sa colonne Gérant",
-                              cle))
+                # 10/10 (2e passe) : sinon `!liberer` (sort le compte de la fiche de l'ancien, lève l'écart) plutôt qu'un Gérant vidé
+                # à la main (le compte partait au vivier avec ses accès encore dans l'ancienne fiche)
+                out.append(_a("C4", "important", _avec_remede(
+                    [f"{_ou(c)} · {_qui(c)} : écarté à la livraison (homonyme possible d'un ancien), jamais livré",
+                     f"{_ou(c)} · {_qui(c)} : écarté à la livraison (homonyme ?)"],
+                    f"si c'est bien le sien : {_remede_onboarding(x, c, uid)} ; sinon `!liberer {g} {c['handle']}`"), cle))
             elif etrangers:
-                out.append(_a("C4", "bloquant", f"{_ou(c)} · {_qui(c)} : encore dans la fiche de {', '.join(x.nom(o) for o in etrangers)} "
-                                                "(accès et codes 2FA chez un autre)" + ("" if uid in proprios else " ; jamais livré au Gérant")
-                              + " — " + _remede_liberer(x, c, genre, uid), cle))
+                # 10/10 : le remède entier tient dans les 300 caractères du salon admin et du Dashboard (_avec_remede)
+                noms = ", ".join(x.nom(o) for o in etrangers)
+                jamais = "" if uid in proprios else ", jamais livré au Gérant"
+                out.append(_a("C4", "bloquant", _avec_remede(
+                    [f"{_ou(c)} · {_qui(c)} : accès et codes 2FA encore dans la fiche de {noms}{jamais}",
+                     f"{_ou(c)} · {_qui(c)} : accès et 2FA chez {noms}{jamais}", f"{_ou(c)} · {_qui(c)} : accès et 2FA chez {noms}",
+                     f"{_ou(c)} · @{c['handle']} : fiche de {noms}"], _remede_liberer(x, c, genre, uid)), cle))
             elif homonymes:
                 out.append(_a("C4", "important", f"{_ou(c)} · {_qui(c)} : dans la fiche de {', '.join(x.nom(o) for o in homonymes)} (même "
-                                                 f"prénom que le Gérant) alors que le bot rattache « {g} » à {x.nom(uid)} : homonymes à "
+                                                 f"prénom que le Gérant) alors que le bot rattache « {g} » à {nom} : homonymes à "
                                                  "départager (pseudo ou Gérant écrit en entier)", cle))
             elif uid not in proprios and _n(c.get("utilisation")) == "clipper":
-                out.append(_a("C4", "important", f"{_ou(c)} · {_qui(c)} : au nom de {x.nom(uid)} mais absent de sa fiche d'onboarding "
-                                                 "(jamais livré)", cle))
+                partis = sorted(o for o in proprios if x.parti(o))
+                if not partis:
+                    out.append(_a("C4", "important", _avec_remede(
+                        [f"{_ou(c)} · {_qui(c)} : au nom de {nom} mais absent de sa fiche d'onboarding (jamais livré)",
+                         f"{_ou(c)} · {_qui(c)} : jamais livré à {nom}"], _remede_onboarding(x, c, uid)), cle))
+                    continue
+                # 10/10 (vérification CONTROLE, 2e passe — cas Eddy du 24/09) : le compte est encore livré à un membre PARTI. Ancien
+                # du même nom (sortis.json) : c'est l'homonyme, `!liberer` seul (`!onboarding` force la livraison, il lèverait
+                # l'écart et enverrait au nouveau les accès et les codes de l'ancien). Nom inconnu : les deux cas, `!liberer` d'abord.
+                # Ancien d'un autre nom : le compte a été redonné à la main, la commande de livraison.
+                noms_p = {o: x.nom_parti(o) for o in partis}
+                meme_nom = [noms_p[o] for o in partis if _mots_nom(noms_p[o]) & _mots_nom(g)]
+                liberer = f"`!liberer {g} {c['handle']}`"
+                if meme_nom:
+                    out.append(_a("C4", "important", _avec_remede(
+                        [f"{_ou(c)} · {_qui(c)} : encore dans la fiche de l'ancien {meme_nom[0]} (parti, sortis.json), jamais livré au "
+                         f"nouveau {nom}", f"{_ou(c)} · {_qui(c)} : compte de l'ancien {meme_nom[0]} (parti)"],
+                        f"{liberer} (`!onboarding` donnerait ses accès et ses codes au nouveau {g})"), cle))
+                elif any(not noms_p[o] for o in partis):
+                    out.append(_a("C4", "important", _avec_remede(
+                        [f"{_ou(c)} · {_qui(c)} : encore livré à un membre parti (onboarding.json), jamais livré à {nom}",
+                         f"{_ou(c)} · {_qui(c)} : livré à un membre parti, pas à {nom}"],
+                        f"compte d'un ancien {g} : {liberer} ; redonné exprès à {nom} : {_remede_onboarding(x, c, uid)}"), cle))
+                else:
+                    out.append(_a("C4", "important", _avec_remede(
+                        [f"{_ou(c)} · {_qui(c)} : au nom de {nom} mais encore livré à {', '.join(noms_p[o] for o in partis)} (parti), "
+                         "jamais à lui", f"{_ou(c)} · {_qui(c)} : jamais livré à {nom}"], _remede_onboarding(x, c, uid)), cle))
+            elif uid not in proprios and _n(c.get("utilisation")) == _n(gele):
+                # 10/10 (vérification CONTROLE, 2e passe) : le remède C4 arrêté après « Gérant remis » (texte coupé, oubli) laisse un
+                # compte au nom d'un clipper, « à mettre Metricool », dans aucune fiche : livré à personne, et plus rien ne le voyait
+                out.append(_a("C4", "important", _avec_remede(
+                    [f"{_ou(c)} · {_qui(c)} : « {gele} » au nom de {nom}, dans aucune fiche (remède C4 à moitié appliqué ?)",
+                     f"{_ou(c)} · {_qui(c)} : « {gele} », dans aucune fiche"],
+                    f"Utilisation « Clipper » → {_remede_onboarding(x, c, uid)} ; s'il part sur Metricool : Gérant vidé"), cle))
         elif etrangers:
             quoi = {"libre": "compte sans Gérant", "metricool": "compte Metricool", "staff": "compte du staff",
                     "creatrice": "compte de la créatrice"}[genre]
-            out.append(_a("C4", "bloquant", f"{_ou(c)} · {_qui(c)} : {quoi} encore dans la fiche de "
-                                            f"{', '.join(x.nom(o) for o in etrangers)} (accès et codes 2FA) — " + _remede_liberer(x, c, genre),
-                          cle))
+            noms = ", ".join(x.nom(o) for o in etrangers)
+            out.append(_a("C4", "bloquant", _avec_remede(
+                [f"{_ou(c)} · {_qui(c)} : {quoi} encore dans la fiche de {noms} (accès et codes 2FA)",
+                 f"{_ou(c)} · {_qui(c)} : {quoi} chez {noms} (accès, 2FA)", f"{_ou(c)} · @{c['handle']} : fiche de {noms}"],
+                _remede_liberer(x, c, genre)), cle))
     return out
 
 
@@ -800,12 +1071,14 @@ def _c5(x: _Ctx) -> list:
         if not _vivante(c) or _n(c.get("utilisation")) not in ("clipper", ""):
             continue
         uid = x.proprio(c)                                               # contrat C6(d) : le détenteur d'abord, sinon le prénom
-        if uid:
+        if uid and uid in x.signes:                                      # 10/10 : jamais un membre parti ou sorti du registre
             paires.setdefault((uid, _cr_ligne(c)), []).append(c)
     out = []
     for (uid, cr), cs in sorted(paires.items()):
         if not cr or x.voulu(uid, cr) or not x.lien_du(uid, cr):
             continue
+        if any(x.suivis_siens(c, cr) for c in cs):
+            continue                                                     # 10/10 : son lien suivi par le rapport (payé par le rapport)
         out.append(_a("C5", "important", f"{cs[0].get('onglet') or cr.title()} · {x.nom(uid)} : lien GAML dû (compte privé ouvert ou "
                                          f"comptes créés) mais aucun lien {cr.title()} à son nom dans le bot", f"C5|{uid}|{cr}"))
     return out
@@ -824,7 +1097,7 @@ def _c6(x: _Ctx) -> list:
             # pour cette créatrice, cellule vide — ses clics ne sont comptés sur aucun compte. Onglet sans la colonne : une fois.
             if genre in ("libre", "creatrice", "metricool") or not _cree(c):
                 continue
-            proprio = x.proprio(c)
+            proprio = x.clipper_signe(c)                                 # 10/10 : jamais le lien d'un membre parti ou sorti
             v = x.voulu(proprio, _cr_ligne(c)) if proprio else None
             if not v:
                 continue
@@ -882,6 +1155,25 @@ def _c6(x: _Ctx) -> list:
                 probleme = f"lien hors clipping « {note} » sur une ligne de clipper"
             else:
                 probleme, grav = f"lien hors clipping « {note} »", "important"
+        elif cat == "non_attribue" and lid in x.suivis_ids:
+            # 10/10 (vérification CONTROLE) : un lien suivi par le rapport, que liens_classeur pose lui-même sur les lignes de son
+            # clipper, est « le sien » quand le nom suivi est celui du Gérant (même règle que onboarding._lien_d_un_autre) ; jamais
+            # le conseil `!lien` (il le ferait passer au clic). Sur la ligne d'un autre nom : important, vu sur le seul nom (C6(d)).
+            nom_s = str(info.get("suivi_nom") or "?").strip()
+            if genre not in ("metricool", "creatrice") and x.suivi_sien(c, lid):
+                v = x.voulu(x.clipper_signe(c), _cr_ligne(c))
+                if x.cr_lien(lid) and _cr_ligne(c) and x.cr_lien(lid) != _cr_ligne(c):
+                    probleme, grav = f"son lien {x.cr_lien(lid).title()} (suivi par le rapport) sur une ligne {_cr_ligne(c).title()}", "important"
+                elif v and v[0] != lid:
+                    # 10/10 (vérification CONTROLE, 2e passe) : il a aussi un lien ATTRIBUÉ chez cette créatrice — c'est lui que
+                    # liens_classeur écrit (les liens de son uid d'abord) : contrat C6, la cellule ≠ le lien attendu
+                    probleme, grav = f"lien suivi par le rapport, pas son lien attribué (attendu « {_slug(v[1].get('url'))} »)", "important"
+            elif clipper or genre == "staff":
+                probleme, grav = (f"lien suivi par le rapport pour « {nom_s} », pas pour « {str(c.get('gerant')).strip()} » (vu sur le seul "
+                                  "nom, aucun uid)"), "important"
+            else:
+                probleme, grav = f"lien suivi par le rapport pour « {nom_s} » sur une ligne " + {
+                    "creatrice": "de la créatrice", "metricool": "Metricool"}.get(genre, genre), "important"
         elif cat == "non_attribue":
             # 09/10 (revue CONTROLE) : un lien de clipping sans détenteur dans le bot (jamais attribué, suivi du rapport) n'est pas une
             # page de la créatrice ; aucun uid : rien à décider sur « un autre clipper » (contrat C6(d)), ses visites ne sont à personne
@@ -952,6 +1244,23 @@ def _c8(x: _Ctx) -> list:
             quoi, suite = f"libéré (ex-{info.get('ancien') or '?'})", ""
         elif cat == "hors_clipping":
             quoi, suite = f"hors clipping « {info.get('hors_clipping') or x.notes.get(lid) or ''} »", ""
+        elif lid in x.suivis_ids:
+            # 10/10 (vérification CONTROLE) : un lien suivi par le rapport sans ligne au nom suivi — jamais `!lien` (il passerait au clic)
+            quoi = f"suivi par le rapport pour « {str(info.get('suivi_nom') or '?').strip()} »"
+            # 10/10 (vérification CONTROLE, 2e passe : « aucune ligne à ce nom » écrit alors que la ligne de Julien existe et porte son
+            # lien attribué, celui que liens_classeur écrit) : la cause dite d'après les lignes au nom suivi
+            cr_l = x.cr_lien(lid)
+            siennes = [c for c in x.comptes if _vivante(c) and x.resoudre(c.get("gerant"))[0] not in ("libre", "creatrice", "metricool")
+                       and (not cr_l or _cr_ligne(c) == cr_l) and x.suivi_sien(c, lid)]
+            attendu = next(((x.clipper_signe(c), v) for c in siennes for v in [x.voulu(x.clipper_signe(c), _cr_ligne(c))]
+                            if v and v[0] != lid), None)
+            if attendu:
+                suite = (f" : {x.nom(attendu[0])} a son lien attribué « {_slug(attendu[1][1].get('url'))} » (celui que liens_classeur écrit) — "
+                         "lien suivi à retirer du rapport")
+            elif siennes:
+                suite = f" : aucune des {len(siennes)} ligne(s) à ce nom ne le porte (cellule vide ou autre lien : voir C6)"
+            else:
+                suite = " : aucune ligne à ce nom (Gérant écrit autrement ?)"
         else:
             note = str(x.notes.get(lid) or "").strip()
             quoi = "jamais attribué dans le bot" + (f" (note « {note} »)" if note else " (sans note)")
@@ -976,7 +1285,7 @@ def _c9(x: _Ctx) -> list:
         note = str(x.notes.get(lid) or "").strip()
         if not note:
             continue
-        m = _RE_CLIPPING.match(note)
+        m = _clipping_de(note)                                           # 10/10 : « Chloé - Clipping Nina » aussi
         prenom_note = _premier(m.group(1)) if m else ""
         uid = str(info.get("uid") or "")
         tete = f"{(x.cr_lien(lid) or '?').title()} · lien « {_slug(info.get('url'))} » note « {note} »"
@@ -988,6 +1297,11 @@ def _c9(x: _Ctx) -> list:
             nom_note = re.split(r"[(\[]", m.group(1))[0].strip() if m else ""
             if not m:
                 probleme = f"attribué à {qui} mais la note n'est plus « Clipping … » (sorti du clipping à la main ?)"
+            elif not _clipping_en_tete(note):
+                # 10/10 (vérification CONTROLE, 2e passe : « Chloé - Clipping Nina » ne disait plus rien, puis paie_clics détachait le
+                # lien au passage suivant) : pour un lien ATTRIBUÉ, la règle de paie_clics (« Clipping » EN TÊTE de la note)
+                probleme = (f"attribué à {qui} mais la note ne commence pas par « Clipping » : paie_clics va le sortir du clipping "
+                            f"(plus payé au clic) — écrire « Clipping {nom_note or qui} » dans GAML")
             elif prenom_note == "libre":
                 probleme = f"attribué à {qui} mais noté libre dans GAML"
             elif mots and not (_mots_nom(nom_note) & mots):
@@ -998,6 +1312,13 @@ def _c9(x: _Ctx) -> list:
             ancien = _premier(re.sub(r"^\s*clipping\s+", "", _n(info.get("ancien")))) if info.get("ancien") else ""
             if prenom_note != ancien:
                 probleme = f"libéré dans le bot (ex-{info.get('ancien') or '?'}) mais la note le donne à « {m.group(1).strip()} »"
+        elif lid in x.suivis_ids:
+            # 10/10 (vérification CONTROLE) : un lien suivi par le rapport est attribué au nom suivi (jamais `!lien`, il passerait
+            # au clic) ; seul un désaccord entre la note et ce nom est signalé
+            nom_s = str(info.get("suivi_nom") or "").strip()
+            nom_note = re.split(r"[(\[]", m.group(1))[0].strip() if m else ""
+            if m and _mots_nom(nom_s) and not (_mots_nom(nom_note) & _mots_nom(nom_s)):
+                probleme = f"suivi par le rapport pour « {nom_s} » mais la note le donne à « {nom_note or m.group(1).strip()} »"
         elif x.cats[lid] == "non_attribue" and m and prenom_note not in x.staff_purs | {"libre"}:
             probleme = "« Clipping … » jamais attribué par le bot (homonymes ou prénom inconnu : `!lien @clipper <url>`)"
         if probleme:
@@ -1048,6 +1369,18 @@ def _c10(x: _Ctx) -> list:
             elif cat == "hors_clipping":
                 if genre in ("membre", "ambigu") or proprio:
                     probs.append(("important", f"lien hors clipping « {_slug(u)} » au lieu du sien"))
+            elif cat == "non_attribue" and lid in x.suivis_ids:
+                # 10/10 (vérification CONTROLE) : le lien suivi par le rapport au nom du Gérant est le sien
+                if genre not in ("metricool", "creatrice") and x.suivi_sien(c, lid):
+                    v = x.voulu(x.clipper_signe(c), cr)
+                    if x.cr_lien(lid) and cr and x.cr_lien(lid) != cr:
+                        probs.append(("important", f"son lien {x.cr_lien(lid).title()} « {_slug(u)} » (suivi par le rapport) sur un compte "
+                                                   f"{cr.title()}"))
+                    elif v and v[0] != lid:                              # 10/10 (2e passe) : il a un lien attribué ici
+                        probs.append(("important", f"lien suivi « {_slug(u)} » au lieu de son lien attribué « {_slug(v[1].get('url'))} »"))
+                elif genre in ("membre", "ambigu", "fantome", "staff") or proprio:
+                    probs.append(("important", f"lien suivi par le rapport pour « {str(x.liens[lid].get('suivi_nom') or '?').strip()} » "
+                                               f"« {_slug(u)} » au lieu du sien (vu sur le seul nom)"))
             elif cat == "non_attribue":
                 if genre in ("membre", "ambigu", "fantome") or proprio:
                     probs.append(("important", f"lien jamais attribué « {_slug(u)} » au lieu du sien (visites payées à personne)"))
@@ -1152,14 +1485,30 @@ def _c12(x: _Ctx) -> list:
             raisons.append(("info", "restreint (chiffres cachés au scan non connecté)"))   # lu par Metricool : la mesure est bonne
         if not raisons and _cree(c) and historique and not hist and not s and h not in non_lus:
             # 09/10 (revue CONTROLE : une ligne ajoutée à midi devenait « important » au tour suivant, un message, puis un autre le
-            # lendemain) : « info » tant que la ligne a moins de GRACE_H dans premiers_vus ET qu'aucun passage complet n'a eu lieu
-            # depuis son apparition ; au-delà (le scan aurait dû la lire), important. Scan coupé (budget) : info.
+            # lendemain). 10/10 (vérification CONTROLE : le code appliquait l'inverse — important dès 24 h même sans aucun passage
+            # complet, par exemple refusé par le budget, avec une cause fausse et un message par ligne neuve) : la règle demandée,
+            # « info tant que la ligne a moins de GRACE_H OU tant qu'aucun passage complet n'a eu lieu depuis son apparition » ;
+            # important seulement quand un passage complet (scan_iso, posé au début du passage) a suivi son apparition ET qu'elle a
+            # plus de GRACE_H. Scan coupé (budget) : info.
             vu = _instant(x.premiers_vus.get(cle))
-            mur = vu is not None and ((x.maintenant - vu) >= timedelta(hours=GRACE_H) or (scan is not None and scan > vu))
-            raisons.append(("important" if mur and not coupe else "info",
-                            "jamais lu par le scan (" + ("scan coupé : budget Apify du mois atteint" if coupe else
-                                                         "onglet ou colonne non reconnus ?" if mur else
-                                                         "ligne ajoutée depuis le dernier passage, lue au prochain") + ")"))
+            age_ok = vu is not None and (x.maintenant - vu) >= timedelta(hours=GRACE_H)
+            passe = vu is not None and scan is not None and scan > vu
+            mur = age_ok and passe
+            le_scan = f"du {_paris(scan).strftime('%d/%m à %Hh%M')}" if scan is not None else ""
+            if coupe:
+                pourquoi = "scan coupé : budget Apify du mois atteint"
+            elif mur:
+                pourquoi = f"pas lu par le passage complet {le_scan} : onglet ou colonne non reconnus ?"
+            elif passe:
+                pourquoi = f"pas lu par le passage complet {le_scan}, important s'il ne l'est toujours pas après {GRACE_H} h"
+            elif age_ok and budget.get("leger_ok") is False:
+                # leger_ok faux : la dépense dépasse la trajectoire du mois — le refus du passage complet est probable, pas prouvé
+                pourquoi = "aucun passage complet depuis son apparition : budget Apify serré, passage complet sans doute refusé"
+            elif age_ok:
+                pourquoi = "aucun passage complet depuis son apparition" + (f" (dernier {le_scan})" if le_scan else "") + ", lue au prochain"
+            else:
+                pourquoi = "ligne ajoutée depuis le dernier passage, lue au prochain"
+            raisons.append(("important" if mur and not coupe else "info", f"jamais lu par le scan ({pourquoi})"))
         if not raisons:
             continue
         grav = min((g for g, _ in raisons), key=GRAVITES.index)
@@ -1233,9 +1582,16 @@ def _membres_connus(registre: dict, onb: dict, clics: dict, membre_par_id=None) 
     return out
 
 
+def _lire_sortis() -> list:
+    """10/10 (vérification CONTROLE, 2e passe) : sortis.json (trace des sorties : uid, nom…), [] s'il est absent ou illisible."""
+    v = _lire_fichier("FICHIER_SORTIS", "sortis.json", [])
+    return v if isinstance(v, list) else []
+
+
 def lire_entrees() -> dict:
     """Tout ce que le contrôle lit, hors classeur : clics.json, onboarding.json, registre, membres, séries, états, parcours,
-    notes GAML vivantes, premiers signalements et mémoire du contrôle (controle.json). Lecture seule ; une source absente vaut {}."""
+    notes GAML vivantes, premiers signalements et mémoire du contrôle (controle.json), sorties (sortis.json, 10/10). Lecture
+    seule ; une source absente vaut {} ([] pour les sorties)."""
     lj = _dep("lire_json")
     def _lu(cle, nom):
         v = _lire_fichier(cle, nom, {})
@@ -1248,19 +1604,19 @@ def lire_entrees() -> dict:
             "series_etat": _lu("FICHIER_SERIES", "series_comptes.json"), "etats": _lu("FICHIER_ETATS", "etats_comptes.json"),
             "parcours": _lu("FICHIER_PARCOURS", "parcours.json"), "details_gaml": _details_en_cache(),
             "premiers_vus": (ctrl.get("premiers_vus") or {}),
-            "memoire": {"mesures": ctrl.get("mesures") or {}, "notes": ctrl.get("notes") or {}}}
+            "memoire": {"mesures": ctrl.get("mesures") or {}, "notes": ctrl.get("notes") or {}}, "sortis": _lire_sortis()}
 
 
 # ------------------------------------------------------------------ API du contrat C3
 def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *, etats=None, parcours=None,
-              details_gaml=None, premiers_vus=None, memoire=None, maintenant: datetime = None) -> list:
+              details_gaml=None, premiers_vus=None, memoire=None, maintenant: datetime = None, sortis=None) -> list:
     """Les anomalies d'attribution, triées (bloquant, important, info ; puis famille), une par clé stable. Pure sur ses entrées.
     09/10 (dashboard) : `membres` = {uid: pseudo} (ou membres Discord, ou paires) des membres présents sur le serveur ; `etats`
     (etats_comptes.json : bios, non_lus, historique, dernier_passage, apify_budget, scan_iso), `parcours` (parcours.json),
     `details_gaml` ([{id, url, note, nom}] relus par l'onboarding), `premiers_vus` ({clé: iso}) et `memoire` (controle.json :
-    dernières mesures de C8, dernières notes vivantes) sont lus dans les fichiers du bot quand ils ne sont pas passés et que le module
-    est configuré. 09/10 (revue CONTROLE) : une famille qui n'a pas pu juger renvoie une entrée « non mesuré » (gravité info,
-    `non_mesure: True`) au lieu de se taire."""
+    dernières mesures de C8, dernières notes vivantes) et `sortis` (sortis.json, 10/10 : le nom des membres partis, pour C4) sont
+    lus dans les fichiers du bot quand ils ne sont pas passés et que le module est configuré. 09/10 (revue CONTROLE) : une famille
+    qui n'a pas pu juger renvoie une entrée « non mesuré » (gravité info, `non_mesure: True`) au lieu de se taire."""
     maintenant = maintenant or datetime.now(timezone.utc)
     if maintenant.tzinfo is None:
         maintenant = maintenant.replace(tzinfo=timezone.utc)
@@ -1287,11 +1643,13 @@ def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *
              parcours if parcours is not None else _defaut("parcours"),
              details_gaml if details_gaml is not None else (_defaut("details_gaml") or []),
              premiers_vus if premiers_vus is not None else (_defaut("premiers_vus") or {}), maintenant,
-             memoire if memoire is not None else (_defaut("memoire") or {}))
+             memoire if memoire is not None else (_defaut("memoire") or {}),
+             sortis if sortis is not None else _lire_sortis())
     if not x.comptes:
-        # 09/10 (revue CONTROLE) : classeur vide ou illisible → rien n'a été vérifié (jamais « 0 anomalie » à la place)
-        return [_non_mesure("C1", "classeur des logins vide ou illisible : aucune des 12 familles n'a pu être vérifiée",
-                            [f"{f}|" for f in FAMILLES])]
+        # 09/10 (revue CONTROLE) : classeur vide ou illisible → rien n'a été vérifié (jamais « 0 anomalie » à la place). 10/10
+        # (vérification CONTROLE : une seule entrée C1 couvrait les 12 familles par sa portée, un lecteur qui lit `famille` affichait
+        # C2 à C12 « sans anomalie ») : une entrée « non mesuré » PAR famille, même raison
+        return [_non_mesure(f, "classeur des logins vide ou illisible : rien n'a pu être vérifié") for f in FAMILLES]
     sans_liens = not x.liens                                             # clics.json vide ou illisible
     out, cles = [], set()
     for famille, noms in ((_c1, ("C1",)), (_nm_resolution, ()), (_c2_c3, ("C2", "C3")), (_c4, ("C4",)), (_c5, ("C5",)),
@@ -1357,6 +1715,14 @@ def _notes_par_defaut(clics: dict) -> dict:
     return _notes(clics, _details_en_cache(), memo)[0]
 
 
+def categorie_lien(clics: dict, lid, notes: dict = None) -> str:
+    """10/10 (vérification CONTROLE) : la catégorie d'un lien de clics.json avec les notes du bouclage (`notes`, sinon
+    _notes_par_defaut) — ce que le bouclage range dans ses seaux, pour un lecteur qui connaît l'id du lien."""
+    info = (((clics or {}).get("liens") or {}) if isinstance(clics, dict) else {}).get(str(lid))
+    notes = notes if isinstance(notes, dict) else _notes_par_defaut(clics if isinstance(clics, dict) else {})
+    return categorie(info if isinstance(info, dict) else {}, notes.get(str(lid)))
+
+
 def bouclage(clics, lignes_attribuees, fin: date = None, jours: int = 7, masques=None, notes: dict = None) -> dict:
     """09/10 (dashboard) : la preuve que rien ne se perd. Visites payables des `jours` derniers jours (jusqu'à hier, heure de
     Paris) de TOUS les liens actifs (ni désactivés, ni effacés) = portées par les lignes + lignes masquées du Dashboard + pages de
@@ -1367,7 +1733,9 @@ def bouclage(clics, lignes_attribuees, fin: date = None, jours: int = 7, masques
         va dans l'écart avec les liens attribués non portés, listés dans `non_comptes` (avec leur catégorie) ;
       - `masques` (mêmes formes que les lignes : ids, URL, lignes) : les liens des Gérants masqués du Dashboard (`!dashboard
         exclure`) comptent dans le seau « masques », jamais en écart.
-    Un lien au relevé incomplet n'entre dans aucune somme : il est listé dans `non_mesures` (jamais un faux 0) et `complet` est faux."""
+    Un lien au relevé incomplet n'entre dans aucune somme : il est listé dans `non_mesures` (jamais un faux 0) et `complet` est faux.
+    10/10 (vérification CONTROLE) : `categories` = {lid: catégorie} de chaque lien, avec les notes du bouclage (un lecteur range ses
+    lignes Pages / Libérés avec les MÊMES catégories ; controle.categorie(info) sans note les retrouve aussi)."""
     clics = clics if isinstance(clics, dict) else {}
     fin = fin or _hier_paris()
     sur_lignes = _lids_de(lignes_attribuees, clics)
@@ -1375,9 +1743,10 @@ def bouclage(clics, lignes_attribuees, fin: date = None, jours: int = 7, masques
     notes = notes if isinstance(notes, dict) else _notes_par_defaut(clics)
     out = {"debut": (fin - timedelta(days=jours - 1)).isoformat(), "fin": fin.isoformat(), "total": 0, "lignes": 0, "masques": 0,
            "pages": 0, "liberes": 0, "ecart": 0, "non_comptes": [], "non_mesures": [], "liens_masques": [], "liens": 0, "mesures": 0,
-           "complet": True}
+           "complet": True, "categories": {}}
     for lid, info in sorted(((str(k), v) for k, v in (clics.get("liens") or {}).items() if isinstance(v, dict))):
         cat = categorie(info, notes.get(lid))
+        out["categories"][lid] = cat
         if cat in ("desactive", "supprime"):
             continue
         out["liens"] += 1
@@ -1415,8 +1784,20 @@ def compter(anomalies_: list) -> dict:
 
 
 def non_mesurees(anomalies_: list) -> dict:
-    """{famille: raison} des familles (ou parties de famille) qui n'ont pas pu juger : à afficher « non mesuré », jamais « 0 »."""
-    return {a["famille"]: re.sub(r"^non mesuré : ", "", str(a.get("texte") or "")) for a in anomalies_ or [] if a.get("non_mesure")}
+    """{famille: raison} des familles (ou parties de famille) qui n'ont pas pu juger : à afficher « non mesuré », jamais « 0 ».
+    10/10 (vérification CONTROLE : la portée était ignorée, une entrée qui couvrait C1 à C12 ne rendait que C1) : chaque famille dont
+    le préfixe « Cx| » est dans la `portee` d'une entrée compte aussi (avec la raison de cette entrée), dans l'ordre C1 → C12."""
+    nm = [a for a in anomalies_ or [] if isinstance(a, dict) and a.get("non_mesure")]
+    raison = lambda a: re.sub(r"^non mesuré : ", "", str(a.get("texte") or ""))        # noqa: E731
+    trouve = {}
+    for a in nm:
+        trouve.setdefault(str(a.get("famille") or ""), raison(a))
+    for a in nm:
+        for p in a.get("portee") or []:
+            f = str(p)[:-1] if str(p).endswith("|") else ""
+            if f in FAMILLES:
+                trouve.setdefault(f, raison(a))
+    return {f: trouve[f] for f in list(FAMILLES) + sorted(k for k in trouve if k not in FAMILLES) if f in trouve}
 
 
 def _portees(anomalies_: list) -> list:
@@ -1446,6 +1827,23 @@ def _suite(k: int) -> str:
     return f"… et {k} autre(s) (Dashboard, section Contrôle)"
 
 
+LIGNE_MAX = 300                                                          # une ligne du salon admin (le Dashboard coupe aussi à 300)
+REMEDE_MAX = 400                                                         # la partie « — remède / commande » gardée entière jusque-là
+
+
+def _couper_ligne(l: str) -> str:
+    """Une ligne d'anomalie de LIGNE_MAX caractères au plus. 10/10 (vérification CONTROLE : le remède C4, avec un @ long, passait
+    les 300 caractères et sa fin — la commande `!onboarding` — était coupée) : quand la ligne a une suite « — … » qui porte une
+    commande (`…`), c'est la description d'avant qui est raccourcie, jamais la commande (la ligne peut alors faire un peu plus)."""
+    if len(l) <= LIGNE_MAX:
+        return l
+    tete, sep, suite = l.partition(" — ")
+    if sep and "`" in suite and len(suite) <= REMEDE_MAX:
+        place = max(60, LIGNE_MAX - len(sep) - len(suite))
+        return (tete if len(tete) <= place else tete[:place - 1] + "…") + sep + suite
+    return l[:LIGNE_MAX - 3] + "…"
+
+
 def texte_admin(anomalies_: list) -> str:
     """Le message du salon admin (lu sur téléphone : blocs courts, une ligne vide entre chaque bloc). 09/10 (revue CONTROLE) :
     1. la place des listes se calcule d'après les lignes fixes RÉELLES (tête, Info, Non mesuré, titres, « … et N autre(s) ») : les
@@ -1456,13 +1854,17 @@ def texte_admin(anomalies_: list) -> str:
     an = [a for a in toutes if not a.get("non_mesure")]
     bloc_nm = ""
     if nm:
-        raisons = [f"{a['famille']} {re.sub(r'^non mesuré : ', '', str(a.get('texte') or ''))}" for a in nm]
+        # 10/10 (vérification CONTROLE) : une même raison pour plusieurs familles est écrite une fois (« C1, C2, … C12 classeur … »)
+        par_raison = {}
+        for a in nm:
+            par_raison.setdefault(re.sub(r"^non mesuré : ", "", str(a.get("texte") or "")), []).append(str(a.get("famille") or "?"))
+        raisons = [f"{', '.join(dict.fromkeys(fs))} {r}" for r, fs in par_raison.items()]
         bloc_nm = "**❔ Non mesuré** : " + " · ".join(r if len(r) <= 160 else r[:157] + "…" for r in raisons)
         bloc_nm = bloc_nm if len(bloc_nm) <= 700 else bloc_nm[:699] + "…"
     if not an:
         if not nm:
             return "🧭 **Contrôle d'attribution** : 0 anomalie, chaque compte et chaque lien est attribué."
-        if any(set(a.get("portee") or []) >= {f"{f}|" for f in FAMILLES} for a in nm):
+        if set(_portees(nm)) >= {f"{f}|" for f in FAMILLES}:                # toutes les familles, en une entrée ou en douze
             return ("🧭 **Contrôle d'attribution** : rien n'a pu être vérifié ce tour-ci.\n\n" + bloc_nm)[:LIMITE_TEXTE]
         return ("🧭 **Contrôle d'attribution** : rien trouvé dans ce qui a pu être vérifié, mais une partie n'a pas pu l'être : "
                 "l'attribution n'est pas prouvée complète.\n\n" + bloc_nm)[:LIMITE_TEXTE]
@@ -1475,7 +1877,7 @@ def texte_admin(anomalies_: list) -> str:
     for g, titre in (("bloquant", "**⛔ Bloquant**"), ("important", "**⚠️ Important**")):
         lignes = [f"· {a['famille']} {a['texte']}" for a in an if a["gravite"] == g]
         if lignes:
-            groupes.append((titre, [l if len(l) <= 300 else l[:297] + "…" for l in lignes]))
+            groupes.append((titre, [_couper_ligne(l) for l in lignes]))
     fixes = [b for b in (bloc_info, bloc_nm) if b]
     # place fixe : tête, blocs Info / Non mesuré, titres, séparateurs « \n\n », et la ligne « … et N autre(s) » de chaque groupe
     fixe = len(tete) + sum(len(b) for b in fixes) + 2 * (len(fixes) + len(groupes))
@@ -1544,13 +1946,19 @@ def _memo_mesures(clics: dict, fin: date, ancien: dict) -> dict:
 
 def _memo_notes(clics: dict, details: list, ancien: dict, t_iso: str) -> dict:
     """La dernière note GAML vivante vue pour chaque lien, avec la copie de clics.json de ce moment-là (C9 : sert après un
-    redémarrage ou quand le cache de l'onboarding est vide ; abandonnée dès que le bot change sa copie)."""
+    redémarrage ou quand le cache de l'onboarding est vide ; abandonnée dès que le bot change sa copie). 10/10 (vérification
+    CONTROLE) : avec l'URL du lien, pour que controle.categorie(info) appelée sans note (le Dashboard) retrouve la même note.
+    10/10 (2e passe : la mémoire d'un lien effacé de GAML, gardée sans limite tant que sa fiche reste dans clics.json, portait la
+    même URL que le lien qui a repris son slug) : jamais la mémoire d'un lien effacé (supprime_gaml)."""
     ancien = ancien if isinstance(ancien, dict) else {}
-    connus = {str(k) for k in ((clics or {}).get("liens") or {})}
-    out = {lid: m for lid, m in ancien.items() if lid in connus and isinstance(m, dict)}
+    liens = {str(k): v for k, v in ((clics or {}).get("liens") or {}).items() if isinstance(v, dict) and not v.get("supprime_gaml")}
+    out = {str(lid): m for lid, m in ancien.items() if str(lid) in liens and isinstance(m, dict)}
     for lid, m in _notes(clics, details, ancien)[1].items():
-        if lid in connus:
+        if lid in liens:
             out[lid] = dict(m, t=t_iso)
+    for lid, m in out.items():
+        if str(liens[lid].get("url") or "").strip():
+            out[lid] = dict(m, url=str(liens[lid].get("url")))
     return out
 
 
@@ -1570,7 +1978,7 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None):
     e = lire_entrees()
     an = anomalies(comptes, e["clics"], e["onboarding_etat"], e["registre"], e["membres"], e["series_etat"], etats=e["etats"],
                    parcours=e["parcours"], details_gaml=e["details_gaml"], premiers_vus=e["premiers_vus"], memoire=e["memoire"],
-                   maintenant=maintenant)
+                   maintenant=maintenant, sortis=e["sortis"])
     reelles = [a for a in an if not a.get("non_mesure")]
     etat = _lire_etat()
     avant = etat.get("empreinte")
