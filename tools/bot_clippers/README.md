@@ -164,53 +164,73 @@ Tant que ce n'est pas fait, un candidat qui tombe sur l'ancien formulaire peut e
 
 ## 09/10 : le Dashboard en continu
 
-**Verdict** : l'onglet « Dashboard » du classeur se réécrit seul toutes les 15 minutes, sans payer Apify et sans appeler GAML. Jamais un faux 0 : une valeur non lue reste vide, avec la raison.
+**Verdict** : l'onglet « Dashboard » du classeur se réécrit seul toutes les 15 minutes (`dashboard.py`), sans payer Apify et sans appeler GAML ni Metricool : il relit les fichiers du bot et le classeur. Jamais un faux 0 : une valeur non lue reste vide, et la colonne Mesure dit pourquoi.
 
 Gaëtan : « je veux que ce dashboard se mette à jour constamment : statuts, Reels postés, clics, followers. Je dois comprendre quel compte est en hausse ou en baisse de vues, ainsi que ses clics ».
 
+Pour le Dashboard, cette section remplace les paragraphes du 28/09 au 05/10 plus bas (« une ligne par clipper », `etats_comptes.requetes_mise_en_forme`, Build capacity « réécrit avec chaque Dashboard »). Depuis le 09/10 : une ligne par compte. La mise en forme des onglets créatrices (`classeur_forme`) et l'onglet Build capacity (`capacite`) ne suivent plus le Dashboard : passage complet du matin, `!capacite` et `!attribution` seulement.
+
 ### Ce qu'il montre
 
-1. Le titre : l'heure de mise à jour (Paris), la fraîcheur de chaque source (« Instagram 14h05 · Clics 16h45 · Metricool J-1 ») et le budget Apify du mois.
+1. Le titre : « Dashboard · mis à jour le JJ/MM à HHhMM (Paris) », la fraîcheur de chaque source (« Instagram 14h05 · Clics 16h45 · Metricool J-1 (08/10) ») et le budget Apify du mois (« Apify 12,30 $ / 25 $ »). Chaque alerte a sa ligne sous le titre, lisible au téléphone : « ⛔ Apify » (budget atteint, Apify coupé jusqu'au JJ/MM), « ⚠ Apify » (dépense au-dessus de la trajectoire, ou relecture légère du jour sautée), « ⏭ Apify » (relecture prévue qui sera sautée), « ⚠ Metricool » (en échec depuis JJ/MM).
 
-2. Le contrôle d'attribution : un compteur par famille (C1 à C12) et les 15 premières anomalies. Exemples : compte créé sans Gérant, Gérant fantôme ou ambigu, lien de la ligne qui n'est pas le bon, lien libéré qui reçoit encore des visites, @ en double, compte non lu. Puis le bouclage : visites 7 jours de tous les liens actifs = lignes + pages de la créatrice + libérés, écart attendu 0.
+2. Le contrôle d'attribution (`controle.py`) : un compteur par famille (C1 à C12) et les 15 premières anomalies. Une famille qui n'a pas pu juger est dite « non mesuré », jamais « sans anomalie ». Exemples : compte créé sans Gérant, Gérant fantôme ou ambigu, lien de la ligne qui n'est pas le bon, lien libéré qui reçoit encore des visites, @ en double, compte non lu.
 
-3. Les tendances : top 5 hausses et top 5 baisses (vues 7 jours à âge fixe de 48 h, clics 7 jours, followers 7 jours), seulement quand les deux périodes sont mesurées.
+3. Le bouclage, sous le contrôle : visites 7 jours (jusqu'à hier) de tous les liens actifs = lignes + masqués + pages de la créatrice + libérés / hors clipping + écart. ✅ seulement si tous les liens sont mesurés, l'écart à 0 et le total égal au TOTAL Clics 7 j de la page. Chaque lien est rangé par son identifiant, avec la même note GAML que les lignes de la page.
 
-4. Les comptes, par créatrice : une ligne par @, groupée par Gérant. Followers et écarts, Reels hier et 7 jours, vues, lien, clics aujourd'hui, hier et 7 jours, colonne Mesure (lu, restreint, non lu, Metricool, à créer) et heure du relevé. Le trio d'un clipper partage un lien : ses clics sont comptés une seule fois.
+4. Les tendances : top 5 hausses et top 5 baisses — vues 7 jours à âge fixe (48 h après la publication), clics 7 jours, followers 7 jours — seulement quand les deux périodes sont mesurées.
+
+5. Les comptes, par créatrice : une ligne par @, groupée par Gérant, sous-total dès deux comptes. Colonnes : Gérant, @, Utilisation, ETAT, Followers, Δ 24 h, Δ 7 j, Reels hier, Reels 7 j, Δ Reels, Vues 7 j (48 h), Δ vues, Vue médiane, Lien, Clics auj., Clics hier, Clics 7 j, Δ clics, Mesure, Relevé. Puis les lignes « Pages » (principale, /fb, /ytb), « Libérés » (libérés et hors clipping), « Masqués » et « ⚠ Sans ligne » (lien attribué qu'aucune ligne ne porte) : chaque lien actif est compté une fois. Le TOTAL en bas.
+
+### Lire une ligne
+
+- Mesure : lu, restreint, privé, non lu (n passages), introuvable, Metricool, à créer, classeur (chiffre repris de la cellule), jamais lu. « k/n » signale une somme qui ne couvre pas tout : « followers 2/3 », « clics 7 j : 1/2 liens relevés », « vues 2/3 Reels mesurés à 48 h ». Un followers d'un ancien relevé porte sa date ; au-delà de 7 jours, la cellule reste vide.
+
+- Lien : le slug court du lien de la ligne. Le trio d'un clipper partage un lien. Ses clics sont sur la ligne qui le porte (la bio qui l'affiche, sinon le privé, sinon le premier), « (trio) » sur les autres.
+
+- « ⚠ … (autre clipper) » : la fiche d'onboarding prouve, par les identifiants, que le lien est à un autre. Il n'est pas compté sur la ligne.
+
+- « ⚠ … : lien de X d'après le nom, à vérifier » : le lien est compté, mais rien ne rattache la ligne au membre du lien. Mêmes conditions que le C6 du contrôle : aucune fiche d'onboarding valable, aucun mot commun entre le Gérant et le nom du membre, et le Gérant ne désigne pas ce membre par son prénom.
+
+- « via YouTube, non attribuable » : un compte sans lien qui renvoie vers YouTube. « ⚠ sans lien » : un clipper sans lien. Deux clippers du même prénom : un groupe par lien, « ⚠ homonyme ».
 
 ### Sa fréquence
 
-- Dashboard : relu toutes les 15 minutes, réécrit seulement si son contenu a changé.
+- Dashboard : relu toutes les 15 minutes (`DASHBOARD_BOUCLE=0` l'éteint), réécrit seulement si son contenu a changé. Tout de suite sur `!dashboard`, et après le passage complet du matin, une fois son état enregistré.
 
-- Clics : « aujourd'hui » toutes les 15 minutes ; le relevé de la veille vers 6 h–7 h (Paris). Une erreur GAML n'écrit jamais 0.
+- Clics : « aujourd'hui » relevés toutes les 15 minutes, 45 liens au plus par passage (`CLICS_DIRECT_MAX`). La veille est relevée dès minuit, relue une fois après 6 h (Paris), puis figée. Une erreur GAML n'écrit jamais 0.
 
-- Instagram : le passage complet du matin, plus deux relectures légères à 14 h et 20 h (`ETATS_HEURES_LEGERES`).
+- Instagram : le passage complet du matin (7 h UTC, `ETATS_HEURE_UTC`), plus deux relectures légères à 14 h et 20 h de Paris (`ETATS_HEURES_LEGERES`), sous la garde du budget.
 
-- Metricool : deux fois par jour (`METRICOOL_HEURES`, 8 h et 15 h), données de la veille.
+- Metricool : deux fois par jour (`METRICOOL_HEURES`, 8 h et 15 h de Paris), données de la veille.
 
 ### Le budget Apify : 25 $ par mois, plafonné
 
 Décision de Gaëtan : « Dépasse pas 25 $ / mois pour le moment, fais comme tu peux ».
 
-- `APIFY_BUDGET_MOIS=25` couvre TOUS les appels Apify du mois : scan, relectures, recherche des @ changés, scan du soir, identifiants neufs, cadence.
+- `APIFY_BUDGET_MOIS=25` couvre TOUS les appels Apify du cycle : scan, relectures, recherche des @ changés, scan du soir, identifiants neufs, cadence.
 
-- La dépense est lue sur l'API Apify, sinon comptée par le bot (2,30 $ les mille profils, `APIFY_PRIX_1000`).
+- La dépense est lue sur l'API Apify (cycle de facturation du compte), sinon comptée par le bot : 2,30 $ les mille profils (`APIFY_PRIX_1000`), sur le mois civil.
 
-- Une relecture légère ne part que si la dépense reste sous la trajectoire du mois (budget × part du mois écoulée). Sinon elle est sautée.
+- Une relecture légère ne part que si la dépense, plus le coût estimé de cette relecture, reste sous la trajectoire du budget (25 $ × part du cycle écoulée). Sinon elle est sautée, avec une alerte admin par jour.
 
-- À 100 % : plus aucun appel Apify jusqu'au mois suivant. Une alerte admin par jour, et le Dashboard le dit.
+- À 100 % : plus aucun appel Apify jusqu'au cycle suivant, et `!dashboard scan` est refusé.
+
+- Ce que le Dashboard en dit (10/10). « Relecture légère du jour sautée » : seulement quand la garde l'a vraiment sautée aujourd'hui et que rien n'a relu Instagram depuis. « Relecture de 20 h : sera sautée (prévision) » : quand la trajectoire du budget à 20 h ne la permettra pas. Rien juste après une relecture faite.
 
 - `CADENCE_AUTO=0` par défaut : `!cadence` reste à la main.
 
 ### Metricool
 
-Pour les comptes Instagram branchés à Metricool, les followers viennent de Metricool (source officielle, lisible même restreint). Variables : `METRICOOL_API_KEY`, `METRICOOL_USER_ID`.
+Pour les comptes Instagram branchés à Metricool (`METRICOOL_API_KEY`, `METRICOOL_USER_ID`), Followers prend le relevé lisible le plus récent, Apify ou Metricool (Metricool à heure égale). Metricool prend le relais quand Instagram cache les chiffres d'un compte restreint. Les écarts de followers comparent toujours deux relevés de la même source.
 
 ### Les commandes
 
 - `!dashboard` : réécrit l'onglet tout de suite, sans scan (gratuit).
 
-- `!dashboard scan` : lance un passage complet d'Instagram (payant, compté dans le budget). `!etats-comptes leger` : une relecture légère.
+- `!dashboard scan` : lance un passage complet d'Instagram, puis réécrit l'onglet (payant, compté dans le budget). `!etats-comptes leger` : une relecture légère.
+
+- `!dashboard exclure Prénom` / `!dashboard inclure Prénom` : masque un Gérant de l'onglet. Ses liens restent comptés (ligne « Masqués », seau « masqués » du bouclage).
 
 - `!liens` : tous les liens GAML. `!lien @clipper <url|nouveau|retirer>` : attribuer, cloner un lien de sa créatrice, ou libérer (`retirer`). Un lien déjà à un autre clipper est refusé sans `forcer`.
 

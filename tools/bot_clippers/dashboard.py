@@ -51,6 +51,19 @@ l'onglet Build capacity (capacite) ne suivent plus le Dashboard : passage comple
   - un lien compté sur une ligne dont le Gérant ne porte pas le nom du membre du lien (fiche d'onboarding écartée, ou Gérant au
     nom d'un autre membre) est signalé « ⚠ lien de X d'après le nom, à vérifier », sans être refusé (C6d).
 
+10/10 (passe 3 du lot DASH, vérification du 10/10) :
+  - « sautée » seulement sur un FAIT : la garde du lot SCAN a sauté une relecture légère aujourd'hui (`alertes_legeres["budget"]`,
+    posée au moment du saut) et Instagram n'a pas été relu depuis → « relecture légère du jour sautée ». `leger_ok` (une prédiction
+    calculée maintenant) n'est plus lu : juste après une relecture faite, il est presque toujours faux. Une relecture encore prévue
+    aujourd'hui n'est annoncée « sera sautée (prévision) » que si la dépense déjà faite, plus une relecture, dépasse la trajectoire
+    du budget À L'HEURE de cette relecture (la dépense ne fait que monter : la prévision ne se dément pas) ;
+  - « ⚠ lien de X d'après le nom » aligné sur controle.lien_de : aucun détenteur confirmé (un membre parti n'en est plus un), nom du
+    membre du lien connu, aucun mot commun avec le Gérant, et le Gérant ne se résout pas par le prénom sur ce membre (sans registre
+    ou sans liste des membres, rien n'est résolu ni signalé, comme le contrôle) ;
+  - la catégorie d'un lien se lit PAR SON ID (controle.categorie_lien, avec les notes du bouclage lues une fois et passées aussi au
+    bouclage) : une URL vide, périmée ou partagée par deux fiches ne fait plus diverger les lignes Pages / Libérés / ⚠ Sans ligne
+    et les seaux du bouclage.
+
 Les modules des autres lots (series, controle, metricool_comptes, paie_clics.clics_lien / clics_aujourdhui) sont importés s'ils
 sont là : s'il en manque un, sa section dit « source indisponible », ou les chiffres viennent des cellules du classeur (repli
 marqué), et les clics d'un lien sont recalculés depuis clics.json « jours » selon la même règle que le contrat C2.
@@ -109,6 +122,7 @@ CLICS_VIEUX_MIN = 45                   # clics du jour relevés il y a plus long
                                        # clics relit chaque lien toutes les 15 à 30 min, plus le décalage de la boucle du Dashboard)
 METRICOOL_VIEUX_J = 3                  # données Metricool plus vieilles (J-3 et au-delà) : « ⚠ » dans la fraîcheur
 ATTENTE_PASSAGE_S = 1800               # réécriture différée : attendre au plus 30 min la fin du passage complet
+MARGE_PREVISION_USD = 0.011            # 10/10 (passe 3) : « sera sautée (prévision) » au-delà des arrondis au centime de l'état publié
 
 COLONNES = ["Gérant", "@", "Utilisation", "ETAT", "Followers", "Δ 24 h", "Δ 7 j", "Reels hier", "Reels 7 j", "Δ Reels",
             "Vues 7 j (48 h)", "Δ vues", "Vue médiane", "Lien", "Clics auj.", "Clics hier", "Clics 7 j", "Δ clics", "Mesure", "Relevé"]
@@ -279,6 +293,38 @@ def _categorie(info: dict) -> str:
     return "page"
 
 
+def _notes_controle(clics: dict):
+    """10/10 (passe 3 du lot DASH, défaut venu du lot CONTRÔLE) : les notes GAML du bouclage (controle._notes_par_defaut : note
+    vivante du cache de l'onboarding, mémoire du contrôle, copie de clics.json), lues UNE fois par Dashboard et par id ; None si le
+    contrôle ne les donne pas (module absent ou plus ancien : repli sur _categorie)."""
+    f = getattr(controle, "_notes_par_defaut", None) if controle is not None else None
+    if not callable(f):
+        return None
+    try:
+        notes = f(clics if isinstance(clics, dict) else {})
+    except Exception as erreur:                                          # noqa: BLE001 — repli sur la catégorie par l'URL
+        journal.debug("Notes du bouclage : %s", erreur)
+        return None
+    return notes if isinstance(notes, dict) else None
+
+
+def _categorie_lien(clics: dict, lid, notes) -> str:
+    """10/10 (passe 3 du lot DASH) : la catégorie d'un lien CONNU PAR SON ID — controle.categorie_lien(clics, lid, notes), la règle
+    et les notes du bouclage, par l'id (avant : controle.categorie(info), la note retrouvée par l'URL ; une URL vide dans clics.json,
+    ou deux fiches de même URL et de même contenu, rangeaient le lien en « ⚠ Sans ligne » ou en « Pages » quand le bouclage disait
+    l'inverse). Repli : _categorie(fiche) si le contrôle ne donne pas categorie_lien ou ses notes."""
+    lid = str(lid)
+    info = ((clics.get("liens") or {}) if isinstance(clics, dict) else {}).get(lid)
+    info = info if isinstance(info, dict) else {}
+    f = getattr(controle, "categorie_lien", None) if controle is not None else None
+    if callable(f) and isinstance(notes, dict):
+        try:
+            return str(f(clics, lid, notes))
+        except Exception as erreur:                                      # noqa: BLE001 — repli sur la fiche seule
+            journal.debug("Catégorie du lien %s : %s", lid, erreur)
+    return _categorie(info)
+
+
 def _slug(info: dict, lid: str) -> str:
     """Le slug court d'un lien : le slug GAML, sinon le chemin de son URL, sinon son domaine (page principale)."""
     if str(info.get("slug") or "").strip():
@@ -420,6 +466,7 @@ class _Ctx:
                 self.par_url.setdefault(u, lid)
         self._clics = {}
         self._cats = {}
+        self.notes = _notes_controle(self.clics)                         # 10/10 (passe 3) : les notes du bouclage, une fois
         self.seriesok = series_dispo()
         # 09/10 (revue DASH, contrat C6d) : « lien d'un autre clipper » se décide sur les IDENTIFIANTS — qui détient chaque compte
         # d'après onboarding.json (uid), et l'uid du lien dans clics.json —, jamais sur le premier mot d'un pseudo ou du Gérant
@@ -427,25 +474,50 @@ class _Ctx:
         self.proprietaires = _proprietaires(e.get("onboarding"))
         registre = e.get("registre") if isinstance(e.get("registre"), dict) else {}
         membres = e.get("membres") if isinstance(e.get("membres"), dict) else {}
-        self.registre, self.membres = registre, membres
+        self.registre = {str(k): v for k, v in registre.items()}
+        self.membres = {str(k): v for k, v in membres.items()}
         self.noms_uid = {}
-        for uid in set(map(str, registre)) | set(map(str, membres)):
-            f = registre.get(uid) if isinstance(registre.get(uid), dict) else {}
-            self.noms_uid[uid] = _mots_nom(membres.get(uid)) | _mots_nom(f.get("prenom"))
+        for uid in set(self.registre) | set(self.membres):
+            f = self.registre.get(uid) if isinstance(self.registre.get(uid), dict) else {}
+            self.noms_uid[uid] = _mots_nom(self.membres.get(uid)) | _mots_nom(f.get("prenom"))
+        # 10/10 (passe 3, règle de controle.resoudre / bot_discord.membre_par_prenom) : un Gérant ne se résout par le prénom que sur
+        # un membre SIGNÉ (registre) et présent ; sans registre ou sans liste des membres, personne n'est résolu ni dit parti
+        self.resolution = bool(self.registre) and bool(self.membres)
+        self.signes = {uid for uid in self.membres if uid in self.registre}
 
     def cat(self, lid) -> str:
         if lid not in self._cats:
-            self._cats[lid] = _categorie(self.liens.get(lid) or {})
+            self._cats[lid] = _categorie_lien(self.clics, lid, self.notes)   # 10/10 (passe 3) : par l'id, notes du bouclage
         return self._cats[lid]
+
+    def parti(self, uid) -> bool:
+        """10/10 (passe 3, règle de controle.parti) : membre ni présent sur le serveur, ni au registre des signés (le départ retire
+        sa fiche du registre) ; sans registre ou sans liste des membres, personne n'est dit parti."""
+        uid = str(uid or "")
+        return self.resolution and bool(uid) and uid not in self.membres and uid not in self.registre
+
+    def resout_sur(self, gerant, uid) -> bool:
+        """10/10 (passe 3, règle de controle.resoudre) : le Gérant écrit se résout-il, par le prénom, sur ce membre — membre signé et
+        présent dont le premier mot du pseudo (ou le pseudo entier) vaut le Gérant ; homonymes : chacun d'eux. Sans registre ou sans
+        liste des membres (résolution impossible) : oui, le bénéfice du doute, comme le contrôle (« inconnu » → le sien)."""
+        if not self.resolution:
+            return True
+        g = _norm(gerant)
+        return str(uid or "") in {u for u in self.signes if _premier(self.membres.get(u)) == g or _norm(self.membres.get(u)) == g}
 
     def detenteurs(self, c: dict) -> set:
         """Contrat C6(d) : les uid qui détiennent la ligne d'après onboarding.json, gardés s'ils sont compatibles avec le Gérant écrit
         (un mot en commun avec le nom du membre, ou membre sans nom connu : onboarding.json fait foi) — même règle que
-        onboarding.liens_classeur. Un Gérant changé à la main sans que le bot ait suivi n'hérite pas de l'ancien détenteur."""
+        onboarding.liens_classeur. Un Gérant changé à la main sans que le bot ait suivi n'hérite pas de l'ancien détenteur.
+        10/10 (passe 3, règle de controle.detenteurs) : un membre PARTI n'est plus détenteur de rien — son nom inconnu le rendait
+        compatible avec n'importe quel Gérant ; le compte encore livré à Paul parti puis donné à Lea à la main voyait le lien de Lea
+        refusé « (autre clipper) » et ses clics partir en « ⚠ Sans ligne », quand le contrôle n'y voit rien (C4 : fiche à refaire)."""
         mots_g = _mots_nom(c.get("gerant"))
         out = set()
         for uid in self.proprietaires.get(_cle(c.get("handle")), set()):
             noms = self.noms_uid.get(str(uid)) or set()
+            if self.parti(uid):
+                continue
             if not noms or (mots_g & noms):
                 out.add(str(uid))
         return out
@@ -474,27 +546,28 @@ class _Ctx:
         """10/10 (revue DASH, restant 3 : Gérant changé à la main sans que le bot suive — onboarding.json livre encore la ligne à
         Paul, la cellule garde le lien de Paul ; le détenteur écarté, rien ne prouvait sur les uid que le lien était à un autre, et la
         ligne de Lea affichait p1 et ses clics sans rien dire, alors que le CONTRÔLE signale C6). Contrat C6(d) : le lien n'est PAS
-        refusé (dans le doute, il reste compté sur la ligne) ; il est seulement signalé « à vérifier » quand aucun détenteur
-        confirmé ne tranche sur les uid, que le nom connu du membre du lien n'a aucun mot commun avec le Gérant, ET que le doute est
-        fondé : la fiche d'onboarding de la ligne a été écartée (Gérant changé à la main), ou le Gérant porte le nom d'un autre
-        membre (même cas que le contrôle, « vu sur le seul nom »). Renvoie le nom du membre du lien, '' sinon."""
+        refusé (dans le doute, il reste compté sur la ligne) ; il est seulement signalé « à vérifier ».
+        10/10 (passe 3 : sans fiche d'onboarding, avec un Gérant pas encore membre, la ligne comptait le lien de Paul sans ⚠ alors que
+        le CONTRÔLE disait C6 ; avec un registre vide, l'inverse) : exactement les conditions de controle.lien_de pour « vu sur le
+        seul nom » — (1) aucun détenteur confirmé (onboarding.json, membres partis exclus) ; (2) le membre du lien a un nom connu ;
+        (3) aucun mot commun entre ce nom et le Gérant ; (4) le Gérant ne se résout pas, par le prénom, sur ce membre (resout_sur ;
+        Gérant fantôme, du staff, pas encore membre ou au nom d'un autre : signalé). Renvoie le nom du membre du lien, '' sinon."""
         if L.get("typ") != "clipper" or self.cat(lid) != "attribue":
             return ""
         uid = str((self.liens.get(lid) or {}).get("uid") or "")
         noms = self.noms_uid.get(uid) or set()
-        if not uid or not noms:                                          # membre sans nom connu : rien pour en douter
+        if not uid or not noms:                                          # (2) membre sans nom connu : rien pour en douter
             return ""
         props = L.get("detenteurs")
         if props is None:
             props = L["detenteurs"] = self.detenteurs(L["c"])
-        if props:                                                        # détenteur confirmé : a_un_autre a tranché sur les uid
+        if props:                                                        # (1) détenteur confirmé : a_un_autre a tranché sur les uid
             return ""
-        mots_g = _mots_nom(L["c"].get("gerant"))
-        if noms & mots_g:
+        if noms & _mots_nom(L["c"].get("gerant")):                       # (3) un mot en commun : le bénéfice du doute
             return ""
-        ecartee = bool(self.proprietaires.get(_cle(L["c"].get("handle"))))   # fiche présente mais écartée (Gérant ≠ détenteur)
-        autre = bool(mots_g) and any(u != uid and (n & mots_g) for u, n in self.noms_uid.items())
-        return (self.nom_uid(uid) or "un autre membre") if (ecartee or autre) else ""
+        if self.resout_sur(L["c"].get("gerant"), uid):                   # (4) le Gérant désigne ce membre (homonymes compris)
+            return ""
+        return self.nom_uid(uid) or "un autre membre"
 
     def cr_lien(self, lid, creatrices: set) -> str:
         """La créatrice d'un lien (prénom normalisé) : sa fiche (créatrice, créatrice suivie, nom GAML), sinon son domaine."""
@@ -1056,15 +1129,125 @@ def budget_apify(b: dict, maintenant: datetime = None):
         traj = budget * min(1.0, max(0.0, (t - d0).total_seconds() / (d1 - d0).total_seconds()))
     coupe = b.get("coupe") if isinstance(b.get("coupe"), bool) else None
     return {"usage": usage, "budget": budget, "trajectoire": traj, "coupe": coupe, "atteint": usage >= budget - 1e-9,
-            "leger_ok": b.get("leger_ok", b.get("ok")), "fin": d1, "t": t, "source": str(b.get("source") or ""),
+            "leger_ok": b.get("leger_ok", b.get("ok")), "debut": d0, "fin": d1, "t": t, "source": str(b.get("source") or ""),
             "cout_leger": _montant(b.get("cout_leger_usd"))}                  # facultatif (lot SCAN) : coût d'une relecture légère
+
+
+def _reglages_legers() -> tuple:
+    """(heures de Paris des relectures légères, heures après un passage complet où la relecture est inutile, heure UTC du passage
+    complet du matin) : ceux de la garde du lot SCAN (etats_comptes.HEURES_LEGERES, LEGER_APRES_COMPLET_H, HEURE_UTC) ; à défaut,
+    ETATS_HEURES_LEGERES et ETATS_HEURE_UTC lues comme lui (« 14,20 », 7)."""
+    heures, apres, h_complet = None, 2, None
+    try:
+        import etats_comptes                                             # import tardif : etats_comptes importe ce module
+        heures = getattr(etats_comptes, "HEURES_LEGERES", None)
+        apres = getattr(etats_comptes, "LEGER_APRES_COMPLET_H", 2)
+        h_complet = getattr(etats_comptes, "HEURE_UTC", None)
+    except Exception as erreur:                                          # noqa: BLE001 — repli sur les variables d'environnement
+        journal.debug("Heures des relectures légères : %s", erreur)
+    if not isinstance(heures, (list, tuple, set)):
+        heures = []
+        for x in os.environ.get("ETATS_HEURES_LEGERES", "14,20").split(","):
+            try:
+                heures.append(int(x.strip()))
+            except ValueError:
+                continue
+    if not (isinstance(h_complet, int) and not isinstance(h_complet, bool) and 0 <= h_complet <= 23):
+        try:
+            h_complet = int(os.environ.get("ETATS_HEURE_UTC", "7") or 7)
+        except ValueError:
+            h_complet = 7
+    hs = sorted({h for h in heures if isinstance(h, int) and not isinstance(h, bool) and 0 <= h <= 23})
+    return hs, (apres if isinstance(apres, (int, float)) and not isinstance(apres, bool) and apres >= 0 else 2), h_complet
+
+
+def _a_heure(j: date, h: int) -> datetime:
+    """L'instant de `h` heures (Paris) le jour `j`."""
+    return datetime.combine(j, dtime(h), tzinfo=_tz())
+
+
+def _legers_du_jour(ctx) -> tuple:
+    """(jour de Paris, heures de relecture déjà traitées ce jour-là par la garde — faites, sautées ou inutiles : `legers`)."""
+    j = _paris(ctx.maintenant).date()
+    legers = ctx.etats.get("legers") if isinstance(ctx.etats.get("legers"), dict) else {}
+    vues = legers.get(j.isoformat()) if isinstance(legers.get(j.isoformat()), list) else []
+    return j, sorted({h for h in vues if isinstance(h, int) and not isinstance(h, bool) and 0 <= h <= 23})
+
+
+def _relecture_sautee(ctx) -> bool:
+    """10/10 (passe 3 du lot DASH : « relectures légères sautées » s'affichait d'après `leger_ok`, une prédiction calculée MAINTENANT
+    — presque toujours fausse juste après une relecture faite : 1 086 quarts d'heure à tort sur un mois simulé, 100 sauts réels
+    tus) : vrai seulement sur un FAIT. La garde du lot SCAN a sauté une relecture légère aujourd'hui (Paris) pour le budget
+    (`alertes_legeres["budget"]` = ce jour, posé par passage_leger_si_du au moment du saut) ET Instagram n'a pas été relu depuis :
+    ni relecture légère (`leger_iso`) ni passage complet (`scan_iso`) depuis la dernière heure de relecture traitée aujourd'hui (le
+    passage complet compte jusqu'à LEGER_APRES_COMPLET_H heures avant : la garde juge alors la relecture inutile)."""
+    al = ctx.etats.get("alertes_legeres") if isinstance(ctx.etats.get("alertes_legeres"), dict) else {}
+    j, traitees = _legers_du_jour(ctx)
+    if str(al.get("budget") or "") != j.isoformat():
+        return False
+    _, apres, _ = _reglages_legers()
+    depuis = _a_heure(j, traitees[-1]) if traitees else _minuit(j)
+    leger, complet = _instant(ctx.etats.get("leger_iso")), _instant(ctx.etats.get("scan_iso"))
+    if leger is not None and leger >= depuis:                            # relu par une relecture légère depuis
+        return False
+    # ou par un passage complet : après l'heure traitée, ou moins de LEGER_APRES_COMPLET_H heures avant (strict, comme la garde :
+    # la relecture était alors « inutile », pas sautée pour le budget)
+    return not (complet is not None and complet > depuis - timedelta(hours=apres))
+
+
+def _trajectoire_a(st: dict, t: datetime) -> float:
+    """La trajectoire linéaire du budget à l'instant `t` : celle du relevé `st` (budget_apify) avancée de budget × (t − heure du
+    relevé) ÷ durée du cycle, entre 0 et le budget."""
+    duree = (st["fin"] - st["debut"]).total_seconds() if st.get("debut") and st.get("fin") else 0
+    if duree <= 0:
+        return st["budget"]
+    return min(st["budget"], max(0.0, st["trajectoire"] + st["budget"] * (t - st["t"]).total_seconds() / duree))
+
+
+def _prochaine_relecture(ctx):
+    """10/10 (passe 3) : (heure, instant) de la prochaine relecture légère prévue aujourd'hui (Paris) que la garde n'a pas encore
+    traitée — une heure déjà passée mais pas traitée part tout de suite ; None : aucune (ETATS_HEURES_LEGERES vide, toutes
+    traitées), ou un passage complet récent la rendra inutile (la garde la saute sans payer, pas pour le budget) — fait, ou à venir :
+    le passage complet du jour pas encore passé, la relecture tombe moins de LEGER_APRES_COMPLET_H heures après son heure."""
+    heures, apres, h_complet = _reglages_legers()
+    j, traitees = _legers_du_jour(ctx)
+    h = next((h for h in heures if h not in traitees), None)
+    if h is None:
+        return None
+    t_r = max(_a_heure(j, h), ctx.maintenant)
+    complet = _instant(ctx.etats.get("scan_iso"))
+    if complet is not None and timedelta(0) <= t_r - complet < timedelta(hours=apres):
+        return None
+    jour_utc = t_r.astimezone(timezone.utc).date()
+    prevu = datetime.combine(jour_utc, dtime(h_complet), tzinfo=timezone.utc)   # le passage complet du matin (UTC)
+    if (complet is None or complet.astimezone(timezone.utc).date() < jour_utc) and prevu <= t_r < prevu + timedelta(hours=apres):
+        return None
+    return h, t_r, _a_heure(j, h)
+
+
+def _relecture_prevue_sautee(ctx, st: dict, prochaine=None):
+    """10/10 (passe 3) : (heure, trajectoire à cette heure) de la prochaine relecture légère du jour (_prochaine_relecture) si elle
+    SERA sautée : dépense déjà faite + coût d'une relecture (`cout_leger_usd`, 0 s'il est inconnu) au-dessus de la trajectoire du
+    budget À L'HEURE de cette relecture — la dépense ne fait que monter, la prévision ne se dément pas ; None sinon."""
+    p = prochaine if prochaine is not None else _prochaine_relecture(ctx)
+    if p is None or (st.get("fin") is not None and p[1] >= st["fin"]):  # cycle suivant : la dépense repart de 0
+        return None
+    # marge d'arrondi : l'état publié arrondit trajectoire et coût au centime (la garde calcule sans arrondi) — jamais « sera
+    # sautée » à un centime près
+    if st["usage"] + (st.get("cout_leger") or 0.0) > _trajectoire_a(st, p[1]) + MARGE_PREVISION_USD:
+        # la trajectoire écrite est celle de l'HEURE prévue (une relecture due mais pas encore traitée : le texte ne bouge pas de
+        # quart d'heure en quart d'heure, l'empreinte non plus)
+        return p[0], _trajectoire_a(st, p[2])
+    return None
 
 
 def _fraicheur_apify(ctx: _Ctx) -> tuple:
     """(texte du titre, alerte ou None). 09/10 (revue DASH, décision de Gaëtan « Dépasse pas 25 $ / mois ») : la dépense est
     rapportée au BUDGET de 25 $ (avant : à la limite du compte Apify, 25,20 $ dépensés sur 29 $ s'affichaient sans alerte) ;
-    « ⛔ Apify coupé jusqu'au JJ/MM » à 100 % ; « ⚠ » dès que la dépense dépasse la trajectoire linéaire du budget, ou dès que la
-    garde du lot SCAN saute les relectures légères (`leger_ok` faux : dépense + une relecture au-dessus de la trajectoire)."""
+    « ⛔ Apify coupé jusqu'au JJ/MM » à 100 % ; « ⚠ » dès que la dépense dépasse la trajectoire linéaire du budget.
+    10/10 (passe 3) : « relecture légère du jour sautée » seulement sur un fait (_relecture_sautee), « relecture de H h : sera
+    sautée (prévision) » seulement quand la trajectoire à cette heure-là ne la permettra pas (_relecture_prevue_sautee) ; `leger_ok`
+    n'est plus lu ici."""
     st = budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant)
     if st is None:
         return "Apify : budget pas encore lu", None
@@ -1080,20 +1263,30 @@ def _fraicheur_apify(ctx: _Ctx) -> tuple:
         return titre, ("⛔ Apify", "bloquant", texte)
     if st["atteint"]:                                                     # coupe=False malgré tout : dit quand même
         return f"⛔ Apify {u} $ / {bud} $ : budget atteint", ("⛔ Apify", "bloquant", f"budget Apify du mois atteint : {u} $ sur {bud} ${local}")
-    saute = " : relectures légères sautées" if st["leger_ok"] is False else ""
+    # 10/10 (passe 3 du lot DASH) : un fait (relecture sautée aujourd'hui, rien relu depuis) ou une prévision exacte, jamais `leger_ok`
+    sautee = _relecture_sautee(ctx)
+    prochaine = _prochaine_relecture(ctx)
+    prevue = _relecture_prevue_sautee(ctx, st, prochaine)
+    cout = f" + {_euros(st['cout_leger'])} $ par relecture" if st.get("cout_leger") else " + une relecture"
+    prevision = (f"relecture de {prevue[0]} h : sera sautée (prévision) — {u} $ dépensés{cout} dépasseront la trajectoire du budget à "
+                 f"{prevue[0]} h ({_euros(prevue[1])} $ sur {bud} $)") if prevue else ""
+    if sautee:                                                           # le fait : sans chiffre d'un autre moment que le saut
+        suite = (f"celle de {prevue[0]} h le sera aussi (prévision : {u} $ dépensés{cout}, trajectoire de {_euros(prevue[1])} $ à "
+                 f"{prevue[0]} h)") if prevue else (f"prochaine relecture prévue à {prochaine[0]} h" if prochaine else
+                                                    "prochain relevé au passage complet du matin")
+        fait = (f"relecture légère du jour sautée par la garde du budget (la dépense plus une relecture dépassait la trajectoire du "
+                f"budget de {bud} $){local} — comptes pas relus depuis (colonne Relevé) ; {suite}")
+        prevision, suffixe = "", " : relecture légère du jour sautée"
+    else:
+        fait, suffixe = "", (f" · relecture de {prevue[0]} h : sera sautée (prévision)" if prevue else "")
     if st["usage"] > st["trajectoire"] + 1e-9:
-        texte = (f"{u} $ dépensés sur {bud} $, au-dessus de la trajectoire du budget ({_euros(st['trajectoire'])} $ au "
-                 f"{_paris(st['t']):%d/%m}){local}" + saute)
-        return f"⚠ Apify {u} $ / {bud} ${saute}", ("⚠ Apify", "important", texte)
-    if saute:
-        # 10/10 (revue DASH, restant 2 : la garde du lot SCAN saute la relecture légère dès que la dépense PLUS une relecture
-        # dépasserait la trajectoire — la dépense seule peut rester dessous, et le Dashboard ne disait plus rien) : dit au titre
-        # et en ligne d'alerte, même sous la trajectoire
-        cout = f" + {_euros(st['cout_leger'])} $ par relecture" if st.get("cout_leger") else " + une relecture"
-        texte = (f"relectures légères sautées : {u} $ dépensés{cout} dépasseraient la trajectoire du budget de {bud} $ "
-                 f"({_euros(st['trajectoire'])} $ au {_paris(st['t']):%d/%m}){local} — les comptes ne sont relus qu'au passage "
-                 "complet du matin (colonne Relevé) tant que la trajectoire n'a pas rattrapé la dépense")
-        return f"⚠ Apify {u} $ / {bud} ${saute}", ("⚠ Apify", "important", texte)
+        texte = " ; ".join(x for x in (f"{u} $ dépensés sur {bud} $, au-dessus de la trajectoire du budget "
+                                       f"({_euros(st['trajectoire'])} $ au {_paris(st['t']):%d/%m}){local}", fait, prevision) if x)
+        return f"⚠ Apify {u} $ / {bud} ${suffixe}", ("⚠ Apify", "important", texte)
+    if sautee:
+        return f"⚠ Apify {u} $ / {bud} ${suffixe}", ("⚠ Apify", "important", " ; ".join(x for x in (fait, prevision) if x))
+    if prevue:                                                           # une prévision, pas un fait : ligne « info »
+        return f"Apify {u} $ / {bud} ${local}{suffixe}", ("⏭ Apify", "info", prevision + local)
     return f"Apify {u} $ / {bud} ${local}", None
 
 
@@ -1175,8 +1368,15 @@ def _fraicheur(ctx: _Ctx, e: dict, comptes_l: list) -> tuple:
 def _appel_bouclage(ctx: _Ctx, lids_lignes: list, lids_masques: list):
     """controle.bouclage sur la fenêtre du Dashboard (`fin` = hier, heure de Paris : les deux totaux portent sur les mêmes jours)
     avec le seau « masqués » (09/10, revue DASH). Contrat plus ancien sans `masques` : les liens masqués comptent avec les lignes
-    (jamais en écart) ; sans `fin` : la fenêtre du contrôle."""
-    essais = ([{"fin": ctx.hier, "masques": list(lids_masques)}] if lids_masques else []) + [{"fin": ctx.hier}, {}]
+    (jamais en écart) ; sans `fin` : la fenêtre du contrôle.
+    10/10 (passe 3) : les notes du bouclage lues une fois par le Dashboard (ctx.notes, celles de ses catégories) lui sont passées :
+    lignes Pages / Libérés / ⚠ Sans ligne et seaux du bouclage rangent chaque lien avec la même note, au même instant."""
+    notes = {"notes": ctx.notes} if isinstance(getattr(ctx, "notes", None), dict) else {}
+    essais = []
+    for kw in ([{"fin": ctx.hier, "masques": list(lids_masques)}] if lids_masques else []) + [{"fin": ctx.hier}, {}]:
+        if notes and kw:
+            essais.append({**kw, **notes})                               # contrat plus ancien sans `notes` : l'essai suivant
+        essais.append(kw)
     for i, kw in enumerate(essais):
         lignes = list(lids_lignes) + ([] if "masques" in kw else list(lids_masques))
         try:
@@ -1763,6 +1963,13 @@ def entrees(comptes: list) -> dict:
     mpi = _deps.get("membre_par_id")
     if callable(mpi):
         uids = set(registre) | {str((i or {}).get("uid") or "") for i in (clics.get("liens") or {}).values() if isinstance(i, dict)}
+        # 10/10 (passe 3) : les détenteurs d'onboarding.json aussi (fiches, livraisons, écartés), comme controle._membres_connus — un
+        # détenteur présent sur le serveur n'est jamais pris pour un membre parti (règle des détenteurs, C6d)
+        onb_d = onb if isinstance(onb, dict) else {}
+        uids |= {str(u) for u in (onb_d.get("clippers") or {})} if isinstance(onb_d.get("clippers"), dict) else set()
+        for cle in ("livres", "ecartes"):
+            uids |= {str((x or {}).get("uid") or "") for x in (onb_d.get(cle) or {}).values() if isinstance(x, dict)} \
+                if isinstance(onb_d.get(cle), dict) else set()
         membres = {}
         for uid in sorted(uids - {""}):
             try:
