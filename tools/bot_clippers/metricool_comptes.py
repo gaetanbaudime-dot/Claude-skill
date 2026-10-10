@@ -68,7 +68,10 @@ Règles (jamais un faux 0) :
         10/10 (passe 3) : seulement pour un compte que le classeur dit VIVANT (lu une fois par passage, dep lire_comptes). Un
         compte BAN ou introuvable au classeur, ou sur aucune ligne, passe à « à retirer de Metricool ? », rappel une fois par
         semaine (RETIRER_J) : un ban ne noie plus le vrai jeton expiré d'un compte vivant. Classeur illisible : « débranché ? »
-        jusqu'à DEBRANCHE_MAX_J jours après la dernière publication, puis « à retirer ? » ;
+        jusqu'à DEBRANCHE_MAX_J jours après la dernière publication, puis « à retirer ? ». Reprise : « vivant » = la notion du
+        scan et du contrôle (ni BAN / introuvable, ni PERDU, ni « à créer », ni Gérant libre : un compte libéré ou aux logins
+        perdus passe aussi à « à retirer ? ») ; la ligne est cherchée alias de series suivis (un compte renommé dont le jeton a
+        expiré garde son ANCIEN @ chez Metricool : il reste « débranché ? », jamais « à retirer », ni « hors classeur ») ;
       · 09/10 (correctif) : liste incomplète = au moins 2 Reels (et le quart des vérifiables) qu'Apify a vus VIVANTS après la photo
         de Metricool (un point de vues après la fin de la fenêtre) absents de la réponse. Un Reel supprimé par le clipper (pratique
         courante : on retire ceux qui floppent) n'est plus pris pour un manque : il n'a plus de point après sa suppression ;
@@ -126,7 +129,8 @@ MEME_REEL_S = 120                                # deux codes, publiés à 2 min
 DEBRANCHE_J = 2                                  # rien depuis 2 jours ou plus, non confirmé : « débranché ? » au salon admin
 VUES_ALERTE_MIN = 3                              # au moins 3 Reels de plus de 24 h lus sans aucune vue : alerte « vues illisibles »
 PHOTOS_J = 12                                    # dernière lecture des vues d'un compte gardée 12 jours (synchro vivante ?)
-# 10/10 (passe 3) : « débranché ? » réservé aux comptes vivants du classeur ; les autres → « à retirer de Metricool ? »
+# 10/10 (passe 3) : « débranché ? » réservé aux comptes vivants du classeur ; les autres → « à retirer de Metricool ? ».
+# Reprise : vivant = la notion du scan (etats_comptes._vivant) et du contrôle (controle._vivante), voir _motif_ligne
 ETATS_MORTS = ("ban", "introuvable")             # ETAT du classeur (premier mot, sans accent ni casse) d'un compte mort
 DEBRANCHE_MAX_J = 14                             # classeur illisible : « débranché ? » 14 jours après la dernière publication au plus
 RETIRER_J = 7                                    # « à retirer de Metricool ? » : une fois par semaine au plus
@@ -636,12 +640,76 @@ def _agees(reels: list, fin: datetime) -> list:
             and fin - p >= timedelta(hours=AGE_VRAI_ZERO_H)]
 
 
+def _sans_accents(t) -> str:
+    """Une cellule du classeur comparable : minuscules, sans accents, espaces réduits."""
+    t = unicodedata.normalize("NFD", str(t or "").lower())
+    return " ".join("".join(c for c in t if unicodedata.category(c) != "Mn").split())
+
+
 def _etat_mort(etat) -> bool:
     """ETAT d'une ligne du classeur d'un compte mort : BAN ou introuvable (premier mot, sans accent ni casse : « Ban », « BAN »,
     « Introuvable »)."""
-    t = unicodedata.normalize("NFD", str(etat or "").lower())
-    mots = re.findall(r"[a-z]+", "".join(c for c in t if unicodedata.category(c) != "Mn"))
+    mots = re.findall(r"[a-z]+", _sans_accents(etat))
     return bool(mots) and mots[0] in ETATS_MORTS
+
+
+def _gerant_libre(gerant) -> bool:
+    """Gérant d'une ligne sans clipper (onboarding.GERANTS_LIBRES : vide, « x », « libre », « dispo »…). onboarding introuvable :
+    False (on ne sait pas, la ligne n'est jamais écartée pour ça)."""
+    try:
+        import onboarding
+        return _sans_accents(gerant) in {_sans_accents(g) for g in onboarding.GERANTS_LIBRES}
+    except Exception:                                                    # noqa: BLE001
+        return False
+
+
+def _motif_ligne(c: dict) -> str:
+    """10/10 (passe 3, reprise) : '' si la ligne du classeur est VIVANTE (quelqu'un y publie), sinon pourquoi personne n'y publie.
+    Même notion que le scan (etats_comptes._vivant : ni BAN, ni « à créer », ni Gérant libre) et le contrôle (controle._vivante :
+    ni BAN, ni « perdu ») : ETAT BAN ou introuvable, ETAT « perdu » (PERDU LOGS : logins perdus), ETAT « à créer », ou Gérant
+    libre (clipper sorti, compte libéré par !liberer). Avant, un compte libéré ou PERDU encore branché restait ~39 jours dans
+    « débranché ? ». Une ligne lue sans colonne Gérant (clé absente) n'est pas jugée sur le Gérant."""
+    e = _sans_accents(c.get("etat"))
+    if _etat_mort(e):
+        return "BAN ou introuvable au classeur"
+    if "perdu" in e:
+        return "PERDU au classeur"
+    if e == "a creer":
+        return "« à créer » au classeur"
+    if "gerant" in c and _gerant_libre(c.get("gerant")):
+        return "Gérant libre au classeur"
+    return ""
+
+
+def _ligne_du_classeur(cle: str, classeur) -> "str | None":
+    """10/10 (passe 3, reprise) : la clé du classeur qui porte ce compte branché à Metricool, ou None (sur aucune ligne).
+    L'@ lui-même ; sinon, compte renommé : sa clé vivante d'après les alias de series (series.cle_vivante, la même que suit
+    _serie), puis une clé du classeur dont il est un ancien @ (series.renomme_depuis : `!renommer` noté, séries pas encore
+    réunies tant qu'Apify n'a pas relu le nouvel @). Un jeton expiré fige le profil chez Metricool, qui garde l'ANCIEN @ ;
+    le classeur a le nouveau. Avant, ce compte vivant passait en « à retirer de Metricool ? (sur aucune ligne du classeur) »."""
+    if not isinstance(classeur, dict) or not cle:
+        return None
+    if cle in classeur:
+        return cle
+    try:
+        import series
+        if not series.actif():
+            return None
+        vivante = str(series.cle_vivante(cle) or "")
+        if vivante in classeur:
+            return vivante
+        for k in classeur:
+            a, vus = k, set()
+            while len(vus) < 10:
+                a = _cle(series.renomme_depuis(a))
+                if not a or a in vus or a == k:
+                    break
+                if a in (cle, vivante):
+                    return k
+                vus.add(a)
+    except Exception as erreur:                                          # noqa: BLE001 — séries illisibles : sur aucune ligne
+        journal.warning("Metricool : alias des @ renommés illisibles (%s)", type(erreur).__name__)
+    return None
 
 
 def _silence_j(jour: str, veille: date, serie: dict, photo) -> "int | None":
@@ -663,16 +731,22 @@ def _silence_j(jour: str, veille: date, serie: dict, photo) -> "int | None":
 
 def _classer_debranche(b: dict, cle: str, jour: str, veille: date, serie: dict, photo, classeur) -> str:
     """Un compte muet de Metricool, que rien ne confirme en pause : où le ranger. « debranches » (« débranché ? », chaque jour au
-    dernier passage) seulement si le classeur le dit VIVANT (au moins une ligne ni BAN ni introuvable) ; BAN ou introuvable au
-    classeur, ou sur aucune ligne → « a_retirer » (« à retirer de Metricool ? », une fois par semaine) : son silence est expliqué,
-    ou personne ne le suit, et il ne noie plus le vrai jeton expiré d'un compte vivant. Classeur illisible (None) : on ne sait
-    pas → « débranché ? » jusqu'à DEBRANCHE_MAX_J jours de silence, puis « à retirer ? ». Renvoie la liste choisie."""
+    dernier passage) seulement si le classeur le dit VIVANT (au moins une ligne vivante, _motif_ligne) ; BAN, introuvable, PERDU,
+    « à créer » ou Gérant libre au classeur, ou sur aucune ligne → « a_retirer » (« à retirer de Metricool ? », une fois par
+    semaine) : son silence est expliqué, ou personne ne le suit, et il ne noie plus le vrai jeton expiré d'un compte vivant.
+    Reprise : la ligne est cherchée alias suivis (_ligne_du_classeur) — un compte renommé dont le jeton a expiré garde son ancien
+    @ chez Metricool ; la ligne trouvée sous un autre @ est notée dans b["au_classeur"] pour l'alerte. Classeur illisible
+    (None) : on ne sait pas → « débranché ? » jusqu'à DEBRANCHE_MAX_J jours de silence, puis « à retirer ? ». Renvoie la liste
+    choisie."""
     if isinstance(classeur, dict):
-        vivant = classeur.get(cle)
-        if vivant is True:
+        ligne = _ligne_du_classeur(cle, classeur)
+        motif = classeur.get(ligne) if ligne is not None else None
+        if ligne is not None and ligne != cle:
+            b.setdefault("au_classeur", {})[cle] = ligne
+        if motif == "":
             b["debranches"].setdefault(cle, jour)
             return "debranches"
-        pourquoi = "BAN ou introuvable au classeur" if vivant is False else "sur aucune ligne du classeur"
+        pourquoi = str(motif or "sur aucune ligne du classeur")
     else:
         age = _silence_j(jour, veille, serie, photo)
         if age is None or age <= DEBRANCHE_MAX_J:
@@ -828,7 +902,7 @@ async def releves(maintenant=None) -> dict:
     veille = now.date() - timedelta(days=1)
     debut, fin = fenetre(veille)
     b = {"t": _iso(now), "jour": veille.isoformat(), "marques_ig": 0, "lus": [], "non_lus": {}, "echecs": {}, "partages": [],
-         "debranches": {}, "a_retirer": {}, "partiels": [], "zeros_ignores": 0, "erreur": ""}
+         "debranches": {}, "a_retirer": {}, "au_classeur": {}, "partiels": [], "zeros_ignores": 0, "erreur": ""}
     _dernier_bilan = b
     _passage.update(partiels={}, photos={}, fin=_iso(fin), classeur=None)
     if not actif():
@@ -1111,9 +1185,10 @@ async def _alerter(lignes: list, jour: str):
 
 
 async def _classeur():
-    """10/10 (passe 3) : le classeur (dep `lire_comptes`), lu UNE fois par passage → {clé: True si au moins une de ses lignes est
-    vivante, False si toutes sont BAN ou introuvables (_etat_mort)}. None si la dep manque, si la lecture échoue ou si le classeur
-    est vide : on ne sait pas (jamais un compte écarté ni une fausse alerte « hors classeur » sur une lecture ratée)."""
+    """10/10 (passe 3) : le classeur (dep `lire_comptes`), lu UNE fois par passage → {clé: '' si au moins une de ses lignes est
+    vivante, sinon le motif de sa première ligne (_motif_ligne : BAN ou introuvable, PERDU, « à créer », Gérant libre)}. None si
+    la dep manque, si la lecture échoue ou si le classeur est vide : on ne sait pas (jamais un compte écarté ni une fausse alerte
+    « hors classeur » sur une lecture ratée)."""
     if not callable(_deps.get("lire_comptes")):
         return None
     try:
@@ -1125,43 +1200,50 @@ async def _classeur():
     for c in lignes:
         if isinstance(c, dict) and c.get("handle"):
             k = _cle(c.get("handle"))
-            if k:
-                out[k] = out.get(k, False) or not _etat_mort(c.get("etat"))
+            if k and out.get(k) != "":
+                motif = _motif_ligne(c)
+                if k not in out or motif == "":                          # une ligne vivante l'emporte ; sinon la première
+                    out[k] = motif
     return out or None
 
 
 async def _hors_classeur(cles_ig: set, classeur="lire") -> list:
     """Les comptes Instagram branchés à Metricool dont l'@ n'est sur aucune ligne du classeur (dep `lire_comptes`) : leurs séries
     sont écrites, mais aucune ligne du Dashboard ne les montre. [] si le classeur est illisible (jamais une fausse alerte).
-    10/10 (passe 3) : `classeur` = la lecture du passage (_classeur, faite par releves) ; "lire" (défaut) le relit."""
+    10/10 (passe 3) : `classeur` = la lecture du passage (_classeur, faite par releves) ; "lire" (défaut) le relit. Reprise : un
+    ancien @ d'une ligne (compte renommé, alias de series) n'est pas « hors classeur » : ses relevés vont à la série de la ligne."""
     if not cles_ig:
         return []
     if classeur == "lire":
         classeur = await _classeur()
-    cles = set(classeur) if isinstance(classeur, dict) else set()
-    cles.discard("")
-    hors = sorted(k for k in cles_ig if cles and k not in cles)
+    cles = {k: v for k, v in classeur.items() if k} if isinstance(classeur, dict) else {}
+    hors = sorted(k for k in cles_ig if cles and _ligne_du_classeur(k, cles) is None)
     if hors:
         journal.warning("Metricool : %d compte(s) Instagram branché(s) absent(s) du classeur : %s", len(hors),
                         ", ".join("@" + k for k in hors))
     return hors
 
 
-def _texte_debranche(c: str, j: str) -> str:
+def _texte_debranche(c: str, j: str, ligne: str = "") -> str:
+    """« @compte (dernière publication le 25/09) » ; reprise : « @ancien (au classeur @nouveau, dernière publication le 25/09) »
+    pour un compte renommé que Metricool montre encore sous son ancien @."""
+    au = f"au classeur @{ligne}, " if ligne and ligne != c else ""
     try:
-        return f"@{c} (dernière publication le {date.fromisoformat(str(j)):%d/%m})"
+        return f"@{c} ({au}dernière publication le {date.fromisoformat(str(j)):%d/%m})"
     except ValueError:
-        return f"@{c} (aucune publication depuis plus de {JOURS} jours)"
+        return f"@{c} ({au}aucune publication depuis plus de {JOURS} jours)"
 
 
-def _texte_retirer(c: str, x) -> str:
-    """10/10 (passe 3) : « @compte (BAN ou introuvable au classeur, dernière publication le 25/09) »."""
+def _texte_retirer(c: str, x, ligne: str = "") -> str:
+    """10/10 (passe 3) : « @compte (BAN ou introuvable au classeur, dernière publication le 25/09) » ; reprise : la ligne trouvée
+    sous un autre @ (compte renommé) est nommée : « @ancien (Gérant libre au classeur @nouveau, …) »."""
     x = x if isinstance(x, dict) else {}
     try:
         quand = f", dernière publication le {date.fromisoformat(str(x.get('jour'))):%d/%m}"
     except ValueError:
         quand = ""
-    return f"@{c} ({x.get('pourquoi') or 'muet'}{quand})"
+    au = f" @{ligne}" if ligne and ligne != c else ""
+    return f"@{c} ({x.get('pourquoi') or 'muet'}{au}{quand})"
 
 
 def _lignes_alerte(b: dict, rels: dict, now: datetime, partiels_: dict = None) -> list:
@@ -1203,15 +1285,16 @@ def _lignes_alerte(b: dict, rels: dict, now: datetime, partiels_: dict = None) -
                                    "introuvable ou vide dans brand-summary, à vérifier."
                                    + (" Ces 0 ne sont pas écrits (non mesuré, jamais un shadowban de masse)."
                                       if b.get("zeros_ignores") else "")))
+    au = b.get("au_classeur") if isinstance(b.get("au_classeur"), dict) else {}   # reprise : ancien @ → ligne du classeur
     if b.get("debranches") and dernier:                                  # 10/10 (revue) : jamais au passage de 8 h
         lignes.append(("debranche", "rien de Metricool depuis 2 jours ou plus (aucun Reel, vues figées), et Apify ne confirme "
                                     "pas ces jours sans publication : compte en pause, ou Instagram débranché de Metricool "
                                     "(jeton expiré) ? "
-                       + ", ".join(_texte_debranche(c, j) for c, j in sorted(b["debranches"].items()))
+                       + ", ".join(_texte_debranche(c, j, au.get(c, "")) for c, j in sorted(b["debranches"].items()))
                        + ". Ces comptes sont non lus, rien n'est écrit à 0."))
     if b.get("a_retirer") and dernier:                                   # 10/10 (passe 3) : une fois par semaine (PERIODES_J)
         lignes.append(("retirer", "à retirer de Metricool ? Comptes toujours branchés dont Metricool ne rend plus rien : "
-                       + ", ".join(_texte_retirer(c, x) for c, x in sorted(b["a_retirer"].items()))
+                       + ", ".join(_texte_retirer(c, x, au.get(c, "")) for c, x in sorted(b["a_retirer"].items()))
                        + ". Non lus, rien n'est écrit à 0. Rappel une fois par semaine."))
     return lignes
 
