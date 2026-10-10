@@ -9,13 +9,15 @@ Familles (contrat C3) :
   C2  Gérant fantôme (ni membre signé unique sur le serveur, ni créatrice, ni « X (Metricool) » connu) ;
   C3  Gérant ambigu (deux membres signés du même prénom) ;
   C4  Gérant ≠ propriétaire de la fiche d'onboarding (accès et codes 2FA encore chez un autre, compte jamais livré, compte d'un
-      homonyme parti — sortis.json) ; chaque remède tient en 300 caractères, étapes en flèches ;
+      homonyme parti — sortis.json) ; chaque remède tient en 300 caractères, étapes en flèches ; `!onboarding` n'est conseillé que
+      quand onboarding.livrer peut livrer la ligne (aucun autre uid ne la détient, sinon `!liberer` d'abord — 3e passe) ;
   C5  clipper dont le lien est dû (parcours.lien_du, ou ancien avec un compte créé) sans lien pour la créatrice de la ligne ;
   C6  cellule « Lien GAML associé » ≠ lien attendu (libéré, hors clipping, supprimé, désactivé, autre clipper, page de la créatrice,
       lien jamais attribué), ou VIDE alors que le clipper a son lien ;
   C7  lien attribué sans ligne vivante (ou à un membre absent du registre) ;
   C8  lien libéré, hors clipping ou jamais attribué avec des visites payables sur 7 j, porté par aucune ligne ;
-  C9  note GAML ≠ attribution du bot (10/10 : lien attribué dont la note ne commence plus par « Clipping » — paie_clics le détache) ;
+  C9  note GAML ≠ attribution du bot (10/10 : lien attribué ou libéré dont la note ne commence plus par « Clipping » — paie_clics le
+      détache) ;
   C10 lien en bio Instagram (etats_comptes.json « bios ») ≠ lien attendu ;
   C11 @ en double (même onglet, ou deux onglets : la ligne écartée par onboarding._sans_doublons est invisible au bot) ;
   C12 compte non lu / restreint / illisible au dernier passage (etats « non_lus », « dernier_passage », historique, séries).
@@ -576,6 +578,11 @@ class _Ctx:
         # la résolution par prénom n'a de sens qu'avec un registre et la liste des membres (sinon tout serait « fantôme »)
         self.resolution = bool(registre) and bool(membres_d)
         self.signes = {uid for uid in membres_d if uid in registre}       # signés ET présents sur le serveur
+        # 10/10 (vérification CONTROLE, 3e passe — lot L10 déployé) : le prénom distinct d'un homonyme renommé par le bot (« Andry2 »,
+        # registre « prenom_distinct ») : bot_discord.membre_par_prenom le cherche sous CE prénom seulement, même quand son pseudo
+        # n'a pas pu être changé (« Andry - Sarah ») — sans lui, C3 « deux Andry » bloquant et C2 « Andry2 fantôme » étaient faux
+        self.distincts = {str(uid): str(f.get("prenom_distinct")).strip() for uid, f in (registre or {}).items()
+                          if isinstance(f, dict) and str(f.get("prenom_distinct") or "").strip()}
         details = [d for d in details or [] if isinstance(d, dict) and d.get("id")]
         self.notes, _ = _notes(clics, details, self.memoire.get("notes"))
         self.noms_gaml = {str(d["id"]): str(d.get("nom") or d.get("name") or "") for d in details}
@@ -648,8 +655,7 @@ class _Ctx:
         elif "metricool" in g:
             r = ("metricool", "", [])
         else:
-            cands = sorted(uid for uid in self.signes if _premier(self.membres[uid]) == g or _n(self.membres[uid]) == g) \
-                if self.resolution else []
+            cands = sorted(uid for uid in self.signes if self.repond(uid, g)) if self.resolution else []
             if len(cands) == 1:
                 r = ("membre", cands[0], cands)
             elif cands:
@@ -663,23 +669,37 @@ class _Ctx:
         self._resolus[g] = r
         return r
 
+    def repond(self, uid, g) -> bool:
+        """Le membre `uid` répond-il au Gérant normalisé `g` ? La règle de bot_discord.membre_par_prenom : son prénom distinct
+        (« Andry2 », registre) s'il en a un, et lui seul ; sinon le premier mot de son pseudo, ou son pseudo entier (3e passe)."""
+        d = _n(self.distincts.get(str(uid), ""))
+        if d:
+            return d == g
+        return _premier(self.membres.get(str(uid))) == g or _n(self.membres.get(str(uid))) == g
+
     def _prenom_registre(self, uid) -> str:
         fiche = self.registre.get(str(uid or ""))
         return str(fiche.get("prenom") or "").strip() if isinstance(fiche, dict) else ""
 
     def nom(self, uid) -> str:
-        """Le nom à afficher d'un membre : son pseudo (avant « - Créatrice »), sinon le prénom du registre."""
+        """Le nom à afficher d'un membre : son pseudo (avant « - Créatrice »), sinon le prénom du registre. 3e passe : son prénom
+        distinct (« Andry2 ») quand son pseudo ne le porte pas — « Andry » seul ne dit pas lequel des deux."""
         uid = str(uid or "")
+        d = self.distincts.get(uid, "")
         if self.membres.get(uid):
-            return _avant_separateur(self.membres[uid]).strip() or "?"
+            n = _avant_separateur(self.membres[uid]).strip() or "?"
+            return d if d and _premier(n) != _n(d) else n
+        if d:
+            return d
         p = self._prenom_registre(uid)
         return p.title() if p else "un membre parti"
 
     def mots_uid(self, uid) -> set:
-        """Les mots du nom d'un membre (pseudo avant « - Créatrice », prénom du registre)."""
+        """Les mots du nom d'un membre (pseudo avant « - Créatrice », prénom du registre, prénom distinct — 3e passe)."""
         uid = str(uid or "")
         if uid not in self._mots:
-            self._mots[uid] = _mots_nom(self.membres.get(uid)) | _mots_nom(self._prenom_registre(uid))
+            self._mots[uid] = (_mots_nom(self.membres.get(uid)) | _mots_nom(self._prenom_registre(uid))
+                               | _mots_nom(self.distincts.get(uid, "")))
         return self._mots[uid]
 
     def compatible(self, uid, gerant, strict: bool = False) -> bool:
@@ -703,6 +723,13 @@ class _Ctx:
         """Le clipper de la ligne (proprio) s'il est signé et présent ; '' pour un membre parti ou sorti du registre (10/10)."""
         p = self.proprio(c)
         return "" if (self.resolution and p not in self.signes) else p
+
+    def bloque(self, c, uid) -> list:
+        """10/10 (vérification CONTROLE, 3e passe) : les uid qui empêchent onboarding.livrer de donner la ligne à `uid`. livrer lit
+        onboarding._proprietaires (livraison la plus récente, sinon fiches — ici `detenteurs_bruts`) et ne livre JAMAIS, même forcé,
+        une ligne détenue par d'autres sans lui (« ⚠️ … déjà à un autre clipper, NON livrés (homonyme ?) ») ; [] si rien ne bloque."""
+        dets = self.detenteurs_bruts.get(_cle_compte(c.get("handle")), set())
+        return [] if str(uid or "") in dets else sorted(dets)
 
     def detenteurs(self, c) -> set:
         """Contrat C6(d) : les uid qui détiennent la ligne d'après onboarding.json, compatibles avec le Gérant écrit (un Gérant changé
@@ -866,19 +893,48 @@ def _remede_liberer(x: _Ctx, c: dict, genre: str, uid: str = "") -> str:
         etapes.append(f"Utilisation « {u} »" if u else "Utilisation vidée")
     # la livraison n'est jamais automatique (commandes `!onboarding`, `!creatrice`, reprise) : la commande est donnée
     if genre == "membre" and uid and _n(u) == "clipper":
-        etapes.append(_remede_onboarding(x, c, uid))
+        etapes.append(_remede_onboarding(x, c, uid, libere=True))       # après `!liberer` : plus aucun détenteur ne bloque
     return "remède : " + " → ".join(etapes)
 
 
-def _remede_onboarding(x: _Ctx, c: dict, uid: str) -> str:
+def _cmd_liberer(c: dict) -> str:
+    """10/10 (vérification CONTROLE, 3e passe) : `!liberer Prénom handle` pour la ligne `c`. La commande ne prend que les lignes dont
+    le Gérant EST le premier mot donné (onboarding.commande_staff) : un Gérant en plusieurs mots (« Jean Marc ») passe par le Gérant
+    provisoire JETON_LIBERER, comme _remede_liberer."""
+    h, g = c.get("handle"), str(c.get("gerant") or "").strip()
+    if g and len(g.split()) == 1:
+        return f"`!liberer {g} {h}`"
+    return f"Gérant « {JETON_LIBERER} » → `!liberer {JETON_LIBERER} {h}`"
+
+
+def _remede_onboarding(x: _Ctx, c: dict, uid: str, libere: bool = False) -> str:
     """10/10 (vérification CONTROLE) : `!onboarding @membre <Créatrice de la ligne>` — onboarding.livrer prend les lignes dont le Gérant
     est son prénom chez CETTE créatrice, et complète jusqu'à COMPTES_PAR_CLIPPER avec des comptes libres : dit quand ça arrivera.
     10/10 (2e passe : la commande ne pouvait rien y faire, ou défaisait une autre livraison) : jamais conseillée quand le Gérant a
     déjà COMPTES_PAR_CLIPPER autres comptes chez cette créatrice (livrer n'en prend que les premiers : ce compte ne serait jamais
     livré), ni quand sa fiche d'onboarding porte des comptes d'une AUTRE créatrice (livrer la réécrit pour cette seule créatrice :
-    ses comptes, ses accès et ses codes d'avant en sortiraient) — livraison à la main, dite telle quelle."""
+    ses comptes, ses accès et ses codes d'avant en sortiraient) — livraison à la main, dite telle quelle.
+    10/10 (3e passe : le compte encore livré à un autre uid — ancien parti, détenteur hors du serveur — n'était jamais livré par la
+    commande conseillée, livrer le met dans « NON livrés (homonyme ?) » même forcé ; C4 repassait alors en « écarté » et redonnait
+    `!onboarding`, sans fin) : tant qu'un autre uid détient la ligne (x.bloque), la commande passe APRÈS `!liberer` (qui sort le
+    compte de toutes les fiches et de « livres »), puis le Gérant et l'Utilisation remis. `libere` : l'appelant a déjà mis
+    `!liberer` dans ses étapes."""
+    if not libere and x.bloque(c, uid):
+        g = str(c.get("gerant") or "").strip()
+        return (f"remède : {_cmd_liberer(c)} → Gérant « {g} » → Utilisation « Clipper » → "
+                + _remede_onboarding(x, c, uid, libere=True))
     cr = (str(c.get("creatrice") or "").split() or [""])[0]
-    nom = x.nom(uid)
+    nom, g = x.nom(uid), str(c.get("gerant") or "").strip()
+    nom = g if g and len(g) < len(nom) else nom                         # 3e passe : « @Marie » plutôt qu'un pseudo de 40 caractères
+    # 3e passe : `!onboarding @membre` (onboarding.commande_staff) appelle livrer sans Gérant : livrer cherche les lignes dont le
+    # Gérant vaut le 1er mot du PSEUDO. Gérant en deux mots, ou homonyme renommé « Andry2 » dont le pseudo est resté « Andry - Sarah »
+    # (lot L10) : la commande ne prendrait jamais cette ligne, et réserverait des comptes libres au nom « Andry » — ceux de l'ancien.
+    pseudo = str(x.membres.get(str(uid)) or "")
+    premier = pseudo.split()[0] if pseudo.split() else ""
+    if g and premier and _n(premier) != _n(g):
+        if len(g.split()) > 1:
+            return "livraison à la main (`!onboarding` ne lit qu'un mot de Gérant)"
+        return f"pseudo « {g} - {cr or '…'} » d'abord, puis `!onboarding @{g} {cr or '<Créatrice>'}`"
     if not cr:
         return f"`!onboarding @{nom} <Créatrice>` (colonne Créatrice vide : la remplir d'abord)"
     k = int(getattr(onboarding, "COMPTES_PAR_CLIPPER", 3) or 3)
@@ -998,13 +1054,16 @@ def _c4(x: _Ctx) -> list:
         gele = str(getattr(onboarding, "MENTION_LIBERE", "") or "à mettre Metricool")
         if genre == "membre":
             nom = x.nom(uid)
-            if x.ecartes.get(h) == uid:
+            bloque = x.bloque(c, uid)
+            if x.ecartes.get(h) == uid and not bloque:
                 # 10/10 (2e passe) : sinon `!liberer` (sort le compte de la fiche de l'ancien, lève l'écart) plutôt qu'un Gérant vidé
-                # à la main (le compte partait au vivier avec ses accès encore dans l'ancienne fiche)
+                # à la main (le compte partait au vivier avec ses accès encore dans l'ancienne fiche). 10/10 (3e passe) : seulement
+                # quand aucun autre uid ne détient le compte — `!onboarding` lève alors l'écart et livre ; détenu par un autre (écart
+                # « homonyme » posé par livrer), les branches qui suivent disent qui et donnent `!liberer` d'abord
                 out.append(_a("C4", "important", _avec_remede(
                     [f"{_ou(c)} · {_qui(c)} : écarté à la livraison (homonyme possible d'un ancien), jamais livré",
                      f"{_ou(c)} · {_qui(c)} : écarté à la livraison (homonyme ?)"],
-                    f"si c'est bien le sien : {_remede_onboarding(x, c, uid)} ; sinon `!liberer {g} {c['handle']}`"), cle))
+                    f"si c'est bien le sien : {_remede_onboarding(x, c, uid)} ; sinon {_cmd_liberer(c)}"), cle))
             elif etrangers:
                 # 10/10 : le remède entier tient dans les 300 caractères du salon admin et du Dashboard (_avec_remede)
                 noms = ", ".join(x.nom(o) for o in etrangers)
@@ -1020,38 +1079,58 @@ def _c4(x: _Ctx) -> list:
             elif uid not in proprios and _n(c.get("utilisation")) == "clipper":
                 partis = sorted(o for o in proprios if x.parti(o))
                 if not partis:
+                    # 10/10 (3e passe) : un détenteur hors du serveur mais encore au registre (ni présent, ni « parti ») bloque aussi
+                    # livrer : _remede_onboarding passe alors par `!liberer`, et la tête dit chez qui est le compte
+                    chez = ", ".join(x.nom(o) for o in bloque)
                     out.append(_a("C4", "important", _avec_remede(
-                        [f"{_ou(c)} · {_qui(c)} : au nom de {nom} mais absent de sa fiche d'onboarding (jamais livré)",
-                         f"{_ou(c)} · {_qui(c)} : jamais livré à {nom}"], _remede_onboarding(x, c, uid)), cle))
+                        ([f"{_ou(c)} · {_qui(c)} : au nom de {nom} mais encore livré à {chez} (hors du serveur), jamais à lui",
+                          f"{_ou(c)} · {_qui(c)} : livré à {chez}, pas à {nom}"] if bloque else
+                         [f"{_ou(c)} · {_qui(c)} : au nom de {nom} mais absent de sa fiche d'onboarding (jamais livré)"])
+                        + [f"{_ou(c)} · {_qui(c)} : jamais livré à {nom}"], _remede_onboarding(x, c, uid)), cle))
                     continue
                 # 10/10 (vérification CONTROLE, 2e passe — cas Eddy du 24/09) : le compte est encore livré à un membre PARTI. Ancien
-                # du même nom (sortis.json) : c'est l'homonyme, `!liberer` seul (`!onboarding` force la livraison, il lèverait
-                # l'écart et enverrait au nouveau les accès et les codes de l'ancien). Nom inconnu : les deux cas, `!liberer` d'abord.
-                # Ancien d'un autre nom : le compte a été redonné à la main, la commande de livraison.
+                # du même nom (sortis.json) : c'est l'homonyme, `!liberer` seul. Nom inconnu : les deux cas, `!liberer` d'abord.
+                # Ancien d'un autre nom : le compte a été redonné à la main. 10/10 (3e passe : livrer ne livre jamais une ligne encore
+                # livrée à un autre uid, même forcé — `!onboarding` conseillé seul ne livrait rien et C4 repassait en « écarté ») :
+                # pour le donner au nouveau, toujours `!liberer` d'abord, puis Gérant et Utilisation remis, puis `!onboarding`.
                 noms_p = {o: x.nom_parti(o) for o in partis}
                 meme_nom = [noms_p[o] for o in partis if _mots_nom(noms_p[o]) & _mots_nom(g)]
-                liberer = f"`!liberer {g} {c['handle']}`"
+                liberer = _cmd_liberer(c)
                 if meme_nom:
                     out.append(_a("C4", "important", _avec_remede(
                         [f"{_ou(c)} · {_qui(c)} : encore dans la fiche de l'ancien {meme_nom[0]} (parti, sortis.json), jamais livré au "
                          f"nouveau {nom}", f"{_ou(c)} · {_qui(c)} : compte de l'ancien {meme_nom[0]} (parti)"],
-                        f"{liberer} (`!onboarding` donnerait ses accès et ses codes au nouveau {g})"), cle))
+                        f"{liberer} (ses accès et ses codes sont ceux de l'ancien : jamais au nouveau {g})"), cle))
                 elif any(not noms_p[o] for o in partis):
                     out.append(_a("C4", "important", _avec_remede(
                         [f"{_ou(c)} · {_qui(c)} : encore livré à un membre parti (onboarding.json), jamais livré à {nom}",
                          f"{_ou(c)} · {_qui(c)} : livré à un membre parti, pas à {nom}"],
-                        f"compte d'un ancien {g} : {liberer} ; redonné exprès à {nom} : {_remede_onboarding(x, c, uid)}"), cle))
+                        f"{liberer} (compte d'un ancien {g}) ; si c'est bien le sien, ensuite : Gérant « {g} » → Utilisation « Clipper » → "
+                        + _remede_onboarding(x, c, uid, libere=True)), cle))
                 else:
                     out.append(_a("C4", "important", _avec_remede(
                         [f"{_ou(c)} · {_qui(c)} : au nom de {nom} mais encore livré à {', '.join(noms_p[o] for o in partis)} (parti), "
                          "jamais à lui", f"{_ou(c)} · {_qui(c)} : jamais livré à {nom}"], _remede_onboarding(x, c, uid)), cle))
             elif uid not in proprios and _n(c.get("utilisation")) == _n(gele):
                 # 10/10 (vérification CONTROLE, 2e passe) : le remède C4 arrêté après « Gérant remis » (texte coupé, oubli) laisse un
-                # compte au nom d'un clipper, « à mettre Metricool », dans aucune fiche : livré à personne, et plus rien ne le voyait
+                # compte au nom d'un clipper, « à mettre Metricool », dans aucune fiche : livré à personne, et plus rien ne le voyait.
+                # 10/10 (3e passe) : encore détenu par un autre uid → `!liberer` d'abord (_remede_onboarding), sans « Clipper » avant
+                if bloque:
+                    suite = (f"remède : {_cmd_liberer(c)} (s'il part sur Metricool : s'arrêter là) → Gérant « {g} » → Utilisation "
+                             f"« Clipper » → {_remede_onboarding(x, c, uid, libere=True)}")
+                else:
+                    suite = f"Utilisation « Clipper » → {_remede_onboarding(x, c, uid)} ; s'il part sur Metricool : Gérant vidé"
+                ou_ = f"encore livré à {', '.join(x.nom(o) for o in bloque)}" if bloque else "dans aucune fiche"
                 out.append(_a("C4", "important", _avec_remede(
-                    [f"{_ou(c)} · {_qui(c)} : « {gele} » au nom de {nom}, dans aucune fiche (remède C4 à moitié appliqué ?)",
-                     f"{_ou(c)} · {_qui(c)} : « {gele} », dans aucune fiche"],
-                    f"Utilisation « Clipper » → {_remede_onboarding(x, c, uid)} ; s'il part sur Metricool : Gérant vidé"), cle))
+                    [f"{_ou(c)} · {_qui(c)} : « {gele} » au nom de {nom}, {ou_} (remède C4 à moitié appliqué ?)",
+                     f"{_ou(c)} · {_qui(c)} : « {gele} », {ou_}"], suite), cle))
+            elif x.ecartes.get(h) == uid:
+                # 10/10 (3e passe) : écarté pour lui ET détenu par un autre, hors des cas ci-dessus (sa fiche le porte mais « livres »
+                # dit un autre, Utilisation changée) : jamais tu — livrer le refuserait, `!liberer` d'abord
+                chez = ", ".join(x.nom(o) for o in bloque)
+                out.append(_a("C4", "important", _avec_remede(
+                    [f"{_ou(c)} · {_qui(c)} : écarté à la livraison et encore livré à {chez}, jamais livré à {nom}",
+                     f"{_ou(c)} · {_qui(c)} : écarté, livré à {chez}"], _remede_onboarding(x, c, uid)), cle))
         elif etrangers:
             quoi = {"libre": "compte sans Gérant", "metricool": "compte Metricool", "staff": "compte du staff",
                     "creatrice": "compte de la créatrice"}[genre]
@@ -1308,6 +1387,18 @@ def _c9(x: _Ctx) -> list:
                 # contrat C6(d) : comparé à TOUS les mots du nom du membre (pseudo « 🌸 Paul - Sophie », « Jean-Marc »), pas au
                 # premier mot de son pseudo
                 probleme = f"attribué à {qui} : l'app et le rapport le donnent à « {nom_note or m.group(1).strip()} »"
+        elif info.get("libere") and not info.get("hors_clipping") and m and not _clipping_en_tete(note):
+            # 10/10 (vérification CONTROLE, 3e passe — reste de la 2e) : la règle de paie_clics vaut aussi pour un lien LIBÉRÉ
+            # (synchroniser_notes juge les liens avec uid OU libérés) : « Chloé - Clipping libre » le sort du clipping au passage
+            # suivant, il n'est plus repris pour le prochain clipper (forfait GAML presque plein). Une note sans « Clipping » du tout
+            # est une sortie voulue : rien ici, paie_clics la dit à l'admin.
+            mots_ex = re.sub(r"^\s*clipping\s+", "", str(info.get("ancien") or ""), flags=re.I).split()
+            ex = f" (ex-{mots_ex[0]})" if mots_ex else ""
+            nom_note = re.split(r"[(\[]", m.group(1))[0].strip()
+            # « … Clipping Nina » sur un lien libéré : la note le donne à Nina — la garder, « Clipping » en tête
+            voulue = f"Clipping libre{ex}" if prenom_note in ("libre", _premier(mots_ex[0] if mots_ex else "")) else f"Clipping {nom_note}"
+            probleme = (f"libéré mais la note ne commence pas par « Clipping » : paie_clics va le sortir du clipping (plus repris pour "
+                        f"le suivant) — écrire « {voulue} » dans GAML")
         elif info.get("libere") and not info.get("hors_clipping") and m and prenom_note != "libre":
             ancien = _premier(re.sub(r"^\s*clipping\s+", "", _n(info.get("ancien")))) if info.get("ancien") else ""
             if prenom_note != ancien:
