@@ -122,7 +122,8 @@ def texte_annonce_telegram(groupe: str) -> str:
 def reponse_commande_annonce(groupe: str) -> str:
     """09/10 (revue L8 : texte_annonce_telegram n'avait aucun appelant, la colonne Source restait à « web ») : la réponse de la
     commande staff `!annonce <groupe>` (branchée par L10 dans commande_admin). Groupe donné et site prêt → l'annonce SEULE,
-    pour la copier d'un appui long au téléphone. Sinon une ligne qui dit quoi faire."""
+    pour la copier d'un appui long au téléphone. Sinon une ligne qui dit quoi faire. 10/10 (lot L3) : les places livrables suivent
+    dans un 2e message, jamais collées à l'annonce (reponses_commande_annonce)."""
     if not _source(groupe):
         return ("Format : `!annonce <groupe>`, par exemple `!annonce jobs-mada`.\n\n"
                 "Le lien de l'annonce porte `?src=tg-<groupe>` : la colonne Source du classeur dit d'où vient chaque candidature.")
@@ -130,6 +131,29 @@ def reponse_commande_annonce(groupe: str) -> str:
     if not texte:
         return "⚠️ Le site de candidature n'est pas prêt (WEB_ACTIVER, WEB_URL_PUBLIQUE) : pas d'annonce à coller."
     return texte
+
+
+PLACES_ANNONCE_S = 20                                                   # 10/10 : lecture du classeur des places, au plus
+
+
+async def reponses_commande_annonce(groupe: str) -> list:
+    """10/10 (revue du recrutement, lot L3 : le stock de lignes et le forfait GAML sont les goulots, `!annonce` ne disait pas combien de
+    nouveaux on peut prendre) : les messages de `!annonce <groupe>`, dans l'ordre. D'abord la réponse de reponse_commande_annonce,
+    seule (l'annonce se copie toujours d'un appui long) ; puis, pour Gaëtan seul et quand l'annonce est prête, un 2e message
+    « Places maintenant : Chloé n, Sarah n… (lignes ÷ k ; liens GAML libres : m) » ou « 0 place : n'annonce pas encore » — la
+    dépendance `places_texte` (places.texte_annonce, branchée par le lot W). Sans elle, en panne ou trop lente : l'annonce seule."""
+    reponse = reponse_commande_annonce(groupe)
+    out = [reponse]
+    if not (_source(groupe) and texte_annonce_telegram(groupe)) or not _deps.get("places_texte"):
+        return out
+    try:
+        ligne = await asyncio.wait_for(_deps["places_texte"](), timeout=PLACES_ANNONCE_S)
+    except Exception as erreur:                                         # noqa: BLE001 — l'annonce part quand même
+        journal.warning("Places sous l'annonce : %s", type(erreur).__name__)
+        return out
+    if str(ligne or "").strip():
+        out.append(str(ligne).strip())
+    return out
 
 
 def lien_parrainage(uid) -> str:

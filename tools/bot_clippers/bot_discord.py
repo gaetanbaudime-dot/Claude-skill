@@ -52,6 +52,7 @@ import reels_uniques                      # TOP 20 Reels d'origine de la créatr
 import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
 import acceptation                        # J'ACCEPTE = case cochée sur le site, ou bouton ✅ en MP (27/09)
 import attribution                        # créatrice attribuée automatiquement, rotation Sophie > Sarah > Chloé > Clara > Jade (27/09)
+import places                             # 10/10 (lot L3) : places livrables = lignes du classeur ÷ k et forfait GAML, les deux goulots
 import tableau_bord                       # le tableau de bord d'une ligne, chaque lundi (27/09)
 import retro                              # rétrospective nocturne : le bot apprend de ses salons persos (27/09)
 # 09/10 : drive_agence (dépôts du script Apps Script de l'agence pour les Reels uniques) n'est plus importé : DRIVE_AGENCE_* à retirer.
@@ -3993,8 +3994,9 @@ _REPRISE_ATTENTE = {"tache": None}                                      # la tâ
 
 async def comptes_livrables_par_creatrice() -> dict:
     """09/10 (le test retiré, le goulot passe au stock de comptes) : {créatrice: lignes libres du classeur, onboarding.disponibles}
-    pour les créatrices de l'ordre d'attribution, toutes celles du classeur si l'ordre est vide. Un nouveau clipper en réserve 3.
-    {} si le classeur est éteint ou illisible."""
+    pour les créatrices de l'ordre d'attribution, toutes celles du classeur si l'ordre est vide. {} si le classeur est éteint ou
+    illisible. 10/10 (lot L3) : le même compte que les places (places.lignes_par_creatrice) ; un nouveau en prend
+    places.lignes_par_place() (ATTRIBUTION_LIGNES_MIN, 3 par défaut) : le diviseur à utiliser, jamais un 3 écrit en dur."""
     if not onboarding.actif():
         return {}
     try:
@@ -4002,12 +4004,11 @@ async def comptes_livrables_par_creatrice() -> dict:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Comptes livrables : %s", erreur)
         return {}
-    noms = list(attribution.ORDRE) or sorted({str(c.get("creatrice") or "").strip() for c in comptes
-                                              if str(c.get("creatrice") or "").strip()})
+    noms = list(attribution.ORDRE) or places.noms_du_classeur(comptes)
     out = {}
     for nom in noms:
         try:
-            out[nom] = len(onboarding.disponibles(comptes, nom, 999))
+            out.update(places.lignes_par_creatrice(comptes, [nom]))
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Comptes livrables de %s : %s", nom, erreur)
     return out
@@ -5583,7 +5584,10 @@ def liberer_liens_de(uids, prenom: str, uids_connus=None) -> int:
 
 async def attribuer_lien_parcours(membre) -> None:
     """05/10 (Gaëtan : « le lien que pour le troisième compte ») : appelé par le parcours à l'ouverture de l'étape 3 — le lien GAML
-    du clipper est créé (ou repris) maintenant, écrit dans sa fiche, et l'admin a une ligne."""
+    du clipper est créé (ou repris) maintenant, écrit dans sa fiche, et l'admin a une ligne.
+    10/10 (revue du recrutement, lot L3 : le forfait GAML de 50 liens est le 2e goulot, et un compte 3 sans lien partait en silence,
+    sans app ni paie) : aucun lien → une ligne admin en direct, une fois par jour et par clipper (alertes_lien_gaml.json, écrit
+    AVANT l'envoi), avec le forfait lu dans clics.json (places.etat_gaml, lecture seule). Paie au clic éteinte : rien."""
     uid = str(membre.id)
     creatrice = ((lire_json(FICHIER_EQUIPES, {}).get(uid) or {}).get("creatrice")
                  or (lire_json(FICHIER_PARCOURS, {}).get(uid) or {}).get("creatrice")
@@ -5601,6 +5605,33 @@ async def attribuer_lien_parcours(membre) -> None:
                                  + " · ".join(bilan.get("lignes") or []))
             except (discord.Forbidden, discord.HTTPException):
                 pass
+    if bilan.get("lien") or not paie_clics.actif():
+        return
+    fichier_alertes = DONNEES / "alertes_lien_gaml.json"
+    jour = heure_paris().date().isoformat()
+    alertes = lire_json(fichier_alertes, {})
+    if alertes.get(uid) == jour:
+        return
+    alertes = {u: j for u, j in alertes.items() if j == jour}           # seulement celles du jour : le fichier reste petit
+    alertes[uid] = jour
+    ecrire_json(fichier_alertes, alertes)
+    n_p = parcours.n_prive(lire_json(FICHIER_PARCOURS, {}).get(uid) or {})
+    raisons = " · ".join(x for x in bilan.get("lignes") or [] if x and x != "lien GAML absent")
+    gaml = places.etat_gaml()
+    plein = "forfait" in raisons.lower() or (gaml is not None and gaml["actifs"] >= gaml["forfait"])
+    compte = f"{prenom_de(membre)} (<@{uid}>, {creatrice}) a son compte {n_p} sans lien"
+    if plein:
+        texte = ("🔗 Forfait GAML plein" + (f" ({gaml['actifs']}/{gaml['forfait']} liens actifs)" if gaml is not None else "")
+                 + f" : {compte}. Libère un lien (`!liens`) ou monte le forfait.")
+    else:
+        texte = (f"🔗 Lien GAML non créé : {compte}" + (f" ({raisons[:300]})" if raisons else "")
+                 + ". Libère un lien (`!liens`) ou monte le forfait.")
+    canal = await canal_admin()
+    if canal is not None:
+        try:
+            await canal.send(texte[:1990])
+        except (discord.Forbidden, discord.HTTPException):
+            pass
 
 
 _EXPULSES = {}                                                          # uid → date : sortis par le bot (traiter_depart se tait)
