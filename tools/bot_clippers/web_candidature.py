@@ -107,7 +107,8 @@ def lien_candidature(src: str = "") -> str:
 
 def texte_annonce_telegram(groupe: str) -> str:
     """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > … ») : l'annonce à coller à la main dans un groupe ou
-    un canal Telegram (étape 1 du funnel). Le lien porte la source « tg-<groupe> ». '' si le site n'est pas prêt."""
+    un canal Telegram (étape 1 du funnel). Le lien porte la source « tg-<groupe> ». '' si le site n'est pas prêt.
+    10/10 (lot L2, revue du recrutement : l'annonce ne disait pas l'âge) : « 18 ans minimum. » juste avant le lien."""
     g = _source(groupe)
     if g != "tg" and not g.startswith("tg-"):
         g = f"tg-{g}" if g else "tg"
@@ -116,6 +117,7 @@ def texte_annonce_telegram(groupe: str) -> str:
         return ""
     return ("🎬 On recrute des clippeurs.\n\n"
             "Tu publies des Reels sur des comptes Instagram qu'on te donne. Tu es payé à chaque visite sur ton lien.\n\n"
+            "18 ans minimum.\n\n"
             f"Postule ici, en 2 minutes :\n{lien}")
 
 
@@ -298,7 +300,11 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "", tel_ok: str =
              + (f"<input type='hidden' name='tel_ok' value='{html.escape(tel_ok)}'>" if tel_ok else "")
              + (f"<input type='hidden' name='src' value='{html.escape(src)}'>" if src else "") + f"{champs}"
              # 09/10 (Gaëtan : « simple et efficace ») : le bouton dit ce qui se passe
-             f"<button class='b' type='submit'>Envoyer et passer à la formation</button></form>")
+             f"<button class='b' type='submit'>Envoyer et passer à la formation</button></form>"
+             # 10/10 (lot L2, revue du recrutement : aucune mention RGPD) : à quoi servent ses réponses, combien de temps on les
+             # garde, comment les faire effacer. Sans lien WhatsApp : la page est publique (annonces Telegram).
+             "<p class='petit'>Tes réponses servent seulement à ton recrutement. On les garde 2 ans au plus. "
+             "Pour les faire effacer : écris à Gaëtan sur WhatsApp.</p>")
     video = re.search(r"loom\.com/(?:share|embed)/([0-9a-f]{16,})", _deps.get("LIEN_VIDEO_FORMATION", "") or "")
     tete = (f"<link rel='prefetch' href='https://www.loom.com/embed/{video.group(1)}'>" if video else "")
     return _page(cfg.get("titre", "Candidature"), corps, tete)
@@ -902,17 +908,42 @@ async def get_formation(request):
     return _page("La formation", corps)
 
 
+def champ_quiz(q: dict, n: int) -> str:
+    """10/10 (lot L2) : le nom du champ d'une question du quizz, tiré de son identifiant (« id » de quiz.json ; à défaut, son
+    rang dans le fichier) : « q-mot1 ». noter() corrige par ce nom, jamais par la place à l'écran, qui est mélangée."""
+    ident = re.sub(r"[^a-z0-9_-]+", "", str(q.get("id") or "").lower())
+    return f"q-{ident or n}"
+
+
+def ordre_quiz(quiz: dict, graine: str) -> list:
+    """10/10 (lot L2, revue du recrutement : mêmes 10 questions dans le même ordre pour tous, le quizz est le seul filtre depuis
+    le 09/10 et ses réponses peuvent circuler) : [(rang dans quiz.json, question)] dans un ordre propre à chaque candidat.
+    Mélange stable : il ne dépend que de la graine (l'identifiant porté par son jeton : candidature, ou uid Discord) et de
+    l'identifiant de chaque question. La page rechargée montre le même ordre. Sans graine : l'ordre du fichier."""
+    qs = list(enumerate(quiz.get("questions", []), 1))
+    if not graine:
+        return qs
+    return sorted(qs, key=lambda nq: hashlib.sha256(f"quiz|{graine}|{champ_quiz(nq[1], nq[0])}".encode()).hexdigest())
+
+
 def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int) -> web.Response:
-    qs = ""
+    # 10/10 (lot L2) : l'ordre des questions est propre au candidat (graine : l'identifiant de son jeton) et chaque champ porte
+    # l'identifiant de sa question. « 1er mot-clé », « 2e mot-clé »… suivent l'ordre du fichier, comme le texte des questions.
+    rang_mot = {}
     for n, q in enumerate(quiz["questions"], 1):
+        if q.get("reponses"):
+            rang_mot[n] = len(rang_mot) + 1
+    qs = ""
+    for affiche, (n, q) in enumerate(ordre_quiz(quiz, verifier_jeton(valeur) or valeur), 1):
+        nom = html.escape(champ_quiz(q, n))
         if q.get("reponses"):                                           # 28/09 : les mots-clés se tapent, ils ne se cochent pas
-            k = sum(1 for x in quiz["questions"][:n] if x.get("reponses"))   # 30/09 : « 1er mot-clé », « 2e mot-clé »…
-            opts = (f"<input type='text' name='q{n}' required autocomplete='off' maxlength='40' "
+            k = rang_mot[n]                                             # 30/09 : « 1er mot-clé », « 2e mot-clé »…
+            opts = (f"<input type='text' name='{nom}' required autocomplete='off' maxlength='40' "
                     f"placeholder='{'1er' if k == 1 else f'{k}e'} mot-clé'>")
         else:
-            opts = "".join(f"<label class='o'><input type='radio' name='q{n}' value='{i}' required>{html.escape(c)}</label>"
+            opts = "".join(f"<label class='o'><input type='radio' name='{nom}' value='{i}' required>{html.escape(c)}</label>"
                            for i, c in enumerate(q["choix"]))
-        qs += f"<div class='q'><b>{n}. {html.escape(q['q'])}</b>{opts}</div>"
+        qs += f"<div class='q'><b>{affiche}. {html.escape(q['q'])}</b>{opts}</div>"
     seuil, total = quiz_seuil_total()
     corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{total} questions. Il faut {seuil} bonnes réponses. "
              f"Essai {essai} sur {QUIZ_ESSAIS_MAX}.</p>"
@@ -935,6 +966,26 @@ async def get_quiz_cand(request, cand_id: str):
         return _page("Quizz", "<h1>Quizz</h1>" + _attente_cand(q) + f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>"
                                                                  "Revoir la vidéo</a>")
     return _formulaire_quiz(quiz, "c", jeton(cand_id), essais + 1)
+
+
+PLACES_ATTENTE_S = 3.0                                                      # la page du quizz réussi n'attend pas plus
+
+
+async def _places_livrables():
+    """10/10 (lot L2) : les places livrables maintenant (dépendance « places » : places.places_livrables du lot L3, branchée
+    par le lot W ; fonction async ou simple, qui renvoie un entier). None si elle manque, plante ou tarde plus de
+    PLACES_ATTENTE_S secondes : la page garde alors son texte habituel."""
+    lire_places = _deps.get("places")
+    if not callable(lire_places):
+        return None
+    try:
+        r = lire_places()
+        if hasattr(r, "__await__"):
+            r = await asyncio.wait_for(r, PLACES_ATTENTE_S)
+        return int(r)
+    except Exception as erreur:                                         # noqa: BLE001 — jamais de page cassée pour ça
+        journal.warning("Site : places livrables illisibles (%s)", type(erreur).__name__)
+        return None
 
 
 async def post_quiz_cand(data, cand_id: str):
@@ -978,10 +1029,18 @@ async def post_quiz_cand(data, cand_id: str):
         # 09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Chaque étape à la fois ») : quizz réussi = dans l'agence.
         # Le bouton ouvre tout droit l'invitation discord.gg créée pendant la formation ; à défaut /discord/invitation, qui
         # redirige sans page de plus. Plus de « test de montage », plus de liste de consignes.
-        cible = await _invitation_prete(cand_id, attente=3.0) or _url_discord(cand_id)
+        # 10/10 (lot L2, revue du recrutement : le stock de lignes est le goulot n° 1) : la promesse suit les places livrables,
+        # lues en même temps que l'invitation. 0 place → il entre quand même, sa créatrice arrive dès qu'une place se libère.
+        cible, places = await asyncio.gather(_invitation_prete(cand_id, attente=3.0), _places_livrables())
+        cible = cible or _url_discord(cand_id)
+        if places is not None and places <= 0:
+            suite = ("<p>Rejoins le Discord maintenant. Ta créatrice t'y rejoint dès qu'une place se libère : "
+                     "je te préviens dans ton salon.</p>")
+        else:
+            suite = "<p>Dernière étape : rejoins le Discord. Ta créatrice et ton compte 1 t'y attendent.</p>"
         return _page("Quizz réussi", f"<h1>✅ Quizz réussi : {score}/{total}.</h1>"
                                     "<p>Tu fais partie de l'agence.</p>"
-                                    "<p>Dernière étape : rejoins le Discord. Ta créatrice et ton compte 1 t'y attendent.</p>"
+                                    + suite +
                                     f"<a class='b' href='{html.escape(cible)}'>3️⃣ Rejoindre le Discord</a>")
     # 09/10 : un échec, une action (« Réessayer » passe par la vidéo) ; rien ne part sur Discord ni au salon admin
     return _page("Quizz", _texte_echec(score, total, seuil, essais + 1, f"/formation?t={jeton(cand_id)}"))
@@ -1013,10 +1072,15 @@ def _norm_reponse(t: str) -> str:
 
 def noter(quiz: dict, data) -> tuple:
     """(score, total, détails) d'un formulaire rempli : question à choix → l'index coché est le bon ; question libre
-    (« reponses ») → la réponse normalisée est dans la liste. Détails : réponses libres données, pour le classeur."""
+    (« reponses ») → la réponse normalisée est dans la liste. Détails : réponses libres données, pour le classeur.
+    10/10 (lot L2) : chaque question se corrige par son champ « q-<id> » (champ_quiz), jamais par sa place à l'écran, qui est
+    mélangée (ordre_quiz). Les détails restent dans l'ordre du fichier (colonnes du classeur). Seule exception : une page de
+    quizz affichée avant cette version (champs q1…q10, aucun champ « q-… »), jamais mélangée, se corrige encore dans l'ordre
+    du fichier, pour qu'un candidat en plein quizz pendant un redéploiement ne perde pas un essai."""
     score, details = 0, []
+    ancienne_page = not any(str(k).startswith("q-") for k in data.keys())
     for n, q in enumerate(quiz.get("questions", []), 1):
-        brut = str(data.get(f"q{n}", "") or "")
+        brut = str(data.get(f"q{n}" if ancienne_page else champ_quiz(q, n), "") or "")
         if q.get("reponses"):
             ok = _norm_reponse(brut) in {_norm_reponse(r) for r in q["reponses"]}
             details.append(brut.strip()[:40])

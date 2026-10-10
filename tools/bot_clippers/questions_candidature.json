@@ -18,6 +18,15 @@
       "requis": true
     },
     {
+      "id": "age",
+      "section": "Toi",
+      "label": "Ton âge",
+      "type": "number",
+      "min": 0,
+      "max": 120,
+      "requis": true
+    },
+    {
       "id": "pays",
       "section": "Toi",
       "label": "Ton pays",
