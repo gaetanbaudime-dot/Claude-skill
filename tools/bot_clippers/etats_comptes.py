@@ -437,15 +437,20 @@ def est_a_nous(m: dict, creatrice: str) -> bool:
         return False
 
 
-async def chercher_variantes(lignes: list) -> tuple:
+async def chercher_variantes(lignes: list, exclus=()) -> tuple:
     """([(ligne, nouveau @)], [ligne]) : les comptes retrouvés sous un @ proche (un seul profil qui est à nous), et les introuvables.
     09/10 (revue) : une ligne dont au moins une variante est revenue NON LUE (lot Apify raté ou refusé par le budget, fiche
     illisible) n'est ni trouvée ni perdue — ni renommée, ni « introuvable » pour le clipper : elle est recherchée au passage
     suivant. Seule une ligne dont TOUTES les variantes ont été lues peut être déclarée perdue.
     09/10 (revue 3 : une seule fiche d'inconnu illisible repoussait chaque jour le renommage d'un compte bien retrouvé, et payait la
     même recherche le lendemain) : la ligne est trouvée dès qu'exactement UNE variante LUE est à nous ; une variante non lue ne
-    retient la conclusion que si aucune variante lue n'est à nous (l'introuvable et le BAN attendent alors)."""
-    cands = {id(c): variantes(c["handle"]) for c in lignes}
+    retient la conclusion que si aucune variante lue n'est à nous (l'introuvable et le BAN attendent alors).
+    10/10 (passe 3 : tous les comptes d'une créatrice ont la même bio du bot ; la ligne « sophie.clips », jamais créée, était « vue
+    sous sophie.clips1 », qui est le compte 2 du même clipper ou celui d'un autre — renommage refusé pour toujours, ligne bloquée en
+    WARMUP) : `exclus` (clés), les @ qui sont déjà ceux d'une autre ligne du classeur ou d'une fiche d'onboarding, ne sont jamais
+    des variantes de cette ligne — ni cherchés (pas de profil payé deux fois), ni « à nous »."""
+    exclus = {_cle(x) for x in exclus or ()}
+    cands = {id(c): [v for v in variantes(c["handle"]) if v not in exclus] for c in lignes}
     tous = sorted({v for vs in cands.values() for v in vs})
     if not tous:
         return [], list(lignes)
@@ -746,6 +751,15 @@ def _renommes_onboarding() -> set:
         return set()
 
 
+def _comptes_onboarding() -> set:
+    """10/10 (passe 3) : les @ (clés) des fiches d'onboarding (comptes livrés aux clippers) ; vide si l'état est illisible."""
+    try:
+        return {_cle(str(h)) for f in (onboarding._lire_etat().get("clippers") or {}).values() if isinstance(f, dict)
+                for h in (f.get("comptes") or []) if h}
+    except Exception:                                                   # noqa: BLE001
+        return set()
+
+
 def _renomme(h: str, renommes=None) -> bool:
     """09/10 (revue 3) : la ligne porte un @ renommé (onboarding, ou renommage noté dans les séries) — ses cellules viennent peut-être
     de l'ancien @ (le compte d'un inconnu qui l'avait pris)."""
@@ -787,7 +801,9 @@ def _suspect(h: str, m: dict, hist: list, cellule, renommes=None) -> bool:
     10/10 (passe 3 : @ corrigé à la main dans le classeur, sans `!pseudo` — la cellule de l'ancien compte, 5 000 abonnés, rendait
     suspect chaque jour le 0 du compte neuf, qui affichait les chiffres de l'autre) : quand seule la cellule prouve plus de
     SUSPECT_FOLLOWERS (ni l'historique ni la série), elle ne compte que tant que moins de NON_LU_JOURS passages complets ont lu
-    la fiche de ce compte (comme _publie_d_habitude) : un 0 répété finit par être cru."""
+    « 0 abonné » sur la fiche de ce compte (entrée `followers` à 0, ou `followers_zero` pour un 0 jugé suspect) : un 0 répété
+    finit par être cru. M2 : un passage dont la fiche n'a pas donné les abonnés (followers « non lu ») ne compte pas — sinon le
+    premier 0 dégradé qui suit écrasait la cellule."""
     f = m.get("followers")
     if not m.get("existe") or m.get("restreint") or isinstance(f, bool) or f != 0:
         return False
@@ -801,8 +817,13 @@ def _suspect(h: str, m: dict, hist: list, cellule, renommes=None) -> bool:
         return isinstance(x, int) and not isinstance(x, bool) and x > SUSPECT_FOLLOWERS
     if any(_plus(x) for x in [e.get("followers") for e in hist_ok] + [dans_serie]):
         return True
-    lus = [e for e in hist_ok if e.get("existe") and not e.get("restreint")]
-    return bool(cellule_ok and len(lus) < NON_LU_JOURS and _plus(_chiffre(cellule)))
+    zeros = [e for e in hist_ok if _zero_lu(e.get("followers")) or e.get("followers_zero") is True]
+    return bool(cellule_ok and len(zeros) < NON_LU_JOURS and _plus(_chiffre(cellule)))
+
+
+def _zero_lu(x) -> bool:
+    """0 abonné lu (jamais un booléen : False == 0 en Python)."""
+    return isinstance(x, int) and not isinstance(x, bool) and x == 0
 
 
 def _publie_d_habitude(h: str, m: dict, hist: list, cellules=(), renommes=None) -> bool:
@@ -1226,6 +1247,8 @@ async def _executer(ecrire: bool = True) -> dict:
                   "restreint": bool(m.get("restreint")), "followers": m.get("followers"),      # 09/10 : None = non lu, jamais 0
                   "reels_hier": int(m.get("reels_hier") or 0), "reels_7j": int(m.get("reels_7j") or 0),   # 05/10
                   "posts_lus": int(m.get("posts_lus") or 0)}
+        if m["existe"] and not m["restreint"] and (_zero_lu(m.get("followers")) or m.get("followers_suspect")):
+            entree["followers_zero"] = True                              # 10/10 (passe 3, M2) : la fiche a montré 0 abonné (cru ou suspect)
         if m["existe"] and not m["restreint"] and not m["prive"] and not m.get("reels_lus", True):
             entree["reels_non_lus"] = True                               # 09/10 (dashboard) : jour sauté, pas « 0 Reel »
         elif m["existe"] and not m["restreint"] and not m["prive"]:
@@ -1271,11 +1294,21 @@ async def _executer(ecrire: bool = True) -> dict:
         if apres:
             _appliquer(c, apres)
     renommes_passe = {}                                                 # 09/10 (dashboard) : @ renommés pendant ce passage
+    # 10/10 (passe 3) : `vu_sous` = {@ : jour} des lignes vues vivantes sous un @ proche dont le renommage a été REFUSÉ (refus définitif,
+    # voir plus bas) : jamais BAN ce jour-là, même au passage suivant (`!dashboard scan`), et cherchées après les autres les jours
+    # suivants (elles ne prennent pas chaque matin les places des BAN qui attendent leur recherche). Oublié au bout de 14 jours.
+    if not isinstance(d.get("vu_sous"), dict):
+        d["vu_sous"] = {}
+    vu_sous = d["vu_sous"]
+    limite_vu = (date.fromisoformat(jour) - timedelta(days=JOURS_HISTORIQUE)).isoformat()
+    for k in [k for k, v in vu_sous.items() if not isinstance(v, str) or v < limite_vu]:
+        vu_sous.pop(k, None)
     if ecrire and a_chercher:                                           # 09/10 : les @ légèrement changés
         # 09/10 (revue) : les comptes créés d'abord (WARMUP, PRIVE), les BAN récents ensuite ; une fois par jour et par compte
         # (`!dashboard` relance le scan), noté seulement pour ceux vraiment cherchés ; le reste attend le passage suivant.
-        # 10/10 (passe 3) : parmi les comptes créés, ceux dont le BAN attend cette recherche passent en premier
-        a_chercher.sort(key=lambda x: (x[0], id(x[1]) not in differes))
+        # 10/10 (passe 3) : parmi les comptes créés, ceux dont le BAN attend cette recherche passent en premier — après les autres,
+        # une ligne dont le renommage a été refusé un jour précédent (`vu_sous`)
+        a_chercher.sort(key=lambda x: (x[0], _cle(x[1]["handle"]) in vu_sous, id(x[1]) not in differes))
         lot = [c for _, c in a_chercher if d.setdefault("cherches", {}).get(_cle(c["handle"])) != jour]
         if len(lot) > VARIANTES_MAX:
             journal.info("Recherche des @ changés : %s comptes, %s cherchés ce passage", len(lot), VARIANTES_MAX)
@@ -1293,8 +1326,11 @@ async def _executer(ecrire: bool = True) -> dict:
             else:
                 d["cherches"].pop(h_i, None)
             differes.pop(id(c), None)
+        # 10/10 (passe 3, M1) : les @ déjà pris par une ligne du classeur ou une fiche d'onboarding ne sont jamais « retrouvés » pour
+        # une autre ligne (même bio du bot pour tous les comptes d'une créatrice) : sans autre variante à nous, la ligne est perdue
+        exclus = {_cle(x.get("handle")) for x in comptes if x.get("handle")} | _comptes_onboarding()
         try:
-            trouves, perdus = await chercher_variantes(lot) if lot else ([], [])
+            trouves, perdus = await chercher_variantes(lot, exclus) if lot else ([], [])
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Recherche des @ changés : %s", erreur)
             trouves, perdus = [], []
@@ -1306,32 +1342,43 @@ async def _executer(ecrire: bool = True) -> dict:
         for c, nouveau in trouves:
             h_c = _cle(c["handle"])
             try:
-                ok = bool(await _deps["compte_retrouve"](c["handle"], nouveau)) if _deps.get("compte_retrouve") else False
+                # True : renommé ; False : refus définitif ; None : le classeur n'a pas répondu (parcours.compte_retrouve)
+                rep = await _deps["compte_retrouve"](c["handle"], nouveau) if _deps.get("compte_retrouve") else False
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Compte retrouvé %s → %s : %s", c["handle"], nouveau, erreur)
-                ok = False
-            if not ok:                                                  # 09/10 (revue) : jamais WARMUP sous un @ qui n'existe pas
+                rep = None
+            if not rep:                                                 # 09/10 (revue) : jamais WARMUP sous un @ qui n'existe pas
                 # 10/10 (passe 3 : le BAN différé partait quand même, alerte « À remplacer » comprise, pour un compte qu'on venait de
-                # voir vivant sous un @ proche) : renommage raté (classeur muet, @ déjà dans le classeur, compte hors fiche) → jamais
-                # BAN ce jour-là, et la ligne repart au passage suivant
-                _non_conclu(c)
+                # voir vivant sous un @ proche) : renommage raté → jamais BAN ce jour-là. M1 : échec passager (erreur, classeur muet)
+                # → la ligne repart au passage suivant ; refus définitif (compte hors fiche, @ refusé) → cherchée une fois par jour
+                # au plus, comme avant, et pas de BAN aujourd'hui même au passage suivant (`vu_sous`)
+                if rep is None:
+                    _non_conclu(c)
+                else:
+                    differes.pop(id(c), None)
+                    vu_sous[h_c] = jour
                 changements.append((c["handle"], c["gerant"], c["etat"], f"vu sous {nouveau}, pas renommé (`!pseudo`)", c["ligne"]))
                 continue
             differes.pop(id(c), None)                                   # retrouvé : jamais BAN
+            vu_sous.pop(h_c, None)
             renommes_passe[h_c] = _cle(nouveau)                         # la ligne porte maintenant le nouvel @ (cellule réécrite)
             if _norm(c["etat"]) == "ban":                               # faux BAN : le compte vit sous son vrai @, état d'avant rendu
                 retour = d.get("avant_ban", {}).get(h_c) or "WARMUP"
                 ecritures.append({"c": c, "champ": "etat", "valeur": retour, "attendu": c["etat"], "retour": True})
             changements.append((c["handle"], c["gerant"], c["etat"], f"retrouvé sous {nouveau}", c["ligne"]))
         for c in perdus:
+            vu_sous.pop(_cle(c["handle"]), None)
             if _norm(c["etat"]) in CREES and _deps.get("compte_introuvable"):
                 try:
                     await _deps["compte_introuvable"](c["handle"])
                 except Exception as erreur:                             # noqa: BLE001
                     journal.warning("Compte introuvable %s : %s", c["handle"], erreur)
     for c, apres in list(differes.values()):                            # 09/10 (revue) : pas retrouvé → le BAN différé est écrit
-        if ecrire and (d.get("cherches") or {}).get(_cle(c["handle"])) != jour:
+        h_d = _cle(c["handle"])
+        if ecrire and (d.get("cherches") or {}).get(h_d) != jour:
             continue        # 10/10 (passe 3) : pas cherché aujourd'hui (au-delà de VARIANTES_MAX) : le BAN attend sa recherche
+        if ecrire and vu_sous.get(h_d) == jour:
+            continue        # 10/10 (passe 3, M1) : vu vivant sous un @ proche aujourd'hui (renommage refusé) : jamais BAN ce jour-là
         _appliquer(c, apres)
     # 09/10 (dashboard) : ETAT, Followers et Reels en UN lot, après relecture du classeur (voir _ecrire_lot). Une ligne renommée
     # pendant le passage est retrouvée sous son nouvel @ ; ses chiffres, mesurés sous l'ancien @ (introuvable), ne sont pas écrits.
