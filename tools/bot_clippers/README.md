@@ -1,5 +1,216 @@
 # Bot FAQ Clippers (Discord + Claude)
 
+> **Verdict (09/10/2026)** : le test de montage et le Drive perso sont retirés. Quizz réussi = entrée dans l'agence.
+>
+> Le nouveau goulot, c'est le stock de comptes livrables. Lis d'abord les deux sections du 09/10 ci-dessous : ce qui change, ce qu'il faut retirer de Railway, ce qu'il faut fermer côté Google.
+>
+> Plus bas, les sections marquées « (historique, avant le 09/10) » décrivent l'ancien tunnel : ne t'y fie plus.
+
+## 09/10 : le funnel simplifié
+
+Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes. Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice + Drive + Groupe WA > Création premier comptes > 4 Reels postés > 2 eme compte > 4 Reels postés > 3 eme compte privé + lien GAML + Application de clippeur pour suivre ses revenus ».
+
+Puis : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité est pourrie », et « distribue connaissances et informations au compte-goutte… Chaque étape à la fois… saute des lignes, aère ».
+
+**Verdict** : un seul chemin, douze étapes, une action par message. Plus de test vidéo, plus de dossier Drive perso.
+
+### Le parcours, tel que le clipper le vit
+
+1. **Telegram** : l'annonce de Gaëtan, avec le lien `/candidature?src=tg-<groupe>`. `!annonce <groupe>` la donne prête à coller.
+
+2. **Formulaire** (site, 2 minutes) : sept champs et la case des 5 règles. La source de l'annonce va dans la colonne Source du classeur.
+
+3. **Formation** : la vidéo et ses 5 mots-clés. Plus de lien « Pas le temps ? Rejoins le Discord ».
+
+4. **Quizz** (8/10) : réussi, un bouton mène tout droit à son invitation Discord. Raté : deux essais, puis 24 h.
+
+5. **Discord** : il arrive, il est validé sans test (`valider_candidat`). Aucun message ici. Seule exception : « Ta créatrice arrive ici sous 48 h » quand aucune créatrice n'a de compte livrable.
+
+6. **Créatrice, vidéos d'origine, groupe WhatsApp** : un seul message de bienvenue. Le lien des vidéos est celui de la créatrice (son salon ℹ️, sinon son dossier « Reels » d'origine), jamais un dossier perso. Le bouton « Écrire à Gaëtan » : Gaëtan l'ajoute au groupe WhatsApp. ✅, ou 3 h plus tard : le compte 1.
+
+7. **Compte 1** : identifiant, e-mail, mot de passe. Puis son @ exact, le profil, 24 h de warm-up.
+
+8. **Compte 1 publie** : 2 Reels par jour, avec les vidéos de la créatrice, modifiées.
+
+9. **Compte 2** : quand le scan voit 4 Reels sur le compte 1 (et 48 h après lui).
+
+10. **Compte 2 publie** : 2 Reels par jour aussi.
+
+11. **Compte 3 privé et lien GAML** : 4 Reels sur le compte 2 et 4 de plus sur le compte 1. Le lien va dans le champ « Liens » du privé, une seule fois.
+
+12. **Story à la une, puis l'app clipper** : une story avec le widget de mention du privé, mise à la une. Puis un seul message : la routine et l'app (visites et gains, jour par jour). Les consignes d'après arrivent 7 jours plus tard.
+
+Paie : 0,05 $ par visite qui compte, versée **les 5 et 20**. Le compteur épinglé de #dopamine est réécrit au démarrage.
+
+### Ce qui est retiré
+
+- Le test de montage : envoi, juge automatique, relances, échéance, retest, mot VALIDÉ, J'ACCEPTE du test.
+
+- Le dossier Drive perso et les « Reels uniques » (TOP 20 ré-encodés pour chaque clipper) : le clipper reçoit les vidéos d'origine de sa créatrice.
+
+- Le tunnel Google Form (candidature, quiz, rendu du test) : les trois `.gs` sont marqués RETIRÉ.
+
+- Les accueils en série : plus de « Félicitations », plus de guide, plus de ligne publique dans #candidature.
+
+- Les relances des tests du soir. `relance_nouveaux` est éteint (`RELANCE_NOUVEAUX=0` par défaut).
+
+- Les commandes `!test-ok`, `!test-non`, `!tests`, `!refuser`, `!relance-telegram`, `!importer`, `!reels-uniques`.
+
+### Commandes nouvelles ou changées
+
+- `!quiz-ok @x [score]` : valider à la main. Sa créatrice et son compte 1 suivent seuls.
+
+- `!migrer-test [go]` : l'aperçu de la migration, puis sa relance.
+
+- `!drives-perso fermer [go]` : ferme les anciens dossiers perso et TOP 20 (accès par lien retiré). Les clippers en route reçoivent le lien des vidéos d'origine.
+
+- `!annonce <groupe>` : l'annonce Telegram de l'étape 1, seule, à copier d'un appui long.
+
+- `!etape` (clipper) : son étape en cours, dans son salon ou en MP. `!onboarding` (staff) renvoie seulement l'étape en cours.
+
+- `!equipes` : les écarts entre le registre et les trois rôles d'équipe.
+
+### La migration : automatique, une seule fois
+
+Au premier démarrage après le déploiement, une tâche à la fois, dans cet ordre :
+
+1. Les dépôts du roster : Tara sort (Metricool, expulsée), puis Andry et GasBoy arrivent chez Sarah (`"nouveau": true`).
+
+2. Les signés sans créatrice reçoivent la suivante (`attribution.rattraper`).
+
+3. `migrer_test(apercu=False)` : les candidats présents de l'ancien tunnel sont validés un par un. Sont visés : quizz réussi, test envoyé, rendu, expiré, refusé sans motif, et les quizz du site réussis sans état côté bot (entrés par l'ancien lien « Pas le temps ? »).
+
+La limite : les comptes livrables ÷ 3, moins ceux déjà en file. `ATTRIBUTION_PAUSE_SEC` entre deux.
+
+Le surplus passe en « attente_attribution » : protégé de la sortie à 48 h, un seul repli, repris seul dès qu'un compte se libère (boucle_pipeline, toutes les 5 min, la seule reprise).
+
+Jamais en lot : un refus avec motif, un STOP, un dépôt en attente. Le staff tranche avec `!quiz-ok`.
+
+Trace : `DONNEES/migration_test_0910.json`. Bilan au salon admin. Le compteur « validés » du tableau de bord bondit ce jour-là : ce n'est pas une hausse du recrutement.
+
+### Railway : les variables
+
+À retirer APRÈS une journée sans incident, jamais avant le déploiement : `LIEN_TEST`, `TEST_HEURES`, `TEST_SORTIE`, `TEST_AUTO`, `TEST_AUTO_SEUIL`, `TEST_TOUT_ACCEPTER`, `TEST_ESSAIS`, `DRIVE_AGENCE_URL`, `DRIVE_AGENCE_SECRET`, `RELANCE_NOUVEAUX` (ou `0`), `COMPTES_UN_PAR_JOUR`, `REELS_UNIQUES_*` sauf `REELS_UNIQUES_MAX`.
+
+Nouvelles, toutes facultatives : `PARCOURS_BIENVENUE_H=3` (compte 1 parti seul), `PARCOURS_STORY_AUTO_H=24`, `PARCOURS_ROUTINE2_JOURS=7`, `ATTRIBUTION_REPRISE_H=1`, `TELEPHONE2_ATTENTE_H=48`, `DRIVE_CREATRICE_TTL_SEC=21600`, `APIFY_BUDGET_MOIS=25`.
+
+### Google : à faire à la main
+
+1. Fermer les trois formulaires : « Recherche Clipper », « Quiz », « Rendu du test » (Réponses → décocher « Accepter les réponses »).
+
+2. Apps Script : supprimer les déclencheurs `surCandidature`, `onQuizSubmit` et `surRendu`.
+
+3. Propriétés des scripts : supprimer `LIEN_TEST`, `LIEN_RENDU` et `ENVOYER_MAILS`.
+
+Tant que ce n'est pas fait, un candidat qui tombe sur l'ancien formulaire peut encore recevoir le test et le Drive par e-mail.
+
+### Après le déploiement
+
+- Lire le bilan « Sorties déposées appliquées » (Tara), puis `!paie` : ses visites d'avant la sortie restent dues.
+
+- `!comptes-libres Sarah` : au moins 6 lignes libres avec e-mail pour Andry et GasBoy. Deux Andry : le dépôt prend le seul non signé (ou un inscrit sans créatrice ni parcours) ; sinon « ⚠️ », puis `!creatrice @Andry Sarah`.
+
+- `!equipes`, puis `!equipe` pour régulariser un ancien sans fiche.
+
+- Relire `!apprendre liste` et `!faq` : une réponse apprise peut encore parler du test, du Drive perso ou de #assistant.
+
+- `!migrer-test` (aperçu) : ceux qui restent à trancher.
+
+### Ce que le staff doit savoir
+
+- « Déjà dans l'agence » = `est_signe` : staff, fiche au registre, rôle d'équipe, ou prénom du roster, ce dernier seulement pour un membre arrivé avant le 09/10 (`OUVERTURE_VANNES`), sans homonyme ni état de candidat.
+
+- Un revenant repart de zéro (sorti, refusé, quizz raté effacés). Un ancien signé sorti de l'équipe (`sortis.json`) garde « sorti » : jamais revalidé seul, ni par le quizz, ni par la migration. Il lit « Pour revenir, écris à Gaëtan » (`texte_sorti`). `!quiz-ok` le fait revenir.
+
+- L'assistant répond dans le salon perso à une question (« ? » hors lien, ou mention du bot). `ASSISTANT_SALON_PERSO=1` : à tout message. Une question qui nomme Gaëtan ou Jonas part au salon admin.
+
+- Un numéro brut (9 à 15 chiffres) se relie. Dans #candidature il est toujours effacé. Celui d'un signé n'est jamais relié.
+
+- La sortie à 48 h sans quizz : un vrai MP avant l'expulsion. Jamais un quizz réussi, un validé, ni un membre qui attend sa créatrice.
+
+- Le digest du matin : candidatures d'hier par source, quizz réussis, arrivés, validés, en attente d'une créatrice, comptes livrables par créatrice. Plus de relance du soir à 18 h ; la clé « tests_soir » de `DONNEES/rappels.json` est morte, sans effet.
+
+- `!relances` (Telegram du matin) : un message, un lien pré-rempli par candidat (Telegram s'il a un @, sinon WhatsApp). Au-delà de 6 candidats, la liste continue dans d'autres messages (limite Discord de 2 000 caractères).
+
+- Le classeur des candidatures se lit sur une seule plage, `PLAGE_CANDIDATURES` (A1:AZ), pour tous les onglets.
+
+- `DISCORD_FERME=1` ou `!fermer` : une arrivée hors invitation du site ou de `!inviter` est encore raccompagnée.
+
+- Sorties déposées (`sorties_a_appliquer.json`) : champs `metricool`, `creatrice`, `signe_avant`. Le sortant est cherché par `chercher_sortant`, jamais un signé arrivé après le dépôt. Cinq essais (`SORTIES_ESSAIS_MAX`), trace `roster_sorties_deposees.json`. Salons déposés : champ `nouveau`.
+
+- `DONNEES/parcours_oublis.json` : la trace d'une bienvenue déjà postée. « 🔄 Je reprends » ne renvoie jamais une seconde bienvenue.
+
+- `!pseudo` refuse un mot d'exemple recopié (`ton_identifiant`, `pseudo`…) et le @ d'un autre de ses comptes. Une étape posée par le bot (`forcer_etape`) n'est jamais renvoyée si elle est déjà partie ; `!etape @x n` du staff, lui, la renvoie toujours.
+
+- Le site : `/discord/invitation` mène tout droit sur discord.gg, et renvoie à `/formation` sans quizz réussi. Une invitation expirée est recréée seule. Un clipper sorti de l'équipe (`sortis.json`) ne rentre jamais seul par son vieux lien (`peut_revenir`).
+
+- Sorties déposées, le détail : le MP de sortie ne montre plus la raison interne du dépôt ; plus aucun repli sur une recherche par prénom ; « déjà sorti(e) » clôt l'entrée ; `roster.marquer_traite` note le prénom traité ; `sortir_membre` garde les visites dues (`dus`) et libère les liens par identifiant ; `appliquer_sortis` retire les rôles ; `roster.attendre_demarrage` fait passer les dépôts avant la migration. Au dépôt d'Andry et GasBoy, une ligne « ⚠️ … déjà à un autre clipper » au salon admin veut dire qu'une ligne du classeur a été écartée : à regarder.
+
+- À trancher par Gaëtan : payer ou non les visites d'avant la sortie aux clippers purgés (appel de présence, sortie automatique). Aujourd'hui, ils sortent de la paie suivante.
+
+## 09/10 : le Dashboard en continu
+
+**Verdict** : l'onglet « Dashboard » du classeur se réécrit seul toutes les 15 minutes, sans payer Apify et sans appeler GAML. Jamais un faux 0 : une valeur non lue reste vide, avec la raison.
+
+Gaëtan : « je veux que ce dashboard se mette à jour constamment : statuts, Reels postés, clics, followers. Je dois comprendre quel compte est en hausse ou en baisse de vues, ainsi que ses clics ».
+
+### Ce qu'il montre
+
+1. Le titre : l'heure de mise à jour (Paris), la fraîcheur de chaque source (« Instagram 14h05 · Clics 16h45 · Metricool J-1 ») et le budget Apify du mois.
+
+2. Le contrôle d'attribution : un compteur par famille (C1 à C12) et les 15 premières anomalies. Exemples : compte créé sans Gérant, Gérant fantôme ou ambigu, lien de la ligne qui n'est pas le bon, lien libéré qui reçoit encore des visites, @ en double, compte non lu. Puis le bouclage : visites 7 jours de tous les liens actifs = lignes + pages de la créatrice + libérés, écart attendu 0.
+
+3. Les tendances : top 5 hausses et top 5 baisses (vues 7 jours à âge fixe de 48 h, clics 7 jours, followers 7 jours), seulement quand les deux périodes sont mesurées.
+
+4. Les comptes, par créatrice : une ligne par @, groupée par Gérant. Followers et écarts, Reels hier et 7 jours, vues, lien, clics aujourd'hui, hier et 7 jours, colonne Mesure (lu, restreint, non lu, Metricool, à créer) et heure du relevé. Le trio d'un clipper partage un lien : ses clics sont comptés une seule fois.
+
+### Sa fréquence
+
+- Dashboard : relu toutes les 15 minutes, réécrit seulement si son contenu a changé.
+
+- Clics : « aujourd'hui » toutes les 15 minutes ; le relevé de la veille vers 6 h–7 h (Paris). Une erreur GAML n'écrit jamais 0.
+
+- Instagram : le passage complet du matin, plus deux relectures légères à 14 h et 20 h (`ETATS_HEURES_LEGERES`).
+
+- Metricool : deux fois par jour (`METRICOOL_HEURES`, 8 h et 15 h), données de la veille.
+
+### Le budget Apify : 25 $ par mois, plafonné
+
+Décision de Gaëtan : « Dépasse pas 25 $ / mois pour le moment, fais comme tu peux ».
+
+- `APIFY_BUDGET_MOIS=25` couvre TOUS les appels Apify du mois : scan, relectures, recherche des @ changés, scan du soir, identifiants neufs, cadence.
+
+- La dépense est lue sur l'API Apify, sinon comptée par le bot (2,30 $ les mille profils, `APIFY_PRIX_1000`).
+
+- Une relecture légère ne part que si la dépense reste sous la trajectoire du mois (budget × part du mois écoulée). Sinon elle est sautée.
+
+- À 100 % : plus aucun appel Apify jusqu'au mois suivant. Une alerte admin par jour, et le Dashboard le dit.
+
+- `CADENCE_AUTO=0` par défaut : `!cadence` reste à la main.
+
+### Metricool
+
+Pour les comptes Instagram branchés à Metricool, les followers viennent de Metricool (source officielle, lisible même restreint). Variables : `METRICOOL_API_KEY`, `METRICOOL_USER_ID`.
+
+### Les commandes
+
+- `!dashboard` : réécrit l'onglet tout de suite, sans scan (gratuit).
+
+- `!dashboard scan` : lance un passage complet d'Instagram (payant, compté dans le budget). `!etats-comptes leger` : une relecture légère.
+
+- `!liens` : tous les liens GAML. `!lien @clipper <url|nouveau|retirer>` : attribuer, cloner un lien de sa créatrice, ou libérer (`retirer`). Un lien déjà à un autre clipper est refusé sans `forcer`.
+
+### Les liens repris par Rianah Metricool
+
+- `!monteur @x` : sort un clipper du clipping sans le virer. Ses liens GAML passent à Rianah (« Rianah Metricool N (ex-Prénom) »), ses lignes « Prénom (Metricool) » aussi.
+
+- `!sortie @x raison` d'un clipper qui a des comptes créés : ses comptes passent « à mettre Metricool », ses liens chez Rianah, ses visites d'avant la sortie restent dues. Sans compte créé : ses liens sont libérés pour le suivant.
+
+- Une sortie déposée avec `"metricool": true` (Tara) fait la même chose, puis expulse.
+
+
+## Présentation du bot
+
 Un bot **Discord** qui répond aux questions des clippers **uniquement à partir de `connaissances.md`**
 (Kit Clipper + stratégie marketing officielle, **Instagram uniquement depuis le 14/09/2026**). S'il ne sait
 pas → il renvoie vers Gaëtan. Il n'invente jamais. Réponses courtes, niveau collège.
@@ -103,7 +314,7 @@ de clipper de la créatrice (« tu dupliques celui d'avant ») et sa carte « Pl
 de son POD, corrige les écarts, et liste les POD sans tracking. Clara est dans `DRIVE_SOURCES` (dossier « 🎬 Clippers » créé
 dans son Instagram Drive). Depuis le 27/09 (« on s'en fout de ceux qui sont virés »), la vérification ne parle que des clippers du roster actif, remet aussi la colonne « Lien GAML associé » du classeur d'équerre, et son bilan n'est posté au salon admin que s'il contient une correction ou si ses avertissements ont changé depuis le dernier bilan posté (`onboarding.bilan_a_poster`, signature dans `onboarding.json`) ; `!trackings` répond toujours. Les TOP 20 Reels refaits au démarrage ne s'annoncent plus au début et ne listent à la fin que les clippers qui ont reçu des Reels ou une erreur.
 
-**Un accès par jour, anciens sans salon, classeur des candidatures (27/09, fin de journée)** : la livraison ne poste plus les trois
+*(historique, avant le 09/10)* **Un accès par jour, anciens sans salon, classeur des candidatures (27/09, fin de journée)** : la livraison ne poste plus les trois
 comptes d'un coup — une ligne (`message_comptes_court`), puis chaque étape 1, 2, 3 du parcours donne l'identifiant, l'e-mail et le
 mot de passe du compte du jour (`acces` mémorisés à la livraison, `COMPTES_UN_PAR_JOUR=0` pour revenir) ; les prénoms « sans
 salon » du roster (anciens gérés par Jonas sur WhatsApp) ne reçoivent jamais de salon d'arrivée et un salon recréé par erreur est
@@ -126,7 +337,7 @@ jour au plus, 12 gardées, `consignes_apprises.json`) sont injectées dans son p
 salon admin. Garde-fous : jamais de nom, numéro, e-mail, mot de passe ou identifiant ; la doctrine est rappelée dans le
 prompt d'analyse et la base curée prime ; 3 leçons par salon, 20 par jour, doublons écartés. `!retro` lance la même chose.
 
-**Reels uniques v2 et dossier du clipper (27/09, « fais gaffe au mirroring »)** : la recette ne fait plus jamais de miroir (les
+*(historique, avant le 09/10)* **Reels uniques v2 et dossier du clipper (27/09, « fais gaffe au mirroring »)** : la recette ne fait plus jamais de miroir (les
 TOP 20 ont des sous-titres incrustés, un miroir les écrit à l'envers), le zoom est limité à 4 % et le décalage à ± 30 % pour ne
 pas rogner un sous-titre ; chaque variante passe un **contrôle qualité** ffprobe (1080×1920, durée cohérente avec la coupe et la
 vitesse, piste audio conservée, recette sans miroir) et une variante défaillante n'est pas déposée. Les variantes faites avec
@@ -140,7 +351,7 @@ le passage par l'API est **désactivé par défaut** (`REELS_UNIQUES_OPUSCLIP=1`
 ajoute ses propres sous-titres karaoké, ce qui double ceux des TOP 20, et l'API n'accepte pas un lien Drive (422 « Unsupported
 video link », il faudrait téléverser le fichier).
 
-**Salon admin plus court (27/09, « supprime, ça sert à rien, simplifie tout ça »)** : « Bot redémarré » tient en une ligne et ne
+*(historique, avant le 09/10)* **Salon admin plus court (27/09, « supprime, ça sert à rien, simplifie tout ça »)** : « Bot redémarré » tient en une ligne et ne
 liste que ce qui devrait tourner et ne tourne pas (plus de « éteint : bump, DocuSeal », plus de « à poser dans Railway ») ; un test
 rendu = un seul message avec la note du bot, ses deux points à corriger et la commande prête (`!test-ok Prénom`), au lieu de
 « test rendu » puis « avis du bot » ; `!fiche` tient en quatre lignes (numéro, pays, parcours, créatrice), sans porte d'entrée
@@ -151,7 +362,7 @@ manager est le salon admin (`notifier_manager_seul`) ; les Reels uniques ne post
 de la créatrice est canonisé (« sarah » → Sarah, d'après le roster ou l'ordre d'attribution), et un changement de créatrice
 avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onboarding`).
 
-**Reels uniques : un échec ne se répète plus, et les variantes pèsent moins (28/09, Clarisse)** : le Reel 20 de Sarah (105 s, 16,5 Mo en 720p) donnait une variante de 39 Mo en crf 22 ; envoyée en base64 au script Drive, elle dépassait les 340 s (`asyncio.TimeoutError`, sans texte) et le bot le redisait au salon admin à chaque démarrage et à chaque passage de la boucle. Désormais `commande_ffmpeg` plafonne le débit (crf 24, 2 Mbit/s, 28 Mo pour ce Reel) et `_variante_sync` refait un passage léger (crf 27, 1,4 Mbit/s) au-dessus de `REELS_UNIQUES_MAX_MO` (30). Chaque vidéo a son compteur d'échecs dans `reels_uniques.json` (`echecs`, motif en français via `_motif`) : premier échec signalé une fois, deuxième essai silencieux (ligne « ⏸️ » que la boucle ne poste pas), abandon au troisième (`REELS_UNIQUES_MAX_ECHECS`) signalé une fois avec la commande `!reels-uniques Créatrice Prénom refaire` qui remet le compteur à zéro ; un clipper dont le reste est abandonné passe « déjà à jour » et n'est plus refait au démarrage. Au redéploiement, la variante allégée (28 Mo) a encore raté depuis Railway, cette fois avec une page HTML 404 renvoyée par la redirection d'Apps Script, alors que le même fichier est passé en 60 s depuis une autre machine : `drive_agence.appeler` refait une tentative après 5 s sur un 404/5xx et nomme le délai dépassé.
+*(historique, avant le 09/10)* **Reels uniques : un échec ne se répète plus, et les variantes pèsent moins (28/09, Clarisse)** : le Reel 20 de Sarah (105 s, 16,5 Mo en 720p) donnait une variante de 39 Mo en crf 22 ; envoyée en base64 au script Drive, elle dépassait les 340 s (`asyncio.TimeoutError`, sans texte) et le bot le redisait au salon admin à chaque démarrage et à chaque passage de la boucle. Désormais `commande_ffmpeg` plafonne le débit (crf 24, 2 Mbit/s, 28 Mo pour ce Reel) et `_variante_sync` refait un passage léger (crf 27, 1,4 Mbit/s) au-dessus de `REELS_UNIQUES_MAX_MO` (30). Chaque vidéo a son compteur d'échecs dans `reels_uniques.json` (`echecs`, motif en français via `_motif`) : premier échec signalé une fois, deuxième essai silencieux (ligne « ⏸️ » que la boucle ne poste pas), abandon au troisième (`REELS_UNIQUES_MAX_ECHECS`) signalé une fois avec la commande `!reels-uniques Créatrice Prénom refaire` qui remet le compteur à zéro ; un clipper dont le reste est abandonné passe « déjà à jour » et n'est plus refait au démarrage. Au redéploiement, la variante allégée (28 Mo) a encore raté depuis Railway, cette fois avec une page HTML 404 renvoyée par la redirection d'Apps Script, alors que le même fichier est passé en 60 s depuis une autre machine : `drive_agence.appeler` refait une tentative après 5 s sur un 404/5xx et nomme le délai dépassé.
 
 **Hors clipping (28/09, Gaëtan : « Julien et Rianah, on va les exclure totalement du clipping »)** : les prénoms de `DASHBOARD_EXCLUS` (défaut « Julien, Rianah ») n'apparaissent pas dans le Dashboard ni dans ses totaux (remplacé le 30/09 : voir « Julien et Rianah remis au Dashboard ») ; `!dashboard exclure Prénom` et `!dashboard inclure Prénom` tiennent la liste dans `etats_comptes.json` (`dashboard_exclus`, prioritaire sur la variable) et réécrivent l'onglet ; `!dashboard` seul réécrit et rappelle la liste. Rianah reviendra par `!dashboard inclure Rianah` quand elle testera sur Sophie. Le roster n'est pas touché.
 
@@ -179,7 +390,7 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Un nouveau commence toujours au compte 1 (30/09, Gaëtan : « pourquoi Steeve, on lui donne directement 2 comptes ? Tu fais n'importe quoi »)** : à l'acceptation, l'onboarding lançait le parcours « selon le classeur » (`demarrer_selon_classeur`, fait pour les anciens clippers arrivés avec leurs comptes) ; le compte 1 de Steeve était un compte déjà créé, rendu par un sortant, donc compté comme fait : départ à l'étape 2, sans compte 1 ni période d'essai. Désormais un clipper au test validé (état `valide`) sans parcours démarre à l'étape 1 (`demarrer_parcours`, le compte déjà créé passe en « connecte-toi »). Au démarrage, `parcours.mal_partis` retrouve les nouveaux partis à l'étape 2 ou 3 sans étape 1 : `reprendre_au_compte_1` efface leur calendrier (notes gardées), écrit « Petite erreur de ma part : on reprend dans l'ordre » et renvoie l'étape 1 ; bilan au salon admin, une fois par clipper (`parcours_repares.json`).
 
-**Relance quotidienne des nouveaux jusqu'au test de montage (30/09, Gaëtan : « une relance simple tous les jours pour les nouveaux, afin qu'ils fassent le test de montage vidéo »)** : `relance_nouveaux.py`. Chaque jour à 11 h (Paris), dans son salon, une ligne selon l'étape : quiz pas réussi → « ton test de montage arrive juste après le quiz », avec son lien ; test envoyé pas rendu → le lien du dossier et les heures qui restent. Jamais dans les 20 h qui suivent l'arrivée ou l'envoi du test, jamais deux fois le même jour, jamais après un STOP, jamais pour un signé, le staff, un test rendu, validé, refusé ou expiré. Remplace les relances 24/48 h du quiz et la relance « moins de 24 h » du test (`RELANCE_NOUVEAUX=0` les rétablit). La sortie à 7 jours sans quiz reste.
+*(historique, avant le 09/10)* **Relance quotidienne des nouveaux jusqu'au test de montage (30/09, Gaëtan : « une relance simple tous les jours pour les nouveaux, afin qu'ils fassent le test de montage vidéo »)** : `relance_nouveaux.py`. Chaque jour à 11 h (Paris), dans son salon, une ligne selon l'étape : quiz pas réussi → « ton test de montage arrive juste après le quiz », avec son lien ; test envoyé pas rendu → le lien du dossier et les heures qui restent. Jamais dans les 20 h qui suivent l'arrivée ou l'envoi du test, jamais deux fois le même jour, jamais après un STOP, jamais pour un signé, le staff, un test rendu, validé, refusé ou expiré. Remplace les relances 24/48 h du quiz et la relance « moins de 24 h » du test (`RELANCE_NOUVEAUX=0` les rétablit). La sortie à 7 jours sans quiz reste.
 
 **Identifiants neufs versés dans les onglets, tableaux étendus (30/09, Gaëtan : « ajoute tous les nouveaux @ et mdp dans chacune des bonnes feuilles en fonction de la créatrice et étends les tableaux pour que ça rentre ; la feuille Chloé déborde du tableau »)** : `capacite.ajouter_aux_onglets` écrit la réserve de chaque créatrice sous la dernière ligne remplie de son onglet — ÉTAT « à créer », @ IG, MDP, Utilisation Clipper, Créatrice, Numéro Mail suivant, POD de trois (le dernier POD entamé complété d'abord), sans e-mail (les iCloud restent à créer : la colonne « À créer sans e-mail » les compte) — puis étend le tableau Google de l'onglet (`updateTable`, lignes ajoutées à la grille si besoin) jusqu'à la dernière ligne remplie, lignes qui débordaient déjà comprises. Fait une fois tout seul au démarrage (trace `identifiants_ajouts.json`), ensuite `!capacite ajouter`. Un tableau que l'API refuse d'étendre est signalé, les valeurs s'écrivent quand même ; la réserve se reconstitue au passage suivant du Build capacity.
 
@@ -223,7 +434,7 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Numéro WhatsApp vérifié au formulaire (30/09, Gaëtan : « assure-toi qu'ils ne mettent pas des numéros erronés »)** : `numeros.verifier` (bibliothèque `phonenumbers`, ajoutée à `requirements.txt`) lit le numéro avec le pays choisi. Numéro qui n'existe pas (trop court, trop long, « +220 » Gambie pour un Béninois) → formulaire réaffiché avec l'indicatif attendu et un exemple du pays, rien d'enregistré. Numéro valide mais d'un autre pays que celui choisi, ou fixe → réaffiché une fois (champ caché `tel_ok`), accepté s'il est renvoyé tel quel. Corrigé sans rien demander : ancien numéro béninois à 8 chiffres (« 01 » ajouté), numéro local sans indicatif, indicatif sans « + », « +33 06… ». Le classeur reçoit le numéro au format international propre (« +229 01 23 45 67 89 »). Limite : un numéro valide avec un chiffre faux ne se détecte pas sans envoyer un message. Sans `phonenumbers`, ancienne lecture du bot, aucun blocage.
 
-**Test de montage : seuil gardé, effort valorisé, zéro attente (30/09 soir, Gaëtan : « important de garder le seuil, le bot
+*(historique, avant le 09/10)* **Test de montage : seuil gardé, effort valorisé, zéro attente (30/09 soir, Gaëtan : « important de garder le seuil, le bot
 doit voir que le Reel est différent du rush de base, bien monté, bon hook ; peu d'attente ; valorise l'effort plus que le
 résultat »)** : `TEST_TOUT_ACCEPTER` repasse à 0 (seuil `TEST_AUTO_SEUIL` = 7). Grille : travail visible sur le rush (4),
 accroche de la première seconde (3), lisibilité (1), format et durée (2), avec la consigne de valoriser l'effort. Le modèle voit
@@ -234,7 +445,7 @@ Reel ; `copie_du_rush` (même durée à 1 s près, trois images 16×16 quasi ide
 réécriture de l'état lu avant l'avis effaçait la validation automatique (« valide » repassait à « test_rendu ») ; les liens admin
 s'écrivent maintenant sur un état relu. Le message d'arrivée ne dit plus « Ton salon perso : #… » (il y est déjà posté).
 
-**Un seul recrutement, test accepté par le bot (30/09, Gaëtan : « on associe le recrutement FR et INT, on les félicite d'avoir
+*(historique, avant le 09/10)* **Un seul recrutement, test accepté par le bot (30/09, Gaëtan : « on associe le recrutement FR et INT, on les félicite d'avoir
 rejoint l'agence et on donne les prochaines étapes ; accepte toi-même le test de montage »)** : toute vidéo de test rendue dans
 les temps est validée par le bot, quelle que soit la note (`test_accepte`, `TEST_TOUT_ACCEPTER=0` rend le seuil de 7) ; l'avis
 reste, en conseils, et la réponse devient « Bien reçu ! Test validé ✅ ». `INT_EN_PAUSE` est forcé à faux. Le message d'arrivée
@@ -242,14 +453,14 @@ est le même pour tous : « 🎉 Félicitations Prénom, tu as rejoint l'agence 
 (créatrice et premier compte, un compte tous les 48 h avec `!code`, 2 Reels par jour pris dans le TOP 20) ; plus de « Team
 International / France » ni de renvoi aux fiches dans ce message.
 
-**Moins d'informations au clipper, le TOP 20 en direct, codes sur 60 min (30/09, Gaëtan)** : le lien Drive donné au clipper
+*(historique, avant le 09/10)* **Moins d'informations au clipper, le TOP 20 en direct, codes sur 60 min (30/09, Gaëtan)** : le lien Drive donné au clipper
 ouvre directement son dossier « TOP 20 Reels » (`dossier_drive` renvoie ce sous-dossier ; le partage par lien du parent vaut
 pour lui) et n'apparaît qu'une fois, dans l'étape 1 (« 📁 Tes Reels à publier (TOP 20) ») puis à l'étape 5 ; le message
 d'accès redevient une ligne, sans lien de paie ni Drive (le lien arrive à l'étape 6). Salon des codes : fenêtre de 15 → 60 min
 (Tara a tapé `!code` 21 min après le mail de son appel ; Gaëtan a dû lui donner le code à la main), et sans code trouvé, le bot
 rappelle que les codes arrivent aussi tout seuls dans le salon perso. Mode d'emploi épinglé v4.
 
-**Plus d'étape « 5 règles + bouton » après le test (30/09, Gaëtan : « supprime cette étape, on l'a déjà faite dans le
+*(historique, avant le 09/10)* **Plus d'étape « 5 règles + bouton » après le test (30/09, Gaëtan : « supprime cette étape, on l'a déjà faite dans le
 formulaire »)** : `suite_validation` accepte d'office (`accepter_conditions(uid, "site")`) — test validé = rôle, salon perso,
 créatrice et comptes, avec un seul message « Test validé » suivi de la suite. Au démarrage, `acceptation.envoyer_boutons_en_attente`
 accepte d'office les validés qui attendaient encore devant le bouton (trace `acceptation_auto`) ; un ancien bouton déjà envoyé
@@ -324,7 +535,7 @@ une liste = étapes numérotées, `## ` = sous-titre, `!! ` = encadré, `-# ` = 
 question). Les 5 règles gardent leur fond, en phrases courtes (même texte dans `acceptation.REGLES_SITE`). Sous la vidéo de
 `/formation`, un lien « Ouvre-la ici » si le lecteur Loom ne s'affiche pas.
 
-**Formation et quiz avant Discord, parrainage par lien, délai et déclencheurs au tableau (29/09 après-midi, GO des axes 1, 4 et 8)** :
+*(historique, avant le 09/10)* **Formation et quiz avant Discord, parrainage par lien, délai et déclencheurs au tableau (29/09 après-midi, GO des axes 1, 4 et 8)** :
 (1) le formulaire envoyé mène à `/formation` (la vidéo Loom intégrée, les 5 mots-clés, le bouton du quiz) et le quiz se passe sur
 le site, rattaché à la candidature (`/quiz?c=jeton`, deux essais, deux nouveaux 24 h après, ligne « avant Discord » dans l'onglet
 « Quiz bot ») ; l'invitation Discord s'affiche au quiz réussi, et à l'arrivée le bot pose l'état `quiz_ok`, dit « ton test arrive »
@@ -361,7 +572,7 @@ clippers livrables ≥ 2 × les validés des 30 derniers jours.
 
 **Invitation personnelle à la place de l'autorisation Discord (29/09, GO de Gaëtan)** : sur 25 candidats arrivés sur la page « Rejoindre le Discord » les 27 et 28/09, 5 seulement sont revenus par l'OAuth. Désormais, à l'envoi du formulaire, le site demande au bot une invitation personnelle (`invitation_site` : même mécanique que `!inviter`, 7 jours, `max_uses=2`, notée `source: site` dans `invitations` avec le numéro et le prénom) et affiche `/discord/invitation` : un bouton, l'appli Discord s'ouvre, « Accepter ». À l'arrivée, `accueillir_site` consomme l'invitation, pose le prénom, ouvre le salon perso et relie par le numéro (`traiter_liaison`) ; un ancien passage (quiz raté, sorti) est remis à zéro. Si l'invitation n'a pas pu être identifiée mais qu'une invitation du site de moins de 20 minutes est en attente (`invitation_site_recente`), l'arrivant n'est pas raccompagné malgré le serveur fermé : accueil classique, liaison par le numéro. Si le bot ne peut pas créer d'invitation, l'OAuth reste en secours (`/discord/connexion`).
 
-**Échéance du quiz et droit de recommencer (29/09, GO de Gaëtan)** : le message d'arrivée dit « ⏳ Tu as 72 h pour le faire » (`QUIZ_DELAI_H`), les relances à 24 h et 48 h comptent à rebours, et `candidats_a_sortir` fait sortir (MP, kick, salon supprimé par `on_member_remove`) tout candidat sans quiz réussi depuis `CANDIDAT_SORTIE_JOURS` (7) jours — jamais un signé, un parcours au-delà du quiz, un membre avec un rôle autre que Clippeur/rangs, et jamais pour un retard antérieur au 29/09 (`SORTIE_QUIZ_DEPUIS` : ceux qui étaient là ont leurs 7 jours à partir de la règle). Il peut recommencer : refaire le formulaire donne une nouvelle invitation et deux nouveaux essais. Deux quiz ratés ouvrent un nouveau cycle de deux essais `QUIZ_CYCLE_H` (24) heures après le dernier échec (`essais_quiz_cycle`, `prochain_essai_quiz` pour la page d'attente du site, même lien).
+*(historique, avant le 09/10)* **Échéance du quiz et droit de recommencer (29/09, GO de Gaëtan)** : le message d'arrivée dit « ⏳ Tu as 72 h pour le faire » (`QUIZ_DELAI_H`), les relances à 24 h et 48 h comptent à rebours, et `candidats_a_sortir` fait sortir (MP, kick, salon supprimé par `on_member_remove`) tout candidat sans quiz réussi depuis `CANDIDAT_SORTIE_JOURS` (7) jours — jamais un signé, un parcours au-delà du quiz, un membre avec un rôle autre que Clippeur/rangs, et jamais pour un retard antérieur au 29/09 (`SORTIE_QUIZ_DEPUIS` : ceux qui étaient là ont leurs 7 jours à partir de la règle). Il peut recommencer : refaire le formulaire donne une nouvelle invitation et deux nouveaux essais. Deux quiz ratés ouvrent un nouveau cycle de deux essais `QUIZ_CYCLE_H` (24) heures après le dernier échec (`essais_quiz_cycle`, `prochain_essai_quiz` pour la page d'attente du site, même lien).
 
 **Rétrospective : les consignes apprises ne s'appliquent plus toutes seules (29/09)** : le 28/09 au soir elle avait appris « attendre la réponse du humain avant de continuer le parcours » et « jamais vidéo + quiz dans le même message », deux contresens du process, injectés dans le prompt de l'assistant. Désormais `retro.consignes_texte` ne lit que les consignes posées par le staff (`!retro consigne Le texte.`, `!retro consignes`, `!retro oublier n`, source « staff » dans `consignes_apprises.json`) ; les consignes que la rétrospective propose restent dans le digest, marquées « NON appliquées », et l'ancien fichier est ignoré. Les leçons (questions/réponses de la FAQ apprise) restent apprises toutes seules.
 
@@ -379,13 +590,13 @@ clippers livrables ≥ 2 × les validés des 30 derniers jours.
 
 **Parrainage et ordre d'attribution (28/09 soir, deux « oui » de Gaëtan)** : `parrainage.py` — `!parrain @lui`, tapé par l'un ou l'autre dans son salon perso ou en MP : le plus ancien des deux sur le serveur est le parrain, l'autre le filleul (un seul parrain par filleul, filleul arrivé depuis moins de `PARRAINAGE_JOURS_MAX` = 30 jours, jamais le staff) ; le parrain touche `PARRAINAGE_PRIME_USD` (5 $) une seule fois, portée sur sa ligne de la liste `!paie-clics` le jour où le filleul y apparaît avec un montant (`primes_dues`, mémorisé par période dans `parrainage.json` : une liste retapée la garde, la période suivante non ; un parrain absent de la liste y reçoit une ligne à 0 visite). Rien n'est dit au filleul ; l'étape 7 (routine), `!aide` et la base de connaissances portent la seule phrase utile ; `PARRAINAGE=0` éteint. L'ordre d'attribution par défaut passe à « Chloé:3,Sarah:3,Sophie:3,Jade:1 » (Clara et Maddie à 0 tant qu'aucun e-mail de compte n'arrive ; `ATTRIBUTION_ORDRE` pour changer).
 
-**Le Drive arrive avec le premier compte (28/09 soir, Simon)** : l'étape 1 du parcours affiche « 📁 Ton Drive (photos, Reels, TOP 20) » sous les accès ; un clipper livré sans Drive (créatrice écrite en minuscules dans sa fiche — `_source_de` cherche désormais l'entrée `DRIVE_SOURCES` sans casse ni accent —, source absente ou Drive en panne à ce moment-là) le reçoit au passage suivant de la boucle du classeur (`drives_manquants`, trois par passage, toutes les 15 minutes) : dossier créé ou retrouvé, partagé par le lien, message `texte_drive` dans son salon perso, TOP 20 décliné dans la foulée (`reels_pour_nouveau`).
+*(historique, avant le 09/10)* **Le Drive arrive avec le premier compte (28/09 soir, Simon)** : l'étape 1 du parcours affiche « 📁 Ton Drive (photos, Reels, TOP 20) » sous les accès ; un clipper livré sans Drive (créatrice écrite en minuscules dans sa fiche — `_source_de` cherche désormais l'entrée `DRIVE_SOURCES` sans casse ni accent —, source absente ou Drive en panne à ce moment-là) le reçoit au passage suivant de la boucle du classeur (`drives_manquants`, trois par passage, toutes les 15 minutes) : dossier créé ou retrouvé, partagé par le lien, message `texte_drive` dans son salon perso, TOP 20 décliné dans la foulée (`reels_pour_nouveau`).
 
 **Qui quitte le serveur est sorti tout seul, et les accès se copient d'un geste (28/09 soir, Marias et Simon)** : `on_member_remove` → `traiter_depart` — un signé (registre ou roster) qui part reçoit le traitement de `!roster sortie` (`roster.appliquer_sortis`, revu le 28/09) : fiche → sortis.json, **comptes rendus au vivier** (`onboarding.liberer(pool=True)`, le suivant de la même créatrice les reçoit en premier), **lien GAML libéré pour le suivant** (`paie_clics.liberer_liens`, par uid ou par la note « Clipping Prénom » d'un lien sans clipper connu), **salon perso supprimé** (avant : renommé « sorti-prenom »), roster à jour, une ligne au salon admin ; un candidat qui part : salon supprimé, fiche retirée, relances coupées ; staff et anciens de Jonas : rien. Un homonyme encore sur le serveur protège le classeur, les liens et le salon reconnu par son seul nom. `sorties_a_appliquer.json` est un dépôt comme `messages_a_envoyer.json` : `[{"id", "prenom", "raison"}]`, chaque entrée est appliquée une fois au démarrage (`roster.sorties_deposees`, trace dans `roster_sorties_deposees.json`) — c'est ainsi que Marias, parti avant le déploiement, a été sorti. Identifiant, e-mail, mot de passe et code 2FA arrivent chacun **dans son propre bloc de code** (étapes 1 à 3 du parcours, `message_comptes`, `codes_2fa.ligne_code`) : sur le téléphone, le bouton du bloc copie la valeur seule, plus de sélection à la main dans Discord.
 
 **Formulaire du site à sept champs plus la case (28/09, décision de Gaëtan)** : `questions_candidature.json` ne pose plus que prénom, âge (nombre, « il faut avoir 18 ans »), WhatsApp, Telegram (pour le message privé), pays, téléphones réservés à ce travail (nombre et modèle de chacun) et une seule question ouverte « ton expérience » (Instagram, TikTok, montage, clipping, « détaille le plus possible », avec les pistes en aide : comptes gérés, vues, application de montage, heures par jour), puis la case des 5 règles. `score_candidature` garde sa note sur 8 mais la lit dans ces réponses : majeur (âge ≥ 18), iPhone et ≥ 2 téléphones dans la réponse « téléphones », expérience non vide, un outil de montage cité (`OUTILS_MONTAGE`), des chiffres (vues, abonnés, k, millions), ≥ 3 h par jour ou « temps plein », réponse détaillée (≥ 250 caractères) ; les colonnes de l'ancien Google Form (montage, Reels/jour, heures/jour, shadowban) comptent encore pour les anciennes lignes. `journaliser_candidature_sheet` écrit chaque réponse dans la colonne de l'onglet « Candidatures bot » dont l'en-tête correspond (libellé exact, sinon mot-clé via `CHAMP_PAR_QUESTION`, sinon une colonne ajoutée au bout avec son en-tête), `!fiche` montre Telegram et l'expérience sur 320 caractères, et n'affiche les anciennes questions que si elles sont remplies.
 
-**J'ACCEPTE devient une case cochée (27/09, `acceptation.py`)** : les 5 règles sont une case obligatoire du formulaire du
+*(historique, avant le 09/10)* **J'ACCEPTE devient une case cochée (27/09, `acceptation.py`)** : les 5 règles sont une case obligatoire du formulaire du
 site (question `conditions`, type `checkbox`) ; la liaison porte `conditions_site`, et à la validation du test l'accès
 s'ouvre tout de suite (`accepter_conditions(uid, "site")` : rôle, registre, salon perso, créatrice automatique) sans rien
 écrire. Un validé passé avant la case reçoit les règles en MP avec le bouton persistant « ✅ J'accepte, on y va »
@@ -481,7 +692,7 @@ le déploiement est sans risque.
 
 ## Le manager sur Discord : commandes, salon, contexte, liens des fiches (10/09)
 
-- **Le rôle `Manager` (nom exact, `ROLE_MANAGER_NOM`) a sa liste blanche** : `!creatrice`, `!fiche`,
+- *(historique, avant le 09/10)* **Le rôle `Manager` (nom exact, `ROLE_MANAGER_NOM`) a sa liste blanche** : `!creatrice`, `!fiche`,
   `!tests`, `!test-ok`, `!test-non`, `!quiz-ok`, `!reset @membre` (remet le parcours candidat à zéro pour le rejouer — quiz, test, validation ; liaison, rôles et équipe conservés), `!pipeline`, `!relance`,
   `!sortie`, `!alias`, `!code`. `!aide` lui donne sa liste. Avant le 10/09, tout était réservé
   aux `ADMIN_IDS` alors que la base de connaissances promettait ces commandes au manager.
@@ -519,7 +730,7 @@ le déploiement est sans risque.
   Si elle est posée, le bot la donne quand on la lui demande ; sinon il renvoie vers le décompte du lundi.
 - Les questions « hors kit » ne capturent plus les URL seules ni les messages de un ou deux mots.
 
-## Recrutement international : pause et réouverture (`PAUSE_INT`)
+## Recrutement international : pause et réouverture (`PAUSE_INT`) (historique, avant le 09/10)
 
 Le tunnel international (quiz → test → conditions en MP → **J'ACCEPTE ouvre le rôle Team International
 tout seul** → le manager attribue la créatrice) a été mis en pause le 15/08 et **rouvert le 08/09/2026**
@@ -536,7 +747,7 @@ est relancé à 24 h et 48 h. `!purge-int` et `!annonce-int` ont été retirées
    d'état dans le pipeline : c'est la seule façon de leur envoyer le test.
 3. Mets à jour le salon **Grille International** (rémunération/bonus) : le bot n'y écrit pas.
 
-## 🔒 Serveur fermé : le tunnel candidat hors Discord (14/09, soir)
+## 🔒 Serveur fermé : le tunnel candidat hors Discord (14/09, soir) (historique, avant le 09/10)
 
 Décision du 14/09 : **plus personne n'arrive sur Discord avant validation** — le serveur est réservé aux
 clippers validés. Le tunnel (formation → quiz → test 48 h → rendu) se déroule par e-mail et formulaires ;
@@ -583,7 +794,7 @@ rôles d'équipe et rôles particuliers, signés au registre, exemptés `PURGE_I
 passent par l'e-mail. Publier l'annonce Telegram **après** la bascule des formulaires, sinon les candidats de
 l'annonce arrivent sur un serveur qui les raccompagne.
 
-## Ce que le bot fait tout seul depuis le 10/09 (audit complet)
+## Ce que le bot fait tout seul depuis le 10/09 (audit complet) (historique, avant le 09/10)
 
 - **Mémoire fiable** : chaque JSON s'écrit de façon atomique avec une copie `.bak` ; la boucle pipeline
   n'écrit plus que ce qu'elle a changé (fusion), elle n'écrase plus un numéro, un e-mail, un STOP ou un
@@ -608,7 +819,7 @@ l'annonce arrivent sur un serveur qui les raccompagne.
 - **Assistant** : escalade vers le manager pour l'opérationnel, jamais de délai ou de montant inventé,
   jamais de contournement, étiquette de source unique en fin de réponse.
 
-## 💶 Paie en deux fois et valeur d'un abonné (14/09)
+## 💶 Paie en deux fois et valeur d'un abonné (14/09) (historique, avant le 09/10)
 
 **La paie tombe le 16 et le 1er**, comme pour les chatteurs (fini le lundi hebdo du premier mois). Les commandes
 `!primes` et `!primes acompte` (paie variable de l'ancien modèle) sont parties le 29/09 avec les inputs. Les montants
@@ -658,27 +869,27 @@ Depuis le 09/10 (Gaëtan) : **paie le 5 et le 20 de chaque mois ; du 5 au 19 inc
 
 L'app clippers (`tools/app_clippers`, onglet Versements) enregistre l'adresse USDC ERC-20 de chaque clipper dans l'onglet « Adresses USDC » du tableur « App clippers · usage » (Drive agence, partagé avec le compte de service). Le bot le lit avec le compte de service (`google_api.drive_chercher` par nom, ou `ADRESSES_CLASSEUR_ID`), et complète ses `wallets` : à chaque annonce de paie du 5 et du 20, avant chaque `!paie-clics`, une fois par jour dans la boucle (après `CLICS_HEURE`, bilan dans le salon admin s'il y a du neuf), et sur `!adresses` (staff : relit maintenant, dit combien de clippers ont une adresse). Règle de fusion : une adresse nouvelle est prise ; si le clipper a aussi écrit `!wallet`, la plus récente des deux gagne (dates comparées en UTC) ; un prénom qui correspond à plusieurs membres n'est pas repris (journal) ; une adresse mal formée est ignorée. Les textes qui réclament une adresse renvoient d'abord à l'app, puis à `!wallet`. Variables : `ADRESSES_TABLEUR` (défaut « App clippers · usage »), `ADRESSES_ONGLET` (« Adresses USDC »), `ADRESSES_CLASSEUR_ID` (facultatif).
 
-### 📱 L'app envoyée toute seule après les 3 comptes (08/10, `lien_app.py`, `parcours.livrer_app`)
+### 📱 L'app envoyée toute seule après les 3 comptes (08/10, `lien_app.py`, `parcours.livrer_app`) (historique, avant le 09/10 : depuis, un seul message routine + app, sans le lien GAML)
 
 Demande de Gaëtan : « envoie automatiquement l'app dans le salon Discord privé du clippeur, une fois seulement qu'il a créé les 3 IG : l'app + son lien de tracking GAML ». Dès que l'étape du compte 3 est fermée (le parcours passe à l'étape 6 : compte 3 créé et profil fait, ou scan qui le voit), le bot poste dans le salon perso un message court : le bouton **« 📱 Ouvrir mon app »**, les trois gestes (Safari ou Chrome, écran d'accueil), l'adresse de l'app en clair pour la copier, **son lien GAML** (celui de `!mesclics`, l'adresse à jour, le plus récent chez sa créatrice) avec « il va seulement dans la bio de ton compte 3 », et « ne donne son lien à personne ». Une seule fois par clipper (clé `app` de sa fiche de parcours, écrite avant l'envoi, retirée si Discord refuse). Une passe horaire (`rattraper_app`, dans la boucle du parcours) rattrape tous ceux qui sont déjà à l'étape 6 ou 7 sans l'avoir reçue, cinq par passe au plus ; les prénoms de `CLICS_EXCLURE` (Rianah, le staff) n'en reçoivent pas. Commandes : `!app` tapé par le clipper **dans son salon perso** (jamais ailleurs : le lien ouvre sa paie et son adresse USDC) renvoie le message une fois ses 3 comptes créés ; `!app @clipper` (staff) le renvoie, même avant le compte 3.
 
 **D'où vient le lien de l'app, sans rien configurer** : l'app calcule le jeton de chaque clipper avec un secret qui ne quitte pas Vercel. Sur demande du bot (`POST https://app-clippers.vercel.app/api/liens`, sans clé, la réponse ne contient aucun lien, une écriture par minute au plus), l'app écrit l'onglet **« Liens app »** du tableur « App clippers · usage » (Clipper, Créatrice, Lien de l'app, Liens GAML, Clé, Mis à jour), et le bot le lit avec le compte de service, comme les adresses USDC. Le bot cherche la ligne **par le lien GAML du clipper**, jamais par le prénom seul (l'app regroupe les homonymes : envoyer l'app d'un autre ouvrirait sa paie), refuse toute adresse qui n'est pas exactement `APP_CLIPPERS_URL/k/<jeton de 24 caractères>`, et ne redemande l'écriture qu'une fois toutes les 10 minutes. Un clipper que l'app ne connaît pas (note GAML qui n'est pas « Clipping Prénom », lien supprimé) : rien n'est envoyé, une ligne « 📱 App clippers pas encore envoyée… » au salon admin, une fois par jour. Variables facultatives : `APP_CLIPPERS_URL` (défaut `https://app-clippers.vercel.app`), `APP_LIENS_ONGLET` (« Liens app »). Le tableur d'usage contient désormais tous les liens personnels : il reste privé.
 
-## 🏠 Le salon perso : tout ce qui concerne un clipper, sous les yeux de Gaëtan (24/09)
+## 🏠 Le salon perso : tout ce qui concerne un clipper, sous les yeux de Gaëtan (24/09) (historique, avant le 09/10)
 
 Décision de Gaëtan : plus rien d'important ne se passe en privé entre le bot et un clipper validé. Dès son **J'ACCEPTE**, le bot ouvre son salon nominatif (catégorie `CATEGORIE_CLIPPERS_NOM`, « 🎬 Clippers » par défaut, créée au besoin ; privé : lui, le rôle Manager, le bot ; les admins voient tout), puis `!creatrice` le range dans la catégorie de sa créatrice. Y arrivent : ses comptes (identifiants du classeur), **les codes de vérification** de ces adresses (l'onboarding rattache les e-mails des comptes au salon dans le registre des alias, comme `!alias ajouter`), son lien en bio, son Drive, sa ligne de clics chaque matin, son bilan des Reels, et **le 5 et le 20 sa ligne de paie** (visites payées, montant, adresse) pendant que la liste complète et le CSV partent au salon admin. Formation, quiz et test restent en MP : avant validation, rien à voir.
 
-## 🔐 Onboarding automatique : comptes du classeur, lien GAML, Drive (23/09, `onboarding.py`)
+## 🔐 Onboarding automatique : comptes du classeur, lien GAML, Drive (23/09, `onboarding.py`) (historique, avant le 09/10)
 
 Dès `!creatrice @clipper Prénom`, le bot livre dans le salon perso du clipper (ou en MP) : ses **comptes Instagram** pris dans le classeur des logins (`CLASSEUR_LOGINS_ID`, **un onglet par créatrice** depuis le 27/09 : Chloé, Sarah, Sophie, Jade, Maddie, Clara… découverts tout seuls par leur en-tête, liste relue toutes les 10 minutes ; Gaetan, Tracking et Backup ignorés (`ONGLETS_EXCLUS`), les onglets masqués dans Google Sheets ne sont jamais lus, l'ancien onglet global « Instagram » n'est lu que s'il n'y a aucun onglet créatrice, `ONGLET_LOGINS` = « Sarah, Sophie » pour forcer une liste ; une ligne sans Créatrice prend le nom de son onglet, chaque ligne garde son onglet et toute écriture y retourne, un compte copié-collé sur deux onglets ne compte que dans celui de sa créatrice ; lignes Utilisation = Clipper, Gérant vide ou x/y/z, état à créer / GOOD / WARMUP / PRIVÉ / ACTIF, Créatrice = la sienne ; les comptes déjà créés passent d'abord ; `COMPTES_PAR_CLIPPER`, 3 par défaut) en écrivant son prénom dans la colonne Gérant ; son **lien GAML** (cloné depuis un lien « Clipping » de la créatrice s'il n'en a pas) ; son **Drive personnel** si le script de l'agence est déployé. `!creatrice` pose aussi le rôle de la créatrice s'il existe (même prénom en mot entier) et le rôle Team s'il manque (25/09). Sans e-mail connu, le message du clipper lui demande son adresse Gmail : dès qu'il la poste dans son salon perso ou en MP, le Drive lui est partagé. Le classeur est aussi une télécommande : toutes les 15 minutes, un compte dont la colonne Gérant porte le prénom d'un membre signé, jamais livré à ce membre, part dans son salon perso (état dans `onboarding.json`). **Personne ne se perd dans #général (27/09 soir, Ascartel)** : au démarrage, tout membre arrivé depuis moins de 14 jours sans salon perso reçoit le sien (`salons_arrivants_recents`, en plus des candidats du site : une arrivée pendant un redéploiement n'est plus perdue) ; un arrivant sans salon qui écrit dans un salon public reçoit son salon sur-le-champ, un mot qui l'y envoie et son message recopié dedans (`orienter_arrivant`, une fois par jour par membre) ; le message d'accueil dit le parcours en une ligne, l'étape en cours en gras (« **Formation** → Quiz → Test de montage → Création du compte Instagram → Publication », `ligne_parcours`) et la seule prochaine chose à faire (`etape_recrutement`). **28/09 (Gaëtan)** : s'il est sur Discord, il a rempli le formulaire, on ne le lui rappelle jamais ; l'arrivée par le site envoie UN message (`texte_accueil_liaison` : bienvenue, parcours, formation, lien du quiz sans aperçu, ni numéro ni grille), des lignes vides entre les blocs. Les messages déposés acceptent `effacer_bot` (les messages du bot du salon sont effacés d'abord) et `accueil_liaison` (le texte est le message d'arrivée du membre, calculé à l'envoi). **Quiz du site (28/09)** : `quiz.json` porte le quiz de la formation de 15 minutes, 10 questions (5 mots-clés à écrire, champ libre noté sans accents, sans majuscules, sans « s » final ; 5 questions à choix sur la vidéo) et `"seuil": 8` ; dès qu'il existe, `lien_quiz_pour` donne le lien du site (`/quiz?t=jeton`) au lieu du Google Form, la page affiche le seuil du fichier, `web_candidature.noter` note, le résultat repasse par `traiter_quiz_web` → `traiter_quiz_webhook` (test envoyé ou second essai, dans le salon perso, à la seconde) et une ligne par essai (date, prénom, identifiant Discord, score, essai, réussite, mots-clés donnés) part dans l'onglet « Quiz bot » du classeur des candidatures. Le Google Form reste accepté (seuil 30/34 tenu par le bot seulement pour un total de 34) ; `seuil_quiz_texte()` écrit « 8/10 » ou « 30/34 » dans tous les textes. **Décisions du 28/09 (Gaëtan)** : la bascule au clic est le **05/10** (`BILAN_FIXE_DATE`, défaut 2026-10-05) ; **le lien ne va plus qu'en story à la une**, une seule fois sur chaque compte (les @ en bio font des bans), avec chaque jour une story « widget du profil » vers la story à la une ; **trois comptes de croissance, plus de compte privé**, 24 h de warm-up par compte après sa création puis il publie (étapes 1 à 7 et base v12 réécrites) ; **le Drive du clipper s'ouvre par son lien** (`drive_partager_public`), plus d'adresse e-mail demandée ; **relances courtes** (`PARCOURS_RELANCE_JOURS`, 2) : une étape qui traîne reçoit une ligne « 👉 … Bloqué ? Écris ici. » tous les deux jours ; **sortie automatique** (`sortie_auto.py`, `SORTIE_AUTO=0` pour éteindre) : chaque jour à `SORTIE_AUTO_HEURE_UTC` (8 h), un clipper attribué depuis `SORTIE_AUTO_JOURS` (14) jours dont les comptes ont été scannés au moins `SORTIE_AUTO_SCANS_MIN` (7) fois sans une publication sort comme par `!sortie` (`sortir_membre`), mais ses comptes créés **restent dans le vivier** (`liberer(pool=True)`) et son lien GAML est **libéré** (`paie_clics.liberer_liens`) : le prochain clipper de la même créatrice reçoit ces comptes en premier (`disponibles`), avec une étape « connecte-toi » au lieu de « crée » (`parcours.CONNEXION`, le code de connexion arrive dans son salon) et le lien repris (`reprendre_lien`, ses visites comptent depuis la reprise, `somme` respecte `depuis`). La première passe ne sort personne : elle poste la liste au salon admin, le lendemain ça part tout seul ; `!sortie-auto` montre la liste, `!sortie-auto go` l'applique, une note manager contenant « garde » protège un clipper, les anciens de Jonas (`sans_salon`) ne sont jamais concernés. **Contrôle par Reel** : le scan quotidien lit les légendes des Reels de la veille (`etats_comptes.RE_FAUTE` : lien, domaine, @) → « ❌ … enlève-le » dans la ligne du matin du clipper et une ligne à l'admin. **Rapport du matin** : tous les clippers dans le salon admin, seulement les anciens de Jonas (`sans_salon`) dans #jonas-stats (`rapport_stats.clippers_de_jonas`). `!bilan-fixe [jours]` : le verdict des clippers encore au fixe (visites payables, équivalent au clic, point mort ≈ 32 visites/jour pour 100 €, 65 pour 200 €), posté tout seul dans le salon admin le `BILAN_FIXE_DATE` (2026-10-09, décision du 25/09 : deux semaines puis clic ou sortie). `ROLE_EQUIPE_UNIQUE` (défaut « Rookie ») : le premier rang remplace Team France / Team International pour tout le monde au J'ACCEPTE (plus de distinction de pays) ; un Confirmé ou une Élite est déjà dans l'équipe, rien n'est reposé. `!salons-equipe Sophie: Thia ; Chloé: Romaric, Hasina ; Sarah: Yves` (admin) : ouvre le salon perso des clippers déjà en place dans la catégorie de leur créatrice, y ajoute les managers humains (rôle Manager, ou pseudo contenant « manageur »), livre comptes du classeur, lien, Drive et alias 2FA, et démarre le parcours directement à la routine. Sans liste : tous les signés avec une créatrice au registre. Si la catégorie de la créatrice est **fermée au bot** (catégorie privée où son rôle n'est pas : Voir le salon, Gérer les salons, Gérer les permissions), le salon s'ouvre dans « 🎬 Clippers » et le bilan dit quoi corriger ; à la commande suivante, le salon est déplacé sous la créatrice. `!verifier` liste les catégories fermées. **Pseudos « Prénom - Créatrice » (25/09)** : le bot prend le prénom avant le séparateur partout (contexte de l'assistant, mémoire, classeur) ; le salon perso s'appelle par le prénom seul (`#thia`, ou `#prenom-creatrice` en cas d'homonyme), son identifiant est mémorisé au registre (`salon_id`) et les salons existants sont renommés au démarrage. Le rôle d'équipe unique est « Clippeur » (`ROLE_EQUIPE_UNIQUE`, Rookie encore accepté) et le rôle manager « Manager » ou « Manageur ». Un clipper qui tape `!etape` seul dans son salon revoit son étape en cours. **Classeur des logins suivi par le parcours (25/09)** : compte 1/2/3 validé → sa ligne passe à WARMUP, warm-up fini → les trois lignes passent à GOOD (une cellule ETAT à la fois, jamais la structure) ; une ligne « à créer » sans e-mail n'est plus livrée, `!comptes-libres` compte les livrables (créés + à créer avec e-mail). **États du classeur depuis Instagram (26/09, `etats_comptes.py`)** : chaque jour à `ETATS_HEURE_UTC` (7 h), le bot passe à Apify les comptes des onglets créatrices qui ont un Gérant (Utilisation = Clipper) et met à jour la colonne ETAT, une cellule à la fois : à créer → WARMUP dès que le compte existe ; WARMUP → GOOD après `ETATS_GOOD_JOURS` (3) jours de publication de suite ; WARMUP → PRIVE si le compte est passé en privé ; WARMUP/GOOD/PRIVE → BAN après `ETATS_BAN_JOURS` (1 depuis le 28/09, 2 avant) jour introuvable ou restreint (BAN posé par le bot, rendu à WARMUP s'il réapparaît) ; les états manuels (PERDU LOGS, à vérifier, BIZARRE…) et les lignes sans Gérant ne bougent jamais ; la colonne Followers est remplie pour **tous** les comptes créés du classeur, clippers, créatrices sous Metricool et comptes libérés (≈ 130 profils par jour, appels Apify par lots de 50, écriture seulement si le chiffre a changé). Chaque ligne qui a un Gérant reçoit aussi ses **visites payables des 7 derniers jours** (colonne « Clics GAML last 7d. »). La colonne **« Lien GAML associé »** est tenue par l'onboarding (27/09, « c'est le bazar ») : une ligne = LE lien du gérant pour la créatrice de la ligne (Julien : son lien Sophie sur ses lignes Sophie, son lien Chloé sur ses lignes Chloé, rien sur ses lignes Maddie ; deux liens pour la même créatrice → le plus récent ; la créatrice d'un lien se lit dans son nom GAML, sinon dans la mémoire du bot, sinon dans le domaine), remise d'équerre à chaque livraison, toutes les 15 minutes et sur `!trackings`, seulement les cellules qui changent. Les colonnes de chaque onglet sont reconnues par leur en-tête (26/09 : Gaëtan insère des colonnes ; 27/09 : onglet par onglet), jamais par position. Le code couleur de la colonne ETAT est une mise en forme conditionnelle posée le 26/09 (GOOD vert, WARMUP orange, BAN rouge, PRIVE bleu, à créer gris, PERDU LOGS violet, à vérifier jaune). Bilan dans le salon admin quand quelque chose change, alerte manager sur les BAN. `!etats-comptes [test]` lance un passage à la main. **Inputs clippers retirés (éteints le 27/09, décision de Gaëtan : « c'est l'ancien système » ; code supprimé le 29/09, voir « Retiré »)**. Le tableau du lundi lit « premier Reel » et « jour 7 tenu » dans l'historique d'`etats_comptes` (publications comptées par le scan quotidien du classeur, `tableau_bord.premiers_reels_etats`) et le message du matin reçoit sa ligne « 🎬 Hier : N publication(s) sur tes comptes » du même scan (`etats_comptes.lignes_reels`). La carte de tracking d'un lien GAML est aussi reconnue quand elle s'appelle « OF » ou « 0F » (Clara). Historique dans `etats_comptes.json`, `ETATS_CLASSEUR=0` pour éteindre. **Textes niveau collège (25/09, demande de Gaëtan)** : tout ce que le bot dit aux clippers (étapes du parcours, message de comptes, codes, visites et paie, bilan du matin, conditions, test, aide) est écrit en phrases de 10 mots, une action par ligne, sans parenthèses ; la base de connaissances porte une règle « Comment je parle » et ses fiches 1 à 6 sont réécrites au même niveau (v8). `CANAL_CANDIDATURE_ID` se répare par le nom (#bienvenue). **Parcours guidé (25/09, `parcours.py`)** : dès `!creatrice`, le salon perso déroule 7 étapes (compte 1, compte 2, compte privé, warm-up de 7 jours compté chaque matin puis ouverture automatique des Reels, premier Reel, lien en bio, routine) avec des boutons-liens vers la fiche du forum et le salon d'infos de la créatrice, et un bouton « ✅ C'est fait » persistant (DynamicItem). Dans ce salon, l'assistant IA reçoit la mémoire du clipper (étape, comptes, lien, Drive, visites 7 j, notes du manager) et joue le manager. Commandes manager : `!etape @clipper [n]`, `!note @clipper texte`, `!memoire @clipper`. État dans `parcours.json`. Commandes manager : `!comptes-libres [Créatrice]`, `!onboarding @clipper [Créatrice]`, `!liberer Prénom [handle …] [pool]` (rend les comptes d'un clipper parti : Gérant vidé, comptes créés en Utilisation « à mettre Metricool », ceux à créer de retour au pool ; `!sortie` le fait tout seul). Garde-fou homonyme (24/09, Eddy) : un membre arrivé depuis moins de 45 jours (`ONBOARDING_JOURS_NOUVEAU`) et jamais onboardé ne reçoit pas de comptes **déjà créés** portant son prénom — l'admin est prévenu (ancien clipper du même prénom ?) et tranche avec `!onboarding @clipper` (forcer) ou `!liberer`. Le trio livré fait 2 comptes de croissance + 1 privé (état PRIVÉ ou handle en priv/secret/perso).
 
 **Google, deux voies** (`google_api.py`, `drive_agence.py`) : le **compte de service** (`GOOGLE_SERVICE_ACCOUNT_JSON`) lit et écrit les classeurs et lit le Drive, mais Google ne lui donne **aucun espace de stockage** (« Service Accounts do not have storage quota ») : il crée des dossiers, pas des fichiers. Tout ce qui copie ou dépose des fichiers passe par le **script Apps Script** `apps_script/drive_agence.gs`, déployé le 24/09 sous le compte Google de l'agence (le bot suit la redirection Apps Script à la main, en GET nu, sinon Google renvoie du HTML) (application web, exécuter en tant que moi, accès tout le monde) : `DRIVE_AGENCE_URL` + `DRIVE_AGENCE_SECRET`. Les sources par créatrice sont dans `DRIVE_SOURCES` (JSON : dossier parent « 🎬 Clippers » dans son dossier Instagram, sources Reels et Photos). **Depuis le 24/09, plus de copies limitées** (Gaëtan : « il faudra donner plus de contenu à chaque clipper ») : le dossier du clipper, créé par le compte de service, contient un **raccourci vers chaque source** (tout le contenu, aucun espace consommé), les sources et le dossier sont partagés en lecture à l'e-mail donné dans le tunnel (compte de service d'abord, script de l'agence en secours), et un sous-dossier « Reels spoofés » attend le spoofer. Le script de l'agence sert aux dépôts de fichiers (Reels spoofés) et aux copies si on en veut un jour.
 
-## 🎬 Reels uniques par clipper (26/09, `reels_uniques.py`)
+## 🎬 Reels uniques par clipper (26/09, `reels_uniques.py`) (historique, avant le 09/10)
 
 Gaëtan met les **TOP 20 Reels** de chaque créatrice dans « 📁 Reels › TOP 20 Reels » de son Instagram Drive. Le bot les décline pour chaque clipper en une version **différente et stable** (même clipper + même vidéo = même recette) : miroir ou non, zoom léger avec recadrage décalé, vitesse ± 3 %, saturation, contraste, luminosité, teinte, coupe d'attaque, ré-encodage 1080×1920 à 30 i/s (ffmpeg, présent sur Railway). Les variantes sont déposées dans le sous-dossier **« Reels uniques »** du dossier Drive du clipper (script de l'agence, le compte de service ne peut pas téléverser), nommées « Créatrice · Reel 07 · Prénom.mp4 ». Idempotent par nom de fichier et par état (`DONNEES/reels_uniques.json`). `!reels-uniques Chloé` (tout son roster) ou `!reels-uniques Chloé Ricado` ; et **chaque nouveau clipper reçoit les siens tout seul** à l'onboarding, en tâche de fond, bilan au salon admin. Option `OPUSCLIP_API_KEY` (clé du tableau de bord OpusClip, plan Pro ou plus) : chaque Reel repasse d'abord dans OpusClip sans découpe avec le template « Créatrices OFM » (sous-titres, recadrage) avant la déclinaison, ≈ 1 crédit par minute ; sans clé, ou si OpusClip échoue, on part de l'original. Les dossiers « Reels OpusClip » des créatrices ont été renommés « Reels extraits YTB » et `DRIVE_SOURCES` pointe sur les dossiers actuels (📁 Reels, 📁 Carrousel, 📁 Story), l'ancien identifiant Reels de Chloé était mort (404 sur les raccourcis).
 
-## 🔁 Le process refondu du 26/09 (soir) : formulaire → quiz 30/34 → test jugé par le bot → 3 comptes, un par jour, 24 h de warm-up
+## 🔁 Le process refondu du 26/09 (soir) : formulaire → quiz 30/34 → test jugé par le bot → 3 comptes, un par jour, 24 h de warm-up (historique, avant le 09/10)
 
 Gaëtan a redit le process de bout en bout pour préparer une formation condensée ; le bot le porte partout (base de connaissances v10, INSTRUCTIONS, textes des étapes, aide, J'ACCEPTE). **Le parcours** : le formulaire du site (3 minutes) connecte le Discord ; vidéo de formation ; quiz `!quiz` à **30/34** ; test de montage rendu **en message privé au bot** (une vidéo brute à retravailler : texte, musique, format, coupes) ; **le bot regarde la vidéo** : `ffprobe` (format, durée), 4 images extraites par `ffmpeg` (installé par les variables Railway `RAILPACK_BUILD_APT_PACKAGES` et `RAILPACK_DEPLOY_APT_PACKAGES`, builder Railpack), jugement du modèle sur une grille en 10 points (format vertical, durée, accroche, sous-titres, travail sur la brute), note sur 10 postée au candidat et au salon admin ; **au-dessus de `TEST_AUTO_SEUIL` (7), le test est validé tout seul** (même chemin que `!test-ok`, `TEST_AUTO=0` pour revenir à la review humaine), en dessous le manager tranche avec l'avis sous les yeux. Puis J'ACCEPTE, salon perso, 3 comptes du classeur, et **un compte par jour avec 24 h de warm-up sur chacun** (`WARMUP_JOURS` vaut 1 : l'étape 4 est le dernier warm-up avant les Reels), option 2 comptes qui publient + 1 privé avec le lien, ou 3 qui publient et le lien en story à la une ; le lien ne va jamais dans un Reel ni en rafale dans les stories. Escalade : l'assistant dans #assistant-ia, le salon perso, puis **Gaëtan sur WhatsApp** : un bouton lien « 💬 Écrire à Gaëtan (WhatsApp) » (`WHATSAPP_GAETAN_URL`) est posé sous l'accueil du salon perso et sous chaque étape du parcours.
 
@@ -702,7 +913,7 @@ Chaque matin, une fois les relevés de la veille faits, le bot poste dans le sal
 
 **Roster actif et salon-compteur « 🎬 Clippers : N » (26/09).** `groupes` dans `rapport_jonas.json` est la liste active des clippers par créatrice, donnée par Gaëtan (26/09 : Sophie 5, Chloé 6, Sarah 4 ; Laure, Quentin et Meiji sortis) et datée par `mis_a_jour`. Le roster vivant (`rapport_stats.groupes_actifs`) y ajoute les fiches du registre qui ont reçu une créatrice (`!creatrice`) après cette date et en retire les `!sortie` faites après cette date ; il sert au rapport du matin et au salon-compteur, qui ne compte plus les membres d'un rôle Discord (le renommage Rookie → Clippeur l'avait remis à zéro, et les anciens n'avaient jamais reçu le rôle). `!actifs` affiche les prénoms comptés par créatrice ; pour changer la liste de fond, éditer le fichier et redéployer. Une sortie doit passer par `!sortie` (comptes rendus au classeur, salon perso fermé, rôles retirés) : virer quelqu'un en dehors du bot ne change ni le compteur ni le classeur.
 
-## ✍️ Plus d'étape contrat dans le tunnel (23/09)
+## ✍️ Plus d'étape contrat dans le tunnel (23/09) (historique, avant le 09/10)
 
 Décision de Gaëtan : « on ne va pas embêter les Malgaches avec ça ». Tout test validé, grille France comme International (et grille indéterminée, France par défaut), reçoit les **conditions en MP** et répond **J'ACCEPTE** ; le rôle Team de sa grille s'ouvre à l'acceptation (`conditions_grille` dans le pipeline), les relances 24/48 h s'appliquent à tous. Un e-mail envoyé en MP est simplement enregistré. **29/09** : le code DocuSeal (`!contrat`, création et sondage des contrats, relances de signature, retentatives) et `CONTRAT_ACTIVER` sont retirés, voir « Retiré ».
 
@@ -858,7 +1069,7 @@ Les verdicts : « ✅ Publie-la. » (7/10 et plus), « ✏️ Corrige d'abord : 
 
 La vidéo de base, c'est le TOP 20 de sa créatrice. Ses empreintes (durée, 3 images 16×16, une image réduite) sont calculées une fois par semaine, en tâche de fond, dans `DONNEES/review_reels_top20.json`. Une relecture n'attend jamais ce calcul : la première se fait sans vidéo de base.
 
-**Jamais confondu avec le test de montage.** Un candidat en test (`test_envoye`, `test_rendu`, `test_expire`, `refuse`) est intercepté plus haut par le circuit du test, comme avant. La review ne le prend jamais.
+*(historique, avant le 09/10)* **Jamais confondu avec le test de montage.** Un candidat en test (`test_envoye`, `test_rendu`, `test_expire`, `refuse`) est intercepté plus haut par le circuit du test, comme avant. La review ne le prend jamais.
 
 **Juge en échec, jamais de note.** Vidéo illisible, ffmpeg absent, réponse du modèle illisible : « Je n'ai pas pu regarder ta vidéo, réessaie dans 2 minutes. » Rien n'est noté.
 
@@ -990,7 +1201,7 @@ Gaëtan : « Mets les numéros sur les bons numéros. Tu créeras les liens gaml
 
 - **Chloé (05/10)** : Miam posé sur /4, /12, /15 et /fb, tracking de /16 remplacé, avec les liens donnés par Gaëtan. Trois de ces trackings étaient déjà sur un autre lien (/12 sur /2, /fb sur /1, /16 sur /14) : ces trois liens attendent leur propre tracking.
 
-## ⏱️ Deux délais de 3 jours : test de montage, puis compte 1 (05/10, 15 h)
+## ⏱️ Deux délais de 3 jours : test de montage, puis compte 1 (05/10, 15 h) (historique, avant le 09/10)
 
 Gaëtan : « je veux qu'il fasse le test de montage vidéo en 3 jours. Puis premier compte IG créé en 3 jours », « GO, applique à tout le monde ».
 
@@ -1039,7 +1250,7 @@ Gaëtan : « Créer un salon personnel dans le discord avec ses login de comptes
 - **Une seule règle du compte 1, 48 h** (dernière consigne de Gaëtan, 05/10 à 15 h 30) : `SORTIE_JOURS_COMPTE1` passe à 2 (avertissement à 24 h, sortie à 48 h, textes en heures), règle 5 des conditions et base de connaissances alignées (elles disaient « 3 jours » pendant que la purge sortait à 48 h). **Jamais de sortie sans avertissement** : la sortie exige un avertissement posé à une passe précédente, et un clipper déjà au-delà du délai est averti d'abord.
 - **Anciens repris d'après le classeur** : `etape_selon_classeur` renvoie l'étape 6 (le lien) au lieu de l'étape 4 supprimée le 05/10.
 - **Identifiant Instagram déjà pris** (le blocage le plus courant à la création, Mohamed) : **`!pseudo 1 ton_identifiant`** (le clipper, dans son salon perso ; `!pseudo @clipper 1 identifiant` pour le staff) écrit le nouvel identifiant dans la cellule « @ IG » de sa ligne du classeur, sa fiche d'onboarding (comptes, accès), l'état des livraisons et les Reels suivis (`onboarding.renommer_compte`) : le scan, le parcours et l'app le suivent ; une ligne au salon admin. Refusé : identifiant invalide, déjà dans le classeur, compte qui n'est pas à lui, nom de compte privé pour les comptes 1 et 2. Les étapes 1 à 3 le disent (« Identifiant déjà pris ? Ajoute un chiffre à la fin. Puis tape ici : `!pseudo n ton_identifiant` »), la base et la règle 24 de l'assistant aussi.
-- **WhatsApp sans `!wa` de Gaëtan** : sous chaque demande de WhatsApp (message « compte 1 peut publier », appel de présence, relance), un bouton persistant **« ✅ J'ai écrit à Gaëtan »** (`parcours.BoutonWhatsApp`) : le clipper se déclare, il sort des « Bloqués » et des relances, son appui vaut réponse à l'appel, et le salon admin reçoit « 📲 X dit avoir écrit sur WhatsApp. Pas vrai ? `!wa @X non` » (`!wa @x non` annule).
+- *(historique, avant le 09/10)* **WhatsApp sans `!wa` de Gaëtan** : sous chaque demande de WhatsApp (message « compte 1 peut publier », appel de présence, relance), un bouton persistant **« ✅ J'ai écrit à Gaëtan »** (`parcours.BoutonWhatsApp`) : le clipper se déclare, il sort des « Bloqués » et des relances, son appui vaut réponse à l'appel, et le salon admin reçoit « 📲 X dit avoir écrit sur WhatsApp. Pas vrai ? `!wa @X non` » (`!wa @x non` annule).
 - **Paie à 0,00 $** : plus de ligne de paie dans le salon d'un clipper sans visite payée sur la période (le « `!wallet` maintenant » à un nouveau qui n'a encore rien publié).
 - **Base de connaissances** : 4 Reels partout (la ligne du 1er octobre était inversée), contenu aligné sur la relecture du 06/10 (vidéos du Drive, soft autorisé, nudité et acte sexuel interdits), plus de « chiffre chaque matin », créatrice attribuée tout de suite au J'ACCEPTE, `!pseudo` pour l'identifiant pris.
 - **Homonymes à l'attribution** : un nouveau signé dont le prénom est déjà au roster (un deuxième Julien) n'avait jamais de créatrice, en silence. `attribution.sans_creatrice` ne fait plus confiance au roster quand son prénom désigne un autre signé qui a déjà sa créatrice ; l'ancien du roster, seul de son prénom, n'est jamais réattribué.

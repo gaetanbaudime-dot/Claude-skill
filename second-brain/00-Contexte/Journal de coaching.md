@@ -22,6 +22,33 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-09 (funnel) — Funnel ouvert : test de montage et Drive perso retirés
+
+> [!tip] Verdict
+> Bonne décision, à une condition : suivre chaque matin les **comptes livrables par créatrice**. Le goulot quitte le test et passe au stock de comptes. Ouvrir les vannes sans e-mails neufs, c'est remplir une salle d'attente.
+
+- **Décision de Gaëtan** : « Go enlever le test de montage vidéo, on va ouvrir les vannes. Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice + Drive + Groupe WA > Création premier comptes > 4 Reels postés > 2 eme compte > 4 Reels postés > 3 eme compte privé + lien GAML + Application de clippeur pour suivre ses revenus ». Puis : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité est pourrie » ; « distribue connaissances et informations au compte-goutte… Chaque étape à la fois… saute des lignes, aère » ; « Ajoute Andry Sarah », « Ajoute Gasboy Sarah », « On vire Tara ».
+
+- **Pourquoi c'est juste** : le test ne mesurait plus rien, puisque le clipper ne monte plus, il publie les vidéos de sa créatrice (c'était déjà l'axe 2 de l'entrée du 29/09, et le levier n° 1 de celle du 27/09). Le Drive perso donnait des TOP 20 ré-encodés deux fois (x264 crf 24 à 27, 1,4 à 2 Mbit/s, puis Instagram) : la qualité pourrie était réelle, mesurée dans le code. Et le 29/09, seuls **31 % des validés publiaient** : chaque étape retirée avant le premier Reel compte plus qu'un candidat de plus.
+
+- **Livré (neuf lots fusionnés, câblage du 10/10)** : quizz réussi = validé ; un seul message par étape, en douze étapes (README du bot, « 09/10 : le funnel simplifié ») ; les vidéos d'origine de la créatrice par lien, jamais un dossier perso ; le groupe WhatsApp dès la bienvenue ; paie les 5 et 20 partout ; migration automatique des candidats de l'ancien tunnel au premier démarrage, bornée par le stock ; Tara sortie (liens chez Rianah Metricool), Andry et GasBoy chez Sarah, après les dépôts et avant la migration. L'assistant reparle dans les salons perso, mais seulement sur une question.
+
+- **Ce qui casse si on se trompe (avocat du diable)** :
+  - *Le filtre qualité disparaît.* Un faux positif coûtait un avis du bot ; il coûte maintenant **3 comptes réservés 48 h** et une place dans le groupe WhatsApp. Le seul tri restant : compte 1 créé en 48 h (sinon sortie) et la review des Reels.
+  - *Le stock de comptes devient le goulot.* Chaque validé en réserve 3 ; le 29/09, le classeur ne pouvait servir que 11 clippers de plus faute d'e-mails. Au-delà, les nouveaux passent « en attente d'une créatrice » : protégés, mais immobiles.
+  - *Gaëtan devient le goulot WhatsApp.* Chaque nouveau lui écrit à l'étape 6. Le parcours ne l'attend pas (compte 1 seul après 3 h), mais le volume de messages monte d'un coup.
+  - *Mineurs : non négociable.* La case « 18 ans ou plus » est déclarative. Le contrôle « personne qui paraît mineure » de la review des Reels est maintenu ; un doute = sortie immédiate. Les refus avec un motif d'âge ne partent jamais dans la migration en lot.
+  - *Dette CGU inchangée, et plus grosse.* Plusieurs comptes Instagram par clipper, pilotés par l'agence, et un lien GAML dans le champ Liens : plus de clippers = plus de comptes exposés aux bans ([[Risques légaux et éthiques de l'OFM]]). La règle « un compte toutes les 48 h et 4 Reels » doit rester intacte.
+  - *Sécurité.* Les vidéos d'origine restent partagées par lien : un clipper viré garde l'accès. Dette assumée, comme pour les sources.
+  - *Lecture des chiffres.* Le jour de la migration, le compteur « validés » du tableau de bord bondit : ce n'est pas une hausse du recrutement.
+
+- **Reste à Gaëtan** : retirer de Railway `LIEN_TEST`, `TEST_*`, `DRIVE_AGENCE_*` et `RELANCE_NOUVEAUX` **après** une journée sans incident (jamais avant le déploiement) ; fermer les trois formulaires Google, leurs déclencheurs et les propriétés `LIEN_TEST`, `LIEN_RENDU`, `ENVOYER_MAILS` ; relire `!apprendre liste` et `!faq` ; trancher s'il paie les visites d'avant la sortie aux clippers purgés (aujourd'hui, ils sortent de la paie suivante).
+
+- **Prédictions (écrites le 10/10, avant le déploiement et la migration ; revue le 23/10)**, statut à vérifier :
+  - Au 23/10, au moins 50 % des validés par quizz publient leur premier Reel sur le compte 1 en moins de 72 h après leur validation — **30 %** (base du 29/09 : 31 % des validés publiaient tout court ; il faut créer le compte, le profil et 24 h de warm-up avant le premier Reel). Mesure : tableau de bord du lundi, délai validation → premier Reel.
+  - Le stock de comptes livrables devient le goulot avant le 16/10 : au moins un validé passe « en attente d'une créatrice » faute de compte, et le digest du matin le montre — **70 %**.
+  - [[Excès de confiance|Calibration]] : si la première se réalise, le test retiré valait plus que ce que je crois ; si la seconde échoue, c'est que le recrutement, pas le stock, reste le vrai frein.
+
 ### 2026-10-09 (paie) — Paie le 5 et le 20 sur les périodes 5 → 19 et 20 → 4 ; feuille de virement écrite par le bot
 - **Décision de Gaëtan** : « la paie se fait le 5 et le 20 de chaque mois ; ils sont payés sur les périodes du 5 au 19 compris et du 20 au 4 compris » ; l'app doit le dire clairement ; « prépare-moi un sheet avec les adresses USDC ERC20 et le montant des clippers à payer, avec leur prénom ».
 - **Livré** : règle changée dans l'app et dans le bot en même temps (sinon l'app affiche un montant que le bot ne paie pas). J'avais d'abord prévu une période de transition (1er → 19/10) ; **précision de Gaëtan : « j'ai commencé la rémunération au clic le 5 octobre »**, donc première période 5 → 19/10 payée le 20/10, règle uniforme, et `CLICS_DEPUIS` au 05/10 des deux côtés (rien n'est dû ni affiché au clic avant). App : pastille « Payé le 5 et le 20 », barre « jour X sur N », texte de règle. Bot : `!paie-clics` prépare la prochaine paie selon la nouvelle règle et écrit un onglet « Paie du JJ/MM/AAAA » dans le tableur « App clippers · usage » (prénom, créatrice, adresse USDC, visites, montant, note, total), aussi à l'annonce automatique du 5 et du 20. Tests hors ligne des deux côtés (continuité des jours du 16/09 au 04/01 vérifiée).

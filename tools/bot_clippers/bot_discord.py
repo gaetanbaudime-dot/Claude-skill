@@ -48,13 +48,13 @@ import acquisition_subs                  # subs de la veille OF / MYM au salon a
 import appel                             # l'appel de présence : réponds sous 48 h et viens sur WhatsApp, sinon tu sors (05/10)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
 import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
-import reels_uniques                      # TOP 20 Reels de la créatrice déclinés pour chaque clipper (26/09)
+import reels_uniques                      # TOP 20 Reels d'origine de la créatrice, pour review_reels (09/10 : plus de déclinaison)
 import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
 import acceptation                        # J'ACCEPTE = case cochée sur le site, ou bouton ✅ en MP (27/09)
 import attribution                        # créatrice attribuée automatiquement, rotation Sophie > Sarah > Chloé > Clara > Jade (27/09)
 import tableau_bord                       # le tableau de bord d'une ligne, chaque lundi (27/09)
 import retro                              # rétrospective nocturne : le bot apprend de ses salons persos (27/09)
-import drive_agence                       # script Apps Script de l'agence : dépôts de fichiers dans le Drive (26/09, reels_uniques)
+# 09/10 : drive_agence (dépôts du script Apps Script de l'agence pour les Reels uniques) n'est plus importé : DRIVE_AGENCE_* à retirer.
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
 import telegram                           # alerte Telegram de l'agence : acceptation, sortie, copie du digest (29/09, ex-inputs_clippers)
 import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
@@ -160,8 +160,9 @@ NOMS_RANGS = ("Clippeur", "Rookie", "Confirmé", "Elite")                       
 CANAL_STAT_PAYES_ID = os.environ.get("CANAL_STAT_PAYES_ID", "").strip()       # « 💸 Déjà payés : X € »
 CANAL_STAT_CLIPPERS_ID = os.environ.get("CANAL_STAT_CLIPPERS_ID", "").strip() # « 🎬 Clippers : N »
 WHATSAPP_GAETAN_URL = os.environ.get("WHATSAPP_GAETAN_URL", "").strip()        # 26/09 : escalade des blocages vers Gaëtan (lien wa.me)
-# 05/10 (Gaëtan, après l'audit : « arrêter de polluer chaque salon privé », « assistant IA général dans un salon ») : l'assistant ne
-# répond plus dans les salons persos (ASSISTANT_SALON_PERSO=1 pour revenir en arrière) mais dans #assistant, pour tout le monde.
+# 05/10 (Gaëtan, après l'audit : « arrêter de polluer chaque salon privé », « assistant IA général dans un salon ») : l'assistant
+# ne répondait plus dans les salons persos. 09/10 (lot L4 : « répondre là où le clipper écrit ») : il y répond de nouveau, mais à une
+# QUESTION seulement (« ? » hors lien, ou mention écrite du bot) ; ASSISTANT_SALON_PERSO=1 : à tout message. #assistant reste ouvert.
 ASSISTANT_SALON_PERSO = os.environ.get("ASSISTANT_SALON_PERSO", "0").strip() == "1"
 RELAIS_MAX_JOUR = int(os.environ.get("RELAIS_MAX_JOUR", "3") or 3)   # 06/10 : « @Gaëtan » d'un salon perso relayés au salon admin, par jour
 SALON_ASSISTANT_NOM = os.environ.get("SALON_ASSISTANT_NOM", "💬-assistant").strip() or "💬-assistant"
@@ -239,10 +240,11 @@ FICHIER_ETATS = DONNEES / "etats_comptes.json"               # historique Instag
 FICHIER_MATIN = DONNEES / "matin.json"                       # morceaux du message du matin par salon (26/09)
 FICHIER_CLICS = DONNEES / "clics.json"                       # paie au clic : liens GAML attribués, relevés par jour, adresses de paiement
 FICHIER_SORTIS = DONNEES / "sortis.json"                     # trace des sorties d'équipe (!sortie) : [{uid, nom, equipe, creatrice, date, par, raison}]
-LIEN_TEST = os.environ.get("LIEN_TEST", "").strip()          # dossier Drive du test 48 h — envoyé automatiquement par !quiz-ok
 LIEN_QUIZ = os.environ.get("LIEN_QUIZ", "").strip()          # lien pré-rempli du quiz SANS l'identifiant final : le bot ajoute l'ID Discord du membre
 SEUIL_QUIZ = int(os.environ.get("QUIZ_SEUIL", "30") or 30)  # note minimale sur 34 (24/09 : 27 → 30) ; même variable que le site du quiz
-CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant-ia, mentionné dans le MP du test
+CANAL_ASSISTANT_ID = os.environ.get("CANAL_ASSISTANT_ID", "").strip()   # salon #assistant (05/10), réparé ou créé par assurer_salon_assistant
+# 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : LIEN_TEST (dossier Drive du test 48 h) est retiré du code ; la variable
+# Railway se retire APRÈS le déploiement (README, « 09/10 : le funnel simplifié »).
 # 27/09 (Gaëtan) : plus d'assistant global — un assistant dans chaque salon perso, ouvert dès l'arrivée du candidat (quiz et
 # test se passent dedans, sous les yeux de Gaëtan) et déplacé sous sa créatrice à l'attribution. ASSISTANT_GLOBAL retiré le 29/09.
 SALON_ARRIVEE = os.environ.get("SALON_ARRIVEE", "1").strip() != "0"
@@ -814,7 +816,13 @@ def etape_recrutement(uid) -> tuple:
     membre = membre_par_id(uid) if str(uid).isdigit() else None
     if (lire_json(FICHIER_EQUIPES, {}).get(uid) or {}) or (membre is not None and est_signe(membre)):
         return 3, ""
-    etat = (lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats", {}).get(uid) or {}).get("etat", "")
+    pipe_r = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    info_r = (pipe_r.get("etats", {}).get(uid) or {})
+    etat = info_r.get("etat", "")
+    # 09/10 (relecture du lot L5, branché par L10 : ETATS_QUIZ_REUSSI compte encore « refuse ») : un ancien du test que la migration
+    # ne prend pas en lot (refus avec motif, STOP) n'a aucune créatrice en route ; on ne la lui promet pas (même règle que !aide).
+    if etat in ETATS_A_MIGRER and _motif_hors_migration(uid, info_r, pipe_r)[0]:
+        return 2, "Ton dossier est entre les mains de l'équipe."
     if etat in ETATS_QUIZ_REUSSI:
         return 2, "Ta créatrice et ton compte 1 arrivent ici."
     if etat == "sorti":
@@ -1348,8 +1356,9 @@ async def staff_a_parle(message, minutes: int = 30) -> bool:
 
 
 # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur, la qualité est pourrie apparemment ») : la mémoire
-# du parcours (parcours.contexte_llm) parle encore du Drive perso et de la paie « tous les 15 jours » ; ce rappel, ajouté après
-# elle, la corrige et dit où sont les vidéos et où se posent les questions.
+# du parcours (parcours.contexte_llm) parlait du Drive perso et de la paie « tous les 15 jours » ; ce rappel, ajouté après elle,
+# la corrigeait. Le lot L7 a réécrit contexte_llm et parcours.memoire (vidéos d'origine, paie les 5 et 20) : gardé comme filet
+# (lot L10), il ne coûte que quelques lignes de contexte et protège d'une consigne apprise (`!apprendre`, `!faq`) restée ancienne.
 CONTEXTE_0910 = ("[Mise à jour du 09/10, elle prime sur le bloc ci-dessus : plus de test vidéo pour entrer ; plus de Drive perso "
                  "ni de « TOP 20 ». Ses vidéos à monter, et les photos de sa story du jour : celles de sa créatrice, en qualité "
                  "d'origine, avec le lien de son message de bienvenue ; pas de lien dans ce message : le salon ℹ️ de sa créatrice. "
@@ -3452,7 +3461,10 @@ async def traiter_liaison(auteur, brut):
     # 09/10 (Gaëtan : « Chaque étape à la fois… Saute des lignes, aère ») : quiz réussi → aucun message (sa créatrice arrive
     # dans la minute) ; sinon un seul message, sans bouton WhatsApp (une seule action : la vidéo puis le quizz).
     texte = texte_accueil_liaison(auteur, bool(cand))
-    if texte and salon_avant is not None and await _accueil_deja_poste(salon_avant):
+    # 09/10 (lot L2, branché par L10) : la trace « accueil » du pipeline (accueil_deja_envoye) d'abord, l'historique du salon
+    # ensuite (il ne marche que si salon_perso_de retrouve le salon). Seulement pour l'accueil « 👋 » : un « sorti » garde sa phrase.
+    if texte.startswith("👋") and (accueil_deja_envoye(auteur.id)
+                                  or (salon_avant is not None and await _accueil_deja_poste(salon_avant))):
         # 09/10 (relecture du lot L1 : la vidéo et le quizz partaient deux fois, à l'arrivée puis au numéro) : déjà dans son
         # salon, une ligne suffit.
         texte = ("✅ Numéro relié." if cand else
@@ -3489,12 +3501,17 @@ def texte_accueil_liaison(membre, candidature_trouvee: bool = True) -> str:
     rien d'autre ; '' si le quiz est déjà réussi (quiz_ok, valide, en file d'attribution, ancien test) ou s'il est signé :
     rien à lui dire, le message de sa créatrice suit. Sert aussi aux messages déposés (« accueil_liaison »).
     09/10 (relecture du lot L1) : mot pour mot le message d'accueil du lot L2 (message_accueil, texte_arrivant_sans_quiz),
-    mention en tête ; un numéro inconnu ajoute une ligne discrète, sans seconde action."""
+    mention en tête ; un numéro inconnu ajoute une ligne discrète, sans seconde action. Un « sorti » : texte_sorti (écrire à
+    Gaëtan), jamais la vidéo et le quizz."""
     rang, _ = etape_recrutement(membre.id)
     etat = ((lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}}).get("etats") or {}).get(str(membre.id)) or {}).get("etat", "")
     if rang >= 2 or etat in ("quiz_ok", "valide", "attente_attribution", "test_envoye", "test_rendu") \
             or str(membre.id) in lire_json(FICHIER_EQUIPES, {}):
         return ""
+    if etat == "sorti":
+        # 09/10 (lot L2, branché par L10) : un « sorti » encore là qui envoie un NOUVEAU numéro recevait la vidéo et le quizz, que
+        # traiter_quiz_webhook refuse ensuite. Une seule action, la même que ou_en_es_tu : écrire à Gaëtan (texte_sorti).
+        return texte_sorti(membre.id)
     # Le lien de quizz personnel (site, sinon Google Form) : le formulaire de candidature ne sert pas ici, il est déjà sur le
     # serveur et un quizz réussi sur la page de candidature ne le relierait pas à son compte Discord.
     lien_q = lien_quiz_pour(membre.id)
@@ -3851,6 +3868,25 @@ async def valider_candidat(membre, score: str = "", via: str = "quiz") -> str:
     if deja_dans_l_agence(membre):
         journal.info("Validation de %s (%s) : déjà dans l'équipe, rien fait", uid, via)
         return "deja"
+    sortie_v = sortie_d_un_ancien(uid) if via != "staff" else {}
+    if sortie_v:
+        # 09/10 (revue L8, branché par L10) : un clipper sorti de l'équipe (!sortie, sortie déposée, !monteur : sa fiche est dans
+        # sortis.json) n'entre jamais tout seul, quel que soit le chemin (quizz, reprise, migration) ; seul `!quiz-ok` (via
+        # « staff ») le fait revenir. Son état repasse à « sorti » : aucune boucle ne le reprend, l'admin a une ligne, une fois.
+        donnees_s = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        info_s = donnees_s.setdefault("etats", {}).setdefault(uid, {})
+        deja_signale = info_s.get("etat") == "sorti"
+        info_s["etat"] = "sorti"
+        ecrire_json(FICHIER_PIPELINE, donnees_s)
+        retour_s = (f"⚠️ {prenom_de(membre)} : sorti(e) de l'équipe le {str(sortie_v.get('date') or '?')[:10]}, pas revalidé(e) "
+                    f"tout(e) seul(e) ({via}). Le faire revenir : `!quiz-ok {uid}`.")
+        journal.info("Validation de %s (%s) refusée : ancien signé sorti de l'équipe", uid, via)
+        if not deja_signale:
+            try:
+                await notifier_manager(retour_s, getattr(membre, "guild", None))
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Validation de %s : alerte non postée (%s)", uid, erreur)
+        return retour_s
     _VALIDATIONS_EN_COURS.add(uid)                                      # avant le premier await : deux appels ne passent pas
     try:
         donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -3940,7 +3976,8 @@ async def attribuer_equipe(guild, membre, equipe, par_id):
 # n'avait de compte livrable) repart tout seul dès qu'un compte se libère, sans commande.
 # 09/10 (revue du lot L3 : deux reprises tournaient en même temps sans verrou commun, deux validations pour une seule place) :
 # UNE seule reprise, attribution.reprendre_attente (verrou « reprise », places comptées sur les seules créatrices ouvertes sur le
-# serveur, ATTRIBUTION_PAUSE_SEC entre deux). boucle_pipeline (5 min) et la boucle de l'onboarding (15 min) ne font que la lancer.
+# serveur, ATTRIBUTION_PAUSE_SEC entre deux). boucle_pipeline (5 min) la lance ; 09/10 (lot L10) : la boucle de l'onboarding ne la
+# lance plus (deux lanceurs, deux lectures du classeur pour rien).
 _REPRISE_ATTENTE = {"tache": None}                                      # la tâche lancée, gardée pour qu'elle ne soit pas ramassée
 
 
@@ -3970,8 +4007,8 @@ async def reprendre_attente_attribution() -> str:
     """09/10 : appelée à chaque tour de boucle_pipeline (5 min). Lance la reprise des membres « attente_attribution »
     (attribution.reprendre_attente, la seule) en tâche à part, si attribution.attente_a_reprendre() : lecture seule, sans réseau,
     vraie seulement si quelqu'un attend et qu'aucune reprise ne tourne. Ne valide et n'attribue rien elle-même, ne lit pas le
-    classeur, et n'attend pas les pauses ATTRIBUTION_PAUSE_SEC : boucle_pipeline n'est jamais retenue. Deux lancements proches
-    (celui-ci et la boucle de l'onboarding) ne font qu'une reprise : la seconde trouve le verrou pris et rend la main.
+    classeur, et n'attend pas les pauses ATTRIBUTION_PAUSE_SEC : boucle_pipeline n'est jamais retenue. C'est le SEUL lanceur
+    (lot L10) ; un second lancement pendant une reprise trouve le verrou pris et rend la main.
     Renvoie « lancée », ou '' si rien n'a été lancé."""
     if not attribution.attente_a_reprendre():
         return ""
@@ -4632,7 +4669,7 @@ def est_manager(membre) -> bool:
 # !test-ok, !test-non, !tests, !refuser, !relance-telegram ni !reels-uniques. !quiz-ok reste : il valide à la main.
 COMMANDES_MANAGER = ("!quiz-ok", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
-                     "!inviter", "!candidats", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
+                     "!inviter", "!candidats", "!annonce", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
                      "!stats-jonas", "!stats-manager", "!roster", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo")
 
 
@@ -4644,6 +4681,7 @@ def texte_aide(membre, est_admin: bool) -> str:
         return ("🧰 **Commandes admin**\n\n"
                 "**Candidats** : `!pipeline` · `!tableau` · `!quiz-ok @x [score]` (valider à la main) · `!fiche @x` (salon privé) · "
                 "`!relance @x` · `!candidats` · `!inviter Prénom [fr|int]` (hors Discord) · `!migrer-test [go]` (anciens du test) · "
+                "`!annonce <groupe>` (l'annonce Telegram à coller) · "
                 "`!relancer-lien` · `!sync-noms`\n\n"
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
                 "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!equipes` · `!drives-perso fermer [go]` · "
@@ -4657,12 +4695,13 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
         return ("🧰 **Commandes manager**\n\n"
-                "· `!creatrice @clipper Prénom` — attribue la créatrice, ouvre ses salons + crée le salon perso du clipper\n"
-                "· `!fiche @clipper` — sa fiche (numéro WhatsApp, e-mail masqué, parcours) — salon privé uniquement\n"
-                "· `!quiz-ok @x` — valider un candidat à la main : sa créatrice et son compte 1 suivent tout seuls\n"
+                "· `!creatrice @clipper Prénom` — attribue la créatrice et ouvre son salon perso\n"
+                "· `!fiche @clipper` — sa fiche (numéro, e-mail masqué, parcours), salon privé seulement\n"
+                "· `!quiz-ok @x` — valider à la main : sa créatrice et son compte 1 suivent seuls\n"
                 "· `!candidats` — les quizz réussis hors Discord · `!inviter Prénom` — son invitation personnelle + le message WhatsApp\n"
+                "· `!annonce <groupe>` — l'annonce Telegram à coller (source suivie)\n"
                 "· `!pipeline` — où en est chaque candidat · `!relance @x` — le pousser d'un cran\n"
-                "· `!sortie @clipper raison` — sortie de l'équipe (rôles + salons retirés, tout le monde prévenu)\n"
+                "· `!sortie @clipper raison` — sortie de l'équipe (rôles et salons retirés)\n"
                 # 09/10 : l'aide manager dépassait 1 990 caractères (fin coupée par Discord) : lignes resserrées.
                 "· `!alias ajouter …` / `!code …` — les codes Instagram/Facebook · `!recup [alias]` — le code de récupération, 6 h en arrière\n"
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
@@ -4891,7 +4930,16 @@ async def onboarder_multi(prenom: str, creatrices: list, nouveau: bool = False, 
     principale, autres = creatrices[0], list(creatrices[1:])
     candidats = membres_du_prenom(prenom)
     if nouveau:
-        libres = [m for m in candidats if not est_signe(m)]
+        # 09/10 (lot L2, branché par L10) : « nouveau » = non signé, OU inscrit au registre SANS créatrice ni parcours commencé (un
+        # validé par quizz ou par la migration avant le dépôt, qui attend sa créatrice). Un ancien en route n'est jamais pris.
+        reg_n = lire_json(FICHIER_EQUIPES, {})
+
+        def _libre(m) -> bool:
+            fiche_n = reg_n.get(str(m.id))
+            if fiche_n is not None:
+                return not (fiche_n or {}).get("creatrice") and not deja_en_route(str(m.id))
+            return not est_signe(m)
+        libres = [m for m in candidats if _libre(m)]
         if len(libres) != 1:
             return (f"⚠️ {prenom} : {'aucun' if not libres else 'plusieurs'} nouveau(x) membre(s) non signé(s) de ce prénom, rien fait. "
                     f"`!creatrice @{prenom} {principale}` avec la mention du bon membre.")
@@ -5307,7 +5355,9 @@ class BoutonReprise(discord.ui.DynamicItem[discord.ui.Button], template=r"repris
         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
             pass
         bilan = await onboarding.livrer(membre, creatrice, interaction.channel, declencheur="reprise")
-        await parcours.demarrer_parcours(interaction.channel, membre, creatrice)
+        # 09/10 (lot L7, branché par L10) : il repart au compte 1 SANS seconde bienvenue (créatrice, vidéos, WhatsApp déjà
+        # donnés), même quand la trace d'`oublier` a disparu (plus de 14 jours).
+        await parcours.demarrer_parcours(interaction.channel, membre, creatrice, bienvenue=False)
         canal = await canal_admin()
         if canal is not None:
             try:
@@ -6176,6 +6226,13 @@ async def commande_admin(message, texte: str) -> bool:
             + " — copie-colle :\n```\n" + message_wa + "\n```")
         return True
 
+    if (texte.split() or [""])[0].lower() == "!annonce":
+        # 09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > … » ; revue L8, branché par L10) : l'annonce Telegram
+        # de l'étape 1, SEULE dans la réponse pour la copier d'un appui long au téléphone. Son lien porte ?src=tg-<groupe> : la
+        # colonne Source du classeur dit de quel groupe vient chaque candidature (digest du matin par source).
+        await message.reply(web_candidature.reponse_commande_annonce(texte[len("!annonce"):].strip())[:1990])
+        return True
+
     if texte.startswith("!candidats"):
         pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
         hd = pipe.get("hors_discord", {})
@@ -6329,7 +6386,12 @@ async def commande_admin(message, texte: str) -> bool:
                     and not inclure_en_cours:
                 gardes[f"parcours en cours ({etat_m})"] = gardes.get(f"parcours en cours ({etat_m})", 0) + 1
                 if etat_m.startswith("test_") or etat_m == "refuse":     # à faire entrer : `!migrer-test`, pas à exclure
-                    actionnables.append(f"· {m.display_name} — ancien du test (gardé ; `!migrer-test` pour le faire entrer)")
+                    # 09/10 (relecture du lot L5, corrigé par L10) : un refus avec motif, un STOP ou un dépôt en attente ne part
+                    # jamais en lot : la migration ne le fera pas entrer, le staff tranche avec `!quiz-ok`.
+                    motif_m = _motif_hors_migration(str(m.id), pipe.get("etats", {}).get(str(m.id), {}), pipe)[0]
+                    actionnables.append(f"· {m.display_name} — ancien du test (gardé ; "
+                                        + ("à trancher à la main : `!migrer-test` pour le motif, puis `!quiz-ok`)" if motif_m
+                                           else "`!migrer-test` pour le faire entrer)"))
                 continue
             anciennete = (ref - m.joined_at).days if m.joined_at else 999
             if jours and anciennete < jours:
@@ -6746,7 +6808,9 @@ async def commande_admin(message, texte: str) -> bool:
         # l'écrasait) ; valide_par = « staff » dit déjà que c'est une validation à la main.
         retour_v = str(await valider_candidat(membre, score, "staff") or "")
         if retour_v == "deja":
-            await message.reply(f"ℹ️ {membre.mention} est déjà dans l'agence (registre, rôle d'équipe ou staff) : rien fait.")
+            # 09/10 (lot L1, repris par L10) : « deja » vaut aussi pour une validation EN COURS (quizz, reprise, migration)
+            await message.reply(f"ℹ️ {membre.mention} est déjà dans l'agence (registre, rôle d'équipe ou staff), ou sa validation "
+                                "est en cours : rien fait.")
         elif retour_v.startswith(("⚠️", "❌")):
             await message.reply(f"{retour_v}\n\n`!fiche {membre.display_name}` pour voir où il en est."[:1990])
         else:
@@ -7649,6 +7713,31 @@ def _motif_hors_migration(uid, info: dict, pipe: dict = None, reserves: set = No
     return "", ""
 
 
+def _quiz_site_sans_etat(pipe: dict) -> list:
+    """09/10 (revue L8, population de transition, branché par L10) : [(uid, info)] des comptes Discord entrés par l'ancien lien
+    « Pas le temps ? Rejoins le Discord » qui ont réussi le quizz du site AVANT le déploiement : leur candidature web dit « reussi »,
+    mais le bot n'a aucun état pour eux (post_quiz_cand sortait sans prévenir le bot). Sans rien, ils restaient sans créatrice et
+    la sortie à 48 h les menaçait. `info` est l'état « quiz_ok » à poser (score et date du site, marque quiz_site_sans_etat).
+    Uid retrouvé par web_candidature._uids_de (invitation, autorisation Discord, numéro relié). Jamais un inscrit au registre."""
+    uids_de = getattr(web_candidature, "_uids_de", None)
+    if not callable(uids_de):
+        return []
+    etats = pipe.get("etats") or {}
+    registre = lire_json(FICHIER_EQUIPES, {})
+    out, vus = [], set()
+    for cand_id, fiche in (pipe.get("candidatures_web") or {}).items():
+        q = (fiche.get("quiz") or {}) if isinstance(fiche, dict) else {}
+        if not q.get("reussi"):
+            continue
+        for uid in uids_de(pipe, str(cand_id)):
+            if uid in vus or uid in registre or ((etats.get(uid) or {}).get("etat")):
+                continue
+            vus.add(uid)
+            out.append((uid, {"etat": "quiz_ok", "score_quiz": str(q.get("score") or ""), "date_quiz": str(q.get("date") or ""),
+                              "quiz_avant_discord": True, "quiz_site_sans_etat": True}))
+    return out
+
+
 def _candidats_migration(trace: dict, exclus: list = None) -> list:
     """Les membres à migrer : PRÉSENTS, non signés (est_signe faux), non staff, à l'un des ETATS_A_MIGRER, jamais déjà passés
     par la migration. Triés : le plus avancé dans l'ancien tunnel d'abord (test rendu, envoyé, quizz réussi, expiré, refusé),
@@ -7675,6 +7764,18 @@ def _candidats_migration(trace: dict, exclus: list = None) -> list:
             continue
         recent = max(str(info.get(k) or "") for k in ("rendu", "envoi", "date_quiz", "echeance", "refus", "validation"))
         out.append((ETATS_A_MIGRER.index(etat), recent, uid, etat, membre, info))
+    for uid, info in _quiz_site_sans_etat(pipe):                         # 09/10 (L8, L10) : quizz du site réussi, aucun état
+        if uid in deja or not str(uid).isdigit() or uid in ADMIN_IDS:
+            continue
+        membre = membre_par_id(uid)
+        if membre is None or getattr(membre, "bot", False) or est_staff(membre) or est_signe(membre):
+            continue
+        code, detail = _motif_hors_migration(uid, info, pipe, reserves, membre)
+        if code:
+            if exclus is not None:
+                exclus.append((code, detail, "quiz_ok", membre))
+            continue
+        out.append((ETATS_A_MIGRER.index("quiz_ok"), str(info.get("date_quiz") or ""), uid, "quiz_ok", membre, info))
     out.sort(key=lambda x: x[1], reverse=True)                           # le plus récent d'abord…
     out.sort(key=lambda x: x[0])                                         # …à l'intérieur de chaque état (tri stable)
     return [(etat, membre, info) for _, _, _, etat, membre, info in out]
@@ -7740,7 +7841,9 @@ async def migrer_test(apercu: bool, relance: bool = False, annonce=None) -> str:
     Dans la limite des places (comptes livrables ÷ 3, moins ceux déjà en file), un par un : valider_candidat(membre, score,
     "migration") puis ATTRIBUTION_PAUSE_SEC. Attribution automatique en marche : les suivants passent en « attente_attribution »
     (protégés de la sortie à 48 h, repris seuls dès qu'un compte se libère) et reçoivent une fois le repli « Ta créatrice arrive
-    ici sous 48 h ». Attribution éteinte : personne ne les reprendrait, ils restent où ils sont, sans message.
+    ici sous 48 h ». Attribution éteinte : personne ne les reprendrait, ils restent où ils sont, sans message. La reprise des
+    « attente_attribution » est lancée par boucle_pipeline (5 min), le seul lanceur depuis le lot L10.
+    09/10 (revue L8, lot L10) : on_ready l'appelle après les dépôts du roster et attribution.rattraper, dans la même tâche.
     Jamais en lot : un dépôt en attente, un refus avec motif, un STOP (_motif_hors_migration) ; ils sont listés à part.
     `annonce` (async, un texte) : appelée une fois, quand la migration part vraiment (verrou pris, stock lu, quelqu'un à faire).
     Une ligne de bilan part au salon admin dès que quelqu'un a bougé ou reste à trancher."""
@@ -7832,6 +7935,16 @@ async def _migrer_test_corps(trace: dict, apercu: bool, auto: bool, annonce=None
     maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
     trace.setdefault("debut", maintenant)
     trace.setdefault("membres", {})
+    # 09/10 (revue L8, lot L10) : un quizz du site réussi sans état côté bot reçoit « quiz_ok » AVANT la boucle (la boucle relit
+    # l'état de chacun) : validé dans la limite des places, sinon en attente d'une créatrice, et protégé de la sortie à 48 h.
+    a_poser = [(m, i) for _e, m, i in candidats if (i or {}).get("quiz_site_sans_etat")]
+    if a_poser:
+        pipe_p = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+        for m_p, i_p in a_poser:
+            avant_p = pipe_p.setdefault("etats", {}).get(str(m_p.id)) or {}
+            if not avant_p.get("etat"):
+                pipe_p["etats"][str(m_p.id)] = {**avant_p, **i_p}
+        ecrire_json(FICHIER_PIPELINE, pipe_p)
     valides, deja, erreurs, attente, restes, a_la_main, sans_mp = [], [], [], [], [], [], 0
     n_valider = min(places, len(candidats))
     n_attendre = len(candidats) - n_valider if attente_ok else 0
@@ -7977,10 +8090,20 @@ async def on_ready():
             await cacher_invites(guild)
     if not _taches_demarrees:
         _taches_demarrees = True          # on_ready peut refire à la reconnexion : une seule boucle
+        # 09/10 (A5 : la paie des clippers tombe les 5 et 20 ; lot L4) : le compteur épinglé de #dopamine est réécrit une fois au
+        # démarrage, sinon il garde « Paie le 16 et le 1er » jusqu'au prochain `!paiement`. Seulement s'il existe déjà : jamais un
+        # « 0 € versés » posté par erreur quand le total n'a pas pu être relu.
+        if CANAL_DOPAMINE_ID and lire_json(FICHIER_COMPTEUR_VERSE, {}).get("message_id"):
+            try:
+                probleme_c = await actualiser_compteur()
+                if probleme_c:
+                    journal.warning("Compteur #dopamine au démarrage : %s", probleme_c)
+            except Exception as erreur:                                 # noqa: BLE001 — jamais bloquer le démarrage
+                journal.warning("Compteur #dopamine au démarrage : %s", erreur)
         if CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID:
             client.loop.create_task(boucle_stats())
-        client.loop.create_task(boucle_pipeline())    # relances de test : toujours actif
-        # Digest du matin, relance des tests du soir, lacunes et sauvegarde du dimanche : la boucle
+        client.loop.create_task(boucle_pipeline())    # 09/10 : sortie ⑥ (48 h sans quiz), quizz réussis en plan, reprise des attentes
+        # Digest du matin, lacunes et sauvegarde du dimanche (09/10 : plus de relance des tests du soir) : la boucle
         # ne dépendait que de LIEN_TRESORERIE/CANAL_REPORTING_ID — sans eux, aucun digest (audit 10/09).
         client.loop.create_task(boucle_rappels())
         client.loop.create_task(annoncer_demarrage())
@@ -7997,12 +8120,13 @@ async def on_ready():
             "DISCORD_TOKEN": DISCORD_TOKEN, "LIEN_DISCORD": LIEN_DISCORD, "WHATSAPP": WHATSAPP_GAETAN_URL,
             "invitation_site": invitation_site, "prochain_essai_quiz": prochain_essai_quiz,         # 29/09
             "journaliser_candidature": journaliser_candidature_sheet,
-            "LIEN_VIDEO_FORMATION": LIEN_VIDEO_FORMATION, "quiz_candidat": quiz_candidat_site}))      # 29/09 : quiz avant Discord
+            "LIEN_VIDEO_FORMATION": LIEN_VIDEO_FORMATION, "quiz_candidat": quiz_candidat_site,       # 29/09 : quiz avant Discord
+            "peut_revenir": peut_revenir_site}))      # 09/10 (revue L8) : un clipper de sortis.json ne rentre jamais seul par son vieux lien
         deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
                     "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
                     "salon_perso": salon_perso_de, "membre_par_prenom": membre_par_prenom, "membre_par_id": membre_par_id,
-                    "envoyer_long": envoyer_long, "reels_pour_nouveau": reels_uniques.pour_nouveau}
+                    "envoyer_long": envoyer_long}           # 09/10 : plus de « reels_pour_nouveau » (Reels uniques retirés)
         onboarding.configurer(deps_onb)
         client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
         parcours.configurer({**deps_onb, "FICHIER_PARCOURS": FICHIER_PARCOURS, "POSTS_FORMATION": POSTS_FORMATION,
@@ -8015,17 +8139,21 @@ async def on_ready():
                              "whatsapp": WHATSAPP_GAETAN_URL})                       # 26/09 : bouton « Écrire à Gaëtan » sous chaque étape
         client.loop.create_task(parcours.migrer_au_demarrage(client))            # 05/10 : fiches aux étapes 4/5 → étape 6
         client.loop.create_task(assurer_salon_assistant())                       # 05/10 : le salon #assistant, pour tout le monde
-        client.add_dynamic_items(parcours.BoutonEtape)                          # boutons « ✅ C'est fait » persistants (25/09)
-        client.add_dynamic_items(parcours.BoutonWhatsApp)                       # « ✅ J'ai écrit à Gaëtan » persistant (08/10)
+        # 09/10 (lot L7) : les boutons persistants du parcours en une fois : « ✅ » des étapes (25/09), « ✅ J'ai écrit à Gaëtan »
+        # (08/10, appel de présence) et « ✅ C'est fait » de la bienvenue (BoutonPret, « pret:<uid> »). configurer les pose déjà ;
+        # le second enregistrement est sans effet, il rend le branchement visible ici.
+        parcours.vues_persistantes(client)
         client.add_dynamic_items(acceptation.BoutonAccepte)                     # bouton « ✅ J'accepte » persistant (27/09)
         client.add_dynamic_items(BoutonReprise)                                 # bouton « 🔄 Je reprends » persistant (28/09)
         profil.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "profil.json",
                            "source_de": onboarding._source_de, "drive_lister": google_api.drive_lister,
                            "drive_telecharger": google_api.drive_telecharger})
         _staff = lambda m: str(m.id) in ADMIN_IDS or est_manager(m)             # noqa: E731
+        # 09/10 (lots L1 et L2) : « déjà dans l'agence » = deja_dans_l_agence (registre, staff, rôle d'équipe, roster hors candidat
+        # connu), qui accepte un uid ; après une acceptation d'office, le seul message possible est le repli (attribution manuelle).
         acceptation.configurer({"accepter": accepter_conditions, "lire_json": lire_json, "ecrire_json": ecrire_json,
                                 "FICHIER_PIPELINE": FICHIER_PIPELINE, "membre_par_id": membre_par_id,
-                                "est_signe": lambda uid: bool(lire_json(FICHIER_EQUIPES, {}).get(str(uid)))})
+                                "est_signe": deja_dans_l_agence, "repli": envoyer_repli_attente})
         client.loop.create_task(acceptation.envoyer_boutons_en_attente(client))   # 30/09 : les validés en attente devant le bouton passent
 
         async def _etats_classeur():
@@ -8042,8 +8170,33 @@ async def on_ready():
                                 "role_creatrice": role_creatrice, "onboarder_membre": onboarder_membre, "canal_admin": canal_admin,
                                 "membre_par_id": membre_par_id, "est_staff": _staff, "prenom_de": prenom_de, "roster": roster,
                                 "etats_classeur": _etats_classeur, "normaliser": normaliser,
-                                "livrables": _livrables_par_creatrice})                       # 30/09 : `!attribution`
-        client.loop.create_task(attribution.rattraper(client))                  # signés sans créatrice : un par un (27/09)
+                                "livrables": _livrables_par_creatrice,                        # 30/09 : `!attribution`
+                                # 09/10 (lots L1, L3, L6) : le repli « Ta créatrice arrive ici sous 48 h » (texte unique), envoyé dans
+                                # le salon perso sinon en MP ; valider_candidat reprend un candidat mis en attente par la migration.
+                                "FICHIER_PIPELINE": FICHIER_PIPELINE, "texte_repli": texte_repli_attente,
+                                "envoyer_mp": envoyer_mp, "valider_candidat": valider_candidat})
+
+        async def _attribution_puis_migration():
+            # 09/10 (lots L5 et L9, A2) : dans l'ordre, jamais en même temps. (1) les dépôts du roster (sortie de Tara, puis Andry
+            # et GasBoy chez Sarah) ; (2) les signés sans créatrice, un par un ; (3) UNE fois, la migration automatique des anciens
+            # du test, bornée par le stock. onboarding.livrer n'a pas de verrou de réservation : deux onboardings simultanés
+            # pourraient prendre les mêmes lignes du classeur. migrer_test est muette une fois sa trace « fini ».
+            try:
+                if not await roster.attendre_demarrage():
+                    journal.warning("Démarrage du roster pas fini après 15 min : rattrapage et migration lancés quand même")
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Attente du roster : %s", erreur)
+            try:
+                await attribution.rattraper(client)                     # signés sans créatrice : un par un (27/09)
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Rattrapage des attributions : %s", erreur)
+            try:
+                bilan_m = await migrer_test(apercu=False)               # son bilan part lui-même au salon admin
+                if bilan_m:
+                    journal.info("Migration du test au démarrage : %s", bilan_m.splitlines()[0] if bilan_m.splitlines() else "")
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Migration du test au démarrage : %s", erreur)
+        client.loop.create_task(_attribution_puis_migration())
         tableau_bord.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "tableau_bord.json",
                                  "FICHIER_PIPELINE": FICHIER_PIPELINE,
                                  "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,   # 27/09 : premier Reel depuis Apify du classeur
@@ -8057,9 +8210,15 @@ async def on_ready():
                              "est_staff": _staff,
                              "lien_formation": lambda cid: f"{web_candidature.WEB_URL_PUBLIQUE}/formation?t={web_candidature.jeton(cid)}"})
         client.loop.create_task(relances.boucle(client))                        # 30/09 : relances Telegram du matin
-        client.loop.create_task(reels_uniques.demarrage(client))                # variantes d'une recette périmée refaites (27/09)
-        client.loop.create_task(reels_uniques.boucle(client))                   # TOP 20 de chaque créatrice décliné pour tout son roster (27/09)
+        # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : plus de reels_uniques.demarrage ni de
+        # reels_uniques.boucle (la déclinaison des TOP 20 par clipper est retirée).
         async def _rattrapage_salons():
+            # 09/10 (lot L2) : APRÈS les dépôts du roster. Sinon un ancien rangé par un dépôt (Andry, GasBoy) peut recevoir un salon
+            # d'arrivant neuf avant d'être onboardé chez sa créatrice.
+            try:
+                await roster.attendre_demarrage()
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Attente du roster (salons) : %s", erreur)
             await salons_candidats_recents()                                    # candidats du site en cours
             await salons_arrivants_recents()                                    # 27/09 : tout arrivant récent sans salon (Ascartel)
         client.loop.create_task(_rattrapage_salons())
@@ -8105,16 +8264,8 @@ async def on_ready():
                           "salons_persos": salons_persos_actifs, "canal_admin": canal_admin, "heure_paris": heure_paris,
                           "claude": claude, "MODELE": MODELE, "est_staff": _staff, "normaliser": normaliser})
         client.loop.create_task(retro.boucle(client))                            # le bot apprend de ses salons, chaque soir (27/09)
-
-        def _email_de_prenom(prenom_e: str) -> str:
-            """L'adresse Gmail connue d'un clipper (liaison du pipeline), pour partager ses sources Drive."""
-            liaisons_e = lire_json(FICHIER_PIPELINE, {"liaisons": {}}).get("liaisons", {})
-            for uid_e, fiche_e in lire_json(FICHIER_EQUIPES, {}).items():
-                m_e = membre_par_id(uid_e)
-                if m_e is not None and normaliser(prenom_de(m_e)) == normaliser(prenom_e):
-                    return liaisons_e.get(uid_e, {}).get("email", "") or fiche_e.get("email", "")
-            return ""
-        client.loop.create_task(onboarding.restructurer_drives(client, roster.groupes(), _email_de_prenom))   # Photos / Reels / TOP 20 (27/09)
+        # 09/10 (Gaëtan : « la qualité est pourrie ») : plus de dossier Drive perso à structurer (restructurer_drives retiré). Les
+        # vidéos d'ORIGINE de la créatrice restent ouvertes par le lien : c'est elles que le parcours donne au clipper.
         client.loop.create_task(onboarding.ouvrir_sources_par_lien())       # 30/09 : Photos s'ouvre sans autorisation (Ricardo)
         client.loop.create_task(boucle_drives_info())                       # 30/09 : Drives des salons ℹ️ ouverts par le lien
         client.loop.create_task(onboarding.structurer_onglets())            # 30/09 : Reels Hier + Clics à droite du Gérant · 05/10 : + Reels 7 j, Clics hier
@@ -8269,12 +8420,16 @@ async def on_ready():
                            "mettre_a_jour_stats": mettre_a_jour_stats, "prenom_de": prenom_de, "NOMS_RANGS": NOMS_RANGS,
                            "onboarder_manquants": onboarder_roster_manquants, "oublier_parcours": parcours.oublier,
                            "liberer_liens": liberer_liens_de,
-                           "chercher_membre": lambda p: chercher_membre(p, exact=True),                  # 05/10 : sorties déposées « expulser »
+                           # 09/10 (lot L9, « On vire Tara ») : une sortie déposée passe par sortir_depose (Metricool, A4) avec le
+                           # sortant cherché par chercher_sortant (créatrice + signé avant le dépôt). JAMAIS chercher_par_prenom ni
+                           # chercher_membre : ils peuvent rendre un candidat ou un nouveau signé du même prénom. Les anciennes
+                           # dépendances « chercher_membre » et « sortir » ne servent plus au roster : retirées.
+                           "sortir_depose": sortir_depose, "chercher_prenom": chercher_sortant,
+                           "roles_creatrices": roles_creatrices,                                          # rôles retirés exactement
                            "ouvrir_salon": ouvrir_salon_ancien,                                           # 06/10 : salons_a_ouvrir.json
                            "ouvrir_salon_simple": ouvrir_salon_simple,                                    # 07/10 : entrée « simple »
                            "onboarder_multi": onboarder_multi,                                            # 07/10 : entrée « onboarding »
-                           "noter": noter_depose,                                                         # 07/10 : entrée « note »
-                           "sortir": lambda m, raison: sortir_membre(m, raison, None, pool=True, expulser=True)})
+                           "noter": noter_depose})                                                        # 07/10 : entrée « note »
         client.loop.create_task(roster.demarrage(client))                       # sorties appliquées, roster complété, compteur (26/09)
         remplacements.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "DONNEES": DONNEES, "normaliser": normaliser,
                                   "membre_par_prenom": membre_par_prenom, "salon_perso": salon_perso_de, "notifier": notifier_manager})
@@ -8324,8 +8479,9 @@ async def on_ready():
         relance_nouveaux.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "relance_nouveaux.json",
                                      "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_EQUIPES": FICHIER_EQUIPES, "client": client,
                                      "heure_paris": heure_paris, "salon_perso": salon_perso_de, "lien_quiz": lien_quiz_pour,
-                                     "LIEN_TEST": LIEN_TEST, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
-        client.loop.create_task(relance_nouveaux.boucle(client))               # 30/09 : une relance par jour jusqu'au test rendu
+                                     "est_signe": est_signe,                     # 09/10 (lot L3) : rôle d'équipe et roster aussi
+                                     "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+        client.loop.create_task(relance_nouveaux.boucle(client))               # 09/10 : éteint par défaut (RELANCE_NOUVEAUX=0)
         identifiants.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "identifiants.json",
                                  "scanner": etats_comptes.scanner})                     # 30/09 : 20 identifiants neufs par créatrice
 
@@ -8357,14 +8513,9 @@ async def on_ready():
                                      "assurer_salon_arrivee": assurer_salon_arrivee})
         client.loop.create_task(messages_deposes.envoyer_au_demarrage(client))  # messages écrits dans le dépôt, une fois (27/09)
         client.loop.create_task(nettoyer_candidatures_test())                    # 29/09 : les candidatures de test s'effacent
-
-        async def _dossier_clipper(prenom, creatrice):
-            cfg = onboarding._sources().get(creatrice) or onboarding._sources().get(creatrice.split()[0]) or {}
-            return await google_api.drive_trouver_dossier(prenom, cfg["parent"]) if cfg.get("parent") else ""
-        reels_uniques.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "reels_uniques.json",
-                                  "google_api": google_api, "drive_agence": drive_agence, "sources": onboarding._sources, "roster": roster,
-                                  "normaliser": normaliser, "canal_admin": canal_admin, "dossier_clipper": _dossier_clipper,
-                                  "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
+        # 09/10 (lot L6) : reels_uniques ne sert plus qu'à retrouver le TOP 20 d'ORIGINE de chaque créatrice (review_reels compare
+        # la vidéo d'un clipper à l'original) : google_api, sources et normaliser suffisent. Plus de drive_agence ni de dossier perso.
+        reels_uniques.configurer({"google_api": google_api, "sources": onboarding._sources, "normaliser": normaliser})
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
@@ -9117,7 +9268,9 @@ def preparer_arrivee_site(uid: str, cand_id: str, tel: str) -> str:
     etat = (pipe.get("etats", {}).get(str(uid)) or {}).get("etat", "")
     if etat == "valide" and str(uid) not in lire_json(FICHIER_EQUIPES, {}):
         return q.get("score", "") or "ok"                              # 09/10 : validation non aboutie, le QUIZ_OK la relance
-    if etat in ("valide", "attente_attribution", "test_envoye", "test_rendu"):   # déjà plus loin : on ne recule pas
+    # déjà plus loin : on ne recule pas. 09/10 (lot L2, branché par L10) : « sorti » non plus (défense en profondeur : on_member_join
+    # efface le « sorti » d'un candidat qui revient, et un ancien signé sorti ne passe plus par ici).
+    if etat in ("valide", "attente_attribution", "test_envoye", "test_rendu", "sorti"):
         return ""
     pipe.setdefault("etats", {})[str(uid)] = {"etat": "quiz_ok", "score_quiz": q.get("score", ""), "essais_quiz": q.get("essais", 1),
                                               "date_quiz": q.get("date", ""), "quiz_avant_discord": True}

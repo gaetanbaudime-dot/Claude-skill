@@ -706,9 +706,7 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
 NOM_TOP20 = "TOP 20 Reels"                     # l'ancien sous-dossier des Reels uniques du clipper (27/09, avant : « Reels uniques »)
 
 
-async def restructurer_drives(client, prenoms_par_creatrice: dict, email_de) -> list:
-    """09/10 : retiré, ne fait plus rien (plus de dossier perso à structurer). Gardée le temps que son appel quitte on_ready."""
-    return []
+# 09/10 (lot L10) : restructurer_drives (dossiers perso Photos / Reels / TOP 20) est supprimée, son appel a quitté on_ready.
 
 
 _sources_publiques = set()
@@ -1294,13 +1292,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     return f"📦 Onboarding de {membre.display_name} ({creatrice}) : " + " · ".join(resultat)
 
 
-async def message_clipper(message) -> bool:
-    """25/09 : un clipper qui postait une adresse e-mail dans son salon perso (ou en MP) recevait le Drive partagé à cette
-    adresse. 01/10 : éteint, le message n'est plus jamais intercepté (renvoie toujours False). Depuis le 28/09 le Drive s'ouvre
-    par son lien, sans compte Google (texte_drive) ; or toute adresse était captée, y compris l'e-mail d'un compte Instagram
-    donné par l'agence : la fiche était écrasée, le Drive partagé avec cette adresse, « Ouvre-le avec ce compte Google » répondu,
-    et la question du clipper n'arrivait jamais à l'assistant. Le message suit maintenant son chemin normal."""
-    return False
+# 09/10 (lot L10) : message_clipper (éteinte le 01/10, plus appelée par on_message depuis le lot L4) est supprimée.
 
 
 # ------------------------------------------------------------------ liens GAML dans le classeur
@@ -2337,7 +2329,7 @@ def ligne_comptes_classeur(mention: str, prenom: str, n: int, etape: int, a_veni
 async def boucle(client, deps: dict):
     """Toutes les 15 minutes : un compte dont la colonne Gérant porte le prénom d'un membre, et qui ne lui a pas encore été livré,
     s'ajoute à sa fiche (09/10 : sans aucun message au clipper, une ligne à l'admin). Attribuer ou changer un compte se fait donc
-    dans le classeur, sans commande. 09/10 : les membres « attente_attribution » sont repris ici dès qu'un compte se libère."""
+    dans le classeur, sans commande. 09/10 : la reprise des membres « attente_attribution » est lancée par boucle_pipeline, plus ici."""
     global _deps
     _deps = deps
     await client.wait_until_ready()
@@ -2496,12 +2488,8 @@ async def boucle(client, deps: dict):
             await controle.passage(deps)                                # controle importe onboarding)
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Contrôle d'attribution (boucle) : %s", erreur)
-        try:                                                            # 09/10 (Gaëtan : « on va ouvrir les vannes ») : les membres
-            import attribution                                          # « attente_attribution » repris dès qu'un compte se libère,
-            if attribution.attente_a_reprendre():                       # sans commande ; tâche à part (une pause entre deux), une
-                client.loop.create_task(attribution.reprendre_attente())    # seule à la fois (import tardif)
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Reprise des attentes d'attribution (boucle) : %s", erreur)
+        # 09/10 (lot L10 : deux boucles lançaient la même reprise des « attente_attribution ») : seule boucle_pipeline (bot_discord,
+        # toutes les 5 min) la lance désormais ; attribution.reprendre_attente garde son verrou.
         await asyncio.sleep(900)
 
 

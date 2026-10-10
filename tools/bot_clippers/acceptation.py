@@ -47,11 +47,11 @@ REGLES = ("1. Les comptes de la mission sont **à l'agence**. Le téléphone aus
           "2. La formation, la méthode et les vidéos sont **secrètes**. Tu ne partages rien. Tu ne copies rien.\n"
           "3. Tu as **18 ans ou plus**.\n"
           "4. Ta paie : **0,05 $ par visite qui compte sur ton lien**. Une visite qui compte vient de France "
-          "ou d'un pays francophone. Pas un robot. Payé tous les 15 jours, en USDC ou par virement. "
+          "ou d'un pays francophone. Pas un robot. Payé le 5 et le 20, en USDC ou par virement. "
           "Pas de fixe. 1 000 visites = 50 $. 5 000 visites = 250 $. "
           "Robots, clics achetés ou clics forcés = licenciement.\n"
           "5. 2 Reels par jour sur chaque compte de croissance. Ton compte 1 : créé dans les 48 h, sinon tu sors du serveur "
-          "et ta place va au suivant.")   # 30/09 (Gaëtan) ; 05/10 : la règle unique de sortie ; 08/10 : 48 h (consigne du 05/10, 15 h 30)
+          "et ta place va au suivant.")   # 30/09 (Gaëtan) ; 05/10 : la règle unique de sortie ; 08/10 : 48 h (consigne du 05/10, 15 h 30) ; 09/10 : paie le 5 et le 20 (A5)
 
 # La même chose, en une ligne pour le formulaire du site (aide sous la case à cocher)
 REGLES_SITE = ("1. Tu as 18 ans ou plus. 2. Les comptes Instagram sont à l'agence. Tu rends les accès si on te les demande. 3. La formation reste entre nous. Tu ne la partages pas. 4. Tu es payé 0,05 $ par visite réelle, sans fixe. Les faux clics, c'est le licenciement. 5. Tu publies 2 Reels par jour sur chaque compte de croissance. Ton compte 1 doit être créé dans les 48 h, sinon tu sors.")   # 30/09 : mêmes règles, formulées court (formulaire du site) ; 05/10 : règle de sortie unique

@@ -7,8 +7,8 @@ par un, avec une pause entre deux.
 
 09/10 (Gaëtan : « on va ouvrir les vannes ») : le quiz suffit pour entrer, le goulot devient le stock de comptes. Une créatrice sans
 compte livrable est sautée ; si AUCUNE n'en a, le membre reçoit une fois le repli « Ta créatrice arrive ici sous 48 h » et passe à
-l'état « attente_attribution » du pipeline. La boucle de l'onboarding le reprend tout seul dès qu'un compte se libère
-(`reprendre_attente`, la seule reprise), un par un, ATTRIBUTION_PAUSE_SEC entre deux, sans commande.
+l'état « attente_attribution » du pipeline. boucle_pipeline (bot_discord, toutes les 5 min) le reprend tout seul dès qu'un compte se
+libère (`reprendre_attente`, la seule reprise, sous verrou), un par un, ATTRIBUTION_PAUSE_SEC entre deux, sans commande.
 
 Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:1 » depuis le 28/09 : Clara et
 Maddie à 0 tant qu'aucun e-mail de compte n'arrive ; sans poids = 1). Une créatrice sans catégorie ni rôle sur le serveur est sautée (et dite au salon admin). Un
@@ -428,8 +428,8 @@ async def attribuer(membre, via: str) -> str:
 
 
 async def reprendre_attente() -> list:
-    """09/10 (Gaëtan : « on va ouvrir les vannes » ; décision : reprise automatique, sans commande) : appelée par la boucle de
-    l'onboarding (15 min). Les membres « attente_attribution » présents passent, les plus anciens d'abord, dans la limite du stock
+    """09/10 (Gaëtan : « on va ouvrir les vannes » ; décision : reprise automatique, sans commande) : lancée par
+    boucle_pipeline (bot_discord.reprendre_attente_attribution, 5 min ; lot L10 : plus par la boucle de l'onboarding). Les membres « attente_attribution » présents passent, les plus anciens d'abord, dans la limite du stock
     de comptes livrables, ATTRIBUTION_PAUSE_SEC entre deux : un signé reçoit sa créatrice (attribuer), un candidat mis en attente
     par la migration est validé (valider_candidat, qui mène à la même attribution). Stock inconnu ou nul : personne ne bouge.
     09/10 (revue du lot L6) : un staff en attente en sort ; un « deja » (rôle d'équipe sans être au registre) en sort aussi, avec une

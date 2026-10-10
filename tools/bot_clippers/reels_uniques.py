@@ -7,8 +7,8 @@ des vidéos d'ORIGINE de sa créatrice (onboarding.lien_drive_creatrice).
 
 Ce qui reste : trouver le dossier d'origine. `dossier_reels` (le « 📁 Reels » de l'Instagram Drive de la créatrice, au-dessus de
 « 🎬 Clippers » de DRIVE_SOURCES), `dossier_top20` et `videos_top20` (review_reels compare la vidéo d'un clipper au TOP 20
-d'origine). `boucle`, `demarrage`, `pour_nouveau` et `commande_staff` ne font plus rien, en attendant que leurs appels
-disparaissent de bot_discord. DONNEES/reels_uniques.json reste en place, sans effet.
+d'origine). `boucle`, `demarrage`, `pour_nouveau` et `commande_staff` sont supprimées (lot L10, plus aucun appel).
+DONNEES/reels_uniques.json reste en place, sans effet.
 
 Dépendances (`configurer`) : google_api, sources (DRIVE_SOURCES parsé), normaliser."""
 import logging
@@ -75,26 +75,5 @@ async def videos_top20(top_id: str) -> list:
 
 
 # ------------------------------------------------------------------ retiré le 09/10
-async def commande_staff(message, texte: str) -> bool:
-    """09/10 : `!reels-uniques` retiré (la déclinaison n'existe plus). Répond une ligne si quelqu'un la tape encore."""
-    mots = texte.split()
-    if not mots or mots[0].lower() not in ("!reels-uniques", "!reels-unique"):
-        return False
-    await message.reply("`!reels-uniques` est retiré depuis le 09/10 : les clippers reçoivent les vidéos d'origine de leur créatrice.")
-    return True
-
-
-async def boucle(client):
-    """09/10 : retiré, ne fait plus rien."""
-    journal.info("Reels uniques : déclinaison retirée le 09/10, boucle sans effet")
-
-
-async def demarrage(client) -> list:
-    """09/10 : retiré, ne fait plus rien."""
-    journal.info("Reels uniques : déclinaison retirée le 09/10, rien à refaire au démarrage")
-    return []
-
-
-async def pour_nouveau(prenom: str, creatrice: str) -> None:
-    """09/10 : retiré, ne fait plus rien."""
-    journal.info("Reels uniques : déclinaison retirée le 09/10, rien pour %s (%s)", prenom, creatrice)
+# 09/10 (lot L10) : commande_staff (`!reels-uniques`), boucle, demarrage et pour_nouveau sont supprimées : plus aucun appel
+# dans bot_discord (on_ready, onboarder_membre, commande_admin). `!reels-uniques` tombe dans « commande inconnue ».
