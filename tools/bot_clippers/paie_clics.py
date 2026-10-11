@@ -3469,7 +3469,9 @@ async def commande_clipper(message, texte: str) -> bool:
 
 
 async def commande_staff(message, texte: str) -> bool:
-    """Managers et admins : `!clics`, `!liens`, `!lien @clipper …`, `!wallet @clipper adresse`, `!paie-clics`."""
+    """Managers et admins : `!clics`, `!liens`, `!lien @clipper …`, `!wallet @clipper adresse`, `!paie-clics`, `!paie @clipper
+    clic|fixe`, `!bilan-fixe [jours]`, `!adresses`. 11/10 (lot L12) : aucune commande morte ici (toutes servent la paie du 5 et du
+    20 ou les fixes encore en place) ; seul le pied de `!clics` change (plus de Jonas)."""
     mots = texte.split()
     if not mots:
         return False
@@ -3621,9 +3623,12 @@ async def commande_staff(message, texte: str) -> bool:
             q = somme(d, lids, _debut_paie(uid, debut, d), min(fin, hier))   # 08/10 (revue) : la même période que la paie
             rangs.append((nom_de(uid), h, s7, q, uid))
         rangs.sort(key=lambda r: -r[2]["payes"])
+        fixes = []                                                      # 11/10 (lot L12) : le pied les nomme d'après regime()
         for nom, h, s7, q, uid in rangs:
             part = f"{s7['payes'] * 100 // s7['hors_robots']} %" if s7["hors_robots"] else "–"
             reg = regime(uid)
+            if reg == "fixe":
+                fixes.append(str(nom).split(" - ")[0].strip() or str(nom))   # « Caroline - Sophie » → « Caroline »
             lids = par_uid[uid]
             manque_h = non_releves(d, lids, hier, hier)
             txt_h = ("non relevé" if manque_h and not h["jours"] else
@@ -3636,10 +3641,14 @@ async def commande_staff(message, texte: str) -> bool:
                           + f") · période {_fmt(q['payes'])} = {_usd(q['payes'] * TAUX_CLIC)}"
                           + (f" ({_jours_non_lus(nq, True)})" if nq else "")
                           + ("" if reg != "clic" or uid in d["wallets"] else " · ⚠️ sans adresse"))
-        lignes.append("-# [fixe] = Rianah, Caroline, Lilian, Josué, Yves (et Jonas, manager), décision du 09/10 ; "
-                      "[clic] = tous les autres, payés sur la liste du 5 et du 20 (au clic depuis le 05/10 pour les anciens fixes). "
-                      "`!paie @clipper clic|fixe` pour changer. Repère de rentabilité d'un fixe : ≈ 65 visites payables/jour "
-                      "pour 200 €, ≈ 32/jour pour 100 € (0,30 $ de CA par visite, 35 % de marge).")
+        # 11/10 (revue du recrutement, lot L12) : plus « et Jonas, manager » (parti le 09/10) ; les fixes sont ceux de la liste
+        # ci-dessus d'après regime() (la liste écrite en dur mentait dès qu'un fixe passait au clic), et les primes d'équipe des TL et
+        # managers (grille du 10/10) se lisent dans `!tl liste`
+        lignes.append(f"-# [fixe] = {', '.join(fixes) if fixes else 'personne dans cette liste'} (décision du 09/10) ; "
+                      f"[clic] = tous les autres, {_usd(TAUX_CLIC)} la visite payée, sur la liste du 5 et du 20 (au clic depuis le "
+                      "05/10 pour les anciens fixes). `!paie @clipper clic|fixe` pour changer. Primes d'équipe des TL et managers : "
+                      "`!tl liste` (admin). Repère de rentabilité d'un fixe : ≈ 65 visites payables/jour pour 200 €, ≈ 32/jour "
+                      "pour 100 € (0,30 $ de CA par visite, 35 % de marge).")
         if not rangs:
             lignes.append("· aucun lien attribué — `!liens` puis `!lien @clipper …`.")
         await _deps["envoyer_long"](message, lignes)

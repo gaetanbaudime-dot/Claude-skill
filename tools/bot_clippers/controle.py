@@ -25,6 +25,17 @@ Familles (contrat C3) :
   C10 lien en bio Instagram (etats_comptes.json « bios ») ≠ lien attendu ;
   C11 @ en double (même onglet, ou deux onglets : la ligne écartée par onboarding._sans_doublons est invisible au bot) ;
   C12 compte non lu / restreint / illisible au dernier passage (etats « non_lus », « dernier_passage », historique, séries).
+  11/10 (revue du recrutement, lot L12 : la vérification du classeur du 29/09 fondue ici, `!classeur` retiré — un seul contrôle,
+  un seul message) :
+  C13 un même e-mail sur deux lignes vivantes (important), ou une ligne en service qui porte l'identifiant, le mot de passe, l'e-mail
+      ou le téléphone d'un compte BAN (bloquant, règle de Gaëtan du 30/09 : onboarding.infos_d_un_ban) ; les lignes libres dans ce
+      cas, jamais livrées, sont comptées par onglet (info) ;
+  C14 ligne BAN qui garde un Gérant clipper (une entrée par Gérant et par onglet, remède `!liberer … pool`) ; un BAN posé par le
+      scan depuis BAN_RECHERCHE_JOURS jours ou moins est encore cherché : info « ne libère pas avant le JJ/MM », sans commande ;
+  C15 réservation jamais créée : « à créer » avec un Gérant clipper, jamais vue sur Instagram après SCANS_MIN passages du scan ;
+      « non mesuré » quand une réservation assez vieille a été lue moins de SCANS_MIN fois, ou que le budget Apify est atteint ;
+  C16 plus de MAX_COMPTES comptes vivants (ni BAN, ni logs perdus) pour un même Gérant chez une créatrice.
+  C14 à C16 ignorent les Gérants hors clipping (etats_comptes.dashboard_exclus, Rianah par défaut) et le staff, comme avant.
 
 Règles communes (revue du 09/10) :
   - contrat C6(d) : « lien (ou compte) d'un autre clipper » se décide sur les IDENTIFIANTS — l'uid du lien (clics.json) contre le
@@ -85,11 +96,28 @@ FAMILLES = {
     "C10": "Lien en bio ≠ lien attendu",
     "C11": "@ en double",
     "C12": "Compte non lu / restreint / illisible",
+    # 11/10 (revue du recrutement, lot L12) : les contrôles de la vérification du classeur (29/09), fondus ici — un seul contrôle
+    # du classeur, un seul message au salon admin, affichés dans la section CONTRÔLE du Dashboard (qui lit ce dictionnaire)
+    "C13": "E-mail en double / info d'un BAN réutilisée",
+    "C14": "Ligne BAN qui garde un Gérant",
+    "C15": "Réservation jamais créée",
+    "C16": "Plus de 3 comptes vivants",
 }
 GRAVITES = ("bloquant", "important", "info")
 # 09/10 (dashboard) : les prénoms du staff (Gérant d'un compte de redirection, repreneur Metricool) ne sont jamais des fantômes.
 # 09/10 (revue CONTROLE) : seulement quand AUCUN membre signé ne porte ce prénom (Rianah est aussi clippeuse signée depuis le 07/10).
-STAFF = {p for p in (onboarding._norm(x).strip() for x in os.environ.get("CONTROLE_STAFF", "gaetan,rianah,jonas").split(",")) if p}
+# 11/10 (lot L12) : plus « jonas » par défaut (parti le 09/10) : une ligne encore à son nom sort en C2 (Gérant fantôme), à libérer.
+STAFF = {p for p in (onboarding._norm(x).strip() for x in os.environ.get("CONTROLE_STAFF", "gaetan,rianah").split(",")) if p}
+# 11/10 (lot L12, ex-vérification du classeur) : C15 « réservation jamais créée » = une ligne « à créer » réservée par un clipper et
+# jamais vue sur Instagram après SCANS_MIN passages du scan (l'historique en garde un par jour) ; C16 = plus de MAX_COMPTES comptes
+# vivants pour un clipper chez une créatrice. Mêmes variables Railway qu'avant.
+SCANS_MIN = int(os.environ.get("CLASSEUR_SCANS_MIN", "7") or 7)
+MAX_COMPTES = int(os.environ.get("CLASSEUR_MAX_COMPTES", "3") or 3)
+# 11/10 (vérification du lot L12) : la fenêtre où le scan cherche encore un BAN qu'il a posé lui-même (« bans_auto ») sous des @
+# voisins et le ressuscite s'il est revu vivant — MÊME variable Railway qu'etats_comptes.BAN_RECHERCHE_JOURS (pas d'import : le
+# contrôle ne charge pas le scan). Pendant cette fenêtre, C14 ne donne pas `!liberer … pool` (un BAN sans Gérant n'est jamais repris).
+BAN_RECHERCHE_JOURS = int(os.environ.get("ETATS_BAN_RECHERCHE_JOURS", "7") or 7)
+LISTE_MAX = 4                                                           # lignes citées dans une entrée groupée (C13, C14, C16)
 BIO_JOURS = int(os.environ.get("CONTROLE_BIO_JOURS", "7") or 7)         # une bio relevée il y a plus longtemps n'est plus jugée
 # 10/10 (paie du 5 et du 20) : le début du relevé est celui de paie_clics (2026-10-05), jamais une date recopiée ici
 CLICS_DEPUIS = str(getattr(paie_clics, "CLICS_DEPUIS", "") or os.environ.get("CLICS_DEPUIS", "2026-10-05")).strip()
@@ -567,11 +595,23 @@ def _note_par_defaut(info: dict):
     return notes.pop() if len(notes) == 1 else None
 
 
+def _exclus_defaut(etats) -> list:
+    """11/10 (lot L12, ex-vérification du classeur) : les Gérants hors clipping — etats_comptes.dashboard_exclus sur l'état du scan
+    passé (jamais relu ici : `etats` vide = la valeur par défaut), sinon DASHBOARD_EXCLUS (Rianah par défaut)."""
+    try:
+        import etats_comptes                                             # import tardif : etats_comptes est lourd, et absent des essais
+        return list(etats_comptes.dashboard_exclus(etats if isinstance(etats, dict) else {}))
+    except Exception:                                                    # noqa: BLE001 — repli identique à EXCLUS_DEFAUT
+        return [m.strip() for m in os.environ.get("DASHBOARD_EXCLUS", "Rianah").split(",") if m.strip()]
+
+
 # ------------------------------------------------------------------ le contexte d'un calcul
 class _Ctx:
     def __init__(self, comptes, clics, onb, registre, membres_d, series_etat, etats, parcours, details, premiers_vus, maintenant,
-                 memoire=None, sortis=None):
+                 memoire=None, sortis=None, exclus=None):
         self.comptes = comptes
+        # 11/10 (lot L12, ex-vérification du classeur) : les prénoms hors clipping, normalisés (C14 à C16 ne les jugent pas)
+        self.exclus = {_n(e) for e in (exclus if exclus is not None else _exclus_defaut(etats)) if _n(e)}
         # 10/10 (vérification CONTROLE, cas Eddy du 24/09) : le pseudo des membres partis (sortis.json : `!sortie`, départ du
         # serveur), seule trace de leur nom une fois sortis du registre — C4 sait si l'ancien détenteur d'un compte est un homonyme
         self.noms_sortis = {}
@@ -1942,6 +1982,247 @@ def _c12(x: _Ctx) -> list:
     return out
 
 
+# ------------------------------------------------------------------ C13 à C16 (11/10, lot L12 : ex-vérification du classeur du 29/09)
+def _clipper_de_ligne(x: _Ctx, c: dict) -> bool:
+    """La ligne est-elle tenue par un clipper, au sens de l'ancienne vérification du classeur (29/09) : Utilisation « Clipper » ou vide,
+    Gérant ni libre, ni créatrice, ni « … (Metricool) », ni staff (résolu comme partout ici), ni hors clipping (`exclus`)."""
+    if _n(c.get("utilisation")) not in ("clipper", ""):
+        return False
+    if x.resoudre(c.get("gerant"))[0] in ("libre", "creatrice", "metricool", "staff"):
+        return False
+    return _premier(c.get("gerant")) not in x.exclus
+
+
+def _liste(cs: list, n: int = LISTE_MAX) -> str:
+    """« @a, @b, @c +2 » (une ligne sans @ : « l. 12 »)."""
+    noms = [f"@{c['handle']}" if c.get("handle") else f"l. {c.get('ligne') or '?'}" for c in cs[:n]]
+    return ", ".join(noms) + (f" +{len(cs) - n}" if len(cs) > n else "")
+
+
+def _cle_mail(m: str) -> str:
+    """La clé stable d'une adresse : son empreinte, jamais l'adresse (controle.json garde les clés)."""
+    return hashlib.sha1(str(m).encode("utf-8")).hexdigest()[:12]
+
+
+def _c13(x: _Ctx) -> list:
+    """Un même e-mail sur deux lignes vivantes, ou une info d'un compte BAN sur une ligne en service (règle du 30/09). Les adresses
+    ne sont jamais écrites : les lignes sont citées par onglet, numéro de ligne et @."""
+    out = []
+    brulees = onboarding.infos_brulees(x.comptes)
+    libres = {}
+    for c in x.comptes:
+        if not c.get("handle"):
+            continue
+        infos = onboarding.infos_d_un_ban(c, brulees) if brulees else []
+        # 11/10 (vérification du lot L12) : une cellule e-mail sans « @ » (« ? », « - », « à faire ») n'est pas une adresse — ni un
+        # doublon (plus bas), ni « l'e-mail d'un BAN » (onboarding.infos_d_un_ban la comparait telle quelle : 3 bloquants pour « ? »)
+        infos = [i for i in infos if i != "e-mail" or "@" in str(c.get("mail") or "")]
+        if not infos:
+            continue
+        if x.resoudre(c.get("gerant"))[0] == "libre":
+            libres.setdefault(c.get("onglet") or "?", []).append(c)      # jamais livrées (onboarding.disponibles) : compter suffit
+            continue
+        out.append(_a("C13", "bloquant", f"{_ou(c)} · {_qui(c)} : {' + '.join(infos)} d'un compte BAN — à changer sur ce compte (règle "
+                                         "du 30/09 : on ne réutilise jamais une info d'un BAN)",
+                      f"C13|ban|{_n(c.get('onglet'))}|{_cle_compte(c['handle'])}"))
+    for onglet, cs in sorted(libres.items()):
+        out.append(_a("C13", "info", f"{onglet} : {len(cs)} ligne(s) libre(s) ({_liste(cs)}) portent une info d'un compte BAN, jamais "
+                                     "livrées tant qu'elles ne sont pas changées", f"C13|ban_libres|{_n(onglet)}"))
+    par_mail = {}
+    for c in x.comptes:
+        m = str(c.get("mail") or "").strip().lower()
+        if "@" in m:                                                     # « ? », « - », « à faire » : pas une adresse, pas un doublon
+            par_mail.setdefault(m, []).append(c)
+
+    def _lignes(cs, n):
+        return (" · ".join(f"{_ou(c)} {('@' + c['handle']) if c.get('handle') else '(sans @)'} "
+                           f"({str(c.get('gerant') or '').strip() or 'sans Gérant'}, {c.get('etat') or '?'})" for c in cs[:n])
+                + (f" · +{len(cs) - n}" if len(cs) > n else ""))
+    for m, cs in sorted(par_mail.items(), key=lambda kv: (kv[1][0].get("onglet") or "", kv[1][0].get("ligne") or 0, _cle_mail(kv[0]))):
+        if len(cs) < 2:
+            continue
+        vivantes = [c for c in cs if not _ban(c)]
+        if len(vivantes) >= 2:
+            tetes = [f"même e-mail sur {len(cs)} lignes : {_lignes(cs, n)}" for n in (LISTE_MAX, 2, 1)]
+            out.append(_a("C13", "important", _avec_remede(tetes, "une adresse par compte : change-la sur toutes sauf une"),
+                          f"C13|mail|{_cle_mail(m)}"))
+        elif not vivantes:
+            tetes = [f"même e-mail sur {len(cs)} lignes BAN : {_lignes(cs, n)}" for n in (LISTE_MAX, 2, 1)]
+            out.append(_a("C13", "info", _avec_remede(tetes, "adresse brûlée, à ne plus utiliser"), f"C13|mail_ban|{_cle_mail(m)}"))
+        # une seule ligne vivante : l'e-mail d'un BAN réutilisé, déjà dit plus haut (info d'un BAN, bloquant)
+    return out
+
+
+def _c14(x: _Ctx) -> list:
+    """Une ligne BAN qui garde le nom d'un clipper : une entrée par Gérant et par onglet, `!liberer … pool` sur ses lignes BAN
+    (Gérant vidé, la ligne reste BAN et n'est jamais relivrée : comme remplacements.remplacer).
+    11/10 (vérification du lot L12) : un BAN posé par le scan (etats « bans_auto ») il y a BAN_RECHERCHE_JOURS jours ou moins est
+    encore cherché sous des @ voisins, et ressuscité s'il est revu vivant — mais seulement tant que la ligne garde son Gérant
+    (etats_comptes.candidats). Libérer ce jour-là perdait pour de bon un faux BAN (compte renommé, indisponible un jour) : ces lignes
+    sortent à part, en info, « ne libère pas avant le JJ/MM », sans commande. Le remède reste pour un BAN plus ancien ou posé à la main."""
+    etats = x.etats if isinstance(x.etats, dict) else {}
+    bans_auto = etats.get("bans_auto") if isinstance(etats.get("bans_auto"), dict) else {}
+    auj = x.maintenant.date()
+
+    def _fin_recherche(c):
+        pose = _date(bans_auto.get(_cle_compte(c.get("handle"))))
+        fin = pose + timedelta(days=BAN_RECHERCHE_JOURS) if pose else None
+        return fin if fin and auj <= fin else None
+
+    groupes = {}
+    for c in x.comptes:
+        if c.get("handle") and _ban(c) and _clipper_de_ligne(x, c):
+            groupes.setdefault((c.get("onglet") or "?", _n(c.get("gerant"))), []).append(c)
+    out = []
+    for (onglet, g), tous in sorted(groupes.items()):
+        brut = str(tous[0].get("gerant") or "").strip()
+        recents = [(c, _fin_recherche(c)) for c in tous]
+        cs = [c for c, fin in recents if fin is None]
+        recents = [(c, fin) for c, fin in recents if fin is not None]
+        if recents:
+            rs = [c for c, _ in recents]
+            fin = max(f for _, f in recents)
+            tetes = [f"{onglet} · Gérant « {brut} » garde {len(rs)} ligne(s) BAN posée(s) par le scan ({_liste(rs, n)})"
+                     for n in (LISTE_MAX, 2, 1)]
+            out.append(_a("C14", "info", _avec_remede(tetes, f"recherche du faux BAN en cours jusqu'au {fin.strftime('%d/%m')}, "
+                                                                "ne libère pas avant"), f"C14|{_n(onglet)}|{g}|recherche"))
+        if not cs:
+            continue
+        handles = [c["handle"] for c in cs[:LISTE_MAX]]
+        reste = f" (+{len(cs) - LISTE_MAX} : la même commande ensuite)" if len(cs) > LISTE_MAX else ""
+        tetes = [f"{onglet} · Gérant « {brut} » garde {len(cs)} ligne(s) BAN ({_liste(cs, n)})" for n in (LISTE_MAX, 2, 1)]
+        remede = f"remède : {_cmd_liberer(cs[0], handles, pool=True)}{reste}, ou un remplacement"
+        out.append(_a("C14", "important", _avec_remede(tetes, remede), f"C14|{_n(onglet)}|{g}"))
+    return out
+
+
+def _ouverture(x: _Ctx, c: dict) -> tuple:
+    """(rang, date) : voir _ouverture_src (sans l'origine de la date)."""
+    return _ouverture_src(x, c)[:2]
+
+
+def _ouverture_src(x: _Ctx, c: dict) -> tuple:
+    """(rang, date, origine) du compte de la ligne dans le parcours de son détenteur : rang 1, 2 ou 3 (parcours._comptes_ordonnes,
+    l'ordre unique du parcours) et date d'envoi de son étape (« dates » de parcours.json, origine « etape »), None si l'étape n'est
+    pas encore ouverte ; (0, None, "") quand on ne sait pas (pas de détenteur, pas de parcours, compte hors de sa fiche, parcours
+    sans aucune étape datée). Lecture seule, aucun fichier relu.
+    11/10 (vérification du lot L12 : un ancien mis en routine, fiche {etape: 7, dates: {"7": …}}, dont le remplaçant d'un BAN prend
+    le rang 1 — « étape pas encore ouverte », C15 se taisait pour toujours) : None seulement quand l'étape n'est VRAIMENT pas atteinte
+    (onboarding.deja_passe faux). Étape passée sans date : la date de la réservation (onboarding « livres ») ; inconnue : (0, None),
+    la règle simple."""
+    uid = x.proprio(c)
+    f = x.parcours.get(str(uid)) if uid and isinstance(x.parcours, dict) else None
+    if not isinstance(f, dict):
+        return 0, None, ""
+    try:
+        import parcours as _parcours                                     # import tardif : parcours importe onboarding
+        fiche_o = (((x.onb or {}).get("clippers") or {}) if isinstance(x.onb, dict) else {}).get(str(uid)) or {}
+        ordonnes = _parcours._comptes_ordonnes(str(uid), onb=fiche_o, fiche_p=f)
+    except Exception:                                                    # noqa: BLE001 — sans l'ordre : la règle simple
+        return 0, None, ""
+    h = _cle_compte(c.get("handle"))
+    rang = next((i + 1 for i, hh in enumerate(ordonnes) if _cle_compte(hh) == h), 0)
+    dates = f.get("dates") if isinstance(f.get("dates"), dict) else {}
+    if not rang or not any(dates.values()):
+        return 0, None, ""                                               # ancien repris sans étapes datées : la règle simple
+    ouverte = _date(dates.get(str(rang)))
+    if ouverte is not None:
+        return rang, ouverte, "etape"
+    if not onboarding.deja_passe(f, rang):
+        return rang, None, ""                                            # son étape n'est pas encore atteinte
+    reserve = _date_reservation(x, c)                                    # passée sans date : routine, remplaçant d'un BAN
+    return (rang, reserve, "reservation") if reserve is not None else (0, None, "")
+
+
+def _date_reservation(x: _Ctx, c: dict):
+    """La date de la réservation de la ligne (onboarding.json, « livres », même @ nettoyé), None si inconnue."""
+    livres = (x.onb.get("livres") or {}) if isinstance(x.onb, dict) else {}
+    h = _cle_compte(c.get("handle"))
+    for k, v in (livres.items() if isinstance(livres, dict) else ()):
+        if h and _cle_compte(k) == h and isinstance(v, dict):
+            return _date(v.get("date"))
+    return None
+
+
+def _c15(x: _Ctx) -> list:
+    """Réservée, jamais créée : une ligne « à créer » au nom d'un clipper, jamais vue sur Instagram en SCANS_MIN jours de scan.
+    11/10 (lot L12) : quand le parcours du détenteur est connu, seuls comptent les jours depuis l'ouverture de l'étape de ce compte
+    (le trio est réservé d'un coup, le compte 3 n'est à créer qu'à son étape) ; étape pas encore ouverte : rien à dire.
+    11/10 (vérification du lot L12) : jamais un faux 0 — une réservation de plus de SCANS_MIN jours (depuis l'ouverture de son étape,
+    sinon depuis la réservation) lue moins de SCANS_MIN fois par le scan est « non mesuré » (le scan ne relit pas chaque jour une ligne
+    « à créer ») ; budget Apify du mois atteint : « non mesuré » aussi, les entrées déjà jugées restent (portée vide)."""
+    cands = [c for c in x.comptes if c.get("handle") and _a_creer(c) and _clipper_de_ligne(x, c)]
+    if not cands:
+        return []
+    etats = x.etats if isinstance(x.etats, dict) else {}
+    historique = etats.get("historique") if isinstance(etats.get("historique"), dict) else {}
+    if not historique:
+        return [_non_mesure("C15", "aucun historique du scan : réservations « à créer » non vérifiées")]
+    out, vus, peu_lues = [], set(), []
+    budget = etats.get("apify_budget") if isinstance(etats.get("apify_budget"), dict) else {}
+    if budget.get("coupe"):
+        fin_c = _date(budget.get("cycle_fin"))
+        out.append(_non_mesure("C15", "budget Apify du mois atteint : réservations « à créer » non revérifiées"
+                                      + (f" jusqu'au {fin_c.strftime('%d/%m')}" if fin_c else ""), []))
+    auj = x.maintenant.date()
+    for c in cands:
+        h = _cle_compte(c["handle"])
+        if not h or (h, _n(c.get("onglet"))) in vus:
+            continue
+        vus.add((h, _n(c.get("onglet"))))
+        scans = [s for s in historique.get(h) or [] if isinstance(s, dict)]
+        rang, ouverte, origine = _ouverture_src(x, c)
+        if rang and ouverte is None:
+            continue                                                     # son étape n'est pas ouverte : pas encore à créer
+        if ouverte is not None:
+            scans = [s for s in scans if (_date(s.get("jour")) or date.min) >= ouverte]
+        if any(s.get("existe") for s in scans):
+            continue
+        if len(scans) < SCANS_MIN:
+            depuis = ouverte or _date_reservation(x, c)
+            if depuis is not None and (auj - depuis).days > SCANS_MIN:
+                peu_lues.append((c, h, len(scans)))                       # assez vieille pour être jugée, pas assez lue
+            continue
+        g = str(c.get("gerant") or "").strip()
+        quand = "réservé le" if origine == "reservation" else "étape ouverte le"
+        tetes = [f"{_ou(c)} · @{c['handle']} réservé à {g}" + (f" (compte {rang}, {quand} {ouverte.strftime('%d/%m')})"
+                                                                   if ouverte else "")
+                 + f", jamais vu sur Instagram en {len(scans)} jours de scan",
+                 f"{_ou(c)} · @{c['handle']} ({g}) jamais vu en {len(scans)} jours"]
+        remede = f"demande-lui s'il l'a créé sous un autre @ ; sinon {_cmd_liberer(c)} (la ligne revient au vivier « à créer »)"
+        out.append(_a("C15", "important", _avec_remede(tetes, remede), f"C15|{_n(c.get('onglet'))}|{h}"))
+    if peu_lues:
+        cs = [c for c, _, _ in peu_lues]
+        nm = _non_mesure("C15", f"{len(cs)} réservation(s) « à créer » de plus de {SCANS_MIN} jours lue(s) moins de {SCANS_MIN} fois "
+                                f"par le scan ({_liste(cs)}) : créée(s) ou non, pas prouvé",
+                         [f"C15|{_n(c.get('onglet'))}|{h}" for c, h, _ in peu_lues])
+        nm["cle"] = "C15|non_mesure_lectures"                            # à côté de « budget atteint », pas à sa place
+        out.append(nm)
+    return out
+
+
+def _c16(x: _Ctx) -> list:
+    """Plus de MAX_COMPTES comptes vivants (ni BAN, ni logs perdus) au nom d'un même Gérant chez une créatrice (onglet). Deux membres
+    du même prénom : C3 le dit déjà, rien ici."""
+    vivants = {}
+    for c in x.comptes:
+        if not c.get("handle") or _ban(c) or _perdu(c) or not _clipper_de_ligne(x, c):
+            continue
+        groupe = vivants.setdefault((c.get("onglet") or "?", _n(c.get("gerant"))), [])
+        if _cle_compte(c["handle"]) not in {_cle_compte(d["handle"]) for d in groupe}:
+            groupe.append(c)
+    out = []
+    for (onglet, g), cs in sorted(vivants.items()):
+        if len(cs) <= MAX_COMPTES or x.resoudre(cs[0].get("gerant"))[0] == "ambigu":
+            continue
+        brut = str(cs[0].get("gerant") or "").strip()
+        tetes = [f"{onglet} · Gérant « {brut} » : {len(cs)} comptes vivants ({_liste(cs, n)}), {MAX_COMPTES} au plus"
+                 for n in (LISTE_MAX, 2, 1)]
+        remede = f"rends {'celui' if len(cs) == MAX_COMPTES + 1 else 'ceux'} en trop : {_cmd_liberer(cs[0], ['<@ en trop>'])}"
+        out.append(_a("C16", "important", _avec_remede(tetes, remede), f"C16|{_n(onglet)}|{g}"))
+    return out
+
+
 # ------------------------------------------------------------------ entrées facultatives (lecture seule)
 def _dossier():
     for cle in ("FICHIER_CONTROLE", "FICHIER_ONBOARDING", "FICHIER_CLICS", "FICHIER_EQUIPES"):
@@ -2035,14 +2316,15 @@ def lire_entrees() -> dict:
 
 # ------------------------------------------------------------------ API du contrat C3
 def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *, etats=None, parcours=None,
-              details_gaml=None, premiers_vus=None, memoire=None, maintenant: datetime = None, sortis=None) -> list:
+              details_gaml=None, premiers_vus=None, memoire=None, maintenant: datetime = None, sortis=None, exclus=None) -> list:
     """Les anomalies d'attribution, triées (bloquant, important, info ; puis famille), une par clé stable. Pure sur ses entrées.
     09/10 (dashboard) : `membres` = {uid: pseudo} (ou membres Discord, ou paires) des membres présents sur le serveur ; `etats`
     (etats_comptes.json : bios, non_lus, historique, dernier_passage, apify_budget, scan_iso), `parcours` (parcours.json),
     `details_gaml` ([{id, url, note, nom}] relus par l'onboarding), `premiers_vus` ({clé: iso}) et `memoire` (controle.json :
     dernières mesures de C8, dernières notes vivantes) et `sortis` (sortis.json, 10/10 : le nom des membres partis, pour C4) sont
     lus dans les fichiers du bot quand ils ne sont pas passés et que le module est configuré. 09/10 (revue CONTROLE) : une famille
-    qui n'a pas pu juger renvoie une entrée « non mesuré » (gravité info, `non_mesure: True`) au lieu de se taire."""
+    qui n'a pas pu juger renvoie une entrée « non mesuré » (gravité info, `non_mesure: True`) au lieu de se taire. 11/10 (lot L12) :
+    `exclus` = les prénoms hors clipping que C14 à C16 ignorent (None : etats_comptes.dashboard_exclus sur `etats`)."""
     maintenant = maintenant or datetime.now(timezone.utc)
     if maintenant.tzinfo is None:
         maintenant = maintenant.replace(tzinfo=timezone.utc)
@@ -2070,7 +2352,7 @@ def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *
              details_gaml if details_gaml is not None else (_defaut("details_gaml") or []),
              premiers_vus if premiers_vus is not None else (_defaut("premiers_vus") or {}), maintenant,
              memoire if memoire is not None else (_defaut("memoire") or {}),
-             sortis if sortis is not None else _lire_sortis())
+             sortis if sortis is not None else _lire_sortis(), exclus=exclus)
     if not x.comptes:
         # 09/10 (revue CONTROLE) : classeur vide ou illisible → rien n'a été vérifié (jamais « 0 anomalie » à la place). 10/10
         # (vérification CONTROLE : une seule entrée C1 couvrait les 12 familles par sa portée, un lecteur qui lit `famille` affichait
@@ -2080,7 +2362,7 @@ def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *
     out, cles = [], set()
     for famille, noms in ((_c1, ("C1",)), (_nm_resolution, ()), (_c2_c3, ("C2", "C3")), (_c4, ("C4",)), (_c5, ("C5",)),
                           (_c6, ("C6",)), (_c7, ("C7",)), (_c8, ("C8",)), (_c9, ("C9",)), (_c10, ("C10",)), (_c11, ("C11",)),
-                          (_c12, ("C12",))):
+                          (_c12, ("C12",)), (_c13, ("C13",)), (_c14, ("C14",)), (_c15, ("C15",)), (_c16, ("C16",))):
         if sans_liens and set(noms) & {"C5", "C6", "C7", "C8", "C9", "C10"}:
             # sans le relevé des liens, chaque cellule passerait pour « pas un lien GAML » et chaque clipper pour « sans lien »
             # (une famille déjà « non mesuré » faute de registre garde sa première raison : même clé)
@@ -2200,7 +2482,7 @@ def bouclage(clics, lignes_attribuees, fin: date = None, jours: int = 7, masques
 
 
 def compter(anomalies_: list) -> dict:
-    """{famille: nombre} pour les 12 familles (zéros compris), dans l'ordre C1 → C12."""
+    """{famille: nombre} pour les 16 familles (zéros compris), dans l'ordre C1 → C16 (11/10 : C13 à C16, ex-vérification du classeur)."""
     out = {f: 0 for f in FAMILLES}
     for a in anomalies_ or []:
         if a.get("famille") in out:
@@ -2211,7 +2493,7 @@ def compter(anomalies_: list) -> dict:
 def non_mesurees(anomalies_: list) -> dict:
     """{famille: raison} des familles (ou parties de famille) qui n'ont pas pu juger : à afficher « non mesuré », jamais « 0 ».
     10/10 (vérification CONTROLE : la portée était ignorée, une entrée qui couvrait C1 à C12 ne rendait que C1) : chaque famille dont
-    le préfixe « Cx| » est dans la `portee` d'une entrée compte aussi (avec la raison de cette entrée), dans l'ordre C1 → C12."""
+    le préfixe « Cx| » est dans la `portee` d'une entrée compte aussi (avec la raison de cette entrée), dans l'ordre C1 → C16."""
     nm = [a for a in anomalies_ or [] if isinstance(a, dict) and a.get("non_mesure")]
     raison = lambda a: re.sub(r"^non mesuré : ", "", str(a.get("texte") or ""))        # noqa: E731
     trouve = {}

@@ -61,9 +61,9 @@ import telegram                           # alerte Telegram de l'agence : accept
 import rapport_quotidien                  # rapport compact de la veille à 13 h Paris, Telegram + salon admin (29/09)
 import metricool_comptes                  # 09/10 (dashboard) : Reels et vues des comptes Instagram branchés à Metricool → séries
 import visites_telegram                   # les visites de la veille dans le groupe Telegram de chaque créatrice (03/10)
-import cadence_reels                      # cadence de publication et vues Instagram par clipper, via Apify (05/10)
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
-import classeur_verif                     # le classeur se vérifie seul après le scan : doublons, BAN avec Gérant… (29/09)
+# 11/10 (lot L12) : la cadence des Reels (`!cadence`) et la vérification du classeur (`!classeur`) ne sont plus importées ni appelées :
+# la vérification vit dans le contrôle d'attribution (controle.py, C13 à C16, Dashboard et salon admin). CADENCE_AUTO n'est plus lue.
 import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
 import remplacements                      # comptes BAN d'un clipper remplacés par un dépôt, parcours relancé (30/09)
 import review_reels                       # review des Reels : avant publication (vidéo envoyée) et après (scan du matin) (01/10)
@@ -4978,7 +4978,7 @@ COMMANDES_RETIREES = {
 COMMANDES_MANAGER = ("!quiz-ok", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!candidats", "!annonce", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!roster", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo",
+                     "!roster", "!bans", "!visites-telegram", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo",
                      "!actifs", "!equipe-active")     # 11/10 (revue du lot W) : lecture seule du roster, promise au staff
 
 
@@ -8804,17 +8804,12 @@ async def on_ready():
                                   "compte_retrouve": lambda a, n: parcours.compte_retrouve(client, a, n),   # 09/10 : @ changés
                                   "compte_introuvable": lambda h: parcours.compte_introuvable(client, h),
                                   "reservations_expirees": expirer_reservations,               # 28/09 : réservation qui expire
-                                  "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None,   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer
-                                  "verifier_classeur": classeur_verif.verifier})               # 29/09 : le classeur se vérifie seul
+                                  "premier_reel": premier_reel_dopamine if DOPAMINE_PREMIER_REEL else None})   # 30/09 : premier Reel fêté · 03/10 (Gaëtan : « désactive ») : éteint, DOPAMINE_PREMIER_REEL=1 pour rallumer
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         dashboard.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "dashboard.json",
                               "FICHIER_ETATS": FICHIER_ETATS, "FICHIER_CLICS": FICHIER_CLICS, "FICHIER_EQUIPES": FICHIER_EQUIPES,
                               "FICHIER_ONBOARDING": FICHIER_ONBOARDING, "membre_par_id": membre_par_id, "normaliser": normaliser})
         client.loop.create_task(dashboard.boucle(client))                       # 09/10 (dashboard) : relu toutes les 15 min, sans Apify ni GAML
-        classeur_verif.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_VERIF": DONNEES / "classeur_verif.json",
-                                   "canal_admin": canal_admin, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
-                                   "normaliser": normaliser, "exclus": etats_comptes.dashboard_exclus, "lire_comptes": onboarding.lire_comptes,
-                                   "historique": lambda: etats_comptes._lire().get("historique", {})})
         bans_mail.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_BANS": DONNEES / "bans_mail.json",
                               "canal_admin": canal_admin, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                               "normaliser": normaliser, "etat_scan": etats_comptes._lire, "ecrire_etat_scan": etats_comptes._ecrire})
@@ -8834,12 +8829,6 @@ async def on_ready():
                                      "creatrices": lambda: list(onboarding._colonnes_par_onglet.keys()),
                                      "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
         client.loop.create_task(visites_telegram.boucle(client))                # 03/10 : visites de la veille → groupe Telegram de la créatrice
-        cadence_reels.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "cadence_reels.json",
-                                  "heure_paris": heure_paris, "normaliser": normaliser, "canal_admin": canal_admin,
-                                  "lire_comptes": onboarding.lire_comptes, "groupes": roster.groupes, "scanner_profils": etats_comptes.scanner,
-                                  "normaliser_handle": onboarding.normaliser_handle,            # 05/10 : même nettoyage des @ que le scan
-                                  "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
-        client.loop.create_task(cadence_reels.boucle(client))                   # 05/10 : Reels publiés et vues par clipper, une fois par déploiement
         sortie_auto.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "sortie_auto.json",
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                                 "etats_lire": etats_comptes._lire, "comptes_lire": onboarding.lire_comptes,
@@ -10361,13 +10350,9 @@ async def on_message(message):
             return
         if await visites_telegram.commande(message, texte):                     # !visites-telegram (03/10)
             return
-        if await cadence_reels.commande(message, texte):                        # !cadence [jours] [prénoms] (05/10)
-            return
         if await appel.commande(message, texte):                                # !appel [go|@clipper|passe] (05/10)
             return
         if await bans_mail.commande(message, texte):                            # !bans [jours] (29/09)
-            return
-        if await classeur_verif.commande(message, texte):                       # !classeur (29/09)
             return
         if await etats_comptes.commande_staff(message, texte):
             return
