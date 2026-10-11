@@ -500,6 +500,16 @@ def serie(cle) -> dict:
     return copy.deepcopy(_serie_brute(cle))
 
 
+def cle_vivante(cle) -> str:
+    """10/10 (passe 3, lot METRICOOL) : la clé sous laquelle vit la série d'un @, alias des @ renommés suivis (comme `serie`) ;
+    la clé nettoyée elle-même sans alias ou sans séries. Lecture seule. Metricool garde l'ANCIEN @ d'un compte renommé dont le
+    jeton a expiré : metricool_comptes retrouve ainsi sa ligne du classeur, qui porte le nouveau."""
+    k = _cle(cle)
+    if not k or not actif():
+        return k
+    return _resoudre(_charger(), k)
+
+
 def id_instagram(cle) -> str:
     """09/10 (revue) : l'id Instagram que les relevés Apify ont posé sur la série du compte ('' si aucun) — sans copie de la série.
     Le scan s'en sert pour ne jamais juger un compte sur les chiffres d'un autre (même @, autre compte)."""
