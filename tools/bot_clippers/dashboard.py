@@ -74,11 +74,35 @@ l'onglet Build capacity (capacite) ne suivent plus le Dashboard : passage comple
   - la relecture notée traitée par la garde mais pas encore finie (`leger_iso` posé à la fin) est dite « relecture de H h en
     cours », jamais « prochain relevé au passage complet du matin » (_relecture_en_cours).
 
+11/10 (lot L8 de la revue du recrutement : Gaëtan veut un Dashboard « hyper complet » — compte, username, followers, clics,
+Reels hier et 7 jours, tendance —, mis à jour le plus souvent possible sous 25 $ par mois) :
+  - colonnes, dans l'ordre de lecture au téléphone (Gérant et @ figés) : ETAT, Followers, « Courbe 7 j » (un relevé par jour en
+    texte ▁▂▃▅▇, jamais une formule), Δ 7 j en %, Δ 24 h, « Reels auj. » (l'en-tête porte l'heure du dernier relevé Instagram du
+    jour), Reels hier, Reels 7 j, Δ Reels, « Dernier Reel » (« il y a N j », à la place de la vue médiane), vues, clics du jour,
+    d'hier, 7 j, Δ clics, « Clics paie » (visites payées de la période de paie en cours, jusqu'à maintenant), Lien, Mesure, Relevé.
+    La colonne Utilisation disparaît : une Utilisation inhabituelle (« à mettre Metricool ») est dite dans Mesure. Largeur totale :
+    1 484 px au lieu de 1 528 ;
+  - un sous-total sous CHAQUE clipper, même à un seul compte : l'étape du parcours dans ETAT (« 2/4 Reels → compte 2 », lu dans
+    parcours.json avec parcours.reels_pour, aucun appel), ses visites payées de la période dans « Clics paie » (paie_clics.payees
+    du lot L11, sinon la somme de ses liens) et « dû X $ (paie du JJ/MM) » en tête de Mesure, « au fixe » pour un clipper au fixe ;
+  - « Clippers sans compte », par créatrice : signés au registre, aucune ligne du classeur à leur nom (identifiants d'abord, prénom
+    seulement s'il est sans homonyme), avec leur étape du parcours — le goulot du stock de lignes devient visible ;
+  - section ÉQUIPES sous CONTRÔLE (equipes_tl.calculer de la période de paie en cours, une ligne par équipe : VA à 500 ou plus k/n,
+    équipe x / 3 000, TL hors du total, primes en cours, jours non relevés ; la période close : ses primes figées) ;
+  - titre : « Instagram 09h05 · prochaine relecture vers 16 h » (ou « relecture de 14 h en cours », « prochain relevé au passage du
+    matin »). Une relecture sautée par la trajectoire est le fonctionnement prévu (lot L7) : plus de ligne d'alerte. Il n'en reste
+    que deux pour Apify : « ⛔ » au plafond, « ⚠ … réserve entamée » quand les passages du matin et la file du parcours ne tiennent
+    plus (etat_budget du lot L7, lu avec .get) ;
+  - aucune somme partielle muette : sous-totaux, bandeaux et TOTAL disent aussi « Δ 24 h », « Δ 7 j », « Reels auj. », « Reels
+    hier » et « clics paie » partiels.
+
 Les modules des autres lots (series, controle, metricool_comptes, paie_clics.clics_lien / clics_aujourdhui) sont importés s'ils
 sont là : s'il en manque un, sa section dit « source indisponible », ou les chiffres viennent des cellules du classeur (repli
-marqué), et les clics d'un lien sont recalculés depuis clics.json « jours » selon la même règle que le contrat C2.
+marqué), et les clics d'un lien sont recalculés depuis clics.json « jours » selon la même règle que le contrat C2. parcours et
+equipes_tl sont importés au premier usage (ils importent discord) ; sans eux, l'étape et la section ÉQUIPES restent vides.
 Dépendances (`configurer`) : lire_json, ecrire_json, FICHIER (état du Dashboard : empreinte, version, lignes écrites),
-FICHIER_ETATS, FICHIER_CLICS, FICHIER_EQUIPES, FICHIER_ONBOARDING ; facultatifs membre_par_id, normaliser."""
+FICHIER_ETATS, FICHIER_CLICS, FICHIER_EQUIPES, FICHIER_ONBOARDING ; facultatifs membre_par_id, normaliser, FICHIER_PARCOURS (sinon
+parcours.json relu par le module parcours), FICHIER_SORTIS (rien de plus : equipes_tl a ses propres dépendances)."""
 import asyncio
 import calendar
 import hashlib
@@ -112,8 +136,9 @@ except ImportError:
 journal = logging.getLogger("dashboard")
 
 ONGLET = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
-DASHBOARD_VERSION = 11                 # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
+DASHBOARD_VERSION = 12                 # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
                                        # 11 (revue DASH) : lignes d'alerte « ⛔ » sous le titre, règle de couleur « ⛔ »
+                                       # 12 (11/10, lot L8) : colonnes « hyper complètes », ÉQUIPES, clippers sans compte
 ACTIF = os.environ.get("DASHBOARD_BOUCLE", "1").strip() != "0"
 INTERVALLE_S = 900                     # la boucle regarde toutes les 15 minutes
 ECART_MIN_S = 14 * 60                  # deux réécritures non forcées : au moins 14 minutes d'écart
@@ -132,17 +157,24 @@ CLICS_VIEUX_MIN = 45                   # clics du jour relevés il y a plus long
                                        # clics relit chaque lien toutes les 15 à 30 min, plus le décalage de la boucle du Dashboard)
 METRICOOL_VIEUX_J = 3                  # données Metricool plus vieilles (J-3 et au-delà) : « ⚠ » dans la fraîcheur
 ATTENTE_PASSAGE_S = 1800               # réécriture différée : attendre au plus 30 min la fin du passage complet
-MARGE_PREVISION_USD = 0.011            # 10/10 (passe 3) : « sera sautée (prévision) » au-delà des arrondis au centime de l'état publié
 LEGER_EN_COURS_MIN = 30                # 10/10 (reprise) : heure de relecture traitée il y a moins longtemps, rien relu depuis : en cours
 
-COLONNES = ["Gérant", "@", "Utilisation", "ETAT", "Followers", "Δ 24 h", "Δ 7 j", "Reels hier", "Reels 7 j", "Δ Reels",
-            "Vues 7 j (48 h)", "Δ vues", "Vue médiane", "Lien", "Clics auj.", "Clics hier", "Clics 7 j", "Δ clics", "Mesure", "Relevé"]
+# 11/10 (lot L8) : l'ordre de lecture au téléphone — après les deux colonnes figées, l'état, les followers et leur tendance, les
+# Reels, puis les clics ; Lien, Mesure et Relevé (le détail) à droite. « Reels auj. » prend l'heure du dernier relevé Instagram du
+# jour dans l'en-tête de chaque bloc (_entete). Largeur totale 1 484 px (1 528 avant), aucune colonne d'avant élargie sauf ETAT, qui
+# porte aussi l'étape du parcours sur le sous-total d'un clipper.
+COLONNES = ["Gérant", "@", "ETAT", "Followers", "Courbe 7 j", "Δ 7 j", "Δ 24 h", "Reels auj.", "Reels hier", "Reels 7 j", "Δ Reels",
+            "Dernier Reel", "Vues 7 j (48 h)", "Δ vues", "Clics auj.", "Clics hier", "Clics 7 j", "Δ clics", "Clics paie", "Lien",
+            "Mesure", "Relevé"]
 NB = len(COLONNES)
-(C_GERANT, C_HANDLE, C_UTIL, C_ETAT, C_FOL, C_DF24, C_DF7, C_RH, C_R7, C_DR, C_V7, C_DV, C_VMED, C_LIEN, C_CA, C_CH, C_C7, C_DC,
- C_MES, C_REL) = range(NB)
-LARGEURS = (92, 136, 86, 72, 76, 62, 62, 54, 54, 58, 74, 66, 64, 128, 56, 56, 60, 66, 120, 86)
-COLS_NOMBRES = (C_FOL, C_RH, C_R7, C_V7, C_VMED, C_CA, C_CH, C_C7)
+(C_GERANT, C_HANDLE, C_ETAT, C_FOL, C_COURBE, C_DF7, C_DF24, C_RA, C_RH, C_R7, C_DR, C_DREEL, C_V7, C_DV, C_CA, C_CH, C_C7, C_DC,
+ C_CP, C_LIEN, C_MES, C_REL) = range(NB)
+LARGEURS = (92, 136, 112, 66, 56, 56, 52, 50, 50, 50, 50, 58, 62, 56, 50, 50, 56, 56, 56, 92, 106, 72)
+COLS_NOMBRES = (C_FOL, C_RA, C_RH, C_R7, C_V7, C_CA, C_CH, C_C7, C_CP)
 COLS_DELTAS = (C_DF24, C_DF7, C_DR, C_DV, C_DC)
+COURBE = "▁▂▃▄▅▆▇█"                    # 11/10 (lot L8) : la courbe des followers en texte (aucune formule : locale française)
+COURBE_JOURS = 7
+DERNIER_REEL_J = 40                    # les séries gardent 40 jours de Reels : « aucun » ne remonte pas plus loin
 
 FAMILLES = {"C1": "Compte créé sans Gérant", "C2": "Gérant fantôme", "C3": "Gérant ambigu (homonymes)",
             "C4": "Gérant ≠ fiche d'onboarding", "C5": "Lien dû manquant", "C6": "Cellule Lien GAML fausse",
@@ -167,10 +199,24 @@ _deps: dict = {}
 _verrou = None
 _PARIS = None
 _differees: set = set()                # réécritures forcées qui attendent la fin du passage complet (ecrire_apres_passage)
+_MODULES: dict = {}                    # 11/10 (lot L8) : parcours et equipes_tl, importés au premier usage (None : absent)
 
 
 def configurer(deps: dict):
     _deps.update(deps or {})
+
+
+def _module(nom: str):
+    """11/10 (lot L8) : `parcours` ou `equipes_tl`, importé au premier usage — tous deux importent discord, et parcours importe
+    paie_clics et codes_2fa : à l'import de ce module, ils allongeraient les essais et créeraient des boucles d'import. None si le
+    module manque ou ne s'importe pas (l'étape du parcours et la section ÉQUIPES le disent)."""
+    if nom not in _MODULES:
+        try:
+            _MODULES[nom] = __import__(nom)
+        except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le Dashboard
+            journal.warning("Dashboard : module %s indisponible (%s)", nom, type(erreur).__name__)
+            _MODULES[nom] = None
+    return _MODULES[nom]
 
 
 def actif() -> bool:
@@ -488,6 +534,20 @@ def _clics_aujourdhui(d: dict, lid: str, j0: date) -> tuple:
     return int(n), str(t or "")
 
 
+def periode_paie(j: date) -> tuple:
+    """11/10 (lot L8) : (premier jour, dernier jour, jour de paie) de la période de paie qui contient `j` — la règle de
+    paie_clics.periode : du 5 au 19 (payée le 20), du 20 au 4 (payée le 5)."""
+    if j.day <= 4:
+        a, m = (j.year - 1, 12) if j.month == 1 else (j.year, j.month - 1)
+        debut, fin = date(a, m, 20), date(j.year, j.month, 4)
+    elif j.day <= 19:
+        debut, fin = date(j.year, j.month, 5), date(j.year, j.month, 19)
+    else:
+        a, m = (j.year + 1, 1) if j.month == 12 else (j.year, j.month + 1)
+        debut, fin = date(j.year, j.month, 20), date(a, m, 4)
+    return debut, fin, fin + timedelta(days=1)
+
+
 # ------------------------------------------------------------------ contexte d'un calcul
 class _Ctx:
     def __init__(self, e: dict, maintenant: datetime):
@@ -524,6 +584,10 @@ class _Ctx:
         # un membre SIGNÉ (registre) et présent ; sans registre ou sans liste des membres, personne n'est résolu ni dit parti
         self.resolution = bool(self.registre) and bool(self.membres)
         self.signes = {uid for uid in self.membres if uid in self.registre}
+        # 11/10 (lot L8) : parcours.json (étape de chaque clipper) et la période de paie en cours (Clics paie, dû)
+        self.parcours = {str(k): v for k, v in (e.get("parcours") or {}).items() if isinstance(v, dict)} \
+            if isinstance(e.get("parcours"), dict) else {}
+        self.paie_debut, self.paie_fin, self.jour_paie = periode_paie(self.j0)
 
     def cat(self, lid) -> str:
         if lid not in self._cats:
@@ -640,8 +704,38 @@ class _Ctx:
                 r["depuis"] = date.fromisoformat(dep)
             except ValueError:
                 pass
+        r["paie"], r["paie_manque"] = self._paie_lien(lid, auj, dep)
         self._clics[lid] = r
         return r
+
+    def _paie_lien(self, lid, auj, dep: str) -> tuple:
+        """11/10 (lot L8) : (visites payées de la période de paie en cours jusqu'à maintenant, jours non relevés) — les jours complets
+        de `jours` (du début de la période, ou de la reprise du lien `depuis`, à hier) plus le jour en cours (`aujourdhui`). Un jour
+        non relevé n'est jamais un 0 caché : la somme des jours lus est gardée et le jour manquant est rendu, pour être dit (« clics
+        paie : 1 j non relevé »), comme la liste de paie marque une ligne « provisoire ». (None, ∅) : rien de lu sur la période."""
+        debut = self.paie_debut
+        try:
+            if dep and date.fromisoformat(dep) > debut:
+                debut = date.fromisoformat(dep)
+        except ValueError:
+            pass
+        jours = ((self.clics.get("jours") or {}).get(str(lid)) or {})
+        jours = jours if isinstance(jours, dict) else {}
+        info = self.liens.get(str(lid)) or {}
+        # la règle de paie_clics.jours_manquants_paie : un lien effacé de GAML ou introuvable aujourd'hui (404) n'est pas attendu
+        attendu = not info.get("supprime_gaml") and str(info.get("introuvable") or "") != self.j0.isoformat()
+        total, lus, manque, j = 0, 0, set(), debut
+        while j <= self.hier:
+            v = jours.get(j.isoformat())
+            p = v.get("payes") if isinstance(v, dict) and not v.get("erreur") else None
+            if isinstance(p, int) and not isinstance(p, bool):
+                total, lus = total + p, lus + 1
+            elif attendu:
+                manque.add(j.isoformat())
+            j += timedelta(days=1)
+        if auj is not None:
+            total, lus = total + int(auj), lus + 1
+        return (total if lus else None), manque
 
     def bio_urls(self, cle) -> list:
         b = self.bios.get(cle) if isinstance(self.bios.get(cle), dict) else {}
@@ -661,8 +755,9 @@ def _clics_de(ctx: _Ctx, lids) -> dict:
     lids = list(dict.fromkeys(lids))
     cs = [ctx.clics_lien(l) for l in lids]
     out = {}
-    for k in ("auj", "hier", "c7", "c7p"):
+    for k in ("auj", "hier", "c7", "c7p", "paie"):
         out[k], out[k + "_n"], out[k + "_tot"] = _somme(c[k] for c in cs)
+    out["paie_manque"] = set().union(*(c.get("paie_manque") or set() for c in cs)) if cs else set()   # 11/10 (lot L8)
     complet = lids and all(c["c7"] is not None and c["c7p"] is not None for c in cs)
     out["delta"] = _delta_pct(out["c7"], out["c7p"]) if complet else ""
     out["comparable"] = bool(complet)
@@ -674,18 +769,25 @@ def _clics_de(ctx: _Ctx, lids) -> dict:
     return out
 
 
-def _notes_clics(ctx: _Ctx, k: dict, heure: bool = False) -> list:
+def _notes_clics(ctx: _Ctx, k: dict, heure: bool = False, paie: bool = False) -> list:
     """09/10 (revue DASH : « sommes partielles affichées comme complètes ») : ce qu'une somme de clics ne couvre pas, pour la colonne
     Mesure — « clics 7 j : 1/2 liens relevés », « clics hier : 1/2 », « clics du jour : 3/9 liens relus », « clics depuis le 06/10
     (lien repris) » ; `heure` : l'heure du relevé du jour le plus ancien s'il a plus de CLICS_VIEUX_MIN minutes (« clics du jour
-    à 09h00 »)."""
+    à 09h00 »). 11/10 (lot L8) : `paie` (ligne qui affiche Clics paie) — « clics paie : 1/2 liens relevés », « clics paie : 2 j non
+    relevés »."""
     if not k:
         return []
     notes = []
-    for cle, nom, verbe in (("c7", "clics 7 j", "relevés"), ("hier", "clics hier", "relevés"), ("auj", "clics du jour", "relus")):
+    for cle, nom, verbe in (("c7", "clics 7 j", "relevés"), ("hier", "clics hier", "relevés"), ("auj", "clics du jour", "relus"),
+                            ("paie", "clics paie", "relevés")):
+        if cle == "paie" and not paie:
+            continue
         n, tot = k.get(cle + "_n"), k.get(cle + "_tot")
         if tot and n and n < tot:                                        # 0 lien mesuré : la cellule est vide, elle le dit déjà
             notes.append(f"{nom} : {n}/{tot} lien{'s' if tot > 1 else ''} {verbe if tot > 1 else verbe[:-1]}")
+    if paie and k.get("paie") is not None and k.get("paie_manque"):
+        m = len(k["paie_manque"])
+        notes.append(f"clics paie : {m} j non relevé{'s' if m > 1 else ''}")
     if k.get("depuis"):
         if k.get("n_liens", 1) <= 1:
             notes.append(f"clics depuis le {k['depuis'].strftime('%d/%m')} (lien repris)")
@@ -707,7 +809,7 @@ def _vues_mesurees(L: dict):
     return (L["vues"][0] if L.get("vues") else None), False
 
 
-def _notes_sommes(lignes: list) -> list:
+def _notes_sommes(lignes: list, deltas: bool = False) -> list:
     """09/10 (revue DASH) : ce que les sommes Followers, Reels 7 j et Vues d'un groupe ne couvrent pas (« followers 2/3 ») —
     restreints, privés, non lus et Metricool compris ; les comptes « à créer » ne comptent pas.
     10/10 (revue DASH, restant 1 : « somme des vues partielle affichée sans mention quand aucun compte n'est mesuré en entier ») :
@@ -717,13 +819,28 @@ def _notes_sommes(lignes: list) -> list:
     if not base:
         return []
     notes = []
-    for nom, mesure, valeur in (("followers", lambda L: L.get("followers") is not None, lambda L: L.get("followers")),
-                                ("Reels 7 j", lambda L: L.get("r7") is not None, lambda L: L.get("r7")),
-                                ("vues", lambda L: _vues_mesurees(L)[1], lambda L: _vues_mesurees(L)[0])):
+
+    def noter(nom, mesure, valeur):
         n = sum(1 for L in base if mesure(L))
         somme_vide = all(valeur(L) is None for L in base)                # la cellule de la somme reste vide : elle le dit déjà
         if n < len(base) and (n > 0 or not somme_vide):
             notes.append(f"{nom} {n}/{len(base)}")
+
+    noter("followers", lambda L: L.get("followers") is not None, lambda L: L.get("followers"))
+    # 11/10 (lot L8 : « aucune somme partielle muette ») : les écarts de followers additionnés (Δ 24 h) ou rapportés (Δ 7 j en %)
+    # sur une partie seulement des comptes dont les followers sont lus ; « Δ followers k/n » quand les deux couvrent les mêmes.
+    # `deltas` : seulement sur une ligne qui affiche ces écarts (le sous-total ; ni le bandeau ni le TOTAL)
+    d = [L for L in base if L.get("followers") is not None]
+    n24, n7 = (sum(1 for L in d if L.get(k) is not None) for k in ("df24", "df7"))
+    if deltas and d and (0 < n24 < len(d) or 0 < n7 < len(d)):
+        if n24 == n7:
+            notes.append(f"Δ followers {n7}/{len(d)}")
+        else:
+            notes += [f"{nom} {n}/{len(d)}" for nom, n in (("Δ 7 j", n7), ("Δ 24 h", n24)) if 0 < n < len(d)]
+    noter("Reels auj.", lambda L: L.get("rauj") is not None, lambda L: L.get("rauj"))
+    noter("Reels hier", lambda L: L.get("rh") is not None, lambda L: L.get("rh"))
+    noter("Reels 7 j", lambda L: L.get("r7") is not None, lambda L: L.get("r7"))
+    noter("vues", lambda L: _vues_mesurees(L)[1], lambda L: _vues_mesurees(L)[0])
     return notes
 
 
@@ -801,6 +918,73 @@ def _releve(ctx: _Ctx, L: dict) -> str:
     return ""
 
 
+def _texte_jours(ctx: _Ctx, quand: datetime) -> str:
+    """« aujourd'hui », « hier », « il y a N j » (jours de Paris)."""
+    n = (ctx.j0 - _paris(quand).date()).days
+    return "aujourd'hui" if n <= 0 else ("hier" if n == 1 else f"il y a {n} j")
+
+
+def _dernier_reel(ctx: _Ctx, serie: dict) -> str:
+    """11/10 (lot L8, la colonne de l'ancien Dashboard qui dit qui a arrêté de poster) : « aujourd'hui », « hier », « il y a N j »
+    depuis le Reel le plus récent de la série (toutes sources). Sans aucun Reel : « aucun » si un relevé lisible voit tout
+    l'historique du compte, « aucun en N j » sinon (N : les jours que les relevés lisibles couvrent, 40 au plus) ; '' sans relevé
+    lisible (privé, restreint, jamais lu) — jamais « aucun » pour un compte qu'on ne voit pas."""
+    pubs = [_instant(x.get("publie")) for x in (serie.get("reels") or {}).values() if isinstance(x, dict)]
+    pubs = [p for p in pubs if p is not None and p <= ctx.maintenant + timedelta(minutes=5)]
+    if pubs:
+        return _texte_jours(ctx, max(pubs))
+    lisibles = [r for r in serie.get("releves") or [] if isinstance(r, dict) and _instant(r.get("t"))
+                and _instant(r["t"]) <= ctx.maintenant and not r.get("restreint") and not r.get("prive") and r.get("reels_lus", True)]
+    if not lisibles:
+        return ""
+    if any("couvre" in r and r.get("couvre") == "" for r in lisibles):
+        return "aucun"
+    debuts = []
+    for r in lisibles:
+        t = _instant(r["t"])
+        c = _instant(r.get("couvre")) if r.get("couvre") else None
+        debuts.append(min(c, t) if c is not None else (t if "couvre" in r else t - timedelta(hours=48)))
+    d0 = max(min(debuts), ctx.maintenant - timedelta(days=DERNIER_REEL_J))
+    n = max(1, (ctx.j0 - _paris(d0).date()).days)
+    return f"aucun en {n} j"
+
+
+def _courbe(ctx: _Ctx, serie: dict) -> str:
+    """11/10 (lot L8) : les followers des COURBE_JOURS derniers jours (Paris), un caractère par jour — le dernier relevé du jour,
+    de ▁ (le plus bas de la semaine) à █ (le plus haut), ▄ partout s'ils ne bougent pas, « · » un jour sans relevé ; '' avec moins
+    de deux jours lus. Une seule source, celle du relevé le plus récent (comme les écarts : jamais un saut entre deux outils). Un
+    relevé Metricool est une photo de la nuit : il compte pour la veille de son heure."""
+    rels = [r for r in serie.get("releves") or [] if isinstance(r, dict) and _instant(r.get("t")) and _instant(r["t"]) <= ctx.maintenant
+            and isinstance(r.get("followers"), int) and not isinstance(r.get("followers"), bool)]
+    if not rels:
+        return ""
+    src = max(rels, key=lambda r: _instant(r["t"])).get("source")
+    par_jour = {}
+    for r in sorted((r for r in rels if r.get("source") == src), key=lambda r: _instant(r["t"])):
+        t = _paris(_instant(r["t"])) - (timedelta(minutes=1) if src == "metricool" else timedelta(0))
+        par_jour[t.date()] = r["followers"]
+    vals = [par_jour.get(ctx.j0 - timedelta(days=i)) for i in range(COURBE_JOURS - 1, -1, -1)]
+    lus = [v for v in vals if v is not None]
+    if len(lus) < 2:
+        return ""
+    lo, hi = min(lus), max(lus)
+
+    def car(v):
+        if v is None:
+            return "·"
+        if hi == lo:
+            return COURBE[3]
+        return COURBE[int((v - lo) * (len(COURBE) - 1) / (hi - lo) + 0.5)]
+    return "".join(car(v) for v in vals)
+
+
+def _delta_followers_pct(followers, delta) -> str:
+    """11/10 (lot L8) : l'écart de followers sur 7 jours en % du chiffre d'il y a 7 jours (« ▲ 5 % », « ▼ 2 % ») ; '' si l'un manque."""
+    if followers is None or delta is None:
+        return ""
+    return _delta_pct(followers, followers - delta)
+
+
 def _chiffres_compte(ctx: _Ctx, L: dict):
     """Followers, écarts, Reels, vues : la série d'abord (contrat C1), les cellules du classeur en repli (jamais 0 par défaut)."""
     c, cle = L["c"], L["cle"]
@@ -855,6 +1039,12 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
     if r7 is None and lu_du_jour:
         r7 = _entier(c.get("reels_7j"))
     L["rh"], L["r7"] = rh, r7
+    # 11/10 (lot L8) : Reels publiés aujourd'hui (minuit de Paris → maintenant), exacts jusqu'au dernier relevé lisible du jour
+    # (series, période « jusqu'à maintenant ») ; vide si le compte n'a pas été relu aujourd'hui. Le dernier Reel et la courbe des
+    # followers sur 7 jours, lus dans la même série : aucun appel
+    L["rauj"] = _serie("reels_publies", cle, m0, ctx.maintenant) if ctx.seriesok else None
+    L["dernier_reel"] = _dernier_reel(ctx, L["serie"])
+    L["courbe"] = _courbe(ctx, L["serie"])
     # vues à âge fixe : 09/10 (revue DASH : un seul passage manqué retirait un Reel de la somme, faux « ▼ 33 % » en tête des
     # baisses) — une période n'est « complète » que si chaque Reel publié (reels_publies) est mesuré à 48 h (2e valeur du C1) ;
     # Δ vues et tendance seulement entre deux périodes complètes, sinon la Mesure dit « vues 2/3 Reels ».
@@ -977,6 +1167,22 @@ def _ligne_vide() -> list:
     return [""] * NB
 
 
+def _dernier_instagram(ctx: _Ctx):
+    """L'heure du dernier relevé Instagram (passage complet ou relecture), None si jamais lu."""
+    ts = [t for t in (_instant(x) for x in ((ctx.dp or {}).get("t"), ctx.etats.get("leger_iso"), ctx.etats.get("scan_iso"))) if t]
+    return max(ts) if ts else None
+
+
+def _entete(ctx: _Ctx) -> list:
+    """11/10 (lot L8) : l'en-tête des colonnes d'un bloc ; « Reels auj. (HHhMM) » porte l'heure du dernier relevé Instagram du jour
+    (Paris) — les Reels du jour sont comptés jusque-là (la colonne Relevé donne l'heure de chaque ligne)."""
+    r = list(COLONNES)
+    t = _dernier_instagram(ctx)
+    if t is not None and _paris(t).date() == ctx.j0:
+        r[C_RA] = f"{COLONNES[C_RA]} ({_hm(t, ctx.j0)})"
+    return r
+
+
 def construire(e: dict, maintenant: datetime = None) -> dict:
     """Pur (lectures de séries comprises) : les lignes de l'onglet, le type de chaque ligne (pour la mise en forme), les fusions,
     l'empreinte du contenu (sans l'heure du titre). Entrées : comptes, etats, clics, registre, onboarding, membres, masques,
@@ -1049,6 +1255,11 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
         L["clics"] = _clics_de(ctx, L["lids"]) if L["lids"] and not L.get("masque") else None
     lids_lignes = sorted(lid for lid, L in porte_par.items() if not L.get("masque"))
     lids_masques = sorted(lid for lid, L in porte_par.items() if L.get("masque"))
+    # 11/10 (lot L8) : les signés sans aucune ligne au classeur, par créatrice (une créatrice sans ligne a quand même son bloc)
+    sans_compte = _sans_compte(ctx, tous_l)
+    for cr in sans_compte:
+        if cr and cr not in ordre_cr:
+            ordre_cr.append(cr)
 
     # -------- liens restants, par créatrice : pages, libérés / hors clipping, attribués sans ligne ; liens des Gérants masqués
     restes = {}
@@ -1090,11 +1301,17 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
         ajouter([quoi, "", texte], "alerte", gravite=gravite)
     ajouter(["", "", "Clics = visites payables GAML (pays francophones) · Vues = vues Instagram des Reels, relevées 48 h après la "
              "publication · cellule vide = pas mesuré (jamais 0 par défaut) · ▲ ▼ = contre les 7 jours d'avant · Mesure = d'où vient "
-             "le chiffre (« k/n » : somme qui ne couvre pas tout)"], "legende")
+             "le chiffre (« k/n » : somme qui ne couvre pas tout) · Clics paie = visites payées depuis le "
+             f"{ctx.paie_debut:%d/%m} (paie du {ctx.jour_paie:%d/%m}) · sous-total d'un clipper : son étape dans ETAT, son dû dans "
+             "Mesure"], "legende")
     ajouter([], "vide")
 
     # -------- CONTRÔLE
     n_anomalies = _section_controle(ajouter, ctx, e, comptes, lids_lignes, lids_masques, tout)
+    ajouter([], "vide")
+
+    # -------- ÉQUIPES (11/10, lot L8)
+    _section_equipes(ajouter, ctx)
     ajouter([], "vide")
 
     # -------- TENDANCES
@@ -1103,16 +1320,20 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
 
     # -------- COMPTES par créatrice
     tot = {"comptes": 0, "lignes": [], "lids": []}
-    for cr in ordre_cr + ([""] if restes.get("") else []):
+    entete = _entete(ctx)
+    for cr in ordre_cr + ([""] if restes.get("") or sans_compte.get("") else []):
         lignes_cr = [L for L in comptes_l if L["cr"] == cr] if cr else []
         r_cr = restes.get(cr, vide_r())
-        if cr and not lignes_cr and not any(r_cr.values()) and not any((hors.get(cr) or {}).values()):
+        sans = sans_compte.get(cr) or []
+        if cr and not lignes_cr and not any(r_cr.values()) and not any((hors.get(cr) or {}).values()) and not sans:
             continue
-        _bloc_creatrice(ajouter, ctx, cr, lignes_cr, r_cr, hors.get(cr) or {}, tot)
+        _bloc_creatrice(ajouter, ctx, cr, lignes_cr, r_cr, hors.get(cr) or {}, tot, sans, entete)
         ajouter([], "vide")
     r = _ligne_vide()
     r[C_GERANT], r[C_HANDLE] = "TOTAL", f"{tot['comptes']} comptes"
     r[C_FOL] = _v(_somme(L["followers"] for L in tot["lignes"])[0])
+    r[C_RA] = _v(_somme(L.get("rauj") for L in tot["lignes"])[0])       # 11/10 (lot L8)
+    r[C_RH] = _v(_somme(L["rh"] for L in tot["lignes"])[0])
     r[C_R7] = _v(_somme(L["r7"] for L in tot["lignes"])[0])
     r[C_V7] = _v(_somme(_vues_mesurees(L)[0] for L in tot["lignes"])[0])
     if tout:
@@ -1169,9 +1390,16 @@ def budget_apify(b: dict, maintenant: datetime = None):
     if traj is None:
         traj = budget * min(1.0, max(0.0, (t - d0).total_seconds() / (d1 - d0).total_seconds()))
     coupe = b.get("coupe") if isinstance(b.get("coupe"), bool) else None
+    # 11/10 (lot L8, contrat du lot L7, lu avec .get : un état publié avant L7 n'a ni réserves ni « reserve_entamee ») : les réserves
+    # des passages du matin et de la file du parcours, que la garde laisse entières avant toute relecture
+    rm, rp = _montant(b.get("reserve_matin_usd")), _montant(b.get("reserve_parcours_usd"))
+    jr = b.get("jours_restants")
     return {"usage": usage, "budget": budget, "trajectoire": traj, "coupe": coupe, "atteint": usage >= budget - 1e-9,
             "leger_ok": b.get("leger_ok", b.get("ok")), "debut": d0, "fin": d1, "t": t, "source": str(b.get("source") or ""),
-            "cout_leger": _montant(b.get("cout_leger_usd"))}                  # facultatif (lot SCAN) : coût d'une relecture légère
+            "cout_leger": _montant(b.get("cout_leger_usd")),                  # facultatif (lot SCAN) : coût d'une relecture légère
+            "reserves": None if rm is None and rp is None else (rm or 0.0) + (rp or 0.0),
+            "reserve_entamee": b.get("reserve_entamee") is True,
+            "jours_restants": jr if isinstance(jr, int) and not isinstance(jr, bool) else None}
 
 
 def _reglages_legers() -> tuple:
@@ -1215,27 +1443,6 @@ def _legers_du_jour(ctx) -> tuple:
     return j, sorted({h for h in vues if isinstance(h, int) and not isinstance(h, bool) and 0 <= h <= 23})
 
 
-def _relecture_sautee(ctx) -> bool:
-    """10/10 (passe 3 du lot DASH : « relectures légères sautées » s'affichait d'après `leger_ok`, une prédiction calculée MAINTENANT
-    — presque toujours fausse juste après une relecture faite : 1 086 quarts d'heure à tort sur un mois simulé, 100 sauts réels
-    tus) : vrai seulement sur un FAIT. La garde du lot SCAN a sauté une relecture légère aujourd'hui (Paris) pour le budget
-    (`alertes_legeres["budget"]` = ce jour, posé par passage_leger_si_du au moment du saut) ET Instagram n'a pas été relu depuis :
-    ni relecture légère (`leger_iso`) ni passage complet (`scan_iso`) depuis la dernière heure de relecture traitée aujourd'hui (le
-    passage complet compte jusqu'à LEGER_APRES_COMPLET_H heures avant : la garde juge alors la relecture inutile)."""
-    al = ctx.etats.get("alertes_legeres") if isinstance(ctx.etats.get("alertes_legeres"), dict) else {}
-    j, traitees = _legers_du_jour(ctx)
-    if str(al.get("budget") or "") != j.isoformat():
-        return False
-    _, apres, _ = _reglages_legers()
-    depuis = _a_heure(j, traitees[-1]) if traitees else _minuit(j)
-    leger, complet = _instant(ctx.etats.get("leger_iso")), _instant(ctx.etats.get("scan_iso"))
-    if leger is not None and leger >= depuis:                            # relu par une relecture légère depuis
-        return False
-    # ou par un passage complet : après l'heure traitée, ou moins de LEGER_APRES_COMPLET_H heures avant (strict, comme la garde :
-    # la relecture était alors « inutile », pas sautée pour le budget)
-    return not (complet is not None and complet > depuis - timedelta(hours=apres))
-
-
 def _trajectoire_a(st: dict, t: datetime) -> float:
     """La trajectoire linéaire du budget à l'instant `t` : celle du relevé `st` (budget_apify) avancée de budget × (t − heure du
     relevé) ÷ durée du cycle, entre 0 et le budget."""
@@ -1245,25 +1452,59 @@ def _trajectoire_a(st: dict, t: datetime) -> float:
     return min(st["budget"], max(0.0, st["trajectoire"] + st["budget"] * (t - st["t"]).total_seconds() / duree))
 
 
-def _prochaine_relecture(ctx):
-    """10/10 (passe 3) : (heure, instant) de la prochaine relecture légère prévue aujourd'hui (Paris) que la garde n'a pas encore
-    traitée — une heure déjà passée mais pas traitée part tout de suite ; None : aucune (ETATS_HEURES_LEGERES vide, toutes
-    traitées), ou un passage complet récent la rendra inutile (la garde la saute sans payer, pas pour le budget) — fait, ou à venir :
-    le passage complet du jour pas encore passé, la relecture tombe moins de LEGER_APRES_COMPLET_H heures après son heure."""
-    heures, apres, h_complet = _reglages_legers()
-    j, traitees = _legers_du_jour(ctx)
-    h = next((h for h in heures if h not in traitees), None)
-    if h is None:
-        return None
-    t_r = max(_a_heure(j, h), ctx.maintenant)
+def _relecture_inutile(ctx, t_r: datetime) -> bool:
+    """Une relecture légère lancée à `t_r` que la garde jugera inutile (« recent ») : un passage complet de moins de
+    LEGER_APRES_COMPLET_H heures avant elle, fait ou à venir (celui du jour pas encore passé, la relecture tombant dans ses
+    LEGER_APRES_COMPLET_H heures). La garde la note traitée sans rien lire ni payer."""
+    _, apres, h_complet = _reglages_legers()
     complet = _instant(ctx.etats.get("scan_iso"))
     if complet is not None and timedelta(0) <= t_r - complet < timedelta(hours=apres):
-        return None
+        return True
     jour_utc = t_r.astimezone(timezone.utc).date()
     prevu = datetime.combine(jour_utc, dtime(h_complet), tzinfo=timezone.utc)   # le passage complet du matin (UTC)
-    if (complet is None or complet.astimezone(timezone.utc).date() < jour_utc) and prevu <= t_r < prevu + timedelta(hours=apres):
+    return (complet is None or complet.astimezone(timezone.utc).date() < jour_utc) and prevu <= t_r < prevu + timedelta(hours=apres)
+
+
+def _prochaine_relecture(ctx, st: dict = None):
+    """11/10 (lot L8, titre « Instagram 09h05 · prochaine relecture vers 16 h ») : l'heure de la prochaine relecture légère
+    d'aujourd'hui (Paris) que la garde du budget laissera partir, d'après l'état publié ; None si aucune (toutes traitées, Apify
+    coupé, ou réserves des passages du matin et de la file du parcours qui ne laissent plus rien). Une heure déjà passée et pas
+    encore traitée part tout de suite ; une heure que le passage complet rend inutile est sautée sans compter. Le budget est jugé
+    comme la garde : la dépense sûre (_usage_minorant, qui ne compte jamais deux fois un appel déjà vu par l'API Apify) plus le coût
+    d'une relecture, sous la trajectoire du budget à cette heure-là, et (lot L7) sous le budget moins les réserves. C'est une
+    estimation (« vers ») : une dépense d'ici là, une file du parcours qui grandit, et la relecture glisse à l'heure suivante."""
+    heures, _, _ = _reglages_legers()
+    j, traitees = _legers_du_jour(ctx)
+    if st is not None and (st.get("coupe") or st.get("atteint")):
         return None
-    return h, t_r, _a_heure(j, h)
+    usage = _usage_minorant(ctx, st) if st is not None else 0.0
+    # le coût que la garde comptera : celui du registre (`apify_local`, non arrondi, redemandes comprises au lot L7), sinon le publié
+    loc = ctx.etats.get("apify_local") if isinstance(ctx.etats.get("apify_local"), dict) else {}
+    cout = _montant(loc.get("cout_leger_usd"))
+    cout = cout if cout is not None else ((st.get("cout_leger") or 0.0) if st is not None else 0.0)
+    for h in heures:
+        if h in traitees:
+            continue
+        t_r = max(_a_heure(j, h), ctx.maintenant)
+        if _relecture_inutile(ctx, t_r):
+            continue
+        if st is None or (st.get("fin") is not None and t_r >= st["fin"]):  # budget inconnu, ou cycle suivant : rien qui l'empêche
+            return h
+        if st.get("reserves") is not None and usage + cout + st["reserves"] > st["budget"] + 1e-9:
+            return None                                                  # les réserves passent d'abord, jusqu'à la fin du cycle
+        if usage + cout <= round(_trajectoire_exacte(st, t_r), 2) + 1e-9:   # la garde lit la trajectoire publiée, au centime
+            return h
+    return None
+
+
+def _trajectoire_exacte(st: dict, t: datetime) -> float:
+    """11/10 (lot L8) : la trajectoire du budget à l'instant `t`, calculée comme etats_comptes.etat_budget (budget × part du cycle
+    écoulée), sans partir de la trajectoire publiée : celle-ci est arrondie au centime à l'heure de sa publication, et l'avancer
+    jusqu'à l'heure d'une relecture faisait annoncer « vers 16 h » une relecture que la garde sautait à quelques millièmes près."""
+    d0, d1 = st.get("debut"), st.get("fin")
+    if not (d0 and d1 and d1 > d0):
+        return _trajectoire_a(st, t)
+    return st["budget"] * min(1.0, max(0.0, (t - d0).total_seconds() / (d1 - d0).total_seconds()))
 
 
 def _usage_minorant(ctx, st: dict) -> float:
@@ -1291,27 +1532,6 @@ def _usage_minorant(ctx, st: dict) -> float:
         if t is not None and usd is not None and t_api < t <= ctx.maintenant + timedelta(minutes=5) and (d0 is None or t >= d0):
             usage += usd
     return min(usage, st["usage"])
-
-
-def _relecture_prevue_sautee(ctx, st: dict, prochaine=None):
-    """10/10 (passe 3) : (heure, trajectoire à cette heure, dépense retenue) de la prochaine relecture légère du jour
-    (_prochaine_relecture) si elle SERA sautée : dépense déjà faite + coût d'une relecture (`cout_leger_usd`, 0 s'il est inconnu)
-    au-dessus de la trajectoire du budget À L'HEURE de cette relecture ; None sinon.
-    10/10 (reprise : la dépense publiée de la source « apify » compte deux fois un appel noté juste avant la lecture de l'API, puis
-    redescend — « relecture de 14 h : sera sautée (prévision) » affiché à 9 h 05 et 9 h 20, retiré à 9 h 35, relecture faite à
-    14 h ; 56 quarts d'heure démentis sur un mois simulé) : la prévision part du MINORANT de la dépense (_usage_minorant), qui ne
-    fait que monter jusqu'à l'heure de la relecture — la prévision ne se dément pas."""
-    p = prochaine if prochaine is not None else _prochaine_relecture(ctx)
-    if p is None or (st.get("fin") is not None and p[1] >= st["fin"]):  # cycle suivant : la dépense repart de 0
-        return None
-    usage = _usage_minorant(ctx, st)
-    # marge d'arrondi : l'état publié arrondit trajectoire et coût au centime (la garde calcule sans arrondi) — jamais « sera
-    # sautée » à un centime près
-    if usage + (st.get("cout_leger") or 0.0) > _trajectoire_a(st, p[1]) + MARGE_PREVISION_USD:
-        # la trajectoire écrite est celle de l'HEURE prévue (une relecture due mais pas encore traitée : le texte ne bouge pas de
-        # quart d'heure en quart d'heure, l'empreinte non plus)
-        return p[0], _trajectoire_a(st, p[2]), usage
-    return None
 
 
 def _relecture_en_cours(ctx, st: dict):
@@ -1354,17 +1574,58 @@ def _relecture_en_cours(ctx, st: dict):
     cout = cout if cout is not None else (st.get("cout_leger") or 0.0)
     if st.get("coupe") or st.get("atteint") or st["usage"] + cout > _trajectoire_a(st, t_h) + 1e-9:
         return None
+    if st.get("reserves") is not None and st["usage"] + cout + st["reserves"] > st["budget"] + 1e-9:
+        return None                                                      # 11/10 (lot L7) : sautée pour garder les réserves
     return h
+
+
+def _relecture_lancee(ctx, st: dict = None):
+    """11/10 (lot L8) : l'heure H de la relecture légère qui tourne en ce moment (titre « relecture de H h en cours »), sinon None.
+    H est la dernière heure traitée aujourd'hui, il y a moins de LEGER_EN_COURS_MIN minutes, et rien n'a relu Instagram depuis (ni
+    relecture, ni passage complet qui l'aurait rendue inutile). La garde note un saut pour le budget (`alertes_legeres` « budget »
+    = ce jour, lots SCAN et L7) : aucun saut aujourd'hui, elle l'a lancée ; un saut aujourd'hui, il peut venir de H ou d'une heure
+    d'avant, et _relecture_en_cours tranche (passes 3 et 4 du lot DASH)."""
+    j, traitees = _legers_du_jour(ctx)
+    if not traitees:
+        return None
+    h = traitees[-1]
+    t_h = _a_heure(j, h)
+    if not timedelta(0) <= ctx.maintenant - t_h < timedelta(minutes=LEGER_EN_COURS_MIN):
+        return None
+    leger, complet = _instant(ctx.etats.get("leger_iso")), _instant(ctx.etats.get("scan_iso"))
+    _, apres, _ = _reglages_legers()
+    if (leger is not None and leger >= t_h) or (complet is not None and complet > t_h - timedelta(hours=apres)):
+        return None
+    al = ctx.etats.get("alertes_legeres") if isinstance(ctx.etats.get("alertes_legeres"), dict) else {}
+    if str(al.get("budget") or "") != j.isoformat():
+        return h
+    return _relecture_en_cours(ctx, st) if st is not None else None
+
+
+def _texte_relecture(ctx, st: dict = None) -> str:
+    """11/10 (lot L8) : ce que le titre dit après « Instagram HHhMM » — « relecture de 14 h en cours », « prochaine relecture vers
+    16 h », « prochain relevé au passage du matin » ; '' sans relecture prévue (ETATS_HEURES_LEGERES vide) ou Apify coupé (la ligne
+    « ⛔ » le dit). Une relecture sautée par la trajectoire est le fonctionnement prévu (lot L7) : elle n'est plus une alerte, la
+    suivante est annoncée."""
+    heures, _, _ = _reglages_legers()
+    if not heures or (st is not None and (st.get("coupe") or st.get("atteint"))):
+        return ""
+    h = _relecture_lancee(ctx, st)
+    if h is not None:
+        return f"relecture de {h} h en cours"
+    h = _prochaine_relecture(ctx, st)
+    return f"prochaine relecture vers {h} h" if h is not None else "prochain relevé au passage du matin"
 
 
 def _fraicheur_apify(ctx: _Ctx) -> tuple:
     """(texte du titre, alerte ou None). 09/10 (revue DASH, décision de Gaëtan « Dépasse pas 25 $ / mois ») : la dépense est
     rapportée au BUDGET de 25 $ (avant : à la limite du compte Apify, 25,20 $ dépensés sur 29 $ s'affichaient sans alerte) ;
-    « ⛔ Apify coupé jusqu'au JJ/MM » à 100 % ; « ⚠ » dès que la dépense dépasse la trajectoire linéaire du budget.
-    10/10 (passe 3) : « relecture légère du jour sautée » seulement sur un fait (_relecture_sautee), « relecture de H h : sera
-    sautée (prévision) » seulement quand la trajectoire à cette heure-là ne la permettra pas (_relecture_prevue_sautee) ; `leger_ok`
-    n'est plus lu ici. 10/10 (reprise) : prévision sur le minorant de la dépense, « relecture de H h en cours » pendant qu'elle
-    tourne (_relecture_en_cours)."""
+    « ⛔ Apify coupé jusqu'au JJ/MM » à 100 %.
+    11/10 (lot L8 : « en direct, uniquement ce qui demande un geste ») : plus d'alerte de trajectoire, de relecture sautée ni de
+    prévision — les relectures de 12 h à 22 h s'espacent seules sous la trajectoire, c'est le fonctionnement prévu, et le titre
+    annonce la suivante (_texte_relecture). Il reste deux alertes : « ⛔ » au plafond, « ⚠ … réserve entamée » quand la dépense
+    sûre plus les réserves des passages du matin et de la file du parcours dépasse le budget (`reserve_entamee` du lot L7) : les
+    relectures s'arrêtent jusqu'à la fin du cycle, et le seul geste possible est de monter APIFY_BUDGET_MOIS."""
     st = budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant)
     if st is None:
         return "Apify : budget pas encore lu", None
@@ -1380,37 +1641,14 @@ def _fraicheur_apify(ctx: _Ctx) -> tuple:
         return titre, ("⛔ Apify", "bloquant", texte)
     if st["atteint"]:                                                     # coupe=False malgré tout : dit quand même
         return f"⛔ Apify {u} $ / {bud} $ : budget atteint", ("⛔ Apify", "bloquant", f"budget Apify du mois atteint : {u} $ sur {bud} ${local}")
-    # 10/10 (passe 3 du lot DASH) : un fait (relecture sautée aujourd'hui, rien relu depuis) ou une prévision exacte, jamais `leger_ok`
-    sautee = _relecture_sautee(ctx)
-    prochaine = _prochaine_relecture(ctx)
-    prevue = _relecture_prevue_sautee(ctx, st, prochaine)
-    cout = f" + {_euros(st['cout_leger'])} $ par relecture" if st.get("cout_leger") else " + une relecture"
-    # 10/10 (reprise) : la dépense de la prévision est son minorant (_usage_minorant) ; « au moins » quand il est sous le titre
-    dep = "" if not prevue else (f"{u} $" if _euros(prevue[2]) == u else f"au moins {_euros(prevue[2])} $")
-    prevision = (f"relecture de {prevue[0]} h : sera sautée (prévision) — {dep} dépensés{cout} dépasseront la trajectoire du budget à "
-                 f"{prevue[0]} h ({_euros(prevue[1])} $ sur {bud} $)") if prevue else ""
-    if sautee:                                                           # le fait : sans chiffre d'un autre moment que le saut
-        # 10/10 (reprise) : une relecture lancée par la garde et pas encore finie (_relecture_en_cours) est dite « en cours »,
-        # jamais « prochain relevé au passage complet du matin »
-        en_cours = _relecture_en_cours(ctx, st)
-        suites = ([f"celle de {prevue[0]} h le sera aussi (prévision : {dep} dépensés{cout}, trajectoire de {_euros(prevue[1])} $ à "
-                   f"{prevue[0]} h)"] if prevue else [f"prochaine relecture prévue à {prochaine[0]} h"] if prochaine else []) \
-            + ([f"relecture de {en_cours} h en cours"] if en_cours is not None else [])
-        suites = suites or ["prochain relevé au passage complet du matin"]
-        fait = (f"relecture légère du jour sautée par la garde du budget (la dépense plus une relecture dépassait la trajectoire du "
-                f"budget de {bud} $){local} — comptes pas relus depuis (colonne Relevé) ; {' ; '.join(suites)}")
-        prevision = ""
-        suffixe = " : relecture légère du jour sautée" + (f" · relecture de {en_cours} h en cours" if en_cours is not None else "")
-    else:
-        fait, suffixe = "", (f" · relecture de {prevue[0]} h : sera sautée (prévision)" if prevue else "")
-    if st["usage"] > st["trajectoire"] + 1e-9:
-        texte = " ; ".join(x for x in (f"{u} $ dépensés sur {bud} $, au-dessus de la trajectoire du budget "
-                                       f"({_euros(st['trajectoire'])} $ au {_paris(st['t']):%d/%m}){local}", fait, prevision) if x)
-        return f"⚠ Apify {u} $ / {bud} ${suffixe}", ("⚠ Apify", "important", texte)
-    if sautee:
-        return f"⚠ Apify {u} $ / {bud} ${suffixe}", ("⚠ Apify", "important", " ; ".join(x for x in (fait, prevision) if x))
-    if prevue:                                                           # une prévision, pas un fait : ligne « info »
-        return f"Apify {u} $ / {bud} ${local}{suffixe}", ("⏭ Apify", "info", prevision + local)
+    if st.get("reserve_entamee"):
+        besoin = ""
+        if st.get("reserves") is not None:
+            pour = f"les {st['jours_restants']} passage(s) du matin" if st.get("jours_restants") is not None else "les passages du matin"
+            besoin = f" ; il faut encore environ {_euros(st['reserves'])} $ pour {pour} et la file du parcours"
+        texte = (f"réserve entamée : {u} $ dépensés sur {bud} ${local}{besoin}. Plus de relecture du Dashboard jusqu'au {fin} : la "
+                 "file du parcours, puis le passage du matin, passent d'abord. Pour les garder : monte APIFY_BUDGET_MOIS dans Railway")
+        return f"⚠ Apify {u} $ / {bud} $ : réserve entamée", ("⚠ Apify", "important", texte)
     return f"Apify {u} $ / {bud} ${local}", None
 
 
@@ -1461,8 +1699,10 @@ def _fraicheur(ctx: _Ctx, e: dict, comptes_l: list) -> tuple:
     """(« Instagram 14h05 · Clics 16h45 · Metricool J-1 (08/10) · Apify 12,30 $ / 25 $ », [alertes (quoi, gravité, texte)]) : l'âge
     de chaque source, et ce qui mérite une ligne d'alerte sous le titre."""
     parts, alertes = [], []
-    ts_ig = [t for t in (_instant(x) for x in ((ctx.dp or {}).get("t"), ctx.etats.get("leger_iso"), ctx.etats.get("scan_iso"))) if t]
-    parts.append("Instagram " + (_hm(max(ts_ig), ctx.j0) if ts_ig else "jamais lu"))
+    t_ig = _dernier_instagram(ctx)
+    # 11/10 (lot L8) : la relecture qui tourne, ou la suivante que la garde du budget laissera partir
+    rel = _texte_relecture(ctx, budget_apify(ctx.etats.get("apify_budget"), ctx.maintenant))
+    parts.append("Instagram " + (_hm(t_ig, ctx.j0) if t_ig else "jamais lu") + (f" · {rel}" if rel else ""))
     # 09/10 (revue DASH : « Clics 16h45 » quand un autre lien n'avait pas été relu depuis 09h00) : l'heure du relevé le plus ancien
     # des liens actifs relus aujourd'hui aussi, s'il a plus de CLICS_VIEUX_MIN minutes de retard sur le plus récent
     ts_cl = [t for t in (_instant(v.get("t")) for lid, v in (ctx.clics.get("aujourdhui") or {}).items()
@@ -1711,45 +1951,286 @@ def _youtube(ctx: _Ctx, L: dict) -> bool:
     return False
 
 
+def _etape_parcours(ctx: _Ctx, uid: str) -> str:
+    """11/10 (lot L8) : où en est le clipper dans son parcours, en quelques mots pour la colonne ETAT de son sous-total — lu dans
+    parcours.json avec les fonctions du parcours (reels_pour : les Reels qui comptent pour ouvrir le compte suivant), aucun appel :
+    « bienvenue → compte 1 », « compte 2 à créer », « 2/4 Reels → compte 2 », « compte 3 le 14/10 » (Reels faits, il attend ses
+    48 h), « compte 3 : s'ouvre » (dû, le programme l'ouvre dans les 10 min), « ⚠ bloqué : compte 1 BAN », « 3 comptes, routine ».
+    '' sans fiche de parcours (ancien) ou sans le module."""
+    f = ctx.parcours.get(str(uid)) if uid else None
+    P = _module("parcours") if f else None
+    if not f or P is None:
+        return ""
+    try:
+        if P.en_bienvenue(f):
+            return "bienvenue → compte 1"
+        a = P.attente(f)
+        if a:
+            n, quand = a
+            quand = quand if quand.tzinfo else quand.replace(tzinfo=timezone.utc)
+            bloque = P._bloque_sources(str(uid), f, n)
+            if bloque:
+                return f"⚠ bloqué : compte {bloque} BAN"
+            seuil = int(getattr(P, "REELS_OUVERTURE", 4) or 4)
+            vus = int(P.reels_pour(str(uid), f, n) or 0)
+            if vus < seuil:
+                return f"{vus}/{seuil} Reels → compte {n}"
+            return f"compte {n} le {_paris(quand):%d/%m}" if ctx.maintenant < quand else f"compte {n} : s'ouvre"
+        n = int(f.get("etape") or 0)
+        dates = f.get("dates") or {}
+        if 1 <= n <= 3:
+            return f"compte {n} à créer" if dates.get(str(n)) and not dates.get(f"{n}_fait") else f"compte {n} à venir"
+        return "3 comptes, routine" if n >= 4 else "pas commencé"
+    except Exception as erreur:                                          # noqa: BLE001 — une fiche abîmée n'éteint pas le reste
+        journal.debug("Étape du parcours de %s : %s", uid, erreur)
+        return ""
+
+
+def _taux_clic() -> float:
+    t = getattr(paie_clics, "TAUX_CLIC", None) if paie_clics is not None else None
+    return float(t) if isinstance(t, (int, float)) and not isinstance(t, bool) and t >= 0 else 0.05
+
+
+def _paie_clipper(ctx: _Ctx, uid: str, k: dict) -> dict:
+    """11/10 (lot L8) : {payees, texte} — ses visites payées de la période de paie en cours, jusqu'à maintenant, et « dû X $ (paie
+    du JJ/MM) ». La mesure de la liste de paie quand elle existe (paie_clics.payees, lot L11 : plancher du passage au clic et visites
+    dues compris) sur les jours complets, plus le jour en cours de ses liens ; sinon la somme de ses liens (`k`, comme les lignes).
+    « au fixe » pour un clipper payé au fixe ; rien avant la paie au clic (CLICS_DEPUIS)."""
+    depuis = str(getattr(paie_clics, "CLICS_DEPUIS", "") or "") if paie_clics is not None else ""
+    if depuis[:10] and ctx.paie_fin.isoformat() < depuis[:10]:
+        return {"payees": None, "texte": ""}
+    regime = getattr(paie_clics, "regime", None) if paie_clics is not None else None
+    if callable(regime):
+        try:
+            if str(regime(str(uid)) or "") == "fixe":
+                return {"payees": None, "texte": "au fixe : pas de paie au clic"}
+        except Exception as erreur:                                      # noqa: BLE001 — registre illisible : la somme des liens
+            journal.debug("Régime de %s : %s", uid, erreur)
+    v = None
+    payees = getattr(paie_clics, "payees", None) if paie_clics is not None else None
+    if callable(payees):
+        try:
+            base = payees(ctx.clics, str(uid), ctx.paie_debut, ctx.hier) if ctx.hier >= ctx.paie_debut else 0
+            if isinstance(base, (int, float)) and not isinstance(base, bool):
+                auj = [ctx.clics_lien(lid)["auj"] for lid, i in ctx.liens.items()
+                       if str(i.get("uid") or "") == str(uid) and ctx.cat(lid) not in INACTIFS]
+                v = int(base) + sum(x for x in auj if x is not None)
+        except Exception as erreur:                                      # noqa: BLE001 — repli : la somme de ses liens
+            journal.debug("Paie de %s : %s", uid, erreur)
+    if v is None:
+        v = (k or {}).get("paie")
+    if v is None:
+        return {"payees": None, "texte": ""}
+    return {"payees": v, "texte": f"dû {_euros(round(v * _taux_clic(), 2))} $ (paie du {ctx.jour_paie:%d/%m})"}
+
+
+def _uids_du_prenom(ctx: _Ctx, gerant) -> set:
+    """Les signés (registre) que le Gérant désigne par le prénom : premier mot du pseudo, pseudo entier ou prénom du registre ;
+    présents sur le serveur quand la liste des membres est connue."""
+    g = _norm(gerant)
+    if not g:
+        return set()
+    out = set()
+    for uid, f in ctx.registre.items():
+        if ctx.membres and uid not in ctx.membres:
+            continue
+        p = _norm((f or {}).get("prenom")) if isinstance(f, dict) else ""
+        m = str(ctx.membres.get(uid) or "")
+        if g in (_premier(m), _norm(m), _norm(m.split(" - ")[0]), p, _premier(p)):   # « Jean Marc - Sophie » : « jean marc »
+            out.add(uid)
+    return out
+
+
+def _uid_groupe(ctx: _Ctx, ls: list) -> str:
+    """11/10 (lot L8) : l'uid du clipper d'un groupe — celui de ses liens (la clé du groupe), sinon le détenteur de ses lignes
+    d'après onboarding.json (C6d), sinon le seul signé que le Gérant désigne par le prénom ; '' si rien ne le prouve (homonymes)."""
+    if not ls or ls[0]["typ"] != "clipper":
+        return ""
+    uid = str(ls[0].get("groupe") or "").rsplit("|", 1)[-1] if str(ls[0].get("groupe") or "").startswith("g|") else ""
+    if uid and uid != "?":
+        return uid
+    dets = set()
+    for L in ls:
+        dets |= L["detenteurs"] if L.get("detenteurs") is not None else ctx.detenteurs(L["c"])
+    if dets:
+        return next(iter(dets)) if len(dets) == 1 else ""
+    noms = _uids_du_prenom(ctx, ls[0]["c"].get("gerant"))
+    return next(iter(noms)) if len(noms) == 1 else ""
+
+
+def _sans_compte(ctx: _Ctx, lignes: list) -> dict:
+    """11/10 (lot L8, « pas de clippeurs pas assignés ») : {créatrice (prénom normalisé, '' sans créatrice) : [uid]} — les signés du
+    registre (equipes.json) sans aucune ligne du classeur à leur nom : aucune ligne détenue d'après onboarding.json, aucun lien porté
+    par une ligne, aucun Gérant qui les désigne par le prénom. Un prénom porté par deux signés (homonymes) ne prouve rien : aucun des
+    deux n'est dit sans compte sur ce seul nom. Hors liste : la paie au fixe (monteur, staff), CLICS_EXCLURE, un manager, et un
+    membre absent du serveur quand la liste des membres est connue. C'est le goulot du stock de lignes, rendu visible."""
+    if not ctx.registre:
+        return {}
+    avec, douteux = set(), set()
+    for L in lignes:
+        if L["typ"] != "clipper":
+            continue
+        avec |= set(L.get("uids") or [])
+        avec |= L["detenteurs"] if L.get("detenteurs") is not None else ctx.detenteurs(L["c"])
+        noms = _uids_du_prenom(ctx, L["c"].get("gerant"))
+        (avec if len(noms) == 1 else douteux).update(noms)
+    exclus = {_norm(x) for x in (getattr(paie_clics, "CLICS_EXCLURE", None) or ())} if paie_clics is not None else set()
+    regime = getattr(paie_clics, "regime", None) if paie_clics is not None else None
+    out = {}
+    for uid, f in sorted(ctx.registre.items()):
+        if not isinstance(f, dict) or uid in avec or uid in douteux or f.get("manager_de"):
+            continue
+        if ctx.membres and uid not in ctx.membres:
+            continue
+        if _premier(ctx.nom_uid(uid)) in exclus:
+            continue
+        if callable(regime):
+            try:
+                if str(regime(uid) or "") == "fixe":
+                    continue
+            except Exception:                                            # noqa: BLE001 — registre illisible : montré
+                pass
+        cr = _premier(f.get("creatrice") or (ctx.parcours.get(uid) or {}).get("creatrice"))
+        out.setdefault(cr, []).append(uid)
+    return out
+
+
+def _ligne_sans_compte(ctx: _Ctx, uid: str) -> list:
+    """11/10 (lot L8) : la ligne d'un clipper signé sans compte au classeur — son étape du parcours, ses liens (leurs clics sont sur
+    la ligne « ⚠ Sans ligne », jamais comptés deux fois), la date de sa signature."""
+    f = ctx.registre.get(uid) if isinstance(ctx.registre.get(uid), dict) else {}
+    r = _ligne_vide()
+    r[C_GERANT] = ctx.nom_uid(uid) or f"id …{str(uid)[-4:]}"
+    r[C_HANDLE] = "⚠ aucun compte"
+    r[C_ETAT] = _etape_parcours(ctx, uid)
+    liens = [lid for lid, i in sorted(ctx.liens.items()) if str(i.get("uid") or "") == str(uid) and ctx.cat(lid) not in INACTIFS]
+    if liens:
+        r[C_LIEN] = " + ".join(_slug(ctx.liens[x], x) for x in liens)
+    notes = []
+    try:
+        notes.append(f"signé le {date.fromisoformat(str(f.get('date') or '')[:10]):%d/%m}")
+    except ValueError:
+        pass
+    notes.append("aucune ligne du classeur à son nom")
+    if liens:
+        notes.append("ses clics sont sur « ⚠ Sans ligne »")
+    r[C_MES] = " · ".join(notes)
+    return r
+
+
+def _section_equipes(ajouter, ctx: _Ctx) -> None:
+    """11/10 (lot L8) : ÉQUIPES, sous CONTRÔLE — equipes_tl.calculer sur la période de paie en cours (la mesure injectée au module :
+    paie_clics.payees, Reels vus, jours non relevés), une ligne par équipe : « VA à 500 ou plus k/n · équipe x / 3 000 · primes …
+    · jours non relevés » (equipes_tl.resume_equipe : le TL hors du total de son équipe, EQUIPE_COMPTE_TL=0). Puis la période close :
+    ses primes figées (clics.json « primes_equipes »), toutes à vérifier avant le virement. Aucun appel, aucune écriture."""
+    E = _module("equipes_tl")
+    if E is None or not callable(getattr(E, "calculer", None)):
+        ajouter(["ÉQUIPES", "", "source indisponible (module equipes_tl absent) : primes TL et manager non montrées"], "section")
+        return
+    if callable(getattr(E, "branche", None)) and not E.branche():
+        ajouter(["ÉQUIPES", "", "source indisponible : equipes_tl n'est pas branché au démarrage (on_ready)"], "section")
+        return
+    debut, fin, paie = ctx.paie_debut, ctx.paie_fin, ctx.jour_paie
+    dep = getattr(E, "_deps", None) or {}
+    try:
+        calcul = E.calculer(ctx.clics, debut, fin, dep.get("payees"), dep.get("reels_vus"), dep.get("jours_manquants"))
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Dashboard : équipes illisibles (%s)", erreur)
+        ajouter(["ÉQUIPES", "", f"source indisponible (erreur du calcul des équipes : {type(erreur).__name__})"], "section")
+        return
+    equipes = calcul.get("equipes") or {}
+    primee = bool(calcul.get("primee"))
+    usd = getattr(E, "_usd", lambda x: f"{_euros(x)} $")
+    tete = (f"période {debut:%d/%m} → {fin:%d/%m} (paie du {paie:%d/%m}), en cours · TL : {usd(E.TL_PRIME_VA_USD)} par VA à "
+            f"{_txt_n(E.TL_SEUIL_VA)} visites payées ou plus · manager : {usd(E.MANAGER_PRIME_USD)} par équipe à "
+            f"{_txt_n(E.MANAGER_SEUIL_EQUIPE)} ou plus · le TL {'compte' if E.EQUIPE_COMPTE_TL else 'ne compte pas'} dans son équipe")
+    if not primee:
+        tete += " · " + E._texte_premiere_periode()
+    ajouter(["ÉQUIPES", "", tete], "section")
+    if not equipes:
+        ajouter(["", "", "aucune équipe : personne n'a de créatrice au registre"], "equipe", gravite="info")
+    for c, eq in sorted(equipes.items(), key=lambda x: (not x[1].get("tl"), str(x[0]))):
+        texte = E.resume_equipe(c, eq, primee)
+        prefixe = f"{c} · TL {eq.get('tl_nom') or 'aucun'} · "
+        texte = texte[len(prefixe):] if texte.startswith(prefixe) else texte
+        if eq.get("manager"):
+            texte += f" · manager {eq.get('manager_nom') or '?'}"
+        alerte = any(v.get("manquants") or v.get("erreur") for v in eq.get("vas") or [])
+        ajouter([c, f"TL {eq['tl_nom']}" if eq.get("tl") else "pas de TL", texte], "equipe",
+                gravite="important" if alerte else ("ok" if eq.get("tl") else "info"))
+    # la période close, si elle était primée : ses primes figées (la liste du 5 ou du 20 les relit telles quelles)
+    fin_p = debut - timedelta(days=1)
+    debut_p = periode_paie(fin_p)[0]
+    if callable(getattr(E, "periode_primee", None)) and E.periode_primee(debut_p):
+        fige = ((ctx.clics.get("primes_equipes") or {}).get(E.cle_de_periode(fin_p)) or {}) if isinstance(ctx.clics, dict) else {}
+        periode = f"{debut_p:%d/%m} → {fin_p:%d/%m}"
+        if isinstance(fige, dict) and isinstance(fige.get("lignes"), list):
+            total = sum(float(l[1]) for l in fige["lignes"] if isinstance(l, (list, tuple)) and len(l) >= 2)
+            ajouter(["Période close", periode, f"primes figées : {usd(total)} (paie du {fin_p + timedelta(days=1):%d/%m}), toutes à "
+                     "vérifier avant le virement : 5 abonnés par VA primé, sur Infloww ou MyPulse"], "equipe", gravite="info")
+        else:
+            ajouter(["Période close", periode, f"primes pas encore figées : la liste de paie du {fin_p + timedelta(days=1):%d/%m} "
+                     "les fige au premier calcul"], "equipe", gravite="important")
+
+
+def _utilisation_inhabituelle(L: dict) -> str:
+    """11/10 (lot L8 : la colonne Utilisation disparaît, son type est déjà dit par le groupe — clipper, « (Metricool) »,
+    « (créatrice) », « Sans Gérant ») : l'Utilisation d'une ligne quand elle sort de l'ordinaire (« à mettre Metricool » sur la ligne
+    d'un clipper), pour la colonne Mesure ; '' sinon."""
+    brut = str(L["c"].get("utilisation") or "").strip()
+    u = _norm(brut)
+    ordinaires = {"clipper": ("clipper", ""), "libre": ("clipper", ""), "metricool": ("metricool", "clipper", "")}.get(L["typ"])
+    return "" if ordinaires is None or u in ordinaires else f"utilisation : {brut}"
+
+
 def _ligne_compte(ctx: _Ctx, L: dict, gerant: str) -> list:
     c = L["c"]
     r = _ligne_vide()
     r[C_GERANT] = gerant
     r[C_HANDLE] = c["handle"]
-    r[C_UTIL] = str(c.get("utilisation") or "").strip()
     etat = str(c.get("etat") or "").strip()
     r[C_ETAT] = etat if etat else ("—" if L["typ"] == "creatrice" else "⚠ vide")   # l'ETAT d'une créatrice n'est jamais décidé par le bot
     r[C_FOL] = _v(L["followers"])
+    r[C_COURBE] = L.get("courbe") or ""
     r[C_DF24] = _delta_abs(L["df24"])
-    r[C_DF7] = _delta_abs(L["df7"])
-    r[C_RH], r[C_R7] = _v(L["rh"]), _v(L["r7"])
+    r[C_DF7] = _delta_followers_pct(L["followers"], L["df7"])           # 11/10 (lot L8) : en %, la courbe dit le reste
+    r[C_RA], r[C_RH], r[C_R7] = _v(L.get("rauj")), _v(L["rh"]), _v(L["r7"])
     r[C_DR] = _delta_abs(L["r7"] - L["r7p"]) if L["r7"] is not None and L["r7p"] is not None and L["r7_serie"] else ""
+    r[C_DREEL] = L.get("dernier_reel") or ""
     if L["vues"]:
-        r[C_V7], r[C_VMED] = L["vues"][0], L["vues"][2]
+        r[C_V7] = L["vues"][0]
         r[C_DV] = _delta_pct(L["vues"][0], L["vues_p"][0]) if L["vues_comparable"] else ""
     r[C_LIEN] = _lien_texte(ctx, L)
     notes = []
     if L["clics"]:
         k = L["clics"]
         r[C_CA], r[C_CH], r[C_C7], r[C_DC] = _v(k["auj"]), _v(k["hier"]), _v(k["c7"]), k["delta"]
-        notes = _notes_clics(ctx, k, heure=True)                         # 09/10 (revue DASH) : k/n liens, reprise, heure du jour
-    r[C_MES] = " · ".join([L["mesure"]] + notes)
+        r[C_CP] = _v(k.get("paie"))
+        notes = _notes_clics(ctx, k, heure=True, paie=True)              # 09/10 (revue DASH) : k/n liens, reprise, heure du jour
+    u = _utilisation_inhabituelle(L)
+    r[C_MES] = " · ".join([L["mesure"]] + notes + ([u] if u else []))
     r[C_REL] = L["releve"]
     return r
 
 
-def _sous_total(ctx: _Ctx, groupe: list, nom: str) -> list:
+def _sous_total(ctx: _Ctx, groupe: list, nom: str, uid: str = "") -> list:
+    """Le sous-total d'un groupe. 11/10 (lot L8) : pour un clipper (`uid` connu), l'étape de son parcours dans ETAT (_etape_parcours)
+    et sa paie de la période en cours (_paie_clipper) : Clics paie, puis « dû X $ (paie du JJ/MM) » en tête de Mesure."""
     r = _ligne_vide()
     r[C_GERANT], r[C_HANDLE] = "Sous-total", nom
     r[C_FOL] = _v(_somme(L["followers"] for L in groupe)[0])
     both = [L for L in groupe if L["df24"] is not None]
     r[C_DF24] = _delta_abs(sum(L["df24"] for L in both)) if both else ""
-    both = [L for L in groupe if L["df7"] is not None]
-    r[C_DF7] = _delta_abs(sum(L["df7"] for L in both)) if both else ""
+    both = [L for L in groupe if L["df7"] is not None and L["followers"] is not None]
+    r[C_DF7] = _delta_followers_pct(sum(L["followers"] for L in both), sum(L["df7"] for L in both)) if both else ""
+    r[C_RA] = _v(_somme(L.get("rauj") for L in groupe)[0])
     r[C_RH] = _v(_somme(L["rh"] for L in groupe)[0])
     r[C_R7] = _v(_somme(L["r7"] for L in groupe)[0])
     comp = [L for L in groupe if L["r7"] is not None and L["r7p"] is not None and L["r7_serie"]]
     r[C_DR] = _delta_abs(sum(L["r7"] - L["r7p"] for L in comp)) if comp else ""
+    r[C_DREEL] = _dernier_reel(ctx, {"reels": {f"{i}|{k}": x for i, L in enumerate(groupe)
+                                               for k, x in ((L.get("serie") or {}).get("reels") or {}).items()}}) \
+        if any((L.get("serie") or {}).get("reels") for L in groupe) else ""
     r[C_V7] = _v(_somme(_vues_mesurees(L)[0] for L in groupe)[0])
     comp = [L for L in groupe if L["vues_comparable"]]
     r[C_DV] = _delta_pct(sum(L["vues"][0] for L in comp), sum(L["vues_p"][0] for L in comp)) if comp else ""
@@ -1758,10 +2239,20 @@ def _sous_total(ctx: _Ctx, groupe: list, nom: str) -> list:
     if lids:
         k = _clics_de(ctx, lids)
         r[C_CA], r[C_CH], r[C_C7], r[C_DC] = _v(k["auj"]), _v(k["hier"]), _v(k["c7"]), k["delta"]
+        r[C_CP] = _v(k.get("paie"))
         r[C_LIEN] = f"{len(set(lids))} lien(s)"
+    tete = []
+    if uid and groupe and groupe[0].get("typ") == "clipper":
+        r[C_ETAT] = _etape_parcours(ctx, uid)
+        paie = _paie_clipper(ctx, uid, k)
+        if paie.get("payees") is not None:
+            r[C_CP] = paie["payees"]
+        if paie.get("texte"):
+            tete.append(paie["texte"])
     # 09/10 (revue DASH) : une somme partielle le dit, mesure par mesure (« partiel : followers 2/3, Reels 7 j 1/3 · clics 7 j : 1/2
     # liens relevés »)
-    r[C_MES] = " · ".join(x for x in (f"{len(groupe)} comptes", _texte_partiel(_notes_sommes(groupe), _notes_clics(ctx, k))) if x)
+    r[C_MES] = " · ".join(x for x in tete + [f"{len(groupe)} compte{'s' if len(groupe) > 1 else ''}",
+                                             _texte_partiel(_notes_sommes(groupe, deltas=True), _notes_clics(ctx, k, paie=True))] if x)
     return r
 
 
@@ -1784,12 +2275,17 @@ def _ligne_liens(ctx: _Ctx, titre: str, sous: str, lids: list, kind: str) -> lis
     r[C_LIEN] = f"{len(lids)} lien(s)" if kind == "masques" else " · ".join(noms)   # masqués : pas de détail
     k = _clics_de(ctx, lids)
     r[C_CA], r[C_CH], r[C_C7], r[C_DC] = _v(k["auj"]), _v(k["hier"]), _v(k["c7"]), k["delta"]
-    r[C_MES] = " · ".join(["GAML"] + _notes_clics(ctx, k))
+    paie = kind == "sans_ligne"                                          # 11/10 (lot L8) : un lien attribué sans ligne reste dû
+    if paie:
+        r[C_CP] = _v(k.get("paie"))
+    r[C_MES] = " · ".join(["GAML"] + _notes_clics(ctx, k, paie=paie))
     return r
 
 
-def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, hors: dict, tot: dict):
-    nom_cr = (lignes_cr[0]["cr_nom"] if lignes_cr else cr.capitalize()) if cr else "Autres liens"
+def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, hors: dict, tot: dict, sans: list = (),
+                    entete: list = None):
+    nom_cr = (lignes_cr[0]["cr_nom"] if lignes_cr else cr.capitalize()) if cr else \
+        ("Autres liens" if any(r_cr.values()) else "Sans créatrice")
     groupes = {}
     for L in sorted(lignes_cr, key=lambda L: L["ordre"]):
         groupes.setdefault(L["groupe"], []).append(L)
@@ -1805,6 +2301,8 @@ def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, ho
     bande = _ligne_vide()
     bande[C_GERANT], bande[C_HANDLE] = nom_cr.upper(), f"{len(lignes_cr)} comptes" if cr else ""
     bande[C_FOL] = _v(_somme(L["followers"] for L in lignes_cr)[0])
+    bande[C_RA] = _v(_somme(L.get("rauj") for L in lignes_cr)[0])       # 11/10 (lot L8) : les Reels du jour et d'hier aussi
+    bande[C_RH] = _v(_somme(L["rh"] for L in lignes_cr)[0])
     bande[C_R7] = _v(_somme(L["r7"] for L in lignes_cr)[0])
     bande[C_V7] = _v(_somme(_vues_mesurees(L)[0] for L in lignes_cr)[0])
     if k_cr:
@@ -1818,10 +2316,12 @@ def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, ho
     if hors.get("masques"):
         n_m = len(r_cr.get("masques") or [])
         extra.append(f"{hors['masques']} masqué(s)" + (f", {n_m} lien(s) de Gérants masqués" if n_m else ""))
+    if sans:                                                             # 11/10 (lot L8) : signés sans aucune ligne au classeur
+        extra.append(f"⚠ {len(sans)} clipper(s) sans compte")
     extra.append(_texte_partiel(_notes_sommes(lignes_cr), _notes_clics(ctx, k_cr)))
     bande[C_MES] = " · ".join(x for x in extra if x)
     ajouter(bande, "creatrice", cr=cr)
-    ajouter(COLONNES, "entete", cr=cr)
+    ajouter(entete or COLONNES, "entete", cr=cr)
     zebre = 0
     for g, ls in sorted(groupes.items(), key=cle_tri):
         if g == "crea":
@@ -1835,9 +2335,13 @@ def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, ho
                 nom += " ⚠ homonyme" + (f" ({_slug(ctx.liens[porte], porte)})" if porte else " (sans lien)")
         for L in ls:
             ajouter(_ligne_compte(ctx, L, nom), "compte", cr=cr, zebre=zebre % 2)
-        if len(ls) >= 2:
-            ajouter(_sous_total(ctx, ls, nom), "sous_total", cr=cr)
+        # 11/10 (lot L8) : un sous-total sous chaque clipper, même à un seul compte — il porte l'étape du parcours et la paie
+        clipper = g.startswith("g|")
+        if len(ls) >= 2 or clipper:
+            ajouter(_sous_total(ctx, ls, nom, _uid_groupe(ctx, ls) if clipper else ""), "sous_total", cr=cr)
         zebre += 1
+    for uid in sans:                                                     # 11/10 (lot L8) : « Clippers sans compte »
+        ajouter(_ligne_sans_compte(ctx, uid), "sans_compte", cr=cr)
     ajouter(_ligne_liens(ctx, "Pages", "de la créatrice" if cr else "sans créatrice", r_cr["pages"], "pages"), "liens", cr=cr)
     ajouter(_ligne_liens(ctx, "Libérés", "hors clipping", r_cr["liberes"], "liberes"), "liens", cr=cr)
     if r_cr.get("masques"):                                              # 09/10 (revue DASH) : rien ne se perd, rien n'est montré
@@ -1957,7 +2461,7 @@ def requetes(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> lis
                     _hauteur(sid, i, i + 1, 30)]
         elif k == "sous_titre":
             req.append(_style(sid, i, i + 1, 0, NB, fond=GRIS_CLAIR, texte="#37474F", gras=True, taille=9))
-        elif k in ("famille", "anomalie", "bouclage"):
+        elif k in ("famille", "anomalie", "bouclage", "equipe"):                # 11/10 (lot L8) : les équipes, comme le contrôle
             fond = {"bloquant": "#FFEBEE", "important": "#FFF8E1"}.get(t.get("gravite"), None)
             req += [_style(sid, i, i + 1, 0, 2, fond=fond or BLANC, texte="#37474F", gras=True, taille=9, aligne="CENTER"),
                     _style(sid, i, i + 1, 2, NB, texte="#212121", taille=9, coupe="OVERFLOW_CELL")]
@@ -1984,7 +2488,7 @@ def requetes(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> lis
             fond = teinte if t.get("zebre") == 0 else BLANC
             req += [_style(sid, i, j + 1, 0, NB, fond=fond, texte="#212121", taille=10, aligne="CENTER", nombre="#,##0"),
                     _style(sid, i, j + 1, 0, 2, fond=fond, gras=True, aligne="LEFT"),
-                    _style(sid, i, j + 1, C_UTIL, C_UTIL + 1, fond=fond, texte=GRIS_TEXTE, taille=9, aligne="LEFT"),
+                    _style(sid, i, j + 1, C_DREEL, C_DREEL + 1, fond=fond, texte=GRIS_TEXTE, taille=9),   # 11/10 (lot L8)
                     _style(sid, i, j + 1, C_LIEN, C_LIEN + 1, fond=fond, texte="#37474F", taille=9, aligne="LEFT"),
                     _style(sid, i, j + 1, C_MES, NB, fond=fond, texte=GRIS_TEXTE, taille=9, aligne="LEFT")]
             i = j + 1
@@ -1993,13 +2497,17 @@ def requetes(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> lis
             fond = _melange(bande, 0.18)
             req += [_style(sid, i, i + 1, 0, NB, fond=fond, texte="#212121", gras=True, taille=10, aligne="CENTER", nombre="#,##0"),
                     _style(sid, i, i + 1, 0, 2, fond=fond, gras=True, italique=True, aligne="LEFT"),
+                    # 11/10 (lot L8) : l'étape du parcours du clipper, dans ETAT
+                    _style(sid, i, i + 1, C_ETAT, C_ETAT + 1, fond=fond, gras=False, italique=True, taille=9, aligne="LEFT"),
+                    _style(sid, i, i + 1, C_DREEL, C_DREEL + 1, fond=fond, gras=False, taille=9),
                     _style(sid, i, i + 1, C_LIEN, C_LIEN + 1, fond=fond, gras=False, taille=9, aligne="LEFT"),
                     _style(sid, i, i + 1, C_MES, NB, fond=fond, gras=False, texte=GRIS_TEXTE, taille=9, aligne="LEFT")]
-        elif k in ("liens", "sans_ligne"):
-            fond = "#FFF3E0" if k == "sans_ligne" else "#FAFAFA"
+        elif k in ("liens", "sans_ligne", "sans_compte"):
+            fond = "#FFF3E0" if k in ("sans_ligne", "sans_compte") else "#FAFAFA"
             req += [_style(sid, i, i + 1, 0, NB, fond=fond, texte="#455A64", italique=True, taille=10, aligne="CENTER", nombre="#,##0"),
                     _style(sid, i, i + 1, 0, 2, fond=fond, gras=True, aligne="LEFT"),
-                    _style(sid, i, i + 1, C_UTIL, C_LIEN + 1, fond=fond, taille=9, aligne="LEFT", coupe="CLIP"),
+                    _style(sid, i, i + 1, C_ETAT, C_ETAT + 1, fond=fond, taille=9, aligne="LEFT"),
+                    _style(sid, i, i + 1, C_LIEN, C_LIEN + 1, fond=fond, taille=9, aligne="LEFT", coupe="CLIP"),
                     _style(sid, i, i + 1, C_MES, NB, fond=fond, taille=9, aligne="LEFT")]
         elif k == "total":
             req += [_style(sid, i, i + 1, 0, NB, fond=SOMBRE, texte=BLANC, gras=True, taille=11, aligne="CENTER", nombre="#,##0"),
@@ -2110,8 +2618,18 @@ def entrees(comptes: list) -> dict:
             met = metricool_comptes.etat()
         except Exception as erreur:                                      # noqa: BLE001
             journal.debug("Metricool (état) : %s", erreur)
+    # 11/10 (lot L8) : parcours.json, pour l'étape de chaque clipper — FICHIER_PARCOURS s'il est branché, sinon le module parcours
+    # (déjà configuré par le bot) ; {} sinon : les étapes restent vides, rien d'inventé
+    parcours_d = _lire("FICHIER_PARCOURS", {})
+    if not parcours_d:
+        P = _module("parcours")
+        try:
+            parcours_d = P._lire() if P is not None and P._deps.get("lire_json") else {}
+        except Exception as erreur:                                      # noqa: BLE001
+            journal.debug("Parcours illisible : %s", erreur)
+            parcours_d = {}
     return {"comptes": comptes, "etats": etats, "clics": clics, "registre": registre, "onboarding": onb, "membres": membres,
-            "masques": masques, "metricool": met}
+            "masques": masques, "metricool": met, "parcours": parcours_d if isinstance(parcours_d, dict) else {}}
 
 
 async def _ecrire_onglet(r: dict) -> int:
