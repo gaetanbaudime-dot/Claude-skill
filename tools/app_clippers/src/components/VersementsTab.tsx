@@ -7,8 +7,8 @@ type Jour = { jour: string; visites: number; complet: boolean };
 type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
 type MonEquipe = {
   debut: string; fin: string; primee: boolean; prime: number;
-  equipes: { creatrice: string; total: number; seuil: number; auSeuil: string; membres: { prenom: string; visites: number | null; auSeuil: boolean }[] }[];
-  managees: { creatrice: string; total: number; seuil: number; atteint: boolean }[];
+  equipes: { creatrice: string; total: number; seuil: number; auSeuil: string; manquants: number; membres: { prenom: string; visites: number | null; auSeuil: boolean; manquants: number }[] }[];
+  managees: { creatrice: string; total: number; seuil: number; atteint: boolean; manquants: number }[];
 };
 type Versements = {
   prenom: string; creatrice: string; taux: number; fixe?: boolean; depuis?: string;
@@ -108,6 +108,9 @@ function AdresseUsdc({ jeton }: { jeton: string }) {
   );
 }
 
+/** Reprise L11 : « 2 j non relevés » à côté d'une somme partielle (jours pas encore relevés dans GAML), jamais un total muet. */
+const nonReleves = (n: number) => (n > 0 ? ` · ${n} j non relevé${n > 1 ? "s" : ""}` : "");
+
 /** Lot L11 (revue du 10/10) : la carte du Team Leader (ou du manager). Sa prime d'équipe en cours, telle que la liste de paie la
  *  porterait aujourd'hui, et ses VA avec leurs visites payées de la période (jusqu'à hier, mis à jour toutes les heures par le bot). */
 function CarteEquipe({ e, libellePaie }: { e: MonEquipe; libellePaie: string }) {
@@ -126,13 +129,13 @@ function CarteEquipe({ e, libellePaie }: { e: MonEquipe; libellePaie: string }) 
         <div key={eq.creatrice} className="mt-3">
           <div className="flex items-center justify-between text-[12px] text-argent2">
             <span>{e.equipes.length > 1 ? `${eq.creatrice} · ` : ""}VA à {fmtNb(eq.seuil)} ou plus : {eq.auSeuil}</span>
-            <span>équipe {fmtNb(eq.total)}</span>
+            <span>équipe {fmtNb(eq.total)}{nonReleves(eq.manquants)}</span>
           </div>
           <div className="divide-y divide-white/5 mt-1">
             {eq.membres.map((m) => (
               <div key={m.prenom} className="flex items-center justify-between py-2">
                 <span className="text-[14px] font-semibold">{m.prenom}</span>
-                <span className={`text-[14px] font-bold tabular-nums ${m.auSeuil ? "text-emerald-300" : "text-argent"}`}>{m.visites === null ? "non lu" : fmtNb(m.visites)}{m.auSeuil ? " ✓" : ""}</span>
+                <span className={`text-[14px] font-bold tabular-nums ${m.auSeuil ? "text-emerald-300" : "text-argent"}`}>{m.visites === null ? "non lu" : fmtNb(m.visites)}{m.auSeuil ? " ✓" : ""}{m.visites === null ? "" : nonReleves(m.manquants)}</span>
               </div>
             ))}
           </div>
@@ -145,13 +148,13 @@ function CarteEquipe({ e, libellePaie }: { e: MonEquipe; libellePaie: string }) 
             {e.managees.map((m) => (
               <div key={m.creatrice} className="flex items-center justify-between py-2">
                 <span className="text-[14px] font-semibold">{m.creatrice}</span>
-                <span className={`text-[14px] font-bold tabular-nums ${m.atteint ? "text-emerald-300" : "text-argent"}`}>{fmtNb(m.total)} / {fmtNb(m.seuil)}{m.atteint ? " ✓" : ""}</span>
+                <span className={`text-[14px] font-bold tabular-nums ${m.atteint ? "text-emerald-300" : "text-argent"}`}>{fmtNb(m.total)} / {fmtNb(m.seuil)}{m.atteint ? " ✓" : ""}{nonReleves(m.manquants)}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-      <p className="text-[11px] text-argent2/70 mt-3 leading-relaxed">Visites payées de la période (francophones, hors robots), comptées comme ta paie. Ton propre lien ne compte pas dans ton équipe.</p>
+      <p className="text-[11px] text-argent2/70 mt-3 leading-relaxed">Visites payées de la période (francophones, hors robots), comptées comme ta paie. Ton propre lien ne compte pas dans ton équipe. « j non relevés » : des jours pas encore lus dans GAML, la somme montera quand ils arriveront.</p>
     </div>
   );
 }

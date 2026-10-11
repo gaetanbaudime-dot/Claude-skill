@@ -1144,6 +1144,18 @@ D'ici là, `!tl liste` montre les chiffres, et rien n'est ajouté à la paie.
 
 Tests : `test_vague1_L10_grille.py` (seuils exacts, TL exclu, manager hors du total qui le paie, multi, jours non relevés, preuves, toute ligne payée « à vérifier », figé, période non primée, variables à la française, date à la française, sortis après la fin, grille de `economie.py` à l'identique) et `test_vague1_L10_commandes.py` (rôle porteur de permissions jamais posé, commandes en MP, remplacement des équipes d'un manager dit, écarts rôle/registre, fin des mandats à la sortie).
 
+**Primes d'équipe sur la paie du 5 et du 20 (lot L11, reprise du 11/10)** : c'est branché dès la fusion avec le lot W, rien à ajouter dans `on_ready`.
+
+L'`on_ready` du lot W passe déjà `primes_equipes` à `paie_clics.boucle` : la liste du 5 et du 20 porte les primes. Le figement (`etat_equipes`) et l'onglet « Équipes » de l'app (`calcul_equipes`) en sont dérivés, avec les mêmes mesures (`paie_clics._dep_equipes`). Une dépendance passée explicitement par `on_ready` reste prioritaire.
+
+- **Équipes figées à l'annonce** : au premier calcul après la clôture, qui est TL, manager et VA de quelle équipe est figé dans `clics.json['primes_equipes']`, même si des jours manquent. Un `!creatrice` tapé ensuite compte pour la période suivante : un VA n'est jamais primé chez deux TL. `!tl liste 5 2026-11` le dit (« 🔒 Équipes figées »).
+- **Montants figés** quand plus aucun jour d'un VA ne manque, ou au délai du complément : J+3 à 7 h, comme le complément lui-même.
+- **Lien d'un VA introuvable (404) le jour de la paie** : ses jours manquants comptent pour les primes (« + 10 $ possible » sur la liste). L'annonce les attend : quand ils arrivent, le complément porte la prime et le clic.
+- **Jour non relevé du TL** : il ne retarde rien, ses visites ne comptent dans aucun seuil (`EQUIPE_COMPTE_TL=0`).
+- **Onglet « Équipes »** : colonne « Jours non relevés ». L'app affiche « 384 · 2 j non relevés » au lieu d'une somme muette.
+
+Tests : `test_v2_L11_primes.py`, `test_v2_L11_annonce.py`, `test_v2_L11_reprise.py` (scratchpad de la session).
+
 ### 📱 L'app envoyée toute seule après les 3 comptes (08/10, `lien_app.py`, `parcours.livrer_app`) (historique, avant le 09/10 : depuis, un seul message routine + app, sans le lien GAML)
 
 Demande de Gaëtan : « envoie automatiquement l'app dans le salon Discord privé du clippeur, une fois seulement qu'il a créé les 3 IG : l'app + son lien de tracking GAML ». Dès que l'étape du compte 3 est fermée (le parcours passe à l'étape 6 : compte 3 créé et profil fait, ou scan qui le voit), le bot poste dans le salon perso un message court : le bouton **« 📱 Ouvrir mon app »**, les trois gestes (Safari ou Chrome, écran d'accueil), l'adresse de l'app en clair pour la copier, **son lien GAML** (celui de `!mesclics`, l'adresse à jour, le plus récent chez sa créatrice) avec « il va seulement dans la bio de ton compte 3 », et « ne donne son lien à personne ». Une seule fois par clipper (clé `app` de sa fiche de parcours, écrite avant l'envoi, retirée si Discord refuse). Une passe horaire (`rattraper_app`, dans la boucle du parcours) rattrape tous ceux qui sont déjà à l'étape 6 ou 7 sans l'avoir reçue, cinq par passe au plus ; les prénoms de `CLICS_EXCLURE` (Rianah, le staff) n'en reçoivent pas. Commandes : `!app` tapé par le clipper **dans son salon perso** (jamais ailleurs : le lien ouvre sa paie et son adresse USDC) renvoie le message une fois ses 3 comptes créés ; `!app @clipper` (staff) le renvoie, même avant le compte 3.

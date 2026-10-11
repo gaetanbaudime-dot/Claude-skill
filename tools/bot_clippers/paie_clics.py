@@ -16,7 +16,9 @@ visiteurs francophones (PAYS_PAYES : France, Belgique, Suisse, Canada, DOM-TOM�
     visites payées ou plus, 75 $ au manager par équipe à 3 000 ou plus), mesurées par `payees` (la ligne de paie elle-même), figées
     dans clics.json['primes_equipes'] au premier calcul où elles sont définitives, sur la feuille « Paie du … » (colonnes « Au
     clic », « Parrainage », « Prime équipe »), dans le salon du TL et du manager, et dans l'onglet « Équipes » que lit l'app.
-    Dépendances branchées par on_ready (lot W) : `primes_equipes`, `etat_equipes`, `calcul_equipes`. Sans elles, rien ne change.
+    Dépendances : `primes_equipes`, que l'on_ready du lot W branche déjà (la liste du 5 et du 20 porte alors les primes) ;
+    `etat_equipes` (figement) et `calcul_equipes` (onglet « Équipes »), qu'on_ready peut passer aussi, sinon dérivées d'equipes_tl
+    (_dep_equipes, mêmes mesures). Sans `primes_equipes`, rien ne change.
 
 Le module ne connaît pas bot_discord : il reçoit ses dépendances dans `demarrer(client, deps)`.
 Sans GAML_API_KEY, tout est inactif et les commandes le disent.
@@ -1459,7 +1461,7 @@ def dus_sortie(d: dict, debut: date, fin: date) -> dict:
     return out
 
 
-def jours_manquants_paie(d: dict, debut: date, fin: date, avec_provisoires: bool = False) -> dict:
+def jours_manquants_paie(d: dict, debut: date, fin: date, avec_provisoires: bool = False, garder_introuvables: bool = False) -> dict:
     """10/10 (revue CLICS, 3e passe : ce qui restait de R3 côté paie) : {uid: [(lid, "AAAA-MM-JJ"), …]}, les jours de la période
     [debut, fin] (hier au plus) qui manquent dans `jours` (jamais relevés, ou vieux 0 marqué `erreur`) pour ce que la liste de paie
     compte : chaque lien d'un clipper au clic, de son premier jour payé (`depuis` du lien, plancher du clic) à `fin`, et les visites
@@ -1468,7 +1470,9 @@ def jours_manquants_paie(d: dict, debut: date, fin: date, avec_provisoires: bool
     Un lien effacé de GAML ou introuvable aujourd'hui (404) n'est pas attendu : rien à relire (même règle que `complets`).
     11/10 (contre-vérification CLICS, passe 3 : la relecture de 6 h des veilles en échec jusqu'à 7 h 30, la paie de 7 h partait avec Tom
     à 148 au lieu de 150, sans « provisoire » ni complément) : `avec_provisoires` (la paie, son complément, `!paie-clics`) → une veille
-    lue avant RELECTURE_HEURE et pas encore relue (`provisoires`) manque aussi."""
+    lue avant RELECTURE_HEURE et pas encore relue (`provisoires`) manque aussi.
+    11/10 (reprise L11, R3) : `garder_introuvables` (les primes d'équipe) → un lien introuvable aujourd'hui (404 passager) garde ses
+    jours manquants : un VA à 480 dont le 04/11 manque n'est jamais tenu pour complet, ni sa prime figée à 0 sans un mot."""
     aujourdhui = _aujourdhui()
     fin = min(fin, aujourdhui - timedelta(days=1))
     out = {}
@@ -1476,7 +1480,8 @@ def jours_manquants_paie(d: dict, debut: date, fin: date, avec_provisoires: bool
 
     def noter(uid: str, lid: str, a, b) -> None:
         info = (d.get("liens") or {}).get(lid) or {}
-        if a is None or b is None or info.get("supprime_gaml") or str(info.get("introuvable") or "") == aujourdhui.isoformat():
+        if a is None or b is None or info.get("supprime_gaml") or (
+                not garder_introuvables and str(info.get("introuvable") or "") == aujourdhui.isoformat()):
             return
         jours, j = (d.get("jours") or {}).get(lid) or {}, a
         while j <= b:
@@ -1593,47 +1598,131 @@ def _cle_iso(jour_paie: str, fin: date) -> str:
     return (fin + timedelta(days=1)).isoformat()
 
 
+def _equipes_tl():
+    """Le module equipes_tl (lot L10), ou None s'il manque."""
+    try:
+        import equipes_tl
+        return equipes_tl
+    except Exception:                                                   # noqa: BLE001
+        return None
+
+
+def _dep_equipes(nom: str):
+    """Reprise L11 (R6) : la dépendance `etat_equipes` ou `calcul_equipes` passée par on_ready ; à défaut, quand `primes_equipes` est
+    branchée (l'on_ready du lot W ne passe qu'elle), la même fonction dérivée d'equipes_tl déjà configuré, avec les mêmes mesures que
+    `primes_equipes` (paie_clics.payees, et les reels_vus / jours_manquants donnés à equipes_tl.configurer). Avant : la liste du 05/11
+    portait les primes, mais rien n'était jamais figé (double prime au recompte) et l'onglet « Équipes » de l'app restait vide.
+    None sans `primes_equipes` : rien ne change."""
+    f = _deps.get(nom)
+    if f is not None or not _deps.get("primes_equipes") or nom not in ("etat_equipes", "calcul_equipes"):
+        return f
+    et = _equipes_tl()
+    if et is None or not et.branche():
+        return None
+
+    def mesures() -> tuple:
+        return payees, et._deps.get("reels_vus"), et._deps.get("jours_manquants")
+    if nom == "etat_equipes":
+        return lambda d, debut, fin, cle="": et.a_figer(d, debut, fin, cle, *mesures())
+    return lambda d, debut, fin: et.calculer(d, debut, fin, *mesures())
+
+
 def _uids_equipes(etat: dict) -> set:
-    """Les uid des VA et des TL d'un état d'équipes (equipes_tl.a_figer) : ceux dont un jour non relevé peut changer une prime."""
+    """Les uid des VA d'un état d'équipes (equipes_tl.a_figer) : ceux dont un jour non relevé peut changer une prime. Le TL aussi, mais
+    seulement quand ses visites comptent dans son équipe (EQUIPE_COMPTE_TL=1) ; à 0 (la grille de Gaëtan), un jour non relevé du TL ne
+    change aucune prime et ne retarde plus le figement (reprise L11, R4)."""
+    et = _equipes_tl()
+    tl_compte = bool(getattr(et, "EQUIPE_COMPTE_TL", False))
     out = set()
     for e in ((etat or {}).get("composition") or {}).values():
         if isinstance(e, dict):
             out.update(str(u) for u in (e.get("vas") or {}))
-            if e.get("tl"):
+            if e.get("tl") and tl_compte:
                 out.add(str(e["tl"]))
     return out
 
 
-def figer_primes_equipes(d: dict, debut: date, fin: date, jour_paie: str = "", manquants: dict = None, aujourdhui: date = None) -> bool:
+def manquants_equipes(d: dict, debut: date, fin: date, cle: str) -> dict:
+    """Reprise L11 (R3) : {uid: [(lien, jour)]} des VA d'équipe dont un jour de la période manque, lien introuvable aujourd'hui (404)
+    compris, tant que les primes de la période ne sont pas figées (seule la composition l'est). L'annonce les attend comme les autres
+    jours manquants : quand ils arrivent, le complément porte la prime juste (et le clic du VA) ; sinon la période est figée au délai,
+    « jours non relevés », et le complément suivant le dit. {} si les primes sont figées ou s'il n'y a pas d'équipe."""
+    fige = (d.get("primes_equipes") or {}).get(cle)
+    if not isinstance(fige, dict) or isinstance(fige.get("lignes"), list):
+        return {}
+    uids = _uids_equipes(fige)
+    if not uids:
+        return {}
+    tous = jours_manquants_paie(d, debut, fin, avec_provisoires=True, garder_introuvables=True)
+    return {u: p for u, p in tous.items() if u in uids and p}
+
+
+def _unir_manquants(*sources) -> dict:
+    """{uid: [(lien, jour)]} : l'union de plusieurs jours_manquants_paie, sans doublon, triée comme eux."""
+    out = {}
+    for s in sources:
+        for uid, paires in (s or {}).items():
+            deja = out.setdefault(str(uid), [])
+            deja.extend(p for p in paires if tuple(p) not in {tuple(x) for x in deja})
+    return {uid: sorted(ps, key=lambda x: (x[1], x[0])) for uid, ps in out.items() if ps}
+
+
+def _a_proteger(etat: dict) -> bool:
+    """Une période dont la composition mérite d'être figée : primée, avec au moins un TL ou un manager."""
+    return bool(etat.get("primee", bool(etat.get("lignes")))) and any(
+        isinstance(e, dict) and (e.get("tl") or e.get("manager")) for e in (etat.get("composition") or {}).values())
+
+
+def figer_primes_equipes(d: dict, debut: date, fin: date, jour_paie: str = "", manquants: dict = None, aujourdhui: date = None,
+                         maintenant=None) -> bool:
     """Lot L11 : fige les primes d'équipe d'une période close dans clics.json['primes_equipes'][« AAAA-MM-JJ » du jour de paie]
     (equipes_tl.a_figer : composition, chiffres, lignes), au premier calcul où elles sont définitives. Ensuite, une liste retapée
     (`!paie-clics`, complément), une sortie, une nomination ou une correction de relevé ne changent plus rien : equipes_tl relit le
     figé. Renvoie True si la période est figée maintenant. Écrit `d`.
 
     Pas figée (le calcul suivant réessaie, les montants restent ceux du jour) :
-      - période pas close (aujourd'hui ≤ `fin`), ou déjà figée, ou dépendance `etat_equipes` absente (lot W) ;
+      - période pas close (aujourd'hui ≤ `fin`), ou déjà figée, ou `etat_equipes` ni passée ni dérivable (_dep_equipes) ;
       - une mesure en erreur (a_figer « complet » faux, contrat L10 : jamais un faux 0 figé) ;
       - aucune prime ni note (rien à protéger ; un PRIMES_EQUIPES_DEPUIS avancé après coup peut encore primer la période) ;
-      - un VA ou un TL d'une équipe a un jour non relevé (`manquants`, jours_manquants_paie avec les veilles provisoires), tant que
-        le délai du complément court (jour de paie + COMPLEMENT_JOURS) : le complément porte alors la prime juste (jamais un faux 0
-        figé quand le jour manquant ferait passer 500 ou 3 000). Le délai passé, la période est figée telle quelle, « à vérifier »."""
-    if not _deps.get("etat_equipes"):
+      - un VA d'une équipe (le TL aussi si EQUIPE_COMPTE_TL=1) a un jour non relevé (`manquants`, et jours_manquants_paie avec les
+        veilles provisoires et les liens introuvables aujourd'hui), tant que le délai du complément court (jour de paie +
+        COMPLEMENT_JOURS, à CLICS_HEURE comme le complément) : le complément porte alors la prime juste (jamais un faux 0 figé quand
+        le jour manquant ferait passer 500 ou 3 000). Le délai passé, la période est figée telle quelle, « à vérifier ».
+
+    Reprise L11 (R1) : la COMPOSITION (TL, manager, VA de chaque équipe) est figée dès le premier calcul après la clôture, même
+    quand les montants ne le sont pas encore (`composition` sans `lignes`) : jusqu'au figement des primes, seuls les chiffres de
+    cette composition bougent. Un VA passé chez une autre créatrice entre l'annonce et le figement ne prime plus deux TL."""
+    etat_f = _dep_equipes("etat_equipes")
+    if not etat_f:
         return False
-    aujourdhui = aujourdhui or _aujourdhui()
+    if maintenant is None and aujourdhui is None:
+        maintenant = _deps["heure_paris"]()
+    aujourdhui = aujourdhui or maintenant.date()
     cle = _cle_iso(jour_paie, fin)
     deja = (d.get("primes_equipes") or {}).get(cle)
     if aujourdhui <= fin or (isinstance(deja, dict) and isinstance(deja.get("lignes"), list)):
         return False
-    etat = _deps["etat_equipes"](d, debut, fin, cle)
-    if not isinstance(etat, dict) or not etat.get("complet", True) or not etat.get("lignes"):
+    etat = etat_f(d, debut, fin, cle)
+    if not isinstance(etat, dict):
         return False
-    if manquants is None:
-        manquants = jours_manquants_paie(d, debut, fin, avec_provisoires=True)
-    en_attente = _uids_equipes(etat) & {str(u) for u, paires in (manquants or {}).items() if paires}
-    if en_attente and aujourdhui < _en_date(cle) + timedelta(days=COMPLEMENT_JOURS):
+    cle = str(etat.get("cle") or cle)
+    deja = (d.get("primes_equipes") or {}).get(cle)
+    if not (isinstance(deja, dict) and isinstance(deja.get("composition"), dict)) and _a_proteger(etat):
+        deja = {"cle": cle, "debut": etat.get("debut"), "fin": etat.get("fin"), "composition": etat.get("composition") or {},
+                "noms": etat.get("noms") or {}, "composition_le": aujourdhui.isoformat()}
+        d.setdefault("primes_equipes", {})[cle] = deja
+        if _deps.get("ecrire_json"):
+            _ecrire(d)
+        journal.info("Équipes figées pour la paie %s (composition, primes pas encore)", cle)
+    if not etat.get("complet", True) or not etat.get("lignes"):
         return False
-    etat = dict(etat, cle=str(etat.get("cle") or cle), fige_le=aujourdhui.isoformat(),
-                **({"jours_non_releves": sorted(en_attente)} if en_attente else {}))
+    tous = jours_manquants_paie(d, debut, fin, avec_provisoires=True, garder_introuvables=True)
+    en_attente = _uids_equipes(etat) & {str(u) for u, paires in [*(manquants or {}).items(), *tous.items()] if paires}
+    limite = _en_date(cle) + timedelta(days=COMPLEMENT_JOURS)
+    if en_attente and (aujourdhui < limite or (aujourdhui == limite and maintenant is not None and maintenant.hour < CLICS_HEURE)):
+        return False
+    etat = dict(deja if isinstance(deja, dict) else {}, **etat)
+    etat.update(cle=cle, fige_le=aujourdhui.isoformat(), **({"jours_non_releves": sorted(en_attente)} if en_attente else {}))
     d.setdefault("primes_equipes", {})[etat["cle"]] = etat
     if _deps.get("ecrire_json"):
         _ecrire(d)
@@ -2442,7 +2531,11 @@ async def annoncer_paie(client, d: dict, maintenant, manquants: dict = None) -> 
     lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, jour_paie, manquants=manquants)
     # 10/10 (revue CLICS, reprise de la 3e passe) : l'annonce est mémorisée une fois (`paies_annoncees`, jamais réécrite par
     # `!paie-clics`) ; ses jours manquants relevés, le complément part tout seul (completer_paies)
-    memoriser_annonce(d, _cle_periode(jour_paie, fin), rangs, manquants, debut, fin, jour_paie, maintenant)
+    # reprise L11 (R3) : les jours manquants des VA d'équipe (404 du jour compris) sont attendus aussi, tant que les primes ne sont
+    # pas figées : le complément les porte quand ils arrivent
+    eq_attendus = manquants_equipes(d, debut, fin, _cle_periode(jour_paie, fin))
+    memoriser_annonce(d, _cle_periode(jour_paie, fin), rangs, _unir_manquants(manquants, eq_attendus) if eq_attendus else manquants,
+                      debut, fin, jour_paie, maintenant)
     if manquants:
         limite = maintenant.date() + timedelta(days=COMPLEMENT_JOURS)
         lignes.insert(1, f"⚠️ **Jours pas encore relevés dans GAML** : montants provisoires, sous-estimés — {texte_manquants(manquants, nom_de)}. "
@@ -3019,7 +3112,7 @@ async def publier_regimes(d: dict) -> int:
 ONGLET_EQUIPES = os.environ.get("EQUIPES_ONGLET", "Équipes").strip() or "Équipes"
 _equipes_pub = {"onglet": "", "sig": ""}
 ENTETE_EQUIPES = ["Discord", "Clé app", "Ligne", "Créatrice", "Début", "Fin", "Prénom", "Visites payées", "Seuil", "Atteint",
-                  "Prime en cours ($)", "Primée"]
+                  "Prime en cours ($)", "Primée", "Jours non relevés"]
 
 
 def _cles_app(d: dict) -> dict:
@@ -3062,8 +3155,10 @@ def lignes_equipes(d: dict, debut: date, fin: date) -> list:
     « 2/6 »), une par VA de son équipe (visites payées, ✓ à 500), une par équipe managée (total, ✓ à 3 000), et une « Prime » par
     bénéficiaire (la prime en cours, TL et manager réunis, telle que la liste de paie la porterait aujourd'hui). Indexé par l'uid
     Discord du TL ou du manager, avec sa clé de l'app (vide sans lien : il n'a pas d'app). Jamais d'adresse USDC ni de jeton.
-    Les chiffres viennent de `calcul_equipes` (equipes_tl.calculer, avec paie_clics.payees) : la même mesure que la paie."""
-    calcul = _deps["calcul_equipes"](d, debut, fin)
+    Les chiffres viennent de `calcul_equipes` (equipes_tl.calculer, avec paie_clics.payees) : la même mesure que la paie.
+    Reprise L11 (R5) : la colonne « Jours non relevés » (vide à 0) dit au TL qu'une somme est partielle (VA : ses jours ; TL et
+    Manager : ceux de l'équipe), comme la liste de paie et `!tl liste`."""
+    calcul = _dep_equipes("calcul_equipes")(d, debut, fin)
     primes = {}
     if _deps.get("primes_equipes"):
         for x in _deps["primes_equipes"](d, debut, fin, _cle_iso("", fin)) or []:
@@ -3073,31 +3168,36 @@ def lignes_equipes(d: dict, debut: date, fin: date) -> list:
     primee = "oui" if (calcul or {}).get("primee") else "non"
     a, b = _texte(debut.isoformat()), _texte(fin.isoformat())
     out, beneficiaires = [], {}
+    tl_compte = bool(getattr(_equipes_tl(), "EQUIPE_COMPTE_TL", False))
+    jours = lambda n: int(n) if int(n or 0) > 0 else ""                 # noqa: E731 — vide à 0 : rien à signaler
     for c, e in sorted(((calcul or {}).get("equipes") or {}).items()):
         tl, m = str(e.get("tl") or ""), str(e.get("manager") or "")
         vas = e.get("vas") or []
+        manq_eq = sum(int(v.get("manquants") or 0) for v in vas if not v.get("hors_total")) + (
+            int(e.get("tl_manquants") or 0) if tl_compte else 0)
         if tl:
             beneficiaires.setdefault(tl, e.get("tl_nom") or "")
             out.append([_texte(tl), cles.get(tl, ""), "TL", c, a, b, _sans_formule(e.get("tl_nom")), int(e.get("total") or 0), s_va,
-                        _texte(f"{int(e.get('va_primes') or 0)}/{len(vas)}"), "", primee])
+                        _texte(f"{int(e.get('va_primes') or 0)}/{len(vas)}"), "", primee, jours(manq_eq)])
             for v in vas:
                 out.append([_texte(tl), cles.get(tl, ""), "VA", c, a, b, _sans_formule(v.get("nom")),
-                            "" if v.get("erreur") else int(v.get("payees") or 0), s_va, "✓" if v.get("prime") else "", "", primee])
+                            "" if v.get("erreur") else int(v.get("payees") or 0), s_va, "✓" if v.get("prime") else "", "", primee,
+                            jours(v.get("manquants"))])
         if m and tl and m != tl:
             beneficiaires.setdefault(m, e.get("manager_nom") or "")
             out.append([_texte(m), cles.get(m, ""), "Manager", c, a, b, _sans_formule(e.get("manager_nom")), int(e.get("total") or 0),
-                        s_eq, "✓" if int(e.get("total") or 0) >= s_eq else "", "", primee])
+                        s_eq, "✓" if int(e.get("total") or 0) >= s_eq else "", "", primee, jours(manq_eq)])
     for uid, nom in sorted(beneficiaires.items()):
         out.append([_texte(uid), cles.get(uid, ""), "Prime", "", a, b, _sans_formule(nom), "", "", "", round(primes.get(uid, 0.0), 2),
-                    primee])
+                    primee, ""])
     return out
 
 
 async def publier_equipes(d: dict) -> int:
     """Lot L11 : écrit l'onglet « Équipes » du tableur « App clippers · usage » (lignes_equipes, période en cours), seulement s'il a
     changé ; l'app le lit pour montrer au TL son équipe et sa prime en cours. Renvoie le nombre de lignes écrites (0 sinon). Jamais
-    d'exception ; inerte sans la dépendance `calcul_equipes` (lot W) ou sans Google."""
-    if not google_api.actif() or not _deps.get("calcul_equipes"):
+    d'exception ; inerte sans `calcul_equipes` (passée ou dérivée d'equipes_tl, _dep_equipes) ou sans Google."""
+    if not google_api.actif() or not _dep_equipes("calcul_equipes"):
         return 0
     try:
         debut, fin = periode_en_cours()
@@ -3111,8 +3211,8 @@ async def publier_equipes(d: dict) -> int:
         if _equipes_pub["onglet"] != classeur:
             await google_api.sheets_creer_onglet(classeur, ONGLET_EQUIPES)
             _equipes_pub["onglet"] = classeur
-        await google_api.sheets_effacer(classeur, f"{ONGLET_EQUIPES}!A1:L")
-        await google_api.sheets_ecrire(classeur, f"{ONGLET_EQUIPES}!A1:L{len(lignes) + 1}", [ENTETE_EQUIPES] + lignes)
+        await google_api.sheets_effacer(classeur, f"{ONGLET_EQUIPES}!A1:M")
+        await google_api.sheets_ecrire(classeur, f"{ONGLET_EQUIPES}!A1:M{len(lignes) + 1}", [ENTETE_EQUIPES] + lignes)
         _equipes_pub["sig"] = sig
         journal.info("Équipes publiées pour l'app : %d ligne(s)", len(lignes))
         return len(lignes)
