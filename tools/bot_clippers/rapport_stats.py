@@ -9,8 +9,10 @@ Reste ici `associer_suivi`, branché sur la boucle des clics (paie_clics, dépen
 « Clipping Prénom », nom « Créatrice 🌸 » ; « Prénom Metricool » compte aussi pour ce prénom). Ces liens sont relevés même sans
 membre Discord attribué (`suivi` dans clics.json).
 
-`demarrer`, `apres_releves` et `commande_staff` sont des bouchons inertes, le temps que le lot W retire leurs branchements
-(on_ready, paie_clics, on_message).
+`demarrer` et `apres_releves` sont des bouchons inertes, le temps que le lot W retire leurs branchements (on_ready, paie_clics).
+`commande_staff` (11/10) répond à `!actifs`, `!equipe-active` (le roster compté) et à `!stats-jonas`, `!stats-manager`
+(« retiré »), sinon commande_admin les prend pour `!equipe` et `!stats` : son appel dans on_message reste. texte_rapport n'existe plus : la passe 3 du Dashboard
+(lot CLICS) ne doit plus y toucher ; à la fusion, rapport_stats.py de L9a est pris en entier.
 """
 
 import logging
@@ -111,6 +113,20 @@ async def apres_releves(client, d: dict):
     return None
 
 
+RETIRE_STATS = "Retiré le 10/10 : le Dashboard donne les visites par clipper."
+
+
 async def commande_staff(message, texte: str) -> bool:
-    """Bouchon : `!stats-jonas` et `!stats-manager` sont retirés ; `!actifs` est servi par roster.commande."""
+    """`!stats-jonas` et `!stats-manager` sont retirés : ils le disent. 11/10 (revue de L9a) : sans réponse ici, ils tombaient
+    dans `!stats` de commande_admin (« 📊 N questions au total »), et `!equipe-active` dans `!equipe @membre fr` (« Format : … »).
+    `!actifs` et `!equipe-active` donnent le roster compté (roster.texte_actifs). Le lot W GARDE cet appel dans on_message, avant
+    commande_admin : retiré, `!stats-jonas` retomberait dans `!stats` (préfixe)."""
+    premier = (texte.split() or [""])[0].lower()
+    if premier in ("!actifs", "!equipe-active"):
+        import roster
+        await message.reply(roster.texte_actifs()[:1990])
+        return True
+    if premier in ("!stats-jonas", "!stats-manager"):
+        await message.reply(RETIRE_STATS)
+        return True
     return False

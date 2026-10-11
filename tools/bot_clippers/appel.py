@@ -18,9 +18,18 @@ d'expulsion automatique pour ça (Gaëtan tranche avec `!sortie`). Protégés : 
 10/10 (revue du recrutement, L9a : l'appel est gardé, son défaut corrigé) : il expulsait des clippers qui publient quand le scan ne
 lisait plus leurs comptes (budget Apify coupé, compte restreint, passage raté) : le silence du scan passait pour de l'inactivité.
 Désormais, un clipper dont le scan n'a lu aucun compte public récemment (sortie_auto.mesures) est « non mesuré » : jamais appelé
-pour inactivité, jamais sorti à l'échéance d'un appel, jamais purgé (sortie_auto.compte_lu). À l'échéance, un clipper mesuré qui
-a publié depuis n'est pas sorti non plus (« ne répondent pas ET inactifs », décision du 05/10). Le calcul des visites vit dans
-sortie_auto.visites."""
+pour inactivité, jamais purgé (sortie_auto.compte_lu). Le calcul des visites vit dans sortie_auto.visites.
+
+11/10 (revue de L9a) : seul ce défaut est corrigé, la règle du 05/10 reste entière. Un clipper mesuré, sans réponse à l'échéance
+et sans visites, sort même s'il publie (coût accepté le 05/10 : « ceux qui publient mais ne lisent pas Discord vont sortir »).
+À l'échéance :
+- mesure illisible (classeur ou scan en panne à ce passage) : rien n'est écrit, il est repris 30 min plus tard ;
+- clipper non mesuré : l'appel reste OUVERT (une seule ligne ⏸️ au salon admin, drapeau `non_mesure_signale`), une réponse le
+  solde toujours ; il est jugé au premier passage où le scan lit ses comptes, et l'appel n'est clos sans sortie (`non_mesure`)
+  qu'après APPEL_MESURE_ATTENTE jours (7) sans mesure. Jamais un deuxième appel pendant ce temps.
+Branchements à GARDER au démarrage (lot W, amendement B) : `import appel`, appel.configurer, parcours._deps["activite"] =
+appel.noter_activite, la tâche appel.boucle, appel.noter_activite et appel.commande dans on_message, `!appel` et `!purge` dans
+COMMANDES_MANAGER."""
 
 import asyncio
 import logging
@@ -56,6 +65,9 @@ RAISON = f"sans réponse à l'appel depuis {HEURES} h"
 # ramène du monde) : des visites sur ses liens GAML sur INACTIF_JOURS jours = une activité. Au-dessous du seuil, nos propres
 # clics de contrôle.
 VISITES_ACTIF = int(os.environ.get("APPEL_VISITES_ACTIF", "5") or 5)
+# 11/10 (revue de L9a) : un appel échu sur un clipper non mesuré attend la mesure du scan au plus ce nombre de jours, puis il est
+# clos sans sortie
+MESURE_ATTENTE = int(os.environ.get("APPEL_MESURE_ATTENTE", "7") or 7)
 
 
 def configurer(deps: dict):
@@ -178,8 +190,9 @@ async def lancer_appel(cibles: list, motif: str, maintenant=None) -> list:
         uid = str(membre.id)
         prenom = _deps["prenom_de"](membre) if _deps.get("prenom_de") else getattr(membre, "display_name", uid)
         a = d["appels"].get(uid)
-        if a and not a.get("sorti") and not a.get("repondu") and (_dt(a.get("date")) or maintenant) + timedelta(hours=HEURES) > maintenant:
-            continue                                                    # un appel court déjà
+        if a and not a.get("sorti") and not a.get("repondu") and not a.get("non_mesure") and (
+                a.get("non_mesure_signale") or (_dt(a.get("date")) or maintenant) + timedelta(hours=HEURES) > maintenant):
+            continue                                                    # un appel court déjà (11/10 : ou échu, il attend la mesure)
         if _protege(uid, prenom):
             continue
         try:
@@ -243,7 +256,8 @@ def est_mesure(uid: str, mesures, sans_reel) -> bool:
 
 
 def a_sortir(d: dict, maintenant=None) -> list:
-    """[(uid, appel)] : appel sans réponse depuis HEURES heures ou plus (10/10 : un appel clos « non mesuré » n'y est plus)."""
+    """[(uid, appel)] : appel sans réponse depuis HEURES heures ou plus (10/10 : un appel clos « non mesuré » n'y est plus ; 11/10 :
+    un appel échu qui attend la mesure du scan, `non_mesure_signale`, y reste jusqu'à ce qu'il soit jugé ou clos)."""
     maintenant = maintenant or datetime.now(timezone.utc)
     out = []
     for uid, a in d.get("appels", {}).items():
@@ -260,7 +274,7 @@ def a_relancer_wa(d: dict, parcours: dict, maintenant=None) -> list:
     maintenant = maintenant or datetime.now(timezone.utc)
     out = []
     for uid, a in d.get("appels", {}).items():
-        if not a.get("repondu") or a.get("sorti") or a.get("relance_wa") or a.get("repondu_par") in ("visites", "reels"):
+        if not a.get("repondu") or a.get("sorti") or a.get("relance_wa") or a.get("repondu_par") == "visites":
             continue                                                    # 08/10 : muet mais actif : pas de « merci pour ta réponse »
         if (parcours.get(uid) or {}).get("whatsapp"):
             continue
@@ -320,16 +334,17 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
         mesures = await _mesures() if sans_reel is not None else None
     if expires:
         await _scan()
-    # 1. sans réponse → sortie + expulsion, seulement s'il est mesuré et inactif (10/10)
+    # 1. sans réponse → sortie + expulsion, seulement s'il est mesuré (10/10) ; 11/10 : mesure illisible = rien à ce passage,
+    # non mesuré = appel laissé ouvert jusqu'à la mesure (MESURE_ATTENTE jours au plus)
     for uid, a in expires:
         prenom = a.get("prenom") or uid
         n_vis = visites(uid, max(1, HEURES // 24))
+        illisible = sans_reel is None or mesures is None
         mesure = est_mesure(uid, mesures, sans_reel)
-        jr = (sans_reel or {}).get(uid)
         if not appliquer:
             suite = ("muet mais actif (visites) → pas sorti" if n_vis >= VISITES_ACTIF
-                     else "non mesuré (le scan ne lit pas ses comptes) → pas sorti" if not mesure
-                     else f"publie (dernier Reel il y a {jr} j) → pas sorti" if jr < INACTIF_JOURS
+                     else "mesure du scan illisible → rien à ce passage" if illisible
+                     else "non mesuré (le scan ne lit pas ses comptes) → pas sorti, jugé dès qu'il est mesuré" if not mesure
                      else "sortirait" + (" et expulsé" if KICK else ""))
             bilan.append(f"· {prenom} : sans réponse depuis {HEURES} h, {suite}")
             continue
@@ -348,17 +363,21 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
             d["appels"][uid]["sorti"] = _iso(maintenant); _ecrire(d)
             bilan.append(f"· {prenom} (<@{uid}>) : plus sur le serveur, appel clos")
             continue
+        if illisible:
+            continue                                                    # 11/10 : classeur ou scan en panne : rien d'écrit, repris dans 30 min
         if not mesure:
-            # 10/10 (L9a) : budget Apify coupé, compte restreint ou passage raté : son silence ne prouve rien → appel clos, pas de sortie
-            d["appels"][uid]["non_mesure"] = _iso(maintenant); _ecrire(d)
-            bilan.append(f"⏸️ {prenom} (<@{uid}>) : sans réponse, mais le scan ne lit pas ses comptes (non mesuré) → pas sorti")
-            continue
-        if jr < INACTIF_JOURS:
-            # 10/10 (L9a) : décision du 05/10, « ne répondent pas ET inactifs » : il a publié depuis l'appel
-            d["appels"][uid]["repondu"] = _iso(maintenant)
-            d["appels"][uid]["repondu_par"] = "reels"
-            _ecrire(d)
-            bilan.append(f"🎬 {prenom} (<@{uid}>) : muet sur Discord mais publie (dernier Reel il y a {jr} j) → pas sorti")
+            # 10/10 (L9a) : budget Apify coupé, compte restreint ou passage raté : son silence ne prouve rien → pas de sortie.
+            # 11/10 : l'appel reste ouvert (une réponse le solde), une seule ligne ; jugé dès qu'il est mesuré, clos après
+            # MESURE_ATTENTE jours sans mesure (avant : clos tout de suite, puis rappelé du même message au passage suivant)
+            a_d = d["appels"][uid]
+            signale = _dt(a_d.get("non_mesure_signale"))
+            if signale is None:
+                a_d["non_mesure_signale"] = _iso(maintenant); _ecrire(d)
+                bilan.append(f"⏸️ {prenom} (<@{uid}>) : sans réponse, mais le scan ne lit pas ses comptes (non mesuré) → pas sorti. "
+                             f"Jugé dès que le scan les relit ; appel clos sans sortie dans {MESURE_ATTENTE} j sinon")
+            elif maintenant >= signale + timedelta(days=MESURE_ATTENTE):
+                a_d["non_mesure"] = _iso(maintenant); _ecrire(d)
+                bilan.append(f"⏸️ {prenom} (<@{uid}>) : {MESURE_ATTENTE} j sans mesure du scan → appel clos, pas sorti")
             continue
         try:
             res = await _deps["sortir"](m, RAISON, pool=True, expulser=KICK)
@@ -398,12 +417,15 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
         lents = (inactifs(d["activite"], sans_reel, cibles, d["appels"], maintenant, vues=visites, mesures=mesures)
                  if sans_reel is not None and mesures is not None else [])
         lents = [(s, m, j) for s, m, j in lents if not _protege(str(m.id), _deps["prenom_de"](m) if _deps.get("prenom_de") else "")]
-        non_mes = [_deps["prenom_de"](m) if _deps.get("prenom_de") else str(m.id) for _, m in cibles
-                   if not est_mesure(str(m.id), mesures, sans_reel)]
-        if appliquer:                                                   # 10/10 : pour `!appel`, pas de ligne au salon toutes les 30 min
+        illisible = sans_reel is None or mesures is None
+        non_mes = [] if illisible else [_deps["prenom_de"](m) if _deps.get("prenom_de") else str(m.id) for _, m in cibles
+                                        if not est_mesure(str(m.id), mesures, sans_reel)]
+        if appliquer and not illisible:                                 # 10/10 : pour `!appel`, pas de ligne au salon toutes les 30 min
             d = _lire(); d["non_mesures"] = {"date": _iso(maintenant), "prenoms": non_mes}; _ecrire(d)
-        elif non_mes:
-            bilan.append(f"⏸️ {len(non_mes)} non mesuré(s), le scan ne lit pas leurs comptes : ni appel ni sortie ({', '.join(non_mes[:15])})")
+        elif not appliquer and illisible:                               # 11/10 : illisible ≠ tout le monde non mesuré
+            bilan.append("⚠️ Mesure du scan illisible à ce passage : personne n'est appelé ni sorti, repris 30 min plus tard")
+        elif not appliquer and non_mes:
+            bilan.append(f"⏸️ {len(non_mes)} non mesuré(s), le scan ne lit pas leurs comptes : pas d'appel ({', '.join(non_mes[:15])})")
         if lents and appliquer:
             appeles = await lancer_appel([(s, m) for s, m, _ in lents], f"inactif depuis {INACTIF_JOURS} j ou plus", maintenant)
             bilan += [f"📢 {p} : inactif, appelé (réponse attendue sous {HEURES} h)" for p in appeles]
@@ -524,6 +546,8 @@ def etat_texte(maintenant=None) -> str:
             repondus.append(p + ("" if (_deps["parcours_lire"]() if _deps.get("parcours_lire") else {}).get(uid, {}).get("whatsapp") else " (pas de WhatsApp)"))
         elif a.get("non_mesure"):
             non_mesures.append(p)
+        elif a.get("non_mesure_signale"):                               # 11/10 : échu, jugé dès que le scan lit ses comptes
+            attente.append(f"{p} (échu, attend la mesure du scan)")
         else:
             fin = (_dt(a.get("date")) or maintenant) + timedelta(hours=HEURES)
             reste = max(0, int((fin - maintenant).total_seconds() // 3600))
@@ -534,12 +558,13 @@ def etat_texte(maintenant=None) -> str:
     lignes.append(f"✅ Ont répondu ({len(repondus)}) : " + (", ".join(repondus) or "personne"))
     lignes.append(f"🚪 Sortis ({len(sortis)}) : " + (", ".join(sortis) or "personne"))
     if non_mesures:
-        lignes.append(f"⏸️ Pas sortis, non mesurés à l'échéance ({len(non_mesures)}) : " + ", ".join(non_mesures))
+        lignes.append(f"⏸️ Appels clos sans sortie, {MESURE_ATTENTE} j sans mesure ({len(non_mesures)}) : " + ", ".join(non_mesures))
     nm = d.get("non_mesures") or {}
     if nm.get("prenoms"):
         lignes.append(f"⏸️ Non mesurés au dernier passage ({len(nm['prenoms'])}) : " + ", ".join(nm["prenoms"][:25]))
     lignes.append(f"-# Règle : {HEURES} h pour répondre, inactif {INACTIF_JOURS} j = appelé, expulsion {'ON' if KICK else 'OFF'}. "
-                  "Non mesuré (le scan ne lit pas ses comptes) = ni appel, ni sortie. "
+                  "Non mesuré (le scan ne lit pas ses comptes) = pas d'appel ; un appel échu attend la mesure, "
+                  f"clos sans sortie après {MESURE_ATTENTE} j. "
                   "`!wa @clipper` note WhatsApp, `!appel @clipper` appelle, `!appel go` relance l'appel général.")
     return "\n".join(lignes)
 

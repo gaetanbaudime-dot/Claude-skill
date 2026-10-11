@@ -62,8 +62,10 @@ DOCTRINE = ("Doctrine (elle prime sur tout) : le clipper met SON numéro de tél
             "paie 0,05 $ par visite francophone réelle, payée le 5 et le 20 ; codes : « {codes} » "
             "(création, connexion, rien d'autre), uniquement dans ce salon, jamais ceux qui "
             "changent l'e-mail, le mot de passe ou le numéro ; un compte banni : le clipper fait appel lui-même tout de suite (selfie "
-            "vidéo, SON numéro ou SA pièce d'identité si demandés, jamais ceux d'un autre, jamais dans Discord) ; le code d'un appel "
-            "passe par Gaëtan, sur WhatsApp ; trois cas seulement vont à Gaëtan (appel refusé, numéro refusé, paiement) ; "
+            "vidéo, SON numéro ou SA pièce d'identité si demandés, jamais ceux d'un autre, jamais dans Discord) ; "
+            # 11/10 (revue de L9a) : « le code d'un appel passe par Gaëtan » puis « trois cas seulement » faisait quatre cas
+            "quatre cas seulement vont à Gaëtan (code d'un appel, appel refusé, numéro refusé, paiement), le code d'un appel "
+            "sur WhatsApp ; "
             "le bot ne donne jamais la cause d'un blocage, seulement la marche à suivre, et ne contredit jamais ce que le "
             "clipper voit à l'écran ; jamais de pseudo ni de dossier inventé ; jamais « ton manager te donne un compte demain » ; "
             "un « ok » ne mérite aucune réponse ; une réponse fait trois lignes au plus, une action à la fois, en mots de collège. "
