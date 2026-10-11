@@ -299,7 +299,8 @@ async def _dire(membre, texte: str) -> bool:
 async def _mettre_en_attente(membre, via: str) -> tuple:
     """Le membre passe à « attente_attribution » (pipeline). Le repli part UNE fois : pas à quelqu'un qui attendait déjà (repris
     par la boucle, remis en attente faute de compte) ni à un candidat que la migration a déjà prévenu. Renvoie (nouveau dans
-    l'attente, repli envoyé) : l'admin n'a une ligne qu'à l'entrée dans l'attente, jamais à chaque démarrage ou passage."""
+    l'attente, repli envoyé) : l'admin n'a une ligne qu'à l'entrée dans l'attente, jamais à chaque démarrage ou passage (10/10 :
+    et seulement si l'attribution est éteinte ; sinon le digest du matin le dit)."""
     fichier, uid = _fichier_pipeline(), str(membre.id)
     deja_prevenu, nouveau = False, True
     if fichier is not None:
@@ -516,13 +517,17 @@ async def attribuer(membre, via: str) -> str:
         creatrice, note = prochaine(membre.guild, stock)
         if not creatrice:
             nouveau, prevenu = await _mettre_en_attente(membre, via)
-            journal.info("Attribution impossible pour %s (%s) : aucun compte livrable, en attente", _deps["prenom_de"](membre), via)
-            admin = await _deps["canal_admin"]() if nouveau else None
+            journal.info("Attribution impossible pour %s (%s) : aucun compte livrable, en attente%s", _deps["prenom_de"](membre), via,
+                         " (repli envoyé)" if prevenu else "")
+            # 10/10 (vérification du lot L9b) : plus de ligne « ⏳ … repris tout seul » au salon admin, sans geste à faire et en double
+            # avec le bloc « En attente d'une créatrice » et les places du digest. Seule exception : l'attribution est éteinte au
+            # moment de la mise en attente (actif() faux, ordre vidé pendant l'attente du verrou) : la reprise ne le prendra pas, le
+            # geste est `!creatrice`.
+            admin = await _deps["canal_admin"]() if nouveau and not actif() else None
             if admin is not None:
                 try:
-                    await admin.send((f"⏳ {membre.mention} en attente d'une créatrice : aucun compte livrable ({via})."
-                                      + (" Repli « dès qu'un compte est prêt » envoyé." if prevenu else "")
-                                      + " Repris tout seul dès qu'un compte se libère.")[:1990])
+                    await admin.send((f"⏳ {membre.mention} attend une créatrice et l'attribution est éteinte : personne ne le reprendra.\n\n"
+                                      f"`!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")[:1990])
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             return ""
@@ -562,13 +567,24 @@ async def attribuer(membre, via: str) -> str:
 MARQUES_A_SIGNALER = ("❌", "⚠️", "refusé", "impossible", "aucun libre", "classeur :", "classeur non branché", "gaml :",
                       "onboarding :", "non livrés", "sans catégorie ni rôle", "aucun rôle posé", "parcours pas commencé",
                       "non renvoyée")
+# 10/10 (vérification du lot L9b : onboarding.livrer qui lève donnait « onboarding : KeyError … », coupé au premier « : » par
+# onboarder_membre, donc sans marque, et la ligne admin ne partait plus alors qu'aucun compte n'était réservé) : le succès se lit
+# en liste blanche. Une livraison réussie écrit « N compte(s) » (bilan_court : « N comptes »), N ≥ 1 ; sans elle, on signale.
+_RE_COMPTES_LIVRES = __import__("re").compile(r"(?<![\d.,])[1-9]\d* compte(?:\(s\)|s)?(?![a-zà-ÿ(])")
 
 
 def a_signaler(bilan: str, note: str = "") -> bool:
-    """10/10 (lot L9b) : vrai si l'attribution demande un geste (une des MARQUES_A_SIGNALER dans le bilan ou la note). Une créatrice
-    sautée faute de compte livrable n'en est pas une : les places du digest le disent."""
+    """10/10 (lot L9b) : vrai si l'attribution demande un geste. Une des MARQUES_A_SIGNALER dans le bilan ou la note, OU aucun
+    « N compte(s) » (N ≥ 1) dans le bilan : l'onboarding n'a rien réservé (exception de livrer, quelle qu'elle soit), sauf « déjà
+    livré … rien renvoyé » (livraison de moins de 24 h, ses comptes sont à lui). Une créatrice sautée faute de compte livrable
+    n'est pas un geste : les places du digest le disent."""
     t = f"{bilan or ''} {note or ''}".lower()
-    return any(m.lower() in t for m in MARQUES_A_SIGNALER)
+    if any(m.lower() in t for m in MARQUES_A_SIGNALER):
+        return True
+    b = str(bilan or "").lower()
+    if "déjà livré" in b and "rien renvoyé" in b:
+        return False
+    return _RE_COMPTES_LIVRES.search(b) is None
 
 
 async def reprendre_attente() -> list:

@@ -4953,7 +4953,9 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "`!ban-spam` · `!archiver #salon…`\n\n"
                 "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur`\n\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre <texte libre, ou un fichier .md/.txt joint>` (prime sur tout) · "
-                "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus) · `!sauvegarde`\n\n"
+                "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus)\n\n"
+                # 10/10 (vérification L9b) : la sauvegarde à la main est retirée de l'aide tant qu'elle joint pipeline.json (numéros)
+                # dans Discord ; le lot W la fait passer par sauvegarder_volume (le volume, aucune pièce jointe)
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
         return ("🧰 **Commandes manager**\n\n"
@@ -4985,14 +4987,15 @@ def texte_aide(membre, est_admin: bool) -> str:
                 # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
                 "· " + codes_2fa.texte_salon_codes() + " Seulement les codes de connexion et de création, visibles par toi seul.\n"
                 # 10/10 (règle stricte de Gaëtan) : le code d'un appel ne passe plus par le bot, sauf CODES_APPEL=1. 10/10 (lot L9b) :
-                # un compte bloqué, c'est Gaëtan sur WhatsApp (plus « ton manager ») ; l'appel tient dans la même ligne
+                # un compte bloqué, c'est Gaëtan sur WhatsApp (plus « ton manager »). Vérification L9b : une action par ligne, la
+                # phrase d'appel du lot codes sur la sienne
                 + ("· Même bouton pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n" if codes_2fa.CODES_APPEL else "") +
                 "· `!mesclics` : tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours (paie les 5 et 20).\n"
                 "· `!parrain @lui` : tu parraines un nouveau, 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement : ton adresse de paiement.\n"
-                "· Un compte bloqué ? Écris à Gaëtan sur WhatsApp."
+                "· Un compte bloqué ? Écris à Gaëtan sur WhatsApp.\n"
                 + ("" if codes_2fa.CODES_APPEL else
-                   " Tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.") + "\n"
+                   "· Un compte banni : tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.\n") +
                 "· `STOP` en message privé : plus aucun rappel automatique.\n\n"
                 "Une question ? Écris-la ici, je réponds.")
     # 09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : le candidat ne lit que sa prochaine action. Un

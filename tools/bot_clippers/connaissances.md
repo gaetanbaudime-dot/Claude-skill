@@ -247,7 +247,7 @@ Le manager de tous les clippers, c'est **Gaëtan**. Le rôle **Manager** est un 
 4. **Suivre les visites** : chaque clipper a son lien GetAllMyLinks livré par le bot ; `!clics` donne les visites payables de tous, `!bilan-fixe` le verdict des anciens au fixe.
 5. **Former et corriger** : un conseil simple quand un Reel coince (hook, durée, choix du rush). Un clipper qui veut un avis sur un Reel envoie la vidéo dans son salon perso : l'assistant lui répond. Les nouveaux, c'est lui qui les accueille.
 6. **Manager, motiver, trier** : un call d'équipe par semaine. Les sorties automatiques sont deux : 48 h sans compte 1 (avertissement 24 h avant), et l'appel de présence (2 jours sans activité → appelé → 48 h pour répondre ; un lien qui ramène des visiteurs compte comme une activité). Un clipper dont le bot n'a pas pu lire les comptes n'est jamais compté inactif : il n'est ni appelé ni sorti. Tout autre tri se décide avec Gaëtan.
-7. **Le point du matin** : un seul message par jour au salon admin (10 octobre 2026) : les arrivés et les attribués de la veille, les bloqués, les sorties automatiques, les places pour de nouveaux clippers, et le lundi le tableau de la semaine.
+7. **Le point du matin** : chaque matin au salon admin (10 octobre 2026), les arrivés et les attribués de la veille, les bloqués, les sorties automatiques, les places pour de nouveaux clippers, et le lundi le tableau de la semaine. L'appel de présence poste encore ses bilans à part.
 
 Ses commandes (tape `!aide` pour la liste) : `!creatrice @clipper Prénom` (créatrice, rôle, salon perso, comptes, parcours guidé) · `!etape @clipper [n]`, `!note @clipper texte`, `!memoire @clipper` (le parcours et la mémoire du bot) · `!code adresse` (un code de connexion ou de création, jamais les autres) · `!clics`, `!liens`, `!lien @clipper nouveau`, `!paie-clics 5|20`, `!bilan-fixe` (la paie au clic) · `!comptes-libres`, `!onboarding @clipper`, `!liberer Prénom` (le classeur des comptes) · `!fiche @clipper`, `!pipeline`, `!quiz-ok @candidat` (le valider à la main), `!relance`, `!sortie @clipper raison`.
 
@@ -409,7 +409,7 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Où je pose mes questions ?** Dans ton salon perso. Écris ta question : je réponds ici, en quelques secondes. Un « ok » ou un « fait » ne demande pas de réponse.
 
-**Mon compte 1 arrive quand ?** Tout de suite, juste en dessous de ton message de bienvenue. Écris aussi à Gaëtan sur WhatsApp avec le bouton de ce message, puis appuie sur ✅ : il t'ajoute au groupe.
+**Mon compte 1 arrive quand ?** Tout de suite, juste en dessous de ton message de bienvenue. Écris aussi à Gaëtan sur WhatsApp avec le bouton de ce message. Appuie sur ✅ quand tu as écrit à Gaëtan : c'est lui qui t'ajoute au groupe.
 
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
