@@ -1,199 +1,54 @@
-"""Le classeur se vérifie seul (29/09, Gaëtan : GO — « au scan du matin : mail ou handle en double, ligne BAN qui garde un
-Gérant, réservation jamais créée. Signalé dans bot-gaetan, jamais corrigé seul »).
+"""Bouchon inerte (11/10, revue du recrutement, lot L12) : la vérification du classeur après le scan (29/09) est FONDUE dans le
+contrôle d'attribution (controle.py), `!classeur` est retiré.
 
-Après chaque scan (et sur `!classeur`), les lignes du classeur des logins sont passées au crible : un même e-mail sur deux
-lignes, un même pseudo sur deux lignes, une ligne BAN qui garde le nom d'un clipper, une ligne « à créer » réservée par un
-clipper et jamais vue sur Instagram après SCANS_MIN scans, un clipper avec plus de trois comptes vivants. Le résultat part dans
-le salon admin quand la liste change (silence quand rien ne bouge, silence quand tout est propre) ; `!classeur` le redonne
-à la demande. Rien n'est corrigé : c'est Gaëtan qui tranche dans le classeur. Les gérants hors clipping (DASHBOARD_EXCLUS :
-Julien, Rianah) ne comptent pas pour les BAN, les réservations et le plafond de trois comptes."""
-import hashlib
+Avant : deux contrôles du même classeur, deux messages au salon admin. Ce que seul ce module voyait est devenu une famille du
+contrôle, calculée toutes les 15 minutes et affichée dans la section CONTRÔLE du Dashboard :
+
+  - e-mail en double, infos d'un compte BAN réutilisées → C13 ;
+  - ligne BAN qui garde un Gérant → C14 ;
+  - réservation « à créer » jamais vue sur Instagram après 7 jours de scan → C15 ;
+  - plus de 3 comptes vivants pour un clipper → C16.
+
+Le pseudo en double était déjà C11. Mêmes règles, mêmes variables Railway (CLASSEUR_SCANS_MIN, CLASSEUR_MAX_COMPTES), mêmes
+exclus (etats_comptes.dashboard_exclus). Le salon admin n'est prévenu que quand la liste des points bloquants ou importants change.
+
+Ce fichier ne garde que les noms que bot_discord appelle encore (`configurer` et `verifier` dans on_ready, `verifier` passé à
+etats_comptes sous le nom « verifier_classeur », `commande` dans on_message), le temps que le lot W les retire ; W supprime ensuite
+ce fichier. classeur_verif.json, s'il reste sur le volume, n'est plus lu ni écrit.
+"""
 import logging
-import os
-from datetime import datetime, timezone
 
 journal = logging.getLogger("bot.classeur_verif")
-SCANS_MIN = int(os.environ.get("CLASSEUR_SCANS_MIN", "7") or 7)
-MAX_COMPTES = int(os.environ.get("CLASSEUR_MAX_COMPTES", "3") or 3)
-LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
-A_CREER = ("a creer", "à créer")
-_deps: dict = {}
+RETIRE = ("Retiré le 11/10 : `!classeur` n'existe plus.\n\n"
+          "Ses contrôles sont dans le contrôle d'attribution : C13 e-mail en double ou info d'un BAN, C14 BAN qui garde un Gérant, "
+          "C15 réservation jamais créée, C16 plus de 3 comptes vivants.\n\n"
+          "Tu les lis dans l'onglet Dashboard, section CONTRÔLE. Le salon admin est prévenu quand la liste change.")
+_dits = set()
 
 
-def configurer(deps: dict):
-    """deps : lire_json, ecrire_json, FICHIER_VERIF, canal_admin, est_staff, normaliser, exclus() (prénoms hors clipping),
-    lire_comptes, historique() (dict handle → scans)."""
-    _deps.update(deps)
+def _dire(quoi: str):
+    """Une ligne de journal par processus et par appel retiré (pas une à chaque scan)."""
+    if quoi not in _dits:
+        _dits.add(quoi)
+        journal.info("classeur_verif.%s : retiré le 11/10 (lot L12, fondu dans controle C13 à C16), appel ignoré — le lot W le "
+                     "retire de bot_discord", quoi)
 
 
-def _n(t):
-    return _deps["normaliser"](t or "") if _deps.get("normaliser") else (t or "").strip().lower()
+def configurer(deps: dict = None):
+    """Retiré le 11/10 : ne fait rien."""
+    _dire("configurer")
 
 
-def _prenom(c) -> str:
-    g = str(c.get("gerant") or "").strip()
-    return g.split()[0] if g else ""
-
-
-def _en_gestion(c) -> bool:
-    # 09/10 : un Gérant « … (Metricool) » n'est pas un clipper (« Julien (Metricool) » ne compte pas pour le nouveau Julien clipper)
-    return _n(c.get("utilisation") or "clipper") in ("clipper", "") and _n(_prenom(c)) not in LIBRES \
-        and "metricool" not in _n(c.get("gerant"))
-
-
-def _etiquette(c) -> str:
-    """« Josué (GOOD) » — le clipper et l'état de la ligne."""
-    return f"{_prenom(c) or 'sans gérant'} ({c.get('etat') or '?'})"
-
-
-def _compter(paires: list) -> str:
-    """[(onglet, prénom)…] → « Sarah → Jonas 3, Tara 1 · Sophie → Raphael 1 »."""
-    par_onglet = {}
-    for onglet, prenom in paires:
-        par_onglet.setdefault(onglet, {}).setdefault(prenom, 0)
-        par_onglet[onglet][prenom] += 1
-    return " · ".join(f"{o} → " + ", ".join(f"{p} {n}" for p, n in sorted(cs.items(), key=lambda kv: (-kv[1], kv[0])))
-                      for o, cs in par_onglet.items())
-
-
-def anomalies(comptes: list, historique: dict | None = None, exclus=None) -> list:
-    """Les lignes du rapport, une par famille d'anomalie (vide quand le classeur est propre)."""
-    historique = historique or {}
-    exclus = {_n(x) for x in (exclus or [])}
-    out = []
-    # 1. un même e-mail sur plusieurs lignes (tous onglets)
-    par_mail = {}
-    for c in comptes:
-        m = (c.get("mail") or "").strip().lower()
-        if m:
-            par_mail.setdefault(m, []).append(c)
-    doublons = []
-    for m, cs in par_mail.items():
-        if len(cs) > 1:
-            num = next((c["numero"] for c in cs if c.get("numero")), "")
-            ref = f"{cs[0].get('onglet') or '?'} n° {num}" if num else f"{cs[0].get('onglet') or '?'} {m[:6]}…"
-            # 01/10 : « brûlé » seulement si le mail d'un BAN sert encore à une ligne non BAN (deux lignes BAN qui partagent un
-            # mail, c'est un doublon, pas une réutilisation : 2 fausses alertes sur 3 le 01/10)
-            etats = [_n(c.get("etat")) for c in cs]
-            brule = " ⚠️ mail brûlé (ligne BAN) réutilisé" if "ban" in etats and any(e != "ban" for e in etats) else ""
-            doublons.append(f"{ref} → " + " + ".join(_etiquette(c) for c in cs) + brule)
-    if doublons:
-        out.append("• Mail en double : " + " · ".join(sorted(doublons)))
-    # 1 bis. 30/09 (Gaëtan : « ON NE RÉUTILISE JAMAIS LES INFOS D'UN COMPTE BAN, on change mdp, username, mail, téléphone ») :
-    # toute ligne non BAN qui porte l'identifiant, le mot de passe, l'e-mail ou le téléphone d'un compte BAN, tous onglets
-    # confondus. Les lignes libres ne sont plus livrées (onboarding.disponibles) ; les comptes en service sont à changer.
-    import onboarding                                                   # (import tardif : les tests de ce module s'en passent)
-    brulees = onboarding.infos_brulees(comptes)
-    en_service, bloquees = [], {}
-    for c in comptes:
-        infos = onboarding.infos_d_un_ban(c, brulees)
-        if not infos:
-            continue
-        if _n(_prenom(c)) in LIBRES:
-            bloquees[c.get("onglet") or "?"] = bloquees.get(c.get("onglet") or "?", 0) + 1
-        else:
-            ou = f"{c.get('onglet') or '?'} n° {c['numero']}" if c.get("numero") else f"{c.get('onglet') or '?'} ligne {c.get('ligne')}"
-            en_service.append(f"{ou} {_etiquette(c)} → {' + '.join(infos)}")
-    if en_service or bloquees:
-        out.append("• 🔥 Infos d'un compte BAN réutilisées (interdit, à changer) : "
-                   + (" · ".join(sorted(en_service)) if en_service else "aucun compte en service")
-                   + (" · lignes libres bloquées, jamais livrées tant qu'elles ne sont pas changées : "
-                      + ", ".join(f"{o} {n}" for o, n in sorted(bloquees.items())) if bloquees else ""))
-    # 2. un même pseudo sur plusieurs lignes
-    par_handle = {}
-    for c in comptes:
-        h = (c.get("handle") or "").strip().lower().lstrip("@")
-        if h:
-            par_handle.setdefault(h, []).append(c)
-    doublons = []
-    for h, cs in par_handle.items():
-        if len(cs) > 1:
-            ou = ", ".join(f"{c.get('onglet') or '?'} n° {c['numero']}" if c.get("numero") else f"{c.get('onglet') or '?'} ligne {c.get('ligne')}" for c in cs)
-            doublons.append(f"@{h} → " + " + ".join(sorted({_prenom(c) or 'sans gérant' for c in cs})) + f" ({ou})")
-    if doublons:
-        out.append("• Pseudo en double : " + " · ".join(sorted(doublons)))
-    # 3. une ligne BAN qui garde un Gérant
-    bans = [(c.get("onglet") or "?", _prenom(c)) for c in comptes
-            if _n(c.get("etat")) == "ban" and _en_gestion(c) and _n(_prenom(c)) not in exclus]
-    if bans:
-        out.append(f"• BAN avec un Gérant ({len(bans)}) : " + _compter(bans))
-    # 4. réservée, jamais créée : « à créer » avec un Gérant, jamais vue sur Instagram après SCANS_MIN scans
-    jamais = []
-    for c in comptes:
-        if _n(c.get("etat")) not in A_CREER or not _en_gestion(c) or _n(_prenom(c)) in exclus:
-            continue
-        scans = historique.get((c.get("handle") or "").lower(), [])
-        if len(scans) >= SCANS_MIN and not any(s.get("existe") for s in scans):
-            jamais.append((c.get("onglet") or "?", _prenom(c)))
-    if jamais:
-        out.append(f"• À créer depuis {SCANS_MIN} scans ou plus ({len(jamais)}) : " + _compter(jamais))
-    # 5. plus de MAX_COMPTES comptes vivants pour un clipper (BAN exclus)
-    vivants = {}
-    for c in comptes:
-        # 30/09 : « Logs perdus » ne compte pas (Caroline signalée à 4 comptes : 3 utilisables + 1 aux identifiants perdus)
-        if _en_gestion(c) and _n(c.get("etat")) != "ban" and "perdu" not in _n(c.get("etat")) \
-                and _n(_prenom(c)) not in exclus and c.get("handle"):
-            cle = (c.get("onglet") or "?", _n(_prenom(c)), _prenom(c))
-            vivants[cle] = vivants.get(cle, 0) + 1
-    trop = [f"{p} {n} ({o})" for (o, _, p), n in sorted(vivants.items()) if n > MAX_COMPTES]
-    if trop:
-        out.append(f"• Plus de {MAX_COMPTES} comptes vivants : " + ", ".join(trop))
-    return out
-
-
-def texte(lignes: list, jour: str | None = None) -> str:
-    jour = jour or datetime.now(timezone.utc).strftime("%d/%m")
-    if not lignes:
-        return f"🧹 Classeur ({jour}) : rien à signaler."
-    return f"🧹 Classeur ({jour}) : {len(lignes)} point(s) à trancher, rien corrigé\n" + "\n".join(lignes)
-
-
-def _empreinte(lignes: list) -> str:
-    return hashlib.sha1("\n".join(lignes).encode("utf-8")).hexdigest()[:16]
-
-
-async def verifier(comptes: list, historique: dict | None = None, force: bool = False) -> str | None:
-    """Calcule le rapport ; le poste dans le salon admin s'il a changé depuis le dernier envoi (ou `force`). Renvoie le texte
-    posté, None sinon."""
-    exclus = _deps["exclus"]() if _deps.get("exclus") else []
-    lignes = anomalies(comptes, historique, exclus)
-    d = _deps["lire_json"](_deps["FICHIER_VERIF"], {}) if _deps.get("lire_json") else {}
-    empreinte = _empreinte(lignes)
-    if not force and d.get("empreinte") == empreinte:
-        return None
-    if not force and not lignes:
-        d.update({"empreinte": empreinte, "jour": datetime.now(timezone.utc).isoformat(timespec="minutes"), "n": 0})
-        if _deps.get("ecrire_json"):
-            _deps["ecrire_json"](_deps["FICHIER_VERIF"], d)
-        return None
-    t = texte(lignes)
-    if _deps.get("canal_admin"):
-        try:
-            canal = await _deps["canal_admin"]()
-            if canal is not None:
-                await canal.send(t[:1950])
-        except Exception as erreur:                                      # noqa: BLE001
-            journal.warning("Vérification du classeur : salon admin : %s", erreur)
-    d.update({"empreinte": empreinte, "jour": datetime.now(timezone.utc).isoformat(timespec="minutes"), "n": len(lignes)})
-    if _deps.get("ecrire_json"):
-        _deps["ecrire_json"](_deps["FICHIER_VERIF"], d)
-    journal.info("Vérification du classeur : %d famille(s) d'anomalies signalée(s)", len(lignes))
-    return t
+async def verifier(comptes=None, historique=None, force: bool = False):
+    """Retiré le 11/10 : plus de message au salon admin après le scan (controle.passage le fait, toutes les 15 min). None."""
+    _dire("verifier")
+    return None
 
 
 async def commande(message, texte_cmd: str) -> bool:
-    """`!classeur` : le rapport tout de suite, même s'il n'a pas changé."""
-    mots = texte_cmd.split()
-    if not mots or mots[0].lower() not in ("!classeur", "!verif", "!vérif"):
+    """`!classeur`, `!verif`, `!vérif` répondent qu'ils sont retirés, et où lire la même chose ; tout le reste : False."""
+    if ((texte_cmd or "").split() or [""])[0].lower() not in ("!classeur", "!verif", "!vérif"):
         return False
-    if _deps.get("est_staff") and not _deps["est_staff"](message.author):
-        await message.reply("Réservé aux managers et aux admins.")
-        return True
-    if not _deps.get("lire_comptes"):
-        await message.reply("Classeur inactif.")
-        return True
-    comptes = await _deps["lire_comptes"]()
-    historique = _deps["historique"]() if _deps.get("historique") else {}
-    exclus = _deps["exclus"]() if _deps.get("exclus") else []
-    await message.reply(texte(anomalies(comptes, historique, exclus))[:1950])
+    _dire("commande")
+    await message.reply(RETIRE)
     return True

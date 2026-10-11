@@ -18,7 +18,7 @@ passage qui a LU un compte ; Metricool y ajoute les siens (source « metricool �
 Règles (jamais un faux 0) :
   - un relevé n'existe que pour un compte LU ; `followers: None` = illisible, jamais 0 par défaut ;
   - vues d'un Reel : `vues_post` — videoPlayCount si c'est un nombre, sinon videoViewCount, sinon absent (aucun point ajouté).
-    La même règle partout (scan des comptes, cadence_reels) ;
+    La même règle partout (scan des comptes ; 11/10 : la lecture de la cadence par clipper est retirée) ;
   - Reels = vidéos non épinglées vues dans latestPosts, gardés 40 jours après publication, 20 points de vues au plus
     (6 au-delà de 15 jours), les points proches de 24 h / 48 h / 72 h / 7 j après la publication toujours gardés ;
   - un même Reel vu par deux sources sous deux codes (publié à 2 minutes près) n'est compté qu'une fois ; 09/10 (revue) : les
