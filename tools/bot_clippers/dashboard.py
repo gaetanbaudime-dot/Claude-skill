@@ -96,6 +96,17 @@ Reels hier et 7 jours, tendance —, mis à jour le plus souvent possible sous 2
   - aucune somme partielle muette : sous-totaux, bandeaux et TOTAL disent aussi « Δ 24 h », « Δ 7 j », « Reels auj. », « Reels
     hier » et « clics paie » partiels.
 
+11/10 (lot L8, reprise après la vérification adversariale) :
+  - jamais « dû 0 $ » sur rien de lu : paie_clics.payees (0, jamais None) n'est prise que si un jour de la période ou le jour en
+    cours est lu sur un lien du clipper ; sinon cellule vide. Les jours manquants et le jour en cours pas encore relu sont dits ;
+  - un clipper présent chez deux créatrices : son dû (tous ses liens) est porté par son premier sous-total seulement, les autres
+    disent « part Chloé · dû : voir le sous-total Sophie » ;
+  - « Clics paie » d'une ligne suit la règle de la paie (paie_clics.regime, debut_clic) : vide et « au fixe » pour un clipper au
+    fixe, compté depuis son premier jour au clic pour un passage en cours de période ;
+  - « Période close » : recalculée quand rien n'est figé — « aucune prime d'équipe sur cette période » (info) quand la liste n'en
+    porte aucune ; une valeur abîmée de clics.json « primes_equipes » donne « primes figées illisibles », jamais un Dashboard en panne ;
+  - « prochaine relecture vers H h » jugée sur la dépense publiée, celle de la garde du lot L7 (plus sur le minorant).
+
 Les modules des autres lots (series, controle, metricool_comptes, paie_clics.clics_lien / clics_aujourdhui) sont importés s'ils
 sont là : s'il en manque un, sa section dit « source indisponible », ou les chiffres viennent des cellules du classeur (repli
 marqué), et les clics d'un lien sont recalculés depuis clics.json « jours » selon la même règle que le contrat C2. parcours et
@@ -588,6 +599,7 @@ class _Ctx:
         self.parcours = {str(k): v for k, v in (e.get("parcours") or {}).items() if isinstance(v, dict)} \
             if isinstance(e.get("parcours"), dict) else {}
         self.paie_debut, self.paie_fin, self.jour_paie = periode_paie(self.j0)
+        self._regimes = {}                                               # 11/10 (lot L8, reprise) : régime et début au clic par uid
 
     def cat(self, lid) -> str:
         if lid not in self._cats:
@@ -705,20 +717,52 @@ class _Ctx:
             except ValueError:
                 pass
         r["paie"], r["paie_manque"] = self._paie_lien(lid, auj, dep)
+        r["paie_fixe"] = self.regime_paie((self.liens.get(str(lid)) or {}).get("uid"))[0] == "fixe"   # reprise du lot L8
         self._clics[lid] = r
         return r
+
+    def regime_paie(self, uid) -> tuple:
+        """11/10 (lot L8, reprise : « Clics paie » d'une ligne qui ignorait la règle de la paie) : (régime « clic » / « fixe », premier
+        jour payé au clic ou None) du clipper `uid`, lus comme la liste de paie (paie_clics.regime et debut_clic : le plancher
+        `clic_depuis` d'un passage au clic, BASCULE_CLIC). ('', None) si rien ne le dit (module absent, registre illisible) : la
+        période entière, comme avant. Une lecture par uid et par calcul."""
+        uid = str(uid or "")
+        if uid not in self._regimes:
+            reg, dc = "", None
+            f_reg = getattr(paie_clics, "regime", None) if paie_clics is not None and uid else None
+            if callable(f_reg):
+                try:
+                    reg = str(f_reg(uid) or "")
+                    f_dc = getattr(paie_clics, "debut_clic", None)
+                    if reg == "clic" and callable(f_dc):
+                        brut = str(f_dc(uid, self.clics) or "")[:10]
+                        dc = date.fromisoformat(brut) if brut else None
+                except Exception as erreur:                              # noqa: BLE001 — registre illisible : la période entière
+                    journal.debug("Régime de paie de %s : %s", uid, erreur)
+                    reg, dc = "", None
+            self._regimes[uid] = (reg, dc)
+        return self._regimes[uid]
 
     def _paie_lien(self, lid, auj, dep: str) -> tuple:
         """11/10 (lot L8) : (visites payées de la période de paie en cours jusqu'à maintenant, jours non relevés) — les jours complets
         de `jours` (du début de la période, ou de la reprise du lien `depuis`, à hier) plus le jour en cours (`aujourdhui`). Un jour
         non relevé n'est jamais un 0 caché : la somme des jours lus est gardée et le jour manquant est rendu, pour être dit (« clics
-        paie : 1 j non relevé »), comme la liste de paie marque une ligne « provisoire ». (None, ∅) : rien de lu sur la période."""
+        paie : 1 j non relevé »), comme la liste de paie marque une ligne « provisoire ». (None, ∅) : rien de lu sur la période.
+        Reprise : la règle de la liste de paie (paie_clics._debut_paie) — un clipper au fixe n'a aucune visite payée ((None, ∅), la
+        ligne dit « au fixe »), un passage au clic en cours de période compte à partir de son premier jour au clic."""
         debut = self.paie_debut
         try:
             if dep and date.fromisoformat(dep) > debut:
                 debut = date.fromisoformat(dep)
         except ValueError:
             pass
+        reg, dc = self.regime_paie((self.liens.get(str(lid)) or {}).get("uid"))
+        if reg == "fixe":
+            return None, set()
+        if dc is not None and dc > debut:
+            debut = dc
+        if debut > self.j0:                                              # pas encore payé au clic aujourd'hui
+            return None, set()
         jours = ((self.clics.get("jours") or {}).get(str(lid)) or {})
         jours = jours if isinstance(jours, dict) else {}
         info = self.liens.get(str(lid)) or {}
@@ -758,6 +802,9 @@ def _clics_de(ctx: _Ctx, lids) -> dict:
     for k in ("auj", "hier", "c7", "c7p", "paie"):
         out[k], out[k + "_n"], out[k + "_tot"] = _somme(c[k] for c in cs)
     out["paie_manque"] = set().union(*(c.get("paie_manque") or set() for c in cs)) if cs else set()   # 11/10 (lot L8)
+    out["paie_fixe"] = sum(1 for c in cs if c.get("paie_fixe"))         # reprise du lot L8 : liens d'un clipper au fixe
+    if out["paie_fixe"]:                                                 # « k/n liens relevés » : sur les seuls liens payés au clic
+        out["paie_tot"] -= out["paie_fixe"]
     complet = lids and all(c["c7"] is not None and c["c7p"] is not None for c in cs)
     out["delta"] = _delta_pct(out["c7"], out["c7p"]) if complet else ""
     out["comparable"] = bool(complet)
@@ -780,14 +827,13 @@ def _notes_clics(ctx: _Ctx, k: dict, heure: bool = False, paie: bool = False) ->
     notes = []
     for cle, nom, verbe in (("c7", "clics 7 j", "relevés"), ("hier", "clics hier", "relevés"), ("auj", "clics du jour", "relus"),
                             ("paie", "clics paie", "relevés")):
-        if cle == "paie" and not paie:
+        if cle == "paie":                                                # 11/10 (reprise du lot L8) : _notes_paie
             continue
         n, tot = k.get(cle + "_n"), k.get(cle + "_tot")
         if tot and n and n < tot:                                        # 0 lien mesuré : la cellule est vide, elle le dit déjà
             notes.append(f"{nom} : {n}/{tot} lien{'s' if tot > 1 else ''} {verbe if tot > 1 else verbe[:-1]}")
-    if paie and k.get("paie") is not None and k.get("paie_manque"):
-        m = len(k["paie_manque"])
-        notes.append(f"clics paie : {m} j non relevé{'s' if m > 1 else ''}")
+    if paie:
+        notes += _notes_paie(k)
     if k.get("depuis"):
         if k.get("n_liens", 1) <= 1:
             notes.append(f"clics depuis le {k['depuis'].strftime('%d/%m')} (lien repris)")
@@ -796,6 +842,24 @@ def _notes_clics(ctx: _Ctx, k: dict, heure: bool = False, paie: bool = False) ->
     t = k.get("t_auj_min")
     if heure and t is not None and ctx.maintenant - t > timedelta(minutes=CLICS_VIEUX_MIN):
         notes.append(f"clics du jour à {_hm(t, ctx.j0)}")
+    return notes
+
+
+def _notes_paie(k: dict) -> list:
+    """11/10 (lot L8, reprise) : ce que « Clics paie » d'une somme de liens ne couvre pas — « clics paie : 1/2 liens relevés »,
+    « clics paie : 2 j non relevés » — et « clics paie : au fixe » quand ses liens sont ceux d'un clipper au fixe."""
+    if not k:
+        return []
+    notes = []
+    n, tot = k.get("paie_n"), k.get("paie_tot")
+    if tot and n and n < tot:
+        notes.append(f"clics paie : {n}/{tot} lien{'s' if tot > 1 else ''} {'relevés' if tot > 1 else 'relevé'}")
+    if k.get("paie") is not None and k.get("paie_manque"):
+        m = len(k["paie_manque"])
+        notes.append(f"clics paie : {m} j non relevé{'s' if m > 1 else ''}")
+    if k.get("paie_fixe"):
+        notes.append("clics paie : au fixe" if k.get("paie_fixe") >= k.get("n_liens", 1) else
+                     f"clics paie : {k['paie_fixe']} lien(s) au fixe")
     return notes
 
 
@@ -1470,14 +1534,18 @@ def _prochaine_relecture(ctx, st: dict = None):
     d'aujourd'hui (Paris) que la garde du budget laissera partir, d'après l'état publié ; None si aucune (toutes traitées, Apify
     coupé, ou réserves des passages du matin et de la file du parcours qui ne laissent plus rien). Une heure déjà passée et pas
     encore traitée part tout de suite ; une heure que le passage complet rend inutile est sautée sans compter. Le budget est jugé
-    comme la garde : la dépense sûre (_usage_minorant, qui ne compte jamais deux fois un appel déjà vu par l'API Apify) plus le coût
-    d'une relecture, sous la trajectoire du budget à cette heure-là, et (lot L7) sous le budget moins les réserves. C'est une
-    estimation (« vers ») : une dépense d'ici là, une file du parcours qui grandit, et la relecture glisse à l'heure suivante."""
+    sur la dépense que la garde lit (passage_leger_si_du._budget_permet, lot L7 : `usage_usd` publié, qui compte deux fois pendant
+    RECOUVREMENT_API_MIN un appel noté juste avant la lecture de l'API) plus le coût d'une relecture, sous la trajectoire du budget
+    à cette heure-là, et (lot L7) sous le budget moins les réserves. Reprise du lot L8 : avant, l'annonce partait du minorant
+    (_usage_minorant) ; un mini-scan de la file du parcours noté juste avant une lecture de l'API faisait annoncer « vers 22 h » une
+    relecture que la garde sautait. Avec la dépense publiée, l'annonce est prudente : quand elle se trompe, c'est que la dépense
+    publiée redescend à la lecture suivante de l'API et que la relecture part plus tôt qu'annoncé. C'est une estimation (« vers ») :
+    une dépense d'ici là, une file du parcours qui grandit, et la relecture glisse à l'heure suivante."""
     heures, _, _ = _reglages_legers()
     j, traitees = _legers_du_jour(ctx)
     if st is not None and (st.get("coupe") or st.get("atteint")):
         return None
-    usage = _usage_minorant(ctx, st) if st is not None else 0.0
+    usage = float(st.get("usage") or 0.0) if st is not None else 0.0   # la dépense de la garde (reprise du lot L8)
     # le coût que la garde comptera : celui du registre (`apify_local`, non arrondi, redemandes comprises au lot L7), sinon le publié
     loc = ctx.etats.get("apify_local") if isinstance(ctx.etats.get("apify_local"), dict) else {}
     cout = _montant(loc.get("cout_leger_usd"))
@@ -1991,37 +2059,68 @@ def _taux_clic() -> float:
     return float(t) if isinstance(t, (int, float)) and not isinstance(t, bool) and t >= 0 else 0.05
 
 
+def _liens_paie(ctx: _Ctx, uid: str) -> list:
+    """11/10 (lot L8, reprise) : les liens actifs du clipper `uid` (clics.json), qu'une ligne les porte ou non, dans tous les
+    onglets : ceux de sa paie."""
+    return [lid for lid, i in sorted(ctx.liens.items()) if str(i.get("uid") or "") == str(uid) and ctx.cat(lid) not in INACTIFS]
+
+
 def _paie_clipper(ctx: _Ctx, uid: str, k: dict) -> dict:
-    """11/10 (lot L8) : {payees, texte} — ses visites payées de la période de paie en cours, jusqu'à maintenant, et « dû X $ (paie
-    du JJ/MM) ». La mesure de la liste de paie quand elle existe (paie_clics.payees, lot L11 : plancher du passage au clic et visites
-    dues compris) sur les jours complets, plus le jour en cours de ses liens ; sinon la somme de ses liens (`k`, comme les lignes).
-    « au fixe » pour un clipper payé au fixe ; rien avant la paie au clic (CLICS_DEPUIS)."""
+    """11/10 (lot L8) : {payees, texte, notes, liens} — ses visites payées de la période de paie en cours, jusqu'à maintenant, et
+    « dû X $ (paie du JJ/MM) ». La mesure de la liste de paie quand elle existe (paie_clics.payees, lot L11 : plancher du passage au
+    clic et visites dues compris) sur les jours complets, plus le jour en cours de ses liens ; sinon la somme de TOUS ses liens
+    actifs (reprise : pas seulement ceux du groupe — un clipper présent chez deux créatrices a un seul dû). « au fixe » pour un
+    clipper au fixe ; rien avant la paie au clic (CLICS_DEPUIS).
+    Reprise du lot L8 (« faux 0 muet sur le dû ») : paie_clics.payees ne renvoie jamais None (0 pour un clipper dont aucun jour n'est
+    lu). Elle n'est prise que si au moins un jour de la période, ou le jour en cours, est lu sur un de ses liens (ou si elle compte
+    déjà des visites, dues comprises) ; sinon rien n'est affiché — cellule vide, pas de « dû 0 $ ». Un jour manquant ou le jour en
+    cours pas encore relu est dit dans `notes` (« clics paie : 2 j non relevés », « clics paie : jour en cours non relevé »).
+    `liens` : les liens comptés (pour dire ceux qui sont hors du groupe)."""
+    vide = {"payees": None, "texte": "", "notes": [], "liens": []}
     depuis = str(getattr(paie_clics, "CLICS_DEPUIS", "") or "") if paie_clics is not None else ""
     if depuis[:10] and ctx.paie_fin.isoformat() < depuis[:10]:
-        return {"payees": None, "texte": ""}
+        return vide
     regime = getattr(paie_clics, "regime", None) if paie_clics is not None else None
     if callable(regime):
         try:
             if str(regime(str(uid)) or "") == "fixe":
-                return {"payees": None, "texte": "au fixe : pas de paie au clic"}
+                return dict(vide, texte="au fixe : pas de paie au clic", fixe=True)
         except Exception as erreur:                                      # noqa: BLE001 — registre illisible : la somme des liens
             journal.debug("Régime de %s : %s", uid, erreur)
-    v = None
+    lids = _liens_paie(ctx, uid)
+    ks = _clics_de(ctx, lids) if lids else {}
+
+    def _avec_du(v, notes):
+        return {"payees": v, "texte": f"dû {_euros(round(v * _taux_clic(), 2))} $ (paie du {ctx.jour_paie:%d/%m})", "notes": notes,
+                "liens": lids}
     payees = getattr(paie_clics, "payees", None) if paie_clics is not None else None
     if callable(payees):
         try:
             base = payees(ctx.clics, str(uid), ctx.paie_debut, ctx.hier) if ctx.hier >= ctx.paie_debut else 0
             if isinstance(base, (int, float)) and not isinstance(base, bool):
-                auj = [ctx.clics_lien(lid)["auj"] for lid, i in ctx.liens.items()
-                       if str(i.get("uid") or "") == str(uid) and ctx.cat(lid) not in INACTIFS]
-                v = int(base) + sum(x for x in auj if x is not None)
+                cs = [ctx.clics_lien(lid) for lid in lids]
+                if not (base > 0 or any(c.get("paie") is not None for c in cs)):
+                    return vide                                          # rien de lu sur la période : jamais « dû 0 $ »
+                auj = [c["auj"] for c in cs if not c.get("paie_fixe")]
+                notes = []
+                manque = set().union(*(c.get("paie_manque") or set() for c in cs)) if cs else set()
+                if manque:
+                    notes.append(f"clics paie : {len(manque)} j non relevé{'s' if len(manque) > 1 else ''}")
+                n_auj = sum(1 for x in auj if x is None)
+                if n_auj:
+                    notes.append("clics paie : jour en cours non relevé" + (f" ({len(auj) - n_auj}/{len(auj)} liens relus)"
+                                                                            if n_auj < len(auj) else ""))
+                return _avec_du(int(base) + sum(x for x in auj if x is not None), notes)
         except Exception as erreur:                                      # noqa: BLE001 — repli : la somme de ses liens
             journal.debug("Paie de %s : %s", uid, erreur)
+    if ks:
+        v, notes = ks.get("paie"), _notes_paie(ks)
+    else:
+        v, notes = (k or {}).get("paie"), _notes_paie(k or {})
+        lids = []
     if v is None:
-        v = (k or {}).get("paie")
-    if v is None:
-        return {"payees": None, "texte": ""}
-    return {"payees": v, "texte": f"dû {_euros(round(v * _taux_clic(), 2))} $ (paie du {ctx.jour_paie:%d/%m})"}
+        return vide
+    return _avec_du(v, notes)
 
 
 def _uids_du_prenom(ctx: _Ctx, gerant) -> set:
@@ -2161,16 +2260,60 @@ def _section_equipes(ajouter, ctx: _Ctx) -> None:
     # la période close, si elle était primée : ses primes figées (la liste du 5 ou du 20 les relit telles quelles)
     fin_p = debut - timedelta(days=1)
     debut_p = periode_paie(fin_p)[0]
-    if callable(getattr(E, "periode_primee", None)) and E.periode_primee(debut_p):
-        fige = ((ctx.clics.get("primes_equipes") or {}).get(E.cle_de_periode(fin_p)) or {}) if isinstance(ctx.clics, dict) else {}
-        periode = f"{debut_p:%d/%m} → {fin_p:%d/%m}"
-        if isinstance(fige, dict) and isinstance(fige.get("lignes"), list):
-            total = sum(float(l[1]) for l in fige["lignes"] if isinstance(l, (list, tuple)) and len(l) >= 2)
-            ajouter(["Période close", periode, f"primes figées : {usd(total)} (paie du {fin_p + timedelta(days=1):%d/%m}), toutes à "
-                     "vérifier avant le virement : 5 abonnés par VA primé, sur Infloww ou MyPulse"], "equipe", gravite="info")
-        else:
-            ajouter(["Période close", periode, f"primes pas encore figées : la liste de paie du {fin_p + timedelta(days=1):%d/%m} "
-                     "les fige au premier calcul"], "equipe", gravite="important")
+    periode = f"{debut_p:%d/%m} → {fin_p:%d/%m}"
+    try:
+        if callable(getattr(E, "periode_primee", None)) and E.periode_primee(debut_p):
+            _ligne_periode_close(ajouter, ctx, E, dep, debut_p, fin_p, periode, usd)
+    except Exception as erreur:                                          # noqa: BLE001 — reprise du lot L8 : jamais tout le Dashboard
+        journal.warning("Dashboard : période close des équipes illisible (%s)", erreur)
+        ajouter(["Période close", periode, f"primes figées illisibles ({type(erreur).__name__}), à vérifier dans clics.json "
+                 "« primes_equipes » avant le virement"], "equipe", gravite="important")
+
+
+def _ligne_periode_close(ajouter, ctx: _Ctx, E, dep: dict, debut_p: date, fin_p: date, periode: str, usd) -> None:
+    """11/10 (lot L8, reprise) : la ligne « Période close » de ÉQUIPES. Figée (clics.json « primes_equipes », lu avec isinstance et
+    chaque montant avec _montant) : leur total, à vérifier avant le virement. Pas figée : la période est recalculée comme la liste de
+    paie la calculera (equipes_tl.calculer + lignes_primes, à défaut primes_equipes). Des lignes de prime : « pas encore figées »
+    (orange), la liste du jour de paie les fige. Aucune ligne : paie_clics.figer_primes_equipes ne la figera jamais (« rien à
+    protéger ») — « aucune prime d'équipe sur cette période » (info), sauf si un VA ou un TL a encore un jour non relevé pendant
+    le délai du complément (jour de paie + COMPLEMENT_JOURS) : le complément peut encore porter une prime, la ligne reste orange.
+    Une valeur abîmée lève : l'appelant écrit « primes figées illisibles », jamais tout le Dashboard en panne."""
+    paie_p = fin_p + timedelta(days=1)
+    tout = ctx.clics.get("primes_equipes") if isinstance(ctx.clics, dict) else None
+    if tout is not None and not isinstance(tout, dict):
+        raise TypeError(f"primes_equipes est un {type(tout).__name__}, pas un dict")
+    fige = (tout or {}).get(E.cle_de_periode(fin_p))
+    if isinstance(fige, dict) and isinstance(fige.get("lignes"), list):
+        montants = [_montant(l[1]) for l in fige["lignes"] if isinstance(l, (list, tuple)) and len(l) >= 2]
+        if any(m is None for m in montants):
+            raise ValueError("montant illisible")
+        ajouter(["Période close", periode, f"primes figées : {usd(sum(montants))} (paie du {paie_p:%d/%m}), toutes à vérifier avant "
+                 "le virement : 5 abonnés par VA primé, sur Infloww ou MyPulse"], "equipe", gravite="info")
+        return
+    if fige is not None and not isinstance(fige, dict):
+        raise TypeError(f"période figée illisible ({type(fige).__name__})")
+    calcul = None
+    if callable(getattr(E, "calculer", None)) and callable(getattr(E, "lignes_primes", None)):
+        calcul = E.calculer(ctx.clics, debut_p, fin_p, dep.get("payees"), dep.get("reels_vus"), dep.get("jours_manquants"))
+        lignes = E.lignes_primes(calcul)
+    else:
+        lignes = E.primes_equipes(ctx.clics, debut_p, fin_p, E.cle_de_periode(fin_p), dep.get("payees"), dep.get("reels_vus"),
+                                  dep.get("jours_manquants"))
+    if lignes:
+        ajouter(["Période close", periode, f"primes pas encore figées : la liste de paie du {paie_p:%d/%m} les fige au premier "
+                 "calcul"], "equipe", gravite="important")
+        return
+    manquants = sum(int(v.get("manquants") or 0) + (1 if v.get("erreur") else 0)
+                    for eq in ((calcul or {}).get("equipes") or {}).values() if isinstance(eq, dict)
+                    for v in (eq.get("vas") or []) if isinstance(v, dict))
+    delai = getattr(paie_clics, "COMPLEMENT_JOURS", 3) if paie_clics is not None else 3
+    delai = delai if isinstance(delai, int) and not isinstance(delai, bool) and delai >= 0 else 3
+    if manquants and ctx.j0 < paie_p + timedelta(days=delai):
+        ajouter(["Période close", periode, f"aucune prime d'équipe pour l'instant, mais {manquants} jour(s) non relevé(s) : le "
+                 f"complément (jusqu'au {paie_p + timedelta(days=delai):%d/%m}) peut encore en porter une"], "equipe",
+                gravite="important")
+        return
+    ajouter(["Période close", periode, "aucune prime d'équipe sur cette période"], "equipe", gravite="info")
 
 
 def _utilisation_inhabituelle(L: dict) -> str:
@@ -2213,9 +2356,13 @@ def _ligne_compte(ctx: _Ctx, L: dict, gerant: str) -> list:
     return r
 
 
-def _sous_total(ctx: _Ctx, groupe: list, nom: str, uid: str = "") -> list:
+def _sous_total(ctx: _Ctx, groupe: list, nom: str, uid: str = "", dus: dict = None, cr_nom: str = "") -> list:
     """Le sous-total d'un groupe. 11/10 (lot L8) : pour un clipper (`uid` connu), l'étape de son parcours dans ETAT (_etape_parcours)
-    et sa paie de la période en cours (_paie_clipper) : Clics paie, puis « dû X $ (paie du JJ/MM) » en tête de Mesure."""
+    et sa paie de la période en cours (_paie_clipper) : Clics paie, puis « dû X $ (paie du JJ/MM) » en tête de Mesure.
+    Reprise du lot L8 (un clipper présent chez deux créatrices voyait son dû écrit deux fois, ou en deux moitiés sans « partiel ») :
+    `dus` {uid : créatrice du sous-total qui porte son dû}, partagé par les blocs d'un calcul. Le dû et la paie entière (tous ses
+    liens) ne sont portés que par son PREMIER sous-total ; les autres gardent la somme des liens du groupe, « part Chloé » et
+    « dû : voir le sous-total Sophie »."""
     r = _ligne_vide()
     r[C_GERANT], r[C_HANDLE] = "Sous-total", nom
     r[C_FOL] = _v(_somme(L["followers"] for L in groupe)[0])
@@ -2242,17 +2389,31 @@ def _sous_total(ctx: _Ctx, groupe: list, nom: str, uid: str = "") -> list:
         r[C_CP] = _v(k.get("paie"))
         r[C_LIEN] = f"{len(set(lids))} lien(s)"
     tete = []
+    notes_paie = _notes_paie(k)
     if uid and groupe and groupe[0].get("typ") == "clipper":
         r[C_ETAT] = _etape_parcours(ctx, uid)
         paie = _paie_clipper(ctx, uid, k)
-        if paie.get("payees") is not None:
-            r[C_CP] = paie["payees"]
-        if paie.get("texte"):
+        premier = dus.get(str(uid)) if dus is not None else None
+        if paie.get("fixe"):                                             # au fixe : aucune visite payée, la cellule reste vide
+            r[C_CP], notes_paie = "", []
             tete.append(paie["texte"])
+        elif premier is not None:                                        # son dû est sur un autre sous-total : la part de ce groupe
+            tete += [f"part {cr_nom or nom}", f"dû : voir le sous-total {premier}"]
+        else:
+            if dus is not None:
+                dus[str(uid)] = cr_nom or nom
+            r[C_CP] = _v(paie.get("payees"))
+            notes_paie = list(paie.get("notes") or [])
+            if paie.get("texte"):
+                tete.append(paie["texte"])
+            hors = set(paie.get("liens") or []) - set(lids)
+            if paie.get("payees") is not None and hors:
+                notes_paie.append(f"clics paie et dû : tous ses liens, dont {len(hors)} hors de ce bloc")
     # 09/10 (revue DASH) : une somme partielle le dit, mesure par mesure (« partiel : followers 2/3, Reels 7 j 1/3 · clics 7 j : 1/2
     # liens relevés »)
     r[C_MES] = " · ".join(x for x in tete + [f"{len(groupe)} compte{'s' if len(groupe) > 1 else ''}",
-                                             _texte_partiel(_notes_sommes(groupe, deltas=True), _notes_clics(ctx, k, paie=True))] if x)
+                                             _texte_partiel(_notes_sommes(groupe, deltas=True), _notes_clics(ctx, k) + notes_paie)]
+                          if x)
     return r
 
 
@@ -2338,7 +2499,8 @@ def _bloc_creatrice(ajouter, ctx: _Ctx, cr: str, lignes_cr: list, r_cr: dict, ho
         # 11/10 (lot L8) : un sous-total sous chaque clipper, même à un seul compte — il porte l'étape du parcours et la paie
         clipper = g.startswith("g|")
         if len(ls) >= 2 or clipper:
-            ajouter(_sous_total(ctx, ls, nom, _uid_groupe(ctx, ls) if clipper else ""), "sous_total", cr=cr)
+            ajouter(_sous_total(ctx, ls, nom, _uid_groupe(ctx, ls) if clipper else "", tot.setdefault("dus", {}), nom_cr),
+                    "sous_total", cr=cr)
         zebre += 1
     for uid in sans:                                                     # 11/10 (lot L8) : « Clippers sans compte »
         ajouter(_ligne_sans_compte(ctx, uid), "sans_compte", cr=cr)
