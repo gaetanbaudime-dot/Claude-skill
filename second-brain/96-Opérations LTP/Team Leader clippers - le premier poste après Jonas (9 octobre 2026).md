@@ -10,6 +10,9 @@ liens_forts: ["[[Fiche de poste - Manager marketing (Jonas)]]", "[[Checkup clipp
 
 # Team Leader clippers : le premier poste après Jonas (9 octobre 2026)
 
+> [!important] Mise à jour du 10/10 et du 11/10 : la grille codée remplace celle de cette page
+> Gaëtan a tranché le 10/10, et le bot l'applique depuis le 11/10 (pas encore déployé) : **TL 10 $ par VA à 500 visites payées ou plus sur la quinzaine, manager 75 $ par équipe à 3 000 visites payées ou plus**, TL exclu du total de son équipe, clipper à 0,05 $ inchangé. Première quinzaine primée : **du 20/10 au 04/11, payée le 05/11**. Le plancher de 5 abonnés n'est plus une condition automatique : c'est un **contrôle à la main** (lignes « à vérifier » de la paie). Un TL n'a jamais le rôle Manager ni de commande staff. Les chiffres « manager 25 $ au-delà de 1 500 » et « pas de manager tant que trois équipes ne tiennent pas le seuil » ci-dessous sont l'ancienne proposition ; la règle de nomination recommandée est maintenant : pas de manager avant que deux équipes aient fait 3 000 deux quinzaines de suite. Coût chiffré, fraude et prédictions : [[Journal de coaching|journal du 10 et 11/10]]. Les mandats se posent dans le bot avec `!tl Chloé @…` et `!tl Sarah @…` (README du bot).
+
 > [!tip] Verdict
 > **Ne monte pas la pyramide manager → 5 Team Leaders → 50 clippers : tu as quatre clippers qui produisent, pas cinquante.** Seul poste à ouvrir : **un Team Leader joueur-entraîneur malgache, choisi sur ses chiffres** (Clarisse ou Yves, pas Thia), qui garde ses comptes, encadre 5 à 10 nouveaux et touche **sa paie de clipper + 10 $ par quinzaine pour chaque clipper de son équipe au-dessus de 500 visiteurs francophones et de 5 abonnés OF + MYM**. Pas de manager tant que trois équipes ne tiennent pas ce seuil : c'est toi et le bot. **Le 0,05 $ par visiteur ne bouge pas** : à 0,005 $, un clipper au seuil gagne 2,50 $, son Team Leader 10 $, et le manager plus que les cinquante clippers réunis.
 

@@ -177,7 +177,7 @@ def texte_codes() -> str:
     try:
         return codes_2fa.texte_salon_codes()
     except Exception:                                                   # noqa: BLE001
-        return "Un code Instagram ? Va dans #🔐-code-instagram et tape !code."
+        return codes_2fa.TEXTE_CODE_BRUT                                # 11/10 (revue du lot W) : le bouton, plus « tape !code »
 
 
 # 01/10 : plus de date ni de « compte 2 demain » ici, la règle canonique ; la date « au plus tôt » vit dans la ligne du matin
@@ -1149,9 +1149,23 @@ def _vue(guild, uid: str, n: int, ctx: dict, fiche_p: dict = None):
 # au compte suivant, un message au clipper et une ligne à l'admin, une fois, et un nouvel essai au tour suivant du programme.
 # 11/10 (vérification : « Rien à faire d'ici là » contredisait les 2 Reels par jour sur ses comptes déjà ouverts)
 TEXTE_COMPTE_ATTENDU = "⏳ Ton compte {n} arrive dès qu'il est prêt.\n\nD'ici là, continue tes 2 Reels par jour."
+# 11/10 (revue du lot W : stock vide ou classeur en panne pendant livrer, le compte 1 partait avec l'identifiant « ? ») : le compte 1
+# passe aussi par _ligne_du_compte ; il n'a encore aucun compte qui publie, donc pas de « 2 Reels par jour ».
+TEXTE_COMPTE_1_ATTENDU = "⏳ Ton compte 1 arrive ici dès qu'il est prêt.\n\nRien à faire d'ici là : je te préviens ici."
 # 11/10 (lot W) : ce que l'assistant et `!memoire` disent du même compte (etat_des_comptes, contexte_court)
 TEXTE_ATTENTE_LIGNE = ("pas encore ouvert : il attend une ligne libre du classeur et arrive tout seul dès qu'il est prêt ; rien à "
                        "faire d'ici là, sauf 2 Reels par jour sur ses comptes qui publient")
+
+
+TEXTE_ATTENTE_LIGNE_1 = ("pas encore ouvert : il attend une ligne libre du classeur et arrive tout seul dans son salon dès qu'il est "
+                         "prêt ; rien à faire d'ici là, pas de compte à créer")
+
+
+def _compte_1_retenu(fiche_p: dict) -> bool:
+    """11/10 (revue du lot W) : le compte 1 n'est pas parti faute de ligne libre (envoyer_etape l'a retenu)."""
+    f = fiche_p or {}
+    return (int(f.get("etape", 0) or 0) == 1 and int(f.get("ligne_attendue") or 0) == 1
+            and not (f.get("dates") or {}).get("1"))
 
 
 async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
@@ -1187,7 +1201,7 @@ async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
     prenom = fiche_p.get("prenom") or _prenom(membre)
     creatrice = fiche_p.get("creatrice") or "sa créatrice"
     try:
-        await _suite(salon, f"{membre.mention} " + TEXTE_COMPTE_ATTENDU.format(n=n))
+        await _suite(salon, f"{membre.mention} " + (TEXTE_COMPTE_1_ATTENDU if n == 1 else TEXTE_COMPTE_ATTENDU.format(n=n)))
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Compte %s attendu de %s : %s", n, uid, erreur)
     try:
@@ -1202,8 +1216,8 @@ async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
 
 # 11/10 (lot W, contre-vérifications des lots L1 et L3 : l'élément « ligne » remis échu tout de suite était retenté à chaque tour
 # léger de 10 min, soit 6 lectures du classeur des logins par heure et par clipper en attente) : sans ligne libre, le nouvel essai
-# a lieu LIGNE_REESSAI_MIN minutes plus tard. Le compte part au plus 30 min après qu'une ligne se libère (`!etape @x n` : tout de
-# suite). Classeur illisible : nouvel essai au tour suivant, comme avant.
+# a lieu LIGNE_REESSAI_MIN minutes plus tard. Le compte part au plus 40 min après qu'une ligne se libère : 30 min, plus un tour léger
+# de 10 min (PARCOURS_TICK_MIN) ; `!etape @x n` : tout de suite (revue du lot W : « au plus 30 min » était faux). Classeur illisible : nouvel essai au tour suivant, comme avant.
 LIGNE_REESSAI_MIN = max(1, int(os.environ.get("PARCOURS_LIGNE_REESSAI_MIN", "30") or 30))
 
 
@@ -1251,7 +1265,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
                 _ecrire(d)
     # 10/10 (revue du recrutement, lot L3) : la ligne du compte 2 ou 3 d'abord (réservée ici si la fiche ne l'a pas) ; sans ligne libre,
     # rien au compte suivant (ni lien GAML pris sur le forfait) : l'étape reste au programme, le clipper et l'admin sont prévenus une fois
-    if n in (2, 3) and pointer and not await _ligne_du_compte(salon, membre, uid, n):
+    # 11/10 (revue du lot W) : le compte 1 aussi — sans ligne (stock vide, `!creatrice` sur une créatrice sans place, classeur en
+    # panne pendant livrer), il partait avec l'identifiant « ? » et « demande-le à Gaëtan sur WhatsApp », sans nouvel essai.
+    if n in (1, 2, 3) and pointer and not await _ligne_du_compte(salon, membre, uid, n):
         return False
     if (n == 6 or n == n_prive(_lire().get(uid) or {})) and _deps.get("attribuer_lien"):
         # 05/10 (Gaëtan : « le lien que pour le troisième compte ») : le lien GAML n'existe pas avant le compte privé ; il est créé
@@ -1448,7 +1464,8 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
 async def ouvrir_compte_1(salon, uid: str, par: str = "bot") -> str:
     """09/10 : après la bienvenue, l'étape 1 (le compte 1), une seule fois : au clic sur ✅ (par="clipper" : il a écrit à Gaëtan ;
     "staff" : un manager appuie pour lui) ou par le programme (par="bot", BIENVENUE_H h plus tard). Renvoie « envoye », « deja »
-    (déjà donné, ou plus à l'étape 1) ou « absent » (plus sur le serveur)."""
+    (déjà donné, ou plus à l'étape 1), « absent » (plus sur le serveur) ou « attente » (11/10 : pas encore de ligne libre au
+    classeur, ou classeur illisible ; le compte 1 reste au programme et part tout seul dès que sa ligne existe)."""
     uid = str(uid)
     membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
     if membre is None:
@@ -1472,8 +1489,8 @@ async def ouvrir_compte_1(salon, uid: str, par: str = "bot") -> str:
                                      f"groupe. Pas vrai ? `!wa @{prenom} non`.")
             except Exception:                                           # noqa: BLE001
                 pass
-    await envoyer_etape(salon, membre, 1)
-    return "envoye"
+    # 11/10 (revue du lot W) : sans ligne libre, le compte 1 reste au programme (élément « ligne », envoyer_etape direct) : « attente »
+    return "envoye" if await envoyer_etape(salon, membre, 1) else "attente"
 
 
 class BoutonPret(discord.ui.DynamicItem[discord.ui.Button], template=r"pret:(?P<uid>[0-9]+)"):
@@ -1504,6 +1521,7 @@ class BoutonPret(discord.ui.DynamicItem[discord.ui.Button], template=r"pret:(?P<
         elif etat != "envoye":
             try:
                 await interaction.followup.send("Ton compte 1 est déjà là, juste en dessous 🙂" if etat == "deja"
+                                                else "⏳ Ton compte 1 arrive ici dès qu'il est prêt." if etat == "attente"
                                                 else "Je ne te retrouve pas sur le serveur. Écris à Gaëtan.", ephemeral=True)
             except (discord.Forbidden, discord.HTTPException):
                 pass
@@ -1679,6 +1697,10 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
     prive2 = ordre(fiche_p) == "prive2"
     # 08/10 : en « prive2 », le compte 3 est le dernier. 10/10 : en « prive3 » aussi (le privé), plus d'étape 6 après lui
     fiche_p["etape"] = 7 if n == 3 else n + 1
+    if n == 3 and not prive2 and n == n_prive(fiche_p):
+        # 11/10 (revue du lot W : un arrêt du bot entre cette écriture et la story perdait story et routine) : la marque est posée
+        # dans la même écriture que 3_fait ; story_puis_app la retire à la fin, fermer_profils_oublies relance ce qui reste
+        fiche_p["story_due"] = _maintenant()
     _ecrire(d)
     if _deps.get("activite") and par != "bot":                          # 05/10 : un bouton d'étape = une réponse à l'appel de présence
         # (08/10 : une étape fermée par le bot lui-même — warm-up fini, profil oublié — n'est pas une réponse du clipper)
@@ -1761,19 +1783,48 @@ async def story_puis_app(salon, membre, uid: str, fiche_p: dict = None) -> None:
     (TEXTE_STORY), puis la routine et l'app (étape 7). 11/10 (lot W) : sortie de valider_etape pour servir aussi à l'ancien repris
     d'après le classeur avec ses 3 comptes créés (demarrer_selon_classeur), qui n'attend plus d'étape 6 à bouton."""
     uid = str(uid)
-    if not str(_onb(uid).get("lien") or "") and _deps.get("attribuer_lien"):
-        try:
-            await _deps["attribuer_lien"](membre)
-        except Exception as erreur:                                     # noqa: BLE001 — sans lien, la story et la routine partent
-            journal.warning("Lien GAML pour %s au profil du privé : %s", uid, erreur)
+    _STORY_EN_COURS.add(uid)
     try:
-        ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or fiche_p or {"prenom": _prenom(membre)})
-        if ctx.get("ligne_lien"):
-            await salon.send((f"{membre.mention} " + ctx["ligne_lien"].strip())[:1990])
-        await salon.send((f"{membre.mention} " + _rendre(TEXTE_STORY, ctx))[:1990])
-    except (discord.Forbidden, discord.HTTPException) as erreur:      # la routine et l'app partent quand même
-        journal.warning("Story à la une de %s : %s", uid, erreur)
+        await _story_puis_app(salon, membre, uid, fiche_p)
+    finally:
+        _STORY_EN_COURS.discard(uid)
+
+
+# 11/10 (revue du lot W) : les story_puis_app en cours dans CE processus. Une marque « story_due » sans entrée ici = un arrêt du bot
+# (déploiement Railway) au mauvais moment : fermer_profils_oublies la relance (au démarrage, puis toutes les heures).
+_STORY_EN_COURS = set()
+
+
+def _poser_story(uid: str, cle: str, retirer: bool = False) -> None:
+    d = _lire()
+    if uid not in d:
+        return
+    if retirer:
+        d[uid].pop("story_due", None)
+        d[uid].pop("story_faite", None)
+    else:
+        d[uid][cle] = _maintenant()
+    _ecrire(d)
+
+
+async def _story_puis_app(salon, membre, uid: str, fiche_p: dict = None) -> None:
+    if not (_lire().get(uid) or {}).get("story_faite"):                 # 11/10 : relancée après un arrêt, la story déjà partie ne
+        if not str(_onb(uid).get("lien") or "") and _deps.get("attribuer_lien"):   # repart pas : seulement la routine
+            try:
+                await _deps["attribuer_lien"](membre)
+            except Exception as erreur:                                 # noqa: BLE001 — sans lien, la story et la routine partent
+                journal.warning("Lien GAML pour %s au profil du privé : %s", uid, erreur)
+        try:
+            ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or fiche_p or {"prenom": _prenom(membre)})
+            if ctx.get("ligne_lien"):
+                await salon.send((f"{membre.mention} " + ctx["ligne_lien"].strip())[:1990])
+            await salon.send((f"{membre.mention} " + _rendre(TEXTE_STORY, ctx))[:1990])
+        except (discord.Forbidden, discord.HTTPException) as erreur:  # la routine et l'app partent quand même
+            journal.warning("Story à la une de %s : %s", uid, erreur)
+        if (_lire().get(uid) or {}).get("story_due"):
+            _poser_story(uid, "story_faite")
     await envoyer_etape(salon, membre, 7)
+    _poser_story(uid, "", retirer=True)
 
 
 async def _retirer_bouton(salon, mid) -> None:
@@ -2118,6 +2169,21 @@ async def fermer_profils_oublies(client, maintenant=None) -> list:
             continue
         n = int(fiche_p.get("etape", 0) or 0)
         dates = fiche_p.get("dates") or {}
+        if n == 7 and fiche_p.get("story_due") and uid not in _STORY_EN_COURS:
+            # 11/10 (revue du lot W) : la story et la routine du privé n'ont pas fini de partir (arrêt du bot) : relancées
+            if dates.get("7"):
+                _poser_story(uid, "", retirer=True)                     # la routine est partie : la marque seule restait
+                continue
+            salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0)) if client is not None else None
+            membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
+            if salon is None or membre is None:
+                continue
+            try:
+                await story_puis_app(salon, membre, uid)
+                faits.append((uid, 7))
+            except Exception as erreur:                                 # noqa: BLE001
+                journal.warning("Story du privé de %s, relancée : %s", uid, erreur)
+            continue
         if n not in (1, 2, 3, 6) or dates.get(f"{n}_fait") or not dates.get(str(n)):
             continue
         if n == 6 and str(dates.get("6")) < STORY_AUTO_DEPUIS:
@@ -2304,6 +2370,11 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 if item.get("type") == "publier" and n in TEXTE_PUBLIER:
                     await _envoyer_publier(salon, membre, uid, n)
                     faits.append((uid, "publier", n))
+                elif item.get("type") == "etape" and n == 1 and item.get("ligne"):
+                    # 11/10 (revue du lot W) : compte 1 retenu faute de ligne. ouvrir_compte_1 répondrait « deja » (bienvenue_ok posé) :
+                    # l'étape part directement, dès que la ligne existe (sinon elle reste au programme, nouvel essai 30 min plus tard)
+                    if await envoyer_etape(salon, membre, 1):
+                        faits.append((uid, "etape", 1))
                 elif item.get("type") == "etape" and n == 1:
                     # 09/10 : pas de « ✅ C'est fait » sous la bienvenue en BIENVENUE_H h → le compte 1 part quand même, une fois.
                     # 10/10 : le filet seulement (le compte 1 part déjà juste après la bienvenue)
@@ -2330,11 +2401,12 @@ def _echu(item: dict, maintenant) -> bool:
 
 def _a_traiter(fiche_p: dict, item: dict, maintenant) -> bool:
     """10/10 : l'élément du programme est à traiter maintenant. Échu (_echu), ou :
-    - « routine2 » : supprimée le 10/10, toujours à retirer (envoyer_etape et demarrer_routine en programment encore) ;
+    - « routine2 » : plus programmée depuis le 11/10 ; reste retirée sans message sur les fiches d'avant le déploiement ;
     - le compte 1 : jamais plus de BIENVENUE_H h après la bienvenue (celles d'avant le 10/10 l'avaient programmé à 3 h)."""
     if item.get("type") == "routine2":
         return True
-    if item.get("type") == "etape" and int(item.get("n") or 0) == 1 and (fiche_p or {}).get("bienvenue"):
+    # 11/10 (revue du lot W) : un compte 1 retenu faute de ligne (« ligne ») suit son heure de nouvel essai, pas la bienvenue
+    if item.get("type") == "etape" and int(item.get("n") or 0) == 1 and (fiche_p or {}).get("bienvenue") and not item.get("ligne"):
         try:
             depart = datetime.fromisoformat(str(fiche_p["bienvenue"]))
             depart = depart if depart.tzinfo else depart.replace(tzinfo=timezone.utc)
@@ -2481,6 +2553,8 @@ def memoire(uid: str) -> str:
         titre = (f"message de bienvenue envoyé (créatrice, vidéos, WhatsApp) : son compte 1 arrive tout seul, au plus tard {BIENVENUE_H} h "
                  "après la bienvenue, aucun bouton à appuyer ; " + ("WhatsApp déjà déclaré" if fiche_p.get("whatsapp") else
                                                                    "il écrit à Gaëtan sur WhatsApp avec le bouton du message"))
+    if n == 1 and _compte_1_retenu(fiche_p):                            # 11/10 (revue du lot W) : pas de ligne pour le compte 1
+        titre = f"compte 1 {TEXTE_ATTENTE_LIGNE_1}"
     date_etape = (fiche_p.get("dates") or {}).get(str(n), "")[:10]
     try:
         regime = paie_clics.regime(uid)
@@ -2550,7 +2624,9 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
                          "selfie, son numéro ou sa pièce d'identité si demandés)")
             continue
         if not _cree(fiche_p, i):
-            if a and a[0] == i and fiche_p.get("ligne_attendue") == i:
+            if i == 1 and _compte_1_retenu(fiche_p):                       # 11/10 (revue du lot W) : pas de ligne pour le compte 1
+                parts.append(f"{nom} : {TEXTE_ATTENTE_LIGNE_1}")
+            elif a and a[0] == i and fiche_p.get("ligne_attendue") == i:
                 # 11/10 (lot W, contre-vérification du lot L3 : l'assistant parlait des 48 h et des Reels à un clipper qui les avait,
                 # alors que le bot lui avait écrit « Ton compte n arrive dès qu'il est prêt »)
                 parts.append(f"{nom} : {TEXTE_ATTENTE_LIGNE}" + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
@@ -2786,6 +2862,8 @@ def contexte_court(uid: str) -> str:
                     "une story à la une avec le widget de mention du compte privé")
     if n == 0:
         etape = "parcours pas encore commencé (il attend sa créatrice et son compte 1)"
+    elif n == 1 and _compte_1_retenu(fiche_p):                          # 11/10 (revue du lot W) : pas de ligne pour le compte 1
+        etape = f"compte 1 {TEXTE_ATTENTE_LIGNE_1}"
     elif en_bienvenue(fiche_p):                                         # 09/10 ; 11/10 : plus de ✅ qui retient le compte 1
         etape = (f"message de bienvenue reçu : son compte 1 arrive tout seul, au plus tard {BIENVENUE_H} h après la bienvenue, aucun "
                  "bouton à appuyer ; " + ("WhatsApp déjà déclaré" if fiche_p.get("whatsapp") else
@@ -2911,11 +2989,22 @@ async def demarrer_selon_classeur(salon, membre, creatrice: str, etats_par_handl
         if e >= 6 and (deja.get("dates") or {}).get(str(e)):
             journal.info("Étape %s de %s déjà envoyée : pas de story renvoyée", e, uid)
             return n
+        dates_d = deja.get("dates") or {}
+        if 1 <= e <= 3 and dates_d.get(str(e)):
+            # 11/10 (revue du lot W : `!salons-equipe` relancé sur un clipper au profil de son privé, « Profil fait » pas appuyé :
+            # la fiche passait à l'étape 7 sans « 3_fait », et le bouton restait, mort) : le privé dont le profil est parti se
+            # ferme comme à l'appui (3_fait, bouton retiré, story puis routine) ; toute autre étape 1 à 3 en cours suit son cours.
+            if e == n_prive(deja) and (deja.get("profils") or {}).get(str(e)) and not dates_d.get(f"{e}_fait"):
+                await valider_etape(salon, uid, e, par="bot")
+            else:
+                journal.info("Étape %s de %s en cours : le parcours suit son cours", e, uid)
+            return n
         fiche_p = d.setdefault(uid, {"prenom": _prenom(membre), "creatrice": creatrice, "salon_id": str(salon.id), "etape": 0,
                                      "dates": {}, "notes": []})
         fiche_p.update({"etape": 7, "salon_id": str(salon.id), "creatrice": creatrice or fiche_p.get("creatrice", "")})
         fiche_p.setdefault("dates", {})["6"] = _maintenant()            # le lien donné : controler_liens_bio compte de là
         fiche_p.pop("warmup_jour", None)
+        fiche_p["story_due"] = _maintenant()                            # 11/10 (revue du lot W) : rattrapée si le bot s'arrête
         _ecrire(d)
         await story_puis_app(salon, membre, uid, fiche_p)
     else:
@@ -3048,6 +3137,14 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
     return faits
 
 
+def _code_appel_llm() -> str:
+    """11/10 (revue du lot W) : le code de l'appel d'un compte banni, pour l'assistant, dit comme la règle 23 des INSTRUCTIONS et
+    etat_des_comptes : par le bouton si CODES_APPEL=1, sinon il ne passe pas par le bot (règle des codes du 10/10)."""
+    if codes_2fa.CODES_APPEL:
+        return f"le code dans #{codes_2fa.SALON_CODES_NOM} avec le bouton « 📩 Mon code »"
+    return "le code de l'appel ne passe pas par le bot : il arrive chez l'équipe, qui lui répond dans son salon perso"
+
+
 def contexte_llm(uid: str) -> str:
     """Le bloc de contexte ajouté à chaque question posée dans le salon perso : le bot y est le manager."""
     return ("[Salon perso : ici tu es l'ASSISTANT du clipper au quotidien (pas son manager). Tu parles comme à un élève de collège : phrases de "
@@ -3064,8 +3161,8 @@ def contexte_llm(uid: str) -> str:
             "promets jamais de date pour le compte suivant et tu ne pousses jamais à créer un compte que le bot n'a pas encore "
             "ouvert. 24 h de warm-up sur chaque compte après sa création (Reels, likes, abonnements, 1 story sans lien, zéro Reel), "
             "puis CE compte publie 2 Reels et 1 story par jour, sans attendre les autres — ne dis jamais « une semaine de warm-up » "
-            f"ni « dans 7 jours ». Les codes Instagram, une seule phrase : « {texte_codes()} » Jamais « écris !code ici », jamais "
-            "« le code arrive ici tout seul ». La ligne « État de chaque "
+            f"ni « dans 7 jours ». Les codes Instagram, une seule phrase : « {texte_codes()} » Jamais de commande à taper pour un code, "
+            "jamais « le code arrive ici tout seul ». La ligne « État de chaque "
             "compte » de la mémoire FAIT FOI : tu ne la contredis jamais, ni le message d'étape posté dans le salon. "
             # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : plus de Drive perso ni de TOP 20 à lui
             "Ses vidéos sont celles de sa créatrice, en qualité d'origine : le lien est dans son message de bienvenue et dans « ton "
@@ -3074,13 +3171,14 @@ def contexte_llm(uid: str) -> str:
             "Il demande OÙ prendre "
             "la story : tu réponds au où, pas au widget. Un compte BAN ne change rien pour les autres : ils continuent. "
             "On ne réutilise jamais une info d'un compte BAN (identifiant, e-mail, mot de passe) pour un autre compte. "
-            f"Un compte banni (30/09) : il fait appel lui-même, tout de suite (« Contester la décision », le code dans "
-            f"#{codes_2fa.SALON_CODES_NOM} avec !code, selfie vidéo, son "
+            # 11/10 (revue du lot W, règle des codes du 10/10) : même formule que la règle 23 et etat_des_comptes ; plus de « !code »
+            f"Un compte banni (30/09) : il fait appel lui-même, tout de suite (« Contester la décision », {_code_appel_llm()}, "
+            "selfie vidéo, son "
             "numéro ou sa pièce d'identité si Instagram les demande, jamais ceux d'un autre, jamais sa pièce d'identité dans Discord) ; "
             "tu ne promets jamais un compte neuf "
             "ni une date (« demain ») : si l'appel échoue, Gaëtan décide. "   # 01/10 (relecture) : une seule version du ban
             f"Le lien (05/10) : il n'existe qu'avec le compte PRIVÉ — pour CE clipper le compte {n_prive(_lire().get(str(uid)) or {})} "
-            "(09/10 : le 3, il n'arrive que si les comptes 1 et 2 publient bien ; le 2 pour quelques parcours du 08/10) — dans sa bio, et nulle part ailleurs ; "
+            "(09/10 : le 3, il n'arrive que si les comptes 1 et 2 publient bien ; le 2 pour quelques parcours du 08/10) — dans le champ « Liens » de son profil (Modifier le profil → Liens), jamais dans le texte de la bio, et nulle part ailleurs ; "
             "les comptes de croissance ne portent jamais de lien : une story (photo ou vidéo) avec le widget de mention du compte privé, "
             "mise à la une, une seule fois ; chaque jour une story avec le widget vers cette story à la une. Deux comptes de croissance "
             "qui font 24 h de warm-up après leur création puis publient, et un compte privé qui ne publie pas. Un compte « qui existe déjà » (rendu par un ancien) : on s'y "
@@ -3091,10 +3189,11 @@ def contexte_llm(uid: str) -> str:
             "affichée dans le salon avec son bouton. Aucune question inutile (modèle de téléphone, « dis-moi quand c'est "
             "fait »). Tu ne parles que des comptes CRÉÉS d'après la mémoire : jamais « tes deux autres comptes » s'ils "
             "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
-            f"mot de passe modifié » = se reconnecter avec le mot de passe de son étape, puis le code dans "
-            f"#{codes_2fa.SALON_CODES_NOM} avec !code ; s'il ne marche plus, "
-            "WhatsApp Gaëtan, jamais « Mot de passe oublié ». `!code` ne donne QUE les codes reçus par e-mail (création, "
-            "connexion, appel), jamais ceux qui changent l'e-mail, le mot de passe ou le numéro. Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
+            f"mot de passe modifié » = se reconnecter avec le mot de passe de son étape, puis le code de connexion avec le "
+            f"bouton « 📩 Mon code » dans #{codes_2fa.SALON_CODES_NOM} ; s'il ne marche plus, "
+            "WhatsApp Gaëtan, jamais « Mot de passe oublié ». Le bouton « 📩 Mon code » ne donne QUE les codes reçus par e-mail "
+            f"({'création, connexion, appel' if codes_2fa.CODES_APPEL else 'création et connexion'}), jamais ceux qui changent "
+            "l'e-mail, le mot de passe ou le numéro. Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
             "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
             "Jamais de « compte prêt à l'emploi », jamais « ton manager a une autre solution » : si tu ne sais pas, renvoie vers "
             "Gaëtan sur WhatsApp (le lien est dans tes règles). Ne recopie jamais la ligne [Contexte : …].]\n"

@@ -229,7 +229,8 @@ async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str =
         # compte privé), jamais dans le texte de la bio
         fin = ("Passe-le en privé : Réglages → Confidentialité du compte → Compte privé.\n\n"
                + (f"🔗 Ton lien : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n```\n{lien}\n```\n\n" if lien else
-                  "🔗 Ton lien arrive ici dans quelques minutes. Il ira dans Modifier le profil → **Liens**.\n\n")
+                  "🔗 Ton lien arrive ici dès qu'il est prêt. Il ira dans Modifier le profil → **Liens**.\n\n")
+               # 11/10 (revue du lot W) : l’ancienne promesse en minutes était fausse, forfait GAML plein = nouvel essai toutes les 6 h
                + action)
     else:
         fin = "Pas de lien, pas d'@.\n\n" + action

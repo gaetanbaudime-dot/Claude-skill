@@ -1675,7 +1675,7 @@ async def verifier_canaux_configures():
     global INSTRUCTIONS
     for nom in ("CANAL_ADMIN_ID", "CANAL_BOT_ID", "CANAL_MANAGER_ID", "CANAL_DOPAMINE_ID", "CANAL_REPORTING_ID",
                 "CANAL_CANDIDATURE_ID", "CANAL_FORMATION_ID", "CANAL_ASSISTANT_ID",
-                "CANAL_STAT_PAYES_ID", "CANAL_STAT_CLIPPERS_ID"):
+                "CANAL_STAT_PAYES_ID"):                    # 11/10 : CANAL_STAT_CLIPPERS_ID retirée (revue du lot W)
         val = str(globals().get(nom, "") or "")
         if nom == "CANAL_REPORTING_ID" and not val:                 # 25/09 : variable jamais posée → #reporting par son nom
             trouve = next((c for g in client.guilds for c in g.text_channels if "reporting" in normaliser(c.name)), None)
@@ -1730,40 +1730,55 @@ async def canal_manager():
 
 
 ANCIENS_WEBHOOKS = ("CANDIDATURE|", "TEST_RENDU|")                    # 09/10 : le chemin Google Form est retiré
+# 11/10 (revue du lot W) : la ligne ne dit « effacée » que si message.delete() a réussi, et rappelle que le numéro reste dans les
+# réponses du Google Form (effacer le message Discord ne les supprime pas).
 TEXTE_ANCIEN_FORMULAIRE = ("📝 L'ancien Google Form reçoit encore des réponses : ferme-le (Réponses → décocher « Accepter les "
-                           "réponses »). Les candidatures se font sur le site du bot. La réponse reçue est effacée : elle portait un "
-                           "numéro.")
+                           "réponses »).\n\nLes candidatures se font sur le site du bot.\n\nLa réponse reçue est effacée de Discord. "
+                           "Son numéro reste dans les réponses du Google Form : supprime-les en le fermant.")
+TEXTE_ANCIEN_FORMULAIRE_NON_EFFACE = (
+    "⚠️ L'ancien Google Form reçoit encore des réponses, et la dernière n'est PAS effacée du salon admin : efface-la à la main, "
+    "elle porte un numéro.\n\nCause : droit « Gérer les messages » manquant au bot, ou WEBHOOK_EFFACER=0.\n\nPuis ferme le "
+    "formulaire (Réponses → décocher « Accepter les réponses ») et supprime ses réponses : le numéro y reste aussi.")
 
 
-async def signaler_ancien_formulaire(maintenant=None) -> bool:
+async def signaler_ancien_formulaire(maintenant=None, efface=True) -> bool:
     """11/10 (lot W) : la ligne « ferme l'ancien Google Form », au salon admin, une fois par jour (heure de Paris). Vrai si elle
-    est partie. Un fichier à part (ancien_formulaire.json) : boucle_rappels réécrit rappels.json avec ce qu'elle a lu."""
+    est partie. Un fichier à part (ancien_formulaire.json) : boucle_rappels réécrit rappels.json avec ce qu'elle a lu.
+    11/10 (revue du lot W) : `efface` vient d'effacer_webhook. Une réponse restée dans le salon a sa propre ligne ⚠️, une fois
+    par jour elle aussi (clé `signale_ko`), même si la ligne « effacée » est déjà partie ce jour-là."""
     jour = (maintenant or heure_paris()).strftime("%Y-%m-%d")
     fichier = DONNEES / "ancien_formulaire.json"
     etat = lire_json(fichier, {}) or {}
-    if etat.get("signale") == jour:
+    cle = "signale" if efface else "signale_ko"
+    if etat.get(cle) == jour:
         return False
     canal = await canal_admin()
     if canal is None:
         return False
     try:
-        await canal.send(TEXTE_ANCIEN_FORMULAIRE)
+        await canal.send(TEXTE_ANCIEN_FORMULAIRE if efface else TEXTE_ANCIEN_FORMULAIRE_NON_EFFACE)
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Ancien formulaire, ligne admin : %s", erreur)
         return False
-    ecrire_json(fichier, {"signale": jour})
+    etat[cle] = jour
+    ecrire_json(fichier, etat)
     return True
 
 
-async def effacer_webhook(message):
+async def effacer_webhook(message) -> bool:
     """Efface la ligne brute d'un webhook une fois traitée (WEBHOOK_EFFACER=0 pour la garder).
-    Silencieux si le bot n'a pas « Gérer les messages » dans le salon."""
+    Silencieux si le bot n'a pas « Gérer les messages » dans le salon. 11/10 (revue du lot W) : vrai seulement si le message
+    est effacé (ou déjà parti : NotFound), faux si WEBHOOK_EFFACER=0 ou si Discord refuse."""
     if not WEBHOOK_EFFACER:
-        return
+        return False
     try:
         await message.delete()
-    except (discord.Forbidden, discord.HTTPException, discord.NotFound):
-        pass
+        return True
+    except discord.NotFound:
+        return True
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Ligne de webhook non effacée : %s", erreur)
+        return False
 
 
 def role_manager(guild):
@@ -3429,8 +3444,7 @@ async def rattraper_webhooks():
             if not ancien.webhook_id:
                 continue
             if ancien.content.startswith(ANCIENS_WEBHOOKS):
-                await effacer_webhook(ancien)
-                await signaler_ancien_formulaire()
+                await signaler_ancien_formulaire(efface=await effacer_webhook(ancien))
                 continue
             if not ancien.content.startswith(("QUIZ_OK|", "QUIZ_KO|")):
                 continue
@@ -4964,7 +4978,8 @@ COMMANDES_RETIREES = {
 COMMANDES_MANAGER = ("!quiz-ok", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!candidats", "!annonce", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!roster", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo")
+                     "!roster", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo",
+                     "!actifs", "!equipe-active")     # 11/10 (revue du lot W) : lecture seule du roster, promise au staff
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -7052,7 +7067,10 @@ async def commande_admin(message, texte: str) -> bool:
         lignes += await verifier_salon(CANAL_DOPAMINE_ID, "Dopamine", besoin_pin=True)
         lignes += await verifier_salon(CANAL_CANDIDATURE_ID, "Candidature")
         lignes += await verifier_salon(CANAL_STAT_PAYES_ID, "Stat « Déjà payés »", besoin_renommage=True)
-        lignes += await verifier_salon(CANAL_STAT_CLIPPERS_ID, "Stat « Clippers »", besoin_renommage=True)
+        # 11/10 (revue du lot W) : plus de ligne « Stat Clippers » : la variable est à retirer (salon-compteur abandonné).
+        if CANAL_STAT_CLIPPERS_ID:
+            lignes.append("ℹ️ Stat « Clippers » : retirée le 11/10, plus rafraîchie seule. Supprime le salon et retire "
+                          "CANAL_STAT_CLIPPERS_ID de Railway ; `!actifs` donne le vrai chiffre.")
         lignes.append("✅ Lien du formulaire défini" if LIEN_FORMULAIRE
                       else "⚠️ LIEN_FORMULAIRE vide — l'accueil n'aura pas de lien de candidature.")
         lignes.append("✅ v2 active (accueil numéroté + invitations)" if ACTIVER_V2
@@ -10045,8 +10063,7 @@ async def on_message(message):
     # 11/10 (lot W, plan du 10/10) : une réponse de l'ancien Google Form (CANDIDATURE|, TEST_RENDU|) porte un numéro de téléphone.
     # Elle est effacée, et Gaëtan le sait une fois par jour : le formulaire tourne encore, à fermer.
     if message.webhook_id and message.content.startswith(ANCIENS_WEBHOOKS):
-        await effacer_webhook(message)
-        await signaler_ancien_formulaire()
+        await signaler_ancien_formulaire(efface=bool(await effacer_webhook(message)))
         return
     if message.author.bot:
         return
@@ -10110,6 +10127,13 @@ async def on_message(message):
         if (sp_code is not None and sp_code.id == message.channel.id) or str(message.channel.id) == codes_2fa.salon_codes_id():
             texte = demande_code                                                               # 29/09 : aussi dans le salon commun
             message.content = texte
+    # 11/10 (revue du lot W) : `!appel` (appel de présence, gardé par Gaëtan le 05/10) et `!purge`, tapés par le staff, vont à
+    # appel.commande AVANT le relais des codes. COMMANDES_RECUP contient « !appel » : sans ce routage, l'état de l'appel,
+    # `!appel go`, `!appel @x` et `!appel passe` répondaient « Ce code-là ne passe pas par le bot ». Un clipper qui tape
+    # `!appel` garde cette réponse (codes_2fa.commande).
+    if texte.lower().startswith(("!appel", "!purge")) and est_staff(message.author):
+        if await appel.commande(message, texte):
+            return
     # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin,
     # et des codes de récupération (`!recup`) pour retrouver un compte ou faire appel (27/09)
     if texte.startswith(("!alias", "!code") + codes_2fa.COMMANDES_RECUP):

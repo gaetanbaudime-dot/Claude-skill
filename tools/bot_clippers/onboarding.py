@@ -1312,12 +1312,20 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     if force and salon is not None:
         try:
             import parcours                                             # import tardif : parcours importe onboarding
-            n = int((parcours._lire().get(uid) or {}).get("etape", 0) or 0)
-            if n in parcours.ETAPES:
+            fiche_pc = parcours._lire().get(uid) or {}
+            n = int(fiche_pc.get("etape", 0) or 0)
+            partie = bool((fiche_pc.get("dates") or {}).get(str(n)))
+            retenue = int(fiche_pc.get("ligne_attendue") or 0) == n
+            if n in (2, 3) and not partie and not retenue:
+                # 11/10 (revue du lot W) : l'étape en cours n'est jamais partie (le compte 2 attend ses 48 h et ses Reels) : elle
+                # n'est pas « renvoyée » en sautant la règle. Le compte 1 (bienvenue), une étape retenue faute de ligne et les étapes
+                # d'après le compte 3 (lien, routine) partent comme avant.
+                resultat.append(f"étape {n} pas encore ouverte (48 h et Reels) : `!etape @{prenom} {n}` pour la forcer")
+            elif n in parcours.ETAPES:
                 # 11/10 (lot W, contre-vérification du lot L3) : « renvoyée » seulement si elle est partie ; une étape retenue
                 # faute de ligne libre le dit (le clipper a eu « ⏳ Ton compte n arrive dès qu'il est prêt »)
                 if await parcours.envoyer_etape(salon, membre, n) is not False:
-                    resultat.append(f"étape {n} renvoyée")
+                    resultat.append(f"étape {n} renvoyée" if partie else f"étape {n} envoyée")
                 elif int((parcours._lire().get(uid) or {}).get("ligne_attendue") or 0) == n:
                     resultat.append(f"étape {n} en attente d'une ligne libre")
                 else:
@@ -2460,8 +2468,9 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
                 if essai is not None and (maintenant - essai).total_seconds() < TELEPHONE2_LIEN_ESSAI_H * 3600:
                     continue
                 lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces])
-                texte = (f"🔗 {membre.mention} **Ton lien {creatrice} est prêt** : {lien}\n\nIl va seulement dans la bio de ton "
-                         f"compte privé {creatrice}.") if lien else ""
+                # 11/10 (revue du lot W) : le lien va dans le champ « Liens » du profil, jamais dans le texte de la bio
+                texte = (f"🔗 {membre.mention} **Ton lien {creatrice} est prêt** : {lien}\n\nMets-le dans ton compte privé "
+                         f"{creatrice} : Modifier le profil → **Liens** → Ajouter un lien externe.") if lien else ""
             else:
                 continue
             if texte:
@@ -2582,7 +2591,8 @@ async def boucle(client, deps: dict):
                         salon_r = _deps["salon_perso"](uid_r) if (res_r.get("lien") and dire_r and _deps.get("salon_perso")) else None
                         if salon_r is not None:
                             await salon_r.send(f"🔗 {m_r.mention} **Ton lien est prêt** : {res_r['lien']}\n\n"
-                                               "Il va seulement dans la bio de ton compte privé.")
+                                               "Mets-le dans ton compte privé : Modifier le profil → **Liens** → Ajouter "
+                                               "un lien externe.")   # 11/10 (revue du lot W) : le champ Liens, pas la bio
                     except Exception as erreur:                             # noqa: BLE001
                         journal.warning("Lien GAML retenté pour %s : %s", uid_r, erreur)
                 etat = _lire_etat()

@@ -32,12 +32,14 @@
 
 Jusqu'à l'app : environ 5 jours à 2 Reels par jour, 4 jours au plus vite (deux fois la règle des 48 h, voulue).
 
-Plus de ligne libre pour son compte 2 ou 3 : il lit « ⏳ Ton compte n arrive dès qu'il est prêt. D'ici là, continue tes 2 Reels par jour. » Tu reçois « 📦 Plus de ligne libre chez Y ». Le compte part tout seul au plus 30 min après qu'une ligne se libère.
+Plus de ligne libre pour son compte 2 ou 3 : il lit « ⏳ Ton compte n arrive dès qu'il est prêt. D'ici là, continue tes 2 Reels par jour. » Tu reçois « 📦 Plus de ligne libre chez Y ». Le compte part tout seul au plus 40 min après qu'une ligne se libère (30 min d'attente, plus un tour de 10 min).
+
+Même chose pour le compte 1 depuis la revue du 11/10 (stock vide, `!creatrice` sur une créatrice sans place, classeur en panne pendant la livraison) : il lit « ⏳ Ton compte 1 arrive ici dès qu'il est prêt. Rien à faire d'ici là », jamais un identifiant « ? ».
 
 ### Ton salon admin
 
 - **Un seul point du matin** (vers 10 h jusqu'au 24/10, puis 9 h) : le compteur d'hier, les bloqués, la sortie automatique, les lignes de l'appel de présence sans geste, les places livrables, les comptes privés sans lien GAML, ce qui attend le staff, et le lundi le tableau de la semaine.
-- **En direct, seulement ce qui demande un geste** : WhatsApp déclaré, ban, question sans réponse, numéro demandé, mineur ou nudité (retentée tant qu'elle n'est pas partie), code non classé, plus de ligne libre, compte 3 sans lien GAML, sortie par l'appel, ancien Google Form qui reçoit encore des réponses (une fois par jour ; la réponse, qui porte un numéro, est effacée).
+- **En direct, seulement ce qui demande un geste** : WhatsApp déclaré, ban, question sans réponse, numéro demandé, mineur ou nudité (retentée tant qu'elle n'est pas partie), code non classé, plus de ligne libre, compte 3 sans lien GAML, sortie par l'appel, ancien Google Form qui reçoit encore des réponses (une fois par jour). La ligne dit « effacée de Discord » seulement si l'effacement a marché ; sinon « ⚠️ PAS effacée : efface-la à la main ». Dans les deux cas, le numéro reste dans les réponses du Google Form : supprime-les en le fermant.
 
 ### `!annonce <groupe>`
 
@@ -50,10 +52,11 @@ Le chiffre est le plus petit des deux goulots : les lignes libres du classeur (3
 - `!tl liste` : les équipes et leurs chiffres sur la période.
 - `!tl Chloé @X` : X devient TL de Chloé, avec le rôle « Team Leader » sans aucune permission. `!tl Chloé aucun` le retire.
 - `!manager @X Chloé Sarah` : X manage ces équipes.
+- `!appel` (état, `go`, `@x`, `passe`), `!actifs` et `!equipe-active` répondent aux admins et au rôle Manager (11/10 : `!appel` était avalé par le relais des codes).
 
 Un TL n'a aucun droit staff : jamais le rôle Manager, jamais `!tl`. La grille est paramétrable (variables ci-dessous) : 10 $ au TL par VA à 500 visites payées ou plus sur la quinzaine, 75 $ au manager par équipe à 3 000 ou plus, TL exclu du total. Première période primée : du 20/10 au 04/11, payée le 05/11.
 
-Les primes arrivent sur la liste de paie avec le lot L11 (vague 2). D'ici là, `!tl liste` montre les chiffres, rien n'est payé.
+Les primes arrivent sur la liste de paie avec le lot L11 (vague 2), à fusionner avant le 05/11. D'ici là, `!tl liste` montre les chiffres, rien n'est payé : la paie reçoit déjà `primes_equipes`, mais ne la lit pas encore.
 
 Ma recommandation : ne nomme aucun manager avant que deux équipes aient fait 3 000 deux quinzaines de suite. Une équipe pile à 3 000 coûte 0,095 $ la visite, plus que la marge OnlyFans seule (0,06 à 0,07 $, à vérifier).
 
@@ -80,7 +83,8 @@ Ma recommandation : ne nomme aucun manager avant que deux équipes aient fait 3 
 2. Discord : le rôle du bot au-dessus des rôles des créatrices et du rôle « Team Leader » ; personne d'autre que toi avec le rôle Manager.
 3. Google : ferme les 3 anciens formulaires (le bot te le rappelle une fois par jour tant qu'ils reçoivent des réponses).
 4. GAML : demande le prix du forfait au-delà de 50 liens (49 pris le 08/10).
-5. Après le déploiement : `!annonce test` (deux messages), `!tl liste`, `!verifier` (« Rôle Team Leader sans permission »).
+5. Après le déploiement : `!annonce test` (deux messages), `!tl liste`, `!verifier` (« Rôle Team Leader sans permission » ; la ligne « Stat Clippers » dit seulement « retirée le 11/10 », ne repose pas la variable).
+6. Avant le 20/10 : nomme les deux TL choisis le 09/10, `!tl Chloé @Clarisse` puis `!tl Sarah @Yves`, puis `!tl liste`. Sans ces commandes, aucun mandat n'existe et aucune prime n'est calculée.
 
 ### Ce qui n'est pas encore fait
 
@@ -94,13 +98,25 @@ Dette CGU, inchangée : comptes de l'agence aux identifiants distribués, trois 
 
 ### Sous le capot (11/10, lot W)
 
-- `on_ready` : `places.places_livrables` et `places.texte_annonce` passent DANS le dict de `web_candidature.demarrer` ; l'attribution lit `places.places_par_creatrice` ; `review_reels` a son `alerter_strict` ; `appel` reçoit `sortie_auto.mesures` et `compte_lu` ; `equipes_tl.configurer` part avant la paie, qui reçoit `primes_equipes` ; le rôle Team Leader est assuré sur chaque serveur.
+- `on_ready` : `places.places_livrables` et `places.texte_annonce` passent DANS le dict de `web_candidature.demarrer` ; l'attribution lit `places.places_par_creatrice` ; `review_reels` a son `alerter_strict` ; `appel` reçoit `sortie_auto.mesures` et `compte_lu` ; `equipes_tl.configurer` part avant la paie, qui reçoit `primes_equipes` (inerte tant que le lot L11 n'est pas fusionné : `paie_clics.py` ne la lit pas encore) ; le rôle Team Leader est assuré sur chaque serveur.
 - Retirés : `boucle_stats`, `rapport_stats.demarrer` et `apres_releves`, `relance_nouveaux.py`, `relances.boucle`, `tableau_bord.boucle`, `!equipes`, `!relancer-lien`, `!rang`, `!stats-jonas` et `!stats-manager` de `COMMANDES_MANAGER`, `ROUTINE2_JOURS`.
 - `places.py` compte les places (lignes ÷ `ATTRIBUTION_LIGNES_MIN`, moins les lignes dues aux clippers en route, borné par les liens GAML libres, moins les membres en attente ou en transit). `onboarding.reserver_compte` réserve la ligne du compte 2 ou 3 à l'ouverture de son étape si la fiche ne l'a pas. Un compte 3 sans lien GAML : une ligne admin par jour et par clipper (`DONNEES/alertes_lien_gaml.json`), plus la ligne du point du matin.
 - Nouveaux fichiers d'état : la clé `digest` d'`appel.json` (lignes de l'appel pour le point du matin), `ancien_formulaire.json` (une ligne « ferme l'ancien Google Form » par jour).
 - Corrigés après les contre-vérifications : OAuth (après une erreur de Discord, le nouvel essai disait « C'est bon » sans ajout au serveur), doublon de numéro compté deux fois dans les places, double « Profil fait » du privé, ancien repris à l'étape 6, ligne retentée à chaque tour, `!onboarding` qui annonçait « étape renvoyée » sans envoi, compte 2 renuméroté en 3 à stock court, comptes sans lien listant les exclus et les sortis, assistant qui parlait de Reels à un clipper qui attendait une ligne, appel soldé après coup, vieux restreint bloquant la mesure, sortie de TL datée en UTC, journal des mandats illisible réécrit, archive de sauvegarde provisoire laissée, identifiant de quiz du site en double à la milliseconde.
 
 Tests : `test_W_demarrage.py` (chaque appel d'`on_ready` existe avec une signature compatible ; tâches et dépendances du démarrage) et `test_W_correctifs.py` (les défauts des contre-vérifications rejoués sur l'arbre).
+
+**Revue du lot W (11/10, après le commit 3587894)**, corrigés et testés (`test_W_revue.py`) :
+
+- `!appel` du staff part à l'appel de présence avant le relais des codes ; un clipper qui tape `!appel` garde « ce code ne passe pas par le bot ». `!actifs` et `!equipe-active` ouverts au rôle Manager.
+- Compte 1 sans ligne libre (stock vide, classeur en panne pendant la livraison) : plus d'identifiant « ? », il attend sa ligne comme les comptes 2 et 3 et part tout seul.
+- L'assistant du salon perso ne donne plus `!code` pour l'appel d'un compte banni ; il dit la même chose que la règle 23 (`CODES_APPEL=0` : le code de l'appel passe par l'équipe).
+- `!onboarding @x` forcé pendant l'attente du compte 2 ne l'envoie plus en sautant 48 h et Reels : « pas encore ouverte, `!etape @x 2` pour la forcer ».
+- `!salons-equipe` relancé sur un clipper au profil de son privé : l'étape se ferme comme à l'appui (bouton retiré), plus de « Profil fait » mort.
+- Arrêt du bot entre « Profil fait » du privé et la story : la marque `story_due` de la fiche fait repartir la story et la routine au tour horaire suivant (au démarrage compris).
+- Privé sans lien : « Ton lien arrive ici dès qu'il est prêt » (plus « dans quelques minutes ») ; le lien annoncé ensuite va dans le champ Liens, plus « dans la bio ».
+- Ancien Google Form : « effacée » seulement si c'est vrai, et le rappel que le numéro reste dans les réponses du formulaire.
+- `!verifier` ne réclame plus `CANAL_STAT_CLIPPERS_ID`.
 
 ## 10/10 : le parcours sans attente (revue du recrutement, lot L1)
 
@@ -134,7 +150,7 @@ Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de
 
 ### Ce qui change pour le bot
 
-- Le programme du parcours est relu **toutes les 10 min** (`PARCOURS_TICK_MIN`), au lieu de toutes les heures. Ce tour léger ne fait que lire `parcours.json` : aucun appel Apify ni GAML tant que rien n'est échu. 11/10 (lot W) : un compte qui attend une ligne libre relit le classeur des logins une fois toutes les 30 min (`PARCOURS_LIGNE_REESSAI_MIN`), plus à chaque tour ; il part au plus 30 min après qu'une ligne se libère (`!etape @x n` : tout de suite). Le reste (profils oubliés, rattrapage de l'app, warm-up, relances) reste horaire.
+- Le programme du parcours est relu **toutes les 10 min** (`PARCOURS_TICK_MIN`), au lieu de toutes les heures. Ce tour léger ne fait que lire `parcours.json` : aucun appel Apify ni GAML tant que rien n'est échu. 11/10 (lot W) : un compte qui attend une ligne libre relit le classeur des logins une fois toutes les 30 min (`PARCOURS_LIGNE_REESSAI_MIN`), plus à chaque tour ; il part au plus 40 min après qu'une ligne se libère (30 min, plus un tour de 10 min) (`!etape @x n` : tout de suite). Le reste (profils oubliés, rattrapage de l'app, warm-up, relances) reste horaire.
 
 - `PARCOURS_BIENVENUE_H` vaut **1** par défaut et n'est plus qu'un filet : membre introuvable à l'instant de la bienvenue. Les bienvenues d'avant le 10/10, encore en attente, reçoivent leur compte 1 au tour suivant si elles ont plus d'1 h.
 
@@ -493,7 +509,7 @@ Rien à faire : « ✅ Rien qui n'attende ton action aujourd'hui. » en tête.
 
 **Restent en direct** : WhatsApp déclaré, ban, question sans réponse, demande de numéro, mineur ou nudité, code non classé, changement fait sur un compte, compte 3 sans lien GAML, budget Apify qui entame une réserve. Et une attribution qui demande un geste : onboarding en échec ou aucun compte réservé, rôle ou pseudo refusé.
 
-**Encore à part** : de l'appel de présence, seulement ce qui demande un geste (🚪 sortie et expulsion, 📲 WhatsApp à ajouter, ⚠️ appel suspendu, ❌ erreur), la purge et l'appel général. 11/10 (lot W) : le tableau de la semaine ne part plus seul le lundi (sa boucle est retirée) ; il est dans le point du matin. Une réponse de l'ancien Google Form est effacée et dite une fois par jour (« ferme-le »).
+**Encore à part** : de l'appel de présence, seulement ce qui demande un geste (🚪 sortie et expulsion, 📲 WhatsApp à ajouter, ⚠️ appel suspendu, ❌ erreur), la purge et l'appel général. 11/10 (lot W) : le tableau de la semaine ne part plus seul le lundi (sa boucle est retirée) ; il est dans le point du matin. Une réponse de l'ancien Google Form est effacée de Discord et dite une fois par jour (« ferme-le ») ; si l'effacement échoue, une ligne ⚠️ le dit (11/10, revue du lot W). Son numéro reste dans les réponses du formulaire.
 
 **La sauvegarde du dimanche** (20 h) : un zip daté sur le volume, `DONNEES/sauvegardes/sauvegarde_AAAA-MM-JJ.zip`, les 4 derniers gardés. Plus jamais en pièce jointe dans Discord : `pipeline.json` porte les numéros. Un échec est dit au point du matin suivant.
 
