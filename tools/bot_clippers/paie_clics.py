@@ -220,14 +220,23 @@ async def _requete(methode: str, chemin: str, params=None, corps=None):
     raise RuntimeError(f"GAML {dernier or '5xx'} répété : trop de tentatives (5xx) sur {chemin}")
 
 
+class ListeGAML(list):
+    """11/10 (contre-vérification CLICS, passe 3 : la page 2 de /links refusée au démarrage, verifier_trackings marquait
+    `supprime_gaml` pour toujours les liens payés de la page 2 — plus relevés, comptés 0 dans la paie sans « provisoire ») : la liste
+    de liens_gaml, avec `complete` = False quand une page a été refusée ou que la dernière page lue en apportait encore. Un lien
+    absent d'une liste incomplète n'est jamais la preuve qu'il est effacé."""
+    complete = True
+
+
 async def liens_gaml() -> list:
     """08/10 (audit : 50 liens renvoyés pile, forfait à 49 actifs) : page 2, 3… tant qu'elles apportent des liens nouveaux.
     Une API qui ignore `page` renvoie la même liste (rien de neuf : on s'arrête) ; une page refusée arrête la lecture sans
-    perdre la première."""
+    perdre la première. 11/10 : la liste dit si elle est complète (ListeGAML.complete)."""
     def _lot(r):
         return r if isinstance(r, list) else ((r or {}).get("member") or (r or {}).get("links") or (r or {}).get("data") or [])
     tous = _lot(await _requete("GET", "/links"))
     vus = {l.get("id") for l in tous}
+    complete = False
     for page in range(2, 11):
         try:
             neufs = [l for l in _lot(await _requete("GET", "/links", params={"page": page})) if l.get("id") not in vus]
@@ -235,10 +244,13 @@ async def liens_gaml() -> list:
             journal.info("Liens GAML : page %s refusée (%s), %s liens lus", page, erreur, len(tous))
             break
         if not neufs:
+            complete = True
             break
         tous += neufs
         vus.update(l.get("id") for l in neufs)
-    return tous
+    out = ListeGAML(tous)
+    out.complete = complete
+    return out
 
 
 def _liste_reponse(r, chemin: str) -> list:
@@ -269,13 +281,17 @@ def _comptes_pays(pays: list) -> tuple:
     return hors_robots, payes
 
 
-async def releve(link_id: str, jour: date) -> dict:
+async def releve(link_id: str, jour: date, sans_visitors: bool = False, erreurs: dict = None) -> dict:
     """Relevé d'un lien pour un jour (heure de Paris) : brut (robots inclus), hors robots, payés. 09/10 (dashboard) : accepte
-    l'enveloppe `{data}` et la clé `total_visits` (forme du MCP), et lève une erreur sur une réponse illisible (jamais un 0)."""
+    l'enveloppe `{data}` et la clé `total_visits` (forme du MCP), et lève une erreur sur une réponse illisible (jamais un 0).
+    11/10 (contre-vérification CLICS, passe 3) : `sans_visitors` (rattraper, /analytics/visitors en panne pendant le passage) → brut
+    None sans appeler visitors ; `erreurs` (dict) reçoit l'erreur visitors d'un lien (`erreurs["visitors"]`)."""
     base = {"link_id": link_id, "range": "custom", "date_from": jour.isoformat(), "date_to": jour.isoformat(),
             "timezone": FUSEAU}
     pays = _liste_reponse(await _requete("GET", "/analytics/countries", params=base), "/analytics/countries")
     hors_robots, payes = _comptes_pays(pays)
+    if sans_visitors:
+        return {"brut": None, "hors_robots": hors_robots, "payes": payes, "brut_non_lu": True}
     # 10/10 (revue CLICS, reprise de la 3e passe : le jour viral de Tom, /analytics/visitors en délai dépassé, countries répondait 71
     # fois et tout était jeté) : le chiffre payé vient de countries seul ; le total robots compris (visitors) ne sert qu'à afficher les
     # robots. Une erreur propre au lien sur visitors garde donc le jour : brut None (`brut_non_lu`, comme `aujourdhui`, contrat C2).
@@ -286,6 +302,8 @@ async def releve(link_id: str, jour: date) -> dict:
         if _erreur_globale(erreur):
             raise
         journal.warning("Relevé %s %s : total robots compris illisible (%s), visites payées gardées", link_id, jour, erreur)
+        if erreurs is not None:
+            erreurs["visitors"] = str(erreur)[:160]
         return {"brut": None, "hors_robots": hors_robots, "payes": payes, "brut_non_lu": True}
     brut = sum(_nombre(x, "totalVisits", "total_visits", "visits", "count") for x in avec)
     return {"brut": brut, "hors_robots": hors_robots, "payes": payes}
@@ -529,8 +547,8 @@ def marquer_releves(d: dict, liens: list) -> int:
     """09/10 (dashboard, contrat C2) : chaque lien GAML actif de la liste est relevé. Un lien inconnu du bot reçoit une fiche
     `{"uid": "", "releve": true, "par": "releve", …}` (créatrice, nom, slug, URL et note quand la liste les porte) ; une fiche
     existante qui ne serait plus relevée (ancien lien retiré à la main) reçoit `releve`. Une fiche `releve` seule suit la liste
-    (note, nom, URL, désactivation dans GAML) : personne d'autre ne l'écrit. Renvoie le nombre de fiches créées ou changées.
-    L'appelant écrit `d`."""
+    (note, nom, URL, désactivation dans GAML) : personne d'autre ne l'écrit. 11/10 : une fiche `supprime_gaml` dont le lien est dans
+    la liste perd ce marquage (le lien existe). Renvoie le nombre de fiches créées ou changées. L'appelant écrit `d`."""
     n = 0
     fiches = d.setdefault("liens", {})
     for l in liens or []:
@@ -549,6 +567,12 @@ def marquer_releves(d: dict, liens: list) -> int:
             fiches[lid] = info
             n += 1
             continue
+        if info.get("supprime_gaml"):
+            # 11/10 (contre-vérification CLICS, passe 3) : un lien présent dans /links existe : le marquage « effacé » (posé sur une
+            # liste partielle, un 404 passager) est levé, le lien est de nouveau relevé (rattraper relit ses jours manquants)
+            journal.info("Lien GAML %s de nouveau dans /links : marquage « effacé » du %s levé", lid, info.get("supprime_gaml"))
+            info.pop("supprime_gaml", None)
+            n += 1
         if releve_seul(info):
             avant = dict(info)
             for cle_l, cle_f in (("name", "nom"), ("slug", "slug"), ("url", "url"), ("note", "note")):
@@ -1270,12 +1294,12 @@ async def _envoyer_canal(canal, lignes: list) -> None:
     await _envoyer_blocs(canal.send, lignes)
 
 
-def non_releves(d: dict, lids, debut: date, fin: date) -> list:
+def non_releves(d: dict, lids, debut: date, fin: date, aujourdhui: date = None) -> list:
     """10/10 (revue CLICS, reprise de la 3e passe : `!mesclics` disait « Hier : 0 visites qui comptent » le jour du Reel viral de Tom,
     relevé en délai dépassé) : les (lid, « AAAA-MM-JJ ») de [debut, fin] (hier au plus) pas encore relevés pour ces liens, à partir de
     leur `depuis` (contrat C2/C6(e) : un jour manquant n'est jamais un zéro). Un lien effacé de GAML ou introuvable aujourd'hui (404)
-    n'est pas attendu (même règle que jours_manquants_paie)."""
-    aujourdhui = _aujourdhui()
+    n'est pas attendu (même règle que jours_manquants_paie). `aujourdhui` : le jour de référence (11/10 : le rapport du manager)."""
+    aujourdhui = aujourdhui or _aujourdhui()
     fin = min(fin, aujourdhui - timedelta(days=1))
     out = []
     for lid in lids:
@@ -1430,16 +1454,20 @@ def dus_sortie(d: dict, debut: date, fin: date) -> dict:
     return out
 
 
-def jours_manquants_paie(d: dict, debut: date, fin: date) -> dict:
+def jours_manquants_paie(d: dict, debut: date, fin: date, avec_provisoires: bool = False) -> dict:
     """10/10 (revue CLICS, 3e passe : ce qui restait de R3 côté paie) : {uid: [(lid, "AAAA-MM-JJ"), …]}, les jours de la période
     [debut, fin] (hier au plus) qui manquent dans `jours` (jamais relevés, ou vieux 0 marqué `erreur`) pour ce que la liste de paie
     compte : chaque lien d'un clipper au clic, de son premier jour payé (`depuis` du lien, plancher du clic) à `fin`, et les visites
     dues à un sortant (`dus`). `somme` compte un jour absent pour 0 sans rien dire (avant : un jour viral jamais relevé — délai dépassé
     sur /analytics/visitors — disparaissait de la paie du 20 sans alerte ; contrat C6(e) : un jour manquant n'est jamais un zéro).
-    Un lien effacé de GAML ou introuvable aujourd'hui (404) n'est pas attendu : rien à relire (même règle que `complets`)."""
+    Un lien effacé de GAML ou introuvable aujourd'hui (404) n'est pas attendu : rien à relire (même règle que `complets`).
+    11/10 (contre-vérification CLICS, passe 3 : la relecture de 6 h des veilles en échec jusqu'à 7 h 30, la paie de 7 h partait avec Tom
+    à 148 au lieu de 150, sans « provisoire » ni complément) : `avec_provisoires` (la paie, son complément, `!paie-clics`) → une veille
+    lue avant RELECTURE_HEURE et pas encore relue (`provisoires`) manque aussi."""
     aujourdhui = _aujourdhui()
     fin = min(fin, aujourdhui - timedelta(days=1))
     out = {}
+    prov = (d.get("provisoires") or {}) if avec_provisoires else {}
 
     def noter(uid: str, lid: str, a, b) -> None:
         info = (d.get("liens") or {}).get(lid) or {}
@@ -1447,7 +1475,8 @@ def jours_manquants_paie(d: dict, debut: date, fin: date) -> dict:
             return
         jours, j = (d.get("jours") or {}).get(lid) or {}, a
         while j <= b:
-            if _manque(jours, j) and (lid, j.isoformat()) not in out.get(uid, []):
+            if ((_manque(jours, j) or j.isoformat() in (prov.get(lid) or ()))
+                    and (lid, j.isoformat()) not in out.get(uid, [])):
                 out.setdefault(uid, []).append((lid, j.isoformat()))
             j += timedelta(days=1)
     for lid, info in (d.get("liens") or {}).items():
@@ -1830,19 +1859,24 @@ def _plancher_releve(info: dict, hier: date):
     return min(dates) if dates else None
 
 
-async def relever_jour(d: dict, lid: str, j: date, maintenant=None) -> str:
+async def relever_jour(d: dict, lid: str, j: date, maintenant=None, visiteurs: dict = None) -> str:
     """Le relevé d'un jour (heure de Paris) d'un lien, rangé dans `d["jours"]` puis écrit sur le disque. Renvoie 'ok', '404' (lien
     introuvable : `introuvable` posé, rien d'écrit, retenté demain), 'erreur' (propre à ce lien : `echec` posé, retenté
     ECHEC_REESSAI secondes plus tard) ou 'global' (GAML en panne ou limite atteinte : l'appelant s'arrête). Jamais un 0 sur une
     erreur. Une veille lue avant RELECTURE_HEURE (Paris) est provisoire : relue une fois après, puis figée. Partagé par `rattraper`
-    et le secours de onboarding.clics_classeur (contrat C6(e) : le classeur lit les mêmes jours que le Dashboard)."""
+    et le secours de onboarding.clics_classeur (contrat C6(e) : le classeur lit les mêmes jours que le Dashboard).
+    11/10 (contre-vérification CLICS, passe 3) : `visiteurs` (rattraper : {"ko": [liens], "coupe": bool}, un par passage) — après deux
+    liens différents de suite en erreur sur /analytics/visitors (hors 4xx définitif), visitors n'est plus appelé de tout le passage
+    (avant : 55 erreurs de 30 à 45 s, un passage de 28 à 41 min, le direct sauté) ; et un total robots compris déjà rangé pour ce
+    jour n'est jamais remplacé par None (la relecture de 6 h pendant une panne de visitors le perdait pour toujours)."""
     maintenant = maintenant if maintenant is not None else _deps["heure_paris"]()
     jour_iso = maintenant.date().isoformat()
     hier = maintenant.date() - timedelta(days=1)
     info = d.setdefault("liens", {}).setdefault(lid, {"uid": "", "releve": True, "par": "releve"})   # (appelants : lien connu)
     provisoires = d.setdefault("provisoires", {})
+    erreurs = {}                                                        # 11/10 : l'erreur de /analytics/visitors (releve)
     try:
-        v = await releve(lid, j)
+        v = await (releve(lid, j) if visiteurs is None else releve(lid, j, sans_visitors=bool(visiteurs.get("coupe")), erreurs=erreurs))
     except Exception as erreur:                                         # noqa: BLE001 — une réponse illisible (JSON, valeur) aussi :
         journal.warning("Relevé %s %s : %s", info.get("note") or lid, j, erreur)   # propre à ce lien, jamais tout le passage
         if "404" in str(erreur):
@@ -1854,9 +1888,24 @@ async def relever_jour(d: dict, lid: str, j: date, maintenant=None) -> str:
         _noter_echec_releve(info, j.isoformat(), erreur, maintenant)     # 10/10 : l'échec du JOUR (les autres jours restent lus)
         _ecrire(d)
         return "erreur"
-    d.setdefault("jours", {}).setdefault(lid, {})[j.isoformat()] = v
-    info.pop("echec", None)                                             # 10/10 : seulement l'échec du relevé (`echec_direct` : le direct, _malade)
     js = j.isoformat()
+    v = dict(v)
+    err_v = erreurs.get("visitors")
+    if visiteurs is not None and not visiteurs.get("coupe") and not _erreur_du_lien(err_v):
+        if err_v is None:
+            visiteurs["ko"] = []                                        # visitors a répondu : la suite repart de zéro
+        else:
+            visiteurs.setdefault("ko", []).append(lid)
+            if len(set(visiteurs["ko"][-2:])) == 2:
+                visiteurs["coupe"] = True
+                journal.warning("Relevés GAML : /analytics/visitors en erreur sur deux liens de suite, plus appelé de ce passage "
+                                "(visites payées gardées, total robots non lu)")
+    ancien = ((d.get("jours") or {}).get(lid) or {}).get(js)
+    if v.get("brut") is None and isinstance(ancien, dict) and ancien.get("brut") is not None and not ancien.get("erreur"):
+        v["brut"] = ancien["brut"]                                      # 11/10 : le total robots déjà lu est gardé
+        v.pop("brut_non_lu", None)
+    d.setdefault("jours", {}).setdefault(lid, {})[js] = v
+    info.pop("echec", None)                                             # 10/10 : seulement l'échec du relevé (`echec_direct` : le direct, _malade)
     ej = {k: ts for k, ts in (info.get("echecs_jours") or {}).items() if k != js and _depuis_moins_de(ts, maintenant, ECHEC_MALADE)}
     if ej:
         info["echecs_jours"] = ej                                       # les autres jours en échec gardent leur délai
@@ -1895,6 +1944,7 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
     provisoires = d.setdefault("provisoires", {})
     appels, anciens = 0, 0
     suite = _Suite()                                                    # erreurs de suite (remises à zéro par un succès)
+    visiteurs = {"ko": [], "coupe": False}                              # 11/10 : le disjoncteur de /analytics/visitors (relever_jour)
 
     async def lire(lid: str, j: date) -> str:
         """'ok', '404', 'erreur' (ce lien seulement) ou 'stop' (fin du passage)."""
@@ -1905,8 +1955,9 @@ async def rattraper(d: dict, limite_appels: int = 110) -> int:
         # qu'on retente n'est jamais un signe de panne
         sain = (_sain(d, lid, maintenant, "echec")
                 and j.isoformat() not in (((d.get("liens") or {}).get(lid) or {}).get("echecs_jours") or {}))
-        r = await relever_jour(d, lid, j, maintenant)
-        appels += 2 if r == "ok" else 1
+        sans_v = visiteurs["coupe"]
+        r = await relever_jour(d, lid, j, maintenant, visiteurs)
+        appels += (1 if sans_v else 2) if r == "ok" else 1             # 11/10 : visitors coupé → un seul appel (countries)
         if r == "global":
             return "stop"
         if r == "erreur":
@@ -2192,7 +2243,7 @@ async def annoncer_paie(client, d: dict, maintenant, manquants: dict = None) -> 
     if reprises:
         _ecrire(d)
     if manquants is None:
-        manquants = jours_manquants_paie(d, debut, fin)
+        manquants = jours_manquants_paie(d, debut, fin, avec_provisoires=True)
     jour_paie = maintenant.strftime("%d/%m")
     lignes, csv_texte, rangs = liste_paie(d, nom_de, debut, fin, jour_paie, manquants=manquants)
     # 10/10 (revue CLICS, reprise de la 3e passe) : l'annonce est mémorisée une fois (`paies_annoncees`, jamais réécrite par
@@ -2252,15 +2303,19 @@ def memoriser_annonce(d: dict, cle: str, rangs: list, manquants: dict, debut: da
     """10/10 (revue CLICS, reprise de la 3e passe : `!paie-clics`, que le message de paie demandait de lancer, réécrivait la feuille
     « Paie du … » et `paies` avec le recompte : le montant viré n'était plus écrit nulle part, le complément était à calculer à la main)
     : `paies_annoncees[cle]` = ce que la paie automatique a annoncé (et que Gaëtan a viré), posé UNE fois, jamais réécrit : {jour_paie,
-    debut, fin, t, total, clippers: {uid: {montant, payes, manquants}}} (`total` et `montant` primes de parrainage comprises, comme
-    la liste). Renvoie True si posé maintenant. Écrit `d`."""
+    debut, fin, t, total, clippers: {uid: {montant, payes, manquants, attendus}}} (`total` et `montant` primes de parrainage comprises,
+    comme la liste). 11/10 (contre-vérification CLICS, passe 3) : `attendus` = les [lien, jour] manquants (`manquants` : les jours seuls,
+    pour lire) — le complément juge chaque jour attendu sur SON lien. Renvoie True si posé maintenant. Écrit `d`."""
     annonces = d.setdefault("paies_annoncees", {})
     if cle in annonces:
         return False
-    clippers = {uid: {"montant": round(float(montant), 2), "payes": int(payes), "manquants": sorted({j for _, j in (manquants or {}).get(uid, [])})}
+
+    def fiche(paires) -> dict:
+        return {"manquants": sorted({j for _, j in paires}), "attendus": sorted({(str(l), j) for l, j in paires})}
+    clippers = {uid: {"montant": round(float(montant), 2), "payes": int(payes), **fiche((manquants or {}).get(uid, []))}
                 for _, uid, payes, _, montant, _ in rangs}
     for uid, paires in (manquants or {}).items():                       # un clipper à 0 sur la liste, dont tous les jours manquent
-        clippers.setdefault(str(uid), {"montant": 0.0, "payes": 0, "manquants": sorted({j for _, j in paires})})
+        clippers.setdefault(str(uid), {"montant": 0.0, "payes": 0, **fiche(paires)})
     annonces[cle] = {"jour_paie": jour_paie, "debut": debut.isoformat(), "fin": fin.isoformat(), "t": _horodatage(maintenant),
                      "total": round(sum(float(r[4]) for r in rangs), 2), "clippers": clippers}
     if _deps.get("ecrire_json"):
@@ -2271,20 +2326,57 @@ def memoriser_annonce(d: dict, cle: str, rangs: list, manquants: dict, debut: da
 COMPLEMENT_RECUL = 46   # un jour de plus de 46 jours n'est plus relu par rattraper (45 jours de recul d'un lien payé, depuis la veille)
 
 
+def _paire(x) -> tuple:
+    """(lien, « AAAA-MM-JJ ») d'un jour attendu ; un jour seul (forme d'avant le 11/10) → ("", jour)."""
+    if isinstance(x, (list, tuple)) and len(x) == 2:
+        return str(x[0] or ""), str(x[1])
+    return "", str(x)
+
+
 def _attendus(d: dict, cle: str, a: dict) -> dict:
-    """{uid: [« AAAA-MM-JJ »]} encore attendus pour la paie `cle` : avant le premier complément, les jours manquants à l'annonce ;
-    après, ceux qui manquaient encore au dernier complément (`paies_complements[cle]["restants"]`)."""
+    """{uid: [(lien, « AAAA-MM-JJ »)]} encore attendus pour la paie `cle` : avant le premier complément, les jours manquants à
+    l'annonce ; après, ceux qui manquaient encore au dernier complément (`paies_complements[cle]["restants"]`). 11/10 (contre-
+    vérification CLICS, passe 3 : avec deux liens dont un seul relevé, ou un 404 passager, le complément jugeait au grain (clipper,
+    jour) et partait faux ou jamais) : au grain (lien, jour)."""
     fait = (d.get("paies_complements") or {}).get(cle)
     if fait is None:
-        return {str(uid): sorted(c.get("manquants")) for uid, c in (((a or {}).get("clippers")) or {}).items()
-                if isinstance(c, dict) and c.get("manquants")}
-    return {str(uid): sorted(js) for uid, js in (fait.get("restants") or {}).items() if js}
+        src = {str(uid): (c.get("attendus") or c.get("manquants")) for uid, c in (((a or {}).get("clippers")) or {}).items()
+               if isinstance(c, dict)}
+    else:
+        src = fait.get("restants") or {}
+    out = {}
+    for uid, xs in src.items():
+        paires = sorted({_paire(x) for x in xs or []})
+        if paires:
+            out[str(uid)] = paires
+    return out
+
+
+def _attendu_lu(d: dict, lid: str, jour_iso: str, manquants_uid=()) -> bool:
+    """11/10 : un jour attendu est-il relevé ? Présent dans les jours de SON lien, et pas une veille encore provisoire (pas relue
+    après RELECTURE_HEURE). Un lien introuvable ou effacé n'a rien relevé. Forme d'avant le 11/10 (sans lien) : le jour n'est plus
+    dans les jours manquants du clipper (`manquants_uid`)."""
+    if not lid:
+        return jour_iso not in manquants_uid
+    j = _en_date(jour_iso)
+    return (j is not None and not _manque((d.get("jours") or {}).get(lid) or {}, j)
+            and jour_iso not in ((d.get("provisoires") or {}).get(lid) or ()))
+
+
+def _peut_arriver(d: dict, lid: str) -> bool:
+    """11/10 : un jour attendu de ce lien peut-il encore être relevé ? Seulement sur un lien que rattraper relève (a_relever) : jamais
+    sur un lien effacé de GAML (`supprime_gaml`, tant qu'il ne revient pas dans /links), éteint sans clipper, ou inconnu du bot. Un
+    lien introuvable aujourd'hui (404) est retenté demain : il peut encore arriver."""
+    if not lid:
+        return True
+    info = (d.get("liens") or {}).get(lid)
+    return info is not None and a_relever(info)
 
 
 def complement_en_attente(d: dict, cle: str, a: dict = None, aujourdhui: date = None) -> bool:
     """10/10 (reprise CLICS, 4e tour) : un complément de la paie `cle` est-il encore à poster tout seul ? Le premier, tant qu'il n'est
     pas parti (au plus tard à J+COMPLEMENT_JOURS) ; les suivants, tant qu'un jour encore attendu peut être relu (COMPLEMENT_RECUL jours :
-    au-delà, rattraper ne le relit plus)."""
+    au-delà, rattraper ne le relit plus ; 11/10 : jamais sur un lien effacé de GAML, _peut_arriver)."""
     a = a if a is not None else (d.get("paies_annoncees") or {}).get(cle)
     attendus = _attendus(d, cle, a)
     if not attendus:
@@ -2292,7 +2384,7 @@ def complement_en_attente(d: dict, cle: str, a: dict = None, aujourdhui: date = 
     if cle not in (d.get("paies_complements") or {}):
         return True
     limite = (aujourdhui or _aujourdhui()) - timedelta(days=COMPLEMENT_RECUL)
-    return any((_en_date(j) or date.min) >= limite for js in attendus.values() for j in js)
+    return any((_en_date(j) or date.min) >= limite and _peut_arriver(d, lid) for paires in attendus.values() for lid, j in paires)
 
 
 async def completer_paies(d: dict, maintenant) -> int:
@@ -2307,7 +2399,9 @@ async def completer_paies(d: dict, maintenant) -> int:
     restent attendus (`restants`) ; dès que l'un d'eux est relevé (tant qu'il peut l'être : COMPLEMENT_RECUL jours), un complément
     suivant (« Complément n° 2 … », onglet « Complément 2 du … ») porte la différence avec tout ce qui a déjà été versé (annonce +
     compléments postés, cumulés dans `paies_complements[cle]["clippers"]`). Un complément suivant sans rien à verser ne dit rien.
-    Renvoie le nombre de compléments postés. Écrit `d`."""
+    11/10 (contre-vérification CLICS, passe 3) : les jours attendus et `restants` sont gardés au grain (lien, jour) ; un jour attendu
+    n'est « relevé » que présent dans les jours de son lien et relu après RELECTURE_HEURE (_attendu_lu), jamais parce qu'il sort de
+    jours_manquants_paie (lien en 404). Renvoie le nombre de compléments postés. Écrit `d`."""
     annonces = d.get("paies_annoncees") or {}
     faits = d.setdefault("paies_complements", {})
     aujourdhui = maintenant.date()
@@ -2321,13 +2415,26 @@ async def completer_paies(d: dict, maintenant) -> int:
             continue
         fait = faits.get(cle)
         attendus = _attendus(d, cle, a)
-        restants = jours_manquants_paie(d, debut, fin)
-        encore = {(uid, j) for uid, paires in restants.items() for _, j in paires}
-        releves = {uid: [j for j in js if (uid, j) not in encore] for uid, js in attendus.items()}
-        releves = {uid: js for uid, js in releves.items() if js}
+        restants = jours_manquants_paie(d, debut, fin, avec_provisoires=True)
+        # 11/10 (contre-vérification CLICS, passe 3) : chaque jour attendu est jugé sur SON lien (_attendu_lu) — avant, un jour sorti
+        # de jours_manquants_paie passait pour relevé (lien en 404 passager : « Tom (12/10) relevé, rien à compléter », puis le vrai
+        # relevé jamais posté) et un jour relevé sur un lien sur deux ne déclenchait rien. `reste` = les attendus pas encore relevés
+        # et les jours manquants de la période, au grain (lien, jour).
+        releves, reste = {}, {}
+        for uid, paires in attendus.items():
+            manq_uid = {j for _, j in restants.get(uid, [])}
+            for lid, j in paires:
+                if _attendu_lu(d, lid, j, manq_uid):
+                    releves.setdefault(uid, []).append(j)
+                else:
+                    reste.setdefault(uid, set()).add((lid, j))
+        for uid, paires in restants.items():
+            deja = reste.setdefault(uid, set())
+            deja.update(p for p in paires if ("", p[1]) not in deja)    # (un jour d'avant le 11/10, sans lien, déjà compté)
+        reste = {uid: sorted(ps, key=lambda p: (p[1], p[0])) for uid, ps in reste.items() if ps}
         if fait is None:
             limite = jour_p + timedelta(days=COMPLEMENT_JOURS)
-            if restants and (aujourdhui < limite or (aujourdhui == limite and maintenant.hour < CLICS_HEURE)):
+            if reste and (aujourdhui < limite or (aujourdhui == limite and maintenant.hour < CLICS_HEURE)):
                 continue                                                # on attend encore les jours manquants
         elif not releves:
             continue                                                    # aucun jour attendu relevé depuis le dernier complément
@@ -2347,13 +2454,13 @@ async def completer_paies(d: dict, maintenant) -> int:
             payes_verses = int((clippers.get(uid) or {}).get("payes") or 0) + int((cumul.get(uid) or {}).get("payes") or 0)
             ecart, ecart_p = round(m1 - verse, 2), int(p1) - payes_verses
             if ecart >= 0.01:
-                plus.append((nom, uid, ecart_p, ecart, w, attendus.get(uid) or []))
+                plus.append((nom, uid, ecart_p, ecart, w, [j for _, j in attendus.get(uid) or []]))
             elif ecart <= -0.01:
                 moins.append((nom, ecart))
         for _, uid, ecart_p, ecart, _, _ in plus:
             c = cumul.get(uid) or {}
             cumul[uid] = {"montant": round(float(c.get("montant") or 0) + ecart, 2), "payes": int(c.get("payes") or 0) + ecart_p}
-        restants_iso = {uid: sorted({j for _, j in paires}) for uid, paires in restants.items()}
+        restants_iso = {uid: [[lid, j] for lid, j in paires] for uid, paires in reste.items()}   # 11/10 : au grain (lien, jour)
         envoi = {"t": _horodatage(maintenant), "n": n, "clippers": {uid: {"montant": ecart, "payes": ecart_p} for _, uid, ecart_p, ecart, _, _ in plus}}
         if n > 1 and not plus and not moins:
             # un complément suivant sans rien à verser (le jour relevé n'a aucune visite payée) : l'état suit, sans message
@@ -2375,11 +2482,20 @@ async def completer_paies(d: dict, maintenant) -> int:
         if moins:
             lignes.append("⚠️ Recompte plus bas que ce qui a été versé (rien à reprendre, à vérifier) : "
                           + " · ".join(f"{str(nm).split(' - ')[0]} {_usd(e)}" for nm, e in moins))
-        if restants:
-            jusqu = max((_en_date(j) for js in restants_iso.values() for j in js), default=fin) + timedelta(days=COMPLEMENT_RECUL)
+        if reste:
+            jusqu = max((_en_date(j) or fin for ps in reste.values() for _, j in ps), default=fin) + timedelta(days=COMPLEMENT_RECUL)
+            # 11/10 : un jour attendu sur un lien introuvable (404 aujourd'hui), effacé de GAML ou plus relevé n'est jamais dit « relevé »
+            sans_lien = {lid for ps in reste.values() for lid, _ in ps
+                         if lid and (not _peut_arriver(d, lid) or str(((d.get("liens") or {}).get(lid) or {}).get("introuvable") or "")
+                                     == aujourdhui.isoformat())}
+            # une veille lue la nuit et pas encore relue (`provisoires`) compte sa lecture de la nuit, pas 0
+            nuit = any(not _manque((d.get("jours") or {}).get(lid) or {}, _en_date(j) or fin) for ps in reste.values() for lid, j in ps if lid)
             lignes.append("⚠️ Toujours pas relevés" + (f" {COMPLEMENT_JOURS} jours après la paie" if n == 1 else "")
-                          + f", comptés 0 : {texte_manquants(restants, nom_de)} — relevés retentés toutes les 30 min ; s'ils arrivent "
-                          f"(jusqu'au {jusqu.strftime('%d/%m')}), le complément suivant est posté ici tout seul.")
+                          + (", comptés 0 (ou à leur lecture de la nuit, pas encore relue)" if nuit else ", comptés 0")
+                          + f" : {texte_manquants(reste, nom_de)} — relevés retentés toutes les 30 min"
+                          + (f" (dont {len(sans_lien)} lien(s) introuvable(s) dans GAML ou plus relevé(s) : relu(s) seulement s'il(s) revien(nen)t)"
+                             if sans_lien else "")
+                          + f" ; s'ils arrivent (jusqu'au {jusqu.strftime('%d/%m')}), le complément suivant est posté ici tout seul.")
         if plus:
             titre = await ecrire_feuille_complement(d, plus, debut, fin, jour_paie, n)
             if titre:
@@ -2530,7 +2646,7 @@ async def boucle(client, deps: dict):
                 # un lien payé — bloquait la paie toute la journée, et le lendemain n'était plus un jour de paie : pas de paie du
                 # tout, sans un mot). Passé l'heure, elle part avec ces jours signalés (annoncer_paie).
                 debut_p, fin_p = periode("5" if maintenant.day == 5 else "20", maintenant.strftime("%Y-%m"))
-                manquants = jours_manquants_paie(d, debut_p, fin_p)
+                manquants = jours_manquants_paie(d, debut_p, fin_p, avec_provisoires=True)   # 11/10 : une veille pas encore relue aussi
                 if not manquants or maintenant.hour >= PAIE_ATTENTE_HEURE:
                     await annoncer_paie(client, d, maintenant, manquants)
                     d["paie_annoncee"] = aujourdhui
@@ -2696,7 +2812,7 @@ async def _ecrire_onglet(titre: str, lignes: list) -> str:
             return ""
         col = chr(ord("A") + max(len(l) for l in lignes) - 1)
         await google_api.sheets_creer_onglet(classeur, titre)
-        await google_api.sheets_effacer(classeur, f"{titre}!A1:J")
+        await google_api.sheets_effacer(classeur, f"{titre}!A1:{max(col, 'J')}")   # 11/10 : « Recompte » va jusqu'à K
         await google_api.sheets_ecrire(classeur, f"{titre}!A1:{col}{len(lignes)}", lignes)
         return titre
     except Exception as erreur:                                        # noqa: BLE001
@@ -2723,7 +2839,7 @@ async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour
         crea_de = _creatrices_par_uid(d)
         entete = ["Prénom", "Créatrice", "Adresse USDC (ERC-20)", "Visites payées", "Montant ($)", "Période", "Payé le", "Note"]
         lignes = [entete + (["Annoncé ($)", "Complément posté ($)", "Reste à verser ($)"] if annonce is not None else [])]
-        total, total_a, total_c = 0.0, 0.0, 0.0
+        total, total_a, total_c, total_reste = 0.0, 0.0, 0.0, 0.0
         for nom, uid, payes, hors, montant, w in rangs:
             total += montant
             note = "⚠️ adresse manquante" if not w else ("IBAN, pas USDC" if not str(w).startswith("0x") else "")
@@ -2736,6 +2852,7 @@ async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour
                 a, c, verse = _deja_verse(annonce, uid)
                 total_a += a; total_c += c
                 ligne += [a, c, round(float(montant) - verse, 2)]
+                total_reste += max(0.0, ligne[-1])                      # 11/10 : seuls les restes positifs sont dus
             lignes.append(ligne)
         if annonce is not None:                                         # versé, plus rien au recompte
             presents = {r[1] for r in rangs}
@@ -2749,7 +2866,9 @@ async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour
                                    a, c, -verse])
         pied = ["Total", "", "", sum(int(r[2]) for r in rangs), round(total, 2), "", "", f"{len(rangs)} clipper(s)"]
         if annonce is not None:
-            pied += [round(total_a, 2), round(total_c, 2), round(total - total_a - total_c, 2)]
+            # 11/10 (contre-vérification CLICS, passe 3) : « Reste à verser » du Total = la somme des restes positifs (avant : le net,
+            # un recompte plus bas chez l'un effaçait le reste dû à l'autre)
+            pied += [round(total_a, 2), round(total_c, 2), round(total_reste, 2)]
         lignes.append(pied)
         titre = await _ecrire_onglet(titre, lignes)
         if titre:
@@ -2958,7 +3077,7 @@ async def commande_staff(message, texte: str) -> bool:
             _ecrire(d)
         # 10/10 (revue CLICS, 3e passe) : les jours manquants comptés comme la paie automatique (jours_manquants_paie : `depuis` du
         # lien, plancher du clic, visites dues aux sortants), et la ligne de chaque clipper concerné marquée « provisoire »
-        manquants = jours_manquants_paie(d, debut, fin)
+        manquants = jours_manquants_paie(d, debut, fin, avec_provisoires=True)
         # 10/10 (revue CLICS, reprise de la 3e passe) : une paie déjà annoncée (et virée) n'est jamais réécrite par un recompte — ni la
         # feuille « Paie du … », ni `paies_annoncees` : le recompte va dans « Recompte du … », avec ce qui avait été annoncé et le
         # complément ; l'alerte des jours manquants en ligne 2, et la liste entière en plusieurs messages (avant : coupée à 1990
@@ -2975,15 +3094,23 @@ async def commande_staff(message, texte: str) -> bool:
             t_a = _en_date(annonce.get("t"))
             tot_a = round(float(annonce.get("total") or 0), 2)
             tot_c = round(sum(float((c or {}).get("complement") or 0) for c in verses.values()), 2)
-            reste = round(sum(float(r[4]) for r in rangs) - tot_a - tot_c, 2)
+            # 11/10 (contre-vérification CLICS, passe 3 : Tom +0,10 $ et Lia −0,10 $ donnaient « Rien de plus à verser. » — le net
+            # effaçait un montant dû) : le reste à verser = la somme des restes POSITIFS par clipper ; les recomptes plus bas à part
+            ecarts = {str(r[1]): round(float(r[4]) - _deja_verse(verses, r[1])[2], 2) for r in rangs}
+            for uid_v in verses:
+                ecarts.setdefault(str(uid_v), round(-_deja_verse(verses, uid_v)[2], 2))
+            reste = round(sum(e for e in ecarts.values() if e >= 0.01), 2)
+            bas = [e for e in ecarts.values() if e <= -0.01]
             auto = complement_en_attente(d, cle_p, annonce)
             if reste >= 0.01:
                 suite = (f"**Reste à verser : +{_usd(reste)}** — "
                          + ("posté tout seul au salon admin dès que les jours attendus sont relevés (ne pas le virer avant)." if auto
                             else f"aucun complément automatique ne le portera : à virer à la main (onglet « {ONGLET_RECOMPTE_PREFIXE}"
-                                 f"{_date_paie(jour_paie, fin)} », colonne « Reste à verser »)."))
-            elif reste <= -0.01:
-                suite = f"Recompte plus bas que ce qui a été versé ({_usd(reste)}) : rien à reprendre, à vérifier."
+                                 f"{_date_paie(jour_paie, fin)} », colonne « Reste à verser »).")
+                         + (f" Recompte plus bas pour {len(bas)} clipper(s) ({_usd(round(sum(bas), 2))}) : rien à reprendre, à vérifier."
+                            if bas else ""))
+            elif bas:
+                suite = f"Recompte plus bas que ce qui a été versé ({_usd(round(sum(bas), 2))}) : rien à reprendre, à vérifier."
             else:
                 suite = "Rien de plus à verser" + (" pour l'instant : le complément suivant part tout seul si des jours attendus arrivent."
                                                    if auto else ".")
