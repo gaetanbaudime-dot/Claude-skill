@@ -3,6 +3,7 @@
  "seuil": 8,
  "questions": [
   {
+   "id": "mot1",
    "q": "Mindset (début de la vidéo) : quel est le 1er mot-clé ?",
    "reponses": [
     "régularité",
@@ -12,6 +13,7 @@
    ]
   },
   {
+   "id": "mot2",
    "q": "Stratégie (résultats, cadence) : quel est le 2e mot-clé ?",
    "reponses": [
     "volume",
@@ -20,6 +22,7 @@
    ]
   },
   {
+   "id": "mot3",
    "q": "Posting (Edits, variantes d'un Reel) : quel est le 3e mot-clé ?",
    "reponses": [
     "variation",
@@ -29,6 +32,7 @@
    ]
   },
   {
+   "id": "mot4",
    "q": "Bans et cadence qui monte petit à petit : quel est le 4e mot-clé ?",
    "reponses": [
     "sécurité",
@@ -38,6 +42,7 @@
    ]
   },
   {
+   "id": "mot5",
    "q": "Évolution (fin de la vidéo) : quel est le 5e mot-clé ?",
    "reponses": [
     "conversion",
@@ -46,6 +51,7 @@
    ]
   },
   {
+   "id": "warmup",
    "q": "Warm-up de 24 h d'un compte neuf : tu fais quoi ?",
    "choix": [
     "Je publie 2 Reels pour lancer le compte",
@@ -55,6 +61,7 @@
    "bonne": 1
   },
   {
+   "id": "lien",
    "q": "Où mets-tu ton lien ?",
    "choix": [
     "Dans la bio de chaque compte",
@@ -64,6 +71,7 @@
    "bonne": 2
   },
   {
+   "id": "trois_comptes",
    "q": "3 comptes sur un téléphone : quelle est la règle ?",
    "choix": [
     "Chaque compte a son e-mail, son mot de passe, sa photo et sa bio. Aucun n'est relié au Meta Business Center.",
@@ -73,6 +81,7 @@
    "bonne": 0
   },
   {
+   "id": "cadence",
    "q": "Comment augmenter ta cadence ?",
    "choix": [
     "10 Reels par jour et par compte dès le 1er jour",
@@ -82,6 +91,7 @@
    "bonne": 2
   },
   {
+   "id": "reels_essai",
    "q": "Les Reels d'essai arrivent à partir de combien d'abonnés ?",
    "choix": [
     "50",

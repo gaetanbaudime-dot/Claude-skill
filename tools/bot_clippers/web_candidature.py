@@ -107,7 +107,8 @@ def lien_candidature(src: str = "") -> str:
 
 def texte_annonce_telegram(groupe: str) -> str:
     """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > … ») : l'annonce à coller à la main dans un groupe ou
-    un canal Telegram (étape 1 du funnel). Le lien porte la source « tg-<groupe> ». '' si le site n'est pas prêt."""
+    un canal Telegram (étape 1 du funnel). Le lien porte la source « tg-<groupe> ». '' si le site n'est pas prêt.
+    10/10 (lot L2, revue du recrutement : l'annonce ne disait pas l'âge) : « 18 ans minimum. » juste avant le lien."""
     g = _source(groupe)
     if g != "tg" and not g.startswith("tg-"):
         g = f"tg-{g}" if g else "tg"
@@ -116,6 +117,7 @@ def texte_annonce_telegram(groupe: str) -> str:
         return ""
     return ("🎬 On recrute des clippeurs.\n\n"
             "Tu publies des Reels sur des comptes Instagram qu'on te donne. Tu es payé à chaque visite sur ton lien.\n\n"
+            "18 ans minimum.\n\n"
             f"Postule ici, en 2 minutes :\n{lien}")
 
 
@@ -291,6 +293,12 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "", tel_ok: str =
             champs += f"<div class='sec'><span>{n}</span>{html.escape(section)}</div>"
         champs += _champ(q, valeurs.get(q["id"], ""))
     err = f"<div class='e'>{html.escape(erreur)}</div>" if erreur else ""
+    # 10/10 (lot L2, revue du recrutement : aucune mention RGPD) : à quoi servent ses réponses, comment les faire effacer.
+    # 11/10 (vérification du lot L2) : « écris à Gaëtan sur WhatsApp » devient un lien, comme _secours() le montre déjà sur les
+    # pages publiques (sans lien, un candidat qui échoue au quizz n'a jamais le numéro). « On les garde 2 ans au plus » est
+    # retiré : aucune purge n'existe (pipeline.json, onglet « Candidatures bot »), la phrase reviendra avec elle.
+    wa = _deps.get("WHATSAPP", "")
+    effacer = (f"<a href='{html.escape(wa)}'>écris à Gaëtan sur WhatsApp</a>" if wa else "écris à Gaëtan sur WhatsApp")
     corps = (f"<h1>{html.escape(cfg.get('titre', 'Candidature'))}</h1>{_intro_html(cfg.get('intro', ''))}{err}"
              f"<form method='post' action='/candidature' autocomplete='on'>"
              f"<input type='hidden' name='f' value='{html.escape(jeton('f' + str(int(time.time()))))}'>"
@@ -298,7 +306,8 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "", tel_ok: str =
              + (f"<input type='hidden' name='tel_ok' value='{html.escape(tel_ok)}'>" if tel_ok else "")
              + (f"<input type='hidden' name='src' value='{html.escape(src)}'>" if src else "") + f"{champs}"
              # 09/10 (Gaëtan : « simple et efficace ») : le bouton dit ce qui se passe
-             f"<button class='b' type='submit'>Envoyer et passer à la formation</button></form>")
+             f"<button class='b' type='submit'>Envoyer et passer à la formation</button></form>"
+             f"<p class='petit'>Tes réponses servent seulement à ton recrutement. Pour les faire effacer : {effacer}.</p>")
     video = re.search(r"loom\.com/(?:share|embed)/([0-9a-f]{16,})", _deps.get("LIEN_VIDEO_FORMATION", "") or "")
     tete = (f"<link rel='prefetch' href='https://www.loom.com/embed/{video.group(1)}'>" if video else "")
     return _page(cfg.get("titre", "Candidature"), corps, tete)
@@ -361,11 +370,14 @@ async def post_candidature(request):
     if manquants:
         return _formulaire(reponses, "Il manque : " + " · ".join(m[:60] for m in manquants[:4]), data.get("p", ""), src=src)
     # Mineurs : non négociable. On ne stocke rien.
+    # 11/10 (vérification du lot L2) : l'âge se lit comme un nombre. L'ancienne lecture gardait les chiffres seuls : « 17.0 »
+    # (valeur valide d'un champ number, le navigateur l'envoie telle quelle) devenait 170, « 00017 » devenait 0, et « 0 »
+    # passait. Tout ce qui n'est pas un âge de 18 à 120 ans est refusé, rien n'est écrit.
     try:
-        age = int(re.sub(r"\D", "", reponses.get("age", ""))[:3] or 0)
+        age = float(reponses.get("age", "").replace(",", "."))
     except ValueError:
-        age = 0
-    if reponses.get("majeur") == "Non" or (0 < age < 18):
+        age = -1.0
+    if reponses.get("majeur") == "Non" or ("age" in reponses and not 18 <= age <= 120):
         return _page("Candidature", "<h1>Désolé</h1><p>Il faut avoir 18 ans pour travailler avec nous. "
                                     "Reviens nous voir plus tard.</p>")
     # 30/09 (Gaëtan : « assure-toi qu'ils ne mettent pas des numéros erronés ») : le numéro doit exister (longueur, indicatif) ;
@@ -677,7 +689,9 @@ async def get_connexion(request):
     if deja is not None:
         return deja
     journal.info("Site : page « Rejoindre le Discord » pour la candidature %s", cand_id)
-    corps = (f"<h1>Dernière étape</h1><p>{_texte_discord(cand_id)}</p>"
+    # 11/10 (vérification du lot L2) : la promesse suit les places, comme la page « Quizz réussi » qu'il vient de lire
+    places = await _places_livrables(cand_id) if (_quiz_requis() or _quiz_reussi(cand_id)) else None
+    corps = (f"<h1>Dernière étape</h1><p>{_texte_discord(cand_id, places)}</p>"
              f"<a class='b' href='{html.escape(_url_autorisation(jeton(cand_id)))}'>Rejoindre le Discord</a>")
     return _page("Rejoindre le Discord", corps)
 
@@ -699,7 +713,7 @@ async def get_callback(request):
     # les suivants revoient sa page pendant 10 minutes.
     deja = _retours.get(cand_id)
     if deja and time.time() - deja[0] < 600:
-        return _page_bravo(deja[1], cand_id)
+        return _page_bravo(deja[1], cand_id, deja[2] if len(deja) > 2 else None)
     # 09/10 (revue L8) : une vieille autorisation rejouée ne fait pas rentrer un clipper sorti (même garde que les portes)
     if _reentree_bloquee(_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}), cand_id):
         return _page("Discord", "<h1>Tu es déjà passé par le Discord.</h1>" + _bouton_whatsapp())
@@ -709,6 +723,9 @@ async def get_callback(request):
     fiche_web = pipe.get("candidatures_web", {}).get(cand_id)
     if not fiche_web:
         return _page("Introuvable", "<h1>Candidature introuvable</h1><p>Recommence depuis le formulaire.</p>")
+    # 11/10 (vérification du lot L2) : les places se lisent AVANT qu'il entre sur le serveur (sa propre ligne prise par
+    # l'attribution ne doit pas lui faire lire « dès qu'une place se libère »), en même temps que l'échange avec Discord.
+    lecture_places = asyncio.ensure_future(_places_livrables(cand_id))
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
         async with session.post(f"{API_DISCORD}/oauth2/token", data={
                 "client_id": DISCORD_CLIENT_ID, "client_secret": DISCORD_CLIENT_SECRET,
@@ -748,17 +765,19 @@ async def get_callback(request):
                                "au serveur automatiquement. Réessaie une fois ; si ça bloque encore, on te fait entrer à la main.</p>"
                                f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours())
     journal.info("OAuth : candidature %s reliée au Discord %s (join %s)", cand_id, uid, statut)
-    _retours[cand_id] = (time.time(), guild_id)
-    return _page_bravo(guild_id, cand_id)
+    places = await lecture_places
+    _retours[cand_id] = (time.time(), guild_id, places)
+    return _page_bravo(guild_id, cand_id, places)
 
 
-_retours: dict = {}                                                         # cand_id → (instant, guild_id) des retours réussis
+_retours: dict = {}                                       # cand_id → (instant, guild_id, places lues) des retours réussis
 
 
-def _page_bravo(guild_id: str, cand_id: str = ""):
-    """Après l'autorisation Discord. 09/10 : une phrase, un bouton (fini « la formation et ton lien de quizz »)."""
+def _page_bravo(guild_id: str, cand_id: str = "", places=None):
+    """Après l'autorisation Discord. 09/10 : une phrase, un bouton (fini « la formation et ton lien de quizz »).
+    11/10 : `places` (lues avant son entrée, _places_livrables) choisit la promesse, comme la page « Quizz réussi »."""
     lien_app = f"https://discord.com/channels/{guild_id}" if guild_id else "https://discord.com/app"
-    return _page("C'est bon", f"<h1>C'est bon 🎉</h1><p>{_texte_discord(cand_id)}</p>"
+    return _page("C'est bon", f"<h1>C'est bon 🎉</h1><p>{_texte_discord(cand_id, places)}</p>"
                              f"<a class='b' href='{lien_app}'>Ouvrir Discord</a>")
 
 
@@ -782,10 +801,14 @@ def _quiz_reussi(cand_id: str) -> bool:
     return bool(cand_id) and bool((_fiche_cand(cand_id).get("quiz") or {}).get("reussi"))
 
 
-def _texte_discord(cand_id: str = "") -> str:
+def _texte_discord(cand_id: str = "", places=None) -> str:
     """09/10 (Gaëtan : « Il faut que ce soit simple et efficace ») : la seule phrase des pages qui mènent à Discord. Elle n'est
-    vraie qu'après le quizz : dans l'ancien ordre (QUIZ_AVANT_DISCORD=0, ou quiz.json vide), la suite sur Discord est la formation."""
+    vraie qu'après le quizz : dans l'ancien ordre (QUIZ_AVANT_DISCORD=0, ou quiz.json vide), la suite sur Discord est la formation.
+    11/10 (vérification du lot L2) : 0 place livrable (_places_livrables) → la créatrice arrive dès qu'une place se libère,
+    comme sur la page « Quizz réussi » ; places inconnues (None) → le texte habituel."""
     if _quiz_requis() or _quiz_reussi(cand_id):
+        if places is not None and places <= 0:
+            return "Ta créatrice te rejoint sur Discord dès qu'une place se libère : je te préviens dans ton salon."
         return "Ta créatrice et ton compte 1 t'attendent sur Discord."
     return "Ton salon t'attend sur Discord, avec la formation et le quizz."
 
@@ -825,8 +848,13 @@ def _page_au_dela_du_quiz(uid) -> web.Response:
     return _page("Lien inactif", _LIEN_INACTIF)
 
 
-def _texte_reussi_discord(score: int, total: int) -> str:
-    """Quizz réussi par un membre déjà sur Discord (lien !quiz, ou entré avant le 09/10) : le bot le fait entrer, pas de bouton."""
+def _texte_reussi_discord(score: int, total: int, places=None) -> str:
+    """Quizz réussi par un membre déjà sur Discord (lien !quiz, ou entré avant le 09/10) : le bot le fait entrer, pas de bouton.
+    11/10 (vérification du lot L2) : 0 place livrable (lue AVANT que le bot le valide) → la créatrice arrive dès qu'une place
+    se libère ; places inconnues (None) → le texte habituel."""
+    if places is not None and places <= 0:
+        return (f"<h1>✅ Quizz réussi : {score}/{total}.</h1>"
+                "<p>Retourne sur Discord : ta créatrice arrive dans ton salon dès qu'une place se libère.</p>")
     return (f"<h1>✅ Quizz réussi : {score}/{total}.</h1>"
             "<p>Retourne sur Discord : ta créatrice et ton compte 1 arrivent dans ton salon.</p>")
 
@@ -902,19 +930,74 @@ async def get_formation(request):
     return _page("La formation", corps)
 
 
-def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int) -> web.Response:
-    qs = ""
+def champ_quiz(q: dict, n: int) -> str:
+    """10/10 (lot L2) : le nom du champ d'une question du quizz, tiré de son identifiant (« id » de quiz.json ; à défaut, son
+    rang dans le fichier) : « q-mot1 ». noter() corrige par ce nom, jamais par la place à l'écran, qui est mélangée."""
+    ident = re.sub(r"[^a-z0-9_-]+", "", str(q.get("id") or "").lower())
+    return f"q-{ident or n}"
+
+
+def ordre_quiz(quiz: dict, graine: str) -> list:
+    """10/10 (lot L2, revue du recrutement : mêmes 10 questions dans le même ordre pour tous, le quizz est le seul filtre depuis
+    le 09/10 et ses réponses peuvent circuler) : [(rang dans quiz.json, question)] dans un ordre propre à chaque candidat.
+    Mélange stable : il ne dépend que de la graine (l'identifiant porté par son jeton : candidature, ou uid Discord) et de
+    l'identifiant de chaque question. La page rechargée montre le même ordre. Sans graine : l'ordre du fichier.
+    11/10 (vérification du lot L2 : la formation dit « Note les 5 mots-clés », un candidat honnête les remplit de haut en bas ;
+    mélangés entre eux, 9 candidats sur 10 échouaient avec les 5 QCM justes) : les questions « mot-clé » gardent leurs places
+    mélangées parmi les QCM, mais se suivent dans l'ordre du fichier (1er, 2e… 5e mot-clé de haut en bas)."""
+    qs = list(enumerate(quiz.get("questions", []), 1))
+    if not graine:
+        return qs
+    ordre = sorted(qs, key=lambda nq: hashlib.sha256(f"quiz|{graine}|{champ_quiz(nq[1], nq[0])}".encode()).hexdigest())
+    mots = iter(sorted((nq for nq in ordre if nq[1].get("reponses")), key=lambda nq: nq[0]))
+    return [next(mots) if q.get("reponses") else (n, q) for n, q in ordre]
+
+
+def ordre_choix(q: dict, n: int, graine: str) -> list:
+    """11/10 (vérification du lot L2 : les choix d'une question étaient dans le même ordre pour tous, une antisèche « Warm-up :
+    la 2e réponse » marchait sur chaque ordre de questions) : [(index dans quiz.json, texte)] dans un ordre propre au candidat,
+    stable (même graine que ordre_quiz). La valeur envoyée reste l'index du fichier : la correction ne change pas."""
+    choix = list(enumerate(q.get("choix") or []))
+    if not graine:
+        return choix
+    return sorted(choix, key=lambda ic: hashlib.sha256(f"choix|{graine}|{champ_quiz(q, n)}|{ic[0]}".encode()).hexdigest())
+
+
+def ancienne_page(data) -> bool:
+    """11/10 (vérification du lot L2) : un envoi de la page du quizz d'avant le 10/10 (champs q1…q10, aucun champ « q-… »).
+    Il n'est plus corrigé (une antisèche dans l'ordre du fichier y valait 10/10, sans date de fin) : la page se réaffiche,
+    mélangée, sans compter d'essai. Un envoi vide n'en est pas un : il se corrige (0)."""
+    cles = [str(k) for k in data.keys()]
+    return not any(k.startswith("q-") for k in cles) and any(re.fullmatch(r"q\d+", k) for k in cles)
+
+
+_AVIS_NOUVELLE_PAGE = "Le quizz a changé pendant que tu le remplissais. Réponds de nouveau : cet envoi ne compte pas comme un essai."
+
+
+def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int, avis: str = "") -> web.Response:
+    # 10/10 (lot L2) : l'ordre des questions est propre au candidat (graine : l'identifiant de son jeton) et chaque champ porte
+    # l'identifiant de sa question. « 1er mot-clé », « 2e mot-clé »… suivent l'ordre du fichier, comme le texte des questions.
+    # 11/10 : les choix de chaque question sont mélangés aussi (ordre_choix) ; `avis` : une ligne au-dessus des questions.
+    rang_mot = {}
     for n, q in enumerate(quiz["questions"], 1):
+        if q.get("reponses"):
+            rang_mot[n] = len(rang_mot) + 1
+    graine = verifier_jeton(valeur) or valeur
+    qs = ""
+    for affiche, (n, q) in enumerate(ordre_quiz(quiz, graine), 1):
+        nom = html.escape(champ_quiz(q, n))
         if q.get("reponses"):                                           # 28/09 : les mots-clés se tapent, ils ne se cochent pas
-            k = sum(1 for x in quiz["questions"][:n] if x.get("reponses"))   # 30/09 : « 1er mot-clé », « 2e mot-clé »…
-            opts = (f"<input type='text' name='q{n}' required autocomplete='off' maxlength='40' "
+            k = rang_mot[n]                                             # 30/09 : « 1er mot-clé », « 2e mot-clé »…
+            opts = (f"<input type='text' name='{nom}' required autocomplete='off' maxlength='40' "
                     f"placeholder='{'1er' if k == 1 else f'{k}e'} mot-clé'>")
         else:
-            opts = "".join(f"<label class='o'><input type='radio' name='q{n}' value='{i}' required>{html.escape(c)}</label>"
-                           for i, c in enumerate(q["choix"]))
-        qs += f"<div class='q'><b>{n}. {html.escape(q['q'])}</b>{opts}</div>"
+            opts = "".join(f"<label class='o'><input type='radio' name='{nom}' value='{i}' required>{html.escape(c)}</label>"
+                           for i, c in ordre_choix(q, n, graine))
+        qs += f"<div class='q'><b>{affiche}. {html.escape(q['q'])}</b>{opts}</div>"
     seuil, total = quiz_seuil_total()
-    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1><p>{total} questions. Il faut {seuil} bonnes réponses. "
+    corps = (f"<h1>{html.escape(quiz.get('titre', 'Quiz'))}</h1>"
+             + (f"<div class='e'>{html.escape(avis)}</div>" if avis else "")
+             + f"<p>{total} questions. Il faut {seuil} bonnes réponses. "
              f"Essai {essai} sur {QUIZ_ESSAIS_MAX}.</p>"
              # 09/10 : le jeton reste aussi dans l'adresse, pour que « Reviens dans 24 h avec ce même lien » soit vrai
              f"<form method='post' action='/quiz?{champ}={html.escape(quote(valeur, safe=''))}'>"
@@ -934,7 +1017,145 @@ async def get_quiz_cand(request, cand_id: str):
     if essais >= QUIZ_ESSAIS_MAX:
         return _page("Quizz", "<h1>Quizz</h1>" + _attente_cand(q) + f"<a class='b' href='/formation?t={html.escape(jeton(cand_id))}'>"
                                                                  "Revoir la vidéo</a>")
+    _prechauffer_places()                                               # 11/10 : prêtes quand il valide, ~3 min plus tard
     return _formulaire_quiz(quiz, "c", jeton(cand_id), essais + 1)
+
+
+PLACES_ATTENTE_S = 3.0                                                      # une page n'attend jamais plus la lecture des places
+PLACES_CACHE_S = 300.0                    # 11/10 : une lecture sert 5 minutes (le quizz dure ~3 min : lue à l'affichage)
+# 11/10 (contre-vérification) : de 5 min à 1 h, la lecture sert encore tout de suite et se relit en fond pour la page suivante
+# (un candidat retourné revoir la vidéo ne patiente plus) ; au-delà d'une heure, la page attend la relecture, 3 s au plus.
+PLACES_PERIME_S = 3600.0
+PLACES_PRECHAUFFE_S = 60.0                # l'affichage du quizz relit les places si la dernière lecture a plus d'une minute
+# Un quizz réussi compte « en route vers Discord » 2 h (le bouton de la page ouvre l'invitation : on arrive dans la minute,
+# ou le temps d'installer Discord). 11/10 (contre-vérification) : 24 h, une réussite sans arrivée retirait la place promise à
+# tous les suivants pendant une journée.
+PLACES_REUSSITE_H = 2
+_places_cache: dict = {"dep": None, "valeur": None, "t": 0.0, "tache": None, "tache_dep": None}
+
+
+def _instant(texte):
+    """Une date ISO de pipeline.json en secondes (None si illisible ; sans fuseau = UTC)."""
+    try:
+        d = datetime.fromisoformat(str(texte or ""))
+    except ValueError:
+        return None
+    return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).timestamp()
+
+
+def _valeur_places(r) -> int:
+    """La réponse de la dépendance « places » en nombre de nouveaux qui ont leur créatrice et leur compte 1 en arrivant.
+    Un entier (places.places_livrables, branchement conseillé au lot W) est pris tel quel : c'est la « promesse » du lot L3,
+    ce que l'attribution donnera (sans le forfait GAML, sauf PLACES_GAML_ATTRIBUTION=1).
+    Un détail (dict de places.detail) : sa clé « promesse ». 11/10 (contre-vérification : avec PLACES_GAML_ATTRIBUTION=1,
+    l'attribution ne donnait rien mais la page, qui lisait lignes − attente, promettait le compte 1). Sans cette clé (places.py
+    d'avant le 11/10) : lignes ÷ k (places_lignes) − membres en attente."""
+    if isinstance(r, dict):
+        if "promesse" in r:
+            return int(r.get("promesse") or 0)
+        return max(0, int(r.get("places_lignes", 0) or 0)) - max(0, int(r.get("attente", 0) or 0))
+    return int(r)
+
+
+async def _lire_places(dep):
+    """Une lecture de la dépendance (async ou simple), gardée en cache avec l'instant où elle a COMMENCÉ. Ne lève jamais."""
+    debut = time.time()
+    try:
+        r = dep()
+        if hasattr(r, "__await__"):
+            r = await r
+        valeur = _valeur_places(r)
+    except Exception as erreur:                                         # noqa: BLE001 — jamais de page cassée pour ça
+        journal.warning("Site : places livrables illisibles (%s)", type(erreur).__name__)
+        return None
+    if _deps.get("places") is dep:                                      # dépendance rebranchée entre-temps : on ne garde rien
+        _places_cache.update(dep=dep, valeur=valeur, t=debut)
+    return valeur
+
+
+def _lecture_places(dep):
+    """La lecture en cours de cette dépendance, ou une neuve (une seule à la fois)."""
+    t = _places_cache.get("tache")
+    if t is None or t.done() or _places_cache.get("tache_dep") is not dep:
+        t = asyncio.ensure_future(_lire_places(dep))
+        _places_cache.update(tache=t, tache_dep=dep)
+    return t
+
+
+def _prechauffer_places():
+    """11/10 (vérification du lot L2 : places.places_livrables relit le classeur des logins, jusqu'à 3 s de plus sur la page
+    « Quizz réussi ») : à l'affichage du quizz, lecture en tâche de fond si la dernière a plus de PLACES_PRECHAUFFE_S."""
+    dep = _deps.get("places")
+    if not callable(dep):
+        return
+    if _places_cache.get("dep") is dep and time.time() - _places_cache["t"] < PLACES_PRECHAUFFE_S:
+        return
+    _lecture_places(dep)
+
+
+def _reussites_en_route(pipe: dict, cand_id: str, lecture: float, maintenant: float = None) -> int:
+    """11/10 (vérification du lot L2 : 1 place, deux réussites rapprochées, les deux lisaient « ton compte 1 t'y attendent ») :
+    les AUTRES candidats du site dont le quizz est réussi depuis moins de PLACES_REUSSITE_H heures et dont la place n'est pas
+    dans la lecture des places : pas encore sur le serveur, ou arrivés après la lecture (date « utilisee » de leur invitation ;
+    à défaut, leur quizz réussi après la lecture).
+    11/10 (contre-vérification : A réussit, puis B ; la page suivante de A, /discord/connexion, déduisait B et lui retirait la
+    promesse qu'il venait de lire) : une file par date de quizz. Seules les réussites d'AVANT la sienne passent devant lui
+    (égalité à la seconde : l'identifiant départage). Sans quizz réussi daté (lien !quiz, page avant le quizz) : toutes."""
+    maintenant = maintenant or time.time()
+    fiches = (pipe or {}).get("candidatures_web") or {}
+    moi = ((fiches.get(cand_id) or {}).get("quiz") or {}) if cand_id else {}
+    t_moi = _instant(moi.get("date")) if moi.get("reussi") else None
+    n = 0
+    for autre, fiche in fiches.items():
+        if autre == cand_id or not isinstance(fiche, dict) or not (fiche.get("quiz") or {}).get("reussi"):
+            continue
+        t_quiz = _instant(fiche["quiz"].get("date"))
+        if t_quiz is None or maintenant - t_quiz > PLACES_REUSSITE_H * 3600:
+            continue
+        if t_moi is not None and (t_quiz, str(autre)) > (t_moi, str(cand_id)):
+            continue                                                    # réussi après lui : derrière lui dans la file
+        if not _membre_present(pipe, autre):
+            n += 1
+            continue
+        arrivees = [_instant(f.get("utilisee")) for f in ((pipe or {}).get("invitations") or {}).values()
+                    if isinstance(f, dict) and str(f.get("cand") or "") == autre and f.get("utilisee")]
+        arrivees = [a for a in arrivees if a is not None]
+        if (min(arrivees) if arrivees else t_quiz) >= lecture:
+            n += 1
+    return n
+
+
+async def _places_livrables(cand_id: str = ""):
+    """10/10 (lot L2) : les places livrables pour ce candidat (dépendance « places », branchée par le lot W DANS le dict passé à
+    demarrer : places.places_livrables conseillé, places.detail accepté ; fonction async ou simple). None si elle manque, plante
+    ou tarde plus de PLACES_ATTENTE_S secondes : la page garde alors son texte habituel.
+    11/10 (vérification du lot L2) : une lecture sert PLACES_CACHE_S secondes (préchauffée à l'affichage du quizz) ; une lecture
+    lente continue en fond et sert à la page suivante. On en retire les autres réussites pas encore comptées
+    (_reussites_en_route) : deux candidats pour une place ne lisent pas tous les deux « ton compte 1 t'y attendent ».
+    11/10 (contre-vérification) : de PLACES_CACHE_S à PLACES_PERIME_S, la lecture sert tout de suite et se relit en fond ;
+    la page n'attend (PLACES_ATTENTE_S au plus) que sans lecture de moins d'une heure."""
+    dep = _deps.get("places")
+    if not callable(dep):
+        return None
+    lue_avant = _places_cache.get("dep") is dep and _places_cache.get("valeur") is not None
+    age = time.time() - _places_cache["t"] if lue_avant else None
+    if lue_avant and age < PLACES_PERIME_S:
+        if age >= PLACES_CACHE_S:
+            _lecture_places(dep)                                        # relue en fond, pour la page suivante
+    else:
+        try:
+            lue = await asyncio.wait_for(asyncio.shield(_lecture_places(dep)), PLACES_ATTENTE_S)
+        except asyncio.TimeoutError:
+            journal.warning("Site : places livrables trop lentes (> %s s), texte habituel", PLACES_ATTENTE_S)
+            return None
+        if lue is None or _places_cache.get("dep") is not dep:          # panne, ou dépendance rebranchée pendant la lecture
+            return None
+    valeur, lecture = _places_cache["valeur"], _places_cache["t"]
+    try:
+        return valeur - _reussites_en_route(_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}), cand_id, lecture)
+    except Exception as erreur:                                         # noqa: BLE001 — jamais de page cassée pour ça
+        journal.warning("Site : réussites en route illisibles (%s), texte habituel", type(erreur).__name__)
+        return None
 
 
 async def post_quiz_cand(data, cand_id: str):
@@ -951,6 +1172,9 @@ async def post_quiz_cand(data, cand_id: str):
     essais = essais_cand(ancien)
     if essais >= QUIZ_ESSAIS_MAX:
         return _page("Quizz", "<h1>Quizz</h1>" + _attente_cand(ancien))
+    if ancienne_page(data):                                             # 11/10 : page d'avant le 10/10, aucun essai compté
+        journal.info("Site : quizz de la candidature %s envoyé depuis l'ancienne page, réaffiché", cand_id)
+        return _formulaire_quiz(quiz, "c", jeton(cand_id), essais + 1, _AVIS_NOUVELLE_PAGE)
     score, total, details = noter(quiz, data)
     seuil, _ = quiz_seuil_total()
     reussite = score >= seuil
@@ -966,8 +1190,9 @@ async def post_quiz_cand(data, cand_id: str):
     present = _membre_present(pipe, cand_id) if reussite else ""
     if present and _deps.get("traiter_quiz_web"):
         journal.info("Site : candidature %s, quizz réussi par le membre %s déjà sur Discord : le bot le valide", cand_id, present)
+        places = await _places_livrables(cand_id)                       # 11/10 : lues AVANT que le bot lui donne sa ligne
         _en_fond(_deps["traiter_quiz_web"](present, f"{score} / {total}", True, details))
-        return _page("Quizz réussi", _texte_reussi_discord(score, total))
+        return _page("Quizz réussi", _texte_reussi_discord(score, total, places))
     if _deps.get("quiz_candidat"):                                      # la ligne « Quiz bot » du classeur, en tâche de fond
         _en_fond(_deps["quiz_candidat"](prenom, f"{score} / {total}", essais + 1, reussite, details))
     if reussite:
@@ -978,10 +1203,19 @@ async def post_quiz_cand(data, cand_id: str):
         # 09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Chaque étape à la fois ») : quizz réussi = dans l'agence.
         # Le bouton ouvre tout droit l'invitation discord.gg créée pendant la formation ; à défaut /discord/invitation, qui
         # redirige sans page de plus. Plus de « test de montage », plus de liste de consignes.
-        cible = await _invitation_prete(cand_id, attente=3.0) or _url_discord(cand_id)
+        # 10/10 (lot L2, revue du recrutement : le stock de lignes est le goulot n° 1) : la promesse suit les places livrables,
+        # lues en même temps que l'invitation. 0 place → il entre quand même, sa créatrice arrive dès qu'une place se libère.
+        # 11/10 : lecture en cache (préchauffée à l'affichage du quizz), autres réussites pas encore arrivées déduites.
+        cible, places = await asyncio.gather(_invitation_prete(cand_id, attente=3.0), _places_livrables(cand_id))
+        cible = cible or _url_discord(cand_id)
+        if places is not None and places <= 0:
+            suite = ("<p>Rejoins le Discord maintenant. Ta créatrice t'y rejoint dès qu'une place se libère : "
+                     "je te préviens dans ton salon.</p>")
+        else:
+            suite = "<p>Dernière étape : rejoins le Discord. Ta créatrice et ton compte 1 t'y attendent.</p>"
         return _page("Quizz réussi", f"<h1>✅ Quizz réussi : {score}/{total}.</h1>"
                                     "<p>Tu fais partie de l'agence.</p>"
-                                    "<p>Dernière étape : rejoins le Discord. Ta créatrice et ton compte 1 t'y attendent.</p>"
+                                    + suite +
                                     f"<a class='b' href='{html.escape(cible)}'>3️⃣ Rejoindre le Discord</a>")
     # 09/10 : un échec, une action (« Réessayer » passe par la vidéo) ; rien ne part sur Discord ni au salon admin
     return _page("Quizz", _texte_echec(score, total, seuil, essais + 1, f"/formation?t={jeton(cand_id)}"))
@@ -1013,10 +1247,14 @@ def _norm_reponse(t: str) -> str:
 
 def noter(quiz: dict, data) -> tuple:
     """(score, total, détails) d'un formulaire rempli : question à choix → l'index coché est le bon ; question libre
-    (« reponses ») → la réponse normalisée est dans la liste. Détails : réponses libres données, pour le classeur."""
+    (« reponses ») → la réponse normalisée est dans la liste. Détails : réponses libres données, pour le classeur.
+    10/10 (lot L2) : chaque question se corrige par son champ « q-<id> » (champ_quiz), jamais par sa place à l'écran, qui est
+    mélangée (ordre_quiz). Les détails restent dans l'ordre du fichier (colonnes du classeur).
+    11/10 (vérification du lot L2) : les champs q1…q10 de la page d'avant le 10/10 ne se corrigent plus (une antisèche dans
+    l'ordre du fichier y valait 10/10, sans date de fin). Un tel envoi est réaffiché sans compter d'essai (ancienne_page)."""
     score, details = 0, []
     for n, q in enumerate(quiz.get("questions", []), 1):
-        brut = str(data.get(f"q{n}", "") or "")
+        brut = str(data.get(champ_quiz(q, n), "") or "")
         if q.get("reponses"):
             ok = _norm_reponse(brut) in {_norm_reponse(r) for r in q["reponses"]}
             details.append(brut.strip()[:40])
@@ -1043,6 +1281,7 @@ async def get_quiz(request):
         return _page_au_dela_du_quiz(uid)
     if essais >= QUIZ_ESSAIS_MAX:
         return _page("Quizz", "<h1>Quizz</h1>" + _texte_attente(uid))
+    _prechauffer_places()                                               # 11/10 : prêtes quand il valide
     return _formulaire_quiz(quiz, "t", jeton(uid), essais + 1)
 
 
@@ -1077,16 +1316,22 @@ async def post_quiz(request):
         return _page_au_dela_du_quiz(uid)
     if essais >= QUIZ_ESSAIS_MAX:
         return _page("Quizz", "<h1>Quizz</h1>" + _texte_attente(uid))
+    if ancienne_page(data):                                             # 11/10 : page d'avant le 10/10, aucun essai compté
+        journal.info("Site : quizz de %s envoyé depuis l'ancienne page, réaffiché", uid)
+        return _formulaire_quiz(quiz, "t", jeton(uid), essais + 1, _AVIS_NOUVELLE_PAGE)
     score, total, details = noter(quiz, data)
     seuil, _ = quiz_seuil_total()
     reussite = score >= seuil
+    # 11/10 (vérification du lot L2) : les places se lisent AVANT que le bot le valide (sinon sa propre ligne, prise par
+    # l'attribution, lui ferait lire « dès qu'une place se libère »)
+    places = await _places_livrables() if reussite else None
     # 09/10 (revue L8) : à l'échec, le bot compte l'essai sans rien poster dans son salon (traiter_quiz_web, silencieux) :
     # cette page est le seul message d'échec, il est dessus
     await _deps["traiter_quiz_web"](uid, f"{score} / {total}", reussite, details)
     if reussite:
         # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : le bot valide le candidat, sa créatrice et son compte 1
-        # arrivent dans son salon
-        return _page("Quizz réussi", _texte_reussi_discord(score, total))
+        # arrivent dans son salon ; 11/10 : avec 0 place, dès qu'une place se libère
+        return _page("Quizz réussi", _texte_reussi_discord(score, total, places))
     return _page("Quizz", _texte_echec(score, total, seuil, essais + 1, f"/quiz?t={jeton(uid)}",
                                        video=_deps.get("LIEN_VIDEO_FORMATION", "")))
 

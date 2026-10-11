@@ -5,7 +5,7 @@
     [
       "Ce formulaire, 2 minutes.",
       "Une vidéo de formation (15 minutes) et un quizz.",
-      "Le Discord : ta créatrice et ton premier compte."
+      "Le Discord : ta créatrice et tes comptes, dès qu'une place est prête."
     ],
     "Contenu SFW uniquement. 18 ans minimum."
   ],
@@ -15,6 +15,15 @@
       "section": "Toi",
       "label": "Ton prénom",
       "type": "text",
+      "requis": true
+    },
+    {
+      "id": "age",
+      "section": "Toi",
+      "label": "Ton âge",
+      "type": "number",
+      "min": 0,
+      "max": 120,
       "requis": true
     },
     {
