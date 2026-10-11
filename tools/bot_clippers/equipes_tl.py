@@ -43,6 +43,7 @@ jours non relevés sont injectés, comme le régime et les exclus (`configurer`)
 """
 
 import inspect
+import json
 import logging
 import os
 import re
@@ -150,6 +151,26 @@ def _jour(x):
         return date.fromisoformat(str(x or "")[:10])
     except ValueError:
         return None
+
+
+def _jour_paris(x) -> str:
+    """« AAAA-MM-JJ » du jour À PARIS d'un horodatage ISO (sortie, signature) ; une chaîne sans heure garde ses 10 premiers
+    caractères. 11/10 (lot W, contre-vérification du lot L10 : un TL sorti le 05/11 à 0 h 30 heure de Paris était daté du 04/11 en
+    UTC, donc absent du registre à la fin de la période : sa prime et celle du manager disparaissaient)."""
+    t = str(x or "").strip()
+    if len(t) <= 10 or "T" not in t:
+        return t[:10]
+    try:
+        d = datetime.fromisoformat(t.replace("Z", "+00:00"))
+    except ValueError:
+        return t[:10]
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        return d.astimezone(ZoneInfo("Europe/Paris")).date().isoformat()
+    except Exception:                                                   # noqa: BLE001 — sans base des fuseaux : UTC + 1 h
+        return (d.astimezone(timezone.utc) + timedelta(hours=1)).date().isoformat()
 
 
 def _aujourdhui() -> date:
@@ -392,6 +413,25 @@ def _fichier_mandats():
     return Path(base).with_name("mandats.json") if base else None
 
 
+def _lire_strict(f):
+    """Le journal relu directement sur le disque (le fichier, sinon sa copie .bak) quand le fichier existe ; None s'il n'existe
+    pas (la dépendance lire_json décide alors). Lève ValueError si le fichier et sa copie sont tous deux illisibles."""
+    try:
+        p = Path(f)
+        if not p.exists():
+            return None
+    except (TypeError, OSError):
+        return None
+    derniere = None
+    for c in (p, p.with_suffix(p.suffix + ".bak")):
+        try:
+            if c.exists():
+                return json.loads(c.read_text(encoding="utf-8"))
+        except (ValueError, OSError) as erreur:
+            derniere = erreur
+    raise derniere if derniere is not None else ValueError("mandats.json et sa copie .bak illisibles")
+
+
 def _journal(strict: bool = False) -> list:
     """Les mandats notés par `!tl` et `!manager` : [{uid, role (« tl » | « manager »), creatrices, depuis, jusqu ('' = en
     cours), par, nom}]. Illisible : vide, dit au journal (la fiche reste la source pour un membre au registre) ; `strict` : lève,
@@ -400,7 +440,12 @@ def _journal(strict: bool = False) -> list:
     if not f:
         return []
     try:
-        j = _dep("lire_json")(f, [])
+        # 11/10 (lot W, contre-vérification du lot L10 : le lire_json du bot ne lève jamais, il rend [] quand le fichier ET sa
+        # copie .bak sont illisibles ; `!tl liste` réécrivait alors le journal avec les seuls mandats en cours, sans un mot) :
+        # en écriture (`strict`), un fichier présent est relu ici, puis sa copie .bak ; les deux illisibles → erreur.
+        j = _lire_strict(f) if strict else None
+        if j is None:
+            j = _dep("lire_json")(f, [])
         if j is not None and not isinstance(j, list):
             raise ValueError(f"mandats.json n'est pas une liste ({type(j).__name__})")
     except NonBranche:
@@ -519,7 +564,7 @@ def _mandats_du_journal(jnl: list, uid: str, sortie_iso: str) -> dict:
 
 def _present(fiche: dict, fin_iso: str) -> bool:
     """Au registre le jour `fin_iso` : signé ce jour-là ou avant (une fiche sans date est ancienne)."""
-    return not fin_iso or str(fiche.get("date") or "")[:10] <= fin_iso
+    return not fin_iso or _jour_paris(fiche.get("date")) <= fin_iso
 
 
 def _sortis_a_la_fin(fiches: dict, registre: list, fin_iso: str) -> dict:
@@ -533,7 +578,7 @@ def _sortis_a_la_fin(fiches: dict, registre: list, fin_iso: str) -> dict:
         uid = str(s.get("uid") or "") if isinstance(s, dict) else ""
         if not uid or uid in out or (isinstance(fiches.get(uid), dict) and _present(fiches[uid], fin_iso)):
             continue
-        if str(s.get("signe_le") or "")[:10] <= fin_iso < str(s.get("date") or "")[:10]:
+        if _jour_paris(s.get("signe_le")) <= fin_iso < _jour_paris(s.get("date")):
             out[uid] = s
     return out
 
@@ -557,7 +602,7 @@ def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
     sortis = _sortis_a_la_fin(fiches, registre, fin_iso)
     jnl = (_journal() if mandats is None else list(mandats or [])) if sortis else []
     for uid, s in list(sortis.items()):
-        du_journal = _mandats_du_journal(jnl, uid, str(s.get("date") or "")[:10])
+        du_journal = _mandats_du_journal(jnl, uid, _jour_paris(s.get("date")))
         if du_journal["chef_passe"] or du_journal["manager_passe"]:     # l'entrée d'abord (fin_de_mandats), le journal ensuite
             sortis[uid] = dict(s, chef_passe=list(s.get("chef_passe") or []) + du_journal["chef_passe"],
                                manager_passe=list(s.get("manager_passe") or []) + du_journal["manager_passe"])

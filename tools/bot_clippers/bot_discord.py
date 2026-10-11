@@ -33,7 +33,7 @@ import creatrices                         # valeur d'un abonné OF / MYM depuis 
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
-import rapport_stats                      # rapport GAML quotidien du manager, #jonas-stats (24/09)
+import rapport_stats                      # liens GAML suivis du roster (associer_suivi) ; `!stats-jonas` retiré le 10/10
 import reserve_mym                        # réserve de trackings MYM par numéro de lien GAML (05/10)
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
@@ -42,18 +42,18 @@ import matin                              # un seul message du matin par clipper
 import sortie_auto                        # sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
 import pods                              # !pods : POD neufs au classeur des logins (30/09)
-import relances                          # relances Telegram en un appui, chaque matin (30/09)
+import relances                          # relances Telegram en un appui : `!relances` (11/10 : plus de boucle du matin)
 import bloques                           # les bloqués du matin, relance WhatsApp en un appui (30/09)
 import acquisition_subs                  # subs de la veille OF / MYM au salon acquisition du serveur chatting (30/09)
 import appel                             # l'appel de présence : réponds sous 48 h et viens sur WhatsApp, sinon tu sors (05/10)
 import profil                             # photo et bio prêtes à coller avec chaque compte (28/09)
-import roster                             # roster actif par créatrice : compteur, rapport Jonas, sorties (26/09)
+import roster                             # roster actif par créatrice : compteur, `!actifs`, sorties (26/09)
 import reels_uniques                      # TOP 20 Reels d'origine de la créatrice, pour review_reels (09/10 : plus de déclinaison)
 import messages_deposes                   # messages écrits dans le dépôt, postés une fois au démarrage (27/09)
 import acceptation                        # J'ACCEPTE = case cochée sur le site, ou bouton ✅ en MP (27/09)
 import attribution                        # créatrice attribuée automatiquement, rotation Sophie > Sarah > Chloé > Clara > Jade (27/09)
 import places                             # 10/10 (lot L3) : places livrables = lignes du classeur ÷ k et forfait GAML, les deux goulots
-import tableau_bord                       # le tableau de bord d'une ligne, chaque lundi (27/09)
+import tableau_bord                       # le tableau de la semaine, dans le point du matin du lundi (11/10 : plus de boucle à part)
 import retro                              # rétrospective nocturne : le bot apprend de ses salons persos (27/09)
 # 09/10 : drive_agence (dépôts du script Apps Script de l'agence pour les Reels uniques) n'est plus importé : DRIVE_AGENCE_* à retirer.
 import google_api                         # compte de service Google : sauvegarde des candidatures en Sheet (24/09)
@@ -65,9 +65,10 @@ import cadence_reels                      # cadence de publication et vues Insta
 import bans_mail                          # bans Instagram vus par les mails de suspension → BAN + push (29/09)
 import classeur_verif                     # le classeur se vérifie seul après le scan : doublons, BAN avec Gérant… (29/09)
 import identifiants                       # identifiants neufs par créatrice, calculés depuis le classeur (30/09)
-import relance_nouveaux                   # relance quotidienne des nouveaux jusqu'au test de montage (30/09)
 import remplacements                      # comptes BAN d'un clipper remplacés par un dépôt, parcours relancé (30/09)
 import review_reels                       # review des Reels : avant publication (vidéo envoyée) et après (scan du matin) (01/10)
+import equipes_tl                         # 10/10 (lot L10) : équipes TL et managers, `!tl` et `!manager`, primes d'équipe
+import series                             # séries par compte (Reels vus), lues pour les primes d'équipe (11/10, lot W)
 
 DOSSIER = Path(__file__).parent
 
@@ -168,7 +169,7 @@ ASSISTANT_SALON_PERSO = os.environ.get("ASSISTANT_SALON_PERSO", "0").strip() == 
 RELAIS_MAX_JOUR = int(os.environ.get("RELAIS_MAX_JOUR", "3") or 3)   # 06/10 : « @Gaëtan » d'un salon perso relayés au salon admin, par jour
 SALON_ASSISTANT_NOM = os.environ.get("SALON_ASSISTANT_NOM", "💬-assistant").strip() or "💬-assistant"
 SALON_PERSO_MANAGERS = os.environ.get("SALON_PERSO_MANAGERS", "0").strip() == "1"  # 26/09 : « n'ajoute pas Jonas dans les nouveaux salons »
-ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) d'équipe (ex. Rookie,Confirmé,Élite) ; depuis le 26/09 le salon « Clippers : N » compte le roster de rapport_jonas.json, plus ces rôles
+ROLE_CLIPPER_NOM = os.environ.get("ROLE_CLIPPER_NOM", "Clipper").strip()      # rôle(s) d'équipe (ex. Rookie,Confirmé,Élite) ; depuis le 26/09 le salon « Clippers : N » compte le roster (roster.json), plus ces rôles
 # Rôles d'ÉQUIPE (accès aux salons rémunération/discussion par pays) : attribution UNIQUEMENT via
 # !equipe après signature du contrat — jamais par l'onboarding Discord (incident du 18/07).
 ROLE_TEAM_FR_NOM = os.environ.get("ROLE_TEAM_FR_NOM", "Team France").strip()
@@ -422,7 +423,7 @@ question à la fois, seulement si tu en as besoin pour répondre. Quand le clipp
 « d'accord », tu ne réponds pas.
 23. Tu ne donnes JAMAIS la cause d'un blocage : tu ne la connais pas. Tu donnes la marche à suivre. \
 « Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
-de son compte, dans son salon perso, puis le code dans #🔐-code-instagram avec `!code` ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
+de son compte, dans son salon perso, puis le code dans #🔐-code-instagram avec le bouton « 📩 Mon code » ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
 « désactivé », « nous examinons » (30/09, Gaëtan) : le clipper fait appel LUI-MÊME, tout de suite — « Contester la décision » ; \
 le code reçu par e-mail : {"« " + TEXTE_CODE + " »" if codes_2fa.CODES_APPEL else "il ne passe pas par le bot (10/10) : l'équipe le reçoit et lui répond dans son salon perso"} ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
 demandés : les SIENS ; jamais les papiers de quelqu'un d'autre, jamais de faux, jamais sa pièce d'identité dans Discord (il \
@@ -456,7 +457,8 @@ jamais le clipper à créer un compte que le bot n'a pas encore ouvert.
 et tu ne réponds pas à sa place.
 34. Le parcours (09/10, Gaëtan : « on va ouvrir les vannes ») : formulaire du site → vidéo de formation → quizz (8/10) → \
 Discord → sa créatrice, le lien de ses vidéos et le groupe WhatsApp, dans un seul message de bienvenue → compte 1 → 4 Reels → \
-compte 2 → 4 Reels → compte 3, le privé, avec son lien → son app de clippeur, qui montre ses visites et ses gains. Il n'y a PLUS \
+compte 2 → 4 Reels → compte 3, le privé, avec son lien → la story à la une et son app de clippeur, ensemble, au « ✅ Profil fait » \
+du privé. Le compte 1 arrive juste sous la bienvenue, sans attendre ; plus aucun message à J+7 : 2 Reels par jour, toujours. Il n'y a PLUS \
 de test vidéo à rendre ni de note de montage pour entrer : tu n'en parles jamais, même à un ancien candidat. Quizz réussi = sa \
 créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois : tu ne parles que de l'étape où il est.
 35. Mise en forme (09/10, Gaëtan : « Saute des lignes, aère ») : le clipper te lit sur son téléphone. Des paragraphes d'une ou \
@@ -1727,6 +1729,32 @@ async def canal_manager():
     return (await canal_par_id(CANAL_MANAGER_ID)) or await canal_admin()
 
 
+ANCIENS_WEBHOOKS = ("CANDIDATURE|", "TEST_RENDU|")                    # 09/10 : le chemin Google Form est retiré
+TEXTE_ANCIEN_FORMULAIRE = ("📝 L'ancien Google Form reçoit encore des réponses : ferme-le (Réponses → décocher « Accepter les "
+                           "réponses »). Les candidatures se font sur le site du bot. La réponse reçue est effacée : elle portait un "
+                           "numéro.")
+
+
+async def signaler_ancien_formulaire(maintenant=None) -> bool:
+    """11/10 (lot W) : la ligne « ferme l'ancien Google Form », au salon admin, une fois par jour (heure de Paris). Vrai si elle
+    est partie. Un fichier à part (ancien_formulaire.json) : boucle_rappels réécrit rappels.json avec ce qu'elle a lu."""
+    jour = (maintenant or heure_paris()).strftime("%Y-%m-%d")
+    fichier = DONNEES / "ancien_formulaire.json"
+    etat = lire_json(fichier, {}) or {}
+    if etat.get("signale") == jour:
+        return False
+    canal = await canal_admin()
+    if canal is None:
+        return False
+    try:
+        await canal.send(TEXTE_ANCIEN_FORMULAIRE)
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Ancien formulaire, ligne admin : %s", erreur)
+        return False
+    ecrire_json(fichier, {"signale": jour})
+    return True
+
+
 async def effacer_webhook(message):
     """Efface la ligne brute d'un webhook une fois traitée (WEBHOOK_EFFACER=0 pour la garder).
     Silencieux si le bot n'a pas « Gérer les messages » dans le salon."""
@@ -1944,10 +1972,10 @@ async def mettre_a_jour_stats():
         await _renommer_salon(CANAL_STAT_CLIPPERS_ID, f"🎬 Clippers : {len(membres)}")
 
 
-async def boucle_stats():
-    """10/10 (L9a) : supprimée (salons-compteurs rafraîchis toutes les 10 min, que le README du 14/09 dit de supprimer). Les
-    compteurs suivent encore un paiement et le roster (mettre_a_jour_stats). Bouchon inerte jusqu'au lot W (tâche de on_ready)."""
-    return None
+# 10/10 (L9a) puis 11/10 (lot W) : boucle_stats (salons-compteurs rafraîchis toutes les 10 min) est supprimée, comme le README du
+# 14/09 le demandait. mettre_a_jour_stats ne tourne plus qu'après un paiement et une commande du roster (`!roster`) : une arrivée
+# ou une sortie automatique ne change plus le titre « 🎬 Clippers : N ». Le salon-compteur des clippers est à supprimer
+# (CANAL_STAT_CLIPPERS_ID à retirer de Railway) : `!actifs` donne le vrai chiffre.
 
 
 SEPARATEURS_PSEUDO = (" - ", " – ", " — ", " | ", " · ")
@@ -3080,9 +3108,15 @@ def candidats_a_sortir(donnees: dict, equipes: dict, maintenant, jours: int = No
 
 class _MessageQuizWeb:
     """Le quiz du site produit le même événement que l'Apps Script : on le rejoue dans
-    traiter_quiz_webhook, sans webhook ni salon (le canal reçoit les seules anomalies)."""
+    traiter_quiz_webhook, sans webhook ni salon (le canal reçoit les seules anomalies).
+    11/10 (lot W) : l'identifiant porte un compteur. Deux essais dans la même milliseconde avaient le même, et le 2e passait pour
+    un doublon (quiz_traites) : son échec n'était pas compté (test_funnel_L8_bot rouge une fois sur deux)."""
+    _n = 0
+
     def __init__(self, contenu, canal):
-        self.content, self.id, self.channel, self.webhook_id = contenu, f"web-{int(time.time() * 1000)}", canal, None
+        _MessageQuizWeb._n += 1
+        self.content, self.channel, self.webhook_id = contenu, canal, None
+        self.id = f"web-{int(time.time() * 1000)}-{_MessageQuizWeb._n}"
 
 
 def seuil_quiz_texte(sep: str = "/") -> str:
@@ -3267,7 +3301,8 @@ async def traiter_quiz_webhook(message, silencieux=False):
         return
     # 09/10 (Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes ») : quiz_ok, quiz_rate, aucun état, et les
     # anciens test_envoye, test_rendu, test_expire, refuse (défaut D8) entrent dans l'agence. Plus de garde LIEN_TEST, plus de
-    # pause International. Aucun message admin en cas de succès : accepter_conditions notifie déjà le manager.
+    # pause International. Aucun message admin en cas de succès. 11/10 (lot W) : accepter_conditions ne prévient le staff que s'il
+    # y a un geste (rôle non posé, attribution coupée) ; sinon l'entrée compte dans « validé(s) » du point du matin.
     retour = await valider_candidat(membre_trouve, score, "quiz")
     journal.info("Quiz réussi : membre %s → %s", uid_q, retour or "?")
 
@@ -3384,14 +3419,18 @@ async def rattraper_webhooks():
     QUIZ_OK / QUIZ_KO arrivés pendant que le bot était éteint — un redéploiement Railway
     coupe le bot ~1-2 min et un quiz validé dans cette fenêtre était perdu (vécu le 18/07 au
     soir, candidat Hugo). Idempotent : un quiz déjà traité est ignoré en silence.
-    09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : le chemin Google Form (CANDIDATURE, TEST_RENDU) est retiré ;
-    ces lignes, si le formulaire tourne encore, sont laissées telles quelles dans le salon."""
+    09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : le chemin Google Form (CANDIDATURE, TEST_RENDU) est retiré.
+    11/10 (lot W) : ces lignes, si le formulaire tourne encore, sont effacées (elles portent un numéro) et Gaëtan le sait."""
     canal = await canal_admin()
     if canal is None:
         return
     try:
         async for ancien in canal.history(limit=100):
             if not ancien.webhook_id:
+                continue
+            if ancien.content.startswith(ANCIENS_WEBHOOKS):
+                await effacer_webhook(ancien)
+                await signaler_ancien_formulaire()
                 continue
             if not ancien.content.startswith(("QUIZ_OK|", "QUIZ_KO|")):
                 continue
@@ -4376,9 +4415,11 @@ def decouper_digest(entete: str, blocs: list, limite: int = 1990) -> list:
 async def bloc_places_digest() -> tuple:
     """10/10 (lot L9b) : (texte, à agir) du bloc des places. Avec le module places (lot L3) : son texte (lignes ÷
     ATTRIBUTION_LIGNES_MIN et liens GAML libres), à agir s'il n'y a aucune place ; classeur illisible : « places inconnues », jamais
-    un faux 0. Sans lui (avant la fusion du lot L3) : le repli des comptes livrables par créatrice, comme le 09/10."""
+    un faux 0. Sans lui : le repli des comptes livrables par créatrice, comme le 09/10.
+    11/10 (lot W) : la ligne des comptes privés sans lien GAML suit, chaque jour tant qu'il en reste (places.ligne_sans_lien) ;
+    le repli divise par places.lignes_par_place() (ATTRIBUTION_LIGNES_MIN), plus par un 3 écrit en dur."""
     try:
-        import places as _places                                        # lot L3 ; absent avant sa fusion
+        import places as _places                                        # lot L3 (le repli ne sert qu'aux essais sans lui)
     except ImportError:
         _places = None
     if _places is not None and hasattr(_places, "detail") and hasattr(_places, "texte"):
@@ -4386,21 +4427,32 @@ async def bloc_places_digest() -> tuple:
             det = await _places.detail()
         except Exception as erreur:                                     # noqa: BLE001 — jamais un faux 0
             journal.warning("Digest : places livrables illisibles (%s)", erreur)
-            return f"⚠️ Places inconnues : classeur des logins illisible ({type(erreur).__name__}).", True
-        return _places.texte(det), int(det.get("places", 0) or 0) <= 0
+            texte_p, agir = f"⚠️ Places inconnues : classeur des logins illisible ({type(erreur).__name__}).", True
+        else:
+            texte_p, agir = _places.texte(det), int(det.get("places", 0) or 0) <= 0
+        try:
+            sans_lien = _places.ligne_sans_lien() if hasattr(_places, "ligne_sans_lien") else ""
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Digest : comptes privés sans lien illisibles (%s)", erreur)
+            sans_lien = ""
+        return (f"{texte_p}\n\n{sans_lien}", True) if sans_lien else (texte_p, agir)
     livrables = await comptes_livrables_par_creatrice()
     if not livrables:
         return "", False
-    vides = [c for c, n in livrables.items() if n < 3]
-    return ("📦 **Comptes livrables** (3 par nouveau, le goulot) : "
-            + " · ".join(f"{c} {n}" + (" ⚠️" if n < 3 else f" → {n // 3} nouveau{'x' if n // 3 > 1 else ''}")
+    try:
+        k = max(1, int(places.lignes_par_place()))
+    except Exception:                                                   # noqa: BLE001
+        k = 3
+    vides = [c for c, n in livrables.items() if n < k]
+    return (f"📦 **Comptes livrables** ({k} par nouveau, le goulot) : "
+            + " · ".join(f"{c} {n}" + (" ⚠️" if n < k else f" → {n // k} nouveau{'x' if n // k > 1 else ''}")
                          for c, n in livrables.items())
             + (f"\n→ Plus de place pour un nouveau chez {', '.join(vides)} (`!comptes-libres Prénom`)." if vides else "")), bool(vides)
 
 
 async def tableau_du_lundi(maintenant) -> tuple:
-    """10/10 (lot L9b) : (texte, semaine ISO) du tableau de la semaine pour le digest du lundi ; ("", semaine) si sa propre boucle
-    (tableau_bord.boucle, à retirer par le lot W) l'a déjà posté cette semaine : jamais deux fois."""
+    """10/10 (lot L9b) : (texte, semaine ISO) du tableau de la semaine pour le digest du lundi ; ("", semaine) s'il est déjà parti
+    cette semaine (`semaine` de tableau_bord.json) : jamais deux fois. 11/10 (lot W) : sa propre boucle du lundi est retirée."""
     semaine = maintenant.strftime("%G-W%V")
     fichier = tableau_bord._deps.get("FICHIER")
     if fichier is not None and (lire_json(fichier, {}) or {}).get("semaine") == semaine:
@@ -4425,10 +4477,15 @@ def sauvegarder_volume(jour: str):
     DOSSIER_SAUVEGARDES.mkdir(parents=True, exist_ok=True)
     cible = DOSSIER_SAUVEGARDES / f"sauvegarde_{jour}.zip"
     provisoire = DOSSIER_SAUVEGARDES / f"sauvegarde_{jour}.zip.tmp"
-    with zipfile.ZipFile(provisoire, "w", zipfile.ZIP_DEFLATED) as archive:
-        for p in fichiers:
-            archive.write(str(p), arcname=p.name)
-    os.replace(provisoire, cible)
+    try:
+        with zipfile.ZipFile(provisoire, "w", zipfile.ZIP_DEFLATED) as archive:
+            for p in fichiers:
+                archive.write(str(p), arcname=p.name)
+        os.replace(provisoire, cible)
+    except BaseException:
+        # 11/10 (lot W, contre-vérification du lot L9b) : jamais une archive provisoire laissée sur un disque peut-être plein
+        provisoire.unlink(missing_ok=True)
+        raise
     for vieille in sorted(DOSSIER_SAUVEGARDES.glob("sauvegarde_*.zip"))[:-SAUVEGARDES_GARDEES]:
         try:
             vieille.unlink()
@@ -4541,6 +4598,16 @@ async def boucle_rappels():
                         journal.warning("Digest : bilan de la sortie automatique (%s)", erreur)
                     if sortie_d:
                         blocs_d.append(("sortie", "\n".join(sortie_d)))
+                # 3 bis. 11/10 (lot W) : les lignes de l'appel de présence qui n'attendent aucun geste (⏸️ non mesuré, ✅ mesure
+                # revenue, 🔇 muet mais actif, 📢 appelé) ; les sorties et les relances WhatsApp restent en direct
+                appel_d = []
+                try:
+                    appel_d = appel.bilan_pour_digest()
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : bilan de l'appel (%s)", erreur)
+                if appel_d:
+                    blocs_d.append(("appel", "📢 **Appel de présence** (rien à faire)\n" + "\n".join(appel_d[-15:])
+                                    + (f"\n… et {len(appel_d) - 15} ligne(s) de plus (`!appel`)" if len(appel_d) > 15 else "")))
                 # 4. Les places livrables (lignes du classeur ÷ ATTRIBUTION_LIGNES_MIN et liens GAML libres, lot L3).
                 texte_places, zero_place = await bloc_places_digest()
                 if texte_places:
@@ -4610,6 +4677,10 @@ async def boucle_rappels():
                             sortie_auto.oublier_bilan_dit(jours_sortie)
                         except Exception as erreur:                         # noqa: BLE001
                             journal.warning("Digest : bilan de sortie non oublié (%s)", erreur)
+                        try:
+                            appel.oublier_digest(len(appel_d))
+                        except Exception as erreur:                         # noqa: BLE001
+                            journal.warning("Digest : bilan de l'appel non oublié (%s)", erreur)
                         if semaine_t and tableau_bord._deps.get("FICHIER") is not None:
                             etat_t = lire_json(tableau_bord._deps["FICHIER"], {}) or {}
                             etat_t["semaine"] = semaine_t       # sa propre boucle ne le reposte pas
@@ -4620,7 +4691,7 @@ async def boucle_rappels():
                             membre_n = membre_par_id(m.group(1))
                             return membre_n.display_name if membre_n else "membre parti"
                         if telegram.TELEGRAM_QUOTIDIEN:
-                            texte_tg = (entete + "\n\n" + "\n\n".join(t for c, t in blocs_d if c not in ("bloques", "sortie")))[:3900]
+                            texte_tg = (entete + "\n\n" + "\n\n".join(t for c, t in blocs_d if c not in ("bloques", "sortie", "appel")))[:3900]
                             try:
                                 await telegram.envoyer_telegram(re.sub(r"<@!?(\d+)>", _prenom, texte_tg).replace("**", "*"))
                             except Exception as erreur:                     # noqa: BLE001
@@ -4864,6 +4935,8 @@ async def executer_rafale(message, lignes_cmd: list):
         try:
             if ligne.lower().startswith(("!creatrice", "!créatrice")):
                 traitee = await commande_creatrice(enveloppe, ligne)
+            elif (ligne.split() or [""])[0].lower() in ("!tl", "!manager"):   # 11/10 (lot W) : les équipes TL en rafale aussi
+                traitee = await equipes_tl.commande(enveloppe, ligne)
             else:
                 traitee = await commande_admin(enveloppe, ligne)
         except Exception as erreur:                     # une ligne cassée n'arrête pas la rafale
@@ -4878,13 +4951,20 @@ def est_manager(membre) -> bool:
     return codes_2fa._est_manager(membre, ADMIN_IDS)
 
 
+# 11/10 (lot W) : les commandes retirées, avec ce qui les remplace (commande_admin les dit au lieu de les confondre)
+COMMANDES_RETIREES = {
+    "!equipes": "Retiré le 11/10 : les équipes, c'est `!tl liste` (TL, managers et chiffres de la période).",
+    "!relancer-lien": "Retiré le 11/10 : depuis le 09/10, on entre sur Discord par le site, après le quizz. Plus de `!lier` à rattraper.",
+    "!rang": "Retiré le 11/10 : les rangs Rookie, Confirmé et Elite ne servent plus. Un Team Leader se nomme avec `!tl Chloé @x`.",
+}
+
 # Ce que le rôle Manager peut lancer (la base de connaissances le lui promet) — le reste reste admin.
 # 09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Enlève le truc qui envoie un dossier Drive au clippeur ») : plus de
 # !test-ok, !test-non, !tests, !refuser, !relance-telegram ni !reels-uniques. !quiz-ok reste : il valide à la main.
 COMMANDES_MANAGER = ("!quiz-ok", "!fiche", "!pipeline", "!tableau", "!retro", "!rétro", "!trackings",
                      "!sortie", "!relance", "!creatrice", "!créatrice",
                      "!inviter", "!candidats", "!annonce", "!sortie-auto", "!clics", "!liens", "!lien", "!paie-clics", "!wallet", "!paie", "!comptes-libres", "!onboarding", "!liberer", "!libérer", "!etape", "!note", "!memoire", "!mémoire", "!bilan-fixe", "!etats-comptes", "!états-comptes", "!dashboard", "!capacite", "!capacité", "!build-capacity",
-                     "!stats-jonas", "!stats-manager", "!roster", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo")
+                     "!roster", "!bans", "!classeur", "!visites-telegram", "!cadence", "!wa", "!appel", "!purge", "!reserve-mym", "!app", "!pseudo")
 
 
 def texte_aide(membre, est_admin: bool) -> str:
@@ -5619,7 +5699,7 @@ async def commande_creatrice(message, texte: str) -> bool:
     # 10/10 (vérification L10 : `!creatrice @nouveau X` livrait les comptes déjà créés d'un ancien du même prénom) : « nouveau venu »
     # décidé AVANT d'écrire sa créatrice au registre ; un nouveau homonyme reçoit un prénom distinct (pseudo et Gérant).
     nouveau_c = parcours_a_demarrer(membre.id)
-    # 26/09 (Gaëtan) : pseudo « Prénom - Créatrice » posé par le bot, et le roster (compteur, rapport Jonas) mis à jour.
+    # 26/09 (Gaëtan) : pseudo « Prénom - Créatrice » posé par le bot, et le roster (`!actifs`, liens suivis) mis à jour.
     prenom_clipper = prenom_distinct(membre, nouveau_c)
     pseudo_cible = f"{prenom_clipper} - {prenom}"[:32]
     if membre.display_name != pseudo_cible:
@@ -6046,7 +6126,7 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     ecrire_json(FICHIER_SORTIS, sortis[-500:])
     autre_r = membre_par_prenom(normaliser(prenom_de(membre)))          # 08/10 (deux « Andry ») : le roster est par prénom
     if autre_r is None or autre_r == membre:
-        roster.retirer(prenom_de(membre))                               # 26/09 : le roster (compteur, rapport Jonas) suit
+        roster.retirer(prenom_de(membre))                               # 26/09 : le roster (`!actifs`, liens suivis) suit
         # 09/10 (revue L9) : tout est fait ici, le balayage du démarrage suivant ne rejoue pas cette sortie par le prénom (il
         # prenait la fiche, l'état et les rôles d'un nouveau signé du même prénom)
         roster.marquer_traite(prenom_de(membre))
@@ -6347,6 +6427,12 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
 
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    # 11/10 (lot W, lots L9b et L10) : `!equipes` (audit Team France / International), `!relancer-lien` et `!rang` sont retirés.
+    # Une réponse les dit, sinon `!equipes` tombait dans `!equipe @membre` (préfixe) et les autres dans « commande inconnue ».
+    retiree = COMMANDES_RETIREES.get((texte.split() or [""])[0].lower())
+    if retiree:
+        await message.reply(retiree)
+        return True
     # ---- !audit : carte complète du serveur + écarts à la doctrine des 3 étages ----
     # ---- !pourquoi : pourquoi CE membre ne voit pas CE salon ----
     # Né du cas Quentin (11→15/08) : quatre jours perdus à se renvoyer des captures
@@ -6652,7 +6738,13 @@ async def commande_admin(message, texte: str) -> bool:
         # 09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > … » ; revue L8, branché par L10) : l'annonce Telegram
         # de l'étape 1, SEULE dans la réponse pour la copier d'un appui long au téléphone. Son lien porte ?src=tg-<groupe> : la
         # colonne Source du classeur dit de quel groupe vient chaque candidature (digest du matin par source).
-        await message.reply(web_candidature.reponse_commande_annonce(texte[len("!annonce"):].strip())[:1990])
+        # 11/10 (lot W, lot L3) : puis, dans un 2e message, les places livrables (stock de lignes et forfait GAML), ou « ⛔ 0 place :
+        # n'annonce pas encore ». L'annonce reste seule dans le 1er, pour la copier.
+        for i, morceau in enumerate(await web_candidature.reponses_commande_annonce(texte[len("!annonce"):].strip())):
+            if i == 0:
+                await message.reply(morceau[:1990])
+            else:
+                await message.channel.send(morceau[:1990])
         return True
 
     if texte.startswith("!candidats"):
@@ -6968,7 +7060,7 @@ async def commande_admin(message, texte: str) -> bool:
         lignes.append(("✅" if moi.guild_permissions.manage_guild else "❌")
                       + " Permission « Gérer le serveur » (lecture des invitations)")
         lignes.append(("✅" if moi.guild_permissions.manage_roles else "❌")
-                      + " Permission « Gérer les rôles » (!rang)")
+                      + " Permission « Gérer les rôles » (rôles des créatrices, Team Leader)")
         lignes.append(("✅" if moi.guild_permissions.manage_channels else "❌")
                       + " Permission « Gérer les salons » (!creatrice crée le salon perso)")
         fermees = [c.name for c in g.categories if acces_categorie(g, c)]
@@ -7012,18 +7104,19 @@ async def commande_admin(message, texte: str) -> bool:
                 lignes.append(f"⚠️ Rôle « {role.name} » AU-DESSUS du mien — monte mon rôle, sinon je ne peux pas l'attribuer.")
             else:
                 lignes.append(f"✅ « {role.name} » ({role_label}) — {len(role.members)} membre(s)")
-        for nom_rang in NOMS_RANGS:
-            role = discord.utils.find(lambda r: normaliser(nom_rang) in normaliser(r.name), g.roles)
-            if role is None:
-                lignes.append(f"❌ Rôle « {nom_rang} » introuvable — crée-le dans Réglages → Rôles.")
-            elif moi.top_role <= role:
-                lignes.append(f"⚠️ Rôle « {role.name} » au-dessus du mien — monte mon rôle pour que !rang marche.")
-            else:
-                lignes.append(f"✅ Rôle « {role.name} » ({len(role.members)} membre(s))")
-        actifs_v = rapport_stats.groupes_actifs()
-        lignes.append(f"ℹ️ Compteur « Clippers » : {rapport_stats.total_actifs(actifs_v)} compté(s) — "
+        # 11/10 (lot W) : plus de contrôle des rangs Rookie / Confirmé / Elite (`!rang` retiré) ; le rôle Team Leader, lui, doit
+        # rester sans aucune permission (lot L10)
+        role_tl_v = equipes_tl._role_tl(g)
+        if role_tl_v is None:
+            lignes.append(f"ℹ️ Rôle « {equipes_tl.ROLE_TL_NOM} » absent : le bot le crée sans permission au démarrage ou au 1er `!tl`.")
+        elif equipes_tl._permissions(role_tl_v):
+            lignes.append(f"❌ Rôle « {role_tl_v.name} » AVEC des permissions : vide-les (Réglages → Rôles), un TL n'a aucun droit.")
+        else:
+            lignes.append(f"✅ Rôle « {role_tl_v.name} » sans permission ({len(role_tl_v.members)} membre(s))")
+        actifs_v = roster.groupes_actifs()
+        lignes.append(f"ℹ️ Compteur « Clippers » : {roster.total_actifs(actifs_v)} compté(s) — "
                       + " · ".join(f"{cr} {len(noms)}" for cr, noms in actifs_v.items())
-                      + " (roster de rapport_jonas.json + arrivées − sorties ; `!actifs` pour les prénoms)")
+                      + " (roster.json + arrivées − sorties ; `!actifs` pour les prénoms)")
         # Persistance des données (le piège du compteur remis à zéro, vécu le 17/07)
         if DONNEES_PERSISTANTES:
             lignes.append(f"✅ Données persistantes : `{DONNEES}`")
@@ -7048,79 +7141,6 @@ async def commande_admin(message, texte: str) -> bool:
         lignes.append("\n🏆 **Tout est parfait — tu n'as plus à y toucher.**" if parfait
                       else "\n👉 Corrige les lignes ❌/⚠️ puis relance !verifier.")
         await message.reply("\n".join(lignes)[:1990])
-        return True
-
-    # ---- !equipes : audit registre des signatures vs rôles réellement portés ----
-    # 09/10 (plan du funnel : « Team France / International absents de !equipes ») : la boucle cherchait « Team Madagascar »
-    # (défaut de ROLE_TEAM_MG_NOM) alors que le rôle s'appelle « Team International », et ignorait le rôle unique Clippeur posé
-    # à tous depuis le 25/09. Trois rôles audités : Clippeur contre tout le registre, puis Team France et Team International
-    # (recherche tolérante de role_team) contre l'équipe fr / mg du registre. Un rôle qui existe sans porteur dit « 0 porteur » ;
-    # un rôle introuvable est signalé une fois, sans arrêter le reste. Les anciens hors registre (rôle sans fiche) sortent ici.
-    if texte.startswith("!equipes"):
-        g = message.guild
-        if g is None:
-            await message.reply("À lancer depuis un salon du serveur.")
-            return True
-        registre = lire_json(FICHIER_EQUIPES, {})
-        lignes = ["👥 **Équipes — registre des signatures vs rôles portés**"]
-
-        def _role_tolerant(noms):
-            cibles = [normaliser(n).strip() for n in noms if n and n.strip()]
-            for cible in cibles:                                         # le nom exact d'abord, puis « contient »
-                role = discord.utils.find(lambda r: normaliser(r.name).strip() == cible and not r.managed, g.roles)
-                if role is not None:
-                    return role
-            for cible in cibles:
-                role = discord.utils.find(lambda r: cible in normaliser(r.name) and not r.managed, g.roles)
-                if role is not None:
-                    return role
-            return None
-
-        def _staff_id(i):
-            m = g.get_member(i)
-            return str(i) in ADMIN_IDS or (m is not None and est_staff(m))
-
-        def _liste(ids):
-            ids = sorted(ids)
-            return ", ".join(f"<@{i}>" for i in ids[:15]) + (f" … et {len(ids) - 15} de plus" if len(ids) > 15 else "")
-
-        presents_reg = {int(u) for u in registre if str(u).isdigit() and g.get_member(int(u)) is not None}
-        partis = sum(1 for u in registre if not (str(u).isdigit() and int(u) in presents_reg))
-        for titre, noms, code in (("Clippeur", (ROLE_EQUIPE_UNIQUE, "Clippeur"), ""),
-                                  ("Team France", (ROLE_TEAM_FR_NOM,), "fr"),
-                                  ("Team International", (ROLE_TEAM_MG_NOM, "Team International", "Team Madagascar"), "mg")):
-            lignes.append("")
-            role = _role_tolerant(noms)
-            if role is None:
-                # 09/10 (relecture) : sans rôle Clippeur (renommé, variable fausse), l'audit concluait « ✅ alignés ». Le rôle
-                # unique porté par tous les clippers manque : ❌. Les Team, optionnelles depuis le 25/09, restent en ℹ️.
-                autres_noms = [n for n in dict.fromkeys(noms) if n and normaliser(n).strip() != normaliser(titre)]
-                lignes.append(("❌" if not code else "ℹ️") + f" Rôle « {titre} » introuvable sur le serveur"
-                              + (f" (cherché aussi : {' / '.join(autres_noms)})" if autres_noms else "")
-                              + (". Vérifie ROLE_EQUIPE_UNIQUE et le nom du rôle." if not code else "."))
-                continue
-            porteurs = {m.id for m in role.members if not m.bot}
-            attendus = presents_reg if not code else {i for i in presents_reg if (registre.get(str(i)) or {}).get("equipe") == code}
-            lignes.append(f"__{role.name}__ : {len(porteurs)} porteur{'s' if len(porteurs) > 1 else ''} · {len(attendus)} au registre"
-                          + (f" (équipe {code})" if code else ""))
-            intrus = {i for i in porteurs - presents_reg if not _staff_id(i)}
-            if intrus:
-                lignes.append(f"❌ Rôle SANS fiche au registre ({len(intrus)}) : {_liste(intrus)} → `!equipe @membre fr|int` "
-                              "pour régulariser, ou retirer le rôle.")
-            if code:
-                autre = {i for i in porteurs & presents_reg if (registre.get(str(i)) or {}).get("equipe") not in (code, None, "")}
-                if autre:
-                    lignes.append(f"⚠️ Autre équipe au registre ({len(autre)}) : {_liste(autre)}")
-            # Depuis le 25/09, seul le rôle unique est posé : un signé sans rôle Team n'est un écart que sans ROLE_EQUIPE_UNIQUE.
-            if not code or not ROLE_EQUIPE_UNIQUE:
-                manquants = {i for i in attendus - porteurs if not _staff_id(i)}
-                if manquants:
-                    lignes.append(f"⚠️ Au registre mais SANS le rôle ({len(manquants)}) : {_liste(manquants)}")
-        if partis:
-            lignes += ["", f"ℹ️ {partis} fiche(s) du registre : membres partis du serveur, non comptées."]
-        if all(not l.startswith(("❌", "⚠️")) for l in lignes[1:]):
-            lignes += ["", "✅ Registre et rôles alignés."]
-        await envoyer_long(message, lignes)
         return True
 
     # ---- !equipe @membre fr|mg|retirer : attribution des rôles d'accès à la signature du contrat ----
@@ -7463,84 +7483,6 @@ async def commande_admin(message, texte: str) -> bool:
 
     # 09/10 : !relance-telegram (opération ponctuelle du 26/09) est retirée ; les relances passent par relances.py (`!relances`).
 
-    # ---- !relancer-lien : rattraper les candidatures qui n'ont jamais fait !lier ----
-    # `!pipeline` annonce « N sans Discord lié » sans permettre d'agir. Ces gens se
-    # répartissent en DEUX populations qu'on ne relance pas du tout de la même façon :
-    #   A. présents sur le serveur mais jamais liés → joignables en MP par le bot ;
-    #   B. formulaire rempli, jamais venus sur Discord → joignables SEULEMENT par WhatsApp.
-    # Les confondre, c'est croire qu'on a relancé 184 personnes alors qu'on en a touché
-    # une fraction. D'où deux sorties distinctes : un envoi de MP, et un export à appeler.
-    if texte.startswith("!relancer-lien"):
-        g = message.guild
-        if g is None:
-            await message.reply("À lancer depuis un salon du serveur.")
-            return True
-        norm = normaliser(texte)
-        appliquer, export = "appliqu" in norm, "export" in norm
-        donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-        liaisons = donnees.get("liaisons", {})
-        cands = donnees.get("candidatures", {})
-        tels_lies = {l.get("tel") for l in liaisons.values()}
-        signes = lire_json(FICHIER_EQUIPES, {})
-
-        # A — sur le serveur, sans liaison, et pas déjà dans l'équipe ni membre du staff
-        sur_serveur = []
-        arrivees_rl = donnees.get("arrivees", {})
-        for m in g.members:
-            if m.bot or str(m.id) in liaisons or str(m.id) in signes or arrivees_rl.get(str(m.id), {}).get("stop"):
-                continue
-            if any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in m.roles):
-                continue
-            sur_serveur.append(m)
-        # B — candidature reçue, aucun numéro lié : hors de portée du bot
-        hors_discord = [(t, c) for t, c in cands.items() if t not in tels_lies]
-
-        lignes = ["🔗 **Rattrapage des liaisons**", "",
-                  f"👥 **{len(sur_serveur)} sur le serveur sans `!lier`** — joignables en MP par le bot",
-                  f"📵 **{len(hors_discord)} candidatures jamais arrivées sur Discord** — "
-                  f"joignables uniquement par WhatsApp", ""]
-        if not appliquer and not export:
-            lignes += ["`!relancer-lien appliquer` → MP aux " + str(len(sur_serveur)) + " du serveur",
-                       "`!relancer-lien export` → fichier des " + str(len(hors_discord))
-                       + " numéros à relancer sur WhatsApp"]
-            await envoyer_long(message, lignes)
-            return True
-
-        if export:
-            tampon = io.StringIO()
-            plume = csv.writer(tampon)
-            plume.writerow(["prenom", "telephone", "pays", "grille_probable", "recue_le"])
-            for t, c in sorted(hors_discord, key=lambda x: x[1].get("date", ""), reverse=True):
-                code, _motif = equipe_deduite_tel(t, c.get("pays", ""))
-                plume.writerow([c.get("prenom", ""), t, c.get("pays", ""),
-                                {"fr": "France", "mg": "International"}.get(code, "indéterminée"),
-                                str(c.get("date", ""))[:10]])
-            fichier = discord.File(io.BytesIO(tampon.getvalue().encode("utf-8")),
-                                   filename="candidatures_sans_discord.csv")
-            await message.reply(f"📵 **{len(hors_discord)} candidatures à relancer sur WhatsApp** — "
-                                f"les plus récentes d'abord (une candidature de plus de 3 semaines "
-                                f"ne répond quasiment jamais).", file=fichier)
-            if not appliquer:
-                return True
-
-        envoyes, fermes = 0, 0
-        for m in sur_serveur:
-            # 09/10 (Gaëtan : « Saute des lignes, aère ») : une seule action, des paragraphes courts, plus de test.
-            ok = await envoyer_mp(m, "👋 **Ta candidature est bien arrivée.**\n\n"
-                                     "Elle n'est pas encore reliée à ton compte Discord : tu n'avances pas.\n\n"
-                                     "👉 Réponds ici avec **ton numéro WhatsApp**, celui du formulaire, avec l'indicatif.\n\n"
-                                     "Je fais le reste.\n\n"
-                                     "Plus intéressé ? Dis-le-moi, je ne te relance plus.")
-            envoyes += 1 if ok else 0
-            fermes += 0 if ok else 1
-            await asyncio.sleep(1.2)
-        bilan = [f"✅ **{envoyes} MP envoyé(s)**"]
-        if fermes:
-            bilan.append(f"🔕 {fermes} ont les MP fermés — inatteignables par le bot, "
-                         f"à traiter sur WhatsApp comme les autres.")
-        await envoyer_long(message, bilan)
-        return True
-
     if texte.startswith("!pipeline"):
         # 26/09 (Gaëtan) : « 100 % va venir du formulaire » — plus de webhooks, de numéros liés ni de portes d'entrée.
         # Volumes du classeur des candidatures, parcours des gens encore sur le serveur, roster actif, et les actions.
@@ -7849,37 +7791,6 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply(f"✅ Compteur épinglé dans <#{CANAL_DOPAMINE_ID}> : {total:.2f} € versés.")
         return True
 
-    # ---- v2 : !rang @membre Rookie|Confirmé|Elite ----
-    if texte.startswith("!rang"):
-        if not message.mentions or not message.guild:
-            await message.reply("Format : !rang @clippeur Rookie | Confirmé | Elite")
-            return True
-        membre_vise = message.mentions[0]
-        demande = texte.lower()
-        nom_rang = next((r for r in NOMS_RANGS if normaliser(r) in normaliser(demande)), None)
-        if not nom_rang:
-            await message.reply("Rang inconnu. Choix : Rookie, Confirmé, Elite.")
-            return True
-        # Tolère les noms de rôles stylés côté serveur (« Élite ✨ », « Confirmé 👍 », « Rookie 🔰 »…)
-        roles = {}
-        for role in message.guild.roles:
-            for nom in NOMS_RANGS:
-                if normaliser(nom) in normaliser(role.name):
-                    roles.setdefault(nom, role)
-        if nom_rang not in roles:
-            await message.reply(f"Je ne trouve pas de rôle contenant « {nom_rang} » sur le serveur — crée les rôles "
-                                f"{', '.join(NOMS_RANGS)} (emojis bienvenus) dans les réglages, puis réessaie.")
-            return True
-        try:
-            membre = message.guild.get_member(membre_vise.id) or await message.guild.fetch_member(membre_vise.id)
-            await membre.remove_roles(*[r for n, r in roles.items() if n != nom_rang])
-            await membre.add_roles(roles[nom_rang])
-            emoji = {"Rookie": "🐣", "Confirmé": "🎯", "Elite": "👑"}[nom_rang]
-            await message.reply(f"{emoji} **{membre.display_name}** passe **{nom_rang}** !")
-        except (discord.Forbidden, discord.HTTPException):
-            await message.reply("Je n'ai pas la permission « Gérer les rôles » (ou mon rôle est trop bas dans la liste).")
-        return True
-
     if texte.startswith("!stats"):
         lignes = JOURNAL.read_text(encoding="utf-8").splitlines() if JOURNAL.exists() else []
         escalades = sum(1 for l in lignes if '"escalade": true' in l)
@@ -8059,7 +7970,7 @@ _MIGRATION_TEST = {"en_cours": False}
 
 async def _stock_migration() -> tuple:
     """({créatrice: comptes livrables du classeur}, places) pour la migration : les créatrices de l'ordre d'attribution (toutes
-    celles du classeur si l'attribution est éteinte), places = somme des livrables ÷ COMPTES_PAR_CLIPPER (un nouveau en réserve 3).
+    celles du classeur si l'attribution est éteinte), places = somme des livrables ÷ places.lignes_par_place() (3 par défaut).
     (None, 0) si le classeur est éteint ou illisible : on ne valide jamais à l'aveugle."""
     if not onboarding.actif():
         return None, 0
@@ -8077,7 +7988,8 @@ async def _stock_migration() -> tuple:
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Migration du test, livrables de %s : %s", nom, erreur)
             livrables[nom] = 0
-    par = max(1, int(onboarding.COMPTES_PAR_CLIPPER or 3))
+    # 11/10 (lot W, lot L3) : le diviseur des places (ATTRIBUTION_LIGNES_MIN, 3 par défaut), le même que `!annonce` et le digest
+    par = max(1, int(places.lignes_par_place()))
     return livrables, sum(n // par for n in livrables.values())
 
 
@@ -8567,6 +8479,41 @@ def brancher_codes():
     client.add_dynamic_items(codes_2fa.BoutonMonCode)
 
 
+def deps_equipes_tl() -> dict:
+    """11/10 (lot W, lot L10) : les dépendances d'equipes_tl (`!tl`, `!manager`, primes TL et manager). « payees »
+    (paie_clics.payees) n'est passée que si le lot L11 l'a livrée : sans elle, equipes_tl compte les visites payées lui-même
+    (même règle). Les Reels vus et les jours non relevés passent par les adaptateurs d'equipes_tl (fin incluse, jamais un faux 0)."""
+    deps = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_EQUIPES": FICHIER_EQUIPES,
+            "FICHIER_SORTIS": FICHIER_SORTIS, "ADMIN_IDS": ADMIN_IDS, "est_manager": est_manager,
+            "membre_par_id": membre_par_id,
+            "nom_de": lambda uid: prenom_de(m) if (m := membre_par_id(uid)) is not None else "",
+            "regime": paie_clics.regime, "exclus": paie_clics.CLICS_EXCLURE, "creatrices": roster.groupes,
+            "lire_clics": paie_clics._lire, "heure_paris": heure_paris,
+            "reels_vus": equipes_tl.reels_vus_par_comptes(comptes_de_uid, series.reels_vus, series.derniere_lecture),
+            "jours_manquants": equipes_tl.jours_manquants_par_paie(paie_clics.jours_manquants_paie)}
+    if callable(getattr(paie_clics, "payees", None)):
+        deps["payees"] = paie_clics.payees
+    return deps
+
+
+def brancher_equipes_tl() -> None:
+    """Branche equipes_tl ; une erreur ne bloque jamais le démarrage (`!tl` dira alors « pas branché »)."""
+    try:
+        equipes_tl.configurer(deps_equipes_tl())
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.error("equipes_tl non branché : %s", erreur)
+
+
+async def _role_tl_au_demarrage():
+    """10/10 (lot L10) : le rôle « Team Leader » existe sur chaque serveur, SANS AUCUNE permission (une étiquette)."""
+    await client.wait_until_ready()
+    for guild in list(client.guilds):
+        try:
+            await equipes_tl.assurer_role_tl(guild)
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Rôle Team Leader sur %s : %s", getattr(guild, "name", "?"), erreur)
+
+
 @client.event
 async def setup_hook():
     brancher_codes()
@@ -8617,8 +8564,6 @@ async def on_ready():
                     journal.warning("Compteur #dopamine au démarrage : %s", probleme_c)
             except Exception as erreur:                                 # noqa: BLE001 — jamais bloquer le démarrage
                 journal.warning("Compteur #dopamine au démarrage : %s", erreur)
-        if CANAL_STAT_PAYES_ID or CANAL_STAT_CLIPPERS_ID:
-            client.loop.create_task(boucle_stats())
         try:                                          # 10/10 (D2) : AVANT la sortie ⑥ de boucle_pipeline, sans attendre le stock
             poser_quiz_ok_site_sans_etat()
         except Exception as erreur:                   # noqa: BLE001 — candidats_a_sortir les protège aussi
@@ -8657,7 +8602,10 @@ async def on_ready():
             "invitation_site": invitation_site, "prochain_essai_quiz": prochain_essai_quiz,         # 29/09
             "journaliser_candidature": journaliser_candidature_sheet,
             "LIEN_VIDEO_FORMATION": LIEN_VIDEO_FORMATION, "quiz_candidat": quiz_candidat_site,       # 29/09 : quiz avant Discord
-            "peut_revenir": peut_revenir_site}))      # 09/10 (revue L8) : un clipper de sortis.json ne rentre jamais seul par son vieux lien
+            "peut_revenir": peut_revenir_site,        # 09/10 (revue L8) : un clipper de sortis.json ne rentre jamais seul par son vieux lien
+            # 11/10 (lot W, lots L2 et L3) : la promesse de la page « Quizz réussi » suit les places livrables, et `!annonce` les
+            # donne à Gaëtan sous l'annonce. DANS ce dict : demarrer() remplace _deps, une affectation après coup serait perdue.
+            "places": places.places_livrables, "places_texte": places.texte_annonce}))
         deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
                     "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
                     "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
@@ -8696,17 +8644,15 @@ async def on_ready():
             if not onboarding.actif():
                 return {}
             return {c["handle"].lower(): c["etat"] for c in await onboarding.lire_comptes()}
-        async def _livrables_par_creatrice() -> dict:
-            comptes = await onboarding.lire_comptes()
-            noms = sorted({str(c.get("creatrice") or "").strip() for c in comptes if str(c.get("creatrice") or "").strip()})
-            return {n: len(onboarding.disponibles(comptes, n, 999)) // 3 for n in noms}
         pods.configurer({"google_api": google_api, "onboarding": onboarding, "est_staff": _staff})
         attribution.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "attribution.json",
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "categorie_de_creatrice": categorie_de_creatrice,
                                 "role_creatrice": role_creatrice, "onboarder_membre": onboarder_membre, "canal_admin": canal_admin,
                                 "membre_par_id": membre_par_id, "est_staff": _staff, "prenom_de": prenom_de, "roster": roster,
                                 "etats_classeur": _etats_classeur, "normaliser": normaliser,
-                                "livrables": _livrables_par_creatrice,                        # 30/09 : `!attribution`
+                                # 11/10 (lot W, lot L3) : lignes libres ÷ ATTRIBUTION_LIGNES_MIN, moins les lignes dues aux
+                                # clippers en route (places.py) ; une panne du classeur remonte (stock inconnu, comme avant)
+                                "livrables": places.places_par_creatrice,                     # 30/09 : `!attribution`
                                 # 09/10 (lots L1, L3, L6) : le repli « Ta créatrice arrive ici dès qu'un compte est prêt » (texte unique), envoyé dans
                                 # le salon perso sinon en MP ; valider_candidat reprend un candidat mis en attente par la migration.
                                 "FICHIER_PIPELINE": FICHIER_PIPELINE, "texte_repli": texte_repli_attente,
@@ -8749,12 +8695,12 @@ async def on_ready():
                                  "lire_candidatures": lire_candidatures_sheets, "heure_paris": heure_paris,
                                  "canal_admin": canal_admin, "est_staff": _staff,
                                  "disponibles": onboarding.disponibles, "normaliser": normaliser})   # 29/09 : délai et déclencheurs
-        client.loop.create_task(tableau_bord.boucle(client))                    # le tableau de bord du lundi (27/09)
+        # 11/10 (lot W, lot L9b) : plus de tableau_bord.boucle : le tableau de la semaine part dans le point du matin du lundi
         relances.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "relances.json",
                              "FICHIER_PIPELINE": FICHIER_PIPELINE, "heure_paris": heure_paris, "canal_admin": canal_admin,
                              "est_staff": _staff,
                              "lien_formation": lambda cid: f"{web_candidature.WEB_URL_PUBLIQUE}/formation?t={web_candidature.jeton(cid)}"})
-        client.loop.create_task(relances.boucle(client))                        # 30/09 : relances Telegram du matin
+        # 11/10 (lot W, lot L9a) : plus de relances.boucle (relances Telegram du matin) ; `!relances` reste
         # 09/10 (Gaëtan : « Enlève le truc qui envoie un dossier Drive au clippeur ») : plus de reels_uniques.demarrage ni de
         # reels_uniques.boucle (la déclinaison des TOP 20 par clipper est retirée).
         async def _rattrapage_salons():
@@ -8903,9 +8849,12 @@ async def on_ready():
                           # 05/10 : un compte livré vu existant par le scan Instagram = compte créé (la purge ne sort pas sur le seul bouton)
                           "compte_vu": lambda handles: any(any(x.get("existe") for x in lire_json(FICHIER_ETATS, {}).get("historique", {})
                                                                    .get(onboarding.normaliser_handle(str(h)).lower(), []))
-                                                           for h in handles)})
+                                                           for h in handles),
+                          # 11/10 (lot W, amendement B) : la mesure du scan, explicite (sans elle, appel l'importait en tardif) :
+                          # un clipper que le scan ne lit pas n'est ni appelé pour inactivité, ni sorti, ni purgé
+                          "mesures": sortie_auto.mesures, "compte_lu": sortie_auto.compte_lu})
         parcours._deps["activite"] = appel.noter_activite                  # un bouton d'étape = une réponse à l'appel
-        client.loop.create_task(appel.boucle(client))                           # 05/10 : l'appel de présence, sans réponse 48 h = sorti
+        client.loop.create_task(appel.boucle(client))                           # 05/10 : l'appel de présence (amendement B : gardé)
         acquisition_subs.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "acquisition_subs.json",
                                      "data_gm": rapport_quotidien.data_gm, "heure_paris": heure_paris, "est_staff": _staff})
         client.loop.create_task(acquisition_subs.boucle(client))                # 30/09 : subs de la veille, salon acquisition
@@ -8942,6 +8891,9 @@ async def on_ready():
                                  "est_staff": est_staff, "juger_avant": avis_publication,
                                  "juger": lambda contenu: asyncio.to_thread(_avis_sync, contenu),
                                  "alerter": notifier_manager, "canal_manager": canal_manager,
+                                 # 11/10 (lot W, lot L9a ; mineurs : non négociable) : une alerte « mineur » ou « nudité » ratée
+                                 # (salon absent, Discord 503) lève et sera reprise ; notifier_manager avalait l'erreur
+                                 "alerter_strict": review_reels.alerteur_strict(canal_admin),
                                  "prenom_de_uid": lambda uid: prenom_de(membre_par_id(uid)) if membre_par_id(uid) is not None else "",
                                  "deposer": matin.deposer, "salon_de_prenom": _salon_de_prenom, "envoyer_salon": _envoyer_salon,
                                  "dans_fenetre_matin": lambda: matin.MATIN_HEURE_MIN <= datetime.now(timezone.utc).hour <= matin.MATIN_HEURE_MAX + 1,
@@ -8953,12 +8905,8 @@ async def on_ready():
         client.loop.create_task(review_reels.boucle(client))
         client.loop.create_task(matin.boucle(client))                           # un seul message du matin par clipper (26/09)
         client.loop.create_task(parcours.boucle(client))                        # jours de warm-up, ouverture des Reels
-        client.loop.create_task(rapport_stats.demarrer(client))                 # #jonas-stats existe dès le démarrage (24/09)
-        rapport_stats.configurer({"normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
-                                  "role_manager": role_manager, "ADMIN_IDS": ADMIN_IDS, "client": client,
-                                  "lire_json": lire_json, "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS,
-                                  "nom_par_uid": lambda uid: getattr(membre_par_id(uid), "display_name", None),
-                                  "roster": roster.groupes})                                          # 26/09 : groupes = roster
+        # 11/10 (lot W, lot L9a) : plus de #jonas-stats ; rapport_stats ne garde que les liens suivis du roster (associer_suivi)
+        rapport_stats.configurer({"normaliser": normaliser, "roster": roster.groupes})                # 26/09 : groupes = roster
         roster.configurer({"DONNEES": DONNEES, "normaliser": normaliser, "lire_json": lire_json, "ecrire_json": ecrire_json,
                            "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_SORTIS": FICHIER_SORTIS, "FICHIER_PIPELINE": FICHIER_PIPELINE,
                            "onboarding": onboarding, "est_manager": est_manager, "ADMIN_IDS": ADMIN_IDS, "notifier": notifier_manager,
@@ -9021,12 +8969,7 @@ async def on_ready():
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Réparation des parcours : %s", erreur)
         client.loop.create_task(_reparer_nouveaux_mal_partis())
-        relance_nouveaux.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "relance_nouveaux.json",
-                                     "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_EQUIPES": FICHIER_EQUIPES, "client": client,
-                                     "heure_paris": heure_paris, "salon_perso": salon_perso_de, "lien_quiz": lien_quiz_pour,
-                                     "est_signe": est_signe,                     # 09/10 (lot L3) : rôle d'équipe et roster aussi
-                                     "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m)})
-        client.loop.create_task(relance_nouveaux.boucle(client))               # 09/10 : éteint par défaut (RELANCE_NOUVEAUX=0)
+        # 11/10 (lot W, lot L9a) : relance_nouveaux (éteint depuis le 09/10) est supprimé
         identifiants.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "identifiants.json",
                                  "scanner": etats_comptes.scanner})                     # 30/09 : 20 identifiants neufs par créatrice
 
@@ -9061,6 +9004,8 @@ async def on_ready():
         # 09/10 (lot L6) : reels_uniques ne sert plus qu'à retrouver le TOP 20 d'ORIGINE de chaque créatrice (review_reels compare
         # la vidéo d'un clipper à l'original) : google_api, sources et normaliser suffisent. Plus de drive_agence ni de dossier perso.
         reels_uniques.configurer({"google_api": google_api, "sources": onboarding._sources, "normaliser": normaliser})
+        brancher_equipes_tl()                                                # 11/10 (lot W) : AVANT la paie, qui lit ses primes
+        client.loop.create_task(_role_tl_au_demarrage())                     # 10/10 (lot L10) : rôle « Team Leader » sans permission
         client.loop.create_task(paie_clics.boucle(client, {                  # paie au clic GAML (23/09), inerte sans GAML_API_KEY
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_CLICS": FICHIER_CLICS,
             "FICHIER_EQUIPES": FICHIER_EQUIPES, "membre_par_id": membre_par_id, "normaliser": normaliser,
@@ -9068,7 +9013,13 @@ async def on_ready():
             "heure_paris": heure_paris, "canal_admin": canal_admin, "envoyer_long": envoyer_long,
             "salon_perso": salon_perso_de, "primes_parrainage": parrainage.primes_dues,
             "canal_dopamine": lambda: canal_par_id(CANAL_DOPAMINE_ID),   # 28/09 : classement du lundi
-            "associer_suivi": rapport_stats.associer_suivi, "apres_releves": rapport_stats.apres_releves,
+            # 11/10 (lot W, lot L9a) : plus d'« apres_releves » (rapport #jonas-stats supprimé)
+            "associer_suivi": rapport_stats.associer_suivi,
+            # 11/10 (lot W, lots L10 et L11) : primes TL et manager, contrat [(uid, montant, détail, à_vérifier)] ; la mesure
+            # « payees » est lue à l'appel (paie_clics.payees arrive avec le lot L11, repli local d'equipes_tl d'ici là)
+            "primes_equipes": lambda d, debut, fin, cle="": equipes_tl.primes_equipes(
+                d, debut, fin, cle, getattr(paie_clics, "payees", None), equipes_tl._deps.get("reels_vus"),
+                equipes_tl._deps.get("jours_manquants")),
             "apres_classement": lambda uids: parrainage.inviter_top(uids, web_candidature.lien_parrainage, salon_perso_de)}))
         parrainage.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "parrainage.json",
                                "prenom_de": prenom_de, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
@@ -10091,6 +10042,12 @@ async def on_message(message):
         await traiter_quiz_webhook(message)
         await effacer_webhook(message)
         return
+    # 11/10 (lot W, plan du 10/10) : une réponse de l'ancien Google Form (CANDIDATURE|, TEST_RENDU|) porte un numéro de téléphone.
+    # Elle est effacée, et Gaëtan le sait une fois par jour : le formulaire tourne encore, à fermer.
+    if message.webhook_id and message.content.startswith(ANCIENS_WEBHOOKS):
+        await effacer_webhook(message)
+        await signaler_ancien_formulaire()
+        return
     if message.author.bot:
         return
 
@@ -10367,6 +10324,10 @@ async def on_message(message):
         lignes_cmd = [l.strip() for l in texte.split("\n") if l.strip().startswith("!")]
         if len(lignes_cmd) > 1 and est_admin:           # rafale : plusieurs commandes dans un seul message
             await executer_rafale(message, lignes_cmd)
+            return
+        # 11/10 (lot W, lot L10) : `!tl` et `!manager`, ADMINS SEULEMENT (jamais dans COMMANDES_MANAGER : un porteur du rôle
+        # Manager reçoit « pas une commande manager »), en salon comme en message privé. Un TL n'a aucune commande staff.
+        if est_admin and await equipes_tl.commande(message, texte):
             return
         if await paie_clics.commande_staff(message, texte):
             return

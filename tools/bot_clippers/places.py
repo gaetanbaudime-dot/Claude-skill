@@ -355,12 +355,24 @@ def sans_lien() -> list:
     except Exception as erreur:                                         # noqa: BLE001
         journal.info("Comptes sans lien GAML illisibles : %s", type(erreur).__name__)
         return []
+    # 11/10 (lot W, contre-vérification du lot L3 : la ligne listait pour toujours les prénoms exclus de la paie au clic et les
+    # sortis dont la fiche reste au parcours) : les mêmes exclusions que parcours.livrer_app
+    try:
+        f_eq = parcours._deps.get("FICHIER_EQUIPES")
+        registre = parcours._deps["lire_json"](f_eq, {}) if f_eq and parcours._deps.get("lire_json") else None
+    except Exception as erreur:                                         # noqa: BLE001 — registre illisible : personne n'est écarté
+        journal.info("Comptes sans lien GAML, registre illisible : %s", type(erreur).__name__)
+        registre = None
     out = []
     for uid, f in fiches_p.items():
         if not isinstance(f, dict) or not parcours.lien_du(f):
             continue
         if (clippers.get(str(uid)) or {}).get("lien") or str(uid) in avec_lien:
             continue
+        if parcours._norm(str(f.get("prenom") or "")) in paie_clics.CLICS_EXCLURE:
+            continue                                                    # pas d'app ni de paie au clic (staff, Rianah)
+        if isinstance(registre, dict) and str(uid) not in registre:
+            continue                                                    # sorti de l'équipe : sa fiche reste au parcours
         out.append((str(uid), str(f.get("prenom") or uid)))
     return out
 

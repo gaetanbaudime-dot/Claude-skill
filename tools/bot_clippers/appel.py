@@ -24,14 +24,19 @@ pour inactivité, jamais purgé (sortie_auto.compte_lu). Le calcul des visites v
 et sans visites, sort même s'il publie (coût accepté le 05/10 : « ceux qui publient mais ne lisent pas Discord vont sortir »).
 À l'échéance :
 - mesure illisible (classeur ou scan en panne à ce passage) : rien n'est écrit, il est repris 30 min plus tard ;
-- clipper non mesuré : l'appel reste OUVERT (une seule ligne ⏸️ au salon admin, drapeau `non_mesure_signale`), une réponse le
+- clipper non mesuré : l'appel reste OUVERT (une seule ligne ⏸️, au point du matin, drapeau `non_mesure_signale`), une réponse le
   solde toujours ; il est jugé au premier passage où le scan lit ses comptes, et l'appel n'est clos sans sortie (`non_mesure`)
   qu'après APPEL_MESURE_ATTENTE jours (7) sans mesure. Jamais un deuxième appel pendant ce temps.
 Mesure illisible depuis APPEL_ILLISIBLE_ALERTE_H heures (6) d'affilée : une ligne ⚠️ au salon admin (« appel suspendu »), puis une
-par jour tant que ça dure, et une ligne ✅ quand elle revient (état `illisible` dans appel.json, visible dans `!appel`).
-Branchements à GARDER au démarrage (lot W, amendement B) : `import appel`, appel.configurer, parcours._deps["activite"] =
+par jour tant que ça dure, et une ligne ✅ quand elle revient, au point du matin (état `illisible` dans appel.json, visible
+dans `!appel`).
+Branchements gardés au démarrage (lot W, amendement B) : `import appel`, appel.configurer, parcours._deps["activite"] =
 appel.noter_activite, la tâche appel.boucle, appel.noter_activite et appel.commande dans on_message, `!appel` et `!purge` dans
-COMMANDES_MANAGER."""
+COMMANDES_MANAGER.
+
+11/10 (lot W, « en direct, uniquement ce qui demande un geste ») : les lignes ⏸️, ✅, 🔇 et 📢 du passage attendent le point du
+matin (trier_bilan, bilan_pour_digest) ; 🚪, 📲, ⚠️ et ❌ restent en direct. Un appel clos sans sortie (`non_mesure`) n'est plus
+soldé par un message écrit après coup."""
 
 import asyncio
 import logging
@@ -120,7 +125,9 @@ def noter_activite(uid, quand=None) -> bool:
     d["activite"][uid] = _iso(quand)
     a = d["appels"].get(uid)
     solde = False
-    if a and not a.get("repondu") and not a.get("sorti") and (_dt(a.get("date")) or quand) <= quand:
+    # 11/10 (lot W, contre-vérification du lot L9a) : un appel clos sans sortie (`non_mesure`) n'est plus soldé par un message
+    # écrit des semaines plus tard (le clipper recevait « merci pour ta réponse » et passait dans « Ont répondu »)
+    if a and not a.get("repondu") and not a.get("sorti") and not a.get("non_mesure") and (_dt(a.get("date")) or quand) <= quand:
         a["repondu"] = _iso(quand)
         solde = True
     _ecrire(d)
@@ -591,7 +598,7 @@ def etat_texte(maintenant=None) -> str:
             reste = max(0, int((fin - maintenant).total_seconds() // 3600))
             attente.append(f"{p} ({reste} h)")
     g = d.get("general") or {}
-    lignes = [f"📢 **Appel de présence** — général : " + (f"{str(g.get('date', ''))[:10]}, {g.get('n', 0)} appelé(s)" if g else "pas encore lancé (`!appel go`)")]
+    lignes = ["📢 **Appel de présence** — général : " + (f"{str(g.get('date', ''))[:10]}, {g.get('n', 0)} appelé(s)" if g else "pas encore lancé (`!appel go`)")]
     lignes.append(f"⏳ Sans réponse ({len(attente)}) : " + (", ".join(attente) or "personne"))
     lignes.append(f"✅ Ont répondu ({len(repondus)}) : " + (", ".join(repondus) or "personne"))
     lignes.append(f"🚪 Sortis ({len(sortis)}) : " + (", ".join(sortis) or "personne"))
@@ -675,10 +682,55 @@ async def boucle(client):
             journal.warning("Purge : %s", erreur)
         try:
             bilan = await executer(client, appliquer=True)
-            if bilan and _deps.get("canal_admin"):
+            direct, plus_tard = trier_bilan(bilan)
+            if plus_tard:
+                garder_pour_digest(plus_tard)
+            if direct and _deps.get("canal_admin"):
                 canal = await _deps["canal_admin"]()
                 if canal is not None:
-                    await canal.send(("📢 **Appel de présence**\n" + "\n".join(bilan))[:1990])
+                    await canal.send(("📢 **Appel de présence**\n" + "\n".join(direct))[:1990])
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Boucle de l'appel : %s", erreur)
         await asyncio.sleep(1800)
+
+
+# ------------------------------------------------------------------ 11/10 : ce qui n'attend aucun geste va au digest du matin
+# Lot W (Gaëtan : « Admin : un seul digest à 9 h. En direct, uniquement ce qui demande un geste de ta part ») : les lignes ⏸️ (non
+# mesuré), ✅ (mesure revenue), 🔇 (muet mais actif) et 📢 (appelé) attendent le point du matin (bot_discord.boucle_rappels) ; restent
+# en direct 🚪 (sortie, expulsion refusée), 📲 (WhatsApp à ajouter), ⚠️ (appel suspendu) et ❌ (erreur). DIGEST=0 : tout en direct.
+DIGEST = os.environ.get("DIGEST", "1").strip() != "0"
+EN_DIRECT = ("🚪", "📲", "⚠️", "❌")
+DIGEST_MAX = 60                                                         # lignes gardées au plus (les plus récentes)
+
+
+def trier_bilan(bilan: list) -> tuple:
+    """([lignes en direct], [lignes pour le digest]) d'un bilan de passage. DIGEST=0 : tout en direct."""
+    if not DIGEST:
+        return list(bilan or []), []
+    direct = [l for l in bilan or [] if str(l).startswith(EN_DIRECT)]
+    return direct, [l for l in bilan or [] if not str(l).startswith(EN_DIRECT)]
+
+
+def garder_pour_digest(lignes: list) -> None:
+    """Ajoute des lignes au bloc « appel de présence » du prochain digest (appel.json, clé « digest »)."""
+    if not lignes:
+        return
+    d = _lire()
+    d["digest"] = (list(d.get("digest") or []) + [str(l)[:300] for l in lignes])[-DIGEST_MAX:]
+    _ecrire(d)
+
+
+def bilan_pour_digest() -> list:
+    """Les lignes gardées pour le digest du matin ; lecture seule (oublier_digest(n) une fois le digest posté)."""
+    if not _deps:
+        return []
+    return [str(l) for l in (_lire().get("digest") or [])]
+
+
+def oublier_digest(n: int) -> None:
+    """Le digest est parti avec les `n` premières lignes : elles sont oubliées (une ligne arrivée entre-temps reste)."""
+    if not _deps or n <= 0:
+        return
+    d = _lire()
+    d["digest"] = list(d.get("digest") or [])[int(n):]
+    _ecrire(d)

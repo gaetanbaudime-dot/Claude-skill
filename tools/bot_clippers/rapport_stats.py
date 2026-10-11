@@ -9,7 +9,7 @@ Reste ici `associer_suivi`, branché sur la boucle des clics (paie_clics, dépen
 « Clipping Prénom », nom « Créatrice 🌸 » ; « Prénom Metricool » compte aussi pour ce prénom). Ces liens sont relevés même sans
 membre Discord attribué (`suivi` dans clics.json).
 
-`demarrer` et `apres_releves` sont des bouchons inertes, le temps que le lot W retire leurs branchements (on_ready, paie_clics).
+11/10 (lot W) : les bouchons `demarrer` et `apres_releves` sont supprimés, avec leurs branchements (on_ready, paie_clics).
 `commande_staff` (11/10) répond à `!actifs`, `!equipe-active` (le roster compté) et à `!stats-jonas`, `!stats-manager`
 (« retiré »), sinon commande_admin les prend pour `!equipe` et `!stats` : son appel dans on_message reste. texte_rapport n'existe plus : la passe 3 du Dashboard
 (lot CLICS) ne doit plus y toucher ; à la fusion, rapport_stats.py de L9a est pris en entier.
@@ -102,17 +102,8 @@ def associer_suivi(d: dict, liens: list) -> int:
     return nouveaux
 
 
-# ------------------------------------------------------------------ bouchons (10/10), retirés par le lot W
-async def demarrer(client):
-    """Bouchon : plus de salon #jonas-stats créé au démarrage."""
-    return None
-
-
-async def apres_releves(client, d: dict):
-    """Bouchon : plus de rapport du manager après les relevés (le Dashboard donne les visites par clipper)."""
-    return None
-
-
+# ------------------------------------------------------------------ commandes retirées (10/10)
+# 11/10 (lot W) : les bouchons `demarrer` et `apres_releves` sont supprimés avec leurs branchements (on_ready, paie_clics).
 RETIRE_STATS = "Retiré le 10/10 : le Dashboard donne les visites par clipper."
 
 

@@ -190,11 +190,18 @@ def lu_recemment(handles, historique: dict, maintenant=None, jours: int = None, 
 
 def mesure(handles, historique: dict, maintenant=None, jours: int = None) -> bool:
     """Un clipper est « mesuré » si un de ses comptes publics a un relevé lisible récent et qu'aucun de ses comptes n'est restreint
-    au dernier relevé (un restreint cache ses Reels, comme dans `silences`). Sinon : « non mesuré », jamais inactif."""
+    au dernier relevé (un restreint cache ses Reels, comme dans `silences`). Sinon : « non mesuré », jamais inactif.
+    11/10 (lot W, contre-vérification du lot L9a : un vieux compte banni ou sorti du classeur, « restreint » à son dernier relevé
+    d'il y a 20 jours, rendait le clipper « non mesuré » pour toujours, et l'appel ne le visait plus jamais) : seul un « restreint »
+    relevé depuis moins de MESURE_JOURS jours (la même fenêtre que la mesure) compte."""
+    maintenant_ = maintenant or datetime.now(timezone.utc)
+    borne = (maintenant_ - timedelta(days=MESURE_JOURS if jours is None else jours)).date()
     for h in handles or ():
         dernier = ((historique or {}).get(_cle_compte(h)) or [{}])[-1] or {}
         if dernier.get("restreint"):
-            return False
+            j = _jour(dernier.get("jour"))
+            if j is None or j.date() >= borne:                          # date illisible : prudence, non mesuré
+                return False
     return lu_recemment(handles, historique, maintenant, jours, reels=True)
 
 

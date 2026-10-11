@@ -741,7 +741,23 @@ async def get_callback(request):
     # 09/10 (revue L8) : une vieille autorisation rejouée ne fait pas rentrer un clipper sorti (même garde que les portes)
     if _reentree_bloquee(_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}), cand_id):
         return _page("Discord", "<h1>Tu es déjà passé par le Discord.</h1>" + _bouton_whatsapp())
-    _retours[cand_id] = (time.time(), "")
+    # 11/10 (lot W, contre-vérification du lot L2) : la marque ne sert qu'aux doubles retours SIMULTANÉS. Après une erreur
+    # (jeton refusé, identité illisible, candidature introuvable, ajout refusé, panne réseau), elle est retirée : avant, le nouvel
+    # essai du candidat affichait « C'est bon 🎉 » sans aucun ajout au serveur, et il restait bloqué hors du Discord.
+    marque = (time.time(), "")
+    _retours[cand_id] = marque
+    reussi = False
+    try:
+        page = await _callback_apres_marque(cand_id, code)
+        reussi = _retours.get(cand_id) is not marque
+        return page
+    finally:
+        if not reussi and _retours.get(cand_id) is marque:
+            _retours.pop(cand_id, None)
+
+
+async def _callback_apres_marque(cand_id: str, code: str):
+    """La suite de get_callback une fois le retour marqué. Seule une entrée réussie remplace la marque (_retours)."""
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
     fiche_web = pipe.get("candidatures_web", {}).get(cand_id)
@@ -789,7 +805,10 @@ async def get_callback(request):
                                "au serveur automatiquement. Réessaie une fois ; si ça bloque encore, on te fait entrer à la main.</p>"
                                f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours())
     journal.info("OAuth : candidature %s reliée au Discord %s (join %s)", cand_id, uid, statut)
-    places = await lecture_places
+    try:
+        places = await lecture_places
+    except Exception:                                                   # noqa: BLE001 — entré : jamais une page d'erreur
+        places = None
     _retours[cand_id] = (time.time(), guild_id, places)
     return _page_bravo(guild_id, cand_id, places)
 
@@ -945,6 +964,7 @@ async def get_formation(request):
     # sans quizz réussi.
     # 09/10 (revue L8) : après un essai raté (« Réessayer » mène ici), le titre dit ce qu'il doit faire, plus « Candidature reçue »
     deja_essaye = int(q.get("essais", 0) or 0) > 0
+    _prechauffer_places()                     # 11/10 (lot W) : celui qui revoit la vidéo trouve des places fraîches au quizz
     corps = (("<h1>Revois la vidéo.</h1>" if deja_essaye else "<h1>✅ Candidature reçue.</h1>")
              + "<p>Regarde la vidéo jusqu'au bout.</p>"
              "<p>Note les 5 mots-clés : le quizz te les demande.</p>"
@@ -1047,9 +1067,11 @@ async def get_quiz_cand(request, cand_id: str):
 
 PLACES_ATTENTE_S = 3.0                                                      # une page n'attend jamais plus la lecture des places
 PLACES_CACHE_S = 300.0                    # 11/10 : une lecture sert 5 minutes (le quizz dure ~3 min : lue à l'affichage)
-# 11/10 (contre-vérification) : de 5 min à 1 h, la lecture sert encore tout de suite et se relit en fond pour la page suivante
-# (un candidat retourné revoir la vidéo ne patiente plus) ; au-delà d'une heure, la page attend la relecture, 3 s au plus.
-PLACES_PERIME_S = 3600.0
+# 11/10 (contre-vérification) : de 5 à 15 min, la lecture sert encore tout de suite et se relit en fond pour la page suivante ;
+# au-delà, la page attend la relecture, 3 s au plus. 11/10 (lot W, 2e contre-vérification du lot L2 : une lecture de 20 min
+# promettait « ton compte 1 t'y attendent » alors que la place était prise, puis la page suivante disait l'inverse) : 15 min
+# au lieu d'1 h, et la page formation préchauffe aussi (le candidat qui revoit la vidéo ne patiente toujours pas).
+PLACES_PERIME_S = 900.0
 PLACES_PRECHAUFFE_S = 60.0                # l'affichage du quizz relit les places si la dernière lecture a plus d'une minute
 # Un quizz réussi compte « en route vers Discord » 2 h (le bouton de la page ouvre l'invitation : on arrive dans la minute,
 # ou le temps d'installer Discord). 11/10 (contre-vérification) : 24 h, une réussite sans arrivée retirait la place promise à
@@ -1129,24 +1151,33 @@ def _reussites_en_route(pipe: dict, cand_id: str, lecture: float, maintenant: fl
     fiches = (pipe or {}).get("candidatures_web") or {}
     moi = ((fiches.get(cand_id) or {}).get("quiz") or {}) if cand_id else {}
     t_moi = _instant(moi.get("date")) if moi.get("reussi") else None
-    n = 0
+    # 11/10 (lot W, contre-vérification du lot L2) : une personne qui a deux fiches (même numéro : formulaire renvoyé) compte
+    # une fois, et jamais contre elle-même. Avant, avec 1 place, sa 2e réussite déduisait sa propre 1re fiche.
+    tel_moi = str((fiches.get(cand_id) or {}).get("tel") or "").strip() if cand_id else ""
+    en_route, deja_comptes = set(), set()                               # par personne (numéro, sinon la fiche)
     for autre, fiche in fiches.items():
         if autre == cand_id or not isinstance(fiche, dict) or not (fiche.get("quiz") or {}).get("reussi"):
             continue
+        tel = str(fiche.get("tel") or "").strip()
+        if tel and tel == tel_moi:
+            continue                                                    # sa propre autre fiche
+        personne = ("tel", tel) if tel else ("fiche", str(autre))
         t_quiz = _instant(fiche["quiz"].get("date"))
         if t_quiz is None or maintenant - t_quiz > PLACES_REUSSITE_H * 3600:
             continue
         if t_moi is not None and (t_quiz, str(autre)) > (t_moi, str(cand_id)):
             continue                                                    # réussi après lui : derrière lui dans la file
         if not _membre_present(pipe, autre):
-            n += 1
+            en_route.add(personne)
             continue
         arrivees = [_instant(f.get("utilisee")) for f in ((pipe or {}).get("invitations") or {}).values()
                     if isinstance(f, dict) and str(f.get("cand") or "") == autre and f.get("utilisee")]
         arrivees = [a for a in arrivees if a is not None]
         if (min(arrivees) if arrivees else t_quiz) >= lecture:
-            n += 1
-    return n
+            en_route.add(personne)
+        else:
+            deja_comptes.add(personne)                                  # déjà sur le serveur à la lecture : dans les places lues
+    return len(en_route - deja_comptes)
 
 
 async def _places_livrables(cand_id: str = ""):
@@ -1157,7 +1188,7 @@ async def _places_livrables(cand_id: str = ""):
     lente continue en fond et sert à la page suivante. On en retire les autres réussites pas encore comptées
     (_reussites_en_route) : deux candidats pour une place ne lisent pas tous les deux « ton compte 1 t'y attendent ».
     11/10 (contre-vérification) : de PLACES_CACHE_S à PLACES_PERIME_S, la lecture sert tout de suite et se relit en fond ;
-    la page n'attend (PLACES_ATTENTE_S au plus) que sans lecture de moins d'une heure."""
+    la page n'attend (PLACES_ATTENTE_S au plus) que sans lecture de moins de PLACES_PERIME_S (15 min)."""
     dep = _deps.get("places")
     if not callable(dep):
         return None

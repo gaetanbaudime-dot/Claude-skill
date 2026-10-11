@@ -14,7 +14,6 @@ déclencheurs pour doubler le recrutement, sur 14 jours : formulaire → quiz r�
 Discord depuis le 29/09 ; formulaire → Discord affiché à côté), validés → premier Reel (≥ 50 %), clippers livrables par le
 classeur ≥ 2 × les validés des 30 derniers jours."""
 
-import asyncio
 import json
 from datetime import date, datetime, timedelta, timezone
 
@@ -326,19 +325,5 @@ async def commande(message, texte_cmd: str) -> bool:
     return True
 
 
-async def boucle(client):
-    """Le lundi entre 8 h et 10 h (Paris), une fois par semaine ISO."""
-    await client.wait_until_ready()
-    while not client.is_closed():
-        try:
-            maintenant = _deps["heure_paris"]()
-            semaine = maintenant.strftime("%G-W%V")
-            etat = _deps["lire_json"](_deps["FICHIER"], {})
-            if maintenant.weekday() == 0 and 8 <= maintenant.hour < 10 and etat.get("semaine") != semaine:
-                canal = await _deps["canal_admin"]()
-                if canal is not None and await envoyer(canal):
-                    etat["semaine"] = semaine
-                    _deps["ecrire_json"](_deps["FICHIER"], etat)
-        except Exception as erreur:                                         # noqa: BLE001
-            journal.warning("Boucle du tableau de bord : %s", erreur)
-        await asyncio.sleep(1200)
+# 11/10 (lot W, lot L9b) : la boucle du lundi est supprimée : le tableau part dans le point du matin du lundi
+# (bot_discord.tableau_du_lundi), une fois par semaine ISO (`semaine` de tableau_bord.json). `!tableau` reste.

@@ -1314,8 +1314,14 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             import parcours                                             # import tardif : parcours importe onboarding
             n = int((parcours._lire().get(uid) or {}).get("etape", 0) or 0)
             if n in parcours.ETAPES:
-                await parcours.envoyer_etape(salon, membre, n)
-                resultat.append(f"étape {n} renvoyée")
+                # 11/10 (lot W, contre-vérification du lot L3) : « renvoyée » seulement si elle est partie ; une étape retenue
+                # faute de ligne libre le dit (le clipper a eu « ⏳ Ton compte n arrive dès qu'il est prêt »)
+                if await parcours.envoyer_etape(salon, membre, n) is not False:
+                    resultat.append(f"étape {n} renvoyée")
+                elif int((parcours._lire().get(uid) or {}).get("ligne_attendue") or 0) == n:
+                    resultat.append(f"étape {n} en attente d'une ligne libre")
+                else:
+                    resultat.append(f"étape {n} pas renvoyée")
             elif n == 0:
                 resultat.append(f"parcours pas commencé : `!etape @{prenom} 1` le lance")
         except Exception as erreur:                                     # noqa: BLE001
@@ -1427,8 +1433,15 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
 
         def rang(c):                                                    # tri stable : l'ordre de disponibles est gardé
             return (_est_prive(c) != bool(prive), bool(pods) and str(c.get("pod") or "").strip() not in pods)
-        a_lui = [c for c in a_lui if _bon_type(c, n, prive)]            # 11/10 : jamais un compte déjà donné renuméroté
-        libres = [c for c in disponibles(tous, creatrice, 999) if _bon_type(c, n, prive)]
+        # 11/10 (lot W, contre-vérification du lot L3 : stock court à k=3, compte 2 donné sur une ligne PRIVÉ rendue par un sortant ;
+        # une ligne de croissance prise ensuite pour le compte 3 passait devant lui et le renumérotait en 3) : s'il a déjà une ligne de
+        # type privé, le compte privé exige une ligne de type privé. Sinon None : il attend, avec « Plus de ligne libre ».
+        deja_prive = prive and any(_est_prive(c) for c in lignes_siennes)
+
+        def convient(c):
+            return _bon_type(c, n, prive) and not (deja_prive and not _est_prive(c))
+        a_lui = [c for c in a_lui if convient(c)]                       # 11/10 : jamais un compte déjà donné renuméroté
+        libres = [c for c in disponibles(tous, creatrice, 999) if convient(c)]
         choix = sorted(a_lui, key=rang)[:1] or sorted(libres, key=rang)[:1]
         if not choix:
             return None

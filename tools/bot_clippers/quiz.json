@@ -33,7 +33,7 @@
   },
   {
    "id": "mot4",
-   "q": "Bans et cadence qui monte petit à petit : quel est le 4e mot-clé ?",
+   "q": "Bans (milieu de la vidéo) : quel est le 4e mot-clé ?",
    "reponses": [
     "sécurité",
     "securite",
@@ -82,13 +82,13 @@
   },
   {
    "id": "cadence",
-   "q": "Comment augmenter ta cadence ?",
+   "q": "Combien de Reels publies-tu par jour ?",
    "choix": [
-    "10 Reels par jour et par compte dès le 1er jour",
-    "1 Reel par semaine, la qualité avant tout",
-    "Chaque semaine, 1 Reel de plus par jour et par compte"
+    "Le plus possible : 10 Reels par compte dès le 1er jour",
+    "2 Reels par jour sur chaque compte qui publie, tous les jours",
+    "1 Reel par semaine, la qualité avant tout"
    ],
-   "bonne": 2
+   "bonne": 1
   },
   {
    "id": "reels_essai",

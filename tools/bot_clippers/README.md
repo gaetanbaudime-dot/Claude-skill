@@ -7,6 +7,100 @@
 > Plus bas, les sections marquées « (historique, avant le 09/10) » décrivent l'ancien tunnel : ne t'y fie plus.
 >
 > 10/10 : les codes Instagram ne sortent plus que pour la connexion et la création de compte, en privé. Voir « 10/10 : codes 2FA en liste blanche ».
+>
+> 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
+
+## 10/10 et 11/10 : ce qui change pour toi (vague 1 du recrutement, branchée le 11/10)
+
+> [!tip] Verdict
+> La vague 1 est branchée au démarrage du bot et testée. Elle n'est pas encore en production : pose ou retire les variables Railway ci-dessous, déploie, puis fais les gestes de la fin.
+>
+> Le clipper ne fait plus que des gestes utiles. Son compte 1 arrive sous la bienvenue. Plus de « Profil fait » sur les comptes 1 et 2. La story et l'app arrivent avec le compte 3. Plus rien à J+7.
+
+### Le parcours, tel que le clipper le voit
+
+1. **Telegram** : l'annonce de `!annonce <groupe>`, avec « 18 ans minimum. » et un lien par groupe.
+2. **Le formulaire** (site du bot) : sept champs dont l'âge (obligatoire, moins de 18 = refus), la case des 5 règles, et sous le bouton : « Tes réponses servent seulement à ton recrutement. Pour les faire effacer : écris à Gaëtan sur WhatsApp. »
+3. **Vidéo de formation** : inchangée, 5 mots-clés.
+4. **Quiz** : 10 questions dans un ordre propre à chaque candidat, 8/10 pour passer. Réussi avec une place : « Ta créatrice et ton compte 1 t'y attendent. » Sans place : « dès qu'une place se libère ». La question de cadence apprend maintenant les 2 Reels par jour.
+5. **Arrivée sur Discord** : son salon perso, son prénom en pseudo.
+6. **Bienvenue** : sa créatrice, ses vidéos d'origine, le bouton WhatsApp et « ✅ J'ai écrit à Gaëtan » (il te prévient, rien de plus).
+7. **Compte 1, tout de suite dessous** : identifiants, création, « ✅ Compte 1 créé », puis UN message de profil qui finit par les 24 h de warm-up.
+8. **24 h plus tard** : « Ton compte 1 peut publier : 2 Reels par jour. »
+9. **Compte 2** : au plus tôt 48 h après le compte 1, dès 4 Reels dessus. Même suite que le compte 1.
+10. **Compte 3, le privé** : 48 h et 4 Reels sur le compte 2 (et 4 de plus sur le compte 1). Son profil porte le lien GAML et garde « ✅ Profil fait ». À cet appui : la story à la une, sans bouton, puis la routine et le bouton de l'app.
+
+Jusqu'à l'app : environ 5 jours à 2 Reels par jour, 4 jours au plus vite (deux fois la règle des 48 h, voulue).
+
+Plus de ligne libre pour son compte 2 ou 3 : il lit « ⏳ Ton compte n arrive dès qu'il est prêt. D'ici là, continue tes 2 Reels par jour. » Tu reçois « 📦 Plus de ligne libre chez Y ». Le compte part tout seul au plus 30 min après qu'une ligne se libère.
+
+### Ton salon admin
+
+- **Un seul point du matin** (vers 10 h jusqu'au 24/10, puis 9 h) : le compteur d'hier, les bloqués, la sortie automatique, les lignes de l'appel de présence sans geste, les places livrables, les comptes privés sans lien GAML, ce qui attend le staff, et le lundi le tableau de la semaine.
+- **En direct, seulement ce qui demande un geste** : WhatsApp déclaré, ban, question sans réponse, numéro demandé, mineur ou nudité (retentée tant qu'elle n'est pas partie), code non classé, plus de ligne libre, compte 3 sans lien GAML, sortie par l'appel, ancien Google Form qui reçoit encore des réponses (une fois par jour ; la réponse, qui porte un numéro, est effacée).
+
+### `!annonce <groupe>`
+
+Deux messages. Le premier : l'annonce seule, à copier d'un appui long. Le second, pour toi : « 📦 Places maintenant : Chloé n, Sarah n… » ou « ⛔ 0 place : n'annonce pas encore ».
+
+Le chiffre est le plus petit des deux goulots : les lignes libres du classeur (3 par nouveau, `ATTRIBUTION_LIGNES_MIN`) et les liens libres du forfait GAML (`GAML_FORFAIT_LIENS`, 50). N'annonce pas quand le bot dit 0 place.
+
+### Équipes TL : `!tl` et `!manager`, admins seulement
+
+- `!tl liste` : les équipes et leurs chiffres sur la période.
+- `!tl Chloé @X` : X devient TL de Chloé, avec le rôle « Team Leader » sans aucune permission. `!tl Chloé aucun` le retire.
+- `!manager @X Chloé Sarah` : X manage ces équipes.
+
+Un TL n'a aucun droit staff : jamais le rôle Manager, jamais `!tl`. La grille est paramétrable (variables ci-dessous) : 10 $ au TL par VA à 500 visites payées ou plus sur la quinzaine, 75 $ au manager par équipe à 3 000 ou plus, TL exclu du total. Première période primée : du 20/10 au 04/11, payée le 05/11.
+
+Les primes arrivent sur la liste de paie avec le lot L11 (vague 2). D'ici là, `!tl liste` montre les chiffres, rien n'est payé.
+
+Ma recommandation : ne nomme aucun manager avant que deux équipes aient fait 3 000 deux quinzaines de suite. Une équipe pile à 3 000 coûte 0,095 $ la visite, plus que la marge OnlyFans seule (0,06 à 0,07 $, à vérifier).
+
+### Codes 2FA
+
+« 📩 Mon code » ne donne que les codes de connexion et de création, visibles par le clipper seul. Le code d'un appel après un ban passe par toi (`CODES_APPEL=0`). Détails : « 10/10 : codes 2FA en liste blanche », plus bas.
+
+### Railway, avant de déployer
+
+À poser ou vérifier (facultatives, défaut entre parenthèses) :
+
+- `PLACES_GAML_ATTRIBUTION` (0) : je recommande 1 tant que le forfait GAML de 50 liens n'est pas monté ;
+- `ATTRIBUTION_LIGNES_MIN` (3), `GAML_FORFAIT_LIENS` (50) ;
+- `PARCOURS_TICK_MIN` (10), `PARCOURS_LIGNE_REESSAI_MIN` (30) ;
+- `DIGEST` (1), `DIGEST_HEURE` (9 ; 10 pour la même heure toute l'année), `DIGEST_HEURE_MAX` (11) ;
+- `TL_PRIME_VA_USD` (10), `TL_SEUIL_VA` (500), `MANAGER_PRIME_USD` (75), `MANAGER_SEUIL_EQUIPE` (3000), `EQUIPE_COMPTE_TL` (0), `PRIMES_EQUIPES_DEPUIS` (2026-10-20) ;
+- `CODES_APPEL` (0), `CODES_SONDAGE_SEC` (20).
+
+À retirer : `PARCOURS_BIENVENUE_H` s'il vaut 3, `PARCOURS_ROUTINE2_JOURS`, `RELANCE_NOUVEAUX`, `CANAL_STAT_CLIPPERS_ID` (supprime aussi le salon « 🎬 Clippers : N », plus rafraîchi seul), `CODE_ACCES`, `BANS_IMAP_DOSSIERS`, `CODES_SALON_RECUP_MINUTES`. Si `PRENOMS_STAFF` contient « jonas », remplace-le par « gaetan ».
+
+### Tes gestes, dans l'ordre
+
+1. Railway : les variables ci-dessus, puis le déploiement.
+2. Discord : le rôle du bot au-dessus des rôles des créatrices et du rôle « Team Leader » ; personne d'autre que toi avec le rôle Manager.
+3. Google : ferme les 3 anciens formulaires (le bot te le rappelle une fois par jour tant qu'ils reçoivent des réponses).
+4. GAML : demande le prix du forfait au-delà de 50 liens (49 pris le 08/10).
+5. Après le déploiement : `!annonce test` (deux messages), `!tl liste`, `!verifier` (« Rôle Team Leader sans permission »).
+
+### Ce qui n'est pas encore fait
+
+Vague 2 : relectures du dashboard à 12, 14, 16, 18, 20 et 22 h (priorité aux clippers qui attendent leur compte suivant), nouvelles colonnes du dashboard, primes TL et manager sur la paie du 5 et du 20.
+
+À trancher par toi : une purge RGPD à 730 jours (la phrase « 2 ans au plus » ne reviendra qu'avec elle) ; un tirage des questions du quiz (ses 5 mots-clés sont les mêmes pour tous) ; la vidéo Loom, qui parle peut-être encore de montée de cadence.
+
+L'appel de présence est gardé (ta décision du 05/10). Il n'expulse plus un clipper que le scan n'a pas pu lire.
+
+Dette CGU, inchangée : comptes de l'agence aux identifiants distribués, trois comptes par personne sur le contenu d'une créatrice, relais des codes, collecte Apify.
+
+### Sous le capot (11/10, lot W)
+
+- `on_ready` : `places.places_livrables` et `places.texte_annonce` passent DANS le dict de `web_candidature.demarrer` ; l'attribution lit `places.places_par_creatrice` ; `review_reels` a son `alerter_strict` ; `appel` reçoit `sortie_auto.mesures` et `compte_lu` ; `equipes_tl.configurer` part avant la paie, qui reçoit `primes_equipes` ; le rôle Team Leader est assuré sur chaque serveur.
+- Retirés : `boucle_stats`, `rapport_stats.demarrer` et `apres_releves`, `relance_nouveaux.py`, `relances.boucle`, `tableau_bord.boucle`, `!equipes`, `!relancer-lien`, `!rang`, `!stats-jonas` et `!stats-manager` de `COMMANDES_MANAGER`, `ROUTINE2_JOURS`.
+- `places.py` compte les places (lignes ÷ `ATTRIBUTION_LIGNES_MIN`, moins les lignes dues aux clippers en route, borné par les liens GAML libres, moins les membres en attente ou en transit). `onboarding.reserver_compte` réserve la ligne du compte 2 ou 3 à l'ouverture de son étape si la fiche ne l'a pas. Un compte 3 sans lien GAML : une ligne admin par jour et par clipper (`DONNEES/alertes_lien_gaml.json`), plus la ligne du point du matin.
+- Nouveaux fichiers d'état : la clé `digest` d'`appel.json` (lignes de l'appel pour le point du matin), `ancien_formulaire.json` (une ligne « ferme l'ancien Google Form » par jour).
+- Corrigés après les contre-vérifications : OAuth (après une erreur de Discord, le nouvel essai disait « C'est bon » sans ajout au serveur), doublon de numéro compté deux fois dans les places, double « Profil fait » du privé, ancien repris à l'étape 6, ligne retentée à chaque tour, `!onboarding` qui annonçait « étape renvoyée » sans envoi, compte 2 renuméroté en 3 à stock court, comptes sans lien listant les exclus et les sortis, assistant qui parlait de Reels à un clipper qui attendait une ligne, appel soldé après coup, vieux restreint bloquant la mesure, sortie de TL datée en UTC, journal des mandats illisible réécrit, archive de sauvegarde provisoire laissée, identifiant de quiz du site en double à la milliseconde.
+
+Tests : `test_W_demarrage.py` (chaque appel d'`on_ready` existe avec une signature compatible ; tâches et dépendances du démarrage) et `test_W_correctifs.py` (les défauts des contre-vérifications rejoués sur l'arbre).
 
 ## 10/10 : le parcours sans attente (revue du recrutement, lot L1)
 
@@ -40,13 +134,13 @@ Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de
 
 ### Ce qui change pour le bot
 
-- Le programme du parcours est relu **toutes les 10 min** (`PARCOURS_TICK_MIN`), au lieu de toutes les heures. Ce tour léger ne fait que lire `parcours.json` : aucun appel Apify ni GAML tant que rien n'est échu. Le reste (profils oubliés, rattrapage de l'app, warm-up, relances) reste horaire.
+- Le programme du parcours est relu **toutes les 10 min** (`PARCOURS_TICK_MIN`), au lieu de toutes les heures. Ce tour léger ne fait que lire `parcours.json` : aucun appel Apify ni GAML tant que rien n'est échu. 11/10 (lot W) : un compte qui attend une ligne libre relit le classeur des logins une fois toutes les 30 min (`PARCOURS_LIGNE_REESSAI_MIN`), plus à chaque tour ; il part au plus 30 min après qu'une ligne se libère (`!etape @x n` : tout de suite). Le reste (profils oubliés, rattrapage de l'app, warm-up, relances) reste horaire.
 
 - `PARCOURS_BIENVENUE_H` vaut **1** par défaut et n'est plus qu'un filet : membre introuvable à l'instant de la bienvenue. Les bienvenues d'avant le 10/10, encore en attente, reçoivent leur compte 1 au tour suivant si elles ont plus d'1 h.
 
 - La fermeture automatique à 6 h (`PARCOURS_PROFIL_AUTO_H`) ne vise plus que le profil du privé, et les profils d'avant le 10/10 partis avec leur bouton.
 
-- L'étape 6 (story à la une avec bouton) n'est plus dans le déroulé. Elle sert encore à `!etape @x 6`, au message du lien des fiches « privé en 2 » du 08/10, et aux fiches déjà à l'étape 6 (fermées seules au bout de 24 h, comme avant).
+- L'étape 6 (story à la une avec bouton) n'est plus dans le déroulé. Elle sert encore à `!etape @x 6`, au message du lien des fiches « privé en 2 » du 08/10, et aux fiches déjà à l'étape 6 (fermées seules au bout de 24 h, comme avant). 11/10 (lot W) : l'ancien repris d'après le classeur avec ses 3 comptes créés n'y passe plus : le lien s'il manque, la story sans bouton, puis la routine et l'app, comme un nouveau.
 
 - « ✅ J'ai écrit à Gaëtan » donne au salon admin : « 📲 X (créatrice) dit avoir écrit sur WhatsApp : ajoute-le au groupe. » L'ancien « ✅ C'est fait » des bienvenues déjà postées marche encore.
 
@@ -58,14 +152,14 @@ Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de
 
 - `PARCOURS_BIENVENUE_H` : à **retirer** s'il vaut 3 (le défaut du code est 1).
 - `PARCOURS_TICK_MIN` : nouvelle, facultative (10).
-- `PARCOURS_ROUTINE2_JOURS` : plus lue pour envoyer quoi que ce soit, à retirer.
+- `PARCOURS_ROUTINE2_JOURS` : plus lue du tout depuis le 11/10 (plus rien ne programme « routine2 »), à retirer.
 
 ### Limites, sans fard
 
 - Un clipper qui n'écrit jamais sur WhatsApp a quand même son compte 1. Les filets : le rappel sous « peut publier », et la ligne « pas de WhatsApp » des bloqués. Gaëtan crée toujours les groupes à la main : c'est le goulot humain.
 - La story à la une n'a jamais été vérifiée (le bouton était déclaratif) : rien ne change là. `controler_liens_bio` vérifie toujours le lien.
 - Plancher jusqu'à l'app : 4 jours (deux fois la règle des 48 h), environ 5 jours à 2 Reels par jour.
-- **À trancher par Gaëtan, une fois** : le quiz (lot L2) garde « Comment augmenter ta cadence ? », dont la bonne réponse est « Chaque semaine, 1 Reel de plus par jour et par compte », et le mot-clé de la vidéo « cadence qui monte petit à petit ». Le parcours ne dit plus la montée (règle 5 : 2 Reels par jour). Recommandation : garder les 2 Reels par jour, changer la bonne réponse du quiz et le mot-clé (ou la vidéo).
+- **Fait le 11/10 (lot W)** : le quiz n'enseigne plus la montée de cadence. La question devient « Combien de Reels publies-tu par jour ? », bonne réponse « 2 Reels par jour sur chaque compte qui publie, tous les jours ». L'indice du 4e mot-clé devient « Bans (milieu de la vidéo) » (le mot-clé ne change pas : la vidéo reste valable). La vidéo Loom parle peut-être encore de montée : à revoir par Gaëtan s'il la refait.
 - Dette CGU, inchangée : comptes de l'agence aux identifiants distribués, trois comptes par personne sur le contenu d'une créatrice, relais des codes.
 
 ## 09/10 : le funnel simplifié
@@ -118,7 +212,7 @@ Paie : 0,05 $ par visite qui compte, versée **les 5 et 20**. Le compteur éping
 
 - Les accueils en série : plus de « Félicitations », plus de guide, plus de ligne publique dans #candidature.
 
-- Les relances des tests du soir. `relance_nouveaux` est éteint (`RELANCE_NOUVEAUX=0` par défaut).
+- Les relances des tests du soir. `relance_nouveaux` est éteint (`RELANCE_NOUVEAUX=0` par défaut) ; 11/10 : supprimé.
 
 - Les commandes `!test-ok`, `!test-non`, `!tests`, `!refuser`, `!relance-telegram`, `!importer`, `!reels-uniques`.
 
@@ -134,7 +228,7 @@ Paie : 0,05 $ par visite qui compte, versée **les 5 et 20**. Le compteur éping
 
 - `!etape` (clipper) : son étape en cours, dans son salon ou en MP. `!onboarding` (staff) renvoie seulement l'étape en cours.
 
-- `!equipes` : les écarts entre le registre et les trois rôles d'équipe.
+- ~~`!equipes` : les écarts entre le registre et les trois rôles d'équipe.~~ (historique : retiré le 11/10, `!tl liste` pour les équipes TL)
 
 ### La migration : automatique, une seule fois
 
@@ -186,7 +280,7 @@ Tant que ce n'est pas fait, un candidat qui tombe sur l'ancien formulaire peut e
 
 - `!drives-perso fermer` (aperçu), puis `!drives-perso fermer go` : les anciens dossiers perso et TOP 20 ne s'ouvrent plus par le lien.
 
-- `!equipes`, puis `!equipe` pour régulariser un ancien sans fiche.
+- `!equipe` pour régulariser un ancien sans fiche (11/10 : `!equipes` est retiré).
 
 - Relire `!apprendre liste` et `!faq` : une réponse apprise peut encore parler du test, du Drive perso ou de #assistant.
 
@@ -376,7 +470,7 @@ Gaëtan : « Le but, c'est de revérifier et de bien paramétrer, simplifier et 
 
 **Quand** : à `DIGEST_HEURE` (9 h, Paris) au plus tôt, juste après la passe du jour de la sortie automatique. À `DIGEST_HEURE_MAX` (11 h) au plus tard, même sans passe ce jour-là.
 
-En pratique : **vers 10 h jusqu'au 25/10**, puis **9 h** à partir du 26/10. La passe de sortie tourne à 8 h UTC, après le scan Instagram de 7 h UTC : 10 h à Paris l'été, 9 h l'hiver. Le point du matin l'attend, parce que son bilan en fait partie. Avancer la passe avant le scan la ferait juger sur les Reels de l'avant-veille : non.
+En pratique : **vers 10 h jusqu'au 24/10**, puis **9 h** à partir du 25/10 (11/10 : le changement d'heure a lieu le dimanche 25/10 à 3 h, ce matin-là le point arrive déjà à 9 h). La passe de sortie tourne à 8 h UTC, après le scan Instagram de 7 h UTC : 10 h à Paris l'été, 9 h l'hiver. Le point du matin l'attend, parce que son bilan en fait partie. Avancer la passe avant le scan la ferait juger sur les Reels de l'avant-veille : non.
 
 Tu préfères la même heure toute l'année ? `DIGEST_HEURE=10` sur Railway.
 
@@ -386,8 +480,8 @@ Tu préfères la même heure toute l'année ? `DIGEST_HEURE=10` sur Railway.
 
 1. le compteur d'hier : candidatures, quizz, arrivés sur Discord, validés, attribués à une créatrice (sans les anciens dont la créatrice est retrouvée d'après leur pseudo ou le classeur : `creatrice_par` « pseudo » ou « classeur ») ;
 2. les bloqués, seulement s'il y en a (`bloques.py`, WhatsApp en un appui). Nouveau cas : le compte qui doit ouvrir le suivant est restreint au dernier relevé, ou le scan n'y a vu aucun Reel 24 h après « ton compte n arrive dès que je vois… ». La ligne propose `!etape @prénom n` s'il publie. « 0 Reel vu » seulement si le scan a lu ce compte depuis l'attente (un relevé des séries) ; sinon « scan pas passé sur ce compte depuis l'attente » et un WhatsApp neutre (« Tu publies bien sur ton compte n ? ») : non mesuré n'est pas inactif ;
-3. le bilan de la sortie automatique : sa passe ne poste plus rien, son bilan attend le point du matin (`sortie_auto.json`, clé `a_dire`) ;
-4. les places livrables (module `places`, sinon les comptes livrables par créatrice) ;
+3. le bilan de la sortie automatique : sa passe ne poste plus rien, son bilan attend le point du matin (`sortie_auto.json`, clé `a_dire`) ; 11/10 (lot W) : puis les lignes de l'appel de présence qui n'attendent aucun geste (⏸️ non mesuré, ✅ mesure relue, 🔇 muet mais actif, 📢 appelé) ;
+4. les places livrables (module `places`), puis, chaque jour tant qu'il en reste, « 🔗 Compte privé sans lien GAML » (11/10 : sans les prénoms exclus de la paie au clic ni les sortis) ;
 5. ce qui attend le staff : en attente d'une créatrice, quizz réussis pas validés, signés sans créatrice, avertissement technique, ce qui est éteint depuis le démarrage (`demarrage.json`), une sauvegarde ratée ;
 6. le lundi : le tableau de la semaine, puis le fond de pipeline.
 
@@ -399,7 +493,7 @@ Rien à faire : « ✅ Rien qui n'attende ton action aujourd'hui. » en tête.
 
 **Restent en direct** : WhatsApp déclaré, ban, question sans réponse, demande de numéro, mineur ou nudité, code non classé, changement fait sur un compte, compte 3 sans lien GAML, budget Apify qui entame une réserve. Et une attribution qui demande un geste : onboarding en échec ou aucun compte réservé, rôle ou pseudo refusé.
 
-**Encore à part** : l'appel de présence poste ses bilans (appel, purge, appel général). Le lundi, tant que le lot W n'a pas retiré sa boucle, le tableau de la semaine part seul vers 8 h et le point du matin ne le répète pas.
+**Encore à part** : de l'appel de présence, seulement ce qui demande un geste (🚪 sortie et expulsion, 📲 WhatsApp à ajouter, ⚠️ appel suspendu, ❌ erreur), la purge et l'appel général. 11/10 (lot W) : le tableau de la semaine ne part plus seul le lundi (sa boucle est retirée) ; il est dans le point du matin. Une réponse de l'ancien Google Form est effacée et dite une fois par jour (« ferme-le »).
 
 **La sauvegarde du dimanche** (20 h) : un zip daté sur le volume, `DONNEES/sauvegardes/sauvegarde_AAAA-MM-JJ.zip`, les 4 derniers gardés. Plus jamais en pièce jointe dans Discord : `pipeline.json` porte les numéros. Un échec est dit au point du matin suivant.
 
@@ -477,7 +571,7 @@ Pour des réponses plus fines : `MODELE=claude-opus-4-8` (~5x plus cher, reste s
 
 `!aide` (liste adaptée au rôle : admin, manager, clipper, candidat) ·
 `!paiement @x 50 [raison]` · `!ajuster -150 [raison]` (corrige/rattrape le compteur) ·
-`!compteur` · `!rang @x Rookie|Confirmé|Élite` ·
+`!compteur` · ~~`!rang @x Rookie|Confirmé|Élite`~~ (retiré le 11/10) ·
 `!verifier` (audit config) · `!audit` (carte du serveur) · (depuis le 28/09, `#ressources` et `#rémunération` sont **publics** dans la doctrine — `NOMS_PUBLICS` et premier étage de `_doctrine_acces` — plus d'écart signalé, `!acces appliquer` les ouvre ; `#reporting` reste réservé) · `!stats` · `!apprendre Q | R` ·
 `!creatrice @x Prénom` · `!sortie @x raison` · `!relance @x` ·
 `!alias` / `!code` (relais 2FA, managers). Une commande inconnue est signalée (plus de silence).
@@ -866,8 +960,8 @@ Le bot fait maintenant tourner la boucle « paiement → preuve → contenu → 
   `#dopamine`, met à jour le compteur épinglé, trace dans `paiements.jsonl`. Le lundi des
   virements : une commande par virement effectué = la preuve publique instantanée.
 - **`!compteur`** → (re)crée/met à jour le message épinglé « X € déjà versés aux clippers ».
-- **`!rang @clippeur Rookie|Confirmé|Elite`** → assigne le rôle (crée d'abord les 3 rôles
-  dans les réglages du serveur ; le rôle du bot doit être AU-DESSUS d'eux dans la liste).
+- ~~**`!rang @clippeur Rookie|Confirmé|Elite`** → assigne le rôle~~ (historique : retiré le 11/10, les rangs ne servent
+  plus ; un Team Leader se nomme avec `!tl Chloé @x`).
 - `!stats` et `!apprendre` inchangés.
 
 ### Tracking d'invitations + accueil numéroté (ACTIVER_V2=1)
@@ -886,8 +980,8 @@ Bonus : laisse « Ajouter des réactions » à ✅ pour `@everyone` (les 🔥 sa
 **Mise en service v2 (3 min, dans cet ordre)** :
 1. Developer Portal → Bot → activer **SERVER MEMBERS INTENT** (2e interrupteur privilégié).
 2. Donner au bot la permission **Gérer le serveur** (lecture des invitations) et
-   **Gérer les rôles** (pour `!rang`), via son rôle sur le serveur.
-3. Créer les rôles `Rookie`, `Confirmé`, `Elite` (réglages → Rôles), sous le rôle du bot.
+   **Gérer les rôles** (rôles des créatrices, Team Leader), via son rôle sur le serveur.
+3. ~~Créer les rôles `Rookie`, `Confirmé`, `Elite`~~ (historique : plus utile depuis le 11/10).
 4. Railway → Variables : `CANAL_DOPAMINE_ID`, `CANAL_CANDIDATURE_ID`, `LIEN_FORMULAIRE`,
    puis **`ACTIVER_V2=1`** en dernier. Redéploiement automatique.
 
@@ -1128,15 +1222,15 @@ Seul cas non couvert : un mandat écrit à la main dans `equipes.json`, sans auc
 
 **Railway** : `TL_PRIME_VA_USD` (10), `TL_SEUIL_VA` (500), `MANAGER_PRIME_USD` (75), `MANAGER_SEUIL_EQUIPE` (3000), `EQUIPE_COMPTE_TL` (0), `MANAGER_COMPTE` (0), `PRIME_PREUVE_REELS` (10), `PRIMES_EQUIPES_DEPUIS` (2026-10-20 ; 20/10/2026 accepté ; vide = rien de payé), `PRIME_ECART_NORME` (0,25), `PRIME_VOLUME_MIN` (100), `ROLE_TL_NOM` (Team Leader). Les nombres se tapent à la française (« 0,25 », « 7,5 », « 3 000 ») : une valeur illisible ne bloque jamais le démarrage, le bot garde la valeur par défaut et le dit dans `!tl liste`. Une date `PRIMES_EQUIPES_DEPUIS` illisible est dite comme telle (« illisible », pas « vide ») : aucune prime n'est calculée tant qu'elle l'est.
 
-**Ce qui reste à brancher** :
+**Branché le 11/10 (lot W)**, et ce qui reste :
 
-- lot W, dans `on_ready` : `equipes_tl.configurer({...})` avec `lire_json`, `ecrire_json`, `FICHIER_EQUIPES`, `FICHIER_SORTIS`, `ADMIN_IDS`, `est_manager`, `membre_par_id`, `nom_de`, `regime`, `exclu` (ou `exclus`), `creatrices`, `lire_clics`, `heure_paris`, `payees` (`paie_clics.payees`, lot L11), `reels_vus = equipes_tl.reels_vus_par_comptes(comptes_de_uid, series.reels_vus, series.derniere_lecture)` et `jours_manquants = equipes_tl.jours_manquants_par_paie(paie_clics.jours_manquants_paie)`. Sans `configurer`, `!tl` répond « pas branché au démarrage » et `primes_equipes` lève `NonBranche` ;
-- lot W, dans `on_message` : `await equipes_tl.commande(message, message.content)` pour `!tl` et `!manager`, en salon ET en message privé, sans les ajouter à `COMMANDES_MANAGER` ;
+- ✅ fait (lot W), dans `on_ready` : `equipes_tl.configurer({...})` avec `lire_json`, `ecrire_json`, `FICHIER_EQUIPES`, `FICHIER_SORTIS`, `ADMIN_IDS`, `est_manager`, `membre_par_id`, `nom_de`, `regime`, `exclu` (ou `exclus`), `creatrices`, `lire_clics`, `heure_paris`, `payees` (`paie_clics.payees`, lot L11), `reels_vus = equipes_tl.reels_vus_par_comptes(comptes_de_uid, series.reels_vus, series.derniere_lecture)` et `jours_manquants = equipes_tl.jours_manquants_par_paie(paie_clics.jours_manquants_paie)`. Sans `configurer`, `!tl` répondrait « pas branché au démarrage » et `primes_equipes` lèverait `NonBranche`. `payees` n'est passée que quand le lot L11 l'aura livrée (repli local d'ici là). Le rôle Team Leader est assuré au démarrage, sans permission ;
+- ✅ fait (lot W), dans `on_message` : `equipes_tl.commande` pour `!tl` et `!manager`, admins seulement, en salon ET en message privé, en rafale aussi, sans les ajouter à `COMMANDES_MANAGER`. La paie reçoit la dépendance `primes_equipes(d, debut, fin, cle)`, prête pour le lot L11 ;
 - lot L11 : `primes_equipes(d, debut, fin, jour_paie, payees, reels_vus, jours_manquants)` accepte le « 05/11 » de `liste_paie` (clé déduite de la fin) ; `figer_primes_equipes` ne fige pas une période dont `a_figer(...)["complet"]` est faux (mesure en erreur), il réessaie au calcul suivant. Toute prime d'équipe payée arrive « à vérifier » : le message de paie écrit donc toujours « à vérifier par Gaëtan » sur une prime d'équipe ;
 - lot L8 : la section ÉQUIPES du Dashboard (`resume_equipe`) ;
 - plus tard : une relecture du registre dans `completer_creatrices` (elle réécrit `equipes.json` après une attente Google : une nomination tapée pendant ce temps serait effacée, `!tl liste` le signale). `equipes_tl.fin_de_mandats` dans `!sortie` n'est plus nécessaire : il retirerait seulement le rôle Team Leader plus tôt.
 
-D'ici là, `!tl liste` montre les chiffres, et rien n'est ajouté à la paie.
+D'ici là (lot L11 de la vague 2), `!tl liste` montre les chiffres, et rien n'est ajouté à la paie. 11/10 (lot W) : une sortie entre 0 h et 1 h (heure de Paris) le jour de paie ne fait plus perdre sa prime au TL ni au manager (dates de sortie lues à l'heure de Paris), et un journal `mandats.json` illisible n'est jamais réécrit, même avec le vrai `lire_json` du bot (relu sur le disque, puis sa copie .bak).
 
 **Question ouverte pour Gaëtan** : les visites d'un manager qui clippe dans une équipe qu'il manage comptent-elles dans les 3 000 de cette équipe ? Aujourd'hui non (`MANAGER_COMPTE=0`), pour qu'il ne soit pas primé sur sa propre production. Ce choix n'est pas dans la grille du 10/10 : `MANAGER_COMPTE=1` sur Railway si tu veux qu'elles comptent.
 
@@ -1188,21 +1282,21 @@ Revue du recrutement du 10/10 : ce qui ne servait plus est retiré, l'appel de p
 
 - **#jonas-stats retiré** : plus de rapport du manager, ni de copie au salon admin, ni de `CLIPPERS_JONAS`, ni de `rapport_jonas.json`. `!stats-jonas` et `!stats-manager` répondent « Retiré le 10/10 : le Dashboard donne les visites par clipper. » Le Dashboard donne les visites d'hier et des 7 jours par clipper. `rapport_stats.associer_suivi` reste : il rattache les liens GAML aux clippers du roster.
 
-- **Roster** : le roster vivant, le salon-compteur « 🎬 Clippers : N », `!actifs` et `!equipe-active` vivent dans `roster.py` (`roster.json`, `!roster`, `!creatrice`, `!sortie`).
+- **Roster** : le roster vivant, le salon-compteur « 🎬 Clippers : N », `!actifs` et `!equipe-active` vivent dans `roster.py` (`roster.json`, `!roster`, `!creatrice`, `!sortie`). 11/10 (lot W) : le salon-compteur n'est plus rafraîchi seul (boucle des compteurs supprimée) : supprime-le et retire `CANAL_STAT_CLIPPERS_ID` de Railway ; `!actifs` donne le vrai chiffre.
 
-- **Appel de présence gardé** (décision du 05/10), un seul défaut corrigé : le silence du scan passait pour de l'inactivité. Un clipper dont le scan ne lit aucun compte public récent (budget Apify coupé, compte restreint, passage raté) est « non mesuré » : jamais appelé pour inactivité, jamais purgé. À l'échéance d'un appel : mesure illisible = rien d'écrit, repris 30 min après ; non mesuré = appel laissé ouvert, une ligne ⏸️ au salon admin, jugé dès que le scan relit ses comptes, clos sans sortie après `APPEL_MESURE_ATTENTE` (7) jours. Jamais un deuxième appel pendant ce temps. Mesure illisible 6 h d'affilée (`APPEL_ILLISIBLE_ALERTE_H`) : une ligne ⚠️ « appel suspendu » au salon admin, puis une par jour, et une ligne ✅ quand elle revient. Un clipper mesuré, sans réponse et sans visites, sort même s'il publie : c'est la règle du 05/10.
+- **Appel de présence gardé** (décision du 05/10), un seul défaut corrigé : le silence du scan passait pour de l'inactivité. Un clipper dont le scan ne lit aucun compte public récent (budget Apify coupé, compte restreint relevé dans les dernières 24 h, passage raté) est « non mesuré » : jamais appelé pour inactivité. La purge, elle, ne sort personne sans un relevé récent de ses comptes, quel qu'il soit (« introuvable » compris). 11/10 : un vieux compte resté « restreint » à un relevé de plus d'un jour ne rend plus le clipper « non mesuré » pour toujours, et un appel clos sans sortie n'est plus soldé par un message écrit des semaines plus tard. À l'échéance d'un appel : mesure illisible = rien d'écrit, repris 30 min après ; non mesuré = appel laissé ouvert, une ligne ⏸️ (au point du matin depuis le 11/10), jugé dès que le scan relit ses comptes, clos sans sortie après `APPEL_MESURE_ATTENTE` (7) jours. Jamais un deuxième appel pendant ce temps. Mesure illisible 6 h d'affilée (`APPEL_ILLISIBLE_ALERTE_H`) : une ligne ⚠️ « appel suspendu » au salon admin, puis une par jour, et une ligne ✅ quand elle revient. Un clipper mesuré, sans réponse et sans visites, sort même s'il publie : c'est la règle du 05/10.
 
 - **Sortie automatique** : l'ancienne règle « 7 jours sans Reel » et `!sortie-auto reels` sont supprimées. Reste la règle du compte 1.
 
-- **Relecture après publication** : « mineur » et « nudité » partent tout de suite au salon admin, une fois par Reel. Une alerte n'est marquée partie que si l'envoi a réussi (dépendance `alerter_strict`, branchée par le lot W) ; elle est reprise toutes les 10 min, pour les Reels relus hier ou aujourd'hui.
+- **Relecture après publication** : « mineur » et « nudité » partent tout de suite au salon admin, une fois par Reel. Une alerte n'est marquée partie que si l'envoi a réussi (dépendance `alerter_strict`, branchée au démarrage le 11/10) ; elle est reprise toutes les 10 min, pour les Reels relus hier ou aujourd'hui.
 
-- **Relances Telegram** : plus de liste quotidienne, `!relances` gardé.
+- **Relances Telegram** : plus de liste quotidienne, `!relances` gardé (11/10 : la boucle et sa tâche sont supprimées).
 
 - **Rétrospective** : une fois par semaine, le dimanche entre 20 h et 22 h, sur 7 jours. Doctrine : codes de création et de connexion seulement ; quatre cas vont à Gaëtan (code d'un appel, appel refusé, numéro refusé, paiement).
 
 - **Candidatures et annonces** : plus de notation /8 dans le classeur (la note reste dans `!fiche`). L'annonce unique du 29/09 « un compte tous les 48 h » (`annoncer_regle_48h`) est retirée : elle était déjà partie.
 
-- **Fichiers supprimés** : `bot.py`, `drive_agence.py`, `rapport_jonas.json`. `relance_nouveaux.py` est un bouchon, que le lot W supprime.
+- **Fichiers supprimés** : `bot.py`, `drive_agence.py`, `rapport_jonas.json`. `relance_nouveaux.py` supprimé le 11/10 (lot W), avec les bouchons `rapport_stats.demarrer`, `rapport_stats.apres_releves`, `boucle_stats`, `relances.boucle` et `tableau_bord.boucle`.
 
 ## 📊 Rapport GAML du manager : #jonas-stats (24/09, `rapport_stats.py`) (historique, retiré le 10/10)
 
@@ -1479,7 +1573,7 @@ Test hors ligne : `test_refonte_0510.py` (scratchpad de la session) — flux com
 
 Gaëtan, 05/10 : « vire tous les clippeurs qui ne répondent pas et qui sont inactifs sur le serveur, je veux que ça réponde et qu'ils viennent sur WhatsApp ». Deux moments : **l'appel général**, une fois, 90 s après le premier démarrage (`APPEL_GENERAL=1`), dans le salon perso de chaque clipper signé avec une créatrice (« réponds ici dans les 48 h, un mot suffit, et écris à Gaëtan sur WhatsApp », bouton wa.me avec le message déjà écrit) ; **l'appel individuel**, automatique, pour un clipper signé sans aucune activité depuis `APPEL_INACTIF_JOURS` (4) jours : aucun message sur le serveur, aucun bouton d'étape, aucun Reel vu par le scan (la dernière activité est lue une fois dans l'historique de son salon, puis suivie en direct). Une réponse = n'importe quel message de lui sur le serveur ou un bouton d'étape (`noter_activite`, branché dans `on_message` et `parcours.valider_etape`). Sans réponse à `APPEL_HEURES` (48) : sortie comme `!sortie` avec expulsion (`APPEL_KICK=1`) — comptes au vivier, lien libéré, salon supprimé, parcours oublié, membre expulsé ; déjà parti du serveur : appel clos. A répondu mais `!wa @clipper` jamais tapé : une relance WhatsApp 24 h après sa réponse et une ligne à Gaëtan ; pas d'expulsion automatique pour ça (Gaëtan tranche avec `!sortie`). Protégés : staff, anciens de Jonas (`sans_salon`), note « garde ». Passage toutes les 30 min, bilan au salon admin quand quelque chose bouge. `!appel` (staff) : l'état (sans réponse avec les heures restantes, ont répondu, sortis) ; `!appel go` : l'appel général, pour ceux sans appel en cours ; `!appel @clipper` : un appel individuel ; `!appel passe` : ce que le prochain passage ferait. État dans `appel.json`. `APPEL=0` éteint. Test : `test_appel_0510.py` (scratchpad).
 
-**Non mesuré (10/10, revu le 11/10)** : un clipper dont le scan ne lit aucun compte public récent (`sortie_auto.mesures` : budget Apify coupé, compte restreint, passage raté) n'est jamais appelé pour inactivité ni purgé. À l'échéance d'un appel : mesure illisible (classeur ou scan en panne) = rien d'écrit, repris au passage suivant ; non mesuré = appel laissé ouvert (une réponse le solde toujours), une seule ligne ⏸️ au salon admin, jugé au premier passage où le scan lit ses comptes, clos sans sortie après `APPEL_MESURE_ATTENTE` (7) jours. Mesure illisible depuis `APPEL_ILLISIBLE_ALERTE_H` (6) heures d'affilée : une ligne ⚠️ « appel suspendu » au salon admin, puis une par jour tant que ça dure, une ligne ✅ au retour, et `!appel` le dit. Mesuré, sans réponse et sans visites : il sort, même s'il publie (règle du 05/10). `!appel` liste les appels qui attendent la mesure et les non mesurés du dernier passage.
+**Non mesuré (10/10, revu le 11/10)** : un clipper dont le scan ne lit aucun compte public récent (`sortie_auto.mesures` : budget Apify coupé, compte restreint au relevé du jour, passage raté) n'est jamais appelé pour inactivité. La purge ne sort personne sans un relevé récent de ses comptes, quel qu'il soit (`sortie_auto.compte_lu`, « introuvable » compris). À l'échéance d'un appel : mesure illisible (classeur ou scan en panne) = rien d'écrit, repris au passage suivant ; non mesuré = appel laissé ouvert (une réponse le solde toujours), une seule ligne ⏸️ au salon admin, jugé au premier passage où le scan lit ses comptes, clos sans sortie après `APPEL_MESURE_ATTENTE` (7) jours. Mesure illisible depuis `APPEL_ILLISIBLE_ALERTE_H` (6) heures d'affilée : une ligne ⚠️ « appel suspendu » au salon admin, puis une par jour tant que ça dure, une ligne ✅ au retour, et `!appel` le dit. Mesuré, sans réponse et sans visites : il sort, même s'il publie (règle du 05/10). `!appel` liste les appels qui attendent la mesure et les non mesurés du dernier passage.
 
 - **Sophie : bouton Miam sur ses 12 liens (05/10)** : trackings MyPulse créés par Gaëtan et posés en carte « Miam » (effet `button-pulsing`, au-dessus d'OnlyFriends). Correspondance nom MyPulse → lien GAML : `gaml-fr` → page, `gaml-fb` → /fb, `gaml-ytb` → /ytb, `gaml-lien3/5/7/9/10/11` → /3, /5, /7, /9, /10, /11 ; **`gaml-lien1` → /13, `gaml-lien2` → /14, `gaml-lien4` → /15** (Sophie n'a pas de /1, /2, /4) ; `gaml-lien6` et `gaml-lien8` restent libres pour les prochains liens.
 **Purge 72 h (05/10, Gaëtan : « vire directement les clippeurs qui n'ont pas créé de compte dans les 72 h et n'ont pas répondu sur leur salon privé »)** : `appel.purger` sort et expulse, sans délai ni avertissement, tout clipper signé dont le compte 1 a été livré depuis `PURGE_HEURES` (72) ou plus sans jamais être créé (ni bouton « créé », ni profil envoyé, ni étape 2 ; sans fiche de parcours, la fiche d'onboarding fait foi) **et** qui n'a pas écrit un mot dans son salon perso depuis 72 h (historique lu, 300 messages). Une fois au démarrage (`PURGE_72H=1`, retenu dans `appel.json`), bilan au salon admin ; ensuite `!purge` (liste de ce que ça ferait) et `!purge go` (le fait). Un membre déjà purgé n'est jamais rejoué ; protégés comme l'appel (staff, anciens de Jonas, note « garde »).

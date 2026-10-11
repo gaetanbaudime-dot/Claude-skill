@@ -22,6 +22,42 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-10 et 11/10 (recrutement) — Codes 2FA en liste blanche, parcours sans attente, grille TL et manager : codés, branchés, pas encore déployés
+
+> [!tip] Verdict
+> Les trois décisions sont bonnes, et la vague 1 est branchée au démarrage du bot le 11/10. Mais le goulot n'est plus le parcours : c'est le **stock de lignes** du classeur et le **forfait GAML de 50 liens** (49 pris le 08/10). Ta prochaine action utile n'est pas un clipper de plus, c'est le prix du forfait GAML au-delà de 50 liens. Et pas de manager nommé avant que deux équipes aient fait 3 000 visites payées deux quinzaines de suite.
+
+- **Décisions de Gaëtan (10/10)** : « uniquement les codes de connexion et de création de compte » ; « simplifier et supprimer toutes les étapes inutiles au processus de recrutement… Ils peuvent directement créer le premier compte Instagram… 4 Reels plus tard, le troisième compte avec le lien GAML plus l'application de clippeur » ; la grille : clipper 0,05 $ par visite payée le 5 et le 20, TL 0,05 $ + 10 $ par VA à 500 visites ou plus sur la quinzaine, manager 75 $ par TL dont l'équipe fait 3 000 ou plus. Puis « GO » le 11/10.
+
+- **Ce qui est codé et branché (11/10, lot W, testé, ni poussé ni déployé)** :
+  - **codes 2FA** : le bouton « 📩 Mon code » ne donne que les codes de connexion et de création, au clipper seul ; tout autre code donne une ligne admin, jamais le code ; le code d'un appel après ban passe par toi ;
+  - **parcours sans attente** : compte 1 juste sous la bienvenue, plus de « Profil fait » sur les comptes 1 et 2 (le warm-up est dit dans le message de profil), la story à la une et l'app partent ensemble au profil du compte 3, plus rien à J+7 ; le quiz enseigne maintenant 2 Reels par jour, plus la montée de cadence ;
+  - **entrée** : « 18 ans minimum » dans l'annonce, âge obligatoire, mention RGPD, quiz mélangé par candidat ;
+  - **goulots** : `!annonce` donne les places réellement livrables (le plus petit des lignes ÷ 3 et des liens GAML libres), et un compte 3 sans lien GAML te remonte ;
+  - **salon admin** : un seul point du matin ; en direct, seulement ce qui demande un geste ;
+  - **équipes TL** : `!tl` et `!manager`, admins seulement ; un TL n'a aucun droit staff ; TL exclu du seuil de son équipe ; première quinzaine primée 20/10 → 04/11, payée le 05/11 ; contrôle de 5 abonnés par VA primé, à la main ;
+  - **ménage** : rapport de Jonas, relance des nouveaux, compteurs et boucles mortes retirés. L'appel de présence reste (ta décision du 05/10), mais il n'expulse plus un clipper que le scan n'a pas pu lire.
+
+- **Pourquoi c'est juste** : le 29/09, seuls 31 % des validés publiaient ; chaque attente retirée avant le premier Reel vaut plus qu'un candidat de plus. Les 8 codes interdits sur 42 cas d'essai (récupération, Espace Comptes) donnaient au clipper la clé d'un compte de l'agence. Et `!annonce` sans places, c'était annoncer dans une salle d'attente ([[Goulot de l'agence - l'équation du scale|le goulot]], [[Théorie des contraintes]]).
+
+- **Avocat du diable, chiffré** :
+  - **grille TL et manager** : une équipe pile à 3 000 visites payées, six VA à 500, coûte 150 + 60 + 75 = **285 $, soit 0,095 $ la visite**, contre **0,06 à 0,07 $ de marge agence par visite sur OnlyFans seul** (repère du vault, à vérifier). Le 3 000e clic vaut 75 $ à lui seul. Réaliste (25 % de producteurs) : 0,073 à 0,080 $ la visite, encore au-dessus. La hiérarchie n'est rentable que si MYM ajoute au moins 0,08 $ par visite : spéculatif. Fraude : un clic acheté coûte 0,005 à 0,01 $, pousser un VA de 450 à 500 rapporte 25 à 50 fois la mise au TL. Garde-fous codés : TL hors de son équipe, une seule mesure (visites payées), équipe figée à la clôture, prime « à vérifier » sans preuve, contrôle de 5 abonnés ([[Team Leader clippers - le premier poste après Jonas (9 octobre 2026)|la fiche TL]]) ;
+  - **parcours** : un clipper qui n'écrit jamais sur WhatsApp a quand même son compte 1 ; les groupes WhatsApp restent créés à la main par toi, c'est le goulot humain à 10 recrues par jour ;
+  - **codes** : le filtre n'empêche pas un clipper de changer le mot de passe dans l'app, ni de le réinitialiser par SMS avec son propre numéro ;
+  - **juridique** : des TL chargés de « faire publier » et un manager payé sur plusieurs équipes rapprochent du salariat déguisé ([[Conformité recrutement (droit FR, RGPD, CGU)|conformité]]) : avis d'un expert avant le premier manager payé.
+
+- **Dette CGU, à dire, pas à normaliser** ([[Risques légaux et éthiques de l'OFM]]) : comptes Instagram de l'agence distribués et repris d'un sortant, trois comptes par personne sur le même contenu, relais des codes, collecte Apify. Mineurs : « 18 ans minimum », âge obligatoire, alerte « mineur » qui ne peut plus se perdre en silence.
+
+- **Prédictions (écrites le 11/10, avant le déploiement ; à mesurer à partir du déploiement s'il a lieu après le 13/10)**, statut à vérifier :
+  - **Codes** : au 25/10, **0 code de modification** (mot de passe, e-mail, numéro, double authentification, récupération) relayé à un clipper — **90 %** ; et au moins **90 % des codes de connexion ou de création** donnés sans ton intervention — **65 %**. Mesure : lignes « code non classé » du salon admin contre codes donnés (journal du lecteur).
+  - **Parcours** : au 25/10, **délai médian arrivée sur Discord → compte 1 créé sous 2 h** pour les arrivés après le déploiement — **55 %** ; au 08/11, au moins 30 % des arrivés du 13 au 25/10 ont leur app en moins de 7 jours — **40 %**. Mesure : dates « bienvenue », « 1_fait » et « 7 » de `parcours.json`.
+  - **Goulot** : avant le 25/10, `!annonce` répond « 0 place » au moins une fois — **80 %** (forfait GAML à 49 sur 50). Si ça n'arrive pas, c'est que le recrutement, pas le stock, est le frein.
+  - **Grille TL** : sur la quinzaine du 20/10 au 04/11, au moins un TL touche une prime de VA (un VA à 500 ou plus) — **60 %** ; au moins une équipe atteint 3 000 visites payées, TL exclu — **20 %** (équipes de 5 VA, 0 à 1 au seuil aujourd'hui). Revue le 05/11.
+  - **Manager** : au 20/12, aucune équipe n'a fait 3 000 deux quinzaines de suite, donc aucun manager à nommer selon la règle — **80 %**.
+  - [[Excès de confiance|Calibration]] : si la prédiction « compte 1 sous 2 h » échoue, l'attente retirée n'était pas le frein, la motivation à l'arrivée l'est.
+
+- **Reste à faire** : déployer (variables Railway au README du bot), fermer les 3 anciens formulaires Google, trancher le forfait GAML et `PLACES_GAML_ATTRIBUTION` (1 recommandé tant qu'il n'est pas monté). Vague 2 : relectures du dashboard à 12, 14, 16, 18, 20 et 22 h, nouvelles colonnes, primes TL et manager sur la paie du 5 et du 20. Détail technique : [[Bot FAQ clippers (Discord)]], README du bot (« 10/10 et 11/10 : ce qui change pour toi »).
+
 ### 2026-10-09 (funnel) — Funnel ouvert : test de montage et Drive perso retirés
 
 > [!tip] Verdict

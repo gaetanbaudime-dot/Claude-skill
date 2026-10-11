@@ -267,10 +267,9 @@ LIGNE_APP = "📱 Ton app clipper te montre tes visites et tes gains, jour par j
 LIGNE_LIEN = ("🔗 **Ton lien**, sur ton compte privé `{cprive}` : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n"
               "```\n{lien}\n```\n\n")
 # 10/10 (revue du recrutement : « jusqu'à 10 Reels par jour » contredisait la règle 5 du formulaire, 2 Reels par jour, et le scan
-# qui ne lit que les 12 derniers posts) : la suite de la routine à J+7 (TEXTE_ROUTINE2) est supprimée. ROUTINE2_JOURS reste
-# seulement parce qu'envoyer_etape (lot L3) et demarrer_routine programment encore un élément « routine2 » : programme_du_jour le
-# retire sans message. À retirer avec ces deux lignes après la fusion.
-ROUTINE2_JOURS = int(os.environ.get("PARCOURS_ROUTINE2_JOURS", "7") or 7)
+# qui ne lit que les 12 derniers posts) : la suite de la routine à J+7 (TEXTE_ROUTINE2) est supprimée. 11/10 (lot W) : plus rien
+# ne programme « routine2 » (ROUTINE2_JOURS et PARCOURS_ROUTINE2_JOURS retirés) ; programme_du_jour retire encore sans message les
+# éléments « routine2 » des fiches d'avant le déploiement.
 # 10/10 (Gaëtan : le 3e compte « avec le lien GAML + l'application de clippeur ») : au « ✅ Profil fait » du privé, la story à la une
 # part sans bouton, juste avant la routine et l'app (étape 7). Plus d'étape 6 qui retenait l'app jusqu'à 24 h.
 TEXTE_STORY = ("📌 **Une fois, maintenant : ta story à la une.**\n\n"
@@ -1150,6 +1149,9 @@ def _vue(guild, uid: str, n: int, ctx: dict, fiche_p: dict = None):
 # au compte suivant, un message au clipper et une ligne à l'admin, une fois, et un nouvel essai au tour suivant du programme.
 # 11/10 (vérification : « Rien à faire d'ici là » contredisait les 2 Reels par jour sur ses comptes déjà ouverts)
 TEXTE_COMPTE_ATTENDU = "⏳ Ton compte {n} arrive dès qu'il est prêt.\n\nD'ici là, continue tes 2 Reels par jour."
+# 11/10 (lot W) : ce que l'assistant et `!memoire` disent du même compte (etat_des_comptes, contexte_court)
+TEXTE_ATTENTE_LIGNE = ("pas encore ouvert : il attend une ligne libre du classeur et arrive tout seul dès qu'il est prêt ; rien à "
+                       "faire d'ici là, sauf 2 Reels par jour sur ses comptes qui publient")
 
 
 async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
@@ -1198,9 +1200,17 @@ async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
     return False
 
 
+# 11/10 (lot W, contre-vérifications des lots L1 et L3 : l'élément « ligne » remis échu tout de suite était retenté à chaque tour
+# léger de 10 min, soit 6 lectures du classeur des logins par heure et par clipper en attente) : sans ligne libre, le nouvel essai
+# a lieu LIGNE_REESSAI_MIN minutes plus tard. Le compte part au plus 30 min après qu'une ligne se libère (`!etape @x n` : tout de
+# suite). Classeur illisible : nouvel essai au tour suivant, comme avant.
+LIGNE_REESSAI_MIN = max(1, int(os.environ.get("PARCOURS_LIGNE_REESSAI_MIN", "30") or 30))
+
+
 def _garder_au_programme(uid: str, n: int, noter: bool = False) -> bool:
     """L'étape n n'est pas partie : elle redevient l'étape attendue (pas de date « n », l'étape pointée sur n) et reste au programme,
-    échue tout de suite (le tour suivant la retente). `noter` : pose « ligne_attendue » = n ; vrai seulement si elle n'y était pas
+    échue tout de suite si le classeur était illisible (le tour suivant la retente), LIGNE_REESSAI_MIN minutes plus tard s'il n'y
+    avait pas de ligne libre (`noter`). `noter` : pose « ligne_attendue » = n ; vrai seulement si elle n'y était pas
     (le message et la ligne admin partent alors, une seule fois).
     11/10 (vérification : `!etape @x 3` forcé sans ligne retombait derrière les 4 Reels que le staff voulait sauter) : l'élément
     remis au programme est marqué « ligne » — il avait passé la règle des Reels, ou le staff l'a forcé ; _programme_du_jour le fait
@@ -1212,7 +1222,9 @@ def _garder_au_programme(uid: str, n: int, noter: bool = False) -> bool:
     f.setdefault("dates", {}).pop(str(n), None)                         # forcer_etape l'avait datée : rien n'est parti
     f["etape"] = n
     f["programme"] = [x for x in f.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) == n)]
-    f["programme"].append({"quand": _maintenant(), "type": "etape", "n": n, "ligne": True})
+    quand = _maintenant() if not noter else \
+        (datetime.now(timezone.utc) + timedelta(minutes=LIGNE_REESSAI_MIN)).isoformat(timespec="seconds")
+    f["programme"].append({"quand": quand, "type": "etape", "n": n, "ligne": True})
     nouveau = noter and f.get("ligne_attendue") != n
     if nouveau:
         f["ligne_attendue"] = n
@@ -1265,7 +1277,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         fiche_p["bienvenue_ok"] = fiche_p.get("bienvenue_ok") or _maintenant()
         fiche_p["programme"] = [x for x in fiche_p.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) == 1)]
     # 10/10 (revue du recrutement : la routine J+7, « jusqu'à 10 Reels par jour », contredit la règle des 2 Reels par jour) : plus de
-    # « routine2 » programmée ici (le lot L1 retire TEXTE_ROUTINE2 et son envoi ; ROUTINE2_JOURS ne sert plus qu'à demarrer_routine)
+    # « routine2 » programmée ici (ni dans demarrer_routine depuis le 11/10)
     _ecrire(d)
     if n == 1:
         await _retirer_pret(salon, uid, fiche_p)
@@ -1545,17 +1557,29 @@ async def demarrer_routine(salon, membre, creatrice: str) -> None:
     fiche_p = d.get(uid)
     if fiche_p and fiche_p.get("etape", 0) >= 7:
         return
-    # 09/10 (revue : seul envoyer_etape(7) programmait la suite de la routine, l'ancien mis en routine n'apprenait plus jamais « 1 Reel
-    # de plus » ni `!parrain`) : la même suite, ROUTINE2_JOURS jours plus tard
-    quand = (datetime.now(timezone.utc) + timedelta(days=ROUTINE2_JOURS)).isoformat(timespec="seconds")
+    # 11/10 (lot W) : plus de « routine2 » programmée (la suite à J+7, « jusqu'à 10 Reels par jour », est supprimée depuis le
+    # 10/10 : elle contredisait la règle des 2 Reels par jour). Une trace « routine2 » déjà reçue reste sur la fiche.
     d[uid] = {"prenom": _prenom(membre),
               "creatrice": creatrice, "salon_id": str(salon.id), "etape": 7, "dates": {"7": _maintenant()},
-              "notes": (fiche_p or {}).get("notes", []),
-              "programme": [] if (fiche_p or {}).get("routine2") else [{"quand": quand, "type": "routine2"}]}
+              "notes": (fiche_p or {}).get("notes", []), "programme": []}
     if (fiche_p or {}).get("routine2"):
-        d[uid]["routine2"] = fiche_p["routine2"]                         # déjà reçue : jamais deux fois
+        d[uid]["routine2"] = fiche_p["routine2"]
     _ecrire(d)
     await _envoyer_routine(salon, membre, uid)                          # 09/10 : la routine et son app, en UN message
+
+
+DOUBLE_APPUI_MIN = 10                                                   # 11/10 : un 2e appui dans les 10 min ne dit rien
+
+
+def _ferme_il_y_a_peu(fiche_p: dict, n: int, maintenant=None) -> bool:
+    """L'étape n de cette fiche a été fermée (« n_fait ») il y a moins de DOUBLE_APPUI_MIN minutes."""
+    try:
+        quand = datetime.fromisoformat(str((fiche_p.get("dates") or {}).get(f"{int(n)}_fait") or ""))
+    except ValueError:
+        return False
+    if quand.tzinfo is None:
+        quand = quand.replace(tzinfo=timezone.utc)
+    return (maintenant or datetime.now(timezone.utc)) - quand < timedelta(minutes=DOUBLE_APPUI_MIN)
 
 
 async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool = False) -> bool:
@@ -1586,6 +1610,12 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
     if (creation and fiche_p and int(n) in (1, 2, 3) and int(fiche_p.get("etape", 0) or 0) != int(n)
             and (fiche_p.get("dates") or {}).get(f"{int(n)}_fait")):
         return True                                                     # 10/10 : 2e appui de création, l'étape est déjà fermée
+    if (not creation and par == str(uid) and fiche_p and int(n) in (1, 2, 3) and int(fiche_p.get("etape", 0) or 0) != int(n)
+            and _ferme_il_y_a_peu(fiche_p, n)):
+        # 11/10 (lot W, contre-vérification du lot L1 : double appui sur « ✅ Profil fait » du privé) : le 1er appui a fermé
+        # l'étape et envoyé la story ; le 2e ne dit plus « Ce bouton n'est plus valable » juste sous la story. Seulement le
+        # clipper lui-même et une fermeture de moins de DOUBLE_APPUI_MIN minutes : un vieux bouton garde son refus.
+        return True
     if not fiche_p or int(fiche_p.get("etape", 0)) != int(n):
         return False
     if not (fiche_p.get("dates") or {}).get(str(n)):
@@ -1719,23 +1749,31 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
         # (étape 7, déjà posée ci-dessus). Le lien, si le profil du privé est parti sans lui, part avant, à part.
         # 11/10 (vérification L1 : forfait GAML plein à l'ouverture du compte 3, lien libéré ensuite ; l'ancienne étape 6 refaisait
         # un essai, la routine partait ici sans lien ni app, jusqu'à 6 h d'attente) : un nouvel essai, un seul, s'il manque encore.
-        if not str(_onb(uid).get("lien") or "") and _deps.get("attribuer_lien"):
-            try:
-                await _deps["attribuer_lien"](membre)
-            except Exception as erreur:                                 # noqa: BLE001 — sans lien, la story et la routine partent
-                journal.warning("Lien GAML pour %s au profil du privé : %s", uid, erreur)
-        try:
-            ctx = await _contexte(getattr(salon, "guild", None), str(uid), _lire().get(str(uid)) or fiche_p)
-            if ctx.get("ligne_lien"):
-                await salon.send((f"{membre.mention} " + ctx["ligne_lien"].strip())[:1990])
-            await salon.send((f"{membre.mention} " + _rendre(TEXTE_STORY, ctx))[:1990])
-        except (discord.Forbidden, discord.HTTPException) as erreur:  # la routine et l'app partent quand même
-            journal.warning("Story à la une de %s : %s", uid, erreur)
-        await envoyer_etape(salon, membre, 7)
+        await story_puis_app(salon, membre, str(uid), fiche_p)
         return True
     if n + 1 in ETAPES:
         await envoyer_etape(salon, membre, n + 1)                      # 09/10 : n = 6 → l'étape 7, la routine avec l'app
     return True
+
+
+async def story_puis_app(salon, membre, uid: str, fiche_p: dict = None) -> None:
+    """10/10 : après le profil du privé, sans bouton : le lien s'il manque (un nouvel essai GAML, un seul), la story à la une
+    (TEXTE_STORY), puis la routine et l'app (étape 7). 11/10 (lot W) : sortie de valider_etape pour servir aussi à l'ancien repris
+    d'après le classeur avec ses 3 comptes créés (demarrer_selon_classeur), qui n'attend plus d'étape 6 à bouton."""
+    uid = str(uid)
+    if not str(_onb(uid).get("lien") or "") and _deps.get("attribuer_lien"):
+        try:
+            await _deps["attribuer_lien"](membre)
+        except Exception as erreur:                                     # noqa: BLE001 — sans lien, la story et la routine partent
+            journal.warning("Lien GAML pour %s au profil du privé : %s", uid, erreur)
+    try:
+        ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or fiche_p or {"prenom": _prenom(membre)})
+        if ctx.get("ligne_lien"):
+            await salon.send((f"{membre.mention} " + ctx["ligne_lien"].strip())[:1990])
+        await salon.send((f"{membre.mention} " + _rendre(TEXTE_STORY, ctx))[:1990])
+    except (discord.Forbidden, discord.HTTPException) as erreur:      # la routine et l'app partent quand même
+        journal.warning("Story à la une de %s : %s", uid, erreur)
+    await envoyer_etape(salon, membre, 7)
 
 
 async def _retirer_bouton(salon, mid) -> None:
@@ -2505,11 +2543,18 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
         nom = f"compte {i}" + (f" `{h}`" if h else "")
         if _est_ban(h, fiche_p):
             # 01/10 (relecture) : le salon des codes nommé, plus « `!code` » seul (l'assistant disait « tape !code » au salon perso)
-            parts.append(f"{nom} : BAN, il fait appel lui-même (Contester la décision, code dans #{codes_2fa.SALON_CODES_NOM} avec !code, "
+            # 11/10 (lot W, règle des codes du 10/10) : le code de l'appel est gardé par défaut (CODES_APPEL=0) ; plus de « !code »
+            code_appel = (f"code dans #{codes_2fa.SALON_CODES_NOM} avec le bouton « 📩 Mon code »" if codes_2fa.CODES_APPEL else
+                          "le code de l'appel ne passe pas par le bot : il arrive chez l'équipe, qui lui répond dans son salon perso")
+            parts.append(f"{nom} : BAN, il fait appel lui-même (Contester la décision ; {code_appel} ; "
                          "selfie, son numéro ou sa pièce d'identité si demandés)")
             continue
         if not _cree(fiche_p, i):
-            if a and a[0] == i:                                         # 01/10 : la règle unique, sans date promise
+            if a and a[0] == i and fiche_p.get("ligne_attendue") == i:
+                # 11/10 (lot W, contre-vérification du lot L3 : l'assistant parlait des 48 h et des Reels à un clipper qui les avait,
+                # alors que le bot lui avait écrit « Ton compte n arrive dès qu'il est prêt »)
+                parts.append(f"{nom} : {TEXTE_ATTENTE_LIGNE}" + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
+            elif a and a[0] == i:                                       # 01/10 : la règle unique, sans date promise
                 parts.append(f"{nom} : pas encore ouvert, il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {i - 1}, "
                              f"dès que le scan voit {condition_texte(uid, fiche_p, i)}"
                              + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
@@ -2618,6 +2663,8 @@ def prochaine_etape(salon_id, maintenant=None) -> str:
                 return texte_bloque(m)[0].lower() + texte_bloque(m)[1:]
             srcs = [src for src, _ in reels_detail(uid, fiche_p, a[0])] or [source_reels(fiche_p, a[0])]
             ou = " et ".join(f"ton compte {x}" for x in srcs)
+            if fiche_p.get("ligne_attendue") == a[0]:                  # 11/10 (lot W) : le texte de son message d'attente
+                return f"ton compte {a[0]} arrive dès qu'il est prêt. D'ici là : 2 Reels par jour sur {ou}."
             if reels_pour(uid, fiche_p, a[0]) >= REELS_OUVERTURE:
                 return f"ton compte {a[0]} arrive ici le {_date_fr(a[1])}. D'ici là : 2 Reels par jour sur {ou}."
             if maintenant < a[1]:
@@ -2746,7 +2793,9 @@ def contexte_court(uid: str) -> str:
     elif n in ETAPES:
         etape = titre_etape(fiche_p, n)
         a = attente(fiche_p)
-        if a and a[0] == n:
+        if a and a[0] == n and fiche_p.get("ligne_attendue") == n:     # 11/10 (lot W) : il attend une ligne, pas ses Reels
+            etape = f"attente du compte {n}, {TEXTE_ATTENTE_LIGNE}"
+        elif a and a[0] == n:
             etape = (f"attente du compte {n} : il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, dès que "
                      f"le scan voit {condition_texte(uid, fiche_p, n)}")
     else:
@@ -2851,6 +2900,24 @@ async def demarrer_selon_classeur(salon, membre, creatrice: str, etats_par_handl
         await demarrer_parcours(salon, membre, creatrice)
     elif n == 7:
         await demarrer_routine(salon, membre, creatrice)
+    elif n == 6:
+        # 11/10 (lot W, contre-vérification du lot L1 : l'ancien repris avec ses 3 comptes créés recevait encore la story à bouton
+        # et attendait son app jusqu'à 24 h) : comme un nouveau au « Profil fait » du privé, la story sans bouton, puis la routine
+        # et l'app. Déjà à l'étape 6 ou au-delà (envoyée) : rien n'est renvoyé, comme forcer_etape.
+        uid = str(membre.id)
+        d = _lire()
+        deja = d.get(uid) or {}
+        e = int(deja.get("etape", 0) or 0)
+        if e >= 6 and (deja.get("dates") or {}).get(str(e)):
+            journal.info("Étape %s de %s déjà envoyée : pas de story renvoyée", e, uid)
+            return n
+        fiche_p = d.setdefault(uid, {"prenom": _prenom(membre), "creatrice": creatrice, "salon_id": str(salon.id), "etape": 0,
+                                     "dates": {}, "notes": []})
+        fiche_p.update({"etape": 7, "salon_id": str(salon.id), "creatrice": creatrice or fiche_p.get("creatrice", "")})
+        fiche_p.setdefault("dates", {})["6"] = _maintenant()            # le lien donné : controler_liens_bio compte de là
+        fiche_p.pop("warmup_jour", None)
+        _ecrire(d)
+        await story_puis_app(salon, membre, uid, fiche_p)
     else:
         await forcer_etape(salon, membre, creatrice, n)
     return n

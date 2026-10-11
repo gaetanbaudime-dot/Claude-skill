@@ -198,10 +198,5 @@ async def commande(message, texte: str) -> bool:
     return True
 
 
-async def boucle(client):
-    """10/10 (revue du recrutement, L9a) : plus de liste quotidienne au salon admin. Le goulot est le stock de comptes livrables :
-    relancer chaque matin les candidats sans quizz allongeait seulement la file d'attente. `!relances` reste, à la main. Inerte
-    jusqu'à ce que le lot W retire sa tâche du démarrage."""
-    await client.wait_until_ready()
-    journal.info("Relances Telegram : plus de passage quotidien (10/10), `!relances` à la main")
-    return None
+# 11/10 (lot W) : la boucle du matin (bouchon inerte depuis le 10/10, L9a) est supprimée avec sa tâche de démarrage ; `!relances`
+# reste, à la main.

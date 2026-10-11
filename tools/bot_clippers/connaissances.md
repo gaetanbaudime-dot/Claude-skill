@@ -22,7 +22,7 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 1. Publier tous les jours, sans rater un jour. Le début est une traversée du désert : un Reel finit par marcher et fait boule de neige. Ceux qui s'arrêtent avant n'y arrivent jamais.
 2. Publier beaucoup. 2 Reels par jour sur chaque compte qui publie, tous les jours : c'est la règle de l'équipe. On publie plus que les autres, on teste plus, on refait ce qui marche.
 3. Décliner ce qui marche : un Reel qui marche donne 5 versions (filtre, durée, son, texte, sous-titres).
-4. Protéger tes comptes : contenu soft, cadence qui monte doucement, pas d'actions en rafale, un compte à la fois.
+4. Protéger tes comptes : contenu soft, 2 Reels par jour et pas plus, pas d'actions en rafale, un compte à la fois.
 5. Transformer les vues en clics : un profil beau, des posts épinglés, une belle bio, ta story à la une, un public français. C'est ça qui te paie.
 
 ## LE PARCOURS (du formulaire à ton app) — version du 9 octobre 2026
@@ -33,11 +33,11 @@ Une étape à la fois. Le bot te donne la suivante quand tu as fini celle-ci.
 2. **La vidéo de formation** (15 minutes) : le lien direct est https://www.loom.com/share/e7ffb70f9bd44d99b437ed8844e0e409 (aussi dans le post « Bienvenue » du forum formation). Quand on me demande « où est la vidéo ? », je donne ce lien, rien d'autre. Tu la regardes en entier. 5 mots-clés sont cachés dedans, tu les notes dans l'ordre. Je ne les donne jamais.
 3. **Le quizz**, sur le site, juste après la vidéo (`!quiz` redonne ton lien). 10 questions : les 5 mots-clés à écrire, et 5 questions sur la vidéo. Il faut **8 bonnes réponses sur 10**. Deux essais. Deux essais ratés : tu reviens 24 h plus tard, avec le même lien.
 4. **Le Discord** : quizz réussi, tu es dans l'agence. Le bouton du site t'amène sur le serveur, dans ton salon perso. **Il n'y a plus de test vidéo à rendre depuis le 9 octobre 2026.**
-5. **Ton message de bienvenue**, dans ton salon perso, dans la minute : ta créatrice, le lien de ses vidéos en qualité d'origine, et un bouton WhatsApp pour rejoindre le groupe. C'est fait ? Appuie sur ✅. Ton compte 1 arrive juste en dessous, sans attendre (10 octobre 2026). Toutes les créatrices sont pleines ? Le bot te dit que ta créatrice arrive dès qu'un compte est prêt pour toi : rien à faire d'ici là.
-6. **Ton compte 1** : l'identifiant, l'e-mail et le mot de passe. Tu le crées sur ton téléphone, tu appuies sur ✅. Puis ton profil : photo, nom, bio. Puis 24 h de warm-up. Puis il publie 2 Reels par jour.
+5. **Ton message de bienvenue**, dans ton salon perso, dans la minute : ta créatrice, le lien de ses vidéos en qualité d'origine, et un bouton WhatsApp pour rejoindre le groupe. Écris à Gaëtan avec ce bouton, puis appuie sur « ✅ J'ai écrit à Gaëtan ». Ton compte 1 n'attend pas ce bouton : il arrive juste en dessous, tout de suite (10 octobre 2026). Toutes les créatrices sont pleines ? Le bot te dit que ta créatrice arrive dès qu'un compte est prêt pour toi : rien à faire d'ici là.
+6. **Ton compte 1** : l'identifiant, l'e-mail et le mot de passe. Tu le crées sur ton téléphone, tu appuies sur « ✅ Compte 1 créé ». Puis un seul message pour ton profil : photo, nom, bio, et le warm-up de 24 h. Pas d'autre bouton. Puis le bot te dit qu'il peut publier : 2 Reels par jour.
 7. **Ton compte 2** arrive tout seul quand le bot voit 4 Reels sur ton compte 1, au plus tôt 48 h après lui. Même chose : création, profil, 24 h de warm-up, 2 Reels par jour.
-8. **Ton compte 3, le privé**, arrive quand le bot voit 4 Reels sur ton compte 2 et 4 de plus sur ton compte 1. Il ne publie pas. Il porte ton lien, dans son champ « Liens ». Puis une story à la une sur tes comptes 1 et 2.
-9. **Ton app de clippeur** arrive avec ton compte 3, dès que son profil est fait, en même temps que la consigne de la story à la une (10 octobre 2026). Elle te montre tes visites et tes gains, jour par jour.
+8. **Ton compte 3, le privé**, arrive quand le bot voit 4 Reels sur ton compte 2 et 4 de plus sur ton compte 1. Il ne publie pas. Son profil porte ton lien, dans son champ « Liens ». Tu le passes en privé, puis tu appuies sur « ✅ Profil fait ».
+9. **Ta story à la une et ton app de clippeur** arrivent ensemble, dès ce « ✅ Profil fait » (10 octobre 2026) : une story sur tes comptes 1 et 2 avec le widget de mention du privé, mise à la une, une seule fois. L'app te montre tes visites et tes gains, jour par jour. Plus aucun message à J+7 : la règle reste 2 Reels par jour.
 
 Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Le bot te donne le code reçu sur l'e-mail de ton compte, visible par toi seul : seulement pour te connecter ou créer un compte.
 
