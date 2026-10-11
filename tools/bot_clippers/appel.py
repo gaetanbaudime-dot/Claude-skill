@@ -27,6 +27,8 @@ et sans visites, sort même s'il publie (coût accepté le 05/10 : « ceux qui p
 - clipper non mesuré : l'appel reste OUVERT (une seule ligne ⏸️ au salon admin, drapeau `non_mesure_signale`), une réponse le
   solde toujours ; il est jugé au premier passage où le scan lit ses comptes, et l'appel n'est clos sans sortie (`non_mesure`)
   qu'après APPEL_MESURE_ATTENTE jours (7) sans mesure. Jamais un deuxième appel pendant ce temps.
+Mesure illisible depuis APPEL_ILLISIBLE_ALERTE_H heures (6) d'affilée : une ligne ⚠️ au salon admin (« appel suspendu »), puis une
+par jour tant que ça dure, et une ligne ✅ quand elle revient (état `illisible` dans appel.json, visible dans `!appel`).
 Branchements à GARDER au démarrage (lot W, amendement B) : `import appel`, appel.configurer, parcours._deps["activite"] =
 appel.noter_activite, la tâche appel.boucle, appel.noter_activite et appel.commande dans on_message, `!appel` et `!purge` dans
 COMMANDES_MANAGER."""
@@ -68,6 +70,9 @@ VISITES_ACTIF = int(os.environ.get("APPEL_VISITES_ACTIF", "5") or 5)
 # 11/10 (revue de L9a) : un appel échu sur un clipper non mesuré attend la mesure du scan au plus ce nombre de jours, puis il est
 # clos sans sortie
 MESURE_ATTENTE = int(os.environ.get("APPEL_MESURE_ATTENTE", "7") or 7)
+# 11/10 (rejeu de L9a) : mesure du scan illisible depuis ce nombre d'heures d'affilée → une ligne au salon admin (puis une par jour
+# tant que ça dure) : l'appel est suspendu, Gaëtan doit le savoir. Une panne d'un passage ne fait pas de bruit.
+ILLISIBLE_ALERTE_H = int(os.environ.get("APPEL_ILLISIBLE_ALERTE_H", "6") or 6)
 
 
 def configurer(deps: dict):
@@ -322,10 +327,12 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
     parcours = _deps["parcours_lire"]() if _deps.get("parcours_lire") else {}
     expires = a_sortir(d, maintenant)
     sans_reel, mesures = None, None
+    scan_lu = False
 
     async def _scan():
         """10/10 (L9a) : le silence Instagram ({uid: jours}) et la mesure ({uid: lu ?}), lus une fois par passage."""
-        nonlocal sans_reel, mesures
+        nonlocal sans_reel, mesures, scan_lu
+        scan_lu = True
         try:
             sans_reel = await _deps["jours_sans_reel"]() if _deps.get("jours_sans_reel") else {}
         except Exception as erreur:                                     # noqa: BLE001
@@ -431,7 +438,38 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
             bilan += [f"📢 {p} : inactif, appelé (réponse attendue sous {HEURES} h)" for p in appeles]
         elif lents:
             bilan += [f"· {_deps['prenom_de'](m) if _deps.get('prenom_de') else m.id} : inactif depuis {j} j → serait appelé" for _, m, j in lents]
+    # 4. 11/10 (rejeu de L9a) : une mesure illisible qui dure suspend l'appel ; Gaëtan le sait (avant : 3 jours sans une ligne)
+    if appliquer and scan_lu:
+        bilan += _suivi_illisible(sans_reel is None or mesures is None, maintenant)
     return bilan
+
+
+def _suivi_illisible(illisible: bool, maintenant) -> list:
+    """11/10 (rejeu de L9a) : la mesure du scan est illisible (classeur ou scan en panne) depuis ILLISIBLE_ALERTE_H heures d'affilée
+    → une ligne ⚠️ au salon admin, puis une par 24 h tant que ça dure ; une ligne ✅ quand elle revient, seulement si un ⚠️ est
+    parti. État dans appel.json : {"illisible": {depuis, signale}}. Une panne d'un seul passage ne fait aucun bruit."""
+    d = _lire()
+    etat = d.get("illisible") or {}
+    if not illisible:
+        if not etat:
+            return []
+        d.pop("illisible", None); _ecrire(d)
+        return (["✅ Mesure du scan relue : l'appel de présence reprend, les appels échus sont jugés à partir de ce passage"]
+                if etat.get("signale") else [])
+    depuis = _dt(etat.get("depuis"))
+    if depuis is None:
+        d["illisible"] = {"depuis": _iso(maintenant)}; _ecrire(d)
+        return []
+    signale = _dt(etat.get("signale"))
+    if maintenant - depuis < timedelta(hours=ILLISIBLE_ALERTE_H) or (
+            signale is not None and maintenant - signale < timedelta(hours=24)):
+        return []
+    etat["signale"] = _iso(maintenant); d["illisible"] = etat; _ecrire(d)
+    echus = len(a_sortir(d, maintenant))
+    heures = int((maintenant - depuis).total_seconds() // 3600)
+    return [f"⚠️ Appel de présence suspendu : la mesure du scan est illisible depuis {heures} h (classeur ou scan en panne). "
+            "Personne n'est appelé ni sorti" + (f", {echus} appel(s) échu(s) en attente" if echus else "")
+            + ". Il reprend tout seul dès que la mesure revient."]
 
 
 async def appel_general(client) -> list:
@@ -562,6 +600,10 @@ def etat_texte(maintenant=None) -> str:
     nm = d.get("non_mesures") or {}
     if nm.get("prenoms"):
         lignes.append(f"⏸️ Non mesurés au dernier passage ({len(nm['prenoms'])}) : " + ", ".join(nm["prenoms"][:25]))
+    ill = _dt((d.get("illisible") or {}).get("depuis"))
+    if ill is not None:                                                 # 11/10 (rejeu de L9a) : l'appel est suspendu, on le dit
+        lignes.append(f"⚠️ Mesure du scan illisible depuis {max(0, int((maintenant - ill).total_seconds() // 3600))} h : "
+                      "personne n'est appelé ni sorti tant qu'elle ne revient pas")
     lignes.append(f"-# Règle : {HEURES} h pour répondre, inactif {INACTIF_JOURS} j = appelé, expulsion {'ON' if KICK else 'OFF'}. "
                   "Non mesuré (le scan ne lit pas ses comptes) = pas d'appel ; un appel échu attend la mesure, "
                   f"clos sans sortie après {MESURE_ATTENTE} j. "
