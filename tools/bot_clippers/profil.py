@@ -199,13 +199,15 @@ def texte_bio(n: int, bio: str, nom: str = "") -> str:
     return tete + f"✏️ Bio :\n```\n{bio}\n```"
 
 
-async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str = "", prive=None):
+async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str = "", prive=None, suite: str = ""):
     """30/09 (Gaëtan : « arrête de spammer les clippeurs ») : le profil du compte n en UN message — la photo en pièce jointe
     (ou le lien du dossier Photos), le nom et la bio prêts à coller, et le bouton `vue`. Renvoie le message envoyé, None sinon.
     05/10 : le compte 3 est privé et porte le lien dans sa bio (`lien`) ; les comptes 1 et 2 n'ont ni lien ni @.
     08/10 (privé en 2) : `prive` dit si CE compte est le privé (le 2 pour les nouveaux parcours) ; sans lien encore prêt, il passe
     en privé quand même et le lien arrive dans le salon. 09/10 : le texte de l'étape 11 du funnel (« Passe-le en privé », « 🔗 Ton
-    lien », « Fait ? Appuie sur ✅. »), aéré ; c'est le SEUL endroit où le lien GAML est donné."""
+    lien », « Fait ? Appuie sur ✅. »), aéré ; c'est le SEUL endroit où le lien GAML est donné.
+    10/10 (revue du recrutement) : `suite`, le texte qui finit le message à la place de « Fait ? Appuie sur ✅. » — un compte qui
+    publie n'a plus de bouton « Profil fait » : son profil finit par le warm-up (parcours.TEXTE_WARMUP_PROFIL)."""
     if not ACTIF or salon is None or not creatrice:
         return None
     photo = await photo_pour(creatrice)
@@ -220,6 +222,7 @@ async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str =
         tete = "📷 Photo : celle-ci, télécharge-la."
     bio = bio_pour(creatrice)
     prive = (n == 3) if prive is None else bool(prive)
+    action = str(suite or "").strip() or "Fait ? Appuie sur ✅."          # 10/10 : sans bouton, la suite (le warm-up)
     # 09/10 (Gaëtan : « Saute des lignes, aère ») : une ligne vide entre chaque paragraphe, une action, le bouton ✅
     if prive:
         # 08/10 (checkup) : le lien va dans le champ « Liens » du profil (le seul lien cliquable d'un profil, visible même sur un
@@ -227,9 +230,9 @@ async def envoyer(salon, uid: str, n: int, creatrice: str, vue=None, lien: str =
         fin = ("Passe-le en privé : Réglages → Confidentialité du compte → Compte privé.\n\n"
                + (f"🔗 Ton lien : Modifier le profil → **Liens** → Ajouter un lien externe → colle :\n```\n{lien}\n```\n\n" if lien else
                   "🔗 Ton lien arrive ici dans quelques minutes. Il ira dans Modifier le profil → **Liens**.\n\n")
-               + "Fait ? Appuie sur ✅.")
+               + action)
     else:
-        fin = "Pas de lien, pas d'@.\n\nFait ? Appuie sur ✅."
+        fin = "Pas de lien, pas d'@.\n\n" + action
     texte = f"**Ton profil du compte {n}**\n\n{tete}\n\n{texte_bio(n, bio, prenom)}\n\n{fin}"
     kwargs = {"view": vue} if vue is not None else {}
     try:

@@ -8,7 +8,69 @@
 >
 > 10/10 : les codes Instagram ne sortent plus que pour la connexion et la création de compte, en privé. Voir « 10/10 : codes 2FA en liste blanche ».
 
+## 10/10 : le parcours sans attente (revue du recrutement, lot L1)
+
+Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de recrutement… 8. Ils peuvent directement créer le premier compte Instagram… 10. 4 Reels plus tard, ils peuvent créer le troisième compte Instagram avec le lien GAML plus l'application de Clipper ».
+
+> [!tip] Verdict
+> Quatre attentes et trois boutons en moins, sans toucher aux protections anti-ban. Le compte 1 part juste après la bienvenue. Le profil d'un compte qui publie dit lui-même le warm-up. L'app part avec le compte 3. La routine « jusqu'à 10 Reels par jour » est supprimée.
+>
+> On garde : 24 h de warm-up par compte, 48 h entre deux comptes, 4 Reels pour ouvrir le suivant, le bouton « Profil fait » du privé (le lien et le passage en privé).
+
+### Ce que le clipper voit maintenant
+
+1. **Bienvenue** (inchangée sur le fond) : sa créatrice, les vidéos d'origine, puis « 📲 Écris à Gaëtan sur WhatsApp avec le bouton. Il t'ajoute au groupe. C'est fait ? Appuie sur ✅. 👇 Ton compte 1 arrive juste en dessous. » Boutons : le lien WhatsApp et « ✅ J'ai écrit à Gaëtan ».
+
+2. **Le compte 1, tout de suite derrière**, titré « 📱 Ton compte 1 » (plus de « Étape 1 · »). Il n'attend plus ni le clic WhatsApp ni les 3 h.
+
+3. **« ✅ Compte 1 créé »**, puis la fenêtre « Ton @ exact ». L'étape se ferme à cet appui. UN message de profil part, sans bouton, et finit par : « 🔥 Puis 24 h de warm-up. Regarde des Reels, mets des likes, abonne-toi à 2 comptes. Pas de Reel. Je te dis ici quand il peut publier. » Plus de « ✅ Profil fait » ni de message de warm-up à part.
+
+4. **24 h plus tard**, « ✅ Ton compte 1 peut publier ». Celui qui n'a pas déclaré son WhatsApp y lit, une fois : « 📲 Pas encore écrit à Gaëtan sur WhatsApp ? Fais-le avec le bouton : il t'ajoute au groupe. » Plus de ligne « Un doute sur une vidéo ? Envoie-la ici ».
+
+5. **Compte 2** : même chose que le compte 1 (un appui, le profil avec le warm-up).
+
+6. **Compte 3, le privé** : son profil garde le lien GAML et « ✅ Profil fait ». À cet appui, deux messages sans bouton :
+
+   - « 📌 Une fois, maintenant : ta story à la une. Sur tes comptes 1 et 2 : une story avec le widget de mention @privé, puis mets-la à la une. Jamais de lien sur les comptes 1 et 2. »
+   - « 🎉 Bravo, tes 3 comptes sont en place », la routine et le bouton de l'app.
+
+   Si le profil du privé était parti sans lien (forfait GAML plein à ce moment-là), le bot refait UN essai GAML à cet appui (11/10). Le lien part alors juste avant la story, dans son propre message, et la routine part avec l'app. GAML encore plein : la story et la routine partent sans app, et l'alerte du forfait reste le filet.
+
+7. **Plus rien à J+7** : le message « 1 Reel de plus par jour, jusqu'à 10 » et `!parrain` sont retirés (ils contredisaient la règle des 2 Reels par jour).
+
+### Ce qui change pour le bot
+
+- Le programme du parcours est relu **toutes les 10 min** (`PARCOURS_TICK_MIN`), au lieu de toutes les heures. Ce tour léger ne fait que lire `parcours.json` : aucun appel Apify ni GAML tant que rien n'est échu. Le reste (profils oubliés, rattrapage de l'app, warm-up, relances) reste horaire.
+
+- `PARCOURS_BIENVENUE_H` vaut **1** par défaut et n'est plus qu'un filet : membre introuvable à l'instant de la bienvenue. Les bienvenues d'avant le 10/10, encore en attente, reçoivent leur compte 1 au tour suivant si elles ont plus d'1 h.
+
+- La fermeture automatique à 6 h (`PARCOURS_PROFIL_AUTO_H`) ne vise plus que le profil du privé, et les profils d'avant le 10/10 partis avec leur bouton.
+
+- L'étape 6 (story à la une avec bouton) n'est plus dans le déroulé. Elle sert encore à `!etape @x 6`, au message du lien des fiches « privé en 2 » du 08/10, et aux fiches déjà à l'étape 6 (fermées seules au bout de 24 h, comme avant).
+
+- « ✅ J'ai écrit à Gaëtan » donne au salon admin : « 📲 X (créatrice) dit avoir écrit sur WhatsApp : ajoute-le au groupe. » L'ancien « ✅ C'est fait » des bienvenues déjà postées marche encore.
+
+- 11/10 : une bienvenue encore en attente de son compte 1 (le filet) se lit partout « ton compte 1 arrive ici dans l'heure » : la ligne du matin, `!etape`, `!memoire` et l'assistant. Plus de « appuie sur ✅, ton compte 1 arrive juste après ». Le WhatsApp n'y est redemandé qu'à qui ne l'a pas déclaré.
+
+- 11/10 : deux « ✅ Compte n créé » coup sur coup (deux fenêtres du @, ou le scan pendant l'appui) : le 2e ne dit plus rien. Avant, il affichait « Ce bouton n'est plus valable » juste sous le profil. Seule une fermeture faite pendant cet appui compte : une étape rouverte par `!etape @x n` (son ancienne date de fermeture reste) envoie toujours son profil et se ferme à l'appui.
+
+### Railway
+
+- `PARCOURS_BIENVENUE_H` : à **retirer** s'il vaut 3 (le défaut du code est 1).
+- `PARCOURS_TICK_MIN` : nouvelle, facultative (10).
+- `PARCOURS_ROUTINE2_JOURS` : plus lue pour envoyer quoi que ce soit, à retirer.
+
+### Limites, sans fard
+
+- Un clipper qui n'écrit jamais sur WhatsApp a quand même son compte 1. Les filets : le rappel sous « peut publier », et la ligne « pas de WhatsApp » des bloqués. Gaëtan crée toujours les groupes à la main : c'est le goulot humain.
+- La story à la une n'a jamais été vérifiée (le bouton était déclaratif) : rien ne change là. `controler_liens_bio` vérifie toujours le lien.
+- Plancher jusqu'à l'app : 4 jours (deux fois la règle des 48 h), environ 5 jours à 2 Reels par jour.
+- **À trancher par Gaëtan, une fois** : le quiz (lot L2) garde « Comment augmenter ta cadence ? », dont la bonne réponse est « Chaque semaine, 1 Reel de plus par jour et par compte », et le mot-clé de la vidéo « cadence qui monte petit à petit ». Le parcours ne dit plus la montée (règle 5 : 2 Reels par jour). Recommandation : garder les 2 Reels par jour, changer la bonne réponse du quiz et le mot-clé (ou la vidéo).
+- Dette CGU, inchangée : comptes de l'agence aux identifiants distribués, trois comptes par personne sur le contenu d'une créatrice, relais des codes.
+
 ## 09/10 : le funnel simplifié
+
+> 10/10 : les étapes 6, 7, 11 et 12 ci-dessous ont changé (compte 1 sans attente, plus de « Profil fait » sur les comptes qui publient, story et app ensemble, plus de routine à J+7) : voir la section du 10/10 juste au-dessus.
 
 Gaëtan : « Go enlever le test de montage vidéo, on va ouvrir les vannes. Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice + Drive + Groupe WA > Création premier comptes > 4 Reels postés > 2 eme compte > 4 Reels postés > 3 eme compte privé + lien GAML + Application de clippeur pour suivre ses revenus ».
 
