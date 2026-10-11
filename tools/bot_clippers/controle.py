@@ -192,6 +192,22 @@ def _hote(u) -> str:
     return _url_cle(u).split("/")[0]
 
 
+def _index_par_url(liens: dict, details=()) -> dict:
+    """{URL (clé) : id du lien qu'une cellule, une bio ou une ligne désigne par cette URL}. 10/10 (reprise de la passe 3 du lot
+    DASH, même règle que dashboard._index_par_url) : deux fiches de même URL — N0 effacé de GAML, N1 qui a repris son slug (le cas
+    de _index_notes_defaut) — mènent à la fiche ACTIVE (ni `supprime_gaml` ni `desactive`), puis à la première dans l'ordre d'avant
+    (fiches de clics.json par id, puis détails GAML `details`, dont l'id est connu de `liens`). Avant : le plus petit id seul — la
+    cellule de N1 rattachée à N0 effacé, faux C6 bloquant « cellule = lien effacé de GAML », clics de la ligne en C8 et en écart.
+    Une URL que seule une fiche effacée ou désactivée porte mène toujours à elle (le C6 la signale)."""
+    candidats = [(u, str(lid)) for lid, info in sorted(liens.items()) for u in (_url_cle(info.get("url")),) if u]
+    candidats += [(u, str(d.get("id"))) for d in details or () if isinstance(d, dict) and str(d.get("id")) in liens
+                  for u in (_url_cle(d.get("url")),) if u]
+    out = {}
+    for u, lid in sorted(candidats, key=lambda x: bool(liens[x[1]].get("supprime_gaml") or liens[x[1]].get("desactive"))):
+        out.setdefault(u, lid)                                           # tri stable : l'ordre d'avant entre fiches de même état
+    return out
+
+
 def _date(t):
     try:
         return date.fromisoformat(str(t or "")[:10])
@@ -591,14 +607,9 @@ class _Ctx:
         self.notes, _ = _notes(clics, details, self.memoire.get("notes"))
         self.noms_gaml = {str(d["id"]): str(d.get("nom") or d.get("name") or "") for d in details}
         self.groupes_gaml = {str(d["id"]): str(d.get("groupe") or "") for d in details}
-        self.par_url = {}
-        for lid, info in sorted(self.liens.items()):
-            if _url_cle(info.get("url")):
-                self.par_url.setdefault(_url_cle(info.get("url")), lid)
-        for d in details:
-            lid = str(d["id"])
-            if _url_cle(d.get("url")) and lid in self.liens:
-                self.par_url.setdefault(_url_cle(d.get("url")), lid)
+        # 10/10 (reprise DASH) : une URL reprise par un nouveau lien après l'effacement de l'ancien mène au lien ACTIF (_index_par_url,
+        # même règle que le Dashboard)
+        self.par_url = _index_par_url(self.liens, details)
         self.hotes_gaml = {_hote(u) for u in self.par_url} | {_hote(d.get("url")) for d in details}
         self.hotes_gaml.discard("")
         self.cats = {lid: categorie(info, self.notes.get(lid)) for lid, info in self.liens.items()}
@@ -2091,8 +2102,7 @@ def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *
 def _lids_de(lignes_attribuees, clics: dict) -> set:
     """Les identifiants de liens portés par les lignes, quelle que soit la forme : ids, URL, dict {lid: …}, lignes {lid|lien_id|
     id|liens|lien|lien_gaml}."""
-    par_url = {_url_cle((i or {}).get("url")): str(lid) for lid, i in ((clics or {}).get("liens") or {}).items()
-               if isinstance(i, dict) and _url_cle(i.get("url"))}
+    par_url = _index_par_url({str(lid): i for lid, i in ((clics or {}).get("liens") or {}).items() if isinstance(i, dict)})
     connus = {str(lid) for lid in ((clics or {}).get("liens") or {})}
     out = set()
 
