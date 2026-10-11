@@ -1298,7 +1298,9 @@ def est_acquiescement(texte: str) -> bool:
 
 # 01/10 (Gaëtan : « Je vais bien gaetan » chez Simon, le bot a répondu à ma place) : le prénom du staff écrit en clair
 # compte comme une mention. Prénoms sans accents, en minuscules, séparés par des virgules (variable Railway PRENOMS_STAFF).
-PRENOMS_STAFF = tuple(p.strip() for p in os.environ.get("PRENOMS_STAFF", "gaetan,jonas").split(",") if p.strip())
+# 10/10 (revue du recrutement, lot L9b : le manager, c'est Gaëtan) : « gaetan » seul par défaut ; un clipper qui écrivait
+# « jonas » faisait taire l'assistant.
+PRENOMS_STAFF = tuple(p.strip() for p in os.environ.get("PRENOMS_STAFF", "gaetan").split(",") if p.strip())
 
 
 def est_staff(membre) -> bool:
@@ -4344,9 +4346,146 @@ def sources_candidatures(cands: list, lignes: list, pipe: dict) -> list:
     return sorted(compte.items(), key=lambda x: (-x[1], x[0]))
 
 
+# 10/10 (revue du recrutement, lot L9b ; Gaëtan : « simplifie, supprime toutes les étapes inutiles ») : environ 37 messages admin par
+# jour à 10 recrues, dont une douzaine utiles. UN digest le matin, au salon admin, dans cet ordre : le compteur d'hier (arrivés,
+# attribués), les bloqués s'il y en a, le bilan de la sortie automatique, les places livrables, puis ce qui attend le staff, et le
+# lundi le tableau de la semaine. Il part à DIGEST_HEURE (9 h, Paris) au plus tôt, juste après la passe du jour de la sortie
+# automatique (10 h l'été, 9 h l'hiver : elle suit le scan Instagram), à DIGEST_HEURE_MAX (11 h) au plus tard. Restent en direct :
+# WhatsApp déclaré, ban, question sans réponse, demande de numéro, mineur ou nudité, code non classé, changement fait sur un compte,
+# compte 3 sans lien GAML, budget Apify qui entame une réserve. DIGEST=0 : l'ancien découpage (bloqués à 11 h, sortie à part) revient.
+DIGEST_UNIQUE = os.environ.get("DIGEST", "1").strip() != "0"
+DIGEST_HEURE = int(os.environ.get("DIGEST_HEURE", "9") or 9)
+DIGEST_HEURE_MAX = int(os.environ.get("DIGEST_HEURE_MAX", "11") or 11)
+# La sauvegarde du dimanche va sur le volume (DONNEES/sauvegardes, un zip daté, les 4 derniers gardés), plus jamais dans Discord :
+# pipeline.json porte les numéros de téléphone, alias_codes.json les adresses des comptes.
+DOSSIER_SAUVEGARDES = DONNEES / "sauvegardes"
+SAUVEGARDES_GARDEES = 4
+# Ce qui DEVRAIT tourner et ne tourne pas au dernier démarrage (annoncer_demarrage, seul à l'écrire ; le digest le relit) : un
+# fichier à part, pour que boucle_rappels, qui réécrit rappels.json avec ce qu'elle a lu, ne l'efface jamais.
+FICHIER_DEMARRAGE = DONNEES / "demarrage.json"
+
+
+def attribues_du_jour(registre: dict, jour) -> int:
+    """10/10 (lot L9b) : les membres du registre dont la créatrice a été posée ce jour-là (Paris), toutes voies confondues
+    (attribution automatique, `!creatrice`, dépôt) : le compteur qui remplace les lignes « 🎬 X → créatrice » du salon admin."""
+    return sum(1 for f in (registre or {}).values() if isinstance(f, dict) and _jour_paris(f.get("creatrice_date")) == jour)
+
+
+def digest_peut_partir(maintenant) -> bool:
+    """10/10 (lot L9b) : le digest du matin attend la passe du jour de la sortie automatique (son bilan en fait partie), jamais
+    après DIGEST_HEURE_MAX. Sortie automatique éteinte ou DIGEST=0 : rien à attendre."""
+    if maintenant.hour < DIGEST_HEURE:
+        return False
+    if not DIGEST_UNIQUE or maintenant.hour >= DIGEST_HEURE_MAX:
+        return True
+    try:
+        return sortie_auto.passe_du_jour_faite(maintenant)
+    except Exception as erreur:                                         # noqa: BLE001 — dans le doute, on n'attend pas
+        journal.warning("Digest : passe de la sortie automatique illisible (%s)", erreur)
+        return True
+
+
+def decouper_digest(entete: str, blocs: list, limite: int = 1990) -> list:
+    """10/10 (lot L9b) : les messages d'UN digest. L'en-tête, puis les blocs séparés par une ligne vide (lisible au téléphone) ;
+    coupé entre deux blocs, ou entre deux lignes d'un bloc trop long (la liste des bloqués), pour rester sous `limite` caractères :
+    plus jamais une fin tronquée."""
+    morceaux = []
+    for bloc in blocs:
+        if not bloc:
+            continue
+        if len(bloc) <= limite:
+            morceaux.append(bloc)
+            continue
+        cur = ""
+        for ligne in bloc.split("\n"):
+            ligne = ligne[:limite]
+            if cur and len(cur) + 1 + len(ligne) > limite:
+                morceaux.append(cur)
+                cur = ligne
+            else:
+                cur = f"{cur}\n{ligne}" if cur else ligne
+        if cur:
+            morceaux.append(cur)
+    messages, cur = [], entete[:limite]
+    for m in morceaux:
+        if cur and len(cur) + 2 + len(m) > limite:
+            messages.append(cur)
+            cur = m
+        else:
+            cur = f"{cur}\n\n{m}" if cur else m
+    if cur:
+        messages.append(cur)
+    return messages
+
+
+async def bloc_places_digest() -> tuple:
+    """10/10 (lot L9b) : (texte, à agir) du bloc des places. Avec le module places (lot L3) : son texte (lignes ÷
+    ATTRIBUTION_LIGNES_MIN et liens GAML libres), à agir s'il n'y a aucune place ; classeur illisible : « places inconnues », jamais
+    un faux 0. Sans lui (avant la fusion du lot L3) : le repli des comptes livrables par créatrice, comme le 09/10."""
+    try:
+        import places as _places                                        # lot L3 ; absent avant sa fusion
+    except ImportError:
+        _places = None
+    if _places is not None and hasattr(_places, "detail") and hasattr(_places, "texte"):
+        try:
+            det = await _places.detail()
+        except Exception as erreur:                                     # noqa: BLE001 — jamais un faux 0
+            journal.warning("Digest : places livrables illisibles (%s)", erreur)
+            return f"⚠️ Places inconnues : classeur des logins illisible ({type(erreur).__name__}).", True
+        return _places.texte(det), int(det.get("places", 0) or 0) <= 0
+    livrables = await comptes_livrables_par_creatrice()
+    if not livrables:
+        return "", False
+    vides = [c for c, n in livrables.items() if n < 3]
+    return ("📦 **Comptes livrables** (3 par nouveau, le goulot) : "
+            + " · ".join(f"{c} {n}" + (" ⚠️" if n < 3 else f" → {n // 3} nouveau{'x' if n // 3 > 1 else ''}")
+                         for c, n in livrables.items())
+            + (f"\n→ Plus de place pour un nouveau chez {', '.join(vides)} (`!comptes-libres Prénom`)." if vides else "")), bool(vides)
+
+
+async def tableau_du_lundi(maintenant) -> tuple:
+    """10/10 (lot L9b) : (texte, semaine ISO) du tableau de la semaine pour le digest du lundi ; ("", semaine) si sa propre boucle
+    (tableau_bord.boucle, à retirer par le lot W) l'a déjà posté cette semaine : jamais deux fois."""
+    semaine = maintenant.strftime("%G-W%V")
+    fichier = tableau_bord._deps.get("FICHIER")
+    if fichier is not None and (lire_json(fichier, {}) or {}).get("semaine") == semaine:
+        return "", semaine
+    try:
+        return tableau_bord.texte(await tableau_bord.calculer()), semaine
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Digest : tableau du lundi (%s)", erreur)
+        return "", semaine
+
+
+def sauvegarder_volume(jour: str):
+    """10/10 (lot L9b) : la sauvegarde du dimanche, sur le volume : DOSSIER_SAUVEGARDES/sauvegarde_<jour>.zip (écrit à côté puis
+    renommé : jamais une archive à moitié écrite), les SAUVEGARDES_GARDEES dernières gardées. Renvoie (chemin, nombre de fichiers),
+    (None, 0) s'il n'y a rien à sauver. Limite : une copie sur le même volume protège d'un fichier abîmé ou écrasé, pas de la perte
+    du volume."""
+    fichiers = [Path(p) for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE, FICHIER_INVITES, FICHIER_COMPTEURS,
+                                  FICHIER_LACUNES, DONNEES / "alias_codes.json", FICHIER_PARCOURS, FICHIER_ONBOARDING,
+                                  FICHIER_SORTIS, FICHIER_CLICS) if Path(p).exists()]
+    if not fichiers:
+        return None, 0
+    DOSSIER_SAUVEGARDES.mkdir(parents=True, exist_ok=True)
+    cible = DOSSIER_SAUVEGARDES / f"sauvegarde_{jour}.zip"
+    provisoire = DOSSIER_SAUVEGARDES / f"sauvegarde_{jour}.zip.tmp"
+    with zipfile.ZipFile(provisoire, "w", zipfile.ZIP_DEFLATED) as archive:
+        for p in fichiers:
+            archive.write(str(p), arcname=p.name)
+    os.replace(provisoire, cible)
+    for vieille in sorted(DOSSIER_SAUVEGARDES.glob("sauvegarde_*.zip"))[:-SAUVEGARDES_GARDEES]:
+        try:
+            vieille.unlink()
+        except OSError as erreur:
+            journal.warning("Sauvegarde : %s non effacée (%s)", vieille.name, erreur)
+    return cible, len(fichiers)
+
+
 async def boucle_rappels():
     """Rappels récurrents (18/07) : suivi trésorerie chaque matin en MP à l'admin, et rappel
-    du reporting aux clippers le dimanche après-midi. Anti-doublon persistant par date."""
+    du reporting aux clippers le dimanche après-midi. Anti-doublon persistant par date.
+    10/10 (lot L9b) : le digest du matin, seul message fixe du salon admin, et la sauvegarde du dimanche sur le volume."""
     await client.wait_until_ready()
     while not client.is_closed():
         try:
@@ -4371,7 +4510,10 @@ async def boucle_rappels():
             # d'hier (candidatures par source, quizz réussis et ratés, arrivés sur Discord, validés), les membres qui attendent une
             # créatrice, les quizz réussis restés en plan, et les comptes livrables par créatrice : sans le test, c'est le nouveau
             # goulot.
-            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.hour >= 9 and etat.get("pipeline_digest") != aujourdhui:
+            # 10/10 (revue du recrutement, lot L9b) : LE digest admin, le seul message fixe du matin (voir DIGEST_UNIQUE) : compteur
+            # d'hier, bloqués, sortie automatique, places, et le lundi le tableau. Au salon admin (plus celui du manager : il porte
+            # les liens WhatsApp des bloqués, donc des numéros), en plusieurs messages s'il dépasse 2 000 caractères, jamais tronqué.
+            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and etat.get("pipeline_digest") != aujourdhui and digest_peut_partir(maintenant):
                 pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
                 try:
                     await completer_creatrices()                       # 25/09 : les anciens ont une créatrice, pas au registre
@@ -4406,14 +4548,13 @@ async def boucle_rappels():
                 # Les anciens ressortent le lundi — soixante matins de « J+66 », c'est du bruit (23/09).
                 sans_creatrice = [x for x in sans_creatrice_tous if lundi or x[1] <= 14]
                 anciens_sans = len(sans_creatrice_tous) - len(sans_creatrice)
-                signes_recents = sorted(((uid, _jours(e.get("date"))) for uid, e in equipes_r.items()
-                                         if _jours(e.get("date")) <= 7), key=lambda x: x[1])
+                # 10/10 (lot L9b) : plus de « 🎉 Signés cette semaine » (une liste sans action) : le compteur d'hier le dit.
                 tels_lies = {l.get("tel") for l in pipe.get("liaisons", {}).values()}
                 orphelines = sum(1 for t in pipe.get("candidatures", {}) if t not in tels_lies)
 
-                lignes_d = []
-                # Le comptage des flux d'hier remplace les échos immédiats (« 1 candidature enregistrée »,
-                # « test envoyé en MP ») qui noyaient le salon (épuration du 23/09).
+                blocs_d = []                                    # (clé, texte), dans l'ordre du digest
+                # 1. Le compteur d'hier. Le comptage des flux remplace les échos immédiats (« 1 candidature enregistrée »,
+                # épuration du 23/09) ; 10/10 : il remplace aussi les lignes « est arrivé par son invitation » et « → créatrice ».
                 # 01/10 : le même compteur que !pipeline (candidatures_du_jour : hier à Paris, une par numéro, sans le staff)
                 try:
                     lignes_c = await lire_candidatures_sheets()
@@ -4424,69 +4565,111 @@ async def boucle_rappels():
                 cand_24h = candidatures_du_jour(hier, lignes_c, pipe)
                 flux = compteurs_funnel(pipe, hier, equipes_r)
                 sources = sources_candidatures(cand_24h, lignes_c, pipe)
-                lignes_d.append(f"📋 **Hier** : {len(cand_24h)} candidature(s) · {flux['quiz_ok']} quizz réussi(s)"
+                blocs_d.append(("hier", f"📋 **Hier** : {len(cand_24h)} candidature(s) · {flux['quiz_ok']} quizz réussi(s)"
                                 + (f" ({flux['quiz_ko']} raté(s))" if flux["quiz_ko"] else "")
                                 + f" · {flux['arrives']} arrivé(s) sur Discord · {flux['valides']} validé(s)"
-                                + ("\nSources : " + " · ".join(f"{s} {n}" for s, n in sources) if sources else ""))
-                livrables = await comptes_livrables_par_creatrice()
-                vides = [c for c, n in livrables.items() if n < 3]
-                if livrables:
-                    lignes_d.append("📦 **Comptes livrables** (3 par nouveau, le goulot) : "
-                                    + " · ".join(f"{c} {n}" + (" ⚠️" if n < 3 else f" → {n // 3} nouveau{'x' if n // 3 > 1 else ''}")
-                                                 for c, n in livrables.items())
-                                    + (f"\n→ Plus de place pour un nouveau chez {', '.join(vides)} (`!comptes-libres Prénom`)."
-                                       if vides else ""))
+                                + f" · {attribues_du_jour(equipes_r, hier)} attribué(s) à une créatrice"
+                                + ("\nSources : " + " · ".join(f"{s} {n}" for s, n in sources) if sources else "")))
+                # 2. Les bloqués, seulement s'il y en a (bloques.lignes_digest : plus de « personne 🎉 »).
+                # 3. Le bilan de la sortie automatique (sa passe du jour ne poste plus rien : sortie_auto.bilan_pour_digest).
+                bloques_d, jours_sortie, sortie_d = [], [], []
+                if DIGEST_UNIQUE:
+                    try:
+                        bloques_d = await bloques.lignes_digest()
+                    except Exception as erreur:                             # noqa: BLE001
+                        journal.warning("Digest : liste des bloqués (%s)", erreur)
+                    if bloques_d:
+                        blocs_d.append(("bloques", "\n".join(bloques_d)))
+                    try:
+                        sortie_d, jours_sortie = sortie_auto.bilan_pour_digest()
+                    except Exception as erreur:                             # noqa: BLE001
+                        journal.warning("Digest : bilan de la sortie automatique (%s)", erreur)
+                    if sortie_d:
+                        blocs_d.append(("sortie", "\n".join(sortie_d)))
+                # 4. Les places livrables (lignes du classeur ÷ ATTRIBUTION_LIGNES_MIN et liens GAML libres, lot L3).
+                texte_places, zero_place = await bloc_places_digest()
+                if texte_places:
+                    blocs_d.append(("places", texte_places))
+                # 5. Ce qui n'attend que le staff.
                 attente = [u for u in flux["attente"] if membre_par_id(u) is not None]
                 if attente:
-                    lignes_d.append(f"⏳ **En attente d'une créatrice** (aucun compte libre) : {len(attente)} · "
+                    blocs_d.append(("attente", f"⏳ **En attente d'une créatrice** (aucun compte libre) : {len(attente)} · "
                                     + " · ".join(f"<@{u}>" for u in attente[:8])
                                     + ("\n→ Ils partent tout seuls dès qu'un compte se libère." if attribution.actif()
-                                       else "\n→ `!creatrice @membre Prénom`"))
+                                       else "\n→ `!creatrice @membre Prénom`")))
                 # 09/10 (revue du lot L3) : un quizz réussi resté en « quiz_ok » depuis plus d'une heure (redémarrage pendant son
                 # entrée). boucle_pipeline le fait entrer tout seul une fois la migration du 09/10 finie ; s'il est encore là au
-                # matin, le manager le voit et peut le valider à la main.
+                # matin, le staff le voit et peut le valider à la main.
                 en_plan = [u for u, _i, _m in quiz_ok_en_plan(pipe, equipes_r, ref, minutes=60)]
                 if en_plan:
-                    lignes_d.append(f"📝 **Quizz réussi, pas encore validés** : {len(en_plan)} · "
+                    blocs_d.append(("en_plan", f"📝 **Quizz réussi, pas encore validés** : {len(en_plan)} · "
                                     + " · ".join(f"<@{u}>" for u in en_plan[:8])
-                                    + "\n→ `!quiz-ok @membre`")
-                if sans_creatrice:
-                    lignes_d.append(f"🎬 **Signés SANS créatrice depuis ≥ 48 h** ({mention_manager(guild_d)}) : "
+                                    + "\n→ `!quiz-ok @membre`"))
+                if sans_creatrice:                              # 10/10 : sans mention du rôle Manager (le manager, c'est Gaëtan)
+                    blocs_d.append(("sans_creatrice", "🎬 **Signés SANS créatrice depuis ≥ 48 h** : "
                                     + " · ".join(f"<@{u}> (J+{j})" for u, j in sans_creatrice[:6])
                                     + (f" · {anciens_sans} plus ancien(s), listés le lundi" if anciens_sans and not lundi else "")
-                                    + "\n→ `!creatrice @membre Prénom` — un signé sans créatrice ne produit rien.")
-                if signes_recents:
-                    # 27/09 : les comptes se créent avec le bot et la créatrice s'attribue toute seule — plus d'appel, plus de numéro
-                    lignes_d.append("🎉 Signés cette semaine : " + " · ".join(f"<@{u}> (J+{j})" for u, j in signes_recents[:6]))
-                if lundi and orphelines:                    # le compteur de fond, une fois par semaine
-                    lignes_d.append(f"🗂️ Fond de pipeline : candidatures sans Discord lié {orphelines} (`!pipeline`)")
+                                    + "\n→ `!creatrice @membre Prénom` : un signé sans créatrice ne produit rien."))
                 avert = avertissements_recents(24)
                 vus = etat.get("avert_vus", [])
                 nouveaux_avert = [a for a in avert if a[:90] not in vus]
-                if nouveaux_avert:                          # un avertissement ne se répète pas chaque matin
-                    lignes_d.append("🛠️ Avertissement technique : " + " · ".join(a[:90] for a in nouveaux_avert[:3]))
+                if nouveaux_avert:                              # un avertissement ne se répète pas chaque matin
+                    blocs_d.append(("technique", "🛠️ Avertissement technique : " + " · ".join(a[:90] for a in nouveaux_avert[:3])))
                     etat["avert_vus"] = (vus + [a[:90] for a in nouveaux_avert])[-20:]
+                eteintes_d = [str(x) for x in ((lire_json(FICHIER_DEMARRAGE, {}) or {}).get("eteintes") or [])]
+                if eteintes_d:                                  # 10/10 : dit par annoncer_demarrage, rappelé chaque matin
+                    blocs_d.append(("eteintes", "⛔ **Toujours éteint** : " + " · ".join(eteintes_d)
+                                    + ".\n→ La variable Railway manque ou ne marche plus : `!verifier`."))
+                if etat.get("sauvegarde_erreur"):
+                    blocs_d.append(("sauvegarde", f"⚠️ Sauvegarde du dimanche ratée : {etat['sauvegarde_erreur']}"))
+                # 6. Le lundi : le tableau de la semaine (tableau_bord), puis le compteur de fond.
+                semaine_t = ""
+                if lundi:
+                    texte_t, semaine_t = await tableau_du_lundi(maintenant)
+                    if texte_t:
+                        blocs_d.append(("tableau", texte_t))
+                    else:
+                        semaine_t = ""
+                    if orphelines:                              # le compteur de fond, une fois par semaine
+                        blocs_d.append(("fond", f"🗂️ Fond de pipeline : candidatures sans Discord lié {orphelines} (`!pipeline`)"))
 
-                if not (sans_creatrice or attente or vides or en_plan):
-                    lignes_d.insert(0, "✅ Rien qui n'attende ton action aujourd'hui.")
-                canal = await canal_manager()                    # le manager agit, Gaëtan lit l'hebdo (14/09)
+                a_agir = (bloques_d or any(("🧱" in l or "❌" in l) for l in sortie_d) or zero_place or attente or en_plan
+                          or sans_creatrice or eteintes_d or etat.get("sauvegarde_erreur"))
+                if not a_agir:
+                    blocs_d.insert(0, ("rien", "✅ Rien qui n'attende ton action aujourd'hui."))
+                canal = await canal_admin()                     # 10/10 : le salon admin, privé (numéros dans les liens WhatsApp)
                 if canal is not None:
+                    entete = "☕ **Point du matin — " + maintenant.strftime("%d/%m") + "**"
+                    envoyes = 0
                     try:
-                        texte_digest = ("☕ **Pipeline candidats — " + maintenant.strftime("%d/%m") + "**\n\n"
-                                        + "\n\n".join(lignes_d))[:1990]     # 09/10 : une ligne vide entre deux blocs, lisible au téléphone
-                        await canal.send(texte_digest)
+                        for morceau in decouper_digest(entete, [t for _, t in blocs_d]):
+                            await canal.send(morceau, suppress_embeds=True)
+                            envoyes += 1
+                    except (discord.Forbidden, discord.HTTPException) as erreur:
+                        journal.warning("Digest du matin : %d message(s) partis, puis %s", envoyes, erreur)
+                    if envoyes:                                 # un digest à moitié parti n'est jamais renvoyé en entier
                         etat["pipeline_digest"] = aujourdhui
+                        etat.pop("sauvegarde_erreur", None)
                         ecrire_json(FICHIER_RAPPELS, etat)
-                        # Copie sur le canal Telegram des rapports quotidiens (« comme le reste ») :
-                        # les mentions Discord y deviennent des prénoms lisibles.
+                        try:
+                            sortie_auto.oublier_bilan_dit(jours_sortie)
+                        except Exception as erreur:                         # noqa: BLE001
+                            journal.warning("Digest : bilan de sortie non oublié (%s)", erreur)
+                        if semaine_t and tableau_bord._deps.get("FICHIER") is not None:
+                            etat_t = lire_json(tableau_bord._deps["FICHIER"], {}) or {}
+                            etat_t["semaine"] = semaine_t       # sa propre boucle ne le reposte pas
+                            ecrire_json(tableau_bord._deps["FICHIER"], etat_t)
+                        # Copie sur le canal Telegram des rapports quotidiens (« comme le reste ») : les mentions Discord y
+                        # deviennent des prénoms lisibles. 10/10 : sans les bloqués (numéros) ni la sortie automatique.
                         def _prenom(m):
                             membre_n = membre_par_id(m.group(1))
                             return membre_n.display_name if membre_n else "membre parti"
                         if telegram.TELEGRAM_QUOTIDIEN:
-                            await telegram.envoyer_telegram(
-                                re.sub(r"<@!?(\d+)>", _prenom, texte_digest).replace("**", "*"))
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
+                            texte_tg = (entete + "\n\n" + "\n\n".join(t for c, t in blocs_d if c not in ("bloques", "sortie")))[:3900]
+                            try:
+                                await telegram.envoyer_telegram(re.sub(r"<@!?(\d+)>", _prenom, texte_tg).replace("**", "*"))
+                            except Exception as erreur:                     # noqa: BLE001
+                                journal.warning("Digest : copie Telegram (%s)", erreur)
             # Reporting clippers : le dimanche à partir de 17:00, une fois. 05/10 : plus de formulaire du dimanche ni de fixe
             # conditionné (RAPPEL_REPORTING=1 pour le rallumer) — le suivi, c'est le scan et `!mesclics`.
             if CANAL_REPORTING_ID and os.environ.get("RAPPEL_REPORTING", "0").strip() == "1" and maintenant.weekday() == 6 \
@@ -4523,26 +4706,19 @@ async def boucle_rappels():
                 elif not lacunes:
                     etat["lacunes"] = aujourdhui
                     ecrire_json(FICHIER_RAPPELS, etat)
-            # Sauvegarde automatique des JSON : le dimanche à partir de 20:00, une fois.
-            if (CANAL_ADMIN_ID or CANAL_BOT_ID) and maintenant.weekday() == 6 and maintenant.hour >= 20 \
-                    and etat.get("sauvegarde") != aujourdhui:
-                canal = await canal_admin()
-                fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
-                                        FICHIER_INVITES, FICHIER_COMPTEURS,
-                                        FICHIER_LACUNES, DONNEES / "alias_codes.json") if p.exists()]
-                if canal is not None and fichiers:
-                    try:
-                        tampon = io.BytesIO()          # une archive : Discord n'affiche pas dix aperçus JSON
-                        with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as archive:
-                            for p in fichiers[:12]:
-                                archive.write(str(p), arcname=p.name)
-                        tampon.seek(0)
-                        await canal.send("💾 Sauvegarde hebdomadaire (fiches, registre, compteurs) — archive jointe.",
-                                         files=[discord.File(tampon, filename=f"sauvegarde_{aujourdhui}.zip")])
-                        etat["sauvegarde"] = aujourdhui
-                        ecrire_json(FICHIER_RAPPELS, etat)
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
+            # Sauvegarde automatique des JSON : le dimanche à partir de 20:00, une fois. 10/10 (lot L9b) : sur le volume
+            # (sauvegarder_volume : zip daté, les 4 derniers gardés), plus jamais en pièce jointe dans Discord : pipeline.json
+            # porte les numéros de téléphone. Aucun message ; un échec est dit dans le digest suivant.
+            if maintenant.weekday() == 6 and maintenant.hour >= 20 and etat.get("sauvegarde") != aujourdhui:
+                try:
+                    chemin_s, n_s = sauvegarder_volume(aujourdhui)
+                    journal.info("Sauvegarde du dimanche : %s (%d fichiers)", chemin_s, n_s)
+                    etat.pop("sauvegarde_erreur", None)
+                except Exception as erreur:                                 # noqa: BLE001 — disque plein, droits : dit au digest
+                    journal.warning("Sauvegarde du dimanche ratée : %s", erreur)
+                    etat["sauvegarde_erreur"] = f"{aujourdhui} : {type(erreur).__name__} {str(erreur)[:120]}"
+                etat["sauvegarde"] = aujourdhui
+                ecrire_json(FICHIER_RAPPELS, etat)
         except Exception as erreur:                       # la boucle ne doit jamais mourir
             journal.warning("Boucle rappels : %s", erreur)
         await asyncio.sleep(600)
@@ -4765,14 +4941,17 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "**Candidats** : `!pipeline` · `!tableau` · `!quiz-ok @x [score]` (valider à la main) · `!fiche @x` (salon privé) · "
                 "`!relance @x` · `!candidats` · `!inviter Prénom [fr|int]` (hors Discord) · `!migrer-test [go]` (anciens du test) · "
                 "`!annonce <groupe>` (l'annonce Telegram à coller) · "
-                "`!relancer-lien` · `!sync-noms`\n\n"
+                "`!sync-noms`\n\n"
+                # 10/10 (lot L9b) : `!bloques` ici aussi ; `!equipes`, `!relancer-lien` et `!rang` retirés (lot W)
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
-                "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!equipes` · `!drives-perso fermer [go]` · "
+                "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!bloques` · `!drives-perso fermer [go]` · "
                 "`!ltv [jours]` · `!alias` · `!code [adresse]` (connexion et création seulement, en MP)\n\n"
+                # 10/10 (lot L9b, avec L10) : les équipes TL, admins seulement ; un TL n'a jamais le rôle Manager
+                "**Équipes TL** (admins seulement) : `!tl liste` · `!tl Chloé @x` · `!tl Chloé aucun` · `!manager @x Chloé Sarah`\n\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
                 "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
                 "`!ban-spam` · `!archiver #salon…`\n\n"
-                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur` · `!rang`\n\n"
+                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur`\n\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre <texte libre, ou un fichier .md/.txt joint>` (prime sur tout) · "
                 "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus) · `!sauvegarde`\n\n"
                 "-# Plusieurs commandes dans un seul message = rafale.")
@@ -4796,7 +4975,7 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
                 "· `!etats-comptes [test|leger]` — le classeur au crible d'Instagram (`test` : sans rien écrire ; `leger` : followers et Reels)\n"
                 "· `!dashboard` — l'onglet Dashboard sans scan (gratuit) · `!dashboard scan` — avec un passage complet d'Instagram (payant)\n"
-                "· `!stats-jonas [AAAA-MM-JJ]` — le rapport GAML de la veille des clippers suivis, dans #jonas-stats\n\n"
+                "· `!bloques` — les clippers qui n'avancent pas, avec leur WhatsApp en un appui\n\n"
                 "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
     # 09/10 : « déjà dans l'agence » a UNE définition, est_signe (registre, rôle d'équipe, roster) ; l'assistant répond là où le
     # clipper écrit (plus de renvoi vers #assistant) ; la paie des clippers tombe les 5 et 20.
@@ -4805,13 +4984,15 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!etape` : je te renvoie ton étape en cours.\n"
                 # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
                 "· " + codes_2fa.texte_salon_codes() + " Seulement les codes de connexion et de création, visibles par toi seul.\n"
-                # 10/10 (règle stricte de Gaëtan) : le code d'un appel ne passe plus par le bot, sauf CODES_APPEL=1
-                + ("· Même bouton pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n" if codes_2fa.CODES_APPEL else
-                   "· Compte bloqué : tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.\n") +
+                # 10/10 (règle stricte de Gaëtan) : le code d'un appel ne passe plus par le bot, sauf CODES_APPEL=1. 10/10 (lot L9b) :
+                # un compte bloqué, c'est Gaëtan sur WhatsApp (plus « ton manager ») ; l'appel tient dans la même ligne
+                + ("· Même bouton pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n" if codes_2fa.CODES_APPEL else "") +
                 "· `!mesclics` : tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours (paie les 5 et 20).\n"
                 "· `!parrain @lui` : tu parraines un nouveau, 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement : ton adresse de paiement.\n"
-                "· Un compte bloqué, un problème de téléphone : **ton manager**, dans ton salon perso.\n"
+                "· Un compte bloqué ? Écris à Gaëtan sur WhatsApp."
+                + ("" if codes_2fa.CODES_APPEL else
+                   " Tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.") + "\n"
                 "· `STOP` en message privé : plus aucun rappel automatique.\n\n"
                 "Une question ? Écris-la ici, je réponds.")
     # 09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : le candidat ne lit que sa prochaine action. Un
@@ -9152,22 +9333,13 @@ async def annoncer_regle_48h():
 
 async def annoncer_demarrage():
     """Au démarrage (au plus une fois par heure) : ce qui tourne, ce qui est éteint, ce qui manque
-    — l'état de la machine se constate dans le salon admin, pas dans les logs Railway."""
+    — l'état de la machine se constate dans le salon admin, pas dans les logs Railway.
+    10/10 (revue du recrutement, lot L9b : « un seul digest admin ») : plus de « 🟢 Bot redémarré », un message sans action à
+    chaque déploiement. Une ligne seulement si ce qui DEVRAIT tourner ne tourne pas, et une fois tant que la liste ne change pas (un
+    relais des codes éteint, c'est un clipper qui attend son code maintenant) ; le digest du matin la rappelle (« eteintes »)."""
     await client.wait_until_ready()
-    etat = lire_json(FICHIER_RAPPELS, {})
-    dernier = etat.get("demarrage")
-    try:
-        if dernier and (datetime.now(timezone.utc) - datetime.fromisoformat(dernier)).total_seconds() < 3600:
-            return
-    except ValueError:
-        pass
-    etat["demarrage"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    ecrire_json(FICHIER_RAPPELS, etat)
-    canal = await canal_admin()
-    if canal is None:
-        return
-    # 27/09 (Gaëtan : « supprime, ça sert à rien ») : une ligne. Seul ce qui DEVRAIT tourner et ne tourne pas est dit ;
-    # les modules éteints par décision et les variables optionnelles ne sont plus listés.
+    # 27/09 (Gaëtan : « supprime, ça sert à rien ») : seul ce qui DEVRAIT tourner et ne tourne pas est dit ; les modules éteints
+    # par décision et les variables optionnelles ne sont plus listés.
     eteintes = []
     if not codes_2fa.actif():
         eteintes.append("relais des codes (CODES_IMAP_*)")
@@ -9175,11 +9347,17 @@ async def annoncer_demarrage():
         eteintes.append("site candidature")
     if not paie_clics.GAML_API_KEY:
         eteintes.append("paie au clic (GAML_API_KEY)")
-    texte = ("🟢 **Bot redémarré**"                                     # 09/10 : INT_EN_PAUSE retiré (lot L1)
-             + (("\n⛔ Éteint : " + " · ".join(eteintes)) if eteintes else "")
-             + "\n-# `!verifier` · `!aide`")
+    deja = (lire_json(FICHIER_DEMARRAGE, {}) or {}).get("eteintes") or []
+    # le digest du matin les rappelle ; vide : la prochaine panne sera dite
+    ecrire_json(FICHIER_DEMARRAGE, {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "eteintes": eteintes})
+    if not eteintes or eteintes == deja:
+        return
+    canal = await canal_admin()
+    if canal is None:
+        return
     try:
-        await canal.send(texte[:1990])
+        await canal.send(("⛔ **Éteint au démarrage** : " + " · ".join(eteintes) + ".\n\n"
+                          "→ La variable Railway manque ou ne marche plus. `!verifier` pour le détail.")[:1990])
     except (discord.Forbidden, discord.HTTPException):
         pass
 
@@ -9459,11 +9637,11 @@ async def accueillir_valide(member, code, fiche, invitation):
         except (discord.Forbidden, discord.HTTPException):
             pass
     retour = await valider_candidat(member, score, "invitation")
-    if retour == "deja":
-        retour = "Déjà au registre : rien refait."
-    await notifier_manager(
-        f"🚪 **{member.mention} est arrivé par son invitation** ({fiche.get('prenom') or '?'}, "
-        f"{fiche.get('pays') or 'pays ?'}, quiz {fiche.get('score') or '?'}).\n" + retour, member.guild)
+    # 10/10 (revue du recrutement, lot L9b : « un seul digest admin ») : plus de ligne « 🚪 … est arrivé par son invitation » ;
+    # l'arrivée compte dans « arrivé(s) sur Discord » du digest du matin (pipeline « arrivees », posé par on_member_join). Une
+    # validation qui échoue est déjà dite au staff par valider_candidat (ligne « ⚠️ … `!quiz-ok` »).
+    journal.info("Arrivée de %s par son invitation (%s) : %s", member.id, fiche.get("pays") or "pays ?",
+                 "déjà au registre, rien refait" if retour == "deja" else str(retour)[:120])
 
 
 def lignes_de_test_candidatures(brut: list, tels_tests=()) -> list:

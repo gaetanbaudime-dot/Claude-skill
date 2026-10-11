@@ -541,14 +541,34 @@ async def attribuer(membre, via: str) -> str:
                                                "via": via, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
         e["historique"] = e["historique"][-300:]
         _ecrire(e)
-    journal.info("Attribution automatique : %s → %s (%s)", _deps["prenom_de"](membre), creatrice, via)
-    admin = await _deps["canal_admin"]()
-    if admin is not None:
-        try:
-            await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+    journal.info("Attribution automatique : %s → %s (%s) · %s%s", _deps["prenom_de"](membre), creatrice, via, bilan_court(bilan), note)
+    # 10/10 (revue du recrutement, lot L9b : « un seul digest admin ») : une attribution qui s'est bien passée n'est plus une ligne
+    # au salon admin ; elle compte dans « attribué(s) » du digest du matin (registre, creatrice_date). Seule une attribution qui
+    # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
+    # encore tout de suite.
+    if a_signaler(bilan, note):
+        admin = await _deps["canal_admin"]()
+        if admin is not None:
+            try:
+                await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
+            except (discord.Forbidden, discord.HTTPException):
+                pass
     return creatrice
+
+
+# 10/10 (lot L9b) : ce qui, dans le bilan d'onboarding ou la note de l'ordre, demande un geste du staff (onboarder_membre et
+# onboarding.livrer : échec, rôle ou pseudo refusé, aucun rôle d'équipe, comptes non livrés, classeur ou GAML en panne, parcours
+# pas lancé ; prochaine : créatrice sans catégorie ni rôle sur le serveur)
+MARQUES_A_SIGNALER = ("❌", "⚠️", "refusé", "impossible", "aucun libre", "classeur :", "classeur non branché", "gaml :",
+                      "onboarding :", "non livrés", "sans catégorie ni rôle", "aucun rôle posé", "parcours pas commencé",
+                      "non renvoyée")
+
+
+def a_signaler(bilan: str, note: str = "") -> bool:
+    """10/10 (lot L9b) : vrai si l'attribution demande un geste (une des MARQUES_A_SIGNALER dans le bilan ou la note). Une créatrice
+    sautée faute de compte livrable n'en est pas une : les places du digest le disent."""
+    t = f"{bilan or ''} {note or ''}".lower()
+    return any(m.lower() in t for m in MARQUES_A_SIGNALER)
 
 
 async def reprendre_attente() -> list:

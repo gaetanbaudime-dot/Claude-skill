@@ -1,4 +1,4 @@
-# Base de connaissances — Kit Clipper G&M (v19, 10 octobre 2026 : les codes Instagram par le bouton « 📩 Mon code », visibles par toi seul, seulement pour te connecter ou créer un compte ; v18, 9 octobre 2026 : plus de test vidéo pour entrer, plus de Drive perso, les vidéos de la créatrice en qualité d'origine, le groupe WhatsApp dès l'arrivée, les questions dans le salon perso ; v17, 9 octobre 2026 : le compte privé reste le compte 3, il n'arrive que si les comptes 1 et 2 publient bien, tout le monde au clic depuis le 5 octobre ; v16, 8 octobre 2026 : une seule version de chaque règle ; v15, 5 octobre 2026 : 2 comptes de croissance + 1 compte privé avec le lien en bio, questions dans #assistant, sortie à 48 h sans compte 1 ; v14, 1er octobre 2026, niveau collège — vidéo de formation de 15 minutes à 5 mots-clés, salon perso guidé par le bot, lien en story à la une seulement, codes dans #🔐-code-instagram, un compte à la fois)
+# Base de connaissances — Kit Clipper G&M (v20, 10 octobre 2026 : ton compte 1 arrive tout de suite sous ton message de bienvenue, 2 Reels par jour sur chaque compte qui publie, ton app arrive avec ton compte 3, le manager c'est Gaëtan ; v19, 10 octobre 2026 : les codes Instagram par le bouton « 📩 Mon code », visibles par toi seul, seulement pour te connecter ou créer un compte ; v18, 9 octobre 2026 : plus de test vidéo pour entrer, plus de Drive perso, les vidéos de la créatrice en qualité d'origine, le groupe WhatsApp dès l'arrivée, les questions dans le salon perso ; v17, 9 octobre 2026 : le compte privé reste le compte 3, il n'arrive que si les comptes 1 et 2 publient bien, tout le monde au clic depuis le 5 octobre ; v16, 8 octobre 2026 : une seule version de chaque règle ; v15, 5 octobre 2026 : 2 comptes de croissance + 1 compte privé avec le lien en bio, questions dans #assistant, sortie à 48 h sans compte 1 ; v14, 1er octobre 2026, niveau collège — vidéo de formation de 15 minutes à 5 mots-clés, salon perso guidé par le bot, lien en story à la une seulement, codes dans #🔐-code-instagram, un compte à la fois)
 
 > Ce fichier est LA seule source du bot. Il reprend le Kit Clipper, le parcours candidat et la méthode validée le 07/09/2026 (structure 2 + 1, cadence 2 par jour), mise à jour le 25/09/2026 : paie au clic, comptes créés par le clipper dans son salon perso avec le bot, plus de contrat ni de distinction de pays. Ce qui n'est pas ici n'existe pas.
 > Pour le mettre à jour : modifier ce fichier, le bot le recharge tout seul.
@@ -13,15 +13,14 @@ Je parle comme à un élève de collège qui découvre tout : phrases de 10 mots
 - **Ton salon perso** (#ton-prénom, dans la catégorie de ta créatrice) : tes étapes avec leurs boutons, tes comptes un par un, ton lien, ta paie, `!mesclics` pour tes visites. **Une question ? Écris-la ici, je réponds** (depuis le 9 octobre 2026). Je ne parle que si tu poses une question : un « ok » ou un « fait » ne demande pas de réponse. Ton manager, c'est Gaëtan. Moi, je suis l'assistant.
 - **Le salon #assistant** (commun à tous) : je réponds aussi là, surtout à ceux qui n'ont pas encore de salon perso. Toi, pose tes questions dans ton salon perso. Jamais d'identifiant, de mot de passe ni de lien perso dans #assistant.
 - **Les codes Instagram** : Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Seulement les codes de connexion et de création de compte.
-- **Le groupe WhatsApp** : dès ton arrivée (9 octobre 2026), ton message de bienvenue a un bouton WhatsApp. Tu t'en sers une fois : il te fait entrer dans le groupe de l'équipe, ou il ouvre un message déjà prêt pour Gaëtan, qui t'y ajoute. C'est là que l'équipe te parle. Ton compte 1 n'attend pas : il arrive quand tu appuies sur ✅, ou tout seul 3 h après.
+- **Le groupe WhatsApp** : dès ton arrivée (9 octobre 2026), ton message de bienvenue a un bouton WhatsApp. Tu t'en sers une fois : il te fait entrer dans le groupe de l'équipe, ou il ouvre un message déjà prêt pour Gaëtan, qui t'y ajoute. C'est là que l'équipe te parle. Ton compte 1 n'attend pas : il arrive juste en dessous de ton message de bienvenue (10 octobre 2026).
 - **Gaëtan**, sur WhatsApp, pour un blocage : demande-moi le lien. Tu te présentes (prénom, créatrice), tu dis le problème en une phrase, tu mets une capture.
-- Une question sur tes comptes envoyée à Gaëtan revient au manager : gagne du temps, écris-lui directement.
 - **Candidat** (vidéo de formation et quizz en cours) : le bot, dans ton salon ou en message privé. Bloqué depuis plus de 24 h ? Demande-moi le lien WhatsApp de Gaëtan.
 
 ## L'objectif du clipper (dans l'ordre)
 
 1. Publier tous les jours, sans rater un jour. Le début est une traversée du désert : un Reel finit par marcher et fait boule de neige. Ceux qui s'arrêtent avant n'y arrivent jamais.
-2. Publier beaucoup. 2 Reels par jour sur chaque compte au début, puis 1 de plus par jour sur chaque compte chaque semaine, jusqu'à 10. On publie plus que les autres, on teste plus, on refait ce qui marche.
+2. Publier beaucoup. 2 Reels par jour sur chaque compte qui publie, tous les jours : c'est la règle de l'équipe. On publie plus que les autres, on teste plus, on refait ce qui marche.
 3. Décliner ce qui marche : un Reel qui marche donne 5 versions (filtre, durée, son, texte, sous-titres).
 4. Protéger tes comptes : contenu soft, cadence qui monte doucement, pas d'actions en rafale, un compte à la fois.
 5. Transformer les vues en clics : un profil beau, des posts épinglés, une belle bio, ta story à la une, un public français. C'est ça qui te paie.
@@ -34,11 +33,11 @@ Une étape à la fois. Le bot te donne la suivante quand tu as fini celle-ci.
 2. **La vidéo de formation** (15 minutes) : le lien direct est https://www.loom.com/share/e7ffb70f9bd44d99b437ed8844e0e409 (aussi dans le post « Bienvenue » du forum formation). Quand on me demande « où est la vidéo ? », je donne ce lien, rien d'autre. Tu la regardes en entier. 5 mots-clés sont cachés dedans, tu les notes dans l'ordre. Je ne les donne jamais.
 3. **Le quizz**, sur le site, juste après la vidéo (`!quiz` redonne ton lien). 10 questions : les 5 mots-clés à écrire, et 5 questions sur la vidéo. Il faut **8 bonnes réponses sur 10**. Deux essais. Deux essais ratés : tu reviens 24 h plus tard, avec le même lien.
 4. **Le Discord** : quizz réussi, tu es dans l'agence. Le bouton du site t'amène sur le serveur, dans ton salon perso. **Il n'y a plus de test vidéo à rendre depuis le 9 octobre 2026.**
-5. **Ton message de bienvenue**, dans ton salon perso, dans la minute : ta créatrice, le lien de ses vidéos en qualité d'origine, et un bouton WhatsApp pour rejoindre le groupe. Fait ? Appuie sur ✅ : ton compte 1 arrive juste après. Sans clic, il arrive tout seul 3 h plus tard. Toutes les créatrices sont pleines ? Le bot te dit que ta créatrice arrive dès qu'un compte est prêt pour toi : rien à faire d'ici là.
+5. **Ton message de bienvenue**, dans ton salon perso, dans la minute : ta créatrice, le lien de ses vidéos en qualité d'origine, et un bouton WhatsApp pour rejoindre le groupe. C'est fait ? Appuie sur ✅. Ton compte 1 arrive juste en dessous, sans attendre (10 octobre 2026). Toutes les créatrices sont pleines ? Le bot te dit que ta créatrice arrive dès qu'un compte est prêt pour toi : rien à faire d'ici là.
 6. **Ton compte 1** : l'identifiant, l'e-mail et le mot de passe. Tu le crées sur ton téléphone, tu appuies sur ✅. Puis ton profil : photo, nom, bio. Puis 24 h de warm-up. Puis il publie 2 Reels par jour.
 7. **Ton compte 2** arrive tout seul quand le bot voit 4 Reels sur ton compte 1, au plus tôt 48 h après lui. Même chose : création, profil, 24 h de warm-up, 2 Reels par jour.
 8. **Ton compte 3, le privé**, arrive quand le bot voit 4 Reels sur ton compte 2 et 4 de plus sur ton compte 1. Il ne publie pas. Il porte ton lien, dans son champ « Liens ». Puis une story à la une sur tes comptes 1 et 2.
-9. **Ton app de clippeur** arrive quand tes 3 comptes sont en place. Elle te montre tes visites et tes gains, jour par jour.
+9. **Ton app de clippeur** arrive avec ton compte 3, dès que son profil est fait, en même temps que la consigne de la story à la une (10 octobre 2026). Elle te montre tes visites et tes gains, jour par jour.
 
 Un code Instagram ? Va dans #🔐-code-instagram et appuie sur « 📩 Mon code ». Le bot te donne le code reçu sur l'e-mail de ton compte, visible par toi seul : seulement pour te connecter ou créer un compte.
 
@@ -93,7 +92,7 @@ Une **journée réussie** = tes comptes marchent ET tu as publié 2 Reels sur ch
 - Instagram demande un **selfie vidéo** (« confirmez que vous êtes une personne réelle ») ? Fais-le toi-même, avec ton visage, en bonne lumière. C'est normal et sans danger. Personne d'autre ne le fait à ta place.
 - Un compte banni : tu fais appel toi-même. Le code de l'appel ne passe pas par le bot : il arrive chez l'équipe, qui te répond dans ton salon perso. Si l'appel échoue, Gaëtan décide. On ne réutilise jamais une info d'un compte banni : ni son e-mail, ni son mot de passe, ni son identifiant.
 - Tu travailles sur **ton propre téléphone**. Un iPhone rien que pour ce travail, c'est mieux. Un téléphone cloud, c'est possible, mais seulement si l'agence le décide.
-- Ton **lien** : le bot te le donne dans ton salon perso, avec le profil de ton compte privé (le 3). Tu le mets **toi-même** dans son champ « Liens ». Puis, sur tes comptes qui publient, une story à la une avec le widget de mention du compte privé (étape « Ta story à la une »). Avant le compte privé, aucun lien nulle part.
+- Ton **lien** : le bot te le donne dans ton salon perso, avec le profil de ton compte privé (le 3). Tu le mets **toi-même** dans son champ « Liens ». Puis, sur tes comptes qui publient, une story à la une avec le widget de mention du compte privé : le bot te le dit, en même temps que ton app. Avant le compte privé, aucun lien nulle part.
 - Tu bloques à une étape ? Pose ta question dans ton salon perso, je réponds. Ou écris à Gaëtan sur WhatsApp. Ton manager voit ton salon perso.
 
 Ton téléphone, les règles :
@@ -192,7 +191,7 @@ La même vidéo sur tes 2 comptes qui publient ? Oui. Mais **jamais le même mon
 
 ## FICHE 4 — La routine et la semaine
 
-Chaque jour : le matin tu montes et tu mets en brouillon, tu publies dans la journée. 2 Reels par compte au début. Chaque semaine, 1 Reel de plus par jour sur chaque compte, jusqu'à 10. Quelques commentaires, un œil sur les stats pour refaire ce qui marche.
+Chaque jour : le matin tu montes et tu mets en brouillon, tu publies dans la journée. 2 Reels par jour sur chaque compte qui publie, tous les jours. Quelques commentaires, un œil sur les stats pour refaire ce qui marche.
 
 Autour des Reels : 2 ou 3 carrousels par semaine. Un Reel marche fort ? Fais un carrousel juste après. 1 à 3 stories par jour : sondage, quiz, vie de tous les jours. 1 à 10 commentaires par jour chez les créatrices que tu suis. Réponds aux commentaires sous tes Reels : court, gentil, sans lien. Les stories avec les photos ou vidéos de ta créatrice : toujours avec un sticker, un texte ou un filtre. Jamais brutes.
 
@@ -212,7 +211,7 @@ La suite, c'est ton manager qui décide, selon tes résultats :
 - 500 à 1 000 abonnés et un compte stable : passage en compte professionnel, pour voir les stats en détail. Tu ne le fais jamais seul.
 - L'installation tourne bien : les comptes passent sur Metricool, sur ordinateur. Pas de date fixe. On recrée alors des comptes neufs sur le téléphone.
 - Un 2e téléphone = 3 comptes de plus = deux fois plus de paie. Tu écris à Gaëtan sur WhatsApp.
-- Les meilleurs clippers peuvent devenir Clipper Manager.
+- Les meilleurs clippers peuvent devenir Team Leader. C'est Gaëtan qui les nomme.
 
 ## FICHE 6 — Quand ça coince
 
@@ -238,17 +237,17 @@ Les 3 règles à ne jamais oublier : un compte à la fois, le suivant au plus t�
 
 Le mental : la fin de la vidéo de formation, à écouter les jours difficiles. Tu ne peux pas rater si tu n'abandonnes jamais. Le meilleur clipper devient Team Leader.
 
-## LE MANAGER (rôle « Manager ») — ses missions et ses commandes
+## LE MANAGER : c'est Gaëtan (rôle « Manager ») — ses missions et ses commandes
 
-Quand la personne qui te parle a le rôle **Manager** (par exemple un Team Leader), elle ne cherche pas le parcours candidat : elle gère des clippers. Ses missions, chaque jour et chaque semaine :
+Le manager de tous les clippers, c'est **Gaëtan**. Le rôle **Manager** est un rôle du staff : il voit tous les codes et lance les commandes de l'équipe. **Un Team Leader n'a jamais le rôle Manager**, ni aucune commande du staff (10 octobre 2026). Quand la personne qui te parle a le rôle Manager, elle ne cherche pas le parcours candidat : elle gère des clippers. Ses missions, chaque jour et chaque semaine :
 
-1. **Faire publier tous les jours** : chaque matin, le bot lui envoie le bilan de ses clippers (qui a publié, qui est à zéro, quelle journée n'est pas validée et pourquoi). Un clipper à zéro est relancé sous 24 h, en message privé, par lui.
+1. **Faire publier tous les jours** : le Dashboard montre qui a publié et qui est à zéro. Les bloqués arrivent chaque matin au salon admin, avec leur WhatsApp en un appui (`!bloques` à tout moment). Un clipper à zéro est relancé sous 24 h.
 2. **Vérifier la création des comptes** : le bot guide le clipper étape par étape dans son salon perso (comptes, warm-up, premier Reel, lien) ; le manager débloque ce qui coince. Un compte banni : le clipper fait appel ; si l'appel échoue, Gaëtan décide (jamais une info du compte banni réutilisée).
 3. **Gérer les téléphones et les accès** : règles de l'appareil rappelées à l'étape 1 du parcours (comptes perso déconnectés, pas de VPN, français, un iPhone dédié de préférence), téléphones cloud quand il y en a (attribution, comptes installés, accès retirés le jour où le clipper sort, `!liberer`).
 4. **Suivre les visites** : chaque clipper a son lien GetAllMyLinks livré par le bot ; `!clics` donne les visites payables de tous, `!bilan-fixe` le verdict des anciens au fixe.
-5. **Former et corriger** : au moins 2 relectures de Reels par clipper et par semaine (hook, durée, choix du rush), un conseil simple à chaque fois. Les nouveaux, c'est lui qui les accueille.
-6. **Manager, motiver, trier** : un call d'équipe par semaine. Les sorties automatiques sont deux : 48 h sans compte 1 (avertissement 24 h avant), et l'appel de présence (2 jours sans activité → appelé → 48 h pour répondre ; un lien qui ramène des visiteurs compte comme une activité). Tout autre tri se décide avec Gaëtan.
-7. **Rendre compte** : le bot poste chaque matin dans son salon le rapport de ses clippers et le point candidats (c'est le seul rapport quotidien) ; lui n'écrit à Gaëtan que ce qui bloque, et fait un call de 30 minutes par semaine avec lui. Gaëtan reçoit le rapport de la semaine chaque lundi.
+5. **Former et corriger** : un conseil simple quand un Reel coince (hook, durée, choix du rush). Un clipper qui veut un avis sur un Reel envoie la vidéo dans son salon perso : l'assistant lui répond. Les nouveaux, c'est lui qui les accueille.
+6. **Manager, motiver, trier** : un call d'équipe par semaine. Les sorties automatiques sont deux : 48 h sans compte 1 (avertissement 24 h avant), et l'appel de présence (2 jours sans activité → appelé → 48 h pour répondre ; un lien qui ramène des visiteurs compte comme une activité). Un clipper dont le bot n'a pas pu lire les comptes n'est jamais compté inactif : il n'est ni appelé ni sorti. Tout autre tri se décide avec Gaëtan.
+7. **Le point du matin** : un seul message par jour au salon admin (10 octobre 2026) : les arrivés et les attribués de la veille, les bloqués, les sorties automatiques, les places pour de nouveaux clippers, et le lundi le tableau de la semaine.
 
 Ses commandes (tape `!aide` pour la liste) : `!creatrice @clipper Prénom` (créatrice, rôle, salon perso, comptes, parcours guidé) · `!etape @clipper [n]`, `!note @clipper texte`, `!memoire @clipper` (le parcours et la mémoire du bot) · `!code adresse` (un code de connexion ou de création, jamais les autres) · `!clics`, `!liens`, `!lien @clipper nouveau`, `!paie-clics 5|20`, `!bilan-fixe` (la paie au clic) · `!comptes-libres`, `!onboarding @clipper`, `!liberer Prénom` (le classeur des comptes) · `!fiche @clipper`, `!pipeline`, `!quiz-ok @candidat` (le valider à la main), `!relance`, `!sortie @clipper raison`.
 
@@ -263,7 +262,7 @@ Le kit dit QUOI faire. Cette partie explique POURQUOI ça marche. On travaille U
 
 ### Pilier 1 — La cadence (publier beaucoup, régulièrement)
 - Personne ne sait à l'avance quel Reel va marcher. En gros, une pépite tous les 20 Reels. Plus tu publies, plus vite tu la trouves. À 4 publications par jour, tu la trouves en 5 jours.
-- Mieux vaut tenir la cadence sur tes 2 comptes qui publient que créer trop de comptes. La cadence monte d'un Reel par jour par compte chaque semaine, jusqu'à 10 : c'est le volume qui trouve les pépites, et c'est ce qui bat les concurrents qui publient 1 ou 2 Reels par jour.
+- Mieux vaut tenir la cadence sur tes 2 comptes qui publient que créer trop de comptes. La cadence, c'est 2 Reels par jour sur chaque compte, tous les jours sans en rater un : c'est la régularité qui trouve les pépites.
 - On garde toujours des rushs d'avance : la créatrice tourne un peu plus qu'on ne publie.
 
 ### Pilier 2 — La qualité (elle vient APRÈS la quantité)
@@ -280,7 +279,7 @@ Le kit dit QUOI faire. Cette partie explique POURQUOI ça marche. On travaille U
 4. Le dimanche, on garde les 5 meilleures trends, on en ajoute 5, et la boucle repart.
 
 ### Le feedback (comment on progresse)
-Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil simple à chaque fois (« ton hook pouvait démarrer une seconde plus tôt », « la trend dure 8 secondes, la tienne 13 »). Tu veux plus de retours ? Poste tes Reels dans le salon de ta créatrice.
+Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donne un conseil simple (« ton hook pouvait démarrer une seconde plus tôt », « la trend dure 8 secondes, la tienne 13 »). Le reste, ce sont tes chiffres : `!mesclics` et ton app.
 
 ## FAQ TERRAIN (réponses officielles)
 
@@ -292,7 +291,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Et les pages Facebook ?** Plus dans la mission depuis le 14 septembre 2026 : 100 % Instagram, 2 comptes qui publient et 1 compte privé. Tu en avais créé ? N'y publie plus et demande à ton manager quoi en faire. Aucune page ne compte pour ta journée validée, et personne ne te demandera d'en créer.
 
-**GetAllMyLinks, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice) et c'est elle qui compte tes visites. Ton lien arrive dans ton salon perso avec ton compte privé (le 3). Tu le poses toi-même dans sa bio, à l'étape 4 du parcours (« Ton lien et ta story à la une »). `!mesclics` pour voir tes visites.
+**GetAllMyLinks, c'est quoi ? Où est mon lien ?** GetAllMyLinks = ta page de liens (elle mène à l'OnlyFans de ta créatrice) et c'est elle qui compte tes visites. Ton lien arrive dans ton salon perso avec ton compte privé (le 3). Tu le poses toi-même dans son champ « Liens », avec le profil de ton compte privé. `!mesclics` pour voir tes visites.
 
 **C'est quoi une visite payable ?** Une visite réelle sur ton lien, venue de France, Belgique, Suisse, Canada, Luxembourg, Monaco ou des DOM-TOM, robots exclus. Une personne qui clique dix fois compte une fois. Madagascar, Bénin, Algérie ne comptent pas. Tape `!mesclics` dans ton salon perso pour le voir. Quand tes 3 comptes sont créés, ton app te le montre aussi (`!app` dans ton salon).
 
@@ -410,7 +409,7 @@ Ton manager relit au moins 2 de tes Reels par semaine et te donne un conseil sim
 
 **Où je pose mes questions ?** Dans ton salon perso. Écris ta question : je réponds ici, en quelques secondes. Un « ok » ou un « fait » ne demande pas de réponse.
 
-**Mon compte 1 arrive quand ?** Écris sur WhatsApp avec le bouton de ton message de bienvenue, puis appuie sur ✅ : il arrive juste après. Sans clic, il arrive tout seul 3 h plus tard.
+**Mon compte 1 arrive quand ?** Tout de suite, juste en dessous de ton message de bienvenue. Écris aussi à Gaëtan sur WhatsApp avec le bouton de ce message, puis appuie sur ✅ : il t'ajoute au groupe.
 
 ## FAQ vivante (questions posées 2 fois — à compléter au fil de l'eau)
 
