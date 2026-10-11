@@ -12,7 +12,10 @@ La grille, telle que Gaëtan l'a écrite le 10/10 :
 Modèle (equipes.json, clé = uid Discord, jamais le prénom ; rien dans roster.json) :
 
   - fiche du TL : « chef » (la créatrice), « chef_depuis » (AAAA-MM-JJ), « chef_par » ; un mandat fini part dans « chef_passe » ;
-  - fiche du manager : « manager_de » (créatrices), « manager_depuis », « manager_par » ; un mandat fini part dans « manager_passe ».
+  - fiche du manager : « manager_de » (créatrices), « manager_depuis », « manager_par » ; un mandat fini part dans « manager_passe » ;
+  - mandats.json (à côté d'equipes.json) : le journal de chaque mandat {uid, rôle, créatrices, depuis, jusqu}, écrit par `!tl` et
+    `!manager`. `!sortie`, la sortie automatique et le départ du serveur effacent la fiche sans recopier le mandat (sortir_membre,
+    hors de ce lot) : `composition` relit ce journal pour un membre sorti après la fin d'une période (reprise 2 de la revue L10).
 
 Un VA appartient à l'équipe de fiche['creatrice'] s'il est au clic, n'est TL d'aucune équipe, n'est pas exclu de la paie au clic
 (CLICS_EXCLURE) et est au registre le dernier jour de la période. Toutes ses visites payées, tous liens confondus (clipper multi),
@@ -34,14 +37,19 @@ Garde-fous (revue du 10/10) :
     défaut et avertissement dans `!tl liste`.
 
 Le module ne connaît ni bot_discord ni paie_clics : la mesure (`payees`, lot L11), la preuve de publication (`reels_vus`) et les
-jours non relevés sont injectés, comme le régime et les exclus (`configurer`).
+jours non relevés sont injectés, comme le régime et les exclus (`configurer`). Les adaptateurs `reels_vus_par_comptes` et
+`jours_manquants_par_paie` donnent à on_ready (lot W) la forme attendue. Une mesure en erreur n'est jamais un 0 : le VA est dit
+« non lu » et la prime part « à vérifier ».
 """
 
+import inspect
 import logging
 import os
 import re
+import time
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import discord
 
@@ -100,11 +108,30 @@ _deps = {}
 
 
 def configurer(deps: dict):
-    """deps : lire_json, ecrire_json, FICHIER_EQUIPES ; facultatifs : FICHIER_SORTIS, ADMIN_IDS, est_manager(membre),
-    membre_par_id(uid), nom_de(uid), regime(uid) -> « clic » | « fixe », exclu(uid) -> bool ou exclus (prénoms normalisés),
-    creatrices() -> noms, lire_clics() -> clics.json, payees(d, uid, debut, fin), reels_vus(uid, debut, fin),
-    jours_manquants(d, uid, debut, fin), heure_paris()."""
+    """deps : lire_json, ecrire_json, FICHIER_EQUIPES ; facultatifs : FICHIER_SORTIS, FICHIER_MANDATS (défaut : mandats.json à
+    côté d'equipes.json), ADMIN_IDS, est_manager(membre), membre_par_id(uid), nom_de(uid) ('' ou « id … » pour un inconnu : la
+    fiche ou l'entrée de sortie prend le relais), regime(uid) -> « clic » | « fixe », exclu(uid) -> bool ou exclus (prénoms
+    normalisés), creatrices() -> noms, lire_clics() -> clics.json, payees(d, uid, debut, fin), reels_vus(uid, debut, fin) (voir
+    `reels_vus_par_comptes`), jours_manquants(d, uid, debut, fin) (voir `jours_manquants_par_paie`), heure_paris()."""
     _deps.update(deps or {})
+
+
+class NonBranche(RuntimeError):
+    """`configurer` n'a pas été appelé au démarrage (on_ready, lot W) : dit en clair, jamais un KeyError muet ni une liste de
+    primes vide (revue L10, reprise 2)."""
+
+
+_OBLIGATOIRES = ("lire_json", "ecrire_json", "FICHIER_EQUIPES")
+
+
+def branche() -> bool:
+    return all(k in _deps for k in _OBLIGATOIRES)
+
+
+def _dep(cle: str):
+    if cle not in _deps:
+        raise NonBranche(f"equipes_tl non branché : « {cle} » absent de equipes_tl.configurer (on_ready, lot W)")
+    return _deps[cle]
 
 
 # ------------------------------------------------------------------ outils
@@ -153,17 +180,17 @@ def _usd(x) -> str:
 
 
 def _fiches() -> dict:
-    return _deps["lire_json"](_deps["FICHIER_EQUIPES"], {}) or {}
+    return _dep("lire_json")(_dep("FICHIER_EQUIPES"), {}) or {}
 
 
 def _ecrire_fiches(fiches: dict):
-    _deps["ecrire_json"](_deps["FICHIER_EQUIPES"], fiches)
+    _dep("ecrire_json")(_dep("FICHIER_EQUIPES"), fiches)
 
 
 def _sortis() -> list:
     if not _deps.get("FICHIER_SORTIS"):
         return []
-    s = _deps["lire_json"](_deps["FICHIER_SORTIS"], []) or []
+    s = _dep("lire_json")(_deps["FICHIER_SORTIS"], []) or []
     return s if isinstance(s, list) else []
 
 
@@ -194,13 +221,18 @@ def _membre(uid):
         return None
 
 
+_NOM_PAR_DEFAUT = re.compile(r"(id\s*…?\s*\d*|…?\d+)", re.IGNORECASE)
+
+
 def nom_de(uid, fiche=None) -> str:
-    """Le prénom affiché d'un uid : la dépendance `nom_de`, le pseudo du membre, la fiche, sinon « id …1234 »."""
+    """Le prénom affiché d'un uid : la dépendance `nom_de`, le pseudo du membre, la fiche (ou l'entrée de sortis.json, qui porte
+    « nom »), sinon « id …1234 ». Un « id 1234 » rendu par la dépendance (celui de la paie pour un inconnu) ne court-circuite pas
+    la fiche : Gaëtan a besoin du prénom d'un VA sorti pour contrôler ses abonnés (revue L10, reprise 2)."""
     uid = str(uid)
     if _deps.get("nom_de"):
         try:
             nom = str(_deps["nom_de"](uid) or "").strip()
-            if nom:
+            if nom and not _NOM_PAR_DEFAUT.fullmatch(nom) and nom != uid:
                 return nom
         except Exception:                                               # noqa: BLE001
             pass
@@ -351,6 +383,140 @@ def _mandat_manager(fiche: dict, fin_iso: str = "") -> list:
     return []
 
 
+# ------------------------------------------------------------------ journal des mandats (mandats.json)
+def _fichier_mandats():
+    f = _deps.get("FICHIER_MANDATS")
+    if f:
+        return f
+    base = _deps.get("FICHIER_EQUIPES")
+    return Path(base).with_name("mandats.json") if base else None
+
+
+def _journal(strict: bool = False) -> list:
+    """Les mandats notés par `!tl` et `!manager` : [{uid, role (« tl » | « manager »), creatrices, depuis, jusqu ('' = en
+    cours), par, nom}]. Illisible : vide, dit au journal (la fiche reste la source pour un membre au registre) ; `strict` : lève,
+    pour qu'une écriture ne remplace jamais un journal illisible par les seuls mandats en cours."""
+    f = _fichier_mandats()
+    if not f:
+        return []
+    try:
+        j = _dep("lire_json")(f, [])
+        if j is not None and not isinstance(j, list):
+            raise ValueError(f"mandats.json n'est pas une liste ({type(j).__name__})")
+    except NonBranche:
+        raise
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Journal des mandats illisible (%s)", erreur)
+        if strict:
+            raise
+        return []
+    return [m for m in j or [] if isinstance(m, dict)]
+
+
+def _synchroniser_mandats(fiches: dict, jour: str, par: str = "") -> str:
+    """Aligne mandats.json sur equipes.json après `!tl`, `!manager` ou `!tl liste` ; '' si fait, sinon la ligne d'avertissement.
+
+    - un membre au registre : son mandat en cours (créatrices et date) a une entrée ouverte ; une entrée ouverte qui ne lui
+      correspond plus est fermée le `jour` ;
+    - un membre sorti (fiche effacée par sortir_membre) : son entrée ouverte n'est fermée que si quelqu'un d'autre tient
+      maintenant une de ses créatrices (le reste est rouvert le `jour`, comme sur une fiche). Elle ne sert qu'aux périodes finies
+      avant sa sortie (`composition`), donc une entrée restée ouverte après la sortie ne paie jamais rien de plus."""
+    try:
+        j = _journal(strict=True)
+    except NonBranche:
+        raise
+    except Exception as erreur:                                         # noqa: BLE001
+        return (f"⚠️ Journal des mandats (mandats.json) illisible ({type(erreur).__name__}) : non réécrit. Remets sa copie .bak, "
+                "puis refais la commande.")
+    actuels, tenus = {}, {}
+    for uid, f in fiches.items():
+        if not isinstance(f, dict):
+            continue
+        uid = str(uid)
+        if str(f.get("chef") or "").strip():
+            actuels[(uid, "tl")] = ([str(f["chef"]).strip()], str(f.get("chef_depuis") or jour)[:10])
+        cs = [str(c).strip() for c in f.get("manager_de") or [] if str(c or "").strip()]
+        if cs:
+            actuels[(uid, "manager")] = (cs, str(f.get("manager_depuis") or jour)[:10])
+    for (uid, role), (cs, _) in actuels.items():
+        for c in cs:
+            tenus[(role, _n(c))] = uid
+
+    def meme(m, cs, depuis):
+        return (sorted(_n(c) for c in m.get("creatrices") or []) == sorted(_n(c) for c in cs)
+                and str(m.get("depuis") or "")[:10] == depuis)
+
+    change, ajouts = False, []
+    for m in list(j):
+        if m.get("jusqu"):
+            continue
+        uid, role = str(m.get("uid") or ""), str(m.get("role") or "")
+        if isinstance(fiches.get(uid), dict):
+            a = actuels.get((uid, role))
+            if a is None or not meme(m, *a):
+                m["jusqu"], change = jour, True
+            continue
+        cs = [str(c) for c in m.get("creatrices") or []]
+        pris = [c for c in cs if tenus.get((role, _n(c))) not in (None, uid)]
+        if pris:
+            m["jusqu"], change = jour, True
+            reste = [c for c in cs if c not in pris]
+            if reste:
+                ajouts.append(dict(m, creatrices=reste, depuis=jour, jusqu=""))
+    j.extend(ajouts)
+    for (uid, role), (cs, depuis) in actuels.items():
+        if not any(not m.get("jusqu") and str(m.get("uid") or "") == uid and m.get("role") == role and meme(m, cs, depuis)
+                   for m in j):
+            f = fiches[uid]
+            j.append({"uid": uid, "role": role, "creatrices": cs, "depuis": depuis, "jusqu": "",
+                      "par": str(f.get("chef_par" if role == "tl" else "manager_par") or par or ""), "nom": nom_de(uid, f)})
+            change = True
+    if not change:
+        return ""
+    j = [m for m in j if not m.get("jusqu") or str(m.get("depuis") or "")[:10] < str(m["jusqu"])[:10]]   # vides : rien couvert
+    try:
+        _dep("ecrire_json")(_fichier_mandats(), j[-2000:])
+    except NonBranche:
+        raise
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Journal des mandats non écrit (%s)", erreur)
+        return (f"⚠️ Journal des mandats (mandats.json) non écrit ({type(erreur).__name__}) : si ce TL ou ce manager sort avant la "
+                "liste de paie, sa prime de la période ne sera pas retrouvée. Refais la commande.")
+    return ""
+
+
+def _fermer_mandats(uid, jour: str):
+    """Ferme les entrées ouvertes de `uid` le `jour` (fin_de_mandats) ; ne lève jamais."""
+    try:
+        j = _journal(strict=True)
+        touche = False
+        for m in j:
+            if not m.get("jusqu") and str(m.get("uid") or "") == str(uid):
+                m["jusqu"], touche = jour, True
+        if touche:
+            _dep("ecrire_json")(_fichier_mandats(), j)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Sortie de %s : journal des mandats non fermé (%s)", uid, erreur)
+
+
+def _mandats_du_journal(jnl: list, uid: str, sortie_iso: str) -> dict:
+    """Les mandats de `uid` notés au journal, sous la forme d'une entrée de sortis.json (« chef_passe », « manager_passe ») ; un
+    mandat encore ouvert est fermé le jour de sa sortie (`sortie_iso`), comme `mandats_a_garder` l'aurait fait."""
+    out = {"chef_passe": [], "manager_passe": []}
+    for m in jnl:
+        if str(m.get("uid") or "") != uid:
+            continue
+        cs = [str(c).strip() for c in m.get("creatrices") or [] if str(c or "").strip()]
+        depuis, jusqu = str(m.get("depuis") or "")[:10], str(m.get("jusqu") or "")[:10] or sortie_iso
+        if not cs or not depuis or not jusqu:
+            continue
+        if m.get("role") == "tl":
+            out["chef_passe"].append({"creatrice": cs[0], "depuis": depuis, "jusqu": jusqu})
+        elif m.get("role") == "manager":
+            out["manager_passe"].append({"creatrices": cs, "depuis": depuis, "jusqu": jusqu})
+    return out
+
+
 def _present(fiche: dict, fin_iso: str) -> bool:
     """Au registre le jour `fin_iso` : signé ce jour-là ou avant (une fiche sans date est ancienne)."""
     return not fin_iso or str(fiche.get("date") or "")[:10] <= fin_iso
@@ -372,13 +538,16 @@ def _sortis_a_la_fin(fiches: dict, registre: list, fin_iso: str) -> dict:
     return out
 
 
-def composition(fiches=None, registre=None, fin=None) -> dict:
-    """{créatrice : {"tl": uid | None, "vas": [uid…], "manager": uid | None}} telle qu'au jour `fin` (aujourd'hui si None).
+def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
+    """{créatrice : {"tl": uid | None, "vas": [uid…], "manager": uid | None, "noms": {uid : prénom}}} telle qu'au jour `fin`
+    (aujourd'hui si None).
 
     `fiches` : equipes.json (lu si None). `registre` : la trace des sorties (sortis.json, lue si None) : un membre sorti APRÈS
-    `fin` était encore au registre ce jour-là, il compte pour sa période, même revenu depuis avec une fiche neuve ; son mandat de TL
-    ou de manager est relu dans son entrée (« chef_passe », « manager_passe », recopiés par `fin_de_mandats` à la sortie). Un VA :
-    fiche['creatrice'], au clic, TL d'aucune équipe, pas exclu, pas admin, signé au plus tard le jour `fin`."""
+    `fin` était encore au registre ce jour-là, il compte pour sa période, même revenu depuis avec une fiche neuve. Son mandat de
+    TL ou de manager est relu dans son entrée (« chef_passe », « manager_passe », si `fin_de_mandats` les y a recopiés), sinon
+    dans le journal `mandats` (mandats.json, lu si None) : sortir_membre efface la fiche sans rien recopier (revue L10, reprise
+    2). Un VA : fiche['creatrice'], au clic, TL d'aucune équipe, pas exclu, pas admin, signé au plus tard le jour `fin`. « noms »
+    est lu sur la fiche ou l'entrée de sortie : un VA sorti garde son prénom dans la ligne de prime."""
     fiches = _fiches() if fiches is None else (fiches or {})
     registre = _sortis() if registre is None else (registre or [])
     fin_d = _jour(fin)
@@ -386,11 +555,17 @@ def composition(fiches=None, registre=None, fin=None) -> dict:
     connues = creatrices_connues(fiches)
     equipes = {}
     sortis = _sortis_a_la_fin(fiches, registre, fin_iso)
+    jnl = (_journal() if mandats is None else list(mandats or [])) if sortis else []
+    for uid, s in list(sortis.items()):
+        du_journal = _mandats_du_journal(jnl, uid, str(s.get("date") or "")[:10])
+        if du_journal["chef_passe"] or du_journal["manager_passe"]:     # l'entrée d'abord (fin_de_mandats), le journal ensuite
+            sortis[uid] = dict(s, chef_passe=list(s.get("chef_passe") or []) + du_journal["chef_passe"],
+                               manager_passe=list(s.get("manager_passe") or []) + du_journal["manager_passe"])
 
     def equipe(c):
         k = _n(c)
         connues.setdefault(k, _affiche(c))
-        return equipes.setdefault(k, {"tl": None, "vas": [], "manager": None})
+        return equipes.setdefault(k, {"tl": None, "vas": [], "manager": None, "noms": {}})
 
     def presents():
         """(uid, fiche ou entrée de sortie) de tous ceux qui étaient au registre à la fin : les fiches d'abord."""
@@ -399,12 +574,21 @@ def composition(fiches=None, registre=None, fin=None) -> dict:
                 yield str(uid), f
         yield from sortis.items()
 
-    tls = {}
+    def depuis_tl(f, c):
+        """La date du mandat de TL qui couvre la fin (pour départager deux TL d'une même créatrice : le plus ancien)."""
+        if _n(f.get("chef")) == _n(c) and str(f.get("chef_depuis") or "")[:10] <= (fin_iso or "9999"):
+            return str(f.get("chef_depuis") or "")
+        return next((str(m.get("depuis") or "") for m in f.get("chef_passe") or [] if isinstance(m, dict)
+                     and _n(m.get("creatrice")) == _n(c) and str(m.get("depuis") or "")[:10] <= fin_iso < str(m.get("jusqu") or "")[:10]),
+                    "")
+
+    tls, fiche_de = {}, {}
     candidats = []
     for uid, f in presents():
+        fiche_de.setdefault(uid, f)
         c = _mandat_tl(f, fin_iso)
         if c:
-            candidats.append((str(f.get("chef_depuis") or ""), uid, c))
+            candidats.append((depuis_tl(f, c), uid, c))
     for _, uid, c in sorted(candidats):                                 # deux TL sur une créatrice (fiche retouchée) : le plus ancien
         tls[uid] = _n(c)
         e = equipe(c)
@@ -425,6 +609,10 @@ def composition(fiches=None, registre=None, fin=None) -> dict:
             e = equipe(c)
             if e["manager"] is None:
                 e["manager"] = uid
+    for e in equipes.values():
+        for uid in [e["tl"], e["manager"], *e["vas"]]:
+            if uid and uid not in e["noms"]:
+                e["noms"][uid] = nom_de(uid, fiche_de.get(uid))
     return {connues[k]: equipes[k] for k in sorted(equipes, key=lambda k: connues[k])}
 
 
@@ -506,12 +694,68 @@ def _appel(f, *args, defaut=None):
         return defaut
 
 
+def _mesure(f, *args):
+    """Une mesure entière, ou None si elle lève ou ne rend rien de lisible : jamais un faux 0 (revue L10, reprise 2)."""
+    v = _appel(f, *args)
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        journal.warning("%s illisible (%r)", getattr(f, "__name__", "mesure"), v)
+        return None
+
+
+# ------------------------------------------------------------------ adaptateurs à injecter (on_ready, lot W)
+def reels_vus_par_comptes(comptes_de_uid, reels_vus_compte, derniere_lecture=None):
+    """La dépendance `reels_vus(uid, debut, fin)` à partir de series (reprise 2) : series.reels_vus prend la clé d'UN compte et
+    une fin EXCLUE ([debut, fin[, une date = minuit à Paris) ; injecté tel quel, il chercherait une série « 20 » et rendrait 0
+    Reels sur chaque prime (fausse anomalie permanente, donc muette).
+
+    `comptes_de_uid(uid)` -> les comptes du clipper (bot_discord.comptes_de_uid) ; `reels_vus_compte(cle, debut, fin_exclue)`
+    (series.reels_vus) ; `derniere_lecture(cle)` -> '' si jamais lu (series.derniere_lecture, facultatif). Rend la somme sur ses
+    comptes du `debut` au `fin` INCLUS (fin + 1 jour exclu), ou None si aucun de ses comptes n'a été lu : « Reels non mesurés »,
+    jamais 0."""
+    def reels_vus(uid, debut, fin):
+        comptes = sorted({str(h) for h in (comptes_de_uid(str(uid)) or ()) if str(h or "").strip()})
+        if derniere_lecture is not None:
+            comptes = [h for h in comptes if derniere_lecture(h)]
+        if not comptes:
+            return None
+        d0, d1 = _jour(debut), _jour(fin) + timedelta(days=1)
+        return sum(_entier(reels_vus_compte(h, d0, d1)) for h in comptes)
+    return reels_vus
+
+
+def jours_manquants_par_paie(jours_manquants_paie, avec_provisoires: bool = True):
+    """La dépendance `jours_manquants(d, uid, debut, fin)` à partir de paie_clics.jours_manquants_paie(d, debut, fin,
+    avec_provisoires) -> {uid: [(lien, « AAAA-MM-JJ »), …]} (reprise 2) : le nombre de JOURS distincts qui manquent au clipper,
+    la même règle que la liste de paie (veilles provisoires comprises, comme la paie). Le calcul de tous les clippers est gardé
+    une minute pour un même `d` et une même période (une liste interroge chaque VA)."""
+    try:
+        kw = "avec_provisoires" in inspect.signature(jours_manquants_paie).parameters
+    except (TypeError, ValueError):
+        kw = False
+    memo = {}
+
+    def jours_manquants(d, uid, debut, fin):
+        d0, d1 = _jour(debut), _jour(fin)
+        cle = (id(d), d0, d1)
+        m = memo.get("dernier")
+        if not m or m[0] != cle or m[1] is not d or time.monotonic() - m[2] > 60:
+            res = jours_manquants_paie(d, d0, d1, avec_provisoires=avec_provisoires) if kw else jours_manquants_paie(d, d0, d1)
+            memo["dernier"] = m = (cle, d, time.monotonic(), res if isinstance(res, dict) else {})
+        return len({str(j)[:10] for _, j in (m[3].get(str(uid)) or [])})
+    return jours_manquants
+
+
 # ------------------------------------------------------------------ calcul des primes
 def calculer(d: dict, debut, fin, payees=None, reels_vus=None, jours_manquants=None, fiches=None, registre=None) -> dict:
     """Les équipes de la période et leurs chiffres, sans rien écrire. `payees(d, uid, debut, fin)` -> visites payées (la ligne
     de paie) ; `reels_vus(uid, debut, fin)` -> Reels vus sur la période, bornes comprises (None : non mesurable) ;
     `jours_manquants(d, uid, debut, fin)` -> jours non relevés. Une mesure absente : repli local (payees, jours) ou « non
-    mesuré » (Reels, donc « à vérifier »)."""
+    mesuré » (Reels, donc « à vérifier »). Une mesure en erreur (exception, None) : le VA est « non lu » (`erreur`), compté 0
+    dans les montants, et la prime de son TL et de son manager part « à vérifier » (revue L10, reprise 2)."""
     debut, fin = _jour(debut), _jour(fin)
     mesure = payees or _payees_local
     manque = jours_manquants or _jours_manquants_local
@@ -521,40 +765,62 @@ def calculer(d: dict, debut, fin, payees=None, reels_vus=None, jours_manquants=N
     out = {"debut": debut.isoformat(), "fin": fin.isoformat(), "equipes": {}, "norme": norme,
            "reels_branches": reels_vus is not None, "primee": primee}
     for c, e in composition(fiches, registre, fin).items():
+        noms = e.get("noms") or {}
         vas = []
         for uid in e["vas"]:
-            p = _entier(_appel(mesure, d, uid, debut, fin, defaut=0))
-            j = _entier(_appel(manque, d, uid, debut, fin, defaut=0))
+            p_lu = _mesure(mesure, d, uid, debut, fin)
+            j_lu = _mesure(manque, d, uid, debut, fin)
+            erreur = ([] if p_lu is not None else ["visites"]) + ([] if j_lu is not None else ["jours"])
+            p, j = p_lu or 0, j_lu or 0
             r = _appel(reels_vus, uid, debut, fin) if (reels_vus and p >= PRIME_VOLUME_MIN) else None
             # Revue L10 (R2) : le manager de l'équipe qui y clippe reste VA (le TL est primé sur lui), hors du total qui le paie
             hors_total = uid == e["manager"] and not MANAGER_COMPTE
-            vas.append({"uid": uid, "nom": nom_de(uid), "payees": p, "manquants": j,
+            vas.append({"uid": uid, "nom": noms.get(uid) or nom_de(uid), "payees": p, "manquants": j,
                         "projete": p + (p * j / max(1, n_jours - j) if j else 0),
                         "reels": None if r is None else _entier(r), "juge": p >= PRIME_VOLUME_MIN,
                         "anomalie": _anomalie(_parts(d, uid, debut, fin), norme), "prime": p >= TL_SEUIL_VA,
-                        "hors_total": hors_total})
+                        "hors_total": hors_total, "erreur": erreur})
         vas.sort(key=lambda v: (-v["payees"], v["nom"]))
-        tl_p, tl_j = None, 0
+        tl_p, tl_j, tl_erreur = None, 0, []
         if e["tl"]:
-            tl_p = _entier(_appel(mesure, d, e["tl"], debut, fin, defaut=0))
-            tl_j = _entier(_appel(manque, d, e["tl"], debut, fin, defaut=0)) if EQUIPE_COMPTE_TL else 0
+            tl_p = _mesure(mesure, d, e["tl"], debut, fin)
+            if tl_p is None:
+                tl_erreur.append("visites")
+            if EQUIPE_COMPTE_TL:
+                tl_j = _mesure(manque, d, e["tl"], debut, fin)
+                if tl_j is None:
+                    tl_erreur.append("jours")
+                tl_j = tl_j or 0
         part_tl = (tl_p or 0) if EQUIPE_COMPTE_TL else 0                # EQUIPE_COMPTE_TL=0 : le TL hors du total
         comptes = [v for v in vas if not v["hors_total"]]
         total = sum(v["payees"] for v in comptes) + part_tl
         projete = sum(v["projete"] for v in comptes) + part_tl + (part_tl * tl_j / max(1, n_jours - tl_j) if tl_j else 0)
-        out["equipes"][c] = {"tl": e["tl"], "tl_nom": nom_de(e["tl"]) if e["tl"] else "", "tl_payees": tl_p,
-                             "tl_manquants": tl_j, "manager": e["manager"],
-                             "manager_nom": nom_de(e["manager"]) if e["manager"] else "",
+        out["equipes"][c] = {"tl": e["tl"], "tl_nom": (noms.get(e["tl"]) or nom_de(e["tl"])) if e["tl"] else "",
+                             "tl_payees": tl_p, "tl_manquants": tl_j, "tl_erreur": tl_erreur if EQUIPE_COMPTE_TL else [],
+                             "manager": e["manager"],
+                             "manager_nom": (noms.get(e["manager"]) or nom_de(e["manager"])) if e["manager"] else "",
                              "vas": vas, "total": total, "projete": projete,
                              "va_primes": sum(1 for v in vas if v["prime"]), "primee": primee}
     return out
 
 
+def _texte_erreur(nom: str, erreur: list) -> str:
+    """« Bea : mesure en erreur (visites non lues, comptées 0) » ou « (jours non relevés inconnus) »."""
+    morceaux = (["visites non lues, comptées 0"] if "visites" in erreur else []) + (
+        ["jours non relevés inconnus"] if "jours" in erreur else [])
+    return f"{nom} : mesure en erreur ({', '.join(morceaux)})"
+
+
 def _raisons(e: dict, juges: list, reels_branches: bool, pour_manager: bool = False) -> list:
-    """Pourquoi une prime est « à vérifier » : jours non relevés dans l'équipe, preuve de publication ou part de visites hors norme
-    chez les VA `juges`. `pour_manager` : le manager lui-même, hors du total qui le paie, n'est pas compté."""
+    """Pourquoi une prime est « à vérifier » : mesure en erreur ou jours non relevés dans l'équipe, preuve de publication ou part
+    de visites hors norme chez les VA `juges`. `pour_manager` : le manager lui-même, hors du total qui le paie, n'est pas compté."""
     r = []
-    manq = [v for v in e["vas"] if v["manquants"] and not (pour_manager and v.get("hors_total"))] + (
+    dans = [v for v in e["vas"] if not (pour_manager and v.get("hors_total"))]
+    erreurs = [_texte_erreur(v["nom"], v["erreur"]) for v in dans if v.get("erreur")]
+    if e.get("tl_erreur"):
+        erreurs.append(_texte_erreur(f"{e['tl_nom']} (TL)", e["tl_erreur"]))
+    r.extend(erreurs)
+    manq = [v for v in dans if v["manquants"]] + (
         [{"nom": e["tl_nom"] + " (TL)", "manquants": e["tl_manquants"]}] if EQUIPE_COMPTE_TL and e.get("tl_manquants") else [])
     if manq:
         r.append("jours non relevés : " + ", ".join(f"{v['nom']} ({v['manquants']} j)" for v in manq))
@@ -577,13 +843,23 @@ def _controle_abonnes_manager() -> str:
     return f"contrôle abonnés (Infloww / MyPulse) : 5 par VA de l'équipe à {_fmt(PRIME_VOLUME_MIN)} visites ou plus"
 
 
+def _a_portee(v: dict) -> bool:
+    """Un VA sous le seuil que ses jours non relevés pourraient y faire passer (projeté à TL_SEUIL_VA ou plus)."""
+    return not v["prime"] and bool(v["manquants"]) and v["projete"] >= TL_SEUIL_VA
+
+
+def _texte_portee(v: dict) -> str:
+    return f"{v['nom']} {_fmt(v['payees'])} / {_fmt(TL_SEUIL_VA)} avec {v['manquants']} j non relevé(s)"
+
+
 def lignes_primes(calcul: dict) -> list:
     """[(uid, montant, détail, à_vérifier)] : une entrée par bénéficiaire (TL et manager fusionnés), montant décroissant.
 
     Amendement E (revue L10, R9) : TOUTE ligne avec un montant est « à vérifier » (à_vérifier vrai), car Gaëtan contrôle à la main
     5 abonnés par VA primé avant le virement. Le détail sépare le contrôle de routine (« contrôle abonnés … ») d'une anomalie
-    (« ⚠️ à vérifier : … », jour non relevé, preuve, part hors norme). Montant 0 = une note « à vérifier » seulement (un VA ou une
-    équipe que des jours non relevés pourraient faire passer le seuil) : rien à virer."""
+    (« ⚠️ à vérifier : … », jour non relevé, mesure en erreur, preuve, part hors norme). Montant 0 = une note « à vérifier »
+    seulement, rien à virer : un VA que des jours non relevés pourraient faire passer le seuil (dit aussi quand un autre VA est
+    déjà primé), une équipe que ces jours ou une mesure en erreur pourraient faire passer les 3 000, un VA « non lu »."""
     par_uid = {}
 
     def ajouter(uid, montant, detail, verif):
@@ -597,16 +873,20 @@ def lignes_primes(calcul: dict) -> list:
         if e["tl"]:
             primes = [v for v in e["vas"] if v["prime"]]
             raisons = _raisons(e, primes, reels_branches)
+            portee = [v for v in e["vas"] if _a_portee(v)]
+            en_erreur = [v for v in e["vas"] if v.get("erreur")]
             montant = TL_PRIME_VA_USD * len(primes)
             if primes:
                 detail = (f"+ {_usd(montant)} équipe {c} ({len(primes)} VA à {_fmt(TL_SEUIL_VA)} ou plus : "
                           + ", ".join(f"{v['nom']} {_fmt(v['payees'])}" for v in primes)
                           + ") · " + CONTROLE_ABONNES_TL)
+                # reprise 2 : un VA qui peut encore passer le seuil est dit même quand un autre est déjà primé (+10 $ possibles)
+                raisons += [f"{_texte_portee(v)} (+ {_usd(TL_PRIME_VA_USD)} possible)" for v in portee]
+            elif portee or en_erreur:
+                detail = (f"0 $ équipe {c} pour l'instant"
+                          + (" : " + ", ".join(_texte_portee(v) for v in portee) if portee else ""))
             else:
-                portee = [v for v in e["vas"] if v["manquants"] and v["projete"] >= TL_SEUIL_VA]
-                detail = (f"0 $ équipe {c} pour l'instant : " + ", ".join(
-                    f"{v['nom']} {_fmt(v['payees'])} / {_fmt(TL_SEUIL_VA)} avec {v['manquants']} j non relevé(s)" for v in portee)
-                    if portee else "")
+                detail = ""
             if detail:
                 if raisons:
                     detail += " · ⚠️ à vérifier : " + " ; ".join(raisons)
@@ -621,14 +901,19 @@ def lignes_primes(calcul: dict) -> list:
             continue
         juges = [v for v in e["vas"] if v["juge"] and not v.get("hors_total")]
         raisons = _raisons(e, juges, reels_branches, pour_manager=True)
+        non_lus = [v for v in e["vas"] if v.get("erreur") and not v.get("hors_total")] or e.get("tl_erreur")
         if e["total"] >= MANAGER_SEUIL_EQUIPE:
             lui = any(v.get("hors_total") for v in e["vas"])
             detail = (f"+ {_usd(MANAGER_PRIME_USD)} manager (équipe {c} à {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)}, "
                       f"TL {'compris' if EQUIPE_COMPTE_TL else 'non compris'}" + (", ses visites non comprises" if lui else "")
                       + ") · " + _controle_abonnes_manager())
             montant = MANAGER_PRIME_USD
-        elif raisons and e["projete"] >= MANAGER_SEUIL_EQUIPE:
-            detail = f"0 $ manager {c} pour l'instant : {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)} avec des jours non relevés"
+        elif (raisons and e["projete"] >= MANAGER_SEUIL_EQUIPE) or non_lus:
+            pourquoi = (["des jours non relevés"] if e["projete"] >= MANAGER_SEUIL_EQUIPE and any(
+                        v["manquants"] for v in e["vas"] if not v.get("hors_total")) else []) + (
+                        ["des mesures en erreur"] if non_lus else [])
+            detail = (f"0 $ manager {c} pour l'instant : {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)}"
+                      + (" avec " + " et ".join(pourquoi) if pourquoi else ""))
             montant = 0.0
         else:
             continue
@@ -639,12 +924,21 @@ def lignes_primes(calcul: dict) -> list:
     return sorted(out, key=lambda t: (-t[1], t[0]))
 
 
+def _cle(cle_periode, fin) -> str:
+    """La clé de la période figée : « AAAA-MM-JJ » telle quelle ; sinon (« 05/11 » de liste_paie, vide) le jour de paie déduit de
+    `fin`, comme paie_clics._cle_periode (revue L10, reprise 2 : contrat L11)."""
+    c = str(cle_periode or "").strip()
+    return c if re.fullmatch(r"\d{4}-\d{2}-\d{2}", c) else cle_de_periode(fin)
+
+
 def primes_equipes(d: dict, debut, fin, cle_periode: str = "", payees=None, reels_vus=None, jours_manquants=None) -> list:
     """Contrat du lot L11 (dépendance `primes_equipes` de paie_clics.liste_paie) : [(uid, montant, détail, à_vérifier)].
 
-    Une période figée (clics.json['primes_equipes'][cle_periode] avec « lignes », écrit par paie_clics.figer_primes_equipes avec
-    `a_figer`) est relue telle quelle : une liste retapée donne le même montant. Rien avant PRIMES_EQUIPES_DEPUIS."""
-    fige = (((d or {}).get("primes_equipes") or {}).get(str(cle_periode or "")) or {}) if cle_periode else {}
+    Une période figée (clics.json['primes_equipes'][clé] avec « lignes », écrit par paie_clics.figer_primes_equipes avec
+    `a_figer`) est relue telle quelle : une liste retapée donne le même montant. La clé est le jour de paie « AAAA-MM-JJ » ;
+    `cle_periode` peut être le « 05/11 » de liste_paie ou vide : elle est alors déduite de `fin` (reprise 2). Rien avant
+    PRIMES_EQUIPES_DEPUIS. Lève NonBranche si `configurer` n'a pas été appelé (jamais une liste vide en silence)."""
+    fige = ((d or {}).get("primes_equipes") or {}).get(_cle(cle_periode, fin)) or {}
     if isinstance(fige, dict) and isinstance(fige.get("lignes"), list):
         return [(str(l[0]), float(l[1]), str(l[2]), bool(l[3])) for l in fige["lignes"] if isinstance(l, (list, tuple)) and len(l) >= 4]
     if not periode_primee(debut):
@@ -653,15 +947,20 @@ def primes_equipes(d: dict, debut, fin, cle_periode: str = "", payees=None, reel
 
 
 def a_figer(d: dict, debut, fin, cle_periode: str = "", payees=None, reels_vus=None, jours_manquants=None) -> dict:
-    """Ce que paie_clics.figer_primes_equipes (lot L11) écrit dans clics.json['primes_equipes'][cle_periode] au premier calcul
-    après la clôture : la composition, les chiffres et les lignes (vides avant PRIMES_EQUIPES_DEPUIS). Aucun prénom n'y est
-    une clé : tout est indexé par uid."""
+    """Ce que paie_clics.figer_primes_equipes (lot L11) écrit dans clics.json['primes_equipes'][a_figer(…)["cle"]] au premier
+    calcul après la clôture : la composition, les chiffres et les lignes (vides avant PRIMES_EQUIPES_DEPUIS). Aucun prénom n'y
+    est une clé : tout est indexé par uid. « cle » est toujours « AAAA-MM-JJ » (« 05/11 » ou vide : déduite de `fin`).
+    « complet » est faux si une mesure était en erreur (VA « non lu », listé dans « non_lus » de son équipe) : L11 ne fige pas
+    une telle période, il réessaie au calcul suivant (reprise 2 : jamais un faux 0 figé)."""
     calcul = calculer(d, debut, fin, payees, reels_vus, jours_manquants)
     lignes = lignes_primes(calcul) if periode_primee(debut) else []
+    non_lus = {c: [v["uid"] for v in e["vas"] if v.get("erreur")] + ([e["tl"]] if e.get("tl_erreur") else [])
+               for c, e in calcul["equipes"].items()}
     return {"calcule_le": datetime.now(timezone.utc).isoformat(timespec="seconds"), "debut": calcul["debut"], "fin": calcul["fin"],
-            "cle": str(cle_periode or cle_de_periode(fin)),
+            "cle": _cle(cle_periode, fin), "complet": not any(non_lus.values()),
             "composition": {c: {"tl": e["tl"], "manager": e["manager"], "vas": {v["uid"]: v["payees"] for v in e["vas"]},
-                                "total": e["total"]} for c, e in calcul["equipes"].items()},
+                                "total": e["total"], **({"non_lus": non_lus[c]} if non_lus[c] else {})}
+                            for c, e in calcul["equipes"].items()},
             "lignes": [list(l) for l in lignes]}
 
 
@@ -675,10 +974,12 @@ def resume_equipe(c: str, e: dict, primee=None) -> str:
     prime_m = MANAGER_PRIME_USD if (e["manager"] and e["tl"] and e["manager"] != e["tl"]
                                     and e["total"] >= MANAGER_SEUIL_EQUIPE) else 0
     manq = sum(v["manquants"] for v in e["vas"])
+    non_lus = sum(1 for v in e["vas"] if v.get("erreur"))
     return (f"{c} · TL {e['tl_nom'] or 'aucun'} · VA à {_fmt(TL_SEUIL_VA)} ou plus {e['va_primes']}/{len(e['vas'])} · "
             f"équipe {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)} · "
             + (f"primes {_usd(prime_tl + prime_m)}" if primee else "pas de prime sur cette période")
-            + (f" · {manq} jour(s) non relevé(s)" if manq else ""))
+            + (f" · {manq} jour(s) non relevé(s)" if manq else "")
+            + (f" · {non_lus} VA non lu(s) (mesure en erreur)" if non_lus else ""))
 
 
 # ------------------------------------------------------------------ rôle « Team Leader »
@@ -764,10 +1065,12 @@ async def fin_de_mandats(uid, guild=None, fiche=None, jour=None) -> dict:
     """À appeler par `!sortie` (sortir_membre), le départ du serveur (on_member_remove) et le passage hors clipping AVANT
     d'effacer la fiche d'equipes.json (lot ultérieur, revue L10 R6 et R11) : retire le rôle Team Leader et rend les mandats
     fermés à recopier dans l'entrée de sortis.json (`sortis.append({…, **await equipes_tl.fin_de_mandats(uid, g, fiche)})`).
-    Ne lève jamais : une erreur Discord est journalisée."""
+    Ses mandats ouverts dans mandats.json sont fermés le même jour. Facultatif depuis la reprise 2 : sans cet appel, `composition`
+    retrouve le mandat dans mandats.json. Ne lève jamais : une erreur Discord est journalisée."""
     uid = str(uid)
     fiche = fiche if fiche is not None else (_fiches().get(uid) or {})
     garde = mandats_a_garder(fiche, jour)
+    _fermer_mandats(uid, (_jour(jour) or _aujourdhui()).isoformat())
     try:
         m = _membre(uid)
         if m is not None:
@@ -828,10 +1131,15 @@ async def nommer_tl(membre, creatrice: str, par: str = "", guild=None) -> list:
             lignes.append(avert)
         elif manquait:
             lignes.append(f"Rôle {ROLE_TL_NOM} reposé.")
-        return lignes
+        avert_j = _synchroniser_mandats(fiches, jour, par)               # rattrape un mandat absent du journal
+        return lignes + ([avert_j] if avert_j else [])
     lignes, anciens = [], []
+    d0, f0 = periode_de()
+    en_cours = f"la période en cours ({d0.strftime('%d/%m')} → {f0.strftime('%d/%m')})"
     if fiche.get("chef"):
-        lignes.append(f"{membre.display_name} quitte l'équipe de {fiche['chef']} (un TL n'a qu'une équipe).")
+        lignes.append(f"{membre.display_name} quitte l'équipe de {fiche['chef']} (un TL n'a qu'une équipe) : "
+                      f"{en_cours} n'a plus de TL pour {fiche['chef']}, donc pas de prime TL, sauf si un autre y est nommé "
+                      f"d'ici le {f0.strftime('%d/%m')}.")
         _fin_mandat(fiche, "chef", jour)
     for autre, f in fiches.items():
         if autre != uid and isinstance(f, dict) and _n(f.get("chef")) == _n(canon):
@@ -840,23 +1148,35 @@ async def nommer_tl(membre, creatrice: str, par: str = "", guild=None) -> list:
             anciens.append(autre)
     fiche.update({"chef": canon, "chef_depuis": jour, "chef_par": str(par or "")})
     _ecrire_fiches(fiches)                                              # lu et écrit sans attente : rien ne s'intercale
+    avert_j = _synchroniser_mandats(fiches, jour, par)
+    if anciens:                                                         # reprise 2 : le TL d'une période est celui de son dernier jour
+        noms_a = ", ".join(nom_de(a, fiches[a]) for a in anciens)
+        lignes.append(f"Le TL d'une période est celui de son dernier jour : {en_cours} revient entière à {membre.display_name}, "
+                      f"plus à {noms_a}.")
+        for a in anciens:
+            if _n(fiches[a].get("creatrice")) == _n(canon) and _regime(a) == "clic" and not _exclu(a, fiches[a]):
+                lignes.append(f"{nom_de(a, fiches[a])} clippe sur {canon} : il y compte désormais comme VA.")
     for autre in anciens:
         avert = await _poser_role(_membre(autre), guild, False, f"Plus TL de {canon}")
         if avert:
             lignes.append(avert)
     avert = await _poser_role(membre, guild, True, f"TL de {canon}")
+    compte = (f"Il ne compte ni dans les {_fmt(TL_SEUIL_VA)} ni dans les {_fmt(MANAGER_SEUIL_EQUIPE)} de son équipe"
+              if not EQUIPE_COMPTE_TL else
+              f"Il ne compte pas dans les {_fmt(TL_SEUIL_VA)} ; il compte dans les {_fmt(MANAGER_SEUIL_EQUIPE)} de son équipe "
+              "(EQUIPE_COMPTE_TL=1)")
     entete = (f"✅ {membre.display_name} est TL de {canon} depuis le {_jour(jour).strftime('%d/%m')}.\n\n"
-              f"Ses visites restent payées comme celles d'un clipper. Il ne compte ni dans les {_fmt(TL_SEUIL_VA)} ni dans les "
-              f"{_fmt(MANAGER_SEUIL_EQUIPE)} de son équipe" + (" (EQUIPE_COMPTE_TL=1 : il compte dans le total)" if EQUIPE_COMPTE_TL else "")
-              + f". Prime : {_usd(TL_PRIME_VA_USD)} par VA à {_fmt(TL_SEUIL_VA)} visites payées ou plus.\n\n"
+              f"Ses visites restent payées comme celles d'un clipper. {compte}. "
+              f"Prime : {_usd(TL_PRIME_VA_USD)} par VA à {_fmt(TL_SEUIL_VA)} visites payées ou plus.\n\n"
               f"Rôle {ROLE_TL_NOM} : aucune commande staff. Ne lui donne jamais le rôle Manager.")
     if _regime(uid) == "fixe":
         lignes.append(f"{membre.display_name} est au fixe : sa prime d'équipe passe sur une ligne à part. "
                       f"`!paie @{membre.display_name} clic` le jour où son fixe s'arrête.")
-    if not periode_primee(periode_de()[0]):
+    if not periode_primee(d0):
         lignes.append(_texte_premiere_periode())
-    if avert:
-        lignes.append(avert)
+    for a in (avert, avert_j):
+        if a:
+            lignes.append(a)
     return [entete] + lignes
 
 
@@ -873,8 +1193,11 @@ async def retirer_tl(creatrice: str, par: str = "", guild=None) -> list:
     for uid in partis:
         _fin_mandat(fiches[uid], "chef", jour)
     _ecrire_fiches(fiches)
+    avert_j = _synchroniser_mandats(fiches, jour, par)
     lignes = [f"✅ {', '.join(nom_de(u, fiches[u]) for u in partis)} n'est plus TL de {canon} (depuis le "
               f"{_jour(jour).strftime('%d/%m')}). La période en cours n'a plus de prime TL pour {canon}."]
+    if avert_j:
+        lignes.append(avert_j)
     for uid in partis:
         m = _membre(uid)
         avert = await _poser_role(m, guild if guild is not None else getattr(m, "guild", None), False, f"Plus TL de {canon}")
@@ -899,14 +1222,16 @@ async def nommer_manager(membre, creatrices: list, par: str = "") -> list:
             return [f"ℹ️ {membre.display_name} n'est manager d'aucune équipe."]
         _fin_mandat(fiche, "manager", jour)
         _ecrire_fiches(fiches)
-        return [f"✅ {membre.display_name} n'est plus manager (depuis le {_jour(jour).strftime('%d/%m')})."]
+        avert_j = _synchroniser_mandats(fiches, jour, par)
+        return [f"✅ {membre.display_name} n'est plus manager (depuis le {_jour(jour).strftime('%d/%m')})."] + ([avert_j] if avert_j else [])
     connues = creatrices_connues(fiches)
     inconnues = [c for c in creatrices if _n(c) not in connues]
     if inconnues:
         return [f"❌ Créatrice(s) inconnue(s) : {', '.join(inconnues)}. Connues : {', '.join(sorted(connues.values())) or 'aucune'}."]
     canons = list(dict.fromkeys(connues[_n(c)] for c in creatrices))
     if sorted(_n(c) for c in fiche.get("manager_de") or []) == sorted(_n(c) for c in canons):
-        return [f"ℹ️ {membre.display_name} est déjà manager de {', '.join(canons)}."]
+        avert_j = _synchroniser_mandats(fiches, jour, par)               # rattrape un mandat absent du journal
+        return [f"ℹ️ {membre.display_name} est déjà manager de {', '.join(canons)}."] + ([avert_j] if avert_j else [])
     perdues = [c for c in fiche.get("manager_de") or [] if _n(c) not in {_n(x) for x in canons}]
     lignes = []
     if perdues:
@@ -926,6 +1251,7 @@ async def nommer_manager(membre, creatrices: list, par: str = "") -> list:
         _fin_mandat(fiche, "manager", jour)
     fiche.update({"manager_de": canons, "manager_depuis": jour, "manager_par": str(par or "")})
     _ecrire_fiches(fiches)
+    avert_j = _synchroniser_mandats(fiches, jour, par)
     entete = (f"✅ {membre.display_name} est manager de {', '.join(canons)} depuis le {_jour(jour).strftime('%d/%m')}.\n\n"
               f"Prime : {_usd(MANAGER_PRIME_USD)} par équipe avec un TL à {_fmt(MANAGER_SEUIL_EQUIPE)} visites payées ou plus "
               f"(TL {'compris' if EQUIPE_COMPTE_TL else 'non compris'}). Aucun rôle Discord n'est donné.")
@@ -944,6 +1270,8 @@ async def nommer_manager(membre, creatrices: list, par: str = "") -> list:
                       "total de ses équipes, il pourrait y déplacer des liens : retire-lui ce rôle.")
     if not periode_primee(periode_de()[0]):
         lignes.append(_texte_premiere_periode())
+    if avert_j:
+        lignes.append(avert_j)
     return [entete] + lignes
 
 
@@ -979,12 +1307,16 @@ def texte_liste(calcul: dict, en_cours: bool) -> list:
             b.append(f"Équipe : {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)}"
                      + (" (le manager en est le TL : pas de prime manager)" if e["manager"] and e["manager"] == e["tl"] else ""))
         if e["vas"]:
-            b.append("VA : " + " · ".join(f"{v['nom']} {_fmt(v['payees'])}" + (" ✓" if v["prime"] else "")
+            b.append("VA : " + " · ".join((f"{v['nom']} non lu" if "visites" in (v.get("erreur") or []) else
+                                           f"{v['nom']} {_fmt(v['payees'])}") + (" ✓" if v["prime"] else "")
                                           + (f" (manager : hors des {_fmt(MANAGER_SEUIL_EQUIPE)})" if v.get("hors_total") else "")
                                           for v in e["vas"]))
         manq = [v for v in e["vas"] if v["manquants"]]
         if manq:
             b.append("⚠️ Jours non relevés : " + ", ".join(f"{v['nom']} ({v['manquants']} j)" for v in manq))
+        non_lus = [_texte_erreur(v["nom"], v["erreur"]) for v in e["vas"] if v.get("erreur")]
+        if non_lus:
+            b.append("⚠️ " + " ; ".join(non_lus) + ". Les primes de l'équipe partent « à vérifier ».")
         tl_m = _membre(e["tl"]) if e["tl"] else None
         if tl_m is not None and _a_role_manager(tl_m):
             b.append(f"⛔ {e['tl_nom']} (TL) porte le rôle Manager : retire-le, un TL n'a aucune commande staff.")
@@ -1054,26 +1386,53 @@ def _aide() -> str:
             f"Grille : {_usd(TL_PRIME_VA_USD)} au TL par VA à {_fmt(TL_SEUIL_VA)} visites payées ou plus, "
             f"{_usd(MANAGER_PRIME_USD)} au manager par équipe à {_fmt(MANAGER_SEUIL_EQUIPE)} ou plus. "
             f"Le TL {'compte' if EQUIPE_COMPTE_TL else 'ne compte pas'} dans son équipe.\n\n"
-            "Sortie d'un TL : la liste de paie de la période close d'abord (`!paie-clics 5|20`), puis `!tl Chloé aucun`, "
-            "puis `!sortie`.")
+            "Sortie d'un TL ou d'un manager : rien de spécial. Son mandat est gardé (mandats.json) pour la période close ; "
+            "nomme le suivant avec `!tl Chloé @Y`.")
+
+
+def _cible(message, texte: str):
+    """(membre, refus) : la personne écrite dans la commande (« <@123> » ou « <@!123> »), résolue en membre du serveur ; la
+    première mention seulement s'il n'y en a aucune dans le texte. Reprise 2 : une commande tapée EN RÉPONSE à un message met
+    aussi l'auteur du message cité dans `mentions` (souvent en premier) : il n'est jamais pris à la place de la personne écrite.
+    Deux personnes écrites : refus."""
+    mentions = list(getattr(message, "mentions", None) or [])
+    ids = list(dict.fromkeys(re.findall(r"<@!?(\d+)>", texte or "")))
+    if len(ids) > 1:
+        return None, ("❌ Une seule personne par commande : le message en mentionne " + str(len(ids))
+                      + ". Refais la commande avec la seule personne à nommer.")
+    if ids:
+        m = _membre(ids[0]) or next((x for x in mentions if str(getattr(x, "id", "")) == ids[0]), None)
+        if m is None:
+            return None, f"❌ Personne introuvable : <@{ids[0]}> n'est ni sur le serveur ni dans les mentions du message."
+        return m, ""
+    return _resoudre(mentions[0] if mentions else None), ""
 
 
 async def commande(message, texte: str) -> bool:
     """`!tl …` et `!manager …`, réservées aux ADMIN_IDS (jamais au rôle Manager). True si la commande est traitée. Tapée en MP,
-    la mention est résolue en membre du serveur, et le serveur est celui de ce membre (revue L10, R8)."""
+    la mention est résolue en membre du serveur, et le serveur est celui de ce membre (revue L10, R8). La personne est celle
+    ÉCRITE dans la commande, jamais l'auteur d'un message cité (reprise 2)."""
     mots = (texte or "").split()
     if not mots or mots[0].lower() not in ("!tl", "!manager"):
         return False
+    if not branche():
+        journal.error("%s tapé, mais equipes_tl.configurer n'a pas été appelé au démarrage (on_ready, lot W)", mots[0])
+        await message.reply(f"❌ `{mots[0]}` n'est pas branché au démarrage (equipes_tl.configurer manque dans on_ready). "
+                            "Rien n'a été changé.")
+        return True
     if not est_admin(message.author):
         await message.reply("Réservé aux admins.")
         return True
     args = [m for m in mots[1:] if not (m.startswith("<@") and m.endswith(">"))]
-    cible = _resoudre((getattr(message, "mentions", None) or [None])[0])
+    cible, refus_cible = _cible(message, texte)
     par = str(getattr(message.author, "id", ""))
     guild = (getattr(message, "guild", None) or getattr(cible, "guild", None)
              or getattr(_membre(getattr(message.author, "id", "")), "guild", None))
     try:
         if mots[0].lower() == "!manager":
+            if refus_cible:
+                await message.reply(refus_cible)
+                return True
             if cible is None or not args:
                 await message.reply("Usage : `!manager @X Chloé Sarah` (ou `!manager @X aucun`).")
                 return True
@@ -1089,6 +1448,9 @@ async def commande(message, texte: str) -> bool:
         if any(_n(a) in ("aucun", "aucune") for a in args):
             await _repondre(message, await retirer_tl(creatrice, par, guild))
             return True
+        if refus_cible:
+            await message.reply(refus_cible)
+            return True
         if cible is None:
             await message.reply("Usage : `!tl Chloé @X`, `!tl Chloé aucun` ou `!tl liste`.")
             return True
@@ -1102,11 +1464,22 @@ async def commande(message, texte: str) -> bool:
 def _liste(args: list, guild=None) -> list:
     """`!tl liste [5|20 AAAA-MM]` : la période en cours, ou celle de la paie du 5 ou du 20 du mois donné. Avec le serveur : les
     écarts entre le rôle Team Leader et le registre ; toujours : les variables Railway illisibles."""
+    usage = ("Usage : `!tl liste` (période en cours) ou `!tl liste 5 2026-11` (paie du 5 novembre), "
+             "`!tl liste 20 2026-10` (paie du 20 octobre).")
     if args and args[0] in ("5", "20"):
-        mois = args[1] if len(args) > 1 and len(args[1]) == 7 and args[1][4] == "-" else ""
-        debut, fin = periode(args[0], mois)
+        if len(args) > 2 or (len(args) == 2 and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", args[1])):
+            return [f"❌ Mois illisible : « {' '.join(args[1:])} ». " + usage]       # reprise 2 : plus de « a échoué (ValueError) »
+        debut, fin = periode(args[0], args[1] if len(args) == 2 else "")
+    elif args:
+        return [f"❌ Période illisible : « {' '.join(args)} ». " + usage]
     else:
         debut, fin = periode_de()
+    try:                                                                # rattrape un mandat noté à la main dans equipes.json
+        avert_j = _synchroniser_mandats(_fiches(), _aujourdhui().isoformat())
+    except NonBranche:
+        raise
+    except Exception as erreur:                                         # noqa: BLE001
+        avert_j = f"⚠️ Journal des mandats non mis à jour ({type(erreur).__name__})."
     d = {}
     if _deps.get("lire_clics"):
         d = _appel(_deps["lire_clics"], defaut={}) or {}
@@ -1125,6 +1498,8 @@ def _liste(args: list, guild=None) -> list:
         blocs.append("\n".join(roles))
     if AVERTISSEMENTS:
         blocs.append("⚠️ Railway : " + " ; ".join(AVERTISSEMENTS) + ".")
+    if avert_j:
+        blocs.append(avert_j)
     if not _deps.get("payees"):
         blocs.append("-# Mesure approchée : paie_clics.payees n'est pas branchée ici.")
     return blocs
