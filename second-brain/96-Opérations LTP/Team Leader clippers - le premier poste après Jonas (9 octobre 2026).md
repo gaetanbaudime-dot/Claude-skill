@@ -16,6 +16,10 @@ liens_forts: ["[[Fiche de poste - Manager marketing (Jonas)]]", "[[Checkup clipp
 > [!tip] Verdict
 > **Ne monte pas la pyramide manager → 5 Team Leaders → 50 clippers : tu as quatre clippers qui produisent, pas cinquante.** Seul poste à ouvrir : **un Team Leader joueur-entraîneur malgache, choisi sur ses chiffres** (Clarisse ou Yves, pas Thia), qui garde ses comptes, encadre 5 à 10 nouveaux et touche **sa paie de clipper + 10 $ par quinzaine pour chaque clipper de son équipe au-dessus de 500 visiteurs francophones et de 5 abonnés OF + MYM**. Pas de manager tant que trois équipes ne tiennent pas ce seuil : c'est toi et le bot. **Le 0,05 $ par visiteur ne bouge pas** : à 0,005 $, un clipper au seuil gagne 2,50 $, son Team Leader 10 $, et le manager plus que les cinquante clippers réunis.
 
+
+> [!info] Suite du 10/10 : la grille de Gaëtan
+> Gaëtan a fixé le 10/10 une grille qui remplace la proposition manager de cette page : TL = paie de clipper + 10 $ par VA à 500 visites payées ou plus sur la quinzaine, manager = **75 $** par TL dont l'équipe fait 3 000 ou plus. Codée dans le bot avec des variables (TL exclu du seuil, première période 20/10 → 04/11) ; avocat du diable et état du déploiement dans [[Système clippers - cartographie complète (11 octobre 2026)]].
+
 > [!info] Suite du 09/10 au soir : Clarisse et Yves ont dit oui, structure par créatrice
 > Gaëtan veut un Team Leader par créatrice (Chloé, Sarah, Sophie) et 10 clippers sous chacun. Recommandation : **deux Team Leaders maintenant, Clarisse sur Chloé, Yves sur Sarah ; Sophie sans Team Leader tant que personne n'a prouvé sur elle** (pas de nouveau cas Thia). Équipes de 5 d'abord, 10 quand 2 passent le seuil ; les cinq au fixe hors équipes. Détail en section 9.
 
