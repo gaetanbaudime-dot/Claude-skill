@@ -284,6 +284,24 @@ def _index_par_url(liens: dict) -> dict:
     return out
 
 
+def _par_url(liens: dict) -> dict:
+    """10/10 (passe 4 du lot DASH, contre-vérification n4 : N0 effacé, puis le slug de N1 changé dans GAML pour reprendre celui de N0 ;
+    clics.json garde l'ancienne URL de N1, le cache des détails GAML de l'onboarding la nouvelle. Le contrôle, qui lit aussi les
+    détails, rattachait la cellule à N1 ; le Dashboard, sur les fiches seules, à N0 effacé — « ⚠ paul (supprimé) », Clics 7 j vide,
+    « écart 70 ⚠ ») : l'index du contrôle (controle._index_par_url) avec les MÊMES détails que lui (controle._details_en_cache, un
+    cache en mémoire, aucun appel GAML). Repli : _index_par_url, les fiches seules, si le contrôle manque ou échoue."""
+    f = getattr(controle, "_index_par_url", None) if controle is not None else None
+    details = getattr(controle, "_details_en_cache", None) if controle is not None else None
+    if callable(f) and callable(details):
+        try:
+            out = f(liens, details())
+            if isinstance(out, dict):
+                return out
+        except Exception as erreur:                                      # noqa: BLE001 — repli sur les fiches seules
+            journal.debug("Index des URL du contrôle : %s", erreur)
+    return _index_par_url(liens)
+
+
 _RE_URL = re.compile(r"(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s,;|]*)?", re.I)
 
 
@@ -484,7 +502,8 @@ class _Ctx:
         self.non_lus = self.etats.get("non_lus") if isinstance(self.etats.get("non_lus"), dict) else {}
         self.bios = self.etats.get("bios") if isinstance(self.etats.get("bios"), dict) else {}
         self.liens = {str(k): v for k, v in (self.clics.get("liens") or {}).items() if isinstance(v, dict)}
-        self.par_url = _index_par_url(self.liens)                        # 10/10 (reprise DASH) : le lien ACTIF d'une URL reprise
+        self.par_url = _par_url(self.liens)                              # 10/10 (reprise DASH, passe 4) : le lien ACTIF d'une URL
+                                                                         # reprise, URL des détails GAML comprises (index du contrôle)
         self._clics = {}
         self._cats = {}
         self.notes = _notes_controle(self.clics)                         # 10/10 (passe 3) : les notes du bouclage, une fois
@@ -909,10 +928,11 @@ def _resoudre_liens(ctx: _Ctx, lignes: list, creatrices: set):
                 L.setdefault("bio_ko", []).append((lid, "autre clipper" if autre else ("autre créatrice" if cat in AUTORISES[L["typ"]] else cat)))
     porte_par = {}
     for lid, cands in candidats.items():
-        u = _url_cle((ctx.liens.get(lid) or {}).get("url"))
         # le groupe dont la cellule porte le lien d'abord (une bio ailleurs ne lui prend jamais ses clics), puis la bio qui l'affiche,
-        # puis le compte privé, puis l'ordre du classeur
-        cands = sorted(cands, key=lambda L: (maison.get(lid, L["groupe"]) != L["groupe"], u not in ctx.bio_urls(L["cle"]),
+        # puis le compte privé, puis l'ordre du classeur. 10/10 (passe 4) : « la bio qui l'affiche » par l'index des URL (ctx.par_url,
+        # URL des détails GAML comprises), comme la bio qui l'a fait candidat — plus par l'URL de clics.json, parfois périmée
+        cands = sorted(cands, key=lambda L: (maison.get(lid, L["groupe"]) != L["groupe"],
+                                             lid not in {ctx.par_url.get(x) for x in ctx.bio_urls(L["cle"])},
                                              not _est_prive(L["c"]), L["ordre"]))
         porteur = cands[0]
         porte_par[lid] = porteur
@@ -1303,7 +1323,13 @@ def _relecture_en_cours(ctx, st: dict):
     depuis H (ni `leger_iso`, ni passage complet qui l'aurait rendue inutile) ; et le budget publié la laissait passer, avec la
     formule de la garde (passage_leger_si_du._budget_permet : pas coupé ; dépense publiée + coût d'une relecture — `apify_local`
     `cout_leger_usd` non arrondi, celui de la garde — sous la trajectoire publiée, ramenée à H h : la garde passe à H h ou juste
-    après) — sinon la garde l'a sautée et le fait « sautée » reste entier."""
+    après) — sinon la garde l'a sautée et le fait « sautée » reste entier.
+    10/10 (passe 4, contre-vérification n3 : la garde compte deux fois, pendant RECOUVREMENT_API_MIN, un appel noté juste avant la
+    lecture de l'API et saute la relecture de 14 h ; à la relecture suivante de l'API, la dépense publiée redescend sous sa formule et
+    le Dashboard disait « relecture légère du jour sautée · relecture de 14 h en cours » quand rien ne tournait) : le saut du jour
+    doit pouvoir venir d'une heure traitée AVANT H. Une heure d'avant est hors de cause quand un passage complet l'a rendue inutile
+    (moins de LEGER_APRES_COMPLET_H heures avant elle, ou après elle), ou — la dernière avant H — quand `leger_iso` date d'après elle
+    (elle a tourné). Toutes hors de cause, ou aucune heure avant H : le saut est celui de H, rien n'est « en cours »."""
     j, traitees = _legers_du_jour(ctx)
     if not traitees:
         return None
@@ -1314,6 +1340,14 @@ def _relecture_en_cours(ctx, st: dict):
     leger, complet = _instant(ctx.etats.get("leger_iso")), _instant(ctx.etats.get("scan_iso"))
     _, apres, _ = _reglages_legers()
     if (leger is not None and leger >= t_h) or (complet is not None and complet > t_h - timedelta(hours=apres)):
+        return None
+    avant = traitees[:-1]
+
+    def _hors_de_cause(hk) -> bool:
+        t_k = _a_heure(j, hk)
+        return (complet is not None and complet > t_k - timedelta(hours=apres)) \
+            or (hk == avant[-1] and leger is not None and leger >= t_k)
+    if all(_hors_de_cause(hk) for hk in avant):                          # aucune heure avant H (all([]) est vrai) : celui de H
         return None
     loc = ctx.etats.get("apify_local") if isinstance(ctx.etats.get("apify_local"), dict) else {}
     cout = _montant(loc.get("cout_leger_usd"))
