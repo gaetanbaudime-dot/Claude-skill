@@ -368,6 +368,51 @@ Tests : `test_codes2fa_corpus.py` (les 42 mails du corpus de la revue, au vrai f
 
 Tests ajoutés : `test_codes2fa_fiabilite.py` (coupures, mail illisible, BAN au redémarrage, formats iCloud), `test_codes2fa_revue.py` (salons, guet, lignes admin). Le test du corpus passe aussi les 59 mails d'attaque.
 
+## 10/10 : un seul point du matin
+
+Gaëtan : « Le but, c'est de revérifier et de bien paramétrer, simplifier et supprimer toutes les étapes inutiles au processus de recrutement. »
+
+**Verdict** : le salon admin reçoit UN point le matin, plus les seuls événements qui demandent un geste tout de suite. Avant, à 10 recrues par jour : environ 37 messages admin, dont une douzaine utiles.
+
+**Quand** : à `DIGEST_HEURE` (9 h, Paris) au plus tôt, juste après la passe du jour de la sortie automatique. À `DIGEST_HEURE_MAX` (11 h) au plus tard, même sans passe ce jour-là.
+
+En pratique : **vers 10 h jusqu'au 25/10**, puis **9 h** à partir du 26/10. La passe de sortie tourne à 8 h UTC, après le scan Instagram de 7 h UTC : 10 h à Paris l'été, 9 h l'hiver. Le point du matin l'attend, parce que son bilan en fait partie. Avancer la passe avant le scan la ferait juger sur les Reels de l'avant-veille : non.
+
+Tu préfères la même heure toute l'année ? `DIGEST_HEURE=10` sur Railway.
+
+**Où** : au salon admin seulement, plus chez le manager (les liens WhatsApp des bloqués portent des numéros). Trop long, il est coupé entre deux blocs, jamais tronqué. La copie Telegram n'a ni les bloqués ni la sortie.
+
+**Dans cet ordre** :
+
+1. le compteur d'hier : candidatures, quizz, arrivés sur Discord, validés, attribués à une créatrice (sans les anciens dont la créatrice est retrouvée d'après leur pseudo ou le classeur : `creatrice_par` « pseudo » ou « classeur ») ;
+2. les bloqués, seulement s'il y en a (`bloques.py`, WhatsApp en un appui). Nouveau cas : le compte qui doit ouvrir le suivant est restreint au dernier relevé, ou le scan n'y a vu aucun Reel 24 h après « ton compte n arrive dès que je vois… ». La ligne propose `!etape @prénom n` s'il publie. « 0 Reel vu » seulement si le scan a lu ce compte depuis l'attente (un relevé des séries) ; sinon « scan pas passé sur ce compte depuis l'attente » et un WhatsApp neutre (« Tu publies bien sur ton compte n ? ») : non mesuré n'est pas inactif ;
+3. le bilan de la sortie automatique : sa passe ne poste plus rien, son bilan attend le point du matin (`sortie_auto.json`, clé `a_dire`) ;
+4. les places livrables (module `places`, sinon les comptes livrables par créatrice) ;
+5. ce qui attend le staff : en attente d'une créatrice, quizz réussis pas validés, signés sans créatrice, avertissement technique, ce qui est éteint depuis le démarrage (`demarrage.json`), une sauvegarde ratée ;
+6. le lundi : le tableau de la semaine, puis le fond de pipeline.
+
+Rien à faire : « ✅ Rien qui n'attende ton action aujourd'hui. » en tête.
+
+**Plus de message sans action** : « Bot redémarré » (seul ce qui est éteint est dit, une fois, puis rappelé chaque matin), « personne 🎉 », « est arrivé par son invitation », « ✍️ a rejoint l'agence » quand le rôle est posé et l'attribution automatique lancée, « → créatrice » quand l'attribution s'est bien passée, « ⏳ en attente d'une créatrice », « Signés cette semaine ».
+
+« ✍️ a rejoint l'agence » part encore (salon du manager, salon admin, Telegram) quand il y a un geste : rôle non attribué (`!equipe`) ou attribution coupée (`!creatrice`). Plus jamais avec le numéro WhatsApp.
+
+**Restent en direct** : WhatsApp déclaré, ban, question sans réponse, demande de numéro, mineur ou nudité, code non classé, changement fait sur un compte, compte 3 sans lien GAML, budget Apify qui entame une réserve. Et une attribution qui demande un geste : onboarding en échec ou aucun compte réservé, rôle ou pseudo refusé.
+
+**Encore à part** : l'appel de présence poste ses bilans (appel, purge, appel général). Le lundi, tant que le lot W n'a pas retiré sa boucle, le tableau de la semaine part seul vers 8 h et le point du matin ne le répète pas.
+
+**La sauvegarde du dimanche** (20 h) : un zip daté sur le volume, `DONNEES/sauvegardes/sauvegarde_AAAA-MM-JJ.zip`, les 4 derniers gardés. Plus jamais en pièce jointe dans Discord : `pipeline.json` porte les numéros. Un échec est dit au point du matin suivant.
+
+Limite : une copie sur le même volume protège d'un fichier abîmé ou écrasé, pas de la perte du volume.
+
+`!sauvegarde` (admin) écrit la même archive tout de suite et répond seulement son nom et le nombre de fichiers : plus aucune pièce jointe. Il n'est pas dans l'aide, la sauvegarde du dimanche suffit.
+
+**Railway** : rien à ajouter. `DIGEST=0` rend l'ancien découpage (bloqués à 11 h, sortie à part). `DIGEST_HEURE` (9) et `DIGEST_HEURE_MAX` (11) règlent l'heure. `BLOQUES=0` retire aussi les bloqués du point du matin (`!bloques` répond toujours).
+
+**Double authentification** : plus aucun texte ne l'interdit (base de connaissances, assistant). Le clipper l'écrit à Gaëtan avant de toucher à quoi que ce soit ; l'alerte admin sur un changement de double authentification (lot codes) reste.
+
+Tests : `test_vague1_L9b_digest.py`, `test_vague1_L9b_bloques.py`, `test_vague1_L9b_reprise.py`, `test_vague1_L9b_reprise2.py`.
+
 ## Présentation du bot
 
 Un bot **Discord** qui répond aux questions des clippers **uniquement à partir de `connaissances.md`**
@@ -578,7 +623,7 @@ avec des comptes déjà livrés d'une autre est signalé (`!liberer` puis `!onbo
 
 **Période d'essai sur un seul compte (30/09, Gaëtan : GO)** : pour tout parcours dont l'étape 1 commence à partir d'`ESSAI_DEPUIS` (30/09), le compte 1 validé n'ouvre pas l'étape 2 : le salon reçoit « Période d'essai : ton compte 1 seulement… publie 5 Reels en 72 h » (`ESSAI_REELS`). Le scan du matin additionne les Reels du compte 1 sur ses trois derniers passages ; à 5, « Essai réussi » et l'étape 2 arrive (`parcours.reconcilier`, argument `reels_72h`). Pendant l'essai : la prochaine étape, l'état des comptes de l'assistant (« compte 2 : fermé, période d'essai »), la base de connaissances et la rétrospective disent la même chose ; la liste des bloqués juge le clipper sur ses Reels, pas sur le compte 2. Celui qui ne publie pas est averti à 3 jours et sorti à 7 : il n'aura coûté qu'un compte. Les parcours déjà en cours ne changent pas. `ESSAI_UN_COMPTE=0` éteint.
 
-**Un seul message de suivi, les bloqués du matin, WhatsApp en un appui (30/09, Gaëtan : GO n° 2, 3 et 4)** : (4) le message du matin, les relances d'étape et le jour de warm-up passent par `matin.remplacer` — le message de suivi précédent du salon est effacé et le nouveau arrive en bas ; une étape validée efface aussi l'ancien suivi (`matin.effacer`). Les messages d'étape (identifiants, boutons) restent. (3) `bloques.py` : chaque matin à `BLOQUES_HEURE` (11 h Paris, après le scan), le salon admin reçoit les clippers du roster bloqués — compte 1 à créer depuis plus de 2 jours, compte 2 ou 3 depuis plus de 4 jours, ou aucun Reel depuis `BLOQUES_JOURS_SANS_REEL` (3) jours (`sortie_auto.jours_sans_reel`) — le plus bloqué d'abord, 25 au plus ; `!bloques` la sort tout de suite. (2) Chaque ligne porte un lien WhatsApp (`wa.me/<numéro>?text=…`) qui ouvre la conversation avec le message déjà écrit : rien ne part sans l'appui de Gaëtan (un envoi automatique fait bannir un numéro). Les relances des candidats (`relances.py`) ont le même lien WhatsApp à côté de Telegram, et un candidat sans Telegram lisible mais avec un numéro y figure désormais.
+**Un seul message de suivi, les bloqués du matin, WhatsApp en un appui (30/09, Gaëtan : GO n° 2, 3 et 4)** : (4) le message du matin, les relances d'étape et le jour de warm-up passent par `matin.remplacer` — le message de suivi précédent du salon est effacé et le nouveau arrive en bas ; une étape validée efface aussi l'ancien suivi (`matin.effacer`). Les messages d'étape (identifiants, boutons) restent. (3) `bloques.py` : chaque matin à `BLOQUES_HEURE` (11 h Paris, après le scan ; depuis le 10/10, dans le point du matin), le salon admin reçoit les clippers du roster bloqués — compte 1 à créer depuis plus de 2 jours, compte 2 ou 3 depuis plus de 4 jours, ou aucun Reel depuis `BLOQUES_JOURS_SANS_REEL` (3) jours (`sortie_auto.jours_sans_reel`) — le plus bloqué d'abord, 25 au plus ; `!bloques` la sort tout de suite. (2) Chaque ligne porte un lien WhatsApp (`wa.me/<numéro>?text=…`) qui ouvre la conversation avec le message déjà écrit : rien ne part sans l'appui de Gaëtan (un envoi automatique fait bannir un numéro). Les relances des candidats (`relances.py`) ont le même lien WhatsApp à côté de Telegram, et un candidat sans Telegram lisible mais avec un numéro y figure désormais.
 
 **Classeur des logins : colonne « Reels Hier » et Clics à droite du Gérant (30/09, Gaëtan : « combien de Reels a posté chaque compte IG hier ; déplace Clics last 7d à droite de son gérant, on a un lien par clipper »)** : au démarrage, une fois (`STRUCTURE_LOGINS`, état `structure_logins`), `onboarding.structurer_onglets` range chaque onglet de logins : une colonne « Reels Hier » insérée juste après Followers si elle manque, « Clics last 7d. » déplacée juste à droite de Gérant si elle n'y est pas (un onglet déjà rangé, comme Sarah, n'est pas touché). Le scan du matin y écrit, compte par compte, les Reels des 24 h avant le scan (vide si le compte n'existe pas sur Instagram), en un seul appel et seulement les cellules qui changent. Les colonnes se trouvent par leur en-tête : le reste du bot suit sans réglage.
 
@@ -1136,11 +1181,11 @@ salon admin ne reçoit plus que ce qui appelle un geste ou une lecture.
 | « a déjà reçu le test », « a donné son e-mail — fiche mise à jour » | Journal du bot seulement |
 | Digest : « Signés sans créatrice » à J+66, « tests expirés », « candidatures sans Discord », « avertissement technique » répétés tous les jours | En semaine : les signés récents (≤ 14 j) hors équipe ; le lundi : les anciens et les compteurs de fond. Un avertissement technique n'apparaît qu'une fois |
 | Relance du soir « N tests attendent ton OUI/NON » le jour même du rendu | Seulement pour les tests qui attendent depuis 24 h ou plus |
-| Sauvegarde hebdo : dix fichiers JSON avec aperçu | Une archive zip, une ligne |
+| Sauvegarde hebdo : dix fichiers JSON avec aperçu | Une archive zip, une ligne (10/10 : sur le volume, aucun message) |
 
 Ce qui reste immédiat : un test rendu (avec ses fichiers), un candidat qui accepte les conditions,
 une panne. Pour vider le salon admin du quotidien (rapport MARKETING, digest, alertes cadence), pose
-`CANAL_MANAGER_ID` : ils partent chez le manager et l'admin ne garde que l'hebdo du lundi.
+`CANAL_MANAGER_ID` : ils partent chez le manager et l'admin ne garde que l'hebdo du lundi. Depuis le 10/10, le point du matin reste au salon admin (voir « 10/10 : un seul point du matin »).
 
 ## ⚠️ Compteurs remis à zéro ? (persistance des données)
 

@@ -471,8 +471,12 @@ async def boucle(client):
                 d = _etat(); d["dernier_compte1"] = jour; _deps["ecrire_json"](_deps["FICHIER"], d)
                 d = _etat()
                 d["dernier"] = jour
+                if bilan and DIGEST:
+                    # 10/10 (lot L9b, « un seul digest admin ») : le bilan attend le digest du matin (bilan_pour_digest), qui part
+                    # juste après cette passe ; plus de message à part
+                    d["a_dire"] = (list(d.get("a_dire") or []) + [{"jour": jour, "premiere": premiere, "lignes": bilan}])[-7:]
                 _deps["ecrire_json"](_deps["FICHIER"], d)
-                if bilan and _deps.get("canal_admin"):
+                if bilan and not DIGEST and _deps.get("canal_admin"):
                     canal = await _deps["canal_admin"]()
                     if canal is not None:
                         entete = ("🔎 **Sortie automatique, première liste** — rien n'est fait aujourd'hui. Demain à la même heure, ces "
@@ -482,3 +486,53 @@ async def boucle(client):
             except Exception as erreur:                                     # noqa: BLE001
                 journal.warning("Boucle de sortie automatique : %s", erreur)
         await asyncio.sleep(1800)
+
+
+# ------------------------------------------------------------------ 10/10 : le bilan va au digest du matin
+# Revue du recrutement (lot L9b, « un seul digest admin ») : la passe du jour garde son heure (HEURE_UTC, après le scan Instagram)
+# mais ne poste plus rien ; son bilan (avertis, sortis, 🧱 à débloquer) attend dans sortie_auto.json (« a_dire ») et part dans le
+# digest du matin (bot_discord.boucle_rappels), qui attend cette passe. DIGEST=0 : le message à part revient (retour arrière).
+DIGEST = os.environ.get("DIGEST", "1").strip() != "0"
+
+
+def passe_du_jour_faite(maintenant=None) -> bool:
+    """La passe du jour (date UTC, comme la boucle) est faite, ou il n'y en aura pas (SORTIE_AUTO=0, module non configuré) : le
+    digest n'a pas à l'attendre."""
+    if not ACTIF or not _deps.get("FICHIER") or not _deps.get("lire_json"):
+        return True
+    maintenant = maintenant or datetime.now(timezone.utc)
+    return _etat().get("dernier") == maintenant.astimezone(timezone.utc).strftime("%Y-%m-%d")
+
+
+def bilan_pour_digest() -> tuple:
+    """Le bloc « sortie automatique » du digest : ([lignes], [jours des passes dites]) ; ([], []) si aucune passe n'a rien à dire.
+    Lecture seule : oublier_bilan_dit(jours) une fois le digest posté (un digest raté ne perd rien, une passe arrivée entre-temps
+    non plus)."""
+    if not _deps.get("FICHIER") or not _deps.get("lire_json"):
+        return [], []
+    a_dire = [x for x in (_etat().get("a_dire") or []) if isinstance(x, dict) and x.get("lignes")]
+    if not a_dire:
+        return [], []
+    out = [f"🚪 **Sortie automatique** ({JOURS_COMPTE1 * 24} h sans compte 1)"]
+    for x in a_dire:
+        jour = str(x.get("jour") or "")
+        if len(a_dire) > 1 and len(jour) == 10:
+            out.append(f"-# Passe du {jour[8:10]}/{jour[5:7]}")
+        if x.get("premiere"):
+            out.append("🔎 Première liste : rien n'est fait aujourd'hui. Demain à la même heure, ces clippers sortent tout seuls "
+                       "(`!sortie-auto go` pour le faire maintenant, `!note @x garde` pour en protéger un).")
+        out.extend(str(ligne) for ligne in x["lignes"])
+    return out, [str(x.get("jour") or "") for x in a_dire]
+
+
+def oublier_bilan_dit(jours) -> None:
+    """Le digest est parti : les bilans des passes `jours` qu'il portait sont oubliés (les autres restent)."""
+    if not _deps.get("FICHIER") or not _deps.get("lire_json") or not jours:
+        return
+    d = _etat()
+    restent = [x for x in (d.get("a_dire") or []) if not (isinstance(x, dict) and str(x.get("jour") or "") in set(jours))]
+    if restent:
+        d["a_dire"] = restent
+    else:
+        d.pop("a_dire", None)
+    _deps["ecrire_json"](_deps["FICHIER"], d)

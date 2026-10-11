@@ -299,7 +299,8 @@ async def _dire(membre, texte: str) -> bool:
 async def _mettre_en_attente(membre, via: str) -> tuple:
     """Le membre passe à « attente_attribution » (pipeline). Le repli part UNE fois : pas à quelqu'un qui attendait déjà (repris
     par la boucle, remis en attente faute de compte) ni à un candidat que la migration a déjà prévenu. Renvoie (nouveau dans
-    l'attente, repli envoyé) : l'admin n'a une ligne qu'à l'entrée dans l'attente, jamais à chaque démarrage ou passage."""
+    l'attente, repli envoyé) : l'admin n'a une ligne qu'à l'entrée dans l'attente, jamais à chaque démarrage ou passage (10/10 :
+    et seulement si l'attribution est éteinte ; sinon le digest du matin le dit)."""
     fichier, uid = _fichier_pipeline(), str(membre.id)
     deja_prevenu, nouveau = False, True
     if fichier is not None:
@@ -516,13 +517,17 @@ async def attribuer(membre, via: str) -> str:
         creatrice, note = prochaine(membre.guild, stock)
         if not creatrice:
             nouveau, prevenu = await _mettre_en_attente(membre, via)
-            journal.info("Attribution impossible pour %s (%s) : aucun compte livrable, en attente", _deps["prenom_de"](membre), via)
-            admin = await _deps["canal_admin"]() if nouveau else None
+            journal.info("Attribution impossible pour %s (%s) : aucun compte livrable, en attente%s", _deps["prenom_de"](membre), via,
+                         " (repli envoyé)" if prevenu else "")
+            # 10/10 (vérification du lot L9b) : plus de ligne « ⏳ … repris tout seul » au salon admin, sans geste à faire et en double
+            # avec le bloc « En attente d'une créatrice » et les places du digest. Seule exception : l'attribution est éteinte au
+            # moment de la mise en attente (actif() faux, ordre vidé pendant l'attente du verrou) : la reprise ne le prendra pas, le
+            # geste est `!creatrice`.
+            admin = await _deps["canal_admin"]() if nouveau and not actif() else None
             if admin is not None:
                 try:
-                    await admin.send((f"⏳ {membre.mention} en attente d'une créatrice : aucun compte livrable ({via})."
-                                      + (" Repli « dès qu'un compte est prêt » envoyé." if prevenu else "")
-                                      + " Repris tout seul dès qu'un compte se libère.")[:1990])
+                    await admin.send((f"⏳ {membre.mention} attend une créatrice et l'attribution est éteinte : personne ne le reprendra.\n\n"
+                                      f"`!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")[:1990])
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             return ""
@@ -541,14 +546,45 @@ async def attribuer(membre, via: str) -> str:
                                                "via": via, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
         e["historique"] = e["historique"][-300:]
         _ecrire(e)
-    journal.info("Attribution automatique : %s → %s (%s)", _deps["prenom_de"](membre), creatrice, via)
-    admin = await _deps["canal_admin"]()
-    if admin is not None:
-        try:
-            await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+    journal.info("Attribution automatique : %s → %s (%s) · %s%s", _deps["prenom_de"](membre), creatrice, via, bilan_court(bilan), note)
+    # 10/10 (revue du recrutement, lot L9b : « un seul digest admin ») : une attribution qui s'est bien passée n'est plus une ligne
+    # au salon admin ; elle compte dans « attribué(s) » du digest du matin (registre, creatrice_date). Seule une attribution qui
+    # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
+    # encore tout de suite.
+    if a_signaler(bilan, note):
+        admin = await _deps["canal_admin"]()
+        if admin is not None:
+            try:
+                await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
+            except (discord.Forbidden, discord.HTTPException):
+                pass
     return creatrice
+
+
+# 10/10 (lot L9b) : ce qui, dans le bilan d'onboarding ou la note de l'ordre, demande un geste du staff (onboarder_membre et
+# onboarding.livrer : échec, rôle ou pseudo refusé, aucun rôle d'équipe, comptes non livrés, classeur ou GAML en panne, parcours
+# pas lancé ; prochaine : créatrice sans catégorie ni rôle sur le serveur)
+MARQUES_A_SIGNALER = ("❌", "⚠️", "refusé", "impossible", "aucun libre", "classeur :", "classeur non branché", "gaml :",
+                      "onboarding :", "non livrés", "sans catégorie ni rôle", "aucun rôle posé", "parcours pas commencé",
+                      "non renvoyée")
+# 10/10 (vérification du lot L9b : onboarding.livrer qui lève donnait « onboarding : KeyError … », coupé au premier « : » par
+# onboarder_membre, donc sans marque, et la ligne admin ne partait plus alors qu'aucun compte n'était réservé) : le succès se lit
+# en liste blanche. Une livraison réussie écrit « N compte(s) » (bilan_court : « N comptes »), N ≥ 1 ; sans elle, on signale.
+_RE_COMPTES_LIVRES = __import__("re").compile(r"(?<![\d.,])[1-9]\d* compte(?:\(s\)|s)?(?![a-zà-ÿ(])")
+
+
+def a_signaler(bilan: str, note: str = "") -> bool:
+    """10/10 (lot L9b) : vrai si l'attribution demande un geste. Une des MARQUES_A_SIGNALER dans le bilan ou la note, OU aucun
+    « N compte(s) » (N ≥ 1) dans le bilan : l'onboarding n'a rien réservé (exception de livrer, quelle qu'elle soit), sauf « déjà
+    livré … rien renvoyé » (livraison de moins de 24 h, ses comptes sont à lui). Une créatrice sautée faute de compte livrable
+    n'est pas un geste : les places du digest le disent."""
+    t = f"{bilan or ''} {note or ''}".lower()
+    if any(m.lower() in t for m in MARQUES_A_SIGNALER):
+        return True
+    b = str(bilan or "").lower()
+    if "déjà livré" in b and "rien renvoyé" in b:
+        return False
+    return _RE_COMPTES_LIVRES.search(b) is None
 
 
 async def reprendre_attente() -> list:
