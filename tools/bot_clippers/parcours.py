@@ -1517,6 +1517,10 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
         # l'attente ; un double appui arrivé entre-temps a déjà envoyé le profil
         d = _lire()
         fiche_p = d.get(str(uid))
+        if creation and fiche_p and (fiche_p.get("dates") or {}).get(f"{n}_fait"):
+            # 11/10 (vérification L1 : deux « Compte n créé » coup sur coup, ou le scan pendant l'appui) : l'autre appel a fermé
+            # l'étape pendant l'attente du classeur ; ce 2e appui ne dit rien (pas de « Ce bouton n'est plus valable »)
+            return True
         if not fiche_p or int(fiche_p.get("etape", 0)) != int(n) or not (fiche_p.get("dates") or {}).get(str(n)):
             return False
         if (fiche_p.get("profils") or {}).get(str(n)):
@@ -1621,6 +1625,13 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
         # 05/10 : compte 3 privé, pas de warm-up. 10/10 (Gaëtan : le 3e compte « avec le lien GAML + l'application de clippeur ») :
         # plus d'étape 6 à bouton qui retenait l'app jusqu'à 24 h. La story à la une part sans bouton, puis la routine et l'app
         # (étape 7, déjà posée ci-dessus). Le lien, si le profil du privé est parti sans lui, part avant, à part.
+        # 11/10 (vérification L1 : forfait GAML plein à l'ouverture du compte 3, lien libéré ensuite ; l'ancienne étape 6 refaisait
+        # un essai, la routine partait ici sans lien ni app, jusqu'à 6 h d'attente) : un nouvel essai, un seul, s'il manque encore.
+        if not str(_onb(uid).get("lien") or "") and _deps.get("attribuer_lien"):
+            try:
+                await _deps["attribuer_lien"](membre)
+            except Exception as erreur:                                 # noqa: BLE001 — sans lien, la story et la routine partent
+                journal.warning("Lien GAML pour %s au profil du privé : %s", uid, erreur)
         try:
             ctx = await _contexte(getattr(salon, "guild", None), str(uid), _lire().get(str(uid)) or fiche_p)
             if ctx.get("ligne_lien"):
@@ -2333,9 +2344,10 @@ def memoire(uid: str) -> str:
     titre = titre_etape(fiche_p, n) if n in ETAPES else ("parcours non commencé" if n == 0 else "parcours terminé")
     if attente(fiche_p):                                                # 01/10 : l'étape n'est pas encore ouverte, rien à créer
         titre = f"attente du compte {n}, pas encore ouvert : rien à créer pour l'instant"
-    if en_bienvenue(fiche_p):                                           # 09/10 : la bienvenue attend son « ✅ C'est fait »
-        titre = ("message de bienvenue envoyé (créatrice, vidéos, WhatsApp) : il écrit à Gaëtan sur WhatsApp puis appuie sur ✅ ; "
-                 f"son compte 1 arrive juste après, au plus tard {BIENVENUE_H} h après la bienvenue")
+    if en_bienvenue(fiche_p):                                           # 09/10 ; 11/10 : plus de ✅ qui retient le compte 1
+        titre = (f"message de bienvenue envoyé (créatrice, vidéos, WhatsApp) : son compte 1 arrive tout seul, au plus tard {BIENVENUE_H} h "
+                 "après la bienvenue, aucun bouton à appuyer ; " + ("WhatsApp déjà déclaré" if fiche_p.get("whatsapp") else
+                                                                   "il écrit à Gaëtan sur WhatsApp avec le bouton du message"))
     date_etape = (fiche_p.get("dates") or {}).get(str(n), "")[:10]
     try:
         regime = paie_clics.regime(uid)
@@ -2464,6 +2476,18 @@ def en_bienvenue(fiche_p: dict) -> bool:
             and not (f.get("dates") or {}).get("1"))
 
 
+def attente_compte_1(fiche_p: dict, majuscule: bool = False, sep: str = " ") -> str:
+    """11/10 (vérification L1 : « écris à Gaëtan… puis appuie sur ✅. Ton compte 1 arrive juste après » restait dans le message du
+    matin, `!etape` et l'assistant, alors que ce ✅ ne fait plus que prévenir Gaëtan) : la bienvenue qui attend encore son compte 1
+    (filet : membre introuvable à l'instant de la bienvenue). Le compte 1 arrive par le programme, au plus tard BIENVENUE_H h après ;
+    le WhatsApp n'est redemandé qu'à qui ne l'a pas déclaré. Une ligne par paragraphe, une seule action."""
+    delai = "dans l'heure" if BIENVENUE_H <= 1 else f"dans les {BIENVENUE_H} h"
+    texte = f"{'T' if majuscule else 't'}on compte 1 arrive ici {delai}."
+    if not (fiche_p or {}).get("whatsapp"):
+        texte += sep + "Écris à Gaëtan sur WhatsApp avec le bouton de mon message de bienvenue."
+    return texte
+
+
 def prochaine_etape(salon_id, maintenant=None) -> str:
     """La ligne « 👉 Aujourd'hui » du message du matin, d'après l'étape du clipper dont c'est le salon."""
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -2473,8 +2497,8 @@ def prochaine_etape(salon_id, maintenant=None) -> str:
         n = int(fiche_p.get("etape", 0))
         if n not in PROCHAINES:
             return "" if n else "attends ta créatrice, ton manager te l'attribue."
-        if en_bienvenue(fiche_p):                                       # 09/10
-            return "écris à Gaëtan sur WhatsApp avec le bouton de mon message de bienvenue, puis appuie sur ✅. Ton compte 1 arrive juste après."
+        if en_bienvenue(fiche_p):                                       # 09/10 ; 11/10 : le compte 1 arrive seul, sans ✅
+            return attente_compte_1(fiche_p)
         comptes = _comptes_ordonnes(uid, fiche_p=fiche_p)               # 01/10 : le même ordre que les étapes (plus la liste brute)
         c = {f"compte{i + 1}": (comptes[i] if i < len(comptes) else "…") for i in range(3)}
         vivants = _vivants(uid, fiche_p, comptes[:3])                   # 01/10 : sans les comptes BAN
@@ -2620,9 +2644,10 @@ def contexte_court(uid: str) -> str:
                     "une story à la une avec le widget de mention du compte privé")
     if n == 0:
         etape = "parcours pas encore commencé (il attend sa créatrice et son compte 1)"
-    elif en_bienvenue(fiche_p):                                         # 09/10
-        etape = ("message de bienvenue reçu : il écrit à Gaëtan sur WhatsApp (bouton du message), puis appuie sur ✅ ; son compte 1 "
-                 "arrive juste après")
+    elif en_bienvenue(fiche_p):                                         # 09/10 ; 11/10 : plus de ✅ qui retient le compte 1
+        etape = (f"message de bienvenue reçu : son compte 1 arrive tout seul, au plus tard {BIENVENUE_H} h après la bienvenue, aucun "
+                 "bouton à appuyer ; " + ("WhatsApp déjà déclaré" if fiche_p.get("whatsapp") else
+                                         "il écrit à Gaëtan sur WhatsApp avec le bouton du message"))
     elif n in ETAPES:
         etape = titre_etape(fiche_p, n)
         a = attente(fiche_p)
@@ -2988,9 +3013,8 @@ async def commande_staff(message, texte: str) -> bool:
             await message.reply("Ton parcours n'a pas encore commencé. Ton manager le lance." if n == 0
                                 else "Ton parcours est fini. Écris `!mesclics` pour voir tes visites.")
             return True
-        if en_bienvenue(fiche_p):                                       # 09/10 : la bienvenue attend son ✅
-            await message.reply("Écris à Gaëtan sur WhatsApp avec le bouton de mon message de bienvenue.\n\n"
-                                "Puis appuie sur ✅ : ton compte 1 arrive juste après.")
+        if en_bienvenue(fiche_p):                                       # 09/10 ; 11/10 : le compte 1 arrive seul, sans ✅
+            await message.reply(attente_compte_1(fiche_p, majuscule=True, sep="\n\n"))
             return True
         # 05/10 : plus de renvoi de l'étape entière (identifiants compris) : le titre et le lien vers le message d'origine
         mid = (fiche_p.get("messages") or {}).get(str(n))

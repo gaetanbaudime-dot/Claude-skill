@@ -32,7 +32,7 @@ Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de
    - « 📌 Une fois, maintenant : ta story à la une. Sur tes comptes 1 et 2 : une story avec le widget de mention @privé, puis mets-la à la une. Jamais de lien sur les comptes 1 et 2. »
    - « 🎉 Bravo, tes 3 comptes sont en place », la routine et le bouton de l'app.
 
-   Si le profil du privé était parti sans lien (forfait GAML plein à ce moment-là), le lien part juste avant, dans son propre message.
+   Si le profil du privé était parti sans lien (forfait GAML plein à ce moment-là), le bot refait UN essai GAML à cet appui (11/10). Le lien part alors juste avant la story, dans son propre message, et la routine part avec l'app. GAML encore plein : la story et la routine partent sans app, et l'alerte du forfait reste le filet.
 
 7. **Plus rien à J+7** : le message « 1 Reel de plus par jour, jusqu'à 10 » et `!parrain` sont retirés (ils contredisaient la règle des 2 Reels par jour).
 
@@ -48,6 +48,10 @@ Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de
 
 - « ✅ J'ai écrit à Gaëtan » donne au salon admin : « 📲 X (créatrice) dit avoir écrit sur WhatsApp : ajoute-le au groupe. » L'ancien « ✅ C'est fait » des bienvenues déjà postées marche encore.
 
+- 11/10 : une bienvenue encore en attente de son compte 1 (le filet) se lit partout « ton compte 1 arrive ici dans l'heure » : la ligne du matin, `!etape`, `!memoire` et l'assistant. Plus de « appuie sur ✅, ton compte 1 arrive juste après ». Le WhatsApp n'y est redemandé qu'à qui ne l'a pas déclaré.
+
+- 11/10 : deux « ✅ Compte n créé » coup sur coup (deux fenêtres du @, ou le scan pendant l'appui) : le 2e ne dit plus rien. Avant, il affichait « Ce bouton n'est plus valable » juste sous le profil.
+
 ### Railway
 
 - `PARCOURS_BIENVENUE_H` : à **retirer** s'il vaut 3 (le défaut du code est 1).
@@ -59,6 +63,7 @@ Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de
 - Un clipper qui n'écrit jamais sur WhatsApp a quand même son compte 1. Les filets : le rappel sous « peut publier », et la ligne « pas de WhatsApp » des bloqués. Gaëtan crée toujours les groupes à la main : c'est le goulot humain.
 - La story à la une n'a jamais été vérifiée (le bouton était déclaratif) : rien ne change là. `controler_liens_bio` vérifie toujours le lien.
 - Plancher jusqu'à l'app : 4 jours (deux fois la règle des 48 h), environ 5 jours à 2 Reels par jour.
+- **À trancher par Gaëtan, une fois** : le quiz (lot L2) garde « Comment augmenter ta cadence ? », dont la bonne réponse est « Chaque semaine, 1 Reel de plus par jour et par compte », et le mot-clé de la vidéo « cadence qui monte petit à petit ». Le parcours ne dit plus la montée (règle 5 : 2 Reels par jour). Recommandation : garder les 2 Reels par jour, changer la bonne réponse du quiz et le mot-clé (ou la vidéo).
 - Dette CGU, inchangée : comptes de l'agence aux identifiants distribués, trois comptes par personne sur le contenu d'une créatrice, relais des codes.
 
 ## 09/10 : le funnel simplifié
