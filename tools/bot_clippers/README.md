@@ -276,7 +276,11 @@ Décision de Gaëtan : « Dépasse pas 25 $ / mois pour le moment, fais comme tu
 
 - La dépense est lue sur l'API Apify (cycle de facturation du compte), sinon comptée par le bot : 2,30 $ les mille profils (`APIFY_PRIX_1000`), sur le mois civil.
 
-- Une relecture légère ne part que si la dépense, plus le coût estimé de cette relecture, reste sous la trajectoire du budget (25 $ × part du cycle écoulée). Sinon elle est sautée, avec une alerte admin par jour.
+- Une relecture légère ne part que si la dépense, plus le coût estimé de cette relecture, reste sous la trajectoire du budget (25 $ × part du cycle écoulée) et laisse entières les réserves des passages du matin et de la file du parcours (lot L7). Sinon elle est sautée, sans aucun message : c'est le fonctionnement prévu.
+
+- Ordre de priorité (lot L7, repris le 11/10) : la file du parcours (clippers qui attendent leur compte suivant) ne bute que sur le plafond ; le passage du matin garde la réserve du parcours ; tout le reste garde les deux réserves. Réserve du matin : un passage par jour restant. Réserve du parcours : deux lectures de la file par jour restant (le mini-scan qui remplace un passage du matin refusé, puis le scan de 19 h). Le scan de 19 h ne part que s'il laisse une lecture de la file pour chaque jour qui reste : même budget entamé, la file est relue chaque jour jusqu'à la fin du cycle.
+
+- Deux alertes au salon admin avant le plafond, une fois par jour chacune : « le passage du matin ne tient plus dans le budget » (dès minuit quand le passage du jour ne passera pas) et « la réserve des passages du matin est entamée » (les relectures s'arrêtent). Le seul geste : monter `APIFY_BUDGET_MOIS` dans Railway.
 
 - À 100 % : plus aucun appel Apify jusqu'au cycle suivant, et `!dashboard scan` est refusé.
 

@@ -21,11 +21,14 @@ refusée d'emblée si sa dépense maximale (comptes × LIMITE_PAR_COMPTE publica
 chaque lot revérifié, et la dépense notée (publications lues ; un lot raté compté au maximum, la course continue chez Apify).
 09/10 (revue 3) : la dépense maximale de chaque lot est réservée dans le registre du budget dès que la garde l'accepte (un scan
 lancé pendant la lecture la compte), puis remplacée par la dépense réelle.
+11/10 (reprise du lot L7) : refusée pour garder les réserves (passages du matin, file du parcours), la réponse dit ce qui est gardé,
+pour quoi et jusqu'à quand, et propose une seule action (_texte_refus_reserve).
 """
 import asyncio
 import logging
 import os
 import statistics
+import time
 from datetime import datetime, timedelta, timezone
 
 import aiohttp
@@ -288,6 +291,25 @@ async def completer_followers() -> dict:
     return fol
 
 
+def _texte_refus_reserve(maxi: float, par_clipper: dict) -> str:
+    """11/10 (reprise du lot L7, R3 : « budget Apify du mois insuffisant (14,84 $ dépensés sur 25,00 $ ; cette lecture peut coûter
+    jusqu'à 1,61 $) » alors que 14,84 + 1,61 < 25 — la réserve n'était pas dite, de quoi croire à une panne ou monter le budget
+    pour rien) : la réponse à un `!cadence` refusé pour garder les réserves (passages du matin, file du parcours). Verdict, chiffres,
+    une seule action : moins de prénoms si la lecture d'un seul tient dans ce qui est libre, sinon monter APIFY_BUDGET_MOIS."""
+    import etats_comptes
+    st = etats_comptes.etat_budget()
+    e = etats_comptes._euros
+    usage, budget = float(st.get("usage_usd") or 0), float(st.get("budget_usd") or 0)
+    libre = max(0.0, budget - usage - etats_comptes._reserve_de(st, "releve"))
+    moins_cher = min((_cout_max(len(hs)) for hs in par_clipper.values() if hs), default=maxi)
+    action = ("Avec moins de prénoms, la lecture coûte moins : `!cadence 30 Prénom`." if moins_cher <= libre
+              else "Pour la lancer quand même : monte APIFY_BUDGET_MOIS dans Railway.")
+    reste = f"il n'en reste que {e(libre)} $ de libre" if libre >= 0.005 else "plus rien n'est libre"
+    return (f"Cadence : pas lancée, le budget Apify qui reste est gardé pour le passage du matin et le parcours.\n\n"
+            f"{e(usage)} $ dépensés sur {e(budget)} $. {etats_comptes.phrase_reserve(st)}.\n\n"
+            f"Cette lecture peut coûter jusqu'à {e(maxi)} $, et {reste}. Rien n'a été lu.\n\n{action}")
+
+
 async def executer(jours: int = JOURS_DEFAUT, prenoms=None) -> tuple:
     """(lignes, resultat) ; lignes explique aussi les cas sans Apify ou sans comptes."""
     if not actif():
@@ -303,7 +325,10 @@ async def executer(jours: int = JOURS_DEFAUT, prenoms=None) -> tuple:
     if handles:                                                         # 09/10 : budget Apify du mois (décision de Gaëtan, 25 $)
         import etats_comptes
         maxi = _cout_max(len(handles))
+        t_garde = time.monotonic()
         if not await etats_comptes.garde_apify(maxi, "cadence (publications)"):
+            if etats_comptes.raison_refus(t_garde) == "reserve":
+                return ([_texte_refus_reserve(maxi, par_clipper)], {})
             st = etats_comptes.budget_apify_connu() or etats_comptes.etat_budget()
             return ([f"Cadence : budget Apify du mois insuffisant ({etats_comptes._euros(st.get('usage_usd'))} $ dépensés sur "
                      f"{etats_comptes._euros(st.get('budget_usd'))} $ ; cette lecture peut coûter jusqu'à {etats_comptes._euros(maxi)} $). "
