@@ -1187,7 +1187,13 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     bot) : `nouveau` = l'appelant sait que c'est un NOUVEAU clipper (calculé AVANT d'écrire sa créatrice au registre, qui levait la
     garde _nouveau). Alors aucune ligne déjà créée à son prénom n'est livrée si elle n'est pas dans SA fiche (ligne « ⚠️ … NON
     livrés (homonyme ?) »). `gerant` : le prénom à écrire dans la colonne Gérant (bot_discord.prenom_distinct : « Lino2 » pour un
-    homonyme), sinon le premier mot du pseudo."""
+    homonyme), sinon le premier mot du pseudo.
+    10/10 (revue du recrutement, lot L3 : le stock de lignes est le goulot) : réserve min(COMPTES_PAR_CLIPPER, ATTRIBUTION_LIGNES_MIN)
+    lignes (places.lignes_a_reserver ; à 3, le trio, inchangé ; à 1, le compte 1 seul, les suivants à l'ouverture de leur étape par
+    reserver_compte), sous le verrou des lignes (_verrou_lignes, partagé avec reserver_compte : deux lectures puis deux écritures
+    prenaient la même ligne libre). Le Gérant écrit est gardé dans la fiche (« gerant »). La colonne « Lien GAML associé »
+    (liens_classeur) est réécrite en tâche de fond : la bienvenue part sans l'attendre."""
+    import places                                                       # import tardif : places importe onboarding
     prenom = (str(gerant or "").strip()
               or (membre.display_name.split()[0] if membre.display_name.split() else membre.display_name))
     uid = str(membre.id)
@@ -1205,55 +1211,59 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             return f"📦 Onboarding de {membre.display_name} ({fiche0.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
     # 1. comptes depuis le classeur
     comptes, tous, lu, leves, douteux, pris = [], [], False, [], [], []
+    a_reserver = places.lignes_a_reserver()                             # 10/10 (lot L3) : 3 par défaut, le trio
     if actif():
-        try:
-            tous = await lire_comptes()
-            deja = [c for c in tous if _norm(c["gerant"]) == _norm(prenom) and _norm(c["utilisation"]) == "clipper"
-                    and _pour_creatrice(c, creatrice)
-                    and _norm(c.get("etat") or "") != "ban"]                # 06/10 : un compte banni n'est jamais livré (Clarisse : 3 BAN)
-            # 09/10 (revue du lot L6 : le nouveau « Lima » recevait les comptes de l'ancien « Lima » de la même créatrice, encore
-            # à lui ; la garde _nouveau ne jouait plus, la créatrice étant déjà au registre) : une ligne livrée à un AUTRE clipper,
-            # ou dans sa fiche, n'est jamais donnée, même forcée. Écartée, avec la ligne « homonyme » à l'admin.
-            proprietaires = _proprietaires()
-            d_autres = {}
-            for c in deja:
-                detenteurs = proprietaires.get(_cle_handle(c["handle"])) or set()
-                if detenteurs and uid not in detenteurs:
-                    d_autres[c["handle"]] = sorted(detenteurs)[0]
-            if d_autres:
-                pris = [c for c in deja if c["handle"] in d_autres]
-                deja = [c for c in deja if c["handle"] not in d_autres]
-                resultat.append(f"⚠️ {len(pris)} compte(s) au nom de {prenom} dans le classeur déjà à un autre clipper, NON livrés "
-                                f"(homonyme ?) : " + ", ".join(f"{c['handle']} (<@{d_autres[c['handle']]}>)" for c in pris)
-                                + f" — s'il est parti : `!liberer {prenom} <handles>`, puis `!onboarding @{prenom}`")
-            if force:                                                    # forçage explicite : on lève les écartés
-                leves = [c["handle"].lower() for c in deja]
-            elif nouveau:                                                # 10/10 : nouveau venu, dit par l'appelant
-                propres = {_cle_handle(h) for h in fiche0.get("comptes") or []}
-                propres |= {_cle_handle(a.get("handle")) for a in fiche0.get("acces") or [] if isinstance(a, dict)}
-                douteux = [c for c in _crees(deja) if _cle_handle(c["handle"]) not in propres]
-                if douteux:
-                    deja = [c for c in deja if c not in douteux]
-                    resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
-                                    f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
-                                    f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
-            elif _nouveau(membre, _lire_etat()):                         # 24/09 : nouvel Eddy ≠ ancien Eddy viré
-                douteux = _crees(deja)
-                if douteux:
-                    deja = [c for c in deja if c not in douteux]
-                    resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
-                                    f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
-                                    f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
-            comptes = deja[:COMPTES_PAR_CLIPPER]
-            if len(comptes) < COMPTES_PAR_CLIPPER:
-                nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes))
-                if nouveaux:
-                    await reserver(nouveaux, prenom)
-                comptes += nouveaux
-            lu = True
-            resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
-        except RuntimeError as erreur:
-            resultat.append(f"classeur : {erreur}")
+        async with _verrou_lignes():                                      # 10/10 (lot L3) : une réservation de lignes à la fois
+            try:
+                tous = await lire_comptes()
+                deja = [c for c in tous if _norm(c["gerant"]) == _norm(prenom) and _norm(c["utilisation"]) == "clipper"
+                        and _pour_creatrice(c, creatrice)
+                        and _norm(c.get("etat") or "") != "ban"]                # 06/10 : un compte banni n'est jamais livré (Clarisse : 3 BAN)
+                # 09/10 (revue du lot L6 : le nouveau « Lima » recevait les comptes de l'ancien « Lima » de la même créatrice, encore
+                # à lui ; la garde _nouveau ne jouait plus, la créatrice étant déjà au registre) : une ligne livrée à un AUTRE clipper,
+                # ou dans sa fiche, n'est jamais donnée, même forcée. Écartée, avec la ligne « homonyme » à l'admin.
+                proprietaires = _proprietaires()
+                d_autres = {}
+                for c in deja:
+                    detenteurs = proprietaires.get(_cle_handle(c["handle"])) or set()
+                    if detenteurs and uid not in detenteurs:
+                        d_autres[c["handle"]] = sorted(detenteurs)[0]
+                if d_autres:
+                    pris = [c for c in deja if c["handle"] in d_autres]
+                    deja = [c for c in deja if c["handle"] not in d_autres]
+                    resultat.append(f"⚠️ {len(pris)} compte(s) au nom de {prenom} dans le classeur déjà à un autre clipper, NON livrés "
+                                    f"(homonyme ?) : " + ", ".join(f"{c['handle']} (<@{d_autres[c['handle']]}>)" for c in pris)
+                                    + f" — s'il est parti : `!liberer {prenom} <handles>`, puis `!onboarding @{prenom}`")
+                if force:                                                    # forçage explicite : on lève les écartés
+                    leves = [c["handle"].lower() for c in deja]
+                elif nouveau:                                                # 10/10 : nouveau venu, dit par l'appelant
+                    propres = {_cle_handle(h) for h in fiche0.get("comptes") or []}
+                    propres |= {_cle_handle(a.get("handle")) for a in fiche0.get("acces") or [] if isinstance(a, dict)}
+                    douteux = [c for c in _crees(deja) if _cle_handle(c["handle"]) not in propres]
+                    if douteux:
+                        deja = [c for c in deja if c not in douteux]
+                        resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
+                                        f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
+                                        f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
+                elif _nouveau(membre, _lire_etat()):                         # 24/09 : nouvel Eddy ≠ ancien Eddy viré
+                    douteux = _crees(deja)
+                    if douteux:
+                        deja = [c for c in deja if c not in douteux]
+                        resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
+                                        f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
+                                        f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
+                comptes = deja[:COMPTES_PAR_CLIPPER]
+                if len(comptes) < a_reserver:
+                    nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes))
+                    if a_reserver < COMPTES_PAR_CLIPPER:                 # 10/10 (lot L3) : le début du trio seulement
+                        nouveaux = _debut_du_trio(nouveaux + disponibles(tous, creatrice, 999), len(comptes), a_reserver)
+                    if nouveaux:
+                        await reserver(nouveaux, prenom)
+                    comptes += nouveaux
+                lu = True
+                resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
+            except RuntimeError as erreur:
+                resultat.append(f"classeur : {erreur}")
     else:
         resultat.append("classeur non branché")
     # 2. 09/10 : la fiche tout de suite (relue fraîche, écrite sans attente). Classeur illisible : ses comptes déjà notés restent.
@@ -1272,6 +1282,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         fiche["acces"] = acces_ordonnes(comptes)                          # 27/09 : chaque étape du parcours donne l'accès du jour
         fiche["comptes"] = [c["handle"] for c in comptes]
     fiche.update({"creatrice": creatrice, "date": maintenant, "par": declencheur})
+    fiche.setdefault("gerant", prenom)                                  # 10/10 (lot L3) : le même Gérant pour reserver_compte
     _ecrire_etat(etat)
     # 3. lien GAML — 05/10 (Gaëtan : « le lien que pour le troisième compte ») : un lien déjà attribué est rappelé ; sinon le parcours
     # le crée à l'ouverture du compte privé. 09/10 : même `!onboarding` forcé n'en crée un que s'il est dû (forfait GAML presque plein).
@@ -1309,11 +1320,140 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                 resultat.append(f"parcours pas commencé : `!etape @{prenom} 1` le lance")
         except Exception as erreur:                                     # noqa: BLE001
             resultat.append(f"étape non renvoyée ({type(erreur).__name__})")
-    try:
-        await liens_classeur()                                          # 27/09 : la colonne « Lien GAML associé » suit tout de suite
-    except Exception as erreur:                                         # noqa: BLE001
-        journal.warning("Colonne Lien GAML après livraison : %s", erreur)
+    # 27/09 : la colonne « Lien GAML associé » suit tout de suite. 10/10 (lot L3) : en tâche de fond (plusieurs lectures GAML), la
+    # bienvenue n'attend plus la réécriture du classeur
+    _liens_classeur_en_fond()
     return f"📦 Onboarding de {membre.display_name} ({creatrice}) : " + " · ".join(resultat)
+
+
+# 10/10 (revue du recrutement, lot L3) ------------------------------------ réservation des lignes, une à la fois
+_verrou_l = (None, None)
+_LIENS_FOND = {"tache": None, "encore": False}
+
+
+def _verrou_lignes():
+    """Le verrou des réservations de lignes (livrer, reserver_compte), créé dans la boucle asyncio qui tourne (même modèle que
+    parcours._verrou_programme) : une lecture du classeur suivie de l'écriture du Gérant, jamais deux en même temps."""
+    global _verrou_l
+    boucle_a = asyncio.get_running_loop()
+    if _verrou_l[0] is not boucle_a:
+        _verrou_l = (boucle_a, asyncio.Lock())
+    return _verrou_l[1]
+
+
+def _liens_classeur_en_fond():
+    """10/10 (lot L3) : liens_classeur lancé en tâche de fond, son erreur au journal. Une seule à la fois : une livraison pendant qu'elle
+    tourne la fait repasser une fois à la fin (jamais deux réécritures du classeur en parallèle). Renvoie la tâche."""
+    t = _LIENS_FOND.get("tache")
+    if t is not None and not t.done():
+        _LIENS_FOND["encore"] = True
+        return t
+
+    async def _tourner():
+        while True:
+            _LIENS_FOND["encore"] = False
+            try:
+                await liens_classeur()
+            except Exception as erreur:                                 # noqa: BLE001 — la livraison est faite, c'est l'essentiel
+                journal.warning("Colonne Lien GAML après livraison : %s", erreur)
+            if not _LIENS_FOND["encore"]:
+                return
+    _LIENS_FOND["tache"] = asyncio.create_task(_tourner())
+    return _LIENS_FOND["tache"]
+
+
+def _bon_type(c: dict, n: int, prive: bool) -> bool:
+    """11/10 (vérification du lot L3 : un compte 2 déjà donné sur une ligne de type privé devenait le compte 3 à l'arrivée de la
+    ligne suivante, parcours._comptes_ordonnes rangeant « croissance d'abord, un @ de type privé en 3 ») : la ligne peut servir au
+    compte n sans renuméroter les comptes déjà donnés. Un compte qui publie : jamais une ligne de type privé (_est_prive). Le
+    privé en 3 : une ligne de croissance reste possible (elle reste en 3). Le privé en 2 (ordre « prive2 ») : une ligne de type
+    privé seulement (une ligne de croissance passerait derrière le compte 3 de croissance)."""
+    if not prive:
+        return not _est_prive(c)
+    return _est_prive(c) or int(n) >= 3
+
+
+def _debut_du_trio(candidates: list, deja: int, jusqu_a: int) -> list:
+    """11/10 (vérification du lot L3) : les lignes des comptes deja+1 à jusqu_a (ATTRIBUTION_LIGNES_MIN sous 3), chacune du bon
+    type (_bon_type : le privé est le compte 2 si parcours.PRIVE_EN_2, sinon le 3), dans l'ordre des candidates, sans doublon."""
+    import parcours                                                     # import tardif : parcours importe onboarding
+    n_p = 2 if parcours.PRIVE_EN_2 else 3
+    choix, vus = [], set()
+    for i in range(int(deja) + 1, int(jusqu_a) + 1):
+        c = next((c for c in candidates if _cle_handle(c["handle"]) not in vus and _bon_type(c, i, i == n_p)), None)
+        if c is None:
+            break                                                       # le compte i sera réservé à l'ouverture de son étape
+        vus.add(_cle_handle(c["handle"]))
+        choix.append(c)
+    return choix
+
+
+async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: bool = False):
+    """10/10 (revue du recrutement, lot L3) : UNE ligne du classeur pour le compte n du clipper, réservée à l'ouverture de son étape
+    (parcours.envoyer_etape) quand sa fiche ne l'a pas : `livrer` n'en a réservé que ATTRIBUTION_LIGNES_MIN, ou le classeur en
+    manquait à son arrivée. Le même chemin que `livrer`, sous le même verrou : Gérant écrit (celui de ses autres lignes, sinon
+    fiche « gerant », sinon le premier mot du pseudo), fiche complétée (comptes, accès, « livres »), alias 2FA rattaché au salon
+    (codes_2fa.rattacher, alias_codes.json).
+
+    Le choix : une ligne « à créer » déjà écrite à SON nom (posée à la main par Gaëtan, à personne d'autre d'après onboarding.json),
+    sinon une ligne libre (disponibles : jamais une info d'un compte BAN). Le bon type d'abord (`prive` : un @ de compte privé pour
+    le compte privé), puis son POD. 11/10 (vérification) : jamais un type qui renumérote un compte déjà donné (_bon_type) — un
+    compte qui publie n'a jamais une ligne de type privé, même seule libre : None, le clipper attend une ligne de croissance.
+
+    Renvoie la ligne (dict du classeur) : celle réservée, ou la sienne si la fiche a déjà le compte n. None : aucune ligne libre, ou
+    classeur éteint. Une panne de lecture du classeur lève RuntimeError (l'appelant réessaie plus tard)."""
+    if not actif():
+        return None
+    uid, n = str(membre.id), int(n)
+    async with _verrou_lignes():
+        tous = await lire_comptes()
+        fiche = _lire_etat()["clippers"].get(uid) or {}
+        siens = [h for h in fiche.get("comptes") or [] if h]
+        par_cle = {_cle_handle(c["handle"]): c for c in tous if c.get("handle")}
+        if len(siens) >= n:
+            return par_cle.get(_cle_handle(siens[n - 1])) or {"handle": siens[n - 1]}
+        cles_siennes = {_cle_handle(h) for h in siens}
+        lignes_siennes = [par_cle[k] for k in cles_siennes if k in par_cle]
+        gerant = (next((str(c.get("gerant") or "").strip() for c in lignes_siennes if _norm(c.get("gerant") or "") not in GERANTS_LIBRES), "")
+                  or str(fiche.get("gerant") or "").strip()
+                  or (membre.display_name.split()[0] if membre.display_name.split() else membre.display_name))
+        proprietaires = _proprietaires()
+        brulees = infos_brulees(tous)
+        a_lui = [c for c in tous if c.get("handle") and c.get("mail") and _norm(c["gerant"]) == _norm(gerant)
+                 and _norm(c["utilisation"]) == "clipper" and _norm(c["etat"]) in A_CREER and _pour_creatrice(c, creatrice)
+                 and _cle_handle(c["handle"]) not in cles_siennes and not infos_d_un_ban(c, brulees)
+                 and not ((proprietaires.get(_cle_handle(c["handle"])) or set()) - {uid})]
+        pods = {str(c.get("pod") or "").strip() for c in lignes_siennes} - {""}
+
+        def rang(c):                                                    # tri stable : l'ordre de disponibles est gardé
+            return (_est_prive(c) != bool(prive), bool(pods) and str(c.get("pod") or "").strip() not in pods)
+        a_lui = [c for c in a_lui if _bon_type(c, n, prive)]            # 11/10 : jamais un compte déjà donné renuméroté
+        libres = [c for c in disponibles(tous, creatrice, 999) if _bon_type(c, n, prive)]
+        choix = sorted(a_lui, key=rang)[:1] or sorted(libres, key=rang)[:1]
+        if not choix:
+            return None
+        ligne = choix[0]
+        if ligne not in a_lui:
+            await reserver([ligne], gerant)
+        maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        etat = _lire_etat()                                             # relu frais, écrit sans attente
+        f = etat["clippers"].setdefault(uid, {})
+        comptes_f = [h for h in f.get("comptes") or [] if h]
+        if _cle_handle(ligne["handle"]) not in {_cle_handle(h) for h in comptes_f}:
+            comptes_f.append(ligne["handle"])
+            f["acces"] = [a for a in f.get("acces") or [] if isinstance(a, dict)] + acces_ordonnes([ligne])
+        f["comptes"] = comptes_f
+        f.setdefault("creatrice", creatrice)
+        f.setdefault("gerant", gerant)
+        etat["livres"][ligne["handle"].lower()] = {"uid": uid, "date": maintenant}
+        _ecrire_etat(etat)
+    journal.info("Compte %s de %s : ligne %s réservée (%s)", n, uid, ligne.get("ligne"), creatrice)
+    if salon is not None and codes_2fa.actif() and ligne.get("mail"):
+        try:
+            codes_2fa.rattacher([ligne["mail"]], str(salon.id), "onboarding")
+        except Exception as erreur:                                     # noqa: BLE001 — jamais bloquer le compte
+            journal.warning("Alias 2FA du compte %s de %s : %s", n, uid, erreur)
+    return ligne
 
 
 # 09/10 (lot L10) : message_clipper (éteinte le 01/10, plus appelée par on_message depuis le lot L4) est supprimée.

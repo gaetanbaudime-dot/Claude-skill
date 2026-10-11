@@ -1145,10 +1145,89 @@ def _vue(guild, uid: str, n: int, ctx: dict, fiche_p: dict = None):
     return vue
 
 
+# 10/10 (revue du recrutement, lot L3 : le stock de lignes est le goulot) : le compte 2 ou 3 dont la fiche n'a pas encore la ligne
+# (ATTRIBUTION_LIGNES_MIN sous 3, ou classeur à court à l'arrivée) la réserve à l'ouverture de son étape. Sans ligne libre : rien
+# au compte suivant, un message au clipper et une ligne à l'admin, une fois, et un nouvel essai au tour suivant du programme.
+# 11/10 (vérification : « Rien à faire d'ici là » contredisait les 2 Reels par jour sur ses comptes déjà ouverts)
+TEXTE_COMPTE_ATTENDU = "⏳ Ton compte {n} arrive dès qu'il est prêt.\n\nD'ici là, continue tes 2 Reels par jour."
+
+
+async def _ligne_du_compte(salon, membre, uid: str, n: int) -> bool:
+    """Vrai : la fiche d'onboarding a la ligne du compte n, ou elle vient d'être réservée (onboarding.reserver_compte : Gérant, fiche,
+    alias 2FA) — l'étape peut partir. Faux : l'étape n'est pas envoyée et reste au programme (nouvel essai au tour suivant) ; sans
+    ligne libre, le clipper (TEXTE_COMPTE_ATTENDU) et l'admin (« Plus de ligne libre chez Y ») sont prévenus UNE fois par compte
+    attendu (clé « ligne_attendue » de la fiche, écrite avant l'envoi) ; classeur illisible : rien de dit, nouvel essai. Classeur
+    éteint : vrai, comme avant (l'étape part avec ce que la fiche a)."""
+    if not onboarding.actif():
+        return True
+    tient = len([h for h in _onb(uid).get("comptes") or [] if h])
+    fiche_p = _lire().get(uid) or {}
+    manque = False
+    if tient < n:
+        creatrice = fiche_p.get("creatrice") or _onb(uid).get("creatrice") or ""
+        try:
+            for i in range(tient + 1, n + 1):                           # le compte n (et un compte d'avant resté sans ligne)
+                if await onboarding.reserver_compte(membre, creatrice, i, salon=salon, prive=i == n_prive(fiche_p)) is None:
+                    manque = True
+                    break
+        except Exception as erreur:                                     # noqa: BLE001 — classeur illisible : on réessaie
+            journal.warning("Ligne du compte %s de %s : %s, nouvel essai au tour suivant", n, uid, erreur)
+            _garder_au_programme(uid, n)
+            return False
+    if not manque:
+        d = _lire()
+        if uid in d and d[uid].pop("ligne_attendue", None) is not None:
+            _ecrire(d)
+        return True
+    dire = _garder_au_programme(uid, n, noter=True)
+    if not dire:
+        return False
+    prenom = fiche_p.get("prenom") or _prenom(membre)
+    creatrice = fiche_p.get("creatrice") or "sa créatrice"
+    try:
+        await _suite(salon, f"{membre.mention} " + TEXTE_COMPTE_ATTENDU.format(n=n))
+    except (discord.Forbidden, discord.HTTPException) as erreur:
+        journal.warning("Compte %s attendu de %s : %s", n, uid, erreur)
+    try:
+        canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+        if canal is not None:
+            await canal.send(f"📦 Plus de ligne libre chez {creatrice} : {prenom} (<@{uid}>) attend son compte {n}. "
+                             "Crée une ligne (Build capacity).")
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Ligne admin du compte %s attendu de %s : %s", n, uid, erreur)
+    return False
+
+
+def _garder_au_programme(uid: str, n: int, noter: bool = False) -> bool:
+    """L'étape n n'est pas partie : elle redevient l'étape attendue (pas de date « n », l'étape pointée sur n) et reste au programme,
+    échue tout de suite (le tour suivant la retente). `noter` : pose « ligne_attendue » = n ; vrai seulement si elle n'y était pas
+    (le message et la ligne admin partent alors, une seule fois).
+    11/10 (vérification : `!etape @x 3` forcé sans ligne retombait derrière les 4 Reels que le staff voulait sauter) : l'élément
+    remis au programme est marqué « ligne » — il avait passé la règle des Reels, ou le staff l'a forcé ; _programme_du_jour le fait
+    partir sans la retester, dès que la ligne existe. Un élément « etape n » encore en attente (48 h, Reels) est remplacé par lui."""
+    d = _lire()
+    f = d.get(uid)
+    if f is None:
+        return False
+    f.setdefault("dates", {}).pop(str(n), None)                         # forcer_etape l'avait datée : rien n'est parti
+    f["etape"] = n
+    f["programme"] = [x for x in f.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) == n)]
+    f["programme"].append({"quand": _maintenant(), "type": "etape", "n": n, "ligne": True})
+    nouveau = noter and f.get("ligne_attendue") != n
+    if nouveau:
+        f["ligne_attendue"] = n
+    _ecrire(d)
+    return nouveau
+
+
 # ------------------------------------------------------------------ déroulé
-async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> None:
+async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     """Envoie l'étape n et en fait l'étape en cours (`pointer=False` : 08/10, le message du lien envoyé à côté du parcours, en
-    ordre « prive2 », pendant que le compte 3 attend)."""
+    ordre « prive2 », pendant que le compte 3 attend). 10/10 (lot L3) : les comptes 2 et 3 réservent leur ligne ici si la fiche ne
+    l'a pas (_ligne_du_compte) ; sans ligne libre, rien n'est envoyé et l'étape reste au programme.
+    11/10 (vérification du lot L3 : un compte 3 retenu faute de ligne était compté « ouvert » par _programme_du_jour, puis annoncé
+    chaque soir au salon admin par le scan) : renvoie True quand l'étape est partie, False quand elle est retenue (pas de ligne,
+    classeur illisible) ou que le salon refuse le message."""
     uid = str(membre.id)
     if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
         d = _lire()
@@ -1158,6 +1237,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> None:
             if d[uid].get("ordre") != o_:                               # 09/10 : un « prive2 » pas encore ouvert repasse en « prive3 »
                 d[uid]["ordre"] = o_
                 _ecrire(d)
+    # 10/10 (revue du recrutement, lot L3) : la ligne du compte 2 ou 3 d'abord (réservée ici si la fiche ne l'a pas) ; sans ligne libre,
+    # rien au compte suivant (ni lien GAML pris sur le forfait) : l'étape reste au programme, le clipper et l'admin sont prévenus une fois
+    if n in (2, 3) and pointer and not await _ligne_du_compte(salon, membre, uid, n):
+        return False
     if (n == 6 or n == n_prive(_lire().get(uid) or {})) and _deps.get("attribuer_lien"):
         # 05/10 (Gaëtan : « le lien que pour le troisième compte ») : le lien GAML n'existe pas avant le compte privé ; il est créé
         # (ou repris) à l'ouverture de son étape, pour être dans sa bio dès son profil, puis donné à l'étape 6. 08/10 : le compte
@@ -1181,16 +1264,14 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> None:
         # 09/10 : le compte 1 est donné (clic sur ✅, programme de 3 h ou `!etape` du staff) : la bienvenue est close, une seule fois
         fiche_p["bienvenue_ok"] = fiche_p.get("bienvenue_ok") or _maintenant()
         fiche_p["programme"] = [x for x in fiche_p.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) == 1)]
-    if n == 7 and not fiche_p.get("routine2") and not any(x.get("type") == "routine2" for x in fiche_p.get("programme") or []):
-        # 09/10 : la suite de la routine (1 Reel de plus par semaine, parrainage) arrive seule ROUTINE2_JOURS jours plus tard
-        quand = datetime.now(timezone.utc) + timedelta(days=ROUTINE2_JOURS)
-        fiche_p.setdefault("programme", []).append({"quand": quand.isoformat(timespec="seconds"), "type": "routine2"})
+    # 10/10 (revue du recrutement : la routine J+7, « jusqu'à 10 Reels par jour », contredit la règle des 2 Reels par jour) : plus de
+    # « routine2 » programmée ici (le lot L1 retire TEXTE_ROUTINE2 et son envoi ; ROUTINE2_JOURS ne sert plus qu'à demarrer_routine)
     _ecrire(d)
     if n == 1:
         await _retirer_pret(salon, uid, fiche_p)
     if n == 7:                                                          # 09/10 : la routine et l'app, en UN message
         await _envoyer_routine(salon, membre, uid, ctx)
-        return
+        return True
     e = etape_def(fiche_p, n)
     ctx["palier"] = ""
     if n in (2, 3):
@@ -1208,11 +1289,12 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> None:
         msg = await salon.send(texte[:1990], view=_vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p))
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Étape %s pour %s : %s", n, uid, erreur)
-        return
+        return False
     d = _lire()
     if uid in d:
         d[uid].setdefault("messages", {})[str(n)] = str(msg.id)
         _ecrire(d)
+    return True
 
 
 # 09/10 (Gaëtan : « Termine tout le funnel entier … Discord > attribution créatrice + Drive + Groupe WA > Création premier comptes ») :
@@ -2154,8 +2236,8 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 partants.append(x)
             elif not _etape_attendue(fiche_p, x):
                 continue                                                # déjà envoyée (`!etape` du staff) : retirée, sans message
-            elif int(x.get("n") or 0) not in (2, 3) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
-                partants.append(x)                                      # 08/10 : la routine (7) n'attend pas de Reels
+            elif x.get("ligne") or int(x.get("n") or 0) not in (2, 3) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
+                partants.append(x)                                      # 08/10 : la routine (7), 11/10 : « ligne », sans Reels
             else:
                 gardes.append(x)                                        # 48 h passées, Reels pas encore là : on attend
                 n_x = int(x.get("n") or 0)
@@ -2189,6 +2271,9 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                     # 10/10 : le filet seulement (le compte 1 part déjà juste après la bienvenue)
                     if await ouvrir_compte_1(salon, uid, par="bot") == "envoye":
                         faits.append((uid, "etape", 1))
+                elif item.get("type") == "etape" and n in (2, 3):
+                    if await envoyer_etape(salon, membre, n):           # 11/10 (L3) : retenue faute de ligne = pas « ouverte »
+                        faits.append((uid, "etape", n))
                 elif item.get("type") == "etape":
                     await envoyer_etape(salon, membre, n)
                     faits.append((uid, "etape", n))
@@ -3030,6 +3115,9 @@ async def commande_staff(message, texte: str) -> bool:
         mid = (fiche_p.get("messages") or {}).get(str(n))
         guild = getattr(message, "guild", None)
         lien_m = f"https://discord.com/channels/{guild.id}/{message.channel.id}/{mid}" if (mid and guild is not None) else ""
+        if fiche_p.get("ligne_attendue") == n:                          # 11/10 (L3) : son compte attend une ligne, pas ses Reels
+            await message.reply(TEXTE_COMPTE_ATTENDU.format(n=n))
+            return True
         a = attente(fiche_p)
         if a and a[0] == n:
             await message.reply(f"Ton compte {n} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, "
@@ -3111,7 +3199,18 @@ async def commande_staff(message, texte: str) -> bool:
         if uid in d:
             (d[uid].get("dates") or {}).pop("6_fait", None)
             _ecrire(d)
-    await envoyer_etape(salon, membre, n, pointer=not a_cote)
+    if not await envoyer_etape(salon, membre, n, pointer=not a_cote):
+        # 11/10 (vérification du lot L3 : « 📍 Étape 3 envoyée » répondu alors que rien n'était parti, faute de ligne)
+        f_r = _lire().get(uid) or {}
+        if f_r.get("ligne_attendue") == n:
+            await message.reply(f"⏳ Pas de ligne libre chez {f_r.get('creatrice') or 'sa créatrice'} : le compte {n} de "
+                                f"{membre.display_name} part tout seul dès qu'une ligne existe.")
+        elif any(x.get("ligne") and int(x.get("n") or 0) == n for x in f_r.get("programme") or []):
+            await message.reply(f"⏳ Étape {n} de {membre.display_name} pas encore partie (classeur des logins illisible) : "
+                                "nouvel essai au prochain tour du programme.")
+        else:
+            await message.reply(f"⚠️ Étape {n} pas envoyée à {membre.display_name} : <#{salon.id}> refuse le message.")
+        return True
     await message.reply(f"📍 Étape {n} envoyée à {membre.display_name} dans <#{salon.id}>"
                         + (" (à côté du parcours : son compte 3 attend toujours)." if a_cote else "."))
     return True
