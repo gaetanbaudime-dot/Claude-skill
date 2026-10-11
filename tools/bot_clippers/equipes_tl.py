@@ -775,12 +775,14 @@ def reels_vus_par_comptes(comptes_de_uid, reels_vus_compte, derniere_lecture=Non
 def jours_manquants_par_paie(jours_manquants_paie, avec_provisoires: bool = True):
     """La dépendance `jours_manquants(d, uid, debut, fin)` à partir de paie_clics.jours_manquants_paie(d, debut, fin,
     avec_provisoires) -> {uid: [(lien, « AAAA-MM-JJ »), …]} (reprise 2) : le nombre de JOURS distincts qui manquent au clipper,
-    la même règle que la liste de paie (veilles provisoires comprises, comme la paie). Le calcul de tous les clippers est gardé
+    la même règle que la liste de paie (veilles provisoires comprises, comme la paie), à un détail près : un lien introuvable
+    aujourd'hui (404) garde ses jours manquants (`garder_introuvables`, reprise L11). Le calcul de tous les clippers est gardé
     une minute pour un même `d` et une même période (une liste interroge chaque VA)."""
     try:
-        kw = "avec_provisoires" in inspect.signature(jours_manquants_paie).parameters
+        params = inspect.signature(jours_manquants_paie).parameters
     except (TypeError, ValueError):
-        kw = False
+        params = {}
+    kw = {k: v for k, v in (("avec_provisoires", avec_provisoires), ("garder_introuvables", True)) if k in params}
     memo = {}
 
     def jours_manquants(d, uid, debut, fin):
@@ -788,19 +790,24 @@ def jours_manquants_par_paie(jours_manquants_paie, avec_provisoires: bool = True
         cle = (id(d), d0, d1)
         m = memo.get("dernier")
         if not m or m[0] != cle or m[1] is not d or time.monotonic() - m[2] > 60:
-            res = jours_manquants_paie(d, d0, d1, avec_provisoires=avec_provisoires) if kw else jours_manquants_paie(d, d0, d1)
+            # 11/10 (reprise L11, R3) : un lien introuvable aujourd'hui (404 passager) garde ses jours manquants pour les primes
+            # d'équipe — sinon le VA à 480 avec un jour manquant passait pour complet, et un faux 0 était figé sans un mot
+            res = jours_manquants_paie(d, d0, d1, **kw)
             memo["dernier"] = m = (cle, d, time.monotonic(), res if isinstance(res, dict) else {})
         return len({str(j)[:10] for _, j in (m[3].get(str(uid)) or [])})
     return jours_manquants
 
 
 # ------------------------------------------------------------------ calcul des primes
-def calculer(d: dict, debut, fin, payees=None, reels_vus=None, jours_manquants=None, fiches=None, registre=None) -> dict:
+def calculer(d: dict, debut, fin, payees=None, reels_vus=None, jours_manquants=None, fiches=None, registre=None,
+             compo=None) -> dict:
     """Les équipes de la période et leurs chiffres, sans rien écrire. `payees(d, uid, debut, fin)` -> visites payées (la ligne
     de paie) ; `reels_vus(uid, debut, fin)` -> Reels vus sur la période, bornes comprises (None : non mesurable) ;
     `jours_manquants(d, uid, debut, fin)` -> jours non relevés. Une mesure absente : repli local (payees, jours) ou « non
     mesuré » (Reels, donc « à vérifier »). Une mesure en erreur (exception, None) : le VA est « non lu » (`erreur`), compté 0
-    dans les montants, et la prime de son TL et de son manager part « à vérifier » (revue L10, reprise 2)."""
+    dans les montants, et la prime de son TL et de son manager part « à vérifier » (revue L10, reprise 2).
+    `compo` (reprise L11) : la composition figée de la période (composition_figee), utilisée telle quelle à la place du
+    registre du jour : un VA passé chez une autre créatrice après la clôture ne compte que dans l'équipe où il était."""
     debut, fin = _jour(debut), _jour(fin)
     mesure = payees or _payees_local
     manque = jours_manquants or _jours_manquants_local
@@ -809,7 +816,7 @@ def calculer(d: dict, debut, fin, payees=None, reels_vus=None, jours_manquants=N
     primee = periode_primee(debut)
     out = {"debut": debut.isoformat(), "fin": fin.isoformat(), "equipes": {}, "norme": norme,
            "reels_branches": reels_vus is not None, "primee": primee}
-    for c, e in composition(fiches, registre, fin).items():
+    for c, e in (composition(fiches, registre, fin) if compo is None else compo).items():
         noms = e.get("noms") or {}
         vas = []
         for uid in e["vas"]:
@@ -976,6 +983,27 @@ def _cle(cle_periode, fin) -> str:
     return c if re.fullmatch(r"\d{4}-\d{2}-\d{2}", c) else cle_de_periode(fin)
 
 
+def composition_figee(d: dict, cle_periode, fin):
+    """Reprise L11 (R1) : la composition (TL, manager, VA de chaque équipe) figée au premier calcul après la clôture
+    (clics.json['primes_equipes'][clé]["composition"], écrit par paie_clics.figer_primes_equipes même quand des jours manquent),
+    au format de `composition` ; None si rien n'est figé (on lit alors le registre du jour). Un `!creatrice` tapé entre l'annonce
+    et le figement définitif ne déplace donc plus un VA d'une équipe à l'autre : jamais deux primes pour un même VA."""
+    fige = ((d or {}).get("primes_equipes") or {}).get(_cle(cle_periode, fin)) if isinstance(d, dict) else None
+    compo = fige.get("composition") if isinstance(fige, dict) else None
+    if not isinstance(compo, dict):
+        return None
+    noms = {str(u): str(n) for u, n in (fige.get("noms") or {}).items()} if isinstance(fige.get("noms"), dict) else {}
+    out = {}
+    for c, e in compo.items():
+        if not isinstance(e, dict):
+            continue
+        tl, m = e.get("tl"), e.get("manager")
+        out[str(c)] = {"tl": str(tl) if tl else None, "manager": str(m) if m else None,
+                       "vas": [str(u) for u in (e.get("vas") or {})],
+                       "noms": {u: noms[u] for u in [str(tl or ""), str(m or ""), *map(str, e.get("vas") or {})] if u in noms}}
+    return out
+
+
 def primes_equipes(d: dict, debut, fin, cle_periode: str = "", payees=None, reels_vus=None, jours_manquants=None) -> list:
     """Contrat du lot L11 (dépendance `primes_equipes` de paie_clics.liste_paie) : [(uid, montant, détail, à_vérifier)].
 
@@ -988,7 +1016,8 @@ def primes_equipes(d: dict, debut, fin, cle_periode: str = "", payees=None, reel
         return [(str(l[0]), float(l[1]), str(l[2]), bool(l[3])) for l in fige["lignes"] if isinstance(l, (list, tuple)) and len(l) >= 4]
     if not periode_primee(debut):
         return []
-    return lignes_primes(calculer(d, debut, fin, payees, reels_vus, jours_manquants))
+    return lignes_primes(calculer(d, debut, fin, payees, reels_vus, jours_manquants,
+                                  compo=composition_figee(d, cle_periode, fin)))
 
 
 def a_figer(d: dict, debut, fin, cle_periode: str = "", payees=None, reels_vus=None, jours_manquants=None) -> dict:
@@ -996,16 +1025,21 @@ def a_figer(d: dict, debut, fin, cle_periode: str = "", payees=None, reels_vus=N
     calcul après la clôture : la composition, les chiffres et les lignes (vides avant PRIMES_EQUIPES_DEPUIS). Aucun prénom n'y
     est une clé : tout est indexé par uid. « cle » est toujours « AAAA-MM-JJ » (« 05/11 » ou vide : déduite de `fin`).
     « complet » est faux si une mesure était en erreur (VA « non lu », listé dans « non_lus » de son équipe) : L11 ne fige pas
-    une telle période, il réessaie au calcul suivant (reprise 2 : jamais un faux 0 figé)."""
-    calcul = calculer(d, debut, fin, payees, reels_vus, jours_manquants)
+    une telle période, il réessaie au calcul suivant (reprise 2 : jamais un faux 0 figé).
+    Reprise L11 : une composition déjà figée (composition_figee) est reprise telle quelle ; « noms » (uid → prénom) et « primee »
+    (à côté de la composition, pas dedans) sont rendus pour que la composition se fige seule, avant les montants."""
+    calcul = calculer(d, debut, fin, payees, reels_vus, jours_manquants, compo=composition_figee(d, cle_periode, fin))
     lignes = lignes_primes(calcul) if periode_primee(debut) else []
     non_lus = {c: [v["uid"] for v in e["vas"] if v.get("erreur")] + ([e["tl"]] if e.get("tl_erreur") else [])
                for c, e in calcul["equipes"].items()}
     return {"calcule_le": datetime.now(timezone.utc).isoformat(timespec="seconds"), "debut": calcul["debut"], "fin": calcul["fin"],
-            "cle": _cle(cle_periode, fin), "complet": not any(non_lus.values()),
+            "cle": _cle(cle_periode, fin), "complet": not any(non_lus.values()), "primee": bool(calcul.get("primee")),
             "composition": {c: {"tl": e["tl"], "manager": e["manager"], "vas": {v["uid"]: v["payees"] for v in e["vas"]},
                                 "total": e["total"], **({"non_lus": non_lus[c]} if non_lus[c] else {})}
                             for c, e in calcul["equipes"].items()},
+            "noms": {u: n for e in calcul["equipes"].values()
+                     for u, n in [*((v["uid"], v["nom"]) for v in e["vas"]), (e["tl"], e["tl_nom"]), (e["manager"], e["manager_nom"])]
+                     if u and n},
             "lignes": [list(l) for l in lignes]}
 
 
@@ -1528,12 +1562,17 @@ def _liste(args: list, guild=None) -> list:
     d = {}
     if _deps.get("lire_clics"):
         d = _appel(_deps["lire_clics"], defaut={}) or {}
-    calcul = calculer(d, debut, fin, _deps.get("payees"), _deps.get("reels_vus"), _deps.get("jours_manquants"))
+    compo = composition_figee(d, "", fin)
+    calcul = calculer(d, debut, fin, _deps.get("payees"), _deps.get("reels_vus"), _deps.get("jours_manquants"), compo=compo)
     fige = ((d.get("primes_equipes") or {}).get(cle_de_periode(fin)) or {}) if isinstance(d, dict) else {}
     blocs = texte_liste(calcul, en_cours=fin >= _aujourdhui())
     if isinstance(fige, dict) and fige.get("lignes") is not None:
         blocs.append(f"🔒 Période figée le {str(fige.get('calcule_le') or '')[:10]} : la liste de paie relit "
                      f"{_usd(sum(float(l[1]) for l in fige['lignes']))} de primes, quoi qu'affichent les chiffres du jour.")
+    elif compo is not None:                                             # reprise L11 : équipes figées, chiffres pas encore
+        blocs.append(f"🔒 Équipes figées le {str(fige.get('composition_le') or '')[:10]} (qui est TL, manager, VA de quelle "
+                     f"équipe) : un changement de créatrice depuis ne compte pas pour cette période. Les visites, elles, "
+                     f"bougent encore jusqu'au figement des primes.")
     try:
         roles = controle_roles(guild)
     except Exception as erreur:                                         # noqa: BLE001

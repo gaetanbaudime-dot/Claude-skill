@@ -7,6 +7,7 @@ import { ErreurGaml, visitesJour, visitesPeriodePassee } from "./gaml";
 import { ANCIENS_AVANT, BASCULE_CLIC, CLICS_DEPUIS, montant, PAIE_FIXE, periodeEnCours, periodePrecedente, TAUX_CLIC, type PeriodePaie } from "./paie";
 import { normaliser, type Clipper } from "./clippers";
 import { regimeDe } from "./regimes";
+import { equipeDe, type MonEquipe } from "./equipes";
 
 export type Jour = { jour: string; visites: number; complet: boolean };
 export type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
@@ -21,6 +22,7 @@ export type Versements = {
   precedents: (Bloc & { versee: boolean })[];
   partiel: boolean;
   majA: string;
+  equipe: MonEquipe | null;      // lot L11 : un TL ou un manager voit son équipe et sa prime en cours (onglet « Équipes »)
 };
 
 async function enParallele<T>(taches: (() => Promise<T>)[], n: number): Promise<T[]> {
@@ -39,6 +41,7 @@ function bloc(p: PeriodePaie, visites: number, complet: boolean): Bloc {
 export async function versements(c: Clipper): Promise<Versements> {
   const aujourdhui = aujourdhuiParis();
   const p = periodeEnCours(aujourdhui);
+  const equipeP = equipeDe(c.cle).catch(() => null);                   // lot L11 : lu en parallèle, jamais bloquant
   const debutSerie = decaler(aujourdhui, -13) < p.debut ? decaler(aujourdhui, -13) : p.debut;
   const jours: string[] = [];
   for (let j = aujourdhui; j >= debutSerie; j = decaler(j, -1)) jours.push(j);         // du plus récent au plus ancien : l'ordre des appels
@@ -98,5 +101,6 @@ export async function versements(c: Clipper): Promise<Versements> {
     precedents: precedentsP.map((pp, n) => ({ ...bloc(pp, parPeriode[n].visites, parPeriode[n].complet), versee: pp.paie < aujourdhui })),
     partiel: etat.limite || serie.some((j) => !j.complet) || parPeriode.some((x) => !x.complet),
     majA: new Date().toISOString(),
+    equipe: await equipeP,
   };
 }

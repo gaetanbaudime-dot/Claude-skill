@@ -5,12 +5,18 @@ import { signaler } from "@/lib/signal";
 
 type Jour = { jour: string; visites: number; complet: boolean };
 type Bloc = { debut: string; fin: string; paie: string; libelle: string; libellePaie: string; visites: number; montant: number; complet: boolean };
+type MonEquipe = {
+  debut: string; fin: string; primee: boolean; prime: number;
+  equipes: { creatrice: string; total: number; seuil: number; auSeuil: string; manquants: number; membres: { prenom: string; visites: number | null; auSeuil: boolean; manquants: number }[] }[];
+  managees: { creatrice: string; total: number; seuil: number; atteint: boolean; manquants: number }[];
+};
 type Versements = {
   prenom: string; creatrice: string; taux: number; fixe?: boolean; depuis?: string;
   liens: { url: string; creeLe: string }[];
   periode: Bloc; aujourdhui: Jour; hier: Jour; serie: Jour[];
   precedents: (Bloc & { versee: boolean })[];
   partiel: boolean; majA: string;
+  equipe?: MonEquipe | null;      // lot L11 : TL ou manager seulement (onglet « Équipes » écrit par le bot)
 };
 
 const RAFRAICHIR_MS = 5 * 60 * 1000;                                   // le jour en cours bouge : on relit toutes les 5 minutes
@@ -98,6 +104,57 @@ function AdresseUsdc({ jeton }: { jeton: string }) {
         </div>
       ) : formulaire}
       {message && <div className={`text-[12px] mt-2 ${message.ok ? "text-emerald-300" : "text-[#ff8a9a]"}`}>{message.texte}</div>}
+    </div>
+  );
+}
+
+/** Reprise L11 : « 2 j non relevés » à côté d'une somme partielle (jours pas encore relevés dans GAML), jamais un total muet. */
+const nonReleves = (n: number) => (n > 0 ? ` · ${n} j non relevé${n > 1 ? "s" : ""}` : "");
+
+/** Lot L11 (revue du 10/10) : la carte du Team Leader (ou du manager). Sa prime d'équipe en cours, telle que la liste de paie la
+ *  porterait aujourd'hui, et ses VA avec leurs visites payées de la période (jusqu'à hier, mis à jour toutes les heures par le bot). */
+function CarteEquipe({ e, libellePaie }: { e: MonEquipe; libellePaie: string }) {
+  return (
+    <div className="carte apparait-3 p-4">
+      <div className="flex items-baseline justify-between">
+        <div className="text-[14px] font-semibold">{e.equipes.length === 1 ? `Ton équipe · ${e.equipes[0].creatrice}` : e.equipes.length ? "Tes équipes" : "Les équipes que tu manages"}</div>
+        <span className="text-[11px] text-argent2">jusqu'à hier</span>
+      </div>
+      <div className="mt-3 rounded-2xl p-3" style={{ background: "rgba(122,167,255,0.09)" }}>
+        <div className="text-[11px] font-bold tracking-widest uppercase text-accent">Prime d'équipe en cours</div>
+        <div className="text-[22px] font-bold mt-1 tabular-nums">{e.primee ? fmtUsd(e.prime, true) : "—"}</div>
+        <div className="text-[12px] text-argent2 mt-1 leading-snug">{e.primee ? `En plus de tes clics, avec ta paie du ${libellePaie}. Gaëtan la vérifie avant le virement.` : "Pas de prime d'équipe sur cette période."}</div>
+      </div>
+      {e.equipes.map((eq) => (
+        <div key={eq.creatrice} className="mt-3">
+          <div className="flex items-center justify-between text-[12px] text-argent2">
+            <span>{e.equipes.length > 1 ? `${eq.creatrice} · ` : ""}VA à {fmtNb(eq.seuil)} ou plus : {eq.auSeuil}</span>
+            <span>équipe {fmtNb(eq.total)}{nonReleves(eq.manquants)}</span>
+          </div>
+          <div className="divide-y divide-white/5 mt-1">
+            {eq.membres.map((m) => (
+              <div key={m.prenom} className="flex items-center justify-between py-2">
+                <span className="text-[14px] font-semibold">{m.prenom}</span>
+                <span className={`text-[14px] font-bold tabular-nums ${m.auSeuil ? "text-emerald-300" : "text-argent"}`}>{m.visites === null ? "non lu" : fmtNb(m.visites)}{m.auSeuil ? " ✓" : ""}{m.visites === null ? "" : nonReleves(m.manquants)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {e.managees.length > 0 && (
+        <div className="mt-3">
+          <div className="text-[12px] text-argent2">{e.equipes.length ? "Les équipes que tu manages" : "Total de chaque équipe"}</div>
+          <div className="divide-y divide-white/5 mt-1">
+            {e.managees.map((m) => (
+              <div key={m.creatrice} className="flex items-center justify-between py-2">
+                <span className="text-[14px] font-semibold">{m.creatrice}</span>
+                <span className={`text-[14px] font-bold tabular-nums ${m.atteint ? "text-emerald-300" : "text-argent"}`}>{fmtNb(m.total)} / {fmtNb(m.seuil)}{m.atteint ? " ✓" : ""}{nonReleves(m.manquants)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="text-[11px] text-argent2/70 mt-3 leading-relaxed">Visites payées de la période (francophones, hors robots), comptées comme ta paie. Ton propre lien ne compte pas dans ton équipe. « j non relevés » : des jours pas encore lus dans GAML, la somme montera quand ils arriveront.</p>
     </div>
   );
 }
@@ -207,6 +264,8 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
         </div>
         <div className="text-[11px] text-argent2/70 mt-2 flex gap-3"><span><span className="text-accent">●</span> période en cours</span><span><span className="text-white">●</span> aujourd'hui</span><span>mis à jour toutes les 5 min</span></div>
       </div>
+
+      {v?.equipe && <CarteEquipe e={v.equipe} libellePaie={v.periode.libellePaie} />}
 
       {v && !v.fixe && v.precedents.length > 0 && (
         <div className="carte apparait-3 p-4">
