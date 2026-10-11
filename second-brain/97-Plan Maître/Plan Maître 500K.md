@@ -13,6 +13,9 @@ liens_forts: ["[[Sprint été - croissance sans moi]]", "[[Se licencier de son p
 > [!tip] Verdict (réorganisé le 2026-07-13 : par étape, pas par mois)
 > Le plan tient en une phrase : **prouver que la machine tourne sans toi (étape 5→6, c'est l'été), puis optimiser l'économie unitaire (étape 6, l'automne), puis déléguer le management (étape 7, l'hiver), puis multiplier (2027)**. Il est organisé **par étapes de scaling avec gates chiffrés**, pas par calendrier — les contraintes bougent tout le temps (tu l'as dit toi-même), mais un gate reste vérifiable quel que soit le mois où tu le passes. Trois pages seulement dans ce dossier : **cette page = le OÙ et le QUAND structurel** · [[Sprint été - croissance sans moi]] = le COMMENT des 8 prochaines semaines · [[Se licencier de son propre poste]] = le QUI (te sortir des casquettes). Tout le reste du vault sert ces trois pages.
 
+> [!info] Mise à jour du 11/10/2026
+> L'équation chiffrée sur les données d'octobre (50 k€ sur 30 jours, 4,9 € par abonné, 7 créatrices) et les 90 prochains jours sont dans [[Scaler à 500 k€ par mois - l'équation et les 90 jours (11 octobre 2026)]] : cible 100 k€ à 90 jours, goulot actuel = le stock de comptes et de liens GAML.
+
 ## La thèse (Maxime, confirmée par tes données)
 
 **La LTV avant le trafic.** Doubler la LTV = doubler le trafic gratuitement ; scaler du trafic sur une économie cassée industrialise la fuite ([[Rétention et LTV]], [[Théorie des contraintes]]). Tes propres chiffres le confirment brutalement : **48 % du CA MYM = médias privés, ~90 % du CA OF = messages/PPV** — c'est le chatting qui transforme les subs en euros, et 5 chatteurs sur 104 font 50 % des ventes ([[Analyse dashboard OFM (13 juillet 2026)]]). Benchmarks marché qui cadrent l'ambition : conversion 30-60 % des nouveaux subs en premier PPV sous 7 jours, churn managé 15-25 % vs 40-60 %, LTV mid-tier 50-500 $/fan[^1]. La réponse opérationnelle est écrite : [[SOP chatting anti-churn]].
