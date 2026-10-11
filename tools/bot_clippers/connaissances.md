@@ -365,7 +365,7 @@ Tu veux un avis sur un Reel ? Envoie la vidéo dans ton salon perso : je te donn
 
 **Quels codes le bot me donne ?** Deux, et rien d'autre (règle de Gaëtan du 10/10) : le code pour te CONNECTER et le code pour CRÉER un compte. Un seul bouton : « 📩 Mon code », dans #🔐-code-instagram. Les autres codes ne sont jamais donnés, à personne : mot de passe oublié, changer l'e-mail, le mot de passe, le numéro ou le pseudo, double authentification, Espace Comptes, suppression. Les comptes sont à l'agence. Le code de l'appel ne passe pas par le bot : il arrive chez l'équipe, qui te répond dans ton salon perso.
 
-**Instagram me propose la double authentification ?** Ne l'active jamais. Écris-le à ton manager dans ton salon perso.
+**Instagram me propose la double authentification ?** Écris-le à Gaëtan avant de toucher à quoi que ce soit.
 
 **Le code est refusé par Instagram ?** Tu as peut-être tapé un code déjà utilisé : Instagram en envoie souvent un deuxième juste après (création, puis connexion). Laisse ta réponse « 📩 Mon code » ouverte et appuie sur « Renvoyer le code » dans Instagram : pendant 5 minutes, le nouveau code remplace l'ancien tout seul, au même endroit. Après 5 minutes, rappuie sur « 📩 Mon code ».
 

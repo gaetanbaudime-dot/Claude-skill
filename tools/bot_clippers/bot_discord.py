@@ -399,7 +399,8 @@ Le bouton « 📩 Mon code » (ou `!code` tapé dans ce salon, réponse en messa
 et de CRÉATION de compte reçus par e-mail sur SES adresses, visibles par lui seul (règle de Gaëtan du 10/10). Tout autre \
 code n'est JAMAIS donné, à personne : mot de passe oublié ou récupération, changer l'e-mail, le mot de passe, le numéro \
 ou le pseudo, double authentification, Espace Comptes, suppression. {"Le code d'un appel après un ban est donné aussi." if codes_2fa.CODES_APPEL else "Le code d'un appel après un ban ne passe pas par le bot : l'équipe le reçoit et répond au clipper dans son salon perso."} \
-`!recup` ne donne rien. Instagram propose la double authentification : il ne l'active JAMAIS. Si Instagram demande \
+`!recup` ne donne rien. Instagram propose la double authentification : il l'écrit à Gaëtan avant de toucher à quoi que ce \
+soit (tu ne lui dis ni de l'activer ni de ne pas l'activer). Si Instagram demande \
 un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
 de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
 3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais \
@@ -2619,7 +2620,7 @@ async def completer_creatrices() -> int:
         m = guild.get_member(int(uid))
         if m is None:
             continue
-        trouve = ""
+        trouve, par_c = "", "pseudo"
         mm = re.search(r"[-–—|·]\s*([A-Za-zÀ-ÿ]+)\s*$", m.display_name)
         if mm:
             trouve = _cat(mm.group(1))
@@ -2628,9 +2629,11 @@ async def completer_creatrices() -> int:
             crs = {c["creatrice"].split()[0] for c in comptes if c["creatrice"] and normaliser(c["gerant"]) == prenom}
             if len(crs) == 1:
                 seule = next(iter(crs))
-                trouve = _cat(seule) or seule
+                trouve, par_c = _cat(seule) or seule, "classeur"
         if trouve:
-            fiche.update({"creatrice": trouve, "creatrice_par": "auto",
+            # 10/10 (vérification du lot L9b) : « pseudo » ou « classeur », plus « auto » (celui de l'attribution automatique) :
+            # une créatrice retrouvée n'est pas une attribution, elle ne compte pas dans « attribué(s) » du point du matin
+            fiche.update({"creatrice": trouve, "creatrice_par": par_c,
                           "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             n += 1
     if n:
@@ -3808,7 +3811,9 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
     """Acceptation des 5 règles — mot J'ACCEPTE en MP, bouton ✅, ou case cochée sur le site (27/09) : registre horodaté, rôle,
     salon perso, puis créatrice attribuée automatiquement. Renvoie le texte à dire à la personne (suite_validation ne l'envoie
     plus depuis le 09/10). Les réponses « Je n'ai pas… » et « Je ne te trouve… » gardent ce début :
-    acceptation.envoyer_boutons_en_attente et suite_validation s'en servent pour reconnaître un échec."""
+    acceptation.envoyer_boutons_en_attente et suite_validation s'en servent pour reconnaître un échec.
+    10/10 : « ✍️ a rejoint l'agence » (staff et Telegram) seulement quand un geste est à faire (rôle non attribué, attribution
+    coupée) ; sans souci, l'entrée est comptée au point du matin."""
     utilisateur = str(utilisateur)
     registre = lire_json(FICHIER_EQUIPES, {})
     fiche_eq = registre.get(utilisateur)
@@ -3851,7 +3856,6 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
         texte_retour = (suite if err_a is None else
                         "✅ C'est noté.\n\nUn petit souci technique de mon côté : l'équipe ouvre ton accès à la main. "
                         "Rien à faire.")
-        tel_a = pipe_a.get("liaisons", {}).get(utilisateur, {}).get("tel", "")
         origine = {"mp": "J'ACCEPTE en MP", "bouton": "bouton ✅", "site": "règles acceptées au formulaire"}.get(via, via)
         if info_a.get("valide_par") == "quiz":                         # 09/10 : le quiz réussi suffit, plus de test
             origine = "quizz réussi" + (f" {info_a.get('score_quiz')}" if info_a.get("score_quiz") else "")
@@ -3859,13 +3863,21 @@ async def accepter_conditions(utilisateur, via: str = "mp", grille: str = "") ->
             origine = f"validé par {info_a['valide_par']}"
         # 30/09 (extrait de #bot-gaetan : trois messages pour une seule arrivée) : une ligne ; la créatrice et les comptes
         # arrivent dans le message d'attribution qui suit.
-        await notifier_manager(
-            f"✍️ **{membre_a.mention} a rejoint l'agence** ({origine})"
-            + ("" if err_a is None else f" · ⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`")
-            + ("" if auto else f" · **`!creatrice {membre_a.display_name} <prénom>`** ({mention_manager(membre_a.guild)})")
-            + (f" · WhatsApp {tel_a}" if tel_a else ""), membre_a.guild)
-        await telegram.envoyer_telegram(f"✍️ A rejoint l'agence ({origine}) : {membre_a.display_name}"
-                                              + (f" — WhatsApp {tel_a}" if tel_a else ""))
+        # 10/10 (vérification du lot L9b, « un seul digest admin ») : la ligne ne part plus que s'il y a un geste à faire, rôle
+        # non attribué (`!equipe`) ou attribution coupée (`!creatrice`). Sinon, le journal seulement : l'entrée compte dans
+        # « validé(s) » du point du matin. 10 recrues sans souci donnaient 10 lignes au salon admin, 10 chez le manager et 10 sur
+        # Telegram. Plus jamais le numéro WhatsApp dans la ligne (salon du manager, Telegram) : le geste n'en a pas besoin.
+        if err_a is None and auto:
+            journal.info("Entrée dans l'agence de %s (%s) : rôle posé, attribution automatique lancée", utilisateur, origine)
+        else:
+            await notifier_manager(
+                f"✍️ **{membre_a.mention} a rejoint l'agence** ({origine})"
+                + ("" if err_a is None else f" · ⚠️ rôle NON attribué : {err_a} — `!equipe {membre_a.display_name} {'int' if grille_acc == 'mg' else 'fr'}`")
+                + ("" if auto else f" · **`!creatrice {membre_a.display_name} <prénom>`** ({mention_manager(membre_a.guild)})"),
+                membre_a.guild)
+            await telegram.envoyer_telegram(f"✍️ A rejoint l'agence ({origine}) : {membre_a.display_name}"
+                                            + (" — rôle NON attribué" if err_a is not None else "")
+                                            + ("" if auto else " — créatrice à donner"))
         if auto:
             client.loop.create_task(attribution.attribuer(membre_a, f"acceptation ({via})"))
         return texte_retour
@@ -4365,10 +4377,18 @@ SAUVEGARDES_GARDEES = 4
 FICHIER_DEMARRAGE = DONNEES / "demarrage.json"
 
 
+# 10/10 (vérification du lot L9b) : creatrice_par d'une créatrice RETROUVÉE par completer_creatrices (pseudo « Prénom - Chloé »,
+# Gérant du classeur), pas attribuée : un ancien complété ne compte jamais dans « attribué(s) » du point du matin
+CREATRICE_RETROUVEE = ("pseudo", "classeur")
+
+
 def attribues_du_jour(registre: dict, jour) -> int:
     """10/10 (lot L9b) : les membres du registre dont la créatrice a été posée ce jour-là (Paris), toutes voies confondues
-    (attribution automatique, `!creatrice`, dépôt) : le compteur qui remplace les lignes « 🎬 X → créatrice » du salon admin."""
-    return sum(1 for f in (registre or {}).values() if isinstance(f, dict) and _jour_paris(f.get("creatrice_date")) == jour)
+    (attribution automatique, `!creatrice`, dépôt) : le compteur qui remplace les lignes « 🎬 X → créatrice » du salon admin.
+    Sans les créatrices retrouvées par completer_creatrices (CREATRICE_RETROUVEE) : elle tourne au début de chaque digest et
+    datait du jour les anciens signés depuis des semaines."""
+    return sum(1 for f in (registre or {}).values() if isinstance(f, dict) and _jour_paris(f.get("creatrice_date")) == jour
+               and str(f.get("creatrice_par") or "") not in CREATRICE_RETROUVEE)
 
 
 def digest_peut_partir(maintenant) -> bool:
@@ -4954,8 +4974,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur`\n\n"
                 "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre <texte libre, ou un fichier .md/.txt joint>` (prime sur tout) · "
                 "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus)\n\n"
-                # 10/10 (vérification L9b) : la sauvegarde à la main est retirée de l'aide tant qu'elle joint pipeline.json (numéros)
-                # dans Discord ; le lot W la fait passer par sauvegarder_volume (le volume, aucune pièce jointe)
+                # 10/10 (vérification L9b) : la sauvegarde à la main écrit un zip sur le volume (sauvegarder_volume, aucune pièce
+                # jointe) ; hors de l'aide, la sauvegarde du dimanche suffit
                 "-# Plusieurs commandes dans un seul message = rafale.")
     if est_manager(membre):
         return ("🧰 **Commandes manager**\n\n"
@@ -7759,17 +7779,21 @@ async def commande_admin(message, texte: str) -> bool:
                             + (f"\n⚠️ Refusés : {' · '.join(refus)}" if refus else ""))
         return True
 
-    # ---- !sauvegarde : les JSON du volume postés en pièces jointes (mémoire de la machine) ----
+    # ---- !sauvegarde : un zip daté sur le volume (sauvegarder_volume), comme celle du dimanche ----
+    # 10/10 (vérification du lot L9b) : plus jamais de pièce jointe dans Discord. pipeline.json porte les numéros de téléphone,
+    # le salon où l'admin tape la commande n'est pas forcément privé. La réponse dit le nom du zip et le nombre de fichiers.
     if texte.startswith("!sauvegarde"):
-        fichiers = [p for p in (FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_COMPTEUR_VERSE,
-                                FICHIER_INVITES, FICHIER_COMPTEURS) if p.exists()]
-        if not fichiers:
+        try:
+            chemin_m, n_m = sauvegarder_volume(heure_paris().strftime("%Y-%m-%d"))
+        except Exception as erreur:                                         # noqa: BLE001 — disque plein, droits
+            journal.warning("!sauvegarde ratée : %s", erreur)
+            await message.reply(f"⚠️ Sauvegarde ratée : {type(erreur).__name__}. Rien n'a été écrit.")
+            return True
+        if chemin_m is None:
             await message.reply("Aucune donnée à sauvegarder (volume vide ?).")
             return True
-        await message.channel.send(
-            f"💾 **Sauvegarde du {heure_paris().strftime('%d/%m/%Y %H:%M')}** — à garder en lieu sûr "
-            "(ces fichiers SONT la mémoire de la machine : fiches, registre, compteurs).",
-            files=[discord.File(str(p)) for p in fichiers[:10]])
+        await message.reply(f"💾 Sauvegarde écrite sur le volume : `{chemin_m.name}` ({n_m} fichier(s)).\n\n"
+                            f"Les {SAUVEGARDES_GARDEES} dernières sont gardées. Rien n'est posté ici.")
         return True
 
     # ---- !sync-noms : renomme chaque membre lié avec le prénom du formulaire ----

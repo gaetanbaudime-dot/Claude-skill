@@ -292,14 +292,18 @@ Gaëtan : « Le but, c'est de revérifier et de bien paramétrer, simplifier et 
 
 **Verdict** : le salon admin reçoit UN point le matin, plus les seuls événements qui demandent un geste tout de suite. Avant, à 10 recrues par jour : environ 37 messages admin, dont une douzaine utiles.
 
-**Quand** : à `DIGEST_HEURE` (9 h, Paris) au plus tôt, juste après la passe du jour de la sortie automatique (9 h l'hiver, 10 h l'été : elle suit le scan Instagram). À `DIGEST_HEURE_MAX` (11 h) au plus tard, même sans passe ce jour-là.
+**Quand** : à `DIGEST_HEURE` (9 h, Paris) au plus tôt, juste après la passe du jour de la sortie automatique. À `DIGEST_HEURE_MAX` (11 h) au plus tard, même sans passe ce jour-là.
+
+En pratique : **vers 10 h jusqu'au 25/10**, puis **9 h** à partir du 26/10. La passe de sortie tourne à 8 h UTC, après le scan Instagram de 7 h UTC : 10 h à Paris l'été, 9 h l'hiver. Le point du matin l'attend, parce que son bilan en fait partie. Avancer la passe avant le scan la ferait juger sur les Reels de l'avant-veille : non.
+
+Tu préfères la même heure toute l'année ? `DIGEST_HEURE=10` sur Railway.
 
 **Où** : au salon admin seulement, plus chez le manager (les liens WhatsApp des bloqués portent des numéros). Trop long, il est coupé entre deux blocs, jamais tronqué. La copie Telegram n'a ni les bloqués ni la sortie.
 
 **Dans cet ordre** :
 
-1. le compteur d'hier : candidatures, quizz, arrivés sur Discord, validés, attribués à une créatrice ;
-2. les bloqués, seulement s'il y en a (`bloques.py`, WhatsApp en un appui). Nouveau cas : le compte qui doit ouvrir le suivant est restreint au dernier relevé, ou le scan n'y a vu aucun Reel 24 h après « ton compte n arrive dès que je vois… ». La ligne propose `!etape @prénom n` s'il publie ;
+1. le compteur d'hier : candidatures, quizz, arrivés sur Discord, validés, attribués à une créatrice (sans les anciens dont la créatrice est retrouvée d'après leur pseudo ou le classeur : `creatrice_par` « pseudo » ou « classeur ») ;
+2. les bloqués, seulement s'il y en a (`bloques.py`, WhatsApp en un appui). Nouveau cas : le compte qui doit ouvrir le suivant est restreint au dernier relevé, ou le scan n'y a vu aucun Reel 24 h après « ton compte n arrive dès que je vois… ». La ligne propose `!etape @prénom n` s'il publie. « 0 Reel vu » seulement si le scan a lu ce compte depuis l'attente (un relevé des séries) ; sinon « scan pas passé sur ce compte depuis l'attente » et un WhatsApp neutre (« Tu publies bien sur ton compte n ? ») : non mesuré n'est pas inactif ;
 3. le bilan de la sortie automatique : sa passe ne poste plus rien, son bilan attend le point du matin (`sortie_auto.json`, clé `a_dire`) ;
 4. les places livrables (module `places`, sinon les comptes livrables par créatrice) ;
 5. ce qui attend le staff : en attente d'une créatrice, quizz réussis pas validés, signés sans créatrice, avertissement technique, ce qui est éteint depuis le démarrage (`demarrage.json`), une sauvegarde ratée ;
@@ -307,7 +311,9 @@ Gaëtan : « Le but, c'est de revérifier et de bien paramétrer, simplifier et 
 
 Rien à faire : « ✅ Rien qui n'attende ton action aujourd'hui. » en tête.
 
-**Plus de message sans action** : « Bot redémarré » (seul ce qui est éteint est dit, une fois, puis rappelé chaque matin), « personne 🎉 », « est arrivé par son invitation », « → créatrice » quand l'attribution s'est bien passée, « ⏳ en attente d'une créatrice », « Signés cette semaine ».
+**Plus de message sans action** : « Bot redémarré » (seul ce qui est éteint est dit, une fois, puis rappelé chaque matin), « personne 🎉 », « est arrivé par son invitation », « ✍️ a rejoint l'agence » quand le rôle est posé et l'attribution automatique lancée, « → créatrice » quand l'attribution s'est bien passée, « ⏳ en attente d'une créatrice », « Signés cette semaine ».
+
+« ✍️ a rejoint l'agence » part encore (salon du manager, salon admin, Telegram) quand il y a un geste : rôle non attribué (`!equipe`) ou attribution coupée (`!creatrice`). Plus jamais avec le numéro WhatsApp.
 
 **Restent en direct** : WhatsApp déclaré, ban, question sans réponse, demande de numéro, mineur ou nudité, code non classé, changement fait sur un compte, compte 3 sans lien GAML, budget Apify qui entame une réserve. Et une attribution qui demande un geste : onboarding en échec ou aucun compte réservé, rôle ou pseudo refusé.
 
@@ -317,11 +323,13 @@ Rien à faire : « ✅ Rien qui n'attende ton action aujourd'hui. » en tête.
 
 Limite : une copie sur le même volume protège d'un fichier abîmé ou écrasé, pas de la perte du volume.
 
-`!sauvegarde` n'est plus dans l'aide : il joint encore les fichiers dans Discord, tant que le lot W ne l'a pas branché sur le volume. Ne le tape pas.
+`!sauvegarde` (admin) écrit la même archive tout de suite et répond seulement son nom et le nombre de fichiers : plus aucune pièce jointe. Il n'est pas dans l'aide, la sauvegarde du dimanche suffit.
 
 **Railway** : rien à ajouter. `DIGEST=0` rend l'ancien découpage (bloqués à 11 h, sortie à part). `DIGEST_HEURE` (9) et `DIGEST_HEURE_MAX` (11) règlent l'heure. `BLOQUES=0` retire aussi les bloqués du point du matin (`!bloques` répond toujours).
 
-Tests : `test_vague1_L9b_digest.py`, `test_vague1_L9b_bloques.py`, `test_vague1_L9b_reprise.py`.
+**Double authentification** : plus aucun texte ne l'interdit (base de connaissances, assistant). Le clipper l'écrit à Gaëtan avant de toucher à quoi que ce soit ; l'alerte admin sur un changement de double authentification (lot codes) reste.
+
+Tests : `test_vague1_L9b_digest.py`, `test_vague1_L9b_bloques.py`, `test_vague1_L9b_reprise.py`, `test_vague1_L9b_reprise2.py`.
 
 ## Présentation du bot
 

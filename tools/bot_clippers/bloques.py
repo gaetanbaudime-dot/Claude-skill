@@ -17,7 +17,9 @@ Nouveau cas « compte illisible » : un clipper qui attend son compte suivant (2
 par le scan (le total du compte, jamais le « de plus » du compte 3) ILLISIBLE_H heures (24) après « ton compte n arrive dès que
 je vois… » (attente dite). Avant, il n'était listé nulle part : sortie_auto.silences saute tout clipper qui a un compte
 restreint. Lignes : « Léa (compte 1, Chloé) · compte restreint au dernier relevé. `!etape @Léa 2` s'il publie. » ou
-« · 0 Reel vu sur ce compte. … ». BLOQUES=0 éteint aussi le bloc du digest."""
+« · 0 Reel vu sur ce compte. … ». Un compte que le scan n'a pas lu depuis l'attente (budget Apify coupé, lot refusé, ligne
+encore « à créer ») n'est jamais « 0 Reel » : « · scan pas passé sur ce compte depuis l'attente. … », WhatsApp neutre (« Tu
+publies bien sur ton compte n ? »). BLOQUES=0 éteint aussi le bloc du digest."""
 
 import asyncio
 import logging
@@ -66,9 +68,12 @@ def message(prenom: str, cas: str, n: int, jours: int) -> str:
     if cas == "restreint":                                               # 10/10 : restreint au dernier relevé
         return (f"Salut {prenom} ! Ton compte {n} a l'air restreint : je ne vois plus ses Reels. "
                 "Envoie-moi une capture de ton profil, on regarde ensemble 🙂")
-    if cas == "illisible":                                               # 10/10 : aucun Reel vu sur ce compte
+    if cas == "illisible":                                               # 10/10 : lu par le scan, aucun Reel vu
         return (f"Salut {prenom} ! Je ne vois encore aucun Reel sur ton compte {n}. "
                 "Tu publies bien dessus ? Envoie-moi une capture de ton profil 🙂")
+    if cas == "non_lu":                                                  # 10/10 : le scan n'a pas lu ce compte, rien à reprocher
+        return (f"Salut {prenom} ! Tu publies bien sur ton compte {n} ? "
+                "Envoie-moi une capture de ton profil 🙂")
     return (f"Salut {prenom} ! Pas de Reel depuis {jours} jours sur tes comptes. "
             "Tout va bien ? Dis-moi ce qui bloque, on règle ça ensemble 💪")
 
@@ -114,7 +119,8 @@ def comptes_illisibles(uid, fiche: dict, maintenant=None, dernier_releve=None, p
     (48 h passées, Reels pas encore là : parcours.attente) alors que le compte dont les Reels l'ouvrent est illisible. Raison
     « restreint » : restreint au dernier relevé (series.dernier_releve, lecture seule). Raison « illisible » : AUCUN Reel vu sur
     ce compte (reels_vus_sur, le total, jamais le « de plus » de reels_detail) ILLISIBLE_H heures après l'attente dite
-    (« attente_dite » de la fiche). Une source qui a déjà ses REELS_OUVERTURE Reels n'est jamais listée : ce n'est pas elle qui
+    (« attente_dite » de la fiche), alors que le scan l'a lu depuis (lu_depuis) ; sinon, raison « non_lu » (scan pas passé :
+    budget coupé, lot refusé, ligne « à créer »). Une source qui a déjà ses REELS_OUVERTURE Reels n'est jamais listée : ce n'est pas elle qui
     bloque, et `!etape` ne doit pas contourner l'autre. Jamais avant la fin des 48 h : `!etape` ne court-circuite pas la règle.
     Un compte BAN n'y est pas : l'alerte BAN du parcours le dit déjà. Rien n'est écrit."""
     if parcours_mod is None:
@@ -153,15 +159,29 @@ def comptes_illisibles(uid, fiche: dict, maintenant=None, dernier_releve=None, p
         if releve.get("restreint"):
             out.append((src, w, heures, "restreint"))
         elif dite and reels_vus_sur(fiche, h, parcours_mod) <= 0:
-            out.append((src, w, heures, "illisible"))
+            # 10/10 (vérification du lot L9b, comme l'amendement B : non mesuré n'est pas inactif) : « 0 Reel vu » seulement si le
+            # scan a LU ce compte depuis l'attente ; budget Apify coupé, lot refusé, ligne encore « à créer » : « non lu »
+            out.append((src, w, heures, "illisible" if lu_depuis(releve, quand) else "non_lu"))
     return out
+
+
+def lu_depuis(releve: dict, quand) -> bool:
+    """10/10 (vérification du lot L9b) : vrai si ce relevé des séries prouve que le scan a lu les Reels du compte depuis `quand`.
+    Un relevé n'existe que pour un compte LU (series.py) ; il doit être daté d'après `quand`, ni restreint ni privé, Reels lus
+    (« reels_lus » absent = lus, la règle de series). La fiche « reels » du parcours n'en est pas une preuve : reconcilier la
+    date à chaque passage, compte lu ou pas."""
+    r = releve or {}
+    t, depuis = _instant(r.get("t")), _instant(quand)
+    if t is None or depuis is None or t < depuis:
+        return False
+    return not r.get("restreint") and not r.get("prive") and r.get("reels_lus", True) is not False
 
 
 def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, maintenant=None, illisibles=None) -> list:
     """[(jours, prénom, créatrice, où il bloque, lien WhatsApp)], le plus bloqué d'abord, MAX_JOUR au plus.
     10/10 : `illisibles` (uid, fiche, maintenant) -> comptes_illisibles ; le cas « compte illisible » passe juste après « compte
-    à créer » : « (compte 1, Chloé) · compte restreint au dernier relevé. `!etape @Léa 2` s'il publie. », ou « · 0 Reel vu sur
-    ce compte. … » quand le scan n'y a vu aucun Reel."""
+    à créer » : « (compte 1, Chloé) · compte restreint au dernier relevé. `!etape @Léa 2` s'il publie. », « · 0 Reel vu sur
+    ce compte. … » quand le scan l'a lu sans y voir un Reel, ou « · scan pas passé sur ce compte depuis l'attente. … »."""
     maintenant = maintenant or datetime.now(timezone.utc)
     out = []
     for creatrice, prenoms in (groupes or {}).items():
@@ -187,8 +207,9 @@ def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, mainte
                 raison = ill[0][3] if len(ill[0]) > 3 else "illisible"
                 jours, crea = heures // 24, f"compte {src}, {creatrice}"
                 # 10/10 (vérification L9b) : « restreint » ne dit pas « 0 Reel » (il peut en avoir de comptés) ; « 0 Reel » seulement
-                # quand le scan n'en a vu aucun sur ce compte
-                ou = ("compte restreint au dernier relevé" if raison == "restreint" else "0 Reel vu sur ce compte") \
+                # quand le scan a lu ce compte et n'y a vu aucun Reel ; jamais lu depuis l'attente : « scan pas passé »
+                ou = {"restreint": "compte restreint au dernier relevé",
+                      "non_lu": "scan pas passé sur ce compte depuis l'attente"}.get(raison, "0 Reel vu sur ce compte") \
                     + f". `!etape @{prenom} {attendu}` s'il publie."
                 texte = message(prenom, raison, src, jours)
             elif fait1 and not fiche.get("whatsapp") and _jours_depuis(fait1, maintenant) >= 1:
