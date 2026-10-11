@@ -171,6 +171,10 @@ def texte_rapport(d: dict, jour, seulement=None, titre: str = "par clipper") -> 
     garder = {_n(x) for x in seulement} if seulement is not None else None
     lignes = [f"📊 **Visiteurs du {jour.strftime('%d/%m')}**, {titre}"]
     tot = {"hors_robots": 0, "payes": 0, "s7": 0}
+    # 11/10 (contre-vérification CLICS, passe 3 : Bea pas encore relevée hier, le 14/10 de Cla manquant, et les totaux disaient 20 et
+    # 130 sans un mot) : un clipper pas encore compté hier garde ses 7 jours dans le total, et chaque total dit s'il est incomplet
+    manque_h, manque_7 = 0, 0
+    lendemain = jour + timedelta(days=1)
     for creatrice, noms in groupes_actifs().items():
         noms = [n for n in noms if garder is None or _n(n) in garder]
         if not noms:
@@ -183,14 +187,19 @@ def texte_rapport(d: dict, jour, seulement=None, titre: str = "par clipper") -> 
                 continue
             h = paie_clics.somme(d, lids, jour, jour)
             s7 = paie_clics.somme(d, lids, jour - timedelta(days=6), jour)
+            manque_h += bool(paie_clics.non_releves(d, lids, jour, jour, aujourdhui=lendemain))
+            manque_7 += len({j for _, j in paie_clics.non_releves(d, lids, jour - timedelta(days=6), jour, aujourdhui=lendemain)})
+            tot["s7"] += s7["hors_robots"]
             if h["jours"] == 0:
                 lignes.append(f"· {nom} : pas encore compté")
                 continue
-            tot["hors_robots"] += h["hors_robots"]; tot["payes"] += h["payes"]; tot["s7"] += s7["hors_robots"]
+            tot["hors_robots"] += h["hors_robots"]; tot["payes"] += h["payes"]
             lignes.append(f"· {nom} : **{paie_clics._fmt(h['hors_robots'])}**")
     # 26/09, demande de Gaëtan : un chiffre par clipper, deux totaux en conclusion, rien d'autre (Jonas s'y perdait)
-    lignes.append(f"\nHier, tous les clippeurs réunis : **{paie_clics._fmt(tot['hors_robots'])} visiteurs**")
-    lignes.append(f"Les 7 derniers jours, tous les clippeurs réunis : **{paie_clics._fmt(tot['s7'])} visiteurs**")
+    lignes.append(f"\nHier, tous les clippeurs réunis : **{paie_clics._fmt(tot['hors_robots'])} visiteurs**"
+                  + (f" (incomplet : {manque_h} clipper(s) pas encore relevé(s))" if manque_h else ""))
+    lignes.append(f"Les 7 derniers jours, tous les clippeurs réunis : **{paie_clics._fmt(tot['s7'])} visiteurs**"
+                  + (f" (incomplet : {manque_7} jour(s) pas encore relevé(s))" if manque_7 else ""))
     return "\n".join(lignes)
 
 

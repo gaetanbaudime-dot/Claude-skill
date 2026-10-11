@@ -1992,6 +1992,16 @@ def bilan_a_poster(lignes: list, cle: str) -> bool:
 
 
 # ------------------------------------------------------------------ le classeur comme télécommande
+async def _lien_efface_gaml(lid: str) -> bool:
+    """11/10 (contre-vérification CLICS, passe 3) : le lien `lid` est-il effacé dans GAML ? Seulement sur un 404 du détail du lien ;
+    une autre erreur (délai, 5xx, limite) ou une réponse ne prouve rien."""
+    try:
+        await paie_clics.lien_detail(lid)
+    except Exception as erreur:                                         # noqa: BLE001
+        return "404" in str(erreur)
+    return False
+
+
 async def verifier_trackings() -> list:
     """27/09 : chaque clipper qui a un lien GAML et dont le POD porte un lien de tracking OnlyFans doit avoir CE lien dans la carte
     « Plateforme privée » de son lien. Corrige les écarts, signale les POD sans tracking et les liens sans carte. Renvoie les
@@ -2008,8 +2018,11 @@ async def verifier_trackings() -> list:
         cr = (_norm(c.get("creatrice") or "").split() or [""])[0]
         if g and _norm(c.get("utilisation") or "").startswith("clipper"):
             par_gerant.setdefault((g, cr), []).append(c)
+    liste_complete = False
     try:
-        noms_liens = {l["id"]: str(l.get("name") or "") for l in await paie_clics.liens_gaml() if l.get("id")}
+        liste_gaml = await paie_clics.liens_gaml()
+        noms_liens = {l["id"]: str(l.get("name") or "") for l in liste_gaml if l.get("id")}
+        liste_complete = getattr(liste_gaml, "complete", True)
     except RuntimeError as erreur:
         journal.warning("Liens GAML illisibles pour la vérification : %s", erreur)
         noms_liens = {}
@@ -2024,10 +2037,13 @@ async def verifier_trackings() -> list:
         if noms_liens and lid not in noms_liens:
             # 05/10 : lien effacé dans GAML (404 « Link not found » de Rianah à chaque passage) : plus rien à poser dessus.
             # Ses relevés passés restent dans clics.json ; on le marque une fois et on n'en parle plus.
-            if not info.get("supprime_gaml"):
+            # 11/10 (contre-vérification CLICS, passe 3 : la page 2 de /links refusée au démarrage faisait marquer effacés, pour
+            # toujours, les liens payés de la page 2 — plus relevés, comptés 0 dans la paie sans « provisoire ») : marqué seulement
+            # sur une preuve — liste complète ET détail du lien en 404 ; sinon rien d'écrit (le lien est sauté cette fois-ci)
+            if not info.get("supprime_gaml") and liste_complete and await _lien_efface_gaml(lid):
                 info["supprime_gaml"] = datetime.now(timezone.utc).date().isoformat()
                 paie_clics._ecrire(d)
-                journal.info("Lien GAML %s (%s) absent de GAML : marqué supprimé", lid, nom)
+                journal.info("Lien GAML %s (%s) absent de GAML (404) : marqué supprimé", lid, nom)
             continue
         cr = _creatrice_du_lien(noms_liens.get(lid, ""), info, str(info.get("url") or ""), creatrices)
         liens_de_prenom.setdefault(_norm(nom), []).append((lid, cr))
