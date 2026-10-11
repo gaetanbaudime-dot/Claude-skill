@@ -50,7 +50,7 @@ Gaëtan : « simplifier et supprimer toutes les étapes inutiles au processus de
 
 - 11/10 : une bienvenue encore en attente de son compte 1 (le filet) se lit partout « ton compte 1 arrive ici dans l'heure » : la ligne du matin, `!etape`, `!memoire` et l'assistant. Plus de « appuie sur ✅, ton compte 1 arrive juste après ». Le WhatsApp n'y est redemandé qu'à qui ne l'a pas déclaré.
 
-- 11/10 : deux « ✅ Compte n créé » coup sur coup (deux fenêtres du @, ou le scan pendant l'appui) : le 2e ne dit plus rien. Avant, il affichait « Ce bouton n'est plus valable » juste sous le profil.
+- 11/10 : deux « ✅ Compte n créé » coup sur coup (deux fenêtres du @, ou le scan pendant l'appui) : le 2e ne dit plus rien. Avant, il affichait « Ce bouton n'est plus valable » juste sous le profil. Seule une fermeture faite pendant cet appui compte : une étape rouverte par `!etape @x n` (son ancienne date de fermeture reste) envoie toujours son profil et se ferme à l'appui.
 
 ### Railway
 

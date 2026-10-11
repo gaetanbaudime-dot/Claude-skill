@@ -1512,14 +1512,18 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
     profil_suite = False
     if n in (1, 2, 3) and not (fiche_p.get("profils") or {}).get(str(n)) and _deps.get("profil_envoyer") \
             and str((fiche_p.get("dates") or {}).get(str(n)) or "9") >= DISTILLE_DEPUIS:
+        fait_avant = (fiche_p.get("dates") or {}).get(f"{n}_fait")      # 11/10 : lu avant l'attente (double appui, plus bas)
         ctx = await _contexte(getattr(salon, "guild", None), str(uid), fiche_p)
         # 01/10 (relecture) : relue après l'appel au classeur — l'ancienne copie écrasait ce qui avait été écrit pendant
         # l'attente ; un double appui arrivé entre-temps a déjà envoyé le profil
         d = _lire()
         fiche_p = d.get(str(uid))
-        if creation and fiche_p and (fiche_p.get("dates") or {}).get(f"{n}_fait"):
+        fait_apres = ((fiche_p or {}).get("dates") or {}).get(f"{n}_fait")
+        if creation and fait_apres and fait_apres != fait_avant:
             # 11/10 (vérification L1 : deux « Compte n créé » coup sur coup, ou le scan pendant l'appui) : l'autre appel a fermé
-            # l'étape pendant l'attente du classeur ; ce 2e appui ne dit rien (pas de « Ce bouton n'est plus valable »)
+            # l'étape pendant l'attente du classeur ; ce 2e appui ne dit rien (pas de « Ce bouton n'est plus valable »).
+            # Seulement une fermeture faite PENDANT l'attente : l'étape rouverte par le staff avec un vieux « n_fait » (rien ne
+            # l'efface) envoie toujours son profil et se ferme à l'appui
             return True
         if not fiche_p or int(fiche_p.get("etape", 0)) != int(n) or not (fiche_p.get("dates") or {}).get(str(n)):
             return False
