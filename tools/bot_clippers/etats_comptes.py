@@ -3157,7 +3157,7 @@ async def commande_staff(message, texte: str) -> bool:
                                        datetime.now(timezone.utc).strftime("%Y-%m-%d"), exclus)
             import capacite
             scan = len(mots) > 1 and mots[1].lower() == "scan"
-            await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par clipper, par créatrice."
+            await message.reply(f"✅ Onglet « {ONGLET_DASHBOARD} » du classeur des logins réécrit ({n} lignes) : une ligne par compte, un sous-total par clipper, par créatrice."
                                 + ("" if scan else "\nSans relire Instagram : `!dashboard scan` lance d'abord le passage complet (payant).")
                                 + (f"\n{capacite.texte_resume(CAPACITE)}" if CAPACITE else "")
                                 + (f"\nMasqués : {', '.join(exclus)} (`!dashboard inclure Prénom` pour remettre quelqu'un)." if exclus
