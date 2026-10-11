@@ -1630,12 +1630,14 @@ def _dep_equipes(nom: str):
 def _uids_equipes(etat: dict) -> set:
     """Les uid des VA d'un état d'équipes (equipes_tl.a_figer) : ceux dont un jour non relevé peut changer une prime. Le TL aussi, mais
     seulement quand ses visites comptent dans son équipe (EQUIPE_COMPTE_TL=1) ; à 0 (la grille de Gaëtan), un jour non relevé du TL ne
-    change aucune prime et ne retarde plus le figement (reprise L11, R4)."""
+    change aucune prime et ne retarde plus le figement (reprise L11, R4).
+    11/10 (clôture de la vague 2 : le lien en 404 d'un VA de Sarah, sans TL ni manager, retenait le complément au clic de TOUS les
+    clippers jusqu'à J+3 7 h) : seulement les équipes qui ont un TL ou un manager, les seules où un jour peut changer une prime."""
     et = _equipes_tl()
     tl_compte = bool(getattr(et, "EQUIPE_COMPTE_TL", False))
     out = set()
     for e in ((etat or {}).get("composition") or {}).values():
-        if isinstance(e, dict):
+        if isinstance(e, dict) and (e.get("tl") or e.get("manager")):
             out.update(str(u) for u in (e.get("vas") or {}))
             if e.get("tl") and tl_compte:
                 out.add(str(e["tl"]))

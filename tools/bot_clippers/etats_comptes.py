@@ -58,9 +58,10 @@ même sa partie sans Instagram (clics, liens GAML, parcours, réservations, vér
   - passage complet : BAN sans Gérant lus le lundi seulement, ligne « à créer » réservée lue au premier passage qui suit sa
     réservation puis quand son étape est ouverte ; recherche des @ changés : 6 variantes, à J+1 et J+3 seulement.
 11/10 (reprise du lot L7, revue adversariale) :
-  - la réserve du parcours compte DEUX lectures de la file par jour restant (LECTURES_PARCOURS_JOUR : mini-scan du matin quand le
-    passage du matin est refusé, plus le scan de 19 h) ; le scan de 19 h ne part que s'il laisse une lecture de la file pour
-    chaque jour qui reste (_soir_dans_budget) : la file est relue chaque jour jusqu'à la fin du cycle, même budget entamé ;
+  - la réserve du parcours compte UNE lecture de la file par jour restant (LECTURES_PARCOURS_JOUR ; deux pendant la reprise,
+    revenue à une à la clôture de la vague 2 : elle refusait des passages du matin pour rien) ; le scan de 19 h ne part que s'il
+    laisse une lecture de la file pour chaque jour qui reste (_soir_dans_budget) : la file est relue chaque jour jusqu'à la fin du
+    cycle, même budget entamé ;
   - deux alertes distinctes, une fois par jour chacune : « le passage du matin ne tient plus » (clé « reserve_matin », envoyée dès
     minuit quand le passage du jour ne passera pas, ou par la garde qui le refuse) et « la réserve est entamée » (clé « reserve ») ;
   - les comptes de la file relus sans ligne vivante passent au crible des faux 0 et vont aux séries, et une fiche qui ne montre
@@ -177,10 +178,11 @@ COUT_PARCOURS_DEFAUT = 0.10            # mini-scan de la file du parcours (envir
 COUT_MATIN_DEFAUT = 0.36               # passage complet du matin (environ 150 comptes, redemandes comprises)
 REDEMANDE = 1.05                       # les absents de la première réponse sont redemandés une fois : environ 5 % de profils en plus
 SECOURS_DEPUIS_H = 17                  # le scan de 19 h ne tourne que si aucune relecture n'a réussi depuis 17 h (Paris)
-# 11/10 (reprise du lot L7, R1 : passage du matin refusé, la file était lue deux fois par jour — mini-scan de 7 h et scan de 19 h —
-# pour une réserve d'une lecture par jour, et refusée au plafond les deux derniers jours du cycle) : lectures de la file du parcours
-# gardées en réserve par jour restant
-LECTURES_PARCOURS_JOUR = 2
+# Lectures de la file du parcours gardées en réserve par jour restant. 11/10 (clôture de la vague 2) : revenue à UNE. Les deux
+# lectures de la reprise du lot L7 (R1) ne protégeaient rien de plus : un jour où le passage du matin tourne, il lit déjà la file, et
+# le scan de 19 h ne part que s'il laisse une lecture pour chaque jour qui reste (_soir_dans_budget, le vrai correctif de R1). La
+# 2e lecture coûtait jusqu'à 2 passages du matin en fin de cycle (départ à 23,00 $ le 24/11 : 3 passages sur 7 au lieu de 5)
+LECTURES_PARCOURS_JOUR = 1
 _CLIENT = {"c": None}                  # le client Discord de la boucle : programme_du_jour après une relecture ou un mini-scan
 
 _deps = {}
@@ -2119,7 +2121,8 @@ def _noter_cout_parcours(n_comptes: int) -> None:
 def _jours_restants(d: dict, maintenant: datetime, fin: datetime) -> int:
     """10/10 (lot L7) : les passages du matin encore à payer d'ici la fin du cycle — un par jour (UTC) dont l'heure HEURE_UTC tombe
     avant `fin`, celui d'aujourd'hui compris tant qu'il n'a pas réussi (« dernier »). La réserve du parcours en garde
-    LECTURES_PARCOURS_JOUR lectures de la file par jour (11/10)."""
+    LECTURES_PARCOURS_JOUR lecture(s) de la file par jour (une : le passage du matin lit la file ; le scan de 19 h ne prend jamais la
+    lecture d'un jour qui reste, _soir_dans_budget)."""
     jour = maintenant.astimezone(timezone.utc).date()
     n = 0
     for k in range(0, 40):
@@ -2142,7 +2145,7 @@ def etat_budget(d: dict = None, maintenant: datetime = None) -> dict:
     l'API), ok (= leger_ok, pour les lecteurs d'avant le 09/10).
     10/10 (lot L7) : les réserves — jours_restants (passages du matin à payer), cout_matin_usd, cout_parcours_usd,
     reserve_matin_usd (jours restants × coût du matin) et reserve_parcours_usd (jours restants × LECTURES_PARCOURS_JOUR × coût d'une
-    lecture de la file, 11/10 : le mini-scan du matin refusé et le scan de 19 h), reserve_entamee (dépense sûre — dernière lecture de
+    lecture de la file : une par jour, le scan de 19 h n'en prend jamais une d'un jour qui reste), reserve_entamee (dépense sûre — dernière lecture de
     l'API plus les seuls appels notés après elle, jamais comptés deux fois — plus les réserves au-dessus du budget : les passages du
     matin ou la file du parcours ne tiennent plus, l'alerte du salon admin) ; leger_ok exige en plus que la relecture laisse les
     deux réserves entières."""
@@ -2176,8 +2179,8 @@ def etat_budget(d: dict = None, maintenant: datetime = None) -> dict:
     # 10/10 (lot L7) : réserves des passages du matin et de la file du parcours (voir garde_apify)
     jours = _jours_restants(d, maintenant, d1)
     cout_matin, cout_parcours = _cout_matin(d), _cout_parcours(d)
-    # 11/10 (reprise, R1) : deux lectures de la file par jour restant — passage du matin refusé, la file est lue au mini-scan du
-    # matin PUIS au scan de 19 h (les relectures sont refusées) ; une seule lecture gardée la laissait au plafond en fin de cycle
+    # 11/10 (clôture de la vague 2) : une lecture de la file par jour restant ; le scan de 19 h, s'il tourne, ne prend que le surplus
+    # (_soir_dans_budget), la file reste lue chaque jour jusqu'à la fin du cycle
     reserve_matin, reserve_parcours = jours * cout_matin, jours * LECTURES_PARCOURS_JOUR * cout_parcours
     leger_ok = not coupe and usage + cout_leger <= trajectoire + 1e-9 \
         and usage + cout_leger + reserve_matin + reserve_parcours <= budget + 1e-9
@@ -2489,7 +2492,14 @@ def _matin_hors_budget(st: dict, d: dict, maintenant: datetime) -> bool:
     if str(d.get("dernier") or "")[:10] == _paris(maintenant).date().isoformat():
         return False                                                    # le passage de ce jour a déjà réussi
     cout = float(st.get("cout_matin_usd") or 0) / REDEMANDE
-    return float(st.get("usage_usd") or 0) + cout + float(st.get("reserve_parcours_usd") or 0) > float(st.get("budget_usd") or 0) + 1e-9
+    # 11/10 (clôture de la vague 2 : à minuit de Paris, 22 h ou 23 h UTC, reserve_parcours_usd comptait encore le jour UTC en
+    # cours, dont le passage avait échoué : une lecture de trop, et « ne tient plus » le jour même où le passage du matin passait) :
+    # la réserve que la garde comptera au passage du matin, celle des jours restants à partir de ce passage
+    fin = _instant(st.get("cycle_fin"))
+    j = _paris(maintenant).date()
+    prochain = datetime(j.year, j.month, j.day, HEURE_UTC, tzinfo=timezone.utc)
+    reserve = (_jours_restants({}, prochain, fin) if fin else 0) * LECTURES_PARCOURS_JOUR * float(st.get("cout_parcours_usd") or 0)
+    return float(st.get("usage_usd") or 0) + cout + reserve > float(st.get("budget_usd") or 0) + 1e-9
 
 
 def _noter_saut(jour_p: str) -> None:

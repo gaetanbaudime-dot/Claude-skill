@@ -278,7 +278,9 @@ async def traiter(trouves: list | None = None) -> dict:
                 await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, "etat"), [["BAN"]])
                 c["etat"] = "BAN"; ecrit = True
                 if etat_scan is not None and c.get("handle"):
-                    etat_scan.setdefault("bans_auto", {})[c["handle"].lower()] = jour
+                    # 11/10 (clôture de la vague 2) : la clé nettoyée, celle d'etats_comptes._cle et de controle (« @x » ou une URL
+                    # dans la cellule retrouvent leur BAN)
+                    etat_scan.setdefault("bans_auto", {})[onboarding.normaliser_handle(c["handle"]).lower()] = jour
             except Exception as erreur:                                  # noqa: BLE001
                 journal.warning("Bans par mail : BAN de %s non écrit : %s", t.get("pseudo"), erreur)
                 continue                                                # réessayé au prochain passage (mail pas marqué vu)

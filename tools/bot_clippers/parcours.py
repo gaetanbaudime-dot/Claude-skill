@@ -1697,11 +1697,27 @@ async def valider_etape(salon, uid: str, n: int, par: str = "", creation: bool =
     prive2 = ordre(fiche_p) == "prive2"
     # 08/10 : en « prive2 », le compte 3 est le dernier. 10/10 : en « prive3 » aussi (le privé), plus d'étape 6 après lui
     fiche_p["etape"] = 7 if n == 3 else n + 1
-    if n == 3 and not prive2 and n == n_prive(fiche_p):
+    story = n == 3 and not prive2 and n == n_prive(fiche_p)
+    if story:
         # 11/10 (revue du lot W : un arrêt du bot entre cette écriture et la story perdait story et routine) : la marque est posée
-        # dans la même écriture que 3_fait ; story_puis_app la retire à la fin, fermer_profils_oublies relance ce qui reste
+        # dans la même écriture que 3_fait ; story_puis_app la retire à la fin, fermer_profils_oublies relance ce qui reste.
+        # 11/10 (clôture de la vague 2 : le tour horaire tombait pendant les attentes ci-dessous, avant que story_puis_app ne
+        # s'inscrive, et lançait sa propre story : story et routine en double) : l'uid est inscrit dans _STORY_EN_COURS AVANT
+        # l'écriture de la marque, et n'en sort qu'à la fin de cette fermeture
         fiche_p["story_due"] = _maintenant()
+        _STORY_EN_COURS.add(str(uid))
+        try:
+            _ecrire(d)
+            return await _apres_fermeture(salon, uid, n, par, fiche_p, prive2, profil_suite)
+        finally:
+            _STORY_EN_COURS.discard(str(uid))
     _ecrire(d)
+    return await _apres_fermeture(salon, uid, n, par, fiche_p, prive2, profil_suite)
+
+
+async def _apres_fermeture(salon, uid: str, n: int, par: str, fiche_p: dict, prive2: bool, profil_suite: bool) -> bool:
+    """Suite de valider_etape une fois l'étape n fermée et écrite : activité, boutons retirés, classeur, puis la suite du parcours
+    (warm-up, étape suivante, ou story à la une et routine du privé)."""
     if _deps.get("activite") and par != "bot":                          # 05/10 : un bouton d'étape = une réponse à l'appel de présence
         # (08/10 : une étape fermée par le bot lui-même — warm-up fini, profil oublié — n'est pas une réponse du clipper)
         try:

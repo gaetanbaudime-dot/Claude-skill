@@ -104,7 +104,7 @@ Reels hier et 7 jours, tendance —, mis à jour le plus souvent possible sous 2
   - « Clics paie » d'une ligne suit la règle de la paie (paie_clics.regime, debut_clic) : vide et « au fixe » pour un clipper au
     fixe, compté depuis son premier jour au clic pour un passage en cours de période ;
   - « Période close » : recalculée quand rien n'est figé — « aucune prime d'équipe sur cette période » (info) quand la liste n'en
-    porte aucune ; une valeur abîmée de clics.json « primes_equipes » donne « primes figées illisibles », jamais un Dashboard en panne ;
+    porte aucune et que tout est relevé (11/10, clôture v2 : sinon orange, même après le délai du complément) ; une valeur abîmée de clics.json « primes_equipes » donne « primes figées illisibles », jamais un Dashboard en panne ;
   - « prochaine relecture vers H h » jugée sur la dépense publiée, celle de la garde du lot L7 (plus sur le minorant).
 
 Les modules des autres lots (series, controle, metricool_comptes, paie_clics.clics_lien / clics_aujourdhui) sont importés s'ils
@@ -2275,8 +2275,10 @@ def _ligne_periode_close(ajouter, ctx: _Ctx, E, dep: dict, debut_p: date, fin_p:
     chaque montant avec _montant) : leur total, à vérifier avant le virement. Pas figée : la période est recalculée comme la liste de
     paie la calculera (equipes_tl.calculer + lignes_primes, à défaut primes_equipes). Des lignes de prime : « pas encore figées »
     (orange), la liste du jour de paie les fige. Aucune ligne : paie_clics.figer_primes_equipes ne la figera jamais (« rien à
-    protéger ») — « aucune prime d'équipe sur cette période » (info), sauf si un VA ou un TL a encore un jour non relevé pendant
-    le délai du complément (jour de paie + COMPLEMENT_JOURS) : le complément peut encore porter une prime, la ligne reste orange.
+    protéger ») — « aucune prime d'équipe sur cette période » (info) seulement si tous les jours sont relevés et aucune mesure en
+    erreur. Pendant le délai du complément (jusqu'au jour de paie + COMPLEMENT_JOURS, à CLICS_HEURE) un jour non relevé laisse la
+    ligne orange (le complément peut encore porter une prime) ; après, elle reste orange : « mesure en erreur : primes non
+    calculables » ou « aucune prime calculée, mais N jour(s) jamais relevé(s) : à vérifier avant le virement » (clôture v2).
     Une valeur abîmée lève : l'appelant écrit « primes figées illisibles », jamais tout le Dashboard en panne."""
     paie_p = fin_p + timedelta(days=1)
     tout = ctx.clics.get("primes_equipes") if isinstance(ctx.clics, dict) else None
@@ -2303,15 +2305,33 @@ def _ligne_periode_close(ajouter, ctx: _Ctx, E, dep: dict, debut_p: date, fin_p:
         ajouter(["Période close", periode, f"primes pas encore figées : la liste de paie du {paie_p:%d/%m} les fige au premier "
                  "calcul"], "equipe", gravite="important")
         return
-    manquants = sum(int(v.get("manquants") or 0) + (1 if v.get("erreur") else 0)
-                    for eq in ((calcul or {}).get("equipes") or {}).values() if isinstance(eq, dict)
-                    for v in (eq.get("vas") or []) if isinstance(v, dict))
+    eqs = [eq for eq in ((calcul or {}).get("equipes") or {}).values() if isinstance(eq, dict)]
+    vas = [v for eq in eqs for v in (eq.get("vas") or []) if isinstance(v, dict)]
+    jours_manq = sum(int(v.get("manquants") or 0) for v in vas) + sum(int(eq.get("tl_manquants") or 0) for eq in eqs)
+    en_erreur = sum(1 for v in vas if v.get("erreur")) + sum(1 for eq in eqs if eq.get("tl_erreur"))
+    manquants = jours_manq + en_erreur
     delai = getattr(paie_clics, "COMPLEMENT_JOURS", 3) if paie_clics is not None else 3
     delai = delai if isinstance(delai, int) and not isinstance(delai, bool) and delai >= 0 else 3
-    if manquants and ctx.j0 < paie_p + timedelta(days=delai):
+    heure = getattr(paie_clics, "CLICS_HEURE", 7) if paie_clics is not None else 7
+    heure = heure if isinstance(heure, int) and not isinstance(heure, bool) else 7
+    limite = paie_p + timedelta(days=delai)
+    # 11/10 (clôture de la vague 2) : le délai finit quand le complément de paie_clics part au plus tard (la limite, à CLICS_HEURE
+    # heure de Paris), pas dès minuit de ce jour
+    dans_delai = ctx.j0 < limite or (ctx.j0 == limite and ctx.p.hour < heure)
+    if manquants and dans_delai:
         ajouter(["Période close", periode, f"aucune prime d'équipe pour l'instant, mais {manquants} jour(s) non relevé(s) : le "
-                 f"complément (jusqu'au {paie_p + timedelta(days=delai):%d/%m}) peut encore en porter une"], "equipe",
-                gravite="important")
+                 f"complément (jusqu'au {limite:%d/%m}) peut encore en porter une"], "equipe", gravite="important")
+        return
+    if en_erreur:
+        # 11/10 (clôture de la vague 2 : après le délai, « aucune prime » en info affirmait un 0 jamais mesuré, et contredisait le
+        # complément de la paie qui prévient l'admin) : rien n'est dit nul tant qu'un jour manque ou qu'une mesure est en erreur
+        ajouter(["Période close", periode, f"mesure en erreur ({en_erreur} VA ou TL non lus) : primes non calculables, à vérifier "
+                 "avant le virement"], "equipe", gravite="important")
+        return
+    if jours_manq:
+        n_va = sum(1 for v in vas if v.get("manquants")) + sum(1 for eq in eqs if eq.get("tl_manquants"))
+        ajouter(["Période close", periode, f"aucune prime calculée, mais {jours_manq} jour(s) jamais relevé(s) ({n_va} VA) : à "
+                 "vérifier avant le virement"], "equipe", gravite="important")
         return
     ajouter(["Période close", periode, "aucune prime d'équipe sur cette période"], "equipe", gravite="info")
 
@@ -2400,7 +2420,9 @@ def _sous_total(ctx: _Ctx, groupe: list, nom: str, uid: str = "", dus: dict = No
         elif premier is not None:                                        # son dû est sur un autre sous-total : la part de ce groupe
             tete += [f"part {cr_nom or nom}", f"dû : voir le sous-total {premier}"]
         else:
-            if dus is not None:
+            if dus is not None and paie.get("texte"):
+                # 11/10 (clôture de la vague 2) : seulement un dû écrit ; rien de relevé sur la période (cellule vide), les autres
+                # sous-totaux ne renvoient pas vers une cellule vide, chacun garde sa part
                 dus[str(uid)] = cr_nom or nom
             r[C_CP] = _v(paie.get("payees"))
             notes_paie = list(paie.get("notes") or [])

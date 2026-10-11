@@ -2014,13 +2014,18 @@ def _c13(x: _Ctx) -> list:
         if not c.get("handle"):
             continue
         infos = onboarding.infos_d_un_ban(c, brulees) if brulees else []
-        # 11/10 (vérification du lot L12) : une cellule e-mail sans « @ » (« ? », « - », « à faire ») n'est pas une adresse — ni un
-        # doublon (plus bas), ni « l'e-mail d'un BAN » (onboarding.infos_d_un_ban la comparait telle quelle : 3 bloquants pour « ? »)
-        infos = [i for i in infos if i != "e-mail" or "@" in str(c.get("mail") or "")]
         if not infos:
             continue
         if x.resoudre(c.get("gerant"))[0] == "libre":
+            # 11/10 (clôture de la vague 2) : une ligne libre est comptée sur les infos BRUTES, comme onboarding.disponibles, qui
+            # décide de la livraison (« ? » y compte encore pour une adresse) : le compteur dit ce qui n'est pas livré
             libres.setdefault(c.get("onglet") or "?", []).append(c)      # jamais livrées (onboarding.disponibles) : compter suffit
+            continue
+        # 11/10 (vérification du lot L12) : une cellule e-mail sans « @ » (« ? », « - », « à faire ») n'est pas une adresse — ni un
+        # doublon (plus bas), ni « l'e-mail d'un BAN » sur une ligne en service (infos_d_un_ban la comparait telle quelle : 3
+        # bloquants pour « ? »)
+        infos = [i for i in infos if i != "e-mail" or "@" in str(c.get("mail") or "")]
+        if not infos:
             continue
         out.append(_a("C13", "bloquant", f"{_ou(c)} · {_qui(c)} : {' + '.join(infos)} d'un compte BAN — à changer sur ce compte (règle "
                                          "du 30/09 : on ne réutilise jamais une info d'un BAN)",
@@ -2056,16 +2061,27 @@ def _c13(x: _Ctx) -> list:
 def _c14(x: _Ctx) -> list:
     """Une ligne BAN qui garde le nom d'un clipper : une entrée par Gérant et par onglet, `!liberer … pool` sur ses lignes BAN
     (Gérant vidé, la ligne reste BAN et n'est jamais relivrée : comme remplacements.remplacer).
-    11/10 (vérification du lot L12) : un BAN posé par le scan (etats « bans_auto ») il y a BAN_RECHERCHE_JOURS jours ou moins est
-    encore cherché sous des @ voisins, et ressuscité s'il est revu vivant — mais seulement tant que la ligne garde son Gérant
+    11/10 (vérification du lot L12) : un BAN posé par le bot (etats « bans_auto » : scan ou mail de suspension) il y a
+    BAN_RECHERCHE_JOURS jours ou moins, sur un compte JAMAIS vu vivant (clôture de la vague 2 : la condition du scan), est encore
+    cherché sous des @ voisins, et ressuscité s'il est revu vivant — mais seulement tant que la ligne garde son Gérant
     (etats_comptes.candidats). Libérer ce jour-là perdait pour de bon un faux BAN (compte renommé, indisponible un jour) : ces lignes
     sortent à part, en info, « ne libère pas avant le JJ/MM », sans commande. Le remède reste pour un BAN plus ancien ou posé à la main."""
     etats = x.etats if isinstance(x.etats, dict) else {}
     bans_auto = etats.get("bans_auto") if isinstance(etats.get("bans_auto"), dict) else {}
     auj = x.maintenant.date()
 
+    vivants = etats.get("vivants_vus") if isinstance(etats.get("vivants_vus"), dict) else {}
+    historique = etats.get("historique") if isinstance(etats.get("historique"), dict) else {}
+
     def _fin_recherche(c):
-        pose = _date(bans_auto.get(_cle_compte(c.get("handle"))))
+        h = _cle_compte(c.get("handle"))
+        # 11/10 (clôture de la vague 2 : « recherche du faux BAN en cours » pour un compte vu vivant puis banni, que le scan ne
+        # cherche jamais, et le remède retenu 7 jours) : la condition exacte du scan (etats_comptes, `jamais_vu`) — seul un compte
+        # jamais vu vivant est cherché sous des @ voisins
+        hist = historique.get(h) if isinstance(historique.get(h), list) else []
+        if h in vivants or any(isinstance(e, dict) and e.get("existe") for e in hist):
+            return None
+        pose = _date(bans_auto.get(h))
         fin = pose + timedelta(days=BAN_RECHERCHE_JOURS) if pose else None
         return fin if fin and auj <= fin else None
 
@@ -2082,7 +2098,7 @@ def _c14(x: _Ctx) -> list:
         if recents:
             rs = [c for c, _ in recents]
             fin = max(f for _, f in recents)
-            tetes = [f"{onglet} · Gérant « {brut} » garde {len(rs)} ligne(s) BAN posée(s) par le scan ({_liste(rs, n)})"
+            tetes = [f"{onglet} · Gérant « {brut} » garde {len(rs)} ligne(s) BAN posée(s) par le bot ({_liste(rs, n)})"
                      for n in (LISTE_MAX, 2, 1)]
             out.append(_a("C14", "info", _avec_remede(tetes, f"recherche du faux BAN en cours jusqu'au {fin.strftime('%d/%m')}, "
                                                                 "ne libère pas avant"), f"C14|{_n(onglet)}|{g}|recherche"))

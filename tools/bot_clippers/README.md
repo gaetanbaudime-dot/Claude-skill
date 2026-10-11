@@ -113,7 +113,7 @@ Tests : `test_W_demarrage.py` (chaque appel d'`on_ready` existe avec une signatu
 - L'assistant du salon perso ne donne plus `!code` pour l'appel d'un compte banni ; il dit la même chose que la règle 23 (`CODES_APPEL=0` : le code de l'appel passe par l'équipe).
 - `!onboarding @x` forcé pendant l'attente du compte 2 ne l'envoie plus en sautant 48 h et Reels : « pas encore ouverte, `!etape @x 2` pour la forcer ».
 - `!salons-equipe` relancé sur un clipper au profil de son privé : l'étape se ferme comme à l'appui (bouton retiré), plus de « Profil fait » mort.
-- Arrêt du bot entre « Profil fait » du privé et la story : la marque `story_due` de la fiche fait repartir la story et la routine au tour horaire suivant (au démarrage compris).
+- Arrêt du bot entre « Profil fait » du privé et la story : la marque `story_due` de la fiche fait repartir la story et la routine au tour horaire suivant (au démarrage compris). Un tour horaire qui tombe pendant l'appui lui-même ne la relance pas : jamais de story ni de routine en double (11/10).
 - Privé sans lien : « Ton lien arrive ici dès qu'il est prêt » (plus « dans quelques minutes ») ; le lien annoncé ensuite va dans le champ Liens, plus « dans la bio ».
 - Ancien Google Form : « effacée » seulement si c'est vrai, et le rappel que le numéro reste dans les réponses du formulaire.
 - `!verifier` ne réclame plus `CANAL_STAT_CLIPPERS_ID`.
@@ -368,6 +368,10 @@ Pour le Dashboard, cette section remplace les paragraphes du 28/09 au 05/10 plus
 
 - « via YouTube, non attribuable » : un compte sans lien qui renvoie vers YouTube. « ⚠ sans lien » : un clipper sans lien. Deux clippers du même prénom : un groupe par lien, « ⚠ homonyme ».
 
+- Sous-total d'un clipper présent chez deux créatrices : son dû est écrit sur le premier, les autres disent « dû : voir le sous-total Sophie ». Si rien n'est relevé sur la période, aucun renvoi vers une cellule vide : chaque sous-total garde sa part (11/10).
+
+- ÉQUIPES, ligne « Période close » : « aucune prime d'équipe sur cette période » (gris) seulement quand tous les jours de la période sont relevés. Un jour jamais relevé ou une mesure en erreur la laisse orange, même après le délai du complément (J+3 à 7 h, Paris) : « à vérifier avant le virement » (11/10).
+
 ### Sa fréquence
 
 - Dashboard : relu toutes les 15 minutes (`DASHBOARD_BOUCLE=0` l'éteint), réécrit seulement si son contenu a changé. Tout de suite sur `!dashboard`, et après le passage complet du matin, une fois son état enregistré.
@@ -388,7 +392,7 @@ Décision de Gaëtan : « Dépasse pas 25 $ / mois pour le moment, fais comme tu
 
 - Une relecture légère ne part que si la dépense, plus le coût estimé de cette relecture, reste sous la trajectoire du budget (25 $ × part du cycle écoulée) et laisse entières les réserves des passages du matin et de la file du parcours (lot L7). Sinon elle est sautée, sans aucun message : c'est le fonctionnement prévu.
 
-- Ordre de priorité (lot L7, repris le 11/10) : la file du parcours (clippers qui attendent leur compte suivant) ne bute que sur le plafond ; le passage du matin garde la réserve du parcours ; tout le reste garde les deux réserves. Réserve du matin : un passage par jour restant. Réserve du parcours : deux lectures de la file par jour restant (le mini-scan qui remplace un passage du matin refusé, puis le scan de 19 h). Le scan de 19 h ne part que s'il laisse une lecture de la file pour chaque jour qui reste : même budget entamé, la file est relue chaque jour jusqu'à la fin du cycle.
+- Ordre de priorité (lot L7, repris le 11/10) : la file du parcours (clippers qui attendent leur compte suivant) ne bute que sur le plafond ; le passage du matin garde la réserve du parcours ; tout le reste garde les deux réserves. Réserve du matin : un passage par jour restant. Réserve du parcours : une lecture de la file par jour restant (le passage du matin la lit, ou le mini-scan qui le remplace s'il est refusé). Le scan de 19 h ne part que s'il laisse une lecture de la file pour chaque jour qui reste : même budget entamé, la file est relue chaque jour jusqu'à la fin du cycle. Une deuxième lecture gardée par jour (essayée le 11/10) ne protégeait rien de plus et coûtait jusqu'à 2 passages du matin en fin de cycle : revenue à une.
 
 - Deux alertes au salon admin avant le plafond, une fois par jour chacune : « le passage du matin ne tient plus dans le budget » (dès minuit quand le passage du jour ne passera pas) et « la réserve des passages du matin est entamée » (les relectures s'arrêtent). Le seul geste : monter `APIFY_BUDGET_MOIS` dans Railway.
 
@@ -889,9 +893,9 @@ clippers livrables ≥ 2 × les validés des 30 derniers jours.
 
 - un même pseudo sur deux lignes : C11 (déjà là) ;
 
-- **C13** un même e-mail sur deux lignes vivantes (important), ou une ligne en service qui porte l'identifiant, le mot de passe, l'e-mail ou le téléphone d'un compte BAN (bloquant, règle du 30/09) ; les lignes libres dans ce cas sont comptées par onglet (info). Une cellule e-mail sans « @ » (« ? », « - », « à faire ») n'est jamais une adresse : ni doublon, ni « e-mail d'un BAN ». Aucune adresse, aucun mot de passe ni téléphone n'est écrit : les lignes sont citées par onglet, numéro et @ ;
+- **C13** un même e-mail sur deux lignes vivantes (important), ou une ligne en service qui porte l'identifiant, le mot de passe, l'e-mail ou le téléphone d'un compte BAN (bloquant, règle du 30/09) ; les lignes libres dans ce cas sont comptées par onglet (info), selon la même règle que la livraison : une ligne libre que le bot ne livre pas est toujours comptée. Sur une ligne en service, une cellule e-mail sans « @ » (« ? », « - », « à faire ») n'est jamais une adresse : ni doublon, ni « e-mail d'un BAN ». Aucune adresse, aucun mot de passe ni téléphone n'est écrit : les lignes sont citées par onglet, numéro et @ ;
 
-- **C14** une ligne BAN qui garde un Gérant clipper, remède `!liberer Prénom @ pool`. Un BAN posé par le scan depuis 7 jours ou moins (`ETATS_BAN_RECHERCHE_JOURS`) est encore cherché sous des @ voisins et ressuscité s'il est revu vivant, mais seulement tant que la ligne garde son Gérant : il sort à part, en info, « recherche du faux BAN en cours jusqu'au JJ/MM, ne libère pas avant », sans commande ;
+- **C14** une ligne BAN qui garde un Gérant clipper, remède `!liberer Prénom @ pool`. Un BAN posé par le bot (scan ou mail de suspension) depuis 7 jours ou moins (`ETATS_BAN_RECHERCHE_JOURS`) sur un compte **jamais vu vivant** est encore cherché sous des @ voisins et ressuscité s'il est revu vivant, mais seulement tant que la ligne garde son Gérant : il sort à part, en info, « recherche du faux BAN en cours jusqu'au JJ/MM, ne libère pas avant », sans commande. Un compte vu vivant puis banni (le cas courant) n'est jamais cherché : il garde le remède, en important (11/10) ;
 
 - **C15** une ligne « à créer » réservée et jamais vue sur Instagram après `CLASSEUR_SCANS_MIN` (7) jours de scan, comptés depuis l'ouverture de l'étape de ce compte dans le parcours (le compte 3 n'est à créer qu'à son étape) ; pour un compte dont l'étape est passée sans date (ancien mis en routine, remplaçant d'un BAN), depuis sa réservation. Une réservation de plus de 7 jours lue moins de 7 fois par le scan, ou un budget Apify du mois atteint : « non mesuré », jamais un faux 0 ;
 
@@ -1276,7 +1280,7 @@ L'`on_ready` du lot W passe déjà `primes_equipes` à `paie_clics.boucle` : la 
 
 - **Équipes figées à l'annonce** : au premier calcul après la clôture, qui est TL, manager et VA de quelle équipe est figé dans `clics.json['primes_equipes']`, même si des jours manquent. Un `!creatrice` tapé ensuite compte pour la période suivante : un VA n'est jamais primé chez deux TL. `!tl liste 5 2026-11` le dit (« 🔒 Équipes figées »).
 - **Montants figés** quand plus aucun jour d'un VA ne manque, ou au délai du complément : J+3 à 7 h, comme le complément lui-même.
-- **Lien d'un VA introuvable (404) le jour de la paie** : ses jours manquants comptent pour les primes (« + 10 $ possible » sur la liste). L'annonce les attend : quand ils arrivent, le complément porte la prime et le clic.
+- **Lien d'un VA introuvable (404) le jour de la paie** : ses jours manquants comptent pour les primes (« + 10 $ possible » sur la liste). L'annonce les attend : quand ils arrivent, le complément porte la prime et le clic. Seulement dans une équipe qui a un TL ou un manager (11/10) : ailleurs aucune prime n'est en jeu, et un 404 n'y retarde plus le complément au clic de tout le monde jusqu'à J+3.
 - **Jour non relevé du TL** : il ne retarde rien, ses visites ne comptent dans aucun seuil (`EQUIPE_COMPTE_TL=0`).
 - **Onglet « Équipes »** : colonne « Jours non relevés ». L'app affiche « 384 · 2 j non relevés » au lieu d'une somme muette.
 
