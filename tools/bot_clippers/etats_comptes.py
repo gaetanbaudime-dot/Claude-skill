@@ -803,7 +803,7 @@ def _suspect(h: str, m: dict, hist: list, cellule, renommes=None) -> bool:
     SUSPECT_FOLLOWERS (ni l'historique ni la série), elle ne compte que tant que moins de NON_LU_JOURS passages complets ont lu
     « 0 abonné » sur la fiche de ce compte (entrée `followers` à 0, ou `followers_zero` pour un 0 jugé suspect) : un 0 répété
     finit par être cru. M2 : un passage dont la fiche n'a pas donné les abonnés (followers « non lu ») ne compte pas — sinon le
-    premier 0 dégradé qui suit écrasait la cellule."""
+    premier 0 dégradé qui suit écrasait la cellule. Passe 4 : un passage « introuvable » ou « forcé absent » non plus."""
     f = m.get("followers")
     if not m.get("existe") or m.get("restreint") or isinstance(f, bool) or f != 0:
         return False
@@ -817,7 +817,10 @@ def _suspect(h: str, m: dict, hist: list, cellule, renommes=None) -> bool:
         return isinstance(x, int) and not isinstance(x, bool) and x > SUSPECT_FOLLOWERS
     if any(_plus(x) for x in [e.get("followers") for e in hist_ok] + [dans_serie]):
         return True
-    zeros = [e for e in hist_ok if _zero_lu(e.get("followers")) or e.get("followers_zero") is True]
+    # 11/10 (passe 4) : seule une fiche LUE (compte vivant, pas restreint) a pu montrer « 0 abonné » — une entrée « introuvable »
+    # ou « forcé absent » porte le followers 0 de _fiche_vide() sans rien avoir lu, elle ne rend pas la cellule caduque
+    zeros = [e for e in hist_ok if e.get("existe") and not e.get("restreint")
+             and (_zero_lu(e.get("followers")) or e.get("followers_zero") is True)]
     return bool(cellule_ok and len(zeros) < NON_LU_JOURS and _plus(_chiffre(cellule)))
 
 
