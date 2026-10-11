@@ -43,6 +43,19 @@ dépasser le budget est refusé, et à 100 % plus aucun appel Apify jusqu'au cyc
 Dashboard le dit : clé « apify_budget », contrat C6a). 09/10 (revue 3) : chaque appel RÉSERVE son coût dans le registre dès que la
 garde l'accepte (deux appels simultanés ne passent plus sur la même dépense) ; un passage complet refusé par le budget fait quand
 même sa partie sans Instagram (clics, liens GAML, parcours, réservations, vérification du classeur, Dashboard).
+10/10 (revue du recrutement, lot L7 : « le dashboard mis à jour le plus souvent possible sous 25 $ », et le parcours le plus rapide) :
+  - une seule garde, garde_apify(coût, quoi, reserver, priorite), à trois niveaux : « parcours » (la file des clippers qui attendent
+    leur compte suivant) ne bute que sur le plafond ; « matin » (le passage complet) ne peut pas entamer la réserve du parcours ;
+    « releve » (relectures, recherche des @ changés, `!cadence`, `!dashboard scan`, identifiants neufs : tout appelant qui ne dit
+    rien) n'entame aucune des deux réserves. Réserve = jours restants du cycle × coût du niveau (dernier connu, sinon 0,10 $ et
+    0,36 $). Un passage du matin refusé lance quand même le mini-scan de la file du parcours ;
+  - relectures ciblées à 12, 14, 16, 18, 20 et 22 h (Paris) : seulement les comptes publics de clippers en WARMUP ou GOOD, pas
+    restreints (_a_relire_leger, environ 70 profils au lieu de 120), plus la file du parcours ; chaque relecture note les Reels vus
+    au parcours puis lance programme_du_jour (le compte suivant part sans attendre le lendemain). Une relecture sautée par la
+    trajectoire du budget ne prévient plus personne ; l'alerte reste quand une réserve est entamée ou le plafond atteint ;
+  - le scan de 19 h ne tourne plus qu'en secours (aucune relecture réussie depuis 17 h) ; ses fiches vont aussi aux séries ;
+  - passage complet : BAN sans Gérant lus le lundi seulement, ligne « à créer » réservée lue au premier passage qui suit sa
+    réservation puis quand son étape est ouverte ; recherche des @ changés : 6 variantes, à J+1 et J+3 seulement.
 Le module ne connaît pas bot_discord : dépendances dans `configurer(deps)` (lire_json, ecrire_json, FICHIER_ETATS,
 normaliser, canal_admin, notifier, est_staff ; `scanner` optionnel pour les tests ; `FICHIER_SERIES` facultatif, sinon
 series_comptes.json à côté de FICHIER_ETATS)."""
@@ -134,8 +147,10 @@ def _flottant(brut, defaut: float) -> float:
     return v if v == v and v >= 0 else defaut
 
 
-# 09/10 (dashboard) : passages légers aux heures de Paris (Followers, Reels, séries ; aucune décision) ; vide = éteints
-HEURES_LEGERES = _heures(os.environ.get("ETATS_HEURES_LEGERES", "14,20"))
+# 09/10 (dashboard) : passages légers aux heures de Paris (Followers, Reels, séries ; aucune décision) ; vide = éteints.
+# 10/10 (lot L7) : un créneau toutes les deux heures de 12 h à 22 h ; la trajectoire du budget les espace d'elle-même (simulation :
+# environ 2,7 relectures par jour, chaque compte public lu 3 à 4 fois par jour, 24,9 $ sur le cycle)
+HEURES_LEGERES = _heures(os.environ.get("ETATS_HEURES_LEGERES", "12,14,16,18,20,22"))
 LEGER_APRES_COMPLET_H = 2              # un passage léger juste après le passage complet ne relirait rien de neuf
 # 09/10 (Gaëtan : « Dépasse pas 25 $ / mois pour le moment ») : budget Apify TOTAL du cycle, et prix compté localement quand l'API
 # Apify ne répond pas (profils demandés ; publications lues pour la cadence)
@@ -144,6 +159,15 @@ APIFY_PRIX_1000 = _flottant(os.environ.get("APIFY_PRIX_1000"), 2.30)
 BUDGET_CACHE_MIN = 30                  # l'API Apify (dépense du cycle) relue au plus toutes les 30 min
 RECOUVREMENT_API_MIN = 15              # un appel noté moins de 15 min avant la lecture de l'API compte encore (elle a du retard)
 APIFY_LIMITES = "https://api.apify.com/v2/users/me/limits"
+# 10/10 (revue du recrutement, lot L7 : un `!cadence` de 4 $ le 25e jour faisait refuser les 4 derniers passages du matin, et les
+# comptes 2 et 3 se figeaient pour tout le monde jusqu'au cycle suivant) : l'ordre de priorité des appels Apify, du plus protégé au
+# moins protégé, et le coût d'un passage de chaque niveau tant qu'aucun n'a été mesuré
+PRIORITES = ("parcours", "matin", "releve")
+COUT_PARCOURS_DEFAUT = 0.10            # mini-scan de la file du parcours (environ 40 comptes)
+COUT_MATIN_DEFAUT = 0.36               # passage complet du matin (environ 150 comptes, redemandes comprises)
+REDEMANDE = 1.05                       # les absents de la première réponse sont redemandés une fois : environ 5 % de profils en plus
+SECOURS_DEPUIS_H = 17                  # le scan de 19 h ne tourne que si aucune relecture n'a réussi depuis 17 h (Paris)
+_CLIENT = {"c": None}                  # le client Discord de la boucle : programme_du_jour après une relecture ou un mini-scan
 
 _deps = {}
 
@@ -208,7 +232,7 @@ def _ecrire(d: dict):
 # Apify, heures légères faites, alertes du jour, essais de la boucle) : le passage complet, qui réécrit à la fin l'état lu au
 # début, les reprend du disque au lieu de les écraser (avant : la dépense des recherches de variantes et « legers » perdues)
 CLES_EXTERNES = ("apify_budget", "apify_local", "legers", "leger_iso", "alertes_legeres", "essais", "soir", "dashboard_masques",
-                 "dashboard_exclus")
+                 "dashboard_exclus", "parcours_matin")
 
 
 def _ecrire_passage(d: dict):
@@ -235,7 +259,7 @@ def _etat_configure() -> bool:
 
 
 # ------------------------------------------------------------------ Instagram
-async def scanner(handles: list) -> dict:
+async def scanner(handles: list, priorite: str = "releve") -> dict:
     """Un appel Apify pour tous les comptes → {clé: {lu, existe, prive, restreint, followers, posts, reels_hier, reels_7j, posts_lus…}} ;
     `posts` = publications des dernières 24 h (compatibilité : message du matin, parcours, sortie auto), `reels_hier` / `reels_7j` =
     Reels (vidéos) de la veille et des 7 derniers jours en jour civil de Paris. None si Apify est en panne : on ne conclut rien.
@@ -245,20 +269,22 @@ async def scanner(handles: list) -> dict:
     09/10 (budget de Gaëtan, 25 $ / mois) : rien n'est demandé si le scan ferait dépasser le budget Apify du mois (None, comme une
     panne : personne n'en conclut rien) ; un compte d'un lot refusé en route est rendu `lu: False, budget: True` (jamais compté
     comme un passage non lu, qui mène au BAN). Toute fonction du bot qui lit Instagram passe par ici (passages, recherche des @
-    changés, scan du soir, identifiants neufs, followers de la cadence)."""
+    changés, scan du soir, identifiants neufs, followers de la cadence).
+    10/10 (lot L7) : `priorite` (« parcours », « matin », « releve ») est celle de garde_apify ; un appelant qui ne dit rien est
+    « releve »."""
     cles = []
     for h in handles or []:                                              # 05/10 : identifiants nettoyés, sans doublon
         k = _cle(h)
         if k and k not in cles:
             cles.append(k)
-    if not await garde_apify(len(cles) * APIFY_PRIX_1000 / 1000, "profils Instagram"):
+    if not await garde_apify(len(cles) * APIFY_PRIX_1000 / 1000, "profils Instagram", priorite=priorite):
         return None
     if _deps.get("scanner"):
         return await _deps["scanner"](handles)
     if not APIFY_TOKEN or not handles:
         return None
     refuses = set()                                                      # 09/10 : comptes de lots refusés par la garde du budget
-    items = await _apify(cles, refuses)
+    items = await _apify(cles, refuses, priorite)
     if items is None:
         return None
     # 30/09 : un compte absent de la réponse d'Apify n'est pas forcément mort (profil sauté par le robot) : les absents sont
@@ -267,7 +293,7 @@ async def scanner(handles: list) -> dict:
     manquants = [h for h in cles if h not in vus and h not in refuses]
     if manquants:
         journal.info("Apify (états) : %d compte(s) sur %d absent(s) de la première réponse, redemandés à part", len(manquants), len(cles))
-        encore = await _apify(manquants, refuses)
+        encore = await _apify(manquants, refuses, priorite)
         items += encore or []
     out = _lire_items(items, cles)
     for h in refuses:                                                    # 09/10 : lot refusé (budget) : non lu, sans compter de jour
@@ -288,7 +314,7 @@ def _handle_item(item: dict) -> str:
     return _cle(str(u))
 
 
-async def _apify(handles: list, refuses: set = None):
+async def _apify(handles: list, refuses: set = None, priorite: str = "releve"):
     """Les fiches Apify brutes de `handles`, par lots ; None si Apify est en panne (aucun lot lu).
     09/10 (dashboard) : un lot en échec ne fait plus tout jeter — les lots réussis sont gardés, les comptes du lot raté manquent
     à la réponse (redemandés une fois par `scanner`, puis « non lus »).
@@ -302,7 +328,7 @@ async def _apify(handles: list, refuses: set = None):
     for i in range(0, len(handles), LOT):                              # par lots : 130 comptes tiennent en deux ou trois appels
         lot_h = handles[i:i + LOT]
         cout = len(lot_h) * APIFY_PRIX_1000 / 1000
-        jeton = await garde_apify(cout, "profils Instagram", reserver=True)   # 09/10 (revue 3) : coût réservé avant l'appel
+        jeton = await garde_apify(cout, "profils Instagram", reserver=True, priorite=priorite)   # 09/10 (revue 3) : réservé avant
         if not jeton:
             _derniers_refuses.update(lot_h)
             if refuses is not None:
@@ -402,20 +428,49 @@ def _ban_recent(d: dict, h: str, jour: str) -> bool:
         return False
 
 
+VARIANTES_PAR_COMPTE = 6               # 10/10 (lot L7) : les plus probables seulement (avant : 16 profils payés par compte cherché)
+# 10/10 (lot L7) : la recherche des @ changés à J+1 et J+3 seulement (J = la création). Le passage du matin voit la ligne créée pour
+# la première fois (« cree_vu ») le lendemain du bouton « créé » : recherches à cree_vu + 0 et cree_vu + 2 ; une recherche manquée
+# (VARIANTES_MAX dépassé, Apify muet) est rattrapée au passage suivant
+RECHERCHE_JOURS = (0, 2)
+
+
 def variantes(h: str) -> list:
-    """Les @ qu'un clipper prend quand celui prévu est pris : un chiffre, un point, un tiret bas, une lettre doublée…"""
+    """Les @ qu'un clipper prend quand celui prévu est pris. 10/10 (lot L7 : jusqu'à 16 variantes par compte, la recherche coûtait
+    parfois plus que le passage du matin) : les 6 plus probables — chiffre final (1, 2), point ↔ tiret bas, lettre doublée, tiret
+    bas final."""
     h = _cle(h)
     if not h:
         return []
-    racine = h.rstrip("0123456789._") or h
-    cands = [h + x for x in ("1", "2", "3", "_", "_1", "01", "x", "_off", ".off", "0")]
-    cands += [h.replace("_", "."), h.replace(".", "_"), h.replace("_", ""), h.replace(".", ""), "_" + h, h + h[-1],
-              racine + "_", racine + "1", racine + "2", racine + "_1"]
+    cands = [h + "1", h.replace(".", "_"), h.replace("_", "."), h + h[-1], h + "2", h + "_"]
     out = []
     for v in cands:
         if v != h and v not in out and onboarding.RE_HANDLE_IG.match(v) and not v.endswith(".") and not v.startswith("."):
             out.append(v)
-    return out[:16]
+    return out[:VARIANTES_PAR_COMPTE]
+
+
+def _recherche_due(d: dict, h: str, jour: str, ban_en_attente: bool = False) -> bool:
+    """10/10 (lot L7) : la ligne `h` est-elle à chercher sous un @ proche à ce passage ? Aux jours RECHERCHE_JOURS comptés depuis
+    le premier passage qui l'a vue créée (sinon depuis son BAN, ou le jour où son @ a été vu pris), une fois chacun, rattrapés au
+    passage suivant s'ils ont été manqués. Une ligne dont le BAN attend la recherche (passe 3 : jamais de BAN sans la recherche du
+    jour) est cherchée chaque jour au-delà du dernier rendez-vous (renommage refusé ou classeur muet le jour prévu)."""
+    depuis = str((d.get("cree_vu") or {}).get(h) or (d.get("bans_auto") or {}).get(h)
+                 or (d.get("pris_signales") or {}).get(h) or jour)[:10]
+    dernier = str((d.get("cherches") or {}).get(h) or "")[:10]
+    if dernier == jour:
+        return False
+    try:
+        d0 = date.fromisoformat(depuis)
+        k = (date.fromisoformat(jour) - d0).days
+    except ValueError:
+        return True                                                     # date illisible : cherchée, comme avant
+    if ban_en_attente and k > max(RECHERCHE_JOURS):
+        return True
+    rendez_vous = [j for j in RECHERCHE_JOURS if j <= k]
+    if not rendez_vous:
+        return False
+    return dernier < (d0 + timedelta(days=max(rendez_vous))).isoformat()
 
 
 def _lettres(t: str) -> str:
@@ -677,18 +732,74 @@ def candidats(comptes: list) -> list:
     return out
 
 
-def a_scanner(comptes: list) -> list:
+def a_scanner(comptes: list, ctx: dict = None) -> list:
     """Les lignes regardées sur Instagram : tout compte créé (état autre que « à créer »), plus les « à créer » qui ont
-    un Gérant. Le vivier « à créer » sans gérant n'existe pas encore sur Instagram, inutile de payer pour lui."""
+    un Gérant. Le vivier « à créer » sans gérant n'existe pas encore sur Instagram, inutile de payer pour lui.
+    10/10 (lot L7 : le passage du matin payait chaque jour des profils qui ne servent à rien) : avec `ctx` (_contexte_scan, passage
+    complet), un BAN sans Gérant n'est lu que le lundi (le bot ne le ressuscite jamais, le Dashboard le cache) ; une ligne « à créer »
+    réservée à un clipper n'est lue qu'au premier passage qui suit sa réservation (le @ est-il déjà pris ?), puis une fois son étape
+    ouverte dans le parcours (_a_creer_a_lire). Sans `ctx` : toutes, comme avant."""
     vus, out = set(), []
     for c in comptes:
         h = _cle(c["handle"])
         if not h or h in vus:
             continue
-        if _norm(c["etat"]) not in A_CREER or _norm(c["gerant"]) not in GERANTS_LIBRES:
-            vus.add(h)
-            out.append(c)
+        e, libre = _norm(c["etat"]), _norm(c["gerant"]) in GERANTS_LIBRES
+        if e in A_CREER and libre:
+            continue
+        if ctx is not None and e == "ban" and libre and not ctx.get("lundi"):
+            continue
+        if ctx is not None and e in A_CREER and not _a_creer_a_lire(h, ctx):
+            continue
+        vus.add(h)
+        out.append(c)
     return out
+
+
+def _contexte_scan(d: dict, maintenant: datetime) -> dict:
+    """10/10 (lot L7) : ce que a_scanner doit savoir pour trier les lignes du passage complet — le jour (lundi ?), l'historique du
+    scan, les réservations (onboarding.json « livres ») et les fiches du parcours. Une source illisible vaut None : les lignes
+    qu'elle aurait écartées sont lues, comme avant."""
+    ctx = {"lundi": _paris(maintenant).weekday() == 0, "historique": (d or {}).get("historique") or {}}
+    try:
+        livres = onboarding._lire_etat().get("livres") or {}
+        ctx["livres"] = {_cle(k): v for k, v in livres.items() if isinstance(v, dict)}
+    except Exception:                                                   # noqa: BLE001
+        ctx["livres"] = None
+    try:
+        import parcours                                                 # import tardif : parcours importe onboarding
+        ctx["parcours"] = parcours._lire()
+    except Exception:                                                   # noqa: BLE001
+        ctx["parcours"] = None
+    return ctx
+
+
+def _a_creer_a_lire(h: str, ctx: dict) -> bool:
+    """10/10 (lot L7) : une ligne « à créer » avec Gérant est-elle à lire ce matin ? Oui si sa réservation est inconnue (posée à la
+    main, onboarding.json illisible), au premier passage qui suit sa réservation (aucun relevé depuis), si le parcours de son clipper
+    est inconnu ou illisible, et quand l'étape de ce compte est ouverte (parcours « dates »). Non entre les deux : l'onboarding
+    réserve les trois comptes à l'arrivée, les comptes 2 et 3 ne se créent qu'après 4 puis 8 Reels."""
+    livres = ctx.get("livres")
+    resa = livres.get(h) if isinstance(livres, dict) else None
+    if not resa:
+        return True
+    depuis = str(resa.get("date") or "")[:10]
+    hist = (ctx.get("historique") or {}).get(h) or []
+    if not depuis or not any(str(e.get("jour", ""))[:10] >= depuis for e in hist if isinstance(e, dict)):
+        return True
+    uid = str(resa.get("uid") or "")
+    fiches = ctx.get("parcours")
+    fiche_p = fiches.get(uid) if isinstance(fiches, dict) and uid else None
+    if not isinstance(fiche_p, dict):
+        return True
+    try:
+        import parcours
+        comptes = [_cle(x) for x in parcours._comptes_ordonnes(uid, fiche_p=fiche_p)]
+    except Exception:                                                   # noqa: BLE001
+        return True
+    if h not in comptes:
+        return True
+    return bool((fiche_p.get("dates") or {}).get(str(comptes.index(h) + 1)))
 
 
 # ------------------------------------------------------------------ cycle
@@ -704,11 +815,13 @@ def _verrou_passages() -> asyncio.Lock:
     return _verrou[1]
 
 
-async def executer(ecrire: bool = True, leger: bool = False) -> dict:
+async def executer(ecrire: bool = True, leger: bool = False, priorite: str = "releve") -> dict:
     """Un seul passage à la fois (30/09 : `!dashboard` scanne aussi ; deux scans en même temps écriraient deux fois).
-    09/10 (dashboard) : `leger=True` = passage léger (Followers, Reels et séries des comptes vivants, aucune décision)."""
+    09/10 (dashboard) : `leger=True` = passage léger (Followers, Reels et séries des comptes vivants, aucune décision).
+    10/10 (lot L7) : `priorite` du passage complet pour la garde du budget — « matin » pour celui de la boucle, « releve » (défaut)
+    pour `!etats-comptes` et `!dashboard scan`."""
     async with _verrou_passages():
-        return await (_executer_leger(ecrire) if leger else _executer(ecrire))
+        return await (_executer_leger(ecrire) if leger else _executer(ecrire, priorite=priorite))
 
 
 # ------------------------------------------------------------------ 09/10 (dashboard) : chiffres justes, écritures fiables
@@ -1150,27 +1263,43 @@ def _resume_passage(mode: str, maintenant: datetime, lignes: list, mesures: dict
             "perdues": len(perdues)}
 
 
-async def _executer(ecrire: bool = True) -> dict:
+async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
     """Un passage : lecture du classeur, scan Instagram, décisions, écriture des cellules. Renvoie le bilan
-    {"changements": [(handle, gerant, avant, apres)], "scannes": n, "erreur": str}."""
+    {"changements": [(handle, gerant, avant, apres)], "scannes": n, "erreur": str}.
+    10/10 (lot L7) : lignes triées par a_scanner avec son contexte (BAN sans Gérant le lundi, « à créer » à leur réservation puis à
+    l'ouverture de leur étape) ; scan sous la priorité `priorite` ; passage du matin refusé par le budget → mini-scan de la file du
+    parcours (priorité « parcours »), une fois par jour."""
     if not onboarding.actif():
         return {"changements": [], "scannes": 0, "erreur": "classeur non configuré"}
     comptes = await onboarding.lire_comptes()
     suivis = candidats(comptes)
-    lignes = a_scanner(comptes)
+    try:
+        ctx = _contexte_scan(_lire(), datetime.now(timezone.utc))
+    except Exception as erreur:                                         # noqa: BLE001 — contexte illisible : toutes les lignes
+        journal.warning("Passage complet : tri des lignes impossible (%s), toutes lues", type(erreur).__name__)
+        ctx = None
+    lignes = a_scanner(comptes, ctx)
     if not lignes:
         return {"changements": [], "scannes": 0, "erreur": ""}
     debut_scan = datetime.now(timezone.utc).isoformat(timespec="seconds")
     t_refus = _horloge.monotonic()
-    mesures = await scanner([_cle(c["handle"]) for c in lignes])
+    cles_scan = [_cle(c["handle"]) for c in lignes]
+    mesures = await scanner(cles_scan, priorite=priorite)
     if mesures is None:
         # 09/10 (revue 3) : refusé par la garde du budget (prévisible en fin de cycle) : la partie du passage qui ne lit pas Instagram
         # se fait quand même (une fois par jour), seuls les états, followers et Reels attendent
-        sans_apify = await _passage_sans_apify(comptes, datetime.now(timezone.utc).strftime("%Y-%m-%d")) \
-            if ecrire and _erreur_budget(t_refus) else None
-        return {"changements": [], "scannes": 0,
-                "erreur": _erreur_budget(t_refus, sans_apify=sans_apify is not None) or "Instagram illisible aujourd'hui (Apify), rien changé",
-                **({"clics": sans_apify.get("clics", 0), "liens": sans_apify.get("liens", 0), "sans_apify": True} if sans_apify else {})}
+        refus_budget = bool(_erreur_budget(t_refus))
+        jour_r = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        sans_apify = await _passage_sans_apify(comptes, jour_r) if ecrire and refus_budget else None
+        texte = _erreur_budget(t_refus, sans_apify=sans_apify is not None) or "Instagram illisible aujourd'hui (Apify), rien changé"
+        # 10/10 (lot L7) : le passage du matin refusé ne fige plus le parcours — la file des clippers qui attendent leur compte suivant
+        # est relue à part (priorité « parcours », qui ne bute que sur le plafond), une fois par jour
+        file_p = await _parcours_sans_matin(jour_r) if ecrire and refus_budget and priorite == "matin" else None
+        return {"changements": [], "scannes": 0, "erreur": texte,
+                **({"clics": sans_apify.get("clics", 0), "liens": sans_apify.get("liens", 0), "sans_apify": True} if sans_apify else {}),
+                **({"parcours": file_p} if file_p else {})}
+    if ecrire:                                                          # 10/10 (lot L7) : le coût d'un passage, pour la réserve du matin
+        _noter_cout("cout_matin_usd", len(cles_scan) * APIFY_PRIX_1000 / 1000 * REDEMANDE)
     d = _lire()
     jour = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if ecrire:
@@ -1312,7 +1441,9 @@ async def _executer(ecrire: bool = True) -> dict:
         # 10/10 (passe 3) : parmi les comptes créés, ceux dont le BAN attend cette recherche passent en premier — après les autres,
         # une ligne dont le renommage a été refusé un jour précédent (`vu_sous`)
         a_chercher.sort(key=lambda x: (x[0], _cle(x[1]["handle"]) in vu_sous, id(x[1]) not in differes))
-        lot = [c for _, c in a_chercher if d.setdefault("cherches", {}).get(_cle(c["handle"])) != jour]
+        # 10/10 (lot L7) : à J+1 et J+3 seulement (_recherche_due), plus chaque jour une ligne dont le BAN attend sa recherche
+        d.setdefault("cherches", {})
+        lot = [c for _, c in a_chercher if _recherche_due(d, _cle(c["handle"]), jour, id(c) in differes)]
         if len(lot) > VARIANTES_MAX:
             journal.info("Recherche des @ changés : %s comptes, %s cherchés ce passage", len(lot), VARIANTES_MAX)
         lot = lot[:VARIANTES_MAX]
@@ -1597,33 +1728,205 @@ async def _passage_sans_apify(comptes: list, jour: str):
 
 
 def _vivant(c: dict) -> bool:
-    """09/10 (dashboard) : les lignes relues par le passage léger — un @, ni BAN, ni « à créer », ni Gérant libre."""
+    """09/10 (dashboard) : les lignes relues par le passage léger — un @, ni BAN, ni « à créer », ni Gérant libre.
+    10/10 (lot L7) : ne sert plus qu'aux lignes de la file du parcours relues en plus du périmètre (_a_relire_leger)."""
     e = _norm(c.get("etat") or "")
     g = _norm(c.get("gerant") or "").strip()
     return bool(c.get("handle")) and e not in A_CREER and e != "ban" and g not in GERANTS_LIBRES and g not in onboarding.GERANTS_LIBRES
 
 
+ETATS_RELUS = ("warmup", "warm-up", "good")
+RE_GERANT_METRICOOL = re.compile(r"\(\s*metricool\s*\)", re.I)
+
+
+def _a_relire_leger(c: dict, creatrices=None) -> bool:
+    """10/10 (lot L7 : chaque relecture payait aussi les privés, les restreints, les comptes de créatrice et ceux de Metricool, qui
+    n'apportent rien dans la journée — c'est ce qui empêchait une 2e relecture par jour) : les lignes relues dans la journée.
+    Utilisation Clipper ou vide ; un clipper au Gérant (ni libre, ni « … (Metricool) », ni la ligne de la créatrice) ; ETAT WARMUP ou
+    GOOD ; compte public (ni ETAT ni @ de privé) ; pas restreint au dernier relevé Apify (series). Le passage du matin garde tout."""
+    if not c.get("handle") or not _en_gestion(c):
+        return False
+    g = _norm(c.get("gerant") or "").strip()
+    if g in GERANTS_LIBRES or g in onboarding.GERANTS_LIBRES or RE_GERANT_METRICOOL.search(str(c.get("gerant") or "")):
+        return False
+    if onboarding.est_ligne_creatrice(c, creatrices if creatrices is not None else set()):
+        return False
+    if _norm(c.get("etat") or "") not in ETATS_RELUS or onboarding.RE_PRIVE.search(_norm(c.get("handle") or "")):
+        return False
+    try:
+        r = series.dernier_releve(_cle(c["handle"]), source="apify")
+    except Exception:                                                   # noqa: BLE001 — séries illisibles : relu
+        r = None
+    return not (isinstance(r, dict) and r.get("restreint"))
+
+
+def _file_parcours() -> list:
+    """10/10 (lot L7) : les comptes (clés) des clippers qui attendent leur compte suivant (parcours.comptes_du_soir : 48 h passées
+    ou finies avant le lendemain matin, Reels pas encore au compte) ; [] si le parcours est illisible."""
+    try:
+        import parcours                                                 # import tardif : parcours importe onboarding
+        out = []
+        for h in parcours.comptes_du_soir():
+            k = _cle(h)
+            if k and k not in out:
+                out.append(k)
+        return out
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("File du parcours illisible : %s", type(erreur).__name__)
+        return []
+
+
+def _reels_pour_parcours(m: dict) -> list:
+    """10/10 (lot L7) : les Reels d'une fiche pour parcours.noter_reels_soir — ceux des dernières 24 h (`reels`) plus ceux de la
+    série de la fiche (`serie_reels`, les 12 dernières publications) qui n'y sont pas déjà (même instant) : un Reel publié il y a
+    plus de 24 h mais après le passage du matin d'avant (passage refusé par le budget) compte encore."""
+    out, vus = [], set()
+    for r in m.get("reels") or []:
+        if isinstance(r, dict):
+            t = _instant(r.get("quand"))
+            if t is not None:
+                vus.add(t)
+            out.append(r)
+    for r in m.get("serie_reels") or []:
+        t = _instant(r.get("publie")) if isinstance(r, dict) else None
+        if t is not None and t not in vus:
+            vus.add(t)
+            out.append({"quand": r["publie"]})
+    return out
+
+
+async def _noter_parcours(mesures: dict, depuis_iso: str, client=None) -> list:
+    """10/10 (lot L7 : une relecture qui voyait le 4e Reel à 14 h ne l'apprenait pas au parcours, le compte suivant attendait le
+    scan de 19 h ou le lendemain) : les Reels vus par un relevé de la journée sont notés dans le parcours (parcours.noter_reels_soir,
+    Reels publiés après `depuis_iso`, le passage du matin), puis programme_du_jour ouvre aussitôt les comptes qui les ont. Seules
+    les fiches lues dont les Reels sont lisibles comptent (une fiche dégradée ne remet jamais un compte à 0). Renvoie les envois
+    [(uid, type, n)] de programme_du_jour ; [] sans client ou si le parcours est illisible."""
+    lisibles = {}
+    for k, m in (mesures or {}).items():
+        if isinstance(m, dict) and m.get("lu", True) and m.get("existe", True) and m.get("reels_lus", True) \
+                and not m.get("restreint") and not m.get("prive"):
+            lisibles[k] = {**m, "reels": _reels_pour_parcours(m)}
+    if not lisibles or not depuis_iso:
+        return []
+    try:
+        import parcours
+        n = parcours.noter_reels_soir(lisibles, depuis_iso, cle=_cle)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Reels de la journée pour le parcours : %s", type(erreur).__name__)
+        return []
+    client = client if client is not None else _CLIENT["c"]
+    if client is None:
+        return []
+    try:
+        faits = await parcours.programme_du_jour(client)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Programme du parcours après un relevé : %s", type(erreur).__name__)
+        return []
+    ouverts = [f for f in faits or [] if len(f) > 1 and f[1] == "etape"]
+    if n or ouverts:
+        journal.info("Parcours : %d fiche(s) mise(s) à jour par le relevé, %d compte(s) ouvert(s) sans attendre", n, len(ouverts))
+    return list(faits or [])
+
+
+async def _series_hors_passage(cles: list, mesures: dict) -> int:
+    """10/10 (lot L7 : le scan de 19 h payait 20 à 40 profils dont les followers, Reels et vues étaient jetés) : les fiches d'un
+    relevé de la file du parcours passent au crible des faux 0 (_controler) puis vont aux séries (_alimenter_series), avec les lignes
+    du classeur quand il est lisible (cellules de comparaison), sinon une ligne minimale par compte. Rien sans état configuré."""
+    if not _etat_configure() or not mesures:
+        return 0
+    lignes, vus = [], set()
+    try:
+        if onboarding.actif():
+            for c in await onboarding.lire_comptes():
+                k = _cle(c.get("handle") or "")
+                if k in cles and k not in vus:
+                    vus.add(k)
+                    lignes.append(c)
+    except Exception as erreur:                                         # noqa: BLE001 — classeur muet : lignes minimales
+        journal.info("Relevé du parcours : classeur illisible (%s)", type(erreur).__name__)
+    lignes += [{"handle": k} for k in cles if k not in vus]
+    try:
+        _controler(lignes, mesures, set(), _lire())
+        return _alimenter_series(lignes, mesures, set(), datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Relevé du parcours : séries non alimentées (%s)", type(erreur).__name__)
+        return 0
+
+
+async def _lire_file_parcours(depuis_iso: str, client=None) -> dict:
+    """10/10 (lot L7) : le mini-scan de la file du parcours, sous la priorité « parcours » (seul le plafond l'arrête) : comptes de
+    parcours.comptes_du_soir, fiches au crible puis aux séries, Reels notés au parcours, programme_du_jour. Renvoie {lus, ouverts,
+    faits} ; lus = 0 si la file est vide, None si Apify n'a rien rendu (panne ou budget)."""
+    cles = _file_parcours()
+    if not cles:
+        return {"lus": 0, "ouverts": [], "faits": []}
+    _noter_cout_parcours(len(cles))
+    mesures = await scanner(cles, priorite="parcours")
+    if mesures is None:
+        return {"lus": None, "ouverts": [], "faits": []}
+    await _series_hors_passage(cles, mesures)
+    faits = await _noter_parcours(mesures, depuis_iso, client)
+    return {"lus": len(cles), "ouverts": [f for f in faits if len(f) > 1 and f[1] == "etape"], "faits": faits}
+
+
+async def _parcours_sans_matin(jour: str):
+    """10/10 (lot L7 : un passage du matin refusé par le budget ne comptait plus aucun Reel, et les comptes 2 et 3 se figeaient pour
+    tout le monde) : la file du parcours relue à part, une fois par jour (« parcours_matin »), les Reels comptés depuis le dernier
+    passage du matin réussi. Renvoie le résultat de _lire_file_parcours, ou None si déjà fait aujourd'hui."""
+    d = _lire()
+    if d.get("parcours_matin") == jour:
+        return None
+    _maj_etat({"parcours_matin": jour})                                 # noté avant : un plantage ne le relance pas en boucle
+    depuis = d.get("scan_iso") or (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(timespec="seconds")
+    try:
+        res = await _lire_file_parcours(depuis)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("File du parcours (passage du matin refusé) : %s", type(erreur).__name__)
+        return None
+    journal.info("Passage du matin refusé par le budget : file du parcours relue (%s compte(s), %d ouvert(s))",
+                 res.get("lus"), len(res.get("ouverts") or []))
+    return res
+
+
 async def _executer_leger(ecrire: bool = True) -> dict:
     """09/10 (dashboard) : passage LÉGER — Apify sur les seuls comptes vivants, puis Followers, Reels Hier, Reels 7 j et séries.
     Il ne décide AUCUN état, ne regroupe pas, ne met pas en forme, ne touche ni à la capacité, ni aux messages, ni à la recherche
-    des @ changés, ni aux parcours, et n'écrit pas l'entrée du jour de l'historique (seul le passage complet du matin le fait).
-    Un compte introuvable n'y est ni conclu ni vidé. Pas de bilan au salon (la boucle ne poste que les erreurs)."""
+    des @ changés, et n'écrit pas l'entrée du jour de l'historique (seul le passage complet du matin le fait).
+    Un compte introuvable n'y est ni conclu ni vidé. Pas de bilan au salon (la boucle ne poste que les erreurs).
+    10/10 (lot L7) : relecture CIBLÉE — les lignes de _a_relire_leger (comptes publics de clippers en WARMUP ou GOOD, pas restreints),
+    plus la file du parcours (ses lignes vivantes sont écrites aussi ; un compte de la file sans ligne vivante est lu pour le parcours
+    seulement). Après la relecture : Reels notés au parcours puis programme_du_jour (_noter_parcours). Coût de la suivante estimé
+    × REDEMANDE."""
     vide = {"changements": [], "scannes": 0, "erreur": "", "mode": "leger", "followers": 0, "reels": 0, "clics": 0, "liens": 0}
     if not onboarding.actif():
         return {**vide, "erreur": "classeur non configuré"}
     comptes = await onboarding.lire_comptes()
-    lignes = [c for c in a_scanner(comptes) if _vivant(c)]
-    if not lignes:
+    creatrices = onboarding.creatrices_connues(comptes)
+    candidates = a_scanner(comptes)
+    lignes = [c for c in candidates if _a_relire_leger(c, creatrices)]
+    file_p = _file_parcours()
+    deja = {_cle(c["handle"]) for c in lignes}
+    for c in candidates:                                                # la file du parcours, toujours relue
+        k = _cle(c["handle"])
+        if k in file_p and k not in deja and _vivant(c):
+            lignes.append(c)
+            deja.add(k)
+    hors = [k for k in file_p if k not in deja]                         # lus pour le parcours seulement, rien écrit
+    cles = [_cle(c["handle"]) for c in lignes] + hors
+    if not cles:
         return vide
     t_refus = _horloge.monotonic()
-    mesures = await scanner([_cle(c["handle"]) for c in lignes])
+    mesures = await scanner(cles, priorite="releve")
     if mesures is None:
-        return {**vide, "scannes": len(lignes),
-                "erreur": _erreur_budget(t_refus) or "Instagram illisible (Apify), passage léger sans effet"}
-    non_lus = [c for c in lignes if not (isinstance(mesures.get(_cle(c["handle"])), dict) and mesures[_cle(c["handle"])].get("lu", True))]
-    if non_lus and len(non_lus) * 2 > len(lignes):
-        return {**vide, "scannes": len(lignes),
-                "erreur": f"Apify n'a lu que {len(lignes) - len(non_lus)} compte(s) sur {len(lignes)}, passage léger sans effet"}
+        erreur_b = _erreur_budget(t_refus)
+        return {**vide, "scannes": len(cles), "budget": bool(erreur_b),
+                "erreur": erreur_b or "Instagram illisible (Apify), passage léger sans effet"}
+    lus_ok = lambda k: isinstance(mesures.get(k), dict) and mesures[k].get("lu", True)   # noqa: E731
+    non_lus = [c for c in lignes if not lus_ok(_cle(c["handle"]))]
+    n_non_lus = len(non_lus) + sum(1 for k in hors if not lus_ok(k))
+    if n_non_lus and n_non_lus * 2 > len(cles):
+        return {**vide, "scannes": len(cles),
+                "erreur": f"Apify n'a lu que {len(cles) - n_non_lus} compte(s) sur {len(cles)}, passage léger sans effet"}
     ids_non_lus = {id(c) for c in non_lus}
     d = _lire()                                                         # lecture seule : historique (Reels 7 j, garde des faux 0)
     maintenant = datetime.now(timezone.utc)
@@ -1658,13 +1961,18 @@ async def _executer_leger(ecrire: bool = True) -> dict:
                 if id(c) not in ids_non_lus and isinstance(m, dict) and m.get("lu", True) and m.get("existe"):
                     d2["non_lus"].pop(h, None)
         loc = d2.get("apify_local") if isinstance(d2.get("apify_local"), dict) else {}
-        loc["cout_leger_usd"] = round(len({_cle(c["handle"]) for c in lignes}) * APIFY_PRIX_1000 / 1000, 4)   # le prochain, estimé
+        # le prochain, estimé ; 10/10 (lot L7) : avec les redemandes (× REDEMANDE), la file du parcours comprise
+        loc["cout_leger_usd"] = round(len(cles) * APIFY_PRIX_1000 / 1000 * REDEMANDE, 4)
         d2["apify_local"] = loc
         _ecrire(d2)
-    journal.info("Passage léger : %d compte(s) vivant(s) demandé(s), %d non lu(s), %d followers et %d cellules Reels mis à jour, "
-                 "%d followers suspects, %d Reels non lus, %d écriture(s) perdue(s)", len(lignes), len(non_lus), followers_maj,
-                 reels_maj, len(suspects), len(reels_nl), len(perdues))
-    return {**vide, "scannes": len(lignes), "followers": followers_maj, "reels": reels_maj,
+        _noter_cout_parcours(len(file_p))
+    # 10/10 (lot L7) : les Reels vus depuis le passage du matin ouvrent le compte suivant tout de suite (programme_du_jour)
+    faits_p = await _noter_parcours(mesures, _lire().get("scan_iso"), None) if ecrire else []
+    ouverts = [f for f in faits_p if len(f) > 1 and f[1] == "etape"]
+    journal.info("Passage léger : %d compte(s) demandé(s) dont %d de la file du parcours, %d non lu(s), %d followers et %d cellules "
+                 "Reels mis à jour, %d followers suspects, %d Reels non lus, %d écriture(s) perdue(s), %d compte(s) ouvert(s)",
+                 len(cles), len(file_p), n_non_lus, followers_maj, reels_maj, len(suspects), len(reels_nl), len(perdues), len(ouverts))
+    return {**vide, "scannes": len(cles), "followers": followers_maj, "reels": reels_maj, "ouverts": len(ouverts),
             "non_lus": sorted(_txt_ligne(c) for c in non_lus), "suspects": sorted(_txt_ligne(c) for c in suspects),
             "reels_non_lus": sorted(_txt_ligne(c) for c in reels_nl), "perdues": [_txt_perdue(e, r) for e, r in perdues],
             "restreints": sorted(_txt_ligne(c) for c in lignes if (mesures.get(_cle(c["handle"])) or {}).get("restreint"))}
@@ -1736,6 +2044,65 @@ def _cout_leger(d: dict) -> float:
     return int(n) * APIFY_PRIX_1000 / 1000 if isinstance(n, int) and not isinstance(n, bool) and n > 0 else 0.0
 
 
+def _cout_matin(d: dict) -> float:
+    """10/10 (lot L7) : le coût d'un passage du matin pour sa réserve — le dernier mesuré (comptes demandés × prix × REDEMANDE), sinon
+    COUT_MATIN_DEFAUT."""
+    loc = d.get("apify_local") if isinstance(d.get("apify_local"), dict) else {}
+    c = _montant(loc.get("cout_matin_usd"))
+    return c if c is not None else COUT_MATIN_DEFAUT
+
+
+def _cout_parcours(d: dict) -> float:
+    """10/10 (lot L7) : le coût moyen d'un mini-scan de la file du parcours pour sa réserve — la moyenne des 7 derniers relevés de la
+    taille de la file (relectures, mini-scans), sinon COUT_PARCOURS_DEFAUT."""
+    loc = d.get("apify_local") if isinstance(d.get("apify_local"), dict) else {}
+    brut = loc.get("couts_parcours") if isinstance(loc.get("couts_parcours"), list) else []
+    vals = [v for v in (_montant(x) for x in brut) if v is not None]
+    return sum(vals) / len(vals) if vals else COUT_PARCOURS_DEFAUT
+
+
+def _noter_cout(cle: str, usd: float) -> None:
+    """10/10 (lot L7) : un coût mesuré (« cout_matin_usd ») noté dans le registre du budget, relu et écrit sans attente."""
+    if not _etat_configure():
+        return
+    try:
+        d = _lire()
+        _registre(d)[cle] = round(max(0.0, float(usd)), 4)
+        _ecrire(d)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Apify : coût %s non noté (%s)", cle, type(erreur).__name__)
+
+
+def _noter_cout_parcours(n_comptes: int) -> None:
+    """10/10 (lot L7) : la taille de la file du parcours vue à l'instant, en coût d'un mini-scan (7 derniers gardés)."""
+    if not _etat_configure():
+        return
+    try:
+        d = _lire()
+        loc = _registre(d)
+        vals = [x for x in (loc.get("couts_parcours") or []) if _montant(x) is not None] if isinstance(loc.get("couts_parcours"), list) else []
+        loc["couts_parcours"] = (vals + [round(max(0, int(n_comptes)) * APIFY_PRIX_1000 / 1000 * REDEMANDE, 4)])[-7:]
+        _ecrire(d)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Apify : coût de la file du parcours non noté (%s)", type(erreur).__name__)
+
+
+def _jours_restants(d: dict, maintenant: datetime, fin: datetime) -> int:
+    """10/10 (lot L7) : les passages du matin encore à payer d'ici la fin du cycle — un par jour (UTC) dont l'heure HEURE_UTC tombe
+    avant `fin`, celui d'aujourd'hui compris tant qu'il n'a pas réussi (« dernier »). C'est aussi le nombre de mini-scans du parcours
+    gardés en réserve."""
+    jour = maintenant.astimezone(timezone.utc).date()
+    n = 0
+    for k in range(0, 40):
+        j = jour + timedelta(days=k)
+        if datetime(j.year, j.month, j.day, HEURE_UTC, tzinfo=timezone.utc) >= fin:
+            break
+        if k == 0 and str(d.get("dernier") or "")[:10] == j.isoformat():
+            continue
+        n += 1
+    return n
+
+
 def etat_budget(d: dict = None, maintenant: datetime = None) -> dict:
     """Le budget Apify du cycle (contrat C6a), calcul pur sur l'état (« apify_local ») :
     {t, source (« apify » : dernière lecture de l'API + appels notés depuis ; « local » : appels notés seulement), usage_usd,
@@ -1743,7 +2110,12 @@ def etat_budget(d: dict = None, maintenant: datetime = None) -> dict:
      part (usage ÷ budget), coupe (usage ≥ budget : plus aucun appel Apify), leger_ok (pas coupé, et la dépense, relecture légère
      comprise, reste sous la trajectoire), cycle_debut, cycle_fin}
     et, en plus : projete_usd (usage ÷ part écoulée, au moins 10 %), cout_leger_usd, api_t (heure de la dernière lecture de
-    l'API), ok (= leger_ok, pour les lecteurs d'avant le 09/10)."""
+    l'API), ok (= leger_ok, pour les lecteurs d'avant le 09/10).
+    10/10 (lot L7) : les réserves — jours_restants (passages du matin à payer), cout_matin_usd, cout_parcours_usd,
+    reserve_matin_usd et reserve_parcours_usd (jours restants × coût), reserve_entamee (dépense sûre — dernière lecture de l'API plus
+    les seuls appels notés après elle, jamais comptés deux fois — plus les réserves au-dessus du budget : les passages du matin ou la
+    file du parcours ne tiennent plus, l'alerte du salon admin) ; leger_ok exige en plus que la relecture laisse les deux réserves
+    entières."""
     maintenant = maintenant or datetime.now(timezone.utc)
     if d is None:
         d = _lire() if _etat_configure() else {}
@@ -1761,21 +2133,32 @@ def etat_budget(d: dict = None, maintenant: datetime = None) -> dict:
         # l'API compte avec quelques minutes de retard : un appel noté juste avant sa lecture compte encore (au pire compté deux
         # fois une demi-heure — prudent pour un plafond)
         usage, source = u_api + sum(u for t, u in entrees if t > t_api - timedelta(minutes=RECOUVREMENT_API_MIN)), "apify"
+        usage_min = u_api + sum(u for t, u in entrees if t > t_api)
     else:
         usage, source = sum(u for _, u in entrees), "local"
+        usage_min = usage
     budget = APIFY_BUDGET_MOIS
     duree = (d1 - d0).total_seconds()
     ecoule = min(1.0, max(0.0, (maintenant - d0).total_seconds() / duree)) if duree > 0 else 1.0
     trajectoire = budget * ecoule
     cout_leger = _cout_leger(d)
     coupe = usage >= budget
-    leger_ok = not coupe and usage + cout_leger <= trajectoire + 1e-9
+    # 10/10 (lot L7) : réserves des passages du matin et de la file du parcours (voir garde_apify)
+    jours = _jours_restants(d, maintenant, d1)
+    cout_matin, cout_parcours = _cout_matin(d), _cout_parcours(d)
+    reserve_matin, reserve_parcours = jours * cout_matin, jours * cout_parcours
+    leger_ok = not coupe and usage + cout_leger <= trajectoire + 1e-9 \
+        and usage + cout_leger + reserve_matin + reserve_parcours <= budget + 1e-9
+    reserve_entamee = not coupe and min(usage, usage_min) + reserve_matin + reserve_parcours > budget + 1e-9
     return {"t": _iso(maintenant), "source": source, "usage_usd": round(usage, 4), "limite_usd": _montant(api.get("limite_usd")) or None,
             "budget_usd": round(budget, 2), "trajectoire_usd": round(trajectoire, 2),
             "part": round(usage / budget, 3) if budget > 0 else None, "coupe": coupe, "leger_ok": leger_ok,
             "cycle_debut": _iso(d0), "cycle_fin": _iso(d1),
             "projete_usd": round(usage / max(0.1, ecoule), 2), "cout_leger_usd": round(cout_leger, 2), "api_t": str(api.get("t") or ""),
-            "ok": leger_ok}
+            "ok": leger_ok, "jours_restants": jours,
+            "cout_matin_usd": round(cout_matin, 4), "cout_parcours_usd": round(cout_parcours, 4),
+            "reserve_matin_usd": round(reserve_matin, 2), "reserve_parcours_usd": round(reserve_parcours, 2),
+            "reserve_entamee": reserve_entamee}
 
 
 def projection_budget(brut, maintenant: datetime = None):
@@ -1810,7 +2193,8 @@ async def _lire_limites():
             return await reponse.json()
 
 
-_CLES_DECISION = ("source", "usage_usd", "limite_usd", "budget_usd", "coupe", "leger_ok", "cycle_debut", "cycle_fin", "cout_leger_usd")
+_CLES_DECISION = ("source", "usage_usd", "limite_usd", "budget_usd", "coupe", "leger_ok", "cycle_debut", "cycle_fin", "cout_leger_usd",
+                  "reserve_entamee", "jours_restants")
 
 
 async def apify_budget(forcer: bool = False, publier: bool = False, maintenant: datetime = None) -> dict:
@@ -1886,20 +2270,32 @@ def liberer_reservation(reservation) -> None:
     noter_depense(0, reservation=reservation)
 
 
-_refus = {"t": 0.0}                                                     # dernier appel refusé par la garde (horloge monotone)
+_refus = {"t": 0.0, "raison": "", "priorite": ""}                     # dernier appel refusé par la garde (horloge monotone)
 _reservations = {"n": 0}
 
 
-async def garde_apify(cout_usd: float, quoi: str = "", reserver: bool = False):
+def _reserve_de(st: dict, priorite: str) -> float:
+    """10/10 (lot L7) : la part du budget qu'un appel de cette priorité doit laisser intacte — rien pour « parcours », la réserve du
+    parcours pour « matin », les deux réserves pour « releve »."""
+    rp, rm = float(st.get("reserve_parcours_usd") or 0), float(st.get("reserve_matin_usd") or 0)
+    return {"parcours": 0.0, "matin": rp}.get(priorite, rp + rm)
+
+
+async def garde_apify(cout_usd: float, quoi: str = "", reserver: bool = False, priorite: str = "releve"):
     """09/10 (Gaëtan : « Dépasse pas 25 $ / mois ») : un appel Apify de `cout_usd` est-il permis ? Refusé si le budget du cycle est
     atteint (coupe) ou si cet appel le ferait dépasser ; alerte admin une fois par jour. Sans état configuré (tests d'un autre
     module) : permis ; si le budget ne peut pas être calculé : refusé (jamais de dépense à l'aveugle).
     09/10 (revue 3 : deux appels lancés en même temps passaient la garde sur la même dépense — elle n'est notée qu'au retour
     d'Apify —, le plafond pouvait être dépassé du coût des appels en vol) : `reserver=True` (l'appel part juste après) note aussitôt
     une RÉSERVATION de `cout_usd` dans le registre, sans `await` entre le calcul et l'écriture : la garde suivante la compte. La
-    fonction renvoie alors le jeton de la réservation (vrai), à rendre à noter_depense (dépense réelle) ou à liberer_reservation."""
+    fonction renvoie alors le jeton de la réservation (vrai), à rendre à noter_depense (dépense réelle) ou à liberer_reservation.
+    10/10 (lot L7) : `priorite` — « parcours » (file des clippers qui attendent leur compte suivant) refusé seulement au plafond ;
+    « matin » (passage complet) refusé aussi s'il entame la réserve du parcours ; « releve » (tout le reste, et tout appelant qui ne
+    dit rien) refusé s'il entame l'une des deux réserves (etat_budget). Un refus « releve » pour les réserves ne prévient personne (le
+    fonctionnement prévu en fin de cycle) ; un passage du matin qui ne tient plus prévient le salon admin, une fois par jour."""
     if not _etat_configure():
         return True
+    prio = priorite if priorite in PRIORITES else "releve"
     try:
         await apify_budget()                                            # l'API Apify relue au besoin (au plus toutes les 30 min)
         maintenant = datetime.now(timezone.utc)
@@ -1907,14 +2303,24 @@ async def garde_apify(cout_usd: float, quoi: str = "", reserver: bool = False):
         st = etat_budget(d, maintenant)
     except Exception as erreur:                                         # noqa: BLE001
         journal.error("Apify : budget du mois incalculable (%s), appel refusé par prudence", type(erreur).__name__)
-        _refus["t"] = _horloge.monotonic()
+        _refus.update(t=_horloge.monotonic(), raison="plafond", priorite=prio)
         return False
     usage, budget = float(st.get("usage_usd") or 0), float(st.get("budget_usd") or 0)
-    if st.get("coupe") or usage + max(0.0, float(cout_usd or 0)) > budget + 1e-9:
-        _refus["t"] = _horloge.monotonic()
+    cout = max(0.0, float(cout_usd or 0))
+    if st.get("coupe") or usage + cout > budget + 1e-9:
+        _refus.update(t=_horloge.monotonic(), raison="plafond", priorite=prio)
         journal.warning("Apify : appel refusé (%s, %s $) — %s $ dépensés ce cycle pour un budget de %s $", quoi or "?",
                         _euros(cout_usd), _euros(usage), _euros(budget))
         await _alerter_coupe(st, quoi, cout_usd)
+        return False
+    reserve = _reserve_de(st, prio)
+    if usage + cout + reserve > budget + 1e-9:
+        _refus.update(t=_horloge.monotonic(), raison="reserve", priorite=prio)
+        journal.warning("Apify : appel refusé (%s, %s $, priorité %s) — %s $ dépensés, %s $ gardés pour %s", quoi or "?",
+                        _euros(cout_usd), prio, _euros(usage), _euros(reserve),
+                        "la file du parcours" if prio == "matin" else "les passages du matin et la file du parcours")
+        if prio == "matin":
+            await _alerter_reserve(st, matin_refuse=True)
         return False
     if not reserver:
         return True
@@ -1946,6 +2352,14 @@ def _erreur_budget(depuis: float, sans_apify: bool = False) -> str:
     st = budget_apify_connu() or etat_budget()
     suite = ("états, followers et Reels inchangés ; clics, liens GAML, parcours, réservations, vérification du classeur et Dashboard "
              "faits sans Instagram" if sans_apify else "rien changé")
+    if _refus.get("raison") == "reserve" and not st.get("coupe"):
+        # 10/10 (lot L7) : refusé pour garder les réserves (passages du matin, file du parcours), pas pour le plafond
+        st = st if "jours_restants" in st else etat_budget()            # un état publié avant le lot L7 n'a pas les réserves
+        gardes = ("la file du parcours" if _refus.get("priorite") == "matin"
+                  else "les passages du matin et la file du parcours")
+        reserve = _reserve_de(st, _refus.get("priorite") or "releve")
+        return (f"budget Apify gardé pour {gardes} ({_euros(st.get('usage_usd'))} $ dépensés sur {_euros(st.get('budget_usd'))} $, "
+                f"{_euros(reserve)} $ réservés pour les {st.get('jours_restants', '?')} jour(s) restant(s)) : aucun appel Apify, {suite}")
     if not st.get("coupe"):
         return (f"budget Apify du mois presque atteint ({_euros(st.get('usage_usd'))} $ sur {_euros(st.get('budget_usd'))} $) : ce "
                 f"passage le dépasserait, aucun appel Apify, {suite}")
@@ -1967,6 +2381,39 @@ async def _alerter_coupe(st: dict, quoi: str, cout_usd) -> None:
         texte = (f"⚠️ Budget Apify presque atteint : {_euros(st.get('usage_usd'))} $ dépensés sur {_euros(st.get('budget_usd'))} $. "
                  f"Un appel de {_euros(cout_usd)} $ ({quoi or 'Apify'}) le dépasserait : refusé.\n\n{reste}")
         await _alerter_une_fois("budget_refus", jour_p, texte)
+
+
+async def _alerter_reserve(st: dict, matin_refuse: bool = False) -> None:
+    """10/10 (lot L7) : la seule alerte du budget avant le plafond — une réserve est entamée (les passages du matin restants, ou la
+    file du parcours, ne tiennent plus dans le budget). Une fois par jour, au salon admin : verdict, chiffres, une action."""
+    jour_p = _paris(datetime.now(timezone.utc)).date().isoformat()
+    u, b = _euros(st.get("usage_usd")), _euros(st.get("budget_usd"))
+    reserves = float(st.get("reserve_matin_usd") or 0) + float(st.get("reserve_parcours_usd") or 0)
+    if matin_refuse:
+        texte = (f"⚠️ Budget Apify : le passage du matin ne tient plus dans le budget.\n\n"
+                 f"{u} $ dépensés sur {b} $. Ce qui reste est gardé pour la file du parcours ({_euros(st.get('reserve_parcours_usd'))} $).\n\n"
+                 "Aujourd'hui, ni états, ni followers, ni Reels au classeur. Les clippers qui attendent leur compte suivant sont quand "
+                 "même relus, et leur compte s'ouvre dès qu'ils ont leurs Reels.\n\n"
+                 "Pour relancer le passage du matin : monte APIFY_BUDGET_MOIS dans Railway.")
+    else:
+        texte = (f"⚠️ Budget Apify : la réserve des passages du matin est entamée.\n\n"
+                 f"{u} $ dépensés sur {b} $, et il faut encore environ {_euros(reserves)} $ pour les "
+                 f"{st.get('jours_restants', '?')} passage(s) du matin et la file du parcours d'ici le {_jusqu_au(st)}.\n\n"
+                 "Les relectures du Dashboard s'arrêtent jusqu'à la fin du cycle : le parcours passe en premier, puis le passage du "
+                 "matin.\n\n"
+                 "Si tu veux garder les relectures : monte APIFY_BUDGET_MOIS dans Railway.")
+    await _alerter_une_fois("reserve", jour_p, texte)
+
+
+def _noter_saut(jour_p: str) -> None:
+    """10/10 (lot L7) : une relecture sautée pour le budget (trajectoire ou réserves) est notée pour le Dashboard (« alertes_legeres »
+    budget = ce jour, le fait que lit dashboard._relecture_sautee), sans aucun message : c'est le fonctionnement prévu."""
+    try:
+        d = _lire()
+        d.setdefault("alertes_legeres", {})["budget"] = jour_p
+        _ecrire(d)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Relecture sautée non notée : %s", type(erreur).__name__)
 
 
 def _euros(x) -> str:
@@ -2003,18 +2450,15 @@ def _complet_recent(d: dict, maintenant: datetime) -> bool:
     return -timedelta(days=1) < ecart < timedelta(hours=LEGER_APRES_COMPLET_H)
 
 
-def _texte_trajectoire(h: int, st: dict, cout: float) -> str:
-    return (f"⏭️ Relecture légère de {h} h sautée : {_euros(st.get('usage_usd'))} $ dépensés sur Apify ce mois, la trajectoire du "
-            f"budget en permet {_euros(st.get('trajectoire_usd'))} $ à cette date (budget {_euros(st.get('budget_usd'))} $, décision "
-            f"de Gaëtan ; relecture estimée à {_euros(cout)} $). Le passage complet du matin continue.")
-
-
 async def passage_leger_si_du(maintenant: datetime = None) -> str:
     """Lance le passage léger d'une heure de ETATS_HEURES_LEGERES (Paris) pas encore faite aujourd'hui. Renvoie : '' (rien de dû),
     'attente' (le passage complet du jour passe d'abord), 'recent' (le complet vient de relire Instagram : heure notée faite),
     'budget' (budget Apify du mois atteint, ou la relecture ferait passer la dépense au-dessus de la trajectoire linéaire du
     budget : sautée), 'erreur', 'fait'. 09/10 (revue) : « récent » et budget revérifiés une fois le verrou des passages pris (un
-    passage complet manuel en cours finit d'abord : il a relu Instagram et dépensé)."""
+    passage complet manuel en cours finit d'abord : il a relu Instagram et dépensé).
+    10/10 (lot L7 : « Relecture légère de 14 h sautée » arrivait au salon admin 30 jours sur 30, pour le fonctionnement prévu) : une
+    relecture sautée par la trajectoire ou par les réserves (passages du matin, file du parcours) ne prévient plus personne — le
+    Dashboard le sait (_noter_saut) ; seul le plafond atteint garde son alerte."""
     if not HEURES_LEGERES:
         return ""
     maintenant = maintenant or datetime.now(timezone.utc)
@@ -2040,9 +2484,14 @@ async def passage_leger_si_du(maintenant: datetime = None) -> str:
             journal.warning("Passage léger de %d h sauté : budget Apify du mois atteint", dus[-1])
             await _alerter_coupe(st, "relecture légère", cout)
             return False
-        if float(st.get("usage_usd") or 0) + cout > float(st.get("trajectoire_usd") or 0) + 1e-9:
-            journal.warning("Passage léger de %d h sauté : dépense Apify au-dessus de la trajectoire du budget", dus[-1])
-            await _alerter_une_fois("budget", jour_p, _texte_trajectoire(dus[-1], st, cout))
+        usage = float(st.get("usage_usd") or 0)
+        if usage + cout > float(st.get("trajectoire_usd") or 0) + 1e-9:
+            journal.info("Passage léger de %d h sauté : dépense Apify au-dessus de la trajectoire du budget", dus[-1])
+            _noter_saut(jour_p)                                         # 10/10 (lot L7) : sans message, le Dashboard le sait
+            return False
+        if usage + cout + _reserve_de(st, "releve") > float(st.get("budget_usd") or 0) + 1e-9:
+            journal.info("Passage léger de %d h sauté : le budget restant est gardé pour les passages du matin et le parcours", dus[-1])
+            _noter_saut(jour_p)
             return False
         return True
 
@@ -2058,6 +2507,10 @@ async def passage_leger_si_du(maintenant: datetime = None) -> str:
         if not await _budget_permet(etat_budget(d, max(maintenant, datetime.now(timezone.utc))), d):
             return "budget"
         bilan = await _executer_leger(True)
+    if bilan.get("budget"):                                             # 10/10 (lot L7) : refusé par la garde, même règle
+        journal.info("Passage léger de %d h : %s", dus[-1], bilan.get("erreur"))
+        _noter_saut(jour_p)
+        return "budget"
     if bilan.get("erreur"):
         journal.warning("Passage léger : %s", bilan["erreur"])
         await _alerter_une_fois("leger", jour_p, f"⚠️ Passage léger de {dus[-1]} h : {bilan['erreur']}.")
@@ -2454,6 +2907,7 @@ async def boucle(client) -> None:
         journal.info("États du classeur désactivés (APIFY_TOKEN / classeur absents ou ETATS_CLASSEUR=0)")
         return
     await client.wait_until_ready()
+    _CLIENT["c"] = client                                               # 10/10 (lot L7) : programme_du_jour après une relecture
     while not client.is_closed():
         try:
             maintenant = datetime.now(timezone.utc)
@@ -2470,7 +2924,7 @@ async def boucle(client) -> None:
                 journal.info("Dashboard réécrit (structure v%s)", DASHBOARD_VERSION)
             if maintenant.hour >= HEURE_UTC and (d.get("dernier") != jour or d.get("version") != VERSION) \
                     and int(d.get("essais", {}).get(jour, 0)) < 3:
-                bilan = await executer(ecrire=True)
+                bilan = await executer(ecrire=True, priorite="matin")  # 10/10 (lot L7) : la réserve du parcours seule le retient
                 if bilan.get("erreur"):
                     d = _lire(); d.setdefault("essais", {})[jour] = int(d.get("essais", {}).get(jour, 0)) + 1; _ecrire(d)
                     journal.warning("États du classeur : %s", bilan["erreur"])
@@ -2485,48 +2939,53 @@ async def boucle(client) -> None:
                         await _deps["notifier"]("🚫 **Comptes introuvables sur Instagram, passés en BAN** : "
                                                 + ", ".join(bans) + ". À remplacer : `!liberer Prénom handle`, puis un nouvel identifiant.")
             try:                                                        # 09/10 : le budget du mois (contrat C6a), frais pour le Dashboard
-                await apify_budget(publier=True)
+                st_b = await apify_budget(publier=True)
+                if st_b.get("reserve_entamee"):                         # 10/10 (lot L7) : la seule alerte avant le plafond
+                    await _alerter_reserve(st_b)
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Budget Apify : %s", type(erreur).__name__)
-            try:                                                        # 09/10 (dashboard) : passages légers (14 h, 20 h de Paris)
+            try:                                                        # 09/10 (dashboard) : passages légers ; 10/10 : 12 h à 22 h
                 # 09/10 (revue) : l'heure d'APRÈS le passage complet de cette itération (celle de la tête de boucle le précédait :
                 # la garde « complet de moins de 2 h » ne jouait pas et une relecture payante repartait juste derrière)
                 await passage_leger_si_du(datetime.now(timezone.utc))
             except Exception as erreur:                                 # noqa: BLE001
                 journal.warning("Passage léger : %s", erreur)
-            if SOIR_HEURE >= 0 and _paris(maintenant).hour >= SOIR_HEURE and d.get("dernier") == jour and d.get("soir") != jour:
-                d = _lire(); d["soir"] = jour; _ecrire(d)               # une fois par jour, même si Apify échoue
-                await scan_du_soir(client, d.get("scan_iso") or f"{jour}T{HEURE_UTC:02d}:00:00+00:00")
+            d = _lire()
+            # 10/10 (lot L7) : le scan de 19 h ne tourne plus qu'en secours — aucune relecture réussie depuis 17 h (elles lisent la file
+            # du parcours) — après le passage du matin, ou après le mini-scan qui l'a remplacé (passage refusé par le budget)
+            if SOIR_HEURE >= 0 and _paris(maintenant).hour >= SOIR_HEURE and d.get("soir") != jour \
+                    and (d.get("dernier") == jour or d.get("parcours_matin") == jour):
+                d["soir"] = jour; _ecrire(d)                            # une fois par jour, même si Apify échoue
+                if _relu_depuis(d, maintenant, SECOURS_DEPUIS_H):
+                    journal.info("Scan du soir inutile : une relecture a lu la file du parcours depuis %d h", SECOURS_DEPUIS_H)
+                else:
+                    await scan_du_soir(client, d.get("scan_iso") or f"{jour}T{HEURE_UTC:02d}:00:00+00:00")
         except Exception as erreur:                                      # noqa: BLE001 — jamais tuer le bot
             journal.exception("Boucle états du classeur : %s", erreur)
         await asyncio.sleep(900)
 
 
+def _relu_depuis(d: dict, maintenant: datetime, heure: int) -> bool:
+    """10/10 (lot L7) : une relecture a-t-elle réussi (« leger_iso ») depuis `heure` h, heure de Paris, aujourd'hui ?"""
+    t = _instant(d.get("leger_iso"))
+    if t is None:
+        return False
+    p = _paris(maintenant)
+    return t >= p.replace(hour=heure, minute=0, second=0, microsecond=0)
+
+
 async def scan_du_soir(client, depuis_iso: str) -> list:
     """08/10 (GO n° 2) : les comptes dont les Reels ouvrent un compte en attente, relus le soir ; le parcours ouvre aussitôt ceux
-    qui ont leurs Reels (un jour gagné par compte). Renvoie [(uid, type, n)] des étapes envoyées."""
-    import parcours                                                     # import tardif : parcours importe onboarding
-    handles = parcours.comptes_du_soir()
-    if not handles:
-        journal.info("Scan du soir : aucun compte en attente de Reels")
+    qui ont leurs Reels (un jour gagné par compte). Renvoie [(uid, type, n)] des étapes envoyées.
+    10/10 (lot L7) : il ne tourne plus qu'en secours (la boucle le saute quand une relecture a réussi depuis 17 h), sous la priorité
+    « parcours » ; ses fiches passent au crible des faux 0 puis vont aux séries (avant : jetées) ; plus de message au salon admin
+    (un compte ouvert plus tôt ne demande aucun geste)."""
+    res = await _lire_file_parcours(depuis_iso, client)
+    if not res.get("lus"):
+        journal.info("Scan du soir : %s", "aucun compte en attente de Reels" if res.get("lus") == 0 else "Apify illisible, rien conclu")
         return []
-    mesures = await scanner([_cle(h) for h in handles])
-    if mesures is None:
-        journal.warning("Scan du soir : Apify illisible, rien conclu")
-        return []
-    n = parcours.noter_reels_soir(mesures, depuis_iso, cle=_cle)
-    faits = await parcours.programme_du_jour(client)
-    ouverts = [f for f in faits if f[1] == "etape"]
-    journal.info("Scan du soir : %d compte(s) relu(s), %d fiche(s) mise(s) à jour, %d compte(s) ouvert(s)", len(handles), n, len(ouverts))
-    if ouverts and _deps.get("canal_admin"):
-        canal = await _deps["canal_admin"]()
-        if canal is not None:
-            try:
-                await canal.send(f"🌙 Scan du soir : {len(ouverts)} compte(s) ouvert(s) un jour plus tôt (" +
-                                 ", ".join(f"<@{u}> compte {k}" for u, _, k in ouverts)[:1500] + ")")
-            except Exception:                                           # noqa: BLE001
-                pass
-    return faits
+    journal.info("Scan du soir : %d compte(s) relu(s), %d compte(s) ouvert(s)", res["lus"], len(res["ouverts"]))
+    return res["faits"]
 
 
 async def commande_staff(message, texte: str) -> bool:
@@ -2577,7 +3036,8 @@ async def commande_staff(message, texte: str) -> bool:
             await message.reply(f"⛔ Budget Apify du mois atteint ({_euros(st.get('usage_usd'))} $ sur {_euros(st.get('budget_usd'))} $) : "
                                 f"pas de scan jusqu'au {_jusqu_au(st)}. Je réécris le Dashboard sans relire Instagram.")
         elif actif() and len(mots) > 1 and mots[1].lower() == "scan":
-            await message.reply("⏳ Je vérifie tous les comptes sur Instagram (GOOD, WARMUP, PRIVE, BAN, à créer réservés), puis je réécris le Dashboard. Quelques minutes.")
+            await message.reply("⏳ Je vérifie les comptes sur Instagram (GOOD, WARMUP, PRIVE, BAN, à créer réservés ; les BAN sans Gérant "
+                                "le lundi), puis je réécris le Dashboard. Quelques minutes.")
             bilan = await executer(ecrire=True)
             await message.reply(texte_bilan(bilan)[:1990])
             if bilan.get("erreur"):
