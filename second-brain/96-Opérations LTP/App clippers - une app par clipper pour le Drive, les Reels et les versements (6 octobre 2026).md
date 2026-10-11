@@ -13,6 +13,10 @@ liens_forts: ["[[App créatrices - une app par créatrice pour le Drive, les sta
 > [!tip] Verdict
 > **En ligne le 06/10 : `app-clippers.vercel.app`, un lien personnel par clipper, zéro configuration.** Même rendu que l'[[App créatrices - une app par créatrice pour le Drive, les stats et les Reels (4 octobre 2026)|app créatrices]], trois onglets dans l'ordre du dessin de Gaëtan : **Drive** (quatre tuiles qui ouvrent le bon dossier : Reels de la semaine, Photos du mois, Top Reels = ses variantes uniques déposées par le bot, Stories), **Reels** (le duplicateur, « Bientôt »), **Versements** (ses visites francophones GetAllMyLinks jour par jour, rafraîchies toutes les 5 minutes, le montant de la période en cours à 0,05 $ la visite et la phrase « Prochain versement : 40,90 $ le 20 octobre »). La liste des clippers vient en direct des liens GAML notés « Clipping Prénom » : un nouveau clipper a son app dès que son lien existe. 30 clippers ce jour. **Ce qu'il reste à Gaëtan : envoyer son lien à chaque clipper (guide dans le scratchpad), aligner la paie de l'équipe de Jonas sur la règle au clic que l'app affiche, et corriger quatre notes GAML douteuses.**
 
+
+> [!info] Mise à jour du 11/10
+> L'app arrive maintenant avec le compte 3 privé, en fin de parcours ; la paie suit les périodes 5 → 19 et 20 → 4, et la feuille « Paie du … » est écrite par le bot. Vue d'ensemble dans [[Système clippers - cartographie complète (11 octobre 2026)]].
+
 ## 1. Ce que le clipper voit
 
 | Onglet | Contenu | Source |
