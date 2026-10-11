@@ -594,10 +594,62 @@ async def relire_publies(client=None) -> dict:
     return bilan
 
 
+ALERTE_TOUT_DE_SUITE = ("mineur", "nudite")                                  # 10/10 (L9a) : au salon admin, sans attendre le matin
+
+
+def alerteur_strict(canal_admin):
+    """11/10 (revue de L9a) : la dépendance « alerter_strict » que le lot W branche au démarrage
+    (`"alerter_strict": review_reels.alerteur_strict(canal_admin)`) : poste au salon admin et LÈVE si le salon manque ou si
+    Discord refuse l'envoi. notifier_manager (« alerter ») avale ces erreurs : une alerte ratée y passait pour envoyée."""
+    async def alerter(texte: str):
+        salon = await canal_admin()
+        if salon is None:
+            raise RuntimeError("salon admin introuvable")
+        await salon.send(texte[:1990])
+    return alerter
+
+
+async def alerter_risques(jour: str) -> int:
+    """10/10 (revue du recrutement, L9a : la relecture après publication est le seul détecteur de mineur sur un Reel publié, et
+    ses lignes étaient avalées par le message du matin éteint) : chaque Reel relu avec le motif « mineur » ou « nudité » part
+    TOUT DE SUITE au salon admin, comme l'alerte avant publication. Une seule fois par Reel. Renvoie le nombre d'alertes.
+    11/10 (revue de L9a, doctrine : mineurs, non négociable) : la dépendance stricte « alerter_strict » passe avant « alerter » ;
+    une alerte n'est marquée partie que si l'envoi a réussi. Les Reels relus HIER ou ce jour sont repris tant que leur alerte
+    n'est pas partie, et la boucle l'appelle toutes les 10 min, même sans Reel à relire (avant : le jour même seulement, et
+    seulement quand il restait des Reels à relire)."""
+    alerter = _deps.get("alerter_strict") or _deps.get("alerter")
+    if not alerter:
+        return 0
+    try:
+        jours = {jour, (date.fromisoformat(jour) - timedelta(days=1)).isoformat()}
+    except ValueError:
+        jours = {jour}
+    d = _lire()
+    envoyees = 0
+    for url, r in d["relus"].items():
+        if r.get("relu") not in jours or r.get("risque") not in ALERTE_TOUT_DE_SUITE or r.get("alerte"):
+            continue
+        qui = r.get("gerant") or r.get("handle") or "un clipper"
+        try:
+            await alerter(f"⛔ Relecture après publication : {RISQUES[r['risque']]} sur un Reel de {qui}. "
+                          f"À vérifier, et à faire retirer si c'est confirmé : <{url}>")
+        except Exception as erreur:                                            # noqa: BLE001 — retenté au passage suivant
+            journal.warning("Alerte après publication : %s", type(erreur).__name__)
+            continue
+        d = _lire()
+        if url in d["relus"]:
+            d["relus"][url]["alerte"] = jour
+            _ecrire(d)
+        envoyees += 1
+    return envoyees
+
+
 async def poser_lignes(jour: str) -> int:
     """Au plus une ligne par clipper et par jour, dans le message du matin (matin.deposer). Le message du matin déjà parti : la
     ligne part seule dans son salon, mais seulement dans la fenêtre du matin (jamais d'envoi groupé l'après-midi ni au
-    redémarrage) ; sinon elle reste pour le résumé du lundi."""
+    redémarrage) ; sinon elle reste pour le résumé du lundi. 10/10 (L9a) : avant tout dépôt, « mineur » et « nudité » partent
+    au salon admin (alerter_risques)."""
+    await alerter_risques(jour)
     d = _lire()
     par = {}
     for r in d["relus"].values():
@@ -726,4 +778,8 @@ async def boucle(client) -> None:
             await resume_lundi()
         except Exception as erreur:                                            # noqa: BLE001 — la boucle ne meurt jamais
             journal.warning("Boucle de review des Reels : %s", type(erreur).__name__)
+        try:                                                                   # 11/10 (revue de L9a) : à chaque tour, même sans Reel
+            await alerter_risques(_jour())                                     # à relire : une alerte ratée repart 10 min après
+        except Exception as erreur:                                            # noqa: BLE001
+            journal.warning("Alertes après publication : %s", type(erreur).__name__)
         await asyncio.sleep(600)

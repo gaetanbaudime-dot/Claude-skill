@@ -12,7 +12,10 @@ Garde-fous : jamais de nom, numéro, e-mail, mot de passe ou identifiant dans un
 doctrine (rappelée dans le prompt, et la base curée prime toujours dans le prompt de l'assistant) ; 3 leçons par salon et
 20 par jour au plus ; une leçon déjà connue (même début de question) n'est pas réajoutée. `!retro` lance la même chose à
 la main. L'objectif de fond, écrit dans le prompt : transformer chaque clipper en trois comptes Instagram qui postent le
-plus souvent possible des Reels de qualité exceptionnelle, avec le moins de messages possible."""
+plus souvent possible des Reels de qualité exceptionnelle, avec le moins de messages possible.
+
+10/10 (revue du recrutement, L9a) : la rétrospective automatique passe à une fois par semaine, le dimanche soir, sur les 7 derniers
+jours (`!retro` relit toujours les dernières 24 h). La doctrine ne cite plus que les codes de création et de connexion."""
 
 import asyncio
 import json
@@ -55,11 +58,14 @@ DOCTRINE = ("Doctrine (elle prime sur tout) : le clipper met SON numéro de tél
             "monter sont celles de sa créatrice (lien dans son message de bienvenue), plus de Drive perso ni de « TOP 20 » ; "
             "la story du jour se prend dans les photos ou les vidéos de sa créatrice ; une question posée dans son salon perso "
             "reçoit sa réponse dans ce salon, jamais « va dans #assistant » ; un message = une seule action ; "
+            # 10/10 (Gaëtan : « uniquement les codes de connexion et de création de compte ») : plus de codes d'appel relayés
             "paie 0,05 $ par visite francophone réelle, payée le 5 et le 20 ; codes : « {codes} » "
-            "(création, connexion, appel), uniquement dans ce salon, jamais ceux qui "
-            "changent l'e-mail, le mot de passe ou le numéro ; un compte banni : le clipper fait appel lui-même tout de suite (code, "
-            "selfie vidéo, SON numéro ou SA pièce d'identité si demandés, jamais ceux d'un autre, jamais dans Discord) ; trois cas "
-            "seulement vont à Gaëtan (appel refusé, numéro refusé, paiement) ; "
+            "(création, connexion, rien d'autre), uniquement dans ce salon, jamais ceux qui "
+            "changent l'e-mail, le mot de passe ou le numéro ; un compte banni : le clipper fait appel lui-même tout de suite (selfie "
+            "vidéo, SON numéro ou SA pièce d'identité si demandés, jamais ceux d'un autre, jamais dans Discord) ; "
+            # 11/10 (revue de L9a) : « le code d'un appel passe par Gaëtan » puis « trois cas seulement » faisait quatre cas
+            "quatre cas seulement vont à Gaëtan (code d'un appel, appel refusé, numéro refusé, paiement), le code d'un appel "
+            "sur WhatsApp ; "
             "le bot ne donne jamais la cause d'un blocage, seulement la marche à suivre, et ne contredit jamais ce que le "
             "clipper voit à l'écran ; jamais de pseudo ni de dossier inventé ; jamais « ton manager te donne un compte demain » ; "
             "un « ok » ne mérite aucune réponse ; une réponse fait trois lignes au plus, une action à la fois, en mots de collège. "
@@ -119,10 +125,12 @@ def oublier_consigne(numero: int) -> list:
 
 # ------------------------------------------------------------------ transcription d'un salon
 async def transcrire(salon, membre, depuis) -> list:
-    """Les messages des dernières 24 h, une ligne chacun, rôle en tête : CLIPPER, BOT, HUMAIN (staff)."""
+    """Les messages depuis `depuis`, une ligne chacun, rôle en tête : CLIPPER, BOT, HUMAIN (staff). 10/10 (L9a, relecture sur
+    7 jours) : les 80 PLUS RÉCENTS, remis dans l'ordre (avant : les 80 plus anciens de la période)."""
     lignes = []
     try:
-        async for m in salon.history(limit=80, after=depuis, oldest_first=True):
+        recents = [m async for m in salon.history(limit=80, after=depuis, oldest_first=False)]
+        for m in reversed(recents):
             texte = (m.content or "").strip()
             if not texte and not m.attachments:
                 continue
@@ -135,7 +143,7 @@ async def transcrire(salon, membre, depuis) -> list:
             if m.attachments and not texte:
                 texte = "[pièce jointe]"
             texte = re.sub(r"\s+", " ", texte)[:400]
-            lignes.append(f"[{m.created_at.strftime('%H:%M')}] {role} : {texte}")
+            lignes.append(f"[{m.created_at.strftime('%d/%m %H:%M')}] {role} : {texte}")
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.info("Rétro : salon %s illisible (%s)", getattr(salon, "name", "?"), erreur)
     return lignes
@@ -148,9 +156,9 @@ def _anonymiser(texte: str) -> str:
 
 
 # ------------------------------------------------------------------ l'analyse
-def prompt_analyse(nom_salon: str, transcription: list, deja: list) -> str:
+def prompt_analyse(nom_salon: str, transcription: list, deja: list, periode: str = "des dernières 24 h") -> str:
     return (f"Tu es le coach du bot Discord d'une agence de clippers Instagram. Objectif : {OBJECTIF}\n{doctrine()}\n\n"
-            f"Voici la conversation des dernières 24 h dans le salon perso d'un clipper (#{nom_salon}). Le BOT, c'est toi.\n"
+            f"Voici la conversation {periode} dans le salon perso d'un clipper (#{nom_salon}). Le BOT, c'est toi.\n"
             "Note-toi honnêtement de 0 à 10 sur : le clipper a-t-il avancé vers ses 3 comptes qui postent ? as-tu été court, "
             "juste, sans inventer, sans contredire un HUMAIN ? Si un HUMAIN (staff) t'a corrigé, sa consigne devient une leçon.\n"
             "Rends UNIQUEMENT un JSON : {\"note\": 0-10, \"defauts\": [\"…\"], \"lecons\": [{\"q\": \"question ou situation, "
@@ -231,9 +239,11 @@ def appliquer(resultats: list) -> dict:
 
 
 # ------------------------------------------------------------------ exécution
-async def executer(client) -> str:
-    """La rétrospective : renvoie le digest (posté au salon admin par l'appelant ou par la boucle)."""
-    depuis = datetime.now(timezone.utc) - timedelta(hours=24)
+async def executer(client, jours: int = 1) -> str:
+    """La rétrospective : renvoie le digest (posté au salon admin par l'appelant ou par la boucle). 10/10 (L9a) : `jours` = la
+    période relue (1 pour `!retro`, 7 pour la rétrospective du dimanche)."""
+    depuis = datetime.now(timezone.utc) - timedelta(days=jours)
+    periode = "des dernières 24 h" if jours <= 1 else f"des {jours} derniers jours"
     salons = await _deps["salons_persos"]()
     resultats, notes, defauts, lus = [], [], [], 0
     deja = _debuts_connus()
@@ -242,7 +252,8 @@ async def executer(client) -> str:
         if sum(1 for l in transcription if "] CLIPPER :" in l) < 1:
             continue
         lus += 1
-        res = await asyncio.to_thread(analyser_sync, prompt_analyse(getattr(salon, "name", "?"), [_anonymiser(l) for l in transcription], deja))
+        res = await asyncio.to_thread(analyser_sync, prompt_analyse(getattr(salon, "name", "?"), [_anonymiser(l) for l in transcription],
+                                                                    deja, periode))
         if not res:
             continue
         resultats.append(res)
@@ -257,9 +268,10 @@ async def executer(client) -> str:
     etat["historique"] = etat["historique"][-90:]
     _deps["ecrire_json"](_deps["FICHIER"], etat)
     if not lus:
-        return "🧠 Rétrospective : aucun salon perso actif ces 24 h."
+        return f"🧠 Rétrospective : aucun salon perso actif {periode}."
     mot_lecons = "apprise(s)" if ECRIT else "proposée(s), rien d'appris tout seul"
-    digest = (f"🧠 **Rétrospective du soir** : {lus} salon(s) lu(s) · note moyenne {round(sum(notes) / len(notes), 1) if notes else '—'}/10 · "
+    titre = "Rétrospective de la semaine" if jours > 1 else "Rétrospective"
+    digest = (f"🧠 **{titre}** : {lus} salon(s) lu(s) · note moyenne {round(sum(notes) / len(notes), 1) if notes else '—'}/10 · "
               f"{len(bilan['lecons'])} leçon(s) {mot_lecons} · {len(bilan['consignes'])} consigne(s)")
     if bilan["lecons"]:
         digest += "\n" + "\n".join(f"· **{q[:90]}** → {r[:160]}" for q, r in bilan["lecons"][:8])
@@ -308,18 +320,20 @@ def _liste_consignes(actives: list) -> str:
 
 
 async def boucle(client):
-    """Chaque soir entre 20 h et 22 h (Paris), une fois par jour."""
+    """10/10 (revue du recrutement, L9a) : une fois par semaine, le dimanche entre 20 h et 22 h (Paris), sur les 7 derniers jours.
+    Avant : chaque soir, jusqu'à 40 appels Claude pour un digest que rien n'applique, même « aucun salon actif ». `!retro` reste."""
     await client.wait_until_ready()
     while not client.is_closed():
         try:
             maintenant = _deps["heure_paris"]()
-            jour = maintenant.strftime("%Y-%m-%d")
+            annee, num, _ = maintenant.isocalendar()
+            semaine = f"{annee}-S{num:02d}"
             etat = _deps["lire_json"](_deps["FICHIER"], {})
-            if 20 <= maintenant.hour < 22 and etat.get("jour") != jour:
+            if maintenant.isoweekday() == 7 and 20 <= maintenant.hour < 22 and etat.get("semaine") != semaine:
                 canal = await _deps["canal_admin"]()
-                digest = await executer(client)
+                digest = await executer(client, jours=7)
                 etat = _deps["lire_json"](_deps["FICHIER"], {})
-                etat["jour"] = jour
+                etat["semaine"] = semaine
                 _deps["ecrire_json"](_deps["FICHIER"], etat)
                 if canal is not None:
                     try:

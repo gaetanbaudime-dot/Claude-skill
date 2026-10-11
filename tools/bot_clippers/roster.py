@@ -1,6 +1,6 @@
 """Roster actif des clippers par créatrice — la source de vérité unique (26/09, demande de Gaëtan).
 
-Sert au compteur « 🎬 Clippers : N » de STATS G&M, aux groupes du rapport #jonas-stats, à la liste par défaut de
+Sert au compteur « 🎬 Clippers : N » de STATS G&M, à `!actifs`, au suivi des liens GAML (rapport_stats), à la liste par défaut de
 `!salons-equipe`, et aux sorties (`sortis` : fiches retirées du registre, comptes du classeur rendus, salon perso archivé).
 
 Deux fichiers, le plus récent (`maj`) gagne : `roster.json` à côté du bot (dans le repo, édité par Gaëtan ou par Claude) et
@@ -81,7 +81,7 @@ def actif() -> bool:
 
 
 def groupes() -> dict:
-    """{créatrice: [prénoms]} — ce que le rapport Jonas consomme."""
+    """{créatrice: [prénoms]} — le roster par créatrice (10/10 : #jonas-stats retiré, voir groupes_actifs)."""
     return {c: list(noms) for c, noms in lire()["equipes"].items()}
 
 
@@ -164,6 +164,29 @@ def texte() -> str:
     return "\n".join(lignes)
 
 
+# ------------------------------------------------------------------ roster actif (10/10, L9a : venu de rapport_stats)
+def groupes_actifs() -> dict:
+    """{créatrice: [prénoms]} : le roster vivant, tenu par `!roster`, `!creatrice` (ajouter) et `!sortie` (retirer). Il sert au
+    compteur « 🎬 Clippers », à `!actifs` et au suivi des liens GAML (rapport_stats.associer_suivi)."""
+    return groupes()
+
+
+def total_actifs(g: dict = None) -> int:
+    """Le chiffre du salon-compteur : prénoms distincts, toutes créatrices confondues."""
+    g = groupes_actifs() if g is None else g
+    return len({_n(n) for noms in g.values() for n in noms})
+
+
+def texte_actifs() -> str:
+    """`!actifs` : les prénoms comptés, par créatrice."""
+    g = groupes_actifs()
+    date = str(lire().get("maj") or "")[:10] or "?"
+    lignes = [f"👥 **Clippers actifs : {total_actifs(g)}** (roster du {date}, tenu par `!creatrice` et `!sortie`)"]
+    for cr, noms in g.items():
+        lignes.append(f"**{cr}** ({len(noms)}) : {', '.join(noms) if noms else '—'}")
+    return "\n".join(lignes)
+
+
 def analyser(corps: str) -> dict:
     """« Sophie: Thia, Rianah ; Chloé: Hasina » → {"Sophie": ["Thia", "Rianah"], "Chloé": ["Hasina"]} (doublons ôtés)."""
     out = {}
@@ -182,11 +205,15 @@ def analyser(corps: str) -> dict:
 
 # ------------------------------------------------------------------ commande !roster (admin, manager)
 async def commande(message, texte_msg: str) -> bool:
-    if not texte_msg.lower().startswith("!roster"):
+    premier = (texte_msg.split() or [""])[0].lower()
+    if not texte_msg.lower().startswith("!roster") and premier not in ("!actifs", "!equipe-active"):
         return False
     auteur = message.author
     if not (str(auteur.id) in _deps.get("ADMIN_IDS", ()) or (_deps.get("est_manager") and _deps["est_manager"](auteur))):
         await message.reply("Commande réservée aux managers et aux admins.")
+        return True
+    if premier in ("!actifs", "!equipe-active"):                         # 10/10 (L9a) : venu de rapport_stats.commande_staff
+        await message.reply(texte_actifs()[:1990])
         return True
     corps = texte_msg[len("!roster"):].strip()
     if not corps:

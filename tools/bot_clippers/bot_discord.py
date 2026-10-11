@@ -1942,14 +1942,9 @@ async def mettre_a_jour_stats():
 
 
 async def boucle_stats():
-    """Rafraîchit les salons-compteurs toutes les 10 min (respecte la limite de renommage Discord)."""
-    await client.wait_until_ready()
-    while not client.is_closed():
-        try:
-            await mettre_a_jour_stats()
-        except Exception as erreur:                # jamais laisser la boucle mourir
-            journal.warning("Boucle stats : %s", erreur)
-        await asyncio.sleep(600)
+    """10/10 (L9a) : supprimée (salons-compteurs rafraîchis toutes les 10 min, que le README du 14/09 dit de supprimer). Les
+    compteurs suivent encore un paiement et le roster (mettre_a_jour_stats). Bouchon inerte jusqu'au lot W (tâche de on_ready)."""
+    return None
 
 
 SEPARATEURS_PSEUDO = (" - ", " – ", " — ", " | ", " · ")
@@ -2441,10 +2436,7 @@ async def journaliser_candidature_sheet(reponses: dict, source: str = "web"):
         rang = await _premiere_ligne_vide(onglet)
         await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!A{rang}", [ligne])
         journal.info("Candidature sauvegardée dans le classeur (ligne %d, %s)", rang, origine or source)
-        try:
-            await noter_candidatures_sheet([onglet])
-        except Exception as erreur:                                   # noqa: BLE001
-            journal.warning("Notation de la candidature : %s", erreur)
+        # 10/10 (L9a) : plus de notation /8 relue et réécrite à chaque candidature (plus personne ne trie sur la note)
     except Exception as erreur:                                       # jamais bloquer une candidature pour la sauvegarde
         journal.warning("Sauvegarde candidature Sheet : %s", erreur)
 
@@ -2456,61 +2448,6 @@ async def _premiere_ligne_vide(onglet: str) -> int:
         if not (r and str(r[0]).strip()):
             return i + 2
     return len(colonne) + 2
-
-
-async def noter_candidatures_sheet(onglets=None, tout: bool = False) -> dict:
-    """27/09 (Gaëtan : « attribue une notation à chaque réponse de candidature ») : deux colonnes « Note /8 » et « Points » au bout
-    de chaque onglet, remplies d'après `score_candidature` (iPhone, ≥ 2 téléphones, expérience, monte déjà, ≥ 2 Reels/j, ≥ 3 h/j,
-    connaît les bans, majeur). Sur l'onglet du site, la colonne Source prend la réponse « sur quel réseau as-tu vu l'annonce »
-    quand elle vaut encore « web ». Écrit seulement ce qui manque ou change. Renvoie {onglet: nombre de lignes notées}."""
-    if not (SHEET_CANDIDATURES_ID and google_api.actif()):
-        return {}
-    bilan = {}
-    for onglet in (onglets or [o for o in (SHEET_CANDIDATURES_FORM_ONGLET, SHEET_CANDIDATURES_ONGLET) if o]):
-        try:
-            brut = await lire_onglet_candidatures(onglet)                  # 09/10 : la plage unique (PLAGE_CANDIDATURES)
-        except Exception as erreur:                                        # noqa: BLE001
-            journal.warning("Notation %s : %s", onglet, erreur)
-            continue
-        if not brut:
-            continue
-        en_tete = [str(x) for x in brut[0]]
-        cols = _colonnes_candidature(en_tete)
-        i_note = next((i for i, h in enumerate(en_tete) if normaliser(h).startswith("note")), None)
-        i_pts = next((i for i, h in enumerate(en_tete) if normaliser(h).startswith("points")), None)
-        if i_note is None or i_pts is None:
-            i_note, i_pts = len(en_tete), len(en_tete) + 1
-            await google_api.sheets_assurer_colonnes(SHEET_CANDIDATURES_ID, onglet, i_pts + 1)     # la Table s'arrête à Z (27/09)
-            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{onglet}!{google_api.colonne_lettre(i_note)}1", [["Note /8", "Points"]])
-        i_source = next((i for i, h in enumerate(en_tete) if normaliser(h).strip() == "source"), None)
-        i_annonce = cols.get("annonce")
-        notes, sources, n = [], [], 0
-        for r in brut[1:]:
-            r = [str(x) for x in r] + [""] * (len(en_tete) + 2)           # 09/10 : la plage va jusqu'à AZ (52 colonnes)
-            if not any(x.strip() for x in r[:6]):
-                notes.append(["", ""]); sources.append([r[i_source] if i_source is not None else ""])
-                continue
-            c = {champ: r[i].strip() for champ, i in cols.items()}
-            points, raisons = score_candidature(c)
-            actuelle = (r[i_note].strip(), r[i_pts].strip())
-            nouvelle = (str(points), ", ".join(raisons))
-            if tout or actuelle != nouvelle:
-                n += 1
-            notes.append([nouvelle[0], nouvelle[1]])
-            src = r[i_source].strip() if i_source is not None else ""
-            annonce = r[i_annonce].strip() if i_annonce is not None else ""
-            sources.append([annonce if (src.lower() in ("", "web") and annonce) else src])
-        if not notes:
-            continue
-        if n:
-            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID,
-                                           f"{onglet}!{google_api.colonne_lettre(i_note)}2:{google_api.colonne_lettre(i_pts)}{len(notes) + 1}", notes)
-        if i_source is not None and onglet == SHEET_CANDIDATURES_ONGLET and any(s_[0] != (str(r[i_source]) if len(r) > i_source else "")
-                                                                             for s_, r in zip(sources, brut[1:])):
-            await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID,
-                                           f"{onglet}!{google_api.colonne_lettre(i_source)}2:{google_api.colonne_lettre(i_source)}{len(sources) + 1}", sources)
-        bilan[onglet] = n
-    return bilan
 
 
 async def compacter_candidatures_sheet() -> int:
@@ -2547,20 +2484,17 @@ async def compacter_candidatures_sheet() -> int:
 
 
 async def entretien_candidatures_sheet():
-    """Au démarrage (27/09) : compactage de l'onglet du site, puis notation des deux onglets.
+    """Au démarrage (27/09) : compactage de l'onglet du site.
     09/10 (revue du funnel : la ligne « 📋 Classeur des candidatures » repartait au salon admin à chaque redéploiement) : le bilan
-    va au journal, plus jamais au salon."""
+    va au journal, plus jamais au salon. 10/10 (L9a) : plus de notation /8 des onglets (plus lue par personne)."""
     await client.wait_until_ready()
     try:
         deplacees = await compacter_candidatures_sheet()
-        bilan = await noter_candidatures_sheet()
     except Exception as erreur:                                            # noqa: BLE001
         journal.warning("Entretien du classeur des candidatures : %s", erreur)
         return
-    total = sum(bilan.values())
-    if deplacees or total:
-        journal.info("Classeur des candidatures : %d ligne(s) remontée(s) à la suite · %d note(s) écrite(s) (%s)", deplacees, total,
-                     " · ".join(f"{o} {n}" for o, n in bilan.items()))
+    if deplacees:
+        journal.info("Classeur des candidatures : %d ligne(s) remontée(s) à la suite", deplacees)
 
 
 def membre_par_prenom(prenom_n: str):
@@ -9157,32 +9091,6 @@ async def boucle_drives_info():
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Drives des salons info : %s", erreur)
         await asyncio.sleep(6 * 3600)
-
-
-async def annoncer_regle_48h():
-    """29/09 (Gaëtan : « go leur dire de créer un compte tous les 48 h, afin de limiter les bans ») : une fois, dans chaque salon
-    perso, la nouvelle règle. Retenu dans annonces.json pour ne jamais repartir à un redéploiement."""
-    await client.wait_until_ready()
-    fichier = DONNEES / "annonces.json"
-    faites = lire_json(fichier, {})
-    if faites.get("regle_48h"):
-        return
-    texte = ("📣 **Nouvelle règle depuis le 29/09 : un compte tous les 48 h, jamais plus vite.**\n\n"
-             "Compte 1, puis 48 h. Compte 2, puis 48 h. Compte 3. Le warm-up reste 24 h par compte avant le premier Reel.\n\n"
-             "C'est ce qui limite les bans : 7 comptes perdus hier. Un compte banni ne revient jamais, le bot t'en donne un neuf.")
-    n = 0
-    try:
-        for salon, membre in await salons_clippers_acceptes():         # 30/09 : jamais aux candidats
-            try:
-                await salon.send(f"{membre.mention} {texte}")
-                n += 1
-                await asyncio.sleep(0.6)
-            except discord.HTTPException as erreur:
-                journal.warning("Annonce 48 h dans %s : %s", getattr(salon, "name", "?"), erreur)
-    finally:
-        faites["regle_48h"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"), "salons": n}
-        ecrire_json(fichier, faites)
-        journal.info("Annonce de la règle des 48 h postée dans %d salon(s) perso", n)
 
 
 async def annoncer_demarrage():

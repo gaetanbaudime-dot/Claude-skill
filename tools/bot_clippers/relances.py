@@ -14,9 +14,10 @@ des 7 derniers jours seulement. Sans @ Telegram lisible, le lien par numéro (t.
 l'autorise dans ses réglages : il est signalé comme tel.
 
 `!relances` (staff) : la liste tout de suite (comptée comme envoyée) ; `!relances voir` : l'aperçu, rien de compté.
-État dans DONNEES/relances.json : {"dernier": jour, "relances": {cand_id: [dates iso]}}. RELANCES=0 éteint."""
+État dans DONNEES/relances.json : {"relances": {cand_id: [dates iso]}}.
+10/10 (L9a) : la liste ne part plus toute seule chaque matin (boucle inerte, RELANCES et RELANCES_HEURE ne servent plus) ;
+`!relances` seulement."""
 
-import asyncio
 import logging
 import os
 import re
@@ -24,8 +25,6 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 journal = logging.getLogger("relances")
-ACTIF = os.environ.get("RELANCES", "1").strip() != "0"
-HEURE = int(os.environ.get("RELANCES_HEURE", "10") or 10)
 MAX_JOUR = int(os.environ.get("RELANCES_MAX", "30") or 30)
 DELAIS_H = (24, 72)                                                        # 1re relance à 24 h, 2e à 72 h
 FENETRE_JOURS = 7
@@ -200,22 +199,9 @@ async def commande(message, texte: str) -> bool:
 
 
 async def boucle(client):
+    """10/10 (revue du recrutement, L9a) : plus de liste quotidienne au salon admin. Le goulot est le stock de comptes livrables :
+    relancer chaque matin les candidats sans quizz allongeait seulement la file d'attente. `!relances` reste, à la main. Inerte
+    jusqu'à ce que le lot W retire sa tâche du démarrage."""
     await client.wait_until_ready()
-    if not ACTIF:
-        journal.info("Relances Telegram éteintes (RELANCES=0)")
-        return
-    while not client.is_closed():
-        try:
-            maintenant = _deps["heure_paris"]()
-            jour = maintenant.strftime("%Y-%m-%d")
-            etat = _deps["lire_json"](_deps["FICHIER"], {"relances": {}})
-            if maintenant.hour >= HEURE and etat.get("dernier") != jour:
-                canal = await _deps["canal_admin"]()
-                if canal is not None:
-                    await envoyer(canal, muet_si_vide=True)
-                    etat = _deps["lire_json"](_deps["FICHIER"], {"relances": {}})
-                    etat["dernier"] = jour
-                    _deps["ecrire_json"](_deps["FICHIER"], etat)
-        except Exception as erreur:                                         # noqa: BLE001
-            journal.warning("Boucle des relances Telegram : %s", erreur)
-        await asyncio.sleep(1200)
+    journal.info("Relances Telegram : plus de passage quotidien (10/10), `!relances` à la main")
+    return None
