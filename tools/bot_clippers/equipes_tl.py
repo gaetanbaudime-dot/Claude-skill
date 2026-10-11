@@ -21,12 +21,17 @@ comptent pour son seuil et pour CETTE équipe seulement.
 Garde-fous (revue du 10/10) :
 
   - le TL n'est le VA d'aucune équipe, et ne compte pas dans le total de la sienne (EQUIPE_COMPTE_TL=0) ;
-  - un manager ne touche jamais les 75 $ d'une équipe dont il est TL ;
-  - une prime n'est jamais refusée seule : elle est « à vérifier » (jour non relevé, moins de PRIME_PREUVE_REELS Reels vus, part de
-    robots ou de visites non francophones hors norme) ; Gaëtan contrôle à la main 5 abonnés par VA primé (Infloww / MyPulse) ;
-  - rien n'est payé avant PRIMES_EQUIPES_DEPUIS (première période primée : 20/10 → 04/11, payée le 05/11) ;
+  - un manager ne touche jamais les 75 $ d'une équipe dont il est TL, et ses propres visites ne comptent pas dans le total d'une
+    équipe qu'il manage (MANAGER_COMPTE=0, revue L10 R2) ;
+  - une prime n'est jamais refusée seule : TOUTE ligne payée est « à vérifier » (Gaëtan contrôle à la main 5 abonnés par VA
+    primé, Infloww / MyPulse) ; « ⚠️ à vérifier : … » en plus si un jour n'est pas relevé, si moins de PRIME_PREUVE_REELS Reels
+    sont vus, ou si la part de robots ou de visites non francophones est hors norme ;
+  - rien n'est payé avant PRIMES_EQUIPES_DEPUIS (première période primée : 20/10 → 04/11, payée le 05/11), et rien n'est affiché
+    comme dû sur une période non primée ;
   - nomination par les admins seulement (`!tl`, `!manager`), jamais par le rôle Manager ; le rôle « Team Leader » n'a aucune
-    permission, et un porteur du rôle Manager ne peut pas être nommé TL.
+    permission (jamais posé s'il en garde une), et un porteur du rôle Manager ne peut pas être nommé TL, même en MP ;
+  - une variable Railway mal saisie (« 0,25 », « 3 000 ») ne bloque jamais le démarrage : lue à la française, sinon valeur par
+    défaut et avertissement dans `!tl liste`.
 
 Le module ne connaît ni bot_discord ni paie_clics : la mesure (`payees`, lot L11), la preuve de publication (`reels_vus`) et les
 jours non relevés sont injectés, comme le régime et les exclus (`configurer`).
@@ -34,24 +39,60 @@ jours non relevés sont injectés, comme le régime et les exclus (`configurer`)
 
 import logging
 import os
+import re
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 
 import discord
 
 journal = logging.getLogger("equipes_tl")
+AVERTISSEMENTS = []                                                     # variables Railway illisibles : montrées dans `!tl liste`
 
-TL_PRIME_VA_USD = float(os.environ.get("TL_PRIME_VA_USD", "10") or 10)
-TL_SEUIL_VA = int(os.environ.get("TL_SEUIL_VA", "500") or 500)
-MANAGER_PRIME_USD = float(os.environ.get("MANAGER_PRIME_USD", "75") or 75)
-MANAGER_SEUIL_EQUIPE = int(os.environ.get("MANAGER_SEUIL_EQUIPE", "3000") or 3000)
-EQUIPE_COMPTE_TL = os.environ.get("EQUIPE_COMPTE_TL", "0").strip() == "1"        # 0 : le TL hors du total de son équipe
-PRIME_PREUVE_REELS = int(os.environ.get("PRIME_PREUVE_REELS", "10") or 10)        # Reels vus sur la période, sinon « à vérifier »
-# Première période primée (son premier jour, AAAA-MM-JJ) ; vide = rien de payé. 10/10 : la grille est annoncée en cours de
-# période, donc la première prime porte sur le 20/10 → 04/11, payée le 05/11.
+
+def _nombre(nom: str, defaut, type_=float, part: bool = False):
+    """Une variable Railway numérique, lue à la française, sans JAMAIS lever d'exception à l'import (revue L10, R4 : une erreur
+    ici arrêterait tout le bot) : « 0,25 », « 7,5 », « 3 000 », « 25 % » sont lus ; illisible ou négatif → la valeur par défaut,
+    avec un avertissement au journal et dans `!tl liste`. `part` : une part (0 à 1), « 25 » se lit 25 %."""
+    brut = str(os.environ.get(nom, "") or "")
+    s = "".join(brut.split())                                           # espaces, insécables et fines insécables comprises
+    if not s:
+        return defaut
+    try:
+        pourcent = s.endswith("%")
+        s = s.rstrip("%")
+        if type_ is int and re.fullmatch(r"\d{1,3}([.,]\d{3})+", s):  # « 3.000 » ou « 3,000 » : séparateur de milliers
+            s = re.sub(r"[.,]", "", s)
+        v = float(s.replace(",", "."))
+        if pourcent or (part and v > 1):
+            v /= 100
+        if v != v or v in (float("inf"), float("-inf")) or v < 0 or (type_ is int and v != int(v)):
+            raise ValueError(brut)
+        return int(v) if type_ is int else v
+    except (ValueError, OverflowError):
+        texte = f"{nom} illisible (« {brut} ») : {defaut} gardé"
+        journal.warning(texte)
+        AVERTISSEMENTS.append(texte)
+        return defaut
+
+
+def _oui(nom: str, defaut: str = "0") -> bool:
+    return str(os.environ.get(nom, defaut) or defaut).strip().lower() in ("1", "oui", "vrai", "true", "yes")
+
+
+TL_PRIME_VA_USD = _nombre("TL_PRIME_VA_USD", 10.0)
+TL_SEUIL_VA = _nombre("TL_SEUIL_VA", 500, int)
+MANAGER_PRIME_USD = _nombre("MANAGER_PRIME_USD", 75.0)
+MANAGER_SEUIL_EQUIPE = _nombre("MANAGER_SEUIL_EQUIPE", 3000, int)
+EQUIPE_COMPTE_TL = _oui("EQUIPE_COMPTE_TL")                             # 0 : le TL hors du total de son équipe
+# Revue L10 (R2) : un manager qui clippe lui-même sur une créatrice qu'il manage reste VA de cette équipe (le TL est primé sur
+# lui), mais ses visites ne comptent pas dans le total qui le paie (sinon 2 050 à lui + 1 000 d'équipe = 75 $ sur sa production).
+MANAGER_COMPTE = _oui("MANAGER_COMPTE")
+PRIME_PREUVE_REELS = _nombre("PRIME_PREUVE_REELS", 10, int)             # Reels vus sur la période, sinon « à vérifier »
+# Première période primée (son premier jour, AAAA-MM-JJ ou JJ/MM/AAAA) ; vide = rien de payé. 10/10 : la grille est annoncée en
+# cours de période, donc la première prime porte sur le 20/10 → 04/11, payée le 05/11.
 PRIMES_EQUIPES_DEPUIS = os.environ.get("PRIMES_EQUIPES_DEPUIS", "2026-10-20").strip()
-PRIME_ECART_NORME = float(os.environ.get("PRIME_ECART_NORME", "0.25") or 0.25)    # écart à la norme (25 points) jugé anormal
-PRIME_VOLUME_MIN = int(os.environ.get("PRIME_VOLUME_MIN", "100") or 100)          # en dessous, ni part ni Reels ne sont jugés
+PRIME_ECART_NORME = _nombre("PRIME_ECART_NORME", 0.25, part=True)       # écart à la norme (25 points) jugé anormal
+PRIME_VOLUME_MIN = _nombre("PRIME_VOLUME_MIN", 100, int)                # en dessous, ni part ni Reels ne sont jugés
 ROLE_TL_NOM = os.environ.get("ROLE_TL_NOM", "Team Leader").strip() or "Team Leader"
 LIMITE_MESSAGE = 1900
 
@@ -246,21 +287,43 @@ def cle_de_periode(fin) -> str:
     return (_jour(fin) + timedelta(days=1)).isoformat()
 
 
+def _date_depuis(texte=None):
+    """PRIMES_EQUIPES_DEPUIS lue : « 2026-10-20 » ou, à la française, « 20/10/2026 » (revue L10, R5) ; None si vide ou illisible."""
+    s = str(PRIMES_EQUIPES_DEPUIS if texte is None else texte or "").strip()
+    if not s:
+        return None
+    m = re.fullmatch(r"(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})", s)
+    if m:
+        try:
+            return date(int(m[3]), int(m[2]), int(m[1]))
+        except ValueError:
+            return None
+    return _jour(s) if re.fullmatch(r"\d{4}-\d{2}-\d{2}([T ].*)?", s) else None
+
+
 def periode_primee(debut) -> bool:
     """Vrai si la période qui commence le `debut` ouvre droit aux primes d'équipe (PRIMES_EQUIPES_DEPUIS ; vide = jamais)."""
-    depuis, d0 = _jour(PRIMES_EQUIPES_DEPUIS), _jour(debut)
-    return bool(PRIMES_EQUIPES_DEPUIS) and depuis is not None and d0 is not None and d0 >= depuis
+    depuis, d0 = _date_depuis(), _jour(debut)
+    return depuis is not None and d0 is not None and d0 >= depuis
 
 
 def _texte_premiere_periode() -> str:
-    depuis = _jour(PRIMES_EQUIPES_DEPUIS)
-    if not PRIMES_EQUIPES_DEPUIS or depuis is None:
+    depuis = _date_depuis()
+    if not PRIMES_EQUIPES_DEPUIS.strip():
         return "Primes d'équipe : aucune période primée pour l'instant (PRIMES_EQUIPES_DEPUIS vide)."
+    if depuis is None:
+        return (f"⚠️ PRIMES_EQUIPES_DEPUIS illisible (« {PRIMES_EQUIPES_DEPUIS} ») : attendu AAAA-MM-JJ, par exemple 2026-10-20. "
+                "Aucune prime d'équipe n'est calculée tant qu'elle l'est.")
     d0, f0 = periode_de(depuis)
     if d0 < depuis:                                                     # une date en milieu de période : la suivante
         d0, f0 = periode_de(f0 + timedelta(days=1))
     return (f"Primes d'équipe : à partir de la période du {d0.strftime('%d/%m')} → {f0.strftime('%d/%m')}, "
             f"payée le {(f0 + timedelta(days=1)).strftime('%d/%m')}.")
+
+
+if PRIMES_EQUIPES_DEPUIS and _date_depuis() is None:                    # dit au chargement (jamais une exception), puis dans
+    journal.warning("PRIMES_EQUIPES_DEPUIS illisible (« %s ») : attendu AAAA-MM-JJ, aucune prime calculée",   # `!tl liste` et
+                    PRIMES_EQUIPES_DEPUIS)                                                                    # `!tl` (texte ci-dessus)
 
 
 # ------------------------------------------------------------------ composition des équipes
@@ -293,31 +356,55 @@ def _present(fiche: dict, fin_iso: str) -> bool:
     return not fin_iso or str(fiche.get("date") or "")[:10] <= fin_iso
 
 
+def _sortis_a_la_fin(fiches: dict, registre: list, fin_iso: str) -> dict:
+    """{uid : entrée de sortis.json} des membres sortis APRÈS `fin_iso` et signés avant : ils étaient au registre ce jour-là. Une
+    fiche présente à la fin fait foi ; une fiche neuve d'après la fin (ancien re-onboardé, revue L10 R6) ne masque plus son
+    entrée. Plusieurs entrées pour un uid : la première qui couvre la fin."""
+    out = {}
+    if not fin_iso:
+        return out
+    for s in registre or []:
+        uid = str(s.get("uid") or "") if isinstance(s, dict) else ""
+        if not uid or uid in out or (isinstance(fiches.get(uid), dict) and _present(fiches[uid], fin_iso)):
+            continue
+        if str(s.get("signe_le") or "")[:10] <= fin_iso < str(s.get("date") or "")[:10]:
+            out[uid] = s
+    return out
+
+
 def composition(fiches=None, registre=None, fin=None) -> dict:
     """{créatrice : {"tl": uid | None, "vas": [uid…], "manager": uid | None}} telle qu'au jour `fin` (aujourd'hui si None).
 
-    `fiches` : equipes.json (lu si None). `registre` : la trace des sorties (sortis.json, lue si None) : un VA sorti APRÈS `fin`
-    était encore au registre ce jour-là, il compte pour sa période. Un VA : fiche['creatrice'], au clic, TL d'aucune équipe, pas
-    exclu, pas admin, signé au plus tard le jour `fin`."""
+    `fiches` : equipes.json (lu si None). `registre` : la trace des sorties (sortis.json, lue si None) : un membre sorti APRÈS
+    `fin` était encore au registre ce jour-là, il compte pour sa période, même revenu depuis avec une fiche neuve ; son mandat de TL
+    ou de manager est relu dans son entrée (« chef_passe », « manager_passe », recopiés par `fin_de_mandats` à la sortie). Un VA :
+    fiche['creatrice'], au clic, TL d'aucune équipe, pas exclu, pas admin, signé au plus tard le jour `fin`."""
     fiches = _fiches() if fiches is None else (fiches or {})
     registre = _sortis() if registre is None else (registre or [])
     fin_d = _jour(fin)
     fin_iso = fin_d.isoformat() if fin_d else ""
     connues = creatrices_connues(fiches)
     equipes = {}
+    sortis = _sortis_a_la_fin(fiches, registre, fin_iso)
 
     def equipe(c):
         k = _n(c)
         connues.setdefault(k, _affiche(c))
         return equipes.setdefault(k, {"tl": None, "vas": [], "manager": None})
 
+    def presents():
+        """(uid, fiche ou entrée de sortie) de tous ceux qui étaient au registre à la fin : les fiches d'abord."""
+        for uid, f in fiches.items():
+            if isinstance(f, dict) and _present(f, fin_iso):
+                yield str(uid), f
+        yield from sortis.items()
+
     tls = {}
     candidats = []
-    for uid, f in fiches.items():
-        if isinstance(f, dict) and _present(f, fin_iso):
-            c = _mandat_tl(f, fin_iso)
-            if c:
-                candidats.append((str(f.get("chef_depuis") or ""), str(uid), c))
+    for uid, f in presents():
+        c = _mandat_tl(f, fin_iso)
+        if c:
+            candidats.append((str(f.get("chef_depuis") or ""), uid, c))
     for _, uid, c in sorted(candidats):                                 # deux TL sur une créatrice (fiche retouchée) : le plus ancien
         tls[uid] = _n(c)
         e = equipe(c)
@@ -326,34 +413,18 @@ def composition(fiches=None, registre=None, fin=None) -> dict:
         else:
             journal.warning("Deux TL pour %s : %s gardé, %s ignoré", c, e["tl"], uid)
     admins = _admins()
-    vus = set()
-    for uid, f in fiches.items():
-        uid = str(uid)
-        if not isinstance(f, dict) or uid in tls or uid in admins or not _present(f, fin_iso):
+    for uid, f in presents():
+        if uid in tls or uid in admins:
             continue
         c = str(f.get("creatrice") or "").strip()
-        if not c or _exclu(uid, f) or _regime(uid) != "clic":
+        if not c or _exclu(uid, f) or _regime(uid) != "clic":         # une entrée de sortie porte « nom » : lu par nom_de
             continue
         equipe(c)["vas"].append(uid)
-        vus.add(uid)
-    if fin_iso:
-        for s in registre:
-            uid = str((s or {}).get("uid") or "") if isinstance(s, dict) else ""
-            if not uid or uid in fiches or uid in tls or uid in vus or uid in admins:
-                continue
-            if not (str(s.get("signe_le") or "")[:10] <= fin_iso < str(s.get("date") or "")[:10]):
-                continue
-            c = str(s.get("creatrice") or "").strip()
-            if not c or _exclu(uid, {"nom": s.get("nom")}) or _regime(uid) != "clic":
-                continue
-            equipe(c)["vas"].append(uid)
-            vus.add(uid)
-    for uid, f in fiches.items():
-        if isinstance(f, dict) and _present(f, fin_iso):
-            for c in _mandat_manager(f, fin_iso):
-                e = equipe(c)
-                if e["manager"] is None:
-                    e["manager"] = str(uid)
+    for uid, f in presents():
+        for c in _mandat_manager(f, fin_iso):
+            e = equipe(c)
+            if e["manager"] is None:
+                e["manager"] = uid
     return {connues[k]: equipes[k] for k in sorted(equipes, key=lambda k: connues[k])}
 
 
@@ -446,40 +517,45 @@ def calculer(d: dict, debut, fin, payees=None, reels_vus=None, jours_manquants=N
     manque = jours_manquants or _jours_manquants_local
     norme = _norme(d, debut, fin)
     n_jours = max(1, (min(fin, max(debut, _aujourdhui() - timedelta(days=1))) - debut).days + 1)
+    primee = periode_primee(debut)
     out = {"debut": debut.isoformat(), "fin": fin.isoformat(), "equipes": {}, "norme": norme,
-           "reels_branches": reels_vus is not None}
+           "reels_branches": reels_vus is not None, "primee": primee}
     for c, e in composition(fiches, registre, fin).items():
         vas = []
         for uid in e["vas"]:
             p = _entier(_appel(mesure, d, uid, debut, fin, defaut=0))
             j = _entier(_appel(manque, d, uid, debut, fin, defaut=0))
             r = _appel(reels_vus, uid, debut, fin) if (reels_vus and p >= PRIME_VOLUME_MIN) else None
+            # Revue L10 (R2) : le manager de l'équipe qui y clippe reste VA (le TL est primé sur lui), hors du total qui le paie
+            hors_total = uid == e["manager"] and not MANAGER_COMPTE
             vas.append({"uid": uid, "nom": nom_de(uid), "payees": p, "manquants": j,
                         "projete": p + (p * j / max(1, n_jours - j) if j else 0),
                         "reels": None if r is None else _entier(r), "juge": p >= PRIME_VOLUME_MIN,
-                        "anomalie": _anomalie(_parts(d, uid, debut, fin), norme), "prime": p >= TL_SEUIL_VA})
+                        "anomalie": _anomalie(_parts(d, uid, debut, fin), norme), "prime": p >= TL_SEUIL_VA,
+                        "hors_total": hors_total})
         vas.sort(key=lambda v: (-v["payees"], v["nom"]))
         tl_p, tl_j = None, 0
         if e["tl"]:
             tl_p = _entier(_appel(mesure, d, e["tl"], debut, fin, defaut=0))
             tl_j = _entier(_appel(manque, d, e["tl"], debut, fin, defaut=0)) if EQUIPE_COMPTE_TL else 0
         part_tl = (tl_p or 0) if EQUIPE_COMPTE_TL else 0                # EQUIPE_COMPTE_TL=0 : le TL hors du total
-        total = sum(v["payees"] for v in vas) + part_tl
-        projete = sum(v["projete"] for v in vas) + part_tl + (part_tl * tl_j / max(1, n_jours - tl_j) if tl_j else 0)
+        comptes = [v for v in vas if not v["hors_total"]]
+        total = sum(v["payees"] for v in comptes) + part_tl
+        projete = sum(v["projete"] for v in comptes) + part_tl + (part_tl * tl_j / max(1, n_jours - tl_j) if tl_j else 0)
         out["equipes"][c] = {"tl": e["tl"], "tl_nom": nom_de(e["tl"]) if e["tl"] else "", "tl_payees": tl_p,
                              "tl_manquants": tl_j, "manager": e["manager"],
                              "manager_nom": nom_de(e["manager"]) if e["manager"] else "",
                              "vas": vas, "total": total, "projete": projete,
-                             "va_primes": sum(1 for v in vas if v["prime"])}
+                             "va_primes": sum(1 for v in vas if v["prime"]), "primee": primee}
     return out
 
 
-def _raisons(e: dict, juges: list, reels_branches: bool) -> list:
+def _raisons(e: dict, juges: list, reels_branches: bool, pour_manager: bool = False) -> list:
     """Pourquoi une prime est « à vérifier » : jours non relevés dans l'équipe, preuve de publication ou part de visites hors norme
-    chez les VA `juges`."""
+    chez les VA `juges`. `pour_manager` : le manager lui-même, hors du total qui le paie, n'est pas compté."""
     r = []
-    manq = [v for v in e["vas"] if v["manquants"]] + ([{"nom": e["tl_nom"] + " (TL)", "manquants": e["tl_manquants"]}]
-                                                      if EQUIPE_COMPTE_TL and e.get("tl_manquants") else [])
+    manq = [v for v in e["vas"] if v["manquants"] and not (pour_manager and v.get("hors_total"))] + (
+        [{"nom": e["tl_nom"] + " (TL)", "manquants": e["tl_manquants"]}] if EQUIPE_COMPTE_TL and e.get("tl_manquants") else [])
     if manq:
         r.append("jours non relevés : " + ", ".join(f"{v['nom']} ({v['manquants']} j)" for v in manq))
     for v in juges:
@@ -494,17 +570,27 @@ def _raisons(e: dict, juges: list, reels_branches: bool) -> list:
     return r
 
 
+CONTROLE_ABONNES_TL = "contrôle abonnés (Infloww / MyPulse) : 5 par VA primé"
+
+
+def _controle_abonnes_manager() -> str:
+    return f"contrôle abonnés (Infloww / MyPulse) : 5 par VA de l'équipe à {_fmt(PRIME_VOLUME_MIN)} visites ou plus"
+
+
 def lignes_primes(calcul: dict) -> list:
     """[(uid, montant, détail, à_vérifier)] : une entrée par bénéficiaire (TL et manager fusionnés), montant décroissant.
-    Montant 0 = une note « à vérifier » seulement (un VA ou une équipe que des jours non relevés pourraient faire passer le
-    seuil) : rien à virer."""
+
+    Amendement E (revue L10, R9) : TOUTE ligne avec un montant est « à vérifier » (à_vérifier vrai), car Gaëtan contrôle à la main
+    5 abonnés par VA primé avant le virement. Le détail sépare le contrôle de routine (« contrôle abonnés … ») d'une anomalie
+    (« ⚠️ à vérifier : … », jour non relevé, preuve, part hors norme). Montant 0 = une note « à vérifier » seulement (un VA ou une
+    équipe que des jours non relevés pourraient faire passer le seuil) : rien à virer."""
     par_uid = {}
 
     def ajouter(uid, montant, detail, verif):
         x = par_uid.setdefault(uid, [0.0, [], False])
         x[0] += montant
         x[1].append(detail)
-        x[2] = x[2] or verif
+        x[2] = x[2] or verif or montant > 0
 
     reels_branches = calcul.get("reels_branches", True)
     for c, e in calcul["equipes"].items():
@@ -515,7 +601,7 @@ def lignes_primes(calcul: dict) -> list:
             if primes:
                 detail = (f"+ {_usd(montant)} équipe {c} ({len(primes)} VA à {_fmt(TL_SEUIL_VA)} ou plus : "
                           + ", ".join(f"{v['nom']} {_fmt(v['payees'])}" for v in primes)
-                          + ") · abonnés à vérifier (Infloww / MyPulse)")
+                          + ") · " + CONTROLE_ABONNES_TL)
             else:
                 portee = [v for v in e["vas"] if v["manquants"] and v["projete"] >= TL_SEUIL_VA]
                 detail = (f"0 $ équipe {c} pour l'instant : " + ", ".join(
@@ -533,11 +619,13 @@ def lignes_primes(calcul: dict) -> list:
                 pourquoi = "pas de TL" if not e["tl"] else "il en est le TL"
                 ajouter(m, 0.0, f"0 $ manager {c} ({_fmt(e['total'])} ; {pourquoi} : pas de prime manager)", False)
             continue
-        juges = [v for v in e["vas"] if v["juge"]]
-        raisons = _raisons(e, juges, reels_branches)
+        juges = [v for v in e["vas"] if v["juge"] and not v.get("hors_total")]
+        raisons = _raisons(e, juges, reels_branches, pour_manager=True)
         if e["total"] >= MANAGER_SEUIL_EQUIPE:
+            lui = any(v.get("hors_total") for v in e["vas"])
             detail = (f"+ {_usd(MANAGER_PRIME_USD)} manager (équipe {c} à {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)}, "
-                      f"TL {'compris' if EQUIPE_COMPTE_TL else 'non compris'})")
+                      f"TL {'compris' if EQUIPE_COMPTE_TL else 'non compris'}" + (", ses visites non comprises" if lui else "")
+                      + ") · " + _controle_abonnes_manager())
             montant = MANAGER_PRIME_USD
         elif raisons and e["projete"] >= MANAGER_SEUIL_EQUIPE:
             detail = f"0 $ manager {c} pour l'instant : {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)} avec des jours non relevés"
@@ -577,15 +665,19 @@ def a_figer(d: dict, debut, fin, cle_periode: str = "", payees=None, reels_vus=N
             "lignes": [list(l) for l in lignes]}
 
 
-def resume_equipe(c: str, e: dict) -> str:
+def resume_equipe(c: str, e: dict, primee=None) -> str:
     """Une ligne par équipe (`!tl liste`, section ÉQUIPES du Dashboard) : « Chloé · TL Ana · VA à 500 ou plus 2/6 · équipe
-    2 340 / 3 000 · primes 20 $ · 1 jour non relevé »."""
+    2 340 / 3 000 · primes 20 $ · 1 jour non relevé ». Période non primée (avant PRIMES_EQUIPES_DEPUIS, revue L10 R1) : « pas de
+    prime sur cette période » à la place du montant, jamais une somme qui ne sera pas payée. `primee` : sinon lu dans `e` (posé
+    par `calculer`) ; absent des deux, la période est tenue pour non primée."""
+    primee = bool(e.get("primee", False) if primee is None else primee)
     prime_tl = TL_PRIME_VA_USD * e["va_primes"] if e["tl"] else 0
     prime_m = MANAGER_PRIME_USD if (e["manager"] and e["tl"] and e["manager"] != e["tl"]
                                     and e["total"] >= MANAGER_SEUIL_EQUIPE) else 0
     manq = sum(v["manquants"] for v in e["vas"])
     return (f"{c} · TL {e['tl_nom'] or 'aucun'} · VA à {_fmt(TL_SEUIL_VA)} ou plus {e['va_primes']}/{len(e['vas'])} · "
-            f"équipe {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)} · primes {_usd(prime_tl + prime_m)}"
+            f"équipe {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)} · "
+            + (f"primes {_usd(prime_tl + prime_m)}" if primee else "pas de prime sur cette période")
             + (f" · {manq} jour(s) non relevé(s)" if manq else ""))
 
 
@@ -594,9 +686,14 @@ def _role_tl(guild):
     return next((r for r in getattr(guild, "roles", None) or [] if _n(getattr(r, "name", "")) == _n(ROLE_TL_NOM)), None)
 
 
+def _permissions(role) -> int:
+    return _entier(getattr(getattr(role, "permissions", None), "value", 0))
+
+
 async def assurer_role_tl(guild):
     """Le rôle « Team Leader » : créé s'il manque, SANS AUCUNE permission (une étiquette) ; s'il existe avec des permissions,
-    elles sont retirées. None si le serveur est absent ou si le bot n'a pas le droit de gérer les rôles."""
+    le bot les retire. None si le serveur est absent ou si le bot n'a pas le droit de créer le rôle. Le rôle rendu peut encore
+    porter des permissions si Discord a refusé de les retirer : `_poser_role` ne le pose alors pas (revue L10, R3)."""
     if guild is None:
         return None
     role = _role_tl(guild)
@@ -604,20 +701,30 @@ async def assurer_role_tl(guild):
         if role is None:
             role = await guild.create_role(name=ROLE_TL_NOM, permissions=discord.Permissions.none(), hoist=False,
                                            mentionable=False, reason="Rôle Team Leader : une étiquette, sans permission (10/10)")
-        elif getattr(getattr(role, "permissions", None), "value", 0):
-            await role.edit(permissions=discord.Permissions.none(), reason="Un Team Leader n'a aucune permission (10/10)")
+        elif _permissions(role):
+            vide = await role.edit(permissions=discord.Permissions.none(), reason="Un Team Leader n'a aucune permission (10/10)")
+            if vide is not None:                                        # discord.py rend le rôle modifié, l'ancien objet ne bouge pas
+                role = vide
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Rôle %s : %s", ROLE_TL_NOM, erreur)
     return role
 
 
 async def _poser_role(membre, guild, poser: bool, raison: str) -> str:
-    """Pose ou retire le rôle Team Leader ; '' si fait, sinon la ligne d'avertissement."""
-    if membre is None or guild is None:
+    """Pose ou retire le rôle Team Leader ; '' si fait, sinon la ligne d'avertissement. Jamais posé s'il porte encore une
+    permission (amendement E : un TL n'a aucune commande staff) ; sans serveur (commande en MP, membre introuvable), dit."""
+    if membre is None:
         return ""
+    if guild is None or not hasattr(membre, "add_roles"):              # un discord.User (MP) n'a ni serveur ni rôles
+        nom = getattr(membre, "display_name", "")
+        return (f"⚠️ Rôle {ROLE_TL_NOM} non posé (commande en MP) : refais la commande dans le serveur." if poser else
+                f"⚠️ Rôle {ROLE_TL_NOM} non retiré à {nom} (commande en MP) : retire-le-lui à la main.")
     role = await assurer_role_tl(guild) if poser else _role_tl(guild)
     if role is None:
         return f"⚠️ Rôle {ROLE_TL_NOM} introuvable et non créé (droit « Gérer les rôles » du bot)." if poser else ""
+    if poser and _permissions(role):
+        return (f"⚠️ Rôle {ROLE_TL_NOM} encore porteur de permissions, non posé : vide-le à la main (Réglages du serveur → "
+                f"Rôles → {ROLE_TL_NOM} → Permissions → tout décocher), puis refais la commande.")
     try:
         if poser and role not in (getattr(membre, "roles", None) or []):
             await membre.add_roles(role, reason=raison)
@@ -641,6 +748,45 @@ def _fin_mandat(fiche: dict, cle: str, jour: str):
         fiche.pop(k, None)
 
 
+def mandats_a_garder(fiche: dict, jour) -> dict:
+    """Les mandats d'une fiche qui sort, fermés le `jour` (exclu) : {"chef_passe": […], "manager_passe": […]}, à recopier dans
+    son entrée de sortis.json. `composition` les y relit : un TL sorti après la fin d'une période reste le TL de cette période
+    (revue L10, R6), au lieu de devenir le VA de sa propre créatrice. La fiche donnée n'est pas modifiée."""
+    f = {k: (list(v) if isinstance(v, list) else v) for k, v in (fiche or {}).items()
+         if k in ("chef", "chef_depuis", "chef_passe", "manager_de", "manager_depuis", "manager_passe")}
+    jour = (_jour(jour) or _aujourdhui()).isoformat()
+    _fin_mandat(f, "chef", jour)
+    _fin_mandat(f, "manager", jour)
+    return {k: f[k] for k in ("chef_passe", "manager_passe") if f.get(k)}
+
+
+async def fin_de_mandats(uid, guild=None, fiche=None, jour=None) -> dict:
+    """À appeler par `!sortie` (sortir_membre), le départ du serveur (on_member_remove) et le passage hors clipping AVANT
+    d'effacer la fiche d'equipes.json (lot ultérieur, revue L10 R6 et R11) : retire le rôle Team Leader et rend les mandats
+    fermés à recopier dans l'entrée de sortis.json (`sortis.append({…, **await equipes_tl.fin_de_mandats(uid, g, fiche)})`).
+    Ne lève jamais : une erreur Discord est journalisée."""
+    uid = str(uid)
+    fiche = fiche if fiche is not None else (_fiches().get(uid) or {})
+    garde = mandats_a_garder(fiche, jour)
+    try:
+        m = _membre(uid)
+        if m is not None:
+            avert = await _poser_role(m, guild if guild is not None else getattr(m, "guild", None), False, "Sortie de l'équipe")
+            if avert:
+                journal.warning("Sortie de %s : %s", uid, avert)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Sortie de %s : rôle %s non retiré (%s)", uid, ROLE_TL_NOM, erreur)
+    return garde
+
+
+def _resoudre(membre):
+    """Le membre du SERVEUR derrière une mention (revue L10, R8) : en MP, discord.py met un discord.User dans message.mentions,
+    sans rôles ni serveur ; le refus « rôle Manager » et la pose du rôle Team Leader ont besoin du membre."""
+    if membre is None:
+        return None
+    return _membre(getattr(membre, "id", "")) or membre
+
+
 def _refus_personne(membre, fiches: dict, role: str) -> str:
     if membre is None:
         return "❌ Mentionne la personne : `!tl Chloé @X`." if role == "tl" else "❌ Mentionne la personne : `!manager @X Chloé Sarah`."
@@ -656,7 +802,9 @@ def _refus_personne(membre, fiches: dict, role: str) -> str:
 
 async def nommer_tl(membre, creatrice: str, par: str = "", guild=None) -> list:
     """`!tl Chloé @X` : X devient TL de Chloé (le TL précédent de Chloé et l'ancienne équipe de X sont rangés dans l'historique).
-    Refusé si X porte le rôle Manager : un TL n'a jamais de commande staff. Renvoie les lignes de la réponse."""
+    Refusé si X porte le rôle Manager : un TL n'a jamais de commande staff. Déjà TL de cette créatrice : rien ne change, mais le
+    rôle est reposé s'il manque (après une commande en MP ou un rôle vidé à la main). Renvoie les lignes de la réponse."""
+    membre = _resoudre(membre)
     fiches = _fiches()
     refus = _refus_personne(membre, fiches, "tl")
     if refus:
@@ -670,9 +818,17 @@ async def nommer_tl(membre, creatrice: str, par: str = "", guild=None) -> list:
         return [f"❌ Créatrice inconnue : « {creatrice} ». Connues : {', '.join(sorted(connues.values())) or 'aucune'}."]
     uid, jour = str(membre.id), _aujourdhui().isoformat()
     fiche = fiches[uid]
+    guild = guild if guild is not None else getattr(membre, "guild", None)
     if _n(fiche.get("chef")) == _n(canon):
         depuis = _jour(fiche.get("chef_depuis"))
-        return [f"ℹ️ {membre.display_name} est déjà TL de {canon} depuis le {depuis.strftime('%d/%m') if depuis else '?'}."]
+        lignes = [f"ℹ️ {membre.display_name} est déjà TL de {canon} depuis le {depuis.strftime('%d/%m') if depuis else '?'}."]
+        manquait = guild is not None and _role_tl(guild) not in (getattr(membre, "roles", None) or [])
+        avert = await _poser_role(membre, guild, True, f"TL de {canon}")
+        if avert:
+            lignes.append(avert)
+        elif manquait:
+            lignes.append(f"Rôle {ROLE_TL_NOM} reposé.")
+        return lignes
     lignes, anciens = [], []
     if fiche.get("chef"):
         lignes.append(f"{membre.display_name} quitte l'équipe de {fiche['chef']} (un TL n'a qu'une équipe).")
@@ -684,7 +840,6 @@ async def nommer_tl(membre, creatrice: str, par: str = "", guild=None) -> list:
             anciens.append(autre)
     fiche.update({"chef": canon, "chef_depuis": jour, "chef_par": str(par or "")})
     _ecrire_fiches(fiches)                                              # lu et écrit sans attente : rien ne s'intercale
-    guild = guild if guild is not None else getattr(membre, "guild", None)
     for autre in anciens:
         avert = await _poser_role(_membre(autre), guild, False, f"Plus TL de {canon}")
         if avert:
@@ -729,8 +884,10 @@ async def retirer_tl(creatrice: str, par: str = "", guild=None) -> list:
 
 
 async def nommer_manager(membre, creatrices: list, par: str = "") -> list:
-    """`!manager @X Chloé Sarah` : X a la charge de ces équipes (75 $ par équipe à 3 000 ou plus, sauf celle dont il est TL) ;
+    """`!manager @X Chloé Sarah` : X a la charge de CES équipes, et de celles-là seulement (la liste REMPLACE la précédente : une
+    équipe qu'il avait et qui n'y est plus est dite, revue L10 R7) ; 75 $ par équipe à 3 000 ou plus, sauf celle dont il est TL.
     `!manager @X aucun` : plus aucune. Une équipe n'a qu'un manager : elle quitte l'ancien. Aucun rôle Discord n'est donné."""
+    membre = _resoudre(membre)
     fiches = _fiches()
     refus = _refus_personne(membre, fiches, "manager")
     if refus:
@@ -748,9 +905,13 @@ async def nommer_manager(membre, creatrices: list, par: str = "") -> list:
     if inconnues:
         return [f"❌ Créatrice(s) inconnue(s) : {', '.join(inconnues)}. Connues : {', '.join(sorted(connues.values())) or 'aucune'}."]
     canons = list(dict.fromkeys(connues[_n(c)] for c in creatrices))
-    if [_n(c) for c in fiche.get("manager_de") or []] == [_n(c) for c in canons]:
+    if sorted(_n(c) for c in fiche.get("manager_de") or []) == sorted(_n(c) for c in canons):
         return [f"ℹ️ {membre.display_name} est déjà manager de {', '.join(canons)}."]
+    perdues = [c for c in fiche.get("manager_de") or [] if _n(c) not in {_n(x) for x in canons}]
     lignes = []
+    if perdues:
+        lignes.append(f"{membre.display_name} n'est plus manager de {', '.join(perdues)} : la liste remplace l'ancienne. Pour les "
+                      f"garder, tape `!manager @{membre.display_name} {' '.join(list(canons) + perdues)}`.")
     for autre, f in fiches.items():
         if autre == uid or not isinstance(f, dict) or not f.get("manager_de"):
             continue
@@ -771,6 +932,13 @@ async def nommer_manager(membre, creatrices: list, par: str = "") -> list:
     tl_de = _n(fiche.get("chef"))
     if tl_de and tl_de in {_n(c) for c in canons}:
         lignes.append(f"{membre.display_name} est TL de {fiche['chef']} : il ne touchera pas les {_usd(MANAGER_PRIME_USD)} de cette équipe.")
+    sa_c = _n(fiche.get("creatrice"))
+    if not tl_de and sa_c and sa_c in {_n(c) for c in canons}:
+        c_aff = next(c for c in canons if _n(c) == sa_c)
+        lignes.append(f"{membre.display_name} clippe sur {c_aff} : ses visites "
+                      + (f"comptent dans les {_fmt(MANAGER_SEUIL_EQUIPE)} de {c_aff} (MANAGER_COMPTE=1)." if MANAGER_COMPTE else
+                         f"ne comptent pas dans les {_fmt(MANAGER_SEUIL_EQUIPE)} de {c_aff}, pour qu'il ne soit pas primé sur sa "
+                         f"propre production. Elles restent payées au clic."))
     if _a_role_manager(membre):
         lignes.append(f"⚠️ {membre.display_name} a le rôle Manager (staff : `!lien forcer`, `!wallet`, tous les codes). Payé sur le "
                       "total de ses équipes, il pourrait y déplacer des liens : retire-lui ce rôle.")
@@ -793,22 +961,27 @@ def texte_liste(calcul: dict, en_cours: bool) -> list:
         blocs.append("Pas de prime d'équipe sur cette période. " + _texte_premiere_periode())
     if not calcul["equipes"]:
         blocs.append("Aucune équipe : personne n'a de créatrice au registre.")
+    sans_prime = " (pas de prime sur cette période)"                    # revue L10 (R1) : jamais un montant qui ne sera pas payé
     for c, e in calcul["equipes"].items():
         tete = f"**{c}** · TL : {e['tl_nom'] or 'aucun (`!tl ' + c + ' @X`)'} · manager : {e['manager_nom'] or 'aucun'}"
         b = [tete]
         if e["tl"]:
-            b.append(f"{e['va_primes']}/{len(e['vas'])} VA à {_fmt(TL_SEUIL_VA)} ou plus → {_usd(TL_PRIME_VA_USD * e['va_primes'])} au TL"
+            b.append(f"{e['va_primes']}/{len(e['vas'])} VA à {_fmt(TL_SEUIL_VA)} ou plus"
+                     + (f" → {_usd(TL_PRIME_VA_USD * e['va_primes'])} au TL" if primee else sans_prime)
                      + (f" ; ses visites : {_fmt(e['tl_payees'] or 0)}" if e["tl_payees"] is not None else ""))
         else:
             b.append(f"{len(e['vas'])} VA, pas de TL : pas de prime TL")
         if e["manager"] and e["tl"] and e["manager"] != e["tl"]:
             gagne = e["total"] >= MANAGER_SEUIL_EQUIPE
-            b.append(f"Équipe : {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)} → {_usd(MANAGER_PRIME_USD if gagne else 0)} au manager")
+            b.append(f"Équipe : {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)}"
+                     + (f" → {_usd(MANAGER_PRIME_USD if gagne else 0)} au manager" if primee else sans_prime))
         else:
             b.append(f"Équipe : {_fmt(e['total'])} / {_fmt(MANAGER_SEUIL_EQUIPE)}"
                      + (" (le manager en est le TL : pas de prime manager)" if e["manager"] and e["manager"] == e["tl"] else ""))
         if e["vas"]:
-            b.append("VA : " + " · ".join(f"{v['nom']} {_fmt(v['payees'])}" + (" ✓" if v["prime"] else "") for v in e["vas"]))
+            b.append("VA : " + " · ".join(f"{v['nom']} {_fmt(v['payees'])}" + (" ✓" if v["prime"] else "")
+                                          + (f" (manager : hors des {_fmt(MANAGER_SEUIL_EQUIPE)})" if v.get("hors_total") else "")
+                                          for v in e["vas"]))
         manq = [v for v in e["vas"] if v["manquants"]]
         if manq:
             b.append("⚠️ Jours non relevés : " + ", ".join(f"{v['nom']} ({v['manquants']} j)" for v in manq))
@@ -819,11 +992,38 @@ def texte_liste(calcul: dict, en_cours: bool) -> list:
     if primee:
         lignes = lignes_primes(calcul)
         total = sum(l[1] for l in lignes)
-        verif = sum(1 for l in lignes if l[3])
-        blocs.append(f"Primes d'équipe de la période : **{_usd(total)}**" + (f" · {verif} ligne(s) à vérifier" if verif else "")
-                     + ". Avant le virement : 5 abonnés par VA primé, sur Infloww ou MyPulse."
+        anomalies = sum(1 for l in lignes if "⚠️" in l[2])
+        blocs.append(f"Primes d'équipe de la période : **{_usd(total)}**, toutes à vérifier avant le virement : 5 abonnés par VA "
+                     "primé, sur Infloww ou MyPulse."
+                     + (f" ⚠️ {anomalies} ligne(s) avec une anomalie (jour non relevé, Reels, part de visites)." if anomalies else "")
                      + (" Les chiffres bougent jusqu'à la clôture." if en_cours else ""))
     return blocs
+
+
+def controle_roles(guild, fiches=None) -> list:
+    """Écarts entre le rôle « Team Leader » et le registre, dits dans `!tl liste` (revue L10, R10 : une réécriture concurrente
+    d'equipes.json peut effacer une nomination en laissant le rôle) : porteur du rôle sans mandat, TL sans le rôle, rôle avec
+    des permissions."""
+    role = _role_tl(guild) if guild is not None else None
+    if role is None:
+        return []
+    fiches = _fiches() if fiches is None else fiches
+    tls = {str(uid): f.get("chef") for uid, f in fiches.items() if isinstance(f, dict) and f.get("chef")}
+    porteurs = {str(getattr(m, "id", "")): m for m in getattr(role, "members", None) or []}
+    lignes = []
+    if _permissions(role):
+        lignes.append(f"⛔ Le rôle {ROLE_TL_NOM} a des permissions : vide-le (Réglages du serveur → Rôles). Un TL n'a aucune "
+                      "commande staff.")
+    for uid, m in porteurs.items():
+        if uid not in tls:
+            lignes.append(f"⚠️ {getattr(m, 'display_name', uid)} porte le rôle {ROLE_TL_NOM} sans être TL au registre : "
+                          f"`!tl Créatrice @{getattr(m, 'display_name', '')}` pour le nommer, sinon retire-lui le rôle.")
+    for uid, c in tls.items():
+        m = _membre(uid)                                                # ses rôles à lui : jamais d'alerte sur un cache incomplet
+        if m is not None and getattr(m, "roles", None) is not None and role not in m.roles:
+            lignes.append(f"⚠️ {nom_de(uid, fiches.get(uid))} est TL de {c} sans le rôle {ROLE_TL_NOM} : "
+                          f"`!tl {c} @{getattr(m, 'display_name', '')}` le lui repose.")
+    return lignes
 
 
 async def _repondre(message, blocs: list):
@@ -848,15 +1048,19 @@ def _aide() -> str:
     return ("👥 **Team Leaders et managers** (admins seulement)\n\n"
             "`!tl Chloé @X` : X devient TL de Chloé.\n"
             "`!tl Chloé aucun` : Chloé n'a plus de TL.\n"
-            "`!manager @X Chloé Sarah` : X devient manager de ces équipes. `!manager @X aucun` : plus aucune.\n"
+            "`!manager @X Chloé Sarah` : X est manager de ces équipes, et de celles-là seulement (la liste remplace la "
+            "précédente). `!manager @X aucun` : plus aucune.\n"
             "`!tl liste [5|20 AAAA-MM]` : les équipes et les chiffres de la période.\n\n"
             f"Grille : {_usd(TL_PRIME_VA_USD)} au TL par VA à {_fmt(TL_SEUIL_VA)} visites payées ou plus, "
             f"{_usd(MANAGER_PRIME_USD)} au manager par équipe à {_fmt(MANAGER_SEUIL_EQUIPE)} ou plus. "
-            f"Le TL {'compte' if EQUIPE_COMPTE_TL else 'ne compte pas'} dans son équipe.")
+            f"Le TL {'compte' if EQUIPE_COMPTE_TL else 'ne compte pas'} dans son équipe.\n\n"
+            "Sortie d'un TL : la liste de paie de la période close d'abord (`!paie-clics 5|20`), puis `!tl Chloé aucun`, "
+            "puis `!sortie`.")
 
 
 async def commande(message, texte: str) -> bool:
-    """`!tl …` et `!manager …`, réservées aux ADMIN_IDS (jamais au rôle Manager). True si la commande est traitée."""
+    """`!tl …` et `!manager …`, réservées aux ADMIN_IDS (jamais au rôle Manager). True si la commande est traitée. Tapée en MP,
+    la mention est résolue en membre du serveur, et le serveur est celui de ce membre (revue L10, R8)."""
     mots = (texte or "").split()
     if not mots or mots[0].lower() not in ("!tl", "!manager"):
         return False
@@ -864,9 +1068,10 @@ async def commande(message, texte: str) -> bool:
         await message.reply("Réservé aux admins.")
         return True
     args = [m for m in mots[1:] if not (m.startswith("<@") and m.endswith(">"))]
-    cible = (getattr(message, "mentions", None) or [None])[0]
+    cible = _resoudre((getattr(message, "mentions", None) or [None])[0])
     par = str(getattr(message.author, "id", ""))
-    guild = getattr(message, "guild", None)
+    guild = (getattr(message, "guild", None) or getattr(cible, "guild", None)
+             or getattr(_membre(getattr(message.author, "id", "")), "guild", None))
     try:
         if mots[0].lower() == "!manager":
             if cible is None or not args:
@@ -878,7 +1083,7 @@ async def commande(message, texte: str) -> bool:
             await message.reply(_aide())
             return True
         if _n(args[0]) == "liste":
-            await _repondre(message, _liste(args[1:]))
+            await _repondre(message, _liste(args[1:], guild))
             return True
         creatrice = " ".join(a for a in args if _n(a) not in ("aucun", "aucune"))
         if any(_n(a) in ("aucun", "aucune") for a in args):
@@ -894,8 +1099,9 @@ async def commande(message, texte: str) -> bool:
     return True
 
 
-def _liste(args: list) -> list:
-    """`!tl liste [5|20 AAAA-MM]` : la période en cours, ou celle de la paie du 5 ou du 20 du mois donné."""
+def _liste(args: list, guild=None) -> list:
+    """`!tl liste [5|20 AAAA-MM]` : la période en cours, ou celle de la paie du 5 ou du 20 du mois donné. Avec le serveur : les
+    écarts entre le rôle Team Leader et le registre ; toujours : les variables Railway illisibles."""
     if args and args[0] in ("5", "20"):
         mois = args[1] if len(args) > 1 and len(args[1]) == 7 and args[1][4] == "-" else ""
         debut, fin = periode(args[0], mois)
@@ -910,6 +1116,15 @@ def _liste(args: list) -> list:
     if isinstance(fige, dict) and fige.get("lignes") is not None:
         blocs.append(f"🔒 Période figée le {str(fige.get('calcule_le') or '')[:10]} : la liste de paie relit "
                      f"{_usd(sum(float(l[1]) for l in fige['lignes']))} de primes, quoi qu'affichent les chiffres du jour.")
+    try:
+        roles = controle_roles(guild)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Contrôle du rôle %s : %s", ROLE_TL_NOM, erreur)
+        roles = []
+    if roles:
+        blocs.append("\n".join(roles))
+    if AVERTISSEMENTS:
+        blocs.append("⚠️ Railway : " + " ; ".join(AVERTISSEMENTS) + ".")
     if not _deps.get("payees"):
         blocs.append("-# Mesure approchée : paie_clics.payees n'est pas branchée ici.")
     return blocs
