@@ -15,11 +15,20 @@ route, liens libérés de la créatrice réutilisables compris), moins les membr
 Lecture seule partout : le classeur (onboarding.lire_comptes), clics.json (paie_clics._lire, jamais écrit ici), parcours.json,
 onboarding.json et pipeline.json (attribution.en_attente). Le module ne connaît pas bot_discord : le lot W branche
 places_par_creatrice (attribution, `!attribution`), places_livrables (page du quizz réussi) et texte_annonce (`!annonce`, digest).
+
+11/10 (vérification du lot L3) :
+- les membres déjà sur le serveur, quizz réussi, pas encore attribués (en_transit) passent avant un nouveau, comme ceux qui
+  attendent une créatrice ;
+- la promesse du quizz (places_livrables) dit ce que l'attribution donnera : le forfait GAML ne bloque l'attribution que si
+  PLACES_GAML_ATTRIBUTION=1 (décision de Gaëtan, une variable). Sinon il limite `!annonce` et le digest, pas l'arrivée ;
+- ligne_sans_lien : la ligne du digest « Compte privé sans lien GAML », chaque jour tant qu'il en reste (l'alerte en direct ne
+  part qu'à l'ouverture du compte privé).
 """
 
 import logging
 import os
 import unicodedata
+from datetime import datetime, timedelta, timezone
 
 import attribution
 import onboarding
@@ -40,6 +49,12 @@ def _entier(nom: str, defaut: int) -> int:
 # 10/10 (décision : livré à 3, aucun changement ; Gaëtan peut passer à 1 une fois le forfait GAML tranché)
 LIGNES_PAR_PLACE = max(1, _entier("ATTRIBUTION_LIGNES_MIN", 3))
 GAML_FORFAIT_LIENS = max(0, _entier("GAML_FORFAIT_LIENS", 50))          # 08/10 : 49 liens actifs sur 50
+# 11/10 (vérification du lot L3 : forfait plein, le quizz promettait « dès qu'une place se libère » à des candidats qui recevaient
+# leur créatrice dans la minute) : 1 = le forfait GAML bloque aussi l'attribution (personne n'entre sans lien possible au compte 3) ;
+# 0 (défaut, comme avant) = l'attribution suit les lignes seules, le forfait limite `!annonce` et le digest. Décision de Gaëtan.
+GAML_BLOQUE_ATTRIBUTION = os.environ.get("PLACES_GAML_ATTRIBUTION", "0").strip() == "1"
+TRANSIT_H = 24                                                          # 11/10 : un quizz réussi non attribué compte 24 h au plus
+ETATS_TRANSIT = ("quiz_ok", "valide")
 
 
 def lignes_par_place() -> int:
@@ -153,11 +168,52 @@ def attente_attribution() -> int:
         return 0
 
 
-def calculer(comptes: list, noms=None, route=None, gaml=None, attente: int = 0) -> dict:
+def _instant(v):
+    """Une date ISO du pipeline en datetime UTC, None si illisible."""
+    try:
+        t = datetime.fromisoformat(str(v or ""))
+    except (TypeError, ValueError):
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def en_transit(maintenant=None) -> int:
+    """11/10 (vérification du lot L3 : après une `!annonce`, trois quizz réussis dans la même heure lisaient tous « ta créatrice et
+    ton compte 1 t'y attendent » pour une seule place) : les membres déjà sur le serveur dont le quizz est réussi (pipeline
+    « quiz_ok » ou « valide »), pas encore au registre avec une créatrice, quizz ou validation de moins de TRANSIT_H heures. Ni
+    livrés ni en attente, ils prennent pourtant la prochaine place. Les candidats du site pas encore arrivés sur Discord sont
+    déduits par la page du quizz elle-même (web_candidature, lot L2) : elle sait qui lit la page, alors qu'ici le lecteur, dont le
+    quizz est écrit avant la lecture, se compterait lui-même. Lecture seule ; 0 si le pipeline ou le registre est illisible."""
+    try:
+        fichier, lire = attribution._fichier_pipeline(), attribution._deps.get("lire_json")
+        if fichier is None or lire is None:
+            return 0
+        etats = (lire(fichier, {}) or {}).get("etats") or {}
+        registre = (lire(attribution._deps["FICHIER_EQUIPES"], {}) or {}) if attribution._deps.get("FICHIER_EQUIPES") else {}
+    except Exception as erreur:                                         # noqa: BLE001 — attribution non branchée : personne
+        journal.info("Places, transit illisible : %s", type(erreur).__name__)
+        return 0
+    limite = (maintenant or datetime.now(timezone.utc)) - timedelta(hours=TRANSIT_H)
+    n = 0
+    for uid, info in etats.items():
+        if not isinstance(info, dict) or info.get("etat") not in ETATS_TRANSIT:
+            continue
+        fiche = registre.get(str(uid))
+        if isinstance(fiche, dict) and fiche.get("creatrice"):
+            continue                                                    # attribué : ses lignes sont réservées (ou dues)
+        dates = [t for t in (_instant(info.get(k)) for k in ("date_quiz", "validation")) if t is not None]
+        if dates and max(dates) >= limite:
+            n += 1
+    return n
+
+
+def calculer(comptes: list, noms=None, route=None, gaml=None, attente: int = 0, transit: int = 0) -> dict:
     """Le calcul, pur (aucune lecture) : comptes du classeur, créatrices retenues, clippers en route (en_route), forfait GAML
-    (etat_gaml, None = pas de limite), membres en attente. Renvoie :
+    (etat_gaml, None = pas de limite), membres en attente d'une créatrice, membres en transit (en_transit). Renvoie :
     {"k", "lignes": {créatrice: n}, "dues": {créatrice: n}, "par_creatrice": {créatrice: places}, "places_lignes",
-     "gaml": None | {"forfait", "actifs", "promis", "reutilisables", "libres", "capacite"}, "attente", "places"}."""
+     "gaml": None | {"forfait", "actifs", "promis", "reutilisables", "libres", "libres_forfait", "restes", "capacite"},
+     "attente" (en attente + en transit), "attente_creatrice", "transit", "places" (avec le forfait GAML : `!annonce`, digest),
+     "promesse" (ce que l'attribution donnera à un arrivant : sans le forfait, sauf PLACES_GAML_ATTRIBUTION=1)}."""
     noms = noms_du_classeur(comptes) if noms is None else list(noms)
     route = route or []
     k = LIGNES_PAR_PLACE
@@ -181,33 +237,54 @@ def calculer(comptes: list, noms=None, route=None, gaml=None, attente: int = 0) 
         libres_forfait = max(0, int(gaml.get("forfait") or 0) - int(gaml.get("actifs") or 0) - debordes)
         capacite = libres_forfait + sum(min(par_creatrice[nom], restes.get(_cle(nom), 0)) for nom in noms)
         g = {"forfait": int(gaml.get("forfait") or 0), "actifs": int(gaml.get("actifs") or 0), "promis": sum(promis_cle.values()),
-             "reutilisables": sum(reutil.values()), "libres": libres_forfait + sum(restes.values()), "capacite": capacite}
+             "reutilisables": sum(reutil.values()), "libres": libres_forfait + sum(restes.values()), "libres_forfait": libres_forfait,
+             "restes": restes, "capacite": capacite}
         brut = min(places_lignes, capacite)
+    attente_c, transit = max(0, int(attente or 0)), max(0, int(transit or 0))
+    devant = attente_c + transit                                        # 11/10 : ils passent tous avant un nouveau
     return {"k": k, "lignes": lignes, "dues": dues, "par_creatrice": par_creatrice, "places_lignes": places_lignes, "gaml": g,
-            "attente": max(0, int(attente or 0)), "places": max(0, brut - max(0, int(attente or 0)))}
+            "attente": devant, "attente_creatrice": attente_c, "transit": transit, "places": max(0, brut - devant),
+            "promesse": max(0, (brut if GAML_BLOQUE_ATTRIBUTION else places_lignes) - devant)}
+
+
+def plafond_gaml(det: dict) -> dict:
+    """11/10 (PLACES_GAML_ATTRIBUTION=1 seulement) : {créatrice: places} bornées par le forfait. Chaque créatrice garde ses liens
+    libérés réutilisables, plus les liens libres du forfait ; forfait plein et rien à reprendre : 0. Une approximation par
+    créatrice (le forfait est commun) : l'attribution relit le stock à chaque nouveau, et le lien promis au précédent (en_route)
+    est déjà déduit."""
+    g = det.get("gaml")
+    if g is None:
+        return dict(det["par_creatrice"])
+    restes, libres = g.get("restes") or {}, int(g.get("libres_forfait") or 0)
+    return {nom: min(n, restes.get(_cle(nom), 0) + libres) for nom, n in det["par_creatrice"].items()}
 
 
 async def places_par_creatrice(comptes: list = None) -> dict:
     """{créatrice du classeur: places}, lignes dues aux clippers en route déduites : la dépendance « livrables » de l'attribution et de
-    `!attribution` (remplace `_livrables_par_creatrice` d'on_ready, lot W). Sans le forfait GAML : l'attribution donne une créatrice
-    dès qu'une ligne existe ; le forfait se voit à `!annonce`, au quizz et au compte 3. Une panne du classeur remonte : l'attribution
-    traite alors le stock comme inconnu et ne bloque personne (attribution.stock_livrable)."""
+    `!attribution` (remplace `_livrables_par_creatrice` d'on_ready, lot W). Sans le forfait GAML par défaut : l'attribution donne
+    une créatrice dès qu'une ligne existe ; le forfait se voit à `!annonce`, au digest et au compte 3. PLACES_GAML_ATTRIBUTION=1 :
+    bornées par le forfait (plafond_gaml), comme la promesse du quizz. Une panne du classeur remonte : l'attribution traite alors
+    le stock comme inconnu et ne bloque personne (attribution.stock_livrable)."""
     if comptes is None:
         comptes = await onboarding.lire_comptes()
-    return calculer(comptes, noms_du_classeur(comptes), en_route())["par_creatrice"]
+    if not GAML_BLOQUE_ATTRIBUTION:
+        return calculer(comptes, noms_du_classeur(comptes), en_route())["par_creatrice"]
+    return plafond_gaml(calculer(comptes, noms_du_classeur(comptes), en_route(), etat_gaml()))
 
 
 async def detail(comptes: list = None) -> dict:
-    """Le calcul complet pour un NOUVEAU (créatrices de l'ordre d'attribution, forfait GAML, membres en attente). Une panne du
-    classeur remonte (RuntimeError) : à l'appelant de dire « places inconnues »."""
+    """Le calcul complet pour un NOUVEAU (créatrices de l'ordre d'attribution, forfait GAML, membres en attente et en transit). Une
+    panne du classeur remonte (RuntimeError) : à l'appelant de dire « places inconnues »."""
     if comptes is None:
         comptes = await onboarding.lire_comptes()
-    return calculer(comptes, noms_ouverts(comptes), en_route(), etat_gaml(), attente_attribution())
+    return calculer(comptes, noms_ouverts(comptes), en_route(), etat_gaml(), attente_attribution(), en_transit())
 
 
 async def places_livrables() -> int:
-    """Les nouveaux qui peuvent entrer maintenant (dépendance `places` de web_candidature, lot W). Lève l'erreur du classeur."""
-    return int((await detail())["places"])
+    """Les nouveaux qui auront leur créatrice et leur compte 1 en arrivant (dépendance `places` de web_candidature, lot W) : la
+    « promesse » de detail, celle que l'attribution tiendra (11/10 : sans le forfait GAML, sauf PLACES_GAML_ATTRIBUTION=1). Lève
+    l'erreur du classeur."""
+    return int((await detail())["promesse"])
 
 
 def _pluriel(n: int, un: str, plusieurs: str) -> str:
@@ -234,11 +311,18 @@ def texte(det: dict) -> str:
     if g is not None and g["capacite"] < det["places_lignes"]:
         limites.append(f"Le forfait GAML limite ({g['actifs']}/{g['forfait']} liens actifs) : libère un lien (`!liens`) ou monte "
                        "le forfait.")
+        if not GAML_BLOQUE_ATTRIBUTION and det.get("promesse", 0) > det["places"]:
+            # 11/10 : l'attribution ne regarde pas le forfait (PLACES_GAML_ATTRIBUTION=0) — Gaëtan sait ce que vit un arrivant
+            limites.append("Qui arrive quand même a sa créatrice et son compte 1 : son compte 3 attendra un lien.")
     if det["places_lignes"] <= 0:
         limites.append("Il manque des lignes : crée des comptes (Build capacity).")
-    if det["attente"]:
-        limites.append(f"{_pluriel(det['attente'], 'membre attend', 'membres attendent')} déjà une créatrice : "
-                       f"{'il passe' if det['attente'] == 1 else 'ils passent'} avant.")
+    attente_c = det.get("attente_creatrice", det["attente"] - det.get("transit", 0))
+    if attente_c:
+        limites.append(f"{_pluriel(attente_c, 'membre attend', 'membres attendent')} déjà une créatrice : "
+                       f"{'il passe' if attente_c == 1 else 'ils passent'} avant.")
+    if det.get("transit"):                                              # 11/10 : quizz réussi, arrivés, pas encore attribués
+        limites.append(f"{_pluriel(det['transit'], 'membre vient', 'membres viennent')} de réussir le quizz et "
+                       f"{'arrive' if det['transit'] == 1 else 'arrivent'} : déjà compté{'s' if det['transit'] > 1 else ''}.")
     if det["places"] <= 0:
         return "\n\n".join(["⛔ **0 place : n'annonce pas encore.**", *limites, f"-# {stock} ({entre})"])
     tete = f"📦 **Places maintenant : {stock}** ({entre})."
@@ -254,3 +338,38 @@ async def texte_annonce() -> str:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Places livrables : %s", erreur)
         return f"⚠️ Places inconnues : classeur des logins illisible ({type(erreur).__name__})."
+
+
+def sans_lien() -> list:
+    """11/10 (vérification du lot L3 : l'alerte « Forfait GAML plein » ne part qu'à l'ouverture du compte privé ; la relance du lien
+    toutes les 6 h, onboarding.boucle, se tait) : [(uid, prénom)] des clippers dont le lien est dû (parcours.lien_du : compte privé
+    ouvert, ou lien, ou routine) sans aucun lien actif à eux (fiche d'onboarding, clics.json). Lecture seule ; [] si la paie au
+    clic est éteinte (pas de lien à donner) ou les fichiers illisibles."""
+    if not paie_clics.actif():
+        return []
+    try:
+        fiches_p = parcours._lire() or {}
+        clippers = onboarding._lire_etat().get("clippers", {}) or {}
+        avec_lien = {str(i.get("uid") or "") for i in (paie_clics._lire().get("liens") or {}).values()
+                     if isinstance(i, dict) and not i.get("supprime_gaml") and not i.get("desactive")}
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Comptes sans lien GAML illisibles : %s", type(erreur).__name__)
+        return []
+    out = []
+    for uid, f in fiches_p.items():
+        if not isinstance(f, dict) or not parcours.lien_du(f):
+            continue
+        if (clippers.get(str(uid)) or {}).get("lien") or str(uid) in avec_lien:
+            continue
+        out.append((str(uid), str(f.get("prenom") or uid)))
+    return out
+
+
+def ligne_sans_lien() -> str:
+    """La ligne du digest de 9 h (lot L9b ou W) : « 🔗 Compte privé sans lien GAML : 2 (Eve, Rio). Libère un lien (`!liens`) ou
+    monte le forfait. », chaque jour tant qu'il en reste ; "" s'il n'y en a aucun."""
+    liste = sans_lien()
+    if not liste:
+        return ""
+    noms = ", ".join(p for _, p in liste[:10]) + (f" et {len(liste) - 10} autres" if len(liste) > 10 else "")
+    return f"🔗 Compte privé sans lien GAML : {len(liste)} ({noms}). Libère un lien (`!liens`) ou monte le forfait."

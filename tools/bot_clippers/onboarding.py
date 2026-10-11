@@ -1255,8 +1255,8 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                 comptes = deja[:COMPTES_PAR_CLIPPER]
                 if len(comptes) < a_reserver:
                     nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes))
-                    if a_reserver < COMPTES_PAR_CLIPPER:                 # 10/10 (lot L3) : le début du trio, comptes qui publient d'abord
-                        nouveaux = sorted(nouveaux, key=_est_prive)[:a_reserver - len(comptes)]
+                    if a_reserver < COMPTES_PAR_CLIPPER:                 # 10/10 (lot L3) : le début du trio seulement
+                        nouveaux = _debut_du_trio(nouveaux + disponibles(tous, creatrice, 999), len(comptes), a_reserver)
                     if nouveaux:
                         await reserver(nouveaux, prenom)
                     comptes += nouveaux
@@ -1362,6 +1362,32 @@ def _liens_classeur_en_fond():
     return _LIENS_FOND["tache"]
 
 
+def _bon_type(c: dict, n: int, prive: bool) -> bool:
+    """11/10 (vérification du lot L3 : un compte 2 déjà donné sur une ligne de type privé devenait le compte 3 à l'arrivée de la
+    ligne suivante, parcours._comptes_ordonnes rangeant « croissance d'abord, un @ de type privé en 3 ») : la ligne peut servir au
+    compte n sans renuméroter les comptes déjà donnés. Un compte qui publie : jamais une ligne de type privé (_est_prive). Le
+    privé en 3 : une ligne de croissance reste possible (elle reste en 3). Le privé en 2 (ordre « prive2 ») : une ligne de type
+    privé seulement (une ligne de croissance passerait derrière le compte 3 de croissance)."""
+    if not prive:
+        return not _est_prive(c)
+    return _est_prive(c) or int(n) >= 3
+
+
+def _debut_du_trio(candidates: list, deja: int, jusqu_a: int) -> list:
+    """11/10 (vérification du lot L3) : les lignes des comptes deja+1 à jusqu_a (ATTRIBUTION_LIGNES_MIN sous 3), chacune du bon
+    type (_bon_type : le privé est le compte 2 si parcours.PRIVE_EN_2, sinon le 3), dans l'ordre des candidates, sans doublon."""
+    import parcours                                                     # import tardif : parcours importe onboarding
+    n_p = 2 if parcours.PRIVE_EN_2 else 3
+    choix, vus = [], set()
+    for i in range(int(deja) + 1, int(jusqu_a) + 1):
+        c = next((c for c in candidates if _cle_handle(c["handle"]) not in vus and _bon_type(c, i, i == n_p)), None)
+        if c is None:
+            break                                                       # le compte i sera réservé à l'ouverture de son étape
+        vus.add(_cle_handle(c["handle"]))
+        choix.append(c)
+    return choix
+
+
 async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: bool = False):
     """10/10 (revue du recrutement, lot L3) : UNE ligne du classeur pour le compte n du clipper, réservée à l'ouverture de son étape
     (parcours.envoyer_etape) quand sa fiche ne l'a pas : `livrer` n'en a réservé que ATTRIBUTION_LIGNES_MIN, ou le classeur en
@@ -1371,7 +1397,8 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
 
     Le choix : une ligne « à créer » déjà écrite à SON nom (posée à la main par Gaëtan, à personne d'autre d'après onboarding.json),
     sinon une ligne libre (disponibles : jamais une info d'un compte BAN). Le bon type d'abord (`prive` : un @ de compte privé pour
-    le compte privé ; jamais pour un compte qui publie s'il y a mieux : l'ordre des comptes du parcours en dépend), puis son POD.
+    le compte privé), puis son POD. 11/10 (vérification) : jamais un type qui renumérote un compte déjà donné (_bon_type) — un
+    compte qui publie n'a jamais une ligne de type privé, même seule libre : None, le clipper attend une ligne de croissance.
 
     Renvoie la ligne (dict du classeur) : celle réservée, ou la sienne si la fiche a déjà le compte n. None : aucune ligne libre, ou
     classeur éteint. Une panne de lecture du classeur lève RuntimeError (l'appelant réessaie plus tard)."""
@@ -1400,7 +1427,9 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
 
         def rang(c):                                                    # tri stable : l'ordre de disponibles est gardé
             return (_est_prive(c) != bool(prive), bool(pods) and str(c.get("pod") or "").strip() not in pods)
-        choix = sorted(a_lui, key=rang)[:1] or sorted(disponibles(tous, creatrice, 999), key=rang)[:1]
+        a_lui = [c for c in a_lui if _bon_type(c, n, prive)]            # 11/10 : jamais un compte déjà donné renuméroté
+        libres = [c for c in disponibles(tous, creatrice, 999) if _bon_type(c, n, prive)]
+        choix = sorted(a_lui, key=rang)[:1] or sorted(libres, key=rang)[:1]
         if not choix:
             return None
         ligne = choix[0]

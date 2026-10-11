@@ -5163,9 +5163,13 @@ async def onboarder_multi(prenom: str, creatrices: list, nouveau: bool = False, 
                                    + ", ".join(c["handle"] for c in autres_a))
                 comptes_a = deja_a[:onboarding.COMPTES_PAR_CLIPPER]
                 if len(comptes_a) < onboarding.COMPTES_PAR_CLIPPER:
-                    nouveaux_a = onboarding.disponibles(tous_o, autre, onboarding.COMPTES_PAR_CLIPPER - len(comptes_a))
-                    if nouveaux_a:
-                        await onboarding.reserver(nouveaux_a, gerant_o)
+                    # 11/10 (vérification du lot L3) : relu et réservé sous le verrou des lignes, comme livrer et reserver_compte
+                    # (sinon une réservation en même temps pouvait prendre la même ligne libre)
+                    async with onboarding._verrou_lignes():
+                        tous_v = await onboarding.lire_comptes()
+                        nouveaux_a = onboarding.disponibles(tous_v, autre, onboarding.COMPTES_PAR_CLIPPER - len(comptes_a))
+                        if nouveaux_a:
+                            await onboarding.reserver(nouveaux_a, gerant_o)
                     comptes_a += nouveaux_a
                 bilan_a.append(f"{len(comptes_a)} compte(s)")
             except Exception as erreur:                                     # noqa: BLE001
