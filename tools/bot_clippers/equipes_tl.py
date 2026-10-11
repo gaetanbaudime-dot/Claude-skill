@@ -517,9 +517,29 @@ def _mandats_du_journal(jnl: list, uid: str, sortie_iso: str) -> dict:
     return out
 
 
+def _jour_paris(x) -> str:
+    """« AAAA-MM-JJ » à Paris d'un horodatage ISO : « 2026-11-04T23:30:00+00:00 » → « 2026-11-05 » (lot L11, contre-vérification
+    L10 c1 : sortir_membre date la sortie en UTC, les périodes de paie se comptent à Paris ; un TL sorti le 05/11 à 0 h 30 perdait
+    sa prime et celle du manager). Une date seule, ou un horodatage sans fuseau, garde ses 10 premiers caractères."""
+    s = str(x or "").strip()
+    if len(s) <= 10:
+        return s[:10]
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        return s[:10]
+    if dt.tzinfo is None:
+        return s[:10]
+    try:
+        from zoneinfo import ZoneInfo
+        return dt.astimezone(ZoneInfo("Europe/Paris")).date().isoformat()
+    except Exception:                                                   # noqa: BLE001
+        return s[:10]
+
+
 def _present(fiche: dict, fin_iso: str) -> bool:
-    """Au registre le jour `fin_iso` : signé ce jour-là ou avant (une fiche sans date est ancienne)."""
-    return not fin_iso or str(fiche.get("date") or "")[:10] <= fin_iso
+    """Au registre le jour `fin_iso` : signé ce jour-là ou avant, à Paris (une fiche sans date est ancienne)."""
+    return not fin_iso or _jour_paris(fiche.get("date")) <= fin_iso
 
 
 def _sortis_a_la_fin(fiches: dict, registre: list, fin_iso: str) -> dict:
@@ -533,7 +553,7 @@ def _sortis_a_la_fin(fiches: dict, registre: list, fin_iso: str) -> dict:
         uid = str(s.get("uid") or "") if isinstance(s, dict) else ""
         if not uid or uid in out or (isinstance(fiches.get(uid), dict) and _present(fiches[uid], fin_iso)):
             continue
-        if str(s.get("signe_le") or "")[:10] <= fin_iso < str(s.get("date") or "")[:10]:
+        if str(s.get("signe_le") or "")[:10] <= fin_iso < _jour_paris(s.get("date")):   # la sortie, datée à Paris (lot L11)
             out[uid] = s
     return out
 
@@ -557,7 +577,7 @@ def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
     sortis = _sortis_a_la_fin(fiches, registre, fin_iso)
     jnl = (_journal() if mandats is None else list(mandats or [])) if sortis else []
     for uid, s in list(sortis.items()):
-        du_journal = _mandats_du_journal(jnl, uid, str(s.get("date") or "")[:10])
+        du_journal = _mandats_du_journal(jnl, uid, _jour_paris(s.get("date")))
         if du_journal["chef_passe"] or du_journal["manager_passe"]:     # l'entrée d'abord (fin_de_mandats), le journal ensuite
             sortis[uid] = dict(s, chef_passe=list(s.get("chef_passe") or []) + du_journal["chef_passe"],
                                manager_passe=list(s.get("manager_passe") or []) + du_journal["manager_passe"])

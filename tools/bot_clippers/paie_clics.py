@@ -11,7 +11,12 @@ visiteurs francophones (PAYS_PAYES : France, Belgique, Suisse, Canada, DOM-TOM�
   - répond à `!mesclics` (le clipper ne voit que lui) et `!wallet` (son adresse de paiement) ;
   - donne aux managers `!clics`, `!liens`, `!lien @clipper …` (attribuer ou cloner un lien) et
     `!paie-clics 5|20 [AAAA-MM]` : la liste adresse-montant de la paie du 5 (20 → 4, règle du 09/10 ; la paie au clic a commencé le 05/10
-    précédent) ou du 20 (1 → 15 du mois), avec le CSV. Le virement reste humain.
+    précédent) ou du 20 (1 → 15 du mois), avec le CSV. Le virement reste humain ;
+  - 11/10 (lot L11, grille TL / manager de Gaëtan) : ajoute à cette liste les primes d'équipe d'equipes_tl (10 $ au TL par VA à 500
+    visites payées ou plus, 75 $ au manager par équipe à 3 000 ou plus), mesurées par `payees` (la ligne de paie elle-même), figées
+    dans clics.json['primes_equipes'] au premier calcul où elles sont définitives, sur la feuille « Paie du … » (colonnes « Au
+    clic », « Parrainage », « Prime équipe »), dans le salon du TL et du manager, et dans l'onglet « Équipes » que lit l'app.
+    Dépendances branchées par on_ready (lot W) : `primes_equipes`, `etat_equipes`, `calcul_equipes`. Sans elles, rien ne change.
 
 Le module ne connaît pas bot_discord : il reçoit ses dépendances dans `demarrer(client, deps)`.
 Sans GAML_API_KEY, tout est inactif et les commandes le disent.
@@ -1533,12 +1538,168 @@ def _versements(d: dict, cle: str):
     return out
 
 
+def _payees_detail(d: dict, uid: str, debut: date, fin: date, lids: list = None, du: dict = None, clic: bool = None) -> dict:
+    """{"payes", "hors_robots"} : LA mesure de la ligne d'un clipper sur la liste de paie (lot L11, revue du 10/10). Ses liens au clic,
+    de son premier jour payé (_debut_paie : plancher du passage au clic) à `fin`, plus les visites qui lui sont dues après un
+    changement de main (`dus`, dus_sortie). Un lien au fixe ne compte pas (ses `dus` au clic, si). `lids`, `du`, `clic` : déjà
+    calculés par l'appelant (liste_paie), sinon lus ici."""
+    uid = str(uid)
+    lids = liens_de(d, uid) if lids is None else lids
+    if du is None:
+        du = dus_sortie(d, debut, fin).get(uid) or {"payes": 0, "hors_robots": 0}
+    if clic is None:
+        clic = not lids or regime(uid) == "clic"
+    if lids and not clic:
+        s = {"payes": 0, "hors_robots": 0}
+    else:
+        s = somme(d, lids, _debut_paie(uid, debut, d), fin) if lids else {"payes": 0, "hors_robots": 0}   # 08/10 : passé au clic ce jour-là
+    return {"payes": s["payes"] + du["payes"], "hors_robots": s["hors_robots"] + du["hors_robots"]}
+
+
+def payees(d: dict, uid: str, debut, fin) -> int:
+    """Lot L11 (revue du 10/10) : les visites payées d'un clipper sur [debut, fin], EXACTEMENT celles de sa ligne sur la liste de
+    paie du 5 et du 20 (liste_paie utilise la même mesure, _payees_detail). C'est elle que equipes_tl reçoit pour les seuils des
+    primes d'équipe (500 par VA, 3 000 par équipe) : une seule mesure partout (liste, primes, app, Dashboard). 0 pour un clipper sans
+    lien ni visite, jamais None ; des dates illisibles lèvent ValueError (equipes_tl en fait alors une « mesure en erreur »)."""
+    a, b = _en_date(debut), _en_date(fin)
+    if a is None or b is None:
+        raise ValueError(f"période illisible ({debut!r} → {fin!r})")
+    return int(_payees_detail(d, str(uid), a, b)["payes"])
+
+
+class RangsPaie(list):
+    """Les rangs de liste_paie, (nom, uid, payées, visiteurs, montant, adresse) comme avant (aucun appelant ne change), plus ce que la
+    feuille, l'annonce et le complément doivent savoir des primes (lot L11) : `primes_equipe` {uid : (montant, détail, à_vérifier)}
+    pour les clippers de la liste, `parrainage` {uid : total des primes de parrainage}, `notes_equipe` [(uid, nom, détail)] : les
+    notes à 0 $ d'un bénéficiaire absent de la liste (rien à virer, jamais une ligne de virement)."""
+    primes_equipe = None
+    parrainage = None
+    notes_equipe = None
+
+
+def _rangs_paie(rangs, primes_equipe=None, parrainage=None, notes_equipe=None) -> RangsPaie:
+    r = RangsPaie(rangs)
+    r.primes_equipe, r.parrainage, r.notes_equipe = dict(primes_equipe or {}), dict(parrainage or {}), list(notes_equipe or [])
+    return r
+
+
+def _cle_iso(jour_paie: str, fin: date) -> str:
+    """La clé « AAAA-MM-JJ » du jour de paie, d'un « 05/11 », d'une clé ISO ou de rien (le lendemain de la fin)."""
+    jp = str(jour_paie or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", jp[:10]) and len(jp) >= 10:
+        return jp[:10]
+    if re.fullmatch(r"\d{2}/\d{2}(/\d{4})?", jp):
+        return f"{jp[6:10] if len(jp) == 10 else fin.year}-{jp[3:5]}-{jp[:2]}"
+    return (fin + timedelta(days=1)).isoformat()
+
+
+def _uids_equipes(etat: dict) -> set:
+    """Les uid des VA et des TL d'un état d'équipes (equipes_tl.a_figer) : ceux dont un jour non relevé peut changer une prime."""
+    out = set()
+    for e in ((etat or {}).get("composition") or {}).values():
+        if isinstance(e, dict):
+            out.update(str(u) for u in (e.get("vas") or {}))
+            if e.get("tl"):
+                out.add(str(e["tl"]))
+    return out
+
+
+def figer_primes_equipes(d: dict, debut: date, fin: date, jour_paie: str = "", manquants: dict = None, aujourdhui: date = None) -> bool:
+    """Lot L11 : fige les primes d'équipe d'une période close dans clics.json['primes_equipes'][« AAAA-MM-JJ » du jour de paie]
+    (equipes_tl.a_figer : composition, chiffres, lignes), au premier calcul où elles sont définitives. Ensuite, une liste retapée
+    (`!paie-clics`, complément), une sortie, une nomination ou une correction de relevé ne changent plus rien : equipes_tl relit le
+    figé. Renvoie True si la période est figée maintenant. Écrit `d`.
+
+    Pas figée (le calcul suivant réessaie, les montants restent ceux du jour) :
+      - période pas close (aujourd'hui ≤ `fin`), ou déjà figée, ou dépendance `etat_equipes` absente (lot W) ;
+      - une mesure en erreur (a_figer « complet » faux, contrat L10 : jamais un faux 0 figé) ;
+      - aucune prime ni note (rien à protéger ; un PRIMES_EQUIPES_DEPUIS avancé après coup peut encore primer la période) ;
+      - un VA ou un TL d'une équipe a un jour non relevé (`manquants`, jours_manquants_paie avec les veilles provisoires), tant que
+        le délai du complément court (jour de paie + COMPLEMENT_JOURS) : le complément porte alors la prime juste (jamais un faux 0
+        figé quand le jour manquant ferait passer 500 ou 3 000). Le délai passé, la période est figée telle quelle, « à vérifier »."""
+    if not _deps.get("etat_equipes"):
+        return False
+    aujourdhui = aujourdhui or _aujourdhui()
+    cle = _cle_iso(jour_paie, fin)
+    deja = (d.get("primes_equipes") or {}).get(cle)
+    if aujourdhui <= fin or (isinstance(deja, dict) and isinstance(deja.get("lignes"), list)):
+        return False
+    etat = _deps["etat_equipes"](d, debut, fin, cle)
+    if not isinstance(etat, dict) or not etat.get("complet", True) or not etat.get("lignes"):
+        return False
+    if manquants is None:
+        manquants = jours_manquants_paie(d, debut, fin, avec_provisoires=True)
+    en_attente = _uids_equipes(etat) & {str(u) for u, paires in (manquants or {}).items() if paires}
+    if en_attente and aujourdhui < _en_date(cle) + timedelta(days=COMPLEMENT_JOURS):
+        return False
+    etat = dict(etat, cle=str(etat.get("cle") or cle), fige_le=aujourdhui.isoformat(),
+                **({"jours_non_releves": sorted(en_attente)} if en_attente else {}))
+    d.setdefault("primes_equipes", {})[etat["cle"]] = etat
+    if _deps.get("ecrire_json"):
+        _ecrire(d)
+    journal.info("Primes d'équipe figées pour la paie %s : %s ligne(s)", etat["cle"], len(etat.get("lignes") or []))
+    return True
+
+
+_RESUME_TL = re.compile(r"\((\d+) VA à ([\d\s  ]+?) ou plus")
+_RESUME_MANAGER = re.compile(r"\$ manager \(équipe .+? à [\d\s  ]+? / ([\d\s  ]+?),")
+
+
+def resume_prime(detail: str) -> str:
+    """« 2 VA à 500 ou plus » et/ou « 1 équipe à 3 000 ou plus », lus dans le détail d'une ligne de prime (equipes_tl.lignes_primes) :
+    ce que le TL ou le manager lit dans son salon. '' si rien n'est reconnu."""
+    morceaux = []
+    m = _RESUME_TL.search(str(detail or ""))
+    if m:
+        morceaux.append(f"{m.group(1)} VA à {m.group(2).strip()} ou plus")
+    managers = _RESUME_MANAGER.findall(str(detail or ""))
+    if managers:
+        morceaux.append(f"{len(managers)} équipe{'s' if len(managers) > 1 else ''} à {managers[0].strip()} ou plus")
+    return ", ".join(morceaux)
+
+
+def _primes_equipes_liste(d: dict, debut: date, fin: date, jour_paie: str, manquants: dict, lignes: list) -> dict:
+    """{uid : (montant, détail, à_vérifier)} des primes d'équipe de la période (dépendance `primes_equipes`, contrat L10), après
+    une tentative de figement (figer_primes_equipes). Une erreur n'arrête jamais la paie au clic : la ligne « ⚠️ primes d'équipe non
+    calculées » est ajoutée à `lignes` et la liste part sans elles."""
+    if not _deps.get("primes_equipes"):
+        return {}
+    try:
+        figer_primes_equipes(d, debut, fin, jour_paie, manquants)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Primes d'équipe non figées : %s", erreur)
+        lignes.append(f"⚠️ primes d'équipe non figées ({type(erreur).__name__}) : recalculées à chaque liste, à vérifier")
+    try:
+        brutes = _deps["primes_equipes"](d, debut, fin, _cle_iso(jour_paie, fin)) or []
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Primes d'équipe non calculées : %s", erreur)
+        lignes.append(f"⚠️ primes d'équipe non calculées ({type(erreur).__name__}) : la liste part sans elles, à vérifier")
+        return {}
+    out = {}
+    for x in brutes:
+        try:
+            uid, montant, detail, verif = str(x[0]), round(float(x[1] or 0), 2), str(x[2] or ""), bool(x[3])
+        except (TypeError, ValueError, IndexError):
+            journal.warning("Prime d'équipe illisible : %r", x)
+            continue
+        if not uid or montant < 0:
+            continue
+        m0, d0, v0 = out.get(uid, (0.0, "", False))
+        out[uid] = (round(m0 + montant, 2), " · ".join(p for p in (d0, detail) if p), v0 or verif)
+    return out
+
+
 def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquants: dict = None, annonce: dict = None) -> tuple:
     """Lignes Discord + CSV de la paie : un clipper par ligne, visites payées, montant, adresse. 10/10 (revue CLICS, 3e passe) :
     `manquants` (jours_manquants_paie) → la ligne d'un clipper dont des jours ne sont pas encore relevés est marquée « provisoire ».
     10/10 (reprise de la 3e passe) : `annonce` ({uid: {"montant", "complement"}}, ce qui a déjà été versé pour cette paie, _versements)
     → chaque ligne dit ce qui a été annoncé, les compléments déjà postés, et le reste (recompte − annoncé − compléments) ; le CSV
-    porte « deja_verse_usd » et « reste_usd »."""
+    porte « deja_verse_usd » et « reste_usd ».
+    Lot L11 (revue du 10/10) : les primes d'équipe (dépendance `primes_equipes`, equipes_tl) s'ajoutent comme le parrainage — sur la
+    ligne du TL ou du manager (« 👥 + 20 $ équipe Chloé (2 VA à 500 ou plus : …) »), ou sur une ligne neuve s'il n'a aucune visite
+    payée (manager sans lien, TL au fixe) ; une prime à 0 $ est une note « à vérifier », jamais une ligne de virement. Le CSV prend
+    alors les colonnes prime_equipe_usd et detail_prime. Sans prime d'équipe, tout est identique à avant. Les rangs rendus sont une
+    RangsPaie (mêmes tuples, plus les primes pour la feuille, l'annonce et le complément)."""
     manquants = manquants or {}
     par_uid = {}
     for lid, info in d["liens"].items():
@@ -1550,14 +1711,12 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquant
     for uid in list(par_uid) + [u for u in dus if u not in par_uid]:
         lids = par_uid.get(uid, [])
         du = dus.get(uid, {"payes": 0, "hors_robots": 0})
-        if lids and regime(uid) != "clic":
+        clic = not lids or regime(uid) == "clic"
+        if not clic:
             fixes.append((nom_de(uid), somme(d, lids, debut, fin)["payes"]))
             if not du["payes"]:
                 continue
-            s = {"payes": 0, "hors_robots": 0}
-        else:
-            s = somme(d, lids, _debut_paie(uid, debut, d), fin) if lids else {"payes": 0, "hors_robots": 0}   # 08/10 : passé au clic ce jour-là
-        s = {"payes": s["payes"] + du["payes"], "hors_robots": s["hors_robots"] + du["hors_robots"]}
+        s = _payees_detail(d, uid, debut, fin, lids, du, clic)          # lot L11 : la même mesure que payees (seuils d'équipe)
         if s["payes"] == 0:
             continue
         montant = round(s["payes"] * TAUX_CLIC, 2); total += montant
@@ -1588,9 +1747,30 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquant
         rangs.sort(key=lambda r: -r[4])
         total = sum(r[4] for r in rangs)
         sans = sum(1 for r in rangs if not r[5])
+    # Lot L11 (revue du 10/10) : les primes d'équipe (10 $ au TL par VA à 500 visites payées ou plus, 75 $ au manager par équipe à
+    # 3 000 ou plus), sur le modèle du parrainage. Figées au premier calcul où elles sont définitives (figer_primes_equipes).
+    p_eq = _primes_equipes_liste(d, debut, fin, jour_paie, manquants, lignes)
+    notes_eq = []
+    if p_eq:
+        presents = {uid for _, uid, _, _, _, _ in rangs}
+        rangs = [(nom, uid, payes, hors, round(montant + (p_eq[uid][0] if uid in p_eq else 0), 2), w)
+                 for nom, uid, payes, hors, montant, w in rangs]
+        for uid_b, (m_b, det_b, _) in p_eq.items():
+            if uid_b in presents:
+                continue
+            if m_b >= 0.01:                                             # manager sans lien, TL au fixe : une ligne neuve
+                rangs.append((nom_de(uid_b), uid_b, 0, 0, m_b, d["wallets"].get(uid_b, {}).get("adresse", "")))
+            else:                                                       # 0 $ : une note « à vérifier », rien à virer
+                notes_eq.append((uid_b, nom_de(uid_b), det_b))
+        rangs.sort(key=lambda r: -r[4])
+        total = sum(r[4] for r in rangs)
+        sans = sum(1 for r in rangs if not r[5])
+    p_eq_rangs = {uid: p_eq[uid] for _, uid, _, _, _, _ in rangs if uid in p_eq}
     for nom, uid, payes, hors, montant, w in rangs:
         adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else (w or "⚠️ adresse manquante")
         bonus = "".join(f" · 🎁 +{_usd(pr)} parrainage de {f}" for f, pr in primes.get(uid, []))
+        if uid in p_eq_rangs:
+            bonus += f" · 👥 {p_eq_rangs[uid][1]}"
         n_manq = len({j for _, j in manquants.get(uid, [])})
         prov = f" · ⚠️ provisoire : {n_manq} jour(s) non relevé(s)" if n_manq else ""
         if annonce is not None:
@@ -1612,25 +1792,39 @@ def liste_paie(d: dict, nom_de, debut: date, fin: date, jour_paie: str, manquant
             verse = _deja_verse(annonce, uid)[2]
             if uid not in presents and verse >= 0.01:
                 lignes.append(f"· {nom_de(uid)} — déjà versé {_usd(verse)}, plus rien au recompte : rien à reprendre, à vérifier")
+    if notes_eq:
+        lignes.append("📝 **Primes d'équipe à 0 $, à vérifier** (rien à virer) :")
+        lignes.extend(f"· {nom} — 👥 {det}" for _, nom, det in notes_eq)
     tampon = io.StringIO(); ecrivain = csv.writer(tampon, delimiter=";")
     ecrivain.writerow(["prenom", "discord_id", "visites_payees", "visiteurs_hors_robots", "montant_usd", "adresse"]
+                      + (["prime_equipe_usd", "detail_prime"] if p_eq_rangs else [])
                       + (["deja_verse_usd", "reste_usd"] if annonce is not None else []))
     for nom, uid, payes, hors, montant, w in rangs:
         en_plus = []
+        if p_eq_rangs:
+            m_e, det_e, _ = p_eq_rangs.get(uid, (0.0, "", False))
+            en_plus = [f"{m_e:.2f}".replace(".", ","), det_e]
         if annonce is not None:
             verse = _deja_verse(annonce, uid)[2]
-            en_plus = [f"{verse:.2f}".replace(".", ","), f"{round(montant - verse, 2):.2f}".replace(".", ",")]
+            en_plus += [f"{verse:.2f}".replace(".", ","), f"{round(montant - verse, 2):.2f}".replace(".", ",")]
         ecrivain.writerow([nom, uid, payes, hors, f"{montant:.2f}".replace(".", ","), w] + en_plus)
     entete = (f"💸 **Paie au clic du {jour_paie}** — période {debut.strftime('%d/%m')} → {fin.strftime('%d/%m')}, "
               f"{_usd(TAUX_CLIC)} la visite payée ({PAYS_LIBELLE}, hors robots)")
     pied = (f"**Total : {_usd(total)}** · {len(rangs)} clipper(s) au clic" + (f" · ⚠️ {sans} sans adresse" if sans else "")
             + ("\n-# Le virement reste à faire à la main (Binance / banque). Le CSV est joint." if annonce is None else
                "\n-# Recompte d'une paie déjà virée : seul le **reste** de chaque ligne est dû (colonne reste_usd du CSV joint)."))
+    t_eq = round(sum(m for m, _, _ in p_eq_rangs.values()), 2)
+    if t_eq >= 0.01:
+        n_eq = sum(1 for m, _, _ in p_eq_rangs.values() if m >= 0.01)
+        pied += (f"\n\n👥 **Primes d'équipe : {_usd(t_eq)}** ({n_eq} ligne(s), comprises dans le total). Avant le virement : "
+                 "5 abonnés par VA primé à contrôler sur Infloww ou MyPulse, et chaque « ⚠️ à vérifier ».")
     if fixes:
         fixes.sort(key=lambda f: -f[1])
         pied += ("\n\n🧾 **Au fixe, hors liste** (ce qu'ils auraient touché au clic) : "
                  + " · ".join(f"{n} {_fmt(v)} = {_usd(v * TAUX_CLIC)}" for n, v in fixes))
-    return [entete] + (lignes or ["· (aucune visite payée sur la période)"]) + [pied], tampon.getvalue(), rangs
+    parr = {uid: round(sum(pr for _, pr in lst), 2) for uid, lst in primes.items()}
+    return ([entete] + (lignes or ["· (aucune visite payée sur la période)"]) + [pied], tampon.getvalue(),
+            _rangs_paie(rangs, p_eq_rangs, parr, notes_eq))
 
 
 # ------------------------------------------------------------------ attribution automatique
@@ -2268,21 +2462,37 @@ async def annoncer_paie(client, d: dict, maintenant, manquants: dict = None) -> 
         except (discord.Forbidden, discord.HTTPException) as erreur:
             journal.warning("Annonce de paie (admin) : %s", erreur)
     envoyes = 0
-    for uid in {str(i.get("uid")) for i in d["liens"].values() if i.get("uid")}:
-        if regime(uid) != "clic":
+    # Lot L11 : le TL et le manager reçoivent leur montant (clic + prime d'équipe), même sans visite à eux (manager sans lien, TL au
+    # fixe). Une prime à 0 $ (note « à vérifier ») ne leur écrit rien.
+    p_eq = {uid: x for uid, x in (getattr(rangs, "primes_equipe", None) or {}).items() if x[0] >= 0.01}
+    for uid in {str(i.get("uid")) for i in d["liens"].values() if i.get("uid")} | set(p_eq):
+        prime, det_p, verif_p = p_eq.get(uid, (0.0, "", False))
+        au_clic = regime(uid) == "clic"
+        if not au_clic and not prime:
             continue
-        dp = _debut_paie(uid, debut, d)
-        s = somme(d, liens_de(d, uid), dp, fin)
-        if not s["payes"]:
+        dp = _debut_paie(uid, debut, d) if au_clic else debut
+        s = somme(d, liens_de(d, uid), dp, fin) if au_clic else {"payes": 0}
+        if not s["payes"] and not prime:
             continue                                                    # 08/10 (audit) : plus de « 0,00 $, !wallet maintenant » à un nouveau
         salon = _deps["salon_perso"](uid)
         if salon is None:
             continue
         w = d["wallets"].get(uid, {}).get("adresse", "")
         adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else w
-        texte = (f"💸 **Ta paie du {maintenant.strftime('%d/%m')}** (période {dp.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : "
-                 f"**{_fmt(s['payes'])} visites payées = {_usd(s['payes'] * TAUX_CLIC)}**"
-                 + (f" → virement vers {adr} dans la journée." if w else " → ⚠️ pas d'adresse enregistrée : colle-la dans ton app (onglet Versements) ou `!wallet 0x…` maintenant, sinon la paie attend la prochaine."))
+        if prime:
+            clic = round(s["payes"] * TAUX_CLIC, 2)
+            pourquoi = resume_prime(det_p)
+            equipe = f"{_usd(prime)} d'équipe" + (f" ({pourquoi})" if pourquoi else "")
+            corps = (f"**{_usd(clic)} au clic + {equipe} = {_usd(round(clic + prime, 2))}**" if s["payes"] else f"**{equipe}**")
+            texte = (f"💸 **Ta paie du {maintenant.strftime('%d/%m')}** (période {dp.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : "
+                     + corps + (f" ({_fmt(s['payes'])} visites payées)" if s["payes"] else ""))
+        else:
+            texte = (f"💸 **Ta paie du {maintenant.strftime('%d/%m')}** (période {dp.strftime('%d/%m')} → {fin.strftime('%d/%m')}) : "
+                     f"**{_fmt(s['payes'])} visites payées = {_usd(s['payes'] * TAUX_CLIC)}**")
+        texte += (f" → virement vers {adr} dans la journée." if w else " → ⚠️ pas d'adresse enregistrée : colle-la dans ton app (onglet Versements) ou `!wallet 0x…` maintenant, sinon la paie attend la prochaine.")
+        if prime and verif_p:
+            texte += ("\n\n-# Prime d'équipe à vérifier par Gaëtan avant le virement : il contrôle 5 abonnés par VA primé. "
+                      "S'il trouve un problème, il te le dit ici.")
         jours_m = sorted({j for _, j in manquants.get(uid, [])})
         if jours_m:                                                     # 10/10 : jamais un montant sous-estimé sans le dire
             texte += ("\n\n-# Montant provisoire : " + ", ".join(j[8:10] + "/" + j[5:7] for j in jours_m[:6])
@@ -2312,7 +2522,9 @@ def memoriser_annonce(d: dict, cle: str, rangs: list, manquants: dict, debut: da
 
     def fiche(paires) -> dict:
         return {"manquants": sorted({j for _, j in paires}), "attendus": sorted({(str(l), j) for l, j in paires})}
-    clippers = {uid: {"montant": round(float(montant), 2), "payes": int(payes), **fiche((manquants or {}).get(uid, []))}
+    p_eq = getattr(rangs, "primes_equipe", None) or {}                  # lot L11 : la prime d'équipe annoncée, à part (complément)
+    clippers = {uid: {"montant": round(float(montant), 2), "payes": int(payes), **fiche((manquants or {}).get(uid, [])),
+                      **({"prime_equipe": round(float(p_eq[uid][0]), 2)} if uid in p_eq and p_eq[uid][0] >= 0.01 else {})}
                 for _, uid, payes, _, montant, _ in rangs}
     for uid, paires in (manquants or {}).items():                       # un clipper à 0 sur la liste, dont tous les jours manquent
         clippers.setdefault(str(uid), {"montant": 0.0, "payes": 0, **fiche(paires)})
@@ -2445,6 +2657,10 @@ async def completer_paies(d: dict, maintenant) -> int:
         jour_paie = str(a.get("jour_paie") or jour_p.strftime("%d/%m"))
         _, _, rangs = liste_paie(d, nom_de, debut, fin, jour_paie, manquants=restants)
         recompte = {uid: (payes, montant, w, nom) for nom, uid, payes, _, montant, w in rangs}
+        # Lot L11 : une prime d'équipe provisoire à l'annonce (jour non relevé chez un VA) est figée juste au recompte : l'écart de
+        # prime part dans le complément, dit à part (« +10 $ de prime d'équipe »), et cumulé dans `prime_equipe`
+        p_now = {str(u): float(x[0]) for u, x in (getattr(rangs, "primes_equipe", None) or {}).items()}
+        eq_plus = {}
         verses = _versements(d, cle) or {}
         cumul = {str(u): dict(c) for u, c in ((fait or {}).get("clippers") or {}).items() if isinstance(c, dict)}
         plus, moins = [], []
@@ -2453,15 +2669,23 @@ async def completer_paies(d: dict, maintenant) -> int:
             verse = _deja_verse(verses, uid)[2]
             payes_verses = int((clippers.get(uid) or {}).get("payes") or 0) + int((cumul.get(uid) or {}).get("payes") or 0)
             ecart, ecart_p = round(m1 - verse, 2), int(p1) - payes_verses
+            prime_versee = float((clippers.get(uid) or {}).get("prime_equipe") or 0) + float((cumul.get(uid) or {}).get("prime_equipe") or 0)
+            ecart_eq = round(p_now.get(uid, 0.0) - prime_versee, 2)
             if ecart >= 0.01:
                 plus.append((nom, uid, ecart_p, ecart, w, [j for _, j in attendus.get(uid) or []]))
+                if abs(ecart_eq) >= 0.01:
+                    eq_plus[uid] = ecart_eq
             elif ecart <= -0.01:
                 moins.append((nom, ecart))
         for _, uid, ecart_p, ecart, _, _ in plus:
             c = cumul.get(uid) or {}
             cumul[uid] = {"montant": round(float(c.get("montant") or 0) + ecart, 2), "payes": int(c.get("payes") or 0) + ecart_p}
+            if uid in eq_plus or c.get("prime_equipe"):
+                cumul[uid]["prime_equipe"] = round(float(c.get("prime_equipe") or 0) + eq_plus.get(uid, 0.0), 2)
         restants_iso = {uid: [[lid, j] for lid, j in paires] for uid, paires in reste.items()}   # 11/10 : au grain (lien, jour)
-        envoi = {"t": _horodatage(maintenant), "n": n, "clippers": {uid: {"montant": ecart, "payes": ecart_p} for _, uid, ecart_p, ecart, _, _ in plus}}
+        envoi = {"t": _horodatage(maintenant), "n": n, "clippers": {uid: {"montant": ecart, "payes": ecart_p,
+                                                                          **({"prime_equipe": eq_plus[uid]} if uid in eq_plus else {})}
+                                                                    for _, uid, ecart_p, ecart, _, _ in plus}}
         if n > 1 and not plus and not moins:
             # un complément suivant sans rien à verser (le jour relevé n'a aucune visite payée) : l'état suit, sans message
             faits[cle] = {**fait, "restants": restants_iso}
@@ -2473,7 +2697,8 @@ async def completer_paies(d: dict, maintenant) -> int:
                   + (" · ".join(f"{str(nom_de(u)).split(' - ')[0]} ({_jjmm(js)})" for u, js in releves.items()) or "aucun")]
         for nom, uid, ecart_p, ecart, w, _ in plus:
             adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else (w or "⚠️ adresse manquante")
-            lignes.append(f"· {nom} — +{_fmt(ecart_p)} visites → **+{_usd(ecart)}** → {adr}")
+            eq = (f", {'+' if eq_plus[uid] > 0 else ''}{_usd(eq_plus[uid])} de prime d'équipe" if uid in eq_plus else "")
+            lignes.append(f"· {nom} — +{_fmt(ecart_p)} visites{eq} → **+{_usd(ecart)}** → {adr}")
         if plus:
             lignes.append(f"**Total du complément : {_usd(sum(p[3] for p in plus))}** · {len(plus)} clipper(s) — à virer à la main, en "
                           f"plus de la liste du {jour_p.strftime('%d/%m')}" + (" (déjà virée)." if n == 1 else " et des compléments déjà postés."))
@@ -2482,6 +2707,13 @@ async def completer_paies(d: dict, maintenant) -> int:
         if moins:
             lignes.append("⚠️ Recompte plus bas que ce qui a été versé (rien à reprendre, à vérifier) : "
                           + " · ".join(f"{str(nm).split(' - ')[0]} {_usd(e)}" for nm, e in moins))
+        # lot L11 : des primes d'équipe figées au délai avec des jours non relevés ne bougent plus ; un de ces jours arrive → dit
+        fige_eq = (d.get("primes_equipes") or {}).get(cle) or {}
+        tard = sorted(set(map(str, fige_eq.get("jours_non_releves") or [])) & set(releves)) if isinstance(fige_eq, dict) else []
+        if tard:
+            lignes.append(f"⚠️ Primes d'équipe figées le {(_en_date(fige_eq.get('fige_le')) or jour_p).strftime('%d/%m')} avec des jours "
+                          f"non relevés, relevés depuis : {', '.join(str(nom_de(u)).split(' - ')[0] for u in tard)}. Elles ne changent "
+                          f"plus toutes seules : compare avec `!tl liste {jour_p.day} {jour_p.strftime('%Y-%m')}` et ajuste à la main.")
         if reste:
             jusqu = max((_en_date(j) or fin for ps in reste.values() for _, j in ps), default=fin) + timedelta(days=COMPLEMENT_RECUL)
             # 11/10 : un jour attendu sur un lien introuvable (404 aujourd'hui), effacé de GAML ou plus relevé n'est jamais dit « relevé »
@@ -2497,7 +2729,7 @@ async def completer_paies(d: dict, maintenant) -> int:
                              if sans_lien else "")
                           + f" ; s'ils arrivent (jusqu'au {jusqu.strftime('%d/%m')}), le complément suivant est posté ici tout seul.")
         if plus:
-            titre = await ecrire_feuille_complement(d, plus, debut, fin, jour_paie, n)
+            titre = await ecrire_feuille_complement(d, plus, debut, fin, jour_paie, n, primes=eq_plus)
             if titre:
                 lignes.append(f"📗 Onglet « {titre} » écrit dans le tableur « {ADRESSES_TABLEUR} » (les compléments seulement). "
                               f"La feuille « {ONGLET_PAIE_PREFIXE}{_date_paie(jour_paie, fin)} » reste celle du virement.")
@@ -2512,13 +2744,16 @@ async def completer_paies(d: dict, maintenant) -> int:
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Complément de paie (admin) : %s", erreur)
         for nom, uid, ecart_p, ecart, w, _ in plus:
-            salon = _deps["salon_perso"](uid) if regime(uid) == "clic" and _deps.get("salon_perso") else None
+            avec_eq = eq_plus.get(uid, 0.0) >= 0.01                     # lot L11 : un TL au fixe ou un manager reçoit sa prime aussi
+            salon = (_deps["salon_perso"](uid) if (regime(uid) == "clic" or avec_eq) and _deps.get("salon_perso") else None)
             if salon is None:
                 continue
             adr = (w[:6] + "…" + w[-4:]) if len(w) > 12 else w
+            corps = (f"**+{_fmt(ecart_p)} visites = +{_usd(ecart)}**" if not avec_eq else
+                     f"**+{_usd(ecart)}**, dont +{_usd(eq_plus[uid])} de prime d'équipe" + (f" et +{_fmt(ecart_p)} visites" if ecart_p > 0 else ""))
             try:
                 await salon.send(f"💸 **Complément de ta paie du {jour_p.strftime('%d/%m')}** : les jours qui manquaient sont relevés, "
-                                 f"**+{_fmt(ecart_p)} visites = +{_usd(ecart)}**"
+                                 + corps
                                  + (f" → virement vers {adr}." if w else " → ⚠️ pas d'adresse enregistrée : colle-la dans ton app ou `!wallet 0x…`."))
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Complément de paie %s : %s", uid, erreur)
@@ -2547,6 +2782,7 @@ async def boucle(client, deps: dict):
                 if marquer_releves(d, liens_tous):                     # 09/10 (dashboard) : tous les liens actifs relevés
                     _ecrire(d)
                 await publier_regimes(d)                                 # 08/10 (revue) : l'app lit le régime du bot
+                await publier_equipes(d)                                 # lot L11 : l'équipe et la prime en cours du TL, pour l'app
                 try:                                                    # revue CLICS : notes Metricool refusées par GAML, retentées
                     posees = await poser_notes_attendues(liens_tous)
                 except Exception as erreur:                             # noqa: BLE001
@@ -2780,6 +3016,111 @@ async def publier_regimes(d: dict) -> int:
         return 0
 
 
+ONGLET_EQUIPES = os.environ.get("EQUIPES_ONGLET", "Équipes").strip() or "Équipes"
+_equipes_pub = {"onglet": "", "sig": ""}
+ENTETE_EQUIPES = ["Discord", "Clé app", "Ligne", "Créatrice", "Début", "Fin", "Prénom", "Visites payées", "Seuil", "Atteint",
+                  "Prime en cours ($)", "Primée"]
+
+
+def _cles_app(d: dict) -> dict:
+    """{uid : clé de l'app} (le prénom de la note « Clipping Prénom », la clé de lignes_regimes et de l'app), pour le seul uid qui la
+    porte dans l'app : deux homonymes, celui qui a le plus de liens (même règle que lignes_regimes)."""
+    par_cle = {}
+    for info in (d.get("liens") or {}).values():
+        uid = str(info.get("uid") or "")
+        cle = _cle_prenom(_prenom_note(info.get("note")))
+        if uid and cle:
+            par_cle.setdefault(cle, {}).setdefault(uid, 0)
+            par_cle[cle][uid] += 1
+    return {max(par_uid.items(), key=lambda x: x[1])[0]: cle for cle, par_uid in par_cle.items()}
+
+
+def _seuils_equipes() -> tuple:
+    """(seuil VA, seuil équipe) de la grille (equipes_tl, variables Railway) ; (500, 3000) si le module manque."""
+    try:
+        import equipes_tl
+        return int(equipes_tl.TL_SEUIL_VA), int(equipes_tl.MANAGER_SEUIL_EQUIPE)
+    except Exception:                                                   # noqa: BLE001
+        return 500, 3000
+
+
+def _texte(x) -> str:
+    """Une valeur gardée telle quelle par le tableur (écrit en USER_ENTERED) : un uid Discord de 18 ou 19 chiffres n'y devient jamais
+    un nombre arrondi (« 1,23E+18 »), ni « 2/6 » une date, ni « 2026-10-20 » un jour reformaté. L'apostrophe n'est pas relue."""
+    s = str(x if x is not None else "")
+    return "'" + s if s else ""
+
+
+def _sans_formule(x) -> str:
+    """Un prénom qui commence par « = », « + », « - » ou « @ » n'est jamais lu comme une formule (même règle que les candidatures)."""
+    s = str(x or "")
+    return "'" + s if s[:1] in ("+", "=", "-", "@") else s
+
+
+def lignes_equipes(d: dict, debut: date, fin: date) -> list:
+    """Lot L11 : l'onglet « Équipes » du tableur de l'app, pour la période en cours. Une ligne par TL (total d'équipe, VA au seuil
+    « 2/6 »), une par VA de son équipe (visites payées, ✓ à 500), une par équipe managée (total, ✓ à 3 000), et une « Prime » par
+    bénéficiaire (la prime en cours, TL et manager réunis, telle que la liste de paie la porterait aujourd'hui). Indexé par l'uid
+    Discord du TL ou du manager, avec sa clé de l'app (vide sans lien : il n'a pas d'app). Jamais d'adresse USDC ni de jeton.
+    Les chiffres viennent de `calcul_equipes` (equipes_tl.calculer, avec paie_clics.payees) : la même mesure que la paie."""
+    calcul = _deps["calcul_equipes"](d, debut, fin)
+    primes = {}
+    if _deps.get("primes_equipes"):
+        for x in _deps["primes_equipes"](d, debut, fin, _cle_iso("", fin)) or []:
+            primes[str(x[0])] = round(primes.get(str(x[0]), 0.0) + float(x[1] or 0), 2)
+    cles = _cles_app(d)
+    s_va, s_eq = _seuils_equipes()
+    primee = "oui" if (calcul or {}).get("primee") else "non"
+    a, b = _texte(debut.isoformat()), _texte(fin.isoformat())
+    out, beneficiaires = [], {}
+    for c, e in sorted(((calcul or {}).get("equipes") or {}).items()):
+        tl, m = str(e.get("tl") or ""), str(e.get("manager") or "")
+        vas = e.get("vas") or []
+        if tl:
+            beneficiaires.setdefault(tl, e.get("tl_nom") or "")
+            out.append([_texte(tl), cles.get(tl, ""), "TL", c, a, b, _sans_formule(e.get("tl_nom")), int(e.get("total") or 0), s_va,
+                        _texte(f"{int(e.get('va_primes') or 0)}/{len(vas)}"), "", primee])
+            for v in vas:
+                out.append([_texte(tl), cles.get(tl, ""), "VA", c, a, b, _sans_formule(v.get("nom")),
+                            "" if v.get("erreur") else int(v.get("payees") or 0), s_va, "✓" if v.get("prime") else "", "", primee])
+        if m and tl and m != tl:
+            beneficiaires.setdefault(m, e.get("manager_nom") or "")
+            out.append([_texte(m), cles.get(m, ""), "Manager", c, a, b, _sans_formule(e.get("manager_nom")), int(e.get("total") or 0),
+                        s_eq, "✓" if int(e.get("total") or 0) >= s_eq else "", "", primee])
+    for uid, nom in sorted(beneficiaires.items()):
+        out.append([_texte(uid), cles.get(uid, ""), "Prime", "", a, b, _sans_formule(nom), "", "", "", round(primes.get(uid, 0.0), 2),
+                    primee])
+    return out
+
+
+async def publier_equipes(d: dict) -> int:
+    """Lot L11 : écrit l'onglet « Équipes » du tableur « App clippers · usage » (lignes_equipes, période en cours), seulement s'il a
+    changé ; l'app le lit pour montrer au TL son équipe et sa prime en cours. Renvoie le nombre de lignes écrites (0 sinon). Jamais
+    d'exception ; inerte sans la dépendance `calcul_equipes` (lot W) ou sans Google."""
+    if not google_api.actif() or not _deps.get("calcul_equipes"):
+        return 0
+    try:
+        debut, fin = periode_en_cours()
+        lignes = lignes_equipes(d, debut, fin)
+        sig = json.dumps(lignes, ensure_ascii=False)
+        if sig == _equipes_pub["sig"]:
+            return 0
+        classeur = await _classeur_usage()
+        if not classeur:
+            return 0
+        if _equipes_pub["onglet"] != classeur:
+            await google_api.sheets_creer_onglet(classeur, ONGLET_EQUIPES)
+            _equipes_pub["onglet"] = classeur
+        await google_api.sheets_effacer(classeur, f"{ONGLET_EQUIPES}!A1:L")
+        await google_api.sheets_ecrire(classeur, f"{ONGLET_EQUIPES}!A1:L{len(lignes) + 1}", [ENTETE_EQUIPES] + lignes)
+        _equipes_pub["sig"] = sig
+        journal.info("Équipes publiées pour l'app : %d ligne(s)", len(lignes))
+        return len(lignes)
+    except Exception as erreur:                                        # noqa: BLE001
+        journal.warning("Équipes (app) : %s", str(erreur)[:160])
+        return 0
+
+
 ONGLET_PAIE_PREFIXE = "Paie du "
 ONGLET_RECOMPTE_PREFIXE = "Recompte du "                                # 10/10 : `!paie-clics` sur une paie déjà annoncée
 ONGLET_COMPLEMENT_PREFIXE = "Complément du "                            # 10/10 : les jours relevés après une paie provisoire
@@ -2801,9 +3142,10 @@ def _creatrices_par_uid(d: dict) -> dict:
     return crea_de
 
 
-async def _ecrire_onglet(titre: str, lignes: list) -> str:
+async def _ecrire_onglet(titre: str, lignes: list, jusqua: str = "") -> str:
     """Écrit `lignes` dans l'onglet `titre` du tableur « App clippers · usage » (créé au besoin, vidé d'abord). Renvoie le titre, ''
-    si rien n'a pu être écrit. Jamais d'exception."""
+    si rien n'a pu être écrit. Jamais d'exception. `jusqua` (lot L11) : la colonne la plus large que cet onglet a pu avoir (les
+    colonnes des primes d'équipe), vidée aussi quand la version écrite est plus étroite."""
     if not google_api.actif() or not lignes:
         return ""
     try:
@@ -2813,6 +3155,8 @@ async def _ecrire_onglet(titre: str, lignes: list) -> str:
         col = chr(ord("A") + max(len(l) for l in lignes) - 1)
         await google_api.sheets_creer_onglet(classeur, titre)
         await google_api.sheets_effacer(classeur, f"{titre}!A1:{max(col, 'J')}")   # 11/10 : « Recompte » va jusqu'à K
+        if jusqua and max(col, "J") < jusqua:
+            await google_api.sheets_effacer(classeur, f"{titre}!{chr(ord(max(col, 'J')) + 1)}1:{jusqua}")
         await google_api.sheets_ecrire(classeur, f"{titre}!A1:{col}{len(lignes)}", lignes)
         return titre
     except Exception as erreur:                                        # noqa: BLE001
@@ -2837,17 +3181,32 @@ async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour
         paie = _date_paie(jour_paie, fin)
         titre = f"{ONGLET_RECOMPTE_PREFIXE if annonce is not None else ONGLET_PAIE_PREFIXE}{paie}"
         crea_de = _creatrices_par_uid(d)
-        entete = ["Prénom", "Créatrice", "Adresse USDC (ERC-20)", "Visites payées", "Montant ($)", "Période", "Payé le", "Note"]
+        # Lot L11 : avec des primes d'équipe, « Montant » = « Au clic » + « Parrainage » + « Prime équipe », le total à virer ; le
+        # détail de la prime va dans « Note ». Sans prime d'équipe, la feuille est celle d'avant (mêmes colonnes, mêmes places).
+        p_eq = getattr(rangs, "primes_equipe", None) or {}
+        parr = getattr(rangs, "parrainage", None) or {}
+        entete = (["Prénom", "Créatrice", "Adresse USDC (ERC-20)", "Visites payées"]
+                  + (["Au clic ($)", "Parrainage ($)", "Prime équipe ($)"] if p_eq else []) + ["Montant ($)", "Période", "Payé le", "Note"])
         lignes = [entete + (["Annoncé ($)", "Complément posté ($)", "Reste à verser ($)"] if annonce is not None else [])]
         total, total_a, total_c, total_reste = 0.0, 0.0, 0.0, 0.0
+        t_clic, t_parr, t_eq = 0.0, 0.0, 0.0
         for nom, uid, payes, hors, montant, w in rangs:
             total += montant
             note = "⚠️ adresse manquante" if not w else ("IBAN, pas USDC" if not str(w).startswith("0x") else "")
             jours_m = sorted({j for _, j in (manquants or {}).get(uid, [])})
             if jours_m:
                 note = " · ".join(x for x in (note, f"provisoire : {_jjmm(jours_m)} non relevé(s)") if x)
-            ligne = [str(nom).split(" - ")[0].strip(), crea_de.get(uid, ""), w or "", int(payes), round(float(montant), 2),
-                     f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, note]
+            parts = []
+            if p_eq:
+                m_e, det_e, verif_e = p_eq.get(uid, (0.0, "", False))
+                m_p = round(float(parr.get(uid) or 0), 2)
+                m_c = round(float(montant) - m_p - m_e, 2)                # = visites × taux (+ visites dues), arrondi comme la liste
+                t_clic += m_c; t_parr += m_p; t_eq += m_e
+                parts = [m_c, m_p, round(float(m_e), 2)]
+                if det_e:
+                    note = " · ".join(x for x in (note, f"équipe : {det_e}") if x)
+            ligne = ([str(nom).split(" - ")[0].strip(), crea_de.get(uid, ""), w or "", int(payes)] + parts
+                     + [round(float(montant), 2), f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, note])
             if annonce is not None:
                 a, c, verse = _deja_verse(annonce, uid)
                 total_a += a; total_c += c
@@ -2861,16 +3220,19 @@ async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour
                 if uid not in presents and verse:
                     total_a += a; total_c += c
                     membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
-                    lignes.append([str(getattr(membre, "display_name", "") or f"id {uid}").split(" - ")[0], crea_de.get(uid, ""), "", 0, 0.0,
+                    lignes.append([str(getattr(membre, "display_name", "") or f"id {uid}").split(" - ")[0], crea_de.get(uid, ""), "", 0]
+                                  + ([0.0, 0.0, 0.0] if p_eq else []) + [0.0,
                                    f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, "plus rien au recompte : à vérifier",
                                    a, c, -verse])
-        pied = ["Total", "", "", sum(int(r[2]) for r in rangs), round(total, 2), "", "", f"{len(rangs)} clipper(s)"]
+        pied = (["Total", "", "", sum(int(r[2]) for r in rangs)]
+                + ([round(t_clic, 2), round(t_parr, 2), round(t_eq, 2)] if p_eq else [])
+                + [round(total, 2), "", "", f"{len(rangs)} clipper(s)"])
         if annonce is not None:
             # 11/10 (contre-vérification CLICS, passe 3) : « Reste à verser » du Total = la somme des restes positifs (avant : le net,
             # un recompte plus bas chez l'un effaçait le reste dû à l'autre)
             pied += [round(total_a, 2), round(total_c, 2), round(total_reste, 2)]
         lignes.append(pied)
-        titre = await _ecrire_onglet(titre, lignes)
+        titre = await _ecrire_onglet(titre, lignes, jusqua="N")        # lot L11 : jusqu'à N avec les primes d'équipe (recompte)
         if titre:
             journal.info("Feuille de paie écrite : %s (%d clipper(s))", titre, len(rangs))
         return titre
@@ -2879,11 +3241,12 @@ async def ecrire_feuille_paie(d: dict, rangs: list, debut: date, fin: date, jour
         return ""
 
 
-async def ecrire_feuille_complement(d: dict, plus: list, debut: date, fin: date, jour_paie: str, n: int = 1) -> str:
+async def ecrire_feuille_complement(d: dict, plus: list, debut: date, fin: date, jour_paie: str, n: int = 1, primes: dict = None) -> str:
     """10/10 (revue CLICS, reprise de la 3e passe) : l'onglet « Complément du JJ/MM/AAAA » — seulement les clippers dont le recompte
     dépasse ce qui a déjà été versé : prénom, créatrice, adresse, visites en plus, complément, période, paie, jours attendus. `plus` =
     [(nom, uid, visites en plus, complément, adresse, jours attendus)]. 10/10 (4e tour) : le complément n° `n` ≥ 2 va dans son propre
-    onglet « Complément n du … » (le premier n'est jamais réécrit). Renvoie le titre, '' si rien n'a pu être écrit."""
+    onglet « Complément n du … » (le premier n'est jamais réécrit). Renvoie le titre, '' si rien n'a pu être écrit. Lot L11 :
+    `primes` {uid : écart de prime d'équipe} → « dont +10 $ de prime d'équipe » dans la note."""
     if not plus:
         return ""
     paie = _date_paie(jour_paie, fin)
@@ -2892,6 +3255,8 @@ async def ecrire_feuille_complement(d: dict, plus: list, debut: date, fin: date,
     for nom, uid, ecart_p, ecart, w, jours_m in plus:
         note = "⚠️ adresse manquante" if not w else ("IBAN, pas USDC" if not str(w).startswith("0x") else "")
         note = " · ".join(x for x in (note, f"jours attendus : {_jjmm(jours_m)}" if jours_m else "") if x)
+        if (primes or {}).get(uid):
+            note = " · ".join(x for x in (note, f"dont {'+' if primes[uid] > 0 else ''}{_usd(primes[uid])} de prime d'équipe") if x)
         lignes.append([str(nom).split(" - ")[0].strip(), crea_de.get(uid, ""), w or "", int(ecart_p), round(float(ecart), 2),
                        f"{debut.strftime('%d/%m')} → {fin.strftime('%d/%m/%Y')}", paie, note])
     lignes.append(["Total", "", "", sum(int(p[2]) for p in plus), round(sum(float(p[3]) for p in plus), 2), "", "",
