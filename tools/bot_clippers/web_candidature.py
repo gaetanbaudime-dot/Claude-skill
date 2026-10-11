@@ -1023,8 +1023,14 @@ async def get_quiz_cand(request, cand_id: str):
 
 PLACES_ATTENTE_S = 3.0                                                      # une page n'attend jamais plus la lecture des places
 PLACES_CACHE_S = 300.0                    # 11/10 : une lecture sert 5 minutes (le quizz dure ~3 min : lue à l'affichage)
+# 11/10 (contre-vérification) : de 5 min à 1 h, la lecture sert encore tout de suite et se relit en fond pour la page suivante
+# (un candidat retourné revoir la vidéo ne patiente plus) ; au-delà d'une heure, la page attend la relecture, 3 s au plus.
+PLACES_PERIME_S = 3600.0
 PLACES_PRECHAUFFE_S = 60.0                # l'affichage du quizz relit les places si la dernière lecture a plus d'une minute
-PLACES_REUSSITE_H = 24                    # un quizz réussi compte « en route vers Discord » 24 h
+# Un quizz réussi compte « en route vers Discord » 2 h (le bouton de la page ouvre l'invitation : on arrive dans la minute,
+# ou le temps d'installer Discord). 11/10 (contre-vérification) : 24 h, une réussite sans arrivée retirait la place promise à
+# tous les suivants pendant une journée.
+PLACES_REUSSITE_H = 2
 _places_cache: dict = {"dep": None, "valeur": None, "t": 0.0, "tache": None, "tache_dep": None}
 
 
@@ -1039,10 +1045,14 @@ def _instant(texte):
 
 def _valeur_places(r) -> int:
     """La réponse de la dépendance « places » en nombre de nouveaux qui ont leur créatrice et leur compte 1 en arrivant.
-    Un entier (places.places_livrables) est pris tel quel. Le détail de places.detail (dict, branchement conseillé au lot W)
-    donne la mesure de l'attribution à l'arrivée : lignes ÷ k (places_lignes) − membres en attente, SANS le forfait GAML, qui
-    ne bloque qu'au compte 3 : la promesse de la page porte sur la créatrice et le compte 1."""
+    Un entier (places.places_livrables, branchement conseillé au lot W) est pris tel quel : c'est la « promesse » du lot L3,
+    ce que l'attribution donnera (sans le forfait GAML, sauf PLACES_GAML_ATTRIBUTION=1).
+    Un détail (dict de places.detail) : sa clé « promesse ». 11/10 (contre-vérification : avec PLACES_GAML_ATTRIBUTION=1,
+    l'attribution ne donnait rien mais la page, qui lisait lignes − attente, promettait le compte 1). Sans cette clé (places.py
+    d'avant le 11/10) : lignes ÷ k (places_lignes) − membres en attente."""
     if isinstance(r, dict):
+        if "promesse" in r:
+            return int(r.get("promesse") or 0)
         return max(0, int(r.get("places_lignes", 0) or 0)) - max(0, int(r.get("attente", 0) or 0))
     return int(r)
 
@@ -1087,15 +1097,23 @@ def _reussites_en_route(pipe: dict, cand_id: str, lecture: float, maintenant: fl
     """11/10 (vérification du lot L2 : 1 place, deux réussites rapprochées, les deux lisaient « ton compte 1 t'y attendent ») :
     les AUTRES candidats du site dont le quizz est réussi depuis moins de PLACES_REUSSITE_H heures et dont la place n'est pas
     dans la lecture des places : pas encore sur le serveur, ou arrivés après la lecture (date « utilisee » de leur invitation ;
-    à défaut, leur quizz réussi après la lecture)."""
+    à défaut, leur quizz réussi après la lecture).
+    11/10 (contre-vérification : A réussit, puis B ; la page suivante de A, /discord/connexion, déduisait B et lui retirait la
+    promesse qu'il venait de lire) : une file par date de quizz. Seules les réussites d'AVANT la sienne passent devant lui
+    (égalité à la seconde : l'identifiant départage). Sans quizz réussi daté (lien !quiz, page avant le quizz) : toutes."""
     maintenant = maintenant or time.time()
+    fiches = (pipe or {}).get("candidatures_web") or {}
+    moi = ((fiches.get(cand_id) or {}).get("quiz") or {}) if cand_id else {}
+    t_moi = _instant(moi.get("date")) if moi.get("reussi") else None
     n = 0
-    for autre, fiche in ((pipe or {}).get("candidatures_web") or {}).items():
+    for autre, fiche in fiches.items():
         if autre == cand_id or not isinstance(fiche, dict) or not (fiche.get("quiz") or {}).get("reussi"):
             continue
         t_quiz = _instant(fiche["quiz"].get("date"))
         if t_quiz is None or maintenant - t_quiz > PLACES_REUSSITE_H * 3600:
             continue
+        if t_moi is not None and (t_quiz, str(autre)) > (t_moi, str(cand_id)):
+            continue                                                    # réussi après lui : derrière lui dans la file
         if not _membre_present(pipe, autre):
             n += 1
             continue
@@ -1108,17 +1126,23 @@ def _reussites_en_route(pipe: dict, cand_id: str, lecture: float, maintenant: fl
 
 
 async def _places_livrables(cand_id: str = ""):
-    """10/10 (lot L2) : les places livrables pour ce candidat (dépendance « places », branchée par le lot W : places.detail
-    conseillé, ou places.places_livrables ; fonction async ou simple). None si elle manque, plante ou tarde plus de
-    PLACES_ATTENTE_S secondes : la page garde alors son texte habituel.
+    """10/10 (lot L2) : les places livrables pour ce candidat (dépendance « places », branchée par le lot W DANS le dict passé à
+    demarrer : places.places_livrables conseillé, places.detail accepté ; fonction async ou simple). None si elle manque, plante
+    ou tarde plus de PLACES_ATTENTE_S secondes : la page garde alors son texte habituel.
     11/10 (vérification du lot L2) : une lecture sert PLACES_CACHE_S secondes (préchauffée à l'affichage du quizz) ; une lecture
     lente continue en fond et sert à la page suivante. On en retire les autres réussites pas encore comptées
-    (_reussites_en_route) : deux candidats pour une place ne lisent pas tous les deux « ton compte 1 t'y attendent »."""
+    (_reussites_en_route) : deux candidats pour une place ne lisent pas tous les deux « ton compte 1 t'y attendent ».
+    11/10 (contre-vérification) : de PLACES_CACHE_S à PLACES_PERIME_S, la lecture sert tout de suite et se relit en fond ;
+    la page n'attend (PLACES_ATTENTE_S au plus) que sans lecture de moins d'une heure."""
     dep = _deps.get("places")
     if not callable(dep):
         return None
-    if not (_places_cache.get("dep") is dep and _places_cache.get("valeur") is not None
-            and time.time() - _places_cache["t"] < PLACES_CACHE_S):
+    lue_avant = _places_cache.get("dep") is dep and _places_cache.get("valeur") is not None
+    age = time.time() - _places_cache["t"] if lue_avant else None
+    if lue_avant and age < PLACES_PERIME_S:
+        if age >= PLACES_CACHE_S:
+            _lecture_places(dep)                                        # relue en fond, pour la page suivante
+    else:
         try:
             lue = await asyncio.wait_for(asyncio.shield(_lecture_places(dep)), PLACES_ATTENTE_S)
         except asyncio.TimeoutError:
