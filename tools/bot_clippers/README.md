@@ -1078,6 +1078,72 @@ Depuis le 09/10 (Gaëtan) : **paie le 5 et le 20 de chaque mois ; du 5 au 19 inc
 
 L'app clippers (`tools/app_clippers`, onglet Versements) enregistre l'adresse USDC ERC-20 de chaque clipper dans l'onglet « Adresses USDC » du tableur « App clippers · usage » (Drive agence, partagé avec le compte de service). Le bot le lit avec le compte de service (`google_api.drive_chercher` par nom, ou `ADRESSES_CLASSEUR_ID`), et complète ses `wallets` : à chaque annonce de paie du 5 et du 20, avant chaque `!paie-clics`, une fois par jour dans la boucle (après `CLICS_HEURE`, bilan dans le salon admin s'il y a du neuf), et sur `!adresses` (staff : relit maintenant, dit combien de clippers ont une adresse). Règle de fusion : une adresse nouvelle est prise ; si le clipper a aussi écrit `!wallet`, la plus récente des deux gagne (dates comparées en UTC) ; un prénom qui correspond à plusieurs membres n'est pas repris (journal) ; une adresse mal formée est ignorée. Les textes qui réclament une adresse renvoient d'abord à l'app, puis à `!wallet`. Variables : `ADRESSES_TABLEUR` (défaut « App clippers · usage »), `ADRESSES_ONGLET` (« Adresses USDC »), `ADRESSES_CLASSEUR_ID` (facultatif).
 
+### 10/10 : primes d'équipe, Team Leaders et managers (`equipes_tl.py`)
+
+**Verdict** : la grille de Gaëtan est codée telle quelle, avec des variables. Le TL est hors de son équipe. Le bot ne refuse jamais une prime : il la marque « à vérifier » quand une preuve manque. Première période primée : du 20/10 au 04/11, payée le 05/11.
+
+**La grille** (Gaëtan, 10/10) :
+
+- clipper et TL : 0,05 $ la visite payée, comme avant ;
+- TL : 10 $ de plus par VA de son équipe à 500 visites payées ou plus sur la période ;
+- manager : 75 $ par équipe à sa charge, avec un TL, à 3 000 visites payées ou plus.
+
+500, c'est 500 visites payées (pays francophones, hors robots) sur la période du 5 au 19 ou du 20 au 4. Ce ne sont ni les clics bruts du tableau GAML, ni 15 jours glissants. Les seuils sont fixes : la période fait 13 à 16 jours, 500 est donc un peu plus dur en février.
+
+**Qui est dans quelle équipe** : un VA est dans l'équipe de sa créatrice (fiche du registre). Il doit être au clic, n'être TL de nulle part, ne pas être exclu (`CLICS_EXCLURE`) et être au registre le dernier jour de la période. Un clipper sur plusieurs créatrices compte toutes ses visites dans UNE équipe, celle de sa fiche.
+
+**Les garde-fous** :
+
+- le TL n'est le VA d'aucune équipe, et ses visites ne comptent pas dans les 3 000 (`EQUIPE_COMPTE_TL=0`) ;
+- un manager ne touche jamais les 75 $ d'une équipe dont il est TL ;
+- un manager qui clippe lui-même sur une créatrice qu'il manage reste VA de cette équipe (le TL est primé sur lui), mais ses visites ne comptent pas dans les 3 000 qui le paient (`MANAGER_COMPTE=0`). Sinon, 2 050 à lui et 1 000 d'équipe lui feraient toucher 75 $ sur sa propre production. `!manager` le dit ;
+- toute ligne de prime avec un montant sort « à vérifier » : avant le virement, Gaëtan contrôle 5 abonnés par VA primé (Infloww / MyPulse). Le détail dit « contrôle abonnés » pour ce contrôle de routine ;
+- « ⚠️ à vérifier : … » en plus si un jour n'est pas relevé, si un VA primé a moins de 10 Reels vus sur la période, ou si sa part de robots ou de visites francophones s'écarte de la norme ;
+- un VA que des jours non relevés pourraient faire passer le seuil est toujours dit : une note à 0 $ « à vérifier » si personne n'est primé, sinon une raison « Bea 470 / 500 avec 2 j non relevé(s) (+ 10 $ possible) » dans la ligne du TL ;
+- une mesure en erreur (relevé illisible, paie qui plante) n'est jamais un 0 : le VA est dit « non lu », la prime du TL et celle du manager partent « à vérifier », avec une note à 0 $ si l'équipe aurait pu passer le seuil. `a_figer` le signale (« complet » faux) pour que la paie ne fige pas cette période ;
+- sur une période non primée (avant le 20/10), `!tl liste` et le résumé d'équipe écrivent « pas de prime sur cette période », jamais un montant.
+
+**Les commandes**, réservées aux admins (jamais au rôle Manager) :
+
+- `!tl Chloé @X` : X devient TL de Chloé. Refusé si X porte le rôle Manager : un TL n'a jamais de commande staff. Le TL d'une période est celui de son dernier jour : remplacer Tilo par Bea le 04/11 donne toute la période du 20/10 au 04/11 à Bea, et la réponse le dit ;
+- `!tl Chloé aucun` : Chloé n'a plus de TL ;
+- `!manager @X Chloé Sarah` : X est manager de ces équipes, et de celles-là seulement. La liste **remplace** la précédente : une équipe qu'il avait et qui n'y est plus est dite dans la réponse. Une équipe n'a qu'un manager. `!manager @X aucun` les lui retire toutes. Aucun rôle Discord n'est donné ;
+- `!tl liste [5|20 AAAA-MM]` : l'arbre des équipes et les chiffres de la période. Y sont signalés : un TL qui porte le rôle Manager, un porteur du rôle Team Leader sans mandat au registre, un TL sans le rôle, un VA « non lu », et une variable Railway illisible. Un mois mal tapé (« 2026-13 ») renvoie l'usage.
+
+La personne nommée est celle écrite dans la commande (`@X`), même quand la commande est tapée en réponse au message de quelqu'un d'autre : Discord ajoute alors l'auteur du message cité aux mentions, le bot ne le prend jamais à la place. Deux personnes dans la même commande : refus.
+
+Les commandes marchent aussi en message privé au bot : la mention est relue comme membre du serveur, donc le refus « rôle Manager » et la pose du rôle tiennent.
+
+Le rôle « Team Leader » est créé sans aucune permission. C'est une étiquette. S'il existait avec des permissions, le bot les retire. S'il n'y arrive pas (rôle au-dessus du sien, panne), il ne pose PAS le rôle et le dit : vide-le à la main (Réglages du serveur → Rôles), puis refais `!tl Chloé @X`. Refaire `!tl` sur un TL déjà nommé repose le rôle s'il manque.
+
+**Sortie d'un TL ou d'un manager** : rien de spécial à faire. `!tl` et `!manager` notent chaque mandat dans `mandats.json`. Si le TL sort (`!sortie`, sortie automatique, départ du serveur, `!monteur`) après la fin d'une période et avant la liste de paie, sa prime de cette période y est retrouvée, et il ne devient pas le VA de sa propre créatrice. Même chose pour un manager.
+
+Pour la période en cours, l'équipe n'a plus de TL : `!tl Chloé @Y` pour en nommer un. Un sorti resté sur le serveur qui garde le rôle Team Leader est signalé par `!tl liste`.
+
+Seul cas non couvert : un mandat écrit à la main dans `equipes.json`, sans aucune commande `!tl`, `!manager` ou `!tl liste` ensuite (chacune le note au journal). Un ancien qui revient après la fin d'une période compte bien pour cette période.
+
+**Où c'est rangé** : dans `equipes.json`, par uid Discord, jamais par prénom. Rien n'est écrit dans `roster.json`. Sur la fiche du TL : `chef`, `chef_depuis`, `chef_par`. Sur celle du manager : `manager_de`, `manager_depuis`, `manager_par`. Un mandat fini part dans `chef_passe` ou `manager_passe`. Une liste retapée après un changement retrouve donc le TL et le manager de la période.
+
+`mandats.json` (à côté d'`equipes.json`) garde aussi chaque mandat : uid, rôle, créatrices, depuis, jusqu'à. Il ne sert que pour un membre sorti, dont la fiche a été effacée.
+
+**Railway** : `TL_PRIME_VA_USD` (10), `TL_SEUIL_VA` (500), `MANAGER_PRIME_USD` (75), `MANAGER_SEUIL_EQUIPE` (3000), `EQUIPE_COMPTE_TL` (0), `MANAGER_COMPTE` (0), `PRIME_PREUVE_REELS` (10), `PRIMES_EQUIPES_DEPUIS` (2026-10-20 ; 20/10/2026 accepté ; vide = rien de payé), `PRIME_ECART_NORME` (0,25), `PRIME_VOLUME_MIN` (100), `ROLE_TL_NOM` (Team Leader). Les nombres se tapent à la française (« 0,25 », « 7,5 », « 3 000 ») : une valeur illisible ne bloque jamais le démarrage, le bot garde la valeur par défaut et le dit dans `!tl liste`. Une date `PRIMES_EQUIPES_DEPUIS` illisible est dite comme telle (« illisible », pas « vide ») : aucune prime n'est calculée tant qu'elle l'est.
+
+**Ce qui reste à brancher** :
+
+- lot W, dans `on_ready` : `equipes_tl.configurer({...})` avec `lire_json`, `ecrire_json`, `FICHIER_EQUIPES`, `FICHIER_SORTIS`, `ADMIN_IDS`, `est_manager`, `membre_par_id`, `nom_de`, `regime`, `exclu` (ou `exclus`), `creatrices`, `lire_clics`, `heure_paris`, `payees` (`paie_clics.payees`, lot L11), `reels_vus = equipes_tl.reels_vus_par_comptes(comptes_de_uid, series.reels_vus, series.derniere_lecture)` et `jours_manquants = equipes_tl.jours_manquants_par_paie(paie_clics.jours_manquants_paie)`. Sans `configurer`, `!tl` répond « pas branché au démarrage » et `primes_equipes` lève `NonBranche` ;
+- lot W, dans `on_message` : `await equipes_tl.commande(message, message.content)` pour `!tl` et `!manager`, en salon ET en message privé, sans les ajouter à `COMMANDES_MANAGER` ;
+- lot L11 : `primes_equipes(d, debut, fin, jour_paie, payees, reels_vus, jours_manquants)` accepte le « 05/11 » de `liste_paie` (clé déduite de la fin) ; `figer_primes_equipes` ne fige pas une période dont `a_figer(...)["complet"]` est faux (mesure en erreur), il réessaie au calcul suivant. Toute prime d'équipe payée arrive « à vérifier » : le message de paie écrit donc toujours « à vérifier par Gaëtan » sur une prime d'équipe ;
+- lot L8 : la section ÉQUIPES du Dashboard (`resume_equipe`) ;
+- plus tard : une relecture du registre dans `completer_creatrices` (elle réécrit `equipes.json` après une attente Google : une nomination tapée pendant ce temps serait effacée, `!tl liste` le signale). `equipes_tl.fin_de_mandats` dans `!sortie` n'est plus nécessaire : il retirerait seulement le rôle Team Leader plus tôt.
+
+D'ici là, `!tl liste` montre les chiffres, et rien n'est ajouté à la paie.
+
+**Question ouverte pour Gaëtan** : les visites d'un manager qui clippe dans une équipe qu'il manage comptent-elles dans les 3 000 de cette équipe ? Aujourd'hui non (`MANAGER_COMPTE=0`), pour qu'il ne soit pas primé sur sa propre production. Ce choix n'est pas dans la grille du 10/10 : `MANAGER_COMPTE=1` sur Railway si tu veux qu'elles comptent.
+
+**Les chiffres** (hypothèses du vault) : une équipe pile à 3 000 avec 6 VA à 500 coûte 285 $, soit 0,095 $ la visite. C'est plus que la marge agence sur OnlyFans seul (0,06 à 0,07 $ la visite, à vérifier). Recommandation : ne nommer aucun manager avant que deux équipes aient passé 3 000, TL exclus, deux quinzaines de suite.
+
+Tests : `test_vague1_L10_grille.py` (seuils exacts, TL exclu, manager hors du total qui le paie, multi, jours non relevés, preuves, toute ligne payée « à vérifier », figé, période non primée, variables à la française, date à la française, sortis après la fin, grille de `economie.py` à l'identique) et `test_vague1_L10_commandes.py` (rôle porteur de permissions jamais posé, commandes en MP, remplacement des équipes d'un manager dit, écarts rôle/registre, fin des mandats à la sortie).
+
 ### 📱 L'app envoyée toute seule après les 3 comptes (08/10, `lien_app.py`, `parcours.livrer_app`) (historique, avant le 09/10 : depuis, un seul message routine + app, sans le lien GAML)
 
 Demande de Gaëtan : « envoie automatiquement l'app dans le salon Discord privé du clippeur, une fois seulement qu'il a créé les 3 IG : l'app + son lien de tracking GAML ». Dès que l'étape du compte 3 est fermée (le parcours passe à l'étape 6 : compte 3 créé et profil fait, ou scan qui le voit), le bot poste dans le salon perso un message court : le bouton **« 📱 Ouvrir mon app »**, les trois gestes (Safari ou Chrome, écran d'accueil), l'adresse de l'app en clair pour la copier, **son lien GAML** (celui de `!mesclics`, l'adresse à jour, le plus récent chez sa créatrice) avec « il va seulement dans la bio de ton compte 3 », et « ne donne son lien à personne ». Une seule fois par clipper (clé `app` de sa fiche de parcours, écrite avant l'envoi, retirée si Discord refuse). Une passe horaire (`rattraper_app`, dans la boucle du parcours) rattrape tous ceux qui sont déjà à l'étape 6 ou 7 sans l'avoir reçue, cinq par passe au plus ; les prénoms de `CLICS_EXCLURE` (Rianah, le staff) n'en reçoivent pas. Commandes : `!app` tapé par le clipper **dans son salon perso** (jamais ailleurs : le lien ouvre sa paie et son adresse USDC) renvoie le message une fois ses 3 comptes créés ; `!app @clipper` (staff) le renvoie, même avant le compte 3.
