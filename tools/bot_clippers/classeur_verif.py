@@ -12,9 +12,9 @@ contrôle, calculée toutes les 15 minutes et affichée dans la section CONTRÔL
 Le pseudo en double était déjà C11. Mêmes règles, mêmes variables Railway (CLASSEUR_SCANS_MIN, CLASSEUR_MAX_COMPTES), mêmes
 exclus (etats_comptes.dashboard_exclus). Le salon admin n'est prévenu que quand la liste des points bloquants ou importants change.
 
-Ce fichier ne garde que les noms que bot_discord appelle encore (`configurer` et `verifier` dans on_ready, `verifier` passé à
-etats_comptes sous le nom « verifier_classeur », `commande` dans on_message), le temps que le lot W les retire ; W supprime ensuite
-ce fichier. classeur_verif.json, s'il reste sur le volume, n'est plus lu ni écrit.
+11/10 (vérification du lot L12) : bot_discord n'importe plus ce module ni ne l'appelle (`!classeur` sort aussi des commandes du
+Manager). Le fichier reste, inerte, pour les tests qui l'importent encore ; il se supprime avec eux. classeur_verif.json, s'il reste
+sur le volume, n'est plus lu ni écrit.
 """
 import logging
 

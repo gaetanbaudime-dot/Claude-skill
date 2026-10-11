@@ -8,8 +8,8 @@ du scan et de Metricool). Une lecture `!cadence` coûtait 1 à 5 $ sur le budget
 Rien ne servait ailleurs : la règle des vues d'une publication vit dans series.vues_post, le nettoyage des @ dans
 onboarding.normaliser_handle.
 
-Ce fichier ne garde que les trois noms que bot_discord appelle encore (`configurer` et `boucle` dans on_ready, `commande` dans
-on_message), le temps que le lot W retire `import cadence_reels` et ces trois appels ; W supprime ensuite ce fichier. La variable
+11/10 (vérification du lot L12) : bot_discord n'importe plus ce module ni ne l'appelle (`!cadence` sort aussi des commandes du
+Manager). Le fichier reste, inerte, pour les tests qui l'importent encore ; il se supprime avec eux. La variable
 Railway CADENCE_AUTO n'est plus lue (à retirer de Railway quand tu veux), et cadence_reels.json, s'il reste sur le volume, n'est
 plus lu ni écrit.
 """
