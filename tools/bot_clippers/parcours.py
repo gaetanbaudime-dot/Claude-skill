@@ -993,8 +993,14 @@ async def _dire_au_clipper(client, uid: str, texte: str) -> bool:
         return False
 
 
-async def compte_retrouve(client, ancien: str, nouveau: str) -> bool:
-    """09/10 : le scan a retrouvé le compte sous un @ proche (nom et bio du bot) → renommé partout, le clipper est prévenu."""
+RAISONS_PASSAGERES = ("le classeur est indisponible", "le classeur ne répond pas", "je ne trouve pas ce compte dans le classeur")
+
+
+async def compte_retrouve(client, ancien: str, nouveau: str):
+    """09/10 : le scan a retrouvé le compte sous un @ proche (nom et bio du bot) → renommé partout, le clipper est prévenu.
+    10/10 (dashboard, lot SCAN passe 3, M1 : un refus définitif était retenté à chaque passage, Apify payé à chaque fois, la ligne
+    jamais BAN) : True si renommé ; False si refusé pour de bon (compte hors fiche, @ d'un autre compte, @ refusé) ; None si le
+    classeur n'a pas répondu (RAISONS_PASSAGERES : à retenter au passage suivant). None et False restent faux pour un `bool()`."""
     uid, n = proprietaire(ancien)
     if not uid:
         return False
@@ -1007,7 +1013,7 @@ async def compte_retrouve(client, ancien: str, nouveau: str) -> bool:
     _, raison = await renommer(uid, n, nouveau)
     if raison:
         journal.warning("Compte retrouvé %s → %s pour %s non renommé : %s", ancien, nouveau, uid, raison)
-        return False
+        return None if any(str(raison).startswith(r) for r in RAISONS_PASSAGERES) else False
     await _dire_au_clipper(client, uid, f"🔎 J'ai trouvé ton compte {n} sous `{nouveau}`. Le @ prévu, `{ancien}`, était pris.\n\n"
                                         f"Ce n'est pas le tien ? Tape `!pseudo {n}` puis ton vrai @.")
     return True
