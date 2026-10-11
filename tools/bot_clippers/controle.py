@@ -1454,10 +1454,15 @@ def _c4(x: _Ctx) -> list:
             quoi = {"libre": "compte sans Gérant", "metricool": "compte Metricool", "staff": "compte du staff",
                     "creatrice": "compte de la créatrice"}[genre]
             noms = ", ".join(x.nom(o) for o in etrangers)
+            # 11/10 (clôture CONTROLE, passe 4) : la ligne est AUSSI dans la fiche d'un présent au nom compatible (« Rianah Metricool »
+            # chez Lea et chez Rianah) : `!liberer` vide toutes les fiches, Rianah perdrait l'accès et les codes du compte qu'elle
+            # reprend. Aucune commande ne retire une seule fiche : pas de commande, comme la branche membre (homonymes).
+            remede = (f"pas de `!liberer` : {', '.join(x.nom(o) for o in homonymes)} l'a aussi et perdrait son accès ; "
+                      f"accès à retirer de la seule fiche de {noms}, à la main" if homonymes else _remede_liberer(x, c, genre))
             out.append(_a("C4", "bloquant", _avec_remede(
                 [f"{_ou(c)} · {_qui(c)} : {quoi} encore dans la fiche de {noms} (accès et codes 2FA)",
                  f"{_ou(c)} · {_qui(c)} : {quoi} chez {noms} (accès, 2FA)", f"{_ou(c)} · @{c['handle']} : fiche de {noms}"],
-                _remede_liberer(x, c, genre)), cle))
+                remede), cle))
     return out
 
 
