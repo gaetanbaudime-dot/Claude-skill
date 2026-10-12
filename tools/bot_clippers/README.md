@@ -10,6 +10,12 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 12/10 : les Reels de l'onglet Reels, et la « couverture limitée aux moins de 18 ans »
+
+**Le scan voit maintenant l'onglet Reels.** Avant, il ne lisait que les 12 dernières publications de la grille du profil : un Reel publié sans « Partager aussi dans le fil », ou poussé au-delà des 12, n'existait pas pour lui (Mathieu : 0 Reel vu, un Reel à 160 000 vues dans l'onglet). Le passage du matin lit aussi l'onglet Reels des comptes lisibles (Reels des 3 derniers jours), et les lectures du parcours (comptes qui attendent le suivant) le lisent sur 10 jours. Ces Reels rejoignent la grille : Reels hier et 7 jours, vues, séries, Dashboard, pilotage et déblocage des comptes 2 et 3 les comptent sans rien d'autre à faire. Acteur Apify `apify~instagram-reel-scraper`, environ 2,60 $ les 1 000 Reels lus, sous la même garde du budget de 25 $ (le parcours d'abord) : environ 5 $ par mois de plus au rythme actuel. Variables : `APIFY_REELS_ONGLET=0` coupe, `APIFY_REELS_JOURS` (3), `APIFY_REELS_JOURS_PARCOURS` (10), `APIFY_REELS_MAX` (12), `APIFY_REELS_PRIX_1000` (2,60).
+
+**« Couverture limitée auprès des personnes de moins de 18 ans »** : l'assistant ne dit plus « pas grave ». Il donne la marche à suivre de Gaëtan : Paramètres → Créateur → Âge minimum → 18 ans, puis Statut du compte → Contenu marqué → Examiner, et SUPPRIMER (pas archiver) chaque contenu marqué, puis une capture du statut à Gaëtan (règle 28 bis et FAQ).
+
 ## 12/10 : codes 2FA sans filtre, comptes neufs seulement
 
 **Le bug qui bloquait les codes depuis le 10/10** : iCloud réécrit l'expéditeur d'Instagram en `no-reply_at_mail_instagram_com_<a>_<b>@icloud.com`, avec deux morceaux après « _com ». Le bot n'en acceptait qu'un : tous les codes relayés étaient écartés (les lignes « Mail au nom de Meta, adresse non reconnue » du salon admin). Le format réel est désormais reconnu, et la détection des bans par e-mail (bans_mail) en profite aussi.

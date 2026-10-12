@@ -167,6 +167,17 @@ LEGER_APRES_COMPLET_H = 2              # un passage léger juste après le passa
 # Apify ne répond pas (profils demandés ; publications lues pour la cadence)
 APIFY_BUDGET_MOIS = _flottant(os.environ.get("APIFY_BUDGET_MOIS"), 25.0)
 APIFY_PRIX_1000 = _flottant(os.environ.get("APIFY_PRIX_1000"), 2.30)
+# 12/10 (Gaëtan : « Démerde-toi pour que le bot voie les comptes, les Reels et les vues, peu importe l'onglet ») : latestPosts ne
+# montre que les 12 dernières publications de la GRILLE ; un Reel publié sans « Partager aussi dans le fil », ou poussé au-delà des
+# 12, n'y est pas (Mathieu, 12/10 : 0 Reel vu, 160 k vues dans l'onglet Reels). Le passage du matin et les lectures du parcours
+# lisent donc aussi l'ONGLET Reels (instagram-reel-scraper), seulement les Reels récents : ils rejoignent latestPosts, et tout le
+# reste (Reels hier / 7 j, séries, vues, déblocage des comptes 2 et 3) les compte sans autre changement.
+ACTOR_REELS = os.environ.get("APIFY_ACTOR_REELS", "apify~instagram-reel-scraper").strip()
+REELS_ONGLET = os.environ.get("APIFY_REELS_ONGLET", "1").strip() != "0"
+REELS_JOURS_MATIN = int(_flottant(os.environ.get("APIFY_REELS_JOURS"), 3))          # matin : les Reels des 3 derniers jours
+REELS_JOURS_PARCOURS = int(_flottant(os.environ.get("APIFY_REELS_JOURS_PARCOURS"), 10))   # parcours : 10 jours (compte en cours)
+REELS_MAX = int(_flottant(os.environ.get("APIFY_REELS_MAX"), 12))                   # Reels lus au plus par compte et par passage
+REELS_PRIX_1000 = _flottant(os.environ.get("APIFY_REELS_PRIX_1000"), 2.60)
 BUDGET_CACHE_MIN = 30                  # l'API Apify (dépense du cycle) relue au plus toutes les 30 min
 RECOUVREMENT_API_MIN = 15              # un appel noté moins de 15 min avant la lecture de l'API compte encore (elle a du retard)
 APIFY_LIMITES = "https://api.apify.com/v2/users/me/limits"
@@ -311,6 +322,8 @@ async def scanner(handles: list, priorite: str = "releve") -> dict:
         journal.info("Apify (états) : %d compte(s) sur %d absent(s) de la première réponse, redemandés à part", len(manquants), len(cles))
         encore = await _apify(manquants, refuses, priorite)
         items += encore or []
+    if priorite in ("matin", "parcours"):                                # 12/10 : l'onglet Reels, en plus de la grille
+        await _completer_reels(items, priorite)
     out = _lire_items(items, cles)
     for h in refuses:                                                    # 09/10 : lot refusé (budget) : non lu, sans compter de jour
         if h in out and not out[h]["lu"]:
@@ -379,6 +392,77 @@ async def _apify(handles: list, refuses: set = None, priorite: str = "releve"):
 
 
 _derniers_refuses = set()                                               # 09/10 : comptes du dernier _apify refusés par la garde du budget
+
+
+def fusionner_reels(items: list, onglet: dict) -> int:
+    """12/10 : ajoute aux latestPosts de chaque fiche les Reels de son onglet Reels qu'elle n'a pas déjà (même shortcode), marqués
+    `_onglet` (la couverture de la grille ne les compte pas). Renvoie le nombre de Reels ajoutés. Pur, testé."""
+    ajoutes = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        reels = onglet.get(_handle_item(item)) or []
+        if not reels:
+            continue
+        posts = item.get("latestPosts") if isinstance(item.get("latestPosts"), list) else []
+        vus = {series.code_post(p) for p in posts if isinstance(p, dict)} - {""}
+        for r in reels:
+            code = series.code_post(r)
+            if not code or code in vus or not r.get("timestamp"):
+                continue
+            vus.add(code)
+            posts.append(dict(r, type=r.get("type") or "Video", productType=r.get("productType") or "clips", isPinned=False, _onglet=True))
+            ajoutes += 1
+        item["latestPosts"] = posts
+    return ajoutes
+
+
+async def _completer_reels(items: list, priorite: str) -> int:
+    """12/10 : lit l'onglet Reels des comptes lisibles de `items` (ni privés, ni restreints, ni en erreur) et fusionne les Reels
+    récents dans leurs latestPosts. Coût réservé avant l'appel (au plus REELS_MAX Reels par compte), remplacé par les Reels
+    réellement rendus. Jamais d'exception : un échec laisse la grille seule, comme avant."""
+    if not REELS_ONGLET or not APIFY_TOKEN or _deps.get("scanner"):
+        return 0
+    cles = []
+    for it in items:
+        if not isinstance(it, dict) or it.get("private") or it.get("isRestrictedProfile") or it.get("error"):
+            continue
+        k = _handle_item(it)
+        if k and k not in cles:
+            cles.append(k)
+    if not cles:
+        return 0
+    jours = REELS_JOURS_PARCOURS if priorite == "parcours" else REELS_JOURS_MATIN
+    ajoutes, url = 0, f"https://api.apify.com/v2/acts/{ACTOR_REELS}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+    for i in range(0, len(cles), LOT):
+        lot_h = cles[i:i + LOT]
+        attendus = min(REELS_MAX, 2 * jours)                            # 2 Reels par jour au plus d'habitude ; la dépense réelle remplace
+        jeton = await garde_apify(len(lot_h) * attendus * REELS_PRIX_1000 / 1000, "Reels (onglet)", reserver=True, priorite=priorite)
+        if not jeton:
+            journal.warning("Apify (onglet Reels) : lot refusé par le budget, la grille seule est lue")
+            continue
+        rendus = []
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=APIFY_TIMEOUT)) as session:
+                async with session.post(url, json={"username": lot_h, "resultsLimit": REELS_MAX, "skipPinnedPosts": True,
+                                                   "onlyPostsNewerThan": f"{jours} days"}) as reponse:
+                    if reponse.status >= 400:
+                        journal.error("Apify HTTP %s (onglet Reels)", reponse.status)
+                    else:
+                        lot = await reponse.json()
+                        rendus = [r for r in (lot if isinstance(lot, list) else []) if isinstance(r, dict) and not r.get("error")]
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as erreur:
+            journal.error("Apify injoignable (onglet Reels) : %s", type(erreur).__name__)
+        finally:
+            noter_depense(len(rendus) * REELS_PRIX_1000 / 1000, len(rendus), "Reels (onglet)", reservation=jeton)
+        onglet = {}
+        for r in rendus:
+            k = _cle(str(r.get("ownerUsername") or ""))
+            if k:
+                onglet.setdefault(k, []).append(r)
+        ajoutes += fusionner_reels(items, onglet)
+    journal.info("Apify (onglet Reels) : %d compte(s) lus, %d Reel(s) ajouté(s) à la grille", len(cles), ajoutes)
+    return ajoutes
 
 
 def _fiche_vide() -> dict:
@@ -593,7 +677,8 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
         # montre tout le compte, 0 publication comprise) ; latestPosts vide (ou rien que des épinglées) alors que postsCount en
         # annonce d'autres, ou postsCount inconnu = Reels NON LUS → cellules gardées, jamais 0
         n_libres = sum(1 for p in posts if not p.get("isPinned"))
-        fiche["reels_lus"] = not prive and not restreint and (n_libres > 0 or (posts_total is not None and posts_total <= len(posts)))
+        n_grille = sum(1 for p in posts if not p.get("_onglet"))
+        fiche["reels_lus"] = not prive and not restreint and (n_libres > 0 or (posts_total is not None and posts_total <= n_grille))
         serie_reels, plus_ancien = [], None
         for post in posts:
             quand = _quand_post(post)
@@ -631,7 +716,8 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
         # décompte est un minimum (complété par l'historique du scan dans reels_7j_estime). 09/10 (dashboard) : la plus ancienne
         # NON épinglée (une épinglée de l'an dernier faisait conclure « non plafonné »), et seulement si latestPosts ne montre pas
         # tout le compte (moins de publications vues que postsCount ; sans postsCount, les 12 places prises)
-        incomplet = len(posts) < posts_total if posts_total is not None else len(posts) >= 12
+        grille = [p for p in posts if not p.get("_onglet")]               # 12/10 : les Reels de l'onglet ne disent rien de la grille
+        incomplet = len(grille) < posts_total if posts_total is not None else len(grille) >= 12
         fiche["plafonne"] = bool(plus_ancien is not None and incomplet and _paris(plus_ancien).date() >= debut_7j)
         # 09/10 (dashboard) : depuis quand ce relevé voit TOUTES les publications ("" = tout le compte est visible)
         if posts_total is not None and not incomplet:

@@ -225,9 +225,13 @@ La suite, c'est ton manager qui décide, selon tes résultats :
 7. Poste une capture de la réponse d'Instagram dans ton salon perso.
 8. L'appel échoue ? Gaëtan décide. On ne réutilise jamais une info d'un compte banni : ni son e-mail, ni son mot de passe, ni son identifiant.
 
-**« Ce compte n'est pas recommandé aux moins de 18 ans »** : pas grave. C'est normal chez nous. Les adultes voient le compte. Grave, c'est autre chose : Instagram cache tes Reels à tout le monde, ou supprime tes Reels plusieurs fois. Là, capture à ton manager.
+**« Vous avez une couverture limitée auprès des personnes de moins de 18 ans » (ou « Ce compte n'est pas recommandé aux moins de 18 ans »), ou tes vues ont chuté d'un coup** : à régler tout de suite (règle de Gaëtan du 12/10), c'est souvent la cause de la chute des vues.
+1. Instagram → Paramètres → Créateur (ou « Outils pour les créateurs ») → **Âge minimum** → **18 ans**.
+2. Paramètres → **Statut du compte** → « Contenu marqué » → **Examiner** : **SUPPRIME** chaque contenu marqué. Supprimer, pas archiver.
+3. Envoie à Gaëtan une capture du « Statut du compte » une fois fini.
+Ensuite, ne reposte jamais une vidéo qui a été marquée.
 
-**Mes Reels font 0 vue depuis 2 ou 3 jours** : 200 vues, c'est la vidéo qui ne plaît pas. On change la vidéo. 0 vue plusieurs jours de suite, c'est un blocage. Ne change rien seul. Envoie à ton manager une capture de tes stats et de l'écran « Statut du compte ».
+**Mes Reels font 0 vue depuis 2 ou 3 jours, ou mes vues ont chuté** : regarde d'abord Paramètres → « Statut du compte ». Un point orange (« couverture limitée auprès des moins de 18 ans », « contenu marqué ») : âge minimum à 18 ans, puis supprime (pas archiver) chaque contenu marqué. Tout est vert et 200 vues : c'est la vidéo qui ne plaît pas, on change la vidéo. 0 vue plusieurs jours avec un statut vert : envoie à Gaëtan une capture de tes stats et du « Statut du compte ».
 
 **Des messages privés arrivent sur mes comptes** : on ne répond presque jamais en privé. On n'envoie jamais de messages en masse. C'est la cause numéro 1 des bans. Réponds en story, avec une capture du message, ou en commentaire. Jamais de lien en privé.
 

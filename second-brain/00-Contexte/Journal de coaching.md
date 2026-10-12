@@ -22,6 +22,15 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-12 (scan) — Le bot lit l'onglet Reels ; la « couverture limitée aux moins de 18 ans » se traite, elle ne s'ignore pas
+
+> [!tip] Verdict
+> Deux angles morts fermés le même jour. Le scan ne voyait que la grille (Mathieu bloqué trois jours avec un Reel à 160 k vues) : il lit maintenant l'onglet Reels, sous le même plafond de 25 $ (≈ +5 $ par mois, le parcours passe en premier). Et l'assistant disait « pas grave » à une restriction moins de 18 ans qui fait chuter les vues : il donne maintenant ta procédure. **Flag CGU** : cette procédure va dans le bon sens (âge minimum 18 ans, contenu marqué supprimé) ; un compte qui en reçoit plusieurs est un signal de dette, pas un incident isolé.
+
+- **Décisions de Gaëtan (12/10)** : « Ajoute ça au bot » (âge minimum 18 ans, contenus marqués supprimés) ; « Démerde-toi pour que le bot voie les comptes et les Reels et les vues, peu importe l'onglet ».
+- **Limite honnête** : le budget Apify était déjà au-dessus de sa trajectoire le 10/10 ; si la garde refuse la lecture du matin, la grille seule est lue ce jour-là, mais les comptes qui attendent leur suite passent d'abord.
+- **Prédiction (12/10, revue le 19/10)** : plus aucun clipper bloqué pour « le bot ne voit pas mes Reels » ; le compte des Reels 7 j du Dashboard monte de 20 % au moins sans hausse réelle de publication (les Reels hors grille deviennent visibles).
+
 ### 2026-10-12 (codes 2FA) — Codes sans filtre, le dernier code à tous les coups ; comptes neufs seulement
 
 > [!tip] Verdict
