@@ -10,7 +10,7 @@ importants du Spam → boîte de réception) est fait par ce même lecteur (dest
 l'expéditeur est Meta (le nom affiché ne compte plus : « Action requise… <pseudo d'un autre> » écrit par un clipper ne passe
 plus un compte en BAN). Les mails de suspension attendent dans une file ; toutes les BANS_INTERVALLE_SEC (ou dès qu'un mail
 arrive) : la ligne du classeur (retrouvée par le pseudo, sinon par l'alias) passe BAN, `bans_auto` retient le ban (le scan rend
-WARMUP si le compte réapparaît après appel), et un push part sur Telegram et dans le salon admin. Du mail, on ne garde que le
+GOOD (ou PRIVE) si le compte réapparaît après appel), et un push part sur Telegram et dans le salon admin. Du mail, on ne garde que le
 pseudo, l'alias et la date : jamais le corps.
 
 10/10 (revue, BAN perdu au redémarrage) : le lecteur unique sauve son UID dès le passage fini ; la file des suspensions ne
@@ -232,7 +232,7 @@ def ligne_push(t: dict, c: dict | None, ecrit: bool) -> str:
     pseudo = f"@{t['pseudo']}" if t.get("pseudo") else (t.get("alias") or "compte inconnu")
     if t.get("type") == "retour":
         qui = "" if c is None else f" · {str(c.get('gerant') or '').split()[0] if str(c.get('gerant') or '').strip() else 'sans gérant'} · {c.get('onglet') or '?'}" + (f" · mail n° {c['numero']}" if c.get("numero") else "")
-        etat = "" if c is None else f" · ligne {c.get('etat') or '?'} dans le classeur, à toi de la remettre WARMUP si tu le reprends"
+        etat = "" if c is None else f" · ligne {c.get('etat') or '?'} dans le classeur, à toi de la remettre GOOD si tu le reprends"
         return f"✅ {pseudo} — de retour sur Instagram, appel accepté ({_quand(t['date'])}){qui}{etat}"
     if c is None:
         return f"🚫 {pseudo} — suspendu ({_quand(t['date'])}), hors classeur (alias inconnu)"

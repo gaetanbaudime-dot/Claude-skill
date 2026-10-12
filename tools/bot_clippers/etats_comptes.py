@@ -501,7 +501,13 @@ VARIANTES_MAX = int(os.environ.get("ETATS_VARIANTES_MAX", "12") or 12)   # compt
 # 09/10 (revue) : un BAN n'est cherché sous un @ proche que dans les jours qui suivent le BAN posé par le bot (un vrai BAN, vu
 # vivant un jour, ne l'est jamais ; sans limite, les vieux BAN prenaient chaque jour toutes les places de la recherche).
 BAN_RECHERCHE_JOURS = int(os.environ.get("ETATS_BAN_RECHERCHE_JOURS", "7") or 7)
-CREES = ("warmup", "prive", "privé")                                    # créés, pas encore GOOD : le délai avant BAN les protège
+# 12/10 (Gaëtan : « Enlève le WARMUP dans le sheet, soit c'est BAN, soit c'est GOOD, soit c'est privé. C'est pas plus compliqué que
+# ça ») : un compte créé est GOOD (ou PRIVE) tout de suite, un WARMUP resté au classeur passe GOOD au premier passage qui le voit.
+# ETAT_WARMUP=1 remet l'ancien cycle (à créer → WARMUP → GOOD après GOOD_JOURS jours de publication).
+WARMUP_ACTIF = os.environ.get("ETAT_WARMUP", "0").strip() == "1"
+CREE = "WARMUP" if WARMUP_ACTIF else "GOOD"                             # l'état d'un compte qui vient d'être créé
+# créés, pas encore GOOD : le délai avant BAN les protège (sans WARMUP : un GOOD jamais vu vivant est un compte neuf, protégé aussi)
+CREES = ("warmup", "prive", "privé") + (() if WARMUP_ACTIF else ("good",))
 
 
 def _absents_depuis(historique: list, depuis: str) -> int:
@@ -775,13 +781,15 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban
         # reste « à créer » (alerte admin dans _executer) ; le bouton « créé » du parcours la passe à WARMUP s'il est bien à lui.
         if not mesure["existe"]:
             return ""
-        return "WARMUP" if any(not j.get("existe") for j in historique[:-1]) else ""
+        if not any(not j.get("existe") for j in historique[:-1]):
+            return ""
+        return "PRIVE" if mesure.get("prive") and not WARMUP_ACTIF else CREE
     if e == "warmup":
         if absents >= BAN_JOURS:
             return "BAN"
         if mesure["existe"] and mesure["prive"]:
             return "PRIVE"
-        if publie >= GOOD_JOURS:
+        if publie >= GOOD_JOURS or not WARMUP_ACTIF:                    # 12/10 : plus de WARMUP, GOOD tout de suite
             return "GOOD"
         return ""
     if e in ("good", "prive", "privé"):
@@ -790,9 +798,11 @@ def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban
         if not mesure["existe"]:
             return ""
         if avant_ban in ("WARMUP", "GOOD", "PRIVE"):
-            return avant_ban
+            return "GOOD" if avant_ban == "WARMUP" and not WARMUP_ACTIF else avant_ban
         # 30/09 : état d'avant inconnu. Un compte restreint cache ses Reels au scan : « jamais vu publier » ne prouve rien,
         # et un compte restreint en WARMUP n'en sortirait jamais tout seul → GOOD (le chiffre de Clics dit la vérité)
+        if not WARMUP_ACTIF:
+            return "PRIVE" if mesure.get("prive") else "GOOD"
         return "GOOD" if publie_deja(historique) or mesure.get("restreint") else "WARMUP"
     return ""
 
@@ -1527,6 +1537,11 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
             d["pris_signales"][h] = jour
         if apres:
             _appliquer(c, apres)
+    if not WARMUP_ACTIF:                                                # 12/10 : un WARMUP non lu ou inchangé passe GOOD quand même
+        deja = {id(x["c"]) for x in ecritures if x.get("champ") == "etat"} | set(differes)
+        for c in lignes:
+            if _norm(c.get("etat")) == "warmup" and id(c) not in deja:   # non lu : ni BAN ni privé prouvé, GOOD comme tout créé
+                _appliquer(c, "GOOD")
     renommes_passe = {}                                                 # 09/10 (dashboard) : @ renommés pendant ce passage
     # 10/10 (passe 3) : `vu_sous` = {@ : jour} des lignes vues vivantes sous un @ proche dont le renommage a été REFUSÉ (refus définitif,
     # voir plus bas) : jamais BAN ce jour-là, même au passage suivant (`!dashboard scan`), et cherchées après les autres les jours
@@ -1599,7 +1614,8 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
             vu_sous.pop(h_c, None)
             renommes_passe[h_c] = _cle(nouveau)                         # la ligne porte maintenant le nouvel @ (cellule réécrite)
             if _norm(c["etat"]) == "ban":                               # faux BAN : le compte vit sous son vrai @, état d'avant rendu
-                retour = d.get("avant_ban", {}).get(h_c) or "WARMUP"
+                retour = d.get("avant_ban", {}).get(h_c) or CREE
+                retour = "GOOD" if retour == "WARMUP" and not WARMUP_ACTIF else retour
                 ecritures.append({"c": c, "champ": "etat", "valeur": retour, "attendu": c["etat"], "retour": True})
             changements.append((c["handle"], c["gerant"], c["etat"], f"retrouvé sous {nouveau}", c["ligne"]))
         for c in perdus:

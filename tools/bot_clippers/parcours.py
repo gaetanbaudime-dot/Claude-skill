@@ -2455,7 +2455,8 @@ async def _classeur_etat(uid: str, n: int) -> None:
     prive_n = n == n_prive(_lire().get(str(uid)) or {})
     for h in comptes[n - 1:n]:
         try:
-            await marquer(h, "PRIVE" if prive_n else "WARMUP")          # 05/10 : le compte privé ne chauffe pas (08/10 : le 2)
+            # 05/10 : le compte privé ne chauffe pas (08/10 : le 2) ; 12/10 : plus de WARMUP au classeur (ETAT_WARMUP=1 : l'ancien)
+            await marquer(h, "PRIVE" if prive_n else ("WARMUP" if os.environ.get("ETAT_WARMUP", "0").strip() == "1" else "GOOD"))
         except Exception as erreur:
             journal.warning("Classeur étape %s de %s : %s", n, uid, erreur)
 

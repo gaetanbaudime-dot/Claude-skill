@@ -10,6 +10,14 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 12/10 : plus de WARMUP, et un Dashboard lisible
+
+**ETAT : GOOD, PRIVE ou BAN, rien d'autre.** Un compte créé passe GOOD tout de suite (PRIVE si c'est le privé) : bouton « créé » du parcours, scan qui le voit apparaître, BAN qui revient. Un WARMUP encore au classeur passe GOOD au prochain passage du matin. Le délai avant BAN d'un compte neuf jamais vu vivant reste le même. Le warm-up reste une consigne du parcours (regarder des Reels, liker), plus un état. `ETAT_WARMUP=1` remet l'ancien cycle.
+
+**Ce que tu fais** : retire « WARMUP » de la liste déroulante de la colonne ETAT dans tes onglets créatrices.
+
+**L'onglet Dashboard** prend le modèle de tes onglets créatrices : un titre, la fraîcheur des chiffres, puis par créatrice un bandeau de totaux et un tableau à en-tête vert, colonnes Gérant, @ IG, ETAT (en couleur), Followers, Reels hier, Reels 7 j, Vues 7 j, Clics hier, Clics 7 j, Évolution clics, Team Leader. Le Gérant, ses clics et son TL sont fusionnés sur ses comptes. Une ligne « Autres liens » porte les pages et liens libérés, le TOTAL est en bas. Le contrôle, les tendances et les équipes ne sont plus dans l'onglet : l'app pilotage, l'app des TL et `!tl liste` les portent. `DASHBOARD_DETAILLE=1` remet l'ancien onglet complet.
+
 ## 12/10 : app des Team Leaders, colonne « Team leader », @ corrigés depuis l'app
 
 **Ce que tu fais** : dans chaque onglet créatrice du classeur des logins, ajoute une colonne **« Team leader »** et écris le prénom du TL sur les lignes de chacun de ses clippers (comme le Gérant, cellule fusionnée possible). Le prénom doit être celui d'un membre signé, et un seul membre doit l'avoir. Deux « Lucas » : la ligne est ignorée. L'en-tête « Team leader » ou « TL » suffit.

@@ -147,9 +147,11 @@ except ImportError:
 journal = logging.getLogger("dashboard")
 
 ONGLET = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
-DASHBOARD_VERSION = 12                 # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
+SIMPLE = os.environ.get("DASHBOARD_DETAILLE", "0").strip() != "1"   # 12/10 : le tableau simple (DASHBOARD_DETAILLE=1 : l'ancien)
+DASHBOARD_VERSION = 13 if SIMPLE else 12   # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
                                        # 11 (revue DASH) : lignes d'alerte « ⛔ » sous le titre, règle de couleur « ⛔ »
                                        # 12 (11/10, lot L8) : colonnes « hyper complètes », ÉQUIPES, clippers sans compte
+                                       # 13 (12/10) : le tableau simple, sur le modèle des onglets créatrices
 ACTIF = os.environ.get("DASHBOARD_BOUCLE", "1").strip() != "0"
 INTERVALLE_S = 900                     # la boucle regarde toutes les 15 minutes
 ECART_MIN_S = 14 * 60                  # deux réécritures non forcées : au moins 14 minutes d'écart
@@ -1477,6 +1479,10 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
     # en tête de cellule — la mise en forme conditionnelle la colore, lisible au téléphone sans faire défiler le titre)
     p = ctx.p
     fraicheur, alertes = _fraicheur(ctx, e, comptes_l)
+    if SIMPLE:                                                           # 12/10 : le tableau lisible, sur le modèle des onglets créatrices
+        n_anomalies = _section_controle(lambda *a, **k: None, ctx, e, comptes, lids_lignes, lids_masques, tout)
+        rows, kinds = _simple(ctx, comptes_l, ordre_cr, restes, tout, fraicheur, alertes)
+        return _resultat(ctx, rows, kinds, comptes_l, creatrices, fraicheur, n_anomalies, lids_lignes, lids_masques, simple=True)
     ajouter(["Dashboard · mis à jour le " + p.strftime("%d/%m à %Hh%M") + " (Paris)", "", fraicheur], "titre")
     for quoi, gravite, texte in alertes:
         ajouter([quoi, "", texte], "alerte", gravite=gravite)
@@ -1523,7 +1529,11 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
         r[C_LIEN] = f"{len(set(tot['lids']))} liens actifs"
     r[C_MES] = _texte_partiel(_notes_sommes(tot["lignes"]), _notes_clics(ctx, tout))
     ajouter(r, "total")
+    return _resultat(ctx, rows, kinds, comptes_l, creatrices, fraicheur, n_anomalies, lids_lignes, lids_masques)
 
+
+def _resultat(ctx: _Ctx, rows: list, kinds: list, comptes_l: list, creatrices: set, fraicheur: str, n_anomalies, lids_lignes: list,
+              lids_masques: list, simple: bool = False) -> dict:
     # 09/10 (revue DASH : la fraîcheur du titre était hors empreinte — des clics relus sans changement laissaient au titre l'heure
     # de la réécriture d'avant) : l'empreinte porte tout sauf « mis à jour le … » (l'heure de l'écriture elle-même)
     contenu = json.dumps([DASHBOARD_VERSION, rows[0][1:]] + rows[1:], ensure_ascii=False, default=str)
@@ -1541,7 +1551,206 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
         pil = None
     return {"lignes": rows, "types": kinds, "empreinte": hashlib.sha1(contenu.encode("utf-8")).hexdigest()[:20],
             "comptes": len(comptes_l), "anomalies": n_anomalies, "lids_lignes": lids_lignes, "lids_masques": lids_masques,
-            "pilotage": pil}
+            "pilotage": pil, "simple": simple}
+
+
+# ------------------------------------------------------------------ le tableau simple (12/10)
+# Gaëtan (12/10) : « Ta feuille Dashboard est illisible, prends exemple sur le reste. » Le modèle : ses onglets créatrices — un
+# en-tête vert, une ligne par compte, ETAT en couleur, le Gérant et ses clics fusionnés sur ses comptes, la colonne Team Leader.
+# Plus de CONTRÔLE, de TENDANCES, d'ÉQUIPES, de Mesure ni de Relevé dans l'onglet (l'app pilotage, l'app des TL et !tl liste les
+# portent) ; DASHBOARD_DETAILLE=1 remet l'ancien onglet complet.
+COLONNES_S = ["Gérant", "@ IG", "ETAT", "Followers", "Reels hier", "Reels 7 j", "Vues 7 j", "Clics hier", "Clics 7 j",
+              "Évolution clics", "Team Leader"]
+NB_S = len(COLONNES_S)
+(S_GERANT, S_HANDLE, S_ETAT, S_FOL, S_RH, S_R7, S_V7, S_CH, S_C7, S_DC, S_TL) = range(NB_S)
+LARGEURS_S = (130, 190, 90, 90, 80, 80, 90, 85, 85, 105, 110)
+S_FUSIONS = (S_GERANT, S_CH, S_C7, S_DC, S_TL)                          # une cellule par Gérant, comme dans les onglets créatrices
+VERT_ENTETE = "#356854"                                                  # l'en-tête des onglets créatrices
+ETATS_COULEURS = {"GOOD": ("#B7E1CD", "#0B6E3A"), "BAN": ("#F4C7C3", "#B71C1C"), "PRIVE": ("#C9DAF8", "#1A4F9C"),
+                  "PRIVÉ": ("#C9DAF8", "#1A4F9C"), "À CRÉER": ("#EEEEEE", "#616161")}
+
+
+def etat_affiche(etat) -> str:
+    """12/10 (Gaëtan : « Enlève le WARMUP, soit c'est BAN, soit c'est GOOD, soit c'est privé ») : un WARMUP resté au classeur se lit
+    GOOD."""
+    e = str(etat or "").strip()
+    return "GOOD" if _norm(e) == "warmup" else e
+
+
+def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict, fraicheur: str, alertes: list) -> tuple:
+    rows, kinds = [], []
+
+    def ajouter(r, kind, **info):
+        rows.append((list(r) + [""] * NB_S)[:NB_S] if r else [])
+        kinds.append({"kind": kind, **info})
+
+    ajouter(["Dashboard · mis à jour le " + ctx.p.strftime("%d/%m à %Hh%M") + " (Paris)"], "titre")
+    ajouter([fraicheur], "fraicheur")
+    for quoi, gravite, texte in alertes:
+        ajouter([f"{quoi} : {texte}"], "alerte", gravite=gravite)
+    ajouter([], "vide")
+    tot_lignes, tot_lids = [], []
+    for cr in ordre_cr:
+        lignes_cr = [L for L in comptes_l if L["cr"] == cr]
+        r_cr = restes.get(cr) or {}
+        autres = [x for seau in ("pages", "liberes", "sans_ligne", "masques") for x in r_cr.get(seau) or []]
+        if not lignes_cr and not autres:
+            continue
+        nom_cr = lignes_cr[0]["cr_nom"] if lignes_cr else str(cr).capitalize()
+        groupes = {}
+        for L in sorted(lignes_cr, key=lambda L: L["ordre"]):
+            groupes.setdefault(L["groupe"], []).append(L)
+        clics_g = {g: _clics_de(ctx, [x for L in ls for x in L["lids"]]) for g, ls in groupes.items()}
+
+        def cle_tri(item):
+            g, ls = item
+            rang = 0 if g == "crea" else (3 if g == "libre" else (2 if g.startswith("m|") else 1))
+            c7 = clics_g[g].get("c7")
+            return (rang, -(c7 if c7 is not None else -1), -(_somme(L["followers"] for L in ls)[0] or 0), g)
+
+        lids_cr = [x for L in lignes_cr for x in L["lids"]] + autres
+        k_cr = _clics_de(ctx, lids_cr) if lids_cr else {}
+        bande = [""] * NB_S
+        bande[S_GERANT] = f"{nom_cr.upper()} · {len(lignes_cr)} comptes"
+        bande[S_FOL] = _v(_somme(L["followers"] for L in lignes_cr)[0])
+        bande[S_RH] = _v(_somme(L["rh"] for L in lignes_cr)[0])
+        bande[S_R7] = _v(_somme(L["r7"] for L in lignes_cr)[0])
+        bande[S_V7] = _v(_somme(_vues_mesurees(L)[0] for L in lignes_cr)[0])
+        if k_cr:
+            bande[S_CH], bande[S_C7], bande[S_DC] = _v(k_cr.get("hier")), _v(k_cr.get("c7")), k_cr.get("delta") or ""
+        ajouter(bande, "creatrice", cr=cr)
+        ajouter(COLONNES_S, "entete", cr=cr)
+        zebre = 0
+        for g, ls in sorted(groupes.items(), key=cle_tri):
+            if g == "crea":
+                nom = nom_cr
+            elif g == "libre":
+                nom = "Sans Gérant"
+            else:
+                nom = (ls[0]["c"].get("gerant") or "?").strip()
+            k = clics_g[g] if any(L["lids"] for L in ls) else {}
+            tl = next((str(L["c"].get("tl") or "").strip() for L in ls if str(L["c"].get("tl") or "").strip()), "")
+            for i, L in enumerate(ls):
+                r = [""] * NB_S
+                r[S_HANDLE] = L["c"]["handle"]
+                r[S_ETAT] = etat_affiche(L["c"].get("etat"))
+                r[S_FOL] = _v(L["followers"])
+                r[S_RH], r[S_R7] = _v(L["rh"]), _v(L["r7"])
+                r[S_V7] = _v(_vues_mesurees(L)[0])
+                if i == 0:                                               # le Gérant, ses clics et son TL : une fois, fusionnés
+                    r[S_GERANT], r[S_TL] = nom, tl
+                    if k:
+                        r[S_CH], r[S_C7], r[S_DC] = _v(k.get("hier")), _v(k.get("c7")), k.get("delta") or ""
+                ajouter(r, "compte", cr=cr, zebre=zebre % 2, groupe_n=len(ls) if i == 0 else 0)
+            zebre += 1
+        if autres:
+            k_a = _clics_de(ctx, autres)
+            if (k_a.get("c7") or 0) or (k_a.get("hier") or 0):
+                r = [""] * NB_S
+                r[S_GERANT], r[S_HANDLE] = "Autres liens", "pages, libérés"
+                r[S_CH], r[S_C7], r[S_DC] = _v(k_a.get("hier")), _v(k_a.get("c7")), k_a.get("delta") or ""
+                ajouter(r, "autres", cr=cr)
+        ajouter([], "vide")
+        tot_lignes += lignes_cr
+        tot_lids += lids_cr
+    r = [""] * NB_S
+    r[S_GERANT] = f"TOTAL · {len(tot_lignes)} comptes"
+    r[S_FOL] = _v(_somme(L["followers"] for L in tot_lignes)[0])
+    r[S_RH] = _v(_somme(L["rh"] for L in tot_lignes)[0])
+    r[S_R7] = _v(_somme(L["r7"] for L in tot_lignes)[0])
+    r[S_V7] = _v(_somme(_vues_mesurees(L)[0] for L in tot_lignes)[0])
+    if tout:
+        r[S_CH], r[S_C7], r[S_DC] = _v(tout.get("hier")), _v(tout.get("c7")), tout.get("delta") or ""
+    ajouter(r, "total")
+    return rows, kinds
+
+
+def requetes_simple(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> list:
+    """Le tableau simple : valeurs en place sur toute la grille (comme `requetes`), puis la mise en forme des onglets créatrices."""
+    lignes, types = r["lignes"], r["types"]
+    n = len(lignes)
+    req = []
+    if lignes_grille < n + 20:
+        req.append({"appendDimension": {"sheetId": sid, "dimension": "ROWS", "length": n + 50 - lignes_grille}})
+        lignes_grille = n + 50
+    if colonnes_grille < NB_S:
+        req.append({"appendDimension": {"sheetId": sid, "dimension": "COLUMNS", "length": NB_S - colonnes_grille}})
+        colonnes_grille = NB_S
+    largeur = max(colonnes_grille, NB)                                   # l'ancien onglet allait jusqu'à 22 colonnes : vidées aussi
+    req.append({"unmergeCells": {"range": _plage(sid, 0, lignes_grille, 0, colonnes_grille)}})
+    req.append({"updateCells": {"range": _plage(sid, 0, lignes_grille, 0, colonnes_grille),
+                                "rows": [{"values": [_valeur(v) for v in ligne]} for ligne in lignes],
+                                "fields": "userEnteredValue,userEnteredFormat"}})
+    req.append({"updateSheetProperties": {"properties": {"sheetId": sid, "gridProperties": {
+        "hideGridlines": True, "frozenRowCount": 0, "frozenColumnCount": 0}},   # rien de figé : les fusions traversent les colonnes
+        "fields": "gridProperties.hideGridlines,gridProperties.frozenRowCount,gridProperties.frozenColumnCount"}})
+    for i in range(min(largeur, colonnes_grille)):
+        px = LARGEURS_S[i] if i < NB_S else 60
+        req.append({"updateDimensionProperties": {"range": {"sheetId": sid, "dimension": "COLUMNS", "startIndex": i, "endIndex": i + 1},
+                                                  "properties": {"pixelSize": px}, "fields": "pixelSize"}})
+    req.append(_hauteur(sid, 0, lignes_grille, 30))
+    req.append(_style(sid, 0, max(n, 1), 0, NB_S, texte="#212121", taille=10, coupe="CLIP", aligne="CENTER", nombre="#,##0"))
+    bord = lambda couleur: {"style": "SOLID_MEDIUM", "colorStyle": {"rgbColor": _rgb(couleur)}}   # noqa: E731
+    fin = lambda couleur: {"style": "SOLID", "colorStyle": {"rgbColor": _rgb(couleur)}}           # noqa: E731
+    for i, t in enumerate(types):
+        k = t["kind"]
+        bande, teinte = PALETTE.get(t.get("cr") or "", PALETTE_DEFAUT)
+        ligne = lambda c0=0, c1=NB_S: _plage(sid, i, i + 1, c0, c1)        # noqa: E731
+        if k == "titre":
+            req += [{"mergeCells": {"range": ligne(), "mergeType": "MERGE_ALL"}},
+                    _style(sid, i, i + 1, 0, NB_S, fond=SOMBRE, texte=BLANC, gras=True, taille=13, aligne="LEFT"), _hauteur(sid, i, i + 1, 40)]
+        elif k == "fraicheur":
+            req += [{"mergeCells": {"range": ligne(), "mergeType": "MERGE_ALL"}},
+                    _style(sid, i, i + 1, 0, NB_S, texte=GRIS_TEXTE, italique=True, taille=9, aligne="LEFT", coupe="WRAP"),
+                    _hauteur(sid, i, i + 1, 34)]
+        elif k == "alerte":
+            fond = "#FFEBEE" if t.get("gravite") == "bloquant" else "#FFF8E1"
+            req += [{"mergeCells": {"range": ligne(), "mergeType": "MERGE_ALL"}},
+                    _style(sid, i, i + 1, 0, NB_S, fond=fond, texte="#B71C1C" if t.get("gravite") == "bloquant" else "#E65100",
+                           gras=True, taille=10, aligne="LEFT", coupe="WRAP")]
+        elif k == "vide":
+            req.append(_hauteur(sid, i, i + 1, 16))
+        elif k == "creatrice":
+            req += [_style(sid, i, i + 1, 0, NB_S, fond=bande, texte=BLANC, gras=True, taille=11),
+                    {"mergeCells": {"range": ligne(0, 3), "mergeType": "MERGE_ALL"}},
+                    _style(sid, i, i + 1, 0, 3, fond=bande, texte=BLANC, gras=True, taille=12, aligne="LEFT"), _hauteur(sid, i, i + 1, 34)]
+        elif k == "entete":
+            req += [_style(sid, i, i + 1, 0, NB_S, fond=VERT_ENTETE, texte=BLANC, gras=True, taille=10, coupe="WRAP"),
+                    _hauteur(sid, i, i + 1, 36)]
+        elif k == "compte":
+            fond = "#F5F5F5" if t.get("zebre") else BLANC
+            req.append(_style(sid, i, i + 1, S_HANDLE, S_CH, fond=fond))   # Gérant, clics et TL : stylés par bloc (ci-dessous)
+            req.append(_style(sid, i, i + 1, S_HANDLE, S_HANDLE + 1, fond=fond, aligne="LEFT"))
+            etat = str(lignes[i][S_ETAT] or "").upper()
+            if etat in ETATS_COULEURS:
+                f_e, t_e = ETATS_COULEURS[etat]
+                req.append(_style(sid, i, i + 1, S_ETAT, S_ETAT + 1, fond=f_e, texte=t_e, gras=True))
+            n_g = t.get("groupe_n") or 0
+            if n_g:                                                      # le bloc du Gérant : fusionné, teinté, encadré
+                req.append(_style(sid, i, i + n_g, S_GERANT, S_GERANT + 1, fond=teinte, gras=True, aligne="LEFT", coupe="WRAP"))
+                req.append(_style(sid, i, i + n_g, S_CH, S_TL + 1, fond=teinte, gras=True))
+                if n_g > 1:
+                    req += [{"mergeCells": {"range": _plage(sid, i, i + n_g, c, c + 1), "mergeType": "MERGE_ALL"}} for c in S_FUSIONS]
+                req.append({"updateBorders": {"range": _plage(sid, i, i + n_g, 0, NB_S), "top": bord(bande), "bottom": bord(bande),
+                                              "left": bord(bande), "right": bord(bande), "innerHorizontal": fin("#E0E0E0")}})
+        elif k == "autres":
+            req += [_style(sid, i, i + 1, 0, NB_S, fond="#FAFAFA", texte="#455A64", italique=True),
+                    _style(sid, i, i + 1, 0, 2, fond="#FAFAFA", texte="#455A64", italique=True, aligne="LEFT")]
+        elif k == "total":
+            req += [_style(sid, i, i + 1, 0, NB_S, fond=SOMBRE, texte=BLANC, gras=True, taille=11),
+                    _style(sid, i, i + 1, 0, 2, fond=SOMBRE, texte=BLANC, gras=True, aligne="LEFT"), _hauteur(sid, i, i + 1, 34)]
+    return req
+
+
+def regles_simple(sid: int) -> list:
+    """Les couleurs qui suivent le contenu : ▲ en vert, ▼ en rouge, « ⛔ » / « ⚠ » des alertes."""
+    plage = [{"sheetId": sid, "startColumnIndex": 0, "endColumnIndex": NB_S}]
+
+    def regle(valeur, texte, fond):
+        return {"ranges": plage, "booleanRule": {"condition": {"type": "TEXT_STARTS_WITH", "values": [{"userEnteredValue": valeur}]},
+                                                 "format": {"textFormat": {"foregroundColor": _rgb(texte), "bold": True},
+                                                            "backgroundColor": _rgb(fond)}}}
+    return [regle("▲", "#1B5E20", "#E8F5E9"), regle("▼", "#B71C1C", "#FFEBEE")]
 
 
 def _v(x):
@@ -2866,7 +3075,7 @@ async def _poser_regles(cid: str, sid: int) -> None:
     """Les règles conditionnelles de l'onglet remplacées par les nôtres (le bot seul écrit dans le Dashboard)."""
     n = await _nb_regles(cid, sid)
     req = [{"deleteConditionalFormatRule": {"sheetId": sid, "index": 0}} for _ in range(n)]
-    req += [{"addConditionalFormatRule": {"rule": rg, "index": i}} for i, rg in enumerate(regles(sid))]
+    req += [{"addConditionalFormatRule": {"rule": rg, "index": i}} for i, rg in enumerate(regles_simple(sid) if SIMPLE else regles(sid))]
     await _batch_unique(cid, req)
 
 
@@ -2956,7 +3165,8 @@ async def _ecrire_onglet(r: dict) -> int:
     sid = p.get("id")
     if sid is None:
         raise RuntimeError(f"onglet « {ONGLET} » introuvable")
-    await _batch_unique(cid, requetes(r, sid, int(p.get("lignes") or 0), int(p.get("colonnes") or 0)))
+    faire = requetes_simple if r.get("simple") else requetes
+    await _batch_unique(cid, faire(r, sid, int(p.get("lignes") or 0), int(p.get("colonnes") or 0)))
     return sid
 
 

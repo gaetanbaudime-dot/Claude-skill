@@ -22,6 +22,16 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-12 (classeur) — Trois états seulement (GOOD, PRIVE, BAN) et un Dashboard au format des onglets créatrices
+
+> [!tip] Verdict
+> Le classeur ne connaît plus que GOOD, PRIVE et BAN : un compte créé est GOOD tout de suite. L'onglet Dashboard devient un tableau par créatrice, avec l'en-tête vert, l'ETAT en couleur, le Gérant et ses clics fusionnés et la colonne Team Leader. Le contrôle, les tendances et les équipes vont dans les apps.
+
+- **Décisions de Gaëtan (12/10)** : « Enlève le WARMUP dans le sheet, soit c'est BAN, soit c'est GOOD, soit c'est privé. C'est pas plus compliqué que ça » ; « Ta feuille Dashboard est illisible, prends exemple sur le reste ».
+- **Pourquoi c'est juste** : WARMUP ne changeait aucune décision (le scan relit déjà GOOD et WARMUP pareil) et ajoutait un état à surveiller. Le Dashboard empilait 22 colonnes et quatre sections, il n'était plus lu : un outil qu'on ne lit pas ne pilote rien. Mon erreur : j'ai empilé de la précision au lieu de la lisibilité.
+- **Garde-fous** : un compte neuf jamais vu vivant garde son délai avant BAN ; le warm-up reste une consigne du parcours ; l'ancien Dashboard complet revient avec `DASHBOARD_DETAILLE=1`.
+- **Prédiction (12/10, revue le 19/10)** : plus aucune cellule WARMUP au classeur après le passage du matin du 13/10 ; tu ouvres l'onglet Dashboard au moins 3 jours sur 7 sans demander de refonte. S'il reste « illisible », le problème est le nombre de colonnes : on passera à 8.
+
 ### 2026-10-12 (scan) — Le bot lit l'onglet Reels ; la « couverture limitée aux moins de 18 ans » se traite, elle ne s'ignore pas
 
 > [!tip] Verdict
