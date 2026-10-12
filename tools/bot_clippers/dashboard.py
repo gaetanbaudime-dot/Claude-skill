@@ -1530,6 +1530,12 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
     try:                                                                 # 12/10 : les tables du pilotage, jamais au prix du Dashboard
         pil = _pilotage(ctx, comptes_l, creatrices)
         pil["fraicheur"] = fraicheur
+        f_cles = getattr(paie_clics, "_cles_app", None) if paie_clics is not None else None
+        pil["cles_app"] = f_cles(ctx.clics) if callable(f_cles) else {}  # 12/10 : uid → clé de l'app clippers (onglets Comptes, Équipe)
+        pil["comptes_classeur"] = {_cle(c.get("handle")): {"etat": str(c.get("etat") or ""), "creatrice": L_cr}
+                                   for c, L_cr in ((L["c"], L["cr_nom"]) for L in comptes_l) if c.get("handle")}
+        pil["chiffres"] = {_cle(L["c"].get("handle")): {"followers": L.get("followers"), "r7": L.get("r7"),
+                                                        "v7": _vues_mesurees(L)[0]} for L in comptes_l if L["c"].get("handle")}
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Pilotage : tables non construites (%s)", erreur)
         pil = None
@@ -2993,6 +2999,12 @@ async def ecrire(force: bool = False, *, maintenant: datetime = None) -> dict:
         if not comptes:
             bilan["erreur"] = "classeur vide ou illisible : Dashboard gardé tel quel"
             return bilan
+        E = _module("equipes_tl") if _deps.get("pilotage") else None   # 12/10 : la colonne « Team leader » du classeur
+        if E is not None and callable(getattr(E, "branche", None)) and E.branche():
+            try:
+                E.maj_colonne(comptes, onboarding._proprietaires(), onboarding._cle_handle)
+            except Exception as erreur:                                  # noqa: BLE001 — jamais au prix du Dashboard
+                journal.warning("Colonne Team leader : %s", erreur)
         r = construire(entrees(comptes), maintenant)
         _publier_pilotage(r.get("pilotage"), maintenant)               # 12/10 : en tâche de fond, même si le Dashboard est inchangé
         bilan.update(lignes=len(r["lignes"]), comptes=r["comptes"], anomalies=r["anomalies"], empreinte=r["empreinte"])

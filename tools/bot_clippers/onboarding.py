@@ -53,7 +53,8 @@ GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
 ETATS_DISPONIBLES = {"a creer", "à créer", "good", "warmup", "warm-up", "prive", "privé", "actif", "ok"}
 COL_DEFAUT = {"etat": 0, "handle": 1, "mdp": 2, "followers": 3, "mail": 4, "phone": 5, "gerant": 6, "utilisation": 7, "numero": 8, "creatrice": 9}
 # 26/09 : Gaëtan insère des colonnes (Clics GAML, Lien GAML associé) → les colonnes se trouvent par leur en-tête, jamais par position
-MOTS_COLONNES = (("etat", ("etat", "statut")), ("handle", ("@", "ig", "compte", "pseudo")), ("mdp", ("mdp", "mot de passe", "password")),
+MOTS_COLONNES = (("tl", ("team leader", "teamleader", "team lead", "chef d equipe", "chef equipe")),   # 12/10 : colonne Team leader
+                 ("etat", ("etat", "statut")), ("handle", ("@", "ig", "compte", "pseudo")), ("mdp", ("mdp", "mot de passe", "password")),
                  ("followers", ("followers", "abonnes")), ("reels_hier", ("reels hier", "reels d'hier")),   # 30/09
                  ("reels_7j", ("reels 7",)),                                                      # 05/10 : « Reels 7 j »
                  ("clics_hier", ("clics hier", "clics d'hier", "visites hier")),   # 05/10 : AVANT « clics » (plus précis, sinon « clics » la prendrait)
@@ -266,12 +267,13 @@ async def lire_comptes() -> list:
                         "gerant": champ("gerant"), "utilisation": champ("utilisation"), "numero": champ("numero"),
                         "creatrice": champ("creatrice") or ("" if herite else titre), "lien_gaml": champ("lien_gaml"),
                         "pod": champ("pod"), "lien_infloww": champ("lien_infloww"), "lien_mym": champ("lien_mym"),
-                        "reels_hier": champ("reels_hier"), "reels_7j": champ("reels_7j"), "clics_hier": champ("clics_hier")})   # 05/10
+                        "reels_hier": champ("reels_hier"), "reels_7j": champ("reels_7j"), "clics_hier": champ("clics_hier"),   # 05/10
+                        "tl": champ("tl")})                                      # 12/10 : le TL du clipper (colonne « Team leader »)
     await _remplir_fusions(out, titres)
     return _sans_doublons(out)
 
 
-CHAMPS_FUSIONNES = ("gerant", "clics", "clics_hier", "lien_gaml", "lien_infloww", "lien_mym", "pod")   # 05/10 : + Clics hier
+CHAMPS_FUSIONNES = ("gerant", "clics", "clics_hier", "lien_gaml", "lien_infloww", "lien_mym", "pod", "tl")   # 05/10 : + Clics hier ; 12/10 : + TL
 
 
 def creatrices_connues(comptes: list) -> set:

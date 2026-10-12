@@ -10,6 +10,14 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 12/10 : app des Team Leaders, colonne « Team leader », @ corrigés depuis l'app
+
+**Ce que tu fais** : dans chaque onglet créatrice du classeur des logins, ajoute une colonne **« Team leader »** et écris le prénom du TL sur les lignes de chacun de ses clippers (comme le Gérant, cellule fusionnée possible). Le prénom doit être celui d'un membre signé, et un seul membre doit l'avoir. Deux « Lucas » : la ligne est ignorée.
+
+**Ce que fait le bot** : à chaque passage du Dashboard (15 minutes), il lit la colonne (`equipes_tl.maj_colonne`, gardée dans `tl_colonne.json`). Un clipper nommé là entre dans l'équipe de ce TL, même chez une autre créatrice. Un TL nommé là est TL, jamais VA, même sans `!tl`. Sans colonne, la règle du 10/10 tient. Les primes (10 $ par VA à 500 visites payées par quinzaine, à partir de la période du 20/10) suivent ces équipes. Il publie aussi l'onglet « Comptes app » (les comptes de chaque clipper avec son TL), que lit l'app.
+
+**@ corrigés depuis l'app** : l'onglet « Comptes » de l'app écrit les demandes dans « Pseudos app ». Le bot les applique à chaque passage avec `parcours.renommer`, la règle de `!pseudo` : un compte à lui, jamais le @ d'un autre de ses comptes, jamais un nom de compte privé pour un compte de croissance. Il écrit « fait » ou « refusé » avec la raison.
+
 ## 12/10 : les Reels de l'onglet Reels, et la « couverture limitée aux moins de 18 ans »
 
 **Le scan voit maintenant l'onglet Reels.** Avant, il ne lisait que les 12 dernières publications de la grille du profil : un Reel publié sans « Partager aussi dans le fil », ou poussé au-delà des 12, n'existait pas pour lui (Mathieu : 0 Reel vu, un Reel à 160 000 vues dans l'onglet). Le passage du matin lit aussi l'onglet Reels des comptes lisibles (Reels des 3 derniers jours), et les lectures du parcours (comptes qui attendent le suivant) le lisent sur 10 jours. Ces Reels rejoignent la grille : Reels hier et 7 jours, vues, séries, Dashboard, pilotage et déblocage des comptes 2 et 3 les comptent sans rien d'autre à faire. Acteur Apify `apify~instagram-reel-scraper`, environ 2,60 $ les 1 000 Reels lus, sous la même garde du budget de 25 $ (le parcours d'abord) : environ 5 $ par mois de plus au rythme actuel. Variables : `APIFY_REELS_ONGLET=0` coupe, `APIFY_REELS_JOURS` (3), `APIFY_REELS_JOURS_PARCOURS` (10), `APIFY_REELS_MAX` (12), `APIFY_REELS_PRIX_1000` (2,60).

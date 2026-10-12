@@ -39,6 +39,14 @@ ENTETE_COMPTES = ["Créatrice", "Axe", "Type", "Gérant", "@", "ETAT", "Follower
 ENTETE_CLICS = ["Jour", "Créatrice", "Axe", "Source", "Qui", "Visites payables", "Visites hors robots", "Liens", "Liens non relevés"]
 ENTETE_SUBS = ["Jour", "Créatrice", "Subs OF", "CA OF ($)", "Subs MYM", "CA MYM (€)", "Saisi"]
 SUBS_TTL_S = 30 * 60
+# 12/10 (Gaëtan : app des Team Leaders, et « dans l'app clippeur, un onglet où il peut mettre à jour le @ de ses 3 comptes ») :
+# « Comptes app » = les comptes de chaque clipper dans l'ordre du parcours, avec son TL (onglets Comptes et Équipe de l'app) ;
+# « Pseudos app » = les @ corrigés depuis l'app (écrits par l'app), appliqués ici avec parcours.renommer (la règle de `!pseudo`)
+ONGLET_COMPTES_APP = "Comptes app"
+ENTETE_COMPTES_APP = ["Clé app", "Prénom", "Créatrice", "N°", "@", "ETAT", "Followers", "Reels 7 j", "Vues 7 j (48 h)", "Clé app TL",
+                      "Prénom TL"]
+ONGLET_PSEUDOS = "Pseudos app"
+ENTETE_PSEUDOS = ["Date", "Clé app", "N°", "Nouveau @", "Statut", "Détail"]
 
 _signatures: dict = {}                 # onglet → signature de la dernière version écrite (cette instance du bot)
 _onglets_crees: set = set()            # (classeur, onglet) déjà créés ou vus
@@ -71,6 +79,98 @@ def lignes_subs(donnees: dict, aujourdhui: date, jours: int) -> list:
             out.append([d.isoformat(), str(creatrice).strip(), _nombre(l.get("of_subs")), _nombre(l.get("of_usd")),
                         _nombre(l.get("mym_subs")), _nombre(l.get("mym_eur")), "oui" if l.get("saisi") else "non"])
     return out
+
+
+def _txt(v) -> str:
+    return "" if v is None or isinstance(v, bool) else str(v)
+
+
+def lignes_comptes_app(cles_app: dict, comptes_de, tl_de: dict, nom, classeur: dict, chiffres: dict, cle=None) -> list:
+    """Pur : une ligne par compte de chaque clipper qui a une clé d'app (uid → clé), dans l'ordre de son parcours (compte 1, 2, 3),
+    avec l'ETAT et les chiffres du Dashboard et la clé d'app de son TL. Un clipper sans compte : une ligne sans @ (il voit son
+    équipe, rien d'autre)."""
+    cle = cle or (lambda h: str(h or "").strip().lstrip("@").lower())
+    out = []
+    for uid, c_app in sorted((cles_app or {}).items(), key=lambda x: x[1]):
+        tl = str((tl_de or {}).get(str(uid)) or "")
+        tl_cle, tl_nom = ((cles_app or {}).get(tl, ""), nom(tl)) if tl else ("", "")
+        try:
+            handles = [h for h in (comptes_de(uid) or []) if h]
+        except Exception:                                               # noqa: BLE001 — fiche illisible : sans compte
+            handles = []
+        if not handles:
+            out.append([c_app, nom(uid), "", "", "", "", "", "", "", tl_cle, tl_nom])
+            continue
+        for n, h in enumerate(handles, start=1):
+            k = cle(h)
+            cl, ch = (classeur or {}).get(k) or {}, (chiffres or {}).get(k) or {}
+            out.append([c_app, nom(uid), str(cl.get("creatrice") or ""), str(n), k, str(cl.get("etat") or ""),
+                        _txt(ch.get("followers")), _txt(ch.get("r7")), _txt(ch.get("v7")), tl_cle, tl_nom])
+    return out
+
+
+def _comptes_app(pil: dict) -> list:
+    """Les lignes « Comptes app » avec les modules du bot (parcours, equipes_tl) ; [] s'ils manquent."""
+    try:
+        import dashboard
+        import equipes_tl
+        import parcours
+    except Exception:                                                   # noqa: BLE001
+        return []
+    tl_de = {}
+    try:
+        for e in (equipes_tl.composition() if equipes_tl.branche() else {}).values():
+            for va in e.get("vas") or []:
+                if e.get("tl"):
+                    tl_de[str(va)] = str(e["tl"])
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Pilotage : équipes illisibles (%s)", str(erreur)[:120])
+
+    def nom(uid):
+        try:
+            return str(equipes_tl.nom_de(uid)).split(" - ")[0].strip()
+        except Exception:                                               # noqa: BLE001
+            return ""
+    return lignes_comptes_app(pil.get("cles_app") or {}, parcours._comptes_ordonnes, tl_de, nom,
+                              pil.get("comptes_classeur") or {}, pil.get("chiffres") or {}, dashboard._cle)
+
+
+async def traiter_pseudos(classeur: str, cles_app: dict) -> int:
+    """Les @ corrigés depuis l'app (onglet « Pseudos app », Statut vide) : appliqués avec parcours.renommer (mêmes contrôles que
+    `!pseudo` : un compte à lui, jamais le @ d'un autre de ses comptes, ni un nom de compte privé pour un compte de croissance),
+    puis Statut « fait » ou « refusé » et la raison. Renvoie le nombre de demandes traitées. Jamais d'exception."""
+    try:
+        lignes = await google_api.sheets_lire(classeur, f"'{ONGLET_PSEUDOS}'!A2:F")
+    except Exception:                                                   # noqa: BLE001 — onglet pas encore créé par l'app
+        return 0
+    uid_de = {str(c): str(u) for u, c in (cles_app or {}).items()}
+    n_traites = 0
+    for i, l in enumerate(lignes, start=2):
+        l = (list(l) + [""] * 6)[:6]
+        if not l[1].strip() or l[4].strip():
+            continue
+        uid = uid_de.get(l[1].strip())
+        try:
+            n = int(str(l[2]).strip())
+        except ValueError:
+            n = 0
+        if not uid:
+            statut, detail = "refusé", "clipper inconnu du bot (lien GAML « Clipping Prénom » absent ?)"
+        else:
+            try:
+                import parcours
+                ancien, raison = await parcours.renommer(uid, n, l[3].strip())
+            except Exception as erreur:                                 # noqa: BLE001
+                ancien, raison = "", f"erreur du bot ({type(erreur).__name__}), réessaie dans quelques minutes"
+            statut, detail = ("fait", f"{ancien} → {l[3].strip().lstrip('@').lower()}") if not raison else ("refusé", raison)
+        try:
+            await google_api.sheets_ecrire(classeur, f"'{ONGLET_PSEUDOS}'!E{i}:F{i}", [[statut, detail]], brut=True)
+            n_traites += 1
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("Pseudos app : statut non écrit (%s)", str(erreur)[:120])
+    if n_traites:
+        journal.info("Pseudos app : %d demande(s) traitée(s)", n_traites)
+    return n_traites
 
 
 async def _subs(aujourdhui: date, jours: int):
@@ -136,6 +236,10 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
                                           (ONGLET_CLICS, ENTETE_CLICS, pil.get("clics"))):
                 if isinstance(lignes, list) and await _ecrire(classeur, titre, entete, lignes):
                     ecrits += 1
+            comptes_app = _comptes_app(pil)                             # 12/10 : onglets Comptes et Équipe de l'app clippers
+            if comptes_app and await _ecrire(classeur, ONGLET_COMPTES_APP, ENTETE_COMPTES_APP, comptes_app):
+                ecrits += 1
+            await traiter_pseudos(classeur, pil.get("cles_app") or {})
             subs = await _subs(aujourdhui, int(getattr(dashboard, "PILOTAGE_JOURS", 62)))
             if subs is not None and await _ecrire(classeur, ONGLET_SUBS, ENTETE_SUBS, subs):
                 ecrits += 1

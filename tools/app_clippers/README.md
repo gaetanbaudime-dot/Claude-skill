@@ -35,6 +35,18 @@ Aucun navigateur ne permet d'installer une app web en un geste depuis un lien re
 
 Le journal d'usage reçoit `install:affiche`, `install:prompt`, `install:accepte`, `install:refuse`, `install:fait`, `install:plus_tard`, `install:ok` : on sait combien ont vu la carte et combien ont installé.
 
+## Team Leaders et comptes Instagram (12/10)
+
+Gaëtan (12/10) : « Crée une application pour les team leaders… un onglet avec un lien direct vers Instagram pour voir les comptes de ses clippeurs… un onglet paye… il fait les deux jobs, il faut séparer ses revenus… et dans l'app clippeur, un onglet où il peut mettre à jour le @ de ses 3 comptes ». Ce n'est pas une app de plus : c'est la même app clippers, avec deux onglets en plus.
+
+- **Comptes** (tout le monde) : ses comptes dans l'ordre du parcours (1, 2, 3), l'ETAT, les followers et les Reels sur 7 jours. Chaque @ ouvre Instagram. « Ce n'est pas le bon @ ? Modifier » : le nouveau @ est vérifié (lettres, chiffres, point, tiret bas ; un lien instagram.com est accepté), puis ajouté à l'onglet « Pseudos app » du tableur d'usage. Le bot l'applique sous 15 minutes avec la règle de `!pseudo` (classeur, fiche, scan), puis l'app affiche « en cours », la réussite, ou la raison du refus.
+- **Équipe** (Team Leader seulement) : la prime d'équipe en cours (10 $ par clipper à 500 visites payées ou plus sur la quinzaine), puis chaque clipper de son équipe avec ses visites payées de la période, une barre vers les 500, et ses comptes, chacun ouvrant Instagram d'un appui pour faire un retour.
+- **Versements** d'un TL : le montant de la période est séparé en « Tes clics (clipper) » et « Prime de Team Leader », avec le total et le prochain versement qui les additionne.
+
+Qui est dans l'équipe de qui : la colonne **« Team leader »** des onglets créatrices du classeur des logins (le prénom du TL sur les lignes de chaque clipper, cellule fusionnée possible). Sans colonne remplie, la règle du 10/10 tient (`!tl Créatrice @X` : toute la créatrice). Le bot publie l'onglet **« Comptes app »** du tableur d'usage (Clé app, Prénom, Créatrice, N°, @, ETAT, Followers, Reels 7 j, Vues 7 j, Clé app TL, Prénom TL) à chaque passage du Dashboard ; l'app le lit avec 2 minutes de cache (`src/lib/comptesApp.ts`).
+
+Routes : `/api/k/<jeton>/comptes` (GET ses comptes et ses demandes ; POST `{ n, handle }`, 5 par minute au plus) et `/api/k/<jeton>/equipe` (GET, 404 si ce n'est pas un TL).
+
 ## Pilotage de Gaëtan (12/10) : Vertical, Horizontal, Subs
 
 Gaëtan (12/10) : « une app Vercel pour tracker au quotidien les clics de toute la team : un onglet vertical, un onglet horizontal, un onglet subs ; vertical avec les stats des créatrices et de leurs gros comptes ». C'est une page de plus dans cette app, réservée à Gaëtan : **`/p/<jeton>`**, jeton = HMAC-SHA256(`ADMIN_SECRET`, "pilotage") en base64url, 24 caractères (aucune variable de plus sur Vercel). Pour l'avoir : **`!pilotage`** sur Discord (admins seulement, réponse en message privé), ou l'onglet « Accès pilotage » du tableur « App clippers · usage », ou `/api/admin/liens?cle=<ADMIN_SECRET>&format=texte` (première ligne).

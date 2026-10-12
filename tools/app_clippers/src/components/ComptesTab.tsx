@@ -1,0 +1,80 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import { signaler } from "@/lib/signal";
+
+/** 12/10 (Gaëtan : « un onglet où il peut mettre à jour le @ de ses 3 comptes Instagram, ça nous permettra d'avoir toujours les
+ *  bons ») : ses comptes dans l'ordre du parcours, chacun avec un lien direct vers Instagram et « Modifier le @ ». Le nouveau @
+ *  part au bot (onglet « Pseudos app »), qui l'applique sous 15 minutes avec la règle de `!pseudo` et dit « fait » ou pourquoi
+ *  c'est refusé. */
+type Compte = { n: number; handle: string; etat: string; creatrice: string; followers: number | null; reels7: number | null; vues7: number | null };
+type Demande = { n: number; handle: string; statut: string; detail: string; date: string };
+const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
+const NOMS = ["", "Compte 1", "Compte 2", "Compte 3"];
+
+function Ligne({ c, demande, jeton, recharger }: { c: Compte; demande?: Demande; jeton: string; recharger: () => void }) {
+  const [edition, setEdition] = useState(false);
+  const [saisie, setSaisie] = useState("");
+  const [envoi, setEnvoi] = useState(false);
+  const [message, setMessage] = useState("");
+  const enAttente = demande && !demande.statut && demande.handle !== c.handle;
+  const envoyer = async () => {
+    setEnvoi(true); setMessage("");
+    try {
+      const r = await fetch(`/api/k/${jeton}/comptes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n: c.n, handle: saisie }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setMessage(d.erreur || "Pas enregistré, réessaie."); return; }
+      signaler(jeton, "compte:modifie");
+      setEdition(false); setSaisie(""); recharger();
+    } finally { setEnvoi(false); }
+  };
+  return (
+    <div className="carte p-4 apparait">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold tracking-widest uppercase text-argent2">{NOMS[c.n] || `Compte ${c.n}`}{c.etat ? ` · ${c.etat}` : ""}</div>
+          <a href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noopener" onClick={() => signaler(jeton, "compte:instagram")}
+             className="block text-[18px] font-bold truncate mt-0.5 text-white">@{c.handle} <span className="text-accent text-[14px]">↗</span></a>
+        </div>
+        <div className="text-right shrink-0 text-[12px] text-argent2 leading-tight">
+          <div><b className="text-white text-[15px] tabular-nums">{c.followers !== null ? fmt(c.followers) : "–"}</b> followers</div>
+          <div>{c.reels7 !== null ? `${c.reels7} Reels en 7 j` : ""}</div>
+        </div>
+      </div>
+      {enAttente ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-amber-400/10 text-amber-200">⏳ Changement vers @{demande!.handle} en cours : le bot le fait sous 15 minutes.</div> : null}
+      {demande?.statut === "refusé" ? <div className="mt-3 text-[12.5px] rounded-xl px-3 py-2 bg-rose-400/10 text-rose-200">❌ @{demande.handle} refusé : {demande.detail}</div> : null}
+      {edition ? (
+        <div className="mt-3 flex gap-2">
+          <input value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder="ton vrai @" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                 className="flex-1 min-w-0 rounded-xl bg-white/[0.06] border border-white/10 px-3 py-2.5 text-[15px] outline-none focus:border-accent/60" />
+          <button disabled={envoi || !saisie.trim()} onClick={envoyer} className="rounded-xl px-4 font-semibold bg-accent/90 text-[#071226] disabled:opacity-40">{envoi ? "…" : "OK"}</button>
+          <button onClick={() => { setEdition(false); setMessage(""); }} className="rounded-xl px-3 text-argent2">✕</button>
+        </div>
+      ) : (
+        <button onClick={() => setEdition(true)} className="mt-3 text-[13px] font-semibold text-accent">Ce n'est pas le bon @ ? Modifier</button>
+      )}
+      {message ? <div className="mt-2 text-[12.5px] text-rose-200">{message}</div> : null}
+    </div>
+  );
+}
+
+export default function ComptesTab({ jeton }: { jeton: string }) {
+  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[] } | null>(null);
+  const [erreur, setErreur] = useState(false);
+  const charger = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/k/${jeton}/comptes`, { cache: "no-store" });
+      if (!r.ok) throw new Error();
+      setD(await r.json()); setErreur(false);
+    } catch { setErreur(true); }
+  }, [jeton]);
+  useEffect(() => { charger(); const id = setInterval(charger, 60_000); return () => clearInterval(id); }, [charger]);
+  return (
+    <section className="space-y-3">
+      <p className="apparait text-argent2 text-[14px] mt-1 px-1 leading-relaxed">Tes comptes Instagram. Touche un @ pour l'ouvrir. Tu as changé un @ ? Corrige-le ici : le bot suit toujours le bon compte, et tes Reels sont comptés.</p>
+      {!d && !erreur ? [0, 1, 2].map((i) => <div key={i} className="squelette h-28" />) : null}
+      {erreur && !d ? <div className="carte p-5 text-center text-argent2">Les comptes sont en cours de mise à jour. <button className="text-accent font-semibold" onClick={charger}>Réessayer</button></div> : null}
+      {d && !d.comptes.length ? <div className="carte p-5 text-center text-argent2">Pas encore de compte : ton compte 1 arrive dans ton salon Discord.</div> : null}
+      {d?.comptes.map((c) => <Ligne key={c.n} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger} />)}
+    </section>
+  );
+}

@@ -583,6 +583,102 @@ def _sortis_a_la_fin(fiches: dict, registre: list, fin_iso: str) -> dict:
     return out
 
 
+# ------------------------------------------------------------------ colonne « Team leader » du classeur (12/10)
+# Gaëtan (12/10) : « J'ajouterai dans la colonne team leader du sheets à qui appartient chaque clippeur. » Une colonne « Team leader »
+# dans les onglets créatrices du classeur : le prénom du TL sur les lignes de chaque clipper. Un VA nommé là appartient à l'équipe
+# de CE TL (plusieurs TL par créatrice possibles) ; un TL nommé là est TL (jamais VA), même sans `!tl`. Colonne vide : la règle du
+# 10/10 (l'équipe = la créatrice du TL nommé par `!tl`). Lue à chaque passage du Dashboard (maj_colonne), gardée dans
+# tl_colonne.json à côté d'equipes.json ; les décisions se font sur les uid (le @ de la ligne → son détenteur, sinon le Gérant),
+# jamais sur un prénom ambigu (deux membres du même prénom : la ligne est ignorée et listée dans « inconnus »).
+_COLONNE = {"t": "", "va": None, "inconnus": [], "conflits": []}
+
+
+def _fichier_colonne():
+    return Path(str(_dep("FICHIER_EQUIPES"))).with_name("tl_colonne.json")
+
+
+def uid_par_nom(nom, fiches=None) -> str:
+    """L'uid du membre au registre dont le prénom affiché est `nom` (nom complet d'abord, sinon premier mot), '' s'il n'y en a
+    aucun ou plusieurs."""
+    cible = _n(nom)
+    if not cible:
+        return ""
+    fiches = _fiches() if fiches is None else fiches
+    noms = {str(uid): _n(nom_de(uid, f)) for uid, f in (fiches or {}).items() if isinstance(f, dict)}
+    exacts = [u for u, n in noms.items() if n == cible]
+    if len(exacts) == 1:
+        return exacts[0]
+    if exacts:
+        return ""
+    premier = cible.split()[0]
+    par_prenom = [u for u, n in noms.items() if (n.split() or [""])[0] == premier]
+    return par_prenom[0] if len(par_prenom) == 1 else ""
+
+
+def lire_colonne(comptes: list, proprietaires=None, cle_handle=None, fiches=None) -> dict:
+    """Pur : {"va": {uid VA : uid TL}, "inconnus": [noms non résolus], "conflits": [prénoms des VA à deux TL]} d'après les lignes du
+    classeur (champ « tl »). Le VA d'une ligne : le détenteur de son @ (onboarding, un seul), sinon son Gérant ; le premier TL lu
+    gagne pour un VA (les autres lignes en conflit sont listées)."""
+    proprietaires = proprietaires or {}
+    cle_handle = cle_handle or (lambda h: str(h or "").strip().lstrip("@").lower())
+    fiches = _fiches() if fiches is None else fiches
+    va, inconnus, conflits = {}, [], []
+    for c in comptes or []:
+        tl_nom = str((c or {}).get("tl") or "").strip()
+        if not tl_nom:
+            continue
+        tl = uid_par_nom(tl_nom, fiches)
+        detenteurs = proprietaires.get(cle_handle(c.get("handle"))) or set()
+        v = next(iter(detenteurs)) if len(detenteurs) == 1 else uid_par_nom(c.get("gerant"), fiches)
+        if not tl:
+            if tl_nom not in inconnus:
+                inconnus.append(tl_nom)
+            continue
+        if not v:
+            g = str(c.get("gerant") or "").strip()
+            if g and g not in inconnus:
+                inconnus.append(g)
+            continue
+        if v == tl:
+            continue                                                    # ses propres comptes : le TL n'est pas son propre VA
+        if v in va and va[v] != tl:
+            if nom_de(v) not in conflits:
+                conflits.append(nom_de(v))
+            continue
+        va[str(v)] = str(tl)
+    return {"va": va, "inconnus": inconnus, "conflits": conflits}
+
+
+def maj_colonne(comptes: list, proprietaires=None, cle_handle=None) -> dict:
+    """Relit la colonne « Team leader » (lire_colonne) et l'enregistre si elle a changé. Jamais d'exception."""
+    try:
+        lu = lire_colonne(comptes, proprietaires, cle_handle)
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Colonne Team leader illisible : %s", erreur)
+        return {}
+    if lu["va"] != tl_par_va() or lu["inconnus"] != _COLONNE["inconnus"]:
+        try:
+            _dep("ecrire_json")(_fichier_colonne(), {"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), **lu})
+        except Exception as erreur:                                     # noqa: BLE001
+            journal.warning("tl_colonne.json non écrit : %s", erreur)
+        if lu["va"] != (_COLONNE["va"] or {}):
+            journal.info("Colonne Team leader : %d VA rattaché(s) à %d TL", len(lu["va"]), len(set(lu["va"].values())))
+    _COLONNE.update(va=dict(lu["va"]), inconnus=list(lu["inconnus"]), conflits=list(lu["conflits"]))
+    return lu
+
+
+def tl_par_va() -> dict:
+    """{uid VA : uid TL} de la colonne « Team leader » (mémoire, sinon tl_colonne.json) ; {} sans colonne."""
+    if _COLONNE["va"] is None:
+        try:
+            d = _dep("lire_json")(_fichier_colonne(), {}) or {}
+        except Exception:                                               # noqa: BLE001
+            d = {}
+        _COLONNE.update(va={str(k): str(v) for k, v in (d.get("va") or {}).items()}, inconnus=list(d.get("inconnus") or []),
+                        conflits=list(d.get("conflits") or []))
+    return dict(_COLONNE["va"] or {})
+
+
 def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
     """{créatrice : {"tl": uid | None, "vas": [uid…], "manager": uid | None, "noms": {uid : prénom}}} telle qu'au jour `fin`
     (aujourd'hui si None).
@@ -634,13 +730,27 @@ def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
         c = _mandat_tl(f, fin_iso)
         if c:
             candidats.append((depuis_tl(f, c), uid, c))
+    cle_tl = {}                                                         # uid TL → la clé de son équipe
     for _, uid, c in sorted(candidats):                                 # deux TL sur une créatrice (fiche retouchée) : le plus ancien
         tls[uid] = _n(c)
         e = equipe(c)
         if e["tl"] is None:
             e["tl"] = uid
+            cle_tl[uid] = c
         else:
             journal.warning("Deux TL pour %s : %s gardé, %s ignoré", c, e["tl"], uid)
+    # 12/10 : la colonne « Team leader » du classeur — ses TL sont TL (une équipe à leur nom s'ils n'en ont pas déjà une) et ses VA
+    # vont chez eux ; la règle par créatrice ne vaut plus que pour les VA que la colonne ne nomme pas
+    colonne = {va: tl for va, tl in tl_par_va().items() if tl in fiche_de}
+    for tl in sorted(set(colonne.values())):
+        if tl in cle_tl:
+            continue
+        cle = f"Équipe {nom_de(tl, fiche_de.get(tl))}"
+        tls.setdefault(tl, _n(cle))
+        e = equipe(cle)
+        if e["tl"] is None:
+            e["tl"] = tl
+            cle_tl[tl] = cle
     admins = _admins()
     for uid, f in presents():
         if uid in tls or uid in admins:
@@ -648,12 +758,18 @@ def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
         c = str(f.get("creatrice") or "").strip()
         if not c or _exclu(uid, f) or _regime(uid) != "clic":         # une entrée de sortie porte « nom » : lu par nom_de
             continue
-        equipe(c)["vas"].append(uid)
+        cible = cle_tl.get(colonne.get(uid, ""))
+        equipe(cible or c)["vas"].append(uid)
     for uid, f in presents():
         for c in _mandat_manager(f, fin_iso):
             e = equipe(c)
             if e["manager"] is None:
                 e["manager"] = uid
+    for tl, cle in cle_tl.items():                                      # 12/10 : une équipe « Équipe X » : le manager de la créatrice du TL
+        e = equipes.get(_n(cle))
+        c_tl = _n((fiche_de.get(tl) or {}).get("creatrice"))
+        if e is not None and e["manager"] is None and c_tl in equipes and c_tl != _n(cle):
+            e["manager"] = equipes[c_tl]["manager"]
     for e in equipes.values():
         for uid in [e["tl"], e["manager"], *e["vas"]]:
             if uid and uid not in e["noms"]:

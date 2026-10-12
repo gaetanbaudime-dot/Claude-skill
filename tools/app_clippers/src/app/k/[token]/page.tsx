@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { clipperParJeton } from "@/lib/clippers";
 import App from "@/components/App";
+import { estTl } from "@/lib/comptesApp";
 import Logo from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
@@ -30,5 +31,6 @@ export default async function Espace({ params }: { params: { token: string } }) 
       </main>
     );
   }
-  return <App prenom={c.prenom} creatrice={c.creatrice} jeton={c.jeton} />;
+  const tl = await estTl(c.cle);                                        // 12/10 : un Team Leader voit l'onglet Équipe
+  return <App prenom={c.prenom} creatrice={c.creatrice} jeton={c.jeton} tl={tl} />;
 }
