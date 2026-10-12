@@ -3207,9 +3207,12 @@ def contexte_llm(uid: str) -> str:
             "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
             f"mot de passe modifié » = se reconnecter avec le mot de passe de son étape, puis le code de connexion avec le "
             f"bouton « 📩 Mon code » dans #{codes_2fa.SALON_CODES_NOM} ; s'il ne marche plus, "
-            "WhatsApp Gaëtan, jamais « Mot de passe oublié ». Le bouton « 📩 Mon code » ne donne QUE les codes reçus par e-mail "
-            f"({'création, connexion, appel' if codes_2fa.CODES_APPEL else 'création et connexion'}), jamais ceux qui changent "
-            "l'e-mail, le mot de passe ou le numéro. Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
+            "WhatsApp Gaëtan, jamais « Mot de passe oublié ». "
+            + (f"Le bouton « 📩 Mon code » ne donne QUE les codes reçus par e-mail "
+               f"({'création, connexion, appel' if codes_2fa.CODES_APPEL else 'création et connexion'}), jamais ceux qui changent "
+               "l'e-mail, le mot de passe ou le numéro. " if codes_2fa.SECURITES else
+               "Le bouton « 📩 Mon code » donne le dernier code Instagram reçu par e-mail, quel qu'il soit (12/10). ")
+            + "Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
             "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
             "Jamais de « compte prêt à l'emploi », jamais « ton manager a une autre solution » : si tu ne sais pas, renvoie vers "
             "Gaëtan sur WhatsApp (le lien est dans tes règles). Ne recopie jamais la ligne [Contexte : …].]\n"

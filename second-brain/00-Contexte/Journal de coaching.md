@@ -22,6 +22,16 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-12 (codes 2FA) — Codes sans filtre, le dernier code à tous les coups ; comptes neufs seulement
+
+> [!tip] Verdict
+> La panne n'était pas la sécurité mais un **bug de format** : iCloud réécrit l'expéditeur d'Instagram avec deux morceaux après « _com », le bot n'en acceptait qu'un, donc **aucun code relayé n'est sorti depuis le 10/10** (Moutakabirou bloqué à son compte 1). Corrigé. Les filtres sont retirés comme tu l'as demandé : c'est acceptable parce que le clipper a déjà le mot de passe, et qu'un changement d'e-mail chez Instagram envoie son code à la NOUVELLE adresse, pas à la nôtre.
+
+- **Décisions de Gaëtan (12/10)** : « Enlève les sécurités sur le 2FA, garde le fait que le clippeur tape !code… ça lui sort le 2FA le plus récent… il faut que le 2FA marche à tous les coups » ; « ne donne que des comptes neufs aux nouveaux clippeurs ».
+- **Ce qui est fait** : format iCloud réel reconnu (et la détection des bans par e-mail avec) ; tout code d'un mail Meta est donné ; `!code` sert les codes de ses adresses, sinon les codes frais d'une adresse à personne, et le dernier code de la boîte pour le staff ; seules les lignes « à créer » sont livrées. Retour possible : `CODES_SECURITES=1`, `COMPTES_RENDUS=1`.
+- **Risque assumé** : deux clippers qui demandent un code au même moment sur des adresses non rattachées peuvent voir le même code frais ; le pire cas est un code refusé, puis « Renvoyer le code ».
+- **Prédiction (12/10, revue le 19/10)** : zéro ligne « adresse non reconnue » au salon admin cette semaine, et aucun clipper bloqué plus de 24 h faute de code. Si un clipper reste bloqué, c'est l'adresse (e-mail tapé dans Instagram ≠ classeur), pas le relais.
+
 ### 2026-10-12 (pilotage) — Une app de suivi quotidien en trois onglets : Vertical, Horizontal, Subs
 
 > [!tip] Verdict

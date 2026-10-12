@@ -308,6 +308,20 @@ MESSAGE_ESCALADE_MP_SANS_SALON = "Je n'ai pas la réponse. J'ai transmis ta ques
 # partout. Le salon devient un lien cliquable <#id> en post-traitement (lier_salon_codes), dès que son id est connu.
 # 10/10 (règle de Gaëtan : « uniquement les codes de connexion et de création de compte ») : le bouton « 📩 Mon code ».
 TEXTE_CODE = codes_2fa.TEXTE_CODE_BRUT                                   # suit CANAL_CODES_NOM
+# 12/10 (Gaëtan : « Enlève les sécurités sur le 2FA… ça lui sort le 2FA le plus récent ») : la règle 20 de l'assistant suit
+# codes_2fa.SECURITES (CODES_SECURITES=1 : la règle du 10/10, connexion et création seulement).
+REGLE_CODES = (
+    "Le bouton « 📩 Mon code » (ou `!code` tapé dans ce salon, réponse en message privé) ne donne QUE les codes de CONNEXION "
+    "et de CRÉATION de compte reçus par e-mail sur SES adresses, visibles par lui seul (règle de Gaëtan du 10/10). Tout autre "
+    "code n'est JAMAIS donné, à personne : mot de passe oublié ou récupération, changer l'e-mail, le mot de passe, le numéro "
+    "ou le pseudo, double authentification, Espace Comptes, suppression. "
+    + ("Le code d'un appel après un ban est donné aussi." if codes_2fa.CODES_APPEL else "Le code d'un appel après un ban ne "
+       "passe pas par le bot : l'équipe le reçoit et répond au clipper dans son salon perso.")
+    + " `!recup` ne donne rien."
+    if codes_2fa.SECURITES else
+    "`!code` tapé dans ce salon (ou le bouton « 📩 Mon code ») lui donne en message privé son DERNIER code Instagram reçu par "
+    "e-mail, quel qu'il soit (connexion, création, appel après un ban…), visible par lui seul (règle de Gaëtan du 12/10 : « il "
+    "faut que le 2FA marche à tous les coups »). Code refusé : « Renvoyer le code » dans Instagram, le nouveau arrive tout seul.")
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
 # jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
 # PARCOURS_ATTENTE_COMPTE_H et PARCOURS_REELS_OUVERTURE (par défaut, mot pour mot le même texte).
@@ -397,11 +411,7 @@ tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
 20. Les codes Instagram se demandent UNIQUEMENT dans le salon #🔐-code-instagram (01/10, Gaëtan) : jamais « ici », \
 jamais dans le salon perso, jamais en MP. Tu dis toujours, mot pour mot : « {TEXTE_CODE} » \
-Le bouton « 📩 Mon code » (ou `!code` tapé dans ce salon, réponse en message privé) ne donne QUE les codes de CONNEXION \
-et de CRÉATION de compte reçus par e-mail sur SES adresses, visibles par lui seul (règle de Gaëtan du 10/10). Tout autre \
-code n'est JAMAIS donné, à personne : mot de passe oublié ou récupération, changer l'e-mail, le mot de passe, le numéro \
-ou le pseudo, double authentification, Espace Comptes, suppression. {"Le code d'un appel après un ban est donné aussi." if codes_2fa.CODES_APPEL else "Le code d'un appel après un ban ne passe pas par le bot : l'équipe le reçoit et répond au clipper dans son salon perso."} \
-`!recup` ne donne rien. Instagram propose la double authentification : il l'écrit à Gaëtan avant de toucher à quoi que ce \
+{REGLE_CODES} Instagram propose la double authentification : il l'écrit à Gaëtan avant de toucher à quoi que ce \
 soit (tu ne lui dis ni de l'activer ni de ne pas l'activer). Si Instagram demande \
 un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
 de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
@@ -425,7 +435,7 @@ question à la fois, seulement si tu en as besoin pour répondre. Quand le clipp
 « Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
 de son compte, dans son salon perso, puis le code dans #🔐-code-instagram avec le bouton « 📩 Mon code » ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
 « désactivé », « nous examinons » (30/09, Gaëtan) : le clipper fait appel LUI-MÊME, tout de suite — « Contester la décision » ; \
-le code reçu par e-mail : {"« " + TEXTE_CODE + " »" if codes_2fa.CODES_APPEL else "il ne passe pas par le bot (10/10) : l'équipe le reçoit et lui répond dans son salon perso"} ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
+le code reçu par e-mail : {"« " + TEXTE_CODE + " »" if (codes_2fa.CODES_APPEL or not codes_2fa.SECURITES) else "il ne passe pas par le bot (10/10) : l'équipe le reçoit et lui répond dans son salon perso"} ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
 demandés : les SIENS ; jamais les papiers de quelqu'un d'autre, jamais de faux, jamais sa pièce d'identité dans Discord (il \
 l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salon. Si l'appel échoue, Gaëtan décide. On ne \
 réutilise JAMAIS une info d'un compte BAN : ni son e-mail, ni son mot de passe, ni son identifiant (01/10, Gaëtan). Jamais « c'est normal », jamais \
@@ -4995,7 +5005,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 # 10/10 (lot L9b) : `!bloques` ici aussi ; `!equipes`, `!relancer-lien` et `!rang` retirés (lot W)
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
                 "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!bloques` · `!drives-perso fermer [go]` · "
-                "`!ltv [jours]` · `!alias` · `!code [adresse]` (connexion et création seulement, en MP) · "
+                "`!ltv [jours]` · `!alias` · `!code [adresse]` (" + ("connexion et création seulement" if codes_2fa.SECURITES
+                                                                        else "le dernier code de la boîte") + ", en MP) · "
                 "`!pilotage` (ton app de suivi, en MP)\n\n"
                 # 10/10 (lot L9b, avec L10) : les équipes TL, admins seulement ; un TL n'a jamais le rôle Manager
                 "**Équipes TL** (admins seulement) : `!tl liste` · `!tl Chloé @x` · `!tl Chloé aucun` · `!manager @x Chloé Sarah`\n\n"
@@ -5018,7 +5029,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!pipeline` — où en est chaque candidat · `!relance @x` — le pousser d'un cran\n"
                 "· `!sortie @clipper raison` — sortie de l'équipe (rôles et salons retirés)\n"
                 # 09/10 : l'aide manager dépassait 1 990 caractères (fin coupée par Discord) : lignes resserrées.
-                "· `!alias ajouter …` / `!code …` — codes Instagram de connexion et de création, jamais les autres (10/10)\n"
+                + ("· `!alias ajouter …` / `!code …` — codes Instagram de connexion et de création, jamais les autres (10/10)\n"
+                   if codes_2fa.SECURITES else "· `!code` — le dernier code Instagram de la boîte, en MP (12/10)\n") +
                 "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
                 "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
                 "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur (chaque nouveau en réserve 3)\n"
@@ -5046,7 +5058,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement : ton adresse de paiement.\n"
                 "· Un compte bloqué ? Écris à Gaëtan sur WhatsApp.\n"
                 + ("" if codes_2fa.CODES_APPEL else
-                   "· Un compte banni : tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.\n") +
+                   ("· Un compte banni : tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.\n"
+                    if codes_2fa.SECURITES else "· Un compte banni : tu fais l'appel toi-même. Son code : `!code` dans le salon des codes.\n")) +
                 "· `STOP` en message privé : plus aucun rappel automatique.\n\n"
                 "Une question ? Écris-la ici, je réponds.")
     # 09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : le candidat ne lit que sa prochaine action. Un

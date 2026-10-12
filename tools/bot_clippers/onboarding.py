@@ -138,6 +138,7 @@ def _onglet_par_defaut() -> str:
 RE_PRIVE = re.compile(r"priv|secret|onlyme|perso")                 # handle d'un compte privé (le 3e du trio)
 JOURS_NOUVEAU = int(os.environ.get("ONBOARDING_JOURS_NOUVEAU", "45") or 45)   # un membre arrivé depuis moins longtemps est « nouveau »
 A_CREER = ("a creer", "à créer")
+COMPTES_RENDUS = os.environ.get("COMPTES_RENDUS", "0").strip() == "1"   # 12/10 : comptes neufs seulement (voir disponibles)
 MENTION_LIBERE = "à mettre Metricool"                              # Utilisation d'un compte créé rendu par un clipper parti
 
 _deps = {}
@@ -515,6 +516,11 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
               and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
     brulees = infos_brulees(comptes)                                    # 30/09 : jamais un compte qui partage une info d'un BAN
     libres = [c for c in libres if not infos_d_un_ban(c, brulees)]
+    if not COMPTES_RENDUS:
+        # 12/10 (Gaëtan : « ne donne que des comptes neufs aux nouveaux clippeurs, ça sera plus simple pour nous ») : seulement
+        # des lignes « à créer » avec e-mail ; un compte rendu par un sortant (déjà créé, publications d'avant, codes de
+        # connexion) ne repart plus. COMPTES_RENDUS=1 rallume la règle du 28/09 ci-dessous.
+        libres = [c for c in libres if _norm(c["etat"]) in A_CREER and c.get("mail")]
     # 28/09 (Gaëtan, sortie automatique) : « réattribue comptes et liens au suivant » — les comptes déjà créés et rendus
     # (chauffés, Gérant vidé) partent en premier ; le clipper s'y CONNECTE, le code de connexion arrive dans son salon.
     rendus = sorted([c for c in libres if _norm(c["etat"]) not in A_CREER], key=lambda c: c["ligne"])

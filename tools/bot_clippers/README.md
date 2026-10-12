@@ -10,6 +10,22 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 12/10 : codes 2FA sans filtre, comptes neufs seulement
+
+**Le bug qui bloquait les codes depuis le 10/10** : iCloud réécrit l'expéditeur d'Instagram en `no-reply_at_mail_instagram_com_<a>_<b>@icloud.com`, avec deux morceaux après « _com ». Le bot n'en acceptait qu'un : tous les codes relayés étaient écartés (les lignes « Mail au nom de Meta, adresse non reconnue » du salon admin). Le format réel est désormais reconnu, et la détection des bans par e-mail (bans_mail) en profite aussi.
+
+**Plus de filtre sur le but du code** (Gaëtan : « Enlève les sécurités… il faut que le 2FA marche à tous les coups ») : `!code` dans #🔐-code-instagram, ou le bouton « 📩 Mon code », donne en message privé le **dernier code Instagram** reçu, quel qu'il soit (connexion, création, appel, récupération). L'ordre :
+
+1. les codes des adresses du clipper ;
+
+2. sinon, les codes arrivés depuis moins de 10 minutes sur une adresse qui n'est à personne d'autre (alias tapé autrement, adresse jamais rattachée) : le clipper sans adresse n'est plus refusé, l'équipe est seulement prévenue ;
+
+3. pour toi et les managers, sans adresse : le dernier code de la boîte, tous comptes confondus.
+
+Un code d'une adresse rattachée à un autre clipper ne lui est jamais montré. `!recup` et `!appel` font comme `!code`. Pour revenir aux filtres du 10/10 : `CODES_SECURITES=1` sur Railway.
+
+**Comptes neufs seulement** (Gaëtan : « ne donne que des comptes neufs aux nouveaux clippeurs ») : le bot ne livre plus que des lignes « à créer » avec e-mail. Un compte rendu par un sortant (déjà créé, avec ses anciennes publications) ne repart plus. Pour revenir à l'ancienne règle : `COMPTES_RENDUS=1`.
+
 ## 12/10 : l'app pilotage (Vertical, Horizontal, Subs)
 
 Ce que tu fais : **`!pilotage`** sur Discord. Le bot t'envoie en message privé le lien de ton app de suivi. Ouvre-le dans Safari, puis Partager → « Sur l'écran d'accueil ».
