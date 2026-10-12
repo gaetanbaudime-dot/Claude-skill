@@ -745,7 +745,9 @@ def composition(fiches=None, registre=None, fin=None, mandats=None) -> dict:
     for tl in sorted(set(colonne.values())):
         if tl in cle_tl:
             continue
-        cle = f"Équipe {nom_de(tl, fiche_de.get(tl))}"
+        # le prénom seul : le pseudo Discord porte « Yves - Sarah - TL Sarah », illisible comme nom d'équipe
+        prenom = str((fiche_de.get(tl) or {}).get("prenom") or "").strip() or nom_de(tl, fiche_de.get(tl)).split(" - ")[0].strip()
+        cle = f"Équipe {prenom}"
         tls.setdefault(tl, _n(cle))
         e = equipe(cle)
         if e["tl"] is None:
@@ -1482,6 +1484,14 @@ def texte_liste(calcul: dict, en_cours: bool) -> list:
              f"à {_fmt(MANAGER_SEUIL_EQUIPE)} ou plus. TL {'compris dans' if EQUIPE_COMPTE_TL else 'hors de'} son équipe."]
     if not primee:
         blocs.append("Pas de prime d'équipe sur cette période. " + _texte_premiere_periode())
+    col = tl_par_va()                                                   # 12/10 : ce que dit la colonne « Team leader » du classeur
+    if col or _COLONNE["inconnus"] or _COLONNE["conflits"]:
+        ligne = f"Colonne « Team leader » du classeur : {len(col)} clipper(s) rattaché(s) à {len(set(col.values()))} TL."
+        if _COLONNE["inconnus"]:
+            ligne += " ⚠️ Prénoms non reconnus (aucun membre, ou deux du même prénom) : " + ", ".join(_COLONNE["inconnus"][:8]) + "."
+        if _COLONNE["conflits"]:
+            ligne += " ⚠️ Deux TL différents pour : " + ", ".join(_COLONNE["conflits"][:8]) + " (le premier lu gagne)."
+        blocs.append(ligne)
     if not calcul["equipes"]:
         blocs.append("Aucune équipe : personne n'a de créatrice au registre.")
     sans_prime = " (pas de prime sur cette période)"                    # revue L10 (R1) : jamais un montant qui ne sera pas payé

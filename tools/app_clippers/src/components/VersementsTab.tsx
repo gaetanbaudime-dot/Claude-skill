@@ -204,14 +204,14 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
           Payé le 5 et le 20 de chaque mois
         </div>
-        <div className="titre-argent text-[40px] font-bold leading-none mt-2 tabular-nums">{p ? <Compteur valeur={p.montant + prime} format={(n) => fmtUsd(Math.round(n * 100) / 100, true)} /> : <span className="squelette inline-block h-9 w-40" />}</div>
+        <div className="titre-argent text-[40px] font-bold leading-none mt-2 tabular-nums">{p ? <Compteur valeur={v?.fixe ? p.montant : p.montant + prime} format={(n) => fmtUsd(Math.round(n * 100) / 100, true)} /> : <span className="squelette inline-block h-9 w-40" />}</div>
         <div className="text-[12px] text-argent2 mt-1">{p ? `${fmtNb(p.visites)} visite${p.visites > 1 ? "s" : ""} francophone${p.visites > 1 ? "s" : ""} depuis le ${jourCourt(v?.depuis || p.debut)}` : "visites francophones"}</div>
         {p && v?.equipe ? (
           /* 12/10 (Gaëtan : « il fait les deux jobs, il faut séparer ses revenus ») : clipper d'un côté, Team Leader de l'autre */
           <div className="mt-3 rounded-2xl overflow-hidden text-[13px]" style={{ background: "rgba(255,255,255,0.04)" }}>
-            <div className="flex justify-between px-3 py-2"><span className="text-argent2">Tes clics (clipper)</span><b className="tabular-nums">{fmtUsd(p.montant, true)}</b></div>
+            <div className="flex justify-between px-3 py-2"><span className="text-argent2">{v.fixe ? "Tes clics (au fixe : pour info)" : "Tes clics (clipper)"}</span><b className="tabular-nums">{fmtUsd(p.montant, true)}</b></div>
             <div className="flex justify-between px-3 py-2 border-t border-white/[0.06]"><span className="text-argent2">Prime de Team Leader{v.equipe.primee ? "" : " (pas sur cette période)"}</span><b className="tabular-nums">{fmtUsd(prime, true)}</b></div>
-            <div className="flex justify-between px-3 py-2 border-t border-white/[0.06]"><span className="font-semibold">Total de la période</span><b className="tabular-nums text-emerald-300">{fmtUsd(p.montant + prime, true)}</b></div>
+            <div className="flex justify-between px-3 py-2 border-t border-white/[0.06]"><span className="font-semibold">{v.fixe ? "Prime en plus de ton fixe" : "Total de la période"}</span><b className="tabular-nums text-emerald-300">{fmtUsd(v.fixe ? prime : p.montant + prime, true)}</b></div>
           </div>
         ) : null}
         <div className="mt-4 rounded-2xl p-3 flex items-center gap-3" style={{ background: "rgba(52,211,153,0.10)" }}>

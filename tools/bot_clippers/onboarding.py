@@ -78,6 +78,10 @@ def _colonnes_trouvees(en_tete: list) -> dict:
                 continue
             if champ == "mail" and "numero" in hn:
                 continue                                                # « Numéro Mail » n'est pas la colonne Mail
+            if champ == "tl" and hn.replace(".", "").replace(" ", "") == "tl":
+                trouve[champ] = i                                       # 12/10 : une colonne intitulée « TL » tout court
+                pris.add(i)
+                break
             if any(m in hn for m in mots):
                 trouve[champ] = i
                 pris.add(i)

@@ -12,7 +12,9 @@
 
 ## 12/10 : app des Team Leaders, colonne « Team leader », @ corrigés depuis l'app
 
-**Ce que tu fais** : dans chaque onglet créatrice du classeur des logins, ajoute une colonne **« Team leader »** et écris le prénom du TL sur les lignes de chacun de ses clippers (comme le Gérant, cellule fusionnée possible). Le prénom doit être celui d'un membre signé, et un seul membre doit l'avoir. Deux « Lucas » : la ligne est ignorée.
+**Ce que tu fais** : dans chaque onglet créatrice du classeur des logins, ajoute une colonne **« Team leader »** et écris le prénom du TL sur les lignes de chacun de ses clippers (comme le Gérant, cellule fusionnée possible). Le prénom doit être celui d'un membre signé, et un seul membre doit l'avoir. Deux « Lucas » : la ligne est ignorée. L'en-tête « Team leader » ou « TL » suffit.
+
+**Vérifier** : `!tl liste` (dans les 15 minutes qui suivent la saisie) affiche « Colonne « Team leader » du classeur : N clipper(s) rattaché(s) à M TL », puis chaque équipe au prénom du TL (« Équipe Yves ») ; un prénom de TL ou de clipper non reconnu y est signalé.
 
 **Ce que fait le bot** : à chaque passage du Dashboard (15 minutes), il lit la colonne (`equipes_tl.maj_colonne`, gardée dans `tl_colonne.json`). Un clipper nommé là entre dans l'équipe de ce TL, même chez une autre créatrice. Un TL nommé là est TL, jamais VA, même sans `!tl`. Sans colonne, la règle du 10/10 tient. Les primes (10 $ par VA à 500 visites payées par quinzaine, à partir de la période du 20/10) suivent ces équipes. Il publie aussi l'onglet « Comptes app » (les comptes de chaque clipper avec son TL), que lit l'app.
 
