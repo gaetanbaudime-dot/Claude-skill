@@ -288,9 +288,11 @@ async def sheets_lire_plusieurs(classeur_id: str, plages: list) -> list:
     return [[[("" if c is None else str(c)) for c in ligne] for ligne in b.get("values", [])] for b in blocs]
 
 
-async def sheets_ecrire(classeur_id: str, plage: str, valeurs: list) -> int:
+async def sheets_ecrire(classeur_id: str, plage: str, valeurs: list, brut: bool = False) -> int:
+    """`brut` (12/10, pilotage) : valeurs écrites telles quelles (RAW), jamais réinterprétées par la locale française du tableur
+    (une date ISO ou « 4.5 » restent du texte que l'app relit à l'identique)."""
     r = await _appel("PUT", f"{SHEETS}/{classeur_id}/values/{_plage(plage)}",
-                     params={"valueInputOption": "USER_ENTERED"}, corps={"values": valeurs})
+                     params={"valueInputOption": "RAW" if brut else "USER_ENTERED"}, corps={"values": valeurs})
     return int(r.get("updatedCells", 0))
 
 

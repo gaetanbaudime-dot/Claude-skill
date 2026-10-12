@@ -4995,7 +4995,8 @@ def texte_aide(membre, est_admin: bool) -> str:
                 # 10/10 (lot L9b) : `!bloques` ici aussi ; `!equipes`, `!relancer-lien` et `!rang` retirés (lot W)
                 "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
                 "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!bloques` · `!drives-perso fermer [go]` · "
-                "`!ltv [jours]` · `!alias` · `!code [adresse]` (connexion et création seulement, en MP)\n\n"
+                "`!ltv [jours]` · `!alias` · `!code [adresse]` (connexion et création seulement, en MP) · "
+                "`!pilotage` (ton app de suivi, en MP)\n\n"
                 # 10/10 (lot L9b, avec L10) : les équipes TL, admins seulement ; un TL n'a jamais le rôle Manager
                 "**Équipes TL** (admins seulement) : `!tl liste` · `!tl Chloé @x` · `!tl Chloé aucun` · `!manager @x Chloé Sarah`\n\n"
                 "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
@@ -6760,6 +6761,26 @@ async def commande_admin(message, texte: str) -> bool:
                 await message.reply(morceau[:1990])
             else:
                 await message.channel.send(morceau[:1990])
+        return True
+
+    if (texte.split() or [""])[0].lower() == "!pilotage":
+        # 12/10 (Gaëtan : « une app Vercel pour tracker au quotidien les clics de toute la team ; un onglet vertical, un horizontal,
+        # un subs ») : le lien de son pilotage, en message privé seulement (il ouvre tous les chiffres de l'agence). Admin seul : la
+        # commande n'est pas dans COMMANDES_MANAGER.
+        import lien_app
+        lien_p = await lien_app.lien_pilotage()
+        if not lien_p:
+            await message.reply("Lien du pilotage pas encore disponible : l'app n'a pas répondu. Réessaie dans une minute "
+                                "(il s'écrit aussi dans l'onglet « Accès pilotage » du tableur « App clippers · usage »).")
+            return True
+        try:
+            await message.author.send("📊 **Ton pilotage** (Vertical, Horizontal, Subs) :\n\n" + lien_p + "\n\n"
+                                      "Ajoute-le sur l'écran d'accueil de ton téléphone. Ne le partage pas : il ouvre tous les "
+                                      "chiffres de l'agence.")
+            await message.reply("📩 Lien envoyé en message privé.")
+        except discord.Forbidden:
+            await message.reply("Je ne peux pas t'écrire en privé. Le lien est dans l'onglet « Accès pilotage » du tableur "
+                                "« App clippers · usage ».")
         return True
 
     if texte.startswith("!candidats"):
@@ -8808,7 +8829,8 @@ async def on_ready():
         client.loop.create_task(etats_comptes.boucle(client))                   # ETAT du classeur depuis Instagram (26/09)
         dashboard.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "dashboard.json",
                               "FICHIER_ETATS": FICHIER_ETATS, "FICHIER_CLICS": FICHIER_CLICS, "FICHIER_EQUIPES": FICHIER_EQUIPES,
-                              "FICHIER_ONBOARDING": FICHIER_ONBOARDING, "membre_par_id": membre_par_id, "normaliser": normaliser})
+                              "FICHIER_ONBOARDING": FICHIER_ONBOARDING, "membre_par_id": membre_par_id, "normaliser": normaliser,
+                              "pilotage": os.environ.get("PILOTAGE", "1").strip() != "0"})   # 12/10 : tables de l'app pilotage
         client.loop.create_task(dashboard.boucle(client))                       # 09/10 (dashboard) : relu toutes les 15 min, sans Apify ni GAML
         bans_mail.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_BANS": DONNEES / "bans_mail.json",
                               "canal_admin": canal_admin, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),

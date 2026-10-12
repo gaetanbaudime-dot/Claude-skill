@@ -35,6 +35,27 @@ Aucun navigateur ne permet d'installer une app web en un geste depuis un lien re
 
 Le journal d'usage reçoit `install:affiche`, `install:prompt`, `install:accepte`, `install:refuse`, `install:fait`, `install:plus_tard`, `install:ok` : on sait combien ont vu la carte et combien ont installé.
 
+## Pilotage de Gaëtan (12/10) : Vertical, Horizontal, Subs
+
+Gaëtan (12/10) : « une app Vercel pour tracker au quotidien les clics de toute la team : un onglet vertical, un onglet horizontal, un onglet subs ; vertical avec les stats des créatrices et de leurs gros comptes ». C'est une page de plus dans cette app, réservée à Gaëtan : **`/p/<jeton>`**, jeton = HMAC-SHA256(`ADMIN_SECRET`, "pilotage") en base64url, 24 caractères (aucune variable de plus sur Vercel). Pour l'avoir : **`!pilotage`** sur Discord (admins seulement, réponse en message privé), ou l'onglet « Accès pilotage » du tableur « App clippers · usage », ou `/api/admin/liens?cle=<ADMIN_SECRET>&format=texte` (première ligne).
+
+**Aucun appel GAML, Apify ni Metricool ici.** Le bot publie quatre onglets dans le tableur « App clippers · usage » (`tools/bot_clippers/pilotage.py`, à chaque passage du Dashboard, toutes les 15 minutes, chaque onglet seulement s'il a changé) ; la page les lit en un appel (`src/lib/pilotage.ts`, 2 minutes de cache) et se relit toute seule toutes les 5 minutes :
+
+| Onglet | Une ligne = | Colonnes |
+|---|---|---|
+| Pilotage comptes | un compte Instagram du Dashboard, état du moment | Créatrice, Axe, Type, Gérant, @, ETAT, Followers, Δ 24 h, Δ 7 j, Followers 7 j, Reels auj./hier/7 j, Vues 7 j (48 h) et 7 j d'avant, Clics auj./hier/7 j/7 j d'avant, Dernier Reel, Mesure |
+| Pilotage clics | jour × créatrice × axe × source × personne, 62 jours | Jour, Créatrice, Axe, Source, Qui, Visites payables, Visites hors robots, Liens, Liens non relevés |
+| Pilotage subs | jour × créatrice (Data G&M), 62 jours | Jour, Créatrice, Subs OF, CA OF ($), Subs MYM, CA MYM (€), Saisi |
+| Pilotage infos | – | Publié, Fraîcheur (celle du titre du Dashboard), Taux USD→EUR |
+
+Les trois onglets, avec un sélecteur **Auj. · Hier · 7 j · 30 j** (comparé à la période d'avant de même longueur ; « Auj. » n'est pas comparé, la journée n'est pas finie) et un filtre par créatrice :
+
+- **Vertical** : ce que les créatrices font percer elles-mêmes. Visites payables de leurs pages (page principale, bio Instagram, YouTube, Facebook), followers de leurs gros comptes (écarts 24 h et 7 j, courbe 7 jours), Reels et vues à 48 h, puis une carte par créatrice : visites par source et chacun de ses comptes (lignes du classeur dont le Gérant est la créatrice ou dont l'Utilisation est « Compte de la créatrice »).
+- **Horizontal** : la machine des clippers. Visites payables des clippers (celles de la paie), coût à 0,05 $, clippers actifs, comptes Instagram, graphique 30 jours par créatrice, **classement des clippers** (visites, variation, courbe 14 jours ; un appui déplie ses comptes : followers, Δ 7 j, Reels, vues, clics), puis hors classement : comptes Metricool de Rianah, liens libérés, visites d'avant une reprise.
+- **Subs** : nouveaux abonnés OnlyFans et MYM, CA net en euros (OnlyFans converti au taux du bot), € par abonné, **subs pour 100 visites** (abonnés rapportés aux visites payables de tous les liens de la période), une ligne par créatrice, et les jours non saisis dans Data G&M signalés.
+
+Règle partout : jamais un faux 0. Un jour de lien pas encore relevé est compté à part (« ≈ » devant la somme, « relevé(s) en attente »), un followers illisible reste « – ». La pastille « MAJ il y a … » passe en orange au-delà d'une heure sans publication du bot.
+
 ## Pile
 
 Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (projet `app-clippers`, domaine `app-clippers.vercel.app`) avec `tools/app_clippers` comme répertoire racine ; `vercel.json` ignore les commits qui ne touchent pas ce dossier. Mise en ligne le 6 octobre 2026.
@@ -67,6 +88,7 @@ Même mécanisme que l'app créatrices : chaque ouverture, changement d'onglet, 
 ## Routes
 
 - `/k/<jeton>` : l'application ; `/k/<jeton>/manifest.webmanifest` : son manifeste (start_url avec le jeton, icônes `any` et `maskable`).
+- `/p/<jeton>` : le pilotage de Gaëtan ; `/api/p/<jeton>` : ses tables (JSON) ; `/p/<jeton>/manifest.webmanifest` : son manifeste.
 - `/api/k/<jeton>/versements` : chiffres de la période (JSON).
 - `/api/k/<jeton>/drive` : le dossier racine (nom, adresse) ouvert par chacune des quatre tuiles, pour vérification.
 - `/api/k/<jeton>/adresse` : GET l'adresse USDC enregistrée (ou `null`), POST `{ "adresse" }` l'enregistre après validation (5 essais par minute).

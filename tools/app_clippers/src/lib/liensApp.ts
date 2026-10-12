@@ -6,6 +6,7 @@
  *  Écrit à la demande du bot (`POST /api/liens`), et seulement si la liste a changé depuis la dernière écriture de l'instance.
  *  Ce tableur contient donc les liens personnels : il reste privé (Gaëtan et le compte de service). */
 import { clippers } from "./clippers";
+import { jetonPilotage } from "./pilotage";
 import { assurerOnglet, ecrirePlage, maintenantParis, tableur, viderPlage } from "./usage";
 
 export const ONGLET_LIENS = "Liens app";
@@ -14,14 +15,31 @@ const ENTETE = ["Clipper", "Créatrice", "Lien de l'app", "Liens GAML", "Clé", 
 export const BASE_APP = (process.env.APP_URL || "https://app-clippers.vercel.app").replace(/\/+$/, "");
 
 let derniere = "";                                                     // la dernière liste écrite par cette instance
+let pilotageEcrit = "";
+
+/** 12/10 (app pilotage) : le lien du pilotage de Gaëtan, dans l'onglet « Accès pilotage » du même tableur privé (le secret qui le
+ *  fabrique ne quitte pas Vercel). Écrit une fois par instance, à la première demande du bot. */
+export const ONGLET_PILOTAGE = "Accès pilotage";
+async function ecrirePilotage(id: string): Promise<void> {
+  const jeton = jetonPilotage();
+  if (!jeton) return;
+  const lien = `${BASE_APP}/p/${jeton}`;
+  if (lien === pilotageEcrit) return;
+  await assurerOnglet(id, ONGLET_PILOTAGE, ["Lien du pilotage (Gaëtan seulement)", "Mis à jour"]);
+  const { date, heure } = maintenantParis();
+  await ecrirePlage(id, `'${ONGLET_PILOTAGE}'!A2:B2`, [[lien, `${date} ${heure}`]]);
+  pilotageEcrit = lien;
+}
 let enCours: Promise<number> | null = null;
 
 async function ecrire(): Promise<number> {
   const liste = await clippers();
   const lignes = liste.map((c) => [c.prenom, c.creatrice, `${BASE_APP}/k/${c.jeton}`, c.liens.map((l) => l.url).join(" "), c.cle]);
   const signature = JSON.stringify(lignes);
-  if (signature === derniere) return lignes.length;
+  if (signature === derniere && pilotageEcrit) return lignes.length;
   const id = await tableur();
+  await ecrirePilotage(id).catch((e) => console.warn("accès pilotage :", (e as Error).message));
+  if (signature === derniere) return lignes.length;
   await assurerOnglet(id, ONGLET_LIENS, ENTETE);
   const { date, heure } = maintenantParis();
   const datees = lignes.map((l) => [...l, `${date} ${heure}`]);

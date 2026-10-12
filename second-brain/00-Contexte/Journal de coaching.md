@@ -22,6 +22,17 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-12 (pilotage) — Une app de suivi quotidien en trois onglets : Vertical, Horizontal, Subs
+
+> [!tip] Verdict
+> Bonne demande, à une condition : que l'app serve à **décider**, pas à regarder. Elle est construite sur les chiffres que le bot mesure déjà (zéro coût de plus) et met côte à côte ce qui compte pour le goulot : le trafic des pages des créatrices (vertical), celui des clippers (horizontal) et ce qu'il rapporte (subs pour 100 visites, € par abonné). La question à lui poser chaque matin : **quel axe rapporte le plus d'abonnés par euro dépensé cette semaine ?**
+
+- **Décision de Gaëtan (12/10)** : « développe une app Vercel pour que je puisse tracker au quotidien les clics de toute la team ; un onglet vertical, un onglet horizontal, un onglet subs ; vertical avec les stats des créatrices et de leurs gros comptes ».
+- **Ce qui est fait** : le bot publie quatre onglets « Pilotage » dans le tableur d'usage à chaque passage du Dashboard (15 min) ; l'app clippers les affiche sur une page réservée, lien par `!pilotage` en message privé. Aucun appel Apify ni GAML de plus.
+- **Garde-fous** : jamais un faux 0 (jours non relevés signalés « ≈ ») ; lien personnel non partageable (il ouvre tous les chiffres, paie comprise) ; la conversion « subs pour 100 visites » mélange vertical et horizontal tant que les subs ne sont pas tracés par source — c'est une tendance, pas une attribution.
+- **Limites honnêtes** : pas de TikTok (aucune source), followers des gros comptes relus une fois par jour seulement (scan du matin), subs saisis le lendemain par Rianah.
+- **Prédiction (12/10, revue le 26/10)** : tu ouvres l'app au moins 5 jours sur 7 la première semaine, puis 3 sur 7 ; elle déclenche au moins **une décision chiffrée** d'ici le 26/10 (couper un clipper sous 300 visites par quinzaine, ou déplacer des clippers vers la créatrice qui convertit le mieux). Si aucune décision n'en sort, c'est un tableau de plus : on la simplifie à un seul écran.
+
 ### 2026-10-10 et 11/10 (recrutement) — Codes 2FA en liste blanche, parcours sans attente, grille TL et manager : codés, branchés, pas encore déployés
 
 > [!tip] Verdict

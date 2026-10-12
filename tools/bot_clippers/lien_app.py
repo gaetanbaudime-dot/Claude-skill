@@ -110,3 +110,30 @@ async def lien(liens_gaml) -> str:
     if trouve or not await _synchroniser():
         return trouve
     return chercher(await _lignes(), liens_gaml)
+
+
+# 12/10 (app pilotage, Gaëtan : « une app Vercel pour tracker au quotidien les clics de toute la team ») : le lien du pilotage de
+# Gaëtan (tools/app_clippers, /p/<jeton>), fabriqué par l'app avec ADMIN_SECRET qui ne quitte pas Vercel : l'app l'écrit dans
+# l'onglet « Accès pilotage » du même tableur privé à la demande d'écriture (POST /api/liens), le bot le lit pour `!pilotage`.
+ONGLET_PILOTAGE = "Accès pilotage"
+
+
+def valide_pilotage(url) -> str:
+    url = str(url or "").strip()
+    return url if re.fullmatch(re.escape(APP_URL) + r"/p/[A-Za-z0-9_-]{24}", url) else ""
+
+
+async def lien_pilotage() -> str:
+    """Le lien du pilotage ; '' si l'app ne l'a pas (encore) écrit. Demande une écriture à l'app d'abord (commande manuelle : la
+    limite de 10 minutes ne s'applique pas)."""
+    if not actif():
+        return ""
+    _synchro["dernier"] = 0.0
+    await _synchroniser()
+    try:
+        cid = await _id_classeur()
+        lignes = await google_api.sheets_lire(cid, f"'{ONGLET_PILOTAGE}'!A2:A2") if cid else []
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Onglet « %s » illisible : %s", ONGLET_PILOTAGE, str(erreur)[:160])
+        return ""
+    return valide_pilotage(lignes[0][0] if lignes and lignes[0] else "")

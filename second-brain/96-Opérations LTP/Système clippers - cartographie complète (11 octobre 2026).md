@@ -81,6 +81,8 @@ Rappel locale : toute formule livrée à Gaëtan est en français (`;`, `SOMME`,
 
 L'onglet **Dashboard** du classeur des logins, réécrit seulement s'il a changé : une ligne par compte avec clipper, créatrice, état, followers et tendance, clics, Reels hier et 7 jours, dernière lecture ; en tête la fraîcheur des sources et le budget Apify (« X $ / 25 $ », coupure à 100 %). Les clics se rafraîchissent toutes les 15 min (gratuit) ; followers et Reels coûtent de l'Apify. **Plafond : 25 $ par mois** (décision du 09/10), soit environ 3 à 4 lectures par jour de chaque compte public ; une lecture par heure coûterait ~63 $. La vague 2 ajoute les relectures de 12, 14, 16, 18, 20 et 22 h, avec priorité aux clippers qui attendent leur compte suivant, et les colonnes manquantes.
 
+**L'app pilotage (12/10)**, pour le suivi au téléphone : trois onglets, **Vertical** (pages et gros comptes des créatrices : visites par source, followers, écarts 24 h et 7 j, Reels, vues à 48 h), **Horizontal** (visites payables des clippers, coût à 0,05 $, classement des clippers avec leurs comptes, Metricool et liens libérés à part) et **Subs** (abonnés OnlyFans et MYM, CA net, € par abonné, subs pour 100 visites), sur Auj., Hier, 7 j ou 30 j comparés à la période d'avant. Elle vit dans l'app clippers (page réservée, lien par `!pilotage` en message privé) et lit quatre onglets « Pilotage » que le bot publie dans le tableur d'usage à chaque passage du Dashboard : zéro appel Apify ou GAML de plus, le plafond de 25 $ ne bouge pas. Ce qu'elle ne sait pas faire : TikTok (aucune source) et les followers Metricool (non branchés), donc les gros comptes ne sont relus qu'une fois par jour par le scan du matin.
+
 ## 7. Les codes 2FA (en production depuis le 10/10)
 
 **Liste blanche stricte** : seuls les codes de **connexion** et de **création** d'un compte partent au clipper, s'ils viennent d'une adresse Instagram (6 langues reconnues). Tout le reste (mot de passe oublié, e-mail, numéro, 2FA, Espace Comptes) est **gardé** : une ligne au salon admin sans le code. Un changement fait sur un compte déclenche une alerte. Le clipper appuie sur « 📩 Mon code » dans #🔐-code-instagram et **lui seul** voit la réponse. Code d'appel après un ban : gardé par défaut (`CODES_APPEL=1` pour l'ouvrir). Limite honnête : le filtre n'empêche pas un clipper de changer le mot de passe dans l'app ou par SMS — on détecte et on reprend par la boîte de l'agence.
@@ -93,7 +95,7 @@ L'onglet **Dashboard** du classeur des logins, réécrit seulement s'il a chang�
 
 ## 9. Les commandes à connaître
 
-`!annonce <groupe>` (annonce + places), `!tl liste`, `!tl Chloé @X`, `!manager @X Chloé Sarah`, `!monteur @X` (sortie vers un autre rôle, liens chez Rianah), `!sortie @X raison`, `!lien @X <url>`, `!fiche @X`, `!etape @X n`, `!paie-clics 5|20`, `!dashboard`, `!verifier`. Les sorties et ouvertures sans commande passent par les fichiers de dépôt (`sorties_a_appliquer.json`, `salons_a_ouvrir.json`) appliqués au démarrage.
+`!annonce <groupe>` (annonce + places), `!tl liste`, `!tl Chloé @X`, `!manager @X Chloé Sarah`, `!monteur @X` (sortie vers un autre rôle, liens chez Rianah), `!sortie @X raison`, `!lien @X <url>`, `!fiche @X`, `!etape @X n`, `!paie-clics 5|20`, `!dashboard`, `!pilotage` (ton app de suivi, en MP), `!verifier`. Les sorties et ouvertures sans commande passent par les fichiers de dépôt (`sorties_a_appliquer.json`, `salons_a_ouvrir.json`) appliqués au démarrage.
 
 ## 10. Ce qui reste à faire
 

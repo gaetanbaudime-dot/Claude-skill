@@ -4,6 +4,7 @@
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { clippers } from "@/lib/clippers";
+import { jetonPilotage } from "@/lib/pilotage";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +23,10 @@ export async function GET(req: NextRequest) {
   catch (e) { return NextResponse.json({ erreur: "GAML indisponible", detail: (e as Error).message }, { status: 503 }); }
   const entetes = { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" };
   if (req.nextUrl.searchParams.get("format") === "texte") {
-    const lignes = liste.map((c) => `${c.prenom} (${c.creatrice}) : ${base}/k/${c.jeton}`);
+    const lignes = [`★ Pilotage (Gaëtan) : ${base}/p/${jetonPilotage()}`, ...liste.map((c) => `${c.prenom} (${c.creatrice}) : ${base}/k/${c.jeton}`)];
     return new NextResponse(lignes.join("\n") + "\n", { headers: { ...entetes, "Content-Type": "text/plain; charset=utf-8" } });
   }
   const out: Record<string, { creatrice: string; url: string; liens: string[] }> = {};
   for (const c of liste) out[c.prenom] = { creatrice: c.creatrice, url: `${base}/k/${c.jeton}`, liens: c.liens.map((l) => l.url) };
-  return NextResponse.json(out, { headers: entetes });
+  return NextResponse.json({ ...out, "★ Pilotage": { creatrice: "", url: `${base}/p/${jetonPilotage()}`, liens: [] } }, { headers: entetes });
 }

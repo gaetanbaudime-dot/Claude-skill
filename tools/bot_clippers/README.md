@@ -10,6 +10,16 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 12/10 : l'app pilotage (Vertical, Horizontal, Subs)
+
+Ce que tu fais : **`!pilotage`** sur Discord. Le bot t'envoie en message privé le lien de ton app de suivi. Ouvre-le dans Safari, puis Partager → « Sur l'écran d'accueil ».
+
+Ce que fait le bot : à chaque passage du Dashboard (15 minutes), `pilotage.py` écrit quatre onglets dans le tableur « App clippers · usage » : « Pilotage comptes », « Pilotage clics », « Pilotage subs », « Pilotage infos ». Ce sont les chiffres du Dashboard rangés en tables, plus les subs de Data G&M (relus au plus toutes les 30 minutes), sur 62 jours. Chaque onglet n'est réécrit que s'il a changé. Aucun appel Apify, GAML ni Metricool de plus : le budget de 25 $ ne bouge pas.
+
+L'app (`tools/app_clippers`, page `/p/<jeton>`) lit ces onglets. Détail des colonnes et des écrans dans le README de l'app.
+
+Variables : `PILOTAGE=0` coupe la publication ; `PILOTAGE_JOURS` (62 par défaut) règle l'historique. Rien d'autre à poser sur Railway ni sur Vercel.
+
 ## 10/10 et 11/10 : ce qui change pour toi (vague 1 du recrutement, branchée le 11/10)
 
 > [!tip] Verdict

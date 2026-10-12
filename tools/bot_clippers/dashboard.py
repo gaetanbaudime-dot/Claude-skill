@@ -1013,21 +1013,27 @@ def _dernier_reel(ctx: _Ctx, serie: dict) -> str:
     return f"aucun en {n} j"
 
 
-def _courbe(ctx: _Ctx, serie: dict) -> str:
-    """11/10 (lot L8) : les followers des COURBE_JOURS derniers jours (Paris), un caractère par jour — le dernier relevé du jour,
-    de ▁ (le plus bas de la semaine) à █ (le plus haut), ▄ partout s'ils ne bougent pas, « · » un jour sans relevé ; '' avec moins
-    de deux jours lus. Une seule source, celle du relevé le plus récent (comme les écarts : jamais un saut entre deux outils). Un
-    relevé Metricool est une photo de la nuit : il compte pour la veille de son heure."""
+def _followers_jours(ctx: _Ctx, serie: dict, n: int = COURBE_JOURS) -> list:
+    """Les followers des `n` derniers jours (Paris), du plus ancien à aujourd'hui : le dernier relevé du jour, None un jour sans
+    relevé. Une seule source, celle du relevé le plus récent (comme les écarts : jamais un saut entre deux outils). Un relevé
+    Metricool est une photo de la nuit : il compte pour la veille de son heure. Sert la courbe et le pilotage (12/10)."""
     rels = [r for r in serie.get("releves") or [] if isinstance(r, dict) and _instant(r.get("t")) and _instant(r["t"]) <= ctx.maintenant
             and isinstance(r.get("followers"), int) and not isinstance(r.get("followers"), bool)]
     if not rels:
-        return ""
+        return [None] * n
     src = max(rels, key=lambda r: _instant(r["t"])).get("source")
     par_jour = {}
     for r in sorted((r for r in rels if r.get("source") == src), key=lambda r: _instant(r["t"])):
         t = _paris(_instant(r["t"])) - (timedelta(minutes=1) if src == "metricool" else timedelta(0))
         par_jour[t.date()] = r["followers"]
-    vals = [par_jour.get(ctx.j0 - timedelta(days=i)) for i in range(COURBE_JOURS - 1, -1, -1)]
+    return [par_jour.get(ctx.j0 - timedelta(days=i)) for i in range(n - 1, -1, -1)]
+
+
+def _courbe(ctx: _Ctx, serie: dict) -> str:
+    """11/10 (lot L8) : les followers des COURBE_JOURS derniers jours (Paris), un caractère par jour — le dernier relevé du jour,
+    de ▁ (le plus bas de la semaine) à █ (le plus haut), ▄ partout s'ils ne bougent pas, « · » un jour sans relevé ; '' avec moins
+    de deux jours lus (_followers_jours : une seule source, Metricool compté la veille)."""
+    vals = _followers_jours(ctx, serie)
     lus = [v for v in vals if v is not None]
     if len(lus) < 2:
         return ""
@@ -1247,6 +1253,117 @@ def _entete(ctx: _Ctx) -> list:
     return r
 
 
+# ------------------------------------------------------------------ pilotage (12/10, app de suivi de Gaëtan)
+# Gaëtan (12/10) : « une app Vercel pour tracker au quotidien les clics de toute la team : un onglet vertical, un horizontal, un
+# subs ; vertical avec les stats des créatrices et de leurs gros comptes ». Les mêmes chiffres que le Dashboard, rangés en tables
+# (pilotage.py les publie dans le tableur « App clippers · usage », l'app les lit) : aucun appel Apify, GAML ni Metricool de plus.
+try:
+    PILOTAGE_JOURS = max(2, int(os.environ.get("PILOTAGE_JOURS", "62") or 62))   # 2 × 30 j + aujourd'hui : « 30 j contre les 30 d'avant »
+except ValueError:
+    PILOTAGE_JOURS = 62
+AXE_TYPE = {"creatrice": "Vertical", "clipper": "Horizontal", "metricool": "Horizontal"}
+LIBELLE_TYPE = {"creatrice": "Compte de la créatrice", "clipper": "Clipper", "metricool": "Metricool"}
+
+
+def _texte(v) -> str:
+    return "" if v is None or isinstance(v, bool) else str(v)
+
+
+def _source_lien(ctx: _Ctx, lid: str) -> tuple:
+    """(axe, source, qui) d'un lien : Vertical pour les pages de la créatrice (page principale, bio Instagram, Facebook, YouTube),
+    Horizontal pour les clippers, Metricool et les liens libérés. Un lien désactivé garde l'axe de ce qu'il était (son historique
+    compte encore dans les jours passés)."""
+    info = ctx.liens.get(lid) or {}
+    cat = ctx.cat(lid)
+    if cat in INACTIFS:
+        cat = "attribue" if str(info.get("uid") or "") else _categorie({k: v for k, v in info.items() if k not in ("desactive", "supprime_gaml")})
+    if cat == "page":
+        u = _url_cle(info.get("url"))
+        chemin = u.split("/", 1)[1].strip("/") if "/" in u else ""
+        dernier = _norm(chemin.split("/")[-1]) if chemin else ""
+        if dernier in ("fb", "facebook"):
+            src = "Facebook"
+        elif dernier in ("ytb", "yt", "youtube"):
+            src = "YouTube"
+        elif _norm(info.get("note")).startswith("compte de"):
+            src = "Bio Instagram"
+        elif not chemin:
+            src = "Page principale"
+        else:
+            src = "Autre page"
+        return "Vertical", src, _slug(info, lid)
+    if cat == "hors_clipping":
+        return "Horizontal", "Metricool", (str(info.get("note") or "").strip() or _slug(info, lid))[:32]
+    if cat == "libere":
+        return "Horizontal", "Libéré", "Libérés"
+    uid = str(info.get("uid") or "")
+    qui = ctx.nom_uid(uid) if uid else ""
+    if not qui:
+        m = re.match(r"\s*clipping\s+(.+)$", str(info.get("note") or ""), re.I)
+        qui = m.group(1).strip().title()[:24] if m else ""
+    return "Horizontal", "Clipper", qui or "Sans détenteur"
+
+
+def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
+    """Les tables du pilotage, en texte (écrites telles quelles) : `comptes` (une ligne par compte montré, l'état du moment) et
+    `clics` (une ligne par jour × créatrice × axe × source × personne, sur PILOTAGE_JOURS jours dont aujourd'hui jusqu'au dernier
+    relevé). Jamais un faux 0 : un jour non relevé d'un lien est compté dans « Liens non relevés », pas additionné."""
+    noms_cr = {}
+    for L in comptes_l:
+        noms_cr.setdefault(L["cr"], L["cr_nom"])
+    nom_cr = lambda cr: noms_cr.get(cr) or (cr or "?").title()           # noqa: E731
+    comptes = []
+    for L in comptes_l:
+        c, k = L["c"], L.get("clics") or {}
+        v, _complet = _vues_mesurees(L)
+        fj = _followers_jours(ctx, L.get("serie") or {}) if ctx.seriesok else [None] * COURBE_JOURS
+        comptes.append([nom_cr(L["cr"]), AXE_TYPE.get(L["typ"], "Horizontal"), LIBELLE_TYPE.get(L["typ"], L["typ"]),
+                        str(c.get("gerant") or "").strip(), str(c.get("handle") or "").strip().lstrip("@"), str(c.get("etat") or "").strip(),
+                        _texte(L.get("followers")), _texte(L.get("df24")), _texte(L.get("df7")), ";".join(_texte(x) for x in fj),
+                        _texte(L.get("rauj")), _texte(L.get("rh")), _texte(L.get("r7")), _texte(v),
+                        _texte(L["vues_p"][0]) if L.get("vues_comparable") else "",
+                        _texte(k.get("auj")), _texte(k.get("hier")), _texte(k.get("c7")), _texte(k.get("c7p")),
+                        str(L.get("dernier_reel") or ""), str(L.get("mesure") or "")])
+    debut = ctx.j0 - timedelta(days=PILOTAGE_JOURS - 1)
+    jours_d = ctx.clics.get("jours") if isinstance(ctx.clics.get("jours"), dict) else {}
+    auj_d = ctx.clics.get("aujourdhui") if isinstance(ctx.clics.get("aujourdhui"), dict) else {}
+    agg = {}
+    for lid in sorted(ctx.liens):
+        js = jours_d.get(lid) if isinstance(jours_d.get(lid), dict) else {}
+        premier = min(js) if js else ctx.j0.isoformat()
+        if ctx.cat(lid) in INACTIFS and not any(j >= debut.isoformat() for j in js):
+            continue                                                     # lien éteint sans rien dans la fenêtre
+        axe, src, qui = _source_lien(ctx, lid)
+        cr = nom_cr(ctx.cr_lien(lid, creatrices))
+        dep = str((ctx.liens.get(lid) or {}).get("depuis") or "")[:10]
+        try:
+            j = max(debut, date.fromisoformat(premier[:10]))             # avant son premier relevé, le lien n'existait pas : rien
+        except ValueError:
+            j = debut
+        while j <= ctx.j0:
+            ji = j.isoformat()
+            if j == ctx.j0:
+                payes, _t = _clics_aujourdhui(ctx.clics, lid, ctx.j0)
+                e = auj_d.get(lid) if isinstance(auj_d.get(lid), dict) else {}
+                hr = e.get("hors_robots") if payes is not None else None
+            else:
+                x = js.get(ji)
+                ok = isinstance(x, dict) and not x.get("erreur") and x.get("payes") is not None
+                payes, hr = (x.get("payes"), x.get("hors_robots")) if ok else (None, None)
+            q = "Avant reprise" if src == "Clipper" and dep and ji < dep else qui
+            a = agg.setdefault((ji, cr, axe, src, q), [0, 0, 0, 0])
+            a[2] += 1
+            if payes is None:
+                a[3] += 1
+            else:
+                a[0] += int(payes or 0)
+                a[1] += int(hr or 0) if isinstance(hr, (int, float)) and not isinstance(hr, bool) else int(payes or 0)
+            j += timedelta(days=1)
+    clics = [[ji, cr, axe, src, q, str(a[0]), str(a[1]), str(a[2]), str(a[3])]
+             for (ji, cr, axe, src, q), a in sorted(agg.items())]
+    return {"comptes": comptes, "clics": clics}
+
+
 def construire(e: dict, maintenant: datetime = None) -> dict:
     """Pur (lectures de séries comprises) : les lignes de l'onglet, le type de chaque ligne (pour la mise en forme), les fusions,
     l'empreinte du contenu (sans l'heure du titre). Entrées : comptes, etats, clics, registre, onboarding, membres, masques,
@@ -1410,8 +1527,15 @@ def construire(e: dict, maintenant: datetime = None) -> dict:
     # 09/10 (revue DASH : la fraîcheur du titre était hors empreinte — des clics relus sans changement laissaient au titre l'heure
     # de la réécriture d'avant) : l'empreinte porte tout sauf « mis à jour le … » (l'heure de l'écriture elle-même)
     contenu = json.dumps([DASHBOARD_VERSION, rows[0][1:]] + rows[1:], ensure_ascii=False, default=str)
+    try:                                                                 # 12/10 : les tables du pilotage, jamais au prix du Dashboard
+        pil = _pilotage(ctx, comptes_l, creatrices)
+        pil["fraicheur"] = fraicheur
+    except Exception as erreur:                                          # noqa: BLE001
+        journal.warning("Pilotage : tables non construites (%s)", erreur)
+        pil = None
     return {"lignes": rows, "types": kinds, "empreinte": hashlib.sha1(contenu.encode("utf-8")).hexdigest()[:20],
-            "comptes": len(comptes_l), "anomalies": n_anomalies, "lids_lignes": lids_lignes, "lids_masques": lids_masques}
+            "comptes": len(comptes_l), "anomalies": n_anomalies, "lids_lignes": lids_lignes, "lids_masques": lids_masques,
+            "pilotage": pil}
 
 
 def _v(x):
@@ -2830,6 +2954,21 @@ async def _ecrire_onglet(r: dict) -> int:
     return sid
 
 
+def _publier_pilotage(pil, maintenant: datetime) -> None:
+    """12/10 : les tables du pilotage (pilotage.publier) partent en tâche de fond — le verrou du Dashboard n'attend pas Google.
+    Rien si les tables manquent, si le bot ne l'a pas branché (`pilotage` dans configurer), si le module est absent ou hors boucle
+    asyncio. Jamais d'exception."""
+    P = _module("pilotage") if pil and _deps.get("pilotage") else None    # branché par le bot (dashboard.configurer)
+    if P is None or not callable(getattr(P, "publier", None)):
+        return
+    try:
+        tache = asyncio.get_running_loop().create_task(P.publier(pil, maintenant))
+    except RuntimeError:
+        return
+    _differees.add(tache)
+    tache.add_done_callback(_differees.discard)
+
+
 async def ecrire(force: bool = False, *, maintenant: datetime = None) -> dict:
     """Contrat C5 : relit tout, réécrit l'onglet si son contenu a changé (ou `force`), au plus toutes les 14 minutes hors `force`.
     Renvoie {ecrit, lignes, comptes, anomalies, empreinte, raison, erreur}. Aucun appel Apify, GAML ni Metricool."""
@@ -2855,6 +2994,7 @@ async def ecrire(force: bool = False, *, maintenant: datetime = None) -> dict:
             bilan["erreur"] = "classeur vide ou illisible : Dashboard gardé tel quel"
             return bilan
         r = construire(entrees(comptes), maintenant)
+        _publier_pilotage(r.get("pilotage"), maintenant)               # 12/10 : en tâche de fond, même si le Dashboard est inchangé
         bilan.update(lignes=len(r["lignes"]), comptes=r["comptes"], anomalies=r["anomalies"], empreinte=r["empreinte"])
         if not force and etat.get("empreinte") == r["empreinte"] and etat.get("version") == DASHBOARD_VERSION:
             bilan["raison"] = "inchangé"
