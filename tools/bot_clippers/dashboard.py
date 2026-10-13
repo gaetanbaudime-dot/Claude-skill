@@ -1148,6 +1148,11 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
     L["mesure_notes"] = notes
     L["mesure"] = " · ".join([base] + notes)
     L["releve"] = _releve(ctx, L)
+    # 13/10 (Gaëtan : « scrape les followers, les vues et la cadence de Reels de TOUS les comptes du sheet ») : la règle exacte
+    # laissait Reels hier / 7 j vides sur presque tous les comptes lus (12 dernières publications qui ne couvrent pas la semaine).
+    # Compte lu lisiblement dans les 36 h : les Reels vus et la dernière valeur de leurs vues (_reels_recents). Rien lu : vide.
+    if SIMPLE:
+        L["rh"], L["r7"], L["vues_rec"] = _reels_recents(ctx, L)
 
 
 def _resoudre_liens(ctx: _Ctx, lignes: list, creatrices: set):
@@ -1615,6 +1620,13 @@ ETATS_COULEURS = {"GOOD": ("#B7E1CD", "#0B6E3A"), "BAN": ("#F4C7C3", "#B71C1C"),
                   "PRIVÉ": ("#C9DAF8", "#1A4F9C"), "À CRÉER": ("#EEEEEE", "#616161")}
 
 
+def _vues_aff(L: dict):
+    """Vues 7 j du tableau simple : la dernière valeur des Reels de la semaine ; à défaut (rien de vu, ou 0 alors que la mesure à
+    48 h — Metricool compris — a un chiffre), la mesure à 48 h."""
+    rec, a48 = L.get("vues_rec"), _vues_mesurees(L)[0]
+    return rec if rec is not None and (rec > 0 or a48 is None) else a48
+
+
 def etat_affiche(etat) -> str:
     """12/10 (Gaëtan : « Enlève le WARMUP, soit c'est BAN, soit c'est GOOD, soit c'est privé ») : un WARMUP resté au classeur se lit
     GOOD."""
@@ -1660,7 +1672,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
         bande[S_FOL] = _v(_somme(L["followers"] for L in lignes_cr)[0])
         bande[S_RH] = _v(_somme(L["rh"] for L in lignes_cr)[0])
         bande[S_R7] = _v(_somme(L["r7"] for L in lignes_cr)[0])
-        bande[S_V7] = _v(_somme(_vues_mesurees(L)[0] for L in lignes_cr)[0])
+        bande[S_V7] = _v(_somme(_vues_aff(L) for L in lignes_cr)[0])
         if k_cr:
             bande[S_CH], bande[S_C7], bande[S_DC] = _v(k_cr.get("hier")), _v(k_cr.get("c7")), k_cr.get("delta") or ""
         ajouter(bande, "creatrice", cr=cr)
@@ -1681,7 +1693,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
                 r[S_ETAT] = etat_affiche(L["c"].get("etat"))
                 r[S_FOL] = _v(L["followers"])
                 r[S_RH], r[S_R7] = _v(L["rh"]), _v(L["r7"])
-                r[S_V7] = _v(_vues_mesurees(L)[0])
+                r[S_V7] = _v(_vues_aff(L))
                 if i == 0:                                               # le Gérant, ses clics et son TL : une fois, fusionnés
                     r[S_GERANT], r[S_TL] = nom, tl
                     if k:
@@ -1703,7 +1715,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
     r[S_FOL] = _v(_somme(L["followers"] for L in tot_lignes)[0])
     r[S_RH] = _v(_somme(L["rh"] for L in tot_lignes)[0])
     r[S_R7] = _v(_somme(L["r7"] for L in tot_lignes)[0])
-    r[S_V7] = _v(_somme(_vues_mesurees(L)[0] for L in tot_lignes)[0])
+    r[S_V7] = _v(_somme(_vues_aff(L) for L in tot_lignes)[0])
     if tout:
         r[S_CH], r[S_C7], r[S_DC] = _v(tout.get("hier")), _v(tout.get("c7")), tout.get("delta") or ""
     ajouter(r, "total")
