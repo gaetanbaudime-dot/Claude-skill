@@ -499,25 +499,71 @@ _SALONS = {}
 _FORUM = {"id": ""}
 
 
-def adresses_codes_de(uid) -> set:
-    """10/10 (règle : « le code n'est donné qu'au clipper dont l'alias est rattaché ») : les adresses rattachées au salon perso
-    du membre dans alias_codes.json — la même source pour `!code` et pour le bouton « 📩 Mon code ».
-    10/10 (revue, homonymes du 01/10 : #big ouvert à deux comptes) : un salon perso où un AUTRE clipper a un droit direct ne
-    donne aucune adresse (sinon chacun recevrait les codes de l'autre) ; une ligne admin, une fois par jour et par salon."""
-    sp_a = salon_perso_de(uid)
-    if sp_a is None:
-        return set()
-    membre = membre_par_id(uid)
-    autres = _autres_occupants(sp_a, membre) if membre is not None else []
-    if autres:
-        noms = ", ".join(str(getattr(m, "display_name", "?")) for m in autres[:3])
-        codes_2fa.signaler(f"salon_partage|{sp_a.id}",
-                           f"🔐 **Codes bloqués pour {getattr(membre, 'display_name', uid)}** : son salon perso <#{sp_a.id}> est "
-                           f"aussi ouvert à {noms}. Tant qu'il est partagé, je ne donne aucun code de ses adresses (chacun "
-                           "verrait ceux de l'autre).\n\nRetire l'accès en trop au salon, puis il rappuie sur « 📩 Mon code ».")
-        return set()
-    return codes_2fa.adresses_de(str(sp_a.id))
+def _adresses_codes_fiche(uid) -> set:
+    """E-mails des comptes LIVRÉS à cet ID Discord, indépendamment des permissions du salon.
 
+    Le salon peut être accessible à un TL : la livraison d'un code ne se fait alors
+    QUE via l'interaction Discord éphémère / DM de ce membre, jamais dans le salon.
+    On ne cherche jamais le propriétaire d'après un prénom.
+    """
+    uid = str(uid)
+    data = lire_json(FICHIER_ONBOARDING, {}) or {}
+    fiche = (data.get("clippers") or {}).get(uid) or {}
+    if not isinstance(fiche, dict):
+        return set()
+    livres = data.get("livres") or {}
+    valides = set()
+    for h in fiche.get("comptes") or []:
+        if isinstance(h, str) and h.strip():
+            valides.add(onboarding._cle_handle(h))
+    blocs = [fiche.get("acces") or []]
+    for phone in (fiche.get("telephones") or {}).values():
+        if isinstance(phone, dict):
+            blocs.append(phone.get("acces") or [])
+    for bloc in blocs:
+        for item in bloc:
+            if isinstance(item, dict) and item.get("handle"):
+                valides.add(onboarding._cle_handle(item["handle"]))
+    mails = set()
+    for bloc in blocs:
+        for item in bloc:
+            if not isinstance(item, dict):
+                continue
+            handle = onboarding._cle_handle(item.get("handle") or "")
+            mail = str(item.get("mail") or "").strip().lower()
+            if not handle or handle not in valides or "@" not in mail:
+                continue
+            livraison = livres.get(handle) or livres.get(str(item.get("handle") or "").strip().lower()) or {}
+            autre_uid = str((livraison or {}).get("uid") or "")
+            if autre_uid and autre_uid != uid:
+                continue
+            mails.add(mail)
+    return mails
+
+
+def adresses_codes_de(uid) -> set:
+    """Association UID Discord → comptes IG effectivement livrés → e-mails.
+
+    Priorité à la fiche propre du clipper. Le registre historique alias→salon
+    reste un repli seulement si le salon est réellement individuel et privé.
+    Un TL ayant accès au salon ne peut ni détourner ni lire un code éphémère.
+    """
+    uid = str(uid)
+    membre = membre_par_id(uid)
+    if membre is None:
+        return set()
+    propres = _adresses_codes_fiche(uid)
+    if propres:
+        return propres
+    salon = salon_perso_de(uid)
+    if salon is None:
+        return set()
+    if _autres_occupants(salon, membre) or not codes_2fa._salon_prive(salon):
+        codes_2fa.signaler(f"alias_uid_manquant|{uid}",
+                          f"⚠️ 2FA : {getattr(membre, 'display_name', uid)} a un salon partagé et "
+                          "aucune adresse vérifiée dans sa fiche de comptes. Revoir son onboarding.")
+        return set()
+    return codes_2fa.adresses_de(str(salon.id))
 
 def migrer_adresses_codes() -> int:
     """10/10 (revue) : depuis le 10/10, seul alias_codes.json donne les codes ; une adresse présente seulement dans la fiche
