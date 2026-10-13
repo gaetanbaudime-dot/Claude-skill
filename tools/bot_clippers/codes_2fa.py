@@ -72,15 +72,15 @@ IMAP_USER = os.environ.get("CODES_IMAP_USER", "").strip()
 IMAP_PASSWORD = os.environ.get("CODES_IMAP_PASSWORD", "").strip()
 # Dossier/libellé lu (Gmail : un libellé = un dossier IMAP), plus le Spam où Meta tombe souvent.
 IMAP_DOSSIER = os.environ.get("CODES_IMAP_DOSSIER", "INBOX").strip() or "INBOX"
-DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()
+DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()\nDOSSIER_TOUS = os.environ.get("CODES_IMAP_TOUS", "[Gmail]/All Mail").strip()
 IMAP_TIMEOUT = int(os.environ.get("CODES_IMAP_TIMEOUT_SEC", "30") or 30)
 ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 # 10/10 : IDLE au plus SONDAGE_SEC secondes (le code arrive en quelques secondes), sinon une lecture toutes les SONDAGE_SEC.
 SONDAGE_SEC = int(os.environ.get("CODES_SONDAGE_SEC", "20") or 20)
 ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "300") or 300)    # le guet après « 📩 Mon code » : 5 min
 FRAIS_MIN = int(os.environ.get("CODES_FRAIS_MIN", "5") or 5)            # au-delà, « ancien code » et le guet continue
-SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "60") or 60)
-CACHE_MIN = max(SALON_CODES_MINUTES, 120)                               # 2 h pour `!code` d'un manager dans son salon
+SALON_CODES_MINUTES = min(10, max(1, int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)))
+CACHE_MIN = SALON_CODES_MINUTES  # tout code récupérable doit dater de moins de dix minutes
 JOURS_AMORCE = int(os.environ.get("BANS_JOURS", "3") or 3)              # premier passage : les mails Meta de 3 jours
 AMORCE_MAX = int(os.environ.get("CODES_AMORCE_MAX", "120") or 120)
 QUOTA_SEUIL = 0.9
@@ -940,7 +940,13 @@ class Lecteur:
         self._signal = []                                              # le passage en cours : remarques pour le salon admin
 
     def dossiers(self) -> list:
-        return [IMAP_DOSSIER] + ([DOSSIER_SPAM] if DOSSIER_SPAM and DOSSIER_SPAM != IMAP_DOSSIER else [])
+        # Inbox includes Gmail's Primary, Social, Updates and Promotions while
+        # "[Gmail]/All Mail" also includes archived messages. Spam is separate.
+        unique = []
+        for dossier in (IMAP_DOSSIER, DOSSIER_TOUS, DOSSIER_SPAM):
+            if dossier and dossier not in unique:
+                unique.append(dossier)
+        return unique
 
     def fermer(self):
         boite, self.boite, self.selection, self.validite = self.boite, None, None, None
