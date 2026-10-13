@@ -1260,7 +1260,14 @@ def codes_pour(adresses, minutes: int = None, tout: bool = False) -> list:
     """12/10 (Gaëtan : « ça lui sort le 2FA le plus récent… il faut que le 2FA marche à tous les coups ») : les codes donnables
     pour celui qui demande, plus récents d'abord : ceux de ses adresses ; plus les codes reçus depuis ORPHELIN_MIN minutes sur une
     adresse que personne d'autre n'a (alias tapé autrement, adresse jamais rattachée) ; `tout` (staff) : tous les codes."""
-    if SECURITES:                                                      # CODES_SECURITES=1 : la règle du 10/10, ses adresses seules
+    if SECURITES:
+        # Seul ADMIN_IDS peut demander le dernier code admissible de la boîte entière.
+        # Pas de repli "orphelin" pour les clippers : un alias doit appartenir à leur UID.
+        if tout:
+            limite = _maintenant() - timedelta(minutes=SALON_CODES_MINUTES if minutes is None else minutes)
+            return sorted((t for t in _etat()["codes"] if t.get("decision") == "donner"
+                           and t.get("code") and _date(t) >= limite),
+                          key=_cle_tri, reverse=True)
         return codes_recents(adresses, minutes)
     minutes = SALON_CODES_MINUTES if minutes is None else minutes
     adresses = {str(a).strip().lower() for a in adresses or []}
@@ -1583,8 +1590,9 @@ async def servir_interaction(interaction) -> str:
 
     membre = interaction.user
     adresses = _adresses_membre(membre)
-    staff = _est_staff(membre) and not SECURITES
-    if not adresses and SECURITES:
+    admin = str(getattr(membre, "id", "")) in set(_deps.get("admin_ids") or ())
+    staff = admin
+    if not adresses and SECURITES and not admin:
         await _sans_adresse(membre, dire)
         return "sans_adresse"
     if not adresses and not staff:
@@ -1690,6 +1698,10 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
         cibles = {alias}
     elif miens:
         cibles = set(miens)
+    elif str(message.author.id) in admin_ids:
+        # Test admin dans #bot-gaetan, même sans e-mail attaché à son salon.
+        # Jamais d'envoi au salon : MP uniquement, codes "donner" filtrés.
+        cibles = set()
     else:
         await message.reply("Format : `!code adresse@icloud.com`. Dans un salon avec des adresses rattachées, `!code` tout "
                             "court suffit. Seuls les codes de connexion et de création sortent.")
@@ -1714,7 +1726,8 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
             await message.reply("🔒 Tes messages privés sont fermés : je ne donne pas ce code dans ce salon.")
             return True
         await message.reply("📩 Réponse en message privé.")
-    await _servir(cibles, dire, f"salon|{canal_id}|{getattr(message.author, 'id', '')}", minutes=CACHE_MIN)
+    await _servir(cibles, dire, f"salon|{canal_id}|{getattr(message.author, 'id', '')}", minutes=CACHE_MIN,
+                  tout=str(message.author.id) in admin_ids and not cibles)
     return True
 
 
@@ -1727,7 +1740,7 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
     if adresse and not admin:
         await message.reply("Ici, chacun ses codes : `!code adresse` est réservé à Gaëtan.")
         return True
-    staff = (manager or admin or _est_staff(message.author)) and not SECURITES
+    staff = admin  # seul ADMIN_IDS, jamais un TL/Manager, peut voir la boîte complète
     relire = None
     if adresse:
         adresses = {adresse.strip().lower()}
@@ -1742,7 +1755,7 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Adresses du clipper (salon commun) : %s", _err(erreur))
             adresses = set()
-    if not adresses and SECURITES:
+    if not adresses and SECURITES and not admin:
         await _sans_adresse(message.author, message.reply)
         return True
     if not adresses:                                                   # 12/10 : plus de refus, le code le plus récent sort quand même
