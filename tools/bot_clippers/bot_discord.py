@@ -573,7 +573,7 @@ async def _actualiser_adresses_codes(uid):
         mails, diagnostic = otp_identity.unique_aliases(
             uid, creatrice, prenom, actifs, lignes, proprietaires)
         if mails:
-            _OTP_UID_CACHE[uid] = {"mails": mails, "jusque": time.monotonic() + 60}
+            _OTP_UID_CACHE[uid] = {"mails": mails, "jusque": time.monotonic() + max(420, codes_2fa.ATTENTE_SEC + 90)}
             journal.info("Codes : association UID via classeur vérifiée (UID fin %s, %d adresses)",
                          uid[-4:], len(mails))
         else:
