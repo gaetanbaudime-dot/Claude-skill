@@ -917,6 +917,23 @@ class MailIllisible(imaplib.IMAP4.error):
     sauté avec une ligne admin, pour ne jamais bloquer les autres codes."""
 
 
+def _dossiers_speciaux(lignes) -> dict:
+    """Discover RFC 6154 \All / \Junk folder names (Gmail can localize them)."""
+    found = {}
+    for item in lignes or []:
+        raw = item.decode("utf-8", "replace") if isinstance(item, bytes) else str(item or "")
+        match = re.match(r'^\(([^)]*)\)\s+\S+\s+(.+)$', raw)
+        if not match:
+            continue
+        flags, mailbox = match.groups()
+        mailbox = mailbox.strip().strip('"')
+        if re.search(r"\\All\b", flags, re.I):
+            found["all"] = mailbox
+        if re.search(r"\\(?:Junk|Spam)\b", flags, re.I):
+            found["spam"] = mailbox
+    return found
+
+
 class Lecteur:
     """Le SEUL lecteur de la boîte (10/10). Bloquant : appelé par boucle_codes via asyncio.to_thread, jamais deux à la fois.
     État : {dossier: {"validite": UIDVALIDITY, "dernier": dernier UID lu}} — persistant, donc un redémarrage ne relit rien
@@ -927,6 +944,7 @@ class Lecteur:
 
     def __init__(self):
         self.boite = None
+        self.speciales = None
         self.idle = False
         self.selection = None
         self.validite = None                                           # UIDVALIDITY du dossier ouvert
@@ -941,13 +959,13 @@ class Lecteur:
         self._signal = []                                              # le passage en cours : remarques pour le salon admin
 
     def dossiers(self) -> list:
-        # Inbox includes Gmail's Primary, Social, Updates and Promotions while
-        # "[Gmail]/All Mail" also includes archived messages. Spam is separate.
-        unique = []
-        for dossier in (IMAP_DOSSIER, DOSSIER_TOUS, DOSSIER_SPAM):
-            if dossier and dossier not in unique:
-                unique.append(dossier)
-        return unique
+        # INBOX covers categories; All Mail may be localized by the IMAP server.
+        if self.speciales is None:
+            noms = (IMAP_DOSSIER, DOSSIER_TOUS, DOSSIER_SPAM)
+        else:
+            tous = self.speciales.get("all") or (DOSSIER_TOUS if os.environ.get("CODES_IMAP_TOUS") else "")
+            noms = (IMAP_DOSSIER, tous, self.speciales.get("spam") or DOSSIER_SPAM)
+        return list(dict.fromkeys(nom for nom in noms if nom))
 
     def fermer(self):
         boite, self.boite, self.selection, self.validite = self.boite, None, None, None
@@ -961,7 +979,17 @@ class Lecteur:
         boite = imaplib.IMAP4_SSL(IMAP_HOST, timeout=IMAP_TIMEOUT)
         boite.login(IMAP_USER, IMAP_PASSWORD)
         self.boite, self.selection = boite, None
+        self.speciales = None
         self.idle = "IDLE" in tuple(str(c).upper() for c in (getattr(boite, "capabilities", ()) or ()))
+        try:
+            ok, lignes = boite.list()
+            if ok == "OK":
+                self.speciales = _dossiers_speciaux(lignes)
+                journal.info("Codes : dossiers IMAP détectés : Tous=%s, Spam=%s",
+                             bool(self.speciales.get("all")), bool(self.speciales.get("spam")))
+        except Exception as erreur:
+            # A LIST error cannot prevent the primary inbox from being scanned.
+            journal.warning("Codes : LIST IMAP indisponible : %s", _err(erreur))
 
     def _selectionner(self, dossier: str):
         ecrire = self.trieur is not None
