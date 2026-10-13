@@ -70,15 +70,23 @@ export function couleur(creatrice: string, i = 0): string {
 
 export function creatrices(p: Pilotage): string[] {
   const vues = new Map<string, number>();
-  const ajoute = (c: string, v: number) => { if (c && c !== "?") vues.set(c, (vues.get(c) || 0) + v); };
+  const ajoute = (c: string, v: number) => {
+    if (!c || c === "?") return;
+    const deja = [...vues.keys()].find((k) => meme(k, c));            // « Maddy » et « Maddie » : une seule créatrice
+    vues.set(deja || c, (vues.get(deja || c) || 0) + v);
+  };
   p.clics.forEach((c) => ajoute(c.creatrice, c.visites));
   p.subs.forEach((s) => ajoute(s.creatrice, s.subsOf + s.subsMym));
   p.comptes.forEach((c) => ajoute(c.creatrice, 0));
   return [...vues.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
 }
 
-/** Même créatrice malgré les accents ou la casse (« Chloé » du classeur, « Chloe » d'un lien). */
-export const meme = (a: string, b: string) => normaliser(a).split(/\s+/)[0] === normaliser(b).split(/\s+/)[0];
+/** Même créatrice malgré les accents ou la casse (« Chloé » du classeur, « Chloe » d'un lien) ; 13/10 : Maddy = Maddie. */
+const ALIAS: Record<string, string> = { maddy: "maddie" };
+const prenomCr = (t: string) => { const p = normaliser(t).split(/\s+/)[0]; return ALIAS[p] || p; };
+export const meme = (a: string, b: string) => prenomCr(a) === prenomCr(b);
+/** 13/10 (Gaëtan : « uniquement les comptes qui sont verts ») : GOOD (un WARMUP d'avant le 12/10 compte comme GOOD). */
+export const estGood = (etat: string) => ["good", "warmup"].includes(normaliser(etat));
 
 export type SubsSomme = { subs: number; subsOf: number; subsMym: number; caEur: number; nonSaisis: number };
 export function sommeSubs(subs: Sub[], debut: string, fin: string, taux: number, filtre: (s: Sub) => boolean = () => true): SubsSomme {

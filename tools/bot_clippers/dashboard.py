@@ -1271,11 +1271,20 @@ def _texte(v) -> str:
     return "" if v is None or isinstance(v, bool) else str(v)
 
 
+_RE_COMPTE_CREATRICE = re.compile(r"compte\s+(?:de\s+la\s+)?cr[ée]atrice", re.I)
+# 13/10 (Gaëtan : « Maddie avec un Y, avec un I, c'est exactement la même chose ») : une créatrice, un nom dans le pilotage
+ALIAS_CREATRICES = {"maddy": "maddie"}
+
+
 def _source_lien(ctx: _Ctx, lid: str) -> tuple:
     """(axe, source, qui) d'un lien : Vertical pour les pages de la créatrice (page principale, bio Instagram, Facebook, YouTube),
     Horizontal pour les clippers, Metricool et les liens libérés. Un lien désactivé garde l'axe de ce qu'il était (son historique
     compte encore dans les jours passés)."""
     info = ctx.liens.get(lid) or {}
+    # 13/10 (Gaëtan : « Sophie, c'est son lien /3 ») : un lien dont la note dit « compte créatrice » est dans la bio du gros compte
+    # de la créatrice — Vertical, même s'il est aussi noté Metricool (« Rianah Metricool + Compte Créatrice »)
+    if _RE_COMPTE_CREATRICE.search(str(info.get("note") or "")) and not str(info.get("uid") or ""):
+        return "Vertical", "Bio Instagram", _slug(info, lid)
     cat = ctx.cat(lid)
     if cat in INACTIFS:
         cat = "attribue" if str(info.get("uid") or "") else _categorie({k: v for k, v in info.items() if k not in ("desactive", "supprime_gaml")})
@@ -1306,26 +1315,62 @@ def _source_lien(ctx: _Ctx, lid: str) -> tuple:
     return "Horizontal", "Clipper", qui or "Sans détenteur"
 
 
+def _reels_recents(ctx: _Ctx, L: dict) -> tuple:
+    """13/10 (Gaëtan : « dans la partie verticale, scrape les Reels hier, les Reels et les vues de ces derniers jours ») : (Reels
+    hier, Reels 7 j, vues 7 j). Les Reels exacts du Dashboard d'abord ; sinon, si le compte a été lu lisiblement dans les 36
+    dernières heures, les Reels VUS (un minimum : un gros compte qui publie aussi des photos ne couvre jamais toute la semaine avec
+    ses 12 dernières publications). Vues 7 j = la dernière valeur relevée de chaque Reel publié ces 7 jours. Rien de lu : vide."""
+    rh, r7 = L.get("rh"), L.get("r7")
+    s = L.get("serie") or {}
+    m0, m1, m7 = _minuit(ctx.j0), _minuit(ctx.j0 - timedelta(days=1)), _minuit(ctx.j0 - timedelta(days=7))
+    lu = False
+    for r in s.get("releves") or []:
+        t = _instant(r.get("t")) if isinstance(r, dict) else None
+        if t is not None and timedelta(0) <= ctx.maintenant - t <= timedelta(hours=36) and not r.get("restreint") \
+                and not r.get("prive") and r.get("reels_lus", True):
+            lu = True
+            break
+    reels = s.get("reels") if isinstance(s.get("reels"), dict) else {}
+    publies = [(_instant(x.get("publie")), x) for x in reels.values() if isinstance(x, dict)]
+    publies = [(p, x) for p, x in publies if p is not None]
+    if lu:
+        if rh is None:
+            rh = sum(1 for p, _x in publies if m1 <= p < m0)
+        if r7 is None:
+            r7 = sum(1 for p, _x in publies if m7 <= p < m0)
+    vues, n = 0, 0
+    for p, x in publies:
+        if p < m7:
+            continue
+        pts = [pt for pt in (x.get("vues") or []) if isinstance(pt, list) and len(pt) == 2 and isinstance(pt[1], (int, float))
+               and not isinstance(pt[1], bool) and _instant(pt[0])]
+        if pts:
+            vues += int(max(pts, key=lambda pt: _instant(pt[0]))[1])
+            n += 1
+    return rh, r7, (vues if n else (0 if lu and r7 == 0 else None))
+
+
 def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
     """Les tables du pilotage, en texte (écrites telles quelles) : `comptes` (une ligne par compte montré, l'état du moment) et
     `clics` (une ligne par jour × créatrice × axe × source × personne, sur PILOTAGE_JOURS jours dont aujourd'hui jusqu'au dernier
     relevé). Jamais un faux 0 : un jour non relevé d'un lien est compté dans « Liens non relevés », pas additionné."""
     noms_cr = {}
     for L in comptes_l:
-        noms_cr.setdefault(L["cr"], L["cr_nom"])
-    nom_cr = lambda cr: noms_cr.get(cr) or (cr or "?").title()           # noqa: E731
+        noms_cr.setdefault(ALIAS_CREATRICES.get(L["cr"], L["cr"]), L["cr_nom"])
+    nom_cr = lambda cr: noms_cr.get(ALIAS_CREATRICES.get(cr, cr)) or (ALIAS_CREATRICES.get(cr, cr) or "?").title()   # noqa: E731
     comptes = []
     for L in comptes_l:
         c, k = L["c"], L.get("clics") or {}
         v, _complet = _vues_mesurees(L)
         fj = _followers_jours(ctx, L.get("serie") or {}) if ctx.seriesok else [None] * COURBE_JOURS
+        rh, r7, v_rec = _reels_recents(ctx, L)                           # 13/10 : jamais vide sur un compte lu
         comptes.append([nom_cr(L["cr"]), AXE_TYPE.get(L["typ"], "Horizontal"), LIBELLE_TYPE.get(L["typ"], L["typ"]),
                         str(c.get("gerant") or "").strip(), str(c.get("handle") or "").strip().lstrip("@"), str(c.get("etat") or "").strip(),
                         _texte(L.get("followers")), _texte(L.get("df24")), _texte(L.get("df7")), ";".join(_texte(x) for x in fj),
-                        _texte(L.get("rauj")), _texte(L.get("rh")), _texte(L.get("r7")), _texte(v),
+                        _texte(L.get("rauj")), _texte(rh), _texte(r7), _texte(v),
                         _texte(L["vues_p"][0]) if L.get("vues_comparable") else "",
                         _texte(k.get("auj")), _texte(k.get("hier")), _texte(k.get("c7")), _texte(k.get("c7p")),
-                        str(L.get("dernier_reel") or ""), str(L.get("mesure") or "")])
+                        str(L.get("dernier_reel") or ""), str(L.get("mesure") or ""), _texte(v_rec)])
     debut = ctx.j0 - timedelta(days=PILOTAGE_JOURS - 1)
     jours_d = ctx.clics.get("jours") if isinstance(ctx.clics.get("jours"), dict) else {}
     auj_d = ctx.clics.get("aujourdhui") if isinstance(ctx.clics.get("aujourdhui"), dict) else {}

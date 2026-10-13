@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
+import { ouvrirInstagram } from "@/lib/instagram";
 
 /** 12/10 (Gaëtan : « une application pour les team leaders… un onglet avec un lien direct vers Instagram pour voir les comptes de
  *  ses clippeurs, comme ça le team leader peut aller faire un retour rapidement ; genre sous Romaric, ses 3 comptes ») : chaque
@@ -58,7 +59,7 @@ export default function EquipeTab({ jeton }: { jeton: string }) {
             </div>
             <div className="mt-3 space-y-1.5">
               {m.comptes.length ? m.comptes.map((c) => (
-                <a key={c.handle} href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noopener" onClick={() => signaler(jeton, "equipe:instagram")}
+                <a key={c.handle} href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noopener" onClick={(ev) => { ev.preventDefault(); signaler(jeton, "equipe:instagram"); ouvrirInstagram(c.handle); }}
                    className="flex items-center justify-between rounded-xl bg-white/[0.05] px-3 py-2.5 active:scale-[0.98] transition">
                   <div className="min-w-0">
                     <div className="text-[14px] font-semibold truncate">@{c.handle} <span className="text-accent">↗</span></div>

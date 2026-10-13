@@ -10,6 +10,14 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 13/10 : pilotage, vertical complet et horizontal en comptes GOOD
+
+**Vertical** : les clics des 30 derniers jours de toute la verticale (toutes les créatrices, ou celle filtrée) sont en tête, quelle que soit la période choisie, contre les 30 jours d'avant. Chaque créatrice dit ses clics sur 30 jours. Chaque gros compte montre Reels hier, Reels 7 j, vues 7 j et clics 7 j. Quand le relevé exact des Reels manque (un gros compte qui publie aussi des photos ne couvre jamais la semaine avec ses 12 dernières publications), le bot montre les Reels vus, s'il a lu le compte dans les 36 heures. Vues 7 j = la dernière valeur de chaque Reel de la semaine (nouvelle colonne « Vues 7 j (dernier relevé) » de « Pilotage comptes »).
+
+**Lien « Compte Créatrice »** : un lien GAML dont la note dit « compte créatrice » est en vertical (Bio Instagram), même s'il est aussi noté Metricool. C'est le cas du lien /3 de Sophie. Maddy et Maddie sont la même créatrice.
+
+**Horizontal** : seuls les comptes GOOD sont montrés et comptés. Toucher un @ ouvre le compte dans l'application Instagram, et le profil web si l'app n'est pas là. Rianah a deux lignes au classement : « Rianah clipping » (son lien de clipper, dans le coût) et « Rianah Metricool » (tous les liens Metricool réunis, au fixe : dans les visites et le graphique, pas dans le coût clippers).
+
 ## 12/10 : plus de WARMUP, et un Dashboard lisible
 
 **ETAT : GOOD, PRIVE ou BAN, rien d'autre.** Un compte créé passe GOOD tout de suite (PRIVE si c'est le privé) : bouton « créé » du parcours, scan qui le voit apparaître, BAN qui revient. Un WARMUP encore au classeur passe GOOD au prochain passage du matin. Le délai avant BAN d'un compte neuf jamais vu vivant reste le même. Le warm-up reste une consigne du parcours (regarder des Reels, liker), plus un état. `ETAT_WARMUP=1` remet l'ancien cycle.

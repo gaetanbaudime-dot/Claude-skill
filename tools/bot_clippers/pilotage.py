@@ -35,7 +35,7 @@ ONGLET_SUBS = "Pilotage subs"
 ONGLET_INFOS = "Pilotage infos"
 ENTETE_COMPTES = ["Créatrice", "Axe", "Type", "Gérant", "@", "ETAT", "Followers", "Δ 24 h", "Δ 7 j", "Followers 7 j",
                   "Reels auj.", "Reels hier", "Reels 7 j", "Vues 7 j (48 h)", "Vues 7 j d'avant", "Clics auj.", "Clics hier",
-                  "Clics 7 j", "Clics 7 j d'avant", "Dernier Reel", "Mesure"]
+                  "Clics 7 j", "Clics 7 j d'avant", "Dernier Reel", "Mesure", "Vues 7 j (dernier relevé)"]   # 13/10 : + vues récentes
 ENTETE_CLICS = ["Jour", "Créatrice", "Axe", "Source", "Qui", "Visites payables", "Visites hors robots", "Liens", "Liens non relevés"]
 ENTETE_SUBS = ["Jour", "Créatrice", "Subs OF", "CA OF ($)", "Subs MYM", "CA MYM (€)", "Saisi"]
 SUBS_TTL_S = 30 * 60

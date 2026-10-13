@@ -33,6 +33,8 @@ export type Compte = {
   vues7: number | null; vues7Avant: number | null;
   clicsAuj: number | null; clicsHier: number | null; clics7: number | null; clics7Avant: number | null;
   dernierReel: string; mesure: string;
+  /** 13/10 : la dernière valeur relevée des vues de chaque Reel publié ces 7 jours (à côté des vues à 48 h, plus strictes). */
+  vuesRecentes: number | null;
 };
 /** Une ligne de clics : un jour, une créatrice, un axe (Vertical / Horizontal), une source (Page principale, Bio Instagram, YouTube,
  *  Facebook, Clipper, Metricool, Libéré…), une personne ou une page ; `manquants` > 0 = des liens pas encore relevés ce jour-là. */
@@ -54,7 +56,7 @@ let enCours: Promise<Pilotage> | null = null;
 async function lire(): Promise<Pilotage> {
   const id = await tableur();
   const jeton = await jetonGoogle();
-  const plages = [`'${ONGLETS.comptes}'!A2:U`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`];
+  const plages = [`'${ONGLETS.comptes}'!A2:V`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`];
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet?${plages.map((p) => `ranges=${encodeURIComponent(p)}`).join("&")}`;
   const r = await fetch(url, { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   if (!r.ok) throw new Error(`Sheets ${r.status}`);
@@ -65,7 +67,7 @@ async function lire(): Promise<Pilotage> {
     creatrice: l[0] || "?", axe: l[1] || "", type: l[2] || "", gerant: l[3] || "", handle: l[4] || "", etat: l[5] || "",
     followers: nb(l[6]), d24: nb(l[7]), d7: nb(l[8]), courbe: String(l[9] || "").split(";").map((x) => nb(x)),
     reelsAuj: nb(l[10]), reelsHier: nb(l[11]), reels7: nb(l[12]), vues7: nb(l[13]), vues7Avant: nb(l[14]),
-    clicsAuj: nb(l[15]), clicsHier: nb(l[16]), clics7: nb(l[17]), clics7Avant: nb(l[18]), dernierReel: l[19] || "", mesure: l[20] || "",
+    clicsAuj: nb(l[15]), clicsHier: nb(l[16]), clics7: nb(l[17]), clics7Avant: nb(l[18]), dernierReel: l[19] || "", mesure: l[20] || "", vuesRecentes: nb(l[21]),
   }));
   const clics: Clic[] = (vk || []).filter((l) => /^\d{4}-\d{2}-\d{2}$/.test(l[0] || "")).map((l) => ({
     jour: l[0], creatrice: l[1] || "?", axe: l[2] || "", source: l[3] || "", qui: l[4] || "",
