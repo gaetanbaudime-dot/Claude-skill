@@ -64,7 +64,17 @@ export async function clippers(): Promise<Clipper[]> {
   return regrouper(await liensGaml());
 }
 
+/** 13/10 (le lien de Yves ne marchait plus) : le jeton vient de la note GAML ; renommer « Clipping Yves Redirect YTB » en
+ *  « Clipping Yves » change le lien. Ancienne clé → clé actuelle : l'ancien lien déjà envoyé mène toujours au clipper. */
+const ANCIENNES_CLES: Record<string, string> = { "yves redirect ytb": "yves" };
+
 export async function clipperParJeton(jeton: string | undefined): Promise<Clipper | null> {
   if (!jeton || !/^[A-Za-z0-9_-]{24}$/.test(jeton)) return null;
-  return (await clippers()).find((c) => c.jeton === jeton) || null;
+  const liste = await clippers();
+  const direct = liste.find((c) => c.jeton === jeton);
+  if (direct) return direct;
+  for (const [ancienne, actuelle] of Object.entries(ANCIENNES_CLES)) {
+    if (jetonDe(ancienne) === jeton) return liste.find((c) => c.cle === actuelle) || null;
+  }
+  return null;
 }

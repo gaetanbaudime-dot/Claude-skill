@@ -145,6 +145,11 @@ JOURS_NOUVEAU = int(os.environ.get("ONBOARDING_JOURS_NOUVEAU", "45") or 45)   # 
 A_CREER = ("a creer", "à créer")
 COMPTES_RENDUS = os.environ.get("COMPTES_RENDUS", "0").strip() == "1"   # 12/10 : comptes neufs seulement (voir disponibles)
 MENTION_LIBERE = "à mettre Metricool"                              # Utilisation d'un compte créé rendu par un clipper parti
+# 13/10 (Gaëtan : « Stéphane est viré, donne ses comptes à Rianah Metricool s'ils ne sont pas BAN ») : un compte créé et vivant
+# d'un clipper sorti passe directement à Rianah Metricool (Gérant et Utilisation), un BAN reste hors jeu (Gérant vidé).
+# METRICOOL_DIRECT=0 : l'ancien « à mettre Metricool » pour tous les créés.
+GERANT_METRICOOL = os.environ.get("GERANT_METRICOOL", "Rianah (Metricool)").strip() or "Rianah (Metricool)"
+METRICOOL_DIRECT = os.environ.get("METRICOOL_DIRECT", "1").strip() != "0"
 
 _deps = {}
 
@@ -2782,10 +2787,19 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     etat = _lire_etat()
     bilan = []
     for c in lignes:
-        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])
         metricool = _norm(c["etat"]) not in A_CREER and not pool
-        if metricool:
-            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "utilisation"), [[MENTION_LIBERE]])
+        direct = metricool and METRICOOL_DIRECT
+        if direct and _norm(c["etat"]) == "ban":
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])
+            bilan.append(f"· `{c['handle']}` (BAN) → hors jeu, à personne")
+            metricool = False
+        elif direct:
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[GERANT_METRICOOL]])
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "utilisation"), [["Metricool"]])
+        else:
+            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])
+            if metricool:
+                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "utilisation"), [[MENTION_LIBERE]])
         h = c["handle"].lower()
         etat["livres"].pop(h, None)
         etat.get("ecartes", {}).pop(h, None)
@@ -2796,7 +2810,10 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
             # compte à l'ancien clipper) : l'accès part avec le compte
             if any(isinstance(a, dict) and str(a.get("handle", "")).lower() == h for a in fiche.get("acces") or []):
                 fiche["acces"] = [a for a in fiche["acces"] if not (isinstance(a, dict) and str(a.get("handle", "")).lower() == h)]
-        bilan.append(f"· `{c['handle']}` ({c['etat'] or 'état ?'}) → " + (MENTION_LIBERE if metricool else "retour au pool des clippers"))
+        if direct and not metricool:
+            continue                                                    # BAN : bilan déjà écrit, rien d'autre
+        bilan.append(f"· `{c['handle']}` ({c['etat'] or 'état ?'}) → "
+                     + ((f"{GERANT_METRICOOL} ({MENTION_LIBERE})" if direct else MENTION_LIBERE) if metricool else "retour au pool des clippers"))
     _ecrire_etat(etat)
     if codes_2fa.actif():
         n_alias = codes_2fa.detacher([c["mail"] for c in lignes if c.get("mail")])

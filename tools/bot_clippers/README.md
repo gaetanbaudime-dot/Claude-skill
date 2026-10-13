@@ -16,6 +16,10 @@
 
 **Paie** : Caroline, Lilian, Josué et Yves au fixe + commission sur les subs (`PAIE_FIXE`) ; tous les autres à la commission sur les clics, Rianah comprise pour son clipping (elle sort de `CLICS_EXCLURE` et a son app ; ses comptes Metricool restent au fixe). Versements le 20 (période du 5 au 19) et le 5 (période du 20 au 4). Si Railway définit `PAIE_FIXE` ou `CLICS_EXCLURE`, ces variables passent par-dessus : les supprimer.
 
+**Sortie d'un clipper** (`!sortie`, `!monteur`) : ses comptes créés et vivants passent directement à Rianah Metricool (Gérant « Rianah (Metricool) », Utilisation « Metricool », `GERANT_METRICOOL`), ses BAN restent hors jeu (Gérant vidé), ses « à créer » retournent au pool ; ses liens suivent les comptes chez Rianah Metricool, comme avant. `METRICOOL_DIRECT=0` : l'ancien « à mettre Metricool ».
+
+**Lien de l'app et note GAML** : le lien d'un clipper vient de sa note « Clipping Prénom ». Renommer la note change le lien ; l'app garde l'ancien lien valide par un alias (`ANCIENNES_CLES` dans `src/lib/clippers.ts`, ex. « yves redirect ytb » → « yves »).
+
 **@ corrigés** : le bot applique les @ envoyés depuis l'app (classeur réécrit) avant de republier « Comptes app » : l'app du clipper et celle de son TL montrent le nouveau @ dès le même passage.
 
 ## 13/10 : pilotage, vertical complet et horizontal en comptes GOOD
