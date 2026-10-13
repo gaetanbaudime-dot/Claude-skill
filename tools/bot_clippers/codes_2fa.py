@@ -88,7 +88,7 @@ QUOTA_SEUIL = 0.9
 CODES_APPEL = _oui("CODES_APPEL")
 # 12/10 (Gaëtan : « Enlève les sécurités sur le 2FA ») : plus de liste blanche ni noire, tout code Instagram est donné.
 # CODES_SECURITES=1 remet les filtres du 10/10 (connexion et création seulement).
-SECURITES = _oui("CODES_SECURITES")
+SECURITES = _oui("CODES_SECURITES", "1")
 # 10/10 (revue) : un mail relayé par iCloud porte une adresse @icloud.com ; une adresse iCloud ORDINAIRE à la forme d'une
 # réécriture (« <x>_at_instagram_com_<n> » chez icloud.com) passerait pour Instagram. « observer » (défaut) : rien n'est bloqué, une
 # ligne admin par jour quand Gmail n'atteste pas la signature Meta ; « 1 » : un tel mail est ignoré. Format réel à vérifier.
@@ -1190,6 +1190,13 @@ def _etat() -> dict:
             journal.warning("codes_lecteur.json illisible, réinitialisé")
         for cle, defaut in (("uid", {}), ("codes", []), ("faits", {}), ("sante", {}), ("n", 0)):
             _ETAT.setdefault(cle, defaut)
+        # Ne jamais restituer des codes mis en cache sous l'ancien mode non filtré :
+        # certains pouvaient venir d'une modification de compte Instagram.
+        mode = "strict_login_signup" if SECURITES else "legacy_all_meta"
+        if _ETAT.get("mode_codes") != mode:
+            _ETAT["codes"] = []
+            _ETAT["mode_codes"] = mode
+            journal.info("Codes : cache invalidé suite à un changement de mode")
     return _ETAT
 
 
@@ -1346,14 +1353,8 @@ def _ligne_privee(t: dict) -> str:
 
 
 def _texte_codes(codes: list) -> str:
-    """Le plus récent par adresse (3 au plus)."""
-    vus, lignes = set(), []
-    for t in codes:
-        if t.get("alias") in vus:
-            continue
-        vus.add(t.get("alias"))
-        lignes.append(_ligne_privee(t))
-    return "\n\n".join(lignes[:3])
+    """Afficher uniquement le code de connexion/inscription le plus récent du destinataire autorisé."""
+    return _ligne_privee(max(codes, key=_cle_tri)) if codes else ""
 
 
 def _texte_ancien(t: dict) -> str:
@@ -1374,7 +1375,7 @@ def _deja_montre(cle_guet: str, t: dict):
 def _noter_montre(cle_guet: str, codes: list):
     limite = _iso(_maintenant() - timedelta(minutes=CACHE_MIN))
     vus = {k: v for k, v in (_MONTRES.get(cle_guet) or {}).items() if v >= limite}
-    for t in codes[:3]:
+    for t in codes[:1]:
         vus.setdefault(t.get("mid"), _iso(_maintenant()))
     _MONTRES[cle_guet] = vus
     for cle in [k for k, v in _MONTRES.items() if not v]:
