@@ -51,7 +51,7 @@ def sanitize_message(content: str) -> str:
             safe.append("[LIGNE SENSIBLE MASQUÉE]")
             continue
         line = URL.sub("[URL MASQUÉE]", line)
-        line = EMAIL.sub("[EMAIL MASQUÉ]")
+        line = EMAIL.sub("[EMAIL MASQUÉ]", line)
         line = PHONE.sub("[TÉLÉPHONE MASQUÉ]", line)
         line = LONG_SECRET.sub("[CHAÎNE MASQUÉE]", line)
         line = OTP_DIGITS.sub("[CODE MASQUÉ]", line)
