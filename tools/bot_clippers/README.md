@@ -10,6 +10,14 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 13/10 : organigramme du pool clipping, paie et @ suivis par le TL
+
+**Les équipes de TL** viennent de l'organigramme de Gaëtan (`TL_ORGANIGRAMME`, par défaut : Mathieu → Alvaro, Thia ; Clarisse → Romaric, Ricardo ; Yves → Mohamed, Simon, Moutakabirou), et la colonne « Team leader » du classeur passe par-dessus pour un clipper qu'elle nomme. Un prénom pas encore au registre (ou porté par deux membres) est ignoré et signalé dans `!tl liste`.
+
+**Paie** : Caroline, Lilian, Josué et Yves au fixe + commission sur les subs (`PAIE_FIXE`) ; tous les autres à la commission sur les clics, Rianah comprise pour son clipping (elle sort de `CLICS_EXCLURE` et a son app ; ses comptes Metricool restent au fixe). Versements le 20 (période du 5 au 19) et le 5 (période du 20 au 4). Si Railway définit `PAIE_FIXE` ou `CLICS_EXCLURE`, ces variables passent par-dessus : les supprimer.
+
+**@ corrigés** : le bot applique les @ envoyés depuis l'app (classeur réécrit) avant de republier « Comptes app » : l'app du clipper et celle de son TL montrent le nouveau @ dès le même passage.
+
 ## 13/10 : pilotage, vertical complet et horizontal en comptes GOOD
 
 **Vertical** : les clics des 30 derniers jours de toute la verticale (toutes les créatrices, ou celle filtrée) sont en tête, quelle que soit la période choisie, contre les 30 jours d'avant. Chaque créatrice dit ses clics sur 30 jours. Chaque gros compte montre Reels hier, Reels 7 j, vues 7 j et clics 7 j. Quand le relevé exact des Reels manque (un gros compte qui publie aussi des photos ne couvre jamais la semaine avec ses 12 dernières publications), le bot montre les Reels vus, s'il a lu le compte dans les 36 heures. Vues 7 j = la dernière valeur de chaque Reel de la semaine (nouvelle colonne « Vues 7 j (dernier relevé) » de « Pilotage comptes »).

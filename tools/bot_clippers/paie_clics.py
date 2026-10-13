@@ -60,12 +60,15 @@ BILAN_FIXE_DATE = os.environ.get("BILAN_FIXE_DATE", "2026-10-05").strip()      #
 BILAN_FIXE_JOURS = int(os.environ.get("BILAN_FIXE_JOURS", "14") or 14)
 SEUIL_FIXE_100 = int(os.environ.get("SEUIL_FIXE_100", "32") or 32)            # visites payables/jour qui rentabilisent 100 €
 SEUIL_FIXE_200 = int(os.environ.get("SEUIL_FIXE_200", "65") or 65)            # … et 200 € (0,30 $ de CA par visite, 35 % de marge)
-CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "rianah,gaetan,gaëtan,jonas,x,y").split(",") if p.strip()}
+CLICS_EXCLURE = {p.strip().lower() for p in os.environ.get("CLICS_EXCLURE", "gaetan,gaëtan,jonas,x,y").split(",") if p.strip()}
+# 13/10 (Gaëtan : « Caroline, Lilian, Josué, Yves au fixe + commission sur les subs ; tout le reste commission sur les clics ;
+# tout le monde est payé le 20 et le 5 ») : Rianah sort du fixe et de CLICS_EXCLURE — son clipping est payé au clic (comme les
+# autres anciens fixes, depuis BASCULE_CLIC), ses comptes Metricool restent au fixe (liens hors clipping, jamais payés au clic).
 # 08/10 (Gaëtan) : tout le monde au clic sauf ces prénoms (Jonas = manager). Sans accents. 09/10 (Gaëtan : « Julien arrête tout, il va
 # juste faire le monteur vidéo maintenant pour moi ») : « julien » retiré, l'ancien sort du clipping (`!monteur`) et le nouveau Julien
 # clipper est au clic comme les autres.
 PAIE_FIXE = {"".join(c for c in unicodedata.normalize("NFD", p.strip().lower()) if unicodedata.category(c) != "Mn")
-             for p in os.environ.get("PAIE_FIXE", "caroline,lilian,josue,yves,rianah,jonas").split(",") if p.strip()}
+             for p in os.environ.get("PAIE_FIXE", "caroline,lilian,josue,yves").split(",") if p.strip()}
 PAIE_DECISION = "2026-10-08"
 # 09/10 (Gaëtan : « tout le monde passe au clic depuis le 5 octobre, sauf Rianah, Caroline, Lilian, Josué et Yves qui restent au
 # fixe ») : un ancien fixe est payé au clic sur ses visites à partir du 05/10 (la bascule prévue par le bilan des fixes).

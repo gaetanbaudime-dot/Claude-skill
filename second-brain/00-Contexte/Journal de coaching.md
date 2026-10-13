@@ -22,6 +22,16 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-13 (pool clipping) — Organigramme des TL, quatre fixes, tout le reste au clic
+
+> [!tip] Verdict
+> Trois TL (Mathieu chez Sophie, Clarisse chez Chloé, Yves chez Sarah) et des clippers sans TL partout ailleurs. Caroline, Lilian, Josué et Yves restent au fixe avec commission sur les subs ; tous les autres, Rianah comprise pour son clipping, sont payés au clic, le 5 et le 20.
+
+- **Décision de Gaëtan (13/10)** : l'organigramme du pool clipping, et « Caroline, Lilian, Josué, Yves au fixe + commission sur les subs ; tout le reste commission sur les clics ; tout le monde est payé le 20 et le 5 ».
+- **Avocat du diable** : 4 fixes sur environ 15 clippers, dont les deux plus gros volumes (Caroline, Josué). Le fixe protège la relation, mais il casse le lien entre effort et paie là où le volume est le plus fort. Le vrai test : le coût par visite des fixes contre 0,05 $ au clic.
+- **Garde-fous** : les clics des fixes restent visibles « pour info » dans leur app ; le coût clippers du pilotage n'inclut pas Rianah Metricool (fixe).
+- **Prédiction (13/10, revue le 03/11)** : sur la période du 20/10 au 04/11, au moins un des trois TL touche une prime (un VA à 500 visites payées ou plus) ; l'équipe de Mathieu non, parce que Thia et Alvaro démarrent.
+
 ### 2026-10-12 (classeur) — Trois états seulement (GOOD, PRIVE, BAN) et un Dashboard au format des onglets créatrices
 
 > [!tip] Verdict

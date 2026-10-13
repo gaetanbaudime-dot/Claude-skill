@@ -135,7 +135,7 @@ def _comptes_app(pil: dict) -> list:
                               pil.get("comptes_classeur") or {}, pil.get("chiffres") or {}, dashboard._cle)
 
 
-async def traiter_pseudos(classeur: str, cles_app: dict) -> int:
+async def traiter_pseudos(classeur: str, cles_app: dict, faits: list = None) -> int:
     """Les @ corrigés depuis l'app (onglet « Pseudos app », Statut vide) : appliqués avec parcours.renommer (mêmes contrôles que
     `!pseudo` : un compte à lui, jamais le @ d'un autre de ses comptes, ni un nom de compte privé pour un compte de croissance),
     puis Statut « fait » ou « refusé » et la raison. Renvoie le nombre de demandes traitées. Jamais d'exception."""
@@ -163,6 +163,8 @@ async def traiter_pseudos(classeur: str, cles_app: dict) -> int:
             except Exception as erreur:                                 # noqa: BLE001
                 ancien, raison = "", f"erreur du bot ({type(erreur).__name__}), réessaie dans quelques minutes"
             statut, detail = ("fait", f"{ancien} → {l[3].strip().lstrip('@').lower()}") if not raison else ("refusé", raison)
+            if not raison and faits is not None and ancien:             # 13/10 : l'onglet « Comptes app » suit dans le même passage
+                faits.append((str(ancien).lstrip("@").lower(), l[3].strip().lstrip("@").lower()))
         try:
             await google_api.sheets_ecrire(classeur, f"'{ONGLET_PSEUDOS}'!E{i}:F{i}", [[statut, detail]], brut=True)
             n_traites += 1
@@ -236,10 +238,18 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
                                           (ONGLET_CLICS, ENTETE_CLICS, pil.get("clics"))):
                 if isinstance(lignes, list) and await _ecrire(classeur, titre, entete, lignes):
                     ecrits += 1
+            # 13/10 (Gaëtan : « si le clippeur met à jour ses @, mets à jour le sheet et l'application de son team leader ») : les @
+            # corrigés depuis l'app d'abord (classeur réécrit par parcours.renommer), puis « Comptes app » avec les nouveaux @ —
+            # l'app du clipper et celle de son TL les montrent dès ce passage
+            faits = []
+            await traiter_pseudos(classeur, pil.get("cles_app") or {}, faits)
             comptes_app = _comptes_app(pil)                             # 12/10 : onglets Comptes et Équipe de l'app clippers
+            nouveaux = dict(faits)
+            for ligne in comptes_app or []:
+                if len(ligne) > 4 and str(ligne[4]).lower() in nouveaux:
+                    ligne[4] = nouveaux[str(ligne[4]).lower()]
             if comptes_app and await _ecrire(classeur, ONGLET_COMPTES_APP, ENTETE_COMPTES_APP, comptes_app):
                 ecrits += 1
-            await traiter_pseudos(classeur, pil.get("cles_app") or {})
             subs = await _subs(aujourdhui, int(getattr(dashboard, "PILOTAGE_JOURS", 62)))
             if subs is not None and await _ecrire(classeur, ONGLET_SUBS, ENTETE_SUBS, subs):
                 ecrits += 1

@@ -7,7 +7,7 @@ import { createHmac } from "crypto";
 import { liensGaml, type LienGaml } from "./gaml";
 
 /** Prénoms jamais traités comme clippers (CLICS_EXCLURE du bot), sans accent ni majuscule. */
-const EXCLURE = new Set(["rianah", "gaetan", "jonas", "x", "y"]);
+const EXCLURE = new Set(["gaetan", "jonas", "x", "y"]);                // 13/10 : Rianah au clic pour son clipping, elle a son app
 
 export type Clipper = {
   prenom: string;                                                  // tel qu'écrit dans la note GAML du lien le plus récent

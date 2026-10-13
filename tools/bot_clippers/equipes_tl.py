@@ -656,7 +656,7 @@ def maj_colonne(comptes: list, proprietaires=None, cle_handle=None) -> dict:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Colonne Team leader illisible : %s", erreur)
         return {}
-    if lu["va"] != tl_par_va() or lu["inconnus"] != _COLONNE["inconnus"]:
+    if lu["va"] != _colonne_va() or lu["inconnus"] != _COLONNE["inconnus"]:
         try:
             _dep("ecrire_json")(_fichier_colonne(), {"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), **lu})
         except Exception as erreur:                                     # noqa: BLE001
@@ -667,7 +667,50 @@ def maj_colonne(comptes: list, proprietaires=None, cle_handle=None) -> dict:
     return lu
 
 
+# 13/10 (Gaëtan, organigramme du pool clipping) : les équipes de TL, par prénoms — « TL:VA,VA;TL:VA ». La colonne « Team leader » du
+# classeur passe par-dessus pour un VA qu'elle nomme. Un prénom absent du registre, ou porté par deux membres, est ignoré et
+# signalé dans `!tl liste`. TL_ORGANIGRAMME= (vide) : la colonne seule.
+ORGANIGRAMME = os.environ.get("TL_ORGANIGRAMME", "mathieu:alvaro,thia;clarisse:romaric,ricardo;yves:mohamed,simon,moutakabirou")
+_ORGA = {"inconnus": []}
+
+
+def organigramme_va(texte: str = None, fiches=None) -> dict:
+    """{uid VA : uid TL} de l'organigramme (TL_ORGANIGRAMME) ; les prénoms non résolus vont dans _ORGA["inconnus"]."""
+    texte = ORGANIGRAMME if texte is None else texte
+    va, inconnus = {}, []
+    for bloc in str(texte or "").split(";"):
+        if ":" not in bloc:
+            continue
+        tl_nom, vas = bloc.split(":", 1)
+        tl = uid_par_nom(tl_nom.strip(), fiches) if tl_nom.strip() else ""
+        if not tl:
+            if tl_nom.strip():
+                inconnus.append(tl_nom.strip().capitalize())
+            continue
+        for v_nom in vas.split(","):
+            v = uid_par_nom(v_nom.strip(), fiches) if v_nom.strip() else ""
+            if not v:
+                if v_nom.strip():
+                    inconnus.append(v_nom.strip().capitalize())
+                continue
+            if v != tl:
+                va.setdefault(str(v), str(tl))
+    _ORGA["inconnus"] = inconnus
+    return va
+
+
 def tl_par_va() -> dict:
+    """{uid VA : uid TL} : l'organigramme (TL_ORGANIGRAMME), puis la colonne « Team leader » du classeur par-dessus."""
+    try:
+        base = organigramme_va()
+    except Exception as erreur:                                         # noqa: BLE001 — jamais au prix des équipes
+        journal.warning("Organigramme des TL illisible : %s", erreur)
+        base = {}
+    base.update(_colonne_va())
+    return base
+
+
+def _colonne_va() -> dict:
     """{uid VA : uid TL} de la colonne « Team leader » (mémoire, sinon tl_colonne.json) ; {} sans colonne."""
     if _COLONNE["va"] is None:
         try:
@@ -1484,9 +1527,11 @@ def texte_liste(calcul: dict, en_cours: bool) -> list:
              f"à {_fmt(MANAGER_SEUIL_EQUIPE)} ou plus. TL {'compris dans' if EQUIPE_COMPTE_TL else 'hors de'} son équipe."]
     if not primee:
         blocs.append("Pas de prime d'équipe sur cette période. " + _texte_premiere_periode())
-    col = tl_par_va()                                                   # 12/10 : ce que dit la colonne « Team leader » du classeur
-    if col or _COLONNE["inconnus"] or _COLONNE["conflits"]:
-        ligne = f"Colonne « Team leader » du classeur : {len(col)} clipper(s) rattaché(s) à {len(set(col.values()))} TL."
+    col = tl_par_va()                                                   # 12/10 : colonne « Team leader » ; 13/10 : + organigramme
+    if col or _COLONNE["inconnus"] or _COLONNE["conflits"] or _ORGA["inconnus"]:
+        ligne = f"Organigramme et colonne « Team leader » : {len(col)} clipper(s) rattaché(s) à {len(set(col.values()))} TL."
+        if _ORGA["inconnus"]:
+            ligne += " ⚠️ Organigramme, prénoms pas encore au registre (ou en double) : " + ", ".join(_ORGA["inconnus"][:8]) + "."
         if _COLONNE["inconnus"]:
             ligne += " ⚠️ Prénoms non reconnus (aucun membre, ou deux du même prénom) : " + ", ".join(_COLONNE["inconnus"][:8]) + "."
         if _COLONNE["conflits"]:

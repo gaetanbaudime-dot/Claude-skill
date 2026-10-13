@@ -218,7 +218,7 @@ export default function VersementsTab({ jeton }: { jeton: string }) {
           <svg className="text-emerald-300 shrink-0" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="4" /><path d="M3 10h18M8 3v4M16 3v4" /><path d="m9.5 15.5 1.8 1.8 3.4-3.6" /></svg>
           <div className="leading-tight">
             <div className="text-[11px] font-bold tracking-widest uppercase text-emerald-300">{v?.fixe ? "Tu es au fixe" : "Prochain versement"}</div>
-            <div className="text-[17px] font-bold mt-0.5">{v?.fixe ? "Montants pour info, ta paie ne change pas" : p ? `${fmtUsd(p.montant + prime)} le ${p.libellePaie}` : "—"}</div>
+            <div className="text-[17px] font-bold mt-0.5">{v?.fixe ? "Fixe + commission sur les subs : tes clics sont pour info" : p ? `${fmtUsd(p.montant + prime)} le ${p.libellePaie}` : "—"}</div>
           </div>
         </div>
         {p && v && !v.fixe && (() => {

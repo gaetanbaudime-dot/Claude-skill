@@ -19,7 +19,9 @@ export const CLICS_DEPUIS = "2026-10-05";
 
 /** 08/10 (Gaëtan : « tout le monde au variable sauf Caroline, Lilian, Josué, Yves et Rianah. Julien montage vidéo YTB et Jonas
  *  manageur ») : ces prénoms (sans accents, en minuscules) ne sont pas payés au clic. Même liste que `PAIE_FIXE` du bot. */
-export const PAIE_FIXE = new Set(["caroline", "lilian", "josue", "yves", "rianah", "jonas"]);   // 09/10 : « julien » retiré (monteur vidéo, hors clipping)
+// 13/10 (Gaëtan : « Caroline, Lilian, Josué, Yves au fixe + commission sur les subs ; tout le reste commission sur les clics ») :
+// Rianah passe au clic pour son clipping (ses comptes Metricool restent au fixe, hors liens « Clipping »).
+export const PAIE_FIXE = new Set(["caroline", "lilian", "josue", "yves", "jonas"]);   // 09/10 : « julien » retiré (monteur vidéo, hors clipping)
 
 /** Les anciens (premier lien d'avant le 24/09, l'ancien modèle au fixe) passent au clic le 05/10 : leurs visites d'avant
  *  restent au fixe, comme dans le bot (`debut_clic`). */
