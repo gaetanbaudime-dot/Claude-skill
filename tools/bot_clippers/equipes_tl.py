@@ -670,7 +670,7 @@ def maj_colonne(comptes: list, proprietaires=None, cle_handle=None) -> dict:
 # 13/10 (Gaëtan, organigramme du pool clipping) : les équipes de TL, par prénoms — « TL:VA,VA;TL:VA ». La colonne « Team leader » du
 # classeur passe par-dessus pour un VA qu'elle nomme. Un prénom absent du registre, ou porté par deux membres, est ignoré et
 # signalé dans `!tl liste`. TL_ORGANIGRAMME= (vide) : la colonne seule.
-ORGANIGRAMME = os.environ.get("TL_ORGANIGRAMME", "mathieu:alvaro,thia;clarisse:romaric,ricardo;yves:mohamed,simon,moutakabirou")
+ORGANIGRAMME = os.environ.get("TL_ORGANIGRAMME", "mathieu:alvaro,thia,diamondra;clarisse:romaric,ricardo;yves:mohamed,simon,moutakabirou")
 _ORGA = {"inconnus": []}
 
 

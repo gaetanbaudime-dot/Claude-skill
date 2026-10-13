@@ -12,7 +12,7 @@
 
 ## 13/10 : organigramme du pool clipping, paie et @ suivis par le TL
 
-**Les équipes de TL** viennent de l'organigramme de Gaëtan (`TL_ORGANIGRAMME`, par défaut : Mathieu → Alvaro, Thia ; Clarisse → Romaric, Ricardo ; Yves → Mohamed, Simon, Moutakabirou), et la colonne « Team leader » du classeur passe par-dessus pour un clipper qu'elle nomme. Un prénom pas encore au registre (ou porté par deux membres) est ignoré et signalé dans `!tl liste`.
+**Les équipes de TL** viennent de l'organigramme de Gaëtan (`TL_ORGANIGRAMME`, par défaut : Mathieu → Alvaro, Thia, Diamondra ; Clarisse → Romaric, Ricardo ; Yves → Mohamed, Simon, Moutakabirou), et la colonne « Team leader » du classeur passe par-dessus pour un clipper qu'elle nomme. Un prénom pas encore au registre (ou porté par deux membres) est ignoré et signalé dans `!tl liste`.
 
 **Paie** : Caroline, Lilian, Josué et Yves au fixe + commission sur les subs (`PAIE_FIXE`) ; tous les autres à la commission sur les clics, Rianah comprise pour son clipping (elle sort de `CLICS_EXCLURE` et a son app ; ses comptes Metricool restent au fixe). Versements le 20 (période du 5 au 19) et le 5 (période du 20 au 4). Si Railway définit `PAIE_FIXE` ou `CLICS_EXCLURE`, ces variables passent par-dessus : les supprimer.
 
