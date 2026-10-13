@@ -1585,6 +1585,94 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
             _guets.pop(cle_guet, None)
 
 
+# ------------------------------------------------------------------ 4b. on-demand read-through (independent of IMAP IDLE)
+# Dedicated connection: never move the background reader's UID cursor, IDLE state or
+# persistent mailbox state. Do not echo OTPs or full aliases to Railway logs.
+_SCAN_SEMAPHORE = asyncio.Semaphore(2)
+_SCAN_LAST = {}  # opaque request key -> monotonic; rate-limit manual refresh
+
+
+def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
+    """Check the latest Instagram emails independently, even if IDLE is stale.
+
+    Only code entries from the caller's owned aliases and within the 10-minute
+    window are returned; a dedicated reader is closed after every request.
+    """
+    aliases = {str(a).strip().lower() for a in adresses or () if "@" in str(a)}
+    if not aliases:
+        return []
+    reader = Lecteur()
+    found = {}
+    limite = _maintenant() - timedelta(minutes=min(10, max(1, minutes)))
+    since = (_maintenant() - timedelta(days=1)).strftime("%d-%b-%Y")
+    try:
+        reader._connecter()
+        for folder in reader.dossiers():
+            try:
+                reader._selectionner(folder)
+                # Filter by originating platform first; this also matches iCloud relay
+                # addresses such as "no-reply_at_mail_instagram_com_...@icloud.com".
+                ok, results = reader.boite.uid("SEARCH", None, f'(SINCE {since} FROM "instagram")')
+                if ok != "OK":
+                    continue
+                uids = [int(uid) for uid in ((results or [b""])[0] or b"").split() if uid.isdigit()]
+                # Bound the work even with a high-volume inbox; newest first per folder.
+                for message in reader._lire(folder, sorted(uids)[-100:], False):
+                    info = classer_mail(message["msg"])
+                    if (info.get("decision") != "donner" or info.get("alias") not in aliases
+                            or not info.get("code") or info.get("date") is None
+                            or not limite <= info["date"] <= _maintenant() + timedelta(minutes=2)):
+                        continue
+                    mid = str(info.get("mid") or message.get("mid") or "")
+                    if not mid:
+                        continue
+                    found[mid] = {
+                        "mid": mid, "alias": info["alias"], "code": info["code"],
+                        "type": info["type"], "decision": "donner",
+                        "compte": info.get("compte") or "", "date": _iso(info["date"]),
+                    }
+            except (imaplib.IMAP4.error, MailIllisible) as erreur:
+                journal.warning("Codes : recherche directe, dossier indisponible : %s", type(erreur).__name__)
+                reader.selection = None
+                continue
+    finally:
+        reader.fermer()
+    return sorted(found.values(), key=_cle_tri, reverse=True)
+
+
+async def _scanner_sur_demande(adresses: set, cle: str) -> None:
+    """Single-purpose read-through cache. Wakes waiting ephemeral/DM replies."""
+    if not adresses or not actif():
+        return
+    now = time.monotonic()
+    if now - _SCAN_LAST.get(cle, -100) < 12:
+        return
+    _SCAN_LAST[cle] = now
+    async with _SCAN_SEMAPHORE:
+        try:
+            recents = await asyncio.wait_for(asyncio.to_thread(
+                _scan_recent_sync, set(adresses), SALON_CODES_MINUTES), timeout=35)
+            deja = {x.get("mid") for x in _etat()["codes"]}
+            nouveaux = 0
+            for entry in recents:
+                if entry["mid"] not in deja:
+                    _etat()["codes"].append(_numeroter(entry))
+                    deja.add(entry["mid"])
+                    nouveaux += 1
+            if nouveaux:
+                _sauver()
+                await _reveiller()
+            journal.info("Codes : demande directe terminée, %d nouveau(x) code(s) admissible(s)", nouveaux)
+        except Exception as erreur:
+            journal.warning("Codes : recherche directe indisponible : %s", type(erreur).__name__)
+
+
+def _demander_scan(adresses: set, cle: str) -> None:
+    """Start a bounded scan without delaying the first Discord response."""
+    if adresses and not codes_pour(adresses, SALON_CODES_MINUTES):
+        asyncio.create_task(_scanner_sur_demande(set(adresses), cle))
+
+
 def _est_staff(membre) -> bool:
     if _deps.get("est_staff"):
         try:
@@ -1690,6 +1778,8 @@ async def servir_interaction(interaction) -> str:
         return "sans_adresse"
     if not adresses and not staff:
         await _alerter_sans_adresse(membre)                            # 12/10 : l'équipe est prévenue, mais le code sort quand même
+    if adresses:
+        _demander_scan(adresses, f"u|{getattr(membre, 'id', '')}")
     return await _servir(adresses, dire, f"u|{getattr(membre, 'id', '')}",
                          relire=(lambda: _adresses_membre(membre)) if adresses else None, tout=staff)
 
@@ -1874,7 +1964,9 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         except Exception:                                               # noqa: BLE001
             courant["msg"] = await message.author.send(t)
 
-    await _servir(adresses, dire, f"u|{getattr(message.author, 'id', '')}", relire=relire,   # 10/10 (revue) : sortie pendant le guet
+    if adresses:
+        _demander_scan(adresses, f"u|{getattr(message.author, 'id', '')}")
+    await _servir(adresses, dire, f"u|{getattr(message.author, 'id', '')}", relire=relire,
                   tout=staff and not adresse)                          # 12/10 : Gaëtan et les managers voient le dernier code de la boîte
     return True
 
