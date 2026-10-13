@@ -1669,7 +1669,9 @@ async def _scanner_sur_demande(adresses: set, cle: str) -> None:
 
 def _demander_scan(adresses: set, cle: str) -> None:
     """Start a bounded scan without delaying the first Discord response."""
-    if adresses and not codes_pour(adresses, SALON_CODES_MINUTES):
+    # Also check for a newly re-sent code when a previous code is still cached.
+    # Keep the first reply instant; the reader updates it asynchronously.
+    if adresses:
         asyncio.create_task(_scanner_sur_demande(set(adresses), cle))
 
 
