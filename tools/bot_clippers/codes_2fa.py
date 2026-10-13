@@ -1190,6 +1190,13 @@ def _etat() -> dict:
             journal.warning("codes_lecteur.json illisible, réinitialisé")
         for cle, defaut in (("uid", {}), ("codes", []), ("faits", {}), ("sante", {}), ("n", 0)):
             _ETAT.setdefault(cle, defaut)
+        # Ne jamais restituer des codes mis en cache sous l'ancien mode non filtré :
+        # certains pouvaient venir d'une modification de compte Instagram.
+        mode = "strict_login_signup" if SECURITES else "legacy_all_meta"
+        if _ETAT.get("mode_codes") != mode:
+            _ETAT["codes"] = []
+            _ETAT["mode_codes"] = mode
+            journal.info("Codes : cache invalidé suite à un changement de mode")
     return _ETAT
 
 
