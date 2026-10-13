@@ -46,6 +46,8 @@ ACTIF = os.environ.get("SORTIE_AUTO", "1").strip() != "0"
 # « donne-leur 48 h ») — avertissement à 24 h, sortie à 48 h, et le même chiffre dans tous les textes.
 JOURS_COMPTE1 = int(os.environ.get("SORTIE_JOURS_COMPTE1", "2") or 2)
 KICK = os.environ.get("SORTIE_KICK", "1").strip() != "0"
+# Scheduled first-account checks only alert managers; no automatic release or kick.
+RETRAIT_AUTOMATIQUE = os.environ.get("SORTIE_AUTO_RETRAIT", "0").strip() == "1"
 COMPTE1_DEPUIS = os.environ.get("SORTIE_COMPTE1_DEPUIS", "2026-10-05")
 HEURE_UTC = int(os.environ.get("SORTIE_AUTO_HEURE_UTC", "8") or 8)
 REGLE_DEPUIS = os.environ.get("SORTIE_AUTO_DEPUIS", "2026-09-30")
@@ -349,9 +351,10 @@ def a_sortir_compte1(parcours: dict, maintenant=None, deja: dict = None, **kw) -
 
 
 def texte_avertissement_compte1(prenom: str, jours: int) -> str:
-    return (f"⚠️ {prenom}, **ton compte 1 n'est toujours pas créé** ({jours} jours).\n\n"
-            f"La règle de l'équipe : {JOURS_COMPTE1 * 24} h sans compte créé, tu sors du serveur et ta place va au suivant.\n\n"
-            "Crée-le aujourd'hui, puis appuie sur le bouton ✅ de ton étape. Un souci ? Écris à Gaëtan sur WhatsApp.")
+    return (f"⚠️ {prenom}, **peux-tu confirmer l'avancement de ton compte 1 ?** ({jours} jours depuis son ouverture).\n\n"
+            "Si tu l'as déjà créé, signale-le ici afin que le suivi soit mis à jour.\n\n"
+            "Sinon, crée-le et valide ton étape. En cas de blocage, écris à Gaëtan sur WhatsApp. "
+            "Aucune exclusion automatique n'est déclenchée par ce rappel.")
 
 
 async def executer(client, appliquer: bool = True) -> list:
@@ -409,7 +412,17 @@ async def executer(client, appliquer: bool = True) -> list:
             journal.warning("Avertissement compte 1 de %s : %s", prenom, erreur)
     for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, deja=avertis_avant, **kw):
         if not appliquer:
-            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → sortirait" + (" et expulsé" if KICK else ""))
+            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → sortirait" + (" et expulsé" if (KICK and RETRAIT_AUTOMATIQUE) else ""))
+            continue
+        if not RETRAIT_AUTOMATIQUE:
+            # A false negative in Instagram/Apify must not revoke a working clipper.
+            d_revue = _etat()
+            deja_signale = (d_revue.get("signalements_compte1") or {}).get(uid) == ref
+            if not deja_signale:
+                d_revue.setdefault("signalements_compte1", {})[uid] = ref
+                _deps["ecrire_json"](_deps["FICHIER"], d_revue)
+                bilan.append(f"⚠️ {prenom} : compte 1 à vérifier ({nb_jours} j) ; "
+                             "validation manager requise, AUCUNE sortie ni libération de compte.")
             continue
         m = _deps["membre_par_id"](uid)
         if m is None:
@@ -466,7 +479,7 @@ async def boucle(client):
         journal.info("Sortie automatique éteinte (SORTIE_AUTO=0)")
         return
     journal.info("Sortie automatique active (règle du 05/10) : compte 1 pas créé → averti à J-1, sorti%s à %d jours, à %d h UTC, "
-                 "jamais pour un retard antérieur au %s", " et expulsé" if KICK else "", JOURS_COMPTE1, HEURE_UTC, COMPTE1_DEPUIS)
+                 "jamais pour un retard antérieur au %s", " et expulsé" if (KICK and RETRAIT_AUTOMATIQUE) else "", JOURS_COMPTE1, HEURE_UTC, COMPTE1_DEPUIS)
     while not client.is_closed():
         maintenant = datetime.now(timezone.utc)
         d = _etat()
