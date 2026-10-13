@@ -5,8 +5,9 @@ import { couleur, creatrices, PERIODES, type Periode } from "./calc";
 import Vertical from "./Vertical";
 import Horizontal from "./Horizontal";
 import Subs from "./Subs";
+import Equipe360 from "./Equipe360";
 
-type Onglet = "vertical" | "horizontal" | "subs";
+type Onglet = "vertical" | "horizontal" | "subs" | "equipe";
 const RAFRAICHIR_MS = 5 * 60 * 1000;
 
 const ONGLETS: { cle: Onglet; libelle: string; icone: (a: boolean) => JSX.Element }[] = [
@@ -21,6 +22,10 @@ const ONGLETS: { cle: Onglet; libelle: string; icone: (a: boolean) => JSX.Elemen
   { cle: "subs", libelle: "Subs", icone: (a) => (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={a ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9.5" fill={a ? "currentColor" : "none"} fillOpacity={a ? 0.18 : 0} /><path d="M15.5 9.2a3.6 3.6 0 1 0 0 5.6M8 11h5M8 13.2h5" />
+    </svg>) },
+  { cle: "equipe", libelle: "Équipe", icone: (a) => (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={a ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M2.5 20v-2.5a5.5 5.5 0 0 1 11 0V20M14 16a4.5 4.5 0 0 1 7 3.5V20" />
     </svg>) },
 ];
 
@@ -110,13 +115,14 @@ export default function Pilotage({ jeton }: { jeton: string }) {
             {onglet === "vertical" ? <Vertical d={d} periode={periode} filtre={filtre} /> : null}
             {onglet === "horizontal" ? <Horizontal d={d} periode={periode} filtre={filtre} /> : null}
             {onglet === "subs" ? <Subs d={d} periode={periode} filtre={filtre} /> : null}
+            {onglet === "equipe" ? <Equipe360 d={d} filtre={filtre} /> : null}
             {d.fraicheur ? <p className="text-[11px] text-argent2/80 mt-8 px-1 leading-relaxed">Sources : {d.fraicheur}</p> : null}
           </>
         ) : null}
       </main>
 
       <nav className="barre fixed bottom-0 inset-x-0 z-20" style={{ paddingBottom: "calc(var(--safe-bas) + 6px)" }}>
-        <div className="grid grid-cols-3 max-w-md mx-auto">
+        <div className="grid grid-cols-4 max-w-md mx-auto">
           {ONGLETS.map((o) => {
             const actif = o.cle === onglet;
             return (
