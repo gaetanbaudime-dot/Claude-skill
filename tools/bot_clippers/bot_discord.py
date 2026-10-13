@@ -548,8 +548,7 @@ _OTP_UID_CACHE = {}  # UID Discord -> {mails, jusque}; jamais publié dans les l
 async def _actualiser_adresses_codes(uid):
     """Répare un alias manquant depuis le vrai Sheet des comptes, sans mutation de propriété."""
     uid = str(uid)
-    if _adresses_codes_fiche(uid):
-        return _adresses_codes_fiche(uid)
+    deja = _adresses_codes_fiche(uid)
     membre = membre_par_id(uid)
     equipes = lire_json(FICHIER_EQUIPES, {}) or {}
     fiche = equipes.get(uid) or {}
@@ -574,18 +573,18 @@ async def _actualiser_adresses_codes(uid):
         mails, diagnostic = otp_identity.unique_aliases(
             uid, creatrice, prenom, actifs, lignes, proprietaires)
         if mails:
-            _OTP_UID_CACHE[uid] = {"mails": mails, "jusque": time.monotonic() + 180}
+            _OTP_UID_CACHE[uid] = {"mails": mails, "jusque": time.monotonic() + 60}
             journal.info("Codes : association UID via classeur vérifiée (UID fin %s, %d adresses)",
                          uid[-4:], len(mails))
         else:
             _OTP_UID_CACHE.pop(uid, None)
             journal.warning("Codes : association UID impossible (UID fin %s, cause %s)",
                             uid[-4:], diagnostic)
-        return mails
+        return deja | mails
     except Exception as erreur:
         journal.warning("Codes : recherche des adresses dans le classeur impossible : %s",
                         type(erreur).__name__)
-        return set()
+        return deja
 
 
 def adresses_codes_de(uid) -> set:
@@ -600,11 +599,11 @@ def adresses_codes_de(uid) -> set:
     if membre is None:
         return set()
     propres = _adresses_codes_fiche(uid)
-    if propres:
-        return propres
     cache = _OTP_UID_CACHE.get(uid)
     if cache and cache.get("jusque", 0) > time.monotonic():
-        return set(cache.get("mails") or ())
+        return propres | set(cache.get("mails") or ())
+    if propres:
+        return propres
     salon = salon_perso_de(uid)
     if salon is None:
         return set()
