@@ -713,6 +713,42 @@ def _code_du_mail(sujet: str, fenetre: str):
     return re.sub(r"\D", "", m.group(1)) if m else None
 
 
+# Mail standard Instagram issu du parcours d'inscription / connexion.
+# Il est souvent suivi d'un pied de page Meta contenant "Facebook", "e-mail",
+# "password" ou "authentication". Ce pied ne doit pas changer le but du code.
+# La décision ne se fonde JAMAIS sur le nom affiché de l'expéditeur.
+_SUJET_CODE_INSTAGRAM = re.compile(
+    r"^\s*[0-9]{5,8}\s+(?:is your instagram code|est votre code instagram)\s*[.!]?\s*$", re.I)
+_MUTATION_CODE = re.compile(
+    r"(?:reset|change|changing|changed|update|updating|updated|remove|removing|add|adding|added|"
+    r"recover|recovery|forgot|forgotten|restore|appeal|disable|enable|delete|deleting|"
+    r"reinitialis\w*|reinitializ\w*|modifi\w*|chang\w*|ajout\w*|supprim\w*|"
+    r"recup\w*|oubli\w*|desactiv\w*|activ\w*|deban\w*|appel)\W{0,50}"
+    r"(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
+    r"pseudo|authenticat\w*|securit\w*|security|account|compte|2fa|two.factor)"
+    r"|(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
+    r"pseudo|2fa|two.factor)\W{0,50}(?:reset|chang\w*|modifi\w*|updat\w*|"
+    r"remov\w*|ajout\w*|add\w*|desactiv\w*|activ\w*)",
+    re.I,
+)
+
+
+def _code_standard_connexion(sujet: str, corps: str, code: str) -> str:
+    """Recognize only Meta's exact 6-digit subject; reject explicit account mutations."""
+    sujet = unicodedata.normalize("NFKC", str(sujet or ""))
+    if not _SUJET_CODE_INSTAGRAM.fullmatch(sujet):
+        return ""
+    # Only the meaningful text, excluding the boilerplate footer. If the core
+    # requests a sensitive change, refuse even when the subject is generic.
+    pertinent = _sans_pied(plat(str(corps or "")[:1000]), code)
+    sans_avertissement, _ = _avertissements(pertinent, code)
+    if _MUTATION_CODE.search(sans_avertissement):
+        return ""
+    if APPEL_RE.search(_sans_pseudos(sans_avertissement)):
+        return ""
+    return "creation" if CREATION_RE.search(_sans_pseudos(sans_avertissement)) else "connexion"
+
+
 def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     """La décision sur un mail : {"decision": "donner"|"garder"|"alerte"|"rien", "type": "creation"|"connexion"|"appel"|"",
     "code": str|None, "libelle": str, "compte": str}. « donner » = le clipper peut l'avoir ; « garder » = un code qui ne
@@ -748,6 +784,10 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     if not expediteur_instagram(from_header) and not (expediteur_meta_codes(from_header) and "instagram" in blanc):
         quoi = "Facebook" if "facebook" in adresse_expediteur(from_header) else "Meta ou Espace Comptes"
         return dict(sortie, decision="garder", libelle=f"code {quoi} (pas un mail Instagram)")
+    if expediteur_instagram(from_header):
+        standard = _code_standard_connexion(sujet, corps, code)
+        if standard:
+            return dict(sortie, decision="donner", type=standard, libelle=QUOI[standard])
     libelle = _noire(texte)
     if libelle:
         return dict(sortie, decision="garder", libelle=libelle)
