@@ -29,6 +29,7 @@ import discord
 import anthropic
 
 import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
+import conversation_audit                 # export privé de l'historique pour audit du serveur (lecture seule)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
@@ -6475,6 +6476,22 @@ async def commande_admin(message, texte: str) -> bool:
     if retiree:
         await message.reply(retiree)
         return True
+    # Admin-only: redacted history is sent by DM, never posted to a public channel.
+    if texte.split()[:1] == ["!audit-discussions"]:
+        if str(message.author.id) not in ADMIN_IDS:
+            await message.reply("Réservé à l'administrateur.")
+            return True
+        try:
+            jours = int(texte.split()[1]) if len(texte.split()) > 1 else 90
+            res = await conversation_audit.export_to_admin_dm(
+                message, await salons_clippers_acceptes(), days=jours)
+            await message.reply(
+                f"📩 Audit envoyé uniquement dans tes MP : {res['rooms']} salons, "
+                f"{res['messages']} messages, {res['errors']} salon(s) illisible(s).")
+        except (ValueError, discord.HTTPException) as erreur:
+            await message.reply(f"❌ Export impossible : {str(erreur)[:270]}")
+        return True
+
     # ---- !audit : carte complète du serveur + écarts à la doctrine des 3 étages ----
     # ---- !pourquoi : pourquoi CE membre ne voit pas CE salon ----
     # Né du cas Quentin (11→15/08) : quatre jours perdus à se renvoyer des captures
