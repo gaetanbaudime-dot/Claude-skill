@@ -50,6 +50,8 @@ ACTIF = os.environ.get("APPEL", "1").strip() != "0"
 HEURES = int(os.environ.get("APPEL_HEURES", "48") or 48)
 INACTIF_JOURS = int(os.environ.get("APPEL_INACTIF_JOURS", "2") or 2)       # 05/10, 15 h 30 : 2 jours (4 avant)
 KICK = os.environ.get("APPEL_KICK", "1").strip() != "0"
+# Calls are non-punitive by default; the central removal guard independently requires opt-in.
+SORTIE_AUTOMATIQUE = os.environ.get("APPEL_SORTIE_AUTO", "0").strip() == "1"
 GENERAL = os.environ.get("APPEL_GENERAL", "1").strip() != "0"
 # 05/10 (Gaëtan : « vire directement les clippeurs qui n'ont pas créé de compte dans les 72 h et n'ont pas répondu sur leur salon
 # privé ») : la purge, une fois au démarrage (PURGE_72H=1), puis `!purge` / `!purge go`.
@@ -62,9 +64,10 @@ RAISON_PURGE = (f"{PURGE_HEURES} h sans créer ton compte 1 et sans un mot dans 
                 else f"compte 1 Instagram non créé {PURGE_HEURES} h après l'avoir reçu")
 _deps = {}
 
-TEXTE_APPEL = ("📢 **{prenom}, réponds ici dans les {heures} h.** Un mot suffit : « présent ».\n\n"
-               "Et écris à Gaëtan sur WhatsApp (bouton ci-dessous, {wa}) : c'est là que l'équipe te parle.\n\n"
-               "Sans réponse ici dans {heures} h, tu sors du serveur et ta place va au suivant.")
+TEXTE_APPEL = ("📢 **{prenom}, petit point de présence : peux-tu répondre ici ?** Un mot suffit : « présent ».\n\n"
+               "Et écris à Gaëtan sur WhatsApp (bouton ci-dessous, {wa}) pour que l'équipe puisse t'aider.\n\n"
+               "Une absence de réponse sera signalée au manager pour vérification ; "
+               "elle ne déclenche aucune exclusion automatique.")
 TEXTE_RELANCE_WA = ("📲 {prenom}, merci pour ta réponse. Il manque WhatsApp : écris à Gaëtan maintenant (bouton ci-dessous), "
                     "il ouvre ton groupe. C'est là que tout se passe.\n\nDéjà fait ? Appuie sur « ✅ J'ai écrit à Gaëtan ».")
 RAISON = f"sans réponse à l'appel depuis {HEURES} h"
@@ -203,7 +206,8 @@ async def lancer_appel(cibles: list, motif: str, maintenant=None) -> list:
         prenom = _deps["prenom_de"](membre) if _deps.get("prenom_de") else getattr(membre, "display_name", uid)
         a = d["appels"].get(uid)
         if a and not a.get("sorti") and not a.get("repondu") and not a.get("non_mesure") and (
-                a.get("non_mesure_signale") or (_dt(a.get("date")) or maintenant) + timedelta(hours=HEURES) > maintenant):
+                a.get("non_mesure_signale") or a.get("verification_humaine") or
+                (_dt(a.get("date")) or maintenant) + timedelta(hours=HEURES) > maintenant):
             continue                                                    # un appel court déjà (11/10 : ou échu, il attend la mesure)
         if _protege(uid, prenom):
             continue
@@ -273,7 +277,7 @@ def a_sortir(d: dict, maintenant=None) -> list:
     maintenant = maintenant or datetime.now(timezone.utc)
     out = []
     for uid, a in d.get("appels", {}).items():
-        if a.get("repondu") or a.get("sorti") or a.get("non_mesure"):
+        if a.get("repondu") or a.get("sorti") or a.get("non_mesure") or a.get("verification_humaine"):
             continue
         debut = _dt(a.get("date"))
         if debut is not None and maintenant >= debut + timedelta(hours=HEURES):
@@ -359,6 +363,7 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
             suite = ("muet mais actif (visites) → pas sorti" if n_vis >= VISITES_ACTIF
                      else "mesure du scan illisible → rien à ce passage" if illisible
                      else "non mesuré (le scan ne lit pas ses comptes) → pas sorti, jugé dès qu'il est mesuré" if not mesure
+                     else "à vérifier par un manager (sans exclusion automatique)" if not SORTIE_AUTOMATIQUE
                      else "sortirait" + (" et expulsé" if KICK else ""))
             bilan.append(f"· {prenom} : sans réponse depuis {HEURES} h, {suite}")
             continue
@@ -392,6 +397,15 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
             elif maintenant >= signale + timedelta(days=MESURE_ATTENTE):
                 a_d["non_mesure"] = _iso(maintenant); _ecrire(d)
                 bilan.append(f"⏸️ {prenom} (<@{uid}>) : {MESURE_ATTENTE} j sans mesure du scan → appel clos, pas sorti")
+            continue
+        if not SORTIE_AUTOMATIQUE:
+            # An expired call can only trigger a human review, never touch the account.
+            a_d = d["appels"].get(uid, {})
+            a_d["verification_humaine"] = _iso(maintenant)
+            d["appels"][uid] = a_d
+            _ecrire(d)
+            bilan.append(f"⚠️ {prenom} (<@{uid}>) : appel sans réponse ; "
+                         "à vérifier manuellement, AUCUNE sortie ni réattribution.")
             continue
         try:
             res = await _deps["sortir"](m, RAISON, pool=True, expulser=KICK)
@@ -582,7 +596,7 @@ async def purger(client, appliquer: bool = True, maintenant=None) -> list:
 def etat_texte(maintenant=None) -> str:
     maintenant = maintenant or datetime.now(timezone.utc)
     d = _lire()
-    attente, repondus, sortis, non_mesures = [], [], [], []
+    attente, repondus, sortis, non_mesures, verifications = [], [], [], [], []
     for uid, a in d["appels"].items():
         p = a.get("prenom") or uid
         if a.get("sorti"):
@@ -591,6 +605,8 @@ def etat_texte(maintenant=None) -> str:
             repondus.append(p + ("" if (_deps["parcours_lire"]() if _deps.get("parcours_lire") else {}).get(uid, {}).get("whatsapp") else " (pas de WhatsApp)"))
         elif a.get("non_mesure"):
             non_mesures.append(p)
+        elif a.get("verification_humaine"):
+            verifications.append(p)
         elif a.get("non_mesure_signale"):                               # 11/10 : échu, jugé dès que le scan lit ses comptes
             attente.append(f"{p} (échu, attend la mesure du scan)")
         else:
@@ -602,6 +618,7 @@ def etat_texte(maintenant=None) -> str:
     lignes.append(f"⏳ Sans réponse ({len(attente)}) : " + (", ".join(attente) or "personne"))
     lignes.append(f"✅ Ont répondu ({len(repondus)}) : " + (", ".join(repondus) or "personne"))
     lignes.append(f"🚪 Sortis ({len(sortis)}) : " + (", ".join(sortis) or "personne"))
+    lignes.append(f"🛡️ A vérifier sans sortie ({len(verifications)}) : " + (", ".join(verifications) or "personne"))
     if non_mesures:
         lignes.append(f"⏸️ Appels clos sans sortie, {MESURE_ATTENTE} j sans mesure ({len(non_mesures)}) : " + ", ".join(non_mesures))
     nm = d.get("non_mesures") or {}
@@ -611,7 +628,7 @@ def etat_texte(maintenant=None) -> str:
     if ill is not None:                                                 # 11/10 (rejeu de L9a) : l'appel est suspendu, on le dit
         lignes.append(f"⚠️ Mesure du scan illisible depuis {max(0, int((maintenant - ill).total_seconds() // 3600))} h : "
                       "personne n'est appelé ni sorti tant qu'elle ne revient pas")
-    lignes.append(f"-# Règle : {HEURES} h pour répondre, inactif {INACTIF_JOURS} j = appelé, expulsion {'ON' if KICK else 'OFF'}. "
+    lignes.append(f"-# Règle : {HEURES} h pour répondre, inactif {INACTIF_JOURS} j = appelé, expulsion {'ON' if (KICK and SORTIE_AUTOMATIQUE) else 'OFF'}. "
                   "Non mesuré (le scan ne lit pas ses comptes) = pas d'appel ; un appel échu attend la mesure, "
                   f"clos sans sortie après {MESURE_ATTENTE} j. "
                   "`!wa @clipper` note WhatsApp, `!appel @clipper` appelle, `!appel go` relance l'appel général.")
@@ -659,7 +676,7 @@ async def boucle(client):
     if not ACTIF:
         journal.info("Appel de présence éteint (APPEL=0)")
         return
-    journal.info("Appel de présence actif : %d h pour répondre, inactif %d j = appelé, expulsion %s", HEURES, INACTIF_JOURS, "ON" if KICK else "OFF")
+    journal.info("Appel de présence actif : %d h pour répondre, inactif %d j = appelé, expulsion %s", HEURES, INACTIF_JOURS, "ON" if (KICK and SORTIE_AUTOMATIQUE) else "OFF")
     await asyncio.sleep(90)                                             # le reste du démarrage d'abord (salons, registre)
     try:
         if GENERAL and not _lire().get("general"):
