@@ -6016,6 +6016,13 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     déposée porte une note interne, jamais montrée au membre). `dus=True` (sorties déposées seulement) : avec pool, ses liens sont
     libérés par son uid et ses visites d'avant la sortie restent sur la paie ; sans (purges de l'appel et de la sortie auto),
     rien ne change, en attendant que Gaëtan tranche s'il paie les purgés."""
+    # Security invariant: scheduled routines must never strip roles, release IG accounts,
+    # transfer GAML links or kick a clipper without an explicit operator decision.
+    # 'dus=True' is reserved for the existing human-approved roster departure workflow.
+    if par is None and not dus and os.environ.get("SORTIES_AUTO_AUTORISEES", "0").strip() != "1":
+        journal.warning("Sortie automatique BLOQUEE, revue humaine requise (uid=%s)", getattr(membre, "id", "?"))
+        return {"roles": 0, "acces": 0, "comptes": 0, "liens": 0,
+                "refus": ["sortie automatique bloquee : validation humaine requise"], "expulse": False}
     g = membre.guild
     nom_par = getattr(par, "display_name", "le bot (automatique)")
     par_id = str(getattr(par, "id", "auto"))
