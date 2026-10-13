@@ -73,14 +73,15 @@ IMAP_PASSWORD = os.environ.get("CODES_IMAP_PASSWORD", "").strip()
 # Dossier/libellé lu (Gmail : un libellé = un dossier IMAP), plus le Spam où Meta tombe souvent.
 IMAP_DOSSIER = os.environ.get("CODES_IMAP_DOSSIER", "INBOX").strip() or "INBOX"
 DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()
+DOSSIER_TOUS = os.environ.get("CODES_IMAP_TOUS", "[Gmail]/All Mail").strip()
 IMAP_TIMEOUT = int(os.environ.get("CODES_IMAP_TIMEOUT_SEC", "30") or 30)
 ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 # 10/10 : IDLE au plus SONDAGE_SEC secondes (le code arrive en quelques secondes), sinon une lecture toutes les SONDAGE_SEC.
 SONDAGE_SEC = int(os.environ.get("CODES_SONDAGE_SEC", "20") or 20)
 ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "300") or 300)    # le guet après « 📩 Mon code » : 5 min
-FRAIS_MIN = int(os.environ.get("CODES_FRAIS_MIN", "5") or 5)            # au-delà, « ancien code » et le guet continue
-SALON_CODES_MINUTES = int(os.environ.get("CODES_SALON_MINUTES", "60") or 60)
-CACHE_MIN = max(SALON_CODES_MINUTES, 120)                               # 2 h pour `!code` d'un manager dans son salon
+FRAIS_MIN = min(10, max(1, int(os.environ.get("CODES_FRAIS_MIN", "10") or 10)))  # toujours au plus 10 minutes
+SALON_CODES_MINUTES = min(10, max(1, int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)))
+CACHE_MIN = SALON_CODES_MINUTES  # tout code récupérable doit dater de moins de dix minutes
 JOURS_AMORCE = int(os.environ.get("BANS_JOURS", "3") or 3)              # premier passage : les mails Meta de 3 jours
 AMORCE_MAX = int(os.environ.get("CODES_AMORCE_MAX", "120") or 120)
 QUOTA_SEUIL = 0.9
@@ -713,6 +714,42 @@ def _code_du_mail(sujet: str, fenetre: str):
     return re.sub(r"\D", "", m.group(1)) if m else None
 
 
+# Mail standard Instagram issu du parcours d'inscription / connexion.
+# Il est souvent suivi d'un pied de page Meta contenant "Facebook", "e-mail",
+# "password" ou "authentication". Ce pied ne doit pas changer le but du code.
+# La décision ne se fonde JAMAIS sur le nom affiché de l'expéditeur.
+_SUJET_CODE_INSTAGRAM = re.compile(
+    r"^\s*[0-9]{5,8}\s+(?:is your instagram code|est votre code instagram)\s*[.!]?\s*$", re.I)
+_MUTATION_CODE = re.compile(
+    r"(?:reset|change|changing|changed|update|updating|updated|remove|removing|add|adding|added|"
+    r"recover|recovery|forgot|forgotten|restore|appeal|disable|enable|delete|deleting|"
+    r"reinitialis\w*|reinitializ\w*|modifi\w*|chang\w*|ajout\w*|supprim\w*|"
+    r"recup\w*|oubli\w*|desactiv\w*|activ\w*|deban\w*|appel)\b.{0,65}?"
+    r"(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
+    r"pseudo|authenticat\w*|securit\w*|security|account|compte|2fa|two.factor)"
+    r"|(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
+    r"pseudo|2fa|two.factor)\b.{0,65}?(?:reset|chang\w*|modifi\w*|updat\w*|"
+    r"remov\w*|ajout\w*|add\w*|desactiv\w*|activ\w*)",
+    re.I,
+)
+
+
+def _code_standard_connexion(sujet: str, corps: str, code: str) -> str:
+    """Recognize only Meta's exact 6-digit subject; reject explicit account mutations."""
+    sujet = unicodedata.normalize("NFKC", str(sujet or ""))
+    if not _SUJET_CODE_INSTAGRAM.fullmatch(sujet):
+        return ""
+    # Only the meaningful text, excluding the boilerplate footer. If the core
+    # requests a sensitive change, refuse even when the subject is generic.
+    pertinent = _sans_pied(plat(str(corps or "")[:1000]), code)
+    sans_avertissement, _ = _avertissements(pertinent, code)
+    if _MUTATION_CODE.search(sans_avertissement):
+        return ""
+    if APPEL_RE.search(_sans_pseudos(sans_avertissement)):
+        return ""
+    return "creation" if CREATION_RE.search(_sans_pseudos(sans_avertissement)) else "connexion"
+
+
 def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     """La décision sur un mail : {"decision": "donner"|"garder"|"alerte"|"rien", "type": "creation"|"connexion"|"appel"|"",
     "code": str|None, "libelle": str, "compte": str}. « donner » = le clipper peut l'avoir ; « garder » = un code qui ne
@@ -748,6 +785,10 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     if not expediteur_instagram(from_header) and not (expediteur_meta_codes(from_header) and "instagram" in blanc):
         quoi = "Facebook" if "facebook" in adresse_expediteur(from_header) else "Meta ou Espace Comptes"
         return dict(sortie, decision="garder", libelle=f"code {quoi} (pas un mail Instagram)")
+    if expediteur_instagram(from_header):
+        standard = _code_standard_connexion(sujet, corps, code)
+        if standard:
+            return dict(sortie, decision="donner", type=standard, libelle=QUOI[standard])
     libelle = _noire(texte)
     if libelle:
         return dict(sortie, decision="garder", libelle=libelle)
@@ -900,7 +941,13 @@ class Lecteur:
         self._signal = []                                              # le passage en cours : remarques pour le salon admin
 
     def dossiers(self) -> list:
-        return [IMAP_DOSSIER] + ([DOSSIER_SPAM] if DOSSIER_SPAM and DOSSIER_SPAM != IMAP_DOSSIER else [])
+        # Inbox includes Gmail's Primary, Social, Updates and Promotions while
+        # "[Gmail]/All Mail" also includes archived messages. Spam is separate.
+        unique = []
+        for dossier in (IMAP_DOSSIER, DOSSIER_TOUS, DOSSIER_SPAM):
+            if dossier and dossier not in unique:
+                unique.append(dossier)
+        return unique
 
     def fermer(self):
         boite, self.boite, self.selection, self.validite = self.boite, None, None, None
@@ -1260,7 +1307,14 @@ def codes_pour(adresses, minutes: int = None, tout: bool = False) -> list:
     """12/10 (Gaëtan : « ça lui sort le 2FA le plus récent… il faut que le 2FA marche à tous les coups ») : les codes donnables
     pour celui qui demande, plus récents d'abord : ceux de ses adresses ; plus les codes reçus depuis ORPHELIN_MIN minutes sur une
     adresse que personne d'autre n'a (alias tapé autrement, adresse jamais rattachée) ; `tout` (staff) : tous les codes."""
-    if SECURITES:                                                      # CODES_SECURITES=1 : la règle du 10/10, ses adresses seules
+    if SECURITES:
+        # Seul ADMIN_IDS peut demander le dernier code admissible de la boîte entière.
+        # Pas de repli "orphelin" pour les clippers : un alias doit appartenir à leur UID.
+        if tout:
+            limite = _maintenant() - timedelta(minutes=SALON_CODES_MINUTES if minutes is None else minutes)
+            return sorted((t for t in _etat()["codes"] if t.get("decision") == "donner"
+                           and t.get("code") and _date(t) >= limite),
+                          key=_cle_tri, reverse=True)
         return codes_recents(adresses, minutes)
     minutes = SALON_CODES_MINUTES if minutes is None else minutes
     adresses = {str(a).strip().lower() for a in adresses or []}
@@ -1583,8 +1637,9 @@ async def servir_interaction(interaction) -> str:
 
     membre = interaction.user
     adresses = _adresses_membre(membre)
-    staff = _est_staff(membre) and not SECURITES
-    if not adresses and SECURITES:
+    admin = str(getattr(membre, "id", "")) in set(_deps.get("admin_ids") or ())
+    staff = admin
+    if not adresses and SECURITES and not admin:
         await _sans_adresse(membre, dire)
         return "sans_adresse"
     if not adresses and not staff:
@@ -1690,12 +1745,16 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
         cibles = {alias}
     elif miens:
         cibles = set(miens)
+    elif str(message.author.id) in admin_ids:
+        # Test admin dans #bot-gaetan, même sans e-mail attaché à son salon.
+        # Jamais d'envoi au salon : MP uniquement, codes "donner" filtrés.
+        cibles = set()
     else:
         await message.reply("Format : `!code adresse@icloud.com`. Dans un salon avec des adresses rattachées, `!code` tout "
                             "court suffit. Seuls les codes de connexion et de création sortent.")
         return True
     # Le code ne s'écrit dans le salon que s'il est privé et que TOUTES ces adresses y sont rattachées ; sinon, en MP.
-    ici = all((registre.get(a) or {}).get("canal_id") == canal_id for a in cibles) and _salon_prive(message.channel)
+    ici = False  # Même le staff reçoit les codes en MP : jamais dans un salon Discord.
     reponse = {"msg": None}
 
     async def dire(t):
@@ -1714,7 +1773,8 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
             await message.reply("🔒 Tes messages privés sont fermés : je ne donne pas ce code dans ce salon.")
             return True
         await message.reply("📩 Réponse en message privé.")
-    await _servir(cibles, dire, f"salon|{canal_id}|{getattr(message.author, 'id', '')}", minutes=CACHE_MIN)
+    await _servir(cibles, dire, f"salon|{canal_id}|{getattr(message.author, 'id', '')}", minutes=CACHE_MIN,
+                  tout=str(message.author.id) in admin_ids and not cibles)
     return True
 
 
@@ -1727,7 +1787,7 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
     if adresse and not admin:
         await message.reply("Ici, chacun ses codes : `!code adresse` est réservé à Gaëtan.")
         return True
-    staff = (manager or admin or _est_staff(message.author)) and not SECURITES
+    staff = admin  # seul ADMIN_IDS, jamais un TL/Manager, peut voir la boîte complète
     relire = None
     if adresse:
         adresses = {adresse.strip().lower()}
@@ -1742,7 +1802,7 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Adresses du clipper (salon commun) : %s", _err(erreur))
             adresses = set()
-    if not adresses and SECURITES:
+    if not adresses and SECURITES and not admin:
         await _sans_adresse(message.author, message.reply)
         return True
     if not adresses:                                                   # 12/10 : plus de refus, le code le plus récent sort quand même
