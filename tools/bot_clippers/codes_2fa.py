@@ -723,11 +723,11 @@ _MUTATION_CODE = re.compile(
     r"(?:reset|change|changing|changed|update|updating|updated|remove|removing|add|adding|added|"
     r"recover|recovery|forgot|forgotten|restore|appeal|disable|enable|delete|deleting|"
     r"reinitialis\w*|reinitializ\w*|modifi\w*|chang\w*|ajout\w*|supprim\w*|"
-    r"recup\w*|oubli\w*|desactiv\w*|activ\w*|deban\w*|appel)\W{0,50}"
+    r"recup\w*|oubli\w*|desactiv\w*|activ\w*|deban\w*|appel)\b.{0,65}?"
     r"(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
     r"pseudo|authenticat\w*|securit\w*|security|account|compte|2fa|two.factor)"
     r"|(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
-    r"pseudo|2fa|two.factor)\W{0,50}(?:reset|chang\w*|modifi\w*|updat\w*|"
+    r"pseudo|2fa|two.factor)\b.{0,65}?(?:reset|chang\w*|modifi\w*|updat\w*|"
     r"remov\w*|ajout\w*|add\w*|desactiv\w*|activ\w*)",
     re.I,
 )
