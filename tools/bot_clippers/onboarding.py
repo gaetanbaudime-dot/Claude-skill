@@ -43,6 +43,7 @@ journal = logging.getLogger("onboarding")
 CLASSEUR_LOGINS_ID = os.environ.get("CLASSEUR_LOGINS_ID", "").strip()
 ONGLET_LOGINS = os.environ.get("ONGLET_LOGINS", "").strip()             # 27/09 : vide ou « auto » = un onglet par créatrice, découverts
 ONGLETS_EXCLUS = os.environ.get("ONGLETS_EXCLUS", "Gaetan, Gaëtan, Tracking, Backup, Candidatures, Modèle, Template, Archive, Dashboard, Build capacity")
+ONGLETS_VUES_NON_COMPTES = ("Clippers · 360", "Référentiel clippers", "Scale · Plan 100", "Stats verticales", "Comptes Marketing", "Équipes Marketing", "Dashboard · Pilotage")
 ONGLETS_HERITES = ("instagram", "logins", "comptes")                     # l'ancien onglet global : lu seulement sans onglet créatrice
 CACHE_ONGLETS_SEC = 600                                                  # la liste des onglets est relue toutes les 10 minutes
 _onglets_cache = {"quand": 0.0, "titres": []}
@@ -91,7 +92,7 @@ def _colonnes_trouvees(en_tete: list) -> dict:
 
 def en_tete_reconnu(en_tete: list) -> bool:
     """Vrai si la ligne d'en-tête est celle d'un onglet de logins (ETAT, @ IG et Gérant repérés)."""
-    return all(k in _colonnes_trouvees(en_tete) for k in ("etat", "handle", "gerant"))
+    return all(k in _colonnes_trouvees(en_tete) for k in ("etat", "handle", "gerant", "mail", "mdp"))
 
 
 def colonnes(en_tete: list) -> dict:
@@ -192,7 +193,7 @@ def normaliser_handle(brut) -> str:
 
 
 def _exclus() -> set:
-    return {_norm(t).strip() for t in ONGLETS_EXCLUS.split(",") if t.strip()}
+    return {_norm(t).strip() for t in (*ONGLETS_EXCLUS.split(","), *ONGLETS_VUES_NON_COMPTES) if t.strip()}
 
 
 def _sources() -> dict:
