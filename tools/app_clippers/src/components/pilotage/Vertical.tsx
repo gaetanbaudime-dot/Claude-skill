@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import type { Clic, Compte, Pilotage } from "@/lib/pilotage";
-import { couleur, creatrices, decaler, fenetre, fmt, meme, serieParJour, somme, variation, type Periode } from "./calc";
+import { couleur, creatrices, decaler, fenetre, fmt, meme, pct, serieParJour, somme, sommeBoutons, variation, type Periode } from "./calc";
 import { ouvrirInstagram } from "@/lib/instagram";
 import { BarresJour, Courbe, Delta, Ecart, Kpi, Titre } from "./ui";
 
@@ -89,6 +89,7 @@ export default function Vertical({ d, periode, filtre }: { d: Pilotage; periode:
         const k = clics.filter((c) => meme(c.creatrice, cr));
         const s = somme(k, f.debut, f.fin), a = somme(k, f.avantDebut, f.avantFin);
         const s30 = somme(k, f30.debut, f30.fin);
+        const b = sommeBoutons(d, f.debut, f.fin, (x) => x.axe === "Vertical" && meme(x.creatrice, cr));
         const sources = new Map<string, number>();
         k.filter((c) => c.jour >= f.debut && c.jour <= f.fin).forEach((c) => sources.set(c.source, (sources.get(c.source) || 0) + c.visites));
         const siens = comptes.filter((c) => meme(c.creatrice, cr)).sort((x, y) => (y.followers || 0) - (x.followers || 0));
@@ -99,7 +100,7 @@ export default function Vertical({ d, periode, filtre }: { d: Pilotage; periode:
               <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ background: couleur(cr, i) }} />{cr}
             </Titre>
             <div className="carte px-4 pt-3 pb-1">
-              <div className="text-[12px] text-argent2 pb-2"><b className="text-white tabular-nums">{s30.manquants ? "≈ " : ""}{fmt(s30.visites)}</b> clics sur 30 jours</div>
+              <div className="text-[12px] text-argent2 pb-2"><b className="text-white tabular-nums">{s30.manquants ? "≈ " : ""}{fmt(s30.visites)}</b> clics sur 30 jours{b.releve ? <> · <b className="text-white tabular-nums">{fmt(b.of + b.mym)}</b> clics OF / MYM ({pct(b.taux)} des visites)</> : null}</div>
               {sources.size ? (
                 <div className="flex flex-wrap gap-1.5 pb-2">
                   {[...sources.entries()].sort((x, y) => y[1] - x[1]).map(([src, v]) => (

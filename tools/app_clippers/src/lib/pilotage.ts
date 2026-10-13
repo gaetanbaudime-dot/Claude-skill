@@ -12,7 +12,8 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { jetonGoogle } from "./google";
 import { tableur } from "./usage";
 
-export const ONGLETS = { comptes: "Pilotage comptes", clics: "Pilotage clics", subs: "Pilotage subs", infos: "Pilotage infos" };
+export const ONGLETS = { comptes: "Pilotage comptes", clics: "Pilotage clics", subs: "Pilotage subs", infos: "Pilotage infos",
+  boutons: "Pilotage boutons" };
 
 export function jetonPilotage(): string | null {
   const secret = process.env.ADMIN_SECRET;
@@ -39,8 +40,10 @@ export type Compte = {
 /** Une ligne de clics : un jour, une créatrice, un axe (Vertical / Horizontal), une source (Page principale, Bio Instagram, YouTube,
  *  Facebook, Clipper, Metricool, Libéré…), une personne ou une page ; `manquants` > 0 = des liens pas encore relevés ce jour-là. */
 export type Clic = { jour: string; creatrice: string; axe: string; source: string; qui: string; visites: number; horsRobots: number; liens: number; manquants: number };
+/** 13/10 : les clics sur les boutons OnlyFans et MYM des pages GAML, rangés comme les visites (relevés toutes les 3 h). */
+export type Bouton = { jour: string; creatrice: string; axe: string; source: string; qui: string; of: number; mym: number; autre: number };
 export type Sub = { jour: string; creatrice: string; subsOf: number; caOfUsd: number; subsMym: number; caMymEur: number; saisi: boolean };
-export type Pilotage = { publie: string; fraicheur: string; taux: number; aujourdhui: string; comptes: Compte[]; clics: Clic[]; subs: Sub[] };
+export type Pilotage = { publie: string; fraicheur: string; taux: number; aujourdhui: string; comptes: Compte[]; clics: Clic[]; subs: Sub[]; boutons: Bouton[] };
 
 const nb = (x: string | undefined): number | null => {
   const t = String(x ?? "").replace(/\s/g, "").replace(",", ".");
@@ -56,12 +59,14 @@ let enCours: Promise<Pilotage> | null = null;
 async function lire(): Promise<Pilotage> {
   const id = await tableur();
   const jeton = await jetonGoogle();
-  const plages = [`'${ONGLETS.comptes}'!A2:V`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`];
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet?${plages.map((p) => `ranges=${encodeURIComponent(p)}`).join("&")}`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
+  const plages = [`'${ONGLETS.comptes}'!A2:V`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`, `'${ONGLETS.boutons}'!A2:H`];
+  const url = (ps: string[]) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet?${ps.map((p) => `ranges=${encodeURIComponent(p)}`).join("&")}`;
+  let r = await fetch(url(plages), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
+  // 13/10 : l'onglet des boutons n'existe qu'après la première publication du bot ; sans lui, le reste se lit quand même
+  if (r.status === 400) r = await fetch(url(plages.slice(0, 4)), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   if (!r.ok) throw new Error(`Sheets ${r.status}`);
   const d = (await r.json()) as { valueRanges?: { values?: string[][] }[] };
-  const [vc, vk, vs, vi] = (d.valueRanges || []).map((x) => x.values || []);
+  const [vc, vk, vs, vi, vb] = (d.valueRanges || []).map((x) => x.values || []);
   const infos = Object.fromEntries((vi || []).map((l) => [l[0], l[1]]));
   const comptes: Compte[] = (vc || []).filter((l) => l[4]).map((l) => ({
     creatrice: l[0] || "?", axe: l[1] || "", type: l[2] || "", gerant: l[3] || "", handle: l[4] || "", etat: l[5] || "",
@@ -76,8 +81,11 @@ async function lire(): Promise<Pilotage> {
   const subs: Sub[] = (vs || []).filter((l) => /^\d{4}-\d{2}-\d{2}$/.test(l[0] || "")).map((l) => ({
     jour: l[0], creatrice: l[1] || "?", subsOf: n0(l[2]), caOfUsd: n0(l[3]), subsMym: n0(l[4]), caMymEur: n0(l[5]), saisi: l[6] === "oui",
   }));
+  const boutons: Bouton[] = (vb || []).filter((l) => /^\d{4}-\d{2}-\d{2}$/.test(l[0] || "")).map((l) => ({
+    jour: l[0], creatrice: l[1] || "?", axe: l[2] || "", source: l[3] || "", qui: l[4] || "", of: n0(l[5]), mym: n0(l[6]), autre: n0(l[7]),
+  }));
   const aujourdhui = new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  return { publie: infos["Publié"] || "", fraicheur: infos["Fraîcheur"] || "", taux: nb(infos["Taux USD→EUR"]) ?? 0.92, aujourdhui, comptes, clics, subs };
+  return { publie: infos["Publié"] || "", fraicheur: infos["Fraîcheur"] || "", taux: nb(infos["Taux USD→EUR"]) ?? 0.92, aujourdhui, comptes, clics, subs, boutons };
 }
 
 /** Les quatre onglets, lus en un appel (cache 2 minutes : le bot publie au plus toutes les 15). */

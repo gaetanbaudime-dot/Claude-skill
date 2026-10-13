@@ -39,6 +39,9 @@ ENTETE_COMPTES = ["Créatrice", "Axe", "Type", "Gérant", "@", "ETAT", "Follower
                   "Clics 7 j", "Clics 7 j d'avant", "Dernier Reel", "Mesure", "Vues 7 j (dernier relevé)"]   # 13/10 : + vues récentes
 ENTETE_CLICS = ["Jour", "Créatrice", "Axe", "Source", "Qui", "Visites payables", "Visites hors robots", "Liens", "Liens non relevés"]
 ENTETE_SUBS = ["Jour", "Créatrice", "Subs OF", "CA OF ($)", "Subs MYM", "CA MYM (€)", "Saisi"]
+# 13/10 : les clics sur les boutons OnlyFans et MYM des pages (boutons.py), jour × créatrice × axe × source × personne
+ONGLET_BOUTONS = "Pilotage boutons"
+ENTETE_BOUTONS = ["Jour", "Créatrice", "Axe", "Source", "Qui", "Clics OF", "Clics MYM", "Autres boutons"]
 SUBS_TTL_S = 30 * 60
 # 12/10 (Gaëtan : app des Team Leaders, et « dans l'app clippeur, un onglet où il peut mettre à jour le @ de ses 3 comptes ») :
 # « Comptes app » = les comptes de chaque clipper dans l'ordre du parcours, avec son TL (onglets Comptes et Équipe de l'app) ;
@@ -227,6 +230,20 @@ async def _ecrire(classeur: str, titre: str, entete: list, lignes: list) -> bool
     return True
 
 
+_taches = set()
+
+
+def _relever_boutons(pil: dict, aujourdhui: date) -> None:
+    """13/10 : boutons.maj en tâche de fond (jamais au prix de la publication) ; rien hors boucle asyncio."""
+    try:
+        import boutons
+        tache = asyncio.get_running_loop().create_task(boutons.maj(list(pil.get("lids_boutons") or []), aujourdhui))
+    except Exception:                                                   # noqa: BLE001
+        return
+    _taches.add(tache)
+    tache.add_done_callback(_taches.discard)
+
+
 async def publier(pil: dict, maintenant: datetime = None) -> int:
     """Écrit les onglets du pilotage qui ont changé. Renvoie le nombre d'onglets écrits (0 sinon). Jamais d'exception."""
     global _verrou
@@ -244,8 +261,10 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
             if not classeur:
                 return 0
             ecrits = 0
+            _relever_boutons(pil, aujourdhui)                           # 13/10 : en tâche de fond, au plus toutes les 3 h
             for titre, entete, lignes in ((ONGLET_COMPTES, ENTETE_COMPTES, pil.get("comptes")),
-                                          (ONGLET_CLICS, ENTETE_CLICS, pil.get("clics"))):
+                                          (ONGLET_CLICS, ENTETE_CLICS, pil.get("clics")),
+                                          (ONGLET_BOUTONS, ENTETE_BOUTONS, pil.get("boutons"))):
                 if isinstance(lignes, list) and await _ecrire(classeur, titre, entete, lignes):
                     ecrits += 1
             # 13/10 (Gaëtan : « si le clippeur met à jour ses @, mets à jour le sheet et l'application de son team leader ») : les @

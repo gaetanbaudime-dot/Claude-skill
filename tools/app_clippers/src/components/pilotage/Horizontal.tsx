@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import type { Clic, Compte, Pilotage } from "@/lib/pilotage";
-import { compact, couleur, decaler, estGood, fenetre, fmt, fmtUsd, jours, meme, normaliser, serieParJour, somme, variation, type Periode } from "./calc";
+import { compact, couleur, decaler, estGood, fenetre, fmt, fmtUsd, jours, meme, normaliser, pct, serieParJour, somme, sommeBoutons, variation, type Periode } from "./calc";
 import { ouvrirInstagram } from "@/lib/instagram";
 import { BarresJour, Courbe, Delta, Ecart, Kpi, Titre } from "./ui";
 
@@ -145,7 +145,14 @@ export default function Horizontal({ d, periode, filtre }: { d: Pilotage; period
                   {f.compare ? <Delta v={variation(l.visites, l.avant)} petit /> : null}
                 </div>
               </button>
-              {ouvre ? <div className="pb-3 pl-9"><Detail comptes={l.comptes} /></div> : null}
+              {ouvre ? <div className="pb-3 pl-9">
+                {(() => {
+                  const b = sommeBoutons(d, f.debut, f.fin, (x) => x.axe === "Horizontal" && garde(x.creatrice)
+                    && (l.metricool ? x.source === "Metricool" : x.source === "Clipper" && (x.qui === l.qui || (l.qui === "Rianah clipping" && normaliser(x.qui) === "rianah"))));
+                  return b.releve ? <div className="text-[11.5px] text-argent2 mb-1">Clics OF {fmt(b.of)} · MYM {fmt(b.mym)} · {pct(b.taux)} des visites</div> : null;
+                })()}
+                <Detail comptes={l.comptes} />
+              </div> : null}
             </div>
           );
         })}

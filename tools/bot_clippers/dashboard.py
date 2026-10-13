@@ -1380,6 +1380,13 @@ def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
     jours_d = ctx.clics.get("jours") if isinstance(ctx.clics.get("jours"), dict) else {}
     auj_d = ctx.clics.get("aujourdhui") if isinstance(ctx.clics.get("aujourdhui"), dict) else {}
     agg = {}
+    # 13/10 : les clics sur les boutons OF et MYM (boutons.py), rangés comme les visites ; un jour sans relevé n'est pas un 0
+    try:
+        import boutons
+        bt_d = boutons.lire()
+    except Exception:                                                   # noqa: BLE001
+        bt_d = {}
+    agg_b = {}
     for lid in sorted(ctx.liens):
         js = jours_d.get(lid) if isinstance(jours_d.get(lid), dict) else {}
         premier = min(js) if js else ctx.j0.isoformat()
@@ -1403,6 +1410,10 @@ def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
                 ok = isinstance(x, dict) and not x.get("erreur") and x.get("payes") is not None
                 payes, hr = (x.get("payes"), x.get("hors_robots")) if ok else (None, None)
             q = "Avant reprise" if src == "Clipper" and dep and ji < dep else qui
+            b = (bt_d.get(lid) or {}).get(ji) if isinstance(bt_d.get(lid), dict) else None
+            if isinstance(b, dict):
+                ab = agg_b.setdefault((ji, cr, axe, src, q), [0, 0, 0])
+                ab[0] += int(b.get("of") or 0); ab[1] += int(b.get("mym") or 0); ab[2] += int(b.get("autre") or 0)
             a = agg.setdefault((ji, cr, axe, src, q), [0, 0, 0, 0])
             a[2] += 1
             if payes is None:
@@ -1413,7 +1424,9 @@ def _pilotage(ctx: _Ctx, comptes_l: list, creatrices: set) -> dict:
             j += timedelta(days=1)
     clics = [[ji, cr, axe, src, q, str(a[0]), str(a[1]), str(a[2]), str(a[3])]
              for (ji, cr, axe, src, q), a in sorted(agg.items())]
-    return {"comptes": comptes, "clics": clics}
+    boutons_l = [[ji, cr, axe, src, q, str(b[0]), str(b[1]), str(b[2])] for (ji, cr, axe, src, q), b in sorted(agg_b.items())]
+    actifs = sorted(lid for lid in ctx.liens if ctx.cat(lid) not in INACTIFS)
+    return {"comptes": comptes, "clics": clics, "boutons": boutons_l, "lids_boutons": actifs}
 
 
 def construire(e: dict, maintenant: datetime = None) -> dict:

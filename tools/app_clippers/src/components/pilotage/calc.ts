@@ -1,5 +1,5 @@
 /** Calculs du pilotage, côté téléphone (les tables arrivent brutes du tableur, quelques milliers de lignes au plus). */
-import type { Clic, Pilotage, Sub } from "@/lib/pilotage";
+import type { Bouton, Clic, Pilotage, Sub } from "@/lib/pilotage";
 
 export type Periode = "auj" | "hier" | "j7" | "j30";
 export const PERIODES: { cle: Periode; libelle: string }[] = [
@@ -105,3 +105,21 @@ export const fmtEur = (n: number) => `${new Intl.NumberFormat("fr-FR", { maximum
 export const fmtUsd = (n: number) => `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n)} $`;
 export const compact = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k` : `${Math.round(v)}`);
 export const jourCourt = (j: string) => { const d = new Date(j + "T12:00:00Z"); return `${d.getUTCDate()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
+
+/** 13/10 : clics sur les boutons OF et MYM d'une période, et les visites hors robots (tous pays) des mêmes liens : le taux de clic
+ *  d'une page = boutons / visites. `releve` faux tant que le bot n'a encore rien relevé (jamais un faux 0). */
+export type SommeBoutons = { of: number; mym: number; total: number; visitesTous: number; taux: number | null; releve: boolean };
+export function sommeBoutons(d: Pilotage, debut: string, fin: string, filtre: (x: { creatrice: string; axe: string; source: string; qui: string }) => boolean = () => true): SommeBoutons {
+  let of = 0, mym = 0, autre = 0, visitesTous = 0, releve = false;
+  const cles = new Set<string>();
+  for (const b of d.boutons || []) {
+    if (b.jour < debut || b.jour > fin || !filtre(b)) continue;
+    of += b.of; mym += b.mym; autre += b.autre; releve = true;
+    cles.add(`${b.jour}|${b.creatrice}|${b.axe}|${b.source}|${b.qui}`);
+  }
+  for (const c of d.clics as Clic[]) if (cles.has(`${c.jour}|${c.creatrice}|${c.axe}|${c.source}|${c.qui}`)) visitesTous += c.horsRobots;
+  const total = of + mym + autre;
+  return { of, mym, total, visitesTous, taux: releve && visitesTous ? (of + mym) / visitesTous * 100 : null, releve };
+}
+export const pct = (x: number | null) => (x === null ? "–" : `${x.toFixed(1).replace(".", ",")} %`);
+export type { Bouton };

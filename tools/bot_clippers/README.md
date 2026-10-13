@@ -10,6 +10,10 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 13/10 : l'entonnoir complet dans le pilotage (clics OF / MYM)
+
+`boutons.py` relève dans GAML les clics sur les boutons OnlyFans et MYM de chaque lien actif (`/analytics/clicks`), au plus toutes les 3 heures (`BOUTONS_INTERVALLE_H`), 62 jours au premier relevé puis les 3 derniers jours, lentement (limite GAML partagée avec les visites). Ils vont dans `boutons.json`, puis dans l'onglet « Pilotage boutons » du tableur de l'app, rangés comme les visites. L'app montre l'entonnoir : visites (tous pays, hors robots) → clics OF / MYM (taux de clic de la page) → abonnés (taux de conversion des clics) → CA, par créatrice, en vertical et par clipper. Aucun coût. `BOUTONS_RELEVE=0` coupe.
+
 ## 13/10 : organigramme du pool clipping, paie et @ suivis par le TL
 
 **Les équipes de TL** viennent de l'organigramme de Gaëtan (`TL_ORGANIGRAMME`, par défaut : Mathieu → Alvaro, Thia, Diamondra ; Clarisse → Romaric, Ricardo ; Yves → Mohamed, Simon, Moutakabirou), et la colonne « Team leader » du classeur passe par-dessus pour un clipper qu'elle nomme. Un prénom pas encore au registre (ou porté par deux membres) est ignoré et signalé dans `!tl liste`.

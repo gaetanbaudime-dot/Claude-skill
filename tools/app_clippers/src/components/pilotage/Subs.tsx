@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import type { Pilotage, Sub } from "@/lib/pilotage";
-import { couleur, creatrices, decaler, fenetre, fmt, fmtEur, meme, serieParJour, somme, sommeSubs, variation, type Periode } from "./calc";
+import { couleur, creatrices, decaler, fenetre, fmt, fmtEur, meme, pct, serieParJour, somme, sommeBoutons, sommeSubs, variation, type Periode } from "./calc";
 import { BarresJour, Delta, Kpi, Titre } from "./ui";
 
 /** Subs = ce que tout ce trafic rapporte : nouveaux abonnés OnlyFans et MYM et CA (Data G&M, saisi chaque jour par Rianah, en
@@ -15,6 +15,9 @@ export default function Subs({ d, periode, filtre }: { d: Pilotage; periode: Per
   const visites = somme(d.clics, f.debut, f.fin, (c) => garde(c.creatrice));
   const parAbonne = cur.subs ? cur.caEur / cur.subs : null;
   const parAbonneAvant = avant.subs ? avant.caEur / avant.subs : null;
+  // 13/10 : l'entonnoir complet — visites (tous pays, hors robots) → clics sur les boutons OF / MYM → abonnés → CA
+  const bt = sommeBoutons(d, f.debut, f.fin, (x) => garde(x.creatrice));
+  const subsPour100Clics = bt.releve && bt.of + bt.mym ? cur.subs / (bt.of + bt.mym) * 100 : null;
 
   const debutGraph = decaler(d.aujourdhui, -29);
   const graph = useMemo(() => filtre
@@ -38,6 +41,20 @@ export default function Subs({ d, periode, filtre }: { d: Pilotage; periode: Per
         <Kpi titre="Subs pour 100 visites" valeur={visites.visites ? (cur.subs / visites.visites * 100).toFixed(1).replace(".", ",") : "–"}
           sous={`${fmt(visites.visites)} visites payables${visites.manquants ? " (partiel)" : ""}`} />
       </div>
+      <Titre droite={bt.releve ? "" : "relevé en cours"}>Entonnoir</Titre>
+      <div className="carte p-4 apparait">
+        {[
+          ["Visites des pages", fmt(bt.releve ? bt.visitesTous : visites.visites), bt.releve ? "tous pays, hors robots" : "visites payables"],
+          ["Clics OnlyFans + MYM", bt.releve ? fmt(bt.of + bt.mym) : "–", bt.releve ? `${pct(bt.taux)} des visites · OF ${fmt(bt.of)} · MYM ${fmt(bt.mym)}` : "premier relevé sous 3 h"],
+          ["Nouveaux abonnés", fmt(cur.subs), subsPour100Clics !== null ? `${pct(subsPour100Clics)} des clics sur les boutons` : ""],
+          ["CA net", fmtEur(cur.caEur), parAbonne !== null ? `${parAbonne.toFixed(1).replace(".", ",")} € par abonné` : ""],
+        ].map(([t, v, s], i) => (
+          <div key={t} className={`flex items-center justify-between py-2 ${i ? "border-t border-white/[0.06]" : ""}`}>
+            <div className="min-w-0"><div className="text-[13.5px] font-semibold">{t}</div><div className="text-[11px] text-argent2">{s}</div></div>
+            <div className="text-[17px] font-bold tabular-nums shrink-0">{v}</div>
+          </div>
+        ))}
+      </div>
       {periode === "auj" ? <p className="text-[11.5px] text-argent2 mt-2 px-1">Rianah saisit les subs le lendemain : la journée en cours est souvent vide.</p> : null}
       {f.compare && parAbonne !== null && parAbonneAvant !== null ? (
         <p className="text-[11.5px] text-argent2 mt-2 px-1">€ par abonné : {parAbonne.toFixed(1).replace(".", ",")} € contre {parAbonneAvant.toFixed(1).replace(".", ",")} € sur les {f.libelleAvant}.</p>
@@ -52,6 +69,7 @@ export default function Subs({ d, periode, filtre }: { d: Pilotage; periode: Per
           const s = sommeSubs(subs, f.debut, f.fin, d.taux, (x) => meme(x.creatrice, cr));
           const a = sommeSubs(subs, f.avantDebut, f.avantFin, d.taux, (x) => meme(x.creatrice, cr));
           const v = somme(d.clics, f.debut, f.fin, (c) => meme(c.creatrice, cr));
+          const b = sommeBoutons(d, f.debut, f.fin, (x) => meme(x.creatrice, cr));
           if (!s.subs && !a.subs && !s.caEur && !v.visites) return null;
           return (
             <div key={cr} className={`py-3 ${i ? "border-t border-white/[0.06]" : ""}`}>
@@ -70,6 +88,7 @@ export default function Subs({ d, periode, filtre }: { d: Pilotage; periode: Per
                   </div>
                 ))}
               </div>
+              {b.releve ? <div className="text-[11.5px] text-argent2 mt-1.5">Clics OF {fmt(b.of)} · MYM {fmt(b.mym)} · {pct(b.taux)} des visites{b.of + b.mym ? ` · ${pct(s.subs / (b.of + b.mym) * 100)} des clics deviennent abonnés` : ""}</div> : null}
               {s.nonSaisis ? <div className="text-[11px] text-amber-200/90 mt-1.5">⚠ {s.nonSaisis} jour(s) non saisi(s) dans Data G&M sur la période</div> : null}
             </div>
           );
