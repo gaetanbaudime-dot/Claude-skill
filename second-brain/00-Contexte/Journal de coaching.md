@@ -22,6 +22,16 @@ tags: [contexte/coaching]
 
 ## Décisions prises
 
+### 2026-10-13 (comptes) — Un clipper crée toujours ses comptes ; un compte lancé ne change jamais de clipper, il part sur Metricool
+
+> [!tip] Verdict
+> Plus aucun compte déjà créé ne passe d'un clipper à l'autre, ni par le bot, ni par le classeur. Les comptes lancés d'un clipper qui part vont à Rianah Metricool ; les BAN restent hors jeu.
+
+- **Décision de Gaëtan (13/10)** : « Fais TOUJOURS créer les comptes aux clippeurs, ne donne jamais de comptes déjà créés que tu réattribues d'un clippeur à l'autre. Les comptes déjà lancés, on va les mettre sur Metricool derrière. » Avec « Stéphane est viré, donne ses comptes à Rianah Metricool s'ils ne sont pas BAN ».
+- **Pourquoi c'est juste** : un compte repris porte l'historique d'un autre (appareil, IP, 2FA, réputation) ; c'est la première cause de BAN en chaîne. Un compte créé par le clipper lui appartient : il le chauffe et le tient.
+- **Avocat du diable** : chaque nouveau clipper repart de zéro (3 comptes à créer, 24 h de warm-up), donc la montée en charge est plus lente ; et Rianah Metricool hérite de comptes qu'elle doit brancher, ce qui charge son temps.
+- **Prédiction (13/10, revue le 03/11)** : moins de BAN sur les comptes de clippers en octobre-novembre qu'en septembre ; aucun compte repris d'un clipper par un autre d'ici là.
+
 ### 2026-10-13 (pool clipping) — Organigramme des TL, quatre fixes, tout le reste au clic
 
 > [!tip] Verdict

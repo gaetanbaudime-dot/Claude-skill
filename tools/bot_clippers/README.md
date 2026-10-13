@@ -16,7 +16,9 @@
 
 **Paie** : Caroline, Lilian, Josué et Yves au fixe + commission sur les subs (`PAIE_FIXE`) ; tous les autres à la commission sur les clics, Rianah comprise pour son clipping (elle sort de `CLICS_EXCLURE` et a son app ; ses comptes Metricool restent au fixe). Versements le 20 (période du 5 au 19) et le 5 (période du 20 au 4). Si Railway définit `PAIE_FIXE` ou `CLICS_EXCLURE`, ces variables passent par-dessus : les supprimer.
 
-**Sortie d'un clipper** (`!sortie`, `!monteur`) : ses comptes créés et vivants passent directement à Rianah Metricool (Gérant « Rianah (Metricool) », Utilisation « Metricool », `GERANT_METRICOOL`), ses BAN restent hors jeu (Gérant vidé), ses « à créer » retournent au pool ; ses liens suivent les comptes chez Rianah Metricool, comme avant. `METRICOOL_DIRECT=0` : l'ancien « à mettre Metricool ».
+**Règle des comptes (13/10)** : un clipper crée TOUJOURS ses comptes ; un compte déjà lancé ne passe jamais d'un clipper à un autre, il part sur Metricool. Concrètement : un nouveau clipper ne reçoit que des lignes « à créer » avec e-mail (`COMPTES_RENDUS=0`) ; un compte créé qui n'a jamais été livré à un clipper n'est pas ajouté à sa fiche même si le classeur porte son prénom (alerte au salon admin, `!onboarding` force si c'est vraiment le sien) ; à toute sortie, départ du serveur compris, les comptes créés et vivants vont à Rianah Metricool, jamais au pool.
+
+**Sortie d'un clipper** (`!sortie`, `!monteur`, départ du serveur) : ses comptes créés et vivants passent directement à Rianah Metricool (Gérant « Rianah (Metricool) », Utilisation « Metricool », `GERANT_METRICOOL`), ses BAN restent hors jeu (Gérant vidé), ses « à créer » retournent au pool ; ses liens suivent les comptes chez Rianah Metricool, comme avant. `METRICOOL_DIRECT=0` : l'ancien « à mettre Metricool ».
 
 **Lien de l'app et note GAML** : le lien d'un clipper vient de sa note « Clipping Prénom ». Renommer la note change le lien ; l'app garde l'ancien lien valide par un alias (`ANCIENNES_CLES` dans `src/lib/clippers.ts`, ex. « yves redirect ytb » → « yves »).
 

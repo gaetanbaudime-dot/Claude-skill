@@ -2639,6 +2639,26 @@ async def boucle(client, deps: dict):
                     continue
                 prenom = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
                 creatrice = nouveaux[0]["creatrice"] or etat["clippers"].get(str(membre.id), {}).get("creatrice", "")
+                if not COMPTES_RENDUS and not _nouveau(membre, etat):
+                    # 13/10 (Gaëtan : « fais TOUJOURS créer les comptes aux clippeurs, ne donne jamais de comptes déjà créés
+                    # réattribués d'un clippeur à l'autre ; les comptes déjà lancés, on les met sur Metricool ») : un compte déjà
+                    # créé qui n'a jamais été livré à ce clipper n'est pas ajouté à sa fiche, même si le classeur porte son prénom.
+                    # Mis à l'écart une fois (pas d'alerte toutes les 15 minutes) ; `!onboarding` force si c'est vraiment le sien.
+                    lances = _ecarter(etat, membre, nouveaux)
+                    if lances:
+                        nouveaux = [c for c in nouveaux if c not in lances]
+                        _ecrire_etat(etat)
+                        canal = await deps["canal_admin"]()
+                        if canal:
+                            handles = " ".join(c["handle"] for c in lances)
+                            await canal.send(
+                                f"🚫 **Compte(s) déjà lancé(s) non donné(s)** : le classeur met « {prenom} » sur {len(lances)} compte(s) "
+                                f"déjà créé(s) ({handles}) qui ne sont pas les siens. Règle du 13/10 : un clipper crée toujours ses "
+                                f"comptes, un compte lancé ne passe jamais d'un clipper à l'autre. Pour Metricool : Gérant "
+                                f"« {GERANT_METRICOOL} ». Si c'est vraiment un compte qu'il a créé : `!onboarding @{prenom} {creatrice}`."[:1990])
+                    if not nouveaux:
+                        continue
+                    etat = _lire_etat()
                 if _nouveau(membre, etat):                          # 24/09 : un nouveau venu n'a pas de comptes déjà créés
                     douteux = _ecarter(etat, membre, nouveaux)
                     if douteux:
@@ -2787,8 +2807,12 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     etat = _lire_etat()
     bilan = []
     for c in lignes:
-        metricool = _norm(c["etat"]) not in A_CREER and not pool
-        direct = metricool and METRICOOL_DIRECT
+        # 13/10 (Gaëtan : « fais TOUJOURS créer les comptes aux clippeurs, ne donne jamais de comptes déjà créés réattribués d'un
+        # clippeur à l'autre ; les comptes déjà lancés, on les met sur Metricool ») : un compte créé ne retourne JAMAIS au pool,
+        # même au départ du serveur (pool=True) — seuls les « à créer » y retournent
+        cree = _norm(c["etat"]) not in A_CREER
+        direct = cree and METRICOOL_DIRECT
+        metricool = cree and (not pool or METRICOOL_DIRECT)
         if direct and _norm(c["etat"]) == "ban":
             await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[""]])
             bilan.append(f"· `{c['handle']}` (BAN) → hors jeu, à personne")

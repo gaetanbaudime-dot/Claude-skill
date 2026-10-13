@@ -6100,7 +6100,9 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
             refus_s.append(f"classeur illisible ({type(erreur).__name__}) : ses comptes tenus pour créés")
     n_liens, repris_s = 0, []
     if paie_clics.actif():                                              # 28/09 : son lien GAML reste à la créatrice, pour le suivant
-        if pool:
+        # 13/10 (Gaëtan : « les comptes déjà lancés, on les met sur Metricool ») : un départ (pool) avec des comptes créés envoie
+        # aussi ses liens chez le repreneur Metricool avec ses comptes ; seul un départ sans compte créé libère ses liens
+        if pool and not crees_s:
             # 09/10 (sorties déposées, Gaëtan : « On vire Tara ») : `dus=True` → par `liberer_sortant`, comme `!sortie` sans compte
             # créé — par uid seulement (jamais un lien « Clipping Prénom » d'un homonyme), et ses visites d'avant la sortie restent
             # sur la liste de paie. Revue L9 : les purges (appel.py, sortie_auto.py) gardent `liberer_liens` (uid vidé sans « dus »,
@@ -6121,7 +6123,7 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
             vivants_s, pb = await notes_gaml_de(uid_s)
             if pb:
                 refus_s.append(f"{pb} : notes des liens à poser à la passe horaire")
-            res_l = await paie_clics.passer_liens_metricool(uid_s, prenom_de(membre), REPRENEUR_METRICOOL, vivants_s, dus=True,
+            res_l = await paie_clics.passer_liens_metricool(uid_s, prenom_de(membre), REPRENEUR_METRICOOL, vivants_s, dus=dus or not pool,
                                                             notes_lues=not pb)
             n_liens, repris_s = len(res_l["liberes"]), res_l["repris"]
             refus_s += res_l["refus"]
