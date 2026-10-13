@@ -117,7 +117,7 @@ async def export_to_admin_dm(message, active_pairs: list, days: int = 90) -> dic
     for channel in rooms:
         try:
             msgs = []
-            async for m in channel.history(limit=MAX_MESSAGES_PER_CHANNEL, after=cutoff, oldest_first=True):
+            async for m in channel.history(limit=MAX_MESSAGES_PER_CHANNEL, after=cutoff, oldest_first=False):
                 msgs.append({
                     "date_utc": m.created_at.isoformat(),
                     "author_uid": str(m.author.id),
@@ -127,6 +127,7 @@ async def export_to_admin_dm(message, active_pairs: list, days: int = 90) -> dic
                     "attachments_count": len(m.attachments),
                     "question": "?" in (m.content or ""),
                 })
+            msgs.reverse()  # Chronological within the newest messages, not oldest.
             total += len(msgs)
             report["rooms"].append({
                 "channel_id": str(channel.id),
