@@ -29,6 +29,7 @@ import discord
 import anthropic
 
 import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
+import otp_identity                       # rattrapage sûr des e-mails via UID et Sheet
 import conversation_audit                 # export privé de l'historique pour audit du serveur (lecture seule)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
@@ -541,6 +542,52 @@ def _adresses_codes_fiche(uid) -> set:
     return mails
 
 
+_OTP_UID_CACHE = {}  # UID Discord -> {mails, jusque}; jamais publié dans les logs
+
+
+async def _actualiser_adresses_codes(uid):
+    """Répare un alias manquant depuis le vrai Sheet des comptes, sans mutation de propriété."""
+    uid = str(uid)
+    if _adresses_codes_fiche(uid):
+        return _adresses_codes_fiche(uid)
+    membre = membre_par_id(uid)
+    equipes = lire_json(FICHIER_EQUIPES, {}) or {}
+    fiche = equipes.get(uid) or {}
+    if membre is None or uid not in equipes or not isinstance(fiche, dict):
+        return set()
+    prenom = prenom_de(membre)
+    creatrice = creatrice_de(uid)
+    if not prenom or not creatrice:
+        return set()
+    try:
+        lignes = await asyncio.wait_for(onboarding.lire_comptes(), timeout=20)
+        proprietaires = onboarding._proprietaires()
+        actifs = {}
+        for autre_uid, ent in equipes.items():
+            autre = membre_par_id(autre_uid)
+            if autre is None or not isinstance(ent, dict):
+                continue
+            actifs[str(autre_uid)] = {
+                "prenom": prenom_de(autre),
+                "creatrice": creatrice_de(autre_uid),
+            }
+        mails, diagnostic = otp_identity.unique_aliases(
+            uid, creatrice, prenom, actifs, lignes, proprietaires)
+        if mails:
+            _OTP_UID_CACHE[uid] = {"mails": mails, "jusque": time.monotonic() + 180}
+            journal.info("Codes : association UID via classeur vérifiée (UID fin %s, %d adresses)",
+                         uid[-4:], len(mails))
+        else:
+            _OTP_UID_CACHE.pop(uid, None)
+            journal.warning("Codes : association UID impossible (UID fin %s, cause %s)",
+                            uid[-4:], diagnostic)
+        return mails
+    except Exception as erreur:
+        journal.warning("Codes : recherche des adresses dans le classeur impossible : %s",
+                        type(erreur).__name__)
+        return set()
+
+
 def adresses_codes_de(uid) -> set:
     """Association UID Discord → comptes IG effectivement livrés → e-mails.
 
@@ -555,6 +602,9 @@ def adresses_codes_de(uid) -> set:
     propres = _adresses_codes_fiche(uid)
     if propres:
         return propres
+    cache = _OTP_UID_CACHE.get(uid)
+    if cache and cache.get("jusque", 0) > time.monotonic():
+        return set(cache.get("mails") or ())
     salon = salon_perso_de(uid)
     if salon is None:
         return set()
@@ -8603,7 +8653,8 @@ def brancher_codes():
     connexion à la passerelle, puis redit en tête d'on_ready (sans effet s'il l'est déjà) : un clic pendant les appels réseau
     du démarrage ne donne plus « Échec de l'interaction »."""
     codes_2fa.configurer({"canal_admin": canal_admin, "adresses_de_membre": adresses_codes_de, "est_staff": est_staff,
-                          "admin_ids": set(ADMIN_IDS)})
+                          "admin_ids": set(ADMIN_IDS),
+                          "rafraichir_adresses_membre": _actualiser_adresses_codes})
     client.add_dynamic_items(codes_2fa.BoutonMonCode)
 
 
