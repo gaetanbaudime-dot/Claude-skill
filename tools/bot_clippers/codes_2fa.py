@@ -1605,6 +1605,22 @@ def _adresses_membre(membre) -> set:
         return set()
 
 
+async def _rafraichir_membre(membre) -> set:
+    """On-demand fallback : Sheets uniquement en cas de liaison UID manquante.
+
+    Pour le bouton, reste dans la réponse éphémère; ne jamais publier d'OTP.
+    """
+    callback = _deps.get("rafraichir_adresses_membre")
+    if not callable(callback):
+        return set()
+    try:
+        mails = await asyncio.wait_for(callback(getattr(membre, "id", "")), timeout=22)
+        return {str(a).strip().lower() for a in mails or () if "@" in str(a)}
+    except Exception as erreur:
+        journal.warning("Codes : rafraîchissement UID impossible : %s", _err(erreur))
+        return set()
+
+
 async def _admin(texte: str) -> bool:
     fonction = _deps.get("canal_admin")
     if fonction is None:
@@ -1665,6 +1681,8 @@ async def servir_interaction(interaction) -> str:
 
     membre = interaction.user
     adresses = _adresses_membre(membre)
+    if not adresses:
+        adresses = await _rafraichir_membre(membre)
     admin = str(getattr(membre, "id", "")) in set(_deps.get("admin_ids") or ())
     staff = admin
     if not adresses and SECURITES and not admin:
@@ -1830,6 +1848,8 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Adresses du clipper (salon commun) : %s", _err(erreur))
             adresses = set()
+        if not adresses:
+            adresses = await _rafraichir_membre(message.author)
     if not adresses and SECURITES and not admin:
         await _sans_adresse(message.author, message.reply)
         return True
