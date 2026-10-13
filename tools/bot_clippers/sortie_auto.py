@@ -399,7 +399,7 @@ async def executer(client, appliquer: bool = True) -> list:
     avertis_avant = dict(d.get("avertis_compte1", {}))                  # 08/10 : la sortie exige un avertissement d'une passe précédente
     for uid, prenom, nb_jours, ref in a_avertir_compte1(parcours, avertis_avant, **kw):
         if not appliquer:
-            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → averti (sortie demain)")
+            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → rappel non punitif à prévoir")
             continue
         salon = _deps["salon_perso"](uid) if _deps.get("salon_perso") else None
         if salon is None:
@@ -412,7 +412,7 @@ async def executer(client, appliquer: bool = True) -> list:
             journal.warning("Avertissement compte 1 de %s : %s", prenom, erreur)
     for uid, prenom, nb_jours, ref in a_sortir_compte1(parcours, deja=avertis_avant, **kw):
         if not appliquer:
-            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → sortirait" + (" et expulsé" if (KICK and RETRAIT_AUTOMATIQUE) else ""))
+            bilan.append(f"· {prenom} : compte 1 pas créé depuis {nb_jours} j → " + ("sortie possible" if RETRAIT_AUTOMATIQUE else "à vérifier par le manager (aucune sortie automatique)") + (" et expulsé" if (KICK and RETRAIT_AUTOMATIQUE) else ""))
             continue
         if not RETRAIT_AUTOMATIQUE:
             # A false negative in Instagram/Apify must not revoke a working clipper.
@@ -458,17 +458,17 @@ async def executer(client, appliquer: bool = True) -> list:
 
 
 async def commande(message, texte: str) -> bool:
-    """`!sortie-auto` : qui partirait aujourd'hui ; `!sortie-auto go` : sortir maintenant."""
+    """`!sortie-auto` : les comptes 1 à vérifier ; `!sortie-auto go` : appliquer les rappels."""
     if not texte.lower().startswith("!sortie-auto"):
         return False
     mots = texte.lower().split()[1:2]
     go = mots == ["go"]                                                 # 10/10 (L9a) : plus de `!sortie-auto reels` (ancienne règle)
     bilan = await executer(message.client if hasattr(message, "client") else None, appliquer=go)
     if not bilan:
-        await message.reply(f"✅ Personne à avertir ni à sortir : aucun compte 1 ouvert depuis {JOURS_COMPTE1 - 1} jours sans être créé."
+        await message.reply(f"✅ Aucun compte 1 à relancer : aucun retard détecté depuis {JOURS_COMPTE1 - 1} jours."
                             + ("" if ACTIF else " Sortie automatique éteinte (`SORTIE_AUTO=0`)."))
         return True
-    await message.reply((("🚪 **Avertissements et sorties automatiques**\n" if go else "🔎 **Aujourd'hui** (`!sortie-auto go` pour le faire)\n")
+    await message.reply((("🛡️ **Rappels et vérifications du compte 1**\n" if go else "🔎 **Comptes 1 à vérifier** (`!sortie-auto go` pour envoyer les rappels)\n")
                          + "\n".join(bilan))[:1990])
     return True
 
@@ -478,8 +478,9 @@ async def boucle(client):
     if not ACTIF:
         journal.info("Sortie automatique éteinte (SORTIE_AUTO=0)")
         return
-    journal.info("Sortie automatique active (règle du 05/10) : compte 1 pas créé → averti à J-1, sorti%s à %d jours, à %d h UTC, "
-                 "jamais pour un retard antérieur au %s", " et expulsé" if (KICK and RETRAIT_AUTOMATIQUE) else "", JOURS_COMPTE1, HEURE_UTC, COMPTE1_DEPUIS)
+    journal.info("Suivi compte 1 actif : rappel à J-1, %s à %d jours, à %d h UTC ; référence à partir du %s",
+                 "sortie automatisée" if RETRAIT_AUTOMATIQUE else "revue humaine SANS sortie",
+                 JOURS_COMPTE1, HEURE_UTC, COMPTE1_DEPUIS)
     while not client.is_closed():
         maintenant = datetime.now(timezone.utc)
         d = _etat()
@@ -499,9 +500,8 @@ async def boucle(client):
                 if bilan and not DIGEST and _deps.get("canal_admin"):
                     canal = await _deps["canal_admin"]()
                     if canal is not None:
-                        entete = ("🔎 **Sortie automatique, première liste** — rien n'est fait aujourd'hui. Demain à la même heure, ces "
-                                  "clippers sortent tout seuls (`!sortie-auto go` pour le faire maintenant, `!note @x garde` pour en protéger un).\n"
-                                  if premiere else "🚪 **Avertissements et sorties automatiques du jour**\n")
+                        entete = ("🔎 **Première liste : comptes 1 à vérifier** — revue humaine, aucune suppression d'accès.\n"
+                                  if premiere else "🛡️ **Rappels et vérifications du compte 1**\n")
                         await canal.send((entete + "\n".join(bilan))[:1990])
             except Exception as erreur:                                     # noqa: BLE001
                 journal.warning("Boucle de sortie automatique : %s", erreur)
