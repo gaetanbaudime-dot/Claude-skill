@@ -79,7 +79,7 @@ ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 # 10/10 : IDLE au plus SONDAGE_SEC secondes (le code arrive en quelques secondes), sinon une lecture toutes les SONDAGE_SEC.
 SONDAGE_SEC = int(os.environ.get("CODES_SONDAGE_SEC", "20") or 20)
 ATTENTE_SEC = int(os.environ.get("CODES_ATTENTE_SEC", "300") or 300)    # le guet après « 📩 Mon code » : 5 min
-FRAIS_MIN = int(os.environ.get("CODES_FRAIS_MIN", "5") or 5)            # au-delà, « ancien code » et le guet continue
+FRAIS_MIN = min(10, max(1, int(os.environ.get("CODES_FRAIS_MIN", "10") or 10)))  # toujours au plus 10 minutes
 SALON_CODES_MINUTES = min(10, max(1, int(os.environ.get("CODES_SALON_MINUTES", "10") or 10)))
 CACHE_MIN = SALON_CODES_MINUTES  # tout code récupérable doit dater de moins de dix minutes
 JOURS_AMORCE = int(os.environ.get("BANS_JOURS", "3") or 3)              # premier passage : les mails Meta de 3 jours
@@ -1754,7 +1754,7 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
                             "court suffit. Seuls les codes de connexion et de création sortent.")
         return True
     # Le code ne s'écrit dans le salon que s'il est privé et que TOUTES ces adresses y sont rattachées ; sinon, en MP.
-    ici = all((registre.get(a) or {}).get("canal_id") == canal_id for a in cibles) and _salon_prive(message.channel)
+    ici = False  # Même le staff reçoit les codes en MP : jamais dans un salon Discord.
     reponse = {"msg": None}
 
     async def dire(t):
