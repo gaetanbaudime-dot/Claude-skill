@@ -102,7 +102,7 @@ class OwnershipTests(unittest.TestCase):
         tree = ast.parse((ROOT / "bot_discord.py").read_text(encoding="utf-8"))
         funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef)
                  and n.name in ("_adresses_codes_fiche", "adresses_codes_de")]
-        ns = {}
+        ns = {"_OTP_UID_CACHE": {}, "time": types.SimpleNamespace(monotonic=lambda: 0)}
         code = compile(ast.fix_missing_locations(ast.Module(body=funcs, type_ignores=[])),
                        "extract_ownership.py", "exec")
         return ns, code
