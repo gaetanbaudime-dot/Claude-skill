@@ -13,7 +13,7 @@ import { jetonGoogle } from "./google";
 import { tableur } from "./usage";
 
 export const ONGLETS = { comptes: "Pilotage comptes", clics: "Pilotage clics", subs: "Pilotage subs", infos: "Pilotage infos",
-  boutons: "Pilotage boutons" };
+  boutons: "Pilotage boutons", identites: "Référentiel clippers" };
 
 export function jetonPilotage(): string | null {
   const secret = process.env.ADMIN_SECRET;
@@ -43,7 +43,15 @@ export type Clic = { jour: string; creatrice: string; axe: string; source: strin
 /** 13/10 : les clics sur les boutons OnlyFans et MYM des pages GAML, rangés comme les visites (relevés toutes les 3 h). */
 export type Bouton = { jour: string; creatrice: string; axe: string; source: string; qui: string; of: number; mym: number; autre: number };
 export type Sub = { jour: string; creatrice: string; subsOf: number; caOfUsd: number; subsMym: number; caMymEur: number; saisi: boolean };
-export type Pilotage = { publie: string; fraicheur: string; taux: number; aujourdhui: string; comptes: Compte[]; clics: Clic[]; subs: Sub[]; boutons: Bouton[] };
+export type Clipper360 = {
+  uid: string; prenom: string; role: string; creatrice: string;
+  tl: string; tlUid: string; manager: string; managerUid: string;
+  app: boolean; comptes: { handle: string; etat: string }[];
+  totalIg: number; gaml: string; gamlUuids: string; liens: number;
+  visites7: number | null; qualiteVisites: string;
+  reels7: number | null; anomalies: string;
+};
+export type Pilotage = { publie: string; fraicheur: string; taux: number; aujourdhui: string; comptes: Compte[]; clics: Clic[]; subs: Sub[]; boutons: Bouton[]; clippers: Clipper360[] };
 
 const nb = (x: string | undefined): number | null => {
   const t = String(x ?? "").replace(/\s/g, "").replace(",", ".");
@@ -59,14 +67,15 @@ let enCours: Promise<Pilotage> | null = null;
 async function lire(): Promise<Pilotage> {
   const id = await tableur();
   const jeton = await jetonGoogle();
-  const plages = [`'${ONGLETS.comptes}'!A2:V`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`, `'${ONGLETS.boutons}'!A2:H`];
+  const plages = [`'${ONGLETS.comptes}'!A2:V`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`, `'${ONGLETS.boutons}'!A2:H`, `'${ONGLETS.identites}'!A2:W`];
   const url = (ps: string[]) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet?${ps.map((p) => `ranges=${encodeURIComponent(p)}`).join("&")}`;
   let r = await fetch(url(plages), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   // 13/10 : l'onglet des boutons n'existe qu'après la première publication du bot ; sans lui, le reste se lit quand même
+  if (r.status === 400) r = await fetch(url(plages.slice(0, 5)), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   if (r.status === 400) r = await fetch(url(plages.slice(0, 4)), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   if (!r.ok) throw new Error(`Sheets ${r.status}`);
   const d = (await r.json()) as { valueRanges?: { values?: string[][] }[] };
-  const [vc, vk, vs, vi, vb] = (d.valueRanges || []).map((x) => x.values || []);
+  const [vc, vk, vs, vi, vb, vref] = (d.valueRanges || []).map((x) => x.values || []);
   const infos = Object.fromEntries((vi || []).map((l) => [l[0], l[1]]));
   const comptes: Compte[] = (vc || []).filter((l) => l[4]).map((l) => ({
     creatrice: l[0] || "?", axe: l[1] || "", type: l[2] || "", gerant: l[3] || "", handle: l[4] || "", etat: l[5] || "",
@@ -84,8 +93,16 @@ async function lire(): Promise<Pilotage> {
   const boutons: Bouton[] = (vb || []).filter((l) => /^\d{4}-\d{2}-\d{2}$/.test(l[0] || "")).map((l) => ({
     jour: l[0], creatrice: l[1] || "?", axe: l[2] || "", source: l[3] || "", qui: l[4] || "", of: n0(l[5]), mym: n0(l[6]), autre: n0(l[7]),
   }));
+  const clippers: Clipper360[] = (vref || []).filter((l) => l[0]).map((l) => ({
+    uid: l[0], prenom: l[1] || "", role: l[2] || "", creatrice: l[3] || "",
+    tl: l[4] || "", tlUid: l[5] || "", manager: l[6] || "", managerUid: l[7] || "",
+    app: l[8] === "OUI", comptes: [[l[9], l[10]], [l[11], l[12]], [l[13], l[14]]]
+      .filter((pair) => Boolean(pair[0])).map((pair) => ({ handle: pair[0] || "", etat: pair[1] || "" })),
+    totalIg: n0(l[15]), gaml: l[16] || "", gamlUuids: l[17] || "", liens: n0(l[18]),
+    visites7: nb(l[19]), qualiteVisites: l[20] || "", reels7: nb(l[21]), anomalies: l[22] || "",
+  }));
   const aujourdhui = new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  return { publie: infos["Publié"] || "", fraicheur: infos["Fraîcheur"] || "", taux: nb(infos["Taux USD→EUR"]) ?? 0.92, aujourdhui, comptes, clics, subs, boutons };
+  return { publie: infos["Publié"] || "", fraicheur: infos["Fraîcheur"] || "", taux: nb(infos["Taux USD→EUR"]) ?? 0.92, aujourdhui, comptes, clics, subs, boutons, clippers };
 }
 
 /** Les quatre onglets, lus en un appel (cache 2 minutes : le bot publie au plus toutes les 15). */
