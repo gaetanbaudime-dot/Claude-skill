@@ -72,7 +72,8 @@ IMAP_USER = os.environ.get("CODES_IMAP_USER", "").strip()
 IMAP_PASSWORD = os.environ.get("CODES_IMAP_PASSWORD", "").strip()
 # Dossier/libellé lu (Gmail : un libellé = un dossier IMAP), plus le Spam où Meta tombe souvent.
 IMAP_DOSSIER = os.environ.get("CODES_IMAP_DOSSIER", "INBOX").strip() or "INBOX"
-DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()\nDOSSIER_TOUS = os.environ.get("CODES_IMAP_TOUS", "[Gmail]/All Mail").strip()
+DOSSIER_SPAM = os.environ.get("CODES_IMAP_SPAM", "[Gmail]/Spam").strip()
+DOSSIER_TOUS = os.environ.get("CODES_IMAP_TOUS", "[Gmail]/All Mail").strip()
 IMAP_TIMEOUT = int(os.environ.get("CODES_IMAP_TIMEOUT_SEC", "30") or 30)
 ROLE_MANAGER_NOM = os.environ.get("ROLE_MANAGER_NOM", "Manager").strip()
 # 10/10 : IDLE au plus SONDAGE_SEC secondes (le code arrive en quelques secondes), sinon une lecture toutes les SONDAGE_SEC.
