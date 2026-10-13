@@ -20,6 +20,7 @@ Jamais d'exception : une publication ratée est retentée au passage suivant du 
 """
 
 import asyncio
+import unicodedata
 import json
 import logging
 import time
@@ -91,7 +92,16 @@ def lignes_comptes_app(cles_app: dict, comptes_de, tl_de: dict, nom, classeur: d
     équipe, rien d'autre)."""
     cle = cle or (lambda h: str(h or "").strip().lstrip("@").lower())
     out = []
-    for uid, c_app in sorted((cles_app or {}).items(), key=lambda x: x[1]):
+    # 13/10 (Gaëtan : « mets à jour les apps TL en fonction des clippeurs qu'ils managent ») : un clipper de l'équipe d'un TL qui
+    # n'a pas encore son lien GAML (donc pas d'app) apparaît quand même chez son TL, sous une clé « ~prénom » (aucune app ne
+    # l'ouvre) : le TL suit la création de ses comptes dès le premier jour
+    sans_app = {}
+    for va in (tl_de or {}):
+        if str(va) not in {str(u) for u in (cles_app or {})}:
+            p = "".join(ch for ch in unicodedata.normalize("NFD", str(nom(va) or "").lower()) if unicodedata.category(ch) != "Mn").strip()
+            if p:
+                sans_app[str(va)] = "~" + p
+    for uid, c_app in sorted(list((cles_app or {}).items()) + list(sans_app.items()), key=lambda x: x[1]):
         tl = str((tl_de or {}).get(str(uid)) or "")
         tl_cle, tl_nom = ((cles_app or {}).get(tl, ""), nom(tl)) if tl else ("", "")
         try:

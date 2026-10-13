@@ -48,6 +48,7 @@ export default function EquipeTab({ jeton }: { jeton: string }) {
               <div>
                 <div className="text-[17px] font-bold">{m.prenom}</div>
                 {m.creatrice ? <div className="text-[11.5px] text-argent2">{m.creatrice}</div> : null}
+                {m.cle.startsWith("~") ? <div className="text-[11.5px] text-amber-200">En démarrage : comptes en création, pas encore de lien</div> : null}
               </div>
               <div className="text-right">
                 <div className="text-[17px] font-bold tabular-nums">{m.visites !== null ? fmt(m.visites) : "–"} {m.auSeuil ? <span className="text-emerald-300">✓</span> : null}</div>
