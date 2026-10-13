@@ -27,6 +27,7 @@ import time
 from datetime import date, datetime, timedelta, timezone
 
 import google_api
+import ops_identity
 
 journal = logging.getLogger("pilotage")
 
@@ -50,6 +51,8 @@ ONGLET_COMPTES_APP = "Comptes app"
 ENTETE_COMPTES_APP = ["Clé app", "Prénom", "Créatrice", "N°", "@", "ETAT", "Followers", "Reels 7 j", "Vues 7 j (48 h)", "Clé app TL",
                       "Prénom TL"]
 ONGLET_PSEUDOS = "Pseudos app"
+ONGLET_IDENTITY_APP = "Référentiel clippers"
+ONGLET_IDENTITY_LOG = "Clippers · 360"
 ENTETE_PSEUDOS = ["Date", "Clé app", "N°", "Nouveau @", "Statut", "Détail"]
 
 _signatures: dict = {}                 # onglet → signature de la dernière version écrite (cette instance du bot)
@@ -146,6 +149,33 @@ def _comptes_app(pil: dict) -> list:
             return ""
     return lignes_comptes_app(pil.get("cles_app") or {}, parcours._comptes_ordonnes, tl_de, nom,
                               pil.get("comptes_classeur") or {}, pil.get("chiffres") or {}, dashboard._cle)
+
+
+def _identity_rows(pil: dict, today: date) -> list:
+    """Projection sans secrets, join UID -> GAML UUID -> comptes Instagram."""
+    try:
+        import equipes_tl
+        import paie_clics
+        import parcours
+    except Exception as error:                                            # noqa: BLE001
+        journal.warning("Identité clippers : module illisible (%s)", type(error).__name__)
+        return []
+    try:
+        state = paie_clics._lire()
+        teams = equipes_tl.composition()
+        def paid_full_week(ids):
+            end = today - timedelta(days=1)
+            start = end - timedelta(days=6)
+            values = [paie_clics.clics_lien(state, lid, start, end) for lid in ids]
+            return sum(values) if values and all(v is not None for v in values) else None
+        return ops_identity.build_rows(
+            pil.get("cles_app") or {}, teams, parcours._comptes_ordonnes,
+            pil.get("comptes_classeur") or {}, state, equipes_tl.nom_de,
+            measured_visits=paid_full_week, today=today,
+            reels_by_handle=pil.get("chiffres") or {})
+    except Exception as error:                                            # noqa: BLE001
+        journal.warning("Identité clippers : projection indisponible (%s)", type(error).__name__)
+        return []
 
 
 async def traiter_pseudos(classeur: str, cles_app: dict, faits: list = None) -> int:
@@ -279,6 +309,19 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
                     ligne[4] = nouveaux[str(ligne[4]).lower()]
             if comptes_app and await _ecrire(classeur, ONGLET_COMPTES_APP, ENTETE_COMPTES_APP, comptes_app):
                 ecrits += 1
+            # 13/10 : même référentiel opérationnel dans le tableur privé de l'app
+            # et le LOG Dashboard. Jamais de clé app, mot de passe ou code 2FA.
+            id_rows = _identity_rows(pil, aujourdhui)
+            if id_rows:
+                if await _ecrire(classeur, ONGLET_IDENTITY_APP, ops_identity.COLUMNS, id_rows):
+                    ecrits += 1
+                try:
+                    import onboarding
+                    if onboarding.CLASSEUR_LOGINS_ID:
+                        await _ecrire(onboarding.CLASSEUR_LOGINS_ID, ONGLET_IDENTITY_LOG,
+                                      ops_identity.COLUMNS, id_rows)
+                except Exception as error:                                # noqa: BLE001
+                    journal.warning("Identité clippers : LOG secondaire illisible (%s)", type(error).__name__)
             subs = await _subs(aujourdhui, int(getattr(dashboard, "PILOTAGE_JOURS", 62)))
             if subs is not None and await _ecrire(classeur, ONGLET_SUBS, ENTETE_SUBS, subs):
                 ecrits += 1
