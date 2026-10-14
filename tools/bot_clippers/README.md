@@ -10,6 +10,10 @@
 >
 > 11/10 : la vague 1 du recrutement est branchée au démarrage, testée, pas encore en production. Lis d'abord « 10/10 et 11/10 : ce qui change pour toi », juste en dessous.
 
+## 14/10 : attribution des nouveaux clippers, Sophie d'abord
+
+Ordre pondéré « Sophie 5, Sarah 3, Clara 1, Jade 1, Maddie 1, Chloé 1 » (12 nouveaux par tour), appliqué une fois au déploiement par-dessus l'ordre posé avant (`!attribution` ou `ATTRIBUTION_ORDRE`) ; ensuite `!attribution …` reprend la main. Une créatrice sans compte livrable est sautée : `!attribution` montre les comptes prêts par créatrice. `ATTRIBUTION_DECISION=0` empêche l'application automatique.
+
 ## 13/10 : l'entonnoir complet dans le pilotage (clics OF / MYM)
 
 `boutons.py` relève dans GAML les clics sur les boutons OnlyFans et MYM de chaque lien actif (`/analytics/clicks`), au plus toutes les 3 heures (`BOUTONS_INTERVALLE_H`), 62 jours au premier relevé puis les 3 derniers jours, lentement (limite GAML partagée avec les visites). Ils vont dans `boutons.json`, puis dans l'onglet « Pilotage boutons » du tableur de l'app, rangés comme les visites. L'app montre l'entonnoir : visites (tous pays, hors robots) → clics OF / MYM (taux de clic de la page) → abonnés (taux de conversion des clics) → CA, par créatrice, en vertical et par clipper. Aucun coût. `BOUTONS_RELEVE=0` coupe.

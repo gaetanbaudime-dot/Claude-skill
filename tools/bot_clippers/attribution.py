@@ -10,8 +10,8 @@ compte livrable est sautée ; si AUCUNE n'en a, le membre reçoit une fois le re
 prêt pour toi » (10/10 : plus de délai promis) et passe à l'état « attente_attribution » du pipeline. boucle_pipeline (bot_discord, toutes les 5 min) le reprend tout seul dès qu'un compte se
 libère (`reprendre_attente`, la seule reprise, sous verrou), un par un, ATTRIBUTION_PAUSE_SEC entre deux, sans commande.
 
-Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Chloé:3,Sarah:3,Sophie:3,Jade:1 » depuis le 28/09 : Clara et
-Maddie à 0 tant qu'aucun e-mail de compte n'arrive ; sans poids = 1). Une créatrice sans catégorie ni rôle sur le serveur est sautée (et dite au salon admin). Un
+Ordre : ATTRIBUTION_ORDRE, « Créatrice:poids » séparés par des virgules (défaut « Sophie:5,Sarah:3,Clara:1,Jade:1,Maddie:1,Chloé:1 »
+depuis le 14/10, appliqué une fois au déploiement par-dessus un ordre posé avant ; ATTRIBUTION_DECISION=0 l'empêche ; sans poids = 1). Une créatrice sans catégorie ni rôle sur le serveur est sautée (et dite au salon admin). Un
 changement d'ordre remet le compteur au début. ATTRIBUTION_AUTO=0 éteint tout. État dans DONNEES/attribution.json."""
 
 import asyncio
@@ -23,7 +23,11 @@ import discord
 
 journal = __import__("logging").getLogger("bot_clippers")
 
-ORDRE_TEXTE = os.environ.get("ATTRIBUTION_ORDRE", "Chloé:3,Sarah:3,Sophie:3,Jade:1")   # 28/09 (Gaëtan) : Jade 1, Clara 0, Maddie 0 tant qu'aucun e-mail n'arrive
+# 14/10 (Gaëtan, après la décision « Sophie d'abord ») : « Sophie 5, Sarah 3, Clara 1, Jade 1, Maddie 1, Chloé 1 ». Appliqué une fois au
+# déploiement par-dessus tout ordre posé avant (`!attribution`, ATTRIBUTION_ORDRE) : voir DECISION_ORDRE dans configurer.
+ORDRE_DECISION = "Sophie:5,Sarah:3,Clara:1,Jade:1,Maddie:1,Chloé:1"
+DECISION_ORDRE = "2026-10-14"
+ORDRE_TEXTE = os.environ.get("ATTRIBUTION_ORDRE", ORDRE_DECISION)
 ORDRE, POIDS, SEQUENCE = [], {}, []
 
 
@@ -74,6 +78,11 @@ def configurer(deps: dict):
     le 09/10) et reserve_depot (membre → bool : son prénom est attendu par un dépôt salons_a_ouvrir.json « onboarding »).
     30/09 : un ordre posé par `!attribution` (clé « ordre_force » de l'état) prime sur ATTRIBUTION_ORDRE, redémarrages compris."""
     _deps.update(deps)
+    e = _etat()
+    if e.get("decision_ordre") != DECISION_ORDRE and os.environ.get("ATTRIBUTION_DECISION", "1").strip() != "0":                       # 14/10 : la décision de Gaëtan, une fois, puis `!attribution` reprend la main
+        e["ordre_force"], e["decision_ordre"] = ORDRE_DECISION, DECISION_ORDRE
+        _ecrire(e)
+        journal.info("Attribution : ordre du %s appliqué (%s)", DECISION_ORDRE, ORDRE_DECISION)
     force = (_etat().get("ordre_force") or "").strip()
     if force:
         definir_ordre(force)
@@ -93,7 +102,7 @@ async def commande(message, texte: str) -> bool:
     e = _etat()
     if arg.lower() in ("défaut", "defaut", "reset"):
         e.pop("ordre_force", None); _ecrire(e)
-        definir_ordre(os.environ.get("ATTRIBUTION_ORDRE", "Chloé:3,Sarah:3,Sophie:3,Jade:1"))
+        definir_ordre(os.environ.get("ATTRIBUTION_ORDRE", ORDRE_DECISION))
         arg = ""
         entete = "↩️ Ordre remis à celui de Railway."
     elif arg:

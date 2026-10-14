@@ -145,7 +145,7 @@ def lignes(chiffres: list, objectif: int, index: int = 0, jour: str = "") -> lis
             ["· « Comptes entiers à créer » : de nouvelles lignes, avec identifiant, mot de passe et e-mail neufs."],
             ["· « Bloquées » : lignes libres qui portent une info d'un compte BAN. Jamais livrées : change leurs infos pour les récupérer."],
             ["· Les nouveaux de l'objectif suivent la séquence d'attribution à partir de sa position actuelle. Changer les coefficients : "
-             "`!attribution Chloé:3,Sarah:3,Sophie:3,Jade:1` dans bot-gaetan (0 = exclue)."],
+             "`!attribution Sophie:5,Sarah:3,Clara:1,Jade:1,Maddie:1,Chloé:1` dans bot-gaetan (0 = exclue)."],
             ["· « À sec après » : combien de nouveaux clippers, toutes créatrices confondues, avant qu'elle n'ait plus de comptes prêts. "
              "La plus petite = la créatrice pour qui créer des e-mails en premier."]]
     return out
