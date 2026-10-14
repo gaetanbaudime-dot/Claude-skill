@@ -1602,14 +1602,14 @@ _SCAN_SEMAPHORE = asyncio.Semaphore(2)
 _SCAN_LAST = {}  # opaque request key -> monotonic; rate-limit manual refresh
 
 
-def _scan_recent_sync(adresses: set, minutes: int = 10, admin: bool = False) -> list:
+def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
     """Check the latest Instagram emails independently, even if IDLE is stale.
 
     Only code entries from the caller's owned aliases and within the 10-minute
     window are returned; a dedicated reader is closed after every request.
     """
     aliases = {str(a).strip().lower() for a in adresses or () if "@" in str(a)}
-    if not aliases and not admin:
+    if not aliases:
         return []
     reader = Lecteur()
     found = {}
@@ -1629,7 +1629,7 @@ def _scan_recent_sync(adresses: set, minutes: int = 10, admin: bool = False) -> 
                 # Bound the work even with a high-volume inbox; newest first per folder.
                 for message in reader._lire(folder, sorted(uids)[-100:], False):
                     info = classer_mail(message["msg"])
-                    if (info.get("decision") != "donner" or (not admin and info.get("alias") not in aliases)
+                    if (info.get("decision") != "donner" or info.get("alias") not in aliases
                             or not info.get("code") or info.get("date") is None
                             or not limite <= info["date"] <= _maintenant() + timedelta(minutes=2)):
                         continue
