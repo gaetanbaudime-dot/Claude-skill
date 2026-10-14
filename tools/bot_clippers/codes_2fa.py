@@ -1686,6 +1686,10 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
             if texte != guet["texte"] or "envoye" not in guet:
                 guet["texte"] = texte
                 await dire(texte)
+                uid = cle_guet.removeprefix("u|")
+                if uid.isdigit():
+                    journal.info("OTP_REPONSE %s", json.dumps({"uid": uid, "adresses": len(adresses),
+                        "contextes_frais": len(admissibles), "avec_code": bool(montre)}, separators=(",", ":")))
                 guet["envoye"] = True
                 if montre:
                     _noter_montre(cle_guet, admissibles if usage == "auto" else [montre])
@@ -2369,6 +2373,46 @@ def _droits_salon_codes(guild) -> tuple:
     return overwrites, admis
 
 
+def audit_salon_codes(salon):
+    """Lecture seule des droits effectifs du cache Discord et des compteurs UID.
+
+    Aucun historique, e-mail, OTP, secret ou modification de permission. La complétude
+    du cache de membres est explicitement indiquée, jamais supposée.
+    """
+    guild = salon.guild
+    membres = list(guild.members)
+    visibles = [m for m in membres if salon.permissions_for(m).view_channel]
+    role_ids = {r.id for r in guild.roles}
+    roles = []
+    for role in guild.roles:
+        permissions = salon.permissions_for(role)
+        if permissions.view_channel or role.id == guild.default_role.id or role in salon.overwrites:
+            roles.append({"id": str(role.id), "nom": str(role.name).replace("\n", " ")[:80],
+                          "voir": bool(permissions.view_channel), "admin": bool(permissions.administrator)})
+    exceptions = [{"id": str(cible.id), "type": "role" if cible.id in role_ids else "membre",
+                   "voir": droits.view_channel, "ecrire": droits.send_messages}
+                  for cible, droits in salon.overwrites.items()]
+    permissions_bot = salon.permissions_for(guild.me)
+    rapport = {"salon_id": str(salon.id), "membres_cache": len(membres), "membres_serveur": guild.member_count,
+               "cache_complet": bool(guild.chunked), "visibles": len(visibles),
+               "humains_visibles": sum(not m.bot for m in visibles), "roles": roles, "exceptions": exceptions,
+               "bot_voit": bool(permissions_bot.view_channel), "bot_ecrit": bool(permissions_bot.send_messages)}
+    journal.info("OTP_AUDIT_SALON %s", json.dumps(rapport, ensure_ascii=False, separators=(",", ":")))
+    callback = _deps.get("audit_liaisons")
+    for ligne in callback(guild) if callback else []:
+        uid = str(ligne.get("uid") or "")
+        if not uid.isdigit():
+            continue
+        # Seule cette projection peut sortir dans les journaux, jamais la fiche source.
+        resume = {"uid": uid, "comptes_declares": int(ligne.get("comptes_declares", 0)),
+                  "adresses_autorisees": int(ligne.get("adresses_autorisees", 0)),
+                  "salon_perso": bool(ligne.get("salon_perso")),
+                  "voit_codes": bool(ligne.get("voit_codes")),
+                  "dans_serveur": bool(ligne.get("dans_serveur"))}
+        journal.info("OTP_AUDIT_LIAISON %s", json.dumps(resume, separators=(",", ":")))
+    return rapport
+
+
 async def assurer_salon_codes(client):
     """Poser le panneau privé dans le salon existant, sans modifier ses permissions ni son historique."""
     await client.wait_until_ready()
@@ -2399,4 +2443,8 @@ async def assurer_salon_codes(client):
                                     "version": VERSION_EXPLICATION, "date": _maintenant().isoformat(timespec="seconds")}
         _ecrire(registre)
         journal.info("Salon des codes : bouton privé prêt ; permissions existantes conservées")
+        try:
+            audit_salon_codes(salon)
+        except Exception as erreur:
+            journal.warning("OTP_AUDIT_INDISPONIBLE %s", _err(erreur))
         return
