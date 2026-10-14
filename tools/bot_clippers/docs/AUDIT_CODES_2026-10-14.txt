@@ -1,0 +1,146 @@
+G&M ASSISTANT MARKETING — AUDIT ET PARCOURS INSTAGRAM
+14 octobre 2026 — Correctif proposé, non déployé
+
+VERDICT
+Le relais des codes e-mail peut être fiabilisé sans récupérer de secret 2FA.
+Les correctifs ci-joints passent 83 tests synthétiques, dont les menus avec
+la vraie bibliothèque discord.py 2.7.1, sans connexion Discord ni Gmail.
+Cela ne prouve pas encore le parcours réel Instagram → iCloud → Gmail → Discord.
+Une application d'authentification/SMS/WhatsApp et un recours Meta demandent
+un parcours distinct ; aucune autonomie totale n'est promise.
+
+PROJET ET ÉTAT VÉRIFIÉS
+Dépôt : gaetanbaudime-dot/Claude-skill, tools/bot_clippers.
+Base GitHub vérifiée : e80f805ada6ad5caf73ff2fa43798fcd2f623bc9 (main).
+PR #12 « Verify your profile » fusionnée, suivie du correctif #13 de
+vérification d'e-mail FR/EN. Ces correctifs sont conservés.
+Railway : projet BOT Marketing, service Claude-skill, production.
+Dernier déploiement : 25031338-1d16-4e5d-85ad-1289b5fe5939,
+créé le 14/10/2026 à 06:07:32 UTC, statut SUCCESS, commit e80f805.
+Seules les métadonnées de déploiement ont été consultées, pas les variables
+ni les journaux de production pouvant contenir des secrets.
+Le dépôt local du Mac contient une fusion inachevée et trois fichiers du vault
+en conflit. Aucun de ces travaux n'a été modifié ; une copie ciblée des sources
+et tests a été préparée dans le dossier de cette tâche. Aucun PR ouvert ne
+concurrençait le travail aux deux vérifications. Duplicateur de Reels inchangé.
+Le navigateur personnel de Gaëtan n'a pas été utilisé : il n'était pas nécessaire.
+
+DÉFAUTS CORRIGÉS
+- Le dernier code était choisi parmi tous les types/comptes admissibles.
+  Le choix privé impose maintenant un usage et un seul alias appartenant à l'UID.
+- Les commandes explicites pouvaient perdre leurs arguments lors de leur
+  détection en langage naturel. !code connexion conserve maintenant son usage.
+- Une date absente/invalide devenait « maintenant ». Elle est désormais refusée ;
+  les dates sans fuseau et trop futures ne sont pas servies.
+- Un nouveau clic pouvait reprendre le texte du guet précédent, même après un
+  changement de compte. Il remplace le guet et revalide ses droits.
+- Les anciens accès conservés dans une fiche pouvaient réautoriser un compte retiré.
+  Les comptes actuels et les comptes effectivement livrés du deuxième téléphone
+  sont distingués ; une fiche révoquée ne récupère pas ses alias historiques.
+- Une modification locale des fichiers de propriété invalide le cache UID.
+  Un e-mail partagé entre clippers/comptes, ou un compte à adresses contradictoires,
+  est refusé. Un e-mail adressé à plusieurs alias n'est pas attribué arbitrairement.
+- L'envoi automatique dans les anciens salons « privés » est supprimé.
+  Toute restitution passe par MP ou réponse éphémère ; MP fermés : aucun repli public.
+- L'échec de l'accusé de réception éphémère empêche toute édition potentiellement publique.
+- Les exceptions transport ne recopient plus leur contenu dans les journaux/alertes.
+  Les clés sans Message-ID sont des empreintes et ne contiennent plus le sujet/code.
+- Les raccourcis de classification contrôlent les mutations sensibles dans toutes
+  les parties du message. « address » n'est plus pris pour « add ».
+- À date égale, la recherche directe numérote du plus ancien au plus récent.
+- Les codes e-mail restent uniquement en mémoire ; l'état persistant ne stocke plus
+  leurs valeurs. Le cache d'une ancienne politique est invalidé.
+- Le mode historique sans filtre ne peut plus être activé par CODES_SECURITES=0.
+  Les commandes de restitution ne proposent plus de repli global, y compris au staff.
+  Aucun paramètre de sécurité réel n'a été changé pendant cet audit.
+- discord.py minimal passe à 2.4 : DynamicItem utilisé par le bouton n'existe pas en 2.3.
+
+CE QUE FAIT UN CLIPPER APRÈS VALIDATION ET DÉPLOIEMENT
+1. Il demande un nouveau code dans l'application Instagram officielle.
+2. Dans les deux minutes, il appuie sur « Mon code » ou tape !code.
+3. Dans le menu privé, il choisit l'usage et l'adresse exacte de son compte.
+4. Le bot cherche uniquement ce code et guette cinq minutes. Un code déjà présenté
+   lors d'une précédente demande n'est pas rejoué. « Renvoyer » dans Instagram
+   produit le code suivant ; il remplace celui affiché pendant le guet.
+5. Si aucun code n'arrive, il vérifie l'adresse et l'usage, puis demande un nouveau code.
+   Il ne publie ni code ni capture non masquée dans un salon.
+
+DISTINCTIONS
+Création : code e-mail de confirmation d'inscription, choix « Créer un compte ».
+Connexion : code e-mail de connexion, choix « Me connecter ».
+Vérification e-mail : modèle de confirmation sur l'adresse déjà associée ; choix
+« Vérifier mon e-mail Instagram ». Ce code ne réalise aucun recours et ne remplace
+pas une preuve d'identité. L'option existante CODES_VERIFICATION reste respectée.
+2FA : TOTP/application d'authentification, SMS ou WhatsApp ne proviennent pas du
+relais Gmail. Le titulaire utilise son moyen autorisé directement dans Instagram.
+Récupération/codes de secours/changements de sécurité : non distribués par le bot.
+Ils nécessitent le parcours officiel et l'autorisation appropriée du titulaire.
+
+RECOURS OFFICIEL META — PARCOURS SIMPLE
+1. Ouvrir le compte concerné dans Instagram officiel et lire la notification.
+   Noter le motif exact, la date, le statut et le délai affiché. Ne pas inventer
+   une cause ni appliquer un délai universel provenant d'un autre produit Meta.
+2. Si « Contester » ou « Demander un examen » est proposé, préparer une explication
+   factuelle courte et les éléments demandés. Si « En cours d'examen », suivre le
+   dossier existant ; ne pas prétendre qu'un nouvel envoi accélérera la décision.
+3. Le clipper peut préparer les faits dans son mandat. Si Meta exige le titulaire,
+   son selfie vidéo, sa pièce d'identité ou une validation personnelle, le titulaire
+   agit lui-même directement dans Meta. Ne jamais substituer une identité ou une
+   photo. Ne pas envoyer ces éléments dans Discord ou à l'assistant.
+4. Conserver la référence du dossier et le statut, sans secrets. Ne promettre aucun
+   délai ni rétablissement. Les options peuvent varier selon le compte et le pays.
+5. Pour un compte piraté ou un moyen d'accès perdu, partir du parcours officiel
+   Instagram « hacked » ou du centre d'aide depuis l'app. Cela peut nécessiter
+   l'intervention personnelle du titulaire. Aucun contournement ni compte de
+   remplacement destiné à éviter une suspension.
+
+Sources Meta consultées le 14/10/2026 :
+- Compte désactivé et demande d'examen à la connexion :
+  https://www.facebook.com/help/366993040048856
+  L'extrait officiel est indexé ; l'ouverture directe redirige vers la connexion.
+- Centre officiel de récupération, 2FA et reconnaissance des appareils :
+  https://www.meta.com/account-recovery-support/
+  La page renvoie vers l'aide Instagram piratage et 2FA ci-dessous.
+- https://help.instagram.com/368191326593075/
+- https://help.instagram.com/566810106808145
+- https://www.instagram.com/hacked/
+  Ces trois ouvertures ont renvoyé HTTP 429 à l'outil de recherche. Le parcours
+  exact affiché à un compte suspendu n'a donc pas été observé dans cette session.
+
+VALIDATION TECHNIQUE
+Commande, depuis tools/bot_clippers :
+PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -q
+Résultat : 83 tests réussis avec Python 3.9 et discord.py 2.7.1.
+Aucun compte réel, secret, message Discord réel ou connexion Gmail n'a été utilisé.
+Les tests couvrent la classification FR/EN existante, l'appartenance UID, les
+adresses ambiguës, la fraîcheur, le renvoi, les clics concurrents, les droits retirés,
+les MP fermés, l'éphémère, l'absence de push salon et la persistance sans valeur OTP.
+Le bot complet n'a pas été démarré : ses services et identifiants réels sont hors test.
+Graphify n'est pas installé et son graphe est absent dans le dépôt local : pas de
+mise à jour du graphe possible. Aucun autre livrable n'est bloqué par cette absence.
+
+SEULES VALIDATIONS RESTANTES
+A. Gaëtan valide le correctif en brouillon, notamment le menu usage/compte,
+   l'abandon du mode sans filtre et du repli global du staff. Ensuite seulement,
+   intégrer et déployer le commit revu sur BOT Marketing (pas Reels Worker).
+B. Confirmer pour un clipper pilote : compte/alias/UID et titulaire autorisé.
+   Aucun tableau de mots de passe ou secret 2FA n'est nécessaire pour cette validation.
+C. Faire effectuer par ce clipper une demande réelle de code e-mail pour chaque usage
+   nécessaire et saisir le code lui-même. Vérifier uniquement succès/échec, heure,
+   compte masqué et type ; ne pas fournir les chiffres à l'assistant.
+   Tester aussi un renvoi et l'absence de code public. Sans cela, le bout en bout
+   reste non prouvé même si Railway affiche SUCCESS.
+D. Vérifier la méthode 2FA déjà configurée par le titulaire, sans l'exporter, et
+   désigner qui réalise les étapes personnelles d'un recours. Aucun recours ni
+   compte réel n'a été créé ou soumis pendant ce travail.
+
+LIMITES À CONNAÎTRE
+La correspondance d'un format e-mail ne prouve pas la réussite d'une connexion Meta.
+Le contrôle cryptographique des relais iCloud reste celui du projet existant :
+CODES_PREUVE_RELAIS a pour défaut « observer » dans le source. La configuration réelle
+et les en-têtes d'un vrai message n'ont pas été lus. Ne pas affirmer que la signature
+Meta est vérifiée en production ; une validation des en-têtes, sans contenu ni code,
+est nécessaire avant tout éventuel durcissement de ce paramètre.
+Le cache issu du Sheet expire après environ sept minutes et est invalidé par les
+mutations locales de propriété. Une réattribution faite uniquement dans un Sheet,
+non encore synchronisée localement, doit attendre cette synchronisation/expiration.

@@ -310,20 +310,13 @@ MESSAGE_ESCALADE_MP_SANS_SALON = "Je n'ai pas la réponse. J'ai transmis ta ques
 # partout. Le salon devient un lien cliquable <#id> en post-traitement (lier_salon_codes), dès que son id est connu.
 # 10/10 (règle de Gaëtan : « uniquement les codes de connexion et de création de compte ») : le bouton « 📩 Mon code ».
 TEXTE_CODE = codes_2fa.TEXTE_CODE_BRUT                                   # suit CANAL_CODES_NOM
-# 12/10 (Gaëtan : « Enlève les sécurités sur le 2FA… ça lui sort le 2FA le plus récent ») : la règle 20 de l'assistant suit
-# codes_2fa.SECURITES (CODES_SECURITES=1 : la règle du 10/10, connexion et création seulement).
+# Le mode d'emploi de l'assistant suit le menu privé du relais.
 REGLE_CODES = (
-    "Le bouton « 📩 Mon code » (ou `!code` tapé dans ce salon, réponse en message privé) ne donne QUE les codes de CONNEXION "
-    "et de CRÉATION de compte reçus par e-mail sur SES adresses, visibles par lui seul (règle de Gaëtan du 10/10). Tout autre "
-    "code n'est JAMAIS donné, à personne : mot de passe oublié ou récupération, changer l'e-mail, le mot de passe, le numéro "
-    "ou le pseudo, double authentification, Espace Comptes, suppression. "
-    + ("Le code d'un appel après un ban est donné aussi." if codes_2fa.CODES_APPEL else "Le code d'un appel après un ban ne "
-       "passe pas par le bot : l'équipe le reçoit et répond au clipper dans son salon perso.")
-    + " `!recup` ne donne rien."
-    if codes_2fa.SECURITES else
-    "`!code` tapé dans ce salon (ou le bouton « 📩 Mon code ») lui donne en message privé son DERNIER code Instagram reçu par "
-    "e-mail, quel qu'il soit (connexion, création, appel après un ban…), visible par lui seul (règle de Gaëtan du 12/10 : « il "
-    "faut que le 2FA marche à tous les coups »). Code refusé : « Renvoyer le code » dans Instagram, le nouveau arrive tout seul.")
+    "Le bouton « 📩 Mon code » ou !code ouvre un menu privé : le clipper choisit un compte qui lui appartient et "
+    "l'usage exact (création, connexion ou vérification de l'e-mail existant). Ne jamais recopier un code dans un salon. "
+    "Demander un nouveau code sur Instagram, puis ouvrir le menu dans les deux minutes ; le bot guette ensuite cinq minutes. "
+    "TOTP/application d'authentification, SMS et WhatsApp ne sont pas reçus par le relais e-mail. Les codes de secours, "
+    "récupération, recours ou changement de sécurité ne sont jamais distribués. Aucune garantie de déblocage d'un compte.")
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
 # jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
 # PARCOURS_ATTENTE_COMPTE_H et PARCOURS_REELS_OUVERTURE (par défaut, mot pour mot le même texte).
@@ -411,37 +404,33 @@ les vidéos de ma créatrice) se règle avec Gaëtan, sur WhatsApp (le lien est 
 tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
-20. Les codes Instagram se demandent UNIQUEMENT dans le salon #🔐-code-instagram (01/10, Gaëtan) : jamais « ici », \
-jamais dans le salon perso, jamais en MP. Tu dis toujours, mot pour mot : « {TEXTE_CODE} » \
-{REGLE_CODES} Instagram propose la double authentification : il l'écrit à Gaëtan avant de toucher à quoi que ce \
-soit (tu ne lui dis ni de l'activer ni de ne pas l'activer). Si Instagram demande \
-un NUMÉRO DE TÉLÉPHONE (création, connexion ou vérification) : le clipper met SON numéro personnel, celui \
-de son téléphone, et reçoit le SMS lui-même (décision de Gaëtan du 26/09). Ce numéro ne sert qu'à SES \
-3 comptes : jamais un numéro déjà utilisé pour d'autres comptes Instagram, jamais un numéro d'ami, jamais \
-un numéro jetable. Date de naissance : la sienne, il doit être majeur. Instagram demande un SELFIE VIDÉO \
-(« confirmez que vous êtes une personne réelle ») : le clipper le fait lui-même, avec son visage, c'est normal \
-et sans danger. Tu ne dis JAMAIS que le manager ou \
-l'agence va lui donner un compte déjà créé, ni qu'un code SMS arrive chez le bot : c'est faux. Tu ne \
-recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
-21. TROIS cas, et trois seulement, vont à un humain : un BAN dont l'appel a été REFUSÉ par Instagram (avant, le clipper \
-fait appel lui-même, règle 23), un NUMÉRO de téléphone refusé par Instagram, une question de PAIEMENT (montant, date, adresse, \
-retard). Pour ces trois cas : écrire à Gaëtan sur WhatsApp : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"} \
-— en se présentant (prénom, créatrice), le problème en une phrase, une capture d'écran. Tout le reste, c'est toi : \
-la base, la fiche, ou « je ne sais pas » en une phrase avec la fiche la plus proche. Tu n'inventes jamais une solution, \
-un salon, une commande ou une personne. Tu ne renvoies jamais vers WhatsApp pour autre chose que les trois cas.
+20. Pour un code e-mail Instagram : « {TEXTE_CODE} » {REGLE_CODES} \
+Activer, désactiver ou changer la 2FA ou les moyens de récupération nécessite la validation du titulaire et de l'agence. \
+Un code d'une méthode déjà configurée se saisit directement dans Instagram depuis le moyen autorisé du titulaire. \
+Une création doit utiliser l'identité réelle du titulaire et uniquement les coordonnées qu'il est autorisé à associer. \
+Selfie vidéo, date de naissance ou pièce d'identité : suivre exactement la demande de Meta ; si elle concerne \
+le titulaire et que le clipper ne l'est pas, celui-ci doit intervenir personnellement. Ne jamais affirmer qu'un selfie \
+du clipper conviendra pour le compte d'une autre personne. Aucun document d'identité ni code dans Discord. \
+Tu ne recopies JAMAIS la ligne [Contexte : …] dans ta réponse.
+21. Les cas qui nécessitent une action humaine : recours refusé, numéro refusé, paiement, identité du titulaire \
+exigée par Meta ou autorisation de changement de sécurité manquante. Le clipper peut préparer les informations \
+factuelles, mais le titulaire effectue ses vérifications personnelles. Si le titulaire ou le responsable n'est pas \
+identifié, demander au manager de le confirmer. Pour Gaëtan : {WHATSAPP_GAETAN_URL or "le lien que ton manager te donne"}. \
+Ne transmettre aucun secret ni document d'identité dans la demande d'aide. Ne promettre aucune action automatique.
 22. Tu ne poses AUCUNE question dont la réponse ne change rien pour toi : jamais « iPhone ou Android ? », \
 jamais « dis-moi quand c'est fait » (le bouton ✅ C'est fait existe), jamais « reviens me dire ». Une seule \
 question à la fois, seulement si tu en as besoin pour répondre. Quand le clipper dit juste « ok », « merci », \
 « d'accord », tu ne réponds pas.
-23. Tu ne donnes JAMAIS la cause d'un blocage : tu ne la connais pas. Tu donnes la marche à suivre. \
-« Déconnecté, le propriétaire a modifié son mot de passe » : reconnecte-toi avec le mot de passe du message \
-de son compte, dans son salon perso, puis le code dans #🔐-code-instagram avec le bouton « 📩 Mon code » ; s'il ne marche plus, jamais « Mot de passe oublié » : WhatsApp Gaëtan. « Compte en révision », « suspendu », \
-« désactivé », « nous examinons » (30/09, Gaëtan) : le clipper fait appel LUI-MÊME, tout de suite — « Contester la décision » ; \
-le code reçu par e-mail : {"« " + TEXTE_CODE + " »" if (codes_2fa.CODES_APPEL or not codes_2fa.SECURITES) else "il ne passe pas par le bot (10/10) : l'équipe le reçoit et lui répond dans son salon perso"} ; selfie vidéo : lui ; numéro de téléphone ou pièce d'identité \
-demandés : les SIENS ; jamais les papiers de quelqu'un d'autre, jamais de faux, jamais sa pièce d'identité dans Discord (il \
-l'envoie seulement à Instagram) ; puis une capture de la réponse dans son salon. Si l'appel échoue, Gaëtan décide. On ne \
-réutilise JAMAIS une info d'un compte BAN : ni son e-mail, ni son mot de passe, ni son identifiant (01/10, Gaëtan). Jamais « c'est normal », jamais \
-« sécurisé par l'agence », jamais « ton manager te donne une solution demain ».
+23. Suspension : ne pas inventer la cause. Ouvrir l'application officielle sur le compte concerné, lire la notification \
+et suivre « Contester » ou « Demander un examen » uniquement si cette option est proposée. Respecter le délai affiché ; \
+ne pas inventer un délai universel. Si « en cours d'examen », suivre l'état existant sans lancer un autre recours. \
+Préparer un récit bref et exact, la date et le motif affiché, sans fausse identité ni fausses preuves. Le clipper agit \
+seulement dans son mandat ; si Meta exige le titulaire, son selfie ou sa pièce d'identité, ce titulaire agit lui-même \
+directement dans Meta. Le relais peut fournir un code de vérification d'e-mail existant reconnu, ce qui ne vaut ni recours \
+ni validation d'identité. Un code explicitement lié à un recours ou à une récupération reste hors du relais. \
+Compte piraté ou moyen d'accès perdu : https://www.instagram.com/hacked/ ; ce parcours peut exiger le titulaire. \
+Conserver la référence et le statut du recours, sans publier de code, mot de passe ou pièce d'identité. Pas de contournement \
+de bannissement, pas de création de remplacement pour éviter une suspension et aucune promesse de rétablissement.
 24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
 message de son compte (le compte existe peut-être déjà). Si ça échoue, créer avec un chiffre en plus à la fin, \
 puis taper dans SON SALON PERSO `!pseudo`, le numéro du compte (1, 2 ou 3) et le VRAI @ qu'il a pris, par exemple \
@@ -520,11 +509,10 @@ def _adresses_codes_fiche(uid) -> set:
     blocs = [fiche.get("acces") or []]
     for phone in (fiche.get("telephones") or {}).values():
         if isinstance(phone, dict):
-            blocs.append(phone.get("acces") or [])
-    for bloc in blocs:
-        for item in bloc:
-            if isinstance(item, dict) and item.get("handle"):
-                valides.add(onboarding._cle_handle(item["handle"]))
+            livres_phone = (phone.get("acces") or [])[:max(0, int(phone.get("donnes") or 0))]
+            blocs.append(livres_phone)
+            valides.update(onboarding._cle_handle(a.get("handle") or "")
+                           for a in livres_phone if isinstance(a, dict))
     mails = set()
     for bloc in blocs:
         for item in bloc:
@@ -539,7 +527,32 @@ def _adresses_codes_fiche(uid) -> set:
             if autre_uid and autre_uid != uid:
                 continue
             mails.add(mail)
+    for autre_uid, autre in (data.get("clippers") or {}).items():
+        if str(autre_uid) == uid or not isinstance(autre, dict):
+            continue
+        autres_valides = {onboarding._cle_handle(h) for h in autre.get("comptes") or []}
+        autres_blocs = [autre.get("acces") or []]
+        for phone in (autre.get("telephones") or {}).values():
+            if isinstance(phone, dict):
+                acces_phone = (phone.get("acces") or [])[:max(0, int(phone.get("donnes") or 0))]
+                autres_blocs.append(acces_phone)
+                autres_valides.update(onboarding._cle_handle(a.get("handle") or "")
+                                      for a in acces_phone if isinstance(a, dict))
+        for bloc in autres_blocs:
+            for item in bloc:
+                if (isinstance(item, dict) and onboarding._cle_handle(item.get("handle") or "")
+                        in autres_valides):
+                    mails.discard(str(item.get("mail") or "").strip().lower())
     return mails
+
+
+def _revision_adresses_codes():
+    """Une mutation locale de propriété invalide immédiatement le cache des adresses."""
+    try:
+        return tuple((Path(p).stat().st_mtime_ns, Path(p).stat().st_size)
+                     for p in (FICHIER_ONBOARDING, FICHIER_EQUIPES))
+    except OSError:
+        return None
 
 
 _OTP_UID_CACHE = {}  # UID Discord -> {mails, jusque}; jamais publié dans les logs
@@ -558,6 +571,7 @@ async def _actualiser_adresses_codes(uid):
     creatrice = creatrice_de(uid)
     if not prenom or not creatrice:
         return set()
+    revision = _revision_adresses_codes()
     try:
         lignes = await asyncio.wait_for(onboarding.lire_comptes(), timeout=20)
         proprietaires = onboarding._proprietaires()
@@ -572,8 +586,12 @@ async def _actualiser_adresses_codes(uid):
             }
         mails, diagnostic = otp_identity.unique_aliases(
             uid, creatrice, prenom, actifs, lignes, proprietaires)
+        if revision is None or revision != _revision_adresses_codes():
+            _OTP_UID_CACHE.pop(uid, None)
+            return _adresses_codes_fiche(uid)
         if mails:
-            _OTP_UID_CACHE[uid] = {"mails": mails, "jusque": time.monotonic() + max(420, codes_2fa.ATTENTE_SEC + 90)}
+            _OTP_UID_CACHE[uid] = {"mails": mails, "revision": revision,
+                                   "jusque": time.monotonic() + max(420, codes_2fa.ATTENTE_SEC + 90)}
             journal.info("Codes : association UID via classeur vérifiée (UID fin %s, %d adresses)",
                          uid[-4:], len(mails))
         else:
@@ -601,9 +619,14 @@ def adresses_codes_de(uid) -> set:
     propres = _adresses_codes_fiche(uid)
     cache = _OTP_UID_CACHE.get(uid)
     if cache and cache.get("jusque", 0) > time.monotonic():
-        return propres | set(cache.get("mails") or ())
+        revision = _revision_adresses_codes()
+        if revision is not None and cache.get("revision") == revision:
+            return propres | set(cache.get("mails") or ())
+        _OTP_UID_CACHE.pop(uid, None)
     if propres:
         return propres
+    if uid in ((lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}):
+        return set()  # Une fiche vide/révoquée ne récupère pas ses anciens alias de salon.
     salon = salon_perso_de(uid)
     if salon is None:
         return set()

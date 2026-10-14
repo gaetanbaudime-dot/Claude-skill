@@ -1,49 +1,21 @@
-"""Codes Instagram des clippers : liste blanche, réponse privée, un seul lecteur de la boîte (10/10/2026).
+"""Relais privé des e-mails Instagram, séparé par compte et usage.
 
-POURQUOI : chaque compte Instagram de l'agence est créé avec un alias iCloud « Masquer mon adresse » qui renvoie vers UNE
-boîte Gmail. Le bot lit cette boîte et donne au clipper le code qu'Instagram vient de lui envoyer.
+Le bouton persistant et !code ouvrent un choix privé (création, connexion, vérification
+sur l'adresse existante). Une demande lit un seul alias autorisé pour l'UID Discord,
+avec deux minutes de recul et cinq minutes de guet. Jamais de repli sur un autre
+compte, de code expiré, de push vers un salon ou de code persistant sur disque.
+Les droits sont relus avant chaque envoi ; une nouvelle demande remplace la précédente.
 
-RÈGLE DE GAËTAN DU 10/10 (mot pour mot) : « Il faut qu'il n'y ait aucun problème de 2FA. Il faut que les 2FA et les codes
-que tu renvoies dans le salon code Instagram soient uniquement les codes de connexion et de création de compte, pas de
-modifications de données importantes, uniquement ces codes-là. »
-
-CE QUE FAIT LE MODULE :
-1. LISTE BLANCHE (classer) : un code ne part au clipper que si l'ADRESSE de l'expéditeur est Instagram (ou Meta pour un
-   mail qui parle d'Instagram), réécriture iCloud comprise, jamais le seul nom affiché ; que le sujet ou le début du
-   corps écrit un but de CONNEXION ou de CRÉATION de compte (FR, EN, DE, ES, PT, IT) ; et qu'aucun mot de la liste
-   noire n'y figure (mot de passe, récupération, e-mail, numéro, 2FA, Espace Comptes, suppression, pseudo, sauvegarde,
-   changement, appel…). Les phrases « si ce n'était pas vous… » sont retirées avant la lecture. Un mail HTML seul est
-   d'abord converti en texte (CSS et scripts retirés).
-2. Tout autre code est GARDÉ : jamais montré à un clipper, jamais stocké ; une ligne au salon admin, sans le code.
-   Un changement déjà fait (mot de passe, e-mail, numéro, 2FA, Espace Comptes, pseudo, suppression) : une alerte admin
-   « ⚠️ changement sur le compte @x : … », une fois par e-mail.
-3. Code d'appel après un ban : gardé par défaut ; CODES_APPEL=1 le donne, seulement si l'e-mail ne parle que d'appel.
-4. Le clipper reçoit son code en PRIVÉ : bouton persistant « 📩 Mon code » épinglé dans #🔐-code-instagram (réponse
-   éphémère, visible par lui seul) ; `!code` tapé y répond en message privé. Plus jamais de code dans le salon commun.
-   Le code n'est donné qu'au clipper dont le salon perso porte l'adresse dans alias_codes.json.
-5. UN seul lecteur IMAP (Lecteur) : incrémental par UID, en-têtes d'abord, corps seulement pour les mails Meta, IDLE si
-   le serveur le permet (sinon toutes les CODES_SONDAGE_SEC secondes). Le bouton, `!code`, la boucle des codes et
-   bans_mail lisent tous ce flux : plus personne ne re-télécharge la boîte.
-6. Santé : boîte illisible, mot de passe d'application refusé, boîte pleine, code reçu sur une adresse rattachée à
-   personne → une ligne admin, une fois par heure au plus.
-
-REVUE DU 10/10 (2e passe, 17 défauts corrigés) :
-- filtre : une phrase « si ce n'était pas vous » qui porte le code ou le mot « code » est lue (et garde le code si c'est elle
-  qui le porte) ; liste noire complétée (sécuriser, retrouver l'accès, restaurer, débloquer, « à nouveau », Facebook,
-  Threads, déconnexion…) ; tirets Unicode et caractères invisibles neutralisés ; le pseudo ne compte jamais comme but ; un
-  mail écrit dans aucune des 6 langues est gardé ; la liste noire lit TOUT le mail (texte, HTML, <title>, textes alternatifs) ;
-  « confirm your identity », « restore » et « unlock » seuls ne suffisent plus ;
-- lecteur : l'UID n'avance qu'au bout d'un passage réussi (une coupure ne perd plus rien), un mail illisible est rejoué
-  puis sauté avec une ligne admin, IDLE robuste, réécriture iCloud tolérante et jamais d'écart en silence ;
-- Discord : le guet continue après un code (le 2e code remplace le 1er tout seul), il relit les adresses du clipper, un salon
-  lu par des clippers n'est jamais « privé », une ligne admin ne recopie jamais un code ;
-- CODES_PREUVE_RELAIS : « observer » (défaut) ou « 1 » pour exiger la preuve Gmail qu'un mail iCloud vient bien de Meta.
+Les codes TOTP/SMS/WhatsApp, récupération, recours et changements de sécurité ne sont
+pas distribués. Aucun secret d'authentification n'est nécessaire aux tests synthétiques.
+Le lecteur IMAP et la recherche à la demande alimentent uniquement le cache en mémoire.
 """
 
 import asyncio
 import email
 import email.utils
 import html
+import hashlib
 import imaplib
 import json
 import os
@@ -87,9 +59,8 @@ AMORCE_MAX = int(os.environ.get("CODES_AMORCE_MAX", "120") or 120)
 QUOTA_SEUIL = 0.9
 # 10/10 (règle stricte de Gaëtan) : le code d'un appel après un ban est gardé ; CODES_APPEL=1 le donne au clipper.
 CODES_APPEL = _oui("CODES_APPEL")
-# 12/10 (Gaëtan : « Enlève les sécurités sur le 2FA ») : plus de liste blanche ni noire, tout code Instagram est donné.
-# CODES_SECURITES=1 remet les filtres du 10/10 (connexion et création seulement).
-SECURITES = _oui("CODES_SECURITES", "1")
+# L’ancien interrupteur CODES_SECURITES=0 ne peut plus supprimer les filtres.
+SECURITES = True  # Le relais public ne doit jamais réactiver le mode sans filtre.
 # 10/10 (revue) : un mail relayé par iCloud porte une adresse @icloud.com ; une adresse iCloud ORDINAIRE à la forme d'une
 # réécriture (« <x>_at_instagram_com_<n> » chez icloud.com) passerait pour Instagram. « observer » (défaut) : rien n'est bloqué, une
 # ligne admin par jour quand Gmail n'atteste pas la signature Meta ; « 1 » : un tel mail est ignoré. Format réel à vérifier.
@@ -105,11 +76,11 @@ MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com")
 COMMANDES_RECUP = ("!recup", "!récup", "!recuperation", "!récupération", "!appel", "!unban", "!deban")
 COMMANDES_APPEL = ("!appel", "!unban", "!deban")
 ID_BOUTON = "codes:mon-code"
-VERSION_EXPLICATION = ("7a" if CODES_APPEL else "7") if SECURITES else "8"   # 12/10 : v8, tout code Instagram, le plus récent
+VERSION_EXPLICATION = "10-usage-compte-prive"   # 12/10 : v8, tout code Instagram, le plus récent
 
 # ------------------------------------------------------------------ textes
 TEXTE_CODE_BRUT = f"Un code Instagram ? Va dans #{SALON_CODES_NOM} et appuie sur « 📩 Mon code »."
-SUJET_SALON = ("📩 Mon code : ton code Instagram de connexion, de création de compte ou de déblocage, visible par toi seul." if SECURITES
+SUJET_SALON = ("📩 Mon code : choisis le compte et le type de code e-mail dans une réponse privée." if SECURITES
                else "📩 Mon code (ou !code) : ton dernier code Instagram, visible par toi seul.")
 TEXTE_ATTENTE = ("⏳ Pas encore reçu.\n\nJe guette 5 minutes : ton code s'affiche ici tout seul dès que l'e-mail arrive. "
                  "Pas besoin de rappuyer.")
@@ -129,16 +100,17 @@ TEXTE_PLUS_ADRESSE = ("🔒 Aucune adresse n'est plus rattachée à toi : je ne 
                       "Une question ? Écris dans ton salon perso.")
 TEXTE_GARDE = ("🔒 Le dernier e-mail reçu sur ton adresse n'est pas un code de connexion, de création de compte ni de déblocage : "
                "je ne le donne pas.\n\nL'équipe est prévenue.")
-TEXTE_APPEL_GARDE = ("Appel après un ban : tu le fais toi-même. Le code de l'appel ne passe pas par le bot : il arrive chez "
-                     "l'équipe, qui te répond dans ton salon perso.")
-TEXTE_RECUP_REFUSE = ("🔒 Ce code-là ne passe pas par le bot. « 📩 Mon code » donne seulement les codes de connexion et de "
-                      "création de compte.\n\nMot de passe oublié : ne le fais jamais, écris à ton manager dans ton salon perso."
-                      + ("" if CODES_APPEL else "\n\n" + TEXTE_APPEL_GARDE))
+TEXTE_APPEL_GARDE = ("Recours : ouvre la notification dans Instagram et suis le parcours officiel proposé. "
+                     "Si Meta demande le titulaire, son selfie ou sa pièce d’identité, le titulaire doit agir personnellement.")
+TEXTE_RECUP_REFUSE = ("🔒 Les codes de récupération, de recours et de changement de sécurité ne passent pas par le bot. "
+                    "Pour un accès perdu : https://www.instagram.com/hacked/ . "
+                    "Utilise ce parcours avec le titulaire.\n\n" + TEXTE_APPEL_GARDE)
+
 TEXTE_MP = "📩 Je t'envoie ton code en message privé.\n\nPlus rapide : le bouton « 📩 Mon code »."
 TEXTE_MP_FERMES = ("🔒 Tes messages privés sont fermés : je ne peux pas t'écrire.\n\n"
                    "Appuie sur le bouton : ton code s'affiche ici, pour toi seul.")
 QUOI = {"creation": "création de compte", "connexion": "connexion", "appel": "appel après un ban",
-        "verification": "vérification d'identité (déblocage)"}
+        "verification": "vérification d’e-mail"}
 # 14/10 (Gaëtan : « Il ne reçoit pas le code pour unban un compte, règle ça pour tous les clippeurs ») : « Pour confirmer votre
 # identité sur Instagram, nous devons vérifier votre adresse e-mail » (code de confirmation d'adresse e-mail, envoyé à l'adresse
 # DU compte quand Instagram le bloque) est donné. Le reste du mail passe toujours la liste noire : un mail qui parle aussi de mot
@@ -147,19 +119,16 @@ CODES_VERIFICATION = _oui("CODES_VERIFICATION", "1")
 
 
 def explication_salon() -> str:
-    """Le mode d'emploi épinglé (v8, 12/10 : Gaëtan, « garde le fait que le clippeur tape !code et ça lui sort le 2FA le plus
-    récent ») : `!code` ou le bouton, le dernier code, le code refusé. CODES_SECURITES=1 : le mode d'emploi v7 du 10/10."""
-    if SECURITES:
-        return _explication_v7()
-    return ("🔐 **Ton code Instagram, c'est ici.**\n\n"
-            "Tape **!code** ici, ou appuie sur **📩 Mon code** : ton dernier code Instagram s'affiche pour toi seul. "
-            "Personne d'autre ne le voit.\n\n"
-            "➡️ Tu fais ta demande sur Instagram (création de compte ou connexion). Instagram envoie un e-mail. Tu tapes "
-            "!code : le code arrive tout seul dès que l'e-mail est là. ✅\n\n"
-            "🔁 Code refusé ? Appuie sur « Renvoyer le code » dans Instagram : le nouveau remplace l'ancien tout seul, "
-            "pendant 5 minutes.\n\n"
-            "😴 Pas de code après 5 minutes ? Vérifie l'e-mail tapé dans Instagram, appuie sur « Renvoyer le code », "
-            "puis retape !code.")
+    return ("🔐 **Ton code Instagram**\n\n"
+            "1. Demande un nouveau code dans Instagram.\n"
+            "2. Appuie sur **📩 Mon code** ou tape `!code`.\n"
+            "3. Dans la réponse privée, choisis **Créer un compte**, **Me connecter** ou "
+            "**Vérifier mon e-mail Instagram**, puis l’adresse exacte de ton compte.\n\n"
+            "Je cherche un code du bon usage reçu dans les deux dernières minutes, puis je guette cinq minutes. "
+            "Un nouveau code remplace le précédent. Si le code a déjà été présenté, demande un nouveau code sur Instagram.\n\n"
+            "Application d’authentification, SMS ou WhatsApp : utilise la méthode affichée par Instagram ; "
+            "ce bot ne reçoit que les e-mails. Récupération, recours et modification de sécurité : "
+            "suis le parcours officiel avec le titulaire. Ne poste jamais de code dans un salon.")
 
 
 def _explication_v7() -> str:
@@ -187,7 +156,7 @@ def actif() -> bool:
 
 def _err(erreur) -> str:
     """01/10 : str(TimeoutError()) vaut "" — le type d'abord."""
-    return f"{type(erreur).__name__} {erreur}".strip()
+    return type(erreur).__name__  # Les exceptions de transport peuvent contenir le mail ou la réponse Discord.
 
 
 def _masquer(alias: str) -> str:
@@ -319,6 +288,8 @@ def demande_de_code(texte: str) -> str:
     """« !code » / « !recup » si le message est une demande de code (« Code », « code pour le compte 2 », « le code stp »,
     « j'ai pas reçu le code »), sinon "". Moins de 6 mots, le mot « code », sans autre question ni remerciement."""
     t = (texte or "").strip()
+    if re.match(r"^!code(?:\s|$)", t, re.I):
+        return t  # Conserver le choix explicite de l’usage et du compte.
     m = _MOT_SEUL.fullmatch(t)
     if m:
         return "!code" if m.group(1).lower().startswith("code") else "!recup"
@@ -736,14 +707,14 @@ _SUJET_CODE_INSTAGRAM = re.compile(
     r"^\s*[0-9]{5,8}\s+(?:is your instagram code|est votre code instagram)\s*[.!]?\s*$", re.I)
 _MUTATION_CODE = re.compile(
     r"(?:reset|change|changing|changed|update|updating|updated|remove|removing|add|adding|added|"
-    r"recover|recovery|forgot|forgotten|restore|appeal|disable|enable|delete|deleting|"
+    r"recover|recovery|forgot|forgotten|restore|appeal|disable|enable|turn off|turn on|delete|deleting|"
     r"reinitialis\w*|reinitializ\w*|modifi\w*|chang\w*|ajout\w*|supprim\w*|"
     r"recup\w*|oubli\w*|desactiv\w*|activ\w*|deban\w*|appel)\b.{0,65}?"
     r"(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
     r"pseudo|authenticat\w*|securit\w*|security|account|compte|2fa|two.factor)"
     r"|(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
     r"pseudo|2fa|two.factor)\b.{0,65}?(?:reset|chang\w*|modifi\w*|updat\w*|"
-    r"remov\w*|ajout\w*|add\w*|desactiv\w*|activ\w*)",
+    r"remov\w*|ajout\w*|add(?:ing|ed)?\b|desactiv\w*|activ\w*)",
     re.I,
 )
 
@@ -842,6 +813,12 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     if not expediteur_instagram(from_header) and not (expediteur_meta_codes(from_header) and "instagram" in blanc):
         quoi = "Facebook" if "facebook" in adresse_expediteur(from_header) else "Meta ou Espace Comptes"
         return dict(sortie, decision="garder", libelle=f"code {quoi} (pas un mail Instagram)")
+    for partie in [sujet, corps] + list(complets or []):
+        pertinent, _ = _avertissements(_sans_pied(plat(partie), code), code)
+        if (_MUTATION_CODE.search(pertinent) or re.search(
+                r"two[- ]?factor|\b2fa\b|\btotp\b|authenticator|double authentification|"
+                r"deux facteurs|backup codes?|codes? de secours", pertinent)):
+            return dict(sortie, decision="garder", code=None, libelle="récupération ou sécurité du compte")
     if expediteur_instagram(from_header):
         standard = _code_standard_connexion(sujet, corps, code)
         if standard or _verification_profil_connexion(sujet, corps, code):
@@ -898,19 +875,22 @@ def _entete(msg, nom: str) -> str:
 
 
 def alias_du_mail(msg) -> str:
-    """L'adresse du compte (l'alias iCloud) : To d'abord, puis X-Original-To, Delivered-To ; jamais la boîte lue."""
+    """Refuser les destinataires ambigus plutôt que choisir le premier compte au hasard."""
+    adresses = set()
     for nom in ("To", "X-Original-To", "Delivered-To"):
-        for _, adresse in email.utils.getaddresses([_entete(msg, nom)]):
-            adresse = adresse.strip().lower()
-            if "@" in adresse and adresse != IMAP_USER.lower():
-                return adresse
-    return ""
+        for valeur in msg.get_all(nom) or []:
+            for _, adresse in email.utils.getaddresses([str(valeur)]):
+                adresse = adresse.strip().lower()
+                if "@" in adresse and adresse != IMAP_USER.lower():
+                    adresses.add(adresse)
+    return next(iter(adresses)) if len(adresses) == 1 else ""
 
 
 def cle_du_mail(msg) -> str:
     """Le Message-ID, sinon une empreinte stable (expéditeur, date, sujet) : un mail remonté du Spam garde sa clé."""
     mid = str(msg.get("Message-ID") or "").strip()
-    return mid or f"{msg.get('From')}|{msg.get('Date')}|{_entete(msg, 'Subject')}"
+    empreinte = "|".join(str(msg.get(k) or "") for k in ("From", "To", "Date", "Subject"))
+    return mid or "sha256:" + hashlib.sha256(empreinte.encode("utf-8")).hexdigest()
 
 
 def classer_mail(msg) -> dict:
@@ -924,9 +904,12 @@ def classer_mail(msg) -> dict:
     else:
         info = classer(msg.get("From"), sujet, texte_du_mail(msg), textes_complets(msg))
     try:
-        date = email.utils.parsedate_to_datetime(msg.get("Date")).astimezone(timezone.utc)
+        date = email.utils.parsedate_to_datetime(msg.get("Date"))
+        if date.tzinfo is None:
+            raise ValueError("date sans fuseau")
+        date = date.astimezone(timezone.utc)
     except Exception:                                                   # noqa: BLE001
-        date = _maintenant()
+        date = datetime(1970, 1, 1, tzinfo=timezone.utc)
     info.update(alias=alias_du_mail(msg), sujet=sujet, date=date, mid=cle_du_mail(msg),
                 expediteur=adresse_expediteur(msg.get("From")), preuve=preuve)
     return info
@@ -994,7 +977,7 @@ class MailIllisible(imaplib.IMAP4.error):
 
 
 def _dossiers_speciaux(lignes) -> dict:
-    """Discover RFC 6154 \All / \Junk folder names (Gmail can localize them)."""
+    r"""Discover RFC 6154 \All / \Junk folder names (Gmail can localize them)."""
     found = {}
     for item in lignes or []:
         raw = item.decode("utf-8", "replace") if isinstance(item, bytes) else str(item or "")
@@ -1102,7 +1085,7 @@ class Lecteur:
             except imaplib.IMAP4.error as erreur:
                 if dossier == IMAP_DOSSIER:
                     raise
-                journal.warning("Codes : dossier %s ignoré ce passage : %s", dossier, erreur)   # un Spam absent ne bloque rien
+                journal.warning("Codes : dossier %s ignoré ce passage : %s", dossier, _err(erreur))   # un Spam absent ne bloque rien
                 self.selection = None
                 signal += [s for s in self._signal if s[0] == "saute"]
                 continue
@@ -1304,7 +1287,7 @@ class Lecteur:
             except imaplib.IMAP4.abort:
                 raise
             except imaplib.IMAP4.error as erreur:
-                journal.warning("Codes : déplacement depuis %s : %s", dossier, erreur)
+                journal.warning("Codes : déplacement depuis %s : %s", dossier, _err(erreur))
                 break
         return sortie
 
@@ -1343,7 +1326,7 @@ def _etat() -> dict:
             _ETAT.setdefault(cle, defaut)
         # Ne jamais restituer des codes mis en cache sous l'ancien mode non filtré :
         # certains pouvaient venir d'une modification de compte Instagram.
-        mode = "strict_login_signup" if SECURITES else "legacy_all_meta"
+        mode = "strict_context_v2"
         if _ETAT.get("mode_codes") != mode:
             _ETAT["codes"] = []
             _ETAT["mode_codes"] = mode
@@ -1362,9 +1345,9 @@ def _sauver():
     e["faits"] = {k: v for k, v in e["faits"].items() if str(v) >= vieux}
     e["sante"] = {k: v for k, v in e["sante"].items() if str(v) >= vieux}
     try:
-        f.write_text(json.dumps(e, ensure_ascii=False, indent=1), encoding="utf-8")
+        f.write_text(json.dumps(dict(e, codes=[]), ensure_ascii=False, indent=1), encoding="utf-8")
     except OSError as erreur:
-        journal.warning("codes_lecteur.json non écrit : %s", erreur)
+        journal.warning("codes_lecteur.json non écrit : %s", _err(erreur))
 
 
 def _iso(date) -> str:
@@ -1373,7 +1356,8 @@ def _iso(date) -> str:
 
 def _date(t) -> datetime:
     try:
-        return datetime.fromisoformat(str(t.get("date")))
+        date = datetime.fromisoformat(str(t.get("date")))
+        return date.astimezone(timezone.utc) if date.tzinfo is not None else datetime(1970, 1, 1, tzinfo=timezone.utc)
     except (TypeError, ValueError):
         return datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -1400,7 +1384,7 @@ def codes_recents(adresses, minutes: int = None, decision: str = "donner") -> li
     adresses = {str(a).strip().lower() for a in adresses or []}
     limite = _maintenant() - timedelta(minutes=minutes)
     trouves = [t for t in _etat()["codes"] if t.get("alias") in adresses and t.get("decision") == decision
-               and _date(t) >= limite]
+               and limite <= _date(t) <= _maintenant() + timedelta(minutes=2)]
     return sorted(trouves, key=_cle_tri, reverse=True)
 
 
@@ -1417,7 +1401,7 @@ def codes_pour(adresses, minutes: int = None, tout: bool = False) -> list:
         if tout:
             limite = _maintenant() - timedelta(minutes=SALON_CODES_MINUTES if minutes is None else minutes)
             return sorted((t for t in _etat()["codes"] if t.get("decision") == "donner"
-                           and t.get("code") and _date(t) >= limite),
+                           and t.get("code") and limite <= _date(t) <= _maintenant() + timedelta(minutes=2)),
                           key=_cle_tri, reverse=True)
         return codes_recents(adresses, minutes)
     minutes = SALON_CODES_MINUTES if minutes is None else minutes
@@ -1516,9 +1500,7 @@ def _texte_codes(codes: list) -> str:
 
 
 def _texte_ancien(t: dict) -> str:
-    return (f"🕰️ **Ancien code** ({QUOI.get(t.get('type'), 'connexion')}, reçu il y a {_age_min(t)} min) :\n```\n{t['code']}\n```\n\n"
-            "Il est peut-être périmé. S'il est refusé, appuie sur « Renvoyer le code » dans Instagram : je guette le "
-            "nouveau 5 minutes, il remplace celui-ci ici.")
+    return "🕰️ Le précédent code a expiré. Demande un nouveau code dans Instagram."
 
 
 _MONTRES = {}                                                          # cle_guet → {Message-ID: date ISO où le code a été montré}
@@ -1564,98 +1546,76 @@ def _texte_frais(codes: list, cle_guet: str) -> str:
     return _texte_codes(codes) + "\n\n" + note
 
 
+USAGES_EMAIL = {"creation": "Créer un compte", "connexion": "Me connecter",
+                "verification": "Vérifier mon e-mail Instagram"}
+TEXTE_CHOIX = ("📩 Choisis le compte et ce qu’Instagram te demande.\n\n"
+               "Un code d’application d’authentification, SMS ou WhatsApp ne vient pas de cette boîte e-mail. "
+               "Les codes de récupération et les changements de sécurité restent réservés au titulaire.")
+
+
+def _codes_demande(adresses, usage, depuis):
+    """Un seul compte choisi, le bon usage, une date sûre et aucun code déjà présenté."""
+    if len(adresses) != 1 or usage not in USAGES_EMAIL:
+        return []
+    return [t for t in codes_recents(adresses, min(FRAIS_MIN, 10))
+            if t.get("type") == usage and t.get("code") and _date(t) >= depuis]
+
+
 async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes: int = None, relire=None,
-                  tout: bool = False) -> str:
-    """Le cœur du bouton et de `!code` : `dire(texte)` poste ou remplace la réponse PRIVÉE. Renvoie l'issue (« code »,
-    « ancien », « rien », « panne », « deja », « sortie ») pour le journal et les tests. Un code gardé n'est jamais dit.
-    10/10 (revue) :
-    - après un code, le guet CONTINUE jusqu'au bout des 5 minutes : un code plus récent (création puis connexion, ou
-      « Renvoyer le code ») remplace l'ancien tout seul, et la réponse dit quoi faire s'il est refusé ;
-    - `relire()` redonne les adresses du clipper à chaque réveil : un clipper sorti pendant son guet ne voit plus rien ;
-    - un 2e appui pendant un guet : la nouvelle réponse prend la suite, l'ancienne renvoie à la nouvelle ;
-    - boîte en panne au moment de l'appui : dit tout de suite ;
-    - deux codes à la même seconde : le dernier arrivé passe devant."""
+                  tout: bool = False, usage: str = "") -> str:
+    """Une demande explicite, privée, pour un seul compte. Toute nouvelle demande remplace le guet précédent.
+
+    Deux minutes de recul à l'appui, puis cinq minutes d'attente ; jamais de retour à un code ancien
+    ou d'un autre usage. `tout` est conservé pour compatibilité, sans élargir l'accès à la boîte.
+    """
+    if len(adresses) != 1 or usage not in USAGES_EMAIL:
+        await dire(TEXTE_CHOIX)
+        return "choix"
     duree = ATTENTE_SEC if duree is None else duree
-    minutes = SALON_CODES_MINUTES if minutes is None else minutes
-    if cle_guet in _guets:                                             # il rappuie : la nouvelle réponse suit le guet
-        guet = _guets[cle_guet]
-        ancien, guet["dire"] = guet["dire"], dire
-        try:
-            await ancien(TEXTE_SUITE)
-        except Exception as erreur:                                     # noqa: BLE001 — l'ancienne réponse a pu expirer
-            journal.info("Codes : ancienne réponse non éditée : %s", _err(erreur))
-        await dire(guet["texte"])
-        return "deja"
-    donnes = codes_pour(adresses, minutes, tout)                       # 12/10 : + codes sans propriétaire ; tout pour le staff
-    dernier = donnes[0] if donnes else None
-    avait = bool(adresses)
-    gardes = codes_recents(adresses, minutes, decision="garder")
-    garde = gardes[0] if gardes and (dernier is None or _cle_tri(gardes[0]) >= _cle_tri(dernier)) else None
-    montre, codes_montres = None, []
-    if dernier is not None and _age_min(dernier) < FRAIS_MIN:
-        frais = [t for t in donnes if _age_min(t) < FRAIS_MIN]
-        texte = _texte_frais(frais, cle_guet) + ("\n\n" + NOTE_GARDE if garde else "")
-        montre, codes_montres = dernier, frais
-    elif lecteur_en_panne():                                           # dit tout de suite, plus au bout des 5 minutes
-        texte = (TEXTE_PANNE_GUET + ("\n\n" + TEXTE_GARDE if garde is not None else "")
-                 + ("\n\n" + _texte_ancien(dernier) if dernier is not None else ""))
-    else:
-        texte = _texte_ancien(dernier) if dernier is not None else TEXTE_ATTENTE
-        if garde is not None:
-            texte = TEXTE_GARDE + "\n\n" + (texte if dernier is not None else "⏳ Je guette quand même 5 minutes un code de "
-                                            "connexion, de création ou de déblocage : il s'affiche ici tout seul.")
-    guet = {"dire": dire, "texte": texte}
+    depuis = _maintenant() - timedelta(minutes=2)
+    ancienne = _guets.pop(cle_guet, None)
+    guet = {"dire": dire, "texte": TEXTE_ATTENTE}
     _guets[cle_guet] = guet
-    reference, vu_garde = dernier, garde
+    if ancienne:
+        try:
+            await ancienne["dire"](TEXTE_SUITE)
+        except Exception as erreur:
+            journal.info("Codes : ancienne réponse non éditée : %s", _err(erreur))
+    vus = set((_MONTRES.get(cle_guet) or {}).keys())
+    montre = None
+    fin = time.monotonic() + duree
     try:
-        await dire(texte)
-        if montre is not None:
-            _noter_montre(cle_guet, codes_montres)
-        fin = time.monotonic() + duree
-        while time.monotonic() < fin:
-            await _attendre_nouveau(min(5.0, fin - time.monotonic()))
+        while True:
+            if _guets.get(cle_guet) is not guet:
+                return "remplace"
             if relire is not None:
                 try:
-                    adresses = {str(a).strip().lower() for a in (relire() or ()) if a and "@" in str(a)}
-                except Exception as erreur:                             # noqa: BLE001 — dans le doute, plus rien
-                    journal.warning("Codes : adresses relues pendant le guet : %s", _err(erreur))
-                    adresses = set()
-                if not adresses and avait and not tout:                # sorti, ou adresse retirée : plus rien à guetter
-                    guet["texte"] = TEXTE_PLUS_ADRESSE
-                    await guet["dire"](TEXTE_PLUS_ADRESSE)
+                    permis = {str(a).strip().lower() for a in relire() or ()}
+                except Exception as erreur:
+                    journal.warning("Codes : droits indisponibles : %s", _err(erreur))
+                    permis = set()
+                if not adresses.issubset(permis):
+                    await dire(TEXTE_PLUS_ADRESSE)
                     return "sortie"
-                permis = {t.get("mid") for t in codes_pour(adresses, minutes, tout)}
-                if montre is not None and any(t.get("mid") not in permis for t in codes_montres):
-                    codes_montres = [t for t in codes_montres if t.get("mid") in permis]   # une adresse retirée : effacé
-                    if not codes_montres:
-                        montre = None
-                    guet["texte"] = (_texte_codes(codes_montres) + "\n\n" + TEXTE_REFUSE) if codes_montres else TEXTE_ATTENTE
-                    await guet["dire"](guet["texte"])
-            nouveaux = [t for t in codes_pour(adresses, minutes, tout) if reference is None or _cle_tri(t) > _cle_tri(reference)]
-            if nouveaux:
-                montre = reference = nouveaux[0]
-                codes_montres = nouveaux
-                guet["texte"] = _texte_codes(nouveaux) + "\n\n" + TEXTE_REFUSE
-                await guet["dire"](guet["texte"])
-                _noter_montre(cle_guet, nouveaux)
-                continue
-            if montre is not None:
-                continue
-            gardes = codes_recents(adresses, minutes, decision="garder")
-            if gardes and gardes[0] is not vu_garde and (vu_garde is None or _cle_tri(gardes[0]) > _cle_tri(vu_garde)) \
-                    and (dernier is None or _cle_tri(gardes[0]) > _cle_tri(dernier)):
-                vu_garde = gardes[0]
-                guet["texte"] = TEXTE_GARDE + "\n\n⏳ Je guette encore un code de connexion, de création ou de déblocage."
-                await guet["dire"](guet["texte"])
-        if montre is not None:                                         # le guet s'arrête : le code reste, la consigne change
-            guet["texte"] = _texte_codes(codes_montres) + "\n\n" + TEXTE_REFUSE_FIN + _note_garde(adresses, minutes, montre)
-            await guet["dire"](guet["texte"])
-            return "code"
-        if lecteur_en_panne():
-            await guet["dire"](TEXTE_PANNE)
-            return "panne"
-        await guet["dire"]((_texte_ancien(dernier) + "\n\n" if dernier is not None else "") + TEXTE_RIEN)
-        return "ancien" if dernier is not None else "rien"
+            admissibles = _codes_demande(adresses, usage, depuis)
+            candidats = [t for t in admissibles if t.get("mid") not in vus]
+            if candidats:
+                montre = candidats[0]
+            elif montre and not any(t.get("mid") == montre.get("mid") for t in admissibles):
+                montre = None
+            fini = time.monotonic() >= fin
+            texte = (_texte_codes([montre]) + "\n\n" + (TEXTE_REFUSE_FIN if fini else TEXTE_REFUSE)) if montre else (
+                TEXTE_PANNE if lecteur_en_panne() and fini else
+                TEXTE_PANNE_GUET if lecteur_en_panne() else TEXTE_RIEN if fini else TEXTE_ATTENTE)
+            if texte != guet["texte"] or "envoye" not in guet:
+                guet["texte"] = texte
+                await dire(texte)
+                guet["envoye"] = True
+                if montre:
+                    _noter_montre(cle_guet, [montre])
+            if fini:
+                return "code" if montre else "panne" if lecteur_en_panne() else "rien"
+            await _attendre_nouveau(min(5.0, fin - time.monotonic()))
     finally:
         if _guets.get(cle_guet) is guet:
             _guets.pop(cle_guet, None)
@@ -1664,7 +1624,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
 # ------------------------------------------------------------------ 4b. on-demand read-through (independent of IMAP IDLE)
 # Dedicated connection: never move the background reader's UID cursor, IDLE state or
 # persistent mailbox state. Do not echo OTPs or full aliases to Railway logs.
-_SCAN_SEMAPHORE = asyncio.Semaphore(2)
+_SCAN_SEMAPHORE = (None, None)
 _SCAN_LAST = {}  # opaque request key -> monotonic; rate-limit manual refresh
 
 
@@ -1700,9 +1660,10 @@ def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
                             or not limite <= info["date"] <= _maintenant() + timedelta(minutes=2)):
                         continue
                     mid = str(info.get("mid") or message.get("mid") or "")
-                    if not mid:
+                    if not mid or mid in found:
                         continue
                     found[mid] = {
+                        "n": len(found),  # Ordre UID dans le premier dossier, sans doublons All Mail/Spam.
                         "mid": mid, "alias": info["alias"], "code": info["code"],
                         "type": info["type"], "decision": "donner",
                         "compte": info.get("compte") or "", "date": _iso(info["date"]),
@@ -1724,13 +1685,17 @@ async def _scanner_sur_demande(adresses: set, cle: str) -> None:
     if now - _SCAN_LAST.get(cle, -100) < 12:
         return
     _SCAN_LAST[cle] = now
-    async with _SCAN_SEMAPHORE:
+    global _SCAN_SEMAPHORE
+    boucle = asyncio.get_running_loop()
+    if _SCAN_SEMAPHORE[0] is not boucle:
+        _SCAN_SEMAPHORE = (boucle, asyncio.Semaphore(2))
+    async with _SCAN_SEMAPHORE[1]:
         try:
             recents = await asyncio.wait_for(asyncio.to_thread(
                 _scan_recent_sync, set(adresses), SALON_CODES_MINUTES), timeout=35)
             deja = {x.get("mid") for x in _etat()["codes"]}
             nouveaux = 0
-            for entry in recents:
+            for entry in reversed(recents):  # Numéroter du plus ancien au plus récent.
                 if entry["mid"] not in deja:
                     _etat()["codes"].append(_numeroter(entry))
                     deja.add(entry["mid"])
@@ -1828,20 +1793,53 @@ async def _sans_adresse(membre, dire) -> None:
         await dire("Je ne trouve pas ton adresse.\n\nDis-le à ton manager dans ton salon perso.")
 
 
-async def servir_interaction(interaction) -> str:
-    """Le bouton « 📩 Mon code » : une réponse ÉPHÉMÈRE (visible par celui qui appuie, et lui seul), mise à jour pendant
-    le guet (le jeton d'interaction vaut 15 min, le guet 5)."""
+def vue_choix_code(uid, adresses):
+    """Sélecteurs privés temporaires. Aucun code n'est placé dans un composant Discord."""
+    vue = discord.ui.View(timeout=300)
+    usages = discord.ui.Select(placeholder="Ce qu’Instagram te demande", options=[
+        discord.SelectOption(label=label, value=usage) for usage, label in USAGES_EMAIL.items()])
+    comptes = discord.ui.Select(placeholder="L’adresse exacte du compte", options=[
+        discord.SelectOption(label=alias[:100], value=alias) for alias in sorted(adresses)[:25]])
+    choix = {}
+
+    async def choisir(interaction, champ, valeur):
+        if str(interaction.user.id) != str(uid):
+            await interaction.response.send_message("Ce choix appartient à une autre personne.", ephemeral=True)
+            return
+        choix[champ] = valeur
+        if len(choix) < 2:
+            await interaction.response.defer()
+            return
+        vue.stop()
+        await servir_interaction(interaction, choix["usage"], choix["adresse"])
+
+    async def usage_choisi(interaction):
+        await choisir(interaction, "usage", usages.values[0])
+
+    async def compte_choisi(interaction):
+        await choisir(interaction, "adresse", comptes.values[0])
+
+    usages.callback = usage_choisi
+    comptes.callback = compte_choisi
+    vue.add_item(usages)
+    vue.add_item(comptes)
+    return vue
+
+
+async def servir_interaction(interaction, usage="", adresse="") -> str:
+    """Menu et livraison uniquement éphémères ; droits relus à chaque sélection et pendant l'attente."""
     if not actif():
         await interaction.response.send_message("Relais des codes éteint pour l'instant. Dis-le à ton manager.", ephemeral=True)
         return "eteint"
+    # Si l'accusé privé échoue, ne jamais éditer un message potentiellement public.
     try:
         await interaction.response.defer(ephemeral=True, thinking=True)
     except (discord.HTTPException, discord.InteractionResponded):
-        pass
+        return "indisponible"
 
     async def dire(texte):
         try:
-            await interaction.edit_original_response(content=texte)
+            await interaction.edit_original_response(content=texte, view=None)
         except (discord.HTTPException, discord.NotFound):
             await interaction.followup.send(texte, ephemeral=True)
 
@@ -1849,17 +1847,22 @@ async def servir_interaction(interaction) -> str:
     adresses = _adresses_membre(membre)
     if not adresses:
         adresses = await _rafraichir_membre(membre)
-    admin = str(getattr(membre, "id", "")) in set(_deps.get("admin_ids") or ())
-    staff = admin
-    if not adresses and SECURITES and not admin:
+    if not adresses:
         await _sans_adresse(membre, dire)
         return "sans_adresse"
-    if not adresses and not staff:
-        await _alerter_sans_adresse(membre)                            # 12/10 : l'équipe est prévenue, mais le code sort quand même
-    if adresses:
-        _demander_scan(adresses, f"u|{getattr(membre, 'id', '')}")
-    return await _servir(adresses, dire, f"u|{getattr(membre, 'id', '')}",
-                         relire=(lambda: _adresses_membre(membre)) if adresses else None, tout=staff)
+    if not usage and not adresse:
+        if len(adresses) > 25:
+            await dire("Plus de 25 adresses : utilise `!code connexion adresse` ou `!code creation adresse`.")
+            return "choix"
+        await interaction.edit_original_response(content=TEXTE_CHOIX, view=vue_choix_code(membre.id, adresses))
+        return "choix"
+    if usage not in USAGES_EMAIL or adresse not in adresses:
+        await dire("🔒 Ce compte n’est plus rattaché à toi ou ce type de code n’est pas disponible.")
+        return "refus"
+    cibles = {adresse}
+    cle = f"u|{membre.id}"
+    _demander_scan(cibles, cle)
+    return await _servir(cibles, dire, cle, usage=usage, relire=lambda: _adresses_membre(membre))
 
 
 class BoutonMonCode(discord.ui.DynamicItem[discord.ui.Button], template=r"codes:mon-code"):
@@ -1905,20 +1908,18 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
     if premier.startswith("!code"):
         premier = "!code"
     if premier in COMMANDES_RECUP:
-        if not SECURITES or (CODES_APPEL and premier in COMMANDES_APPEL):   # 12/10 : plus de code refusé, `!recup` = `!code`
-            premier = "!code"
-        else:
-            await message.reply(TEXTE_RECUP_REFUSE)
-            return True
+        await message.reply(TEXTE_RECUP_REFUSE)
+        return True
     canal_id = str(message.channel.id) if message.guild is not None else ""
     manager = message.guild is not None and _est_manager(message.author, admin_ids)
-    if canal_id and canal_id == salon_codes_id() and premier == "!code":
-        adresse = mots[1].lower() if len(mots) >= 2 and "@" in mots[1] else ""
+    if premier == "!code":
+        usage = next((m.lower() for m in mots[1:] if m.lower() in USAGES_EMAIL), "")
+        adresse = next((m.lower() for m in mots[1:] if "@" in m), "")
+        if any(m.lower() not in USAGES_EMAIL and "@" not in m for m in mots[1:]):
+            await message.reply("Usage : `!code`, puis choisis ton compte et la demande dans le message privé.")
+            return True
         admin = str(getattr(message.author, "id", "")) in admin_ids
-        return await _commande_salon_commun(message, manager, admin, adresses_de_membre, adresse)
-    if not manager and premier == "!code":
-        await message.reply(texte_salon_codes())
-        return True
+        return await _commande_salon_commun(message, manager, admin, adresses_de_membre, adresse, usage)
     if not manager:
         await message.reply("Réservé aux managers (rôle « Manager ») et aux admins.")
         return True
@@ -1949,83 +1950,37 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
             await message.reply(("📮 Adresses de ce salon : " + ", ".join(miens)) if miens else
                                 "Aucune adresse ici. `!alias ajouter prenom.xxx@icloud.com` pour en rattacher une.")
         return True
-    # !code [alias] d'un manager dans son salon : seulement les codes donnables des adresses rattachées à CE salon.
-    miens = [a for a, v in registre.items() if canal_id and isinstance(v, dict) and v.get("canal_id") == canal_id]
-    if len(mots) >= 2 and "@" in mots[1]:
-        alias = mots[1].lower()
-        if (registre.get(alias) or {}).get("canal_id") != canal_id and str(message.author.id) not in admin_ids:
-            await message.reply("Cette adresse n'est pas rattachée à ce salon : `!alias ajouter` d'abord.")
-            return True
-        cibles = {alias}
-    elif miens:
-        cibles = set(miens)
-    elif str(message.author.id) in admin_ids:
-        # Test admin dans #bot-gaetan, même sans e-mail attaché à son salon.
-        # Jamais d'envoi au salon : MP uniquement, codes "donner" filtrés.
-        cibles = set()
-    else:
-        await message.reply("Format : `!code adresse@icloud.com`. Dans un salon avec des adresses rattachées, `!code` tout "
-                            "court suffit. Seuls les codes de connexion et de création sortent.")
-        return True
-    # Le code ne s'écrit dans le salon que s'il est privé et que TOUTES ces adresses y sont rattachées ; sinon, en MP.
-    ici = False  # Même le staff reçoit les codes en MP : jamais dans un salon Discord.
-    reponse = {"msg": None}
-
-    async def dire(t):
-        if reponse["msg"] is not None:
-            try:
-                await reponse["msg"].edit(content=t)
-                return
-            except Exception:                                           # noqa: BLE001
-                pass
-        reponse["msg"] = await (message.reply(t) if ici else message.author.send(t))
-
-    if not ici:
-        try:
-            await dire("📩 Je regarde la boîte…")
-        except (discord.Forbidden, discord.HTTPException):
-            await message.reply("🔒 Tes messages privés sont fermés : je ne donne pas ce code dans ce salon.")
-            return True
-        await message.reply("📩 Réponse en message privé.")
-    await _servir(cibles, dire, f"salon|{canal_id}|{getattr(message.author, 'id', '')}", minutes=CACHE_MIN,
-                  tout=str(message.author.id) in admin_ids and not cibles)
-    return True
 
 
-async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_de_membre=None, adresse: str = "") -> bool:
-    """`!code` tapé au salon commun : la réponse part en MESSAGE PRIVÉ (10/10), jamais dans le salon. MP fermés : le
-    bouton, dont la réponse est éphémère. `!code adresse` : Gaëtan seulement (ADMIN_IDS)."""
+async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_de_membre=None,
+                                  adresse: str = "", usage: str = "") -> bool:
+    """Même règle pour tous les salons : compte lié à l'UID, MP seulement, aucun repli sur la boîte entière."""
     if not actif():
         await message.reply("Relais des codes éteint pour l'instant. Dis-le à ton manager.")
         return True
-    if adresse and not admin:
-        await message.reply("Ici, chacun ses codes : `!code adresse` est réservé à Gaëtan.")
-        return True
-    staff = admin  # seul ADMIN_IDS, jamais un TL/Manager, peut voir la boîte complète
-    relire = None
-    if adresse:
-        adresses = {adresse.strip().lower()}
-    else:
-        source = adresses_de_membre if adresses_de_membre is not None else (lambda: _adresses_membre(message.author))
-
-        def _relire():                                                 # 10/10 (revue) : relu à chaque réveil du guet
-            return {str(a).strip().lower() for a in source() or [] if a and "@" in str(a)}
-        relire = _relire
-        try:
-            adresses = relire()
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Adresses du clipper (salon commun) : %s", _err(erreur))
-            adresses = set()
-        if not adresses:
-            adresses = await _rafraichir_membre(message.author)
-    if not adresses and SECURITES and not admin:
+    source = adresses_de_membre or (lambda: _adresses_membre(message.author))
+    try:
+        adresses = {str(a).strip().lower() for a in source() or ()}
+    except Exception:
+        adresses = set()
+    if not adresses:
+        adresses = await _rafraichir_membre(message.author)
+    if not adresses:
         await _sans_adresse(message.author, message.reply)
         return True
-    if not adresses:                                                   # 12/10 : plus de refus, le code le plus récent sort quand même
-        relire = None
-        if not staff:
-            await _alerter_sans_adresse(message.author)
+    if adresse and adresse not in adresses:
+        await message.reply("🔒 Cette adresse n’est pas rattachée à ton compte Discord.")
+        return True
+    if not adresse and len(adresses) == 1:
+        adresse = next(iter(adresses))
     try:
+        if not usage or not adresse:
+            if len(adresses) > 25:
+                await message.author.send("Plus de 25 adresses : utilise `!code connexion adresse` ou `!code creation adresse`.")
+                return True
+            await message.author.send(TEXTE_CHOIX, view=vue_choix_code(message.author.id, adresses))
+            await message.reply(TEXTE_MP, view=vue_mon_code(), delete_after=120)
+            return True
         mp = await message.author.send("📩 Je regarde la boîte…")
     except (discord.Forbidden, discord.HTTPException, AttributeError):
         await message.reply(TEXTE_MP_FERMES, view=vue_mon_code())
@@ -2039,13 +1994,12 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
     async def dire(t):
         try:
             await courant["msg"].edit(content=t)
-        except Exception:                                               # noqa: BLE001
+        except (discord.Forbidden, discord.HTTPException):
             courant["msg"] = await message.author.send(t)
 
-    if adresses:
-        _demander_scan(adresses, f"u|{getattr(message.author, 'id', '')}")
-    await _servir(adresses, dire, f"u|{getattr(message.author, 'id', '')}", relire=relire,
-                  tout=staff and not adresse)                          # 12/10 : Gaëtan et les managers voient le dernier code de la boîte
+    cle = f"u|{getattr(message.author, 'id', '')}"
+    _demander_scan({adresse}, cle)
+    await _servir({adresse}, dire, cle, usage=usage, relire=source)
     return True
 
 
@@ -2155,21 +2109,8 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
                 await _admin(f"🔐 Code de {QUOI.get(info['type'], 'connexion')} reçu sur `{alias}`, une adresse rattachée "
                              "à personne : je ne le donne à personne.\n\n"
                              f"Si c'est l'adresse d'un clipper : `!alias ajouter {alias}` dans son salon perso.")
-        elif proprio.get("par") not in ("onboarding", "migration") and str(proprio["canal_id"]) != str(commun) \
-                and _age_min({"date": _iso(info["date"])}) < FRAIS_MIN and _une_fois(f"push|{mid}"):
-            salon = client.get_channel(int(proprio["canal_id"])) if str(proprio["canal_id"]).isdigit() else None
-            if salon is not None and not _salon_prive(salon):
-                # 10/10 (revue) : un salon d'équipe lu par des clippers ne reçoit jamais un code en clair.
-                journal.warning("Code non poussé : le salon %s est lu par d'autres", getattr(salon, "name", "?"))
-                await _admin(f"🔐 Code de {QUOI.get(info['type'], 'connexion')} pour `{_masquer(alias)}` **non posté** dans "
-                             f"<#{proprio['canal_id']}> : ce salon est lu par d'autres que toi (un rôle de clippers, ou "
-                             "plusieurs clippers).\n\n"
-                             "Tape `!code` dans ton salon privé (réponse en MP), ou rattache l'adresse à un salon privé.")
-            elif salon is not None:
-                try:
-                    await salon.send(ligne_code(dict(info, date=_iso(info["date"]))))
-                except (discord.Forbidden, discord.HTTPException) as erreur:
-                    journal.warning("Code non posté dans le salon du manager : %s", _err(erreur))
+        # Les codes sont servis uniquement sur demande en MP ou réponse éphémère.
+        # Un salon historique dit « privé » peut aussi être lu par un manager.
     elif info["decision"] == "garder":
         if mid not in connus:                                           # jamais le code : le type, l'adresse, la date
             e["codes"].append(_numeroter({"mid": mid, "alias": alias, "type": info["type"], "decision": "garder",
@@ -2180,8 +2121,7 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
             proprio = _proprietaire(alias)
             salon = f" · salon <#{proprio['canal_id']}>" if proprio.get("canal_id") else " · adresse rattachée à personne"
             compte = f"compte `@{info['compte']}` · " if info["compte"] else ""
-            appel = ("\n\nC'est le code d'un appel après un ban : si le clipper fait appel, donne-le-lui dans son salon "
-                     "perso (ou CODES_APPEL=1 sur Railway pour que le bouton le donne)." if info["type"] == "appel" else "")
+            appel = "\n\n" + TEXTE_APPEL_GARDE if info["type"] == "appel" else ""
             await _admin(f"🔒 **Code gardé, pas pour un clipper** : {info['libelle']}.\n\n"
                          f"{compte}adresse `{_masquer(alias)}`{salon} · e-mail « {_sans_code(info['sujet'])} ».\n\n"
                          "Le code n'est pas recopié ici : lis-le dans la boîte si tu en as besoin." + appel)
@@ -2224,7 +2164,7 @@ async def _traiter_lus(client, resultat: dict) -> dict:
 
 
 def _genre_erreur(erreur) -> str:
-    t = _err(erreur).lower()
+    t = str(erreur).lower()  # Classification en mémoire seulement ; jamais journalisée.
     if any(m in t for m in ("overquota", "over quota", "quota", "bandwidth")):
         return "pleine"
     if isinstance(erreur, imaplib.IMAP4.error) and any(m in t for m in (
@@ -2355,13 +2295,13 @@ async def assurer_salon_codes(client):
                 salon = await guild.create_text_channel(SALON_CODES_NOM, overwrites=overwrites, topic=SUJET_SALON,
                                                         reason="Salon commun des codes Instagram")
             except (discord.Forbidden, discord.HTTPException) as erreur:
-                journal.warning("Salon des codes : création refusée (%s)", erreur)
+                journal.warning("Salon des codes : création refusée (%s)", _err(erreur))
                 return
         else:
             try:
                 await salon.edit(overwrites=overwrites, topic=SUJET_SALON, reason="Salon des codes : réservé à l'équipe")
             except (discord.Forbidden, discord.HTTPException) as erreur:
-                journal.warning("Salon des codes : droits non posés (%s)", erreur)
+                journal.warning("Salon des codes : droits non posés (%s)", _err(erreur))
         if info.get("version") != VERSION_EXPLICATION or str(info.get("id")) != str(salon.id):
             try:
                 async for ancien in salon.history(limit=300):
@@ -2371,7 +2311,7 @@ async def assurer_salon_codes(client):
                         except (discord.Forbidden, discord.HTTPException, discord.NotFound):
                             pass
             except (discord.Forbidden, discord.HTTPException, AttributeError) as erreur:
-                journal.warning("Salon des codes : ménage des anciens messages (%s)", erreur)
+                journal.warning("Salon des codes : ménage des anciens messages (%s)", _err(erreur))
             try:
                 for ancien in await salon.pins():
                     if ancien.author == guild.me:
@@ -2388,7 +2328,7 @@ async def assurer_salon_codes(client):
                 except (discord.Forbidden, discord.HTTPException, AttributeError):
                     pass
             except (discord.Forbidden, discord.HTTPException) as erreur:
-                journal.warning("Salon des codes : mode d'emploi non posté (%s)", erreur)
+                journal.warning("Salon des codes : mode d'emploi non posté (%s)", _err(erreur))
         registre = _lire()
         registre["_salon_codes"] = {"id": str(salon.id), "guild": str(guild.id), "explique": True,
                                     "version": VERSION_EXPLICATION, "date": _maintenant().isoformat(timespec="seconds")}
