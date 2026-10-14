@@ -547,7 +547,8 @@ def destinataire_alias_code(alias):
 
 def audit_liaisons_codes(guild):
     """Compteurs des affectations existantes ; aucune adresse ou autre valeur d'accès ne sort."""
-    fiches = (lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}
+    data = lire_json(FICHIER_ONBOARDING, {}) or {}
+    fiches = data.get("clippers") or {}
     salon_codes = guild.get_channel(int(codes_2fa.salon_codes_id() or 0))
     for uid, fiche in fiches.items():
         if not str(uid).isdigit() or not isinstance(fiche, dict):
@@ -561,6 +562,7 @@ def audit_liaisons_codes(guild):
                                if isinstance(a, dict))
         yield {"uid": str(uid), "comptes_declares": len(comptes - {""}),
                "adresses_autorisees": len(_adresses_codes_fiche(uid)),
+               "diagnostic": otp_identity.assignment_diagnostics(data, uid, onboarding._cle_handle),
                "salon_perso": salon_perso_de(uid) is not None,
                "voit_codes": bool(membre and salon_codes and salon_codes.permissions_for(membre).view_channel),
                "dans_serveur": membre is not None}

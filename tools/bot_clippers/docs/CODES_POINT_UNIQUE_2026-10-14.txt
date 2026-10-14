@@ -43,21 +43,29 @@ publics, le panneau ou une notification de salon.
 Le destinataire autorisé est déterminé par les affectations existantes, pas par le rôle
 qui donne accès au salon. Aucun compte ou alias supplémentaire n'a été attribué.
 
-AUDIENCE RÉELLE : TOUJOURS NON CERTIFIÉE
-La première tentative identifiait la fenêtre « 🔐-code-instagram » du serveur
-G&M I Pôle Marketing 📣 ; la lecture suivante a signalé un Mac verrouillé.
-Nouvelle tentative : aucun navigateur pilotable, puis inventaire vide des applications
-Discord/Chrome/Arc. Il manque donc une session Mac déverrouillée accessible au contrôle
-UI, ou un accès de lecture Discord déjà autorisé exposant les permissions effectives.
-Aucun connecteur Discord de lecture n'est disponible dans cette session.
-Aucun code réel ni historique n'a été lu pour obtenir ces constats.
-Le source historique prévoit @everyone refusé, Clippeur/Rookie/Confirmé/Elite/Manager
-admis. Cela ne vérifie ni les exceptions membres, ni les héritages, ni les administrateurs.
-Le correctif ne change pas ces permissions et n'en dépend pas pour protéger les OTP :
-seule la réponse éphémère de celui qui clique contient ses codes.
+AUDIENCE RÉELLE VÉRIFIÉE LE 14/10/2026 À 07:56 UTC
+Le diagnostic en lecture seule utilise la session Discord déjà détenue par le bot.
+Cache complet : 21 membres ; 19 voient le salon, dont 18 humains et le bot.
+@everyone ne voit pas le salon ; Clippeur et Manageur le voient. Admin et le bot
+disposent déjà du droit administrateur. Une exception membre autorise aussi le salon.
+Le bot voit le salon et peut y écrire. Aucune permission n'a été modifiée.
+Les journaux de diagnostic contiennent uniquement droits, UID et compteurs, jamais
+d'adresse e-mail, de code, de mot de passe ou d'historique de messages.
+Le contrôle UI du Mac a rendu Discord lisible sur les réglages de bannissements,
+mais la navigation a échoué (noWindowsAvailable), puis Chrome a expiré (timeout).
+Le contrôle côté bot permet de vérifier les droits malgré cette limite UI.
+
+LIAISONS : ÉTAT LOCAL, PAS PREUVE DE CONNEXION
+16 membres présents ont des comptes déclarés ; 15 ont au moins une adresse autorisée
+dans leur fiche locale. Plusieurs rattachements sont partiels, et un membre a trois
+comptes déclarés sans adresse locale autorisée. Les causes sont détaillées par
+compteurs exclusifs : accès absent, adresse absente, livraison à un autre UID,
+alias ambigu ou compte ambigu. Aucune affectation n'est réparée par supposition.
+Ces compteurs n'évaluent pas le repli existant vers le classeur, déclenché à la demande.
+La livraison privée et la connexion Meta ne sont pas déduites de ces compteurs.
 
 VALIDATION
-117 tests synthétiques passent avec Python 3.9 et discord.py 2.7.1 ; pas de client Discord
+123 tests synthétiques passent avec Python 3.9 et discord.py 2.7.1 ; pas de client Discord
 connecté, pas de boîte réelle, pas de secret. Couverts : trois services, relais iCloud,
 connexion 2FA par e-mail, refus des mutations/récupérations, noms de domaine imités,
 MIME mixte, bouton unique, comptes multiples sans menu, isolement UID, révocation,
