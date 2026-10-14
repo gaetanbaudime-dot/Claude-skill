@@ -53,6 +53,18 @@ class OtpIdentityTests(unittest.TestCase):
         self.assertFalse(result)
         self.assertEqual(status, "too_many_accounts")
 
+    def test_alias_partage_entre_comptes_est_refuse(self):
+        rows = self.lines + [{"creatrice": "Sarah", "gerant": "Mathieu", "handle": "sarah.two", "mail": "one@icloud.com"}]
+        result, status = unique_aliases("u100", "Sophie", "Diamondra", self.roster, rows, {})
+        self.assertFalse(result)
+        self.assertEqual(status, "ownership_conflict")
+
+    def test_deux_adresses_pour_meme_compte_sont_ambigues(self):
+        rows = self.lines + [dict(self.lines[0], mail="alternative@example.invalid")]
+        result, status = unique_aliases("u100", "Sophie", "Diamondra", self.roster, rows, {})
+        self.assertFalse(result)
+        self.assertEqual(status, "ownership_conflict")
+
 
 if __name__ == "__main__":
     unittest.main()

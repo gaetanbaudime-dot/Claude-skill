@@ -29,6 +29,13 @@ def unique_aliases(uid, creator, first_name, roster, sheet_rows, owners):
     ]
     if identities != [uid]:
         return set(), "ambiguous_or_not_in_roster"
+    alias_handles, handle_aliases = {}, {}
+    for row in sheet_rows or []:
+        handle = normalized(str(row.get("handle") or "").lstrip("@"))
+        alias = str(row.get("mail") or "").strip().lower()
+        if handle and "@" in alias:
+            alias_handles.setdefault(alias, set()).add(handle)
+            handle_aliases.setdefault(handle, set()).add(alias)
     candidates, seen_handles, conflicts = set(), set(), 0
     for row in sheet_rows or []:
         if normalized(row.get("creatrice")) != creator_key:
@@ -38,6 +45,9 @@ def unique_aliases(uid, creator, first_name, roster, sheet_rows, owners):
         handle = normalized(str(row.get("handle") or "").lstrip("@"))
         alias = str(row.get("mail") or "").strip().lower()
         if not handle or "@" not in alias:
+            continue
+        if len(alias_handles.get(alias, ())) != 1 or len(handle_aliases.get(handle, ())) != 1:
+            conflicts += 1
             continue
         owner_uids = set(map(str, owners.get(handle, set())))
         if owner_uids and owner_uids != {uid}:

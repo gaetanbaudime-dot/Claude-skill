@@ -1,0 +1,199 @@
+G&M ASSISTANT MARKETING — AUDIT ET PARCOURS INSTAGRAM
+14 octobre 2026 — Révision testée ; publication et déploiement autorisés par Gaëtan
+
+VERDICT
+Le relais des codes e-mail peut être fiabilisé sans récupérer de secret 2FA.
+Les correctifs ci-joints passent 107 tests synthétiques, dont les menus avec
+la vraie bibliothèque discord.py 2.7.1, sans connexion Discord ni Gmail.
+Cela ne prouve pas encore le parcours réel Instagram → iCloud → Gmail → Discord.
+Une application d'authentification/SMS/WhatsApp et un recours Meta demandent
+un parcours distinct ; aucune autonomie totale n'est promise.
+
+PROJET ET ÉTAT VÉRIFIÉS
+Dépôt : gaetanbaudime-dot/Claude-skill, tools/bot_clippers.
+Base GitHub vérifiée : e80f805ada6ad5caf73ff2fa43798fcd2f623bc9 (main).
+PR #12 « Verify your profile » fusionnée, suivie du correctif #13 de
+vérification d'e-mail FR/EN. Ces correctifs sont conservés.
+Railway : projet BOT Marketing, service Claude-skill, production.
+Dernier déploiement : 25031338-1d16-4e5d-85ad-1289b5fe5939,
+créé le 14/10/2026 à 06:07:32 UTC, statut SUCCESS, commit e80f805.
+Seules les métadonnées de déploiement ont été consultées, pas les variables
+ni les journaux de production pouvant contenir des secrets.
+Le dépôt local du Mac contient une fusion inachevée et trois fichiers du vault
+en conflit. Aucun de ces travaux n'a été modifié ; une copie ciblée des sources
+et tests a été préparée dans le dossier de cette tâche. Aucun PR ouvert ne
+concurrençait le travail aux deux vérifications. Duplicateur de Reels inchangé.
+AUDIENCE DISCORD : CONTRÔLE EN DIRECT BLOQUÉ
+L'application Discord locale a été identifiée, ouverte sur « 🔐-code-instagram »
+du serveur « G&M I Pôle Marketing 📣 ». Seul le titre de fenêtre a été obtenu.
+La tentative d'ouverture de Chrome a ensuite renvoyé : Mac verrouillé, déverrouillage
+automatique impossible. Le navigateur a été sollicité mais n'a pas pu être utilisé.
+Aucun message, code réel ni historique Discord n'a été lu ou affiché.
+Le déverrouillage manuel a été demandé ; cela bloque seulement l'audit en direct.
+
+La politique du SOURCE prévoit @everyone refusé et les rôles Clippeur, Rookie,
+Confirmé, Elite et Manager admis dans le salon commun. Ce n'est PAS une mesure des
+permissions effectives : les rôles réellement présents, les exceptions membres,
+les permissions héritées et les administrateurs n'ont pas pu être vérifiés.
+Un salon personnel peut aussi être visible par le staff : « personnel » ne prouve
+pas qu'un code y serait visible uniquement par son titulaire.
+La correspondance réelle clipper UID → comptes/alias n'a pas été consultée : les
+fichiers opérationnels peuvent contenir des identifiants et des secrets. Le contrôle
+de correspondance est vérifié par tests synthétiques, pas certifié sur la production.
+
+AUCUNE MODIFICATION DE PERMISSION N'EST NÉCESSAIRE AU PARCOURS PROPOSÉ
+Le patch ne crée pas de salon, ne remplace pas ses permissions et ne parcourt ni
+supprime son historique. Il ajoute un panneau si nécessaire dans le salon existant.
+Le salon commun et le salon perso portent uniquement des boutons sans code : chaque
+clic résout les droits de l'UID Discord qui clique et répond en privé.
+Si le salon manque ou si le bot n'a pas le droit d'y poster, l'administrateur devra
+valider la création ou le changement précis de permission, après lecture des droits.
+Aucune correction de permission concrète ne peut être recommandée sans cette lecture.
+Les anciens messages éventuellement porteurs de codes ne sont ni lus ni supprimés
+par ce patch ; leur présence réelle reste inconnue.
+
+DÉFAUTS CORRIGÉS
+- Le dernier code était choisi parmi tous les types/comptes admissibles.
+  Le choix privé impose maintenant un usage et un seul alias appartenant à l'UID.
+- Les commandes explicites pouvaient perdre leurs arguments lors de leur
+  détection en langage naturel. !code connexion conserve maintenant son usage.
+- Une date absente/invalide devenait « maintenant ». Elle est désormais refusée ;
+  les dates sans fuseau et trop futures ne sont pas servies.
+- Un nouveau clic pouvait reprendre le texte du guet précédent, même après un
+  changement de compte. Il remplace le guet et revalide ses droits.
+- Les anciens accès conservés dans une fiche pouvaient réautoriser un compte retiré.
+  Les comptes actuels et les comptes effectivement livrés du deuxième téléphone
+  sont distingués ; une fiche révoquée ne récupère pas ses alias historiques.
+- Une modification locale des fichiers de propriété invalide le cache UID.
+  Un e-mail partagé entre clippers/comptes, ou un compte à adresses contradictoires,
+  est refusé. Un e-mail adressé à plusieurs alias n'est pas attribué arbitrairement.
+- L'envoi automatique est conservé en DM : un OTP e-mail frais est livré au seul
+  propriétaire identifié sans ambiguïté. Le salon perso reçoit une notification
+  et des boutons, sans code ni compte. MP fermés : le bouton répond en éphémère.
+- Trois boutons persistants correspondent aux trois usages. Un compte lié : un clic
+  suffit ; plusieurs comptes : un seul sélecteur privé supplémentaire.
+  L'ancien bouton « Mon code » reste fonctionnel après redémarrage.
+- La propriété locale refuse aussi deux comptes utilisant le même alias, un compte
+  lié à deux UID et les adresses contradictoires d'un même compte.
+- L'échec de l'accusé de réception éphémère empêche toute édition potentiellement publique.
+- Les exceptions transport ne recopient plus leur contenu dans les journaux/alertes.
+  Les clés sans Message-ID sont des empreintes et ne contiennent plus le sujet/code.
+- Les raccourcis de classification contrôlent les mutations sensibles dans toutes
+  les parties du message. « address » n'est plus pris pour « add ».
+- À date égale, la recherche directe numérote du plus ancien au plus récent.
+- Les codes e-mail restent uniquement en mémoire ; l'état persistant ne stocke plus
+  leurs valeurs. Le cache d'une ancienne politique est invalidé.
+- Le mode historique sans filtre ne peut plus être activé par CODES_SECURITES=0.
+  Les commandes de restitution ne proposent plus de repli global, y compris au staff.
+  Aucun paramètre de sécurité réel n'a été changé pendant cet audit.
+- discord.py minimal passe à 2.4 : DynamicItem utilisé par le bouton n'existe pas en 2.3.
+
+CE QUE FAIT UN CLIPPER APRÈS DÉPLOIEMENT
+1. Il demande un nouveau code dans Instagram. Le bot livre automatiquement l'OTP
+   e-mail de moins de deux minutes par DM si la fiche établit un propriétaire unique.
+   Le message indique le compte, l'adresse et l'usage ; le clipper copie le code.
+2. En cas de DM fermé ou pour attendre le prochain code : dans son salon perso ou
+   « code - Instagram », il clique Créer un compte / Me connecter / Vérifier mon e-mail.
+   Un seul compte lié : réponse directe privée. Plusieurs : il choisit le compte dans
+   le menu privé. Les boutons ne révèlent ni code ni adresse aux autres membres.
+3. Le bot cherche le bon usage sur le seul alias choisi et guette cinq minutes.
+   Un renvoi depuis Instagram remplace le code dans la réponse privée en cours.
+   Une nouvelle demande interactive ne rejoue pas un code déjà montré par une demande
+   précédente. Le DM automatique reste accessible directement dans la conversation.
+4. !code reste utilisable depuis les salons et les DM. !code connexion donne directement
+   le résultat en DM si un seul compte est lié ; sinon le choix reste privé.
+5. Aucun code arrivé : vérifier l'adresse et l'usage, puis demander un renvoi Instagram.
+   Ne publier aucun code ni capture non masquée dans un salon.
+
+DISTINCTIONS
+Création : code e-mail de confirmation d'inscription, choix « Créer un compte ».
+Connexion : code e-mail de connexion, choix « Me connecter ».
+Vérification e-mail : modèle de confirmation sur l'adresse déjà associée ; choix
+« Vérifier mon e-mail Instagram ». Ce code ne réalise aucun recours et ne remplace
+pas une preuve d'identité. L'option existante CODES_VERIFICATION reste respectée.
+2FA : TOTP/application d'authentification, SMS ou WhatsApp ne proviennent pas du
+relais Gmail. Le titulaire utilise son moyen autorisé directement dans Instagram.
+Récupération/codes de secours/changements de sécurité : non distribués par le bot.
+Ils nécessitent le parcours officiel et l'autorisation appropriée du titulaire.
+
+RECOURS OFFICIEL META — PARCOURS SIMPLE
+1. Ouvrir le compte concerné dans Instagram officiel et lire la notification.
+   Noter le motif exact, la date, le statut et le délai affiché. Ne pas inventer
+   une cause ni appliquer un délai universel provenant d'un autre produit Meta.
+2. Si « Contester » ou « Demander un examen » est proposé, préparer une explication
+   factuelle courte et les éléments demandés. Si « En cours d'examen », suivre le
+   dossier existant ; ne pas prétendre qu'un nouvel envoi accélérera la décision.
+3. Le clipper peut préparer les faits dans son mandat. Si Meta exige le titulaire,
+   son selfie vidéo, sa pièce d'identité ou une validation personnelle, le titulaire
+   agit lui-même directement dans Meta. Ne jamais substituer une identité ou une
+   photo. Ne pas envoyer ces éléments dans Discord ou à l'assistant.
+4. Conserver la référence du dossier et le statut, sans secrets. Ne promettre aucun
+   délai ni rétablissement. Les options peuvent varier selon le compte et le pays.
+5. Pour un compte piraté ou un moyen d'accès perdu, partir du parcours officiel
+   Instagram « hacked » ou du centre d'aide depuis l'app. Cela peut nécessiter
+   l'intervention personnelle du titulaire. Aucun contournement ni compte de
+   remplacement destiné à éviter une suspension.
+
+Sources Meta consultées le 14/10/2026 :
+- Compte désactivé et demande d'examen à la connexion :
+  https://www.facebook.com/help/366993040048856
+  L'extrait officiel est indexé ; l'ouverture directe redirige vers la connexion.
+- Centre officiel de récupération, 2FA et reconnaissance des appareils :
+  https://www.meta.com/account-recovery-support/
+  La page renvoie vers l'aide Instagram piratage et 2FA ci-dessous.
+- https://help.instagram.com/368191326593075/
+- https://help.instagram.com/566810106808145
+- https://www.instagram.com/hacked/
+  Ces trois ouvertures ont renvoyé HTTP 429 à l'outil de recherche. Le parcours
+  exact affiché à un compte suspendu n'a donc pas été observé dans cette session.
+
+VALIDATION TECHNIQUE
+Commande, depuis tools/bot_clippers :
+PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -q
+Résultat : 107 tests réussis avec Python 3.9 et discord.py 2.7.1.
+Aucun compte réel, secret, message Discord réel ou connexion Gmail n'a été utilisé.
+Les tests couvrent la classification FR/EN existante, l'appartenance UID, les
+adresses ambiguës, la fraîcheur, le renvoi, les clics concurrents, les droits retirés,
+les MP fermés, l'éphémère, le DM automatique, les notifications sans code, les boutons
+persistants après redémarrage, l'absence de modification des permissions ou de lecture
+de l'historique et la persistance sans valeur OTP.
+Le bot complet n'a pas été démarré : ses services et identifiants réels sont hors test.
+Graphify n'est pas installé et son graphe est absent dans le dépôt local : pas de
+mise à jour du graphe possible. Aucun autre livrable n'est bloqué par cette absence.
+
+SEULES ÉTAPES RESTANTES
+A. Déverrouiller le Mac pour terminer en lecture seule les droits effectifs du salon
+   commun et d'un salon personnel, puis vérifier un rattachement UID/compte/alias
+   sans lire de colonne de mot de passe, de secret 2FA ou de cookie. Le blocage matériel
+   ne justifie pas de prétendre que l'audience est vérifiée.
+B. Gaëtan a ensuite autorisé explicitement la publication et le déploiement des deux
+   chantiers. L'autorisation est reçue pour la version révisée : OTP e-mail en DM,
+   boutons privés dans les salons, sans élargissement d'accès ni nouvelle méthode 2FA.
+   Aucun nouvel accord de déploiement n'est requis. Vérifier la CI du commit final,
+   fusionner la PR #14 puis contrôler le déploiement BOT Marketing issu de main.
+   L'autorisation ne vaut pas accord pour changer les permissions Discord ou la 2FA.
+   Après audit des droits, toute modification nécessaire devra préciser salon, rôle
+   ou membre et permission exacte avant sa validation. Aucune n'est actuellement établie.
+   Le statut final du déploiement et son identifiant seront consignés dans le compte rendu.
+
+C. Un clipper pilote autorisé demande et saisit lui-même un OTP e-mail réel pour chaque
+   usage nécessaire, puis teste un renvoi. Relever uniquement succès/échec, heure,
+   type et compte masqué. Ne transmettre aucun chiffre à l'assistant.
+   Le parcours Instagram → iCloud → Gmail → Discord n'est pas encore prouvé.
+D. Pour un écran demandant un TOTP, le titulaire utilise son application déjà configurée.
+   Si seul Gaëtan contrôle cette méthode, le relais e-mail ne rend pas le clipper autonome.
+   Une éventuelle délégation ou nouvelle configuration relève d'une décision distincte,
+   autorisée par le titulaire ; aucune graine TOTP ni code de secours n'a été consulté.
+   Le titulaire réalise aussi toute preuve d'identité personnelle exigée par Meta.
+   Aucun recours ni compte réel n'a été créé ou soumis.
+
+LIMITES À CONNAÎTRE
+La correspondance d'un format e-mail ne prouve pas la réussite d'une connexion Meta.
+Le contrôle cryptographique des relais iCloud reste celui du projet existant :
+CODES_PREUVE_RELAIS a pour défaut « observer » dans le source. La configuration réelle
+et les en-têtes d'un vrai message n'ont pas été lus. Ne pas affirmer que la signature
+Meta est vérifiée en production ; une validation des en-têtes, sans contenu ni code,
+est nécessaire avant tout éventuel durcissement de ce paramètre.
+Le cache issu du Sheet expire après environ sept minutes et est invalidé par les
+mutations locales de propriété. Une réattribution faite uniquement dans un Sheet,
+non encore synchronisée localement, doit attendre cette synchronisation/expiration.
