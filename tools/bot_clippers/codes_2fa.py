@@ -856,10 +856,13 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     if expediteur_instagram(from_header) and CODES_VERIFICATION:
         avant_code = plat(corps).split(plat(code), 1)[0]
         sujet_lu = plat(sujet)
-        if (re.search(r"code de confirmation d.adresse e.mail", sujet_lu)
-                and re.search(r"verifier votre adresse e.mail", avant_code)
-                and re.search(r"confirmer votre identite sur instagram", avant_code)
-                and not _MUTATION_CODE.search(avant_code)):
+        verification_fr = (re.search(r"(?:confirmation d.adresse e.mail|verifiez votre adresse e.mail)", sujet_lu)
+                           and re.search(r"confirmer votre identite sur instagram", avant_code)
+                           and re.search(r"verifier votre adresse e.mail", avant_code))
+        verification_en = (re.search(r"email confirmation code", sujet_lu)
+                           and re.search(r"confirm your identity on instagram", avant_code)
+                           and re.search(r"verify your email address", avant_code))
+        if (verification_fr or verification_en) and not _MUTATION_CODE.search(avant_code):
             return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
     libelle = _noire(texte)
     if libelle:
