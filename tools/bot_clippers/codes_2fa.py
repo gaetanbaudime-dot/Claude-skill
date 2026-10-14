@@ -109,7 +109,7 @@ VERSION_EXPLICATION = ("7a" if CODES_APPEL else "7") if SECURITES else "8"   # 1
 
 # ------------------------------------------------------------------ textes
 TEXTE_CODE_BRUT = f"Un code Instagram ? Va dans #{SALON_CODES_NOM} et appuie sur « 📩 Mon code »."
-SUJET_SALON = ("📩 Mon code : ton code Instagram de connexion ou de création de compte, visible par toi seul." if SECURITES
+SUJET_SALON = ("📩 Mon code : ton code Instagram de connexion, de création de compte ou de déblocage, visible par toi seul." if SECURITES
                else "📩 Mon code (ou !code) : ton dernier code Instagram, visible par toi seul.")
 TEXTE_ATTENTE = ("⏳ Pas encore reçu.\n\nJe guette 5 minutes : ton code s'affiche ici tout seul dès que l'e-mail arrive. "
                  "Pas besoin de rappuyer.")
@@ -127,7 +127,7 @@ TEXTE_REFUSE_FIN = ("-# Refusé par Instagram ? Appuie sur « Renvoyer le code �
 TEXTE_SUITE = "↪️ Tu as redemandé ton code : il s'affiche dans la nouvelle réponse, plus bas."
 TEXTE_PLUS_ADRESSE = ("🔒 Aucune adresse n'est plus rattachée à toi : je ne guette plus rien.\n\n"
                       "Une question ? Écris dans ton salon perso.")
-TEXTE_GARDE = ("🔒 Le dernier e-mail reçu sur ton adresse n'est pas un code de connexion ni de création de compte : "
+TEXTE_GARDE = ("🔒 Le dernier e-mail reçu sur ton adresse n'est pas un code de connexion, de création de compte ni de déblocage : "
                "je ne le donne pas.\n\nL'équipe est prévenue.")
 TEXTE_APPEL_GARDE = ("Appel après un ban : tu le fais toi-même. Le code de l'appel ne passe pas par le bot : il arrive chez "
                      "l'équipe, qui te répond dans ton salon perso.")
@@ -137,7 +137,13 @@ TEXTE_RECUP_REFUSE = ("🔒 Ce code-là ne passe pas par le bot. « 📩 Mon cod
 TEXTE_MP = "📩 Je t'envoie ton code en message privé.\n\nPlus rapide : le bouton « 📩 Mon code »."
 TEXTE_MP_FERMES = ("🔒 Tes messages privés sont fermés : je ne peux pas t'écrire.\n\n"
                    "Appuie sur le bouton : ton code s'affiche ici, pour toi seul.")
-QUOI = {"creation": "création de compte", "connexion": "connexion", "appel": "appel après un ban"}
+QUOI = {"creation": "création de compte", "connexion": "connexion", "appel": "appel après un ban",
+        "verification": "vérification d'identité (déblocage)"}
+# 14/10 (Gaëtan : « Il ne reçoit pas le code pour unban un compte, règle ça pour tous les clippeurs ») : « Pour confirmer votre
+# identité sur Instagram, nous devons vérifier votre adresse e-mail » (code de confirmation d'adresse e-mail, envoyé à l'adresse
+# DU compte quand Instagram le bloque) est donné. Le reste du mail passe toujours la liste noire : un mail qui parle aussi de mot
+# de passe, d'ajout ou de changement d'adresse, de suppression… reste gardé. CODES_VERIFICATION=0 : gardé comme avant.
+CODES_VERIFICATION = _oui("CODES_VERIFICATION", "1")
 
 
 def explication_salon() -> str:
@@ -532,6 +538,13 @@ CONFIRMER_EMAIL = re.compile(
     r"confirm your email( address)?|confirmez votre (adresse )?e-?mail|confirma tu (direccion de )?correo( electronico)?|"
     r"confirme (o )?seu (endereco de )?e-?mail|conferma il tuo indirizzo e-?mail|conferma la tua e-?mail|"
     r"bestatige deine e-?mail(-adresse)?")
+# 14/10 : la vérification d'identité (déblocage d'un compte) : neutralisée avant la liste noire, puis reconnue comme but.
+VERIFIER_IDENTITE = re.compile(
+    r"(?:votre )?code de confirmation d'adresse e-?mail|confirmer votre identite|(?:nous devons )?verifier votre adresse e-?mail|"
+    r"verifiez votre adresse e-?mail|confirm your identity|verify your identity|(?:we need to )?verify your email(?: address)?|"
+    r"(?:your )?email(?: address)? confirmation code|confirmar tu identidad|verificar tu (?:direccion de )?correo(?: electronico)?|"
+    r"confirmar (?:a )?sua identidade|verificar (?:o )?seu (?:endereco de )?e-?mail|confermare la tua identita|"
+    r"verificare il tuo indirizzo e-?mail|deine identitat (?:zu )?bestatigen|deine e-?mail-adresse (?:zu )?(?:bestatigen|verifizieren)")
 # Liste noire (texte aplati). Chaque groupe porte le libellé dit au salon admin.
 NOIRE = (
     ("code de récupération (mot de passe oublié)", r"recover\w*|\brecup\w*|\brecuper\w*|wiederherstell\w*|get back (in)?to|retrouv\w*"),
@@ -660,6 +673,7 @@ def _lisible(brut: str, compte: str = "", code: str = None) -> str:
     pseudo = plat(compte).rstrip(".")
     if pseudo and re.search(r"[._]", pseudo):
         t = re.sub(r"(?<![\w.])" + re.escape(pseudo) + r"(?!\w)", " _x_ ", t)
+    t = VERIFIER_IDENTITE.sub(" _verification_ ", t) if CODES_VERIFICATION else t
     return CONFIRMER_EMAIL.sub(" _confirmation_ ", t)
 
 
@@ -811,6 +825,8 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         return dict(sortie, decision="donner", type="creation", libelle="création de compte")
     if CONNEXION_RE.search(blanc):
         return dict(sortie, decision="donner", type="connexion", libelle="connexion")
+    if CODES_VERIFICATION and "_verification_" in texte:                # 14/10 : déblocage d'un compte (vérification d'identité)
+        return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
     return dict(sortie, decision="garder", libelle="code sans but reconnu (ni connexion ni création)")
 
 
@@ -1527,7 +1543,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
         texte = _texte_ancien(dernier) if dernier is not None else TEXTE_ATTENTE
         if garde is not None:
             texte = TEXTE_GARDE + "\n\n" + (texte if dernier is not None else "⏳ Je guette quand même 5 minutes un code de "
-                                            "connexion ou de création : il s'affiche ici tout seul.")
+                                            "connexion, de création ou de déblocage : il s'affiche ici tout seul.")
     guet = {"dire": dire, "texte": texte}
     _guets[cle_guet] = guet
     reference, vu_garde = dernier, garde
@@ -1569,7 +1585,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
             if gardes and gardes[0] is not vu_garde and (vu_garde is None or _cle_tri(gardes[0]) > _cle_tri(vu_garde)) \
                     and (dernier is None or _cle_tri(gardes[0]) > _cle_tri(dernier)):
                 vu_garde = gardes[0]
-                guet["texte"] = TEXTE_GARDE + "\n\n⏳ Je guette encore un code de connexion ou de création."
+                guet["texte"] = TEXTE_GARDE + "\n\n⏳ Je guette encore un code de connexion, de création ou de déblocage."
                 await guet["dire"](guet["texte"])
         if montre is not None:                                         # le guet s'arrête : le code reste, la consigne change
             guet["texte"] = _texte_codes(codes_montres) + "\n\n" + TEXTE_REFUSE_FIN + _note_garde(adresses, minutes, montre)
