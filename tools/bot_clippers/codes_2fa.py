@@ -862,7 +862,7 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         confirmation = bool(re.search(r"confirmation|verifiez votre adresse|verify your email", sujet_lu))
         verification = bool(re.search(r"confirmer votre identite sur instagram|confirm your identity on instagram", debut))
         adresse = bool(re.search(r"verifier votre adresse e.mail|verify your email address", debut))
-        action = bool(re.search(r"(?:changer|modifier|ajouter|supprimer|reinitialiser|reset|change|remove|add)\\s+(?:votre|your|the|une|un|an?)?\\s*(?:mot de passe|password|adresse|e.mail|email)", debut))
+        action = bool(re.search(r"\b(?:chang\w*|modifi\w*|ajout\w*|supprim\w*|reinitialis\w*|reset|remov\w*|add(?:ing|ed)?)\b", debut))
         if confirmation and verification and adresse and not action:
             return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
     libelle = _noire(texte)
