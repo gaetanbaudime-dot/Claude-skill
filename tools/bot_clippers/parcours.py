@@ -297,7 +297,7 @@ def titre_etape(fiche_p: dict, n: int) -> str:
     return etape_def(fiche_p, n)["titre"].replace("{palier}", "").format_map(_Gabarit({"jours": WARMUP_JOURS}))
 
 
-# 28/09 : un compte rendu par un sortant existe déjà → on s'y connecte, pas d'inscription
+# Un compte déjà créé par le clipper se rejoint par connexion ; ce texte n'attribue aucun compte.
 # 01/10 (Gaëtan : « les codes Instagram se demandent uniquement dans #🔐-code-instagram ») : plus de « écris !code ici » ni
 # de « il arrive ici tout seul », la phrase canonique {codes} ; « il a déjà chauffé » retiré (24 h de warm-up quand même).
 # 08/10 (audit : l'identifiant déjà pris est le blocage le plus courant à la création ; Mohamed a créé une variante que le bot ne
@@ -307,7 +307,7 @@ PSEUDO_PRIS = "Identifiant déjà pris ? Ajoute un chiffre ou un point. Quand tu
 # 09/10 (Gaëtan : « Saute des lignes, aère ») : une ligne vide entre chaque paragraphe ; la liste du compte 1 reste d'un bloc.
 CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
             "2. {codes}\n"
-            "3. Mets ce mot de passe. Numéro demandé ? Le tien. Date de naissance : la vraie.\n"
+            "3. Utilise les accès prévus et l'identité réelle du titulaire. Un numéro demandé doit être autorisé pour ce compte.\n"
             "4. " + PSEUDO_PRIS.format(n=1),
             "Même chose que le compte 1, sur le même téléphone : tu ajoutes un compte, sans te déconnecter.\n\n"
             "⚠️ Instagram ne demande pas d'e-mail ? Arrête et écris-le ici.\n\n"
@@ -317,7 +317,8 @@ CREATION = ("1. Instagram → Créer un compte → avec cet e-mail.\n"
 CONNEXION = ("Ce compte existe déjà.\n\n"
              "1. Instagram → Se connecter → cet identifiant et ce mot de passe.\n"
              "2. {codes}\n"
-             "3. Numéro demandé ? Mets le tien. Ne change ni la photo ni la bio pour l'instant.",
+             "3. Utilise le moyen de vérification déjà lié au compte. Ne remplace pas son numéro ou son e-mail. "
+             "Besoin d'aide ? `!aide-ig authentificateur`.",
              "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter, sans te déconnecter du compte 1.\n\n{codes}",
              "Ce compte existe déjà. Ajoute-le sur le même téléphone : Se connecter.\n\n{codes}")
 RELANCE_JOURS = int(os.environ.get("PARCOURS_RELANCE_JOURS", "0") or 0)   # 05/10 (Gaëtan : « arrêter de polluer chaque salon privé ») : 0 = plus de relance ; 28/09 : 2
@@ -682,7 +683,7 @@ def _bloque_ban(uid, fiche_p: dict, n: int) -> bool:
 
 def texte_bloque(n: int) -> str:
     """La ligne donnée au clipper bloqué par le BAN de son compte n (_bloque_ban)."""
-    return f"Ton compte {n} est bloqué : fais appel sur Instagram (« Contester la décision »).\n\nL'équipe est prévenue."
+    return f"Ton compte {n} est bloqué.\n\n" + codes_2fa.aide_instagram("suspension")
 
 
 def _migrer_essai(d: dict) -> bool:

@@ -71,33 +71,43 @@ ROLES_SALON_CODES = tuple(r.strip() for r in os.environ.get("CODES_SALON_ROLES",
 MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com", "metamail", "fb.com", "fb_com")
 COMMANDES_RECUP = ("!recup", "!récup", "!recuperation", "!récupération", "!appel", "!unban", "!deban")
 COMMANDES_APPEL = ("!appel", "!unban", "!deban")
+COMMANDES_AIDE = ("!aide-ig", "!aide-instagram")
 ID_BOUTON = "codes:mon-code"
+# Version conservée : ce déploiement améliore les réponses à la demande, sans nouvelle annonce au salon.
 VERSION_EXPLICATION = "12-point-entree-meta"   # 12/10 : v8, tout code Instagram, le plus récent
 
 # ------------------------------------------------------------------ textes
 TEXTE_CODE_BRUT = f"Dans #{SALON_CODES_NOM}, appuie sur 📩 Mon code : tes codes e-mail Meta, Facebook et Instagram s'affichent pour toi seul."
-SUJET_SALON = ("📩 Mon code : choisis le compte et le type de code e-mail dans une réponse privée." if SECURITES
-               else "📩 Mon code (ou !code) : ton dernier code Instagram, visible par toi seul.")
+SUJET_SALON = "📩 Mon code : tes codes e-mail récents, dans une réponse visible par toi seul."
 TEXTE_ATTENTE = ("⏳ Pas encore reçu.\n\nJe guette 5 minutes : ton code s'affiche ici tout seul dès que l'e-mail arrive. "
-                 "Pas besoin de rappuyer.")
+                 "Pas besoin de rappuyer.\n\nL'écran demande une application d'authentification ? "
+                 "Ce code ne vient pas par e-mail : `!aide-ig authentificateur`.")
 TEXTE_RIEN = ("😴 Toujours pas de code.\n\nVérifie que l'e-mail tapé dans l’application concernée est exactement celui de ton compte. "
-              "Appuie sur « Renvoyer le code », attends 30 secondes, puis rappuie sur 📩 Mon code.")
-TEXTE_PANNE = "⚠️ Je n'arrive pas à lire la boîte mail en ce moment.\n\nRéessaie dans 2 minutes. L'équipe est prévenue."
+              "Si l'écran propose l'envoi par e-mail, demande un renvoi puis rappuie sur 📩 Mon code. "
+              "Respecte le délai affiché par l'application.\n\n"
+              "Application d'authentification, SMS ou WhatsApp : `!aide-ig authentificateur`.")
+TEXTE_PANNE = "⚠️ Je n'arrive pas à lire la boîte mail en ce moment.\n\nRéessaie dans 2 minutes. Si le blocage persiste, signale-le à ton manager sans code ni mot de passe."
 # 10/10 (revue) : la panne se dit tout de suite, plus au bout des 5 minutes de guet.
-TEXTE_PANNE_GUET = ("⚠️ Je n'arrive pas à lire la boîte mail en ce moment. L'équipe est prévenue.\n\n"
+TEXTE_PANNE_GUET = ("⚠️ Je n'arrive pas à lire la boîte mail en ce moment.\n\n"
                     "⏳ Je guette quand même 5 minutes : ton code s'affiche ici dès que la boîte répond.")
 # 10/10 (revue, deux codes rapprochés) : le guet continue après un code ; un code plus récent remplace l'ancien tout seul.
 TEXTE_REFUSE = ("-# Code refusé ? Appuie sur « Renvoyer le code » dans l’application concernée : le nouveau s'affiche ici tout "
                 "seul, à la place de celui-ci.")
-TEXTE_REFUSE_FIN = ("-# Code refusé ? Appuie sur « Renvoyer le code » dans l’application concernée, attends 30 secondes, puis "
-                    "redemande ton code (📩 Mon code).")
+TEXTE_REFUSE_FIN = ("-# Code refusé ? Demande un renvoi dans l’application, respecte son délai affiché, puis "
+                    "rappuie sur 📩 Mon code. Utilise le dernier code du bon compte et du bon usage.")
 TEXTE_SUITE = "↪️ Tu as redemandé ton code : il s'affiche dans la nouvelle réponse, plus bas."
 TEXTE_PLUS_ADRESSE = ("🔒 Aucune adresse n'est plus rattachée à toi : je ne guette plus rien.\n\n"
                       "Une question ? Écris dans ton salon perso.")
-TEXTE_GARDE = ("🔒 Le dernier e-mail reçu sur ton adresse n'est pas un code de connexion, de création de compte ni de déblocage : "
-               "je ne le donne pas.\n\nL'équipe est prévenue.")
-TEXTE_APPEL_GARDE = ("Recours : ouvre la notification dans Instagram et suis le parcours officiel proposé. "
-                     "Si Meta demande le titulaire, son selfie ou sa pièce d’identité, le titulaire doit agir personnellement.")
+TEXTE_GARDE = ("🔒 Le dernier e-mail reçu sur ton adresse n'est pas un code e-mail autorisé de connexion, de création ou de vérification : "
+               "je ne le donne pas.\n\nBesoin d'aide ? `!aide-ig`.")
+URL_AIDE_INSTAGRAM = "https://help.instagram.com/366993040048856"
+URL_AIDE_META = "https://www.meta.com/account-recovery-support/"
+TEXTE_APPEL_GARDE = (
+    "Ouvre le compte concerné dans Instagram et lis la notification. Si « Contester » ou « Demander un examen » "
+    "est proposé, suis ce parcours et le délai affiché. Si l'examen est en cours, consulte son statut.\n\n"
+    "Le titulaire réalise lui-même toute vérification d'identité, selfie ou pièce demandée par Meta. "
+    "Le bot ne soumet pas de recours et ne garantit pas le rétablissement.\n\n"
+    f"[Aide officielle Instagram]({URL_AIDE_INSTAGRAM}) · [Centre d'aide Meta]({URL_AIDE_META})")
 TEXTE_RECUP_REFUSE = ("🔒 Les codes de récupération, de recours et de changement de sécurité ne passent pas par le bot. "
                     "Pour un accès perdu : https://www.instagram.com/hacked/ . "
                     "Utilise ce parcours avec le titulaire.\n\n" + TEXTE_APPEL_GARDE)
@@ -124,22 +134,56 @@ def explication_salon() -> str:
 
 
 def _explication_v7() -> str:
-    """Le mode d'emploi v7 (revue du 10/10), quand CODES_SECURITES=1 : le bouton, les deux usages, le code refusé, les langues."""
-    usages = "1️⃣ Créer un compte\n2️⃣ Te connecter" + ("\n3️⃣ Faire appel après un ban" if CODES_APPEL else "")
-    return ("🔐 **Ton code Instagram, c'est ici.**\n\n"
-            "Appuie sur **📩 Mon code** : ton code s'affiche pour toi seul. Personne d'autre ne le voit.\n\n"
-            f"Il sert à {'3' if CODES_APPEL else '2'} choses, rien d'autre :\n\n{usages}\n\n"
-            "➡️ Tu fais ta demande sur Instagram. Instagram t'envoie un e-mail. Tu appuies sur 📩 Mon code : le code "
-            "arrive tout seul dès que l'e-mail est là. ✅\n\n"
-            "🔁 Code refusé ? Appuie sur « Renvoyer le code » dans l’application concernée, sans fermer ta réponse : le nouveau remplace "
-            "l'ancien tout seul, pendant 5 minutes.\n\n"
-            "😴 Pas de code après 5 minutes ? Vérifie l'e-mail tapé dans l’application concernée, appuie sur « Renvoyer le code », "
-            "puis rappuie sur 📩 Mon code.\n\n"
-            "🌍 Je lis les e-mails d'Instagram écrits en français, anglais, espagnol, portugais, italien ou allemand. "
-            "Instagram dans une autre langue : remets-le en français, sinon je ne donne pas le code.\n\n"
-            + ("" if CODES_APPEL else "🛟 " + TEXTE_APPEL_GARDE + "\n\n")
-            + "⛔ Mot de passe oublié, changer l'e-mail, le numéro, le mot de passe ou le pseudo, double authentification : "
-            "ces codes-là, je ne les donne jamais.")
+    """Compatibilité : les anciens appels suivent aussi les limites du parcours courant."""
+    return explication_salon()
+
+
+def aide_instagram(cas="") -> str:
+    """Aide déterministe, sans lecture de compte ni de boîte, disponible même si le relais est indisponible."""
+    aide = {
+        "creation": ("🆕 **Créer le compte attribué**\n\n"
+                     "1. Suis l'étape de ton compte et utilise les coordonnées autorisées pour son titulaire. "
+                     "S'il existe déjà, choisis « Se connecter ».\n"
+                     "2. Si Instagram demande un code envoyé par e-mail, " + texte_salon_codes() + "\n"
+                     "3. Saisis le dernier code de création du bon compte. Une vérification personnelle demandée par Meta "
+                     "revient au titulaire. Ne crée pas de compte pour éviter une suspension."),
+        "connexion": ("🔑 **Se connecter**\n\n"
+                      "1. Utilise les accès du compte déjà attribué.\n"
+                      "2. Lis le moyen demandé par Instagram : e-mail, application d'authentification, SMS ou WhatsApp.\n"
+                      "3. Pour l'e-mail, " + texte_salon_codes() + " Pour les autres moyens, "
+                      "utilise celui déjà lié au compte avec son titulaire : `!aide-ig authentificateur`. "
+                      "Ne remplace pas l'e-mail ou le numéro pour te connecter."),
+        "renvoi": ("🔁 **Code absent ou refusé**\n\n"
+                   "1. Vérifie le compte, son adresse et le moyen d'envoi affiché par l'application.\n"
+                   "2. Demande « Renvoyer le code » si proposé et respecte le délai affiché. "
+                   "La réponse privée ouverte se met à jour pendant cinq minutes.\n"
+                   "3. Utilise le dernier code du bon service et du bon usage. Après la fin de l'attente, "
+                   "rappuie sur 📩 Mon code. Si l'affectation de ton compte est bloquée, les renvois ne la corrigent pas."),
+        "authentificateur": ("🔐 **Quel code est demandé ?**\n\n"
+                            "**E-mail** : 📩 Mon code peut relayer les codes de création, connexion et vérification reconnus.\n\n"
+                            "**Application d'authentification** : le bot ne génère pas ces codes. "
+                            "Utilise l'application déjà liée au compte avec son titulaire.\n\n"
+                            "**SMS ou WhatsApp** : le code arrive sur le moyen déjà lié au compte, pas dans cette boîte e-mail.\n\n"
+                            "Si ce moyen n'est pas disponible, suis l'aide officielle proposée à l'écran avec le titulaire. "
+                            "Ne publie aucun code, mot de passe, QR code ou code de secours dans Discord.\n"
+                            f"[Aide officielle Meta]({URL_AIDE_META})"),
+        "suspension": "🛟 **Compte suspendu ou désactivé**\n\n" + TEXTE_APPEL_GARDE +
+                      "\n\nPrépare le motif et la date affichés, sans inventer de faits. "
+                      "Aucun code de recours n'est transmis par ce bot. Ne publie pas de pièce d'identité dans Discord.",
+    }
+    cle = _cle(cas)
+    cle = {"creer": "creation", "connecter": "connexion", "code": "renvoi", "2fa": "authentificateur",
+           "totp": "authentificateur", "authenticator": "authentificateur", "ban": "suspension",
+           "banni": "suspension", "recours": "suspension"}.get(cle, cle)
+    if cle in aide:
+        return aide[cle]
+    return ("📱 **Aide Instagram**\n\n"
+            "· Créer le compte attribué : `!aide-ig creation`\n"
+            "· Se connecter : `!aide-ig connexion`\n"
+            "· Code absent ou refusé : `!aide-ig renvoi`\n"
+            "· Authentificateur, SMS ou WhatsApp : `!aide-ig authentificateur`\n"
+            "· Compte suspendu : `!aide-ig suspension`\n\n" + texte_salon_codes() +
+            "\n\nLe bot ne génère pas de codes d'authentificateur et ne soumet pas de recours.")
 
 
 def actif() -> bool:
@@ -1859,7 +1903,8 @@ async def _alerter_sans_adresse(membre) -> bool:
         return True
     prenom = getattr(membre, "display_name", "") or f"<@{uid}>"
     ok = await _admin(f"🔐 « 📩 Mon code » : aucune adresse rattachée pour **{prenom}** (<@{uid}>).\n\n"
-                      "Rattache ses adresses dans son salon perso (`!alias ajouter adresse`), puis réponds-lui là-bas.")
+                      "Vérifie l'affectation de ses comptes et adresses à son UID dans le registre des comptes, "
+                      "y compris les doublons. Corrige uniquement les correspondances prouvées.")
     if not ok:
         _etat()["sante"].pop(cle, None)                                # pas prévenu : on le redira au prochain appui
     _sauver()
@@ -1868,13 +1913,15 @@ async def _alerter_sans_adresse(membre) -> bool:
 
 async def _sans_adresse(membre, dire) -> None:
     if _est_staff(membre):
-        await dire("Ici, chacun ses codes : aucune adresse n'est rattachée à ton salon.\n\n"
-                   "Pour l'adresse d'un clipper : `!alias ajouter adresse` dans son salon perso.")
+        await dire("Ici, chacun ses codes : aucune adresse de compte n'est validée pour ton UID.\n\n"
+                   "Pour aider un clipper, vérifie l'affectation de ses propres comptes dans le registre.")
         return
     if await _alerter_sans_adresse(membre):
-        await dire("Je ne trouve pas ton adresse.\n\nL'équipe est prévenue : elle te répond dans ton salon perso.")
+        await dire("L'affectation de tes comptes doit être vérifiée avant de recevoir leurs codes.\n\n"
+                   "Le blocage est signalé à l'équipe. Un renvoi de code ne corrige pas ce rattachement.")
     else:
-        await dire("Je ne trouve pas ton adresse.\n\nDis-le à ton manager dans ton salon perso.")
+        await dire("L'affectation de tes comptes doit être vérifiée avant de recevoir leurs codes.\n\n"
+                   "Signale ce blocage à ton manager, sans code ni mot de passe. Un renvoi de code ne le corrige pas.")
 
 
 def vue_choix_code(uid, adresses, usage=""):
@@ -1995,22 +2042,33 @@ async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) ->
     `!alias` reste réservé aux managers ; récupération et recours ne livrent aucun code.
     Renvoie True si traité. `alerter` est conservé pour compatibilité."""
     texte = message.content.strip()
+    mots = texte.split()
+    if not mots:
+        return False
+    premier = mots[0].lower()
+    if premier in COMMANDES_AIDE:
+        await message.reply(aide_instagram(mots[1] if len(mots) > 1 else ""), mention_author=False)
+        return True
     if not texte.lower().startswith(("!alias", "!code") + COMMANDES_RECUP):
         return False
-    mots = texte.split()
-    premier = mots[0].lower()
     if premier.startswith("!code"):
         premier = "!code"
+    if premier in COMMANDES_APPEL:
+        await message.reply(aide_instagram("suspension"), mention_author=False)
+        return True
     if premier in COMMANDES_RECUP:
         await message.reply(TEXTE_RECUP_REFUSE)
         return True
     canal_id = str(message.channel.id) if message.guild is not None else ""
     manager = message.guild is not None and _est_manager(message.author, admin_ids)
     if premier == "!code":
+        if len(mots) == 2 and _cle(mots[1]) in ("2fa", "totp", "authentificateur", "authenticator"):
+            await message.reply(aide_instagram("authentificateur"), mention_author=False)
+            return True
         usage = next((m.lower() for m in mots[1:] if m.lower() in USAGES_EMAIL), "")
         adresse = next((m.lower() for m in mots[1:] if "@" in m), "")
         if any(m.lower() not in USAGES_EMAIL and "@" not in m for m in mots[1:]):
-            await message.reply("Usage : `!code`, puis choisis ton compte et la demande dans le message privé.")
+            await message.reply(texte_salon_codes() + "\n\nBesoin d'aide ? `!aide-ig`.")
             return True
         admin = str(getattr(message.author, "id", "")) in admin_ids
         return await _commande_salon_commun(message, manager, admin, adresses_de_membre, adresse, usage)
