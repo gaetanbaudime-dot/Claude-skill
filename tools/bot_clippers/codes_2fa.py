@@ -764,6 +764,16 @@ def _code_standard_connexion(sujet: str, corps: str, code: str) -> str:
     return "creation" if CREATION_RE.search(_sans_pseudos(sans_avertissement)) else "connexion"
 
 
+def _verification_profil_connexion(sujet: str, corps: str, code: str) -> bool:
+    """Recognize a normal 'Verify your profile' login, not an account change."""
+    if str(sujet).strip().lower() != "verify your profile" or not code:
+        return False
+    debut = plat(corps).split(plat(code), 1)[0]
+    return (bool(re.search(r"someone tried to log in to your instagram profile", debut))
+            and bool(re.search(r"following code to confirm your identity", debut))
+            and not _MUTATION_CODE.search(debut))
+
+
 def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     """La décision sur un mail : {"decision": "donner"|"garder"|"alerte"|"rien", "type": "creation"|"connexion"|"appel"|"",
     "code": str|None, "libelle": str, "compte": str}. « donner » = le clipper peut l'avoir ; « garder » = un code qui ne
@@ -801,8 +811,8 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         return dict(sortie, decision="garder", libelle=f"code {quoi} (pas un mail Instagram)")
     if expediteur_instagram(from_header):
         standard = _code_standard_connexion(sujet, corps, code)
-        if standard:
-            return dict(sortie, decision="donner", type=standard, libelle=QUOI[standard])
+        if standard or _verification_profil_connexion(sujet, corps, code):
+            return dict(sortie, decision="donner", type=standard or "connexion", libelle=QUOI[standard or "connexion"])
     libelle = _noire(texte)
     if libelle:
         return dict(sortie, decision="garder", libelle=libelle)
