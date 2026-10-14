@@ -850,6 +850,17 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         # classify it before scanning boilerplate mentions of other Meta services.
         if _verification_identite_existante(sujet, corps, code):
             return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
+    # Confirmation d'identité sur l'adresse déjà associée à un compte IG.
+    # Décider sur l'intention AVANT le code et ignorer les mentions Meta en pied.
+    # Ne jamais autoriser une modification d'e-mail ou de mot de passe.
+    if expediteur_instagram(from_header) and CODES_VERIFICATION:
+        avant_code = plat(corps).split(plat(code), 1)[0]
+        sujet_lu = plat(sujet)
+        if (re.search(r"code de confirmation d.adresse e.mail", sujet_lu)
+                and re.search(r"verifier votre adresse e.mail", avant_code)
+                and re.search(r"confirmer votre identite sur instagram", avant_code)
+                and not _MUTATION_CODE.search(avant_code)):
+            return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
     libelle = _noire(texte)
     if libelle:
         return dict(sortie, decision="garder", libelle=libelle)
