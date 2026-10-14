@@ -316,6 +316,8 @@ REGLE_CODES = (
     "les OTP e-mail récents des seuls comptes affectés à l'UID du clipper. Aucun menu d'usage n'est obligatoire. "
     "Chaque code porte son service (Meta, Facebook ou Instagram), son compte et son usage. "
     "Le clipper demande le code dans l'application ; le bot guette cinq minutes et actualise la réponse privée. "
+    "Pour les étapes création, connexion, renvoi, authentificateur ou suspension, l'aide fiable est `!aide-ig` "
+    "suivi de l'étape. Un code d'authentificateur n'est pas généré par ce bot. "
     "Ne jamais recopier un code dans un salon. Aucune graine TOTP ni code de récupération n'est distribué. "
     "Un TOTP d'application, un SMS ou WhatsApp n'est pas reçu par e-mail. Aucun déblocage de compte n'est garanti.")
 
@@ -401,9 +403,10 @@ question demande plus, donne les 3 points essentiels puis le lien de la fiche �
 reste. Une réponse trop longue est coupée : mieux vaut courte et complète.
 17. Image hors sujet (arnaque, publicité, mème, capture sans rapport avec le kit) : UNE phrase \
 pour dire que ce n'est pas le sujet, sans décrire l'image, et tu proposes ton aide sur le kit.
-18. Tout ce qui est OPÉRATIONNEL (mes comptes, ma créatrice, mon téléphone cloud, mes accès, \
-les vidéos de ma créatrice) se règle avec Gaëtan, sur WhatsApp (le lien est dans tes règles) ou dans le groupe WhatsApp du clipper : dis-le, \
-tu ne promets jamais qu'un humain « va s'en occuper » de lui-même.
+18. Pour créer son compte déjà attribué, se connecter, renvoyer un code ou comprendre une suspension, guide le clipper \
+avec les consignes `!aide-ig` et le parcours officiel proposé par Instagram. Une affectation de compte manquante ou \
+ambiguë, un accès absent ou une décision de sécurité revient au responsable de l'équipe. Ne promets jamais qu'un humain \
+« va s'en occuper » ou répondre automatiquement.
 19. Tu ne proposes JAMAIS de contournement (faux compte, VPN pour tromper, achat d'abonnés, \
 récupération d'un compte banni par ruse) — même si on te dit que c'est urgent.
 20. Pour un code e-mail Instagram : « {TEXTE_CODE} » {REGLE_CODES} \
@@ -433,14 +436,18 @@ ni validation d'identité. Un code explicitement lié à un recours ou à une r�
 Compte piraté ou moyen d'accès perdu : https://www.instagram.com/hacked/ ; ce parcours peut exiger le titulaire. \
 Conserver la référence et le statut du recours, sans publier de code, mot de passe ou pièce d'identité. Pas de contournement \
 de bannissement, pas de création de remplacement pour éviter une suspension et aucune promesse de rétablissement.
-24. Pseudo « déjà utilisé » : d'abord essayer de SE CONNECTER avec cet identifiant et le mot de passe du \
-message de son compte (le compte existe peut-être déjà). Si ça échoue, créer avec un chiffre en plus à la fin, \
+24. Pseudo « déjà utilisé » : vérifier si le clipper a déjà créé son propre compte et doit choisir SE CONNECTER. \
+Un échec de connexion ou une suspension n'autorise pas à créer un autre compte. Seulement pour l'étape de création \
+déjà autorisée, choisir une variante disponible du pseudo, \
 puis taper dans SON SALON PERSO `!pseudo`, le numéro du compte (1, 2 ou 3) et le VRAI @ qu'il a pris, par exemple \
 `!pseudo 1 reels.paris27` : le bot met le classeur à jour tout seul (09/10 : jamais un mot d'exemple à recopier tel quel). Tu n'inventes jamais de pseudo, et tu ne dis jamais « ton compte N est créé » à sa place.
 25. Tu ne parles que des comptes CRÉÉS d'après la mémoire du clipper (« Comptes créés : N sur 3 »). \
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de son compte (09/10 : un message par compte, plus de pavé des 3 comptes).
-27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
+27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Pour un code absent, identifie d'abord le moyen demandé \
+(e-mail, authentificateur, SMS ou WhatsApp) et utilise `!aide-ig renvoi` ou `!aide-ig authentificateur`. Pour un autre \
+accès refusé, demande seulement le message d'erreur utile. Ne demande jamais une capture contenant un code, un mot de passe, \
+un QR code d'authentification ou une pièce d'identité. Ne dis jamais « ça marche » sans preuve.
 28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes e-mail se consultent avec le bouton privé dans le salon des codes. Les codes : « {TEXTE_CODE} »
 28 bis. Vues qui chutent, ou écran « Statut du compte » / « couverture limitée auprès des personnes de moins de 18 ans » / \
 « contenu marqué » (12/10, Gaëtan) : ce n'est JAMAIS « pas grave ». Tu donnes la marche à suivre : 1. Paramètres → Créateur \
@@ -5198,18 +5205,12 @@ def texte_aide(membre, est_admin: bool) -> str:
         return ("🧰 **Ce que tu peux me demander**\n\n"
                 "· `!etape` : je te renvoie ton étape en cours.\n"
                 # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
-                "· " + codes_2fa.texte_salon_codes() + " Seulement les codes de connexion et de création, visibles par toi seul.\n"
-                # 10/10 (règle stricte de Gaëtan) : le code d'un appel ne passe plus par le bot, sauf CODES_APPEL=1. 10/10 (lot L9b) :
-                # un compte bloqué, c'est Gaëtan sur WhatsApp (plus « ton manager »). Vérification L9b : une action par ligne, la
-                # phrase d'appel du lot codes sur la sienne
-                + ("· Même bouton pour faire appel d'un compte bloqué (tu fais l'appel toi-même).\n" if codes_2fa.CODES_APPEL else "") +
+                "· " + codes_2fa.texte_salon_codes() + "\n"
+                "· `!aide-ig` : création, connexion, renvoi et application d'authentification.\n"
                 "· `!mesclics` : tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours (paie les 5 et 20).\n"
                 "· `!parrain @lui` : tu parraines un nouveau, 5 $ pour toi le jour de sa première paie.\n"
                 "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement : ton adresse de paiement.\n"
-                "· Un compte bloqué ? Écris à Gaëtan sur WhatsApp.\n"
-                + ("" if codes_2fa.CODES_APPEL else
-                   ("· Un compte banni : tu fais l'appel toi-même. Son code ne passe pas par le bot : l'équipe le reçoit et te répond.\n"
-                    if codes_2fa.SECURITES else "· Un compte banni : tu fais l'appel toi-même. Son code : `!code` dans le salon des codes.\n")) +
+                "· Compte suspendu : `!aide-ig suspension` pour le parcours officiel et les étapes du titulaire.\n"
                 "· `STOP` en message privé : plus aucun rappel automatique.\n\n"
                 "Une question ? Écris-la ici, je réponds.")
     # 09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : le candidat ne lit que sa prochaine action. Un
@@ -10336,9 +10337,8 @@ async def on_message(message):
     if texte.lower().startswith(("!appel", "!purge")) and est_staff(message.author):
         if await appel.commande(message, texte):
             return
-    # Commandes MANAGER (rôle « Manager ») : relais des codes 2FA pour créer des comptes sans l'admin,
-    # et des codes de récupération (`!recup`) pour retrouver un compte ou faire appel (27/09)
-    if texte.startswith(("!alias", "!code") + codes_2fa.COMMANDES_RECUP):
+    # Codes privés et aide publique sans données de compte ; !alias reste réservé aux managers.
+    if texte.lower().startswith(("!alias", "!code") + codes_2fa.COMMANDES_RECUP + codes_2fa.COMMANDES_AIDE):
         def _adresses_auteur(uid=message.author.id):
             """10/10 : un clipper ne reçoit que les codes des adresses rattachées à SON salon perso (alias_codes.json)."""
             return adresses_codes_de(uid)

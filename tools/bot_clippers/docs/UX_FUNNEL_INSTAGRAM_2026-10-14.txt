@@ -1,0 +1,65 @@
+Parcours Instagram — contrôle du 14 octobre 2026
+
+Problème et résultat
+
+L'aide générale promettait qu'une équipe recevrait un code de recours puis répondrait
+au clipper. Le parcours de connexion proposait aussi de remplacer le numéro demandé
+par celui du clipper. Ces consignes ne correspondaient ni au relais actuel ni aux
+limites des recours Meta.
+
+Les commandes !aide-ig et !aide-instagram proposent désormais cinq entrées :
+creation, connexion, renvoi, authentificateur et suspension. Elles fonctionnent
+même si le relais e-mail est éteint. Elles n'accèdent à aucun compte ni à la boîte
+mail ; seul le lien du salon des codes utilise son identifiant déjà enregistré.
+Une saisie libre ou supplémentaire n'est jamais recopiée dans la réponse.
+
+Le parcours distingue explicitement :
+- Les codes e-mail de création, connexion et vérification reconnus, affichés par
+  le bouton Mon code dans une réponse éphémère, par compte, service et usage.
+- Les codes d'une application d'authentification, SMS ou WhatsApp, que ce relais
+  e-mail ne génère pas et ne reçoit pas.
+- Les codes de récupération, recours et changement de sécurité, qui ne sont pas
+  distribués par le bot.
+
+Un renvoi reste conditionné à l'option et au délai affichés dans l'application.
+La réponse privée est actualisée pendant cinq minutes. Le clipper utilise le
+dernier code du bon compte et du bon usage. Un renvoi ne résout pas une affectation
+ambiguë. La connexion utilise le moyen de vérification déjà lié au compte.
+
+Le guide de suspension demande de lire la notification, de suivre Contester ou
+Demander un examen si proposé, et de consulter le statut d'un examen déjà engagé.
+Le titulaire effectue personnellement toute vérification d'identité requise.
+Aucun recours n'est soumis par le bot ; aucun rétablissement n'est garanti.
+
+Vérifications
+
+136 tests synthétiques réussis : classement des e-mails, fraîcheur, cloisonnement
+UID, absence de code public et de persistance, remplacement d'un ancien code,
+interfaces Discord réelles sans client connecté, et dix nouveaux tests d'aide.
+Le routage réel on_message est exécuté depuis son AST avec des mocks, y compris
+la commande !appel go du staff, qui garde son rôle d'appel de présence.
+
+La version du panneau public est conservée : aucune nouvelle annonce n'est
+provoquée par ce changement. Les consignes sont proposées à la demande. Aucun
+changement de permission, de rattachement, de contact de sécurité, de télémétrie
+privée ou de flux vidéo n'est introduit.
+
+Limites de validation
+
+Les interfaces ont été contrôlées avec discord.py et des mocks. Aucun compte
+Instagram réel n'a été créé, connecté ou contesté pour ces tests. Aucun TOTP,
+mot de passe, cookie ou code réel n'a été consulté. La disponibilité d'un parcours
+de recours dépend de l'état du compte et de l'écran Meta réellement présenté.
+Un test pilote effectué par le titulaire reste nécessaire pour confirmer de bout
+en bout la réception, le renvoi et la connexion sur un compte réel, sans exposer
+la valeur des codes. Les rattachements ambigus attendent les justificatifs déjà
+demandés aux clippers ; aucune nouvelle demande ne leur est envoyée.
+
+Sources officielles
+
+Centre Meta accessible lors du contrôle :
+https://www.meta.com/account-recovery-support/
+Aide Instagram sur les comptes désactivés :
+https://help.instagram.com/366993040048856
+Le détail de cette seconde page n'a pas pu être relu lors du dernier contrôle
+(restriction du site). Le guide reste conditionnel et propose le centre Meta.
