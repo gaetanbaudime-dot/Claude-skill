@@ -28,85 +28,15 @@ class DiffusionTests(unittest.IsolatedAsyncioTestCase):
         self.info = dict(mid="synthetic-message", alias="one@example.invalid", code="111111", type="connexion",
                          decision="donner", date=self.now, compte="compte.synthetic", libelle="connexion")
 
-    async def test_dm_automatique_bon_compte_et_notification_sans_code_ni_alias(self):
-        self.assertEqual(await self.c._diffuser_code_prive(self.info), "mp")
-        texte = self.membre.send.call_args.args[0]
-        self.assertIn("111111", texte)
-        self.assertIn("connexion", texte)
-        self.assertIn("one@example.invalid", texte)
-        self.salon.send.assert_awaited_once()
-        public = str(self.salon.send.call_args)
-        for secret in ("111111", "one@example.invalid", "compte.synthetic"):
-            self.assertNotIn(secret, public)
-        self.assertEqual(self.salon.send.call_args.kwargs["view"], "boutons-sans-code")
-
-    async def test_pas_de_notification_dans_salon_commun_meme_si_mal_associe(self):
-        self.salon.id = 300
-        await self.c._diffuser_code_prive(self.info)
-        self.membre.send.assert_awaited_once()
-        self.salon.send.assert_not_awaited()
-
-    async def test_dm_fermes_notification_et_bouton_prive_sans_code(self):
-        self.membre.send.side_effect = self.c.discord.Forbidden("111111 secret-synthetique")
-        self.assertEqual(await self.c._diffuser_code_prive(self.info), "mp_fermes")
-        self.assertNotIn("111111", str(self.salon.send.call_args))
-        self.assertEqual(self.salon.send.call_args.kwargs["view"], "boutons-sans-code")
-        self.assertNotIn("dm|100|synthetic-message", self.state["faits"])
-
-    async def test_dm_et_notification_non_dupliques(self):
-        await self.c._diffuser_code_prive(self.info)
-        self.assertEqual(await self.c._diffuser_code_prive(self.info), "deja")
-        self.membre.send.assert_awaited_once()
-        self.salon.send.assert_awaited_once()
-        self.assertNotIn("111111", str(self.state["faits"]))
-
-    async def test_ancien_futur_naif_et_date_invalide_refuses(self):
-        for date in (self.now-timedelta(minutes=3), self.now+timedelta(minutes=3),
-                     self.now.replace(tzinfo=None), "date-invalide", None):
-            self.assertEqual(await self.c._diffuser_code_prive(dict(self.info, date=date)), "ancien")
-        self.membre.send.assert_not_awaited()
-        self.salon.send.assert_not_awaited()
-
-    async def test_secrets_2fa_recuperation_et_mutations_non_diffuses(self):
-        for usage in ("2fa", "recuperation", "appel", "changement", "sms", "totp"):
-            self.assertEqual(await self.c._diffuser_code_prive(dict(self.info, type=usage)), "ignore")
-        self.assertEqual(await self.c._diffuser_code_prive(dict(self.info, decision="garder")), "ignore")
-        self.membre.send.assert_not_awaited()
-        self.salon.send.assert_not_awaited()
-
-    async def test_destinataire_ambigu_absent_aucun_envoi(self):
-        self.c._deps["destinataire_alias"] = lambda _: None
-        self.assertEqual(await self.c._diffuser_code_prive(self.info), "sans_destinataire")
-        self.membre.send.assert_not_awaited()
-        self.salon.send.assert_not_awaited()
-
-    async def test_droits_retires_avant_dm_aucun_envoi(self):
-        self.c._adresses_membre = lambda _: set()
-        self.assertEqual(await self.c._diffuser_code_prive(self.info), "droits_retires")
-        self.membre.send.assert_not_awaited()
-        self.salon.send.assert_not_awaited()
-
-    async def test_reaffectation_pendant_dm_aucune_notification_ancien_salon(self):
-        # La fonction résolue garde la même référence, mais son résultat change.
-        cible = {"membre": self.membre, "salon": self.salon}
-        self.c._deps["destinataire_alias"] = lambda _: cible or None
-        async def retirer(*_, **kwargs): cible.clear()
-        self.membre.send.side_effect = retirer
-        await self.c._diffuser_code_prive(self.info)
-        self.salon.send.assert_not_awaited()
-
-    async def test_salon_inaccessible_au_clipper_pas_de_notification(self):
-        self.salon.permissions_for = lambda _: types.SimpleNamespace(view_channel=False)
-        await self.c._diffuser_code_prive(self.info)
-        self.membre.send.assert_awaited_once()
-        self.salon.send.assert_not_awaited()
-
-    async def test_lecteur_alimente_envoi_automatique(self):
+    async def test_lecteur_met_en_cache_sans_dm_ni_publication(self):
+        self.info["service"] = "facebook"
         self.c.classer_mail = lambda _: self.info
         self.c._proprietaire = lambda _: {"canal_id": "200"}
         bilan = dict(donnes=0, orphelins=0, gardes=0, alertes=0)
         await self.c._traiter_un(None, {"msg": {}, "dossier": "INBOX"}, self.state, set(), "300", bilan)
-        self.membre.send.assert_awaited_once()
+        self.membre.send.assert_not_awaited()
+        self.salon.send.assert_not_awaited()
+        self.assertEqual(self.state["codes"][0]["service"], "facebook")
         self.assertEqual(bilan["donnes"], 1)
 
     async def test_panneau_existant_sans_modifier_permissions_ni_historique(self):

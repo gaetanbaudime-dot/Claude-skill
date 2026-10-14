@@ -1,16 +1,10 @@
-"""Relais privé des e-mails Instagram, séparé par compte et usage.
+"""OTP e-mail Meta/Facebook/Instagram : un bouton, une réponse privée par UID.
 
-Le bouton persistant et !code ouvrent un choix privé (création, connexion, vérification
-sur l'adresse existante). Une demande lit un seul alias autorisé pour l'UID Discord,
-avec deux minutes de recul et cinq minutes de guet. Jamais de repli sur un autre
-compte, de code expiré ou de code persistant sur disque. Les OTP e-mail frais sont
-envoyés automatiquement en DM au propriétaire unique ; son salon reçoit un bouton
-et une notification sans code. Le salon commun conserve seulement son panneau privé.
-Les droits sont relus avant chaque envoi ; une nouvelle demande remplace la précédente.
-
-Les codes TOTP/SMS/WhatsApp, récupération, recours et changements de sécurité ne sont
-pas distribués. Aucun secret d'authentification n'est nécessaire aux tests synthétiques.
-Le lecteur IMAP et la recherche à la demande alimentent uniquement le cache en mémoire.
+Le salon commun reste le point d'entrée. Le bouton affiche les derniers OTP e-mail
+par compte/service/usage, de moins de deux minutes, puis guette cinq minutes.
+Aucun code en salon ou sur disque ; aucune graine TOTP, récupération ou mutation
+sensible. Les droits sont relus avant chaque envoi ; une nouvelle demande remplace
+la précédente. Les tests utilisent exclusivement des données synthétiques.
 """
 
 import asyncio
@@ -74,28 +68,28 @@ SALON_CODES_NOM = os.environ.get("CANAL_CODES_NOM", "🔐-code-instagram").strip
 # 29/09 (Gaëtan : « restreins le salon au rôle Clippeur ») : le salon commun est réservé à l'équipe.
 ROLES_SALON_CODES = tuple(r.strip() for r in os.environ.get("CODES_SALON_ROLES", "Clippeur,Rookie,Confirmé,Elite").split(",") if r.strip())
 # Sous-chaînes cherchées côté serveur au PREMIER passage seulement (IMAP FROM) : un pré-filtre, l'adresse décide ensuite.
-MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com")
+MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com", "metamail", "fb.com", "fb_com")
 COMMANDES_RECUP = ("!recup", "!récup", "!recuperation", "!récupération", "!appel", "!unban", "!deban")
 COMMANDES_APPEL = ("!appel", "!unban", "!deban")
 ID_BOUTON = "codes:mon-code"
-VERSION_EXPLICATION = "11-dm-boutons-prives"   # 12/10 : v8, tout code Instagram, le plus récent
+VERSION_EXPLICATION = "12-point-entree-meta"   # 12/10 : v8, tout code Instagram, le plus récent
 
 # ------------------------------------------------------------------ textes
-TEXTE_CODE_BRUT = f"Ton code e-mail Instagram arrive en DM. Tu peux aussi choisir Créer un compte, Me connecter ou Vérifier mon e-mail dans ton salon perso ou #{SALON_CODES_NOM} : la réponse est privée."
+TEXTE_CODE_BRUT = f"Dans #{SALON_CODES_NOM}, appuie sur 📩 Mon code : tes codes e-mail Meta, Facebook et Instagram s'affichent pour toi seul."
 SUJET_SALON = ("📩 Mon code : choisis le compte et le type de code e-mail dans une réponse privée." if SECURITES
                else "📩 Mon code (ou !code) : ton dernier code Instagram, visible par toi seul.")
 TEXTE_ATTENTE = ("⏳ Pas encore reçu.\n\nJe guette 5 minutes : ton code s'affiche ici tout seul dès que l'e-mail arrive. "
                  "Pas besoin de rappuyer.")
-TEXTE_RIEN = ("😴 Toujours pas de code.\n\nVérifie que l'e-mail tapé dans Instagram est exactement celui de ton compte. "
+TEXTE_RIEN = ("😴 Toujours pas de code.\n\nVérifie que l'e-mail tapé dans l’application concernée est exactement celui de ton compte. "
               "Appuie sur « Renvoyer le code », attends 30 secondes, puis rappuie sur 📩 Mon code.")
 TEXTE_PANNE = "⚠️ Je n'arrive pas à lire la boîte mail en ce moment.\n\nRéessaie dans 2 minutes. L'équipe est prévenue."
 # 10/10 (revue) : la panne se dit tout de suite, plus au bout des 5 minutes de guet.
 TEXTE_PANNE_GUET = ("⚠️ Je n'arrive pas à lire la boîte mail en ce moment. L'équipe est prévenue.\n\n"
                     "⏳ Je guette quand même 5 minutes : ton code s'affiche ici dès que la boîte répond.")
 # 10/10 (revue, deux codes rapprochés) : le guet continue après un code ; un code plus récent remplace l'ancien tout seul.
-TEXTE_REFUSE = ("-# Refusé par Instagram ? Appuie sur « Renvoyer le code » dans Instagram : le nouveau s'affiche ici tout "
+TEXTE_REFUSE = ("-# Code refusé ? Appuie sur « Renvoyer le code » dans l’application concernée : le nouveau s'affiche ici tout "
                 "seul, à la place de celui-ci.")
-TEXTE_REFUSE_FIN = ("-# Refusé par Instagram ? Appuie sur « Renvoyer le code » dans Instagram, attends 30 secondes, puis "
+TEXTE_REFUSE_FIN = ("-# Code refusé ? Appuie sur « Renvoyer le code » dans l’application concernée, attends 30 secondes, puis "
                     "redemande ton code (📩 Mon code).")
 TEXTE_SUITE = "↪️ Tu as redemandé ton code : il s'affiche dans la nouvelle réponse, plus bas."
 TEXTE_PLUS_ADRESSE = ("🔒 Aucune adresse n'est plus rattachée à toi : je ne guette plus rien.\n\n"
@@ -121,17 +115,12 @@ CODES_VERIFICATION = _oui("CODES_VERIFICATION", "1")
 
 
 def explication_salon() -> str:
-    return ("🔐 **Ton code Instagram**\n\n"
-            "1. Demande un nouveau code dans Instagram.\n"
-            "2. Ton code arrive en **DM**, si le compte est associé sans ambiguïté à ton compte Discord.\n"
-            "3. Tu peux aussi appuyer sur **Créer un compte**, **Me connecter** ou **Vérifier mon e-mail Instagram** "
-            "ci-dessous ou dans ton salon personnel. Un seul compte lié : réponse directe. Plusieurs comptes : "
-            "choisis le bon dans le menu privé.\n\n"
-            "Je cherche un code du bon usage reçu dans les deux dernières minutes, puis je guette cinq minutes. "
-            "Un nouveau code remplace le précédent. Si le code a déjà été présenté, demande un nouveau code sur Instagram.\n\n"
-            "Application d’authentification, SMS ou WhatsApp : utilise la méthode affichée par Instagram ; "
-            "ce bot ne reçoit que les e-mails. Récupération, recours et modification de sécurité : "
-            "suis le parcours officiel avec le titulaire. Ne poste jamais de code dans un salon.")
+    return ("🔐 **Tes codes Meta · Facebook · Instagram**\n\n"
+            "Appuie sur **📩 Mon code** : tes codes e-mail récents s'affichent ici, **pour toi seul**.\n"
+            "Demande ton code dans l'application : je guette cinq minutes et le nouveau s'affiche automatiquement.\n\n"
+            "Chaque code indique son service, son compte et son usage. Si un code est refusé, demande un renvoi.\n"
+            "Les codes d'une application d'authentification ne viennent pas par e-mail. "
+            "Les codes de récupération et les changements de sécurité restent dans le parcours du titulaire.")
 
 
 def _explication_v7() -> str:
@@ -142,9 +131,9 @@ def _explication_v7() -> str:
             f"Il sert à {'3' if CODES_APPEL else '2'} choses, rien d'autre :\n\n{usages}\n\n"
             "➡️ Tu fais ta demande sur Instagram. Instagram t'envoie un e-mail. Tu appuies sur 📩 Mon code : le code "
             "arrive tout seul dès que l'e-mail est là. ✅\n\n"
-            "🔁 Code refusé ? Appuie sur « Renvoyer le code » dans Instagram, sans fermer ta réponse : le nouveau remplace "
+            "🔁 Code refusé ? Appuie sur « Renvoyer le code » dans l’application concernée, sans fermer ta réponse : le nouveau remplace "
             "l'ancien tout seul, pendant 5 minutes.\n\n"
-            "😴 Pas de code après 5 minutes ? Vérifie l'e-mail tapé dans Instagram, appuie sur « Renvoyer le code », "
+            "😴 Pas de code après 5 minutes ? Vérifie l'e-mail tapé dans l’application concernée, appuie sur « Renvoyer le code », "
             "puis rappuie sur 📩 Mon code.\n\n"
             "🌍 Je lis les e-mails d'Instagram écrits en français, anglais, espagnol, portugais, italien ou allemand. "
             "Instagram dans une autre langue : remets-le en français, sinon je ne donne pas le code.\n\n"
@@ -334,8 +323,8 @@ def adresse_expediteur(from_header) -> str:
 
 
 DOMAINES_INSTAGRAM = ("instagram.com", "mail.instagram.com")
-DOMAINES_META_CODES = ("meta.com", "mail.meta.com")                    # Meta : seulement pour un mail qui parle d'Instagram
-DOMAINES_META = DOMAINES_INSTAGRAM + DOMAINES_META_CODES + ("facebookmail.com", "facebook.com", "accountscenter.meta.com")
+DOMAINES_META_CODES = ("meta.com", "metamail.com")
+DOMAINES_META = DOMAINES_INSTAGRAM + DOMAINES_META_CODES + ("facebookmail.com", "facebook.com", "fb.com")
 # iCloud « Masquer mon adresse » réécrit l'expéditeur : security@mail.instagram.com → security_at_mail_instagram_com_<id>@icloud.com.
 # La partie avant « _at_ » n'a pas de « _ », le suffixe non plus : « a_at_mail_instagram_com_at_outlook_com_zz9 » (un faux relayé)
 # et « …_instagram_com_exemple_invalid_x1 » (mail.instagram.com.exemple.invalid) sont refusés. 10/10 (revue) : le format exact
@@ -347,8 +336,8 @@ DOMAINES_META = DOMAINES_INSTAGRAM + DOMAINES_META_CODES + ("facebookmail.com", 
 # Seul garde-fou gardé : pas de second « _at_ » (une adresse relayée d'un autre domaine).
 _SANS_2E_AT = r"(?!(?:.*_at_){2})"
 RE_ICLOUD_INSTAGRAM = re.compile(_SANS_2E_AT + r"^[a-z0-9.+-]+_at_(?:[a-z0-9-]+_)*instagram_com(?:_[a-z0-9-]+){0,2}$")
-RE_ICLOUD_META_CODES = re.compile(_SANS_2E_AT + r"^[a-z0-9.+-]+_at_(?:[a-z0-9-]+_)*meta_com(?:_[a-z0-9-]+){0,2}$")
-RE_ICLOUD_META = re.compile(_SANS_2E_AT + r"^[a-z0-9.+-]+_at_(?:[a-z0-9-]+_)*(?:instagram|facebookmail|facebook|meta)_com"
+RE_ICLOUD_META_CODES = re.compile(_SANS_2E_AT + r"^[a-z0-9.+-]+_at_(?:[a-z0-9-]+_)*(?:meta|metamail)_com(?:_[a-z0-9-]+){0,2}$")
+RE_ICLOUD_META = re.compile(_SANS_2E_AT + r"^[a-z0-9.+-]+_at_(?:[a-z0-9-]+_)*(?:instagram|facebookmail|facebook|fb|meta|metamail)_com"
                             r"(?:_[a-z0-9-]+){0,2}$")
 MOTS_META = re.compile(r"(?<![a-z0-9])(instagram|facebook|facebookmail|meta)(?![a-z0-9])")
 
@@ -358,7 +347,7 @@ def _domaine_ok(from_header, domaines, motif) -> bool:
     if "@" not in adresse:
         return False
     local, domaine = adresse.rsplit("@", 1)
-    return domaine in domaines or (domaine == "icloud.com" and bool(motif.match(local)))
+    return any(domaine == d or domaine.endswith("." + d) for d in domaines) or (domaine == "icloud.com" and bool(motif.fullmatch(local)))
 
 
 def expediteur_instagram(from_header) -> bool:
@@ -400,7 +389,7 @@ def nom_meta_sans_adresse_meta(from_header) -> bool:
 # l'écrire à sa place : le sien arrive dessous) ; un mail relayé par iCloud devrait y porter « arc=pass (… dkdomain=
 # mail.instagram.com …) » ou une signature Meta. Statut : spéculatif tant qu'un vrai mail relayé ne l'a pas confirmé.
 PREUVE_META = re.compile(r"(?:arc=pass\s*\([^)]*dkdomain=|dkim=pass[^;]*?header\.(?:d=|i=@))(?:[a-z0-9-]+\.)*"
-                         r"(?:instagram|facebookmail|facebook|meta)\.com\b")
+                         r"(?:instagram|facebookmail|facebook|fb|meta|metamail)\.com\b")
 
 
 def preuve_exigee() -> bool:
@@ -564,7 +553,7 @@ CREATION_RE = re.compile(_G + r"|".join((
 # 10/10 (revue) : « confirm your identity » / « verify your account » seuls ne sont plus un but (connexion, ou
 # ré-authentification avant un changement ? ambigu, donc gardé) ; le vrai mail de connexion dit « Someone tried to log in ».
 CONNEXION_RE = re.compile(_G + r"|".join((
-    r"log ?in|logging in|sign(?:ing)? in|unusual login", r"se connecter|tentative de connexion|connexion inhabituelle",
+    r"log ?in|logging in|sign(?:ing)? in|unusual login", r"se connecter|tentative de connexion|connexion inhabituelle|code de connexion",
     r"iniciar sesion|inicio de sesion", r"fazer login|entrar na (?:sua )?conta", r"accedere|accesso", r"anmeld\w*|anzumelden")) + _D)
 # 10/10 (revue) : un e-mail écrit dans aucune des 6 langues (turc, indonésien…) est gardé : ses mots de modification ne
 # seraient pas lus. Il faut au moins deux mots-outils d'une même langue.
@@ -616,6 +605,57 @@ ALERTES = (
 ALERTES_RE = tuple((libelle, re.compile(motif)) for libelle, motif in ALERTES)
 MOTIF_COMPTE = re.compile(r"\b(?:Hi|Hello|Hey|Bonjour|Salut|Hola|Olá|Ola|Ciao|Hallo|Merhaba|Hai|Hoi)\b\W{0,3}"
                           r"([A-Za-z0-9][A-Za-z0-9._]{1,40})\s*[,:!.]")
+
+
+SERVICES_EMAIL = {"instagram": "Instagram", "facebook": "Facebook", "meta": "Meta"}
+
+
+def service_du_mail(from_header, sujet, corps):
+    if expediteur_instagram(from_header):
+        return "instagram"
+    if expediteur_meta_codes(from_header):
+        entete = plat(str(sujet)) + " " + _sans_pied(plat(str(corps)))[:400]
+        if re.search(r"\binstagram\b", entete):
+            return "instagram"
+        if re.search(r"\bfacebook\b", entete):
+            return "facebook"
+        return "meta"
+    return "facebook" if expediteur_meta(from_header) else ""
+
+
+_FACTEUR_EMAIL = re.compile(r"two[- ]?factor(?: authentication)?|\b2fa\b|deux facteurs|double authentification|"
+                             r"authentication code|code d'authentification", re.I)
+
+
+def _sans_service_otp(texte, service, connexion):
+    # Le nom du service n'est pas une modification de compte. La 2FA n'est
+    # neutralisée que pour un OTP de connexion envoyé par e-mail, jamais une graine.
+    marque = {"facebook": r"\bfacebook\b", "meta": r"\bmeta(?: account)?\b|compte meta",
+              "instagram": r"\binstagram\b"}.get(service, r"(?!)")
+    texte = re.sub(marque, " _service_ ", texte)
+    if connexion:
+        texte = re.sub(r"accounts? cent(?:er|re)|espace comptes|centre de comptes", " _centre_ ", texte)
+    return _FACTEUR_EMAIL.sub(" _facteur_email_ ", texte) if connexion else texte
+
+
+def _code_service_email(service, sujet, corps, complets, code, compte):
+    """Nouveaux modèles FB/Meta : but explicite, contrôle de toutes les parties MIME."""
+    principal = _sans_pied(plat(sujet + " . " + corps), code)
+    if re.search(r"\binstagram\b", principal) and service != "instagram":
+        return None
+    connexion = bool(CONNEXION_RE.search(_sans_pseudos(principal)))
+    creation = bool(CREATION_RE.search(_sans_pseudos(principal)))
+    verification = bool(CODES_VERIFICATION and (CONFIRMER_EMAIL.search(principal) or VERIFIER_IDENTITE.search(principal)))
+    if not (connexion or creation or verification):
+        return None
+    for partie in [sujet, corps] + list(complets or []):
+        lu, avert = _avertissements(_lisible(partie, compte, code), code)
+        lu = _sans_service_otp(lu, service, connexion)
+        if _noire(lu) or APPEL_RE.search(lu) or any(plat(code) in phrase for phrase in avert):
+            return None
+    if not langue_lue(principal):
+        return None
+    return "creation" if creation else "connexion" if connexion else "verification"
 
 
 def _libelle_2fa(texte: str) -> str:
@@ -711,10 +751,11 @@ _SUJET_CODE_INSTAGRAM = re.compile(
 _MUTATION_CODE = re.compile(
     r"(?:reset|change|changing|changed|update|updating|updated|remove|removing|add|adding|added|"
     r"recover|recovery|forgot|forgotten|restore|appeal|disable|enable|turn off|turn on|delete|deleting|"
+    r"link|unlink|set up|setup|configure|configur\w*|associer|lier|dissocier|"
     r"reinitialis\w*|reinitializ\w*|modifi\w*|chang\w*|ajout\w*|supprim\w*|"
     r"recup\w*|oubli\w*|desactiv\w*|activ\w*|deban\w*|appel)\b.{0,65}?"
     r"(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
-    r"pseudo|authenticat\w*|securit\w*|security|account|compte|2fa|two.factor)"
+    r"pseudo|authent(?:icat|ifi)\w*|securit\w*|security|account|compte|2fa|two.factor)"
     r"|(?:password|mot de passe|email|e-mail|adresse|phone|telephone|numero|username|"
     r"pseudo|2fa|two.factor)\b.{0,65}?(?:reset|chang\w*|modifi\w*|updat\w*|"
     r"remov\w*|ajout\w*|add(?:ing|ed)?\b|desactiv\w*|activ\w*)",
@@ -793,7 +834,8 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     fenetre = corps[:600]
     code = _code_du_mail(sujet, fenetre)
     texte = _lisible(f"{sujet} .\n{fenetre}", compte, code)
-    sortie = {"decision": "rien", "type": "", "code": code, "libelle": "", "compte": compte}
+    sortie = {"decision": "rien", "type": "", "code": code, "libelle": "", "compte": compte,
+              "service": service_du_mail(from_header, sujet, corps)}
     if code is None:
         if not expediteur_meta(from_header):
             return dict(sortie, libelle="expéditeur hors Meta")
@@ -813,15 +855,22 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         # mail Meta est donné ; le type ne sert qu'au libellé.
         typ = "creation" if CREATION_RE.search(blanc) else ("appel" if APPEL_RE.search(blanc) else "connexion")
         return dict(sortie, decision="donner", type=typ, libelle=QUOI.get(typ, "connexion"))
-    if not expediteur_instagram(from_header) and not (expediteur_meta_codes(from_header) and "instagram" in blanc):
-        quoi = "Facebook" if "facebook" in adresse_expediteur(from_header) else "Meta ou Espace Comptes"
-        return dict(sortie, decision="garder", libelle=f"code {quoi} (pas un mail Instagram)")
     for partie in [sujet, corps] + list(complets or []):
         pertinent, _ = _avertissements(_sans_pied(plat(partie), code), code)
         if (_MUTATION_CODE.search(pertinent) or re.search(
-                r"two[- ]?factor|\b2fa\b|\btotp\b|authenticator|double authentification|"
-                r"deux facteurs|backup codes?|codes? de secours", pertinent)):
+                r"\btotp\b|authenticator|authentificateur|backup codes?|codes? de secours|"
+                r"secret key|cle secrete|recovery (?:key|codes?)|graine|\botpauth\b", pertinent)):
             return dict(sortie, decision="garder", code=None, libelle="récupération ou sécurité du compte")
+    service = sortie["service"]
+    reconnu = _code_service_email(service, sujet, corps, complets, code, compte)
+    if reconnu:
+        return dict(sortie, decision="donner", type=reconnu, libelle=QUOI[reconnu])
+    if not expediteur_instagram(from_header):
+        return dict(sortie, decision="garder", code=None, libelle="OTP e-mail sans but sûr reconnu")
+    # Les anciens modèles Instagram restent compatibles ; une mention 2FA ambiguë
+    # sans but de connexion explicite ne doit pas emprunter leur raccourci.
+    if any(_FACTEUR_EMAIL.search(_sans_pied(plat(t), code)) for t in [sujet, corps] + list(complets or [])):
+        return dict(sortie, decision="garder", code=None, libelle="double authentification sans connexion explicite")
     if expediteur_instagram(from_header):
         standard = _code_standard_connexion(sujet, corps, code)
         if standard or _verification_profil_connexion(sujet, corps, code):
@@ -1329,7 +1378,7 @@ def _etat() -> dict:
             _ETAT.setdefault(cle, defaut)
         # Ne jamais restituer des codes mis en cache sous l'ancien mode non filtré :
         # certains pouvaient venir d'une modification de compte Instagram.
-        mode = "strict_context_v2"
+        mode = "strict_context_v3_services"
         if _ETAT.get("mode_codes") != mode:
             _ETAT["codes"] = []
             _ETAT["mode_codes"] = mode
@@ -1493,7 +1542,8 @@ def _ligne_privee(t: dict) -> str:
     compte = f" · compte `@{t['compte']}`" if t.get("compte") else ""
     age = _age_min(t)
     quand = "reçu à l'instant" if age < 1 else f"reçu il y a {age} min"
-    return (f"🔐 **Ton code Instagram ({QUOI.get(t.get('type'), 'connexion')})**{compte}\n\n"
+    service = SERVICES_EMAIL.get(t.get("service", "instagram"), "Meta")
+    return (f"🔐 **Code {service} · {QUOI.get(t.get('type'), 'connexion')}**{compte}\n\n"
             f"Adresse `{t.get('alias', '')}` · {quand} :\n```\n{t['code']}\n```")
 
 
@@ -1542,7 +1592,7 @@ def _texte_frais(codes: list, cle_guet: str) -> str:
     if deja is not None:
         age = _age_min(deja)
         quand = "il y a moins d'une minute" if age < 1 else f"il y a {age} min"
-        note = (f"-# Déjà donné {quand}. S'il est refusé, appuie sur « Renvoyer le code » dans Instagram : je guette le "
+        note = (f"-# Déjà donné {quand}. S'il est refusé, appuie sur « Renvoyer le code » dans l’application concernée : je guette le "
                 "suivant, il s'affiche ici tout seul.")
     else:
         note = TEXTE_REFUSE
@@ -1550,18 +1600,40 @@ def _texte_frais(codes: list, cle_guet: str) -> str:
 
 
 USAGES_EMAIL = {"creation": "Créer un compte", "connexion": "Me connecter",
-                "verification": "Vérifier mon e-mail Instagram"}
+                "verification": "Vérifier mon e-mail"}
 TEXTE_CHOIX = ("📩 Choisis le compte et ce qu’Instagram te demande.\n\n"
                "Un code d’application d’authentification, SMS ou WhatsApp ne vient pas de cette boîte e-mail. "
                "Les codes de récupération et les changements de sécurité restent réservés au titulaire.")
 
 
 def _codes_demande(adresses, usage, depuis):
-    """Un seul compte choisi, le bon usage, une date sûre et aucun code déjà présenté."""
-    if len(adresses) != 1 or usage not in USAGES_EMAIL:
+    """Le bon compte, un usage étiqueté et une date sûre ; aucun mélange entre contextes."""
+    if not adresses or (usage != "auto" and (len(adresses) != 1 or usage not in USAGES_EMAIL)):
         return []
-    return [t for t in codes_recents(adresses, min(FRAIS_MIN, 10))
-            if t.get("type") == usage and t.get("code") and _date(t) >= depuis]
+    limite = max(depuis, _maintenant() - timedelta(minutes=2)) if usage == "auto" else depuis
+    candidats = [t for t in codes_recents(adresses, min(FRAIS_MIN, 10))
+                 if t.get("type") in USAGES_EMAIL and (usage == "auto" or t.get("type") == usage)
+                 and t.get("code") and _date(t) >= limite
+                 and t.get("service", "instagram") in SERVICES_EMAIL]
+    vus, derniers = set(), []
+    for t in candidats:
+        contexte = (t.get("alias"), t.get("service", "instagram"), t.get("type"))
+        if contexte not in vus:
+            vus.add(contexte)
+            derniers.append(t)
+    return derniers
+
+
+def _texte_codes_auto(codes):
+    blocs = []
+    for t in codes:
+        bloc = _ligne_privee(t)
+        if len("\n\n".join(blocs + [bloc])) > 1500:
+            break
+        blocs.append(bloc)
+    if len(blocs) < len(codes):
+        blocs.append("D'autres codes récents sont disponibles : utilise !code connexion adresse pour cibler un compte.")
+    return "\n\n".join(blocs)
 
 
 async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes: int = None, relire=None,
@@ -1571,7 +1643,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
     Deux minutes de recul à l'appui, puis cinq minutes d'attente ; jamais de retour à un code ancien
     ou d'un autre usage. `tout` est conservé pour compatibilité, sans élargir l'accès à la boîte.
     """
-    if len(adresses) != 1 or usage not in USAGES_EMAIL:
+    if not adresses or (usage != "auto" and (len(adresses) != 1 or usage not in USAGES_EMAIL)):
         await dire(TEXTE_CHOIX)
         return "choix"
     duree = ATTENTE_SEC if duree is None else duree
@@ -1601,13 +1673,14 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                     await dire(TEXTE_PLUS_ADRESSE)
                     return "sortie"
             admissibles = _codes_demande(adresses, usage, depuis)
-            candidats = [t for t in admissibles if t.get("mid") not in vus]
+            candidats = [t for t in admissibles if usage == "auto" or t.get("mid") not in vus]
             if candidats:
                 montre = candidats[0]
             elif montre and not any(t.get("mid") == montre.get("mid") for t in admissibles):
                 montre = None
             fini = time.monotonic() >= fin
-            texte = (_texte_codes([montre]) + "\n\n" + (TEXTE_REFUSE_FIN if fini else TEXTE_REFUSE)) if montre else (
+            rendu = _texte_codes_auto(admissibles) if usage == "auto" else _texte_codes([montre]) if montre else ""
+            texte = (rendu + "\n\n" + (TEXTE_REFUSE_FIN if fini else TEXTE_REFUSE)) if montre else (
                 TEXTE_PANNE if lecteur_en_panne() and fini else
                 TEXTE_PANNE_GUET if lecteur_en_panne() else TEXTE_RIEN if fini else TEXTE_ATTENTE)
             if texte != guet["texte"] or "envoye" not in guet:
@@ -1615,7 +1688,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                 await dire(texte)
                 guet["envoye"] = True
                 if montre:
-                    _noter_montre(cle_guet, [montre])
+                    _noter_montre(cle_guet, admissibles if usage == "auto" else [montre])
             if fini:
                 return "code" if montre else "panne" if lecteur_en_panne() else "rien"
             await _attendre_nouveau(min(5.0, fin - time.monotonic()))
@@ -1632,7 +1705,7 @@ _SCAN_LAST = {}  # opaque request key -> monotonic; rate-limit manual refresh
 
 
 def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
-    """Check the latest Instagram emails independently, even if IDLE is stale.
+    """Check the latest Meta/Facebook/Instagram emails independently, even if IDLE is stale.
 
     Only code entries from the caller's owned aliases and within the 10-minute
     window are returned; a dedicated reader is closed after every request.
@@ -1651,10 +1724,14 @@ def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
                 reader._selectionner(folder)
                 # Filter by originating platform first; this also matches iCloud relay
                 # addresses such as "no-reply_at_mail_instagram_com_...@icloud.com".
-                ok, results = reader.boite.uid("SEARCH", None, f'(SINCE {since} FROM "instagram")')
+                criteres = [f'FROM "{marque}"' for marque in MOTS_EXPEDITEUR]
+                filtre = criteres[-1]
+                for critere in reversed(criteres[:-1]):
+                    filtre = f'OR {critere} ({filtre})'
+                ok, results = reader.boite.uid("SEARCH", None, f'(SINCE {since} ({filtre}))')
                 if ok != "OK":
                     continue
-                uids = [int(uid) for uid in ((results or [b""])[0] or b"").split() if uid.isdigit()]
+                uids = {int(uid) for uid in ((results or [b""])[0] or b"").split() if uid.isdigit()}
                 # Bound the work even with a high-volume inbox; newest first per folder.
                 for message in reader._lire(folder, sorted(uids)[-100:], False):
                     info = classer_mail(message["msg"])
@@ -1668,7 +1745,7 @@ def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
                     found[mid] = {
                         "n": len(found),  # Ordre UID dans le premier dossier, sans doublons All Mail/Spam.
                         "mid": mid, "alias": info["alias"], "code": info["code"],
-                        "type": info["type"], "decision": "donner",
+                        "type": info["type"], "service": info.get("service", "instagram"), "decision": "donner",
                         "compte": info.get("compte") or "", "date": _iso(info["date"]),
                     }
             except (imaplib.IMAP4.error, MailIllisible) as erreur:
@@ -1798,10 +1875,10 @@ async def _sans_adresse(membre, dire) -> None:
 
 def vue_choix_code(uid, adresses, usage=""):
     """Un clic pour l'usage ; sélection du compte seulement si plusieurs comptes sont liés."""
-    if not usage:
+    if not usage or usage == "auto":
         return vue_mon_code()
     vue = discord.ui.View(timeout=300)
-    comptes = discord.ui.Select(placeholder="Choisis le compte Instagram", options=[
+    comptes = discord.ui.Select(placeholder="Choisis le compte", options=[
         discord.SelectOption(label=alias[:100], value=alias) for alias in sorted(adresses)[:25]])
 
     async def compte_choisi(interaction):
@@ -1840,6 +1917,11 @@ async def servir_interaction(interaction, usage="", adresse="") -> str:
     if not adresses:
         await _sans_adresse(membre, dire)
         return "sans_adresse"
+    usage = usage or "auto"
+    if usage == "auto" and not adresse:
+        cle = f"u|{membre.id}"
+        _demander_scan(adresses, cle)
+        return await _servir(adresses, dire, cle, usage="auto", relire=lambda: _adresses_membre(membre))
     if usage in USAGES_EMAIL and not adresse and len(adresses) == 1:
         adresse = next(iter(adresses))
     if not usage or not adresse:
@@ -1848,7 +1930,7 @@ async def servir_interaction(interaction, usage="", adresse="") -> str:
             return "choix"
         await interaction.edit_original_response(content=TEXTE_CHOIX, view=vue_choix_code(membre.id, adresses, usage))
         return "choix"
-    if usage not in USAGES_EMAIL or adresse not in adresses:
+    if usage not in (*USAGES_EMAIL, "auto") or adresse not in adresses:
         await dire("🔒 Ce compte n’est plus rattaché à toi ou ce type de code n’est pas disponible.")
         return "refus"
     cibles = {adresse}
@@ -1890,9 +1972,7 @@ class BoutonUsageCode(discord.ui.DynamicItem[discord.ui.Button],
 
 def vue_mon_code():
     vue = discord.ui.View(timeout=None)
-    for usage in USAGES_EMAIL:
-        if usage != "verification" or CODES_VERIFICATION:
-            vue.add_item(BoutonUsageCode(usage))
+    vue.add_item(BoutonMonCode())
     return vue
 
 
@@ -1980,6 +2060,10 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         return True
     if adresse and adresse not in adresses:
         await message.reply("🔒 Cette adresse n’est pas rattachée à ton compte Discord.")
+        return True
+    if not usage:
+        await message.reply(f"Appuie sur 📩 Mon code dans <#{salon_codes_id()}> : la réponse est privée."
+                            if salon_codes_id() else "Appuie sur 📩 Mon code : la réponse est privée.", view=vue_mon_code())
         return True
     if not adresse and len(adresses) == 1:
         adresse = next(iter(adresses))
@@ -2088,52 +2172,6 @@ async def _signaux(resultat: dict):
                          "faire. Une ligne par forme d'adresse et par jour.")
 
 
-async def _diffuser_code_prive(info):
-    """OTP e-mail frais → DM du propriétaire unique ; salon perso → bouton sans code.
-
-    Aucun envoi à un salon commun, aucun secret TOTP ou de récupération. Pas de repli
-    alias→salon pour décider du destinataire : la dépendance résout un UID vérifié.
-    """
-    if info.get("decision") != "donner" or info.get("type") not in USAGES_EMAIL or not info.get("code"):
-        return "ignore"
-    date = _date({"date": str(info.get("date") or "")})
-    if not _maintenant() - timedelta(minutes=2) <= date <= _maintenant() + timedelta(minutes=2):
-        return "ancien"
-    resoudre = _deps.get("destinataire_alias")
-    cible = resoudre(info.get("alias")) if resoudre else None
-    if not cible:
-        return "sans_destinataire"
-    membre = cible["membre"]
-    uid = str(membre.id)
-    if info["alias"] not in _adresses_membre(membre):
-        return "droits_retires"
-    cle = f"dm|{uid}|{info['mid']}"
-    if cle in _etat()["faits"]:
-        return "deja"
-    try:
-        await membre.send(_ligne_privee(dict(info, date=_iso(date))) + "\n\n" + TEXTE_REFUSE_FIN, view=vue_mon_code())
-        _une_fois(cle)
-        issue = "mp"
-    except (discord.Forbidden, discord.HTTPException):
-        issue = "mp_fermes"
-    # Après l'envoi réseau, relire l'identité ; aucun code ne figure dans la notification.
-    suivante = resoudre(info.get("alias"))
-    salon = suivante.get("salon") if suivante and str(suivante["membre"].id) == uid else None
-    if (salon is not None and str(salon.id) != salon_codes_id()
-            and info["alias"] in _adresses_membre(membre)
-            and getattr(salon.permissions_for(membre), "view_channel", False)):
-        notification = f"notification|{uid}|{info['mid']}"
-        if notification not in _etat()["faits"]:
-            try:
-                await salon.send("📩 Un nouveau code e-mail Instagram est disponible. "
-                                 "Consulte tes DM ou choisis ton usage ci-dessous : la réponse est visible uniquement par toi.",
-                                 view=vue_mon_code())
-                _une_fois(notification)
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-    return issue
-
-
 async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan: dict):
     """Un mail nouveau du lecteur : abonnés, puis la décision (cache, lignes admin, push)."""
     msg, dossier = lu["msg"], lu["dossier"]
@@ -2154,7 +2192,7 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
                      "CODES_PREUVE_RELAIS=1 qu'une fois ce format vérifié. Une ligne par jour au plus.")
     if info["decision"] == "donner":
         if mid not in connus:
-            e["codes"].append(_numeroter({"mid": mid, "alias": alias, "code": info["code"], "type": info["type"],
+            e["codes"].append(_numeroter({"mid": mid, "alias": alias, "code": info["code"], "type": info["type"], "service": info.get("service", "instagram"),
                                           "decision": "donner", "compte": info["compte"], "date": _iso(info["date"])}))
             connus.add(mid)
             bilan["donnes"] += 1
@@ -2165,7 +2203,8 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
                 await _admin(f"🔐 Code de {QUOI.get(info['type'], 'connexion')} reçu sur `{alias}`, une adresse rattachée "
                              "à personne : je ne le donne à personne.\n\n"
                              f"Si c'est l'adresse d'un clipper : `!alias ajouter {alias}` dans son salon perso.")
-        await _diffuser_code_prive(info)
+        # Les réponses privées déjà ouvertes sont réveillées par _traiter_lus.
+        # Ne publier aucun code ou notification dans un autre salon/DM.
     elif info["decision"] == "garder":
         if mid not in connus:                                           # jamais le code : le type, l'adresse, la date
             e["codes"].append(_numeroter({"mid": mid, "alias": alias, "type": info["type"], "decision": "garder",

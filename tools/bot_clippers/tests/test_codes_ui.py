@@ -29,21 +29,21 @@ class MenuTests(unittest.IsolatedAsyncioTestCase):
         vue = self.c.vue_mon_code()
         donnees = vue.to_components()
         self.assertEqual(len(donnees), 1)
-        self.assertEqual(len(donnees[0]["components"]), 3)
+        self.assertEqual(len(donnees[0]["components"]), 1)
         self.assertTrue(vue.is_persistent())
         self.assertNotIn("111111", str(donnees))
         self.assertNotIn("example.invalid", str(donnees))
         self.assertEqual([b["custom_id"] for b in donnees[0]["components"]],
-                         ["codes:usage:creation", "codes:usage:connexion", "codes:usage:verification"])
+                         ["codes:mon-code"])
         vue.stop()
 
     async def test_un_clic_repond_directement_si_compte_unique(self):
         vue = self.c.vue_mon_code()
         i = self.interaction()
-        await vue.children[1].callback(i)
+        await vue.children[0].callback(i)
         i.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
         self.assertEqual(self.c._servir.call_args.args[0], {"one@example.invalid"})
-        self.assertEqual(self.c._servir.call_args.kwargs["usage"], "connexion")
+        self.assertEqual(self.c._servir.call_args.kwargs["usage"], "auto")
         vue.stop()
 
     async def test_plusieurs_comptes_menu_prive_puis_un_choix(self):
@@ -87,11 +87,11 @@ class MenuTests(unittest.IsolatedAsyncioTestCase):
         await bouton.callback(i)
         self.c._servir.assert_awaited_once()
 
-    async def test_ancien_bouton_ouvre_les_usages_en_prive(self):
+    async def test_bouton_unique_plusieurs_comptes_sans_menu(self):
+        self.c._adresses_membre = lambda _: {"one@example.invalid", "two@example.invalid"}
         i = self.interaction()
         await self.c.BoutonMonCode().callback(i)
         i.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
-        self.c._servir.assert_not_awaited()
-        vue = i.edit_original_response.call_args.kwargs["view"]
-        self.assertEqual(len(vue.children), 3)
-        vue.stop()
+        self.assertEqual(self.c._servir.call_args.args[0], {"one@example.invalid", "two@example.invalid"})
+        self.assertEqual(self.c._servir.call_args.kwargs["usage"], "auto")
+        i.edit_original_response.assert_not_awaited()  # La restitution vient du guet, pas d'un menu.

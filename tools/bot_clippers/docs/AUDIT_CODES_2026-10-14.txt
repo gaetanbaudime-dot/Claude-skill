@@ -1,3 +1,7 @@
+MISE À JOUR : le parcours actuel est décrit dans CODES_POINT_UNIQUE_2026-10-14.txt.
+Le présent document conserve les constats et le parcours de la PR #14, désormais remplacé
+par le bouton unique pour les OTP e-mail Meta/Facebook/Instagram.
+
 G&M ASSISTANT MARKETING — AUDIT ET PARCOURS INSTAGRAM
 14 octobre 2026 — Révision testée ; publication et déploiement autorisés par Gaëtan
 
