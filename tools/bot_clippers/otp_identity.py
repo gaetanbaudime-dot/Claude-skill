@@ -46,7 +46,7 @@ def assignment_diagnostics(data, uid, normalize_handle):
                 delivered_to = str(delivery.get("uid") or "")
                 if owner == uid:
                     rows.setdefault(handle, []).append((alias, delivered_to))
-                if "@" in alias:
+                if "@" in alias and (not delivered_to or delivered_to == owner):
                     alias_owners.setdefault(alias, set()).add((owner, handle))
                     handle_owners.setdefault(handle, set()).add((owner, alias))
     counts = dict(compte_autorise=0, acces_absent=0, adresse_absente=0,
