@@ -29,6 +29,8 @@ import discord
 import anthropic
 
 import codes_2fa                          # relais des codes Instagram/Facebook vers les managers (07/09)
+import otp_identity                       # rattrapage sûr des e-mails via UID et Sheet
+import conversation_audit                 # export privé de l'historique pour audit du serveur (lecture seule)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
@@ -498,25 +500,119 @@ _SALONS = {}
 _FORUM = {"id": ""}
 
 
-def adresses_codes_de(uid) -> set:
-    """10/10 (règle : « le code n'est donné qu'au clipper dont l'alias est rattaché ») : les adresses rattachées au salon perso
-    du membre dans alias_codes.json — la même source pour `!code` et pour le bouton « 📩 Mon code ».
-    10/10 (revue, homonymes du 01/10 : #big ouvert à deux comptes) : un salon perso où un AUTRE clipper a un droit direct ne
-    donne aucune adresse (sinon chacun recevrait les codes de l'autre) ; une ligne admin, une fois par jour et par salon."""
-    sp_a = salon_perso_de(uid)
-    if sp_a is None:
-        return set()
-    membre = membre_par_id(uid)
-    autres = _autres_occupants(sp_a, membre) if membre is not None else []
-    if autres:
-        noms = ", ".join(str(getattr(m, "display_name", "?")) for m in autres[:3])
-        codes_2fa.signaler(f"salon_partage|{sp_a.id}",
-                           f"🔐 **Codes bloqués pour {getattr(membre, 'display_name', uid)}** : son salon perso <#{sp_a.id}> est "
-                           f"aussi ouvert à {noms}. Tant qu'il est partagé, je ne donne aucun code de ses adresses (chacun "
-                           "verrait ceux de l'autre).\n\nRetire l'accès en trop au salon, puis il rappuie sur « 📩 Mon code ».")
-        return set()
-    return codes_2fa.adresses_de(str(sp_a.id))
+def _adresses_codes_fiche(uid) -> set:
+    """E-mails des comptes LIVRÉS à cet ID Discord, indépendamment des permissions du salon.
 
+    Le salon peut être accessible à un TL : la livraison d'un code ne se fait alors
+    QUE via l'interaction Discord éphémère / DM de ce membre, jamais dans le salon.
+    On ne cherche jamais le propriétaire d'après un prénom.
+    """
+    uid = str(uid)
+    data = lire_json(FICHIER_ONBOARDING, {}) or {}
+    fiche = (data.get("clippers") or {}).get(uid) or {}
+    if not isinstance(fiche, dict):
+        return set()
+    livres = data.get("livres") or {}
+    valides = set()
+    for h in fiche.get("comptes") or []:
+        if isinstance(h, str) and h.strip():
+            valides.add(onboarding._cle_handle(h))
+    blocs = [fiche.get("acces") or []]
+    for phone in (fiche.get("telephones") or {}).values():
+        if isinstance(phone, dict):
+            blocs.append(phone.get("acces") or [])
+    for bloc in blocs:
+        for item in bloc:
+            if isinstance(item, dict) and item.get("handle"):
+                valides.add(onboarding._cle_handle(item["handle"]))
+    mails = set()
+    for bloc in blocs:
+        for item in bloc:
+            if not isinstance(item, dict):
+                continue
+            handle = onboarding._cle_handle(item.get("handle") or "")
+            mail = str(item.get("mail") or "").strip().lower()
+            if not handle or handle not in valides or "@" not in mail:
+                continue
+            livraison = livres.get(handle) or livres.get(str(item.get("handle") or "").strip().lower()) or {}
+            autre_uid = str((livraison or {}).get("uid") or "")
+            if autre_uid and autre_uid != uid:
+                continue
+            mails.add(mail)
+    return mails
+
+
+_OTP_UID_CACHE = {}  # UID Discord -> {mails, jusque}; jamais publié dans les logs
+
+
+async def _actualiser_adresses_codes(uid):
+    """Répare un alias manquant depuis le vrai Sheet des comptes, sans mutation de propriété."""
+    uid = str(uid)
+    deja = _adresses_codes_fiche(uid)
+    membre = membre_par_id(uid)
+    equipes = lire_json(FICHIER_EQUIPES, {}) or {}
+    fiche = equipes.get(uid) or {}
+    if membre is None or uid not in equipes or not isinstance(fiche, dict):
+        return set()
+    prenom = prenom_de(membre)
+    creatrice = creatrice_de(uid)
+    if not prenom or not creatrice:
+        return set()
+    try:
+        lignes = await asyncio.wait_for(onboarding.lire_comptes(), timeout=20)
+        proprietaires = onboarding._proprietaires()
+        actifs = {}
+        for autre_uid, ent in equipes.items():
+            autre = membre_par_id(autre_uid)
+            if autre is None or not isinstance(ent, dict):
+                continue
+            actifs[str(autre_uid)] = {
+                "prenom": prenom_de(autre),
+                "creatrice": creatrice_de(autre_uid),
+            }
+        mails, diagnostic = otp_identity.unique_aliases(
+            uid, creatrice, prenom, actifs, lignes, proprietaires)
+        if mails:
+            _OTP_UID_CACHE[uid] = {"mails": mails, "jusque": time.monotonic() + max(420, codes_2fa.ATTENTE_SEC + 90)}
+            journal.info("Codes : association UID via classeur vérifiée (UID fin %s, %d adresses)",
+                         uid[-4:], len(mails))
+        else:
+            _OTP_UID_CACHE.pop(uid, None)
+            journal.warning("Codes : association UID impossible (UID fin %s, cause %s)",
+                            uid[-4:], diagnostic)
+        return deja | mails
+    except Exception as erreur:
+        journal.warning("Codes : recherche des adresses dans le classeur impossible : %s",
+                        type(erreur).__name__)
+        return deja
+
+
+def adresses_codes_de(uid) -> set:
+    """Association UID Discord → comptes IG effectivement livrés → e-mails.
+
+    Priorité à la fiche propre du clipper. Le registre historique alias→salon
+    reste un repli seulement si le salon est réellement individuel et privé.
+    Un TL ayant accès au salon ne peut ni détourner ni lire un code éphémère.
+    """
+    uid = str(uid)
+    membre = membre_par_id(uid)
+    if membre is None:
+        return set()
+    propres = _adresses_codes_fiche(uid)
+    cache = _OTP_UID_CACHE.get(uid)
+    if cache and cache.get("jusque", 0) > time.monotonic():
+        return propres | set(cache.get("mails") or ())
+    if propres:
+        return propres
+    salon = salon_perso_de(uid)
+    if salon is None:
+        return set()
+    if _autres_occupants(salon, membre) or not codes_2fa._salon_prive(salon):
+        codes_2fa.signaler(f"alias_uid_manquant|{uid}",
+                          f"⚠️ 2FA : {getattr(membre, 'display_name', uid)} a un salon partagé et "
+                          "aucune adresse vérifiée dans sa fiche de comptes. Revoir son onboarding.")
+        return set()
+    return codes_2fa.adresses_de(str(salon.id))
 
 def migrer_adresses_codes() -> int:
     """10/10 (revue) : depuis le 10/10, seul alias_codes.json donne les codes ; une adresse présente seulement dans la fiche
@@ -6016,6 +6112,13 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
     déposée porte une note interne, jamais montrée au membre). `dus=True` (sorties déposées seulement) : avec pool, ses liens sont
     libérés par son uid et ses visites d'avant la sortie restent sur la paie ; sans (purges de l'appel et de la sortie auto),
     rien ne change, en attendant que Gaëtan tranche s'il paie les purgés."""
+    # Security invariant: scheduled routines must never strip roles, release IG accounts,
+    # transfer GAML links or kick a clipper without an explicit operator decision.
+    # 'dus=True' is reserved for the existing human-approved roster departure workflow.
+    if par is None and not dus and os.environ.get("SORTIES_AUTO_AUTORISEES", "0").strip() != "1":
+        journal.warning("Sortie automatique BLOQUEE, revue humaine requise (uid=%s)", getattr(membre, "id", "?"))
+        return {"roles": 0, "acces": 0, "comptes": 0, "liens": 0,
+                "refus": ["sortie automatique bloquee : validation humaine requise"], "expulse": False}
     g = membre.guild
     nom_par = getattr(par, "display_name", "le bot (automatique)")
     par_id = str(getattr(par, "id", "auto"))
@@ -6468,6 +6571,22 @@ async def commande_admin(message, texte: str) -> bool:
     if retiree:
         await message.reply(retiree)
         return True
+    # Admin-only: redacted history is sent by DM, never posted to a public channel.
+    if texte.split()[:1] == ["!audit-discussions"]:
+        if str(message.author.id) not in ADMIN_IDS:
+            await message.reply("Réservé à l'administrateur.")
+            return True
+        try:
+            jours = int(texte.split()[1]) if len(texte.split()) > 1 else 90
+            res = await conversation_audit.export_to_admin_dm(
+                message, await salons_clippers_acceptes(), days=jours)
+            await message.reply(
+                f"📩 Audit envoyé uniquement dans tes MP : {res['rooms']} salons, "
+                f"{res['messages']} messages, {res['errors']} salon(s) illisible(s).")
+        except (ValueError, discord.HTTPException) as erreur:
+            await message.reply(f"❌ Export impossible : {str(erreur)[:270]}")
+        return True
+
     # ---- !audit : carte complète du serveur + écarts à la doctrine des 3 étages ----
     # ---- !pourquoi : pourquoi CE membre ne voit pas CE salon ----
     # Né du cas Quentin (11→15/08) : quatre jours perdus à se renvoyer des captures
@@ -8533,7 +8652,8 @@ def brancher_codes():
     connexion à la passerelle, puis redit en tête d'on_ready (sans effet s'il l'est déjà) : un clic pendant les appels réseau
     du démarrage ne donne plus « Échec de l'interaction »."""
     codes_2fa.configurer({"canal_admin": canal_admin, "adresses_de_membre": adresses_codes_de, "est_staff": est_staff,
-                          "admin_ids": set(ADMIN_IDS)})
+                          "admin_ids": set(ADMIN_IDS),
+                          "rafraichir_adresses_membre": _actualiser_adresses_codes})
     client.add_dynamic_items(codes_2fa.BoutonMonCode)
 
 

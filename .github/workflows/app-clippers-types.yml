@@ -1,0 +1,33 @@
+name: App clippers TypeScript
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/app_clippers/**"
+      - ".github/workflows/app-clippers-types.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/app_clippers/**"
+      - ".github/workflows/app-clippers-types.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "tools/app_clippers/package-lock.json"
+      - name: Install frozen dependencies
+        working-directory: tools/app_clippers
+        run: npm ci --ignore-scripts
+      - name: Compile Next.js TypeScript
+        working-directory: tools/app_clippers
+        run: npx tsc --noEmit
