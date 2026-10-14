@@ -3,7 +3,7 @@
 Petite application web mobile (PWA) pour les créatrices : un lien secret par créatrice, à ajouter sur l'écran d'accueil du téléphone. Trois onglets en bas :
 
 - **Drive** : quatre tuiles (Reels, Photos, Feed MYM, Scripts MYM) qui ouvrent le bon dossier du moment dans l'application Google Drive de la créatrice. Reels = le dossier de la semaine en cours, Photos = le dossier du mois, Feed MYM = le dossier « Feed MYM <Mois> <Année> », Scripts MYM = le dossier du mois s'il existe. Un dossier pas encore créé fait reculer au plus récent existant : la tuile ouvre toujours quelque chose d'utile. Les dossiers ne sont jamais créés ici, c'est le script Drive de l'agence qui le fait.
-- **Reels** : le duplicateur de Reels, écran « Bientôt » pour l'instant.
+- **Reels** : accès au Duplicateur commun https://duplicateur-de-reels.vercel.app, dans un nouvel onglet pour conserver le montage en cours. Six variantes HD et téléchargements MP4, sans ZIP. Le même composant couvre toutes les créatrices, sans transmettre leur jeton ni référent.
 - **Stats** : Hier, 7J, 30J, M (mois en cours), M-1 (mois précédent). Revenus nets OnlyFans + MYM en euros (les dollars OnlyFans sont convertis au taux BCE du jour via Frankfurter, repli 0,88), nouveaux abonnés par jour (jamais de cumul), comparaison avec la période précédente, deux graphiques (revenus par jour empilés, nouveaux abonnés par jour). Source : le classeur Data G&M, onglet de la créatrice.
 
 ## Pile
