@@ -19,8 +19,7 @@ Règles (jamais un faux 0) :
   - un relevé n'existe que pour un compte LU ; `followers: None` = illisible, jamais 0 par défaut ;
   - vues d'un Reel : `vues_post` — videoPlayCount si c'est un nombre, sinon videoViewCount, sinon absent (aucun point ajouté).
     La même règle partout (scan des comptes ; 11/10 : la lecture de la cadence par clipper est retirée) ;
-  - Reels = vidéos non épinglées vues dans latestPosts, gardés 40 jours après publication, 20 points de vues au plus
-    (6 au-delà de 15 jours), les points proches de 24 h / 48 h / 72 h / 7 j après la publication toujours gardés ;
+  - Reels = vidéos non épinglées vues dans latestPosts, gardés 100 jours après publication, 120 points de vues au plus, les points proches de 24 h / 48 h / 72 h / 7 j après la publication toujours gardés ;
   - un même Reel vu par deux sources sous deux codes (publié à 2 minutes près) n'est compté qu'une fois ; 09/10 (revue) : les
     codes vus d'un Reel sont gardés (« codes ») et cherchés d'abord, il reste un seul Reel aux passages suivants ;
   - `couvre` (facultatif) dit depuis quand le relevé voit TOUTES les publications du compte : "" = tout l'historique visible
@@ -31,7 +30,7 @@ Règles (jamais un faux 0) :
     peut-être le compte d'un inconnu qui avait pris le @ prévu) ; si c'est le même compte, l'id la fait suivre au relevé suivant.
     Un relevé Apify d'un AUTRE id que celui de la série repart d'une série vide (le @ est maintenant à quelqu'un d'autre) ; 09/10
     (revue 3) : l'ancienne série est archivée sous « #<son id> », rendue à son compte au premier relevé qui porte cet id.
-    09/10 (revue 3) : tout renommage passé par `renommer` est noté (« renommes » : {nouvelle clé: {de, t}}, 40 jours), fusion ou
+    09/10 (revue 3) : tout renommage passé par `renommer` est noté (« renommes » : {nouvelle clé: {de, t}}, 100 jours), fusion ou
     pas : `renomme_depuis(cle)` dit au scan que les cellules de la ligne viennent peut-être de l'ancien @.
   - `reels_vus(cle, debut, fin)` : les Reels vus publiés dans la période, sans exiger qu'elle soit couverte (un minimum).
 
@@ -42,7 +41,7 @@ s'écraser. La lecture est gardée en cache tant que le fichier ne change pas (l
 09/10 (revue, contrat C6c) : `ajouter_releves(entrees)` = UNE écriture par passage, et tout écrivain de séries passe par lui
 (`ajouter_releve` aussi) ; le contenu reste en cache après l'écriture (plus relu ni re-purgé à chaque relevé : 0,7 s par
 relevé, 22 s par passage Metricool, boucle du bot bloquée) ; le fichier est écrit par ce module en JSON compact, de façon
-atomique (fichier temporaire puis os.replace, copie .bak gardée) ; la purge à 40 jours passe au plus une fois par heure."""
+atomique (fichier temporaire puis os.replace, copie .bak gardée) ; la purge à 100 jours passe au plus une fois par heure."""
 import copy
 import json
 import logging
@@ -56,9 +55,9 @@ from pathlib import Path
 journal = logging.getLogger("series")
 
 VERSION = 1
-JOURS = 40                                   # relevés et Reels gardés 40 jours
-POINTS_MAX = 20                              # points de vues par Reel
-POINTS_MAX_ANCIENS = 6                       # au-delà de AGE_ANCIEN_J jours après la publication
+JOURS = 100                                  # 90 jours + marge pour les bornes des comparaisons
+POINTS_MAX = 120                             # conserve les bornes quotidiennes sur 90 jours
+POINTS_MAX_ANCIENS = 120                     # les anciennes séries restent comparables sur 90 jours
 AGE_ANCIEN_J = 15
 MEME_REEL_S = 120                            # deux sources, deux codes, publiés à 2 minutes près = le même Reel
 TOLERANCE_AGE_H = 18                         # vues à âge fixe : relevé à ±18 h de publie + âge, sinon le Reel est ignoré
@@ -69,7 +68,7 @@ CIBLES_H = (6, 12, 24, 36, 48, 60, 72, 96, 120, 168, 240, 336, 504, 720)
 # 09/10 (revue) : 72 h ajouté — au-delà de 15 jours (6 points), le premier, le dernier, 24 h, 48 h, 72 h et 7 j restent
 CIBLES_COURTES_H = (24, 48, 72, 168)
 _DEBUT_DES_TEMPS = datetime(2000, 1, 1, tzinfo=timezone.utc)
-PURGE_S = 3600                                # 09/10 (revue) : la purge à 40 jours au plus une fois par heure
+PURGE_S = 3600                                # 09/10 (revue) : la purge à 100 jours au plus une fois par heure
 ARCHIVE = "#"                                 # 09/10 (revue 3) : clé d'archive « #<id Instagram> » d'une série dont le @ a été repris
 
 _deps = {}
@@ -372,7 +371,7 @@ def _ajouter(d: dict, cle, releve, reels=(), ig_id="", source=None, couvre=None)
         # renommage du classeur avait fait suivre la série d'un inconnu) : elle repart de zéro, jamais mélangée au compte lu.
         # 09/10 (revue 3 : l'historique du clipper était effacé) : l'ancienne série n'est plus jetée, elle est rangée sous la clé
         # d'archive « #<son id> » (sans alias) ; la boucle « même id sous un autre @ » ci-dessous la rend à son compte dès qu'un
-        # relevé porte cet id, sinon la purge à 40 jours la retire
+        # relevé porte cet id, sinon la purge à 100 jours la retire
         actuel = d["comptes"].get(cible)
         if actuel and str(actuel.get("id") or "") not in ("", ig) and _id_apify(actuel):
             _fusionner(d, cible, ARCHIVE + str(actuel.get("id")))
@@ -421,7 +420,7 @@ def _purger(d: dict, jours: int = JOURS, maintenant=None) -> int:
         if _resoudre(d, a) not in d["comptes"]:
             del d["alias"][a]
     ren = d.get("renommes") if isinstance(d.get("renommes"), dict) else {}
-    for k in list(ren):                                                 # 09/10 (revue 3) : renommages notés, 40 jours
+    for k in list(ren):                                                 # 09/10 (revue 3) : renommages notés, 100 jours
         if not isinstance(ren[k], dict) or (_instant(ren[k].get("t")) or limite - timedelta(1)) < limite:
             del ren[k]
     return n

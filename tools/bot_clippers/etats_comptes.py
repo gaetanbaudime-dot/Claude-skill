@@ -85,6 +85,8 @@ import aiohttp
 import google_api
 import onboarding
 import series
+from cache_apify import CacheCollecte
+from historique_instagram import HistoriqueReleves
 
 journal = logging.getLogger("etats_comptes")
 
@@ -197,11 +199,18 @@ LECTURES_PARCOURS_JOUR = 1
 _CLIENT = {"c": None}                  # le client Discord de la boucle : programme_du_jour après une relecture ou un mini-scan
 
 _deps = {}
+_cache_collecte = CacheCollecte()
+_historique_releves = None
 
 
 def configurer(deps: dict):
-    global _deps
+    global _deps, _cache_collecte, _historique_releves
     _deps = deps
+    etat = deps.get("FICHIER_ETATS")
+    cache = Path(str(etat)).with_name("apify_cache.json") if etat else None
+    _cache_collecte = CacheCollecte(deps.get("lire_json"), deps.get("ecrire_json"), cache,
+                                   _flottant(os.environ.get("APIFY_CACHE_MINUTES"), 15))
+    _historique_releves = HistoriqueReleves(Path(str(etat)).with_name("releves_instagram.sqlite")) if etat else None
     # 09/10 (dashboard) : les séries par compte (series.py) vivent à côté de l'état du scan, sauf FICHIER_SERIES explicite
     fichier = deps.get("FICHIER_SERIES") or (Path(str(deps["FICHIER_ETATS"])).with_name("series_comptes.json")
                                              if deps.get("FICHIER_ETATS") else None)
@@ -286,7 +295,21 @@ def _etat_configure() -> bool:
 
 
 # ------------------------------------------------------------------ Instagram
-async def scanner(handles: list, priorite: str = "releve") -> dict:
+async def scanner(handles: list, priorite: str = "releve", forcer: bool = False) -> dict:
+    """Cache partagé entre parcours, rapports et scans ; seules les fiches manquantes sont payantes."""
+    cles = list(dict.fromkeys(k for h in handles or [] if (k := _cle(h))))
+    if not cles:
+        return {}
+    # Une lecture de grille ne satisfait pas une demande de l'onglet Reels.
+    scope = (REELS_JOURS_PARCOURS if priorite == "parcours" else REELS_JOURS_MATIN) \
+        if REELS_ONGLET and priorite in ("matin", "parcours") else 0
+    jour = datetime.now(series._paris_tz()).date().isoformat()
+    out = await _cache_collecte.obtenir(cles, scope, jour,
+                                       lambda manquants: _scanner_sans_cache(manquants, priorite), forcer=forcer)
+    return out
+
+
+async def _scanner_sans_cache(handles: list, priorite: str = "releve") -> dict:
     """Un appel Apify pour tous les comptes → {clé: {lu, existe, prive, restreint, followers, posts, reels_hier, reels_7j, posts_lus…}} ;
     `posts` = publications des dernières 24 h (compatibilité : message du matin, parcours, sortie auto), `reels_hier` / `reels_7j` =
     Reels (vidéos) de la veille et des 7 derniers jours en jour civil de Paris. None si Apify est en panne : on ne conclut rien.
@@ -317,7 +340,8 @@ async def scanner(handles: list, priorite: str = "releve") -> dict:
     # 30/09 : un compte absent de la réponse d'Apify n'est pas forcément mort (profil sauté par le robot) : les absents sont
     # redemandés une fois, à part, avant de conclure
     vus = {_handle_item(it) for it in items}
-    manquants = [h for h in cles if h not in vus and h not in refuses]
+    # Un timeout synchrone peut cacher une course encore active chez Apify : ne pas en payer une deuxième.
+    manquants = [h for h in cles if h not in vus and h not in refuses and h not in _derniers_echecs]
     if manquants:
         journal.info("Apify (états) : %d compte(s) sur %d absent(s) de la première réponse, redemandés à part", len(manquants), len(cles))
         encore = await _apify(manquants, refuses, priorite)
@@ -352,6 +376,7 @@ async def _apify(handles: list, refuses: set = None, priorite: str = "releve"):
     course continue chez Apify ; un refus HTTP 4xx ne l'est pas, rien n'a tourné). 09/10 (revue 3) : le coût du lot est RÉSERVÉ par
     la garde avant l'appel (un appel lancé en même temps ailleurs le voit), puis remplacé par la dépense notée, ou retiré (4xx)."""
     _derniers_refuses.clear()
+    _derniers_echecs.clear()
     url = f"https://api.apify.com/v2/acts/{ACTOR_IG}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     items, reussis, rates = [], 0, 0
     for i in range(0, len(handles), LOT):                              # par lots : 130 comptes tiennent en deux ou trois appels
@@ -371,11 +396,16 @@ async def _apify(handles: list, refuses: set = None, priorite: str = "releve"):
                         journal.error("Apify HTTP %s (états du classeur, lot %d)", reponse.status, i // LOT + 1)
                         paye = reponse.status >= 500 or reponse.status == 408       # 408 : la course a tourné 300 s, elle est payée
                         rates += 1
+                        _derniers_echecs.update(lot_h)
+                        if reponse.status in (401, 403, 429):
+                            _derniers_echecs.update(handles[i + LOT:])
+                            break                                     # même accès/quota : pas cinq refus successifs
                         continue
                     lot = await reponse.json()
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as erreur:
             journal.error("Apify injoignable (états du classeur, lot %d) : %s", i // LOT + 1, type(erreur).__name__)
             rates += 1
+            _derniers_echecs.update(lot_h)
             continue
         finally:
             if paye:
@@ -392,6 +422,7 @@ async def _apify(handles: list, refuses: set = None, priorite: str = "releve"):
 
 
 _derniers_refuses = set()                                               # 09/10 : comptes du dernier _apify refusés par la garde du budget
+_derniers_echecs = set()                                                # lots échoués : aucun redémarrage payant automatique
 
 
 def fusionner_reels(items: list, onglet: dict) -> int:
@@ -436,25 +467,33 @@ async def _completer_reels(items: list, priorite: str) -> int:
     ajoutes, url = 0, f"https://api.apify.com/v2/acts/{ACTOR_REELS}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
     for i in range(0, len(cles), LOT):
         lot_h = cles[i:i + LOT]
-        attendus = min(REELS_MAX, 2 * jours)                            # 2 Reels par jour au plus d'habitude ; la dépense réelle remplace
+        attendus = REELS_MAX                                          # réserve le plafond réellement demandé à l'actor
         jeton = await garde_apify(len(lot_h) * attendus * REELS_PRIX_1000 / 1000, "Reels (onglet)", reserver=True, priorite=priorite)
         if not jeton:
             journal.warning("Apify (onglet Reels) : lot refusé par le budget, la grille seule est lue")
             continue
-        rendus = []
+        rendus, facture_connue, refus_gratuit = [], False, False
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=APIFY_TIMEOUT)) as session:
                 async with session.post(url, json={"username": lot_h, "resultsLimit": REELS_MAX, "skipPinnedPosts": True,
                                                    "onlyPostsNewerThan": f"{jours} days"}) as reponse:
                     if reponse.status >= 400:
                         journal.error("Apify HTTP %s (onglet Reels)", reponse.status)
+                        refus_gratuit = 400 <= reponse.status < 500 and reponse.status != 408
                     else:
                         lot = await reponse.json()
+                        facture_connue = isinstance(lot, list)
                         rendus = [r for r in (lot if isinstance(lot, list) else []) if isinstance(r, dict) and not r.get("error")]
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as erreur:
             journal.error("Apify injoignable (onglet Reels) : %s", type(erreur).__name__)
         finally:
-            noter_depense(len(rendus) * REELS_PRIX_1000 / 1000, len(rendus), "Reels (onglet)", reservation=jeton)
+            if refus_gratuit:
+                liberer_reservation(jeton)
+            elif facture_connue:
+                noter_depense(len(rendus) * REELS_PRIX_1000 / 1000, len(rendus), "Reels (onglet)", reservation=jeton)
+            else:
+                # Coût inconnu après timeout/5xx : garde l'estimation jusqu'à la prochaine lecture du budget Apify.
+                noter_depense(len(lot_h) * attendus * REELS_PRIX_1000 / 1000, 0, "Reels (coût inconnu)", reservation=jeton)
         onglet = {}
         for r in rendus:
             k = _cle(str(r.get("ownerUsername") or ""))
@@ -1130,13 +1169,20 @@ def _alimenter_series(lignes: list, mesures: dict, ids_non_lus: set, t_iso: str)
         vus.add(h)
         lisible = not m.get("restreint") and not m.get("prive")
         f = m.get("followers")
-        rel = {"t": t_iso, "source": "apify", "followers": None if m.get("restreint") or isinstance(f, bool) else f,
+        rel = {"t": m.get("collecte_iso") or t_iso, "source": "apify", "followers": None if m.get("restreint") or isinstance(f, bool) else f,
                "posts_total": m.get("posts_total"), "restreint": bool(m.get("restreint")), "prive": bool(m.get("prive")),
                "reels_lus": bool(lisible and m.get("reels_lus", True))}
         if "couvre" in m:
             rel["couvre"] = m["couvre"]
         entrees.append({"cle": h, "releve": rel, "reels": m.get("serie_reels") or [], "ig_id": m.get("ig_id") or ""})
     try:
+        # Après le contrôle des faux zéros, jamais les fiches brutes avant validation.
+        if _historique_releves:
+            archives = {e["cle"]: dict(mesures[e["cle"]], collecte_iso=e["releve"]["t"]) for e in entrees}
+            try:
+                _historique_releves.enregistrer(archives)
+            except Exception as erreur:
+                journal.warning("Historique Instagram : relevés non archivés (%s)", type(erreur).__name__)
         return series.ajouter_releves(entrees)
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Séries : relevés non enregistrés (%s)", type(erreur).__name__)
