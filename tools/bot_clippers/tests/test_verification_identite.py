@@ -11,7 +11,8 @@ os.environ.setdefault("DONNEES_DIR", tempfile.mkdtemp())
 os.environ["CODES_SECURITES"] = "1"
 os.environ.pop("CODES_VERIFICATION", None)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import codes_2fa as C  # noqa: E402
+from test_codes_reliable import load_codes  # noqa: E402
+C = load_codes()
 
 DE = "Instagram <security@mail.instagram.com>"
 PIED = ("\n\nMerci,\n\nL'équipe Instagram\n\nfrom\nMeta\n© Instagram. Meta Platforms, Inc., 1601 Willow Road, Menlo Park, CA 94025\n"
