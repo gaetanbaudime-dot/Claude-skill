@@ -545,6 +545,27 @@ def destinataire_alias_code(alias):
     return {"membre": membre, "salon": salon_perso_de(uid)}
 
 
+def audit_liaisons_codes(guild):
+    """Compteurs des affectations existantes ; aucune adresse ou autre valeur d'accès ne sort."""
+    fiches = (lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}
+    salon_codes = guild.get_channel(int(codes_2fa.salon_codes_id() or 0))
+    for uid, fiche in fiches.items():
+        if not str(uid).isdigit() or not isinstance(fiche, dict):
+            continue
+        membre = guild.get_member(int(uid))
+        comptes = {onboarding._cle_handle(h) for h in fiche.get("comptes") or [] if isinstance(h, str)}
+        for phone in (fiche.get("telephones") or {}).values():
+            if isinstance(phone, dict):
+                comptes.update(onboarding._cle_handle(a.get("handle") or "")
+                               for a in (phone.get("acces") or [])[:max(0, int(phone.get("donnes") or 0))]
+                               if isinstance(a, dict))
+        yield {"uid": str(uid), "comptes_declares": len(comptes - {""}),
+               "adresses_autorisees": len(_adresses_codes_fiche(uid)),
+               "salon_perso": salon_perso_de(uid) is not None,
+               "voit_codes": bool(membre and salon_codes and salon_codes.permissions_for(membre).view_channel),
+               "dans_serveur": membre is not None}
+
+
 def _revision_adresses_codes():
     """Une mutation locale de propriété invalide immédiatement le cache des adresses."""
     try:
@@ -8676,7 +8697,8 @@ def brancher_codes():
     codes_2fa.configurer({"canal_admin": canal_admin, "adresses_de_membre": adresses_codes_de, "est_staff": est_staff,
                           "admin_ids": set(ADMIN_IDS),
                           "rafraichir_adresses_membre": _actualiser_adresses_codes,
-                          "destinataire_alias": destinataire_alias_code})
+                          "destinataire_alias": destinataire_alias_code,
+                          "audit_liaisons": audit_liaisons_codes})
     client.add_dynamic_items(codes_2fa.BoutonMonCode, codes_2fa.BoutonUsageCode)
 
 
