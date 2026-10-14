@@ -312,14 +312,13 @@ MESSAGE_ESCALADE_MP_SANS_SALON = "Je n'ai pas la réponse. J'ai transmis ta ques
 TEXTE_CODE = codes_2fa.TEXTE_CODE_BRUT                                   # suit CANAL_CODES_NOM
 # Le mode d'emploi de l'assistant suit le menu privé du relais.
 REGLE_CODES = (
-    "Un OTP e-mail frais est envoyé automatiquement en DM au clipper dont l’UID possède le compte sans ambiguïté. "
-    "Le salon personnel reçoit seulement une notification et des boutons privés ; le salon commun conserve son panneau. "
-    "Les boutons Créer un compte / Me connecter / Vérifier mon e-mail donnent une réponse éphémère. "
-    "Un seul compte lié : accès direct. Plusieurs comptes : le clipper choisit dans un menu privé un compte qui lui appartient et "
-    "l'usage exact (création, connexion ou vérification de l'e-mail existant). Ne jamais recopier un code dans un salon. "
-    "Demander un nouveau code sur Instagram, puis ouvrir le menu dans les deux minutes ; le bot guette ensuite cinq minutes. "
-    "TOTP/application d'authentification, SMS et WhatsApp ne sont pas reçus par le relais e-mail. Les codes de secours, "
-    "récupération, recours ou changement de sécurité ne sont jamais distribués. Aucune garantie de déblocage d'un compte.")
+    "Le point d'entrée unique est le salon des codes : un bouton 📩 Mon code affiche en réponse éphémère "
+    "les OTP e-mail récents des seuls comptes affectés à l'UID du clipper. Aucun menu d'usage n'est obligatoire. "
+    "Chaque code porte son service (Meta, Facebook ou Instagram), son compte et son usage. "
+    "Le clipper demande le code dans l'application ; le bot guette cinq minutes et actualise la réponse privée. "
+    "Ne jamais recopier un code dans un salon. Aucune graine TOTP ni code de récupération n'est distribué. "
+    "Un TOTP d'application, un SMS ou WhatsApp n'est pas reçu par e-mail. Aucun déblocage de compte n'est garanti.")
+
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens ») : une seule règle des comptes, plus de « un compte par
 # jour » ni de « 5 Reels en 72 h ». 01/10 (fusion des lots) : le texte vient de parcours.regle_comptes(), pour suivre
 # PARCOURS_ATTENTE_COMPTE_H et PARCOURS_REELS_OUVERTURE (par défaut, mot pour mot le même texte).
@@ -442,7 +441,7 @@ puis taper dans SON SALON PERSO `!pseudo`, le numéro du compte (1, 2 ou 3) et l
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de son compte (09/10 : un message par compte, plus de pavé des 3 comptes).
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
-28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes e-mail arrivent en DM ; les boutons du salon perso et du salon des codes répondent en privé. Les codes : « {TEXTE_CODE} »
+28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes e-mail se consultent avec le bouton privé dans le salon des codes. Les codes : « {TEXTE_CODE} »
 28 bis. Vues qui chutent, ou écran « Statut du compte » / « couverture limitée auprès des personnes de moins de 18 ans » / \
 « contenu marqué » (12/10, Gaëtan) : ce n'est JAMAIS « pas grave ». Tu donnes la marche à suivre : 1. Paramètres → Créateur \
 → Âge minimum → 18 ans ; 2. Statut du compte → Contenu marqué → Examiner : SUPPRIMER (pas archiver) chaque contenu marqué ; \

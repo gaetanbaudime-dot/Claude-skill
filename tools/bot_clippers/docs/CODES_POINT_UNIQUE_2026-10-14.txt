@@ -1,0 +1,86 @@
+G&M — POINT D'ENTRÉE UNIQUE POUR LES OTP E-MAIL
+14 octobre 2026 — révision après la PR #14 ; publication et déploiement autorisés
+
+PARCOURS EXACT
+Dans #codes Instagram, le clipper appuie sur « 📩 Mon code », demande le code dans
+Meta, Facebook ou Instagram et le copie dans sa réponse privée, actualisée automatiquement.
+
+Le bouton montre aussi les OTP reçus depuis moins de deux minutes. Les comptes,
+services et usages sont étiquetés séparément ; seul le dernier code de chaque contexte
+est affiché. Aucun choix d'usage ou de compte n'est imposé dans le parcours normal.
+Une réponse déjà ouverte suit les arrivées pendant cinq minutes. Un nouvel appui
+remplace le guet précédent. Un code encore frais reste consultable ; cela ne garantit
+pas sa validité chez Meta si le clipper l'a déjà utilisé ou a demandé un renvoi.
+Les commandes explicites historiques restent compatibles ; le guidage renvoie au salon.
+
+CHANGEMENT PAR RAPPORT À LA PR #14
+Le guidage à trois boutons est remplacé par un bouton unique. La réception automatique
+actualise la réponse privée ouverte dans le salon : il n'y a plus d'envoi spontané en DM
+ni de notification dans le salon personnel. Discord exige un clic pour ouvrir une
+réponse éphémère ; envoyer sans ce clic dans un salon commun exposerait le code.
+Les anciens boutons restent techniquement compatibles, sans élargissement d'accès.
+
+PÉRIMÈTRE DES CODES
+Le lecteur et la recherche à la demande traitent désormais les expéditeurs autorisés
+Meta/Facebook/Instagram, dont metamail.com et les sous-domaines documentés, ainsi que
+les formes iCloud déjà prévues. Les noms affichés seuls et les domaines ressemblants
+ne suffisent pas. Le mot Facebook ou Meta n'est plus une raison automatique de refus.
+Chaque OTP doit indiquer un but sûr reconnu : création, connexion ou vérification
+d'adresse existante. Un OTP e-mail de double authentification de connexion est permis.
+Les mutations sensibles, récupération, recours, graines TOTP, codes de secours et
+messages sans but reconnu restent refusés. Toutes les parties MIME sont contrôlées.
+Ni les corps complets ni les valeurs de codes ne sont recopiés dans les journaux ou
+le fichier d'état. Les codes distribuables restent en mémoire.
+Un nouveau modèle d'e-mail non reconnu n'est pas promis compatible sans validation.
+
+PROPRIÉTÉ ET CONFIDENTIALITÉ
+La réponse utilise uniquement les adresses déjà attribuées à l'UID qui clique.
+Les affectations, les identités et les permissions existantes ne sont pas modifiées.
+Les comptes ambigus ou retirés sont refusés. Les droits sont relus pendant l'attente ;
+une révocation remplace la réponse par un texte sans code. Un manager ne dispose pas
+d'un bouton donnant la boîte entière. Aucune valeur OTP ne figure dans les composants
+publics, le panneau ou une notification de salon.
+Le destinataire autorisé est déterminé par les affectations existantes, pas par le rôle
+qui donne accès au salon. Aucun compte ou alias supplémentaire n'a été attribué.
+
+AUDIENCE RÉELLE : TOUJOURS NON CERTIFIÉE
+La première tentative identifiait la fenêtre « 🔐-code-instagram » du serveur
+G&M I Pôle Marketing 📣 ; la lecture suivante a signalé un Mac verrouillé.
+Nouvelle tentative : aucun navigateur pilotable, puis inventaire vide des applications
+Discord/Chrome/Arc. Il manque donc une session Mac déverrouillée accessible au contrôle
+UI, ou un accès de lecture Discord déjà autorisé exposant les permissions effectives.
+Aucun connecteur Discord de lecture n'est disponible dans cette session.
+Aucun code réel ni historique n'a été lu pour obtenir ces constats.
+Le source historique prévoit @everyone refusé, Clippeur/Rookie/Confirmé/Elite/Manager
+admis. Cela ne vérifie ni les exceptions membres, ni les héritages, ni les administrateurs.
+Le correctif ne change pas ces permissions et n'en dépend pas pour protéger les OTP :
+seule la réponse éphémère de celui qui clique contient ses codes.
+
+VALIDATION
+117 tests synthétiques passent avec Python 3.9 et discord.py 2.7.1 ; pas de client Discord
+connecté, pas de boîte réelle, pas de secret. Couverts : trois services, relais iCloud,
+connexion 2FA par e-mail, refus des mutations/récupérations, noms de domaine imités,
+MIME mixte, bouton unique, comptes multiples sans menu, isolement UID, révocation,
+fraîcheur glissante, remplacement du guet, arrivée automatique et recherche IMAP groupée.
+La CI et l'état Railway du commit final sont contrôlés après publication.
+
+CE QUI RESTE HUMAIN
+Un clipper déjà autorisé clique dans le salon, demande puis saisit lui-même un OTP réel,
+teste un renvoi et rapporte uniquement réussite/échec, heure et compte masqué.
+Les trois marques nécessitent chacune un compte déjà affecté et une action autorisée ;
+ce test ne doit pas créer ou rattacher un nouveau compte sans mandat spécifique.
+La réception e-mail et la réussite de connexion chez Meta ne sont pas prouvées par /health.
+Les TOTP d'application ne sont pas des e-mails : aucun générateur autorisé de TOTP
+n'a été identifié dans le système audité. Si Meta exige ce moyen, son titulaire agit
+ou décide séparément d'une délégation appropriée, sans nous communiquer de graine.
+Les recours officiels continuent depuis la notification dans l'application ; toute
+pièce d'identité, selfie ou action du titulaire reste personnelle. Aucun recours réel
+ni compte Instagram/Facebook/Meta n'a été créé pendant cette intervention.
+
+SOURCE OFFICIELLE DES DOMAINES (CONSULTÉE LE 14/10/2026)
+Meta, Avoid scams and phishing attempts :
+https://www.meta.com/help/policies/1273750300141929/
+La liste officielle cite fb.com, facebook.com, facebookmail.com, instagram.com,
+meta.com, metamail.com et leurs sous-domaines. Cette liste n'est pas une validation
+cryptographique des e-mails réels. La vérification cryptographique du relais iCloud
+reste une limite documentée dans l'audit précédent ; aucune option réelle n'est changée.
