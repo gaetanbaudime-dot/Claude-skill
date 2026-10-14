@@ -19,6 +19,16 @@ class Role:
 
 
 class AuditTests(unittest.TestCase):
+    def test_diagnostic_livraison_actuelle_prime_sur_ancienne_fiche(self):
+        data = {'clippers': {uid: {'comptes': ['one'], 'acces': [
+                    {'handle': 'one', 'mail': 'same@example.invalid'}]} for uid in ('100', '200')},
+                'livres': {'one': {'uid': '200'}}}
+        old = otp_identity.assignment_diagnostics(data, '100', lambda h: h)
+        current = otp_identity.assignment_diagnostics(data, '200', lambda h: h)
+        self.assertEqual(old['livraison_autre_uid'], 1)
+        self.assertEqual(current['compte_autorise'], 1)
+        self.assertEqual(current['alias_ambigu'], 0)
+
     def test_causes_exclusives_et_accord_avec_autorisation_reelle(self):
         data = {"clippers": {"100": {"comptes": ["ok", "absent", "sansmail", "autre", "partage", "double"],
             "acces": [{"handle": "ok", "mail": "ok@example.invalid", "password": "secret-test"},

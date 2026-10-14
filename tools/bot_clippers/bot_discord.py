@@ -518,11 +518,16 @@ def _adresses_codes_fiche(uid) -> set:
                 mail = str(item.get("mail") or "").strip().lower()
                 if not handle or handle not in valides or "@" not in mail:
                     continue
-                alias_comptes.setdefault(mail, set()).add((proprietaire, handle))
-                compte_alias.setdefault(handle, set()).add((proprietaire, mail))
                 livraison = livres.get(handle) or livres.get(str(item.get("handle") or "").strip().lower()) or {}
                 livre_a = str(livraison.get("uid") or "")
-                if proprietaire == uid and (not livre_a or livre_a == uid):
+                # Même contrat que onboarding._proprietaires : la dernière livraison
+                # enregistrée fait foi. Une ancienne fiche révoquée ne bloque pas son
+                # propriétaire actuel et ne récupère jamais l'alias d'un ancien accès.
+                if livre_a and livre_a != proprietaire:
+                    continue
+                alias_comptes.setdefault(mail, set()).add((proprietaire, handle))
+                compte_alias.setdefault(handle, set()).add((proprietaire, mail))
+                if proprietaire == uid:
                     propres.add((handle, mail))
     return {mail for handle, mail in propres
             if len(alias_comptes[mail]) == 1 and len(compte_alias[handle]) == 1}

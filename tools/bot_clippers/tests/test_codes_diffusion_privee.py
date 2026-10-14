@@ -125,3 +125,21 @@ class DestinataireTests(unittest.TestCase):
         self.assertIsNone(self.resolveur(records)("one@example.invalid"))
         records["clippers"]["100"]["comptes"] = []
         self.assertIsNone(self.resolveur(records)("one@example.invalid"))
+
+    def test_ancienne_fiche_ne_bloque_pas_proprietaire_du_registre(self):
+        for ancienne_adresse in ('same@example.invalid', 'retired@example.invalid'):
+            with self.subTest(ancienne_adresse=ancienne_adresse):
+                records = {'clippers': {'100': self.fiche('one', ancienne_adresse),
+                                         '200': self.fiche('one', 'same@example.invalid')},
+                           'livres': {'one': {'uid': '200', 'date': '2026-10-14T08:00:00Z'}}}
+                resolver = self.resolveur(records)
+                self.assertEqual(resolver('same@example.invalid')['membre'].id, 200)
+                if ancienne_adresse != 'same@example.invalid':
+                    self.assertIsNone(resolver(ancienne_adresse))
+
+    def test_ancien_alias_reutilise_par_un_autre_compte_reste_refuse(self):
+        records = {'clippers': {'100': self.fiche('one', 'shared@example.invalid'),
+                                 '200': self.fiche('one', 'shared@example.invalid'),
+                                 '300': self.fiche('another', 'shared@example.invalid')},
+                   'livres': {'one': {'uid': '200'}}}
+        self.assertIsNone(self.resolveur(records)('shared@example.invalid'))
