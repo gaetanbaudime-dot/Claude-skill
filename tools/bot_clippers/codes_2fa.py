@@ -2409,6 +2409,9 @@ def audit_salon_codes(salon):
                   "salon_perso": bool(ligne.get("salon_perso")),
                   "voit_codes": bool(ligne.get("voit_codes")),
                   "dans_serveur": bool(ligne.get("dans_serveur"))}
+        diagnostic = ligne.get("diagnostic") or {}
+        resume["diagnostic"] = {k: int(diagnostic.get(k, 0)) for k in
+            ("compte_autorise", "acces_absent", "adresse_absente", "livraison_autre_uid", "alias_ambigu", "compte_ambigu")}
         journal.info("OTP_AUDIT_LIAISON %s", json.dumps(resume, separators=(",", ":")))
     return rapport
 

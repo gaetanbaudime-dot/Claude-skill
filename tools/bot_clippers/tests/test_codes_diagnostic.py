@@ -7,6 +7,9 @@ from email.message import EmailMessage
 import json
 import types
 import unittest
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import otp_identity
 from unittest.mock import Mock
 from test_codes_reliable import load_codes
 
@@ -16,6 +19,36 @@ class Role:
 
 
 class AuditTests(unittest.TestCase):
+    def test_causes_exclusives_et_accord_avec_autorisation_reelle(self):
+        data = {"clippers": {"100": {"comptes": ["ok", "absent", "sansmail", "autre", "partage", "double"],
+            "acces": [{"handle": "ok", "mail": "ok@example.invalid", "password": "secret-test"},
+                      {"handle": "sansmail"}, {"handle": "autre", "mail": "autre@example.invalid"},
+                      {"handle": "partage", "mail": "shared@example.invalid"},
+                      {"handle": "double", "mail": "first@example.invalid"},
+                      {"handle": "double", "mail": "second@example.invalid"}]},
+            "200": {"comptes": ["other"], "acces": [{"handle": "other", "mail": "shared@example.invalid"}]}},
+            "livres": {"autre": {"uid": "200"}}}
+        tree = ast.parse((Path(__file__).resolve().parents[1]/'bot_discord.py').read_text())
+        funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_adresses_codes_fiche']
+        ns = dict(lire_json=lambda *_: data, FICHIER_ONBOARDING='mock',
+                  onboarding=types.SimpleNamespace(_cle_handle=lambda h: h))
+        exec(compile(ast.fix_missing_locations(ast.Module(body=funcs, type_ignores=[])), 'audit-synthetic', 'exec'), ns)
+        counts = otp_identity.assignment_diagnostics(data, '100', lambda h: h)
+        self.assertEqual(counts, dict(compte_autorise=1, acces_absent=1, adresse_absente=1,
+                         livraison_autre_uid=1, alias_ambigu=1, compte_ambigu=1))
+        self.assertEqual(counts['compte_autorise'], len(ns['_adresses_codes_fiche']('100')))
+        for secret in ('example.invalid', 'secret-test', 'sansmail', 'shared'):
+            self.assertNotIn(secret, str(counts))
+
+    def test_diagnostic_ignore_anciens_comptes_et_telephone_non_livre(self):
+        data = {"clippers": {"100": {"comptes": [], "acces": [{"handle": "retire", "mail": "old@example.invalid"}],
+            "telephones": {"phone": {"donnes": 1, "acces": [
+                {"handle": "livre", "mail": "delivered@example.invalid"},
+                {"handle": "futur", "mail": "future@example.invalid"}]}}}}}
+        counts = otp_identity.assignment_diagnostics(data, '100', lambda h: h)
+        self.assertEqual(counts['compte_autorise'], 1)
+        self.assertEqual(sum(counts.values()), 1)
+
     def test_permissions_effectives_et_projection_sans_secrets(self):
         c=load_codes()
         everyone,clipper,manager=Role(1,"@everyone"),Role(2,"Clippeur"),Role(3,"Manager")
@@ -46,7 +79,7 @@ class AuditTests(unittest.TestCase):
         guild=types.SimpleNamespace(get_channel=lambda _:salon,get_member=lambda _:member)
         ns=dict(lire_json=lambda *_:data,FICHIER_ONBOARDING='mock',codes_2fa=types.SimpleNamespace(salon_codes_id=lambda:'400'),
                 onboarding=types.SimpleNamespace(_cle_handle=lambda h:h),_adresses_codes_fiche=lambda _:{'private@example.invalid','second@example.invalid'},
-                salon_perso_de=lambda _:salon)
+                salon_perso_de=lambda _:salon, otp_identity=otp_identity)
         exec(compile(ast.fix_missing_locations(ast.Module(body=funcs,type_ignores=[])),'audit-synthetic','exec'),ns)
         rows=list(ns['audit_liaisons_codes'](guild))
         self.assertEqual(rows[0]['comptes_declares'],2)
