@@ -3,7 +3,9 @@
 Le bouton persistant et !code ouvrent un choix privé (création, connexion, vérification
 sur l'adresse existante). Une demande lit un seul alias autorisé pour l'UID Discord,
 avec deux minutes de recul et cinq minutes de guet. Jamais de repli sur un autre
-compte, de code expiré, de push vers un salon ou de code persistant sur disque.
+compte, de code expiré ou de code persistant sur disque. Les OTP e-mail frais sont
+envoyés automatiquement en DM au propriétaire unique ; son salon reçoit un bouton
+et une notification sans code. Le salon commun conserve seulement son panneau privé.
 Les droits sont relus avant chaque envoi ; une nouvelle demande remplace la précédente.
 
 Les codes TOTP/SMS/WhatsApp, récupération, recours et changements de sécurité ne sont
@@ -76,10 +78,10 @@ MOTS_EXPEDITEUR = ("instagram", "facebook", "meta.com", "meta_com")
 COMMANDES_RECUP = ("!recup", "!récup", "!recuperation", "!récupération", "!appel", "!unban", "!deban")
 COMMANDES_APPEL = ("!appel", "!unban", "!deban")
 ID_BOUTON = "codes:mon-code"
-VERSION_EXPLICATION = "10-usage-compte-prive"   # 12/10 : v8, tout code Instagram, le plus récent
+VERSION_EXPLICATION = "11-dm-boutons-prives"   # 12/10 : v8, tout code Instagram, le plus récent
 
 # ------------------------------------------------------------------ textes
-TEXTE_CODE_BRUT = f"Un code Instagram ? Va dans #{SALON_CODES_NOM} et appuie sur « 📩 Mon code »."
+TEXTE_CODE_BRUT = f"Ton code e-mail Instagram arrive en DM. Tu peux aussi choisir Créer un compte, Me connecter ou Vérifier mon e-mail dans ton salon perso ou #{SALON_CODES_NOM} : la réponse est privée."
 SUJET_SALON = ("📩 Mon code : choisis le compte et le type de code e-mail dans une réponse privée." if SECURITES
                else "📩 Mon code (ou !code) : ton dernier code Instagram, visible par toi seul.")
 TEXTE_ATTENTE = ("⏳ Pas encore reçu.\n\nJe guette 5 minutes : ton code s'affiche ici tout seul dès que l'e-mail arrive. "
@@ -121,9 +123,10 @@ CODES_VERIFICATION = _oui("CODES_VERIFICATION", "1")
 def explication_salon() -> str:
     return ("🔐 **Ton code Instagram**\n\n"
             "1. Demande un nouveau code dans Instagram.\n"
-            "2. Appuie sur **📩 Mon code** ou tape `!code`.\n"
-            "3. Dans la réponse privée, choisis **Créer un compte**, **Me connecter** ou "
-            "**Vérifier mon e-mail Instagram**, puis l’adresse exacte de ton compte.\n\n"
+            "2. Ton code arrive en **DM**, si le compte est associé sans ambiguïté à ton compte Discord.\n"
+            "3. Tu peux aussi appuyer sur **Créer un compte**, **Me connecter** ou **Vérifier mon e-mail Instagram** "
+            "ci-dessous ou dans ton salon personnel. Un seul compte lié : réponse directe. Plusieurs comptes : "
+            "choisis le bon dans le menu privé.\n\n"
             "Je cherche un code du bon usage reçu dans les deux dernières minutes, puis je guette cinq minutes. "
             "Un nouveau code remplace le précédent. Si le code a déjà été présenté, demande un nouveau code sur Instagram.\n\n"
             "Application d’authentification, SMS ou WhatsApp : utilise la méthode affichée par Instagram ; "
@@ -1453,7 +1456,7 @@ _deps = {}
 
 def configurer(deps: dict):
     """deps : canal_admin (coroutine → salon admin), adresses_de_membre (uid → set), est_staff (membre → bool),
-    admin_ids (ensemble d'identifiants)."""
+    admin_ids (ensemble d'identifiants), destinataire_alias (alias → propriétaire UID unique)."""
     _deps.update(deps)
 
 
@@ -1793,35 +1796,22 @@ async def _sans_adresse(membre, dire) -> None:
         await dire("Je ne trouve pas ton adresse.\n\nDis-le à ton manager dans ton salon perso.")
 
 
-def vue_choix_code(uid, adresses):
-    """Sélecteurs privés temporaires. Aucun code n'est placé dans un composant Discord."""
+def vue_choix_code(uid, adresses, usage=""):
+    """Un clic pour l'usage ; sélection du compte seulement si plusieurs comptes sont liés."""
+    if not usage:
+        return vue_mon_code()
     vue = discord.ui.View(timeout=300)
-    usages = discord.ui.Select(placeholder="Ce qu’Instagram te demande", options=[
-        discord.SelectOption(label=label, value=usage) for usage, label in USAGES_EMAIL.items()])
-    comptes = discord.ui.Select(placeholder="L’adresse exacte du compte", options=[
+    comptes = discord.ui.Select(placeholder="Choisis le compte Instagram", options=[
         discord.SelectOption(label=alias[:100], value=alias) for alias in sorted(adresses)[:25]])
-    choix = {}
 
-    async def choisir(interaction, champ, valeur):
+    async def compte_choisi(interaction):
         if str(interaction.user.id) != str(uid):
             await interaction.response.send_message("Ce choix appartient à une autre personne.", ephemeral=True)
             return
-        choix[champ] = valeur
-        if len(choix) < 2:
-            await interaction.response.defer()
-            return
         vue.stop()
-        await servir_interaction(interaction, choix["usage"], choix["adresse"])
+        await servir_interaction(interaction, usage, comptes.values[0])
 
-    async def usage_choisi(interaction):
-        await choisir(interaction, "usage", usages.values[0])
-
-    async def compte_choisi(interaction):
-        await choisir(interaction, "adresse", comptes.values[0])
-
-    usages.callback = usage_choisi
     comptes.callback = compte_choisi
-    vue.add_item(usages)
     vue.add_item(comptes)
     return vue
 
@@ -1850,11 +1840,13 @@ async def servir_interaction(interaction, usage="", adresse="") -> str:
     if not adresses:
         await _sans_adresse(membre, dire)
         return "sans_adresse"
-    if not usage and not adresse:
+    if usage in USAGES_EMAIL and not adresse and len(adresses) == 1:
+        adresse = next(iter(adresses))
+    if not usage or not adresse:
         if len(adresses) > 25:
             await dire("Plus de 25 adresses : utilise `!code connexion adresse` ou `!code creation adresse`.")
             return "choix"
-        await interaction.edit_original_response(content=TEXTE_CHOIX, view=vue_choix_code(membre.id, adresses))
+        await interaction.edit_original_response(content=TEXTE_CHOIX, view=vue_choix_code(membre.id, adresses, usage))
         return "choix"
     if usage not in USAGES_EMAIL or adresse not in adresses:
         await dire("🔒 Ce compte n’est plus rattaché à toi ou ce type de code n’est pas disponible.")
@@ -1880,9 +1872,27 @@ class BoutonMonCode(discord.ui.DynamicItem[discord.ui.Button], template=r"codes:
         await servir_interaction(interaction)
 
 
+class BoutonUsageCode(discord.ui.DynamicItem[discord.ui.Button],
+                     template=r"codes:usage:(?P<usage>creation|connexion|verification)"):
+    """Bouton persistant sans compte ni code : l'UID de celui qui clique décide des droits."""
+    def __init__(self, usage="connexion"):
+        self.usage = usage
+        super().__init__(discord.ui.Button(label=USAGES_EMAIL[usage], style=discord.ButtonStyle.primary,
+                                           custom_id=f"codes:usage:{usage}"))
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["usage"])
+
+    async def callback(self, interaction):
+        await servir_interaction(interaction, usage=self.usage)
+
+
 def vue_mon_code():
     vue = discord.ui.View(timeout=None)
-    vue.add_item(BoutonMonCode())
+    for usage in USAGES_EMAIL:
+        if usage != "verification" or CODES_VERIFICATION:
+            vue.add_item(BoutonUsageCode(usage))
     return vue
 
 
@@ -1897,9 +1907,9 @@ def ligne_code(t: dict) -> str:
 
 
 async def commande(message, admin_ids, adresses_de_membre=None, alerter=None) -> bool:
-    """`!code` (au salon commun : réponse en message privé ; ailleurs : le lien du salon) · `!alias ajouter|retirer|liste`
-    et `!code [alias]` d'un manager dans son salon · `!recup`, `!appel`, `!unban` (refusés, sauf l'appel si CODES_APPEL=1).
-    Renvoie True si traité. `alerter` n'est plus utilisé (gardé pour l'appelant) : l'alerte passe par configurer."""
+    """`!code [usage] [alias]` : réponse privée liée à l'UID dans tous les salons.
+    `!alias` reste réservé aux managers ; récupération et recours ne livrent aucun code.
+    Renvoie True si traité. `alerter` est conservé pour compatibilité."""
     texte = message.content.strip()
     if not texte.lower().startswith(("!alias", "!code") + COMMANDES_RECUP):
         return False
@@ -1978,7 +1988,7 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
             if len(adresses) > 25:
                 await message.author.send("Plus de 25 adresses : utilise `!code connexion adresse` ou `!code creation adresse`.")
                 return True
-            await message.author.send(TEXTE_CHOIX, view=vue_choix_code(message.author.id, adresses))
+            await message.author.send(TEXTE_CHOIX, view=vue_choix_code(message.author.id, adresses, usage))
             await message.reply(TEXTE_MP, view=vue_mon_code(), delete_after=120)
             return True
         mp = await message.author.send("📩 Je regarde la boîte…")
@@ -2078,6 +2088,52 @@ async def _signaux(resultat: dict):
                          "faire. Une ligne par forme d'adresse et par jour.")
 
 
+async def _diffuser_code_prive(info):
+    """OTP e-mail frais → DM du propriétaire unique ; salon perso → bouton sans code.
+
+    Aucun envoi à un salon commun, aucun secret TOTP ou de récupération. Pas de repli
+    alias→salon pour décider du destinataire : la dépendance résout un UID vérifié.
+    """
+    if info.get("decision") != "donner" or info.get("type") not in USAGES_EMAIL or not info.get("code"):
+        return "ignore"
+    date = _date({"date": str(info.get("date") or "")})
+    if not _maintenant() - timedelta(minutes=2) <= date <= _maintenant() + timedelta(minutes=2):
+        return "ancien"
+    resoudre = _deps.get("destinataire_alias")
+    cible = resoudre(info.get("alias")) if resoudre else None
+    if not cible:
+        return "sans_destinataire"
+    membre = cible["membre"]
+    uid = str(membre.id)
+    if info["alias"] not in _adresses_membre(membre):
+        return "droits_retires"
+    cle = f"dm|{uid}|{info['mid']}"
+    if cle in _etat()["faits"]:
+        return "deja"
+    try:
+        await membre.send(_ligne_privee(dict(info, date=_iso(date))) + "\n\n" + TEXTE_REFUSE_FIN, view=vue_mon_code())
+        _une_fois(cle)
+        issue = "mp"
+    except (discord.Forbidden, discord.HTTPException):
+        issue = "mp_fermes"
+    # Après l'envoi réseau, relire l'identité ; aucun code ne figure dans la notification.
+    suivante = resoudre(info.get("alias"))
+    salon = suivante.get("salon") if suivante and str(suivante["membre"].id) == uid else None
+    if (salon is not None and str(salon.id) != salon_codes_id()
+            and info["alias"] in _adresses_membre(membre)
+            and getattr(salon.permissions_for(membre), "view_channel", False)):
+        notification = f"notification|{uid}|{info['mid']}"
+        if notification not in _etat()["faits"]:
+            try:
+                await salon.send("📩 Un nouveau code e-mail Instagram est disponible. "
+                                 "Consulte tes DM ou choisis ton usage ci-dessous : la réponse est visible uniquement par toi.",
+                                 view=vue_mon_code())
+                _une_fois(notification)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+    return issue
+
+
 async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan: dict):
     """Un mail nouveau du lecteur : abonnés, puis la décision (cache, lignes admin, push)."""
     msg, dossier = lu["msg"], lu["dossier"]
@@ -2109,8 +2165,7 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
                 await _admin(f"🔐 Code de {QUOI.get(info['type'], 'connexion')} reçu sur `{alias}`, une adresse rattachée "
                              "à personne : je ne le donne à personne.\n\n"
                              f"Si c'est l'adresse d'un clipper : `!alias ajouter {alias}` dans son salon perso.")
-        # Les codes sont servis uniquement sur demande en MP ou réponse éphémère.
-        # Un salon historique dit « privé » peut aussi être lu par un manager.
+        await _diffuser_code_prive(info)
     elif info["decision"] == "garder":
         if mid not in connus:                                           # jamais le code : le type, l'adresse, la date
             e["codes"].append(_numeroter({"mid": mid, "alias": alias, "type": info["type"], "decision": "garder",
@@ -2276,9 +2331,7 @@ def _droits_salon_codes(guild) -> tuple:
 
 
 async def assurer_salon_codes(client):
-    """Au démarrage : le salon commun existe (créé sinon), réservé à l'équipe ; le mode d'emploi v7 est épinglé avec le
-    bouton « 📩 Mon code ». À chaque nouvelle version : l'ancien mode d'emploi et les anciens messages du bot qui portaient
-    un code en clair sont effacés."""
+    """Poser le panneau privé dans le salon existant, sans modifier ses permissions ni son historique."""
     await client.wait_until_ready()
     if not actif():
         return
@@ -2289,38 +2342,10 @@ async def assurer_salon_codes(client):
         if salon is None:
             cible = _cle(SALON_CODES_NOM)
             salon = next((c for c in guild.text_channels if _cle(c.name) == cible), None)
-        overwrites, admis = _droits_salon_codes(guild)
         if salon is None:
-            try:
-                salon = await guild.create_text_channel(SALON_CODES_NOM, overwrites=overwrites, topic=SUJET_SALON,
-                                                        reason="Salon commun des codes Instagram")
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                journal.warning("Salon des codes : création refusée (%s)", _err(erreur))
-                return
-        else:
-            try:
-                await salon.edit(overwrites=overwrites, topic=SUJET_SALON, reason="Salon des codes : réservé à l'équipe")
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                journal.warning("Salon des codes : droits non posés (%s)", _err(erreur))
+            journal.warning("Salon des codes absent : création et permissions à valider par l’administrateur")
+            return
         if info.get("version") != VERSION_EXPLICATION or str(info.get("id")) != str(salon.id):
-            try:
-                async for ancien in salon.history(limit=300):
-                    if ancien.author == guild.me and ("```" in (ancien.content or "") or getattr(ancien, "pinned", False)):
-                        try:
-                            await ancien.delete()
-                        except (discord.Forbidden, discord.HTTPException, discord.NotFound):
-                            pass
-            except (discord.Forbidden, discord.HTTPException, AttributeError) as erreur:
-                journal.warning("Salon des codes : ménage des anciens messages (%s)", _err(erreur))
-            try:
-                for ancien in await salon.pins():
-                    if ancien.author == guild.me:
-                        try:
-                            await ancien.delete()
-                        except (discord.Forbidden, discord.HTTPException, discord.NotFound):
-                            pass
-            except (discord.Forbidden, discord.HTTPException, AttributeError):
-                pass
             try:
                 m = await salon.send(explication_salon(), view=vue_mon_code())
                 try:
@@ -2329,9 +2354,10 @@ async def assurer_salon_codes(client):
                     pass
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Salon des codes : mode d'emploi non posté (%s)", _err(erreur))
+                return
         registre = _lire()
         registre["_salon_codes"] = {"id": str(salon.id), "guild": str(guild.id), "explique": True,
                                     "version": VERSION_EXPLICATION, "date": _maintenant().isoformat(timespec="seconds")}
         _ecrire(registre)
-        journal.info("Salon des codes : #%s prêt, réservé à %s", salon.name, ", ".join(admis) or "personne (rôles introuvables !)")
+        journal.info("Salon des codes : bouton privé prêt ; permissions existantes conservées")
         return

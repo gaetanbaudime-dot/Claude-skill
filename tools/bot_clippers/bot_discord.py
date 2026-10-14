@@ -312,7 +312,10 @@ MESSAGE_ESCALADE_MP_SANS_SALON = "Je n'ai pas la réponse. J'ai transmis ta ques
 TEXTE_CODE = codes_2fa.TEXTE_CODE_BRUT                                   # suit CANAL_CODES_NOM
 # Le mode d'emploi de l'assistant suit le menu privé du relais.
 REGLE_CODES = (
-    "Le bouton « 📩 Mon code » ou !code ouvre un menu privé : le clipper choisit un compte qui lui appartient et "
+    "Un OTP e-mail frais est envoyé automatiquement en DM au clipper dont l’UID possède le compte sans ambiguïté. "
+    "Le salon personnel reçoit seulement une notification et des boutons privés ; le salon commun conserve son panneau. "
+    "Les boutons Créer un compte / Me connecter / Vérifier mon e-mail donnent une réponse éphémère. "
+    "Un seul compte lié : accès direct. Plusieurs comptes : le clipper choisit dans un menu privé un compte qui lui appartient et "
     "l'usage exact (création, connexion ou vérification de l'e-mail existant). Ne jamais recopier un code dans un salon. "
     "Demander un nouveau code sur Instagram, puis ouvrir le menu dans les deux minutes ; le bot guette ensuite cinq minutes. "
     "TOTP/application d'authentification, SMS et WhatsApp ne sont pas reçus par le relais e-mail. Les codes de secours, "
@@ -439,7 +442,7 @@ puis taper dans SON SALON PERSO `!pseudo`, le numéro du compte (1, 2 ou 3) et l
 Jamais « tes deux autres comptes », jamais « continue le warm-up sur les autres » s'ils n'existent pas encore.
 26. NOM du profil Instagram (« Ajoutez votre nom », « nom », « nom complet ») : le prénom de la créatrice du clipper, rien d'autre — il est dans le bloc « Nom du profil » envoyé avec la bio (30/09, Gaëtan : « mets Chloé, t'embêtes pas »). Le NOM n'est pas l'IDENTIFIANT : l'identifiant (le pseudo) est dans le message de son compte (09/10 : un message par compte, plus de pavé des 3 comptes).
 27. Tu ne contredis JAMAIS ce que le clipper voit sur son écran. Il écrit ou montre « Vous devez disposer d'une autorisation », « accès refusé », un lien qui ne s'ouvre pas, un code qui n'arrive pas : tu ne dis jamais que « ça marche » ni que c'est sa connexion. Tu dis : « Réessaie dans 10 minutes. Toujours bloqué ? Mets la capture ici, ton manager la voit. » (30/09 : Ricardo n'avait vraiment pas accès aux Photos, le bot lui a répondu que le Drive marchait.)
-28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes se demandent dans leur salon, jamais « écris-moi en MP ». Les codes : « {TEXTE_CODE} » Le clipper y appuie UNE fois sur « 📩 Mon code » : le code s'affiche pour lui seul dès qu'il arrive.
+28. Dates toujours à la française : « le 30/09 à 14 h (heure de Paris) ». Jamais « 2026-09-30 », jamais « demain ». Les questions se posent là où le clipper écrit (09/10) : son salon perso, où sont aussi ses étapes et leurs boutons, ou un message privé ; tu y réponds sur place, jamais « pose-la dans #assistant ». Les codes e-mail arrivent en DM ; les boutons du salon perso et du salon des codes répondent en privé. Les codes : « {TEXTE_CODE} »
 28 bis. Vues qui chutent, ou écran « Statut du compte » / « couverture limitée auprès des personnes de moins de 18 ans » / \
 « contenu marqué » (12/10, Gaëtan) : ce n'est JAMAIS « pas grave ». Tu donnes la marche à suivre : 1. Paramètres → Créateur \
 → Âge minimum → 18 ans ; 2. Statut du compte → Contenu marqué → Examiner : SUPPRIMER (pas archiver) chaque contenu marqué ; \
@@ -490,60 +493,57 @@ _FORUM = {"id": ""}
 
 
 def _adresses_codes_fiche(uid) -> set:
-    """E-mails des comptes LIVRÉS à cet ID Discord, indépendamment des permissions du salon.
-
-    Le salon peut être accessible à un TL : la livraison d'un code ne se fait alors
-    QUE via l'interaction Discord éphémère / DM de ce membre, jamais dans le salon.
-    On ne cherche jamais le propriétaire d'après un prénom.
-    """
+    """Alias des comptes livrés à cet UID ; toute identité contradictoire est refusée."""
     uid = str(uid)
     data = lire_json(FICHIER_ONBOARDING, {}) or {}
-    fiche = (data.get("clippers") or {}).get(uid) or {}
-    if not isinstance(fiche, dict):
-        return set()
     livres = data.get("livres") or {}
-    valides = set()
-    for h in fiche.get("comptes") or []:
-        if isinstance(h, str) and h.strip():
-            valides.add(onboarding._cle_handle(h))
-    blocs = [fiche.get("acces") or []]
-    for phone in (fiche.get("telephones") or {}).values():
-        if isinstance(phone, dict):
-            livres_phone = (phone.get("acces") or [])[:max(0, int(phone.get("donnes") or 0))]
-            blocs.append(livres_phone)
-            valides.update(onboarding._cle_handle(a.get("handle") or "")
-                           for a in livres_phone if isinstance(a, dict))
-    mails = set()
-    for bloc in blocs:
-        for item in bloc:
-            if not isinstance(item, dict):
-                continue
-            handle = onboarding._cle_handle(item.get("handle") or "")
-            mail = str(item.get("mail") or "").strip().lower()
-            if not handle or handle not in valides or "@" not in mail:
-                continue
-            livraison = livres.get(handle) or livres.get(str(item.get("handle") or "").strip().lower()) or {}
-            autre_uid = str((livraison or {}).get("uid") or "")
-            if autre_uid and autre_uid != uid:
-                continue
-            mails.add(mail)
-    for autre_uid, autre in (data.get("clippers") or {}).items():
-        if str(autre_uid) == uid or not isinstance(autre, dict):
+    alias_comptes, compte_alias, propres = {}, {}, set()
+    for proprietaire, fiche in (data.get("clippers") or {}).items():
+        if not isinstance(fiche, dict):
             continue
-        autres_valides = {onboarding._cle_handle(h) for h in autre.get("comptes") or []}
-        autres_blocs = [autre.get("acces") or []]
-        for phone in (autre.get("telephones") or {}).values():
+        proprietaire = str(proprietaire)
+        valides = {onboarding._cle_handle(h) for h in fiche.get("comptes") or []
+                   if isinstance(h, str) and h.strip()}
+        blocs = [fiche.get("acces") or []]
+        for phone in (fiche.get("telephones") or {}).values():
             if isinstance(phone, dict):
-                acces_phone = (phone.get("acces") or [])[:max(0, int(phone.get("donnes") or 0))]
-                autres_blocs.append(acces_phone)
-                autres_valides.update(onboarding._cle_handle(a.get("handle") or "")
-                                      for a in acces_phone if isinstance(a, dict))
-        for bloc in autres_blocs:
+                acces = (phone.get("acces") or [])[:max(0, int(phone.get("donnes") or 0))]
+                blocs.append(acces)
+                valides.update(onboarding._cle_handle(a.get("handle") or "")
+                               for a in acces if isinstance(a, dict))
+        for bloc in blocs:
             for item in bloc:
-                if (isinstance(item, dict) and onboarding._cle_handle(item.get("handle") or "")
-                        in autres_valides):
-                    mails.discard(str(item.get("mail") or "").strip().lower())
-    return mails
+                if not isinstance(item, dict):
+                    continue
+                handle = onboarding._cle_handle(item.get("handle") or "")
+                mail = str(item.get("mail") or "").strip().lower()
+                if not handle or handle not in valides or "@" not in mail:
+                    continue
+                alias_comptes.setdefault(mail, set()).add((proprietaire, handle))
+                compte_alias.setdefault(handle, set()).add((proprietaire, mail))
+                livraison = livres.get(handle) or livres.get(str(item.get("handle") or "").strip().lower()) or {}
+                livre_a = str(livraison.get("uid") or "")
+                if proprietaire == uid and (not livre_a or livre_a == uid):
+                    propres.add((handle, mail))
+    return {mail for handle, mail in propres
+            if len(alias_comptes[mail]) == 1 and len(compte_alias[handle]) == 1}
+
+
+def destinataire_alias_code(alias):
+    """Propriétaire unique d'un OTP reçu : identité Discord, sans inférence par prénom."""
+    alias = str(alias or "").strip().lower()
+    if "@" not in alias:
+        return None
+    fiches = (lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}
+    candidats = []
+    for uid in fiches:
+        membre = membre_par_id(uid)
+        if membre is not None and alias in _adresses_codes_fiche(uid):
+            candidats.append((uid, membre))
+    if len(candidats) != 1:
+        return None
+    uid, membre = candidats[0]
+    return {"membre": membre, "salon": salon_perso_de(uid)}
 
 
 def _revision_adresses_codes():
@@ -8676,8 +8676,9 @@ def brancher_codes():
     du démarrage ne donne plus « Échec de l'interaction »."""
     codes_2fa.configurer({"canal_admin": canal_admin, "adresses_de_membre": adresses_codes_de, "est_staff": est_staff,
                           "admin_ids": set(ADMIN_IDS),
-                          "rafraichir_adresses_membre": _actualiser_adresses_codes})
-    client.add_dynamic_items(codes_2fa.BoutonMonCode)
+                          "rafraichir_adresses_membre": _actualiser_adresses_codes,
+                          "destinataire_alias": destinataire_alias_code})
+    client.add_dynamic_items(codes_2fa.BoutonMonCode, codes_2fa.BoutonUsageCode)
 
 
 def deps_equipes_tl() -> dict:
