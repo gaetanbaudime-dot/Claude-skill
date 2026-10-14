@@ -774,6 +774,39 @@ def _verification_profil_connexion(sujet: str, corps: str, code: str) -> bool:
             and not _MUTATION_CODE.search(debut))
 
 
+_EMAIL_IDENTITY_SUBJECT = re.compile(
+    r"^votre code de confirmation d[’']adresse e-?mail\s*$", re.I)
+_EMAIL_IDENTITY_CONTEXT = re.compile(
+    r"pour confirmer votre identite sur instagram.{0,140}"
+    r"nous devons verifier votre adresse e-?mail", re.I)
+
+
+def _verification_identite_existante(sujet: str, corps: str, code: str) -> bool:
+    """Instagram identity challenge to the account's EXISTING mailbox.
+
+    Must not turn an address-change or account-recovery OTP into a login code.
+    Only trust the exact template and meaningful context around the OTP.
+    """
+    if not CODES_VERIFICATION or not code:
+        return False
+    if not _EMAIL_IDENTITY_SUBJECT.fullmatch(plat(sujet)):
+        return False
+    texte = plat(corps)
+    indice = texte.find(plat(code))
+    if indice < 0:
+        return False
+    avant = texte[:indice]
+    if not _EMAIL_IDENTITY_CONTEXT.search(avant):
+        return False
+    if _MUTATION_CODE.search(avant) or APPEL_RE.search(_sans_pseudos(avant)):
+        return False
+    # No explicit request to change the account's recovery address/password.
+    if re.search(r"(?:changer|modifier|ajouter|supprimer|reinitialiser|recuperer)"
+                 r".{0,55}(?:adresse|e-?mail|mot de passe|numero|compte)", avant):
+        return False
+    return True
+
+
 def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     """La décision sur un mail : {"decision": "donner"|"garder"|"alerte"|"rien", "type": "creation"|"connexion"|"appel"|"",
     "code": str|None, "libelle": str, "compte": str}. « donner » = le clipper peut l'avoir ; « garder » = un code qui ne
@@ -813,6 +846,10 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         standard = _code_standard_connexion(sujet, corps, code)
         if standard or _verification_profil_connexion(sujet, corps, code):
             return dict(sortie, decision="donner", type=standard or "connexion", libelle=QUOI[standard or "connexion"])
+        # The identity confirmation template is not a change-of-email request;
+        # classify it before scanning boilerplate mentions of other Meta services.
+        if _verification_identite_existante(sujet, corps, code):
+            return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
     libelle = _noire(texte)
     if libelle:
         return dict(sortie, decision="garder", libelle=libelle)
@@ -835,8 +872,6 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
         return dict(sortie, decision="donner", type="creation", libelle="création de compte")
     if CONNEXION_RE.search(blanc):
         return dict(sortie, decision="donner", type="connexion", libelle="connexion")
-    if CODES_VERIFICATION and "_verification_" in texte:                # 14/10 : déblocage d'un compte (vérification d'identité)
-        return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
     return dict(sortie, decision="garder", libelle="code sans but reconnu (ni connexion ni création)")
 
 
