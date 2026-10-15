@@ -1237,7 +1237,8 @@ def _anciennete_controle(x, cle):
 def _c1(x: _Ctx) -> list:
     out = []
     for c in x.comptes:
-        if not c.get("handle") or x.resoudre(c.get("gerant"))[0] != "libre" or _a_creer(c):
+        if (not c.get("handle") or x.resoudre(c.get("gerant"))[0] != "libre"
+                or _a_creer(c) or _ban(c) or _perdu(c)):
             continue
         cle = f"C1|{_n(c.get('onglet'))}|{_cle_compte(c['handle'])}"
         etat = _etat_n(c)
