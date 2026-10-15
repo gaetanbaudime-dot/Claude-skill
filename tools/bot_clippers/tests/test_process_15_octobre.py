@@ -47,13 +47,15 @@ class ProcessTests(unittest.TestCase):
 
     def test_paliers_comptes_distincts_et_reels_uniques(self):
         ns = fonctions('parcours.py', ['sources_reels', 'reels_detail', 'reels_pour'], {
+            'process_clippeur': regles, 'datetime': datetime, 'timezone': timezone,
+            '_date_creation': lambda f, n: datetime(2026, 10, 1, tzinfo=timezone.utc),
             'ordre': lambda f: f.get('ordre', 'prive3'),
             '_comptes_ordonnes': lambda uid, fiche_p: ['a', 'b', 'c']})
-        f = {'reels': {'a': {'vus': 99, 'publications_verifiees': dict.fromkeys('1234')},
-                       'b': {'vus': 99, 'publications_verifiees': dict.fromkeys('123')}}}
+        f = {'reels': {'a': {'vus': 99, 'reels_verifies_v2': dict.fromkeys('1234', '2026-10-02T12:00:00Z')},
+                       'b': {'vus': 99, 'reels_verifies_v2': dict.fromkeys('123', '2026-10-02T12:00:00Z')}}}
         self.assertEqual(4, ns['reels_pour']('42', f, 2))
         self.assertEqual(3, ns['reels_pour']('42', f, 3))
-        f['reels']['b']['publications_verifiees']['4'] = 'date'
+        f['reels']['b']['reels_verifies_v2']['4'] = '2026-10-02T12:00:00Z'
         f['reels']['a'] = {'vus': 0}
         self.assertEqual(4, ns['reels_pour']('42', f, 3))
         f['ordre'] = 'prive2'
