@@ -28,6 +28,8 @@ class LiensAPI:
             detail = await p.lien_detail(lien['id'])
             utilises.update(str(c.get('value') or '').strip() for c in detail.get('contents') or [])
         modeles = [l for l in liens if o._norm(str(l.get('name') or '').split()[0] if l.get('name') else '') == o._norm(creatrice.split()[0])]
+        if modeles:
+            self._verifier_modele(await p.lien_detail(modeles[0]['id']))
         reserve = await m.lignes()
         mym = next((r for r in reserve if o._norm(r['creatrice']) == o._norm(creatrice)
                     and not r['pose'] and r['url'] not in utilises and not store().resource_owner('mym', r['url'])), None)
@@ -38,13 +40,23 @@ class LiensAPI:
         return {'modele': modeles[0]['id'] if modeles else '', 'mym': mym['url'] if mym else '',
                 'mym_ligne': mym['ligne'] if mym else None, 'of': of}
 
+    @staticmethod
+    def _verifier_modele(detail):
+        import paie_clics as p
+        try:
+            p.cartes_tracking(detail)
+        except ValueError as erreur:
+            raise Bloque(str(erreur)) from erreur
+
     async def cloner(self, modele):
         import paie_clics as p
+        self._verifier_modele(await p.lien_detail(modele))
         # Pas de suppression compensatoire ; le résultat est enregistré avant tout PATCH.
         return await p._requete('POST', f'/links/{modele}/clone')
 
     async def configurer(self, lid, uid):
         import paie_clics as p
+        self._verifier_modele(await p.lien_detail(lid))
         await p._requete('PATCH', f'/links/{lid}', corps={'note': f'Clipping UID:{uid}', 'enabled': True})
 
     async def poser(self, lid, kind, destination):
@@ -56,9 +68,10 @@ class LiensAPI:
     async def verifier(self, job):
         import paie_clics as p
         detail = await p.lien_detail(job['lid'])
-        destinations = {str(c.get('value') or '').strip() for c in detail.get('contents') or []}
+        destinations = [str(c.get('value') or '').strip() for c in detail.get('contents') or []]
         job['lien'] = detail.get('url') or job.get('lien', '')
-        if not (job['lien'] and detail.get('enabled') is True and {job['mym'], job['of']} <= destinations):
+        if not (job['lien'] and detail.get('enabled') is True and job['mym'] != job['of'] and len(destinations) == 2
+                and set(destinations) == {job['mym'], job['of']}):
             return False
         liens = await p.liens_gaml()
         if not getattr(liens, 'complete', False):
