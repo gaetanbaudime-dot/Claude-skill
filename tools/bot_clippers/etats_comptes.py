@@ -3135,9 +3135,9 @@ def texte_bilan(bilan: dict, test: bool = False) -> str:
         if apres not in ("WARMUP", "GOOD", "PRIVE", "BAN"):
             lignes.append(f"🔎 {', '.join(quoi)} → {apres}")
     if "BAN" in par_etat:
-        lignes.append(f"-# BAN = introuvable sur Instagram (redemandé une fois avant de conclure ; un compte restreint n'est jamais BAN){' au premier scan' if BAN_JOURS <= 1 else f' {BAN_JOURS} jours de suite'} "
-                      "(et, en plus, tout mail « Action requise / compte suspendu » lu dans ta boîte toutes les 3 min). "
-                      "Le compte est à remplacer : `!liberer Prénom handle` puis un nouvel identifiant.")
+        lignes.append("-# Ban : preuve mail datée de désactivation définitive requise. "
+                      "Une absence Instagram ne suffit pas ; si un appel est possible, utiliser Faire appel. "
+                      "Aucun compte de remplacement : maximum trois comptes créés à vie par clippeur.")
     return "\n".join(lignes)
 
 
@@ -3178,8 +3178,8 @@ async def boucle(client) -> None:
                             await canal.send(texte_bilan(bilan)[:1990])
                     bans = [f"`{h}` ({g})" for h, g, _, a, _ in bilan["changements"] if a == "BAN"]
                     if bans and _deps.get("notifier"):
-                        await _deps["notifier"]("🚫 **Comptes introuvables sur Instagram, passés en BAN** : "
-                                                + ", ".join(bans) + ". À remplacer : `!liberer Prénom handle`, puis un nouvel identifiant.")
+                        await _deps["notifier"]("🚫 **Comptes marqués Ban — vérifier la preuve mail datée** : "
+                                                + ", ".join(bans) + ". Aucun remplacement ; les créations restent comptées à vie.")
             try:                                                        # 09/10 : le budget du mois (contrat C6a), frais pour le Dashboard
                 st_b = await apify_budget(publier=True)
                 # 11/10 (reprise, R1b) : le passage du matin de ce jour qui ne passera pas est dit dès minuit, avec son propre texte
