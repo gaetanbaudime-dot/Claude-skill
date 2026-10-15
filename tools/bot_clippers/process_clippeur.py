@@ -89,3 +89,11 @@ def pseudo_disponible(preuve, maintenant):
     return (preuve.get('source') == 'instagram_formulaire' and preuve.get('disponible') is True
             and bool(preuve.get('reference')) and bool(preuve.get('verifie_par'))
             and date.tzinfo is not None and timedelta(0) <= maintenant - date <= timedelta(hours=24))
+
+
+def cumuler_reels_verifies(suivi, publications, creation, maintenant):
+    """Preuves typées du palier ; anciens totaux ambigus conservés séparément."""
+    anciennes = (suivi or {}).get("reels_verifies_v2") or {}
+    candidates = [{"code": c, "publie": date, "type_verifie": "reel"} for c, date in anciennes.items()]
+    candidates += [x for x in publications or [] if isinstance(x, dict) and x.get("type_verifie") == "reel"]
+    return cumuler_publications({}, candidates, creation, maintenant)

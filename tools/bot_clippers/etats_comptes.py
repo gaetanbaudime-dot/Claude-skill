@@ -254,6 +254,17 @@ def _est_reel(post: dict) -> bool:
     return t == "video" or pt in ("clips", "reels", "igtv") or (not t and not pt)
 
 
+def _reel_prouve(post: dict) -> bool:
+    """Type explicite ou URL de Reel ; ni vidéo générique ni type absent ne suffisent."""
+    pt = str(post.get("productType") or "").lower()
+    t = str(post.get("type") or "").lower()
+    if pt:
+        return pt in ("clips", "reels")
+    if t in ("image", "sidecar"):
+        return False
+    return t == "reel" or bool(re.match(r"^https://(?:www\.)?instagram\.com/reels?/[A-Za-z0-9_-]+(?:/|$|\?)", str(post.get("url") or "")))
+
+
 def _lire() -> dict:
     d = _deps["lire_json"](_deps["FICHIER_ETATS"], {})
     d.setdefault("historique", {}); d.setdefault("bans_auto", {})
@@ -733,10 +744,11 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
             epingle = bool(post.get("isPinned"))                         # 09/10 (dashboard) : une épinglée (souvent vieille) ne compte pas
             if not epingle:
                 plus_ancien = quand if plus_ancien is None or quand < plus_ancien else plus_ancien
-            if _est_reel(post):
+            if _reel_prouve(post) or _est_reel(post):
                 code_verifie = series.code_post(post)
                 if code_verifie:
-                    fiche.setdefault("publications_verifiees", []).append({"code": code_verifie, "publie": quand.astimezone(timezone.utc).isoformat()})
+                    fiche.setdefault("publications_verifiees", []).append({"code": code_verifie, "publie": quand.astimezone(timezone.utc).isoformat(),
+                        "type_verifie": "reel" if _reel_prouve(post) else "a_verifier"})
             if _est_reel(post) and not epingle:
                 if jour_paris == hier:
                     fiche["reels_hier"] += 1
@@ -1962,6 +1974,9 @@ async def _noter_parcours(mesures: dict, depuis_iso: str, client=None) -> list:
             for i, handle in enumerate(parcours._comptes_ordonnes(uid, fiche_p=fiche), 1):
                 mesure = lisibles.get(_cle(handle)) or {}
                 suivi = fiche.setdefault("reels", {}).setdefault(handle.lower(), {})
+                suivi["reels_verifies_v2"] = parcours.process_clippeur.cumuler_reels_verifies(
+                    suivi, mesure.get("publications_verifiees") or [],
+                    parcours._date_creation(fiche, i), datetime.now(timezone.utc))
                 suivi["publications_verifiees"] = parcours.process_clippeur.cumuler_publications(
                     suivi, mesure.get("publications_verifiees") or [],
                     parcours._date_creation(fiche, i), datetime.now(timezone.utc))

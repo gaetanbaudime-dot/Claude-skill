@@ -451,7 +451,8 @@ def _de_plus(fiche_p: dict, n: int, src: int = 1) -> str:
 def reels_detail(uid, fiche_p: dict, n: int) -> list:
     comptes = _comptes_ordonnes(uid, fiche_p=fiche_p)
     suivis = fiche_p.get("reels") or {}
-    return [(src, len((suivis.get(comptes[src - 1].lower()) or {}).get("publications_verifiees") or {}))
+    return [(src, len(process_clippeur.cumuler_reels_verifies(
+                suivis.get(comptes[src - 1].lower()) or {}, [], _date_creation(fiche_p, src), datetime.now(timezone.utc))))
             for src in sources_reels(fiche_p, n) if 0 < src <= len(comptes)]
 
 
@@ -3097,6 +3098,8 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
                     apres["apres_base"] = max(int((avant or {}).get("apres_base", 0) or 0), reels_apres(hist_h, t2))
             preuves = [p for e in (historique or {}).get(onboarding.normaliser_handle(h).lower(), [])
                        for p in e.get("publications_verifiees") or []]
+            apres["reels_verifies_v2"] = process_clippeur.cumuler_reels_verifies(
+                avant, preuves, _date_creation(fiche_p, i), datetime.now(timezone.utc))
             apres["publications_verifiees"] = process_clippeur.cumuler_publications(
                 avant, preuves, _date_creation(fiche_p, i), datetime.now(timezone.utc))
             if apres != avant:
