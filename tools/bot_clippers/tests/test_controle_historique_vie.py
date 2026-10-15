@@ -170,3 +170,13 @@ class ControleVieTests(unittest.TestCase):
         out=c._c1(x)
         self.assertEqual(1,len(out));self.assertTrue(out[0]['non_mesure'])
         self.assertIn('incertain',out[0]['texte'])
+
+    def test_historique_inconnu_conserve_ancienne_alerte_et_date_au_cycle_suivant(self):
+        ancienne='C16|creatrice a|clippeuse'
+        x=contexte([ligne('reserve0','À créer')],historique(reserve=1,revu=False),pv={ancienne:'2026-10-12'})
+        anomalies=c._c16(x)
+        self.assertIn(ancienne,c._cles_empreinte(anomalies,[ancienne]))
+        portees=c._portees(anomalies)
+        conserve={k:v for k,v in x.premiers_vus.items() if c._couverte(k,portees)}
+        x.premiers_vus=conserve
+        self.assertIn('12/10/2026',c._c16(x)[0]['texte'])

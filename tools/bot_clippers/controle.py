@@ -2323,7 +2323,7 @@ def _c16(x: _Ctx) -> list:
         if depasse or ecarts or surreservation:
             entree = _a("C16", "important", texte, cle)
         else:
-            entree = _non_mesure("C16", texte, [cle])
+            entree = _non_mesure("C16", texte, [cle] + anciennes_cles)
             entree["cle"] = cle
         if cle_date in x.premiers_vus:
             entree["premier_vu"] = x.premiers_vus[cle_date]
