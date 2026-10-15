@@ -163,3 +163,10 @@ class ControleVieTests(unittest.TestCase):
             self.assertEqual({'reserved':1},s.counts('42'))
             s.observe_alias('43','ancien','observation-fictive')
             with self.assertRaises(Bloque): s.reserve('43',['nouveau'])
+
+    def test_c1_conserve_perimetre_hors_ban_et_logs_perdus(self):
+        x=contexte([ligne('banni','BAN',gerant=''),ligne('perdu','logs perdus',gerant=''),
+                    ligne('incertain','PRIVE',gerant='')])
+        out=c._c1(x)
+        self.assertEqual(1,len(out));self.assertTrue(out[0]['non_mesure'])
+        self.assertIn('incertain',out[0]['texte'])
