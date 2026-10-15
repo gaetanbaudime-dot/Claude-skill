@@ -1584,8 +1584,9 @@ def sante_publique() -> dict:
     age = max(0, int(time.monotonic() - dernier)) if dernier is not None else None
     return {"actif": actif_, "dernier_succes_s": age,
             "echecs_consecutifs": int(_SANTE.get("echecs") or 0),
+            "echecs_traitement": int(_SANTE.get("traitement_echecs") or 0),
             "etat": "eteint" if not actif_ else "inconnu" if age is None else
-                    "degrade" if _SANTE.get("echecs") or age > max(120, SONDAGE_SEC * 3) else "ok"}
+                    "degrade" if _SANTE.get("echecs") or _SANTE.get("traitement_echecs") or age > max(120, SONDAGE_SEC * 3) else "ok"}
 
 
 def lecteur_en_panne() -> bool:
@@ -2312,10 +2313,12 @@ async def _traiter_lus(client, resultat: dict) -> dict:
     e = _etat()
     connus = {t.get("mid") for t in e["codes"]}
     commun = salon_codes_id()
+    echecs = 0
     for lu in resultat.get("mails") or []:
         try:
             await _traiter_un(client, lu, e, connus, commun, bilan)
         except Exception as erreur:                                     # noqa: BLE001 — jamais tout le lot pour un mail
+            echecs += 1
             journal.warning("Codes : traitement d'un mail : %s", _err(erreur))
     await _signaux(resultat)
     quota = resultat.get("quota")
@@ -2327,6 +2330,8 @@ async def _traiter_lus(client, resultat: dict) -> dict:
         _sauver()
     if bilan["donnes"]:
         await _reveiller()
+    if echecs:
+        raise RuntimeError("Traitement du lot incomplet : curseurs non validés")
     return bilan
 
 
@@ -2396,6 +2401,10 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
     LECTEUR.etat = {k: dict(v) for k, v in (_etat().get("uid") or {}).items() if isinstance(v, dict)}
     attendre = 0.0
     while not client.is_closed():
+        # Cycle déplace son curseur en mémoire avant le traitement ; seul le succès
+        # du lot valide ce point de reprise et ses Message-ID dédupliqués.
+        avant_uid = {k: dict(v) for k, v in LECTEUR.etat.items()}
+        avant_vus = LECTEUR.vus.copy()
         try:
             resultat = await asyncio.to_thread(LECTEUR.cycle, attendre)
         except MailIllisible as erreur:                                 # 10/10 (revue) : un mail précis, pas la boîte
@@ -2410,11 +2419,17 @@ async def boucle_codes(client, canal_admin_async, admin_ids):
             await asyncio.sleep(min(300, SONDAGE_SEC * _SANTE["echecs"]))
             attendre = 0.0
             continue
-        await _sante_ok()
         try:
             await _traiter_lus(client, resultat)
         except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Codes : traitement des mails : %s", _err(erreur))
+            LECTEUR.etat, LECTEUR.vus = avant_uid, avant_vus
+            _SANTE["traitement_echecs"] = _SANTE.get("traitement_echecs", 0) + 1
+            journal.warning("Codes : traitement des mails : %s (lot à reprendre)", _err(erreur))
+            attendre = 0.0
+            await asyncio.sleep(min(5, SONDAGE_SEC))
+            continue
+        _SANTE["traitement_echecs"] = 0
+        await _sante_ok()
         uid = {k: dict(v) for k, v in LECTEUR.etat.items()}
         if uid != _etat().get("uid"):                                  # écrit seulement quand un mail est arrivé
             _etat()["uid"] = uid
