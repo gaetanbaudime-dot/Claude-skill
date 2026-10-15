@@ -222,7 +222,7 @@ async def reserve(comptes: list, creatrices: list) -> dict:
                 continue
             mdp = mot_de_passe(mdps)
             mdps.add(mdp)
-            gardes[cle].append({"handle": h, "mdp": mdp, "verifie": mesures is not None,
+            gardes[cle].append({"handle": h, "mdp": mdp, "verifie": False, "disponibilite": "a_verifier",
                                 "depuis": datetime.now(timezone.utc).strftime("%d/%m")})
     etat.update(gardes)
     if _deps.get("ecrire_json"):

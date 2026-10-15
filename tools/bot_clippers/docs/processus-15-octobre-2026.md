@@ -1,40 +1,38 @@
-# Processus clippeur — corrections préparées le 15 octobre 2026
+# Processus clippeur — 15 octobre 2026
 
-Statut : **draft, non déployé ; validation complète du processus encore nécessaire**.
+## Règles implémentées
 
-Base : `origin/main` à `5556a88`. La fusion du duplicateur `4f0fb9d` est conservée. Aucun fichier du checkout initial en conflit n’a été modifié. Aucun déploiement du duplicateur, de Railway ou de Vercel, aucune inscription, aucun partage Drive et aucun départ réel n’ont été exécutés.
+Trois comptes Instagram créés au total par UID Discord, jamais réinitialisés après ban ou départ. Croissance 1 immédiatement, croissance 2 après quatre Reels publiés et vérifiés sur croissance 1, privé après quatre sur croissance 2. Aucun délai ni quatre publications supplémentaires sur le premier compte. Les shortcodes datés sont dédupliqués et conservés au renommage ; les anciens agrégats ne prouvent pas des publications.
 
-## Corrections incluses
+Le registre SQLite `process_clippeur.sqlite3` conserve identités, alias, créations, réservations, résultats incertains et opérations. Une réservation interrompue consomme sa place ; seule une preuve de non-création permet son annulation. Un historique absent n'est jamais assimilé à zéro. `outils/rapprocher_processus.py` simule par défaut l'import additif d'un historique explicitement revu. Aucun import de production effectué.
 
-- Un scan public ne déduit plus BAN d’une absence, ni propriété d’un profil devenu visible. Les anciens états ambigus restent en place. Une absence ne vaut pas disponibilité d’un pseudo.
-- Les mails de suspension sans date exploitable sont écartés ; les preuves reconnues distinguent appel possible et désactivation définitive. Les autres preuves restent à vérifier, sans écrasement de l’état. Leur type et référence sont conservés dans l’historique existant.
-- Ordre d’affichage préparé : Good vert, Faire appel orange, Ban rouge, À créer blanc. Un ancien PRIVE apparaît comme type privé à vérifier, pas comme preuve de santé. La création d’un privé n’écrit plus PRIVE dans l’état de santé.
-- Nouveau parcours fixé à croissance 1 → croissance 2 après quatre Reels vérifiés sur 1 → privé après quatre Reels vérifiés sur 2. Aucun supplément de Reels sur 1 ; aucun délai entre les paliers. Les anciens ordres privé-en-2 restent bloqués pour vérification, sans renumérotation.
-- Les publications sont cumulées par shortcode et date vérifiée, au passage complet comme au passage léger. Les totaux glissants historiques sont conservés mais n’ouvrent plus les paliers. Les publications antérieures à la création, futures ou sans date ne comptent pas. Un même shortcode ne compte qu’une fois.
-- Réservation limitée à trois identités à vie par UID Discord, conservée avant écriture Sheets et avant libération. Le registre conserve les alias et une identité stable lors des renommages. Une réservation interrompue consomme sa place jusqu’à résolution ; elle n’autorise pas un quatrième compte.
-- Les comptes déjà créés ne reviennent plus dans le vivier, même avec l’ancien réglage COMPTES_RENDUS. Le mécanisme de remplacement automatique est neutralisé. Le lien libéré d’un sortant n’est plus repris par ce chemin d’onboarding.
-- Le privé et l’étape de livraison de l’app attendent au minimum un lien GAML présent. Un échec d’envoi de l’étape retire la fausse date de livraison ; le programme réessaie les comptes 2 et 3 lorsque l’envoi échoue.
+Les transactions SQLite arbitrent les allocations concurrentes ; les verrous de fichiers protègent les opérations externes entre processus sur le même volume. Un POST de clone sans réponse reste incertain et interdit un second clone. Après obtention de son ID, chaque étape GAML/MYM/OF peut être reprise. La livraison attend les deux destinations vérifiées, la réserve marquée et un inventaire distant complet prouvant leur unicité. Les doublons historiques sont conservés et bloquent leur réutilisation ; ils ne sont pas réparés automatiquement.
 
-## Vérification locale
+Le quiz est requis. L'onboarding vérifie le team leader configuré, l'accès Drive existant, le rôle équipe et le rôle créatrice. Il respecte les coefficients configurés. Le salon porte l'UID stable, est recherché à distance avant création et ne peut pas être recréé automatiquement après un résultat incertain. Aucun nouveau partage Drive public. Les identifiants sensibles ne sont plus inclus dans le texte automatique des étapes : remise personnelle par le responsable.
 
-Suite exécutée sous Python 3.11, avec les dépendances du bot dans un environnement isolé :
+Un profil invisible ne prouve ni disponibilité ni ban. La disponibilité exige une preuve récente et référencée issue du formulaire Instagram. Les candidats générés restent à vérifier. Une preuve mail datée distingue appel possible et désactivation définitive ; les anciennes données ambiguës sont conservées. Affichage du dashboard simple : Good vert, Faire appel orange, Ban rouge, À créer blanc ; privé est un type.
 
-```sh
-python -m unittest discover -s tools/bot_clippers/tests
-```
+Départ : archivage X relu dans GAML, conservation de l'UID et des dus, préparation des lignes Metricool puis exclusion Discord. La préparation n'exécute aucun transfert Metricool. Les liens archivés sont exclus des nouveaux revenus du clippeur et de la réattribution automatique ; les dus historiques restent calculables. Le garde-fou existant sur les sorties automatiques est conservé.
 
-Les nouveaux tests sont dans `tests/test_process_15_octobre.py` : quota, rejeu, départ/retour fictif, exclusion d’une réattribution, renommage, échec partiel de réservation, concurrence sous verrou, paliers distincts, suppression des anciens délais, déduplication et dates des publications, qualification de mails synthétiques, remplacement sans effet.
+## Vérifications
 
-La compilation Python et `git diff --check` sont aussi vérifiés. Le graphe demandé par CLAUDE.md n’est pas disponible : ni `graphify-out`, ni exécutable `graphify` installé.
+175 tests Python 3.11 passent : suite existante et scénarios fictifs dans `test_process_15_octobre.py`, `test_process_transactions.py`, `test_process_onboarding.py`, `test_process_adapters.py`. Réservations concurrentes via connexions SQLite distinctes, quatrième compte refusé, événements rejoués, alias, paliers, timeout de salon/clone, refus de rôle, absence de Drive/TL/quiz, reprise MYM/OF, tracking dupliqué distant/historique, départ ordonné et dus conservés. Aucun compte, départ, partage, secret ni inscription réel utilisé.
 
-## Conditions bloquant le déploiement
+Compilation Python et `git diff --check` vérifiés. `graphify` et son graphe local sont absents. Les tests avec doublures ne prouvent pas la compatibilité des données réelles ni le fonctionnement en production.
 
-1. **Historique à vie incomplet** : le registre récupère seulement les comptes encore présents dans les fiches, les livraisons et les alias. Les comptes déjà effacés avant ce changement doivent être rapprochés des historiques de production. Une réservation est comptée de manière conservatrice, ce n’est pas une preuve de création effective. Aucun ancien compteur ne doit être remis à zéro.
-2. **Liens uniques pas encore garantis de bout en bout** : le contrôle d’un lien GAML présent ne valide pas ses deux destinations. L’allocation MYM n’est pas encore testée en reprise partielle ; OF est encore choisi par POD. Il faut vérifier la capacité réelle, empêcher le partage de tracking entre clippers, persister chaque étape et conditionner la livraison à MYM + OF tous deux prêts. Les clones externes peuvent encore réussir avant l’écriture locale : reprise idempotente à terminer.
-3. **Concurrence limitée au processus** : les appels de réservation existants utilisent le verrou asyncio partagé ; le test de concurrence est synthétique. Aucune garantie multi-réplicas ni transaction Sheets/disque n’est démontrée. Vérifier la topologie Railway et tester les interruptions réelles avec doublures avant production.
-4. **Discord/Drive et candidature** : les parcours Telegram/Facebook/Discord → formation → quiz → Discord, salon unique, team leader, coefficients réellement configurés, rôles et accès Drive doivent encore être vérifiés avec doublures et lecture de configuration autorisée. Ces services n’ont pas été contactés dans ce chantier.
-5. **Disponibilité des pseudos** : aucun endpoint de disponibilité fiable n’a été validé ; l’absence publique reste un signal insuffisant. Ne pas annoncer un pseudo disponible sur cette seule base.
-6. **Sortie réelle** : archiver le lien avec préfixe X, préparer Metricool, puis exclure Discord reste à vérifier pour l’ordre, les reprises et l’idempotence. Aucun test de sortie réel n’est autorisé.
-7. **Affichage et preuves** : les couleurs/labels sont préparés pour le dashboard simple, pas migrés sur les feuilles de production ni validés dans toutes les vues des apps. La classification textuelle des mails reste volontairement restrictive et demande des fixtures supplémentaires anonymisées.
+## Production et blocages
 
-Ne pas fusionner/déployer cette draft comme si l’ensemble du nouveau processus était validé. Aucune migration destructive n’est incluse.
+Lecture Railway : projet BOT Marketing, environnement production, service Claude-skill ; une réplique, volume `/data`, source `main`, racine `tools/bot_clippers`. Déploiement observé : `a217f2cd-099e-4f61-9a2c-b9ee8d20b5dd`, SUCCESS du 14 octobre. Le merge de main peut déclencher le déploiement sans attendre les checks (`checkSuites: false`). Aucun nouveau déploiement lancé dans ce chantier ; ni duplicateur ni Vercel modifiés.
+
+Avant fusion/déploiement de ce lot complet :
+
+1. Rapprocher les historiques à vie réels, y compris archives et pseudonymes. Une ligne « à créer » ne prouve pas une création. Sauvegarder le volume puis simuler l'import ; ne jamais présumer zéro.
+2. Rapprocher les liens déjà attribués avec les nouveaux journaux. Les liens existants sans journal restent bloqués ; l'adoption et la résolution d'un clone incertain exigent une vérification explicite. Vérifier la capacité unique MYM/OF disponible ; ne pas réutiliser les doublons signalés.
+3. Vérifier les coefficients, mappings TL, rôles et permissions Drive réels. L'accès OAuth Railway consulté ne fournit que les noms de variables et aucun fichier du volume ; ces preuves n'ont pas pu être obtenues ici.
+4. Vérifier les vues des autres apps et du classeur avant de considérer l'affichage global migré. Aucun changement Sheets de production réalisé.
+
+Le déploiement est autorisé par l'utilisateur, mais la compatibilité des données n'est pas encore démontrée : déployer maintenant bloquerait les dossiers non rapprochés. Cette limite n'est pas une demande d'autorisation supplémentaire.
+
+## Retour arrière
+
+Conserver une sauvegarde cohérente SQLite et des JSON avant activation. En cas d'incident, suspendre allocations et sorties avant tout retour de code : l'ancien code ignore le registre. Ne jamais restaurer un ancien compteur par-dessus des réservations/créations plus récentes. Préserver les journaux et rapprocher les opérations externes incertaines avant reprise. Aucune migration destructive incluse.

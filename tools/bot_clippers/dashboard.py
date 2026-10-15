@@ -1657,6 +1657,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
 
     ajouter(["Dashboard · mis à jour le " + ctx.p.strftime("%d/%m à %Hh%M") + " (Paris)"], "titre")
     ajouter([fraicheur], "fraicheur")
+    ajouter(["Good · Faire appel · Ban · À créer — Privé : type de compte"], "fraicheur")
     for quoi, gravite, texte in alertes:
         ajouter([f"{quoi} : {texte}"], "alerte", gravite=gravite)
     ajouter([], "vide")

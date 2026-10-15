@@ -837,7 +837,7 @@ def _url_discord(cand_id: str) -> str:
 
 def _quiz_requis() -> bool:
     """09/10 (Gaëtan : « Telegram > Forms > Formation > Quizz > Discord ») : le quizz du site est la seule porte de Discord."""
-    return QUIZ_AVANT_DISCORD and bool(_quiz().get("questions"))
+    return True  # Quiz absent ou désactivé : accès Discord fermé, jamais contourné.
 
 
 def _quiz_reussi(cand_id: str) -> bool:

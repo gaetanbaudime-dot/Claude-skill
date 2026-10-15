@@ -204,9 +204,8 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 
 
 def _identifiants(n: int) -> str:
-    """09/10 : le bloc identifiant, e-mail et mot de passe du compte n (gabarit), le même pour chaque compte."""
-    return (f"Identifiant :\n```\n{{compte{n}}}\n```\nE-mail :\n```\n{{mail{n}}}\n```\n"
-            f"Mot de passe :\n```\n{{mdp{n}}}\n```")
+    """Les secrets sont remis par le responsable, jamais dans le message automatique."""
+    return f"Identifiant prévu : {{compte{n}}}\n\nTon responsable te remet les accès personnellement."
 
 
 ETAPES = {
@@ -1244,6 +1243,22 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     # panne pendant livrer), il partait avec l'identifiant « ? » et « demande-le à Gaëtan sur WhatsApp », sans nouvel essai.
     if n in (1, 2, 3) and pointer and not await _ligne_du_compte(salon, membre, uid, n):
         return False
+    if n in (1, 2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)):
+        handles = _comptes_ordonnes(uid, fiche_p=fiche_avant)
+        if len(handles) < n:
+            return False
+        handle = handles[n - 1]
+        try:
+            onboarding.process_adapters.store().reserve(uid, [handle])
+            preuves = onboarding._deps["lire_json"](
+                onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
+            if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
+                _garder_au_programme(uid, n, noter=True)
+                journal.warning("Compte retenu : disponibilité Instagram non prouvée")
+                return False
+        except RuntimeError:
+            _garder_au_programme(uid, n, noter=True)
+            return False
     if (n == 6 or n == n_prive(_lire().get(uid) or {})) and _deps.get("attribuer_lien"):
         # 05/10 (Gaëtan : « le lien que pour le troisième compte ») : le lien GAML n'existe pas avant le compte privé ; il est créé
         # (ou repris) à l'ouverture de son étape, pour être dans sa bio dès son profil, puis donné à l'étape 6. 08/10 : le compte
@@ -1253,7 +1268,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         except Exception as erreur:                                     # noqa: BLE001 — sans lien, l'étape part quand même
             journal.warning("Lien GAML pour %s à l'étape %s : %s", uid, n, erreur)
             return False
-    if n in (n_prive(_lire().get(uid) or {}), 6, 7) and not str(_onb(uid).get("lien") or "").strip():
+    if n in (n_prive(_lire().get(uid) or {}), 6, 7) and not _onb(uid).get("liens_prets"):
         return False  # Ne pas livrer le privé ou l’app sans lien préparé.
     # 01/10 (relecture : deux programme_du_jour à 50 ms d'écart, le clipper 2 a reçu deux fois « Étape 2 ») : la fiche était
     # lue, puis réécrite après l'appel au classeur (_contexte) et l'envoi — elle écrasait ce qui avait été écrit entre-temps.
@@ -2070,6 +2085,8 @@ async def livrer_app(uid: str, salon=None, membre=None, client=None, forcer: boo
     09/10 : `texte` (le message déjà écrit, mention comprise : la routine) part avec le bouton à la place de TEXTE_APP, en UN message.
     Renvoie « envoye », « deja », « pas_pret », « exclu », « sans_lien », « sans_app » ou « erreur »."""
     uid = str(uid)
+    if _onb(uid).get("sorti") or not _onb(uid).get("liens_prets"):
+        return "sans_lien"
     fiche_p = _lire().get(uid) or {}
     if not forcer:
         if fiche_p.get("app"):
@@ -2446,6 +2463,7 @@ async def _classeur_etat(uid: str, n: int) -> None:
     for h in comptes[n - 1:n]:
         try:
             # 05/10 : le compte privé ne chauffe pas (08/10 : le 2) ; 12/10 : plus de WARMUP au classeur (ETAT_WARMUP=1 : l'ancien)
+            onboarding.process_adapters.store().created(uid, h, "confirmation-parcours:" + _maintenant())
             await marquer(h, "GOOD")  # privé est le type du compte, pas sa santé
         except Exception as erreur:
             journal.warning("Classeur étape %s de %s : %s", n, uid, erreur)

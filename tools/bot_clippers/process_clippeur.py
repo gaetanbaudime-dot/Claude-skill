@@ -73,3 +73,19 @@ def cumuler_publications(suivi, publications, creation, maintenant):
         if code and instant.tzinfo is not None and creation is not None and creation <= instant <= maintenant:
             verifies[str(code)] = publication["publie"]
     return verifies
+
+
+def pseudo_disponible(preuve, maintenant):
+    """Attestation issue du formulaire Instagram, jamais du scan public.
+
+    La preuve locale doit être renseignée par un opérateur après vérification réelle.
+    Aucun endpoint non documenté ni inscription n'est appelé par ce garde-fou.
+    """
+    from datetime import datetime, timedelta
+    try:
+        date = datetime.fromisoformat(str(preuve.get('date')).replace('Z', '+00:00'))
+    except (ValueError, TypeError):
+        return False
+    return (preuve.get('source') == 'instagram_formulaire' and preuve.get('disponible') is True
+            and bool(preuve.get('reference')) and bool(preuve.get('verifie_par'))
+            and date.tzinfo is not None and timedelta(0) <= maintenant - date <= timedelta(hours=24))
