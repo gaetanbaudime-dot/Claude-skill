@@ -605,6 +605,12 @@ RE_HANDLE_IG = re.compile(r"^[a-z0-9._]{1,30}$")
 
 
 async def renommer_compte(uid: str, ancien: str, nouveau: str) -> str:
+    registre = process_adapters.store()
+    with registre.lock("renommage:" + str(uid)):
+        return await _renommer_compte(uid, ancien, nouveau, registre)
+
+
+async def _renommer_compte(uid: str, ancien: str, nouveau: str, registre_process) -> str:
     """08/10 (Mohamed : « le nom d'utilisateur que vous m'avez proposé est indisponible » ; l'audit : le blocage le plus courant à la
     création) : l'identifiant prévu était pris, le clipper a créé une variante. La cellule « @ IG » de la ligne du classeur, sa fiche
     d'onboarding (comptes, accès) et l'état des livraisons passent au nouvel identifiant : le scan, le parcours et l'app le suivent.
@@ -617,19 +623,42 @@ async def renommer_compte(uid: str, ancien: str, nouveau: str) -> str:
         return "c'est déjà cet identifiant"
     if not actif():
         return "le classeur est indisponible"
-    fiche = (_lire_etat()["clippers"].get(str(uid)) or {})
-    if ancien_n not in {normaliser_handle(h).lower() for h in fiche.get("comptes", [])}:
+    uid = str(uid)
+    fiche = (_lire_etat()["clippers"].get(uid) or {})
+    if fiche.get("sorti"):
+        return "dossier sorti : rapprochement requis"
+    cle_job = f"renommage:{uid}:{ancien_n}:{nouveau_n}"
+    job = registre_process.get(cle_job)
+    propres = {normaliser_handle(h).lower() for h in fiche.get("comptes", [])}
+    if ancien_n not in propres and not (job and nouveau_n in propres):
         return "ce compte n'est pas dans tes comptes"
+    proprietaires = _proprietaires()
+    if (proprietaires.get(ancien_n) or proprietaires.get(nouveau_n) or set()) != {uid}:
+        return "propriété du compte ambiguë ou attribuée à un autre clippeur"
     tous = await lire_comptes()
-    if any(normaliser_handle(c["handle"]).lower() == nouveau_n for c in tous):
-        return "cet identifiant est déjà dans le classeur de l'agence"
-    ligne = next((c for c in tous if normaliser_handle(c["handle"]).lower() == ancien_n), None)
-    if ligne is None:
-        return "je ne trouve pas ce compte dans le classeur"
-    registre_process = process_adapters.store()
-    registre_process.observe_alias(uid, ancien_n, "fiche-onboarding-et-ligne-existantes")
-    registre_process.rename(uid, ancien_n, nouveau_n)
-    await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(ligne, "handle"), [[nouveau_n]])
+    proprietaires = _proprietaires()
+    if (proprietaires.get(ancien_n) or proprietaires.get(nouveau_n) or set()) != {uid}:
+        return "propriété du compte modifiée pendant le renommage"
+    cible = [c for c in tous if normaliser_handle(c["handle"]).lower() == nouveau_n]
+    if cible:
+        # Réponse Sheets perdue : seul le même emplacement journalisé peut être repris.
+        if (len(cible) != 1 or not job or registre_process.owner_for_handle(nouveau_n) != uid
+                or str(cible[0].get("onglet")) != str(job.get("onglet"))
+                or str(cible[0].get("ligne")) != str(job.get("ligne"))):
+            return "cet identifiant est déjà dans le classeur de l'agence"
+        ligne = cible[0]
+    else:
+        lignes = [c for c in tous if normaliser_handle(c["handle"]).lower() == ancien_n]
+        if len(lignes) != 1:
+            return "ligne du compte absente ou ambiguë dans le classeur"
+        ligne = lignes[0]
+        if job and (str(ligne.get("onglet")) != str(job.get("onglet")) or str(ligne.get("ligne")) != str(job.get("ligne"))):
+            return "ligne déplacée pendant le renommage : rapprochement requis"
+        registre_process.observe_alias(uid, ancien_n, "fiche-onboarding-et-ligne-existantes")
+        registre_process.rename(uid, ancien_n, nouveau_n)
+        job = {"onglet": ligne.get("onglet"), "ligne": ligne.get("ligne"), "phase": "prepare"}
+        registre_process.put(cle_job, job)
+        await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(ligne, "handle"), [[nouveau_n]])
     etat = _lire_etat()
     fiche = etat["clippers"].setdefault(str(uid), {})
     identites = process_clippeur.registre(etat, str(uid))
@@ -643,14 +672,26 @@ async def renommer_compte(uid: str, ancien: str, nouveau: str) -> str:
     livres = etat.setdefault("livres", {})
     for cle in [k for k in livres if normaliser_handle(k).lower() == ancien_n]:
         livres[nouveau_n] = livres.pop(cle)
-    fiche.setdefault("renommes", []).append({"ancien": ancien_n, "nouveau": nouveau_n,
-                                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    if not any(x.get("ancien") == ancien_n and x.get("nouveau") == nouveau_n for x in fiche.get("renommes") or []):
+        fiche.setdefault("renommes", []).append({"ancien": ancien_n, "nouveau": nouveau_n,
+                                                 "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
     _ecrire_etat(etat)
-    try:                                                                # 09/10 (dashboard) : la série du compte (followers, Reels, vues) suit
-        import series
-        series.renommer(ancien_n, nouveau_n)
-    except Exception as erreur:                                         # noqa: BLE001 — le renommage reste fait
-        journal.warning("Séries : renommage non suivi (%s)", type(erreur).__name__)
+    # Reprise locale incluse dans le journal : pas de perte des preuves si le bot
+    # s'arrête entre le Sheet, l'onboarding et le parcours.
+    import parcours
+    d_parcours = parcours._lire()
+    f_parcours = d_parcours.get(uid) or {}
+    for champ in ("reels", "reels_soir"):
+        suivis = f_parcours.get(champ) or {}
+        if ancien_n in suivis:
+            if nouveau_n in suivis and suivis[nouveau_n] != suivis[ancien_n]:
+                raise RuntimeError("Historique du nouveau pseudo contradictoire : rapprochement requis")
+            suivis[nouveau_n] = suivis.pop(ancien_n)
+    if uid in d_parcours:
+        parcours._ecrire(d_parcours)
+    import series
+    series.renommer(ancien_n, nouveau_n)
+    registre_process.put(cle_job, {**job, "phase": "termine"})
     journal.info("Compte renommé pour %s : %s → %s (%s, ligne %s)", uid, ancien_n, nouveau_n, ligne.get("onglet"), ligne.get("ligne"))
     return ""
 
