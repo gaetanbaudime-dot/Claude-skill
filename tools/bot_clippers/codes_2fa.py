@@ -1128,10 +1128,14 @@ class Lecteur:
             try:
                 boite.logout()
             except Exception:                                           # noqa: BLE001
-                pass
+                try:
+                    boite.shutdown()
+                except Exception:
+                    pass
 
     def _connecter(self):
         boite = imaplib.IMAP4_SSL(IMAP_HOST, timeout=IMAP_TIMEOUT)
+        self.boite = boite  # reste fermable même si LOGIN échoue
         boite.login(IMAP_USER, IMAP_PASSWORD)
         self.boite, self.selection = boite, None
         self.speciales = None
@@ -1339,7 +1343,11 @@ class Lecteur:
         n'est plus là (déplacé, effacé) ; plus aucun `continue` silencieux qui perdait le mail pour toujours."""
         sortie, deplacer = [], []
         champs = "(BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])"
+        controle = getattr(self, "controle_recherche", None)
+        filtre = getattr(self, "filtre_recherche", None)
         for i in range(0, len(uids), 50):
+            if controle:
+                controle()
             lot = uids[i:i + 50]
             ok, data = self.boite.uid("FETCH", ",".join(str(u) for u in lot), champs)
             if ok != "OK":
@@ -1347,10 +1355,16 @@ class Lecteur:
             paires = _paires_fetch(data)
             recus = {u for u, _ in paires}
             for u in lot:
+                if controle:
+                    controle()
                 if u not in recus and self._existe(u) and not self._sauter(dossier, u, "en-têtes"):
                     raise MailIllisible(f"en-têtes du mail UID {u} absents ({dossier})")
             for uid, entetes in paires:
+                if controle:
+                    controle()
                 tete = email.message_from_bytes(entetes or b"")
+                if filtre and not filtre(tete):
+                    continue
                 if not expediteur_meta(tete.get("From")):
                     self._expediteur_inconnu(tete.get("From"))
                     continue
@@ -1762,9 +1776,26 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
 # persistent mailbox state. Do not echo OTPs or full aliases to Railway logs.
 _SCAN_SEMAPHORE = (None, None)
 _SCAN_LAST = {}  # opaque request key -> monotonic; rate-limit manual refresh
+_SCAN_EN_COURS = set()  # (boucle, demande), jusqu'à la fin réelle du thread
+_SCAN_TRAVAUX = set()  # références fortes des tâches protégées après timeout
 
 
-def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
+class RechercheInterrompue(TimeoutError):
+    """Arrêt coopératif d'une recherche directe ; jamais un état du lecteur principal."""
+
+
+def _entete_recente(tete, limite, maintenant):
+    """Écarter les corps déjà hors fenêtre. Le classement complet reste obligatoire."""
+    try:
+        instant = email.utils.parsedate_to_datetime(tete.get("Date"))
+        if instant.tzinfo is None:
+            return True
+    except (TypeError, ValueError, AttributeError):
+        return True
+    return limite <= instant <= maintenant + timedelta(minutes=2)
+
+
+def _scan_recent_sync(adresses: set, minutes: int = 10, arret=None) -> list:
     """Check the latest Meta/Facebook/Instagram emails independently, even if IDLE is stale.
 
     Only code entries from the caller's owned aliases and within the 10-minute
@@ -1777,11 +1808,19 @@ def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
     found = {}
     limite = _maintenant() - timedelta(minutes=min(10, max(1, minutes)))
     since = (_maintenant() - timedelta(days=1)).strftime("%d-%b-%Y")
+    def controle():
+        if arret is not None and arret.is_set():
+            raise RechercheInterrompue()
+    reader.controle_recherche = controle
+    reader.filtre_recherche = lambda tete: _entete_recente(tete, limite, _maintenant())
     try:
+        controle()
         reader._connecter()
         for folder in reader.dossiers():
+            controle()
             try:
                 reader._selectionner(folder)
+                controle()
                 # Filter by originating platform first; this also matches iCloud relay
                 # addresses such as "no-reply_at_mail_instagram_com_...@icloud.com".
                 criteres = [f'FROM "{marque}"' for marque in MOTS_EXPEDITEUR]
@@ -1793,7 +1832,8 @@ def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
                     continue
                 uids = {int(uid) for uid in ((results or [b""])[0] or b"").split() if uid.isdigit()}
                 # Bound the work even with a high-volume inbox; newest first per folder.
-                for message in reader._lire(folder, sorted(uids)[-100:], False):
+                controle()
+                for message in reader._lire(folder, sorted(uids, reverse=True)[:100], False):
                     info = classer_mail(message["msg"])
                     if (info.get("decision") != "donner" or info.get("alias") not in aliases
                             or not info.get("code") or info.get("date") is None
@@ -1813,39 +1853,75 @@ def _scan_recent_sync(adresses: set, minutes: int = 10) -> list:
                 reader.selection = None
                 continue
     finally:
+        if arret is not None and arret.is_set():
+            # Fermer le socket sans attendre un LOGOUT réseau après annulation.
+            try:
+                reader.boite.shutdown()
+            except Exception:  # la fermeture normale reste tentée ensuite
+                pass
         reader.fermer()
     return sorted(found.values(), key=_cle_tri, reverse=True)
 
 
 async def _scanner_sur_demande(adresses: set, cle: str) -> None:
-    """Single-purpose read-through cache. Wakes waiting ephemeral/DM replies."""
+    """Deux threads au plus, y compris après timeout ; aucune demande en double."""
     if not adresses or not actif():
         return
+    boucle = asyncio.get_running_loop()
+    demande = (boucle, cle)
     now = time.monotonic()
-    if now - _SCAN_LAST.get(cle, -100) < 12:
+    if demande in _SCAN_EN_COURS or now - _SCAN_LAST.get(cle, -100) < 12:
         return
     _SCAN_LAST[cle] = now
+    _SCAN_EN_COURS.add(demande)
     global _SCAN_SEMAPHORE
-    boucle = asyncio.get_running_loop()
     if _SCAN_SEMAPHORE[0] is not boucle:
         _SCAN_SEMAPHORE = (boucle, asyncio.Semaphore(2))
-    async with _SCAN_SEMAPHORE[1]:
-        try:
-            recents = await asyncio.wait_for(asyncio.to_thread(
-                _scan_recent_sync, set(adresses), SALON_CODES_MINUTES), timeout=35)
-            deja = {x.get("mid") for x in _etat()["codes"]}
-            nouveaux = 0
-            for entry in reversed(recents):  # Numéroter du plus ancien au plus récent.
-                if entry["mid"] not in deja:
-                    _etat()["codes"].append(_numeroter(entry))
-                    deja.add(entry["mid"])
-                    nouveaux += 1
-            if nouveaux:
-                _sauver()
-                await _reveiller()
-            journal.info("Codes : demande directe terminée, %d nouveau(x) code(s) admissible(s)", nouveaux)
-        except Exception as erreur:
-            journal.warning("Codes : recherche directe indisponible : %s", type(erreur).__name__)
+    semaphore = _SCAN_SEMAPHORE[1]
+    import threading
+    arret = threading.Event()
+    travail = None
+    place = False
+    debut = None
+    try:
+        await semaphore.acquire()
+        place = True
+        debut = time.monotonic()
+        travail = asyncio.create_task(asyncio.to_thread(_scan_recent_sync, set(adresses), SALON_CODES_MINUTES, arret))
+        _SCAN_TRAVAUX.add(travail)
+        def fini(tache):
+            _SCAN_TRAVAUX.discard(tache)
+            semaphore.release()
+            _SCAN_EN_COURS.discard(demande)
+            # Après un timeout, le résultat tardif n'est jamais livré ni mis en cache.
+            if not tache.cancelled():
+                tache.exception()
+        travail.add_done_callback(fini)
+        recents = await asyncio.wait_for(asyncio.shield(travail), timeout=35)
+        deja = {x.get("mid") for x in _etat()["codes"]}
+        nouveaux = 0
+        for entry in reversed(recents):
+            if entry["mid"] not in deja:
+                _etat()["codes"].append(_numeroter(entry))
+                deja.add(entry["mid"])
+                nouveaux += 1
+        if nouveaux:
+            _sauver()
+            await _reveiller()
+        journal.info("Codes : demande directe terminée, %d nouveau(x) code(s) admissible(s)", nouveaux)
+    except asyncio.CancelledError:
+        arret.set()
+        raise
+    except Exception as erreur:
+        arret.set()
+        phase = "delai_global" if isinstance(erreur, TimeoutError) and travail is not None and not travail.done() else "lecteur"
+        journal.warning("Codes : recherche directe indisponible : %s (phase=%s, duree=%.1fs)",
+                        type(erreur).__name__, phase, time.monotonic() - debut if debut is not None else 0.0)
+    finally:
+        if travail is None:
+            if place:
+                semaphore.release()
+            _SCAN_EN_COURS.discard(demande)
 
 
 def _demander_scan(adresses: set, cle: str) -> None:

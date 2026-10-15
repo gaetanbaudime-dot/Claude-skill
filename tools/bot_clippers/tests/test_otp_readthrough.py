@@ -84,7 +84,7 @@ class OnDemandOtpTests(unittest.TestCase):
         self.c._reveiller = awaken
         self.c._sauver = lambda: messages.append("save")
         self.c.actif = lambda: True
-        self.c._scan_recent_sync = lambda aliases, minutes: [{
+        self.c._scan_recent_sync = lambda aliases, minutes, arret=None: [{
             "mid": "new-m", "alias": "mine@icloud.com", "code": "333333",
             "decision": "donner", "type": "connexion", "compte": "",
             "date": self.now.isoformat(),
