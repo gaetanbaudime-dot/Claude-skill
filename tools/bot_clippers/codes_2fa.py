@@ -1128,7 +1128,10 @@ class Lecteur:
             try:
                 boite.logout()
             except Exception:                                           # noqa: BLE001
-                pass
+                try:
+                    boite.shutdown()
+                except Exception:
+                    pass
 
     def _connecter(self):
         boite = imaplib.IMAP4_SSL(IMAP_HOST, timeout=IMAP_TIMEOUT)

@@ -146,3 +146,10 @@ class LectureDirecteTests(unittest.TestCase):
         with patch.object(self.c,'Lecteur',return_value=r):
             with self.assertRaises(self.c.RechercheInterrompue):self.c._scan_recent_sync({'fictif@example.invalid'},10,event)
         r._connecter.assert_not_called();r.fermer.assert_called_once()
+
+    def test_logout_en_timeout_ferme_quand_meme_le_socket(self):
+        from unittest.mock import Mock
+        r=self.c.Lecteur();boite=Mock();boite.logout.side_effect=TimeoutError()
+        r.boite=boite;r.fermer()
+        boite.shutdown.assert_called_once()
+        self.assertIsNone(r.boite)
