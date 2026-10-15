@@ -48,9 +48,12 @@ class LiensAPI:
         except ValueError as erreur:
             raise Bloque(str(erreur)) from erreur
 
-    async def cloner(self, modele):
+    async def preparer_clone(self, modele):
         import paie_clics as p
         self._verifier_modele(await p.lien_detail(modele))
+
+    async def cloner(self, modele):
+        import paie_clics as p
         # Pas de suppression compensatoire ; le résultat est enregistré avant tout PATCH.
         return await p._requete('POST', f'/links/{modele}/clone')
 
@@ -68,7 +71,10 @@ class LiensAPI:
     async def verifier(self, job):
         import paie_clics as p
         detail = await p.lien_detail(job['lid'])
-        destinations = [str(c.get('value') or '').strip() for c in detail.get('contents') or []]
+        cartes = detail.get('contents') or []
+        cibles = {job['mym'], job['of']}
+        destinations = [str(c.get('value') or '').strip() for c in cartes
+                        if str(c.get('value') or '').strip() in cibles or not p.annexe_sure(c)]
         job['lien'] = detail.get('url') or job.get('lien', '')
         if not (job['lien'] and detail.get('enabled') is True and job['mym'] != job['of'] and len(destinations) == 2
                 and set(destinations) == {job['mym'], job['of']}):

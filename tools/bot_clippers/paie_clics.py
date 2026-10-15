@@ -376,10 +376,44 @@ async def lien_detail(link_id: str) -> dict:
     return await _requete("GET", f"/links/{link_id}")
 
 
+def _nom_plateforme(c):
+    nom = str(c.get("name") or "").strip().lower()
+    return any(m in nom for m in ("priv", "platform", "plateforme", "exclusi",
+                                  "onlyfans", "only fans", "onlyfriends", "mym", "miam")) or nom in ("of", "0f")
+
+
+def annexe_sure(c):
+    """Liste fermée : texte brut, image non cliquable, profil Instagram direct.
+
+    Aucun raccourcisseur, HTML, paramètre de redirection ou URL secondaire.
+    Un nom de plateforme rend la carte ambiguë même si son type prétend être texte/image.
+    """
+    if _nom_plateforme(c):
+        return False
+    # Les destinations alternatives ne peuvent se cacher dans un champ annexe.
+    for k, v in c.items():
+        if v and k not in ("value", "image", "imageUrl") and any(
+                x in k.lower() for x in ("url", "href", "link", "redirect", "target", "html")):
+            return False
+    valeur = str(c.get("value") or "").strip()
+    typ = str(c.get("cardType") or "").lower()
+    if typ == "text":
+        return not re.search(r"[:/<>&]|www\.|(?:mym|onlyfans|instagram)\.", valeur, re.I)
+    if typ == "image":
+        image = c.get("imageUrl") or c.get("image")
+        return not valeur and isinstance(image, str) and bool(re.fullmatch(
+            r"https://[a-zA-Z0-9.-]+/[^?#<>]+\.(?:png|jpg|jpeg|gif|webp|avif)", image, re.I))
+    if typ in ("simple", "social", "instagram", ""):
+        match = re.fullmatch(r"https://(?:www\.)?instagram\.com/([A-Za-z0-9_.]{1,30})/?", valeur)
+        return bool(match and match[1].lower() not in
+                    ("accounts", "redirect", "direct", "explore", "p", "reel", "reels", "stories", "about"))
+    return False
+
+
 def cartes_tracking(detail: dict):
     """Modèle livrable : une carte privée identifiable, zéro ou une MYM.
 
-    Toute carte supplémentaire/ambiguë bloque avant mutation ; aucune suppression.
+    Seules les annexes explicitement sûres sont ignorées ; aucune suppression.
     Les liens Infloww sont reconnus par le nom de la carte privée existante.
     """
     cartes = detail.get("contents") or []
@@ -390,7 +424,7 @@ def cartes_tracking(detail: dict):
         except ValueError:
             return False
     mym = [c for c in cartes if domaine(c, "mym.fans")]
-    autres = [c for c in cartes if c not in mym]
+    autres = [c for c in cartes if c not in mym and not annexe_sure(c)]
     if len(mym) > 1 or len(autres) != 1:
         raise ValueError("Cartes GAML ambiguës : vérification manuelle du modèle requise")
     privee = autres[0]

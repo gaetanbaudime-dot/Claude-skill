@@ -124,6 +124,9 @@ class FakeLiens:
     async def capacite(self, cr):
         return {'modele': 'modele-fictif', 'mym': 'mym-fictif', 'of': 'of-fictif'}
 
+    async def preparer_clone(self, modele):
+        pass
+
     async def cloner(self, modele):
         self.clones += 1
         if self.fail_clone:
