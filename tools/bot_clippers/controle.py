@@ -5,7 +5,7 @@ module vérifie, toutes les 15 min (boucle de l'onboarding, juste après la colo
 Dashboard, que tout est attribué une fois et une seule. Il SIGNALE, il ne corrige rien : c'est Gaëtan qui tranche.
 
 Familles (contrat C3) :
-  C1  compte créé (hors BAN) sans Gérant — la file « à mettre Metricool » avec sa date de premier signalement ;
+  C1  ligne sans Gérant : santé déclarée, usage et données inconnues ; aucune réattribution ;
   C2  Gérant fantôme (ni membre signé unique sur le serveur, ni créatrice, ni « X (Metricool) » connu) ; le seul membre au nom
       compatible est un homonyme renommé « Andry2 » : il ne répond qu'à lui, les lignes « Andry » sont d'un ancien (reprise) ;
   C3  Gérant ambigu (deux membres signés du même prénom) ;
@@ -34,7 +34,7 @@ Familles (contrat C3) :
       scan depuis BAN_RECHERCHE_JOURS jours ou moins est encore cherché : info « ne libère pas avant le JJ/MM », sans commande ;
   C15 réservation jamais créée : « à créer » avec un Gérant clipper, jamais vue sur Instagram après SCANS_MIN passages du scan ;
       « non mesuré » quand une réservation assez vieille a été lue moins de SCANS_MIN fois, ou que le budget Apify est atteint ;
-  C16 plus de MAX_COMPTES comptes vivants (ni BAN, ni logs perdus) pour un même Gérant chez une créatrice.
+  C16 créations à vie par identité stable : registre historique, réservations séparées, divergences conservées.
   C14 à C16 ignorent les Gérants hors clipping (etats_comptes.dashboard_exclus, Rianah par défaut) et le staff, comme avant.
 
 Règles communes (revue du 09/10) :
@@ -84,7 +84,7 @@ except Exception:                                                        # noqa:
 journal = logging.getLogger("controle")
 
 FAMILLES = {
-    "C1": "Compte créé sans Gérant",
+    "C1": "Compte sans Gérant : santé et usage à vérifier",
     "C2": "Gérant fantôme",
     "C3": "Gérant ambigu (homonymes)",
     "C4": "Gérant ≠ fiche d'onboarding",
@@ -101,7 +101,7 @@ FAMILLES = {
     "C13": "E-mail en double / info d'un BAN réutilisée",
     "C14": "Ligne BAN qui garde un Gérant",
     "C15": "Réservation jamais créée",
-    "C16": "Plus de 3 comptes vivants",
+    "C16": "Créations à vie : plafond et rapprochement",
 }
 GRAVITES = ("bloquant", "important", "info")
 # 09/10 (dashboard) : les prénoms du staff (Gérant d'un compte de redirection, repreneur Metricool) ne sont jamais des fantômes.
@@ -109,10 +109,10 @@ GRAVITES = ("bloquant", "important", "info")
 # 11/10 (lot L12) : plus « jonas » par défaut (parti le 09/10) : une ligne encore à son nom sort en C2 (Gérant fantôme), à libérer.
 STAFF = {p for p in (onboarding._norm(x).strip() for x in os.environ.get("CONTROLE_STAFF", "gaetan,rianah").split(",")) if p}
 # 11/10 (lot L12, ex-vérification du classeur) : C15 « réservation jamais créée » = une ligne « à créer » réservée par un clipper et
-# jamais vue sur Instagram après SCANS_MIN passages du scan (l'historique en garde un par jour) ; C16 = plus de MAX_COMPTES comptes
-# vivants pour un clipper chez une créatrice. Mêmes variables Railway qu'avant.
+# jamais vue sur Instagram après SCANS_MIN passages du scan (l'historique en garde un par jour) ; C16 lit le registre à vie.
+# Le plafond à vie reste strictement trois, indépendant des anciennes variables de capacité.
 SCANS_MIN = int(os.environ.get("CLASSEUR_SCANS_MIN", "7") or 7)
-MAX_COMPTES = int(os.environ.get("CLASSEUR_MAX_COMPTES", "3") or 3)
+MAX_COMPTES = 3
 # 11/10 (vérification du lot L12) : la fenêtre où le scan cherche encore un BAN qu'il a posé lui-même (« bans_auto ») sous des @
 # voisins et le ressuscite s'il est revu vivant — MÊME variable Railway qu'etats_comptes.BAN_RECHERCHE_JOURS (pas d'import : le
 # contrôle ne charge pas le scan). Pendant cette fenêtre, C14 ne donne pas `!liberer … pool` (un BAN sans Gérant n'est jamais repris).
@@ -608,8 +608,9 @@ def _exclus_defaut(etats) -> list:
 # ------------------------------------------------------------------ le contexte d'un calcul
 class _Ctx:
     def __init__(self, comptes, clics, onb, registre, membres_d, series_etat, etats, parcours, details, premiers_vus, maintenant,
-                 memoire=None, sortis=None, exclus=None):
+                 memoire=None, sortis=None, exclus=None, historique_vie=None):
         self.comptes = comptes
+        self.historique_vie = historique_vie or {}
         # 11/10 (lot L12, ex-vérification du classeur) : les prénoms hors clipping, normalisés (C14 à C16 ne les jugent pas)
         self.exclus = {_n(e) for e in (exclus if exclus is not None else _exclus_defaut(etats)) if _n(e)}
         # 10/10 (vérification CONTROLE, cas Eddy du 24/09) : le pseudo des membres partis (sortis.json : `!sortie`, départ du
@@ -1218,20 +1219,46 @@ def _avec_remede(tetes: list, remede: str, sep: str = " — ") -> str:
 
 
 # ------------------------------------------------------------------ les familles
+def _anciennete_controle(x, cle):
+    brut = x.premiers_vus.get(cle)
+    if not brut:
+        return " · premier signalement non daté"
+    instant = _instant(brut) if "T" in str(brut) or " " in str(brut) else None
+    try:
+        vu = _paris(instant).date() if instant else date.fromisoformat(str(brut))
+    except ValueError:
+        vu = None
+    aujourd = _paris(x.maintenant).date()
+    if vu is None or vu > aujourd or (instant is not None and instant > x.maintenant):
+        return " · date de signalement incohérente, à vérifier"
+    return f" · signalé depuis le {vu.strftime('%d/%m/%Y')} ({(aujourd - vu).days} j)"
+
+
 def _c1(x: _Ctx) -> list:
     out = []
     for c in x.comptes:
-        if not c.get("handle") or x.resoudre(c.get("gerant"))[0] != "libre" or not _cree(c):
+        if not c.get("handle") or x.resoudre(c.get("gerant"))[0] != "libre" or _a_creer(c):
             continue
         cle = f"C1|{_n(c.get('onglet'))}|{_cle_compte(c['handle'])}"
-        if _n(c.get("utilisation")).startswith("a mettre metricool"):
-            vu = _date(x.premiers_vus.get(cle))
-            age = f" · signalé depuis le {vu.strftime('%d/%m')} ({(x.maintenant.date() - vu).days} j)" if vu else ""
-            out.append(_a("C1", "important", f"{_ou(c)} · @{c['handle']} ({c.get('etat')}) : compte créé rendu, « à mettre Metricool »"
-                                              f" — aucune ligne ne le suit{age}", cle))
+        etat = _etat_n(c)
+        usage = _n(c.get("utilisation"))
+        prive = etat == "prive" or "priv" in usage
+        creatrice = "creatrice" in usage
+        sante = {"good": "Good déclaré", "faire appel": "Faire appel déclaré", "ban": "Ban déclaré"}.get(etat)
+        qualification = ("usage créatrice, hors vivier clippeurs" if creatrice else
+                         "type privé" if prive else "usage " + str(c.get("utilisation") or "inconnu"))
+        texte = (f"{_ou(c)} · @{c['handle']} : {qualification} ; "
+                 f"santé {sante or 'inconnue (' + str(c.get('etat') or 'vide') + ')'}")
+        if usage.startswith("a mettre metricool"):
+            texte += " ; préparation Metricool à vérifier"
+        texte += " ; aucune réattribution à un nouveau clippeur" + _anciennete_controle(x, cle)
+        if sante is None:
+            entree = _non_mesure("C1", texte, [cle])
+            entree["cle"] = cle
         else:
-            out.append(_a("C1", "info", f"{_ou(c)} · @{c['handle']} ({c.get('etat')}) : compte créé sans Gérant (au vivier, prêt pour le "
-                                        "prochain clipper)", cle))
+            entree = _a("C1", "important" if usage.startswith("a mettre metricool") else "info", texte, cle)
+        entree.update(sante=sante, usage="creatrice" if creatrice else "prive" if prive else usage or "inconnu")
+        out.append(entree)
     return out
 
 
@@ -2218,24 +2245,90 @@ def _c15(x: _Ctx) -> list:
 
 
 def _c16(x: _Ctx) -> list:
-    """Plus de MAX_COMPTES comptes vivants (ni BAN, ni logs perdus) au nom d'un même Gérant chez une créatrice (onglet). Deux membres
-    du même prénom : C3 le dit déjà, rien ici."""
-    vivants = {}
-    for c in x.comptes:
-        if not c.get("handle") or _ban(c) or _perdu(c) or not _clipper_de_ligne(x, c):
-            continue
-        groupe = vivants.setdefault((c.get("onglet") or "?", _n(c.get("gerant"))), [])
-        if _cle_compte(c["handle"]) not in {_cle_compte(d["handle"]) for d in groupe}:
-            groupe.append(c)
+    """Le registre à vie fait foi. Le classeur et l'app signalent les divergences,
+    jamais une remise à zéro après ban, départ, changement de nom ou d'onglet.
+    """
+    hist = x.historique_vie
+    comptes = hist.get("comptes") or []
+    revus = set(hist.get("revus") or [])
+    aliases, groupes = {}, {}
+    for compte in comptes:
+        uid = str(compte["uid"])
+        groupes.setdefault(uid, {"registre": [], "lignes": []})["registre"].append(compte)
+        for alias in compte.get("aliases") or []:
+            aliases.setdefault(_cle_compte(alias), set()).add(uid)
+    for uid in revus | set((x.onb.get("clippers") or {}).keys()) | set(x.signes):
+        groupes.setdefault(str(uid), {"registre": [], "lignes": []})
     out = []
-    for (onglet, g), cs in sorted(vivants.items()):
-        if len(cs) <= MAX_COMPTES or x.resoudre(cs[0].get("gerant"))[0] == "ambigu":
+    if not hist.get("disponible"):
+        out.append(_non_mesure("C16", "registre à vie absent ou illisible : total des créations inconnu"))
+    for c in x.comptes:
+        usage = _n(c.get("utilisation"))
+        if not c.get("handle") or usage not in ("", "clipper", "prive", "croissance"):
             continue
-        brut = str(cs[0].get("gerant") or "").strip()
-        tetes = [f"{onglet} · Gérant « {brut} » : {len(cs)} comptes vivants ({_liste(cs, n)}), {MAX_COMPTES} au plus"
-                 for n in (LISTE_MAX, 2, 1)]
-        remede = f"rends {'celui' if len(cs) == MAX_COMPTES + 1 else 'ceux'} en trop : {_cmd_liberer(cs[0], ['<@ en trop>'])}"
-        out.append(_a("C16", "important", _avec_remede(tetes, remede), f"C16|{_n(onglet)}|{g}"))
+        if x.resoudre(c.get("gerant"))[0] in ("libre", "creatrice", "metricool", "staff") or _premier(c.get("gerant")) in x.exclus:
+            continue
+        h = _cle_compte(c["handle"])
+        identites = aliases.get(h) or x.detenteurs_bruts.get(h) or set()
+        genre, uid_nom, _ = x.resoudre(c.get("gerant"))
+        if not identites and genre == "membre":
+            identites = {uid_nom}
+        if len(identites) != 1:
+            cle = f"C16|identite|{_n(c.get('onglet'))}|{h}"
+            entree = _non_mesure("C16", f"{_ou(c)} · {_qui(c)} : identité stable non résolue ; créations à vie inconnues", [cle])
+            entree["cle"] = cle
+            out.append(entree)
+            continue
+        uid = str(next(iter(identites)))
+        groupes.setdefault(uid, {"registre": [], "lignes": []})["lignes"].append(c)
+        if genre == "membre" and uid_nom != uid:
+            out.append(_a("C16", "important", f"{_ou(c)} · @{h} : Gérant différent du propriétaire historique ; rapprochement requis",
+                          f"C16|proprietaire|{h}"))
+    for uid, groupe in sorted(groupes.items()):
+        registre, lignes = groupe["registre"], groupe["lignes"]
+        crees = [c for c in registre if c.get("status") == "created" and c.get("evidence")]
+        reserves = sum(c.get("status") == "reserved" for c in registre)
+        inconnus = sum(c.get("status") not in ("created", "reserved", "cancelled") or
+                       (c.get("status") == "created" and not c.get("evidence")) for c in registre)
+        connus = {h for c in registre for h in map(_cle_compte, c.get("aliases") or [])}
+        preuve = {h for c in crees for h in map(_cle_compte, c.get("aliases") or [])}
+        declares = {_cle_compte(c["handle"]) for c in lignes if _etat_n(c) in ("good", "ban", "faire appel")}
+        ecarts = declares - preuve
+        hors_registre = {_cle_compte(c["handle"]) for c in lignes} - connus
+        incertain = uid not in revus or inconnus or ecarts or hors_registre or not hist.get("disponible")
+        depasse = len(crees) > MAX_COMPTES
+        surreservation = len(crees) + reserves + inconnus > MAX_COMPTES
+        if not incertain and not depasse and not surreservation:
+            continue
+        cle = f"C16|uid|{uid}"
+        total = "inconnu" if incertain else str(len(crees))
+        texte = (f"{x.nom(uid)} · créations à vie : {total} ; {len(crees)} confirmées, "
+                 f"{reserves} réservations, {inconnus} identités incertaines")
+        if uid not in revus:
+            texte += " ; historique non rapproché, absence de passé non démontrée"
+        if depasse:
+            texte += f" ; plafond de {MAX_COMPTES} dépassé, y compris comptes bannis ou anciens"
+        if surreservation and not depasse:
+            texte += " ; plus de trois places engagées, réservations à vérifier sans conclure à quatre créations"
+        if lignes:
+            texte += f" ; classeur : {len(declares)} pseudos avec santé déclarée, " + str(sum(_a_creer(c) for c in lignes)) + " lignes À créer"
+        if ecarts or hors_registre:
+            texte += " ; divergence classeur/registre à rapprocher"
+        anciennes_cles = [f"C16|{_n(c.get('onglet'))}|{_n(c.get('gerant'))}" for c in lignes]
+        dates_connues = [(k, _instant(x.premiers_vus.get(k))) for k in [cle] + anciennes_cles]
+        dates_connues = [(k, instant) for k, instant in dates_connues if instant is not None and instant <= x.maintenant]
+        cle_date = min(dates_connues, key=lambda item: item[1])[0] if dates_connues else cle
+        texte += " ; aucune suppression ni remise à zéro" + _anciennete_controle(x, cle_date)
+        if depasse or ecarts or surreservation:
+            entree = _a("C16", "important", texte, cle)
+        else:
+            entree = _non_mesure("C16", texte, [cle])
+            entree["cle"] = cle
+        if cle_date in x.premiers_vus:
+            entree["premier_vu"] = x.premiers_vus[cle_date]
+        entree.update(total_crees=None if incertain else len(crees), creations_confirmees=len(crees),
+                      reservations=reserves, historique_inconnu=bool(incertain), depassement_prouve=depasse)
+        out.append(entree)
     return out
 
 
@@ -2311,6 +2404,27 @@ def _lire_sortis() -> list:
     return v if isinstance(v, list) else []
 
 
+def _lire_historique_vie():
+    """Instantané SQLite cohérent, strictement en lecture seule, sans créer de base."""
+    import sqlite3
+    chemin = _fichier("FICHIER_PROCESSUS", "process_clippeur.sqlite3")
+    if chemin is None or not chemin.is_file():
+        return {"disponible": False}
+    try:
+        with sqlite3.connect(chemin.resolve().as_uri() + "?mode=ro", uri=True, timeout=5) as db:
+            db.execute("BEGIN")
+            revus = [str(uid) for uid, evidence in db.execute("SELECT uid,evidence FROM histories") if str(evidence or "").strip()]
+            comptes = {ident: {"id": ident, "uid": str(uid), "status": status, "evidence": evidence, "aliases": []}
+                       for ident, uid, status, evidence in db.execute("SELECT id,uid,status,evidence FROM accounts")}
+            for handle, ident in db.execute("SELECT handle,account_id FROM aliases"):
+                if ident not in comptes:
+                    return {"disponible": False}
+                comptes[ident]["aliases"].append(handle)
+        return {"disponible": True, "revus": revus, "comptes": list(comptes.values())}
+    except (sqlite3.Error, OSError):
+        return {"disponible": False}
+
+
 def lire_entrees() -> dict:
     """Tout ce que le contrôle lit, hors classeur : clics.json, onboarding.json, registre, membres, séries, états, parcours,
     notes GAML vivantes, premiers signalements et mémoire du contrôle (controle.json), sorties (sortis.json, 10/10). Lecture
@@ -2323,7 +2437,7 @@ def lire_entrees() -> dict:
     onb = _lu("FICHIER_ONBOARDING", "onboarding.json")
     registre = _lu("FICHIER_EQUIPES", "equipes.json")
     ctrl = _lu("FICHIER_CONTROLE", "controle.json")
-    return {"clics": clics, "onboarding_etat": onb, "registre": registre, "membres": _membres_connus(registre, onb, clics) if lj else {},
+    return {"historique_vie": _lire_historique_vie(), "clics": clics, "onboarding_etat": onb, "registre": registre, "membres": _membres_connus(registre, onb, clics) if lj else {},
             "series_etat": _lu("FICHIER_SERIES", "series_comptes.json"), "etats": _lu("FICHIER_ETATS", "etats_comptes.json"),
             "parcours": _lu("FICHIER_PARCOURS", "parcours.json"), "details_gaml": _details_en_cache(),
             "premiers_vus": (ctrl.get("premiers_vus") or {}),
@@ -2332,7 +2446,7 @@ def lire_entrees() -> dict:
 
 # ------------------------------------------------------------------ API du contrat C3
 def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *, etats=None, parcours=None,
-              details_gaml=None, premiers_vus=None, memoire=None, maintenant: datetime = None, sortis=None, exclus=None) -> list:
+              details_gaml=None, premiers_vus=None, memoire=None, maintenant: datetime = None, sortis=None, exclus=None, historique_vie=None) -> list:
     """Les anomalies d'attribution, triées (bloquant, important, info ; puis famille), une par clé stable. Pure sur ses entrées.
     09/10 (dashboard) : `membres` = {uid: pseudo} (ou membres Discord, ou paires) des membres présents sur le serveur ; `etats`
     (etats_comptes.json : bios, non_lus, historique, dernier_passage, apify_budget, scan_iso), `parcours` (parcours.json),
@@ -2368,12 +2482,13 @@ def anomalies(comptes, clics, onboarding_etat, registre, membres, series_etat, *
              details_gaml if details_gaml is not None else (_defaut("details_gaml") or []),
              premiers_vus if premiers_vus is not None else (_defaut("premiers_vus") or {}), maintenant,
              memoire if memoire is not None else (_defaut("memoire") or {}),
-             sortis if sortis is not None else _lire_sortis(), exclus=exclus)
+             sortis if sortis is not None else _lire_sortis(), exclus=exclus,
+             historique_vie=historique_vie if historique_vie is not None else _defaut("historique_vie"))
     if not x.comptes:
         # 09/10 (revue CONTROLE) : classeur vide ou illisible → rien n'a été vérifié (jamais « 0 anomalie » à la place). 10/10
         # (vérification CONTROLE : une seule entrée C1 couvrait les 12 familles par sa portée, un lecteur qui lit `famille` affichait
         # C2 à C12 « sans anomalie ») : une entrée « non mesuré » PAR famille, même raison
-        return [_non_mesure(f, "classeur des logins vide ou illisible : rien n'a pu être vérifié") for f in FAMILLES]
+        return [_non_mesure(f, "classeur des logins vide ou illisible : rien n'a pu être vérifié") for f in FAMILLES] + _c16(x)
     sans_liens = not x.liens                                             # clics.json vide ou illisible
     out, cles = [], set()
     for famille, noms in ((_c1, ("C1",)), (_nm_resolution, ()), (_c2_c3, ("C2", "C3")), (_c4, ("C4",)), (_c5, ("C5",)),
@@ -2701,7 +2816,7 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None):
     e = lire_entrees()
     an = anomalies(comptes, e["clics"], e["onboarding_etat"], e["registre"], e["membres"], e["series_etat"], etats=e["etats"],
                    parcours=e["parcours"], details_gaml=e["details_gaml"], premiers_vus=e["premiers_vus"], memoire=e["memoire"],
-                   maintenant=maintenant, sortis=e["sortis"])
+                   maintenant=maintenant, sortis=e["sortis"], historique_vie=e["historique_vie"])
     reelles = [a for a in an if not a.get("non_mesure")]
     etat = _lire_etat()
     avant = etat.get("empreinte")
@@ -2713,7 +2828,7 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None):
     garde_pv = {k: v for k, v in pv.items() if _couverte(str(k), portees)}   # date de premier signalement jamais remise à zéro
     etat.update({"t": t_iso, "n": compter(reelles), "non_mesure": sorted({a["famille"] for a in an if a.get("non_mesure")}),
                  "cles": cles,
-                 "premiers_vus": dict(garde_pv, **{a["cle"]: pv.get(a["cle"]) or t_iso for a in reelles}),
+                 "premiers_vus": dict(garde_pv, **{a["cle"]: a.get("premier_vu") or pv.get(a["cle"]) or t_iso for a in reelles}),
                  "mesures": _memo_mesures(e["clics"], _hier_paris(maintenant), etat.get("mesures")),
                  "notes": _memo_notes(e["clics"], e["details_gaml"], etat.get("notes"), t_iso)})
     a_poster = force or (emp != avant and (avant is not None or any(a["gravite"] != "info" for a in an)))
