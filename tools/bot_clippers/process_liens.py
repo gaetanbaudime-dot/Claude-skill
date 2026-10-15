@@ -5,6 +5,8 @@ from process_store import Bloque
 async def preparer(store, uid, creatrice, api):
     key = 'liens:' + str(uid) + ':' + creatrice.casefold()
     with store.lock('allocations-liens'):
+        if store.get('sortie:' + str(uid)):
+            raise Bloque('Départ enregistré : nouvelle allocation de liens bloquée')
         job = store.get(key)
         if job.get('archive'):
             raise Bloque('Lien archivé : jamais réattribué')

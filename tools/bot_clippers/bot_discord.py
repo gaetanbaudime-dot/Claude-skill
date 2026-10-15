@@ -505,6 +505,8 @@ def _adresses_codes_fiche(uid) -> set:
     """Alias des comptes livrés à cet UID ; toute identité contradictoire est refusée."""
     uid = str(uid)
     data = lire_json(FICHIER_ONBOARDING, {}) or {}
+    if ((data.get("clippers") or {}).get(uid) or {}).get("sorti"):
+        return set()
     livres = data.get("livres") or {}
     alias_comptes, compte_alias, propres = {}, {}, set()
     for proprietaire, fiche in (data.get("clippers") or {}).items():
@@ -598,6 +600,9 @@ _OTP_UID_CACHE = {}  # UID Discord -> {mails, jusque}; jamais publié dans les l
 async def _actualiser_adresses_codes(uid):
     """Répare un alias manquant depuis le vrai Sheet des comptes, sans mutation de propriété."""
     uid = str(uid)
+    if (((lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}).get(uid) or {}).get("sorti"):
+        _OTP_UID_CACHE.pop(uid, None)
+        return set()
     deja = _adresses_codes_fiche(uid)
     membre = membre_par_id(uid)
     equipes = lire_json(FICHIER_EQUIPES, {}) or {}
@@ -650,6 +655,9 @@ def adresses_codes_de(uid) -> set:
     Un TL ayant accès au salon ne peut ni détourner ni lire un code éphémère.
     """
     uid = str(uid)
+    if (((lire_json(FICHIER_ONBOARDING, {}) or {}).get("clippers") or {}).get(uid) or {}).get("sorti"):
+        _OTP_UID_CACHE.pop(uid, None)
+        return set()
     membre = membre_par_id(uid)
     if membre is None:
         return set()
@@ -3058,12 +3066,26 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
     store = process_adapters.store()
     cle = "salon:" + str(membre.id)
     with store.lock(cle):
-        marqueur = f"clipper-uid:{membre.id}"
+        import re
+        uid = str(membre.id)
         distants = await guild.fetch_channels()
-        matches = [c for c in distants if marqueur in str(getattr(c, "topic", "") or "")]
+        def proprietaires(c):
+            return re.findall(r"(?<![\w-])clipper-uid:(\d+)(?!\d)", str(getattr(c, "topic", "") or ""))
+        matches = [c for c in distants if uid in proprietaires(c)]
+        job = store.get(cle)
+        if job.get("salon_id"):
+            existant = next((c for c in distants if str(c.id) == str(job['salon_id'])), None)
+            if existant is None:
+                return None, False, "salon déjà créé absent : rapprochement requis, aucune recréation"
+            if any(p != uid for p in proprietaires(existant)) or any(c.id != existant.id for c in matches):
+                return None, False, "identité du salon contradictoire : rapprochement requis"
+            return existant, False, ""
+        if any(any(p != uid for p in proprietaires(c)) for c in matches):
+            return None, False, "identité du salon contradictoire : rapprochement requis"
         if len(matches) > 1:
             return None, False, "plusieurs salons pour cette identité : rapprochement requis"
         if matches:
+            store.put(cle, {"salon_id": str(matches[0].id)})
             return matches[0], False, ""
         job = store.get(cle)
         if job.get("creation_incertaine"):

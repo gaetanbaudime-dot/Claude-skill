@@ -1577,6 +1577,17 @@ async def _reveiller():
         c.notify_all()
 
 
+def sante_publique() -> dict:
+    """Diagnostic agrégé : aucune adresse, contenu, erreur brute ou valeur d'accès."""
+    actif_ = actif()
+    dernier = _SANTE.get("ok_t")
+    age = max(0, int(time.monotonic() - dernier)) if dernier is not None else None
+    return {"actif": actif_, "dernier_succes_s": age,
+            "echecs_consecutifs": int(_SANTE.get("echecs") or 0),
+            "etat": "eteint" if not actif_ else "inconnu" if age is None else
+                    "degrade" if _SANTE.get("echecs") or age > max(120, SONDAGE_SEC * 3) else "ok"}
+
+
 def lecteur_en_panne() -> bool:
     return _SANTE["echecs"] > 0 and (_SANTE["ok_t"] is None or time.monotonic() - _SANTE["ok_t"] > 120)
 

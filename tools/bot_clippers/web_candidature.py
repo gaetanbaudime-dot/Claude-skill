@@ -1393,7 +1393,8 @@ async def post_quiz(request):
 
 # ------------------------------------------------------------------ santé
 async def get_health(request):
-    return web.json_response({"ok": True, "uptime_s": int(time.time() - _debut),
+    import codes_2fa
+    return web.json_response({"ok": True, "lecteur_codes": codes_2fa.sante_publique(), "uptime_s": int(time.time() - _debut),
                               "bot_connecte": bool(_client and _client.is_ready()),
                               "candidature": bool(lien_candidature()), "quiz": FICHIER_QUIZ.exists(),
                               "oauth": bool(DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET and WEB_URL_PUBLIQUE)})
