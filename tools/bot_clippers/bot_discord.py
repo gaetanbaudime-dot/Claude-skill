@@ -3342,10 +3342,12 @@ class _MessageQuizWeb:
     un doublon (quiz_traites) : son échec n'était pas compté (test_funnel_L8_bot rouge une fois sur deux)."""
     _n = 0
 
-    def __init__(self, contenu, canal):
+    def __init__(self, contenu, canal, tentative_id=None):
+        self.tentative_id = tentative_id
         _MessageQuizWeb._n += 1
         self.content, self.channel, self.webhook_id = contenu, canal, None
-        self.id = f"web-{int(time.time() * 1000)}-{_MessageQuizWeb._n}"
+        self.id = (f"web:{contenu.split('|')[1]}:{tentative_id}" if tentative_id else
+                   f"web-{int(time.time() * 1000)}-{_MessageQuizWeb._n}")
 
 
 def seuil_quiz_texte(sep: str = "/") -> str:
@@ -3354,7 +3356,10 @@ def seuil_quiz_texte(sep: str = "/") -> str:
     return f"{seuil}{sep}{total}"
 
 
-async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
+async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None, tentative_id=None):
+    event_id = f"web:{uid}:{tentative_id}" if tentative_id else None
+    if event_id and event_id in lire_json(FICHIER_PIPELINE, {}).get("quiz_web_traites", {}):
+        return
     canal = await canal_admin()
     essai = essais_quiz(uid) + 1
     contenu = f"{'QUIZ_OK' if reussite else 'QUIZ_KO'}|{uid}|{score}"
@@ -3362,10 +3367,20 @@ async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
     # (score, seuil, « Revois la vidéo », « Réessayer ») ; silencieux=True compte l'essai (état, date) sans le redire dans son
     # salon. Seul appelant : le quizz du site (web_candidature.post_quiz, et post_quiz_cand pour un membre déjà présent).
     try:
-        await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal), silencieux=not reussite)
+        await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal, tentative_id), silencieux=not reussite)
     except Exception:                                                   # noqa: BLE001
         # 09/10 (relecture du lot L1) : jamais d'erreur 500 sur la page POST /quiz du site ; valider_candidat alerte le staff
         journal.exception("Quiz du site (%s, %s) : traitement interrompu", uid, "réussi" if reussite else "raté")
+        if tentative_id:
+            raise  # Le POST conserve son résultat en attente et reprend la même identité.
+    if event_id:
+        frais = lire_json(FICHIER_PIPELINE, {})
+        frais.setdefault("quiz_web_traites", {})[event_id] = True
+        traites = frais.setdefault("quiz_traites", [])
+        if event_id not in traites:
+            traites.append(event_id)
+            del traites[:-400]
+        ecrire_json(FICHIER_PIPELINE, frais)
     # 28/09 (Gaëtan : « tant que j'ai un backup dans mon Google Sheets ») : une ligne par essai dans l'onglet « Quiz bot »
     m = membre_par_id(uid)
     await ligne_quiz_bot(prenom_de(m) if m is not None else "", str(uid), score, essai, reussite, details)
@@ -3416,11 +3431,14 @@ async def traiter_quiz_webhook(message, silencieux=False):
     message.channel peut valoir None (quiz du site sans salon admin) : l'anomalie part alors au journal seulement."""
     donnees_q = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     traites = donnees_q.setdefault("quiz_traites", [])
-    if str(message.id) in traites:
+    if str(message.id) in traites or str(message.id) in donnees_q.get("quiz_web_traites", {}):
         return
+    if getattr(message, "tentative_id", None):
+        donnees_q.setdefault("quiz_web_traites", {})[str(message.id)] = True
     traites.append(str(message.id))
     del traites[:-400]
-    ecrire_json(FICHIER_PIPELINE, donnees_q)
+    if not getattr(message, "tentative_id", None):
+        ecrire_json(FICHIER_PIPELINE, donnees_q)
     reussite = message.content.startswith("QUIZ_OK|")
     morceaux = (message.content.split("|", 4) + ["", "", "", ""])[:5]
     pseudo, score, email_q, tel_q = (m.strip() for m in morceaux[1:5])
