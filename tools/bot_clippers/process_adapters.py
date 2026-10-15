@@ -94,7 +94,11 @@ async def attribuer(membre, creatrice, tous=None, creer=True):
         raise Bloque("Départ enregistré : nouvelle allocation de liens bloquée")
     job = registre.get(key)
     if not creer and job.get('phase') != 'pret':
-        return {'lien': '', 'lid': '', 'lignes': []}
+        # Lecture historique uniquement : aucune adoption, activation ou nouvelle attribution.
+        fiche = (o._lire_etat().get('clippers') or {}).get(uid) or {}
+        return {'lien': fiche.get('lien', ''), 'lid': '',
+                'lignes': ['⚠️ Lien historique conservé ; nouvelle livraison bloquée jusqu’au rapprochement']}
+
     if creer:
         registre.reserve(uid, [])  # historique complet obligatoire, jamais zéro présumé
         job = await process_liens.preparer(registre, uid, creatrice, LiensAPI(uid, tous if tous is not None else await o.lire_comptes()))

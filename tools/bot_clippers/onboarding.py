@@ -626,7 +626,9 @@ async def renommer_compte(uid: str, ancien: str, nouveau: str) -> str:
     ligne = next((c for c in tous if normaliser_handle(c["handle"]).lower() == ancien_n), None)
     if ligne is None:
         return "je ne trouve pas ce compte dans le classeur"
-    process_adapters.store().rename(uid, ancien_n, nouveau_n)
+    registre_process = process_adapters.store()
+    registre_process.observe_alias(uid, ancien_n, "fiche-onboarding-et-ligne-existantes")
+    registre_process.rename(uid, ancien_n, nouveau_n)
     await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(ligne, "handle"), [[nouveau_n]])
     etat = _lire_etat()
     fiche = etat["clippers"].setdefault(str(uid), {})
@@ -1127,6 +1129,10 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     prenom = (str(gerant or "").strip()
               or (membre.display_name.split()[0] if membre.display_name.split() else membre.display_name))
     uid = str(membre.id)
+    try:
+        process_adapters.store().reserve(uid, [])
+    except RuntimeError as erreur:
+        return f"⚠️ {erreur}. Suivi et reporting existants conservés ; aucune nouvelle attribution."
     force = declencheur.startswith("!onboarding")
     fiche0 = _lire_etat()["clippers"].get(uid) or {}
     resultat = []

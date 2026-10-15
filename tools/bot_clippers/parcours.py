@@ -2085,9 +2085,13 @@ async def livrer_app(uid: str, salon=None, membre=None, client=None, forcer: boo
     09/10 : `texte` (le message déjà écrit, mention comprise : la routine) part avec le bouton à la place de TEXTE_APP, en UN message.
     Renvoie « envoye », « deja », « pas_pret », « exclu », « sans_lien », « sans_app » ou « erreur »."""
     uid = str(uid)
-    if _onb(uid).get("sorti") or not _onb(uid).get("liens_prets"):
-        return "sans_lien"
     fiche_p = _lire().get(uid) or {}
+    if _onb(uid).get("sorti"):
+        return "sans_lien"
+    if fiche_p.get("app") and not forcer:
+        return "deja"  # l'app historique continue ; aucune nouvelle livraison
+    if not fiche_p.get("app") and not _onb(uid).get("liens_prets"):
+        return "sans_lien"
     if not forcer:
         if fiche_p.get("app"):
             return "deja"

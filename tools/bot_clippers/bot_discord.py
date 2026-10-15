@@ -225,6 +225,9 @@ EMAIL_FACTURATION = os.environ.get("EMAIL_FACTURATION", "").strip()
 
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
+import process_compat
+process_compat.sauvegarder(DONNEES)
+print("PROCESSUS_20261015 sauvegarde locale prête ; suivi existant maintenu, allocations sous preuves", flush=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
 JOURNAL = DONNEES / "journal_questions.jsonl"
 FICHIER_CONNAISSANCES = DOSSIER / "connaissances.md"          # base curée, versionnée dans le repo
@@ -5348,7 +5351,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     try:
         process_adapters.store().reserve(uid_m, [])
     except RuntimeError as erreur:
-        return "⚠️ " + str(erreur)
+        return "⚠️ " + str(erreur) + ". Suivi et reporting existants conservés ; aucune nouvelle attribution."
     info_process = (lire_json(FICHIER_PIPELINE, {}).get("etats") or {}).get(uid_m) or {}
     if not (info_process.get("score_quiz") and info_process.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
         return "⚠️ Preuve de quiz réussi absente : onboarding en attente"

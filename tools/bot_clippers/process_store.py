@@ -111,6 +111,21 @@ class Store:
             if result.rowcount != 1:
                 raise Bloque('Seule une réservation non créée peut être annulée')
 
+    def observe_alias(self, uid, handle, evidence):
+        """Observation d'un compte existant, pas un historique complet ni une autorisation de créer."""
+        handle = handle.lower().lstrip('@')
+        if not handle or not evidence:
+            raise Bloque('Observation référencée requise')
+        with self.transaction() as db:
+            found = db.execute('SELECT a.uid FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?', (handle,)).fetchone()
+            if found:
+                if found[0] != str(uid):
+                    raise Bloque('Alias déjà attribué à une autre identité')
+                return
+            ident = str(uuid4())
+            db.execute('INSERT INTO accounts VALUES(?,?,?,?)', (ident, str(uid), 'unknown', evidence))
+            db.execute('INSERT INTO aliases VALUES(?,?)', (handle, ident))
+
     def rename(self, uid, old, new):
         with self.transaction() as db:
             found = db.execute('SELECT a.id FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE a.uid=? AND h.handle=?', (str(uid), old.lower().lstrip('@'))).fetchone()

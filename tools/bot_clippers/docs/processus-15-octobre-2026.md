@@ -36,3 +36,15 @@ Le déploiement est autorisé par l'utilisateur, mais la compatibilité des donn
 ## Retour arrière
 
 Conserver une sauvegarde cohérente SQLite et des JSON avant activation. En cas d'incident, suspendre allocations et sorties avant tout retour de code : l'ancien code ignore le registre. Ne jamais restaurer un ancien compteur par-dessus des réservations/créations plus récentes. Préserver les journaux et rapprocher les opérations externes incertaines avant reprise. Aucune migration destructive incluse.
+
+## Activation compatible validée (complément)
+
+Le flux officiel GitHub a été validé par l'utilisateur pour la seule permission supplémentaire `workflow`. Le commit 54ca803 a passé les 175 tests CI Python 3.12. Le lot compatible ajoute cinq tests (180 localement) et remplace le blocage global de déploiement ci-dessus par les restrictions opérationnelles suivantes :
+
+- Suivi existant, scans, reporting et rémunération courante conservés sans import global. Une lecture d'ancien lien ne l'efface jamais. Une app déjà livrée reste reconnue et peut être rappelée ; aucune première livraison n'est autorisée sans les nouveaux contrôles.
+- Un renommage d'un compte déjà lié à l'UID conserve ses alias sous statut inconnu si l'historique est incomplet. Cette observation ne valide jamais l'historique ni une place disponible.
+- Onboarding et nouvelles réservations restent bloqués avec alerte explicite si l'historique est incomplet. Aucun remplacement ni quatrième compte, aucun contournement par le reporting.
+- Corrections des preuves de ban, publications dédupliquées, paliers 4 + 4 et suppression du délai supplémentaire actives. Les anciens parcours privés en deuxième position restent à examiner, sans créer un autre compte.
+- Au démarrage, sauvegarde locale additive des JSON et du registre SQLite éventuel dans `sauvegarde-processus-20261015`, permissions privées, avant les opérations du bot. Le snapshot n'est jamais remplacé. Aucune migration globale ni partage externe.
+
+Accès vérifié : pas de CLI Railway installée, pas de configuration d'authentification CLI locale, pas d'outil SSH/lecture du volume exposé par le connecteur. Aucune nouvelle authentification ou permission Railway demandée. Déployer ce lot n'implique pas que les historiques soient rapprochés ni que le provisionnement réel ait été testé.
