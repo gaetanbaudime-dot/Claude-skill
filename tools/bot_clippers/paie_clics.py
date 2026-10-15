@@ -239,22 +239,40 @@ class ListeGAML(list):
 
 
 async def liens_gaml() -> list:
-    """08/10 (audit : 50 liens renvoyés pile, forfait à 49 actifs) : page 2, 3… tant qu'elles apportent des liens nouveaux.
-    Une API qui ignore `page` renvoie la même liste (rien de neuf : on s'arrête) ; une page refusée arrête la lecture sans
-    perdre la première. 11/10 : la liste dit si elle est complète (ListeGAML.complete)."""
+    """Conserve les pages lues ; seule une page vide prouve la fin de pagination.
+    Une page répétée ou malformée laisse l'inventaire incomplet : son absence ne
+    prouve ni la suppression d'un lien ni la disponibilité d'une capacité.
+    """
     def _lot(r):
-        return r if isinstance(r, list) else ((r or {}).get("member") or (r or {}).get("links") or (r or {}).get("data") or [])
+        lot = r if isinstance(r, list) else None
+        if isinstance(r, dict):
+            for cle in ("member", "hydra:member", "links", "data"):
+                if cle in r:
+                    lot = r[cle]
+                    break
+        if not isinstance(lot, list) or any(
+            not isinstance(lien, dict)
+            or not isinstance(lien.get("id"), (str, int))
+            or isinstance(lien.get("id"), bool)
+            or not str(lien["id"]).strip()
+            for lien in lot
+        ):
+            raise RuntimeError("GAML : inventaire de liens malformé")
+        return list(lot)
     tous = _lot(await _requete("GET", "/links"))
     vus = {l.get("id") for l in tous}
     complete = False
     for page in range(2, 11):
         try:
-            neufs = [l for l in _lot(await _requete("GET", "/links", params={"page": page})) if l.get("id") not in vus]
+            lot = _lot(await _requete("GET", "/links", params={"page": page}))
+            neufs = [l for l in lot if l.get("id") not in vus]
         except RuntimeError as erreur:
             journal.info("Liens GAML : page %s refusée (%s), %s liens lus", page, erreur, len(tous))
             break
-        if not neufs:
+        if not lot:
             complete = True
+            break
+        if not neufs:
             break
         tous += neufs
         vus.update(l.get("id") for l in neufs)
