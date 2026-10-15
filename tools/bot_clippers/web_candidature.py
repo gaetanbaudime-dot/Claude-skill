@@ -1458,8 +1458,17 @@ async def _post_quiz_discord(data, uid, quiz):
         ecrire(fichier, pipe)
     if not tentative.get("terminee"):
         places = await _places_livrables() if r["reussite"] else None
-        await _deps["traiter_quiz_web"](uid, f"{r['score']} / {r['total']}", r["reussite"],
+        resultat = await _deps["traiter_quiz_web"](uid, f"{r['score']} / {r['total']}", r["reussite"],
                                        r["details"], tentative_id=tentative["id"])
+        if resultat not in ("applied", "already_done"):
+            # Le même nonce et le résultat corrigé restent en attente ; aucun faux succès.
+            rep = _page("Quizz en attente", "<h1>Validation en attente</h1>"
+                        "<p>Tes réponses sont conservées. Réessaie dans un instant.</p>"
+                        f"<form method='post' action='/quiz'><input type='hidden' name='t' value='{html.escape(jeton(uid))}'>"
+                        f"<input type='hidden' name='tentative' value='{tentative['id']}'>"
+                        "<button class='b' type='submit'>Réessayer la validation</button></form>")
+            rep.set_status(503)
+            return rep
         # Relire après le callback : ne pas écraser son compteur ou d'autres candidatures.
         frais = lire(fichier, {})
         actuel = _tentative(frais, "t", uid)

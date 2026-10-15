@@ -21,6 +21,7 @@ class QuizTests(unittest.IsolatedAsyncioTestCase):
         def ecrire(f, d): self.data=copy.deepcopy(d)
         async def traiter(uid, score, ok, details, **kw):
             self.data['etats'][uid]={'essais_quiz':self.data['etats'].get(uid,{}).get('essais_quiz',0)+1}
+            return 'applied'
         self.callback=AsyncMock(side_effect=traiter)
         self.patches=[patch.object(w,'_deps',{'lire_json':lire,'ecrire_json':ecrire,'FICHIER_PIPELINE':'fake',
             'essais_quiz':lambda uid:self.data['etats'].get(uid,{}).get('essais_quiz',0),
@@ -79,6 +80,7 @@ class QuizTests(unittest.IsolatedAsyncioTestCase):
         w._quiz_verrous.clear()  # aucune donnée d'idempotence en mémoire
         self.assertEqual(token,self.formulaire('t','42'))
         self.callback.side_effect=None
+        self.callback.return_value='applied'
         with patch.object(w,'noter',side_effect=AssertionError('résultat déjà figé')):
             await self.post_discord(token)
         self.assertTrue(self.data['quiz_tentatives_web']['t:42']['terminee'])
@@ -150,3 +152,52 @@ class BotTentativeTests(unittest.IsolatedAsyncioTestCase):
         for token in ('fictive1','fictive2'):
             await self.ns['traiter_quiz_web'](self.uid,'0 / 1',False,tentative_id=token)
         self.assertEqual(2,self.data['etats'][self.uid]['essais_quiz'])
+    async def test_membre_absent_puis_present_meme_tentative(self):
+        membre=SimpleNamespace(id=int(self.uid))
+        guild=SimpleNamespace(get_member=lambda uid:None,members=[])
+        self.ns['client']=SimpleNamespace(guilds=[guild])
+        self.ns['valider_candidat']=AsyncMock(return_value='ok fictif')
+        self.ns['_VALIDATIONS_EN_COURS']=set()
+        premier=await self.ns['traiter_quiz_web'](self.uid,'1 / 1',True,tentative_id='fictive')
+        self.assertEqual('retryable',premier)
+        self.assertNotIn(f'web:{self.uid}:fictive',self.data.get('quiz_web_traites',{}))
+        self.ns['ligne_quiz_bot'].assert_not_awaited()
+        guild.get_member=lambda uid:membre
+        deuxieme=await self.ns['traiter_quiz_web'](self.uid,'1 / 1',True,tentative_id='fictive')
+        self.assertEqual('applied',deuxieme)
+        self.assertEqual('already_done',await self.ns['traiter_quiz_web'](self.uid,'1 / 1',True,tentative_id='fictive'))
+        self.ns['valider_candidat'].assert_awaited_once()
+    async def test_http_absent_puis_present_validation_une_fois(self):
+        membre=SimpleNamespace(id=int(self.uid))
+        guild=SimpleNamespace(get_member=lambda uid:None,members=[])
+        self.ns['client']=SimpleNamespace(guilds=[guild])
+        self.ns['valider_candidat']=AsyncMock(return_value='ok fictif')
+        self.ns['_VALIDATIONS_EN_COURS']=set()
+        deps=dict(lire_json=self.ns['lire_json'],ecrire_json=self.ns['ecrire_json'],FICHIER_PIPELINE='pipe',
+                  essais_quiz=lambda uid:0,traiter_quiz_web=self.ns['traiter_quiz_web'])
+        with patch.object(w,'_deps',deps),patch.object(w,'_quiz',return_value=QUIZ),patch.object(w,'quiz_seuil_total',return_value=(1,1)),patch.object(w,'jeton',side_effect=lambda x:x),patch.object(w,'verifier_jeton',side_effect=lambda x:x),patch.object(w,'noter',return_value=(1,1,[])) as noter,patch.object(w,'_places_livrables',AsyncMock(return_value=0)):
+            form=w._formulaire_quiz(QUIZ,'t',self.uid,1)
+            token=re.search("name='tentative' value='([^']+)'",form.text).group(1)
+            request=SimpleNamespace(post=AsyncMock(return_value={'t':self.uid,'tentative':token}))
+            a=await w.post_quiz(request)
+            self.assertEqual(503,a.status)
+            self.assertNotIn('Quizz réussi',a.text)
+            self.assertFalse(self.data['quiz_tentatives_web']['t:'+self.uid].get('terminee'))
+            self.assertNotIn(f'web:{self.uid}:{token}',self.data.get('quiz_web_traites',{}))
+            guild.get_member=lambda uid:membre
+            self.assertEqual(200,(await w.post_quiz(request)).status)
+            self.assertEqual(200,(await w.post_quiz(request)).status)
+            self.ns['valider_candidat'].assert_awaited_once()
+            noter.assert_called_once()
+    async def test_validation_partielle_reste_reessayable(self):
+        self.ns['_VALIDATIONS_EN_COURS']=set()
+        self.ns['valider_candidat']=AsyncMock(side_effect=['⚠️ panne fictive','ok fictif'])
+        self.assertEqual('retryable',await self.ns['traiter_quiz_web'](self.uid,'1 / 1',True,tentative_id='fictive'))
+        self.assertNotIn(f'web:{self.uid}:fictive',self.data.get('quiz_web_traites',{}))
+        self.assertEqual('applied',await self.ns['traiter_quiz_web'](self.uid,'1 / 1',True,tentative_id='fictive'))
+    async def test_validation_en_cours_ne_vaut_pas_deja_applique(self):
+        self.ns['_VALIDATIONS_EN_COURS']={self.uid}
+        self.ns['valider_candidat']=AsyncMock(return_value='deja')
+        self.assertEqual('retryable',await self.ns['traiter_quiz_web'](self.uid,'1 / 1',True,tentative_id='fictive'))
+        self.ns['valider_candidat'].assert_not_awaited()
+        self.assertNotIn(f'web:{self.uid}:fictive',self.data.get('quiz_web_traites',{}))
