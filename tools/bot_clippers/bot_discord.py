@@ -225,6 +225,9 @@ EMAIL_FACTURATION = os.environ.get("EMAIL_FACTURATION", "").strip()
 
 DONNEES = Path(os.environ.get("DONNEES_DIR", DOSSIER / "donnees"))
 DONNEES.mkdir(parents=True, exist_ok=True)
+import process_compat
+process_compat.sauvegarder(DONNEES)
+print("PROCESSUS_20261015 sauvegarde locale prête ; suivi existant maintenu, allocations sous preuves", flush=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
 JOURNAL = DONNEES / "journal_questions.jsonl"
 FICHIER_CONNAISSANCES = DOSSIER / "connaissances.md"          # base curée, versionnée dans le repo
@@ -3051,6 +3054,28 @@ async def renommer_salons_perso() -> int:
 
 
 async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, raison: str):
+    import process_adapters
+    store = process_adapters.store()
+    cle = "salon:" + str(membre.id)
+    with store.lock(cle):
+        marqueur = f"clipper-uid:{membre.id}"
+        distants = await guild.fetch_channels()
+        matches = [c for c in distants if marqueur in str(getattr(c, "topic", "") or "")]
+        if len(matches) > 1:
+            return None, False, "plusieurs salons pour cette identité : rapprochement requis"
+        if matches:
+            return matches[0], False, ""
+        job = store.get(cle)
+        if job.get("creation_incertaine"):
+            return None, False, "création de salon incertaine : vérification requise avant tout doublon"
+        store.put(cle, {"creation_incertaine": True})
+        salon, cree, erreur = await _assurer_salon_perso(guild, membre, categorie, prenom_creatrice, raison)
+        if salon is not None:
+            store.put(cle, {"salon_id": str(salon.id)})
+        return salon, cree, erreur
+
+
+async def _assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, raison: str):
     """Le salon nominatif du clipper : trouvé n'importe où sur le serveur (nom = pseudo normalisé), déplacé dans
     `categorie` si elle est donnée, sinon créé (dans `categorie`, ou dans la catégorie Clippers). Privé : lui, le
     rôle Manager, le bot ; les admins voient tout. Renvoie (salon, créé, erreur). Décision du 24/09 : ce salon est
@@ -3064,7 +3089,7 @@ async def assurer_salon_perso(guild, membre, categorie, prenom_creatrice: str, r
         categorie = None
     if categorie is None:
         categorie = (salon.category if salon is not None else None) or await categorie_clippers(guild)
-    sujet = f"Salon de {membre.display_name}" + (f" — créatrice {prenom_creatrice}" if prenom_creatrice else "") + \
+    sujet = f"clipper-uid:{membre.id} · Salon de {membre.display_name}" + (f" — créatrice {prenom_creatrice}" if prenom_creatrice else "") + \
             ". Comptes, lien, clics du matin, paies : tout arrive ici. Codes Instagram : #🔐-code-instagram."   # 01/10 (relecture)
     perms_bot = categorie.permissions_for(guild.me) if categorie is not None else guild.me.guild_permissions
 
@@ -5322,13 +5347,30 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         roster.ajouter(creatrice_c, prenom_de(m_))
         return f"⏭️ {m_.display_name} : pas de salon perso (ancien système, liste `sans_salon` du roster)"
     uid_m = str(m_.id)
+    import process_adapters
+    try:
+        process_adapters.store().reserve(uid_m, [])
+    except RuntimeError as erreur:
+        return "⚠️ " + str(erreur) + ". Suivi et reporting existants conservés ; aucune nouvelle attribution."
+    info_process = (lire_json(FICHIER_PIPELINE, {}).get("etats") or {}).get(uid_m) or {}
+    if not (info_process.get("score_quiz") and info_process.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
+        return "⚠️ Preuve de quiz réussi absente : onboarding en attente"
+    tl_id = equipes_tl.tl_par_va().get(uid_m)
+    tl = membre_par_id(tl_id) if tl_id else None
+    if tl is None:
+        return "⚠️ Team leader non configuré pour cette identité : onboarding en attente"
+    drive = await onboarding.lien_drive_creatrice(creatrice_c)
+    if not drive:
+        return "⚠️ Accès Drive existant non vérifié : onboarding en attente, aucun partage créé"
     nouveau_v = parcours_a_demarrer(uid_m) if nouveau is None else bool(nouveau)   # AVANT l'écriture du registre
     _ONBOARDINGS_EN_COURS.add(uid_m)
     try:
         cat = categorie_de_creatrice(g, creatrice_c)
         salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
-        if salon_c is None:
+        if salon_c is None or err_c:
             return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
+        await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
+                                      reason="Team leader configuré du clippeur")
         prenom_c = prenom_distinct(m_, nouveau_v)
         renomme = normaliser(prenom_c) != normaliser(prenom_de(m_))         # avant l'edit : discord.py ne met pas m_ à jour tout de suite
         registre_se = lire_json(FICHIER_EQUIPES, {})
@@ -5341,10 +5383,6 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         if prenom_c and renomme:
             fiche_c["prenom_distinct"] = prenom_c                       # 10/10 : le prénom distinct d'un homonyme, gardé
         ecrire_json(FICHIER_EQUIPES, registre_se)
-        try:                                                            # 10/10 : une créatrice reçue clôt l'attente, d'où qu'elle vienne
-            attribution._sortir_d_attente(uid_m)
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.info("Fin d'attente de %s : %s", uid_m, erreur)
         extras = []
         pseudo_cible = f"{prenom_c} - {creatrice_c}"[:32]                # 26/09 (Gaëtan) : « PRENOM - CREATRICE »
         if m_.display_name != pseudo_cible:
@@ -5358,17 +5396,20 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         if not any(normaliser(n) in normaliser(r.name) for r in m_.roles for n in NOMS_RANGS):
             # 09/10 : l'équipe vient de la fiche ou de la liaison (indicatif, pays), plus jamais « mg » par défaut
             role_eq = await poser_role_equipe(g, m_, fiche_c.get("equipe") or equipe_deduite(m_.id)[0], par_id)
+            if role_eq and ("refusé" in role_eq or "aucun rôle" in role_eq):
+                return "⚠️ " + role_eq + " : parcours non livré, reprise nécessaire"
             if role_eq:
                 extras.append(role_eq)
         role_c = role_creatrice(g, creatrice_c)
         if role_c is None:                                              # 30/09 : plus jamais silencieux
-            extras.append(f"⚠️ aucun rôle « {creatrice_c} » sur le serveur")
+            return f"⚠️ aucun rôle « {creatrice_c} » sur le serveur : reprise nécessaire"
         elif role_c not in m_.roles:
             try:
                 await m_.add_roles(role_c, reason=f"Clipper de {creatrice_c} ({par_nom})")
                 extras.append(f"rôle {role_c.name}")
             except (discord.Forbidden, discord.HTTPException):
-                extras.append(f"⚠️ rôle {role_c.name} refusé (le rôle du bot doit être AU-DESSUS de « {role_c.name} »)")
+                return "⚠️ rôle créatrice refusé : parcours non livré, reprise nécessaire"
+        attribution._sortir_d_attente(uid_m)
         roster.ajouter(creatrice_c, prenom_c)
         try:
             bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=declencheur or f"!salons-equipe par {par_id}",
@@ -5417,7 +5458,7 @@ async def rattraper_parcours_non_demarres(maintenant=None) -> list:
         if 0 <= _age_heures(fiche.get("creatrice_date"), maintenant) < RATTRAPAGE_PARCOURS_MIN / 60:
             continue                                                    # posée à l'instant : un onboarding tourne peut-être ailleurs
         t_u = trace.get(str(uid)) or {}
-        if int(t_u.get("essais", 0) or 0) >= 3 or 0 <= _age_heures(t_u.get("date"), maintenant) < 1:
+        if 0 <= _age_heures(t_u.get("date"), maintenant) < 1:
             continue
         membre = membre_par_id(uid)
         if membre is None or getattr(membre, "bot", False) or est_staff(membre):
@@ -5631,9 +5672,9 @@ async def onboarder_multi(prenom: str, creatrices: list, nouveau: bool = False, 
                     # (sinon une réservation en même temps pouvait prendre la même ligne libre)
                     async with onboarding._verrou_lignes():
                         tous_v = await onboarding.lire_comptes()
-                        nouveaux_a = onboarding.disponibles(tous_v, autre, onboarding.COMPTES_PAR_CLIPPER - len(comptes_a))
+                        nouveaux_a = onboarding.disponibles(tous_v, autre, onboarding.COMPTES_PAR_CLIPPER - len(comptes_a), uid)
                         if nouveaux_a:
-                            await onboarding.reserver(nouveaux_a, gerant_o)
+                            await onboarding.reserver(nouveaux_a, gerant_o, uid)
                     comptes_a += nouveaux_a
                 bilan_a.append(f"{len(comptes_a)} compte(s)")
             except Exception as erreur:                                     # noqa: BLE001
@@ -6153,16 +6194,9 @@ def comptes_de_uid(uid: str) -> set:
 
 async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expulser: bool = False, message: str = "",
                         dus: bool = False) -> dict:
-    """La sortie d'équipe (corps de `!sortie`, factorisé le 28/09 pour la sortie automatique) : rôles et accès retirés, pipeline
-    en « sorti », classeur rendu (pool=True : les comptes créés restent dans le vivier et le lien GAML est libéré pour le suivant),
-    registre → sortis.json, roster, messages au membre, au manager et à Telegram. `par` = le membre qui commande, None = automatique.
-    05/10 (Gaëtan : « virer et expulser ceux qui ne foutent rien ») : `expulser=True` → le message part AVANT le retrait des accès,
-    le salon perso est supprimé, la fiche de parcours oubliée, et le membre est expulsé du serveur (kick). Renvoie
-    {"roles", "acces", "comptes", "liens", "refus", "expulse"}.
-    09/10 (Gaëtan : « On vire Tara ») : `message` = le texte du MP d'expulsion à la place de celui bâti sur la raison (une sortie
-    déposée porte une note interne, jamais montrée au membre). `dus=True` (sorties déposées seulement) : avec pool, ses liens sont
-    libérés par son uid et ses visites d'avant la sortie restent sur la paie ; sans (purges de l'appel et de la sortie auto),
-    rien ne change, en attendant que Gaëtan tranche s'il paie les purgés."""
+    """Départ explicite : archivage X vérifié, préparation Metricool, retrait Discord.
+    Historique et salon conservés ; aucun compte ou lien réattribué. Reprise par UID.
+    """
     # Security invariant: scheduled routines must never strip roles, release IG accounts,
     # transfer GAML links or kick a clipper without an explicit operator decision.
     # 'dus=True' is reserved for the existing human-approved roster departure workflow.
@@ -6170,201 +6204,33 @@ async def sortir_membre(membre, raison: str, par=None, pool: bool = False, expul
         journal.warning("Sortie automatique BLOQUEE, revue humaine requise (uid=%s)", getattr(membre, "id", "?"))
         return {"roles": 0, "acces": 0, "comptes": 0, "liens": 0,
                 "refus": ["sortie automatique bloquee : validation humaine requise"], "expulse": False}
-    g = membre.guild
-    nom_par = getattr(par, "display_name", "le bot (automatique)")
-    par_id = str(getattr(par, "id", "auto"))
-    raison = raison.strip(" []").strip() or "non précisée"
-    # 09/10 (revue CLICS) : plus aucune lecture GAML avant les gestes. Avant, une panne GAML annulait toute la sortie (rôles et accès
-    # gardés) ; les notes ne sont plus lues qu'à l'étape des liens, quand elles servent, et jamais pour bloquer (voir plus bas).
-    salon_p = salon_perso_de(membre.id) if expulser else None         # trouvé AVANT le retrait des accès (après, il est invisible)
-    prevenu = True
-    if expulser:                                                        # le message avant tout : après le kick, plus aucun canal
-        # 08/10 (audit) : en MP direct. envoyer_mp le déposait dans le salon perso, supprimé quelques secondes plus tard : l'expulsé
-        # ne savait ni pourquoi il sortait ni comment revenir. MP fermés → « non prévenu » dans la ligne admin.
-        # 09/10 : sans pool (comptes créés partis sur Metricool), « tes comptes vont au suivant » était faux
-        try:
-            await membre.send(message or ("🚪 " + raison[0].upper() + raison[1:] + ". Tu sors du serveur"
-                                          + (" : ta place, tes comptes et ton lien vont au suivant" if pool else "") + ".\n\n"
-                                          "Tu veux revenir plus tard ? Écris à Gaëtan."), view=vue_whatsapp())
-        except Exception as erreur:                                     # noqa: BLE001
-            prevenu = False
-            journal.info("Message de sortie à %s : %s", membre.id, erreur)
-    # 1. Rôles : Team, rangs.
-    a_retirer = [r for r in (role_team(g, "fr"), role_team(g, "mg")) if r is not None and r in membre.roles]
-    for nom_r in NOMS_RANGS:
-        r_ = discord.utils.find(lambda x: normaliser(nom_r) in normaliser(x.name), g.roles)
-        if r_ is not None and r_ in membre.roles and r_ not in a_retirer:
-            a_retirer.append(r_)
-    for r_ in roles_creatrices(g):                                  # 25/09 : le rôle de sa créatrice aussi
-        if r_ in membre.roles and r_ not in a_retirer:
-            a_retirer.append(r_)
-    refus_s = []
-    if a_retirer:
-        try:
-            await membre.remove_roles(*a_retirer, reason=f"!sortie par {nom_par} — {raison}")
-        except (discord.Forbidden, discord.HTTPException) as erreur:
-            refus_s.append(f"rôles ({type(erreur).__name__})")
-    # 2. Accès nominatifs (salon perso, salons de créatrice ouverts par !creatrice).
-    fermes = []
-    for c in g.channels:
-        if membre in c.overwrites:
-            try:
-                await c.set_permissions(membre, overwrite=None, reason=f"!sortie — {raison}")
-                fermes.append(c.name)
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                refus_s.append(f"#{c.name} ({type(erreur).__name__})")
-    # 3. Pipeline : état « sorti » + STOP partout (plus aucune relance).
-    pipe_s = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
-    uid_s = str(membre.id)
-    info_s = pipe_s.setdefault("etats", {}).setdefault(uid_s, {})
-    info_s["etat"] = "sorti"
-    info_s["sortie"] = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                        "par": par_id, "raison": raison}
-    info_s.setdefault("relances", {})["stop"] = True
-    for sec in ("arrivees", "liaisons"):
-        if uid_s in pipe_s.get(sec, {}):
-            pipe_s[sec][uid_s]["stop"] = True
-    ecrire_json(FICHIER_PIPELINE, pipe_s)
-    # 3b. Classeur des logins : ses comptes rendus (Gérant vidé, créés → « à mettre Metricool »). 24/09 : sans
-    #     cette étape, le prochain clipper du même prénom hérite de ses comptes (Eddy). Avant le retrait du
-    #     registre, pour vérifier que le prénom ne désigne que lui.
-    libere_s = []
-    # revue CLICS du 09/10 : ses comptes connus par son IDENTIFIANT (fiche d'onboarding, livraisons), lus avant `liberer` qui les efface
-    comptes_uid = comptes_de_uid(uid_s) if (not pool and onboarding.actif()) else set()
-    crees_s = 0
-    if onboarding.actif():
-        prenom_s = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
-        if membre_par_prenom(normaliser(prenom_s)) == membre:
-            try:
-                libere_s = [b for b in await onboarding.liberer(prenom_s, pool=pool) if b.startswith("·")]
-            except Exception as erreur:
-                refus_s.append(f"classeur ({type(erreur).__name__})")
-        else:
-            refus_s.append(f"classeur non touché (prénom {prenom_s} partagé : `!liberer {prenom_s} <handles>`)")
-        crees_s = sum(1 for b in libere_s if onboarding.MENTION_LIBERE in b)
-    if not pool and not crees_s and comptes_uid:
-        # ses comptes sous un Gérant écrit autrement, ou classeur non touché (homonyme) : leur état lu au classeur ; illisible → on
-        # les tient pour créés (un lien passé à tort chez le repreneur coûte moins qu'un lien redonné avec le trafic de ses comptes)
-        try:
-            crees_s = sum(1 for c in await onboarding.lire_comptes()
-                          if onboarding.normaliser_handle(c.get("handle")).lower() in comptes_uid
-                          and normaliser(c.get("etat")) not in onboarding.A_CREER)
-        except Exception as erreur:                                     # noqa: BLE001
-            crees_s = len(comptes_uid)
-            refus_s.append(f"classeur illisible ({type(erreur).__name__}) : ses comptes tenus pour créés")
-    n_liens, repris_s = 0, []
-    if paie_clics.actif():                                              # 28/09 : son lien GAML reste à la créatrice, pour le suivant
-        # 13/10 (Gaëtan : « les comptes déjà lancés, on les met sur Metricool ») : un départ (pool) avec des comptes créés envoie
-        # aussi ses liens chez le repreneur Metricool avec ses comptes ; seul un départ sans compte créé libère ses liens
-        if pool and not crees_s:
-            # 09/10 (sorties déposées, Gaëtan : « On vire Tara ») : `dus=True` → par `liberer_sortant`, comme `!sortie` sans compte
-            # créé — par uid seulement (jamais un lien « Clipping Prénom » d'un homonyme), et ses visites d'avant la sortie restent
-            # sur la liste de paie. Revue L9 : les purges (appel.py, sortie_auto.py) gardent `liberer_liens` (uid vidé sans « dus »,
-            # liens « Clipping Prénom » sans clipper libérés par leur note), tant que Gaëtan n'a pas dit s'il paie les purgés.
-            async with paie_clics.verrou_liens:
-                d_l = paie_clics._lire()
-                n_liens = len(paie_clics.liberer_sortant(d_l, uid_s, prenom_de(membre)) if dus
-                              else paie_clics.liberer_liens(d_l, uid_s, prenom_de(membre)))
-                if n_liens:
-                    paie_clics._ecrire(d_l)
-        elif crees_s:
-            # revue CLICS du 09/10 : ses comptes créés partent sur Metricool (« à mettre Metricool ») en gardant son lien en bio :
-            # ses liens les suivent chez le repreneur, exactement comme `!monteur` (« Rianah Metricool N (ex-Prénom) », hors
-            # clipping, jamais redonnés) ; ses visites d'avant la sortie restent sur la liste de paie s'il était au clic (`dus`).
-            # Avant : libérés, le clipper suivant de la créatrice était payé pour le trafic de ces comptes.
-            # Revue CLICS du 09/10 : les notes GAML de ses liens lues ici seulement ; GAML illisible → la sortie se fait quand même,
-            # ses liens partent chez le repreneur avec la note en attente (posée par la passe horaire, jamais redonnés entre-temps).
-            vivants_s, pb = await notes_gaml_de(uid_s)
-            if pb:
-                refus_s.append(f"{pb} : notes des liens à poser à la passe horaire")
-            res_l = await paie_clics.passer_liens_metricool(uid_s, prenom_de(membre), REPRENEUR_METRICOOL, vivants_s, dus=dus or not pool,
-                                                            notes_lues=not pb)
-            n_liens, repris_s = len(res_l["liberes"]), res_l["repris"]
-            refus_s += res_l["refus"]
-        else:
-            # 09/10 (dashboard) : `!sortie` manuel d'un clipper SANS compte créé : ses liens sont libérés pour le suivant, par uid
-            # seulement (avant : lien d'un parti, jamais redonné ni ménagé) ; ses visites d'avant la sortie restent sur la liste de
-            # paie (registre encore lu ici, retiré plus bas)
-            async with paie_clics.verrou_liens:
-                d_l = paie_clics._lire()
-                libres_s = paie_clics.liberer_sortant(d_l, uid_s, prenom_de(membre))
-                if libres_s:
-                    paie_clics._ecrire(d_l)
-            n_liens = len(libres_s)
-            if libres_s:                                                # « Clipping libre (ex-Prénom) » : jamais à un homonyme
-                # revue CLICS du 09/10 : sans lire la liste GAML (une panne n'arrête plus rien) ; renommer_liberes relit la note de
-                # chaque lien dans GAML avant de la changer ; GAML illisible → renommées à la passe horaire
-                try:
-                    await paie_clics.renommer_liberes([{"id": lid, "note": str(d_l["liens"][lid].get("note") or "")} for lid in libres_s],
-                                                      seulement=set(libres_s))
-                except Exception as erreur:                             # noqa: BLE001
-                    refus_s.append(f"notes des liens libérés ({type(erreur).__name__}) : renommées au prochain passage")
-    # 4. Registre : la fiche part dans sortis.json (trace), plus dans equipes.json (digest, primes).
-    registre_s = lire_json(FICHIER_EQUIPES, {})
-    fiche_s = registre_s.pop(uid_s, None) or {}
-    ecrire_json(FICHIER_EQUIPES, registre_s)
-    sortis = lire_json(FICHIER_SORTIS, [])
-    try:                                                                # 08/10 (critique de l'audit) : où il a décroché, gardé
-        fiche_p_s = dict(parcours._lire().get(uid_s) or {})            # avant que `oublier` efface la fiche (l'entonnoir par étape)
-        trace_p = {k: fiche_p_s[k] for k in ("etape", "dates", "whatsapp", "app", "warmup_jour") if k in fiche_p_s}
-    except Exception:                                                   # noqa: BLE001
-        trace_p = {}
-    sortis.append({"uid": uid_s, "nom": membre.display_name, "equipe": fiche_s.get("equipe", ""),
-                   "creatrice": fiche_s.get("creatrice", ""), "date": info_s["sortie"]["date"],
-                   "par": par_id, "raison": raison, "signe_le": str(fiche_s.get("date", ""))[:10], "parcours": trace_p})
-    ecrire_json(FICHIER_SORTIS, sortis[-500:])
-    autre_r = membre_par_prenom(normaliser(prenom_de(membre)))          # 08/10 (deux « Andry ») : le roster est par prénom
-    if autre_r is None or autre_r == membre:
-        roster.retirer(prenom_de(membre))                               # 26/09 : le roster (`!actifs`, liens suivis) suit
-        # 09/10 (revue L9) : tout est fait ici, le balayage du démarrage suivant ne rejoue pas cette sortie par le prénom (il
-        # prenait la fiche, l'état et les rôles d'un nouveau signé du même prénom)
-        roster.marquer_traite(prenom_de(membre))
-    else:
-        refus_s.append(f"roster non touché (un autre {prenom_de(membre)} est signé)")
-    # 5. Le membre, le manager, l'admin, Telegram.
-    expulse = False
-    if expulser:                                                        # 05/10 : salon supprimé, parcours oublié, expulsé
-        try:
-            parcours.oublier(uid_s)
-        except Exception:                                               # noqa: BLE001
-            pass
-        if salon_p is not None:
-            try:
-                await salon_p.delete(reason=f"Sortie — {raison}")
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                refus_s.append(f"salon perso non supprimé ({type(erreur).__name__})")
-        _EXPULSES[uid_s] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        try:
-            await membre.kick(reason=f"{raison} (par {nom_par})"[:500])
-            expulse = True
-        except (discord.Forbidden, discord.HTTPException) as erreur:
-            refus_s.append(f"expulsion refusée ({type(erreur).__name__} : « Expulser des membres » au bot, rôle au-dessus de Clippeur)")
-            _EXPULSES.pop(uid_s, None)
-    elif pool:
-        await envoyer_mp(membre, "🚪 " + raison[0].upper() + raison[1:] + ". Je libère ta place : tes comptes et ton lien vont au suivant.\n\n"
-                                 "Tu veux revenir ? Écris à Gaëtan.", view=vue_whatsapp())
-    else:
-        await envoyer_mp(membre,
-            "🚪 **Ta collaboration avec l'équipe s'arrête ici.** Raison : " + raison + ".\n"
-            "Tes accès aux salons de l'équipe sont retirés. Si tu as un téléphone ou des comptes fournis par "
-            "l'agence, ton manager te contacte pour la restitution ; ce qui t'est dû est réglé au prochain "
-            "décompte. Merci pour le temps donné, et bonne route.")
-    await notifier_manager(
-        f"🚪 **{membre.display_name}** (<@{uid_s}>) **sorti de l'équipe** (par {nom_par}) — {raison}" + (" · **expulsé du serveur**" if expulse else "")
-        + ("" if prevenu else " · ⚠️ non prévenu (MP fermés) : préviens-le sur WhatsApp") + "\n"
-        f"Rôles retirés : {', '.join(r.name for r in a_retirer) or 'aucun'} · accès fermés : {len(fermes)} salon(s)"
-        f" · comptes du classeur rendus : {len(libere_s)}"
-        + (f" · ⚠️ refus : {', '.join(refus_s)}" if refus_s else "") + "\n"
-        + ("\n".join(libere_s) + "\n" if libere_s else "")
-        + (f"🔁 Ses liens suivent ses comptes créés chez {REPRENEUR_METRICOOL} (hors clipping) : {' · '.join(repris_s)}\n" if repris_s else "")
-        + (f"🔓 Liens libérés pour le suivant de la créatrice : {n_liens}\n" if n_liens else "")
-        + "→ À faire à la main : " + ("" if libere_s or not onboarding.actif() else "Sheet (ses comptes en « à réattribuer »), ")
-        + "mots de passe des comptes changés (téléphone cloud à récupérer s'il y en a un), "
-        + ("" if (n_liens or repris_s) else "lien GAML à vérifier, ") + "dernier décompte.", g)
-    await telegram.envoyer_telegram(f"🚪 Sortie d'équipe : {membre.display_name} — {raison}")
-    journal.info("Sortie d'équipe : %s par %s (%s)%s", membre.id, par_id, raison, ", expulsé" if expulse else "")
-    return {"roles": len(a_retirer), "acces": len(fermes), "comptes": len(libere_s), "liens": n_liens, "repris": len(repris_s),
-            "refus": refus_s, "expulse": expulse}
+    import process_adapters
+    import process_liens
+    uid = str(membre.id)
+    try:
+        resultat = await process_liens.depart(process_adapters.store(), uid,
+            process_adapters.DepartAPI(membre, raison, expulser=expulser,
+                expulsion_trace=lambda ok: _EXPULSES.__setitem__(uid, datetime.now(timezone.utc).isoformat()) if ok else _EXPULSES.pop(uid, None),
+                roles_retirer=[r for r in membre.roles if r in roles_creatrices(membre.guild)
+                              or r in (role_team(membre.guild, "fr"), role_team(membre.guild, "mg"))
+                              or any(normaliser(n) in normaliser(r.name) for n in NOMS_RANGS)]))
+    except RuntimeError as erreur:
+        return {"roles": 0, "acces": 0, "comptes": 0, "liens": 0,
+                "refus": [str(erreur)], "expulse": False}
+    pipe = lire_json(FICHIER_PIPELINE, {"etats": {}})
+    info = pipe.setdefault("etats", {}).setdefault(uid, {})
+    info["etat"] = "sorti"
+    info.setdefault("relances", {})["stop"] = True
+    ecrire_json(FICHIER_PIPELINE, pipe)
+    equipes = lire_json(FICHIER_EQUIPES, {})
+    if uid in equipes:
+        fiche_archivee = equipes[uid]
+        process_adapters.store().put("equipe-sortie:" + uid, fiche_archivee)
+        equipes.pop(uid)
+        ecrire_json(FICHIER_EQUIPES, equipes)
+    return {"roles": 0, "acces": 0, "comptes": 0, "liens": len(resultat.get("liens") or []),
+            "refus": [], "expulse": bool(expulser and resultat.get("exclu"))}
+
 
 
 def _clipper_sortable(m, registre: dict) -> bool:
@@ -9430,7 +9296,7 @@ async def ouvrir_drives_salons_info() -> int:
                 journal.info("Salon info %s illisible : %s", salon.name, erreur)
     nouveaux, refuses, deja_publics = [], [], []
     for fid in sorted(trouves - ouverts):
-        if await google_api.drive_partager_public(fid):
+        if any(p.get("type") == "anyone" for p in await google_api.drive_partages(fid)):
             nouveaux.append(fid)
             continue
         try:                                                            # refusé, mais Gaëtan l'a ouvert lui-même : il compte

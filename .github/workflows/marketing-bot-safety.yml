@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install bot dependencies
+        run: python -m pip install -r tools/bot_clippers/requirements.txt
       - name: Validate Python syntax and non-destructive exit safeguards
         working-directory: tools/bot_clippers
         run: python -m unittest discover -s tests -p "test_*.py" -v

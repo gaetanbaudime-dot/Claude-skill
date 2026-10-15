@@ -79,10 +79,6 @@ def configurer(deps: dict):
     30/09 : un ordre posé par `!attribution` (clé « ordre_force » de l'état) prime sur ATTRIBUTION_ORDRE, redémarrages compris."""
     _deps.update(deps)
     e = _etat()
-    if e.get("decision_ordre") != DECISION_ORDRE and os.environ.get("ATTRIBUTION_DECISION", "1").strip() != "0":                       # 14/10 : la décision de Gaëtan, une fois, puis `!attribution` reprend la main
-        e["ordre_force"], e["decision_ordre"] = ORDRE_DECISION, DECISION_ORDRE
-        _ecrire(e)
-        journal.info("Attribution : ordre du %s appliqué (%s)", DECISION_ORDRE, ORDRE_DECISION)
     force = (_etat().get("ordre_force") or "").strip()
     if force:
         definir_ordre(force)

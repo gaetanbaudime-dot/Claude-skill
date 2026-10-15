@@ -21,6 +21,8 @@ Le module ne connaît pas bot_discord : dépendances dans `demarrer(deps)`.
 """
 
 import asyncio
+import process_clippeur
+import process_adapters
 import json
 import logging
 import os
@@ -49,7 +51,7 @@ CACHE_ONGLETS_SEC = 600                                                  # la li
 _onglets_cache = {"quand": 0.0, "titres": []}
 _colonnes_par_onglet = {}
 _doublons_vus = set()
-COMPTES_PAR_CLIPPER = int(os.environ.get("COMPTES_PAR_CLIPPER", "3") or 3)
+COMPTES_PAR_CLIPPER = 3
 GERANTS_LIBRES = {"", "x", "y", "z", "aaa", "?", "-", "libre", "dispo"}
 ETATS_DISPONIBLES = {"a creer", "à créer", "good", "warmup", "warm-up", "prive", "privé", "actif", "ok"}
 COL_DEFAUT = {"etat": 0, "handle": 1, "mdp": 2, "followers": 3, "mail": 4, "phone": 5, "gerant": 6, "utilisation": 7, "numero": 8, "creatrice": 9}
@@ -144,7 +146,7 @@ def _onglet_par_defaut() -> str:
 RE_PRIVE = re.compile(r"priv|secret|onlyme|perso")                 # handle d'un compte privé (le 3e du trio)
 JOURS_NOUVEAU = int(os.environ.get("ONBOARDING_JOURS_NOUVEAU", "45") or 45)   # un membre arrivé depuis moins longtemps est « nouveau »
 A_CREER = ("a creer", "à créer")
-COMPTES_RENDUS = os.environ.get("COMPTES_RENDUS", "0").strip() == "1"   # 12/10 : comptes neufs seulement (voir disponibles)
+COMPTES_RENDUS = False   # 12/10 : comptes neufs seulement (voir disponibles)
 MENTION_LIBERE = "à mettre Metricool"                              # Utilisation d'un compte créé rendu par un clipper parti
 # 13/10 (Gaëtan : « Stéphane est viré, donne ses comptes à Rianah Metricool s'ils ne sont pas BAN ») : un compte créé et vivant
 # d'un clipper sorti passe directement à Rianah Metricool (Gérant et Utilisation), un BAN reste hors jeu (Gérant vidé).
@@ -211,6 +213,15 @@ def _lire_etat() -> dict:
 
 
 def _ecrire_etat(d: dict):
+    actuel = _deps["lire_json"](_deps["FICHIER_ONBOARDING"], {})
+    for uid, entrees in actuel.get("comptes_a_vie", {}).items():
+        cible = d.setdefault("comptes_a_vie", {}).setdefault(uid, [])
+        for entree in entrees:
+            existante = next((c for c in cible if c["id"] == entree["id"]), None)
+            if existante:
+                existante["aliases"] = sorted(set(existante["aliases"]) | set(entree["aliases"]))
+            else:
+                cible.append(entree)
     _deps["ecrire_json"](_deps["FICHIER_ONBOARDING"], d)
 
 
@@ -518,7 +529,7 @@ def infos_d_un_ban(c: dict, brulees: dict) -> list:
     return [k for k, v in _cles_infos(c).items() if v and v in brulees.get(k, ())]
 
 
-def disponibles(comptes: list, creatrice: str, n: int) -> list:
+def disponibles(comptes: list, creatrice: str, n: int, uid: str = "") -> list:
     """Lignes libres pour cette créatrice : Utilisation = Clipper, Gérant libre, état utilisable, handle présent.
     Les comptes déjà créés (GOOD, WARMUP, PRIVÉ, ACTIF) passent avant ceux « à créer ». Le trio livré fait
     n-1 comptes de croissance + 1 compte privé quand le classeur en a un (24/09 : avant, le « privé » annoncé
@@ -526,6 +537,11 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     libres = [c for c in comptes if _norm(c["utilisation"]) == "clipper" and _norm(c["gerant"]) in GERANTS_LIBRES
               and _norm(c["etat"]) in ETATS_DISPONIBLES and c["handle"] and _pour_creatrice(c, creatrice)
               and (c.get("mail") or _norm(c["etat"]) not in A_CREER)]        # 25/09 : un compte à créer sans e-mail est inutilisable
+    proprietaires = _proprietaires()
+    registre = process_adapters.store()
+    libres = [c for c in libres
+              if not ((proprietaires.get(_cle_handle(c["handle"])) or set()) - {str(uid)})
+              and registre.owner_for_handle(c["handle"]) in (None, str(uid))]
     brulees = infos_brulees(comptes)                                    # 30/09 : jamais un compte qui partage une info d'un BAN
     libres = [c for c in libres if not infos_d_un_ban(c, brulees)]
     if not COMPTES_RENDUS:
@@ -539,7 +555,7 @@ def disponibles(comptes: list, creatrice: str, n: int) -> list:
     if rendus:
         choix = rendus[:n]
         if len(choix) < n:
-            choix += disponibles([c for c in comptes if c not in rendus], creatrice, n - len(choix))
+            choix += disponibles([c for c in comptes if c not in rendus], creatrice, n - len(choix), uid)
         return choix
     # 26/09 (Gaëtan) : « un nouveau = 3 nouveaux comptes et mails, dans les nouveaux PODs ». Le POD le plus bas où la
     # créatrice a n lignes « à créer » libres avec e-mail gagne.
@@ -610,9 +626,16 @@ async def renommer_compte(uid: str, ancien: str, nouveau: str) -> str:
     ligne = next((c for c in tous if normaliser_handle(c["handle"]).lower() == ancien_n), None)
     if ligne is None:
         return "je ne trouve pas ce compte dans le classeur"
+    registre_process = process_adapters.store()
+    registre_process.observe_alias(uid, ancien_n, "fiche-onboarding-et-ligne-existantes")
+    registre_process.rename(uid, ancien_n, nouveau_n)
     await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(ligne, "handle"), [[nouveau_n]])
     etat = _lire_etat()
     fiche = etat["clippers"].setdefault(str(uid), {})
+    identites = process_clippeur.registre(etat, str(uid))
+    for identite in identites:
+        if ancien_n in identite["aliases"] and nouveau_n not in identite["aliases"]:
+            identite["aliases"].append(nouveau_n)
     fiche["comptes"] = [nouveau_n if normaliser_handle(h).lower() == ancien_n else h for h in fiche.get("comptes", [])]
     for a in fiche.get("acces") or []:
         if isinstance(a, dict) and normaliser_handle(a.get("handle")).lower() == ancien_n:
@@ -664,8 +687,14 @@ def _ecarte_pour(etat: dict, c: dict, uid: str) -> bool:
     return etat.get("ecartes", {}).get(c["handle"].lower(), {}).get("uid") == str(uid)
 
 
-async def reserver(comptes: list, prenom_clipper: str) -> int:
+async def reserver(comptes: list, prenom_clipper: str, uid: str = "") -> int:
     """Écrit le prénom du clipper dans la colonne Gérant de chaque ligne. Renvoie le nombre de cellules écrites."""
+    if not uid:
+        raise RuntimeError("Identité Discord stable requise pour réserver")
+    proprietaires = _proprietaires()
+    if any((proprietaires.get(_cle_handle(c["handle"])) or set()) - {str(uid)} for c in comptes):
+        raise RuntimeError("Compte déjà attribué : aucune réattribution")
+    process_adapters.store().reserve(uid, [c["handle"] for c in comptes])
     n = 0
     for c in comptes:
         n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[prenom_clipper]])
@@ -742,7 +771,7 @@ async def ouvrir_sources_par_lien() -> int:
     for cfg in _sources().values():
         for src in (cfg or {}).get("sources", []):
             sid = src.get("id") if isinstance(src, dict) else src
-            if sid and sid not in _sources_publiques and await google_api.drive_partager_public(sid):
+            if sid and sid not in _sources_publiques and await _ouvert_par_lien(sid):
                 _sources_publiques.add(sid)
                 n += 1
     journal.info("Sources Drive ouvertes par le lien : %d", n)
@@ -795,9 +824,6 @@ async def _ouvert_par_lien(fid: str) -> bool:
     """Le dossier se lit sans compte Google : ouvert par le bot (une fois par démarrage), ou déjà « toute personne ayant le lien »."""
     if fid in _sources_publiques:
         return True
-    if await google_api.drive_partager_public(fid):
-        _sources_publiques.add(fid)
-        return True
     try:
         return any(p.get("type") == "anyone" for p in await google_api.drive_partages(fid))
     except RuntimeError:
@@ -814,7 +840,9 @@ async def lien_drive_creatrice(creatrice: str) -> str:
         return ""
     lien = drive_du_salon_info(creatrice)
     if lien:
-        return lien
+        ident = RE_ID_DOSSIER.search(lien)
+        if ident and await _ouvert_par_lien(ident.group(1)):
+            return lien
     cache = _drive_creatrice_cache.get(cle)
     # un échec (Drive injoignable, dossier absent) n'est gardé que 15 min : le lien revient vite au message suivant
     if cache and time.time() - cache[0] < (DRIVE_CREATRICE_TTL if cache[1] else 900):
@@ -1075,122 +1103,8 @@ async def reservations_expirees(historique: dict, maintenant=None) -> list:
 
 # ------------------------------------------------------------------ livraison
 async def attribuer_lien(membre, creatrice: str, tous: list = None, comptes: list = None, creer: bool = True) -> dict:
-    """Le lien GAML du clipper : celui déjà à lui (paie_clics), sinon — seulement si `creer` — le lien libéré d'un sortant de la
-    même créatrice, sinon un lien « Clipping Prénom » déjà dans GAML, sinon un clone du modèle de la créatrice (27/09 : « tu
-    dupliques celui d'avant ») ; puis la carte « Plateforme privée » reçoit le tracking OnlyFans du POD (si `comptes`).
-    05/10 (Gaëtan : « le lien que pour le troisième compte ») : appelée avec creer=True par le parcours à l'ouverture de
-    l'étape 3, et avec creer=False par `livrer` (rappel d'un lien existant seulement). Écrit `fiche["lien"]` dans onboarding.json.
-    Renvoie {"lien", "lid", "lignes"} (lignes = bilan pour l'admin)."""
-    prenom = membre.display_name.split()[0] if membre.display_name.split() else membre.display_name
-    if tous is None and actif():
-        try:
-            tous = await lire_comptes()
-        except RuntimeError:
-            tous = []
-    tous = tous or []
-    if comptes is None:
-        handles = {str(h).lower() for h in (_lire_etat()["clippers"].get(str(membre.id)) or {}).get("comptes", [])}
-        comptes = [c for c in tous if c.get("handle") and c["handle"].lower() in handles]
-    lien, lid = "", ""
-    resultat = []
-    try:
-        d = paie_clics._lire() if paie_clics.actif() else {"liens": {}}
-        lids = paie_clics.liens_de(d, str(membre.id))
-        # 07/10 (Rianah sur Chloé et Sarah, avec ses liens Sophie) : le lien de CETTE créatrice ; un lien sans créatrice notée garde
-        # l'ancien comportement ; si tous ses liens sont à d'autres créatrices, on passe à la reprise ou au clone.
-        cr_n = (_norm(creatrice).split() or [""])[0]
-        lids_c = [l for l in lids if (_norm(str((d["liens"].get(l) or {}).get("creatrice") or "")).split() or [""])[0] == cr_n]
-        fiche_eq = (_deps["lire_json"](_deps["FICHIER_EQUIPES"], {}).get(str(membre.id)) or {}) if _deps.get("FICHIER_EQUIPES") else {}
-        multi = bool(fiche_eq.get("creatrices_en_plus"))                    # plusieurs créatrices : jamais le lien d'une autre
-        lids = lids_c or ([] if multi else [l for l in lids if not (d["liens"].get(l) or {}).get("creatrice")])
-        repris = False
-        if not lids and creer and paie_clics.actif():
-            async with paie_clics.verrou_liens:                          # 08/10 (revue) : jamais pendant que le ménage le désactive
-                d = paie_clics._lire()
-                libre = paie_clics.lien_libre(d, creatrice)
-                # 28/09 : le lien d'un sortant va au suivant ; 08/10 : réactivé s'il avait été désactivé par le ménage, sinon on clone
-                if libre and await paie_clics.reprendre_lien(d, libre[0], str(membre.id), prenom, creatrice):
-                    lid, lien, repris = libre[0], libre[1].get("url", ""), True
-                elif libre:
-                    resultat.append("⚠️ lien libéré désactivé, réactivation refusée par GAML (forfait plein ?) : clone tenté")
-                if libre:
-                    paie_clics._ecrire(d)
-        if lids:
-            lid = lids[0]
-            lien = d["liens"][lid].get("url", "")
-        elif not creer:
-            return {"lien": "", "lid": "", "lignes": []}                    # 05/10 : pas encore le moment (compte 3 pas ouvert)
-        elif repris:
-            pass
-        elif paie_clics.actif():
-            liens = await paie_clics.liens_gaml()
-            de_la_creatrice = [l for l in liens if _norm(str(l.get("name", "")).split()[0] if l.get("name") else "") == _norm(creatrice.split()[0])]
-            modeles = [l for l in de_la_creatrice if paie_clics._prenom_note(l.get("note"))]
-            # 28/09 (Gaëtan, Clara) : le lien posé dans la colonne « Lien GAML associé » d'une ligne libre de la créatrice est LE modèle à dupliquer
-            urls_modele = {str(c.get("lien_gaml") or "").strip().rstrip("/") for c in tous
-                           if _pour_creatrice(c, creatrice) and _norm(c.get("gerant") or "") in GERANTS_LIBRES and str(c.get("lien_gaml") or "").startswith("http")}
-            poses = [l for l in de_la_creatrice if str(l.get("url") or "").rstrip("/") in urls_modele]
-            if poses:
-                modeles = poses
-            modeles.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)        # le plus récent d'abord
-            if not modeles:                                              # 27/09 : première créatrice sans lien de clipper (Jade, Clara, Maddie) →
-                modeles = [l for l in de_la_creatrice if "/fb" not in str(l.get("url", "")) and "/ytb" not in str(l.get("url", ""))]   # on part de son lien principal
-            # 03/10 : un lien « Clipping Prénom » de la créatrice existe déjà (relance après une activation ratée : 22 clones
-            # « Clipping Andry » le 01/10, GAML plein) → on le reprend, jamais un clone de plus.
-            # 09/10 : jamais le lien libéré d'un homonyme parti (note encore « Clipping Julien ») : ses visites sont celles de l'ancien.
-            # Revue CLICS du 09/10 : jamais non plus un lien passé chez le repreneur Metricool (`hors_clipping`), même quand GAML a refusé
-            # sa nouvelle note (`note_attendue` : il dit encore « Clipping <l'ancien> ») — la garde d'associer_auto ; avant, le nouvel
-            # homonyme le recevait et la fiche (hors clipping, note attendue, visites dues à l'ancien) était écrasée
-            existants = [l for l in de_la_creatrice if _norm(paie_clics._prenom_note(l.get("note"))) == _norm(prenom) and l.get("enabled", True)
-                         and str((d["liens"].get(l.get("id")) or {}).get("uid") or "") in ("", str(membre.id))
-                         and not (d["liens"].get(l.get("id")) or {}).get("hors_clipping")
-                         and not (d["liens"].get(l.get("id")) or {}).get("note_attendue")
-                         and not paie_clics.note_du_sortant(d["liens"].get(l.get("id")) or {}, l.get("note"))]
-            existants.sort(key=lambda l: str(l.get("createdAt") or ""), reverse=True)
-            nouveau = None
-            if existants:
-                nouveau = {"id": existants[0]["id"], "url": existants[0].get("url", "")}
-                journal.info("Lien GAML de %s repris (%s), pas de clone", prenom, nouveau["url"])
-            elif modeles:
-                nouveau = await paie_clics.cloner_lien(modeles[0]["id"], modeles[0].get("name", creatrice), f"Clipping {prenom}")
-                # 05/10 : le clone reçoit le tracking MYM réservé à SON numéro (onglet « Réserve trackings MYM »), jamais celui du modèle
-                try:
-                    ligne_mym = await reserve_mym.pour_clone(nouveau["id"], creatrice)
-                except Exception as erreur:                         # noqa: BLE001
-                    ligne_mym = f"⚠️ réserve MYM : {type(erreur).__name__} {str(erreur)[:80]}"
-                if ligne_mym:
-                    resultat.append(ligne_mym)
-            if nouveau:
-                dus_av = (d["liens"].get(nouveau["id"]) or {}).get("dus")
-                d["liens"][nouveau["id"]] = {"uid": str(membre.id), "note": f"Clipping {prenom}", "url": nouveau["url"],
-                                             "creatrice": creatrice.split()[0], "depuis": _deps["heure_paris"]().date().isoformat(),
-                                             "par": "onboarding"}
-                if dus_av:                                               # revue CLICS du 09/10 : les visites dues à un sortant restent à lui
-                    d["liens"][nouveau["id"]]["dus"] = dus_av
-                paie_clics._ecrire(d)
-                lien, lid = nouveau["url"], nouveau["id"]
-        resultat.append("lien GAML " + ("✅" if lien else "absent"))
-        if lid and comptes:
-            tracking, pod = tracking_du_pod(tous, comptes)
-            if tracking:
-                etat_tr = await paie_clics.poser_tracking(lid, tracking)
-                d = paie_clics._lire()
-                if lid in d.get("liens", {}):
-                    d["liens"][lid]["tracking"] = tracking
-                    paie_clics._ecrire(d)
-                resultat.append("tracking OF " + ("✅" if etat_tr in ("ok", "déjà") else f"⚠️ {etat_tr}") + f" ({tracking.rsplit('/', 1)[-1]})")
-            else:
-                resultat.append(f"⚠️ pas de lien de tracking OnlyFans dans le classeur pour {'le POD ' + pod if pod else 'ses comptes'}")
-    except RuntimeError as erreur:
-        resultat.append(f"GAML : {erreur}")
-    if lien:
-        etat = _lire_etat()
-        fiche = etat["clippers"].setdefault(str(membre.id), {})
-        if fiche.get("lien") != lien:
-            fiche["lien"] = lien
-            fiche.setdefault("creatrice", creatrice)
-            _ecrire_etat(etat)
-    return {"lien": lien, "lid": lid, "lignes": resultat}
+    """Liens uniques, réservations atomiques et reprise sans clonage répété."""
+    return await process_adapters.attribuer(membre, creatrice, tous, creer)
 
 
 async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatrice", nouveau: bool = False,
@@ -1215,6 +1129,10 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     prenom = (str(gerant or "").strip()
               or (membre.display_name.split()[0] if membre.display_name.split() else membre.display_name))
     uid = str(membre.id)
+    try:
+        process_adapters.store().reserve(uid, [])
+    except RuntimeError as erreur:
+        return f"⚠️ {erreur}. Suivi et reporting existants conservés ; aucune nouvelle attribution."
     force = declencheur.startswith("!onboarding")
     fiche0 = _lire_etat()["clippers"].get(uid) or {}
     resultat = []
@@ -1272,11 +1190,11 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                                         f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
                 comptes = deja[:COMPTES_PAR_CLIPPER]
                 if len(comptes) < a_reserver:
-                    nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes))
+                    nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes), uid)
                     if a_reserver < COMPTES_PAR_CLIPPER:                 # 10/10 (lot L3) : le début du trio seulement
-                        nouveaux = _debut_du_trio(nouveaux + disponibles(tous, creatrice, 999), len(comptes), a_reserver)
+                        nouveaux = _debut_du_trio(nouveaux + disponibles(tous, creatrice, 999, uid), len(comptes), a_reserver)
                     if nouveaux:
-                        await reserver(nouveaux, prenom)
+                        await reserver(nouveaux, prenom, uid)
                     comptes += nouveaux
                 lu = True
                 resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
@@ -1437,6 +1355,8 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
     if not actif():
         return None
     uid, n = str(membre.id), int(n)
+    if not 1 <= n <= 3:
+        raise RuntimeError("Trois comptes au total, aucun quatrième compte")
     async with _verrou_lignes():
         tous = await lire_comptes()
         fiche = _lire_etat()["clippers"].get(uid) or {}
@@ -1467,13 +1387,12 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
         def convient(c):
             return _bon_type(c, n, prive) and not (deja_prive and not _est_prive(c))
         a_lui = [c for c in a_lui if convient(c)]                       # 11/10 : jamais un compte déjà donné renuméroté
-        libres = [c for c in disponibles(tous, creatrice, 999) if convient(c)]
+        libres = [c for c in disponibles(tous, creatrice, 999, uid) if convient(c)]
         choix = sorted(a_lui, key=rang)[:1] or sorted(libres, key=rang)[:1]
         if not choix:
             return None
         ligne = choix[0]
-        if ligne not in a_lui:
-            await reserver([ligne], gerant)
+        await reserver([ligne], gerant, uid)
         maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
         etat = _lire_etat()                                             # relu frais, écrit sans attente
         f = etat["clippers"].setdefault(uid, {})
@@ -2806,6 +2725,9 @@ async def liberer(prenom: str, handles=(), pool: bool = False) -> list:
     if not lignes:
         return []
     etat = _lire_etat()
+    for uid in list(etat["clippers"]):
+        process_clippeur.registre(etat, uid)
+    _ecrire_etat(etat)  # historique conservé avant tout départ ou libération
     bilan = []
     for c in lignes:
         # 13/10 (Gaëtan : « fais TOUJOURS créer les comptes aux clippeurs, ne donne jamais de comptes déjà créés réattribués d'un

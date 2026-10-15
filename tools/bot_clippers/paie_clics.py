@@ -525,7 +525,7 @@ def _debut_paie(uid: str, debut: date, d: dict = None) -> date:
 
 
 def liens_de(d: dict, uid: str) -> list:
-    return [lid for lid, info in d["liens"].items() if str(info.get("uid")) == str(uid)]
+    return [lid for lid, info in d["liens"].items() if str(info.get("uid")) == str(uid) and not info.get("archive")]
 
 
 def releve_seul(info: dict) -> bool:
@@ -710,7 +710,7 @@ def lien_libre(d: dict, creatrice: str):
         return None
     recent = (_aujourdhui() - timedelta(days=1)).isoformat()
     libres = [(lid, info) for lid, info in d.get("liens", {}).items()
-              if not str(info.get("uid") or "") and info.get("libere") and not info.get("supprime_gaml") and not info.get("hors_clipping")
+              if not str(info.get("uid") or "") and info.get("libere") and not info.get("supprime_gaml") and not info.get("hors_clipping") and not info.get("archive")
               and str(info.get("introuvable") or "")[:10] < recent
               and str(info.get("creatrice") or "").lower().startswith(cible)]
     libres.sort(key=lambda li: bool(li[1].get("desactive")))
@@ -723,6 +723,8 @@ async def reprendre_lien(d: dict, lid: str, uid: str, prenom: str, creatrice: st
     GAML refuse la réactivation (forfait plein), rien n'est repris (jamais un lien mort dans une bio) et on renvoie False.
     L'appelant écrit `d`."""
     info = d["liens"][lid]
+    if info.get("archive"):
+        return False
     avant = dict(info)
     try:
         await _requete("PATCH", f"/links/{lid}", corps={"note": f"Clipping {prenom}", "enabled": True})
@@ -887,7 +889,7 @@ def synchroniser_notes(d: dict, liens: list) -> list:
                 "à vérifier (une note changée à la main sort le lien du clipping, trois au plus par passage)."]
     for lid, info in d.get("liens", {}).items():
         l = par_id.get(lid)
-        if l is None or lid in attente or not (str(info.get("uid") or "") or info.get("libere") or info.get("hors_clipping")):
+        if info.get("archive") or l is None or lid in attente or not (str(info.get("uid") or "") or info.get("libere") or info.get("hors_clipping")):
             continue                                                    # liens de la créatrice / Metricool suivis par le rapport : pas du clipping
         note = str(l.get("note") or "").strip()
         hors = not _prenom_note(note)
@@ -1936,7 +1938,7 @@ async def associer_auto(d: dict, liens: list) -> list:
     lignes = []
     for l in liens:
         lid, prenom = l.get("id"), _prenom_note(l.get("note"))
-        if not lid or lid in deja or not prenom or normaliser(prenom) in CLICS_EXCLURE or len(prenom) < 3:
+        if not lid or (d["liens"].get(lid) or {}).get("archive") or lid in deja or not prenom or normaliser(prenom) in CLICS_EXCLURE or len(prenom) < 3:
             continue
         if note_du_sortant(d["liens"].get(lid) or {}, l.get("note")):  # 09/10 : le lien d'un sortant, jamais à son homonyme
             continue

@@ -5,7 +5,7 @@ ETAT de l'onglet Instagram, une cellule à la fois, jamais la structure :
   à créer → WARMUP   dès que le compte existe sur Instagram
   WARMUP  → GOOD     quand il a publié GOOD_JOURS jours de suite (au moins une publication par jour)
   WARMUP  → PRIVE    quand le compte est passé en privé (le 3e compte du trio)
-  WARMUP / GOOD / PRIVE → BAN   quand Instagram ne le trouve plus BAN_JOURS jours de suite (posé par le bot, annulé s'il revient)
+  Absence Instagram : santé inchangée ; preuve mail datée nécessaire pour appel ou ban.
   BAN → son état d'avant (sinon GOOD s'il a déjà publié, sinon WARMUP)  dès que le compte est vivant sur Instagram
        (30/09, Gaëtan : « tous les comptes GOOD, BAN et WARMUP, vérifie-les à chaque fois », BAN posé à la main compris)
   restreint (profil caché aux visiteurs non connectés) = vivant, jamais BAN
@@ -733,6 +733,10 @@ def _lire_items(items: list, handles: list, maintenant: datetime = None) -> dict
             epingle = bool(post.get("isPinned"))                         # 09/10 (dashboard) : une épinglée (souvent vieille) ne compte pas
             if not epingle:
                 plus_ancien = quand if plus_ancien is None or quand < plus_ancien else plus_ancien
+            if _est_reel(post):
+                code_verifie = series.code_post(post)
+                if code_verifie:
+                    fiche.setdefault("publications_verifiees", []).append({"code": code_verifie, "publie": quand.astimezone(timezone.utc).isoformat()})
             if _est_reel(post) and not epingle:
                 if jour_paris == hier:
                     fiche["reels_hier"] += 1
@@ -810,39 +814,13 @@ def _series(historique: list) -> tuple:
 
 
 def decider(etat: str, mesure: dict, historique: list, ban_auto: bool, avant_ban: str = "") -> str:
-    """Le nouvel état d'une ligne, ou '' si rien ne change. `historique` inclut la mesure du jour."""
-    e = _norm(etat)
-    absents, publie = _series(historique)
-    if e in ("a creer", "à créer"):
-        # 01/10 (Andry, Clarisse, Ricado, Michel : identifiants « WARMUP » avant même d'avoir été envoyés, comptes privés de
-        # 305 abonnés) : présent sur Instagram ne veut pas dire créé par NOTRE clipper. WARMUP seulement si un scan d'avant l'a
-        # vu absent (absent, puis présent). Présent dès le premier regard : identifiant peut-être pris par un tiers, la ligne
-        # reste « à créer » (alerte admin dans _executer) ; le bouton « créé » du parcours la passe à WARMUP s'il est bien à lui.
-        if not mesure["existe"]:
-            return ""
-        if not any(not j.get("existe") for j in historique[:-1]):
-            return ""
-        return "PRIVE" if mesure.get("prive") and not WARMUP_ACTIF else CREE
-    if e == "warmup":
-        if absents >= BAN_JOURS:
-            return "BAN"
-        if mesure["existe"] and mesure["prive"]:
-            return "PRIVE"
-        if publie >= GOOD_JOURS or not WARMUP_ACTIF:                    # 12/10 : plus de WARMUP, GOOD tout de suite
-            return "GOOD"
-        return ""
-    if e in ("good", "prive", "privé"):
-        return "BAN" if absents >= BAN_JOURS else ""
-    if e == "ban":                                                      # 30/09 : tout BAN vivant sur Instagram revient (à la main compris)
-        if not mesure["existe"]:
-            return ""
-        if avant_ban in ("WARMUP", "GOOD", "PRIVE"):
-            return "GOOD" if avant_ban == "WARMUP" and not WARMUP_ACTIF else avant_ban
-        # 30/09 : état d'avant inconnu. Un compte restreint cache ses Reels au scan : « jamais vu publier » ne prouve rien,
-        # et un compte restreint en WARMUP n'en sortirait jamais tout seul → GOOD (le chiffre de Clics dit la vérité)
-        if not WARMUP_ACTIF:
-            return "PRIVE" if mesure.get("prive") else "GOOD"
-        return "GOOD" if publie_deja(historique) or mesure.get("restreint") else "WARMUP"
+    """Le scan public ne prouve ni disponibilité, ni propriété, ni suspension.
+
+    Les états ambigus restent inchangés. Les preuves mail datées sont traitées
+    par bans_mail ; le type privé ne constitue pas un état de santé.
+    """
+    if _norm(etat) == "warmup" and mesure.get("existe"):
+        return "GOOD" if not WARMUP_ACTIF else ""
     return ""
 
 
@@ -1533,7 +1511,7 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
         if m.get("reels") and c.get("gerant") and _en_gestion(c):
             a_relire += [{**r, "handle": h, "gerant": c["gerant"]} for r in m["reels"][:10]]   # 01/10 : review des Reels
         hist = list(hist_prec)
-        entree = {"jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
+        entree = {"publications_verifiees": m.get("publications_verifiees", []), "jour": jour, "existe": m["existe"], "posts": m["posts"], "prive": m["prive"], "fautes": m.get("fautes", 0),
                   "restreint": bool(m.get("restreint")), "followers": m.get("followers"),      # 09/10 : None = non lu, jamais 0
                   "reels_hier": int(m.get("reels_hier") or 0), "reels_7j": int(m.get("reels_7j") or 0),   # 05/10
                   "posts_lus": int(m.get("posts_lus") or 0)}
@@ -1583,11 +1561,6 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
             d["pris_signales"][h] = jour
         if apres:
             _appliquer(c, apres)
-    if not WARMUP_ACTIF:                                                # 12/10 : un WARMUP non lu ou inchangé passe GOOD quand même
-        deja = {id(x["c"]) for x in ecritures if x.get("champ") == "etat"} | set(differes)
-        for c in lignes:
-            if _norm(c.get("etat")) == "warmup" and id(c) not in deja:   # non lu : ni BAN ni privé prouvé, GOOD comme tout créé
-                _appliquer(c, "GOOD")
     renommes_passe = {}                                                 # 09/10 (dashboard) : @ renommés pendant ce passage
     # 10/10 (passe 3) : `vu_sous` = {@ : jour} des lignes vues vivantes sous un @ proche dont le renommage a été REFUSÉ (refus définitif,
     # voir plus bas) : jamais BAN ce jour-là, même au passage suivant (`!dashboard scan`), et cherchées après les autres les jours
@@ -1984,6 +1957,15 @@ async def _noter_parcours(mesures: dict, depuis_iso: str, client=None) -> list:
     try:
         import parcours
         n = parcours.noter_reels_soir(lisibles, depuis_iso, cle=_cle)
+        fiches = parcours._lire()
+        for uid, fiche in fiches.items():
+            for i, handle in enumerate(parcours._comptes_ordonnes(uid, fiche_p=fiche), 1):
+                mesure = lisibles.get(_cle(handle)) or {}
+                suivi = fiche.setdefault("reels", {}).setdefault(handle.lower(), {})
+                suivi["publications_verifiees"] = parcours.process_clippeur.cumuler_publications(
+                    suivi, mesure.get("publications_verifiees") or [],
+                    parcours._date_creation(fiche, i), datetime.now(timezone.utc))
+        parcours._ecrire(fiches)
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Reels de la journée pour le parcours : %s", type(erreur).__name__)
         return []
