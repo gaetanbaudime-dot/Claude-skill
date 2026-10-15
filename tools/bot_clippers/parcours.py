@@ -32,6 +32,7 @@ import discord
 import codes_2fa
 import lien_app
 import onboarding
+import process_clippeur
 import paie_clics
 
 journal = logging.getLogger("parcours")
@@ -42,14 +43,14 @@ WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)
 # période d'essai du 30/09 (5 Reels en 72 h, nouveaux seulement). Les Reels sont ceux que le scan du matin voit, cumulés
 # compte par compte dans la fiche (_cumuler_reels) ; les fiches encore « en essai » passent sous la règle sans message
 # (_migrer_essai). `!etape @clipper n` (staff) force toujours.
-REELS_OUVERTURE = int(os.environ.get("PARCOURS_REELS_OUVERTURE", "4") or 4)   # 05/10 (Gaëtan) : « 48 h et 4 Reels »
+REELS_OUVERTURE = 4   # 05/10 (Gaëtan) : « 48 h et 4 Reels »
 # 30/09 (Gaëtan : « arrête de spammer les clippeurs : une information à la fois, au bon moment ; un compte par un compte, on
 # distille l'information et on ne la donne que quand il en a réellement besoin ») : chaque compte se fait en trois temps,
 # un message chacun — 1) identifiants et création, bouton « créé » ; 2) photo, nom et bio en UN message, bouton « profil
 # fait » ; 3) une ligne de warm-up. Le compte suivant arrive tout seul 48 h plus tard (la règle des 48 h n'était qu'une
 # phrase : le compte 2 tombait dès le bouton du compte 1), et « il peut publier » arrive 24 h plus tard, avec le Drive.
 DISTILLE_DEPUIS = "2026-09-30T06:40:00+00:00"   # une étape envoyée avant : son profil est déjà parti (ancien déroulé), pas de doublon
-ATTENTE_COMPTE_H = int(os.environ.get("PARCOURS_ATTENTE_COMPTE_H", "48") or 48)
+ATTENTE_COMPTE_H = 0
 WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 # 08/10 (Gaëtan, GO n° 1 du checkup : « le compte privé en 2e position ») : compte 1 croissance, compte 2 PRIVÉ (le lien dans sa
 # bio), compte 3 croissance. Le lien existe à J+2 au lieu de J+5-6 : les Reels du compte 1 ont une destination dès leurs
@@ -61,7 +62,7 @@ WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 # « prive3 » ; celles dont le privé (compte 2) est déjà ouvert le gardent (jamais un compte refait). Le privé (compte 3) s'ouvre
 # 48 h après le compte 2, quand 4 Reels sont publiés sur le compte 2 ET 4 Reels de plus sur le compte 1 depuis la création du
 # compte 2 (`sources_reels`, base retenue dans `base_reels["3"]`).
-PRIVE_EN_2 = os.environ.get("PARCOURS_PRIVE_EN_2", "0").strip() == "1"
+PRIVE_EN_2 = False
 
 
 def ordre(fiche_p: dict) -> str:
@@ -151,23 +152,16 @@ def source_reels(fiche_p: dict, n: int) -> int:
 
 
 def sources_reels(fiche_p: dict, n: int) -> list:
-    """09/10 : les comptes dont les Reels ouvrent le compte n. Le privé (compte 3, ordre « prive3 ») ne s'ouvre que si le clipper
-    publie bien sur ses DEUX premiers comptes : [1, 2]. Sinon le compte source unique (source_reels)."""
-    if n == 3 and ordre(fiche_p) == "prive3":
-        return [1, 2]
-    return [source_reels(fiche_p, n)]
+    """15/10 : quatre Reels vérifiés du compte précédent ; ancien privé en 2 à vérifier."""
+    return [n - 1] if ordre(fiche_p) == "prive3" else []
 
 
 def regle_comptes(fiche_p: dict = None) -> str:
-    """01/10 : le texte canonique de la règle des comptes, le même partout (salon, message de comptes, assistant). 09/10 (revue) :
-    la vraie condition, « 4 Reels DE PLUS » sur le compte 1 compris ; une fiche dont le privé est déjà le compte 2 (ouverte le
-    08/10) reçoit la sienne (contexte de l'assistant, salon perso)."""
-    debut = f"Un compte à la fois. Le suivant arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le précédent. "
     if fiche_p and ordre(fiche_p) == "prive2":
-        return debut + (f"Ton compte 2, le privé, est déjà là. Ton compte 3 arrive quand je vois {REELS_OUVERTURE} Reels de plus "
-                        "sur ton compte 1.")
-    return debut + (f"Ton compte 2 arrive quand je vois {REELS_OUVERTURE} Reels sur ton compte 1. Ton compte 3, le privé, arrive "
-                    f"en dernier : il faut {REELS_OUVERTURE} Reels sur ton compte 2 et {REELS_OUVERTURE} Reels de plus sur ton compte 1.")
+        return "Ancien ordre des comptes : vérification par le manager avant la suite."
+    return ("Trois comptes créés au total, sans remplacement. Le compte 1 est disponible immédiatement. "
+            "Le compte 2 arrive après 4 Reels publiés et vérifiés sur le compte 1. "
+            "Le compte 3, privé, arrive après 4 Reels publiés et vérifiés sur le compte 2.")
 
 
 def texte_codes() -> str:
@@ -452,43 +446,20 @@ def reels_vus(uid, fiche_p: dict, n: int) -> int:
 
 
 def _de_plus(fiche_p: dict, n: int, src: int = 1) -> str:
-    """08/10 (revue) : « de plus » quand l'ouverture du compte n compte depuis une base (compte 1, pour le compte 3)."""
-    return " de plus" if src == 1 and (fiche_p.get("base_reels") or {}).get(str(n)) is not None else ""
+    return ""
 
 
 def reels_detail(uid, fiche_p: dict, n: int) -> list:
-    """09/10 : [(compte source, Reels qui comptent)] pour ouvrir le compte n, sans les sources BAN. Le compte 1 compte depuis sa
-    base (`base_reels[str(n)]`, retenue à la création du compte d'avant) quand n = 3 ; un compte 2 compte depuis sa création."""
     comptes = _comptes_ordonnes(uid, fiche_p=fiche_p)
     suivis = fiche_p.get("reels") or {}
-    out = []
-    for src in sources_reels(fiche_p, n):
-        h = comptes[src - 1] if 0 < src <= len(comptes) else ""
-        if not h or _est_ban(h, fiche_p):
-            continue
-        suivi = suivis.get(h.lower()) or {}
-        vus = int(suivi.get("vus", 0) or 0) + _reels_soir(fiche_p, h)
-        avec_base = src == 1 and n == 3 and (fiche_p.get("base_reels") or {}).get(str(n)) is not None
-        base = int((fiche_p.get("base_reels") or {}).get(str(n), 0) or 0) if avec_base else 0
-        compte = max(0, vus - base)
-        if avec_base:
-            # 09/10 (revue) : le cumul `vus` plafonne quand l'historique (14 jours) ne remonte plus à la création du compte 1 ; les
-            # Reels vus par le scan APRÈS la création du compte 2 (`apres_base`, posé par reconcilier) comptent aussi
-            compte = max(compte, int(suivi.get("apres_base", 0) or 0) + _reels_soir(fiche_p, h))
-        out.append((src, compte))
-    return out
+    return [(src, len((suivis.get(comptes[src - 1].lower()) or {}).get("publications_verifiees") or {}))
+            for src in sources_reels(fiche_p, n) if 0 < src <= len(comptes)]
 
 
 def reels_pour(uid, fiche_p: dict, n: int) -> int:
-    """08/10 : les Reels qui comptent pour ouvrir le compte n. 09/10 : avec plusieurs sources (comptes 1 et 2 pour le privé),
-    le plus petit des deux — chacun doit avoir ses Reels. Toutes les sources BAN : le repli de reels_vus (les autres comptes)."""
-    if len(sources_reels(fiche_p, n)) > 1 and _bloque_sources(uid, fiche_p, n):
-        return 0                                                        # 09/10 (revue) : un des deux comptes BAN, le privé attend
+    """Jamais de repli sur un autre compte ni sur des totaux glissants ambigus."""
     det = reels_detail(uid, fiche_p, n)
-    if det:
-        return min(c for _, c in det)
-    base = int((fiche_p.get("base_reels") or {}).get(str(n), 0) or 0)
-    return max(0, reels_vus(uid, fiche_p, source_reels(fiche_p, n)) - base)
+    return min((c for _, c in det), default=0)
 
 
 def condition_texte(uid, fiche_p: dict, n: int, avec_compte: bool = True) -> str:
@@ -1256,6 +1227,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     chaque soir au salon admin par le scan) : renvoie True quand l'étape est partie, False quand elle est retenue (pas de ligne,
     classeur illisible) ou que le salon refuse le message."""
     uid = str(membre.id)
+    fiche_avant = _lire().get(uid) or {}
+    if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
+        return False
     if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
         d = _lire()
         if uid in d:
@@ -1278,6 +1252,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             await _deps["attribuer_lien"](membre)
         except Exception as erreur:                                     # noqa: BLE001 — sans lien, l'étape part quand même
             journal.warning("Lien GAML pour %s à l'étape %s : %s", uid, n, erreur)
+            return False
+    if n in (n_prive(_lire().get(uid) or {}), 6, 7) and not str(_onb(uid).get("lien") or "").strip():
+        return False  # Ne pas livrer le privé ou l’app sans lien préparé.
     # 01/10 (relecture : deux programme_du_jour à 50 ms d'écart, le clipper 2 a reçu deux fois « Étape 2 ») : la fiche était
     # lue, puis réécrite après l'appel au classeur (_contexte) et l'envoi — elle écrasait ce qui avait été écrit entre-temps.
     # Le contexte d'abord ; la fiche relue après l'attente, posée et écrite sans attente ; relue encore pour l'id du message.
@@ -1318,6 +1295,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         msg = await salon.send(texte[:1990], view=_vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p))
     except (discord.Forbidden, discord.HTTPException) as erreur:
         journal.warning("Étape %s pour %s : %s", n, uid, erreur)
+        reprise = _lire()
+        if uid in reprise and not (fiche_avant.get("dates") or {}).get(str(n)):
+            reprise[uid].setdefault("dates", {}).pop(str(n), None)
+            _ecrire(reprise)
         return False
     d = _lire()
     if uid in d:
@@ -2317,7 +2298,7 @@ async def _signaler_bloques(d0: dict) -> None:
                             if len(sources_reels(fiche_p, a[0])) > 1 else "aucun compte qui publie")   # 09/10 (revue)
                 await canal.send(f"⛔ **{fiche_p.get('prenom') or uid}** (<@{uid}>) bloqué : compte {cle} BAN, {pourquoi}, "
                                  f"parcours en attente. Tu décides : `!etape @{fiche_p.get('prenom') or uid} {a[0]}` pour "
-                                 "ouvrir le suivant, ou un remplacement.")
+                                 "ouvrir le suivant, aucun compte de remplacement n’est autorisé.")
         except Exception as erreur:                                     # noqa: BLE001
             journal.warning("Alerte BAN de %s : %s", uid, erreur)
         if canal is None:                                               # pas prévenu : on retentera au passage suivant
@@ -2357,7 +2338,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 partants.append(x)
             elif not _etape_attendue(fiche_p, x):
                 continue                                                # déjà envoyée (`!etape` du staff) : retirée, sans message
-            elif x.get("ligne") or int(x.get("n") or 0) not in (2, 3) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
+            elif int(x.get("n") or 0) not in (2, 3) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
                 partants.append(x)                                      # 08/10 : la routine (7), 11/10 : « ligne », sans Reels
             else:
                 gardes.append(x)                                        # 48 h passées, Reels pas encore là : on attend
@@ -2400,6 +2381,12 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 elif item.get("type") == "etape" and n in (2, 3):
                     if await envoyer_etape(salon, membre, n):           # 11/10 (L3) : retenue faute de ligne = pas « ouverte »
                         faits.append((uid, "etape", n))
+                    else:
+                        reprise = _lire()
+                        programme = reprise.setdefault(uid, {}).setdefault("programme", [])
+                        if not any(x.get("type") == "etape" and x.get("n") == n for x in programme):
+                            programme.append(item)
+                            _ecrire(reprise)
                 elif item.get("type") == "etape":
                     await envoyer_etape(salon, membre, n)
                     faits.append((uid, "etape", n))
@@ -2420,6 +2407,8 @@ def _a_traiter(fiche_p: dict, item: dict, maintenant) -> bool:
     """10/10 : l'élément du programme est à traiter maintenant. Échu (_echu), ou :
     - « routine2 » : plus programmée depuis le 11/10 ; reste retirée sans message sur les fiches d'avant le déploiement ;
     - le compte 1 : jamais plus de BIENVENUE_H h après la bienvenue (celles d'avant le 10/10 l'avaient programmé à 3 h)."""
+    if item.get("type") == "etape" and int(item.get("n") or 0) in (2, 3) and not item.get("ligne"):
+        return True  # 15/10 : les anciens délais ne retardent plus les paliers.
     if item.get("type") == "routine2":
         return True
     # 11/10 (revue du lot W) : un compte 1 retenu faute de ligne (« ligne ») suit son heure de nouvel essai, pas la bienvenue
@@ -2457,7 +2446,7 @@ async def _classeur_etat(uid: str, n: int) -> None:
     for h in comptes[n - 1:n]:
         try:
             # 05/10 : le compte privé ne chauffe pas (08/10 : le 2) ; 12/10 : plus de WARMUP au classeur (ETAT_WARMUP=1 : l'ancien)
-            await marquer(h, "PRIVE" if prive_n else ("WARMUP" if os.environ.get("ETAT_WARMUP", "0").strip() == "1" else "GOOD"))
+            await marquer(h, "GOOD")  # privé est le type du compte, pas sa santé
         except Exception as erreur:
             journal.warning("Classeur étape %s de %s : %s", n, uid, erreur)
 
@@ -2649,7 +2638,7 @@ def etat_des_comptes(uid: str, maintenant=None) -> str:
                 # alors que le bot lui avait écrit « Ton compte n arrive dès qu'il est prêt »)
                 parts.append(f"{nom} : {TEXTE_ATTENTE_LIGNE}" + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
             elif a and a[0] == i:                                       # 01/10 : la règle unique, sans date promise
-                parts.append(f"{nom} : pas encore ouvert, il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {i - 1}, "
+                parts.append(f"{nom} : pas encore ouvert, il arrive automatiquement "
                              f"dès que le scan voit {condition_texte(uid, fiche_p, i)}"
                              + (" — il est PRIVÉ, il portera le lien" if i == np_ else ""))
             else:
@@ -2892,7 +2881,7 @@ def contexte_court(uid: str) -> str:
         if a and a[0] == n and fiche_p.get("ligne_attendue") == n:     # 11/10 (lot W) : il attend une ligne, pas ses Reels
             etape = f"attente du compte {n}, {TEXTE_ATTENTE_LIGNE}"
         elif a and a[0] == n:
-            etape = (f"attente du compte {n} : il arrive tout seul au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, dès que "
+            etape = (f"attente du compte {n} : il arrive dès que "
                      f"le scan voit {condition_texte(uid, fiche_p, n)}")
     else:
         etape = "parcours terminé (routine)"
@@ -3084,6 +3073,10 @@ async def reconcilier(client, etats_par_handle: dict, publies=None, reels_72h=No
                 if i == 1 and (fiche_p.get("base_reels") or {}).get("3") is not None and t2 is not None:
                     # 09/10 (revue) : les Reels du compte 1 publiés après la création du compte 2, jamais en baisse
                     apres["apres_base"] = max(int((avant or {}).get("apres_base", 0) or 0), reels_apres(hist_h, t2))
+            preuves = [p for e in (historique or {}).get(onboarding.normaliser_handle(h).lower(), [])
+                       for p in e.get("publications_verifiees") or []]
+            apres["publications_verifiees"] = process_clippeur.cumuler_publications(
+                avant, preuves, _date_creation(fiche_p, i), datetime.now(timezone.utc))
             if apres != avant:
                 fiche_p.setdefault("reels", {})[h.lower()] = apres
                 change = True
@@ -3307,7 +3300,7 @@ async def commande_staff(message, texte: str) -> bool:
             return True
         a = attente(fiche_p)
         if a and a[0] == n:
-            await message.reply(f"Ton compte {n} arrive tout seul ici, au plus tôt {ATTENTE_COMPTE_H} h après le compte {n - 1}, "
+            await message.reply(f"Ton compte {n} arrive automatiquement ici, "
                                 f"dès que je vois {condition_texte(uid, fiche_p, n)}.")
             return True
         await message.reply(f"📍 **{titre_etape(fiche_p, n)}**" + (f"\n\nTon message d'étape est là : {lien_m}" if lien_m else "")

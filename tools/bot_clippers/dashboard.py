@@ -1629,8 +1629,8 @@ NB_S = len(COLONNES_S)
 LARGEURS_S = (130, 190, 90, 90, 80, 80, 90, 85, 85, 105, 110)
 S_FUSIONS = (S_GERANT, S_CH, S_C7, S_DC, S_TL)                          # une cellule par Gérant, comme dans les onglets créatrices
 VERT_ENTETE = "#356854"                                                  # l'en-tête des onglets créatrices
-ETATS_COULEURS = {"GOOD": ("#B7E1CD", "#0B6E3A"), "BAN": ("#F4C7C3", "#B71C1C"), "PRIVE": ("#C9DAF8", "#1A4F9C"),
-                  "PRIVÉ": ("#C9DAF8", "#1A4F9C"), "À CRÉER": ("#EEEEEE", "#616161")}
+ETATS_COULEURS = {"Good": ("#B7E1CD", "#0B6E3A"), "Faire appel": ("#FCE8B2", "#9C5700"),
+                  "Ban": ("#F4C7C3", "#B71C1C"), "À créer": ("#FFFFFF", "#616161")}
 
 
 def _vues_aff(L: dict):
@@ -1644,7 +1644,8 @@ def etat_affiche(etat) -> str:
     """12/10 (Gaëtan : « Enlève le WARMUP, soit c'est BAN, soit c'est GOOD, soit c'est privé ») : un WARMUP resté au classeur se lit
     GOOD."""
     e = str(etat or "").strip()
-    return "GOOD" if _norm(e) == "warmup" else e
+    return {"good": "Good", "warmup": "Good", "faire appel": "Faire appel", "ban": "Ban",
+            "a creer": "À créer", "prive": "À vérifier (type privé)"}.get(_norm(e), e)
 
 
 def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict, fraicheur: str, alertes: list) -> tuple:

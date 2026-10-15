@@ -163,6 +163,13 @@ def extraire(msg) -> dict | None:
         fort = any(m in s for m in ("suspendu", "suspended", "désactivé", "desactive", "disabled", "restreint", "restricted"))
         if not fort and not any(m in c for m in MOTS_CORPS):
             return None
+    if genre == "ban":
+        if any(x in c for x in ("permanently disabled", "définitivement désactivé", "désactivé définitivement", "cannot request another review")):
+            genre = "ban_definitif"
+        elif any(x in c for x in ("faire appel", "appeal this decision", "appeal our decision", "request a review")):
+            genre = "appel"
+        else:
+            genre = "a_verifier"
     m = MOTIF_SUJET_COMPTE.search(sujet)
     pseudo = m.group(1) if m else ""
     if not pseudo:
@@ -174,7 +181,7 @@ def extraire(msg) -> dict | None:
     try:
         date = email.utils.parsedate_to_datetime(msg.get("Date")).astimezone(timezone.utc)
     except Exception:                                                   # noqa: BLE001
-        date = datetime.now(timezone.utc)
+        return None  # Pas de date inventée pour une preuve de suspension.
     ident = (msg.get("Message-ID") or "").strip() or f"{date.isoformat(timespec='minutes')}|{sujet}"
     return {"pseudo": pseudo, "alias": alias, "sujet": sujet[:120], "date": date.isoformat(timespec="minutes"), "id": ident, "type": genre}
 
@@ -273,11 +280,12 @@ async def traiter(trouves: list | None = None) -> dict:
             bilan["nouveaux"] += 1
             bilan["lignes"].append(ligne_push(t, c, False))
             continue
-        if c is not None and _n(c.get("etat")) != "ban":
+        cible = {"appel": "Faire appel", "ban_definitif": "BAN"}.get(t.get("type"))
+        if c is not None and cible and _n(c.get("etat")) != _n(cible):
             try:
-                await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, "etat"), [["BAN"]])
-                c["etat"] = "BAN"; ecrit = True
-                if etat_scan is not None and c.get("handle"):
+                await google_api.sheets_ecrire(onboarding.CLASSEUR_LOGINS_ID, onboarding.cellule(c, "etat"), [[cible]])
+                c["etat"] = cible; ecrit = True
+                if cible == "BAN" and etat_scan is not None and c.get("handle"):
                     # 11/10 (clôture de la vague 2) : la clé nettoyée, celle d'etats_comptes._cle et de controle (« @x » ou une URL
                     # dans la cellule retrouvent leur BAN)
                     etat_scan.setdefault("bans_auto", {})[onboarding.normaliser_handle(c["handle"]).lower()] = jour
@@ -286,7 +294,7 @@ async def traiter(trouves: list | None = None) -> dict:
                 continue                                                # réessayé au prochain passage (mail pas marqué vu)
         d["vus"][t["id"]] = t["date"]
         d["bans"].append({"pseudo": t.get("pseudo"), "date": t["date"], "gerant": (c or {}).get("gerant", ""),
-                          "onglet": (c or {}).get("onglet", ""), "numero": (c or {}).get("numero", ""), "ecrit": ecrit})
+                          "onglet": (c or {}).get("onglet", ""), "numero": (c or {}).get("numero", ""), "ecrit": ecrit, "type": t.get("type"), "preuve_id": t.get("id")})
         bilan["nouveaux"] += 1; bilan["ecrits"] += int(ecrit)
         bilan["lignes"].append(ligne_push(t, c, ecrit))
     if etat_scan is not None and bilan["ecrits"] and _deps.get("ecrire_etat_scan"):

@@ -29,26 +29,7 @@ def _n(t) -> str:
 
 async def remplacer(prenom: str, creatrice: str) -> str:
     """Un remplacement ; renvoie la ligne de bilan. Lève LookupError si le clipper est introuvable (réessayé au démarrage suivant)."""
-    comptes = await onboarding.lire_comptes()
-    bans = [c["handle"] for c in comptes if _n(c.get("gerant")) == _n(prenom) and _n(c.get("etat")) == "ban" and c.get("handle")]
-    vivants = [c for c in comptes if _n(c.get("gerant")) == _n(prenom) and _n(c.get("etat")) != "ban" and c.get("handle")]
-    if bans:
-        await onboarding.liberer(prenom, bans, pool=True)
-    membre = _deps["membre_par_prenom"](_n(prenom)) if _deps.get("membre_par_prenom") else None
-    if membre is None:
-        raise LookupError(f"{prenom} introuvable au registre (ou deux homonymes)")
-    salon = _deps["salon_perso"](str(membre.id)) if _deps.get("salon_perso") else None
-    bilan = await onboarding.livrer(membre, creatrice, salon, declencheur="remplacement des comptes BAN")
-    if salon is not None:
-        d = parcours._lire()
-        fiche = d.get(str(membre.id))
-        if fiche is not None:                                           # nouveau trio : l'ancien calendrier ne vaut plus rien
-            fiche["dates"] = {}
-            for cle in ("reconcilie", "corrige_4", "warmup_jour", "messages", "profils", "programme"):
-                fiche.pop(cle, None)
-            parcours._ecrire(d)
-        await parcours.forcer_etape(salon, membre, creatrice, min(3, len(vivants)) + 1)
-    return f"🔁 {prenom} : {len(bans)} compte(s) BAN rendu(s) · {bilan}" + ("" if salon is not None else " · pas de salon perso, parcours non relancé")
+    return "Remplacement interdit : trois comptes créés au total par clippeur, sans remise à zéro."
 
 
 async def demarrage(client) -> list:

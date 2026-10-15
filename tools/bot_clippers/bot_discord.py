@@ -5633,7 +5633,7 @@ async def onboarder_multi(prenom: str, creatrices: list, nouveau: bool = False, 
                         tous_v = await onboarding.lire_comptes()
                         nouveaux_a = onboarding.disponibles(tous_v, autre, onboarding.COMPTES_PAR_CLIPPER - len(comptes_a))
                         if nouveaux_a:
-                            await onboarding.reserver(nouveaux_a, gerant_o)
+                            await onboarding.reserver(nouveaux_a, gerant_o, uid)
                     comptes_a += nouveaux_a
                 bilan_a.append(f"{len(comptes_a)} compte(s)")
             except Exception as erreur:                                     # noqa: BLE001
