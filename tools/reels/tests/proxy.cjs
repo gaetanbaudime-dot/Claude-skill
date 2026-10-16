@@ -55,7 +55,7 @@ function load(filename,dependencies={},extra={}){
     const route=load(path.join(__dirname,`../../${app}/src/app/api/${prefix}/[token]/reels/[operation]/route.ts`),{
       ['@/lib/'+lib]:{[guard]:prefix==='k'?async token=>{checked++;assert.equal(token,'fixture');return allowed?{cle:'stable-clipper',racine:'stable-root'}:null}:token=>{checked++;assert.equal(token,'fixture');return allowed?{cle:'stable-clipper',racine:'stable-root'}:null}},
       '@/lib/google':{jetonGoogle:async()=>{throw new Error('Must not request real credentials')}},
-      '@gm/reels/server':{createSheetsOwnershipStore:()=>({fixture:true}),forwardReelsRequest:async(req,op,owner,store)=>{forwarded++;assert.equal(owner.app,prefix==='k'?'clippers':'creatrices');assert.equal(owner.id,prefix==='k'?'stable-clipper':'stable-root');assert.equal(store.fixture,true);return Response.json({ready:true})}}});
+      '@gm/reels/server':{createSheetsOwnershipStore:(namespace,token,options)=>{assert.equal(namespace,prefix==='k'?'clippers':'creatrices');assert.equal(options.workbookId,'shared-existing-fixture');return {fixture:true}},forwardReelsRequest:async(req,op,owner,store)=>{forwarded++;assert.equal(owner.app,prefix==='k'?'clippers':'creatrices');assert.equal(owner.id,prefix==='k'?'stable-clipper':'stable-root');assert.equal(store.fixture,true);return Response.json({ready:true})}}},{process:{env:{REELS_OWNERSHIP_SPREADSHEET_ID:'shared-existing-fixture'}}});
     const context={params:{token:'fixture',operation:'finish'}};
     assert.equal((await route.POST(request(),context)).status,404);assert.equal(forwarded,0);
     allowed=true;assert.equal((await route.POST(request(),context)).status,200);assert.equal(forwarded,1);assert.equal(checked,2);

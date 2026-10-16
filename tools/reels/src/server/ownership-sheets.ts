@@ -8,8 +8,9 @@ const HASH = /^[a-f0-9]{64}$/;
 // Uses only the existing Google service-account token and the existing internal
 // usage workbook. This adapter never creates files/tabs or changes permissions.
 // Missing/ambiguous/malformed/unavailable storage blocks before provider access.
-export function createSheetsOwnershipStore(app: "clippers" | "creatrices", googleToken: () => Promise<string>): OwnershipStore {
-  let workbook: string | undefined;
+export function createSheetsOwnershipStore(app: "clippers" | "creatrices", googleToken: () => Promise<string>, options: { workbookId?: string } = {}): OwnershipStore {
+  const configuredId = options.workbookId;
+  let workbook: string | undefined = configuredId;
   async function call(url: string, init: RequestInit = {}) {
     const token = await googleToken();
     const response = await fetch(url, { ...init, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -18,6 +19,9 @@ export function createSheetsOwnershipStore(app: "clippers" | "creatrices", googl
     return response.json();
   }
   async function base() {
+    // Only server configuration selects the workbook. An explicitly invalid or
+    // inaccessible ID never falls back to a name search or a different file.
+    if (configuredId !== undefined && !/^[a-zA-Z0-9_-]{1,200}$/.test(configuredId)) throw new OwnershipUnavailable();
     if (!workbook) {
       const name = app === "clippers" ? "App clippers · usage" : "App créatrices · usage";
       const q = `name='${name}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;

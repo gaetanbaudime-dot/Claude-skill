@@ -28,8 +28,11 @@ async function ok(owner,op,input,get=false){const r=await call(owner,op,input,ge
 async function deny(owner,op,input,get=false,status=403){const before=requests,r=await call(owner,op,input,get);assert.equal(r.status,status,await r.clone().text());assert.equal(requests,before,'Forbidden reference never leaves host');checks++;}
 async function setup(owner){const source=await ok(owner,'source',{action:'create',size:1024,extension:'mp4'});const prepared=await ok(owner,'source',{action:'prepare',sourceToken:source.sourceToken});const submitted=await ok(owner,'opus',{action:'submit',sourceToken:source.sourceToken,uploadId:prepared.uploadId,title:'fixture'});const {projectId}=submitted;const list=await ok(owner,'opus',{action:'clips',projectId},true);const ids=list.clips.map(c=>c.clipId);const pack=await ok(owner,'opus',{action:'export-pack',projectId,clipIds:ids});return {...source,...prepared,...submitted,clipIds:ids,...pack,exportUrl:list.clips[0].exportUrl};}
 (async()=>{
- const a=await setup(ownerA),b=await setup(ownerB);
- for(const [owner,foreign,own]of [[ownerA,b,a],[ownerB,a,b]]){
+ const ownerC={app:'creatrices',id:ownerA.id};
+ const a=await setup(ownerA),b=await setup(ownerB),c=await setup(ownerC);
+ // A single durable ledger may serve both apps. Even identical canonical IDs
+ // remain distinct; exercise both directions for every read/mutation below.
+ for(const [owner,foreign,own]of [[ownerA,b,a],[ownerB,a,b],[ownerA,c,a],[ownerC,a,c]]){
    await deny(owner,'source',{action:'target',sourceToken:foreign.sourceToken});
    await deny(owner,'source',{action:'prepare',sourceToken:foreign.sourceToken});
    await deny(owner,'opus',{action:'submit',sourceToken:foreign.sourceToken,uploadId:foreign.uploadId,title:'foreign'});
@@ -72,5 +75,5 @@ async function setup(owner){const source=await ok(owner,'source',{action:'create
  await deny(ownerA,'opus',{action:'clips',projectId:a.projectId},true);
  const snapshot=JSON.stringify(ledger);assert(!snapshot.includes(ownerA.id));assert(!snapshot.includes(a.sourceToken));assert(!snapshot.includes(a.projectId));assert(!snapshot.includes('https://'));
  ledger.length=0;await deny(ownerA,'opus',{action:'clips',projectId:a.projectId},true);
- console.log(JSON.stringify({checks,paidCalls:0,tests:'Two identities, trusted reply registration, parent relationships, exact export URL, new process/store, ledger loss/conflict/unavailability, no credential persistence, no mutation retry'},null,2));
+ console.log(JSON.stringify({checks,paidCalls:0,tests:'Multiple identities and both app namespaces in one ledger, trusted reply registration, parent relationships, exact export URL, new process/store, ledger loss/conflict/unavailability, no credential persistence, no mutation retry'},null,2));
 })().catch(error=>{console.error(error);process.exitCode=1});

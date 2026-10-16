@@ -2,7 +2,7 @@ import { clipperParJeton } from "@/lib/clippers";
 import { jetonGoogle } from "@/lib/google";
 import { forwardReelsRequest, createSheetsOwnershipStore } from "@gm/reels/server";
 
-const ownership = createSheetsOwnershipStore("clippers", jetonGoogle);
+const ownership = createSheetsOwnershipStore("clippers", jetonGoogle, { workbookId: process.env.REELS_OWNERSHIP_SPREADSHEET_ID });
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
