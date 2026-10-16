@@ -1,0 +1,77 @@
+const BACKEND = "https://duplicateur-de-reels.vercel.app";
+const OPERATIONS = new Set(["opus", "source", "finish"]);
+const QUERY_KEYS = new Set(["action", "projectId", "clipIds", "target", "uploadId"]);
+const ACTIONS: Record<string, Set<string>> = {
+  opus: new Set(["submit", "duplicate", "style", "export-pack"]),
+  source: new Set(["create", "target", "prepare"]),
+  finish: new Set(["health"]),
+};
+const READ_ACTIONS = new Set(["recover", "clips", "project-state"]);
+const BODY_KEYS: Record<string, string[]> = {
+  "source:create": ["action", "size", "extension"],
+  "source:target": ["action", "sourceToken"], "source:prepare": ["action", "sourceToken"],
+  "finish:health": ["action"], "finish:render": ["url", "index"],
+  "opus:submit": ["action", "uploadId", "title", "sourceToken"],
+  "opus:duplicate": ["action", "projectId", "clipId", "sourceEditTicket"],
+  "opus:style": ["action", "projectId", "clipId", "index", "editTicket"],
+  "opus:export-pack": ["action", "projectId", "clipIds", "collectionId"],
+};
+const MAX_JSON_BYTES = 256 * 1024;
+const error = (status: number, message: string) => Response.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store" } });
+
+// Called only after the host app's existing token guard. Never accepts an
+// upstream URL, forwards app credentials, retries mutations, or adds CORS.
+export async function forwardReelsRequest(request: Request, operation: string): Promise<Response> {
+  if (!OPERATIONS.has(operation)) return error(404, "Route de montage inconnue.");
+  if (request.method !== "GET" && request.method !== "POST") return error(405, "Méthode non autorisée.");
+  const incoming = new URL(request.url), origin = request.headers.get("Origin");
+  if (origin && origin !== incoming.origin) return error(403, "Origine non autorisée.");
+  const target = new URL("/api/" + operation, BACKEND);
+  let body: string | undefined;
+  if (request.method === "GET") {
+    if (operation !== "opus" || !READ_ACTIONS.has(incoming.searchParams.get("action") || "")) return error(400, "Action de suivi inconnue.");
+    for (const [key, value] of incoming.searchParams) {
+      if (!QUERY_KEYS.has(key) || value.length > 1000 || target.searchParams.has(key)) return error(400, "Paramètres de suivi invalides.");
+      target.searchParams.set(key, value);
+    }
+  } else {
+    if (!/^application\/json(?:;|$)/i.test(request.headers.get("Content-Type") || "")) return error(415, "Requête JSON requise.");
+    if (Number(request.headers.get("Content-Length")) > MAX_JSON_BYTES) return error(413, "Requête trop volumineuse.");
+    const reader = request.body?.getReader();
+    if (!reader) return error(400, "Requête vide.");
+    const parts: Uint8Array[] = []; let size = 0;
+    try {
+      for (;;) {
+        const part = await reader.read(); if (part.done) break;
+        size += part.value.byteLength;
+        if (size > MAX_JSON_BYTES) return error(413, "Requête trop volumineuse.");
+        parts.push(part.value);
+      }
+    } finally { await reader.cancel().catch(() => undefined); }
+    const bytes = new Uint8Array(size); let offset = 0;
+    for (const part of parts) { bytes.set(part, offset); offset += part.byteLength; }
+    try {
+      const value = JSON.parse(new TextDecoder().decode(bytes));
+      if (!value || typeof value !== "object" || Array.isArray(value)) return error(400, "Requête invalide.");
+      if (!(operation === "finish" && value.action === undefined) && !ACTIONS[operation].has(value.action)) return error(400, "Action de montage inconnue.");
+      const allowed = BODY_KEYS[operation + ":" + (value.action ?? "render")];
+      if (!allowed || Object.keys(value).some(key => !allowed.includes(key))) return error(400, "Paramètres de montage invalides.");
+      body = JSON.stringify(value);
+    } catch { return error(400, "Requête JSON invalide."); }
+  }
+  try {
+    const upstream = await fetch(target, { method: request.method, body,
+      headers: { "Accept": "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(290000)]), cache: "no-store", redirect: "error" });
+    if (!/^application\/json(?:;|$)/i.test(upstream.headers.get("Content-Type") || "")) {
+      await upstream.body?.cancel(); return error(502, "Le service de montage ne peut pas être joint. La progression est conservée.");
+    }
+    const headers = new Headers({ "Content-Type": "application/json", "Cache-Control": "private, no-store" });
+    for (const key of ["X-GM-Upstream-Calls", "X-GM-Api-Next-At", "X-GM-Api-Wait-Ms", "Retry-After", "Date", "Server-Timing"]) {
+      const value = upstream.headers.get(key); if (value !== null) headers.set(key, value);
+    }
+    return new Response(upstream.body, { status: upstream.status, headers });
+  } catch {
+    return error(502, "La réponse du montage n’a pas été confirmée. La progression est conservée ; aucun appel n’a été rejoué.");
+  }
+}

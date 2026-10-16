@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Logo from "./Logo";
 import DriveTab from "./DriveTab";
 import ReelsTab from "./ReelsTab";
+import { useReelsJob } from "@gm/reels/use-reels-job";
 import VersementsTab from "./VersementsTab";
 import ComptesTab from "./ComptesTab";
 import EquipeTab from "./EquipeTab";
@@ -41,6 +42,7 @@ const ONGLETS: { cle: Onglet; libelle: string; icone: (actif: boolean) => JSX.El
 ];
 
 export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: string; creatrice: string; jeton: string; tl?: boolean }) {
+  const reels = useReelsJob({ apiBase: `/api/k/${encodeURIComponent(jeton)}/reels` });
   const [onglet, setOnglet] = useState<Onglet>(tl ? "equipe" : "drive");
   const onglets = ONGLETS.filter((o) => o.cle !== "equipe" || tl);         // 12/10 : l'onglet Équipe, pour un Team Leader seulement
   useEffect(() => {
@@ -61,10 +63,10 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
           <div className="titre-argent text-[22px] font-bold">{prenom}</div>
         </div>
       </header>
-      <main className="flex-1 px-4 pb-28">
+      <main className="min-w-0 flex-1 px-4" style={{ paddingBottom: "calc(112px + var(--safe-bas))" }}>
         <Installer jeton={jeton} />
         {onglet === "drive" && <DriveTab jeton={jeton} creatrice={creatrice} />}
-        <ReelsTab actif={onglet === "reels"} />
+        <ReelsTab actif={onglet === "reels"} job={reels} />
         {onglet === "comptes" && <ComptesTab jeton={jeton} />}
         {onglet === "equipe" && tl && <EquipeTab key={jeton} jeton={jeton} />}
         {onglet === "versements" && <VersementsTab jeton={jeton} />}

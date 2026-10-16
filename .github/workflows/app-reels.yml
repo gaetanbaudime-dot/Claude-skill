@@ -1,0 +1,40 @@
+name: Native Reels apps
+on:
+  pull_request:
+    branches: [main]
+    paths: ["tools/app_clippers/**", "tools/app_creatrices/**", "tools/reels/**", ".github/workflows/app-reels.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apps:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [app_clippers, app_creatrices]
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tools/${{ matrix.app }}/package-lock.json
+      - name: Install frozen dependencies including the local shared module
+        working-directory: tools/${{ matrix.app }}
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build the app
+        working-directory: tools/${{ matrix.app }}
+        run: npm run build
+      - name: Offline engine, proxy and app lifecycle tests
+        if: matrix.app == 'app_clippers'
+        working-directory: tools/reels
+        run: |
+          node tests/native-speed-orchestration.cjs
+          node tests/downloads.cjs
+          node tests/transport.cjs
+          node tests/proxy.cjs
+          node tests/app-lifecycle.cjs

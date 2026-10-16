@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Logo from "./Logo";
 import DriveTab from "./DriveTab";
 import ReelsTab from "./ReelsTab";
+import { useReelsJob } from "@gm/reels/use-reels-job";
 import StatsTab from "./StatsTab";
 import { modeApp, signaler } from "@/lib/signal";
 
@@ -24,6 +25,7 @@ const ONGLETS: { cle: Onglet; libelle: string; icone: (actif: boolean) => JSX.El
 ];
 
 export default function App({ prenom, jeton, mym }: { prenom: string; jeton: string; mym: boolean }) {
+  const reels = useReelsJob({ apiBase: `/api/c/${encodeURIComponent(jeton)}/reels` });
   const [onglet, setOnglet] = useState<Onglet>("stats");
   useEffect(() => {
     try { const m = localStorage.getItem("gm-onglet") as Onglet | null; if (m && ONGLETS.some((o) => o.cle === m)) setOnglet(m); } catch { /* privé */ }
@@ -41,9 +43,9 @@ export default function App({ prenom, jeton, mym }: { prenom: string; jeton: str
           <div className="titre-argent text-[22px] font-bold">{prenom}</div>
         </div>
       </header>
-      <main className="flex-1 px-4 pb-28">
+      <main className="min-w-0 flex-1 px-4" style={{ paddingBottom: "calc(112px + var(--safe-bas))" }}>
         {onglet === "drive" && <DriveTab jeton={jeton} mym={mym} />}
-        <ReelsTab actif={onglet === "reels"} />
+        <ReelsTab actif={onglet === "reels"} job={reels} />
         {onglet === "stats" && <StatsTab jeton={jeton} />}
       </main>
       <nav className="barre fixed bottom-0 inset-x-0 px-6 pt-2" style={{ paddingBottom: "calc(var(--safe-bas) + 10px)" }} aria-label="Onglets">
