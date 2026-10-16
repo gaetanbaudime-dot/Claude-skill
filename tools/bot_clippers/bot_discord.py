@@ -37,6 +37,7 @@ import paie_clics                         # paie au clic GAML : relevés, ligne 
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
 import rapport_stats                      # liens GAML suivis du roster (associer_suivi) ; `!stats-jonas` retiré le 10/10
 import reserve_mym                        # réserve de trackings MYM par numéro de lien GAML (05/10)
+import support_suivi
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import dashboard                          # 09/10 (dashboard) : onglet Dashboard, une ligne par compte, réécrit toutes les 15 min si changé
@@ -229,6 +230,7 @@ import process_compat
 process_compat.sauvegarder(DONNEES)
 print("PROCESSUS_20261015 sauvegarde locale prête ; suivi existant maintenu, allocations sous preuves", flush=True)
 FICHIER_COMPTEURS = DONNEES / "compteurs.json"
+FICHIER_SUPPORT = DONNEES / "support.sqlite3"
 JOURNAL = DONNEES / "journal_questions.jsonl"
 FICHIER_CONNAISSANCES = DOSSIER / "connaissances.md"          # base curée, versionnée dans le repo
 FICHIER_FAQ_APPRISE = DONNEES / "faq_apprise.md"             # ajouts via !apprendre Q | R, sur le volume persistant
@@ -1447,21 +1449,26 @@ MOTIFS_ALERTE = (("un compte désactivé ou banni", re.compile(r"(?i)d[ée]sacti
 _alertes_salon = set()
 
 
+async def signaler_support(message, sujet):
+    async def notifier(ticket):
+        canal = await canal_admin()
+        if canal is None:
+            return None
+        envoye = await canal.send(
+            f"⚠️ Support #{ticket} — {sujet}\n"
+            f"Conséquence : parcours à vérifier pour <@{message.author.id}>.\n"
+            f"Action : consulter la preuve puis prendre en charge.\n{message.jump_url}\n"
+            f"Dossier : `!support {message.author.id}`")
+        return envoye.id
+    return await support_suivi.signaler(FICHIER_SUPPORT, str(message.author.id), sujet,
+        message.guild.id, message.channel.id, message.id, len(message.attachments), notifier)
+
+
 async def alerter_admin_salon(message, texte: str) -> bool:
-    jour = heure_paris().strftime("%Y-%m-%d")
     for sujet, motif in MOTIFS_ALERTE:
-        cle = (str(message.author.id), sujet, jour)
-        if cle in _alertes_salon or not motif.search(texte or ""):
-            continue
-        _alertes_salon.add(cle)
-        try:
-            canal = await canal_admin()
-            if canal is not None:
-                await canal.send(f"🚨 **{prenom_de(message.author)}** signale {sujet} dans <#{message.channel.id}> : "
-                                 f"« {(texte or '').strip()[:180]} »")
-                return True
-        except (discord.Forbidden, discord.HTTPException) as erreur:
-            journal.warning("Alerte salon perso : %s", erreur)
+        if motif.search(texte or ""):
+            retour = await signaler_support(message, sujet)
+            return retour["statut"] == "transmis"
     return False
 
 
@@ -1680,7 +1687,7 @@ def contexte_auteur(message) -> str:
     # salon, il y reçoit sa réponse, avec la même mémoire (jamais un mot de passe).
     if (sp is not None and sp.id == message.channel.id) or (message.guild is None and not est_staff(membre or message.author)):
         try:
-            return base + "\n" + memoire_sans_drive_perso(parcours.contexte_llm(str(message.author.id))) + "\n" + CONTEXTE_0910
+            return base + "\n" + memoire_sans_drive_perso(parcours.contexte_llm(str(message.author.id))) + "\n" + CONTEXTE_0910 + "\n" + support_suivi.contexte(FICHIER_SUPPORT, str(message.author.id))
         except Exception as erreur:
             journal.warning("Mémoire du clipper %s : %s", message.author.id, erreur)
     return base
@@ -6537,6 +6544,23 @@ async def commande_admin(message, texte: str) -> bool:
     if retiree:
         await message.reply(retiree)
         return True
+    if texte.split()[:1] in (["!support"], ["!support-resolu"]):
+        if str(message.author.id) not in ADMIN_IDS:
+            return True
+        mots_support = texte.split()
+        if len(mots_support) < 2 or not mots_support[1].isdigit():
+            await message.author.send("Utilise `!support UID` ou `!support-resolu UID numéro_ticket`.")
+            return True
+        uid_support = mots_support[1]
+        if mots_support[0] == "!support-resolu":
+            ok = len(mots_support) == 3 and mots_support[2].isdigit() and support_suivi.clore(FICHIER_SUPPORT, uid_support, int(mots_support[2]))
+            await message.author.send("Ticket clos après ta vérification." if ok else "Ticket ouvert introuvable pour cet UID.")
+        else:
+            rapport_support = support_suivi.rapport(FICHIER_SUPPORT, uid_support)
+            for ligne_support in rapport_support.splitlines():
+                await message.author.send(ligne_support)
+        return True
+
     # Admin-only: redacted history is sent by DM, never posted to a public channel.
     if texte.split()[:1] == ["!audit-discussions"]:
         if str(message.author.id) not in ADMIN_IDS:
@@ -10035,42 +10059,18 @@ async def relayer_mention_staff(message) -> bool:
                    and est_question(message, texte_c))
     if not vise and not re.search(r"@\s*ga[eé]tan\b", texte_c, re.I) and not prenom_vise:
         return False
-    compteurs_r = lire_json(FICHIER_COMPTEURS, {})
-    cle_r = f"{message.author.id}|{heure_paris().date().isoformat()}"
-    faits_r = compteurs_r.setdefault("relais_staff", {})
-    if faits_r.get(cle_r, 0) >= RELAIS_MAX_JOUR:
-        return True                                                     # déjà relayé assez aujourd'hui : silence, pas de renvoi
-    canal_r = await canal_admin()
-    if canal_r is None:
-        return False
-    try:
-        await canal_r.send((f"📣 **{prenom_de(message.author)}** te demande dans {message.channel.mention} : "
-                            f"« {texte_c[:300] or '(pièce jointe)'} »\n{message.jump_url}")[:1990])
-        await message.add_reaction("📨")
-    except (discord.Forbidden, discord.HTTPException):
-        return False
-    faits_r[cle_r] = faits_r.get(cle_r, 0) + 1
-    for k in [k for k in faits_r if not k.endswith(heure_paris().date().isoformat())]:
-        faits_r.pop(k, None)                                            # on ne garde que le jour en cours
-    ecrire_json(FICHIER_COMPTEURS, compteurs_r)
+    retour = await signaler_support(message, "demande de prise en charge par l’équipe")
+    if retour["nouveau"]:
+        try:
+            await message.add_reaction("📨")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
     return True
 
 
 async def alerte_numero_demande(message, texte: str) -> None:
-    """26/09 (Daniella) : le mur du numéro de téléphone bloque un clipper toute une nuit → le manager est prévenu, une fois par jour."""
     if re.search(r"num[ée]ro de t[ée]l|demande un num[ée]ro|numero de tel", texte, re.I):
-        utilisateur = message.author.id
-        compteurs_t = lire_json(FICHIER_COMPTEURS, {})
-        jour_t = heure_paris().date().isoformat()
-        if compteurs_t.setdefault("alertes_tel", {}).get(str(utilisateur)) != jour_t:
-            compteurs_t["alertes_tel"][str(utilisateur)] = jour_t
-            ecrire_json(FICHIER_COMPTEURS, compteurs_t)
-            try:                                                       # 26/09 (Gaëtan) : il met SON numéro ; le manager vérifie qu'il ne porte pas d'autres comptes
-                await notifier_manager(f"📱 **{prenom_de(message.author)} : Instagram lui demande un numéro de téléphone** "
-                                       f"({message.channel.mention}). Règle du 26/09 : il met le sien et reçoit le SMS. 👉 À vérifier "
-                                       f"avec lui : ce numéro ne sert à aucun autre compte Instagram (un numéro = ses 3 comptes, sinon ban en chaîne).")
-            except Exception as erreur:                                  # noqa: BLE001
-                journal.warning("Alerte numéro de téléphone : %s", erreur)
+        await signaler_support(message, "Instagram demande un numéro de téléphone")
 
 
 def normaliser_commande(texte: str) -> str:
