@@ -22,7 +22,7 @@ Limite API : Sheets ne fournit pas ici de compare-and-swap. Il reste une fenêtr
 
 ## Corrections après revue
 
-Une ancienne fiche onboarding et le propriétaire SQLite ne prouvent pas le détenteur courant de la ligne. Le registre doit porter une liaison explicitement attestée `attribution-sheet:<onglet>:<handle_normalisé>` avec `uid`, `gerant` exact, `creatrice` canonique et `preuve`. Aucune liaison n’est inventée ou créée automatiquement ici. En son absence, la restitution bloque ; une attribution changée Alice → Bob bloque également. Un changement légitime de libellé nécessite une nouvelle attestation.
+Une ancienne fiche onboarding et le propriétaire SQLite ne prouvent pas le détenteur courant de la ligne. Le registre doit porter une liaison explicitement attestée `attribution-sheet:<onglet>:<handle_normalisé>` avec `uid`, `gerant` exact, `creatrice` canonique et `preuve`. Aucune liaison historique n’est inventée. Le nouveau parcours produit cette attestation uniquement à partir de sa propre intention persistée avant réservation, puis de la relecture confirmée de la ligne. En son absence, la restitution bloque ; une attribution changée Alice → Bob bloque également. Un changement légitime de libellé nécessite une nouvelle attestation.
 
 Créatrice : égalité canonique normalisée, ou entrée `alias-creatrice:<libellé_normalisé>` avec `canonique` et `preuve` explicites. Sarah2 n’est jamais un préfixe accepté pour Sarah.
 
@@ -37,3 +37,9 @@ Followers et Reels restent par compte. Les clics sont affichés une seule fois p
 Contrôle réel en lecture seule : Dashboard gid 569057685 ; vues protégées Comptes · Pilotage live gid 1900160410 et Clippers · Règles gid 1900160402. Railway ne définit pas ONGLET_DASHBOARD, donc nom par défaut Dashboard. L’identifiant du classeur configuré reste masqué par le connecteur et doit encore être confirmé avant déploiement.
 
 La garde d’exécution compare maintenant le classeur configuré au seul classeur autorisé et le gid résolu à 569057685. Toute divergence, onglet absent ou métadonnée illisible arrête le générateur sans mutation ni création d’onglet, avec un diagnostic fermé non sensible. La garde précède aussi les mises à jour associées lancées par ecrire. Les deux gid des vues cloud restent explicitement interdits.
+
+## Producteur d’attestation à l’attribution
+
+`reserver_compte` et l’attribution initiale passent maintenant la créatrice canonique à `reserver`. Le chemin refuse un ancien propriétaire ou une ligne déjà nommée sans intention préalable. Sur une ligne libre À créer, il relit l’identité exacte et les fusions, persiste une intention UID/créatrice/handle/onglet/ligne/date, réserve dans le compteur à vie puis écrit le gérant. Seule une relecture confirmant la même identité et le même propriétaire produit l’attestation. Un timeout conserve l’intention et reprend par relecture, sans nouvelle réservation ni écrasement divergent. Les historiques ambigus restent bloqués et signalés.
+
+Test du chemin réel reserver_compte → reserver → adaptateur → registre, avec réponse Sheets perdue après écriture, reprise, fiche onboarding puis synchronisation des trois liens ; tous les appels externes sont simulés.

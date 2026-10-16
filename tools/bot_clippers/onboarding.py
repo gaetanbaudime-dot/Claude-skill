@@ -728,18 +728,11 @@ def _ecarte_pour(etat: dict, c: dict, uid: str) -> bool:
     return etat.get("ecartes", {}).get(c["handle"].lower(), {}).get("uid") == str(uid)
 
 
-async def reserver(comptes: list, prenom_clipper: str, uid: str = "") -> int:
-    """Écrit le prénom du clipper dans la colonne Gérant de chaque ligne. Renvoie le nombre de cellules écrites."""
-    if not uid:
-        raise RuntimeError("Identité Discord stable requise pour réserver")
-    proprietaires = _proprietaires()
-    if any((proprietaires.get(_cle_handle(c["handle"])) or set()) - {str(uid)} for c in comptes):
-        raise RuntimeError("Compte déjà attribué : aucune réattribution")
-    process_adapters.store().reserve(uid, [c["handle"] for c in comptes])
-    n = 0
-    for c in comptes:
-        n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[prenom_clipper]])
-    return n
+async def reserver(comptes: list, prenom_clipper: str, uid: str = "", creatrice: str = "") -> int:
+    """Nouvelle attribution attestée seulement après écriture et relecture."""
+    if not uid or not creatrice:
+        raise RuntimeError('Identité Discord et créatrice canoniques requises')
+    return await process_adapters.reserver_attribution(comptes, prenom_clipper, str(uid), creatrice)
 
 
 def acces_ordonnes(comptes: list) -> list:
@@ -1235,7 +1228,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                     if a_reserver < COMPTES_PAR_CLIPPER:                 # 10/10 (lot L3) : le début du trio seulement
                         nouveaux = _debut_du_trio(nouveaux + disponibles(tous, creatrice, 999, uid), len(comptes), a_reserver)
                     if nouveaux:
-                        await reserver(nouveaux, prenom, uid)
+                        await reserver(nouveaux, prenom, uid, creatrice)
                     comptes += nouveaux
                 lu = True
                 resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
@@ -1433,7 +1426,7 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
         if not choix:
             return None
         ligne = choix[0]
-        await reserver([ligne], gerant, uid)
+        await reserver([ligne], gerant, uid, creatrice)
         maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
         etat = _lire_etat()                                             # relu frais, écrit sans attente
         f = etat["clippers"].setdefault(uid, {})

@@ -148,3 +148,51 @@ class ReviewRegressions(unittest.IsolatedAsyncioTestCase):
      with self.assertRaises(RuntimeError):await d._ecrire_onglet({'simple':True})
      write.assert_not_awaited()
     create.assert_not_awaited()
+
+class AttributionCompleteTests(unittest.IsolatedAsyncioTestCase):
+ async def test_parcours_nouvelle_attribution_puis_trois_liens(self):
+  from unittest.mock import patch,AsyncMock
+  from contextlib import ExitStack
+  from types import SimpleNamespace as N
+  import onboarding as o,process_adapters as a,google_api as g,paie_clics as pc
+  with tempfile.TemporaryDirectory() as tmp:
+   registre=Store(Path(tmp)/'process.sqlite3');registre.reconcile('42',[],'historique-neuf-verifie-fictif')
+   state={'clippers':{},'livres':{}}
+   row=dict(onglet='Fictive',ligne=2,handle='nouveau.fictif',gerant='',etat='À créer',creatrice='Fictive',utilisation='clipper',mail='fictif@example.invalid',mdp='fictif',phone='',pod='',lien_gaml='',lien_mym='',lien_infloww='')
+   cols={'gerant':0,'handle':1,'creatrice':2,'lien_gaml':3,'lien_mym':4,'lien_infloww':5}
+   incertain=[True]
+   async def write(cid,plage,valeurs):
+    row['gerant']=valeurs[0][0]
+    if incertain.pop() if incertain else False:raise TimeoutError('réponse fictive perdue')
+    return 1
+   async def batch(cid,changes):
+    for plage,values in changes:
+     letter=plage.split('!')[1][0];champ=next(k for k,v in cols.items() if chr(65+v)==letter);row[champ]=values[0][0]
+   def save(data):state.clear();state.update(deepcopy(data))
+   job=dict(uid='42',creatrice='Fictive',phase='pret',lid='fictif',lien='https://example.invalid/g',mym='https://example.invalid/m',of='https://example.invalid/o')
+   registre.claim_job('liens:42:fictive',job)
+   detail=dict(enabled=True,url=job['lien'],contents=[{'value':job['mym']},{'value':job['of']}])
+   with ExitStack() as st:
+    for target,name,value in [(a,'store',lambda:registre),(o,'actif',lambda:True),(o,'_lire_etat',lambda:deepcopy(state)),(o,'_ecrire_etat',save),
+       (o,'_proprietaires',lambda:{h:{v['uid']} for h,v in state['livres'].items()}),(o,'lire_comptes',AsyncMock(side_effect=lambda:[deepcopy(row)])),
+       (o,'disponibles',lambda *args:[deepcopy(row)]),(o,'_colonnes_lues_par_onglet',{'Fictive':cols}),(o,'_colonnes_par_onglet',{'Fictive':cols}),
+       (g,'sheets_fusions',AsyncMock(return_value={'Fictive':[]})),(g,'sheets_ecrire',AsyncMock(side_effect=write)),
+       (g,'sheets_ecrire_plusieurs',AsyncMock(side_effect=batch)),(pc,'lien_detail',AsyncMock(return_value=detail))]:st.enter_context(patch.object(target,name,value))
+    with self.assertRaises(TimeoutError):await o.reserver_compte(N(id=42,display_name='Fictif'),'Fictive',1)
+    self.assertFalse(registre.get('attribution-sheet:Fictive:nouveau.fictif'))
+    await o.reserver_compte(N(id=42,display_name='Fictif'),'Fictive',1)
+    preuve=registre.get('attribution-sheet:Fictive:nouveau.fictif')
+    self.assertEqual('42',preuve['uid']);self.assertEqual(2,preuve['ligne_constatee'])
+    self.assertEqual('nouvelle-attribution-relue',preuve['preuve'])
+    result=await p.synchroniser(registre,'42','Fictive',a.LiensSheetsAPI('42',registre))
+    self.assertEqual(3,result['ecrits']);self.assertEqual(job['lien'],row['lien_gaml'])
+    self.assertEqual(0,(await p.synchroniser(registre,'42','Fictive',a.LiensSheetsAPI('42',registre)))['ecrits'])
+ async def test_ancienne_attribution_sans_intention_ne_produit_pas_de_preuve(self):
+  from unittest.mock import patch,AsyncMock
+  import onboarding as o,process_adapters as a,google_api as g
+  with tempfile.TemporaryDirectory() as tmp:
+   registre=Store(Path(tmp)/'process.sqlite3');registre.reconcile('42',[{'aliases':['historique'],'status':'created','evidence':'historique-fictif'}],'fictif')
+   row=dict(handle='historique',onglet='Fictive',ligne=2,creatrice='Fictive',gerant='Fictif',etat='À créer')
+   with patch.object(a,'store',return_value=registre),patch.object(a.LiensSheetsAPI,'lignes',AsyncMock(return_value=[row])),patch.object(o,'a_colonne',return_value=True),patch.object(o,'_proprietaires',return_value={'historique':{'42'}}),patch.object(g,'sheets_ecrire',AsyncMock()) as write:
+    with self.assertRaises(Bloque):await o.reserver([row],'Fictif','42','Fictive')
+    self.assertFalse(registre.get('attribution-sheet:Fictive:historique'));write.assert_not_awaited()

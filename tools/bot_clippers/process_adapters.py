@@ -254,7 +254,7 @@ class LiensSheetsAPI:
             if r['onglet'] not in merges:
                 raise Bloque('fusions_non_verifiees')
             cols = o._colonnes_lues_par_onglet.get(r['onglet']) or {}
-            for champ in ('lien_gaml', 'lien_mym', 'lien_infloww'):
+            for champ in ('lien_gaml', 'lien_mym', 'lien_infloww', 'gerant', 'handle', 'creatrice'):
                 col = cols.get(champ)
                 if col is not None and any(r0 <= r['ligne']-1 < r1 and c0 <= col < c1
                     for r0,r1,c0,c1 in merges.get(r['onglet'], [])):
@@ -318,3 +318,53 @@ async def synchroniser_liens_sheets():
         o.journal.warning('Restitution liens Sheets : %d conflit(s), codes=%s', len(bilan['conflits']),
                           ','.join(sorted({c['raison'] for c in bilan['conflits']})))
     return bilan
+
+
+async def reserver_attribution(comptes, gerant, uid, creatrice):
+    """Intention neuve durable puis relecture : aucune attestation rétroactive."""
+    import onboarding as o
+    import google_api
+    from datetime import datetime, timezone
+    registre=store();api=LiensSheetsAPI(uid,registre);n=0
+    with registre.lock('allocations-liens'):
+        for cible in comptes:
+            h=o._cle_handle(cible.get('handle'))
+            onglet=cible.get('onglet')
+            key='attribution-sheet:'+str(onglet)+':'+h
+            intention_key='intention-'+key
+            async def relire():
+                rows=[r for r in await api.lignes() if o._cle_handle(r.get('handle'))==h]
+                if len(rows)!=1 or rows[0].get('onglet')!=onglet or rows[0].get('doublons_ecartes'):
+                    raise Bloque('attribution_identite_ambigue')
+                r=rows[0]
+                if o._norm(r.get('creatrice'))!=o._norm(creatrice):
+                    raise Bloque('attribution_creatrice_divergente')
+                if any(k in (r.get('fusions') or {}) for k in ('gerant','handle','creatrice')):
+                    raise Bloque('attribution_cellule_fusionnee')
+                if not o.a_colonne('gerant',onglet):raise Bloque('attribution_colonne_absente')
+                if (o._proprietaires().get(h) or set())-{uid}:
+                    raise Bloque('attribution_proprietaire_divergent')
+                return r
+            r=await relire()
+            intention=registre.get(intention_key)
+            attendu={'uid':uid,'gerant':gerant,'creatrice':creatrice,'handle':h,'onglet':onglet}
+            if not intention:
+                if (registre.owner_for_handle(h) is not None or o._proprietaires().get(h)
+                        or o._norm(r.get('gerant')) not in o.GERANTS_LIBRES
+                        or o._norm(r.get('etat')) not in o.A_CREER):
+                    raise Bloque('attribution_historique_non_attestable')
+                intention=dict(attendu,ligne_initiale=r['ligne'],date=datetime.now(timezone.utc).isoformat())
+                registre.put(intention_key,intention)
+            if any(intention.get(k)!=v for k,v in attendu.items()):
+                raise Bloque('attribution_intention_divergente')
+            if o._norm(r.get('gerant')) not in o.GERANTS_LIBRES and r.get('gerant')!=gerant:
+                raise Bloque('attribution_courante_divergente')
+            registre.reserve(uid,[h])
+            if r.get('gerant')!=gerant:
+                n+=await google_api.sheets_ecrire(o.CLASSEUR_LOGINS_ID,o.cellule(r,'gerant'),[[gerant]])
+            confirmation=await relire()
+            if confirmation.get('gerant')!=gerant or registre.owner_for_handle(h)!=uid:
+                raise Bloque('attribution_ecriture_non_confirmee')
+            registre.put(key,dict(attendu,ligne_constatee=confirmation['ligne'],
+                preuve='nouvelle-attribution-relue',date=datetime.now(timezone.utc).isoformat()))
+    return n
