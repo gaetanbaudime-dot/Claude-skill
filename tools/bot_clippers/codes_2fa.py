@@ -95,7 +95,7 @@ TEXTE_REFUSE = ("-# Code refusé ? Appuie sur « Renvoyer le code » dans l’ap
                 "seul, à la place de celui-ci.")
 TEXTE_REFUSE_FIN = ("-# Code refusé ? Demande un renvoi dans l’application, respecte son délai affiché, puis "
                     "rappuie sur 📩 Mon code. Utilise le dernier code du bon compte et du bon usage.")
-TEXTE_SUITE = "↪️ Tu as redemandé ton code : il s'affiche dans la nouvelle réponse, plus bas."
+TEXTE_SUITE = "Cette demande a été remplacée par ta dernière demande."
 TEXTE_PLUS_ADRESSE = ("🔒 Aucune adresse n'est plus rattachée à toi : je ne guette plus rien.\n\n"
                       "Une question ? Écris dans ton salon perso.")
 TEXTE_GARDE = ("🔒 Le dernier e-mail reçu sur ton adresse n'est pas un code e-mail autorisé de connexion, de création ou de vérification : "

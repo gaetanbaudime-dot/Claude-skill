@@ -1230,6 +1230,16 @@ async def poser_notes_attendues(liens: list) -> list:
     return lignes
 
 
+def releve_valide(v):
+    """Un zéro exige un relevé réussi et des compteurs numériques valides."""
+    import math
+    def compte(x):
+        return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) and x >= 0 and int(x) == x
+    return (isinstance(v, dict) and not v.get('erreur')
+            and compte(v.get('payes')) and compte(v.get('hors_robots'))
+            and (v.get('brut') is None or compte(v.get('brut'))))
+
+
 def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
     """Visites des liens sur la période. 28/09 : un lien repris d'un sortant ne compte pour son nouveau clipper qu'à partir de
     `depuis` (les visites d'avant sont celles de l'ancien). 10/10 : un jour dont le total robots compris n'a pas pu être lu (`brut`
@@ -1237,7 +1247,9 @@ def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
     tot = {"brut": 0, "hors_robots": 0, "payes": 0, "jours": 0, "brut_non_lu": 0}
     for lid in link_ids:
         dep = str((d.get("liens", {}).get(lid) or {}).get("depuis") or "")
-        for j, v in d["jours"].get(lid, {}).items():
+        for j, v in (d.get("jours") or {}).get(lid, {}).items():
+            if not releve_valide(v):
+                continue
             if debut.isoformat() <= j <= fin.isoformat() and j >= dep:
                 if v.get("brut") is None:
                     tot["brut_non_lu"] += 1
@@ -1406,10 +1418,41 @@ def _jours_non_lus(n: int, court: bool = False) -> str:
     return "" if not n else (f"{n} j. non relevé(s)" if court else f"{n} jour(s) pas encore relevé(s)")
 
 
+def periode_mesclics(arguments: list, aujourd_hui: date = None):
+    """Dates inclusives explicites ; ne jamais ignorer un argument."""
+    if not arguments:
+        return None
+    aujourd_hui = aujourd_hui or _aujourdhui()
+    try:
+        if len(arguments) != 2:
+            raise ValueError
+        debut, fin = (date.fromisoformat(x) for x in arguments)
+        if debut > fin or fin >= aujourd_hui:
+            raise ValueError
+        return debut, fin
+    except ValueError:
+        raise ValueError("Période non reconnue : utilise `!mesclics AAAA-MM-JJ AAAA-MM-JJ` (dates incluses, jusqu’à hier), ou `!mesclics` pour le résumé.") from None
+
+
+def texte_clics_periode(d: dict, uid: str, periode: tuple) -> str:
+    debut, fin = periode
+    lids = liens_de(d, uid)
+    if not lids:
+        return "Aucun lien rattaché : les visites de cette période ne sont pas mesurables."
+    q = somme(d, lids, debut, fin)
+    manquants = non_releves(d, lids, debut, fin)
+    couverture = all((_en_date(d['liens'][lid].get('depuis')) or date.max) <= debut for lid in lids)
+    complet = not manquants and couverture and bool(q['jours'])
+    valeur = _fmt(q['payes']) if complet else (f"{_fmt(q['payes'])} relevées — total incomplet" if q['jours'] else "non mesuré")
+    return (f"📊 Visites du **{debut.isoformat()} au {fin.isoformat()} inclus** : **{valeur}**.\n"
+            "Cette période décrit les visites ; elle ne recalcule pas une rémunération historique. "
+            + ("Ton forfait fixe est distinct des visites." if regime(uid) != "clic" else "La paie au clic dépend de la période et du régime applicables."))
+
+
 def texte_mesclics(d: dict, uid: str, nom: str) -> str:
     lids = liens_de(d, uid)
     if not lids:
-        return "Tu n'as pas encore de lien. Ton manager te le donne. En attendant, rien n'est compté."
+        return "Aucun lien n’est rattaché à ton dossier. Ton équipe doit vérifier le rattachement ; tes visites ne sont pas mesurables ici."
     hier = _aujourdhui() - timedelta(days=1)
     h = somme(d, lids, hier, hier)
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
@@ -1425,23 +1468,28 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
           else _n_jours(non_releves(d, lids, debut, min(fin, hier))))
     part = f" ({h['payes'] * 100 // h['hors_robots']} % de tes visiteurs)" if h["hors_robots"] else ""
     robots = h["brut"] - h["hors_robots"] if not h["brut_non_lu"] else 0
-    if manque_h and not h["jours"]:
-        ligne_hier = f"Hier, le {hier.strftime('%d/%m')} : pas encore relevé, le chiffre arrive dans la journée.\n\n"
+    if not h["jours"]:
+        ligne_hier = f"Hier, le {hier.strftime('%d/%m')} : non mesuré, relevé en attente.\n\n"
     else:
         ligne_hier = (f"Hier, le {hier.strftime('%d/%m')} : **{_fmt(h['payes'])} visites qui comptent**{part}"
                       + (" pour l'instant (un de tes liens pas encore relevé)" if manque_h else "")
                       + (f". {robots} robots enlevés" if robots > 0 else "") + ".\n\n")
-    reste_q = f", {_jours_non_lus(nq)} : le montant va encore monter" if nq else ""
-    return (f"📊 **Tes visites, {nom}**" + ("" if au_clic else " · tu es au fixe, ces montants sont juste pour info") + "\n\n"
+    reste_q = f", {_jours_non_lus(nq)} : montant provisoire" if nq else ""
+    visites_7 = _fmt(s7["payes"]) if s7["jours"] else "non mesuré"
+    visiteurs_7 = _fmt(s7["hors_robots"]) if s7["jours"] else "non mesuré"
+    visites_q = _fmt(q["payes"]) if q["jours"] else "non mesuré"
+    montant_q = _usd(q["payes"] * TAUX_CLIC) if q["jours"] else "non mesurée"
+    return (f"📊 **Tes visites, {nom}**" + ("" if au_clic else " · rémunération au forfait fixe") + "\n\n"
             + ligne_hier +
-            f"Sur 7 jours : **{_fmt(s7['payes'])}** visites qui comptent, sur {_fmt(s7['hors_robots'])} visiteurs"
+            f"Sur 7 jours : **{visites_7}** visites qui comptent, sur {visiteurs_7} visiteurs"
             + (f" ({_jours_non_lus(n7)})" if n7 else "") + ".\n\n"
-            + ((f"💸 **Ta paie en cours : {_usd(q['payes'] * TAUX_CLIC)}** ({_fmt(q['payes'])} visites du {debut.strftime('%d/%m')} au "
-                f"{fin.strftime('%d/%m')}{reste_q}), virée le {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
-               (f"Période du {debut.strftime('%d/%m')} au {fin.strftime('%d/%m')} : **{_fmt(q['payes'])} visites = "
-                f"{_usd(q['payes'] * TAUX_CLIC)}**{f' ({_jours_non_lus(nq)})' if nq else ''}.\n"))
+            + ((f"💸 **Ta paie en cours : {montant_q}** ({visites_q} visites du {debut.strftime('%d/%m')} au "
+                f"{min(fin, hier).strftime('%d/%m')}{reste_q}), date de paie prévue : {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
+               (f"Période du {debut.strftime('%d/%m')} au {min(fin, hier).strftime('%d/%m')} : **{visites_q} visites**"
+                f"{f' ({_jours_non_lus(nq)})' if nq else ''}. Ton forfait fixe est distinct des visites.\n"))
             +
-            f"Une visite qui compte = {_usd(TAUX_CLIC)}. Elle vient de France ou d'un pays francophone. Ce n'est pas un robot.\n\n"
+            (f"Une visite qui compte = {_usd(TAUX_CLIC)}. " if au_clic else "")
+            + "Les visites qui comptent viennent de France ou d’un pays francophone, hors robots.\n\n"
             + ("" if not au_clic or str(uid) in d["wallets"] else "⚠️ Je n'ai pas ton adresse de paiement. Colle ton adresse USDC dans ton app (onglet Versements), ou écris `!wallet 0x…` ici (`!wallet FR76…` pour un virement).\n\n")
             + "-# Ton lien : " + " · ".join(d["liens"][l].get("url", "") for l in lids))
 
@@ -2053,7 +2101,7 @@ async def associer_auto(d: dict, liens: list) -> list:
 def _manque(jours: dict, j: date) -> bool:
     """Le jour `j` est-il à (re)lire ? Absent, ou un vieux 404 enregistré à 0 avant le 09/10 (`erreur`)."""
     v = (jours or {}).get(j.isoformat())
-    return not isinstance(v, dict) or bool(v.get("erreur"))
+    return not releve_valide(v)
 
 
 ECHEC_REESSAI = int(os.environ.get("CLICS_ECHEC_REESSAI", "1800") or 1800)   # revue CLICS : un lien en erreur retenté 30 min après
@@ -3528,7 +3576,12 @@ async def commande_clipper(message, texte: str) -> bool:
         return True
     d = _lire(); uid = str(message.author.id)
     if mots[0].lower() == "!mesclics":
-        await message.reply(texte_mesclics(d, uid, message.author.display_name)[:1990])
+        try:
+            periode = periode_mesclics(mots[1:])
+            reponse = texte_clics_periode(d, uid, periode) if periode else texte_mesclics(d, uid, message.author.display_name)
+        except ValueError as erreur:
+            reponse = str(erreur)
+        await message.reply(reponse[:1990])
         return True
     if len(mots) < 2:
         actuelle = d["wallets"].get(uid, {}).get("adresse", "")

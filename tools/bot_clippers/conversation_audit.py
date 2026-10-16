@@ -43,8 +43,41 @@ def _norm(value: str) -> str:
                    if unicodedata.category(c) != "Mn")
 
 
+ACCESS_BLOCK = re.compile(
+    r"identifiants?|credentials?|connexion|connection|login|identifiant|"
+    r"acc[eè]s|connecter|code.{0,25}(?:affiche|r[eé]ponse|dessous)|"
+    r"(?:code|otp|2fa|pin)\s*[:=]|```|~~~|[?&](?:token|key|auth|code|signature)=", re.I)
+
+
+# Contextes d'accès : les mots seuls suffisent, quelle que soit la forme de la
+# valeur qui suit (espacée, alphanumérique, ligne suivante, bloc Markdown).
+ACCESS_CONTEXT = re.compile(r"\b(?:codes?|otp|totp|2fa|pin|verification|authentification|authenticator|identifiants?|credentials?|password|passwd|connexion|connection|login|acces|secret|token)\b")
+SPLIT_CODE = re.compile(r"(?<!\w)(?:\d[\s.\-]*){6,8}(?!\w)")
+
+
+def contexte_sensible(value):
+    brut = str(value or "")
+    sans_format = ''.join(c for c in unicodedata.normalize('NFKD', brut).casefold()
+                         if unicodedata.category(c) not in ('Mn', 'Cf'))
+    mots = re.sub(r"[^a-z0-9]+", " ", sans_format)
+    return bool(ACCESS_CONTEXT.search(mots) or SENSITIVE_LINE.search(sans_format)
+                or ACCESS_BLOCK.search(sans_format) or any(c in brut for c in ('🔐','🔑','🔒')))
+
+
+def sanitize_in_channel(content, channel):
+    noms = [getattr(channel, 'name', ''), getattr(getattr(channel, 'parent', None), 'name', ''),
+            getattr(getattr(channel, 'category', None), 'name', '')]
+    if any(contexte_sensible(n) for n in noms):
+        return "[SALON D’ACCÈS MASQUÉ]"
+    return sanitize_message(content)
+
+
 def sanitize_message(content: str) -> str:
     """Redact probable credentials and identifiers; never assert perfect sanitization."""
+    # Une valeur peut suivre son étiquette sur une autre ligne : supprimer
+    # tout le bloc/message avant toute sérialisation, jamais seulement l'étiquette.
+    if contexte_sensible(content) or SPLIT_CODE.search(str(content or "")):
+        return "[MESSAGE D’ACCÈS MASQUÉ INTÉGRALEMENT]"
     safe = []
     for line in str(content or "").splitlines()[:20]:
         if SENSITIVE_LINE.search(line):
@@ -121,9 +154,9 @@ async def export_to_admin_dm(message, active_pairs: list, days: int = 90) -> dic
                 msgs.append({
                     "date_utc": m.created_at.isoformat(),
                     "author_uid": str(m.author.id),
-                    "author": str(getattr(m.author, "display_name", m.author.name))[:100],
+                    "author": sanitize_message(str(getattr(m.author, "display_name", m.author.name)))[:100],
                     "bot": bool(m.author.bot),
-                    "text_redacted": sanitize_message(m.content),
+                    "text_redacted": sanitize_in_channel(m.content, channel),
                     "attachments_count": len(m.attachments),
                     "question": "?" in (m.content or ""),
                 })
@@ -131,15 +164,15 @@ async def export_to_admin_dm(message, active_pairs: list, days: int = 90) -> dic
             total += len(msgs)
             report["rooms"].append({
                 "channel_id": str(channel.id),
-                "category": getattr(channel.category, "name", "") or "",
-                "channel": channel.name,
+                "category": sanitize_message(getattr(channel.category, "name", "") or ""),
+                "channel": sanitize_message(channel.name),
                 "messages": msgs,
                 "count": len(msgs),
                 "limit_reached": len(msgs) == MAX_MESSAGES_PER_CHANNEL,
             })
         except (discord.Forbidden, discord.HTTPException) as exc:
             report["errors"].append({
-                "channel": channel.name,
+                "channel": sanitize_message(channel.name),
                 "type": type(exc).__name__,
             })
     bio = io.BytesIO()
