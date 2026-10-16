@@ -130,7 +130,7 @@ class DemandeTests(unittest.TestCase):
         self.assertEqual(asyncio.run(test()), "code")
         self.assertNotIn("111111", "\n".join(nouveau))
         self.assertIn("222222", nouveau[-1])
-        self.assertEqual(ancien[-1], self.c.TEXTE_SUITE)
+        self.assertNotIn(self.c.TEXTE_SUITE, ancien)
 
     def test_commande_conserve_son_contexte(self):
         self.assertEqual(self.c.demande_de_code("!code connexion"), "!code connexion")

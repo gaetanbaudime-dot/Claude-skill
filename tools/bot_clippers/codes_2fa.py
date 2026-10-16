@@ -1557,6 +1557,45 @@ def _une_fois(cle: str, minutes: int = None) -> bool:
 # ------------------------------------------------------------------ réveil des guets
 _cond = (None, None)
 _guets = {}                                                            # cle → {"dire": coroutine} (le dernier appui gagne)
+# Références privées en mémoire uniquement : aucun jeton d'interaction persisté.
+_reponses_privees = {}
+_verrous_reponses = {}
+
+
+def reponse_privee_unique(cle, nouveau, fermer=None):
+    """Réédite la même réponse pour cet UID et cette surface privée.
+
+    Une réponse Discord supprimée/expirée nécessite une nouvelle réponse privée.
+    Un échec ambigu ne déclenche jamais une seconde livraison.
+    """
+    boucle = asyncio.get_running_loop()
+    entree = _verrous_reponses.get(cle)
+    if entree is None or entree[0] is not boucle:
+        entree = (boucle, asyncio.Lock())
+        _verrous_reponses[cle] = entree
+    ferme = False
+
+    async def dire(texte):
+        nonlocal ferme
+        async with entree[1]:
+            cible = _reponses_privees.get(cle, nouveau)
+            try:
+                await cible(texte)
+            except discord.HTTPException as erreur:
+                if cible is nouveau or getattr(erreur, "status", None) not in (401, 404):
+                    raise
+                await nouveau(texte)
+                cible = nouveau
+            _reponses_privees[cle] = cible
+            if cible is not nouveau and fermer is not None and not ferme:
+                try:
+                    await fermer()
+                except discord.HTTPException:
+                    pass  # Aucun code dans l'accusé provisoire.
+                ferme = True
+    return dire
+
+
 _SANTE = {"ok_t": None, "echecs": 0, "erreur": ""}
 _deps = {}
 
@@ -1718,14 +1757,8 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
         return "choix"
     duree = ATTENTE_SEC if duree is None else duree
     depuis = _maintenant() - timedelta(minutes=2)
-    ancienne = _guets.pop(cle_guet, None)
     guet = {"dire": dire, "texte": TEXTE_ATTENTE}
-    _guets[cle_guet] = guet
-    if ancienne:
-        try:
-            await ancienne["dire"](TEXTE_SUITE)
-        except Exception as erreur:
-            journal.info("Codes : ancienne réponse non éditée : %s", _err(erreur))
+    _guets[cle_guet] = guet  # Le nouveau guet réédite la réponse privée existante.
     vus = set((_MONTRES.get(cle_guet) or {}).keys())
     montre = None
     fin = time.monotonic() + duree
@@ -2043,13 +2076,12 @@ async def servir_interaction(interaction, usage="", adresse="") -> str:
     except (discord.HTTPException, discord.InteractionResponded):
         return "indisponible"
 
-    async def dire(texte):
-        try:
-            await interaction.edit_original_response(content=texte, view=None)
-        except (discord.HTTPException, discord.NotFound):
-            await interaction.followup.send(texte, ephemeral=True)
+    async def nouveau(texte):
+        await interaction.edit_original_response(content=texte, view=None)
 
     membre = interaction.user
+    dire = reponse_privee_unique((str(membre.id), "ephemere"), nouveau,
+                                 getattr(interaction, "delete_original_response", None))
     adresses = _adresses_membre(membre)
     if not adresses:
         adresses = await _rafraichir_membre(membre)
@@ -2225,7 +2257,6 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
             await message.author.send(TEXTE_CHOIX, view=vue_choix_code(message.author.id, adresses, usage))
             await message.reply(TEXTE_MP, view=vue_mon_code(), delete_after=120)
             return True
-        mp = await message.author.send("📩 Je regarde la boîte…")
     except (discord.Forbidden, discord.HTTPException, AttributeError):
         await message.reply(TEXTE_MP_FERMES, view=vue_mon_code())
         return True
@@ -2233,17 +2264,24 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
         await message.reply(TEXTE_MP, view=vue_mon_code(), delete_after=120)
     except (discord.Forbidden, discord.HTTPException):
         pass
-    courant = {"msg": mp}
+    courant = {"msg": None}
 
-    async def dire(t):
-        try:
-            await courant["msg"].edit(content=t)
-        except (discord.Forbidden, discord.HTTPException):
+    async def nouveau(t):
+        if courant["msg"] is None:
             courant["msg"] = await message.author.send(t)
+        else:
+            await courant["msg"].edit(content=t)
+
+    dire = reponse_privee_unique((str(message.author.id), "mp"), nouveau)
 
     cle = f"u|{getattr(message.author, 'id', '')}"
     _demander_scan({adresse}, cle)
-    await _servir({adresse}, dire, cle, usage=usage, relire=source)
+    try:
+        await _servir({adresse}, dire, cle, usage=usage, relire=source)
+    except discord.Forbidden:
+        await message.reply(TEXTE_MP_FERMES, view=vue_mon_code())
+    except discord.HTTPException:
+        await message.reply("La réponse privée n’a pas pu être actualisée. Réessaie avec 📩 Mon code.", view=vue_mon_code())
     return True
 
 

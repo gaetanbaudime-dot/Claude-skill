@@ -399,18 +399,19 @@ def _minuscule(t: str) -> str:
 
 
 def texte_avant(avis: dict) -> str:
-    """4 lignes au plus : la note et le verdict d'abord, un point fort, une ou deux corrections. Ligne vide après le verdict."""
+    """Une décision exploitable ; les notes internes restent dans l'historique."""
     if not avis or avis.get("erreur"):
         return TEXTE_ECHEC
-    note, corr = avis["note"], list(avis.get("a_corriger") or [])
-    if avis["verdict"] == "risque":
-        tete, reste = f"⛔ Ne la publie pas : {RISQUES.get(avis.get('risque'), 'risque pour le compte')}.", []
-    elif avis["verdict"] == "publie":
-        tete, reste = "✅ Publie-la.", corr[:1]
-    else:
-        tete, reste = f"✏️ Corrige d'abord : {_minuscule(corr[0])}.", corr[1:2]
-    lignes = ([f"👍 {avis['bien']}"] if avis.get("bien") else []) + [f"✏️ {c}" for c in reste]
-    return f"🎬 **{note}/10** · {tete}" + ("\n\n" + "\n".join(lignes) if lignes else "")
+    verdict = avis.get("verdict")
+    if verdict == "publie":
+        return "✅ **Prête à publier.**"
+    if verdict == "risque":
+        return f"⛔ **Ne publie pas.** Point bloquant : {RISQUES.get(avis.get('risque'), 'risque pour le compte')}."
+    corrections = list(avis.get("a_corriger") or [])
+    if not corrections:
+        return TEXTE_ECHEC
+    return f"✏️ **À corriger avant publication.** Point bloquant : {corrections[0]}"
+
 
 
 def noter_avant(uid, avis: dict):
@@ -724,7 +725,6 @@ def resume_semaine(fin: date, prenom_de_uid=None) -> str:
             morceaux.append(f"{len(p['apres'])} Reel(s) publiés relus")
         if p["avant"]:
             morceaux.append(f"{len(p['avant'])} vidéo(s) montrée(s) avant")
-        morceaux.append(f"{_virgule(sum(int(a.get('note', 0)) for a in tous) / len(tous))}/10")
         frequents = Counter(a.get("defaut") for a in tous if a.get("defaut") and a.get("defaut") != "autre").most_common(1)
         if frequents:
             morceaux.append(f"à corriger le plus : {DEFAUTS[frequents[0][0]]}")
