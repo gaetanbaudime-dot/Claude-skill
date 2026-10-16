@@ -1623,13 +1623,13 @@ def _resultat(ctx: _Ctx, rows: list, kinds: list, comptes_l: list, creatrices: s
 # Plus de CONTRÔLE, de TENDANCES, d'ÉQUIPES, de Mesure ni de Relevé dans l'onglet (l'app pilotage, l'app des TL et !tl liste les
 # portent) ; DASHBOARD_DETAILLE=1 remet l'ancien onglet complet.
 COLONNES_S = ["Gérant", "@ IG", "ETAT", "Followers", "Reels hier", "Reels 7 j", "Vues 7 j", "Clics hier", "Clics 7 j",
-              "Évolution clics", "Team Leader"]
+              "Évolution clics", "Team Leader", "Type de compte", "Qualité / vérification"]
 NB_S = len(COLONNES_S)
-(S_GERANT, S_HANDLE, S_ETAT, S_FOL, S_RH, S_R7, S_V7, S_CH, S_C7, S_DC, S_TL) = range(NB_S)
-LARGEURS_S = (130, 190, 90, 90, 80, 80, 90, 85, 85, 105, 110)
+(S_GERANT, S_HANDLE, S_ETAT, S_FOL, S_RH, S_R7, S_V7, S_CH, S_C7, S_DC, S_TL, S_TYPE, S_QUALITE) = range(NB_S)
+LARGEURS_S = (130, 190, 90, 90, 80, 80, 90, 85, 85, 105, 110, 110, 260)
 S_FUSIONS = (S_GERANT, S_CH, S_C7, S_DC, S_TL)                          # une cellule par Gérant, comme dans les onglets créatrices
 VERT_ENTETE = "#356854"                                                  # l'en-tête des onglets créatrices
-ETATS_COULEURS = {"Good": ("#B7E1CD", "#0B6E3A"), "Faire appel": ("#FCE8B2", "#9C5700"),
+ETATS_COULEURS = {"GOOD": ("#B7E1CD", "#0B6E3A"), "Faire appel": ("#FCE8B2", "#9C5700"),
                   "Ban": ("#F4C7C3", "#B71C1C"), "À créer": ("#FFFFFF", "#616161")}
 
 
@@ -1641,11 +1641,42 @@ def _vues_aff(L: dict):
 
 
 def etat_affiche(etat) -> str:
-    """12/10 (Gaëtan : « Enlève le WARMUP, soit c'est BAN, soit c'est GOOD, soit c'est privé ») : un WARMUP resté au classeur se lit
-    GOOD."""
-    e = str(etat or "").strip()
-    return {"good": "Good", "warmup": "Good", "faire appel": "Faire appel", "ban": "Ban",
-            "a creer": "À créer", "prive": "À vérifier (type privé)"}.get(_norm(e), e)
+    """Quatre valeurs seulement ; un ancien type ou état ambigu reste sans santé inventée."""
+    return {"good": "GOOD", "faire appel": "Faire appel", "ban": "Ban", "a creer": "À créer"}.get(_norm(str(etat or "")), "")
+
+
+def qualite_etat(etat) -> str:
+    if etat_affiche(etat):
+        return ""
+    return "Type privé seul : santé à vérifier" if _norm(str(etat or "")) == "prive" else "État source à vérifier"
+
+
+def trier_comptes_simples(rows, kinds):
+    """Trie uniquement les comptes de chaque créatrice ; aucun numéro source n'est déplacé."""
+    ordre = {s:i for i,s in enumerate(ETATS_COULEURS)}
+    i = 0
+    while i < len(rows):
+        if kinds[i]["kind"] != "compte":
+            i += 1
+            continue
+        fin = i
+        while fin < len(rows) and kinds[fin]["kind"] == "compte":
+            fin += 1
+        bloc = sorted(zip(rows[i:fin], kinds[i:fin]), key=lambda x:(ordre.get(x[0][S_ETAT],4),str(x[0][S_HANDLE])))
+        mesures = {}
+        for r,t in bloc:
+            if any(r[c] != "" for c in (S_CH,S_C7,S_DC)):
+                mesures[t["groupe"]] = [r[c] for c in (S_CH,S_C7,S_DC)]
+        vus = set()
+        for j,(r,t) in enumerate(bloc,i):
+            g = t["groupe"]
+            for c,v in zip((S_CH,S_C7,S_DC), mesures.get(g,["", "", ""]) if g not in vus else ["", "", ""]):
+                r[c] = v
+            vus.add(g)
+            t["groupe_n"] = 1  # Plus de fusion traversant plusieurs états.
+            rows[j],kinds[j] = r,t
+        i = fin
+    return rows,kinds
 
 
 def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict, fraicheur: str, alertes: list) -> tuple:
@@ -1657,7 +1688,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
 
     ajouter(["Dashboard · mis à jour le " + ctx.p.strftime("%d/%m à %Hh%M") + " (Paris)"], "titre")
     ajouter([fraicheur], "fraicheur")
-    ajouter(["Good · Faire appel · Ban · À créer — Privé : type de compte"], "fraicheur")
+    ajouter(["GOOD · Faire appel · Ban · À créer — état inconnu vide ; détails en Qualité"], "fraicheur")
     for quoi, gravite, texte in alertes:
         ajouter([f"{quoi} : {texte}"], "alerte", gravite=gravite)
     ajouter([], "vide")
@@ -1706,6 +1737,9 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
                 r = [""] * NB_S
                 r[S_HANDLE] = L["c"]["handle"]
                 r[S_ETAT] = etat_affiche(L["c"].get("etat"))
+                r[S_TYPE] = "Privé" if _norm(str(L["c"].get("etat") or "")) == "prive" else ""
+                r[S_QUALITE] = qualite_etat(L["c"].get("etat"))
+                r[S_GERANT], r[S_TL] = nom, tl
                 r[S_FOL] = _v(L["followers"])
                 r[S_RH], r[S_R7] = _v(L["rh"]), _v(L["r7"])
                 r[S_V7] = _v(_vues_aff(L))
@@ -1713,7 +1747,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
                     r[S_GERANT], r[S_TL] = nom, tl
                     if k:
                         r[S_CH], r[S_C7], r[S_DC] = _v(k.get("hier")), _v(k.get("c7")), k.get("delta") or ""
-                ajouter(r, "compte", cr=cr, zebre=zebre % 2, groupe_n=len(ls) if i == 0 else 0)
+                ajouter(r, "compte", cr=cr, zebre=zebre % 2, groupe_n=len(ls) if i == 0 else 0, groupe=g)
             zebre += 1
         if autres:
             k_a = _clics_de(ctx, autres)
@@ -1734,7 +1768,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
     if tout:
         r[S_CH], r[S_C7], r[S_DC] = _v(tout.get("hier")), _v(tout.get("c7")), tout.get("delta") or ""
     ajouter(r, "total")
-    return rows, kinds
+    return trier_comptes_simples(rows, kinds)
 
 
 def requetes_simple(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> list:
@@ -1793,7 +1827,7 @@ def requetes_simple(r: dict, sid: int, lignes_grille: int, colonnes_grille: int)
             fond = "#F5F5F5" if t.get("zebre") else BLANC
             req.append(_style(sid, i, i + 1, S_HANDLE, S_CH, fond=fond))   # Gérant, clics et TL : stylés par bloc (ci-dessous)
             req.append(_style(sid, i, i + 1, S_HANDLE, S_HANDLE + 1, fond=fond, aligne="LEFT"))
-            etat = str(lignes[i][S_ETAT] or "").upper()
+            etat = str(lignes[i][S_ETAT] or "")
             if etat in ETATS_COULEURS:
                 f_e, t_e = ETATS_COULEURS[etat]
                 req.append(_style(sid, i, i + 1, S_ETAT, S_ETAT + 1, fond=f_e, texte=t_e, gras=True))

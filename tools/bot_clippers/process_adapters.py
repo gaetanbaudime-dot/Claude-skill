@@ -224,3 +224,74 @@ class DepartAPI:
         etat = o._lire_etat()
         etat['clippers'].setdefault(uid, {}).update(sorti=True, liens_prets=False)
         o._ecrire_etat(etat)
+
+
+class LiensSheetsAPI:
+    """Aucune recherche par prénom, aucun appel de création ou de partage."""
+    def __init__(self, uid, registre):
+        self.uid, self.registre = str(uid), registre
+
+    async def verifier(self, job):
+        import paie_clics as p
+        # L'unicité globale a été prouvée à l'allocation et ses claims sont relus.
+        # Ici un seul GET, sans refaire l'inventaire GAML pour chaque clippeur.
+        detail = await p.lien_detail(job['lid'])
+        cibles = {job['mym'], job['of']}
+        destinations = [str(c.get('value') or '').strip() for c in detail.get('contents') or []
+                        if str(c.get('value') or '').strip() in cibles or not p.annexe_sure(c)]
+        return bool(detail.get('enabled') is True and detail.get('url') == job['lien']
+                    and len(destinations) == 2 and set(destinations) == cibles)
+
+    async def lignes(self):
+        import onboarding as o
+        return await o.lire_comptes()
+
+    def appartient(self, r, uid, creatrice):
+        import onboarding as o
+        h = r.get('handle') or ''
+        fiche = (o._lire_etat().get('clippers') or {}).get(str(uid)) or {}
+        # Le propriétaire SQLite et la livraison courante doivent concorder.
+        return bool(h and r.get('gerant') and o._norm(r.get('gerant')) not in o.GERANTS_LIBRES
+                    and not fiche.get('sorti') and h in fiche.get('comptes', [])
+                    and o._proprietaires().get(o._cle_handle(h)) == {str(uid)}
+                    and self.registre.owner_for_handle(h) == str(uid)
+                    and o._pour_creatrice(r, creatrice))
+
+    def colonne(self, champ, onglet):
+        import onboarding as o
+        return o.a_colonne(champ, onglet)
+
+    async def ecrire(self, r, changements):
+        import onboarding as o
+        import google_api
+        await google_api.sheets_ecrire_plusieurs(o.CLASSEUR_LOGINS_ID,
+            [(o.cellule(r, k), [[v]]) for k,v in changements.items()])
+
+
+async def synchroniser_liens_sheets():
+    """Reprise périodique des jobs prêts uniquement ; les anciens mappings restent intacts."""
+    import onboarding as o
+    import process_sheets
+    registre = store()
+    bilan = {'ecrits': 0, 'proteges': set(), 'conflits': []}
+    etat = o._lire_etat()
+    for uid, fiche in (etat.get('clippers') or {}).items():
+        creatrice = str(fiche.get('creatrice') or '')
+        key = 'liens:' + str(uid) + ':' + creatrice.casefold()
+        job = registre.get(key)
+        if not job:
+            continue
+        bilan['proteges'].update(o._cle_handle(h) for h in fiche.get('comptes') or [])
+        try:
+            resultat = await process_sheets.synchroniser(registre, uid, creatrice, LiensSheetsAPI(uid, registre))
+            bilan['ecrits'] += resultat['ecrits']
+            bilan['conflits'].extend(resultat['conflits'])
+        except Exception as erreur:
+            # Ne jamais recopier une URL ou une réponse distante dans les journaux.
+            bilan['conflits'].append({'raison': str(erreur) if isinstance(erreur, Bloque) and str(erreur) in
+                ('liens_non_prets','destination_absente','reservation_divergente','verification_gaml_echouee',
+                 'aucune_ligne_attribuee_verifiee','allocation_modifiee') else 'synchronisation_indisponible'})
+    if bilan['conflits']:
+        o.journal.warning('Restitution liens Sheets : %d conflit(s), codes=%s', len(bilan['conflits']),
+                          ','.join(sorted({c['raison'] for c in bilan['conflits']})))
+    return bilan

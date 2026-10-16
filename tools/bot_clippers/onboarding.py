@@ -1629,6 +1629,7 @@ async def liens_classeur(comptes: list = None) -> dict:
     vide = {"ecrits": 0, "groupes": {}}
     if not (actif() and paie_clics.actif()):
         return vide
+    restitution = await process_adapters.synchroniser_liens_sheets()
     if comptes is None:
         comptes = await lire_comptes()
     d = paie_clics._lire()
@@ -1664,6 +1665,8 @@ async def liens_classeur(comptes: list = None) -> dict:
     ecrits, groupes = 0, {}
     creatrices = creatrices_connues(comptes)
     for c in comptes:
+        if _cle_handle(c.get("handle") or "") in restitution["proteges"]:
+            continue  # Le nouveau processus écrit les trois liens, sans écraser un conflit.
         g = _norm(c["gerant"])
         if not c["handle"] or g in GERANTS_LIBRES or not a_colonne("lien_gaml", c.get("onglet", "")):
             continue
@@ -1737,7 +1740,7 @@ async def liens_classeur(comptes: list = None) -> dict:
         groupes[cle] = groupes.get(cle, 0) + 1
     if ecrits:
         journal.info("Classeur, colonne Lien GAML associé : %d cellule(s) corrigée(s)", ecrits)
-    return {"ecrits": ecrits, "groupes": groupes}
+    return {"ecrits": ecrits + restitution["ecrits"], "groupes": groupes, "conflits": restitution["conflits"]}
 
 
 _details_gaml = {"jour": "", "liens": []}
