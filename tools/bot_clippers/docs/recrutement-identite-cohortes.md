@@ -54,3 +54,11 @@ Activation externe non effectuée : fusion/déploiement après revue ; brancheme
 Tests fictifs : replay concurrent dans l'unique boucle du bot, retakes, historique quiz, contact partagé, deux candidats avant Discord, alias et URL doublon, réservation sans création, maturité, bornes +7/+14, heure d'hiver, dates sans fuseau, couverture absente, schémas historiques de quiz. Le pipeline JSON reste prévu pour une seule réplique ; cette PR n'autorise pas un déploiement multiréplique sur des disques indépendants.
 
 Skills locaux inspectés : second-brain, vidéo dimanche et Reels/Metricool ; aucun ne gouverne ce changement du bot, et le vault n'est pas modifié. `graphify-out` et l'exécutable `graphify` sont absents du checkout : pas de graphe à mettre à jour.
+
+## Corrections après revue indépendante
+
+Un conflit bloque maintenant la sélection d'un membre présent, le callback du quiz (y compris le rejeu et un conflit apparu pendant la lecture de capacité), les pages d'invitation et le callback OAuth avant son cache. Le résultat du quiz reste conservé. Le quiz par UID est également retenu si ce membre appartient à une candidature contradictoire ; aucune reliaison automatique n'efface un conflit explicite.
+
+Les UID impliqués dans un conflit ne peuvent plus revenir par le complément des membres historiques. Les métriques exigent `attribution=liee` et `verifie=true` pour chaque publication ; attribution absente, inconnue ou contradictoire rend l'observation non mesurée et n'ajoute aucun actif.
+
+La capacité ne rapproche plus par téléphone : elle dédoublonne seulement un UID unique prouvé, sinon conserve les dossiers distincts. Toute candidature en conflit bloque la promesse de capacité à zéro en attendant rapprochement, même si une ancienne lecture affichait des places. Aucun compte n'est réservé par ce calcul.

@@ -55,6 +55,16 @@ def liaisons(pipe):
     return resultat
 
 
+def candidature_en_conflit(pipe, cid):
+    fiche = (pipe.get('candidatures_web') or {}).get(cid) or {}
+    return bool(fiche.get('conflit_identite')) or len(liaisons(pipe).get(cid, set())) > 1
+
+
+def uids_en_conflit(pipe):
+    return {uid for cid, uids in liaisons(pipe).items()
+            if candidature_en_conflit(pipe, cid) for uid in uids}
+
+
 def lier_discord(pipe, cid, uid):
     """À appeler après preuve Discord. Conserve le conflit, ne réattribue rien."""
     fiche = (pipe.get('candidatures_web') or {}).get(cid)
@@ -62,7 +72,7 @@ def lier_discord(pipe, cid, uid):
         return False
     uids = liaisons(pipe).get(cid, set()) | {str(uid)}
     fiche['discord_uids'] = sorted(uids)
-    fiche['conflit_identite'] = len(uids) != 1
+    fiche['conflit_identite'] = bool(fiche.get('conflit_identite')) or len(uids) != 1
     return not fiche['conflit_identite']
 
 
@@ -73,10 +83,11 @@ def publications_attribuees(pipe, parcours):
     d'un membre ne s'approprie jamais ses anciens Reels : on expose tous ses IDs.
     """
     liens = liaisons(pipe)
+    ambigus = uids_en_conflit(pipe)
     out = []
     for uid, fiche in parcours.items():
         ids = sorted(cid for cid, uids in liens.items() if uids == {str(uid)})
-        conflit = any(str(uid) in uids and len(uids) > 1 for uids in liens.values())
+        conflit = str(uid) in ambigus
         preuves = {}
         for suivi in (fiche.get('reels') or {}).values():
             for code, date in (suivi.get('reels_verifies_v2') or {}).items():
@@ -110,7 +121,7 @@ def mesurer(dossiers, publications, maintenant, couverture=False):
             raise ValueError('UID ou candidate_id requis, aucune jointure par prénom')
         groupes.setdefault(uid, []).append(d)
     reels = {}
-    conflits = set()
+    conflits = {uid for uid, copies in groupes.items() if any(d.get('conflit_identite') for d in copies)}
     for p in publications:
         uid, code, date = str(p.get('uid') or ''), code_reel(p.get('code')), instant(p.get('date'))
         if not uid:
@@ -119,7 +130,7 @@ def mesurer(dossiers, publications, maintenant, couverture=False):
             conflits.add(uid)
             continue
         key = (uid, code)
-        if p.get('verifie') is not True or not date or date > maintenant:
+        if p.get('attribution') != 'liee' or p.get('verifie') is not True or not date or date > maintenant:
             conflits.add(uid)
             continue
         if key in reels and reels[key] != date:
@@ -226,10 +237,12 @@ def dossiers_depuis_sources(pipe, equipes, parcours, comptes):
     Les TL sont lus dans les équipes existantes : aucune nouvelle règle de rotation.
     """
     liens = liaisons(pipe)
+    ambigus = uids_en_conflit(pipe)
     out = []
     for cid, f in (pipe.get('candidatures_web') or {}).items():
         uids = liens.get(cid, set())
-        uid = next(iter(uids)) if len(uids) == 1 else None
+        conflit = candidature_en_conflit(pipe, cid) or bool(uids & ambigus)
+        uid = next(iter(uids)) if len(uids) == 1 and not conflit else None
         etat = (pipe.get('etats') or {}).get(uid) or {}
         equipe = equipes.get(uid) or {}
         creatrice = equipe.get('creatrice')
@@ -241,7 +254,7 @@ def dossiers_depuis_sources(pipe, equipes, parcours, comptes):
         fiche = parcours.get(uid) or {}
         propres = [c for c in comptes if str(c.get('uid')) == uid]
         out.append(dict(candidate_id=cid, uid=uid, source=f.get('source'), campagne=f.get('campagne'),
-                        conflit_identite=len(uids)>1, validation=validation, preuve_validation=preuve,
+                        conflit_identite=conflit, validation=validation, preuve_validation=preuve,
                         quiz_reussi=q.get('reussi') is True, date_quiz=q.get('date'),
                         score_quiz=q.get('score'), essais_conserves=len(f.get('quiz_historique') or {}),
                         tl_uid=tls[0] if len(tls)==1 else None,
@@ -251,7 +264,7 @@ def dossiers_depuis_sources(pipe, equipes, parcours, comptes):
                         pret_le=fiche.get('pret_le') if fiche.get('preuve_pret') else None,
                         blocage_technique=fiche.get('blocage_technique') or bool(fiche.get('ligne_attendue'))))
     # Les Discord historiques sans candidature restent des dossiers distincts, non datés par déduction.
-    connus = {d['uid'] for d in out if d['uid']}
+    connus = {d['uid'] for d in out if d['uid']} | ambigus
     for uid, e in equipes.items():
         if str(uid) not in connus and e.get('creatrice'):
             etat = (pipe.get('etats') or {}).get(str(uid)) or {}

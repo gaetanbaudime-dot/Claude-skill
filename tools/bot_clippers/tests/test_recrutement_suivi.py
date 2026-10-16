@@ -14,7 +14,7 @@ NOW=datetime(2026, 10, 16, tzinfo=timezone.utc)
 def dossier(uid='10', jours=15, **kw):
     return dict(uid=uid, validation=(NOW-timedelta(days=jours)).isoformat(), preuve_validation='fictive', **kw)
 def reel(jours, code='r1', uid='10'):
-    return dict(uid=uid, code=code, date=(NOW-timedelta(days=jours)).isoformat(), verifie=True)
+    return dict(uid=uid, code=code, date=(NOW-timedelta(days=jours)).isoformat(), verifie=True, attribution='liee')
 
 class Mesures(unittest.TestCase):
     def test_j7_j14_et_cadence_distincts(self):
@@ -201,3 +201,77 @@ class RapportLocal(unittest.TestCase):
         self.assertEqual(v['cohortes']['j7']['denominateur'],0)
         self.assertEqual(v['cohortes']['j7']['exclus_non_mesures'],1)
         self.assertEqual(v['volume']['statut'],'a_valider')
+
+class ConflitsRevue(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.pipe={'candidatures_web':{'a':{'discord_uids':['10','11'],'tel':'partage'}},
+                   'etats':{'10':dict(validation='2026-10-01T00:00:00Z',valide_par='quiz')}}
+        def lire(*a):return copy.deepcopy(self.pipe)
+        def ecrire(f,d):self.pipe=copy.deepcopy(d)
+        self.traiter=AsyncMock()
+        self.inviter=AsyncMock()
+        self.patches=[patch.object(w,'_deps',dict(lire_json=lire,ecrire_json=ecrire,FICHIER_PIPELINE='fake',
+            traiter_quiz_web=self.traiter,invitation_site=self.inviter,membre_par_id=lambda uid:SimpleNamespace(id=uid))),
+            patch.object(w,'_prechauffer_places')]
+        for p in self.patches:p.start();self.addCleanup(p.stop)
+    async def test_quiz_reussi_conflit_et_replay_aucune_livraison(self):
+        quiz={'questions':[{'id':'f','q':'Fictif','choix':['A','B'],'bonne':0}],'seuil':1}
+        with patch.object(w,'_quiz',return_value=quiz),patch.object(w,'quiz_seuil_total',return_value=(1,1)),patch.object(w,'noter',return_value=(1,1,[])):
+            nonce=w._ouvrir_tentative(quiz,'c','a')
+            for _ in range(2):
+                rep=await w.post_quiz_cand({'tentative':nonce,'q-f':'0'},'a')
+                self.assertIn('vérifie la liaison',rep.text)
+        self.assertTrue(self.pipe['candidatures_web']['a']['quiz']['reussi'])
+        self.assertEqual(len(self.pipe['candidatures_web']['a']['quiz_historique']),1)
+        self.assertEqual(w._uids_de(self.pipe,'a'),[])
+        self.assertEqual(w._membre_present(self.pipe,'a'),'')
+        self.traiter.assert_not_called();self.inviter.assert_not_called()
+    async def test_invitation_oauth_et_cache_refuses(self):
+        self.pipe['candidatures_web']['a']['quiz']={'reussi':True}
+        request=SimpleNamespace(query={'t':w.jeton('a'),'state':w.jeton('a'),'code':'fictif'})
+        with patch.object(w,'_cand_depuis',return_value='a'),patch.object(w,'_retours',{'a':(w.time.time(),'Fictif',1)}):
+            for appel in (w.get_invitation,w.get_connexion,w.get_callback):
+                rep=await appel(request)
+                self.assertIn('vérifie la liaison',rep.text)
+            self.assertEqual(await w._invitation_prete('a'),'')
+        self.inviter.assert_not_called()
+    def test_cas_exact_pas_de_reintroduction_historique(self):
+        equipes={'10':dict(creatrice='Fictive')}
+        parcours={'10':dict(reels={'alias':dict(reels_verifies_v2={'code':'2026-10-02T00:00:00Z'})})}
+        dossiers=r.dossiers_depuis_sources(self.pipe,equipes,parcours,[])
+        self.assertEqual(len(dossiers),1)
+        self.assertIsNone(dossiers[0]['uid'])
+        preuves=r.publications_attribuees(self.pipe,parcours)
+        self.assertEqual(preuves[0]['attribution'],'conflit')
+        v=r.mesurer(dossiers,preuves,NOW,True)
+        self.assertEqual(v['cohortes']['j7']['actifs'],0)
+        self.assertEqual(v['cohortes']['j7']['denominateur'],0)
+    def test_mesurer_refuse_attribution_inconnue_ou_conflit(self):
+        for valeur in ('conflit','inconnue',None):
+            v=r.mesurer([dossier()],[{**reel(12),'attribution':valeur}],NOW,True)
+            self.assertEqual(v['cohortes']['j7']['actifs'],0)
+            self.assertEqual(v['cohortes']['j7']['denominateur'],0)
+            self.assertIsNone(v['dossiers'][0]['premier_reel'])
+    async def test_contact_partage_ne_fusionne_pas_capacite(self):
+        self.pipe={'candidatures_web':{
+            'a':dict(tel='partage',quiz=dict(reussi=True,date=(NOW-timedelta(minutes=2)).isoformat())),
+            'b':dict(tel='partage',quiz=dict(reussi=True,date=(NOW-timedelta(minutes=1)).isoformat()))}}
+        self.assertEqual(w._reussites_en_route(self.pipe,'b',NOW.timestamp(),NOW.timestamp()),1)
+        self.assertEqual(w._reussites_en_route(self.pipe,'',NOW.timestamp(),NOW.timestamp()),2)
+        self.pipe['candidatures_web']['a']['discord_uids']=['10','11']
+        self.assertEqual(await w._places_livrables('b'),0)
+    async def test_conflit_survenu_pendant_lecture_places(self):
+        self.pipe['candidatures_web']['a']['discord_uids']=['10']
+        quiz={'questions':[{'id':'f','q':'Fictif','choix':['A','B'],'bonne':0}],'seuil':1}
+        async def places(*a,**kw):
+            self.pipe['candidatures_web']['a']['discord_uids']=['10','11']
+            return 1
+        with patch.object(w,'_quiz',return_value=quiz),patch.object(w,'quiz_seuil_total',return_value=(1,1)),patch.object(w,'noter',return_value=(1,1,[])),patch.object(w,'_places_livrables',side_effect=places):
+            nonce=w._ouvrir_tentative(quiz,'c','a')
+            rep=await w.post_quiz_cand({'tentative':nonce,'q-f':'0'},'a')
+            self.assertIn('vérifie la liaison',rep.text)
+        self.traiter.assert_not_called()
+    def test_conflit_explicite_non_efface_par_reliaison(self):
+        self.pipe['candidatures_web']['a'].update(discord_uids=['10'],conflit_identite=True)
+        self.assertFalse(r.lier_discord(self.pipe,'a','10'))
+        self.assertEqual(w._uids_de(self.pipe,'a'),[])

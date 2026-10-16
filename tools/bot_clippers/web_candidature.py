@@ -551,7 +551,14 @@ def _chiffres(tel) -> str:
 
 def _uids_de(pipe: dict, cand_id: str) -> list:
     """Preuves invitation/OAuth uniquement ; un contact partagé ne lie personne."""
+    if recrutement_suivi.candidature_en_conflit(pipe or {}, cand_id):
+        return []
     return sorted(u for u in recrutement_suivi.liaisons(pipe or {}).get(cand_id, set()) if u.isdigit())
+
+
+def _page_conflit_identite():
+    return _page("À vérifier", "<h1>Ton équipe vérifie la liaison Discord.</h1>"
+                 "<p>Ton résultat reste conservé. Aucun compte n'est attribué pendant cette vérification.</p>" + _bouton_whatsapp())
 
 
 def _present(uid) -> bool:
@@ -595,6 +602,8 @@ async def _invitation_prete(cand_id: str, attente: float = 10.0) -> str:
     09/10 (revue L8) : une invitation qui a déjà servi ne se recrée JAMAIS toute seule ('' : la page « Tu es déjà passé par le
     Discord ») ; seule exception, un membre parti sans être sorti de l'équipe (_peut_revenir) et absent du serveur."""
     pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return ""
     fiche_web = (pipe.get("candidatures_web", {}).get(cand_id) or {})
     if fiche_web.get("invitation"):
         consommee = _invitation_consommee(pipe, cand_id)
@@ -686,6 +695,8 @@ def _page_deja_venu(cand_id: str):
     l'équipe) → une phrase, WhatsApp de Gaëtan ; jamais d'invitation neuve ni d'autorisation Discord (guilds.join est une
     autre porte). None : la voie est libre."""
     pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     if _membre_present(pipe, cand_id):
         journal.info("Site : candidature %s déjà sur le serveur, page « Ouvrir Discord »", cand_id)
         return _page("Discord", f"<h1>Tu es déjà sur le Discord.</h1><a class='b' href='{html.escape(_lien_app())}'>Ouvrir Discord</a>")
@@ -746,6 +757,8 @@ async def get_callback(request):
                                 "Réessaie et appuie sur <b>Autoriser</b> sur l'écran de Discord.</p>"
                                 f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours()) if cand_id
                                else "<h1>Lien invalide</h1><p>Recommence depuis le formulaire.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
+    if recrutement_suivi.candidature_en_conflit(_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}), cand_id):
+        return _page_conflit_identite()
     journal.info("OAuth : retour Discord pour la candidature %s", cand_id)
     # 29/09 : le 27/09, quatre retours en double (même code, à 400 ms d'écart : l'appli Discord et le navigateur ouvrent tous
     # les deux le lien) ont donné « Invalid code » et une page d'erreur à un candidat pourtant ajouté. Le premier retour gagne,
@@ -775,6 +788,8 @@ async def _callback_apres_marque(cand_id: str, code: str):
     """La suite de get_callback une fois le retour marqué. Seule une entrée réussie remplace la marque (_retours)."""
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     fiche_web = pipe.get("candidatures_web", {}).get(cand_id)
     if not fiche_web:
         return _page("Introuvable", "<h1>Candidature introuvable</h1><p>Recommence depuis le formulaire.</p>")
@@ -1228,17 +1243,18 @@ def _reussites_en_route(pipe: dict, cand_id: str, lecture: float, maintenant: fl
     fiches = (pipe or {}).get("candidatures_web") or {}
     moi = ((fiches.get(cand_id) or {}).get("quiz") or {}) if cand_id else {}
     t_moi = _instant(moi.get("date")) if moi.get("reussi") else None
-    # 11/10 (lot W, contre-vérification du lot L2) : une personne qui a deux fiches (même numéro : formulaire renvoyé) compte
-    # une fois, et jamais contre elle-même. Avant, avec 1 place, sa 2e réussite déduisait sa propre 1re fiche.
-    tel_moi = str((fiches.get(cand_id) or {}).get("tel") or "").strip() if cand_id else ""
-    en_route, deja_comptes = set(), set()                               # par personne (numéro, sinon la fiche)
+    uids_moi = _uids_de(pipe, cand_id) if cand_id else []
+    en_route, deja_comptes = set(), set()
     for autre, fiche in fiches.items():
         if autre == cand_id or not isinstance(fiche, dict) or not (fiche.get("quiz") or {}).get("reussi"):
             continue
-        tel = str(fiche.get("tel") or "").strip()
-        if tel and tel == tel_moi:
-            continue                                                    # sa propre autre fiche
-        personne = ("tel", tel) if tel else ("fiche", str(autre))
+        if recrutement_suivi.candidature_en_conflit(pipe, autre):
+            en_route.add(("conflit", str(autre)))
+            continue
+        uids = _uids_de(pipe, autre)
+        if len(uids) == 1 and uids == uids_moi:
+            continue
+        personne = ("uid", uids[0]) if len(uids) == 1 else ("fiche", str(autre))
         t_quiz = _instant(fiche["quiz"].get("date"))
         if t_quiz is None or maintenant - t_quiz > PLACES_REUSSITE_H * 3600:
             continue
@@ -1266,6 +1282,10 @@ async def _places_livrables(cand_id: str = ""):
     (_reussites_en_route) : deux candidats pour une place ne lisent pas tous les deux « ton compte 1 t'y attendent ».
     11/10 (contre-vérification) : de PLACES_CACHE_S à PLACES_PERIME_S, la lecture sert tout de suite et se relit en fond ;
     la page n'attend (PLACES_ATTENTE_S au plus) que sans lecture de moins de PLACES_PERIME_S (15 min)."""
+    pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    if any(recrutement_suivi.candidature_en_conflit(pipe, cid)
+           for cid in (pipe.get("candidatures_web") or {})):
+        return 0  # aucun excédent annoncé avant rapprochement des identités
     dep = _deps.get("places")
     if not callable(dep):
         return None
@@ -1299,6 +1319,8 @@ async def post_quiz_cand(data, cand_id: str):
         return _page("Introuvable", "<h1>Candidature introuvable</h1><p>Recommence depuis le formulaire.</p>"
                                     "<a class='b' href='/candidature'>Refaire le formulaire</a>")
     ancien = fiche.get("quiz") or {}
+    if ancien.get("reussi") and recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     if ancien.get("reussi"):
         raise web.HTTPSeeOther(location=_url_discord(cand_id))
     tentative = _tentative(pipe, "c", cand_id)
@@ -1332,10 +1354,15 @@ async def post_quiz_cand(data, cand_id: str):
     # avant le 09/10) : le bot n'en savait rien et le sortait à 48 h pour « quiz jamais fait ». Il le fait entrer dans l'agence
     # tout de suite, par le même circuit qu'un quizz réussi depuis Discord (QUIZ_OK → valider_candidat), et la page le renvoie
     # sur Discord, sans bouton vers une invitation déjà consommée. traiter_quiz_web écrit lui-même la ligne « Quiz bot ».
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     present = _membre_present(pipe, cand_id) if reussite else ""
     if present and _deps.get("traiter_quiz_web"):
         journal.info("Site : candidature %s, quizz réussi par le membre %s déjà sur Discord : le bot le valide", cand_id, present)
         places = await _places_livrables(cand_id)                       # 11/10 : lues AVANT que le bot lui donne sa ligne
+        frais = lire(fichier, {})
+        if recrutement_suivi.candidature_en_conflit(frais, cand_id):
+            return _page_conflit_identite()
         _en_fond(_deps["traiter_quiz_web"](present, f"{score} / {total}", True, details, tentative_id=tentative["id"]))
         return _page("Quizz réussi", _texte_reussi_discord(score, total, places))
     if _deps.get("quiz_candidat"):                                      # la ligne « Quiz bot » du classeur, en tâche de fond
@@ -1485,6 +1512,8 @@ async def _post_quiz_discord(data, uid, quiz):
         ecrire(fichier, pipe)
     if not tentative.get("terminee"):
         places = await _places_livrables() if r["reussite"] else None
+        if str(uid) in recrutement_suivi.uids_en_conflit(_deps["lire_json"](_deps["FICHIER_PIPELINE"], {})):
+            return _page_conflit_identite()
         resultat = await _deps["traiter_quiz_web"](uid, f"{r['score']} / {r['total']}", r["reussite"],
                                        r["details"], tentative_id=tentative["id"])
         if resultat not in ("applied", "already_done"):
