@@ -148,7 +148,7 @@ journal = logging.getLogger("dashboard")
 
 ONGLET = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
 SIMPLE = os.environ.get("DASHBOARD_DETAILLE", "0").strip() != "1"   # 12/10 : le tableau simple (DASHBOARD_DETAILLE=1 : l'ancien)
-DASHBOARD_VERSION = 13 if SIMPLE else 12   # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
+DASHBOARD_VERSION = 14 if SIMPLE else 12   # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
                                        # 11 (revue DASH) : lignes d'alerte « ⛔ » sous le titre, règle de couleur « ⛔ »
                                        # 12 (11/10, lot L8) : colonnes « hyper complètes », ÉQUIPES, clippers sans compte
                                        # 13 (12/10) : le tableau simple, sur le modèle des onglets créatrices
@@ -1652,7 +1652,7 @@ def qualite_etat(etat) -> str:
 
 
 def trier_comptes_simples(rows, kinds):
-    """Trie uniquement les comptes de chaque créatrice ; aucun numéro source n'est déplacé."""
+    """POD contigus : meilleur état du POD, puis état de chaque compte."""
     ordre = {s:i for i,s in enumerate(ETATS_COULEURS)}
     i = 0
     while i < len(rows):
@@ -1662,7 +1662,16 @@ def trier_comptes_simples(rows, kinds):
         fin = i
         while fin < len(rows) and kinds[fin]["kind"] == "compte":
             fin += 1
-        bloc = sorted(zip(rows[i:fin], kinds[i:fin]), key=lambda x:(ordre.get(x[0][S_ETAT],4),str(x[0][S_HANDLE])))
+        pods = {}
+        for r,t in zip(rows[i:fin],kinds[i:fin]):
+            pods.setdefault(t['groupe'],[]).append((r,t))
+        def rang_pod(item):
+            g, membres = item
+            rang=min(ordre.get(r[S_ETAT],4) for r,_ in membres)
+            if rang==3 and any(r[S_ETAT]!='À créer' for r,_ in membres):rang=4
+            return (rang,str(g))
+        bloc = [pair for _, membres in sorted(pods.items(),key=rang_pod)
+                for pair in sorted(membres,key=lambda x:(ordre.get(x[0][S_ETAT],4),str(x[0][S_HANDLE])))]
         mesures = {}
         for r,t in bloc:
             if any(r[c] != "" for c in (S_CH,S_C7,S_DC)):
@@ -1679,6 +1688,29 @@ def trier_comptes_simples(rows, kinds):
     return rows,kinds
 
 
+def type_pod(c):
+    valeur = _norm(str(c.get('type_compte') or c.get('type') or c.get('utilisation') or ''))
+    types = {'croissance 1':'Croissance 1','croissance 2':'Croissance 2',
+             'croissance':'Croissance','prive':'Privé','compte prive':'Privé'}
+    return types.get(valeur) or ('Privé' if _norm(c.get('etat')) == 'prive' else 'À vérifier')
+
+
+def qualite_pod(comptes):
+    anomalies=[]
+    if len(comptes)!=3:anomalies.append(f'POD : {len(comptes)} IG au lieu de 3')
+    types=[type_pod(c) for c in comptes]
+    if types.count('Privé')!=1 or sum(t.startswith('Croissance') for t in types)!=2:
+        anomalies.append('POD : types à vérifier (2 croissance + 1 privé attendus)')
+    for champ,label in (('lien_gaml','GAML'),('lien_mym','MYM'),('lien_infloww','OF')):
+        valeurs={str(c.get(champ) or '').strip() for c in comptes} - {''}
+        if len(valeurs)!=1:anomalies.append(f'POD : {label} absent ou multiple')
+    return ' ; '.join(anomalies)
+
+
+def mesure_pod(v):
+    return 'Non relevé' if v is None else v
+
+
 def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict, fraicheur: str, alertes: list) -> tuple:
     rows, kinds = [], []
 
@@ -1688,6 +1720,8 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
 
     ajouter(["Dashboard · mis à jour le " + ctx.p.strftime("%d/%m à %Hh%M") + " (Paris)"], "titre")
     ajouter([fraicheur], "fraicheur")
+    ajouter([f"Période 7 j : {(ctx.hier-timedelta(days=6)).isoformat()} → {ctx.hier.isoformat()} inclus (Paris). "
+             f"Hier : {ctx.hier.isoformat()}. Followers : dernier relevé ; Non relevé ≠ zéro. Clics GAML payables (pas visites brutes) : une fois par POD."], "fraicheur")
     ajouter(["GOOD · Faire appel · Ban · À créer — état inconnu vide ; détails en Qualité"], "fraicheur")
     for quoi, gravite, texte in alertes:
         ajouter([f"{quoi} : {texte}"], "alerte", gravite=gravite)
@@ -1723,6 +1757,10 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
             bande[S_CH], bande[S_C7], bande[S_DC] = _v(k_cr.get("hier")), _v(k_cr.get("c7")), k_cr.get("delta") or ""
         ajouter(bande, "creatrice", cr=cr)
         ajouter(COLONNES_S, "entete", cr=cr)
+        for g, ls in groupes.items():
+            if g not in ('crea','libre') and not g.startswith('m|'):
+                anomalie=qualite_pod([L['c'] for L in ls])
+                if anomalie:ajouter([f"POD {ls[0]['c'].get('gerant') or '?'} · {anomalie}"], 'alerte', gravite='attention')
         zebre = 0
         for g, ls in sorted(groupes.items(), key=cle_tri):
             if g == "crea":
@@ -1737,16 +1775,15 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
                 r = [""] * NB_S
                 r[S_HANDLE] = L["c"]["handle"]
                 r[S_ETAT] = etat_affiche(L["c"].get("etat"))
-                r[S_TYPE] = "Privé" if _norm(str(L["c"].get("etat") or "")) == "prive" else ""
+                r[S_TYPE] = type_pod(L["c"])
                 r[S_QUALITE] = qualite_etat(L["c"].get("etat"))
                 r[S_GERANT], r[S_TL] = nom, tl
-                r[S_FOL] = _v(L["followers"])
-                r[S_RH], r[S_R7] = _v(L["rh"]), _v(L["r7"])
+                r[S_FOL] = mesure_pod(L["followers"])
+                r[S_RH], r[S_R7] = mesure_pod(L["rh"]), mesure_pod(L["r7"])
                 r[S_V7] = _v(_vues_aff(L))
                 if i == 0:                                               # le Gérant, ses clics et son TL : une fois, fusionnés
                     r[S_GERANT], r[S_TL] = nom, tl
-                    if k:
-                        r[S_CH], r[S_C7], r[S_DC] = _v(k.get("hier")), _v(k.get("c7")), k.get("delta") or ""
+                    r[S_CH], r[S_C7], r[S_DC] = mesure_pod(k.get("hier")), mesure_pod(k.get("c7")), k.get("delta") or "Non relevé"
                 ajouter(r, "compte", cr=cr, zebre=zebre % 2, groupe_n=len(ls) if i == 0 else 0, groupe=g)
             zebre += 1
         if autres:
