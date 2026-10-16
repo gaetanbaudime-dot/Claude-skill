@@ -24,7 +24,7 @@ Les projections ne sont pas encore branchées aux exports ou écrans de producti
 
 ## Raccordements proposés à l’intégration app
 
-1. Le serveur construit le dossier à partir des sources existantes, **jamais à partir d’une déclaration du navigateur**. Réutiliser l’authentification et le périmètre UID de l’app ; ne pas ajouter de route publique qui accepte arbitrairement un UID.
+1. `dossier_depuis_sources` adapte les instantanés de `controle.lire_entrees`, du pipeline, les comptes ordonnés canoniques et les états du classeur. Passer aussi `ordre_comptes=parcours.ordre(fiche)` ; un ordre absent reste bloqué. Les alias du registre conservent les preuves `reels_verifies_v2` malgré renommage, sans exporter les accès ou les totaux ambigus. Le serveur construit le dossier à partir des sources existantes, **jamais à partir d’une déclaration du navigateur**. Réutiliser l’authentification et le périmètre UID de l’app ; ne pas ajouter de route publique qui accepte arbitrairement un UID.
 2. Appeler `projection(dossier, maintenant)` dans le constructeur serveur du tableau de bord et afficher `prochaine_action.texte` avec `preuve_attendue`. Le TL voit les seuls blocages de son équipe ; le clippeur voit sa fiche. Réutiliser les contrôles d’accès existants.
 3. Sources : liaison explicite issue des invitations/OAuth (`pipeline.invitations`, `web_attendus`), équipes pour le TL, journal `histories/accounts/aliases` pour l’historique complet à vie, onboarding pour l’ordre, parcours pour dates et `reels_verifies_v2`, journal de préparation GAML pour les réservations et preuves. **Ne pas exporter accès, mots de passe, e-mails ni clés app dans ce contrat.**
 4. Un `admission_prete=True` est un avis sur un instantané. Le workflow d’exécution doit relire et réclamer les ressources via les transactions existantes immédiatement avant admission. Ne jamais utiliser ce booléen comme autorisation d’allouer ou de partager.
@@ -56,3 +56,5 @@ Il reste donc à valider les définitions J30 et marge, raccorder les sources co
 ## Vérification
 
 Tests sur données fictives uniquement : UID et retours, homonymes, conflit de liaison, quiz, preuve réelle de disponibilité, capacité incomplète, compteur à vie, bans, dates, typage des Reels, doublons, progression G2 → privé, premier lot, inconnues, cohorte J30 et marge décimale. Graphify et son graphe ne sont pas disponibles dans ce checkout ; aucune génération réseau lancée.
+
+Validation locale après rebase de main intégré : 294 tests, données fictives exclusivement. Le branchement de la projection reste à coordonner avec les apps.

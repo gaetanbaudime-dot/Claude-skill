@@ -130,7 +130,11 @@ def projection(dossier, maintenant=None):
         if c.get('etat') in ('Ban', 'Faire appel'):
             bloquer('sante_compte', 'Preuve mail datée et issue de l’appel ; aucun compte de remplacement', 'tl')
             return resultat(action('verification', 'Faire vérifier la situation du compte.', blocages[-1]['preuve_manquante'], 'tl'), test=test)
-        if c.get('statut') != 'created' or not instant(c.get('cree_le')) or not c.get('preuve_creation'):
+        creation = instant(c.get('cree_le'))
+        if c.get('statut') == 'created' and (not creation or creation > maintenant or not c.get('preuve_creation')):
+            bloquer('preuve_creation', 'Date et preuve de la création existante ; ne pas recréer le compte', 'tl')
+            return resultat(action('verification', 'Faire vérifier la création déjà enregistrée.', blocages[-1]['preuve_manquante'], 'tl'), test=test)
+        if c.get('statut') != 'created':
             return resultat(action('creer_compte', f'Créer le compte {rang} réservé à ton nom.',
                                    'Création confirmée et datée sur son identifiant stable'), test=test)
         if rang == 3:
@@ -207,3 +211,63 @@ def metriques_hebdomadaires(evenements, debut, couverture, finance=None, fenetre
         except (KeyError, InvalidOperation, ValueError):
             pass
     return sortie
+
+
+def dossier_depuis_sources(uid, entrees, pipeline, comptes_ordonnes, etats_par_handle, capacite=None, ordre_comptes=None):
+    """Adapter les instantanés existants sans accès réseau/disque et sans secrets.
+
+    entrees : controle.lire_entrees(); comptes_ordonnes : résultat du lecteur
+    canonique parcours._comptes_ordonnes, jamais un tri par pseudo dans l'app.
+    capacite : preuves serveur du préparateur, absentes tant que non enregistrées.
+    """
+    uid = str(uid)
+    vie = entrees.get('historique_vie') or {}
+    p = (entrees.get('parcours') or {}).get(uid) or {}
+    registre = entrees.get('registre') or {}
+    membre = registre.get(uid) or {}
+    etat = (pipeline.get('etats') or {}).get(uid) or {}
+    createur = membre.get('creatrice') or p.get('creatrice')
+    tls = [str(k) for k, v in registre.items() if createur and v.get('chef') == createur]
+    ordonnes = [str(h).lower().lstrip('@') for h in comptes_ordonnes]
+    comptes = []
+    for c in vie.get('comptes') or []:
+        if str(c.get('uid')) != uid or c.get('status') == 'cancelled':
+            continue  # cancelled = non-création explicitement prouvée dans le registre
+        alias = {str(h).lower().lstrip('@') for h in c.get('aliases') or []}
+        rangs = [i+1 for i, h in enumerate(ordonnes) if h in alias]
+        rang = rangs[0] if len(rangs) == 1 else None
+        creation = (p.get('profils') or {}).get(str(rang)) or (p.get('dates') or {}).get(f'{rang}_fait')
+        publications = []
+        for h in alias:
+            suivi = (p.get('reels') or {}).get(h) or {}
+            publications.extend(dict(code=code, publie=date, type_verifie='reel')
+                                for code, date in (suivi.get('reels_verifies_v2') or {}).items())
+        etats = {etats_par_handle[h] for h in alias if h in etats_par_handle}
+        comptes.append(dict(id=c.get('id'),rang=rang,statut=c.get('status'),
+                            etat=next(iter(etats)) if len(etats) == 1 else None,
+                            cree_le=creation,preuve_creation=c.get('evidence'),publications=publications))
+    quiz = {}
+    if etat.get('valide_par') == 'quiz' and etat.get('validation') and etat.get('score_quiz'):
+        quiz = dict(verifie=True,source='pipeline',reference=f'etats/{uid}/validation',date=etat['validation'])
+    liens = {}
+    for invitation in (pipeline.get('invitations') or {}).values():
+        if invitation.get('cand') and invitation.get('membre'):
+            liens.setdefault(str(invitation['cand']),set()).add(str(invitation['membre']))
+    for membre_uid, attendu in (pipeline.get('web_attendus') or {}).items():
+        if attendu.get('cand'):
+            liens.setdefault(str(attendu['cand']),set()).add(str(membre_uid))
+    conflit = any(uid in uids and len(uids) > 1 for uids in liens.values())
+    for cid, uids in liens.items():
+        q = ((pipeline.get('candidatures_web') or {}).get(cid) or {}).get('quiz') or {}
+        if uids == {uid} and q.get('reussi') is True and q.get('date'):
+            candidat = dict(verifie=True,source='quiz_site',reference=f'candidatures_web/{cid}/quiz',date=q['date'])
+            if not quiz or (instant(candidat['date']) and instant(quiz['date']) and instant(candidat['date']) < instant(quiz['date'])):
+                quiz = candidat
+    revu = vie.get('disponible') is True and uid in (vie.get('revus') or [])
+    sortis = entrees.get('sortis') or {}
+    est_sorti = uid in sortis if isinstance(sortis,dict) else any(str(s.get('uid')) == uid for s in sortis)
+    return dict(uid=uid,tl_uid=tls[0] if len(tls) == 1 else '',conflit_identite=conflit,
+                admis=uid in registre,sorti=etat.get('etat') == 'sorti' or est_sorti,
+                ordre_ancien=(ordre_comptes or p.get('ordre')) != 'prive3',quiz_reussi=quiz,
+                historique_vie=dict(complet=revu,reference=f'process:histories/{uid}' if revu else None,comptes=comptes),
+                capacite=capacite or {})

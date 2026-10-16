@@ -57,6 +57,12 @@ class ProjectionTests(unittest.TestCase):
     def test_type_prive_ne_vaut_pas_etat_sain(self):
         d=dossier();d['historique_vie']['comptes'][0]['etat']='PRIVE'
         self.assertEqual('sante_inconnue',r.projection(d,NOW)['blocages'][0]['code'])
+    def test_creation_deja_enregistree_sans_date_ne_se_refait_pas(self):
+        for date in ('', (NOW+timedelta(days=1)).isoformat()):
+            d=dossier();d['historique_vie']['comptes'][0]['cree_le']=date
+            v=r.projection(d,NOW)
+            self.assertEqual('verification',v['prochaine_action']['code'])
+            self.assertEqual('preuve_creation',v['blocages'][0]['code'])
     def test_quiz_reste_obligatoire(self):
         d=dossier();d['quiz_reussi']={}
         self.assertEqual('quiz',r.projection(d,NOW)['prochaine_action']['code'])
@@ -106,3 +112,26 @@ class MesuresTests(unittest.TestCase):
     def test_preuve_invalide_ne_devient_pas_zero_meme_si_couverture_annoncee(self):
         e=dict(type='quiz_reussi',identite='fictif',reference='preuve-fictive',verifie=True,date='illisible')
         self.assertIsNone(r.metriques_hebdomadaires([e],NOW,{'quiz_reussis':True})['quiz_reussis']['valeur'])
+
+class SourcesTests(unittest.TestCase):
+    def test_alias_garde_preuves_pas_totaux_ambigus_ni_secrets(self):
+        e=dict(historique_vie=dict(disponible=True,revus=['fictif'],comptes=[dict(uid='fictif',id='stable-fictif',status='created',evidence='preuve-fictive',aliases=['avant-fictif','apres-fictif'])]),
+               parcours={'fictif':dict(ordre='prive3',dates={'1_fait':(NOW-timedelta(days=10)).isoformat()},reels={'avant-fictif':dict(vus=99,reels_verifies_v2={'reel-fictif':NOW.isoformat()})})},
+               registre={'fictif':dict(creatrice='Fictive',password='NE-PAS-EXPORTER'),'tl-fictif':dict(chef='Fictive')})
+        pipe={'etats':{'fictif':dict(valide_par='quiz',validation=NOW.isoformat(),score_quiz='1 / 1')}}
+        avant=copy.deepcopy(e)
+        d=r.dossier_depuis_sources('fictif',e,pipe,['apres-fictif'],{'apres-fictif':'Good'})
+        self.assertEqual('stable-fictif',d['historique_vie']['comptes'][0]['id'])
+        self.assertEqual('tl-fictif',d['tl_uid'])
+        self.assertEqual(1,r.projection(d,NOW)['test_operationnel']['publies_verifies'])
+        self.assertNotIn('NE-PAS-EXPORTER',str(d));self.assertEqual(avant,e)
+    def test_sources_manquantes_ne_deviennent_pas_historique_complet(self):
+        d=r.dossier_depuis_sources('fictif',{}, {}, [], {})
+        self.assertFalse(d['historique_vie']['complet']);self.assertIsNone(d['historique_vie']['reference'])
+    def test_quiz_succes_et_conflit_issus_des_liaisons_explicites(self):
+        pipe=dict(candidatures_web={'c-fictif':dict(quiz=dict(reussi=True,date=NOW.isoformat()))},
+                  invitations={'i-fictif':dict(cand='c-fictif',membre='fictif')})
+        self.assertTrue(r.dossier_depuis_sources('fictif',{},pipe,[],{})['quiz_reussi'])
+        pipe['web_attendus']={'autre-fictif':dict(cand='c-fictif')}
+        d=r.dossier_depuis_sources('fictif',{},pipe,[],{})
+        self.assertTrue(d['conflit_identite']);self.assertFalse(d['quiz_reussi'])
