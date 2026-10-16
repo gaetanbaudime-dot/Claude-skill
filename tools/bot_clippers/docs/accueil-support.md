@@ -1,6 +1,6 @@
 # Accueil TL, support et diagnostic privé
 
-Lot séparé de PR34, basé sur son commit corrigé 3553e79. Aucune modification de l'iframe PR35.
+Lot séparé de PR34, basé sur son commit corrigé 2f5c752. Aucune modification de l'iframe PR35.
 
 ## Application
 
