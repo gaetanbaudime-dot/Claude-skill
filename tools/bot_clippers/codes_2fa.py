@@ -1596,6 +1596,7 @@ def reponse_privee_unique(cle, nouveau, fermer=None):
                     pass  # Aucun code dans l'accusé provisoire.
                 ferme = True
     dire.surface_privee = cle[1]
+    dire.cle_privee = cle
     return dire
 
 
@@ -1779,11 +1780,17 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
             # L'invalidation ne transporte aucun code vers l'autre surface.
             try:
                 await ancienne(TEXTE_SUITE)
-            except Exception:
-                if _guets.get(cle_guet) is guet:
-                    _guets.pop(cle_guet, None)
-                await dire("L’ancienne réponse privée n’a pas pu être invalidée. Ferme-la puis réessaie ici.")
-                return "indisponible"
+            except Exception as erreur:
+                if isinstance(erreur, discord.HTTPException) and getattr(erreur, "status", None) in (401, 404):
+                    # Référence expirée ou supprimée : elle ne peut plus être actualisée.
+                    # La retirer ne recrée rien sur l'ancien auditoire.
+                    _presentations.pop(cle_guet, None)
+                    _reponses_privees.pop(getattr(ancienne, "cle_privee", None), None)
+                else:
+                    if _guets.get(cle_guet) is guet:
+                        _guets.pop(cle_guet, None)
+                    await dire("L’ancienne réponse privée n’a pas pu être invalidée. Réessaie lorsque Discord est disponible.")
+                    return "indisponible"
         _presentations[cle_guet] = dire
     vus = set((_MONTRES.get(cle_guet) or {}).keys())
     montre = None

@@ -174,6 +174,34 @@ class DemandeTests(unittest.TestCase):
         self.assertEqual(self.c.TEXTE_SUITE,ancien[-1])
         self.assertIn("222222",nouveau[-1])
 
+    def test_repetitions_apres_surface_expiree_ou_supprimee_et_echec_ambigu(self):
+        self.entree("222222", alias="two@example.invalid")
+        for statut in (401,404,503):
+            self.c._presentations.clear()
+            ancien,nouveau=[],[]
+            erreur=self.c.discord.HTTPException("fictif")
+            erreur.status=statut
+            async def test():
+                async def dire1(t):
+                    ancien.append(t)
+                    raise erreur
+                async def dire2(t): nouveau.append(t)
+                dire1.surface_privee="ephemere"
+                dire2.surface_privee="mp"
+                self.c._presentations["u|100"]=dire1
+                resultats=[]
+                for _ in range(2):
+                    resultats.append(await self.c._servir({"two@example.invalid"},dire2,"u|100",duree=0,usage="auto"))
+                return resultats
+            resultats=asyncio.run(test())
+            if statut in (401,404):
+                self.assertEqual(["code","code"],resultats)
+                self.assertEqual(1,len(ancien))
+                self.assertIn("222222",nouveau[-1])
+            else:
+                self.assertEqual(["indisponible","indisponible"],resultats)
+                self.assertNotIn("222222"," ".join(nouveau))
+
     def test_commande_conserve_son_contexte(self):
         self.assertEqual(self.c.demande_de_code("!code connexion"), "!code connexion")
 
