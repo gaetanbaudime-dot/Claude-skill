@@ -1,15 +1,19 @@
 """Transport proposé, aucune création d'onglet ni modification de partage."""
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from audit_diagnostic import CATEGORIES
 
 COUVERTURE = 'Audit-processus — couverture'
 SIGNAUX = 'Audit-processus — signaux'
 ENTETE_COUVERTURE = ['Lot', 'Avant', 'Après', 'Collecte complète', 'Salons identifiés', 'Salons complets',
-                     'Opérations découverte', 'Découvertes complètes', 'Messages', 'Lot prêt']
+                     'Opérations découverte', 'Découvertes complètes', 'Messages', 'Lot prêt', 'Observé le UTC', 'Arrêt', 'Reliquats historiques']
 ENTETE_SIGNAUX = ['Lot', 'Jour', 'Catégories', 'Référence Discord', 'Bot']
 CATEGORIES_PERMISES = {c for c,_ in CATEGORIES} | {'autre'}
 REFERENCE = re.compile(r'https://discord\.com/channels/[0-9]+/[0-9]+/[0-9]+\Z')
+
+
+class CapaciteAtteinte(RuntimeError):
+    pass
 
 
 class TransportSheets:
@@ -24,7 +28,7 @@ class TransportSheets:
 
     async def verifier_schema(self):
         # Le worker crée les deux onglets et en-têtes après accord sur cette destination.
-        for nom,entete,fin in ((COUVERTURE,ENTETE_COUVERTURE,'J'),(SIGNAUX,ENTETE_SIGNAUX,'E')):
+        for nom,entete,fin in ((COUVERTURE,ENTETE_COUVERTURE,'M'),(SIGNAUX,ENTETE_SIGNAUX,'E')):
             valeurs=await self.api.sheets_lire(self.classeur,f"'{nom}'!A1:{fin}1")
             if valeurs != [entete]:
                 raise ValueError('Schéma audit absent ou différent')
@@ -46,6 +50,16 @@ class TransportSheets:
 
     async def ecrire(self,plage,rows):
         if not self.verifie:await self.verifier_schema()
+        # Dimensions fraîches avant CHAQUE écriture ; jamais d'extension automatique.
+        match=re.fullmatch(r"'(.+)'!A([0-9]+):([A-Z]+)([0-9]+)",plage)
+        if not match:raise ValueError('Plage invalide')
+        nom,_,col,fin=match.groups()
+        props=await self.api.sheets_proprietes(self.classeur)
+        p=props.get(nom) or {}
+        ncol=0
+        for c in col:ncol=ncol*26+ord(c)-64
+        if int(p.get('lignes') or 0)<int(fin) or int(p.get('colonnes') or 0)<ncol:
+            raise CapaciteAtteinte('capacite_transport_atteinte')
         # Les lignes sont reconstruites sur liste blanche ; RAW empêche toute formule.
         await self.api.sheets_ecrire_brut(self.classeur,plage,rows)
         retour=await self.api.sheets_lire(self.classeur,plage)
@@ -54,7 +68,7 @@ class TransportSheets:
 
     async def signaux(self,ligne,rows):
         if not rows:return
-        if ligne<2 or ligne+len(rows)>100002:raise ValueError('Capacité audit atteinte')
+        if ligne<2 or ligne+len(rows)>100002:raise CapaciteAtteinte('capacite_transport_atteinte')
         await self.ecrire(f"'{SIGNAUX}'!A{ligne}:E{ligne+len(rows)-1}",rows)
 
     async def couverture(self,ligne,lot,rapport,pret):
@@ -65,7 +79,12 @@ class TransportSheets:
              str(len(decouverte)),str(sum(s['statut']=='complet' for s in decouverte)),
              str(sum(s.get('messages',0) for s in salons)),'oui' if pret else 'non']
         if not all(x.isdigit() for x in (row[0],row[1],row[2])):raise ValueError('Bornes invalides')
-        await self.ecrire(f"'{COUVERTURE}'!A{ligne}:J{ligne}",[row])
+        arret=rapport.get('arret') or ''
+        if arret not in ('','volume_atteint','capacite_transport_atteinte'):raise ValueError('Arrêt invalide')
+        observe=rapport.get('observe_le')
+        row += [datetime.fromtimestamp(observe,timezone.utc).isoformat() if observe is not None else 'inconnue',
+                arret or 'aucun',str(int(rapport.get('reliquats') or 0))]
+        await self.ecrire(f"'{COUVERTURE}'!A{ligne}:M{ligne}",[row])
 
 
 def creer_transport():

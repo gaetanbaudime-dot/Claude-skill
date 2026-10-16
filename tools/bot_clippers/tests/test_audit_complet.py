@@ -103,8 +103,12 @@ class CouvertureTests(unittest.IsolatedAsyncioTestCase):
         g=N(id=9,me=N(id=99),channels=[c],active_threads=active,get_channel_or_thread=lambda _:None)
         for limites in [dict(duree_max=0),dict(volume_max=1)]:
             with tempfile.TemporaryDirectory() as root:
-                r=await a.collecter(g,Path(root)/'audit.db',**limites)
-                self.assertFalse(r['complet']);self.assertTrue(r['borne_atteinte']);self.assertEqual([],c.calls)
+                if 'volume_max' in limites:
+                    with self.assertRaises(a.VolumeAtteint):await a.collecter(g,Path(root)/'audit.db',**limites)
+                else:
+                    r=await a.collecter(g,Path(root)/'audit.db',**limites)
+                    self.assertFalse(r['complet']);self.assertTrue(r['borne_atteinte'])
+                self.assertEqual([],c.calls)
 
 class RepriseSansPrefactoringTests(unittest.IsolatedAsyncioTestCase):
     async def test_fils_complets_hors_cache_ne_sont_jamais_refetches(self):

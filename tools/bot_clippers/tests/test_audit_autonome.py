@@ -29,7 +29,7 @@ class AutonomieTests(unittest.IsolatedAsyncioTestCase):
   self.assertEqual('inactif_ou_source_non_lue',r['statut']);f.assert_not_awaited()
  async def test_quatre_tranches_max_et_backoff(self):
   f=AsyncMock(side_effect=[rapport(i) for i in range(4)])
-  r=await self.tour(f);self.assertEqual(4,f.await_count);self.assertEqual('collecte_partielle',r['statut'])
+  r=await self.tour(f);self.assertEqual(4,f.await_count);self.assertEqual('lot_partiel_publie',r['statut'])
   self.assertEqual('backoff',(await self.tour(f))['statut']);self.assertEqual(4,f.await_count)
  async def test_arret_si_absence_de_progres(self):
   f=AsyncMock(return_value=rapport())
@@ -78,7 +78,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
   with self.assertRaises(ValueError):TransportSheets('existant',CONFIG)
  async def test_schema_et_relecture_obligatoires(self):
   rows=[['1000','2026-10-16','drive','https://discord.com/channels/9/1/123','non']]
-  api=N(sheets_lire=AsyncMock(side_effect=[[ENTETE_COUVERTURE],[ENTETE_SIGNAUX],rows]),sheets_ecrire_brut=AsyncMock())
+  api=N(sheets_lire=AsyncMock(side_effect=[[ENTETE_COUVERTURE],[ENTETE_SIGNAUX],rows]),sheets_ecrire_brut=AsyncMock(),sheets_proprietes=AsyncMock(return_value={'Audit-processus — signaux':{'lignes':1000,'colonnes':5}}))
   t=TransportSheets('existant',{**CONFIG,'classeur_approuve':'existant'},api)
   await t.signaux(2,rows)
   self.assertEqual(3,api.sheets_lire.await_count);api.sheets_ecrire_brut.assert_awaited_once()
@@ -112,3 +112,74 @@ class IncrementalTests(unittest.IsolatedAsyncioTestCase):
    with sqlite3.connect(q) as db:suivants={int(x[0]) for x in db.execute('SELECT id FROM messages')}
    self.assertEqual(set(range(1,200)),premiers|suivants);self.assertFalse(premiers&suivants)
    with self.assertRaises(ValueError):await audit_complet.collecter(guild,q,avant_fixe=201,apres=149)
+
+class ReviewTests(unittest.IsolatedAsyncioTestCase):
+ async def test_historique_inaccessible_ne_bloque_pas_fenetre_recente(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   sink=Sink();root=Path(tmp);now=1800000000
+   collect=AsyncMock(return_value=rapport(complet=False))
+   await a.tour(N(id=9),root,CONFIG,sink,collecter=collect,diagnostiquer=diagnostic,maintenant=lambda:now)
+   state=a.lire(root/'9-producteur.json')
+   self.assertEqual(1,len(state['reprises']));self.assertEqual('1000',state['dernier_avant'])
+   now+=1000
+   collect=AsyncMock(side_effect=TimeoutError())
+   await a.tour(N(id=9),root,CONFIG,sink,collecter=collect,diagnostiquer=diagnostic,maintenant=lambda:now)
+   self.assertEqual(999,collect.call_args.kwargs['apres'])
+   self.assertIn('delta-',str(collect.call_args.args[1]))
+ async def test_capacite_grille_et_colonnes_bloquent_avant_write(self):
+  from audit_transport import CapaciteAtteinte,SIGNAUX
+  for lignes,colonnes in [(1000,5),(2000,4)]:
+   api=N(sheets_lire=AsyncMock(side_effect=[[ENTETE_COUVERTURE],[ENTETE_SIGNAUX]]),sheets_ecrire_brut=AsyncMock(),
+         sheets_proprietes=AsyncMock(return_value={SIGNAUX:{'lignes':lignes,'colonnes':colonnes}}))
+   t=TransportSheets('existant',{**CONFIG,'classeur_approuve':'existant'},api)
+   with self.assertRaises(CapaciteAtteinte):await t.signaux(2,[['x']*5 for _ in range(1000)])
+   api.sheets_ecrire_brut.assert_not_awaited()
+ async def test_arret_capacite_persiste_et_couverture_indique_arret(self):
+  from audit_transport import CapaciteAtteinte
+  with tempfile.TemporaryDirectory() as tmp:
+   sink=Sink();sink.signaux.side_effect=CapaciteAtteinte()
+   r=await a.tour(N(id=9),tmp,CONFIG,sink,collecter=AsyncMock(return_value=rapport(complet=True)),diagnostiquer=diagnostic,maintenant=lambda:1800000000)
+   self.assertEqual('capacite_transport_atteinte',r['statut'])
+   state=a.lire(Path(tmp)/'9-producteur.json');self.assertEqual(r['statut'],state['arret'])
+   self.assertEqual(r['statut'],sink.couverture.call_args.args[2]['arret'])
+ async def test_budget_sqlite_en_transaction_preserve_curseur(self):
+  import sqlite3
+  import audit_complet
+  from datetime import datetime,timezone
+  class Channel:
+   id=123;name='fictif'
+   def permissions_for(self,me):return N(view_channel=True,read_message_history=True)
+   async def history(self,**kwargs):
+    for i in range(99,0,-1):
+     yield N(id=i,created_at=datetime(2026,1,1,tzinfo=timezone.utc),author=N(id=42,bot=False),content=('contenu fictif '*40+'\n')*3,attachments=[],embeds=[])
+  c=Channel();guild=N(id=9,me=N(id=1),channels=[c],active_threads=AsyncMock(return_value=[]))
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'9.sqlite3'
+   with self.assertRaises(audit_complet.VolumeAtteint):await audit_complet.collecter(guild,p,volume_max=128*1024,avant_fixe=100)
+   self.assertLessEqual(p.stat().st_size,128*1024)
+   with sqlite3.connect(p) as db:
+    self.assertEqual(0,db.execute('SELECT count(*) FROM messages').fetchone()[0])
+    self.assertEqual('100',db.execute('SELECT curseur FROM salons').fetchone()[0])
+ async def test_255_mib_bloque_collecte_avec_marge(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'historique.sqlite3'
+   with p.open('wb') as f:f.truncate(255*1024*1024)
+   collect=AsyncMock()
+   r=await a.tour(N(id=9),tmp,CONFIG,Sink(),collecter=collect,maintenant=lambda:1800000000)
+   self.assertEqual('volume_atteint',r['statut']);collect.assert_not_awaited()
+ async def test_reliquats_alternent_sans_reculer_borne_recente(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   now=1800000000;paths=[]
+   async def collect(g,p,**kw):
+    paths.append(p.name)
+    r=rapport(avant=str(kw['avant_fixe'] or 1000))
+    r['salons'][0]['statut']='permissions_absentes'
+    return r
+   for _ in range(4):
+    await a.tour(N(id=9),tmp,CONFIG,Sink(),collecter=collect,diagnostiquer=diagnostic,maintenant=lambda:now)
+    now+=1000
+   # Deux tranches identiques au premier passage, une lors de la reprise historique.
+   self.assertEqual('9.sqlite3',paths[0]);self.assertIn('delta-',paths[2])
+   self.assertEqual('9.sqlite3',paths[4]);self.assertIn('delta-',paths[5])
+   state=a.lire(Path(tmp)/'9-producteur.json')
+   self.assertGreater(int(state['dernier_avant']),1000);self.assertTrue(state['reprises'])

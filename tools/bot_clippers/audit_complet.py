@@ -15,6 +15,10 @@ from conversation_audit import sanitize_in_channel
 
 _LOCKS = {}
 
+class VolumeAtteint(RuntimeError):
+    """Budget SQLite épuisé : transaction annulée, curseur antérieur conservé."""
+
+
 def progression(salons, decouverte, pages, pages_max, pages_decouverte, decouverte_max, borne_atteinte):
     """Une borne temporelle non atteinte n'implique pas une découverte terminée."""
     reste_salons = sum(s['statut'] != 'complet' for s in salons)
@@ -37,6 +41,11 @@ def progression(salons, decouverte, pages, pages_max, pages_decouverte, decouver
 async def collecter(guild, chemin, pages_max=100, decouverte_max=10, duree_max=45, volume_max=64*1024*1024, apres=None, avant_fixe=None):
     """Chaque page est validée atomiquement avec son curseur ; reprise sans doublon."""
     async with _LOCKS.setdefault(str(guild.id), asyncio.Lock()):
+        # Recalcul sous le verrou partagé avec les collectes manuelles.
+        path=Path(chemin)
+        total=sum(p.stat().st_size for p in path.parent.glob('*.sqlite3*'))
+        taille=path.stat().st_size if path.exists() else 0
+        volume_max=min(volume_max,taille+256*1024*1024-total-1024*1024)
         return await _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, apres, avant_fixe)
 
 async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, apres=None, avant_fixe=None):
@@ -49,6 +58,14 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
     os.chmod(chemin,0o600)
     db = sqlite3.connect(chemin)
     try:
+        # Le moteur impose la limite à chaque allocation, y compris dans une page.
+        # Pas de WAL ; journal en mémoire borné par la taille de la transaction.
+        db.execute('PRAGMA journal_mode=MEMORY')
+        page_size = db.execute('PRAGMA page_size').fetchone()[0]
+        maximum = int(volume_max) // page_size
+        if maximum < 16 or db.execute('PRAGMA page_count').fetchone()[0] > maximum:
+            raise VolumeAtteint('volume_atteint')
+        db.execute(f'PRAGMA max_page_count={maximum}')
         db.executescript('''
         CREATE TABLE IF NOT EXISTS meta (cle TEXT PRIMARY KEY, valeur TEXT);
         CREATE TABLE IF NOT EXISTS salons (id TEXT PRIMARY KEY, curseur TEXT, statut TEXT DEFAULT 'a_lire', erreur TEXT);
@@ -198,6 +215,10 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
         return dict(**avancement, reprises=reprises,avant=avant,apres=str(apres),salons=salons,decouverte=discovery,pages=pages,pages_decouverte=pages_decouverte,borne_atteinte=borne_atteinte,
                     complet=not borne_atteinte and all(s['statut']=='complet' for s in salons) and all(x['statut']=='complet' for x in discovery),
                     limites=['MP non inclus','Salons invisibles au bot non énumérables','Embeds, composants et pièces jointes omis','Masquage prudent : texte perdu possible ; pas de garantie sur un secret sans contexte'])
+    except sqlite3.OperationalError as exc:
+        if getattr(exc, 'sqlite_errorcode', None) == sqlite3.SQLITE_FULL:
+            raise VolumeAtteint('volume_atteint') from exc
+        raise
     finally:
         db.close()
 
