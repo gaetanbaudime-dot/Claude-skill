@@ -20,6 +20,8 @@ async def preparer(store, uid, creatrice, api):
             if job['phase'] == 'clone_incertain':
                 # POST non idempotent : absence de réponse ≠ absence de clone.
                 raise Bloque('Résultat du clone inconnu : rapprochement GAML requis, aucun nouveau clone')
+            # GET/validation sans effet : reste réessayable si ce contrôle échoue.
+            await api.preparer_clone(job['modele'])
             job['phase'] = 'clone_incertain'
             store.put(key, job)
             clone = await api.cloner(job['modele'])
