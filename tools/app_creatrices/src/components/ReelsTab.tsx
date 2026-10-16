@@ -1,21 +1,39 @@
-import Logo from "./Logo";
+"use client";
 
-// The canonical module keeps all personal apps on the same verified release.
-// Do not include the personal app token or any credentials in this public URL.
-const DUPLICATEUR_URL = "https://duplicateur-de-reels.vercel.app";
+import { useEffect, useState } from "react";
 
-export default function ReelsTab() {
+// Keep the module on its own origin. Never pass the personal app token here.
+const DUPLICATEUR_URL = "https://duplicateur-de-reels.vercel.app/";
+
+export default function ReelsTab({ actif }: { actif: boolean }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [charge, setCharge] = useState(false);
+
+  useEffect(() => { if (actif) setOuvert(true); }, [actif]);
+
+  // Load on the first visit, then keep the same iframe mounted across tabs.
+  // Unmounting it would interrupt uploads, polling and in-flight finishes.
   return (
-    <section className="apparait carte mt-2 px-6 py-10 flex flex-col items-center text-center">
-      <Logo taille={64} />
-      <h2 className="titre-argent text-xl font-bold mt-5">Duplicateur de Reels</h2>
-      <p className="text-argent2 mt-2 max-w-xs leading-relaxed">Importe ton Reel et récupère six variantes HD avec sous-titres, prêtes à publier.</p>
-      <a href={DUPLICATEUR_URL} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"
-         className="mt-6 inline-flex min-h-12 w-full max-w-xs items-center justify-center rounded-2xl bg-white px-5 py-3 font-semibold text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
-        Créer mes 6 variantes
-        <span className="sr-only"> — ouvre un nouvel onglet</span>
-      </a>
-      <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-argent2">Un nouvel onglet garde ton montage ouvert pendant que tu utilises l’app. Tu peux télécharger chaque vidéo ou les six ensemble.</p>
+    <section hidden={!actif} aria-label="Duplicateur de Reels" className="mt-2">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="titre-argent text-lg font-bold">IA G&M · Reels</h2>
+        <a href={DUPLICATEUR_URL} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer"
+           className="text-xs text-argent2 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+          Plein écran<span className="sr-only"> — ouvre un nouvel onglet</span>
+        </a>
+      </div>
+      {!charge && <p role="status" className="mb-3 text-sm text-argent2">Chargement du montage…</p>}
+      {ouvert && <iframe
+        src={DUPLICATEUR_URL}
+        title="Montage vidéo IA G&M"
+        allow="fullscreen; web-share"
+        allowFullScreen
+        referrerPolicy="no-referrer"
+        onLoad={() => setCharge(true)}
+        className="block w-full rounded-2xl border-0 bg-[#F3F5F8]"
+        style={{ height: "calc(100dvh - 210px)", minHeight: 640 }}
+      />}
+      <p className="mt-3 text-xs leading-relaxed text-argent2">Tu peux changer d’onglet dans cette app : ton montage reste ouvert. Garde cette page ouverte jusqu’à la fin.</p>
     </section>
   );
 }

@@ -61,10 +61,10 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
           <div className="titre-argent text-[22px] font-bold">{prenom}</div>
         </div>
       </header>
-      <main className="flex-1 px-4 pb-28" key={onglet}>
+      <main className="flex-1 px-4 pb-28">
         <Installer jeton={jeton} />
         {onglet === "drive" && <DriveTab jeton={jeton} creatrice={creatrice} />}
-        {onglet === "reels" && <ReelsTab />}
+        <ReelsTab actif={onglet === "reels"} />
         {onglet === "comptes" && <ComptesTab jeton={jeton} />}
         {onglet === "equipe" && tl && <EquipeTab jeton={jeton} />}
         {onglet === "versements" && <VersementsTab jeton={jeton} />}
