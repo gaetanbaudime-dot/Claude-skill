@@ -30,6 +30,7 @@ import os
 import re
 import secrets
 import time
+import weakref
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -1018,6 +1019,59 @@ def ancienne_page(data) -> bool:
 _AVIS_NOUVELLE_PAGE = "Le quizz a changé pendant que tu le remplissais. Réponds de nouveau : cet envoi ne compte pas comme un essai."
 
 
+# Une tentative ouverte par identité authentifiée, conservée sur le volume existant.
+# Mutations synchrones sans await : sérialisées par la boucle du service (une réplique).
+# Les locks couvrent aussi les callbacks async ; références faibles pour ne pas garder les UID.
+_quiz_verrous = weakref.WeakValueDictionary()
+
+
+def _quiz_verrou(uid):
+    cle = (id(asyncio.get_running_loop()), str(uid))
+    verrou = _quiz_verrous.get(cle)
+    if verrou is None:
+        verrou = asyncio.Lock()
+        _quiz_verrous[cle] = verrou
+    return verrou
+
+
+def _revision_quiz(quiz):
+    return hashlib.sha256(json.dumps([quiz, quiz_seuil_total()], sort_keys=True).encode()).hexdigest()
+
+
+def _tentative(pipe, champ, owner):
+    return pipe.setdefault("quiz_tentatives_web", {}).get(f"{champ}:{owner}", {})
+
+
+def _ouvrir_tentative(quiz, champ, owner):
+    pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    tentative = _tentative(pipe, champ, owner)
+    revision = _revision_quiz(quiz)
+    # Un callback interrompu doit reprendre sa même identité, même si le quiz change.
+    if tentative and not tentative.get("terminee") and (
+            tentative.get("resultat") or tentative.get("revision") == revision):
+        return tentative["id"]
+    tentative = {"id": secrets.token_hex(16), "revision": revision}
+    pipe["quiz_tentatives_web"][f"{champ}:{owner}"] = tentative
+    _deps["ecrire_json"](_deps["FICHIER_PIPELINE"], pipe)
+    return tentative["id"]
+
+
+def _tentative_valide(tentative, data, quiz):
+    return bool(tentative and data.get("tentative") == tentative.get("id") and
+                (tentative.get("resultat") or tentative.get("revision") == _revision_quiz(quiz)))
+
+
+def _page_tentative_invalide(champ, owner):
+    return _page("Quizz", "<h1>Recharge le quizz</h1><p>Cet envoi ne compte pas comme un essai.</p>"
+                 f"<a class='b' href='/quiz?{champ}={html.escape(quote(jeton(owner), safe=''))}'>Reprendre le quizz</a>")
+
+
+def _resultat_echec(r, champ, owner):
+    lien = f"/formation?t={jeton(owner)}" if champ == "c" else f"/quiz?t={jeton(owner)}"
+    return _page("Quizz", _texte_echec(r["score"], r["total"], r["seuil"], r["essai"], lien,
+                 video=_deps.get("LIEN_VIDEO_FORMATION", "") if champ == "t" else ""))
+
+
 def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int, avis: str = "") -> web.Response:
     # 10/10 (lot L2) : l'ordre des questions est propre au candidat (graine : l'identifiant de son jeton) et chaque champ porte
     # l'identifiant de sa question. « 1er mot-clé », « 2e mot-clé »… suivent l'ordre du fichier, comme le texte des questions.
@@ -1027,6 +1081,7 @@ def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int, avis: str 
         if q.get("reponses"):
             rang_mot[n] = len(rang_mot) + 1
     graine = verifier_jeton(valeur) or valeur
+    tentative = _ouvrir_tentative(quiz, champ, graine)
     qs = ""
     for affiche, (n, q) in enumerate(ordre_quiz(quiz, graine), 1):
         nom = html.escape(champ_quiz(q, n))
@@ -1046,6 +1101,7 @@ def _formulaire_quiz(quiz: dict, champ: str, valeur: str, essai: int, avis: str 
              # 09/10 : le jeton reste aussi dans l'adresse, pour que « Reviens dans 24 h avec ce même lien » soit vrai
              f"<form method='post' action='/quiz?{champ}={html.escape(quote(valeur, safe=''))}'>"
              f"<input type='hidden' name='{champ}' value='{html.escape(valeur)}'>"
+             f"<input type='hidden' name='tentative' value='{tentative}'>"
              f"{qs}<button class='b' type='submit'>Valider mes réponses</button></form>")
     return _page("Quizz", corps)
 
@@ -1224,6 +1280,11 @@ async def post_quiz_cand(data, cand_id: str):
     ancien = fiche.get("quiz") or {}
     if ancien.get("reussi"):
         raise web.HTTPSeeOther(location=_url_discord(cand_id))
+    tentative = _tentative(pipe, "c", cand_id)
+    if not _tentative_valide(tentative, data, quiz):
+        return _page_tentative_invalide("c", cand_id)
+    if tentative.get("resultat"):
+        return _resultat_echec(tentative["resultat"], "c", cand_id)
     essais = essais_cand(ancien)
     if essais >= QUIZ_ESSAIS_MAX:
         return _page("Quizz", "<h1>Quizz</h1>" + _attente_cand(ancien))
@@ -1233,6 +1294,9 @@ async def post_quiz_cand(data, cand_id: str):
     score, total, details = noter(quiz, data)
     seuil, _ = quiz_seuil_total()
     reussite = score >= seuil
+    tentative["resultat"] = {"score": score, "total": total, "seuil": seuil,
+                              "reussite": reussite, "essai": essais + 1, "details": details}
+    tentative["terminee"] = True
     fiche["quiz"] = {"score": f"{score} / {total}", "reussi": reussite, "essais": essais + 1, "details": details,
                      "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     ecrire(fichier, pipe)
@@ -1246,7 +1310,7 @@ async def post_quiz_cand(data, cand_id: str):
     if present and _deps.get("traiter_quiz_web"):
         journal.info("Site : candidature %s, quizz réussi par le membre %s déjà sur Discord : le bot le valide", cand_id, present)
         places = await _places_livrables(cand_id)                       # 11/10 : lues AVANT que le bot lui donne sa ligne
-        _en_fond(_deps["traiter_quiz_web"](present, f"{score} / {total}", True, details))
+        _en_fond(_deps["traiter_quiz_web"](present, f"{score} / {total}", True, details, tentative_id=tentative["id"]))
         return _page("Quizz réussi", _texte_reussi_discord(score, total, places))
     if _deps.get("quiz_candidat"):                                      # la ligne « Quiz bot » du classeur, en tâche de fond
         _en_fond(_deps["quiz_candidat"](prenom, f"{score} / {total}", essais + 1, reussite, details))
@@ -1366,29 +1430,56 @@ async def post_quiz(request):
     quiz = _quiz()
     if not uid or not quiz.get("questions"):
         return _page("Lien invalide", "<h1>Lien invalide</h1>")
-    essais = _deps["essais_quiz"](uid)
-    if essais >= 99:                                                    # 09/10 : parcours déjà au-delà du quizz (ou fini)
-        return _page_au_dela_du_quiz(uid)
-    if essais >= QUIZ_ESSAIS_MAX:
-        return _page("Quizz", "<h1>Quizz</h1>" + _texte_attente(uid))
-    if ancienne_page(data):                                             # 11/10 : page d'avant le 10/10, aucun essai compté
-        journal.info("Site : quizz de %s envoyé depuis l'ancienne page, réaffiché", uid)
-        return _formulaire_quiz(quiz, "t", jeton(uid), essais + 1, _AVIS_NOUVELLE_PAGE)
-    score, total, details = noter(quiz, data)
-    seuil, _ = quiz_seuil_total()
-    reussite = score >= seuil
-    # 11/10 (vérification du lot L2) : les places se lisent AVANT que le bot le valide (sinon sa propre ligne, prise par
-    # l'attribution, lui ferait lire « dès qu'une place se libère »)
-    places = await _places_livrables() if reussite else None
-    # 09/10 (revue L8) : à l'échec, le bot compte l'essai sans rien poster dans son salon (traiter_quiz_web, silencieux) :
-    # cette page est le seul message d'échec, il est dessus
-    await _deps["traiter_quiz_web"](uid, f"{score} / {total}", reussite, details)
-    if reussite:
-        # 09/10 (Gaëtan : « Go enlever le test de montage vidéo ») : le bot valide le candidat, sa créatrice et son compte 1
-        # arrivent dans son salon ; 11/10 : avec 0 place, dès qu'une place se libère
-        return _page("Quizz réussi", _texte_reussi_discord(score, total, places))
-    return _page("Quizz", _texte_echec(score, total, seuil, essais + 1, f"/quiz?t={jeton(uid)}",
-                                       video=_deps.get("LIEN_VIDEO_FORMATION", "")))
+    async with _quiz_verrou(uid):
+        return await _post_quiz_discord(data, uid, quiz)
+
+
+async def _post_quiz_discord(data, uid, quiz):
+    lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
+    pipe = lire(fichier, {})
+    tentative = _tentative(pipe, "t", uid)
+    if not _tentative_valide(tentative, data, quiz):
+        return _page_tentative_invalide("t", uid)
+    r = tentative.get("resultat")
+    if not r:
+        essais = _deps["essais_quiz"](uid)
+        if essais >= 99:
+            return _page_au_dela_du_quiz(uid)
+        if essais >= QUIZ_ESSAIS_MAX:
+            return _page("Quizz", "<h1>Quizz</h1>" + _texte_attente(uid))
+        if ancienne_page(data):
+            return _formulaire_quiz(quiz, "t", jeton(uid), essais + 1, _AVIS_NOUVELLE_PAGE)
+        score, total, details = noter(quiz, data)
+        seuil, _ = quiz_seuil_total()
+        r = {"score": score, "total": total, "details": details, "seuil": seuil,
+             "reussite": score >= seuil, "essai": essais + 1}
+        tentative["resultat"] = r
+        # Résultat figé AVANT tout await : un retry ne peut pas changer ses réponses.
+        ecrire(fichier, pipe)
+    if not tentative.get("terminee"):
+        places = await _places_livrables() if r["reussite"] else None
+        resultat = await _deps["traiter_quiz_web"](uid, f"{r['score']} / {r['total']}", r["reussite"],
+                                       r["details"], tentative_id=tentative["id"])
+        if resultat not in ("applied", "already_done"):
+            # Le même nonce et le résultat corrigé restent en attente ; aucun faux succès.
+            rep = _page("Quizz en attente", "<h1>Validation en attente</h1>"
+                        "<p>Tes réponses sont conservées. Réessaie dans un instant.</p>"
+                        f"<form method='post' action='/quiz'><input type='hidden' name='t' value='{html.escape(jeton(uid))}'>"
+                        f"<input type='hidden' name='tentative' value='{tentative['id']}'>"
+                        "<button class='b' type='submit'>Réessayer la validation</button></form>")
+            rep.set_status(503)
+            return rep
+        # Relire après le callback : ne pas écraser son compteur ou d'autres candidatures.
+        frais = lire(fichier, {})
+        actuel = _tentative(frais, "t", uid)
+        if actuel.get("id") != tentative["id"]:
+            raise RuntimeError("Tentative de quiz remplacée pendant son traitement")
+        actuel["terminee"], actuel["places"] = True, places
+        ecrire(fichier, frais)
+        tentative = actuel
+    if r["reussite"]:
+        return _page("Quizz réussi", _texte_reussi_discord(r["score"], r["total"], tentative.get("places")))
+    return _resultat_echec(r, "t", uid)
 
 
 # ------------------------------------------------------------------ santé

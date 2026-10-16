@@ -36,6 +36,7 @@ import re
 import time
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 import aiohttp
 import discord
@@ -375,25 +376,71 @@ async def lien_detail(link_id: str) -> dict:
     return await _requete("GET", f"/links/{link_id}")
 
 
-def _carte_privee(detail: dict):
-    """La carte OnlyFans d'un lien (celle qui porte le lien de tracking). 02/10 : les deux boutons s'appellent désormais
-    « Plateforme exclusive » ; la carte se repère d'abord par sa destination (onlyfans.com), puis par son nom, et jamais une
-    carte MYM : un lien sans carte OnlyFans renvoie None plutôt que d'écraser le lien MYM (cause des « Miam » → OnlyFans)."""
+def _nom_plateforme(c):
+    nom = str(c.get("name") or "").strip().lower()
+    return any(m in nom for m in ("priv", "platform", "plateforme", "exclusi",
+                                  "onlyfans", "only fans", "onlyfriends", "mym", "miam")) or nom in ("of", "0f")
+
+
+def annexe_sure(c):
+    """Liste fermée : texte brut, image non cliquable, profil Instagram direct.
+
+    Aucun raccourcisseur, HTML, paramètre de redirection ou URL secondaire.
+    Un nom de plateforme rend la carte ambiguë même si son type prétend être texte/image.
+    """
+    if _nom_plateforme(c):
+        return False
+    # Les destinations alternatives ne peuvent se cacher dans un champ annexe.
+    for k, v in c.items():
+        if v and k not in ("value", "image", "imageUrl") and any(
+                x in k.lower() for x in ("url", "href", "link", "redirect", "target", "html")):
+            return False
+    valeur = str(c.get("value") or "").strip()
+    typ = str(c.get("cardType") or "").lower()
+    if typ == "text":
+        return not re.search(r"[:/<>&]|www\.|(?:mym|onlyfans|instagram)\.", valeur, re.I)
+    if typ == "image":
+        image = c.get("imageUrl") or c.get("image")
+        return not valeur and isinstance(image, str) and bool(re.fullmatch(
+            r"https://[a-zA-Z0-9.-]+/[^?#<>]+\.(?:png|jpg|jpeg|gif|webp|avif)", image, re.I))
+    if typ in ("simple", "social", "instagram", ""):
+        match = re.fullmatch(r"https://(?:www\.)?instagram\.com/([A-Za-z0-9_.]{1,30})/?", valeur)
+        return bool(match and match[1].lower() not in
+                    ("accounts", "redirect", "direct", "explore", "p", "reel", "reels", "stories", "about"))
+    return False
+
+
+def cartes_tracking(detail: dict):
+    """Modèle livrable : une carte privée identifiable, zéro ou une MYM.
+
+    Seules les annexes explicitement sûres sont ignorées ; aucune suppression.
+    Les liens Infloww sont reconnus par le nom de la carte privée existante.
+    """
     cartes = detail.get("contents") or []
-    if not cartes:
-        return None
-    def _nom(c):
-        return str(c.get("name", "")).lower().strip()
-    def _dest(c):
-        return str(c.get("value") or "").lower()
-    carte_of = next((c for c in cartes if "onlyfans.com" in _dest(c)), None)
-    if carte_of:
-        return carte_of
-    hors_mym = [c for c in cartes if "mym.fans" not in _dest(c)]
-    if not hors_mym:
-        return None
-    return next((c for c in hors_mym if any(m in _nom(c) for m in ("priv", "platform", "plateforme", "exclusi", "onlyfans", "only fans"))
-                 or _nom(c) in ("of", "0f")), hors_mym[0])                  # 27/09 : la carte de Clara s'appelait « 0F »
+    def domaine(c, attendu):
+        try:
+            h = (urlsplit(str(c.get("value") or "")).hostname or "").lower()
+            return h == attendu or h.endswith("." + attendu)
+        except ValueError:
+            return False
+    mym = [c for c in cartes if domaine(c, "mym.fans")]
+    autres = [c for c in cartes if c not in mym and not annexe_sure(c)]
+    if len(mym) > 1 or len(autres) != 1:
+        raise ValueError("Cartes GAML ambiguës : vérification manuelle du modèle requise")
+    privee = autres[0]
+    nom = str(privee.get("name") or "").strip().lower()
+    if not (domaine(privee, "onlyfans.com") or
+            any(m in nom for m in ("priv", "platform", "plateforme", "exclusi", "onlyfans", "only fans", "onlyfriends")) or
+            nom in ("of", "0f")):
+        raise ValueError("Carte privée non identifiable : vérification manuelle requise")
+    ids = [str(c.get("id") or "") for c in cartes]
+    if not all(ids) or len(set(ids)) != len(ids):
+        raise ValueError("Identifiants de cartes GAML absents ou dupliqués")
+    return (mym[0] if mym else None), privee
+
+
+def _carte_privee(detail: dict):
+    return cartes_tracking(detail)[1]
 
 
 async def poser_tracking(link_id: str, url: str) -> str:
@@ -401,7 +448,10 @@ async def poser_tracking(link_id: str, url: str) -> str:
     Met `url` (le lien de tracking OnlyFans du POD) dans la carte « Plateforme privée ». Renvoie 'ok', 'déjà' ou la raison."""
     if not url:
         return "sans tracking"
-    carte = _carte_privee(await lien_detail(link_id))
+    try:
+        carte = _carte_privee(await lien_detail(link_id))
+    except ValueError as erreur:
+        return str(erreur)
     if carte is None:
         return "pas de carte OnlyFans sur ce lien"
     if (carte.get("value") or "").strip() == url.strip():
@@ -419,7 +469,10 @@ async def poser_mym(link_id: str, url: str, image: str = "") -> str:
         return "pas un lien MYM"
     detail = await lien_detail(link_id)
     cartes = detail.get("contents") or []
-    mym = next((c for c in cartes if "mym.fans" in str(c.get("value") or "").lower()), None)
+    try:
+        mym, _ = cartes_tracking(detail)
+    except ValueError as erreur:
+        return str(erreur)
     if mym:
         if str(mym.get("value") or "").strip() == url and mym.get("name") == "Miam":
             return "déjà"

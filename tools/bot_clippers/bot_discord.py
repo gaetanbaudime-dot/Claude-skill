@@ -3342,10 +3342,12 @@ class _MessageQuizWeb:
     un doublon (quiz_traites) : son échec n'était pas compté (test_funnel_L8_bot rouge une fois sur deux)."""
     _n = 0
 
-    def __init__(self, contenu, canal):
+    def __init__(self, contenu, canal, tentative_id=None):
+        self.tentative_id = tentative_id
         _MessageQuizWeb._n += 1
         self.content, self.channel, self.webhook_id = contenu, canal, None
-        self.id = f"web-{int(time.time() * 1000)}-{_MessageQuizWeb._n}"
+        self.id = (f"web:{contenu.split('|')[1]}:{tentative_id}" if tentative_id else
+                   f"web-{int(time.time() * 1000)}-{_MessageQuizWeb._n}")
 
 
 def seuil_quiz_texte(sep: str = "/") -> str:
@@ -3354,7 +3356,11 @@ def seuil_quiz_texte(sep: str = "/") -> str:
     return f"{seuil}{sep}{total}"
 
 
-async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
+async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None, tentative_id=None):
+    """Retour métier : applied, already_done ou retryable ; jamais marquer un simple retour sans effet."""
+    event_id = f"web:{uid}:{tentative_id}" if tentative_id else None
+    if event_id and event_id in lire_json(FICHIER_PIPELINE, {}).get("quiz_web_traites", {}):
+        return "already_done"
     canal = await canal_admin()
     essai = essais_quiz(uid) + 1
     contenu = f"{'QUIZ_OK' if reussite else 'QUIZ_KO'}|{uid}|{score}"
@@ -3362,13 +3368,27 @@ async def traiter_quiz_web(uid: str, score: str, reussite: bool, details=None):
     # (score, seuil, « Revois la vidéo », « Réessayer ») ; silencieux=True compte l'essai (état, date) sans le redire dans son
     # salon. Seul appelant : le quizz du site (web_candidature.post_quiz, et post_quiz_cand pour un membre déjà présent).
     try:
-        await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal), silencieux=not reussite)
+        resultat = await traiter_quiz_webhook(_MessageQuizWeb(contenu, canal, tentative_id), silencieux=not reussite)
     except Exception:                                                   # noqa: BLE001
-        # 09/10 (relecture du lot L1) : jamais d'erreur 500 sur la page POST /quiz du site ; valider_candidat alerte le staff
+        # Ancien appel sans identité : retour retryable ; avec identité, conserver la reprise du POST.
         journal.exception("Quiz du site (%s, %s) : traitement interrompu", uid, "réussi" if reussite else "raté")
+        if tentative_id:
+            raise  # Le POST conserve son résultat en attente et reprend la même identité.
+        return "retryable"
+    if resultat not in ("applied", "already_done"):
+        return "retryable"
+    if event_id:
+        frais = lire_json(FICHIER_PIPELINE, {})
+        frais.setdefault("quiz_web_traites", {})[event_id] = True
+        traites = frais.setdefault("quiz_traites", [])
+        if event_id not in traites:
+            traites.append(event_id)
+            del traites[:-400]
+        ecrire_json(FICHIER_PIPELINE, frais)
     # 28/09 (Gaëtan : « tant que j'ai un backup dans mon Google Sheets ») : une ligne par essai dans l'onglet « Quiz bot »
     m = membre_par_id(uid)
     await ligne_quiz_bot(prenom_de(m) if m is not None else "", str(uid), score, essai, reussite, details)
+    return resultat
 
 
 def peut_revenir_site(uid) -> bool:
@@ -3416,11 +3436,14 @@ async def traiter_quiz_webhook(message, silencieux=False):
     message.channel peut valoir None (quiz du site sans salon admin) : l'anomalie part alors au journal seulement."""
     donnees_q = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
     traites = donnees_q.setdefault("quiz_traites", [])
-    if str(message.id) in traites:
-        return
+    if str(message.id) in traites or str(message.id) in donnees_q.get("quiz_web_traites", {}):
+        return "already_done"
+    if getattr(message, "tentative_id", None):
+        donnees_q.setdefault("quiz_web_traites", {})[str(message.id)] = True
     traites.append(str(message.id))
     del traites[:-400]
-    ecrire_json(FICHIER_PIPELINE, donnees_q)
+    if not getattr(message, "tentative_id", None):
+        ecrire_json(FICHIER_PIPELINE, donnees_q)
     reussite = message.content.startswith("QUIZ_OK|")
     morceaux = (message.content.split("|", 4) + ["", "", "", ""])[:5]
     pseudo, score, email_q, tel_q = (m.strip() for m in morceaux[1:5])
@@ -3476,6 +3499,8 @@ async def traiter_quiz_webhook(message, silencieux=False):
         await enregistrer_quiz_hors_discord(reussite, score, email_q, tel_q, silencieux)
         return
     if membre_trouve is None:
+        if isinstance(message, _MessageQuizWeb):
+            return "retryable"  # cache incomplet : ni succès ni marqueur durable
         if not silencieux and reussite:
             await _signaler(
                 f"⚠️ Quizz réussi ({score}) mais " + ("**identifiant Discord vide** dans la réponse"
@@ -3486,12 +3511,14 @@ async def traiter_quiz_webhook(message, silencieux=False):
             journal.info("Quiz raté (%s) par un candidat introuvable : rien à faire", score)   # 09/10 : plus de ligne admin
         return
     uid_q = str(membre_trouve.id)
+    if reussite and isinstance(message, _MessageQuizWeb) and uid_q in _VALIDATIONS_EN_COURS:
+        return "retryable"
     if not reussite:
         # Échec au quiz : on prévient, on compte l'essai, on donne le lien — deux essais par cycle.
         info_q = donnees_q.setdefault("etats", {}).get(uid_q, {})
         if info_q.get("etat") in ("valide", "attente_attribution", "test_envoye", "test_rendu") \
                 or uid_q in lire_json(FICHIER_EQUIPES, {}):
-            return                                   # déjà dans l'agence (ou en file) : un vieux KO rejoué
+            return "already_done"                    # déjà dans l'agence (ou en file) : un vieux KO rejoué
         essais = essais_quiz_cycle(info_q) + 1                          # 29/09 : nouveau cycle de deux essais 24 h après
         donnees_q["etats"][uid_q] = {**info_q, "etat": "quiz_rate", "essais_quiz": essais, "score_quiz": score,
                                      "date_quiz": datetime.now(timezone.utc).isoformat(timespec="seconds")}
@@ -3499,7 +3526,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
         if silencieux or isinstance(message, _MessageQuizWeb):
             # 09/10 (funnel, étape 4 bis : « Le nouvel essai se fait sur le site. Rien ne part sur Discord ») : la page du site
             # montre déjà le score, la vidéo et « Réessayer ». Le message ci-dessous ne sert plus qu'à l'ancien formulaire Google.
-            return
+            return "applied"
         # 09/10 (Gaëtan : « Chaque étape à la fois… Saute des lignes, aère ») : le score, une action, le lien. Plus de ligne
         # admin à chaque échec (:2980, :2988 avant le 09/10).
         lien_q = lien_quiz_pour(membre_trouve.id)
@@ -3513,7 +3540,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
             await envoyer_mp(membre_trouve,
                              f"📝 **Quizz : {score or 'sous le seuil'}.** C'était ton deuxième essai.\n\n"
                              f"Reviens dans {QUIZ_CYCLE_H} h avec ce même lien :\n\n{lien_txt}")
-        return
+        return "applied"
     etat_actuel = donnees_q.get("etats", {}).get(uid_q, {}).get("etat")
     if silencieux and etat_actuel:
         return                                       # rattrapage : tout état existant = déjà traité
@@ -3522,7 +3549,7 @@ async def traiter_quiz_webhook(message, silencieux=False):
         # d'attribution se vide toute seule dès qu'un compte se libère. Silence côté admin. Un « valide » HORS registre (validation
         # non aboutie : réseau, membre introuvable) repasse par valider_candidat (relecture du lot L1 : il restait bloqué).
         journal.info("Quiz rejoué : membre %s déjà en état %s, rien fait", uid_q, etat_actuel)
-        return
+        return "already_done"
     if etat_actuel == "sorti":
         if not silencieux:
             await _signaler(f"ℹ️ {membre_trouve.mention} a réussi le quizz ({score}) mais son état est **sorti** : rien fait. "
@@ -3534,6 +3561,10 @@ async def traiter_quiz_webhook(message, silencieux=False):
     # y a un geste (rôle non posé, attribution coupée) ; sinon l'entrée compte dans « validé(s) » du point du matin.
     retour = await valider_candidat(membre_trouve, score, "quiz")
     journal.info("Quiz réussi : membre %s → %s", uid_q, retour or "?")
+
+    if str(retour or "").startswith("⚠️"):
+        return "retryable"
+    return "already_done" if retour == "deja" else "applied"
 
 
 async def resoudre_posts_formation():
