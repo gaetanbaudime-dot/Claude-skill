@@ -21,3 +21,34 @@ class RoutesTests(unittest.IsolatedAsyncioTestCase):
         f=extraire('suggestion_commande',{})
         s=f('!mesclcis VALEUR-FICTIVE-A-NE-PAS-REPRENDRE')
         self.assertIn('!mesclics',s);self.assertNotIn('VALEUR',s)
+
+class EscaladeIATests(unittest.IsolatedAsyncioTestCase):
+    async def test_confirmation_depend_du_resultat_reel(self):
+        for transmis in (False,True):
+            signal=AsyncMock(return_value=transmis)
+            f=extraire('reponse_escalade_verifiee',{'signaler_escalade':signal})
+            texte=await f(N(),'question fictive')
+            signal.assert_awaited_once()
+            self.assertEqual(transmis,'est signalée' in texte)
+            self.assertEqual(not transmis,'n’est pas confirmée' in texte)
+    async def test_escalade_ia_utilise_ticket_et_ne_copie_pas_question(self):
+        signal=AsyncMock(return_value={'statut':'a_envoyer'})
+        f=extraire('signaler_escalade',{'signaler_support':signal,'normaliser':str.lower})
+        self.assertFalse(await f(N(),'EXEMPLE-SECRET-FICTIF'))
+        self.assertNotIn('EXEMPLE',signal.call_args.args[1])
+    async def test_route_suivi_enregistre_piece_meme_sans_motif(self):
+        import re
+        suivi=N(ajouter_suivi=__import__('unittest.mock',fromlist=['Mock']).Mock())
+        notifier=AsyncMock()
+        f=extraire('alerter_admin_salon',{'support_suivi':suivi,'FICHIER_SUPPORT':'fictif','MOTIFS_ALERTE':[('suspendu',re.compile('suspendu'))],'signaler_support':notifier})
+        m=N(author=N(id=42),guild=N(id=1),channel=N(id=2),id=4,attachments=[N()])
+        self.assertFalse(await f(m,'Voici la capture demandée'))
+        suivi.ajouter_suivi.assert_called_once_with('fictif','42',1,2,4,1)
+        notifier.assert_not_awaited()
+    def test_variantes_de_confirmation_ia_passent_par_le_controle(self):
+        import re,unicodedata
+        def norm(t):return ''.join(c for c in unicodedata.normalize('NFD',t.lower()) if unicodedata.category(c)!='Mn')
+        f=extraire('est_escalade',{'normaliser':norm,'MESSAGE_ESCALADE':'message canonique fictif','re':re})
+        for texte in ['J’ai transmis le problème à ton équipe.','Ton équipe est prévenue.','Je signale ce blocage au manager.']:
+            self.assertTrue(f(texte))
+        self.assertFalse(f('Publie les Reels après vérification.'))

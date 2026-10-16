@@ -1448,22 +1448,29 @@ MOTIFS_ALERTE = (("un compte désactivé ou banni", re.compile(r"(?i)d[ée]sacti
                  ("un dossier Drive vide", re.compile(r"(?i)(?:dossier|drive).{0,40}(?:vide|rien)")))
 
 
+async def envoyer_notification_support(ticket, uid, sujet, source):
+    canal = await canal_admin()
+    if canal is None:
+        return None
+    envoye = await canal.send(
+        f"⚠️ Support #{ticket} — {sujet}\n"
+        f"Conséquence : parcours à vérifier pour <@{uid}>.\n"
+        f"Action : consulter la preuve puis prendre en charge.\n{source}\n"
+        f"Dossier : `!support {uid}`")
+    return envoye.id
+
+
 async def signaler_support(message, sujet):
     async def notifier(ticket):
-        canal = await canal_admin()
-        if canal is None:
-            return None
-        envoye = await canal.send(
-            f"⚠️ Support #{ticket} — {sujet}\n"
-            f"Conséquence : parcours à vérifier pour <@{message.author.id}>.\n"
-            f"Action : consulter la preuve puis prendre en charge.\n{message.jump_url}\n"
-            f"Dossier : `!support {message.author.id}`")
-        return envoye.id
+        source = message.jump_url if message.guild is not None else "Demande reçue en MP ; contenu non partagé. Contacter le membre dans son salon personnel."
+        return await envoyer_notification_support(ticket,str(message.author.id),sujet,source)
     return await support_suivi.signaler(FICHIER_SUPPORT, str(message.author.id), sujet,
-        message.guild.id, message.channel.id, message.id, len(message.attachments), notifier)
+        message.guild.id if message.guild is not None else '@me', message.channel.id, message.id, len(message.attachments), notifier)
 
 
 async def alerter_admin_salon(message, texte: str) -> bool:
+    support_suivi.ajouter_suivi(FICHIER_SUPPORT, str(message.author.id), message.guild.id,
+                              message.channel.id, message.id, len(message.attachments))
     for sujet, motif in MOTIFS_ALERTE:
         if motif.search(texte or ""):
             retour = await signaler_support(message, sujet)
@@ -1560,40 +1567,22 @@ async def pieces_pour_le_modele(pieces) -> tuple:
 def est_escalade(reponse: str) -> bool:
     """La réponse dit que le bot n'a pas la réponse (MESSAGE_ESCALADE ou une variante écrite par le modèle)."""
     r = normaliser((reponse or "").replace("’", "'"))
-    return MESSAGE_ESCALADE in (reponse or "") or "transmis ta question" in r or "je n'ai pas la reponse" in r
+    return (MESSAGE_ESCALADE in (reponse or "") or "transmis ta question" in r or "je n'ai pas la reponse" in r
+            or re.search(r"(?:transmis|transmets|signale|prevenu).{0,50}(?:equipe|manager|gaetan)|(?:equipe|manager|gaetan).{0,40}(?:prevenu|informe|averti|recontact)", r) is not None)
 
 
 async def signaler_escalade(message, question: str) -> bool:
-    """01/10 (Gaëtan, Ricardo 20 h sans réponse) : « J'ai transmis ta question à l'équipe » doit être vrai. Le salon admin
-    (notifier_manager, comme l'alerte du numéro de téléphone) est prévenu.
-    01/10 (relecture : une alerte par clipper et par jour — la 2e question du jour n'était transmise à personne) : une
-    alerte par QUESTION ; seule la même question reposée le même jour n'en refait pas."""
-    uid = str(message.author.id)
-    compteurs = lire_json(FICHIER_COMPTEURS, {})
-    jour = heure_paris().date().isoformat()
-    cle_q = normaliser((question or "").strip())[:200]
-    deja = compteurs.setdefault("alertes_escalade", {}).get(uid)
-    if not isinstance(deja, dict) or deja.get("jour") != jour:          # ancien format (« jour » seul) ou autre jour
-        deja = {"jour": jour, "questions": []}
-    if cle_q in deja["questions"]:
-        return False
-    deja["questions"] = (deja["questions"] + [cle_q])[-20:]
-    compteurs["alertes_escalade"][uid] = deja
-    ecrire_json(FICHIER_COMPTEURS, compteurs)
-    lieu = f"<#{message.channel.id}>" if message.guild is not None else f"en message privé avec le bot (<@{uid}>)"
-    if message.guild is not None:
-        ou = "réponds-lui dans ce salon."
-    else:                                                                # 01/10 (relecture) : le MP du bot, personne n'y écrit
-        ou = ("réponds-lui dans son salon perso." if salon_perso_de(message.author.id) is not None
-              else "écris-lui en MP depuis ton compte.")
-    try:
-        await notifier_manager(f"❓ **{prenom_de(message.author)}** : le bot n'a pas la réponse ({lieu}).\n\n"
-                               f"Question : « {(question or '').strip()[:300]} »\n\n"
-                               f"👉 Le bot lui a promis une réponse de l'équipe : {ou}")
-        return True
-    except Exception as erreur:                                          # noqa: BLE001
-        journal.warning("Alerte escalade : %s", erreur)
-        return False
+    """Même livraison vérifiée que les signalements directs, sans recopier la question."""
+    import hashlib
+    empreinte = hashlib.sha256(normaliser((question or "").strip()).encode()).hexdigest()[:16]
+    retour = await signaler_support(message, "assistance IA · question " + empreinte)
+    return retour["statut"] == "transmis"
+
+
+async def reponse_escalade_verifiee(message, question):
+    transmis = await signaler_escalade(message, question)
+    return ("Ta demande est signalée à l’équipe." if transmis else
+            "La transmission n’est pas confirmée. Ton équipe doit vérifier la demande.")
 
 
 async def staff_a_parle(message, minutes: int = 30) -> bool:
@@ -6543,7 +6532,7 @@ async def commande_admin(message, texte: str) -> bool:
     if retiree:
         await message.reply(retiree)
         return True
-    if texte.split()[:1] in (["!support"], ["!support-resolu"]):
+    if texte.split()[:1] in (["!support"], ["!support-resolu"], ["!support-reprendre"]):
         if str(message.author.id) not in ADMIN_IDS:
             return True
         mots_support = texte.split()
@@ -6551,7 +6540,22 @@ async def commande_admin(message, texte: str) -> bool:
             await message.author.send("Utilise `!support UID` ou `!support-resolu UID numéro_ticket`.")
             return True
         uid_support = mots_support[1]
-        if mots_support[0] == "!support-resolu":
+        if mots_support[0] == "!support-reprendre":
+            if len(mots_support) != 4 or not mots_support[2].isdigit() or mots_support[3] != "confirme-non-livre":
+                await message.author.send("Vérifie d’abord la non-livraison dans le salon admin, puis `!support-reprendre UID ticket confirme-non-livre`.")
+                return True
+            ticket_support = int(mots_support[2])
+            fiche_support = next((r for r in support_suivi.lister(FICHIER_SUPPORT, uid_support) if r['id'] == ticket_support), None)
+            if fiche_support is None:
+                await message.author.send("Ticket ouvert introuvable pour cet UID.")
+                return True
+            async def renotifier_support(ident):
+                p = json.loads(fiche_support['preuves'])[-1]
+                source = f"https://discord.com/channels/{p['guild']}/{p['canal']}/{p['message']}"
+                return await envoyer_notification_support(ident, uid_support, fiche_support['sujet'], source)
+            reprise_support = await support_suivi.reprendre(FICHIER_SUPPORT, uid_support, ticket_support, renotifier_support, non_livre=True)
+            await message.author.send("État du ticket : " + (reprise_support['statut'] if reprise_support else "déjà transmis ou non reprenable"))
+        elif mots_support[0] == "!support-resolu":
             ok = len(mots_support) == 3 and mots_support[2].isdigit() and support_suivi.clore(FICHIER_SUPPORT, uid_support, int(mots_support[2]))
             await message.author.send("Ticket clos après ta vérification." if ok else "Ticket ouvert introuvable pour cet UID.")
         else:
@@ -10559,6 +10563,10 @@ async def on_message(message):
         if not ASSISTANT_SALON_PERSO and not est_question(message, texte):
             return                                                       # l'assistant ne parle jamais de lui-même
 
+    if message.guild is None and not est_staff(auteur_membre(message)):
+        support_suivi.ajouter_suivi(FICHIER_SUPPORT, str(message.author.id), '@me',
+                                  message.channel.id, message.id, len(message.attachments))
+
     # 09/10 : en MP, un clipper signé reçoit sa réponse en MP (doit_repondre), plus de renvoi vers #assistant.
     if not doit_repondre(message):
         return
@@ -10676,7 +10684,6 @@ async def on_message(message):
     else:
         _PANNES_IA["echecs"] = []
 
-    journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
     # Boucle d'auto-amélioration (20/07) : chaque question à laquelle le kit ne sait pas répondre
     # est capturée dans lacunes.json → digest du dimanche en admin → `!apprendre` la comble, et la
     # FAQ vivante (faq_apprise.md, volume persistant) est utilisée dès la question suivante.
@@ -10690,10 +10697,8 @@ async def on_message(message):
                             "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
             ecrire_json(FICHIER_LACUNES, lacunes[-200:])
     if est_escalade(reponse) and not est_staff(message.author):
-        await signaler_escalade(message, texte)       # 01/10 : « J'ai transmis ta question à l'équipe » devient vrai
-        if message.guild is None and MESSAGE_ESCALADE in reponse:      # 01/10 (relecture) : en MP, « arrive ici » était faux
-            reponse = reponse.replace(MESSAGE_ESCALADE, MESSAGE_ESCALADE_MP if salon_perso_de(message.author.id) is not None
-                                      else MESSAGE_ESCALADE_MP_SANS_SALON)
+        reponse = await reponse_escalade_verifiee(message, texte)
+    journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
     reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
     reponse = re.sub(r"\n\s*\(?(Fiche \d[^\n]*|Manager\)?(\s*[—-]\s*Salon perso)?|FAQ terrain\)?|Parcours candidat\)?|Stratégie marketing\)?)\s*$", "", reponse).rstrip()
     reponse_liee = lier_salon_codes(lier_references(assainir_mentions(reponse)))   # 01/10 : #🔐-code-instagram cliquable

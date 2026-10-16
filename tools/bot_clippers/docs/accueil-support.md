@@ -23,3 +23,11 @@ L'administrateur peut joindre ce JSON à la conversation d'analyse ; les outils 
 ## Validation
 
 Tests fictifs : concurrence/dédoublonnage, envoi incertain, reprise, clôture ciblée, contrôle ADMIN_IDS, suggestion sans fuite d'arguments, diagnostic sans texte libre et curseur. Compilation Python et build Next.js. Aucun appel réel Discord, aucun message réel, aucune migration destructive, aucun élargissement de droits. Inspection navigateur non effectuée : ce poste est réservé à l'autre tâche.
+
+## Corrections de revue support
+
+Un refus HTTP 4xx certain (hors 408) remet la notification en `a_envoyer` : le prochain signalement peut la retenter. Timeout, 408 et 5xx restent `envoi_incertain`. Après contrôle de non-livraison, l'administrateur peut utiliser `!support-reprendre UID ticket confirme-non-livre` ; une notification déjà transmise ne peut pas être renvoyée par cette commande.
+
+Chaque suivi du même auteur dans le même salon conserve la référence et le nombre de pièces jointes, même sans répéter le motif. Avec plusieurs tickets ouverts, le rattachement est explicitement contextuel et doit être vérifié ; il n'affirme pas que la pièce prouve chaque problème. Aucun contenu ou URL de pièce jointe n'est copié.
+
+Les escalades de l'assistant IA utilisent désormais les mêmes tickets et la même livraison vérifiée. Une confirmation visible dépend du retour réel ; refus et timeout ne peuvent plus produire « transmis ». Les variantes de formulation du modèle passent par cette vérification. Les demandes en MP ne recopient pas leur contenu dans le salon d'équipe.
