@@ -10,7 +10,7 @@ from pathlib import Path
 import sqlite3
 from datetime import datetime, timezone
 import discord
-from conversation_audit import sanitize_message, ACCESS_BLOCK, SENSITIVE_LINE
+from conversation_audit import sanitize_in_channel
 
 _LOCKS = {}
 
@@ -86,8 +86,7 @@ async def _collecter(guild, chemin, pages_max):
                     for m in batch:
                         # Embeds, champs, composants, pièces jointes, mentions de nom et
                         # messages cités ne sont jamais copiés, même pour le nettoyeur.
-                        sensitive_room = bool(ACCESS_BLOCK.search(channel.name) or SENSITIVE_LINE.search(channel.name))
-                        safe='[SALON D’ACCÈS MASQUÉ]' if sensitive_room else sanitize_message(m.content)
+                        safe = sanitize_in_channel(m.content, channel)
                         row=dict(date=m.created_at.isoformat(),uid=str(m.author.id),bot=bool(m.author.bot),texte=safe,
                                  pieces_jointes=len(m.attachments),embeds_omis=len(m.embeds))
                         db.execute('INSERT OR IGNORE INTO messages VALUES (?,?,?)',(str(m.id),cid,json.dumps(row,ensure_ascii=False)))

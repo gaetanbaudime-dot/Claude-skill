@@ -49,11 +49,34 @@ ACCESS_BLOCK = re.compile(
     r"(?:code|otp|2fa|pin)\s*[:=]|```|~~~|[?&](?:token|key|auth|code|signature)=", re.I)
 
 
+# Contextes d'accès : les mots seuls suffisent, quelle que soit la forme de la
+# valeur qui suit (espacée, alphanumérique, ligne suivante, bloc Markdown).
+ACCESS_CONTEXT = re.compile(r"\b(?:codes?|otp|totp|2fa|pin|verification|authentification|authenticator|identifiants?|credentials?|password|passwd|connexion|connection|login|acces|secret|token)\b")
+SPLIT_CODE = re.compile(r"(?<!\w)(?:\d[\s.\-]*){6,8}(?!\w)")
+
+
+def contexte_sensible(value):
+    brut = str(value or "")
+    sans_format = ''.join(c for c in unicodedata.normalize('NFKD', brut).casefold()
+                         if unicodedata.category(c) not in ('Mn', 'Cf'))
+    mots = re.sub(r"[^a-z0-9]+", " ", sans_format)
+    return bool(ACCESS_CONTEXT.search(mots) or SENSITIVE_LINE.search(sans_format)
+                or ACCESS_BLOCK.search(sans_format) or any(c in brut for c in ('🔐','🔑','🔒')))
+
+
+def sanitize_in_channel(content, channel):
+    noms = [getattr(channel, 'name', ''), getattr(getattr(channel, 'parent', None), 'name', ''),
+            getattr(getattr(channel, 'category', None), 'name', '')]
+    if any(contexte_sensible(n) for n in noms):
+        return "[SALON D’ACCÈS MASQUÉ]"
+    return sanitize_message(content)
+
+
 def sanitize_message(content: str) -> str:
     """Redact probable credentials and identifiers; never assert perfect sanitization."""
     # Une valeur peut suivre son étiquette sur une autre ligne : supprimer
     # tout le bloc/message avant toute sérialisation, jamais seulement l'étiquette.
-    if SENSITIVE_LINE.search(str(content or "")) or ACCESS_BLOCK.search(str(content or "")):
+    if contexte_sensible(content) or SPLIT_CODE.search(str(content or "")):
         return "[MESSAGE D’ACCÈS MASQUÉ INTÉGRALEMENT]"
     safe = []
     for line in str(content or "").splitlines()[:20]:
@@ -133,7 +156,7 @@ async def export_to_admin_dm(message, active_pairs: list, days: int = 90) -> dic
                     "author_uid": str(m.author.id),
                     "author": sanitize_message(str(getattr(m.author, "display_name", m.author.name)))[:100],
                     "bot": bool(m.author.bot),
-                    "text_redacted": sanitize_message(m.content),
+                    "text_redacted": sanitize_in_channel(m.content, channel),
                     "attachments_count": len(m.attachments),
                     "question": "?" in (m.content or ""),
                 })
