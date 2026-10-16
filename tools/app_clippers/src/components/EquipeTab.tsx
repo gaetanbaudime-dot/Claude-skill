@@ -38,6 +38,7 @@ export default function EquipeTab({ jeton }: { jeton: string }) {
       : <div className="space-y-3 mt-2">{[0, 1, 2].map((i) => <div key={i} className="squelette h-32" />)}</div>;
   }
   const auSeuil = e.membres.filter((m) => m.auSeuil).length;
+  const incomplets = e.membres.filter((m) => m.visites === null || m.manquants > 0).length;
   const problemes = e.membres.flatMap((m) => {
     const lignes: { cle: string; membre: string; probleme: string; action: string }[] = [];
     if (!m.comptes.length) lignes.push({ cle: `${m.cle}:comptes`, membre: m.prenom, probleme: "Aucun compte renseigné", action: "Faire vérifier le dossier avant toute création." });
@@ -69,7 +70,7 @@ export default function EquipeTab({ jeton }: { jeton: string }) {
           <div className="titre-argent text-[28px] font-bold tabular-nums">{e.primee === true && e.prime !== null ? usd(e.prime) : "–"}</div>
           <div className="text-[12px] text-argent2">{e.primee === null ? "prime non mesurée" : e.primee ? "prime d’équipe en cours, provisoire" : "pas de prime d’équipe sur cette période"}</div>
         </div>
-        <div className="text-[12px] text-argent2 mt-1">Période : {e.debut || "non renseignée"} au {e.fin || "non renseignée"} · {auSeuil} sur {e.membres.length} au seuil de {fmt(e.seuil)} visites. Relevés manquants : résultat provisoire.</div>
+        <div className="text-[12px] text-argent2 mt-1">Période : {e.debut || "non renseignée"} au {e.fin || "non renseignée"} · {auSeuil} seuil(s) confirmé(s) à {fmt(e.seuil)} visites. {incomplets ? `${incomplets} dossier(s) incomplet(s) : résultat provisoire.` : "Relevés disponibles sur cette période."}</div>
         <p className="text-sm text-argent2 mt-3">Marge et activité J30 : non mesurées.</p>
       </div> : null}
       {vue === "equipe" ? <><p className="text-[12.5px] text-argent2 px-1 leading-relaxed">Touche un compte pour l'ouvrir dans Instagram et faire ton retour au clipper.</p>

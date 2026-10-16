@@ -1441,12 +1441,11 @@ ACQUIESCEMENTS = {"ok", "okay", "okey", "oke", "okk", "oki", "d'accord", "daccor
 
 
 # 30/09 (salon de Daniella) : un compte désactivé ou un Drive fermé, signalés dans le salon perso, n'arrivaient à personne —
-# Gaëtan a ouvert le Drive le lendemain matin en lisant le fil. Une alerte au salon admin, une fois par clipper, sujet et jour.
+# Gaëtan a ouvert le Drive le lendemain matin en lisant le fil. Un ticket persistant par UID et sujet ouvert.
 MOTIFS_ALERTE = (("un compte désactivé ou banni", re.compile(r"(?i)d[ée]sactiv|banni|\bban\b|suspendu|nous examinons|compte (?:est )?bloqu")),
                  ("un accès refusé (Drive ou lien)", re.compile(r"(?i)(?:pas|plus) (?:encore )?acc[eè]s|autorisation|acc[eè]s refus")),
                  # 01/10 (Gaëtan, après Daniella : « sur le dossier story il y a rien ») : un dossier Drive vide n'arrivait à personne.
                  ("un dossier Drive vide", re.compile(r"(?i)(?:dossier|drive).{0,40}(?:vide|rien)")))
-_alertes_salon = set()
 
 
 async def signaler_support(message, sujet):
@@ -6573,6 +6572,14 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("Réservé à l'administrateur.")
             return True
         try:
+            if texte.split()[1:2] == ["diagnostic"]:
+                import audit_diagnostic
+                args_diagnostic = texte.split()[2:]
+                if len(args_diagnostic) > 1 or (args_diagnostic and not args_diagnostic[0].isdigit()) or message.guild is None:
+                    await message.author.send("Dans le serveur : `!audit-discussions diagnostic [curseur numérique]`.")
+                    return True
+                await audit_diagnostic.envoyer(message, DONNEES / "audit_prive" / f"{message.guild.id}.sqlite3", int(args_diagnostic[0]) if args_diagnostic else 0)
+                return True
             if texte.split()[1:] == ["complet"]:
                 import audit_complet
                 await audit_complet.commande(message, DONNEES / "audit_prive" / f"{message.guild.id if message.guild else 'sans-serveur'}.sqlite3")
@@ -10079,6 +10086,14 @@ async def alerte_numero_demande(message, texte: str) -> None:
         await signaler_support(message, "Instagram demande un numéro de téléphone")
 
 
+def suggestion_commande(texte):
+    from difflib import get_close_matches
+    mot = (texte.split() or [""])[0]
+    choix = ("!etape", "!app", "!mesclics", "!aide-ig", "!wallet", "!pseudo", "!parrain")
+    proche = get_close_matches(mot, choix, n=1, cutoff=.8)
+    return f"Commande non reconnue. Voulais-tu utiliser `{proche[0]}` ?" if proche else "Commande non reconnue. `!aide` présente tes commandes utiles."
+
+
 def normaliser_commande(texte: str) -> str:
     """09/10 (un clipper a tapé « ! pseudo 1 … », ignoré en silence) : « ! pseudo » et « !Pseudo » valent « !pseudo ». L'espace
     après le « ! » saute et le premier mot passe en minuscules ; les arguments (un @, une adresse) restent tels quels. Vaut
@@ -10517,6 +10532,10 @@ async def on_message(message):
             return
     elif texte.startswith("!") and est_manager(message.author) and premier_mot not in ("!quiz", "!lier"):
         await message.reply(f"❓ `{premier_mot}` n'est pas une commande manager — `!aide` pour ta liste.")
+        return
+
+    if texte.startswith("!") and not est_staff(message.author):
+        await message.reply(suggestion_commande(texte))
         return
 
     if message.guild is not None and isinstance(message.channel, discord.TextChannel) and not texte.startswith("!") \

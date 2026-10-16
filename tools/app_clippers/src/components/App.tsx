@@ -66,7 +66,7 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
         {onglet === "drive" && <DriveTab jeton={jeton} creatrice={creatrice} />}
         <ReelsTab actif={onglet === "reels"} />
         {onglet === "comptes" && <ComptesTab jeton={jeton} />}
-        {onglet === "equipe" && tl && <EquipeTab jeton={jeton} />}
+        {onglet === "equipe" && tl && <EquipeTab key={jeton} jeton={jeton} />}
         {onglet === "versements" && <VersementsTab jeton={jeton} />}
       </main>
       <nav className={`barre fixed bottom-0 inset-x-0 ${onglets.length > 4 ? "px-1" : "px-4"} pt-2`} style={{ paddingBottom: "calc(var(--safe-bas) + 10px)" }} aria-label="Onglets">
