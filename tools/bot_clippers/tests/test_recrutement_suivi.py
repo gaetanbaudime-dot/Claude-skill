@@ -275,3 +275,35 @@ class ConflitsRevue(unittest.IsolatedAsyncioTestCase):
         self.pipe['candidatures_web']['a'].update(discord_uids=['10'],conflit_identite=True)
         self.assertFalse(r.lier_discord(self.pipe,'a','10'))
         self.assertEqual(w._uids_de(self.pipe,'a'),[])
+    def test_inter_dossiers_liaison_singleton_retenue_independant_autorise(self):
+        self.pipe['candidatures_web'].update(b={'discord_uids':['10']},c={'discord_uids':['12']},d={})
+        self.assertTrue(r.candidature_en_conflit(self.pipe,'b'))
+        self.assertEqual(w._uids_de(self.pipe,'b'),[])
+        self.assertFalse(r.lier_discord(self.pipe,'b','10'))
+        self.assertEqual(self.pipe['candidatures_web']['a']['discord_uids'],['10','11'])
+        # OAuth avec un nouveau dossier sans UID doit aussi retenir le UID entrant.
+        self.assertFalse(r.lier_discord(self.pipe,'d','11'))
+        self.assertTrue(r.lier_discord(self.pipe,'c','12'))
+        self.assertEqual(w._uids_de(self.pipe,'c'),['12'])
+    async def test_inter_dossiers_quiz_b_retenu_c_independant_admis(self):
+        import asyncio
+        self.pipe['candidatures_web'].update(b={'discord_uids':['10']},c={'discord_uids':['12']})
+        quiz={'questions':[{'id':'f','q':'Fictif','choix':['A','B'],'bonne':0}],'seuil':1}
+        with patch.object(w,'_quiz',return_value=quiz),patch.object(w,'quiz_seuil_total',return_value=(1,1)),patch.object(w,'noter',return_value=(1,1,[])),patch.object(w,'_places_livrables',AsyncMock(return_value=1)):
+            nonce=w._ouvrir_tentative(quiz,'c','b')
+            rep=await w.post_quiz_cand({'tentative':nonce,'q-f':'0'},'b')
+            self.assertIn('vérifie la liaison',rep.text)
+            self.traiter.assert_not_called()
+            nonce=w._ouvrir_tentative(quiz,'c','c')
+            await w.post_quiz_cand({'tentative':nonce,'q-f':'0'},'c')
+            await asyncio.sleep(0)
+            self.traiter.assert_awaited_once()
+            self.assertEqual(self.traiter.call_args.args[0],'12')
+    async def test_inter_dossiers_invitation_et_oauth_b_retenus(self):
+        self.pipe['candidatures_web']['b']={'discord_uids':['10'],'quiz':{'reussi':True}}
+        request=SimpleNamespace(query={'t':w.jeton('b'),'state':w.jeton('b'),'code':'fictif'})
+        with patch.object(w,'_cand_depuis',return_value='b'),patch.object(w,'_retours',{'b':(w.time.time(),'Fictif',1)}):
+            for appel in (w.get_invitation,w.get_connexion,w.get_callback):
+                self.assertIn('vérifie la liaison',(await appel(request)).text)
+            self.assertEqual(await w._invitation_prete('b'),'')
+        self.inviter.assert_not_called()

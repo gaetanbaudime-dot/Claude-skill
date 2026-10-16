@@ -55,14 +55,18 @@ def liaisons(pipe):
     return resultat
 
 
+def uids_en_conflit(pipe):
+    """UID retenus par une contradiction explicite, sans récursion inter-dossiers."""
+    fiches = pipe.get('candidatures_web') or {}
+    return {uid for cid, uids in liaisons(pipe).items()
+            if len(uids) > 1 or (fiches.get(cid) or {}).get('conflit_identite')
+            for uid in uids}
+
+
 def candidature_en_conflit(pipe, cid):
     fiche = (pipe.get('candidatures_web') or {}).get(cid) or {}
-    return bool(fiche.get('conflit_identite')) or len(liaisons(pipe).get(cid, set())) > 1
-
-
-def uids_en_conflit(pipe):
-    return {uid for cid, uids in liaisons(pipe).items()
-            if candidature_en_conflit(pipe, cid) for uid in uids}
+    uids = liaisons(pipe).get(cid, set())
+    return bool(fiche.get('conflit_identite')) or len(uids) > 1 or bool(uids & uids_en_conflit(pipe))
 
 
 def lier_discord(pipe, cid, uid):
@@ -70,9 +74,10 @@ def lier_discord(pipe, cid, uid):
     fiche = (pipe.get('candidatures_web') or {}).get(cid)
     if fiche is None or not str(uid).isdigit():
         return False
+    retenu = str(uid) in uids_en_conflit(pipe) or candidature_en_conflit(pipe, cid)
     uids = liaisons(pipe).get(cid, set()) | {str(uid)}
     fiche['discord_uids'] = sorted(uids)
-    fiche['conflit_identite'] = bool(fiche.get('conflit_identite')) or len(uids) != 1
+    fiche['conflit_identite'] = retenu or len(uids) != 1
     return not fiche['conflit_identite']
 
 

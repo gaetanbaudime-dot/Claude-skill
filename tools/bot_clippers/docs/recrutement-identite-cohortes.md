@@ -62,3 +62,5 @@ Un conflit bloque maintenant la sélection d'un membre présent, le callback du 
 Les UID impliqués dans un conflit ne peuvent plus revenir par le complément des membres historiques. Les métriques exigent `attribution=liee` et `verifie=true` pour chaque publication ; attribution absente, inconnue ou contradictoire rend l'observation non mesurée et n'ajoute aucun actif.
 
 La capacité ne rapproche plus par téléphone : elle dédoublonne seulement un UID unique prouvé, sinon conserve les dossiers distincts. Toute candidature en conflit bloque la promesse de capacité à zéro en attendant rapprochement, même si une ancienne lecture affichait des places. Aucun compte n'est réservé par ce calcul.
+
+La retenue est également globale entre dossiers : si A contient les UID contradictoires 10/11, B lié uniquement à 10 reste retenu sur quiz, invitation et OAuth. Une nouvelle liaison vers 10 ou 11 est conservée comme conflit, sans admission. Le calcul des UID retenus part des contradictions explicites et ne s'appelle pas récursivement. Le dossier indépendant C lié à 12 reste admissible. Aucun rapprochement implicite n'efface les traces ni les marqueurs de conflit.
