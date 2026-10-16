@@ -105,3 +105,23 @@ class CouvertureTests(unittest.IsolatedAsyncioTestCase):
             with tempfile.TemporaryDirectory() as root:
                 r=await a.collecter(g,Path(root)/'audit.db',**limites)
                 self.assertFalse(r['complet']);self.assertTrue(r['borne_atteinte']);self.assertEqual([],c.calls)
+
+class RepriseSansPrefactoringTests(unittest.IsolatedAsyncioTestCase):
+    async def test_fils_complets_hors_cache_ne_sont_jamais_refetches(self):
+        from unittest.mock import AsyncMock
+        c=Channel()
+        async def active():return []
+        fetch=AsyncMock(side_effect=AssertionError('Un fil complet ne doit pas être récupéré'))
+        g=N(id=9,me=N(id=99),channels=[c],active_threads=active,get_channel_or_thread=lambda _:None,fetch_channel=fetch)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'audit.db'
+            await a.collecter(g,path,pages_max=0)
+            with sqlite3.connect(path) as db:
+                db.execute("DELETE FROM salons WHERE id='123'")
+                for i in range(1000,1100):
+                    db.execute("INSERT INTO salons VALUES (?,?,'complet',NULL)",(str(i),'1'))
+                db.execute("INSERT INTO salons VALUES ('123','999999999999999999','a_reprendre',NULL)")
+            r=await a.collecter(g,path,pages_max=3)
+            fetch.assert_not_awaited()
+            self.assertTrue(r['complet'])
+            self.assertEqual(205,next(x['messages'] for x in r['salons'] if x['id']=='123'))
