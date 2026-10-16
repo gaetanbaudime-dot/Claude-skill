@@ -125,3 +125,49 @@ class RepriseSansPrefactoringTests(unittest.IsolatedAsyncioTestCase):
             fetch.assert_not_awaited()
             self.assertTrue(r['complet'])
             self.assertEqual(205,next(x['messages'] for x in r['salons'] if x['id']=='123'))
+
+class EquiteReprisesTests(unittest.IsolatedAsyncioTestCase):
+    async def test_erreurs_lentes_ne_privant_pas_un_salon_a_reprendre(self):
+        from unittest.mock import patch
+        c=Channel();c.id=6
+        horloge=[0.0];appels=[]
+        async def active():return []
+        async def fetch(cid):
+            appels.append(cid);horloge[0]+=9
+            if cid==6:return c
+            raise a.discord.Forbidden(N(status=403,reason='fictif'),'interdit fictif')
+        g=N(id=9,me=N(id=99),channels=[],active_threads=active,get_channel_or_thread=lambda _:None,fetch_channel=fetch)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'audit.db'
+            await a.collecter(g,path,pages_max=0)
+            with sqlite3.connect(path) as db:
+                for i in range(1,6):db.execute("INSERT INTO salons VALUES (?,?,'illisible','Forbidden')",(str(i),'999999999999999999'))
+                db.execute("INSERT INTO salons VALUES ('6','999999999999999999','a_reprendre',NULL)")
+            with patch.object(a,'time',N(monotonic=lambda:horloge[0],time=lambda:1000.0)):
+                r=await a.collecter(g,path,duree_max=45)
+                self.assertEqual(6,appels[0]);self.assertEqual(205,next(s['messages'] for s in r['salons'] if s['id']=='6'))
+                avant=list(appels)
+                await a.collecter(g,path,duree_max=45)
+                nouveaux=appels[len(avant):]
+                self.assertFalse(set(nouveaux)&set(avant))
+                self.assertTrue(r['reprises'])
+    async def test_decouverte_en_erreur_garde_budget_pour_lecture(self):
+        from unittest.mock import patch
+        horloge=[0.0];appels=[]
+        class Forum:
+            def __init__(self,i):self.id=i
+            def permissions_for(self,me):return N(view_channel=True,read_message_history=True)
+            async def archived_threads(self,**kwargs):
+                appels.append(self.id);horloge[0]+=9
+                raise a.discord.Forbidden(N(status=403,reason='fictif'),'interdit fictif')
+                yield
+        c=Channel()
+        async def active():return []
+        g=N(id=9,me=N(id=99),channels=[*(Forum(i) for i in range(5)),c],active_threads=active,get_channel_or_thread=lambda _:None)
+        with tempfile.TemporaryDirectory() as root, patch.object(a,'time',N(monotonic=lambda:horloge[0],time=lambda:1000.0)):
+            path=Path(root)/'audit.db'
+            r=await a.collecter(g,path,duree_max=45)
+            self.assertEqual(205,r['salons'][0]['messages']);self.assertLess(len(appels),5)
+            avant=set(appels)
+            await a.collecter(g,path,duree_max=45)
+            self.assertFalse(avant & set(appels[len(avant):]))
