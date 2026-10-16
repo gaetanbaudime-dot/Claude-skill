@@ -85,3 +85,13 @@ Aucune collecte réelle, aucun envoi à un clippeur et aucune modification des d
 Restent séparés de ce lot : accueil de l'app « À traiter / Équipe / Résultats », reprise complète des escalades support, et toute nouvelle décision de processus (validation WhatsApp, notation vidéo). Marge et J30 restent non mesurés tant que les sources et définitions ne sont pas validées. Le duplicateur de PR35 est préservé sans redéploiement manuel.
 
 Le contexte de l'assistant a aussi été aligné : retrait de la réattribution des anciens comptes, du délai supplémentaire de 24 h pour le déblocage et de la paie au clic supposée pour tous. L'ancien ordre privé 2 demande vérification. La réponse d'une demande de code remplacée ne prétend plus qu'un code est déjà disponible dans une autre réponse.
+
+### Corrections de revue indépendante
+
+La découverte des fils archivés n'utilise plus `limit=None` : pages de 50, curseurs persistés (date d'archivage ou ID pour les fils privés rejoints), maximum 10 pages de découverte par invocation. Les objets des fils sont résolus un par un pour lire les messages. Budget de durée de 45 secondes, timeout de 10 secondes par appel et arrêt au seuil de volume SQLite de 64 Mio (vérifié entre pages). Les sources non terminées et les erreurs sont rapportées ; les reprises ne rescannent pas une découverte terminée.
+
+Avant lecture, `VIEW_CHANNEL` et `READ_MESSAGE_HISTORY` doivent être présents. Sinon, statut `permissions_absentes`, aucune lecture et aucune conclusion « complet ». Une reprise vérifie à nouveau les droits, sans les modifier. Les anciens marqueurs v1 sont revalidés avec ces règles ; les messages ne sont pas supprimés.
+
+Les formats OTP sur ligne séparée, codes espacés et codes alphanumériques contextualisés sont supprimés intégralement. Le nom du salon, de son parent et de sa catégorie sont normalisés (accents, ponctuation, caractères de format et emojis) avant détection d'un contexte d'accès. Le même filtre protège l'export échantillonné et la collecte complète.
+
+Les relevés de clics en erreur, négatifs, non numériques ou non finis sont exclus de `somme` et signalés manquants par la couverture. Un zéro reste possible uniquement pour un relevé réussi avec compteurs valides.

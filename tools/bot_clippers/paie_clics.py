@@ -1230,6 +1230,16 @@ async def poser_notes_attendues(liens: list) -> list:
     return lignes
 
 
+def releve_valide(v):
+    """Un zéro exige un relevé réussi et des compteurs numériques valides."""
+    import math
+    def compte(x):
+        return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) and x >= 0 and int(x) == x
+    return (isinstance(v, dict) and not v.get('erreur')
+            and compte(v.get('payes')) and compte(v.get('hors_robots'))
+            and (v.get('brut') is None or compte(v.get('brut'))))
+
+
 def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
     """Visites des liens sur la période. 28/09 : un lien repris d'un sortant ne compte pour son nouveau clipper qu'à partir de
     `depuis` (les visites d'avant sont celles de l'ancien). 10/10 : un jour dont le total robots compris n'a pas pu être lu (`brut`
@@ -1237,7 +1247,9 @@ def somme(d: dict, link_ids, debut: date, fin: date) -> dict:
     tot = {"brut": 0, "hors_robots": 0, "payes": 0, "jours": 0, "brut_non_lu": 0}
     for lid in link_ids:
         dep = str((d.get("liens", {}).get(lid) or {}).get("depuis") or "")
-        for j, v in d["jours"].get(lid, {}).items():
+        for j, v in (d.get("jours") or {}).get(lid, {}).items():
+            if not releve_valide(v):
+                continue
             if debut.isoformat() <= j <= fin.isoformat() and j >= dep:
                 if v.get("brut") is None:
                     tot["brut_non_lu"] += 1
@@ -2089,7 +2101,7 @@ async def associer_auto(d: dict, liens: list) -> list:
 def _manque(jours: dict, j: date) -> bool:
     """Le jour `j` est-il à (re)lire ? Absent, ou un vieux 404 enregistré à 0 avant le 09/10 (`erreur`)."""
     v = (jours or {}).get(j.isoformat())
-    return not isinstance(v, dict) or bool(v.get("erreur"))
+    return not releve_valide(v)
 
 
 ECHEC_REESSAI = int(os.environ.get("CLICS_ECHEC_REESSAI", "1800") or 1800)   # revue CLICS : un lien en erreur retenté 30 min après
