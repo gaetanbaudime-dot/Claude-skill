@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
     for (const e of eq?.equipes || []) for (const m of e.membres) stats.set(normaliser(m.prenom).split(" ")[0], m);
     const seuil = eq?.equipes?.[0]?.seuil || 500;
     return NextResponse.json({
-      seuil, prime: eq?.prime ?? 0, primee: eq?.primee ?? false, debut: eq?.debut || "", fin: eq?.fin || "",
+      seuil, prime: eq?.prime ?? null, primee: eq?.primee ?? null, debut: eq?.debut || "", fin: eq?.fin || "",
       membres: membres.map((m) => ({ ...m, ...(stats.get(normaliser(m.prenom).split(" ")[0]) || { visites: null, auSeuil: false, manquants: 0 }) })),
     }, { headers: ENTETES });
   } catch (e) {

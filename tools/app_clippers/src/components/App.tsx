@@ -41,7 +41,7 @@ const ONGLETS: { cle: Onglet; libelle: string; icone: (actif: boolean) => JSX.El
 ];
 
 export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: string; creatrice: string; jeton: string; tl?: boolean }) {
-  const [onglet, setOnglet] = useState<Onglet>("drive");
+  const [onglet, setOnglet] = useState<Onglet>(tl ? "equipe" : "drive");
   const onglets = ONGLETS.filter((o) => o.cle !== "equipe" || tl);         // 12/10 : l'onglet Équipe, pour un Team Leader seulement
   useEffect(() => {
     try { const m = localStorage.getItem("gm-clipper-onglet") as Onglet | null; if (m && ONGLETS.some((o) => o.cle === m) && (m !== "equipe" || tl)) setOnglet(m); } catch { /* privé */ }
@@ -66,7 +66,7 @@ export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: 
         {onglet === "drive" && <DriveTab jeton={jeton} creatrice={creatrice} />}
         <ReelsTab actif={onglet === "reels"} />
         {onglet === "comptes" && <ComptesTab jeton={jeton} />}
-        {onglet === "equipe" && tl && <EquipeTab jeton={jeton} />}
+        {onglet === "equipe" && tl && <EquipeTab key={jeton} jeton={jeton} />}
         {onglet === "versements" && <VersementsTab jeton={jeton} />}
       </main>
       <nav className={`barre fixed bottom-0 inset-x-0 ${onglets.length > 4 ? "px-1" : "px-4"} pt-2`} style={{ paddingBottom: "calc(var(--safe-bas) + 10px)" }} aria-label="Onglets">
