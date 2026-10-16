@@ -16,7 +16,7 @@ CATEGORIES = (
     ('demande_humaine',r'manager|ga[eëé]tan|aide|bloqu'),
 )
 
-def diagnostic(chemin,apres=0,limite=1000):
+def diagnostic(chemin,apres=0,limite=1000,*,ordre_insertion=False):
     """Lecture locale bornée ; aucun champ textuel fourni par un message n'est exporté."""
     path=Path(chemin)
     if not path.is_file():raise ValueError('Aucune collecte locale disponible.')
@@ -26,12 +26,15 @@ def diagnostic(chemin,apres=0,limite=1000):
     try:
         guild=db.execute("SELECT valeur FROM meta WHERE cle='guild'").fetchone()[0]
         if not str(guild).isdigit():raise ValueError('Identité de serveur invalide.')
-        rows=db.execute('SELECT id,salon,contenu FROM messages WHERE CAST(id AS INTEGER)>? ORDER BY CAST(id AS INTEGER) LIMIT ?',
+        # Le transport suit l'ordre d'insertion : un ancien snowflake découvert
+        # tardivement arrive après le curseur, sans réexporter les précédents.
+        colonne='rowid' if ordre_insertion else 'CAST(id AS INTEGER)'
+        rows=db.execute(f'SELECT {colonne},id,salon,contenu FROM messages WHERE {colonne}>? ORDER BY {colonne} LIMIT ?',
                         (apres,limite+1)).fetchall()
         cas=[];comptes={};suivant=apres
-        for ident,salon,contenu in rows[:limite]:
+        for sequence,ident,salon,contenu in rows[:limite]:
             if not str(ident).isdigit() or not str(salon).isdigit():continue
-            suivant=int(ident)
+            suivant=int(sequence)
             try:r=json.loads(contenu);jour=datetime.fromisoformat(r['date']).date().isoformat()
             except (ValueError,TypeError,KeyError):continue
             uid=str(r.get('uid') or '')
@@ -53,3 +56,7 @@ async def envoyer(message,chemin,apres=0):
     suite=f" Suite : `!audit-discussions diagnostic {rapport['curseur_suivant']}`." if rapport['reste'] else ''
     await message.author.send('Diagnostic privé : catégories et références des messages, sans contenu libre. Tu peux joindre ce JSON à la conversation d’analyse.'+suite,
         file=discord.File(io.BytesIO(data),filename=f'audit-diagnostic-{apres}.json'))
+
+
+def diagnostic_export(chemin,apres=0,limite=1000):
+    return diagnostic(chemin,apres,limite,ordre_insertion=True)
