@@ -3261,8 +3261,14 @@ def entrees(comptes: list) -> dict:
             "masques": masques, "metricool": met, "parcours": parcours_d if isinstance(parcours_d, dict) else {}}
 
 
+VUES_PROTEGEES_IDS = {1900160410, 1900160402}
+VUES_PROTEGEES_NOMS = {'Comptes · Pilotage', 'Règles du process'}
+
+
 async def _ecrire_onglet(r: dict) -> int:
     cid = onboarding.CLASSEUR_LOGINS_ID
+    if ONGLET in VUES_PROTEGEES_NOMS:
+        raise RuntimeError('vue protégée : génération interdite')
     props = await google_api.sheets_proprietes(cid)
     if ONGLET not in props:
         await google_api.sheets_creer_onglet(cid, ONGLET)
@@ -3271,6 +3277,8 @@ async def _ecrire_onglet(r: dict) -> int:
     sid = p.get("id")
     if sid is None:
         raise RuntimeError(f"onglet « {ONGLET} » introuvable")
+    if int(sid) in VUES_PROTEGEES_IDS:
+        raise RuntimeError('vue protégée : génération interdite')
     faire = requetes_simple if r.get("simple") else requetes
     await _batch_unique(cid, faire(r, sid, int(p.get("lignes") or 0), int(p.get("colonnes") or 0)))
     return sid

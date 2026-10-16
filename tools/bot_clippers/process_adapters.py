@@ -244,18 +244,41 @@ class LiensSheetsAPI:
 
     async def lignes(self):
         import onboarding as o
-        return await o.lire_comptes()
+        import google_api
+        rows = await o.lire_comptes()
+        # Lecture indépendante stricte : le lecteur historique tolère une panne.
+        merges = await google_api.sheets_fusions(o.CLASSEUR_LOGINS_ID)
+        if not isinstance(merges, dict):
+            raise Bloque('fusions_non_verifiees')
+        for r in rows:
+            if r['onglet'] not in merges:
+                raise Bloque('fusions_non_verifiees')
+            cols = o._colonnes_lues_par_onglet.get(r['onglet']) or {}
+            for champ in ('lien_gaml', 'lien_mym', 'lien_infloww'):
+                col = cols.get(champ)
+                if col is not None and any(r0 <= r['ligne']-1 < r1 and c0 <= col < c1
+                    for r0,r1,c0,c1 in merges.get(r['onglet'], [])):
+                    r.setdefault('fusions', {})[champ] = 'intersection'
+        return rows
 
     def appartient(self, r, uid, creatrice):
         import onboarding as o
         h = r.get('handle') or ''
         fiche = (o._lire_etat().get('clippers') or {}).get(str(uid)) or {}
-        # Le propriétaire SQLite et la livraison courante doivent concorder.
-        return bool(h and r.get('gerant') and o._norm(r.get('gerant')) not in o.GERANTS_LIBRES
+        # Une ancienne livraison ne prouve pas l'attribution Sheets actuelle.
+        # Liaison attestée explicitement, jamais déduite d'un prénom ou d'un préfixe.
+        binding = self.registre.get('attribution-sheet:' + str(r.get('onglet')) + ':' + o._cle_handle(h)) or {}
+        courant = (binding.get('preuve') and str(binding.get('uid')) == str(uid)
+                   and binding.get('gerant') == r.get('gerant')
+                   and binding.get('creatrice') == creatrice)
+        canonique = o._norm(r.get('creatrice')) == o._norm(creatrice)
+        alias = self.registre.get('alias-creatrice:' + o._norm(r.get('creatrice'))) or {}
+        canonique = canonique or bool(alias.get('preuve') and alias.get('canonique') == creatrice)
+        return bool(courant and canonique and h and r.get('gerant') and o._norm(r.get('gerant')) not in o.GERANTS_LIBRES
                     and not fiche.get('sorti') and h in fiche.get('comptes', [])
                     and o._proprietaires().get(o._cle_handle(h)) == {str(uid)}
                     and self.registre.owner_for_handle(h) == str(uid)
-                    and o._pour_creatrice(r, creatrice))
+                    and canonique)
 
     def colonne(self, champ, onglet):
         import onboarding as o

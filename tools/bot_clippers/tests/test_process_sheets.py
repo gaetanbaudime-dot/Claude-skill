@@ -85,8 +85,51 @@ class AdapterTests(unittest.IsolatedAsyncioTestCase):
   import onboarding as o
   import process_adapters as a
   registre=Mock();registre.owner_for_handle.return_value='autre-uid'
+  registre.get.side_effect=lambda k: {'uid':'fictif','gerant':'Homonyme','creatrice':'Fictive','preuve':'fictive'} if k.startswith('attribution-sheet:') else None
   r=dict(handle='compte.fictif',gerant='Homonyme',creatrice='Fictive',onglet='Fictive')
   with patch.object(o,'_lire_etat',return_value={'clippers':{'fictif':{'comptes':['compte.fictif']}}}),patch.object(o,'_proprietaires',return_value={'compte.fictif':{'fictif'}}):
    self.assertFalse(a.LiensSheetsAPI('fictif',registre).appartient(r,'fictif','Fictive'))
    registre.owner_for_handle.return_value='fictif'
    self.assertTrue(a.LiensSheetsAPI('fictif',registre).appartient(r,'fictif','Fictive'))
+
+class ReviewRegressions(unittest.IsolatedAsyncioTestCase):
+ async def test_attribution_courante_et_creatrice_exacte(self):
+  from unittest.mock import patch,Mock
+  import onboarding as o,process_adapters as a
+  registry=Mock();registry.owner_for_handle.return_value='alice'
+  binding={'uid':'alice','gerant':'Alice','creatrice':'Sarah','preuve':'validation-fictive'}
+  registry.get.side_effect=lambda k: binding if k.startswith('attribution-sheet:') else None
+  row=dict(handle='fictif',gerant='Bob',creatrice='Sarah',onglet='Sarah')
+  with patch.object(o,'_lire_etat',return_value={'clippers':{'alice':{'comptes':['fictif']}}}),patch.object(o,'_proprietaires',return_value={'fictif':{'alice'}}):
+   api=a.LiensSheetsAPI('alice',registry)
+   self.assertFalse(api.appartient(row,'alice','Sarah'))
+   row['gerant']='Alice';self.assertTrue(api.appartient(row,'alice','Sarah'))
+   row['creatrice']='Sarah2';self.assertFalse(api.appartient(row,'alice','Sarah'))
+   registry.get.side_effect=lambda k: binding if k.startswith('attribution-sheet:') else {'canonique':'Sarah','preuve':'alias-valide'}
+   self.assertTrue(api.appartient(row,'alice','Sarah'))
+   binding.pop('preuve');self.assertFalse(api.appartient(row,'alice','Sarah'))
+ async def test_fusions_strictes_horizontales_verticales_et_panne(self):
+  from unittest.mock import patch,AsyncMock
+  import onboarding as o,process_adapters as a,google_api as g
+  row=dict(onglet='Fictive',ligne=2,handle='fictif')
+  with patch.object(o,'lire_comptes',AsyncMock(side_effect=lambda:[deepcopy(row)])),patch.object(o,'_colonnes_lues_par_onglet',{'Fictive':{'lien_mym':3}}):
+   api=a.LiensSheetsAPI('alice',None)
+   with patch.object(g,'sheets_fusions',AsyncMock(side_effect=TimeoutError)):
+    with self.assertRaises(TimeoutError):await api.lignes()
+   for fusion in [(1,2,2,5),(0,4,3,4)]:
+    with patch.object(g,'sheets_fusions',AsyncMock(return_value={'Fictive':[fusion]})):
+     self.assertIn('lien_mym',(await api.lignes())[0]['fusions'])
+ async def test_historique_sans_job_necrit_ni_nefface(self):
+  from unittest.mock import patch,AsyncMock
+  import onboarding as o,process_adapters as a,google_api as g
+  row=dict(handle='fictif',gerant='Alice',lien_gaml='https://example.invalid/ancien')
+  with patch.object(o,'actif',return_value=True),patch.object(o.paie_clics,'actif',return_value=True),patch.object(a,'synchroniser_liens_sheets',AsyncMock(return_value={'ecrits':0,'proteges':set(),'conflits':[]})),patch.object(g,'sheets_ecrire',AsyncMock()) as write,patch.object(o.paie_clics,'liens_gaml',AsyncMock()) as scan:
+   result=await o.liens_classeur([row]);self.assertEqual('historique_sans_job_verifie',result['conflits'][0]['raison'])
+   write.assert_not_awaited();scan.assert_not_awaited();self.assertEqual('https://example.invalid/ancien',row['lien_gaml'])
+ async def test_dashboard_gid_protege_meme_si_renomme(self):
+  from unittest.mock import patch,AsyncMock
+  import dashboard as d
+  for sid in (1900160410,1900160402):
+   with patch.object(d.google_api,'sheets_proprietes',AsyncMock(return_value={d.ONGLET:{'id':sid}})),patch.object(d,'_batch_unique',AsyncMock()) as write:
+    with self.assertRaises(RuntimeError):await d._ecrire_onglet({'simple':True})
+    write.assert_not_awaited()
