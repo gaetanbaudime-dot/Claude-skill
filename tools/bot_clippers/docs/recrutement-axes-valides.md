@@ -83,3 +83,5 @@ Le nettoyeur supprime le message entier lorsqu'un bloc d'accès ou de code est d
 Aucune collecte réelle, aucun envoi à un clippeur et aucune modification des droits n'ont été exécutés pour ces tests. Pour lancer ce nouveau mode, il faut d'abord déployer ce code, puis une invocation humaine de la commande administrateur ci-dessus. L'export de 21 salons/918 messages fourni par l'utilisateur n'est pas recollecté.
 
 Restent séparés de ce lot : accueil de l'app « À traiter / Équipe / Résultats », reprise complète des escalades support, et toute nouvelle décision de processus (validation WhatsApp, notation vidéo). Marge et J30 restent non mesurés tant que les sources et définitions ne sont pas validées. Le duplicateur de PR35 est préservé sans redéploiement manuel.
+
+Le contexte de l'assistant a aussi été aligné : retrait de la réattribution des anciens comptes, du délai supplémentaire de 24 h pour le déblocage et de la paie au clic supposée pour tous. L'ancien ordre privé 2 demande vérification. La réponse d'une demande de code remplacée ne prétend plus qu'un code est déjà disponible dans une autre réponse.
