@@ -6557,8 +6557,14 @@ async def commande_admin(message, texte: str) -> bool:
             await message.author.send("Ticket clos après ta vérification." if ok else "Ticket ouvert introuvable pour cet UID.")
         else:
             rapport_support = support_suivi.rapport(FICHIER_SUPPORT, uid_support)
+            bloc_support = ""
             for ligne_support in rapport_support.splitlines():
-                await message.author.send(ligne_support)
+                if len(bloc_support) + len(ligne_support) > 1900:
+                    await message.author.send(bloc_support)
+                    bloc_support = ""
+                bloc_support += ligne_support + "\n"
+            if bloc_support:
+                await message.author.send(bloc_support)
         return True
 
     # Admin-only: redacted history is sent by DM, never posted to a public channel.

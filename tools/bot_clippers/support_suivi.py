@@ -5,9 +5,11 @@ import os
 import sqlite3
 from datetime import datetime,timezone
 from pathlib import Path
+from contextlib import contextmanager
 
 _LOCKS={}
 
+@contextmanager
 def ouvrir(path):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
     fd=os.open(path,os.O_CREAT|os.O_RDWR,0o600);os.close(fd)
@@ -16,7 +18,12 @@ def ouvrir(path):
         id INTEGER PRIMARY KEY, uid TEXT, sujet TEXT, statut TEXT,
         preuves TEXT, notification TEXT, cree TEXT, clos TEXT)''')
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ticket_ouvert ON tickets(uid,sujet) WHERE clos IS NULL")
-    db.commit();return db
+    db.commit()
+    try:
+        with db:
+            yield db
+    finally:
+        db.close()
 
 def lister(path,uid):
     with ouvrir(path) as db:

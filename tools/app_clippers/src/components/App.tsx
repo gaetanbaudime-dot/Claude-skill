@@ -41,7 +41,7 @@ const ONGLETS: { cle: Onglet; libelle: string; icone: (actif: boolean) => JSX.El
 ];
 
 export default function App({ prenom, creatrice, jeton, tl = false }: { prenom: string; creatrice: string; jeton: string; tl?: boolean }) {
-  const [onglet, setOnglet] = useState<Onglet>("drive");
+  const [onglet, setOnglet] = useState<Onglet>(tl ? "equipe" : "drive");
   const onglets = ONGLETS.filter((o) => o.cle !== "equipe" || tl);         // 12/10 : l'onglet Équipe, pour un Team Leader seulement
   useEffect(() => {
     try { const m = localStorage.getItem("gm-clipper-onglet") as Onglet | null; if (m && ONGLETS.some((o) => o.cle === m) && (m !== "equipe" || tl)) setOnglet(m); } catch { /* privé */ }
