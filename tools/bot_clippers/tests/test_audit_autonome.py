@@ -183,3 +183,56 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
    self.assertEqual('9.sqlite3',paths[4]);self.assertIn('delta-',paths[5])
    state=a.lire(Path(tmp)/'9-producteur.json')
    self.assertGreater(int(state['dernier_avant']),1000);self.assertTrue(state['reprises'])
+
+class DurabiliteTests(unittest.IsolatedAsyncioTestCase):
+ async def test_reprise_sans_message_ne_consomme_aucune_ligne(self):
+  import sqlite3,json
+  import audit_diagnostic
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);p=root/'9.sqlite3'
+   with sqlite3.connect(p) as db:
+    db.executescript('CREATE TABLE meta(cle TEXT PRIMARY KEY,valeur TEXT); CREATE TABLE messages(id TEXT PRIMARY KEY,salon TEXT,contenu TEXT);')
+    db.execute('INSERT INTO meta VALUES (?,?)',('guild','9'))
+    db.execute('INSERT INTO messages VALUES (?,?,?)',('900','1',json.dumps(dict(date='2026-10-16',uid='42',texte='drive'))))
+   sink=Sink();now=1800000000
+   collect=AsyncMock(return_value=rapport())
+   await a.tour(N(id=9),root,CONFIG,sink,collecter=collect,maintenant=lambda:now)
+   self.assertEqual(1,sink.signaux.await_count)
+   state=a.lire(root/'9-producteur.json');state['reprendre_historique']=True;a.sauver(root/'9-producteur.json',state)
+   now+=1000
+   await a.tour(N(id=9),root,CONFIG,sink,collecter=collect,maintenant=lambda:now)
+   self.assertEqual(1,sink.signaux.await_count)
+   state=a.lire(root/'9-producteur.json');self.assertEqual(1,state['lignes_publiees']);self.assertEqual(1,state['manifestes'])
+   # Snowflake plus ancien, inséré plus tard : le curseur d'insertion le voit.
+   with sqlite3.connect(p) as db:
+    db.execute('INSERT INTO messages VALUES (?,?,?)',('100','1',json.dumps(dict(date='2026-10-15',uid='42',texte='drive'))))
+   state['reprendre_historique']=True;a.sauver(root/'9-producteur.json',state);now+=1000
+   await a.tour(N(id=9),root,CONFIG,sink,collecter=collect,maintenant=lambda:now)
+   self.assertEqual(2,sink.signaux.await_count)
+   rows=sink.signaux.call_args.args[1];self.assertEqual(1,len(rows));self.assertTrue(rows[0][3].endswith('/100'))
+ async def test_journal_durable_reprise_apres_arret_processus(self):
+  import sqlite3,subprocess
+  import audit_complet
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'9.sqlite3';guild=N(id=9,channels=[],active_threads=AsyncMock(return_value=[]))
+   await audit_complet.collecter(guild,p,avant_fixe=100)
+   with sqlite3.connect(p) as db:
+    self.assertEqual('delete',db.execute('PRAGMA journal_mode').fetchone()[0])
+    self.assertEqual(2,db.execute('PRAGMA synchronous').fetchone()[0])
+    db.execute('CREATE TABLE fictif(id INTEGER PRIMARY KEY, contenu TEXT)')
+    db.executemany('INSERT INTO fictif VALUES (?,?)',[(i,'avant'*1000) for i in range(100)])
+   script="""import sqlite3,sys,os
+p=sys.argv[1]
+db=sqlite3.connect(p)
+db.execute('PRAGMA journal_mode=DELETE')
+db.execute('PRAGMA synchronous=FULL')
+db.execute('PRAGMA cache_size=5')
+db.execute('BEGIN IMMEDIATE')
+db.execute("UPDATE fictif SET contenu='apres'")
+os._exit(17)
+"""
+   result=subprocess.run([sys.executable,'-c',script,str(p)],capture_output=True)
+   self.assertEqual(17,result.returncode)
+   with sqlite3.connect(p) as db:
+    self.assertEqual('ok',db.execute('PRAGMA integrity_check').fetchone()[0])
+    self.assertEqual(100,db.execute("SELECT count(*) FROM fictif WHERE contenu=?",('avant'*1000,)).fetchone()[0])

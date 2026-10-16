@@ -45,7 +45,9 @@ async def collecter(guild, chemin, pages_max=100, decouverte_max=10, duree_max=4
         path=Path(chemin)
         total=sum(p.stat().st_size for p in path.parent.glob('*.sqlite3*'))
         taille=path.stat().st_size if path.exists() else 0
-        volume_max=min(volume_max,taille+256*1024*1024-total-1024*1024)
+        # Réserver le pire cas : base + journal rollback de toutes ses pages.
+        # La marge couvre les en-têtes/records du journal et les fichiers annexes.
+        volume_max=min(volume_max,(256*1024*1024-(total-taille)-1024*1024)//2)
         return await _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, apres, avant_fixe)
 
 async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, apres=None, avant_fixe=None):
@@ -59,8 +61,9 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
     db = sqlite3.connect(chemin)
     try:
         # Le moteur impose la limite à chaque allocation, y compris dans une page.
-        # Pas de WAL ; journal en mémoire borné par la taille de la transaction.
-        db.execute('PRAGMA journal_mode=MEMORY')
+        # Journal rollback durable ; sa taille maximale est réservée dans le budget.
+        db.execute('PRAGMA journal_mode=DELETE')
+        db.execute('PRAGMA synchronous=FULL')
         page_size = db.execute('PRAGMA page_size').fetchone()[0]
         maximum = int(volume_max) // page_size
         if maximum < 16 or db.execute('PRAGMA page_count').fetchone()[0] > maximum:

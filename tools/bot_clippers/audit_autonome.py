@@ -26,7 +26,12 @@ def sauver(path, data):
     fd = os.open(tmp, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
     with os.fdopen(fd, 'w') as f:
         json.dump(data, f, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
+    directory=os.open(path.parent,os.O_RDONLY)
+    try:os.fsync(directory)
+    finally:os.close(directory)
 
 
 def lire(path):
@@ -52,7 +57,7 @@ def configuration():
 
 
 async def tour(guild, dossier, config, transport, *, amorcage=False,
-               collecter=audit_complet.collecter, diagnostiquer=audit_diagnostic.diagnostic,
+               collecter=audit_complet.collecter, diagnostiquer=audit_diagnostic.diagnostic_export,
                maintenant=time.time):
     """Au plus quatre tranches et quatre pages exportées ; état durable avant tout effet externe."""
     if str(guild.id) != str(config.get('serveur') or ''):
@@ -81,7 +86,7 @@ async def tour(guild, dossier, config, transport, *, amorcage=False,
             return await arret('volume_atteint')
         if not state.get('cycle') and state.get('reprises') and state.get('reprendre_historique'):
             state['cycle']=state['reprises'].pop(0)
-            state['cycle'].update(curseur_export=0,lignes=0,manifeste=state.get('manifestes',0)+2)
+            state['cycle'].update(lignes=0)
             state['cycle'].pop('export_fige',None)
             state['reprendre_historique']=False
             sauver(state_path,state)
@@ -102,7 +107,7 @@ async def tour(guild, dossier, config, transport, *, amorcage=False,
             for _ in range(MAX_TRANCHES):
                 total=sum(p.stat().st_size for p in root.glob('*.sqlite3*'))
                 taille=path.stat().st_size if path.exists() else 0
-                budget=min(64*1024*1024,taille+MAX_VOLUME-total-MARGE_VOLUME)
+                budget=min(64*1024*1024,(MAX_VOLUME-(total-taille)-MARGE_VOLUME)//2)
                 if budget < taille or budget < 65536:
                     return await arret('volume_atteint')
                 try:
@@ -155,7 +160,7 @@ async def tour(guild, dossier, config, transport, *, amorcage=False,
                     state.setdefault('reprises',[]).append(reliquat)
                 state.pop('arret',None)
                 state.update(lignes_publiees=offset+len(rows),
-                             manifestes=state.get('manifestes',0)+1,prochain=maintenant()+INTERVALLE)
+                             manifestes=max(state.get('manifestes',0),cycle['manifeste']-1),prochain=maintenant()+INTERVALLE)
                 state.pop('cycle');sauver(state_path,state)
                 return {'statut':'lot_publie' if rapport['complet'] else 'lot_partiel_publie','lot':lot,'complet':rapport['complet']}
         return {'statut':'export_partiel','lot':lot}
