@@ -206,7 +206,7 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 
 def _identifiants(n: int) -> str:
     """Les secrets sont remis par le responsable, jamais dans le message automatique."""
-    return f"Identifiant prévu : {{compte{n}}}\n\nTon responsable te remet les accès personnellement."
+    return f"Identifiant prévu : @{{compte{n}}}\n\nTon responsable te remet les accès personnellement."
 
 
 ETAPES = {
@@ -216,14 +216,14 @@ ETAPES = {
     # message de bienvenue ; l'étape 1 ne porte plus que le compte 1 (plus de ligne « Ta créatrice », plus de bouton ℹ️ ni WhatsApp).
     # {palier} : « 4 Reels vus… » quand c'est le palier qui ouvre le compte (rien si le staff le force) ; « icone » devant le titre.
     # 10/10 : plus de « Étape 1 · » dans le titre (aucune étape 2 ni 3 numérotée ne suit) : « 📱 Ton compte 1 »
-    1: {"icone": "📱", "titre": "Ton compte 1", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": [],
+    1: {"icone": "📱", "titre": "Croissance 1 · @{compte1}", "fiche": "1", "bouton": "✅ Compte 1 créé", "salons": [],
         "texte": _identifiants(1) + "\n\n{creation1}\n\nCréé ? Appuie sur ✅."},
-    2: {"icone": "🎯", "titre": "{palier}Voici ton compte 2.", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
+    2: {"icone": "🎯", "titre": "{palier}Croissance 2 · @{compte2}", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
         "texte": _identifiants(2) + "\n\n{creation2}\n\nCréé ? Appuie sur ✅."},
     # 05/10 (Gaëtan : « 2 comptes de croissance, story à la une qui mentionne le 3e compte privé avec le lien en bio ») : le
     # compte 3 est PRIVÉ, il ne publie pas ; son profil porte le lien ; les comptes 1 et 2 pointent vers lui.
-    3: {"icone": "🔒", "titre": "{palier}Voici ton compte 3, le privé.", "fiche": "1", "bouton": "✅ Compte 3 créé", "salons": [],
-        "texte": ("Il ne publie pas de Reel. Il porte ton lien : c'est lui qui te paie.\n\n" + _identifiants(3)
+    3: {"icone": "🔒", "titre": "{palier}Privé · @{compte3}", "fiche": "1", "bouton": "✅ Compte 3 créé", "salons": [],
+        "texte": ("Il ne publie pas de Reel. Il porte ton lien personnel.\n\n" + _identifiants(3)
                   + "\n\n{creation3}\n\nCréé ? Appuie sur ✅.")},
     # 05/10 : étapes 4 et 5 supprimées du déroulé ; elles ne partent plus que par `!etape @x 4|5` du staff. 09/10 : sans Drive perso.
     4: {"titre": "Étape 4 · 24 h de warm-up sur le compte 3 (Fiche 2)", "fiche": "2", "bouton": "✅ Warm-up fini", "salons": ["ressources"],
@@ -271,10 +271,10 @@ TEXTE_STORY = ("📌 **Une fois, maintenant : ta story à la une.**\n\n"
                "Jamais de lien sur {pointent_court}.")
 # 08/10 (privé en 2) : les étapes 2 et 3 de l'ordre « prive2 » — le compte 2 est le privé, le compte 3 le 2e compte de croissance.
 ETAPES_PRIVE2 = {
-    2: {"icone": "🔒", "titre": "{palier}Voici ton compte 2, le privé.", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
-        "texte": ("Il ne publie pas de Reel. Il porte ton lien : c'est lui qui te paie.\n\n" + _identifiants(2)
+    2: {"icone": "🔒", "titre": "{palier}Privé · @{compte2}", "fiche": "1", "bouton": "✅ Compte 2 créé", "salons": [],
+        "texte": ("Il ne publie pas de Reel. Il porte ton lien personnel.\n\n" + _identifiants(2)
                   + "\n\n{creation2}\n\nTon compte 1 continue ses 2 Reels par jour.\n\nCréé ? Appuie sur ✅.")},
-    3: {"icone": "🎯", "titre": "{palier}Voici ton compte 3.", "fiche": "1", "bouton": "✅ Compte 3 créé", "salons": [],
+    3: {"icone": "🎯", "titre": "{palier}Croissance 2 · @{compte3}", "fiche": "1", "bouton": "✅ Compte 3 créé", "salons": [],
         "texte": (_identifiants(3) + "\n\n{creation3}\n\nIl publie, comme ton compte 1. Pas de lien dessus.\n\nCréé ? Appuie sur ✅.")},
 }
 
@@ -288,7 +288,8 @@ def etape_def(fiche_p: dict, n: int) -> dict:
 
 def titre_etape(fiche_p: dict, n: int) -> str:
     """09/10 : le titre de l'étape n en clair (mémoire, assistant, `!etape`), sans le palier ni l'icône."""
-    return etape_def(fiche_p, n)["titre"].replace("{palier}", "").format_map(_Gabarit({"jours": WARMUP_JOURS}))
+    titre = re.sub(r" · @\{compte[123]\}", "", etape_def(fiche_p, n)["titre"])
+    return titre.replace("{palier}", "").format_map(_Gabarit({"jours": WARMUP_JOURS}))
 
 
 # Un compte déjà créé par le clipper se rejoint par connexion ; ce texte n'attribue aucun compte.
@@ -1275,7 +1276,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     # 01/10 (relecture : deux programme_du_jour à 50 ms d'écart, le clipper 2 a reçu deux fois « Étape 2 ») : la fiche était
     # lue, puis réécrite après l'appel au classeur (_contexte) et l'envoi — elle écrasait ce qui avait été écrit entre-temps.
     # Le contexte d'abord ; la fiche relue après l'attente, posée et écrite sans attente ; relue encore pour l'id du message.
-    ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or {"prenom": _prenom(membre)}, drive=n in (4, 5))
+    ctx = await _contexte(getattr(salon, "guild", None), uid, _lire().get(uid) or {"prenom": _prenom(membre)}, drive=n in (1, 4, 5))
     d = _lire()
     fiche_p = d.setdefault(uid, {"prenom": _prenom(membre),
                                  "creatrice": "", "salon_id": str(salon.id), "etape": n, "dates": {}, "notes": []})
@@ -1306,6 +1307,10 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             journal.info("Palier du compte %s de %s : %s", n, uid, erreur)
     icone = f"{e['icone']} " if e.get("icone") else ""
     texte = f"{membre.mention} {icone}**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
+    if n == 1 and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
+        ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
+        gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
+        texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(f"{membre.mention} ")
     if n == 5:                                                          # 01/10 : il publie sur ses comptes, la relecture est proposée
         texte += _ligne_review(uid)
     try:
@@ -1320,25 +1325,22 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     d = _lire()
     if uid in d:
         d[uid].setdefault("messages", {})[str(n)] = str(msg.id)
+        if n == 1 and d[uid].get("accueil_unique"):
+            d[uid]["messages"].setdefault("bienvenue", str(msg.id))
         _ecrire(d)
     return True
 
 
-# 09/10 (Gaëtan : « Termine tout le funnel entier … Discord > attribution créatrice + Drive + Groupe WA > Création premier comptes ») :
-# à l'attribution, UN message de bienvenue — la créatrice, ses vidéos d'origine, le groupe WhatsApp — à la place de l'étape 1. Le
-# compte 1 part au clic sur « ✅ C'est fait » (BoutonPret), ou seul BIENVENUE_H heures plus tard : rien n'attend Gaëtan.
-# 10/10 (Gaëtan : « Ils peuvent directement créer le premier compte ») : le compte 1 part TOUT DE SUITE après la bienvenue, sans
-# attendre ni clic ni délai. La bienvenue garde le bouton WhatsApp et « ✅ J'ai écrit à Gaëtan » (BoutonWhatsApp, qui prévient le
-# salon admin) ; qui n'a rien déclaré revoit la demande sous « compte 1 peut publier ». BIENVENUE_H n'est plus qu'un filet (membre
-# introuvable à l'instant, bienvenues d'avant le 10/10 programmées à 3 h) : 1 h au plus, relu toutes les 10 min (boucle).
+# 16/10 : un seul accueil, fusionné avec Croissance 1 ; aucune confirmation WhatsApp requise.
+# Le programme reste un filet de reprise lorsque le membre ou le stock est indisponible.
 BIENVENUE_H = int(os.environ.get("PARCOURS_BIENVENUE_H", "1") or 1)
-TEXTE_BIENVENUE = ("🎉 **Bienvenue dans l'agence, {prenom} !**\n\n"
+TEXTE_BIENVENUE = ("🎉 **Bienvenue, {prenom} !**\n\n"
                    "Ta créatrice : **{creatrice}**.\n\n"
                    "{videos_bienvenue}\n\n"
-                   "{consigne_wa}")
+                   "Une question ? Réponds ici, dans ton salon personnel.")
 # 10/10 (vérification L10 : deux « 🎉 Bienvenue dans l'agence » à la suite) : un clipper qui a déjà reçu le repli d'attente (« Ta
 # créatrice arrive ici dès qu'un compte est prêt pour toi ») lit « Ta créatrice est là », pas une seconde bienvenue.
-TEXTE_CREATRICE_LA = TEXTE_BIENVENUE.replace("🎉 **Bienvenue dans l'agence, {prenom} !**", "🎉 **Ta créatrice est là, {prenom} !**", 1)
+TEXTE_CREATRICE_LA = TEXTE_BIENVENUE.replace("🎉 **Bienvenue, {prenom} !**", "🎉 **Ta créatrice est là, {prenom} !**", 1)
 
 
 def _a_attendu(uid) -> bool:
@@ -1359,14 +1361,6 @@ def _prenom_affiche(prenom: str) -> str:
     return court or p
 
 
-# 10/10 : le WhatsApp ne retient plus le compte 1 (il part juste en dessous) ; le ✅ ne fait que prévenir Gaëtan
-CONSIGNE_WA = ("📲 **Écris à Gaëtan sur WhatsApp** avec le bouton. Il t'ajoute au groupe.\n\n"
-               "{message_wa}"
-               "C'est fait ? Appuie sur ✅.\n\n"
-               "👇 Ton compte 1 arrive juste en dessous.")
-SANS_WA = "👇 Ton compte 1 arrive juste en dessous."
-
-
 def lien_whatsapp_groupe(uid, fiche_p: dict = None) -> str:
     """09/10 (A6) : le bouton WhatsApp du message de bienvenue. Aucun lien d'invitation de groupe par créatrice n'est connu du code
     (ni variable WHATSAPP_*, ni lien chat.whatsapp.com) : c'est le message déjà écrit à Gaëtan, « pour qu'il t'ajoute au groupe »."""
@@ -1374,17 +1368,8 @@ def lien_whatsapp_groupe(uid, fiche_p: dict = None) -> str:
 
 
 def _vue_bienvenue(uid: str, fiche_p: dict = None, avec_pret: bool = False):
-    """Le bouton WhatsApp (lien) et « ✅ J'ai écrit à Gaëtan » (BoutonWhatsApp, persistant ; caché s'il l'a déjà déclaré). None sans
-    lien WhatsApp. 10/10 : plus de « ✅ C'est fait » qui retenait le compte 1 ; `avec_pret` (BoutonPret) ne sert plus à rien de neuf."""
-    vue = discord.ui.View(timeout=None)
-    url = lien_whatsapp_groupe(uid, fiche_p)
-    if url:
-        vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link, url=url))
-        if avec_pret:
-            vue.add_item(BoutonPret(uid))
-        elif not (fiche_p or {}).get("whatsapp"):
-            vue.add_item(BoutonWhatsApp(uid))
-    return vue if vue.children else None
+    """Les anciennes confirmations restent lisibles, sans nouvelle demande d'arrivée."""
+    return None
 
 
 async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
@@ -1428,35 +1413,15 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
         _ecrire(d)
         await ouvrir_compte_1(salon, uid, par="bot")
         return
-    wa = bool(lien_whatsapp_groupe(uid, nouveau))
     maintenant = datetime.now(timezone.utc)
     # 09/10 : étape 1 « en attente » (pas de dates["1"]) le temps de la bienvenue. 10/10 : le compte 1 part juste après elle ; le
     # programme à BIENVENUE_H h n'est qu'un filet (membre introuvable à l'instant). « pret_retire » : pas de « ✅ C'est fait » à retirer.
     d[uid] = {**nouveau, "salon_id": str(salon.id), "etape": 1, "dates": {}, "notes": (fiche_p or {}).get("notes", []),
               "ordre": "prive2" if PRIVE_EN_2 else "prive3",                # 08/10 : le privé en 2 pour tout nouveau parcours
-              "bienvenue": maintenant.isoformat(timespec="seconds"), "pret_retire": True,
+              "bienvenue": maintenant.isoformat(timespec="seconds"), "pret_retire": True, "accueil_unique": True,
               "programme": [{"quand": (maintenant + timedelta(hours=BIENVENUE_H)).isoformat(timespec="seconds"), "type": "etape", "n": 1}]}
     _ecrire(d)
-    ctx = await _contexte(getattr(salon, "guild", None), uid, d[uid], drive=True)
-    ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
-    if wa:
-        message_wa = "" if whatsapp_prerempli() else f"Envoie-lui : « {_message_wa(uid, d[uid], groupe=True)} »\n\n"
-        ctx["consigne_wa"] = _rendre(CONSIGNE_WA, {"message_wa": message_wa})
-    else:
-        ctx["consigne_wa"] = SANS_WA
-    gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
-    try:
-        msg = await salon.send((f"{membre.mention} " + _rendre(gabarit, ctx))[:1990],
-                               view=_vue_bienvenue(uid, d[uid], avec_pret=False) if wa else None)
-    except (discord.Forbidden, discord.HTTPException) as erreur:
-        journal.warning("Bienvenue de %s : %s", uid, erreur)            # le compte 1 part quand même (WhatsApp redit sous « publier »)
-        msg = None
-    if msg is not None:
-        d = _lire()
-        if uid in d:
-            d[uid].setdefault("messages", {})["bienvenue"] = str(getattr(msg, "id", ""))
-            _ecrire(d)
-    # 10/10 (Gaëtan : « Ils peuvent directement créer le premier compte ») : le compte 1 tout de suite, WhatsApp demandé ou non
+    # L'accueil est livré avec Croissance 1, par la même voie de reprise que cette étape.
     await ouvrir_compte_1(salon, uid, par="bot")
 
 
@@ -1476,18 +1441,6 @@ async def ouvrir_compte_1(salon, uid: str, par: str = "bot") -> str:
     f["bienvenue_ok"] = _maintenant()                                   # écrit AVANT l'envoi : jamais deux fois (clic + programme)
     f["programme"] = [x for x in f.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) == 1)]
     _ecrire(d)
-    if par in ("clipper", "staff"):
-        deja = bool(f.get("whatsapp"))
-        marquer_whatsapp(uid, par=par)
-        if not deja and par == "clipper":
-            try:
-                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
-                if canal is not None:
-                    prenom = f.get("prenom") or uid
-                    await canal.send(f"📲 {prenom} (<@{uid}>, {f.get('creatrice') or '?'}) dit avoir écrit sur WhatsApp : ajoute-le au "
-                                     f"groupe. Pas vrai ? `!wa @{prenom} non`.")
-            except Exception:                                           # noqa: BLE001
-                pass
     # 11/10 (revue du lot W) : sans ligne libre, le compte 1 reste au programme (élément « ligne », envoyer_etape direct) : « attente »
     return "envoye" if await envoyer_etape(salon, membre, 1) else "attente"
 
@@ -1889,21 +1842,6 @@ async def _envoyer_publier(salon, membre, uid: str, n: int) -> None:
         texte += "\n\n" + phrase_suivant(uid, fiche_p, n)
     # 10/10 : plus de « Un doute sur une vidéo ? Envoie-la ici avant » ici (LIGNE_DOUTE retirée)
     vue = None
-    if n == 1 and not fiche_p.get("whatsapp") and not fiche_p.get("wa_demande"):
-        # 09/10 (revue : un clipper en route au déploiement, compte 1 reçu avant le 09/10, n'aura jamais de bienvenue ; la demande de
-        # WhatsApp y a été déplacée) : une fois, la phrase courte et ses boutons ici. 10/10 : le compte 1 n'attend plus le WhatsApp,
-        # donc tout clipper qui ne l'a pas déclaré (bienvenue reçue ou non) la revoit ici, une fois
-        url = lien_whatsapp_groupe(uid, fiche_p)
-        if url:
-            vue = discord.ui.View(timeout=None)
-            vue.add_item(discord.ui.Button(label="📲 Écrire à Gaëtan sur WhatsApp", style=discord.ButtonStyle.link, url=url))
-            vue.add_item(BoutonWhatsApp(uid))
-            texte += ("\n\n📲 Pas encore écrit à Gaëtan sur WhatsApp ? Fais-le avec le bouton : il t'ajoute au groupe."
-                      + ("" if whatsapp_prerempli() else f"\n\nEnvoie-lui : « {_message_wa(uid, fiche_p, groupe=True)} »"))
-            d = _lire()
-            if str(uid) in d:
-                d[str(uid)]["wa_demande"] = _maintenant()
-                _ecrire(d)
     await salon.send((f"{membre.mention} " + texte)[:1990], **({"view": vue} if vue is not None else {}))
 
 
@@ -2581,9 +2519,7 @@ def memoire(uid: str) -> str:
     if attente(fiche_p):                                                # 01/10 : l'étape n'est pas encore ouverte, rien à créer
         titre = f"attente du compte {n}, pas encore ouvert : rien à créer pour l'instant"
     if en_bienvenue(fiche_p):                                           # 09/10 ; 11/10 : plus de ✅ qui retient le compte 1
-        titre = (f"message de bienvenue envoyé (créatrice, vidéos, WhatsApp) : son compte 1 arrive tout seul, au plus tard {BIENVENUE_H} h "
-                 "après la bienvenue, aucun bouton à appuyer ; " + ("WhatsApp déjà déclaré" if fiche_p.get("whatsapp") else
-                                                                   "il écrit à Gaëtan sur WhatsApp avec le bouton du message"))
+        titre = attente_compte_1(fiche_p)
     if n == 1 and _compte_1_retenu(fiche_p):                            # 11/10 (revue du lot W) : pas de ligne pour le compte 1
         titre = f"compte 1 {TEXTE_ATTENTE_LIGNE_1}"
     date_etape = (fiche_p.get("dates") or {}).get(str(n), "")[:10]
@@ -2728,11 +2664,8 @@ def attente_compte_1(fiche_p: dict, majuscule: bool = False, sep: str = " ") -> 
     matin, `!etape` et l'assistant, alors que ce ✅ ne fait plus que prévenir Gaëtan) : la bienvenue qui attend encore son compte 1
     (filet : membre introuvable à l'instant de la bienvenue). Le compte 1 arrive par le programme, au plus tard BIENVENUE_H h après ;
     le WhatsApp n'est redemandé qu'à qui ne l'a pas déclaré. Une ligne par paragraphe, une seule action."""
-    delai = "dans l'heure" if BIENVENUE_H <= 1 else f"dans les {BIENVENUE_H} h"
-    texte = f"{'T' if majuscule else 't'}on compte 1 arrive ici {delai}."
-    if not (fiche_p or {}).get("whatsapp"):
-        texte += sep + "Écris à Gaëtan sur WhatsApp avec le bouton de mon message de bienvenue."
-    return texte
+    return f"{'T' if majuscule else 't'}on compte Croissance 1 arrive ici dès que sa préparation est vérifiée."
+
 
 
 def prochaine_etape(salon_id, maintenant=None) -> str:
@@ -2896,9 +2829,7 @@ def contexte_court(uid: str) -> str:
     elif n == 1 and _compte_1_retenu(fiche_p):                          # 11/10 (revue du lot W) : pas de ligne pour le compte 1
         etape = f"compte 1 {TEXTE_ATTENTE_LIGNE_1}"
     elif en_bienvenue(fiche_p):                                         # 09/10 ; 11/10 : plus de ✅ qui retient le compte 1
-        etape = (f"message de bienvenue reçu : son compte 1 arrive tout seul, au plus tard {BIENVENUE_H} h après la bienvenue, aucun "
-                 "bouton à appuyer ; " + ("WhatsApp déjà déclaré" if fiche_p.get("whatsapp") else
-                                         "il écrit à Gaëtan sur WhatsApp avec le bouton du message"))
+        etape = attente_compte_1(fiche_p)
     elif n in ETAPES:
         etape = titre_etape(fiche_p, n)
         a = attente(fiche_p)
@@ -2911,7 +2842,7 @@ def contexte_court(uid: str) -> str:
         etape = "parcours terminé (routine)"
     np_ = n_prive(fiche_p)
     autres_c = "comptes 1 et 3" if np_ == 2 else "comptes 1 et 2"
-    return (f"étape : {etape} · comptes créés : {crees} sur 3 · WhatsApp fait : {'oui' if fiche_p.get('whatsapp') else 'non'} · "
+    return (f"étape : {etape} · comptes créés : {crees} sur 3 · "
             f"compte privé : le compte {np_} · règle du lien : seulement dans la bio du compte {np_} privé ; {autres_c} : une story "
             f"à la une avec le widget de mention du compte {np_}")
 
@@ -3228,7 +3159,7 @@ def contexte_llm(uid: str) -> str:
             "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
             f"mot de passe modifié » = se reconnecter avec le mot de passe de son étape, puis le code de connexion avec le "
             f"bouton « 📩 Mon code » dans #{codes_2fa.SALON_CODES_NOM} ; s'il ne marche plus, "
-            "WhatsApp Gaëtan, jamais « Mot de passe oublié ». "
+            "signale le problème à son équipe dans ce salon personnel, sans recopier de secret. "
             + (f"Le bouton « 📩 Mon code » ne donne QUE les codes reçus par e-mail "
                f"({'création, connexion, appel' if codes_2fa.CODES_APPEL else 'création et connexion'}), jamais ceux qui changent "
                "l'e-mail, le mot de passe ou le numéro. " if codes_2fa.SECURITES else
@@ -3236,7 +3167,8 @@ def contexte_llm(uid: str) -> str:
             + "Instagram demande un NUMÉRO de téléphone : il met LE SIEN et reçoit le SMS (décision du 26/09), ce numéro ne "
             "sert qu'à ses 3 comptes. Instagram demande un SELFIE VIDÉO : il le fait lui-même, avec son visage, c'est normal. "
             "Jamais de « compte prêt à l'emploi », jamais « ton manager a une autre solution » : si tu ne sais pas, renvoie vers "
-            "Gaëtan sur WhatsApp (le lien est dans tes règles). Ne recopie jamais la ligne [Contexte : …].]\n"
+            "son équipe ici, dans son salon personnel. Aucune confirmation WhatsApp ne conditionne son arrivée. "
+            "Ne recopie jamais la ligne [Contexte : …].]\n"
             "[Mémoire du clipper]\n" + memoire(uid))
 
 
