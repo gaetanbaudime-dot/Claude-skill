@@ -1440,7 +1440,7 @@ def texte_clics_periode(d: dict, uid: str, periode: tuple) -> str:
 def texte_mesclics(d: dict, uid: str, nom: str) -> str:
     lids = liens_de(d, uid)
     if not lids:
-        return "Tu n'as pas encore de lien. Ton manager te le donne. En attendant, rien n'est compté."
+        return "Aucun lien n’est rattaché à ton dossier. Ton équipe doit vérifier le rattachement ; tes visites ne sont pas mesurables ici."
     hier = _aujourdhui() - timedelta(days=1)
     h = somme(d, lids, hier, hier)
     s7 = somme(d, lids, hier - timedelta(days=6), hier)
@@ -1456,20 +1456,24 @@ def texte_mesclics(d: dict, uid: str, nom: str) -> str:
           else _n_jours(non_releves(d, lids, debut, min(fin, hier))))
     part = f" ({h['payes'] * 100 // h['hors_robots']} % de tes visiteurs)" if h["hors_robots"] else ""
     robots = h["brut"] - h["hors_robots"] if not h["brut_non_lu"] else 0
-    if manque_h and not h["jours"]:
-        ligne_hier = f"Hier, le {hier.strftime('%d/%m')} : pas encore relevé, relevé en attente.\n\n"
+    if not h["jours"]:
+        ligne_hier = f"Hier, le {hier.strftime('%d/%m')} : non mesuré, relevé en attente.\n\n"
     else:
         ligne_hier = (f"Hier, le {hier.strftime('%d/%m')} : **{_fmt(h['payes'])} visites qui comptent**{part}"
                       + (" pour l'instant (un de tes liens pas encore relevé)" if manque_h else "")
                       + (f". {robots} robots enlevés" if robots > 0 else "") + ".\n\n")
     reste_q = f", {_jours_non_lus(nq)} : montant provisoire" if nq else ""
+    visites_7 = _fmt(s7["payes"]) if s7["jours"] else "non mesuré"
+    visiteurs_7 = _fmt(s7["hors_robots"]) if s7["jours"] else "non mesuré"
+    visites_q = _fmt(q["payes"]) if q["jours"] else "non mesuré"
+    montant_q = _usd(q["payes"] * TAUX_CLIC) if q["jours"] else "non mesurée"
     return (f"📊 **Tes visites, {nom}**" + ("" if au_clic else " · rémunération au forfait fixe") + "\n\n"
             + ligne_hier +
-            f"Sur 7 jours : **{_fmt(s7['payes'])}** visites qui comptent, sur {_fmt(s7['hors_robots'])} visiteurs"
+            f"Sur 7 jours : **{visites_7}** visites qui comptent, sur {visiteurs_7} visiteurs"
             + (f" ({_jours_non_lus(n7)})" if n7 else "") + ".\n\n"
-            + ((f"💸 **Ta paie en cours : {_usd(q['payes'] * TAUX_CLIC)}** ({_fmt(q['payes'])} visites du {debut.strftime('%d/%m')} au "
+            + ((f"💸 **Ta paie en cours : {montant_q}** ({visites_q} visites du {debut.strftime('%d/%m')} au "
                 f"{min(fin, hier).strftime('%d/%m')}{reste_q}), date de paie prévue : {prochaine_paie(_aujourdhui()).strftime('%d/%m')}.\n") if au_clic else
-               (f"Période du {debut.strftime('%d/%m')} au {min(fin, hier).strftime('%d/%m')} : **{_fmt(q['payes'])} visites**"
+               (f"Période du {debut.strftime('%d/%m')} au {min(fin, hier).strftime('%d/%m')} : **{visites_q} visites**"
                 f"{f' ({_jours_non_lus(nq)})' if nq else ''}. Ton forfait fixe est distinct des visites.\n"))
             +
             (f"Une visite qui compte = {_usd(TAUX_CLIC)}. " if au_clic else "")

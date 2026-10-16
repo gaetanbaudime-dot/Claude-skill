@@ -37,3 +37,11 @@ class CommandeTests(unittest.IsolatedAsyncioTestCase):
             await p.commande_clipper(m,'!mesclics 2020-01-01 2020-01-07')
         self.assertEqual((date(2020,1,1),date(2020,1,7)),rendu.call_args.args[2])
         m.reply.assert_awaited_once_with('intervalle exact')
+
+class ResumeTests(unittest.TestCase):
+    def test_resume_fixe_sans_releves_ne_promet_ni_zero_ni_paie_variable(self):
+        q=dict(payes=0,jours=0,hors_robots=0,brut=0,brut_non_lu=0)
+        d={'liens':{'a':{'url':'lien-fictif'}},'wallets':{}}
+        with patch.object(p,'liens_de',return_value=['a']),patch.object(p,'_aujourdhui',return_value=date(2026,10,16)),patch.object(p,'somme',return_value=q),patch.object(p,'periode_en_cours',return_value=(date(2026,10,1),date(2026,10,15))),patch.object(p,'_debut_paie',return_value=date(2026,10,1)),patch.object(p,'regime',return_value='fixe'),patch.object(p,'non_releves',return_value=[('a','2026-10-01')]):
+            s=p.texte_mesclics(d,'fictif','Fictif')
+        self.assertNotIn('$',s);self.assertNotIn('**0**',s);self.assertIn('non mesuré',s);self.assertNotIn('dans la journée',s)
