@@ -41,9 +41,9 @@ export default function App({ prenom, jeton, mym }: { prenom: string; jeton: str
           <div className="titre-argent text-[22px] font-bold">{prenom}</div>
         </div>
       </header>
-      <main className="flex-1 px-4 pb-28" key={onglet}>
+      <main className="flex-1 px-4 pb-28">
         {onglet === "drive" && <DriveTab jeton={jeton} mym={mym} />}
-        {onglet === "reels" && <ReelsTab />}
+        <ReelsTab actif={onglet === "reels"} />
         {onglet === "stats" && <StatsTab jeton={jeton} />}
       </main>
       <nav className="barre fixed bottom-0 inset-x-0 px-6 pt-2" style={{ paddingBottom: "calc(var(--safe-bas) + 10px)" }} aria-label="Onglets">
