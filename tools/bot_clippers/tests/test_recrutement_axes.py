@@ -10,7 +10,7 @@ import recrutement as r
 NOW=datetime(2026,10,16,2,0,tzinfo=timezone.utc)
 def preuve(): return dict(verifie=True,reference='preuve-fictive',source='registre-fictif',date=NOW.isoformat())
 def compte(n=1, reels=0):
-    return dict(id=f'identite-fictive-{n}',rang=n,statut='created',etat='Good',
+    return dict(id=f'identite-fictive-{n}',rang=n,statut='created',etat='Good',publications_observees=True,
                 cree_le=(NOW-timedelta(days=10)).isoformat(),preuve_creation='creation-fictive',
                 publications=[dict(code=f'reel-fictif-{n}-{i}',publie=(NOW-timedelta(days=5-i)).isoformat(),type_verifie='reel') for i in range(reels)])
 def dossier():
@@ -63,6 +63,12 @@ class ProjectionTests(unittest.TestCase):
             v=r.projection(d,NOW)
             self.assertEqual('verification',v['prochaine_action']['code'])
             self.assertEqual('preuve_creation',v['blocages'][0]['code'])
+    def test_absence_de_mesure_ne_devient_pas_zero_reel(self):
+        d=dossier();del d['historique_vie']['comptes'][0]['publications_observees']
+        v=r.projection(d,NOW)
+        self.assertEqual('publications_non_mesurees',v['blocages'][0]['code'])
+        self.assertIsNone(v['test_operationnel'])
+        self.assertNotIn('4 Reels',v['prochaine_action']['texte'])
     def test_quiz_reste_obligatoire(self):
         d=dossier();d['quiz_reussi']={}
         self.assertEqual('quiz',r.projection(d,NOW)['prochaine_action']['code'])
@@ -123,7 +129,8 @@ class SourcesTests(unittest.TestCase):
         d=r.dossier_depuis_sources('fictif',e,pipe,['apres-fictif'],{'apres-fictif':'Good'})
         self.assertEqual('stable-fictif',d['historique_vie']['comptes'][0]['id'])
         self.assertEqual('tl-fictif',d['tl_uid'])
-        self.assertEqual(1,r.projection(d,NOW)['test_operationnel']['publies_verifies'])
+        self.assertEqual(1,len(d['historique_vie']['comptes'][0]['publications']))
+        self.assertEqual('publications_non_mesurees',r.projection(d,NOW)['blocages'][0]['code'])
         self.assertNotIn('NE-PAS-EXPORTER',str(d));self.assertEqual(avant,e)
     def test_sources_manquantes_ne_deviennent_pas_historique_complet(self):
         d=r.dossier_depuis_sources('fictif',{}, {}, [], {})

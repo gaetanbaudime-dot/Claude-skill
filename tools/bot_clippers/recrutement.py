@@ -141,6 +141,9 @@ def projection(dossier, maintenant=None):
             return resultat(action('routine', 'Poursuis les publications sur tes comptes de croissance.',
                                    'Reels publiés, datés et vérifiés'), test=test)
         reels = cumuler_reels_verifies({}, c.get('publications') or [], instant(c['cree_le']), maintenant)
+        if len(reels) < 4 and c.get('publications_observees') is not True:
+            bloquer('publications_non_mesurees', 'Lecture vérifiée des Reels de ce compte, sans déduire zéro d’une absence de source', 'tl')
+            return resultat(action('verification', 'Faire vérifier les publications déjà effectuées.', blocages[-1]['preuve_manquante'], 'tl'), test=test)
         complet = len(reels) >= 4
         if rang == 1:
             test = dict(statut='valide' if complet else 'en_cours', publies_verifies=len(reels), objectif=4,
@@ -237,15 +240,16 @@ def dossier_depuis_sources(uid, entrees, pipeline, comptes_ordonnes, etats_par_h
         rangs = [i+1 for i, h in enumerate(ordonnes) if h in alias]
         rang = rangs[0] if len(rangs) == 1 else None
         creation = (p.get('profils') or {}).get(str(rang)) or (p.get('dates') or {}).get(f'{rang}_fait')
-        publications = []
+        publications, observees = [], False
         for h in alias:
             suivi = (p.get('reels') or {}).get(h) or {}
+            observees |= suivi.get('publications_completes') is True  # une simple clé v2 vide ne prouve pas un scan complet
             publications.extend(dict(code=code, publie=date, type_verifie='reel')
                                 for code, date in (suivi.get('reels_verifies_v2') or {}).items())
         etats = {etats_par_handle[h] for h in alias if h in etats_par_handle}
         comptes.append(dict(id=c.get('id'),rang=rang,statut=c.get('status'),
                             etat=next(iter(etats)) if len(etats) == 1 else None,
-                            cree_le=creation,preuve_creation=c.get('evidence'),publications=publications))
+                            cree_le=creation,preuve_creation=c.get('evidence'),publications=publications,publications_observees=observees))
     quiz = {}
     if etat.get('valide_par') == 'quiz' and etat.get('validation') and etat.get('score_quiz'):
         quiz = dict(verifie=True,source='pipeline',reference=f'etats/{uid}/validation',date=etat['validation'])
