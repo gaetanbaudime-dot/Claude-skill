@@ -728,18 +728,11 @@ def _ecarte_pour(etat: dict, c: dict, uid: str) -> bool:
     return etat.get("ecartes", {}).get(c["handle"].lower(), {}).get("uid") == str(uid)
 
 
-async def reserver(comptes: list, prenom_clipper: str, uid: str = "") -> int:
-    """Écrit le prénom du clipper dans la colonne Gérant de chaque ligne. Renvoie le nombre de cellules écrites."""
-    if not uid:
-        raise RuntimeError("Identité Discord stable requise pour réserver")
-    proprietaires = _proprietaires()
-    if any((proprietaires.get(_cle_handle(c["handle"])) or set()) - {str(uid)} for c in comptes):
-        raise RuntimeError("Compte déjà attribué : aucune réattribution")
-    process_adapters.store().reserve(uid, [c["handle"] for c in comptes])
-    n = 0
-    for c in comptes:
-        n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[prenom_clipper]])
-    return n
+async def reserver(comptes: list, prenom_clipper: str, uid: str = "", creatrice: str = "") -> int:
+    """Nouvelle attribution attestée seulement après écriture et relecture."""
+    if not uid or not creatrice:
+        raise RuntimeError('Identité Discord et créatrice canoniques requises')
+    return await process_adapters.reserver_attribution(comptes, prenom_clipper, str(uid), creatrice)
 
 
 def acces_ordonnes(comptes: list) -> list:
@@ -1229,13 +1222,20 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                         resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
                                         f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
                                         f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
+                # Une réponse Sheets perdue peut avoir laissé le gérant écrit,
+                # mais pas l'attestation. Le prénom ne vaut jamais confirmation.
+                registre_attribution = process_adapters.store()
+                for c in deja[:COMPTES_PAR_CLIPPER]:
+                    key = 'attribution-sheet:' + str(c.get('onglet')) + ':' + _cle_handle(c.get('handle'))
+                    if registre_attribution.get('intention-' + key) and not registre_attribution.get(key):
+                        await reserver([c], prenom, uid, creatrice)
                 comptes = deja[:COMPTES_PAR_CLIPPER]
                 if len(comptes) < a_reserver:
                     nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes), uid)
                     if a_reserver < COMPTES_PAR_CLIPPER:                 # 10/10 (lot L3) : le début du trio seulement
                         nouveaux = _debut_du_trio(nouveaux + disponibles(tous, creatrice, 999, uid), len(comptes), a_reserver)
                     if nouveaux:
-                        await reserver(nouveaux, prenom, uid)
+                        await reserver(nouveaux, prenom, uid, creatrice)
                     comptes += nouveaux
                 lu = True
                 resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
@@ -1433,7 +1433,7 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
         if not choix:
             return None
         ligne = choix[0]
-        await reserver([ligne], gerant, uid)
+        await reserver([ligne], gerant, uid, creatrice)
         maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
         etat = _lire_etat()                                             # relu frais, écrit sans attente
         f = etat["clippers"].setdefault(uid, {})
@@ -1622,122 +1622,23 @@ def _jour_paris():
 
 
 async def liens_classeur(comptes: list = None) -> dict:
-    """27/09 (« c'est le bazar ») : la colonne « Lien GAML associé » de chaque ligne = LE lien du gérant pour la créatrice de la
-    ligne (Julien : son lien Sophie sur ses lignes Sophie, son lien Chloé sur ses lignes Chloé, rien sur ses lignes Maddie) ;
-    deux liens pour la même créatrice → le plus récent ; une cellule vidée quand aucun lien ne correspond. Écrit seulement ce
-    qui change. Renvoie {"ecrits": n, "groupes": {(gérant, créatrice, lien): n}}."""
-    vide = {"ecrits": 0, "groupes": {}}
+    """Seuls les jobs et les attributions explicitement vérifiés peuvent écrire.
+
+    Les anciennes URL restent intactes, y compris celles des créatrices : aucun
+    repli par prénom, effacement ou remplacement automatique.
+    """
     if not (actif() and paie_clics.actif()):
-        return vide
-    if comptes is None:
-        comptes = await lire_comptes()
-    d = paie_clics._lire()
-    notes_vives = {}                                                    # 09/10 : la note GAML de maintenant, quand la liste la porte
-    try:
-        liste = [l for l in await paie_clics.liens_gaml() if l.get("id")]
-        noms = {l["id"]: str(l.get("name") or "") for l in liste}
-        notes_vives = {l["id"]: str(l.get("note") or "") for l in liste if "note" in l and l.get("note") is not None}
-    except RuntimeError as erreur:
-        journal.warning("Liens GAML illisibles pour le classeur : %s", erreur)
-        noms = {}
-    creatrices = {c["creatrice"] for c in comptes if c.get("creatrice")}
-    par_prenom, par_uid, par_url = {}, {}, {}
-    for lid, info in d.get("liens", {}).items():
-        url = str(info.get("url") or "").strip()
-        if url:
-            par_url[_url_cle(url)] = (info, notes_vives.get(lid))
-        # 09/10 (dashboard) : jamais un lien libéré, hors clipping, effacé ou désactivé rangé par prénom (le lien libéré d'un sortant,
-        # encore noté « Clipping Eddy », était écrit sur les lignes du nouvel Eddy) ; seulement les liens qui ont un détenteur
-        if not url or not _lien_rangeable(info):
-            continue
-        entree = (_creatrice_du_lien(noms.get(lid, ""), info, url, creatrices), url, str(info.get("depuis") or ""), str(lid))
-        uid_l = str(info.get("uid") or "")
-        if uid_l:
-            par_uid.setdefault(uid_l, []).append(entree)
-        prenom = _prenom_du_lien(info)
-        if prenom:
-            par_prenom.setdefault(_norm(prenom), []).append((entree, uid_l or "suivi:" + _norm(info.get("suivi_nom") or prenom)))
-    # contrat C6(d) (revue CLICS du 09/10) : la ligne est rattachée à son détenteur par les IDENTIFIANTS (onboarding.json → uid →
-    # liens de clics.json) ; le prénom ne sert plus qu'aux anciennes lignes mises à la main (inconnues d'onboarding.json), et
-    # seulement s'il ne désigne qu'UN détenteur (deux Eddy : la cellule n'est jamais touchée par le prénom)
-    proprietaires, noms_uid = _proprietaires(), {}
-    ecrits, groupes = 0, {}
-    creatrices = creatrices_connues(comptes)
+        return {"ecrits": 0, "groupes": {}, "conflits": []}
+    restitution = await process_adapters.synchroniser_liens_sheets()
+    comptes = comptes if comptes is not None else await lire_comptes()
+    conflits = list(restitution['conflits'])
     for c in comptes:
-        g = _norm(c["gerant"])
-        if not c["handle"] or g in GERANTS_LIBRES or not a_colonne("lien_gaml", c.get("onglet", "")):
-            continue
-        actuel = str(c.get("lien_gaml") or "").strip()
-        # 05/10 (Gaëtan : « sur la ligne du compte principal de la créatrice, le lien GAML est effacé à chaque passage ») : la
-        # cause était ici — Gérant « Chloé » n'a aucun lien dans paie_clics (ce n'est pas un clipper), donc `voulu` valait "" et
-        # la cellule était vidée, puis revidée à chaque scan. Une ligne dont le Gérant est une créatrice n'est jamais vidée.
-        if est_ligne_creatrice(c, creatrices):
-            # 05/10 (Gaëtan : « scrape les clics des comptes des créas ») : la ligne de la créatrice reçoit SON lien GAML, celui dont
-            # la note dit « Compte de @<son identifiant> » (lien_gaml_creatrice), seulement si la cellule est vide ; jamais écrasée,
-            # jamais vidée. 09/10 (dashboard) : le repli « unique note qui commence par son prénom » seulement si elle n'a qu'une
-            # ligne de compte (son deuxième compte recevait le lien du principal).
-            if actuel:
-                continue
-            try:
-                details = await _liens_gaml_details()
-            except Exception as erreur:                                 # noqa: BLE001
-                journal.warning("Liens GAML (créatrices) illisibles : %s", erreur)
-                continue
-            voulu = str((lien_gaml_creatrice(c, details, seule=lignes_creatrice(comptes, c, creatrices) <= 1) or {}).get("url") or "").strip()
-            if not voulu:
-                continue
-            try:
-                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "lien_gaml"), [[voulu]])
-            except Exception as erreur:                                 # noqa: BLE001
-                journal.warning("Classeur : lien GAML de la créatrice %s non écrit : %s", c.get("creatrice") or c.get("onglet"), erreur)
-                continue
-            c["lien_gaml"] = voulu                                      # la lecture en mémoire suit (même passage)
-            ecrits += 1
-            groupes[(c["gerant"], c.get("creatrice") or c.get("onglet") or "?", voulu)] = 1
-            continue
-        cr = (_norm(c["creatrice"]).split() or [""])[0]
-        detenteurs = set()
-        if ligne_metricool(c["gerant"]):
-            liens = []
-        else:
-            detenteurs = _detenteurs(c["gerant"], proprietaires.get(_cle_handle(c["handle"]), set()), noms_uid)
-            if len(detenteurs) > 1:
-                continue                                                # fiches contradictoires : on ne tranche pas (le contrôle signale)
-            if detenteurs:
-                liens = par_uid.get(next(iter(detenteurs)), [])          # les liens de SON identifiant
-            else:
-                ents = par_prenom.get(g, [])
-                ids = {i for _, i in ents if not i.startswith("suivi:")} or {i for _, i in ents}
-                if len(ids) > 1:
-                    continue                                            # deux détenteurs de ce prénom (homonymes) : jamais par le prénom
-                liens = [e for e, i in ents if i in ids]
-        if liens:
-            cands = [x for x in liens if x[0] == cr] or ([x for x in liens] if len(liens) == 1 and not liens[0][0] else [])
-            voulu = max(cands, key=lambda x: (x[2], x[3]))[1] if cands else ""
-        else:
-            # 09/10 (dashboard) : le Gérant n'a encore aucun lien (nouveau clipper sur une ligne redonnée, ligne « X (Metricool) »,
-            # prénom inconnu du bot). Avant : cellule gardée, donc le lien de l'ancien clipper restait et ses clics comptaient pour
-            # le nouveau. Maintenant : vidée quand elle porte à coup sûr le lien de personne (libéré, hors clipping, effacé,
-            # désactivé) ou d'un autre clipper — décidé sur les identifiants (C6(d) : l'uid du lien n'est pas le détenteur de la
-            # ligne selon onboarding.json) ; une ligne « X (Metricool) » ne garde que les liens Metricool de SON repreneur ; un lien
-            # inconnu du bot (collé à la main avant son attribution) ou une ligne sans détenteur connu : la cellule reste.
-            info_c, note_c = par_url.get(_url_cle(actuel)) or (None, None)
-            if not actuel or not _lien_d_un_autre(info_c, c["gerant"], note_c, detenteurs):
-                continue
-            voulu = ""
-        if voulu == actuel:
-            continue
-        try:
-            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "lien_gaml"), [[voulu]])
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Classeur : lien GAML de %s non écrit : %s", c["handle"], erreur)
-            continue
-        ecrits += 1
-        cle = (c["gerant"], (c["creatrice"] or c.get("onglet") or "").split()[0] if (c["creatrice"] or c.get("onglet")) else "?", voulu)
-        groupes[cle] = groupes.get(cle, 0) + 1
-    if ecrits:
-        journal.info("Classeur, colonne Lien GAML associé : %d cellule(s) corrigée(s)", ecrits)
-    return {"ecrits": ecrits, "groupes": groupes}
+        if c.get('handle') and _cle_handle(c['handle']) not in restitution['proteges']:
+            conflits.append({'onglet': c.get('onglet'), 'handle': c['handle'],
+                             'raison': 'historique_sans_job_verifie'})
+    if conflits:
+        journal.warning('Liens Sheets : %d ligne(s) à vérifier ; données conservées', len(conflits))
+    return {'ecrits': restitution['ecrits'], 'groupes': {}, 'conflits': conflits}
 
 
 _details_gaml = {"jour": "", "liens": []}
