@@ -12,3 +12,9 @@ Autorisation : points 2 à 10 du second lot validés. Les règles de trois créa
 Validation sur données fictives : tests de concurrence, séparation des UID/surfaces privées, expiration, erreur serveur, arrivée rejouée, ancienne trace et décisions vidéo ; suite complète du bot et compilation Python. Aucun message réel, compte créé, OTP demandé, secret transmis ou changement de droits effectué pendant ces tests. L'iframe du duplicateur n'est pas modifiée.
 
 Limites : pas de recette navigateur ni d'inspection Discord réelle dans ce chantier. Le diagnostic historique reste à exécuter par un administrateur. Ce lot n'est pas déployé tant que sa contre-vérification n'est pas terminée.
+
+## Contre-vérification des réponses privées
+
+Corrections après reproduction sans réseau : le message provisoire supprimé après réutilisation peut être remplacé par un follow-up strictement éphémère, uniquement après un 404 confirmé. Sa référence est gardée pour les éditions suivantes. Un changement de surface invalide explicitement l'ancienne présentation, même après la fin du guet ; les envois et invalidations sont sérialisés par UID. Si l'invalidation échoue, aucun nouveau code n'est livré et une indication sans secret est affichée. Ce cas reste à traiter par un nouvel accès valide à la réponse Discord ; aucune garantie d'édition d'un message au jeton expiré.
+
+Tests ajoutés : expiration après réutilisation et suppression de l'accusé ; changement éphémère vers MP avec autre compte, après guet terminé et pendant un envoi en cours. Suite complète : 336 tests réussis. Contre-vérification indépendante encore requise avant fusion.

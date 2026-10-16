@@ -132,6 +132,48 @@ class DemandeTests(unittest.TestCase):
         self.assertIn("222222", nouveau[-1])
         self.assertNotIn(self.c.TEXTE_SUITE, ancien)
 
+    def test_changement_surface_et_compte_invalide_meme_un_guet_termine(self):
+        self.entree()
+        self.entree("222222", alias="two@example.invalid")
+        ancien,nouveau=[],[]
+        async def test():
+            async def dire1(t): ancien.append(t)
+            async def dire2(t): nouveau.append(t)
+            dire1.surface_privee="ephemere"
+            dire2.surface_privee="mp"
+            await self.c._servir({"one@example.invalid"},dire1,"u|100",duree=0,usage="connexion")
+            self.assertNotIn("u|100",self.c._guets)
+            await self.c._servir({"two@example.invalid"},dire2,"u|100",duree=0,usage="connexion")
+        asyncio.run(test())
+        self.assertEqual(self.c.TEXTE_SUITE,ancien[-1])
+        self.assertIn("222222",nouveau[-1])
+        self.assertNotIn("111111",nouveau[-1])
+
+    def test_changement_surface_attend_envoi_en_cours_avant_invalidation(self):
+        self.entree()
+        self.entree("222222", alias="two@example.invalid")
+        ancien,nouveau=[],[]
+        async def test():
+            commence,liberer=asyncio.Event(),asyncio.Event()
+            async def dire1(t):
+                if "111111" in t:
+                    commence.set()
+                    await liberer.wait()
+                ancien.append(t)
+            async def dire2(t): nouveau.append(t)
+            dire1.surface_privee="ephemere"
+            dire2.surface_privee="mp"
+            a=asyncio.create_task(self.c._servir({"one@example.invalid"},dire1,"u|100",duree=0,usage="connexion"))
+            await commence.wait()
+            b=asyncio.create_task(self.c._servir({"two@example.invalid"},dire2,"u|100",duree=0,usage="connexion"))
+            await asyncio.sleep(0)
+            self.assertFalse(nouveau)
+            liberer.set()
+            await asyncio.gather(a,b)
+        asyncio.run(test())
+        self.assertEqual(self.c.TEXTE_SUITE,ancien[-1])
+        self.assertIn("222222",nouveau[-1])
+
     def test_commande_conserve_son_contexte(self):
         self.assertEqual(self.c.demande_de_code("!code connexion"), "!code connexion")
 

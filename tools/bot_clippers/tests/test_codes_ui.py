@@ -95,3 +95,24 @@ class MenuTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c._servir.call_args.args[0], {"one@example.invalid", "two@example.invalid"})
         self.assertEqual(self.c._servir.call_args.kwargs["usage"], "auto")
         i.edit_original_response.assert_not_awaited()  # La restitution vient du guet, pas d'un menu.
+
+    async def test_expiration_apres_reutilisation_et_suppression_du_nouvel_accuse(self):
+        import discord
+        premier,second=self.interaction(),self.interaction()
+        second.delete_original_response=AsyncMock()
+        secours=types.SimpleNamespace(edit=AsyncMock())
+        second.followup.send=AsyncMock(return_value=secours)
+        await self.c.servir_interaction(premier)
+        dire1=self.c._servir.call_args.args[1]
+        await dire1('attente fictive')
+        await self.c.servir_interaction(second)
+        dire2=self.c._servir.call_args.args[1]
+        await dire2('résultat fictif A')
+        second.delete_original_response.assert_awaited_once()
+        premier.edit_original_response.side_effect=discord.HTTPException(types.SimpleNamespace(status=401,reason='expiré'), 'expiré')
+        second.edit_original_response.side_effect=discord.NotFound(types.SimpleNamespace(status=404,reason='supprimé'), 'supprimé')
+        await dire2('résultat fictif B')
+        second.followup.send.assert_awaited_once_with('résultat fictif B',ephemeral=True,wait=True)
+        await dire2('résultat fictif C')
+        secours.edit.assert_awaited_once_with(content='résultat fictif C',view=None)
+        self.assertEqual(1,second.followup.send.await_count)

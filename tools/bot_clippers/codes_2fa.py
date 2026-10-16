@@ -1560,6 +1560,8 @@ _guets = {}                                                            # cle →
 # Références privées en mémoire uniquement : aucun jeton d'interaction persisté.
 _reponses_privees = {}
 _verrous_reponses = {}
+_presentations = {}
+_verrous_guets = {}
 
 
 def reponse_privee_unique(cle, nouveau, fermer=None):
@@ -1593,7 +1595,17 @@ def reponse_privee_unique(cle, nouveau, fermer=None):
                 except discord.HTTPException:
                     pass  # Aucun code dans l'accusé provisoire.
                 ferme = True
+    dire.surface_privee = cle[1]
     return dire
+
+
+def verrou_guet(cle):
+    boucle = asyncio.get_running_loop()
+    entree = _verrous_guets.get(cle)
+    if entree is None or entree[0] is not boucle:
+        entree = (boucle, asyncio.Lock())
+        _verrous_guets[cle] = entree
+    return entree[1]
 
 
 _SANTE = {"ok_t": None, "echecs": 0, "erreur": ""}
@@ -1758,7 +1770,21 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
     duree = ATTENTE_SEC if duree is None else duree
     depuis = _maintenant() - timedelta(minutes=2)
     guet = {"dire": dire, "texte": TEXTE_ATTENTE}
-    _guets[cle_guet] = guet  # Le nouveau guet réédite la réponse privée existante.
+    verrou = verrou_guet(cle_guet)
+    async with verrou:
+        ancienne = _presentations.get(cle_guet)
+        _guets[cle_guet] = guet
+        if ancienne and getattr(ancienne, "surface_privee", "") != getattr(dire, "surface_privee", ""):
+            # Invalide aussi une présentation dont le guet est déjà terminé.
+            # L'invalidation ne transporte aucun code vers l'autre surface.
+            try:
+                await ancienne(TEXTE_SUITE)
+            except Exception:
+                if _guets.get(cle_guet) is guet:
+                    _guets.pop(cle_guet, None)
+                await dire("L’ancienne réponse privée n’a pas pu être invalidée. Ferme-la puis réessaie ici.")
+                return "indisponible"
+        _presentations[cle_guet] = dire
     vus = set((_MONTRES.get(cle_guet) or {}).keys())
     montre = None
     fin = time.monotonic() + duree
@@ -1788,7 +1814,10 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                 TEXTE_PANNE_GUET if lecteur_en_panne() else TEXTE_RIEN if fini else TEXTE_ATTENTE)
             if texte != guet["texte"] or "envoye" not in guet:
                 guet["texte"] = texte
-                await dire(texte)
+                async with verrou:
+                    if _guets.get(cle_guet) is not guet:
+                        return "remplace"
+                    await dire(texte)
                 uid = cle_guet.removeprefix("u|")
                 if uid.isdigit():
                     journal.info("OTP_REPONSE %s", json.dumps({"uid": uid, "adresses": len(adresses),
@@ -2076,8 +2105,21 @@ async def servir_interaction(interaction, usage="", adresse="") -> str:
     except (discord.HTTPException, discord.InteractionResponded):
         return "indisponible"
 
+    secours = {"message": None}
+
     async def nouveau(texte):
-        await interaction.edit_original_response(content=texte, view=None)
+        try:
+            if secours["message"] is not None:
+                await secours["message"].edit(content=texte, view=None)
+            else:
+                await interaction.edit_original_response(content=texte, view=None)
+        except discord.HTTPException as erreur:
+            if getattr(erreur, "status", None) != 404:
+                raise
+            # La réponse provisoire peut avoir été supprimée après réutilisation.
+            # Discord confirme son absence : recréer uniquement en éphémère,
+            # puis conserver le message retourné pour les éditions suivantes.
+            secours["message"] = await interaction.followup.send(texte, ephemeral=True, wait=True)
 
     membre = interaction.user
     dire = reponse_privee_unique((str(membre.id), "ephemere"), nouveau,
