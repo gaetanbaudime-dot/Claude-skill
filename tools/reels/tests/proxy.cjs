@@ -9,7 +9,7 @@ function load(filename,dependencies={},extra={}){
 (async()=>{
   const calls=[];
   let fail=false,html=false;
-  const proxy=load(path.join(__dirname,'../src/server/proxy.ts'),{},{fetch:async(url,init)=>{
+  const proxy=load(path.join(__dirname,'../src/server/proxy.ts'),{'./ownership':{authorize:async()=>async()=>{},OwnershipDenied:class extends Error{}},'./ownership-sheets':{}},{fetch:async(url,init)=>{
     calls.push({url:String(url),init});
     if(fail)throw new Error('private fixture diagnostic');
     return new Response(html?'private HTML':JSON.stringify({ready:true}),{status:html?502:200,headers:{'Content-Type':html?'text/html':'application/json',
@@ -53,8 +53,9 @@ function load(filename,dependencies={},extra={}){
   for(const [app,prefix,guard,lib]of [['app_clippers','k','clipperParJeton','clippers'],['app_creatrices','c','creatriceParJeton','config']]){
     let allowed=false,forwarded=0,checked=0;
     const route=load(path.join(__dirname,`../../${app}/src/app/api/${prefix}/[token]/reels/[operation]/route.ts`),{
-      ['@/lib/'+lib]:{[guard]:prefix==='k'?async token=>{checked++;assert.equal(token,'fixture');return allowed?{}:null}:token=>{checked++;assert.equal(token,'fixture');return allowed?{}:null}},
-      '@gm/reels/server':{forwardReelsRequest:async()=>{forwarded++;return Response.json({ready:true})}}});
+      ['@/lib/'+lib]:{[guard]:prefix==='k'?async token=>{checked++;assert.equal(token,'fixture');return allowed?{cle:'stable-clipper',racine:'stable-root'}:null}:token=>{checked++;assert.equal(token,'fixture');return allowed?{cle:'stable-clipper',racine:'stable-root'}:null}},
+      '@/lib/google':{jetonGoogle:async()=>{throw new Error('Must not request real credentials')}},
+      '@gm/reels/server':{createSheetsOwnershipStore:()=>({fixture:true}),forwardReelsRequest:async(req,op,owner,store)=>{forwarded++;assert.equal(owner.app,prefix==='k'?'clippers':'creatrices');assert.equal(owner.id,prefix==='k'?'stable-clipper':'stable-root');assert.equal(store.fixture,true);return Response.json({ready:true})}}});
     const context={params:{token:'fixture',operation:'finish'}};
     assert.equal((await route.POST(request(),context)).status,404);assert.equal(forwarded,0);
     allowed=true;assert.equal((await route.POST(request(),context)).status,200);assert.equal(forwarded,1);assert.equal(checked,2);

@@ -6,7 +6,7 @@ Le moteur provient de TikFusion PR15 ; voir [UPSTREAM.md](UPSTREAM.md). Les pres
 
 ## Vérification locale sans rendu payant
 
-Depuis chacune des deux apps, exécuter `npm ci --ignore-scripts --no-audit --no-fund` puis `npm run build`. L’option locale `install-links=true` copie le package voisin, et `transpilePackages` permet sa compilation par Next.js.
+Depuis chacune des deux apps, exécuter `npm ci --ignore-scripts --no-audit --no-fund` puis `npm run build`. L’option locale `install-links=true` copie le package voisin, et `transpilePackages` permet sa compilation par Next.js. Incrémenter la version du package partagé et les deux entrées de lockfile quand son code change : le cache de build Next.js traite les dépendances installées comme immuables.
 
 Après installation des dépendances de `app_clippers`, depuis `tools/reels` :
 
@@ -15,10 +15,14 @@ node tests/native-speed-orchestration.cjs
 node tests/downloads.cjs
 node tests/transport.cjs
 node tests/proxy.cjs
+node tests/ownership.cjs
+node tests/ownership-sheets.cjs
 node tests/app-lifecycle.cjs
 ```
 
 Ces tests simulent le fournisseur et les médias. Ils couvrent la reprise, les appels ambigus, l’isolement des contextes, les téléchargements et le changement d’onglet. Les cas 320/375/390 du test de cycle de vie sont des contrôles de composants et de CSS, pas des captures d’écran ni une mesure de performance réelle.
+
+Le contrôle d’appartenance et la préparation du registre existant sont décrits dans [OWNERSHIP.md](OWNERSHIP.md). Les références étrangères ou non enregistrées sont refusées avant transfert.
 
 ## Avant publication
 

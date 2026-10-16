@@ -1,6 +1,11 @@
+import { authorize, OwnershipDenied, type Owner, type OwnershipStore } from "./ownership";
+export { createSheetsOwnershipStore } from "./ownership-sheets";
+
 const BACKEND = "https://duplicateur-de-reels.vercel.app";
 const OPERATIONS = new Set(["opus", "source", "finish"]);
-const QUERY_KEYS = new Set(["action", "projectId", "clipIds", "target", "uploadId"]);
+const QUERY_KEYS: Record<string, string[]> = {
+  recover: ["action", "uploadId"], clips: ["action", "projectId", "clipIds", "target"], "project-state": ["action", "projectId"],
+};
 const ACTIONS: Record<string, Set<string>> = {
   opus: new Set(["submit", "duplicate", "style", "export-pack"]),
   source: new Set(["create", "target", "prepare"]),
@@ -21,18 +26,20 @@ const error = (status: number, message: string) => Response.json({ error: messag
 
 // Called only after the host app's existing token guard. Never accepts an
 // upstream URL, forwards app credentials, retries mutations, or adds CORS.
-export async function forwardReelsRequest(request: Request, operation: string): Promise<Response> {
+export async function forwardReelsRequest(request: Request, operation: string, owner: Owner, store: OwnershipStore): Promise<Response> {
   if (!OPERATIONS.has(operation)) return error(404, "Route de montage inconnue.");
   if (request.method !== "GET" && request.method !== "POST") return error(405, "Méthode non autorisée.");
   const incoming = new URL(request.url), origin = request.headers.get("Origin");
   if (origin && origin !== incoming.origin) return error(403, "Origine non autorisée.");
   const target = new URL("/api/" + operation, BACKEND);
   let body: string | undefined;
+  let input: Record<string, unknown> = {};
   if (request.method === "GET") {
     if (operation !== "opus" || !READ_ACTIONS.has(incoming.searchParams.get("action") || "")) return error(400, "Action de suivi inconnue.");
     for (const [key, value] of incoming.searchParams) {
-      if (!QUERY_KEYS.has(key) || value.length > 1000 || target.searchParams.has(key)) return error(400, "Paramètres de suivi invalides.");
+      if (!QUERY_KEYS[incoming.searchParams.get("action")!].includes(key) || value.length > 1000 || target.searchParams.has(key)) return error(400, "Paramètres de suivi invalides.");
       target.searchParams.set(key, value);
+      input[key] = value;
     }
   } else {
     if (!/^application\/json(?:;|$)/i.test(request.headers.get("Content-Type") || "")) return error(415, "Requête JSON requise.");
@@ -57,7 +64,16 @@ export async function forwardReelsRequest(request: Request, operation: string): 
       const allowed = BODY_KEYS[operation + ":" + (value.action ?? "render")];
       if (!allowed || Object.keys(value).some(key => !allowed.includes(key))) return error(400, "Paramètres de montage invalides.");
       body = JSON.stringify(value);
+      input = value;
     } catch { return error(400, "Requête JSON invalide."); }
+  }
+  const action = String(input.action ?? "render");
+  let recordReply: (reply: unknown) => Promise<void>;
+  try { recordReply = await authorize(owner, store, operation, action, input); }
+  catch (failure) {
+    return failure instanceof OwnershipDenied
+      ? error(403, "Ce montage n’est pas disponible pour ce compte.")
+      : error(503, "Le registre des montages est indisponible. Aucun appel au service de montage n’a été envoyé.");
   }
   try {
     const upstream = await fetch(target, { method: request.method, body,
@@ -70,7 +86,16 @@ export async function forwardReelsRequest(request: Request, operation: string): 
     for (const key of ["X-GM-Upstream-Calls", "X-GM-Api-Next-At", "X-GM-Api-Wait-Ms", "Retry-After", "Date", "Server-Timing"]) {
       const value = upstream.headers.get(key); if (value !== null) headers.set(key, value);
     }
-    return new Response(upstream.body, { status: upstream.status, headers });
+    const payload = await upstream.json();
+    if (upstream.ok) {
+      try { await recordReply(payload); }
+      catch {
+        // The provider may already have acted. Do not return definitelyRejected
+        // or retry; withhold capabilities that were not durably associated.
+        return error(502, "L’enregistrement du montage n’a pas été confirmé. Aucun appel n’a été rejoué.");
+      }
+    }
+    return Response.json(payload, { status: upstream.status, headers });
   } catch {
     return error(502, "La réponse du montage n’a pas été confirmée. La progression est conservée ; aucun appel n’a été rejoué.");
   }
