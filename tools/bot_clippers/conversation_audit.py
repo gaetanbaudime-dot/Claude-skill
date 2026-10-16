@@ -43,8 +43,18 @@ def _norm(value: str) -> str:
                    if unicodedata.category(c) != "Mn")
 
 
+ACCESS_BLOCK = re.compile(
+    r"identifiants?|credentials?|connexion|connection|login|identifiant|"
+    r"acc[eè]s|connecter|code.{0,25}(?:affiche|r[eé]ponse|dessous)|"
+    r"(?:code|otp|2fa|pin)\s*[:=]|```|~~~|[?&](?:token|key|auth|code|signature)=", re.I)
+
+
 def sanitize_message(content: str) -> str:
     """Redact probable credentials and identifiers; never assert perfect sanitization."""
+    # Une valeur peut suivre son étiquette sur une autre ligne : supprimer
+    # tout le bloc/message avant toute sérialisation, jamais seulement l'étiquette.
+    if SENSITIVE_LINE.search(str(content or "")) or ACCESS_BLOCK.search(str(content or "")):
+        return "[MESSAGE D’ACCÈS MASQUÉ INTÉGRALEMENT]"
     safe = []
     for line in str(content or "").splitlines()[:20]:
         if SENSITIVE_LINE.search(line):
@@ -121,7 +131,7 @@ async def export_to_admin_dm(message, active_pairs: list, days: int = 90) -> dic
                 msgs.append({
                     "date_utc": m.created_at.isoformat(),
                     "author_uid": str(m.author.id),
-                    "author": str(getattr(m.author, "display_name", m.author.name))[:100],
+                    "author": sanitize_message(str(getattr(m.author, "display_name", m.author.name)))[:100],
                     "bot": bool(m.author.bot),
                     "text_redacted": sanitize_message(m.content),
                     "attachments_count": len(m.attachments),
@@ -131,15 +141,15 @@ async def export_to_admin_dm(message, active_pairs: list, days: int = 90) -> dic
             total += len(msgs)
             report["rooms"].append({
                 "channel_id": str(channel.id),
-                "category": getattr(channel.category, "name", "") or "",
-                "channel": channel.name,
+                "category": sanitize_message(getattr(channel.category, "name", "") or ""),
+                "channel": sanitize_message(channel.name),
                 "messages": msgs,
                 "count": len(msgs),
                 "limit_reached": len(msgs) == MAX_MESSAGES_PER_CHANNEL,
             })
         except (discord.Forbidden, discord.HTTPException) as exc:
             report["errors"].append({
-                "channel": channel.name,
+                "channel": sanitize_message(channel.name),
                 "type": type(exc).__name__,
             })
     bio = io.BytesIO()

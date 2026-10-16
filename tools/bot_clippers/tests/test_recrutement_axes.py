@@ -71,6 +71,8 @@ class ProjectionTests(unittest.TestCase):
         self.assertNotIn('4 Reels',v['prochaine_action']['texte'])
     def test_quiz_reste_obligatoire(self):
         d=dossier();d['quiz_reussi']={}
+        self.assertEqual('verifier_quiz',r.projection(d,NOW)['prochaine_action']['code'])
+        d['admis']=False
         self.assertEqual('quiz',r.projection(d,NOW)['prochaine_action']['code'])
     def test_capacite_manquante_avec_responsables_et_preuves(self):
         d=dossier();d['admis']=False
@@ -142,3 +144,13 @@ class SourcesTests(unittest.TestCase):
         pipe['web_attendus']={'autre-fictif':dict(cand='c-fictif')}
         d=r.dossier_depuis_sources('fictif',{},pipe,[],{})
         self.assertTrue(d['conflit_identite']);self.assertFalse(d['quiz_reussi'])
+
+class RaccordementTests(unittest.IsolatedAsyncioTestCase):
+    async def test_ancien_sans_preuve_quiz_pas_renvoye_au_debut(self):
+        from unittest.mock import AsyncMock
+        lecture=AsyncMock(return_value=[])
+        texte=await r.lire_prochaine_action('fictif',{}, {}, [], 'prive3',lecture,admis=True)
+        lecture.assert_awaited_once()
+        self.assertIn('dossier existant',texte)
+        self.assertNotIn('Revois la formation',texte)
+        self.assertNotIn('Créer le compte 1',texte)

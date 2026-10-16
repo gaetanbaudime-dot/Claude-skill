@@ -263,7 +263,7 @@ def texte(res: dict) -> str:
     deb, fin = res["fenetre"]
     ligne = " → ".join(f"{LIBELLES[k]} **{a[k]}**" for k in ETAPES)
     avant = " → ".join(str(p[k]) for k in ETAPES)
-    conv = f"{a['premier_reel']}/{a['valides']}" if a["valides"] else "—"
+    conv = "non comparable (cohortes non rapprochées par identifiant stable)"
     return (f"📊 **Tableau de bord — semaine du {deb.strftime('%d/%m')} au {fin.strftime('%d/%m')}**\n"
             f"{ligne}\n"
             f"-# Semaine d'avant : {avant} · validés → premier Reel : {conv} · `!tableau` pour le revoir."
@@ -288,17 +288,17 @@ def texte_declencheurs(res: dict) -> str:
         return "⚪" if ok is None else ("✅" if ok else "❌")
     p_quiz, p_disc = _pct(e["quiz"], e["formulaires"]), _pct(e["discord"], e["formulaires"])
     r, v = res.get("reel_14", (0, 0))
-    p_reel = _pct(r, v)
+    p_reel = None  # Flux de dates indépendants, aucune cohorte commune prouvée.
     liv, v30 = res.get("livrables"), res.get("valides_30", 0)
     ok_liv = None if liv is None else liv >= FACTEUR_COMPTES * max(v30, 1)
     ok_quiz = None if p_quiz is None else p_quiz >= SEUIL_QUIZ_PCT
     ok_reel = None if p_reel is None else p_reel >= SEUIL_REEL_PCT
     tous = all(x is True for x in (ok_quiz, ok_reel, ok_liv))
-    return ("\n🚦 **Doubler le recrutement ?** " + ("**oui, les trois sont au vert**" if tous else "pas encore") + " (14 derniers jours)\n"
+    return ("\n🚦 **Doubler le recrutement ?** " + ("**oui, les trois sont au vert**" if tous else "décision indisponible : cohortes non comparables") + " (14 derniers jours)\n"
             f"{feu(ok_quiz)} Formulaire → quiz réussi : {e['quiz']}/{e['formulaires']}"
             + (f" ({p_quiz} %)" if p_quiz is not None else "") + f" · cible {SEUIL_QUIZ_PCT} % · arrivés sur Discord : {e['discord']}"
             + (f" ({p_disc} %)" if p_disc is not None else "") + "\n"
-            f"{feu(ok_reel)} Validés → premier Reel : {r}/{v}" + (f" ({p_reel} %)" if p_reel is not None else "")
+            f"{feu(ok_reel)} Validés → premier Reel : non comparable (flux distincts : {v} validations, {r} premiers Reels)" + (f" ({p_reel} %)" if p_reel is not None else "")
             + f" · cible {SEUIL_REEL_PCT} %\n"
             f"{feu(ok_liv)} Clippers livrables : {liv if liv is not None else '?'} pour {v30} validés sur 30 j · cible ≥ {FACTEUR_COMPTES} ×")
 

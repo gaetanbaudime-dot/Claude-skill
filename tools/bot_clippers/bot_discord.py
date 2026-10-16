@@ -5280,17 +5280,13 @@ def texte_aide(membre, est_admin: bool) -> str:
     # 09/10 : « déjà dans l'agence » a UNE définition, est_signe (registre, rôle d'équipe, roster) ; l'assistant répond là où le
     # clipper écrit (plus de renvoi vers #assistant) ; la paie des clippers tombe les 5 et 20.
     if est_signe(membre):
-        return ("🧰 **Ce que tu peux me demander**\n\n"
-                "· `!etape` : je te renvoie ton étape en cours.\n"
-                # 01/10 (Gaëtan : « les codes se demandent UNIQUEMENT dans #🔐-code-instagram ») : la ligne canonique
-                "· " + codes_2fa.texte_salon_codes() + "\n"
-                "· `!aide-ig` : création, connexion, renvoi et application d'authentification.\n"
-                "· `!mesclics` : tes visites d'hier, de la semaine et de la quinzaine, avec ta paie en cours (paie les 5 et 20).\n"
-                "· `!parrain @lui` : tu parraines un nouveau, 5 $ pour toi le jour de sa première paie.\n"
-                "· `!wallet 0x…` pour l'USDC, ou `!wallet FR76…` pour un virement : ton adresse de paiement.\n"
-                "· Compte suspendu : `!aide-ig suspension` pour le parcours officiel et les étapes du titulaire.\n"
-                "· `STOP` en message privé : plus aucun rappel automatique.\n\n"
-                "Une question ? Écris-la ici, je réponds.")
+        return ("🧰 **Tes cinq commandes utiles**\n\n"
+                "· `!etape` : ta prochaine action vérifiée.\n"
+                "· `!app` : ton application.\n"
+                "· `!mesclics` : tes visites ; ajoute deux dates AAAA-MM-JJ pour une période.\n"
+                "· `!aide-ig` : aide Instagram ; `!aide-ig suspension` pour un compte suspendu.\n"
+                "· `!wallet` : ton adresse de paiement.\n\n"
+                "Une question ? Écris-la ici. `STOP` en MP coupe les rappels.")
     # 09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : le candidat ne lit que sa prochaine action. Un
     # quizz réussi (y compris les anciens du test, que la migration valide) n'a plus rien à faire : sa créatrice arrive.
     pipe_a = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
@@ -6547,6 +6543,10 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("Réservé à l'administrateur.")
             return True
         try:
+            if texte.split()[1:] == ["complet"]:
+                import audit_complet
+                await audit_complet.commande(message, DONNEES / "audit_prive" / f"{message.guild.id if message.guild else 'sans-serveur'}.sqlite3")
+                return True
             jours = int(texte.split()[1]) if len(texte.split()) > 1 else 90
             res = await conversation_audit.export_to_admin_dm(
                 message, await salons_clippers_acceptes(), days=jours)
@@ -10452,8 +10452,20 @@ async def on_message(message):
     # servie qu'au staff) → le titre de son étape en cours et le lien du message. Dans son salon perso ou en MP seulement :
     # le lien pointe vers le salon où il écrit.
     if texte.split() in (["!etape"], ["!étape"]) and en_prive(message) and not est_staff(message.author):
-        if await parcours.commande_staff(message, "!etape"):
-            return
+        import recrutement
+        try:
+            uid_action = str(message.author.id)
+            entrees_action = controle.lire_entrees()
+            fiche_action = (entrees_action.get("parcours") or {}).get(uid_action) or {}
+            reponse_action = await asyncio.wait_for(recrutement.lire_prochaine_action(
+                uid_action, entrees_action, lire_json(FICHIER_PIPELINE, {}),
+                parcours._comptes_ordonnes(uid_action, fiche_p=fiche_action),
+                parcours.ordre(fiche_action), onboarding.lire_comptes,
+                admis=est_signe(message.author)), timeout=20)
+        except Exception:
+            reponse_action = "Ton étape n’est pas vérifiable pour le moment. Ton équipe doit contrôler ton dossier avant toute nouvelle création."
+        await message.reply(reponse_action)
+        return
 
     # !aide : pour tout le monde, adaptée au rôle de celui qui demande.
     if texte.split()[:1] in (["!aide"], ["!help"], ["!commandes"]):

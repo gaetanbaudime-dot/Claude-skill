@@ -72,6 +72,8 @@ def projection(dossier, maintenant=None):
     def resultat(prochaine, prete=False, test=None):
         return dict(version=1, uid=uid or None, axes=list(AXES), admission_prete=prete,
                     prochaine_action=prochaine, blocages=blocages, test_operationnel=test)
+    if dossier.get('admis') and not preuve_valide(dossier.get('quiz_reussi'), maintenant):
+        return resultat(action('verifier_quiz', 'Ton équipe vérifie la preuve de ton quiz dans ton dossier existant.', 'Preuve du quiz historique ; aucune remise à zéro', 'manager'))
     if not preuve_valide(dossier.get('quiz_reussi'), maintenant):
         return resultat(action('quiz', 'Revois la formation puis réussis le quiz.', 'Résultat réussi du quiz daté'))
     if not uid and not dossier.get('conflit_identite'):
@@ -275,3 +277,19 @@ def dossier_depuis_sources(uid, entrees, pipeline, comptes_ordonnes, etats_par_h
                 ordre_ancien=(ordre_comptes or p.get('ordre')) != 'prive3',quiz_reussi=quiz,
                 historique_vie=dict(complet=revu,reference=f'process:histories/{uid}' if revu else None,comptes=comptes),
                 capacite=capacite or {})
+
+
+def texte_prochaine_action(vue):
+    """Une action seulement ; détails de preuve consultables sans nouveau parcours."""
+    action = vue['prochaine_action']
+    responsable = 'toi' if str(action['responsable']) == str(vue.get('uid')) else 'ton équipe'
+    return f"**Prochaine action** — {action['texte']}\nResponsable : {responsable}.\nÀ vérifier : {action['preuve_attendue']}."
+
+
+async def lire_prochaine_action(uid, entrees, pipeline, comptes_ordonnes, ordre_comptes, lire_comptes, admis=False):
+    comptes = await lire_comptes()
+    normaliser = {'good':'Good', 'ban':'Ban', 'faire appel':'Faire appel', 'à créer':'À créer', 'a creer':'À créer'}
+    etats = {str(c['handle']).lower().lstrip('@'):normaliser.get(str(c.get('etat') or '').casefold(),c.get('etat')) for c in comptes if c.get('handle')}
+    dossier = dossier_depuis_sources(uid,entrees,pipeline,comptes_ordonnes,etats,ordre_comptes=ordre_comptes)
+    dossier['admis'] |= admis
+    return texte_prochaine_action(projection(dossier))
