@@ -6581,6 +6581,19 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("Réservé à l'administrateur.")
             return True
         try:
+            if texte.split()[1:] == ["publier"]:
+                if message.guild is None:
+                    await message.author.send("Lance cette commande dans le serveur concerné.")
+                    return True
+                import audit_autonome
+                import audit_transport
+                try:
+                    resultat = await audit_autonome.tour(message.guild, DONNEES / "audit_prive",
+                        audit_autonome.configuration(), audit_transport.creer_transport(), amorcage=True)
+                    await message.author.send("Audit : " + resultat["statut"] + ". Aucune cadence activée par cette commande.")
+                except Exception:
+                    await message.author.send("Transport audit indisponible : vérifier la destination approuvée et son schéma. Aucun détail privé exporté dans cette erreur.")
+                return True
             if texte.split()[1:2] == ["diagnostic"]:
                 import audit_diagnostic
                 args_diagnostic = texte.split()[2:]
@@ -8750,6 +8763,10 @@ async def on_ready():
             await cacher_invites(guild)
     if not _taches_demarrees:
         _taches_demarrees = True          # on_ready peut refire à la reconnexion : une seule boucle
+        # Inactif par défaut ; destination et lecture cloud doivent être prouvées.
+        import audit_autonome
+        import audit_transport
+        client.loop.create_task(audit_autonome.boucle(client, DONNEES / "audit_prive", audit_transport.creer_transport))
         # 09/10 (A5 : la paie des clippers tombe les 5 et 20 ; lot L4) : le compteur épinglé de #dopamine est réécrit une fois au
         # démarrage, sinon il garde « Paie le 16 et le 1er » jusqu'au prochain `!paiement`. Seulement s'il existe déjà : jamais un
         # « 0 € versés » posté par erreur quand le total n'a pas pu être relu.

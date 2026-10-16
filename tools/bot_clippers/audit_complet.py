@@ -34,12 +34,12 @@ def progression(salons, decouverte, pages, pages_max, pages_decouverte, decouver
                 else 'Tous les éléments identifiés sont terminés pour la borne avant indiquée.')
 
 
-async def collecter(guild, chemin, pages_max=100, decouverte_max=10, duree_max=45, volume_max=64*1024*1024):
+async def collecter(guild, chemin, pages_max=100, decouverte_max=10, duree_max=45, volume_max=64*1024*1024, apres=None, avant_fixe=None):
     """Chaque page est validée atomiquement avec son curseur ; reprise sans doublon."""
     async with _LOCKS.setdefault(str(guild.id), asyncio.Lock()):
-        return await _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max)
+        return await _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, apres, avant_fixe)
 
-async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max):
+async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, apres=None, avant_fixe=None):
     fin = time.monotonic() + duree_max
     fin_decouverte = fin - duree_max * 2 / 3
     chemin = Path(chemin)
@@ -58,7 +58,14 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
         db.execute("INSERT OR IGNORE INTO meta VALUES ('guild',?)",(str(guild.id),))
         if db.execute("SELECT valeur FROM meta WHERE cle='guild'").fetchone()[0] != str(guild.id):
             raise ValueError('Archive liée à un autre serveur.')
-        db.execute("INSERT OR IGNORE INTO meta VALUES ('avant',?)",(str(discord.utils.time_snowflake(datetime.now(timezone.utc), high=False)),))
+        db.execute("INSERT OR IGNORE INTO meta VALUES ('avant',?)",(str(avant_fixe or discord.utils.time_snowflake(datetime.now(timezone.utc), high=False)),))
+        db.execute("INSERT OR IGNORE INTO meta VALUES ('apres',?)",(str(apres or 0),))
+        apres_stocke = db.execute("SELECT valeur FROM meta WHERE cle='apres'").fetchone()[0]
+        if apres is not None and str(apres) != apres_stocke:
+            raise ValueError('Borne incrémentale différente de cette collecte.')
+        apres = int(apres_stocke)
+        if avant_fixe is not None and str(avant_fixe) != db.execute("SELECT valeur FROM meta WHERE cle='avant'").fetchone()[0]:
+            raise ValueError('Borne finale différente de cette collecte.')
         avant = db.execute("SELECT valeur FROM meta WHERE cle='avant'").fetchone()[0]
         db.commit()
         db.execute('CREATE TABLE IF NOT EXISTS decouverte_v2 (id TEXT PRIMARY KEY, statut TEXT, curseur TEXT)')
@@ -166,7 +173,8 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
                 db.execute("UPDATE salons SET statut='permissions_absentes',erreur='VIEW_CHANNEL/READ_MESSAGE_HISTORY' WHERE id=?",(cid,));db.commit();continue
             while pages<pages_max and not borne():
                 try:
-                    batch=await attendre(page(channel.history(limit=100,before=discord.Object(id=int(cursor)),oldest_first=False)))
+                    batch=await attendre(page(channel.history(limit=100,before=discord.Object(id=int(cursor)),oldest_first=False,
+                        **({"after":discord.Object(id=apres)} if apres else {}))))
                 except (discord.Forbidden,discord.HTTPException,TimeoutError) as exc:
                     fin_tentative('s:'+cid,True)
                     db.execute('UPDATE salons SET statut=?,erreur=? WHERE id=?',('illisible',type(exc).__name__,cid));db.commit();break
@@ -187,7 +195,7 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
         reprises=[dict(source=c,apres=t) for c,t in db.execute('SELECT cle,apres FROM reprises WHERE apres>0')]
         borne_atteinte = borne()
         avancement = progression(salons, discovery, pages, pages_max, pages_decouverte, decouverte_max, borne_atteinte)
-        return dict(**avancement, reprises=reprises,avant=avant,salons=salons,decouverte=discovery,pages=pages,pages_decouverte=pages_decouverte,borne_atteinte=borne_atteinte,
+        return dict(**avancement, reprises=reprises,avant=avant,apres=str(apres),salons=salons,decouverte=discovery,pages=pages,pages_decouverte=pages_decouverte,borne_atteinte=borne_atteinte,
                     complet=not borne_atteinte and all(s['statut']=='complet' for s in salons) and all(x['statut']=='complet' for x in discovery),
                     limites=['MP non inclus','Salons invisibles au bot non énumérables','Embeds, composants et pièces jointes omis','Masquage prudent : texte perdu possible ; pas de garantie sur un secret sans contexte'])
     finally:

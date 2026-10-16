@@ -397,6 +397,13 @@ async def sheets_ecrire_plusieurs(classeur_id: str, ecritures: list) -> int:
     return int(r.get("totalUpdatedCells", 0))
 
 
+async def sheets_ecrire_brut(classeur_id: str, plage: str, valeurs: list) -> int:
+    """Écrit des valeurs RAW sur une plage précise, sans interprétation de formule."""
+    r = await _appel("PUT", f"{SHEETS}/{classeur_id}/values/{_plage(plage)}",
+                     params={"valueInputOption": "RAW"}, corps={"values": valeurs})
+    return int(r.get("updatedCells", 0))
+
+
 async def sheets_batch_update(classeur_id: str, requetes: list) -> None:
     """Envoie une liste de requêtes batchUpdate (mise en forme, fusion, largeurs…) par paquets de 400."""
     for i in range(0, len(requetes), 400):
