@@ -15,6 +15,25 @@ from conversation_audit import sanitize_in_channel
 
 _LOCKS = {}
 
+def progression(salons, decouverte, pages, pages_max, pages_decouverte, decouverte_max, borne_atteinte):
+    """Une borne temporelle non atteinte n'implique pas une découverte terminée."""
+    reste_salons = sum(s['statut'] != 'complet' for s in salons)
+    reste_decouverte = sum(d['statut'] != 'complet' for d in decouverte)
+    raisons = []
+    if borne_atteinte:
+        raisons.append('borne_temps_ou_volume')
+    if reste_salons and pages >= pages_max:
+        raisons.append('budget_pages_messages')
+    if reste_decouverte and pages_decouverte >= decouverte_max:
+        raisons.append('budget_pages_decouverte')
+    if (reste_salons or reste_decouverte) and not raisons:
+        raisons.append('decouverte_ou_reprises_restantes')
+    return dict(travail_restant={'salons': reste_salons, 'operations_decouverte': reste_decouverte},
+                raisons_arret=raisons,
+                instruction='Reprise nécessaire : la couverture reste incomplète.' if reste_salons or reste_decouverte
+                else 'Tous les éléments identifiés sont terminés pour la borne avant indiquée.')
+
+
 async def collecter(guild, chemin, pages_max=100, decouverte_max=10, duree_max=45, volume_max=64*1024*1024):
     """Chaque page est validée atomiquement avec son curseur ; reprise sans doublon."""
     async with _LOCKS.setdefault(str(guild.id), asyncio.Lock()):
@@ -166,8 +185,10 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
         salons=[dict(id=i,statut=s,erreur=e,messages=n) for i,s,e,n in db.execute('SELECT s.id,s.statut,s.erreur,count(m.id) FROM salons s LEFT JOIN messages m ON s.id=m.salon GROUP BY s.id')]
         discovery=[dict(source=i,statut=s) for i,s in db.execute('SELECT id,statut FROM decouverte_v2')]
         reprises=[dict(source=c,apres=t) for c,t in db.execute('SELECT cle,apres FROM reprises WHERE apres>0')]
-        return dict(reprises=reprises,avant=avant,salons=salons,decouverte=discovery,pages=pages,pages_decouverte=pages_decouverte,borne_atteinte=borne(),
-                    complet=not borne() and all(s['statut']=='complet' for s in salons) and all(x['statut']=='complet' for x in discovery),
+        borne_atteinte = borne()
+        avancement = progression(salons, discovery, pages, pages_max, pages_decouverte, decouverte_max, borne_atteinte)
+        return dict(**avancement, reprises=reprises,avant=avant,salons=salons,decouverte=discovery,pages=pages,pages_decouverte=pages_decouverte,borne_atteinte=borne_atteinte,
+                    complet=not borne_atteinte and all(s['statut']=='complet' for s in salons) and all(x['statut']=='complet' for x in discovery),
                     limites=['MP non inclus','Salons invisibles au bot non énumérables','Embeds, composants et pièces jointes omis','Masquage prudent : texte perdu possible ; pas de garantie sur un secret sans contexte'])
     finally:
         db.close()
@@ -180,5 +201,10 @@ async def commande(message, chemin):
     await message.author.send('Audit privé en lecture seule : collecte ou reprise, 100 pages maximum par invocation. Aucun contenu exporté automatiquement.')
     rapport=await collecter(message.guild,chemin)
     import io
-    await message.author.send('Couverture uniquement. Relance `!audit-discussions complet` si des salons restent à reprendre. Le contenu nettoyé reste sur le volume privé du bot.',
+    reste = rapport['travail_restant']
+    resume = (f"Couverture uniquement : {reste['salons']} salon(s) et {reste['operations_decouverte']} opération(s) de découverte restent. "
+              + ("Relance `!audit-discussions complet` pour continuer, même si borne_atteinte vaut false. " if not rapport['complet'] else
+                 "Cette photographie est terminée pour sa borne avant. ")
+              + "Le contenu nettoyé reste sur le volume privé du bot.")
+    await message.author.send(resume,
                               file=discord.File(io.BytesIO(json.dumps(rapport,ensure_ascii=False,indent=2).encode()),filename='couverture-audit.json'))
