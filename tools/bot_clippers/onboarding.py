@@ -1222,6 +1222,13 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                         resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
                                         f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
                                         f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
+                # Une réponse Sheets perdue peut avoir laissé le gérant écrit,
+                # mais pas l'attestation. Le prénom ne vaut jamais confirmation.
+                registre_attribution = process_adapters.store()
+                for c in deja[:COMPTES_PAR_CLIPPER]:
+                    key = 'attribution-sheet:' + str(c.get('onglet')) + ':' + _cle_handle(c.get('handle'))
+                    if registre_attribution.get('intention-' + key) and not registre_attribution.get(key):
+                        await reserver([c], prenom, uid, creatrice)
                 comptes = deja[:COMPTES_PAR_CLIPPER]
                 if len(comptes) < a_reserver:
                     nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes), uid)

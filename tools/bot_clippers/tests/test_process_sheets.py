@@ -150,11 +150,11 @@ class ReviewRegressions(unittest.IsolatedAsyncioTestCase):
     create.assert_not_awaited()
 
 class AttributionCompleteTests(unittest.IsolatedAsyncioTestCase):
- async def test_parcours_nouvelle_attribution_puis_trois_liens(self):
+ async def verifier_parcours(self,initial=False):
   from unittest.mock import patch,AsyncMock
   from contextlib import ExitStack
   from types import SimpleNamespace as N
-  import onboarding as o,process_adapters as a,google_api as g,paie_clics as pc
+  import onboarding as o,process_adapters as a,google_api as g,paie_clics as pc,places
   with tempfile.TemporaryDirectory() as tmp:
    registre=Store(Path(tmp)/'process.sqlite3');registre.reconcile('42',[],'historique-neuf-verifie-fictif')
    state={'clippers':{},'livres':{}}
@@ -175,18 +175,29 @@ class AttributionCompleteTests(unittest.IsolatedAsyncioTestCase):
    with ExitStack() as st:
     for target,name,value in [(a,'store',lambda:registre),(o,'actif',lambda:True),(o,'_lire_etat',lambda:deepcopy(state)),(o,'_ecrire_etat',save),
        (o,'_proprietaires',lambda:{h:{v['uid']} for h,v in state['livres'].items()}),(o,'lire_comptes',AsyncMock(side_effect=lambda:[deepcopy(row)])),
-       (o,'disponibles',lambda *args:[deepcopy(row)]),(o,'_colonnes_lues_par_onglet',{'Fictive':cols}),(o,'_colonnes_par_onglet',{'Fictive':cols}),
+       (o,'attribuer_lien',AsyncMock(return_value={'lignes':[]})),(o,'_liens_classeur_en_fond',lambda:None),
+       (places,'lignes_a_reserver',lambda:1),(o,'disponibles',lambda *args:[deepcopy(row)]),(o,'_colonnes_lues_par_onglet',{'Fictive':cols}),(o,'_colonnes_par_onglet',{'Fictive':cols}),
        (g,'sheets_fusions',AsyncMock(return_value={'Fictive':[]})),(g,'sheets_ecrire',AsyncMock(side_effect=write)),
        (g,'sheets_ecrire_plusieurs',AsyncMock(side_effect=batch)),(pc,'lien_detail',AsyncMock(return_value=detail))]:st.enter_context(patch.object(target,name,value))
-    with self.assertRaises(TimeoutError):await o.reserver_compte(N(id=42,display_name='Fictif'),'Fictive',1)
+    async def entree():
+     membre=N(id=42,display_name='Fictif')
+     return await o.livrer(membre,'Fictive',nouveau=True) if initial else await o.reserver_compte(membre,'Fictive',1)
+    with self.assertRaises(TimeoutError):await entree()
     self.assertFalse(registre.get('attribution-sheet:Fictive:nouveau.fictif'))
-    await o.reserver_compte(N(id=42,display_name='Fictif'),'Fictive',1)
+    self.assertFalse(state['livres'])
+    result=await entree()
+    if initial:self.assertIn('1 compte(s)',result)
+    g.sheets_ecrire.assert_awaited_once()
     preuve=registre.get('attribution-sheet:Fictive:nouveau.fictif')
     self.assertEqual('42',preuve['uid']);self.assertEqual(2,preuve['ligne_constatee'])
     self.assertEqual('nouvelle-attribution-relue',preuve['preuve'])
     result=await p.synchroniser(registre,'42','Fictive',a.LiensSheetsAPI('42',registre))
     self.assertEqual(3,result['ecrits']);self.assertEqual(job['lien'],row['lien_gaml'])
     self.assertEqual(0,(await p.synchroniser(registre,'42','Fictive',a.LiensSheetsAPI('42',registre)))['ecrits'])
+ async def test_parcours_nouvelle_attribution_puis_trois_liens(self):
+  await self.verifier_parcours()
+ async def test_livrer_initial_reponse_perdue_reprise_attestation_et_trois_liens(self):
+  await self.verifier_parcours(initial=True)
  async def test_ancienne_attribution_sans_intention_ne_produit_pas_de_preuve(self):
   from unittest.mock import patch,AsyncMock
   import onboarding as o,process_adapters as a,google_api as g
