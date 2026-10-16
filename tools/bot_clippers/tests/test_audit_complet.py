@@ -14,7 +14,8 @@ from conversation_audit import sanitize_message
 class Channel:
     id=123
     name='discussion-fictive'
-    def __init__(self): self.calls=[]
+    def __init__(self): self.calls=[]; self.allowed=True
+    def permissions_for(self,me): return N(view_channel=True,read_message_history=self.allowed)
     async def history(self,limit,before,oldest_first):
         self.calls.append(before.id)
         for i in range(205,0,-1):
@@ -27,7 +28,7 @@ class AuditTests(unittest.IsolatedAsyncioTestCase):
     async def test_reprise_pagination_sans_doublon_et_masquage_avant_sqlite(self):
         c=Channel()
         async def active(): return []
-        guild=N(id=9,channels=[c],active_threads=active)
+        guild=N(id=9,me=N(id=99),channels=[c],active_threads=active,get_channel_or_thread=lambda _:None)
         with tempfile.TemporaryDirectory() as root:
             path=Path(root)/'audit.sqlite3'
             r=await a.collecter(guild,path,pages_max=1)
@@ -55,3 +56,52 @@ class RevueMasquageTests(unittest.TestCase):
     def test_chiffres_separes_sans_entete_masques(self):
         for code in ['123 456','12-34-56','1 2 3 4 5 6']:
             self.assertIn('MASQUÉ',sanitize_message(code))
+
+class CouvertureTests(unittest.IsolatedAsyncioTestCase):
+    async def test_sans_droit_historique_jamais_complet_puis_reprise(self):
+        c=Channel();c.allowed=False
+        async def active():return []
+        g=N(id=9,me=N(id=99),channels=[c],active_threads=active,get_channel_or_thread=lambda _:None)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'audit.db'
+            r=await a.collecter(g,path)
+            self.assertFalse(r['complet']);self.assertEqual('permissions_absentes',r['salons'][0]['statut']);self.assertEqual([],c.calls)
+            c.allowed=True
+            r=await a.collecter(g,path)
+            self.assertTrue(r['complet']);self.assertEqual(205,r['salons'][0]['messages'])
+    async def test_decouverte_bornee_curseur_persistant_pas_de_rescan(self):
+        from datetime import timedelta
+        class Forum:
+            id=777;name='forum-fictif'
+            def __init__(self):self.calls=[]
+            def permissions_for(self,me):return N(view_channel=True,read_message_history=True)
+            async def archived_threads(self,limit,before=None):
+                self.calls.append((limit,before));self.assert_limit=limit
+                n=0
+                for i in range(120,0,-1):
+                    date=datetime(2026,1,1,tzinfo=timezone.utc)+timedelta(seconds=i)
+                    if before is None or date<before:
+                        yield N(id=i,archive_timestamp=date)
+                        n+=1
+                        if n>=limit:break
+        c=Forum()
+        async def active():return []
+        g=N(id=9,me=N(id=99),channels=[c],active_threads=active,get_channel_or_thread=lambda _:None)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'audit.db'
+            r=await a.collecter(g,path,pages_max=0,decouverte_max=1)
+            self.assertFalse(r['complet']);self.assertEqual(50,len(r['salons']));self.assertEqual(1,len(c.calls))
+            r=await a.collecter(g,path,pages_max=0,decouverte_max=1)
+            self.assertEqual(100,len(r['salons']));self.assertIsNotNone(c.calls[-1][1])
+            r=await a.collecter(g,path,pages_max=0,decouverte_max=1)
+            self.assertEqual(120,len(r['salons']))
+            await a.collecter(g,path,pages_max=0,decouverte_max=1)
+            self.assertEqual(3,len(c.calls));self.assertTrue(all(limit==50 for limit,_ in c.calls))
+    async def test_borne_duree_et_volume_ne_marquent_pas_complet(self):
+        c=Channel()
+        async def active():return []
+        g=N(id=9,me=N(id=99),channels=[c],active_threads=active,get_channel_or_thread=lambda _:None)
+        for limites in [dict(duree_max=0),dict(volume_max=1)]:
+            with tempfile.TemporaryDirectory() as root:
+                r=await a.collecter(g,Path(root)/'audit.db',**limites)
+                self.assertFalse(r['complet']);self.assertTrue(r['borne_atteinte']);self.assertEqual([],c.calls)

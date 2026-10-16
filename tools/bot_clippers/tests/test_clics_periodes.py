@@ -45,3 +45,15 @@ class ResumeTests(unittest.TestCase):
         with patch.object(p,'liens_de',return_value=['a']),patch.object(p,'_aujourdhui',return_value=date(2026,10,16)),patch.object(p,'somme',return_value=q),patch.object(p,'periode_en_cours',return_value=(date(2026,10,1),date(2026,10,15))),patch.object(p,'_debut_paie',return_value=date(2026,10,1)),patch.object(p,'regime',return_value='fixe'),patch.object(p,'non_releves',return_value=[('a','2026-10-01')]):
             s=p.texte_mesclics(d,'fictif','Fictif')
         self.assertNotIn('$',s);self.assertNotIn('**0**',s);self.assertIn('non mesuré',s);self.assertNotIn('dans la journée',s)
+
+class RelevesInvalidesTests(unittest.TestCase):
+    def test_erreur_404_et_compteurs_invalides_ne_sont_pas_mesures(self):
+        import math
+        j=date(2026,10,15)
+        for v in [dict(erreur='404',payes=0,hors_robots=0,brut=0),dict(payes=-1,hors_robots=0),dict(payes=math.nan,hors_robots=0),dict(payes='0',hors_robots=0),{},dict(payes=0,hors_robots=None)]:
+            d={'jours':{'a':{j.isoformat():v}},'liens':{'a':{'depuis':'2026-10-01'}}}
+            self.assertEqual(0,p.somme(d,['a'],j,j)['jours']);self.assertTrue(p._manque(d['jours']['a'],j))
+            with patch.object(p,'_aujourdhui',return_value=date(2026,10,16)),patch.object(p,'liens_de',return_value=['a']),patch.object(p,'regime',return_value='fixe'):
+                self.assertIn('non mesuré',p.texte_clics_periode(d,'fictif',(j,j)))
+        zero=dict(payes=0,hors_robots=0,brut=None)
+        self.assertTrue(p.releve_valide(zero));self.assertFalse(p._manque({j.isoformat():zero},j))
