@@ -236,3 +236,32 @@ os._exit(17)
    with sqlite3.connect(p) as db:
     self.assertEqual('ok',db.execute('PRAGMA integrity_check').fetchone()[0])
     self.assertEqual(100,db.execute("SELECT count(*) FROM fictif WHERE contenu=?",('avant'*1000,)).fetchone()[0])
+ async def test_six_jours_reliquat_4853_sans_reexport_puis_reference_ancienne(self):
+  import sqlite3,json
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);now=1800000000;sink=Sink()
+   contenu=json.dumps(dict(date='2026-10-16',uid='42',texte='drive'))
+   async def collect(g,p,**kw):
+    historique=p.name=='9.sqlite3'
+    with sqlite3.connect(p) as db:
+     db.executescript('CREATE TABLE IF NOT EXISTS meta(cle TEXT PRIMARY KEY,valeur TEXT); CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,salon TEXT,contenu TEXT);')
+     db.execute('INSERT OR IGNORE INTO meta VALUES (?,?)',('guild','9'))
+     if historique and not db.execute('SELECT 1 FROM messages LIMIT 1').fetchone():
+      db.executemany('INSERT INTO messages VALUES (?,?,?)',[(str(i),'1',contenu) for i in range(10000,14853)])
+     n=db.execute('SELECT count(*) FROM messages').fetchone()[0]
+    return rapport(n=n,complet=not historique,avant=str(kw['avant_fixe'] or 20000))
+   for _ in range(6*24*4):
+    result=await a.tour(N(id=9),root,CONFIG,sink,collecter=collect,maintenant=lambda:now)
+    self.assertNotEqual('capacite_transport_atteinte',result['statut'])
+    now+=901
+   state=a.lire(root/'9-producteur.json')
+   self.assertEqual(4853,state['lignes_publiees'])
+   self.assertEqual(4853,sum(len(call.args[1]) for call in sink.signaux.call_args_list))
+   # Une référence plus ancienne arrive ensuite, sans remise à zéro du curseur.
+   with sqlite3.connect(root/'9.sqlite3') as db:db.execute('INSERT INTO messages VALUES (?,?,?)',('99','1',contenu))
+   for _ in range(4):
+    await a.tour(N(id=9),root,CONFIG,sink,collecter=collect,maintenant=lambda:now)
+    now+=901
+   self.assertEqual(4854,a.lire(root/'9-producteur.json')['lignes_publiees'])
+   self.assertEqual(4854,sum(len(call.args[1]) for call in sink.signaux.call_args_list))
+   self.assertTrue(sink.signaux.call_args.args[1][0][3].endswith('/99'))
