@@ -110,6 +110,9 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
         # Les fils archivés sont résolus un par un : pas d'accumulation de leur
         # historique ni de tous leurs objets Discord en RAM.
         for cid,cursor,status in db.execute('SELECT id,curseur,statut FROM salons').fetchall():
+            # Complet = historique déjà lu avec droits vérifiés pour la borne figée.
+            # Ne pas consommer le budget réseau sur ce préfixe à chaque reprise.
+            if status=='complet':continue
             if pages>=pages_max or borne():break
             channel=channels.get(cid) or guild.get_channel_or_thread(int(cid))
             try:
@@ -118,7 +121,6 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
                 db.execute("UPDATE salons SET statut='illisible',erreur=? WHERE id=?",(type(exc).__name__,cid));db.commit();continue
             if not permission(channel):
                 db.execute("UPDATE salons SET statut='permissions_absentes',erreur='VIEW_CHANNEL/READ_MESSAGE_HISTORY' WHERE id=?",(cid,));db.commit();continue
-            if status=='complet':continue
             while pages<pages_max and not borne():
                 try:
                     batch=await attendre(page(channel.history(limit=100,before=discord.Object(id=int(cursor)),oldest_first=False)))
