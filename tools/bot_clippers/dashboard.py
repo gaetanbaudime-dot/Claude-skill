@@ -3302,20 +3302,30 @@ VUES_PROTEGEES_IDS = {1900160410, 1900160402}
 VUES_PROTEGEES_NOMS = {'Comptes · Pilotage', 'Règles du process'}
 
 
-async def _ecrire_onglet(r: dict) -> int:
+# Destination explicitement autorisée par Gaëtan ; aucun secret d'authentification.
+CLASSEUR_DASHBOARD_AUTORISE = '1z7LxKU70PdXfU0HWCtPltWqT84GwFQJTnOAFZdBnyDY'
+GID_DASHBOARD_AUTORISE = 569057685
+
+
+async def _verifier_destination():
     cid = onboarding.CLASSEUR_LOGINS_ID
+    if cid != CLASSEUR_DASHBOARD_AUTORISE:
+        raise RuntimeError('dashboard_destination_classeur_refusee')
     if ONGLET in VUES_PROTEGEES_NOMS:
-        raise RuntimeError('vue protégée : génération interdite')
+        raise RuntimeError('dashboard_vue_protegee')
     props = await google_api.sheets_proprietes(cid)
-    if ONGLET not in props:
-        await google_api.sheets_creer_onglet(cid, ONGLET)
-        props = await google_api.sheets_proprietes(cid)
     p = props.get(ONGLET) or {}
-    sid = p.get("id")
-    if sid is None:
-        raise RuntimeError(f"onglet « {ONGLET} » introuvable")
-    if int(sid) in VUES_PROTEGEES_IDS:
-        raise RuntimeError('vue protégée : génération interdite')
+    sid = p.get('id')
+    if sid in VUES_PROTEGEES_IDS:
+        raise RuntimeError('dashboard_vue_protegee')
+    if sid != GID_DASHBOARD_AUTORISE:
+        raise RuntimeError('dashboard_destination_gid_refusee')
+    return cid,p
+
+
+async def _ecrire_onglet(r: dict) -> int:
+    cid,p = await _verifier_destination()
+    sid = p['id']
     faire = requetes_simple if r.get("simple") else requetes
     await _batch_unique(cid, faire(r, sid, int(p.get("lignes") or 0), int(p.get("colonnes") or 0)))
     return sid
@@ -3348,6 +3358,12 @@ async def ecrire(force: bool = False, *, maintenant: datetime = None) -> dict:
             return bilan
         if not _deps.get("lire_json"):
             bilan["erreur"] = "Dashboard non configuré (dashboard.configurer)"
+            return bilan
+        # Garde avant les mises à jour associées et tâches de pilotage différées.
+        try:
+            await _verifier_destination()
+        except Exception:
+            bilan['erreur'] = 'dashboard_destination_non_verifiee'
             return bilan
         maintenant = maintenant or datetime.now(timezone.utc)
         etat = _lire_etat()

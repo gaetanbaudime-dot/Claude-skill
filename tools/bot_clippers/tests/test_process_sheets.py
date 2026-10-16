@@ -130,6 +130,21 @@ class ReviewRegressions(unittest.IsolatedAsyncioTestCase):
   from unittest.mock import patch,AsyncMock
   import dashboard as d
   for sid in (1900160410,1900160402):
-   with patch.object(d.google_api,'sheets_proprietes',AsyncMock(return_value={d.ONGLET:{'id':sid}})),patch.object(d,'_batch_unique',AsyncMock()) as write:
+   with patch.object(d.onboarding,'CLASSEUR_LOGINS_ID',d.CLASSEUR_DASHBOARD_AUTORISE),patch.object(d.google_api,'sheets_proprietes',AsyncMock(return_value={d.ONGLET:{'id':sid}})),patch.object(d,'_batch_unique',AsyncMock()) as write:
     with self.assertRaises(RuntimeError):await d._ecrire_onglet({'simple':True})
     write.assert_not_awaited()
+
+ async def test_destination_exacte_et_absence_de_creation(self):
+  from unittest.mock import patch,AsyncMock
+  import dashboard as d
+  for classeur,gid,ok in [(d.CLASSEUR_DASHBOARD_AUTORISE,d.GID_DASHBOARD_AUTORISE,True),
+                          ('classeur-fictif',d.GID_DASHBOARD_AUTORISE,False),
+                          (d.CLASSEUR_DASHBOARD_AUTORISE,123,False),
+                          (d.CLASSEUR_DASHBOARD_AUTORISE,None,False)]:
+   with patch.object(d.onboarding,'CLASSEUR_LOGINS_ID',classeur),patch.object(d.google_api,'sheets_proprietes',AsyncMock(return_value={d.ONGLET:{'id':gid}})),patch.object(d.google_api,'sheets_creer_onglet',AsyncMock()) as create,patch.object(d,'requetes_simple',return_value=[]),patch.object(d,'_batch_unique',AsyncMock()) as write:
+    if ok:
+     self.assertEqual(d.GID_DASHBOARD_AUTORISE,await d._ecrire_onglet({'simple':True}));write.assert_awaited_once()
+    else:
+     with self.assertRaises(RuntimeError):await d._ecrire_onglet({'simple':True})
+     write.assert_not_awaited()
+    create.assert_not_awaited()
