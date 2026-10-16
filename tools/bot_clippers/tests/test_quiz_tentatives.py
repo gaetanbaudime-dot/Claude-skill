@@ -41,11 +41,13 @@ class QuizTests(unittest.IsolatedAsyncioTestCase):
         await w.post_quiz_cand({'tentative':token,'q-fictive':'1'},'cand')
         await w.post_quiz_cand({'tentative':token,'q-fictive':'1'},'cand')
         self.assertEqual(1,self.data['candidatures_web']['cand']['quiz']['essais'])
+        self.assertEqual(1,len(self.data['candidatures_web']['cand']['quiz_historique']))
     async def test_retry_discord_compte_une_seule_fois(self):
         token=self.formulaire('t','42')
         await self.post_discord(token)
         await self.post_discord(token)
         self.assertEqual(1,self.callback.await_count)
+        self.assertEqual(1,len(self.data['quiz_historique_web']))
         self.assertEqual(1,self.data['etats']['42']['essais_quiz'])
     async def test_nouvel_essai_et_vieux_replay_ne_comptent_pas_trois(self):
         t1=self.formulaire()
