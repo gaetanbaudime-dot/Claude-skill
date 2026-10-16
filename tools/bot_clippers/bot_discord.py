@@ -1567,8 +1567,13 @@ async def pieces_pour_le_modele(pieces) -> tuple:
 def est_escalade(reponse: str) -> bool:
     """La réponse dit que le bot n'a pas la réponse (MESSAGE_ESCALADE ou une variante écrite par le modèle)."""
     r = normaliser((reponse or "").replace("’", "'"))
+    # Le texte du modèle ne constitue jamais une preuve d'envoi. Ces formulations
+    # déclenchent le mécanisme de ticket ; seule sa réponse structurée autorise
+    # ensuite la confirmation canonique affichée par reponse_escalade_verifiee.
+    action = r"(?:transmi\w*|transmet\w*|signal\w*|preven\w*|previen\w*|inform\w*|alert\w*|avert\w*|notif\w*|contact\w*|envoy\w*|escalad\w*|remont\w*|relay\w*)"
+    destinataire = r"(?:equipe|manager|gaetan|staff|responsable|team leader)"
     return (MESSAGE_ESCALADE in (reponse or "") or "transmis ta question" in r or "je n'ai pas la reponse" in r
-            or re.search(r"(?:transmis|transmets|signale|prevenu).{0,50}(?:equipe|manager|gaetan)|(?:equipe|manager|gaetan).{0,40}(?:prevenu|informe|averti|recontact)", r) is not None)
+            or re.search(action + r"[^.!?]*" + destinataire + "|" + destinataire + r"[^.!?]*" + action, r) is not None)
 
 
 async def signaler_escalade(message, question: str) -> bool:

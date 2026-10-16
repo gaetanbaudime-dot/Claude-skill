@@ -49,6 +49,6 @@ class EscaladeIATests(unittest.IsolatedAsyncioTestCase):
         import re,unicodedata
         def norm(t):return ''.join(c for c in unicodedata.normalize('NFD',t.lower()) if unicodedata.category(c)!='Mn')
         f=extraire('est_escalade',{'normaliser':norm,'MESSAGE_ESCALADE':'message canonique fictif','re':re})
-        for texte in ['J’ai transmis le problème à ton équipe.','Ton équipe est prévenue.','Je signale ce blocage au manager.']:
+        for texte in ['J’ai transmis le problème à ton équipe.','Ton équipe est prévenue.','Je signale ce blocage au manager.', 'J’ai informé l’équipe de ton problème', 'J’ai alerté le manager', 'Le manager a été informé.', 'Ton équipe a été alertée.', 'J’ai envoyé un message\nau responsable.']:
             self.assertTrue(f(texte))
         self.assertFalse(f('Publie les Reels après vérification.'))
