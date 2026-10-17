@@ -140,3 +140,41 @@ class Budgets(unittest.IsolatedAsyncioTestCase):
                 original(fd)
             with patch.object(os,'fsync',side_effect=sync): ei.sauver(Path(tmp)/'curseur.json',{'apres':12})
             self.assertEqual(observe,[False,True])
+
+    async def test_premiere_collecte_pleine_pages_validees_livrables(self):
+        from test_audit_complet import Channel
+        from datetime import datetime, timezone
+        class DeuxPages(Channel):
+            async def history(self, limit, before, oldest_first):
+                n=0
+                for i in range(200,0,-1):
+                    if i >= before.id: continue
+                    if n >= limit: break
+                    n+=1
+                    # Première page petite ; seconde page dépasse le plafond.
+                    yield SimpleNamespace(id=i,created_at=datetime.now(timezone.utc),author=SimpleNamespace(id=42,bot=False),
+                        content='Bonjour.' if i>100 else 'bonjour '*8000,attachments=[],embeds=[])
+        c=DeuxPages()
+        g=SimpleNamespace(id=1,owner_id=2,me=SimpleNamespace(id=99),channels=[c],active_threads=AsyncMock(return_value=[]),get_channel_or_thread=lambda _:None)
+        msg=SimpleNamespace(guild=g,author=SimpleNamespace(id=2,send=AsyncMock()))
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            with patch.object(ei,'BUDGET_ARCHIVE',128*1024):
+                await ei.commande(msg,root,['nouveau'])
+                etat=json.loads((root/'export-1.json').read_text())
+                self.assertEqual(etat['rapport']['arret'],'volume')
+                self.assertFalse(etat['rapport']['complet'])
+                self.assertEqual(etat['rapport']['messages_valides'],100)
+                self.assertEqual(etat['rapport']['salons'][0]['messages'],100)
+                with sqlite3.connect(root/etat['fichier']) as db:
+                    self.assertEqual(db.execute('SELECT curseur FROM salons').fetchone()[0],'101')
+                with patch.object(ei, 'BUDGET_GLOBAL', 1):
+                    await ei.commande(msg,root,['livrer'])
+                self.assertTrue(any('Budget global dépassé' in str(c) for c in msg.author.send.call_args_list))
+            etat=json.loads((root/'export-1.json').read_text())
+            final=ei.livraison(root/etat['fichier'],etat['apres'],etat['rapport']['complet'])
+            self.assertEqual(final['messages_livres'],100)
+            self.assertEqual(final['messages_restants'],0)
+            self.assertFalse(final['collecte_complete'])
+            self.assertFalse(final['livraison_complete'])
+            self.assertTrue(any(c.kwargs.get('file') and c.kwargs['file'].filename.startswith('discussions-') for c in msg.author.send.call_args_list))

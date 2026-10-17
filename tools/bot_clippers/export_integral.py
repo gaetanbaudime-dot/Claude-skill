@@ -28,6 +28,8 @@ def verifier_budget(racine, nouveau=False):
 
 def livraison(chemin, apres, collecte_complete):
     with closing(sqlite3.connect(Path(chemin).resolve().as_uri()+'?mode=ro', uri=True)) as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='messages'").fetchone():
+            return dict(collecte_complete=False, livraison_complete=False, messages_livres=0, messages_restants=0, borne_livraison=0, curseur_livre=apres)
         total, borne = db.execute('SELECT count(*),coalesce(max(rowid),0) FROM messages').fetchone()
         livres = db.execute('SELECT count(*) FROM messages WHERE rowid<=?', (apres,)).fetchone()[0]
     return dict(collecte_complete=collecte_complete, livraison_complete=bool(collecte_complete and livres == total),
@@ -35,9 +37,29 @@ def livraison(chemin, apres, collecte_complete):
 
 
 
+def rapport_volume(chemin, debut):
+    """Relire uniquement les transactions validées après SQLITE_FULL/rollback."""
+    with closing(sqlite3.connect(Path(chemin).resolve().as_uri()+'?mode=ro', uri=True)) as db:
+        tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        avant = db.execute("SELECT valeur FROM meta WHERE cle='avant'").fetchone() if 'meta' in tables else None
+        salons = [dict(id=i, statut=s, erreur=e, messages=n) for i,s,e,n in db.execute(
+            'SELECT s.id,s.statut,s.erreur,count(m.id) FROM salons s LEFT JOIN messages m ON s.id=m.salon GROUP BY s.id')
+            ] if {'salons','messages'} <= tables else []
+        decouverte = [dict(source=i, statut=s) for i,s in db.execute('SELECT id,statut FROM decouverte_v2')] if 'decouverte_v2' in tables else []
+        total = db.execute('SELECT count(*) FROM messages').fetchone()[0] if 'messages' in tables else 0
+        return dict(avant=avant[0] if avant else str(discord.utils.time_snowflake(datetime.fromisoformat(debut), high=False)),
+                    salons=salons, decouverte=decouverte, messages_valides=total,
+                    complet=False, borne_atteinte=True, arret='volume', plafond_octets=BUDGET_ARCHIVE,
+                    limites=['Collecte interrompue au plafond SQLite ; seules les transactions validées sont disponibles',
+                             'Découverte non garantie complète ; salons invisibles et MP exclus',
+                             'Pièces jointes, embeds et composants omis ; masquage heuristique'])
+
+
 def segments(chemin, apres=0, maximum=6_000_000):
     """Texte lisible, sans réinterpréter le Markdown ; pagination par rowid stable."""
     with closing(sqlite3.connect(Path(chemin).resolve().as_uri()+'?mode=ro', uri=True)) as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='messages'").fetchone():
+            return
         contenu = bytearray()
         dernier = apres
         for numero, mid, salon, brut in db.execute('SELECT rowid,id,salon,contenu FROM messages WHERE rowid>? ORDER BY rowid', (apres,)):
@@ -78,7 +100,13 @@ async def commande(message, racine, args):
         racine.mkdir(parents=True, exist_ok=True, mode=0o700)
         pointeur = racine / f'export-{message.guild.id}.json'
         await message.author.send('Export privé : vérification de la collecte et de sa couverture.')
-        verifier_budget(racine, nouveau=args == ['nouveau'])
+        if args == ['livrer']:
+            try:
+                verifier_budget(racine)
+            except ValueError:
+                await message.author.send('Budget global dépassé : récupération de l’archive existante autorisée ; aucune nouvelle collecte.')
+        else:
+            verifier_budget(racine, nouveau=args == ['nouveau'])
         if args == ['nouveau']:
             ident = uuid4().hex
             etat = dict(fichier=f'export-{message.guild.id}-{ident}.sqlite3', proprietaire=str(message.author.id),
@@ -102,8 +130,7 @@ async def commande(message, racine, args):
             except sqlite3.OperationalError as erreur:
                 if getattr(erreur, 'sqlite_errorcode', None) != sqlite3.SQLITE_FULL:
                     raise
-                await message.author.send('Budget SQLite strict atteint. La transaction interrompue est annulée ; les pages déjà validées et leur curseur sont conservés. Archive partielle, aucune suppression.')
-                return
+                rapport = rapport_volume(chemin, etat['debut'])
             etat['rapport'] = rapport
             sauver(pointeur, etat)
         rapport = etat.get('rapport')
@@ -121,7 +148,10 @@ async def commande(message, racine, args):
         await message.author.send('Manifeste : '+('complet' if rapport['complet'] else 'PARTIEL — collecte/découverte à reprendre ou accès manquant'),
             file=discord.File(io.BytesIO(json.dumps(manifeste, ensure_ascii=False, indent=2).encode()), filename='manifeste-export.json'))
         if args != ['livrer']:
-            await message.author.send('Contenu disponible via `!audit-discussions export livrer`. Pour poursuivre la collecte : `!audit-discussions export`.')
+            if rapport.get('arret') == 'volume':
+                await message.author.send('Arrêt volume : pages validées conservées et livrables via `!audit-discussions export livrer`. Une revue du budget est nécessaire avant de poursuivre la collecte.')
+            else:
+                await message.author.send('Contenu disponible via `!audit-discussions export livrer`. Pour poursuivre la collecte : `!audit-discussions export`.')
             return
         nombre = 0
         for dernier, contenu in segments(chemin, etat['apres']):
