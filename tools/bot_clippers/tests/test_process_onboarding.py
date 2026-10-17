@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, Mock, patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import discord
+import onboarding_preuves
 import process_adapters
 from process_store import Store
 
@@ -66,11 +67,11 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         role = SimpleNamespace(name='Fictive')
         membre = SimpleNamespace(id=42, display_name='Fictif - Fictive', roles=[SimpleNamespace(name='Clippeur')],
                                  edit=AsyncMock(), add_roles=AsyncMock())
-        salon = SimpleNamespace(id=99, set_permissions=AsyncMock())
+        salon = SimpleNamespace(id=99, set_permissions=AsyncMock(), permissions_for=lambda tl:SimpleNamespace(view_channel=True,read_message_history=True))
         onb = SimpleNamespace(lien_drive_creatrice=AsyncMock(return_value='https://example.invalid/drive'),
                               livrer=AsyncMock(return_value='1 compte(s)'))
-        parcours = SimpleNamespace(demarrer_parcours=AsyncMock(), demarrer_selon_classeur=AsyncMock())
-        ns = {'ancien_sans_salon': lambda m: False, 'parcours_a_demarrer': lambda uid: True,
+        parcours = SimpleNamespace(demarrer_parcours=AsyncMock(), demarrer_selon_classeur=AsyncMock(), _lire=lambda:{"42":{"messages":{"1":"fictif"}}})
+        ns = {'onboarding_preuves':onboarding_preuves,'FICHIER_ONBOARDING':'onboarding','FICHIER_PARCOURS':'parcours','FICHIER_SORTIS':'sortis','DONNEES':Path(self.tmp.name),'ancien_sans_salon': lambda m: False, 'parcours_a_demarrer': lambda uid: True,
               'equipes_tl': SimpleNamespace(tl_par_va=lambda: {'42': '90'}),
               'membre_par_id': lambda uid: SimpleNamespace(id=90), 'onboarding': onb,
               '_ONBOARDINGS_EN_COURS': set(), 'categorie_de_creatrice': lambda g, cr: None,
@@ -79,7 +80,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
               'prenom_de': lambda m: 'Fictif', 'FICHIER_EQUIPES': 'equipes', 'FICHIER_PIPELINE': 'pipeline',
               'lire_json': lambda key, default: deepcopy(registre.get(key, default)),
               'ecrire_json': lambda key, val: registre.update({key: deepcopy(val)}),
-              'datetime': datetime, 'timezone': timezone, 'attribution': SimpleNamespace(_sortir_d_attente=Mock()),
+              'datetime': datetime, 'timezone': timezone, 'attribution': SimpleNamespace(_sortir_d_attente=Mock(), conserver_attente=Mock()),
               'NOMS_RANGS': ['Clippeur'], 'role_creatrice': lambda g, cr: role,
               'roster': SimpleNamespace(ajouter=Mock()), 'discord': discord, 'parcours': parcours,
               'journal': logging.getLogger('test')}
@@ -118,3 +119,78 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('mdp', texte)
         self.assertNotIn('mail', texte)
         self.assertIn('responsable', texte)
+
+    async def test_historique_salon_non_partage_nouvre_pas_les_acces(self):
+        ns,membre,salon,_=self.contexte()
+        salon.permissions_for=lambda tl:SimpleNamespace(view_channel=False,read_message_history=False)
+        fn=charger('onboarder_membre',ns)
+        resultat=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        self.assertIn('historique',resultat)
+        salon.set_permissions.assert_not_awaited()
+        ns['onboarding'].livrer.assert_not_awaited()
+
+    async def test_double_evenement_ne_double_pas_la_livraison(self):
+        ns,membre,salon,_=self.contexte()
+        entre,sortie=asyncio.Event(),asyncio.Event()
+        async def drive(*args):
+            entre.set();await sortie.wait();return 'https://example.invalid/drive'
+        ns['onboarding'].lien_drive_creatrice.side_effect=drive
+        fn=charger('onboarder_membre',ns)
+        un=asyncio.create_task(fn(SimpleNamespace(),membre,'Fictive',None,{},[]))
+        await entre.wait()
+        deux=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        self.assertIn('déjà en cours',deux)
+        sortie.set();await un
+        ns['onboarding'].livrer.assert_awaited_once()
+
+    async def test_absence_message_compte_garde_attente(self):
+        ns,membre,salon,_=self.contexte()
+        ns['parcours']._lire=lambda:{}
+        fn=charger('onboarder_membre',ns)
+        resultat=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        self.assertIn('non livré',resultat)
+        ns['attribution']._sortir_d_attente.assert_not_called()
+
+    async def test_bouton_obsolete_retire_meme_pret_retire(self):
+        msg=SimpleNamespace(author=SimpleNamespace(id=90),components=['ancien'],edit=AsyncMock())
+        salon=SimpleNamespace(guild=SimpleNamespace(me=SimpleNamespace(id=90)),fetch_message=AsyncMock(return_value=msg))
+        fn=charger('_retirer_pret',{'discord':discord,'journal':logging.getLogger('test')},'parcours.py')
+        await fn(salon,'42',{'pret_retire':True,'messages':{'bienvenue':'99'}})
+        msg.edit.assert_awaited_once_with(view=None)
+        msg.edit.reset_mock();msg.author.id=91
+        await fn(salon,'42',{'messages':{'bienvenue':'99'}})
+        msg.edit.assert_not_awaited()
+
+
+    async def test_erreur_livraison_garde_attente_meme_avec_ancien_message(self):
+        ns,membre,salon,_=self.contexte()
+        ns['onboarding'].livrer.side_effect=TimeoutError('fictif')
+        fn=charger('onboarder_membre',ns)
+        resultat=await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        self.assertIn('reprise conservée',resultat)
+        ns['attribution']._sortir_d_attente.assert_not_called()
+        ns['parcours'].demarrer_parcours.assert_not_awaited()
+
+
+class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reprises_selectionnees_sans_stock_et_blocage_individuel(self):
+        etats = {u: {'etat':'attente_attribution', **({'creatrice_attendue':'Fictive'} if u != '30' else {})}
+                 for u in ('10','20','30')}
+        membres = {u:SimpleNamespace(id=int(u),guild=None) for u in etats}
+        attribution = AsyncMock(side_effect=['', 'Fictive'])
+        valider = AsyncMock()
+        lock = asyncio.Lock()
+        ns = {'actif':lambda:True,'_verrou':lambda cle:lock,'en_attente':lambda:list(etats.items()),
+              '_deps':{'membre_par_id':membres.get,'est_staff':lambda m:False,
+                       'lire_json':lambda fichier,defaut:{'etats':etats} if fichier == 'pipeline' else {},
+                       'FICHIER_EQUIPES':'equipes','prenom_de':lambda m:str(m.id),'valider_candidat':valider},
+              '_repris_possible':lambda u,i:membres[u], 'stock_livrable':AsyncMock(return_value={}),
+              'ETAT_ATTENTE':'attente_attribution','ORDRE':['Fictive'],'_existe':lambda g,c:True,'_stock_de':lambda s,c:0,
+              'creatrice_en_attente':lambda u:etats[u].get('creatrice_attendue'),
+              '_fichier_pipeline':lambda:'pipeline','sans_creatrice':lambda m:False,
+              '_noter_essai':Mock(),'attribuer':attribution,'asyncio':asyncio,'PAUSE_SEC':0,
+              'journal':logging.getLogger('test')}
+        fn = charger('reprendre_attente',ns,'attribution.py')
+        self.assertEqual(await fn(), [('20','Fictive')])
+        self.assertEqual([a.args[0].id for a in attribution.await_args_list], [10,20])
+        valider.assert_not_awaited()

@@ -1373,14 +1373,20 @@ def _vue_bienvenue(uid: str, fiche_p: dict = None, avec_pret: bool = False):
 
 
 async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
-    """09/10 : le compte 1 est donné → le « ✅ C'est fait » de la bienvenue s'en va (le bouton WhatsApp reste). 10/10 : il devient
-    « ✅ J'ai écrit à Gaëtan » ; une bienvenue du 10/10 (« pret_retire ») n'a jamais eu de « ✅ C'est fait » : rien à modifier."""
+    """Retire seulement les composants de la bienvenue identifiée du bot.
+
+    pret_retire est un ancien marqueur, pas une preuve d'absence du bouton WhatsApp.
+    Le contenu du message et les autres messages restent inchangés.
+    """
     mid = (fiche_p.get("messages") or {}).get("bienvenue")
-    if not mid or not str(mid).isdigit() or salon is None or fiche_p.get("pret_retire"):
+    if not mid or not str(mid).isdigit() or salon is None:
         return
     try:
         msg = await salon.fetch_message(int(mid))
-        await msg.edit(view=_vue_bienvenue(uid, fiche_p, avec_pret=False))
+        if getattr(msg.author, "id", None) != getattr(salon.guild.me, "id", None):
+            return
+        if msg.components:
+            await msg.edit(view=None)
     except (discord.Forbidden, discord.HTTPException, discord.NotFound):
         pass
     except Exception as erreur:                                         # noqa: BLE001 — un bouton en trop, jamais une étape en moins
@@ -2280,6 +2286,8 @@ async def _programme_du_jour(client, maintenant=None) -> list:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Clippers bloqués par un BAN : %s", erreur)
     for uid, fiche_p in list(d0.items()):
+        salon_nettoyage = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
+        await _retirer_pret(salon_nettoyage, uid, fiche_p)
         if not any(_a_traiter(fiche_p, x, maintenant) for x in fiche_p.get("programme") or []):
             continue
         salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))

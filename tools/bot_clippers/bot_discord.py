@@ -33,6 +33,7 @@ import otp_identity                       # rattrapage sûr des e-mails via UID 
 import conversation_audit                 # export privé de l'historique pour audit du serveur (lecture seule)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
 import recrutement_suivi
+import onboarding_preuves
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
@@ -5408,27 +5409,39 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         return f"⏭️ {m_.display_name} : pas de salon perso (ancien système, liste `sans_salon` du roster)"
     uid_m = str(m_.id)
     import process_adapters
-    try:
-        process_adapters.store().reserve(uid_m, [])
-    except RuntimeError as erreur:
-        return "⚠️ " + str(erreur) + ". Suivi et reporting existants conservés ; aucune nouvelle attribution."
-    info_process = (lire_json(FICHIER_PIPELINE, {}).get("etats") or {}).get(uid_m) or {}
+    pipe_process = lire_json(FICHIER_PIPELINE, {})
+    info_process = (pipe_process.get("etats") or {}).get(uid_m) or {}
     if not (info_process.get("score_quiz") and info_process.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
         return "⚠️ Preuve de quiz réussi absente : onboarding en attente"
-    tl_id = equipes_tl.tl_par_va().get(uid_m)
+    attribution.conserver_attente(uid_m, creatrice_c)
+    # Les fichiers absents/illisibles restent inconnus, jamais des historiques vides.
+    preuve = onboarding_preuves.preuve_nouveau(uid_m, pipe_process,
+        lire_json(FICHIER_ONBOARDING, None), lire_json(FICHIER_PARCOURS, None),
+        lire_json(FICHIER_SORTIS, None), lire_json(DONNEES / "parcours_oublis.json", None),
+        registre=lire_json(FICHIER_EQUIPES, None))
+    try:
+        process_adapters.store().initialiser_nouveau(uid_m, preuve)
+        process_adapters.store().reserve(uid_m, [])
+    except RuntimeError as erreur:
+        return "⚠️ " + str(erreur) + ". Historique conservé ; rapprochement nécessaire."
+    tl_id = onboarding_preuves.tl_pour(uid_m, creatrice_c, equipes_tl.tl_par_va(), lire_json(FICHIER_EQUIPES, {}))
     tl = membre_par_id(tl_id) if tl_id else None
-    if tl is None:
-        return "⚠️ Team leader non configuré pour cette identité : onboarding en attente"
-    drive = await onboarding.lien_drive_creatrice(creatrice_c)
-    if not drive:
-        return "⚠️ Accès Drive existant non vérifié : onboarding en attente, aucun partage créé"
-    nouveau_v = parcours_a_demarrer(uid_m) if nouveau is None else bool(nouveau)   # AVANT l'écriture du registre
+    if tl is None or getattr(tl, "bot", False):
+        return "⚠️ Team leader absent ou ambigu : onboarding en attente"
+    if uid_m in _ONBOARDINGS_EN_COURS:
+        return "⏳ Onboarding déjà en cours ; reprise conservée."
+    nouveau_v = parcours_a_demarrer(uid_m) if nouveau is None else bool(nouveau)
     _ONBOARDINGS_EN_COURS.add(uid_m)
     try:
+        drive = await onboarding.lien_drive_creatrice(creatrice_c)
+        if not drive:
+            return "⚠️ Accès Drive non vérifié : onboarding en attente."
         cat = categorie_de_creatrice(g, creatrice_c)
         salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
         if salon_c is None or err_c:
             return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
+        if not cree_c and not (salon_c.permissions_for(tl).view_channel and salon_c.permissions_for(tl).read_message_history):
+            return "⚠️ Accès TL retenu : vérifier l’historique du salon avant de le partager."
         await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
                                       reason="Team leader configuré du clippeur")
         prenom_c = prenom_distinct(m_, nouveau_v)
@@ -5469,13 +5482,12 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                 extras.append(f"rôle {role_c.name}")
             except (discord.Forbidden, discord.HTTPException):
                 return "⚠️ rôle créatrice refusé : parcours non livré, reprise nécessaire"
-        attribution._sortir_d_attente(uid_m)
         roster.ajouter(creatrice_c, prenom_c)
         try:
             bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=declencheur or f"!salons-equipe par {par_id}",
                                                   nouveau=nouveau_v, gerant=prenom_c)
         except Exception as erreur:                                         # noqa: BLE001
-            bilan_onb_c = f"onboarding : {type(erreur).__name__} {str(erreur)[:80]}"
+            return f"⚠️ Livraison interrompue ({type(erreur).__name__}) : reprise conservée."
         try:
             # 30/09 (Gaëtan : « pourquoi Steeve, on lui donne directement 2 comptes ? ») : un clipper qui vient d'être accepté commence
             # TOUJOURS à l'étape 1, compte 1. « Selon le classeur » ne vaut que pour un ancien clipper qui arrive avec des comptes à lui.
@@ -5486,6 +5498,11 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                 await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
         except Exception as erreur:                                         # noqa: BLE001
             journal.warning("Routine %s : %s", m_.id, erreur)
+            return "⚠️ Parcours interrompu : reprise conservée."
+        p_final = parcours._lire().get(uid_m) or {}
+        if not (p_final.get("messages") or {}).get("1"):
+            return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
+        attribution._sortir_d_attente(uid_m)
         return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
                 + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
                 + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])

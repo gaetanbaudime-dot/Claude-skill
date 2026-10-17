@@ -327,8 +327,25 @@ async def _mettre_en_attente(membre, via: str) -> tuple:
     return nouveau, envoye
 
 
+def conserver_attente(uid, creatrice):
+    """Choix durable avant effets ; aucun message ni nouvelle rotation au retry."""
+    fichier = _fichier_pipeline()
+    pipe = _deps["lire_json"](fichier, {})
+    info = pipe.setdefault("etats", {}).setdefault(str(uid), {})
+    info["etat"] = ETAT_ATTENTE
+    info.setdefault("attente_depuis", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    info["creatrice_attendue"] = creatrice
+    _deps["ecrire_json"](fichier, pipe)
+
+
+def creatrice_en_attente(uid):
+    pipe = _deps["lire_json"](_fichier_pipeline(), {})
+    info = (pipe.get("etats") or {}).get(str(uid)) or {}
+    return info.get("creatrice_attendue", "") if info.get("etat") == ETAT_ATTENTE else ""
+
+
 def _sortir_d_attente(uid: str) -> bool:
-    """09/10 : un membre qui reçoit sa créatrice quitte l'attente AVANT l'onboarding : l'état redevient « valide » et « attente_fin »
+    """09/10 : un membre qui termine son onboarding quitte l'attente après la livraison vérifiée : l'état redevient « valide » et « attente_fin »
     est daté. bot_discord.parcours_a_demarrer compte cette date comme une validation : un nouveau qui a attendu plus de 7 jours
     démarre quand même à l'étape 1 (bienvenue, compte 1), jamais en routine. Renvoie vrai si le membre était en attente."""
     fichier = _fichier_pipeline()
@@ -340,7 +357,7 @@ def _sortir_d_attente(uid: str) -> bool:
         return False
     info["etat"] = "valide"
     info["attente_fin"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    for cle in ("attente_depuis", "attente_par", "repli_attente", "reprise_essai"):
+    for cle in ("attente_depuis", "attente_par", "repli_attente", "reprise_essai", "creatrice_attendue"):
         info.pop(cle, None)
     _deps["ecrire_json"](fichier, pipe)
     return True
@@ -501,7 +518,8 @@ async def attribuer(membre, via: str) -> str:
     if not actif() or membre is None or getattr(membre, "bot", False):
         return ""
     fiche = _fiche_registre(membre)
-    if (fiche or {}).get("creatrice"):
+    reprise = creatrice_en_attente(membre.id)
+    if (fiche or {}).get("creatrice") and not reprise:
         return ""
     if _reserve_au_depot(membre):
         if _marquer_une_fois(str(membre.id), "depot_attendu"):
@@ -510,16 +528,20 @@ async def attribuer(membre, via: str) -> str:
                                "(« onboarding »). Sa créatrice vient du dépôt, au prochain démarrage.\n\n"
                                f"Pas lui ? `!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")
         return ""
-    if not sans_creatrice(membre):
+    if not sans_creatrice(membre) and not reprise:
         est_staff = _deps.get("est_staff")
         if fiche is not None and not (est_staff and est_staff(membre)) and _valide_au_funnel(membre.id):
             await _filet_roster(membre, via)
         return ""
     async with _verrou("attribution"):
-        if not sans_creatrice(membre):                                      # attribué pendant l'attente du verrou
+        reprise = creatrice_en_attente(membre.id)
+        if not sans_creatrice(membre) and not reprise:  # attribué pendant l'attente du verrou
             return ""
-        stock = await stock_livrable()
-        creatrice, note = prochaine(membre.guild, stock)
+        if reprise:
+            creatrice, note = reprise, ""
+        else:
+            stock = await stock_livrable()
+            creatrice, note = prochaine(membre.guild, stock)
         if not creatrice:
             nouveau, prevenu = await _mettre_en_attente(membre, via)
             journal.info("Attribution impossible pour %s (%s) : aucun compte livrable, en attente%s", _deps["prenom_de"](membre), via,
@@ -536,7 +558,7 @@ async def attribuer(membre, via: str) -> str:
                 except (discord.Forbidden, discord.HTTPException):
                     pass
             return ""
-        _sortir_d_attente(str(membre.id))
+        conserver_attente(str(membre.id), creatrice)
         try:
             etats_cl = await _deps["etats_classeur"]()
         except Exception as erreur:                                         # noqa: BLE001
@@ -563,7 +585,7 @@ async def attribuer(membre, via: str) -> str:
                 await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
             except (discord.Forbidden, discord.HTTPException):
                 pass
-    return creatrice
+    return "" if creatrice_en_attente(membre.id) else creatrice
 
 
 # 10/10 (lot L9b) : ce qui, dans le bilan d'onboarding ou la note de l'ordre, demande un geste du staff (onboarder_membre et
@@ -596,7 +618,7 @@ async def reprendre_attente() -> list:
     """09/10 (Gaëtan : « on va ouvrir les vannes » ; décision : reprise automatique, sans commande) : lancée par
     boucle_pipeline (bot_discord.reprendre_attente_attribution, 5 min ; lot L10 : plus par la boucle de l'onboarding). Les membres « attente_attribution » présents passent, les plus anciens d'abord, dans la limite du stock
     de comptes livrables, ATTRIBUTION_PAUSE_SEC entre deux : un signé reçoit sa créatrice (attribuer), un candidat mis en attente
-    par la migration est validé (valider_candidat, qui mène à la même attribution). Stock inconnu ou nul : personne ne bouge.
+    par la migration est validé (valider_candidat, qui mène à la même attribution). Stock inconnu ou nul : seules les attributions déjà choisies sont reprises ; la réservation reste contrôlée par le store.
     09/10 (revue du lot L6) : un staff en attente en sort ; un « deja » (rôle d'équipe sans être au registre) en sort aussi, avec une
     ligne à l'admin, et ne prend pas de place ; un même membre au plus une fois par REPRISE_ESSAI_H heure (trace écrite avant l'appel :
     deux reprises lancées coup sur coup ne valident jamais deux fois). Renvoie [(prénom, résultat)]."""
@@ -616,25 +638,24 @@ async def reprendre_attente() -> list:
         stock = await stock_livrable()
         guild = getattr(presents[0], "guild", None)                         # seules les créatrices ouvertes sur le serveur comptent
         places = sum(_stock_de(stock, c) for c in ORDRE if _existe(guild, c)) if stock is not None else 0
-        if places <= 0:
-            return []
         registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
         for uid, info in attente:
-            if pris >= places:
-                break
+            reprise = creatrice_en_attente(uid)
+            if pris >= places and not reprise:
+                continue
             membre = _deps["membre_par_id"](uid) if _deps.get("membre_par_id") else None
             info_f = dict(((_deps["lire_json"](_fichier_pipeline(), {}) or {}).get("etats") or {}).get(uid) or {})
             if membre is None or info_f.get("etat") != ETAT_ATTENTE or _repris_possible(uid, info_f) is None:
                 continue                                                    # parti, déjà repris ailleurs, ou essayé dans l'heure
             prenom = _deps["prenom_de"](membre)
-            if uid in registre:
-                if not sans_creatrice(membre):                              # créatrice reçue autrement (`!creatrice`, roster)
+            if uid in registre or reprise:
+                if not sans_creatrice(membre) and not creatrice_en_attente(uid):  # créatrice reçue autrement (`!creatrice`, roster)
                     _sortir_d_attente(uid)
                     continue
                 _noter_essai(uid)
                 creatrice = await attribuer(membre, "reprise : compte libéré")
                 if not creatrice:
-                    break                                                   # plus de compte en vrai : on s'arrête là
+                    continue  # un blocage individuel ne bloque pas les autres reprises
                 pris += 1
                 faits.append((prenom, creatrice))
             elif _deps.get("valider_candidat"):
