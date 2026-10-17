@@ -30,6 +30,12 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
     os.chmod(chemin,0o600)
     db = sqlite3.connect(chemin)
     try:
+        if integral:
+            page_size = db.execute('PRAGMA page_size').fetchone()[0]
+            plafond = int(volume_max) // page_size
+            if plafond < 1 or db.execute('PRAGMA page_count').fetchone()[0] > plafond:
+                raise ValueError('Budget SQLite inférieur au volume existant')
+            db.execute(f'PRAGMA max_page_count={plafond}')
         db.executescript('''
         CREATE TABLE IF NOT EXISTS meta (cle TEXT PRIMARY KEY, valeur TEXT);
         CREATE TABLE IF NOT EXISTS salons (id TEXT PRIMARY KEY, curseur TEXT, statut TEXT DEFAULT 'a_lire', erreur TEXT);
