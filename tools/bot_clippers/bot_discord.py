@@ -6456,6 +6456,9 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
 
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    if texte.split()[:1] == ["!diagnostic-dossier"]:
+        import diagnostic_dossier
+        return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS)
     # 11/10 (lot W, lots L9b et L10) : `!equipes` (audit Team France / International), `!relancer-lien` et `!rang` sont retirés.
     # Une réponse les dit, sinon `!equipes` tombait dans `!equipe @membre` (préfixe) et les autres dans « commande inconnue ».
     retiree = COMMANDES_RETIREES.get((texte.split() or [""])[0].lower())
