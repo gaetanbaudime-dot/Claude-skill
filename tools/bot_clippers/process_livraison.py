@@ -11,8 +11,8 @@ def empreinte(texte):
     return hashlib.sha256(texte.encode()).hexdigest()
 
 
-async def envoyer_compte_1(store, salon, uid, texte, vue):
-    cle = 'message-compte1:' + str(uid)
+async def envoyer_compte_1(store, salon, uid, texte, vue, *, cle=None):
+    cle = cle or 'message-compte1:' + str(uid)
     with store.lock(cle):
         job = store.get(cle)
         if job and job.get('salon') != str(salon.id):
@@ -36,7 +36,7 @@ async def envoyer_compte_1(store, salon, uid, texte, vue):
                'debut':datetime.now(timezone.utc).isoformat()}
         store.put(cle, job)  # durable avant le POST ; couvre aussi un arrêt du processus
         try:
-            message = await salon.send(texte, view=vue)
+            message = await salon.send(texte, view=vue, allowed_mentions=discord.AllowedMentions.none())
         except discord.HTTPException as erreur:
             if erreur.status in (400, 401, 403, 404, 429):
                 job['etat'] = 'refuse'  # refus explicite : aucun message accepté

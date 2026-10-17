@@ -1,6 +1,8 @@
 """Modèle et remise manuelle avec accès strictement fictifs."""
 from pathlib import Path
 import sys
+import asyncio
+import discord
 import tempfile
 from types import SimpleNamespace as N
 import unittest
@@ -17,7 +19,8 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.store.reconcile('42', [], 'fictif'); self.store.reserve('42', ['compte_fictif'])
         self.original = N(author=N(id=90), edit=AsyncMock())
         self.salon = N(id=99, topic='clipper-uid:42 · Salon de Fictif.', fetch_message=AsyncMock(return_value=self.original),
-                       permissions_for=lambda m:N(view_channel=m.id != 0))
+                       permissions_for=lambda m:N(view_channel=m.id != 0, read_message_history=True),
+                       send=AsyncMock(return_value=N(id=123)))
         self.membre = N(id=42, mention='<@42>')
         self.guild = N(owner_id=1, me=N(id=90), default_role=N(id=0),
                        get_channel=lambda sid:self.salon, get_member=lambda uid:self.membre)
@@ -29,6 +32,7 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.retrait = AsyncMock()
         for pa in [patch.object(r.process_adapters, 'store', return_value=self.store),
                    patch.multiple(r.parcours, _lire=lambda:{'42':self.fiche},
+                       _ecrire=lambda data:setattr(self, 'fiche', data['42']),
                        _onb=lambda uid:{'gerant':'Fictif'}, _comptes_ordonnes=lambda *a:['compte_fictif'],
                        _retirer_pret=self.retrait),
                    patch.dict(r.parcours._deps, {'POSTS_FORMATION':{'1':55}}),
@@ -167,3 +171,89 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         frais = N(id=99, guild=self.guild, topic=self.salon.topic, permissions_for=lambda m:N(view_channel=True))
         self.guild.fetch_channel.return_value = frais
         await self.appeler(); self.original.edit.assert_not_awaited()
+
+    def message_supprime(self):
+        def lire(mid):
+            if mid == 100:
+                raise discord.NotFound(N(status=404, reason='fictif'), {'code':10008, 'message':'Unknown Message'})
+            return self.original
+        self.salon.fetch_message.side_effect = lire
+
+    async def test_message_supprime_recree_une_fois_et_references_reparees(self):
+        self.message_supprime()
+        self.fiche['messages']['bienvenue'] = '100'
+        await self.appeler(); await self.appeler()
+        self.salon.send.assert_awaited_once()
+        self.assertEqual('123', self.fiche['messages']['1'])
+        self.assertEqual('123', self.fiche['messages']['bienvenue'])
+        self.assertEqual('123', self.store.get('message-compte1:42')['message_id'])
+        self.assertEqual(['100'], self.store.get('message-compte1:42')['messages_supprimes'])
+        self.assertEqual({'reserved':1}, self.store.counts('42'))
+        self.assertNotIn('1_fait', self.fiche['dates'])
+        self.assertNotIn('MOT_DE_PASSE_FICTIF', str(self.message.reply.call_args_list))
+
+    async def test_fetch_interdit_timeout_ou_salon_absent_ne_recree_pas(self):
+        for erreur in [discord.Forbidden(N(status=403, reason='fictif'), 'refus'), TimeoutError(),
+                       discord.NotFound(N(status=404, reason='fictif'), {'code':10003, 'message':'Unknown Channel'})]:
+            self.salon.fetch_message.side_effect = erreur
+            await self.appeler()
+            self.salon.send.assert_not_awaited()
+            self.lecture.assert_not_awaited()
+
+    async def test_post_refuse_rejouable_sans_nouvelle_reservation(self):
+        self.message_supprime()
+        self.salon.send.side_effect = [discord.Forbidden(N(status=403, reason='fictif'), 'refus'), N(id=123)]
+        await self.appeler()
+        self.assertEqual('refuse', self.store.get('remise-compte1:42:100')['etat'])
+        await self.appeler()
+        self.assertEqual(2, self.salon.send.await_count)
+        self.assertEqual('123', self.fiche['messages']['1'])
+        self.assertEqual({'reserved':1}, self.store.counts('42'))
+
+    async def test_post_incertain_retrouve_sans_second_envoi(self):
+        self.message_supprime()
+        recu = None
+        async def envoyer(texte, **kwargs):
+            nonlocal recu
+            recu = N(id=123, content=texte, author=self.guild.me)
+            raise TimeoutError()
+        async def historique(**kwargs):
+            yield recu
+        self.salon.send.side_effect = envoyer
+        self.salon.history = historique
+        await self.appeler(); await self.appeler()
+        self.salon.send.assert_awaited_once()
+        self.assertEqual('123', self.fiche['messages']['1'])
+
+    async def test_post_incertain_introuvable_ne_recree_pas(self):
+        self.message_supprime()
+        async def historique(**kwargs):
+            if False: yield None
+        self.salon.history = historique
+        self.salon.send.side_effect = TimeoutError()
+        await self.appeler(); await self.appeler()
+        self.salon.send.assert_awaited_once()
+        self.assertEqual('incertain', self.store.get('remise-compte1:42:100')['etat'])
+        self.assertEqual('100', self.fiche['messages']['1'])
+
+    async def test_reprise_apres_ecriture_json_partielle_sans_second_post(self):
+        self.message_supprime()
+        ecrire = r.parcours._ecrire
+        with patch.object(r.parcours, '_ecrire', side_effect=OSError('fictif')):
+            await self.appeler()
+        self.assertEqual('123', self.store.get('message-compte1:42')['message_id'])
+        # Simule un vrai JSON resté à l'ancien message, distinct du dict fourni à l'écriture.
+        self.fiche['messages']['1'] = '100'
+        await self.appeler()
+        self.salon.send.assert_awaited_once()
+        self.assertEqual('123', self.fiche['messages']['1'])
+
+    async def test_deux_commandes_concurrentes_un_seul_post(self):
+        self.message_supprime()
+        await asyncio.gather(self.appeler(), self.appeler())
+        self.salon.send.assert_awaited_once()
+
+    async def test_suppression_confirmee_mais_sortie_pendant_sheets_aucun_post(self):
+        self.message_supprime()
+        await self.mutation_durant_lecture(lambda:self.store.put('sortie:42', {'etat':'fictif'}))
+        self.salon.send.assert_not_awaited()

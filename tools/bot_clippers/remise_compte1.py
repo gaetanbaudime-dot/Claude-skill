@@ -11,6 +11,7 @@ import onboarding_preuves
 import equipes_tl
 import parcours
 import process_adapters
+import process_livraison
 
 
 class Retenue(Exception):
@@ -72,6 +73,30 @@ def verifier_etat(message, uid, admin_ids, est_staff, salon_frais=None):
     return fiche, onb, handle, str(mid), salon, membre, identite
 
 
+def enregistrer_reprise(uid, ancien_mid, nouveau_mid, salon_id):
+    """Répare les références après POST confirmé ; rejouable après écriture partielle."""
+    store = process_adapters.store()
+    cle = 'message-compte1:' + uid
+    journal = store.get(cle)
+    if str(journal.get('message_id') or '') not in ('', ancien_mid, nouveau_mid):
+        raise Retenue('Référence de livraison divergente : rapprochement requis.')
+    anciens = list(journal.get('messages_supprimes') or [])
+    if ancien_mid not in anciens:
+        anciens.append(ancien_mid)
+    journal.update(etat='livre', message_id=nouveau_mid, salon=salon_id, messages_supprimes=anciens)
+    store.put(cle, journal)
+    etat = parcours._lire()
+    fiche = etat.get(uid) or {}
+    messages = fiche.get('messages') or {}
+    if str(messages.get('1') or '') not in (ancien_mid, nouveau_mid) or str(fiche.get('salon_id')) != salon_id:
+        raise Retenue('Référence du parcours divergente : rapprochement requis.')
+    messages['1'] = nouveau_mid
+    if str(messages.get('bienvenue')) == ancien_mid:
+        messages['bienvenue'] = nouveau_mid
+    fiche['messages'] = messages
+    parcours._ecrire(etat)
+
+
 async def commande(message, texte, admin_ids, est_staff=lambda membre:False):
     if texte.split()[:1] != ['!remettre-compte1']:
         return False
@@ -86,8 +111,13 @@ async def commande(message, texte, admin_ids, est_staff=lambda membre:False):
     try:
         async with choix_creatrice.verrou(uid):
             fiche, onb, handle, mid, salon, membre, identite = verifier_etat(message, uid, admin_ids, est_staff)
-            original = await salon.fetch_message(int(mid))
-            if original.author.id != message.guild.me.id:
+            try:
+                original = await salon.fetch_message(int(mid))
+            except discord.NotFound as erreur:
+                if erreur.code != 10008:  # Unknown Message ; un salon absent n'est pas une suppression prouvée.
+                    raise
+                original = None
+            if original is not None and original.author.id != message.guild.me.id:
                 raise Retenue('Message initial du bot non confirmé.')
             # Lecture serveur uniquement après commande du propriétaire ; pas de repli ni allocation.
             lignes = [c for c in await onboarding.lire_comptes() if c.get('handle', '').lower() == handle.lower()]
@@ -113,9 +143,19 @@ async def commande(message, texte, admin_ids, est_staff=lambda membre:False):
                 message, uid, admin_ids, est_staff, salon_frais)
             if identite_finale != identite:
                 raise Retenue('Dossier modifié pendant la lecture : remise retenue.')
-            # Aucun await entre cette revalidation locale et le PATCH Discord.
-            await original.edit(content=contenu, view=parcours._vue(message.guild, uid, 1, {}, fiche_finale),
-                                allowed_mentions=discord.AllowedMentions.none())
+            # Aucun await entre cette revalidation locale et le POST/PATCH Discord.
+            vue = parcours._vue(message.guild, uid, 1, {}, fiche_finale)
+            if original is None:
+                # Journal distinct pour chaque suppression confirmée. Ne jamais vider l'ancien journal.
+                nouveau = await process_livraison.envoyer_compte_1(
+                    process_adapters.store(), salon_frais, uid, contenu, vue,
+                    cle=f'remise-compte1:{uid}:{mid}')
+                _, _, _, _, _, _, apres_envoi = verifier_etat(message, uid, admin_ids, est_staff, salon_frais)
+                if apres_envoi != identite:
+                    raise Retenue('Dossier modifié pendant la remise ; résultat conservé au journal pour rapprochement.')
+                enregistrer_reprise(uid, mid, str(nouveau.id), str(salon.id))
+            else:
+                await original.edit(content=contenu, view=vue, allowed_mentions=discord.AllowedMentions.none())
         await message.reply('✅ Message du compte 1 mis à jour dans le salon personnel. Aucun compte créé ni réattribué.')
     except Retenue as erreur:
         await message.reply('⚠️ Remise retenue : ' + str(erreur))
