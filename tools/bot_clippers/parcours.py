@@ -37,6 +37,7 @@ import paie_clics
 
 journal = logging.getLogger("parcours")
 _deps = {}
+_NETTOYAGE_BIENVENUE_LOGS = {}  # Résultats récents, sans contenu ; réinitialisés au redémarrage.
 WARMUP_JOURS = int(os.environ.get("WARMUP_JOURS", "1") or 1)
 # 01/10 (Gaëtan : « la même règle pour tous, nouveaux et anciens, plus de période d'essai à part : le compte suivant s'ouvre
 # tout seul, au plus tôt 48 h après la création du précédent, et seulement quand 2 Reels sont publiés dessus ») : remplace la
@@ -1408,6 +1409,28 @@ def _vue_bienvenue(uid: str, fiche_p: dict = None, avec_pret: bool = False):
     return None
 
 
+def _noter_nettoyage_bienvenue(salon_id, message_id, resultat, phase, modification="aucune", code_http=0):
+    """Une ligne par changement d'état ; chaque édition confirmée reste tracée.
+
+    Mémoire limitée à 2048 messages : un redémarrage ou une éviction autorise un
+    nouveau bilan. Aucun texte, URL, nom, UID ou détail d'exception n'est conservé.
+    """
+    def identifiant(valeur):
+        texte = str(valeur or "")
+        return texte if texte.isascii() and texte.isdigit() and len(texte) <= 22 else "inconnu"
+    cle = (identifiant(salon_id), identifiant(message_id))
+    code_http = code_http if type(code_http) is int and 100 <= code_http <= 599 else 0
+    etat = (resultat, phase, modification, code_http)
+    precedent = _NETTOYAGE_BIENVENUE_LOGS.pop(cle, None)
+    _NETTOYAGE_BIENVENUE_LOGS[cle] = etat
+    if len(_NETTOYAGE_BIENVENUE_LOGS) > 2048:
+        del _NETTOYAGE_BIENVENUE_LOGS[next(iter(_NETTOYAGE_BIENVENUE_LOGS))]
+    if precedent == etat and resultat != "nettoye":
+        return
+    journal.info("Nettoyage bienvenue : salon=%s message=%s resultat=%s phase=%s modification=%s http=%s",
+                 *cle, resultat, phase, modification, code_http)
+
+
 async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
     """Retire seulement les composants de la bienvenue identifiée du bot.
 
@@ -1415,11 +1438,17 @@ async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
     Corrige les seules consignes historiques obsolètes ; conserve le reste du message.
     """
     mid = (fiche_p.get("messages") or {}).get("bienvenue")
-    if not mid or not str(mid).isdigit() or salon is None:
+    if not mid or not str(mid).isdigit():
         return
+    salon_id = getattr(salon, "id", None) or fiche_p.get("salon_id")
+    if salon is None:
+        _noter_nettoyage_bienvenue(salon_id, mid, "salon_indisponible", "lecture")
+        return
+    phase, modification, code_http = "lecture", "aucune", 0
     try:
         msg = await salon.fetch_message(int(mid))
         if getattr(msg.author, "id", None) != getattr(salon.guild.me, "id", None):
+            _noter_nettoyage_bienvenue(salon_id, mid, "auteur_hors_perimetre", phase)
             return
         contenu = getattr(msg, "content", "")
         # Gabarits historiques (CONSIGNE_WA/SANS_WA) seulement : ne pas supprimer
@@ -1436,13 +1465,31 @@ async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
             # jamais normaliser les espaces/sauts de ligne du contenu conservé.
             nouveau = re.sub(r"(?:\A|\n\n)" + motif + r"(?=\n\n|\Z)", "", nouveau)
         if nouveau != contenu:
+            phase = "edition"
+            modification = "texte_et_composants" if msg.components else "texte"
             await msg.edit(content=nouveau, view=None)
+            resultat = "nettoye"
         elif msg.components:
+            phase, modification = "edition", "composants"
             await msg.edit(view=None)
-    except (discord.Forbidden, discord.HTTPException, discord.NotFound):
-        pass
-    except Exception as erreur:                                         # noqa: BLE001 — un bouton en trop, jamais une étape en moins
-        journal.info("Bouton de bienvenue de %s : %s", uid, erreur)
+            resultat = "nettoye"
+        else:
+            resultat = "deja_conforme"
+    except discord.NotFound:
+        resultat, code_http = "message_absent", 404
+    except discord.Forbidden:
+        resultat, code_http = "acces_refuse", 403
+    except discord.HTTPException as erreur:
+        code_http = erreur.status
+        temporaire = type(code_http) is int and (code_http in (408, 429) or 500 <= code_http <= 599)
+        resultat = "erreur_temporaire" if temporaire else "erreur_http"
+    except (TimeoutError, OSError):
+        resultat = "erreur_temporaire"
+    except Exception:                                                    # noqa: BLE001 — pas de contenu d'exception dans les logs
+        resultat = "erreur_inattendue"
+    if phase == "edition" and resultat != "nettoye":
+        modification = "non_confirmee"
+    _noter_nettoyage_bienvenue(salon_id, mid, resultat, phase, modification, code_http)
 
 
 async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = True) -> None:

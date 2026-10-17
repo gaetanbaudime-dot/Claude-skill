@@ -23,7 +23,11 @@ from process_store import Store
 def charger(nom, ns, fichier='bot_discord.py'):
     tree = ast.parse((ROOT/fichier).read_text())
     node = next(n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == nom)
-    exec(compile(ast.Module(body=[node], type_ignores=[]), fichier, 'exec', flags=__future__.annotations.compiler_flag), ns)
+    nodes = [node]
+    if fichier == 'parcours.py' and nom == '_retirer_pret':
+        nodes.insert(0, next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_noter_nettoyage_bienvenue'))
+        ns.setdefault('_NETTOYAGE_BIENVENUE_LOGS', {})
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), fichier, 'exec', flags=__future__.annotations.compiler_flag), ns)
     return ns[nom]
 
 
