@@ -42,7 +42,8 @@ def eligible(row, now):
 
 def url_valide(url):
     u = urlparse(str(url))
-    return u.scheme == "https" and u.hostname in {"app.metricool.com", "mtr.cool"} and not u.username and not u.password and not u.port and u.path not in {"", "/"}
+    host = u.hostname or ""
+    return u.scheme == "https" and (host in {"app.metricool.com", "mtr.cool"} or host.endswith(".mtr.cool")) and not u.username and not u.password and not u.port and u.path not in {"", "/"}
 
 
 def expiration(data):
@@ -140,7 +141,8 @@ async def provision(api, row, state, persist, now):
         info = await api.call("POST", "v2/settings/brands/connections/anonymous-link", brand["id"])
     expires = expiration(info)
     if not url_valide(info.get("link")) or not expires or expires <= now:
-        raise RuntimeError("lien de connexion non valide")
+        u = urlparse(str(info.get("link")))
+        raise RuntimeError(f"lien non valide : scheme={u.scheme}, host={u.hostname}, chemin_present={u.path not in {'', '/'}}, expiration={expires}")
     state[key] = {"phase": "ready", "id": brand["id"], "label": label}
     persist()
     # O contains the actual API expiry (not an assumed duration).

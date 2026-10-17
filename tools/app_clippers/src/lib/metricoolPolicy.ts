@@ -15,7 +15,8 @@ export function eligible(c: { followers: number | null; followersVerifiesLe?: st
 export function lienMetricool(brut: string): string | null {
   try {
     const u = new URL(brut);
-    if (u.protocol !== "https:" || !["app.metricool.com", "mtr.cool"].includes(u.hostname) || u.port || u.username || u.password) return null;
+    const officiel = ["app.metricool.com", "mtr.cool"].includes(u.hostname) || u.hostname.endsWith(".mtr.cool");
+    if (u.protocol !== "https:" || !officiel || u.port || u.username || u.password) return null;
     if (u.pathname === "/" && !u.search) return null;
     return u.href;
   } catch { return null; }
