@@ -80,6 +80,7 @@ function sleep(ms: number, signal?: AbortSignal) {
 // snapshots reduce repeated copy/style reads; cold/expired tickets stay safe.
 async function paced(weight: number, signal: AbortSignal | undefined,
   run: () => Promise<Response>): Promise<Response> {
+  let transportStarted = false;
   const invoke = async () => {
     const stored = Number(window.localStorage.getItem("gm:opus-next-api-at") || 0);
     const slot = Math.max(Date.now(), nextApiAt, Number.isFinite(stored) ? stored : 0);
@@ -87,6 +88,7 @@ async function paced(weight: number, signal: AbortSignal | undefined,
     nextApiAt = reservedUntil;
     window.localStorage.setItem("gm:opus-next-api-at", String(nextApiAt));
     await sleep(Math.max(0, slot - Date.now()), signal); abortCheck(signal);
+    transportStarted = true;
     const response = await run();
     const countHeader = response.headers.get("X-GM-Upstream-Calls");
     const actualCalls = countHeader && /^\d+$/.test(countHeader) ? Number(countHeader) : NaN;
@@ -111,8 +113,21 @@ async function paced(weight: number, signal: AbortSignal | undefined,
     }
     return response;
   };
-  if (navigator.locks) return navigator.locks.request("gm:opus-api", signal ? { signal } : {}, invoke);
-  return invoke();
+  try {
+    if (navigator.locks) return await navigator.locks.request("gm:opus-api", signal ? { signal } : {}, invoke);
+    return await invoke();
+  } catch (cause) {
+    if (transportStarted) throw cause;
+    // Aborting a quota/lock wait cannot have performed the mutation. Create a
+    // separate error: mutating the shared abort reason could mislabel another
+    // request whose transport has already started.
+    const failure = new Error(cause instanceof Error ? cause.message : "La requête n’a pas été envoyée.", { cause }) as Error & {
+      definitelyRejected: boolean; upstreamNotCalled: boolean;
+    };
+    failure.name = cause instanceof Error ? cause.name : "Error";
+    failure.definitelyRejected = true; failure.upstreamNotCalled = true;
+    throw failure;
+  }
 }
 async function request(action: string, payload: Record<string, unknown> | undefined,
   signal?: AbortSignal, query: Record<string, string> = {}) {
@@ -132,8 +147,9 @@ async function request(action: string, payload: Record<string, unknown> | undefi
     if (isGet && attempt < 2 && (response.status === 429 || response.status >= 500)) {
       await sleep(Math.max(5000, Math.min(60000, Number(body.retryAfterMs) || 15000)), signal); continue;
     }
-    const error = new Error(String(body.error || "Le montage est momentanément indisponible (" + response.status + ").")) as Error & { definitelyRejected?: boolean };
+    const error = new Error(String(body.error || "Le montage est momentanément indisponible (" + response.status + ").")) as Error & { definitelyRejected?: boolean; upstreamNotCalled?: boolean };
     error.definitelyRejected = body.definitelyRejected === true || [400, 401, 403, 404, 422, 429].includes(response.status);
+    error.upstreamNotCalled = body.upstreamNotCalled === true;
     throw error;
   }
   throw new Error("Le suivi du montage est momentanément indisponible.");
@@ -535,8 +551,17 @@ async function generate(file: File, opts: Options, key: string) {
       "Vérifie les collections du projet " + projectId + " avant de reprendre.");
     opts.onStatus?.("IA G&M · préparation des exports HD manquants…");
     if (!state.collectionId) { state.collectionSetupRequested = true; save(); }
-    const pack = await request("export-pack", { projectId, clipIds: state.selected.map(c => c.clipId),
-      ...(state.collectionId ? { collectionId: state.collectionId } : {}) }, opts.signal);
+    let pack;
+    try { pack = await request("export-pack", { projectId, clipIds: state.selected.map(c => c.clipId),
+      ...(state.collectionId ? { collectionId: state.collectionId } : {}) }, opts.signal); }
+    catch (error) {
+      // A provider 429 can follow collection creation. Only a host rejection
+      // before transfer proves that creating a collection can be retried.
+      if ((error as Error & { upstreamNotCalled?: boolean }).upstreamNotCalled) {
+        delete state.collectionSetupRequested; save();
+      }
+      throw error;
+    }
     if (!pack.collectionId) throw new Error("La préparation des exports HD n'a pas été confirmée.");
     state.collectionId = String(pack.collectionId); state.exported = true;
     delete state.collectionSetupRequested; save();

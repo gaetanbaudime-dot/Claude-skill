@@ -37,6 +37,7 @@ jobs:
           node tests/downloads.cjs
           node tests/transport.cjs
           node tests/proxy.cjs
+          node tests/proxy-client-recovery.cjs
           node tests/ownership.cjs
           node tests/ownership-sheets.cjs
           node tests/live-ownership-harness.cjs

@@ -50,8 +50,16 @@ async function scenario(source, settings = {}) {
   }
   if (settings.selectedCount) initial.selected = initial.selected.slice(0, settings.selectedCount);
   if (settings.noCollection) delete initial.collectionId;
+  if (settings.submitFlow && !settings.checkpoint) {
+    delete initial.projectId;
+    initial.sourceToken = 'fixture-source';
+    initial.selected = []; initial.styled = []; initial.styleRequested = [];
+    initial.oldPreview = []; initial.oldExport = [];
+    delete initial.collectionId; delete initial.sourceClips;
+  }
   if (settings.reorderedZip) initial.packResult.urls.reverse();
   storage.set(key, JSON.stringify(initial));
+  if (settings.waitForQuota) storage.set('gm:opus-next-api-at', String(now + 60000));
   const localStorage = {
     getItem: k => storage.get(k) ?? null,
     setItem: (k, value) => storage.set(k, String(value)),
@@ -82,6 +90,10 @@ async function scenario(source, settings = {}) {
     if (url.pathname === '/api/opus') {
       if (method === 'POST') {
         const body = JSON.parse(String(init.body));
+        if (body.action === 'submit' && settings.submitFlow) {
+          events.push({ action: 'submit', at });
+          return Response.json({ projectId: 'existing-project' });
+        }
         if (body.action === 'style' && (settings.styleFlow || settings.createFlow)) {
           events.push({ action:'style', index:body.index, at });
           assert.notEqual(body.clipId, 'original-source', 'Never edit the original source');
@@ -121,6 +133,11 @@ async function scenario(source, settings = {}) {
           headers: { 'X-GM-Upstream-Calls': '8', 'X-GM-Api-Next-At': String(now + 2300) } });
       }
       assert.equal(method, 'GET');
+      if (url.searchParams.get('action') === 'recover' && settings.submitFlow) {
+        events.push({ action: 'recover', at });
+        return Response.json({ projectId: null });
+      }
+      if (settings.submitFlow) throw new Error('Submit fixture ends after the project is recorded');
       assert.equal(url.searchParams.get('action'), 'clips');
       const requested = (url.searchParams.get('clipIds') || '').split(',').filter(Boolean);
       const target = url.searchParams.get('target') || (reads === 0 ? 'preview' : 'hd');
@@ -197,7 +214,7 @@ async function scenario(source, settings = {}) {
     window: { localStorage }, navigator,
     Date: FakeDate, performance: { now: () => now - BASE },
     setTimeout: setTimer, clearTimeout: clearTimer,
-    fetch: fakeFetch, URL, URLSearchParams, Response, Headers,
+    fetch: settings.transport ? settings.transport(fakeFetch, initial) : fakeFetch, URL, URLSearchParams, Response, Headers,
     AbortController, AbortSignal, DOMException, console,
   };
   sandbox.exports = sandbox.module.exports;
@@ -205,8 +222,13 @@ async function scenario(source, settings = {}) {
   const compiled = ts.transpileModule(source.replace('return { generateOpusVariations };', 'return { generateOpusVariations, generate };'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   vm.runInContext(compiled + '\nexports.testGenerate = createNativeClient().generate;', sandbox);
   let result, error, done = false;
+  const controller = new AbortController();
   sandbox.module.exports.testGenerate({ name: 'offline-test.mp4' }, {
-    onProgress: value => progress.push(value), onStatus: value => status.push(value),
+    signal: controller.signal,
+    onProgress: value => progress.push(value), onStatus: value => {
+      status.push(value);
+      if (settings.abortOnStatus && value.includes(settings.abortOnStatus)) setTimer(() => controller.abort(), 1);
+    },
     onVariant: value => delivered.push({ index: value.index, at: now - BASE }),
   }, key).then(value => { result = value; done = true; }, value => { error = value; done = true; });
   for (let iteration = 0; !done && iteration < 3000; iteration++) {
@@ -219,10 +241,12 @@ async function scenario(source, settings = {}) {
   }
   assert(done, 'Workflow completed or surfaced its expected error');
   return { result, error, events, progress, status, delivered, maxActive, elapsed: now - BASE,
-    checkpoint: JSON.parse(storage.get(key)), reservation: Number(storage.get('gm:opus-next-api-at')) - BASE };
+    checkpoint: JSON.parse(storage.get(key)), reservation: Number(storage.get('gm:opus-next-api-at')) - BASE,
+    abortReason: controller.signal.reason };
 }
 
-(async () => {
+module.exports = { scenario, latestSource };
+if (require.main === module) (async () => {
   let checks = 0;
   const current = await scenario(latestSource);
   assert(!current.error); checks++;

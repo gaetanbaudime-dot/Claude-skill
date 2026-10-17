@@ -23,35 +23,38 @@ const BODY_KEYS: Record<string, string[]> = {
 };
 const MAX_JSON_BYTES = 256 * 1024;
 const error = (status: number, message: string) => Response.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store" } });
+// Only this host can attest that it stopped before contacting the provider.
+const rejected = (status: number, message: string) => Response.json({ error: message, definitelyRejected: true, upstreamNotCalled: true },
+  { status, headers: { "Cache-Control": "private, no-store" } });
 
 // Called only after the host app's existing token guard. Never accepts an
 // upstream URL, forwards app credentials, retries mutations, or adds CORS.
 export async function forwardReelsRequest(request: Request, operation: string, owner: Owner, store: OwnershipStore): Promise<Response> {
-  if (!OPERATIONS.has(operation)) return error(404, "Route de montage inconnue.");
-  if (request.method !== "GET" && request.method !== "POST") return error(405, "Méthode non autorisée.");
+  if (!OPERATIONS.has(operation)) return rejected(404, "Route de montage inconnue.");
+  if (request.method !== "GET" && request.method !== "POST") return rejected(405, "Méthode non autorisée.");
   const incoming = new URL(request.url), origin = request.headers.get("Origin");
-  if (origin && origin !== incoming.origin) return error(403, "Origine non autorisée.");
+  if (origin && origin !== incoming.origin) return rejected(403, "Origine non autorisée.");
   const target = new URL("/api/" + operation, BACKEND);
   let body: string | undefined;
   let input: Record<string, unknown> = {};
   if (request.method === "GET") {
-    if (operation !== "opus" || !READ_ACTIONS.has(incoming.searchParams.get("action") || "")) return error(400, "Action de suivi inconnue.");
+    if (operation !== "opus" || !READ_ACTIONS.has(incoming.searchParams.get("action") || "")) return rejected(400, "Action de suivi inconnue.");
     for (const [key, value] of incoming.searchParams) {
-      if (!QUERY_KEYS[incoming.searchParams.get("action")!].includes(key) || value.length > 1000 || target.searchParams.has(key)) return error(400, "Paramètres de suivi invalides.");
+      if (!QUERY_KEYS[incoming.searchParams.get("action")!].includes(key) || value.length > 1000 || target.searchParams.has(key)) return rejected(400, "Paramètres de suivi invalides.");
       target.searchParams.set(key, value);
       input[key] = value;
     }
   } else {
-    if (!/^application\/json(?:;|$)/i.test(request.headers.get("Content-Type") || "")) return error(415, "Requête JSON requise.");
-    if (Number(request.headers.get("Content-Length")) > MAX_JSON_BYTES) return error(413, "Requête trop volumineuse.");
+    if (!/^application\/json(?:;|$)/i.test(request.headers.get("Content-Type") || "")) return rejected(415, "Requête JSON requise.");
+    if (Number(request.headers.get("Content-Length")) > MAX_JSON_BYTES) return rejected(413, "Requête trop volumineuse.");
     const reader = request.body?.getReader();
-    if (!reader) return error(400, "Requête vide.");
+    if (!reader) return rejected(400, "Requête vide.");
     const parts: Uint8Array[] = []; let size = 0;
     try {
       for (;;) {
         const part = await reader.read(); if (part.done) break;
         size += part.value.byteLength;
-        if (size > MAX_JSON_BYTES) return error(413, "Requête trop volumineuse.");
+        if (size > MAX_JSON_BYTES) return rejected(413, "Requête trop volumineuse.");
         parts.push(part.value);
       }
     } finally { await reader.cancel().catch(() => undefined); }
@@ -59,21 +62,21 @@ export async function forwardReelsRequest(request: Request, operation: string, o
     for (const part of parts) { bytes.set(part, offset); offset += part.byteLength; }
     try {
       const value = JSON.parse(new TextDecoder().decode(bytes));
-      if (!value || typeof value !== "object" || Array.isArray(value)) return error(400, "Requête invalide.");
-      if (!(operation === "finish" && value.action === undefined) && !ACTIONS[operation].has(value.action)) return error(400, "Action de montage inconnue.");
+      if (!value || typeof value !== "object" || Array.isArray(value)) return rejected(400, "Requête invalide.");
+      if (!(operation === "finish" && value.action === undefined) && !ACTIONS[operation].has(value.action)) return rejected(400, "Action de montage inconnue.");
       const allowed = BODY_KEYS[operation + ":" + (value.action ?? "render")];
-      if (!allowed || Object.keys(value).some(key => !allowed.includes(key))) return error(400, "Paramètres de montage invalides.");
+      if (!allowed || Object.keys(value).some(key => !allowed.includes(key))) return rejected(400, "Paramètres de montage invalides.");
       body = JSON.stringify(value);
       input = value;
-    } catch { return error(400, "Requête JSON invalide."); }
+    } catch { return rejected(400, "Requête JSON invalide."); }
   }
   const action = String(input.action ?? "render");
   let recordReply: (reply: unknown) => Promise<void>;
   try { recordReply = await authorize(owner, store, operation, action, input); }
   catch (failure) {
     return failure instanceof OwnershipDenied
-      ? error(403, "Ce montage n’est pas disponible pour ce compte.")
-      : error(503, "Le registre des montages est indisponible. Aucun appel au service de montage n’a été envoyé.");
+      ? rejected(403, "Ce montage n’est pas disponible pour ce compte.")
+      : rejected(503, "Le registre des montages est indisponible. Aucun appel au service de montage n’a été envoyé.");
   }
   try {
     const upstream = await fetch(target, { method: request.method, body,
@@ -87,6 +90,9 @@ export async function forwardReelsRequest(request: Request, operation: string, o
       const value = upstream.headers.get(key); if (value !== null) headers.set(key, value);
     }
     const payload = await upstream.json();
+    // Never accept the host-only no-transfer signal from an upstream reply,
+    // including a 429 after a partially completed multi-step collection.
+    if (payload && typeof payload === "object") delete payload.upstreamNotCalled;
     if (upstream.ok) {
       try { await recordReply(payload); }
       catch {
