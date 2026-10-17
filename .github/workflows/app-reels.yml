@@ -39,4 +39,5 @@ jobs:
           node tests/proxy.cjs
           node tests/ownership.cjs
           node tests/ownership-sheets.cjs
+          node tests/live-ownership-harness.cjs
           node tests/app-lifecycle.cjs
