@@ -1230,6 +1230,8 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     classeur illisible) ou que le salon refuse le message."""
     uid = str(membre.id)
     fiche_avant = _lire().get(uid) or {}
+    if n == 1 and pointer and (fiche_avant.get("messages") or {}).get("1"):
+        return True
     if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
         return False
     if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
@@ -1314,13 +1316,20 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     if n == 5:                                                          # 01/10 : il publie sur ses comptes, la relecture est proposée
         texte += _ligne_review(uid)
     try:
-        msg = await salon.send(texte[:1990], view=_vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p))
-    except (discord.Forbidden, discord.HTTPException) as erreur:
-        journal.warning("Étape %s pour %s : %s", n, uid, erreur)
+        vue = _vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p)
+        if n == 1 and not (fiche_avant.get("messages") or {}).get("1"):
+            import process_livraison
+            msg = await process_livraison.envoyer_compte_1(onboarding.process_adapters.store(), salon, uid, texte[:1990], vue)
+        else:
+            msg = await salon.send(texte[:1990], view=vue)
+    except (discord.HTTPException, TimeoutError, OSError, RuntimeError) as erreur:
+        journal.warning("Étape %s pour %s retenue : %s", n, uid, type(erreur).__name__)
         reprise = _lire()
         if uid in reprise and not (fiche_avant.get("dates") or {}).get(str(n)):
             reprise[uid].setdefault("dates", {}).pop(str(n), None)
             _ecrire(reprise)
+        if n == 1:
+            _garder_au_programme(uid, 1, noter=True)
         return False
     d = _lire()
     if uid in d:
@@ -1373,14 +1382,20 @@ def _vue_bienvenue(uid: str, fiche_p: dict = None, avec_pret: bool = False):
 
 
 async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
-    """09/10 : le compte 1 est donné → le « ✅ C'est fait » de la bienvenue s'en va (le bouton WhatsApp reste). 10/10 : il devient
-    « ✅ J'ai écrit à Gaëtan » ; une bienvenue du 10/10 (« pret_retire ») n'a jamais eu de « ✅ C'est fait » : rien à modifier."""
+    """Retire seulement les composants de la bienvenue identifiée du bot.
+
+    pret_retire est un ancien marqueur, pas une preuve d'absence du bouton WhatsApp.
+    Le contenu du message et les autres messages restent inchangés.
+    """
     mid = (fiche_p.get("messages") or {}).get("bienvenue")
-    if not mid or not str(mid).isdigit() or salon is None or fiche_p.get("pret_retire"):
+    if not mid or not str(mid).isdigit() or salon is None:
         return
     try:
         msg = await salon.fetch_message(int(mid))
-        await msg.edit(view=_vue_bienvenue(uid, fiche_p, avec_pret=False))
+        if getattr(msg.author, "id", None) != getattr(salon.guild.me, "id", None):
+            return
+        if msg.components:
+            await msg.edit(view=None)
     except (discord.Forbidden, discord.HTTPException, discord.NotFound):
         pass
     except Exception as erreur:                                         # noqa: BLE001 — un bouton en trop, jamais une étape en moins
@@ -1397,6 +1412,8 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
     uid = str(membre.id)
     fiche_p = d.get(uid)
     if fiche_p and int(fiche_p.get("etape", 0) or 0) >= 1 and _cle_creatrice(fiche_p.get("creatrice")) == _cle_creatrice(creatrice):
+        if int(fiche_p.get("etape", 0) or 0) == 1 and not (fiche_p.get("messages") or {}).get("1"):
+            await ouvrir_compte_1(salon, uid, par="bot")
         return
     nouveau = {"prenom": _prenom(membre), "creatrice": creatrice}
     trace = _reprendre_trace(uid, salon, creatrice)
@@ -1436,7 +1453,7 @@ async def ouvrir_compte_1(salon, uid: str, par: str = "bot") -> str:
         return "absent"
     d = _lire()
     f = d.get(uid)
-    if not f or f.get("bienvenue_ok") or (f.get("dates") or {}).get("1") or int(f.get("etape", 0) or 0) != 1:
+    if not f or (f.get("messages") or {}).get("1") or int(f.get("etape", 0) or 0) != 1:
         return "deja"
     f["bienvenue_ok"] = _maintenant()                                   # écrit AVANT l'envoi : jamais deux fois (clic + programme)
     f["programme"] = [x for x in f.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) == 1)]
@@ -2280,6 +2297,8 @@ async def _programme_du_jour(client, maintenant=None) -> list:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Clippers bloqués par un BAN : %s", erreur)
     for uid, fiche_p in list(d0.items()):
+        salon_nettoyage = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
+        await _retirer_pret(salon_nettoyage, uid, fiche_p)
         if not any(_a_traiter(fiche_p, x, maintenant) for x in fiche_p.get("programme") or []):
             continue
         salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
