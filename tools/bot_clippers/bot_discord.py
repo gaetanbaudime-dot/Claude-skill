@@ -8571,6 +8571,17 @@ def brancher_codes():
     client.add_dynamic_items(codes_2fa.BoutonMonCode, codes_2fa.BoutonUsageCode)
 
 
+def brancher_onboarding() -> dict:
+    """Câblage local sans I/O, avant que la passerelle puisse livrer !creatrice."""
+    deps = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
+            "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
+            "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
+            "salon_perso": salon_perso_de, "membre_par_prenom": membre_par_prenom, "membre_par_id": membre_par_id,
+            "envoyer_long": envoyer_long}
+    onboarding.configurer(deps)
+    return deps
+
+
 def deps_equipes_tl() -> dict:
     """11/10 (lot W, lot L10) : les dépendances d'equipes_tl (`!tl`, `!manager`, primes TL et manager). « payees »
     (paie_clics.payees) n'est passée que si le lot L11 l'a livrée : sans elle, equipes_tl compte les visites payées lui-même
@@ -8608,12 +8619,14 @@ async def _role_tl_au_demarrage():
 
 @client.event
 async def setup_hook():
+    brancher_onboarding()
     brancher_codes()
 
 
 @client.event
 async def on_ready():
     global _taches_demarrees
+    brancher_onboarding()  # avant tout await ; setup_hook le fait avant la passerelle
     journal.info("Bot Discord démarré : %s (modèle %s, %d admin, canal %s, v2 %s)",
                  client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
                  "ON" if ACTIVER_V2 else "off")
@@ -8698,12 +8711,7 @@ async def on_ready():
             # 11/10 (lot W, lots L2 et L3) : la promesse de la page « Quizz réussi » suit les places livrables, et `!annonce` les
             # donne à Gaëtan sous l'annonce. DANS ce dict : demarrer() remplace _deps, une affectation après coup serait perdue.
             "places": places.places_livrables, "places_texte": places.texte_annonce}))
-        deps_onb = {"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_ONBOARDING": FICHIER_ONBOARDING,
-                    "FICHIER_EQUIPES": FICHIER_EQUIPES, "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_CLICS": FICHIER_CLICS,
-                    "normaliser": normaliser, "heure_paris": heure_paris, "canal_admin": canal_admin,
-                    "salon_perso": salon_perso_de, "membre_par_prenom": membre_par_prenom, "membre_par_id": membre_par_id,
-                    "envoyer_long": envoyer_long}           # 09/10 : plus de « reels_pour_nouveau » (Reels uniques retirés)
-        onboarding.configurer(deps_onb)
+        deps_onb = brancher_onboarding()
         client.loop.create_task(onboarding.boucle(client, deps_onb))             # comptes du classeur → salon perso (23/09)
         parcours.configurer({**deps_onb, "FICHIER_PARCOURS": FICHIER_PARCOURS, "POSTS_FORMATION": POSTS_FORMATION,
                              "categorie_de_creatrice": categorie_de_creatrice,
