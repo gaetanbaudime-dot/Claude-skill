@@ -6,7 +6,10 @@ import process_liens
 
 def store():
     import onboarding
-    return Store(Path(onboarding._deps['FICHIER_ONBOARDING']).parent / 'process_clippeur.sqlite3')
+    fichier = onboarding._deps.get('FICHIER_ONBOARDING')
+    if not fichier:
+        raise Bloque('Onboarding non initialisé : aucune opération de stockage lancée, réessayer après le démarrage')
+    return Store(Path(fichier).parent / 'process_clippeur.sqlite3')
 
 
 class LiensAPI:
