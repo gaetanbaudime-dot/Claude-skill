@@ -15,7 +15,7 @@ export function eligible(c: { followers: number | null; followersVerifiesLe?: st
 export function lienMetricool(brut: string): string | null {
   try {
     const u = new URL(brut);
-    if (u.protocol !== "https:" || u.hostname !== "app.metricool.com" || u.port || u.username || u.password) return null;
+    if (u.protocol !== "https:" || !["app.metricool.com", "mtr.cool"].includes(u.hostname) || u.port || u.username || u.password) return null;
     if (u.pathname === "/" && !u.search) return null;
     return u.href;
   } catch { return null; }
@@ -23,9 +23,10 @@ export function lienMetricool(brut: string): string | null {
 
 export type ValidationAgence = {
   marque: string; proprietaireMarque: string; accesAgence: string;
-  nombreMarques: string; capaciteVerifieeLe: string; lien: string; creeLe: string;
+  nombreMarques: string; capaciteVerifieeLe: string; lien: string; creeLe: string; expireLe?: string;
 };
 export function connexionAutorisee(v: ValidationAgence, now = Date.now()): string | null {
+  if (v.expireLe && (!Number.isFinite(Date.parse(v.expireLe)) || Date.parse(v.expireLe) <= now)) return null;
   const n = Number(v.nombreMarques);
   if (!v.marque.trim() || v.proprietaireMarque !== "oui" || v.accesAgence !== "oui" ||
       !/^\d+$/.test(v.nombreMarques) || !Number.isInteger(n) || n < 1 || n > 25 ||

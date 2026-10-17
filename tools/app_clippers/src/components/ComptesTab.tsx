@@ -21,7 +21,7 @@ function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number
       const r = await fetch(`/api/k/${jeton}/metricool`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n }) });
       const d = await r.json();
       if (!r.ok) { setMessage(d.erreur || "Réessaie dans une minute."); return; }
-      setMessage("Demande enregistrée. L’agence vérifie les accès et prépare ta marque.");
+      setMessage("Demande enregistrée. Le bot prépare ta marque et ton lien après contrôle des accès de l’agence (jusqu’à 15 minutes).");
       await charger();
     } catch { setMessage("Envoi impossible, réessaie."); } finally { setEnvoi(false); }
   };
@@ -30,10 +30,10 @@ function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number
     {etat.statut === "pret" ? <a href={`/api/k/${jeton}/metricool?n=${n}`} target="_blank" rel="noopener noreferrer"
       className="inline-block rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226]">Connecter Metricool ↗</a> :
       etat.statut === "disponible" ? <button disabled={envoi} onClick={demander}
-        className="rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226] disabled:opacity-40">{envoi ? "Envoi…" : "Demander la connexion Metricool"}</button> :
+        className="rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226] disabled:opacity-40">{envoi ? "Envoi…" : "Préparer Metricool"}</button> :
       <p className="text-accent">{etat.statut === "connecte" ? "Metricool connecté · validé par l’agence" :
         etat.statut === "renouveler" ? "Lien à renouveler par l’agence" : "Connexion Metricool demandée · validation agence en attente"}</p>}
-    <p className="mt-2 text-argent2">Réservé aux comptes à partir de 500 abonnés vérifiés. L’agence crée la marque puis fournit un lien de connexion temporaire.</p>
+    <p className="mt-2 text-argent2">Dès 500 abonnés vérifiés, le bot crée la marque de l’agence et prépare ton lien temporaire, selon les places disponibles et les accès de récupération validés.</p>
     {message ? <p role="status" className="mt-2 text-argent2">{message}</p> : null}
   </div>;
 }

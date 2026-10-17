@@ -5,8 +5,8 @@ import { connexionAutorisee, eligible } from "./metricoolPolicy";
 export const ONGLET_METRICOOL = "Metricool · demandes";
 export const ENTETE_METRICOOL = ["Date ISO", "Clé app", "N°", "@", "Followers", "Vérifiés le ISO", "Statut",
   "Marque ID", "Marque agence (oui)", "Accès récupération agence (oui)", "Marques utilisées après création",
-  "Capacité vérifiée le ISO", "Lien Metricool", "Lien créé le ISO"];
-const PLAGE = `'${ONGLET_METRICOOL}'!A2:N`;
+  "Capacité vérifiée le ISO", "Lien Metricool", "Lien créé le ISO", "Lien expire le ISO"];
+const PLAGE = `'${ONGLET_METRICOOL}'!A2:O`;
 export type EtatMetricool = { n: number; eligible: boolean; statut: "disponible" | "attente" | "pret" | "connecte" | "renouveler" };
 
 async function demandes() {
@@ -21,7 +21,7 @@ function derniere(lignes: string[][], cle: string, n: number, handle: string) {
 function lien(r: string[]) {
   if (r[6] !== "prêt") return null;
   return connexionAutorisee({ marque: r[7] || "", proprietaireMarque: r[8] || "", accesAgence: r[9] || "",
-    nombreMarques: r[10] || "", capaciteVerifieeLe: r[11] || "", lien: r[12] || "", creeLe: r[13] || "" });
+    nombreMarques: r[10] || "", capaciteVerifieeLe: r[11] || "", lien: r[12] || "", creeLe: r[13] || "", expireLe: r[14] || "" });
 }
 
 export async function etatsMetricool(cle: string) {

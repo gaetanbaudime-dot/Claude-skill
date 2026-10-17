@@ -1,5 +1,19 @@
 # Metricool · TOP talents
 
+## Mise à jour : provisioning automatique côté agence
+
+Le bouton « Préparer Metricool » écrit une demande privée. À son prochain passage (jusqu'à 15 minutes), le bot utilise les identifiants administrateur déjà configurés dans Railway. Il vérifie le relevé réel de moins de 48 h et les 500 abonnés, l'affectation du compte et la récupération agence : mot de passe présent dans le classeur privé, email enregistré dans le système de codes agence actif, ou validation explicite de l'administrateur en J. Ce contrôle constate les accès conservés ; il ne transfère aucune propriété Instagram et ne garantit pas une session Meta valide.
+
+Le bot relit `/admin/max-profiles` et `/v2/settings/brands`, applique le plus petit plafond entre l'API et 25, réutilise une marque du propriétaire déjà reliée au même Instagram ou crée une nouvelle marque via `POST /v2/settings/brands`. Aucun changement d'abonnement. Les marques sans réseaux déjà présentes ne sont pas réaffectées automatiquement.
+
+Le lien est obtenu via `GET/POST /v2/settings/brands/connections/anonymous-link`, disponible à partir d'Advanced. L'URL retournée doit être HTTPS sur app.metricool.com ou mtr.cool. Sa véritable expiration est enregistrée en O. L'app garde ses contrôles côté serveur. Le bot renouvelle un lien expiré et rafraîchit la capacité pendant la préparation ; il passe à « connecté » seulement si l'API retourne le bon Instagram sur la marque.
+
+La création est protégée par un verrou de processus et de fichier sur le volume `/data`, un nom déterministe et un journal atomique écrit AVANT l'appel de création. Une réponse incertaine ne déclenche pas de nouvel essai aveugle : récupération par ID/nom, sinon contrôle administrateur. Ne jamais supprimer le journal pour relancer une création sans rapprochement des marques existantes.
+
+Sources supplémentaires vérifiées le 17 octobre 2026 : https://app.metricool.com/api/swagger.json et https://help.metricool.com/wli-brand-connections-panel-for-end-clients-through-api-4m5b3 . La description actuelle de l'API confirme Advanced ou supérieur pour les liens, même si l'introduction de l'article mentionne les intégrateurs.
+
+La procédure manuelle ci-dessous reste le recours si les accès de récupération ne sont pas prouvés ou si l'API refuse l'action. La première version livrée était manuelle ; la présente section décrit le comportement automatique qui la complète.
+
 ## Parcours livré
 
 Dans Comptes, le clipper voit « Demander la connexion Metricool » seulement à partir de **500 abonnés**, relevés depuis moins de **48 heures**. Les valeurs sont relues côté serveur depuis Comptes app. Une demande de changement de @ en attente bloque l'accès. Un changement de @ invalide l'ancien rattachement.

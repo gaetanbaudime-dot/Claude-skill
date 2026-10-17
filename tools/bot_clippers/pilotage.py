@@ -308,8 +308,16 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
             for ligne in comptes_app or []:
                 if len(ligne) > 4 and str(ligne[4]).lower() in nouveaux:
                     ligne[4] = nouveaux[str(ligne[4]).lower()]
+                    # The old handle's measurement does not prove the new identity.
+                    if len(ligne) > 11:
+                        ligne[11] = ""
             if comptes_app and await _ecrire(classeur, ONGLET_COMPTES_APP, ENTETE_COMPTES_APP, comptes_app):
                 ecrits += 1
+            try:
+                import metricool_onboarding
+                await metricool_onboarding.traiter(classeur, comptes_app)
+            except Exception as error:
+                journal.warning("Metricool onboarding indisponible (%s)", type(error).__name__)
             # 13/10 : même référentiel opérationnel dans le tableur privé de l'app
             # et le LOG Dashboard. Jamais de clé app, mot de passe ou code 2FA.
             id_rows = _identity_rows(pil, aujourdhui)
