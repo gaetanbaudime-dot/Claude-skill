@@ -588,14 +588,50 @@ async def attribuer(membre, via: str) -> str:
             # au salon admin ; elle compte dans « attribué(s) » du digest du matin (registre, creatrice_date). Seule une attribution qui
             # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
             # encore tout de suite.
-            if a_signaler(bilan, note):
-                admin = await _deps["canal_admin"]()
-                if admin is not None:
-                    try:
-                        await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
+            await signaler_blocage(membre, creatrice, bilan, note)
             return "" if creatrice_en_attente(membre.id) else creatrice
+
+
+async def signaler_blocage(membre, creatrice, bilan, note=""):
+    """Sous le verrou d'attribution : une notification par blocage actif, reprise inchangée.
+
+    Intention persistée avant l'envoi : une réponse Discord perdue ne provoque pas
+    de doublon. Une interdiction explicite peut être retentée après correction.
+    """
+    import hashlib
+    uid = str(membre.id)
+    e = _etat()
+    blocages = e.setdefault("blocages_notifications", {})
+    if not a_signaler(bilan, note):
+        if uid in blocages:
+            blocages.pop(uid)
+            _ecrire(e)
+        return
+    raison = "team_leader_absent_ou_ambigu" if "team leader absent ou ambigu" in str(bilan).lower() else " ".join((bilan_court(bilan) + note).split())
+    signature = hashlib.sha256((str(creatrice).casefold() + ":" + raison).encode()).hexdigest()
+    precedent = blocages.get(uid) or {}
+    if precedent.get("signature") == signature:
+        return
+    admin = await _deps["canal_admin"]()
+    if admin is None:
+        return
+    entree = {"signature": signature, "depuis": datetime.now(timezone.utc).isoformat(), "etat": "envoi_incertain"}
+    blocages[uid] = entree
+    _ecrire(e)
+    try:
+        message = await admin.send((f"🎬 {membre.mention} → **{creatrice}** · {bilan_court(bilan)}{note}")[:1990])
+    except discord.Forbidden:
+        e = _etat()
+        if (e.get("blocages_notifications", {}).get(uid) or {}).get("signature") == signature:
+            e["blocages_notifications"].pop(uid, None)
+            _ecrire(e)
+        return
+    except Exception:
+        journal.warning("Notification de blocage %s : envoi incertain, pas de renvoi automatique", uid)
+        return
+    e = _etat()
+    e.setdefault("blocages_notifications", {})[uid] = {**entree, "etat": "envoye", "message_id": str(message.id)}
+    _ecrire(e)
 
 
 # 10/10 (lot L9b) : ce qui, dans le bilan d'onboarding ou la note de l'ordre, demande un geste du staff (onboarder_membre et

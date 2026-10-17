@@ -1174,7 +1174,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         except ValueError:
             depuis = timedelta(days=9)
         if depuis < timedelta(hours=24):
-            return f"📦 Onboarding de {membre.display_name} ({fiche0.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
+            return f"📦 Onboarding de {membre.display_name} ({fiche0.get('creatrice') or creatrice}) : lignes déjà affectées ; la livraison effective est suivie séparément dans le parcours."
     # 1. comptes depuis le classeur
     comptes, tous, lu, leves, douteux, pris = [], [], False, [], [], []
     a_reserver = places.lignes_a_reserver()                             # 10/10 (lot L3) : 3 par défaut, le trio

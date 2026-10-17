@@ -295,6 +295,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
             '_Par':lambda:None,'_etat':lambda:deepcopy(etat),'_ecrire':lambda d:etat.update(d),
             'datetime':datetime,'timezone':timezone,'journal':logging.getLogger('test'),
             'bilan_court':str,'a_signaler':lambda *a:False}
+        ns['signaler_blocage']=charger('signaler_blocage',ns,'attribution.py')
         attribuer=charger('attribuer',ns,'attribution.py')
         await attribuer(membre,'test fictif')
         await attribuer(membre,'reprise fictive')
