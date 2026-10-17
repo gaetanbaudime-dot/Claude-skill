@@ -151,6 +151,27 @@ async def provision(api, row, state, persist, now):
             info["link"], now.isoformat(), expires.isoformat()]
 
 
+async def identite_actuelle(classeur, demande, now):
+    """Relire les deux sources juste avant le provisioning ; une panne bloque la file."""
+    try:
+        comptes = await google_api.sheets_lire(classeur, "'Comptes app'!A2:L")
+        pseudos = await google_api.sheets_lire(classeur, "'Pseudos app'!A2:F")
+    except Exception:
+        return False
+    actuels = [c for c in comptes if len(c) > 4 and c[0] == demande[1]
+               and c[3] == demande[2] and c[4] == demande[3]]
+    if len(actuels) != 1 or not eligible(actuels[0], now):
+        return False
+    changements = [r for r in pseudos if len(r) > 3 and str(r[1]).strip() == demande[1]
+                   and str(r[2]).strip() == demande[2]]
+    if changements:
+        dernier = changements[-1]
+        statut = str(dernier[4] if len(dernier) > 4 else '').strip()
+        if not statut and str(dernier[3]).strip() != demande[3]:
+            return False
+    return True
+
+
 async def traiter(classeur, comptes_app):
     if LOCK.locked() or not os.environ.get("DONNEES_DIR"):
         return
@@ -189,6 +210,9 @@ async def traiter(classeur, comptes_app):
                     proof = len(source) == 1 and source[0]["mail"].strip().lower() in aliases and codes_2fa.actif()
                     if r[9] != "oui" and not proof:
                         LOG.info("Metricool demande ligne %s : contrôle récupération agence requis", idx)
+                        continue
+                    if not await identite_actuelle(classeur, r, datetime.now(timezone.utc)):
+                        LOG.info("Metricool demande ligne %s : identité modifiée ou non vérifiable", idx)
                         continue
                     try:
                         values = await provision(api, r, state, lambda: save(path, state), now)

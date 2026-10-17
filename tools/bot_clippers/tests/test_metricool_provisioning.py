@@ -77,3 +77,31 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(m.eligible(row, now))
         self.assertTrue(m.url_valide("https://mtr.cool/abc"))
         self.assertFalse(m.url_valide("https://mtr.cool.evil.example/abc"))
+
+    async def test_file_identite_modifiee_ou_en_attente_sans_effet(self):
+        import tempfile
+        from unittest.mock import AsyncMock, patch
+        import onboarding
+        import codes_2fa
+        now=datetime.now(timezone.utc).isoformat()
+        compte=['cle-fictive','','','1','ancien-fictif','','500','','','','',now]
+        demande=['','cle-fictive','1','ancien-fictif','','','demandé','','','oui']
+        for changement in ('attente','modifie','lecture_impossible'):
+            async def lire(classeur,plage):
+                if plage==f"'{m.TAB}'!A2:O":return [demande]
+                if plage=="'Comptes app'!A2:L":
+                    c=list(compte)
+                    if changement=='modifie':c[4]='nouveau-fictif'
+                    return [c]
+                if changement=='lecture_impossible':raise OSError('lecture fictive impossible')
+                return [['','cle-fictive','1','nouveau-fictif','']]
+            with tempfile.TemporaryDirectory() as tmp, \
+                 patch.dict(m.os.environ,{'DONNEES_DIR':tmp}), \
+                 patch.object(m.google_api,'sheets_lire',side_effect=lire), \
+                 patch.object(m.google_api,'sheets_ecrire',AsyncMock()) as ecrire, \
+                 patch.object(onboarding,'lire_comptes',AsyncMock(return_value=[])), \
+                 patch.object(codes_2fa,'_lire',return_value={}), \
+                 patch.object(m,'provision',AsyncMock()) as provision:
+                await m.traiter('classeur-fictif',[compte])
+                provision.assert_not_awaited();ecrire.assert_not_awaited()
+                self.assertFalse((Path(tmp)/'metricool_onboarding.json').exists())
