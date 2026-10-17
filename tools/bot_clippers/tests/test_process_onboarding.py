@@ -3,7 +3,7 @@ import ast
 import __future__
 import asyncio
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 from pathlib import Path
 import sys
@@ -170,6 +170,80 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('reprise conservée',resultat)
         ns['attribution']._sortir_d_attente.assert_not_called()
         ns['parcours'].demarrer_parcours.assert_not_awaited()
+
+
+    async def test_arrivee_site_salon_vide_existant_tl_puis_compte1(self):
+        import recrutement_suivi
+        ns,membre,salon,registre=self.contexte()
+        now=datetime.now(timezone.utc)
+        registre['pipeline']={'candidatures_web':{'cand-fictif':{
+            'date':(now-timedelta(minutes=5)).isoformat(),
+            'quiz':{'reussi':True,'score':'9 / 10','date':(now-timedelta(minutes=1)).isoformat()}}}}
+        registre.update(onboarding={},parcours={},sortis=[])
+        registre[Path(self.tmp.name)/'parcours_oublis.json']={}
+        channels=[]
+        guild=SimpleNamespace(me=SimpleNamespace(id=91),fetch_channels=AsyncMock(side_effect=lambda:list(channels)))
+        membre.guild=guild
+        salon.guild=guild;salon.topic='clipper-uid:42'
+        ouvert=False
+        def permissions(m):
+            return SimpleNamespace(view_channel=m.id==91 or ouvert,read_message_history=m.id==91 or ouvert)
+        salon.permissions_for=permissions
+        async def vide(**kw):
+            if False:yield None
+        salon.history=vide
+        async def ouvrir(*args,**kw):
+            nonlocal ouvert
+            ouvert=True
+        salon.set_permissions.side_effect=ouvrir
+        async def creer(*args):
+            channels.append(salon)
+            return salon,True,''
+        ns.update(_assurer_salon_perso=AsyncMock(side_effect=creer),SALON_ARRIVEE=True,ADMIN_IDS=set(),
+                  est_manager=lambda m:False,sortie_d_un_ancien=lambda uid:None,ETATS_REMIS_A_ZERO=set(),
+                  traiter_liaison=AsyncMock(),recrutement_suivi=recrutement_suivi,
+                  canal_admin=AsyncMock(return_value=None),_MessageQuizWeb=lambda content,canal:SimpleNamespace(content=content))
+        for nom in ('assurer_salon_perso','assurer_salon_arrivee','preparer_arrivee_site','suite_arrivee_site','onboarder_membre','accueillir_site'):
+            charger(nom,ns)
+        async def quiz(message):
+            return await ns['onboarder_membre'](guild,membre,'Fictive',None,{},[])
+        ns['traiter_quiz_webhook']=AsyncMock(side_effect=quiz)
+        import parcours as reel
+        ns['parcours']=reel
+        membre.mention='<@42>'
+        salon.send=AsyncMock(return_value=SimpleNamespace(id=123))
+        etat_parcours={}
+        def ecrire_parcours(d):
+            etat_parcours.clear();etat_parcours.update(deepcopy(d))
+        neuf=Store(Path(self.tmp.name)/'neuf.sqlite3')
+        with patch.object(process_adapters,'store',return_value=neuf), \
+             patch.object(reel.process_clippeur,'pseudo_disponible',return_value=True), \
+             patch.dict(reel.onboarding._deps,{'FICHIER_ONBOARDING':Path(self.tmp.name)/'onboarding.json','lire_json':lambda *a:{}}), \
+             patch.multiple(reel,_lire=lambda:deepcopy(etat_parcours),_ecrire=ecrire_parcours,
+                 _deps={'membre_par_id':lambda uid:membre},_reprendre_trace=lambda *a:None,
+                 _ligne_du_compte=AsyncMock(return_value=True),_comptes_ordonnes=lambda *a,**kw:['compte-fictif'],
+                 _contexte=AsyncMock(return_value={'prenom':'Fictif','creatrice':'Fictive'}),
+                 _rendre=lambda texte,ctx:texte,_vue=lambda *a:None,_retirer_pret=AsyncMock()):
+            await ns['accueillir_site'](membre,'inv-fictive',{'cand':'cand-fictif','prenom':'Fictif'},None)
+            self.assertTrue(ouvert)
+            self.assertEqual(len(channels),1)
+            ns['_assurer_salon_perso'].assert_awaited_once()
+            salon.set_permissions.assert_awaited_once()
+            ns['onboarding'].livrer.assert_awaited_once()
+            self.assertEqual('123',etat_parcours['42']['messages']['1'])
+            salon.send.assert_awaited_once()
+            self.assertFalse(neuf.initialiser_nouveau('42',None))
+            self.assertEqual(ns['assurer_salon_perso'].__name__,'assurer_salon_perso')
+
+    async def test_reprise_apres_permission_tl_verifiee_hors_du_bot(self):
+        ns,membre,salon,_=self.contexte()
+        salon.permissions_for=lambda tl:SimpleNamespace(view_channel=False,read_message_history=False)
+        fn=charger('onboarder_membre',ns)
+        self.assertIn('historique',await fn(SimpleNamespace(),membre,'Fictive',None,{},[]))
+        ns['onboarding'].livrer.assert_not_awaited()
+        salon.permissions_for=lambda tl:SimpleNamespace(view_channel=True,read_message_history=True)
+        await fn(SimpleNamespace(),membre,'Fictive',None,{},[])
+        ns['onboarding'].livrer.assert_awaited_once()
 
 
 class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):

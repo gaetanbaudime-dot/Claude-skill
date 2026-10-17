@@ -5441,7 +5441,8 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         if salon_c is None or err_c:
             return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
         if not cree_c and not (salon_c.permissions_for(tl).view_channel and salon_c.permissions_for(tl).read_message_history):
-            return "⚠️ Accès TL retenu : vérifier l’historique du salon avant de le partager."
+            if not await onboarding_preuves.salon_vide_verifie(salon_c):
+                return "⚠️ Accès TL retenu : historique présent ou illisible, vérification humaine nécessaire."
         await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
                                       reason="Team leader configuré du clippeur")
         prenom_c = prenom_distinct(m_, nouveau_v)

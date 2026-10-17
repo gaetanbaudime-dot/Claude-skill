@@ -52,3 +52,20 @@ def tl_pour(uid, creatrice, mapping, registre):
         return ''.join(c for c in unicodedata.normalize('NFD',str(v).strip().lower()) if not unicodedata.combining(c))
     candidats=[str(u) for u,f in registre.items() if cle(f.get('chef',''))==cle(creatrice) and creatrice]
     return candidats[0] if len(candidats)==1 else None
+
+
+async def salon_vide_verifie(salon):
+    """Lecture bornée : aucun ancien message n'est partagé sur une simple supposition.
+
+    Sans lecture complète autorisée au bot, une réponse vide ne prouve rien.
+    Tout message (même du bot), pièce jointe ou erreur garde le handoff humain.
+    """
+    try:
+        permissions = salon.permissions_for(salon.guild.me)
+        if not (permissions.view_channel and permissions.read_message_history):
+            return False
+        async for _message in salon.history(limit=1):
+            return False
+        return True
+    except Exception:
+        return False
