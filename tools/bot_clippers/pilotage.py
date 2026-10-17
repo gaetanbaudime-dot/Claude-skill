@@ -49,7 +49,7 @@ SUBS_TTL_S = 30 * 60
 # « Pseudos app » = les @ corrigés depuis l'app (écrits par l'app), appliqués ici avec parcours.renommer (la règle de `!pseudo`)
 ONGLET_COMPTES_APP = "Comptes app"
 ENTETE_COMPTES_APP = ["Clé app", "Prénom", "Créatrice", "N°", "@", "ETAT", "Followers", "Reels 7 j", "Vues 7 j (48 h)", "Clé app TL",
-                      "Prénom TL"]
+                      "Prénom TL", "Followers vérifiés le (ISO)"]
 ONGLET_PSEUDOS = "Pseudos app"
 ONGLET_IDENTITY_APP = "Référentiel clippers"
 ONGLET_IDENTITY_LOG = "Clippers · 360"
@@ -115,13 +115,14 @@ def lignes_comptes_app(cles_app: dict, comptes_de, tl_de: dict, nom, classeur: d
         except Exception:                                               # noqa: BLE001 — fiche illisible : sans compte
             handles = []
         if not handles:
-            out.append([c_app, nom(uid), "", "", "", "", "", "", "", tl_cle, tl_nom])
+            out.append([c_app, nom(uid), "", "", "", "", "", "", "", tl_cle, tl_nom, ""])
             continue
         for n, h in enumerate(handles, start=1):
             k = cle(h)
             cl, ch = (classeur or {}).get(k) or {}, (chiffres or {}).get(k) or {}
             out.append([c_app, nom(uid), str(cl.get("creatrice") or ""), str(n), k, str(cl.get("etat") or ""),
-                        _txt(ch.get("followers")), _txt(ch.get("r7")), _txt(ch.get("v7")), tl_cle, tl_nom])
+                        _txt(ch.get("followers")), _txt(ch.get("r7")), _txt(ch.get("v7")), tl_cle, tl_nom,
+                        _txt(ch.get("followers_verified_at"))])
     return out
 
 
@@ -307,8 +308,16 @@ async def publier(pil: dict, maintenant: datetime = None) -> int:
             for ligne in comptes_app or []:
                 if len(ligne) > 4 and str(ligne[4]).lower() in nouveaux:
                     ligne[4] = nouveaux[str(ligne[4]).lower()]
+                    # The old handle's measurement does not prove the new identity.
+                    if len(ligne) > 11:
+                        ligne[11] = ""
             if comptes_app and await _ecrire(classeur, ONGLET_COMPTES_APP, ENTETE_COMPTES_APP, comptes_app):
                 ecrits += 1
+            try:
+                import metricool_onboarding
+                await metricool_onboarding.traiter(classeur, comptes_app)
+            except Exception as error:
+                journal.warning("Metricool onboarding indisponible (%s)", type(error).__name__)
             # 13/10 : même référentiel opérationnel dans le tableur privé de l'app
             # et le LOG Dashboard. Jamais de clé app, mot de passe ou code 2FA.
             id_rows = _identity_rows(pil, aujourdhui)

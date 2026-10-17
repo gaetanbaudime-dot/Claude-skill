@@ -8914,6 +8914,8 @@ async def on_ready():
                               "FICHIER_ONBOARDING": FICHIER_ONBOARDING, "membre_par_id": membre_par_id, "normaliser": normaliser,
                               "pilotage": os.environ.get("PILOTAGE", "1").strip() != "0"})   # 12/10 : tables de l'app pilotage
         client.loop.create_task(dashboard.boucle(client))                       # 09/10 (dashboard) : relu toutes les 15 min, sans Apify ni GAML
+        import metricool_onboarding
+        client.loop.create_task(metricool_onboarding.boucle(client))
         bans_mail.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_BANS": DONNEES / "bans_mail.json",
                               "canal_admin": canal_admin, "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m),
                               "normaliser": normaliser, "etat_scan": etats_comptes._lire, "ecrire_etat_scan": etats_comptes._ecrire})
