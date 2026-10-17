@@ -5244,52 +5244,9 @@ def texte_aide(membre, est_admin: bool) -> str:
     """`!aide` selon qui demande : admin, manager, clipper sous contrat, candidat.
     09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Saute des lignes, aère ») : plus de test, de J'ACCEPTE ni de
     Drive perso ; une ligne vide entre deux blocs ; le candidat lit trois lignes au plus, une seule action."""
-    if est_admin:
-        return ("🧰 **Commandes admin**\n\n"
-                "**Candidats** : `!pipeline` · `!tableau` · `!quiz-ok @x [score]` (valider à la main) · `!fiche @x` (salon privé) · "
-                "`!relance @x` · `!candidats` · `!inviter Prénom [fr|int]` (hors Discord) · `!migrer-test [go]` (anciens du test) · "
-                "`!annonce <groupe>` (l'annonce Telegram à coller) · "
-                "`!sync-noms`\n\n"
-                # 10/10 (lot L9b) : `!bloques` ici aussi ; `!equipes`, `!relancer-lien` et `!rang` retirés (lot W)
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
-                "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!bloques` · `!drives-perso fermer [go]` · "
-                "`!ltv [jours]` · `!alias` · `!code [adresse]` (" + ("connexion et création seulement" if codes_2fa.SECURITES
-                                                                        else "le dernier code de la boîte") + ", en MP) · "
-                "`!pilotage` (ton app de suivi, en MP)\n\n"
-                # 10/10 (lot L9b, avec L10) : les équipes TL, admins seulement ; un TL n'a jamais le rôle Manager
-                "**Équipes TL** (admins seulement) : `!tl liste` · `!tl Chloé @x` · `!tl Chloé aucun` · `!manager @x Chloé Sarah`\n\n"
-                "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
-                "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
-                "`!ban-spam` · `!archiver #salon…`\n\n"
-                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur`\n\n"
-                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre <texte libre, ou un fichier .md/.txt joint>` (prime sur tout) · "
-                "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus)\n\n"
-                # 10/10 (vérification L9b) : la sauvegarde à la main écrit un zip sur le volume (sauvegarder_volume, aucune pièce
-                # jointe) ; hors de l'aide, la sauvegarde du dimanche suffit
-                "-# Plusieurs commandes dans un seul message = rafale.")
-    if est_manager(membre):
-        return ("🧰 **Commandes manager**\n\n"
-                "· `!creatrice @clipper Prénom` — attribue la créatrice et ouvre son salon perso\n"
-                "· `!fiche @clipper` — sa fiche (numéro, e-mail masqué, parcours), salon privé seulement\n"
-                "· `!quiz-ok @x` — valider à la main : sa créatrice et son compte 1 suivent seuls\n"
-                "· `!candidats` — les quizz réussis hors Discord · `!inviter Prénom` — son invitation personnelle + le message WhatsApp\n"
-                "· `!annonce <groupe>` — l'annonce Telegram à coller (source suivie)\n"
-                "· `!pipeline` — où en est chaque candidat · `!relance @x` — le pousser d'un cran\n"
-                "· `!sortie @clipper raison` — sortie de l'équipe (rôles et salons retirés)\n"
-                # 09/10 : l'aide manager dépassait 1 990 caractères (fin coupée par Discord) : lignes resserrées.
-                + ("· `!alias ajouter …` / `!code …` — codes Instagram de connexion et de création, jamais les autres (10/10)\n"
-                   if codes_2fa.SECURITES else "· `!code` — le dernier code Instagram de la boîte, en MP (12/10)\n") +
-                "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
-                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
-                "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur (chaque nouveau en réserve 3)\n"
-                "· `!capacite` — l'onglet « Build capacity » : urgence par créatrice, e-mails et comptes à créer · `neufs` · `ajouter`\n"
-                "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
-                "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
-                "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
-                "· `!etats-comptes [test|leger]` — le classeur au crible d'Instagram (`test` : sans rien écrire ; `leger` : followers et Reels)\n"
-                "· `!dashboard` — l'onglet Dashboard sans scan (gratuit) · `!dashboard scan` — avec un passage complet d'Instagram (payant)\n"
-                "· `!bloques` — les clippers qui n'avancent pas, avec leur WhatsApp en un appui\n\n"
-                "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
+    if est_admin or est_manager(membre):
+        from aide_commandes import aide_staff
+        return aide_staff(est_admin)
     # 09/10 : « déjà dans l'agence » a UNE définition, est_signe (registre, rôle d'équipe, roster) ; l'assistant répond là où le
     # clipper écrit (plus de renvoi vers #assistant) ; la paie des clippers tombe les 5 et 20.
     if est_signe(membre):
