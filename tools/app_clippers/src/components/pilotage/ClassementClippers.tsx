@@ -25,7 +25,7 @@ export function CarteClipper({ fiche: l, rang }: { fiche: FicheClipper; rang: nu
         <Courbe valeurs={l.serie} largeur={52} hauteur={25} couleurTrait={couleur(l.creatrices[0] || "")} />
       </div>
       <div className="shrink-0 text-right">
-        <div className="text-[17px] leading-tight font-bold tabular-nums">{l.manquants ? "≈ " : ""}{l.clics7 === null ? "–" : compact(l.clics7)}</div>
+        <div className="text-[17px] leading-tight font-bold tabular-nums">{l.manquants && l.clics7 !== null ? "≈ " : ""}{l.clics7 === null ? "–" : compact(l.clics7)}</div>
         <div className="text-[10px] text-argent2">clics · 7 j</div>
         {evolution !== null ? <Delta v={evolution} petit /> : <div className="text-[10px] text-argent2" title="Comparaison avec les sept jours précédents indisponible">Évol. –</div>}
       </div>

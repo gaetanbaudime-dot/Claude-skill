@@ -34,6 +34,10 @@ assert.equal(c.comptes.length, 2); assert.equal(c.comptes[0].numero, 2); assert.
 variant = { ...d, comptes: [compte(1, { roleCompte: 'croissance' }), compte(2, { roleCompte: 'privé' }), compte(3, { roleCompte: 'croissance' })] };
 c = classementClippers(variant).find(x => x.id === '1');
 assert.equal(c.comptes[1].handle, 'compte3'); assert.equal(c.comptes[2].handle, 'compte2');
+// Avant publication de la nouvelle colonne : le Dashboard sait déjà qu'un ancien compte 2 est privé.
+variant = { ...d, comptes: [compte(1), compte(2, { mesure: 'privé', reels7: null, vuesRecentes: null })] };
+c = classementClippers(variant).find(x => x.id === '1');
+assert.equal(c.comptes[1].numero, 3); assert.equal(c.reels7, 7);
 // Une mesure absente n'est pas un zéro ; une somme connue mais incomplète est signalée.
 variant = { ...d, comptes: [compte(1, { reels7: null, vuesRecentes: null }), compte(2), compte(3)] };
 c = classementClippers(variant).find(x => x.id === '1');

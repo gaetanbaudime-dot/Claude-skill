@@ -72,9 +72,11 @@ export function classementClippers(d: Pilotage, filtre = ""): FicheClipper[] {
       if (inconnus.length === 1 && libres.length === 1) inconnus[0].n = libres[0];
     }
     const attribues = ordonnes.filter((x): x is { c: Compte; n: number } => !!x.n && x.n >= 1 && x.n <= 3).sort((a, b) => a.n - b.n);
+    const troisiemeActif = attribues.some(({ c, n }) => n === 3 && (estGood(c.etat) || normaliser(c.etat) === "prive"));
     let croissanceNumero = 0;
     for (const { c, n } of attribues) {
-      const prive = c.roleCompte ? normaliser(c.roleCompte) === "prive" : ["prive", "privé"].includes(normaliser(c.etat)) || n === 3;
+      const prive = c.roleCompte ? normaliser(c.roleCompte) === "prive" : normaliser(c.etat) === "prive" || n === 3
+        || (!troisiemeActif && /^prive\b/.test(normaliser(c.mesure || "")));
       const affichage = prive ? 3 : ++croissanceNumero;
       const actif = estGood(c.etat) || (prive && normaliser(c.etat) === "prive");
       if (actif && affichage <= 3 && !places.has(affichage)) places.set(affichage, { ...c, numero: affichage });
