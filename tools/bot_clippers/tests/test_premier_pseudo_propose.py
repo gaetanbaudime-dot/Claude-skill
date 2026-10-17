@@ -36,8 +36,11 @@ class PremierPseudo(unittest.IsolatedAsyncioTestCase):
         self.salon.send.assert_awaited_once()
         texte = self.salon.send.call_args.args[0]
         self.assertIn('@pseudo_fictif', texte)
-        self.assertIn('Disponibilité sur Instagram non vérifiée', texte)
-        self.assertIn('Crée un seul nouveau compte', texte)
+        self.assertIn('Étape 1 · Ton compte 1', texte)
+        self.assertIn('remis ici par le propriétaire', texte)
+        self.assertNotIn('Pseudo proposé', texte)
+        self.assertNotIn('Crée un seul', texte)
+        self.assertTrue(texte.startswith('<@42>\n\n'))
         self.assertNotIn('SECRET_FICTIF', texte)
         self.assertNotIn('incorrect_fictif', texte)
         self.assertNotIn('1_fait', self.etat['42']['dates'])

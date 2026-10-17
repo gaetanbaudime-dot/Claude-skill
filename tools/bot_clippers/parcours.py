@@ -1320,12 +1320,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     if pseudo_propose:
         # Le pseudo du message est celui contrôlé et réservé, sans aucun secret.
         ctx["compte1"] = pseudo_propose
-        e = {**e, "texte": (
-            "Pseudo proposé à créer : **@{compte1}**\n\n"
-            "Réservé pour toi dans notre suivi. **Disponibilité sur Instagram non vérifiée.**\n\n"
-            "Crée un seul nouveau compte Instagram avec ce pseudo. Ton responsable te remet les accès personnellement.\n\n"
-            "Si Instagram refuse ce pseudo, signale-le ici avant de poursuivre ; ne crée pas un autre compte.\n\n"
-            "Une fois le compte réellement créé, appuie sur ✅ et confirme le pseudo exact. Ce message ne confirme pas sa création.")}
+        e = {**e, "icone": "", "titre": "Étape 1 · Ton compte 1", "texte": (
+            "Identifiant : @{compte1}\n\n"
+            "Les accès et les consignes de création seront remis ici par le propriétaire.")}
     ctx["palier"] = ""
     if n in (2, 3):
         # 09/10 : « 🎯 4 Reels vus sur ton compte 1. Voici ton compte 2. » — seulement quand ce sont bien les Reels qui l'ouvrent
@@ -1336,7 +1333,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             journal.info("Palier du compte %s de %s : %s", n, uid, erreur)
     icone = f"{e['icone']} " if e.get("icone") else ""
     texte = f"{membre.mention} {icone}**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
-    if n == 1 and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
+    if pseudo_propose:
+        texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
+    if n == 1 and not pseudo_propose and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
         ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
         gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
         texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(f"{membre.mention} ")

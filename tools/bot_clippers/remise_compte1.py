@@ -28,20 +28,49 @@ def modele(mention, handle, mail, mdp):
             "Créé ? Appuie sur le bouton.")
 
 
-def verifier_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
-    # Sans inventaire complet, un lecteur par rôle pourrait manquer au contrôle.
-    if not guild.chunked:
-        raise Retenue('Liste complète des membres non disponible : remise retenue.')
-    tl = onboarding_preuves.tl_pour(uid, creatrice, equipes_tl.tl_par_va(), equipes_tl._fiches())
+def diagnostic_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
+    """Même décision que la remise ; projection Discord sans contenu de message ni accès Instagram."""
+    uid = str(uid)
+    mapping = equipes_tl.tl_par_va()
+    tl = onboarding_preuves.tl_pour(uid, creatrice, mapping, equipes_tl._fiches())
     autorises = {uid, str(guild.owner_id), str(guild.me.id), *map(str, admin_ids)}
     if tl:
         autorises.add(str(tl))
-    if salon.permissions_for(guild.default_role).view_channel:
-        raise Retenue('Salon accessible à tous : remise retenue.')
+    lecteurs = []
     for membre in guild.members:
-        if (salon.permissions_for(membre).view_channel and str(membre.id) not in autorises
-                and not (not getattr(membre, 'bot', False) and est_staff(membre))):
-            raise Retenue('Un lecteur non autorisé peut accéder au salon : remise retenue.')
+        if not salon.permissions_for(membre).view_channel:
+            continue
+        mid = str(membre.id)
+        staff = not getattr(membre, 'bot', False) and est_staff(membre)
+        raison = ('titulaire' if mid == uid else 'proprietaire' if membre.id == guild.owner_id
+                  else 'bot_service' if membre.id == guild.me.id else 'admin_configure' if mid in set(map(str, admin_ids))
+                  else 'tl_effectif' if mid == str(tl) else 'staff' if staff else 'non_autorise')
+        roles = []
+        for role in getattr(membre, 'roles', []):
+            surcharge = salon.overwrites_for(role)
+            roles.append({'id': str(role.id), 'nom': role.name,
+                          'administrateur': bool(role.permissions.administrator),
+                          'voir_base': bool(role.permissions.view_channel),
+                          'voir_salon': surcharge.view_channel})
+        surcharge = salon.overwrites_for(membre) if hasattr(salon, 'overwrites_for') else None
+        lecteurs.append({'uid': mid, 'nom': membre.display_name if hasattr(membre, 'display_name') else '',
+                         'autorise': mid in autorises or bool(staff), 'raison': raison,
+                         'voir_salon_individuel': getattr(surcharge, 'view_channel', None), 'roles': roles})
+    complet = bool(guild.chunked)
+    public = bool(salon.permissions_for(guild.default_role).view_channel)
+    return {'inventaire_complet': complet, 'salon_public': public, 'tl_effectif': str(tl) if tl else None,
+            'source_tl': 'affectation_individuelle' if mapping.get(uid) else 'mandat_creatrice',
+            'lecteurs': lecteurs, 'remise_autorisee': complet and not public and all(x['autorise'] for x in lecteurs)}
+
+
+def verifier_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
+    diagnostic = diagnostic_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff)
+    if not diagnostic['inventaire_complet']:
+        raise Retenue('Liste complète des membres non disponible : remise retenue.')
+    if diagnostic['salon_public']:
+        raise Retenue('Salon accessible à tous : remise retenue.')
+    if not diagnostic['remise_autorisee']:
+        raise Retenue('Un lecteur non autorisé peut accéder au salon : remise retenue.')
 
 
 def verifier_etat(message, uid, admin_ids, est_staff, salon_frais=None):
