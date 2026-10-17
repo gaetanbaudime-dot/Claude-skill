@@ -561,7 +561,11 @@ async def attribuer(membre, via: str) -> str:
             try:
                 creatrice = choix_creatrice.preparer(membre.id, creatrice, _deps['lire_json'], _deps['ecrire_json'],
                     _fichier_pipeline(), _deps['FICHIER_EQUIPES'], _deps['FICHIER_ONBOARDING'],
-                    comptes_connus=process_adapters.store().counts(membre.id))
+                    comptes_connus=process_adapters.store().counts(membre.id),
+                    verification_roles=lambda choix: choix_creatrice.verifier_roles(membre,
+                        _deps['role_creatrice'](membre.guild, choix), _deps['roles_creatrices'](membre.guild)
+                        + [r for nom in set(ORDRE) | set(_deps['roster'].groupes())
+                           if (r := _deps['role_creatrice'](membre.guild, nom)) is not None]))
             except (choix_creatrice.Divergence, OSError):
                 journal.warning("Choix non persisté ou réservation à rapprocher : attribution retenue")
                 return ""

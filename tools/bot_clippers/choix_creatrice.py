@@ -45,8 +45,14 @@ def resoudre(uid, fiche, info, proposition='', decision=None):
     return registre or attente or proposition
 
 
+def verifier_roles(membre, attendu, connus):
+    """Un rôle divergent impose une revue, même si une décision explicite existe."""
+    if any(r in membre.roles and r != attendu for r in connus):
+        raise Divergence('Rôle de créatrice divergent : revue humaine requise avant toute écriture')
+
+
 def preparer(uid, proposition, lire, ecrire, fichier_pipeline, fichier_equipes,
-             fichier_onboarding, decision=None, comptes_connus=None):
+             fichier_onboarding, decision=None, comptes_connus=None, verification_roles=None):
     """À appeler sous verrou(uid), avant tout effet externe. Écrit uniquement le choix et son attente."""
     uid = str(uid)
     pipe = lire(fichier_pipeline, None)
@@ -59,6 +65,9 @@ def preparer(uid, proposition, lire, ecrire, fichier_pipeline, fichier_equipes,
     choix = resoudre(uid, fiche, info, proposition, decision)
     if not choix:
         raise Divergence('Créatrice non déterminée')
+    if verification_roles is None:
+        raise Divergence('Vérification des rôles absente')
+    verification_roles(choix)
     ancienne = (onb.get('clippers') or {}).get(uid) or {}
     precedents = [fiche.get('creatrice'), info.get('creatrice_attendue'), ancienne.get('creatrice')]
     changement = any(c and str(c).casefold() != choix.casefold() for c in precedents)

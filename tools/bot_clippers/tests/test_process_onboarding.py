@@ -82,7 +82,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
               'ecrire_json': lambda key, val: registre.update({key: deepcopy(val)}),
               'datetime': datetime, 'timezone': timezone, 'attribution': SimpleNamespace(_sortir_d_attente=Mock(), conserver_attente=Mock()),
               'NOMS_RANGS': ['Clippeur'], 'role_creatrice': lambda g, cr: role,
-              'roster': SimpleNamespace(ajouter=Mock()), 'discord': discord, 'parcours': parcours,
+              'roles_creatrices':lambda g:[role], 'roster': SimpleNamespace(ajouter=Mock(),groupes=lambda:{}), 'discord': discord, 'parcours': parcours,
               'journal': logging.getLogger('test')}
         return ns, membre, salon, registre
 
@@ -273,7 +273,7 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         valider.assert_not_awaited()
 
     async def test_reprise_conserve_creatrice_validee_sans_nouveau_tirage(self):
-        membre=SimpleNamespace(id=42,bot=False,guild=SimpleNamespace())
+        membre=SimpleNamespace(id=42,bot=False,guild=SimpleNamespace(),roles=[])
         choix='Fictive validee'
         onboarder=AsyncMock(return_value='⚠️ reprise nécessaire')
         prochain=Mock(side_effect=AssertionError('Aucun nouveau tirage autorisé'))
@@ -288,8 +288,10 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
             '_deps':{'etats_classeur':AsyncMock(return_value={}),
                      'onboarder_membre':onboarder,'prenom_de':lambda m:'Fictif',
                      'lire_json':lambda f,d:deepcopy(fichiers.get(f,d)),
-                     'ecrire_json':lambda f,d:fichiers.update({f:deepcopy(d)}), 'FICHIER_EQUIPES':'equipes','FICHIER_ONBOARDING':'onboarding'},
-            '_fichier_pipeline':lambda:'pipeline',
+                     'ecrire_json':lambda f,d:fichiers.update({f:deepcopy(d)}),
+                     'role_creatrice':lambda g,c:None,'roles_creatrices':lambda g:[],
+                     'roster':SimpleNamespace(groupes=lambda:{}), 'FICHIER_EQUIPES':'equipes','FICHIER_ONBOARDING':'onboarding'},
+            '_fichier_pipeline':lambda:'pipeline','ORDRE':[],
             '_Par':lambda:None,'_etat':lambda:deepcopy(etat),'_ecrire':lambda d:etat.update(d),
             'datetime':datetime,'timezone':timezone,'journal':logging.getLogger('test'),
             'bilan_court':str,'a_signaler':lambda *a:False}
@@ -322,12 +324,23 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         ns['onboarding'].lien_drive_creatrice.assert_not_awaited()
         salon.set_permissions.assert_not_awaited()
 
-    async def test_role_seul_ne_change_pas_la_creatrice(self):
-        ns,m,salon,f=self.contexte()
-        m.roles.append(SimpleNamespace(name='Autre'))
-        f['equipes']['42']={'creatrice':'Fictive'}
-        await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Autre',None,{},[])
-        self.assertEqual('Fictive',ns['onboarding'].livrer.await_args.args[1])
+    async def test_role_divergent_bloque_sans_mutation_meme_avec_decision(self):
+        for explicite in (False,True):
+            ns,m,salon,f=self.contexte()
+            autre=SimpleNamespace(name='Autre')
+            m.roles.append(autre)
+            ns['roles_creatrices']=lambda g:[autre]
+            f['pipeline']['etats']['42']['creatrice_attendue']='Fictive'
+            avant=deepcopy(f)
+            decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'} if explicite else None
+            resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Fictive',None,{},[],decision=decision)
+            self.assertIn('Rôle de créatrice divergent',resultat)
+            self.assertEqual(avant,f)
+            ns['onboarding'].livrer.assert_not_awaited()
+            ns['onboarding'].lien_drive_creatrice.assert_not_awaited()
+            m.add_roles.assert_not_awaited();m.edit.assert_not_awaited()
+            salon.set_permissions.assert_not_awaited()
+            self.assertEqual({},self.store.counts('42'))
 
     async def test_reservation_ancienne_inchangee_avec_decision(self):
         ns,m,salon,f=self.contexte()
@@ -405,10 +418,10 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'}
         async with choix_creatrice.verrou('42'):
             with self.assertRaises(OSError):
-                choix_creatrice.preparer('42','Autre',ns['lire_json'],panne,'pipeline','equipes','onboarding',decision, {})
-            choix=choix_creatrice.preparer('42','Autre',ns['lire_json'],ecrire,'pipeline','equipes','onboarding',comptes_connus={})
+                choix_creatrice.preparer('42','Autre',ns['lire_json'],panne,'pipeline','equipes','onboarding',decision, {},verification_roles=lambda c:None)
+            choix=choix_creatrice.preparer('42','Autre',ns['lire_json'],ecrire,'pipeline','equipes','onboarding',comptes_connus={},verification_roles=lambda c:None)
             avant=deepcopy(f)
-            self.assertEqual(choix,choix_creatrice.preparer('42','Autre',ns['lire_json'],ecrire,'pipeline','equipes','onboarding',comptes_connus={}))
+            self.assertEqual(choix,choix_creatrice.preparer('42','Autre',ns['lire_json'],ecrire,'pipeline','equipes','onboarding',comptes_connus={},verification_roles=lambda c:None))
         self.assertEqual('Fictive',choix)
         self.assertEqual(avant,f)
         self.assertEqual(avant_onb,f['onboarding'])

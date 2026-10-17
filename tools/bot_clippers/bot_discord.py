@@ -5417,15 +5417,14 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         try:
             creatrice_c = choix_creatrice.preparer(uid_m, creatrice_c, lire_json, ecrire_json,
                 FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_ONBOARDING, decision=decision,
-                comptes_connus=process_adapters.store().counts(uid_m))
+                comptes_connus=process_adapters.store().counts(uid_m),
+                verification_roles=lambda choix: choix_creatrice.verifier_roles(m_, role_creatrice(g, choix),
+                    roles_creatrices(g) + [r for nom in set(getattr(attribution, 'ORDRE', [])) | set(roster.groupes())
+                                          if (r := role_creatrice(g, nom)) is not None]))
         except (choix_creatrice.Divergence, OSError) as erreur:
             return "⚠️ Choix retenu : " + str(erreur)
         if ancien_sans_salon(m_) and not forcer_salon:
             return f"⏭️ {m_.display_name} : ancien système sans salon, aucune livraison"
-        for nom_role in getattr(attribution, 'ORDRE', []):
-            r = role_creatrice(g, nom_role)
-            if r is not None and r in m_.roles and normaliser(nom_role) != normaliser(creatrice_c):
-                journal.warning("Rôle de créatrice divergent : choix durable conservé, contrôle humain nécessaire")
         # Les fichiers absents/illisibles restent inconnus, jamais des historiques vides.
         preuve = onboarding_preuves.preuve_nouveau(uid_m, pipe_process,
             lire_json(FICHIER_ONBOARDING, None), lire_json(FICHIER_PARCOURS, None),
@@ -8769,7 +8768,7 @@ async def on_ready():
         pods.configurer({"google_api": google_api, "onboarding": onboarding, "est_staff": _staff})
         attribution.configurer({"lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER": DONNEES / "attribution.json",
                                 "FICHIER_EQUIPES": FICHIER_EQUIPES, "categorie_de_creatrice": categorie_de_creatrice,
-                                "role_creatrice": role_creatrice, "onboarder_membre": onboarder_membre, "canal_admin": canal_admin,
+                                "role_creatrice": role_creatrice, "roles_creatrices": roles_creatrices, "onboarder_membre": onboarder_membre, "canal_admin": canal_admin,
                                 "membre_par_id": membre_par_id, "est_staff": _staff, "prenom_de": prenom_de, "roster": roster,
                                 "etats_classeur": _etats_classeur, "normaliser": normaliser,
                                 # 11/10 (lot W, lot L3) : lignes libres ÷ ATTRIBUTION_LIGNES_MIN, moins les lignes dues aux
