@@ -53,6 +53,15 @@ class RapprochementZero(unittest.TestCase):
         (self.root/'onboarding.json').write_text(json.dumps({'clippers': {'123': {'comptes': ['fictif']}}}))
         with self.assertRaises(Bloque): self.run_zero()
 
+    def test_files_heritees_isolees_bloquent_zero(self):
+        for champ in ('a_dire', 'remise_securisee'):
+            with self.subTest(champ=champ):
+                (self.root/'onboarding.json').write_text(json.dumps({'clippers': {'123': {champ: ['ancien_fictif']}}}))
+                with self.assertRaises(Bloque): self.run_zero()
+                with self.store.transaction() as db:
+                    self.assertIsNone(db.execute('SELECT * FROM histories').fetchone())
+                    self.assertIsNone(db.execute('SELECT * FROM jobs').fetchone())
+
     def test_backup_failure_no_write(self):
         with patch.object(rz, 'sauvegarder', side_effect=OSError('disque')):
             with self.assertRaises(OSError): self.run_zero()

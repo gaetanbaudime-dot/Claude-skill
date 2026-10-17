@@ -35,7 +35,7 @@ def sources(root, uid):
     parcours = donnees['parcours.json'].get(uid) or {}
     if not isinstance(fiche, dict) or not isinstance(parcours, dict):
         raise Bloque('Dossier invalide')
-    if any(fiche.get(k) for k in ('comptes', 'acces', 'telephones', 'lien', 'liens_prets', 'sorti')):
+    if any(fiche.get(k) for k in ('comptes', 'acces', 'telephones', 'lien', 'liens_prets', 'sorti', 'a_dire', 'remise_securisee')):
         raise Bloque('Trace de compte ou livraison : rapprochement zéro refusé')
     if any(not isinstance(v, dict) for v in onb.get('livres', {}).values()):
         raise Bloque('Historique de livraisons invalide')
