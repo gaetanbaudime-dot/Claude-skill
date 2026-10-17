@@ -433,7 +433,7 @@ def nom_meta_sans_adresse_meta(from_header) -> bool:
 # l'écrire à sa place : le sien arrive dessous) ; un mail relayé par iCloud devrait y porter « arc=pass (… dkdomain=
 # mail.instagram.com …) » ou une signature Meta. Statut : spéculatif tant qu'un vrai mail relayé ne l'a pas confirmé.
 PREUVE_META = re.compile(r"(?:arc=pass\s*\([^)]*dkdomain=|dkim=pass[^;]*?header\.(?:d=|i=@))(?:[a-z0-9-]+\.)*"
-                         r"(?:instagram|facebookmail|facebook|fb|meta|metamail)\.com\b")
+                         r"(?:instagram|facebookmail|facebook|fb|meta|metamail)\.com(?=[\s;)]|$)")
 
 
 def preuve_exigee() -> bool:
@@ -450,6 +450,42 @@ def preuve_relais(msg) -> str:
     if not resultats:
         return "absente"
     return "ok" if PREUVE_META.search(plat(resultats[0])) else "contraire"
+
+
+def preuve_confirmation_instagram(msg) -> bool:
+    """Lire uniquement le résultat du MX Gmail de réception, jamais From seul.
+
+    Aucun résultat inférieur ne remplace le premier. Plusieurs résultats du MX
+    attendu sont ambigus et refusés. Aucun nouvel hôte de confiance configurable.
+    """
+    resultats = [str(v).strip().lower() for v in msg.get_all("Authentication-Results") or []]
+    def fiable(valeur):
+        return bool(re.match(r"^mx\.google\.com\s*;", valeur))
+    if not resultats or not fiable(resultats[0]) or sum(fiable(r) for r in resultats) != 1:
+        return False
+    resultat = resultats[0]
+    def domaine_instagram(domaine):
+        return domaine in DOMAINES_INSTAGRAM
+    # Les commentaires ne peuvent pas inventer un résultat DKIM/DMARC.
+    sans_commentaires = re.sub(r"\([^()]*\)", " ", resultat)
+    for section in sans_commentaires.split(";")[1:]:
+        section = section.strip()
+        if re.match(r"^dkim=pass(?:\s|$)", section):
+            domaines = re.findall(r"(?:^|\s)header\.d=([^\s;]+)", section)
+            if len(domaines) == 1 and domaine_instagram(domaines[0]):
+                return True
+        if re.match(r"^dmarc=pass(?:\s|$)", section):
+            domaines = re.findall(r"(?:^|\s)header\.from=([^\s;]+)", section)
+            if len(domaines) == 1 and domaine_instagram(domaines[0]):
+                return True
+    # ARC : seule l'attestation explicite DKIM Instagram du MX est utilisable.
+    for section in resultat.split(";")[1:]:
+        m = re.fullmatch(r"\s*arc=pass\s*\(([^()]*)\)\s*", section)
+        if m and re.search(r"(?:^|\s)dkim=pass(?:\s|$)", m[1]):
+            domaines = re.findall(r"(?:^|\s)dkdomain=([^\s]+)", m[1])
+            if len(domaines) == 1 and domaine_instagram(domaines[0]):
+                return True
+    return False
 
 
 def relais_accepte(msg) -> bool:
@@ -1031,8 +1067,7 @@ def classer_mail(msg) -> dict:
         date = datetime(1970, 1, 1, tzinfo=timezone.utc)
     alias = alias_du_mail(msg)
     if confirmation_email_fr(sujet):
-        # Le seul élargissement du parser exige une preuve Meta explicite du relais.
-        relais = adresse_expediteur(msg.get("From")).endswith("@icloud.com")
+        # Le nouveau modèle exige une authentification attestée, même en envoi direct.
         corps_alias = {a.lower() for a in ADRESSES.findall(texte_du_mail(msg))
                        if a.lower() != IMAP_USER.lower()}
         candidat = next(iter(corps_alias)) if len(corps_alias) == 1 else ""
@@ -1041,7 +1076,7 @@ def classer_mail(msg) -> dict:
         for nom in ("To", "X-Original-To", "Delivered-To"):
             entetes.update(a.lower() for _, a in email.utils.getaddresses(msg.get_all(nom) or [])
                            if "@" in a and a.lower() != IMAP_USER.lower())
-        if (not info.get("confirmation_adresse") or (relais and preuve != "ok")
+        if (not info.get("confirmation_adresse") or not preuve_confirmation_instagram(msg)
                 or len(entetes) > 1 or len(corps_alias) > 1 or (alias and candidat and alias != candidat)
                 or not (alias or candidat)):
             info.update(decision="garder", code=None, libelle="confirmation e-mail : provenance ou alias non vérifiable")

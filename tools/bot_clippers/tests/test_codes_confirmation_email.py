@@ -115,3 +115,45 @@ class Confirmation(unittest.IsolatedAsyncioTestCase):
         rendu = (await self.servir())[1]
         self.assertNotIn('111111', rendu)
         self.assertIn('provenance', rendu)
+
+    def test_provenance_domaines_authentifies_et_headers_multiples(self):
+        positifs = [
+            'mx.google.com; dkim=pass header.d=mail.instagram.com',
+            'mx.google.com; dmarc=pass header.from=instagram.com',
+            'mx.google.com; arc=pass (i=1 dkim=pass dkdomain=mail.instagram.com)',
+        ]
+        negatifs = [
+            'mx.google.com; dkim=pass header.d=mail.instagram.com.evil.example',
+            'mx.google.com; dkim=pass header.d=mail.instagram.com-evil.example',
+            'mx.google.com; dkim=pass header.d=mail.instagram.com@evil.example',
+            'mx.google.com; dmarc=pass header.from=instagram.com.evil.example',
+            'mx.google.com; arc=pass (i=1 dkim=pass dkdomain=mail.instagram.com.evil.example)',
+            'mx.google.com; arc=pass (dkdomain=mail.instagram.com)',
+            'mx.google.com.evil.example; dkim=pass header.d=mail.instagram.com',
+            'evil.example; dkim=pass header.d=mail.instagram.com',
+            'mx.google.com; dkim=fail (dkim=pass header.d=mail.instagram.com)',
+            'mx.google.com; dkim=pass header.d=mail.instagram.com header.d=evil.example',
+        ]
+        for direct in (False, True):
+            for auth in positifs + negatifs:
+                with self.subTest(direct=direct, auth=auth):
+                    m = self.mail(preuve=False)
+                    if direct:
+                        m.replace_header('From', 'Instagram <security@mail.instagram.com>')
+                    m['Authentication-Results'] = auth
+                    self.assertEqual(auth in positifs, self.c.classer_mail(m)['decision'] == 'donner')
+        for headers in ([], [negatifs[0],positifs[0]], [positifs[0],positifs[1]],
+                        ['evil.example; none',positifs[0]]):
+            m = self.mail(preuve=False)
+            m.replace_header('From','Instagram <security@mail.instagram.com>')
+            for h in headers:
+                m['Authentication-Results'] = h
+            self.assertNotEqual('donner',self.c.classer_mail(m)['decision'])
+        m = self.mail()
+        m['Authentication-Results'] = 'untrusted.example; dkim=pass header.d=evil.example'
+        self.assertEqual('donner',self.c.classer_mail(m)['decision'])
+
+    def test_regex_historique_refuse_suffixe_hostile(self):
+        for champ in ('dkim=pass header.d=', 'dkim=pass header.i=@', 'arc=pass (dkdomain='):
+            self.assertIsNone(self.c.PREUVE_META.search(champ+'mail.instagram.com.evil.example'))
+            self.assertIsNotNone(self.c.PREUVE_META.search(champ+'mail.instagram.com '))
