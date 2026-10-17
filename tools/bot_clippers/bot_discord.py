@@ -32,6 +32,7 @@ import codes_2fa                          # relais des codes Instagram/Facebook 
 import otp_identity                       # rattrapage sûr des e-mails via UID et Sheet
 import conversation_audit                 # export privé de l'historique pour audit du serveur (lecture seule)
 import creatrices                         # valeur d'un abonné OF / MYM depuis le classeur créatrices (14/09)
+import recrutement_suivi
 import web_candidature                    # site du tunnel candidat : formulaire, connexion Discord, quiz (23/09)
 import paie_clics                         # paie au clic GAML : relevés, ligne du matin, liste du 5 et du 20 (23/09)
 import onboarding                         # comptes depuis le classeur des logins, lien GAML, Drive du clipper (23/09)
@@ -3703,7 +3704,7 @@ async def rattraper_webhooks():
 # retirée ; la candidature vit sur le site (web_candidature), qui écrit la fiche lui-même.
 
 
-async def traiter_liaison(auteur, brut):
+async def traiter_liaison(auteur, brut, cand_id=None):
     """Cœur de la liaison (via `!lier`, un numéro envoyé BRUT en MP, ou l'arrivée par le site) : retrouve la candidature,
     renomme le membre, puis dit la prochaine chose à faire, une seule.
     09/10 (Gaëtan : « Chaque étape à la fois, on se complique pas la vie ») : quiz déjà réussi → RIEN ici (le premier message
@@ -3714,12 +3715,17 @@ async def traiter_liaison(auteur, brut):
                                  "Par exemple : `06 12 34 56 78`")
         return
     donnees = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    # Une liaison du site doit présenter sa preuve avant de lire les réponses.
+    preuve_site = cand_id and recrutement_suivi.liaisons(donnees).get(cand_id) == {str(auteur.id)}
+    if cand_id and not preuve_site:
+        journal.warning("Liaison du site retenue : identité non prouvée")
+        return
     # Numéro ambigu (06 FR ? 03x malgache ? 01x béninois ?) : la lecture qui matche une candidature l'emporte.
     tel = next((l for l in lectures if l in donnees.get("candidatures", {})), lectures[0])
     # Le même numéro déjà relié à UN AUTRE compte Discord : doublon de compte ou usurpation —
     # on n'écrase rien, on remonte à l'admin (audit du 10/09).
     for autre_uid, autre in donnees.get("liaisons", {}).items():
-        if autre_uid != str(auteur.id) and autre.get("tel") == tel:
+        if not preuve_site and autre_uid != str(auteur.id) and autre.get("tel") == tel:
             # 01/10 (un candidat, 30/09 : « l'équipe te débloque » puis « Quizz réussi » dans la même minute) : déjà
             # engagé dans le parcours, il n'est pas bloqué — l'alerte va à l'admin seulement
             if (donnees.get("etats", {}).get(str(auteur.id)) or {}).get("etat") not in (
@@ -3732,7 +3738,10 @@ async def traiter_liaison(auteur, brut):
                                    f"<@{autre_uid}>. Rien écrit. Si c'est la même personne : `!fiche` des deux, "
                                    f"puis `!lier` à la main pour le bon compte.")
             return
-    cand = donnees.get("candidatures", {}).get(tel, {})
+    cand = recrutement_suivi.dossier_candidature(donnees, cand_id) if preuve_site else {}
+    if not preuve_site and tel in donnees.get("candidatures", {}):
+        await envoyer_mp(auteur, "Reprends ton lien personnel de candidature pour relier ton Discord. Si tu l’as perdu, ton responsable t’aide.")
+        return
     # Fusion, pas remplacement : renvoyer son numéro ne doit effacer ni l'e-mail, ni le STOP,
     # ni les compteurs de relance — sauf si le numéro CHANGE (les relances repartent de zéro).
     liaison = donnees.setdefault("liaisons", {}).get(str(auteur.id)) or {}
@@ -3742,6 +3751,8 @@ async def traiter_liaison(auteur, brut):
             liaison.pop(cle_r, None)
         liaison["date"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     liaison["tel"] = tel
+    if preuve_site:
+        liaison["candidature_id"] = cand_id
     liaison.setdefault("date", datetime.now(timezone.utc).isoformat(timespec="seconds"))
     if cand:
         liaison["prenom"], liaison["pays"] = cand.get("prenom", ""), cand.get("pays", "")
@@ -9673,7 +9684,7 @@ async def on_member_join(member):
     if attendu:
         score_site = preparer_arrivee_site(str(member.id), attendu.get("cand", ""), attendu.get("tel", ""))   # 29/09
         await assurer_salon_arrivee(member, accueil=False)             # 27/09 : son salon avant tout ; 28/09 : un seul message, celui de la liaison
-        await traiter_liaison(member, attendu.get("tel", ""))
+        await traiter_liaison(member, attendu.get("tel", ""), cand_id=attendu.get("cand"))
         await suite_arrivee_site(member, score_site)
         return
     # Porte d'entrée : l'invitation dont le compteur a bougé (cache avant/après). Le cache n'est
@@ -9899,7 +9910,7 @@ async def accueillir_site(member, code, fiche, invitation):
         return
     score_site = preparer_arrivee_site(uid, fiche.get("cand", ""), fiche.get("tel", ""))
     await assurer_salon_arrivee(member, accueil=False)
-    await traiter_liaison(member, fiche.get("tel", ""))
+    await traiter_liaison(member, fiche.get("tel", ""), cand_id=fiche.get("cand"))
     await suite_arrivee_site(member, score_site)
 
 
@@ -9909,8 +9920,13 @@ def preparer_arrivee_site(uid: str, cand_id: str, tel: str) -> str:
     (b) candidature venue d'un lien de parrainage → le parrainage s'enregistre sans commande. Renvoie le score du quiz du
     site s'il est réussi, sinon ''."""
     pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    if not recrutement_suivi.lier_discord(pipe, cand_id, uid):
+        ecrire_json(FICHIER_PIPELINE, pipe)
+        journal.warning("Liaison candidature Discord ambiguë : validation retenue")
+        return ""
+    ecrire_json(FICHIER_PIPELINE, pipe)
     q = ((pipe.get("candidatures_web") or {}).get(cand_id) or {}).get("quiz") or {}
-    parrain = ((pipe.get("candidatures") or {}).get(tel) or {}).get("parrain", "")
+    parrain = recrutement_suivi.dossier_candidature(pipe, cand_id).get("parrain", "")
     if parrain and parrain != str(uid):
         try:
             parrainage.enregistrer(parrain, str(uid))
