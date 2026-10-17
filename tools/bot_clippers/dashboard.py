@@ -1348,7 +1348,7 @@ def _reels_recents(ctx: _Ctx, L: dict) -> tuple:
             r7 = sum(1 for p, _x in publies if m7 <= p < m0)
     vues, n = 0, 0
     for p, x in publies:
-        if p < m7:
+        if p < m7 or p >= m0:
             continue
         pts = [pt for pt in (x.get("vues") or []) if isinstance(pt, list) and len(pt) == 2 and isinstance(pt[1], (int, float))
                and not isinstance(pt[1], bool) and _instant(pt[0])]
