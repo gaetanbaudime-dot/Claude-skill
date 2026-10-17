@@ -43,6 +43,20 @@ class Store:
         finally:
             db.close()
 
+    def initialiser_nouveau(self, uid, preuve):
+        """Insertion seule, sous transaction ; une trace existante ne devient jamais zéro."""
+        uid = str(uid)
+        with self.transaction() as db:
+            if db.execute('SELECT 1 FROM histories WHERE uid=?', (uid,)).fetchone():
+                return False
+            if not preuve or preuve.get('uid') != uid or preuve.get('type') != 'premiere_admission_site':
+                raise Bloque('Historique à vie non rapproché : nouvel entrant non prouvé')
+            if db.execute('SELECT 1 FROM accounts WHERE uid=?', (uid,)).fetchone() or db.execute(
+                    'SELECT 1 FROM jobs WHERE key=?', ('sortie:' + uid,)).fetchone():
+                raise Bloque('Historique existant : rapprochement requis')
+            db.execute('INSERT INTO histories VALUES(?,?)', (uid, json.dumps(preuve, sort_keys=True)))
+            return True
+
     def reconcile(self, uid, accounts, evidence):
         """Import explicite d'un historique complet revu ; jamais appelé implicitement.
 
