@@ -49,8 +49,8 @@ class ConsignesModele(unittest.TestCase):
             "claude": self.client, "compter_usage": Mock(),
         })
 
-    def prompt_envoye(self, modele="modele-fictif"):
-        messages = [{"role": "user", "content": "Quand arrive le compte suivant ?"}]
+    def prompt_envoye(self, modele="modele-fictif", question="Quand arrive le compte suivant ?"):
+        messages = [{"role": "user", "content": question}]
         self.ns["_appel_modele"](messages, modele)
         appel = self.client.messages.create.call_args.kwargs
         self.assertEqual(messages, appel["messages"])
@@ -93,6 +93,63 @@ class ConsignesModele(unittest.TestCase):
             "48 h pour répondre", "0,05 $ par visite réelle, francophone",
         ):
             self.assertIn(consigne, texte)
+
+    def test_accueil_sans_confirmation_whatsapp_dans_les_deux_modeles(self):
+        for modele in ("modele-fictif", "assistant-fictif"):
+            with self.subTest(modele=modele):
+                texte = self.prompt_envoye(modele, "Dois-je écrire sur WhatsApp avant mon compte 1 ?")
+                self.assertIn("Aucune confirmation WhatsApp n'est requise", texte)
+                self.assertIn("Aucun bouton WhatsApp n'est obligatoire", texte)
+                self.assertIn("Gaëtan", texte)
+                self.assertIn("sur WhatsApp, pour un blocage : demande-moi le lien", texte)
+                for ancien in (
+                    "J'ai écrit à Gaëtan", "Appuie sur ✅ quand tu as écrit à Gaëtan",
+                    "Écris à Gaëtan avec ce bouton", "le bouton WhatsApp de ton message de bienvenue",
+                    "Le groupe WhatsApp dès ton arrivée", "Ton groupe WhatsApp (dès ton arrivée)",
+                    "le lien de ses vidéos et le groupe WhatsApp, dans un seul message",
+                ):
+                    self.assertNotIn(ancien, texte)
+
+    def test_comptes_neufs_et_reconnexion_a_son_propre_compte(self):
+        for modele in ("modele-fictif", "assistant-fictif"):
+            with self.subTest(modele=modele):
+                texte = self.prompt_envoye(modele, "Est-ce le compte d'un ancien clippeur ?")
+                self.assertIn("Seuls des comptes neufs sont attribués", texte)
+                self.assertIn("Aucun compte ancien n'est réattribué", texte)
+                self.assertIn("Si tu as déjà créé ton propre compte, reconnecte-toi", texte)
+                self.assertIn("3 comptes créés maximum à vie, sans remplacement", texte)
+                self.assertIn("Le pseudo Sheets reste strictement identique", texte)
+                self.assertNotIn("rendu par un ancien clipper", texte)
+                self.assertNotIn("Un compte « qui existe déjà » dans ton étape", texte)
+
+    def test_compte_1_apres_attribution_et_roles_sans_presumer_la_remise(self):
+        for modele in ("modele-fictif", "assistant-fictif"):
+            with self.subTest(modele=modele):
+                texte = self.prompt_envoye(modele, "Ma créatrice est attribuée. Ai-je déjà reçu mes accès ?")
+                instruction, base = texte.split("# BASE DE CONNAISSANCES", 1)
+                for partie in (instruction, base):
+                    self.assertIn("après attribution et confirmation des rôles", partie)
+                    self.assertIn("Une réservation Sheets ne prouve pas la remise", partie)
+                    self.assertIn("Ne confirme jamais la remise sans preuve d'envoi réussi", partie)
+                self.assertIn("Un palier atteint ne contourne aucune vérification de disponibilité", texte)
+                for ancien in (
+                    "Le compte 1 est disponible immédiatement",
+                    "Le compte 1 arrive juste sous la bienvenue, sans attendre",
+                    "ton compte 1 arrive tout de suite sous ton message de bienvenue",
+                    "Tout de suite, juste en dessous de ton message de bienvenue",
+                ):
+                    self.assertNotIn(ancien, texte)
+
+    def test_identifiants_sheets_remis_par_le_flux_autorise_sans_divulgation(self):
+        for modele in ("modele-fictif", "assistant-fictif"):
+            with self.subTest(modele=modele):
+                texte = self.prompt_envoye(modele, "Qui me donne mes identifiants ?")
+                self.assertIn("identifiants préparés dans Sheets", texte)
+                self.assertIn("remis sans modification par le flux bot autorisé", texte)
+                self.assertIn("L'assistant ne recopie jamais les mots de passe", texte)
+                self.assertIn("Jamais d'identifiant, de mot de passe ni de lien perso dans #assistant", texte)
+                self.assertIn("Ne transmettre aucun secret ni document d'identité dans la demande d'aide", texte)
+                self.assertNotIn("Gaëtan n'envoie pas d'identifiants", texte)
 
     def test_ajouts_faq_et_consignes_staff_restent_injectes_dans_le_meme_ordre(self):
         self.ajouts.write_text("AJOUT_FICTIF_PRIORITAIRE", encoding="utf-8")

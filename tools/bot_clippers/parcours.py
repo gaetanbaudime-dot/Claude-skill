@@ -164,7 +164,7 @@ def sources_reels(fiche_p: dict, n: int) -> list:
 def regle_comptes(fiche_p: dict = None) -> str:
     if fiche_p and ordre(fiche_p) == "prive2":
         return "Ancien ordre des comptes : vérification par le manager avant la suite."
-    return ("Trois comptes créés au total, sans remplacement. Le compte 1 est disponible immédiatement. "
+    return ("Trois comptes créés au total, sans remplacement. Le compte 1 est remis après attribution et confirmation des rôles, selon la disponibilité vérifiée. "
             "Les quatre premiers Reels publiés et vérifiés sur le compte 1 sont ton test opérationnel, après le quiz. "
             "Le compte 2 arrive dès que ces quatre Reels sont vérifiés. "
             "Le compte 3, privé, arrive après 4 Reels publiés et vérifiés sur le compte 2.")
