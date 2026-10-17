@@ -40,6 +40,7 @@ import onboarding                         # comptes depuis le classeur des login
 import rapport_stats                      # liens GAML suivis du roster (associer_suivi) ; `!stats-jonas` retiré le 10/10
 import reserve_mym                        # réserve de trackings MYM par numéro de lien GAML (05/10)
 import support_suivi
+import suivi_clipper                     # fiche personnelle en lecture seule et tickets existants
 import parcours                           # parcours guidé du clipper dans son salon perso + mémoire (25/09)
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import dashboard                          # 09/10 (dashboard) : onglet Dashboard, une ligne par compte, réécrit toutes les 15 min si changé
@@ -8571,6 +8572,60 @@ def brancher_codes():
     client.add_dynamic_items(codes_2fa.BoutonMonCode, codes_2fa.BoutonUsageCode)
 
 
+async def lire_fiche_suivi(membre):
+    """Même prochaine action que !etape ; sources sélectionnées pour le seul UID."""
+    import diagnostic_dossier
+    import recrutement
+    uid = str(membre.id)
+    entrees = controle.lire_entrees()
+    pipeline = lire_json(FICHIER_PIPELINE, {})
+    fiche = (entrees.get("parcours") or {}).get(uid) or {}
+    onb = ((entrees.get("onboarding_etat") or {}).get("clippers") or {}).get(uid) or {}
+    handles = parcours._comptes_ordonnes(uid, onb=onb, fiche_p=fiche)
+    etats, lecture_etats = {}, True
+    try:
+        comptes = await onboarding.lire_comptes()
+        normalises = {"good": "Good", "ban": "Ban", "faire appel": "Faire appel", "à créer": "À créer", "a creer": "À créer"}
+        for compte in comptes:
+            handle = str(compte.get("handle") or "").lower().lstrip("@")
+            etat = normalises.get(str(compte.get("etat") or "").casefold(), compte.get("etat"))
+            if handle:
+                etats[handle] = etat if handle not in etats or etats[handle] == etat else None
+    except Exception:
+        lecture_etats = False
+    dossier = recrutement.dossier_depuis_sources(uid, entrees, pipeline, handles, etats, ordre_comptes=parcours.ordre(fiche))
+    dossier["admis"] |= est_signe(membre)
+    membre_serveur = membre if getattr(membre, "guild", None) is not None else membre_par_id(uid)
+    role = None
+    if membre_serveur is not None and str(membre_serveur.id) == uid and hasattr(membre_serveur, "roles"):
+        noms = {normaliser(n).strip() for n in (*ROLES_EQUIPE_ACCEPTES, *NOMS_RANGS,
+                *ROLE_CLIPPER_NOM.split(","), ROLE_TEAM_FR_NOM, ROLE_TEAM_MG_NOM, "Team International") if n}
+        role = any(normaliser(r.name).strip() in noms for r in membre_serveur.roles)
+    tl_uid = ""
+    try:
+        equipes = equipes_tl.composition(fiches=entrees.get("registre") or {}, registre=[])
+        tls = {str(e["tl"]) for e in equipes.values() if uid in e.get("vas", []) and e.get("tl")}
+        tl_uid = next(iter(tls)) if len(tls) == 1 else ""
+    except Exception:
+        pass
+    dossier["tl_uid"] = tl_uid
+    paie = {}
+    if uid in (entrees.get("registre") or {}):
+        try:
+            paie = {"regime": paie_clics.regime(uid), "taux": paie_clics.TAUX_CLIC, "pays": paie_clics.PAYS_LIBELLE}
+        except Exception:
+            pass
+    salon = salon_perso_de(membre.id)
+    return suivi_clipper.construire(uid, entrees, dossier, recrutement.projection(dossier), role=role,
+        tl_uid=tl_uid, livraison=diagnostic_dossier.registre(DONNEES / "process_clippeur.sqlite3", uid),
+        salon_id=str(salon.id) if salon is not None else "", paie=paie, lecture_etats=lecture_etats)
+
+
+def brancher_suivi():
+    suivi_clipper.configurer({"collecter": lire_fiche_suivi, "en_prive": en_prive,
+                             "est_staff": est_staff, "signaler_support": signaler_support}, client)
+
+
 def deps_equipes_tl() -> dict:
     """11/10 (lot W, lot L10) : les dépendances d'equipes_tl (`!tl`, `!manager`, primes TL et manager). « payees »
     (paie_clics.payees) n'est passée que si le lot L11 l'a livrée : sans elle, equipes_tl compte les visites payées lui-même
@@ -8609,6 +8664,7 @@ async def _role_tl_au_demarrage():
 @client.event
 async def setup_hook():
     brancher_codes()
+    brancher_suivi()
 
 
 @client.event
@@ -8618,6 +8674,7 @@ async def on_ready():
                  client.user, MODELE, len(ADMIN_IDS), CANAL_BOT_ID or "mention seule",
                  "ON" if ACTIVER_V2 else "off")
     brancher_codes()                                           # 10/10 (revue) : avant le premier appel réseau
+    brancher_suivi()
     try:
         await verifier_canaux_configures()                     # 24/09 : nomme la variable CANAL_* qui pointe dans le vide
     except Exception as erreur:                                # jamais bloquer le démarrage pour un contrôle
@@ -10381,23 +10438,9 @@ async def on_message(message):
         if await parcours.commande_pseudo(message, texte):
             return
 
-    # 09/10 : `!etape` seul, tapé par le clipper (promis par `!aide`, il n'arrivait jamais à parcours : la commande n'était
-    # servie qu'au staff) → le titre de son étape en cours et le lien du message. Dans son salon perso ou en MP seulement :
-    # le lien pointe vers le salon où il écrit.
+    # Fiche personnelle : même périmètre privé et même prochaine action vérifiée.
     if texte.split() in (["!etape"], ["!étape"]) and en_prive(message) and not est_staff(message.author):
-        import recrutement
-        try:
-            uid_action = str(message.author.id)
-            entrees_action = controle.lire_entrees()
-            fiche_action = (entrees_action.get("parcours") or {}).get(uid_action) or {}
-            reponse_action = await asyncio.wait_for(recrutement.lire_prochaine_action(
-                uid_action, entrees_action, lire_json(FICHIER_PIPELINE, {}),
-                parcours._comptes_ordonnes(uid_action, fiche_p=fiche_action),
-                parcours.ordre(fiche_action), onboarding.lire_comptes,
-                admis=est_signe(message.author)), timeout=20)
-        except Exception:
-            reponse_action = "Ton étape n’est pas vérifiable pour le moment. Ton équipe doit contrôler ton dossier avant toute nouvelle création."
-        await message.reply(reponse_action)
+        await suivi_clipper.commande(message)
         return
 
     # !aide : pour tout le monde, adaptée au rôle de celui qui demande.
