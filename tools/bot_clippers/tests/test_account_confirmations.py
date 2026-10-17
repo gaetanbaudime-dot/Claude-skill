@@ -11,7 +11,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -104,6 +104,82 @@ class ConfirmationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "historique des identités"):
             prepare(self.onb, self.routes, self.links, [self.c])
         self.assertNotIn("comptes_a_vie", self.onb)
+
+    def test_permutation_and_replacement_with_position_proofs_are_blocked(self):
+        proofs = {"dates": {"1": "2026-10-01T10:00:00+00:00", "1_fait": "2026-10-02T12:00:00+00:00"},
+                  "profils": {"1": "2026-10-02T11:00:00+00:00"}, "messages": {"1": "1001", "1p": "1002"},
+                  "base_reels": {"3": 0}, "programme": {"etape": 3}, "etape": 4}
+        original = self.c["comptes"]
+        for change in (original, [original[1], original[0], original[2]]):
+            for field, proof in proofs.items():
+                with self.subTest(change=change, field=field):
+                    self.c["comptes"] = change
+                    route = {"100": {field: proof, "notes": ["preuve à conserver"]}}
+                    before = deepcopy((self.onb, route, self.links))
+                    with self.assertRaisesRegex(ValueError, "Preuves positionnelles"):
+                        prepare(self.onb, route, self.links, [self.c])
+                    self.assertEqual(before, (self.onb, route, self.links))
+
+    def test_confirmed_replay_preserves_realistic_milestones_but_role_change_blocks(self):
+        onb, routes, _ = prepare(self.onb, self.routes, self.links, [self.c])
+        routes["100"].update(dates={"1_fait": "2026-10-02T12:00:00+00:00"},
+                             profils={"1": "2026-10-02T11:00:00+00:00"}, messages={"1": "1001"})
+        replay = prepare(onb, routes, self.links, [self.c])
+        self.assertEqual((onb, routes), replay[:2])
+        self.c["comptes"][1]["role"] = "prive"
+        self.c["comptes"][2]["role"] = "croissance"
+        with self.assertRaisesRegex(ValueError, "Preuves positionnelles"):
+            prepare(onb, routes, self.links, [self.c])
+
+    def test_two_aliases_of_one_json_identity_are_not_two_active_accounts(self):
+        ids = self.onb["comptes_a_vie"]["100"]
+        ids[1]["aliases"].append("growth.prv")
+        ids.pop(2)
+        before = deepcopy(self.onb)
+        with self.assertRaisesRegex(ValueError, "même identité JSON"):
+            prepare(self.onb, self.routes, self.links, [self.c])
+        self.assertEqual(before, self.onb)
+
+    def test_two_sqlite_aliases_of_one_identity_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "db.sqlite3"
+            with sqlite3.connect(path) as db:
+                db.executescript("CREATE TABLE accounts(id TEXT,uid TEXT); CREATE TABLE aliases(handle TEXT,account_id TEXT); CREATE TABLE jobs(key TEXT,data TEXT);")
+                db.execute("INSERT INTO accounts VALUES('same-id','100')")
+                db.executemany("INSERT INTO aliases VALUES(?, 'same-id')", [(c["handle"],) for c in self.c["comptes"]])
+            before = path.read_bytes()
+            with self.assertRaisesRegex(ValueError, "même identité SQLite"):
+                check_database(path, [self.c])
+            self.assertEqual(before, path.read_bytes())
+
+    def test_real_onboarding_resume_preserves_confirmed_roles_and_order(self):
+        import onboarding as o
+        import parcours as p
+        import places
+        onb, routes, _ = prepare(self.onb, self.routes, self.links, [self.c])
+        handles = list(onb["clippers"]["100"]["comptes"])
+        rows = [{"handle": h, "etat": "GOOD", "creatrice": "Chloé", "gerant": "Fictif", "utilisation": "Clipper"}
+                for h in reversed(handles)]
+        class Written(Exception):
+            pass
+        captured = []
+        def write(state):
+            captured.append(deepcopy(state))
+            raise Written()
+        with patch.object(o.process_adapters, "store", return_value=SimpleNamespace(reserve=lambda *a: None, get=lambda *a: {})), \
+             patch.object(o, "_lire_etat", side_effect=lambda: deepcopy(onb)), \
+             patch.object(o, "_ecrire_etat", side_effect=write), \
+             patch.object(o, "actif", return_value=True), \
+             patch.object(o, "lire_comptes", AsyncMock(return_value=rows)), \
+             patch.object(o, "_proprietaires", return_value={h: {"100"} for h in handles}), \
+             patch.object(places, "lignes_a_reserver", return_value=3):
+            with self.assertRaises(Written):
+                asyncio.run(o.livrer(SimpleNamespace(id=100, display_name="Fictif"), "Chloé", declencheur="!onboarding"))
+        restored = captured[0]["clippers"]["100"]
+        self.assertEqual(handles, [a["handle"] for a in restored["acces"]])
+        self.assertEqual(["croissance", "croissance", "prive"], [a["role_confirme"] for a in restored["acces"]])
+        self.assertEqual(handles, p._comptes_ordonnes("100", restored, routes["100"]))
+        self.assertEqual(onb["comptes_a_vie"], captured[0]["comptes_a_vie"])
 
     def test_other_owner_and_wrong_link_owner_block(self):
         self.c["comptes"][0]["handle"] = "autre"

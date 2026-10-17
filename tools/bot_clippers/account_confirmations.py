@@ -15,11 +15,34 @@ import sqlite3
 import process_clippeur
 
 
+def check_positional_history(fiche, route, handles, roles, private):
+    """A replay may retain milestones; a new mapping must not inherit them.
+
+    Conservative by design: even a possibly unaffected milestone requires an
+    identity-level review. This preparer never remaps, deletes or clears proof.
+    """
+    active = [a for a in fiche.get("acces") or [] if isinstance(a, dict)]
+    confirmed = route.get("ordre_confirme") or {}
+    unchanged = (fiche.get("comptes") == handles
+                 and [a.get("handle") for a in active] == handles
+                 and [a.get("role_confirme") for a in active] == roles
+                 and confirmed.get("valeur") == f"prive{private}"
+                 and all(confirmed.get(k) for k in ("par", "date", "reference")))
+    progress = ("dates", "profils", "messages", "base_reels", "programme", "essai",
+                "reconcilie", "corrige_4", "warmup_jour", "etape", "ligne_attendue",
+                "story_due", "lien_profil", "lien_bio_dit")
+    if not unchanged and any(route.get(k) for k in progress):
+        raise ValueError("Preuves positionnelles du parcours : rapprochement par identité requis ; aucun transfert de jalon")
+
+
 def prepare(onboarding, parcours, liens, confirmations):
     out, routes = deepcopy(onboarding), deepcopy(parcours)
-    summary = []
+    summary, seen_uids, selected_ids = [], set(), set()
     for confirmation in confirmations:
         uid = str(confirmation["uid"])
+        if uid in seen_uids:
+            raise ValueError("UID répété dans le lot de confirmations")
+        seen_uids.add(uid)
         proof = {k: confirmation[k] for k in ("par", "date", "reference")}
         if not all(proof.values()) or datetime.fromisoformat(proof["date"]).tzinfo is None:
             raise ValueError("Confirmation datée et attribuée requise")
@@ -52,6 +75,12 @@ def prepare(onboarding, parcours, liens, confirmations):
         known = {process_clippeur.cle(a) for c in identities for a in c["aliases"]}
         if not (set(handles) | set(map(process_clippeur.cle, fiche.get("comptes") or []))) <= known:
             raise ValueError(f"{uid}: historique des identités à rapprocher")
+        for handle in handles:
+            ids = [c["id"] for c in identities if handle in {process_clippeur.cle(a) for a in c["aliases"]}]
+            if len(ids) != 1 or ids[0] in selected_ids:
+                raise ValueError("Plusieurs pseudos pour la même identité JSON ou alias ambigu : rapprochement requis")
+            selected_ids.add(ids[0])
+        check_positional_history(fiche, routes.get(uid) or {}, handles, roles, private)
         accesses = list(fiche.get("acces") or []) + list(fiche.get("acces_archives") or [])
         selected = []
         for h, role in zip(handles, roles):
@@ -89,12 +118,16 @@ def check_database(path, confirmations):
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True) as db:
         db.execute("PRAGMA query_only=ON")
         db.execute("BEGIN")
+        selected_ids = set()
         for c in confirmations:
             for account in c["comptes"]:
-                rows = db.execute("SELECT a.uid FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?",
+                rows = db.execute("SELECT a.id,a.uid FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?",
                                   (process_clippeur.cle(account["handle"]),)).fetchall()
-                if rows != [(str(c["uid"]),)]:
+                if len(rows) != 1 or rows[0][1] != str(c["uid"]):
                     raise ValueError("Alias SQLite absent ou propriétaire divergent : rapprochement requis")
+                if rows[0][0] in selected_ids:
+                    raise ValueError("Plusieurs pseudos pour la même identité SQLite : rapprochement requis")
+                selected_ids.add(rows[0][0])
             if c.get("lien"):
                 row = db.execute("SELECT data FROM jobs WHERE key=?", (f"liens:{c['uid']}:{c['creatrice'].casefold()}",)).fetchone()
                 job = json.loads(row[0]) if row else {}
