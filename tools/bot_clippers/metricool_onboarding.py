@@ -48,7 +48,7 @@ def url_valide(url):
 
 def nouvelles_demandes(comptes, demandes, pseudos, now):
     """Discover verified accounts without requiring a click; fail closed on ambiguity."""
-    latest = {(r[1], r[2]): r for r in pseudos if len(r) > 4}
+    latest = {(str(r[1]).strip(), str(r[2]).strip()): r for r in pseudos if len(r) > 3}
     known = {(r[1], r[2], r[3]) for r in demandes if len(r) > 3}
     slots = {}
     for c in comptes:
@@ -63,7 +63,8 @@ def nouvelles_demandes(comptes, demandes, pseudos, now):
         change = latest.get(slot)
         if (not c[0] or c[3] not in {"1", "2", "3"} or not c[4]
                 or not eligible(c, now) or key in known
-                or (change and not change[4].strip() and change[3] != c[4])):
+                or (change and not str(change[4] if len(change) > 4 else "").strip()
+                    and str(change[3]).strip() != c[4])):
             continue
         result.append([now.isoformat(), c[0], c[3], c[4], str(c[6]), c[11], "demandé"] + [""] * 8)
         known.add(key)
@@ -175,6 +176,27 @@ async def provision(api, row, state, persist, now):
             info["link"], now.isoformat(), expires.isoformat()]
 
 
+async def identite_actuelle(classeur, demande, now):
+    """Relire les deux sources juste avant le provisioning ; une panne bloque la file."""
+    try:
+        comptes = await google_api.sheets_lire(classeur, "'Comptes app'!A2:L")
+        pseudos = await google_api.sheets_lire(classeur, "'Pseudos app'!A2:F")
+    except Exception:
+        return False
+    actuels = [c for c in comptes if len(c) > 4 and c[0] == demande[1]
+               and c[3] == demande[2]]
+    if len(actuels) != 1 or actuels[0][4] != demande[3] or not eligible(actuels[0], now):
+        return False
+    changements = [r for r in pseudos if len(r) > 3 and str(r[1]).strip() == demande[1]
+                   and str(r[2]).strip() == demande[2]]
+    if changements:
+        dernier = changements[-1]
+        statut = str(dernier[4] if len(dernier) > 4 else '').strip()
+        if not statut and str(dernier[3]).strip() != demande[3]:
+            return False
+    return True
+
+
 async def traiter(classeur, comptes_app):
     if LOCK.locked() or not os.environ.get("DONNEES_DIR"):
         return
@@ -225,6 +247,9 @@ async def traiter(classeur, comptes_app):
                     proof = len(source) == 1 and source[0]["mail"].strip().lower() in aliases and codes_2fa.actif()
                     if r[9] != "oui" and not proof:
                         LOG.info("Metricool demande ligne %s : contrôle récupération agence requis", idx)
+                        continue
+                    if not await identite_actuelle(classeur, r, datetime.now(timezone.utc)):
+                        LOG.info("Metricool demande ligne %s : identité modifiée ou non vérifiable", idx)
                         continue
                     try:
                         values = await provision(api, r, state, lambda: save(path, state), now)
