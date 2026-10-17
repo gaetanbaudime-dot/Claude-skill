@@ -1,9 +1,10 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { Clic, Compte, Pilotage } from "@/lib/pilotage";
-import { compact, couleur, decaler, estGood, fenetre, fmt, fmtUsd, jours, meme, normaliser, pct, serieParJour, somme, sommeBoutons, variation, type Periode } from "./calc";
+import { couleur, decaler, estGood, fenetre, fmt, fmtUsd, jours, meme, normaliser, serieParJour, somme, variation, type Periode } from "./calc";
 import { ouvrirInstagram } from "@/lib/instagram";
-import { BarresJour, Courbe, Delta, Ecart, Kpi, Titre } from "./ui";
+import { BarresJour, Delta, Ecart, Kpi, Titre } from "./ui";
+import ClassementClippers from "./ClassementClippers";
 
 /** Horizontal = la machine des clippers : leurs liens GAML (visites payables, celles de la paie), leurs comptes Instagram, plus
  *  les comptes Metricool de Rianah et les liens libérés. Le coût est celui de la paie : 0,05 $ par visite payable d'un clipper. */
@@ -31,7 +32,7 @@ function Detail({ comptes }: { comptes: Compte[] }) {
   if (!comptes.length) return <div className="text-[12px] text-argent2 py-2">Aucun compte GOOD à son nom au classeur.</div>;
   return (
     <div className="mt-2 space-y-1.5">
-      {comptes.sort((a, b) => (b.followers || 0) - (a.followers || 0)).map((c) => (
+      {[...comptes].sort((a, b) => (b.followers || 0) - (a.followers || 0)).map((c) => (
         <div key={c.handle} className="flex items-center justify-between gap-2 rounded-xl bg-white/[0.04] px-3 py-2">
           <div className="min-w-0">
             <button onClick={() => ouvrirInstagram(c.handle)} className="block max-w-full text-left text-[13.5px] font-semibold truncate text-white active:opacity-60">
@@ -50,7 +51,6 @@ function Detail({ comptes }: { comptes: Compte[] }) {
 }
 
 export default function Horizontal({ d, periode, filtre }: { d: Pilotage; periode: Periode; filtre: string }) {
-  const [ouvert, setOuvert] = useState<string>("");
   const f = fenetre(d.aujourdhui, periode);
   const garde = (cr: string) => !filtre || meme(cr, filtre);
   const clics = useMemo(() => d.clics.filter((c) => c.axe === "Horizontal" && garde(c.creatrice)), [d, filtre]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -122,42 +122,15 @@ export default function Horizontal({ d, periode, filtre }: { d: Pilotage; period
       <Titre droite="30 derniers jours">{filtre ? `Visites ${filtre}, par source` : "Visites des clippers par créatrice"}</Titre>
       <div className="carte p-3"><BarresJour data={graph.data} groupes={graph.groupes} unite="visites" couleurs={filtre ? COULEURS_SOURCES : undefined} /></div>
 
-      <Titre droite={`${classement.length} clippers`}>Classement</Titre>
-      <div className="carte px-3 py-1">
-        {classement.map((l, i) => {
-          const fol = l.comptes.reduce((s, c) => s + (c.followers || 0), 0);
-          const ouvre = ouvert === l.qui;
-          return (
-            <div key={l.qui} className={i ? "border-t border-white/[0.06]" : ""}>
-              <button className="w-full flex items-center gap-3 py-2.5 text-left" onClick={() => setOuvert(ouvre ? "" : l.qui)}>
-                <span className="w-6 text-[12px] text-argent2 tabular-nums text-right shrink-0">{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[14px] font-semibold truncate">{l.qui}</div>
-                  <div className="text-[11px] text-argent2 truncate">
-                    {l.metricool ? <span className="text-amber-200">fixe, hors coût · </span> : null}
-                    {l.creatrices.map((c, k) => <span key={c}>{k ? ", " : ""}<span style={{ color: couleur(c) }}>{c}</span></span>)}
-                    {" · "}{l.comptes.length} compte{l.comptes.length > 1 ? "s" : ""} GOOD{fol ? ` · ${compact(fol)} fol.` : ""}
-                  </div>
-                </div>
-                <Courbe valeurs={l.serie} couleurTrait={couleur(l.creatrices[0] || "")} largeur={64} hauteur={22} />
-                <div className="text-right shrink-0 w-[72px]">
-                  <div className="text-[15px] font-bold tabular-nums">{l.manquants ? "≈" : ""}{fmt(l.visites)}</div>
-                  {f.compare ? <Delta v={variation(l.visites, l.avant)} petit /> : null}
-                </div>
-              </button>
-              {ouvre ? <div className="pb-3 pl-9">
-                {(() => {
-                  const b = sommeBoutons(d, f.debut, f.fin, (x) => x.axe === "Horizontal" && garde(x.creatrice)
-                    && (l.metricool ? x.source === "Metricool" : x.source === "Clipper" && (x.qui === l.qui || (l.qui === "Rianah clipping" && normaliser(x.qui) === "rianah"))));
-                  return b.releve ? <div className="text-[11.5px] text-argent2 mb-1">Clics OF {fmt(b.of)} · MYM {fmt(b.mym)} · {pct(b.taux)} des visites</div> : null;
-                })()}
-                <Detail comptes={l.comptes} />
-              </div> : null}
-            </div>
-          );
-        })}
-        {!classement.length ? <div className="text-[13px] text-argent2 py-4 text-center">Aucune visite de clipper sur la période.</div> : null}
-      </div>
+      <Titre droite="Clics · 7 jours clos">Classement</Titre>
+      <ClassementClippers d={d} filtre={filtre} />
+      {classement.filter(l => l.metricool).map(l => <div key={l.qui} className="carte p-3.5 mt-3">
+        <div className="flex justify-between items-center gap-2">
+          <div><div className="text-[14px] font-semibold">{l.qui}</div><p className="text-[11px] text-amber-200">Fixe, hors coût clippers</p></div>
+          <div className="text-right"><b className="tabular-nums">{fmt(l.visites)}</b>{f.compare ? <div><Delta v={variation(l.visites, l.avant)} petit /></div> : null}</div>
+        </div>
+        <Detail comptes={l.comptes} />
+      </div>)}
 
       {autres.length ? (
         <>
