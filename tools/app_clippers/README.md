@@ -68,6 +68,8 @@ Les trois onglets, avec un sélecteur **Auj. · Hier · 7 j · 30 j** (comparé 
 
 Règle partout : jamais un faux 0. Un jour de lien pas encore relevé est compté à part (« ≈ » devant la somme, « relevé(s) en attente »), un followers illisible reste « – ». La pastille « MAJ il y a … » passe en orange au-delà d'une heure sans publication du bot.
 
+**App de chaque clipper — Comptes** : le même composant Horizontal affiche son pilotage personnel (Auj., Hier, 7 j, 30 j et fiche 1️⃣/2️⃣/🔒). Le GET `/api/k/<jeton>/comptes` filtre les statistiques côté serveur sur le propriétaire du jeton ; il ne livre ni les autres clippers, ni leurs comptes, ni les subs ou CA. L'édition des @ et les connexions Metricool restent accessibles sous « Gérer mes comptes et Metricool ». Une panne de la source statistique ne bloque pas la gestion des comptes.
+
 ## Pile
 
 Next.js 14 (App Router), Tailwind, Recharts, TypeScript. Déployée sur Vercel (projet `app-clippers`, domaine `app-clippers.vercel.app`) avec `tools/app_clippers` comme répertoire racine ; `vercel.json` ignore les commits qui ne touchent pas ce dossier. Mise en ligne le 6 octobre 2026.

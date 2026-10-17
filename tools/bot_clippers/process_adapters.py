@@ -112,11 +112,16 @@ async def attribuer(membre, creatrice, tous=None, creer=True):
     if registre.get("sortie:" + uid):
         raise Bloque("Départ enregistré : nouvelle allocation de liens bloquée")
     job = registre.get(key)
+    fiche = (o._lire_etat().get('clippers') or {}).get(uid) or {}
+    confirme = fiche.get('lien_confirme') or {}
+    if (confirme.get('url') and (creer or job.get('phase') == 'pret')
+            and (job.get('lien') != confirme['url'] or job.get('phase') != 'pret')):
+        raise Bloque('Lien confirmé différent du job existant : rapprochement requis, aucun nouveau lien créé')
     if not creer and job.get('phase') != 'pret':
         # Lecture historique uniquement : aucune adoption, activation ou nouvelle attribution.
-        fiche = (o._lire_etat().get('clippers') or {}).get(uid) or {}
         return {'lien': fiche.get('lien', ''), 'lid': '',
-                'lignes': ['⚠️ Lien historique conservé ; nouvelle livraison bloquée jusqu’au rapprochement']}
+                'lignes': ['Lien existant conservé, non vérifié pour une nouvelle livraison.' if fiche.get('lien')
+                           else 'Liens non préparés ; requis avant le compte privé et l’application.']}
 
     if creer:
         registre.reserve(uid, [])  # historique complet obligatoire, jamais zéro présumé

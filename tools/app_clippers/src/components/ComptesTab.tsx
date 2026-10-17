@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { signaler } from "@/lib/signal";
+import type { Pilotage } from "@/lib/pilotage";
+import PilotageClipper from "./pilotage/PilotageClipper";
 
 /** 12/10 (Gaëtan : « un onglet où il peut mettre à jour le @ de ses 3 comptes Instagram, ça nous permettra d'avoir toujours les
  *  bons ») : ses comptes dans l'ordre du parcours, chacun avec un lien direct vers Instagram et « Modifier le @ ». Le nouveau @
@@ -86,7 +88,7 @@ function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: 
 }
 
 export default function ComptesTab({ jeton }: { jeton: string }) {
-  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[] } | null>(null);
+  const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[]; pilotage: Pilotage | null } | null>(null);
   const [erreur, setErreur] = useState(false);
   const [metricool, setMetricool] = useState<Metricool[]>([]);
   const chargerMetricool = useCallback(async () => {
@@ -107,12 +109,18 @@ export default function ComptesTab({ jeton }: { jeton: string }) {
   useEffect(() => { chargerMetricool(); const id = setInterval(chargerMetricool, 60_000); return () => clearInterval(id); }, [chargerMetricool]);
   return (
     <section className="space-y-3">
-      <p className="apparait text-argent2 text-[14px] mt-1 px-1 leading-relaxed">Tes comptes Instagram. Touche un @ pour l'ouvrir. Tu as changé un @ ? Corrige-le ici : le bot suit toujours le bon compte, et tes Reels sont comptés.</p>
       {!d && !erreur ? [0, 1, 2].map((i) => <div key={i} className="squelette h-28" />) : null}
       {erreur && !d ? <div className="carte p-5 text-center text-argent2">Les comptes sont en cours de mise à jour. <button className="text-accent font-semibold" onClick={charger}>Réessayer</button></div> : null}
+      {erreur && d ? <p className="text-[12px] text-amber-200" role="status">Actualisation indisponible : dernières données affichées. <button onClick={charger} className="underline">Réessayer</button></p> : null}
+      {d?.pilotage ? <PilotageClipper d={d.pilotage} /> : d ? <div className="carte p-4 text-[13px] text-argent2">Tes statistiques sont en cours de mise à jour. <button className="text-accent" onClick={charger}>Réessayer</button></div> : null}
       {d && !d.comptes.length ? <div className="carte p-5 text-center text-argent2">Pas encore de compte : ton compte 1 arrive dans ton salon Discord.</div> : null}
-      {d?.comptes.map((c) => <Ligne key={c.n} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
+      {d?.comptes.length ? <details className="carte p-4">
+        <summary className="cursor-pointer text-[14px] font-semibold">Gérer mes comptes et Metricool</summary>
+        <p className="text-argent2 text-[13px] mt-3 leading-relaxed">Tu as changé un @ ? Corrige-le ici pour que tes Reels soient comptés sur le bon compte.</p>
+        <div className="space-y-3 mt-3">{d.comptes.map((c) => <Ligne key={c.n} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
         metricool={metricool.find(e => e.n === c.n)} rechargerMetricool={chargerMetricool} />)}
+        </div>
+      </details> : null}
     </section>
   );
 }

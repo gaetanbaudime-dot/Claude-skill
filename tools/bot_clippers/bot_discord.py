@@ -5244,52 +5244,9 @@ def texte_aide(membre, est_admin: bool) -> str:
     """`!aide` selon qui demande : admin, manager, clipper sous contrat, candidat.
     09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Saute des lignes, aère ») : plus de test, de J'ACCEPTE ni de
     Drive perso ; une ligne vide entre deux blocs ; le candidat lit trois lignes au plus, une seule action."""
-    if est_admin:
-        return ("🧰 **Commandes admin**\n\n"
-                "**Candidats** : `!pipeline` · `!tableau` · `!quiz-ok @x [score]` (valider à la main) · `!fiche @x` (salon privé) · "
-                "`!relance @x` · `!candidats` · `!inviter Prénom [fr|int]` (hors Discord) · `!migrer-test [go]` (anciens du test) · "
-                "`!annonce <groupe>` (l'annonce Telegram à coller) · "
-                "`!sync-noms`\n\n"
-                # 10/10 (lot L9b) : `!bloques` ici aussi ; `!equipes`, `!relancer-lien` et `!rang` retirés (lot W)
-                "**Équipe** : `!creatrice @x Prénom` · `!sortie @x raison` · `!monteur @x [rôle]` (hors clipping sans être viré) · "
-                "`!roster [Sophie: a, b ; Chloé: c]` · `!equipe @x fr|int|retirer` · `!bloques` · `!drives-perso fermer [go]` · "
-                "`!ltv [jours]` · `!alias` · `!code [adresse]` (" + ("connexion et création seulement" if codes_2fa.SECURITES
-                                                                        else "le dernier code de la boîte") + ", en MP) · "
-                "`!pilotage` (ton app de suivi, en MP)\n\n"
-                # 10/10 (lot L9b, avec L10) : les équipes TL, admins seulement ; un TL n'a jamais le rôle Manager
-                "**Équipes TL** (admins seulement) : `!tl liste` · `!tl Chloé @x` · `!tl Chloé aucun` · `!manager @x Chloé Sarah`\n\n"
-                "**Serveur** : `!verifier` · `!audit` · `!secu` · `!acces [appliquer]` · `!pourquoi @x #salon` · "
-                "`!fermer [invitations]` · `!ouvrir` · `!purge-candidats [jours] [appliquer] [tout]` · "
-                "`!ban-spam` · `!archiver #salon…`\n\n"
-                "**Paie/compteur** : `!paiement @x 50 raison` (prénom accepté, même parti du serveur) · `!ajuster` · `!compteur`\n\n"
-                "**Assistant** : `!stats` · `!lacunes [vider]` · `!apprendre <texte libre, ou un fichier .md/.txt joint>` (prime sur tout) · "
-                "`!apprendre liste|retirer N` · `!apprendre Q | R` (ancienne FAQ) · `!faq [retirer N|vider]` · `!retro` (il relit, propose, n'écrit plus)\n\n"
-                # 10/10 (vérification L9b) : la sauvegarde à la main écrit un zip sur le volume (sauvegarder_volume, aucune pièce
-                # jointe) ; hors de l'aide, la sauvegarde du dimanche suffit
-                "-# Plusieurs commandes dans un seul message = rafale.")
-    if est_manager(membre):
-        return ("🧰 **Commandes manager**\n\n"
-                "· `!creatrice @clipper Prénom` — attribue la créatrice et ouvre son salon perso\n"
-                "· `!fiche @clipper` — sa fiche (numéro, e-mail masqué, parcours), salon privé seulement\n"
-                "· `!quiz-ok @x` — valider à la main : sa créatrice et son compte 1 suivent seuls\n"
-                "· `!candidats` — les quizz réussis hors Discord · `!inviter Prénom` — son invitation personnelle + le message WhatsApp\n"
-                "· `!annonce <groupe>` — l'annonce Telegram à coller (source suivie)\n"
-                "· `!pipeline` — où en est chaque candidat · `!relance @x` — le pousser d'un cran\n"
-                "· `!sortie @clipper raison` — sortie de l'équipe (rôles et salons retirés)\n"
-                # 09/10 : l'aide manager dépassait 1 990 caractères (fin coupée par Discord) : lignes resserrées.
-                + ("· `!alias ajouter …` / `!code …` — codes Instagram de connexion et de création, jamais les autres (10/10)\n"
-                   if codes_2fa.SECURITES else "· `!code` — le dernier code Instagram de la boîte, en MP (12/10)\n") +
-                "· `!clics` — les visites payables par clipper · `!paie-clics 5|20` — la liste de paie (CSV joint)\n"
-                "· `!liens` · `!lien @clipper <url|nouveau|retirer>` · `!trackings` · `!wallet @clipper 0x…` · `!paie @clipper clic|fixe`\n"
-                "· `!comptes-libres [Créatrice]` — les comptes disponibles du classeur (chaque nouveau en réserve 3)\n"
-                "· `!capacite` — l'onglet « Build capacity » : urgence par créatrice, e-mails et comptes à créer · `neufs` · `ajouter`\n"
-                "· `!liberer Prénom [handle …]` — rendre les comptes d'un clipper parti (Gérant vidé, créés → « à mettre Metricool »)\n"
-                "· `!etape @clipper [n]` — renvoyer ou forcer une étape du parcours guidé · `!note @clipper texte` — mémoire du bot · `!memoire @clipper`\n"
-                "· `!bilan-fixe [jours]` — le verdict des clippers encore au fixe (équivalent au clic, point mort)\n"
-                "· `!etats-comptes [test|leger]` — le classeur au crible d'Instagram (`test` : sans rien écrire ; `leger` : followers et Reels)\n"
-                "· `!dashboard` — l'onglet Dashboard sans scan (gratuit) · `!dashboard scan` — avec un passage complet d'Instagram (payant)\n"
-                "· `!bloques` — les clippers qui n'avancent pas, avec leur WhatsApp en un appui\n\n"
-                "-# Une question sur la méthode : mentionne-moi, j'ai la section Manager de la base.")
+    if est_admin or est_manager(membre):
+        from aide_commandes import aide_staff
+        return aide_staff(est_admin)
     # 09/10 : « déjà dans l'agence » a UNE définition, est_signe (registre, rôle d'équipe, roster) ; l'assistant répond là où le
     # clipper écrit (plus de renvoi vers #assistant) ; la paie des clippers tombe les 5 et 20.
     if est_signe(membre):
@@ -5416,13 +5373,15 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         if not (info_process.get("score_quiz") and info_process.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
             return "⚠️ Preuve de quiz réussi absente : onboarding en attente"
         try:
+            if decision is None:
+                process_adapters.store().reprise_zero(uid_m)
             creatrice_c = choix_creatrice.preparer(uid_m, creatrice_c, lire_json, ecrire_json,
                 FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_ONBOARDING, decision=decision,
                 comptes_connus=process_adapters.store().counts(uid_m),
                 verification_roles=lambda choix: choix_creatrice.verifier_roles(m_, role_creatrice(g, choix),
                     roles_creatrices(g) + [r for nom in set(getattr(attribution, 'ORDRE', [])) | set(roster.groupes())
                                           if (r := role_creatrice(g, nom)) is not None]))
-        except (choix_creatrice.Divergence, OSError) as erreur:
+        except (choix_creatrice.Divergence, OSError, RuntimeError) as erreur:
             return "⚠️ Choix retenu : " + str(erreur)
         if ancien_sans_salon(m_) and not forcer_salon:
             return f"⏭️ {m_.display_name} : ancien système sans salon, aucune livraison"
@@ -5432,6 +5391,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             lire_json(FICHIER_SORTIS, None), lire_json(DONNEES / "parcours_oublis.json", None),
             registre=lire_json(FICHIER_EQUIPES, None))
         try:
+            process_adapters.store().reprise_zero(uid_m, decision)
             process_adapters.store().initialiser_nouveau(uid_m, preuve)
             process_adapters.store().reserve(uid_m, [])
         except RuntimeError as erreur:
@@ -5516,9 +5476,10 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             if not (p_final.get("messages") or {}).get("1"):
                 return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
             attribution._sortir_d_attente(uid_m)
+            attribution.resoudre_blocage(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
                     + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
-                    + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+                    + " · Compte 1 livré (message confirmé) · " + bilan_onb_c.split(" : ", 1)[-1][:160])
         finally:
             _ONBOARDINGS_EN_COURS.discard(uid_m)
 
@@ -5570,14 +5531,9 @@ async def rattraper_parcours_non_demarres(maintenant=None) -> list:
         except Exception as erreur:                                     # noqa: BLE001
             bilan = f"❌ {membre.display_name} : {type(erreur).__name__} {str(erreur)[:80]}"
         lignes.append(bilan)
+        await attribution.signaler_blocage(membre, creatrice, bilan)
     if lignes:
         journal.info("Parcours rattrapés : %s", lignes)
-        canal = await canal_admin()
-        if canal is not None:
-            try:
-                await canal.send(("🔁 **Parcours relancés** (onboarding coupé, par un redémarrage ?)\n\n" + "\n\n".join(lignes))[:1990])
-            except (discord.Forbidden, discord.HTTPException):
-                pass
     return lignes
 
 
@@ -6457,9 +6413,18 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
 
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    if texte.split()[:1] == ["!remettre-compte1"]:
+        import remise_compte1
+        return await remise_compte1.commande(message, texte, ADMIN_IDS, est_staff)
     if texte.split()[:1] == ["!diagnostic-dossier"]:
         import diagnostic_dossier
-        return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS)
+        return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS, est_staff)
+    if texte.split()[:1] == ["!rapprocher-zero"]:
+        import rapprochement_zero
+        cibles = {v.strip() for v in os.environ.get("RAPPROCHEMENT_ZERO_UIDS", "").split(",") if v.strip().isdigit()}
+        if len(cibles) > 2:
+            cibles = set()  # Périmètre fermé, deux dossiers au maximum.
+        return await rapprochement_zero.commande(message, texte, DONNEES, ADMIN_IDS, cibles)
     # 11/10 (lot W, lots L9b et L10) : `!equipes` (audit Team France / International), `!relancer-lien` et `!rang` sont retirés.
     # Une réponse les dit, sinon `!equipes` tombait dans `!equipe @membre` (préfixe) et les autres dans « commande inconnue ».
     retiree = COMMANDES_RETIREES.get((texte.split() or [""])[0].lower())
@@ -6510,6 +6475,10 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("Réservé à l'administrateur.")
             return True
         try:
+            if texte.split()[1:2] == ["export"]:
+                import export_integral
+                await export_integral.commande(message, DONNEES / "audit_prive", texte.split()[2:])
+                return True
             if texte.split()[1:2] == ["diagnostic"]:
                 import audit_diagnostic
                 args_diagnostic = texte.split()[2:]

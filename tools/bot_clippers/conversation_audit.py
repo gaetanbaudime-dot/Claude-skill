@@ -64,22 +64,23 @@ def contexte_sensible(value):
                 or ACCESS_BLOCK.search(sans_format) or any(c in brut for c in ('🔐','🔑','🔒')))
 
 
-def sanitize_in_channel(content, channel):
+def sanitize_in_channel(content, channel, *, integral=False):
     noms = [getattr(channel, 'name', ''), getattr(getattr(channel, 'parent', None), 'name', ''),
             getattr(getattr(channel, 'category', None), 'name', '')]
     if any(contexte_sensible(n) for n in noms):
         return "[SALON D’ACCÈS MASQUÉ]"
-    return sanitize_message(content)
+    return sanitize_message(content, integral=integral)
 
 
-def sanitize_message(content: str) -> str:
+def sanitize_message(content: str, *, integral=False) -> str:
     """Redact probable credentials and identifiers; never assert perfect sanitization."""
     # Une valeur peut suivre son étiquette sur une autre ligne : supprimer
     # tout le bloc/message avant toute sérialisation, jamais seulement l'étiquette.
     if contexte_sensible(content) or SPLIT_CODE.search(str(content or "")):
         return "[MESSAGE D’ACCÈS MASQUÉ INTÉGRALEMENT]"
     safe = []
-    for line in str(content or "").splitlines()[:20]:
+    lignes = str(content or "").splitlines()
+    for line in (lignes if integral else lignes[:20]):
         if SENSITIVE_LINE.search(line):
             safe.append("[LIGNE SENSIBLE MASQUÉE]")
             continue
@@ -88,8 +89,8 @@ def sanitize_message(content: str) -> str:
         line = PHONE.sub("[TÉLÉPHONE MASQUÉ]", line)
         line = LONG_SECRET.sub("[CHAÎNE MASQUÉE]", line)
         line = OTP_DIGITS.sub("[CODE MASQUÉ]", line)
-        safe.append(line[:450])
-    return "\n".join(safe)[:1200]
+        safe.append(line if integral else line[:450])
+    return "\n".join(safe) if integral else "\n".join(safe)[:1200]
 
 
 def _personal_room(channel: discord.TextChannel) -> bool:

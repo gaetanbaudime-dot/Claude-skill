@@ -29,7 +29,7 @@ function harness(app,width){
       if(name==='@/lib/signal')return {modeApp:()=>"fixture",signaler:()=>{}};
       if(name.endsWith('.module.css'))return {__esModule:true,default:new Proxy({},{get:(_,k)=>String(k)})};
       if(name.endsWith('/opus-native'))return engine;
-      if(name.endsWith('/downloads'))return {canShareFiles:()=>false,downloadVideos:async()=>{},prepareShareFiles:async()=>[],sharePreparedFiles:async()=>"unavailable"};
+      if(name.endsWith('/downloads'))return {MAX_SHARE_BYTES:134217728,createVideoFileCache:()=>({get:()=>null,prepare:async()=>[]}),downloadPreparedFiles:()=>{},canShareFiles:()=>false,downloadVideos:async()=>{},prepareShareFiles:async()=>[],sharePreparedFiles:async()=>"unavailable"};
       if(filename.includes('/'+app+'/')&&/^\.\//.test(name)&&!['./ReelsTab','./Logo'].includes(name))return {__esModule:true,default:()=>React.createElement('div',{'data-fixture':name})};
       if(name.startsWith('.')){const base=path.resolve(path.dirname(filename),name);return load(fs.existsSync(base+'.tsx')?base+'.tsx':base+'.ts');}
       throw new Error('Unexpected fixture import '+name);
@@ -61,11 +61,11 @@ async function flush(){await new Promise(resolve=>setImmediate(resolve));}
     const start=button('Créer mes 6 Reels').props.onClick;
     await act(async()=>{start();start();await flush();});
     assert.equal(h.tasks.length,1,'Rapid clicks do not launch two jobs');assert.equal(button('Créer mes 6 Reels'),undefined,'Progress replaces upload form');
-    const task=h.tasks[0],section=view.root.findByProps({'aria-label':'Créer des Reels'});
+    const task=h.tasks[0],section=view.root.findByProps({'aria-label':'Duplicateur de Réel'});
     await chooseTab('Drive');assert.equal(section.props.hidden,true);
     await act(async()=>{task.options.onPhase('exports');task.options.onVariant(output(0));task.options.onVariant(output(1));h.tick(70);});
     await chooseTab(app==='app_clippers'?'Versements':'Stats');await chooseTab('Reels');
-    assert.equal(view.root.findByProps({'aria-label':'Créer des Reels'}),section,'Same native section remains mounted');
+    assert.equal(view.root.findByProps({'aria-label':'Duplicateur de Réel'}),section,'Same native section remains mounted');
     assert.equal(h.tasks.length,1);assert(text(view.toJSON()).includes('2/6 prêts'));assert(text(view.toJSON()).includes('1 min 10 s'));
     assert.equal(view.root.findAllByType('li').length,2,'Results emitted while hidden are retained');
     await act(async()=>{task.reject(new Error('Fixture interruption'));await flush();});
@@ -89,3 +89,4 @@ async function flush(){await new Promise(resolve=>setImmediate(resolve));}
   assert(css.includes('grid-template-columns:minmax(0,1fr)'),'Results use one mobile column');assert(css.includes('min-height:44px'));
   console.log(JSON.stringify({offline:true,kind:'React lifecycle and mobile layout contract; not a visual pixel check',cases},null,2));
 })().catch(e=>{console.error(e);process.exitCode=1});
+
