@@ -7,6 +7,8 @@ import re
 import discord
 import choix_creatrice
 import onboarding
+import onboarding_preuves
+import equipes_tl
 import parcours
 import process_adapters
 
@@ -25,7 +27,52 @@ def modele(mention, handle, mail, mdp):
             "Créé ? Appuie sur le bouton.")
 
 
-async def commande(message, texte, admin_ids):
+def verifier_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
+    # Sans inventaire complet, un lecteur par rôle pourrait manquer au contrôle.
+    if not guild.chunked:
+        raise Retenue('Liste complète des membres non disponible : remise retenue.')
+    tl = onboarding_preuves.tl_pour(uid, creatrice, equipes_tl.tl_par_va(), equipes_tl._fiches())
+    autorises = {uid, str(guild.owner_id), str(guild.me.id), *map(str, admin_ids)}
+    if tl:
+        autorises.add(str(tl))
+    if salon.permissions_for(guild.default_role).view_channel:
+        raise Retenue('Salon accessible à tous : remise retenue.')
+    for membre in guild.members:
+        if (salon.permissions_for(membre).view_channel and str(membre.id) not in autorises
+                and not (not getattr(membre, 'bot', False) and est_staff(membre))):
+            raise Retenue('Un lecteur non autorisé peut accéder au salon : remise retenue.')
+
+
+def verifier_etat(message, uid, admin_ids, est_staff, salon_frais=None):
+    guild = message.guild
+    if message.author.id != guild.owner_id or str(message.author.id) not in admin_ids:
+        raise Retenue('Autorisation propriétaire non confirmée.')
+    fiche = parcours._lire().get(uid) or {}
+    onb = parcours._onb(uid)
+    handles = parcours._comptes_ordonnes(uid, onb, fiche)
+    mid, sid = (fiche.get('messages') or {}).get('1'), fiche.get('salon_id')
+    if not handles or not str(mid or '').isdigit() or not str(sid or '').isdigit() or parcours._cree(fiche, 1):
+        raise Retenue('Compte 1 déjà créé ou message initial non identifié.')
+    handle = handles[0]
+    with process_adapters.store().transaction() as db:
+        row = db.execute('SELECT a.id,a.uid,a.status FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?',
+                         (handle.lower().lstrip('@'),)).fetchone()
+        sortie = db.execute('SELECT 1 FROM jobs WHERE key=?', ('sortie:' + uid,)).fetchone()
+    if not row or row[1:] != (uid, 'reserved') or sortie:
+        raise Retenue('Réservation nominative non confirmée.')
+    salon = salon_frais if salon_frais is not None else guild.get_channel(int(sid))
+    membre = guild.get_member(int(uid))
+    if (salon is None or membre is None or salon.id != int(sid) or salon.guild.id != guild.id
+            or f'clipper-uid:{uid}' not in str(getattr(salon, 'topic', '')).split(' · ')):
+        raise Retenue('Salon personnel non confirmé.')
+    if not salon.permissions_for(membre).view_channel:
+        raise Retenue('Destinataire sans accès au salon.')
+    verifier_lecteurs(guild, salon, uid, fiche.get('creatrice', ''), admin_ids, est_staff)
+    identite = (row[0], handle, str(mid), str(sid), fiche.get('creatrice'), onb.get('gerant'))
+    return fiche, onb, handle, str(mid), salon, membre, identite
+
+
+async def commande(message, texte, admin_ids, est_staff=lambda membre:False):
     if texte.split()[:1] != ['!remettre-compte1']:
         return False
     if (message.guild is None or message.author.id != message.guild.owner_id
@@ -38,27 +85,7 @@ async def commande(message, texte, admin_ids):
     uid = args[0]
     try:
         async with choix_creatrice.verrou(uid):
-            fiche = parcours._lire().get(uid) or {}
-            onb = parcours._onb(uid)
-            handles = parcours._comptes_ordonnes(uid, onb, fiche)
-            mid = (fiche.get('messages') or {}).get('1')
-            sid = fiche.get('salon_id')
-            if not handles or not str(mid or '').isdigit() or not str(sid or '').isdigit() or parcours._cree(fiche, 1):
-                raise Retenue('Compte 1 déjà créé ou message initial non identifié.')
-            handle = handles[0]
-            store = process_adapters.store()
-            with store.transaction() as db:
-                row = db.execute('SELECT a.uid,a.status FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?',
-                                 (handle.lower().lstrip('@'),)).fetchone()
-                sortie = db.execute('SELECT 1 FROM jobs WHERE key=?', ('sortie:' + uid,)).fetchone()
-            if row != (uid, 'reserved') or sortie:
-                raise Retenue('Réservation nominative non confirmée.')
-            salon = message.guild.get_channel(int(sid))
-            membre = message.guild.get_member(int(uid))
-            if salon is None or membre is None or f'clipper-uid:{uid}' not in str(getattr(salon, 'topic', '')).split(' · '):
-                raise Retenue('Salon personnel non confirmé.')
-            if not salon.permissions_for(membre).view_channel or salon.permissions_for(message.guild.default_role).view_channel:
-                raise Retenue('Confidentialité du salon non confirmée.')
+            fiche, onb, handle, mid, salon, membre, identite = verifier_etat(message, uid, admin_ids, est_staff)
             original = await salon.fetch_message(int(mid))
             if original.author.id != message.guild.me.id:
                 raise Retenue('Message initial du bot non confirmé.')
@@ -80,7 +107,14 @@ async def commande(message, texte, admin_ids):
             # Ne pas utiliser _retirer_pret sur un accueil fusionné : il retirerait la confirmation.
             if str((fiche.get('messages') or {}).get('bienvenue')) != str(mid):
                 await parcours._retirer_pret(salon, uid, fiche)
-            await original.edit(content=contenu, view=parcours._vue(message.guild, uid, 1, {}, fiche),
+            # Dernière attente avant validation : relire les permissions du salon depuis Discord.
+            salon_frais = await message.guild.fetch_channel(salon.id)
+            fiche_finale, _, _, _, _, _, identite_finale = verifier_etat(
+                message, uid, admin_ids, est_staff, salon_frais)
+            if identite_finale != identite:
+                raise Retenue('Dossier modifié pendant la lecture : remise retenue.')
+            # Aucun await entre cette revalidation locale et le PATCH Discord.
+            await original.edit(content=contenu, view=parcours._vue(message.guild, uid, 1, {}, fiche_finale),
                                 allowed_mentions=discord.AllowedMentions.none())
         await message.reply('✅ Message du compte 1 mis à jour dans le salon personnel. Aucun compte créé ni réattribué.')
     except Retenue as erreur:

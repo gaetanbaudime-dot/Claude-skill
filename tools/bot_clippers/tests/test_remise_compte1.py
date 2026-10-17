@@ -16,7 +16,7 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.store = Store(Path(self.tmp.name)/'fictif.sqlite3')
         self.store.reconcile('42', [], 'fictif'); self.store.reserve('42', ['compte_fictif'])
         self.original = N(author=N(id=90), edit=AsyncMock())
-        self.salon = N(topic='clipper-uid:42 · Salon de Fictif.', fetch_message=AsyncMock(return_value=self.original),
+        self.salon = N(id=99, topic='clipper-uid:42 · Salon de Fictif.', fetch_message=AsyncMock(return_value=self.original),
                        permissions_for=lambda m:N(view_channel=m.id != 0))
         self.membre = N(id=42, mention='<@42>')
         self.guild = N(owner_id=1, me=N(id=90), default_role=N(id=0),
@@ -35,6 +35,13 @@ class Remise(unittest.IsolatedAsyncioTestCase):
                    patch.object(r.onboarding, 'lire_comptes', self.lecture)]:
             pa.start(); self.addCleanup(pa.stop)
         self.guild.id = 77
+        self.salon.guild = self.guild
+        self.guild.chunked = True
+        self.guild.members = [self.membre, self.guild.me, self.message.author]
+        self.guild.fetch_channel = AsyncMock(return_value=self.salon)
+        for pa in [patch.object(r.equipes_tl, 'tl_par_va', return_value={}),
+                   patch.object(r.equipes_tl, '_fiches', return_value={})]:
+            pa.start(); self.addCleanup(pa.stop)
 
     async def appeler(self):
         return await r.commande(self.message, '!remettre-compte1 42', {'1'})
@@ -103,3 +110,60 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(2, self.original.edit.await_count)
         self.assertEqual(self.original.edit.call_args_list[0].kwargs['content'], self.original.edit.call_args_list[1].kwargs['content'])
         self.assertEqual({'reserved':1}, self.store.counts('42'))
+
+    async def test_lecteur_via_role_clippeurs_refuse(self):
+        autre = N(id=43, roles=['Clippeur'])
+        self.guild.members.append(autre)
+        self.salon.permissions_for = lambda m:N(view_channel=m.id in (1, 42, 90) or 'Clippeur' in getattr(m, 'roles', []))
+        await self.appeler()
+        self.lecture.assert_not_awaited(); self.original.edit.assert_not_awaited()
+
+    async def test_membre_supplementaire_et_bot_refuses(self):
+        self.guild.members.append(N(id=43, bot=True))
+        await self.appeler()
+        self.lecture.assert_not_awaited(); self.original.edit.assert_not_awaited()
+
+    async def test_cache_incomplet_refuse(self):
+        self.guild.chunked = False
+        await self.appeler(); self.original.edit.assert_not_awaited()
+
+    async def test_tl_configure_et_staff_autorises(self):
+        self.guild.members.extend([N(id=43), N(id=44)])
+        with patch.object(r.equipes_tl, 'tl_par_va', return_value={'42':'43'}):
+            await r.commande(self.message, '!remettre-compte1 42', {'1'}, lambda m:m.id==44)
+        self.original.edit.assert_awaited_once()
+
+    async def mutation_durant_lecture(self, mutation):
+        async def lecture():
+            mutation()
+            return [dict(self.ligne)]
+        self.lecture.side_effect = lecture
+        await self.appeler()
+        self.original.edit.assert_not_awaited()
+        self.assertNotIn('MOT_DE_PASSE_FICTIF', str(self.message.reply.call_args_list))
+
+    async def test_creation_pendant_lecture_refusee(self):
+        await self.mutation_durant_lecture(lambda:self.store.created('42', 'compte_fictif', 'preuve-fictive'))
+
+    async def test_sortie_pendant_lecture_refusee(self):
+        await self.mutation_durant_lecture(lambda:self.store.put('sortie:42', {'etat':'fictif'}))
+
+    async def test_salon_change_pendant_lecture_refuse(self):
+        await self.mutation_durant_lecture(lambda:self.fiche.update(salon_id='98'))
+
+    async def test_message_change_pendant_lecture_refuse(self):
+        await self.mutation_durant_lecture(lambda:self.fiche['messages'].update({'1':'101'}))
+
+    async def test_pseudo_change_pendant_lecture_refuse(self):
+        def changer():
+            self.store.reserve('42', ['autre_fictif'])
+            r.parcours._comptes_ordonnes = lambda *a:['autre_fictif']
+        await self.mutation_durant_lecture(changer)
+
+    async def test_lecteur_ajoute_pendant_lecture_refuse(self):
+        await self.mutation_durant_lecture(lambda:self.guild.members.append(N(id=43)))
+
+    async def test_permissions_fraiches_du_salon_refusees(self):
+        frais = N(id=99, guild=self.guild, topic=self.salon.topic, permissions_for=lambda m:N(view_channel=True))
+        self.guild.fetch_channel.return_value = frais
+        await self.appeler(); self.original.edit.assert_not_awaited()
