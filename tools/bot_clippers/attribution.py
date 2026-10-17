@@ -595,9 +595,12 @@ async def attribuer(membre, via: str) -> str:
 def resoudre_blocage(uid):
     """Livraison constatée par l'orchestrateur, y compris après commande manuelle."""
     e = _etat()
-    if str(uid) in (e.get("blocages_notifications") or {}):
-        e["blocages_notifications"].pop(str(uid))
-        _ecrire(e)
+    uid = str(uid)
+    e.setdefault("blocages_notifications", {}).pop(uid, None)
+    # Même sans alerte persistée, invalider une recherche de canal en cours.
+    generations = e.setdefault("blocages_resolutions", {})
+    generations[uid] = generations.get(uid, 0) + 1
+    _ecrire(e)
 
 
 async def signaler_blocage(membre, creatrice, bilan, note=""):
@@ -610,13 +613,17 @@ async def signaler_blocage(membre, creatrice, bilan, note=""):
             return
         raison = "team_leader_absent_ou_ambigu" if "team leader absent ou ambigu" in str(bilan).lower() else " ".join((bilan_court(bilan) + note).split())
         signature = hashlib.sha256((str(creatrice).casefold() + ":" + raison).encode()).hexdigest()
-        if ((_etat().get("blocages_notifications") or {}).get(uid) or {}).get("signature") == signature:
+        e = _etat()
+        generation = (e.get("blocages_resolutions") or {}).get(uid, 0)
+        if ((e.get("blocages_notifications") or {}).get(uid) or {}).get("signature") == signature:
             return
         admin = await _deps["canal_admin"]()
         if admin is None:
             return
         # Une commande peut modifier l'ordre pendant la résolution du canal.
         e = _etat()
+        if (e.get("blocages_resolutions") or {}).get(uid, 0) != generation:
+            return
         blocages = e.setdefault("blocages_notifications", {})
         if (blocages.get(uid) or {}).get("signature") == signature:
             return

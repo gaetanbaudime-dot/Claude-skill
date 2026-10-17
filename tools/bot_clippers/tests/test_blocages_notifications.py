@@ -52,6 +52,28 @@ class Notifications(unittest.IsolatedAsyncioTestCase):
             await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu')
         self.assertEqual('Fictive:2',self.etat['ordre_force'])
 
+    async def test_resolution_pendant_canal_annule_ancienne_alerte_pas_recidive(self):
+        async def canal():
+            a.resoudre_blocage('3')
+            return self.admin
+        with patch.dict(a._deps, {'canal_admin': canal}):
+            await a.signaler_blocage(self.m, 'Fictive', '⚠️ Team leader absent ou ambigu')
+        self.admin.send.assert_not_awaited()
+        self.assertNotIn('3', self.etat['blocages_notifications'])
+        # Un nouvel événement, même de même cause, utilise la génération actuelle.
+        await a.signaler_blocage(self.m, 'Fictive', '⚠️ Team leader absent ou ambigu')
+        self.admin.send.assert_awaited_once()
+        self.assertEqual('envoye', self.etat['blocages_notifications']['3']['etat'])
+
+    async def test_resolution_autre_membre_pendant_canal_ne_masque_pas_blocage(self):
+        async def canal():
+            a.resoudre_blocage('4')
+            return self.admin
+        with patch.dict(a._deps, {'canal_admin': canal}):
+            await a.signaler_blocage(self.m, 'Fictive', '⚠️ Team leader absent ou ambigu')
+        self.admin.send.assert_awaited_once()
+        self.assertEqual('envoye', self.etat['blocages_notifications']['3']['etat'])
+
     async def test_forbidden_permet_reprise_et_redemarrage_conserve_incertain(self):
         import discord
         self.admin.send.side_effect=discord.Forbidden(SimpleNamespace(status=403,reason='fictif'),'refus fictif')
