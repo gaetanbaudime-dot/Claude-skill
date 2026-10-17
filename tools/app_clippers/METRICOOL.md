@@ -2,7 +2,7 @@
 
 ## Mise à jour : provisioning automatique côté agence
 
-Le bouton « Préparer Metricool » écrit une demande privée. À son prochain passage (jusqu'à 15 minutes), le bot utilise les identifiants administrateur déjà configurés dans Railway. Il vérifie le relevé réel de moins de 48 h et les 500 abonnés, l'affectation du compte et la récupération agence : mot de passe présent dans le classeur privé, email enregistré dans le système de codes agence actif, ou validation explicite de l'administrateur en J. Ce contrôle constate les accès conservés ; il ne transfère aucune propriété Instagram et ne garantit pas une session Meta valide.
+Chaque minute, le bot repère les comptes vérifiés à partir de 500 abonnés et inscrit automatiquement leur demande privée, sans clic préalable du clipper. Le bouton « Préparer Metricool » reste un recours pendant cette courte attente. Le bot utilise les identifiants administrateur déjà configurés dans Railway. Il vérifie le relevé réel de moins de 48 h, l'affectation unique du compte, l'absence de changement de pseudo en attente et la récupération agence : mot de passe présent dans le classeur privé, email enregistré dans le système de codes agence actif, ou validation explicite de l'administrateur en J. Ce contrôle constate les accès conservés ; il ne transfère aucune propriété Instagram et ne garantit pas une session Meta valide. Le clipper effectue lui-même l'autorisation Instagram depuis « Connecter Metricool ».
 
 Le bot relit `/admin/max-profiles` et `/v2/settings/brands`, applique le plus petit plafond entre l'API et 25, réutilise une marque du propriétaire déjà reliée au même Instagram ou crée une nouvelle marque via `POST /v2/settings/brands`. Aucun changement d'abonnement. Les marques sans réseaux déjà présentes ne sont pas réaffectées automatiquement.
 
@@ -14,7 +14,9 @@ Sources supplémentaires vérifiées le 17 octobre 2026 : https://app.metricool.
 
 La procédure manuelle ci-dessous reste le recours si les accès de récupération ne sont pas prouvés ou si l'API refuse l'action. La première version livrée était manuelle ; la présente section décrit le comportement automatique qui la complète.
 
-## Parcours livré
+## Procédure manuelle historique de secours
+
+Les sections suivantes décrivent le recours administrateur de la première version, et non un clic requis avant le provisioning automatique décrit ci-dessus.
 
 Dans Comptes, le clipper voit « Demander la connexion Metricool » seulement à partir de **500 abonnés**, relevés depuis moins de **48 heures**. Les valeurs sont relues côté serveur depuis Comptes app. Une demande de changement de @ en attente bloque l'accès. Un changement de @ invalide l'ancien rattachement.
 
