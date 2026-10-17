@@ -761,13 +761,9 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
     blocs = []
     for i, c in enumerate(comptes, start=debut):                    # 28/09 : trois comptes qui publient, plus de compte privé
         deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé, connecte-toi"
-        # 28/09 (Gaëtan, Simon perdu) : identifiant, mot de passe, e-mail chacun dans son bloc, copiable d'un geste sur le téléphone
         # 08/10 (audit de l'assistant : « Compte 3 · il publie » pour le compte privé des anciens) : le privé est dit privé
         role = "privé, il ne publie pas, ton lien va dans sa bio" if _est_prive(c) else "il publie"
-        blocs.append(f"**Compte {i}** · {role}{deja}\nIdentifiant :\n```\n{c['handle']}\n```\n"
-                     f"Mot de passe :\n```\n{c['mdp'] or 'demande-le à ton manager'}\n```"
-                     + (f"\nE-mail :\n```\n{c['mail']}\n```" if c["mail"] else "")
-                     + (f"\nTéléphone : `{c['phone']}`" if c["phone"] else ""))
+        blocs.append(f"**Compte {i}** · {role}{deja}\n\n" + _bloc_acces(c))
     # 01/10 (relecture) : ce message livre déjà les comptes — « le suivant arrive tout seul ici » y était faux (plusieurs
     # comptes sous les yeux, ou un remplaçant livré à l'étape 7 qui n'aura pas de suivant). Plus de règle recollée ici.
     import parcours                                                     # 01/10 : les deux conditions de la règle (import tardif)
@@ -2174,11 +2170,9 @@ def _remplacer_bans(fiche: dict, a_livrer: list, bans: set, partis=()) -> dict:
 
 
 def _bloc_acces(acces: dict) -> str:
-    """Identifiant, e-mail, mot de passe, chacun dans son bloc (copiable d'un geste sur le téléphone)."""
-    inconnu = "(demande-le à Gaëtan sur WhatsApp)"
-    return (f"Identifiant :\n```\n{acces.get('handle')}\n```\n"
-            + (f"E-mail :\n```\n{acces['mail']}\n```\n" if acces.get("mail") else "")
-            + f"Mot de passe :\n```\n{acces.get('mdp') or inconnu}\n```")
+    """Les messages hérités ne sérialisent plus d'e-mail, mot de passe ou téléphone."""
+    return (f"Identifiant prévu : @{acces.get('handle', '?')}\n\n"
+            "Ton responsable te remet les accès personnellement, par un canal sécurisé.")
 
 
 def message_nouveau_compte(mention: str, n: int, acces: dict, ancien: str = "", lien: str = "", codes: str = "") -> str:
@@ -2280,8 +2274,8 @@ async def lien_autre_creatrice(membre, creatrice: str, handles=(), creer: bool =
 
 async def donner_telephones(uid=None, maintenant=None) -> int:
     """09/10 (revue du lot L6) : chaque autre créatrice d'un clipper multi (fiche « telephones ») reçoit, dans son salon perso, UN
-    compte à la fois : le compte 1 tout de suite, le suivant TELEPHONE2_ATTENTE_H heures après le précédent, le privé en dernier,
-    avec le lien GAML de cette créatrice, créé à ce moment-là (jamais avant : forfait GAML presque plein). Appelée par
+    compte à la fois historiquement. Les accès restant à remettre sont maintenant retenus pour remise humaine,
+    sans modifier les compteurs ni créer de lien. Le rappel du lien d'un compte déjà remis reste possible. Appelée par
     bot_discord.onboarder_multi (uid) et par la boucle du classeur (tous). Renvoie le nombre de messages envoyés."""
     maintenant = maintenant or datetime.now(timezone.utc)
     envoyes = 0
@@ -2296,27 +2290,16 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
             acces, donnes = list(t.get("acces") or []), int(t.get("donnes", 0) or 0)
             texte, lien = "", t.get("lien", "")
             if donnes < len(acces):
-                try:
-                    dernier = datetime.fromisoformat(str(t.get("dernier") or ""))
-                except ValueError:
-                    dernier = None
-                if dernier is not None and (maintenant - dernier).total_seconds() < TELEPHONE2_ATTENTE_H * 3600:
-                    continue
-                a = acces[donnes]
-                if a.get("prive") and not lien:
-                    lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces])
-                videos = ""
-                if donnes == 0:
-                    try:
-                        videos = await lien_drive_creatrice(creatrice)
-                    except Exception as erreur:                         # noqa: BLE001
-                        journal.info("Vidéos d'origine de %s : %s", creatrice, type(erreur).__name__)
-                try:
-                    import parcours                                     # import tardif : parcours importe onboarding
-                    codes = parcours.texte_codes()
-                except Exception:                                       # noqa: BLE001
-                    codes = ""
-                texte = message_telephone(membre.mention, creatrice, donnes + 1, a, videos, lien, donnes + 1 < len(acces), codes)
+                # File héritée conservée : aucun POST, aucun lien créé ni compteur avancé.
+                etat = _lire_etat()
+                t2 = ((etat.get("clippers", {}).get(str(uid_t)) or {}).get("telephones") or {}).get(creatrice)
+                if isinstance(t2, dict):
+                    marque = {"etat": "humaine_requise", "raison": "telephone_herite_acces",
+                              "nombre": len(acces) - donnes}
+                    if t2.get("remise_securisee") != marque:
+                        t2["remise_securisee"] = marque
+                        _ecrire_etat(etat)
+                continue
             elif t.get("lien_du") and not lien:                         # le privé est parti sans lien : on le retente
                 try:
                     essai = datetime.fromisoformat(str(t.get("lien_essai") or ""))
@@ -2344,10 +2327,6 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
             if lien:
                 t2["lien"] = lien
                 t2.pop("lien_du", None)
-            if donnes < len(acces) and texte:
-                t2["donnes"], t2["dernier"] = donnes + 1, maintenant.isoformat(timespec="seconds")
-                if acces[donnes].get("prive") and not lien:
-                    t2["lien_du"], t2["lien_essai"] = True, maintenant.isoformat(timespec="seconds")
             if not texte and not lien:
                 t2["lien_essai"] = maintenant.isoformat(timespec="seconds")
             _ecrire_etat(etat)
