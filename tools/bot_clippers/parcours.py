@@ -1421,14 +1421,19 @@ async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
         if getattr(msg.author, "id", None) != getattr(salon.guild.me, "id", None):
             return
         contenu = getattr(msg, "content", "")
-        nouveau = contenu
-        # Ces paragraphes sont ceux de l'ancienne bienvenue identifiée, jamais
-        # une recherche globale ni une modification des messages humains.
+        # Gabarits historiques (CONSIGNE_WA/SANS_WA) seulement : ne pas supprimer
+        # un paragraphe de formation qui mentionne aussi WhatsApp ou un bouton.
         import re
-        nouveau = re.sub(r"📲[^\n]*WhatsApp[^\n]*(?:\n+Envoie-lui[^\n]*)?", "", nouveau)
-        nouveau = re.sub(r"C['’]est fait \? Appuie sur[^\n]*", "", nouveau)
-        nouveau = re.sub(r"👇[^\n]*Ton compte 1 arrive juste en dessous\.", "", nouveau)
-        nouveau = re.sub(r"\n{3,}", "\n\n", nouveau).strip()
+        nouveau = contenu
+        for motif in (
+            r"📲 (?:\*\*)?Écris à Gaëtan sur WhatsApp(?:\*\*)? avec le bouton\. Il t'ajoute au groupe\."
+            r"(?:\n\nEnvoie-lui : [^\n]+)?",
+            r"C['’]est fait \? Appuie sur ✅ ?\.",
+            r"👇 Ton compte 1 arrive juste en dessous\.",
+        ):
+            # Enlever seulement les deux séparateurs du paragraphe ciblé,
+            # jamais normaliser les espaces/sauts de ligne du contenu conservé.
+            nouveau = re.sub(r"(?:\A|\n\n)" + motif + r"(?=\n\n|\Z)", "", nouveau)
         if nouveau != contenu:
             await msg.edit(content=nouveau, view=None)
         elif msg.components:
