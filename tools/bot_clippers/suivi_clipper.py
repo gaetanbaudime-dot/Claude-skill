@@ -19,7 +19,7 @@ _deps = {}
 # pages de clipping numérotées sont reconnues par reserve_mym.numero_du_lien.
 # Tout nouveau domaine/format demande une vérification avant ajout à cette liste.
 _LIEN_GAML_PUBLIC = re.compile(
-    r'https://(?:chloe-callista\.fr|sarah-ivanova\.fr|sophievan\.fr|jadetora\.fr)/[0-9]+/?',
+    r'https://(?:chloe-callista\.fr|sarah-ivanova\.fr|sophievan\.fr|jadetora\.fr|maaaad\.fr)/[0-9]+/?',
     re.IGNORECASE | re.ASCII,
 )
 

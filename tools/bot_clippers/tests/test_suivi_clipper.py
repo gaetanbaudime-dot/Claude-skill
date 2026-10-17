@@ -62,7 +62,7 @@ class ProjectionTests(unittest.TestCase):
             self.assertEqual(t, s._borne(t))
 
     def test_liens_publics_gaml_numerotes_reconnus(self):
-        for domaine in ('chloe-callista.fr', 'sarah-ivanova.fr', 'sophievan.fr', 'jadetora.fr'):
+        for domaine in ('chloe-callista.fr', 'sarah-ivanova.fr', 'sophievan.fr', 'jadetora.fr', 'maaaad.fr'):
             for suffixe in ('/13', '/13/'):
                 url = 'https://' + domaine + suffixe
                 with self.subTest(url=url):
@@ -74,6 +74,10 @@ class ProjectionTests(unittest.TestCase):
             'https://example.com/SECRET-FICTIF',
             'https://chloe-callista.fr/app/SECRET-FICTIF',
             'https://chloe-callista.fr/SECRET-FICTIF',
+            'https://maaaad.fr/app/SECRET-FICTIF',
+            'https://maaaad.fr/SECRET-FICTIF',
+            'https://maaaad.fr/13?token=SECRET-FICTIF',
+            'https://maaaad.fr.evil.example/13',
             'https://chloe-callista.fr.evil.example/13',
             'https://private.chloe-callista.fr/13',
             'https://chloe-callista.fr@evil.example/13',
