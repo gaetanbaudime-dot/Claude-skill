@@ -165,6 +165,8 @@ async def traiter(classeur, comptes_app):
                 rows = await google_api.sheets_lire(classeur, f"'{TAB}'!A2:O")
             except Exception:
                 return  # No requests yet. Do not create the sheet from the bot.
+            if not any(len(r) > 6 and r[6] in {"demandé", "préparation", "prêt"} for r in rows):
+                return
             import onboarding
             import codes_2fa
             accounts = await onboarding.lire_comptes()
@@ -192,3 +194,19 @@ async def traiter(classeur, comptes_app):
                         LOG.info("Metricool provisioning ligne %s : prêt, marque %s", idx, values[1])
                     except Exception as e:
                         LOG.warning("Metricool provisioning ligne %s : %s", idx, str(e)[:130])
+
+
+async def boucle(client):
+    """Requests need not wait for the next 15-minute Dashboard publication."""
+    await client.wait_until_ready()
+    await asyncio.sleep(100)
+    while not client.is_closed():
+        try:
+            import pilotage
+            classeur = await pilotage._classeur()
+            if classeur:
+                current = await google_api.sheets_lire(classeur, "'Comptes app'!A2:L")
+                await traiter(classeur, current)
+        except Exception as error:
+            LOG.warning("Metricool onboarding : %s", type(error).__name__)
+        await asyncio.sleep(60)
