@@ -8,13 +8,20 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import re
 from types import SimpleNamespace
-from urllib.parse import urlsplit
 
 import discord
 import recrutement
 from process_clippeur import cumuler_reels_verifies
 
 _deps = {}
+
+# Domaines publics attestés dans onboarding.py et visites_telegram.py ; les
+# pages de clipping numérotées sont reconnues par reserve_mym.numero_du_lien.
+# Tout nouveau domaine/format demande une vérification avant ajout à cette liste.
+_LIEN_GAML_PUBLIC = re.compile(
+    r'https://(?:chloe-callista\.fr|sarah-ivanova\.fr|sophievan\.fr|jadetora\.fr)/[0-9]+/?',
+    re.IGNORECASE | re.ASCII,
+)
 
 
 def configurer(deps, client=None):
@@ -43,14 +50,11 @@ def _date(valeur):
 
 
 def _url_publique(valeur):
-    if not isinstance(valeur, str) or len(valeur) > 220 or re.search(r'[\s<>`]', valeur):
-        return ''
-    try:
-        url = urlsplit(valeur)
-        return valeur if (url.scheme == 'https' and url.hostname and not url.username
-                         and not url.password and not url.query and not url.fragment) else ''
-    except ValueError:
-        return ''
+    # HTTPS seul ne prouve pas qu'un lien est public : un jeton peut se trouver
+    # dans /app/<jeton>. Le format exact exclut aussi ports, sous-domaines,
+    # identifiants, paramètres, fragments, encodages et chemins supplémentaires.
+    return valeur if (isinstance(valeur, str) and len(valeur) <= 220
+                      and _LIEN_GAML_PUBLIC.fullmatch(valeur)) else ''
 
 
 def construire(uid, entrees, dossier, vue, *, role=None, tl_uid='', livraison=None,

@@ -31,9 +31,9 @@ def donnees():
     entrees = {'registre': {'42': {'creatrice': 'Créatrice exemple'}, '420': {'creatrice': 'AUTRE-UID'}},
                'parcours': {'42': {'creatrice': 'Créatrice exemple', 'dates': {'1': '2026-10-15'}}},
                'onboarding_etat': {'clippers': {'42': {'comptes': ['handle-fictif'], 'mail': 'SECRET-FICTIF', 'mdp': 'SECRET-FICTIF'}}},
-               'clics': {'liens': {'propre': {'uid': '42', 'url': 'https://example.com/lien-fictif'},
-                                   'autre': {'uid': '420', 'url': 'https://example.com/AUTRE-UID'},
-                                   'ferme': {'uid': '42', 'url': 'https://example.com/ferme', 'archive': True},
+               'clics': {'liens': {'propre': {'uid': '42', 'url': 'https://chloe-callista.fr/13'},
+                                   'autre': {'uid': '420', 'url': 'https://chloe-callista.fr/420'},
+                                   'ferme': {'uid': '42', 'url': 'https://chloe-callista.fr/99', 'archive': True},
                                    'secret': {'uid': '42', 'url': 'https://example.com/app?token=SECRET-FICTIF'}}}}
     return entrees, dossier
 
@@ -51,15 +51,60 @@ class ProjectionTests(unittest.TestCase):
         fiche = self.construire(e, d, role=True, tl_uid='73', paie={'regime': 'clic', 'taux': '0.07', 'pays': 'France'})
         self.assertEqual(6, len(fiche['etapes']))
         texte = fiche['texte'] + fiche['consignes']
-        for interdit in ('SECRET-FICTIF', 'AUTRE-UID', '/ferme', 'code reçu'):
+        for interdit in ('SECRET-FICTIF', 'AUTRE-UID', '/420', '/99', 'code reçu'):
             self.assertNotIn(interdit, texte)
         self.assertIn('0.07 USD', texte)
-        self.assertIn('https://example.com/lien-fictif', texte)
+        self.assertIn('https://chloe-callista.fr/13', texte)
         self.assertIn('16/10/2026', texte)
         self.assertIn('source :', texte)
         self.assertEqual(avant, (e, d))
         for t in (fiche['texte'], fiche['consignes']):
             self.assertEqual(t, s._borne(t))
+
+    def test_liens_publics_gaml_numerotes_reconnus(self):
+        for domaine in ('chloe-callista.fr', 'sarah-ivanova.fr', 'sophievan.fr', 'jadetora.fr'):
+            for suffixe in ('/13', '/13/'):
+                url = 'https://' + domaine + suffixe
+                with self.subTest(url=url):
+                    self.assertEqual(url, s._url_publique(url))
+
+    def test_liens_prives_et_contournements_absents_des_consignes(self):
+        urls = [
+            'https://example.com/app/SECRET-FICTIF',
+            'https://example.com/SECRET-FICTIF',
+            'https://chloe-callista.fr/app/SECRET-FICTIF',
+            'https://chloe-callista.fr/SECRET-FICTIF',
+            'https://chloe-callista.fr.evil.example/13',
+            'https://private.chloe-callista.fr/13',
+            'https://chloe-callista.fr@evil.example/13',
+            'https://evil.example@chloe-callista.fr/13',
+            'https://chloe-callista.fr:443/13',
+            'https://chloe-callista.fr/13?token=SECRET-FICTIF',
+            'https://chloe-callista.fr/13#SECRET-FICTIF',
+            'https://chloe-callista.fr/13/SECRET-FICTIF',
+            'https://chloe-callista.fr/13/../app/SECRET-FICTIF',
+            'https://chloe-callista.fr/%31%33',
+            'https://chloe-callista.fr/13%2fSECRET-FICTIF',
+            'https://chloe-callista.fr/１３',
+            'https://chloe-callista.fr/13\\SECRET-FICTIF',
+            'https://chloe-callista.fr/13\n',
+            'https://chloe-callista.fr/\t13',
+            'http://chloe-callista.fr/13',
+            'https://getallmylinks.com/app/SECRET-FICTIF',
+            'https://gaml.fr/13',  # Aucun format public attesté pour ce domaine.
+            'https://chloe-callista.fr',
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual('', s._url_publique(url))
+                e, d = donnees()
+                e['clics']['liens'] = {'propre': {'uid': '42', 'url': url}}
+                avant = copy.deepcopy(e)
+                texte = self.construire(e, d)['consignes']
+                self.assertNotIn('https://', texte)
+                self.assertNotIn('SECRET-FICTIF', texte)
+                self.assertIn('Aucun lien publiable confirmé', texte)
+                self.assertEqual(avant, e)
 
     def test_uid_incoherent_refuse_meme_si_prenom_identique(self):
         e, d = donnees()
