@@ -1,0 +1,17 @@
+{
+  "name": "@gm/reels",
+  "version": "1.2.1",
+  "private": true,
+  "exports": {
+    ".": "./src/ReelsPanel.tsx",
+    "./use-reels-job": "./src/use-reels-job.ts",
+    "./server": "./src/server/proxy.ts"
+  },
+  "files": [
+    "src",
+    "UPSTREAM.md"
+  ],
+  "peerDependencies": {
+    "react": "^18.3.1 || ^19.0.0"
+  }
+}

@@ -1,30 +1,22 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { signaler } from "@/lib/signal";
-import { ouvrirInstagram } from "@/lib/instagram";
+import type { Pilotage } from "@/lib/pilotage";
+import Horizontal from "./pilotage/Horizontal";
+import { PERIODES, type Periode } from "./pilotage/calc";
 
-/** 12/10 (Gaëtan : « une application pour les team leaders… un onglet avec un lien direct vers Instagram pour voir les comptes de
- *  ses clippeurs, comme ça le team leader peut aller faire un retour rapidement ; genre sous Romaric, ses 3 comptes ») : chaque
- *  clipper de son équipe (colonne « Team leader » du classeur), ses visites payées de la période et le seuil des 500, puis ses
- *  comptes, chacun ouvrant Instagram d'un appui. */
+/** Même pilotage horizontal que l'admin, sur une projection filtrée côté serveur par les attributions du TL. */
 type Compte = { n: number; handle: string; etat: string; followers: number | null; reels7: number | null; vues7: number | null };
 type Membre = { cle: string; prenom: string; creatrice: string; comptes: Compte[]; visites: number | null; auSeuil: boolean; manquants: number };
-type Equipe = { seuil: number; prime: number | null; primee: boolean | null; debut: string; fin: string; membres: Membre[] };
-const ETATS = [
-  { nom: "Good", couleur: "text-emerald-300" },
-  { nom: "Faire appel", couleur: "text-orange-300" },
-  { nom: "Ban", couleur: "text-red-300" },
-  { nom: "À créer", couleur: "text-white" },
-];
-const etatAffiche = (valeur: string) => ETATS.find((e) => e.nom.toLocaleLowerCase("fr") === valeur.trim().toLocaleLowerCase("fr"))
-  || { nom: valeur.trim().toLocaleLowerCase("fr") === "prive" || valeur.trim().toLocaleLowerCase("fr") === "privé" ? "Type privé · état à vérifier" : "État à vérifier", couleur: "text-argent2" };
+type Equipe = { seuil: number; prime: number | null; primee: boolean | null; debut: string; fin: string; membres: Membre[]; pilotage: Pilotage | null };
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 const usd = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} $`;
 
 export default function EquipeTab({ jeton }: { jeton: string }) {
   const [e, setE] = useState<Equipe | null>(null);
   const [erreur, setErreur] = useState(false);
-  const [vue, setVue] = useState<"traiter" | "equipe" | "resultats">("traiter");
+  const [vue, setVue] = useState<"traiter" | "equipe" | "resultats">("equipe");
+  const [periode, setPeriode] = useState<Periode>("j7");
+  const [filtre, setFiltre] = useState("");
   const charger = useCallback(async () => {
     try {
       const r = await fetch(`/api/k/${jeton}/equipe`, { cache: "no-store" });
@@ -73,44 +65,16 @@ export default function EquipeTab({ jeton }: { jeton: string }) {
         <div className="text-[12px] text-argent2 mt-1">Période : {e.debut || "non renseignée"} au {e.fin || "non renseignée"} · {auSeuil} seuil(s) confirmé(s) à {fmt(e.seuil)} visites. {incomplets ? `${incomplets} dossier(s) incomplet(s) : résultat provisoire.` : "Relevés disponibles sur cette période."}</div>
         <p className="text-sm text-argent2 mt-3">Marge et activité J30 : non mesurées.</p>
       </div> : null}
-      {vue === "equipe" ? <><p className="text-[12.5px] text-argent2 px-1 leading-relaxed">Touche un compte pour l'ouvrir dans Instagram et faire ton retour au clipper.</p>
-      <div className="flex flex-wrap gap-3 text-xs" aria-label="États des comptes">{ETATS.map((e) => <span key={e.nom} className={e.couleur}>{e.nom}</span>)}</div>
-      {e.membres.map((m) => {
-        const part = m.visites !== null ? Math.min(1, m.visites / Math.max(1, e.seuil)) : 0;
-        return (
-          <div key={m.cle} className="carte p-4 apparait">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[17px] font-bold">{m.prenom}</div>
-                {m.creatrice ? <div className="text-[11.5px] text-argent2">{m.creatrice}</div> : null}
-                {m.cle.startsWith("~") ? <div className="text-[11.5px] text-amber-200">Rattachement à vérifier : aucun lien confirmé ici</div> : null}
-              </div>
-              <div className="text-right">
-                <div className="text-[17px] font-bold tabular-nums">{m.visites !== null ? fmt(m.visites) : "–"} {m.auSeuil ? <span className="text-emerald-300">✓</span> : null}</div>
-                <div className="text-[11px] text-argent2">visites payées{m.manquants ? ` · ${m.manquants} j non relevés` : ""}</div>
-              </div>
-            </div>
-            <div className="h-1.5 rounded-full overflow-hidden mt-2" style={{ background: "rgba(255,255,255,0.08)" }}>
-              <div className="h-full rounded-full" style={{ width: `${Math.round(part * 100)}%`, background: m.auSeuil ? "#7ef0b2" : "linear-gradient(90deg,#2b6cff,#7aa7ff)" }} />
-            </div>
-            <details className="mt-3"><summary className="cursor-pointer text-sm font-semibold">Comptes et mesures disponibles</summary><div className="mt-3 space-y-1.5">
-              {m.comptes.length ? m.comptes.map((c) => (
-                <a key={c.handle} href={`https://www.instagram.com/${c.handle}/`} target="_blank" rel="noopener" onClick={(ev) => { ev.preventDefault(); signaler(jeton, "equipe:instagram"); ouvrirInstagram(c.handle); }}
-                   className="flex items-center justify-between rounded-xl bg-white/[0.05] px-3 py-2.5 active:scale-[0.98] transition">
-                  <div className="min-w-0">
-                    <div className="text-[14px] font-semibold truncate">@{c.handle} <span className="text-accent">↗</span></div>
-                    <div className="text-[11px] text-argent2">Compte {c.n} · <span className={etatAffiche(c.etat).couleur}>{etatAffiche(c.etat).nom}</span></div>
-                  </div>
-                  <div className="text-right text-[11.5px] text-argent2 shrink-0 leading-tight">
-                    <div><b className="text-white tabular-nums">{c.followers !== null ? fmt(c.followers) : "–"}</b> fol.</div>
-                    <div>{c.reels7 !== null ? `${c.reels7} Reels 7 j` : ""}</div>
-                  </div>
-                </a>
-              )) : <div className="text-[12.5px] text-argent2">Aucun compte renseigné ; faire vérifier le dossier.</div>}
-            </div></details>
-          </div>
-        );
-      })}</> : null}
+      {vue === "equipe" ? <>
+        <div className="segment" role="group" aria-label="Période du pilotage">
+          <span className="pastille" style={{ left: `calc(4px + ${PERIODES.findIndex(p => p.cle === periode)} * (100% - 8px) / 4)`, width: "calc((100% - 8px) / 4)" }} />
+          {PERIODES.map(p => <button key={p.cle} aria-pressed={p.cle === periode} onClick={() => setPeriode(p.cle)}>{p.libelle}</button>)}
+        </div>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar" role="group" aria-label="Créatrice">
+          {["", ...Array.from(new Set(e.membres.map(m => m.creatrice).filter(Boolean)))].map(c => <button key={c || "toutes"} aria-pressed={filtre === c} onClick={() => setFiltre(c)} className={`shrink-0 rounded-full px-3 py-2 text-xs ${filtre === c ? "bg-white/15 text-white" : "bg-white/5 text-argent2"}`}>{c || "Toutes"}</button>)}
+        </div>
+        {e.pilotage ? <Horizontal d={e.pilotage} periode={periode} filtre={filtre} /> : <div className="carte p-4 text-sm text-argent2">Les statistiques de ton équipe sont en cours de mise à jour. <button onClick={charger} className="text-accent">Réessayer</button></div>}
+      </> : null}
     </section>
   );
 }
