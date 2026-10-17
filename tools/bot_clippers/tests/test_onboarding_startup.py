@@ -46,7 +46,7 @@ class DemarrageTests(unittest.IsolatedAsyncioTestCase):
             FICHIER_ONBOARDING=root / 'onboarding.json', FICHIER_EQUIPES=equipes,
             FICHIER_PIPELINE=pipe, FICHIER_CLICS=root / 'clics.json', normaliser=str.lower,
             heure_paris=Mock(), canal_admin=AsyncMock(), salon_perso_de=Mock(), membre_par_prenom=Mock(),
-            membre_par_id=Mock(), envoyer_long=AsyncMock(), brancher_codes=Mock(),
+            membre_par_id=Mock(), envoyer_long=AsyncMock(), brancher_codes=Mock(), brancher_suivi=Mock(),
             client=N(user='bot fictif'), MODELE='fictif', ADMIN_IDS={'99'}, CANAL_BOT_ID='', ACTIVER_V2=True,
             journal=Mock(), _taches_demarrees=False, _ONBOARDINGS_EN_COURS=set(),
             filtrer_spam=AsyncMock(return_value=False), nettoyer=lambda m: m.content,
