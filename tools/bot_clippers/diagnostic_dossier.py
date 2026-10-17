@@ -7,6 +7,8 @@ import sqlite3
 
 import discord
 
+_NON_FOURNI = object()
+
 
 def identifiant(value):
     value = str(value or '')
@@ -90,11 +92,11 @@ def registre(path, uid):
             db.close()
 
 
-def rapport(root, uid, attendue, tl_attendu):
+def rapport(root, uid, attendue, tl_attendu, *, parcours_source=_NON_FOURNI):
     root = Path(root)
     pipe = fiche(lire(root / 'pipeline.json'), 'etats', uid)
     onb = fiche(lire(root / 'onboarding.json'), 'clippers', uid)
-    parcours = fiche(lire(root / 'parcours.json'), uid)
+    parcours = parcours_source if parcours_source is not _NON_FOURNI else fiche(lire(root / 'parcours.json'), uid)
     choix = fiche(pipe, 'decision_creatrice')
     attentes = (pipe or {}).get('creatrice_attendue')
     tl = fiche(lire(root / 'tl_colonne.json'), 'va')
@@ -127,7 +129,10 @@ async def commande(message, texte, root, admin_ids, est_staff=lambda membre:Fals
     if len(args) != 3 or not identifiant(args[0]) or args[1] not in {'Sarah', 'Chloé'} or not identifiant(args[2]):
         await message.author.send('Usage : !diagnostic-dossier UID Sarah|Chloé UID_TL')
         return True
-    data = rapport(root, *args)
+    # Même source que verifier_etat : jamais la créatrice attendue de la commande.
+    parcours_reel = fiche(lire(Path(root) / 'parcours.json'), args[0])
+    creatrice_reelle = (parcours_reel or {}).get('creatrice', '')
+    data = rapport(root, *args, parcours_source=parcours_reel)
     sid = data['parcours'].get('salon_id') or data['registre_equipes'].get('salon_id')
     data['lecteurs_discord'] = {'lecture': 'salon_non_identifie'}
     if sid:
@@ -137,7 +142,9 @@ async def commande(message, texte, root, admin_ids, est_staff=lambda membre:Fals
             if salon.guild.id != message.guild.id:
                 raise ValueError('Salon hors serveur')
             data['lecteurs_discord'] = {'lecture': 'reussie', 'salon_id': sid,
-                **remise_compte1.diagnostic_lecteurs(message.guild, salon, args[0], args[1], admin_ids, est_staff)}
+                'source_creatrice': 'parcours', 'creatrice_attendue': args[1],
+                'creatrice_divergente': str(creatrice_reelle).casefold() != args[1].casefold() if creatrice_reelle else None,
+                **remise_compte1.diagnostic_lecteurs(message.guild, salon, args[0], creatrice_reelle, admin_ids, est_staff)}
         except Exception as erreur:
             data['lecteurs_discord'] = {'lecture': 'indisponible', 'erreur_type': type(erreur).__name__}
     fichier = discord.File(io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode()), filename='diagnostic-dossier.json')
