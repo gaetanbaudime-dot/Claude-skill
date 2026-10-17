@@ -5403,7 +5403,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     un prénom distinct (prenom_distinct) dans son pseudo et au Gérant ; la liste « sans salon » ne vaut que pour un ancien arrivé
     avant le 09/10 (ancien_sans_salon) ; l'attente d'une créatrice est close."""
     import choix_creatrice
-    if str(m_.id) in _ONBOARDINGS_EN_COURS:
+    if decision is None and str(m_.id) in _ONBOARDINGS_EN_COURS:
         return "⏳ Onboarding déjà en cours ; reprise conservée."
     async with choix_creatrice.verrou(str(m_.id)):
         par_nom = par.display_name if par is not None else "roster"
