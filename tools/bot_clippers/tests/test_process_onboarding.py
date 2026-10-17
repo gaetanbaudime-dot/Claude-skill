@@ -162,6 +162,55 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         msg.edit.assert_not_awaited()
 
 
+    async def test_bienvenue_ancienne_corrigee_sans_promesse_ni_message_humain(self):
+        texte = "Bienvenue !\n\nTa créatrice : Fictive.\n\nVidéos : lien conservé\n\n📲 Écris à Gaëtan sur WhatsApp avec le bouton. Il t'ajoute au groupe.\n\nEnvoie-lui : Bonjour\n\nC'est fait ? Appuie sur ✅ .\n\n👇 Ton compte 1 arrive juste en dessous."
+        msg=SimpleNamespace(author=SimpleNamespace(id=90),content=texte,components=[],edit=AsyncMock())
+        salon=SimpleNamespace(guild=SimpleNamespace(me=SimpleNamespace(id=90)),fetch_message=AsyncMock(return_value=msg))
+        fn=charger('_retirer_pret',{'discord':discord,'journal':logging.getLogger('test')},'parcours.py')
+        fiche={'messages':{'bienvenue':'99'}}
+        await fn(salon,'42',fiche)
+        attendu="Bienvenue !\n\nTa créatrice : Fictive.\n\nVidéos : lien conservé"
+        msg.edit.assert_awaited_once_with(content=attendu,view=None)
+        msg.edit.reset_mock();msg.content=attendu
+        await fn(salon,'42',fiche)
+        msg.edit.assert_not_awaited()
+        msg.content=texte;msg.author.id=91
+        await fn(salon,'42',fiche)
+        msg.edit.assert_not_awaited()
+
+    async def test_bienvenue_courante_et_paragraphes_non_cibles_conserves(self):
+        textes = [
+            "  Bienvenue !\n\n\nTa créatrice : Fictive.\n\nVidéos : lien conservé\n",
+            "📲 Formation WhatsApp : vidéo à conserver\n\nEnvoie-lui : un exemple à conserver",
+            "C'est fait ? Appuie sur le bouton de la formation.\n\n👇 Vidéos : lien conservé",
+        ]
+        fn=charger('_retirer_pret',{'discord':discord,'journal':logging.getLogger('test')},'parcours.py')
+        for texte in textes:
+            with self.subTest(texte=texte):
+                msg=SimpleNamespace(author=SimpleNamespace(id=90),content=texte,components=[],edit=AsyncMock())
+                salon=SimpleNamespace(guild=SimpleNamespace(me=SimpleNamespace(id=90)),fetch_message=AsyncMock(return_value=msg))
+                await fn(salon,'42',{'messages':{'bienvenue':'99'}})
+                msg.edit.assert_not_awaited()
+                msg.content=texte+"\n\n👇 Ton compte 1 arrive juste en dessous."
+                await fn(salon,'42',{'messages':{'bienvenue':'99'}})
+                msg.edit.assert_awaited_once_with(content=texte,view=None)
+
+    async def test_gabarit_whatsapp_historique_et_message_identifie_seulement(self):
+        prefixe="<@42> 🎉 **Bienvenue dans l'agence, Fictif !**\n\nTa créatrice : **Fictive**.\n\nVidéos : https://example.invalid/video"
+        msg=SimpleNamespace(author=SimpleNamespace(id=90),content=prefixe+
+            "\n\n📲 **Écris à Gaëtan sur WhatsApp** avec le bouton. Il t'ajoute au groupe.\n\n"
+            "Envoie-lui : « Bonjour, Fictif »\n\nC'est fait ? Appuie sur ✅.\n\n👇 Ton compte 1 arrive juste en dessous.",
+            components=['ancien'],edit=AsyncMock())
+        salon=SimpleNamespace(guild=SimpleNamespace(me=SimpleNamespace(id=90)),fetch_message=AsyncMock(return_value=msg))
+        fn=charger('_retirer_pret',{'discord':discord,'journal':logging.getLogger('test')},'parcours.py')
+        for fiche in ({}, {'messages':{'bienvenue':'inconnu'}}):
+            await fn(salon,'42',fiche)
+        salon.fetch_message.assert_not_awaited()
+        msg.edit.assert_not_awaited()
+        await fn(salon,'42',{'messages':{'bienvenue':'99'}})
+        salon.fetch_message.assert_awaited_once_with(99)
+        msg.edit.assert_awaited_once_with(content=prefixe,view=None)
+
     async def test_erreur_livraison_garde_attente_meme_avec_ancien_message(self):
         ns,membre,salon,_=self.contexte()
         ns['onboarding'].livrer.side_effect=TimeoutError('fictif')

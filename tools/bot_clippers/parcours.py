@@ -210,7 +210,7 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 
 def _identifiants(n: int) -> str:
     """Les secrets sont remis par le responsable, jamais dans le message automatique."""
-    return f"Identifiant prévu : @{{compte{n}}}\n\nTon responsable te remet les accès personnellement."
+    return f"Identifiant prévu : @{{compte{n}}}\n\nAccès : à confirmer auprès de ton responsable."
 
 
 ETAPES = {
@@ -1372,6 +1372,7 @@ BIENVENUE_H = int(os.environ.get("PARCOURS_BIENVENUE_H", "1") or 1)
 TEXTE_BIENVENUE = ("🎉 **Bienvenue, {prenom} !**\n\n"
                    "Ta créatrice : **{creatrice}**.\n\n"
                    "{videos_bienvenue}\n\n"
+                   "Garde ce message. `!etape` affiche ton avancement et tes consignes.\n"
                    "Une question ? Réponds ici, dans ton salon personnel.")
 # 10/10 (vérification L10 : deux « 🎉 Bienvenue dans l'agence » à la suite) : un clipper qui a déjà reçu le repli d'attente (« Ta
 # créatrice arrive ici dès qu'un compte est prêt pour toi ») lit « Ta créatrice est là », pas une seconde bienvenue.
@@ -1411,7 +1412,7 @@ async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
     """Retire seulement les composants de la bienvenue identifiée du bot.
 
     pret_retire est un ancien marqueur, pas une preuve d'absence du bouton WhatsApp.
-    Le contenu du message et les autres messages restent inchangés.
+    Corrige les seules consignes historiques obsolètes ; conserve le reste du message.
     """
     mid = (fiche_p.get("messages") or {}).get("bienvenue")
     if not mid or not str(mid).isdigit() or salon is None:
@@ -1420,7 +1421,23 @@ async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
         msg = await salon.fetch_message(int(mid))
         if getattr(msg.author, "id", None) != getattr(salon.guild.me, "id", None):
             return
-        if msg.components:
+        contenu = getattr(msg, "content", "")
+        # Gabarits historiques (CONSIGNE_WA/SANS_WA) seulement : ne pas supprimer
+        # un paragraphe de formation qui mentionne aussi WhatsApp ou un bouton.
+        import re
+        nouveau = contenu
+        for motif in (
+            r"📲 (?:\*\*)?Écris à Gaëtan sur WhatsApp(?:\*\*)? avec le bouton\. Il t'ajoute au groupe\."
+            r"(?:\n\nEnvoie-lui : [^\n]+)?",
+            r"C['’]est fait \? Appuie sur ✅ ?\.",
+            r"👇 Ton compte 1 arrive juste en dessous\.",
+        ):
+            # Enlever seulement les deux séparateurs du paragraphe ciblé,
+            # jamais normaliser les espaces/sauts de ligne du contenu conservé.
+            nouveau = re.sub(r"(?:\A|\n\n)" + motif + r"(?=\n\n|\Z)", "", nouveau)
+        if nouveau != contenu:
+            await msg.edit(content=nouveau, view=None)
+        elif msg.components:
             await msg.edit(view=None)
     except (discord.Forbidden, discord.HTTPException, discord.NotFound):
         pass
