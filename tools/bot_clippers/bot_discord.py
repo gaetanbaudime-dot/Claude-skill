@@ -5392,7 +5392,7 @@ _ONBOARDINGS_EN_COURS = set()
 
 
 async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: list, forcer_salon: bool = False,
-                           declencheur: str = "", nouveau=None) -> str:
+                           declencheur: str = "", nouveau=None, decision=None) -> str:
     """Un clipper prêt à travailler (corps de `!salons-equipe`, réutilisé au démarrage pour le roster) : salon perso dans la
     catégorie de sa créatrice, registre, pseudo « Prénom - Créatrice », rôle Clippeur et rôle de la créatrice, roster, comptes du
     classeur (3 comptes neufs du même POD), lien, alias 2FA, parcours à l'étape que le classeur implique. Renvoie une ligne de bilan.
@@ -5402,113 +5402,125 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
     calculé AVANT d'écrire la créatrice au registre et passé à livrer (jamais les comptes déjà créés d'un ancien du même prénom) ; un nouveau homonyme reçoit
     un prénom distinct (prenom_distinct) dans son pseudo et au Gérant ; la liste « sans salon » ne vaut que pour un ancien arrivé
     avant le 09/10 (ancien_sans_salon) ; l'attente d'une créatrice est close."""
-    par_nom = par.display_name if par is not None else "roster"
-    par_id = str(par.id) if par is not None else "roster"
-    if ancien_sans_salon(m_) and not forcer_salon:                       # 26/09 : les anciens de Jonas n'ont plus de salon perso
-        roster.ajouter(creatrice_c, prenom_de(m_))
-        return f"⏭️ {m_.display_name} : pas de salon perso (ancien système, liste `sans_salon` du roster)"
-    uid_m = str(m_.id)
-    import process_adapters
-    pipe_process = lire_json(FICHIER_PIPELINE, {})
-    info_process = (pipe_process.get("etats") or {}).get(uid_m) or {}
-    if not (info_process.get("score_quiz") and info_process.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
-        return "⚠️ Preuve de quiz réussi absente : onboarding en attente"
-    attribution.conserver_attente(uid_m, creatrice_c)
-    # Les fichiers absents/illisibles restent inconnus, jamais des historiques vides.
-    preuve = onboarding_preuves.preuve_nouveau(uid_m, pipe_process,
-        lire_json(FICHIER_ONBOARDING, None), lire_json(FICHIER_PARCOURS, None),
-        lire_json(FICHIER_SORTIS, None), lire_json(DONNEES / "parcours_oublis.json", None),
-        registre=lire_json(FICHIER_EQUIPES, None))
-    try:
-        process_adapters.store().initialiser_nouveau(uid_m, preuve)
-        process_adapters.store().reserve(uid_m, [])
-    except RuntimeError as erreur:
-        return "⚠️ " + str(erreur) + ". Historique conservé ; rapprochement nécessaire."
-    tl_id = onboarding_preuves.tl_pour(uid_m, creatrice_c, equipes_tl.tl_par_va(), lire_json(FICHIER_EQUIPES, {}))
-    tl = membre_par_id(tl_id) if tl_id else None
-    if tl is None or getattr(tl, "bot", False):
-        return "⚠️ Team leader absent ou ambigu : onboarding en attente"
-    if uid_m in _ONBOARDINGS_EN_COURS:
+    import choix_creatrice
+    if str(m_.id) in _ONBOARDINGS_EN_COURS:
         return "⏳ Onboarding déjà en cours ; reprise conservée."
-    nouveau_v = parcours_a_demarrer(uid_m) if nouveau is None else bool(nouveau)
-    _ONBOARDINGS_EN_COURS.add(uid_m)
-    try:
-        drive = await onboarding.lien_drive_creatrice(creatrice_c)
-        if not drive:
-            return "⚠️ Accès Drive non vérifié : onboarding en attente."
-        cat = categorie_de_creatrice(g, creatrice_c)
-        salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
-        if salon_c is None or err_c:
-            return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
-        if not cree_c and not (salon_c.permissions_for(tl).view_channel and salon_c.permissions_for(tl).read_message_history):
-            if not await onboarding_preuves.salon_vide_verifie(salon_c):
-                return "⚠️ Accès TL retenu : historique présent ou illisible, vérification humaine nécessaire."
-        await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
-                                      reason="Team leader configuré du clippeur")
-        prenom_c = prenom_distinct(m_, nouveau_v)
-        renomme = normaliser(prenom_c) != normaliser(prenom_de(m_))         # avant l'edit : discord.py ne met pas m_ à jour tout de suite
-        registre_se = lire_json(FICHIER_EQUIPES, {})
-        fiche_c = registre_se.setdefault(uid_m, {"equipe": "", "par": par_id,
-                                                 "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-        if not fiche_c.get("creatrice"):
-            fiche_c.update({"creatrice": creatrice_c, "creatrice_par": par_id,
-                            "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-        fiche_c["salon_id"] = str(salon_c.id)
-        if prenom_c and renomme:
-            fiche_c["prenom_distinct"] = prenom_c                       # 10/10 : le prénom distinct d'un homonyme, gardé
-        ecrire_json(FICHIER_EQUIPES, registre_se)
-        extras = []
-        pseudo_cible = f"{prenom_c} - {creatrice_c}"[:32]                # 26/09 (Gaëtan) : « PRENOM - CREATRICE »
-        if m_.display_name != pseudo_cible:
-            try:
-                await m_.edit(nick=pseudo_cible, reason=f"Clipper de {creatrice_c} ({par_nom})")
-                if renomme:
-                    extras.append(f"pseudo « {pseudo_cible} » (homonyme)")
-            except (discord.Forbidden, discord.HTTPException):
-                extras.append("pseudo refusé (« Gérer les pseudos », rôle du bot au-dessus)"
-                              + (f" : homonyme, renomme-le « {pseudo_cible} » à la main" if renomme else ""))
-        if not any(normaliser(n) in normaliser(r.name) for r in m_.roles for n in NOMS_RANGS):
-            # 09/10 : l'équipe vient de la fiche ou de la liaison (indicatif, pays), plus jamais « mg » par défaut
-            role_eq = await poser_role_equipe(g, m_, fiche_c.get("equipe") or equipe_deduite(m_.id)[0], par_id)
-            if role_eq and ("refusé" in role_eq or "aucun rôle" in role_eq):
-                return "⚠️ " + role_eq + " : parcours non livré, reprise nécessaire"
-            if role_eq:
-                extras.append(role_eq)
-        role_c = role_creatrice(g, creatrice_c)
-        if role_c is None:                                              # 30/09 : plus jamais silencieux
-            return f"⚠️ aucun rôle « {creatrice_c} » sur le serveur : reprise nécessaire"
-        elif role_c not in m_.roles:
-            try:
-                await m_.add_roles(role_c, reason=f"Clipper de {creatrice_c} ({par_nom})")
-                extras.append(f"rôle {role_c.name}")
-            except (discord.Forbidden, discord.HTTPException):
-                return "⚠️ rôle créatrice refusé : parcours non livré, reprise nécessaire"
-        roster.ajouter(creatrice_c, prenom_c)
+    async with choix_creatrice.verrou(str(m_.id)):
+        par_nom = par.display_name if par is not None else "roster"
+        par_id = str(par.id) if par is not None else "roster"
+        uid_m = str(m_.id)
+        import process_adapters
+        pipe_process = lire_json(FICHIER_PIPELINE, {})
+        info_process = (pipe_process.get("etats") or {}).get(uid_m) or {}
+        if not (info_process.get("score_quiz") and info_process.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
+            return "⚠️ Preuve de quiz réussi absente : onboarding en attente"
         try:
-            bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=declencheur or f"!salons-equipe par {par_id}",
-                                                  nouveau=nouveau_v, gerant=prenom_c)
-        except Exception as erreur:                                         # noqa: BLE001
-            return f"⚠️ Livraison interrompue ({type(erreur).__name__}) : reprise conservée."
+            creatrice_c = choix_creatrice.preparer(uid_m, creatrice_c, lire_json, ecrire_json,
+                FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_ONBOARDING, decision=decision,
+                comptes_connus=process_adapters.store().counts(uid_m))
+        except (choix_creatrice.Divergence, OSError) as erreur:
+            return "⚠️ Choix retenu : " + str(erreur)
+        if ancien_sans_salon(m_) and not forcer_salon:
+            return f"⏭️ {m_.display_name} : ancien système sans salon, aucune livraison"
+        for nom_role in getattr(attribution, 'ORDRE', []):
+            r = role_creatrice(g, nom_role)
+            if r is not None and r in m_.roles and normaliser(nom_role) != normaliser(creatrice_c):
+                journal.warning("Rôle de créatrice divergent : choix durable conservé, contrôle humain nécessaire")
+        # Les fichiers absents/illisibles restent inconnus, jamais des historiques vides.
+        preuve = onboarding_preuves.preuve_nouveau(uid_m, pipe_process,
+            lire_json(FICHIER_ONBOARDING, None), lire_json(FICHIER_PARCOURS, None),
+            lire_json(FICHIER_SORTIS, None), lire_json(DONNEES / "parcours_oublis.json", None),
+            registre=lire_json(FICHIER_EQUIPES, None))
         try:
-            # 30/09 (Gaëtan : « pourquoi Steeve, on lui donne directement 2 comptes ? ») : un clipper qui vient d'être accepté commence
-            # TOUJOURS à l'étape 1, compte 1. « Selon le classeur » ne vaut que pour un ancien clipper qui arrive avec des comptes à lui.
-            # 09/10 : « nouveau » = validé depuis moins de 7 jours et sans parcours commencé (parcours_a_demarrer).
-            if parcours_a_demarrer(m_.id):
-                await parcours.demarrer_parcours(salon_c, m_, creatrice_c)
-            else:
-                await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
-        except Exception as erreur:                                         # noqa: BLE001
-            journal.warning("Routine %s : %s", m_.id, erreur)
-            return "⚠️ Parcours interrompu : reprise conservée."
-        p_final = parcours._lire().get(uid_m) or {}
-        if not (p_final.get("messages") or {}).get("1"):
-            return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
-        attribution._sortir_d_attente(uid_m)
-        return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
-                + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
-                + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
-    finally:
-        _ONBOARDINGS_EN_COURS.discard(uid_m)
+            process_adapters.store().initialiser_nouveau(uid_m, preuve)
+            process_adapters.store().reserve(uid_m, [])
+        except RuntimeError as erreur:
+            return "⚠️ " + str(erreur) + ". Historique conservé ; rapprochement nécessaire."
+        tl_id = onboarding_preuves.tl_pour(uid_m, creatrice_c, equipes_tl.tl_par_va(), lire_json(FICHIER_EQUIPES, {}))
+        tl = membre_par_id(tl_id) if tl_id else None
+        if tl is None or getattr(tl, "bot", False):
+            return "⚠️ Team leader absent ou ambigu : onboarding en attente"
+        if uid_m in _ONBOARDINGS_EN_COURS:
+            return "⏳ Onboarding déjà en cours ; reprise conservée."
+        nouveau_v = parcours_a_demarrer(uid_m) if nouveau is None else bool(nouveau)
+        _ONBOARDINGS_EN_COURS.add(uid_m)
+        try:
+            drive = await onboarding.lien_drive_creatrice(creatrice_c)
+            if not drive:
+                return "⚠️ Accès Drive non vérifié : onboarding en attente."
+            cat = categorie_de_creatrice(g, creatrice_c)
+            salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
+            if salon_c is None or err_c:
+                return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
+            if not cree_c and not (salon_c.permissions_for(tl).view_channel and salon_c.permissions_for(tl).read_message_history):
+                if not await onboarding_preuves.salon_vide_verifie(salon_c):
+                    return "⚠️ Accès TL retenu : historique présent ou illisible, vérification humaine nécessaire."
+            await salon_c.set_permissions(tl, view_channel=True, send_messages=True, read_message_history=True,
+                                          reason="Team leader configuré du clippeur")
+            prenom_c = prenom_distinct(m_, nouveau_v)
+            renomme = normaliser(prenom_c) != normaliser(prenom_de(m_))         # avant l'edit : discord.py ne met pas m_ à jour tout de suite
+            registre_se = lire_json(FICHIER_EQUIPES, {})
+            fiche_c = registre_se.setdefault(uid_m, {"equipe": "", "par": par_id,
+                                                     "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            if not fiche_c.get("creatrice"):
+                fiche_c.update({"creatrice": creatrice_c, "creatrice_par": par_id,
+                                "creatrice_date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            fiche_c["salon_id"] = str(salon_c.id)
+            if prenom_c and renomme:
+                fiche_c["prenom_distinct"] = prenom_c                       # 10/10 : le prénom distinct d'un homonyme, gardé
+            ecrire_json(FICHIER_EQUIPES, registre_se)
+            extras = []
+            pseudo_cible = f"{prenom_c} - {creatrice_c}"[:32]                # 26/09 (Gaëtan) : « PRENOM - CREATRICE »
+            if m_.display_name != pseudo_cible:
+                try:
+                    await m_.edit(nick=pseudo_cible, reason=f"Clipper de {creatrice_c} ({par_nom})")
+                    if renomme:
+                        extras.append(f"pseudo « {pseudo_cible} » (homonyme)")
+                except (discord.Forbidden, discord.HTTPException):
+                    extras.append("pseudo refusé (« Gérer les pseudos », rôle du bot au-dessus)"
+                                  + (f" : homonyme, renomme-le « {pseudo_cible} » à la main" if renomme else ""))
+            if not any(normaliser(n) in normaliser(r.name) for r in m_.roles for n in NOMS_RANGS):
+                # 09/10 : l'équipe vient de la fiche ou de la liaison (indicatif, pays), plus jamais « mg » par défaut
+                role_eq = await poser_role_equipe(g, m_, fiche_c.get("equipe") or equipe_deduite(m_.id)[0], par_id)
+                if role_eq and ("refusé" in role_eq or "aucun rôle" in role_eq):
+                    return "⚠️ " + role_eq + " : parcours non livré, reprise nécessaire"
+                if role_eq:
+                    extras.append(role_eq)
+            role_c = role_creatrice(g, creatrice_c)
+            if role_c is None:                                              # 30/09 : plus jamais silencieux
+                return f"⚠️ aucun rôle « {creatrice_c} » sur le serveur : reprise nécessaire"
+            elif role_c not in m_.roles:
+                try:
+                    await m_.add_roles(role_c, reason=f"Clipper de {creatrice_c} ({par_nom})")
+                    extras.append(f"rôle {role_c.name}")
+                except (discord.Forbidden, discord.HTTPException):
+                    return "⚠️ rôle créatrice refusé : parcours non livré, reprise nécessaire"
+            roster.ajouter(creatrice_c, prenom_c)
+            try:
+                bilan_onb_c = await onboarding.livrer(m_, creatrice_c, salon_c, declencheur=declencheur or f"!salons-equipe par {par_id}",
+                                                      nouveau=nouveau_v, gerant=prenom_c)
+            except Exception as erreur:                                         # noqa: BLE001
+                return f"⚠️ Livraison interrompue ({type(erreur).__name__}) : reprise conservée."
+            try:
+                # 30/09 (Gaëtan : « pourquoi Steeve, on lui donne directement 2 comptes ? ») : un clipper qui vient d'être accepté commence
+                # TOUJOURS à l'étape 1, compte 1. « Selon le classeur » ne vaut que pour un ancien clipper qui arrive avec des comptes à lui.
+                # 09/10 : « nouveau » = validé depuis moins de 7 jours et sans parcours commencé (parcours_a_demarrer).
+                if parcours_a_demarrer(m_.id):
+                    await parcours.demarrer_parcours(salon_c, m_, creatrice_c)
+                else:
+                    await parcours.demarrer_selon_classeur(salon_c, m_, creatrice_c, etats_cl)   # 26/09 : routine, warm-up ou étape 1 selon le classeur
+            except Exception as erreur:                                         # noqa: BLE001
+                journal.warning("Routine %s : %s", m_.id, erreur)
+                return "⚠️ Parcours interrompu : reprise conservée."
+            p_final = parcours._lire().get(uid_m) or {}
+            if not (p_final.get("messages") or {}).get("1"):
+                return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
+            attribution._sortir_d_attente(uid_m)
+            return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
+                    + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
+                    + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+        finally:
+            _ONBOARDINGS_EN_COURS.discard(uid_m)
 
 
 # 10/10 (vérification L10 : un SIGTERM de Railway entre l'écriture de la créatrice et le message de bienvenue laissait un nouveau
@@ -5943,127 +5955,12 @@ async def commande_creatrice(message, texte: str) -> bool:
     # roster, de l'ordre d'attribution, ou de la casse « Prénom ».
     connues = list((roster.groupes() or {}).keys()) + list(attribution.ORDRE)
     prenom = next((c for c in connues if normaliser(c) == normaliser(prenom)), None) or prenom.split()[0].capitalize() if prenom else prenom
-    cible = normaliser(prenom)
-    exclus_ids = {CANAL_ADMIN_ID, CANAL_BOT_ID, CANAL_MANAGER_ID, CANAL_CANDIDATURE_ID}
-
-    def _mot_entier(nom):
-        return re.search(rf"(?<![a-z0-9]){re.escape(cible)}(?![a-z0-9])", normaliser(nom)) is not None
-
-    def _exclu(c):
-        return str(c.id) in exclus_ids or any(p in normaliser(c.name) for p in ("admin", "bot", "gaetan", "manager", "staff", "log"))
-
-    salons = [c for c in message.guild.channels
-              if isinstance(c, (discord.TextChannel, discord.ForumChannel)) and _mot_entier(c.name) and not _exclu(c)]
-    categorie = discord.utils.find(lambda c: _mot_entier(c.name), message.guild.categories)
-    ouverts, refus, roles_poses = [], [], []
-    # Rôles (25/09, demande de Gaëtan) : chaque créatrice a son rôle (Chloé, Sophie, Sarah, Maddie, Jade…), c'est lui
-    # qui ouvre sa catégorie. On le pose, on retire celui d'une autre créatrice, et les permissions salon par salon
-    # ne servent plus que s'il n'existe pas de rôle.
-    role_c = role_creatrice(message.guild, prenom)
-    role_ok = False
-    if role_c is not None:
-        anciens = [r for r in membre.roles if r != role_c and r in roles_creatrices(message.guild)]
-        try:
-            if anciens:
-                await membre.remove_roles(*anciens, reason=f"Changement de créatrice → {prenom}")
-            if role_c not in membre.roles:
-                await membre.add_roles(role_c, reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
-            roles_poses.append(role_c.name)
-            role_ok = True
-        except (discord.Forbidden, discord.HTTPException) as erreur:
-            refus.append(f"rôle {role_c.name} ({type(erreur).__name__} : donne-moi « Gérer les rôles » et garde mon rôle au-dessus du sien)")
-    if not role_ok:
-        for salon in salons:
-            try:
-                await salon.set_permissions(membre, view_channel=True, send_messages=True,
-                                            read_message_history=True,
-                                            reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
-                ouverts.append(salon)
-            except (discord.Forbidden, discord.HTTPException) as erreur:
-                refus.append(f"{salon.name} ({type(erreur).__name__})")
-    # 26/09 : fiche sans grille (Daniella) → rôle Clippeur quand même ; 09/10 : jamais « mg » (Team International) par défaut
-    code_eq = (fiche or {}).get("equipe") or equipe_deduite(membre.id)[0]
-    a_un_rang = any(normaliser(n) in normaliser(r.name) for r in membre.roles for n in NOMS_RANGS)   # Confirmé/Élite = déjà dans l'équipe
-    # 09/10 (revue du lot L6 : chaque `!creatrice` sur un clipper déjà équipé réécrivait « par » au registre et refaisait add_roles) :
-    # rien si son rôle d'équipe est déjà posé (équipe inconnue : n'importe quel rôle Team suffit)
-    role_eq = role_team(message.guild, code_eq) if code_eq in ("fr", "mg") else None
-    roles_eq = [role_eq] if role_eq is not None else [r for r in (role_team(message.guild, "fr"), role_team(message.guild, "mg"))
-                                                      if r is not None]
-    if not a_un_rang and not any(r in membre.roles for r in roles_eq):
-        bout_eq = await poser_role_equipe(message.guild, membre, code_eq, str(message.author.id))
-        if bout_eq.startswith("rôle ") and "refusé" not in bout_eq:
-            roles_poses.append(bout_eq[len("rôle "):])
-        elif bout_eq:
-            refus.append(bout_eq)
-    # 10/10 (vérification L10 : `!creatrice @nouveau X` livrait les comptes déjà créés d'un ancien du même prénom) : « nouveau venu »
-    # décidé AVANT d'écrire sa créatrice au registre ; un nouveau homonyme reçoit un prénom distinct (pseudo et Gérant).
-    nouveau_c = parcours_a_demarrer(membre.id)
-    # 26/09 (Gaëtan) : pseudo « Prénom - Créatrice » posé par le bot, et le roster (`!actifs`, liens suivis) mis à jour.
-    prenom_clipper = prenom_distinct(membre, nouveau_c)
-    pseudo_cible = f"{prenom_clipper} - {prenom}"[:32]
-    if membre.display_name != pseudo_cible:
-        try:
-            await membre.edit(nick=pseudo_cible, reason=f"Créatrice {prenom} attribuée par {message.author.display_name}")
-            roles_poses.append(f"pseudo « {pseudo_cible} »")
-        except (discord.Forbidden, discord.HTTPException) as erreur:
-            refus.append(f"pseudo ({type(erreur).__name__} : donne-moi « Gérer les pseudos » et garde mon rôle au-dessus du sien)")
-    roster.ajouter(prenom, prenom_clipper)
-    # Salon nominatif du clipper : créé au J'ACCEPTE (catégorie Clippers) ou ici, et rangé dans la catégorie de la créatrice.
-    # 10/10 : la liste « sans salon » ne vaut que pour un ancien arrivé avant le 09/10 (ancien_sans_salon), jamais un nouveau homonyme
-    if ancien_sans_salon(membre):                                           # 26/09 : anciens de Jonas sans salon perso
-        salon_perso, cree, err_sp = None, False, ""
-    else:
-        salon_perso, cree, err_sp = await assurer_salon_perso(message.guild, membre, categorie, prenom,
-                                                              f"Créatrice {prenom} attribuée par {message.author.display_name}")
-    if err_sp:
-        refus.append(err_sp)
-    registre = lire_json(FICHIER_EQUIPES, {})
-    fiche = registre.setdefault(str(membre.id), {"equipe": "", "par": str(message.author.id),
-                                                 "date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                                                 "forcee": True})
-    fiche["creatrice"] = prenom
-    fiche["creatrice_par"] = str(message.author.id)
-    fiche["creatrice_date"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    if normaliser(prenom_clipper) != normaliser(prenom_de(membre)):
-        fiche["prenom_distinct"] = prenom_clipper                           # 10/10 : homonyme renommé, gardé
-    ecrire_json(FICHIER_EQUIPES, registre)
-    try:                                                                    # 10/10 : une créatrice reçue clôt l'attente
-        attribution._sortir_d_attente(str(membre.id))
-    except Exception as erreur:                                             # noqa: BLE001
-        journal.info("Fin d'attente de %s : %s", membre.id, erreur)
-    # 09/10 (« Candidature close » affiché à un nouveau) : sans parcours commencé, l'état du pipeline repart propre (refus, sortie, attente →
-    # « valide » par le staff) ; un clipper déjà « valide » garde sa date.
-    fiche_pc = parcours._lire().get(str(membre.id))
-    if not fiche_pc or (int(fiche_pc.get("etape", 0) or 0) == 0 and not fiche_pc.get("dates")):
-        valider_ajout_manuel(membre.id, "staff", garder_valide=True)
-    # 23/09 : comptes du classeur et lien GAML, sans manager. 09/10 : réservés et notés, aucun message (le parcours les donne).
-    try:
-        bilan_onb = await onboarding.livrer(membre, prenom, salon_perso, nouveau=nouveau_c, gerant=prenom_clipper)
-    except Exception as erreur:                                        # jamais bloquer l'attribution pour ça
-        bilan_onb = f"onboarding : {type(erreur).__name__} {str(erreur)[:120]}"
-    # 09/10 (Gaëtan : « Chaque étape à la fois ») : plus de MP « 🎬 Ta créatrice… #assistant » ni de Reels uniques : le seul
-    # message est celui du parcours (créatrice, vidéos d'origine, WhatsApp), puis le compte 1.
-    if salon_perso is not None:
-        try:
-            await parcours.demarrer_parcours(salon_perso, membre, prenom)   # 25/09 : le parcours guidé, avec boutons
-        except Exception as erreur:
-            journal.warning("Parcours guidé de %s : %s", membre.id, erreur)
-    # 27/09 (Gaëtan : « simplifie tout ça ») : une ligne — les rôles posés et les salons ouverts sont l'évidence, seuls les
-    # refus et les manques sont dits. Un changement de créatrice avec des comptes déjà livrés d'une autre est signalé.
-    avert = []
-    if not roles_poses and not ouverts:
-        avert.append(f"aucun rôle ni salon au nom de « {prenom} »" if not salons else f"permission refusée sur les salons de {prenom}")
-    if salon_perso is None and categorie is None and not ancien_sans_salon(membre):
-        avert.append("pas de catégorie au nom de la créatrice, salon perso non créé")
-    avert += refus
-    onb_c = lire_json(FICHIER_ONBOARDING, {}).get("clippers", {}).get(str(membre.id), {})
-    if onb_c.get("comptes") and onb_c.get("creatrice") and normaliser(onb_c["creatrice"]) != normaliser(prenom):
-        avert.append(f"ses comptes livrés sont ceux de {onb_c['creatrice']} : `!liberer {prenom_clipper}` puis "
-                     f"`!onboarding @{prenom_clipper}` pour des comptes {prenom}")
-    await message.reply((f"✅ {membre.mention} → **{prenom}**"
-                         + (f" · <#{salon_perso.id}>" if salon_perso is not None else "")
-                         + " · " + attribution.bilan_court(bilan_onb)
-                         + (("\n⚠️ " + " · ".join(avert)) if avert else ""))[:1990])
+    # Même parcours et même verrou que les reprises automatiques ; la commande est la source explicite.
+    decision = {"creatrice": prenom, "source": f"discord-message:{message.id}",
+                "par": str(message.author.id), "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    bilan = await onboarder_membre(message.guild, membre, prenom, message.author, {}, [],
+                                   forcer_salon=True, declencheur="commande créatrice", decision=decision)
+    await message.reply(bilan[:1990])
     return True
 
 
@@ -8880,7 +8777,7 @@ async def on_ready():
                                 "livrables": places.places_par_creatrice,                     # 30/09 : `!attribution`
                                 # 09/10 (lots L1, L3, L6) : le repli « Ta créatrice arrive ici dès qu'un compte est prêt » (texte unique), envoyé dans
                                 # le salon perso sinon en MP ; valider_candidat reprend un candidat mis en attente par la migration.
-                                "FICHIER_PIPELINE": FICHIER_PIPELINE, "texte_repli": texte_repli_attente,
+                                "FICHIER_PIPELINE": FICHIER_PIPELINE, "FICHIER_ONBOARDING": FICHIER_ONBOARDING, "texte_repli": texte_repli_attente,
                                 "envoyer_mp": envoyer_mp, "valider_candidat": valider_candidat,
                                 # 10/10 (vérification L10) : le roster par prénom ne vaut que pour un arrivé avant le 09/10 ; un prénom
                                 # attendu par un dépôt « onboarding » attend le dépôt

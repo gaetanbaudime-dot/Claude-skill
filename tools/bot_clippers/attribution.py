@@ -327,17 +327,6 @@ async def _mettre_en_attente(membre, via: str) -> tuple:
     return nouveau, envoye
 
 
-def conserver_attente(uid, creatrice):
-    """Choix durable avant effets ; aucun message ni nouvelle rotation au retry."""
-    fichier = _fichier_pipeline()
-    pipe = _deps["lire_json"](fichier, {})
-    info = pipe.setdefault("etats", {}).setdefault(str(uid), {})
-    info["etat"] = ETAT_ATTENTE
-    info.setdefault("attente_depuis", datetime.now(timezone.utc).isoformat(timespec="seconds"))
-    info["creatrice_attendue"] = creatrice
-    _deps["ecrire_json"](fichier, pipe)
-
-
 def creatrice_en_attente(uid):
     pipe = _deps["lire_json"](_fichier_pipeline(), {})
     info = (pipe.get("etats") or {}).get(str(uid)) or {}
@@ -517,75 +506,92 @@ async def attribuer(membre, via: str) -> str:
     plus le silence."""
     if not actif() or membre is None or getattr(membre, "bot", False):
         return ""
-    fiche = _fiche_registre(membre)
-    reprise = creatrice_en_attente(membre.id)
-    if (fiche or {}).get("creatrice") and not reprise:
-        return ""
-    if _reserve_au_depot(membre):
-        if _marquer_une_fois(str(membre.id), "depot_attendu"):
-            journal.info("Attribution de %s (%s) : prénom attendu par un dépôt, rien attribué", _deps["prenom_de"](membre), via)
-            await _ligne_admin(f"⏸️ {membre.mention} validé : son prénom est attendu par un dépôt `salons_a_ouvrir.json` "
-                               "(« onboarding »). Sa créatrice vient du dépôt, au prochain démarrage.\n\n"
-                               f"Pas lui ? `!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")
-        return ""
-    if not sans_creatrice(membre) and not reprise:
-        est_staff = _deps.get("est_staff")
-        if fiche is not None and not (est_staff and est_staff(membre)) and _valide_au_funnel(membre.id):
-            await _filet_roster(membre, via)
-        return ""
+    import choix_creatrice
+    import process_adapters
     async with _verrou("attribution"):
-        reprise = creatrice_en_attente(membre.id)
-        if not sans_creatrice(membre) and not reprise:  # attribué pendant l'attente du verrou
-            return ""
-        if reprise:
-            creatrice, note = reprise, ""
-        else:
-            stock = await stock_livrable()
-            creatrice, note = prochaine(membre.guild, stock)
-        if not creatrice:
-            nouveau, prevenu = await _mettre_en_attente(membre, via)
-            journal.info("Attribution impossible pour %s (%s) : aucun compte livrable, en attente%s", _deps["prenom_de"](membre), via,
-                         " (repli envoyé)" if prevenu else "")
-            # 10/10 (vérification du lot L9b) : plus de ligne « ⏳ … repris tout seul » au salon admin, sans geste à faire et en double
-            # avec le bloc « En attente d'une créatrice » et les places du digest. Seule exception : l'attribution est éteinte au
-            # moment de la mise en attente (actif() faux, ordre vidé pendant l'attente du verrou) : la reprise ne le prendra pas, le
-            # geste est `!creatrice`.
-            admin = await _deps["canal_admin"]() if nouveau and not actif() else None
-            if admin is not None:
-                try:
-                    await admin.send((f"⏳ {membre.mention} attend une créatrice et l'attribution est éteinte : personne ne le reprendra.\n\n"
-                                      f"`!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")[:1990])
-                except (discord.Forbidden, discord.HTTPException):
-                    pass
-            return ""
-        conserver_attente(str(membre.id), creatrice)
-        try:
-            etats_cl = await _deps["etats_classeur"]()
-        except Exception as erreur:                                         # noqa: BLE001
-            journal.warning("États du classeur pour l'attribution : %s", erreur)
-            etats_cl = {}
-        try:
-            bilan = await _deps["onboarder_membre"](membre.guild, membre, creatrice, _Par(), etats_cl, [], forcer_salon=True)
-        except Exception as erreur:                                         # noqa: BLE001
-            bilan = f"❌ {type(erreur).__name__} {str(erreur)[:120]}"
-        e = _etat()
-        e.setdefault("historique", []).append({"uid": str(membre.id), "prenom": _deps["prenom_de"](membre), "creatrice": creatrice,
-                                               "via": via, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-        e["historique"] = e["historique"][-300:]
-        _ecrire(e)
-    journal.info("Attribution automatique : %s → %s (%s) · %s%s", _deps["prenom_de"](membre), creatrice, via, bilan_court(bilan), note)
-    # 10/10 (revue du recrutement, lot L9b : « un seul digest admin ») : une attribution qui s'est bien passée n'est plus une ligne
-    # au salon admin ; elle compte dans « attribué(s) » du digest du matin (registre, creatrice_date). Seule une attribution qui
-    # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
-    # encore tout de suite.
-    if a_signaler(bilan, note):
-        admin = await _deps["canal_admin"]()
-        if admin is not None:
+        async with choix_creatrice.verrou(str(membre.id)):
+            fiche = _fiche_registre(membre)
+            reprise = creatrice_en_attente(membre.id)
+            if (fiche or {}).get("creatrice") and not reprise:
+                return ""
+            if _reserve_au_depot(membre):
+                if _marquer_une_fois(str(membre.id), "depot_attendu"):
+                    journal.info("Attribution de %s (%s) : prénom attendu par un dépôt, rien attribué", _deps["prenom_de"](membre), via)
+                    await _ligne_admin(f"⏸️ {membre.mention} validé : son prénom est attendu par un dépôt `salons_a_ouvrir.json` "
+                                       "(« onboarding »). Sa créatrice vient du dépôt, au prochain démarrage.\n\n"
+                                       f"Pas lui ? `!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")
+                return ""
+            if not sans_creatrice(membre) and not reprise:
+                est_staff = _deps.get("est_staff")
+                if fiche is not None and not (est_staff and est_staff(membre)) and _valide_au_funnel(membre.id):
+                    await _filet_roster(membre, via)
+                return ""
+            pipe = _deps['lire_json'](_fichier_pipeline(), None)
+            if not isinstance(pipe, dict):
+                return ""
+            info = (pipe.get('etats') or {}).get(str(membre.id)) or {}
             try:
-                await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
-            except (discord.Forbidden, discord.HTTPException):
-                pass
-    return "" if creatrice_en_attente(membre.id) else creatrice
+                reprise = choix_creatrice.resoudre(membre.id, _fiche_registre(membre) or {}, info)
+            except choix_creatrice.Divergence:
+                journal.warning("Choix de créatrice divergent : attribution retenue")
+                return ""
+            if not sans_creatrice(membre) and not reprise:  # attribué pendant l'attente du verrou
+                return ""
+            if reprise:
+                creatrice, note = reprise, ""
+            else:
+                stock = await stock_livrable()
+                creatrice, note = prochaine(membre.guild, stock)
+            if not creatrice:
+                nouveau, prevenu = await _mettre_en_attente(membre, via)
+                journal.info("Attribution impossible pour %s (%s) : aucun compte livrable, en attente%s", _deps["prenom_de"](membre), via,
+                             " (repli envoyé)" if prevenu else "")
+                # 10/10 (vérification du lot L9b) : plus de ligne « ⏳ … repris tout seul » au salon admin, sans geste à faire et en double
+                # avec le bloc « En attente d'une créatrice » et les places du digest. Seule exception : l'attribution est éteinte au
+                # moment de la mise en attente (actif() faux, ordre vidé pendant l'attente du verrou) : la reprise ne le prendra pas, le
+                # geste est `!creatrice`.
+                admin = await _deps["canal_admin"]() if nouveau and not actif() else None
+                if admin is not None:
+                    try:
+                        await admin.send((f"⏳ {membre.mention} attend une créatrice et l'attribution est éteinte : personne ne le reprendra.\n\n"
+                                          f"`!creatrice @{_deps['prenom_de'](membre)} <créatrice>`.")[:1990])
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                return ""
+            try:
+                creatrice = choix_creatrice.preparer(membre.id, creatrice, _deps['lire_json'], _deps['ecrire_json'],
+                    _fichier_pipeline(), _deps['FICHIER_EQUIPES'], _deps['FICHIER_ONBOARDING'],
+                    comptes_connus=process_adapters.store().counts(membre.id))
+            except (choix_creatrice.Divergence, OSError):
+                journal.warning("Choix non persisté ou réservation à rapprocher : attribution retenue")
+                return ""
+            try:
+                etats_cl = await _deps["etats_classeur"]()
+            except Exception as erreur:                                         # noqa: BLE001
+                journal.warning("États du classeur pour l'attribution : %s", erreur)
+                etats_cl = {}
+            try:
+                bilan = await _deps["onboarder_membre"](membre.guild, membre, creatrice, _Par(), etats_cl, [], forcer_salon=True)
+            except Exception as erreur:                                         # noqa: BLE001
+                bilan = f"❌ {type(erreur).__name__} {str(erreur)[:120]}"
+            e = _etat()
+            e.setdefault("historique", []).append({"uid": str(membre.id), "prenom": _deps["prenom_de"](membre), "creatrice": creatrice,
+                                                   "via": via, "date": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+            e["historique"] = e["historique"][-300:]
+            _ecrire(e)
+            journal.info("Attribution automatique : %s → %s (%s) · %s%s", _deps["prenom_de"](membre), creatrice, via, bilan_court(bilan), note)
+            # 10/10 (revue du recrutement, lot L9b : « un seul digest admin ») : une attribution qui s'est bien passée n'est plus une ligne
+            # au salon admin ; elle compte dans « attribué(s) » du digest du matin (registre, creatrice_date). Seule une attribution qui
+            # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
+            # encore tout de suite.
+            if a_signaler(bilan, note):
+                admin = await _deps["canal_admin"]()
+                if admin is not None:
+                    try:
+                        await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+            return "" if creatrice_en_attente(membre.id) else creatrice
 
 
 # 10/10 (lot L9b) : ce qui, dans le bilan d'onboarding ou la note de l'ordre, demande un geste du staff (onboarder_membre et
