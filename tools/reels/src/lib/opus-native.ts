@@ -1,5 +1,5 @@
 import type { RemoteVariant } from "./server-video";
-export const CAPTION_LABELS = ["Deep Diver", "Simple", "PopLine", "Soft Landing", "Grow", "Baby Steps"] as const;
+export const CAPTION_LABELS = ["Variante 1 + Hook", "Variante 2 Verticale", "Variante 3 Bleue", "Variante 4 + Hook", "Variante 5 Classique", "Variante 6 Mouvement"] as const;
 export type NativePhase = "checking" | "upload" | "preparing" | "native" | "variants" | "exports" | "cached";
 
 export type ClientConfiguration = { apiBase?: string; storageScope?: string };
@@ -724,3 +724,4 @@ async function generateOpusVariations(file: File, opts: Options = {}) {
 }
 
 export const generateOpusVariations = createNativeClient().generateOpusVariations;
+

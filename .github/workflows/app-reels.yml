@@ -37,6 +37,7 @@ jobs:
         run: |
           node tests/native-speed-orchestration.cjs
           node tests/downloads.cjs
+          node tests/mobile-save.cjs
           node tests/transport.cjs
           node tests/proxy.cjs
           node tests/proxy-client-recovery.cjs
@@ -44,3 +45,4 @@ jobs:
           node tests/ownership-sheets.cjs
           node tests/live-ownership-harness.cjs
           node tests/app-lifecycle.cjs
+
