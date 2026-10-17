@@ -12,19 +12,9 @@ const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 const NOMS = ["", "Compte 1", "Compte 2", "Compte 3"];
 
 type Metricool = { n: number; eligible: boolean; statut: "disponible" | "attente" | "pret" | "connecte" | "renouveler" };
-function MetricoolBouton({ jeton, n }: { jeton: string; n: number }) {
-  const [etat, setEtat] = useState<Metricool | null>(null);
+function MetricoolBouton({ jeton, n, etat, charger }: { jeton: string; n: number; etat?: Metricool; charger: () => Promise<void> }) {
   const [message, setMessage] = useState("");
   const [envoi, setEnvoi] = useState(false);
-  const charger = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/k/${jeton}/metricool`, { cache: "no-store" });
-      if (!r.ok) { setEtat(null); return; }
-      const d = await r.json();
-      setEtat(d.comptes.find((e: Metricool) => e.n === n) || null);
-    } catch { setEtat(null); }
-  }, [jeton, n]);
-  useEffect(() => { charger(); const id = setInterval(charger, 60_000); return () => clearInterval(id); }, [charger]);
   const demander = async () => {
     setEnvoi(true); setMessage("");
     try {
@@ -48,7 +38,7 @@ function MetricoolBouton({ jeton, n }: { jeton: string; n: number }) {
   </div>;
 }
 
-function Ligne({ c, demande, jeton, recharger }: { c: Compte; demande?: Demande; jeton: string; recharger: () => void }) {
+function Ligne({ c, demande, jeton, recharger, metricool, rechargerMetricool }: { c: Compte; demande?: Demande; jeton: string; recharger: () => void; metricool?: Metricool; rechargerMetricool: () => Promise<void> }) {
   const [edition, setEdition] = useState(false);
   const [saisie, setSaisie] = useState("");
   const [envoi, setEnvoi] = useState(false);
@@ -90,7 +80,7 @@ function Ligne({ c, demande, jeton, recharger }: { c: Compte; demande?: Demande;
         <button onClick={() => setEdition(true)} className="mt-3 text-[13px] font-semibold text-accent">Ce n'est pas le bon @ ? Modifier</button>
       )}
       {message ? <div className="mt-2 text-[12.5px] text-rose-200">{message}</div> : null}
-      <MetricoolBouton key={c.handle} jeton={jeton} n={c.n} />
+      <MetricoolBouton key={c.handle} jeton={jeton} n={c.n} etat={metricool} charger={rechargerMetricool} />
     </div>
   );
 }
@@ -98,6 +88,14 @@ function Ligne({ c, demande, jeton, recharger }: { c: Compte; demande?: Demande;
 export default function ComptesTab({ jeton }: { jeton: string }) {
   const [d, setD] = useState<{ comptes: Compte[]; demandes: Demande[] } | null>(null);
   const [erreur, setErreur] = useState(false);
+  const [metricool, setMetricool] = useState<Metricool[]>([]);
+  const chargerMetricool = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/k/${jeton}/metricool`, { cache: "no-store" });
+      if (!r.ok) { setMetricool([]); return; }
+      setMetricool((await r.json()).comptes);
+    } catch { setMetricool([]); }
+  }, [jeton]);
   const charger = useCallback(async () => {
     try {
       const r = await fetch(`/api/k/${jeton}/comptes`, { cache: "no-store" });
@@ -106,13 +104,15 @@ export default function ComptesTab({ jeton }: { jeton: string }) {
     } catch { setErreur(true); }
   }, [jeton]);
   useEffect(() => { charger(); const id = setInterval(charger, 60_000); return () => clearInterval(id); }, [charger]);
+  useEffect(() => { chargerMetricool(); const id = setInterval(chargerMetricool, 60_000); return () => clearInterval(id); }, [chargerMetricool]);
   return (
     <section className="space-y-3">
       <p className="apparait text-argent2 text-[14px] mt-1 px-1 leading-relaxed">Tes comptes Instagram. Touche un @ pour l'ouvrir. Tu as changé un @ ? Corrige-le ici : le bot suit toujours le bon compte, et tes Reels sont comptés.</p>
       {!d && !erreur ? [0, 1, 2].map((i) => <div key={i} className="squelette h-28" />) : null}
       {erreur && !d ? <div className="carte p-5 text-center text-argent2">Les comptes sont en cours de mise à jour. <button className="text-accent font-semibold" onClick={charger}>Réessayer</button></div> : null}
       {d && !d.comptes.length ? <div className="carte p-5 text-center text-argent2">Pas encore de compte : ton compte 1 arrive dans ton salon Discord.</div> : null}
-      {d?.comptes.map((c) => <Ligne key={c.n} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger} />)}
+      {d?.comptes.map((c) => <Ligne key={c.n} c={c} demande={d.demandes.find((x) => x.n === c.n)} jeton={jeton} recharger={charger}
+        metricool={metricool.find(e => e.n === c.n)} rechargerMetricool={chargerMetricool} />)}
     </section>
   );
 }
