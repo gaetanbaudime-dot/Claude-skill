@@ -6519,6 +6519,10 @@ async def commande_admin(message, texte: str) -> bool:
             await message.reply("Réservé à l'administrateur.")
             return True
         try:
+            if texte.split()[1:2] == ["export"]:
+                import export_integral
+                await export_integral.commande(message, DONNEES / "audit_prive", texte.split()[2:])
+                return True
             if texte.split()[1:2] == ["diagnostic"]:
                 import audit_diagnostic
                 args_diagnostic = texte.split()[2:]
