@@ -83,10 +83,28 @@ class Store:
                     db.execute('INSERT OR IGNORE INTO aliases VALUES(?,?)', (h, ident))
             db.execute('INSERT OR REPLACE INTO histories VALUES(?,?)', (str(uid), evidence))
 
+    def reprise_zero(self, uid, decision=None):
+        """Lever uniquement l'attente explicite ; conserver le journal et la preuve."""
+        with self.transaction() as db:
+            cle = 'rapprochement-zero:' + str(uid)
+            row = db.execute('SELECT data FROM jobs WHERE key=?', (cle,)).fetchone()
+            if not row:
+                return
+            journal = json.loads(row[0])
+            if journal.get('etat') != 'attente_reprise_explicite':
+                return
+            if not decision or not all(decision.get(k) for k in ('source', 'par', 'date', 'creatrice')):
+                raise Bloque('Reprise !creatrice explicite requise après rapprochement zéro')
+            journal.update(etat='reprise_explicite', decision_reprise=decision)
+            db.execute('UPDATE jobs SET data=? WHERE key=?', (json.dumps(journal), cle))
+
     def reserve(self, uid, handles):
         uid = str(uid)
         handles = sorted({str(h).lower().lstrip('@') for h in handles if h})
         with self.transaction() as db:
+            attente = db.execute('SELECT data FROM jobs WHERE key=?', ('rapprochement-zero:' + uid,)).fetchone()
+            if attente and json.loads(attente[0]).get('etat') == 'attente_reprise_explicite':
+                raise Bloque('Reprise explicite requise : allocation bloquée')
             if db.execute('SELECT 1 FROM jobs WHERE key=?', ('sortie:' + uid,)).fetchone():
                 raise Bloque('Départ enregistré : aucune nouvelle allocation')
             if not db.execute('SELECT 1 FROM histories WHERE uid=?', (uid,)).fetchone():

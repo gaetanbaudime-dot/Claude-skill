@@ -5416,13 +5416,15 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
         if not (info_process.get("score_quiz") and info_process.get("etat") in ("quiz_ok", "valide", "attente_attribution")):
             return "⚠️ Preuve de quiz réussi absente : onboarding en attente"
         try:
+            if decision is None:
+                process_adapters.store().reprise_zero(uid_m)
             creatrice_c = choix_creatrice.preparer(uid_m, creatrice_c, lire_json, ecrire_json,
                 FICHIER_PIPELINE, FICHIER_EQUIPES, FICHIER_ONBOARDING, decision=decision,
                 comptes_connus=process_adapters.store().counts(uid_m),
                 verification_roles=lambda choix: choix_creatrice.verifier_roles(m_, role_creatrice(g, choix),
                     roles_creatrices(g) + [r for nom in set(getattr(attribution, 'ORDRE', [])) | set(roster.groupes())
                                           if (r := role_creatrice(g, nom)) is not None]))
-        except (choix_creatrice.Divergence, OSError) as erreur:
+        except (choix_creatrice.Divergence, OSError, RuntimeError) as erreur:
             return "⚠️ Choix retenu : " + str(erreur)
         if ancien_sans_salon(m_) and not forcer_salon:
             return f"⏭️ {m_.display_name} : ancien système sans salon, aucune livraison"
@@ -5432,6 +5434,7 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             lire_json(FICHIER_SORTIS, None), lire_json(DONNEES / "parcours_oublis.json", None),
             registre=lire_json(FICHIER_EQUIPES, None))
         try:
+            process_adapters.store().reprise_zero(uid_m, decision)
             process_adapters.store().initialiser_nouveau(uid_m, preuve)
             process_adapters.store().reserve(uid_m, [])
         except RuntimeError as erreur:
@@ -6460,6 +6463,12 @@ async def commande_admin(message, texte: str) -> bool:
     if texte.split()[:1] == ["!diagnostic-dossier"]:
         import diagnostic_dossier
         return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS)
+    if texte.split()[:1] == ["!rapprocher-zero"]:
+        import rapprochement_zero
+        cibles = {v.strip() for v in os.environ.get("RAPPROCHEMENT_ZERO_UIDS", "").split(",") if v.strip().isdigit()}
+        if len(cibles) > 2:
+            cibles = set()  # Périmètre fermé, deux dossiers au maximum.
+        return await rapprochement_zero.commande(message, texte, DONNEES, ADMIN_IDS, cibles)
     # 11/10 (lot W, lots L9b et L10) : `!equipes` (audit Team France / International), `!relancer-lien` et `!rang` sont retirés.
     # Une réponse les dit, sinon `!equipes` tombait dans `!equipe @membre` (préfixe) et les autres dans « commande inconnue ».
     retiree = COMMANDES_RETIREES.get((texte.split() or [""])[0].lower())
