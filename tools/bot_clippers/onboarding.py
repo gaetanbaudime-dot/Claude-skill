@@ -493,6 +493,10 @@ def _pour_creatrice(c: dict, creatrice: str) -> bool:
 
 
 def _est_prive(c: dict) -> bool:
+    # Une confirmation humaine du rôle prime sur les mots contenus dans le @.
+    # GOOD décrit la santé ; ce n'est jamais une preuve d'un rôle croissance.
+    if c.get("role_confirme") in ("croissance", "prive"):
+        return c["role_confirme"] == "prive"
     return _norm(c["etat"]) in ("prive", "privé") or RE_PRIVE.search(_norm(c["handle"] or "")) is not None
 
 

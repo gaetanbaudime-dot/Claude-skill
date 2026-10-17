@@ -57,6 +57,18 @@ class Diagnostic(unittest.IsolatedAsyncioTestCase):
             msg.author.send.assert_awaited_once()
             self.assertEqual({'file'}, set(msg.author.send.call_args.kwargs))
 
+    def test_affectations_exporte_les_roles_sans_sante_inventee_ni_acces(self):
+        poison = 'secret-fictif'
+        result = d.affectations({'comptes': ['growth.prv', 'real.backstage'], 'acces': [
+            {'handle': 'growth.prv', 'role_confirme': 'croissance', 'mdp': poison},
+            {'handle': 'real.backstage', 'role_confirme': 'prive', 'prive': True, 'mail': poison}]},
+            {'ordre': 'prive3', 'ordre_confirme': {'valeur': 'prive2', 'reference': poison}})
+        self.assertEqual(['growth.prv', 'real.backstage'], result['comptes'])
+        self.assertEqual('croissance', result['acces_roles'][0]['role_confirme'])
+        self.assertEqual('prive2', result['ordre_confirme'])
+        self.assertNotIn(poison, json.dumps(result))
+        self.assertNotIn('GOOD', json.dumps(result))
+
     def test_corruption_et_symlink_restent_inconnus(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

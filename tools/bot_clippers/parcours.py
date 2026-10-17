@@ -69,6 +69,10 @@ def ordre(fiche_p: dict) -> str:
     """« prive2 » (compte 2 privé) ou « prive3 » (l'ordre du 05/10). Figé dans `fiche_p["ordre"]` à l'ouverture de l'étape 2."""
     if not fiche_p:
         return "prive3"                                                 # pas de parcours (ancien, inconnu) : l'ordre du 05/10
+    confirme = fiche_p.get("ordre_confirme") or {}
+    if (isinstance(confirme, dict) and confirme.get("valeur") in ("prive2", "prive3")
+            and all(confirme.get(k) for k in ("par", "date", "reference"))):
+        return confirme["valeur"]                                       # sans inventer de jalon de création
     dates = fiche_p.get("dates") or {}
     # 09/10 (carte des comptes : un ancien repris d'après le classeur, jamais passé par l'étape 1, se retrouvait en « prive2 » et son
     # compte 2, qui publie, devenait « le privé ») : une fiche sans étape 1 est « prive3 » — sauf si un de ses comptes est déjà ouvert
@@ -365,7 +369,8 @@ def _comptes_ordonnes_05(uid, onb=None) -> list:
     handles = [h for h in (onb.get("comptes") or []) if h]
     acces = [a.get("handle") for a in (onb.get("acces") or []) if isinstance(a, dict) and a.get("handle") in handles]
     base = list(dict.fromkeys(acces + handles))
-    prives = [h for h in base if onboarding._est_prive({"handle": h, "etat": ""})]
+    roles = {a.get("handle"): a.get("role_confirme") for a in (onb.get("acces") or []) if isinstance(a, dict)}
+    prives = [h for h in base if onboarding._est_prive({"handle": h, "etat": "", "role_confirme": roles.get(h)})]
     croissance = [h for h in base if h not in prives]
     ordonnes = croissance[:2] + prives[:1]
     if len(ordonnes) < 3:

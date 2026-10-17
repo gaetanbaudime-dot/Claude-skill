@@ -42,6 +42,24 @@ def resume(data, attendue):
             'salon_id': identifiant(data.get('salon_id'))}
 
 
+def affectations(onb, parcours):
+    """Projection bornée des seuls champs d'affectation, jamais les accès."""
+    onb, parcours = onb or {}, parcours or {}
+    valid = lambda h: isinstance(h, str) and re.fullmatch(r'(?!\.)(?!.*\.$)[a-z0-9._]{1,30}', h)
+    comptes = onb.get('comptes') if isinstance(onb.get('comptes'), list) else []
+    acces = onb.get('acces') if isinstance(onb.get('acces'), list) else []
+    return {'comptes': [h for h in comptes[:10] if valid(h)], 'tronque': len(comptes) > 10 or len(acces) > 10,
+            'acces_roles': [{'handle': a['handle'],
+                            'role_confirme': a.get('role_confirme') if a.get('role_confirme') in {'croissance', 'prive'} else None,
+                            'prive_metadata': a.get('prive') if isinstance(a.get('prive'), bool) else None}
+                           for a in acces[:10] if isinstance(a, dict) and valid(a.get('handle'))],
+            'ordre': parcours.get('ordre') if parcours.get('ordre') in {'prive2', 'prive3'} else None,
+            'ordre_confirme': (parcours.get('ordre_confirme') or {}).get('valeur')
+            if isinstance(parcours.get('ordre_confirme'), dict)
+            and parcours['ordre_confirme'].get('valeur') in {'prive2', 'prive3'} else None,
+            'sante_et_visibilite': 'Non évaluées par ce diagnostic ; aucun rôle déduit du suffixe.'}
+
+
 def registre(path, uid):
     inconnu = {'lecture': 'absente_ou_illisible', 'historique_rapproche': None, 'comptes_observes': None}
     if path.is_symlink() or not path.is_file():
@@ -84,6 +102,7 @@ def rapport(root, uid, attendue, tl_attendu):
     return {'uid': uid, 'attendu': {'creatrice': attendue, 'tl_id': tl_attendu},
             'registre_equipes': resume(fiche(lire(root / 'equipes.json'), uid), attendue),
             'onboarding': resume(onb, attendue), 'parcours': resume(parcours, attendue),
+            'affectations': affectations(onb, parcours),
             'reservation_onboarding_nombre': len(onb['comptes']) if onb and isinstance(onb.get('comptes'), list) else None,
             'attente_pipeline_conforme': str(attentes).casefold() == attendue.casefold() if attentes else None,
             'decision': {**resume(choix, attendue), 'provenance_complete': bool(choix and all(choix.get(k) for k in ('source', 'par', 'date')))},
