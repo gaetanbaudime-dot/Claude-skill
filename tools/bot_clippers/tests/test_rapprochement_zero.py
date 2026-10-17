@@ -62,6 +62,15 @@ class RapprochementZero(unittest.TestCase):
                     self.assertIsNone(db.execute('SELECT * FROM histories').fetchone())
                     self.assertIsNone(db.execute('SELECT * FROM jobs').fetchone())
 
+    def test_etape_avancee_isolee_bloque_zero(self):
+        for etape in (2, 3, 10, '2', None):
+            with self.subTest(etape=etape):
+                (self.root/'parcours.json').write_text(json.dumps({'123': {'etape': etape}}))
+                with self.assertRaises(Bloque): self.run_zero()
+                with self.store.transaction() as db:
+                    self.assertIsNone(db.execute('SELECT * FROM histories').fetchone())
+                    self.assertIsNone(db.execute('SELECT * FROM jobs').fetchone())
+
     def test_backup_failure_no_write(self):
         with patch.object(rz, 'sauvegarder', side_effect=OSError('disque')):
             with self.assertRaises(OSError): self.run_zero()

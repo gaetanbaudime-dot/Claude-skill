@@ -41,6 +41,9 @@ def sources(root, uid):
         raise Bloque('Historique de livraisons invalide')
     if any(str(v.get('uid')) == uid for v in (onb.get('livres') or {}).values() if isinstance(v, dict)):
         raise Bloque('Livraison historique : rapprochement zéro refusé')
+    etape = parcours.get('etape', 0)
+    if type(etape) is not int or etape < 0 or etape > 1:
+        raise Bloque('Étape avancée ou invalide : rapprochement zéro refusé')
     if (any(parcours.get(k) for k in ('comptes', 'profils', 'reels', 'reels_soir', 'dates'))
             or any(k != 'bienvenue' for k in (parcours.get('messages') or {}))):
         raise Bloque('Parcours de compte existant : rapprochement zéro refusé')
