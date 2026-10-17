@@ -24,7 +24,7 @@ class Notifications(unittest.IsolatedAsyncioTestCase):
         for _ in range(18):
             await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu : onboarding en attente')
         self.assertEqual(1,self.admin.send.await_count)
-        await a.signaler_blocage(self.m,'Fictive','✅ 1 compte(s)')
+        await a.signaler_blocage(self.m,'Fictive','✅ Compte 1 livré (message confirmé) · lignes déjà affectées ; la livraison effective est suivie séparément dans le parcours.')
         self.assertNotIn('3',self.etat['blocages_notifications'])
         await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu : onboarding en attente')
         self.assertEqual(2,self.admin.send.await_count)
@@ -43,3 +43,34 @@ class Notifications(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1,self.admin.send.await_count)
         self.assertEqual('envoi_incertain',self.etat['blocages_notifications']['3']['etat'])
         self.assertEqual({'creatrice':'Fictive'},self.etat['decision_creatrice'])
+
+    async def test_modification_pendant_resolution_canal_conservee(self):
+        async def canal():
+            self.etat['ordre_force']='Fictive:2'
+            return self.admin
+        with patch.dict(a._deps,{'canal_admin':canal}):
+            await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu')
+        self.assertEqual('Fictive:2',self.etat['ordre_force'])
+
+    async def test_forbidden_permet_reprise_et_redemarrage_conserve_incertain(self):
+        import discord
+        self.admin.send.side_effect=discord.Forbidden(SimpleNamespace(status=403,reason='fictif'),'refus fictif')
+        await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu')
+        self.assertNotIn('3',self.etat['blocages_notifications'])
+        self.admin.send.side_effect=TimeoutError()
+        await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu')
+        self.etat=deepcopy(self.etat)  # même contenu persistant après relecture
+        await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu')
+        self.assertEqual(2,self.admin.send.await_count)
+
+    async def test_resolution_pendant_envoi_pas_ressuscitee(self):
+        async def envoyer(*args):
+            a.resoudre_blocage('3')
+            return SimpleNamespace(id=9)
+        self.admin.send.side_effect=envoyer
+        await a.signaler_blocage(self.m,'Fictive','⚠️ Team leader absent ou ambigu')
+        self.assertNotIn('3',self.etat['blocages_notifications'])
+
+    def test_reservation_seule_reste_bloquee_livraison_confirmee_non(self):
+        self.assertTrue(a.a_signaler('📦 lignes déjà affectées ; livraison suivie séparément'))
+        self.assertFalse(a.a_signaler('✅ Compte 1 livré (message confirmé) · lignes déjà affectées ; livraison suivie séparément'))

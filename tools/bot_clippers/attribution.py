@@ -592,46 +592,53 @@ async def attribuer(membre, via: str) -> str:
             return "" if creatrice_en_attente(membre.id) else creatrice
 
 
-async def signaler_blocage(membre, creatrice, bilan, note=""):
-    """Sous le verrou d'attribution : une notification par blocage actif, reprise inchangée.
+def resoudre_blocage(uid):
+    """Livraison constatée par l'orchestrateur, y compris après commande manuelle."""
+    e = _etat()
+    if str(uid) in (e.get("blocages_notifications") or {}):
+        e["blocages_notifications"].pop(str(uid))
+        _ecrire(e)
 
-    Intention persistée avant l'envoi : une réponse Discord perdue ne provoque pas
-    de doublon. Une interdiction explicite peut être retentée après correction.
-    """
+
+async def signaler_blocage(membre, creatrice, bilan, note=""):
+    """Protection commune aux attributions et rattrapages, sans état périmé."""
     import hashlib
     uid = str(membre.id)
-    e = _etat()
-    blocages = e.setdefault("blocages_notifications", {})
-    if not a_signaler(bilan, note):
-        if uid in blocages:
-            blocages.pop(uid)
-            _ecrire(e)
-        return
-    raison = "team_leader_absent_ou_ambigu" if "team leader absent ou ambigu" in str(bilan).lower() else " ".join((bilan_court(bilan) + note).split())
-    signature = hashlib.sha256((str(creatrice).casefold() + ":" + raison).encode()).hexdigest()
-    precedent = blocages.get(uid) or {}
-    if precedent.get("signature") == signature:
-        return
-    admin = await _deps["canal_admin"]()
-    if admin is None:
-        return
-    entree = {"signature": signature, "depuis": datetime.now(timezone.utc).isoformat(), "etat": "envoi_incertain"}
-    blocages[uid] = entree
-    _ecrire(e)
-    try:
-        message = await admin.send((f"🎬 {membre.mention} → **{creatrice}** · {bilan_court(bilan)}{note}")[:1990])
-    except discord.Forbidden:
+    async with _verrou("notifications_blocages"):
+        if not a_signaler(bilan, note):
+            resoudre_blocage(uid)
+            return
+        raison = "team_leader_absent_ou_ambigu" if "team leader absent ou ambigu" in str(bilan).lower() else " ".join((bilan_court(bilan) + note).split())
+        signature = hashlib.sha256((str(creatrice).casefold() + ":" + raison).encode()).hexdigest()
+        if ((_etat().get("blocages_notifications") or {}).get(uid) or {}).get("signature") == signature:
+            return
+        admin = await _deps["canal_admin"]()
+        if admin is None:
+            return
+        # Une commande peut modifier l'ordre pendant la résolution du canal.
         e = _etat()
-        if (e.get("blocages_notifications", {}).get(uid) or {}).get("signature") == signature:
-            e["blocages_notifications"].pop(uid, None)
+        blocages = e.setdefault("blocages_notifications", {})
+        if (blocages.get(uid) or {}).get("signature") == signature:
+            return
+        entree = {"signature": signature, "depuis": datetime.now(timezone.utc).isoformat(), "etat": "envoi_incertain"}
+        blocages[uid] = entree
+        _ecrire(e)
+        try:
+            message = await admin.send((f"🎬 {membre.mention} → **{creatrice}** · {bilan_court(bilan)}{note}")[:1990])
+        except discord.Forbidden:
+            e = _etat()
+            if (e.get("blocages_notifications", {}).get(uid) or {}) == entree:
+                e["blocages_notifications"].pop(uid, None)
+                _ecrire(e)
+            return
+        except Exception:
+            journal.warning("Notification de blocage %s : envoi incertain, pas de renvoi automatique", uid)
+            return
+        e = _etat()
+        # Ne pas ressusciter un blocage résolu pendant l'envoi Discord.
+        if (e.get("blocages_notifications", {}).get(uid) or {}) == entree:
+            e["blocages_notifications"][uid] = {**entree, "etat": "envoye", "message_id": str(message.id)}
             _ecrire(e)
-        return
-    except Exception:
-        journal.warning("Notification de blocage %s : envoi incertain, pas de renvoi automatique", uid)
-        return
-    e = _etat()
-    e.setdefault("blocages_notifications", {})[uid] = {**entree, "etat": "envoye", "message_id": str(message.id)}
-    _ecrire(e)
 
 
 # 10/10 (lot L9b) : ce qui, dans le bilan d'onboarding ou la note de l'ordre, demande un geste du staff (onboarder_membre et
@@ -655,6 +662,8 @@ def a_signaler(bilan: str, note: str = "") -> bool:
     if any(m.lower() in t for m in MARQUES_A_SIGNALER):
         return True
     b = str(bilan or "").lower()
+    if "compte 1 livré (message confirmé)" in b:
+        return False
     if "déjà livré" in b and "rien renvoyé" in b:
         return False
     return _RE_COMPTES_LIVRES.search(b) is None
