@@ -1305,10 +1305,10 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
             partie = bool((fiche_pc.get("dates") or {}).get(str(n)))
             retenue = int(fiche_pc.get("ligne_attendue") or 0) == n
             if n in (2, 3) and not partie and not retenue:
-                # 11/10 (revue du lot W) : l'étape en cours n'est jamais partie (le compte 2 attend ses 48 h et ses Reels) : elle
+                # 11/10 (revue du lot W) : l'étape en cours n'est jamais partie (les Reels requis ne sont pas encore vérifiés) : elle
                 # n'est pas « renvoyée » en sautant la règle. Le compte 1 (bienvenue), une étape retenue faute de ligne et les étapes
                 # d'après le compte 3 (lien, routine) partent comme avant.
-                resultat.append(f"étape {n} pas encore ouverte (48 h et Reels) : `!etape @{prenom} {n}` pour la forcer")
+                resultat.append(f"étape {n} pas encore ouverte (Reels requis à vérifier) : `!etape @{prenom} {n}` pour la forcer")
             elif n in parcours.ETAPES:
                 # 11/10 (lot W, contre-vérification du lot L3) : « renvoyée » seulement si elle est partie ; une étape retenue
                 # faute de ligne libre le dit (le clipper a eu « ⏳ Ton compte n arrive dès qu'il est prêt »)
