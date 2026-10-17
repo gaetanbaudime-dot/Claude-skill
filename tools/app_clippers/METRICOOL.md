@@ -53,3 +53,7 @@ Au départ du clipper, retirer son accès collaborateur, révoquer les liens tem
 Tests : `node tests/metricool-policy.cjs`, `npx tsc --noEmit`, `npm run build` ; tests Python existants pour Comptes app et Dashboard. Tester aussi avec des données de test : 499/500, relevé absent/périmé, clé d'un autre clipper, changement de @, 25/26 marques, lien expiré et indisponibilité Sheets.
 
 Déployer l'app via le projet Vercel **app-clippers**, racine tools/app_clippers, et livrer séparément le bot. Ne pas redémarrer un autre service. Sans les accès d'exécution du bot et une vraie demande de test, la validation de bout en bout reste à faire. Aucun compte Instagram, aucune marque ni aucun abonnement n'est modifié automatiquement par cette livraison.
+# Prévisualisation protégée
+
+Les connexions existantes GAML et Google peuvent être réutilisées uniquement sur une branche de test explicitement autorisée. Limiter chaque entrée Preview à cette branche ; ne pas élargir les variables Production à toutes les prévisualisations. Utiliser une valeur `CLIPPERS_SECRET` distincte pour conserver les liens Production. Reconstruire la prévisualisation après l'ajout des variables, puis tester avec un lien dérivé de sa clé propre. La configuration créatrices peut rester vide pour un test Metricool sur un tableur existant ; cela ne valide pas les parcours de création de dossiers.
+
