@@ -26,6 +26,8 @@ def main():
     for e in entries:
         if not isinstance(e, dict) or not e.get('uid') or not e.get('evidence') or not isinstance(e.get('accounts'), list):
             raise SystemExit('Rapprochement incomplet : aucun import')
+        if not e['accounts']:
+            raise SystemExit('Zéro déclaré : utiliser la commande propriétaire !rapprocher-zero avec sauvegarde obligatoire')
     with tempfile.TemporaryDirectory() as tmp:
         simulation = Path(tmp)/'process.sqlite3'
         if args.database.exists():

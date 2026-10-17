@@ -39,6 +39,7 @@ import aiohttp
 from aiohttp import web
 
 import numeros
+import recrutement_suivi
 
 journal = logging.getLogger("web")
 DOSSIER = Path(__file__).parent
@@ -98,12 +99,15 @@ def lien_quiz(uid) -> str:
     return f"{WEB_URL_PUBLIQUE}/quiz?t={jeton(str(uid))}"
 
 
-def lien_candidature(src: str = "") -> str:
+def lien_candidature(src: str = "", campagne: str = "") -> str:
     """Le lien du formulaire. 09/10 : `src` (ex. « tg-jobs-mada ») marque la source de l'annonce : ?src=… dans le lien."""
     if not (actif() and WEB_URL_PUBLIQUE):
         return ""
     src = _source(src)
-    return f"{WEB_URL_PUBLIQUE}/candidature" + (f"?src={src}" if src else "")
+    parametres = [f"src={src}"] if src else []
+    if _source(campagne):
+        parametres.append(f"campagne={_source(campagne)}")
+    return f"{WEB_URL_PUBLIQUE}/candidature" + ("?" + "&".join(parametres) if parametres else "")
 
 
 def texte_annonce_telegram(groupe: str) -> str:
@@ -308,8 +312,10 @@ def _intro_html(intro) -> str:
     return "".join(out)
 
 
-def _formulaire(valeurs=None, erreur: str = "", parrain: str = "", tel_ok: str = "", src: str = "") -> web.Response:
+def _formulaire(valeurs=None, erreur: str = "", parrain: str = "", tel_ok: str = "", src: str = "", campagne: str = "", candidature: str = "") -> web.Response:
     cfg = _questions(); valeurs = valeurs or {}
+    candidature = candidature or jeton("candidature:" + secrets.token_urlsafe(18))
+    campagne = _source(campagne)
     src = _source(src)                                                  # 09/10 : la source de l'annonce suit le formulaire
     champs, section, n = "", None, 0
     for q in cfg["questions"]:
@@ -326,6 +332,8 @@ def _formulaire(valeurs=None, erreur: str = "", parrain: str = "", tel_ok: str =
     effacer = (f"<a href='{html.escape(wa)}'>écris à Gaëtan sur WhatsApp</a>" if wa else "écris à Gaëtan sur WhatsApp")
     corps = (f"<h1>{html.escape(cfg.get('titre', 'Candidature'))}</h1>{_intro_html(cfg.get('intro', ''))}{err}"
              f"<form method='post' action='/candidature' autocomplete='on'>"
+             f"<input type='hidden' name='candidature' value='{html.escape(candidature)}'>"
+             f"<input type='hidden' name='campagne' value='{html.escape(campagne)}'>"
              f"<input type='hidden' name='f' value='{html.escape(jeton('f' + str(int(time.time()))))}'>"
              + (f"<input type='hidden' name='p' value='{html.escape(parrain)}'>" if parrain else "")
              + (f"<input type='hidden' name='tel_ok' value='{html.escape(tel_ok)}'>" if tel_ok else "")
@@ -365,11 +373,17 @@ def _rafale(ip: str, max_par_heure: int = 6) -> bool:
 async def get_candidature(request):
     p = request.query.get("p", "")
     # 09/10 : `?src=tg-<groupe>` (lien de l'annonce Telegram) reste dans un champ caché jusqu'à l'envoi
-    return _formulaire(parrain=p if _parrain_depuis(p) else "", src=request.query.get("src", ""))
+    return _formulaire(parrain=p if _parrain_depuis(p) else "", src=request.query.get("src", ""), campagne=request.query.get("campagne", ""))
 
 
 async def post_candidature(request):
     data = await request.post()
+    campagne = _source(data.get("campagne", ""))
+    candidature = data.get("candidature", "")
+    signe = verifier_jeton(candidature) or ""
+    cand_id = signe.removeprefix("candidature:") if signe.startswith("candidature:") else ""
+    if not cand_id:
+        candidature = ""
     src = _source(data.get("src", ""))                                  # 09/10 : la source de l'annonce, '' si aucune
     # 29/09 soir : le pot de miel (champ caché « site_web ») était rempli par la saisie automatique des navigateurs, et un vrai
     # candidat recevait « Merci, candidature reçue » sans que rien ne soit enregistré (Gaëtan l'a vu en testant). Remplacé
@@ -379,10 +393,16 @@ async def post_candidature(request):
         journal.warning("Candidature web refusée : jeton de formulaire %s", "absent" if not data.get("f") else "invalide ou trop rapide")
         reprise = {k: str(v) for k, v in data.items() if k not in ("f", "p", "src")}
         return _formulaire(reprise, "Petit souci technique : vérifie tes réponses et appuie de nouveau sur « Envoyer ».",
-                           data.get("p", ""), src=src)
+                           data.get("p", ""), src=src, campagne=campagne, candidature=candidature)
+    if not cand_id:
+        return _formulaire(dict(data), "Le formulaire a été actualisé. Vérifie tes réponses puis renvoie-le.",
+                           data.get("p", ""), src=src, campagne=campagne)
+    # Retry de la même soumission : aucune nouvelle fiche, invitation ou ligne Sheet.
+    if cand_id and cand_id in (_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}).get("candidatures_web") or {}):
+        raise web.HTTPSeeOther(location=f"/formation?t={jeton(cand_id)}")
     if _rafale(_ip(request)):
         return _formulaire(dict(data), "Trop de tentatives depuis ta connexion. Réessaie dans une heure.", data.get("p", ""),
-                           src=src)
+                           src=src, campagne=campagne, candidature=candidature)
     cfg = _questions()
     reponses, manquants = {}, []
     for q in cfg["questions"]:
@@ -393,7 +413,7 @@ async def post_candidature(request):
             manquants.append(q["label"])
         reponses[q["id"]] = val[:2000]
     if manquants:
-        return _formulaire(reponses, "Il manque : " + " · ".join(m[:60] for m in manquants[:4]), data.get("p", ""), src=src)
+        return _formulaire(reponses, "Il manque : " + " · ".join(m[:60] for m in manquants[:4]), data.get("p", ""), src=src, campagne=campagne, candidature=candidature)
     # Mineurs : non négociable. On ne stocke rien.
     # 11/10 (vérification du lot L2) : l'âge se lit comme un nombre. L'ancienne lecture gardait les chiffres seuls : « 17.0 »
     # (valeur valide d'un champ number, le navigateur l'envoie telle quelle) devenait 170, « 00017 » devenait 0, et « 0 »
@@ -411,23 +431,27 @@ async def post_candidature(request):
     tel, joli, erreur_tel, alerte_tel = numeros.verifier(reponses.get("whatsapp", ""), reponses.get("pays", ""), secours)
     if erreur_tel:
         journal.info("Candidature web : numéro refusé (%s)", reponses.get("pays", "?"))
-        return _formulaire(reponses, erreur_tel, data.get("p", ""), src=src)
+        return _formulaire(reponses, erreur_tel, data.get("p", ""), src=src, campagne=campagne, candidature=candidature)
     if alerte_tel and data.get("tel_ok", "") != tel:
-        return _formulaire({**reponses, "whatsapp": joli}, alerte_tel, data.get("p", ""), tel_ok=tel, src=src)
+        return _formulaire({**reponses, "whatsapp": joli}, alerte_tel, data.get("p", ""), tel_ok=tel, src=src, campagne=campagne, candidature=candidature)
     reponses["whatsapp"] = joli or reponses.get("whatsapp", "")      # le classeur garde le numéro propre, prêt pour WhatsApp
-    cand_id = secrets.token_urlsafe(9)
     maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
     ancienne = pipe.setdefault("candidatures", {}).get(tel) or {}
-    pipe["candidatures"][tel] = {**ancienne, "prenom": (reponses.get("prenom") or "").strip().title(),
+    if ancienne:
+        pipe.setdefault("candidatures_contact_historique", {}).setdefault(tel, []).append(dict(ancienne))
+    pipe["candidatures"][tel] = {"prenom": (reponses.get("prenom") or "").strip().title(),
                                  "pays": reponses.get("pays", ""), "pseudo": reponses.get("telegram", ""),
                                  "date": maintenant, "id": cand_id, "source": src or "web",   # 09/10 : tg-<groupe> si le lien le porte
-                                 "reponses": reponses}
+                                 "reponses": reponses, "campagne": campagne}
     parrain = _parrain_depuis(data.get("p", ""))
     if parrain:
         pipe["candidatures"][tel]["parrain"] = parrain
-    pipe.setdefault("candidatures_web", {})[cand_id] = {"tel": tel, "date": maintenant}
+    pipe.setdefault("candidatures_web", {})[cand_id] = {"tel": tel, "date": maintenant,
+        "candidate_id": cand_id, "submission_id": "soumission:" + cand_id,
+        "event_id": "candidature:" + cand_id,
+        "dossier": dict(pipe["candidatures"][tel]), "source": src or "web", "campagne": campagne}
     ecrire(fichier, pipe)
     journal.info("Candidature web %s (%s, …%s)%s", cand_id, reponses.get("pays", "?"), tel[-4:], " parrainée" if parrain else "")
     # 29/09 : la sauvegarde dans le classeur passe AVANT l'invitation — depuis l'invitation personnelle du matin, le chemin qui
@@ -526,18 +550,15 @@ def _chiffres(tel) -> str:
 
 
 def _uids_de(pipe: dict, cand_id: str) -> list:
-    """09/10 (revue L8) : les comptes Discord déjà venus pour cette candidature : entrés par une de ses invitations, attendus
-    par l'autorisation Discord, ou reliés par son numéro WhatsApp (pipeline.json › liaisons)."""
-    pipe = pipe or {}
-    uids = [str(f.get("membre")) for f in (pipe.get("invitations") or {}).values()
-            if isinstance(f, dict) and str(f.get("cand") or "") == cand_id and f.get("membre")]
-    uids += [str(u) for u, f in (pipe.get("web_attendus") or {}).items()
-             if isinstance(f, dict) and str(f.get("cand") or "") == cand_id]
-    tel = _chiffres(((pipe.get("candidatures_web") or {}).get(cand_id) or {}).get("tel"))
-    if len(tel) >= 8:
-        uids += [str(u) for u, li in (pipe.get("liaisons") or {}).items()
-                 if isinstance(li, dict) and _chiffres(li.get("tel")) == tel]
-    return list(dict.fromkeys(u for u in uids if u.isdigit()))
+    """Preuves invitation/OAuth uniquement ; un contact partagé ne lie personne."""
+    if recrutement_suivi.candidature_en_conflit(pipe or {}, cand_id):
+        return []
+    return sorted(u for u in recrutement_suivi.liaisons(pipe or {}).get(cand_id, set()) if u.isdigit())
+
+
+def _page_conflit_identite():
+    return _page("À vérifier", "<h1>Ton équipe vérifie la liaison Discord.</h1>"
+                 "<p>Ton résultat reste conservé. Aucun compte n'est attribué pendant cette vérification.</p>" + _bouton_whatsapp())
 
 
 def _present(uid) -> bool:
@@ -581,6 +602,8 @@ async def _invitation_prete(cand_id: str, attente: float = 10.0) -> str:
     09/10 (revue L8) : une invitation qui a déjà servi ne se recrée JAMAIS toute seule ('' : la page « Tu es déjà passé par le
     Discord ») ; seule exception, un membre parti sans être sorti de l'équipe (_peut_revenir) et absent du serveur."""
     pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return ""
     fiche_web = (pipe.get("candidatures_web", {}).get(cand_id) or {})
     if fiche_web.get("invitation"):
         consommee = _invitation_consommee(pipe, cand_id)
@@ -598,7 +621,7 @@ async def _invitation_prete(cand_id: str, attente: float = 10.0) -> str:
             _invitations_en_cours.pop(cand_id, None)
     if not _deps.get("invitation_site") or not fiche_web.get("tel"):
         return ""
-    cand = (pipe.get("candidatures", {}).get(fiche_web["tel"]) or {})
+    cand = recrutement_suivi.dossier_candidature(pipe, cand_id)
     _lancer_invitation(cand_id, {"tel": fiche_web["tel"], "prenom": cand.get("prenom", ""), "pays": cand.get("pays", "")})
     try:
         return await asyncio.wait_for(asyncio.shield(_invitations_en_cours[cand_id]), attente) or ""
@@ -672,6 +695,8 @@ def _page_deja_venu(cand_id: str):
     l'équipe) → une phrase, WhatsApp de Gaëtan ; jamais d'invitation neuve ni d'autorisation Discord (guilds.join est une
     autre porte). None : la voie est libre."""
     pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     if _membre_present(pipe, cand_id):
         journal.info("Site : candidature %s déjà sur le serveur, page « Ouvrir Discord »", cand_id)
         return _page("Discord", f"<h1>Tu es déjà sur le Discord.</h1><a class='b' href='{html.escape(_lien_app())}'>Ouvrir Discord</a>")
@@ -732,6 +757,8 @@ async def get_callback(request):
                                 "Réessaie et appuie sur <b>Autoriser</b> sur l'écran de Discord.</p>"
                                 f"<a class='b' href='/discord/connexion?t={html.escape(jeton(cand_id))}'>Réessayer</a>" + _secours()) if cand_id
                                else "<h1>Lien invalide</h1><p>Recommence depuis le formulaire.</p><a class='b' href='/candidature'>Refaire le formulaire</a>" + _secours())
+    if recrutement_suivi.candidature_en_conflit(_deps["lire_json"](_deps["FICHIER_PIPELINE"], {}), cand_id):
+        return _page_conflit_identite()
     journal.info("OAuth : retour Discord pour la candidature %s", cand_id)
     # 29/09 : le 27/09, quatre retours en double (même code, à 400 ms d'écart : l'appli Discord et le navigateur ouvrent tous
     # les deux le lien) ont donné « Invalid code » et une page d'erreur à un candidat pourtant ajouté. Le premier retour gagne,
@@ -761,6 +788,8 @@ async def _callback_apres_marque(cand_id: str, code: str):
     """La suite de get_callback une fois le retour marqué. Seule une entrée réussie remplace la marque (_retours)."""
     lire, ecrire, fichier = _deps["lire_json"], _deps["ecrire_json"], _deps["FICHIER_PIPELINE"]
     pipe = lire(fichier, {"liaisons": {}, "etats": {}})
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     fiche_web = pipe.get("candidatures_web", {}).get(cand_id)
     if not fiche_web:
         return _page("Introuvable", "<h1>Candidature introuvable</h1><p>Recommence depuis le formulaire.</p>")
@@ -785,10 +814,13 @@ async def _callback_apres_marque(cand_id: str, code: str):
         guild_id = GUILD_ID or (str(_client.guilds[0].id) if _client and _client.guilds else "")
         # Pré-enregistrement : on_member_join saura que cet arrivant est attendu et à qui il correspond.
         pipe = lire(fichier, {"liaisons": {}, "etats": {}})
+        if not recrutement_suivi.lier_discord(pipe, cand_id, uid):
+            ecrire(fichier, pipe)
+            return _page("À vérifier", "<h1>Ton équipe vérifie la liaison Discord.</h1>" + _bouton_whatsapp())
         pipe.setdefault("web_attendus", {})[uid] = {"cand": cand_id, "tel": fiche_web["tel"],
                                                     "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         ecrire(fichier, pipe)
-        prenom = (pipe.get("candidatures", {}).get(fiche_web["tel"]) or {}).get("prenom", "")
+        prenom = recrutement_suivi.dossier_candidature(pipe, cand_id).get("prenom", "")
         async with session.put(f"{API_DISCORD}/guilds/{guild_id}/members/{uid}",
                                headers={"Authorization": f"Bot {_deps['DISCORD_TOKEN']}"},
                                json={"access_token": jeton_acces, **({"nick": prenom[:32]} if prenom else {})}) as r:
@@ -1050,6 +1082,10 @@ def _ouvrir_tentative(quiz, champ, owner):
     if tentative and not tentative.get("terminee") and (
             tentative.get("resultat") or tentative.get("revision") == revision):
         return tentative["id"]
+    if tentative and tentative.get("resultat"):
+        evenement = f"quiz:{champ}:{owner}:{tentative['id']}"
+        pipe.setdefault("quiz_historique_web", {}).setdefault(evenement, {
+            **tentative, "event_id": evenement, "identite": owner, "type_identite": champ})
     tentative = {"id": secrets.token_hex(16), "revision": revision}
     pipe["quiz_tentatives_web"][f"{champ}:{owner}"] = tentative
     _deps["ecrire_json"](_deps["FICHIER_PIPELINE"], pipe)
@@ -1207,17 +1243,18 @@ def _reussites_en_route(pipe: dict, cand_id: str, lecture: float, maintenant: fl
     fiches = (pipe or {}).get("candidatures_web") or {}
     moi = ((fiches.get(cand_id) or {}).get("quiz") or {}) if cand_id else {}
     t_moi = _instant(moi.get("date")) if moi.get("reussi") else None
-    # 11/10 (lot W, contre-vérification du lot L2) : une personne qui a deux fiches (même numéro : formulaire renvoyé) compte
-    # une fois, et jamais contre elle-même. Avant, avec 1 place, sa 2e réussite déduisait sa propre 1re fiche.
-    tel_moi = str((fiches.get(cand_id) or {}).get("tel") or "").strip() if cand_id else ""
-    en_route, deja_comptes = set(), set()                               # par personne (numéro, sinon la fiche)
+    uids_moi = _uids_de(pipe, cand_id) if cand_id else []
+    en_route, deja_comptes = set(), set()
     for autre, fiche in fiches.items():
         if autre == cand_id or not isinstance(fiche, dict) or not (fiche.get("quiz") or {}).get("reussi"):
             continue
-        tel = str(fiche.get("tel") or "").strip()
-        if tel and tel == tel_moi:
-            continue                                                    # sa propre autre fiche
-        personne = ("tel", tel) if tel else ("fiche", str(autre))
+        if recrutement_suivi.candidature_en_conflit(pipe, autre):
+            en_route.add(("conflit", str(autre)))
+            continue
+        uids = _uids_de(pipe, autre)
+        if len(uids) == 1 and uids == uids_moi:
+            continue
+        personne = ("uid", uids[0]) if len(uids) == 1 else ("fiche", str(autre))
         t_quiz = _instant(fiche["quiz"].get("date"))
         if t_quiz is None or maintenant - t_quiz > PLACES_REUSSITE_H * 3600:
             continue
@@ -1245,6 +1282,10 @@ async def _places_livrables(cand_id: str = ""):
     (_reussites_en_route) : deux candidats pour une place ne lisent pas tous les deux « ton compte 1 t'y attendent ».
     11/10 (contre-vérification) : de PLACES_CACHE_S à PLACES_PERIME_S, la lecture sert tout de suite et se relit en fond ;
     la page n'attend (PLACES_ATTENTE_S au plus) que sans lecture de moins de PLACES_PERIME_S (15 min)."""
+    pipe = _deps["lire_json"](_deps["FICHIER_PIPELINE"], {})
+    if any(recrutement_suivi.candidature_en_conflit(pipe, cid)
+           for cid in (pipe.get("candidatures_web") or {})):
+        return 0  # aucun excédent annoncé avant rapprochement des identités
     dep = _deps.get("places")
     if not callable(dep):
         return None
@@ -1278,6 +1319,8 @@ async def post_quiz_cand(data, cand_id: str):
         return _page("Introuvable", "<h1>Candidature introuvable</h1><p>Recommence depuis le formulaire.</p>"
                                     "<a class='b' href='/candidature'>Refaire le formulaire</a>")
     ancien = fiche.get("quiz") or {}
+    if ancien.get("reussi") and recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     if ancien.get("reussi"):
         raise web.HTTPSeeOther(location=_url_discord(cand_id))
     tentative = _tentative(pipe, "c", cand_id)
@@ -1299,17 +1342,27 @@ async def post_quiz_cand(data, cand_id: str):
     tentative["terminee"] = True
     fiche["quiz"] = {"score": f"{score} / {total}", "reussi": reussite, "essais": essais + 1, "details": details,
                      "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    fiche.setdefault("quiz_historique", {}).setdefault(tentative["id"], {
+        **fiche["quiz"], "candidature_id": cand_id, "tentative_id": tentative["id"],
+        "revision": _revision_quiz(quiz), "event_id": "quiz:" + cand_id + ":" + tentative["id"]})
+    if reussite:
+        fiche.setdefault("premiere_reussite", dict(fiche["quiz_historique"][tentative["id"]]))
     ecrire(fichier, pipe)
-    prenom = (pipe.get("candidatures", {}).get(fiche.get("tel", "")) or {}).get("prenom", "")
+    prenom = recrutement_suivi.dossier_candidature(pipe, cand_id).get("prenom", "")
     journal.info("Site : quiz avant Discord %s pour la candidature %s (essai %s)", f"{score}/{total}", cand_id, essais + 1)
     # 09/10 (revue L8) : réussi par un membre DÉJÀ sur Discord (entré par l'ancien lien « Pas le temps ? Rejoins le Discord »
     # avant le 09/10) : le bot n'en savait rien et le sortait à 48 h pour « quiz jamais fait ». Il le fait entrer dans l'agence
     # tout de suite, par le même circuit qu'un quizz réussi depuis Discord (QUIZ_OK → valider_candidat), et la page le renvoie
     # sur Discord, sans bouton vers une invitation déjà consommée. traiter_quiz_web écrit lui-même la ligne « Quiz bot ».
+    if recrutement_suivi.candidature_en_conflit(pipe, cand_id):
+        return _page_conflit_identite()
     present = _membre_present(pipe, cand_id) if reussite else ""
     if present and _deps.get("traiter_quiz_web"):
         journal.info("Site : candidature %s, quizz réussi par le membre %s déjà sur Discord : le bot le valide", cand_id, present)
         places = await _places_livrables(cand_id)                       # 11/10 : lues AVANT que le bot lui donne sa ligne
+        frais = lire(fichier, {})
+        if recrutement_suivi.candidature_en_conflit(frais, cand_id):
+            return _page_conflit_identite()
         _en_fond(_deps["traiter_quiz_web"](present, f"{score} / {total}", True, details, tentative_id=tentative["id"]))
         return _page("Quizz réussi", _texte_reussi_discord(score, total, places))
     if _deps.get("quiz_candidat"):                                      # la ligne « Quiz bot » du classeur, en tâche de fond
@@ -1451,13 +1504,16 @@ async def _post_quiz_discord(data, uid, quiz):
             return _formulaire_quiz(quiz, "t", jeton(uid), essais + 1, _AVIS_NOUVELLE_PAGE)
         score, total, details = noter(quiz, data)
         seuil, _ = quiz_seuil_total()
-        r = {"score": score, "total": total, "details": details, "seuil": seuil,
+        r = {"date": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+             "score": score, "total": total, "details": details, "seuil": seuil,
              "reussite": score >= seuil, "essai": essais + 1}
         tentative["resultat"] = r
         # Résultat figé AVANT tout await : un retry ne peut pas changer ses réponses.
         ecrire(fichier, pipe)
     if not tentative.get("terminee"):
         places = await _places_livrables() if r["reussite"] else None
+        if str(uid) in recrutement_suivi.uids_en_conflit(_deps["lire_json"](_deps["FICHIER_PIPELINE"], {})):
+            return _page_conflit_identite()
         resultat = await _deps["traiter_quiz_web"](uid, f"{r['score']} / {r['total']}", r["reussite"],
                                        r["details"], tentative_id=tentative["id"])
         if resultat not in ("applied", "already_done"):
@@ -1475,6 +1531,9 @@ async def _post_quiz_discord(data, uid, quiz):
         if actuel.get("id") != tentative["id"]:
             raise RuntimeError("Tentative de quiz remplacée pendant son traitement")
         actuel["terminee"], actuel["places"] = True, places
+        evenement = f"quiz:t:{uid}:{tentative['id']}"
+        frais.setdefault("quiz_historique_web", {}).setdefault(evenement, {
+            **actuel, "event_id": evenement, "identite": uid, "type_identite": "t"})
         ecrire(fichier, frais)
         tentative = actuel
     if r["reussite"]:

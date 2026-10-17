@@ -30,16 +30,16 @@ def progression(salons, decouverte, pages, pages_max, pages_decouverte, decouver
         raisons.append('decouverte_ou_reprises_restantes')
     return dict(travail_restant={'salons': reste_salons, 'operations_decouverte': reste_decouverte},
                 raisons_arret=raisons,
-                instruction='Reprise nécessaire : la couverture reste incomplète.' if reste_salons or reste_decouverte
+                instruction='Reprise nécessaire : la couverture reste incomplète.' if reste_salons or reste_decouverte or borne_atteinte
                 else 'Tous les éléments identifiés sont terminés pour la borne avant indiquée.')
 
 
-async def collecter(guild, chemin, pages_max=100, decouverte_max=10, duree_max=45, volume_max=64*1024*1024):
+async def collecter(guild, chemin, pages_max=100, decouverte_max=10, duree_max=45, volume_max=64*1024*1024, integral=False):
     """Chaque page est validée atomiquement avec son curseur ; reprise sans doublon."""
     async with _LOCKS.setdefault(str(guild.id), asyncio.Lock()):
-        return await _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max)
+        return await _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, integral)
 
-async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max):
+async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume_max, integral=False):
     fin = time.monotonic() + duree_max
     fin_decouverte = fin - duree_max * 2 / 3
     chemin = Path(chemin)
@@ -49,6 +49,12 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
     os.chmod(chemin,0o600)
     db = sqlite3.connect(chemin)
     try:
+        if integral:
+            page_size = db.execute('PRAGMA page_size').fetchone()[0]
+            plafond = int(volume_max) // page_size
+            if plafond < 1 or db.execute('PRAGMA page_count').fetchone()[0] > plafond:
+                raise ValueError('Budget SQLite inférieur au volume existant')
+            db.execute(f'PRAGMA max_page_count={plafond}')
         db.executescript('''
         CREATE TABLE IF NOT EXISTS meta (cle TEXT PRIMARY KEY, valeur TEXT);
         CREATE TABLE IF NOT EXISTS salons (id TEXT PRIMARY KEY, curseur TEXT, statut TEXT DEFAULT 'a_lire', erreur TEXT);
@@ -174,7 +180,7 @@ async def _collecter(guild, chemin, pages_max, decouverte_max, duree_max, volume
                 pages+=1
                 with db:
                     for m in batch:
-                        safe=sanitize_in_channel(m.content,channel)
+                        safe=sanitize_in_channel(m.content,channel,integral=True) if integral else sanitize_in_channel(m.content,channel)
                         row=dict(date=m.created_at.isoformat(),uid=str(m.author.id),bot=bool(m.author.bot),texte=safe,
                                  pieces_jointes=len(m.attachments),embeds_omis=len(m.embeds))
                         db.execute('INSERT OR IGNORE INTO messages VALUES (?,?,?)',(str(m.id),cid,json.dumps(row,ensure_ascii=False)))
@@ -203,7 +209,7 @@ async def commande(message, chemin):
     import io
     reste = rapport['travail_restant']
     resume = (f"Couverture uniquement : {reste['salons']} salon(s) et {reste['operations_decouverte']} opération(s) de découverte restent. "
-              + ("Relance `!audit-discussions complet` pour continuer, même si borne_atteinte vaut false. " if not rapport['complet'] else
+              + ("Relance `!audit-discussions complet` pour poursuivre les lectures et la découverte. " if not rapport['complet'] else
                  "Cette photographie est terminée pour sa borne avant. ")
               + "Le contenu nettoyé reste sur le volume privé du bot.")
     await message.author.send(resume,

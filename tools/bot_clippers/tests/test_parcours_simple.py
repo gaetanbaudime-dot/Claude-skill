@@ -89,7 +89,9 @@ class AccueilTests(unittest.IsolatedAsyncioTestCase):
         etat={}
         def ecrire(d):
             etat.clear();etat.update(deepcopy(d))
-        ouvrir=AsyncMock()
+        async def livraison(*args,**kw):
+            etat['100'].setdefault('messages',{})['1']='compte1-fictif'
+        ouvrir=AsyncMock(side_effect=livraison)
         ns={'_lire':lambda:deepcopy(etat),'_ecrire':ecrire,'_prenom':lambda m:'Fictif',
             '_cle_creatrice':str.lower,'_reprendre_trace':lambda *a:None,'PRIVE_EN_2':False,
             'datetime':datetime,'timezone':timezone,'timedelta':timedelta,'BIENVENUE_H':1,

@@ -493,6 +493,10 @@ def _pour_creatrice(c: dict, creatrice: str) -> bool:
 
 
 def _est_prive(c: dict) -> bool:
+    # Une confirmation humaine du rôle prime sur les mots contenus dans le @.
+    # GOOD décrit la santé ; ce n'est jamais une preuve d'un rôle croissance.
+    if c.get("role_confirme") in ("croissance", "prive"):
+        return c["role_confirme"] == "prive"
     return _norm(c["etat"]) in ("prive", "privé") or RE_PRIVE.search(_norm(c["handle"] or "")) is not None
 
 
@@ -728,24 +732,28 @@ def _ecarte_pour(etat: dict, c: dict, uid: str) -> bool:
     return etat.get("ecartes", {}).get(c["handle"].lower(), {}).get("uid") == str(uid)
 
 
-async def reserver(comptes: list, prenom_clipper: str, uid: str = "") -> int:
-    """Écrit le prénom du clipper dans la colonne Gérant de chaque ligne. Renvoie le nombre de cellules écrites."""
-    if not uid:
-        raise RuntimeError("Identité Discord stable requise pour réserver")
-    proprietaires = _proprietaires()
-    if any((proprietaires.get(_cle_handle(c["handle"])) or set()) - {str(uid)} for c in comptes):
-        raise RuntimeError("Compte déjà attribué : aucune réattribution")
-    process_adapters.store().reserve(uid, [c["handle"] for c in comptes])
-    n = 0
-    for c in comptes:
-        n += await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "gerant"), [[prenom_clipper]])
-    return n
+async def reserver(comptes: list, prenom_clipper: str, uid: str = "", creatrice: str = "") -> int:
+    """Nouvelle attribution attestée seulement après écriture et relecture."""
+    if not uid or not creatrice:
+        raise RuntimeError('Identité Discord et créatrice canoniques requises')
+    return await process_adapters.reserver_attribution(comptes, prenom_clipper, str(uid), creatrice)
 
 
-def acces_ordonnes(comptes: list) -> list:
+def acces_ordonnes(comptes: list, precedents=None) -> list:
     """[{handle, mdp, mail}] dans l'ordre du parcours : les comptes de croissance d'abord, le privé en dernier."""
-    ordonnes = sorted(comptes, key=_est_prive)
+    roles, positions = {}, {}
+    for i, a in enumerate(precedents or []):
+        if not isinstance(a, dict) or a.get("role_confirme") not in ("croissance", "prive"):
+            continue
+        h, role = _cle_handle(a.get("handle")), a["role_confirme"]
+        if h in roles and roles[h] != role:
+            raise RuntimeError("Rôles confirmés contradictoires : rapprochement requis")
+        roles[h], positions[h] = role, i
+    enrichis = [dict(c, role_confirme=roles[_cle_handle(c.get("handle"))])
+                if _cle_handle(c.get("handle")) in roles else dict(c) for c in comptes]
+    ordonnes = sorted(enrichis, key=lambda c: (_est_prive(c), positions.get(_cle_handle(c.get("handle")), len(positions))))
     return [{"handle": c.get("handle", ""), "mdp": c.get("mdp", ""), "mail": c.get("mail", ""), "prive": bool(_est_prive(c)),
+             **({"role_confirme": c["role_confirme"]} if c.get("role_confirme") in ("croissance", "prive") else {}),
              "cree": _norm(c.get("etat", "")) not in A_CREER}                # 28/09 : compte rendu par un sortant → connexion, pas inscription
             for c in ordonnes]
 
@@ -768,13 +776,9 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
     blocs = []
     for i, c in enumerate(comptes, start=debut):                    # 28/09 : trois comptes qui publient, plus de compte privé
         deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé, connecte-toi"
-        # 28/09 (Gaëtan, Simon perdu) : identifiant, mot de passe, e-mail chacun dans son bloc, copiable d'un geste sur le téléphone
         # 08/10 (audit de l'assistant : « Compte 3 · il publie » pour le compte privé des anciens) : le privé est dit privé
         role = "privé, il ne publie pas, ton lien va dans sa bio" if _est_prive(c) else "il publie"
-        blocs.append(f"**Compte {i}** · {role}{deja}\nIdentifiant :\n```\n{c['handle']}\n```\n"
-                     f"Mot de passe :\n```\n{c['mdp'] or 'demande-le à ton manager'}\n```"
-                     + (f"\nE-mail :\n```\n{c['mail']}\n```" if c["mail"] else "")
-                     + (f"\nTéléphone : `{c['phone']}`" if c["phone"] else ""))
+        blocs.append(f"**Compte {i}** · {role}{deja}\n\n" + _bloc_acces(c))
     # 01/10 (relecture) : ce message livre déjà les comptes — « le suivant arrive tout seul ici » y était faux (plusieurs
     # comptes sous les yeux, ou un remplaçant livré à l'étape 7 qui n'aura pas de suivant). Plus de règle recollée ici.
     import parcours                                                     # 01/10 : les deux conditions de la règle (import tardif)
@@ -1185,7 +1189,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
         except ValueError:
             depuis = timedelta(days=9)
         if depuis < timedelta(hours=24):
-            return f"📦 Onboarding de {membre.display_name} ({fiche0.get('creatrice') or creatrice}) : déjà livré il y a {int(depuis.total_seconds() // 3600)} h, rien renvoyé (`!onboarding @{prenom}` pour forcer)"
+            return f"📦 Onboarding de {membre.display_name} ({fiche0.get('creatrice') or creatrice}) : lignes déjà affectées ; la livraison effective est suivie séparément dans le parcours."
     # 1. comptes depuis le classeur
     comptes, tous, lu, leves, douteux, pris = [], [], False, [], [], []
     a_reserver = places.lignes_a_reserver()                             # 10/10 (lot L3) : 3 par défaut, le trio
@@ -1229,13 +1233,20 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
                         resultat.append(f"⚠️ {len(douteux)} compte(s) déjà créé(s) au nom de {prenom} dans le classeur, NON livrés "
                                         f"(homonyme d'un ancien clipper ?) : {', '.join(c['handle'] for c in douteux)} — "
                                         f"`!liberer {prenom} <handles>` pour les rendre, `!onboarding @{prenom}` si ce sont bien les siens")
+                # Une réponse Sheets perdue peut avoir laissé le gérant écrit,
+                # mais pas l'attestation. Le prénom ne vaut jamais confirmation.
+                registre_attribution = process_adapters.store()
+                for c in deja[:COMPTES_PAR_CLIPPER]:
+                    key = 'attribution-sheet:' + str(c.get('onglet')) + ':' + _cle_handle(c.get('handle'))
+                    if registre_attribution.get('intention-' + key) and not registre_attribution.get(key):
+                        await reserver([c], prenom, uid, creatrice)
                 comptes = deja[:COMPTES_PAR_CLIPPER]
                 if len(comptes) < a_reserver:
                     nouveaux = disponibles(tous, creatrice, COMPTES_PAR_CLIPPER - len(comptes), uid)
                     if a_reserver < COMPTES_PAR_CLIPPER:                 # 10/10 (lot L3) : le début du trio seulement
                         nouveaux = _debut_du_trio(nouveaux + disponibles(tous, creatrice, 999, uid), len(comptes), a_reserver)
                     if nouveaux:
-                        await reserver(nouveaux, prenom, uid)
+                        await reserver(nouveaux, prenom, uid, creatrice)
                     comptes += nouveaux
                 lu = True
                 resultat.append(f"{len(comptes)} compte(s)" + (" (aucun libre dans le classeur !)" if not comptes else ""))
@@ -1256,7 +1267,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     if lu:
         for c in comptes:
             etat["livres"][c["handle"].lower()] = {"uid": uid, "date": maintenant}
-        fiche["acces"] = acces_ordonnes(comptes)                          # 27/09 : chaque étape du parcours donne l'accès du jour
+        fiche["acces"] = acces_ordonnes(comptes, fiche.get("acces"))        # préserver les confirmations du même handle
         fiche["comptes"] = [c["handle"] for c in comptes]
     fiche.update({"creatrice": creatrice, "date": maintenant, "par": declencheur})
     fiche.setdefault("gerant", prenom)                                  # 10/10 (lot L3) : le même Gérant pour reserver_compte
@@ -1433,7 +1444,7 @@ async def reserver_compte(membre, creatrice: str, n: int, salon=None, prive: boo
         if not choix:
             return None
         ligne = choix[0]
-        await reserver([ligne], gerant, uid)
+        await reserver([ligne], gerant, uid, creatrice)
         maintenant = datetime.now(timezone.utc).isoformat(timespec="seconds")
         etat = _lire_etat()                                             # relu frais, écrit sans attente
         f = etat["clippers"].setdefault(uid, {})
@@ -1622,122 +1633,23 @@ def _jour_paris():
 
 
 async def liens_classeur(comptes: list = None) -> dict:
-    """27/09 (« c'est le bazar ») : la colonne « Lien GAML associé » de chaque ligne = LE lien du gérant pour la créatrice de la
-    ligne (Julien : son lien Sophie sur ses lignes Sophie, son lien Chloé sur ses lignes Chloé, rien sur ses lignes Maddie) ;
-    deux liens pour la même créatrice → le plus récent ; une cellule vidée quand aucun lien ne correspond. Écrit seulement ce
-    qui change. Renvoie {"ecrits": n, "groupes": {(gérant, créatrice, lien): n}}."""
-    vide = {"ecrits": 0, "groupes": {}}
+    """Seuls les jobs et les attributions explicitement vérifiés peuvent écrire.
+
+    Les anciennes URL restent intactes, y compris celles des créatrices : aucun
+    repli par prénom, effacement ou remplacement automatique.
+    """
     if not (actif() and paie_clics.actif()):
-        return vide
-    if comptes is None:
-        comptes = await lire_comptes()
-    d = paie_clics._lire()
-    notes_vives = {}                                                    # 09/10 : la note GAML de maintenant, quand la liste la porte
-    try:
-        liste = [l for l in await paie_clics.liens_gaml() if l.get("id")]
-        noms = {l["id"]: str(l.get("name") or "") for l in liste}
-        notes_vives = {l["id"]: str(l.get("note") or "") for l in liste if "note" in l and l.get("note") is not None}
-    except RuntimeError as erreur:
-        journal.warning("Liens GAML illisibles pour le classeur : %s", erreur)
-        noms = {}
-    creatrices = {c["creatrice"] for c in comptes if c.get("creatrice")}
-    par_prenom, par_uid, par_url = {}, {}, {}
-    for lid, info in d.get("liens", {}).items():
-        url = str(info.get("url") or "").strip()
-        if url:
-            par_url[_url_cle(url)] = (info, notes_vives.get(lid))
-        # 09/10 (dashboard) : jamais un lien libéré, hors clipping, effacé ou désactivé rangé par prénom (le lien libéré d'un sortant,
-        # encore noté « Clipping Eddy », était écrit sur les lignes du nouvel Eddy) ; seulement les liens qui ont un détenteur
-        if not url or not _lien_rangeable(info):
-            continue
-        entree = (_creatrice_du_lien(noms.get(lid, ""), info, url, creatrices), url, str(info.get("depuis") or ""), str(lid))
-        uid_l = str(info.get("uid") or "")
-        if uid_l:
-            par_uid.setdefault(uid_l, []).append(entree)
-        prenom = _prenom_du_lien(info)
-        if prenom:
-            par_prenom.setdefault(_norm(prenom), []).append((entree, uid_l or "suivi:" + _norm(info.get("suivi_nom") or prenom)))
-    # contrat C6(d) (revue CLICS du 09/10) : la ligne est rattachée à son détenteur par les IDENTIFIANTS (onboarding.json → uid →
-    # liens de clics.json) ; le prénom ne sert plus qu'aux anciennes lignes mises à la main (inconnues d'onboarding.json), et
-    # seulement s'il ne désigne qu'UN détenteur (deux Eddy : la cellule n'est jamais touchée par le prénom)
-    proprietaires, noms_uid = _proprietaires(), {}
-    ecrits, groupes = 0, {}
-    creatrices = creatrices_connues(comptes)
+        return {"ecrits": 0, "groupes": {}, "conflits": []}
+    restitution = await process_adapters.synchroniser_liens_sheets()
+    comptes = comptes if comptes is not None else await lire_comptes()
+    conflits = list(restitution['conflits'])
     for c in comptes:
-        g = _norm(c["gerant"])
-        if not c["handle"] or g in GERANTS_LIBRES or not a_colonne("lien_gaml", c.get("onglet", "")):
-            continue
-        actuel = str(c.get("lien_gaml") or "").strip()
-        # 05/10 (Gaëtan : « sur la ligne du compte principal de la créatrice, le lien GAML est effacé à chaque passage ») : la
-        # cause était ici — Gérant « Chloé » n'a aucun lien dans paie_clics (ce n'est pas un clipper), donc `voulu` valait "" et
-        # la cellule était vidée, puis revidée à chaque scan. Une ligne dont le Gérant est une créatrice n'est jamais vidée.
-        if est_ligne_creatrice(c, creatrices):
-            # 05/10 (Gaëtan : « scrape les clics des comptes des créas ») : la ligne de la créatrice reçoit SON lien GAML, celui dont
-            # la note dit « Compte de @<son identifiant> » (lien_gaml_creatrice), seulement si la cellule est vide ; jamais écrasée,
-            # jamais vidée. 09/10 (dashboard) : le repli « unique note qui commence par son prénom » seulement si elle n'a qu'une
-            # ligne de compte (son deuxième compte recevait le lien du principal).
-            if actuel:
-                continue
-            try:
-                details = await _liens_gaml_details()
-            except Exception as erreur:                                 # noqa: BLE001
-                journal.warning("Liens GAML (créatrices) illisibles : %s", erreur)
-                continue
-            voulu = str((lien_gaml_creatrice(c, details, seule=lignes_creatrice(comptes, c, creatrices) <= 1) or {}).get("url") or "").strip()
-            if not voulu:
-                continue
-            try:
-                await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "lien_gaml"), [[voulu]])
-            except Exception as erreur:                                 # noqa: BLE001
-                journal.warning("Classeur : lien GAML de la créatrice %s non écrit : %s", c.get("creatrice") or c.get("onglet"), erreur)
-                continue
-            c["lien_gaml"] = voulu                                      # la lecture en mémoire suit (même passage)
-            ecrits += 1
-            groupes[(c["gerant"], c.get("creatrice") or c.get("onglet") or "?", voulu)] = 1
-            continue
-        cr = (_norm(c["creatrice"]).split() or [""])[0]
-        detenteurs = set()
-        if ligne_metricool(c["gerant"]):
-            liens = []
-        else:
-            detenteurs = _detenteurs(c["gerant"], proprietaires.get(_cle_handle(c["handle"]), set()), noms_uid)
-            if len(detenteurs) > 1:
-                continue                                                # fiches contradictoires : on ne tranche pas (le contrôle signale)
-            if detenteurs:
-                liens = par_uid.get(next(iter(detenteurs)), [])          # les liens de SON identifiant
-            else:
-                ents = par_prenom.get(g, [])
-                ids = {i for _, i in ents if not i.startswith("suivi:")} or {i for _, i in ents}
-                if len(ids) > 1:
-                    continue                                            # deux détenteurs de ce prénom (homonymes) : jamais par le prénom
-                liens = [e for e, i in ents if i in ids]
-        if liens:
-            cands = [x for x in liens if x[0] == cr] or ([x for x in liens] if len(liens) == 1 and not liens[0][0] else [])
-            voulu = max(cands, key=lambda x: (x[2], x[3]))[1] if cands else ""
-        else:
-            # 09/10 (dashboard) : le Gérant n'a encore aucun lien (nouveau clipper sur une ligne redonnée, ligne « X (Metricool) »,
-            # prénom inconnu du bot). Avant : cellule gardée, donc le lien de l'ancien clipper restait et ses clics comptaient pour
-            # le nouveau. Maintenant : vidée quand elle porte à coup sûr le lien de personne (libéré, hors clipping, effacé,
-            # désactivé) ou d'un autre clipper — décidé sur les identifiants (C6(d) : l'uid du lien n'est pas le détenteur de la
-            # ligne selon onboarding.json) ; une ligne « X (Metricool) » ne garde que les liens Metricool de SON repreneur ; un lien
-            # inconnu du bot (collé à la main avant son attribution) ou une ligne sans détenteur connu : la cellule reste.
-            info_c, note_c = par_url.get(_url_cle(actuel)) or (None, None)
-            if not actuel or not _lien_d_un_autre(info_c, c["gerant"], note_c, detenteurs):
-                continue
-            voulu = ""
-        if voulu == actuel:
-            continue
-        try:
-            await google_api.sheets_ecrire(CLASSEUR_LOGINS_ID, cellule(c, "lien_gaml"), [[voulu]])
-        except Exception as erreur:                                     # noqa: BLE001
-            journal.warning("Classeur : lien GAML de %s non écrit : %s", c["handle"], erreur)
-            continue
-        ecrits += 1
-        cle = (c["gerant"], (c["creatrice"] or c.get("onglet") or "").split()[0] if (c["creatrice"] or c.get("onglet")) else "?", voulu)
-        groupes[cle] = groupes.get(cle, 0) + 1
-    if ecrits:
-        journal.info("Classeur, colonne Lien GAML associé : %d cellule(s) corrigée(s)", ecrits)
-    return {"ecrits": ecrits, "groupes": groupes}
+        if c.get('handle') and _cle_handle(c['handle']) not in restitution['proteges']:
+            conflits.append({'onglet': c.get('onglet'), 'handle': c['handle'],
+                             'raison': 'historique_sans_job_verifie'})
+    if conflits:
+        journal.warning('Liens Sheets : %d ligne(s) à vérifier ; données conservées', len(conflits))
+    return {'ecrits': restitution['ecrits'], 'groupes': {}, 'conflits': conflits}
 
 
 _details_gaml = {"jour": "", "liens": []}
@@ -2273,11 +2185,9 @@ def _remplacer_bans(fiche: dict, a_livrer: list, bans: set, partis=()) -> dict:
 
 
 def _bloc_acces(acces: dict) -> str:
-    """Identifiant, e-mail, mot de passe, chacun dans son bloc (copiable d'un geste sur le téléphone)."""
-    inconnu = "(demande-le à Gaëtan sur WhatsApp)"
-    return (f"Identifiant :\n```\n{acces.get('handle')}\n```\n"
-            + (f"E-mail :\n```\n{acces['mail']}\n```\n" if acces.get("mail") else "")
-            + f"Mot de passe :\n```\n{acces.get('mdp') or inconnu}\n```")
+    """Les messages hérités ne sérialisent plus d'e-mail, mot de passe ou téléphone."""
+    return (f"Identifiant prévu : @{acces.get('handle', '?')}\n\n"
+            "Ton responsable te remet les accès personnellement, par un canal sécurisé.")
 
 
 def message_nouveau_compte(mention: str, n: int, acces: dict, ancien: str = "", lien: str = "", codes: str = "") -> str:
@@ -2301,45 +2211,23 @@ def message_nouveau_compte(mention: str, n: int, acces: dict, ancien: str = "", 
 
 
 async def dire_nouveaux_comptes(membre, uid: str) -> tuple:
-    """09/10 (revue du lot L6) : les comptes notés « a_dire » dans la fiche (un remplaçant donné en routine, ou d'un compte que le
-    parcours a déjà passé) partent au clipper, un message par compte, dans son salon perso (sinon en MP). Un envoi refusé reste
-    dans « a_dire » : la boucle le retente au passage suivant. Renvoie ([numéros envoyés], [identifiants restés])."""
+    """Conserve la file héritée pour remise sécurisée par un humain.
+
+    Aucun accès n'est publié dans un salon ou en MP, même après redémarrage.
+    Le marqueur décrit le blocage sans recopier les accès ni acquitter la file.
+    Renvoie ([], comptes en attente), pour conserver le contrat des appelants.
+    """
     etat = _lire_etat()
     fiche = etat.get("clippers", {}).get(str(uid)) or {}
     a_dire = [h for h in fiche.get("a_dire") or [] if h]
     if not a_dire:
         return [], []
-    try:
-        import parcours                                                 # import tardif : parcours importe onboarding
-        fiche_p = parcours._lire().get(str(uid)) or {}
-        codes = parcours.texte_codes()
-    except Exception:                                                   # noqa: BLE001
-        fiche_p, codes = {}, ""
-    rangs = _rangs_parcours(str(uid), fiche, fiche_p, a_dire)
-    acces = {_cle_handle(a.get("handle")): a for a in fiche.get("acces") or [] if isinstance(a, dict)}
-    anciens = {_cle_handle(r.get("nouveau")): r.get("ancien") for r in fiche.get("remplaces") or [] if isinstance(r, dict)}
-    salon = _deps["salon_perso"](str(uid)) if _deps.get("salon_perso") else None
-    cible = salon if salon is not None else membre
-    envoyes, restes = [], []
-    for h in a_dire:
-        a = acces.get(_cle_handle(h))
-        if a is None or h not in rangs:
-            continue                                                    # sorti de la fiche entre-temps (`!liberer`) : rien à dire
-        try:
-            await cible.send(message_nouveau_compte(membre.mention, rangs[h], a, anciens.get(_cle_handle(h), ""),
-                                                    fiche.get("lien", ""), codes)[:1990])
-            envoyes.append(rangs[h])
-        except (discord.Forbidden, discord.HTTPException, AttributeError) as erreur:
-            journal.warning("Nouveau compte %s pour %s : %s", h, uid, type(erreur).__name__)
-            restes.append(h)
-    etat = _lire_etat()                                                 # relu après les envois
-    if str(uid) in etat.get("clippers", {}):
-        if restes:
-            etat["clippers"][str(uid)]["a_dire"] = restes
-        else:
-            etat["clippers"][str(uid)].pop("a_dire", None)
+    marque = {"etat": "humaine_requise", "raison": "file_heritee_acces",
+              "nombre": len(a_dire)}
+    if fiche.get("remise_securisee") != marque:
+        fiche["remise_securisee"] = marque
         _ecrire_etat(etat)
-    return envoyes, restes
+    return [], a_dire
 
 
 # 09/10 (revue du lot L6 : le 2e téléphone d'un clipper multi recevait ses 3 comptes, ses vidéos, son lien et la règle d'un seul
@@ -2401,8 +2289,8 @@ async def lien_autre_creatrice(membre, creatrice: str, handles=(), creer: bool =
 
 async def donner_telephones(uid=None, maintenant=None) -> int:
     """09/10 (revue du lot L6) : chaque autre créatrice d'un clipper multi (fiche « telephones ») reçoit, dans son salon perso, UN
-    compte à la fois : le compte 1 tout de suite, le suivant TELEPHONE2_ATTENTE_H heures après le précédent, le privé en dernier,
-    avec le lien GAML de cette créatrice, créé à ce moment-là (jamais avant : forfait GAML presque plein). Appelée par
+    compte à la fois historiquement. Les accès restant à remettre sont maintenant retenus pour remise humaine,
+    sans modifier les compteurs ni créer de lien. Le rappel du lien d'un compte déjà remis reste possible. Appelée par
     bot_discord.onboarder_multi (uid) et par la boucle du classeur (tous). Renvoie le nombre de messages envoyés."""
     maintenant = maintenant or datetime.now(timezone.utc)
     envoyes = 0
@@ -2417,27 +2305,16 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
             acces, donnes = list(t.get("acces") or []), int(t.get("donnes", 0) or 0)
             texte, lien = "", t.get("lien", "")
             if donnes < len(acces):
-                try:
-                    dernier = datetime.fromisoformat(str(t.get("dernier") or ""))
-                except ValueError:
-                    dernier = None
-                if dernier is not None and (maintenant - dernier).total_seconds() < TELEPHONE2_ATTENTE_H * 3600:
-                    continue
-                a = acces[donnes]
-                if a.get("prive") and not lien:
-                    lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces])
-                videos = ""
-                if donnes == 0:
-                    try:
-                        videos = await lien_drive_creatrice(creatrice)
-                    except Exception as erreur:                         # noqa: BLE001
-                        journal.info("Vidéos d'origine de %s : %s", creatrice, type(erreur).__name__)
-                try:
-                    import parcours                                     # import tardif : parcours importe onboarding
-                    codes = parcours.texte_codes()
-                except Exception:                                       # noqa: BLE001
-                    codes = ""
-                texte = message_telephone(membre.mention, creatrice, donnes + 1, a, videos, lien, donnes + 1 < len(acces), codes)
+                # File héritée conservée : aucun POST, aucun lien créé ni compteur avancé.
+                etat = _lire_etat()
+                t2 = ((etat.get("clippers", {}).get(str(uid_t)) or {}).get("telephones") or {}).get(creatrice)
+                if isinstance(t2, dict):
+                    marque = {"etat": "humaine_requise", "raison": "telephone_herite_acces",
+                              "nombre": len(acces) - donnes}
+                    if t2.get("remise_securisee") != marque:
+                        t2["remise_securisee"] = marque
+                        _ecrire_etat(etat)
+                continue
             elif t.get("lien_du") and not lien:                         # le privé est parti sans lien : on le retente
                 try:
                     essai = datetime.fromisoformat(str(t.get("lien_essai") or ""))
@@ -2465,10 +2342,6 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
             if lien:
                 t2["lien"] = lien
                 t2.pop("lien_du", None)
-            if donnes < len(acces) and texte:
-                t2["donnes"], t2["dernier"] = donnes + 1, maintenant.isoformat(timespec="seconds")
-                if acces[donnes].get("prive") and not lien:
-                    t2["lien_du"], t2["lien_essai"] = True, maintenant.isoformat(timespec="seconds")
             if not texte and not lien:
                 t2["lien_essai"] = maintenant.isoformat(timespec="seconds")
             _ecrire_etat(etat)
@@ -2501,7 +2374,7 @@ def ligne_comptes_classeur(mention: str, prenom: str, n: int, etape: int, a_veni
     if envoyes:
         bouts.append("envoyé dans son salon : " + ", ".join(f"compte {k}" for k in envoyes))
     if restes:
-        bouts.append(f"⚠️ envoi refusé ({len(restes)}), retenté au prochain passage")
+        bouts.append(f"⚠️ remise sécurisée par un humain requise ({len(restes)}), file conservée")
     if a_venir:
         bouts.append(f"son parcours (étape {etape}) le donnera : " + ", ".join(f"compte {k} à l'étape {k}" for k in a_venir))
     return tete + " : " + (" · ".join(bouts) if bouts else "rien à envoyer") + "."

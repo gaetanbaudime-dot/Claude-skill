@@ -69,6 +69,10 @@ def ordre(fiche_p: dict) -> str:
     """« prive2 » (compte 2 privé) ou « prive3 » (l'ordre du 05/10). Figé dans `fiche_p["ordre"]` à l'ouverture de l'étape 2."""
     if not fiche_p:
         return "prive3"                                                 # pas de parcours (ancien, inconnu) : l'ordre du 05/10
+    confirme = fiche_p.get("ordre_confirme") or {}
+    if (isinstance(confirme, dict) and confirme.get("valeur") in ("prive2", "prive3")
+            and all(confirme.get(k) for k in ("par", "date", "reference"))):
+        return confirme["valeur"]                                       # sans inventer de jalon de création
     dates = fiche_p.get("dates") or {}
     # 09/10 (carte des comptes : un ancien repris d'après le classeur, jamais passé par l'étape 1, se retrouvait en « prive2 » et son
     # compte 2, qui publie, devenait « le privé ») : une fiche sans étape 1 est « prive3 » — sauf si un de ses comptes est déjà ouvert
@@ -206,7 +210,7 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 
 def _identifiants(n: int) -> str:
     """Les secrets sont remis par le responsable, jamais dans le message automatique."""
-    return f"Identifiant prévu : @{{compte{n}}}\n\nTon responsable te remet les accès personnellement."
+    return f"Identifiant prévu : @{{compte{n}}}\n\nAccès : à confirmer auprès de ton responsable."
 
 
 ETAPES = {
@@ -365,7 +369,8 @@ def _comptes_ordonnes_05(uid, onb=None) -> list:
     handles = [h for h in (onb.get("comptes") or []) if h]
     acces = [a.get("handle") for a in (onb.get("acces") or []) if isinstance(a, dict) and a.get("handle") in handles]
     base = list(dict.fromkeys(acces + handles))
-    prives = [h for h in base if onboarding._est_prive({"handle": h, "etat": ""})]
+    roles = {a.get("handle"): a.get("role_confirme") for a in (onb.get("acces") or []) if isinstance(a, dict)}
+    prives = [h for h in base if onboarding._est_prive({"handle": h, "etat": "", "role_confirme": roles.get(h)})]
     croissance = [h for h in base if h not in prives]
     ordonnes = croissance[:2] + prives[:1]
     if len(ordonnes) < 3:
@@ -1230,6 +1235,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     classeur illisible) ou que le salon refuse le message."""
     uid = str(membre.id)
     fiche_avant = _lire().get(uid) or {}
+    pseudo_propose = None
+    if n == 1 and pointer and (fiche_avant.get("messages") or {}).get("1"):
+        return True
     if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
         return False
     if n >= 2:                                                          # 08/10 : l'ordre des comptes est figé ici, pour de bon (revue : dès 2)
@@ -1252,13 +1260,25 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             return False
         handle = handles[n - 1]
         try:
-            onboarding.process_adapters.store().reserve(uid, [handle])
-            preuves = onboarding._deps["lire_json"](
-                onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
-            if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
-                _garder_au_programme(uid, n, noter=True)
-                journal.warning("Compte retenu : disponibilité Instagram non prouvée")
-                return False
+            registre = onboarding.process_adapters.store()
+            registre.reserve(uid, [handle])
+            if n == 1:
+                # Remise d'une proposition à créer, pas d'une disponibilité attestée.
+                # Une identité créée ou ambiguë ne devient jamais un compte neuf.
+                with registre.transaction() as db:
+                    identite = db.execute(
+                        "SELECT a.uid,a.status FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?",
+                        (handle.lower().lstrip("@"),)).fetchone()
+                if identite != (uid, "reserved") or _cree(fiche_avant, 1):
+                    raise RuntimeError("Premier compte non neuf : rapprochement requis")
+                pseudo_propose = handle
+            else:
+                preuves = onboarding._deps["lire_json"](
+                    onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
+                if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
+                    _garder_au_programme(uid, n, noter=True)
+                    journal.warning("Compte retenu : disponibilité Instagram non prouvée")
+                    return False
         except RuntimeError:
             _garder_au_programme(uid, n, noter=True)
             return False
@@ -1297,6 +1317,12 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         await _envoyer_routine(salon, membre, uid, ctx)
         return True
     e = etape_def(fiche_p, n)
+    if pseudo_propose:
+        # Le pseudo du message est celui contrôlé et réservé, sans aucun secret.
+        ctx["compte1"] = pseudo_propose
+        e = {**e, "icone": "", "titre": "Étape 1 · Ton compte 1", "texte": (
+            "Identifiant : @{compte1}\n\n"
+            "Les accès et les consignes de création seront remis ici par le propriétaire.")}
     ctx["palier"] = ""
     if n in (2, 3):
         # 09/10 : « 🎯 4 Reels vus sur ton compte 1. Voici ton compte 2. » — seulement quand ce sont bien les Reels qui l'ouvrent
@@ -1307,20 +1333,29 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             journal.info("Palier du compte %s de %s : %s", n, uid, erreur)
     icone = f"{e['icone']} " if e.get("icone") else ""
     texte = f"{membre.mention} {icone}**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
-    if n == 1 and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
+    if pseudo_propose:
+        texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
+    if n == 1 and not pseudo_propose and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
         ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
         gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
         texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(f"{membre.mention} ")
     if n == 5:                                                          # 01/10 : il publie sur ses comptes, la relecture est proposée
         texte += _ligne_review(uid)
     try:
-        msg = await salon.send(texte[:1990], view=_vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p))
-    except (discord.Forbidden, discord.HTTPException) as erreur:
-        journal.warning("Étape %s pour %s : %s", n, uid, erreur)
+        vue = _vue(getattr(salon, "guild", None), uid, n, ctx, fiche_p)
+        if n == 1 and not (fiche_avant.get("messages") or {}).get("1"):
+            import process_livraison
+            msg = await process_livraison.envoyer_compte_1(onboarding.process_adapters.store(), salon, uid, texte[:1990], vue)
+        else:
+            msg = await salon.send(texte[:1990], view=vue)
+    except (discord.HTTPException, TimeoutError, OSError, RuntimeError) as erreur:
+        journal.warning("Étape %s pour %s retenue : %s", n, uid, type(erreur).__name__)
         reprise = _lire()
         if uid in reprise and not (fiche_avant.get("dates") or {}).get(str(n)):
             reprise[uid].setdefault("dates", {}).pop(str(n), None)
             _ecrire(reprise)
+        if n == 1:
+            _garder_au_programme(uid, 1, noter=True)
         return False
     d = _lire()
     if uid in d:
@@ -1337,6 +1372,7 @@ BIENVENUE_H = int(os.environ.get("PARCOURS_BIENVENUE_H", "1") or 1)
 TEXTE_BIENVENUE = ("🎉 **Bienvenue, {prenom} !**\n\n"
                    "Ta créatrice : **{creatrice}**.\n\n"
                    "{videos_bienvenue}\n\n"
+                   "Garde ce message. `!etape` affiche ton avancement et tes consignes.\n"
                    "Une question ? Réponds ici, dans ton salon personnel.")
 # 10/10 (vérification L10 : deux « 🎉 Bienvenue dans l'agence » à la suite) : un clipper qui a déjà reçu le repli d'attente (« Ta
 # créatrice arrive ici dès qu'un compte est prêt pour toi ») lit « Ta créatrice est là », pas une seconde bienvenue.
@@ -1373,14 +1409,36 @@ def _vue_bienvenue(uid: str, fiche_p: dict = None, avec_pret: bool = False):
 
 
 async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
-    """09/10 : le compte 1 est donné → le « ✅ C'est fait » de la bienvenue s'en va (le bouton WhatsApp reste). 10/10 : il devient
-    « ✅ J'ai écrit à Gaëtan » ; une bienvenue du 10/10 (« pret_retire ») n'a jamais eu de « ✅ C'est fait » : rien à modifier."""
+    """Retire seulement les composants de la bienvenue identifiée du bot.
+
+    pret_retire est un ancien marqueur, pas une preuve d'absence du bouton WhatsApp.
+    Corrige les seules consignes historiques obsolètes ; conserve le reste du message.
+    """
     mid = (fiche_p.get("messages") or {}).get("bienvenue")
-    if not mid or not str(mid).isdigit() or salon is None or fiche_p.get("pret_retire"):
+    if not mid or not str(mid).isdigit() or salon is None:
         return
     try:
         msg = await salon.fetch_message(int(mid))
-        await msg.edit(view=_vue_bienvenue(uid, fiche_p, avec_pret=False))
+        if getattr(msg.author, "id", None) != getattr(salon.guild.me, "id", None):
+            return
+        contenu = getattr(msg, "content", "")
+        # Gabarits historiques (CONSIGNE_WA/SANS_WA) seulement : ne pas supprimer
+        # un paragraphe de formation qui mentionne aussi WhatsApp ou un bouton.
+        import re
+        nouveau = contenu
+        for motif in (
+            r"📲 (?:\*\*)?Écris à Gaëtan sur WhatsApp(?:\*\*)? avec le bouton\. Il t'ajoute au groupe\."
+            r"(?:\n\nEnvoie-lui : [^\n]+)?",
+            r"C['’]est fait \? Appuie sur ✅ ?\.",
+            r"👇 Ton compte 1 arrive juste en dessous\.",
+        ):
+            # Enlever seulement les deux séparateurs du paragraphe ciblé,
+            # jamais normaliser les espaces/sauts de ligne du contenu conservé.
+            nouveau = re.sub(r"(?:\A|\n\n)" + motif + r"(?=\n\n|\Z)", "", nouveau)
+        if nouveau != contenu:
+            await msg.edit(content=nouveau, view=None)
+        elif msg.components:
+            await msg.edit(view=None)
     except (discord.Forbidden, discord.HTTPException, discord.NotFound):
         pass
     except Exception as erreur:                                         # noqa: BLE001 — un bouton en trop, jamais une étape en moins
@@ -1397,6 +1455,8 @@ async def demarrer_parcours(salon, membre, creatrice: str, bienvenue: bool = Tru
     uid = str(membre.id)
     fiche_p = d.get(uid)
     if fiche_p and int(fiche_p.get("etape", 0) or 0) >= 1 and _cle_creatrice(fiche_p.get("creatrice")) == _cle_creatrice(creatrice):
+        if int(fiche_p.get("etape", 0) or 0) == 1 and not (fiche_p.get("messages") or {}).get("1"):
+            await ouvrir_compte_1(salon, uid, par="bot")
         return
     nouveau = {"prenom": _prenom(membre), "creatrice": creatrice}
     trace = _reprendre_trace(uid, salon, creatrice)
@@ -1436,7 +1496,7 @@ async def ouvrir_compte_1(salon, uid: str, par: str = "bot") -> str:
         return "absent"
     d = _lire()
     f = d.get(uid)
-    if not f or f.get("bienvenue_ok") or (f.get("dates") or {}).get("1") or int(f.get("etape", 0) or 0) != 1:
+    if not f or (f.get("messages") or {}).get("1") or int(f.get("etape", 0) or 0) != 1:
         return "deja"
     f["bienvenue_ok"] = _maintenant()                                   # écrit AVANT l'envoi : jamais deux fois (clic + programme)
     f["programme"] = [x for x in f.get("programme") or [] if not (x.get("type") == "etape" and int(x.get("n") or 0) == 1)]
@@ -2280,6 +2340,8 @@ async def _programme_du_jour(client, maintenant=None) -> list:
     except Exception as erreur:                                         # noqa: BLE001
         journal.warning("Clippers bloqués par un BAN : %s", erreur)
     for uid, fiche_p in list(d0.items()):
+        salon_nettoyage = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))
+        await _retirer_pret(salon_nettoyage, uid, fiche_p)
         if not any(_a_traiter(fiche_p, x, maintenant) for x in fiche_p.get("programme") or []):
             continue
         salon = client.get_channel(int(fiche_p.get("salon_id", 0) or 0))

@@ -148,7 +148,7 @@ journal = logging.getLogger("dashboard")
 
 ONGLET = os.environ.get("ONGLET_DASHBOARD", "Dashboard").strip() or "Dashboard"
 SIMPLE = os.environ.get("DASHBOARD_DETAILLE", "0").strip() != "1"   # 12/10 : le tableau simple (DASHBOARD_DETAILLE=1 : l'ancien)
-DASHBOARD_VERSION = 13 if SIMPLE else 12   # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
+DASHBOARD_VERSION = 14 if SIMPLE else 12   # 09/10 (dashboard) : une ligne par compte, tendances, contrôle ; changée → règles reposées
                                        # 11 (revue DASH) : lignes d'alerte « ⛔ » sous le titre, règle de couleur « ⛔ »
                                        # 12 (11/10, lot L8) : colonnes « hyper complètes », ÉQUIPES, clippers sans compte
                                        # 13 (12/10) : le tableau simple, sur le modèle des onglets créatrices
@@ -1065,6 +1065,7 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
     notes = []
     f = _serie("followers_a", cle) if ctx.seriesok else None
     L["followers_source"] = "série" if f is not None else ""
+    L["followers_verified_at"] = ""
     if f is not None:
         # 09/10 (revue DASH : un followers de 5 ou 15 jours affiché « lu » avec l'heure du jour) : l'heure du relevé qui a FOURNI les
         # followers (même choix que series.followers_a : le plus récent, Metricool d'abord à la même heure). Plus vieux que le
@@ -1075,6 +1076,8 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
         avec = [r for r in rels if isinstance(r.get("followers"), int) and not isinstance(r.get("followers"), bool)]
         r_f = max(avec, key=lambda r: (_instant(r["t"]), r.get("source") == "metricool")) if avec else None
         t_f = _instant(r_f["t"]) if r_f else None
+        if t_f is not None and r_f.get("followers") == f:
+            L["followers_verified_at"] = t_f.isoformat()
         t_apify = max((_instant(r["t"]) for r in rels if r.get("source") != "metricool"), default=None)
         if t_f is not None and t_apify is not None and t_f < t_apify:
             if ctx.maintenant - t_f > timedelta(days=FOLLOWERS_PERIME_J):
@@ -1345,7 +1348,7 @@ def _reels_recents(ctx: _Ctx, L: dict) -> tuple:
             r7 = sum(1 for p, _x in publies if m7 <= p < m0)
     vues, n = 0, 0
     for p, x in publies:
-        if p < m7:
+        if p < m7 or p >= m0:
             continue
         pts = [pt for pt in (x.get("vues") or []) if isinstance(pt, list) and len(pt) == 2 and isinstance(pt[1], (int, float))
                and not isinstance(pt[1], bool) and _instant(pt[0])]
@@ -1608,7 +1611,9 @@ def _resultat(ctx: _Ctx, rows: list, kinds: list, comptes_l: list, creatrices: s
         pil["comptes_classeur"] = {_cle(c.get("handle")): {"etat": str(c.get("etat") or ""), "creatrice": L_cr}
                                    for c, L_cr in ((L["c"], L["cr_nom"]) for L in comptes_l) if c.get("handle")}
         pil["chiffres"] = {_cle(L["c"].get("handle")): {"followers": L.get("followers"), "r7": L.get("r7"),
-                                                        "v7": _vues_mesurees(L)[0]} for L in comptes_l if L["c"].get("handle")}
+                                                        "v7": _vues_mesurees(L)[0],
+                                                        "followers_verified_at": L.get("followers_verified_at") if L.get("followers") is not None else ""}
+                           for L in comptes_l if L["c"].get("handle")}
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Pilotage : tables non construites (%s)", erreur)
         pil = None
@@ -1623,13 +1628,13 @@ def _resultat(ctx: _Ctx, rows: list, kinds: list, comptes_l: list, creatrices: s
 # Plus de CONTRÔLE, de TENDANCES, d'ÉQUIPES, de Mesure ni de Relevé dans l'onglet (l'app pilotage, l'app des TL et !tl liste les
 # portent) ; DASHBOARD_DETAILLE=1 remet l'ancien onglet complet.
 COLONNES_S = ["Gérant", "@ IG", "ETAT", "Followers", "Reels hier", "Reels 7 j", "Vues 7 j", "Clics hier", "Clics 7 j",
-              "Évolution clics", "Team Leader"]
+              "Évolution clics", "Team Leader", "Type de compte", "Qualité / vérification"]
 NB_S = len(COLONNES_S)
-(S_GERANT, S_HANDLE, S_ETAT, S_FOL, S_RH, S_R7, S_V7, S_CH, S_C7, S_DC, S_TL) = range(NB_S)
-LARGEURS_S = (130, 190, 90, 90, 80, 80, 90, 85, 85, 105, 110)
+(S_GERANT, S_HANDLE, S_ETAT, S_FOL, S_RH, S_R7, S_V7, S_CH, S_C7, S_DC, S_TL, S_TYPE, S_QUALITE) = range(NB_S)
+LARGEURS_S = (130, 190, 90, 90, 80, 80, 90, 85, 85, 105, 110, 110, 260)
 S_FUSIONS = (S_GERANT, S_CH, S_C7, S_DC, S_TL)                          # une cellule par Gérant, comme dans les onglets créatrices
 VERT_ENTETE = "#356854"                                                  # l'en-tête des onglets créatrices
-ETATS_COULEURS = {"Good": ("#B7E1CD", "#0B6E3A"), "Faire appel": ("#FCE8B2", "#9C5700"),
+ETATS_COULEURS = {"GOOD": ("#B7E1CD", "#0B6E3A"), "Faire appel": ("#FCE8B2", "#9C5700"),
                   "Ban": ("#F4C7C3", "#B71C1C"), "À créer": ("#FFFFFF", "#616161")}
 
 
@@ -1641,11 +1646,74 @@ def _vues_aff(L: dict):
 
 
 def etat_affiche(etat) -> str:
-    """12/10 (Gaëtan : « Enlève le WARMUP, soit c'est BAN, soit c'est GOOD, soit c'est privé ») : un WARMUP resté au classeur se lit
-    GOOD."""
-    e = str(etat or "").strip()
-    return {"good": "Good", "warmup": "Good", "faire appel": "Faire appel", "ban": "Ban",
-            "a creer": "À créer", "prive": "À vérifier (type privé)"}.get(_norm(e), e)
+    """Quatre valeurs seulement ; un ancien type ou état ambigu reste sans santé inventée."""
+    return {"good": "GOOD", "faire appel": "Faire appel", "ban": "Ban", "a creer": "À créer"}.get(_norm(str(etat or "")), "")
+
+
+def qualite_etat(etat) -> str:
+    if etat_affiche(etat):
+        return ""
+    return "Type privé seul : santé à vérifier" if _norm(str(etat or "")) == "prive" else "État source à vérifier"
+
+
+def trier_comptes_simples(rows, kinds):
+    """POD contigus : meilleur état du POD, puis état de chaque compte."""
+    ordre = {s:i for i,s in enumerate(ETATS_COULEURS)}
+    i = 0
+    while i < len(rows):
+        if kinds[i]["kind"] != "compte":
+            i += 1
+            continue
+        fin = i
+        while fin < len(rows) and kinds[fin]["kind"] == "compte":
+            fin += 1
+        pods = {}
+        for r,t in zip(rows[i:fin],kinds[i:fin]):
+            pods.setdefault(t['groupe'],[]).append((r,t))
+        def rang_pod(item):
+            g, membres = item
+            rang=min(ordre.get(r[S_ETAT],4) for r,_ in membres)
+            if rang==3 and any(r[S_ETAT]!='À créer' for r,_ in membres):rang=4
+            return (rang,str(g))
+        bloc = [pair for _, membres in sorted(pods.items(),key=rang_pod)
+                for pair in sorted(membres,key=lambda x:(ordre.get(x[0][S_ETAT],4),str(x[0][S_HANDLE])))]
+        mesures = {}
+        for r,t in bloc:
+            if any(r[c] != "" for c in (S_CH,S_C7,S_DC)):
+                mesures[t["groupe"]] = [r[c] for c in (S_CH,S_C7,S_DC)]
+        vus = set()
+        for j,(r,t) in enumerate(bloc,i):
+            g = t["groupe"]
+            for c,v in zip((S_CH,S_C7,S_DC), mesures.get(g,["", "", ""]) if g not in vus else ["", "", ""]):
+                r[c] = v
+            vus.add(g)
+            t["groupe_n"] = 1  # Plus de fusion traversant plusieurs états.
+            rows[j],kinds[j] = r,t
+        i = fin
+    return rows,kinds
+
+
+def type_pod(c):
+    valeur = _norm(str(c.get('type_compte') or c.get('type') or c.get('utilisation') or ''))
+    types = {'croissance 1':'Croissance 1','croissance 2':'Croissance 2',
+             'croissance':'Croissance','prive':'Privé','compte prive':'Privé'}
+    return types.get(valeur) or ('Privé' if _norm(c.get('etat')) == 'prive' else 'À vérifier')
+
+
+def qualite_pod(comptes):
+    anomalies=[]
+    if len(comptes)!=3:anomalies.append(f'POD : {len(comptes)} IG au lieu de 3')
+    types=[type_pod(c) for c in comptes]
+    if types.count('Privé')!=1 or sum(t.startswith('Croissance') for t in types)!=2:
+        anomalies.append('POD : types à vérifier (2 croissance + 1 privé attendus)')
+    for champ,label in (('lien_gaml','GAML'),('lien_mym','MYM'),('lien_infloww','OF')):
+        valeurs={str(c.get(champ) or '').strip() for c in comptes} - {''}
+        if len(valeurs)!=1:anomalies.append(f'POD : {label} absent ou multiple')
+    return ' ; '.join(anomalies)
+
+
+def mesure_pod(v):
+    return 'Non relevé' if v is None else v
 
 
 def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict, fraicheur: str, alertes: list) -> tuple:
@@ -1657,7 +1725,9 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
 
     ajouter(["Dashboard · mis à jour le " + ctx.p.strftime("%d/%m à %Hh%M") + " (Paris)"], "titre")
     ajouter([fraicheur], "fraicheur")
-    ajouter(["Good · Faire appel · Ban · À créer — Privé : type de compte"], "fraicheur")
+    ajouter([f"Période 7 j : {(ctx.hier-timedelta(days=6)).isoformat()} → {ctx.hier.isoformat()} inclus (Paris). "
+             f"Hier : {ctx.hier.isoformat()}. Followers : dernier relevé ; Non relevé ≠ zéro. Clics GAML payables (pas visites brutes) : une fois par POD."], "fraicheur")
+    ajouter(["GOOD · Faire appel · Ban · À créer — état inconnu vide ; détails en Qualité"], "fraicheur")
     for quoi, gravite, texte in alertes:
         ajouter([f"{quoi} : {texte}"], "alerte", gravite=gravite)
     ajouter([], "vide")
@@ -1692,6 +1762,10 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
             bande[S_CH], bande[S_C7], bande[S_DC] = _v(k_cr.get("hier")), _v(k_cr.get("c7")), k_cr.get("delta") or ""
         ajouter(bande, "creatrice", cr=cr)
         ajouter(COLONNES_S, "entete", cr=cr)
+        for g, ls in groupes.items():
+            if g not in ('crea','libre') and not g.startswith('m|'):
+                anomalie=qualite_pod([L['c'] for L in ls])
+                if anomalie:ajouter([f"POD {ls[0]['c'].get('gerant') or '?'} · {anomalie}"], 'alerte', gravite='attention')
         zebre = 0
         for g, ls in sorted(groupes.items(), key=cle_tri):
             if g == "crea":
@@ -1706,14 +1780,16 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
                 r = [""] * NB_S
                 r[S_HANDLE] = L["c"]["handle"]
                 r[S_ETAT] = etat_affiche(L["c"].get("etat"))
-                r[S_FOL] = _v(L["followers"])
-                r[S_RH], r[S_R7] = _v(L["rh"]), _v(L["r7"])
+                r[S_TYPE] = type_pod(L["c"])
+                r[S_QUALITE] = qualite_etat(L["c"].get("etat"))
+                r[S_GERANT], r[S_TL] = nom, tl
+                r[S_FOL] = mesure_pod(L["followers"])
+                r[S_RH], r[S_R7] = mesure_pod(L["rh"]), mesure_pod(L["r7"])
                 r[S_V7] = _v(_vues_aff(L))
                 if i == 0:                                               # le Gérant, ses clics et son TL : une fois, fusionnés
                     r[S_GERANT], r[S_TL] = nom, tl
-                    if k:
-                        r[S_CH], r[S_C7], r[S_DC] = _v(k.get("hier")), _v(k.get("c7")), k.get("delta") or ""
-                ajouter(r, "compte", cr=cr, zebre=zebre % 2, groupe_n=len(ls) if i == 0 else 0)
+                    r[S_CH], r[S_C7], r[S_DC] = mesure_pod(k.get("hier")), mesure_pod(k.get("c7")), k.get("delta") or "Non relevé"
+                ajouter(r, "compte", cr=cr, zebre=zebre % 2, groupe_n=len(ls) if i == 0 else 0, groupe=g)
             zebre += 1
         if autres:
             k_a = _clics_de(ctx, autres)
@@ -1734,7 +1810,7 @@ def _simple(ctx: _Ctx, comptes_l: list, ordre_cr: list, restes: dict, tout: dict
     if tout:
         r[S_CH], r[S_C7], r[S_DC] = _v(tout.get("hier")), _v(tout.get("c7")), tout.get("delta") or ""
     ajouter(r, "total")
-    return rows, kinds
+    return trier_comptes_simples(rows, kinds)
 
 
 def requetes_simple(r: dict, sid: int, lignes_grille: int, colonnes_grille: int) -> list:
@@ -1793,7 +1869,7 @@ def requetes_simple(r: dict, sid: int, lignes_grille: int, colonnes_grille: int)
             fond = "#F5F5F5" if t.get("zebre") else BLANC
             req.append(_style(sid, i, i + 1, S_HANDLE, S_CH, fond=fond))   # Gérant, clics et TL : stylés par bloc (ci-dessous)
             req.append(_style(sid, i, i + 1, S_HANDLE, S_HANDLE + 1, fond=fond, aligne="LEFT"))
-            etat = str(lignes[i][S_ETAT] or "").upper()
+            etat = str(lignes[i][S_ETAT] or "")
             if etat in ETATS_COULEURS:
                 f_e, t_e = ETATS_COULEURS[etat]
                 req.append(_style(sid, i, i + 1, S_ETAT, S_ETAT + 1, fond=f_e, texte=t_e, gras=True))
@@ -3227,16 +3303,34 @@ def entrees(comptes: list) -> dict:
             "masques": masques, "metricool": met, "parcours": parcours_d if isinstance(parcours_d, dict) else {}}
 
 
-async def _ecrire_onglet(r: dict) -> int:
+VUES_PROTEGEES_IDS = {1900160410, 1900160402}
+VUES_PROTEGEES_NOMS = {'Comptes · Pilotage', 'Règles du process'}
+
+
+# Destination explicitement autorisée par Gaëtan ; aucun secret d'authentification.
+CLASSEUR_DASHBOARD_AUTORISE = '1z7LxKU70PdXfU0HWCtPltWqT84GwFQJTnOAFZdBnyDY'
+GID_DASHBOARD_AUTORISE = 569057685
+
+
+async def _verifier_destination():
     cid = onboarding.CLASSEUR_LOGINS_ID
+    if cid != CLASSEUR_DASHBOARD_AUTORISE:
+        raise RuntimeError('dashboard_destination_classeur_refusee')
+    if ONGLET in VUES_PROTEGEES_NOMS:
+        raise RuntimeError('dashboard_vue_protegee')
     props = await google_api.sheets_proprietes(cid)
-    if ONGLET not in props:
-        await google_api.sheets_creer_onglet(cid, ONGLET)
-        props = await google_api.sheets_proprietes(cid)
     p = props.get(ONGLET) or {}
-    sid = p.get("id")
-    if sid is None:
-        raise RuntimeError(f"onglet « {ONGLET} » introuvable")
+    sid = p.get('id')
+    if sid in VUES_PROTEGEES_IDS:
+        raise RuntimeError('dashboard_vue_protegee')
+    if sid != GID_DASHBOARD_AUTORISE:
+        raise RuntimeError('dashboard_destination_gid_refusee')
+    return cid,p
+
+
+async def _ecrire_onglet(r: dict) -> int:
+    cid,p = await _verifier_destination()
+    sid = p['id']
     faire = requetes_simple if r.get("simple") else requetes
     await _batch_unique(cid, faire(r, sid, int(p.get("lignes") or 0), int(p.get("colonnes") or 0)))
     return sid
@@ -3269,6 +3363,12 @@ async def ecrire(force: bool = False, *, maintenant: datetime = None) -> dict:
             return bilan
         if not _deps.get("lire_json"):
             bilan["erreur"] = "Dashboard non configuré (dashboard.configurer)"
+            return bilan
+        # Garde avant les mises à jour associées et tâches de pilotage différées.
+        try:
+            await _verifier_destination()
+        except Exception:
+            bilan['erreur'] = 'dashboard_destination_non_verifiee'
             return bilan
         maintenant = maintenant or datetime.now(timezone.utc)
         etat = _lire_etat()

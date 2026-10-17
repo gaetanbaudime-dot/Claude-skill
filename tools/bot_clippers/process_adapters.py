@@ -112,11 +112,16 @@ async def attribuer(membre, creatrice, tous=None, creer=True):
     if registre.get("sortie:" + uid):
         raise Bloque("Départ enregistré : nouvelle allocation de liens bloquée")
     job = registre.get(key)
+    fiche = (o._lire_etat().get('clippers') or {}).get(uid) or {}
+    confirme = fiche.get('lien_confirme') or {}
+    if (confirme.get('url') and (creer or job.get('phase') == 'pret')
+            and (job.get('lien') != confirme['url'] or job.get('phase') != 'pret')):
+        raise Bloque('Lien confirmé différent du job existant : rapprochement requis, aucun nouveau lien créé')
     if not creer and job.get('phase') != 'pret':
         # Lecture historique uniquement : aucune adoption, activation ou nouvelle attribution.
-        fiche = (o._lire_etat().get('clippers') or {}).get(uid) or {}
         return {'lien': fiche.get('lien', ''), 'lid': '',
-                'lignes': ['⚠️ Lien historique conservé ; nouvelle livraison bloquée jusqu’au rapprochement']}
+                'lignes': ['Lien existant conservé, non vérifié pour une nouvelle livraison.' if fiche.get('lien')
+                           else 'Liens non préparés ; requis avant le compte privé et l’application.']}
 
     if creer:
         registre.reserve(uid, [])  # historique complet obligatoire, jamais zéro présumé
@@ -224,3 +229,147 @@ class DepartAPI:
         etat = o._lire_etat()
         etat['clippers'].setdefault(uid, {}).update(sorti=True, liens_prets=False)
         o._ecrire_etat(etat)
+
+
+class LiensSheetsAPI:
+    """Aucune recherche par prénom, aucun appel de création ou de partage."""
+    def __init__(self, uid, registre):
+        self.uid, self.registre = str(uid), registre
+
+    async def verifier(self, job):
+        import paie_clics as p
+        # L'unicité globale a été prouvée à l'allocation et ses claims sont relus.
+        # Ici un seul GET, sans refaire l'inventaire GAML pour chaque clippeur.
+        detail = await p.lien_detail(job['lid'])
+        cibles = {job['mym'], job['of']}
+        destinations = [str(c.get('value') or '').strip() for c in detail.get('contents') or []
+                        if str(c.get('value') or '').strip() in cibles or not p.annexe_sure(c)]
+        return bool(detail.get('enabled') is True and detail.get('url') == job['lien']
+                    and len(destinations) == 2 and set(destinations) == cibles)
+
+    async def lignes(self):
+        import onboarding as o
+        import google_api
+        rows = await o.lire_comptes()
+        # Lecture indépendante stricte : le lecteur historique tolère une panne.
+        merges = await google_api.sheets_fusions(o.CLASSEUR_LOGINS_ID)
+        if not isinstance(merges, dict):
+            raise Bloque('fusions_non_verifiees')
+        for r in rows:
+            if r['onglet'] not in merges:
+                raise Bloque('fusions_non_verifiees')
+            cols = o._colonnes_lues_par_onglet.get(r['onglet']) or {}
+            for champ in ('lien_gaml', 'lien_mym', 'lien_infloww', 'gerant', 'handle', 'creatrice'):
+                col = cols.get(champ)
+                if col is not None and any(r0 <= r['ligne']-1 < r1 and c0 <= col < c1
+                    for r0,r1,c0,c1 in merges.get(r['onglet'], [])):
+                    r.setdefault('fusions', {})[champ] = 'intersection'
+        return rows
+
+    def appartient(self, r, uid, creatrice):
+        import onboarding as o
+        h = r.get('handle') or ''
+        fiche = (o._lire_etat().get('clippers') or {}).get(str(uid)) or {}
+        # Une ancienne livraison ne prouve pas l'attribution Sheets actuelle.
+        # Liaison attestée explicitement, jamais déduite d'un prénom ou d'un préfixe.
+        binding = self.registre.get('attribution-sheet:' + str(r.get('onglet')) + ':' + o._cle_handle(h)) or {}
+        courant = (binding.get('preuve') and str(binding.get('uid')) == str(uid)
+                   and binding.get('gerant') == r.get('gerant')
+                   and binding.get('creatrice') == creatrice)
+        canonique = o._norm(r.get('creatrice')) == o._norm(creatrice)
+        alias = self.registre.get('alias-creatrice:' + o._norm(r.get('creatrice'))) or {}
+        canonique = canonique or bool(alias.get('preuve') and alias.get('canonique') == creatrice)
+        return bool(courant and canonique and h and r.get('gerant') and o._norm(r.get('gerant')) not in o.GERANTS_LIBRES
+                    and not fiche.get('sorti') and h in fiche.get('comptes', [])
+                    and o._proprietaires().get(o._cle_handle(h)) == {str(uid)}
+                    and self.registre.owner_for_handle(h) == str(uid)
+                    and canonique)
+
+    def colonne(self, champ, onglet):
+        import onboarding as o
+        return o.a_colonne(champ, onglet)
+
+    async def ecrire(self, r, changements):
+        import onboarding as o
+        import google_api
+        await google_api.sheets_ecrire_plusieurs(o.CLASSEUR_LOGINS_ID,
+            [(o.cellule(r, k), [[v]]) for k,v in changements.items()])
+
+
+async def synchroniser_liens_sheets():
+    """Reprise périodique des jobs prêts uniquement ; les anciens mappings restent intacts."""
+    import onboarding as o
+    import process_sheets
+    registre = store()
+    bilan = {'ecrits': 0, 'proteges': set(), 'conflits': []}
+    etat = o._lire_etat()
+    for uid, fiche in (etat.get('clippers') or {}).items():
+        creatrice = str(fiche.get('creatrice') or '')
+        key = 'liens:' + str(uid) + ':' + creatrice.casefold()
+        job = registre.get(key)
+        if not job:
+            continue
+        bilan['proteges'].update(o._cle_handle(h) for h in fiche.get('comptes') or [])
+        try:
+            resultat = await process_sheets.synchroniser(registre, uid, creatrice, LiensSheetsAPI(uid, registre))
+            bilan['ecrits'] += resultat['ecrits']
+            bilan['conflits'].extend(resultat['conflits'])
+        except Exception as erreur:
+            # Ne jamais recopier une URL ou une réponse distante dans les journaux.
+            bilan['conflits'].append({'raison': str(erreur) if isinstance(erreur, Bloque) and str(erreur) in
+                ('liens_non_prets','destination_absente','reservation_divergente','verification_gaml_echouee',
+                 'aucune_ligne_attribuee_verifiee','allocation_modifiee') else 'synchronisation_indisponible'})
+    if bilan['conflits']:
+        o.journal.warning('Restitution liens Sheets : %d conflit(s), codes=%s', len(bilan['conflits']),
+                          ','.join(sorted({c['raison'] for c in bilan['conflits']})))
+    return bilan
+
+
+async def reserver_attribution(comptes, gerant, uid, creatrice):
+    """Intention neuve durable puis relecture : aucune attestation rétroactive."""
+    import onboarding as o
+    import google_api
+    from datetime import datetime, timezone
+    registre=store();api=LiensSheetsAPI(uid,registre);n=0
+    with registre.lock('allocations-liens'):
+        for cible in comptes:
+            h=o._cle_handle(cible.get('handle'))
+            onglet=cible.get('onglet')
+            key='attribution-sheet:'+str(onglet)+':'+h
+            intention_key='intention-'+key
+            async def relire():
+                rows=[r for r in await api.lignes() if o._cle_handle(r.get('handle'))==h]
+                if len(rows)!=1 or rows[0].get('onglet')!=onglet or rows[0].get('doublons_ecartes'):
+                    raise Bloque('attribution_identite_ambigue')
+                r=rows[0]
+                if o._norm(r.get('creatrice'))!=o._norm(creatrice):
+                    raise Bloque('attribution_creatrice_divergente')
+                if any(k in (r.get('fusions') or {}) for k in ('gerant','handle','creatrice')):
+                    raise Bloque('attribution_cellule_fusionnee')
+                if not o.a_colonne('gerant',onglet):raise Bloque('attribution_colonne_absente')
+                if (o._proprietaires().get(h) or set())-{uid}:
+                    raise Bloque('attribution_proprietaire_divergent')
+                return r
+            r=await relire()
+            intention=registre.get(intention_key)
+            attendu={'uid':uid,'gerant':gerant,'creatrice':creatrice,'handle':h,'onglet':onglet}
+            if not intention:
+                if (registre.owner_for_handle(h) is not None or o._proprietaires().get(h)
+                        or o._norm(r.get('gerant')) not in o.GERANTS_LIBRES
+                        or o._norm(r.get('etat')) not in o.A_CREER):
+                    raise Bloque('attribution_historique_non_attestable')
+                intention=dict(attendu,ligne_initiale=r['ligne'],date=datetime.now(timezone.utc).isoformat())
+                registre.put(intention_key,intention)
+            if any(intention.get(k)!=v for k,v in attendu.items()):
+                raise Bloque('attribution_intention_divergente')
+            if o._norm(r.get('gerant')) not in o.GERANTS_LIBRES and r.get('gerant')!=gerant:
+                raise Bloque('attribution_courante_divergente')
+            registre.reserve(uid,[h])
+            if r.get('gerant')!=gerant:
+                n+=await google_api.sheets_ecrire(o.CLASSEUR_LOGINS_ID,o.cellule(r,'gerant'),[[gerant]])
+            confirmation=await relire()
+            if confirmation.get('gerant')!=gerant or registre.owner_for_handle(h)!=uid:
+                raise Bloque('attribution_ecriture_non_confirmee')
+            registre.put(key,dict(attendu,ligne_constatee=confirmation['ligne'],
+                preuve='nouvelle-attribution-relue',date=datetime.now(timezone.utc).isoformat()))
+    return n

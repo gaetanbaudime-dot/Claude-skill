@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clipperParJeton } from "@/lib/clippers";
 import { demanderPseudo, mesComptes, mesDemandes, nettoyerHandle } from "@/lib/comptesApp";
+import { pilotage } from "@/lib/pilotage";
+import { pilotageEquipe } from "@/lib/classement";
 
 export const dynamic = "force-dynamic";
 const ENTETES = { "Cache-Control": "private, no-store" };
@@ -13,8 +15,10 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   const c = await clipperParJeton(params.token).catch(() => null);
   if (!c) return NextResponse.json({ erreur: "lien invalide" }, { status: 404 });
   try {
-    const [m, demandes] = await Promise.all([mesComptes(c.cle), mesDemandes(c.cle)]);
-    return NextResponse.json({ comptes: m.comptes, tl: m.tl, demandes }, { headers: ENTETES });
+    const [m, demandes, stats] = await Promise.all([mesComptes(c.cle), mesDemandes(c.cle), pilotage().catch(() => null)]);
+    const comptes = m.comptes.filter(x => x.n >= 1 && x.n <= 3);
+    const personnel = stats ? pilotageEquipe(stats, [{ prenom: c.prenom, creatrice: c.creatrice, comptes }]) : null;
+    return NextResponse.json({ comptes, tl: m.tl, demandes, pilotage: personnel }, { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "comptes en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
   }

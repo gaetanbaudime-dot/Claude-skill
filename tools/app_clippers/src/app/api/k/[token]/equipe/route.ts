@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { clipperParJeton, normaliser } from "@/lib/clippers";
 import { monEquipe } from "@/lib/comptesApp";
 import { equipeDe } from "@/lib/equipes";
+import { pilotage } from "@/lib/pilotage";
+import { pilotageEquipe } from "@/lib/classement";
 
 export const dynamic = "force-dynamic";
 const ENTETES = { "Cache-Control": "private, no-store" };
@@ -14,12 +16,14 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   try {
     const [membres, eq] = await Promise.all([monEquipe(c.cle), equipeDe(c.cle).catch(() => null)]);
     if (!membres.length) return NextResponse.json({ erreur: "pas de team leader" }, { status: 404, headers: ENTETES });
+    const donnees = await pilotage().then(d => pilotageEquipe(d, membres)).catch(() => null);
     const stats = new Map<string, { visites: number | null; auSeuil: boolean; manquants: number }>();
     for (const e of eq?.equipes || []) for (const m of e.membres) stats.set(normaliser(m.prenom).split(" ")[0], m);
     const seuil = eq?.equipes?.[0]?.seuil || 500;
     return NextResponse.json({
       seuil, prime: eq?.prime ?? null, primee: eq?.primee ?? null, debut: eq?.debut || "", fin: eq?.fin || "",
-      membres: membres.map((m) => ({ ...m, ...(stats.get(normaliser(m.prenom).split(" ")[0]) || { visites: null, auSeuil: false, manquants: 0 }) })),
+      membres: membres.map((m) => ({ ...m, comptes: m.comptes.filter(c => c.n >= 1 && c.n <= 3), ...(stats.get(normaliser(m.prenom).split(" ")[0]) || { visites: null, auSeuil: false, manquants: 0 }) })),
+      pilotage: donnees,
     }, { headers: ENTETES });
   } catch (e) {
     return NextResponse.json({ erreur: "équipe en cours de mise à jour", detail: (e as Error).message }, { status: 503, headers: ENTETES });
