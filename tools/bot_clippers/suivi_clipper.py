@@ -107,7 +107,13 @@ def construire(uid, entrees, dossier, vue, *, role=None, tl_uid='', livraison=No
     if dossier.get('sorti'):
         lignes += ['', 'Départ enregistré : toute reprise demande une vérification par ton équipe.']
     lignes += ['', 'Les boutons sont facultatifs ; ils ne valident aucune étape.']
-    return {'uid': uid, 'texte': '\n'.join(lignes),
+    action = vue.get('prochaine_action') or {}
+    motif = ((vue.get('blocages') or [{}])[0].get('code') or action.get('code')) if lecture_etats else 'source_indisponible'
+    motif = motif if re.fullmatch(r'[a-z_]{1,45}', str(motif)) else 'verification'
+    diagnostic = prochaine + ('\n\nÀ vérifier : ' + blocages[0] if blocages else '')
+    return {'uid': uid, 'texte': '\n'.join(lignes), 'diagnostic': diagnostic,
+            'escalade': not lecture_etats or str(action.get('responsable')) != uid,
+            'motif_support': 'blocage du parcours : ' + motif,
             'consignes': consignes(uid, entrees, creatrice, paie, maintenant),
             'etapes': etapes, 'blocages': blocages}
 
@@ -202,20 +208,25 @@ class BoutonSuivi(discord.ui.DynamicItem[discord.ui.Button], template=r'suivi:(?
             return
         await interaction.response.defer(ephemeral=True)
         try:
-            if self.action == 'consignes':
-                fiche = await asyncio.wait_for(_deps['collecter'](interaction.user), timeout=20)
-                texte = fiche['consignes'] if fiche.get('uid') == self.uid else 'Dossier non vérifiable pour ton UID.'
+            fiche = await asyncio.wait_for(_deps['collecter'](interaction.user), timeout=20)
+            if fiche.get('uid') != self.uid:
+                texte = 'Dossier non vérifiable pour ton UID.'
+            elif self.action == 'consignes':
+                texte = fiche['consignes']
+            elif not fiche.get('escalade'):
+                texte = fiche['diagnostic'] + '\n\nDécris précisément ce qui t’empêche de faire cette action dans ton salon, avec une capture sans code ni mot de passe. Aucun ticket transmis par ce bouton.'
             else:
                 # Le message du bot est une référence de contexte, pas une preuve du problème.
                 source = interaction.message
                 demande = SimpleNamespace(author=interaction.user, guild=interaction.guild, channel=interaction.channel,
                     id=source.id, jump_url=source.jump_url, attachments=[])
-                retour = await _deps['signaler_support'](demande, 'blocage signalé par le membre via sa fiche')
+                retour = await _deps['signaler_support'](demande, fiche['motif_support'])
                 ident = int(retour['id'])
                 texte = {'transmis': f'Ticket #{ident} transmis à l’équipe. Aucun délai confirmé.',
                          'envoi_incertain': f'Ticket #{ident} enregistré ; transmission incertaine, à vérifier avant tout renvoi.',
                          'a_envoyer': f'Ticket #{ident} enregistré ; transmission non confirmée.'}.get(
                              retour.get('statut'), 'Transmission non confirmée. Ton équipe doit vérifier le ticket.')
+                texte = fiche['diagnostic'] + '\n\n' + texte
                 texte += ' Décris le blocage et ajoute ta capture dans ton salon ; ne partage aucun code ni mot de passe.'
         except Exception:
             texte = 'Résultat non vérifiable. Ne suppose pas que ton équipe a reçu le signalement ; fais vérifier le dossier.'

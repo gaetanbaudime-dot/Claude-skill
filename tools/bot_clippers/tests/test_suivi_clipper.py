@@ -127,7 +127,8 @@ class ProjectionTests(unittest.TestCase):
 
 class BoutonsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        self.collecter = AsyncMock(return_value={'uid': '42', 'texte': 'Avancement fictif', 'consignes': 'Consignes fictives'})
+        self.collecter = AsyncMock(return_value={'uid': '42', 'texte': 'Avancement fictif', 'consignes': 'Consignes fictives',
+            'diagnostic': 'Historique du compte à vérifier.', 'escalade': True, 'motif_support': 'blocage du parcours : historique'})
         self.signaler = AsyncMock(return_value={'id': 1, 'statut': 'transmis'})
         self.deps = {'collecter': self.collecter, 'signaler_support': self.signaler,
                      'est_staff': lambda u: u.staff,
@@ -190,14 +191,34 @@ class BoutonsTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('transmis à', interaction.followup.send.await_args.args[0])
 
     async def test_aucune_promesse_si_lecture_ou_notification_echoue(self):
+        interaction = self.interaction()
         self.collecter.side_effect = TimeoutError()
+        await s.BoutonSuivi('42', 'consignes').callback(interaction)
+        self.assertIn('Résultat non vérifiable', interaction.followup.send.await_args.args[0])
+        self.collecter.side_effect = None
         self.signaler.return_value = {'id': 1, 'statut': 'a_envoyer'}
-        for action in ('consignes', 'bloque'):
-            interaction = self.interaction()
-            await s.BoutonSuivi('42', action).callback(interaction)
-            texte = interaction.followup.send.await_args.args[0]
-            self.assertNotIn('transmis à', texte)
-            self.assertNotIn('résolu', texte)
+        interaction = self.interaction()
+        await s.BoutonSuivi('42', 'bloque').callback(interaction)
+        texte = interaction.followup.send.await_args.args[0]
+        self.assertIn('Historique du compte à vérifier', texte)
+        self.assertIn('transmission non confirmée', texte)
+        self.assertNotIn('transmis à', texte)
+        self.assertNotIn('résolu', texte)
+
+    async def test_action_du_clipper_diagnostiquee_sans_alerte_systematique(self):
+        e, d = donnees()
+        fiche = s.construire('42', e, d, recrutement.projection(d, MAINTENANT), maintenant=MAINTENANT)
+        self.assertFalse(fiche['escalade'])
+        self.collecter.return_value = fiche
+        interaction = self.interaction()
+        await s.BoutonSuivi('42', 'bloque').callback(interaction)
+        self.assertIn('Publie les 3 Reels restants', interaction.followup.send.await_args.args[0])
+        self.assertIn('Décris précisément', interaction.followup.send.await_args.args[0])
+        self.signaler.assert_not_awaited()
+        d['historique_vie']['complet'] = False
+        bloque = s.construire('42', e, d, recrutement.projection(d, MAINTENANT), maintenant=MAINTENANT)
+        self.assertTrue(bloque['escalade'])
+        self.assertEqual('blocage du parcours : historique', bloque['motif_support'])
 
     async def test_commande_ne_renvoie_pas_dossier_autre_uid(self):
         self.collecter.return_value = {'uid': '420', 'texte': 'AUTRE-UID'}
