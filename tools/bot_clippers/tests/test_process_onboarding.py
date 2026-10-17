@@ -63,7 +63,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('incertaine', erreur)
 
     def contexte(self):
-        registre = {'pipeline': {'etats': {'42': {'etat': 'valide', 'score_quiz': '10 / 10'}}}, 'equipes': {}}
+        registre = {'pipeline': {'etats': {'42': {'etat': 'valide', 'score_quiz': '10 / 10'}}}, 'equipes': {}, 'onboarding': {}}
         role = SimpleNamespace(name='Fictive')
         membre = SimpleNamespace(id=42, display_name='Fictif - Fictive', roles=[SimpleNamespace(name='Clippeur')],
                                  edit=AsyncMock(), add_roles=AsyncMock())
@@ -82,7 +82,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
               'ecrire_json': lambda key, val: registre.update({key: deepcopy(val)}),
               'datetime': datetime, 'timezone': timezone, 'attribution': SimpleNamespace(_sortir_d_attente=Mock(), conserver_attente=Mock()),
               'NOMS_RANGS': ['Clippeur'], 'role_creatrice': lambda g, cr: role,
-              'roster': SimpleNamespace(ajouter=Mock()), 'discord': discord, 'parcours': parcours,
+              'roles_creatrices':lambda g:[role], 'roster': SimpleNamespace(ajouter=Mock(),groupes=lambda:{}), 'discord': discord, 'parcours': parcours,
               'journal': logging.getLogger('test')}
         return ns, membre, salon, registre
 
@@ -247,6 +247,9 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
 
 
 class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
+    setUp = OnboardingTests.setUp
+    contexte = OnboardingTests.contexte
+
     async def test_reprises_selectionnees_sans_stock_et_blocage_individuel(self):
         etats = {u: {'etat':'attente_attribution', **({'creatrice_attendue':'Fictive'} if u != '30' else {})}
                  for u in ('10','20','30')}
@@ -270,19 +273,25 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         valider.assert_not_awaited()
 
     async def test_reprise_conserve_creatrice_validee_sans_nouveau_tirage(self):
-        membre=SimpleNamespace(id=42,bot=False,guild=SimpleNamespace())
+        membre=SimpleNamespace(id=42,bot=False,guild=SimpleNamespace(),roles=[])
         choix='Fictive validee'
         onboarder=AsyncMock(return_value='⚠️ reprise nécessaire')
         prochain=Mock(side_effect=AssertionError('Aucun nouveau tirage autorisé'))
         stock=AsyncMock()
         conserver=Mock()
         etat={'historique':[]}
+        fichiers={'pipeline':{'etats':{'42':{'etat':'attente_attribution','creatrice_attendue':choix}}},'equipes':{},'onboarding':{}}
         ns={'actif':lambda:True,'_fiche_registre':lambda m:None,
             'creatrice_en_attente':lambda uid:choix,'_reserve_au_depot':lambda m:False,
             'sans_creatrice':lambda m:True,'_verrou':lambda key:asyncio.Lock(),
             'stock_livrable':stock,'prochaine':prochain,'conserver_attente':conserver,
             '_deps':{'etats_classeur':AsyncMock(return_value={}),
-                     'onboarder_membre':onboarder,'prenom_de':lambda m:'Fictif'},
+                     'onboarder_membre':onboarder,'prenom_de':lambda m:'Fictif',
+                     'lire_json':lambda f,d:deepcopy(fichiers.get(f,d)),
+                     'ecrire_json':lambda f,d:fichiers.update({f:deepcopy(d)}),
+                     'role_creatrice':lambda g,c:None,'roles_creatrices':lambda g:[],
+                     'roster':SimpleNamespace(groupes=lambda:{}), 'FICHIER_EQUIPES':'equipes','FICHIER_ONBOARDING':'onboarding'},
+            '_fichier_pipeline':lambda:'pipeline','ORDRE':[],
             '_Par':lambda:None,'_etat':lambda:deepcopy(etat),'_ecrire':lambda d:etat.update(d),
             'datetime':datetime,'timezone':timezone,'journal':logging.getLogger('test'),
             'bilan_court':str,'a_signaler':lambda *a:False}
@@ -291,4 +300,128 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         await attribuer(membre,'reprise fictive')
         self.assertEqual([choix,choix],[c.args[2] for c in onboarder.await_args_list])
         prochain.assert_not_called();stock.assert_not_awaited()
-        self.assertEqual([choix,choix],[c.args[1] for c in conserver.call_args_list])
+        conserver.assert_not_called()
+
+    async def test_decision_sourcee_prime_attente_et_proposition(self):
+        ns,m,salon,f=self.contexte()
+        f['pipeline']['etats']['42']['creatrice_attendue']='Autre'
+        f['equipes']['42']={'creatrice':'Autre'}
+        decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'}
+        fn=charger('onboarder_membre',ns)
+        await fn(SimpleNamespace(),m,'Autre',None,{},[],decision=decision)
+        self.assertEqual('Fictive',f['equipes']['42']['creatrice'])
+        self.assertEqual('Fictive',ns['onboarding'].livrer.await_args.args[1])
+        self.assertEqual(decision,f['pipeline']['etats']['42']['decision_creatrice'])
+
+    async def test_divergence_sans_decision_necrit_et_nenvoie_rien(self):
+        ns,m,salon,f=self.contexte()
+        f['pipeline']['etats']['42']['creatrice_attendue']='Autre'
+        f['equipes']['42']={'creatrice':'Fictive'}
+        avant=deepcopy(f)
+        resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Autre',None,{},[])
+        self.assertIn('divergent',resultat)
+        self.assertEqual(avant,f)
+        ns['onboarding'].lien_drive_creatrice.assert_not_awaited()
+        salon.set_permissions.assert_not_awaited()
+
+    async def test_role_divergent_bloque_sans_mutation_meme_avec_decision(self):
+        for explicite in (False,True):
+            ns,m,salon,f=self.contexte()
+            autre=SimpleNamespace(name='Autre')
+            m.roles.append(autre)
+            ns['roles_creatrices']=lambda g:[autre]
+            f['pipeline']['etats']['42']['creatrice_attendue']='Fictive'
+            avant=deepcopy(f)
+            decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'} if explicite else None
+            resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Fictive',None,{},[],decision=decision)
+            self.assertIn('Rôle de créatrice divergent',resultat)
+            self.assertEqual(avant,f)
+            ns['onboarding'].livrer.assert_not_awaited()
+            ns['onboarding'].lien_drive_creatrice.assert_not_awaited()
+            m.add_roles.assert_not_awaited();m.edit.assert_not_awaited()
+            salon.set_permissions.assert_not_awaited()
+            self.assertEqual({},self.store.counts('42'))
+
+    async def test_reservation_ancienne_inchangee_avec_decision(self):
+        ns,m,salon,f=self.contexte()
+        self.store.reserve('42',['compte-fictif'])
+        f['equipes']['42']={'creatrice':'Autre'}
+        avant=deepcopy(f)
+        with self.store.transaction() as db:
+            comptes=db.execute('SELECT * FROM accounts').fetchall()
+            aliases=db.execute('SELECT * FROM aliases').fetchall()
+        decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'}
+        resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Fictive',None,{},[],decision=decision)
+        self.assertIn('rapprochement',resultat)
+        self.assertEqual(avant,f)
+        with self.store.transaction() as db:
+            self.assertEqual(comptes,db.execute('SELECT * FROM accounts').fetchall())
+            self.assertEqual(aliases,db.execute('SELECT * FROM aliases').fetchall())
+        ns['onboarding'].livrer.assert_not_awaited()
+
+    async def test_ecriture_echouee_avant_tout_effet(self):
+        for silencieux in (False,True):
+            ns,m,salon,f=self.contexte()
+            ns['ecrire_json']=Mock() if silencieux else Mock(side_effect=OSError('disque fictif'))
+            resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),m,'Fictive',None,{},[])
+            self.assertIn('Choix retenu',resultat)
+            ns['onboarding'].lien_drive_creatrice.assert_not_awaited()
+            salon.set_permissions.assert_not_awaited()
+
+    async def test_commande_creatrice_utilise_parcours_et_attente_communs(self):
+        ns,m,salon,f=self.contexte()
+        f['equipes']['42']={}
+        ns['onboarding'].livrer.side_effect=OSError('livraison fictive interrompue')
+        fn=charger('onboarder_membre',ns)
+        msg=SimpleNamespace(id=77,guild=SimpleNamespace(),author=SimpleNamespace(id=90,display_name='Responsable fictif'),reply=AsyncMock())
+        m.mention='<@42>'
+        ns.update(est_manager=lambda a:True,chercher_membre=lambda *a,**k:m,
+                  onboarder_membre=fn)
+        ns['roster'].groupes=lambda:{'Fictive':[]}
+        ns['attribution'].ORDRE=['Fictive']
+        await charger('commande_creatrice',ns)(msg,'!creatrice fictif Fictive')
+        self.assertEqual('attente_attribution',f['pipeline']['etats']['42']['etat'])
+        self.assertEqual('discord-message:77',f['pipeline']['etats']['42']['decision_creatrice']['source'])
+        ns['attribution']._sortir_d_attente.assert_not_called()
+        self.assertIn('Livraison interrompue',msg.reply.await_args.args[0])
+
+    async def test_verrou_uid_serialise_et_accepte_la_reentree(self):
+        import choix_creatrice
+        entre=asyncio.Event();libere=asyncio.Event();trace=[]
+        async def premier():
+            async with choix_creatrice.verrou('42'):
+                trace.append('premier')
+                async with choix_creatrice.verrou('42'):
+                    entre.set();await libere.wait()
+                trace.append('fin')
+        async def second():
+            await entre.wait()
+            async with choix_creatrice.verrou('42'):
+                trace.append('second')
+        t1=asyncio.create_task(premier());t2=asyncio.create_task(second())
+        await entre.wait();await asyncio.sleep(0)
+        self.assertEqual(['premier'],trace)
+        libere.set();await asyncio.gather(t1,t2)
+        self.assertEqual(['premier','fin','second'],trace)
+
+    async def test_reprise_ecriture_partielle_garde_decision_et_messages(self):
+        import choix_creatrice
+        ns,m,salon,f=self.contexte()
+        f['equipes']['42']={'creatrice':'Autre'}
+        f['pipeline']['etats']['42']['creatrice_attendue']='Autre'
+        f['onboarding']={'clippers':{'42':{'alias_historiques':['fictif'], 'messages':{'1':'message-fictif'}}}}
+        avant_onb=deepcopy(f['onboarding'])
+        ecrire=ns['ecrire_json']
+        def panne(cle,val):
+            if cle=='equipes':raise OSError('registre fictif indisponible')
+            ecrire(cle,val)
+        decision={'creatrice':'Fictive','source':'revue-fictive','par':'90','date':'2026-10-17'}
+        async with choix_creatrice.verrou('42'):
+            with self.assertRaises(OSError):
+                choix_creatrice.preparer('42','Autre',ns['lire_json'],panne,'pipeline','equipes','onboarding',decision, {},verification_roles=lambda c:None)
+            choix=choix_creatrice.preparer('42','Autre',ns['lire_json'],ecrire,'pipeline','equipes','onboarding',comptes_connus={},verification_roles=lambda c:None)
+            avant=deepcopy(f)
+            self.assertEqual(choix,choix_creatrice.preparer('42','Autre',ns['lire_json'],ecrire,'pipeline','equipes','onboarding',comptes_connus={},verification_roles=lambda c:None))
+        self.assertEqual('Fictive',choix)
+        self.assertEqual(avant,f)
+        self.assertEqual(avant_onb,f['onboarding'])
