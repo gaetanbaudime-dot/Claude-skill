@@ -1,4 +1,7 @@
-"""L'appel de présence (05/10, Gaëtan : « vire tous les clippeurs qui ne répondent pas et qui sont inactifs sur le serveur, je veux
+"""17/10 : appels de présence et relances WhatsApp suspendus par défaut.
+APPEL_RELANCES=1 est une réactivation explicite ; les historiques et exclusions restent inchangés.
+
+L'appel de présence (05/10, Gaëtan : « vire tous les clippeurs qui ne répondent pas et qui sont inactifs sur le serveur, je veux
 que ça réponde et qu'ils viennent sur WhatsApp »).
 
 Deux moments :
@@ -47,6 +50,8 @@ import discord
 
 journal = logging.getLogger("appel")
 ACTIF = os.environ.get("APPEL", "1").strip() != "0"
+# Arrêt ciblé demandé le 17/10 : ne pas couper la boucle ni modifier les exclusions.
+RELANCES_ACTIVES = os.environ.get("APPEL_RELANCES", "0").strip() == "1"
 HEURES = int(os.environ.get("APPEL_HEURES", "48") or 48)
 INACTIF_JOURS = int(os.environ.get("APPEL_INACTIF_JOURS", "2") or 2)       # 05/10, 15 h 30 : 2 jours (4 avant)
 KICK = os.environ.get("APPEL_KICK", "1").strip() != "0"
@@ -165,6 +170,8 @@ def _consigne_wa(uid: str) -> str:
 
 
 def _vue(uid: str):
+    if not RELANCES_ACTIVES:
+        return None
     url = _deps["lien_whatsapp"](uid) if _deps.get("lien_whatsapp") else ""
     if not url:
         return None
@@ -198,6 +205,8 @@ async def _completer_activite(cibles: list) -> None:
 
 async def lancer_appel(cibles: list, motif: str, maintenant=None) -> list:
     """Poste l'appel dans le salon perso de chaque (salon, membre) sans appel en cours. Renvoie les prénoms appelés."""
+    if not RELANCES_ACTIVES:
+        return []
     maintenant = maintenant or datetime.now(timezone.utc)
     d = _lire()
     appeles = []
@@ -287,6 +296,8 @@ def a_sortir(d: dict, maintenant=None) -> list:
 
 def a_relancer_wa(d: dict, parcours: dict, maintenant=None) -> list:
     """[(uid, appel)] : a répondu il y a 24 h ou plus, pas de `!wa`, pas encore relancé pour WhatsApp."""
+    if not RELANCES_ACTIVES:
+        return []
     maintenant = maintenant or datetime.now(timezone.utc)
     out = []
     for uid, a in d.get("appels", {}).items():
@@ -432,7 +443,7 @@ async def executer(client, appliquer: bool = True, maintenant=None) -> list:
                 journal.warning("Relance WhatsApp de %s : %s", prenom, erreur)
         bilan.append(f"📲 {prenom} (<@{uid}>) : a répondu, pas de WhatsApp → relancé (`!wa @{prenom}` quand c'est fait)")
     # 3. inactifs → appel individuel (10/10 : seulement parmi les clippers mesurés)
-    if _deps.get("salons_clippers"):
+    if RELANCES_ACTIVES and _deps.get("salons_clippers"):
         try:
             cibles = await _deps["salons_clippers"]()
         except Exception as erreur:                                     # noqa: BLE001
@@ -495,7 +506,7 @@ def _suivi_illisible(illisible: bool, maintenant) -> list:
 
 async def appel_general(client) -> list:
     """L'appel à tous les clippers signés qui ont un salon perso ; retenu dans l'état pour ne jamais repartir."""
-    if not _deps.get("salons_clippers"):
+    if not RELANCES_ACTIVES or not _deps.get("salons_clippers"):
         return []
     cibles = await _deps["salons_clippers"]()
     maintenant = datetime.now(timezone.utc)
@@ -650,6 +661,9 @@ async def commande(message, texte: str) -> bool:
             return True
         await message.reply((("🚪 **Purge faite**\n" if go else f"🔎 **Purge {PURGE_HEURES} h : ce que `!purge go` ferait**\n") + "\n".join(bilan))[:1990])
         return True
+    if not RELANCES_ACTIVES:
+        await message.reply("Les appels de présence et leurs relances WhatsApp sont désactivés.")
+        return True
     if message.mentions:
         m = message.mentions[0]
         salon = _deps["salon_perso"](str(m.id)) if _deps.get("salon_perso") else None
@@ -676,10 +690,11 @@ async def boucle(client):
     if not ACTIF:
         journal.info("Appel de présence éteint (APPEL=0)")
         return
-    journal.info("Appel de présence actif : %d h pour répondre, inactif %d j = appelé, expulsion %s", HEURES, INACTIF_JOURS, "ON" if (KICK and SORTIE_AUTOMATIQUE) else "OFF")
+    journal.info("Relances de présence et CTA WhatsApp : %s", "actifs" if RELANCES_ACTIVES else "désactivés")
+    journal.info("Suivi des appels existants : échéance %d h, expulsion %s", HEURES, "ON" if (KICK and SORTIE_AUTOMATIQUE) else "OFF")
     await asyncio.sleep(90)                                             # le reste du démarrage d'abord (salons, registre)
     try:
-        if GENERAL and not _lire().get("general"):
+        if RELANCES_ACTIVES and GENERAL and not _lire().get("general"):
             appeles = await appel_general(client)
             canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
             if canal is not None:

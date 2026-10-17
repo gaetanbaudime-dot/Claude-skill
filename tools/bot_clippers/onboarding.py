@@ -761,13 +761,9 @@ def message_comptes(comptes: list, prenom: str, creatrice: str, debut: int = 1) 
     blocs = []
     for i, c in enumerate(comptes, start=debut):                    # 28/09 : trois comptes qui publient, plus de compte privé
         deja = "" if _norm(c["etat"]) in A_CREER else " · déjà créé, connecte-toi"
-        # 28/09 (Gaëtan, Simon perdu) : identifiant, mot de passe, e-mail chacun dans son bloc, copiable d'un geste sur le téléphone
         # 08/10 (audit de l'assistant : « Compte 3 · il publie » pour le compte privé des anciens) : le privé est dit privé
         role = "privé, il ne publie pas, ton lien va dans sa bio" if _est_prive(c) else "il publie"
-        blocs.append(f"**Compte {i}** · {role}{deja}\nIdentifiant :\n```\n{c['handle']}\n```\n"
-                     f"Mot de passe :\n```\n{c['mdp'] or 'demande-le à ton manager'}\n```"
-                     + (f"\nE-mail :\n```\n{c['mail']}\n```" if c["mail"] else "")
-                     + (f"\nTéléphone : `{c['phone']}`" if c["phone"] else ""))
+        blocs.append(f"**Compte {i}** · {role}{deja}\n\n" + _bloc_acces(c))
     # 01/10 (relecture) : ce message livre déjà les comptes — « le suivant arrive tout seul ici » y était faux (plusieurs
     # comptes sous les yeux, ou un remplaçant livré à l'étape 7 qui n'aura pas de suivant). Plus de règle recollée ici.
     import parcours                                                     # 01/10 : les deux conditions de la règle (import tardif)
@@ -2174,11 +2170,9 @@ def _remplacer_bans(fiche: dict, a_livrer: list, bans: set, partis=()) -> dict:
 
 
 def _bloc_acces(acces: dict) -> str:
-    """Identifiant, e-mail, mot de passe, chacun dans son bloc (copiable d'un geste sur le téléphone)."""
-    inconnu = "(demande-le à Gaëtan sur WhatsApp)"
-    return (f"Identifiant :\n```\n{acces.get('handle')}\n```\n"
-            + (f"E-mail :\n```\n{acces['mail']}\n```\n" if acces.get("mail") else "")
-            + f"Mot de passe :\n```\n{acces.get('mdp') or inconnu}\n```")
+    """Les messages hérités ne sérialisent plus d'e-mail, mot de passe ou téléphone."""
+    return (f"Identifiant prévu : @{acces.get('handle', '?')}\n\n"
+            "Ton responsable te remet les accès personnellement, par un canal sécurisé.")
 
 
 def message_nouveau_compte(mention: str, n: int, acces: dict, ancien: str = "", lien: str = "", codes: str = "") -> str:
@@ -2202,45 +2196,23 @@ def message_nouveau_compte(mention: str, n: int, acces: dict, ancien: str = "", 
 
 
 async def dire_nouveaux_comptes(membre, uid: str) -> tuple:
-    """09/10 (revue du lot L6) : les comptes notés « a_dire » dans la fiche (un remplaçant donné en routine, ou d'un compte que le
-    parcours a déjà passé) partent au clipper, un message par compte, dans son salon perso (sinon en MP). Un envoi refusé reste
-    dans « a_dire » : la boucle le retente au passage suivant. Renvoie ([numéros envoyés], [identifiants restés])."""
+    """Conserve la file héritée pour remise sécurisée par un humain.
+
+    Aucun accès n'est publié dans un salon ou en MP, même après redémarrage.
+    Le marqueur décrit le blocage sans recopier les accès ni acquitter la file.
+    Renvoie ([], comptes en attente), pour conserver le contrat des appelants.
+    """
     etat = _lire_etat()
     fiche = etat.get("clippers", {}).get(str(uid)) or {}
     a_dire = [h for h in fiche.get("a_dire") or [] if h]
     if not a_dire:
         return [], []
-    try:
-        import parcours                                                 # import tardif : parcours importe onboarding
-        fiche_p = parcours._lire().get(str(uid)) or {}
-        codes = parcours.texte_codes()
-    except Exception:                                                   # noqa: BLE001
-        fiche_p, codes = {}, ""
-    rangs = _rangs_parcours(str(uid), fiche, fiche_p, a_dire)
-    acces = {_cle_handle(a.get("handle")): a for a in fiche.get("acces") or [] if isinstance(a, dict)}
-    anciens = {_cle_handle(r.get("nouveau")): r.get("ancien") for r in fiche.get("remplaces") or [] if isinstance(r, dict)}
-    salon = _deps["salon_perso"](str(uid)) if _deps.get("salon_perso") else None
-    cible = salon if salon is not None else membre
-    envoyes, restes = [], []
-    for h in a_dire:
-        a = acces.get(_cle_handle(h))
-        if a is None or h not in rangs:
-            continue                                                    # sorti de la fiche entre-temps (`!liberer`) : rien à dire
-        try:
-            await cible.send(message_nouveau_compte(membre.mention, rangs[h], a, anciens.get(_cle_handle(h), ""),
-                                                    fiche.get("lien", ""), codes)[:1990])
-            envoyes.append(rangs[h])
-        except (discord.Forbidden, discord.HTTPException, AttributeError) as erreur:
-            journal.warning("Nouveau compte %s pour %s : %s", h, uid, type(erreur).__name__)
-            restes.append(h)
-    etat = _lire_etat()                                                 # relu après les envois
-    if str(uid) in etat.get("clippers", {}):
-        if restes:
-            etat["clippers"][str(uid)]["a_dire"] = restes
-        else:
-            etat["clippers"][str(uid)].pop("a_dire", None)
+    marque = {"etat": "humaine_requise", "raison": "file_heritee_acces",
+              "nombre": len(a_dire)}
+    if fiche.get("remise_securisee") != marque:
+        fiche["remise_securisee"] = marque
         _ecrire_etat(etat)
-    return envoyes, restes
+    return [], a_dire
 
 
 # 09/10 (revue du lot L6 : le 2e téléphone d'un clipper multi recevait ses 3 comptes, ses vidéos, son lien et la règle d'un seul
@@ -2302,8 +2274,8 @@ async def lien_autre_creatrice(membre, creatrice: str, handles=(), creer: bool =
 
 async def donner_telephones(uid=None, maintenant=None) -> int:
     """09/10 (revue du lot L6) : chaque autre créatrice d'un clipper multi (fiche « telephones ») reçoit, dans son salon perso, UN
-    compte à la fois : le compte 1 tout de suite, le suivant TELEPHONE2_ATTENTE_H heures après le précédent, le privé en dernier,
-    avec le lien GAML de cette créatrice, créé à ce moment-là (jamais avant : forfait GAML presque plein). Appelée par
+    compte à la fois historiquement. Les accès restant à remettre sont maintenant retenus pour remise humaine,
+    sans modifier les compteurs ni créer de lien. Le rappel du lien d'un compte déjà remis reste possible. Appelée par
     bot_discord.onboarder_multi (uid) et par la boucle du classeur (tous). Renvoie le nombre de messages envoyés."""
     maintenant = maintenant or datetime.now(timezone.utc)
     envoyes = 0
@@ -2318,27 +2290,16 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
             acces, donnes = list(t.get("acces") or []), int(t.get("donnes", 0) or 0)
             texte, lien = "", t.get("lien", "")
             if donnes < len(acces):
-                try:
-                    dernier = datetime.fromisoformat(str(t.get("dernier") or ""))
-                except ValueError:
-                    dernier = None
-                if dernier is not None and (maintenant - dernier).total_seconds() < TELEPHONE2_ATTENTE_H * 3600:
-                    continue
-                a = acces[donnes]
-                if a.get("prive") and not lien:
-                    lien = await lien_autre_creatrice(membre, creatrice, [x.get("handle") for x in acces])
-                videos = ""
-                if donnes == 0:
-                    try:
-                        videos = await lien_drive_creatrice(creatrice)
-                    except Exception as erreur:                         # noqa: BLE001
-                        journal.info("Vidéos d'origine de %s : %s", creatrice, type(erreur).__name__)
-                try:
-                    import parcours                                     # import tardif : parcours importe onboarding
-                    codes = parcours.texte_codes()
-                except Exception:                                       # noqa: BLE001
-                    codes = ""
-                texte = message_telephone(membre.mention, creatrice, donnes + 1, a, videos, lien, donnes + 1 < len(acces), codes)
+                # File héritée conservée : aucun POST, aucun lien créé ni compteur avancé.
+                etat = _lire_etat()
+                t2 = ((etat.get("clippers", {}).get(str(uid_t)) or {}).get("telephones") or {}).get(creatrice)
+                if isinstance(t2, dict):
+                    marque = {"etat": "humaine_requise", "raison": "telephone_herite_acces",
+                              "nombre": len(acces) - donnes}
+                    if t2.get("remise_securisee") != marque:
+                        t2["remise_securisee"] = marque
+                        _ecrire_etat(etat)
+                continue
             elif t.get("lien_du") and not lien:                         # le privé est parti sans lien : on le retente
                 try:
                     essai = datetime.fromisoformat(str(t.get("lien_essai") or ""))
@@ -2366,10 +2327,6 @@ async def donner_telephones(uid=None, maintenant=None) -> int:
             if lien:
                 t2["lien"] = lien
                 t2.pop("lien_du", None)
-            if donnes < len(acces) and texte:
-                t2["donnes"], t2["dernier"] = donnes + 1, maintenant.isoformat(timespec="seconds")
-                if acces[donnes].get("prive") and not lien:
-                    t2["lien_du"], t2["lien_essai"] = True, maintenant.isoformat(timespec="seconds")
             if not texte and not lien:
                 t2["lien_essai"] = maintenant.isoformat(timespec="seconds")
             _ecrire_etat(etat)
@@ -2402,7 +2359,7 @@ def ligne_comptes_classeur(mention: str, prenom: str, n: int, etape: int, a_veni
     if envoyes:
         bouts.append("envoyé dans son salon : " + ", ".join(f"compte {k}" for k in envoyes))
     if restes:
-        bouts.append(f"⚠️ envoi refusé ({len(restes)}), retenté au prochain passage")
+        bouts.append(f"⚠️ remise sécurisée par un humain requise ({len(restes)}), file conservée")
     if a_venir:
         bouts.append(f"son parcours (étape {etape}) le donnera : " + ", ".join(f"compte {k} à l'étape {k}" for k in a_venir))
     return tete + " : " + (" · ".join(bouts) if bouts else "rien à envoyer") + "."
