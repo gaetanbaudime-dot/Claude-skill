@@ -1235,6 +1235,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     classeur illisible) ou que le salon refuse le message."""
     uid = str(membre.id)
     fiche_avant = _lire().get(uid) or {}
+    pseudo_propose = None
     if n == 1 and pointer and (fiche_avant.get("messages") or {}).get("1"):
         return True
     if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
@@ -1259,13 +1260,25 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             return False
         handle = handles[n - 1]
         try:
-            onboarding.process_adapters.store().reserve(uid, [handle])
-            preuves = onboarding._deps["lire_json"](
-                onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
-            if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
-                _garder_au_programme(uid, n, noter=True)
-                journal.warning("Compte retenu : disponibilité Instagram non prouvée")
-                return False
+            registre = onboarding.process_adapters.store()
+            registre.reserve(uid, [handle])
+            if n == 1:
+                # Remise d'une proposition à créer, pas d'une disponibilité attestée.
+                # Une identité créée ou ambiguë ne devient jamais un compte neuf.
+                with registre.transaction() as db:
+                    identite = db.execute(
+                        "SELECT a.uid,a.status FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?",
+                        (handle.lower().lstrip("@"),)).fetchone()
+                if identite != (uid, "reserved") or _cree(fiche_avant, 1):
+                    raise RuntimeError("Premier compte non neuf : rapprochement requis")
+                pseudo_propose = handle
+            else:
+                preuves = onboarding._deps["lire_json"](
+                    onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
+                if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
+                    _garder_au_programme(uid, n, noter=True)
+                    journal.warning("Compte retenu : disponibilité Instagram non prouvée")
+                    return False
         except RuntimeError:
             _garder_au_programme(uid, n, noter=True)
             return False
@@ -1304,6 +1317,12 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         await _envoyer_routine(salon, membre, uid, ctx)
         return True
     e = etape_def(fiche_p, n)
+    if pseudo_propose:
+        # Le pseudo du message est celui contrôlé et réservé, sans aucun secret.
+        ctx["compte1"] = pseudo_propose
+        e = {**e, "icone": "", "titre": "Étape 1 · Ton compte 1", "texte": (
+            "Identifiant : @{compte1}\n\n"
+            "Les accès et les consignes de création seront remis ici par le propriétaire.")}
     ctx["palier"] = ""
     if n in (2, 3):
         # 09/10 : « 🎯 4 Reels vus sur ton compte 1. Voici ton compte 2. » — seulement quand ce sont bien les Reels qui l'ouvrent
@@ -1314,7 +1333,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             journal.info("Palier du compte %s de %s : %s", n, uid, erreur)
     icone = f"{e['icone']} " if e.get("icone") else ""
     texte = f"{membre.mention} {icone}**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
-    if n == 1 and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
+    if pseudo_propose:
+        texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
+    if n == 1 and not pseudo_propose and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
         ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
         gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
         texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(f"{membre.mention} ")
