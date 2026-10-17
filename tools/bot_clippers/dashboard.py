@@ -1065,6 +1065,7 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
     notes = []
     f = _serie("followers_a", cle) if ctx.seriesok else None
     L["followers_source"] = "série" if f is not None else ""
+    L["followers_verified_at"] = ""
     if f is not None:
         # 09/10 (revue DASH : un followers de 5 ou 15 jours affiché « lu » avec l'heure du jour) : l'heure du relevé qui a FOURNI les
         # followers (même choix que series.followers_a : le plus récent, Metricool d'abord à la même heure). Plus vieux que le
@@ -1075,6 +1076,8 @@ def _chiffres_compte(ctx: _Ctx, L: dict):
         avec = [r for r in rels if isinstance(r.get("followers"), int) and not isinstance(r.get("followers"), bool)]
         r_f = max(avec, key=lambda r: (_instant(r["t"]), r.get("source") == "metricool")) if avec else None
         t_f = _instant(r_f["t"]) if r_f else None
+        if t_f is not None and r_f.get("followers") == f:
+            L["followers_verified_at"] = t_f.isoformat()
         t_apify = max((_instant(r["t"]) for r in rels if r.get("source") != "metricool"), default=None)
         if t_f is not None and t_apify is not None and t_f < t_apify:
             if ctx.maintenant - t_f > timedelta(days=FOLLOWERS_PERIME_J):
@@ -1608,7 +1611,9 @@ def _resultat(ctx: _Ctx, rows: list, kinds: list, comptes_l: list, creatrices: s
         pil["comptes_classeur"] = {_cle(c.get("handle")): {"etat": str(c.get("etat") or ""), "creatrice": L_cr}
                                    for c, L_cr in ((L["c"], L["cr_nom"]) for L in comptes_l) if c.get("handle")}
         pil["chiffres"] = {_cle(L["c"].get("handle")): {"followers": L.get("followers"), "r7": L.get("r7"),
-                                                        "v7": _vues_mesurees(L)[0]} for L in comptes_l if L["c"].get("handle")}
+                                                        "v7": _vues_mesurees(L)[0],
+                                                        "followers_verified_at": L.get("followers_verified_at") if L.get("followers") is not None else ""}
+                           for L in comptes_l if L["c"].get("handle")}
     except Exception as erreur:                                          # noqa: BLE001
         journal.warning("Pilotage : tables non construites (%s)", erreur)
         pil = None

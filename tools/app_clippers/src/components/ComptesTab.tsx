@@ -11,6 +11,43 @@ type Demande = { n: number; handle: string; statut: string; detail: string; date
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(n);
 const NOMS = ["", "Compte 1", "Compte 2", "Compte 3"];
 
+type Metricool = { n: number; eligible: boolean; statut: "disponible" | "attente" | "pret" | "connecte" | "renouveler" };
+function MetricoolBouton({ jeton, n }: { jeton: string; n: number }) {
+  const [etat, setEtat] = useState<Metricool | null>(null);
+  const [message, setMessage] = useState("");
+  const [envoi, setEnvoi] = useState(false);
+  const charger = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/k/${jeton}/metricool`, { cache: "no-store" });
+      if (!r.ok) { setEtat(null); return; }
+      const d = await r.json();
+      setEtat(d.comptes.find((e: Metricool) => e.n === n) || null);
+    } catch { setEtat(null); }
+  }, [jeton, n]);
+  useEffect(() => { charger(); const id = setInterval(charger, 60_000); return () => clearInterval(id); }, [charger]);
+  const demander = async () => {
+    setEnvoi(true); setMessage("");
+    try {
+      const r = await fetch(`/api/k/${jeton}/metricool`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n }) });
+      const d = await r.json();
+      if (!r.ok) { setMessage(d.erreur || "Réessaie dans une minute."); return; }
+      setMessage("Demande enregistrée. L’agence vérifie les accès et prépare ta marque.");
+      await charger();
+    } catch { setMessage("Envoi impossible, réessaie."); } finally { setEnvoi(false); }
+  };
+  if (!etat?.eligible) return null;
+  return <div className="mt-4 border-t border-white/10 pt-3 text-[13px]">
+    {etat.statut === "pret" ? <a href={`/api/k/${jeton}/metricool?n=${n}`} target="_blank" rel="noopener noreferrer"
+      className="inline-block rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226]">Connecter Metricool ↗</a> :
+      etat.statut === "disponible" ? <button disabled={envoi} onClick={demander}
+        className="rounded-xl px-4 py-2.5 font-semibold bg-accent text-[#071226] disabled:opacity-40">{envoi ? "Envoi…" : "Demander la connexion Metricool"}</button> :
+      <p className="text-accent">{etat.statut === "connecte" ? "Metricool connecté · validé par l’agence" :
+        etat.statut === "renouveler" ? "Lien à renouveler par l’agence" : "Connexion Metricool demandée · validation agence en attente"}</p>}
+    <p className="mt-2 text-argent2">Réservé aux comptes à partir de 500 abonnés vérifiés. L’agence crée la marque puis fournit un lien de connexion temporaire.</p>
+    {message ? <p role="status" className="mt-2 text-argent2">{message}</p> : null}
+  </div>;
+}
+
 function Ligne({ c, demande, jeton, recharger }: { c: Compte; demande?: Demande; jeton: string; recharger: () => void }) {
   const [edition, setEdition] = useState(false);
   const [saisie, setSaisie] = useState("");
@@ -53,6 +90,7 @@ function Ligne({ c, demande, jeton, recharger }: { c: Compte; demande?: Demande;
         <button onClick={() => setEdition(true)} className="mt-3 text-[13px] font-semibold text-accent">Ce n'est pas le bon @ ? Modifier</button>
       )}
       {message ? <div className="mt-2 text-[12.5px] text-rose-200">{message}</div> : null}
+      <MetricoolBouton key={c.handle} jeton={jeton} n={c.n} />
     </div>
   );
 }
