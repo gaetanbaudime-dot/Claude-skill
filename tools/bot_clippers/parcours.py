@@ -210,7 +210,7 @@ LIEN_REPORTING = os.environ.get("LIEN_REPORTING", "https://forms.gle/uhPewryox7R
 
 def _identifiants(n: int) -> str:
     """Les secrets sont remis par le responsable, jamais dans le message automatique."""
-    return f"Identifiant prévu : @{{compte{n}}}\n\nTon responsable te remet les accès personnellement."
+    return f"Identifiant prévu : @{{compte{n}}}\n\nAccès : à confirmer auprès de ton responsable."
 
 
 ETAPES = {
@@ -1372,6 +1372,7 @@ BIENVENUE_H = int(os.environ.get("PARCOURS_BIENVENUE_H", "1") or 1)
 TEXTE_BIENVENUE = ("🎉 **Bienvenue, {prenom} !**\n\n"
                    "Ta créatrice : **{creatrice}**.\n\n"
                    "{videos_bienvenue}\n\n"
+                   "Garde ce message. `!etape` affiche ton avancement et tes consignes.\n"
                    "Une question ? Réponds ici, dans ton salon personnel.")
 # 10/10 (vérification L10 : deux « 🎉 Bienvenue dans l'agence » à la suite) : un clipper qui a déjà reçu le repli d'attente (« Ta
 # créatrice arrive ici dès qu'un compte est prêt pour toi ») lit « Ta créatrice est là », pas une seconde bienvenue.
