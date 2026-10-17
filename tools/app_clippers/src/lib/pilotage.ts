@@ -28,6 +28,9 @@ export function jetonValide(jeton: string | undefined): boolean {
 }
 
 export type Compte = {
+  /** Numéro d'origine du parcours (1, 2 croissance ; 3 privé), jamais renuméroté après un ban. */
+  numero?: number;
+  roleCompte?: string;
   creatrice: string; axe: string; type: string; gerant: string; handle: string; etat: string;
   followers: number | null; d24: number | null; d7: number | null; courbe: (number | null)[];
   reelsAuj: number | null; reelsHier: number | null; reels7: number | null;
@@ -46,7 +49,7 @@ export type Sub = { jour: string; creatrice: string; subsOf: number; caOfUsd: nu
 export type Clipper360 = {
   uid: string; prenom: string; role: string; creatrice: string;
   tl: string; tlUid: string; manager: string; managerUid: string;
-  app: boolean; comptes: { handle: string; etat: string }[];
+  app: boolean; comptes: { handle: string; etat: string; numero?: number }[];
   totalIg: number; gaml: string; gamlUuids: string; liens: number;
   visites7: number | null; qualiteVisites: string;
   reels7: number | null; anomalies: string;
@@ -67,18 +70,22 @@ let enCours: Promise<Pilotage> | null = null;
 async function lire(): Promise<Pilotage> {
   const id = await tableur();
   const jeton = await jetonGoogle();
-  const plages = [`'${ONGLETS.comptes}'!A2:V`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`, `'${ONGLETS.boutons}'!A2:H`, `'${ONGLETS.identites}'!A2:W`];
+  const plages = [`'${ONGLETS.comptes}'!A2:V`, `'${ONGLETS.clics}'!A2:I`, `'${ONGLETS.subs}'!A2:G`, `'${ONGLETS.infos}'!A1:B10`, `'${ONGLETS.boutons}'!A2:H`, `'${ONGLETS.identites}'!A2:W`, "'Comptes app'!A2:M"];
   const url = (ps: string[]) => `https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchGet?${ps.map((p) => `ranges=${encodeURIComponent(p)}`).join("&")}`;
   let r = await fetch(url(plages), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   // 13/10 : l'onglet des boutons n'existe qu'après la première publication du bot ; sans lui, le reste se lit quand même
+  if (r.status === 400) r = await fetch(url(plages.slice(0, 6)), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   if (r.status === 400) r = await fetch(url(plages.slice(0, 5)), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   if (r.status === 400) r = await fetch(url(plages.slice(0, 4)), { headers: { Authorization: `Bearer ${jeton}` }, cache: "no-store" });
   if (!r.ok) throw new Error(`Sheets ${r.status}`);
   const d = (await r.json()) as { valueRanges?: { values?: string[][] }[] };
-  const [vc, vk, vs, vi, vb, vref] = (d.valueRanges || []).map((x) => x.values || []);
+  const [vc, vk, vs, vi, vb, vref, vapp] = (d.valueRanges || []).map((x) => x.values || []);
+  // Seul le numéro sort de cette table : ses clés d'app restent côté serveur.
+  const numeros = new Map((vapp || []).filter(l => l[4]).map(l => [l[4].replace(/^@/, "").toLowerCase(), n0(l[3])]));
+  const roles = new Map((vapp || []).filter(l => l[4]).map(l => [l[4].replace(/^@/, "").toLowerCase(), l[12] || ""]));
   const infos = Object.fromEntries((vi || []).map((l) => [l[0], l[1]]));
   const comptes: Compte[] = (vc || []).filter((l) => l[4]).map((l) => ({
-    creatrice: l[0] || "?", axe: l[1] || "", type: l[2] || "", gerant: l[3] || "", handle: l[4] || "", etat: l[5] || "",
+    creatrice: l[0] || "?", axe: l[1] || "", type: l[2] || "", gerant: l[3] || "", handle: l[4] || "", etat: l[5] || "", numero: numeros.get(l[4].replace(/^@/, "").toLowerCase()), roleCompte: roles.get(l[4].replace(/^@/, "").toLowerCase()),
     followers: nb(l[6]), d24: nb(l[7]), d7: nb(l[8]), courbe: String(l[9] || "").split(";").map((x) => nb(x)),
     reelsAuj: nb(l[10]), reelsHier: nb(l[11]), reels7: nb(l[12]), vues7: nb(l[13]), vues7Avant: nb(l[14]),
     clicsAuj: nb(l[15]), clicsHier: nb(l[16]), clics7: nb(l[17]), clics7Avant: nb(l[18]), dernierReel: l[19] || "", mesure: l[20] || "", vuesRecentes: nb(l[21]),
@@ -97,7 +104,7 @@ async function lire(): Promise<Pilotage> {
     uid: l[0], prenom: l[1] || "", role: l[2] || "", creatrice: l[3] || "",
     tl: l[4] || "", tlUid: l[5] || "", manager: l[6] || "", managerUid: l[7] || "",
     app: l[8] === "OUI", comptes: [[l[9], l[10]], [l[11], l[12]], [l[13], l[14]]]
-      .filter((pair) => Boolean(pair[0])).map((pair) => ({ handle: pair[0] || "", etat: pair[1] || "" })),
+      .map((pair, i) => ({ handle: pair[0] || "", etat: pair[1] || "", numero: numeros.get((pair[0] || "").replace(/^@/, "").toLowerCase()) ?? i + 1 })).filter(c => Boolean(c.handle)),
     totalIg: n0(l[15]), gaml: l[16] || "", gamlUuids: l[17] || "", liens: n0(l[18]),
     visites7: nb(l[19]), qualiteVisites: l[20] || "", reels7: nb(l[21]), anomalies: l[22] || "",
   }));

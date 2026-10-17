@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ["@gm/reels"],
   images: { unoptimized: true },
   async headers() {
     return [{ source: "/(.*)", headers: [
