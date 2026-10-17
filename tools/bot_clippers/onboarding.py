@@ -493,6 +493,10 @@ def _pour_creatrice(c: dict, creatrice: str) -> bool:
 
 
 def _est_prive(c: dict) -> bool:
+    # Une confirmation humaine du rôle prime sur les mots contenus dans le @.
+    # GOOD décrit la santé ; ce n'est jamais une preuve d'un rôle croissance.
+    if c.get("role_confirme") in ("croissance", "prive"):
+        return c["role_confirme"] == "prive"
     return _norm(c["etat"]) in ("prive", "privé") or RE_PRIVE.search(_norm(c["handle"] or "")) is not None
 
 
@@ -735,10 +739,21 @@ async def reserver(comptes: list, prenom_clipper: str, uid: str = "", creatrice:
     return await process_adapters.reserver_attribution(comptes, prenom_clipper, str(uid), creatrice)
 
 
-def acces_ordonnes(comptes: list) -> list:
+def acces_ordonnes(comptes: list, precedents=None) -> list:
     """[{handle, mdp, mail}] dans l'ordre du parcours : les comptes de croissance d'abord, le privé en dernier."""
-    ordonnes = sorted(comptes, key=_est_prive)
+    roles, positions = {}, {}
+    for i, a in enumerate(precedents or []):
+        if not isinstance(a, dict) or a.get("role_confirme") not in ("croissance", "prive"):
+            continue
+        h, role = _cle_handle(a.get("handle")), a["role_confirme"]
+        if h in roles and roles[h] != role:
+            raise RuntimeError("Rôles confirmés contradictoires : rapprochement requis")
+        roles[h], positions[h] = role, i
+    enrichis = [dict(c, role_confirme=roles[_cle_handle(c.get("handle"))])
+                if _cle_handle(c.get("handle")) in roles else dict(c) for c in comptes]
+    ordonnes = sorted(enrichis, key=lambda c: (_est_prive(c), positions.get(_cle_handle(c.get("handle")), len(positions))))
     return [{"handle": c.get("handle", ""), "mdp": c.get("mdp", ""), "mail": c.get("mail", ""), "prive": bool(_est_prive(c)),
+             **({"role_confirme": c["role_confirme"]} if c.get("role_confirme") in ("croissance", "prive") else {}),
              "cree": _norm(c.get("etat", "")) not in A_CREER}                # 28/09 : compte rendu par un sortant → connexion, pas inscription
             for c in ordonnes]
 
@@ -1252,7 +1267,7 @@ async def livrer(membre, creatrice: str, salon=None, declencheur: str = "!creatr
     if lu:
         for c in comptes:
             etat["livres"][c["handle"].lower()] = {"uid": uid, "date": maintenant}
-        fiche["acces"] = acces_ordonnes(comptes)                          # 27/09 : chaque étape du parcours donne l'accès du jour
+        fiche["acces"] = acces_ordonnes(comptes, fiche.get("acces"))        # préserver les confirmations du même handle
         fiche["comptes"] = [c["handle"] for c in comptes]
     fiche.update({"creatrice": creatrice, "date": maintenant, "par": declencheur})
     fiche.setdefault("gerant", prenom)                                  # 10/10 (lot L3) : le même Gérant pour reserver_compte
