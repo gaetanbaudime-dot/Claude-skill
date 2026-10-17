@@ -1475,8 +1475,17 @@ async def _retirer_pret(salon, uid: str, fiche_p: dict) -> None:
             resultat = "nettoye"
         else:
             resultat = "deja_conforme"
-    except discord.NotFound:
-        resultat, code_http = "message_absent", 404
+    except asyncio.CancelledError:
+        # Une interruption de l'attente ne prouve pas que Discord a annulé
+        # l'édition. Aucune nouvelle tentative ici ; propager l'annulation.
+        _noter_nettoyage_bienvenue(salon_id, mid, "interrompu", phase,
+                                  "inconnue" if phase == "edition" else "aucune")
+        raise
+    except discord.NotFound as erreur:
+        code_http = 404
+        # Le statut HTTP seul ne distingue pas Unknown Message d'Unknown Channel.
+        resultats = {10008: "message_absent", 10003: "salon_introuvable"}
+        resultat = resultats.get(erreur.code, "ressource_introuvable") if type(erreur.code) is int else "ressource_introuvable"
     except discord.Forbidden:
         resultat, code_http = "acces_refuse", 403
     except discord.HTTPException as erreur:

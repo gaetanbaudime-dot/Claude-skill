@@ -27,6 +27,7 @@ def charger(nom, ns, fichier='bot_discord.py'):
     if fichier == 'parcours.py' and nom == '_retirer_pret':
         nodes.insert(0, next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_noter_nettoyage_bienvenue'))
         ns.setdefault('_NETTOYAGE_BIENVENUE_LOGS', {})
+        ns.setdefault('asyncio', asyncio)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), fichier, 'exec', flags=__future__.annotations.compiler_flag), ns)
     return ns[nom]
 
