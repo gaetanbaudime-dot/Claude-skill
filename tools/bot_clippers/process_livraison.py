@@ -11,12 +11,15 @@ def empreinte(texte):
     return hashlib.sha256(texte.encode()).hexdigest()
 
 
-async def envoyer_compte_1(store, salon, uid, texte, vue, *, cle=None):
+async def envoyer_compte_1(store, salon, uid, texte, vue, *, cle=None, operation=None):
     cle = cle or 'message-compte1:' + str(uid)
     with store.lock(cle):
         job = store.get(cle)
         if job and job.get('salon') != str(salon.id):
             raise Bloque('Livraison dans un autre salon : rapprochement requis')
+        if operation is not None and job and (
+                job.get('operation') != operation or job.get('empreinte') != empreinte(texte)):
+            raise Bloque('Opération de remise divergente : rapprochement requis')
         if job.get('message_id'):
             return SimpleNamespace(id=job['message_id'])
         if job.get('etat') == 'incertain':
@@ -34,6 +37,8 @@ async def envoyer_compte_1(store, salon, uid, texte, vue, *, cle=None):
             raise Bloque('Livraison incertaine : vérifier le salon avant tout renvoi')
         job = {'etat':'incertain', 'salon':str(salon.id), 'empreinte':empreinte(texte),
                'debut':datetime.now(timezone.utc).isoformat()}
+        if operation is not None:
+            job['operation'] = dict(operation)
         store.put(cle, job)  # durable avant le POST ; couvre aussi un arrêt du processus
         try:
             message = await salon.send(texte, view=vue, allowed_mentions=discord.AllowedMentions.none())

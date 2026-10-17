@@ -257,3 +257,52 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.message_supprime()
         await self.mutation_durant_lecture(lambda:self.store.put('sortie:42', {'etat':'fictif'}))
         self.salon.send.assert_not_awaited()
+
+    async def test_compte_change_entre_envoi_incertain_et_reprise_refuse(self):
+        self.message_supprime()
+        recu = None
+        async def envoyer(texte, **kwargs):
+            nonlocal recu
+            recu = N(id=123, content=texte, author=self.guild.me)
+            raise TimeoutError()
+        async def historique(**kwargs):
+            yield recu
+        self.salon.send.side_effect = envoyer
+        self.salon.history = historique
+        await self.appeler()
+        avant = self.store.get('remise-compte1:42:100')
+        self.store.reserve('42', ['autre_fictif'])
+        self.ligne['handle'] = 'autre_fictif'
+        with patch.object(r.parcours, '_comptes_ordonnes', return_value=['autre_fictif']):
+            await self.appeler()
+        self.assertEqual(avant, self.store.get('remise-compte1:42:100'))
+        self.assertEqual('100', self.fiche['messages']['1'])
+        self.assertEqual({}, self.store.get('message-compte1:42'))
+        self.salon.send.assert_awaited_once()
+
+    async def test_affectation_changee_apres_ecriture_partielle_ne_rattache_pas(self):
+        self.message_supprime()
+        with patch.object(r.parcours, '_ecrire', side_effect=OSError('fictif')):
+            await self.appeler()
+        self.fiche['messages']['1'] = '100'
+        avant = self.store.get('message-compte1:42')
+        self.fiche['creatrice'] = 'Autre'
+        self.ligne['creatrice'] = 'Autre'
+        await self.appeler()
+        self.assertEqual(avant, self.store.get('message-compte1:42'))
+        self.assertEqual('100', self.fiche['messages']['1'])
+        self.salon.send.assert_awaited_once()
+
+    async def test_contenu_change_entre_envoi_incertain_et_reprise_refuse(self):
+        self.message_supprime()
+        self.salon.send.side_effect = TimeoutError()
+        await self.appeler()
+        self.ligne['mdp'] = 'AUTRE_SECRET_FICTIF'
+        await self.appeler()
+        self.salon.send.assert_awaited_once()
+        self.assertEqual('100', self.fiche['messages']['1'])
+        journal = self.store.get('remise-compte1:42:100')
+        self.assertEqual('compte_fictif', journal['operation']['handle'])
+        self.assertTrue(journal['operation']['account_id'])
+        self.assertNotIn('MOT_DE_PASSE_FICTIF', str(journal))
+        self.assertNotIn('AUTRE_SECRET_FICTIF', str(journal))

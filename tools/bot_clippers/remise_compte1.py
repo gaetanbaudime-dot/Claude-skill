@@ -73,9 +73,12 @@ def verifier_etat(message, uid, admin_ids, est_staff, salon_frais=None):
     return fiche, onb, handle, str(mid), salon, membre, identite
 
 
-def enregistrer_reprise(uid, ancien_mid, nouveau_mid, salon_id):
+def enregistrer_reprise(uid, ancien_mid, nouveau_mid, salon_id, operation):
     """Répare les références après POST confirmé ; rejouable après écriture partielle."""
     store = process_adapters.store()
+    reprise = store.get(f'remise-compte1:{uid}:{ancien_mid}')
+    if reprise.get('operation') != operation or str(reprise.get('message_id')) != nouveau_mid:
+        raise Retenue('Opération de reprise divergente : rapprochement requis.')
     cle = 'message-compte1:' + uid
     journal = store.get(cle)
     if str(journal.get('message_id') or '') not in ('', ancien_mid, nouveau_mid):
@@ -147,13 +150,15 @@ async def commande(message, texte, admin_ids, est_staff=lambda membre:False):
             vue = parcours._vue(message.guild, uid, 1, {}, fiche_finale)
             if original is None:
                 # Journal distinct pour chaque suppression confirmée. Ne jamais vider l'ancien journal.
+                operation = dict(zip(('account_id', 'handle', 'ancien_message', 'salon', 'creatrice', 'gerant'), identite))
+                operation['uid'] = uid
                 nouveau = await process_livraison.envoyer_compte_1(
                     process_adapters.store(), salon_frais, uid, contenu, vue,
-                    cle=f'remise-compte1:{uid}:{mid}')
+                    cle=f'remise-compte1:{uid}:{mid}', operation=operation)
                 _, _, _, _, _, _, apres_envoi = verifier_etat(message, uid, admin_ids, est_staff, salon_frais)
                 if apres_envoi != identite:
                     raise Retenue('Dossier modifié pendant la remise ; résultat conservé au journal pour rapprochement.')
-                enregistrer_reprise(uid, mid, str(nouveau.id), str(salon.id))
+                enregistrer_reprise(uid, mid, str(nouveau.id), str(salon.id), operation)
             else:
                 await original.edit(content=contenu, view=vue, allowed_mentions=discord.AllowedMentions.none())
         await message.reply('✅ Message du compte 1 mis à jour dans le salon personnel. Aucun compte créé ni réattribué.')
