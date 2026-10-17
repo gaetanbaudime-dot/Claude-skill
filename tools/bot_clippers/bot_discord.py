@@ -6413,6 +6413,9 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
 
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    if texte.split()[:1] == ["!remettre-compte1"]:
+        import remise_compte1
+        return await remise_compte1.commande(message, texte, ADMIN_IDS, est_staff)
     if texte.split()[:1] == ["!diagnostic-dossier"]:
         import diagnostic_dossier
         return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS)
