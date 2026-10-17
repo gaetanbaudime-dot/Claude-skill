@@ -46,6 +46,30 @@ def url_valide(url):
     return u.scheme == "https" and (host in {"app.metricool.com", "mtr.cool"} or host.endswith(".mtr.cool")) and not u.username and not u.password and not u.port and u.path not in {"", "/"}
 
 
+def nouvelles_demandes(comptes, demandes, pseudos, now):
+    """Discover verified accounts without requiring a click; fail closed on ambiguity."""
+    latest = {(r[1], r[2]): r for r in pseudos if len(r) > 4}
+    known = {(r[1], r[2], r[3]) for r in demandes if len(r) > 3}
+    slots = {}
+    for c in comptes:
+        if len(c) > 4:
+            slots.setdefault((c[0], c[3]), []).append(c)
+    result = []
+    for slot, candidates in slots.items():
+        if len(candidates) != 1:
+            continue
+        c = candidates[0]
+        key = (c[0], c[3], c[4])
+        change = latest.get(slot)
+        if (not c[0] or c[3] not in {"1", "2", "3"} or not c[4]
+                or not eligible(c, now) or key in known
+                or (change and not change[4].strip() and change[3] != c[4])):
+            continue
+        result.append([now.isoformat(), c[0], c[3], c[4], str(c[6]), c[11], "demandé"] + [""] * 8)
+        known.add(key)
+    return result
+
+
 def expiration(data):
     e = data.get("expiresAt") or {}
     if not isinstance(e, dict):
@@ -167,13 +191,22 @@ async def traiter(classeur, comptes_app):
                 rows = await google_api.sheets_lire(classeur, f"'{TAB}'!A2:O")
             except Exception:
                 return  # No requests yet. Do not create the sheet from the bot.
+            now = datetime.now(timezone.utc)
+            try:
+                pseudos = await google_api.sheets_lire(classeur, "'Pseudos app'!A2:F")
+            except Exception:
+                LOG.warning("Metricool : contrôle des changements de pseudo indisponible")
+                return
+            additions = nouvelles_demandes(comptes_app, rows, pseudos, now)
+            if additions:
+                await google_api.sheets_ajouter(classeur, f"'{TAB}'!A:O", additions)
+                rows = await google_api.sheets_lire(classeur, f"'{TAB}'!A2:O")
             if not any(len(r) > 6 and r[6] in {"demandé", "préparation", "prêt"} for r in rows):
                 return
             import onboarding
             import codes_2fa
             accounts = await onboarding.lire_comptes()
             aliases = codes_2fa._lire()
-            now = datetime.now(timezone.utc)
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=40)) as session:
                 api = Api(session)
                 for idx, raw in enumerate(rows, 2):
@@ -182,6 +215,9 @@ async def traiter(classeur, comptes_app):
                         continue
                     current = [c for c in comptes_app if c[0] == r[1] and c[3] == r[2] and c[4] == r[3]]
                     if len(current) != 1 or not eligible(current[0], now):
+                        continue
+                    changes = [p for p in pseudos if len(p) > 4 and p[1:3] == r[1:3]]
+                    if changes and not changes[-1][4].strip() and changes[-1][3] != r[3]:
                         continue
                     source = [c for c in accounts if c.get("handle") == r[3] and c.get("mdp") and c.get("mail")]
                     # Existing controlled mailbox + registered agency recovery route,
