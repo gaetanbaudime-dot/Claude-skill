@@ -866,6 +866,23 @@ def _verification_identite_existante(sujet: str, corps: str, code: str) -> bool:
     return True
 
 
+def confirmation_email_fr(sujet):
+    return bool(re.fullmatch(r"confirmer l'adresse e-?mail[.!]?", plat(sujet).strip()))
+
+
+def _confirmation_email_fr(sujet, corps, compte):
+    """Modèle distinct de la connexion : code isolé, compte explicite et but borné."""
+    if not CODES_VERIFICATION or not confirmation_email_fr(sujet) or not compte:
+        return None
+    texte = plat(corps)
+    codes = re.findall(r"(?m)^\s*([0-9]{6})\s*$", texte)
+    if len(set(codes)) != 1:
+        return None
+    if not re.search(r"(?:confirmer|confirmez|verifier|verifiez).{0,40}(?:adresse e-?mail|e-?mail)", texte):
+        return None
+    return codes[0]
+
+
 def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     """La décision sur un mail : {"decision": "donner"|"garder"|"alerte"|"rien", "type": "creation"|"connexion"|"appel"|"",
     "code": str|None, "libelle": str, "compte": str}. « donner » = le clipper peut l'avoir ; « garder » = un code qui ne
@@ -905,6 +922,12 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
                 r"\btotp\b|authenticator|authentificateur|backup codes?|codes? de secours|"
                 r"secret key|cle secrete|recovery (?:key|codes?)|graine|\botpauth\b", pertinent)):
             return dict(sortie, decision="garder", code=None, libelle="récupération ou sécurité du compte")
+    if confirmation_email_fr(sujet):
+        confirme = _confirmation_email_fr(sujet, corps, compte)
+        if expediteur_instagram(from_header) and confirme:
+            return dict(sortie, decision="donner", code=confirme, type="verification",
+                        libelle=QUOI["verification"], confirmation_adresse=True)
+        return dict(sortie, decision="garder", code=None, libelle="confirmation e-mail non vérifiable")
     service = sortie["service"]
     reconnu = _code_service_email(service, sujet, corps, complets, code, compte)
     if reconnu:
@@ -1006,7 +1029,25 @@ def classer_mail(msg) -> dict:
         date = date.astimezone(timezone.utc)
     except Exception:                                                   # noqa: BLE001
         date = datetime(1970, 1, 1, tzinfo=timezone.utc)
-    info.update(alias=alias_du_mail(msg), sujet=sujet, date=date, mid=cle_du_mail(msg),
+    alias = alias_du_mail(msg)
+    if confirmation_email_fr(sujet):
+        # Le seul élargissement du parser exige une preuve Meta explicite du relais.
+        relais = adresse_expediteur(msg.get("From")).endswith("@icloud.com")
+        corps_alias = {a.lower() for a in ADRESSES.findall(texte_du_mail(msg))
+                       if a.lower() != IMAP_USER.lower()}
+        candidat = next(iter(corps_alias)) if len(corps_alias) == 1 else ""
+        # Plusieurs destinataires explicites ne sont jamais remplacés par un alias du corps.
+        entetes = set()
+        for nom in ("To", "X-Original-To", "Delivered-To"):
+            entetes.update(a.lower() for _, a in email.utils.getaddresses(msg.get_all(nom) or [])
+                           if "@" in a and a.lower() != IMAP_USER.lower())
+        if (not info.get("confirmation_adresse") or (relais and preuve != "ok")
+                or len(entetes) > 1 or len(corps_alias) > 1 or (alias and candidat and alias != candidat)
+                or not (alias or candidat)):
+            info.update(decision="garder", code=None, libelle="confirmation e-mail : provenance ou alias non vérifiable")
+        else:
+            alias = alias or candidat
+    info.update(alias=alias, sujet=sujet, date=date, mid=cle_du_mail(msg),
                 expediteur=adresse_expediteur(msg.get("From")), preuve=preuve)
     return info
 
@@ -1809,6 +1850,20 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                     await dire(TEXTE_PLUS_ADRESSE)
                     return "sortie"
             admissibles = _codes_demande(adresses, usage, depuis)
+            bloques_confirmation = False
+            valides = []
+            for entree in admissibles:
+                if entree.get("confirmation_adresse"):
+                    verifier = _deps.get("compte_alias_uid")
+                    try:
+                        attendu = verifier(cle_guet.removeprefix("u|"), entree.get("alias")) if verifier else ""
+                    except Exception:
+                        attendu = ""
+                    if not attendu or str(attendu).lower().lstrip("@") != str(entree.get("compte") or "").lower().lstrip("@"):
+                        bloques_confirmation = True
+                        continue
+                valides.append(entree)
+            admissibles = valides
             candidats = [t for t in admissibles if usage == "auto" or t.get("mid") not in vus]
             if candidats:
                 montre = candidats[0]
@@ -1819,6 +1874,15 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
             texte = (rendu + "\n\n" + (TEXTE_REFUSE_FIN if fini else TEXTE_REFUSE)) if montre else (
                 TEXTE_PANNE if lecteur_en_panne() and fini else
                 TEXTE_PANNE_GUET if lecteur_en_panne() else TEXTE_RIEN if fini else TEXTE_ATTENTE)
+            if not montre and any(t.get("confirmation_adresse") and t.get("alias") in adresses
+                                  and _date(t) < depuis for t in _etat()["codes"]):
+                texte = "Le précédent e-mail de confirmation est trop ancien pour cette demande. Demande un renvoi dans Instagram ; aucun ancien code livré."
+            gardes_confirmation = [t for t in codes_recents(adresses, min(FRAIS_MIN, 10), decision="garder")
+                                    if str(t.get("libelle") or "").startswith("confirmation e-mail") and _date(t) >= depuis]
+            if not montre and gardes_confirmation:
+                texte = "Un e-mail de confirmation a été reçu, mais sa provenance ou son alias n’est pas vérifiable. Aucun code livré ; fais vérifier le rattachement par l’équipe."
+            if not montre and bloques_confirmation:
+                texte = "Confirmation e-mail reçue, mais le compte exact n’est pas vérifiable pour ton UID. Fais vérifier son affectation ; aucun code livré."
             if texte != guet["texte"] or "envoye" not in guet:
                 guet["texte"] = texte
                 async with verrou:
@@ -1916,6 +1980,7 @@ def _scan_recent_sync(adresses: set, minutes: int = 10, arret=None) -> list:
                         "mid": mid, "alias": info["alias"], "code": info["code"],
                         "type": info["type"], "service": info.get("service", "instagram"), "decision": "donner",
                         "compte": info.get("compte") or "", "date": _iso(info["date"]),
+                        "confirmation_adresse": bool(info.get("confirmation_adresse")),
                     }
             except (imaplib.IMAP4.error, MailIllisible) as erreur:
                 journal.warning("Codes : recherche directe, dossier indisponible : %s", type(erreur).__name__)
@@ -2292,14 +2357,11 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
     if adresse and adresse not in adresses:
         await message.reply("🔒 Cette adresse n’est pas rattachée à ton compte Discord.")
         return True
-    if not usage:
-        await message.reply(f"Appuie sur 📩 Mon code dans <#{salon_codes_id()}> : la réponse est privée."
-                            if salon_codes_id() else "Appuie sur 📩 Mon code : la réponse est privée.", view=vue_mon_code())
-        return True
+    usage = usage or "auto"
     if not adresse and len(adresses) == 1:
         adresse = next(iter(adresses))
     try:
-        if not usage or not adresse:
+        if usage != "auto" and not adresse:
             if len(adresses) > 25:
                 await message.author.send("Plus de 25 adresses : utilise `!code connexion adresse` ou `!code creation adresse`.")
                 return True
@@ -2324,9 +2386,10 @@ async def _commande_salon_commun(message, manager: bool, admin: bool, adresses_d
     dire = reponse_privee_unique((str(message.author.id), "mp"), nouveau)
 
     cle = f"u|{getattr(message.author, 'id', '')}"
-    _demander_scan({adresse}, cle)
+    cibles = {adresse} if adresse else adresses
+    _demander_scan(cibles, cle)
     try:
-        await _servir({adresse}, dire, cle, usage=usage, relire=source)
+        await _servir(cibles, dire, cle, usage=usage, relire=source)
     except discord.Forbidden:
         await message.reply(TEXTE_MP_FERMES, view=vue_mon_code())
     except discord.HTTPException:
@@ -2430,7 +2493,8 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
     if info["decision"] == "donner":
         if mid not in connus:
             e["codes"].append(_numeroter({"mid": mid, "alias": alias, "code": info["code"], "type": info["type"], "service": info.get("service", "instagram"),
-                                          "decision": "donner", "compte": info["compte"], "date": _iso(info["date"])}))
+                                          "decision": "donner", "compte": info["compte"], "date": _iso(info["date"]),
+                                          "confirmation_adresse": bool(info.get("confirmation_adresse"))}))
             connus.add(mid)
             bilan["donnes"] += 1
         proprio = _proprietaire(alias)

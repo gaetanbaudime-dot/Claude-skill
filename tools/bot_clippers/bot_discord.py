@@ -505,7 +505,7 @@ _SALONS = {}
 _FORUM = {"id": ""}
 
 
-def _adresses_codes_fiche(uid) -> set:
+def _adresses_codes_fiche(uid, avec_comptes=False):
     """Alias des comptes livrés à cet UID ; toute identité contradictoire est refusée."""
     uid = str(uid)
     data = lire_json(FICHIER_ONBOARDING, {}) or {}
@@ -545,8 +545,9 @@ def _adresses_codes_fiche(uid) -> set:
                 compte_alias.setdefault(handle, set()).add((proprietaire, mail))
                 if proprietaire == uid:
                     propres.add((handle, mail))
-    return {mail for handle, mail in propres
-            if len(alias_comptes[mail]) == 1 and len(compte_alias[handle]) == 1}
+    valides = {mail: handle for handle, mail in propres
+               if len(alias_comptes[mail]) == 1 and len(compte_alias[handle]) == 1}
+    return valides if avec_comptes else set(valides)
 
 
 def destinataire_alias_code(alias):
@@ -8599,6 +8600,7 @@ def brancher_codes():
                           "admin_ids": set(ADMIN_IDS),
                           "rafraichir_adresses_membre": _actualiser_adresses_codes,
                           "destinataire_alias": destinataire_alias_code,
+                          "compte_alias_uid": lambda uid, alias: (_adresses_codes_fiche(uid, avec_comptes=True) or {}).get(alias, ""),
                           "audit_liaisons": audit_liaisons_codes})
     client.add_dynamic_items(codes_2fa.BoutonMonCode, codes_2fa.BoutonUsageCode)
 
