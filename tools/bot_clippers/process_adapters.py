@@ -116,7 +116,8 @@ async def attribuer(membre, creatrice, tous=None, creer=True):
         # Lecture historique uniquement : aucune adoption, activation ou nouvelle attribution.
         fiche = (o._lire_etat().get('clippers') or {}).get(uid) or {}
         return {'lien': fiche.get('lien', ''), 'lid': '',
-                'lignes': ['⚠️ Lien historique conservé ; nouvelle livraison bloquée jusqu’au rapprochement']}
+                'lignes': ['Lien existant conservé, non vérifié pour une nouvelle livraison.' if fiche.get('lien')
+                           else 'Liens non préparés ; requis avant le compte privé et l’application.']}
 
     if creer:
         registre.reserve(uid, [])  # historique complet obligatoire, jamais zéro présumé

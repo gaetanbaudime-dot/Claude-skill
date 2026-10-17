@@ -80,7 +80,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
               'prenom_de': lambda m: 'Fictif', 'FICHIER_EQUIPES': 'equipes', 'FICHIER_PIPELINE': 'pipeline',
               'lire_json': lambda key, default: deepcopy(registre.get(key, default)),
               'ecrire_json': lambda key, val: registre.update({key: deepcopy(val)}),
-              'datetime': datetime, 'timezone': timezone, 'attribution': SimpleNamespace(_sortir_d_attente=Mock(), conserver_attente=Mock()),
+              'datetime': datetime, 'timezone': timezone, 'attribution': SimpleNamespace(_sortir_d_attente=Mock(), conserver_attente=Mock(), resoudre_blocage=Mock()),
               'NOMS_RANGS': ['Clippeur'], 'role_creatrice': lambda g, cr: role,
               'roles_creatrices':lambda g:[role], 'roster': SimpleNamespace(ajouter=Mock(),groupes=lambda:{}), 'discord': discord, 'parcours': parcours,
               'journal': logging.getLogger('test')}
@@ -246,6 +246,46 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         ns['onboarding'].livrer.assert_awaited_once()
 
 
+    async def test_commande_creatrice_livree_resout_puis_recidive(self):
+        import attribution as a
+        ns, membre, salon, registre = self.contexte()
+        membre.mention='<@42>'
+        etat={}
+        admin=SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(id=7)))
+        def ecrire(e):
+            etat.clear();etat.update(deepcopy(e))
+        with patch.object(a,'_etat',side_effect=lambda:deepcopy(etat)), patch.object(a,'_ecrire',side_effect=ecrire), patch.dict(a._deps,{'canal_admin':AsyncMock(return_value=admin)}):
+            await a.signaler_blocage(membre,'Fictive','⚠️ Team leader absent ou ambigu')
+            ns['attribution'].resoudre_blocage=a.resoudre_blocage
+            ns['onboarding'].livrer.return_value='lignes déjà affectées ; la livraison effective est suivie séparément dans le parcours.'
+            resultat=await charger('onboarder_membre',ns)(SimpleNamespace(),membre,'Fictive',None,{},[],declencheur='!creatrice')
+            self.assertIn('Compte 1 livré (message confirmé)',resultat)
+            self.assertNotIn('42',etat['blocages_notifications'])
+            await a.signaler_blocage(membre,'Fictive',resultat)
+            self.assertEqual(1,admin.send.await_count)
+            await a.signaler_blocage(membre,'Fictive','⚠️ Team leader absent ou ambigu')
+            self.assertEqual(2,admin.send.await_count)
+
+    async def test_rattrapages_repetes_utilisent_protection_commune(self):
+        import attribution as a
+        ns,membre,salon,registre=self.contexte()
+        membre.mention='<@42>';membre.guild=SimpleNamespace()
+        registre['equipes']={'42':{'creatrice':'Fictive'}}
+        etat={}
+        admin=SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(id=7)))
+        def ecrire(e):etat.clear();etat.update(deepcopy(e))
+        ns.update(FICHIER_RATTRAPAGE_PARCOURS='rattrapage',RATTRAPAGE_PARCOURS_MIN=10,
+                  _age_heures=lambda *a:9,membre_par_id=lambda uid:membre,est_staff=lambda m:False,
+                  onboarder_membre=AsyncMock(return_value='⚠️ Team leader absent ou ambigu : onboarding en attente'))
+        ns['onboarding'].actif=lambda:False
+        ns['attribution']=a
+        with patch.object(a,'_etat',side_effect=lambda:deepcopy(etat)),patch.object(a,'_ecrire',side_effect=ecrire),patch.dict(a._deps,{'canal_admin':AsyncMock(return_value=admin)}):
+            fn=charger('rattraper_parcours_non_demarres',ns)
+            await fn();await fn();await fn()
+        self.assertEqual(3,ns['onboarder_membre'].await_count)
+        self.assertEqual(1,admin.send.await_count)
+
+
 class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
     setUp = OnboardingTests.setUp
     contexte = OnboardingTests.contexte
@@ -295,6 +335,8 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
             '_Par':lambda:None,'_etat':lambda:deepcopy(etat),'_ecrire':lambda d:etat.update(d),
             'datetime':datetime,'timezone':timezone,'journal':logging.getLogger('test'),
             'bilan_court':str,'a_signaler':lambda *a:False}
+        ns['resoudre_blocage']=charger('resoudre_blocage',ns,'attribution.py')
+        ns['signaler_blocage']=charger('signaler_blocage',ns,'attribution.py')
         attribuer=charger('attribuer',ns,'attribution.py')
         await attribuer(membre,'test fictif')
         await attribuer(membre,'reprise fictive')

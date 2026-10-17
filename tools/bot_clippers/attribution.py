@@ -588,14 +588,64 @@ async def attribuer(membre, via: str) -> str:
             # au salon admin ; elle compte dans « attribué(s) » du digest du matin (registre, creatrice_date). Seule une attribution qui
             # demande un geste (onboarding en échec, rôle ou pseudo refusé, comptes non livrés, créatrice sans catégorie ni rôle) part
             # encore tout de suite.
-            if a_signaler(bilan, note):
-                admin = await _deps["canal_admin"]()
-                if admin is not None:
-                    try:
-                        await admin.send((f"🎬 {membre.mention} → **{creatrice}** (auto, {ordre_texte()}) · {bilan_court(bilan)}{note}")[:1990])
-                    except (discord.Forbidden, discord.HTTPException):
-                        pass
+            await signaler_blocage(membre, creatrice, bilan, note)
             return "" if creatrice_en_attente(membre.id) else creatrice
+
+
+def resoudre_blocage(uid):
+    """Livraison constatée par l'orchestrateur, y compris après commande manuelle."""
+    e = _etat()
+    uid = str(uid)
+    e.setdefault("blocages_notifications", {}).pop(uid, None)
+    # Même sans alerte persistée, invalider une recherche de canal en cours.
+    generations = e.setdefault("blocages_resolutions", {})
+    generations[uid] = generations.get(uid, 0) + 1
+    _ecrire(e)
+
+
+async def signaler_blocage(membre, creatrice, bilan, note=""):
+    """Protection commune aux attributions et rattrapages, sans état périmé."""
+    import hashlib
+    uid = str(membre.id)
+    async with _verrou("notifications_blocages"):
+        if not a_signaler(bilan, note):
+            resoudre_blocage(uid)
+            return
+        raison = "team_leader_absent_ou_ambigu" if "team leader absent ou ambigu" in str(bilan).lower() else " ".join((bilan_court(bilan) + note).split())
+        signature = hashlib.sha256((str(creatrice).casefold() + ":" + raison).encode()).hexdigest()
+        e = _etat()
+        generation = (e.get("blocages_resolutions") or {}).get(uid, 0)
+        if ((e.get("blocages_notifications") or {}).get(uid) or {}).get("signature") == signature:
+            return
+        admin = await _deps["canal_admin"]()
+        if admin is None:
+            return
+        # Une commande peut modifier l'ordre pendant la résolution du canal.
+        e = _etat()
+        if (e.get("blocages_resolutions") or {}).get(uid, 0) != generation:
+            return
+        blocages = e.setdefault("blocages_notifications", {})
+        if (blocages.get(uid) or {}).get("signature") == signature:
+            return
+        entree = {"signature": signature, "depuis": datetime.now(timezone.utc).isoformat(), "etat": "envoi_incertain"}
+        blocages[uid] = entree
+        _ecrire(e)
+        try:
+            message = await admin.send((f"🎬 {membre.mention} → **{creatrice}** · {bilan_court(bilan)}{note}")[:1990])
+        except discord.Forbidden:
+            e = _etat()
+            if (e.get("blocages_notifications", {}).get(uid) or {}) == entree:
+                e["blocages_notifications"].pop(uid, None)
+                _ecrire(e)
+            return
+        except Exception:
+            journal.warning("Notification de blocage %s : envoi incertain, pas de renvoi automatique", uid)
+            return
+        e = _etat()
+        # Ne pas ressusciter un blocage résolu pendant l'envoi Discord.
+        if (e.get("blocages_notifications", {}).get(uid) or {}) == entree:
+            e["blocages_notifications"][uid] = {**entree, "etat": "envoye", "message_id": str(message.id)}
+            _ecrire(e)
 
 
 # 10/10 (lot L9b) : ce qui, dans le bilan d'onboarding ou la note de l'ordre, demande un geste du staff (onboarder_membre et
@@ -619,6 +669,8 @@ def a_signaler(bilan: str, note: str = "") -> bool:
     if any(m.lower() in t for m in MARQUES_A_SIGNALER):
         return True
     b = str(bilan or "").lower()
+    if "compte 1 livré (message confirmé)" in b:
+        return False
     if "déjà livré" in b and "rien renvoyé" in b:
         return False
     return _RE_COMPTES_LIVRES.search(b) is None

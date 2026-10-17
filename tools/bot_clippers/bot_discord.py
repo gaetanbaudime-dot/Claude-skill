@@ -5476,9 +5476,10 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             if not (p_final.get("messages") or {}).get("1"):
                 return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
             attribution._sortir_d_attente(uid_m)
+            attribution.resoudre_blocage(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
                     + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
-                    + " · " + bilan_onb_c.split(" : ", 1)[-1][:160])
+                    + " · Compte 1 livré (message confirmé) · " + bilan_onb_c.split(" : ", 1)[-1][:160])
         finally:
             _ONBOARDINGS_EN_COURS.discard(uid_m)
 
@@ -5530,14 +5531,9 @@ async def rattraper_parcours_non_demarres(maintenant=None) -> list:
         except Exception as erreur:                                     # noqa: BLE001
             bilan = f"❌ {membre.display_name} : {type(erreur).__name__} {str(erreur)[:80]}"
         lignes.append(bilan)
+        await attribution.signaler_blocage(membre, creatrice, bilan)
     if lignes:
         journal.info("Parcours rattrapés : %s", lignes)
-        canal = await canal_admin()
-        if canal is not None:
-            try:
-                await canal.send(("🔁 **Parcours relancés** (onboarding coupé, par un redémarrage ?)\n\n" + "\n\n".join(lignes))[:1990])
-            except (discord.Forbidden, discord.HTTPException):
-                pass
     return lignes
 
 
