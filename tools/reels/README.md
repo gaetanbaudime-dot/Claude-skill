@@ -32,3 +32,5 @@ Le contrôle d’appartenance et la préparation du registre existant sont décr
 - Ne pas promettre l’enregistrement automatique dans la galerie, ni la reprise entre apps, appareils ou après fermeture. Le cache de l’ancienne iframe reste sur son origine.
 
 Le workflow `app-reels.yml` construit les deux apps et lance les tests hors ligne. Il ne publie rien et ne modifie aucun workflow du bot.
+
+Les apps utilisent `install-links=true` : npm installe une copie du package local. Après un changement livré du module partagé, incrémenter sa version et les deux entrées de lock correspondantes. Depuis chaque app, `node ../reels/tests/installed-package.cjs` vérifie la version installée et les octets de tous les fichiers source avant le build, afin qu’un ancien package en cache ne masque pas le correctif testé.

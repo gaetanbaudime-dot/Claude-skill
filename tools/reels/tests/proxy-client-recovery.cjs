@@ -5,7 +5,7 @@ const fs = require('node:fs'), path = require('node:path'), vm = require('node:v
 const ts = require(require.resolve('typescript', { paths: [path.join(__dirname, '../../app_clippers')] }));
 const { scenario, latestSource } = require('./native-speed-orchestration.cjs');
 
-function bridge(target, failure = '') {
+function bridge(target, failure = '', app = 'clippers') {
   const calls = [], replies = [];
   let failed = false;
   const transport = (provider, initial) => {
@@ -25,7 +25,7 @@ function bridge(target, failure = '') {
     };
     const { fingerprint, resource } = load('ownership');
     const { forwardReelsRequest } = load('proxy');
-    const owner = { app: 'clippers', id: 'offline-owner' };
+    const owner = { app, id: 'offline-owner' };
     const ownerHash = fingerprint([owner.app, owner.id]);
     const rows = [];
     const add = (kind, key, parent = '-') => rows.push({ kind, resource: key, parent, owner: ownerHash });
@@ -41,6 +41,33 @@ function bridge(target, failure = '') {
       add('collection', collection, project);
       add('collection-set', resource('collection-set', initial.collectionId, ...initial.selected.map(c => c.clipId).sort()), collection);
     }
+    // Load the actual host route too: failures of its existing identity guard
+    // must be classified before either Sheets or the proxy can be contacted.
+    const requestContext = new (require('node:async_hooks').AsyncLocalStorage)();
+    const prefix = app === 'clippers' ? 'k' : 'c';
+    const guard = () => {
+      if (!failed && requestContext.getStore().action === target && ['hostMissing', 'hostFailure'].includes(failure)) {
+        failed = true;
+        if (failure === 'hostFailure') throw Error('simulated identity service unavailable');
+        return null;
+      }
+      return { cle: owner.id, racine: owner.id };
+    };
+    const routeModule = { exports: {} };
+    const routePath = path.join(__dirname, '../../app_' + app, 'src/app/api', prefix, '[token]/reels/[operation]/route.ts');
+    const routeCode = ts.transpileModule(fs.readFileSync(routePath, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const dependencies = {
+      '@/lib/clippers': { clipperParJeton: async () => guard() },
+      '@/lib/config': { creatriceParJeton: guard },
+      '@/lib/google': { jetonGoogle: () => { throw Error('No live credentials'); } },
+      '@gm/reels/server': { forwardReelsRequest, createSheetsOwnershipStore: () => ({
+        read: () => requestContext.getStore().store.read(), append: rows => requestContext.getStore().store.append(rows),
+      }) },
+    };
+    vm.runInNewContext(routeCode, { module: routeModule, exports: routeModule.exports,
+      require: name => dependencies[name], Response, process: { env: {} } });
     backend = async (url, init) => {
       const u = new URL(url), body = init.body ? JSON.parse(init.body) : Object.fromEntries(u.searchParams);
       const action = body.action || 'finish';
@@ -72,7 +99,8 @@ function bridge(target, failure = '') {
         append: async additions => { rows.push(...additions.map(row => ({ ...row }))); },
       };
       const request = new Request(u, { ...init, headers: { ...init.headers, Origin: u.origin } });
-      const reply = await forwardReelsRequest(request, u.pathname.split('/').at(-1), owner, store);
+      const reply = await requestContext.run({ store, action }, () => routeModule.exports[init.method || 'GET'](request,
+        { params: { token: 'offline-fixture-token', operation: u.pathname.split('/').at(-1) } }));
       if (!reply.ok) replies.push({ action, status: reply.status, body: await reply.clone().json(), calls: calls.length - before });
       return reply;
     };
@@ -130,6 +158,21 @@ function resumedSuccessfully(run, action) {
     resumedSuccessfully(resumed, action);
     assert.equal(resumeBridge.calls.filter(call => call.action === action).length, ['duplicate', 'style'].includes(action) ? 6 : 1);
     checks += 6;
+  }
+
+  for (const app of ['clippers', 'creatrices']) for (const failure of ['hostMissing', 'hostFailure']) {
+    const action = 'export-pack', config = configs[action];
+    const firstBridge = bridge(action, failure, app);
+    const first = await scenario(latestSource, { ...config, transport: firstBridge.transport });
+    assert(first.error); assert(!first.checkpoint.collectionSetupRequested);
+    const rejected = firstBridge.replies.find(reply => reply.action === action);
+    assert.equal(rejected.status, 404); assert.equal(rejected.calls, 0);
+    assert.deepEqual(rejected.body, { error: 'Lien invalide.', definitelyRejected: true, upstreamNotCalled: true });
+    const retryBridge = bridge(action, '', app);
+    const retry = await scenario(latestSource, { ...config, checkpoint: first.checkpoint, transport: retryBridge.transport });
+    resumedSuccessfully(retry, action);
+    assert.equal(retryBridge.calls.filter(call => call.action === action).length, 1);
+    checks += 8;
   }
 
   for (const action of ['submit', 'duplicate', 'export-pack']) {

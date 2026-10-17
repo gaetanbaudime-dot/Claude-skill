@@ -28,7 +28,9 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build the app
         working-directory: tools/${{ matrix.app }}
-        run: npm run build
+        run: |
+          node ../reels/tests/installed-package.cjs
+          npm run build
       - name: Offline engine, proxy and app lifecycle tests
         if: matrix.app == 'app_clippers'
         working-directory: tools/reels

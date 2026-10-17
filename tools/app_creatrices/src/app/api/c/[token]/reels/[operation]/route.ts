@@ -9,8 +9,10 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 async function handle(request: Request, { params }: { params: { token: string; operation: string } }) {
-  const user = creatriceParJeton(params.token);
-  if (!user) return Response.json({ error: "Lien invalide." }, { status: 404, headers: { "Cache-Control": "private, no-store" } });
+  let user;
+  try { user = creatriceParJeton(params.token); } catch { user = null; }
+  if (!user) return Response.json({ error: "Lien invalide.", definitelyRejected: true, upstreamNotCalled: true },
+    { status: 404, headers: { "Cache-Control": "private, no-store" } });
   return forwardReelsRequest(request, params.operation, { app: "creatrices", id: user.racine }, ownership);
 }
 

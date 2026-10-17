@@ -51,14 +51,20 @@ function load(filename,dependencies={},extra={}){
   assert(!(await r.text()).includes('private fixture'));
   fail=false;html=true;r=await proxy(request(),'finish');assert.equal(r.status,502);assert(!(await r.text()).includes('private HTML'));
   for(const [app,prefix,guard,lib]of [['app_clippers','k','clipperParJeton','clippers'],['app_creatrices','c','creatriceParJeton','config']]){
-    let allowed=false,forwarded=0,checked=0;
+    let allowed=false,guardFailure=false,forwarded=0,checked=0;
+    const guardResult=token=>{checked++;assert.equal(token,'fixture');if(guardFailure)throw Error('private guard failure');return allowed?{cle:'stable-clipper',racine:'stable-root'}:null};
     const route=load(path.join(__dirname,`../../${app}/src/app/api/${prefix}/[token]/reels/[operation]/route.ts`),{
-      ['@/lib/'+lib]:{[guard]:prefix==='k'?async token=>{checked++;assert.equal(token,'fixture');return allowed?{cle:'stable-clipper',racine:'stable-root'}:null}:token=>{checked++;assert.equal(token,'fixture');return allowed?{cle:'stable-clipper',racine:'stable-root'}:null}},
+      ['@/lib/'+lib]:{[guard]:prefix==='k'?async token=>guardResult(token):guardResult},
       '@/lib/google':{jetonGoogle:async()=>{throw new Error('Must not request real credentials')}},
       '@gm/reels/server':{createSheetsOwnershipStore:(namespace,token,options)=>{assert.equal(namespace,prefix==='k'?'clippers':'creatrices');assert.equal(options.workbookId,'shared-existing-fixture');return {fixture:true}},forwardReelsRequest:async(req,op,owner,store)=>{forwarded++;assert.equal(owner.app,prefix==='k'?'clippers':'creatrices');assert.equal(owner.id,prefix==='k'?'stable-clipper':'stable-root');assert.equal(store.fixture,true);return Response.json({ready:true})}}},{process:{env:{REELS_OWNERSHIP_SPREADSHEET_ID:'shared-existing-fixture'}}});
     const context={params:{token:'fixture',operation:'finish'}};
-    assert.equal((await route.POST(request(),context)).status,404);assert.equal(forwarded,0);
-    allowed=true;assert.equal((await route.POST(request(),context)).status,200);assert.equal(forwarded,1);assert.equal(checked,2);
+    const denied={error:'Lien invalide.',definitelyRejected:true,upstreamNotCalled:true};
+    for(const method of ['GET','POST'])for(const failure of [false,true]){
+      guardFailure=failure;const reply=await route[method](request(method),context);
+      assert.equal(reply.status,404);assert.deepEqual(await reply.json(),denied);
+      assert.equal(reply.headers.get('Cache-Control'),'private, no-store');assert.equal(forwarded,0);
+    }
+    guardFailure=false;allowed=true;assert.equal((await route.POST(request(),context)).status,200);assert.equal(forwarded,1);assert.equal(checked,5);
   }
   console.log('Proxy passed: existing host guards, fixed upstream, no credentials/CORS leakage, bounded JSON, pacing headers and zero mutation retries.');
 })().catch(e=>{console.error(e);process.exitCode=1});
