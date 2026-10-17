@@ -2202,45 +2202,23 @@ def message_nouveau_compte(mention: str, n: int, acces: dict, ancien: str = "", 
 
 
 async def dire_nouveaux_comptes(membre, uid: str) -> tuple:
-    """09/10 (revue du lot L6) : les comptes notés « a_dire » dans la fiche (un remplaçant donné en routine, ou d'un compte que le
-    parcours a déjà passé) partent au clipper, un message par compte, dans son salon perso (sinon en MP). Un envoi refusé reste
-    dans « a_dire » : la boucle le retente au passage suivant. Renvoie ([numéros envoyés], [identifiants restés])."""
+    """Conserve la file héritée pour remise sécurisée par un humain.
+
+    Aucun accès n'est publié dans un salon ou en MP, même après redémarrage.
+    Le marqueur décrit le blocage sans recopier les accès ni acquitter la file.
+    Renvoie ([], comptes en attente), pour conserver le contrat des appelants.
+    """
     etat = _lire_etat()
     fiche = etat.get("clippers", {}).get(str(uid)) or {}
     a_dire = [h for h in fiche.get("a_dire") or [] if h]
     if not a_dire:
         return [], []
-    try:
-        import parcours                                                 # import tardif : parcours importe onboarding
-        fiche_p = parcours._lire().get(str(uid)) or {}
-        codes = parcours.texte_codes()
-    except Exception:                                                   # noqa: BLE001
-        fiche_p, codes = {}, ""
-    rangs = _rangs_parcours(str(uid), fiche, fiche_p, a_dire)
-    acces = {_cle_handle(a.get("handle")): a for a in fiche.get("acces") or [] if isinstance(a, dict)}
-    anciens = {_cle_handle(r.get("nouveau")): r.get("ancien") for r in fiche.get("remplaces") or [] if isinstance(r, dict)}
-    salon = _deps["salon_perso"](str(uid)) if _deps.get("salon_perso") else None
-    cible = salon if salon is not None else membre
-    envoyes, restes = [], []
-    for h in a_dire:
-        a = acces.get(_cle_handle(h))
-        if a is None or h not in rangs:
-            continue                                                    # sorti de la fiche entre-temps (`!liberer`) : rien à dire
-        try:
-            await cible.send(message_nouveau_compte(membre.mention, rangs[h], a, anciens.get(_cle_handle(h), ""),
-                                                    fiche.get("lien", ""), codes)[:1990])
-            envoyes.append(rangs[h])
-        except (discord.Forbidden, discord.HTTPException, AttributeError) as erreur:
-            journal.warning("Nouveau compte %s pour %s : %s", h, uid, type(erreur).__name__)
-            restes.append(h)
-    etat = _lire_etat()                                                 # relu après les envois
-    if str(uid) in etat.get("clippers", {}):
-        if restes:
-            etat["clippers"][str(uid)]["a_dire"] = restes
-        else:
-            etat["clippers"][str(uid)].pop("a_dire", None)
+    marque = {"etat": "humaine_requise", "raison": "file_heritee_acces",
+              "nombre": len(a_dire)}
+    if fiche.get("remise_securisee") != marque:
+        fiche["remise_securisee"] = marque
         _ecrire_etat(etat)
-    return envoyes, restes
+    return [], a_dire
 
 
 # 09/10 (revue du lot L6 : le 2e téléphone d'un clipper multi recevait ses 3 comptes, ses vidéos, son lien et la règle d'un seul
@@ -2402,7 +2380,7 @@ def ligne_comptes_classeur(mention: str, prenom: str, n: int, etape: int, a_veni
     if envoyes:
         bouts.append("envoyé dans son salon : " + ", ".join(f"compte {k}" for k in envoyes))
     if restes:
-        bouts.append(f"⚠️ envoi refusé ({len(restes)}), retenté au prochain passage")
+        bouts.append(f"⚠️ remise sécurisée par un humain requise ({len(restes)}), file conservée")
     if a_venir:
         bouts.append(f"son parcours (étape {etape}) le donnera : " + ", ".join(f"compte {k} à l'étape {k}" for k in a_venir))
     return tete + " : " + (" · ".join(bouts) if bouts else "rien à envoyer") + "."

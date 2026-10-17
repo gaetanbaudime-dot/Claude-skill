@@ -268,3 +268,27 @@ class RepriseAttributionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await fn(), [('20','Fictive')])
         self.assertEqual([a.args[0].id for a in attribution.await_args_list], [10,20])
         valider.assert_not_awaited()
+
+    async def test_reprise_conserve_creatrice_validee_sans_nouveau_tirage(self):
+        membre=SimpleNamespace(id=42,bot=False,guild=SimpleNamespace())
+        choix='Fictive validee'
+        onboarder=AsyncMock(return_value='⚠️ reprise nécessaire')
+        prochain=Mock(side_effect=AssertionError('Aucun nouveau tirage autorisé'))
+        stock=AsyncMock()
+        conserver=Mock()
+        etat={'historique':[]}
+        ns={'actif':lambda:True,'_fiche_registre':lambda m:None,
+            'creatrice_en_attente':lambda uid:choix,'_reserve_au_depot':lambda m:False,
+            'sans_creatrice':lambda m:True,'_verrou':lambda key:asyncio.Lock(),
+            'stock_livrable':stock,'prochaine':prochain,'conserver_attente':conserver,
+            '_deps':{'etats_classeur':AsyncMock(return_value={}),
+                     'onboarder_membre':onboarder,'prenom_de':lambda m:'Fictif'},
+            '_Par':lambda:None,'_etat':lambda:deepcopy(etat),'_ecrire':lambda d:etat.update(d),
+            'datetime':datetime,'timezone':timezone,'journal':logging.getLogger('test'),
+            'bilan_court':str,'a_signaler':lambda *a:False}
+        attribuer=charger('attribuer',ns,'attribution.py')
+        await attribuer(membre,'test fictif')
+        await attribuer(membre,'reprise fictive')
+        self.assertEqual([choix,choix],[c.args[2] for c in onboarder.await_args_list])
+        prochain.assert_not_called();stock.assert_not_awaited()
+        self.assertEqual([choix,choix],[c.args[1] for c in conserver.call_args_list])
