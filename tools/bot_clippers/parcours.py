@@ -69,6 +69,10 @@ def ordre(fiche_p: dict) -> str:
     """« prive2 » (compte 2 privé) ou « prive3 » (l'ordre du 05/10). Figé dans `fiche_p["ordre"]` à l'ouverture de l'étape 2."""
     if not fiche_p:
         return "prive3"                                                 # pas de parcours (ancien, inconnu) : l'ordre du 05/10
+    confirme = fiche_p.get("ordre_confirme") or {}
+    if (isinstance(confirme, dict) and confirme.get("valeur") in ("prive2", "prive3")
+            and all(confirme.get(k) for k in ("par", "date", "reference"))):
+        return confirme["valeur"]                                       # sans inventer de jalon de création
     dates = fiche_p.get("dates") or {}
     # 09/10 (carte des comptes : un ancien repris d'après le classeur, jamais passé par l'étape 1, se retrouvait en « prive2 » et son
     # compte 2, qui publie, devenait « le privé ») : une fiche sans étape 1 est « prive3 » — sauf si un de ses comptes est déjà ouvert
@@ -365,7 +369,8 @@ def _comptes_ordonnes_05(uid, onb=None) -> list:
     handles = [h for h in (onb.get("comptes") or []) if h]
     acces = [a.get("handle") for a in (onb.get("acces") or []) if isinstance(a, dict) and a.get("handle") in handles]
     base = list(dict.fromkeys(acces + handles))
-    prives = [h for h in base if onboarding._est_prive({"handle": h, "etat": ""})]
+    roles = {a.get("handle"): a.get("role_confirme") for a in (onb.get("acces") or []) if isinstance(a, dict)}
+    prives = [h for h in base if onboarding._est_prive({"handle": h, "etat": "", "role_confirme": roles.get(h)})]
     croissance = [h for h in base if h not in prives]
     ordonnes = croissance[:2] + prives[:1]
     if len(ordonnes) < 3:
@@ -1230,6 +1235,7 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     classeur illisible) ou que le salon refuse le message."""
     uid = str(membre.id)
     fiche_avant = _lire().get(uid) or {}
+    pseudo_propose = None
     if n == 1 and pointer and (fiche_avant.get("messages") or {}).get("1"):
         return True
     if n in (2, 3) and not (fiche_avant.get("messages") or {}).get(str(n)) and reels_pour(uid, fiche_avant, n) < REELS_OUVERTURE:
@@ -1254,13 +1260,25 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             return False
         handle = handles[n - 1]
         try:
-            onboarding.process_adapters.store().reserve(uid, [handle])
-            preuves = onboarding._deps["lire_json"](
-                onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
-            if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
-                _garder_au_programme(uid, n, noter=True)
-                journal.warning("Compte retenu : disponibilité Instagram non prouvée")
-                return False
+            registre = onboarding.process_adapters.store()
+            registre.reserve(uid, [handle])
+            if n == 1:
+                # Remise d'une proposition à créer, pas d'une disponibilité attestée.
+                # Une identité créée ou ambiguë ne devient jamais un compte neuf.
+                with registre.transaction() as db:
+                    identite = db.execute(
+                        "SELECT a.uid,a.status FROM accounts a JOIN aliases h ON h.account_id=a.id WHERE h.handle=?",
+                        (handle.lower().lstrip("@"),)).fetchone()
+                if identite != (uid, "reserved") or _cree(fiche_avant, 1):
+                    raise RuntimeError("Premier compte non neuf : rapprochement requis")
+                pseudo_propose = handle
+            else:
+                preuves = onboarding._deps["lire_json"](
+                    onboarding._deps["FICHIER_ONBOARDING"].parent / "process_pseudos.json", {})
+                if not process_clippeur.pseudo_disponible(preuves.get(handle.lower()) or {}, datetime.now(timezone.utc)):
+                    _garder_au_programme(uid, n, noter=True)
+                    journal.warning("Compte retenu : disponibilité Instagram non prouvée")
+                    return False
         except RuntimeError:
             _garder_au_programme(uid, n, noter=True)
             return False
@@ -1299,6 +1317,12 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         await _envoyer_routine(salon, membre, uid, ctx)
         return True
     e = etape_def(fiche_p, n)
+    if pseudo_propose:
+        # Le pseudo du message est celui contrôlé et réservé, sans aucun secret.
+        ctx["compte1"] = pseudo_propose
+        e = {**e, "icone": "", "titre": "Étape 1 · Ton compte 1", "texte": (
+            "Identifiant : @{compte1}\n\n"
+            "Les accès et les consignes de création seront remis ici par le propriétaire.")}
     ctx["palier"] = ""
     if n in (2, 3):
         # 09/10 : « 🎯 4 Reels vus sur ton compte 1. Voici ton compte 2. » — seulement quand ce sont bien les Reels qui l'ouvrent
@@ -1309,7 +1333,9 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
             journal.info("Palier du compte %s de %s : %s", n, uid, erreur)
     icone = f"{e['icone']} " if e.get("icone") else ""
     texte = f"{membre.mention} {icone}**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
-    if n == 1 and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
+    if pseudo_propose:
+        texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
+    if n == 1 and not pseudo_propose and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
         ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
         gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
         texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(f"{membre.mention} ")
