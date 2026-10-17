@@ -42,6 +42,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([], m.nouvelles_demandes(rows, requests, [], now))
         self.assertEqual([], m.nouvelles_demandes(rows, [], [["", "clipper", "1", "changed", ""]], now))
         self.assertEqual([], m.nouvelles_demandes(rows + [rows[0]], [], [], now))
+        self.assertEqual([], m.nouvelles_demandes(rows, [], [["", "clipper", "1", "changed"]], now))
 
     async def test_creation_owned_and_idempotent(self):
         api = Api()
@@ -116,3 +117,53 @@ class Tests(unittest.IsolatedAsyncioTestCase):
                 await m.traiter('classeur-fictif',[compte])
                 provision.assert_not_awaited();ecrire.assert_not_awaited()
                 self.assertFalse((Path(tmp)/'metricool_onboarding.json').exists())
+
+    async def test_autoqueue_relit_identite_avant_provisioning(self):
+        import tempfile
+        from unittest.mock import AsyncMock, patch
+        import onboarding
+        import codes_2fa
+        stamp = datetime.now(timezone.utc).isoformat()
+        compte = ['cle-fictive', '', '', '1', 'ancien-fictif', '', '500', '', '', '', '', stamp]
+        for cas in ('stable', 'pseudo_tardif', 'identite_modifiee', 'slot_ambigu', 'lecture_impossible'):
+            demandes = []
+            lectures_pseudos = 0
+            async def ajouter(classeur, plage, valeurs):
+                demandes.extend(valeurs)
+            async def lire(classeur, plage):
+                nonlocal lectures_pseudos
+                if plage == f"'{m.TAB}'!A2:O":
+                    return demandes
+                if plage == "'Comptes app'!A2:L":
+                    if cas == 'lecture_impossible':
+                        raise OSError('lecture fictive impossible')
+                    autre = list(compte)
+                    autre[4] = 'nouveau-fictif'
+                    if cas == 'slot_ambigu':
+                        return [compte, autre]
+                    return [autre if cas == 'identite_modifiee' else compte]
+                lectures_pseudos += 1
+                if lectures_pseudos > 1 and cas == 'pseudo_tardif':
+                    # Sheets omet les cellules vides en fin de ligne.
+                    return [['', 'cle-fictive', '1', 'nouveau-fictif']]
+                return []
+            with self.subTest(cas=cas), tempfile.TemporaryDirectory() as tmp, \
+                 patch.dict(m.os.environ, {'DONNEES_DIR': tmp}), \
+                 patch.object(m.google_api, 'sheets_lire', side_effect=lire), \
+                 patch.object(m.google_api, 'sheets_ajouter', side_effect=ajouter) as ajout, \
+                 patch.object(m.google_api, 'sheets_ecrire', AsyncMock()) as ecrire, \
+                 patch.object(onboarding, 'lire_comptes', AsyncMock(return_value=[
+                     {'handle': 'ancien-fictif', 'mdp': 'fictif', 'mail': 'test@example.invalid'}])), \
+                 patch.object(codes_2fa, '_lire', return_value={'test@example.invalid': {}}), \
+                 patch.object(codes_2fa, 'actif', return_value=True), \
+                 patch.object(m, 'provision', AsyncMock(return_value=['prêt', 'marque-fictive'])) as provision:
+                await m.traiter('classeur-fictif', [compte])
+                ajout.assert_awaited_once()
+                self.assertEqual(1, len(demandes))
+                if cas == 'stable':
+                    provision.assert_awaited_once()
+                    ecrire.assert_awaited_once()
+                else:
+                    provision.assert_not_awaited()
+                    ecrire.assert_not_awaited()
+                self.assertFalse((Path(tmp) / 'metricool_onboarding.json').exists())

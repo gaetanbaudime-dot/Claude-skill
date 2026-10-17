@@ -48,7 +48,7 @@ def url_valide(url):
 
 def nouvelles_demandes(comptes, demandes, pseudos, now):
     """Discover verified accounts without requiring a click; fail closed on ambiguity."""
-    latest = {(r[1], r[2]): r for r in pseudos if len(r) > 4}
+    latest = {(str(r[1]).strip(), str(r[2]).strip()): r for r in pseudos if len(r) > 3}
     known = {(r[1], r[2], r[3]) for r in demandes if len(r) > 3}
     slots = {}
     for c in comptes:
@@ -63,7 +63,8 @@ def nouvelles_demandes(comptes, demandes, pseudos, now):
         change = latest.get(slot)
         if (not c[0] or c[3] not in {"1", "2", "3"} or not c[4]
                 or not eligible(c, now) or key in known
-                or (change and not change[4].strip() and change[3] != c[4])):
+                or (change and not str(change[4] if len(change) > 4 else "").strip()
+                    and str(change[3]).strip() != c[4])):
             continue
         result.append([now.isoformat(), c[0], c[3], c[4], str(c[6]), c[11], "demandé"] + [""] * 8)
         known.add(key)
@@ -183,8 +184,8 @@ async def identite_actuelle(classeur, demande, now):
     except Exception:
         return False
     actuels = [c for c in comptes if len(c) > 4 and c[0] == demande[1]
-               and c[3] == demande[2] and c[4] == demande[3]]
-    if len(actuels) != 1 or not eligible(actuels[0], now):
+               and c[3] == demande[2]]
+    if len(actuels) != 1 or actuels[0][4] != demande[3] or not eligible(actuels[0], now):
         return False
     changements = [r for r in pseudos if len(r) > 3 and str(r[1]).strip() == demande[1]
                    and str(r[2]).strip() == demande[2]]
