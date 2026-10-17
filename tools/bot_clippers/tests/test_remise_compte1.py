@@ -116,9 +116,10 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({'reserved':1}, self.store.counts('42'))
 
     async def test_lecteur_via_role_clippeurs_refuse(self):
-        autre = N(id=43, roles=['Clippeur'])
+        autre = N(id=43, roles=[N(id=4, name='Clippeur', permissions=N(administrator=False, view_channel=True))])
+        self.salon.overwrites_for = lambda cible:N(view_channel=True if cible.id==4 else None)
         self.guild.members.append(autre)
-        self.salon.permissions_for = lambda m:N(view_channel=m.id in (1, 42, 90) or 'Clippeur' in getattr(m, 'roles', []))
+        self.salon.permissions_for = lambda m:N(view_channel=m.id in (1, 42, 90) or any(role.name=='Clippeur' for role in getattr(m, 'roles', [])))
         await self.appeler()
         self.lecture.assert_not_awaited(); self.original.edit.assert_not_awaited()
 
@@ -306,3 +307,21 @@ class Remise(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(journal['operation']['account_id'])
         self.assertNotIn('MOT_DE_PASSE_FICTIF', str(journal))
         self.assertNotIn('AUTRE_SECRET_FICTIF', str(journal))
+
+    async def test_diagnostic_identifie_lecteur_role_et_tl_prioritaire_sans_mutation(self):
+        role = N(id=5, name='Clippeur fictif', permissions=N(administrator=False, view_channel=False))
+        autre = N(id=43, display_name='Lecteur fictif', roles=[role])
+        tl = N(id=44, display_name='TL fictif', roles=[])
+        self.guild.members.extend([autre, tl])
+        self.salon.overwrites_for = lambda cible:N(view_channel=True if cible.id==5 else None)
+        with patch.object(r.equipes_tl, 'tl_par_va', return_value={'42':'44'}), patch.object(r.equipes_tl, '_fiches', return_value={'45':{'chef':'Fictive'}}):
+            diagnostic = r.diagnostic_lecteurs(self.guild, self.salon, '42', 'Fictive', {'1'}, lambda m:False)
+        self.assertEqual('44', diagnostic['tl_effectif'])
+        self.assertEqual('affectation_individuelle', diagnostic['source_tl'])
+        bloque = next(x for x in diagnostic['lecteurs'] if x['uid']=='43')
+        self.assertFalse(bloque['autorise'])
+        self.assertEqual('Lecteur fictif', bloque['nom'])
+        self.assertEqual({'id':'5', 'nom':'Clippeur fictif', 'administrateur':False, 'voir_base':False, 'voir_salon':True}, bloque['roles'][0])
+        self.assertTrue(next(x for x in diagnostic['lecteurs'] if x['uid']=='44')['autorise'])
+        self.assertFalse(diagnostic['remise_autorisee'])
+        self.lecture.assert_not_awaited(); self.salon.send.assert_not_awaited()

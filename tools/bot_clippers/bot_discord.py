@@ -6418,7 +6418,7 @@ async def commande_admin(message, texte: str) -> bool:
         return await remise_compte1.commande(message, texte, ADMIN_IDS, est_staff)
     if texte.split()[:1] == ["!diagnostic-dossier"]:
         import diagnostic_dossier
-        return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS)
+        return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS, est_staff)
     if texte.split()[:1] == ["!rapprocher-zero"]:
         import rapprochement_zero
         cibles = {v.strip() for v in os.environ.get("RAPPROCHEMENT_ZERO_UIDS", "").split(",") if v.strip().isdigit()}

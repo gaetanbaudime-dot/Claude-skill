@@ -116,7 +116,7 @@ def rapport(root, uid, attendue, tl_attendu):
                         'Comptes observés et réservations ne prouvent pas la publication de Reels.']}
 
 
-async def commande(message, texte, root, admin_ids):
+async def commande(message, texte, root, admin_ids, est_staff=lambda membre:False):
     if texte.split()[:1] != ['!diagnostic-dossier']:
         return False
     # Aucun retour public, aucune lecture avant les deux contrôles existants.
@@ -128,6 +128,18 @@ async def commande(message, texte, root, admin_ids):
         await message.author.send('Usage : !diagnostic-dossier UID Sarah|Chloé UID_TL')
         return True
     data = rapport(root, *args)
+    sid = data['parcours'].get('salon_id') or data['registre_equipes'].get('salon_id')
+    data['lecteurs_discord'] = {'lecture': 'salon_non_identifie'}
+    if sid:
+        try:
+            import remise_compte1
+            salon = await message.guild.fetch_channel(int(sid))
+            if salon.guild.id != message.guild.id:
+                raise ValueError('Salon hors serveur')
+            data['lecteurs_discord'] = {'lecture': 'reussie', 'salon_id': sid,
+                **remise_compte1.diagnostic_lecteurs(message.guild, salon, args[0], args[1], admin_ids, est_staff)}
+        except Exception as erreur:
+            data['lecteurs_discord'] = {'lecture': 'indisponible', 'erreur_type': type(erreur).__name__}
     fichier = discord.File(io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode()), filename='diagnostic-dossier.json')
     await message.author.send(file=fichier)
     return True

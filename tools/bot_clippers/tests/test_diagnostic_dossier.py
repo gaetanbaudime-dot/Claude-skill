@@ -83,3 +83,20 @@ class Diagnostic(unittest.IsolatedAsyncioTestCase):
             with sqlite3.connect(path) as db:
                 db.executescript("CREATE TABLE histories(uid TEXT,evidence TEXT); CREATE TABLE accounts(uid TEXT,status TEXT); CREATE TABLE jobs(key TEXT,data TEXT); INSERT INTO histories VALUES('3','preuve-fictive'); INSERT INTO accounts VALUES('3','unknown');")
             self.assertIsNone(d.registre(path, '3')['total_crees_a_vie'])
+
+    async def test_diagnostic_lecteurs_frais_joint_seulement_au_fichier_prive(self):
+        import remise_compte1
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'parcours.json').write_text(json.dumps({'3':{'salon_id':'99'}}))
+            guild=SimpleNamespace(id=7, owner_id=1, fetch_channel=AsyncMock())
+            guild.fetch_channel.return_value=SimpleNamespace(guild=guild)
+            msg=SimpleNamespace(author=SimpleNamespace(id=1, send=AsyncMock()), guild=guild)
+            with patch.object(remise_compte1, 'diagnostic_lecteurs', return_value={'lecteurs':[{'uid':'5','autorise':False}]}) as inspecter:
+                await d.commande(msg, '!diagnostic-dossier 3 Sarah 4', root, {'1'})
+            guild.fetch_channel.assert_awaited_once_with(99)
+            inspecter.assert_called_once()
+            fichier=msg.author.send.call_args.kwargs['file']
+            contenu=json.loads(fichier.fp.getvalue())
+            self.assertEqual('reussie', contenu['lecteurs_discord']['lecture'])
+            self.assertEqual('5', contenu['lecteurs_discord']['lecteurs'][0]['uid'])
