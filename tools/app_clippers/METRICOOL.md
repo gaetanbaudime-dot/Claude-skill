@@ -2,7 +2,9 @@
 
 ## Mise à jour : provisioning automatique côté agence
 
-Le bouton « Préparer Metricool » écrit une demande privée. Après une attente initiale de 100 secondes au démarrage, puis à chaque passage de sa boucle indépendante (60 secondes entre deux traitements), le bot utilise les identifiants administrateur déjà configurés dans Railway. Il vérifie le relevé réel de moins de 48 h et les 500 abonnés, l'affectation du compte et la récupération agence : mot de passe présent dans le classeur privé, email enregistré dans le système de codes agence actif, ou validation explicite de l'administrateur en J. Juste avant le provisioning, il relit `Comptes app` et `Pseudos app` : une identité différente, une dernière demande de pseudo différente sans statut, ou une lecture impossible retient la demande sans création ni publication du résultat. Cette relecture ne constitue pas une transaction atomique avec les modifications ultérieures du tableur. Ce contrôle constate les accès conservés ; il ne transfère aucune propriété Instagram et ne garantit pas une session Meta valide.
+Après une attente initiale de 100 secondes au démarrage, puis à chaque passage de sa boucle indépendante (60 secondes entre deux traitements), le bot repère les comptes vérifiés à partir de 500 abonnés et inscrit automatiquement leur demande privée, sans clic préalable du clipper. Le bouton « Préparer Metricool » reste un recours pendant cette courte attente. Le bot utilise les identifiants administrateur déjà configurés dans Railway. Il vérifie le relevé réel de moins de 48 h, l'affectation unique du compte, l'absence de changement de pseudo en attente et la récupération agence : mot de passe présent dans le classeur privé, email enregistré dans le système de codes agence actif, ou validation explicite de l'administrateur en J.
+
+Juste avant le provisioning, il relit `Comptes app` et `Pseudos app` : une identité différente, une dernière demande de pseudo différente sans statut, ou une lecture impossible retient la demande sans création ni publication du résultat. Cette relecture ne constitue pas une transaction atomique avec les modifications ultérieures du tableur. Ce contrôle constate les accès conservés ; il ne transfère aucune propriété Instagram et ne garantit pas une session Meta valide. Le clipper effectue lui-même l'autorisation Instagram depuis « Connecter Metricool ».
 
 Le bot relit `/admin/max-profiles` et `/v2/settings/brands`, applique le plus petit plafond entre l'API et 25, réutilise une marque du propriétaire déjà reliée au même Instagram ou crée une nouvelle marque via `POST /v2/settings/brands`. Aucun changement d'abonnement. Les marques sans réseaux déjà présentes ne sont pas réaffectées automatiquement.
 
@@ -14,7 +16,9 @@ Sources supplémentaires vérifiées le 17 octobre 2026 : https://app.metricool.
 
 La procédure manuelle ci-dessous décrit les vérifications de reprise par l'agence. La file est traitée automatiquement : une intervention manuelle doit être coordonnée pour éviter une création concurrente. Cette documentation ne vaut pas autorisation de créer ou partager de nouveaux accès.
 
-## Parcours livré
+## Procédure manuelle historique de secours
+
+Les sections suivantes décrivent le recours administrateur de la première version, et non un clic requis avant le provisioning automatique décrit ci-dessus.
 
 Dans Comptes, le clipper voit « Demander la connexion Metricool » seulement à partir de **500 abonnés**, relevés depuis moins de **48 heures**. Les valeurs sont relues côté serveur depuis Comptes app. Une demande de changement de @ en attente bloque l'accès. Un changement de @ invalide l'ancien rattachement.
 

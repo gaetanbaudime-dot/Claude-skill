@@ -32,6 +32,17 @@ class Api:
 
 
 class Tests(unittest.IsolatedAsyncioTestCase):
+    def test_auto_discovery_threshold_freshness_changes_and_deduplication(self):
+        now = datetime.now(timezone.utc)
+        def account(n, followers, stamp=None):
+            return ["clipper", "Test", "", str(n), f"talent{n}", "", str(followers), "", "", "", "", stamp or now.isoformat()]
+        rows = [account(1, 500), account(2, 499), account(3, 700, (now-timedelta(hours=49)).isoformat())]
+        requests = m.nouvelles_demandes(rows, [], [], now)
+        self.assertEqual(["talent1"], [r[3] for r in requests])
+        self.assertEqual([], m.nouvelles_demandes(rows, requests, [], now))
+        self.assertEqual([], m.nouvelles_demandes(rows, [], [["", "clipper", "1", "changed", ""]], now))
+        self.assertEqual([], m.nouvelles_demandes(rows + [rows[0]], [], [], now))
+
     async def test_creation_owned_and_idempotent(self):
         api = Api()
         state = {}
