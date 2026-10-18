@@ -5476,6 +5476,9 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             p_final = parcours._lire().get(uid_m) or {}
             if not (p_final.get("messages") or {}).get("1"):
                 return "⚠️ Compte 1 non livré : reprise conservée. " + str(bilan_onb_c)[:120]
+            demande_groupe = getattr(parcours, "demander_groupe_tl", None)     # 18/10 (E8) : le TL crée le groupe WhatsApp
+            if demande_groupe is not None:                                    # jamais au prix de l'arrivée (la fonction n'échoue pas)
+                await demande_groupe(salon_c, uid_m, tl, prenom_c, creatrice_c)
             attribution._sortir_d_attente(uid_m)
             attribution.resoudre_blocage(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"

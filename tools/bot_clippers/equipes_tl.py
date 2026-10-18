@@ -4,7 +4,7 @@ La grille, telle que Gaëtan l'a écrite le 10/10 :
 
   - clipper et TL : 0,05 $ la visite payée, payés le 5 et le 20 (paie_clics, inchangé ici) ;
   - TL : en plus, TL_PRIME_VA_USD (10 $) par VA de son équipe à TL_SEUIL_VA (500) visites payées ou plus sur la période ;
-  - manager : MANAGER_PRIME_USD (75 $) par équipe dont il a la charge, avec un TL, à MANAGER_SEUIL_EQUIPE (3 000) ou plus.
+  - manager : MANAGER_PRIME_USD (50 $ depuis le 18/10) par équipe dont il a la charge, avec un TL, à MANAGER_SEUIL_EQUIPE (2 500) ou plus.
 
 « Au-dessus de » se lit « ou plus ». Une visite payée = pays francophones, hors robots, sur la période de paie du 5 au 19 ou du
 20 au 4 : ni les clics GAML bruts, ni 15 jours glissants.
@@ -90,8 +90,9 @@ def _oui(nom: str, defaut: str = "0") -> bool:
 
 TL_PRIME_VA_USD = _nombre("TL_PRIME_VA_USD", 10.0)
 TL_SEUIL_VA = _nombre("TL_SEUIL_VA", 500, int)
-MANAGER_PRIME_USD = _nombre("MANAGER_PRIME_USD", 75.0)
-MANAGER_SEUIL_EQUIPE = _nombre("MANAGER_SEUIL_EQUIPE", 3000, int)
+# 18/10 (Gaëtan, règles gelées P6 : « 50 $ par TL au-dessus de 2 500 visites les 15 derniers jours ») : remplace 75 $ / 3 000 du 10/10.
+MANAGER_PRIME_USD = _nombre("MANAGER_PRIME_USD", 50.0)
+MANAGER_SEUIL_EQUIPE = _nombre("MANAGER_SEUIL_EQUIPE", 2500, int)
 EQUIPE_COMPTE_TL = _oui("EQUIPE_COMPTE_TL")                             # 0 : le TL hors du total de son équipe
 # Revue L10 (R2) : un manager qui clippe lui-même sur une créatrice qu'il manage reste VA de cette équipe (le TL est primé sur
 # lui), mais ses visites ne comptent pas dans le total qui le paie (sinon 2 050 à lui + 1 000 d'équipe = 75 $ sur sa production).

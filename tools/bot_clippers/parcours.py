@@ -64,6 +64,34 @@ WARMUP_H = int(os.environ.get("PARCOURS_WARMUP_H", "24") or 24)
 # 48 h après le compte 2, quand 4 Reels sont publiés sur le compte 2 ET 4 Reels de plus sur le compte 1 depuis la création du
 # compte 2 (`sources_reels`, base retenue dans `base_reels["3"]`).
 PRIVE_EN_2 = False
+# 18/10 (Gaëtan, règles gelées P4 : « adresse USDC obligatoire pour tout le monde et les nouveaux, sauf Lilian, Caroline, Lucas,
+# Josué payés sur leur IBAN ») : le compte privé (celui qui porte le lien GAML) ne part qu'avec un moyen de paiement enregistré
+# (`!wallet 0x…` USDC, ou `!wallet FR76…` IBAN pour les Français payés par virement). Les clippers au fixe ne sont pas bloqués.
+# PARCOURS_PAIEMENT_AVANT_PRIVE=0 coupe la règle.
+PAIEMENT_AVANT_PRIVE = os.environ.get("PARCOURS_PAIEMENT_AVANT_PRIVE", "1").strip() not in ("0", "non", "false", "")
+
+
+def moyen_paiement_ok(uid) -> bool:
+    """Vrai si le clipper peut recevoir son compte privé côté paie : un moyen de paiement enregistré (USDC ou IBAN), ou pas au
+    clic (fixe), ou la paie au clic éteinte. Une panne de lecture ne bloque jamais le parcours (vrai)."""
+    if not PAIEMENT_AVANT_PRIVE:
+        return True
+    try:
+        if not paie_clics.actif() or paie_clics.regime(str(uid)) != "clic":
+            return True
+        d = paie_clics._lire()
+        return bool(((d.get("wallets") or {}).get(str(uid)) or {}).get("adresse"))
+    except Exception as erreur:                                         # noqa: BLE001 — la paie ne bloque jamais le parcours
+        journal.warning("Moyen de paiement de %s illisible : %s", uid, type(erreur).__name__)
+        return True
+
+
+TEXTE_PAIEMENT_AVANT_PRIVE = ("Tes 4 Reels sont bien là ✅\n\n"
+                              "Pour recevoir ton compte {n} (le privé, celui qui porte ton lien payé), il me faut ton moyen de "
+                              "paiement.\n\n"
+                              "Écris ici `!wallet 0x…` avec ton adresse USDC (réseau Ethereum / ERC20).\n\n"
+                              "Tu es payé par virement bancaire ? Écris `!wallet FR76…` avec ton IBAN.\n\n"
+                              "Ton compte {n} part tout seul dès que c'est fait.")
 
 
 def ordre(fiche_p: dict) -> str:
@@ -1599,7 +1627,7 @@ def vues_persistantes(client=None) -> list:
     """09/10 : les boutons persistants du parcours (custom_id fixes, ils survivent aux redémarrages) : « ✅ » des étapes
     (BoutonEtape), « ✅ J'ai écrit à Gaëtan » (BoutonWhatsApp) et « ✅ C'est fait » de la bienvenue (BoutonPret, « pret:<uid> »).
     Enregistrés sur `client` (sinon le client de configurer) ; la liste est renvoyée dans tous les cas."""
-    classes = [BoutonEtape, BoutonWhatsApp, BoutonPret]
+    classes = [BoutonEtape, BoutonWhatsApp, BoutonPret, BoutonGroupeTL]
     client = client if client is not None else _deps.get("client")
     if client is not None and hasattr(client, "add_dynamic_items"):
         client.add_dynamic_items(*classes)
@@ -2057,6 +2085,76 @@ class BoutonWhatsApp(discord.ui.DynamicItem[discord.ui.Button], template=r"wa:(?
                 pass
 
 
+class BoutonGroupeTL(discord.ui.DynamicItem[discord.ui.Button], template=r"watl:(?P<uid>[0-9]+)"):
+    """18/10 (Gaëtan, règles gelées E8 : « le groupe WhatsApp créatrice est créé par le TL, qui appuie sur groupe créé ; Gaëtan
+    ne crée plus de groupe, mais il doit être dans le groupe ») : posé dans le salon perso à l'arrivée, sous un message qui
+    mentionne le TL. Seul le TL du clipper (ou un admin) peut appuyer : l'heure est notée (`whatsapp`, `whatsapp_par` = tl:<id>),
+    Gaëtan est prévenu au salon admin. Persistant (custom_id), comme les autres boutons du parcours."""
+
+    def __init__(self, uid: str):
+        super().__init__(discord.ui.Button(label="👥 Groupe WhatsApp créé", style=discord.ButtonStyle.success,
+                                           custom_id=f"watl:{uid}"))
+        self.uid = str(uid)
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(match["uid"])
+
+    async def callback(self, interaction: discord.Interaction):
+        qui = str(interaction.user.id)
+        tl = ""
+        try:
+            import equipes_tl
+            import onboarding_preuves
+            creatrice = str((_lire().get(self.uid) or {}).get("creatrice") or "")
+            # la même résolution que l'arrivée : l'affectation du clipper, sinon le TL unique de sa créatrice (`!tl Chloé @x`)
+            tl = str(onboarding_preuves.tl_pour(self.uid, creatrice, equipes_tl.tl_par_va(), equipes_tl._fiches()) or "")
+            admin = equipes_tl.est_admin(interaction.user)
+        except Exception:                                               # noqa: BLE001
+            admin = False
+        if qui != tl and not admin:
+            await interaction.response.send_message("Ce bouton est pour le team leader de ce clipper 🙂", ephemeral=True)
+            return
+        deja = (_lire().get(self.uid) or {}).get("whatsapp_par", "")
+        if not marquer_whatsapp(self.uid, par=f"tl:{qui}"):
+            await interaction.response.send_message("Le parcours de ce clipper n'a pas encore commencé.", ephemeral=True)
+            return
+        await interaction.response.send_message("👥 Noté : groupe WhatsApp créé. Merci !", ephemeral=True)
+        if not str(deja).startswith("tl:"):
+            try:
+                canal = await _deps["canal_admin"]() if _deps.get("canal_admin") else None
+                if canal is not None:
+                    f_wa = _lire().get(self.uid) or {}
+                    await canal.send(f"👥 Groupe WhatsApp de {f_wa.get('prenom') or self.uid} (<@{self.uid}>, "
+                                     f"{f_wa.get('creatrice') or '?'}) créé par <@{qui}>.")
+            except Exception:                                           # noqa: BLE001
+                pass
+
+
+TEXTE_GROUPE_TL = ("👥 {tl} : crée le groupe WhatsApp de {prenom} pour {creatrice} (toi, {prenom} et Gaëtan), puis appuie sur "
+                   "le bouton ci-dessous.")
+
+
+async def demander_groupe_tl(salon, uid: str, tl, prenom: str, creatrice: str) -> bool:
+    """18/10 (E8) : le message au TL dans le salon perso, une seule fois par clipper (`groupe_tl_demande` dans la fiche, écrit
+    avant l'envoi). Renvoie True si le message est parti. Jamais d'exception : l'arrivée ne dépend pas de ce message."""
+    try:
+        d = _lire()
+        fiche_p = d.get(str(uid))
+        if fiche_p is None or fiche_p.get("groupe_tl_demande") or tl is None:
+            return False
+        fiche_p["groupe_tl_demande"] = _maintenant()
+        _ecrire(d)
+        vue = discord.ui.View(timeout=None)
+        vue.add_item(BoutonGroupeTL(str(uid)))
+        await salon.send(TEXTE_GROUPE_TL.format(tl=tl.mention, prenom=prenom or "ce clipper", creatrice=creatrice or "sa créatrice"),
+                         view=vue)
+        return True
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Demande de groupe au TL pour %s : %s", uid, type(erreur).__name__)
+        return False
+
+
 # ------------------------------------------------------------------ app clippers
 # 08/10 (Gaëtan : « envoie automatiquement l'app dans le salon Discord privé du clippeur, une fois seulement qu'il a créé les
 # 3 IG : l'app + son lien de tracking GAML ») : dès que l'étape du compte 3 est fermée (étape 6 ou plus : compte 3 créé, ou
@@ -2407,7 +2505,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
         d = _lire()                                                     # relu et réécrit sans attente entre les deux : le passage
         fiche_p = d.get(uid) or {}                                      # de l'heure et celui du scan n'envoient jamais deux fois
         programme = fiche_p.get("programme") or []
-        partants, gardes, dites = [], [], []
+        partants, gardes, dites, paiements = [], [], [], []
         for x in programme:
             if not _a_traiter(fiche_p, x, maintenant):
                 gardes.append(x)
@@ -2417,6 +2515,12 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                 partants.append(x)
             elif not _etape_attendue(fiche_p, x):
                 continue                                                # déjà envoyée (`!etape` du staff) : retirée, sans message
+            elif (int(x.get("n") or 0) == n_prive(fiche_p) and not moyen_paiement_ok(uid)
+                  and reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE):
+                gardes.append(x)                                        # 18/10 (P4) : Reels là, moyen de paiement absent
+                if fiche_p.get("paiement_dit") != int(x.get("n") or 0):  # une fois par compte : il sait ce qui manque
+                    fiche_p["paiement_dit"] = int(x.get("n") or 0)
+                    paiements.append(int(x.get("n") or 0))
             elif int(x.get("n") or 0) not in (2, 3) or reels_pour(uid, fiche_p, int(x.get("n") or 0)) >= REELS_OUVERTURE:
                 partants.append(x)                                      # 08/10 : la routine (7), 11/10 : « ligne », sans Reels
             else:
@@ -2427,7 +2531,7 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                     # 09/10 (revue) : `!pseudo` du compte qui manque de Reels, pas toujours du compte 1 ; un compte BAN : bloqué
                     manque = [src for src, c in reels_detail(uid, fiche_p, n_x) if c < REELS_OUVERTURE] or sources_reels(fiche_p, n_x)
                     dites.append((n_x, condition_texte(uid, fiche_p, n_x), manque, _bloque_sources(uid, fiche_p, n_x)))
-        if gardes == programme and not dites:
+        if gardes == programme and not dites and not paiements:
             continue
         fiche_p["programme"] = gardes
         _ecrire(d)
@@ -2441,6 +2545,11 @@ async def _programme_du_jour(client, maintenant=None) -> list:
                                     f"Tu publies sous un autre @ ? Tape `!pseudo {srcs[0]}` puis ton vrai @.")
             except (discord.Forbidden, discord.HTTPException) as erreur:
                 journal.warning("Attente du compte %s de %s : %s", n_x, uid, erreur)
+        for n_x in paiements:                                           # 18/10 (P4) : une fois, le moyen de paiement
+            try:
+                await _suite(salon, f"{membre.mention} " + TEXTE_PAIEMENT_AVANT_PRIVE.format(n=n_x))
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                journal.warning("Paiement avant le compte %s de %s : %s", n_x, uid, erreur)
         for item in partants:
             n = int(item.get("n") or 0)
             try:

@@ -294,6 +294,45 @@ def visites(uid: str, jours: int) -> int:
         return 0
 
 
+# 18/10 (Gaëtan, règles gelées L7 : « 0 visite payée pendant 10 jours d'affilée = sortie ») : la liste part chaque matin dans le
+# digest, avec la commande à taper. Comme le compte 1 (SORTIE_AUTO_RETRAIT=0), aucune expulsion n'est automatique : un lien dont la
+# carte a sauté ou un relevé GAML en panne ne doit jamais faire sortir quelqu'un sans un regard humain. Un lien attribué depuis moins
+# de INACTIF_JOURS jours n'est pas jugé. SORTIE_INACTIF_JOURS=0 coupe la liste.
+INACTIF_JOURS = int(os.environ.get("SORTIE_INACTIF_JOURS", "10") or 0)
+
+
+def inactifs(maintenant=None) -> list:
+    """[(uid, nom)] des clippers dont tous les liens GAML (attribués depuis au moins INACTIF_JOURS jours) n'ont ramené aucune visite
+    payée (paie_clics.payees, la mesure de la paie) sur les INACTIF_JOURS derniers jours, hier compris. Lecture seule ; [] sans paie
+    au clic ou en cas de panne."""
+    if INACTIF_JOURS <= 0:
+        return []
+    try:
+        import paie_clics                                               # import tardif : la sortie ne dépend pas de la paie
+        if not paie_clics.actif():
+            return []
+        d = paie_clics._lire()
+        maintenant = maintenant or datetime.now(timezone.utc)
+        hier = maintenant.date() - timedelta(days=1)
+        debut = hier - timedelta(days=INACTIF_JOURS - 1)
+        out = []
+        for uid in sorted({str(i.get("uid")) for i in d.get("liens", {}).values() if i.get("uid")}):
+            infos = [d["liens"][lid] for lid in paie_clics.liens_de(d, uid)]
+            if not infos or min(str(i.get("depuis") or "9999-12-31")[:10] for i in infos) > debut.isoformat():
+                continue
+            nom = next((str(i.get("note") or "")[len("Clipping "):].strip() for i in infos
+                        if str(i.get("note") or "").startswith("Clipping ")), "") or uid
+            if str(nom or "").strip().lower() in paie_clics.CLICS_EXCLURE:
+                continue
+            if paie_clics.payees(d, uid, debut, hier) > 0:
+                continue
+            out.append((uid, nom or uid))
+        return out
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.info("Inactifs %s j illisibles : %s", INACTIF_JOURS, erreur)
+        return []
+
+
 def _visites_actives(uid: str) -> bool:
     """08/10 (audit : un ancien rouvert aux comptes restreints n'a aucun Reel lisible) : son lien GAML ramène du monde sur 48 h.
     10/10 (L9a) : calculé ici, plus d'import d'appel (un import raté renvoyait Faux sans bruit et faisait sortir à 48 h)."""
@@ -531,8 +570,13 @@ def bilan_pour_digest() -> tuple:
     if not _deps.get("FICHIER") or not _deps.get("lire_json"):
         return [], []
     a_dire = [x for x in (_etat().get("a_dire") or []) if isinstance(x, dict) and x.get("lignes")]
+    dormants = inactifs()
+    bloc_inactifs = ([f"😴 **{INACTIF_JOURS} jours sans visite payée** (règle L7 : sortie, revue humaine) : "
+                      + ", ".join(f"{nom} (<@{uid}>)" for uid, nom in dormants[:25])
+                      + ("…" if len(dormants) > 25 else "")
+                      + "\n-# `!sortie @x raison` pour appliquer, `!note @x garde` pour protéger."] if dormants else [])
     if not a_dire:
-        return [], []
+        return bloc_inactifs, []
     out = [f"🚪 **Sortie automatique** ({JOURS_COMPTE1 * 24} h sans compte 1)"]
     for x in a_dire:
         jour = str(x.get("jour") or "")
@@ -542,7 +586,7 @@ def bilan_pour_digest() -> tuple:
             out.append("🔎 Première liste : rien n'est fait aujourd'hui. Demain à la même heure, ces clippers sortent tout seuls "
                        "(`!sortie-auto go` pour le faire maintenant, `!note @x garde` pour en protéger un).")
         out.extend(str(ligne) for ligne in x["lignes"])
-    return out, [str(x.get("jour") or "") for x in a_dire]
+    return out + bloc_inactifs, [str(x.get("jour") or "") for x in a_dire]
 
 
 def oublier_bilan_dit(jours) -> None:
