@@ -336,7 +336,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
             ns['attribution'].resoudre_blocage=a.resoudre_blocage
             ns['onboarding'].livrer.return_value='lignes déjà affectées ; la livraison effective est suivie séparément dans le parcours.'
             resultat=await charger('onboarder_membre',ns)(membre.guild,membre,'Fictive',None,{},[],declencheur='!creatrice')
-            self.assertIn('Message du compte 1 vérifié ; remise des accès non attestée',resultat)
+            self.assertIn('compte 1 envoyé',resultat)
             self.assertNotIn('42',etat['blocages_notifications'])
             await a.signaler_blocage(membre,'Fictive',resultat)
             self.assertEqual(1,admin.send.await_count)

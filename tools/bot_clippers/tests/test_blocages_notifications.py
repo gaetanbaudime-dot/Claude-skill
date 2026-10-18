@@ -97,5 +97,6 @@ class Notifications(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(a.a_signaler('📦 lignes déjà affectées ; livraison suivie séparément'))
         self.assertFalse(a.a_signaler('✅ Compte 1 livré (message confirmé) · lignes déjà affectées ; livraison suivie séparément'))
         self.assertFalse(a.a_signaler('✅ Message du compte 1 vérifié ; remise des accès non attestée.'))
+        self.assertFalse(a.a_signaler('✅ Julien - Sarah → Sarah · <#1> · compte 1 envoyé dans son salon.'))   # 18/10
         self.assertTrue(a.a_signaler('⚠️ pseudo refusé · Message du compte 1 vérifié ; remise des accès non attestée.'))
         self.assertTrue(a.a_signaler('⚠️ Message du compte 1 ou informations non vérifiés : reprise conservée.'))

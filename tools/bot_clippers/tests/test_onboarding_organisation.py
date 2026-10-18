@@ -29,7 +29,7 @@ class Organisation(unittest.IsolatedAsyncioTestCase):
         ns['attribution']._sortir_d_attente.side_effect = lambda *a: ordre.append('cloture')
         resultat = await charger('onboarder_membre', ns)(membre.guild, membre, 'Fictive', None, {}, [])
         self.assertEqual(['preuve', 'groupe', 'cloture'], ordre)
-        self.assertIn('Message du compte 1 vérifié', resultat)
+        self.assertIn('compte 1 envoyé', resultat)
 
     async def test_salon_identifie_deplace_sans_synchroniser_ni_recreer(self):
         for journalise in (False, True):
@@ -102,8 +102,8 @@ class Organisation(unittest.IsolatedAsyncioTestCase):
         resultat = await charger('onboarder_membre', ns)(membre.guild, membre, 'Fictive', None, {}, [])
         ns['poser_role_equipe'].assert_awaited_once()
         self.assertEqual({1, 2, 3}, {r.id for r in membre.roles})
-        self.assertIn('Message du compte 1 vérifié', resultat)
-        self.assertIn('remise des accès non attestée', resultat)
+        self.assertIn('compte 1 envoyé', resultat)
+        self.assertIn('dans son salon', resultat)
         self.assertNotIn('livré', resultat)
         self.assertEqual(90, salon.set_permissions.await_args.args[0].id)
 
@@ -142,7 +142,7 @@ class Organisation(unittest.IsolatedAsyncioTestCase):
                 droits = lambda m: N(view_channel=True, send_messages=True, read_message_history=True)
                 salon.permissions_for = info.permissions_for = droits
                 salon.category_id = 50
-                self.assertIn('Message du compte 1 vérifié', await fn(membre.guild, membre, 'Fictive', None, {}, []))
+                self.assertIn('compte 1 envoyé', await fn(membre.guild, membre, 'Fictive', None, {}, []))
                 ns['onboarding'].livrer.assert_awaited_once()
 
     async def test_permission_tl_refusee_puis_reprise_sans_reservation_prematuree(self):
@@ -152,7 +152,7 @@ class Organisation(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Accès TL non confirmé', await fn(membre.guild, membre, 'Fictive', None, {}, []))
         ns['onboarding'].livrer.assert_not_awaited()
         salon.set_permissions.side_effect = None
-        self.assertIn('Message du compte 1 vérifié', await fn(membre.guild, membre, 'Fictive', None, {}, []))
+        self.assertIn('compte 1 envoyé', await fn(membre.guild, membre, 'Fictive', None, {}, []))
         ns['onboarding'].livrer.assert_awaited_once()
 
     async def test_parcours_ordinaire_preserve_autres_permissions_tl(self):
@@ -163,7 +163,7 @@ class Organisation(unittest.IsolatedAsyncioTestCase):
         avant = originale.pair()
         salon.overwrites_for = lambda m: originale
         resultat = await charger('onboarder_membre', ns)(membre.guild, membre, 'Fictive', None, {}, [])
-        self.assertIn('Message du compte 1 vérifié', resultat)
+        self.assertIn('compte 1 envoyé', resultat)
         cible = salon.set_permissions.await_args.args[0]
         kw = salon.set_permissions.await_args.kwargs
         self.assertEqual(90, cible.id)

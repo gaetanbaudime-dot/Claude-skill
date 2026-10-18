@@ -2714,11 +2714,8 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
     recent = not lu.get("amorce") or _maintenant() - info["date"] < timedelta(minutes=60)
     journal.info("Codes : %s (%s) sur %s → %s", info["libelle"] or "mail Meta", dossier, _masquer(alias), info["decision"])
     if info.get("preuve") == "contraire" and info["decision"] != "rien" and _une_fois("preuve|observer", minutes=24 * 60):
-        await _admin("📮 **Relais iCloud sans preuve Meta** : un mail au nom d'Instagram (adresse "
-                     f"`{forme_adresse(info.get('expediteur'))}`) n'a pas la signature Meta attestée par Gmail.\n\n"
-                     "Soit c'est une imitation, soit le format réel diffère : ouvre un vrai mail Instagram relayé dans la "
-                     "boîte (Afficher l'original), regarde la 1re ligne Authentication-Results, et ne passe "
-                     "CODES_PREUVE_RELAIS=1 qu'une fois ce format vérifié. Une ligne par jour au plus.")
+        # 18/10 (Gaëtan : « simplifie ») : rien n'est bloqué en mode « observer » : journal seulement, plus de ligne admin
+        journal.info("Codes : relais iCloud sans signature Meta attestée (%s), mode observer", forme_adresse(info.get("expediteur")))
     if info["decision"] == "donner":
         if mid not in connus:
             e["codes"].append(_numeroter({"mid": mid, "alias": alias, "code": info["code"], "type": info["type"], "service": info.get("service", "instagram"),

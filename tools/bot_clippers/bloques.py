@@ -177,7 +177,8 @@ def lu_depuis(releve: dict, quand) -> bool:
     return not r.get("restreint") and not r.get("prive") and r.get("reels_lus", True) is not False
 
 
-def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, maintenant=None, illisibles=None) -> list:
+def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, maintenant=None, illisibles=None,
+          produit=None) -> list:
     """[(jours, prénom, créatrice, où il bloque, lien WhatsApp)], le plus bloqué d'abord, MAX_JOUR au plus.
     10/10 : `illisibles` (uid, fiche, maintenant) -> comptes_illisibles ; le cas « compte illisible » passe juste après « compte
     à créer » : « (compte 1, Chloé) · compte restreint au dernier relevé. `!etape @Léa 2` s'il publie. », « · 0 Reel vu sur
@@ -189,6 +190,13 @@ def liste(parcours: dict, groupes: dict, uid_de, tel_de, sans_reel: dict, mainte
             uid = uid_de(prenom)
             if not uid:
                 continue
+            # 18/10 (point du matin : Lilian, Lucas, Josué, Clarisse « compte 1 à créer depuis 10 j » alors qu'ils publient sur des
+            # comptes hors parcours) : un clipper dont les liens ramènent des visites ces 3 derniers jours n'est pas bloqué.
+            try:
+                if produit is not None and produit(str(uid)):
+                    continue
+            except Exception as erreur:                                 # noqa: BLE001 — dans le doute, il reste listé
+                journal.info("Bloqués : visites de %s illisibles (%s)", prenom, erreur)
             fiche = parcours.get(str(uid)) or {}
             n = int(fiche.get("etape", 0) or 0)
             jours = _jours_depuis((fiche.get("dates") or {}).get(str(n)), maintenant) if n in JOURS_ETAPE else -1
@@ -253,7 +261,23 @@ async def calculer() -> list:
         m = _deps["membre_par_prenom"](_deps["normaliser"](str(prenom).split()[0]))
         return str(m.id) if m is not None else ""
     return liste(parcours, _deps["roster_groupes"](), uid_de, _deps["tel_de"], sans_reel,
-                 illisibles=lambda u, f, t: comptes_illisibles(u, f, t))
+                 illisibles=lambda u, f, t: comptes_illisibles(u, f, t), produit=produit_recemment)
+
+
+PRODUIT_VISITES = 15                                                    # 18/10 : 15 visites qui comptent sur 3 jours = il produit
+
+
+def produit_recemment(uid: str) -> bool:
+    """Vrai si les liens du clipper ont ramené PRODUIT_VISITES visites qui comptent ou plus sur les 3 derniers jours (hier compris)."""
+    import paie_clics
+    if not paie_clics.actif():
+        return False
+    d = paie_clics._lire()
+    lids = paie_clics.liens_de(d, uid)
+    if not lids:
+        return False
+    hier = datetime.now(timezone.utc).date() - timedelta(days=1)
+    return paie_clics.somme(d, lids, hier - timedelta(days=2), hier)["payes"] >= PRODUIT_VISITES
 
 
 async def lignes_digest() -> list:

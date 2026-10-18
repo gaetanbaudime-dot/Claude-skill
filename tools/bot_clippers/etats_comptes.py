@@ -1774,15 +1774,9 @@ async def _executer(ecrire: bool = True, priorite: str = "matin") -> dict:
                 await canal_f.send("⚠️ Lien ou @ dans une légende de Reel hier : " + ", ".join(fautifs)[:1800])
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Alerte légendes : %s", erreur)
-    if ecrire and pris and _deps.get("canal_admin"):                              # 01/10 : une fois par identifiant
-        try:
-            canal_p = await _deps["canal_admin"]()
-            if canal_p is not None:
-                await canal_p.send("⚠️ Identifiant déjà pris sur Instagram ? Ces lignes « à créer » existent sans avoir jamais été vues "
-                                   "absentes, elles restent « à créer » : " + ", ".join(pris)[:1700]
-                                   + "\n\nSi le clipper l'a bien créé, son bouton « créé » la passe en WARMUP.")
-        except Exception as erreur:                                      # noqa: BLE001
-            journal.warning("Alerte identifiants pris : %s", erreur)
+    if ecrire and pris:                                                          # 01/10 : une fois par identifiant
+        # 18/10 (Gaëtan : « simplifie ») : une ligne qui n'appelle aucun geste ne part plus au salon admin
+        journal.info("Identifiants « à créer » jamais vus absents (déjà pris ?) : %s", ", ".join(pris)[:500])
     if ecrire and _deps.get("deposer") and _deps.get("salon_de_prenom"):        # 27/09 : « Reels d'hier » du message du matin
         for prenom, texte_r in lignes_reels(comptes, d["historique"], jour).items():
             try:

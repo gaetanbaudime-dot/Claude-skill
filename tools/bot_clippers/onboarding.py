@@ -2374,7 +2374,7 @@ def ligne_comptes_classeur(mention: str, prenom: str, n: int, etape: int, a_veni
     if envoyes:
         bouts.append("envoyé dans son salon : " + ", ".join(f"compte {k}" for k in envoyes))
     if restes:
-        bouts.append(f"⚠️ remise sécurisée par un humain requise ({len(restes)}), file conservée")
+        bouts.append(f"⚠️ {len(restes)} compte(s) à lui remettre toi-même dans son salon")
     if a_venir:
         bouts.append(f"son parcours (étape {etape}) le donnera : " + ", ".join(f"compte {k} à l'étape {k}" for k in a_venir))
     return tete + " : " + (" · ".join(bouts) if bouts else "rien à envoyer") + "."

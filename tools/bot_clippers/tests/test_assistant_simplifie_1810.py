@@ -88,3 +88,33 @@ class AccesEnAttenteTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BotGaetanSimpleTests(unittest.TestCase):
+    """18/10 après-midi (Gaëtan : « BOT Gaëtan : simplifier les commandes ») ."""
+    def ns(self, parcours_lire=lambda: {}):
+        return extraire("bot_discord.py", {"membre_par_nom_tape", "uid_depuis_nom"},
+                        {"re": re, "normaliser": normaliser, "parcours": SimpleNamespace(_lire=parcours_lire)})
+
+    def test_prenom_au_lieu_de_l_uid(self):
+        g = SimpleNamespace(members=[SimpleNamespace(display_name="Antonio - Chloé", bot=False, id=1504090569427779725)])
+        f = self.ns()["uid_depuis_nom"]
+        self.assertEqual(f("!remettre-compte1 Antonio", g), ("!remettre-compte1 1504090569427779725", ""))
+        self.assertEqual(f("!remettre-compte1 1504090569427779725", g)[1], "")
+        self.assertIn("Personne", f("!organisation Zorro", g)[1])
+
+    def test_fin_de_reponse_creatrice(self):
+        src = (ROOT / "bot_discord.py").read_text(encoding="utf-8")
+        self.assertIn("compte 1 envoyé sans e-mail ni mot de passe : `!remettre-compte1 {prenom_c}`", src)
+        self.assertNotIn('+ " · Message du compte 1 vérifié ; remise des accès non attestée.")', src)
+
+
+class BloquesProducteursTests(unittest.TestCase):
+    def test_un_clipper_qui_produit_n_est_pas_bloque(self):
+        import bloques
+        from datetime import datetime, timezone
+        parcours = {"1": {"etape": 1, "dates": {"1": "2026-10-01T08:00:00+00:00"}},
+                    "2": {"etape": 1, "dates": {"1": "2026-10-01T08:00:00+00:00"}}}
+        l = bloques.liste(parcours, {"Chloé": ["Lucas", "Thia"]}, lambda p: {"Lucas": "1", "Thia": "2"}[p], lambda u: "",
+                          {}, maintenant=datetime(2026, 10, 18, tzinfo=timezone.utc), produit=lambda uid: uid == "1")
+        self.assertEqual([x[1] for x in l], ["Thia"])
