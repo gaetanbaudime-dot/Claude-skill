@@ -18,6 +18,7 @@ ADMIN = """🧰 **Aide admin · essentiel**
 • `!reprise @membre Sarah` — un ancien clipper revient : historique de comptes repris (3 au total, jamais remis à zéro), puis parcours relancé.
 
 **Propriétaire du serveur + admin, résultat en MP**
+• `!organisation UID` — diagnostic rôles/TL/catégorie ; ajouter `appliquer` pour réparer, sans comptes.
 • Lecture : `!diagnostic-dossier UID Chloé UID_TL` (Sarah aussi).
 • Écriture : `!rapprocher-zero UID confirme-zero` — après diagnostic, seulement dossier autorisé et historique zéro vérifié.
 • `!audit-discussions export nouveau` — démarrer UNE fois une nouvelle archive.
