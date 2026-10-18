@@ -1376,8 +1376,36 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         d[uid].setdefault("messages", {})[str(n)] = str(msg.id)
         if n == 1 and d[uid].get("accueil_unique"):
             d[uid]["messages"].setdefault("bienvenue", str(msg.id))
+        if pseudo_propose:
+            if identifiants:
+                d[uid].pop("acces_en_attente", None)
+            else:
+                d[uid]["acces_en_attente"] = _maintenant()
         _ecrire(d)
+    if pseudo_propose and not identifiants:
+        await alerter_acces_en_attente(membre, uid)
     return True
+
+
+async def alerter_acces_en_attente(membre, uid: str, raison: str = "") -> bool:
+    """18/10 (Julien et Mavie : deux jours avec « les accès seront remis par le propriétaire », personne prévenu) : le compte 1 est
+    parti sans e-mail ni mot de passe → le salon admin le sait tout de suite, avec la raison et la commande qui répare."""
+    if not _deps.get("canal_admin"):
+        return False
+    if not raison:
+        import remise_compte1
+        raison = remise_compte1.RAISONS.get(str(uid), "") or "contrôle non passé"
+    try:
+        canal = await _deps["canal_admin"]()
+        if canal is None:
+            return False
+        nom = getattr(membre, "display_name", "") or str(uid)
+        await canal.send(f"🔑 **Compte 1 sans accès** : {nom} a son @ mais pas son e-mail ni son mot de passe.\n\n"
+                         f"Raison : {raison}.\n\nRépare, puis tape `!remettre-compte1 {uid}`.")
+        return True
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Alerte compte 1 sans accès (%s) : %s", uid, type(erreur).__name__)
+        return False
 
 
 # 16/10 : un seul accueil, fusionné avec Croissance 1 ; aucune confirmation WhatsApp requise.
@@ -3041,6 +3069,9 @@ def contexte_court(uid: str) -> str:
                      f"le scan voit {condition_texte(uid, fiche_p, n)}")
     else:
         etape = "parcours terminé (routine)"
+    if fiche_p.get("acces_en_attente") and not _cree(fiche_p, 1):      # 18/10 (Julien) : le fait, pas une supposition
+        etape += (" · ATTENTION : son message du compte 1 n'a que l'identifiant, sans e-mail ni mot de passe ; l'équipe est déjà "
+                  "prévenue et les remet dans son salon perso. Ne lui dis jamais que son salon est vide ni qu'il a tout reçu")
     np_ = n_prive(fiche_p)
     autres_c = "comptes 1 et 3" if np_ == 2 else "comptes 1 et 2"
     return (f"étape : {etape} · comptes créés : {crees} sur 3 · "
@@ -3354,8 +3385,7 @@ def contexte_llm(uid: str) -> str:
             "connecte uniquement à son propre compte déjà créé ; un compte réservé neuf doit être créé. Le Drive s'ouvre par son lien, jamais besoin d'une adresse e-mail. "
             "Ne redemande jamais une preuve déjà présente dans la mémoire ou le fil. Une absence de mesure ne vaut ni zéro publication ni ban. Quand il dit qu'une étape est faite, dis-lui de cliquer le bouton ✅ sous le message de l'étape, ou d'écrire "
             "`!etape` pour la revoir. Appelle-le par son prénom (celui de la mémoire), jamais par celui de la créatrice. "
-            "Trois lignes maximum. La ligne « 👉 Prochaine étape : … » seulement si elle dit autre chose que l'étape déjà "
-            "affichée dans le salon avec son bouton. Aucune question inutile (modèle de téléphone, « dis-moi quand c'est "
+            "Trois lignes maximum. Pas de ligne « 👉 Prochaine étape » sauf s'il demande quoi faire ensuite. Aucune question inutile (modèle de téléphone, « dis-moi quand c'est "
             "fait »). Tu ne parles que des comptes CRÉÉS d'après la mémoire : jamais « tes deux autres comptes » s'ils "
             "n'existent pas encore. Tu ne donnes jamais la cause d'un blocage, seulement la marche à suivre ; « déconnecté, "
             f"mot de passe modifié » = se reconnecter avec le mot de passe de son étape, puis le code de connexion avec le "
@@ -3370,7 +3400,17 @@ def contexte_llm(uid: str) -> str:
             "Jamais de « compte prêt à l'emploi », jamais « ton manager a une autre solution » : si tu ne sais pas, renvoie vers "
             "son équipe ici, dans son salon personnel. Aucune confirmation WhatsApp ne conditionne son arrivée. "
             "Ne recopie jamais la ligne [Contexte : …].]\n"
-            "[Mémoire du clipper]\n" + memoire(uid))
+            + _ligne_acces_en_attente(uid)
+            + "[Mémoire du clipper]\n" + memoire(uid))
+
+
+def _ligne_acces_en_attente(uid: str) -> str:
+    """18/10 (Julien) : le compte 1 est parti avec son @ seul ; l'assistant le sait au lieu de deviner « ton salon est vide »."""
+    fiche_p = _lire().get(str(uid)) or {}
+    if not fiche_p.get("acces_en_attente") or _cree(fiche_p, 1):
+        return ""
+    return ("[FAIT : son message du compte 1 n'a que l'identifiant, sans e-mail ni mot de passe. L'équipe est déjà prévenue et les "
+            "remet dans ce salon. Tu le lui dis tel quel ; il n'a rien d'autre à faire.]\n")
 
 
 # ------------------------------------------------------------------ commandes manager

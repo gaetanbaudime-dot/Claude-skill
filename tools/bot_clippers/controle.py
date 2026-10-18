@@ -2832,7 +2832,12 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None):
                  "premiers_vus": dict(garde_pv, **{a["cle"]: a.get("premier_vu") or pv.get(a["cle"]) or t_iso for a in reelles}),
                  "mesures": _memo_mesures(e["clics"], _hier_paris(maintenant), etat.get("mesures")),
                  "notes": _memo_notes(e["clics"], e["details_gaml"], etat.get("notes"), t_iso)})
-    a_poster = force or (emp != avant and (avant is not None or any(a["gravite"] != "info" for a in an)))
+    # 18/10 (Gaëtan : « simplifie » ; 104 anomalies reposées à chaque changement, toutes les 15 min) : au plus une fois par jour,
+    # sauf si le nombre de bloquantes MONTE (un nouveau problème grave passe tout de suite). `force` (la commande) passe toujours.
+    jour = (_hier_paris(maintenant) + timedelta(days=1)).isoformat()
+    nb_bloq = sum(1 for a in reelles if a.get("gravite") == "bloquant")
+    deja_jour = etat.get("poste_jour") == jour and nb_bloq <= int(etat.get("bloquants_postes") or 0)
+    a_poster = force or (emp != avant and (avant is not None or any(a["gravite"] != "info" for a in an)) and not deja_jour)
     texte = texte_admin(an) if a_poster else None
     envoye = False
     if texte and _dep("canal_admin"):
@@ -2841,6 +2846,7 @@ async def passage(deps: dict = None, force: bool = False, comptes: list = None):
             if canal is not None:
                 await canal.send(texte)
                 envoye = True
+                etat.update(poste_jour=jour, bloquants_postes=nb_bloq)
         except Exception as erreur:                                      # noqa: BLE001
             journal.warning("Contrôle d'attribution : salon admin : %s", erreur)
     if envoye or not a_poster:

@@ -370,11 +370,8 @@ ne sais pas — jamais de délai, de montant, de date ou de règle qui ne soit p
 base. Si deux passages semblent se contredire, les sections « LE MATÉRIEL DE TRAVAIL », « LES \
 CRÉNEAUX DE CRÉATION DE COMPTES », « CE QU'ON NE DIT PLUS » et la FAQ TERRAIN font foi ; les « AJOUTS DE GAËTAN » \
 placés en tête de la base PRIMENT sur tout le reste (c'est lui qui décide) ; la base curée prime sur la « FAQ apprise » qui la suit.
-4. Une ligne « 👉 Prochaine étape : … » ferme ta réponse SEULEMENT si elle dit autre chose que le message \
-d'étape déjà posté dans le salon : le geste précis à faire maintenant, et la fiche à ouvrir si elle aide \
-(ex. « 👉 Prochaine étape : ouvre la Fiche 2 et fais tes 10 minutes de Reels »). Si la prochaine étape \
-est déjà affichée avec son bouton ✅, tu t'arrêtes après la réponse. Rien d'autre après cette ligne, pas \
-d'étiquette de source.
+4. Pas de ligne « 👉 Prochaine étape » ni de fiche citée en fin de réponse, sauf si le clipper demande quoi faire ensuite \
+(18/10, Gaëtan : « simplifie »). Rien après ta réponse, pas d'étiquette de source.
 4ter. La bonne fiche selon le sujet : créer un compte, identifiants, téléphone cloud, \
 numéro demandé par Instagram, bio, photo, pseudo, quand arrive le compte suivant → Fiche 1 ; warm-up 24 h par compte, \
 comptes à suivre → Fiche 2 ; monter un Reel, hook, sous-titres, caption, miniature, musique, \
@@ -395,8 +392,10 @@ ou des informations hors base : tu réponds que tu ne peux aider que sur le kit 
 8. Question dangereuse pour les comptes (acheter des abonnés, utiliser des robots, \
 contourner un ban…) : réponds que ce n'est pas la méthode de l'équipe et renvoie vers la \
 fiche 6.
-9. Si on t'envoie une capture d'écran : décris en une phrase ce que tu vois d'important, \
-puis réponds selon la base de connaissances (même règle d'escalade si tu ne sais pas).
+9. Capture d'écran : tu ne la décris que pour ce qui sert ta réponse. Tu ne cites JAMAIS un détail dont tu n'es pas \
+sûr (VPN, notification, icône, réglage) : en cas de doute, tu n'en parles pas (18/10 : « un VPN actif » inventé chez \
+Julien). Tu ne vois que la capture : jamais « je vois ton salon » ni « ton salon est vide » sans elle, et tu ne \
+contredis jamais la ligne « FAIT » de ton contexte.
 10. Tu reçois l'HISTORIQUE récent de la conversation — sers-t'en pour comprendre les messages \
 courts ou de suivi (ex. « et le son ? » ou « je peux ajouter des effets ? » juste après une \
 question sur le montage d'un Reel = c'est du MONTAGE, pas la création de comptes ni autre chose), \
@@ -486,6 +485,17 @@ compte 2 → 4 Reels → compte 3, le privé, avec son lien → la story à la u
 du privé. Le compte 1 arrive juste sous la bienvenue, sans attendre ; plus aucun message à J+7 : 2 Reels par jour, toujours. Il n'y a PLUS \
 de test vidéo à rendre ni de note de montage pour entrer : tu n'en parles jamais, même à un ancien candidat. Quizz réussi = sa \
 créatrice et son compte 1 arrivent dans son salon perso. Une étape à la fois : tu ne parles que de l'étape où il est.
+36. Aucune fausse promesse (18/10, Mathieu : sept fois « ton manager regarde », personne ne regardait) : jamais « ton \
+manager regarde », « il la verra », « l'équipe va te répondre ». Pour un blocage que la base ne résout pas, tu réponds \
+exactement « {MESSAGE_ESCALADE} » : c'est ce texte qui transmet VRAIMENT la demande à l'équipe.
+37. Le clipper parle d'un compte que ta mémoire ne connaît pas (compte suspendu, compte 2 créé…) : tu ne le contredis pas, ta \
+fiche n'est pas à jour. Tu réponds « {MESSAGE_ESCALADE} ».
+38. Tu as déjà donné la même consigne deux fois à cette personne et elle bloque encore : tu ne la redonnes pas une troisième \
+fois, tu réponds « {MESSAGE_ESCALADE} ».
+39. Après « Ta demande est signalée à l'équipe », un « j'attends ? » ou « et maintenant ? » reçoit : « Oui. Ton équipe a ta \
+demande. La réponse arrive dans ton salon perso. » Rien d'autre, pas un autre sujet.
+40. Le lien WhatsApp de Gaëtan ({WHATSAPP_GAETAN_URL or "celui du message de bienvenue"}) est public : tu le donnes quand il \
+faut écrire à Gaëtan, partout, même dans #assistant. Jamais « je ne peux pas te donner ce lien ici ».
 35. Mise en forme (09/10, Gaëtan : « Saute des lignes, aère ») : le clipper te lit sur son téléphone. Des paragraphes d'une ou \
 deux phrases, une ligne vide entre chaque paragraphe, avant et après une liste. Une seule action demandée par réponse ; une \
 marche à suivre, seulement s'il la demande, en 3 étapes numérotées au plus."""
@@ -500,7 +510,8 @@ if CANAL_FORMATION_ID:
 INSTRUCTIONS += ("\n12. Tu réponds là où on te parle : le salon perso du clipper (il t'a posé une question), un message privé, ou le "
                  "salon #assistant. Tu ne renvoies JAMAIS vers un autre salon pour poser une question : ni « va dans #assistant », ni "
                  "« écris-moi en MP ». Tu ne cites jamais un identifiant, un mot de passe ou un lien de quelqu'un d'autre. Dans le salon "
-                 "#assistant, commun à tous, tu ne cites même pas ceux de la personne qui te parle.")
+                 "#assistant, commun à tous, tu ne cites même pas ceux de la personne qui te parle. Le lien WhatsApp de Gaëtan n'est pas "
+                 "concerné : il est public (règle 40).")
 _LIBELLES_POSTS = {"bienvenue": "post « Bienvenue » (vidéo + quiz)", "kit": "Kit Clipper (à imprimer)"}
 # Index des salons du serveur (nom normalisé → identifiant) et forum formation résolu, remplis au
 # démarrage puis toutes les 6 h : les liens cliquables se posent en POST-TRAITEMENT, sans dépendre
@@ -1735,6 +1746,33 @@ async def repondre_long(message, reponse: str):
     await message.reply(blocs[0][:1990])
     for bloc in blocs[1:]:
         await message.channel.send(bloc[:1990])
+
+
+_DEMANDE_SUITE = re.compile(r"\b(et apres|ensuite|prochaine etape|je fais quoi|quoi faire|que dois.je faire|je dois faire quoi)\b")
+
+
+def retirer_prochaine_etape(reponse: str, question: str = "") -> str:
+    """18/10 (Gaëtan : « Améliore, simplifie ») : la ligne « 👉 Prochaine étape : ouvre la Fiche 6 » collée à chaque réponse, même
+    hors sujet (Moutakabirou, Simon, Romaric). Elle reste seulement quand le clipper demande quoi faire ensuite."""
+    if _DEMANDE_SUITE.search(normaliser(question or "")):
+        return reponse
+    lignes = (reponse or "").rstrip().split("\n")
+    while lignes and re.match(r"\s*(👉\s*)?(\*\*)?prochaine [ée]tape", lignes[-1], re.I):
+        lignes.pop()
+        while lignes and not lignes[-1].strip():
+            lignes.pop()
+    return "\n".join(lignes)
+
+
+_FAUSSE_PROMESSE = re.compile(
+    r"\s*[,:;—-]?\s*(?:ton|le|son|un)\s+(?:manager|team leader|tl|responsable)\s+(?:la |le |les |te |va (?:la |le |te )?)?"
+    r"(?:regarde|verra|voit|lit|lira|repondra|répondra|regarder|voir)\b[^.!?\n]*", re.I)
+
+
+def retirer_fausse_promesse(reponse: str) -> str:
+    """18/10 (Mathieu, sept fois « mets une capture, ton manager regarde », personne ne regardait) : la promesse qu'un humain
+    regarde est retirée de la phrase. Une vraie transmission passe par MESSAGE_ESCALADE (est_escalade), jamais par ce texte."""
+    return _FAUSSE_PROMESSE.sub("", reponse or "")
 
 
 def lacune_pertinente(texte: str) -> bool:
@@ -4604,6 +4642,44 @@ async def ecrire_onglet_funnel(lignes: list) -> bool:
         return False
 
 
+ONGLET_PARCOURS = os.environ.get("ONGLET_PARCOURS", "Parcours").strip() or "Parcours"
+
+
+async def ecrire_onglet_parcours() -> int:
+    """18/10 (action 16) : l'onglet « Parcours » (une ligne par clipper, ses dates clés), réécrit chaque matin. Renvoie le nombre
+    de clippers écrits (0 si rien n'a pu l'être). Jamais bloquant pour le digest."""
+    if not (SHEET_CANDIDATURES_ID and google_api.actif()):
+        return 0
+    import table_parcours
+    try:
+        from zoneinfo import ZoneInfo
+        paris = ZoneInfo("Europe/Paris")
+    except Exception:                                                   # noqa: BLE001
+        paris = timezone(timedelta(hours=2))
+    try:
+        paie = paie_clics._lire()
+    except Exception:                                                   # noqa: BLE001
+        paie = {}
+    d_parcours = parcours._lire()
+    registre = lire_json(FICHIER_EQUIPES, {})
+    noms = {}
+    for uid in set(d_parcours) | set(registre):
+        m = membre_par_id(uid)
+        if m is not None:
+            noms[uid] = m.display_name
+    table = table_parcours.lignes(d_parcours, lire_json(FICHIER_PIPELINE, {}), registre, paie,
+                                  paie_clics.payees if paie else None, noms, datetime.now(paris).date(), paris,
+                                  exclus=frozenset(ADMIN_IDS))
+    try:
+        await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, ONGLET_PARCOURS)
+        await google_api.sheets_effacer(SHEET_CANDIDATURES_ID, f"{ONGLET_PARCOURS}!A1:Z2000")
+        await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{ONGLET_PARCOURS}!A1", table)
+        return len(table) - 1
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Onglet %s : %s", ONGLET_PARCOURS, erreur)
+        return 0
+
+
 def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
     """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice… ») :
     les flux d'un jour (Paris) pour le digest. quiz_ok et quiz_ko : le quizz du site (dernier essai de chaque numéro, staff exclu),
@@ -4927,8 +5003,18 @@ async def boucle_rappels():
                     if ligne_f:
                         blocs_d.append(("funnel", ligne_f))
                     await ecrire_onglet_funnel(serie_f)
+                    await ecrire_onglet_parcours()                      # 18/10 (action 16) : la table « Parcours »
                 except Exception as erreur:                                 # noqa: BLE001
                     journal.warning("Digest : funnel quotidien (%s)", erreur)
+                # 1 ter. 18/10 (action 35) : quiz réussi depuis 24 h, pas sur Discord → un lien de relance par personne, une fois
+                liste_q = []
+                try:
+                    liste_q = relances.quiz_sans_discord(pipe, lire_json(DONNEES / "relances.json", {"relances": {}}))
+                    bloc_q = relances.bloc_quiz_sans_discord(liste_q)
+                    if bloc_q:
+                        blocs_d.append(("quiz_sans_discord", bloc_q))
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : relance quiz sans Discord (%s)", erreur)
                 # 2. Les bloqués, seulement s'il y en a (bloques.lignes_digest : plus de « personne 🎉 »).
                 # 3. Le bilan de la sortie automatique (sa passe du jour ne poste plus rien : sortie_auto.bilan_pour_digest).
                 bloques_d, jours_sortie, sortie_d = [], [], []
@@ -5021,6 +5107,10 @@ async def boucle_rappels():
                         etat.pop("sauvegarde_erreur", None)
                         ecrire_json(FICHIER_RAPPELS, etat)
                         try:
+                            relances.marquer_quiz_sans_discord(liste_q)     # 18/10 : une seule relance par personne
+                        except Exception as erreur:                         # noqa: BLE001
+                            journal.warning("Digest : relances quiz non comptées (%s)", erreur)
+                        try:
                             sortie_auto.oublier_bilan_dit(jours_sortie)
                         except Exception as erreur:                         # noqa: BLE001
                             journal.warning("Digest : bilan de sortie non oublié (%s)", erreur)
@@ -5038,7 +5128,7 @@ async def boucle_rappels():
                             membre_n = membre_par_id(m.group(1))
                             return membre_n.display_name if membre_n else "membre parti"
                         if telegram.TELEGRAM_QUOTIDIEN:
-                            texte_tg = (entete + "\n\n" + "\n\n".join(t for c, t in blocs_d if c not in ("bloques", "sortie", "appel")))[:3900]
+                            texte_tg = (entete + "\n\n" + "\n\n".join(t for c, t in blocs_d if c not in ("bloques", "sortie", "appel", "quiz_sans_discord")))[:3900]
                             try:
                                 await telegram.envoyer_telegram(re.sub(r"<@!?(\d+)>", _prenom, texte_tg).replace("**", "*"))
                             except Exception as erreur:                     # noqa: BLE001
@@ -5315,13 +5405,13 @@ COMMANDES_MANAGER = ("!quiz-ok", "!fiche", "!pipeline", "!tableau", "!retro", "!
                      "!actifs", "!equipe-active")     # 11/10 (revue du lot W) : lecture seule du roster, promise au staff
 
 
-def texte_aide(membre, est_admin: bool) -> str:
+def texte_aide(membre, est_admin: bool, tout: bool = False) -> str:
     """`!aide` selon qui demande : admin, manager, clipper sous contrat, candidat.
     09/10 (Gaëtan : « Go enlever le test de montage vidéo » ; « Saute des lignes, aère ») : plus de test, de J'ACCEPTE ni de
     Drive perso ; une ligne vide entre deux blocs ; le candidat lit trois lignes au plus, une seule action."""
     if est_admin or est_manager(membre):
         from aide_commandes import aide_staff
-        return aide_staff(est_admin)
+        return aide_staff(est_admin, tout)
     # 09/10 : « déjà dans l'agence » a UNE définition, est_signe (registre, rôle d'équipe, roster) ; l'assistant répond là où le
     # clipper écrit (plus de renvoi vers #assistant) ; la paie des clippers tombe les 5 et 20.
     if est_signe(membre):
@@ -6591,7 +6681,7 @@ async def commande_admin(message, texte: str) -> bool:
     if texte.split()[:1] == ["!diagnostic-dossier"]:
         import diagnostic_dossier
         return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS, est_staff)
-    if texte.split()[:1] == ["!funnel"]:
+    if texte.split()[:1] in (["!funnel"], ["!tableau"]):                # 18/10 (action 23, une seule vue) : !tableau = !funnel
         if str(message.author.id) not in ADMIN_IDS:
             return False
         mots_f = texte.split()
@@ -7692,29 +7782,63 @@ async def commande_admin(message, texte: str) -> bool:
             membre = message.mentions[0]
             raison = corps.replace(f"<@{membre.id}>", "").replace(f"<@!{membre.id}>", "").strip()
         else:
-            membre, raison = None, ""
-            tokens = corps.split()
-            for n in range(min(4, len(tokens)), 0, -1):
-                cand = chercher_membre(" ".join(tokens[:n]), exact=True)   # jamais de nom partiel ici
-                if cand is not None:
-                    membre, raison = cand, " ".join(tokens[n:]).strip()
-                    break
+            membre, raison, homonymes = membre_par_nom_tape(g, corps.split())
+            if homonymes:
+                await message.reply(f"❌ {len(homonymes)} membres portent ce nom : " + " · ".join(m.mention for m in homonymes[:6])
+                                    + ". Tape `!sortie @` et choisis la bonne personne.")
+                return True
         if membre is None:
-            await message.reply("Format : `!sortie @membre raison` (ex. `!sortie Zeky cadence ratée 2 jours de suite`). "
-                                "Retire rôles et accès, coupe les relances, prévient le membre, le manager et Telegram. "
-                                "Il a déjà quitté le serveur ? C'est fait tout seul à son départ (comptes au vivier, lien libéré, salon supprimé) ; sinon `!roster sortie Prénom`.")
+            await message.reply("Format : `!sortie Prénom raison` (ex. `!sortie Andry inactif depuis le 07/10`). Retire ses accès, "
+                                "archive ses liens et l'expulse du serveur ; ajoute `garder` pour le laisser sur le serveur. "
+                                "Il est déjà parti du serveur ? C'est fait tout seul à son départ.")
             return True
         if str(membre.id) in ADMIN_IDS or any(any(p in normaliser(r.name) for p in ROLES_PROTEGES) for r in membre.roles):
             await message.reply("⛔ Membre protégé (admin/manager/staff) — pas de sortie par commande.")
             return True
-        res = await sortir_membre(membre, raison, message.author)
+        # 18/10 (Andry : « supprime-le du serveur » ; deux !sortie de suite, deux fois « MP envoyé, 0 rôle retiré ») : la sortie
+        # expulse par défaut (`garder` le laisse sur le serveur), ne se refait pas, et la réponse dit ce qui a vraiment été fait.
+        garder = re.search(r"\bgarder\b", raison, re.I) is not None
+        raison = re.sub(r"\s*\bgarder\b\s*", " ", raison, flags=re.I).strip() or "sortie décidée par l'équipe"
+        import process_adapters
+        deja = process_adapters.store().get("sortie:" + str(membre.id)) or {}
+        if deja.get("phase") == "termine":
+            if garder or g.get_member(membre.id) is None:
+                await message.reply(f"ℹ️ {membre.display_name} est déjà sorti : rien refait.")
+                return True
+            try:
+                await membre.kick(reason=raison[:500])
+                await message.reply(f"✅ {membre.display_name} était déjà sorti ; il est maintenant expulsé du serveur.")
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                await message.reply(f"⚠️ {membre.display_name} est déjà sorti, mais l'expulsion est refusée par Discord "
+                                    f"({type(erreur).__name__}) : clic droit sur lui → Expulser.")
+            return True
+        nb_roles = len([r for r in membre.roles if r in roles_creatrices(g)
+                        or r in (role_team(g, "fr"), role_team(g, "mg"))
+                        or any(normaliser(n) in normaliser(r.name) for n in NOMS_RANGS)])
+        res = await sortir_membre(membre, raison, message.author, expulser=not garder)
         if res.get("annule"):                                           # revue CLICS : notes GAML illisibles, rien n'a été fait
             await message.reply(f"⏸️ {membre.mention} : {res['annule']}")
             return True
-        await message.reply(f"✅ {membre.mention} sorti : {res['roles']} rôle(s) retiré(s), {res['acces']} accès fermé(s), "
-                            f"{res['comptes']} compte(s) du classeur rendu(s)" + (f", {res['liens']} lien(s) libéré(s)" if res.get("liens") else "")
-                            + (f", {res['repris']} lien(s) passé(s) à {REPRENEUR_METRICOOL} avec ses comptes créés" if res.get("repris") else "")
-                            + ", relances coupées, registre tracé, MP envoyé, manager prévenu.")
+        if res.get("refus") and not garder and any("Historique de départ vide" in r for r in res["refus"]):
+            # rien à archiver (ni compte ni lien à son nom) : la sortie se résume à l'expulsion
+            try:
+                await membre.kick(reason=raison[:500])
+                await message.reply(f"✅ {membre.display_name} expulsé du serveur (aucun compte ni lien à son nom, rien à archiver).")
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                await message.reply(f"⚠️ Expulsion de {membre.display_name} refusée par Discord ({type(erreur).__name__}) : "
+                                    "clic droit sur lui → Expulser.")
+            return True
+        if res.get("refus"):
+            await message.reply(f"⚠️ Sortie de {membre.display_name} retenue : {' · '.join(res['refus'])}")
+            return True
+        comptes = len(process_adapters.store().get("depart-comptes:" + str(membre.id)).get("handles") or [])
+        faits = ["accès aux salons retirés"]
+        faits.append("expulsé du serveur" if res.get("expulse") else f"{nb_roles} rôle(s) retiré(s), reste sur le serveur")
+        if res.get("liens"):
+            faits.append(f"{res['liens']} lien(s) archivé(s)")
+        if comptes:
+            faits.append(f"{comptes} compte(s) passé(s) « à mettre Metricool »")
+        await message.reply(f"✅ {membre.display_name} sorti : " + ", ".join(faits) + ". Son salon est gardé (historique).")
         return True
 
     # ---- !monteur @x [rôle] : un clipper qui sort du clipping sans être viré (09/10, Julien devient monteur vidéo) ----
@@ -8937,7 +9061,7 @@ async def on_ready():
         except Exception as erreur:                                             # noqa: BLE001 — jamais bloquer le démarrage
             journal.warning("Codes : migration des fiches d'onboarding : %s", erreur)
         bans_mail.abonner()
-        client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # le lecteur unique de la boîte (UID, IDLE)
+        client.loop.create_task(codes_2fa.garde_codes(client, canal_admin, ADMIN_IDS))   # 18/10 : le lecteur et son gardien
         client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # le salon commun, mode d'emploi v7 et son bouton
         client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,
@@ -10247,6 +10371,37 @@ async def alerte_numero_demande(message, texte: str) -> None:
         await signaler_support(message, "Instagram demande un numéro de téléphone")
 
 
+def membre_par_nom_tape(guild, tokens: list) -> tuple:
+    """18/10 (« !sortie Andry pas publier » refusé cinq fois) : (membre, reste, homonymes) d'après un nom TAPÉ, sans mention. Le
+    pseudo entier (« Andry - Sarah ») ou le prénom avant « - », sur les 1 à 4 premiers mots ; un seul membre doit correspondre."""
+    membres = [m for m in getattr(guild, "members", None) or [] if not getattr(m, "bot", False)]
+    for n in range(min(4, len(tokens)), 0, -1):
+        nom = normaliser(" ".join(tokens[:n]).lstrip("@"))
+        if not nom:
+            continue
+        exacts = [m for m in membres if normaliser(m.display_name) == nom]
+        trouves = exacts or [m for m in membres if normaliser(str(m.display_name).split(" - ")[0]) == nom]
+        if len(trouves) == 1:
+            return trouves[0], " ".join(tokens[n:]).strip(), []
+        if len(trouves) > 1:
+            return None, "", trouves
+    return None, "", []
+
+
+COMMANDES_ADMIN = ("!aide", "!roster", "!pipeline", "!funnel", "!tableau", "!fiche", "!memoire", "!audit", "!secu", "!pilotage",
+                   "!tl", "!creatrice", "!onboarding", "!pseudo", "!dashboard", "!code", "!reprise", "!remettre-compte1",
+                   "!sortie", "!sortie-auto", "!organisation", "!diagnostic-dossier", "!relances", "!annonce", "!rapport", "!etape",
+                   "!note", "!paie-clics", "!clics", "!comptes-libres", "!monteur", "!audit-discussions", "!bans", "!appel")
+
+
+def suggestion_admin(mot: str) -> str:
+    """18/10 (« !toster » → « inconnue ») : la commande la plus proche, si elle est évidente."""
+    from difflib import get_close_matches
+    proche = get_close_matches((mot or "").lower(), COMMANDES_ADMIN, n=1, cutoff=0.7)
+    return (f"❓ `{mot}` inconnue. Tu voulais dire `{proche[0]}` ?" if proche
+            else f"❓ Commande `{mot}` inconnue — `!aide` pour la liste.")
+
+
 def suggestion_commande(texte):
     from difflib import get_close_matches
     mot = (texte.split() or [""])[0]
@@ -10452,7 +10607,7 @@ async def on_message(message):
             await canal_x.send(texte_a[:1990])
         if await codes_2fa.commande(message, ADMIN_IDS, _adresses_auteur, alerter=_alerter_admin):
             return
-    if texte.startswith("!tableau"):                                        # 27/09 : le tableau de bord d'une ligne
+    if texte.startswith("!tableau") and str(message.author.id) not in ADMIN_IDS:   # 18/10 : l'admin lit !funnel (action 23)
         if await tableau_bord.commande(message, texte):
             return
     if texte.startswith("!parrain-top"):                                    # 29/09 : le lien de parrainage au top 5, tout de suite
@@ -10637,7 +10792,7 @@ async def on_message(message):
 
     # !aide : pour tout le monde, adaptée au rôle de celui qui demande.
     if texte.split()[:1] in (["!aide"], ["!help"], ["!commandes"]):
-        await message.reply(texte_aide(message.author, str(utilisateur) in ADMIN_IDS)[:1990])
+        await message.reply(texte_aide(message.author, str(utilisateur) in ADMIN_IDS, tout="tout" in texte.lower().split())[:1990])
         return
 
     # Commandes admin : disponibles depuis N'IMPORTE quel canal (ex. !paiement dans #dopamine).
@@ -10675,7 +10830,7 @@ async def on_message(message):
         if await commande_admin(message, texte):
             return
         if est_admin:
-            await message.reply(f"❓ Commande `{premier_mot}` inconnue — `!aide` pour la liste.")
+            await message.reply(suggestion_admin(premier_mot))
             return
     elif texte.startswith("!") and est_manager(message.author) and premier_mot not in ("!quiz", "!lier"):
         await message.reply(f"❓ `{premier_mot}` n'est pas une commande manager — `!aide` pour ta liste.")
@@ -10843,6 +10998,8 @@ async def on_message(message):
         reponse = await reponse_escalade_verifiee(message, texte)
     journaliser(utilisateur, ("[photo] " if len(contenu) > 1 else "") + texte, reponse)
     reponse = re.sub(r"^\s*\[Contexte\s*:[^\]]*\]\s*", "", reponse)                         # 26/09 : jamais recopiée
+    reponse = retirer_prochaine_etape(reponse, texte)                                          # 18/10 : « simplifie »
+    reponse = retirer_fausse_promesse(reponse)                                                 # 18/10 : Mathieu
     reponse = re.sub(r"\n\s*\(?(Fiche \d[^\n]*|Manager\)?(\s*[—-]\s*Salon perso)?|FAQ terrain\)?|Parcours candidat\)?|Stratégie marketing\)?)\s*$", "", reponse).rstrip()
     reponse_liee = lier_salon_codes(lier_references(assainir_mentions(reponse)))   # 01/10 : #🔐-code-instagram cliquable
     reponse_liee = aerer(reponse_liee)                             # 09/10 (Gaëtan : « Saute des lignes, aère ») : lu au téléphone

@@ -18,6 +18,11 @@ class Retenue(Exception):
     pass
 
 
+# 18/10 (Julien, Mavie : deux jours avec un compte 1 sans accès, personne prévenu) : la raison du dernier refus d'identifiants_surs,
+# par uid, pour que le parcours prévienne le salon admin avec la commande qui répare. Jamais de secret dedans.
+RAISONS = {}
+
+
 def modele(mention, handle, mail, mdp):
     """Valeurs existantes uniquement ; rendu destiné au seul salon du titulaire."""
     return (f"{mention}\n\n**Étape 1 · Crée ton compte 1**\n\n"
@@ -132,6 +137,7 @@ def enregistrer_reprise(uid, ancien_mid, nouveau_mid, salon_id, operation):
     if str(messages.get('bienvenue')) == ancien_mid:
         messages['bienvenue'] = nouveau_mid
     fiche['messages'] = messages
+    fiche.pop('acces_en_attente', None)                                 # 18/10 : les accès sont remis, l'alerte s'éteint
     parcours._ecrire(etat)
 
 
@@ -156,6 +162,7 @@ async def identifiants_surs(guild, salon, uid, handle, fiche, admin_ids, est_sta
     sans attendre Gaëtan) : les mêmes contrôles que `!remettre-compte1`, faits AVANT le premier envoi, sans commande. Renvoie
     (mail, mdp) si le salon n'est lisible que par des personnes autorisées et que la ligne du classeur est bien la sienne ;
     sinon None (le message part sans secret et `!remettre-compte1 UID` reste possible). Jamais de secret au journal."""
+    RAISONS.pop(str(uid), None)
     try:
         verifier_lecteurs(guild, salon, str(uid), (fiche or {}).get('creatrice', ''), admin_ids, est_staff)
         lignes = [c for c in await onboarding.lire_comptes() if c.get('handle', '').lower() == str(handle).lower()]
@@ -163,8 +170,10 @@ async def identifiants_surs(guild, salon, uid, handle, fiche, admin_ids, est_sta
             raise Retenue('Ligne unique du classeur non confirmée.')
         return tuple(valeurs_ligne(lignes[0], parcours._onb(str(uid)), fiche or {}))
     except Retenue as erreur:
+        RAISONS[str(uid)] = str(erreur)
         parcours.journal.warning("Compte 1 de %s sans identifiants : %s", uid, erreur)
     except Exception as erreur:                                         # noqa: BLE001 — jamais de secret ni de blocage
+        RAISONS[str(uid)] = f"erreur technique ({type(erreur).__name__})"
         parcours.journal.warning("Compte 1 de %s sans identifiants (%s)", uid, type(erreur).__name__)
     return None
 
