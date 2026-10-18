@@ -5941,6 +5941,42 @@ async def commande_creatrice(message, texte: str) -> bool:
     return True
 
 
+async def commande_reprise(message, texte: str) -> bool:
+    """18/10 : `!reprise @membre Créatrice` (ADMIN_IDS) — un ancien clipper revient : son historique à vie est écrit d'après ce
+    que le bot connaît (reprise_ancien), puis son parcours repart comme `!creatrice` (forcé : c'est une décision d'admin)."""
+    import process_adapters
+    import reprise_ancien
+    if str(message.author.id) not in ADMIN_IDS:
+        await message.reply("Réservé aux admins.")
+        return True
+    morceaux = [m for m in texte.split()[1:] if not (m.startswith("<@") and m.endswith(">"))]
+    membre = (message.mentions[0] if message.mentions else None) or (chercher_membre(morceaux[0], exact=True) if morceaux else None)
+    if message.mentions:
+        creatrice = " ".join(morceaux).strip()
+    else:
+        creatrice = " ".join(morceaux[1:]).strip()
+    if membre is None or not creatrice:
+        await message.reply("Format : `!reprise @membre Sarah` (choisis la personne dans la liste qui s'ouvre après @). "
+                            "Pour un ancien clipper qui revient : son historique de comptes est repris, puis son parcours repart.")
+        return True
+    uid = str(membre.id)
+    handles = reprise_ancien.handles_connus(uid, lire_json(FICHIER_ONBOARDING, {}), lire_json(FICHIER_PARCOURS, {}))
+    provenance = {"source": f"discord-message:{message.id}", "par": str(message.author.id),
+                  "date": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    try:
+        bilan_r = reprise_ancien.reprendre(process_adapters.store(), uid, handles, provenance)
+    except RuntimeError as erreur:
+        await message.reply(f"⛔ Reprise de {membre.display_name} refusée : {erreur}. Rien n'a été changé.")
+        return True
+    places = max(0, 3 - bilan_r["comptes"])
+    await message.reply(f"🔁 {membre.display_name} : historique repris ({bilan_r['comptes']} compte(s) connu(s) sur 3"
+                        + (", " + ", ".join("@" + h for h in handles[:3]) if handles else "")
+                        + f") · {places} place(s) restante(s). Parcours relancé sur {creatrice}…")
+    if not places:
+        await message.reply("⚠️ Trois comptes déjà connus : aucun nouveau compte ne partira (règle C1).")
+    return await commande_creatrice(message, f"!creatrice <@{uid}> {creatrice} forcer")
+
+
 SEPARATEUR_AJOUTS = "\n\n=====\n\n"
 
 
@@ -6440,6 +6476,8 @@ async def commande_admin(message, texte: str) -> bool:
     if texte.split()[:1] == ["!diagnostic-dossier"]:
         import diagnostic_dossier
         return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS, est_staff)
+    if texte.split()[:1] == ["!reprise"]:
+        return await commande_reprise(message, texte)
     if texte.split()[:1] == ["!rapprocher-zero"]:
         import rapprochement_zero
         cibles = {v.strip() for v in os.environ.get("RAPPROCHEMENT_ZERO_UIDS", "").split(",") if v.strip().isdigit()}
