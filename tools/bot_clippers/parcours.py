@@ -1320,8 +1320,14 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
         await _envoyer_routine(salon, membre, uid, ctx)
         return True
     e = etape_def(fiche_p, n)
+    identifiants = None
     if pseudo_propose:
-        # Le pseudo du message est celui contrôlé et réservé, sans aucun secret.
+        # 18/10 (règles gelées E7, C10) : e-mail, mot de passe et @ dans le salon perso dès l'envoi, quand les contrôles de
+        # `!remettre-compte1` passent (salon lu par les seules personnes autorisées, ligne du classeur bien la sienne).
+        import remise_compte1
+        identifiants = await remise_compte1.identifiants_surs(
+            getattr(salon, "guild", None), salon, uid, pseudo_propose, fiche_p,
+            _deps.get("ADMIN_IDS") or set(), _deps.get("est_staff") or (lambda m: False))
         ctx["compte1"] = pseudo_propose
         e = {**e, "icone": "", "titre": "Étape 1 · Ton compte 1", "texte": (
             "Identifiant : @{compte1}\n\n"
@@ -1338,10 +1344,15 @@ async def envoyer_etape(salon, membre, n: int, pointer: bool = True) -> bool:
     texte = f"{membre.mention} {icone}**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
     if pseudo_propose:
         texte = f"{membre.mention}\n\n**{_rendre(e['titre'], ctx)}**\n\n{_rendre(e['texte'], ctx)}"
-    if n == 1 and not pseudo_propose and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
+        if identifiants:
+            import remise_compte1
+            texte = remise_compte1.modele(membre.mention, pseudo_propose, *identifiants)
+    # 18/10 (Gaëtan : « pourquoi ça envoie cette merde comme premier message ») : la bienvenue (créatrice, vidéos) passe AVANT le
+    # compte 1 aussi quand le compte 1 est une proposition contrôlée ; avant, elle sautait et le clipper ne lisait qu'un @.
+    if n == 1 and fiche_p.get("accueil_unique") and not (fiche_p.get("messages") or {}).get("bienvenue"):
         ctx["prenom"] = _prenom_affiche(ctx.get("prenom", ""))
         gabarit = TEXTE_CREATRICE_LA if _a_attendu(uid) else TEXTE_BIENVENUE
-        texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(f"{membre.mention} ")
+        texte = f"{membre.mention} " + _rendre(gabarit, ctx) + "\n\n" + texte.removeprefix(membre.mention).lstrip()
     if n == 5:                                                          # 01/10 : il publie sur ses comptes, la relecture est proposée
         texte += _ligne_review(uid)
     try:
