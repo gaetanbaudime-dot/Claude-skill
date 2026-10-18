@@ -2804,6 +2804,10 @@ def membre_par_prenom(prenom_n: str):
     aucun ou plusieurs (la colonne Gérant du classeur ne peut pas trancher entre deux Julien)."""
     if not prenom_n:
         return None
+    # 18/10 (Gaëtan : « garde tous les comptes de Rianah Metricool, mais crée deux autres Rianah : Rianah Clipping Chloé, Rianah
+    # Clipping Sarah ») : une identité « Prénom Clipping Créatrice » dans la colonne Gérant appartient au membre Prénom (codes,
+    # comptes) ; le Dashboard, lui, la compte à part, comme une identité distincte.
+    prenom_n = re.sub(r"\s+clipping(?:\s+\S+)*$", "", str(prenom_n)).strip() or prenom_n
     registre = lire_json(FICHIER_EQUIPES, {})
     trouves = []
     for uid, fiche in registre.items():
