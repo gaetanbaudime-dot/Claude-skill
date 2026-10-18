@@ -2010,7 +2010,7 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                 if montre:
                     _noter_montre(cle_guet, admissibles if usage == "auto" else [montre])
             if fini:
-                if not montre:
+                if not montre and not code_montre_recemment(cle_guet):
                     _signaler_code_absent(cle_guet, adresses, usage)
                 return "code" if montre else "panne" if lecteur_en_panne() else "rien"
             await _attendre_nouveau(min(5.0, fin - time.monotonic()))
@@ -2030,6 +2030,14 @@ def texte_code_absent(uid: str, adresses: set, usage: str, panne: bool) -> str:
                            "de cette adresse), ou Instagram ne l'a pas encore envoyé.")
     return (f"🚨 **Code Instagram pas reçu** : <@{uid}> a appuyé sur « 📩 Mon code » et rien n'est arrivé en "
             f"{ATTENTE_SEC // 60} minutes ({usage or 'auto'}, adresse {formes or 'inconnue'}).\n\n{cause}")
+
+
+def code_montre_recemment(cle_guet: str, minutes: int = None) -> bool:
+    """18/10 (Pierre et Georgial : alerte « pas reçu » à 13 h 57 alors qu'un code leur avait été montré à 13 h 52) : vrai si un code
+    a été montré à ce clipper pendant la fenêtre (le guet qui finit, ou un appui précédent). Pas d'alerte dans ce cas."""
+    minutes = FRAIS_MIN if minutes is None else minutes
+    limite = _iso(_maintenant() - timedelta(minutes=minutes))
+    return any(v >= limite for v in (_MONTRES.get(cle_guet) or {}).values())
 
 
 def _signaler_code_absent(cle_guet: str, adresses: set, usage: str):
