@@ -60,8 +60,8 @@ class DemandeTests(unittest.TestCase):
         self.assertNotIn("222222", texte)
         self.assertNotIn("333333", texte)
 
-    def test_code_creation_de_huit_minutes_non_rejoue(self):
-        self.entree(age=8, usage="creation")
+    def test_code_creation_de_plus_de_vingt_minutes_non_rejoue(self):
+        self.entree(age=25, usage="creation")                           # 18/10 : fenêtre de 20 minutes (Gaëtan)
         self.assertNotIn("111111", self.servir(usage="creation")[1])
 
     def test_date_future_ou_naive_ou_invalide_refusee(self):
