@@ -565,6 +565,24 @@ def _adresses_codes_fiche(uid, avec_comptes=False):
     return valides if avec_comptes else set(valides)
 
 
+def compte_alias_a_creer(alias) -> bool:
+    """18/10 (Pierre) : vrai si l'adresse a UN propriétaire et que le compte attaché à cette adresse n'est pas encore créé
+    (étape du parcours non fermée). Sert à donner le code « ajout d'adresse » envoyé par Instagram à l'inscription."""
+    alias = str(alias or "").strip().lower()
+    dest = destinataire_alias_code(alias)
+    if not dest:
+        return False
+    uid = str(dest["membre"].id)
+    handle = str((_adresses_codes_fiche(uid, avec_comptes=True) or {}).get(alias) or "").lower().lstrip("@")
+    if not handle:
+        return False
+    fiche_p = parcours._lire().get(uid) or {}
+    ordre = [str(h).lower().lstrip("@") for h in parcours._comptes_ordonnes(uid, parcours._onb(uid), fiche_p)]
+    if handle not in ordre:
+        return False
+    return not parcours._cree(fiche_p, ordre.index(handle) + 1)
+
+
 def destinataire_alias_code(alias):
     """Propriétaire unique d'un OTP reçu : identité Discord, sans inférence par prénom."""
     alias = str(alias or "").strip().lower()
@@ -8875,6 +8893,7 @@ def brancher_codes():
                           "rafraichir_adresses_membre": _actualiser_adresses_codes,
                           "destinataire_alias": destinataire_alias_code,
                           "compte_alias_uid": lambda uid, alias: (_adresses_codes_fiche(uid, avec_comptes=True) or {}).get(alias, ""),
+                          "compte_a_creer": compte_alias_a_creer,
                           "audit_liaisons": audit_liaisons_codes})
     client.add_dynamic_items(codes_2fa.BoutonMonCode, codes_2fa.BoutonUsageCode)
 

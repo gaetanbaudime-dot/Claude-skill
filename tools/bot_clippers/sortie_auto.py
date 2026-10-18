@@ -301,6 +301,10 @@ def visites(uid: str, jours: int) -> int:
 INACTIF_JOURS = int(os.environ.get("SORTIE_INACTIF_JOURS", "10") or 0)
 
 
+def infos_lids(paie_clics, d, uid) -> list:
+    return list(paie_clics.liens_de(d, uid))
+
+
 def inactifs(maintenant=None) -> list:
     """[(uid, nom)] des clippers dont tous les liens GAML (attribués depuis au moins INACTIF_JOURS jours) n'ont ramené aucune visite
     payée (paie_clics.payees, la mesure de la paie) sur les INACTIF_JOURS derniers jours, hier compris. Lecture seule ; [] sans paie
@@ -324,7 +328,10 @@ def inactifs(maintenant=None) -> list:
                         if str(i.get("note") or "").startswith("Clipping ")), "") or uid
             if str(nom or "").strip().lower() in paie_clics.CLICS_EXCLURE:
                 continue
-            if paie_clics.payees(d, uid, debut, hier) > 0:
+            # 18/10 (Caroline, Josué, Lilian, Yves listés « 10 jours sans visite payée » : ils sont au FIXE, leurs visites payées
+            # au clic valent 0 par construction, Caroline est la première productrice) : la règle lit les visites qui comptent de
+            # leurs liens (francophones, hors robots), quel que soit le régime de paie.
+            if paie_clics.payees(d, uid, debut, hier) > 0 or paie_clics.somme(d, infos_lids(paie_clics, d, uid), debut, hier)["payes"] > 0:
                 continue
             out.append((uid, nom or uid))
         return out

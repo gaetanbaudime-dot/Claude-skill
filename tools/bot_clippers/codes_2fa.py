@@ -798,6 +798,16 @@ def _noire(texte: str):
     return None
 
 
+AJOUT_ADRESSE = "e-mail ajouté ou changé"
+
+
+def _seulement_adresse(*textes) -> bool:
+    """18/10 (Pierre : trois codes de création gardés, « e-mail ajouté ou changé ») : vrai si, dans ces textes, la SEULE famille
+    de la liste noire touchée est celle de l'adresse e-mail (ni mot de passe, ni récupération, ni téléphone, ni 2FA…)."""
+    familles = {libelle for t in textes for libelle, motif in NOIRE_RE if motif.search(t or "")}
+    return familles == {AJOUT_ADRESSE}
+
+
 def langue_lue(texte: str) -> bool:
     """Au moins deux mots-outils distincts d'une même langue parmi FR, EN, DE, ES, PT, IT."""
     mots = set(re.findall(r"[a-z']+", texte))
@@ -999,14 +1009,18 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
             return dict(sortie, decision="donner", type="verification", libelle=QUOI["verification"])
     libelle = _noire(texte)
     if libelle:
-        return dict(sortie, decision="garder", libelle=libelle)
+        return dict(sortie, decision="garder", libelle=libelle,
+                    ajout_adresse=libelle == AJOUT_ADRESSE and expediteur_instagram(from_header)
+                    and _seulement_adresse(texte, *[_lisible(x, compte, code) for x in complets or []]))
     if any(plat(code) in phrase for phrase in avert):
         return dict(sortie, decision="garder", libelle="code dans une phrase « si ce n'était pas vous »")
     for partie in complets or []:                                      # tout l'e-mail, pied de page exclu
         lu, avert_p = _avertissements(_lisible(partie, compte, code), code)
         libelle = _noire(lu)
         if libelle:
-            return dict(sortie, decision="garder", libelle=f"{libelle} (plus bas dans l'e-mail)")
+            return dict(sortie, decision="garder", libelle=f"{libelle} (plus bas dans l'e-mail)",
+                        ajout_adresse=libelle == AJOUT_ADRESSE and expediteur_instagram(from_header)
+                        and _seulement_adresse(texte, *[_lisible(x, compte, code) for x in complets or []]))
         if any(plat(code) in phrase for phrase in avert_p):
             return dict(sortie, decision="garder", libelle="code dans une phrase « si ce n'était pas vous » (plus bas)")
     if not langue_lue(blanc):
@@ -2582,6 +2596,27 @@ async def _signaux(resultat: dict):
                          "faire. Une ligne par forme d'adresse et par jour.")
 
 
+def promouvoir_creation(info: dict) -> dict:
+    """18/10 (Gaëtan : « Pierre ne reçoit pas le code » ; « il faut jamais que ça plante ») : à l'inscription avec un e-mail,
+    Instagram envoie « Votre code Instagram est le … » en parlant d'AJOUTER cette adresse au compte. La liste noire le gardait
+    (« e-mail ajouté ou changé »). Il devient un code de création, donné au seul clipper de cette adresse, quand :
+      - le mail vient d'Instagram, porte un code, et l'adresse e-mail est la seule famille sensible touchée (ajout_adresse) ;
+      - l'adresse a UN propriétaire, et le compte qui lui est attaché n'est PAS encore créé (dep « compte_a_creer »).
+    Un compte déjà créé garde la règle : un changement d'adresse sur un compte vivant n'est jamais donné."""
+    if info.get("decision") != "garder" or not info.get("ajout_adresse") or not info.get("code") or not info.get("alias"):
+        return info
+    verifier = _deps.get("compte_a_creer")
+    try:
+        a_creer = bool(verifier(info["alias"])) if verifier else False
+    except Exception as erreur:                                         # noqa: BLE001 — dans le doute, la règle garde
+        journal.warning("Codes : compte à créer illisible : %s", _err(erreur))
+        a_creer = False
+    if not a_creer:
+        return info
+    journal.info("Codes : ajout d'adresse sur un compte à créer → code de création donné")
+    return dict(info, decision="donner", type="creation", libelle="création de compte (confirmation de l'adresse)")
+
+
 async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan: dict):
     """Un mail nouveau du lecteur : abonnés, puis la décision (cache, lignes admin, push)."""
     msg, dossier = lu["msg"], lu["dossier"]
@@ -2592,6 +2627,7 @@ async def _traiter_un(client, lu: dict, e: dict, connus: set, commun: str, bilan
             journal.warning("Abonné du lecteur des codes : %s", _err(erreur))
     info = classer_mail(msg)
     mid, alias = info["mid"], info["alias"]
+    info = promouvoir_creation(info)
     recent = not lu.get("amorce") or _maintenant() - info["date"] < timedelta(minutes=60)
     journal.info("Codes : %s (%s) sur %s → %s", info["libelle"] or "mail Meta", dossier, _masquer(alias), info["decision"])
     if info.get("preuve") == "contraire" and info["decision"] != "rien" and _une_fois("preuve|observer", minutes=24 * 60):
