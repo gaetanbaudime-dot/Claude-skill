@@ -8834,6 +8834,7 @@ async def on_ready():
         parcours.configurer({**deps_onb, "FICHIER_PARCOURS": FICHIER_PARCOURS, "POSTS_FORMATION": POSTS_FORMATION,
                              "categorie_de_creatrice": categorie_de_creatrice,
                              "est_staff": lambda m: str(m.id) in ADMIN_IDS or est_manager(m), "client": client,
+                             "ADMIN_IDS": ADMIN_IDS,                                  # 18/10 : identifiants du compte 1 sans commande
                              "chercher_membre": lambda nom: chercher_membre(nom),
                              "marquer_etat": onboarding.marquer_etat,                 # 25/09 : ETAT du classeur suit le parcours
                              "profil_envoyer": profil.envoyer,                        # 28/09 : photo et bio avec chaque compte

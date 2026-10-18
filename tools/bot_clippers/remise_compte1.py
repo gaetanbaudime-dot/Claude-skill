@@ -129,6 +129,36 @@ def enregistrer_reprise(uid, ancien_mid, nouveau_mid, salon_id, operation):
     parcours._ecrire(etat)
 
 
+def valeurs_ligne(ligne, onb, fiche) -> list:
+    """[mail, mdp] de la ligne du classeur, seulement si elle est bien celle du clipper (Gérant, créatrice, état à créer)."""
+    if (not onb.get('gerant') or onboarding._norm(ligne.get('gerant', '')) != onboarding._norm(onb['gerant'])
+            or onboarding._norm(ligne.get('creatrice', '')) != onboarding._norm(fiche.get('creatrice', ''))
+            or onboarding._norm(ligne.get('etat', '')) not in onboarding.A_CREER):
+        raise Retenue('Affectation ou état à créer du classeur non confirmé.')
+    valeurs = [ligne.get('mail'), ligne.get('mdp')]
+    if any(not isinstance(v, str) or not v.strip() or any(c in v for c in ('`', '\n', '\r')) for v in valeurs):
+        raise Retenue('Champs existants incomplets ou format incompatible.')
+    return valeurs
+
+
+async def identifiants_surs(guild, salon, uid, handle, fiche, admin_ids, est_staff):
+    """18/10 (règles gelées E7 et C10 : identifiants du compte 1 — e-mail, mot de passe, @ — dans le salon perso dès l'arrivée,
+    sans attendre Gaëtan) : les mêmes contrôles que `!remettre-compte1`, faits AVANT le premier envoi, sans commande. Renvoie
+    (mail, mdp) si le salon n'est lisible que par des personnes autorisées et que la ligne du classeur est bien la sienne ;
+    sinon None (le message part sans secret et `!remettre-compte1 UID` reste possible). Jamais de secret au journal."""
+    try:
+        verifier_lecteurs(guild, salon, str(uid), (fiche or {}).get('creatrice', ''), admin_ids, est_staff)
+        lignes = [c for c in await onboarding.lire_comptes() if c.get('handle', '').lower() == str(handle).lower()]
+        if len(lignes) != 1:
+            raise Retenue('Ligne unique du classeur non confirmée.')
+        return tuple(valeurs_ligne(lignes[0], parcours._onb(str(uid)), fiche or {}))
+    except Retenue as erreur:
+        parcours.journal.warning("Compte 1 de %s sans identifiants : %s", uid, erreur)
+    except Exception as erreur:                                         # noqa: BLE001 — jamais de secret ni de blocage
+        parcours.journal.warning("Compte 1 de %s sans identifiants (%s)", uid, type(erreur).__name__)
+    return None
+
+
 async def commande(message, texte, admin_ids, est_staff=lambda membre:False):
     if texte.split()[:1] != ['!remettre-compte1']:
         return False
@@ -155,14 +185,7 @@ async def commande(message, texte, admin_ids, est_staff=lambda membre:False):
             lignes = [c for c in await onboarding.lire_comptes() if c.get('handle', '').lower() == handle.lower()]
             if len(lignes) != 1:
                 raise Retenue('Ligne unique du classeur non confirmée.')
-            ligne = lignes[0]
-            if (not onb.get('gerant') or onboarding._norm(ligne.get('gerant', '')) != onboarding._norm(onb['gerant'])
-                    or onboarding._norm(ligne.get('creatrice', '')) != onboarding._norm(fiche.get('creatrice', ''))
-                    or onboarding._norm(ligne.get('etat', '')) not in onboarding.A_CREER):
-                raise Retenue('Affectation ou état à créer du classeur non confirmé.')
-            valeurs = [ligne.get('mail'), ligne.get('mdp')]
-            if any(not isinstance(v, str) or not v.strip() or any(c in v for c in ('`', '\n', '\r')) for v in valeurs):
-                raise Retenue('Champs existants incomplets ou format incompatible.')
+            valeurs = valeurs_ligne(lignes[0], onb, fiche)
             contenu = modele(membre.mention, handle, *valeurs)
             if len(contenu) > 1990:
                 raise Retenue('Message trop long : aucune modification.')
