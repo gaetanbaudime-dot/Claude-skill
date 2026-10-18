@@ -96,3 +96,6 @@ class Notifications(unittest.IsolatedAsyncioTestCase):
     def test_reservation_seule_reste_bloquee_livraison_confirmee_non(self):
         self.assertTrue(a.a_signaler('📦 lignes déjà affectées ; livraison suivie séparément'))
         self.assertFalse(a.a_signaler('✅ Compte 1 livré (message confirmé) · lignes déjà affectées ; livraison suivie séparément'))
+        self.assertFalse(a.a_signaler('✅ Message du compte 1 vérifié ; remise des accès non attestée.'))
+        self.assertTrue(a.a_signaler('⚠️ pseudo refusé · Message du compte 1 vérifié ; remise des accès non attestée.'))
+        self.assertTrue(a.a_signaler('⚠️ Message du compte 1 ou informations non vérifiés : reprise conservée.'))

@@ -2747,7 +2747,7 @@ async def commande_staff(message, texte: str) -> bool:
     registre = _deps["lire_json"](_deps["FICHIER_EQUIPES"], {})
     creatrice = " ".join(m for m in mots[1:] if not m.startswith("<@")).strip() or registre.get(str(membre.id), {}).get("creatrice", "")
     if not creatrice:
-        await message.reply("Pas de créatrice connue : `!onboarding @clipper Chloé` ou d'abord `!creatrice @clipper Chloé`.")
+        await message.reply("Pas de créatrice connue : d'abord `!creatrice @clipper Chloé`, puis `!onboarding @clipper` pour reprendre.")
         return True
     bilan = await livrer(membre, creatrice, _deps["salon_perso"](str(membre.id)), declencheur=f"!onboarding par {message.author.id}")
     await message.reply(bilan[:1990])

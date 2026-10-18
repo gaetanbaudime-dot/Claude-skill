@@ -11,7 +11,7 @@ ADMIN = """🧰 **Aide admin · essentiel**
 
 **Agir — vérifier le résultat avant la suite**
 • `!creatrice @membre Chloé` — affecter et lancer le parcours.
-• `!onboarding @membre Chloé` — reprise forcée ; peut réserver des accès et renvoyer une étape.
+• `!onboarding @membre` — reprendre sa créatrice affectée ; peut réserver des accès et renvoyer une étape.
 • `!pseudo @membre 1 vrai_pseudo` — renommer un compte, pas permuter les comptes.
 • `!dashboard` — réécrire le suivi sans scan ; `!dashboard scan` lance un scan payant.
 • `!code [adresse]` — connexion, création et confirmation e-mail ; accès contrôlé, réponse privée.
@@ -19,6 +19,7 @@ ADMIN = """🧰 **Aide admin · essentiel**
 • `!reprise @membre Sarah` — un ancien clipper revient : historique de comptes repris (3 au total, jamais remis à zéro), puis parcours relancé.
 
 **Propriétaire du serveur + admin, résultat en MP**
+• `!organisation UID` — diagnostic rôles/TL/catégorie ; ajouter `appliquer` pour réparer, sans comptes.
 • Lecture : `!diagnostic-dossier UID Chloé UID_TL` (Sarah aussi).
 • Écriture : `!rapprocher-zero UID confirme-zero` — après diagnostic, seulement dossier autorisé et historique zéro vérifié.
 • `!audit-discussions export nouveau` — démarrer UNE fois une nouvelle archive.
@@ -39,7 +40,7 @@ MANAGER = """🧰 **Aide manager · essentiel**
 
 **Agir — vérifier le résultat avant la suite**
 • `!creatrice @membre Chloé` — affecter et lancer le parcours.
-• `!onboarding @membre Chloé` — reprise forcée ; peut réserver des accès et renvoyer une étape.
+• `!onboarding @membre` — reprendre sa créatrice affectée ; peut réserver des accès et renvoyer une étape.
 • `!pseudo @membre 1 vrai_pseudo` — renommer un compte, pas permuter les comptes.
 • `!etape @membre` — renvoyer l'étape ; avec un numéro, la forcer.
 • `!note @membre texte` — ajouter une note.
