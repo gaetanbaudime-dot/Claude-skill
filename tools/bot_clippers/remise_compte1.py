@@ -144,7 +144,11 @@ def valeurs_ligne(ligne, onb, fiche) -> list:
     valeurs = [ligne.get('mail'), ligne.get('mdp')]
     if any(not isinstance(v, str) or not v.strip() or any(c in v for c in ('`', '\n', '\r')) for v in valeurs):
         raise Retenue('Champs existants incomplets ou format incompatible.')
-    return valeurs
+    # 18/10 (Esperance a reçu « E-mail : Muse2!Echo#98GlowAgency », un mot de passe collé dans la colonne Mail du classeur) :
+    # une adresse qui n'a pas la forme d'un e-mail n'est jamais envoyée ; la ligne est à corriger dans le classeur.
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,}", valeurs[0].strip()):
+        raise Retenue("Colonne Mail du classeur invalide pour ce compte (pas une adresse e-mail) : corrige la ligne.")
+    return [v.strip() for v in valeurs]
 
 
 async def identifiants_surs(guild, salon, uid, handle, fiche, admin_ids, est_staff):
