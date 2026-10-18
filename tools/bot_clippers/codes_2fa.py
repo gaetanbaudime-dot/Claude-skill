@@ -979,7 +979,14 @@ def classer(from_header, sujet: str, corps: str, complets=None) -> dict:
     if reconnu:
         return dict(sortie, decision="donner", type=reconnu, libelle=QUOI[reconnu])
     if not expediteur_instagram(from_header):
-        return dict(sortie, decision="garder", code=None, libelle="OTP e-mail sans but sûr reconnu")
+        # 18/10 (Diamondra : « Authenticate your profile » de Meta, gardé trois fois pendant la création de son compte 1) : le
+        # nouveau parcours d'inscription Instagram passe par un compte Meta. Un code Meta sans aucune famille sensible (ou la
+        # seule adresse e-mail) reste gardé ici, mais peut devenir un code de création si le compte de l'adresse n'est pas créé.
+        profil = re.compile(r"authenticate your profile|authentifie[rz] votre profil|authentification de (?:votre )?profil")
+        familles = {libelle for t in [texte] + [_lisible(x, compte, code) for x in complets or []]
+                    for libelle, motif in NOIRE_RE if motif.search(profil.sub(" ", t or ""))}
+        return dict(sortie, decision="garder", libelle="OTP e-mail sans but sûr reconnu",
+                    ajout_adresse=expediteur_meta(from_header) and familles <= {AJOUT_ADRESSE})
     # Les anciens modèles Instagram restent compatibles ; une mention 2FA ambiguë
     # sans but de connexion explicite ne doit pas emprunter leur raccourci.
     if any(_FACTEUR_EMAIL.search(_sans_pied(plat(t), code)) for t in [sujet, corps] + list(complets or [])):

@@ -28,7 +28,7 @@ def modele(mention, handle, mail, mdp):
     return (f"{mention}\n\n**Étape 1 · Crée ton compte 1**\n\n"
             f"Identifiant : `{handle}`\n\nE-mail : `{mail}`\n\nMot de passe : `{mdp}`\n\n"
             "1. Instagram → Créer un compte → utilise cet e-mail.\n\n"
-            "2. Pour le code reçu par e-mail, utilise `!code` dans le salon 🔐-code-instagram.\n\n"
+            "2. Le code reçu par e-mail : dans le salon 🔐-code-instagram, appuie sur « 📩 Mon code ».\n\n"
             "3. Si Instagram demande ton numéro ou ta date de naissance, utilise les vrais.\n\n"
             "Créé ? Appuie sur le bouton.")
 
