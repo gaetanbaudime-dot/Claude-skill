@@ -5701,7 +5701,8 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             attribution.resoudre_blocage(uid_m)
             return (f"{'🆕' if cree_c else '✅'} {m_.display_name} → {creatrice_c} · <#{salon_c.id}>"
                     + (f" · ⚠️ {err_c}" if err_c else "") + (" · " + ", ".join(extras) if extras else "")
-                    + " · Message du compte 1 vérifié ; remise des accès non attestée.")
+                    + (f" · ⚠️ compte 1 envoyé sans e-mail ni mot de passe : `!remettre-compte1 {prenom_c}`."
+                       if (p_final or {}).get("acces_en_attente") else " · compte 1 envoyé dans son salon."))
         finally:
             _ONBOARDINGS_EN_COURS.discard(uid_m)
 
@@ -6690,6 +6691,13 @@ async def passer_hors_clipping(membre, role: str = "monteur vidéo", par=None) -
 
 async def commande_admin(message, texte: str) -> bool:
     """Commandes réservées aux ADMIN_IDS. Renvoie True si traité."""
+    if (texte.split()[:1] in (["!organisation"], ["!remettre-compte1"], ["!diagnostic-dossier"])
+            and len(texte.split()) > 1 and not texte.split()[1].isdigit()):
+        guild_n = message.guild or (client.guilds[0] if client.guilds else None)
+        texte, erreur_n = uid_depuis_nom(texte, guild_n)                # 18/10 : un prénom suffit
+        if erreur_n:
+            await message.reply(erreur_n)
+            return True
     if texte.split()[:1] == ["!organisation"]:
         import organisation_ciblee
         return await organisation_ciblee.commande(message, texte, DONNEES, ADMIN_IDS, equipes_tl.tl_par_va)
@@ -10388,6 +10396,19 @@ async def relayer_mention_staff(message) -> bool:
 async def alerte_numero_demande(message, texte: str) -> None:
     if re.search(r"num[ée]ro de t[ée]l|demande un num[ée]ro|numero de tel", texte, re.I):
         await signaler_support(message, "Instagram demande un numéro de téléphone")
+
+
+def uid_depuis_nom(texte: str, guild) -> tuple:
+    """18/10 (« simplifie ») : `!remettre-compte1 Antonio` vaut `!remettre-compte1 <son UID>`. (texte réécrit, erreur ou '')."""
+    mots = (texte or "").split()
+    if len(mots) < 2 or mots[1].isdigit() or guild is None:
+        return texte, ""
+    membre, reste, homonymes = membre_par_nom_tape(guild, mots[1:])
+    if homonymes:
+        return texte, f"❌ {len(homonymes)} membres portent ce nom : tape son identifiant ou `@` et choisis-le."
+    if membre is None:
+        return texte, f"❌ Personne ne s'appelle « {mots[1]} » sur le serveur."
+    return " ".join([mots[0], str(membre.id)] + ([reste] if reste else [])), ""
 
 
 def membre_par_nom_tape(guild, tokens: list) -> tuple:

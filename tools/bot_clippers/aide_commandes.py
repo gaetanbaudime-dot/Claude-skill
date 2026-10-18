@@ -13,7 +13,7 @@ ADMIN = """🧰 **Aide admin**
 **Agir**
 
 • `!creatrice Prénom Chloé` — lui donner sa créatrice et lancer son parcours.
-• `!remettre-compte1 UID` — renvoyer son compte 1 avec e-mail et mot de passe.
+• `!remettre-compte1 Prénom` — renvoyer son compte 1 avec e-mail et mot de passe.
 • `!reprise Prénom Sarah` — un ancien revient (ses 3 comptes à vie sont gardés).
 • `!sortie Prénom raison` — le sortir et l'expulser (`garder` pour le laisser sur le serveur).
 • `!tl Sarah Prénom` — nommer le TL d'une créatrice.
@@ -55,7 +55,7 @@ ADMIN_TOUT = """🧰 **Aide admin · tout le reste**
 • `!dashboard` — réécrire le suivi (`!dashboard scan` = scan payant).
 • `!code [adresse]` — codes e-mail, réponse privée.
 • `!sortie-auto` — qui serait sorti pour inactivité.
-• `!organisation UID` — diagnostic rôles et salon (`appliquer` pour réparer).
+• `!organisation Prénom` — diagnostic rôles et salon (`appliquer` pour réparer).
 • `!diagnostic-dossier UID Chloé UID_TL` — diagnostic d'un dossier.
 • `!rapprocher-zero UID confirme-zero` — historique zéro, après diagnostic seulement.
 • `!audit-discussions export` — archive des discussions."""
