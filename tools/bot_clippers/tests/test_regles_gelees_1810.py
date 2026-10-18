@@ -73,5 +73,31 @@ class GroupeTLTests(unittest.TestCase):
         self.assertIn("Gaëtan", salon.send.await_args.args[0])
 
 
+class TLParPrenomTests(unittest.TestCase):
+    """18/10 : `!tl Sophie Mathieu` sans mention (un @ recopié n'est pas une mention)."""
+    def _guild(self, *noms):
+        return N(members=[N(id=i + 1, display_name=n, bot=False) for i, n in enumerate(noms)])
+
+    def test_prenom_seul(self):
+        g = self._guild("Mathieu - Sophie - LT Sophie", "Thia")
+        m, c, refus = equipes_tl._par_prenom(g, ["Sophie", "Mathieu"])
+        self.assertEqual((m.display_name, c, refus), ("Mathieu - Sophie - LT Sophie", "Sophie", ""))
+
+    def test_pseudo_entier_recopie(self):
+        g = self._guild("Mathieu - Sophie - LT Sophie")
+        m, c, _ = equipes_tl._par_prenom(g, ["Sophie", "@Mathieu", "-", "Sophie", "-", "LT", "Sophie"])
+        self.assertEqual((m.display_name, c), ("Mathieu - Sophie - LT Sophie", "Sophie"))
+
+    def test_homonymes_refuses(self):
+        g = self._guild("Mathieu - Sophie", "Mathieu - Chloé")
+        m, _, refus = equipes_tl._par_prenom(g, ["Sophie", "Mathieu"])
+        self.assertIsNone(m)
+        self.assertIn("2 membres", refus)
+
+    def test_inconnu(self):
+        m, c, refus = equipes_tl._par_prenom(self._guild("Thia"), ["Sophie", "Mathieu"])
+        self.assertEqual((m, refus), (None, ""))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1609,8 +1609,13 @@ def controle_roles(guild, fiches=None) -> list:
                       "commande staff.")
     for uid, m in porteurs.items():
         if uid not in tls:
-            lignes.append(f"⚠️ {getattr(m, 'display_name', uid)} porte le rôle {ROLE_TL_NOM} sans être TL au registre : "
-                          f"`!tl Créatrice @{getattr(m, 'display_name', '')}` pour le nommer, sinon retire-lui le rôle.")
+            # 18/10 (Gaëtan a recopié « !tl Créatrice @Mathieu - Sophie - LT Sophie » six fois, refusé : un @ recopié n'est pas
+            # une mention) : la commande à taper telle quelle, créatrice de sa fiche puis son prénom
+            affiche = str(getattr(m, "display_name", "") or uid)
+            prenom = affiche.split(" - ")[0].strip() or affiche
+            c_fiche = str((fiches.get(uid) or {}).get("creatrice") or "").strip() or "Créatrice"
+            lignes.append(f"⚠️ {affiche} porte le rôle {ROLE_TL_NOM} sans être TL au registre : tape `!tl {c_fiche} {prenom}` "
+                          "pour le nommer, sinon retire-lui le rôle.")
     for uid, c in tls.items():
         m = _membre(uid)                                                # ses rôles à lui : jamais d'alerte sur un cache incomplet
         if m is not None and getattr(m, "roles", None) is not None and role not in m.roles:
@@ -1669,6 +1674,24 @@ def _cible(message, texte: str):
     return _resoudre(mentions[0] if mentions else None), ""
 
 
+def _par_prenom(guild, args: list):
+    """(membre, créatrice, refus) pour `!tl Sophie Mathieu` sans mention (18/10 : un « @Mathieu - Sophie - LT Sophie » recopié
+    est du texte, pas une mention, et Discord le refuse sans rien dire). Premier mot = la créatrice, le reste = le pseudo entier
+    ou son prénom (avant « - »). Un seul membre doit correspondre, sinon refus : jamais de TL nommé au hasard."""
+    if len(args) < 2 or guild is None:
+        return None, " ".join(args), ""
+    creatrice, nom = args[0], _n(" ".join(args[1:]).lstrip("@"))
+    membres = [m for m in getattr(guild, "members", None) or [] if not getattr(m, "bot", False)]
+    exacts = [m for m in membres if _n(getattr(m, "display_name", "")) == nom]
+    trouves = exacts or [m for m in membres if _n(str(getattr(m, "display_name", "")).split(" - ")[0]) == nom]
+    if len(trouves) == 1:
+        return _resoudre(trouves[0]), creatrice, ""
+    if len(trouves) > 1:
+        return None, creatrice, (f"❌ {len(trouves)} membres s'appellent « {' '.join(args[1:])} » : tape `!tl {creatrice} @` puis "
+                                 "choisis la bonne personne dans la liste.")
+    return None, " ".join(args), ""
+
+
 async def commande(message, texte: str) -> bool:
     """`!tl …` et `!manager …`, réservées aux ADMIN_IDS (jamais au rôle Manager). True si la commande est traitée. Tapée en MP,
     la mention est résolue en membre du serveur, et le serveur est celui de ce membre (revue L10, R8). La personne est celle
@@ -1713,7 +1736,13 @@ async def commande(message, texte: str) -> bool:
             await message.reply(refus_cible)
             return True
         if cible is None:
-            await message.reply("Usage : `!tl Chloé @X`, `!tl Chloé aucun` ou `!tl liste`.")
+            cible, creatrice, refus_nom = _par_prenom(guild, args)
+            if refus_nom:
+                await message.reply(refus_nom)
+                return True
+        if cible is None:
+            await message.reply("Usage : `!tl Chloé @X` (choisis la personne dans la liste qui s'ouvre après @), "
+                                "`!tl Chloé Prénom`, `!tl Chloé aucun` ou `!tl liste`.")
             return True
         await _repondre(message, await nommer_tl(cible, creatrice, par, guild))
     except Exception as erreur:                                         # noqa: BLE001
