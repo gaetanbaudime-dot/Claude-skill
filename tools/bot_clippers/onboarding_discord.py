@@ -50,14 +50,14 @@ async def ranger_categorie(salon, categorie, raison):
 async def verifier_organisation(guild, membre, salon, categorie, tl, roles, info):
     """Relire rôles et accès après les écritures, avant toute réservation de compte."""
     membre = await guild.fetch_member(membre.id)
-    tl = await guild.fetch_member(tl.id)
+    tl = await guild.fetch_member(tl.id) if tl is not None else None   # 18/10 : une créatrice sans TL ne bloque pas l'arrivée
     salon = await guild.fetch_channel(salon.id)
     info = await guild.fetch_channel(info.id)
     if salon.category_id != categorie.id or info.category_id != categorie.id:
         raise RuntimeError('Catégorie de la créatrice non confirmée')
     if not {r.id for r in roles}.issubset({r.id for r in membre.roles}):
         raise RuntimeError('Rôles Clippeur et créatrice non confirmés')
-    for personne in (membre, tl, guild.me):
+    for personne in (p for p in (membre, tl, guild.me) if p is not None):
         permissions = salon.permissions_for(personne)
         if not (permissions.view_channel and permissions.send_messages and permissions.read_message_history):
             raise RuntimeError('Accès au salon personnel non confirmés')

@@ -5420,8 +5420,11 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             return "⚠️ " + str(erreur) + ". Historique conservé ; rapprochement nécessaire."
         tl_id = onboarding_preuves.tl_pour(uid_m, creatrice_c, equipes_tl.tl_par_va(), lire_json(FICHIER_EQUIPES, {}))
         tl = membre_par_id(tl_id) if tl_id else None
-        if tl is None or getattr(tl, "bot", False):
-            return "⚠️ Team leader absent ou ambigu : onboarding en attente"
+        # 18/10 (Gaëtan : « son salon personnel avec son team leader, si la créatrice n'en a pas tant pis ») : sans TL (Maddie, Jade,
+        # Clara, ou TL parti du serveur), l'arrivée continue : salon, rôles, pseudo et compte 1 partent quand même, sans accès TL.
+        if tl is not None and getattr(tl, "bot", False):
+            tl = None
+        sans_tl = tl is None
         if uid_m in _ONBOARDINGS_EN_COURS:
             return "⏳ Onboarding déjà en cours ; reprise conservée."
         nouveau_v = parcours_a_demarrer(uid_m) if nouveau is None else bool(nouveau)
@@ -5437,14 +5440,16 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             salon_c, cree_c, err_c = await assurer_salon_perso(g, m_, cat, creatrice_c, f"salon d'équipe par {par_nom}")
             if salon_c is None or err_c:
                 return f"❌ {m_.display_name} : {err_c or 'salon impossible'}"
-            if not cree_c and not (salon_c.permissions_for(tl).view_channel and salon_c.permissions_for(tl).read_message_history):
+            if tl is not None and not cree_c and not (salon_c.permissions_for(tl).view_channel
+                                                      and salon_c.permissions_for(tl).read_message_history):
                 if not await onboarding_preuves.salon_vide_verifie(salon_c):
                     return "⚠️ Accès TL retenu : historique présent ou illisible, vérification humaine nécessaire."
-            try:
-                await salon_c.set_permissions(tl, overwrite=onboarding_discord.surcharge_acces_tl(salon_c, tl),
-                                              reason="Team leader configuré du clippeur")
-            except (discord.HTTPException, TimeoutError, OSError):
-                return "⚠️ Accès TL non confirmé : reprise conservée."
+            if tl is not None:
+                try:
+                    await salon_c.set_permissions(tl, overwrite=onboarding_discord.surcharge_acces_tl(salon_c, tl),
+                                                  reason="Team leader configuré du clippeur")
+                except (discord.HTTPException, TimeoutError, OSError):
+                    return "⚠️ Accès TL non confirmé : reprise conservée."
             prenom_c = prenom_distinct(m_, nouveau_v)
             renomme = normaliser(prenom_c) != normaliser(prenom_de(m_))         # avant l'edit : discord.py ne met pas m_ à jour tout de suite
             registre_se = lire_json(FICHIER_EQUIPES, {})
@@ -5519,8 +5524,10 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
                     p_final["messages"]["1"], creatrice_c, info_c)
             except (discord.HTTPException, TimeoutError, OSError, RuntimeError):
                 return "⚠️ Message du compte 1 ou informations non vérifiés : reprise conservée."
+            if sans_tl:
+                extras.append(f"pas de TL pour {creatrice_c} : salon sans TL")
             demande_groupe = getattr(parcours, "demander_groupe_tl", None)     # 18/10 (E8) : le TL crée le groupe WhatsApp
-            if demande_groupe is not None:                                    # jamais au prix de l'arrivée (la fonction n'échoue pas)
+            if demande_groupe is not None and tl is not None:                 # jamais au prix de l'arrivée (la fonction n'échoue pas)
                 await demande_groupe(salon_c, uid_m, tl, prenom_c, creatrice_c)
             attribution._sortir_d_attente(uid_m)
             attribution.resoudre_blocage(uid_m)

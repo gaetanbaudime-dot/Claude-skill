@@ -121,7 +121,7 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
         salon.set_permissions.assert_awaited()
 
     async def test_drive_tl_quiz_manquants_bloquent_avant_droits(self):
-        for manque in ('drive', 'tl', 'quiz'):
+        for manque in ('drive', 'quiz'):                                 # 18/10 : un TL absent ne bloque plus (test suivant)
             ns, membre, salon, registre = self.contexte()
             if manque == 'drive': ns['onboarding'].lien_drive_creatrice.return_value = ''
             if manque == 'tl': ns['equipes_tl'].tl_par_va = lambda: {}
@@ -131,6 +131,14 @@ class OnboardingTests(unittest.IsolatedAsyncioTestCase):
             ns['assurer_salon_perso'].assert_not_awaited()
             membre.add_roles.assert_not_awaited()
             ns['onboarding'].livrer.assert_not_awaited()
+
+    async def test_sans_tl_l_arrivee_continue(self):
+        """18/10 (Gaëtan : « si la créatrice n'a pas de TL, tant pis ») : salon et suite, sans accès TL."""
+        ns, membre, salon, registre = self.contexte()
+        ns['equipes_tl'].tl_par_va = lambda: {}
+        fn = charger('onboarder_membre', ns)
+        await fn(membre.guild, membre, 'Fictive', None, {}, [])
+        ns['assurer_salon_perso'].assert_awaited()
 
     def test_message_compte_sans_secret(self):
         fn = charger('_identifiants', {}, fichier='parcours.py')
