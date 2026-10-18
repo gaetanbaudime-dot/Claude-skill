@@ -38,10 +38,19 @@ class GrilleManagerTests(unittest.TestCase):
 
 
 class InactifsTests(unittest.TestCase):
-    def _paie(self, liens, payees):
+    def _paie(self, liens, payees, visites=None):
+        visites = visites or {}
         return N(actif=lambda: True, _lire=lambda: {"liens": liens}, CLICS_EXCLURE={"gaetan"},
                  liens_de=lambda d, uid: [l for l, i in d["liens"].items() if str(i.get("uid")) == str(uid)],
-                 payees=lambda d, uid, a, b: payees.get(uid, 0))
+                 payees=lambda d, uid, a, b: payees.get(uid, 0),
+                 somme=lambda d, lids, a, b: {"payes": sum(visites.get(l, 0) for l in lids)})
+
+    def test_un_fixe_qui_produit_n_est_pas_inactif(self):
+        # 18/10 : Caroline au fixe (visites payées au clic = 0) mais 1 405 visites qui comptent en 7 jours
+        liens = {"b": {"uid": "2", "depuis": "2026-09-20", "note": "Clipping Caroline"}}
+        maintenant = datetime(2026, 10, 18, 9, tzinfo=timezone.utc)
+        with patch.dict(sys.modules, {"paie_clics": self._paie(liens, {}, {"b": 1405})}):
+            self.assertEqual(sortie_auto.inactifs(maintenant), [])
 
     def test_liste_seulement_les_liens_anciens_a_zero(self):
         liens = {"a": {"uid": "1", "depuis": "2026-09-20", "note": "Clipping Thia"},
