@@ -45,6 +45,7 @@ import parcours                           # parcours guidé du clipper dans son 
 import etats_comptes                      # colonne ETAT du classeur mise à jour depuis Instagram (26/09)
 import dashboard                          # 09/10 (dashboard) : onglet Dashboard, une ligne par compte, réécrit toutes les 15 min si changé
 import matin                              # un seul message du matin par clipper (26/09)
+import funnel_quotidien                   # 18/10 : M1 leads · M2 qualifiés · M3 actifs, jour par jour (actions 16-17)
 import fusion_forms                       # 18/10 : réponses des anciens Google Forms en haut de « Candidatures bot »
 import sortie_auto                        # sortie automatique : averti à 3 jours sans Reel, sorti à 7 (30/09)
 import parrainage                         # !parrain : 5 $ au parrain à la première paie du filleul (28/09)
@@ -4556,6 +4557,50 @@ def _jour_paris(iso):
     return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).astimezone(paris).date()
 
 
+ONGLET_FUNNEL = "Funnel quotidien"
+
+
+async def serie_funnel(nb_jours: int, fin=None) -> list:
+    """18/10 (actions 16-17) : [(jour, M1, M2, M3)] des `nb_jours` jours pleins jusqu'à `fin` (hier par défaut), heure de Paris.
+    M1 = candidatures_du_jour (le compteur de !pipeline), M2 = funnel_quotidien.qualifies, M3 = funnel_quotidien.actifs."""
+    try:
+        from zoneinfo import ZoneInfo
+        paris = ZoneInfo("Europe/Paris")
+    except Exception:                                                   # noqa: BLE001 — base de fuseaux absente
+        paris = timezone(timedelta(hours=2))
+    fin = fin or (datetime.now(paris).date() - timedelta(days=1))
+    jours = [fin - timedelta(days=k) for k in range(max(1, nb_jours))]
+    try:
+        lignes_c = await lire_candidatures_sheets()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Funnel : classeur des candidatures illisible (%s)", erreur)
+        lignes_c = []
+    pipe = lire_json(FICHIER_PIPELINE, {"liaisons": {}, "etats": {}})
+    try:
+        paie = paie_clics._lire()
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Funnel : relevés de visites illisibles (%s)", erreur)
+        paie = {}
+    exclus = frozenset(ADMIN_IDS)
+    return funnel_quotidien.serie(
+        jours, lambda j: len(candidatures_du_jour(j, lignes_c, pipe)),
+        lambda j: len(funnel_quotidien.qualifies(pipe, j, paris)),
+        lambda j: len(funnel_quotidien.actifs(paie, j, paie_clics.payees, exclus)) if paie else 0)
+
+
+async def ecrire_onglet_funnel(lignes: list) -> bool:
+    """L'onglet « Funnel quotidien » du classeur des candidatures, réécrit (30 jours) : la série que l'app pilotage peut lire."""
+    if not (SHEET_CANDIDATURES_ID and google_api.actif() and lignes):
+        return False
+    try:
+        await google_api.sheets_creer_onglet(SHEET_CANDIDATURES_ID, ONGLET_FUNNEL)
+        await google_api.sheets_ecrire(SHEET_CANDIDATURES_ID, f"{ONGLET_FUNNEL}!A1", funnel_quotidien.lignes_feuille(lignes))
+        return True
+    except Exception as erreur:                                         # noqa: BLE001 — jamais bloquer le digest
+        journal.warning("Onglet %s : %s", ONGLET_FUNNEL, erreur)
+        return False
+
+
 def compteurs_funnel(pipe: dict, jour, registre: dict | None = None) -> dict:
     """09/10 (Gaëtan : « Termine tout le funnel entier Telegram > Forms > Formation > Quizz > Discord > attribution créatrice… ») :
     les flux d'un jour (Paris) pour le digest. quiz_ok et quiz_ko : le quizz du site (dernier essai de chaque numéro, staff exclu),
@@ -4872,6 +4917,15 @@ async def boucle_rappels():
                                 + f" · {flux['arrives']} arrivé(s) sur Discord · {flux['valides']} validé(s)"
                                 + f" · {attribues_du_jour(equipes_r, hier)} attribué(s) à une créatrice"
                                 + ("\nSources : " + " · ".join(f"{s} {n}" for s, n in sources) if sources else "")))
+                # 1 bis. 18/10 (actions 16-17) : M1 · M2 · M3 d'hier et leur moyenne 7 jours ; l'onglet « Funnel quotidien » (30 j)
+                try:
+                    serie_f = await serie_funnel(30, fin=hier)
+                    ligne_f = funnel_quotidien.ligne_digest(serie_f)
+                    if ligne_f:
+                        blocs_d.append(("funnel", ligne_f))
+                    await ecrire_onglet_funnel(serie_f)
+                except Exception as erreur:                                 # noqa: BLE001
+                    journal.warning("Digest : funnel quotidien (%s)", erreur)
                 # 2. Les bloqués, seulement s'il y en a (bloques.lignes_digest : plus de « personne 🎉 »).
                 # 3. Le bilan de la sortie automatique (sa passe du jour ne poste plus rien : sortie_auto.bilan_pour_digest).
                 bloques_d, jours_sortie, sortie_d = [], [], []
@@ -6476,6 +6530,13 @@ async def commande_admin(message, texte: str) -> bool:
     if texte.split()[:1] == ["!diagnostic-dossier"]:
         import diagnostic_dossier
         return await diagnostic_dossier.commande(message, texte, DONNEES, ADMIN_IDS, est_staff)
+    if texte.split()[:1] == ["!funnel"]:
+        if str(message.author.id) not in ADMIN_IDS:
+            return False
+        mots_f = texte.split()
+        nb_f = int(mots_f[1]) if len(mots_f) > 1 and mots_f[1].isdigit() else 14
+        await repondre_long(message, funnel_quotidien.texte(await serie_funnel(min(max(nb_f, 1), 30))))
+        return True
     if texte.split()[:1] == ["!reprise"]:
         return await commande_reprise(message, texte)
     if texte.split()[:1] == ["!rapprocher-zero"]:
