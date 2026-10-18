@@ -5576,8 +5576,13 @@ async def onboarder_membre(g, m_, creatrice_c: str, par, etats_cl: dict, mgrs: l
             try:
                 await onboarding_discord.confirmer_accueil(process_adapters.store(), salon_c, uid_m,
                     p_final["messages"]["1"], creatrice_c, info_c)
-            except (discord.HTTPException, TimeoutError, OSError, RuntimeError):
-                return "⚠️ Message du compte 1 ou informations non vérifiés : reprise conservée."
+            except (discord.HTTPException, TimeoutError, OSError, RuntimeError) as erreur:
+                # 18/10 : la raison dite (Julien : message du compte 1 introuvable dans son salon → `!remettre-compte1 UID`)
+                pourquoi = ("message du compte 1 introuvable dans ce salon : `!remettre-compte1 " + uid_m + "`"
+                            if isinstance(erreur, discord.NotFound) else
+                            (str(erreur) if isinstance(erreur, RuntimeError) else type(erreur).__name__))
+                journal.warning("Accueil de %s non vérifié : %s", uid_m, pourquoi)
+                return f"⚠️ Message du compte 1 ou informations non vérifiés ({pourquoi}) : reprise conservée."
             if sans_tl:
                 extras.append(f"pas de TL pour {creatrice_c} : salon sans TL")
             demande_groupe = getattr(parcours, "demander_groupe_tl", None)     # 18/10 (E8) : le TL crée le groupe WhatsApp

@@ -46,3 +46,35 @@ class IdentifiantsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LecteursTests(unittest.TestCase):
+    """18/10 : un administrateur du serveur voit tous les salons ; il ne bloque plus la remise. Un autre clipper, si."""
+    def _guild(self, lecteurs):
+        moi = N(id=1, display_name="bot", bot=True, roles=[], guild_permissions=N(administrator=True))
+        membres = [moi] + lecteurs
+        salon = N(permissions_for=lambda m: N(view_channel=True), overwrites_for=lambda x: N(view_channel=None))
+        guild = N(members=membres, owner_id=2, me=moi, chunked=True, default_role=N(id=0))
+        salon.permissions_for = lambda m: N(view_channel=m is not guild.default_role)
+        return guild, salon
+
+    def _diag(self, lecteurs):
+        guild, salon = self._guild(lecteurs)
+        with patch.object(remise_compte1.equipes_tl, "tl_par_va", lambda: {}), \
+                patch.object(remise_compte1.equipes_tl, "_fiches", lambda: {}), \
+                patch.object(remise_compte1.onboarding_preuves, "tl_pour", lambda *a: None):
+            return remise_compte1.diagnostic_lecteurs(guild, salon, "7", "Chloé", {"2"}, lambda m: False)
+
+    def test_admin_du_serveur_autorise(self):
+        d = self._diag([N(id=7, display_name="Titulaire", bot=False, roles=[], guild_permissions=N(administrator=False)),
+                        N(id=8, display_name="Associé", bot=False, roles=[], guild_permissions=N(administrator=True))])
+        self.assertTrue(d["remise_autorisee"])
+
+    def test_autre_clipper_bloque_et_nomme(self):
+        d = self._diag([N(id=7, display_name="Titulaire", bot=False, roles=[], guild_permissions=N(administrator=False)),
+                        N(id=9, display_name="Autre clipper", bot=False, roles=[], guild_permissions=N(administrator=False))])
+        self.assertFalse(d["remise_autorisee"])
+        with patch.object(remise_compte1, "diagnostic_lecteurs", lambda *a: d):
+            with self.assertRaises(remise_compte1.Retenue) as ctx:
+                remise_compte1.verifier_lecteurs(None, None, "7", "Chloé", set(), lambda m: False)
+        self.assertIn("Autre clipper", str(ctx.exception))

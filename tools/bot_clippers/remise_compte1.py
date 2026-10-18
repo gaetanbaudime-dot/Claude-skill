@@ -42,9 +42,14 @@ def diagnostic_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
             continue
         mid = str(membre.id)
         staff = not getattr(membre, 'bot', False) and est_staff(membre)
+        # 18/10 (remise retenue « un lecteur non autorisé » sur tous les salons) : un administrateur du serveur voit TOUS les
+        # salons, quoi qu'on fasse ; le compter comme intrus rendait toute remise impossible. L'intrus visé reste un autre clipper.
+        admin_serveur = (not getattr(membre, 'bot', False)
+                         and bool(getattr(getattr(membre, 'guild_permissions', None), 'administrator', False)))
         raison = ('titulaire' if mid == uid else 'proprietaire' if membre.id == guild.owner_id
                   else 'bot_service' if membre.id == guild.me.id else 'admin_configure' if mid in set(map(str, admin_ids))
-                  else 'tl_effectif' if mid == str(tl) else 'staff' if staff else 'non_autorise')
+                  else 'tl_effectif' if mid == str(tl) else 'staff' if staff
+                  else 'administrateur_serveur' if admin_serveur else 'non_autorise')
         roles = []
         for role in getattr(membre, 'roles', []):
             surcharge = salon.overwrites_for(role)
@@ -54,7 +59,7 @@ def diagnostic_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
                           'voir_salon': surcharge.view_channel})
         surcharge = salon.overwrites_for(membre) if hasattr(salon, 'overwrites_for') else None
         lecteurs.append({'uid': mid, 'nom': membre.display_name if hasattr(membre, 'display_name') else '',
-                         'autorise': mid in autorises or bool(staff), 'raison': raison,
+                         'autorise': mid in autorises or bool(staff) or admin_serveur, 'raison': raison,
                          'voir_salon_individuel': getattr(surcharge, 'view_channel', None), 'roles': roles})
     complet = bool(guild.chunked)
     public = bool(salon.permissions_for(guild.default_role).view_channel)
@@ -70,7 +75,8 @@ def verifier_lecteurs(guild, salon, uid, creatrice, admin_ids, est_staff):
     if diagnostic['salon_public']:
         raise Retenue('Salon accessible à tous : remise retenue.')
     if not diagnostic['remise_autorisee']:
-        raise Retenue('Un lecteur non autorisé peut accéder au salon : remise retenue.')
+        intrus = [x['nom'] or x['uid'] for x in diagnostic['lecteurs'] if not x['autorise']]
+        raise Retenue('Un lecteur non autorisé peut accéder au salon : ' + ', '.join(intrus[:5]) + '. Remise retenue.')
 
 
 def verifier_etat(message, uid, admin_ids, est_staff, salon_frais=None):
