@@ -87,7 +87,7 @@ class Confirmation(unittest.IsolatedAsyncioTestCase):
         self.assertEqual('<b@example.invalid>',self.state['codes'][-1]['mid'])
 
     async def test_ancien_refuse_et_securite_autre_partie(self):
-        m = self.mail(); m.replace_header('Date',format_datetime(self.now-timedelta(minutes=12)))
+        m = self.mail(); m.replace_header('Date',format_datetime(self.now-timedelta(minutes=25)))   # 18/10 : 20 min
         await self.ingester(m)
         rendu = (await self.servir())[1]
         self.assertNotIn('111111',rendu)
