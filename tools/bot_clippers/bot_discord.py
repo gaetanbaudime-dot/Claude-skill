@@ -9051,7 +9051,7 @@ async def on_ready():
         except Exception as erreur:                                             # noqa: BLE001 — jamais bloquer le démarrage
             journal.warning("Codes : migration des fiches d'onboarding : %s", erreur)
         bans_mail.abonner()
-        client.loop.create_task(codes_2fa.boucle_codes(client, canal_admin, ADMIN_IDS))  # le lecteur unique de la boîte (UID, IDLE)
+        client.loop.create_task(codes_2fa.garde_codes(client, canal_admin, ADMIN_IDS))   # 18/10 : le lecteur et son gardien
         client.loop.create_task(codes_2fa.assurer_salon_codes(client))        # le salon commun, mode d'emploi v7 et son bouton
         client.loop.create_task(web_candidature.demarrer(client, {           # site du tunnel candidat (23/09)
             "lire_json": lire_json, "ecrire_json": ecrire_json, "FICHIER_PIPELINE": FICHIER_PIPELINE,

@@ -1933,11 +1933,85 @@ async def _servir(adresses: set, dire, cle_guet: str, duree: int = None, minutes
                 if montre:
                     _noter_montre(cle_guet, admissibles if usage == "auto" else [montre])
             if fini:
+                if not montre:
+                    _signaler_code_absent(cle_guet, adresses, usage)
                 return "code" if montre else "panne" if lecteur_en_panne() else "rien"
             await _attendre_nouveau(min(5.0, fin - time.monotonic()))
     finally:
         if _guets.get(cle_guet) is guet:
             _guets.pop(cle_guet, None)
+
+
+ABSENT_RAPPEL_MIN = int(os.environ.get("CODES_ABSENT_RAPPEL_MIN", "20") or 20)
+
+
+def texte_code_absent(uid: str, adresses: set, usage: str, panne: bool) -> str:
+    """18/10 : la ligne admin quand un clipper a attendu son code pour rien (sans l'adresse en clair, sans code)."""
+    formes = ", ".join(f"`{forme_adresse(a)}`" for a in sorted(adresses)[:3])
+    cause = ("La boîte des codes est illisible en ce moment : c'est elle qu'il faut réparer."
+             if panne else "La boîte des codes est lisible : le mail n'est pas arrivé jusqu'à elle (transfert iCloud ou Gmail "
+                           "de cette adresse), ou Instagram ne l'a pas encore envoyé.")
+    return (f"🚨 **Code Instagram pas reçu** : <@{uid}> a appuyé sur « 📩 Mon code » et rien n'est arrivé en "
+            f"{ATTENTE_SEC // 60} minutes ({usage or 'auto'}, adresse {formes or 'inconnue'}).\n\n{cause}")
+
+
+def _signaler_code_absent(cle_guet: str, adresses: set, usage: str):
+    """18/10 (Gaëtan : « je dois voir hyper vite si le clippeur n'a pas reçu son 2FA. Il faut jamais que ça plante ») : la fin
+    d'un guet de 5 minutes sans code part au salon admin tout de suite, une fois par clipper toutes les ABSENT_RAPPEL_MIN minutes.
+    Jamais bloquant : une tâche à part, et une erreur ici n'empêche jamais la réponse au clipper."""
+    try:
+        uid = str(cle_guet).removeprefix("u|")
+        if not uid.isdigit() or not _une_fois(f"absent|{uid}", minutes=ABSENT_RAPPEL_MIN):
+            return
+        asyncio.get_running_loop().create_task(_admin(texte_code_absent(uid, adresses, usage, lecteur_en_panne())))
+    except Exception as erreur:                                         # noqa: BLE001
+        journal.warning("Codes : alerte « code pas reçu » : %s", _err(erreur))
+
+
+GARDE_SEC = 120
+GARDE_BLOCAGE_MIN = int(os.environ.get("CODES_BLOCAGE_MIN", "10") or 10)
+
+
+def lecteur_bloque(maintenant_mono: float = None) -> int:
+    """Les minutes depuis le dernier passage réussi du lecteur si elles dépassent GARDE_BLOCAGE_MIN, sinon 0."""
+    ok = _SANTE.get("ok_t")
+    if ok is None:
+        return 0
+    minutes = int(((time.monotonic() if maintenant_mono is None else maintenant_mono) - ok) // 60)
+    return minutes if minutes >= GARDE_BLOCAGE_MIN else 0
+
+
+async def garde_codes(client, canal_admin_async, admin_ids):
+    """18/10 (« il faut jamais que ça plante ») : le gardien du lecteur. Toutes les 2 minutes : la tâche du lecteur est-elle
+    morte ? elle est relancée et l'admin le sait. Le lecteur ne passe plus depuis GARDE_BLOCAGE_MIN minutes (IMAP figé) ? une
+    ligne admin, une fois par blocage, et sa connexion est fermée pour qu'il reparte."""
+    if not actif():
+        return
+    await client.wait_until_ready()
+    tache = asyncio.get_running_loop().create_task(boucle_codes(client, canal_admin_async, admin_ids))
+    bloque_signale = False
+    while not client.is_closed():
+        await asyncio.sleep(GARDE_SEC)
+        try:
+            if tache.done():
+                cause = "arrêtée" if tache.cancelled() else _err(tache.exception()) if tache.exception() else "terminée"
+                journal.warning("Codes : lecteur %s, relancé par le gardien", cause)
+                await _admin(f"⚠️ **Le lecteur des codes s'était arrêté** ({cause}) : relancé tout seul.")
+                tache = asyncio.get_running_loop().create_task(boucle_codes(client, canal_admin_async, admin_ids))
+                continue
+            minutes = lecteur_bloque()
+            if minutes and not bloque_signale:
+                bloque_signale = await _admin(f"⚠️ **Le lecteur des codes ne passe plus depuis {minutes} min** : connexion à la "
+                                              "boîte fermée pour la relancer. Si ça revient, regarde les journaux Railway.")
+                try:                                                    # jamais sur la boucle : un socket figé la bloquerait
+                    await asyncio.wait_for(asyncio.to_thread(LECTEUR.fermer), timeout=15)
+                except Exception:                                       # noqa: BLE001
+                    pass
+            elif not minutes and bloque_signale:
+                bloque_signale = False
+                await _admin("✅ Le lecteur des codes passe de nouveau.")
+        except Exception as erreur:                                     # noqa: BLE001 — le gardien ne meurt jamais
+            journal.warning("Codes : gardien : %s", _err(erreur))
 
 
 # ------------------------------------------------------------------ 4b. on-demand read-through (independent of IMAP IDLE)
@@ -2648,8 +2722,8 @@ async def _sante_ok():
 # 18/10 (action 26 du plan : « zéro code pendant deux jours en octobre, personne ne l'a vu ») : la boîte peut être lisible et ne
 # plus rien recevoir (transfert coupé, adresse changée). Aucun e-mail Meta arrivé depuis CODES_SILENCE_MIN minutes, de jour à
 # Paris (CODES_SILENCE_HEURES, défaut 9 h → 23 h : la nuit, le silence est normal) : une ligne au salon admin, une fois par
-# silence ; une seconde quand les codes reviennent. CODES_SILENCE_MIN=0 coupe la surveillance. 18/10 : 120 min par défaut (action 26 du plan : « aucun code relayé depuis 2 h »).
-SILENCE_MIN = int(os.environ.get("CODES_SILENCE_MIN", "120") or 0)
+# silence ; une seconde quand les codes reviennent. CODES_SILENCE_MIN=0 coupe la surveillance. 18/10 : 60 min par défaut (Gaëtan : « je dois voir hyper vite si le clippeur n'a pas reçu son 2FA »).
+SILENCE_MIN = int(os.environ.get("CODES_SILENCE_MIN", "60") or 0)   # 18/10 (Gaëtan : « fais à 1 h ») 
 SILENCE_HEURES = tuple(int(x) for x in (os.environ.get("CODES_SILENCE_HEURES", "9-23") or "9-23").split("-")[:2])
 
 

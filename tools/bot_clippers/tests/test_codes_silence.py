@@ -43,3 +43,48 @@ class SilenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CodeAbsentEtGardienTests(unittest.IsolatedAsyncioTestCase):
+    def test_seuil_une_heure_par_defaut(self):
+        import importlib, os
+        import codes_2fa
+        if "CODES_SILENCE_MIN" not in os.environ:
+            self.assertEqual(codes_2fa.SILENCE_MIN, 60)
+
+    def test_texte_sans_adresse_en_clair(self):
+        import codes_2fa
+        t = codes_2fa.texte_code_absent("123", {"jean.dupont42@icloud.com"}, "creation", False)
+        self.assertIn("<@123>", t)
+        self.assertIn("Code Instagram pas reçu", t)
+        self.assertNotIn("jean.dupont42", t)
+
+    async def test_alerte_une_fois_par_clipper(self):
+        import codes_2fa
+        envoyes = []
+
+        async def faux_admin(texte):
+            envoyes.append(texte)
+            return True
+        ancien_admin, ancien_etat = codes_2fa._admin, codes_2fa._etat
+        etat = {"faits": {}, "sante": {}, "codes": []}
+        codes_2fa._admin, codes_2fa._etat = faux_admin, lambda: etat
+        try:
+            codes_2fa._signaler_code_absent("u|123", {"a@icloud.com"}, "creation")
+            codes_2fa._signaler_code_absent("u|123", {"a@icloud.com"}, "creation")
+            import asyncio
+            await asyncio.sleep(0)
+        finally:
+            codes_2fa._admin, codes_2fa._etat = ancien_admin, ancien_etat
+        self.assertEqual(len(envoyes), 1)
+
+    def test_lecteur_bloque(self):
+        import codes_2fa
+        ancien = dict(codes_2fa._SANTE)
+        try:
+            codes_2fa._SANTE["ok_t"] = 1000.0
+            self.assertEqual(codes_2fa.lecteur_bloque(1000.0 + 5 * 60), 0)
+            self.assertEqual(codes_2fa.lecteur_bloque(1000.0 + 12 * 60), 12)
+        finally:
+            codes_2fa._SANTE.clear()
+            codes_2fa._SANTE.update(ancien)
