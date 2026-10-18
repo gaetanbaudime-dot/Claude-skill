@@ -7809,6 +7809,15 @@ async def commande_admin(message, texte: str) -> bool:
         if res.get("annule"):                                           # revue CLICS : notes GAML illisibles, rien n'a été fait
             await message.reply(f"⏸️ {membre.mention} : {res['annule']}")
             return True
+        if res.get("refus") and not garder and any("Historique de départ vide" in r for r in res["refus"]):
+            # rien à archiver (ni compte ni lien à son nom) : la sortie se résume à l'expulsion
+            try:
+                await membre.kick(reason=raison[:500])
+                await message.reply(f"✅ {membre.display_name} expulsé du serveur (aucun compte ni lien à son nom, rien à archiver).")
+            except (discord.Forbidden, discord.HTTPException) as erreur:
+                await message.reply(f"⚠️ Expulsion de {membre.display_name} refusée par Discord ({type(erreur).__name__}) : "
+                                    "clic droit sur lui → Expulser.")
+            return True
         if res.get("refus"):
             await message.reply(f"⚠️ Sortie de {membre.display_name} retenue : {' · '.join(res['refus'])}")
             return True
