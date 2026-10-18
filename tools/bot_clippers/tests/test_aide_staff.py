@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from aide_commandes import ADMIN, MANAGER
+from aide_commandes import ADMIN, ADMIN_TOUT, MANAGER
 
 
 def extraire(fichier, noms, namespace):
@@ -23,11 +23,11 @@ def extraire(fichier, noms, namespace):
 
 
 class AideStaffTests(unittest.TestCase):
-    def aide(self, admin=False, manager=False, signe=False):
+    def aide(self, admin=False, manager=False, signe=False, tout=False):
         ns = {"est_manager": lambda _: manager, "est_signe": lambda _: signe,
               "lire_json": lambda *_: {}, "FICHIER_PIPELINE": "inutilise",
               "ETATS_A_MIGRER": (), "seuil_quiz_texte": lambda: "80 %"}
-        return extraire("bot_discord.py", {"texte_aide"}, ns)["texte_aide"](SimpleNamespace(id=42), admin)
+        return extraire("bot_discord.py", {"texte_aide"}, ns)["texte_aide"](SimpleNamespace(id=42), admin, tout)
 
     def test_affichage_selon_role_et_limite_discord(self):
         for admin, manager, signe in [(True, False, False), (False, True, False),
@@ -36,9 +36,14 @@ class AideStaffTests(unittest.TestCase):
                 texte = self.aide(admin, manager, signe)
                 self.assertLessEqual(len(texte.encode("utf-16-le")) // 2, 1990)
                 self.assertIn("\n\n", texte)
-                self.assertEqual("!diagnostic-dossier" in texte, admin)
-                self.assertEqual("!audit-discussions" in texte, admin)
-                self.assertEqual("!rapprocher-zero" in texte, admin)
+                # 18/10 (Gaëtan : « simplifie ») : l'aide admin tient en un écran ; les diagnostics sont dans `!aide tout`
+                self.assertEqual("!sortie" in texte, admin)
+                self.assertEqual("!remettre-compte1" in texte, admin)
+                self.assertEqual("!aide tout" in texte, admin)
+                self.assertNotIn("!diagnostic-dossier", texte)
+        tout = self.aide(admin=True, tout=True)
+        for commande in ("!diagnostic-dossier", "!audit-discussions", "!rapprocher-zero", "!organisation"):
+            self.assertIn(commande, tout)
         self.assertIn("!aide-ig suspension", self.aide(signe=True))
         self.assertIn("!quiz", self.aide())
 
@@ -54,7 +59,7 @@ class AideStaffTests(unittest.TestCase):
                 if isinstance(noeud, ast.Constant) and isinstance(noeud.value, str):
                     if re.fullmatch(r"![\w-]+", noeud.value):
                         connues.add(noeud.value)
-        annoncees = set(re.findall(r"`(![\w-]+)", ADMIN + MANAGER))
+        annoncees = set(re.findall(r"`(![\w-]+)", ADMIN + ADMIN_TOUT + MANAGER))
         self.assertFalse(annoncees - connues, annoncees - connues)
 
     def test_manager_ne_recoit_pas_de_commandes_admin(self):
@@ -68,17 +73,14 @@ class AideStaffTests(unittest.TestCase):
 
     def test_syntaxe_et_limites_expliquees(self):
         for texte in (ADMIN, MANAGER):
-            self.assertIn("sélectionne la personne", texte)
             self.assertIn("Une commande par message", texte)
-            self.assertIn("une erreur n'arrête pas les suivantes", texte)
-            self.assertIn("confirmation e-mail", texte)
-            self.assertIn("`!dashboard scan` lance un scan payant", texte)
             self.assertNotIn("!sécurité", texte)
-            self.assertIn('`!onboarding @membre`', texte)
-            self.assertNotIn('`!onboarding @membre Chloé`', texte)
-        for syntaxe in ("`!audit-discussions export nouveau`", "`!audit-discussions export`",
-                        "`!audit-discussions export livrer`", "Propriétaire du serveur + admin"):
-            self.assertIn(syntaxe, ADMIN)
+        self.assertIn("sélectionne la personne", MANAGER)
+        self.assertIn("Un prénom suffit quand un seul membre le porte", ADMIN)
+        self.assertIn("`!dashboard scan` lance un scan payant", MANAGER)
+        self.assertIn("`!dashboard scan` = scan payant", ADMIN_TOUT)
+        self.assertIn('`!onboarding @membre`', ADMIN_TOUT)
+        self.assertLessEqual(len(ADMIN), 1300)
 
 
 class SaisieEtRafaleTests(unittest.IsolatedAsyncioTestCase):
